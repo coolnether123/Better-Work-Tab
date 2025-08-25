@@ -114,24 +114,19 @@ namespace Better_Work_Tab
                     }
                 }
 
-                // This assigns childcare priority to pawns who have young children on the map for better family management
+                // This assigns top childcare priority to pawns who are currently pregnant
                 {
-                    bool assignChildcare = false;
+                    bool isPregnant = pawn.health?.hediffSet?.HasHediff(HediffDefOf.PregnantHuman) ?? false;
 
-                    // This checks if the pawn has any biological children who are babies or children currently on this map
-                    foreach (var c in pawn.relations?.Children ?? Enumerable.Empty<Pawn>())
+                    if (isPregnant && !pawn.WorkTypeIsDisabled(WorkTypeDefOf.Childcare))
                     {
-                        if (c != null && c.Spawned && c.Map == map &&
-                            (c.ageTracker.CurLifeStage.developmentalStage == DevelopmentalStage.Baby ||
-                             c.ageTracker.CurLifeStage.developmentalStage == DevelopmentalStage.Child))
-                        {
-                            assignChildcare = true;
-                            break;
-                        }
-                    }
+                        // Use mod settings if enabled, otherwise default to 1
+                        int pri = BetterWorkTabConfig.S.rule_ChildcareEnabled
+                            ? BetterWorkTabConfig.S.rule_ChildcarePriority
+                            : 1;
 
-                    if (assignChildcare && !pawn.WorkTypeIsDisabled(WorkTypeDefOf.Childcare))
-                        Set(WorkTypeDefOf.Childcare, 1);
+                        Set(WorkTypeDefOf.Childcare, pri);
+                    }
                 }
 
                 // This applies the configured default priority to work types that weren't specifically assigned by the rules
