@@ -9,6 +9,9 @@ namespace Better_Work_Tab
 {
     public static class AutoWorkAssigner
     {
+        private const int MIN_PRIORITY = 1;
+        private const int MAX_PRIORITY = 4;
+
         // This draws the "Auto Assign Work" button in the work table header area to provide easy access to automatic assignment functionality
         public static void DrawButton(Rect headerRect)
         {
@@ -68,79 +71,103 @@ namespace Better_Work_Tab
                 pawn.workSettings.EnableAndInitialize();
 
                 // This creates a snapshot of current priorities to track what the system has changed vs what was already set
-                var before = new Dictionary<WorkTypeDef, int>(allWorkTypes.Count);
-                foreach (var wt in allWorkTypes)
-                    before[wt] = pawn.workSettings.GetPriority(wt);
+                 var before = new Dictionary<WorkTypeDef, int>(allWorkTypes.Count);
+                 foreach (var wt in allWorkTypes)
+                     before[wt] = pawn.workSettings.GetPriority(wt);
 
                 // This tracks which work types the rules have touched so the system doesn't override them with defaults
                 var touched = new HashSet<WorkTypeDef>();
 
                 // This helper function safely sets work priority while respecting disability and tracking changes
-                System.Action<WorkTypeDef, int> Set = (wt, pri) =>
+                System.Action<WorkTypeDef, int> setPrioritySafe = (wt, pri) =>
                 {
                     if (pawn.WorkTypeIsDisabled(wt)) return;
-                    pawn.workSettings.SetPriority(wt, Mathf.Clamp(pri, 1, 4));
+                    pawn.workSettings.SetPriority(wt, Mathf.Clamp(pri, MIN_PRIORITY, MAX_PRIORITY));
                     touched.Add(wt);
                 };
 
-                // This applies highest priority to essential survival work types that every colonist should do when needed
-                foreach (var def in coreDefs)
-                {
-                    if (!pawn.WorkTypeIsDisabled(def))
-                        Set(def, 1);
-                }
+                ApplyCoreWorkTypePriorities(pawn, coreDefs, setPrioritySafe);
+                ApplyDoctorPriorities(pawn, bestDoctors, setPrioritySafe);
+                ApplyPassionPriorities(pawn, allWorkTypes, setPrioritySafe);
+                ApplyChildcarePriorities(pawn, setPrioritySafe);
+                ApplyDefaultPriorities(pawn, allWorkTypes, touched, defaultPri);
+            }
+        }
 
-                // This assigns medical work to the colonist(s) with the highest medicine skill to ensure competent healthcare
-                if (bestMed > 0 && bestDoctors.Contains(pawn))
-                {
-                    if (!pawn.WorkTypeIsDisabled(WorkTypeDefOf.Doctor))
-                        Set(WorkTypeDefOf.Doctor, 1);
-                }
+        /// <summary>
+        /// Applies highest priority to essential survival work types that every colonist should do when needed.
+        /// </summary>
+        private static void ApplyCoreWorkTypePriorities(Pawn pawn, IEnumerable<WorkTypeDef> coreDefs, System.Action<WorkTypeDef, int> setPrioritySafe)
+        {
+            foreach (var def in coreDefs)
+            {
+                if (!pawn.WorkTypeIsDisabled(def))
+                    setPrioritySafe(def, 1);
+            }
+        }
 
-                // This prioritizes work types where the pawn has burning passion to leverage their natural aptitude
-                if (pawn.skills != null)
-                {
-                    // This checks each work type to see if the pawn has major passion in any of its relevant skills
-                    foreach (var wt in allWorkTypes)
-                    {
-                        if (pawn.WorkTypeIsDisabled(wt)) continue;
+        /// <summary>
+        /// Assigns medical work to the colonist(s) with the highest medicine skill to ensure competent healthcare.
+        /// </summary>
+        private static void ApplyDoctorPriorities(Pawn pawn, HashSet<Pawn> bestDoctors, System.Action<WorkTypeDef, int> setPrioritySafe)
+        {
+            if (bestDoctors.Contains(pawn))
+            {
+                if (!pawn.WorkTypeIsDisabled(WorkTypeDefOf.Doctor))
+                    setPrioritySafe(WorkTypeDefOf.Doctor, 1);
+            }
+        }
 
-                        // This looks for burning passion in any skill that contributes to this work type's effectiveness
-                        bool hasBurning = wt.relevantSkills.Any(skill =>
-                            pawn.skills.GetSkill(skill).passion == Passion.Major);
-
-                        if (hasBurning)
-                            Set(wt, 2);
-                    }
-                }
-
-                // This assigns top childcare priority to pawns who are currently pregnant
-                {
-                    bool isPregnant = pawn.health?.hediffSet?.HasHediff(HediffDefOf.PregnantHuman) ?? false;
-
-                    if (isPregnant && !pawn.WorkTypeIsDisabled(WorkTypeDefOf.Childcare))
-                    {
-                        // Use mod settings if enabled, otherwise default to 1
-                        int pri = BetterWorkTabConfig.S.rule_ChildcareEnabled
-                            ? BetterWorkTabConfig.S.rule_ChildcarePriority
-                            : 1;
-
-                        Set(WorkTypeDefOf.Childcare, pri);
-                    }
-                }
-
-                // This applies the configured default priority to work types that weren't specifically assigned by the rules
+        /// <summary>
+        /// Prioritizes work types where the pawn has burning passion to leverage their natural aptitude.
+        /// </summary>
+        private static void ApplyPassionPriorities(Pawn pawn, IEnumerable<WorkTypeDef> allWorkTypes, System.Action<WorkTypeDef, int> setPrioritySafe)
+        {
+            if (pawn.skills != null)
+            {
                 foreach (var wt in allWorkTypes)
                 {
                     if (pawn.WorkTypeIsDisabled(wt)) continue;
-                    if (touched.Contains(wt)) continue;
 
-                    // This only applies the default if it's explicitly configured (1-4) to avoid overriding player preferences
-                    if (defaultPri >= 1 && defaultPri <= 4)
-                    {
-                        pawn.workSettings.SetPriority(wt, defaultPri);
-                    }
-                    // This preserves existing priorities (including disabled/0) for work types not touched by the assignment rules
+                    bool hasBurning = wt.relevantSkills.Any(skill =>
+                        pawn.skills.GetSkill(skill).passion == Passion.Major);
+
+                    if (hasBurning)
+                        setPrioritySafe(wt, 2);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Assigns top childcare priority to pawns who are currently pregnant.
+        /// </summary>
+        private static void ApplyChildcarePriorities(Pawn pawn, System.Action<WorkTypeDef, int> setPrioritySafe)
+        {
+            bool isPregnant = pawn.health?.hediffSet?.HasHediff(HediffDefOf.PregnantHuman) ?? false;
+
+            if (isPregnant && !pawn.WorkTypeIsDisabled(WorkTypeDefOf.Childcare))
+            {
+                int pri = BetterWorkTabConfig.S.rule_ChildcareEnabled
+                    ? BetterWorkTabConfig.S.rule_ChildcarePriority
+                    : 1;
+
+                setPrioritySafe(WorkTypeDefOf.Childcare, pri);
+            }
+        }
+
+        /// <summary>
+        /// Applies the configured default priority to work types that weren't specifically assigned by the rules.
+        /// </summary>
+        private static void ApplyDefaultPriorities(Pawn pawn, IEnumerable<WorkTypeDef> allWorkTypes, HashSet<WorkTypeDef> touched, int defaultPriority)
+        {
+            foreach (var wt in allWorkTypes)
+            {
+                if (pawn.WorkTypeIsDisabled(wt)) continue;
+                if (touched.Contains(wt)) continue;
+
+                if (defaultPriority >= MIN_PRIORITY && defaultPriority <= MAX_PRIORITY)
+                {
+                    pawn.workSettings.SetPriority(wt, defaultPriority);
                 }
             }
         }
