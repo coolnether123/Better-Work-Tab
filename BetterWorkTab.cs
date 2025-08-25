@@ -63,7 +63,6 @@ namespace Better_Work_Tab
 
             l.Gap();
             l.Label("Additional WorkTypeDef defNames (CSV):");
-            s.additionalAlwaysX_CSV = l.TextEntry(s.additionalAlwaysX_CSV);
 
             l.NewColumn();
 

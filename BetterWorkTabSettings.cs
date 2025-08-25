@@ -22,7 +22,7 @@ namespace Better_Work_Tab
         // This controls the "always priority X" rule for essential survival work types
         public bool rule_CoreAlwaysPriorityEnabled = true;
         public int rule_CoreAlwaysPriorityValue = 1; // 1..4
-        public string additionalAlwaysX_CSV = "";
+        
 
         // This provides individual toggles for each built-in core work type in case users want to customize
         public bool core_Firefighter = true;
@@ -36,13 +36,25 @@ namespace Better_Work_Tab
 
         // This allows passion levels to override normal priority assignment for specialized roles
         public bool rule_PassionOverrideEnabled = true;
-        public int passion_None = 0;   // No passion gets default treatment
+                public int passion_None = 0;   // No passion gets default treatment
         public int passion_Minor = 3;  // Minor passion gets medium priority
         public int passion_Major = 2;  // Major passion gets high priority (but not highest to allow core work)
 
         // This handles childcare assignment for parents with young children on the map
         public bool rule_ChildcareEnabled = true;
         public int rule_ChildcarePriority = 1;
+
+        // This rule ensures at least one colonist is assigned to a specific work type at a given priority
+        public Dictionary<string, int> rule_AlwaysHaveOneByWorkType = new Dictionary<string, int>
+        {
+            { "Doctor", 2 } 
+        };
+
+        // This rule assigns all available colonists to a specific work type at a given priority
+        public Dictionary<string, int> rule_AlwaysAssignAllByWorkType = new Dictionary<string, int>
+        {
+            
+        };
 
         public override void ExposeData()
         {
@@ -55,7 +67,7 @@ namespace Better_Work_Tab
 
             Scribe_Values.Look(ref rule_CoreAlwaysPriorityEnabled, "rule_CoreAlwaysPriorityEnabled", true);
             Scribe_Values.Look(ref rule_CoreAlwaysPriorityValue, "rule_CoreAlwaysPriorityValue", 1);
-            Scribe_Values.Look(ref additionalAlwaysX_CSV, "additionalAlwaysX_CSV", "");
+            
 
             Scribe_Values.Look(ref core_Firefighter, "core_Firefighter", true);
             Scribe_Values.Look(ref core_Patient, "core_Patient", true);
@@ -72,25 +84,13 @@ namespace Better_Work_Tab
 
             Scribe_Values.Look(ref rule_ChildcareEnabled, "rule_ChildcareEnabled", true);
             Scribe_Values.Look(ref rule_ChildcarePriority, "rule_ChildcarePriority", 1);
+
+            Scribe_Collections.Look(ref rule_AlwaysHaveOneByWorkType, "rule_AlwaysHaveOneByWorkType", LookMode.Value, LookMode.Value);
+            Scribe_Collections.Look(ref rule_AlwaysAssignAllByWorkType, "rule_AlwaysAssignAllByWorkType", LookMode.Value, LookMode.Value);
         }
+        
 
-        // This parses the CSV string of additional work type def names and resolves them to actual WorkTypeDef objects
-        public IEnumerable<WorkTypeDef> AdditionalAlwaysDefs()
-        {
-            if (string.IsNullOrWhiteSpace(additionalAlwaysX_CSV))
-                yield break;
-
-            var parts = additionalAlwaysX_CSV.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries);
-            foreach (var raw in parts)
-            {
-                var key = raw.Trim();
-                if (key.Length == 0) continue;
-
-                WorkTypeDef def = null;
-                try { def = DefDatabase<WorkTypeDef>.GetNamedSilentFail(key); } catch { }
-                if (def != null) yield return def;
-            }
-        }
+        
     }
 
     // This provides static helper methods for other parts of the mod to access configuration values safely
@@ -132,9 +132,7 @@ namespace Better_Work_Tab
             if (S.core_BedRest) yield return DefDatabase<WorkTypeDef>.GetNamedSilentFail("PatientBedRest");
             if (S.core_Basic) yield return DefDatabase<WorkTypeDef>.GetNamedSilentFail("BasicWorker");
 
-            // This adds any custom work types the user specified in the CSV field
-            foreach (var extra in S.AdditionalAlwaysDefs())
-                if (extra != null) yield return extra;
+            
         }
     }
 }
