@@ -12,6 +12,12 @@ namespace Better_Work_Tab
         private const int MIN_PRIORITY = 1;
         private const int MAX_PRIORITY = 4;
 
+        // WorkTypeDef constants for core work types
+        private static readonly WorkTypeDef WorkTypeDef_Patient = DefDatabase<WorkTypeDef>.GetNamed("Patient");
+        private static readonly WorkTypeDef WorkTypeDef_PatientBedRest = DefDatabase<WorkTypeDef>.GetNamed("PatientBedRest");
+        private static readonly WorkTypeDef WorkTypeDef_BasicWorker = DefDatabase<WorkTypeDef>.GetNamed("BasicWorker");
+
+
         // This draws the "Auto Assign Work" button in the work table header area to provide easy access to automatic assignment functionality
         public static void DrawButton(Rect headerRect)
         {
@@ -45,9 +51,9 @@ namespace Better_Work_Tab
             // This defines the core work types that should always be assigned priority 1 for survival and basic functionality
             WorkTypeDef[] coreDefs = {
                 WorkTypeDefOf.Firefighter,
-                DefDatabase<WorkTypeDef>.GetNamed("Patient"),
-                DefDatabase<WorkTypeDef>.GetNamed("PatientBedRest"),
-                DefDatabase<WorkTypeDef>.GetNamed("BasicWorker")
+                WorkTypeDef_Patient,
+                WorkTypeDef_PatientBedRest,
+                WorkTypeDef_BasicWorker
             };
 
             // This identifies the best medical pawn(s) by finding the highest medicine skill level across all colonists
@@ -60,8 +66,7 @@ namespace Better_Work_Tab
                     (p.skills.GetSkill(SkillDefOf.Medicine)?.Level ?? 0) == bestMed));
 
             // This reads the default starting priority from mod settings to apply to unspecialized work types
-            int defaultPri = 0;
-            try { defaultPri = BetterWorkTabConfig.DefaultStartingPriority(); } catch { defaultPri = 0; }
+            int defaultPri = BetterWorkTabConfig.DefaultStartingPriority();
 
             foreach (var pawn in pawns)
             {
@@ -71,9 +76,9 @@ namespace Better_Work_Tab
                 pawn.workSettings.EnableAndInitialize();
 
                 // This creates a snapshot of current priorities to track what the system has changed vs what was already set
-                 var before = new Dictionary<WorkTypeDef, int>(allWorkTypes.Count);
-                 foreach (var wt in allWorkTypes)
-                     before[wt] = pawn.workSettings.GetPriority(wt);
+                // var before = new Dictionary<WorkTypeDef, int>(allWorkTypes.Count);
+                // foreach (var wt in allWorkTypes)
+                //     before[wt] = pawn.workSettings.GetPriority(wt);
 
                 // This tracks which work types the rules have touched so the system doesn't override them with defaults
                 var touched = new HashSet<WorkTypeDef>();
@@ -89,7 +94,7 @@ namespace Better_Work_Tab
                 ApplyCoreWorkTypePriorities(pawn, coreDefs, setPrioritySafe);
                 ApplyDoctorPriorities(pawn, bestDoctors, setPrioritySafe);
                 ApplyPassionPriorities(pawn, allWorkTypes, setPrioritySafe);
-                ApplyChildcarePriorities(pawn, setPrioritySafe);
+                ApplyChildcarePriorities(pawn, setPrioritySafe, BetterWorkTabConfig.S.rule_ChildcareEnabled, BetterWorkTabConfig.S.rule_ChildcarePriority);
                 ApplyDefaultPriorities(pawn, allWorkTypes, touched, defaultPri);
             }
         }
@@ -141,14 +146,14 @@ namespace Better_Work_Tab
         /// <summary>
         /// Assigns top childcare priority to pawns who are currently pregnant.
         /// </summary>
-        private static void ApplyChildcarePriorities(Pawn pawn, System.Action<WorkTypeDef, int> setPrioritySafe)
+        private static void ApplyChildcarePriorities(Pawn pawn, System.Action<WorkTypeDef, int> setPrioritySafe, bool childcareEnabled, int childcarePriority)
         {
             bool isPregnant = pawn.health?.hediffSet?.HasHediff(HediffDefOf.PregnantHuman) ?? false;
 
             if (isPregnant && !pawn.WorkTypeIsDisabled(WorkTypeDefOf.Childcare))
             {
-                int pri = BetterWorkTabConfig.S.rule_ChildcareEnabled
-                    ? BetterWorkTabConfig.S.rule_ChildcarePriority
+                int pri = childcareEnabled
+                    ? childcarePriority
                     : 1;
 
                 setPrioritySafe(WorkTypeDefOf.Childcare, pri);
