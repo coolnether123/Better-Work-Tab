@@ -45,12 +45,18 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="BetterWorkTab.cs" />
+    <Compile Include="Features\AutoAssignmentContext.cs" />
     <Compile Include="Features\AutoWorkAssigner.cs" />
+    <Compile Include="Features\IAssignmentRule.cs" />
+    <Compile Include="Features\Rules\ChildcareRule.cs" />
+    <Compile Include="Features\Rules\CoreWorkTypeRule.cs" />
+    <Compile Include="Features\Rules\DefaultPriorityRule.cs" />
+    <Compile Include="Features\Rules\DoctorRule.cs" />
+    <Compile Include="Features\Rules\PassionRule.cs" />
     <Compile Include="Patches\WorkTabPatches.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="BetterWorkTabSettings.cs" />
     <Compile Include="UI\BetterWorkTabSettingsUI.cs" />
-    <Compile Include="Utilities\WorkTabUtils.cs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Krafs.Rimworld.Ref">

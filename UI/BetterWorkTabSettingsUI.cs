@@ -26,9 +26,9 @@ namespace Better_Work_Tab.UI
             IntAdjust(ref s.defaultStartingPriority, 0, 4, l.GetRect(RowHeight));
 
             l.GapLine();
-            l.Label("Core 'Always X' Rule");
+            l.Label("Core Work Types Priority:");
             l.CheckboxLabeled("Enable", ref s.rule_CoreAlwaysPriorityEnabled);
-            l.Label("Priority for core/extra: " + s.rule_CoreAlwaysPriorityValue);
+            l.Label("Priority: " + s.rule_CoreAlwaysPriorityValue);
             s.rule_CoreAlwaysPriorityValue = Mathf.Clamp(
                 Mathf.RoundToInt(Widgets.HorizontalSlider(l.GetRect(22f), s.rule_CoreAlwaysPriorityValue, 1, 4, middleAlignment: true)),
                 1, 4);
@@ -46,17 +46,17 @@ namespace Better_Work_Tab.UI
                 "If disabled, the 'Auto Assign Work' button does nothing.");
 
             l.GapLine();
-            l.Label("Best Doctors Rule");
+            l.Label("Best Doctors Rule:");
             l.CheckboxLabeled("Enable", ref s.rule_BestDoctorsEnabled);
-            l.Label("Priority for best doctors: " + s.rule_BestDoctorsPriority);
+            l.Label("Priority: " + s.rule_BestDoctorsPriority);
             s.rule_BestDoctorsPriority = Mathf.Clamp(
                 Mathf.RoundToInt(Widgets.HorizontalSlider(l.GetRect(22f), s.rule_BestDoctorsPriority, 1, 4, middleAlignment: true)),
                 1, 4);
 
             l.GapLine();
-            l.Label("Childcare Rule");
+            l.Label("Childcare Rule:");
             l.CheckboxLabeled("Enable", ref s.rule_ChildcareEnabled);
-            l.Label("Priority for eligible pawns: " + s.rule_ChildcarePriority);
+            l.Label("Priority: " + s.rule_ChildcarePriority);
             s.rule_ChildcarePriority = Mathf.Clamp(
                 Mathf.RoundToInt(Widgets.HorizontalSlider(l.GetRect(22f), s.rule_ChildcarePriority, 1, 4, middleAlignment: true)),
                 1, 4);
