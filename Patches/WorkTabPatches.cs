@@ -132,13 +132,31 @@ namespace Better_Work_Tab.Patches
     {
         public static bool Prefix(PawnColumnWorker_WorkPriority __instance, Rect rect, Pawn pawn, PawnTable table)
         {
-            if (!BetterWorkTabMod.Settings.enableSkillOverlayFeature || !SkillOverlayState.ActiveNow)
+            bool shiftHeld = Event.current != null && Event.current.shift;
+            var wt = __instance.def.workType; // Moved this line up
+
+            if (!BetterWorkTabMod.Settings.enableSkillOverlayFeature || (!SkillOverlayState.ShowSkills && !shiftHeld))
                 return true;
+
+            // If skill overlay is not globally active, and shift is held,
+            // we need to check if the current work type is one of the excluded ones.
+            // TODO Currently this just skips it so numbers or check marks will show and be clickable.
+            if (!SkillOverlayState.ShowSkills && shiftHeld)
+            {
+                if (wt == WorkTypeDefOf.Firefighter ||
+                    wt.defName == "Patient" ||
+                    wt.defName == "PatientBedRest" ||
+                    wt.defName == "BasicWorker" ||
+                    wt.defName == "Haul" ||
+                    wt.defName == "Clean")
+                {
+                    return true; // Do not show skill overlay for these work types when only shift is held
+                }
+            }
 
             if (pawn.Dead || pawn.workSettings == null || !pawn.workSettings.EverWork)
                 return false;
 
-            var wt = __instance.def.workType;
             if (wt == null || pawn.WorkTypeIsDisabled(wt))
                 return false;
 
