@@ -141,12 +141,7 @@ namespace Better_Work_Tab.Patches
             // TODO Currently this just skips it so numbers or check marks will show and be clickable.
             if (!SkillOverlayState.ShowSkills && shiftHeld)
             {
-                if (wt == WorkTypeDefOf.Firefighter ||
-                    wt.defName == "Patient" ||
-                    wt.defName == "PatientBedRest" ||
-                    wt.defName == "BasicWorker" ||
-                    wt.defName == "Haul" ||
-                    wt.defName == "Clean")
+                if (wt.relevantSkills.Count == 0)
                 {
                     return false; // Do not show skill overlay for these work types when only shift is held
                 }
@@ -250,13 +245,8 @@ namespace Better_Work_Tab.Patches
             {
                 return; //only show if shift is not held
             }
-                if (worktype == WorkTypeDefOf.Firefighter ||
-                    worktype.defName == "Patient" ||
-                    worktype.defName == "PatientBedRest" ||
-                    worktype.defName == "BasicWorker" ||
-                    worktype.defName == "Haul" ||
-                    worktype.defName == "Clean")
-                {
+                if (worktype.relevantSkills.Count == 0)
+            {
                     return; // Do not show skill overlay for these work types when only shift is held
                 }
             //}
