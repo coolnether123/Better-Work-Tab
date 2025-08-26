@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "W9Dc880RbpI=",
+  "dgSpecHash": "0u5IJm9mxOQ=",
   "success": true,
-  "projectFilePath": "D:\\SteamLibrary\\steamapps\\common\\RimWorld\\Mods\\Better Work Tab\\Better Work Tab.csproj",
+  "projectFilePath": "D:\\SteamLibrary\\steamapps\\common\\RimWorld\\Mods\\Better Work Tab\\Source\\Better Work Tab.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\optim\\.nuget\\packages\\krafs.rimworld.ref\\1.6.4543\\krafs.rimworld.ref.1.6.4543.nupkg.sha512",
     "C:\\Users\\optim\\.nuget\\packages\\lib.harmony\\2.4.1\\lib.harmony.2.4.1.nupkg.sha512"

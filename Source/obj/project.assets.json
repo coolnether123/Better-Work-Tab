@@ -815,11 +815,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "D:\\SteamLibrary\\steamapps\\common\\RimWorld\\Mods\\Better Work Tab\\Better Work Tab.csproj",
+      "projectUniqueName": "D:\\SteamLibrary\\steamapps\\common\\RimWorld\\Mods\\Better Work Tab\\Source\\Better Work Tab.csproj",
       "projectName": "Better Work Tab",
-      "projectPath": "D:\\SteamLibrary\\steamapps\\common\\RimWorld\\Mods\\Better Work Tab\\Better Work Tab.csproj",
+      "projectPath": "D:\\SteamLibrary\\steamapps\\common\\RimWorld\\Mods\\Better Work Tab\\Source\\Better Work Tab.csproj",
       "packagesPath": "C:\\Users\\optim\\.nuget\\packages\\",
-      "outputPath": "D:\\SteamLibrary\\steamapps\\common\\RimWorld\\Mods\\Better Work Tab\\obj\\",
+      "outputPath": "D:\\SteamLibrary\\steamapps\\common\\RimWorld\\Mods\\Better Work Tab\\Source\\obj\\",
       "projectStyle": "PackageReference",
       "skipContentFileWrite": true,
       "UsingMicrosoftNETSdk": false,

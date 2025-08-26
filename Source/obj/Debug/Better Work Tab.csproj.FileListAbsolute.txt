@@ -1,0 +1,9 @@
+D:\SteamLibrary\steamapps\common\RimWorld\Mods\Better Work Tab\Source\bin\Debug\Better Work Tab.dll
+D:\SteamLibrary\steamapps\common\RimWorld\Mods\Better Work Tab\Source\bin\Debug\Better Work Tab.pdb
+D:\SteamLibrary\steamapps\common\RimWorld\Mods\Better Work Tab\Source\bin\Debug\0Harmony.dll
+D:\SteamLibrary\steamapps\common\RimWorld\Mods\Better Work Tab\Source\bin\Debug\0Harmony.pdb
+D:\SteamLibrary\steamapps\common\RimWorld\Mods\Better Work Tab\Source\obj\Debug\Better Work Tab.csproj.AssemblyReference.cache
+D:\SteamLibrary\steamapps\common\RimWorld\Mods\Better Work Tab\Source\obj\Debug\Better Work Tab.csproj.CoreCompileInputs.cache
+D:\SteamLibrary\steamapps\common\RimWorld\Mods\Better Work Tab\Source\obj\Debug\Better W.92B7318C.Up2Date
+D:\SteamLibrary\steamapps\common\RimWorld\Mods\Better Work Tab\Source\obj\Debug\Better Work Tab.dll
+D:\SteamLibrary\steamapps\common\RimWorld\Mods\Better Work Tab\Source\obj\Debug\Better Work Tab.pdb
