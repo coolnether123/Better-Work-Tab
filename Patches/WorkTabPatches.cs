@@ -148,7 +148,7 @@ namespace Better_Work_Tab.Patches
                     wt.defName == "Haul" ||
                     wt.defName == "Clean")
                 {
-                    return true; // Do not show skill overlay for these work types when only shift is held
+                    return false; // Do not show skill overlay for these work types when only shift is held
                 }
             }
 
@@ -229,4 +229,120 @@ namespace Better_Work_Tab.Patches
             return new Color(0.35f, 0.85f, 0.35f);                  // Green for excellent skills
         }
     }
+
+    // Patch: Replace the priority number inside the vanilla box with the skill level.
+    [HarmonyPatch(typeof(PawnColumnWorker_WorkPriority), nameof(PawnColumnWorker_WorkPriority.DoCell))]
+    public static class Patch_WorkPriority_DoCell_CornerNumber
+    {
+        public static void Postfix(PawnColumnWorker_WorkPriority __instance, Rect rect, Pawn pawn, PawnTable table)
+        {
+            Log.Message("Postfix called");
+            bool shiftHeld = Event.current != null && Event.current.shift;
+            var worktype = __instance.def.workType; // Moved this line up
+
+            //if (!(!BetterWorkTabMod.Settings.enableSkillOverlayFeature || (!SkillOverlayState.ShowSkills && !shiftHeld)))
+            //    return;
+
+            //// If skill overlay is not globally active, and shift is held,
+            //// we need to check if the current work type is one of the excluded ones.
+            //// TODO Currently this just skips it so numbers or check marks will show and be clickable.
+            if (SkillOverlayState.ShowSkills || shiftHeld)
+            {
+                return; //only show if shift is not held
+            }
+                if (worktype == WorkTypeDefOf.Firefighter ||
+                    worktype.defName == "Patient" ||
+                    worktype.defName == "PatientBedRest" ||
+                    worktype.defName == "BasicWorker" ||
+                    worktype.defName == "Haul" ||
+                    worktype.defName == "Clean")
+                {
+                    return; // Do not show skill overlay for these work types when only shift is held
+                }
+            //}
+
+            //ensure the pawn is not dead, has work settings, and will ever perform the worktype
+            if (pawn.Dead || pawn.workSettings == null || !pawn.workSettings.EverWork)
+                return;
+
+            //ensure the worktype is valid and not disabled for this pawn
+            if (worktype == null || pawn.WorkTypeIsDisabled(worktype))
+                return;
+
+            //determine if the pawn is incapable of the entire worktype
+            bool incapable = IsIncapableOfWholeWorkType(pawn, worktype);
+
+
+            float x = rect.x+16f;// + (rect.width / 4f / 2f);
+            float y = rect.y-2;// -4f;// + (((rect.height - 25f) / 4f) / 2f);
+            Rect boxRect = new Rect(x, y, 25f, 25f);
+            
+            //if (Event.current.type == EventType.Repaint)
+            //{
+            //    Widgets.TextArea(boxRect, "THIS IS THE THING AND IT'S HUGE SO IT CAN SEE IT");
+            //    //CustomWorkBoxDrawer.DrawWorkBoxForSkillOverlay(x, y, pawn, worktype, incapable);
+            //}
+
+            // This calculates the average skill level across all skills relevant to this work type
+            int level = 0;
+            if (pawn.skills != null)
+            {
+                float avg = pawn.skills.AverageOfRelevantSkillsFor(worktype);
+                level = Mathf.Clamp(Mathf.RoundToInt(avg), 0, 20);
+            }
+
+            var oldF = Text.Font;
+            var oldA = Text.Anchor;
+            var oldColor = GUI.color;
+
+            Text.Font = GameFont.Tiny;
+            Text.Anchor = TextAnchor.MiddleCenter;
+            GUI.color = ColorForSkillLevel(level);
+
+            Widgets.Label(boxRect, level.ToString());
+
+            GUI.color = oldColor;
+            Text.Font = oldF;
+            Text.Anchor = oldA;
+
+            // This preserves the vanilla tooltip functionality so players can still see work type details
+            TooltipHandler.TipRegion(boxRect,
+                () => WidgetsWork.TipForPawnWorker(pawn, worktype, incapable),
+                pawn.thingIDNumber ^ worktype.GetHashCode());
+
+            return;
+        }
+
+        // This determines if a pawn is incapable of a work type by checking if they can do at least one work giver
+        private static bool IsIncapableOfWholeWorkType(Pawn p, WorkTypeDef work)
+        {
+            for (int i = 0; i < work.workGiversByPriority.Count; i++)
+            {
+                bool canDoThisGiver = true;
+                var reqs = work.workGiversByPriority[i].requiredCapacities;
+                for (int j = 0; j < reqs.Count; j++)
+                {
+                    if (!p.health.capacities.CapableOf(reqs[j]))
+                    {
+                        canDoThisGiver = false;
+                        break;
+                    }
+                }
+                if (canDoThisGiver)
+                    return false;
+            }
+            return true;
+        }
+
+        // This provides color coding for skill levels to make them easier to read at a glance
+        private static Color ColorForSkillLevel(int level)
+        {
+            if (level <= 3) return new Color(0.82f, 0.25f, 0.25f);  // Red for very low skills
+            if (level <= 9) return new Color(0.95f, 0.75f, 0.20f);  // Orange for low skills
+            if (level <= 15) return new Color(0.95f, 0.95f, 0.95f); // White for good skills
+            return new Color(0.35f, 0.85f, 0.35f);                  // Green for excellent skills
+        }
+    }
+
+
 }
