@@ -1,8 +1,5 @@
 ﻿using RimWorld;
-using System;
 using System.Collections.Generic;
-using System.Linq;
-using UnityEngine;
 using Verse;
 
 namespace Better_Work_Tab
@@ -22,7 +19,7 @@ namespace Better_Work_Tab
         // This controls the "always priority X" rule for essential survival work types
         public bool rule_CoreAlwaysPriorityEnabled = true;
         public int rule_CoreAlwaysPriorityValue = 1; // 1..4
-        
+
 
         // This provides individual toggles for each built-in core work type in case users want to customize
         public bool core_Firefighter = true;
@@ -36,7 +33,7 @@ namespace Better_Work_Tab
 
         // This allows passion levels to override normal priority assignment for specialized roles
         public bool rule_PassionOverrideEnabled = true;
-                public int passion_None = 0;   // No passion gets default treatment
+        public int passion_None = 0;   // No passion gets default treatment
         public int passion_Minor = 3;  // Minor passion gets medium priority
         public int passion_Major = 2;  // Major passion gets high priority (but not highest to allow core work)
 
@@ -45,16 +42,10 @@ namespace Better_Work_Tab
         public int rule_ChildcarePriority = 1;
 
         // This rule ensures at least one colonist is assigned to a specific work type at a given priority
-        public Dictionary<string, int> rule_AlwaysHaveOneByWorkType = new Dictionary<string, int>
-        {
-            { "Doctor", 2 } 
-        };
+        public Dictionary<WorkTypeDef, int> rule_AlwaysHaveOneByWorkType = new Dictionary<WorkTypeDef, int>();
 
         // This rule assigns all available colonists to a specific work type at a given priority
-        public Dictionary<string, int> rule_AlwaysAssignAllByWorkType = new Dictionary<string, int>
-        {
-            
-        };
+        public Dictionary<WorkTypeDef, int> rule_AlwaysAssignAllByWorkType = new Dictionary<WorkTypeDef, int>();
 
         public override void ExposeData()
         {
@@ -67,7 +58,7 @@ namespace Better_Work_Tab
 
             Scribe_Values.Look(ref rule_CoreAlwaysPriorityEnabled, "rule_CoreAlwaysPriorityEnabled", true);
             Scribe_Values.Look(ref rule_CoreAlwaysPriorityValue, "rule_CoreAlwaysPriorityValue", 1);
-            
+
 
             Scribe_Values.Look(ref core_Firefighter, "core_Firefighter", true);
             Scribe_Values.Look(ref core_Patient, "core_Patient", true);
@@ -85,54 +76,12 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref rule_ChildcareEnabled, "rule_ChildcareEnabled", true);
             Scribe_Values.Look(ref rule_ChildcarePriority, "rule_ChildcarePriority", 1);
 
-            Scribe_Collections.Look(ref rule_AlwaysHaveOneByWorkType, "rule_AlwaysHaveOneByWorkType", LookMode.Value, LookMode.Value);
-            Scribe_Collections.Look(ref rule_AlwaysAssignAllByWorkType, "rule_AlwaysAssignAllByWorkType", LookMode.Value, LookMode.Value);
-        }
-        
-
-        
-    }
-
-    // This provides static helper methods for other parts of the mod to access configuration values safely
-    public static class BetterWorkTabConfig
-    {
-        public static BetterWorkTabSettings S { get { return BetterWorkTabMod.Settings; } }
-
-        // This converts a pawn's passion level into a priority number according to the configured mapping
-        public static int PriorityFromPassion(Passion passion)
-        {
-            if (!S.rule_PassionOverrideEnabled) return 0;
-
-            int v;
-            switch (passion)
-            {
-                case Passion.None: v = S.passion_None; break;
-                case Passion.Minor: v = S.passion_Minor; break;
-                case Passion.Major: v = S.passion_Major; break;
-                default: v = 0; break;
-            }
-            return (v >= 1 && v <= 4) ? v : 0;
+            Scribe_Collections.Look(ref rule_AlwaysHaveOneByWorkType, "rule_AlwaysHaveOneByWorkType", LookMode.Def, LookMode.Value);
+            Scribe_Collections.Look(ref rule_AlwaysAssignAllByWorkType, "rule_AlwaysAssignAllByWorkType", LookMode.Def, LookMode.Value);
         }
 
-        // This returns the configured default priority, validating it's in the valid range (1-4) or 0 for "don't change"
-        public static int DefaultStartingPriority()
-        {
-            return (S.defaultStartingPriority >= 1 && S.defaultStartingPriority <= 4)
-                ? S.defaultStartingPriority
-                : 0;
-        }
 
-        // This builds the complete list of work types that should get the core "always priority X" treatment
-        public static IEnumerable<WorkTypeDef> CoreAlwaysDefsResolved()
-        {
-            if (!S.rule_CoreAlwaysPriorityEnabled) yield break;
-
-            if (S.core_Firefighter) yield return WorkTypeDefOf.Firefighter;
-            if (S.core_Patient) yield return DefDatabase<WorkTypeDef>.GetNamedSilentFail("Patient");
-            if (S.core_BedRest) yield return DefDatabase<WorkTypeDef>.GetNamedSilentFail("PatientBedRest");
-            if (S.core_Basic) yield return DefDatabase<WorkTypeDef>.GetNamedSilentFail("BasicWorker");
-
-            
-        }
     }
 }
+
+    
