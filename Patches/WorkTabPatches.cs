@@ -54,9 +54,8 @@ namespace Better_Work_Tab.Patches
                     Messages.Message("MessageWorkTypeDisabledAge".Translate(p, p.ageTracker.AgeBiologicalYears, wType.labelShort, minAgeRequired), p, MessageTypeDefOf.RejectInput, false);
                     SoundDefOf.ClickReject.PlayOneShotOnCamera();
                 }
+                GUI.DrawTexture(rect, WidgetsWork.WorkBoxBGTex_AgeDisabled);
 
-                var tex = (Texture2D)AccessTools.Field(typeof(WidgetsWork), "WorkBoxBGTex_AgeDisabled").GetValue(null);
-                GUI.DrawTexture(rect, tex);
             }
             else
             {
@@ -67,9 +66,8 @@ namespace Better_Work_Tab.Patches
                     GUI.color = new Color(1f, 0.3f, 0.3f);
 
                 // This draws the work box background including passion flame effects exactly like vanilla does
-                var method = typeof(WidgetsWork).GetMethod("DrawWorkBoxBackground", BindingFlags.NonPublic | BindingFlags.Static);
-                method.Invoke(null, new object[] { rect, p, wType });
-
+                WidgetsWork.DrawWorkBoxBackground(rect, p, wType);
+                
                 // This resets the GUI color after drawing the background to prevent affecting other UI elements
                 GUI.color = Color.white;
 

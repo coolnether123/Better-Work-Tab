@@ -59,6 +59,11 @@
     <Compile Include="UI\BetterWorkTabSettingsUI.cs" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Krafs.Publicizer">
+      <Version>2.3.0</Version>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
     <PackageReference Include="Krafs.Rimworld.Ref">
       <Version>1.6.4543</Version>
     </PackageReference>
@@ -67,4 +72,8 @@
     </PackageReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <ItemGroup>
+    <Publicize Include="Assembly-CSharp:RimWorld.WidgetsWork.WorkBoxBGTex_AgeDisabled" />
+    <Publicize Include="Assembly-CSharp:RimWorld.WidgetsWork.DrawWorkBoxBackground" />
+  </ItemGroup>
 </Project>
