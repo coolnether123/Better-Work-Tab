@@ -231,7 +231,7 @@ namespace Better_Work_Tab.Patches
     {
         public static void Postfix(PawnColumnWorker_WorkPriority __instance, Rect rect, Pawn pawn, PawnTable table)
         {
-            Log.Message("Postfix called");
+            //Log.Message("Postfix called");
             bool shiftHeld = Event.current != null && Event.current.shift;
             var worktype = __instance.def.workType; // Moved this line up
 
@@ -333,6 +333,5 @@ namespace Better_Work_Tab.Patches
             return new Color(0.35f, 0.85f, 0.35f);                  // Green for excellent skills
         }
     }
-
 
 }
