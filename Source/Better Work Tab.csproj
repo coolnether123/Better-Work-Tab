@@ -76,6 +76,6 @@
   <ItemGroup>
     <Publicize Include="Assembly-CSharp:RimWorld.WidgetsWork.WorkBoxBGTex_AgeDisabled" />
     <Publicize Include="Assembly-CSharp:RimWorld.WidgetsWork.DrawWorkBoxBackground" />
-    <Publicize Include="Assembly-CSharp:RimWorld.FloatMenuOptionProvider_WorkGivers.GetWorkGiverOption" />
+    <Publicize Include="Assembly-CSharp" MemberPattern="^RimWorld\.FloatMenuOptionProvider_WorkGivers\..*|RimWorld\.PawnTable\..*" />
   </ItemGroup>
 </Project>

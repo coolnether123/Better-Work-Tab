@@ -16,7 +16,7 @@ namespace Better_Work_Tab.Patches
     {
         public static FloatMenuOption Postfix(FloatMenuOption value, Pawn pawn, WorkGiverDef workGiver, LocalTargetInfo target, FloatMenuContext context)
         {
-            if(value == null)
+            if (value == null)
             {
                 return value;
             }
@@ -25,9 +25,7 @@ namespace Better_Work_Tab.Patches
 
             WorkTypeDef workType = workGiver_Scanner.def.workType;
 
-            Log.Message("worktype: " + workType.defName + "| Disabled: " + (pawn.workSettings.GetPriority(workType) == 0));
-
-            if(workType == null || pawn == null || context == null || context == null)
+            if (workType == null || pawn == null || context == null || context == null)
             {
                 return value;
             }
@@ -35,17 +33,13 @@ namespace Better_Work_Tab.Patches
             if (pawn.workSettings.GetPriority(workType) == 0 && !pawn.WorkTypeIsDisabled(workType))
             {
 
-                //return new FloatMenuOption("TESTING VALUE", () => { Log.Message("Works!"); });
-                Log.Message("Gets here 1");
                 Action action = null;
                 Job job = (target.HasThing ? (workGiver_Scanner.HasJobOnThing(pawn, target.Thing, true) ? workGiver_Scanner.JobOnThing(pawn, target.Thing, true) : null) : (workGiver_Scanner.HasJobOnCell(pawn, target.Cell, true) ? workGiver_Scanner.JobOnCell(pawn, target.Cell, true) : null));
-                Log.Message("Gets here 2");
 
                 Job localJob = job;
                 WorkGiver_Scanner localScanner = workGiver_Scanner;
                 job.workGiverDef = workGiver_Scanner.def;
                 WorkGiverDef giver = workGiver;
-                Log.Message("Gets here 3");
 
                 action = delegate
                 {
@@ -61,9 +55,16 @@ namespace Better_Work_Tab.Patches
                         }
                     }
                 };
-                Log.Message("Gets here 4");
 
-                var text = value.Label + " (DO ANYWAY)";
+                //Log.Message("-------");
+                //Log.Message("BWTNotAssignedDoAnyway".Translate(workType.defName));
+                //Log.Message(TranslatorFormattedStringExtensions.Translate("BWTNotAssignedAssignWork", workType.verb));
+                
+
+                var text = "BWTNotAssignedDoAnyway".Translate(workType.gerundLabel);
+                Patch_FloatMenuOptionProvider_WorkGivers_GetWorkGiverOptionFor.AdditionalOptions.Add(new FloatMenuOption("BWTNotAssignedAssignWork".Translate(workType.gerundLabel), () => Find.MainTabsRoot.SetCurrentTab(MainButtonDefOf.Work),orderInPriority:(int)MenuOptionPriority.VeryLow));
+                Patch_FloatMenuOptionProvider_WorkGivers_GetWorkGiverOptionFor.AdditionalOptions.Add(value);
+
 
                 return FloatMenuUtility.DecoratePrioritizedTask(new FloatMenuOption(text, action, orderInPriority: -1), pawn, target);
 
@@ -74,4 +75,38 @@ namespace Better_Work_Tab.Patches
             }
         }
     }
+    [HarmonyPatch(typeof(FloatMenuOptionProvider_WorkGivers), nameof(FloatMenuOptionProvider_WorkGivers.GetWorkGiversOptionsFor))]
+    public static class Patch_FloatMenuOptionProvider_WorkGivers_GetWorkGiverOptionFor
+    {
+        public static List<FloatMenuOption> AdditionalOptions = new List<FloatMenuOption>();
+
+
+
+        public static IEnumerable<FloatMenuOption> Postfix(IEnumerable<FloatMenuOption> value, Pawn pawn, LocalTargetInfo target, FloatMenuContext context)
+        {
+
+            //Log.openOnMessage = true;
+            //Find.TickManager.CurTimeSpeed = TimeSpeed.Paused;
+            foreach (var option in value)
+            {
+                yield return option;
+            }
+            foreach (var option in AdditionalOptions)
+            {
+                yield return option;
+            }
+            //yield return ;
+            AdditionalOptions.Clear();
+            //yield return new FloatMenuOption("-----", null);
+
+        }
+    }
+    
+    [DefOf]
+    public static class MainButtonDefOf
+    {
+        public static MainButtonDef Work;
+
+    }
+
 }
