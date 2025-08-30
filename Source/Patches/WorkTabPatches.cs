@@ -6,6 +6,7 @@ using System.Reflection;
 using UnityEngine;
 using Verse;
 using Verse.Sound;
+using LudeonTK;
 
 namespace Better_Work_Tab.Patches
 {
@@ -67,7 +68,7 @@ namespace Better_Work_Tab.Patches
 
                 // This draws the work box background including passion flame effects exactly like vanilla does
                 WidgetsWork.DrawWorkBoxBackground(rect, p, wType);
-                
+
                 // This resets the GUI color after drawing the background to prevent affecting other UI elements
                 GUI.color = Color.white;
 
@@ -247,10 +248,10 @@ namespace Better_Work_Tab.Patches
             {
                 return; //only show if shift is not held
             }
-                if (worktype.relevantSkills.Count == 0)
+            if (worktype.relevantSkills.Count == 0)
             {
-                    return; // Do not show skill overlay for these work types when only shift is held
-                }
+                return; // Do not show skill overlay for these work types when only shift is held
+            }
             //}
 
             //ensure the pawn is not dead, has work settings, and will ever perform the worktype
@@ -265,10 +266,10 @@ namespace Better_Work_Tab.Patches
             bool incapable = IsIncapableOfWholeWorkType(pawn, worktype);
 
 
-            float x = rect.x+16f;// + (rect.width / 4f / 2f);
-            float y = rect.y-2;// -4f;// + (((rect.height - 25f) / 4f) / 2f);
+            float x = rect.x + 16f;// + (rect.width / 4f / 2f);
+            float y = rect.y - 2;// -4f;// + (((rect.height - 25f) / 4f) / 2f);
             Rect boxRect = new Rect(x, y, 25f, 25f);
-            
+
             //if (Event.current.type == EventType.Repaint)
             //{
             //    Widgets.TextArea(boxRect, "THIS IS THE THING AND IT'S HUGE SO IT CAN SEE IT");
@@ -340,21 +341,159 @@ namespace Better_Work_Tab.Patches
     [HarmonyPatch(typeof(PawnTable), nameof(PawnTable.PawnTableOnGUI))]
     public static class PawnTable_HighlightRowAndColumn
     {
-        static void Postfix(PawnTable __instance, Vector2 position)
+        [TweakValue("AAA - ColumnIndex")]
+        public static bool DoHighlight = true;
+
+        //[TweakValue("AAA - ColumnIndex",4,25)]
+        //public static int columnIndex = 5;
+        [TweakValue("AAA - RowIndex", 0,2)]
+        public static int rowIndex = 0;
+
+        [TweakValue("AAA - transparency", 0.0f, 1.0f)]
+        static float transparency = 0.5f;
+
+        private static WorkTypeDef worktypeToHighlight = null;
+
+        public static void SetWorktypeToHighlight(WorkTypeDef wt)
         {
-            var i = 0.0f;
+            worktypeToHighlight = wt;
+        }
+
+        public static void ResetTransparency()
+        {
+            transparency = 0.5f;
+        }
+
+        static void Prefix(PawnTable __instance, Vector2 position)
+        {
+
+            if (!DoHighlight) return;
+
+            var worktypeColumns = __instance.columns.FindAll((a) => { return a.workerClass == typeof(PawnColumnWorker_WorkPriority); });
+
+            if (!worktypeColumns.Any()) return;
+
+
+
+
+
+            //foreach (var j in __instance.columns)
+            //{
+            //    Log.Message(j.defName +" worker is " + j.workerClass.ToString());
+            //    //j.workType
+
+            //        //the idea is to have a static worktype and if it's null don't show the worktypy highlight. if it IS null, highlight the relevant column
+            //}
+
             float totalWidth = 0f;
             foreach (var col in __instance.cachedColumnWidths)
             {
                 totalWidth += col;
             }
 
-            foreach (var rowHeight in __instance.cachedRowHeights)
+            float totalHeight = 0f;
+            foreach (var col in __instance.cachedRowHeights)
             {
-
-                Widgets.DrawBox(new Rect(position.x , position.y + __instance.HeaderHeight, totalWidth, rowHeight), 1);
-                i++;
+                totalHeight += col;
             }
+
+            //float rowStartingPoint = position.y;
+            //for (int i = 0; i < rowIndex; i++)
+            //{
+            //    rowStartingPoint += __instance.cachedRowHeights[i];
+            //}
+
+
+
+            //transparency = Mathf.Lerp(transparency, 0, 0.01f);
+            HighlightSelectedPawn(__instance, position, totalWidth);
+
+            HighlightWorktype(__instance, position, totalHeight);
+
+
+            //Rect outRect = new Rect((int)position.x, (int)position.y + (int)__instance.cachedHeaderHeight, (int)__instance.cachedSize.x, (int)__instance.cachedSize.y - (int)__instance.cachedHeaderHeight);
+            //Rect viewRect = new Rect(0f, 0f, outRect.width - 16f, (int)__instance.cachedHeightNoScrollbar - (int)__instance.cachedHeaderHeight);
+
+            //var num4 = position.y + __instance.HeaderHeight;
+            //for (int m = 0; m < __instance.cachedPawns.Count; m++)
+            //{
+            //    Rect rect3 = new Rect(0f, num4, viewRect.width, (int)__instance.cachedRowHeights[m]);
+            //    if (Mouse.IsOver(rect3))
+            //    {
+            //        Widgets.DrawBoxSolid(new Rect(position.x, num4, totalWidth, __instance.cachedRowHeights[m]), new Color(1f, 0, 0, 1));
+            //        __instance.cachedLookTargets[m].Highlight(true, __instance.cachedPawns[m].IsColonist);
+            //    }
+            //    num4 += (int)__instance.cachedRowHeights[m];
+            //}
+
+        }
+
+        private static void HighlightSelectedPawn(PawnTable __instance, Vector2 position, float totalWidth)
+        {
+
+            float startingY = position.y + __instance.HeaderHeight;
+            for (int i = 0; i < __instance.cachedPawns.Count; i++)
+            {
+                var rect = new Rect(position.x, startingY, totalWidth, __instance.cachedRowHeights[i]);
+                if (Find.Selector.IsSelected(__instance.cachedPawns[i]) )
+                    if(worktypeToHighlight != null)
+                        Widgets.DrawBoxSolid(rect, new Color(0.114f, 0.737f, 0.737f, transparency));
+                    else
+                        Widgets.DrawBoxSolid(rect, new Color(0.737f, 0.737f, 0.114f, transparency));
+
+                
+                if (Mouse.IsOver(rect))
+                    Widgets.DrawBoxSolid(rect, new Color(0.737f, 0.737f, 0.114f, transparency * 0.5f));
+
+                startingY += __instance.cachedRowHeights[i];
+            }
+        }
+
+        private static void HighlightWorktype(PawnTable __instance, Vector2 position, float totalHeight)
+        {
+            Log.Message("Here 1");
+            float startingX = position.x;
+            for (int i = 0; i < __instance.columns.Count; i++)
+            {
+                //if (column.Worker is PawnColumnWorker_WorkPriority && column.workType == worktypeToHighlight)
+                //{
+                //    break;
+                //}
+            Log.Message("Here 2");
+
+            float columnStartingPoint = position.x;
+            Log.Message("Here 3");
+
+           
+            Log.Message("Here 4");
+
+            var rect = new Rect(startingX, position.y + __instance.HeaderHeight, __instance.cachedColumnWidths[i], totalHeight);
+            Log.Message("Here 5");
+
+            if (worktypeToHighlight == __instance.columns[i].workType && __instance.columns[i].Worker is PawnColumnWorker_WorkPriority)
+                Widgets.DrawBoxSolid(rect, new Color(0.114f, 0.737f, 0.737f, transparency));
+
+            Log.Message("Here 6");
+
+            if (Mouse.IsOver(rect) && __instance.columns[i].Worker is PawnColumnWorker_WorkPriority)
+                Widgets.DrawBoxSolid(rect, new Color(0.737f, 0.737f, 0.114f, transparency*0.5f));
+                startingX += __instance.cachedColumnWidths[i];
+            }
+
+        }
+    }
+
+    //I hate having to do it this way but I don't think there's another ways because harmony won't patch inhertiated methods
+    //That is correct. There is no better way.
+
+    [HarmonyPatch(typeof(Window), nameof(Window.PreClose))]
+    public static class MainTabWindow_Work_PreOpen
+    {
+        public static void Postfix(Window __instance)
+        {
+            if (!(__instance is MainTabWindow_Work)) return;
+
+            PawnTable_HighlightRowAndColumn.SetWorktypeToHighlight(null);
         }
     }
 }
