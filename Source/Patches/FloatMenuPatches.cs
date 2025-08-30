@@ -32,7 +32,7 @@ namespace Better_Work_Tab.Patches
 
             if (pawn.workSettings.GetPriority(workType) == 0 && !pawn.WorkTypeIsDisabled(workType))
             {
-
+                
                 Action action = null;
                 Job job = (target.HasThing ? (workGiver_Scanner.HasJobOnThing(pawn, target.Thing, true) ? workGiver_Scanner.JobOnThing(pawn, target.Thing, true) : null) : (workGiver_Scanner.HasJobOnCell(pawn, target.Cell, true) ? workGiver_Scanner.JobOnCell(pawn, target.Cell, true) : null));
 
@@ -61,8 +61,13 @@ namespace Better_Work_Tab.Patches
                 //Log.Message(TranslatorFormattedStringExtensions.Translate("BWTNotAssignedAssignWork", workType.verb));
                 
 
-                var text = "BWTNotAssignedDoAnyway".Translate(workType.gerundLabel);
-                Patch_FloatMenuOptionProvider_WorkGivers_GetWorkGiverOptionFor.AdditionalOptions.Add(new FloatMenuOption("BWTNotAssignedAssignWork".Translate(workType.gerundLabel), () => Find.MainTabsRoot.SetCurrentTab(MainButtonDefOf.Work),orderInPriority:(int)MenuOptionPriority.VeryLow));
+                var text = "BWTNotAssignedDoOnce".Translate(workType.gerundLabel);
+                Patch_FloatMenuOptionProvider_WorkGivers_GetWorkGiverOptionFor.AdditionalOptions.Add(new FloatMenuOption("BWTNotAssignedAssignWork".Translate(workType.gerundLabel), () =>
+                {
+                    PawnTable_HighlightRowAndColumn.SetWorktypeToHighlight(workType); ;
+                    Find.MainTabsRoot.SetCurrentTab(MainButtonDefOf.Work);
+                },orderInPriority:(int)MenuOptionPriority.VeryLow));
+
                 Patch_FloatMenuOptionProvider_WorkGivers_GetWorkGiverOptionFor.AdditionalOptions.Add(value);
 
 
