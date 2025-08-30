@@ -77,6 +77,7 @@ namespace Better_Work_Tab.Patches
     }
 
     // Patch: add ONE checkbox to the top of the Work tab near "Manual priorities".
+
     [HarmonyPatch(typeof(MainTabWindow_Work), nameof(MainTabWindow_Work.DoWindowContents))]
     public static class Patch_WorkTab_AddSingleToggle
     {
@@ -122,6 +123,7 @@ namespace Better_Work_Tab.Patches
                 assigner.ApplyAutoAssignments();
             }
         }
+
     }
 
     // Patch: Replace the priority number inside the vanilla box with the skill level.
@@ -334,4 +336,25 @@ namespace Better_Work_Tab.Patches
         }
     }
 
+
+    [HarmonyPatch(typeof(PawnTable), nameof(PawnTable.PawnTableOnGUI))]
+    public static class PawnTable_HighlightRowAndColumn
+    {
+        static void Postfix(PawnTable __instance, Vector2 position)
+        {
+            var i = 0.0f;
+            float totalWidth = 0f;
+            foreach (var col in __instance.cachedColumnWidths)
+            {
+                totalWidth += col;
+            }
+
+            foreach (var rowHeight in __instance.cachedRowHeights)
+            {
+
+                Widgets.DrawBox(new Rect(position.x , position.y + __instance.HeaderHeight, totalWidth, rowHeight), 1);
+                i++;
+            }
+        }
+    }
 }
