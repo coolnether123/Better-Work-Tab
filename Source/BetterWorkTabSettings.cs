@@ -53,7 +53,7 @@ namespace Better_Work_Tab
         public Color Color_VeryLowSkill = new Color(0.82f, 0.25f, 0.25f);
         public Color Color_LowSkill = new Color(0.95f, 0.75f, 0.20f);
         public Color Color_GoodLowSkill = new Color(0.95f, 0.95f, 0.95f);
-        public Color Color_ExcellentLowSkill = new Color(0.35f, 0.85f, 0.35f);
+        public Color Color_ExcellentSkill = new Color(0.35f, 0.85f, 0.35f);
 
         // These control which pawn/worktype highlights are shown on the work tab
         public bool ShowPawnAndWorktypeHighlights = true; //disable all highlights
@@ -79,6 +79,16 @@ namespace Better_Work_Tab
         }
         // This color is used to indicate a pawn is incapable of a work type due to health conditions. Vanilla red is Color(1,0.3,0.3)
         public Color Color_IncapableBecauseOfCapacities = new Color(1f, 0.3f, 0.3f); // Red
+
+        //This color is used to indicate the best pawn for a skill in the work tab
+        public Color Color_BestPawnForSkillSquare = new Color(0.35f, 0.85f, 0.35f);
+
+        // These control when various UI elements are shown on the work tab
+        public enum ShowUIMode { Always, Never, Shifted, Unshifted}
+        public ShowUIMode ShowUIMode_ShowSmallSkillNumbers = ShowUIMode.Always;
+        public ShowUIMode ShowUIMode_ShowPawnForSkillSquare = ShowUIMode.Shifted;
+
+
 
         // Temporary storage for dictionary data to avoid DefOf issues during loading
         private List<string> tempAlwaysHaveOneKeys = new List<string>();
