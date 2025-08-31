@@ -376,7 +376,6 @@ namespace Better_Work_Tab.Patches
 
 
 
-
             //foreach (var j in __instance.columns)
             //{
             //    Log.Message(j.defName +" worker is " + j.workerClass.ToString());
@@ -404,34 +403,22 @@ namespace Better_Work_Tab.Patches
             //}
 
 
+            Rect outRect = new Rect((int)position.x, (int)position.y + (int)__instance.cachedHeaderHeight, (int)__instance.cachedSize.x, (int)__instance.cachedSize.y - (int)__instance.cachedHeaderHeight);
+            Rect viewRect = new Rect(0f, 0f, outRect.width - 16f, (int)__instance.cachedHeightNoScrollbar - (int)__instance.cachedHeaderHeight);
+            Widgets.BeginScrollView(outRect, ref __instance.scrollPosition, viewRect);
 
-            //transparency = Mathf.Lerp(transparency, 0, 0.01f);
             HighlightSelectedPawn(__instance, position, totalWidth);
 
             HighlightWorktype(__instance, position, totalHeight);
-
-
-            //Rect outRect = new Rect((int)position.x, (int)position.y + (int)__instance.cachedHeaderHeight, (int)__instance.cachedSize.x, (int)__instance.cachedSize.y - (int)__instance.cachedHeaderHeight);
-            //Rect viewRect = new Rect(0f, 0f, outRect.width - 16f, (int)__instance.cachedHeightNoScrollbar - (int)__instance.cachedHeaderHeight);
-
-            //var num4 = position.y + __instance.HeaderHeight;
-            //for (int m = 0; m < __instance.cachedPawns.Count; m++)
-            //{
-            //    Rect rect3 = new Rect(0f, num4, viewRect.width, (int)__instance.cachedRowHeights[m]);
-            //    if (Mouse.IsOver(rect3))
-            //    {
-            //        Widgets.DrawBoxSolid(new Rect(position.x, num4, totalWidth, __instance.cachedRowHeights[m]), new Color(1f, 0, 0, 1));
-            //        __instance.cachedLookTargets[m].Highlight(true, __instance.cachedPawns[m].IsColonist);
-            //    }
-            //    num4 += (int)__instance.cachedRowHeights[m];
-            //}
+            
+            Widgets.EndScrollView();
 
         }
 
         private static void HighlightSelectedPawn(PawnTable __instance, Vector2 position, float totalWidth)
         {
 
-            float startingY = position.y + __instance.HeaderHeight;
+            float startingY = 0;// position.y /*+ __instance.HeaderHeight*/;
             for (int i = 0; i < __instance.cachedPawns.Count; i++)
             {
                 var rect = new Rect(position.x, startingY, totalWidth, __instance.cachedRowHeights[i]);
@@ -451,29 +438,16 @@ namespace Better_Work_Tab.Patches
 
         private static void HighlightWorktype(PawnTable __instance, Vector2 position, float totalHeight)
         {
-            Log.Message("Here 1");
-            float startingX = position.x;
+            float startingX = 0;// position.x;
             for (int i = 0; i < __instance.columns.Count; i++)
             {
-                //if (column.Worker is PawnColumnWorker_WorkPriority && column.workType == worktypeToHighlight)
-                //{
-                //    break;
-                //}
-            Log.Message("Here 2");
 
             float columnStartingPoint = position.x;
-            Log.Message("Here 3");
 
-           
-            Log.Message("Here 4");
-
-            var rect = new Rect(startingX, position.y + __instance.HeaderHeight, __instance.cachedColumnWidths[i], totalHeight);
-            Log.Message("Here 5");
+            var rect = new Rect(startingX, 0 /*+ __instance.HeaderHeight*/, __instance.cachedColumnWidths[i], totalHeight);
 
             if (worktypeToHighlight == __instance.columns[i].workType && __instance.columns[i].Worker is PawnColumnWorker_WorkPriority)
                 Widgets.DrawBoxSolid(rect, new Color(0.114f, 0.737f, 0.737f, transparency));
-
-            Log.Message("Here 6");
 
             if (Mouse.IsOver(rect) && __instance.columns[i].Worker is PawnColumnWorker_WorkPriority)
                 Widgets.DrawBoxSolid(rect, new Color(0.737f, 0.737f, 0.114f, transparency*0.5f));
