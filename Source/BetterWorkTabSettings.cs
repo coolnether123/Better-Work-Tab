@@ -1,6 +1,8 @@
 ﻿using RimWorld;
 using System.Collections.Generic;
 using System.Linq;
+using Unity.Mathematics;
+using UnityEngine;
 using Verse;
 
 namespace Better_Work_Tab
@@ -47,11 +49,46 @@ namespace Better_Work_Tab
         // This rule assigns all available colonists to a specific work type at a given priority
         public Dictionary<WorkTypeDef, int> rule_AlwaysAssignAllByWorkType = new Dictionary<WorkTypeDef, int>();
 
+        //These colors are used on skill numbers in the work tab
+        public Color Color_VeryLowSkill = new Color(0.82f, 0.25f, 0.25f);
+        public Color Color_LowSkill = new Color(0.95f, 0.75f, 0.20f);
+        public Color Color_GoodLowSkill = new Color(0.95f, 0.95f, 0.95f);
+        public Color Color_ExcellentLowSkill = new Color(0.35f, 0.85f, 0.35f);
+
+        // These control which pawn/worktype highlights are shown on the work tab
+        public bool ShowPawnAndWorktypeHighlights = true; //disable all highlights
+        public bool ShowCursorPawnAndWorktypeHighlight = true; //disable cursor highlight
+        public bool ShowFloatMenuPawnAndWorktypeHighlight = true; //disable higlight open-from-float-menu highlight
+        public bool DoSelectedPawnHighlight = true;
+
+        // This allows custom color for mouse hover highlight instead of reusing cursor highlight color
+        public bool UseCustomMouseHoverPawnAndWorktypeHighlight = false;
+
+        // These colors are used for pawn/worktype highlights on the work tab
+        public Color Color_CursorPawnAndWorktypeHighlight = new Color(0.737f, 0.737f, 0.114f, 0.5f); // Yellow with 50% alpha
+        public Color Color_FloatMenuPawnAndWorktypeHighlight = new Color(0.114f, 0.737f, 0.737f, 0.5f);// Blue with 50% alpha
+        public Color Color_CustomMouseHoverPawnAndWorktypeHighlight = new Color(0.737f, 0.737f, 0.114f, 0.25f); // Yellow with 25% alpha
+        public Color Color_MouseHoverPawnAndWorktypeHighlight // This returns either the custom color or a halved alpha version of the cursor color
+        {
+            get 
+            {
+                Color halvedAlpha = Color_CursorPawnAndWorktypeHighlight;
+                halvedAlpha.a = halvedAlpha.a / 2f;
+                return UseCustomMouseHoverPawnAndWorktypeHighlight ? Color_CustomMouseHoverPawnAndWorktypeHighlight : halvedAlpha; 
+            }
+        }
+        // This color is used to indicate a pawn is incapable of a work type due to health conditions. Vanilla red is Color(1,0.3,0.3)
+        public Color Color_IncapableBecauseOfCapacities = new Color(1f, 0.3f, 0.3f); // Red
+
         // Temporary storage for dictionary data to avoid DefOf issues during loading
         private List<string> tempAlwaysHaveOneKeys = new List<string>();
         private List<int> tempAlwaysHaveOneValues = new List<int>();
         private List<string> tempAlwaysAssignAllKeys = new List<string>();
         private List<int> tempAlwaysAssignAllValues = new List<int>();
+
+
+
+
 
         public override void ExposeData()
         {
