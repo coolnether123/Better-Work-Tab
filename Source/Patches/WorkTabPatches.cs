@@ -126,7 +126,7 @@ namespace Better_Work_Tab.Patches
 
     }
 
-/*    // Patch: Replace the priority number inside the vanilla box with the skill level.
+    // Patch: Replace the priority number inside the vanilla box with the skill level.
     [HarmonyPatch(typeof(PawnColumnWorker_WorkPriority), nameof(PawnColumnWorker_WorkPriority.DoCell))]
     public static class Patch_WorkPriority_DoCell_ReplaceNumber
     {
@@ -225,7 +225,7 @@ namespace Better_Work_Tab.Patches
             if (level <= 15) return new Color(0.95f, 0.95f, 0.95f); // White for good skills
             return new Color(0.35f, 0.85f, 0.35f);                  // Green for excellent skills
         }
-    }*/
+    }
 
     // Patch: Replace the priority number inside the vanilla box with the skill level.
     [HarmonyPatch(typeof(PawnColumnWorker_WorkPriority), nameof(PawnColumnWorker_WorkPriority.DoCell))]
