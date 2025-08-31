@@ -64,7 +64,7 @@ namespace Better_Work_Tab.Patches
 
                 // This applies the same red tint that vanilla uses for incapable work types to maintain visual consistency
                 if (incapableBecauseOfCapacities)
-                    GUI.color = new Color(1f, 0.3f, 0.3f);
+                    GUI.color = BetterWorkTabMod.Settings.Color_IncapableBecauseOfCapacities;
 
                 // This draws the work box background including passion flame effects exactly like vanilla does
                 WidgetsWork.DrawWorkBoxBackground(rect, p, wType);
@@ -72,7 +72,6 @@ namespace Better_Work_Tab.Patches
                 // This resets the GUI color after drawing the background to prevent affecting other UI elements
                 GUI.color = Color.white;
 
-                // This intentionally skips priority number drawing and click handling because the mod will overlay skill levels instead
             }
         }
     }
@@ -127,7 +126,7 @@ namespace Better_Work_Tab.Patches
 
     }
 
-    // Patch: Replace the priority number inside the vanilla box with the skill level.
+/*    // Patch: Replace the priority number inside the vanilla box with the skill level.
     [HarmonyPatch(typeof(PawnColumnWorker_WorkPriority), nameof(PawnColumnWorker_WorkPriority.DoCell))]
     public static class Patch_WorkPriority_DoCell_ReplaceNumber
     {
@@ -226,7 +225,7 @@ namespace Better_Work_Tab.Patches
             if (level <= 15) return new Color(0.95f, 0.95f, 0.95f); // White for good skills
             return new Color(0.35f, 0.85f, 0.35f);                  // Green for excellent skills
         }
-    }
+    }*/
 
     // Patch: Replace the priority number inside the vanilla box with the skill level.
     [HarmonyPatch(typeof(PawnColumnWorker_WorkPriority), nameof(PawnColumnWorker_WorkPriority.DoCell))]
@@ -330,10 +329,10 @@ namespace Better_Work_Tab.Patches
         // This provides color coding for skill levels to make them easier to read at a glance
         private static Color ColorForSkillLevel(int level)
         {
-            if (level <= 3) return new Color(0.82f, 0.25f, 0.25f);  // Red for very low skills
-            if (level <= 9) return new Color(0.95f, 0.75f, 0.20f);  // Orange for low skills
-            if (level <= 15) return new Color(0.95f, 0.95f, 0.95f); // White for good skills
-            return new Color(0.35f, 0.85f, 0.35f);                  // Green for excellent skills
+            if (level <= 3) return BetterWorkTabMod.Settings.Color_VeryLowSkill;  // Red for very low skills
+            if (level <= 9) return BetterWorkTabMod.Settings.Color_LowSkill;  // Orange for low skills
+            if (level <= 15) return BetterWorkTabMod.Settings.Color_GoodLowSkill; // White for good skills
+            return BetterWorkTabMod.Settings.Color_ExcellentLowSkill;                  // Green for excellent skills
         }
     }
 
@@ -341,17 +340,6 @@ namespace Better_Work_Tab.Patches
     [HarmonyPatch(typeof(PawnTable), nameof(PawnTable.PawnTableOnGUI))]
     public static class PawnTable_HighlightRowAndColumn
     {
-        [TweakValue("AAA - ColumnIndex")]
-        public static bool DoHighlight = true;
-
-        //[TweakValue("AAA - ColumnIndex",4,25)]
-        //public static int columnIndex = 5;
-        [TweakValue("AAA - RowIndex", 0,2)]
-        public static int rowIndex = 0;
-
-        [TweakValue("AAA - transparency", 0.0f, 1.0f)]
-        static float transparency = 0.5f;
-
         private static WorkTypeDef worktypeToHighlight = null;
 
         public static void SetWorktypeToHighlight(WorkTypeDef wt)
@@ -359,30 +347,19 @@ namespace Better_Work_Tab.Patches
             worktypeToHighlight = wt;
         }
 
-        public static void ResetTransparency()
-        {
-            transparency = 0.5f;
-        }
+        //public static void ResetTransparency()
+        //{
+        //    transparency = 0.5f;
+        //}
 
         static void Prefix(PawnTable __instance, Vector2 position)
         {
 
-            if (!DoHighlight) return;
+            if (!BetterWorkTabMod.Settings.ShowPawnAndWorktypeHighlights) return;
 
             var worktypeColumns = __instance.columns.FindAll((a) => { return a.workerClass == typeof(PawnColumnWorker_WorkPriority); });
 
             if (!worktypeColumns.Any()) return;
-
-
-
-
-            //foreach (var j in __instance.columns)
-            //{
-            //    Log.Message(j.defName +" worker is " + j.workerClass.ToString());
-            //    //j.workType
-
-            //        //the idea is to have a static worktype and if it's null don't show the worktypy highlight. if it IS null, highlight the relevant column
-            //}
 
             float totalWidth = 0f;
             foreach (var col in __instance.cachedColumnWidths)
@@ -406,10 +383,9 @@ namespace Better_Work_Tab.Patches
             Rect outRect = new Rect((int)position.x, (int)position.y + (int)__instance.cachedHeaderHeight, (int)__instance.cachedSize.x, (int)__instance.cachedSize.y - (int)__instance.cachedHeaderHeight);
             Rect viewRect = new Rect(0f, 0f, outRect.width - 16f, (int)__instance.cachedHeightNoScrollbar - (int)__instance.cachedHeaderHeight);
             Widgets.BeginScrollView(outRect, ref __instance.scrollPosition, viewRect);
+                HighlightSelectedPawn(__instance, position, totalWidth);
 
-            HighlightSelectedPawn(__instance, position, totalWidth);
-
-            HighlightWorktype(__instance, position, totalHeight);
+               HighlightWorktype(__instance, position, totalHeight);
             
             Widgets.EndScrollView();
 
@@ -423,14 +399,14 @@ namespace Better_Work_Tab.Patches
             {
                 var rect = new Rect(position.x, startingY, totalWidth, __instance.cachedRowHeights[i]);
                 if (Find.Selector.IsSelected(__instance.cachedPawns[i]) )
-                    if(worktypeToHighlight != null)
-                        Widgets.DrawBoxSolid(rect, new Color(0.114f, 0.737f, 0.737f, transparency));
-                    else
-                        Widgets.DrawBoxSolid(rect, new Color(0.737f, 0.737f, 0.114f, transparency));
+                    if(BetterWorkTabMod.Settings.ShowFloatMenuPawnAndWorktypeHighlight && worktypeToHighlight != null)
+                        Widgets.DrawBoxSolid(rect, BetterWorkTabMod.Settings.Color_FloatMenuPawnAndWorktypeHighlight);
+                    else if (BetterWorkTabMod.Settings.DoSelectedPawnHighlight)
+                        Widgets.DrawBoxSolid(rect, BetterWorkTabMod.Settings.Color_CursorPawnAndWorktypeHighlight);
 
                 
-                if (Mouse.IsOver(rect))
-                    Widgets.DrawBoxSolid(rect, new Color(0.737f, 0.737f, 0.114f, transparency * 0.5f));
+                if (BetterWorkTabMod.Settings.ShowCursorPawnAndWorktypeHighlight && Mouse.IsOver(rect))
+                    Widgets.DrawBoxSolid(rect, BetterWorkTabMod.Settings.Color_MouseHoverPawnAndWorktypeHighlight);
 
                 startingY += __instance.cachedRowHeights[i];
             }
@@ -446,11 +422,11 @@ namespace Better_Work_Tab.Patches
 
             var rect = new Rect(startingX, 0 /*+ __instance.HeaderHeight*/, __instance.cachedColumnWidths[i], totalHeight);
 
-            if (worktypeToHighlight == __instance.columns[i].workType && __instance.columns[i].Worker is PawnColumnWorker_WorkPriority)
-                Widgets.DrawBoxSolid(rect, new Color(0.114f, 0.737f, 0.737f, transparency));
+            if (BetterWorkTabMod.Settings.ShowFloatMenuPawnAndWorktypeHighlight && worktypeToHighlight == __instance.columns[i].workType && __instance.columns[i].Worker is PawnColumnWorker_WorkPriority)
+                Widgets.DrawBoxSolid(rect, BetterWorkTabMod.Settings.Color_FloatMenuPawnAndWorktypeHighlight);
 
-            if (Mouse.IsOver(rect) && __instance.columns[i].Worker is PawnColumnWorker_WorkPriority)
-                Widgets.DrawBoxSolid(rect, new Color(0.737f, 0.737f, 0.114f, transparency*0.5f));
+            if (BetterWorkTabMod.Settings.ShowCursorPawnAndWorktypeHighlight && Mouse.IsOver(rect) && __instance.columns[i].Worker is PawnColumnWorker_WorkPriority)
+                Widgets.DrawBoxSolid(rect, BetterWorkTabMod.Settings.Color_MouseHoverPawnAndWorktypeHighlight);
                 startingX += __instance.cachedColumnWidths[i];
             }
 
