@@ -7,6 +7,7 @@ using UnityEngine;
 using Verse;
 using Verse.Sound;
 using LudeonTK;
+using System.Linq;
 
 namespace Better_Work_Tab.Patches
 {
@@ -448,6 +449,7 @@ namespace Better_Work_Tab.Patches
 
         private static void HighlightWorktype(PawnTable __instance, Vector2 position, float totalHeight)
         {
+
             //each column starts at the same y position, but the x position increases by the width of each column
             float startingX = 0;
             for (int i = 0; i < __instance.columns.Count; i++)
@@ -461,25 +463,75 @@ namespace Better_Work_Tab.Patches
 
                 //highlight if mouse is over
                 if (BetterWorkTabMod.Settings.ShowCursorPawnAndWorktypeHighlight && Mouse.IsOver(rect) && __instance.columns[i].Worker is PawnColumnWorker_WorkPriority)
+                {
                     Widgets.DrawBoxSolid(rect, BetterWorkTabMod.Settings.Color_MouseHoverPawnAndWorktypeHighlight);
+                    if (!(__instance.columns[i].Worker is PawnColumnWorker_WorkPriority)) continue;
 
+                    Log.Message("Relevant Worktypes for " + __instance.columns[i].workType.defName);
+                    foreach (var skill in __instance.columns[i].workType.relevantSkills)
+                    {
+                        Log.Message("- " + skill.defName);
+                    }
+                    HighlightSimilarWorktypes(__instance.columns[i].workType, __instance.columns.Count, i, __instance, totalHeight);
+                }
                 //increment startingX for next column
                 startingX += __instance.cachedColumnWidths[i];
+
+                    
+                                        
+                    
+                    
+                    
+                    
+                    
+
             }
 
         }
-    }
 
-    //Patching Window and filtering to MainTabWindow_Work because MainTabWindow_Work does not have a PreClose method to patch. This is the only way to do this.
-    [HarmonyPatch(typeof(Window), nameof(Window.PreClose))]
-    public static class MainTabWindow_Work_PreOpen
-    {
-        public static void Postfix(Window __instance)
+        private static void HighlightSimilarWorktypes(WorkTypeDef worktype, int columnCount, int myIndex, PawnTable __instance, float totalHeight)
         {
-            if (!(__instance is MainTabWindow_Work)) return;
+            var relevantSkills = worktype.relevantSkills;
+            float startingX = 0;
 
-            //Clear the highlighted worktype when closing the work tab. This makes it so the highlight only persists while the tab is open, and it will reset when closed.
-            PawnTable_HighlightRowAndColumn.SetWorktypeToHighlight(null);
+            for (int i = 0; i < columnCount; i++)
+            {
+
+                if (__instance.columns[i].Worker is PawnColumnWorker_WorkPriority)
+                {
+                    var rect = new Rect(startingX, 0, __instance.cachedColumnWidths[i], totalHeight);
+                    foreach (var skill in relevantSkills)
+                    {
+                        if (__instance.columns[i].workType.relevantSkills.Contains(skill))
+                        {
+                            if (i != myIndex)
+                            {
+                                var clr = BetterWorkTabMod.Settings.Color_MouseHoverPawnAndWorktypeHighlight;
+                                clr.a = 0.25f * 0.5f;
+                                Widgets.DrawBoxSolid(rect, clr);
+                            }
+                        }
+                    }
+                }
+                startingX += __instance.cachedColumnWidths[i];
+
+            }
+
+        }
+
+
+
+        //Patching Window and filtering to MainTabWindow_Work because MainTabWindow_Work does not have a PreClose method to patch. This is the only way to do this.
+        [HarmonyPatch(typeof(Window), nameof(Window.PreClose))]
+        public static class MainTabWindow_Work_PreOpen
+        {
+            public static void Postfix(Window __instance)
+            {
+                if (!(__instance is MainTabWindow_Work)) return;
+
+                //Clear the highlighted worktype when closing the work tab. This makes it so the highlight only persists while the tab is open, and it will reset when closed.
+                PawnTable_HighlightRowAndColumn.SetWorktypeToHighlight(null);
+            }
         }
     }
 }
