@@ -19,15 +19,16 @@ namespace Better_Work_Tab.Features
         public AutoWorkAssigner(BetterWorkTabSettings settings)
         {
             _settings = settings;
-            var paramas = new AssignWorkParams();
+            var paramas = new AssignWorkParams(0);
             Log.Message("Skip if: "+paramas.SkipIfPriorityForThisWorktypeAreadyAssigned);
             _rules = new List<AssignWorkRule>
             {
-                new AssignWorkRule(0, paramas),
-                new AssignWorkRule(4, new AssignWorkParams(skillLevelGreaterThan: 4)),
+                new AssignWorkRule(paramas),
+                new AssignWorkRule(new AssignWorkParams(1, assignSimilarWorktypes: new AssignWorkParams(2, skillLevelGreaterThan: 1)), worktype: WorkTypeDefOf.Crafting)
+                //new AssignWorkRule(4, new AssignWorkParams(skillLevelGreaterThan: 4)),
                 //new AssignWorkRule(2, new AssignWorkParams(xenotype: XenotypeDefOf.Sanguophage)),
                 //new AssignWorkRule(3, new AssignWorkParams(gender: Gender.Male), WorkTypeDefOf.Doctor),
-                new AssignWorkRule(1, new AssignWorkParams(assignToPawnWithFewestWorkPriorities: true), WorkTypeDefOf.Doctor),
+                //new AssignWorkRule(1, new AssignWorkParams(assignToPawnWithFewestWorkPriorities: true), WorkTypeDefOf.Doctor),
             };
 
         }

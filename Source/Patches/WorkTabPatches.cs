@@ -465,13 +465,8 @@ namespace Better_Work_Tab.Patches
                 if (BetterWorkTabMod.Settings.ShowCursorPawnAndWorktypeHighlight && Mouse.IsOver(rect) && __instance.columns[i].Worker is PawnColumnWorker_WorkPriority)
                 {
                     Widgets.DrawBoxSolid(rect, BetterWorkTabMod.Settings.Color_MouseHoverPawnAndWorktypeHighlight);
+                    Widgets.DrawHighlight(rect);
                     if (!(__instance.columns[i].Worker is PawnColumnWorker_WorkPriority)) continue;
-
-                    Log.Message("Relevant Worktypes for " + __instance.columns[i].workType.defName);
-                    foreach (var skill in __instance.columns[i].workType.relevantSkills)
-                    {
-                        Log.Message("- " + skill.defName);
-                    }
                     HighlightSimilarWorktypes(__instance.columns[i].workType, __instance.columns.Count, i, __instance, totalHeight);
                 }
                 //increment startingX for next column
@@ -509,6 +504,8 @@ namespace Better_Work_Tab.Patches
                                 var clr = BetterWorkTabMod.Settings.Color_MouseHoverPawnAndWorktypeHighlight;
                                 clr.a = 0.25f * 0.5f;
                                 Widgets.DrawBoxSolid(rect, clr);
+                                Widgets.DrawHighlight(rect);
+
                             }
                         }
                     }
