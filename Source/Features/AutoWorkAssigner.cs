@@ -24,8 +24,9 @@ namespace Better_Work_Tab.Features
             _rules = new List<AssignWorkRule>
             {
                 new AssignWorkRule(0, paramas),
-                //new AssignWorkRule(2, new AssignWorkParams(skillLevelGreaterThan: 5), WorkTypeDefOf.Doctor),
-                //new AssignWorkRule(4, new AssignWorkParams(skillLevelLessThan: 6), WorkTypeDefOf.Doctor),
+                new AssignWorkRule(2, new AssignWorkParams(xenotype: XenotypeDefOf.Sanguophage)),
+                new AssignWorkRule(3, new AssignWorkParams(gender: Gender.Male), WorkTypeDefOf.Doctor),
+                new AssignWorkRule(4, new AssignWorkParams(trait: TraitDefOf.Abrasive, allowOverwritingHigherPriority: true), WorkTypeDefOf.Doctor),
             };
 
         }
