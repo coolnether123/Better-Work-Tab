@@ -23,7 +23,7 @@ namespace Better_Work_Tab.Features
             _rules = new List<IAssignmentRule>
             {
                 new CoreWorkTypeRule(),
-                new DoctorRule(),
+                //new DoctorRule(),
                 new PassionRule(),
                 new ChildcareRule(),
                 // TODO: Implement UI for rule_AlwaysHaveOneByWorkType and rule_AlwaysAssignAllByWorkType

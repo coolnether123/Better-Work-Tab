@@ -31,7 +31,6 @@ namespace Better_Work_Tab
 
         // This controls automatic assignment of medical work to the most skilled colonists
         public bool rule_BestDoctorsEnabled = true;
-        public int rule_BestDoctorsPriority = 1;
 
         // This allows passion levels to override normal priority assignment for specialized roles
         public bool rule_PassionOverrideEnabled = true;
@@ -85,7 +84,7 @@ namespace Better_Work_Tab
 
         // These control when various UI elements are shown on the work tab
         public enum ShowUIMode { Always, Never, Shifted, Unshifted}
-        public ShowUIMode ShowUIMode_ShowSmallSkillNumbers = ShowUIMode.Always;
+        public ShowUIMode ShowUIMode_ShowSmallSkillNumbers = ShowUIMode.Unshifted;
         public ShowUIMode ShowUIMode_ShowPawnForSkillSquare = ShowUIMode.Shifted;
 
 
@@ -118,7 +117,7 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref core_Basic, "core_Basic", true);
 
             Scribe_Values.Look(ref rule_BestDoctorsEnabled, "rule_BestDoctorsEnabled", true);
-            Scribe_Values.Look(ref rule_BestDoctorsPriority, "rule_BestDoctorsPriority", 1);
+            //Scribe_Values.Look(ref rule_BestDoctorsPriority, "rule_BestDoctorsPriority", 1);
 
             Scribe_Values.Look(ref rule_PassionOverrideEnabled, "rule_PassionOverrideEnabled", true);
             Scribe_Values.Look(ref passion_None, "passion_None", 0);
