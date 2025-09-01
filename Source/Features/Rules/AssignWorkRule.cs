@@ -9,7 +9,7 @@ using Verse;
 
 namespace Better_Work_Tab.Features.Rules
 {
-    public struct AssignWorkParams
+    public class AssignWorkParams
     {
         public AssignWorkParams(
             bool allowOverwritingHigherPriority = false,
@@ -27,13 +27,13 @@ namespace Better_Work_Tab.Features.Rules
             float moveSpeedGreaterThan = -1,
             float moveSpeedLessThan = -1,
             Gender? gender = null,
-            XenotypeDef xenotype = null
+            XenotypeDef xenotype = null,
+            TraitDef trait = null
             )
         {
             AllowOverwritingHigherPriority = allowOverwritingHigherPriority;
             HasHighestSkill = hasHighestSkill;
             SkipIfAnotherPawnAssigned = skipIfAnotherPawnAssigned;
-            Log.Message("SkipIfPriorityForThisWorktypeAreadyAssigned: " + skipIfPriorityForThisWorktypeAreadyAssigned);
             SkipIfPriorityForThisWorktypeAreadyAssigned = skipIfPriorityForThisWorktypeAreadyAssigned;
             AssignAllReleventWorktypesForSkill = assignAllReleventWorktypesForSkill;
             IsPregnant = isPregnant;
@@ -47,6 +47,7 @@ namespace Better_Work_Tab.Features.Rules
             MoveSpeedLessThan = moveSpeedLessThan;
             Gender = gender;
             Xenotype = xenotype;
+            RequiredTrait = trait;
         }
 
         public bool AllowOverwritingHigherPriority; //Implimented
@@ -69,6 +70,7 @@ namespace Better_Work_Tab.Features.Rules
         public Gender? Gender;
         
         public XenotypeDef Xenotype;
+        public TraitDef RequiredTrait;
 
     }
 
@@ -261,8 +263,52 @@ namespace Better_Work_Tab.Features.Rules
                 }
             }
 
+            if(Parameters.MoveSpeedGreaterThan > -1)
+            {
+                if(pawn.GetStatValue(StatDefOf.MoveSpeed, true) <= Parameters.MoveSpeedGreaterThan)
+                {
+                    //Log.Message($"[BWT] Skipping {Worktype.defName} for {pawn.Name} because pawn's move speed {pawn.GetStatValue(StatDefOf.MoveSpeed, true)} is less than required move speed {Parameters.MoveSpeedGreaterThan}");
+                    return;
+                }
+            }
 
-            pawn.workSettings.SetPriority(Worktype, Mathf.Clamp(Priority, 0, 4));
+            if(Parameters.MoveSpeedLessThan > -1)
+            {
+                if (pawn.GetStatValue(StatDefOf.MoveSpeed, true) >= Parameters.MoveSpeedLessThan)
+                {
+                    //Log.Message($"[BWT] Skipping {Worktype.defName} for {pawn.Name} because pawn's move speed {pawn.GetStatValue(StatDefOf.MoveSpeed, true)} is greater than required move speed {Parameters.MoveSpeedLessThan}");
+                    return;
+                }
+            }
+
+            if (Parameters.Gender != null)
+            { 
+                if(pawn.gender != Parameters.Gender)
+                {
+                    //Log.Message($"[BWT] Skipping {Worktype.defName} for {pawn.Name} because pawn is not the required gender {Parameters.Gender}");
+                    return;
+                }
+            }
+
+            if (Parameters.Xenotype != null)
+            {
+                if (pawn.genes?.Xenotype != Parameters.Xenotype)
+                {
+                    //Log.Message($"[BWT] Skipping {Worktype.defName} for {pawn.Name} because pawn is not the required xenotype {Parameters.Xenotype}");
+                    return;
+                }
+            }
+
+            if (Parameters.RequiredTrait != null)
+            {
+                if (!pawn.story?.traits.HasTrait(Parameters.RequiredTrait) ?? true)
+                {
+                    //Log.Message($"[BWT] Skipping {Worktype.defName} for {pawn.Name} because pawn does not have the required trait {Parameters.RequiredTrait}");
+                    return;
+                }
+            }
+
+                pawn.workSettings.SetPriority(Worktype, Mathf.Clamp(Priority, 0, 4));
         }
     }
 }
