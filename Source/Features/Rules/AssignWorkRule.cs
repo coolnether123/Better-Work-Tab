@@ -12,10 +12,10 @@ namespace Better_Work_Tab.Features.Rules
     public class AssignWorkParams
     {
         public AssignWorkParams(
+            int priority,
             bool allowOverwritingHigherPriority = false,
             bool hasHighestSkill = false,
             bool skipIfAnotherPawnAssigned = false,
-            bool assignSimilarWorktypes = false,
             bool isPregnant = false,
             bool isCapableOfViolence = false,
             bool isDedicatedPawn = false,
@@ -29,7 +29,11 @@ namespace Better_Work_Tab.Features.Rules
             float moveSpeedLessThan = -1,
             Gender? gender = null,
             XenotypeDef xenotype = null,
-            TraitDef trait = null
+            TraitDef trait = null,
+
+            AssignWorkParams assignSimilarWorktypes = null
+
+
             )
         {
             AllowOverwritingHigherPriority = allowOverwritingHigherPriority;
@@ -51,12 +55,14 @@ namespace Better_Work_Tab.Features.Rules
             Gender = gender;
             Xenotype = xenotype;
             RequiredTrait = trait;
+            Priority = Mathf.Clamp(priority, -1, 4);
         }
+
+        public int Priority;// (-1 to ignore, 0 to disable, 1-4 for priorities)
 
         public bool AllowOverwritingHigherPriority; //Implimented
         public bool HasHighestSkill; //Implimented
         public bool SkipIfAnotherPawnAssigned; //Implimented
-        public bool AssignSimilarWorktypes; //implimented
         public bool IsPregnant; //Implimented
         public bool IsCapableOfViolence; //Implimented
         /*TODO: */public bool MustHaveDedicatedPawn;
@@ -76,6 +82,9 @@ namespace Better_Work_Tab.Features.Rules
         public XenotypeDef Xenotype;
         public TraitDef RequiredTrait;
 
+        public AssignWorkParams AssignSimilarWorktypes; //implimented
+
+
     }
 
     internal class AssignWorkRule
@@ -84,15 +93,19 @@ namespace Better_Work_Tab.Features.Rules
         public WorkTypeDef CachedWorktype { get; }
 
         // The priority level to assign (0 to disable, 1-4 for priorities)
-        int Priority;
-
         // Additional parameters to customize the assignment logic
         public AssignWorkParams Parameters;
 
-        public AssignWorkRule(  int priority, AssignWorkParams parameters, WorkTypeDef worktype = null)
+        public static List<WorkTypeDef> AllWorkTypes { get
+            {
+                    var allWorkTypes = DefDatabase<WorkTypeDef>.AllDefsListForReading;
+                allWorkTypes.RemoveDuplicates(); ;
+                return allWorkTypes;
+            } }
+
+        public AssignWorkRule(AssignWorkParams parameters, WorkTypeDef worktype = null)
         {
             CachedWorktype = worktype;
-            Priority = priority;
             Parameters = parameters;
 
         }
@@ -134,7 +147,7 @@ namespace Better_Work_Tab.Features.Rules
             {
 
             // If the current priority is higher than the rule priority and the current priority is not 0 and the rule priority is not 0
-                if (pawn.workSettings.GetPriority(Worktype) < Priority && pawn.workSettings.GetPriority(Worktype) != 0 && Priority != 0)
+                if (pawn.workSettings.GetPriority(Worktype) < Parameters.Priority && pawn.workSettings.GetPriority(Worktype) != 0 && Parameters.Priority != 0)
                 {
                     //Log.Message($"[BWT] Skipping {Worktype.defName} for {pawn.Name} because current priority {pawn.workSettings.GetPriority(Worktype)} is lower than rule priority {Priority}");
                     return false;
@@ -197,10 +210,21 @@ namespace Better_Work_Tab.Features.Rules
                 Log.Warning("Not Implimented: MustHaveDedicatedPawn");
             }
 
-            if(Parameters.AssignSimilarWorktypes)
+            if(Parameters.AssignSimilarWorktypes != null)
             {
-                Log.Warning("Not Implimented: AssignSimilarWorktypes");
-
+                Log.Message("Assigning similar worktypes for " + Worktype.defName);
+                foreach (var relevantSkill in Worktype.relevantSkills)
+                {
+                    foreach(var wt in AllWorkTypes)
+                    {
+                        if (wt.relevantSkills.Contains(relevantSkill))
+                        {
+                            Log.Message(" - " + wt.defName);
+                            new AssignWorkRule(Parameters.AssignSimilarWorktypes, wt).Apply(pawn, currentPawns);
+                        }
+                    }
+                }
+                //Log.Warning("Not Implimented: AssignSimilarWorktypes");
             }
 
             // Assigns to the pawn with the fewest work priorities assigned
@@ -214,12 +238,10 @@ namespace Better_Work_Tab.Features.Rules
                 foreach (Pawn p in currentPawns)
                 {
                     //get all work types and remove duplicates
-                    var allWorkTypes = DefDatabase<WorkTypeDef>.AllDefsListForReading;
-                    allWorkTypes.RemoveDuplicates();
 
                     //count the number of work types with a priority greater than 0
                     int worktypeCount = 0;// allWorkTypes.Where((a, b) => { return p.workSettings.GetPriority(a) > 0; }).Count();
-                    foreach (var wt in allWorkTypes)
+                    foreach (var wt in AllWorkTypes)
                     {
                         if (p.workSettings.GetPriority(wt) > 0)
                         {
@@ -342,7 +364,7 @@ namespace Better_Work_Tab.Features.Rules
 
             // If we reach here, all conditions are met - assign the priority
             //Log.Message($"[BWT] Assigning {Worktype.defName} to {pawn.Name} with priority {Priority}.");
-            pawn.workSettings.SetPriority(Worktype, Mathf.Clamp(Priority, 0, 4));
+            pawn.workSettings.SetPriority(Worktype, Mathf.Clamp(Parameters.Priority, 0, 4));
             return skipForRemainingPawns;
         }
     }
