@@ -14,20 +14,20 @@ namespace Better_Work_Tab.Features
     public class AutoWorkAssigner
     {
         private readonly BetterWorkTabSettings _settings;
-        private readonly List<IAssignmentRule> _rules;
+        private readonly List<AssignWorkRule> _rules;
 
         public AutoWorkAssigner(BetterWorkTabSettings settings)
         {
             _settings = settings;
-
-            _rules = new List<IAssignmentRule>
+            var paramas = new AssignWorkParams();
+            Log.Message("Skip if: "+paramas.SkipIfPriorityForThisWorktypeAreadyAssigned);
+            _rules = new List<AssignWorkRule>
             {
-                new CoreWorkTypeRule(),
-                new DoctorRule(),
-                new PassionRule(),
-                new ChildcareRule(),
-                // TODO: Implement UI for rule_AlwaysHaveOneByWorkType and rule_AlwaysAssignAllByWorkType
+                new AssignWorkRule(0, paramas),
+                //new AssignWorkRule(2, new AssignWorkParams(skillLevelGreaterThan: 5), WorkTypeDefOf.Doctor),
+                //new AssignWorkRule(4, new AssignWorkParams(skillLevelLessThan: 6), WorkTypeDefOf.Doctor),
             };
+
         }
 
         /// <summary>
@@ -40,44 +40,40 @@ namespace Better_Work_Tab.Features
 
             Find.PlaySettings.useWorkPriorities = true;
 
-            var pawns = map.mapPawns.FreeColonistsSpawned.ToList();
+            var pawns = map.mapPawns.FreeColonists.ToList();
             if (pawns.Count == 0) return;
 
             var allWorkTypes = DefDatabase<WorkTypeDef>.AllDefsListForReading;
+            allWorkTypes.RemoveDuplicates();
+            //int bestMed = pawns.Any(p => p.skills != null)
+            //    ? pawns.Max(p => p.skills?.GetSkill(SkillDefOf.Medicine)?.Level ?? 0)
+            //    : 0;
+            //var bestDoctors = new HashSet<Pawn>(
+            //    pawns.Where(p =>
+            //        p.skills != null &&
+            //        (p.skills.GetSkill(SkillDefOf.Medicine)?.Level ?? 0) == bestMed));
 
-            int bestMed = pawns.Any(p => p.skills != null)
-                ? pawns.Max(p => p.skills?.GetSkill(SkillDefOf.Medicine)?.Level ?? 0)
-                : 0;
-            var bestDoctors = new HashSet<Pawn>(
-                pawns.Where(p =>
-                    p.skills != null &&
-                    (p.skills.GetSkill(SkillDefOf.Medicine)?.Level ?? 0) == bestMed));
 
-            foreach (var pawn in pawns)
+
+            foreach (var rule in _rules)
             {
-                if (pawn.workSettings == null) continue;
-
-                pawn.workSettings.EnableAndInitialize();
-
-                var touched = new HashSet<WorkTypeDef>();
-
-                System.Action<WorkTypeDef, int> setPrioritySafe = (wt, pri) =>
+                foreach (var worktype in allWorkTypes)
                 {
-                    if (pawn.WorkTypeIsDisabled(wt)) return;
-                    pawn.workSettings.SetPriority(wt, Mathf.Clamp(pri, 1, 4));
-                    touched.Add(wt);
-                };
+                    //Log.Message($"Auto-assigning work type: {worktype.defName}");
+                    foreach (var pawn in pawns)
+                    {
+                        if (pawn.workSettings == null) continue;
 
-                var context = new AutoAssignmentContext(_settings, allWorkTypes, bestDoctors, touched);
-
-                // Apply all rules
-                foreach (var rule in _rules)
-                {
-                    rule.Apply(pawn, setPrioritySafe, context);
+                        //pawn.workSettings.EnableAndInitialize();
+                        // Apply all rules
+                        // If the rule is specific to a work type and it doesn't match the current work type, skip it
+                        if (rule.CachedWorktype != null && worktype != rule.CachedWorktype)
+                        {
+                            continue;
+                        }
+                        rule.Apply(pawn, pawns, worktype);
+                    }
                 }
-
-                // Apply DefaultPriorityRule last
-                new DefaultPriorityRule().Apply(pawn, setPrioritySafe, context);
             }
         }
     }
