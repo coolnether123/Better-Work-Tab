@@ -24,9 +24,10 @@ namespace Better_Work_Tab.Features
             _rules = new List<AssignWorkRule>
             {
                 new AssignWorkRule(0, paramas),
-                new AssignWorkRule(2, new AssignWorkParams(xenotype: XenotypeDefOf.Sanguophage)),
-                new AssignWorkRule(3, new AssignWorkParams(gender: Gender.Male), WorkTypeDefOf.Doctor),
-                new AssignWorkRule(4, new AssignWorkParams(trait: TraitDefOf.Abrasive, allowOverwritingHigherPriority: true), WorkTypeDefOf.Doctor),
+                new AssignWorkRule(4, new AssignWorkParams(skillLevelGreaterThan: 4)),
+                //new AssignWorkRule(2, new AssignWorkParams(xenotype: XenotypeDefOf.Sanguophage)),
+                //new AssignWorkRule(3, new AssignWorkParams(gender: Gender.Male), WorkTypeDefOf.Doctor),
+                new AssignWorkRule(1, new AssignWorkParams(assignToPawnWithFewestWorkPriorities: true), WorkTypeDefOf.Doctor),
             };
 
         }
@@ -65,14 +66,19 @@ namespace Better_Work_Tab.Features
                     {
                         if (pawn.workSettings == null) continue;
 
-                        //pawn.workSettings.EnableAndInitialize();
-                        // Apply all rules
-                        // If the rule is specific to a work type and it doesn't match the current work type, skip it
-                        if (rule.CachedWorktype != null && worktype != rule.CachedWorktype)
+                        ////pawn.workSettings.EnableAndInitialize();
+                        //// Apply all rules
+                        //// If the rule is specific to a work type and it doesn't match the current work type, skip it
+                        //if (rule.CachedWorktype != null && worktype != rule.CachedWorktype)
+                        //{
+                        //    continue;
+                        //}
+                        if (rule.Apply(pawn, pawns, worktype))
                         {
-                            continue;
+                            Log.Message("assigned " + worktype.defName +" to " + pawn.NameShortColored +". Skipping remaining pawns.");
+                            //Apply returns true if the rest of the pawns should be skipped for this worktype
+                            break;
                         }
-                        rule.Apply(pawn, pawns, worktype);
                     }
                 }
             }
