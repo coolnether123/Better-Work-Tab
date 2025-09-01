@@ -48,6 +48,7 @@
     <Compile Include="Features\AutoAssignmentContext.cs" />
     <Compile Include="Features\AutoWorkAssigner.cs" />
     <Compile Include="Features\IAssignmentRule.cs" />
+    <Compile Include="Features\Rules\AssignWorkRule.cs" />
     <Compile Include="Features\Rules\ChildcareRule.cs" />
     <Compile Include="Features\Rules\CoreWorkTypeRule.cs" />
     <Compile Include="Features\Rules\DefaultPriorityRule.cs" />
