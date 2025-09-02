@@ -77,7 +77,7 @@ namespace Better_Work_Tab
                 halvedAlpha.a = halvedAlpha.a / 2f;
                 return UseCustomMouseHoverHighlight ? Color_CustomMouseHighlight : halvedAlpha; 
             }
-        }
+        } 
         public Color Color_SimilarWorktypeMouseOver
         {
             get
