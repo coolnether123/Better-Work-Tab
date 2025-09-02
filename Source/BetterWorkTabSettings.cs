@@ -82,7 +82,7 @@ namespace Better_Work_Tab
         {
             get
             {
-                Color halvedAlpha = Color_CursorHighlight;
+                Color halvedAlpha = Color_MouseHoverHighlight;
                 halvedAlpha.a = halvedAlpha.a / 2f;
                 return UseCustomMouseHoverHighlight ? Color_CustomSimilarWorktypeHighlight: halvedAlpha;
             }
