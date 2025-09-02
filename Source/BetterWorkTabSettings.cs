@@ -62,21 +62,32 @@ namespace Better_Work_Tab
         public bool DoSelectedPawnHighlight = true;
 
         // This allows custom color for mouse hover highlight instead of reusing cursor highlight color
-        public bool UseCustomMouseHoverPawnAndWorktypeHighlight = false;
+        public bool UseCustomMouseHoverHighlight = false;
 
         // These colors are used for pawn/worktype highlights on the work tab
-        public Color Color_CursorPawnAndWorktypeHighlight = new Color(0.737f, 0.737f, 0.114f, 0.5f); // Yellow with 50% alpha
-        public Color Color_FloatMenuPawnAndWorktypeHighlight = new Color(0.114f, 0.737f, 0.737f, 0.5f);// Blue with 50% alpha
-        public Color Color_CustomMouseHoverPawnAndWorktypeHighlight = new Color(0.737f, 0.737f, 0.114f, 0.25f); // Yellow with 25% alpha
-        public Color Color_MouseHoverPawnAndWorktypeHighlight // This returns either the custom color or a halved alpha version of the cursor color
+        public Color Color_CursorHighlight = new Color(0.737f, 0.737f, 0.114f, 0.5f); // Yellow with 50% alpha
+        public Color Color_FloatMenuHighlight = new Color(0.114f, 0.737f, 0.737f, 0.5f);// Blue with 50% alpha
+        public Color Color_CustomMouseHighlight = new Color(0.737f, 0.737f, 0.114f, 0.25f); // Yellow with 25% alpha
+        public Color Color_CustomSimilarWorktypeHighlight = new Color(0.737f, 0.737f, 0.114f, 0.125f); // Yellow with 25% alpha
+        public Color Color_MouseHoverHighlight // This returns either the custom color or a halved alpha version of the cursor color
         {
             get 
             {
-                Color halvedAlpha = Color_CursorPawnAndWorktypeHighlight;
+                Color halvedAlpha = Color_CursorHighlight;
                 halvedAlpha.a = halvedAlpha.a / 2f;
-                return UseCustomMouseHoverPawnAndWorktypeHighlight ? Color_CustomMouseHoverPawnAndWorktypeHighlight : halvedAlpha; 
+                return UseCustomMouseHoverHighlight ? Color_CustomMouseHighlight : halvedAlpha; 
             }
         }
+        public Color Color_SimilarWorktypeMouseOver
+        {
+            get
+            {
+                Color halvedAlpha = Color_CursorHighlight;
+                halvedAlpha.a = halvedAlpha.a / 2f;
+                return UseCustomMouseHoverHighlight ? Color_CustomSimilarWorktypeHighlight: halvedAlpha;
+            }
+        }
+
         // This color is used to indicate a pawn is incapable of a work type due to health conditions. Vanilla red is Color(1,0.3,0.3)
         public Color Color_IncapableBecauseOfCapacities = new Color(1f, 0.3f, 0.3f); // Red
 
