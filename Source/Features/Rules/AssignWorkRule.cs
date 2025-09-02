@@ -19,7 +19,9 @@ namespace Better_Work_Tab.Features.Rules
             bool isPregnant = false,
             bool isCapableOfViolence = false,
             bool assignToPawnWithFewestWorkPriorities = false,
-            int skipIfPriorityForThisWorktypeAreadyAssigned = -1,
+            bool hasChildOnMap = false,
+
+        int skipIfPriorityForThisWorktypeAreadyAssigned = -1,
             int passionLevel = -1,
             int skillLevelGreaterThan = -1,
             int skillLevelLessThan = -1,
@@ -30,9 +32,9 @@ namespace Better_Work_Tab.Features.Rules
             TraitDef trait = null,
 
             AssignWorkParams assignSimilarWorktypes = null,
-            AssignWorkParams failedToApplyFallback = null
+            AssignWorkParams failedToApplyFallback = null,
 
-
+            WorkTypeDef worktype = null
             )
         {
             AllowOverwritingHigherPriority = allowOverwritingHigherPriority;
@@ -41,6 +43,7 @@ namespace Better_Work_Tab.Features.Rules
             SkipIfPriorityForThisWorktypeAreadyAssigned = skipIfPriorityForThisWorktypeAreadyAssigned;
             AssignSimilarWorktypes = assignSimilarWorktypes;
             FailedToApplyFallback = failedToApplyFallback;
+            HasChildOnMap = hasChildOnMap;
 
             IsPregnant = isPregnant;
             IsCapableOfViolence = isCapableOfViolence;
@@ -54,6 +57,7 @@ namespace Better_Work_Tab.Features.Rules
             Xenotype = xenotype;
             RequiredTrait = trait;
             Priority = Mathf.Clamp(priority, -1, 4);
+            Worktype = worktype;
         }
 
         public int Priority;// (-1 to ignore, 0 to disable, 1-4 for priorities)
@@ -64,6 +68,7 @@ namespace Better_Work_Tab.Features.Rules
         public bool IsPregnant; //Implimented
         public bool IsCapableOfViolence; //Implimented
         public bool AssignToPawnWithFewestWorkPriorities; //Implimented
+        public bool HasChildOnMap;
         //public bool MustBeAssigned = false;
 
         public int SkipIfPriorityForThisWorktypeAreadyAssigned; //Implimented
@@ -82,6 +87,7 @@ namespace Better_Work_Tab.Features.Rules
         public AssignWorkParams AssignSimilarWorktypes; //implimented
         public AssignWorkParams FailedToApplyFallback;
 
+        public WorkTypeDef Worktype;
 
     }
 
@@ -120,18 +126,30 @@ namespace Better_Work_Tab.Features.Rules
 
             bool skipRemainingPawns = false;
 
-            // Use the cached work type if available
-            var Worktype = CachedWorktype;
-            // If no specific work type is set for this rule, use the provided work type
+
+            // Determine the work type to apply this rule to
+            //starting with the worktype in the params
+            var Worktype = Parameters.Worktype;
+            // if there is no worktype in the params, use the worktype provided to the constructor
             if (Worktype == null)
             {
+
+                Worktype = CachedWorktype;
+            }
+
+            // if there is no worktype in the constructor, use the worktype provided to this method
+            if (Worktype == null)
+            {
+
                 Worktype = worktype;
-                if (Worktype == null)
-                {
-                    Log.Error("[BWT] Trying to apply priority to a null worktype.");
-                    //true means skip this worktype for remaining pawns
-                    return true;
-                }
+            }
+
+            // If Worktype is STILL null, log an error and skip
+            if (Worktype == null)
+            {
+                Log.Error("[BWT] Trying to apply priority to a null worktype.");
+                //true means skip this worktype for remaining pawns
+                return true;
             }
 
             // If the pawn cannot perform this work type skip assignment
@@ -349,6 +367,41 @@ namespace Better_Work_Tab.Features.Rules
                 if (!pawn.story?.traits.HasTrait(Parameters.RequiredTrait) ?? true)
                 {
                     //Log.Message($"[BWT] Skipping {Worktype.defName} for {pawn.Name} because pawn does not have the required trait {Parameters.RequiredTrait}");
+                    return false;
+                }
+            }
+
+            if(Parameters.HasChildOnMap)
+            {
+                bool hasChild = false;
+                foreach (var p in Find.CurrentMap.mapPawns.FreeColonists.Where(p=>(int)p.DevelopmentalStage < (int)DevelopmentalStage.Adult))
+                {
+                    // Skip self (you're not your own child)
+                    if (p == pawn) continue;
+                    // Skip adults (they're not children)
+                    if (p.DevelopmentalStage == DevelopmentalStage.Adult) continue;
+
+                    Log.Message($"[BWT] Checking if parent {pawn.Name} has child {p.Name}.");
+
+                    if (p.GetFather() == null)
+                    {
+                        Log.Message($"[BWT] Child {p.Name} has no recorded father.");
+                    }
+                    if (p.GetMother() == null)
+                    {
+                        Log.Message($"[BWT] Child {p.Name} has no recorded mother.");
+                    }
+                    //if the child is a birth child of the current pawn
+                    if (p.GetFather() == pawn || p.GetMother() == pawn)
+                    {
+                        Log.Message($"[BWT] {pawn.Name} has a child on the map ({p.Name}).");
+                        hasChild = true;
+                        break;
+                    }
+                }
+                if (!hasChild)
+                {
+                    //Log.Message($"[BWT] Skipping {Worktype.defName} for {pawn.Name} because pawn does not have a child on the map.");
                     return false;
                 }
             }
