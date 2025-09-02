@@ -18,9 +18,7 @@ namespace Better_Work_Tab.Features.Rules
             bool skipIfAnotherPawnAssigned = false,
             bool isPregnant = false,
             bool isCapableOfViolence = false,
-            bool isDedicatedPawn = false,
             bool assignToPawnWithFewestWorkPriorities = false,
-            //bool mustBeAssigned = false,
             int skipIfPriorityForThisWorktypeAreadyAssigned = -1,
             int passionLevel = -1,
             int skillLevelGreaterThan = -1,
@@ -31,7 +29,8 @@ namespace Better_Work_Tab.Features.Rules
             XenotypeDef xenotype = null,
             TraitDef trait = null,
 
-            AssignWorkParams assignSimilarWorktypes = null
+            AssignWorkParams assignSimilarWorktypes = null,
+            AssignWorkParams failedToApplyFallback = null
 
 
             )
@@ -41,11 +40,10 @@ namespace Better_Work_Tab.Features.Rules
             SkipIfAnotherPawnAssigned = skipIfAnotherPawnAssigned;
             SkipIfPriorityForThisWorktypeAreadyAssigned = skipIfPriorityForThisWorktypeAreadyAssigned;
             AssignSimilarWorktypes = assignSimilarWorktypes;
-            //MustBeAssigned = mustBeAssigned;
+            FailedToApplyFallback = failedToApplyFallback;
 
             IsPregnant = isPregnant;
             IsCapableOfViolence = isCapableOfViolence;
-            MustHaveDedicatedPawn = isDedicatedPawn;
             AssignToPawnWithFewestWorkPriorities = assignToPawnWithFewestWorkPriorities;
             PassionLevel = (int)Mathf.Clamp(passionLevel, -1, 2);
             SkillLevelGreaterThan = skillLevelGreaterThan;
@@ -65,7 +63,6 @@ namespace Better_Work_Tab.Features.Rules
         public bool SkipIfAnotherPawnAssigned; //Implimented
         public bool IsPregnant; //Implimented
         public bool IsCapableOfViolence; //Implimented
-        /*TODO: */public bool MustHaveDedicatedPawn;
         public bool AssignToPawnWithFewestWorkPriorities; //Implimented
         //public bool MustBeAssigned = false;
 
@@ -83,6 +80,7 @@ namespace Better_Work_Tab.Features.Rules
         public TraitDef RequiredTrait;
 
         public AssignWorkParams AssignSimilarWorktypes; //implimented
+        public AssignWorkParams FailedToApplyFallback;
 
 
     }
@@ -98,8 +96,8 @@ namespace Better_Work_Tab.Features.Rules
 
         public static List<WorkTypeDef> AllWorkTypes { get
             {
-                    var allWorkTypes = DefDatabase<WorkTypeDef>.AllDefsListForReading;
-                allWorkTypes.RemoveDuplicates(); ;
+                var allWorkTypes = DefDatabase<WorkTypeDef>.AllDefsListForReading.OrderBy(wt => wt.naturalPriority).Reverse().ToList();
+                allWorkTypes.RemoveDuplicates();
                 return allWorkTypes;
             } }
 
@@ -120,7 +118,7 @@ namespace Better_Work_Tab.Features.Rules
         public bool Apply(Pawn pawn, List<Pawn> currentPawns, WorkTypeDef worktype = null)
         {
 
-            bool skipForRemainingPawns = false;
+            bool skipRemainingPawns = false;
 
             // Use the cached work type if available
             var Worktype = CachedWorktype;
@@ -179,7 +177,7 @@ namespace Better_Work_Tab.Features.Rules
                     if (p == pawn) continue;
                     if (p.workSettings.GetPriority(Worktype) > 0)
                     {
-                        Log.Message($"[BWT] Skipping {Worktype.defName} for {pawn.Name} because another pawn ({p.Name}) is already assigned to this work type.");
+                        //Log.Message($"[BWT] Skipping {Worktype.defName} for {pawn.Name} because another pawn ({p.Name}) is already assigned to this work type.");
                         return false;
                     }
                 }
@@ -205,21 +203,15 @@ namespace Better_Work_Tab.Features.Rules
                 }
             }
 
-            if (Parameters.MustHaveDedicatedPawn)
-            {
-                Log.Warning("Not Implimented: MustHaveDedicatedPawn");
-            }
 
             if(Parameters.AssignSimilarWorktypes != null)
             {
-                Log.Message("Assigning similar worktypes for " + Worktype.defName);
                 foreach (var relevantSkill in Worktype.relevantSkills)
                 {
                     foreach(var wt in AllWorkTypes)
                     {
                         if (wt.relevantSkills.Contains(relevantSkill))
                         {
-                            Log.Message(" - " + wt.defName);
                             new AssignWorkRule(Parameters.AssignSimilarWorktypes, wt).Apply(pawn, currentPawns);
                         }
                     }
@@ -266,7 +258,7 @@ namespace Better_Work_Tab.Features.Rules
                 }
                 else
                 {
-                    skipForRemainingPawns = true;
+                    skipRemainingPawns = true;
                 }
 
             }
@@ -276,14 +268,13 @@ namespace Better_Work_Tab.Features.Rules
             // Skips if another pawn is already assigned to the indicated priority for this work type
             if (Parameters.SkipIfPriorityForThisWorktypeAreadyAssigned > -1)
             {
-                Log.Message("Checking if another pawn is already assigned to this priority for this work type: " + Parameters.SkipIfPriorityForThisWorktypeAreadyAssigned);
                 foreach (Pawn p in currentPawns)
                 {
                     // Skip self
                     if (p == pawn) continue;
                     if (p.workSettings.GetPriority(Worktype) == Parameters.SkipIfPriorityForThisWorktypeAreadyAssigned)
                     {
-                        Log.Message($"[BWT] Skipping {Worktype.defName} for {pawn.Name} because another pawn ({p.Name}) is already assigned to top priority for this work type.");
+                        //Log.Message($"[BWT] Skipping {Worktype.defName} for {pawn.Name} because another pawn ({p.Name}) is already assigned to top priority for this work type.");
                         return false;
                     }
                 }
@@ -365,7 +356,7 @@ namespace Better_Work_Tab.Features.Rules
             // If we reach here, all conditions are met - assign the priority
             //Log.Message($"[BWT] Assigning {Worktype.defName} to {pawn.Name} with priority {Priority}.");
             pawn.workSettings.SetPriority(Worktype, Mathf.Clamp(Parameters.Priority, 0, 4));
-            return skipForRemainingPawns;
+            return skipRemainingPawns;
         }
     }
 }

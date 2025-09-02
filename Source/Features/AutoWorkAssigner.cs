@@ -24,7 +24,8 @@ namespace Better_Work_Tab.Features
             _rules = new List<AssignWorkRule>
             {
                 new AssignWorkRule(paramas),
-                new AssignWorkRule(new AssignWorkParams(1, assignSimilarWorktypes: new AssignWorkParams(2, skillLevelGreaterThan: 1)), worktype: WorkTypeDefOf.Crafting)
+                //new AssignWorkRule(new AssignWorkParams(1)),
+                new AssignWorkRule(new AssignWorkParams(1,failedToApplyFallback: new AssignWorkParams(2, hasHighestSkill: true), gender: Gender.None))
                 //new AssignWorkRule(4, new AssignWorkParams(skillLevelGreaterThan: 4)),
                 //new AssignWorkRule(2, new AssignWorkParams(xenotype: XenotypeDefOf.Sanguophage)),
                 //new AssignWorkRule(3, new AssignWorkParams(gender: Gender.Male), WorkTypeDefOf.Doctor),
@@ -46,7 +47,7 @@ namespace Better_Work_Tab.Features
             var pawns = map.mapPawns.FreeColonists.ToList();
             if (pawns.Count == 0) return;
 
-            var allWorkTypes = DefDatabase<WorkTypeDef>.AllDefsListForReading;
+            var allWorkTypes = DefDatabase<WorkTypeDef>.AllDefsListForReading.OrderBy(wt=>wt.naturalPriority).Reverse().ToList();
             allWorkTypes.RemoveDuplicates();
             //int bestMed = pawns.Any(p => p.skills != null)
             //    ? pawns.Max(p => p.skills?.GetSkill(SkillDefOf.Medicine)?.Level ?? 0)
@@ -55,7 +56,6 @@ namespace Better_Work_Tab.Features
             //    pawns.Where(p =>
             //        p.skills != null &&
             //        (p.skills.GetSkill(SkillDefOf.Medicine)?.Level ?? 0) == bestMed));
-
 
 
             foreach (var rule in _rules)
@@ -76,13 +76,23 @@ namespace Better_Work_Tab.Features
                         //}
                         if (rule.Apply(pawn, pawns, worktype))
                         {
-                            Log.Message("assigned " + worktype.defName +" to " + pawn.NameShortColored +". Skipping remaining pawns.");
+                            //Log.Message("assigned " + worktype.defName +" to " + pawn.NameShortColored +". Skipping remaining pawns.");
                             //Apply returns true if the rest of the pawns should be skipped for this worktype
                             break;
                         }
+
+                    }
+
+                    if(rule.Parameters.FailedToApplyFallback != null && !pawns.Where(p => { return p.workSettings.GetPriority(worktype) > 0; }).Any())
+                    {
+                        Log.Message($"No pawn could be assigned to work type: {worktype.defName}. Applying fallback.");
+                        foreach (var pawn in pawns)
+                            new AssignWorkRule(rule.Parameters.FailedToApplyFallback).Apply(pawn, pawns, worktype);
                     }
                 }
             }
         }
+
+
     }
 }
