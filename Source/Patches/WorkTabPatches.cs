@@ -7,6 +7,7 @@ using UnityEngine;
 using Verse;
 using Verse.Sound;
 using LudeonTK;
+using System.Linq;
 
 namespace Better_Work_Tab.Patches
 {
@@ -432,14 +433,14 @@ namespace Better_Work_Tab.Patches
                 if (Find.Selector.IsSelected(__instance.cachedPawns[i]))
                     //use float menu color if opened that way
                     if (BetterWorkTabMod.Settings.ShowFloatMenuPawnAndWorktypeHighlight && worktypeToHighlight != null)
-                        Widgets.DrawBoxSolid(rect, BetterWorkTabMod.Settings.Color_FloatMenuPawnAndWorktypeHighlight);
+                        Widgets.DrawBoxSolid(rect, BetterWorkTabMod.Settings.Color_FloatMenuHighlight);
                     //otherwise use selected color
                     else if (BetterWorkTabMod.Settings.DoSelectedPawnHighlight)
-                        Widgets.DrawBoxSolid(rect, BetterWorkTabMod.Settings.Color_CursorPawnAndWorktypeHighlight);
+                        Widgets.DrawBoxSolid(rect, BetterWorkTabMod.Settings.Color_CursorHighlight);
 
                 //highlight if mouse is over
                 if (BetterWorkTabMod.Settings.ShowCursorPawnAndWorktypeHighlight && Mouse.IsOver(rect))
-                    Widgets.DrawBoxSolid(rect, BetterWorkTabMod.Settings.Color_MouseHoverPawnAndWorktypeHighlight);
+                    Widgets.DrawBoxSolid(rect, BetterWorkTabMod.Settings.Color_MouseHoverHighlight);
 
                 //increment startingY for next row
                 startingY += __instance.cachedRowHeights[i];
@@ -448,6 +449,7 @@ namespace Better_Work_Tab.Patches
 
         private static void HighlightWorktype(PawnTable __instance, Vector2 position, float totalHeight)
         {
+
             //each column starts at the same y position, but the x position increases by the width of each column
             float startingX = 0;
             for (int i = 0; i < __instance.columns.Count; i++)
@@ -457,29 +459,74 @@ namespace Better_Work_Tab.Patches
 
                 //highlight if opened from float menu
                 if (BetterWorkTabMod.Settings.ShowFloatMenuPawnAndWorktypeHighlight && worktypeToHighlight == __instance.columns[i].workType && __instance.columns[i].Worker is PawnColumnWorker_WorkPriority)
-                    Widgets.DrawBoxSolid(rect, BetterWorkTabMod.Settings.Color_FloatMenuPawnAndWorktypeHighlight);
+                    Widgets.DrawBoxSolid(rect, BetterWorkTabMod.Settings.Color_FloatMenuHighlight);
 
                 //highlight if mouse is over
                 if (BetterWorkTabMod.Settings.ShowCursorPawnAndWorktypeHighlight && Mouse.IsOver(rect) && __instance.columns[i].Worker is PawnColumnWorker_WorkPriority)
-                    Widgets.DrawBoxSolid(rect, BetterWorkTabMod.Settings.Color_MouseHoverPawnAndWorktypeHighlight);
-
+                {
+                    Widgets.DrawBoxSolid(rect, BetterWorkTabMod.Settings.Color_MouseHoverHighlight);
+                    Widgets.DrawHighlight(rect);
+                    if (!(__instance.columns[i].Worker is PawnColumnWorker_WorkPriority)) continue;
+                    HighlightSimilarWorktypes(__instance.columns[i].workType, __instance.columns.Count, i, __instance, totalHeight);
+                }
                 //increment startingX for next column
                 startingX += __instance.cachedColumnWidths[i];
+
+                    
+                                        
+                    
+                    
+                    
+                    
+                    
+
             }
 
         }
-    }
 
-    //Patching Window and filtering to MainTabWindow_Work because MainTabWindow_Work does not have a PreClose method to patch. This is the only way to do this.
-    [HarmonyPatch(typeof(Window), nameof(Window.PreClose))]
-    public static class MainTabWindow_Work_PreOpen
-    {
-        public static void Postfix(Window __instance)
+        private static void HighlightSimilarWorktypes(WorkTypeDef worktype, int columnCount, int myIndex, PawnTable __instance, float totalHeight)
         {
-            if (!(__instance is MainTabWindow_Work)) return;
+            var relevantSkills = worktype.relevantSkills;
+            float startingX = 0;
 
-            //Clear the highlighted worktype when closing the work tab. This makes it so the highlight only persists while the tab is open, and it will reset when closed.
-            PawnTable_HighlightRowAndColumn.SetWorktypeToHighlight(null);
+            for (int i = 0; i < columnCount; i++)
+            {
+
+                if (__instance.columns[i].Worker is PawnColumnWorker_WorkPriority)
+                {
+                    var rect = new Rect(startingX, 0, __instance.cachedColumnWidths[i], totalHeight);
+                    foreach (var skill in relevantSkills)
+                    {
+                        if (__instance.columns[i].workType.relevantSkills.Contains(skill))
+                        {
+                            if (i != myIndex)
+                            {
+                                Widgets.DrawBoxSolid(rect, BetterWorkTabMod.Settings.Color_SimilarWorktypeMouseOver);
+                                Widgets.DrawHighlight(rect);
+
+                            }
+                        }
+                    }
+                }
+                startingX += __instance.cachedColumnWidths[i];
+
+            }
+
+        }
+
+
+
+        //Patching Window and filtering to MainTabWindow_Work because MainTabWindow_Work does not have a PreClose method to patch. This is the only way to do this.
+        [HarmonyPatch(typeof(Window), nameof(Window.PreClose))]
+        public static class MainTabWindow_Work_PreOpen
+        {
+            public static void Postfix(Window __instance)
+            {
+                if (!(__instance is MainTabWindow_Work)) return;
+
+                //Clear the highlighted worktype when closing the work tab. This makes it so the highlight only persists while the tab is open, and it will reset when closed.
+                PawnTable_HighlightRowAndColumn.SetWorktypeToHighlight(null);
+            }
         }
     }
 }
