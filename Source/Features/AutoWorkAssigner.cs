@@ -19,18 +19,24 @@ namespace Better_Work_Tab.Features
         public AutoWorkAssigner(BetterWorkTabSettings settings)
         {
             _settings = settings;
-            var paramas = new AssignWorkParams(0);
-            Log.Message("Skip if: "+paramas.SkipIfPriorityForThisWorktypeAreadyAssigned);
-            _rules = new List<AssignWorkRule>
+            var parameterses = new List<AssignWorkParams>
             {
-                new AssignWorkRule(paramas),
-                //new AssignWorkRule(new AssignWorkParams(1)),
-                new AssignWorkRule(new AssignWorkParams(1,failedToApplyFallback: new AssignWorkParams(2, hasHighestSkill: true), gender: Gender.None))
-                //new AssignWorkRule(4, new AssignWorkParams(skillLevelGreaterThan: 4)),
-                //new AssignWorkRule(2, new AssignWorkParams(xenotype: XenotypeDefOf.Sanguophage)),
-                //new AssignWorkRule(3, new AssignWorkParams(gender: Gender.Male), WorkTypeDefOf.Doctor),
-                //new AssignWorkRule(1, new AssignWorkParams(assignToPawnWithFewestWorkPriorities: true), WorkTypeDefOf.Doctor),
+                new AssignWorkParams(1, worktype: WorkTypeDefOf.Firefighter),
+                new AssignWorkParams(1, worktype: DefDatabase<WorkTypeDef>.GetNamed("Patient")),
+                new AssignWorkParams(1, worktype: DefDatabase<WorkTypeDef>.GetNamed("PatientBedRest")),
+                new AssignWorkParams(1, worktype: DefDatabase<WorkTypeDef>.GetNamed("BasicWorker")),
+                new AssignWorkParams(1, worktype: WorkTypeDefOf.Doctor, hasHighestSkill: true),
+                new AssignWorkParams(2, worktype: WorkTypeDefOf.Childcare, hasChildOnMap: true),
+                new AssignWorkParams(2, passionLevel: 2),
+                new AssignWorkParams(3, passionLevel: 1),
             };
+            
+            
+            _rules = new List<AssignWorkRule>();
+            foreach (var p in parameterses)
+            {
+                _rules.Add(new AssignWorkRule(p));
+            }
 
         }
 
