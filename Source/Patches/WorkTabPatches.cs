@@ -433,14 +433,14 @@ namespace Better_Work_Tab.Patches
                 if (Find.Selector.IsSelected(__instance.cachedPawns[i]))
                     //use float menu color if opened that way
                     if (BetterWorkTabMod.Settings.ShowFloatMenuPawnAndWorktypeHighlight && worktypeToHighlight != null)
-                        Widgets.DrawBoxSolid(rect, BetterWorkTabMod.Settings.Color_FloatMenuPawnAndWorktypeHighlight);
+                        Widgets.DrawBoxSolid(rect, BetterWorkTabMod.Settings.Color_FloatMenuHighlight);
                     //otherwise use selected color
                     else if (BetterWorkTabMod.Settings.DoSelectedPawnHighlight)
-                        Widgets.DrawBoxSolid(rect, BetterWorkTabMod.Settings.Color_CursorPawnAndWorktypeHighlight);
+                        Widgets.DrawBoxSolid(rect, BetterWorkTabMod.Settings.Color_CursorHighlight);
 
                 //highlight if mouse is over
                 if (BetterWorkTabMod.Settings.ShowCursorPawnAndWorktypeHighlight && Mouse.IsOver(rect))
-                    Widgets.DrawBoxSolid(rect, BetterWorkTabMod.Settings.Color_MouseHoverPawnAndWorktypeHighlight);
+                    Widgets.DrawBoxSolid(rect, BetterWorkTabMod.Settings.Color_MouseHoverHighlight);
 
                 //increment startingY for next row
                 startingY += __instance.cachedRowHeights[i];
@@ -459,12 +459,12 @@ namespace Better_Work_Tab.Patches
 
                 //highlight if opened from float menu
                 if (BetterWorkTabMod.Settings.ShowFloatMenuPawnAndWorktypeHighlight && worktypeToHighlight == __instance.columns[i].workType && __instance.columns[i].Worker is PawnColumnWorker_WorkPriority)
-                    Widgets.DrawBoxSolid(rect, BetterWorkTabMod.Settings.Color_FloatMenuPawnAndWorktypeHighlight);
+                    Widgets.DrawBoxSolid(rect, BetterWorkTabMod.Settings.Color_FloatMenuHighlight);
 
                 //highlight if mouse is over
                 if (BetterWorkTabMod.Settings.ShowCursorPawnAndWorktypeHighlight && Mouse.IsOver(rect) && __instance.columns[i].Worker is PawnColumnWorker_WorkPriority)
                 {
-                    Widgets.DrawBoxSolid(rect, BetterWorkTabMod.Settings.Color_MouseHoverPawnAndWorktypeHighlight);
+                    Widgets.DrawBoxSolid(rect, BetterWorkTabMod.Settings.Color_MouseHoverHighlight);
                     Widgets.DrawHighlight(rect);
                     if (!(__instance.columns[i].Worker is PawnColumnWorker_WorkPriority)) continue;
                     HighlightSimilarWorktypes(__instance.columns[i].workType, __instance.columns.Count, i, __instance, totalHeight);
@@ -501,9 +501,7 @@ namespace Better_Work_Tab.Patches
                         {
                             if (i != myIndex)
                             {
-                                var clr = BetterWorkTabMod.Settings.Color_MouseHoverPawnAndWorktypeHighlight;
-                                clr.a = 0.25f * 0.5f;
-                                Widgets.DrawBoxSolid(rect, clr);
+                                Widgets.DrawBoxSolid(rect, BetterWorkTabMod.Settings.Color_SimilarWorktypeMouseOver);
                                 Widgets.DrawHighlight(rect);
 
                             }
