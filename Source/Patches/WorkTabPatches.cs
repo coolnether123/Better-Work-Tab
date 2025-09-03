@@ -1,13 +1,16 @@
 using Better_Work_Tab.Features;
+using Better_Work_Tab.Features.Rules;
 using HarmonyLib;
+using LudeonTK;
 using RimWorld;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
+using System.Security.Cryptography.Pkcs;
 using UnityEngine;
 using Verse;
 using Verse.Sound;
-using LudeonTK;
-using System.Linq;
 
 namespace Better_Work_Tab.Patches
 {
@@ -98,19 +101,49 @@ namespace Better_Work_Tab.Patches
                 SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
             }
 
-            DrawAutoAssignButton(rect);
+            DrawAutoAssignButtons(rect);
         }
 
-        private static void DrawAutoAssignButton(Rect headerRect)
+        private static void DrawAutoAssignButtons(Rect headerRect)
         {
             var size = new Vector2(AutoAssignButtonWidth, AutoAssignButtonHeight);
-            var btn = new Rect(headerRect.xMax - size.x - AutoAssignButtonMarginX, headerRect.y + AutoAssignButtonMarginY, size.x, size.y);
+            var btn = new Rect(headerRect.xMax - size.x - size.y - AutoAssignButtonMarginX, headerRect.y + AutoAssignButtonMarginY, size.x, size.y);
 
-            if (Widgets.ButtonText(btn, "Auto Assign Work"))
+            if (BetterWorkTabMod.Settings.CurrentAutoAssignRuleset == null)
+            {
+                Log.Error("[Better Work Tab] No ruleset selected.");
+                return;
+            }
+            var curRuleset = BetterWorkTabMod.Settings.CurrentAutoAssignRuleset;
+
+
+            if (Widgets.ButtonText(btn, curRuleset.Name))
             {
                 SoundDefOf.Tick_Low.PlayOneShotOnCamera();
-                var assigner = new AutoWorkAssigner(BetterWorkTabMod.Settings);
-                assigner.ApplyAutoAssignments();
+                
+                if(curRuleset.ResetBeforeApplying)
+                {
+                    WorkAssignmentRuleset.SetAllToZero();
+                }
+
+                curRuleset.ApplyAutoAssignments();
+            }
+
+            var btn2 = new Rect(btn.x + btn.width, btn.y, btn.height, btn.height);
+            if (Widgets.ButtonText(btn2, "..."))
+            {
+                var options = new List<FloatMenuOption>();
+                foreach (var ruleset in BetterWorkTabMod.Settings.SavedRulesets)
+                {
+                    var localRuleset = ruleset;
+                    options.Add(new FloatMenuOption(ruleset.Name, delegate
+                    {
+                        BetterWorkTabMod.Settings.CurrentAutoAssignRuleset = localRuleset;
+                        SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                    }));
+                }
+                Find.WindowStack.Add(new FloatMenu(options));
+                //Find.WindowStack.Add(new Dialog_Confirm("Button works", null));
             }
         }
 

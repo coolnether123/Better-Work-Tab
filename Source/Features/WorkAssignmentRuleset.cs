@@ -11,33 +11,38 @@ namespace Better_Work_Tab.Features
     /// <summary>
     /// This class handles the automatic work assignment process for pawns based on a set of defined rules.
     /// </summary>
-    public class AutoWorkAssigner
+    public class WorkAssignmentRuleset
     {
-        private readonly BetterWorkTabSettings _settings;
-        private readonly List<AssignWorkRule> _rules;
+        //private readonly BetterWorkTabSettings _settings;
 
-        public AutoWorkAssigner(BetterWorkTabSettings settings)
+        public string Name { get; private set; }
+        public bool ResetBeforeApplying { get; private set; } = true;
+        private readonly List<WorkAssignmentRule> _rules= new List<WorkAssignmentRule>();
+
+        public WorkAssignmentRuleset(string rulesetName, List<WorkAssignmentParameters> parameters, bool resetBeforeApplying = true)
         {
-            _settings = settings;
-            var parameterses = new List<AssignWorkParams>
-            {
-                new AssignWorkParams(1, worktype: WorkTypeDefOf.Firefighter),
-                new AssignWorkParams(1, worktype: DefDatabase<WorkTypeDef>.GetNamed("Patient")),
-                new AssignWorkParams(1, worktype: DefDatabase<WorkTypeDef>.GetNamed("PatientBedRest")),
-                new AssignWorkParams(1, worktype: DefDatabase<WorkTypeDef>.GetNamed("BasicWorker")),
-                new AssignWorkParams(1, worktype: WorkTypeDefOf.Doctor, hasHighestSkill: true),
-                new AssignWorkParams(2, worktype: WorkTypeDefOf.Childcare, hasChildOnMap: true),
-                new AssignWorkParams(2, passionLevel: 2),
-                new AssignWorkParams(3, passionLevel: 1),
-            };
+            Name = rulesetName;
+            ResetBeforeApplying = resetBeforeApplying;
 
-
-            _rules = new List<AssignWorkRule>();
-            foreach (var p in parameterses)
+            foreach (var p in parameters)
             {
-                _rules.Add(new AssignWorkRule(p));
+                _rules.Add(new WorkAssignmentRule(p));
             }
 
+        }
+
+        public WorkAssignmentRuleset(string rulesetName, List<WorkAssignmentRule> rules, bool resetBeforeApplying = true)
+        {
+            Name = rulesetName;
+            _rules = rules;
+            ResetBeforeApplying = resetBeforeApplying;
+        }
+
+        public static void SetAllToZero()
+        {
+            new WorkAssignmentRuleset("Reset", new List<WorkAssignmentRule> {
+                        new WorkAssignmentRule(new WorkAssignmentParameters(0, allowOverwritingHigherPriority: true))
+                    }).ApplyAutoAssignments();
         }
 
         /// <summary>
@@ -55,31 +60,32 @@ namespace Better_Work_Tab.Features
 
             var allWorkTypes = DefDatabase<WorkTypeDef>.AllDefsListForReading.OrderBy(wt => wt.naturalPriority).Reverse().ToList();
             allWorkTypes.RemoveDuplicates();
-            //int bestMed = pawns.Any(p => p.skills != null)
-            //    ? pawns.Max(p => p.skills?.GetSkill(SkillDefOf.Medicine)?.Level ?? 0)
-            //    : 0;
-            //var bestDoctors = new HashSet<Pawn>(
-            //    pawns.Where(p =>
-            //        p.skills != null &&
-            //        (p.skills.GetSkill(SkillDefOf.Medicine)?.Level ?? 0) == bestMed));
 
-
+            
             foreach (var rule in _rules)
             {
                 foreach (var worktype in allWorkTypes)
                 {
+                    if(rule.Parameters.Worktype != null)
+                    {
+
+                        //if there's a rule that applies to only one worktype, skip all others.
+                        if (rule.Parameters.Worktype != worktype)
+                            continue;
+                    }
+                    if(rule.Parameters.WorktypeNamedIgnoreIfNonexistant != "")
+                    {
+                        //if there's a rule that applies to only one ignorable worktype, skip all others.
+                        if (!DefDatabase<WorkTypeDef>.AllDefs.Contains(DefDatabase<WorkTypeDef>.GetNamedSilentFail(rule.Parameters.WorktypeNamedIgnoreIfNonexistant)))
+                            continue;
+                    }
+
                     //Log.Message($"Auto-assigning work type: {worktype.defName}");
                     foreach (var pawn in pawns)
                     {
                         if (pawn.workSettings == null) continue;
 
-                        ////pawn.workSettings.EnableAndInitialize();
                         //// Apply all rules
-                        //// If the rule is specific to a work type and it doesn't match the current work type, skip it
-                        //if (rule.CachedWorktype != null && worktype != rule.CachedWorktype)
-                        //{
-                        //    continue;
-                        //}
                         if (rule.Apply(pawn, pawns, worktype))
                         {
                             //Log.Message("assigned " + worktype.defName +" to " + pawn.NameShortColored +". Skipping remaining pawns.");
@@ -93,7 +99,7 @@ namespace Better_Work_Tab.Features
                     {
                         Log.Message($"No pawn could be assigned to work type: {worktype.defName}. Applying fallback.");
                         foreach (var pawn in pawns)
-                            new AssignWorkRule(rule.Parameters.FailedToApplyFallback).Apply(pawn, pawns, worktype);
+                            new WorkAssignmentRule(rule.Parameters.FailedToApplyFallback).Apply(pawn, pawns, worktype);
                     }
                 }
             }
