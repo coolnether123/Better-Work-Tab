@@ -1,4 +1,6 @@
-﻿using RimWorld;
+﻿using Better_Work_Tab.Features;
+using Better_Work_Tab.Features.Rules;
+using RimWorld;
 using System.Collections.Generic;
 using System.Linq;
 using Unity.Mathematics;
@@ -87,11 +89,63 @@ namespace Better_Work_Tab
             }
         }
 
+       
+
         // This color is used to indicate a pawn is incapable of a work type due to health conditions. Vanilla red is Color(1,0.3,0.3)
         public Color Color_IncapableBecauseOfCapacities = new Color(1f, 0.3f, 0.3f); // Red
 
         //This color is used to indicate the best pawn for a skill in the work tab
         public Color Color_BestPawnForSkillSquare = new Color(0.35f, 0.85f, 0.35f);
+
+        
+        public List<WorkAssignmentRuleset> SavedRulesets = new List<WorkAssignmentRuleset> ();
+        public void CreateDefaultRulesets()
+        {
+            SavedRulesets = new List<WorkAssignmentRuleset>{
+
+                new WorkAssignmentRuleset("Vanilla Starting Pawn", new List<WorkAssignmentParameters>()
+                {
+                   new WorkAssignmentParameters(3, isNaturalAlwaysAssign: true),
+                   new WorkAssignmentParameters(3, skillLevelGreaterThan: 5),
+                   new WorkAssignmentParameters(3, randomIfTied: true, hasHighestSkill: true)
+
+                }),
+
+
+                new WorkAssignmentRuleset("Vanilla New Pawn", new List<WorkAssignmentParameters>()
+                {
+                   new WorkAssignmentParameters(3, isTopXSkill: 6),
+                   new WorkAssignmentParameters(3, isNaturalAlwaysAssign: true),
+                
+                }),
+
+
+                new WorkAssignmentRuleset("BWT Default", new List<WorkAssignmentParameters>()
+                {
+                    new WorkAssignmentParameters(1, worktype: WorkTypeDefOf.Firefighter),
+                    new WorkAssignmentParameters(1, worktypeNamedIgnoreIfNonexistant:"Patient"),
+                    new WorkAssignmentParameters(1, worktypeNamedIgnoreIfNonexistant:"PatientBedRest"),
+                    new WorkAssignmentParameters(1, worktypeNamedIgnoreIfNonexistant:"BasicWorker"),
+                    new WorkAssignmentParameters(1, worktype: WorkTypeDefOf.Doctor, hasHighestSkill: true),
+                    
+                    new WorkAssignmentParameters(2, worktypeNamedIgnoreIfNonexistant:"HaulUrgently"),
+                    new WorkAssignmentParameters(2, worktype: WorkTypeDefOf.Childcare, hasChildOnMap: true),
+                    
+                    new WorkAssignmentParameters(2, passionLevel: 2),
+                    new WorkAssignmentParameters(3, passionLevel: 1),
+                    new WorkAssignmentParameters(3, isTopXSkill: 6),
+                    new WorkAssignmentParameters(3, isNaturalAlwaysAssign: true),
+                }),
+
+                new WorkAssignmentRuleset("Best Pawn to 1", new List<WorkAssignmentParameters>()
+                {
+                    new WorkAssignmentParameters(1, hasHighestSkill: true),
+                })
+            };
+
+            CurrentAutoAssignRuleset = SavedRulesets[0];
+        }
+        public WorkAssignmentRuleset CurrentAutoAssignRuleset = null;
 
         // These control when various UI elements are shown on the work tab
         public enum ShowUIMode { Always, Never, Shifted, Unshifted}
