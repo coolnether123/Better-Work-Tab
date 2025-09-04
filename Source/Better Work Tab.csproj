@@ -46,13 +46,14 @@
   <ItemGroup>
     <Compile Include="BetterWorkTab.cs" />
     <Compile Include="Features\AutoAssignmentContext.cs" />
-    <Compile Include="Features\WorkAssignmentRuleset.cs" />
+    <Compile Include="Features\Rules\WorkAssignmentRuleset.cs" />
     <Compile Include="Features\IAssignmentRule.cs" />
     <Compile Include="Features\Rules\WorkAssignmentRule.cs" />
     <Compile Include="Features\Rules\ChildcareRule.cs" />
     <Compile Include="Features\Rules\CoreWorkTypeRule.cs" />
     <Compile Include="Features\Rules\DefaultPriorityRule.cs" />
     <Compile Include="Features\Rules\PassionRule.cs" />
+    <Compile Include="Features\Workloads\Workload.cs" />
     <Compile Include="Patches\FloatMenuPatches.cs" />
     <Compile Include="Patches\WorkTabPatches.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
