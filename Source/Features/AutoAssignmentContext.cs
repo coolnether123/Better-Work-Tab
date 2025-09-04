@@ -1,12 +1,15 @@
 using System.Collections.Generic;
 using RimWorld;
 using Verse;
+using System;
 
 namespace Better_Work_Tab.Features.Rules
 {
     /// <summary>
     /// This class handles providing context data for work assignment rules.
     /// </summary>
+    [Obsolete("Use WorkAssignmentRuleset classes instead", true)]
+    /// 
     public class AutoAssignmentContext
     {
         public BetterWorkTabSettings Settings { get; }
