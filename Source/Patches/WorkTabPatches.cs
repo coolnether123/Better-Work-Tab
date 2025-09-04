@@ -1,4 +1,5 @@
 using Better_Work_Tab.Features;
+using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.Features.Rules;
 using HarmonyLib;
 using LudeonTK;
@@ -11,6 +12,7 @@ using System.Security.Cryptography.Pkcs;
 using UnityEngine;
 using Verse;
 using Verse.Sound;
+using System.Diagnostics.Eventing.Reader;
 
 namespace Better_Work_Tab.Patches
 {
@@ -84,6 +86,11 @@ namespace Better_Work_Tab.Patches
         private const float AutoAssignButtonMarginX = 6f;
         private const float AutoAssignButtonMarginY = 2f;
 
+        private const float AssignWorkloadButtonWidth = 150f;
+        private const float AssignWorkloadButtonHeight = 28f;
+        private const float AssignWorkloadButtonMarginX = AutoAssignButtonHeight + AutoAssignButtonWidth + AutoAssignButtonMarginX + 6f;
+        private const float AssignWorkloadButtonMarginY = 2f;
+
         public static void Postfix(Rect rect)
         {
             if (!BetterWorkTabMod.Settings.enableSkillOverlayFeature) return;
@@ -102,6 +109,7 @@ namespace Better_Work_Tab.Patches
             }
 
             DrawAutoAssignButtons(rect);
+            DrawCurrentWorkloadsButtons(rect);
         }
 
         private static void DrawAutoAssignButtons(Rect headerRect)
@@ -125,7 +133,6 @@ namespace Better_Work_Tab.Patches
                 {
                     WorkAssignmentRuleset.SetAllToZero();
                 }
-
                 curRuleset.ApplyAutoAssignments();
             }
 
@@ -144,6 +151,89 @@ namespace Better_Work_Tab.Patches
                 }
                 Find.WindowStack.Add(new FloatMenu(options));
                 //Find.WindowStack.Add(new Dialog_Confirm("Button works", null));
+            }
+        }
+
+        private static void DrawCurrentWorkloadsButtons(Rect headerRect)
+        {
+            var size = new Vector2(AssignWorkloadButtonWidth, AssignWorkloadButtonHeight);
+            //start all the way at the right edge, then move left by button width, then by the square "..." button width, then by margin
+            var btn = new Rect(headerRect.xMax - size.x - size.y - AssignWorkloadButtonMarginX, headerRect.y + AssignWorkloadButtonMarginY, size.x, size.y);
+
+            if (BetterWorkTabMod.Settings.CurrentWorkload == null)
+            {
+                if (Widgets.ButtonText(btn, "New Workload"))
+                {
+                    var newWorkload = new Workload("Custom Workload " + BetterWorkTabMod.Settings.SavedWorkloads.Count);
+                    BetterWorkTabMod.Settings.SavedWorkloads.Add(newWorkload);
+                    BetterWorkTabMod.Settings.CurrentWorkload = newWorkload;
+                }
+            }
+            else
+            {
+
+                if (Widgets.ButtonText(btn, BetterWorkTabMod.Settings.CurrentWorkload.Name))
+                {
+                    if (BetterWorkTabMod.Settings.CurrentWorkload != null)
+                    {
+                        BetterWorkTabMod.Settings.CurrentWorkload.Apply();
+                        SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                    }
+                    else
+                    {
+                        Log.Error("[Better Work Tab] No workload selected.");
+                    }
+                }
+            }
+
+            var btn2 = new Rect(btn.x + btn.width, btn.y, btn.height, btn.height);
+            if (Widgets.ButtonText(btn2, "..."))
+            {
+                var options = new List<FloatMenuOption>();
+                
+                var workloads = BetterWorkTabMod.Settings.SavedWorkloads.ListFullCopy();
+                workloads.Reverse(); // Show most recently added at the top
+                foreach (var workload in workloads)
+                {
+                    options.Add(new FloatMenuOption(workload.Name, delegate
+                    {
+                        BetterWorkTabMod.Settings.CurrentWorkload = workload;
+                        SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                    }));
+                }
+                options.Add(new FloatMenuOption("New Workload", delegate
+                {
+                    var newWorkload = new Workload("Custom Workload " + BetterWorkTabMod.Settings.SavedWorkloads.Count);
+
+                    BetterWorkTabMod.Settings.SavedWorkloads.Add(newWorkload);
+                    BetterWorkTabMod.Settings.CurrentWorkload = newWorkload;
+                }));
+                if (workloads.Any())
+                {
+                    options.Add(new FloatMenuOption("Delete Saved Workload", delegate
+                    {
+                        var deletableOptions = new List<FloatMenuOption>();
+                        foreach (var workload in workloads)
+                        {
+                            deletableOptions.Add(new FloatMenuOption("Delete " + workload.Name, delegate
+                            {
+                                var newCurrentIndex = Mathf.Clamp(BetterWorkTabMod.Settings.SavedWorkloads.IndexOf(workload) - 1, 0, int.MaxValue);
+                                BetterWorkTabMod.Settings.SavedWorkloads.Remove(workload);
+                                if (!BetterWorkTabMod.Settings.SavedWorkloads.Any())
+                                    BetterWorkTabMod.Settings.CurrentWorkload = null;
+                                else
+                                    BetterWorkTabMod.Settings.CurrentWorkload = BetterWorkTabMod.Settings.SavedWorkloads[newCurrentIndex];
+
+                                SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                            }));
+                        }
+                        var deletablesMenu = new FloatMenu(deletableOptions);
+                        Find.WindowStack.Add(deletablesMenu);
+                        deletablesMenu.windowRect.x -= deletablesMenu.windowRect.width * 0.5f;
+                        deletablesMenu.windowRect.y -= deletablesMenu.windowRect.height* 0.5f;
+                    }));
+                }
+                Find.WindowStack.Add(new FloatMenu(options));
             }
         }
 

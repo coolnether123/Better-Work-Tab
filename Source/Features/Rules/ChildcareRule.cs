@@ -1,8 +1,11 @@
 using RimWorld;
+using System;
 using Verse;
 
 namespace Better_Work_Tab.Features.Rules
 {
+    [Obsolete("Use WorkAssignmentRuleset classes instead", true)]
+
     /// <summary>
     /// This rule handles assigning childcare priority based on pawn pregnancy status.
     /// </summary>

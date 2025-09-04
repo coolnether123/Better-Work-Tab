@@ -1,5 +1,6 @@
 ﻿using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.Rules;
+using Better_Work_Tab.Features.Workloads;
 using RimWorld;
 using System.Collections.Generic;
 using System.Linq;
@@ -146,6 +147,10 @@ namespace Better_Work_Tab
             CurrentAutoAssignRuleset = SavedRulesets[0];
         }
         public WorkAssignmentRuleset CurrentAutoAssignRuleset = null;
+
+        // This stores saved workloads for easy switching between different work setups
+        public List<Workload> SavedWorkloads = new List<Workload>();
+        public Workload CurrentWorkload = null;
 
         // These control when various UI elements are shown on the work tab
         public enum ShowUIMode { Always, Never, Shifted, Unshifted}
