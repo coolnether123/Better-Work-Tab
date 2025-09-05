@@ -148,9 +148,8 @@ namespace Better_Work_Tab
         }
         public WorkAssignmentRuleset CurrentAutoAssignRuleset = null;
 
-        // This stores saved workloads for easy switching between different work setups
-        public List<Workload> SavedWorkloads = new List<Workload>();
-        public Workload CurrentWorkload = null;
+        //Worklists are stored in a GameComponent
+
 
         // These control when various UI elements are shown on the work tab
         public enum ShowUIMode { Always, Never, Shifted, Unshifted}
@@ -168,16 +167,13 @@ namespace Better_Work_Tab
 
 
 
-        public override void ExposeData()
-        {
-            base.ExposeData();
-            Scribe_Values.Look(ref CurrentWorkload, "currentWorklist");
-            if(SavedWorkloads == null)
-            {
-                SavedWorkloads = new List<Workload>();
-            }
-            Scribe_Collections.Look(ref SavedWorkloads, "savedWorklists");
-        }
+        //public override void ExposeData()
+        //{
+        //    base.ExposeData();
+        //    //Scribe_Values.Look(ref CurrentWorklist, "currentWorklist");
+        //    //if (SavedWorklists == null) SavedWorklists = new List<Worklist>();
+        //    //Scribe_Collections.Look(ref SavedWorklists, "savedWorklists");
+        //}
 
         private void ReconstructDictionary(List<string> keys, List<int> values, Dictionary<WorkTypeDef, int> targetDict)
         {
