@@ -98,5 +98,50 @@ namespace Better_Work_Tab.Features
             def.columns.AddRange(post);
             Log.Message("WorkColumnOrderManager.ApplySaved: Columns reordered.");
         }
+
+        /// <summary>
+        /// Assign default manual priorities (1..4) across all player pawns based on
+        /// the current Work column order: leftmost columns get priority 1, then 2, 3, 4.
+        /// Columns are split into 4 bands using ceil(count/4). Disabled work types are skipped.
+        /// </summary>
+        public static void ApplyDefaultPrioritiesFromCurrentOrder(PawnTableDef def)
+        {
+            if (def?.columns == null) return;
+
+            var workCols = new List<PawnColumnDef>();
+            foreach (var c in def.columns)
+            {
+                if (c?.Worker is PawnColumnWorker_WorkPriority && c.workType != null)
+                    workCols.Add(c);
+            }
+            if (workCols.Count == 0) return;
+
+            var orderedWT = workCols.Select(c => c.workType).ToList();
+            int n = orderedWT.Count;
+            int bandSize = (n + 3) / 4; // ceil(n/4)
+            if (bandSize <= 0) bandSize = 1;
+
+            int changed = 0;
+            foreach (var p in PawnsFinder.AllMapsWorldAndTemporary_Alive)
+            {
+                if (p?.Faction != Faction.OfPlayer || p.workSettings == null) continue;
+
+                p.workSettings.EnableAndInitializeIfNotAlreadyInitialized();
+
+                for (int i = 0; i < orderedWT.Count; i++)
+                {
+                    var wt = orderedWT[i];
+                    if (wt == null || p.WorkTypeIsDisabled(wt)) continue;
+                    int band = i / bandSize; // 0..3+
+                    int prio = band + 1; // 1..4+
+                    if (prio > 4) prio = 4;
+                    p.workSettings.SetPriority(wt, prio);
+                    changed++;
+                }
+            }
+
+            Better_Work_Tab.Util.WorkTabLogger.Info(Better_Work_Tab.Util.WorkTabLogger.Categories.DragColumn,
+                $"Default manual priorities applied from column order (changed {changed} entries).");
+        }
     }
 }
