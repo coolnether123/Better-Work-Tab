@@ -192,7 +192,10 @@ namespace Better_Work_Tab.DragDrop
             // Persist order of work columns only.
             Features.WorkColumnOrderManager.CaptureCurrent(def);
 
-            // Ensure AI work scanning order rebuilds to reflect the new column order.
+            // Align default manual priorities (1..4) with the new column order (left=1 ... right=4).
+            Features.WorkColumnOrderManager.ApplyDefaultPrioritiesFromCurrentOrder(def);
+
+            // Ensure AI work scanning order rebuilds to reflect the new column order and priorities.
             Features.WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
 
             table.SetDirty();
