@@ -204,8 +204,30 @@ namespace Better_Work_Tab.Patches
                 {
                     CreateNewWorkload(workloadSaver);
                     }));
+
+
+
                 if (workloads.Any())
                 {
+                    options.Add(new FloatMenuOption("Rename Workload", delegate
+                    {
+                        var renamableOptions = new List<FloatMenuOption>();
+                        foreach (var workload in workloads)
+                        {
+                            renamableOptions.Add(new FloatMenuOption("Rename " + workload.RenamableLabel, delegate
+                            {
+
+                                Find.WindowStack.Add(new Dialog_RenameWorklist(workloadSaver.CurrentWorklist));
+                                SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                            }));
+                        }
+                        var renamablesMenu = new FloatMenu(renamableOptions);
+                        Find.WindowStack.Add(renamablesMenu);
+                        renamablesMenu.windowRect.x -= renamablesMenu.windowRect.width * 0.5f;
+                        renamablesMenu.windowRect.y -= renamablesMenu.windowRect.height * 0.5f;
+                    }
+                    ));
+
                     options.Add(new FloatMenuOption("Delete Saved Workload", delegate
                     {
                         var deletableOptions = new List<FloatMenuOption>();
@@ -237,7 +259,7 @@ namespace Better_Work_Tab.Patches
         {
 
             var newWorkload = new Worklist("Custom Workload " + workloadSaver.SavedWorklists.Count);
-            Find.WindowStack.Add(new Dialog_RenameWorkload(newWorkload));
+            Find.WindowStack.Add(new Dialog_NameNewWorklist(newWorkload));
 
             workloadSaver.SavedWorklists.Add(newWorkload);
             workloadSaver.CurrentWorklist = newWorkload;
