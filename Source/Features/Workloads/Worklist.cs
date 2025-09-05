@@ -1,0 +1,56 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using Unity.Properties;
+using Verse;
+
+namespace Better_Work_Tab.Features.Workloads
+{
+    public class Worklist : IExposable, IRenameable
+    {
+        public Worklist(string name)
+        {
+            RenamableLabel = name;
+            foreach (var pawn in Find.CurrentMap.mapPawns.FreeColonists)
+            {
+                PawnWorklists.Add(new PawnWorkload(pawn));
+            }
+            UseAdvancedMode = Current.Game.playSettings.useWorkPriorities;
+        }
+
+        public Worklist()
+        {
+        }
+
+        public bool UseAdvancedMode = true;
+
+        public List<PawnWorkload> PawnWorklists = new List<PawnWorkload>();
+        public string worklistName = "New Worklist";
+
+        public string RenamableLabel { get => worklistName; set => worklistName = value; }
+
+        public string BaseLabel { get; }
+
+        public string InspectLabel { get; }
+
+        public void Apply()
+        {
+            Current.Game.playSettings.useWorkPriorities = UseAdvancedMode;
+            foreach (var pw in PawnWorklists)
+            {
+                pw.Apply();
+            }
+        }
+
+        public void ExposeData()
+        {
+            RenamableLabel = worklistName;
+            Scribe_Values.Look(ref worklistName, "worklistName", "New Worklist");
+            Scribe_Values.Look(ref UseAdvancedMode, "UseAdvancedMode", true);
+            worklistName = RenamableLabel;
+            Scribe_Collections.Look(ref PawnWorklists, "pawnWorklists", LookMode.Deep);
+        }
+    }
+}
