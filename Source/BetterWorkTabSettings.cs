@@ -141,6 +141,11 @@ namespace Better_Work_Tab
                 new WorkAssignmentRuleset("Best Pawn to 1", new List<WorkAssignmentParameters>()
                 {
                     new WorkAssignmentParameters(1, hasHighestSkill: true),
+                }),
+                
+                new WorkAssignmentRuleset("Set all to 0", new List<WorkAssignmentParameters>()
+                {
+                    new WorkAssignmentParameters(0),
                 })
             };
 
