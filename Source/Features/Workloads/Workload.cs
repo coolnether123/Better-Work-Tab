@@ -1,13 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.Remoting.Messaging;
 using System.Text;
 using System.Threading.Tasks;
 using Verse;
 
 namespace Better_Work_Tab.Features.Workloads
 {
-    public class Workload
+    public class Workload : IRenameable, IExposable
     {
         public Workload(string name)
         {
@@ -15,14 +16,22 @@ namespace Better_Work_Tab.Features.Workloads
             Copy();
         }
 
+        private string Name;
+
+        public Dictionary<Pawn, DefMap<WorkTypeDef, int>> PawnWorklists;
+        public string RenamableLabel { get => Name; set => Name=value; }
+
+        public string BaseLabel => "";
+
+        public string InspectLabel => "";
+
+
         public void Apply()
         {
             Paste();
         }
 
-        public string Name { get; set; }
 
-        public Dictionary<Pawn, DefMap<WorkTypeDef, int>> PawnWorklists { get; private set; }
         void Copy()
         {
             Log.Message("Copying workload " + Name);
@@ -31,6 +40,7 @@ namespace Better_Work_Tab.Features.Workloads
             {
                 PawnWorklists = new Dictionary<Pawn, DefMap<WorkTypeDef, int>>();
             }
+
             List<WorkTypeDef> allDefsListForReading = DefDatabase<WorkTypeDef>.AllDefsListForReading;
             foreach (var pawn in Find.CurrentMap.mapPawns.FreeColonists)
             {
@@ -61,7 +71,10 @@ namespace Better_Work_Tab.Features.Workloads
             }
         }
 
-
-
+        public void ExposeData() { }
+        //{
+        //    Scribe_Values.Look(ref Name, "workloadName");
+        //    Scribe_Collections.Look(ref PawnWorklists, "worklistForPawn");
+        //}
     }
 }

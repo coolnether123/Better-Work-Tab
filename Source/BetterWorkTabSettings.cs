@@ -168,83 +168,15 @@ namespace Better_Work_Tab
 
 
 
-
         public override void ExposeData()
         {
             base.ExposeData();
-
-            Scribe_Values.Look(ref enableSkillOverlayFeature, "enableSkillOverlayFeature", true);
-            Scribe_Values.Look(ref enableAutoAssignFeature, "enableAutoAssignFeature", true);
-
-            Scribe_Values.Look(ref defaultStartingPriority, "defaultStartingPriority", 0);
-
-            Scribe_Values.Look(ref rule_CoreAlwaysPriorityEnabled, "rule_CoreAlwaysPriorityEnabled", true);
-            Scribe_Values.Look(ref rule_CoreAlwaysPriorityValue, "rule_CoreAlwaysPriorityValue", 1);
-
-            Scribe_Values.Look(ref core_Firefighter, "core_Firefighter", true);
-            Scribe_Values.Look(ref core_Patient, "core_Patient", true);
-            Scribe_Values.Look(ref core_BedRest, "core_BedRest", true);
-            Scribe_Values.Look(ref core_Basic, "core_Basic", true);
-
-            Scribe_Values.Look(ref rule_BestDoctorsEnabled, "rule_BestDoctorsEnabled", true);
-            //Scribe_Values.Look(ref rule_BestDoctorsPriority, "rule_BestDoctorsPriority", 1);
-
-            Scribe_Values.Look(ref rule_PassionOverrideEnabled, "rule_PassionOverrideEnabled", true);
-            Scribe_Values.Look(ref passion_None, "passion_None", 0);
-            Scribe_Values.Look(ref passion_Minor, "passion_Minor", 3);
-            Scribe_Values.Look(ref passion_Major, "passion_Major", 2);
-
-            Scribe_Values.Look(ref rule_ChildcareEnabled, "rule_ChildcareEnabled", true);
-            Scribe_Values.Look(ref rule_ChildcarePriority, "rule_ChildcarePriority", 1);
-
-            // Handle dictionaries using string keys to avoid DefOf issues during loading
-            if (Scribe.mode == LoadSaveMode.Saving)
+            Scribe_Values.Look(ref CurrentWorkload, "currentWorklist");
+            if(SavedWorkloads == null)
             {
-                // Convert dictionaries to string lists for saving
-                tempAlwaysHaveOneKeys = rule_AlwaysHaveOneByWorkType.Keys.Where(k => k != null).Select(k => k.defName).ToList();
-                tempAlwaysHaveOneValues = rule_AlwaysHaveOneByWorkType.Where(kvp => kvp.Key != null).Select(kvp => kvp.Value).ToList();
-                tempAlwaysAssignAllKeys = rule_AlwaysAssignAllByWorkType.Keys.Where(k => k != null).Select(k => k.defName).ToList();
-                tempAlwaysAssignAllValues = rule_AlwaysAssignAllByWorkType.Where(kvp => kvp.Key != null).Select(kvp => kvp.Value).ToList();
+                SavedWorkloads = new List<Workload>();
             }
-
-            // Save/load as string lists to avoid DefOf issues
-            Scribe_Collections.Look(ref tempAlwaysHaveOneKeys, "rule_AlwaysHaveOneByWorkType_Keys");
-            Scribe_Collections.Look(ref tempAlwaysHaveOneValues, "rule_AlwaysHaveOneByWorkType_Values");
-            Scribe_Collections.Look(ref tempAlwaysAssignAllKeys, "rule_AlwaysAssignAllByWorkType_Keys");
-            Scribe_Collections.Look(ref tempAlwaysAssignAllValues, "rule_AlwaysAssignAllByWorkType_Values");
-
-            if (Scribe.mode == LoadSaveMode.PostLoadInit)
-            {
-                // Initialize dictionaries
-                if (rule_AlwaysHaveOneByWorkType == null)
-                    rule_AlwaysHaveOneByWorkType = new Dictionary<WorkTypeDef, int>();
-                if (rule_AlwaysAssignAllByWorkType == null)
-                    rule_AlwaysAssignAllByWorkType = new Dictionary<WorkTypeDef, int>();
-
-                // Clear existing data
-                rule_AlwaysHaveOneByWorkType.Clear();
-                rule_AlwaysAssignAllByWorkType.Clear();
-
-                // Initialize temp lists if null
-                if (tempAlwaysHaveOneKeys == null) tempAlwaysHaveOneKeys = new List<string>();
-                if (tempAlwaysHaveOneValues == null) tempAlwaysHaveOneValues = new List<int>();
-                if (tempAlwaysAssignAllKeys == null) tempAlwaysAssignAllKeys = new List<string>();
-                if (tempAlwaysAssignAllValues == null) tempAlwaysAssignAllValues = new List<int>();
-
-                // Reconstruct dictionaries from string lists, skipping invalid entries
-                ReconstructDictionary(tempAlwaysHaveOneKeys, tempAlwaysHaveOneValues, rule_AlwaysHaveOneByWorkType);
-                ReconstructDictionary(tempAlwaysAssignAllKeys, tempAlwaysAssignAllValues, rule_AlwaysAssignAllByWorkType);
-
-                // Add default entry for Doctor if dictionary is empty and Doctor WorkType exists
-                if (rule_AlwaysHaveOneByWorkType.Count == 0)
-                {
-                    var doctorWorkType = DefDatabase<WorkTypeDef>.GetNamedSilentFail("Doctor");
-                    if (doctorWorkType != null)
-                    {
-                        rule_AlwaysHaveOneByWorkType.Add(doctorWorkType, 2);
-                    }
-                }
-            }
+            Scribe_Collections.Look(ref SavedWorkloads, "savedWorklists");
         }
 
         private void ReconstructDictionary(List<string> keys, List<int> values, Dictionary<WorkTypeDef, int> targetDict)

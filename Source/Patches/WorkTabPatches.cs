@@ -164,15 +164,13 @@ namespace Better_Work_Tab.Patches
             {
                 if (Widgets.ButtonText(btn, "New Workload"))
                 {
-                    var newWorkload = new Workload("Custom Workload " + BetterWorkTabMod.Settings.SavedWorkloads.Count);
-                    BetterWorkTabMod.Settings.SavedWorkloads.Add(newWorkload);
-                    BetterWorkTabMod.Settings.CurrentWorkload = newWorkload;
+                    CreateNewWorkload();
                 }
             }
             else
             {
 
-                if (Widgets.ButtonText(btn, BetterWorkTabMod.Settings.CurrentWorkload.Name))
+                if (Widgets.ButtonText(btn, BetterWorkTabMod.Settings.CurrentWorkload.RenamableLabel))
                 {
                     if (BetterWorkTabMod.Settings.CurrentWorkload != null)
                     {
@@ -195,7 +193,7 @@ namespace Better_Work_Tab.Patches
                 workloads.Reverse(); // Show most recently added at the top
                 foreach (var workload in workloads)
                 {
-                    options.Add(new FloatMenuOption(workload.Name, delegate
+                    options.Add(new FloatMenuOption(workload.RenamableLabel, delegate
                     {
                         BetterWorkTabMod.Settings.CurrentWorkload = workload;
                         SoundDefOf.Tick_Low.PlayOneShotOnCamera();
@@ -203,11 +201,8 @@ namespace Better_Work_Tab.Patches
                 }
                 options.Add(new FloatMenuOption("New Workload", delegate
                 {
-                    var newWorkload = new Workload("Custom Workload " + BetterWorkTabMod.Settings.SavedWorkloads.Count);
-
-                    BetterWorkTabMod.Settings.SavedWorkloads.Add(newWorkload);
-                    BetterWorkTabMod.Settings.CurrentWorkload = newWorkload;
-                }));
+                    CreateNewWorkload();
+                    }));
                 if (workloads.Any())
                 {
                     options.Add(new FloatMenuOption("Delete Saved Workload", delegate
@@ -215,7 +210,7 @@ namespace Better_Work_Tab.Patches
                         var deletableOptions = new List<FloatMenuOption>();
                         foreach (var workload in workloads)
                         {
-                            deletableOptions.Add(new FloatMenuOption("Delete " + workload.Name, delegate
+                            deletableOptions.Add(new FloatMenuOption("Delete " + workload.RenamableLabel, delegate
                             {
                                 var newCurrentIndex = Mathf.Clamp(BetterWorkTabMod.Settings.SavedWorkloads.IndexOf(workload) - 1, 0, int.MaxValue);
                                 BetterWorkTabMod.Settings.SavedWorkloads.Remove(workload);
@@ -235,6 +230,17 @@ namespace Better_Work_Tab.Patches
                 }
                 Find.WindowStack.Add(new FloatMenu(options));
             }
+        }
+
+        private static void CreateNewWorkload()
+        {
+
+            var newWorkload = new Workload("Custom Workload " + BetterWorkTabMod.Settings.SavedWorkloads.Count);
+            Find.WindowStack.Add(new Dialog_RenameWorkload(newWorkload));
+
+            BetterWorkTabMod.Settings.SavedWorkloads.Add(newWorkload);
+            BetterWorkTabMod.Settings.CurrentWorkload = newWorkload;
+
         }
 
     }
