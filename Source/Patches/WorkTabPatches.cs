@@ -526,6 +526,7 @@ namespace Better_Work_Tab.Patches
 
                 //Clear the highlighted worktype when closing the work tab. This makes it so the highlight only persists while the tab is open, and it will reset when closed.
                 PawnTable_HighlightRowAndColumn.SetWorktypeToHighlight(null);
+                Better_Work_Tab.Patches.WorkTabReorder_PostOpen.ResetAppliedOrderFlag();
             }
         }
     }

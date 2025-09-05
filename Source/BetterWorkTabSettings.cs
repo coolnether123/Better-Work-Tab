@@ -94,6 +94,18 @@ namespace Better_Work_Tab
         //This color is used to indicate the best pawn for a skill in the work tab
         public Color Color_BestPawnForSkillSquare = new Color(0.35f, 0.85f, 0.35f);
 
+        // Debug logging controls (leveled + throttled)
+        // 0-Off, 1-Error, 2-Warn, 3-Info, 4-Debug, 5-Trace
+        public int debugLogLevel = 0;
+        // Additional high-frequency drag logs toggles
+        public bool debugLogDragColumns = false;
+        public bool debugLogDragRows = false;
+        // Throttle: max debug/trace logs per second per category (0 = unlimited)
+        public int debugLogMaxPerSecond = 5;
+
+        // Saved custom order of worktype columns (list of WorkTypeDef.defName)
+        public List<string> workColumnOrderDefNames = new List<string>();
+
         // These control when various UI elements are shown on the work tab
         public enum ShowUIMode { Always, Never, Shifted, Unshifted}
         public ShowUIMode ShowUIMode_ShowSmallSkillNumbers = ShowUIMode.Always;
@@ -138,6 +150,15 @@ namespace Better_Work_Tab
 
             Scribe_Values.Look(ref rule_ChildcareEnabled, "rule_ChildcareEnabled", true);
             Scribe_Values.Look(ref rule_ChildcarePriority, "rule_ChildcarePriority", 1);
+
+            // Debug logging
+            Scribe_Values.Look(ref debugLogLevel, "debugLogLevel", 0);
+            Scribe_Values.Look(ref debugLogDragColumns, "debugLogDragColumns", false);
+            Scribe_Values.Look(ref debugLogDragRows, "debugLogDragRows", false);
+            Scribe_Values.Look(ref debugLogMaxPerSecond, "debugLogMaxPerSecond", 5);
+
+            // Save/load custom Work column order
+            Scribe_Collections.Look(ref workColumnOrderDefNames, "workColumnOrderDefNames", LookMode.Value);
 
             // Handle dictionaries using string keys to avoid DefOf issues during loading
             if (Scribe.mode == LoadSaveMode.Saving)
