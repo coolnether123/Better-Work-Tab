@@ -6,10 +6,17 @@ using Verse;
 
 namespace Better_Work_Tab.Features.Workloads
 {
-    public class Dialog_RenameWorkload : Dialog_Rename<Worklist>
+    public class Dialog_RenameWorklist : Dialog_Rename<Worklist>
+    {
+        public Dialog_RenameWorklist(Worklist renameable) : base(renameable)
+        {
+        }
+    }
+
+    public class Dialog_NameNewWorklist : Dialog_Rename<Worklist>
     {
 
-        public Dialog_RenameWorkload(Worklist renameable) : base(renameable)
+        public Dialog_NameNewWorklist(Worklist renameable) : base(renameable)
         {
         }
         protected override AcceptanceReport NameIsValid(string name)
