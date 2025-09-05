@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -54,8 +54,17 @@
     <Compile Include="Features\Rules\DefaultPriorityRule.cs" />
     <Compile Include="Features\Rules\DoctorRule.cs" />
     <Compile Include="Features\Rules\PassionRule.cs" />
+    <Compile Include="Features\WorkExecutionOrder.cs" />
     <Compile Include="Patches\FloatMenuPatches.cs" />
     <Compile Include="Patches\WorkTabPatches.cs" />
+    <Compile Include="Patches\WorkTabReorderPatches.cs" />
+    <Compile Include="Patches\WorkTabSortPatches.cs" />
+    <Compile Include="DragDrop\Common.cs" />
+    <Compile Include="DragDrop\ColumnDragController.cs" />
+    <Compile Include="DragDrop\RowDragController.cs" />
+    <Compile Include="DragDrop\WorkTabDragPatch.cs" />
+    <Compile Include="Util\WorkTabLogger.cs" />
+    <Compile Include="Features\WorkColumnOrderManager.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="BetterWorkTabSettings.cs" />
     <Compile Include="UI\BetterWorkTabSettingsUI.cs" />
@@ -67,7 +76,7 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Krafs.Rimworld.Ref">
-      <Version>1.6.4543</Version>
+      <Version>1.6.4566</Version>
     </PackageReference>
     <PackageReference Include="Lib.Harmony">
       <Version>2.4.1</Version>
@@ -78,5 +87,6 @@
     <Publicize Include="Assembly-CSharp:RimWorld.WidgetsWork.WorkBoxBGTex_AgeDisabled" />
     <Publicize Include="Assembly-CSharp:RimWorld.WidgetsWork.DrawWorkBoxBackground" />
     <Publicize Include="Assembly-CSharp" MemberPattern="^RimWorld\.FloatMenuOptionProvider_WorkGivers\..*|RimWorld\.PawnTable\..*" />
+    <Publicize Include="Assembly-CSharp:RimWorld.Pawn_WorkSettings.CacheWorkGiversInOrder" />
   </ItemGroup>
 </Project>
