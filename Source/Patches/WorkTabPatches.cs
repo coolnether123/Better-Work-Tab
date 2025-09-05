@@ -156,25 +156,26 @@ namespace Better_Work_Tab.Patches
 
         private static void DrawCurrentWorkloadsButtons(Rect headerRect)
         {
+            GameComponent_WorkloadSaver workloadSaver = Current.Game.GetComponent<GameComponent_WorkloadSaver>();
             var size = new Vector2(AssignWorkloadButtonWidth, AssignWorkloadButtonHeight);
             //start all the way at the right edge, then move left by button width, then by the square "..." button width, then by margin
             var btn = new Rect(headerRect.xMax - size.x - size.y - AssignWorkloadButtonMarginX, headerRect.y + AssignWorkloadButtonMarginY, size.x, size.y);
 
-            if (BetterWorkTabMod.Settings.CurrentWorkload == null)
+            if (workloadSaver.CurrentWorklist == null)
             {
                 if (Widgets.ButtonText(btn, "New Workload"))
                 {
-                    CreateNewWorkload();
+                    CreateNewWorkload(workloadSaver);
                 }
             }
             else
             {
 
-                if (Widgets.ButtonText(btn, BetterWorkTabMod.Settings.CurrentWorkload.RenamableLabel))
+                if (Widgets.ButtonText(btn, workloadSaver.CurrentWorklist.RenamableLabel))
                 {
-                    if (BetterWorkTabMod.Settings.CurrentWorkload != null)
+                    if (workloadSaver.CurrentWorklist != null)
                     {
-                        BetterWorkTabMod.Settings.CurrentWorkload.Apply();
+                        workloadSaver.CurrentWorklist.Apply();
                         SoundDefOf.Tick_Low.PlayOneShotOnCamera();
                     }
                     else
@@ -189,19 +190,19 @@ namespace Better_Work_Tab.Patches
             {
                 var options = new List<FloatMenuOption>();
                 
-                var workloads = BetterWorkTabMod.Settings.SavedWorkloads.ListFullCopy();
+                var workloads = workloadSaver.SavedWorklists.ListFullCopy();
                 workloads.Reverse(); // Show most recently added at the top
                 foreach (var workload in workloads)
                 {
                     options.Add(new FloatMenuOption(workload.RenamableLabel, delegate
                     {
-                        BetterWorkTabMod.Settings.CurrentWorkload = workload;
+                        workloadSaver.CurrentWorklist = workload;
                         SoundDefOf.Tick_Low.PlayOneShotOnCamera();
                     }));
                 }
                 options.Add(new FloatMenuOption("New Workload", delegate
                 {
-                    CreateNewWorkload();
+                    CreateNewWorkload(workloadSaver);
                     }));
                 if (workloads.Any())
                 {
@@ -212,12 +213,12 @@ namespace Better_Work_Tab.Patches
                         {
                             deletableOptions.Add(new FloatMenuOption("Delete " + workload.RenamableLabel, delegate
                             {
-                                var newCurrentIndex = Mathf.Clamp(BetterWorkTabMod.Settings.SavedWorkloads.IndexOf(workload) - 1, 0, int.MaxValue);
-                                BetterWorkTabMod.Settings.SavedWorkloads.Remove(workload);
-                                if (!BetterWorkTabMod.Settings.SavedWorkloads.Any())
-                                    BetterWorkTabMod.Settings.CurrentWorkload = null;
+                                var newCurrentIndex = Mathf.Clamp(workloadSaver.SavedWorklists.IndexOf(workload) - 1, 0, int.MaxValue);
+                                workloadSaver.SavedWorklists.Remove(workload);
+                                if (!workloadSaver.SavedWorklists.Any())
+                                    workloadSaver.CurrentWorklist = null;
                                 else
-                                    BetterWorkTabMod.Settings.CurrentWorkload = BetterWorkTabMod.Settings.SavedWorkloads[newCurrentIndex];
+                                    workloadSaver.CurrentWorklist = workloadSaver.SavedWorklists[newCurrentIndex];
 
                                 SoundDefOf.Tick_Low.PlayOneShotOnCamera();
                             }));
@@ -232,14 +233,14 @@ namespace Better_Work_Tab.Patches
             }
         }
 
-        private static void CreateNewWorkload()
+        private static void CreateNewWorkload(GameComponent_WorkloadSaver workloadSaver)
         {
 
-            var newWorkload = new Workload("Custom Workload " + BetterWorkTabMod.Settings.SavedWorkloads.Count);
+            var newWorkload = new Worklist("Custom Workload " + workloadSaver.SavedWorklists.Count);
             Find.WindowStack.Add(new Dialog_RenameWorkload(newWorkload));
 
-            BetterWorkTabMod.Settings.SavedWorkloads.Add(newWorkload);
-            BetterWorkTabMod.Settings.CurrentWorkload = newWorkload;
+            workloadSaver.SavedWorklists.Add(newWorkload);
+            workloadSaver.CurrentWorklist = newWorkload;
 
         }
 

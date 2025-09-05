@@ -53,8 +53,10 @@
     <Compile Include="Features\Rules\CoreWorkTypeRule.cs" />
     <Compile Include="Features\Rules\DefaultPriorityRule.cs" />
     <Compile Include="Features\Rules\PassionRule.cs" />
+    <Compile Include="Features\Workloads\GameComponent_WorkloadSaver.cs" />
+    <Compile Include="Features\Workloads\Worklist.cs" />
     <Compile Include="Features\Workloads\WorkloadNamers.cs" />
-    <Compile Include="Features\Workloads\Workload.cs" />
+    <Compile Include="Features\Workloads\PawnWorkload.cs" />
     <Compile Include="Patches\FloatMenuPatches.cs" />
     <Compile Include="Patches\WorkTabPatches.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

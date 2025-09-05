@@ -6,10 +6,10 @@ using Verse;
 
 namespace Better_Work_Tab.Features.Workloads
 {
-    public class Dialog_RenameWorkload : Dialog_Rename<Workload>
+    public class Dialog_RenameWorkload : Dialog_Rename<Worklist>
     {
 
-        public Dialog_RenameWorkload(Workload renameable) : base(renameable)
+        public Dialog_RenameWorkload(Worklist renameable) : base(renameable)
         {
         }
         protected override AcceptanceReport NameIsValid(string name)
@@ -19,7 +19,7 @@ namespace Better_Work_Tab.Features.Workloads
             {
                 return result;
             }
-            if (name != renaming.RenamableLabel && BetterWorkTabMod.Settings.SavedWorkloads.Where(wl => name == wl.RenamableLabel).Any())
+            if (name != renaming.RenamableLabel && Current.Game.GetComponent<GameComponent_WorkloadSaver>().SavedWorklists.Where(wl => name == wl.RenamableLabel).Any())
             {
                 return "NameIsInUse".Translate();
             }
