@@ -53,6 +53,7 @@
     <Compile Include="Features\Rules\CoreWorkTypeRule.cs" />
     <Compile Include="Features\Rules\DefaultPriorityRule.cs" />
     <Compile Include="Features\Rules\PassionRule.cs" />
+    <Compile Include="Features\Workloads\WorkloadNamers.cs" />
     <Compile Include="Features\Workloads\Workload.cs" />
     <Compile Include="Patches\FloatMenuPatches.cs" />
     <Compile Include="Patches\WorkTabPatches.cs" />
