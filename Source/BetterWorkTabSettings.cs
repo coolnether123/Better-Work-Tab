@@ -131,8 +131,9 @@ namespace Better_Work_Tab
                     
                     new WorkAssignmentParameters(2, worktypeNamedIgnoreIfNonexistant:"HaulUrgently"),
                     new WorkAssignmentParameters(2, worktype: WorkTypeDefOf.Childcare, hasChildOnMap: true),
-                    
                     new WorkAssignmentParameters(2, passionLevel: 2),
+                    
+                    new WorkAssignmentParameters(3, worktype: WorkTypeDefOf.Hauling),
                     new WorkAssignmentParameters(3, passionLevel: 1),
                     new WorkAssignmentParameters(3, isTopXSkill: 6),
                     new WorkAssignmentParameters(3, isNaturalAlwaysAssign: true),
