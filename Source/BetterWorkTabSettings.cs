@@ -104,13 +104,6 @@ namespace Better_Work_Tab
         {
             SavedRulesets = new List<WorkAssignmentRuleset>{
 
-                new WorkAssignmentRuleset("Testing Nth Best Pawn", new List<WorkAssignmentParameters>()
-                {
-                    new WorkAssignmentParameters(2, isNthBestSkill: 2, worktype: WorkTypeDefOf.Construction),
-                    new WorkAssignmentParameters(2, isNthBestSkill: 2),
-                }),
-
-
                 new WorkAssignmentRuleset("Vanilla Starting Pawn", new List<WorkAssignmentParameters>()
                 {
                    new WorkAssignmentParameters(3, hasHighestSkill: true, randomIfMultiple: true),
