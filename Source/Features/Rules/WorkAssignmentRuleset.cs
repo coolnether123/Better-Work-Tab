@@ -66,7 +66,8 @@ namespace Better_Work_Tab.Features
             {
                 foreach (var worktype in allWorkTypes)
                 {
-                    if(rule.Parameters.Worktype != null)
+
+                    if (rule.Parameters.Worktype != null)
                     {
 
                         //if there's a rule that applies to only one worktype, skip all others.
@@ -79,12 +80,13 @@ namespace Better_Work_Tab.Features
                         if (!DefDatabase<WorkTypeDef>.AllDefs.Contains(DefDatabase<WorkTypeDef>.GetNamedSilentFail(rule.Parameters.WorktypeNamedIgnoreIfNonexistant)))
                             continue;
                     }
+                    List<Pawn> pawnsForThisWorktype = new List<Pawn>();
 
                     //Log.Message($"Auto-assigning work type: {worktype.defName}");
                     foreach (var pawn in pawns)
                     {
                         if (pawn.workSettings == null) continue;
-
+                        bool pawnAlreadyAssigned = pawn.workSettings.GetPriority(worktype) > 0;
                         //// Apply all rules
                         if (rule.Apply(pawn, pawns, worktype))
                         {
@@ -92,7 +94,27 @@ namespace Better_Work_Tab.Features
                             //Apply returns true if the rest of the pawns should be skipped for this worktype
                             break;
                         }
+                        if(rule.Parameters.RandomIfMultiple && pawn.workSettings.GetPriority(worktype) > 0 && !pawnAlreadyAssigned)
+                        {
+                            //this was assigned. add to list for potential randomization later.
+                            pawnsForThisWorktype.Add(pawn);
+                        }
+                    }
 
+                    if (rule.Parameters.RandomIfMultiple && pawnsForThisWorktype.Count > 0)
+                    {
+                        //copy the list so we can sort it
+                        //filter to only those with a priority that has been set
+
+                        //reset before reassigning for randomization
+                        foreach (var p in pawnsForThisWorktype)
+                        {
+                            Log.Message($"Resetting {worktype.defName} for {p.NameShortColored} before random assignment.");
+                            //if (p.workSettings.GetPriority(worktype) == rule.Parameters.Priority)
+                            p.workSettings.SetPriority(worktype, 0);
+                        }
+                        //directly ripped straight out of rimworld but what can I do? it's a mod lol.
+                        pawnsForThisWorktype.Where(p => !p.WorkTypeIsDisabled(worktype)).InRandomOrder().First().workSettings.SetPriority(worktype, rule.Parameters.Priority);
                     }
 
                     if (rule.Parameters.FailedToApplyFallback != null && !pawns.Where(p => { return p.workSettings.GetPriority(worktype) > 0; }).Any())
@@ -101,6 +123,7 @@ namespace Better_Work_Tab.Features
                         foreach (var pawn in pawns)
                             new WorkAssignmentRule(rule.Parameters.FailedToApplyFallback).Apply(pawn, pawns, worktype);
                     }
+
                 }
             }
         }

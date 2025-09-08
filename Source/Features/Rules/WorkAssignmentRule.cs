@@ -21,15 +21,18 @@ namespace Better_Work_Tab.Features.Rules
             bool assignToPawnWithFewestWorkPriorities = false,
             bool hasChildOnMap = false,
             bool isNaturalAlwaysAssign = false,
-            bool randomIfTied = false,
+            bool randomIfMultiple = false,
             string worktypeNamedIgnoreIfNonexistant = "",
 
             int isTopXSkill = 0,
+            int isNthBestPawn  = 0,
+            int isNthBestSkill = 0,
             int limitNumberOfWorktypes = 0,
             int skipIfPriorityForThisWorktypeAreadyAssigned = -1,
             int passionLevel = -1,
             int skillLevelGreaterThan = -1,
             int skillLevelLessThan = -1,
+
             float moveSpeedGreaterThan = -1,
             float moveSpeedLessThan = -1,
 
@@ -67,8 +70,10 @@ namespace Better_Work_Tab.Features.Rules
             LimitNumberOfWorktypes = limitNumberOfWorktypes;
             IsTopXSkill = isTopXSkill;
             IsNaturalAlwaysAssign = isNaturalAlwaysAssign;
-            RandomIfTied = randomIfTied;
+            RandomIfMultiple = randomIfMultiple;
             WorktypeNamedIgnoreIfNonexistant = worktypeNamedIgnoreIfNonexistant;
+            IsNthBestPawn = isNthBestPawn  ;
+            IsNthBestSkill= isNthBestSkill;
         }
 
         public int Priority;// (-1 to ignore, 0 to disable, 1-4 for priorities)
@@ -81,7 +86,7 @@ namespace Better_Work_Tab.Features.Rules
         public bool AssignToPawnWithFewestWorkPriorities; //Implimented
         public bool HasChildOnMap;
         public bool IsNaturalAlwaysAssign;
-        public bool RandomIfTied;
+        public bool RandomIfMultiple;
 
         public int SkipIfPriorityForThisWorktypeAreadyAssigned; //Implimented
         public int PassionLevel; //Implimented (-1 to ignore, 0 = none, 1 = minor, 2 = major)
@@ -89,6 +94,8 @@ namespace Better_Work_Tab.Features.Rules
         public int SkillLevelLessThan;
         public int LimitNumberOfWorktypes;
         public int IsTopXSkill;
+        public int IsNthBestPawn;
+        public int IsNthBestSkill;
 
         public string WorktypeNamedIgnoreIfNonexistant;
 
@@ -180,6 +187,12 @@ namespace Better_Work_Tab.Features.Rules
                 Log.Error("[BWT] Trying to apply priority to a null worktype.");
                 //true means skip this worktype for remaining pawns
                 return true;
+            }
+
+            if (Parameters.IsNaturalAlwaysAssign)
+            {
+                if (!worktype.alwaysStartActive)
+                    return false;
             }
 
             // If the pawn cannot perform this work type skip assignment
@@ -460,20 +473,67 @@ namespace Better_Work_Tab.Features.Rules
 
             }
 
-            if (Parameters.IsNaturalAlwaysAssign)
+
+
+
+            //I need to make this choose all pawns with the same skill level if there's a tie. Also I need to reorder the rules to make the one that chooses whether a random one is assigned goes last.
+            if (Parameters.IsNthBestPawn > 0)
             {
-                if(!worktype.alwaysStartActive)
+                List<Pawn> sortedPawns = currentPawns.Where(p => !p.WorkTypeIsDisabled(assigningWorktype)).OrderByDescending(p => p.skills.AverageOfRelevantSkillsFor(assigningWorktype)).ToList();
+                if (sortedPawns.Count >= Parameters.IsNthBestPawn)
+                {
+                    sortedPawns = sortedPawns.Where(p => p.skills.AverageOfRelevantSkillsFor(assigningWorktype) == sortedPawns[Parameters.IsNthBestPawn - 1].skills.AverageOfRelevantSkillsFor(assigningWorktype)).ToList();
+
+                    //foreach (var p in sortedPawns)
+                    //{
+                    //    Log.Message("- " + p.Name + "'s " +assigningWorktype.defName + " skill: " + p.skills.AverageOfRelevantSkillsFor(assigningWorktype));
+                    //    //Log.Error(p.Name + " - " + p.skills.AverageOfRelevantSkillsFor(assigningWorktype));
+                    //}
+
+
+
+                    if (!sortedPawns.Contains(pawn))
+                    {
+                        //if (Parameters.RandomIfTied)
+                        {
+                            //directly ripped straight out of rimworld but what can I do? it's a mod lol.
+                            //currentPawns.Where(p => !p.WorkTypeIsDisabled(assigningWorktype)).InRandomOrder().MaxBy((Pawn c) => c.skills.AverageOfRelevantSkillsFor(assigningWorktype)).workSettings.SetPriority(assigningWorktype, Parameters.Priority);
+                            //return true;
+                        }
+                        //else
+                        {
+                            return false;
+                        }
+                    }
+                }
+                else
+                {
+                    Log.Message($"[BWT] Not enough pawns to assign {Parameters.IsNthBestPawn}st/nd/th best to {assigningWorktype.defName}. Only {sortedPawns.Count} pawns available. Skipping this step.");
                     return false;
+                }
+                //Log.Error("Not Implimented: IsNthBestPawn");
             }
 
-            if (Parameters.RandomIfTied)
+            if (Parameters.IsNthBestSkill > 0)
             {
-                //directly ripped straight out of rimworld but what can I do? it's a mod lol.
-                currentPawns.Where(p=>!p.WorkTypeIsDisabled(assigningWorktype)).InRandomOrder().MaxBy((Pawn c) => c.skills.AverageOfRelevantSkillsFor(assigningWorktype)).workSettings.SetPriority(assigningWorktype, Parameters.Priority);
-                return true;
+                List<WorkTypeDef> bestWorkInOrder = AllWorkTypes.Where(wt => !pawn.WorkTypeIsDisabled(wt)).OrderByDescending(wt => pawn.skills.AverageOfRelevantSkillsFor(wt)).ToList();
+                //Log.Error("Not Implimented: IsNthBestSkill");
+                if(bestWorkInOrder.Count >= Parameters.IsNthBestSkill)
+                {
+                    if(bestWorkInOrder[Parameters.IsNthBestSkill - 1] != assigningWorktype)
+                    {
+                        return false;
+                    }
+                }
+                else
+                {
+                    Log.Message($"[BWT] Not enough worktypes to assign {Parameters.IsNthBestSkill}st/nd/th best to {assigningWorktype.defName}. Only {bestWorkInOrder.Count} worktypes available. Skipping this step.");
+                    return false;
+                }
             }
 
 
+          
             // If we reach here, all conditions are met - assign the priority
             //Log.Message($"[BWT] Assigning {Worktype.defName} to {pawn.Name} with priority {Priority}.");
             pawn.workSettings.SetPriority(assigningWorktype, Mathf.Clamp(Parameters.Priority, 0, 4));
