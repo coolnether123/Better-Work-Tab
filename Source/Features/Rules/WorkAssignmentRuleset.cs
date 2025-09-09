@@ -17,7 +17,7 @@ namespace Better_Work_Tab.Features
 
         public string Name { get; private set; }
         public bool ResetBeforeApplying { get; private set; } = true;
-        private readonly List<WorkAssignmentRule> _rules= new List<WorkAssignmentRule>();
+        public readonly List<WorkAssignmentRule> Rules = new List<WorkAssignmentRule>();
 
         public WorkAssignmentRuleset(string rulesetName, List<WorkAssignmentParameters> parameters, bool resetBeforeApplying = true)
         {
@@ -26,7 +26,7 @@ namespace Better_Work_Tab.Features
 
             foreach (var p in parameters)
             {
-                _rules.Add(new WorkAssignmentRule(p));
+                Rules.Add(new WorkAssignmentRule(p));
             }
 
         }
@@ -34,7 +34,7 @@ namespace Better_Work_Tab.Features
         public WorkAssignmentRuleset(string rulesetName, List<WorkAssignmentRule> rules, bool resetBeforeApplying = true)
         {
             Name = rulesetName;
-            _rules = rules;
+            Rules = rules;
             ResetBeforeApplying = resetBeforeApplying;
         }
 
@@ -62,7 +62,7 @@ namespace Better_Work_Tab.Features
             allWorkTypes.RemoveDuplicates();
 
             
-            foreach (var rule in _rules)
+            foreach (var rule in Rules)
             {
                 foreach (var worktype in allWorkTypes)
                 {
@@ -74,10 +74,10 @@ namespace Better_Work_Tab.Features
                         if (rule.Parameters.Worktype != worktype)
                             continue;
                     }
-                    if(rule.Parameters.WorktypeNamedIgnoreIfNonexistant != "")
+                    if(rule.Parameters.WorktypeDefNameIgnoreIfNonexistant != "")
                     {
                         //if there's a rule that applies to only one ignorable worktype, skip all others.
-                        if (!DefDatabase<WorkTypeDef>.AllDefs.Contains(DefDatabase<WorkTypeDef>.GetNamedSilentFail(rule.Parameters.WorktypeNamedIgnoreIfNonexistant)))
+                        if (!DefDatabase<WorkTypeDef>.AllDefs.Contains(DefDatabase<WorkTypeDef>.GetNamedSilentFail(rule.Parameters.WorktypeDefNameIgnoreIfNonexistant)))
                             continue;
                     }
                     List<Pawn> pawnsForThisWorktype = new List<Pawn>();

@@ -15,61 +15,17 @@ namespace Better_Work_Tab.UI
 
         public static void DoSettingsWindowContents(Rect inRect, BetterWorkTabSettings s)
         {
+            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
             var l = new Listing_Standard { ColumnWidth = inRect.width / 2f - 12f };
             l.Begin(inRect);
-
-            l.CheckboxLabeled("Enable skill overlay feature", ref s.enableSkillOverlayFeature,
-                "If disabled, overlay-related patches do nothing.");
-
-            l.GapLine();
-            l.Label("Default starting priority (0 = don't change, 1..4 = force):");
-            IntAdjust(ref s.defaultStartingPriority, 0, 4, l.GetRect(RowHeight));
-
-            l.GapLine();
-            l.Label("Core Work Types Priority:");
-            l.CheckboxLabeled("Enable", ref s.rule_CoreAlwaysPriorityEnabled);
-            l.Label("Priority: " + s.rule_CoreAlwaysPriorityValue);
-            s.rule_CoreAlwaysPriorityValue = Mathf.Clamp(
-                Mathf.RoundToInt(Widgets.HorizontalSlider(l.GetRect(22f), s.rule_CoreAlwaysPriorityValue, 1, 4, middleAlignment: true)),
-                1, 4);
-
-            l.CheckboxLabeled("Firefighter", ref s.core_Firefighter);
-            l.CheckboxLabeled("Patient", ref s.core_Patient);
-            l.CheckboxLabeled("BedRest", ref s.core_BedRest);
-            l.CheckboxLabeled("Basic", ref s.core_Basic);
-
-            
-
-            l.NewColumn();
-
-            l.CheckboxLabeled("Enable Auto-Assign feature", ref s.enableAutoAssignFeature,
-                "If disabled, the 'Auto Assign Work' button does nothing.");
-
-            l.GapLine();
-            l.Label("Best Doctors Rule:");
-            l.CheckboxLabeled("Enable", ref s.rule_BestDoctorsEnabled);
-            //l.Label("Priority: " + s.rule_BestDoctorsPriority);
-            //s.rule_BestDoctorsPriority = Mathf.Clamp(
-                //Mathf.RoundToInt(Widgets.HorizontalSlider(l.GetRect(22f), s.rule_BestDoctorsPriority, 1, 4, middleAlignment: true)),
-                //1, 4);
-
-            l.GapLine();
-            l.Label("Childcare Rule:");
-            l.CheckboxLabeled("Enable", ref s.rule_ChildcareEnabled);
-            l.Label("Priority: " + s.rule_ChildcarePriority);
-            s.rule_ChildcarePriority = Mathf.Clamp(
-                Mathf.RoundToInt(Widgets.HorizontalSlider(l.GetRect(22f), s.rule_ChildcarePriority, 1, 4, middleAlignment: true)),
-                1, 4);
-
-            l.GapLine();
-            l.Label("Passion Overrides (0 = disabled / don't change)");
-            l.CheckboxLabeled("Enable passion overrides", ref s.rule_PassionOverrideEnabled,
-                "Map each passion level to a fixed priority. 0 = leave as is.");
-            DrawPassionField(l, "None", ref s.passion_None);
-            DrawPassionField(l, "Minor", ref s.passion_Minor);
-            DrawPassionField(l, "Major", ref s.passion_Major);
-
+           
+           
             l.End();
+        }
+
+        private static void DrawRulesUI(Listing_Standard listing, BetterWorkTabSettings s)
+        {
+
         }
 
         private static void IntAdjust(ref int val, int min, int max, Rect row)

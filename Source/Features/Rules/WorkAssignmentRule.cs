@@ -13,6 +13,8 @@ namespace Better_Work_Tab.Features.Rules
     {
         public WorkAssignmentParameters(
             int priority,
+            WorkTypeDef worktype = null,
+
             bool allowOverwritingHigherPriority = false,
             bool hasHighestSkill = false,
             bool skipIfAnotherPawnAssigned = false,
@@ -22,7 +24,7 @@ namespace Better_Work_Tab.Features.Rules
             bool hasChildOnMap = false,
             bool isNaturalAlwaysAssign = false,
             bool randomIfMultiple = false,
-            string worktypeNamedIgnoreIfNonexistant = "",
+            string worktypeDefNameIgnoreIfNonexistant = "",
 
             int isTopXSkill = 0,
             int isNthBestPawn  = 0,
@@ -33,17 +35,16 @@ namespace Better_Work_Tab.Features.Rules
             int skillLevelGreaterThan = -1,
             int skillLevelLessThan = -1,
 
-            float moveSpeedGreaterThan = -1,
-            float moveSpeedLessThan = -1,
+            //float moveSpeedGreaterThan = -1,
+            //float moveSpeedLessThan = -1,
 
             Gender? gender = null,
             XenotypeDef xenotype = null,
-            TraitDef trait = null,
+            Tuple<TraitDef, int> requiredTrait = null,
 
             WorkAssignmentParameters assignSimilarWorktypes = null,
-            WorkAssignmentParameters failedToApplyFallback = null,
+            WorkAssignmentParameters failedToApplyFallback = null
 
-            WorkTypeDef worktype = null
             )
         {
             AllowOverwritingHigherPriority = allowOverwritingHigherPriority;
@@ -60,18 +61,18 @@ namespace Better_Work_Tab.Features.Rules
             PassionLevel = (int)Mathf.Clamp(passionLevel, -1, 2);
             SkillLevelGreaterThan = skillLevelGreaterThan;
             SkillLevelLessThan = skillLevelLessThan;
-            MoveSpeedGreaterThan = moveSpeedGreaterThan;
-            MoveSpeedLessThan = moveSpeedLessThan;
+            //MoveSpeedGreaterThan = moveSpeedGreaterThan;
+            //MoveSpeedLessThan = moveSpeedLessThan;
             Gender = gender;
             Xenotype = xenotype;
-            RequiredTrait = trait;
+            RequiredTrait = requiredTrait;
             Priority = Mathf.Clamp(priority, -1, 4);
             Worktype = worktype;
             LimitNumberOfWorktypes = limitNumberOfWorktypes;
             IsTopXSkill = isTopXSkill;
             IsNaturalAlwaysAssign = isNaturalAlwaysAssign;
             RandomIfMultiple = randomIfMultiple;
-            WorktypeNamedIgnoreIfNonexistant = worktypeNamedIgnoreIfNonexistant;
+            WorktypeDefNameIgnoreIfNonexistant = worktypeDefNameIgnoreIfNonexistant;
             IsNthBestPawn = isNthBestPawn  ;
             IsNthBestSkill= isNthBestSkill;
         }
@@ -97,15 +98,15 @@ namespace Better_Work_Tab.Features.Rules
         public int IsNthBestPawn;
         public int IsNthBestSkill;
 
-        public string WorktypeNamedIgnoreIfNonexistant;
+        public string WorktypeDefNameIgnoreIfNonexistant;
 
-        public float MoveSpeedGreaterThan;
-        public float MoveSpeedLessThan;
+        //public float MoveSpeedGreaterThan;
+        //public float MoveSpeedLessThan;
         
         public Gender? Gender;
         
         public XenotypeDef Xenotype;
-        public TraitDef RequiredTrait;
+        public Tuple<TraitDef, int> RequiredTrait;
 
         public WorkAssignmentParameters AssignSimilarWorktypes; //implimented
         public WorkAssignmentParameters FailedToApplyFallback;
@@ -146,18 +147,18 @@ namespace Better_Work_Tab.Features.Rules
         /// <returns></returns>
         public bool Apply(Pawn pawn, List<Pawn> currentPawns, WorkTypeDef worktype = null)
         {
-            if (Parameters.WorktypeNamedIgnoreIfNonexistant != "")
+            if (Parameters.WorktypeDefNameIgnoreIfNonexistant != "")
             {
-                if (!AllWorkTypes.Contains(DefDatabase<WorkTypeDef>.GetNamedSilentFail(Parameters.WorktypeNamedIgnoreIfNonexistant)))
+                if (!AllWorkTypes.Contains(DefDatabase<WorkTypeDef>.GetNamedSilentFail(Parameters.WorktypeDefNameIgnoreIfNonexistant)))
                 {
-                    Log.Message("Worktype " + Parameters.WorktypeNamedIgnoreIfNonexistant + " does not exist. Skipping this assignment.");
+                    Log.Message("Worktype " + Parameters.WorktypeDefNameIgnoreIfNonexistant + " does not exist. Skipping this assignment.");
                     //true skips remaining pawns. 
                     return true;
                 }
                 else
                 {
-                    Log.Message(Parameters.WorktypeNamedIgnoreIfNonexistant + " should exist.");
-                    Parameters.Worktype = DefDatabase<WorkTypeDef>.GetNamed(Parameters.WorktypeNamedIgnoreIfNonexistant);
+                    Log.Message(Parameters.WorktypeDefNameIgnoreIfNonexistant + " should exist.");
+                    Parameters.Worktype = DefDatabase<WorkTypeDef>.GetNamed(Parameters.WorktypeDefNameIgnoreIfNonexistant);
                 }
             }
 
@@ -367,23 +368,23 @@ namespace Better_Work_Tab.Features.Rules
                 }
             }
 
-            if(Parameters.MoveSpeedGreaterThan > -1)
-            {
-                if(pawn.GetStatValue(StatDefOf.MoveSpeed, true) <= Parameters.MoveSpeedGreaterThan)
-                {
-                    //Log.Message($"[BWT] Skipping {Worktype.defName} for {pawn.Name} because pawn's move speed {pawn.GetStatValue(StatDefOf.MoveSpeed, true)} is less than required move speed {Parameters.MoveSpeedGreaterThan}");
-                    return false;
-                }
-            }
+            //if(Parameters.MoveSpeedGreaterThan > -1)
+            //{
+            //    if(pawn.GetStatValue(StatDefOf.MoveSpeed, true) <= Parameters.MoveSpeedGreaterThan)
+            //    {
+            //        //Log.Message($"[BWT] Skipping {Worktype.defName} for {pawn.Name} because pawn's move speed {pawn.GetStatValue(StatDefOf.MoveSpeed, true)} is less than required move speed {Parameters.MoveSpeedGreaterThan}");
+            //        return false;
+            //    }
+            //}
 
-            if(Parameters.MoveSpeedLessThan > -1)
-            {
-                if (pawn.GetStatValue(StatDefOf.MoveSpeed, true) >= Parameters.MoveSpeedLessThan)
-                {
-                    //Log.Message($"[BWT] Skipping {Worktype.defName} for {pawn.Name} because pawn's move speed {pawn.GetStatValue(StatDefOf.MoveSpeed, true)} is greater than required move speed {Parameters.MoveSpeedLessThan}");
-                    return false;
-                }
-            }
+            //if(Parameters.MoveSpeedLessThan > -1)
+            //{
+            //    if (pawn.GetStatValue(StatDefOf.MoveSpeed, true) >= Parameters.MoveSpeedLessThan)
+            //    {
+            //        //Log.Message($"[BWT] Skipping {Worktype.defName} for {pawn.Name} because pawn's move speed {pawn.GetStatValue(StatDefOf.MoveSpeed, true)} is greater than required move speed {Parameters.MoveSpeedLessThan}");
+            //        return false;
+            //    }
+            //}
 
             if (Parameters.Gender != null)
             { 
@@ -405,7 +406,7 @@ namespace Better_Work_Tab.Features.Rules
 
             if (Parameters.RequiredTrait != null)
             {
-                if (!pawn.story?.traits.HasTrait(Parameters.RequiredTrait) ?? true)
+                if (!pawn.story?.traits.HasTrait((TraitDef)Parameters.RequiredTrait.Item1, Parameters.RequiredTrait.Item2) ?? true)
                 {
                     //Log.Message($"[BWT] Skipping {Worktype.defName} for {pawn.Name} because pawn does not have the required trait {Parameters.RequiredTrait}");
                     return false;
