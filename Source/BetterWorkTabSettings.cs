@@ -1,4 +1,7 @@
-﻿using RimWorld;
+﻿using Better_Work_Tab.Features;
+using Better_Work_Tab.Features.Rules;
+using Better_Work_Tab.Features.Workloads;
+using RimWorld;
 using System.Collections.Generic;
 using System.Linq;
 using Unity.Mathematics;
@@ -31,7 +34,6 @@ namespace Better_Work_Tab
 
         // This controls automatic assignment of medical work to the most skilled colonists
         public bool rule_BestDoctorsEnabled = true;
-        public int rule_BestDoctorsPriority = 1;
 
         // This allows passion levels to override normal priority assignment for specialized roles
         public bool rule_PassionOverrideEnabled = true;
@@ -88,27 +90,76 @@ namespace Better_Work_Tab
             }
         }
 
+       
+
         // This color is used to indicate a pawn is incapable of a work type due to health conditions. Vanilla red is Color(1,0.3,0.3)
         public Color Color_IncapableBecauseOfCapacities = new Color(1f, 0.3f, 0.3f); // Red
 
         //This color is used to indicate the best pawn for a skill in the work tab
         public Color Color_BestPawnForSkillSquare = new Color(0.35f, 0.85f, 0.35f);
 
-        // Debug logging controls (leveled + throttled)
-        // 0-Off, 1-Error, 2-Warn, 3-Info, 4-Debug, 5-Trace
-        public int debugLogLevel = 0;
-        // Additional high-frequency drag logs toggles
-        public bool debugLogDragColumns = false;
-        public bool debugLogDragRows = false;
-        // Throttle: max debug/trace logs per second per category (0 = unlimited)
-        public int debugLogMaxPerSecond = 5;
+        
+        public List<WorkAssignmentRuleset> SavedRulesets = new List<WorkAssignmentRuleset> ();
+        public void CreateDefaultRulesets()
+        {
+            SavedRulesets = new List<WorkAssignmentRuleset>{
 
-        // Saved custom order of worktype columns (list of WorkTypeDef.defName)
-        public List<string> workColumnOrderDefNames = new List<string>();
+                new WorkAssignmentRuleset("Vanilla Starting Pawn", new List<WorkAssignmentParameters>()
+                {
+                   new WorkAssignmentParameters(3, hasHighestSkill: true, randomIfMultiple: true),
+                   new WorkAssignmentParameters(3, skillLevelGreaterThan: 5),
+                   new WorkAssignmentParameters(3, isNaturalAlwaysAssign: true),
+
+                }),
+
+
+                new WorkAssignmentRuleset("Vanilla New Pawn", new List<WorkAssignmentParameters>()
+                {
+                   new WorkAssignmentParameters(3, isTopXSkill: 6),
+                   new WorkAssignmentParameters(3, isNaturalAlwaysAssign: true),
+                
+                }),
+
+
+                new WorkAssignmentRuleset("BWT Default", new List<WorkAssignmentParameters>()
+                {
+                    new WorkAssignmentParameters(1, worktype: WorkTypeDefOf.Firefighter),
+                    new WorkAssignmentParameters(1, worktypeNamedIgnoreIfNonexistant:"Patient"),
+                    new WorkAssignmentParameters(1, worktypeNamedIgnoreIfNonexistant:"PatientBedRest"),
+                    new WorkAssignmentParameters(1, worktypeNamedIgnoreIfNonexistant:"BasicWorker"),
+                    new WorkAssignmentParameters(1, worktype: WorkTypeDefOf.Doctor, hasHighestSkill: true),
+                    
+                    new WorkAssignmentParameters(2, worktypeNamedIgnoreIfNonexistant:"HaulUrgently"),
+                    new WorkAssignmentParameters(2, worktype: WorkTypeDefOf.Childcare, hasChildOnMap: true),
+                    new WorkAssignmentParameters(2, passionLevel: 2),
+                    
+                    new WorkAssignmentParameters(3, worktype: WorkTypeDefOf.Hauling),
+                    new WorkAssignmentParameters(3, passionLevel: 1),
+                    new WorkAssignmentParameters(3, isTopXSkill: 6),
+                    new WorkAssignmentParameters(3, isNaturalAlwaysAssign: true),
+                }),
+
+                new WorkAssignmentRuleset("Best Pawn to 1", new List<WorkAssignmentParameters>()
+                {
+                    new WorkAssignmentParameters(1, hasHighestSkill: true),
+                }),
+                
+                new WorkAssignmentRuleset("Set all to 0", new List<WorkAssignmentParameters>()
+                {
+                    new WorkAssignmentParameters(0),
+                })
+            };
+
+            CurrentAutoAssignRuleset = SavedRulesets[0];
+        }
+        public WorkAssignmentRuleset CurrentAutoAssignRuleset = null;
+
+        //Worklists are stored in a GameComponent
+
 
         // These control when various UI elements are shown on the work tab
         public enum ShowUIMode { Always, Never, Shifted, Unshifted}
-        public ShowUIMode ShowUIMode_ShowSmallSkillNumbers = ShowUIMode.Always;
+        public ShowUIMode ShowUIMode_ShowSmallSkillNumbers = ShowUIMode.Unshifted;
         public ShowUIMode ShowUIMode_ShowPawnForSkillSquare = ShowUIMode.Shifted;
 
 
@@ -122,93 +173,13 @@ namespace Better_Work_Tab
 
 
 
-
-        public override void ExposeData()
-        {
-            base.ExposeData();
-
-            Scribe_Values.Look(ref enableSkillOverlayFeature, "enableSkillOverlayFeature", true);
-            Scribe_Values.Look(ref enableAutoAssignFeature, "enableAutoAssignFeature", true);
-
-            Scribe_Values.Look(ref defaultStartingPriority, "defaultStartingPriority", 0);
-
-            Scribe_Values.Look(ref rule_CoreAlwaysPriorityEnabled, "rule_CoreAlwaysPriorityEnabled", true);
-            Scribe_Values.Look(ref rule_CoreAlwaysPriorityValue, "rule_CoreAlwaysPriorityValue", 1);
-
-            Scribe_Values.Look(ref core_Firefighter, "core_Firefighter", true);
-            Scribe_Values.Look(ref core_Patient, "core_Patient", true);
-            Scribe_Values.Look(ref core_BedRest, "core_BedRest", true);
-            Scribe_Values.Look(ref core_Basic, "core_Basic", true);
-
-            Scribe_Values.Look(ref rule_BestDoctorsEnabled, "rule_BestDoctorsEnabled", true);
-            Scribe_Values.Look(ref rule_BestDoctorsPriority, "rule_BestDoctorsPriority", 1);
-
-            Scribe_Values.Look(ref rule_PassionOverrideEnabled, "rule_PassionOverrideEnabled", true);
-            Scribe_Values.Look(ref passion_None, "passion_None", 0);
-            Scribe_Values.Look(ref passion_Minor, "passion_Minor", 3);
-            Scribe_Values.Look(ref passion_Major, "passion_Major", 2);
-
-            Scribe_Values.Look(ref rule_ChildcareEnabled, "rule_ChildcareEnabled", true);
-            Scribe_Values.Look(ref rule_ChildcarePriority, "rule_ChildcarePriority", 1);
-
-            // Debug logging
-            Scribe_Values.Look(ref debugLogLevel, "debugLogLevel", 0);
-            Scribe_Values.Look(ref debugLogDragColumns, "debugLogDragColumns", false);
-            Scribe_Values.Look(ref debugLogDragRows, "debugLogDragRows", false);
-            Scribe_Values.Look(ref debugLogMaxPerSecond, "debugLogMaxPerSecond", 5);
-
-            // Save/load custom Work column order
-            Scribe_Collections.Look(ref workColumnOrderDefNames, "workColumnOrderDefNames", LookMode.Value);
-
-            // Handle dictionaries using string keys to avoid DefOf issues during loading
-            if (Scribe.mode == LoadSaveMode.Saving)
-            {
-                // Convert dictionaries to string lists for saving
-                tempAlwaysHaveOneKeys = rule_AlwaysHaveOneByWorkType.Keys.Where(k => k != null).Select(k => k.defName).ToList();
-                tempAlwaysHaveOneValues = rule_AlwaysHaveOneByWorkType.Where(kvp => kvp.Key != null).Select(kvp => kvp.Value).ToList();
-                tempAlwaysAssignAllKeys = rule_AlwaysAssignAllByWorkType.Keys.Where(k => k != null).Select(k => k.defName).ToList();
-                tempAlwaysAssignAllValues = rule_AlwaysAssignAllByWorkType.Where(kvp => kvp.Key != null).Select(kvp => kvp.Value).ToList();
-            }
-
-            // Save/load as string lists to avoid DefOf issues
-            Scribe_Collections.Look(ref tempAlwaysHaveOneKeys, "rule_AlwaysHaveOneByWorkType_Keys");
-            Scribe_Collections.Look(ref tempAlwaysHaveOneValues, "rule_AlwaysHaveOneByWorkType_Values");
-            Scribe_Collections.Look(ref tempAlwaysAssignAllKeys, "rule_AlwaysAssignAllByWorkType_Keys");
-            Scribe_Collections.Look(ref tempAlwaysAssignAllValues, "rule_AlwaysAssignAllByWorkType_Values");
-
-            if (Scribe.mode == LoadSaveMode.PostLoadInit)
-            {
-                // Initialize dictionaries
-                if (rule_AlwaysHaveOneByWorkType == null)
-                    rule_AlwaysHaveOneByWorkType = new Dictionary<WorkTypeDef, int>();
-                if (rule_AlwaysAssignAllByWorkType == null)
-                    rule_AlwaysAssignAllByWorkType = new Dictionary<WorkTypeDef, int>();
-
-                // Clear existing data
-                rule_AlwaysHaveOneByWorkType.Clear();
-                rule_AlwaysAssignAllByWorkType.Clear();
-
-                // Initialize temp lists if null
-                if (tempAlwaysHaveOneKeys == null) tempAlwaysHaveOneKeys = new List<string>();
-                if (tempAlwaysHaveOneValues == null) tempAlwaysHaveOneValues = new List<int>();
-                if (tempAlwaysAssignAllKeys == null) tempAlwaysAssignAllKeys = new List<string>();
-                if (tempAlwaysAssignAllValues == null) tempAlwaysAssignAllValues = new List<int>();
-
-                // Reconstruct dictionaries from string lists, skipping invalid entries
-                ReconstructDictionary(tempAlwaysHaveOneKeys, tempAlwaysHaveOneValues, rule_AlwaysHaveOneByWorkType);
-                ReconstructDictionary(tempAlwaysAssignAllKeys, tempAlwaysAssignAllValues, rule_AlwaysAssignAllByWorkType);
-
-                // Add default entry for Doctor if dictionary is empty and Doctor WorkType exists
-                if (rule_AlwaysHaveOneByWorkType.Count == 0)
-                {
-                    var doctorWorkType = DefDatabase<WorkTypeDef>.GetNamedSilentFail("Doctor");
-                    if (doctorWorkType != null)
-                    {
-                        rule_AlwaysHaveOneByWorkType.Add(doctorWorkType, 2);
-                    }
-                }
-            }
-        }
+        //public override void ExposeData()
+        //{
+        //    base.ExposeData();
+        //    //Scribe_Values.Look(ref CurrentWorklist, "currentWorklist");
+        //    //if (SavedWorklists == null) SavedWorklists = new List<Worklist>();
+        //    //Scribe_Collections.Look(ref SavedWorklists, "savedWorklists");
+        //}
 
         private void ReconstructDictionary(List<string> keys, List<int> values, Dictionary<WorkTypeDef, int> targetDict)
         {

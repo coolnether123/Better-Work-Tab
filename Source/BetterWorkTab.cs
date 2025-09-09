@@ -22,6 +22,7 @@ namespace Better_Work_Tab
             }
 
             Settings = GetSettings<BetterWorkTabSettings>();
+            LongEventHandler.ExecuteWhenFinished(Settings.CreateDefaultRulesets);
         }
 
         public override string SettingsCategory() => "Better Work Tab";
@@ -30,5 +31,6 @@ namespace Better_Work_Tab
         {
             UI.BetterWorkTabSettingsUI.DoSettingsWindowContents(inRect, Settings);
         }
+
     }
 }
