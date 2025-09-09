@@ -13,6 +13,7 @@ using UnityEngine;
 using Verse;
 using Verse.Sound;
 using System.Diagnostics.Eventing.Reader;
+using Better_Work_Tab.UI;
 
 namespace Better_Work_Tab.Patches
 {
@@ -22,7 +23,7 @@ namespace Better_Work_Tab.Patches
         /// <summary>
         /// When true, the priority cell is replaced with the skill level (0–20).
         /// </summary>
-        public static bool ShowSkills = false;
+        //public static bool ShowSkills = false;
 
     }
 
@@ -97,16 +98,16 @@ namespace Better_Work_Tab.Patches
 
             if (Event.current == null || Event.current.type == EventType.Layout) return;
 
-            Rect toggleRect = new Rect(SkillToggleX_RightOfManualPriorities, SkillToggleY_Top, SkillToggleWidth, SkillToggleHeight);
+            //Rect toggleRect = new Rect(SkillToggleX_RightOfManualPriorities, SkillToggleY_Top, SkillToggleWidth, SkillToggleHeight);
 
-            bool show = SkillOverlayState.ShowSkills;
-            Widgets.CheckboxLabeled(toggleRect, "Show skill levels (0–20)", ref show);
+            //bool show = SkillOverlayState.ShowSkills;
+            //Widgets.CheckboxLabeled(toggleRect, "Show skill levels (0–20)", ref show);
 
-            if (show != SkillOverlayState.ShowSkills)
-            {
-                SkillOverlayState.ShowSkills = show;
-                SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
-            }
+            //if (show != SkillOverlayState.ShowSkills)
+            //{
+            //    SkillOverlayState.ShowSkills = show;
+            //    SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
+            //}
 
             DrawAutoAssignButtons(rect);
             DrawCurrentWorkloadsButtons(rect);
@@ -117,12 +118,12 @@ namespace Better_Work_Tab.Patches
             var size = new Vector2(AutoAssignButtonWidth, AutoAssignButtonHeight);
             var btn = new Rect(headerRect.xMax - size.x - size.y - AutoAssignButtonMarginX, headerRect.y + AutoAssignButtonMarginY, size.x, size.y);
 
-            if (BetterWorkTabMod.Settings.CurrentAutoAssignRuleset == null)
+            if (BetterWorkTabMod.Settings.CurrentRuleset == null)
             {
                 Log.Error("[Better Work Tab] No ruleset selected.");
                 return;
             }
-            var curRuleset = BetterWorkTabMod.Settings.CurrentAutoAssignRuleset;
+            var curRuleset = BetterWorkTabMod.Settings.CurrentRuleset;
 
 
             if (Widgets.ButtonText(btn, curRuleset.Name))
@@ -145,10 +146,15 @@ namespace Better_Work_Tab.Patches
                     var localRuleset = ruleset;
                     options.Add(new FloatMenuOption(ruleset.Name, delegate
                     {
-                        BetterWorkTabMod.Settings.CurrentAutoAssignRuleset = localRuleset;
+                        BetterWorkTabMod.Settings.CurrentRuleset = localRuleset;
                         SoundDefOf.Tick_Low.PlayOneShotOnCamera();
                     }));
                 }
+                options.Add(new FloatMenuOption("Manage Rulesets...", delegate
+                {
+                    Find.WindowStack.Add(new Window_RulesManager());
+                    SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                }));
                 Find.WindowStack.Add(new FloatMenu(options));
                 //Find.WindowStack.Add(new Dialog_Confirm("Button works", null));
             }
@@ -277,13 +283,13 @@ namespace Better_Work_Tab.Patches
             bool shiftHeld = Event.current != null && Event.current.shift;
             var wt = __instance.def.workType; // Moved this line up
 
-            if (!BetterWorkTabMod.Settings.enableSkillOverlayFeature || (!SkillOverlayState.ShowSkills && !shiftHeld))
+            if (!BetterWorkTabMod.Settings.enableSkillOverlayFeature || (!shiftHeld))
                 return true;
 
             // If skill overlay is not globally active, and shift is held,
             // we need to check if the current work type is one of the excluded ones.
             // TODO Currently this just skips it so numbers or check marks will show and be clickable.
-            if (!SkillOverlayState.ShowSkills && shiftHeld)
+            if (shiftHeld)
             {
                 if (wt.relevantSkills.Count == 0)
                 {
@@ -414,8 +420,7 @@ namespace Better_Work_Tab.Patches
             //// If skill overlay is not globally active, and shift is held,
             //// we need to check if the current work type is one of the excluded ones.
             //// TODO Currently this just skips it so numbers or check marks will show and be clickable.
-            if ((SkillOverlayState.ShowSkills ||
-                ShiftHelper.State == BetterWorkTabMod.Settings.ShowUIMode_ShowSmallSkillNumbers ||
+            if ((ShiftHelper.State == BetterWorkTabMod.Settings.ShowUIMode_ShowSmallSkillNumbers ||
                 BetterWorkTabMod.Settings.ShowUIMode_ShowSmallSkillNumbers == BetterWorkTabSettings.ShowUIMode.Always) &&
                 worktype.relevantSkills.Count != 0)
             {
