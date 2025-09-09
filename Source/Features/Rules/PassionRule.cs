@@ -1,10 +1,13 @@
+using RimWorld;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using RimWorld;
 using Verse;
 
 namespace Better_Work_Tab.Features.Rules
 {
+    [Obsolete("Use WorkAssignmentRuleset classes instead", true)]
+
     /// <summary>
     /// This rule handles adjusting work priorities based on a pawn's passion for relevant skills.
     /// </summary>
