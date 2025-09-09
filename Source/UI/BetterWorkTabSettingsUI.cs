@@ -48,10 +48,10 @@ namespace Better_Work_Tab.UI
             l.GapLine();
             l.Label("Best Doctors Rule:");
             l.CheckboxLabeled("Enable", ref s.rule_BestDoctorsEnabled);
-            l.Label("Priority: " + s.rule_BestDoctorsPriority);
-            s.rule_BestDoctorsPriority = Mathf.Clamp(
-                Mathf.RoundToInt(Widgets.HorizontalSlider(l.GetRect(22f), s.rule_BestDoctorsPriority, 1, 4, middleAlignment: true)),
-                1, 4);
+            //l.Label("Priority: " + s.rule_BestDoctorsPriority);
+            //s.rule_BestDoctorsPriority = Mathf.Clamp(
+                //Mathf.RoundToInt(Widgets.HorizontalSlider(l.GetRect(22f), s.rule_BestDoctorsPriority, 1, 4, middleAlignment: true)),
+                //1, 4);
 
             l.GapLine();
             l.Label("Childcare Rule:");

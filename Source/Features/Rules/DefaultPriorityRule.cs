@@ -1,9 +1,12 @@
-using System.Collections.Generic;
 using RimWorld;
+using System;
+using System.Collections.Generic;
 using Verse;
 
 namespace Better_Work_Tab.Features.Rules
 {
+    [Obsolete("Use WorkAssignmentRuleset classes instead", true)]
+
     /// <summary>
     /// This rule handles setting a default priority for work types not covered by other specific rules.
     /// </summary>
