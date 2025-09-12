@@ -12,9 +12,9 @@ namespace Better_Work_Tab.Features.Rules
     public class WorkAssignmentParameters
     {
         public WorkAssignmentParameters(
+            string ruleName,
             int priority,
             WorkTypeDef worktype = null,
-
             bool allowOverwritingHigherPriority = false,
             bool hasHighestSkill = false,
             bool skipIfAnotherPawnAssigned = false,
@@ -25,7 +25,6 @@ namespace Better_Work_Tab.Features.Rules
             bool isNaturalAlwaysAssign = false,
             bool randomIfMultiple = false,
             string worktypeDefNameIgnoreIfNonexistant = "",
-
             int isTopXSkill = 0,
             int isNthBestPawn  = 0,
             int isNthBestSkill = 0,
@@ -34,17 +33,13 @@ namespace Better_Work_Tab.Features.Rules
             int passionLevel = -1,
             int skillLevelGreaterThan = -1,
             int skillLevelLessThan = -1,
-
             //float moveSpeedGreaterThan = -1,
             //float moveSpeedLessThan = -1,
-
             Gender? gender = null,
             XenotypeDef xenotype = null,
             Tuple<TraitDef, int> requiredTrait = null,
-
             WorkAssignmentParameters assignSimilarWorktypes = null,
             WorkAssignmentParameters failedToApplyFallback = null
-
             )
         {
             AllowOverwritingHigherPriority = allowOverwritingHigherPriority;
@@ -75,6 +70,7 @@ namespace Better_Work_Tab.Features.Rules
             WorktypeDefNameIgnoreIfNonexistant = worktypeDefNameIgnoreIfNonexistant;
             IsNthBestPawn = isNthBestPawn  ;
             IsNthBestSkill= isNthBestSkill;
+            RuleName = ruleName;
         }
 
         public int Priority;// (-1 to ignore, 0 to disable, 1-4 for priorities)
@@ -99,10 +95,10 @@ namespace Better_Work_Tab.Features.Rules
         public int IsNthBestSkill;
 
         public string WorktypeDefNameIgnoreIfNonexistant;
-
+        public string RuleName;
         //public float MoveSpeedGreaterThan;
         //public float MoveSpeedLessThan;
-        
+
         public Gender? Gender;
         
         public XenotypeDef Xenotype;
@@ -117,6 +113,8 @@ namespace Better_Work_Tab.Features.Rules
 
     public class WorkAssignmentRule
     {
+        public string Name { get; set; }
+        
         // Optional cached work type for this rule. This can be null if the rule applies to multiple work types.
         public WorkTypeDef CachedWorktype { get; }
 
@@ -135,7 +133,7 @@ namespace Better_Work_Tab.Features.Rules
         {
             CachedWorktype = worktype;
             Parameters = parameters;
-
+            Name = parameters.RuleName;
         }
 
         /// <summary>
