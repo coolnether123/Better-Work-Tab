@@ -125,8 +125,7 @@ namespace Better_Work_Tab.Patches
             }
             var curRuleset = BetterWorkTabMod.Settings.CurrentRuleset;
 
-
-            if (Widgets.ButtonText(btn, curRuleset.Name))
+            if (Widgets.ButtonText(btn, "  "+curRuleset.Name, overrideTextAnchor: TextAnchor.MiddleLeft))
             {
                 SoundDefOf.Tick_Low.PlayOneShotOnCamera();
                 
@@ -167,17 +166,17 @@ namespace Better_Work_Tab.Patches
             //start all the way at the right edge, then move left by button width, then by the square "..." button width, then by margin
             var btn = new Rect(headerRect.xMax - size.x - size.y - AssignWorkloadButtonMarginX, headerRect.y + AssignWorkloadButtonMarginY, size.x, size.y);
 
+
             if (workloadSaver.CurrentWorklist == null)
             {
-                if (Widgets.ButtonText(btn, "New Workload"))
+                if (Widgets.ButtonText(btn, "  New Workload", overrideTextAnchor: TextAnchor.MiddleLeft))
                 {
                     CreateNewWorkload(workloadSaver);
                 }
             }
             else
             {
-
-                if (Widgets.ButtonText(btn, workloadSaver.CurrentWorklist.RenamableLabel))
+                if (Widgets.ButtonText(btn, "  "+workloadSaver.CurrentWorklist.RenamableLabel))
                 {
                     if (workloadSaver.CurrentWorklist != null)
                     {
