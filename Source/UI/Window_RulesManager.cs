@@ -38,7 +38,7 @@ namespace Better_Work_Tab.UI
         private Vector2 leftScroll;
         private Vector2 midScroll;
         private Vector2 rightScroll;
-
+        private string ruleNameBuffer = "";
 
         private WorkAssignmentRuleset CurrentRuleset => Settings.CurrentRuleset;
 
@@ -51,15 +51,28 @@ namespace Better_Work_Tab.UI
         }
         WorkAssignmentRule SelectedRule;
 
-
+        public override void PreOpen()
+        {
+            base.PreOpen();
+            ruleNameBuffer = CurrentRuleset.Name;
+        }
         public override void DoWindowContents(Rect inRect)
         {
+            Text.Font = GameFont.Medium;
+            Widgets.Label(inRect, "Manage Rules");
+            Text.Font = GameFont.Small;
+            float titleHeight = Text.CalcHeight("Manage Rules", 0) + 12f;
+            Rect rect = inRect;
+            rect.height -= titleHeight;
+            rect.y += titleHeight;
+
             Rect leftRect;
             Rect midRect;
             Rect rightRect;
 
-            inRect.SplitVerticallyWithMargin(out Rect leftSide, out rightRect, 10f);
+            rect.SplitVerticallyWithMargin(out Rect leftSide, out rightRect, 10f);
             leftSide.SplitVerticallyWithMargin(out leftRect, out midRect, 10f);
+
 
             DoRulesetListing(leftRect);
             DoRulesetRulesListing(midRect);
@@ -91,9 +104,17 @@ namespace Better_Work_Tab.UI
             Widgets.AdjustRectsForScrollView(rect2, ref outRect, ref viewRect);
             Widgets.BeginScrollView(outRect, ref rightScroll, viewRect);
             
+            if(rule == null)
+            {
+                GUI.color = Color.gray;
+                Widgets.Label(rect3, "No rule selected");
+                GUI.color = Color.white;
+                Widgets.EndScrollView();
+                return;
+            }
+            SelectedRule.Name = SelectedRule.Parameters.RuleName == "" ? "New Rule " + (RulesetRules.IndexOf(SelectedRule) + 1) : SelectedRule.Parameters.RuleName;
 
-            float num2 = 0f;
-            int num3 = 0;
+            float num2 = 32f;
 
             //Log.Message("WorkAssignmentParameters Parameters: " + typeof(WorkAssignmentParameters).GetConstructors().First().GetParameters().Count() ?? "null");
 
@@ -105,7 +126,7 @@ namespace Better_Work_Tab.UI
                 rect5.x += 10f;
                 num2 += 32f;
                 Rect rightPart = rect5.RightPart(0.25f);
-                string text = param.Name;
+                string paramLabel = ("BWT_" + param.Name).Translate();
                 //using (new TextBlock(TextAnchor.MiddleLeft))
                 //{
                 //    Widgets.Label(rect5, text);
@@ -113,11 +134,14 @@ namespace Better_Work_Tab.UI
                 GUI.color = Color.white;
                 var fontsize = Text.Font;
 
+                
+                TooltipHandler.TipRegion(rect5, ("BWT_" + param.Name + "_Desc").Translate());
+
                 if (param.ParameterType == typeof(bool))
                 {
                     var field = AccessTools.DeclaredField(typeof(WorkAssignmentParameters), param.Name.CapitalizeFirst());
                     bool refValue = (bool)field.GetValue(SelectedRule.Parameters);
-                    Widgets.CheckboxLabeled(rect5, text, ref refValue);
+                    Widgets.CheckboxLabeled(rect5, paramLabel, ref refValue);
                     field.SetValue(SelectedRule.Parameters, refValue);
                     continue;
                 }
@@ -127,14 +151,14 @@ namespace Better_Work_Tab.UI
                 {
                     var field = AccessTools.DeclaredField(typeof(WorkAssignmentParameters), param.Name.CapitalizeFirst());
                     int refValue = (int)field.GetValue(SelectedRule.Parameters);
-                    Widgets.Label(rect5, text);
+                    Widgets.Label(rect5, paramLabel);
                     if (param.HasDefaultValue && refValue == (int)param.DefaultValue)
                     {
                         GUI.color = Color.gray;
                     }
 
                     string editBuffer = refValue.ToString();
-                    DrawPlusMinusOneField(rightPart, ref refValue, ref editBuffer);
+                    DrawPlusMinusOneField(rightPart, ref refValue, ref editBuffer, param);
                     field.SetValue(SelectedRule.Parameters, refValue);
 
                     continue;
@@ -147,8 +171,8 @@ namespace Better_Work_Tab.UI
                     var field = AccessTools.DeclaredField(typeof(WorkAssignmentParameters), param.Name.CapitalizeFirst());
                     string refValue = (string)field.GetValue(SelectedRule.Parameters) == null ? "" : (string)field.GetValue(SelectedRule.Parameters);
                     //Widgets.TextEntryLabeled(rect5, text, refValue);
-                    Widgets.Label(rect5, text);
-                    Widgets.TextField(rightPart, refValue);
+                    Widgets.Label(rect5, paramLabel);
+                    refValue = Widgets.TextField(rect5.RightHalf(), refValue, 24);
 
                     field.SetValue(SelectedRule.Parameters, refValue);
 
@@ -167,7 +191,7 @@ namespace Better_Work_Tab.UI
 
                     Log.Message(field.Name + " is " + refValue?.ToString() ?? "null");
 
-                    Widgets.Label(rect5, text);
+                    Widgets.Label(rect5, paramLabel);
                     if (Widgets.ButtonText(rightPart, refValue?.ToString() ?? "Unassigned"))
                     {
                         List<FloatMenuOption> enums = new List<FloatMenuOption>()
@@ -200,7 +224,7 @@ namespace Better_Work_Tab.UI
                 {
                     var field = AccessTools.DeclaredField(typeof(WorkAssignmentParameters), param.Name.CapitalizeFirst());
                     WorkTypeDef refValue = (WorkTypeDef)field.GetValue(SelectedRule.Parameters) ?? null;
-                    Widgets.Label(rect5, text);
+                    Widgets.Label(rect5, paramLabel);
                     if (Widgets.ButtonText(rect5.RightPart(0.25f), refValue?.labelShort.CapitalizeFirst() ?? "Unassigned"))
                     {
                         List<FloatMenuOption> defOptions = new List<FloatMenuOption>()
@@ -232,7 +256,7 @@ namespace Better_Work_Tab.UI
                 {
                     var field = AccessTools.DeclaredField(typeof(WorkAssignmentParameters), param.Name.CapitalizeFirst());
                     XenotypeDef refValue = (XenotypeDef)field.GetValue(SelectedRule.Parameters) ?? null;
-                    Widgets.Label(rect5, text);
+                    Widgets.Label(rect5, paramLabel);
                     
                     if (Widgets.ButtonImageWithBG(rect5.RightPart(0.25f), refValue?.Icon ?? TexButton.CloseXSmall, new Vector2(22f,22f)))
                     {
@@ -261,7 +285,7 @@ namespace Better_Work_Tab.UI
                 {
                     var field = AccessTools.DeclaredField(typeof(WorkAssignmentParameters), param.Name.CapitalizeFirst());
                     Tuple<TraitDef, int> refValue = (Tuple<TraitDef, int>)field.GetValue(SelectedRule.Parameters) ?? null;
-                    Widgets.Label(rect5, text);
+                    Widgets.Label(rect5, paramLabel);
                     string label = "Unassigned";
                     if (SelectedRule.Parameters.RequiredTrait != null && refValue.Item1 != null)
                     {
@@ -304,36 +328,30 @@ namespace Better_Work_Tab.UI
                 Text.Font = fontsize;
                 GUI.color = Color.white;
 
-                if(param.ParameterType == typeof(float))
-                {
-                    var field = AccessTools.DeclaredField(typeof(WorkAssignmentParameters), param.Name.CapitalizeFirst());
-                    float refValue = (float)field.GetValue(SelectedRule.Parameters);
-                    Widgets.Label(rect5, text);
-                    if (param.HasDefaultValue && refValue == (float)param.DefaultValue)
-                    {
-                        GUI.color = Color.gray;
-                    }
+                //if(param.ParameterType == typeof(float))
+                //{
+                //    var field = AccessTools.DeclaredField(typeof(WorkAssignmentParameters), param.Name.CapitalizeFirst());
+                //    float refValue = (float)field.GetValue(SelectedRule.Parameters);
+                //    Widgets.Label(rect5, text);
+                //    if (param.HasDefaultValue && refValue == (float)param.DefaultValue)
+                //    {
+                //        GUI.color = Color.gray;
+                //    }
 
-                    string editBuffer = refValue.ToString();
-                    DrawPlusMinusOneField(rightPart, ref refValue, ref editBuffer);
-                    field.SetValue(SelectedRule.Parameters, refValue);
+                //    string editBuffer = refValue.ToString();
+                //    DrawPlusMinusOneField(rightPart, ref refValue, ref editBuffer, param);
+                //    field.SetValue(SelectedRule.Parameters, refValue);
 
-                    continue;
-                }
-
+                //    continue;
+                //}
 
 
                 if(param.ParameterType == typeof(WorkAssignmentParameters))
                 {
-
                     Widgets.Label(rect5, "BAHAHA YOU WANT TO DO NESTED RULES??");
+
                     continue;
                 }
-
-
-
-
-
             }
 
 
@@ -342,7 +360,7 @@ namespace Better_Work_Tab.UI
         }
 
 
-        public void DefDropdown<T>(Rect rect5, ParameterInfo param, string text) where T : Def
+       /* public void DefDropdown<T>(Rect rect5, ParameterInfo param, string text) where T : Def
         {
             var field = AccessTools.DeclaredField(typeof(WorkAssignmentParameters), param.Name.CapitalizeFirst());
             T refValue = (T)field.GetValue(SelectedRule.Parameters) ?? null;
@@ -382,16 +400,9 @@ namespace Better_Work_Tab.UI
             }
             
             
-        }
-        public static void DrawPlusMinusOneField(Rect rect, ref float value, ref string editBuffer, int multiplier = 1)
-        {
-            var floatvalue = (int)value;
-            DrawPlusMinusOneField(rect, ref floatvalue, ref editBuffer, multiplier);
-            value = floatvalue;
-        }
-
-
-        public static void DrawPlusMinusOneField(Rect rect, ref int value, ref string editBuffer, int multiplier = 1)
+        }*/
+        
+        public static void DrawPlusMinusOneField(Rect rect, ref int value, ref string editBuffer, ParameterInfo param, int multiplier = 1)
         {
 
             Rect leftRect;
@@ -426,6 +437,14 @@ namespace Better_Work_Tab.UI
             rect.height = 24f;
             Rect rect2 = midRect;
             rect2.yMax = rect.y - 10f;
+
+            rect2.SplitHorizontally(32f, out Rect titleRect, out rect2);
+            CurrentRuleset.Name = ruleNameBuffer == "" ? "New Ruleset " + (Settings.SavedRulesets.IndexOf(CurrentRuleset) + 1) : ruleNameBuffer;
+
+            ruleNameBuffer = Widgets.TextField(titleRect, ruleNameBuffer, 21);
+            rect2.height -= 10f;
+            rect2.y += 10f;
+
             Rect rect3 = rect2;
             rect3.xMin += 10f;
             rect3.xMax -= 10f;
@@ -434,9 +453,21 @@ namespace Better_Work_Tab.UI
             Rect outRect = rect2;
             outRect.yMax = rect3.y - 10f;
             Widgets.DrawMenuSection(rect2);
-            if (Widgets.ButtonText(rect3, "New Rule"))
+
+
+            rect3.SplitHorizontally(rect3.height * 0.5f, out Rect topRect, out Rect bottomRect);
+            if (Widgets.ButtonText(bottomRect, "Delete Rule"))
             {
-                WorkAssignmentRule newRule = new WorkAssignmentRule(new WorkAssignmentParameters(0));
+                var newCurrentIndex = Mathf.Clamp(RulesetRules.IndexOf(SelectedRule) - 1, 0, int.MaxValue);
+                RulesetRules.Remove(SelectedRule);
+                if (!RulesetRules.Any())
+                    SelectedRule = null;
+                else
+                    SelectedRule = RulesetRules[newCurrentIndex];
+            }
+            if (Widgets.ButtonText(topRect, "New Rule"))
+            {
+                WorkAssignmentRule newRule = new WorkAssignmentRule(new WorkAssignmentParameters("New Rule " + (RulesetRules.Count+1), 0));
 
                 Settings.CurrentRuleset.Rules.Add(newRule);
                 SelectedRule = newRule ;
@@ -446,6 +477,7 @@ namespace Better_Work_Tab.UI
             {
                     num++;
             }
+
             Rect viewRect = new Rect(0f, 0f, outRect.width, (float)num * 32f);
             Widgets.AdjustRectsForScrollView(rect2, ref outRect, ref viewRect);
             Widgets.BeginScrollView(outRect, ref midScroll, viewRect);
@@ -453,36 +485,40 @@ namespace Better_Work_Tab.UI
             int num3 = 0;
             foreach (var item in RulesetRules)
             {
-                    Rect rect4 = new Rect(0f, num2, outRect.width, 32f);
-                    Rect rect5 = rect4;
-                    rect5.x += 10f;
-                    num2 += 32f;
+                Rect rect4 = new Rect(0f, num2, outRect.width, 32f);
+                Rect rect5 = rect4;
+                rect5.x += 10f;
+                num2 += 32f;
                 if (SelectedRule == null)
                 {
                     SelectedRule = RulesetRules.Any() ? RulesetRules.First() : null;
                 }
-                    if (SelectedRule == item)
+                if (SelectedRule == item)
+                {
+                    Widgets.DrawHighlightSelected(rect4);
+                }
+                else if (Mouse.IsOver(rect4))
+                {
+                    Widgets.DrawHighlight(rect4);
+                }
+                else if (num3 % 2 == 1)
+                {
+                    Widgets.DrawLightHighlight(rect4);
+                }
+                num3++;
+                string text = item.Name;
+                using (new TextBlock(TextAnchor.MiddleLeft))
+                {
+                    Widgets.Label(rect5, text);
+                }
+                if (Widgets.ButtonInvisible(rect4))
+                {
+                    if (SelectedRule.Parameters.RuleName == "")
                     {
-                        Widgets.DrawHighlightSelected(rect4);
+                        SelectedRule.Parameters.RuleName = "New Rule " + (RulesetRules.IndexOf(SelectedRule) + 1);
                     }
-                    else if (Mouse.IsOver(rect4))
-                    {
-                        Widgets.DrawHighlight(rect4);
-                    }
-                    else if (num3 % 2 == 1)
-                    {
-                        Widgets.DrawLightHighlight(rect4);
-                    }
-                    num3++;
-                    string text = "Rule "+num3;
-                    using (new TextBlock(TextAnchor.MiddleLeft))
-                    {
-                        Widgets.Label(rect5, text);
-                    }
-                    if (Widgets.ButtonInvisible(rect4))
-                    {
-                        SelectedRule = item;
-                    }
+                    SelectedRule = item;
+                }
             }
             Widgets.EndScrollView();
         }
@@ -503,12 +539,17 @@ namespace Better_Work_Tab.UI
             outRect.yMax = rect3.y - 10f;
             quickSearch.OnGUI(rect);
             Widgets.DrawMenuSection(rect2);
+
             if (Widgets.ButtonText(rect3, "New Ruleset"))
             {
                 WorkAssignmentRuleset newRuleset = new WorkAssignmentRuleset("New Ruleset", new List<WorkAssignmentParameters>());
                 Settings.SavedRulesets.Add(newRuleset);
                 Settings.CurrentRuleset = newRuleset;
+                ruleNameBuffer = Settings.CurrentRuleset.Name;
             }
+
+
+
             int num = 0;
             foreach (var ruleset in Settings.SavedRulesets)
             {
@@ -557,7 +598,13 @@ namespace Better_Work_Tab.UI
                     }
                     if (Widgets.ButtonInvisible(rect4))
                     {
+                        if (CurrentRuleset.Name == "")
+                        {
+                            CurrentRuleset.Name = "New Ruleset " + (Settings.SavedRulesets.IndexOf(CurrentRuleset) + 1);
+                        }
+
                         Settings.CurrentRuleset = item;
+                        ruleNameBuffer = Settings.CurrentRuleset.Name;
                         SelectedRule = item.Rules.Any() ? item.Rules.First() : null;
                     }
                 }

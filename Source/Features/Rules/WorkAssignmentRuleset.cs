@@ -15,7 +15,7 @@ namespace Better_Work_Tab.Features
     {
         //private readonly BetterWorkTabSettings _settings;
 
-        public string Name { get; private set; }
+        public string Name { get; set; }
         public bool ResetBeforeApplying { get; private set; } = true;
         public readonly List<WorkAssignmentRule> Rules = new List<WorkAssignmentRule>();
 
@@ -41,7 +41,7 @@ namespace Better_Work_Tab.Features
         public static void SetAllToZero()
         {
             new WorkAssignmentRuleset("Reset", new List<WorkAssignmentRule> {
-                        new WorkAssignmentRule(new WorkAssignmentParameters(0, allowOverwritingHigherPriority: true))
+                        new WorkAssignmentRule(new WorkAssignmentParameters("Reset", 0, allowOverwritingHigherPriority: true))
                     }).ApplyAutoAssignments();
         }
 
