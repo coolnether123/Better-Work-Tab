@@ -19,6 +19,15 @@ namespace Better_Work_Tab
         public bool enableSkillOverlayFeature = true;
         public bool enableAutoAssignFeature = true;
 
+        // This allows users to customize the order of work columns in the work tab
+        public List<string> workColumnOrderDefNames = new List<string>();
+
+        // These control the verbosity of debug logging for troubleshooting issues
+        public int debugLogLevel = 0;
+        public bool debugLogDragColumns = false;
+        public bool debugLogDragRows = false;
+        public int debugLogMaxPerSecond = 10;
+
         // This sets the baseline priority for work types not handled by specific rules (0 = leave unchanged)
         public int defaultStartingPriority = 0;
 
