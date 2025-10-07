@@ -147,11 +147,9 @@ namespace Better_Work_Tab.Features
             }
             catch (Exception ex)
             {
-                Better_Work_Tab.Util.WorkTabLogger.Error(Better_Work_Tab.Util.WorkTabLogger.Categories.Error,
-                    $"Failed to rebuild WorkGivers order: {ex}");
+                Verse.Log.Error($"[Better Work Tab/Error] Failed to find workgiver for a worktype. This should not happen. Exception: {ex.Message}");
                 return true; // fall back to vanilla
             }
         }
     }
 }
-
