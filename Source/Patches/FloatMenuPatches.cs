@@ -64,7 +64,7 @@ namespace Better_Work_Tab.Patches
                 var text = "BWTNotAssignedDoOnce".Translate(workType.gerundLabel);
                 Patch_FloatMenuOptionProvider_WorkGivers_GetWorkGiverOptionFor.AdditionalOptions.Add(new FloatMenuOption("BWTNotAssignedAssignWork".Translate(workType.gerundLabel), () =>
                 {
-                    PawnTable_HighlightRowAndColumn.SetWorktypeToHighlight(workType); ;
+                    HighlightManager.SetWorkTypeToHighlight(workType);
                     Find.MainTabsRoot.SetCurrentTab(MainButtonDefOf.Work);
                 },orderInPriority:(int)MenuOptionPriority.VeryLow));
 

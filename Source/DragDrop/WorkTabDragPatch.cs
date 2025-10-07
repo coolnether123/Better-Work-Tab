@@ -1,35 +1,46 @@
 using HarmonyLib;
 using RimWorld;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Better_Work_Tab.DragDrop
 {
-    /// <summary>
-    /// Entry point: processes custom drag-and-drop overlays for Work tab after the table draws.
-    /// We intercept mouse events and draw ghosts/lines without relying on ReorderableWidget.
-    /// </summary>
     [HarmonyPatch(typeof(PawnTable), nameof(PawnTable.PawnTableOnGUI))]
     internal static class WorkTabDragPatch
     {
-        // Prefix handles MouseDown/Drag/Up BEFORE vanilla uses the event.
-        public static void Prefix(PawnTable __instance, Vector2 position)
-        {
-            // Reset state if the table context changed.
-            if (WorkTabDragState.ActiveTable != null && WorkTabDragState.ActiveTable != __instance)
-                WorkTabDragState.Reset();
+        // A dictionary to hold a separate drag session for each pawn table.
+        // This prevents state conflicts and is much more robust than a global static.
+        private static readonly Dictionary<PawnTable, DragSession> _dragSessions = new Dictionary<PawnTable, DragSession>();
 
-            // Columns first; if a column drag begins, consume the event to avoid starting a row drag.
-            ColumnDragController.OnGUI(__instance, position);
-            RowDragController.OnGUI(__instance, position);
+        // Helper to get or create a session for a given table.
+        private static DragSession GetSessionFor(PawnTable table)
+        {
+            if (!_dragSessions.TryGetValue(table, out DragSession session))
+            {
+                session = new DragSession();
+                _dragSessions[table] = session;
+            }
+            return session;
         }
 
-        // Postfix handles drawing during Repaint after vanilla draws the table (ghosts/lines overlay nicely).
+        // Prefix handles mouse input BEFORE vanilla uses the event.
+        public static void Prefix(PawnTable __instance, Vector2 position)
+        {
+            var session = GetSessionFor(__instance);
+            DragDropHandler.OnGUI(__instance, position, session);
+        }
+
+        // Postfix handles drawing AFTER vanilla draws the table.
         public static void Postfix(PawnTable __instance, Vector2 position)
         {
             if (Event.current.type != EventType.Repaint)
                 return;
-            ColumnDragController.OnGUI(__instance, position);
-            RowDragController.OnGUI(__instance, position);
+
+            var session = GetSessionFor(__instance);
+            if (session.IsDragging())
+            {
+                DragDropHandler.DrawDragVisuals(__instance, position, session);
+            }
         }
     }
 }

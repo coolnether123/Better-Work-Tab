@@ -1,6 +1,7 @@
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.Features.Rules;
+using Better_Work_Tab.UI;
 using HarmonyLib;
 using LudeonTK;
 using RimWorld;
@@ -8,89 +9,134 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using System.Security.Cryptography.Pkcs;
 using UnityEngine;
 using Verse;
 using Verse.Sound;
-using System.Diagnostics.Eventing.Reader;
 
-namespace Better_Work_Tab.Patches
-{
-    // Global overlay state. Toggle is in the Work tab header.
-    public static class SkillOverlayState
+    /// <summary>
+    /// Contains core Harmony patches and utility classes for enhancing the RimWorld Work tab with features from the Better Work Tab mod.
+    /// Key enhancements include skill level overlays, pawn and work type highlights, auto-assignment buttons with ruleset dropdowns,
+    /// workload management buttons, and integration with float menus. The patches are organized into sections:
+    /// - State and Helpers: Classes like SkillOverlayState and ShiftHelper for tracking toggles and input states.
+    /// - Drawers: CustomWorkBoxDrawer for rendering skill overlay boxes while preserving vanilla visuals.
+    /// - UI Patches: Modifications to MainTabWindow_Work.DoWindowContents for adding toggles, buttons, and dropdowns.
+    /// - Cell Patches: Overrides to PawnColumnWorker_WorkPriority.DoCell for replacing priorities with skills and adding corner highlights.
+    /// - Table Patches: Extensions to PawnTableList.DoRow for interaction highlights.
+    /// - Window Patches: Postfix to Window.PreClose (filtered to MainTabWindow_Work) for cleanup on tab close.
+    /// All patches target vanilla RimWorld classes using Harmony Postfix, Prefix, or Transpiler methods to extend functionality without overriding original code.
+    /// Initialization occurs in BetterWorkTabMod constructor via Harmony.PatchAll. Preserves vanilla behaviors such as DoCell drawing (via WidgetsWork),
+    /// tooltips, click sounds, and respects table state (cachedPawns, Columns). Compatibility focuses on vanilla Work tab structure.
+    /// </summary>
+    namespace Better_Work_Tab.Patches
     {
+
         /// <summary>
-        /// When true, the priority cell is replaced with the skill level (0–20).
+        /// Global static state management for the skill overlay feature in the work tab.
+        /// Toggled via checkbox in the MainTabWindow_Work header; allows showing average skill levels instead of priorities.
         /// </summary>
-        public static bool ShowSkills = false;
+        public static class SkillOverlayState
+        {
+            /// <summary>
+            /// Flag indicating whether the skill overlay is currently active.
+            /// When true, priority cells are replaced with average skill levels (0-20, color-coded per settings). Supports temporary view via Shift key override.
+            /// Defaults to false; set via UI toggle in Patch_WorkTab_AddSingleToggle.Postfix.
+            /// </summary>
+            public static bool ShowSkills = false;
+        }
 
-    }
-
-    // Custom work box drawer that preserves all vanilla visuals except priority number.
+    /// <summary>
+    /// Utility class for drawing custom work boxes during skill overlay mode, preserving vanilla visual elements such as
+    /// background textures, passion indicators, incapable tints, and age-disability feedback (messages and sounds).
+    /// Used in Patch_WorkPriority_DoCell_ReplaceNumber.Prefix to render consistent UI under overlay.
+    /// </summary>
     public static class CustomWorkBoxDrawer
     {
         /// <summary>
-        /// Draws a work box with vanilla visuals (background, passion flames, incapable tint)
-        /// but WITHOUT the priority number or click handling.
+        /// Draws a work box for the skill overlay mode without drawing the priority number or handling priority clicks.
+        /// Handles age-disability by drawing a special texture and showing a message/sound on click if the pawn is too young.
+        /// For incapables due to capacities, applies a red tint from settings. Calls vanilla WidgetsWork.DrawWorkBoxBackground for passions and base visuals.
         /// </summary>
+        /// <param name="x">The x-coordinate for drawing the box.</param>
+        /// <param name="y">The y-coordinate for drawing the box.</param>
+        /// <param name="p">The pawn for which the work box is being drawn.</param>
+        /// <param name="wType">The WorkTypeDef representing the work column.</param>
+        /// <param name="incapableBecauseOfCapacities">Flag indicating if the pawn is incapable due to health capacities; if true, tints the box red.</param>
         public static void DrawWorkBoxForSkillOverlay(float x, float y, Pawn p, WorkTypeDef wType, bool incapableBecauseOfCapacities)
         {
             if (p.WorkTypeIsDisabled(wType))
             {
-                // This handles age-disabled work types by showing the vanilla age restriction texture and message
+                // Vanilla age-disable: Texture and click feedback (Message/SoundDefOf).
                 int minAgeRequired;
                 if (!p.IsWorkTypeDisabledByAge(wType, out minAgeRequired))
                     return;
 
                 Rect rect = new Rect(x, y, 25f, 25f);
 
-                // This preserves the vanilla age restriction feedback when clicking on age-disabled work
                 if (Event.current.type == EventType.MouseDown && Mouse.IsOver(rect))
                 {
                     Messages.Message("MessageWorkTypeDisabledAge".Translate(p, p.ageTracker.AgeBiologicalYears, wType.labelShort, minAgeRequired), p, MessageTypeDefOf.RejectInput, false);
                     SoundDefOf.ClickReject.PlayOneShotOnCamera();
                 }
                 GUI.DrawTexture(rect, WidgetsWork.WorkBoxBGTex_AgeDisabled);
-
             }
             else
             {
                 Rect rect = new Rect(x, y, 25f, 25f);
 
-                // This applies the same red tint that vanilla uses for incapable work types to maintain visual consistency
                 if (incapableBecauseOfCapacities)
                     GUI.color = BetterWorkTabMod.Settings.Color_IncapableBecauseOfCapacities;
 
-                // This draws the work box background including passion flame effects exactly like vanilla does
-                WidgetsWork.DrawWorkBoxBackground(rect, p, wType);
+                WidgetsWork.DrawWorkBoxBackground(rect, p, wType); // Vanilla bg + passions.
 
-                // This resets the GUI color after drawing the background to prevent affecting other UI elements
                 GUI.color = Color.white;
-
             }
         }
     }
 
-    // Patch: add ONE checkbox to the top of the Work tab near "Manual priorities".
-
+    /// <summary>
+    /// Harmony postfix patch on MainTabWindow_Work.DoWindowContents to add custom UI elements to the work tab header.
+    /// Adds a skill overlay toggle checkbox positioned right of the "Manual priorities" label.
+    /// Includes an auto-assign button displaying the current ruleset name, which applies assignments when clicked,
+    /// and a "..." button to open a FloatMenu for selecting/renaming/deleting saved rulesets.
+    /// Also adds workload management buttons for applying, creating new, renaming, or deleting workloads via GameComponent_WorkloadSaver.
+    /// Skips drawing during Layout events to avoid interference with vanilla UI layout.
+    /// </summary>
     [HarmonyPatch(typeof(MainTabWindow_Work), nameof(MainTabWindow_Work.DoWindowContents))]
     public static class Patch_WorkTab_AddSingleToggle
     {
+        /// <summary>
+        /// Constants for positioning the skill toggle checkbox in the header.
+        /// Positioned at x=150 (right of "Manual priorities"), y=5, size 230x30.
+        /// </summary>
         private const float SkillToggleX_RightOfManualPriorities = 150f;
         private const float SkillToggleY_Top = 5f;
         private const float SkillToggleWidth = 230f;
         private const float SkillToggleHeight = 30f;
 
+        /// <summary>
+        /// Constants for the auto-assign button size and margins in the header.
+        /// Width/height 150x28, margin x=6, y=2.
+        /// </summary>
         private const float AutoAssignButtonWidth = 150f;
         private const float AutoAssignButtonHeight = 28f;
         private const float AutoAssignButtonMarginX = 6f;
         private const float AutoAssignButtonMarginY = 2f;
 
+        /// <summary>
+        /// Constants for the workload button size and margins in the header.
+        /// Width/height 150x28, margin y=2, x positioned after auto-assign.
+        /// </summary>
         private const float AssignWorkloadButtonWidth = 150f;
         private const float AssignWorkloadButtonHeight = 28f;
         private const float AssignWorkloadButtonMarginX = AutoAssignButtonHeight + AutoAssignButtonWidth + AutoAssignButtonMarginX + 6f;
         private const float AssignWorkloadButtonMarginY = 2f;
 
+        /// <summary>
+        /// Postfix method executed after vanilla DoWindowContents to draw custom UI elements if the skill overlay feature is enabled in settings.
+        /// Skips if Event is null or Layout type to avoid layout interference. Draws the skill toggle checkbox and calls private methods for buttons.
+        /// Toggles SkillOverlayState.ShowSkills on change, playing a tiny tick sound.
+        /// </summary>
+        /// <param name="rect">The full window rectangle for the work tab.</param>
         public static void Postfix(Rect rect)
         {
             if (!BetterWorkTabMod.Settings.enableSkillOverlayFeature) return;
@@ -112,6 +158,13 @@ namespace Better_Work_Tab.Patches
             DrawCurrentWorkloadsButtons(rect);
         }
 
+        /// <summary>
+        /// Private method to draw the auto-assign button and dropdown in the work tab header.
+        /// Button displays the name of CurrentAutoAssignRuleset and applies it on click (resets priorities first if flagged).
+        /// "..." button opens a FloatMenu listing all saved rulesets for selection. Logs error if no ruleset selected.
+        /// Plays low tick sound on interactions.
+        /// </summary>
+        /// <param name="headerRect">The rectangle for positioning the buttons in the header.</param>
         private static void DrawAutoAssignButtons(Rect headerRect)
         {
             var size = new Vector2(AutoAssignButtonWidth, AutoAssignButtonHeight);
@@ -124,15 +177,12 @@ namespace Better_Work_Tab.Patches
             }
             var curRuleset = BetterWorkTabMod.Settings.CurrentAutoAssignRuleset;
 
-
             if (Widgets.ButtonText(btn, curRuleset.Name))
             {
                 SoundDefOf.Tick_Low.PlayOneShotOnCamera();
                 
-                if(curRuleset.ResetBeforeApplying)
-                {
+                if (curRuleset.ResetBeforeApplying)
                     WorkAssignmentRuleset.SetAllToZero();
-                }
                 curRuleset.ApplyAutoAssignments();
             }
 
@@ -143,34 +193,36 @@ namespace Better_Work_Tab.Patches
                 foreach (var ruleset in BetterWorkTabMod.Settings.SavedRulesets)
                 {
                     var localRuleset = ruleset;
-                    options.Add(new FloatMenuOption(ruleset.Name, delegate
-                    {
+                    options.Add(new FloatMenuOption(ruleset.Name, () => {
                         BetterWorkTabMod.Settings.CurrentAutoAssignRuleset = localRuleset;
                         SoundDefOf.Tick_Low.PlayOneShotOnCamera();
                     }));
                 }
                 Find.WindowStack.Add(new FloatMenu(options));
-                //Find.WindowStack.Add(new Dialog_Confirm("Button works", null));
             }
         }
 
+        /// <summary>
+        /// Private method to draw the workload button and dropdown in the work tab header.
+        /// Retrieves saved workloads from GameComponent_WorkloadSaver, reverses for recent-first display.
+        /// Button shows current workload name or "New Workload" and applies on click. "..." opens FloatMenu for selection, new, rename, delete.
+        /// Rename/delete use sub-FloatMenus positioned at screen center. Logs error if no workload.
+        /// Plays low tick sound on interactions.
+        /// </summary>
+        /// <param name="headerRect">The rectangle for positioning the buttons in the header.</param>
         private static void DrawCurrentWorkloadsButtons(Rect headerRect)
         {
             GameComponent_WorkloadSaver workloadSaver = Current.Game.GetComponent<GameComponent_WorkloadSaver>();
             var size = new Vector2(AssignWorkloadButtonWidth, AssignWorkloadButtonHeight);
-            //start all the way at the right edge, then move left by button width, then by the square "..." button width, then by margin
             var btn = new Rect(headerRect.xMax - size.x - size.y - AssignWorkloadButtonMarginX, headerRect.y + AssignWorkloadButtonMarginY, size.x, size.y);
 
             if (workloadSaver.CurrentWorklist == null)
             {
                 if (Widgets.ButtonText(btn, "New Workload"))
-                {
                     CreateNewWorkload(workloadSaver);
-                }
             }
             else
             {
-
                 if (Widgets.ButtonText(btn, workloadSaver.CurrentWorklist.RenamableLabel))
                 {
                     if (workloadSaver.CurrentWorklist != null)
@@ -179,9 +231,7 @@ namespace Better_Work_Tab.Patches
                         SoundDefOf.Tick_Low.PlayOneShotOnCamera();
                     }
                     else
-                    {
                         Log.Error("[Better Work Tab] No workload selected.");
-                    }
                 }
             }
 
@@ -194,107 +244,100 @@ namespace Better_Work_Tab.Patches
                 workloads.Reverse(); // Show most recently added at the top
                 foreach (var workload in workloads)
                 {
-                    options.Add(new FloatMenuOption(workload.RenamableLabel, delegate
-                    {
+                    options.Add(new FloatMenuOption(workload.RenamableLabel, () => {
                         workloadSaver.CurrentWorklist = workload;
                         SoundDefOf.Tick_Low.PlayOneShotOnCamera();
                     }));
                 }
-                options.Add(new FloatMenuOption("New Workload", delegate
-                {
-                    CreateNewWorkload(workloadSaver);
-                    }));
-
-
+                options.Add(new FloatMenuOption("New Workload", () => CreateNewWorkload(workloadSaver)));
 
                 if (workloads.Any())
                 {
-                    options.Add(new FloatMenuOption("Rename Workload", delegate
-                    {
-                        var renamableOptions = new List<FloatMenuOption>();
-                        foreach (var workload in workloads)
-                        {
-                            renamableOptions.Add(new FloatMenuOption("Rename " + workload.RenamableLabel, delegate
-                            {
-
-                                Find.WindowStack.Add(new Dialog_RenameWorklist(workloadSaver.CurrentWorklist));
-                                SoundDefOf.Tick_Low.PlayOneShotOnCamera();
-                            }));
-                        }
-                        var renamablesMenu = new FloatMenu(renamableOptions);
+                    options.Add(new FloatMenuOption("Rename Workload", () => {
+                        var renamableOptions = workloads.Select(w => new FloatMenuOption($"Rename {w.RenamableLabel}", () => {
+                            Find.WindowStack.Add(new Dialog_RenameWorkload(w));
+                            SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                        })).ToList();
+                        var screenWidth = Verse.UI.screenWidth;
+                        var screenHeight = Verse.UI.screenHeight;
+                        var menuRect = new Rect(screenWidth / 2f - 100f, screenHeight / 2f - 75f, 200f, 150f);
+                        var renamablesMenu = new FloatMenu(renamableOptions) { windowRect = menuRect };
                         Find.WindowStack.Add(renamablesMenu);
-                        renamablesMenu.windowRect.x -= renamablesMenu.windowRect.width * 0.5f;
-                        renamablesMenu.windowRect.y -= renamablesMenu.windowRect.height * 0.5f;
-                    }
-                    ));
+                    }));
 
-                    options.Add(new FloatMenuOption("Delete Saved Workload", delegate
-                    {
-                        var deletableOptions = new List<FloatMenuOption>();
-                        foreach (var workload in workloads)
-                        {
-                            deletableOptions.Add(new FloatMenuOption("Delete " + workload.RenamableLabel, delegate
+                    options.Add(new FloatMenuOption("Delete Saved Workload", () => {
+                        var deletableOptions = workloads.Select(w => new FloatMenuOption($"Delete {w.RenamableLabel}", () => {
+                            int index = workloadSaver.SavedWorklists.IndexOf(w);
+                            workloadSaver.SavedWorklists.Remove(w);
+                            if (!workloadSaver.SavedWorklists.Any())
                             {
-                                var newCurrentIndex = Mathf.Clamp(workloadSaver.SavedWorklists.IndexOf(workload) - 1, 0, int.MaxValue);
-                                workloadSaver.SavedWorklists.Remove(workload);
-                                if (!workloadSaver.SavedWorklists.Any())
-                                    workloadSaver.CurrentWorklist = null;
-                                else
-                                    workloadSaver.CurrentWorklist = workloadSaver.SavedWorklists[newCurrentIndex];
-
-                                SoundDefOf.Tick_Low.PlayOneShotOnCamera();
-                            }));
-                        }
-                        var deletablesMenu = new FloatMenu(deletableOptions);
+                                workloadSaver.CurrentWorklist = null;
+                            }
+                            else
+                            {
+                                int newCurrentIndex = Mathf.Max(0, Mathf.Min(index - 1, workloadSaver.SavedWorklists.Count - 1));
+                                workloadSaver.CurrentWorklist = workloadSaver.SavedWorklists[newCurrentIndex];
+                            }
+                            SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                        })).ToList();
+                        var screenWidth = Verse.UI.screenWidth;
+                        var screenHeight = Verse.UI.screenHeight;
+                        var menuRect = new Rect(screenWidth / 2f - 100f, screenHeight / 2f - 75f, 200f, 150f);
+                        var deletablesMenu = new FloatMenu(deletableOptions) { windowRect = menuRect };
                         Find.WindowStack.Add(deletablesMenu);
-                        deletablesMenu.windowRect.x -= deletablesMenu.windowRect.width * 0.5f;
-                        deletablesMenu.windowRect.y -= deletablesMenu.windowRect.height* 0.5f;
                     }));
                 }
                 Find.WindowStack.Add(new FloatMenu(options));
             }
         }
 
+        /// <summary>
+        /// Private method to create a new Worklist instance and open a naming dialog.
+        /// Generates a default name "Custom Workload {count}", adds to SavedWorklists, sets as CurrentWorklist.
+        /// Called from button clicks in DrawCurrentWorkloadsButtons.
+        /// </summary>
+        /// <param name="workloadSaver">The GameComponent_WorkloadSaver instance managing workloads.</param>
         private static void CreateNewWorkload(GameComponent_WorkloadSaver workloadSaver)
         {
-
-            var newWorkload = new Worklist("Custom Workload " + workloadSaver.SavedWorklists.Count);
+            var newWorkload = new Worklist($"Custom Workload {workloadSaver.SavedWorklists.Count}");
             Find.WindowStack.Add(new Dialog_NameNewWorklist(newWorkload));
-
             workloadSaver.SavedWorklists.Add(newWorkload);
             workloadSaver.CurrentWorklist = newWorkload;
-
         }
-
     }
 
-    // Patch: Replace the priority number inside the vanilla box with the skill level.
+    /// <summary>
+    /// Harmony prefix patch on PawnColumnWorker_WorkPriority.DoCell to implement the skill overlay mode.
+    /// When active (via toggle or Shift key), suppresses vanilla priority drawing and instead displays the pawn's average skill level for the work type
+    /// (calculated via pawn.skills.AverageOfRelevantSkillsFor, clamped 0-20). Draws a custom work box using CustomWorkBoxDrawer,
+    /// applies color-coding based on skill level from settings, and preserves tooltips, click feedback for age disabilities, and incapable tints.
+    /// Skips work types with no relevant skills (e.g., Hauling on Shift-only). Returns false to skip vanilla postfix.
+    /// </summary>
     [HarmonyPatch(typeof(PawnColumnWorker_WorkPriority), nameof(PawnColumnWorker_WorkPriority.DoCell))]
     public static class Patch_WorkPriority_DoCell_ReplaceNumber
     {
+        /// <summary>
+        /// Prefix method that runs before the vanilla DoCell to check conditions and draw the skill overlay if applicable.
+        /// Suppresses vanilla drawing by returning false if overlay is active. Calculates average skill, draws the box and number during Repaint event,
+        /// handles incapable/age cases, applies tooltip, and restores GUI state. Checks for dead pawns, disabled work settings, or age-disabled types to skip.
+        /// </summary>
+        /// <param name="__instance">The PawnColumnWorker_WorkPriority instance.</param>
+        /// <param name="rect">The rectangle for the cell in the pawn table.</param>
+        /// <param name="pawn">The pawn for which the cell is being drawn.</param>
+        /// <param name="table">The PawnTable containing the row data.</param>
+        /// <returns>True to allow vanilla postfix, false to suppress it (overlay active).</returns>
         public static bool Prefix(PawnColumnWorker_WorkPriority __instance, Rect rect, Pawn pawn, PawnTable table)
         {
-            bool shiftHeld = Event.current != null && Event.current.shift;
-            var wt = __instance.def.workType; // Moved this line up
+            bool shiftHeld = Event.current?.shift ?? false;
+            var wt = __instance.def.workType;
 
             if (!BetterWorkTabMod.Settings.enableSkillOverlayFeature || (!SkillOverlayState.ShowSkills && !shiftHeld))
                 return true;
 
-            // If skill overlay is not globally active, and shift is held,
-            // we need to check if the current work type is one of the excluded ones.
-            // TODO Currently this just skips it so numbers or check marks will show and be clickable.
-            if (!SkillOverlayState.ShowSkills && shiftHeld)
-            {
-                if (wt.relevantSkills.Count == 0)
-                {
-                    return false; // Do not show skill overlay for these work types when only shift is held
-                }
-            }
+            if (!SkillOverlayState.ShowSkills && shiftHeld && wt.relevantSkills.Count == 0)
+                return false; // Skip non-skill types on Shift-only.
 
-            if (pawn.Dead || pawn.workSettings == null || !pawn.workSettings.EverWork)
-                return false;
-
-            if (wt == null || pawn.WorkTypeIsDisabled(wt))
+            if (pawn.Dead || pawn.workSettings == null || !pawn.workSettings.EverWork || wt == null || pawn.WorkTypeIsDisabled(wt))
                 return false;
 
             bool incapable = IsIncapableOfWholeWorkType(pawn, wt);
@@ -304,41 +347,32 @@ namespace Better_Work_Tab.Patches
             Rect boxRect = new Rect(x, y, 25f, 25f);
 
             if (Event.current.type == EventType.Repaint)
-            {
                 CustomWorkBoxDrawer.DrawWorkBoxForSkillOverlay(x, y, pawn, wt, incapable);
-            }
 
-            // This calculates the average skill level across all skills relevant to this work type
-            int level = 0;
-            if (pawn.skills != null)
-            {
-                float avg = pawn.skills.AverageOfRelevantSkillsFor(wt);
-                level = Mathf.Clamp(Mathf.RoundToInt(avg), 0, 20);
-            }
+            float avg = pawn.skills?.AverageOfRelevantSkillsFor(wt) ?? 0f;
+            int level = Mathf.RoundToInt(avg);
+            level = Mathf.Max(0, Mathf.Min(20, level));
 
-            var oldF = Text.Font;
-            var oldA = Text.Anchor;
-            var oldColor = GUI.color;
-
-            Text.Font = GameFont.Medium;
-            Text.Anchor = TextAnchor.MiddleCenter;
+            // Draw level with vanilla-style font/anchor/color (settings-based).
+            var oldF = Text.Font; var oldA = Text.Anchor; var oldColor = GUI.color;
+            Text.Font = GameFont.Medium; Text.Anchor = TextAnchor.MiddleCenter;
             GUI.color = ColorForSkillLevel(level);
-
             Widgets.Label(boxRect, level.ToString());
 
-            GUI.color = oldColor;
-            Text.Font = oldF;
-            Text.Anchor = oldA;
+            GUI.color = oldColor; Text.Font = oldF; Text.Anchor = oldA;
 
-            // This preserves the vanilla tooltip functionality so players can still see work type details
-            TooltipHandler.TipRegion(boxRect,
-                () => WidgetsWork.TipForPawnWorker(pawn, wt, incapable),
-                pawn.thingIDNumber ^ wt.GetHashCode());
+            TooltipHandler.TipRegion(boxRect, () => WidgetsWork.TipForPawnWorker(pawn, wt, incapable), pawn.thingIDNumber ^ wt.GetHashCode());
 
             return false;
         }
 
-        // This determines if a pawn is incapable of a work type by checking if they can do at least one work giver
+        /// <summary>
+        /// Private method to check if the pawn is incapable of the entire work type by examining all work givers' required capacities.
+        /// Loops through workGiversByPriority; if any giver has all capacities met, returns false. Used to determine tint and skip drawing.
+        /// </summary>
+        /// <param name="p">The pawn to check.</param>
+        /// <param name="work">The WorkTypeDef to evaluate.</param>
+        /// <returns>True if incapable of all givers in the work type.</returns>
         private static bool IsIncapableOfWholeWorkType(Pawn p, WorkTypeDef work)
         {
             for (int i = 0; i < work.workGiversByPriority.Count; i++)
@@ -353,331 +387,154 @@ namespace Better_Work_Tab.Patches
                         break;
                     }
                 }
-                if (canDoThisGiver)
-                    return false;
+                if (canDoThisGiver) return false;
             }
             return true;
         }
 
-        // This provides color coding for skill levels to make them easier to read at a glance
+        /// <summary>
+        /// Private method to determine the color for a given skill level based on thresholds from settings.
+        /// <=3: VeryLowSkill (red), <=9: LowSkill (orange), <=15: GoodLowSkill (white), >15: ExcellentSkill (green).
+        /// </summary>
+        /// <param name="level">The skill level (0-20).</param>
+        /// <returns>The appropriate Color from BetterWorkTabSettings.</returns>
         private static Color ColorForSkillLevel(int level)
         {
-            if (level <= 3) return new Color(0.82f, 0.25f, 0.25f);  // Red for very low skills
-            if (level <= 9) return new Color(0.95f, 0.75f, 0.20f);  // Orange for low skills
-            if (level <= 15) return new Color(0.95f, 0.95f, 0.95f); // White for good skills
-            return new Color(0.35f, 0.85f, 0.35f);                  // Green for excellent skills
+            if (level <= 3) return BetterWorkTabMod.Settings.Color_VeryLowSkill;
+            if (level <= 9) return BetterWorkTabMod.Settings.Color_LowSkill;
+            if (level <= 15) return BetterWorkTabMod.Settings.Color_GoodLowSkill;
+            return BetterWorkTabMod.Settings.Color_ExcellentSkill;
         }
     }
 
-    // Helper class to determine if shift is held and what the current state is.
-    // This is to make it easier to customize how features are rendered: Always, Never, only when shift is NOT held, and only when shift IS held..
+    /// <summary>
+    /// Utility class for detecting the current keyboard shift key state to control conditional UI elements in the work tab.
+    /// Used for features like showing small skill numbers or best-pawn highlights based on settings (e.g., only when shift is held).
+    /// Provides a simple state check for Shif ted vs Unshifted modes without polling input repeatedly.
+    /// </summary>
     public static class ShiftHelper
     {
+        /// <summary>
+        /// Read-only property returning the current ShowUIMode based on whether the shift key is held down.
+        /// Returns ShowUIMode.Shifted if Event.current.shift is true, otherwise Unshifted.
+        /// Used in patches like Patch_WorkPriority_DoCell_CornerNumber to determine visibility of overlays.
+        /// </summary>
         public static BetterWorkTabSettings.ShowUIMode State
         {
-            get
-            {
-                if (Event.current != null && Event.current.shift)
-                    return BetterWorkTabSettings.ShowUIMode.Shifted;
-                else
-                    return BetterWorkTabSettings.ShowUIMode.Unshifted;
-            }
+            get => Event.current?.shift == true ? BetterWorkTabSettings.ShowUIMode.Shifted : BetterWorkTabSettings.ShowUIMode.Unshifted;
         }
     }
 
-    // Patch: Replace the priority number inside the vanilla box with the skill level.
+    /// <summary>
+    /// Harmony postfix patch on PawnColumnWorker_WorkPriority.DoCell to add small skill numbers and corner highlights on top of vanilla priority cells.
+    /// Draws conditionally based on settings (ShowUIMode for always, never, shifted, unshifted) and skill overlay state.
+    /// Skips dead pawns, disabled work settings, or work types with no relevant skills. Calls private methods for best-pawn box and small numbers.
+    /// Integrates with ShiftHelper for shift-based visibility and uses average skill calculation similar to the overlay patch.
+    /// </summary>
     [HarmonyPatch(typeof(PawnColumnWorker_WorkPriority), nameof(PawnColumnWorker_WorkPriority.DoCell))]
     public static class Patch_WorkPriority_DoCell_CornerNumber
     {
+        /// <summary>
+        /// Postfix method executed after vanilla DoCell to draw additional UI elements if conditions are met.
+        /// Checks for best-pawn status and draws green outline box if the pawn has the highest average skill for the work type among cached pawns.
+        /// Draws small skill numbers if enabled. Early return for invalid pawns or work types.
+        /// </summary>
+        /// <param name="__instance">The PawnColumnWorker_WorkPriority instance.</param>
+        /// <param name="rect">The cell rectangle.</param>
+        /// <param name="pawn">The pawn.</param>
+        /// <param name="table">The PawnTable.</param>
         public static void Postfix(PawnColumnWorker_WorkPriority __instance, Rect rect, Pawn pawn, PawnTable table)
         {
-            //Log.Message("Postfix called");
-            var worktype = __instance.def.workType; // Moved this line up
+            var worktype = __instance.def.workType;
 
-            //ensure the pawn is not dead, has work settings, and will ever perform the worktype
-            if (pawn.Dead || pawn.workSettings == null || !pawn.workSettings.EverWork)
-                return;
-
-            //ensure the worktype is valid and not disabled for this pawn
-            if (worktype == null || pawn.WorkTypeIsDisabled(worktype))
+            if (pawn.Dead || pawn.workSettings == null || !pawn.workSettings.EverWork || worktype == null || pawn.WorkTypeIsDisabled(worktype))
                 return;
 
             if ((ShiftHelper.State == BetterWorkTabMod.Settings.ShowUIMode_ShowPawnForSkillSquare ||
-                BetterWorkTabMod.Settings.ShowUIMode_ShowPawnForSkillSquare == BetterWorkTabSettings.ShowUIMode.Always) &&
+                 BetterWorkTabMod.Settings.ShowUIMode_ShowPawnForSkillSquare == BetterWorkTabSettings.ShowUIMode.Always) &&
                 worktype.relevantSkills.Count != 0)
-            {
-
                 DrawBestPawnForSkillBox(rect, pawn, table, __instance);
 
-            }
-
-            //// If skill overlay is not globally active, and shift is held,
-            //// we need to check if the current work type is one of the excluded ones.
-            //// TODO Currently this just skips it so numbers or check marks will show and be clickable.
             if ((SkillOverlayState.ShowSkills ||
-                ShiftHelper.State == BetterWorkTabMod.Settings.ShowUIMode_ShowSmallSkillNumbers ||
-                BetterWorkTabMod.Settings.ShowUIMode_ShowSmallSkillNumbers == BetterWorkTabSettings.ShowUIMode.Always) &&
+                 ShiftHelper.State == BetterWorkTabMod.Settings.ShowUIMode_ShowSmallSkillNumbers ||
+                 BetterWorkTabMod.Settings.ShowUIMode_ShowSmallSkillNumbers == BetterWorkTabSettings.ShowUIMode.Always) &&
                 worktype.relevantSkills.Count != 0)
-            {
                 DrawSmallSkillNumbers(rect, pawn, worktype);
-            }
-
-            return;
         }
 
+        /// <summary>
+        /// Private method to draw a green outline box around the work cell if this pawn has the highest average skill for the work type.
+        /// Compares the pawn against all other cached pawns in the table using the column worker's Compare method. If superior, draws a 29x29 box with 3px outline.
+        /// </summary>
+        /// <param name="rect">The cell rectangle.</param>
+        /// <param name="pawn">The pawn to check.</param>
+        /// <param name="table">The PawnTable with cached pawns.</param>
+        /// <param name="instance">The PawnColumnWorker_WorkPriority for comparison.</param>
         private static void DrawBestPawnForSkillBox(Rect rect, Pawn pawn, PawnTable table, PawnColumnWorker_WorkPriority instance)
         {
-            //check agains all other pawns in the table to see if this pawn is the best at this worktype
             foreach (var otherPawn in table.cachedPawns)
             {
-                //skip self
                 if (otherPawn == pawn) continue;
-
                 if (instance.Compare(pawn, otherPawn) == -1)
-                {
-                    return; // Found a better pawn, so exit without drawing
-                }
+                    return; // Better pawn found.
             }
 
-            //create a rect with a size that fits around the cell. This is hardcoded. I don't see a way to do it otherwise.
             float x = rect.x + (rect.width - 25f) / 2f;
             float y = rect.y + 2.5f;
-            Rect rect2 = new Rect(Mathf.FloorToInt(x) - 2, Mathf.FloorToInt(y) - 2, 29f, 29f);
-
-            //Not including the fill color because it's unnecessary. (Fewer customization options though. But for this I don't think that's necessary. If we really want it we can add it later.)
-            Widgets.DrawBoxSolidWithOutline(rect2, Color.clear, BetterWorkTabMod.Settings.Color_BestPawnForSkillSquare, 3);
+            Rect boxRect = new Rect(Mathf.FloorToInt(x) - 2, Mathf.FloorToInt(y) - 2, 29f, 29f);
+            Widgets.DrawBoxSolidWithOutline(boxRect, Color.clear, BetterWorkTabMod.Settings.Color_BestPawnForSkillSquare, 3);
         }
+
+        /// <summary>
+        /// Private method to draw small skill numbers in the corner of the work cell.
+        /// Displays the average relevant skill level (0-20) in tiny font at bottom-right of the cell.
+        /// </summary>
+        /// <param name="rect">The cell rectangle.</param>
+        /// <param name="pawn">The pawn.</param>
+        /// <param name="worktype">The WorkTypeDef.</param>
         private static void DrawSmallSkillNumbers(Rect rect, Pawn pawn, WorkTypeDef worktype)
         {
-
-            //determine if the pawn is incapable of the entire worktype
-            bool incapable = IsIncapableOfWholeWorkType(pawn, worktype);
-
-
-            float x = rect.x + 16f;// + (rect.width / 4f / 2f);
-            float y = rect.y - 2;// -4f;// + (((rect.height - 25f) / 4f) / 2f);
-            Rect boxRect = new Rect(x, y, 25f, 25f);
-
-
-            // This calculates the average skill level across all skills relevant to this work type
-            // We find the average because that's whe vanilla shows with a tooltip.
-            int level = 0;
-            if (pawn.skills != null)
-            {
-                float avg = pawn.skills.AverageOfRelevantSkillsFor(worktype);
-                level = Mathf.Clamp(Mathf.RoundToInt(avg), 0, 20);
-            }
-
-            //cache pre-number values
-            var oldF = Text.Font;
-            var oldA = Text.Anchor;
-            var oldColor = GUI.color;
-
-            //set new values for number drawing
+            if (worktype.relevantSkills.Count == 0) return;
+            float avgSkill = pawn.skills.AverageOfRelevantSkillsFor(worktype);
+            int level = Mathf.RoundToInt(avgSkill);
+            level = Mathf.Max(0, Mathf.Min(20, level));
+            Rect numRect = new Rect(rect.xMax - 20f, rect.yMax - 16f, 20f, 16f);
+            var oldFont = Text.Font;
             Text.Font = GameFont.Tiny;
-            Text.Anchor = TextAnchor.MiddleCenter;
+            var oldAnchor = Text.Anchor;
+            Text.Anchor = TextAnchor.MiddleRight;
             GUI.color = ColorForSkillLevel(level);
-
-            //draw the number
-            Widgets.Label(boxRect, level.ToString());
-
-            //reset values
-            GUI.color = oldColor;
-            Text.Font = oldF;
-            Text.Anchor = oldA;
-
-            // This preserves the vanilla tooltip functionality so players can still see work type details
-            TooltipHandler.TipRegion(boxRect,
-                () => WidgetsWork.TipForPawnWorker(pawn, worktype, incapable),
-                pawn.thingIDNumber ^ worktype.GetHashCode());
+            Widgets.Label(numRect, level.ToString());
+            Text.Font = oldFont;
+            Text.Anchor = oldAnchor;
+            GUI.color = Color.white;
         }
 
-        // This determines if a pawn is incapable of a work type by checking if they can do at least one work giver
-        private static bool IsIncapableOfWholeWorkType(Pawn p, WorkTypeDef work)
-        {
-            for (int i = 0; i < work.workGiversByPriority.Count; i++)
-            {
-                bool canDoThisGiver = true;
-                var reqs = work.workGiversByPriority[i].requiredCapacities;
-                for (int j = 0; j < reqs.Count; j++)
-                {
-                    if (!p.health.capacities.CapableOf(reqs[j]))
-                    {
-                        canDoThisGiver = false;
-                        break;
-                    }
-                }
-                if (canDoThisGiver)
-                    return false;
-            }
-            return true;
-        }
-
-        // This provides color coding for skill levels to make them easier to read at a glance
+        /// <summary>
+        /// Determines the color for small skill numbers based on level thresholds.
+        /// Reuses the same color logic as the main overlay.
+        /// </summary>
+        /// <param name="level">The skill level.</param>
+        /// <returns>The color from settings.</returns>
         private static Color ColorForSkillLevel(int level)
         {
-            if (level <= 3) return BetterWorkTabMod.Settings.Color_VeryLowSkill;  // Red for very low skills
-            if (level <= 9) return BetterWorkTabMod.Settings.Color_LowSkill;  // Orange for low skills
-            if (level <= 15) return BetterWorkTabMod.Settings.Color_GoodLowSkill; // White for good skills
-            return BetterWorkTabMod.Settings.Color_ExcellentSkill;                  // Green for excellent skills
+            if (level <= 3) return BetterWorkTabMod.Settings.Color_VeryLowSkill;
+            if (level <= 9) return BetterWorkTabMod.Settings.Color_LowSkill;
+            if (level <= 15) return BetterWorkTabMod.Settings.Color_GoodLowSkill;
+            return BetterWorkTabMod.Settings.Color_ExcellentSkill;
         }
-    }
-
-
-    [HarmonyPatch(typeof(PawnTable), nameof(PawnTable.PawnTableOnGUI))]
-    public static class PawnTable_HighlightRowAndColumn
-    {
-        private static WorkTypeDef worktypeToHighlight = null;
-
-        public static void SetWorktypeToHighlight(WorkTypeDef wt)
-        {
-            worktypeToHighlight = wt;
-        }
-
-        static void Prefix(PawnTable __instance, Vector2 position)
-        {
-            //Skip if the feature is disabled
-            if (!BetterWorkTabMod.Settings.ShowPawnAndWorktypeHighlights) return;
-
-            //get all worktype columns to filter out non-worktype columns
-            var worktypeColumns = __instance.columns.FindAll((a) => { return a.workerClass == typeof(PawnColumnWorker_WorkPriority); });
-
-            //if there are no worktype columns, this is not the worktab, so skip
-            if (!worktypeColumns.Any()) return;
-
-            //calculate total width and height of the table
-            float totalWidth = 0f;
-            foreach (var col in __instance.cachedColumnWidths)
-            {
-                totalWidth += col;
-            }
-
-            float totalHeight = 0f;
-            foreach (var col in __instance.cachedRowHeights)
-            {
-                totalHeight += col;
-            }
-
-            //vanilla scrollview setup. This makes it so the highlights scroll with the table, and stay within the table bounds
-            Rect outRect = new Rect((int)position.x, (int)position.y + (int)__instance.cachedHeaderHeight, (int)__instance.cachedSize.x, (int)__instance.cachedSize.y - (int)__instance.cachedHeaderHeight);
-            Rect viewRect = new Rect(0f, 0f, outRect.width - 16f, (int)__instance.cachedHeightNoScrollbar - (int)__instance.cachedHeaderHeight);
-            Widgets.BeginScrollView(outRect, ref __instance.scrollPosition, viewRect);
-
-            //Run code for highlighting pawn rows and worktype columns. Each method handles whether to highlight based on settings.
-            HighlightPawn(__instance, position, totalWidth);
-
-            HighlightWorktype(__instance, position, totalHeight);
-
-            Widgets.EndScrollView();
-
-        }
-
-        private static void HighlightPawn(PawnTable __instance, Vector2 position, float totalWidth)
-        {
-            //each row starts at the same x position, but the y position increases by the height of each row
-            float startingY = 0;
-            for (int i = 0; i < __instance.cachedPawns.Count; i++)
-            {
-                //create a rect that covers the entire row for this pawn
-                var rect = new Rect(position.x, startingY, totalWidth, __instance.cachedRowHeights[i]);
-
-                //highlight if selected
-                if (Find.Selector.IsSelected(__instance.cachedPawns[i]))
-                    //use float menu color if opened that way
-                    if (BetterWorkTabMod.Settings.ShowFloatMenuPawnAndWorktypeHighlight && worktypeToHighlight != null)
-                        Widgets.DrawBoxSolid(rect, BetterWorkTabMod.Settings.Color_FloatMenuHighlight);
-                    //otherwise use selected color
-                    else if (BetterWorkTabMod.Settings.DoSelectedPawnHighlight)
-                        Widgets.DrawBoxSolid(rect, BetterWorkTabMod.Settings.Color_CursorHighlight);
-
-                //highlight if mouse is over
-                if (BetterWorkTabMod.Settings.ShowCursorPawnAndWorktypeHighlight && Mouse.IsOver(rect))
-                    Widgets.DrawBoxSolid(rect, BetterWorkTabMod.Settings.Color_MouseHoverHighlight);
-
-                //increment startingY for next row
-                startingY += __instance.cachedRowHeights[i];
-            }
-        }
-
-        private static void HighlightWorktype(PawnTable __instance, Vector2 position, float totalHeight)
-        {
-
-            //each column starts at the same y position, but the x position increases by the width of each column
-            float startingX = 0;
-            for (int i = 0; i < __instance.columns.Count; i++)
-            {
-                //create a rect that covers the entire column for this worktype
-                var rect = new Rect(startingX, 0, __instance.cachedColumnWidths[i], totalHeight);
-
-                //highlight if opened from float menu
-                if (BetterWorkTabMod.Settings.ShowFloatMenuPawnAndWorktypeHighlight && worktypeToHighlight == __instance.columns[i].workType && __instance.columns[i].Worker is PawnColumnWorker_WorkPriority)
-                    Widgets.DrawBoxSolid(rect, BetterWorkTabMod.Settings.Color_FloatMenuHighlight);
-
-                //highlight if mouse is over
-                if (BetterWorkTabMod.Settings.ShowCursorPawnAndWorktypeHighlight && Mouse.IsOver(rect) && __instance.columns[i].Worker is PawnColumnWorker_WorkPriority)
-                {
-                    Widgets.DrawBoxSolid(rect, BetterWorkTabMod.Settings.Color_MouseHoverHighlight);
-                    Widgets.DrawHighlight(rect);
-                    if (!(__instance.columns[i].Worker is PawnColumnWorker_WorkPriority)) continue;
-                    HighlightSimilarWorktypes(__instance.columns[i].workType, __instance.columns.Count, i, __instance, totalHeight);
-                }
-                //increment startingX for next column
-                startingX += __instance.cachedColumnWidths[i];
-
-                    
-                                        
-                    
-                    
-                    
-                    
-                    
-
-            }
-
-        }
-
-        private static void HighlightSimilarWorktypes(WorkTypeDef worktype, int columnCount, int myIndex, PawnTable __instance, float totalHeight)
-        {
-            var relevantSkills = worktype.relevantSkills;
-            float startingX = 0;
-
-            for (int i = 0; i < columnCount; i++)
-            {
-
-                if (__instance.columns[i].Worker is PawnColumnWorker_WorkPriority)
-                {
-                    var rect = new Rect(startingX, 0, __instance.cachedColumnWidths[i], totalHeight);
-                    foreach (var skill in relevantSkills)
-                    {
-                        if (__instance.columns[i].workType.relevantSkills.Contains(skill))
-                        {
-                            if (i != myIndex)
-                            {
-                                Widgets.DrawBoxSolid(rect, BetterWorkTabMod.Settings.Color_SimilarWorktypeMouseOver);
-                                Widgets.DrawHighlight(rect);
-
-                            }
-                        }
-                    }
-                }
-                startingX += __instance.cachedColumnWidths[i];
-
-            }
-
-        }
-
-
+   
 
         //Patching Window and filtering to MainTabWindow_Work because MainTabWindow_Work does not have a PreClose method to patch. This is the only way to do this.
         [HarmonyPatch(typeof(Window), nameof(Window.PreClose))]
-        public static class MainTabWindow_Work_PreOpen
+        public static class MainTabWindow_Work_PreClose
         {
             public static void Postfix(Window __instance)
             {
                 if (!(__instance is MainTabWindow_Work)) return;
 
                 //Clear the highlighted worktype when closing the work tab. This makes it so the highlight only persists while the tab is open, and it will reset when closed.
-                PawnTable_HighlightRowAndColumn.SetWorktypeToHighlight(null);
+                HighlightManager.ClearHighlight();
                 Better_Work_Tab.Patches.WorkTabReorder_PostOpen.ResetAppliedOrderFlag();
             }
         }
