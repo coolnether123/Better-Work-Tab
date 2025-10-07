@@ -511,13 +511,13 @@ namespace Better_Work_Tab.Features.Rules
                     Log.Message($"[BWT] Not enough pawns to assign {Parameters.IsNthBestPawn}st/nd/th best to {assigningWorktype.defName}. Only {sortedPawns.Count} pawns available. Skipping this step.");
                     return false;
                 }
-                //Log.Error("Not Implimented: IsNthBestPawn");
+
             }
 
             if (Parameters.IsNthBestSkill > 0)
             {
                 List<WorkTypeDef> bestWorkInOrder = AllWorkTypes.Where(wt => !pawn.WorkTypeIsDisabled(wt)).OrderByDescending(wt => pawn.skills.AverageOfRelevantSkillsFor(wt)).ToList();
-                //Log.Error("Not Implimented: IsNthBestSkill");
+
                 if(bestWorkInOrder.Count >= Parameters.IsNthBestSkill)
                 {
                     if(bestWorkInOrder[Parameters.IsNthBestSkill - 1] != assigningWorktype)
