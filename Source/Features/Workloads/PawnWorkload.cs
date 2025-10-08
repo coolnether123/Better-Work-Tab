@@ -33,21 +33,21 @@ namespace Better_Work_Tab.Features.Workloads
         {
             if(Priorities == null)
                 Priorities = new Dictionary<WorkTypeDef, int>();
-            Log.Message("----------Saving Values-------");
+            //Log.Message("----------Saving Values-------");
             foreach (var w in DefDatabase<WorkTypeDef>.AllDefsListForReading)
             {
                 WorkTypeDef worktype = w;
                 int priority = owningPawn.workSettings.GetPriority(w);
-                Log.Message("Saved " + owningPawn.Name + "'s " + worktype.defName + " priority of " + priority);
+                //Log.Message("Saved " + owningPawn.Name + "'s " + worktype.defName + " priority of " + priority);
                 Priorities.Add(worktype, priority);
-                Log.Message("Added " + owningPawn.Name + "'s " + Priorities.Last().Key + " priority of " + Priorities.Last().Value + " to Priorities");
+                //Log.Message("Added " + owningPawn.Name + "'s " + Priorities.Last().Key + " priority of " + Priorities.Last().Value + " to Priorities");
             }
-            Log.Message("----------Stored Values-------");
+            //Log.Message("----------Stored Values-------");
             foreach (var kvp in Priorities)
             {
                 WorkTypeDef worktype = kvp.Key;
                 int priority = kvp.Value;
-                Log.Message("Stored " + owningPawn.Name + "'s " + worktype.defName + " priority of " + priority);
+                //Log.Message("Stored " + owningPawn.Name + "'s " + worktype.defName + " priority of " + priority);
             }
         }
         void Paste()

@@ -54,7 +54,7 @@ namespace Better_Work_Tab.UI
         public override void PreOpen()
         {
             base.PreOpen();
-            ruleNameBuffer = CurrentRuleset.Name;
+            ruleNameBuffer = CurrentRuleset != null ? CurrentRuleset.Name : "New Rule";
         }
         public override void DoWindowContents(Rect inRect)
         {
@@ -73,10 +73,18 @@ namespace Better_Work_Tab.UI
             rect.SplitVerticallyWithMargin(out Rect leftSide, out rightRect, 10f);
             leftSide.SplitVerticallyWithMargin(out leftRect, out midRect, 10f);
 
+            //Rect bottomRight = new Rect(windowRect.xMax - 125, windowRect.yMax - 55, 120, 50);
+            //if(Widgets.ButtonText(bottomRight, "Add All Defaults"))
+            //{
+            //    BetterWorkTabMod.Settings.AddDefaultRules();
+            //}
 
             DoRulesetListing(leftRect);
-            DoRulesetRulesListing(midRect);
-            DoRuleContents(rightRect, SelectedRule);
+            if (CurrentRuleset != null)
+            {
+                DoRulesetRulesListing(midRect);
+                DoRuleContents(rightRect, SelectedRule);
+            }
         }
 
         void DoRuleContents(Rect rightRect, WorkAssignmentRule rule)
@@ -182,14 +190,11 @@ namespace Better_Work_Tab.UI
                 Text.Font = fontsize;
                 GUI.color = Color.white;
 
-                Log.Message("type is: " + param.ParameterType);
                 if (param.ParameterType == typeof(Gender?))
                 {
-                    Log.Message("Gender");
                     var field = AccessTools.DeclaredField(typeof(WorkAssignmentParameters), param.Name.CapitalizeFirst());
                     Gender? refValue = (Gender?)field.GetValue(SelectedRule.Parameters) ?? null;
 
-                    Log.Message(field.Name + " is " + refValue?.ToString() ?? "null");
 
                     Widgets.Label(rect5, paramLabel);
                     if (Widgets.ButtonText(rightPart, refValue?.ToString() ?? "Unassigned"))
@@ -439,7 +444,8 @@ namespace Better_Work_Tab.UI
             rect2.yMax = rect.y - 10f;
 
             rect2.SplitHorizontally(32f, out Rect titleRect, out rect2);
-            CurrentRuleset.Name = ruleNameBuffer == "" ? "New Ruleset " + (Settings.SavedRulesets.IndexOf(CurrentRuleset) + 1) : ruleNameBuffer;
+            if(CurrentRuleset != null)
+                CurrentRuleset.Name = ruleNameBuffer == "" ? "New Ruleset " + (Settings.SavedRulesets?.IndexOf(CurrentRuleset) + 1) ?? ruleNameBuffer : ruleNameBuffer;
 
             ruleNameBuffer = Widgets.TextField(titleRect, ruleNameBuffer, 21);
             rect2.height -= 10f;
@@ -456,15 +462,7 @@ namespace Better_Work_Tab.UI
 
 
             rect3.SplitHorizontally(rect3.height * 0.5f, out Rect topRect, out Rect bottomRect);
-            if (Widgets.ButtonText(bottomRect, "Delete Rule"))
-            {
-                var newCurrentIndex = Mathf.Clamp(RulesetRules.IndexOf(SelectedRule) - 1, 0, int.MaxValue);
-                RulesetRules.Remove(SelectedRule);
-                if (!RulesetRules.Any())
-                    SelectedRule = null;
-                else
-                    SelectedRule = RulesetRules[newCurrentIndex];
-            }
+          
             if (Widgets.ButtonText(topRect, "New Rule"))
             {
                 WorkAssignmentRule newRule = new WorkAssignmentRule(new WorkAssignmentParameters("New Rule " + (RulesetRules.Count+1), 0));
@@ -472,6 +470,14 @@ namespace Better_Work_Tab.UI
                 Settings.CurrentRuleset.Rules.Add(newRule);
                 SelectedRule = newRule ;
             }
+            if (Widgets.ButtonText(bottomRect, "Duplicate Rule"))
+            {
+
+                WorkAssignmentRule newRule = SelectedRule.Copy();
+                Settings.CurrentRuleset.Rules.Add(newRule);
+                SelectedRule = newRule;
+            }
+
             int num = 0;
             foreach (var ruleset in RulesetRules)
             {
@@ -483,6 +489,7 @@ namespace Better_Work_Tab.UI
             Widgets.BeginScrollView(outRect, ref midScroll, viewRect);
             float num2 = 0f;
             int num3 = 0;
+            WorkAssignmentRule ruleToRemove = null;
             foreach (var item in RulesetRules)
             {
                 Rect rect4 = new Rect(0f, num2, outRect.width, 32f);
@@ -511,6 +518,22 @@ namespace Better_Work_Tab.UI
                 {
                     Widgets.Label(rect5, text);
                 }
+                Rect rect6 = new Rect(rect4);
+                rect6.width = 24f;
+                rect6.height = 24f;
+                rect6.x = rect4.xMax - rect6.width - (RulesetRules.Count >= 13 ? 20f : 0);
+                rect6.y = rect4.y + (rect4.height - rect6.height) / 2f;
+
+                if (Widgets.ButtonImage(rect6, TexButton.Delete))
+                {
+                    var newCurrentIndex = Mathf.Clamp(RulesetRules.IndexOf(SelectedRule) - 1, 0, int.MaxValue);
+                    ruleToRemove = SelectedRule;
+                    if (RulesetRules.Count - 1 <= 0)
+                        SelectedRule = null;
+                    else
+                        SelectedRule = RulesetRules[newCurrentIndex];
+                }
+                
                 if (Widgets.ButtonInvisible(rect4))
                 {
                     if (SelectedRule.Parameters.RuleName == "")
@@ -520,6 +543,10 @@ namespace Better_Work_Tab.UI
                     SelectedRule = item;
                 }
             }
+            if(ruleToRemove != null)
+                RulesetRules.Remove(ruleToRemove);
+
+
             Widgets.EndScrollView();
         }
 
@@ -540,7 +567,9 @@ namespace Better_Work_Tab.UI
             quickSearch.OnGUI(rect);
             Widgets.DrawMenuSection(rect2);
 
-            if (Widgets.ButtonText(rect3, "New Ruleset"))
+            rect3.SplitHorizontally(rect3.height * 0.5f, out Rect top, out Rect bottom);
+
+            if (Widgets.ButtonText(top, "New Ruleset"))
             {
                 WorkAssignmentRuleset newRuleset = new WorkAssignmentRuleset("New Ruleset", new List<WorkAssignmentParameters>());
                 Settings.SavedRulesets.Add(newRuleset);
@@ -549,6 +578,13 @@ namespace Better_Work_Tab.UI
             }
 
 
+            if (Widgets.ButtonText(bottom, "Duplicate Ruleset"))
+            {
+                var newRules = CurrentRuleset.Copy();
+                Settings.SavedRulesets.Add(newRules);
+                ruleNameBuffer = newRules.Name;
+                BetterWorkTabMod.Settings.CurrentRuleset = newRules;
+            }
 
             int num = 0;
             foreach (var ruleset in Settings.SavedRulesets)
@@ -563,7 +599,15 @@ namespace Better_Work_Tab.UI
             Widgets.BeginScrollView(outRect, ref leftScroll, viewRect);
             float num2 = 0f;
             int num3 = 0;
-            var defaultPolicy = Settings.SavedRulesets.First();
+
+            var defaultPolicy = Settings.SavedRulesets.Any() ? Settings.SavedRulesets.First() : null;
+
+            if (defaultPolicy == null)
+            {
+                Widgets.EndScrollView();
+                return;
+            }
+
             foreach (var item in from x in Settings.SavedRulesets
                                  orderby defaultPolicy != x, x.Name
                                select x)
@@ -596,6 +640,45 @@ namespace Better_Work_Tab.UI
                     {
                         Widgets.Label(rect5, text);
                     }
+                    Rect rect6 = new Rect(rect4);
+                    rect6.width = 24f;
+                    rect6.height = 24f;
+                    rect6.x = rect4.xMax - rect6.width - (Settings.SavedRulesets.Count >= 14 ? 20f : 0);
+                    rect6.y = rect4.y + (rect4.height - rect6.height) / 2f;
+                    
+
+                    if (Widgets.ButtonImage(rect6, TexButton.Delete))
+                    {
+                        Find.WindowStack.Add(new Dialog_Confirm("Really delete " + CurrentRuleset.Name + "?", () => {
+
+                            var rulesets = BetterWorkTabMod.Settings.SavedRulesets;
+                            if(rulesets.Count == 0)
+                            {
+                                return;
+                            }
+                            var count = rulesets.Count;
+                            WorkAssignmentRuleset ruleset = null;
+
+
+                            if (count > rulesets.IndexOf(CurrentRuleset) + 1)
+                            {
+                                Log.Message("+1 : " + (rulesets.IndexOf(CurrentRuleset) + 1));
+
+                                ruleset = rulesets[rulesets.IndexOf(CurrentRuleset) + 1];
+                            }
+                            else if (count > rulesets.IndexOf(CurrentRuleset) - 1 && rulesets.IndexOf(CurrentRuleset) - 1 > 0)
+                            {
+                                Log.Message("-1 : " + (rulesets.IndexOf(CurrentRuleset) - 1));
+
+                                ruleset = rulesets[rulesets.IndexOf(CurrentRuleset) - 1];
+                            }
+
+                            BetterWorkTabMod.Settings.SavedRulesets.Remove(CurrentRuleset);
+                            ruleNameBuffer = ruleset.Name;
+                            BetterWorkTabMod.Settings.CurrentRuleset = ruleset;
+                        }));
+                        
+                    }
                     if (Widgets.ButtonInvisible(rect4))
                     {
                         if (CurrentRuleset.Name == "")
@@ -610,6 +693,12 @@ namespace Better_Work_Tab.UI
                 }
             }
             Widgets.EndScrollView();
+        }
+
+        public override void PostClose()
+        {
+            base.PostClose();
+            BetterWorkTabMod.Settings.Write();
         }
     }
 }
