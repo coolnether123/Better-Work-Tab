@@ -30,19 +30,7 @@ using Verse.Sound;
     namespace Better_Work_Tab.Patches
     {
 
-        /// <summary>
-        /// Global static state management for the skill overlay feature in the work tab.
-        /// Toggled via checkbox in the MainTabWindow_Work header; allows showing average skill levels instead of priorities.
-        /// </summary>
-        public static class SkillOverlayState
-        {
-            /// <summary>
-            /// Flag indicating whether the skill overlay is currently active.
-            /// When true, priority cells are replaced with average skill levels (0-20, color-coded per settings). Supports temporary view via Shift key override.
-            /// Defaults to false; set via UI toggle in Patch_WorkTab_AddSingleToggle.Postfix.
-            /// </summary>
-            public static bool ShowSkills = false;
-        }
+
 
     /// <summary>
     /// Utility class for drawing custom work boxes during skill overlay mode, preserving vanilla visual elements such as
@@ -139,23 +127,18 @@ using Verse.Sound;
         /// <param name="rect">The full window rectangle for the work tab.</param>
         public static void Postfix(Rect rect)
         {
-            if (!BetterWorkTabMod.Settings.enableSkillOverlayFeature) return;
-
             if (Event.current == null || Event.current.type == EventType.Layout) return;
 
-            Rect toggleRect = new Rect(SkillToggleX_RightOfManualPriorities, SkillToggleY_Top, SkillToggleWidth, SkillToggleHeight);
+            //DrawAutoAssignButtons(rect);
+            //DrawCurrentWorkloadsButtons(rect);
 
-            bool show = SkillOverlayState.ShowSkills;
-            Widgets.CheckboxLabeled(toggleRect, "Show skill levels (0–20)", ref show);
-
-            if (show != SkillOverlayState.ShowSkills)
-            {
-                SkillOverlayState.ShowSkills = show;
-                SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
-            }
-
-            DrawAutoAssignButtons(rect);
-            DrawCurrentWorkloadsButtons(rect);
+            Text.Font = GameFont.Small;
+            GUI.color = Color.white;
+            Text.Anchor = TextAnchor.LowerLeft;
+            Rect textRect = new Rect(rect.x, rect.y, rect.width, rect.height);
+            Widgets.Label(textRect, "Shift to switch mode | ctrl to reorder");
+            Text.Anchor = TextAnchor.UpperLeft;
+            GUI.color = Color.white;
         }
 
         /// <summary>
@@ -331,10 +314,10 @@ using Verse.Sound;
             bool shiftHeld = Event.current?.shift ?? false;
             var wt = __instance.def.workType;
 
-            if (!BetterWorkTabMod.Settings.enableSkillOverlayFeature || (!SkillOverlayState.ShowSkills && !shiftHeld))
+            if (!shiftHeld)
                 return true;
 
-            if (!SkillOverlayState.ShowSkills && shiftHeld && wt.relevantSkills.Count == 0)
+            if (shiftHeld && wt.relevantSkills.Count == 0)
                 return false; // Skip non-skill types on Shift-only.
 
             if (pawn.Dead || pawn.workSettings == null || !pawn.workSettings.EverWork || wt == null || pawn.WorkTypeIsDisabled(wt))
@@ -455,8 +438,7 @@ using Verse.Sound;
                 worktype.relevantSkills.Count != 0)
                 DrawBestPawnForSkillBox(rect, pawn, table, __instance);
 
-            if ((SkillOverlayState.ShowSkills ||
-                 ShiftHelper.State == BetterWorkTabMod.Settings.ShowUIMode_ShowSmallSkillNumbers ||
+            if ((ShiftHelper.State == BetterWorkTabMod.Settings.ShowUIMode_ShowSmallSkillNumbers ||
                  BetterWorkTabMod.Settings.ShowUIMode_ShowSmallSkillNumbers == BetterWorkTabSettings.ShowUIMode.Always) &&
                 worktype.relevantSkills.Count != 0)
                 DrawSmallSkillNumbers(rect, pawn, worktype);
