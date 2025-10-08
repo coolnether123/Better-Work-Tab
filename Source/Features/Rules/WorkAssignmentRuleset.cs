@@ -11,13 +11,15 @@ namespace Better_Work_Tab.Features
     /// <summary>
     /// This class handles the automatic work assignment process for pawns based on a set of defined rules.
     /// </summary>
-    public class WorkAssignmentRuleset
+    public class WorkAssignmentRuleset : IExposable
     {
         //private readonly BetterWorkTabSettings _settings;
 
-        public string Name { get; set; }
-        public bool ResetBeforeApplying { get; private set; } = true;
-        public readonly List<WorkAssignmentRule> Rules = new List<WorkAssignmentRule>();
+        public string Name;
+        public bool ResetBeforeApplying = true;
+        public List<WorkAssignmentRule> Rules = new List<WorkAssignmentRule>();
+
+        public WorkAssignmentRuleset() { }
 
         public WorkAssignmentRuleset(string rulesetName, List<WorkAssignmentParameters> parameters, bool resetBeforeApplying = true)
         {
@@ -61,7 +63,7 @@ namespace Better_Work_Tab.Features
             var allWorkTypes = DefDatabase<WorkTypeDef>.AllDefsListForReading.OrderBy(wt => wt.naturalPriority).Reverse().ToList();
             allWorkTypes.RemoveDuplicates();
 
-            
+
             foreach (var rule in Rules)
             {
                 foreach (var worktype in allWorkTypes)
@@ -74,7 +76,7 @@ namespace Better_Work_Tab.Features
                         if (rule.Parameters.Worktype != worktype)
                             continue;
                     }
-                    if(rule.Parameters.WorktypeDefNameIgnoreIfNonexistant != "")
+                    if (rule.Parameters.WorktypeDefNameIgnoreIfNonexistant != "")
                     {
                         //if there's a rule that applies to only one ignorable worktype, skip all others.
                         if (!DefDatabase<WorkTypeDef>.AllDefs.Contains(DefDatabase<WorkTypeDef>.GetNamedSilentFail(rule.Parameters.WorktypeDefNameIgnoreIfNonexistant)))
@@ -94,7 +96,7 @@ namespace Better_Work_Tab.Features
                             //Apply returns true if the rest of the pawns should be skipped for this worktype
                             break;
                         }
-                        if(rule.Parameters.RandomIfMultiple && pawn.workSettings.GetPriority(worktype) > 0 && !pawnAlreadyAssigned)
+                        if (rule.Parameters.RandomIfMultiple && pawn.workSettings.GetPriority(worktype) > 0 && !pawnAlreadyAssigned)
                         {
                             //this was assigned. add to list for potential randomization later.
                             pawnsForThisWorktype.Add(pawn);
@@ -117,17 +119,27 @@ namespace Better_Work_Tab.Features
                         pawnsForThisWorktype.Where(p => !p.WorkTypeIsDisabled(worktype)).InRandomOrder().First().workSettings.SetPriority(worktype, rule.Parameters.Priority);
                     }
 
-                    if (rule.Parameters.FailedToApplyFallback != null && !pawns.Where(p => { return p.workSettings.GetPriority(worktype) > 0; }).Any())
-                    {
-                        Log.Message($"No pawn could be assigned to work type: {worktype.defName}. Applying fallback.");
-                        foreach (var pawn in pawns)
-                            new WorkAssignmentRule(rule.Parameters.FailedToApplyFallback).Apply(pawn, pawns, worktype);
-                    }
+                    //if (rule.Parameters.FailedToApplyFallback != null && !pawns.Where(p => { return p.workSettings.GetPriority(worktype) > 0; }).Any())
+                    //{
+                    //    Log.Message($"No pawn could be assigned to work type: {worktype.defName}. Applying fallback.");
+                    //    foreach (var pawn in pawns)
+                    //        new WorkAssignmentRule(rule.Parameters.FailedToApplyFallback).Apply(pawn, pawns, worktype);
+                    //}
 
                 }
             }
         }
 
+        public void ExposeData()
+        {
+            Scribe_Values.Look(ref Name, "Name");
+            Scribe_Values.Look(ref ResetBeforeApplying, "ResetBeforeApplying");
+            Scribe_Collections.Look(ref Rules, "Rules", LookMode.Deep);
+        }
 
+        public WorkAssignmentRuleset Copy()
+        {
+            return new WorkAssignmentRuleset((Name + " (Copy)"), Rules.ListFullCopy(), ResetBeforeApplying);
+        }
     }
 }

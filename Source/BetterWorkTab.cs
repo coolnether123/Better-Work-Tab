@@ -22,7 +22,14 @@ namespace Better_Work_Tab
             }
 
             Settings = GetSettings<BetterWorkTabSettings>();
-            LongEventHandler.ExecuteWhenFinished(Settings.CreateDefaultRulesets);
+
+            if (!Settings.firstTimeSetupDone)
+            {
+                Log.Message("Setting up default rulesets for the first time.");
+                LongEventHandler.ExecuteWhenFinished(Settings.CreateDefaultRulesets);
+                BetterWorkTabMod.Settings.firstTimeSetupDone = true;
+                BetterWorkTabMod.Settings.Write();
+            }
         }
 
         public override string SettingsCategory() => "Better Work Tab";
