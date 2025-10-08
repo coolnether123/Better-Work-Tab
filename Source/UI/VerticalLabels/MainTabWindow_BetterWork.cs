@@ -2,11 +2,8 @@
 using Better_Work_Tab.Features.Workloads;
 using HarmonyLib;
 using RimWorld;
-using RimWorld;
-using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using UnityEngine;
 using Verse;
 using Verse.Sound;
@@ -36,20 +33,28 @@ namespace Better_Work_Tab.UI
         private const float SkillToggleWidth = 230f;
         private const float SkillToggleHeight = 30f;
 
+        // Button sizing (unchanged)
         private const float AutoAssignButtonWidth = 150f;
         private const float AutoAssignButtonHeight = 28f;
-        private const float AutoAssignButtonMarginX = 6f;
-        private const float AutoAssignButtonMarginY = 2f;
 
         private const float WorkloadButtonWidth = 150f;
         private const float WorkloadButtonHeight = 28f;
-        private const float WorkloadButtonMarginX = AutoAssignButtonHeight + AutoAssignButtonWidth + AutoAssignButtonMarginX + 6f;
-        private const float WorkloadButtonMarginY = 2f;
 
-        private PawnTable PawnTable =>
-            typeof(MainTabWindow_PawnTable)
-               .GetField("table", BindingFlags.Instance | BindingFlags.NonPublic)?
-               .GetValue(this) as PawnTable;
+        // Bottom-right anchoring next to the info button
+        private const float BottomEdgeMargin = 10f; // distance from bottom edge
+        private const float RightEdgeMargin = 10f;  // distance from right edge
+        private const float InterControlGap = 6f;   // gap between buttons
+        private const float InfoIconSize = 24f;     // same size as TexButton.Info
+
+        public override Vector2 InitialSize
+        {
+            get
+            {
+                Vector2 size = base.InitialSize;
+                size.x += 25f;
+                return size;
+            }
+        }
 
         /// <summary>
         /// Main window rendering method called every frame.
@@ -60,29 +65,21 @@ namespace Better_Work_Tab.UI
             // --- Draw the vanilla Work table first ---
             base.DoWindowContents(inRect);
 
-            // --- Optional feature check ---
-            if (!BetterWorkTabMod.Settings.enableSkillOverlayFeature)
-                return;
-
-
-
             // --- Draw overlay toggles and buttons if not during layout ---
             if (Event.current == null || Event.current.type == EventType.Layout)
                 return;
 
-            DrawSkillToggle(inRect);
-            DrawAutoAssignButtons(inRect);
-            DrawWorkloadButtons(inRect);
+            // Calculate the settings/info icon rect in the bottom-right,
+            // then lay out our buttons immediately to its left.
+            var gearRect = GetInfoIconRect(inRect);
 
+            // Draw our two button groups anchored to the right,
+            // immediately to the left of the info icon (from right->left).
+            DrawBottomRightButtons(inRect, gearRect);
+
+            // Draw the info/settings button (gear) on Repaint so it's above the table.
             if (Event.current.type == EventType.Repaint && Mouse.IsOver(inRect))
             {
-                // 24×24 px gear. 10 px margin from edges.
-                const float siz = 24f;
-                var gearRect = new Rect(
-                    inRect.xMax - siz - 10f,
-                    inRect.yMax - siz - 10f,
-                    siz,
-                    siz);
                 if (Widgets.ButtonImage(gearRect, TexButton.Info))
                 {
                     // open your mod’s settings dialog
@@ -92,49 +89,78 @@ namespace Better_Work_Tab.UI
                 }
             }
         }
-    
-
 
         /// <summary>
-        /// Draws the skill overlay toggle checkbox in the top-left area.
+        /// Returns the rectangle for the small "info/settings" button in the bottom-right.
+        /// 24×24 px gear. 10 px margin from edges.
         /// </summary>
-        private void DrawSkillToggle(Rect inRect)
+        private static Rect GetInfoIconRect(Rect inRect)
         {
-            Rect toggleRect = new Rect(SkillToggleX, SkillToggleY, SkillToggleWidth, SkillToggleHeight);
-            bool showSkills = Better_Work_Tab.Patches.SkillOverlayState.ShowSkills;
-
-            Widgets.CheckboxLabeled(toggleRect, "Show skill levels (0–20)", ref showSkills);
-
-            if (showSkills != Better_Work_Tab.Patches.SkillOverlayState.ShowSkills)
-            {
-                Better_Work_Tab.Patches.SkillOverlayState.ShowSkills = showSkills;
-                SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
-            }
+            return new Rect(
+                inRect.xMax - InfoIconSize - RightEdgeMargin,
+                inRect.yMax - InfoIconSize - BottomEdgeMargin,
+                InfoIconSize,
+                InfoIconSize
+            );
         }
 
         /// <summary>
-        /// Draws the auto-assign ruleset button and dropdown menu in the top-right area.
+        /// Draws the workload and auto-assign buttons at the bottom-right,
+        /// immediately to the left of the info icon. Anchored to the right.
+        /// Order (left-to-right on screen): [Workload][...][Auto-assign][...][Info].
         /// </summary>
-        private void DrawAutoAssignButtons(Rect inRect)
+        private void DrawBottomRightButtons(Rect inRect, Rect gearRect)
         {
-            var size = new Vector2(AutoAssignButtonWidth, AutoAssignButtonHeight);
-            var btn = new Rect(
-                inRect.xMax - size.x - size.y - AutoAssignButtonMarginX,
-                inRect.y + AutoAssignButtonMarginY,
-                size.x,
-                size.y
-            );
+            float y = inRect.yMax - AutoAssignButtonHeight - BottomEdgeMargin;
 
+            // Start laying out from the right, immediately to the left of the gear icon.
+            float xRight = gearRect.x - InterControlGap;
+
+            // 1) Auto-assign ruleset (right group, closest to gear)
+            xRight = DrawAutoAssignButtons_AnchoredRight(xRight, y);
+
+            // Small gap between groups
+            xRight -= InterControlGap;
+
+            // 2) Workload buttons (left group)
+            xRight = DrawWorkloadButtons_AnchoredRight(xRight, y);
+        }
+
+        /// <summary>
+        /// Draws the auto-assign ruleset main button and its "..." dropdown,
+        /// positioned using the right edge anchor. Returns the new right anchor
+        /// after placing both controls (so the caller can continue placing more to the left).
+        /// </summary>
+        private float DrawAutoAssignButtons_AnchoredRight(float xRight, float y)
+        {
             if (BetterWorkTabMod.Settings.CurrentAutoAssignRuleset == null)
             {
                 Log.Error("[Better Work Tab] No ruleset selected.");
-                return;
+                return xRight;
             }
 
             var curRuleset = BetterWorkTabMod.Settings.CurrentAutoAssignRuleset;
 
+            // Place the small "..." button flush to the current right anchor.
+            var dotRect = new Rect(
+                xRight - AutoAssignButtonHeight,
+                y,
+                AutoAssignButtonHeight,
+                AutoAssignButtonHeight
+            );
+            xRight = dotRect.x - InterControlGap;
+
+            // Place the main text button immediately to the left of the "..." button.
+            var mainRect = new Rect(
+                xRight - AutoAssignButtonWidth,
+                y,
+                AutoAssignButtonWidth,
+                AutoAssignButtonHeight
+            );
+            xRight = mainRect.x; // update anchor for next group (to the left)
+
             // Main button - applies the current ruleset
-            if (Widgets.ButtonText(btn, curRuleset.Name))
+            if (Widgets.ButtonText(mainRect, curRuleset.Name))
             {
                 SoundDefOf.Tick_Low.PlayOneShotOnCamera();
                 if (curRuleset.ResetBeforeApplying)
@@ -143,38 +169,59 @@ namespace Better_Work_Tab.UI
             }
 
             // Dropdown button - shows ruleset selection menu
-            var btn2 = new Rect(btn.x + btn.width, btn.y, btn.height, btn.height);
-            if (Widgets.ButtonText(btn2, "..."))
+            if (Widgets.ButtonText(dotRect, "..."))
             {
-                var options = BetterWorkTabMod.Settings.SavedRulesets.Select(ruleset =>
-                    new FloatMenuOption(ruleset.Name, () => {
-                        BetterWorkTabMod.Settings.CurrentAutoAssignRuleset = ruleset;
-                        SoundDefOf.Tick_Low.PlayOneShotOnCamera();
-                    })
-                ).ToList();
+                var options = BetterWorkTabMod.Settings.SavedRulesets
+                    .Select(ruleset =>
+                        new FloatMenuOption(
+                            ruleset.Name,
+                            () =>
+                            {
+                                BetterWorkTabMod.Settings.CurrentAutoAssignRuleset = ruleset;
+                                SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                            }
+                        )
+                    )
+                    .ToList();
 
                 Find.WindowStack.Add(new FloatMenu(options));
             }
+
+            return xRight;
         }
 
         /// <summary>
-        /// Draws the workload management button and dropdown menu in the top-right area.
+        /// Draws the workload main button and its "..." dropdown,
+        /// positioned using the right edge anchor. Returns the new right anchor
+        /// after placing both controls (so the caller can continue placing more to the left).
         /// </summary>
-        private void DrawWorkloadButtons(Rect inRect)
+        private float DrawWorkloadButtons_AnchoredRight(float xRight, float y)
         {
-            GameComponent_WorkloadSaver workloadSaver = Current.Game.GetComponent<GameComponent_WorkloadSaver>();
+            GameComponent_WorkloadSaver workloadSaver =
+                Current.Game.GetComponent<GameComponent_WorkloadSaver>();
 
-            var size = new Vector2(WorkloadButtonWidth, WorkloadButtonHeight);
-            var btn = new Rect(
-                inRect.xMax - size.x - size.y - WorkloadButtonMarginX,
-                inRect.y + WorkloadButtonMarginY,
-                size.x,
-                size.y
+            // Place the small "..." button flush to the current right anchor.
+            var dotRect = new Rect(
+                xRight - WorkloadButtonHeight,
+                y,
+                WorkloadButtonHeight,
+                WorkloadButtonHeight
             );
+            xRight = dotRect.x - InterControlGap;
+
+            // Place the main text button immediately to the left of the "..." button.
+            var mainRect = new Rect(
+                xRight - WorkloadButtonWidth,
+                y,
+                WorkloadButtonWidth,
+                WorkloadButtonHeight
+            );
+            xRight = mainRect.x; // update anchor for next group (to the left)
 
             // Main button - applies current workload or creates new
-            string buttonLabel = workloadSaver.CurrentWorklist?.RenamableLabel ?? "New Workload";
-            if (Widgets.ButtonText(btn, buttonLabel))
+            string buttonLabel =
+                workloadSaver.CurrentWorklist?.RenamableLabel ?? "New Workload";
+            if (Widgets.ButtonText(mainRect, buttonLabel))
             {
                 if (workloadSaver.CurrentWorklist != null)
                 {
@@ -188,11 +235,12 @@ namespace Better_Work_Tab.UI
             }
 
             // Dropdown button - shows workload management menu
-            var btn2 = new Rect(btn.x + btn.width, btn.y, btn.height, btn.height);
-            if (Widgets.ButtonText(btn2, "..."))
+            if (Widgets.ButtonText(dotRect, "..."))
             {
                 ShowWorkloadMenu(workloadSaver);
             }
+
+            return xRight;
         }
 
         /// <summary>
@@ -208,19 +256,37 @@ namespace Better_Work_Tab.UI
 
             foreach (var workload in workloads)
             {
-                options.Add(new FloatMenuOption(workload.RenamableLabel, () => {
-                    workloadSaver.CurrentWorklist = workload;
-                    SoundDefOf.Tick_Low.PlayOneShotOnCamera();
-                }));
+                options.Add(
+                    new FloatMenuOption(
+                        workload.RenamableLabel,
+                        () =>
+                        {
+                            workloadSaver.CurrentWorklist = workload;
+                            SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                        }
+                    )
+                );
             }
 
             // Add management options
-            options.Add(new FloatMenuOption("New Workload", () => CreateNewWorkload(workloadSaver)));
+            options.Add(
+                new FloatMenuOption("New Workload", () => CreateNewWorkload(workloadSaver))
+            );
 
             if (workloads.Any())
             {
-                options.Add(new FloatMenuOption("Rename Workload", () => ShowRenameMenu(workloads)));
-                options.Add(new FloatMenuOption("Delete Saved Workload", () => ShowDeleteMenu(workloadSaver, workloads)));
+                options.Add(
+                    new FloatMenuOption(
+                        "Rename Workload",
+                        () => ShowRenameMenu(workloads)
+                    )
+                );
+                options.Add(
+                    new FloatMenuOption(
+                        "Delete Saved Workload",
+                        () => ShowDeleteMenu(workloadSaver, workloads)
+                    )
+                );
             }
 
             Find.WindowStack.Add(new FloatMenu(options));
@@ -231,14 +297,28 @@ namespace Better_Work_Tab.UI
         /// </summary>
         private void ShowRenameMenu(List<Worklist> workloads)
         {
-            var options = workloads.Select(w => new FloatMenuOption($"Rename {w.RenamableLabel}", () => {
-                Find.WindowStack.Add(new Dialog_RenameWorkload(w));
-                SoundDefOf.Tick_Low.PlayOneShotOnCamera();
-            })).ToList();
+            var options = workloads
+                .Select(
+                    w =>
+                        new FloatMenuOption(
+                            $"Rename {w.RenamableLabel}",
+                            () =>
+                            {
+                                Find.WindowStack.Add(new Dialog_RenameWorkload(w));
+                                SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                            }
+                        )
+                )
+                .ToList();
 
             var screenWidth = Verse.UI.screenWidth;
             var screenHeight = Verse.UI.screenHeight;
-            var menuRect = new Rect(screenWidth / 2f - 100f, screenHeight / 2f - 75f, 200f, 150f);
+            var menuRect = new Rect(
+                screenWidth / 2f - 100f,
+                screenHeight / 2f - 75f,
+                200f,
+                150f
+            );
             var menu = new FloatMenu(options) { windowRect = menuRect };
 
             Find.WindowStack.Add(menu);
@@ -247,28 +327,52 @@ namespace Better_Work_Tab.UI
         /// <summary>
         /// Shows a submenu for deleting workloads.
         /// </summary>
-        private void ShowDeleteMenu(GameComponent_WorkloadSaver workloadSaver, List<Worklist> workloads)
+        private void ShowDeleteMenu(
+            GameComponent_WorkloadSaver workloadSaver,
+            List<Worklist> workloads
+        )
         {
-            var options = workloads.Select(w => new FloatMenuOption($"Delete {w.RenamableLabel}", () => {
-                int index = workloadSaver.SavedWorklists.IndexOf(w);
-                workloadSaver.SavedWorklists.Remove(w);
+            var options = workloads
+                .Select(
+                    w =>
+                        new FloatMenuOption(
+                            $"Delete {w.RenamableLabel}",
+                            () =>
+                            {
+                                int index = workloadSaver.SavedWorklists.IndexOf(w);
+                                workloadSaver.SavedWorklists.Remove(w);
 
-                if (!workloadSaver.SavedWorklists.Any())
-                {
-                    workloadSaver.CurrentWorklist = null;
-                }
-                else
-                {
-                    int newIndex = Mathf.Max(0, Mathf.Min(index - 1, workloadSaver.SavedWorklists.Count - 1));
-                    workloadSaver.CurrentWorklist = workloadSaver.SavedWorklists[newIndex];
-                }
+                                if (!workloadSaver.SavedWorklists.Any())
+                                {
+                                    workloadSaver.CurrentWorklist = null;
+                                }
+                                else
+                                {
+                                    int newIndex = Mathf.Max(
+                                        0,
+                                        Mathf.Min(
+                                            index - 1,
+                                            workloadSaver.SavedWorklists.Count - 1
+                                        )
+                                    );
+                                    workloadSaver.CurrentWorklist =
+                                        workloadSaver.SavedWorklists[newIndex];
+                                }
 
-                SoundDefOf.Tick_Low.PlayOneShotOnCamera();
-            })).ToList();
+                                SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                            }
+                        )
+                )
+                .ToList();
 
             var screenWidth = Verse.UI.screenWidth;
             var screenHeight = Verse.UI.screenHeight;
-            var menuRect = new Rect(screenWidth / 2f - 100f, screenHeight / 2f - 75f, 200f, 150f);
+            var menuRect = new Rect(
+                screenWidth / 2f - 100f,
+                screenHeight / 2f - 75f,
+                200f,
+                150f
+            );
             var menu = new FloatMenu(options) { windowRect = menuRect };
 
             Find.WindowStack.Add(menu);
@@ -279,7 +383,9 @@ namespace Better_Work_Tab.UI
         /// </summary>
         private void CreateNewWorkload(GameComponent_WorkloadSaver workloadSaver)
         {
-            var newWorkload = new Worklist($"Custom Workload {workloadSaver.SavedWorklists.Count}");
+            var newWorkload = new Worklist(
+                $"Custom Workload {workloadSaver.SavedWorklists.Count}"
+            );
             Find.WindowStack.Add(new Dialog_NameNewWorklist(newWorkload));
             workloadSaver.SavedWorklists.Add(newWorkload);
             workloadSaver.CurrentWorklist = newWorkload;
