@@ -56,11 +56,6 @@ namespace Better_Work_Tab.Patches
                     }
                 };
 
-                //Log.Message("-------");
-                //Log.Message("BWTNotAssignedDoAnyway".Translate(workType.defName));
-                //Log.Message(TranslatorFormattedStringExtensions.Translate("BWTNotAssignedAssignWork", workType.verb));
-                
-
                 var text = "BWTNotAssignedDoOnce".Translate(workType.gerundLabel);
                 Patch_FloatMenuOptionProvider_WorkGivers_GetWorkGiverOptionFor.AdditionalOptions.Add(new FloatMenuOption("BWTNotAssignedAssignWork".Translate(workType.gerundLabel), () =>
                 {

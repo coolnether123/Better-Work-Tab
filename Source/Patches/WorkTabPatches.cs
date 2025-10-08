@@ -120,20 +120,34 @@ namespace Better_Work_Tab.Patches
 
             if (BetterWorkTabMod.Settings.CurrentRuleset == null)
             {
-                Log.Error("[Better Work Tab] No ruleset selected.");
-                return;
+                //Log.Error("[Better Work Tab] No ruleset selected.");
+                if(BetterWorkTabMod.Settings.SavedRulesets.Any())
+                {
+                    try
+                    {
+                        BetterWorkTabMod.Settings.CurrentRuleset = BetterWorkTabMod.Settings.SavedRulesets[0];
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error("[Better Work Tab] Failed to set a default ruleset: " + ex.ToString());
+                    }
+                }
             }
             var curRuleset = BetterWorkTabMod.Settings.CurrentRuleset;
+            var btnLbl = curRuleset != null ? curRuleset.Name : "No ruleset selected";
 
-            if (Widgets.ButtonText(btn, "  "+curRuleset.Name, overrideTextAnchor: TextAnchor.MiddleLeft))
+            if (Widgets.ButtonText(btn, "  "+btnLbl, overrideTextAnchor: TextAnchor.MiddleLeft))
             {
                 SoundDefOf.Tick_Low.PlayOneShotOnCamera();
-                
-                if(curRuleset.ResetBeforeApplying)
+
+                if (curRuleset != null)
                 {
-                    WorkAssignmentRuleset.SetAllToZero();
+                    if (curRuleset.ResetBeforeApplying)
+                    {
+                        WorkAssignmentRuleset.SetAllToZero();
+                    }
+                    curRuleset.ApplyAutoAssignments();
                 }
-                curRuleset.ApplyAutoAssignments();
             }
 
             var btn2 = new Rect(btn.x + btn.width, btn.y, btn.height, btn.height);
@@ -396,7 +410,6 @@ namespace Better_Work_Tab.Patches
     {
         public static void Postfix(PawnColumnWorker_WorkPriority __instance, Rect rect, Pawn pawn, PawnTable table)
         {
-            //Log.Message("Postfix called");
             var worktype = __instance.def.workType; // Moved this line up
 
             //ensure the pawn is not dead, has work settings, and will ever perform the worktype
