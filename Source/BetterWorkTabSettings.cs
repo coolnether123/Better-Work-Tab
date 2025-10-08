@@ -26,11 +26,7 @@ namespace Better_Work_Tab
         /// </summary>
         public BetterWorkTabSettings() { }
 
-        /// <summary>
-        /// Master toggle to enable or disable the skill overlay feature, which displays skill levels and best pawn indicators on the work tab.
-        /// Defaults to true for enhanced UI feedback.
-        /// </summary>
-        public bool enableSkillOverlayFeature = true;
+
 
         /// <summary>
         /// Master toggle to enable or disable the auto-assignment features, which apply rulesets to automatically set work priorities for pawns.
@@ -92,6 +88,8 @@ namespace Better_Work_Tab
         /// Defaults to true for efficient healthcare.
         /// </summary>
         public bool rule_BestDoctorsEnabled = true;
+
+        public int rule_BestDoctorsPriority = 1;
 
         /// <summary>
         /// Toggle to enable passion-based priority overrides, adjusting assignments based on pawn passions for work types.
@@ -296,7 +294,7 @@ namespace Better_Work_Tab
                     new WorkAssignmentParameters(1, worktypeNamedIgnoreIfNonexistant:"Patient"),
                     new WorkAssignmentParameters(1, worktypeNamedIgnoreIfNonexistant:"PatientBedRest"),
                     new WorkAssignmentParameters(1, worktypeNamedIgnoreIfNonexistant:"BasicWorker"),
-                    new WorkAssignmentParameters(1, worktype: WorkTypeDefOf.Doctor, hasHighestSkill: true),
+                    new WorkAssignmentParameters(this.rule_BestDoctorsPriority, worktype: WorkTypeDefOf.Doctor, hasHighestSkill: true),
                     
                     new WorkAssignmentParameters(2, worktypeNamedIgnoreIfNonexistant:"HaulUrgently"),
                     new WorkAssignmentParameters(2, worktype: WorkTypeDefOf.Childcare, hasChildOnMap: true),
