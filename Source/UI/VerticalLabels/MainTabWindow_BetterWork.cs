@@ -43,7 +43,7 @@ namespace Better_Work_Tab.UI
         // Bottom-right anchoring next to the info button
         private const float BottomEdgeMargin = 10f; // distance from bottom edge
         private const float RightEdgeMargin = 10f;  // distance from right edge
-        private const float InterControlGap = 6f;   // gap between buttons
+        private const float InterControlGap = 1f;   // gap between buttons
         private const float InfoIconSize = 24f;     // same size as TexButton.Info
 
         public override Vector2 InitialSize
