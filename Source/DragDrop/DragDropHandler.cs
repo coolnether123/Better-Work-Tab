@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using Verse;
-using Better_Work_Tab.Util; // Assuming you still have WorkTabLogger
+using System.Reflection;
 
 namespace Better_Work_Tab.DragDrop
 {
@@ -238,7 +238,7 @@ namespace Better_Work_Tab.DragDrop
 
                 // Persist and update AI
                 Features.WorkColumnOrderManager.CaptureCurrent(table.def);
-                Features.WorkColumnOrderManager.ApplyDefaultPrioritiesFromCurrentOrder(table.def);
+               
                 Features.WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
                 table.SetDirty();
             }
@@ -256,6 +256,10 @@ namespace Better_Work_Tab.DragDrop
                         list[i].playerSettings.displayOrder = i;
                 }
                 MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+
+                var fi = typeof(PawnTable).GetField("sortingBy", BindingFlags.Instance | BindingFlags.NonPublic);
+                if (fi != null)
+                    fi.SetValue(table, null);
             }
         }
 

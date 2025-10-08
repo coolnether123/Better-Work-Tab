@@ -44,29 +44,6 @@ namespace Better_Work_Tab
         /// </summary>
         public List<string> workColumnOrderDefNames = new List<string>();
 
-        /// <summary>
-        /// Debug logging verbosity level (0 = off, higher = more detailed). Controls general mod logs for features like rules and UI updates.
-        /// Defaults to 0 to minimize log spam.
-        /// </summary>
-        public int debugLogLevel = 5;
-
-        /// <summary>
-        /// Toggle to enable debug logging specifically for column drag-and-drop operations in the work tab.
-        /// Defaults to false; use for troubleshooting reordering issues.
-        /// </summary>
-        public bool debugLogDragColumns = true;
-
-        /// <summary>
-        /// Toggle to enable debug logging specifically for row (pawn) drag-and-drop operations in the work tab.
-        /// Defaults to false; use for troubleshooting pawn reordering issues.
-        /// </summary>
-        public bool debugLogDragRows = true;
-
-        /// <summary>
-        /// Maximum number of debug logs per second to prevent flooding the log file.
-        /// Defaults to 10; adjustable for performance during heavy testing.
-        /// </summary>
-        public int debugLogMaxPerSecond = 10;
 
         /// <summary>
         /// Default priority level applied to work types not explicitly handled by auto-assignment rules.

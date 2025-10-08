@@ -75,22 +75,7 @@ namespace Better_Work_Tab.UI
             var row1 = l.GetRect(RowHeight);
             Widgets.Label(new Rect(row1.x, row1.y, LabelWidth, row1.height), "Level");
             var levelRect = new Rect(row1.x + LabelWidth + LabelSliderGap, row1.y + (row1.height - SliderHeight) / 2, row1.width - LabelWidth - LabelSliderGap, SliderHeight);
-            int lvl = Mathf.Clamp(s.debugLogLevel, 0, 5);
-            int newLvl = Mathf.RoundToInt(Widgets.HorizontalSlider(levelRect, lvl, 0, 5, middleAlignment: true,
-                leftAlignedLabel: "Off", rightAlignedLabel: "Trace", roundTo: 1));
-            s.debugLogLevel = Mathf.Clamp(newLvl, 0, 5);
-            TooltipHandler.TipRegion(levelRect, "0-Off, 1-Error, 2-Warn, 3-Info, 4-Debug, 5-Trace");
-
-            l.CheckboxLabeled("Log drag: columns (verbose)", ref s.debugLogDragColumns, "Extra Debug/Trace logs for column dragging.");
-            l.CheckboxLabeled("Log drag: rows (verbose)", ref s.debugLogDragRows, "Extra Debug/Trace logs for row dragging.");
-
-            var row2 = l.GetRect(RowHeight);
-            Widgets.Label(new Rect(row2.x, row2.y, LabelWidth, row2.height), "Max/sec");
-            var rateRect = new Rect(row2.x + LabelWidth + LabelSliderGap, row2.y + (row2.height - SliderHeight) / 2, row2.width - LabelWidth - LabelSliderGap, SliderHeight);
-            int rate = Mathf.Clamp(s.debugLogMaxPerSecond, 0, 60);
-            int newRate = Mathf.RoundToInt(Widgets.HorizontalSlider(rateRect, rate, 0, 60, middleAlignment: true));
-            s.debugLogMaxPerSecond = Mathf.Clamp(newRate, 0, 60);
-            TooltipHandler.TipRegion(rateRect, "Throttle for Debug/Trace logs per category (0 = unlimited)");
+            
 
             l.End();
         }
