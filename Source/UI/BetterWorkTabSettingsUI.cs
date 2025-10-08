@@ -18,10 +18,6 @@ namespace Better_Work_Tab.UI
             var l = new Listing_Standard { ColumnWidth = inRect.width / 2f - 12f };
             l.Begin(inRect);
 
-            l.CheckboxLabeled("Enable skill overlay feature", ref s.enableSkillOverlayFeature,
-                "If disabled, overlay-related patches do nothing.");
-
-            l.GapLine();
             l.Label("Default starting priority (0 = don't change, 1..4 = force):");
             IntAdjust(ref s.defaultStartingPriority, 0, 4, l.GetRect(RowHeight));
 
@@ -48,10 +44,10 @@ namespace Better_Work_Tab.UI
             l.GapLine();
             l.Label("Best Doctors Rule:");
             l.CheckboxLabeled("Enable", ref s.rule_BestDoctorsEnabled);
-            //l.Label("Priority: " + s.rule_BestDoctorsPriority);
-            //s.rule_BestDoctorsPriority = Mathf.Clamp(
-                //Mathf.RoundToInt(Widgets.HorizontalSlider(l.GetRect(22f), s.rule_BestDoctorsPriority, 1, 4, middleAlignment: true)),
-                //1, 4);
+            l.Label("Priority: " + s.rule_BestDoctorsPriority);
+            s.rule_BestDoctorsPriority = Mathf.Clamp(
+                Mathf.RoundToInt(Widgets.HorizontalSlider(l.GetRect(22f), s.rule_BestDoctorsPriority, 1, 4, middleAlignment: true)),
+                1, 4);
 
             l.GapLine();
             l.Label("Childcare Rule:");

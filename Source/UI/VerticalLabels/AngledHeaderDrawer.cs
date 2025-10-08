@@ -167,13 +167,5 @@ namespace Better_Work_Tab.UI
         }
     }
 
-    [HarmonyPatch(typeof(PawnColumnWorker_WorkPriority), nameof(PawnColumnWorker_WorkPriority.GetOptimalWidth))]
-    public static class WorkPriority_ColumnWidth_Patch
-    {
-        public static void Postfix(ref int __result)
-        {
-            // Vanilla is ≈ 39; bump a bit for rotated labels
-            __result = Mathf.Max(__result, 50); // +11 px headroom
-        }
-    }
+
 }
