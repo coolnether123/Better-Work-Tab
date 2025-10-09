@@ -61,7 +61,7 @@ namespace Better_Work_Tab
                    new WorkAssignmentParameters("Skills > 5", 3, skillLevelGreaterThan: 5),
                    new WorkAssignmentParameters("Always Assigns", 3, isNaturalAlwaysAssign: true),
 
-                }),
+                }, isDefault: true),
 
 
                 new WorkAssignmentRuleset("Vanilla New Pawn", new List<WorkAssignmentParameters>()
@@ -69,7 +69,7 @@ namespace Better_Work_Tab
                    new WorkAssignmentParameters("Top 6", 3, isTopXSkill: 6),
                    new WorkAssignmentParameters("Always Assigns", 3, isNaturalAlwaysAssign: true),
 
-                }),
+                }, isDefault: true),
 
 
                 new WorkAssignmentRuleset("BWT Default", new List<WorkAssignmentParameters>()
@@ -77,7 +77,7 @@ namespace Better_Work_Tab
                     new WorkAssignmentParameters("Always Firefight", 1, worktype: WorkTypeDefOf.Firefighter),
                     new WorkAssignmentParameters("Best Doc", 1, worktype: WorkTypeDefOf.Doctor, hasHighestSkill: true),
 
-                    new WorkAssignmentParameters("HaulUrg if able", 2, worktypeDefNameIgnoreIfNonexistant:"HaulUrgently"),
+                    new WorkAssignmentParameters("HaulUrg if able", 2, worktype: DefDatabase<WorkTypeDef>.GetNamedSilentFail("HaulUrgently")),
                     new WorkAssignmentParameters("Childcare", 2, worktype: WorkTypeDefOf.Childcare, hasChildOnMap: true),
                     new WorkAssignmentParameters("Passion 2", 2, passionLevel: 2),
 
@@ -85,17 +85,17 @@ namespace Better_Work_Tab
                     new WorkAssignmentParameters("Passion 1", 3, passionLevel: 1),
                     new WorkAssignmentParameters("Top 6", 3, isTopXSkill: 6),
                     new WorkAssignmentParameters("Always Assigns", 3, isNaturalAlwaysAssign: true),
-                }),
+                }, isDefault: true),
 
                 new WorkAssignmentRuleset("Best Pawn to 1", new List<WorkAssignmentParameters>()
                 {
                     new WorkAssignmentParameters("Best to 1", 1, hasHighestSkill: true),
-                }),
+                }, isDefault: true),
 
                 new WorkAssignmentRuleset("Set all to 0", new List<WorkAssignmentParameters>()
                 {
                     new WorkAssignmentParameters("Reset", 0),
-                })
+                }, isDefault: true)
             };
 
         public static WorkAssignmentRuleset CurrentAutoAssignRuleset = SavedRulesets[0];

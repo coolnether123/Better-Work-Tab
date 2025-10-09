@@ -18,10 +18,10 @@ namespace Better_Work_Tab.Features
         public string Name;
         public bool ResetBeforeApplying = true;
         public List<WorkAssignmentRule> Rules = new List<WorkAssignmentRule>();
-
+        public bool IsDefault = false;
         public WorkAssignmentRuleset() { }
 
-        public WorkAssignmentRuleset(string rulesetName, List<WorkAssignmentParameters> parameters, bool resetBeforeApplying = true)
+        public WorkAssignmentRuleset(string rulesetName, List<WorkAssignmentParameters> parameters, bool resetBeforeApplying = true, bool isDefault = false)
         {
             Name = rulesetName;
             ResetBeforeApplying = resetBeforeApplying;
@@ -30,14 +30,15 @@ namespace Better_Work_Tab.Features
             {
                 Rules.Add(new WorkAssignmentRule(p));
             }
-
+            IsDefault = isDefault;
         }
 
-        public WorkAssignmentRuleset(string rulesetName, List<WorkAssignmentRule> rules, bool resetBeforeApplying = true)
+        public WorkAssignmentRuleset(string rulesetName, List<WorkAssignmentRule> rules, bool resetBeforeApplying = true, bool isDefault = false)
         {
             Name = rulesetName;
             Rules = rules;
             ResetBeforeApplying = resetBeforeApplying;
+            IsDefault = isDefault;
         }
 
         public static void SetAllToZero()
@@ -76,12 +77,12 @@ namespace Better_Work_Tab.Features
                         if (rule.Parameters.Worktype != worktype)
                             continue;
                     }
-                    if (rule.Parameters.WorktypeDefNameIgnoreIfNonexistant != "")
-                    {
-                        //if there's a rule that applies to only one ignorable worktype, skip all others.
-                        if (!DefDatabase<WorkTypeDef>.AllDefs.Contains(DefDatabase<WorkTypeDef>.GetNamedSilentFail(rule.Parameters.WorktypeDefNameIgnoreIfNonexistant)))
-                            continue;
-                    }
+                    //if (rule.Parameters.WorktypeDefNameIgnoreIfNonexistant != "")
+                    //{
+                    //    //if there's a rule that applies to only one ignorable worktype, skip all others.
+                    //    if (!DefDatabase<WorkTypeDef>.AllDefs.Contains(DefDatabase<WorkTypeDef>.GetNamedSilentFail(rule.Parameters.WorktypeDefNameIgnoreIfNonexistant)))
+                    //        continue;
+                    //}
                     List<Pawn> pawnsForThisWorktype = new List<Pawn>();
 
                     //Log.Message($"Auto-assigning work type: {worktype.defName}");
@@ -132,6 +133,7 @@ namespace Better_Work_Tab.Features
 
         public void ExposeData()
         {
+            Scribe_Values.Look(ref IsDefault, "IsDefault", false);
             Scribe_Values.Look(ref Name, "Name");
             Scribe_Values.Look(ref ResetBeforeApplying, "ResetBeforeApplying");
             Scribe_Collections.Look(ref Rules, "Rules", LookMode.Deep);
@@ -139,7 +141,8 @@ namespace Better_Work_Tab.Features
 
         public WorkAssignmentRuleset Copy()
         {
-            return new WorkAssignmentRuleset((Name + " (Copy)"), Rules.ListFullCopy(), ResetBeforeApplying);
+            //                                                                                              VVV Never let this be true for a copy because it will be impossible to delete!
+            return new WorkAssignmentRuleset((Name + " (Copy)"), Rules.ListFullCopy(), ResetBeforeApplying, false );
         }
     }
 }
