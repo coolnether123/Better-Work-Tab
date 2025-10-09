@@ -24,7 +24,7 @@ namespace Better_Work_Tab.Features.Rules
             bool hasChildOnMap = false,
             bool isNaturalAlwaysAssign = false,
             bool randomIfMultiple = false,
-            string worktypeDefNameIgnoreIfNonexistant = "",
+            //string worktypeDefNameIgnoreIfNonexistant = "",
             int isTopXSkill = 0,
             int isNthBestPawn = 0,
             int isNthBestSkill = 0,
@@ -67,7 +67,7 @@ namespace Better_Work_Tab.Features.Rules
             IsTopXSkill = isTopXSkill;
             IsNaturalAlwaysAssign = isNaturalAlwaysAssign;
             RandomIfMultiple = randomIfMultiple;
-            WorktypeDefNameIgnoreIfNonexistant = worktypeDefNameIgnoreIfNonexistant;
+            //WorktypeDefNameIgnoreIfNonexistant = worktypeDefNameIgnoreIfNonexistant;
             IsNthBestPawn = isNthBestPawn;
             IsNthBestSkill = isNthBestSkill;
             RuleName = ruleName;
@@ -94,7 +94,7 @@ namespace Better_Work_Tab.Features.Rules
         public int IsNthBestPawn;
         public int IsNthBestSkill;
 
-        public string WorktypeDefNameIgnoreIfNonexistant;
+        //public string WorktypeDefNameIgnoreIfNonexistant;
         public string RuleName;
         //public float MoveSpeedGreaterThan;
         //public float MoveSpeedLessThan;
@@ -113,7 +113,7 @@ namespace Better_Work_Tab.Features.Rules
 
         public WorkAssignmentParameters Copy()
         {
-            return new WorkAssignmentParameters(RuleName, Priority, Worktype, AllowOverwritingHigherPriority, HasHighestSkill, SkipIfAnotherPawnAssigned, IsPregnant, IsCapableOfViolence, AssignToPawnWithFewestWorkPriorities, HasChildOnMap, IsNaturalAlwaysAssign, RandomIfMultiple, WorktypeDefNameIgnoreIfNonexistant, IsTopXSkill, IsNthBestPawn, IsNthBestSkill, LimitNumberOfWorktypes, SkipIfPriorityForThisWorktypeAreadyAssigned, PassionLevel, SkillLevelGreaterThan, SkillLevelLessThan, Gender, Xenotype, RequiredTrait);
+            return new WorkAssignmentParameters(RuleName, Priority, Worktype, AllowOverwritingHigherPriority, HasHighestSkill, SkipIfAnotherPawnAssigned, IsPregnant, IsCapableOfViolence, AssignToPawnWithFewestWorkPriorities, HasChildOnMap, IsNaturalAlwaysAssign, RandomIfMultiple, IsTopXSkill, IsNthBestPawn, IsNthBestSkill, LimitNumberOfWorktypes, SkipIfPriorityForThisWorktypeAreadyAssigned, PassionLevel, SkillLevelGreaterThan, SkillLevelLessThan, Gender, Xenotype, RequiredTrait);
         }
         public void ExposeData()
         {
@@ -135,7 +135,7 @@ namespace Better_Work_Tab.Features.Rules
             Scribe_Values.Look(ref IsTopXSkill, "IsTopXSkill");
             Scribe_Values.Look(ref IsNthBestPawn, "IsNthBestPawn");
             Scribe_Values.Look(ref IsNthBestSkill, "IsNthBestSkill");
-            Scribe_Values.Look(ref WorktypeDefNameIgnoreIfNonexistant, "WorktypeDefNameIgnoreIfNonexistant");
+            //Scribe_Values.Look(ref WorktypeDefNameIgnoreIfNonexistant, "WorktypeDefNameIgnoreIfNonexistant");
             Scribe_Values.Look(ref RuleName, "RuleName");
 
 
@@ -193,20 +193,20 @@ namespace Better_Work_Tab.Features.Rules
         /// <returns></returns>
         public bool Apply(Pawn pawn, List<Pawn> currentPawns, WorkTypeDef worktype = null)
         {
-            if (Parameters.WorktypeDefNameIgnoreIfNonexistant != "")
-            {
-                if (!AllWorkTypes.Contains(DefDatabase<WorkTypeDef>.GetNamedSilentFail(Parameters.WorktypeDefNameIgnoreIfNonexistant)))
-                {
-                    //Log.Message("Worktype " + Parameters.WorktypeDefNameIgnoreIfNonexistant + " does not exist. Skipping this assignment.");
-                    //true skips remaining pawns. 
-                    return true;
-                }
-                else
-                {
-                    //Log.Message(Parameters.WorktypeDefNameIgnoreIfNonexistant + " should exist.");
-                    Parameters.Worktype = DefDatabase<WorkTypeDef>.GetNamed(Parameters.WorktypeDefNameIgnoreIfNonexistant);
-                }
-            }
+            //if (Parameters.WorktypeDefNameIgnoreIfNonexistant != "")
+            //{
+            //    if (!AllWorkTypes.Contains(DefDatabase<WorkTypeDef>.GetNamedSilentFail(Parameters.WorktypeDefNameIgnoreIfNonexistant)))
+            //    {
+            //        //Log.Message("Worktype " + Parameters.WorktypeDefNameIgnoreIfNonexistant + " does not exist. Skipping this assignment.");
+            //        //true skips remaining pawns. 
+            //        return true;
+            //    }
+            //    else
+            //    {
+            //        //Log.Message(Parameters.WorktypeDefNameIgnoreIfNonexistant + " should exist.");
+            //        Parameters.Worktype = DefDatabase<WorkTypeDef>.GetNamed(Parameters.WorktypeDefNameIgnoreIfNonexistant);
+            //    }
+            //}
 
                 bool skipRemainingPawns = false;
 
@@ -231,7 +231,7 @@ namespace Better_Work_Tab.Features.Rules
             // If Worktype is STILL null, log an error and skip
             if (assigningWorktype == null)
             {
-                Log.Error("[BWT] Trying to apply priority to a null worktype.");
+                //Log.Error("[BWT] Trying to apply priority to a null worktype.");
                 //true means skip this worktype for remaining pawns
                 return true;
             }
