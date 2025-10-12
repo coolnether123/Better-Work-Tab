@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -17,7 +17,7 @@
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <OutputPath>bin\Debug\</OutputPath>
+    <OutputPath>..\1.6\Assemblies\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
@@ -34,31 +34,34 @@
     <OutputPath>..\1.6\Assemblies\</OutputPath>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="System" />
     <Reference Include="System.Core" />
-    <Reference Include="System.Xml.Linq" />
-    <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
-    <Reference Include="System.Data" />
     <Reference Include="System.Net.Http" />
-    <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="BetterWorkTab.cs" />
-    <Compile Include="Features\AutoAssignmentContext.cs" />
+    <Compile Include="DragDrop\DragDropHandler.cs" />
     <Compile Include="Features\Rules\WorkAssignmentRuleset.cs" />
-    <Compile Include="Features\IAssignmentRule.cs" />
     <Compile Include="Features\Rules\WorkAssignmentRule.cs" />
+    <Compile Include="Features\WorkExecutionOrder.cs" />
     <Compile Include="Features\Workloads\GameComponent_WorkloadSaver.cs" />
     <Compile Include="Features\Workloads\Worklist.cs" />
     <Compile Include="Features\Workloads\WorkloadNamers.cs" />
     <Compile Include="Features\Workloads\PawnWorkload.cs" />
     <Compile Include="Patches\FloatMenuPatches.cs" />
     <Compile Include="Patches\WorkTabPatches.cs" />
+    <Compile Include="Patches\WorkTabReorderPatches.cs" />
+    <Compile Include="Patches\WorkTabSortPatches.cs" />
+    <Compile Include="DragDrop\DragSession.cs" />
+    <Compile Include="DragDrop\WorkTabDragPatch.cs" />
+    <Compile Include="UI\VerticalLabels\MainTabWindow_BetterWork.cs" />
+    <Compile Include="Features\WorkColumnOrderManager.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="BetterWorkTabSettings.cs" />
     <Compile Include="UI\BetterWorkTabSettingsUI.cs" />
     <Compile Include="UI\Window_RulesManager.cs" />
+    <Compile Include="UI\Dialog_RenameWorkload.cs" />
+    <Compile Include="UI\VerticalLabels\AngledHeaderDrawer.cs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Krafs.Publicizer">
@@ -67,7 +70,7 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Krafs.Rimworld.Ref">
-      <Version>1.6.4543</Version>
+      <Version>1.6.4566</Version>
     </PackageReference>
     <PackageReference Include="Lib.Harmony">
       <Version>2.4.1</Version>
@@ -79,5 +82,9 @@
     <Publicize Include="Assembly-CSharp:RimWorld.WidgetsWork.DrawWorkBoxBackground" />
     <Publicize Include="Assembly-CSharp:RimWorld.Pawn_WorkSettings.priorities" />
     <Publicize Include="Assembly-CSharp" MemberPattern="^RimWorld\.FloatMenuOptionProvider_WorkGivers\..*|RimWorld\.PawnTable\..*" />
+    <Publicize Include="Assembly-CSharp:RimWorld.Pawn_WorkSettings.CacheWorkGiversInOrder" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Util\" />
   </ItemGroup>
 </Project>
