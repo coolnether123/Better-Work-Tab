@@ -18,8 +18,7 @@ namespace Better_Work_Tab.UI
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
             var l = new Listing_Standard { ColumnWidth = inRect.width / 2f - 12f };
             l.Begin(inRect);
-           
-           
+            DrawRulesUI(l, s);
             l.End();
         }
 
