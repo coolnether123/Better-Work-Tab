@@ -17,6 +17,7 @@ namespace Better_Work_Tab
     {
         public static bool enableSkillOverlayFeature = true;
         public static bool enableAutoAssignFeature = true;
+        public static List<string> workColumnOrderDefNames = new List<string>();
         public static bool firstTimeSetupDone = false;
 
 
@@ -118,6 +119,7 @@ namespace Better_Work_Tab
         // This provides master toggles for major features so users can disable parts they don't want
         public bool enableSkillOverlayFeature = true;
         public bool enableAutoAssignFeature = true;
+        public List<string> workColumnOrderDefNames = new List<string>();
 
         // This sets the baseline priority for work types not handled by specific rules (0 = leave unchanged)
 
@@ -269,6 +271,7 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref ShowUIMode_ShowPawnForSkillSquare, "ShowUIMode_ShowPawnForSkillSquare", DefaultSettings.ShowUIMode_ShowPawnForSkillSquare);
 
             Scribe_Collections.Look(ref SavedRulesets, "SavedRulesets", LookMode.Deep);
+            Scribe_Collections.Look(ref workColumnOrderDefNames, "workColumnOrderDefNames", LookMode.Value);
         }
 
     }
