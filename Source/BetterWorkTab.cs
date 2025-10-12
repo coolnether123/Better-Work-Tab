@@ -3,12 +3,34 @@ using System;
 using UnityEngine;
 using Verse;
 
+/// <summary>
+/// Main mod entry point for the Better Work Tab mod. This class serves as the primary initializer,
+/// applying Harmony patches to extend the vanilla Work tab with features like skill overlays, pawn highlights,
+/// drag-and-drop reordering for rows and columns, and rule-based automatic priority assignments.
+/// Settings are loaded here, and default auto-assignment rulesets (e.g., prioritizing based on passions, skills) are queued.
+/// Required load order: This mod loads after Harmony and RimWorld's core modules to ensure patches apply correctly.
+/// </summary>
 namespace Better_Work_Tab
 {
     public class BetterWorkTabMod : Mod
     {
+        /// <summary>
+        /// Static reference to the global settings instance for the Better Work Tab mod.
+        /// This allows easy access from patches, UI components, and features like skill overlays and assignment rules.
+        /// Settings are automatically serialized/deserialized via Verse's ModSettings system.
+        /// Defaults (e.g., enabled features, column order, default ruleset) are set during mod initialization.
+        /// </summary>
         public static BetterWorkTabSettings Settings;
 
+        /// <summary>
+        /// Mod constructor invoked during game startup when the Better Work Tab mod is loaded.
+        /// Applies all Harmony patches to relevant RimWorld classes (e.g., PawnTable_Work for row/column manipulation,
+        /// MainTabWindow_Work for UI overlays, and work givers for execution order).
+        /// Logs success or failure. Retrieves and initializes the mod settings,
+        /// then queues the creation of default auto-assignment rulesets (e.g., "BWT Default" using passion/skill-based priorities)
+        /// to run after long events like world loading.
+        /// </summary>
+        /// <param name="content">The mod's content pack, providing access to assets like textures and defs.</param>
         public BetterWorkTabMod(ModContentPack content) : base(content)
         {
             try
@@ -32,12 +54,39 @@ namespace Better_Work_Tab
             }
         }
 
+        /// <summary>
+        /// Overrides the base Mod method to provide the display name for this mod's settings section
+        /// in RimWorld's options menu. Allows players to access toggles, rulesets, and UI customizations.
+        /// </summary>
+        /// <returns>A localized string representing the settings category name.</returns>
         public override string SettingsCategory() => "Better Work Tab";
 
+        /// <summary>
+        /// Overrides the base Mod method to draw the mod's custom settings interface.
+        /// Delegates rendering to BetterWorkTabSettingsUI, which handles elements like feature toggles (e.g., skill overlay enabled),
+        /// color schemes for highlights, management of auto-assignment rulesets, and workload calculations.
+        /// Ensures the UI fits within the provided rectangle bounds for proper layout in the options window.
+        /// </summary>
+        /// <param name="inRect">The rectangular area in which to draw the settings contents.</param>
         public override void DoSettingsWindowContents(Rect inRect)
         {
             UI.BetterWorkTabSettingsUI.DoSettingsWindowContents(inRect, Settings);
         }
 
+    }
+
+    public static class HighlightManager
+    {
+        public static WorkTypeDef WorkTypeToHighlight { get; private set; }
+
+        public static void SetWorkTypeToHighlight(WorkTypeDef workType)
+        {
+            WorkTypeToHighlight = workType;
+        }
+
+        public static void ClearHighlight()
+        {
+            WorkTypeToHighlight = null;
+        }
     }
 }
