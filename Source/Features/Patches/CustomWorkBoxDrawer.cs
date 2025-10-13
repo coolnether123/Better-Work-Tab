@@ -1,0 +1,52 @@
+using RimWorld;
+using UnityEngine;
+using Verse;
+using Verse.Sound;
+
+namespace Better_Work_Tab.Patches
+{
+    // Custom work box drawer that preserves all vanilla visuals except priority number.
+    public static class CustomWorkBoxDrawer
+    {
+        /// <summary>
+        /// Draws a work box with vanilla visuals (background, passion flames, incapable tint)
+        /// but WITHOUT the priority number or click handling.
+        /// </summary>
+        public static void DrawWorkBoxForSkillOverlay(float x, float y, Pawn p, WorkTypeDef wType, bool incapableBecauseOfCapacities)
+        {
+            if (p.WorkTypeIsDisabled(wType))
+            {
+                // This handles age-disabled work types by showing the vanilla age restriction texture and message
+                int minAgeRequired;
+                if (!p.IsWorkTypeDisabledByAge(wType, out minAgeRequired))
+                    return;
+
+                Rect rect = new Rect(x, y, 25f, 25f);
+
+                // This preserves the vanilla age restriction feedback when clicking on age-disabled work
+                if (Event.current.type == EventType.MouseDown && Mouse.IsOver(rect))
+                {
+                    Messages.Message("MessageWorkTypeDisabledAge".Translate(p, p.ageTracker.AgeBiologicalYears, wType.labelShort, minAgeRequired), p, MessageTypeDefOf.RejectInput, false);
+                    SoundDefOf.ClickReject.PlayOneShotOnCamera();
+                }
+                GUI.DrawTexture(rect, WidgetsWork.WorkBoxBGTex_AgeDisabled);
+
+            }
+            else
+            {
+                Rect rect = new Rect(x, y, 25f, 25f);
+
+                // This applies the same red tint that vanilla uses for incapable work types to maintain visual consistency
+                if (incapableBecauseOfCapacities)
+                    GUI.color = BetterWorkTabMod.Settings.Color_IncapableBecauseOfCapacities;
+
+                // This draws the work box background including passion flame effects exactly like vanilla does
+                WidgetsWork.DrawWorkBoxBackground(rect, p, wType);
+
+                // This resets the GUI color after drawing the background to prevent affecting other UI elements
+                GUI.color = Color.white;
+
+            }
+        }
+    }
+}
