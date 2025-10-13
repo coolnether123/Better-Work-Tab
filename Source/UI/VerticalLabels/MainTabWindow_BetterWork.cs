@@ -120,6 +120,14 @@ namespace Better_Work_Tab.UI
             // Small gap between groups
             xRight -= InterControlGap;
 
+            Text.Font = GameFont.Small;
+            GUI.color = Color.white;
+            Text.Anchor = TextAnchor.LowerLeft;
+            Rect textRect = new Rect(inRect.x, inRect.y, inRect.width, inRect.height);
+            Widgets.Label(textRect, "Shift to switch mode | ctrl to reorder");
+            Text.Anchor = TextAnchor.UpperLeft;
+            GUI.color = Color.white;
+
         }
 
 
