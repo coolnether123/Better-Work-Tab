@@ -27,28 +27,23 @@ namespace Spine.UI.WidgetExtensions
         /// <param name="buttonText">What text to show on the button.</param>
         public static void LS_ColorPickButton_Settings(Listing_Standard listingStandard, 
             ModSettings s,
-            Color colorToChange,  
+            string nameOfColorToChange,  
             string buttonText,
             bool dependsOn = false)
         {
-            Widgets.DrawBoxSolid(listingStandard.GetRect(10), colorToChange);
-            if (dependsOn) GUI.color = Color.gray;
-            //if (dependsOn)
-            //{
-            //    listingStandard.ButtonText(buttonText);
-            //}
-            //else
-            //{
-            //    if (listingStandard.ButtonText(buttonText))
-            //    {
-            //        Find.WindowStack.Add(new Dialog_ColourPicker(colorToChange, colorChangeOperation));
-            //    }
-            //}
 
 
+            var field = AccessTools.DeclaredField(s.GetType(), nameOfColorToChange);
+            if (field == null)
+            {
+                Log.Warning($"Could not find field {nameOfColorToChange} in settings class {s.GetType().Name}.");
+                return;
+            }
 
-            var field = AccessTools.DeclaredField(s.GetType(), nameof(colorToChange));
             Color value = (Color)field.GetValue(s);
+
+            Widgets.DrawBoxSolid(listingStandard.GetRect(10), value);
+            if (dependsOn) GUI.color = Color.gray;
 
             if (dependsOn)
             {
@@ -58,7 +53,7 @@ namespace Spine.UI.WidgetExtensions
             {
                 if (listingStandard.ButtonText(buttonText))
                 {
-                    Find.WindowStack.Add(new Dialog_ColourPicker(colorToChange, (color, b) =>
+                    Find.WindowStack.Add(new Dialog_ColourPicker(value, (color, b) =>
                     {
                         field.SetValue(s, color);
                     }));

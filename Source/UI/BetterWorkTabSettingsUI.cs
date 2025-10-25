@@ -37,16 +37,16 @@ namespace Better_Work_Tab.UI
 
         l.NewColumn();
             //l.ColumnWidth = inRect.width / 4f - 12f;
-            SpineWidgets.LS_ColorPickButton_Settings(l, s, s.Color_VeryLowSkill, "Very Low Skill");
-            //SpineWidgets.LS_ColorPickButton_Settings(l, s.Color_LowSkill, (color, isClosing) => { s.Color_LowSkill = color; }, "Low Skill");
-            //SpineWidgets.LS_ColorPickButton_Settings(l, s.Color_GoodLowSkill, (color, isClosing) => { s.Color_GoodLowSkill = color; }, "Good Low Skill");
-            //SpineWidgets.LS_ColorPickButton_Settings(l, s.Color_ExcellentSkill, (color, isClosing) => { s.Color_ExcellentSkill = color; }, "Excellent Skill");
-            //SpineWidgets.LS_ColorPickButton_Settings(l, s.Color_CursorHighlight, (color, isClosing) => { s.Color_CursorHighlight = color; }, "Cursor Highlight");
-            //SpineWidgets.LS_ColorPickButton_Settings(l, s.Color_FloatMenuHighlight, (color, isClosing) => { s.Color_FloatMenuHighlight = color; }, "Float Menu Highlight");
-            //SpineWidgets.LS_ColorPickButton_Settings(l, s.Color_CustomMouseHighlight, (color, isClosing) => { s.Color_CustomMouseHighlight = color; }, "Custom Mouse Highlight", dependsOn: !s.UseCustomMouseHoverHighlight);
-            //SpineWidgets.LS_ColorPickButton_Settings(l, s.Color_CustomSimilarWorktypeHighlight, (color, isClosing) => { s.Color_CustomSimilarWorktypeHighlight = color; }, "Custom Similar Worktype Highlight", dependsOn: !s.UseCustomMouseHoverHighlight);
-            //SpineWidgets.LS_ColorPickButton_Settings(l, s.Color_IncapableBecauseOfCapacities, (color, isClosing) => { s.Color_IncapableBecauseOfCapacities = color; }, "Incapable Because of Capacities Highlight");
-            //SpineWidgets.LS_ColorPickButton_Settings(l, s.Color_BestPawnForSkillSquare, (color, isClosing) => { s.Color_BestPawnForSkillSquare = color; }, "Best Pawn for Skill Highlight");
+            SpineWidgets.LS_ColorPickButton_Settings(l, s, nameof(s.Color_VeryLowSkill), "Very Low Skill");
+            SpineWidgets.LS_ColorPickButton_Settings(l, s, nameof(s.Color_LowSkill), "Low Skill");
+            SpineWidgets.LS_ColorPickButton_Settings(l, s, nameof(s.Color_GoodLowSkill), "Good Low Skill");
+            SpineWidgets.LS_ColorPickButton_Settings(l, s, nameof(s.Color_ExcellentSkill), "Excellent Skill");
+            SpineWidgets.LS_ColorPickButton_Settings(l, s, nameof(s.Color_CursorHighlight), "Cursor Highlight");
+            SpineWidgets.LS_ColorPickButton_Settings(l, s, nameof(s.Color_FloatMenuHighlight), "Float Menu Highlight");
+            SpineWidgets.LS_ColorPickButton_Settings(l, s, nameof(s.Color_CustomMouseHighlight), "Custom Mouse Highlight", dependsOn: !s.UseCustomMouseHoverHighlight);
+            SpineWidgets.LS_ColorPickButton_Settings(l, s, nameof(s.Color_CustomSimilarWorktypeHighlight), "Custom Similar Worktype Highlight", dependsOn: !s.UseCustomMouseHoverHighlight);
+            SpineWidgets.LS_ColorPickButton_Settings(l, s, nameof(s.Color_IncapableBecauseOfCapacities), "Incapable Because of Capacities Highlight");
+            SpineWidgets.LS_ColorPickButton_Settings(l, s, nameof(s.Color_BestPawnForSkillSquare), "Best Pawn for Skill Highlight");
             l.End();
 
             int butW = 150;
