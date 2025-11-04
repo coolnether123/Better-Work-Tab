@@ -112,7 +112,18 @@ namespace Better_Work_Tab
     // This contains all configurable settings for the Better Work Tab mod with reasonable defaults
     public class BetterWorkTabSettings : ModSettings
     {
-        public BetterWorkTabSettings() { }
+        public BetterWorkTabSettings()
+        {
+            if (SavedRulesets == null)
+            {
+                SavedRulesets = new List<WorkAssignmentRuleset>();
+                SavedRulesets.AddRange(DefaultSettings.SavedRulesets);
+            }
+            if (CurrentRuleset == null && SavedRulesets.Any())
+            {
+                CurrentRuleset = SavedRulesets[0];
+            }
+        }
 
         public bool firstTimeSetupDone = DefaultSettings.firstTimeSetupDone;
 
