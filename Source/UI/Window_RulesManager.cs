@@ -23,6 +23,20 @@ namespace Better_Work_Tab.UI
 {
     internal class Window_RulesManager : Window
     {
+        private static FieldInfo[] CachedParameterFields;
+
+        private static FieldInfo[] GetParameterFields()
+        {
+            if (CachedParameterFields == null)
+            {
+                CachedParameterFields = typeof(WorkAssignmentParameters)
+                    .GetFields(BindingFlags.Public | BindingFlags.Instance)
+                    .Where(f => f.GetCustomAttribute<RuleParameterAttribute>() != null)
+                    .ToArray();
+            }
+            return CachedParameterFields;
+        }
+
         public Window_RulesManager()
         {
             this.forcePause = true;
@@ -83,6 +97,11 @@ namespace Better_Work_Tab.UI
             }
         }
 
+        /// <summary>
+        /// Draws the UI for editing the parameters of a selected rule.
+        /// </summary>
+        /// <param name="rightRect">The rectangle to draw the UI in.</param>
+        /// <param name="rule">The rule to edit.</param>
         void DoRuleContents(Rect rightRect, WorkAssignmentRule rule)
         {
 
@@ -93,6 +112,16 @@ namespace Better_Work_Tab.UI
             rect2.yMax = rect.y - 10f;
             Rect rect3 = rect2;
             rect3.xMin += 10f;
+            /// <summary>
+            /// Converts a PascalCase field name to a snake_case translation key.
+            /// </summary>
+            /// <param name="field">The field to get the translation key for.</param>
+            /// <returns>The translation key in the format "BWT_field_name".</returns>
+            string GetTranslationKey(FieldInfo field)
+            {
+                return $"BWT_{field.Name}";
+            }
+
             rect3.xMax -= 10f;
             rect3.y = rect2.yMax - Window.CloseButSize.y - 10f;
             rect3.height = Window.CloseButSize.y;
@@ -122,7 +151,7 @@ namespace Better_Work_Tab.UI
 
             //Log.Message("WorkAssignmentParameters Parameters: " + typeof(WorkAssignmentParameters).GetConstructors().First().GetParameters().Count() ?? "null");
 
-            foreach (FieldInfo field in typeof(WorkAssignmentParameters).GetFields(BindingFlags.Public | BindingFlags.Instance))
+            foreach (FieldInfo field in GetParameterFields())
             {
                 //Log.Message("Creating entry for: "+param.Name);
                 Rect rect4 = new Rect(0f, num2, outRect.width - 30f, 32f);
@@ -130,7 +159,7 @@ namespace Better_Work_Tab.UI
                 rect5.x += 10f;
                 num2 += 32f;
                 Rect rightPart = rect5.RightPart(0.25f);
-                string paramLabel = ("BWT_" + field.Name.Substring(0, 1).ToLower() + field.Name.Substring(1)).Translate();
+                string paramLabel = GetTranslationKey(field).Translate();
                 //using (new TextBlock(TextAnchor.MiddleLeft))
                 //{
                 //    Widgets.Label(rect5, text);
@@ -347,6 +376,14 @@ namespace Better_Work_Tab.UI
 
         }
 
+        /// <summary>
+        /// Draws a UI control with a text field and plus/minus buttons for editing an integer value.
+        /// </summary>
+        /// <param name="rect">The rectangle to draw the UI in.</param>
+        /// <param name="value">The integer value to edit.</param>
+        /// <param name="editBuffer">The string buffer for the text field.</param>
+        /// <param name="multiplier">The amount to increment/decrement the value by.</param>
+        /// <param name="disabled">Whether the control is disabled.</param>
         public static void DrawPlusMinusOneField(Rect rect, ref int value, ref string editBuffer, int multiplier = 1, bool disabled = false)
         {
             if (disabled) GUI.color = Color.gray;
@@ -385,6 +422,10 @@ namespace Better_Work_Tab.UI
             value = Mathf.Clamp(value, -1, 4);
         }
 
+        /// <summary>
+        /// Draws the list of rules for the currently selected ruleset.
+        /// </summary>
+        /// <param name="midRect">The rectangle to draw the UI in.</param>
         void DoRulesetRulesListing(Rect midRect)
         {
 
@@ -497,6 +538,11 @@ namespace Better_Work_Tab.UI
             Widgets.EndScrollView();
         }
 
+        /// <summary>
+        /// Draws a delete button for a rule and handles the deletion logic.
+        /// </summary>
+        /// <param name="ruleToRemove">A reference to the rule to be removed.</param>
+        /// <param name="rect4">The rectangle to draw the button in.</param>
         private void DoDeleteButton_Rules(ref WorkAssignmentRule ruleToRemove, ref Rect rect4)
         {
             Rect rect6 = new Rect(rect4);
@@ -516,12 +562,12 @@ namespace Better_Work_Tab.UI
             }
         }
 
+        /// <summary>
+        /// Draws the list of saved rulesets.
+        /// </summary>
+        /// <param name="leftRect">The rectangle to draw the UI in.</param>
         void DoRulesetListing(Rect leftRect)
         {
-            if (Settings.SavedRulesets == null)
-            {
-                Settings.SavedRulesets = new List<WorkAssignmentRuleset>();
-            }
             Rect rect = leftRect;
             rect.y = leftRect.yMax - 24f;
             rect.height = 24f;
