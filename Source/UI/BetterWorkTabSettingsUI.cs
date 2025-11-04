@@ -1,4 +1,5 @@
 using RimWorld;
+using Spine.UI.WidgetExtensions;
 using UnityEngine;
 using Verse;
 
@@ -18,8 +19,46 @@ namespace Better_Work_Tab.UI
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
             var l = new Listing_Standard { ColumnWidth = inRect.width / 2f - 12f };
             l.Begin(inRect);
+
             DrawRulesUI(l, s);
+            /// Settings TODO:
+            l.CheckboxLabeled("Enable Skill OverlayFeature", ref s.enableSkillOverlayFeature, "Whether to show the Skill Overlay when shift is pressed in the work tab.");
+            l.CheckboxLabeled("Enable Auto Assign Feature", ref s.enableAutoAssignFeature, "Whether to show the auto assign button on the work tab.");
+            l.CheckboxLabeled("Enable Pawn and Worktype Highlights", ref s.ShowPawnAndWorktypeHighlights, "Whether to enable any row/column highlights in the work tab.");
+            l.CheckboxLabeled("Show Cursor and Worktype Highlights", ref s.ShowCursorPawnAndWorktypeHighlight, "Whether to highlight rows/columns when hovered with the cursor.");
+            l.CheckboxLabeled("Show Float Menu Pawn And Worktype Highlight", ref s.ShowFloatMenuPawnAndWorktypeHighlight, "Whether to show the highlight in the work tab when opened from a float menu.");
+            l.CheckboxLabeled("Enable Selected Pawn Highlight", ref s.DoSelectedPawnHighlight, "Whether to highlight the currently selected pawn in the work tab.");
+            l.CheckboxLabeled("Use Custom Mouse Hover Highlight", ref s.UseCustomMouseHoverHighlight, "Whether to use a separate color for currently hovered worktype(?)");
+            SpineWidgets.LS_ChooseFromEnum<BetterWorkTabSettings.ShowUIMode>(l, "Show Small Skill Numbers", s, nameof(s.ShowUIMode_ShowSmallSkillNumbers));
+            SpineWidgets.LS_ChooseFromEnum<BetterWorkTabSettings.ShowUIMode>(l, "Show Pawn for Skill Square", s, nameof(s.ShowUIMode_ShowPawnForSkillSquare));
+            
+            //public enum ShowUIMode { Always, Never, Shifted, Unshifted }
+        //ShowUIMode_ShowSmallSkillNumbers = ShowUIMode.Unshifted;
+        //public ShowUIMode ShowUIMode_ShowPawnForSkillSquare = ShowUIMode.Shifted;
+
+
+        l.NewColumn();
+            //l.ColumnWidth = inRect.width / 4f - 12f;
+            SpineWidgets.LS_ColorPickButton_Settings(l, s, nameof(s.Color_VeryLowSkill), "Very Low Skill");
+            SpineWidgets.LS_ColorPickButton_Settings(l, s, nameof(s.Color_LowSkill), "Low Skill");
+            SpineWidgets.LS_ColorPickButton_Settings(l, s, nameof(s.Color_GoodLowSkill), "Good Low Skill");
+            SpineWidgets.LS_ColorPickButton_Settings(l, s, nameof(s.Color_ExcellentSkill), "Excellent Skill");
+            SpineWidgets.LS_ColorPickButton_Settings(l, s, nameof(s.Color_CursorHighlight), "Cursor Highlight");
+            SpineWidgets.LS_ColorPickButton_Settings(l, s, nameof(s.Color_FloatMenuHighlight), "Float Menu Highlight");
+            SpineWidgets.LS_ColorPickButton_Settings(l, s, nameof(s.Color_CustomMouseHighlight), "Custom Mouse Highlight", dependsOn: !s.UseCustomMouseHoverHighlight);
+            SpineWidgets.LS_ColorPickButton_Settings(l, s, nameof(s.Color_CustomSimilarWorktypeHighlight), "Custom Similar Worktype Highlight", dependsOn: !s.UseCustomMouseHoverHighlight);
+            SpineWidgets.LS_ColorPickButton_Settings(l, s, nameof(s.Color_IncapableBecauseOfCapacities), "Incapable Because of Capacities Highlight");
+            SpineWidgets.LS_ColorPickButton_Settings(l, s, nameof(s.Color_BestPawnForSkillSquare), "Best Pawn for Skill Highlight");
+
             l.End();
+
+            int butW = 150;
+            int butH = 30;
+            Rect resetButRect = new Rect(inRect.width - butW - 29f, 0f, butW, butH);
+            if (Widgets.ButtonText(resetButRect, "Reset Defaults"))
+            {
+                Find.WindowStack.Add(new Dialog_Confirm("Really Restore ALL Defaults?", s.ResoreDefaultes));
+            }
         }
 
         private static void DrawRulesUI(Listing_Standard listing, BetterWorkTabSettings s)
