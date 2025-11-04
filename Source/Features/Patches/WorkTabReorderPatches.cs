@@ -3,6 +3,7 @@ using RimWorld;
 using System.Collections.Generic;
 using UnityEngine;
 using Verse;
+using Multiplayer.API;
 
 namespace Better_Work_Tab.Patches
 {
@@ -181,7 +182,10 @@ namespace Better_Work_Tab.Patches
                 var def = PawnTableDefOf.Work;
                 Features.WorkColumnOrderManager.ApplySaved(def);
                 // Set default manual priorities based on current column order on first open.
-                Features.WorkColumnOrderManager.ApplyDefaultPrioritiesFromCurrentOrder(def);
+                if (!MP.enabled || !MP.IsInMultiplayer)
+                {
+                    Features.WorkColumnOrderManager.ApplyDefaultPrioritiesFromCurrentOrder(def);
+                }
                 // Ensure AI work scanning order reflects the new priorities.
                 Features.WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
                 hasAppliedOrder = true;
