@@ -114,15 +114,7 @@ namespace Better_Work_Tab
     {
         public BetterWorkTabSettings()
         {
-            if (SavedRulesets == null)
-            {
-                SavedRulesets = new List<WorkAssignmentRuleset>();
-                SavedRulesets.AddRange(DefaultSettings.SavedRulesets);
-            }
-            if (CurrentRuleset == null && SavedRulesets.Any())
-            {
-                CurrentRuleset = SavedRulesets[0];
-            }
+            InitializeRulesets();
         }
 
         public bool firstTimeSetupDone = DefaultSettings.firstTimeSetupDone;
@@ -227,10 +219,14 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref Color_GoodLowSkill, "Color_GoodLowSkill", DefaultSettings.Color_GoodLowSkill);
             Scribe_Values.Look(ref Color_ExcellentSkill, "Color_ExcellentSkill", DefaultSettings.Color_ExcellentSkill);
 
-            Scribe_Values.Look(ref ShowUIMode_ShowSmallSkillNumbers, "CurreShowUIMode_ShowSmallSkillNumbersntAutoAssignRuleset", DefaultSettings.ShowUIMode_ShowSmallSkillNumbers);
+            Scribe_Values.Look(ref ShowUIMode_ShowSmallSkillNumbers, "ShowUIMode_ShowSmallSkillNumbers", DefaultSettings.ShowUIMode_ShowSmallSkillNumbers);
             Scribe_Values.Look(ref ShowUIMode_ShowPawnForSkillSquare, "ShowUIMode_ShowPawnForSkillSquare", DefaultSettings.ShowUIMode_ShowPawnForSkillSquare);
 
+            // Load from save
             Scribe_Collections.Look(ref SavedRulesets, "SavedRulesets", LookMode.Deep);
+            
+            // Reinitialize after load if needed
+            InitializeRulesets();
             Scribe_Collections.Look(ref workColumnOrderDefNames, "workColumnOrderDefNames", LookMode.Value);
         }
 
@@ -255,6 +251,24 @@ namespace Better_Work_Tab
             Color_ExcellentSkill = DefaultSettings.Color_ExcellentSkill;
             ShowUIMode_ShowSmallSkillNumbers = DefaultSettings.ShowUIMode_ShowSmallSkillNumbers;
             ShowUIMode_ShowPawnForSkillSquare = DefaultSettings.ShowUIMode_ShowPawnForSkillSquare;
+        }
+
+        private void InitializeRulesets()
+        {
+            if (SavedRulesets == null)
+            {
+                SavedRulesets = new List<WorkAssignmentRuleset>();
+            }
+
+            if (!SavedRulesets.Any())
+            {
+                SavedRulesets.AddRange(DefaultSettings.SavedRulesets);
+            }
+
+            if (CurrentRuleset == null)
+            {
+                CurrentRuleset = SavedRulesets.FirstOrDefault();
+            }
         }
     }
 }
