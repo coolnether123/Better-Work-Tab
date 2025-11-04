@@ -162,8 +162,6 @@ namespace Better_Work_Tab
             }
         }
 
-       
-
         // This color is used to indicate a pawn is incapable of a work type due to health conditions. Vanilla red is Color(1,0.3,0.3)
         public Color Color_IncapableBecauseOfCapacities = new Color(1f, 0.3f, 0.3f); // Red
 
@@ -175,55 +173,6 @@ namespace Better_Work_Tab
         public void CreateDefaultRulesets()
         {
             SavedRulesets = DefaultSettings.SavedRulesets;
-            //new List<WorkAssignmentRuleset>{
-
-            //   new WorkAssignmentRuleset("Vanilla Starting Pawn", new List<WorkAssignmentParameters>()
-            //    {
-            //       new WorkAssignmentParameters("Highest Skill", 3, hasHighestSkill: true, randomIfMultiple: true),
-            //       new WorkAssignmentParameters("Skills > 5", 3, skillLevelGreaterThan: 5),
-            //       new WorkAssignmentParameters("Always Assigns", 3, isNaturalAlwaysAssign: true),
-
-            //    }),
-
-
-            //    new WorkAssignmentRuleset("Vanilla New Pawn", new List<WorkAssignmentParameters>()
-            //    {
-            //       new WorkAssignmentParameters("Top 6", 3, isTopXSkill: 6),
-            //       new WorkAssignmentParameters("Always Assigns", 3, isNaturalAlwaysAssign: true),
-
-            //    }),
-
-
-            //    new WorkAssignmentRuleset("BWT Default", new List<WorkAssignmentParameters>()
-            //    {
-            //        new WorkAssignmentParameters("Always Firefight", 1, worktype: WorkTypeDefOf.Firefighter),
-            //         new WorkAssignmentParameters("Always Patient", 1, worktypeDefNameIgnoreIfNonexistant:"Patient"),
-            //        new WorkAssignmentParameters("Always Bed Rest", 1, worktypeDefNameIgnoreIfNonexistant:"PatientBedRest"),
-            //        new WorkAssignmentParameters("Always Basic", 1, worktypeDefNameIgnoreIfNonexistant:"BasicWorker"),
-            //        new WorkAssignmentParameters("Best Doc", 1, worktype: WorkTypeDefOf.Doctor, hasHighestSkill: true),
-
-            //        new WorkAssignmentParameters("HaulUrg if able", 2, worktypeDefNameIgnoreIfNonexistant:"HaulUrgently"),
-            //        new WorkAssignmentParameters("Childcare", 2, worktype: WorkTypeDefOf.Childcare, hasChildOnMap: true),
-            //        new WorkAssignmentParameters("Passion 2", 2, passionLevel: 2),
-
-            //        new WorkAssignmentParameters("Always haul", 3, worktype: WorkTypeDefOf.Hauling),
-            //        new WorkAssignmentParameters("Always clean", 3, worktype: WorkTypeDefOf.Cleaning),
-            //        new WorkAssignmentParameters("Passion 1", 3, passionLevel: 1),
-            //        new WorkAssignmentParameters("Top 6", 3, isTopXSkill: 6),
-            //        //new WorkAssignmentParameters("Always Assigns", 3, isNaturalAlwaysAssign: true),
-            //    }),
-
-            //    new WorkAssignmentRuleset("Best Pawn to 1", new List<WorkAssignmentParameters>()
-            //    {
-            //        new WorkAssignmentParameters("Best to 1", 1, hasHighestSkill: true),
-            //    }),
-
-            //    new WorkAssignmentRuleset("Set all to 0", new List<WorkAssignmentParameters>()
-            //    {
-            //        new WorkAssignmentParameters("Reset", 0),
-            //    })
-            //};
-
             CurrentRuleset = SavedRulesets[0];
             BetterWorkTabMod.Settings.Write();
         }
@@ -274,5 +223,27 @@ namespace Better_Work_Tab
             Scribe_Collections.Look(ref workColumnOrderDefNames, "workColumnOrderDefNames", LookMode.Value);
         }
 
+        public void ResoreDefaultes()
+        {
+            enableSkillOverlayFeature = DefaultSettings.enableSkillOverlayFeature;
+            enableAutoAssignFeature = DefaultSettings.enableAutoAssignFeature;
+            ShowPawnAndWorktypeHighlights = DefaultSettings.ShowPawnAndWorktypeHighlights;
+            ShowCursorPawnAndWorktypeHighlight = DefaultSettings.ShowCursorPawnAndWorktypeHighlight;
+            ShowFloatMenuPawnAndWorktypeHighlight = DefaultSettings.ShowFloatMenuPawnAndWorktypeHighlight;
+            DoSelectedPawnHighlight = DefaultSettings.DoSelectedPawnHighlight;
+            UseCustomMouseHoverHighlight = DefaultSettings.UseCustomMouseHoverHighlight;
+            Color_CursorHighlight = DefaultSettings.Color_CursorHighlight;
+            Color_FloatMenuHighlight = DefaultSettings.Color_FloatMenuHighlight;
+            Color_CustomMouseHighlight = DefaultSettings.Color_CustomMouseHighlight;
+            Color_CustomSimilarWorktypeHighlight = DefaultSettings.Color_CustomSimilarWorktypeHighlight;
+            Color_IncapableBecauseOfCapacities = DefaultSettings.Color_IncapableBecauseOfCapacities;
+            Color_BestPawnForSkillSquare = DefaultSettings.Color_BestPawnForSkillSquare;
+            Color_VeryLowSkill = DefaultSettings.Color_VeryLowSkill;
+            Color_LowSkill = DefaultSettings.Color_LowSkill;
+            Color_GoodLowSkill = DefaultSettings.Color_GoodLowSkill;
+            Color_ExcellentSkill = DefaultSettings.Color_ExcellentSkill;
+            ShowUIMode_ShowSmallSkillNumbers = DefaultSettings.ShowUIMode_ShowSmallSkillNumbers;
+            ShowUIMode_ShowPawnForSkillSquare = DefaultSettings.ShowUIMode_ShowPawnForSkillSquare;
+        }
     }
 }
