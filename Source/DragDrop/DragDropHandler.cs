@@ -1,9 +1,11 @@
-﻿using RimWorld;
+﻿using Better_Work_Tab.Mod_Support.Multiplayer;
+using Multiplayer.API;
+using RimWorld;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using UnityEngine;
 using Verse;
-using System.Reflection;
 
 namespace Better_Work_Tab.DragDrop
 {
@@ -205,42 +207,29 @@ namespace Better_Work_Tab.DragDrop
 
             if (session.Kind == DragSession.DragKind.Column)
             {
-                var workColumns = table.def.columns.Where(c => c.Worker is PawnColumnWorker_WorkPriority).ToList(); // Keep this for anchorCol logic
                 var colToMove = session.DraggedItem as PawnColumnDef;
-                if (colToMove == null) return; // Safety check
+                if (colToMove == null) return;
 
-                table.def.columns.Remove(colToMove);
+                // Map the drag indices to a stable "work column index"
+                var workColumns = table.def.columns
+                    .Where(c => c.Worker is PawnColumnWorker_WorkPriority)
+                    .ToList();
 
-                // Find the new insertion point in the master list
-                int insertIndex;
-                if (session.ToIndex >= workColumns.Count) // Dragged to the end of the work columns
+                // Clamp session.ToIndex to a valid range
+                int targetWorkIndex = session.ToIndex;
+                if (targetWorkIndex < 0) targetWorkIndex = 0;
+                if (targetWorkIndex > workColumns.Count) targetWorkIndex = workColumns.Count;
+
+                if (MP.enabled && MP.IsInMultiplayer)
                 {
-                    // Find the last work column in the *modified* master list
-                    var lastWorkColInModifiedMaster = table.def.columns.LastOrDefault(c => c.Worker is PawnColumnWorker_WorkPriority);
-                    if (lastWorkColInModifiedMaster != null)
-                    {
-                        insertIndex = table.def.columns.IndexOf(lastWorkColInModifiedMaster) + 1;
-                    }
-                    else
-                    {
-                        // No other work columns, insert at the end of all columns
-                        insertIndex = table.def.columns.Count;
-                    }
+                    // This call is intercepted and replicated by MP
+                    WorkColumnOrderSync.ApplyWorkColumnMove(colToMove.defName, targetWorkIndex);
                 }
                 else
                 {
-                    // Get the anchor column from the *original* workColumns list
-                    var anchorCol = workColumns[session.ToIndex];
-                    // Find its index in the *modified* master list
-                    insertIndex = table.def.columns.IndexOf(anchorCol);
+                    // Single-player or MP disabled: apply locally using the same code
+                    WorkColumnOrderSync.ApplyWorkColumnMove(colToMove.defName, targetWorkIndex);
                 }
-                table.def.columns.Insert(insertIndex, colToMove);
-
-                // Persist and update AI
-                Features.WorkColumnOrderManager.CaptureCurrent(table.def);
-               
-                Features.WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
-                table.SetDirty();
             }
             else if (session.Kind == DragSession.DragKind.Row)
             {

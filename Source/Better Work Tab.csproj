@@ -58,6 +58,7 @@
     <Compile Include="Features\Patches\ShiftHelper.cs" />
     <Compile Include="DragDrop\DragSession.cs" />
     <Compile Include="DragDrop\WorkTabDragPatch.cs" />
+    <Compile Include="Mod Support\Multiplayer\WorkColumnOrderSync.cs" />
     <Compile Include="UI\VerticalLabels\MainTabWindow_BetterWork.cs" />
     <Compile Include="Features\WorkColumnOrderManager.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -83,6 +84,9 @@
     </PackageReference>
     <PackageReference Include="Lib.Harmony">
       <Version>2.4.1</Version>
+    </PackageReference>
+    <PackageReference Include="RimWorld.MultiplayerAPI">
+      <Version>0.6.0</Version>
     </PackageReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
