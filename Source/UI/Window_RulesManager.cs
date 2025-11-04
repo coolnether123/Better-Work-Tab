@@ -122,7 +122,7 @@ namespace Better_Work_Tab.UI
 
             //Log.Message("WorkAssignmentParameters Parameters: " + typeof(WorkAssignmentParameters).GetConstructors().First().GetParameters().Count() ?? "null");
 
-            foreach (ParameterInfo param in typeof(WorkAssignmentParameters).GetConstructors().First().GetParameters())
+            foreach (FieldInfo field in typeof(WorkAssignmentParameters).GetFields(BindingFlags.Public | BindingFlags.Instance))
             {
                 //Log.Message("Creating entry for: "+param.Name);
                 Rect rect4 = new Rect(0f, num2, outRect.width - 30f, 32f);
@@ -130,7 +130,7 @@ namespace Better_Work_Tab.UI
                 rect5.x += 10f;
                 num2 += 32f;
                 Rect rightPart = rect5.RightPart(0.25f);
-                string paramLabel = ("BWT_" + param.Name).Translate();
+                string paramLabel = ("BWT_" + field.Name.Substring(0, 1).ToLower() + field.Name.Substring(1)).Translate();
                 //using (new TextBlock(TextAnchor.MiddleLeft))
                 //{
                 //    Widgets.Label(rect5, text);
@@ -139,11 +139,10 @@ namespace Better_Work_Tab.UI
                 var fontsize = Text.Font;
 
                 
-                TooltipHandler.TipRegion(rect5, ("BWT_" + param.Name + "_Desc").Translate());
+                TooltipHandler.TipRegion(rect5, ("BWT_" + field.Name + "_Desc").Translate());
 
-                if (param.ParameterType == typeof(bool))
+                if (field.FieldType == typeof(bool))
                 {
-                    var field = AccessTools.DeclaredField(typeof(WorkAssignmentParameters), param.Name.CapitalizeFirst());
                     bool refValue = (bool)field.GetValue(SelectedRule.Parameters);
                     Widgets.CheckboxLabeled(rect5, paramLabel, ref refValue, disabled: uneditable);
                     field.SetValue(SelectedRule.Parameters, refValue);
@@ -151,18 +150,13 @@ namespace Better_Work_Tab.UI
                 }
                 GUI.color = Color.white;
 
-                if (param.ParameterType == typeof(int))
+                if (field.FieldType == typeof(int))
                 {
-                    var field = AccessTools.DeclaredField(typeof(WorkAssignmentParameters), param.Name.CapitalizeFirst());
                     int refValue = (int)field.GetValue(SelectedRule.Parameters);
                     Widgets.Label(rect5, paramLabel);
-                    if (param.HasDefaultValue && refValue == (int)param.DefaultValue)
-                    {
-                        GUI.color = Color.gray;
-                    }
 
                     string editBuffer = refValue.ToString();
-                    DrawPlusMinusOneField(rightPart, ref refValue, ref editBuffer, param, disabled: uneditable);
+                    DrawPlusMinusOneField(rightPart, ref refValue, ref editBuffer, disabled: uneditable);
                     field.SetValue(SelectedRule.Parameters, refValue);
 
                     continue;
@@ -170,9 +164,8 @@ namespace Better_Work_Tab.UI
                 }
                 GUI.color = Color.white;
 
-                if (param.ParameterType == typeof(string))
+                if (field.FieldType == typeof(string))
                 {
-                    var field = AccessTools.DeclaredField(typeof(WorkAssignmentParameters), param.Name.CapitalizeFirst());
                     string refValue = (string)field.GetValue(SelectedRule.Parameters) == null ? "" : (string)field.GetValue(SelectedRule.Parameters);
                     //Widgets.TextEntryLabeled(rect5, text, refValue);
                     Widgets.Label(rect5, paramLabel);
@@ -192,9 +185,8 @@ namespace Better_Work_Tab.UI
                 Text.Font = fontsize;
                 GUI.color = Color.white;
 
-                if (param.ParameterType == typeof(Gender?))
+                if (field.FieldType == typeof(Gender?))
                 {
-                    var field = AccessTools.DeclaredField(typeof(WorkAssignmentParameters), param.Name.CapitalizeFirst());
                     Gender? refValue = (Gender?)field.GetValue(SelectedRule.Parameters) ?? null;
 
 
@@ -228,9 +220,8 @@ namespace Better_Work_Tab.UI
                 Text.Font = fontsize;
                 GUI.color = Color.white;
 
-                if (param.ParameterType == typeof(WorkTypeDef))
+                if (field.FieldType == typeof(WorkTypeDef))
                 {
-                    var field = AccessTools.DeclaredField(typeof(WorkAssignmentParameters), param.Name.CapitalizeFirst());
                     WorkTypeDef refValue = (WorkTypeDef)field.GetValue(SelectedRule.Parameters) ?? null;
                     Widgets.Label(rect5, paramLabel);
                     if (uneditable) GUI.color = Color.gray;
@@ -261,9 +252,8 @@ namespace Better_Work_Tab.UI
                     continue;
                 }
 
-                if (param.ParameterType == typeof(XenotypeDef))
+                if (field.FieldType == typeof(XenotypeDef))
                 {
-                    var field = AccessTools.DeclaredField(typeof(WorkAssignmentParameters), param.Name.CapitalizeFirst());
                     XenotypeDef refValue = (XenotypeDef)field.GetValue(SelectedRule.Parameters) ?? null;
                     Widgets.Label(rect5, paramLabel);
 
@@ -298,9 +288,8 @@ namespace Better_Work_Tab.UI
                     continue;
                 }
 
-                if (param.ParameterType == typeof(Tuple<TraitDef, int>))
+                if (field.FieldType == typeof(Tuple<TraitDef, int>))
                 {
-                    var field = AccessTools.DeclaredField(typeof(WorkAssignmentParameters), param.Name.CapitalizeFirst());
                     Tuple<TraitDef, int> refValue = (Tuple<TraitDef, int>)field.GetValue(SelectedRule.Parameters) ?? null;
                     Widgets.Label(rect5, paramLabel);
                     string label = "Unassigned";
@@ -311,7 +300,7 @@ namespace Better_Work_Tab.UI
                     }
 
                     Rect traitButtonRect = new Rect(rect5);
-                    traitButtonRect.width = rect5.width - Text.CalcSize(param.Name).x-64f;
+                    traitButtonRect.width = rect5.width - Text.CalcSize(field.Name).x-64f;
                     traitButtonRect.x = rect5.xMax - traitButtonRect.width;
 
                     if (Widgets.ButtonText(traitButtonRect,  label, active: !uneditable))
@@ -345,7 +334,7 @@ namespace Better_Work_Tab.UI
                 Text.Font = fontsize;
                 GUI.color = Color.white;
 
-                if(param.ParameterType == typeof(WorkAssignmentParameters))
+                if(field.FieldType == typeof(WorkAssignmentParameters))
                 {
                     Widgets.Label(rect5, "BAHAHA YOU WANT TO DO NESTED RULES??");
 
@@ -358,7 +347,7 @@ namespace Better_Work_Tab.UI
 
         }
 
-        public static void DrawPlusMinusOneField(Rect rect, ref int value, ref string editBuffer, ParameterInfo param, int multiplier = 1, bool disabled = false)
+        public static void DrawPlusMinusOneField(Rect rect, ref int value, ref string editBuffer, int multiplier = 1, bool disabled = false)
         {
             if (disabled) GUI.color = Color.gray;
 
@@ -529,6 +518,10 @@ namespace Better_Work_Tab.UI
 
         void DoRulesetListing(Rect leftRect)
         {
+            if (Settings.SavedRulesets == null)
+            {
+                Settings.SavedRulesets = new List<WorkAssignmentRuleset>();
+            }
             Rect rect = leftRect;
             rect.y = leftRect.yMax - 24f;
             rect.height = 24f;
