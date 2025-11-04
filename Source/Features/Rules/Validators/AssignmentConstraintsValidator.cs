@@ -7,22 +7,24 @@ using Verse;
 namespace Better_Work_Tab.Features.Rules.Validators
 {
     /// <summary>
-    /// Checks assignment constraints relative to other pawns:
-    /// - Someone must always be assigned (skip if taken)
-    /// - Only assign if no one else is
-    /// - Assign to pawn with fewest worktypes
-    /// - RandomIfMultiple handling
+    /// Ensures work is assigned based on constraints relative to other pawns.
+    /// Checks:
+    /// - If a specific priority is already taken (SkipIfPriorityForThisWorktypeAreadyAssigned)
+    /// - If any other pawn is already assigned (SkipIfAnotherPawnAssigned)
+    /// - If this pawn has the fewest work priorities (AssignToPawnWithFewestWorkPriorities)
     /// </summary>
     public static class AssignmentConstraintsValidator
     {
-        public static bool Validate(
+        public static AssignmentValidationResult Validate(
             Pawn pawn,
             WorkTypeDef wt,
             List<Pawn> allPawns,
-            WorkAssignmentParameters p,
-            ref bool skipRemaining
+            WorkAssignmentParameters p
         )
         {
+            bool isValid = true;
+            bool shouldSkipRemainingPawns = false;
+
             // If "someone must have this priority" is set, reject if already taken
             if (p.SkipIfPriorityForThisWorktypeAreadyAssigned > -1)
             {
@@ -32,7 +34,7 @@ namespace Better_Work_Tab.Features.Rules.Validators
                         continue;
 
                     if (other.workSettings.GetPriority(wt) == p.SkipIfPriorityForThisWorktypeAreadyAssigned)
-                        return false;
+                        return new AssignmentValidationResult(false, false);
                 }
             }
 
@@ -45,19 +47,14 @@ namespace Better_Work_Tab.Features.Rules.Validators
                         continue;
 
                     if (other.workSettings.GetPriority(wt) > 0)
-                        return false;
+                        return new AssignmentValidationResult(false, false);
                 }
             }
 
             // Assign only to the pawn with the fewest active worktypes
             if (p.AssignToPawnWithFewestWorkPriorities)
             {
-                var allWorkTypes = DefDatabase<WorkTypeDef>
-                    .AllDefsListForReading
-                    .OrderBy(w => w.naturalPriority)  
-                    .Reverse()
-                    .ToList();
-                allWorkTypes.RemoveDuplicates();
+                var allWorkTypes = WorkAssignmentRule.AllWorkTypes;
 
                 Pawn chosen = null;
                 int fewest = int.MaxValue;
@@ -75,13 +72,13 @@ namespace Better_Work_Tab.Features.Rules.Validators
                 }
 
                 if (chosen != pawn)
-                    return false;
+                    return new AssignmentValidationResult(false, false);
 
                 // Signal to skip remaining pawns for this worktype
-                skipRemaining = true;
+                shouldSkipRemainingPawns = true;
             }
 
-            return true;
+            return new AssignmentValidationResult(isValid, shouldSkipRemainingPawns);
         }
     }
 }
