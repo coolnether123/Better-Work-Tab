@@ -14,17 +14,22 @@ namespace Better_Work_Tab.Features.Rules
         public WorkTypeDef CachedWorktype;
         public WorkAssignmentParameters Parameters;
 
+        private static List<WorkTypeDef> _cachedAllWorkTypes = null;
+
         public static List<WorkTypeDef> AllWorkTypes
         {
             get
             {
-                var all = DefDatabase<WorkTypeDef>
-                    .AllDefsListForReading
-                    .OrderBy(wt => wt.naturalPriority)
-                    .Reverse()
-                    .ToList();
-                all.RemoveDuplicates();
-                return all;
+                if (_cachedAllWorkTypes == null)
+                {
+                    _cachedAllWorkTypes = DefDatabase<WorkTypeDef>
+                        .AllDefsListForReading
+                        .OrderBy(wt => wt.naturalPriority)
+                        .Reverse()
+                        .ToList();
+                    _cachedAllWorkTypes.RemoveDuplicates();
+                }
+                return _cachedAllWorkTypes;
             }
         }
 
@@ -82,9 +87,10 @@ namespace Better_Work_Tab.Features.Rules
                 pawn, assigningWorktype, currentPawns, Parameters))
                 return false;
 
-            bool skipRemaining = false;
-            if (!AssignmentConstraintsValidator.Validate(
-                pawn, assigningWorktype, currentPawns, Parameters, ref skipRemaining))
+            var validationResult = AssignmentConstraintsValidator.Validate(
+                pawn, assigningWorktype, currentPawns, Parameters);
+
+            if (!validationResult.IsValid)
                 return false;
 
             // All checks passed – assign the priority
@@ -93,7 +99,7 @@ namespace Better_Work_Tab.Features.Rules
                 Mathf.Clamp(Parameters.Priority, 0, 4)
             );
 
-            return skipRemaining;
+            return validationResult.ShouldSkipRemainingPawns;
         }
 
         private WorkTypeDef DetermineWorktype(WorkTypeDef callSiteWorktype)

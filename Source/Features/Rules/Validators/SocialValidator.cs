@@ -6,8 +6,9 @@ using Verse;
 namespace Better_Work_Tab.Features.Rules.Validators
 {
     /// <summary>
-    /// Checks social/relational constraints:
-    /// - Pawn must have children on the map (if required)
+    /// Ensures work is assigned based on the pawn's social and relational status.
+    /// Checks:
+    /// - If the pawn has a child on the map.
     /// </summary>
     public static class SocialValidator
     {

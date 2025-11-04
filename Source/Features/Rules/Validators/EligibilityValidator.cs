@@ -5,10 +5,11 @@ using Verse;
 namespace Better_Work_Tab.Features.Rules.Validators
 {
     /// <summary>
-    /// Checks basic eligibility: can this pawn do this work at all?
-    /// - Natural "always active" worktypes
-    /// - Work type disability
-    /// - Violence capability
+    /// Ensures the pawn can physically perform this worktype.
+    /// Checks:
+    /// - Worktype not disabled by age/injury
+    /// - Violence capability (if required)
+    /// - "Always active" restrictions
     /// </summary>
     public static class EligibilityValidator
     {

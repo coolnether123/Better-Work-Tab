@@ -7,13 +7,14 @@ using Verse;
 namespace Better_Work_Tab.Features.Rules.Validators
 {
     /// <summary>
-    /// Checks skill-based constraints:
-    /// - Passion levels
-    /// - Skill thresholds
-    /// - Highest skill among pawns
-    /// - Top-X skills for a pawn
-    /// - Nth-best pawn for a worktype
-    /// - Nth-best worktype for a pawn
+    /// Ensures work is assigned based on the pawn's skills and passions.
+    /// Checks:
+    /// - Passion level matches the requirement.
+    /// - Skill level is within the specified range.
+    /// - Pawn has the highest skill for the work type.
+    /// - Work type is one of the pawn's top X skills.
+    /// - Pawn is the Nth best for the work type.
+    /// - Work type is the pawn's Nth best skill.
     /// </summary>
     public static class SkillValidator
     {
@@ -75,8 +76,7 @@ namespace Better_Work_Tab.Features.Rules.Validators
             // Worktype must be in pawn's top X skills
             if (p.IsTopXSkill > 0)
             {
-                var topWorktypes = DefDatabase<WorkTypeDef>
-                    .AllDefs
+                var topWorktypes = WorkAssignmentRule.AllWorkTypes
                     .Where(w => !w.alwaysStartActive && !pawn.WorkTypeIsDisabled(w))  
                     .OrderByDescending(w => pawn.skills?.AverageOfRelevantSkillsFor(w) ?? 0f)  
                     .ToList();
@@ -96,7 +96,7 @@ namespace Better_Work_Tab.Features.Rules.Validators
                 if (sorted.Count >= p.IsNthBestPawn)
                 {
                     float nthSkill = sorted[p.IsNthBestPawn - 1].skills
-                        .AverageOfRelevantSkillsFor(wt);
+                        ?.AverageOfRelevantSkillsFor(wt) ?? 0f;
 
                     var tier = sorted
                         .Where(pp => pp.skills.AverageOfRelevantSkillsFor(wt) == nthSkill)
@@ -114,27 +114,22 @@ namespace Better_Work_Tab.Features.Rules.Validators
             // Worktype must be pawn's Nth best skill
             if (p.IsNthBestSkill > 0)
             {
-                var allWorkTypes = DefDatabase<WorkTypeDef>
-                    .AllDefsListForReading
-                    .OrderBy(w => w.naturalPriority)  
-                    .Reverse()
-                    .ToList();
-                allWorkTypes.RemoveDuplicates();
+                var allWorkTypes = WorkAssignmentRule.AllWorkTypes;
 
                 var ranked = allWorkTypes
                     .Where(w => !pawn.WorkTypeIsDisabled(w))  
                     .OrderByDescending(w => pawn.skills?.AverageOfRelevantSkillsFor(w) ?? 0f)  
                     .ToList();
 
-                if (ranked.Count >= p.IsNthBestSkill)
-                {
-                    if (ranked[p.IsNthBestSkill - 1] != wt)
-                        return false;
-                }
-                else
-                {
+                if (ranked.Count < p.IsNthBestSkill)
+                    return false; // Not enough worktypes
+
+                var nthBestWorktype = ranked[p.IsNthBestSkill - 1];
+                float nthBestValue = pawn.skills?.AverageOfRelevantSkillsFor(nthBestWorktype) ?? 0f;
+                float wtValue = pawn.skills?.AverageOfRelevantSkillsFor(wt) ?? 0f;
+
+                if (wtValue != nthBestValue)
                     return false;
-                }
             }
 
             return true;

@@ -2,36 +2,66 @@
 using RimWorld;
 using System;
 using Verse;
+using System.Reflection;
 
 namespace Better_Work_Tab.Features.Rules
 {
+    [AttributeUsage(AttributeTargets.Field)]
+    public class RuleParameterAttribute : Attribute { }
+
     public class WorkAssignmentParameters : IExposable
     {
+        [RuleParameter]
         public string RuleName;
+        [RuleParameter]
         public WorkTypeDef Worktype;
+        [RuleParameter]
         public int Priority;
+        [RuleParameter]
         public int SkipIfPriorityForThisWorktypeAreadyAssigned = -1;
+        [RuleParameter]
         public bool SkipIfAnotherPawnAssigned;
+        [RuleParameter]
         public bool AssignToPawnWithFewestWorkPriorities;
+        [RuleParameter]
         public Gender? Gender;
+        [RuleParameter]
         public bool IsPregnant;
+        [RuleParameter]
         public XenotypeDef Xenotype;
+        [RuleParameter]
         public Tuple<TraitDef, int> RequiredTrait;
+        [RuleParameter]
         public bool IsNaturalAlwaysAssign;
+        [RuleParameter]
         public bool IsCapableOfViolence;
+        [RuleParameter]
         public bool AllowOverwritingHigherPriority;
+        [RuleParameter]
         public int LimitNumberOfWorktypes;
+        [RuleParameter]
         public int PassionLevel = -1;
+        [RuleParameter]
         public int SkillLevelGreaterThan = -1;
+        [RuleParameter]
         public int SkillLevelLessThan = -1;
+        [RuleParameter]
         public bool HasHighestSkill;
+        [RuleParameter]
         public int IsTopXSkill;
+        [RuleParameter]
         public int IsNthBestPawn;
+        [RuleParameter]
         public int IsNthBestSkill;
+        [RuleParameter]
         public bool HasChildOnMap;
+        [RuleParameter]
         public bool RandomIfMultiple;
+        [RuleParameter]
         public string WorktypeNamedIgnoreIfNonexistant;
+        [RuleParameter]
         public float MoveSpeedGreaterThan = -1;
+        [RuleParameter]
         public float MoveSpeedLessThan = -1;
 
         public WorkAssignmentParameters() { }

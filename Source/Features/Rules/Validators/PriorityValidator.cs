@@ -6,9 +6,10 @@ using Verse;
 namespace Better_Work_Tab.Features.Rules.Validators
 {
     /// <summary>
-    /// Checks priority constraints:
-    /// - Don't overwrite higher priorities (if configured)
-    /// - Respect worktype limits per pawn
+    /// Ensures work is assigned based on priority and worktype limits.
+    /// Checks:
+    /// - If overwriting a higher priority is allowed.
+    /// - If the pawn has reached their worktype limit.
     /// </summary>
     public static class PriorityValidator
     {
@@ -29,12 +30,7 @@ namespace Better_Work_Tab.Features.Rules.Validators
             // Limit the number of active worktypes for this pawn (if configured)
             if (p.LimitNumberOfWorktypes > 0)
             {
-                var allWorkTypes = DefDatabase<WorkTypeDef>
-                    .AllDefsListForReading
-                    .OrderBy(w => w.naturalPriority)  
-                    .Reverse()
-                    .ToList();
-                allWorkTypes.RemoveDuplicates();
+                var allWorkTypes = WorkAssignmentRule.AllWorkTypes;
 
                 int activeCount = 0;
                 foreach (var w in allWorkTypes)

@@ -41,6 +41,7 @@
   <ItemGroup>
     <Compile Include="BetterWorkTab.cs" />
     <Compile Include="DragDrop\DragDropHandler.cs" />
+    <Compile Include="Features\Rules\AssignmentValidationResult.cs" />
     <Compile Include="Features\Rules\Validators\AssignmentConstraintsValidator.cs" />
     <Compile Include="Features\Rules\Validators\BiologicalValidator.cs" />
     <Compile Include="Features\Rules\Validators\EligibilityValidator.cs" />

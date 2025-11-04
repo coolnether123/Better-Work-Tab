@@ -5,11 +5,12 @@ using Verse;
 namespace Better_Work_Tab.Features.Rules.Validators
 {
     /// <summary>
-    /// Checks biological/identity constraints:
-    /// - Gender
-    /// - Pregnancy status
-    /// - Xenotype
-    /// - Trait requirements
+    /// Ensures work is assigned based on the pawn's biological and identity traits.
+    /// Checks:
+    /// - Gender matches the required gender.
+    /// - Pregnancy status matches the requirement.
+    /// - Xenotype matches the required xenotype.
+    /// - Required trait is present.
     /// </summary>
     public static class BiologicalValidator
     {
