@@ -41,8 +41,15 @@
   <ItemGroup>
     <Compile Include="BetterWorkTab.cs" />
     <Compile Include="DragDrop\DragDropHandler.cs" />
+    <Compile Include="Features\Rules\Validators\AssignmentConstraintsValidator.cs" />
+    <Compile Include="Features\Rules\Validators\BiologicalValidator.cs" />
+    <Compile Include="Features\Rules\Validators\EligibilityValidator.cs" />
+    <Compile Include="Features\Rules\Validators\PriorityValidator.cs" />
+    <Compile Include="Features\Rules\Validators\SkillValidator.cs" />
+    <Compile Include="Features\Rules\Validators\SocialValidator.cs" />
     <Compile Include="Features\Rules\WorkAssignmentRuleset.cs" />
     <Compile Include="Features\Rules\WorkAssignmentRule.cs" />
+    <Compile Include="Features\Rules\WorkAssignmentParameters.cs" />
     <Compile Include="Features\WorkExecutionOrder.cs" />
     <Compile Include="Features\Workloads\GameComponent_WorkloadSaver.cs" />
     <Compile Include="Features\Workloads\Worklist.cs" />

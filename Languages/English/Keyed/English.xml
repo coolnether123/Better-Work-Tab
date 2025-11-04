@@ -16,7 +16,7 @@
 <BWT_hasChildOnMap>Has child on map</BWT_hasChildOnMap>
 <BWT_isNaturalAlwaysAssign>Is vanilla always assign</BWT_isNaturalAlwaysAssign>
 <BWT_randomIfMultiple>Random if multiple</BWT_randomIfMultiple>
-<BWT_worktypeDefNameIgnoreIfNonexistant>Work type defName (ignore if nonexistant)</BWT_worktypeDefNameIgnoreIfNonexistant>
+<BWT_worktypeNamedIgnoreIfNonexistant>Work type defName (ignore if nonexistant)</BWT_worktypeNamedIgnoreIfNonexistant>
 <BWT_isTopXSkill>Is top X skill</BWT_isTopXSkill>
 <BWT_isNthBestPawn>Is Nth best pawn</BWT_isNthBestPawn>
 <BWT_isNthBestSkill>Is Nth best skill</BWT_isNthBestSkill>
