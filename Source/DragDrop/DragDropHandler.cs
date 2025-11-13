@@ -11,18 +11,45 @@ namespace Better_Work_Tab.DragDrop
 {
     internal static class DragDropHandler
     {
+        private static void LogRowDebug(string message)
+        {
+            Verse.Log.Message($"[Better Work Tab/DragRow] {message}");
+        }
+
+        private static void ResetSession(DragSession session, string reason)
+        {
+            if (session.Kind == DragSession.DragKind.Row)
+            {
+                var pawn = session.DraggedItem as Pawn;
+                LogRowDebug($"Resetting row drag session ({reason}). Pawn='{pawn?.LabelShort ?? "null"}', FromIndex={session.FromIndex}, ToIndex={session.ToIndex}");
+            }
+
+            session.Reset();
+        }
+
+        private static readonly MethodInfo RecacheIfDirtyMethod = typeof(PawnTable).GetMethod("RecacheIfDirty", BindingFlags.Instance | BindingFlags.NonPublic);
+
+        private static void EnsureGeometryFresh(PawnTable table)
+        {
+            RecacheIfDirtyMethod?.Invoke(table, null);
+        }
+
         /// <summary>
         /// Handles mouse input events (down, drag, up).
         /// </summary>
         internal static void OnGUI(PawnTable table, Vector2 origin, DragSession session)
         {
+            EnsureGeometryFresh(table);
             var evt = Event.current;
             if (evt.type == EventType.Repaint) return; // Drawing is handled in Postfix for correct layering.
 
             // Ensure this is the work tab
             if (!table.Columns.Any(c => c.Worker is PawnColumnWorker_WorkPriority))
             {
-                if (session.IsDragging()) session.Reset(); // If user switches tab while dragging, cancel it.
+                if (session.IsDragging())
+                {
+                    ResetSession(session, "table lost work columns");
+                } // If user switches tab while dragging, cancel it.
                 return;
             }
 
@@ -40,17 +67,25 @@ namespace Better_Work_Tab.DragDrop
                 {
                     session.DragOffset = evt.mousePosition - session.MouseStart;
                     UpdateInsertionIndex(session, evt.mousePosition);
+                    if (session.Kind == DragSession.DragKind.Row)
+                    {
+                        LogRowDebug($"MouseDrag -> DragOffset={session.DragOffset}, Mouse={evt.mousePosition}, ToIndex={session.ToIndex}");
+                    }
                     evt.Use();
                 }
                 else if (evt.type == EventType.MouseUp)
                 {
                     FinalizeReorder(table, session);
-                    session.Reset(); // Critical: reset state after operation
+                    ResetSession(session, "mouse up"); // Critical: reset state after operation
                     evt.Use();
                 }
                 else if (evt.type == EventType.KeyDown && evt.keyCode == KeyCode.Escape)
                 {
-                    session.Reset(); // Allow canceling with Escape key
+                    if (session.Kind == DragSession.DragKind.Row)
+                    {
+                        LogRowDebug("Escape pressed during row drag.");
+                    }
+                    ResetSession(session, "escape key"); // Allow canceling with Escape key
                     evt.Use();
                 }
             }
@@ -104,33 +139,36 @@ namespace Better_Work_Tab.DragDrop
             }
 
             // --- Attempt Row Drag if Column Drag Failed ---
-            var rowsRect = new Rect(origin.x, origin.y + table.HeaderHeight, table.Size.x, table.Size.y - table.HeaderHeight);
-            if (rowsRect.Contains(mouse))
+            float firstRowY = origin.y + table.cachedHeaderHeight - table.scrollPosition.y;
+            LogRowDebug($"Row drag window space startY={firstRowY}, mouse={mouse}, scroll={table.scrollPosition}, headerHeight={table.cachedHeaderHeight}");
+
+            float currentY = firstRowY;
+            for (int i = 0; i < table.cachedPawns.Count; i++)
             {
-                for (int i = 0; i < table.cachedPawns.Count; i++)
+                float rowHeight = table.cachedRowHeights[i];
+                var rowRect = new Rect(origin.x, currentY, table.cachedSize.x - 16f, rowHeight);
+
+                bool contains = rowRect.Contains(mouse);
+                LogRowDebug($"Inspecting row {i}: rowRect={rowRect}, containsMouse={contains}");
+
+                if (contains)
                 {
-                    var pawn = table.cachedPawns[i];
-                    float rowY = origin.y + table.HeaderHeight + table.cachedPawns.Take(i).Sum(p => table.cachedRowHeights[table.cachedPawns.IndexOf(p)]) - table.scrollPosition.y;
-                    var rowRect = new Rect(origin.x, rowY, table.Size.x - 16f, table.cachedRowHeights[i]);
-
-                    if (rowRect.Contains(mouse))
-                    {
-                        // --- DRAG START ---
-                        session.Kind = DragSession.DragKind.Row;
-                        session.MouseStart = mouse;
-                        session.FromIndex = i;
-                        session.ToIndex = i;
-                        session.DraggedItem = pawn;
-                        session.OriginRect = rowRect;
-
-                        // --- CACHE GEOMETRY ---
-                        CacheRowGeometry(table, origin, session);
-                        Verse.Log.Message($"[Better Work Tab/DragRow] Begin row drag: '{pawn.LabelShort}'");
-                        return;
-                    }
+                    session.Kind = DragSession.DragKind.Row;
+                    session.MouseStart = mouse;
+                    session.FromIndex = i;
+                    session.ToIndex = i;
+                    session.DraggedItem = table.cachedPawns[i];
+                    session.OriginRect = rowRect;
+                    CacheRowGeometry(table, origin, session);
+                    LogRowDebug($"Begin row drag: Pawn='{table.cachedPawns[i].LabelShort}'");
+                    return;
                 }
+                currentY += rowHeight;
             }
+
+            LogRowDebug($"No match. firstRowY={firstRowY}, mouse={mouse}");
         }
+
 
         /// <summary>
         /// PRE-CALCULATES all column drop target positions and stores them in the session.
@@ -168,7 +206,9 @@ namespace Better_Work_Tab.DragDrop
         {
             session.CachedTargetRects = new List<Rect>();
             session.CachedTargetBoundaries = new List<float>();
-            float currentY = origin.y + table.HeaderHeight - table.scrollPosition.y;
+            float currentY = origin.y + table.cachedHeaderHeight - table.scrollPosition.y;
+
+            LogRowDebug($"CacheRowGeometry start: pawnCount={table.cachedPawns?.Count ?? -1}, scroll={table.scrollPosition}, origin={origin}");
 
             for (int i = 0; i < table.cachedPawns.Count; i++)
             {
@@ -176,8 +216,11 @@ namespace Better_Work_Tab.DragDrop
                 var rect = new Rect(origin.x, currentY, table.Size.x - 16f, rowHeight);
                 session.CachedTargetRects.Add(rect);
                 session.CachedTargetBoundaries.Add(rect.y + rect.height / 2f);
+                LogRowDebug($"Cached row {i}: rect={rect}, boundary={rect.y + rect.height / 2f}, pawn='{table.cachedPawns[i]?.LabelShort ?? "null"}'");
                 currentY += rowHeight;
             }
+
+            LogRowDebug($"CacheRowGeometry complete. CachedRects={session.CachedTargetRects.Count}, CachedBoundaries={session.CachedTargetBoundaries.Count}");
         }
 
         /// <summary>
@@ -197,6 +240,10 @@ namespace Better_Work_Tab.DragDrop
                     newToIndex = i;
                     break;
                 }
+            }
+            if (session.Kind == DragSession.DragKind.Row && newToIndex != session.ToIndex)
+            {
+                LogRowDebug($"UpdateInsertionIndex -> mousePos={mousePos}, newToIndex={newToIndex}, boundarySample={(session.CachedTargetBoundaries.Count > 0 ? session.CachedTargetBoundaries[Mathf.Clamp(newToIndex, 0, session.CachedTargetBoundaries.Count - 1)].ToString() : "n/a")}");
             }
             session.ToIndex = newToIndex;
         }
@@ -233,6 +280,8 @@ namespace Better_Work_Tab.DragDrop
             }
             else if (session.Kind == DragSession.DragKind.Row)
             {
+                LogRowDebug($"FinalizeReorder start: FromIndex={session.FromIndex}, ToIndex={session.ToIndex}, cachedPawnCount={table.cachedPawns.Count}");
+
                 var list = new List<Pawn>(table.cachedPawns);
                 var moving = list[session.FromIndex];
                 list.RemoveAt(session.FromIndex);
@@ -249,6 +298,8 @@ namespace Better_Work_Tab.DragDrop
                 var fi = typeof(PawnTable).GetField("sortingBy", BindingFlags.Instance | BindingFlags.NonPublic);
                 if (fi != null)
                     fi.SetValue(table, null);
+
+                LogRowDebug($"FinalizeReorder complete. Moved pawn='{moving?.LabelShort ?? "null"}' to index={to}. DisplayOrder rewritten.");
             }
         }
 
@@ -294,7 +345,14 @@ namespace Better_Work_Tab.DragDrop
 
             // --- Step 3: Draw the Insertion Line and Placeholder Gap ---
             // We use the pre-calculated geometry from the session for maximum performance.
-            if (session.CachedTargetRects == null || session.ToIndex < 0) return;
+            if (session.CachedTargetRects == null || session.ToIndex < 0)
+            {
+                if (session.Kind == DragSession.DragKind.Row)
+                {
+                    LogRowDebug($"Skipping DrawDragVisuals because cached data missing (RectsNull={session.CachedTargetRects == null}, ToIndex={session.ToIndex}).");
+                }
+                return;
+            }
 
             int to = Mathf.Clamp(session.ToIndex, 0, session.CachedTargetRects.Count);
             Rect lineRect;
