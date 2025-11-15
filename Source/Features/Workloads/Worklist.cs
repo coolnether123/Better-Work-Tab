@@ -30,7 +30,7 @@ namespace Better_Work_Tab.Features.Workloads
         public List<PawnWorkload> PawnWorklists = new List<PawnWorkload>();
         public string worklistName = "New Worklist";
 
-        public List<PawnGroup> PawnGroups = new List<PawnGroup>();
+        public List<PawnDivider> Dividers = new List<PawnDivider>();
 
         public string RenamableLabel { get => worklistName; set => worklistName = value; }
 
@@ -54,7 +54,7 @@ namespace Better_Work_Tab.Features.Workloads
             Scribe_Values.Look(ref UseAdvancedMode, "UseAdvancedMode", true);
             worklistName = RenamableLabel;
             Scribe_Collections.Look(ref PawnWorklists, "pawnWorklists", LookMode.Deep);
-            Scribe_Collections.Look(ref PawnGroups, "PawnGroups", LookMode.Deep);
+            Scribe_Collections.Look(ref Dividers, "Dividers", LookMode.Deep);
         }
     }
 }

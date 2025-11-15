@@ -66,7 +66,10 @@
     <Compile Include="Features\Patches\ShiftHelper.cs" />
     <Compile Include="DragDrop\DragSession.cs" />
     <Compile Include="DragDrop\WorkTabDragPatch.cs" />
+    <Compile Include="PawnOrganizer\API\PawnColorDatabase.cs" />
+    <Compile Include="PawnOrganizer\API\PawnRowColorizer.cs" />
     <Compile Include="PawnOrganizer\API\WorkTabRowColumnAPI.cs" />
+    <Compile Include="PawnOrganizer\Data\GameComponent_PawnColors.cs" />
     <Compile Include="PawnOrganizer\Data\PawnOrganizerData.cs" />
     <Compile Include="PawnOrganizer\PawnOrganizerSystem.cs" />
     <Compile Include="Mod Support\Multiplayer\WorkColumnOrderSync.cs" />
@@ -80,6 +83,7 @@
     <Compile Include="Spine\UI\Widgets\SpineWidgets.cs" />
     <Compile Include="UI\BetterWorkTabSettingsUI.cs" />
     <Compile Include="UI\Window_RulesManager.cs" />
+    <Compile Include="UI\Dialog_RenameGeneric.cs" />
     <Compile Include="UI\Dialog_RenameWorkload.cs" />
     <Compile Include="UI\VerticalLabels\AngledHeaderDrawer.cs" />
     <Compile Include="UI\HeaderButtons.cs" />

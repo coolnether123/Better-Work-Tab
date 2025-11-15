@@ -1,56 +1,47 @@
-using System.Collections.Generic;
 using UnityEngine;
 using Verse;
 
 namespace Better_Work_Tab.PawnOrganizer.Data
 {
     /// <summary>
-    /// Represents a grouping of pawns with metadata (name, color, collapsed state).
+    /// A simple visual divider that can be positioned between pawn rows.
     /// </summary>
-    public class PawnGroup : IExposable
+    public class PawnDivider : IExposable
     {
-        public string GroupName = "New Group";
-        public Color GroupColor = Color.white;
-        public List<Pawn> Members = new List<Pawn>();
-        public bool IsCollapsed = false;
+        public string DividerName = "New Divider";
+        public Color DividerColor = new Color(0.3f, 0.3f, 0.3f, 1f);
+        public int DisplayOrder = 0; // Position in the pawn list (like pawn.displayOrder)
 
         public void ExposeData()
         {
-            Scribe_Values.Look(ref GroupName, "GroupName", "New Group");
-            Scribe_Values.Look(ref GroupColor, "GroupColor", Color.white);
-            Scribe_Values.Look(ref IsCollapsed, "IsCollapsed", false);
-            Scribe_Collections.Look(ref Members, "Members", LookMode.Reference);
+            Scribe_Values.Look(ref DividerName, "DividerName", "New Divider");
+            Scribe_Values.Look(ref DividerColor, "DividerColor", Color.gray);
+            Scribe_Values.Look(ref DisplayOrder, "DisplayOrder", 0);
         }
     }
 
     /// <summary>
-    /// Visual divider row (not a pawn, but rendered in the pawn table).
+    /// Unified element for rendering - either a pawn or a divider.
     /// </summary>
-    public class PawnGroupDivider
-    {
-        public PawnGroup Group;
-        public PawnGroupDivider(PawnGroup group) => Group = group;
-    }
-
-    /// <summary>
-    /// Either a Pawn or a PawnGroupDivider.
-    /// </summary>
-    public abstract class PawnTableElement
+    public abstract class DisplayElement
     {
         public abstract bool IsDivider { get; }
+        public abstract int DisplayOrder { get; }
     }
 
-    public class PawnElement : PawnTableElement
+    public class PawnElement : DisplayElement
     {
         public Pawn Pawn;
         public PawnElement(Pawn p) => Pawn = p;
         public override bool IsDivider => false;
+        public override int DisplayOrder => Pawn.playerSettings?.displayOrder ?? 0;
     }
 
-    public class DividerElement : PawnTableElement
+    public class DividerElement : DisplayElement
     {
-        public PawnGroup Group;
-        public DividerElement(PawnGroup g) => Group = g;
+        public PawnDivider Divider;
+        public DividerElement(PawnDivider d) => Divider = d;
         public override bool IsDivider => true;
+        public override int DisplayOrder => Divider.DisplayOrder;
     }
 }

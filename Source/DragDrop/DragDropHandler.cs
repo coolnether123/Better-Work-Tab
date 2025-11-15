@@ -13,7 +13,7 @@ namespace Better_Work_Tab.DragDrop
     {
         private static void LogRowDebug(string message)
         {
-            Verse.Log.Message($"[Better Work Tab/DragRow] {message}");
+            // Verse.Log.Message($"[Better Work Tab/DragRow] {message}");
         }
 
         private static void ResetSession(DragSession session, string reason)
@@ -93,8 +93,8 @@ namespace Better_Work_Tab.DragDrop
 
         private static void TryBeginDrag(PawnTable table, Vector2 origin, DragSession session, Vector2 mouse)
         {
-            Verse.Log.Message($"[Better Work Tab/DragColumn] Current Column Order: {string.Join(", ", table.Columns.Select(c => c.defName))}");
-            Verse.Log.Message($"[Better Work Tab/DragColumn] Cached Column Widths: {string.Join(", ", table.cachedColumnWidths.Select(w => w.ToString()))}");
+            // Verse.Log.Message($"[Better Work Tab/DragColumn] Current Column Order: {string.Join(", ", table.Columns.Select(c => c.defName))}");
+            // Verse.Log.Message($"[Better Work Tab/DragColumn] Cached Column Widths: {string.Join(", ", table.cachedColumnWidths.Select(w => w.ToString()))}");
 
             // --- Attempt Column Drag ---
             var headerRect = new Rect(origin.x, origin.y, table.Size.x, table.HeaderHeight);
@@ -130,7 +130,7 @@ namespace Better_Work_Tab.DragDrop
 
                         // --- CACHE GEOMETRY ---
                         CacheColumnGeometry(table, origin, session);
-                        Verse.Log.Message($"[Better Work Tab/DragColumn] Begin column drag: '{colDef.defName}'");
+                        // Verse.Log.Message($"[Better Work Tab/DragColumn] Begin column drag: '{colDef.defName}'");
                         return; // Found our column, exit.
                     }
 
