@@ -11,6 +11,13 @@ namespace Better_Work_Tab.Features.Workloads
     {
         public GameComponent_WorkloadSaver(Game game)
         {
+            // Ensure CurrentWorklist is initialized if it's null after loading
+            if (CurrentWorklist == null)
+            {
+                CurrentWorklist = new Worklist { RenamableLabel = "Default Worklist" };
+                SavedWorklists.Add(CurrentWorklist);
+                Log.Message("[BetterWorkTab] Created default worklist as CurrentWorklist was null.");
+            }
         }
 
         // This stores saved workloads for easy switching between different work setups

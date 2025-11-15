@@ -1,9 +1,13 @@
 ﻿using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.Workloads;
+using Better_Work_Tab.PawnOrganizer;
+using Better_Work_Tab.PawnOrganizer.API;
 using HarmonyLib;
 using RimWorld;
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection; // Added for reflection
 using UnityEngine;
 using Verse;
 using Verse.Sound;
@@ -23,53 +27,80 @@ namespace Better_Work_Tab.UI
     /// This class inherits from MainTabWindow_Work to maintain compatibility with vanilla
     /// save files, colonist selection, and work priority systems.
     /// </summary>
-    public class MainTabWindow_BetterWork : MainTabWindow_Work
-    {
-        /// <summary>
-        /// Constants for positioning UI elements in the window header.
-        /// </summary>
-        private const float SkillToggleX = 150f;
-        private const float SkillToggleY = 5f;
-        private const float SkillToggleWidth = 230f;
-        private const float SkillToggleHeight = 30f;
-
-        // Button sizing (unchanged)
-        private const float AutoAssignButtonWidth = 150f;
-        private const float AutoAssignButtonHeight = 28f;
-
-        private const float WorkloadButtonWidth = 150f;
-        private const float WorkloadButtonHeight = 28f;
-
-        // Bottom-right anchoring next to the info button
-        private const float BottomEdgeMargin = 10f; // distance from bottom edge
-        private const float RightEdgeMargin = 10f;  // distance from right edge
-        private const float InterControlGap = 1f;   // gap between buttons
-        private const float InfoIconSize = 24f;     // same size as TexButton.Info
-
-        public override Vector2 InitialSize
+        public class MainTabWindow_BetterWork : MainTabWindow_Work
         {
-            get
+            private static bool _lastShiftState = false; // Added for logging shift key presses
+            private IWorkTabRowColumnAPI _api;
+    
+            /// <summary>
+            /// Constants for positioning UI elements in the window header.
+            /// </summary>
+            private const float SkillToggleX = 150f;
+            private const float SkillToggleY = 5f;
+            private const float SkillToggleWidth = 230f;
+            private const float SkillToggleHeight = 30f;
+    
+            // Button sizing (unchanged)
+            private const float AutoAssignButtonWidth = 150f;
+            private const float AutoAssignButtonHeight = 28f;
+    
+            private const float WorkloadButtonWidth = 150f;
+            private const float WorkloadButtonHeight = 28f;
+    
+            // Bottom-right anchoring next to the info button
+            private const float BottomEdgeMargin = 10f; // distance from bottom edge
+            private const float RightEdgeMargin = 10f;  // distance from right edge
+            private const float InterControlGap = 1f;   // gap between buttons
+            private const float InfoIconSize = 24f;     // same size as TexButton.Info
+    
+            public override Vector2 InitialSize
             {
-                Vector2 size = base.InitialSize;
-                size.x += 25f;
-                return size;
+                get
+                {
+                    Vector2 size = base.InitialSize;
+                    size.x += 25f;
+                    return size;
+                }
             }
-        }
+    
+            /// <summary>
+            /// Main window rendering method called every frame.
+            /// Draws vanilla PawnTable first, then adds custom UI elements on top.
+            /// </summary>
+            public override void DoWindowContents(Rect inRect)
+            {
+                // --- Draw the vanilla Work table first ---
+                base.DoWindowContents(inRect);
 
-        /// <summary>
-        /// Main window rendering method called every frame.
-        /// Draws vanilla PawnTable first, then adds custom UI elements on top.
-        /// </summary>
-        public override void DoWindowContents(Rect inRect)
-        {
-            // --- Draw the vanilla Work table first ---
-            base.DoWindowContents(inRect);
+                PawnTable currentPawnTable = GetPawnTable();
+                Log.Message($"[BetterWorkTab] DoWindowContents: currentPawnTable is null: {currentPawnTable == null}");
+                // REMOVED: if (currentPawnTable == null) return; // Early exit if PawnTable is null
 
-            // --- Draw overlay toggles and buttons if not during layout ---
-            if (Event.current == null || Event.current.type == EventType.Layout)
-                return;
+                // ExtraTopSpace is a protected property in MainTabWindow_PawnTable
+                Vector2 tableOrigin = new Vector2(inRect.x, inRect.y + this.ExtraTopSpace);
 
-            // Calculate the settings/info icon rect in the bottom-right,
+                if (_api == null || _api.GetTable() != currentPawnTable || _api.GetTableOrigin() != tableOrigin)
+                {
+                    Log.Message($"[BetterWorkTab] DoWindowContents: Creating new API instance. _api == null: {_api == null}, _api.GetTable() != currentPawnTable: {(_api != null && _api.GetTable() != currentPawnTable)}, _api.GetTableOrigin() != tableOrigin: {(_api != null && _api.GetTableOrigin() != tableOrigin)}");
+                    _api = new WorkTabRowColumnAPI(currentPawnTable, tableOrigin);
+                }
+                Log.Message($"[BetterWorkTab] DoWindowContents: PawnOrganizerSystem.Instance is null: {PawnOrganizerSystem.Instance == null}");
+
+                PawnOrganizerSystem.Instance?.OnWorkTabGUI(currentPawnTable, _api);
+                PawnOrganizerSystem.Instance?.DrawOrganization(currentPawnTable, _api);
+    
+                // --- Draw overlay toggles and buttons if not during layout ---
+                if (Event.current == null || Event.current.type == EventType.Layout)
+                    return;
+    
+                // Log shift key press once
+                bool currentShiftState = Event.current.shift;
+                if (currentShiftState && !_lastShiftState)
+                {
+                    Log.Message("[BetterWorkTab] Shift key is now pressed in Work Tab.");
+                }
+                _lastShiftState = currentShiftState;
+                    // Calculate the settings/info icon rect in the bottom-right,
             // then lay out our buttons immediately to its left.
             var gearRect = GetInfoIconRect(inRect);
 
@@ -88,6 +119,16 @@ namespace Better_Work_Tab.UI
                         Find.WindowStack.Add(new Dialog_ModSettings(mod));
                 }
             }
+        }
+
+        private PawnTable GetPawnTable()
+        {
+            Log.Message($"[BetterWorkTab] GetPawnTable: Attempting to retrieve PawnTable via reflection."); // NEW LOG
+            // Get the 'table' field from the base class (MainTabWindow_PawnTable) using reflection
+            var field = typeof(MainTabWindow_PawnTable).GetField("table", BindingFlags.NonPublic | BindingFlags.Instance);
+            PawnTable table = (PawnTable)field.GetValue(this);
+            Log.Message($"[BetterWorkTab] GetPawnTable: Retrieved PawnTable is null: {table == null}");
+            return table;
         }
 
         /// <summary>
