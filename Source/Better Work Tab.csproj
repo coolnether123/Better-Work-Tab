@@ -66,6 +66,9 @@
     <Compile Include="Features\Patches\ShiftHelper.cs" />
     <Compile Include="DragDrop\DragSession.cs" />
     <Compile Include="DragDrop\WorkTabDragPatch.cs" />
+    <Compile Include="PawnOrganizer\API\WorkTabRowColumnAPI.cs" />
+    <Compile Include="PawnOrganizer\Data\PawnOrganizerData.cs" />
+    <Compile Include="PawnOrganizer\PawnOrganizerSystem.cs" />
     <Compile Include="Mod Support\Multiplayer\WorkColumnOrderSync.cs" />
     <Compile Include="UI\VerticalLabels\MainTabWindow_BetterWork.cs" />
     <Compile Include="Features\WorkColumnOrderManager.cs" />
