@@ -22,6 +22,12 @@ namespace Better_Work_Tab.UI
         private float _maxHeight = -1f;
         private static bool _pendingWindowSnap;
 
+        public override void PreOpen()
+        {
+            base.PreOpen();
+            _pendingWindowSnap = true;
+        }
+
 
         public override void DoWindowContents(Rect inRect)
         {
@@ -32,6 +38,11 @@ namespace Better_Work_Tab.UI
             }
 
             Vector2 tableOrigin = new Vector2(inRect.x, inRect.y + ExtraTopSpace);
+
+            if (Event.current.type != EventType.Repaint)
+            {
+                pawnTable.PawnTableOnGUI(tableOrigin);
+            }
 
             var organizer = PawnOrganizerSystem.Instance;
             organizer?.UpdateState(pawnTable, tableOrigin);
