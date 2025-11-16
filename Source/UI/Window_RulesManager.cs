@@ -62,7 +62,7 @@ namespace Better_Work_Tab.UI
         {
             get
             {
-                return CurrentRuleset.Rules;
+                return CurrentRuleset?.Rules ?? new List<WorkAssignmentRule>();
             }
         }
         WorkAssignmentRule SelectedRule;
@@ -429,6 +429,11 @@ namespace Better_Work_Tab.UI
         void DoRulesetRulesListing(Rect midRect)
         {
 
+            if (CurrentRuleset == null)
+            {
+                return;
+            }
+
             Rect rect = midRect;
             rect.y = midRect.yMax - 24f;
             rect.height = 24f;
@@ -497,9 +502,9 @@ namespace Better_Work_Tab.UI
                 Rect rect5 = rect4;
                 rect5.x += 10f;
                 num2 += 32f;
-                if (SelectedRule == null)
+                if (SelectedRule == null && CurrentRuleset?.Rules?.Any() == true)
                 {
-                    SelectedRule = RulesetRules.Any() ? RulesetRules.First() : null;
+                    SelectedRule = CurrentRuleset.Rules.First();
                 }
                 if (SelectedRule == item)
                 {
@@ -659,7 +664,7 @@ namespace Better_Work_Tab.UI
 
                     if (item != null && !item.IsDefault)
                     {
-                        DoDeleteButton(rect4);
+                        DoDeleteButton(rect4, item);
                     }
 
                     if (Widgets.ButtonInvisible(rect4))
@@ -678,7 +683,7 @@ namespace Better_Work_Tab.UI
             Widgets.EndScrollView();
         }
 
-        private void DoDeleteButton(Rect rect4)
+        private void DoDeleteButton(Rect rect4, WorkAssignmentRuleset ruleset)
         {
             Rect rect6 = new Rect(rect4);
             rect6.width = 24f;
@@ -689,55 +694,40 @@ namespace Better_Work_Tab.UI
 
             if (Widgets.ButtonImage(rect6, TexButton.Delete))
             {
-                Log.Message("Here 1");
-
-                
-            Log.Message("Here 2");
-
-                Find.WindowStack.Add(new Dialog_Confirm("Really delete " + CurrentRuleset.Name + "?", () =>
-                {
-            Log.Message("Here 3");
-
-                    var rulesets = BetterWorkTabMod.Settings.SavedRulesets;
-                    if (rulesets.Count == 0)
-                    {
-                        return;
-                    }
-                    var count = rulesets.Count;
-                    WorkAssignmentRuleset ruleset = null;
-            Log.Message("Here 4");
-                    if (CurrentRuleset == null)
-                    {
-                        Log.Message("here 4.1");
-                        //Don't bother with anything if there's no current ruleset
-                        return;
-                    }
-
-                    if (count > rulesets.IndexOf(CurrentRuleset) + 1)
-                    {
-                        Log.Message("+1 : " + (rulesets.IndexOf(CurrentRuleset) + 1));
-
-                        ruleset = rulesets[rulesets.IndexOf(CurrentRuleset) + 1];
-                    }
-                    else if (count > rulesets.IndexOf(CurrentRuleset) - 1 && rulesets.IndexOf(CurrentRuleset) - 1 > 0)
-                    {
-                        Log.Message("-1 : " + (rulesets.IndexOf(CurrentRuleset) - 1));
-
-                        ruleset = rulesets[rulesets.IndexOf(CurrentRuleset) - 1];
-                    }
-                    Log.Message("Here 5");
-
-                    BetterWorkTabMod.Settings.SavedRulesets.Remove(CurrentRuleset);
-                    Log.Message("Here 5.1");
-
-                    ruleNameBuffer = ruleset!=null?ruleset.Name : "";
-                    Log.Message("Here 5.2");
-                    BetterWorkTabMod.Settings.CurrentRuleset = ruleset;
-            Log.Message("Here 6");
-                }));
-
+                Find.WindowStack.Add(new Dialog_Confirm($"Really delete {ruleset.Name}?", () => DeleteRuleset(ruleset)));
             }
 
+        }
+
+        private void DeleteRuleset(WorkAssignmentRuleset rulesetToDelete)
+        {
+            var rulesets = Settings.SavedRulesets;
+            if (rulesetToDelete == null || rulesets == null || !rulesets.Contains(rulesetToDelete))
+            {
+                return;
+            }
+
+            int currentIndex = rulesets.IndexOf(rulesetToDelete);
+            rulesets.RemoveAt(currentIndex);
+
+            if (Settings.CurrentRuleset == rulesetToDelete)
+            {
+                if (currentIndex < rulesets.Count)
+                {
+                    Settings.CurrentRuleset = rulesets[currentIndex];
+                }
+                else if (rulesets.Count > 0)
+                {
+                    Settings.CurrentRuleset = rulesets.Last();
+                }
+                else
+                {
+                    Settings.CurrentRuleset = null;
+                }
+            }
+
+            ruleNameBuffer = Settings.CurrentRuleset?.Name ?? "";
+            SelectedRule = Settings.CurrentRuleset?.Rules?.FirstOrDefault() ?? null;
         }
 
         public override void PostClose()
