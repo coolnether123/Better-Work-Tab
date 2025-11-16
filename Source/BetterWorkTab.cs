@@ -45,7 +45,8 @@ namespace Better_Work_Tab
                 Log.Error($"[Better Work Tab] Harmony failed: {ex}");
             }
 
-            new PawnOrganizerSystem(); // Initialize singleton
+            Settings = GetSettings<BetterWorkTabSettings>();
+            new PawnOrganizerSystem(Settings.ColumnStateManager); // Initialize singleton with ColumnStateManager
 
             // Ensure game component exists and check for worklist
             LongEventHandler.ExecuteWhenFinished(() =>
