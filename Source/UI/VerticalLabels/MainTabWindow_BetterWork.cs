@@ -182,7 +182,10 @@ namespace Better_Work_Tab.UI
 
             Color fill = divider.DividerColor;
             Widgets.DrawBoxSolid(rowRect, fill);
-            Widgets.DrawBox(rowRect, 1);
+            if (BetterWorkTabMod.Settings.drawDividerHighlight)
+            {
+                Widgets.DrawBox(rowRect, 1);
+            }
 
             float nameColumnOffset = GetNameColumnOffset(layout);
             Rect labelRect = new Rect(
@@ -195,9 +198,10 @@ namespace Better_Work_Tab.UI
                 Widgets.ButtonInvisible(labelRect);
 
             Text.Anchor = TextAnchor.MiddleLeft;
-            Text.Font = GameFont.Small;
+            Text.Font = GetFontForDividerHeight(row.Height);
             Widgets.Label(labelRect, divider.DividerName ?? "Divider");
             Text.Anchor = TextAnchor.UpperLeft;
+            Text.Font = GameFont.Small; // Reset to default
 
             if (clicked)
             {
@@ -213,6 +217,19 @@ namespace Better_Work_Tab.UI
             {
                 PawnOrganizerSystem.Instance?.Layout.RemoveDivider(divider);
             }
+        }
+
+        private GameFont GetFontForDividerHeight(float height)
+        {
+            if (height < 12f)
+            {
+                return GameFont.Tiny;
+            }
+            if (height < 22f)
+            {
+                return GameFont.Small;
+            }
+            return GameFont.Medium;
         }
 
         private void OpenDividerEditor(PawnDivider divider)
