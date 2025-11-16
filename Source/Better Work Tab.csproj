@@ -40,7 +40,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="BetterWorkTab.cs" />
-    <Compile Include="DragDrop\DragDropHandler.cs" />
+    <Compile Include="DragDrop\ColumnDragController.cs" />
     <Compile Include="Features\Rules\AssignmentValidationResult.cs" />
     <Compile Include="Features\Rules\Validators\AssignmentConstraintsValidator.cs" />
     <Compile Include="Features\Rules\Validators\BiologicalValidator.cs" />
@@ -52,7 +52,7 @@
     <Compile Include="Features\Rules\WorkAssignmentRule.cs" />
     <Compile Include="Features\Rules\WorkAssignmentParameters.cs" />
     <Compile Include="Features\WorkExecutionOrder.cs" />
-    <Compile Include="Features\Workloads\GameComponent_WorkloadSaver.cs" />
+    <Compile Include="Features\Workloads\GameComponent_BWTWorldSettings.cs" />
     <Compile Include="Features\Workloads\Worklist.cs" />
     <Compile Include="Features\Workloads\WorkloadNamers.cs" />
     <Compile Include="Features\Workloads\PawnWorkload.cs" />
@@ -64,13 +64,16 @@
     <Compile Include="Features\Patches\Patch_WorkPriority_DoCell_ReplaceNumber.cs" />
     <Compile Include="Features\Patches\PawnTable_HighlightRowAndColumn.cs" />
     <Compile Include="Features\Patches\ShiftHelper.cs" />
-    <Compile Include="DragDrop\DragSession.cs" />
-    <Compile Include="DragDrop\WorkTabDragPatch.cs" />
+
+    <Compile Include="DragDrop\RowDragController.cs" />
+    <Compile Include="PawnOrganizer\API\IWorkTabLayoutController.cs" />
     <Compile Include="PawnOrganizer\API\PawnColorDatabase.cs" />
     <Compile Include="PawnOrganizer\API\PawnRowColorizer.cs" />
-    <Compile Include="PawnOrganizer\API\WorkTabRowColumnAPI.cs" />
     <Compile Include="PawnOrganizer\Data\GameComponent_PawnColors.cs" />
     <Compile Include="PawnOrganizer\Data\PawnOrganizerData.cs" />
+    <Compile Include="PawnOrganizer\Layout\WorkTabLayoutColumn.cs" />
+    <Compile Include="PawnOrganizer\Layout\WorkTabLayoutController.cs" />
+    <Compile Include="PawnOrganizer\Layout\WorkTabLayoutRow.cs" />
     <Compile Include="PawnOrganizer\PawnOrganizerSystem.cs" />
     <Compile Include="Mod Support\Multiplayer\WorkColumnOrderSync.cs" />
     <Compile Include="UI\VerticalLabels\MainTabWindow_BetterWork.cs" />
@@ -81,6 +84,7 @@
     <Compile Include="Spine\UI\ColorPicker\RecentColours.cs" />
     <Compile Include="Spine\UI\ColorPicker\TextField.cs" />
     <Compile Include="Spine\UI\Widgets\SpineWidgets.cs" />
+    <Compile Include="UI\Dialog_EditDivider.cs" />
     <Compile Include="UI\BetterWorkTabSettingsUI.cs" />
     <Compile Include="UI\Window_RulesManager.cs" />
     <Compile Include="UI\Dialog_RenameGeneric.cs" />
