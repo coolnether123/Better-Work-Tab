@@ -1,3 +1,4 @@
+using System.Linq;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.PawnOrganizer.Data;
@@ -12,26 +13,32 @@ namespace Better_Work_Tab.DragDrop
     /// </summary>
     public class RowDragController
     {
+        private readonly IWorkTabLayoutController _layout;
         private DisplayElement _draggedElement;
         private WorkTabLayoutRow _rowSnapshot;
         private float _dragOffsetY;
         private Vector2 _mouse;
         private int _targetIndex = -1;
 
+        public RowDragController(IWorkTabLayoutController layout)
+        {
+            _layout = layout;
+        }
+
         public bool IsDragging => _draggedElement != null;
 
-        public void HandleInput(Event evt, IWorkTabLayoutController layout)
+        public void HandleInput(Event evt)
         {
-            if (layout?.Table == null || evt == null)
+            if (_layout?.Table == null || evt == null)
             {
                 return;
             }
 
             if (evt.type == EventType.MouseDown && evt.button == 0 && evt.control)
             {
-                if (layout.TryGetRowAt(evt.mousePosition, out var row))
+                if (_layout.TryGetRowAt(evt.mousePosition, out var row))
                 {
-                    BeginDrag(layout, row, evt.mousePosition);
+                    BeginDrag(row, evt.mousePosition);
                     evt.Use();
                 }
                 return;
@@ -45,12 +52,12 @@ namespace Better_Work_Tab.DragDrop
             if (evt.type == EventType.MouseDrag)
             {
                 _mouse = evt.mousePosition;
-                UpdateInsertionIndex(layout, evt.mousePosition);
+                UpdateInsertionIndex(evt.mousePosition);
                 evt.Use();
             }
             else if (evt.type == EventType.MouseUp)
             {
-                layout.MoveElement(_draggedElement, _targetIndex >= 0 ? _targetIndex : _rowSnapshot.VisualIndex);
+                Commit();
                 Reset();
                 evt.Use();
             }
@@ -91,25 +98,25 @@ namespace Better_Work_Tab.DragDrop
             }
         }
 
-        private void BeginDrag(IWorkTabLayoutController layout, WorkTabLayoutRow row, Vector2 mousePosition)
+        private void BeginDrag(WorkTabLayoutRow row, Vector2 mousePosition)
         {
             _draggedElement = row.Element;
             _rowSnapshot = row;
             _mouse = mousePosition;
-            var rect = layout.GetScreenRect(row);
+            var rect = _layout.GetScreenRect(row);
             _dragOffsetY = mousePosition.y - rect.y;
             _targetIndex = row.VisualIndex;
         }
 
-        private void UpdateInsertionIndex(IWorkTabLayoutController layout, Vector2 mousePosition)
+        private void UpdateInsertionIndex(Vector2 mousePosition)
         {
-            float headerTop = layout.TableOrigin.y + layout.HeaderHeight;
-            float contentY = mousePosition.y - headerTop + layout.Table.scrollPosition.y;
+            float headerTop = _layout.TableOrigin.y + _layout.HeaderHeight;
+            float contentY = mousePosition.y - headerTop + _layout.Table.scrollPosition.y;
 
-            int newIndex = layout.Rows.Count;
-            for (int i = 0; i < layout.Rows.Count; i++)
+            int newIndex = _layout.Rows.Count;
+            for (int i = 0; i < _layout.Rows.Count; i++)
             {
-                var candidate = layout.Rows[i];
+                var candidate = _layout.Rows[i];
                 if (contentY < candidate.OffsetY + candidate.Height * 0.5f)
                 {
                     newIndex = i;
@@ -120,9 +127,9 @@ namespace Better_Work_Tab.DragDrop
             {
                 newIndex = 0;
             }
-            else if (newIndex > layout.Rows.Count)
+            else if (newIndex > _layout.Rows.Count)
             {
-                newIndex = layout.Rows.Count;
+                newIndex = _layout.Rows.Count;
             }
             _targetIndex = newIndex;
         }
@@ -141,6 +148,56 @@ namespace Better_Work_Tab.DragDrop
             }
 
             return layout.GetScreenRect(layout.Rows[targetIndex]).y;
+        }
+
+        private void Commit()
+        {
+            if (!IsDragging || _layout?.Rows == null)
+            {
+                return;
+            }
+
+            var ordered = _layout.Rows.OrderBy(r => r.VisualIndex).ToList();
+            int currentIndex = ordered.FindIndex(r => ReferenceEquals(r.Element, _draggedElement));
+            if (currentIndex < 0)
+            {
+                return;
+            }
+
+            var row = ordered[currentIndex];
+            ordered.RemoveAt(currentIndex);
+
+            int insertIndex = Mathf.Clamp(_targetIndex, 0, ordered.Count);
+            if (insertIndex >= ordered.Count)
+            {
+                ordered.Add(row);
+            }
+            else
+            {
+                ordered.Insert(insertIndex, row);
+            }
+
+            for (int i = 0; i < ordered.Count; i++)
+            {
+                if (ordered[i].Pawn != null)
+                {
+                    var settings = ordered[i].Pawn.playerSettings;
+                    if (settings != null)
+                    {
+                        settings.displayOrder = i;
+                    }
+                }
+                else if (ordered[i].Divider != null)
+                {
+                    ordered[i].Divider.DisplayOrder = i;
+                }
+            }
+
+            MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+            if (Find.ColonistBar != null)
+            {
+                Find.ColonistBar.MarkColonistsDirty();
+            }
         }
 
         private static void DrawDividerGhostLabel(Rect rect, PawnDivider divider)

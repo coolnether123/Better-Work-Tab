@@ -46,7 +46,6 @@ namespace Better_Work_Tab
             }
 
             Settings = GetSettings<BetterWorkTabSettings>();
-            new PawnOrganizerSystem(Settings.ColumnStateManager); // Initialize singleton with ColumnStateManager
 
             // Ensure game component exists and check for worklist
             LongEventHandler.ExecuteWhenFinished(() =>
