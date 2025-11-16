@@ -112,7 +112,23 @@ namespace Better_Work_Tab.Features.Rules
             Scribe_Values.Look(ref Gender, "Gender");
             Scribe_Values.Look(ref IsPregnant, "IsPregnant");
             Scribe_Defs.Look(ref Xenotype, "Xenotype");
-            Scribe_Values.Look(ref RequiredTrait, "RequiredTrait");
+
+            TraitDef requiredTraitDef = RequiredTrait?.Item1;
+            int requiredTraitDegree = RequiredTrait?.Item2 ?? -1;
+            Scribe_Defs.Look(ref requiredTraitDef, "RequiredTraitDef");
+            Scribe_Values.Look(ref requiredTraitDegree, "RequiredTraitDegree", -1);
+
+            if (Scribe.mode == LoadSaveMode.LoadingVars || Scribe.mode == LoadSaveMode.PostLoadInit)
+            {
+                if (requiredTraitDef != null && requiredTraitDegree >= 0)
+                {
+                    RequiredTrait = new Tuple<TraitDef, int>(requiredTraitDef, requiredTraitDegree);
+                }
+                else
+                {
+                    RequiredTrait = null;
+                }
+            }
             Scribe_Values.Look(ref IsNaturalAlwaysAssign, "IsNaturalAlwaysAssign");
             Scribe_Values.Look(ref IsCapableOfViolence, "IsCapableOfViolence");
             Scribe_Values.Look(ref AllowOverwritingHigherPriority, "AllowOverwritingHigherPriority");

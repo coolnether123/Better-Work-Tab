@@ -60,7 +60,7 @@ namespace Better_Work_Tab.UI
             Rect resetButRect = new Rect(inRect.width - butW - 29f, 0f, butW, butH);
             if (Widgets.ButtonText(resetButRect, "Reset Defaults"))
             {
-                Find.WindowStack.Add(new Dialog_Confirm("Really Restore ALL Defaults?", s.ResoreDefaultes));
+                Find.WindowStack.Add(new Dialog_Confirm("Really Restore ALL Defaults?", s.RestoreDefaults));
             }
         }
 
