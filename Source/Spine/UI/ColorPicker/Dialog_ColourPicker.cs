@@ -805,6 +805,7 @@ namespace Spine.UI.ColourPicker {
         {
             base.PostClose();
             onPostClose?.Invoke();
+            DisposeGeneratedTextures();
         }
 
         public void PickerAction(Vector2 pos)
@@ -855,9 +856,32 @@ namespace Spine.UI.ColourPicker {
             _alphaPosition = (1f - A) / UnitsPerPixel;
         }
 
+        private void DisposeGeneratedTextures()
+        {
+            DestroyTexture(ref _colourPickerBG);
+            DestroyTexture(ref _huePickerBG);
+            DestroyTexture(ref _alphaPickerBG);
+            DestroyTexture(ref _tempPreviewBG);
+            DestroyTexture(ref _previewBG);
+            DestroyTexture(ref _pickerAlphaBG);
+            DestroyTexture(ref _sliderAlphaBG);
+            DestroyTexture(ref _previewAlphaBG);
+        }
+
+        private static void DestroyTexture(ref Texture2D tex)
+        {
+            if (tex == null)
+            {
+                return;
+            }
+
+            Object.Destroy(tex);
+            tex = null;
+        }
+
         private void SwapTexture(ref Texture2D tex, Texture2D newTex)
         {
-            Object.Destroy(tex);
+            DestroyTexture(ref tex);
             tex = newTex;
         }
 

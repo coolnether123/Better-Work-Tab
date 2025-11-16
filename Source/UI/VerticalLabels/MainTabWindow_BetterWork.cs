@@ -20,6 +20,7 @@ namespace Better_Work_Tab.UI
         private int _lastPawnCount = -1;
         private int _lastDividerCount = -1;
         private float _maxHeight = -1f;
+        private static bool _pendingWindowSnap;
 
 
         public override void DoWindowContents(Rect inRect)
@@ -40,11 +41,12 @@ namespace Better_Work_Tab.UI
                 int currentPawnCount = pawnTable.PawnsListForReading.Count;
                 int currentDividerCount = organizer.CurrentWorklist?.Dividers?.Count ?? 0;
 
-                if (_lastPawnCount != currentPawnCount || _lastDividerCount != currentDividerCount)
+                if (_pendingWindowSnap || _lastPawnCount != currentPawnCount || _lastDividerCount != currentDividerCount)
                 {
                     EnsureWindowRectMatchesContent(organizer.Layout);
                     _lastPawnCount = currentPawnCount;
                     _lastDividerCount = currentDividerCount;
+                    _pendingWindowSnap = false;
                 }
             }
 
@@ -64,6 +66,11 @@ namespace Better_Work_Tab.UI
             var gearRect = GetInfoIconRect(inRect);
             DrawBottomRightButtons(inRect, gearRect);
             DrawInfoButton(gearRect);
+        }
+
+        internal static void FlagWindowSnap()
+        {
+            _pendingWindowSnap = true;
         }
 
         private void DrawWorkTable(PawnTable table, IWorkTabLayoutController layout, Rect inRect)
