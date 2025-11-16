@@ -7,9 +7,9 @@ using Verse;
 
 namespace Better_Work_Tab.Features.Workloads
 {
-    internal class GameComponent_WorkloadSaver : GameComponent
+    internal class GameComponent_BWTWorldSettings : GameComponent
     {
-        public GameComponent_WorkloadSaver(Game game)
+        public GameComponent_BWTWorldSettings(Game game)
         {
             // Ensure CurrentWorklist is initialized if it's null after loading
             if (CurrentWorklist == null)

@@ -52,7 +52,7 @@ namespace Better_Work_Tab
             {
                 if (Current.Game != null)
                 {
-                    var component = Current.Game.GetComponent<GameComponent_WorkloadSaver>();
+                    var component = Current.Game.GetComponent<GameComponent_BWTWorldSettings>();
                     if (component?.CurrentWorklist == null)
                     {
                         Log.Warning("[BetterWorkTab] No current worklist on startup. Create one in the Work tab.");
