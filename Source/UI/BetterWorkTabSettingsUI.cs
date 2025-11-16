@@ -32,6 +32,9 @@ namespace Better_Work_Tab.UI
             SpineWidgets.LS_ChooseFromEnum<BetterWorkTabSettings.ShowUIMode>(l, "Show Small Skill Numbers", s, nameof(s.ShowUIMode_ShowSmallSkillNumbers));
             SpineWidgets.LS_ChooseFromEnum<BetterWorkTabSettings.ShowUIMode>(l, "Show Pawn for Skill Square", s, nameof(s.ShowUIMode_ShowPawnForSkillSquare));
             
+            DrawDividerHeightSlider(l, s);
+            l.CheckboxLabeled("Draw Divider Highlight", ref s.drawDividerHighlight, "Whether to draw a white highlight around the dividers.");
+            
             //public enum ShowUIMode { Always, Never, Shifted, Unshifted }
         //ShowUIMode_ShowSmallSkillNumbers = ShowUIMode.Unshifted;
         //public ShowUIMode ShowUIMode_ShowPawnForSkillSquare = ShowUIMode.Shifted;
@@ -64,6 +67,17 @@ namespace Better_Work_Tab.UI
         private static void DrawRulesUI(Listing_Standard listing, BetterWorkTabSettings s)
         {
 
+        }
+
+        private static void DrawDividerHeightSlider(Listing_Standard l, BetterWorkTabSettings s)
+        {
+            var row = l.GetRect(RowHeight);
+            Widgets.Label(new Rect(row.x, row.y, LabelWidth, row.height), "Divider Height");
+            var sliderRect = new Rect(row.x + LabelWidth + LabelSliderGap, row.y + (row.height - SliderHeight) / 2, row.width - LabelWidth - LabelSliderGap, SliderHeight);
+            var cur = Mathf.Clamp(s.dividerHeight, 1f, 30f);
+            float v = Widgets.HorizontalSlider(sliderRect, cur, 1f, 30f, middleAlignment: true);
+            TooltipHandler.TipRegion(sliderRect, "The height of the dividers in the work tab.");
+            s.dividerHeight = Mathf.Round(v);
         }
 
         private static void IntAdjust(ref int val, int min, int max, Rect row)
