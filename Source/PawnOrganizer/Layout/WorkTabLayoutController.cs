@@ -24,6 +24,8 @@ namespace Better_Work_Tab.PawnOrganizer
         private readonly List<WorkTabLayoutColumn> _columns = new List<WorkTabLayoutColumn>();
         private readonly List<DisplayElement> _workingElements = new List<DisplayElement>();
 
+        private readonly Persistence.ColumnStateManager _columnStateManager;
+
         private Worklist _worklist;
         private PawnTable _table;
         private Vector2 _origin;
@@ -37,6 +39,11 @@ namespace Better_Work_Tab.PawnOrganizer
         public float HeaderHeight => _table?.cachedHeaderHeight ?? 0f;
         public float DividerHeight => BetterWorkTabMod.Settings.dividerHeight;
         public PawnTable Table => _table;
+
+        public WorkTabLayoutController(Persistence.ColumnStateManager columnStateManager)
+        {
+            _columnStateManager = columnStateManager;
+        }
 
         public void Rebuild(PawnTable table, Worklist worklist, Vector2 origin)
         {
@@ -202,9 +209,11 @@ namespace Better_Work_Tab.PawnOrganizer
 
             for (int i = 0; i < columns.Count; i++)
             {
-                float width = (i == columns.Count - 1)
+                float defaultWidth = (i == columns.Count - 1)
                     ? Mathf.Max(0f, _rowWidth - usedWidth)
                     : _table.cachedColumnWidths[i];
+
+                float width = _columnStateManager.GetColumnWidth(columns[i], defaultWidth);
 
                 var headerRect = new Rect(currentX, _origin.y, width, HeaderHeight);
                 _columns.Add(new WorkTabLayoutColumn(columns[i], headerRect, currentX - _origin.x, width));
