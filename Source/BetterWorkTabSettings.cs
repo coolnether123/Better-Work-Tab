@@ -1,7 +1,6 @@
 ﻿using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.Rules;
 using Better_Work_Tab.Features.Workloads;
-using Better_Work_Tab.Persistence;
 using RimWorld;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,8 +13,14 @@ using LudeonTK;
 
 namespace Better_Work_Tab
 {
+    [StaticConstructorOnStartup]
     static class DefaultSettings
     {
+        static DefaultSettings()
+        {
+            DefOfHelper.EnsureInitializedInCtor(typeof(WorkTypeDefOf));
+        }
+
         public static bool enableSkillOverlayFeature = true;
         public static bool enableAutoAssignFeature = true;
         public static List<string> workColumnOrderDefNames = new List<string>();
@@ -128,10 +133,7 @@ namespace Better_Work_Tab
         public float dividerHeight = DefaultSettings.dividerHeight;
         public bool drawDividerHighlight = DefaultSettings.drawDividerHighlight;
         public List<string> workColumnOrderDefNames = new List<string>();
-
-        // NEW: Persistence systems
-        public Persistence.ColumnStateManager ColumnStateManager = new Persistence.ColumnStateManager();
-        public Persistence.RowHeightPersistence RowHeightPersistence = new Persistence.RowHeightPersistence();
+        public Dictionary<string, float> storedColumnWidths = new Dictionary<string, float>();
 
         // This sets the baseline priority for work types not handled by specific rules (0 = leave unchanged)
 
@@ -237,13 +239,14 @@ namespace Better_Work_Tab
             // Load from save
             Scribe_Collections.Look(ref SavedRulesets, "SavedRulesets", LookMode.Deep);
             
-            // NEW: Save/load feature states
-            Scribe_Deep.Look(ref ColumnStateManager, "columnStateManager");
-            Scribe_Deep.Look(ref RowHeightPersistence, "rowHeightPersistence");
-            
             // Reinitialize after load if needed
             InitializeRulesets();
             Scribe_Collections.Look(ref workColumnOrderDefNames, "workColumnOrderDefNames", LookMode.Value);
+            Scribe_Collections.Look(ref storedColumnWidths, "storedColumnWidths", LookMode.Value, LookMode.Value);
+            if (storedColumnWidths == null)
+            {
+                storedColumnWidths = new Dictionary<string, float>();
+            }
         }
 
         public void RestoreDefaults()
