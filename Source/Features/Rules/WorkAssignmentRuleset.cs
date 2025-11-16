@@ -19,6 +19,23 @@ namespace Better_Work_Tab.Features
         public bool ResetBeforeApplying = true;
         public List<WorkAssignmentRule> Rules = new List<WorkAssignmentRule>();
         public bool IsDefault = false;
+        private static List<WorkTypeDef> cachedWorkTypes;
+
+        private static List<WorkTypeDef> CachedWorkTypes
+        {
+            get
+            {
+                if (cachedWorkTypes == null || cachedWorkTypes.Count == 0)
+                {
+                    cachedWorkTypes = DefDatabase<WorkTypeDef>.AllDefsListForReading
+                        .OrderByDescending(wt => wt.naturalPriority)
+                        .ToList();
+                    cachedWorkTypes.RemoveDuplicates();
+                }
+
+                return cachedWorkTypes;
+            }
+        }
         public WorkAssignmentRuleset() { }
 
         public WorkAssignmentRuleset(string rulesetName, List<WorkAssignmentParameters> parameters, bool resetBeforeApplying = true, bool isDefault = false)
@@ -61,8 +78,7 @@ namespace Better_Work_Tab.Features
             var pawns = map.mapPawns.FreeColonists.ToList();
             if (pawns.Count == 0) return;
 
-            var allWorkTypes = DefDatabase<WorkTypeDef>.AllDefsListForReading.OrderBy(wt => wt.naturalPriority).Reverse().ToList();
-            allWorkTypes.RemoveDuplicates();
+            var allWorkTypes = CachedWorkTypes;
 
 
             foreach (var rule in Rules)
@@ -89,7 +105,8 @@ namespace Better_Work_Tab.Features
                     foreach (var pawn in pawns)
                     {
                         if (pawn.workSettings == null) continue;
-                        bool pawnAlreadyAssigned = pawn.workSettings.GetPriority(worktype) > 0;
+                        int originalPriority = pawn.workSettings.GetPriority(worktype);
+                        bool pawnAlreadyAssigned = originalPriority > 0;
                         //// Apply all rules
                         if (rule.Apply(pawn, pawns, worktype))
                         {
@@ -97,10 +114,14 @@ namespace Better_Work_Tab.Features
                             //Apply returns true if the rest of the pawns should be skipped for this worktype
                             break;
                         }
-                        if (rule.Parameters.RandomIfMultiple && pawn.workSettings.GetPriority(worktype) > 0 && !pawnAlreadyAssigned)
+                        if (rule.Parameters.RandomIfMultiple)
                         {
-                            //this was assigned. add to list for potential randomization later.
-                            pawnsForThisWorktype.Add(pawn);
+                            int updatedPriority = pawn.workSettings.GetPriority(worktype);
+                            if (updatedPriority > 0 && !pawnAlreadyAssigned)
+                            {
+                                //this was assigned. add to list for potential randomization later.
+                                pawnsForThisWorktype.Add(pawn);
+                            }
                         }
                     }
 
@@ -117,7 +138,19 @@ namespace Better_Work_Tab.Features
                             p.workSettings.SetPriority(worktype, 0);
                         }
                         //directly ripped straight out of rimworld but what can I do? it's a mod lol.
-                        pawnsForThisWorktype.Where(p => !p.WorkTypeIsDisabled(worktype)).InRandomOrder().First().workSettings.SetPriority(worktype, rule.Parameters.Priority);
+                        List<Pawn> eligiblePawns = new List<Pawn>();
+                        foreach (var pawn in pawnsForThisWorktype)
+                        {
+                            if (!pawn.WorkTypeIsDisabled(worktype))
+                            {
+                                eligiblePawns.Add(pawn);
+                            }
+                        }
+
+                        if (eligiblePawns.Count > 0)
+                        {
+                            eligiblePawns.RandomElement().workSettings.SetPriority(worktype, rule.Parameters.Priority);
+                        }
                     }
 
                     //if (rule.Parameters.FailedToApplyFallback != null && !pawns.Where(p => { return p.workSettings.GetPriority(worktype) > 0; }).Any())
