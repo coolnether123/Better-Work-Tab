@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.PawnOrganizer.Data;
 using RimWorld;
 using UnityEngine;
@@ -40,19 +39,14 @@ namespace Better_Work_Tab.PawnOrganizer.API
         float HeaderHeight { get; }
 
         /// <summary>
-        /// Divider row height in pixels.
-        /// </summary>
-        float DividerHeight { get; }
-
-        /// <summary>
         /// Latest PawnTable instance that backed the rebuild.
         /// </summary>
         PawnTable Table { get; }
 
         /// <summary>
-        /// Rebuild row + column snapshots for the provided PawnTable/worklist combination.
+        /// Rebuild row + column snapshots for the provided PawnTable snapshot combination.
         /// </summary>
-        void Rebuild(PawnTable table, Worklist worklist, Vector2 origin);
+        void Rebuild(PawnTable table, IPawnOrganizerSnapshot snapshot, Vector2 origin);
 
         /// <summary>
         /// Hit test helper for rows in screen space.
@@ -65,25 +59,19 @@ namespace Better_Work_Tab.PawnOrganizer.API
         bool TryGetColumnAt(Vector2 mousePosition, out WorkTabLayoutColumn column);
 
         /// <summary>
-        /// Insert a new divider and rebuild layout on next frame.
+        /// Insert a new divider below the provided pawn inside the cached snapshot.
         /// </summary>
-        PawnDivider InsertDividerAfter(Pawn pawn, string label);
+        PawnDivider AddDividerAfterPawn(Pawn pawn, string label, Color color);
 
         /// <summary>
-        /// Remove the provided divider from the worklist.
+        /// Insert a new divider above the provided pawn inside the cached snapshot.
+        /// </summary>
+        PawnDivider AddDividerBeforePawn(Pawn pawn, string label, Color color);
+
+        /// <summary>
+        /// Remove the provided divider from the cached snapshot.
         /// </summary>
         void RemoveDivider(PawnDivider divider);
-
-        /// <summary>
-        /// Update divider display name.
-        /// </summary>
-        void RenameDivider(PawnDivider divider, string newLabel);
-
-        /// <summary>
-        /// Move the provided element (pawn or divider) to a visual slot.
-        /// Used by drag-and-drop handlers prior to calling Rebuild.
-        /// </summary>
-        void MoveElement(DisplayElement element, int targetIndex);
 
         /// <summary>
         /// Convert a row snapshot into a screen-space rect (after scroll).
