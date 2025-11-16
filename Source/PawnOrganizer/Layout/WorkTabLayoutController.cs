@@ -1,10 +1,10 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using Better_Work_Tab.Features.Workloads;
+using Better_Work_Tab.Features;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.PawnOrganizer.Data;
-using Better_Work_Tab.UI;
 using HarmonyLib;
 using RimWorld;
 using UnityEngine;
@@ -13,50 +13,71 @@ using Verse;
 namespace Better_Work_Tab.PawnOrganizer
 {
     /// <summary>
-    /// Concrete implementation that owns the Work tab layout snapshot and ordering logic.
+    /// Pure layout controller that converts the current pawn/divider snapshot into rows and columns.
     /// </summary>
     public class WorkTabLayoutController : IWorkTabLayoutController
     {
         private static readonly MethodInfo RecacheIfDirty =
             AccessTools.Method(typeof(PawnTable), "RecacheIfDirty");
 
+        private const float DefaultDividerHeight = 18f;
+
+        private readonly IColumnWidthStore _columnWidthStore;
         private readonly List<WorkTabLayoutRow> _rows = new List<WorkTabLayoutRow>();
         private readonly List<WorkTabLayoutColumn> _columns = new List<WorkTabLayoutColumn>();
         private readonly List<DisplayElement> _workingElements = new List<DisplayElement>();
+        private readonly List<PawnDivider> _dividerBuffer = new List<PawnDivider>();
 
-        private readonly Persistence.ColumnStateManager _columnStateManager;
+        private IReadOnlyList<Pawn> _snapshotPawns = Array.Empty<Pawn>();
+        private IList<PawnDivider> _snapshotDividers = Array.Empty<PawnDivider>();
 
-        private Worklist _worklist;
         private PawnTable _table;
         private Vector2 _origin;
         private float _contentHeight;
         private float _rowWidth;
+        private float _dividerHeight = DefaultDividerHeight;
+
+        public WorkTabLayoutController(IColumnWidthStore columnWidthStore)
+        {
+            _columnWidthStore = columnWidthStore;
+        }
 
         public IReadOnlyList<WorkTabLayoutRow> Rows => _rows;
         public IReadOnlyList<WorkTabLayoutColumn> Columns => _columns;
         public float ContentHeight => _contentHeight;
-        public Vector2 TableOrigin => _origin;
         public float HeaderHeight => _table?.cachedHeaderHeight ?? 0f;
-        public float DividerHeight => BetterWorkTabMod.Settings.dividerHeight;
+        public Vector2 TableOrigin => _origin;
         public PawnTable Table => _table;
 
-        public WorkTabLayoutController(Persistence.ColumnStateManager columnStateManager)
-        {
-            _columnStateManager = columnStateManager;
-        }
-
-        public void Rebuild(PawnTable table, Worklist worklist, Vector2 origin)
+        public void Rebuild(PawnTable table, IPawnOrganizerSnapshot snapshot, Vector2 origin)
         {
             _table = table;
-            _worklist = worklist;
             _origin = origin;
-
             _rows.Clear();
             _columns.Clear();
             _contentHeight = 0f;
             _rowWidth = 0f;
+            _dividerHeight = BetterWorkTabMod.Settings?.dividerHeight ?? DefaultDividerHeight;
 
-            if (_table == null || _worklist == null)
+            _snapshotPawns = snapshot?.Pawns
+                             ?? (table != null ? (IReadOnlyList<Pawn>)table.PawnsListForReading : Array.Empty<Pawn>())
+                             ?? Array.Empty<Pawn>();
+
+            if (snapshot?.Dividers is IList<PawnDivider> dividerList && !dividerList.IsReadOnly)
+            {
+                _snapshotDividers = dividerList;
+            }
+            else
+            {
+                _dividerBuffer.Clear();
+                if (snapshot?.Dividers != null)
+                {
+                    _dividerBuffer.AddRange(snapshot.Dividers);
+                }
+                _snapshotDividers = _dividerBuffer;
+            }
+
+            if (_table == null)
             {
                 return;
             }
@@ -117,72 +138,55 @@ namespace Better_Work_Tab.PawnOrganizer
                     return true;
                 }
             }
+
             return false;
         }
 
-        public PawnDivider InsertDividerAfter(Pawn pawn, string label)
+        public PawnDivider AddDividerAfterPawn(Pawn pawn, string label, Color color)
         {
-            if (_worklist == null || pawn == null)
+            if (pawn == null)
             {
                 return null;
             }
 
-            var divider = new PawnDivider
+            int baseOrder = pawn.playerSettings?.displayOrder ?? Rows.Count;
+            int targetOrder = baseOrder + 1;
+            ShiftDisplayOrdersFrom(targetOrder);
+            return CreateDivider(label, color, targetOrder);
+        }
+
+        public PawnDivider AddDividerBeforePawn(Pawn pawn, string label, Color color)
+        {
+            if (pawn == null)
             {
-                DividerName = label ?? "Divider",
-                DividerColor = Color.gray,
-                DisplayOrder = (pawn.playerSettings?.displayOrder ?? _rows.Count) + 1
-            };
-            _worklist.Dividers.Add(divider);
-            return divider;
+                return null;
+            }
+
+            int targetOrder = pawn.playerSettings?.displayOrder ?? 0;
+            ShiftDisplayOrdersFrom(targetOrder);
+            return CreateDivider(label, color, targetOrder);
         }
 
         public void RemoveDivider(PawnDivider divider)
         {
-            if (divider == null || _worklist == null)
+            if (divider == null || _snapshotDividers == null)
             {
                 return;
             }
 
-            _worklist.Dividers.Remove(divider);
-        }
-
-        public void RenameDivider(PawnDivider divider, string newLabel)
-        {
-            if (divider == null || newLabel == null)
-            {
-                return;
-            }
-            divider.DividerName = newLabel.Trim();
-        }
-
-        public void MoveElement(DisplayElement element, int targetIndex)
-        {
-            if (_table == null || element == null)
+            if (_snapshotDividers.IsReadOnly)
             {
                 return;
             }
 
-            var ordered = BuildOrderedElements();
-            int currentIndex = ordered.FindIndex(e => IsSameElement(e, element));
-            if (currentIndex == -1)
+            for (int i = _snapshotDividers.Count - 1; i >= 0; i--)
             {
-                return;
+                if (ReferenceEquals(_snapshotDividers[i], divider))
+                {
+                    _snapshotDividers.RemoveAt(i);
+                    break;
+                }
             }
-
-            targetIndex = Mathf.Clamp(targetIndex, 0, ordered.Count);
-            var item = ordered[currentIndex];
-            ordered.RemoveAt(currentIndex);
-            if (targetIndex >= ordered.Count)
-            {
-                ordered.Add(item);
-            }
-            else
-            {
-                ordered.Insert(targetIndex, item);
-            }
-
-            ApplyDisplayOrder(ordered);
         }
 
         public Rect GetScreenRect(WorkTabLayoutRow row)
@@ -213,7 +217,7 @@ namespace Better_Work_Tab.PawnOrganizer
                     ? Mathf.Max(0f, _rowWidth - usedWidth)
                     : _table.cachedColumnWidths[i];
 
-                float width = _columnStateManager.GetColumnWidth(columns[i], defaultWidth);
+                float width = _columnWidthStore?.GetWidth(columns[i], defaultWidth) ?? defaultWidth;
 
                 var headerRect = new Rect(currentX, _origin.y, width, HeaderHeight);
                 _columns.Add(new WorkTabLayoutColumn(columns[i], headerRect, currentX - _origin.x, width));
@@ -234,19 +238,16 @@ namespace Better_Work_Tab.PawnOrganizer
                 var element = ordered[i];
                 float height;
 
-                var pawnElement = element as PawnElement;
-                if (pawnElement != null)
+                if (element is PawnElement pawnElement)
                 {
-                    float rowHeight;
-                    if (!pawnHeights.TryGetValue(pawnElement.Pawn, out rowHeight))
+                    if (!pawnHeights.TryGetValue(pawnElement.Pawn, out height))
                     {
-                        rowHeight = 30f;
+                        height = 30f;
                     }
-                    height = rowHeight;
                 }
                 else
                 {
-                    height = DividerHeight;
+                    height = _dividerHeight;
                 }
 
                 _rows.Add(new WorkTabLayoutRow(element, _contentHeight, height, i));
@@ -257,23 +258,30 @@ namespace Better_Work_Tab.PawnOrganizer
         private Dictionary<Pawn, float> CachePawnRowHeights()
         {
             var dict = new Dictionary<Pawn, float>();
+            if (_table?.cachedPawns == null)
+            {
+                return dict;
+            }
+
+            var cachedHeights = _table.cachedRowHeights;
             for (int i = 0; i < _table.cachedPawns.Count; i++)
             {
-                float height = (i < _table.cachedRowHeights.Count)
-                    ? _table.cachedRowHeights[i]
+                float height = (cachedHeights != null && i < cachedHeights.Count)
+                    ? cachedHeights[i]
                     : 30f;
                 dict[_table.cachedPawns[i]] = height;
             }
+
             return dict;
         }
 
         private List<DisplayElement> BuildOrderedElements()
         {
             _workingElements.Clear();
-            _workingElements.AddRange(_table.cachedPawns.Select(p => new PawnElement(p)));
-            if (_worklist != null)
+            _workingElements.AddRange(_snapshotPawns.Select(p => new PawnElement(p)));
+            if (_snapshotDividers != null)
             {
-                _workingElements.AddRange(_worklist.Dividers.Select(d => new DividerElement(d)));
+                _workingElements.AddRange(_snapshotDividers.Select(d => new DividerElement(d)));
             }
 
             return _workingElements
@@ -282,46 +290,52 @@ namespace Better_Work_Tab.PawnOrganizer
                 .ToList();
         }
 
-        private static bool IsSameElement(DisplayElement a, DisplayElement b)
+        private PawnDivider CreateDivider(string label, Color color, int displayOrder)
         {
-            if (a.IsDivider && b.IsDivider)
+            if (_snapshotDividers == null || _snapshotDividers.IsReadOnly)
             {
-                return ReferenceEquals(((DividerElement)a).Divider, ((DividerElement)b).Divider);
+                return null;
             }
 
-            if (!a.IsDivider && !b.IsDivider)
+            var divider = new PawnDivider
             {
-                return ReferenceEquals(((PawnElement)a).Pawn, ((PawnElement)b).Pawn);
-            }
+                DividerName = string.IsNullOrWhiteSpace(label) ? "Divider" : label.Trim(),
+                DividerColor = color,
+                DisplayOrder = displayOrder
+            };
 
-            return false;
+            _snapshotDividers.Add(divider);
+            return divider;
         }
 
-        private void ApplyDisplayOrder(List<DisplayElement> ordered)
+        private void ShiftDisplayOrdersFrom(int targetOrder)
         {
-            for (int i = 0; i < ordered.Count; i++)
+            if (_snapshotPawns != null)
             {
-                if (ordered[i] is PawnElement pawnElement)
+                for (int i = 0; i < _snapshotPawns.Count; i++)
                 {
-                    var settings = pawnElement.Pawn.playerSettings;
-                    if (settings != null)
+                    var pawn = _snapshotPawns[i];
+                    var settings = pawn?.playerSettings;
+                    if (settings != null && settings.displayOrder >= targetOrder)
                     {
-                        settings.displayOrder = i;
+                        settings.displayOrder++;
                     }
                 }
-                else if (ordered[i] is DividerElement dividerElement)
+            }
+
+            if (_snapshotDividers == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < _snapshotDividers.Count; i++)
+            {
+                var divider = _snapshotDividers[i];
+                if (divider.DisplayOrder >= targetOrder)
                 {
-                    dividerElement.Divider.DisplayOrder = i;
+                    divider.DisplayOrder++;
                 }
             }
-
-            if (_worklist != null)
-            {
-                _worklist.Dividers.Sort((a, b) => a.DisplayOrder.CompareTo(b.DisplayOrder));
-            }
-
-            MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
-            MainTabWindow_BetterWork.FlagWindowSnap();
         }
     }
 }
