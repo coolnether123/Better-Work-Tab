@@ -12,6 +12,7 @@
     <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
+    <LangVersion>latest</LangVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -68,6 +69,7 @@
     <Compile Include="Mod Support\Multiplayer\BetterWorkTabMultiplayer.cs" />
     <Compile Include="PawnOrganizer\API\IWorkTabLayoutController.cs" />
     <Compile Include="PawnOrganizer\API\PawnColorDatabase.cs" />
+    <Compile Include="PawnOrganizer\API\PawnTextColorDatabase.cs" />
     <Compile Include="PawnOrganizer\API\PawnRowColorizer.cs" />
     <Compile Include="PawnOrganizer\Data\GameComponent_PawnColors.cs" />
     <Compile Include="PawnOrganizer\Data\PawnOrganizerData.cs" />
@@ -80,6 +82,32 @@
     <Compile Include="Features\WorkColumnOrderManager.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="BetterWorkTabSettings.cs" />
+    <Compile Include="Input\InputState.cs" />
+    <Compile Include="Input\MouseInputHandler.cs" />
+    <Compile Include="Input\KeyboardInputHandler.cs" />
+    <Compile Include="Input\InputManager.cs" />
+    <Compile Include="Selection\SelectionState.cs" />
+    <Compile Include="Selection\PawnSelectionManager.cs" />
+    <Compile Include="Sorting\SortState.cs" />
+    <Compile Include="Sorting\ColumnSortManager.cs" />
+    <Compile Include="Persistence\ColumnState.cs" />
+    <Compile Include="Persistence\ColumnStateManager.cs" />
+    <Compile Include="Persistence\RowHeightPersistence.cs" />
+    <Compile Include="VisualFeedback\AudioManager.cs" />
+    <Compile Include="VisualFeedback\TooltipManager.cs" />
+    <Compile Include="VisualFeedback\HoverEffectManager.cs" />
+    <Compile Include="VisualFeedback\RowSeparatorRenderer.cs" />
+    <Compile Include="ColumnManagement\ColumnResizeHandler.cs" />
+    <Compile Include="ColumnManagement\ColumnVisibilityManager.cs" />
+    <Compile Include="ColumnManagement\ColumnSeparatorRenderer.cs" />
+    <Compile Include="RowManagement\RowCullingManager.cs" />
+    <Compile Include="RowManagement\RowNavigationHandler.cs" />
+    <Compile Include="RowManagement\RowClickHandler.cs" />
+    <Compile Include="ContextMenu\RowContextMenuManager.cs" />
+    <Compile Include="ContextMenu\HeaderContextMenuManager.cs" />
+    <Compile Include="UI\SortIndicatorRenderer.cs" />
+    <Compile Include="UI\PawnInspectButton.cs" />
+    <Compile Include="UI\PawnMarkingRenderer.cs" />
     <Compile Include="Spine\UI\ColorPicker\Dialog_ColourPicker.cs" />
     <Compile Include="Spine\UI\ColorPicker\RecentColours.cs" />
     <Compile Include="Spine\UI\ColorPicker\TextField.cs" />

@@ -2,6 +2,13 @@ using Better_Work_Tab.Features;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.PawnOrganizer.Data;
+using Better_Work_Tab.Input;
+using Better_Work_Tab.Selection;
+using Better_Work_Tab.Sorting;
+using Better_Work_Tab.Persistence;
+using Better_Work_Tab.ColumnManagement;
+using Better_Work_Tab.RowManagement;
+using Better_Work_Tab.ContextMenu;
 using RimWorld;
 using System.Reflection;
 using UnityEngine;
@@ -15,6 +22,18 @@ namespace Better_Work_Tab.UI
     public class MainTabWindow_BetterWork : MainTabWindow_Work
     {
 
+        // Feature managers (initialized in constructor or PreOpen)
+        private Input.InputManager _inputManager;
+        private Selection.PawnSelectionManager _selectionManager;
+        private Sorting.ColumnSortManager _sortManager;
+        private Persistence.ColumnStateManager _columnStateManager;
+        private ColumnManagement.ColumnResizeHandler _resizeHandler;
+        private ColumnManagement.ColumnVisibilityManager _visibilityManager;
+        private RowManagement.RowNavigationHandler _navigationHandler;
+        private RowManagement.RowClickHandler _rowClickHandler;
+        private ContextMenu.RowContextMenuManager _rowContextMenu;
+        private ContextMenu.HeaderContextMenuManager _headerContextMenu;
+
         private const float RightEdgeMargin = 10f;
         private const float InfoIconSize = 24f;
         private int _lastPawnCount = -1;
@@ -25,7 +44,40 @@ namespace Better_Work_Tab.UI
         public override void PreOpen()
         {
             base.PreOpen();
+            InitializeManagers();
             _pendingWindowSnap = true;
+        }
+
+        private void InitializeManagers()
+        {
+            _selectionManager = new Selection.PawnSelectionManager();
+            _sortManager = new Sorting.ColumnSortManager();
+            _columnStateManager = new Persistence.ColumnStateManager();
+            _visibilityManager = new ColumnManagement.ColumnVisibilityManager(_columnStateManager);
+            _resizeHandler = new ColumnManagement.ColumnResizeHandler(_columnStateManager);
+            _navigationHandler = new RowManagement.RowNavigationHandler(_selectionManager);
+            _rowClickHandler = new RowManagement.RowClickHandler(_selectionManager);
+            _rowContextMenu = new ContextMenu.RowContextMenuManager();
+            _headerContextMenu = new ContextMenu.HeaderContextMenuManager(_visibilityManager, _sortManager);
+
+            // Get references to existing drag controllers
+            if (PawnOrganizerSystem.Instance == null)
+            {
+                new PawnOrganizerSystem(_columnStateManager); // Instantiate the singleton
+            }
+            var organizer = PawnOrganizerSystem.Instance;
+
+            _inputManager = new Input.InputManager(
+                _selectionManager,
+                _sortManager,
+                _resizeHandler,
+                _rowClickHandler,
+                _navigationHandler,
+                _visibilityManager,
+                _rowContextMenu,
+                _headerContextMenu,
+                organizer?.RowDrag,      // Pass existing drag controller
+                organizer?.ColumnDrag);  // Pass existing drag controller
         }
 
 
@@ -39,14 +91,28 @@ namespace Better_Work_Tab.UI
 
             Vector2 tableOrigin = new Vector2(inRect.x, inRect.y + ExtraTopSpace);
 
+            var organizer = PawnOrganizerSystem.Instance;
+            organizer?.UpdateState(pawnTable, tableOrigin);
+
+            // Process existing drag system input FIRST
+            if (Event.current.type != EventType.Repaint && Event.current.type != EventType.Layout)
+            {
+                organizer?.HandleInput(Event.current);
+            }
+
+            // Process new input manager input SECOND
+            if (Event.current.type != EventType.Repaint && Event.current.type != EventType.Layout)
+            {
+                _inputManager?.ProcessInput(Event.current, organizer?.Layout);
+            }
+
+            // Let vanilla handle internal state updates
             if (Event.current.type != EventType.Repaint)
             {
                 pawnTable.PawnTableOnGUI(tableOrigin);
             }
 
-            var organizer = PawnOrganizerSystem.Instance;
-            organizer?.UpdateState(pawnTable, tableOrigin);
-
+            // Window snapping logic
             if (organizer?.Layout != null)
             {
                 int currentPawnCount = pawnTable.PawnsListForReading.Count;
@@ -61,22 +127,20 @@ namespace Better_Work_Tab.UI
                 }
             }
 
-            if (Event.current.type == EventType.Layout)
-            {
-                return;
-            }
+            if (Event.current.type == EventType.Layout) return;
 
-            organizer?.HandleInput(Event.current);
-
+            // Draw UI components
             DrawManualPrioritiesCheckbox();
             DrawPriorityLegend(inRect);
-
             DrawWorkTable(pawnTable, organizer?.Layout, inRect);
             organizer?.DrawDragOverlays();
 
             var gearRect = GetInfoIconRect(inRect);
             DrawBottomRightButtons(inRect, gearRect);
             DrawInfoButton(gearRect);
+
+            // Draw resize handles
+            _resizeHandler?.DrawResizeHandles(organizer?.Layout, Event.current.mousePosition);
         }
 
         internal static void FlagWindowSnap()
@@ -93,13 +157,29 @@ namespace Better_Work_Tab.UI
 
             DrawHeaders(layout, table);
             DrawRows(table, layout, inRect);
+
+            // Draw column separators
+            // ColumnManagement.ColumnSeparatorRenderer.DrawSeparators(layout);
         }
 
         private void DrawHeaders(IWorkTabLayoutController layout, PawnTable table)
         {
             foreach (var column in layout.Columns)
             {
+                // Don't draw custom hover - vanilla handles it
+                // VisualFeedback.HoverEffectManager.DrawHeaderHover(column, Event.current.mousePosition);
+
+                // Draw header (vanilla or custom)
                 column.Column.Worker.DoHeader(column.HeaderRect, table);
+
+                // Draw sort indicator
+                UI.SortIndicatorRenderer.DrawSortIndicator(column, _sortManager.State);
+
+                // Only enhance tooltip if sorting
+                if (_sortManager.State.SortColumn == column.Column)
+                {
+                    VisualFeedback.TooltipManager.DrawHeaderTooltip(column, _sortManager.State);
+                }
             }
         }
 
@@ -132,56 +212,79 @@ namespace Better_Work_Tab.UI
                         layout.Table.Size.x,
                         viewportHeight);
         
-                    // View rect is the total scrollable content area (unclamped)
-                    float viewHeight = layout.ContentHeight; // Total content height, unclamped
+                    // View rect is the total scrollable content area
+                    float viewHeight = layout.ContentHeight;
                     Rect viewRect = new Rect(0f, 0f, outRect.width - 16f, viewHeight);
         
                     var scroll = table.scrollPosition;
                     Widgets.BeginScrollView(outRect, ref scroll, viewRect);
                     table.scrollPosition = scroll;
         
-                    foreach (var column in layout.Columns)
-                    {
-                        for (int i = 0; i < layout.Rows.Count; i++)
-                        {
-                            var row = layout.Rows[i];
-                            if (row.IsDivider || row.Pawn == null)
-                            {
-                                continue;
-                            }
-        
-                            Rect cellRect = new Rect(column.OffsetX, row.OffsetY, column.Width, row.Height);
-                            column.Column.Worker.DoCell(cellRect, row.Pawn, table);
-                        }
-                    }
-        
-                    float contentWidth = viewRect.width;
-                    foreach (var row in layout.Rows)
-                    {
-                        Rect rowRect = new Rect(0f, row.OffsetY, contentWidth, row.Height);
-                        if (row.IsDivider)
-                        {
-                            DrawDividerRow(layout, row, contentWidth, rowRect);
-                        }
-                        else if (row.Pawn != null)
-                        {
-                            DrawPawnRowOverlay(row, rowRect);
-                        }
-                    }
+            // Get visible rows only (culling optimization)
+            var visibleRows = RowManagement.RowCullingManager.GetVisibleRows(
+                layout, 
+                outRect, 
+                scroll);
+
+            // Draw cells for visible rows
+            foreach (var row in visibleRows)
+            {
+                if (row.IsDivider || row.Pawn == null) continue;
+
+                foreach (var column in layout.Columns)
+                {
+                    if (!_visibilityManager.IsVisible(column.Column))
+                        continue;
+
+                    Rect cellRect = new Rect(
+                        column.OffsetX,
+                        row.OffsetY,
+                        column.Width,
+                        row.Height);
+
+                    column.Column.Worker.DoCell(cellRect, row.Pawn, table);
+                }
+            }
+
+            // Draw row separators
+            float contentWidth = viewRect.width;
+            VisualFeedback.RowSeparatorRenderer.DrawAllSeparators(visibleRows, contentWidth);
+
+            // Draw row overlays
+            foreach (var row in visibleRows)
+            {
+                Rect rowRect = new Rect(0f, row.OffsetY, contentWidth, row.Height);
+
+                if (row.IsDivider)
+                {
+                    DrawDividerRow(layout, row, contentWidth, rowRect);
+                }
+                else if (row.Pawn != null)
+                {
+                    DrawPawnRowOverlay(row, rowRect);
+                }
+            }
         
                     Widgets.EndScrollView();
                 }
         private void DrawPawnRowOverlay(WorkTabLayoutRow row, Rect rowRect)
         {
-            if (Find.Selector.IsSelected(row.Pawn))
+            // Hover effect
+            VisualFeedback.HoverEffectManager.DrawRowHover(row, rowRect);
+
+            // Selection highlight
+            if (_selectionManager.State.IsSelected(row.Pawn))
             {
                 Widgets.DrawHighlightSelected(rowRect);
             }
-            else if (Mouse.IsOver(rowRect))
-            {
-                Widgets.DrawHighlight(rowRect);
-            }
 
+            // Favorite indicator
+            UI.PawnMarkingRenderer.DrawFavoriteIndicator(rowRect, row.Pawn);
+
+            // Inspect button (removed as users reported it clutters interface)
+            // UI.PawnInspectButton.DrawInspectButton(rowRect, row.Pawn);
+
+            // Downed indicator
             if (row.Pawn.Downed)
             {
                 GUI.color = new Color(1f, 0f, 0f, 0.5f);

@@ -14,7 +14,7 @@ namespace Better_Work_Tab.PawnOrganizer
     {
         public static PawnOrganizerSystem Instance { get; private set; }
 
-        private readonly WorkTabLayoutController _layout = new WorkTabLayoutController();
+        private readonly WorkTabLayoutController _layout;
         private readonly RowDragController _rowDrag = new RowDragController();
         private readonly ColumnDragController _columnDrag = new ColumnDragController();
 
@@ -25,9 +25,10 @@ namespace Better_Work_Tab.PawnOrganizer
         public RowDragController RowDrag => _rowDrag;
         public ColumnDragController ColumnDrag => _columnDrag;
 
-        public PawnOrganizerSystem()
+        public PawnOrganizerSystem(Persistence.ColumnStateManager columnStateManager)
         {
             Instance = this;
+            _layout = new WorkTabLayoutController(columnStateManager);
         }
 
         /// <summary>

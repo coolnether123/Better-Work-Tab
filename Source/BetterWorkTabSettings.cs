@@ -1,6 +1,7 @@
 ﻿using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.Rules;
 using Better_Work_Tab.Features.Workloads;
+using Better_Work_Tab.Persistence;
 using RimWorld;
 using System.Collections.Generic;
 using System.Linq;
@@ -128,6 +129,10 @@ namespace Better_Work_Tab
         public bool drawDividerHighlight = DefaultSettings.drawDividerHighlight;
         public List<string> workColumnOrderDefNames = new List<string>();
 
+        // NEW: Persistence systems
+        public Persistence.ColumnStateManager ColumnStateManager = new Persistence.ColumnStateManager();
+        public Persistence.RowHeightPersistence RowHeightPersistence = new Persistence.RowHeightPersistence();
+
         // This sets the baseline priority for work types not handled by specific rules (0 = leave unchanged)
 
         //These colors are used on skill numbers in the work tab
@@ -231,6 +236,10 @@ namespace Better_Work_Tab
 
             // Load from save
             Scribe_Collections.Look(ref SavedRulesets, "SavedRulesets", LookMode.Deep);
+            
+            // NEW: Save/load feature states
+            Scribe_Deep.Look(ref ColumnStateManager, "columnStateManager");
+            Scribe_Deep.Look(ref RowHeightPersistence, "rowHeightPersistence");
             
             // Reinitialize after load if needed
             InitializeRulesets();
