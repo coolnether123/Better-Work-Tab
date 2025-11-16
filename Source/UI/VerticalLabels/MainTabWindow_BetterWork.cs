@@ -1,328 +1,356 @@
-﻿using Better_Work_Tab.Features;
-using Better_Work_Tab.Features.Workloads;
+using Better_Work_Tab.Features;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
-using HarmonyLib;
+using Better_Work_Tab.PawnOrganizer.Data;
 using RimWorld;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection; // Added for reflection
+using System.Reflection;
 using UnityEngine;
 using Verse;
-using Verse.Sound;
 
 namespace Better_Work_Tab.UI
 {
     /// <summary>
-    /// Custom Work tab window that replaces vanilla MainTabWindow_Work via XML patch.
-    /// Provides full control over UI elements while preserving vanilla PawnTable functionality.
-    /// 
-    /// Key features:
-    /// - Custom angled column headers (via cleaner Harmony postfix)
-    /// - Auto-assign and workload management buttons in header
-    /// - Skill overlay toggle integration
-    /// - Drag-and-drop support (via separate patches)
-    /// 
-    /// This class inherits from MainTabWindow_Work to maintain compatibility with vanilla
-    /// save files, colonist selection, and work priority systems.
+    /// Custom Work tab window that owns all layout/rendering (pawns, dividers, columns).
     /// </summary>
-        public class MainTabWindow_BetterWork : MainTabWindow_Work
+    public class MainTabWindow_BetterWork : MainTabWindow_Work
+    {
+
+        private const float RightEdgeMargin = 10f;
+        private const float InfoIconSize = 24f;
+        private int _lastPawnCount = -1;
+        private int _lastDividerCount = -1;
+        private float _maxHeight = -1f;
+
+
+        public override void DoWindowContents(Rect inRect)
         {
-            private static bool _lastShiftState = false; // Added for logging shift key presses
-            private IWorkTabRowColumnAPI _api;
-    
-            /// <summary>
-            /// Constants for positioning UI elements in the window header.
-            /// </summary>
-            private const float SkillToggleX = 150f;
-            private const float SkillToggleY = 5f;
-            private const float SkillToggleWidth = 230f;
-            private const float SkillToggleHeight = 30f;
-    
-            // Button sizing (unchanged)
-            private const float AutoAssignButtonWidth = 150f;
-            private const float AutoAssignButtonHeight = 28f;
-    
-            private const float WorkloadButtonWidth = 150f;
-            private const float WorkloadButtonHeight = 28f;
-    
-            // Bottom-right anchoring next to the info button
-            private const float BottomEdgeMargin = 10f; // distance from bottom edge
-            private const float RightEdgeMargin = 10f;  // distance from right edge
-            private const float InterControlGap = 1f;   // gap between buttons
-            private const float InfoIconSize = 24f;     // same size as TexButton.Info
-    
-            public override Vector2 InitialSize
+            PawnTable pawnTable = GetPawnTable();
+            if (pawnTable == null)
             {
-                get
+                return;
+            }
+
+            Vector2 tableOrigin = new Vector2(inRect.x, inRect.y + ExtraTopSpace);
+
+            var organizer = PawnOrganizerSystem.Instance;
+            organizer?.UpdateState(pawnTable, tableOrigin);
+
+            if (organizer?.Layout != null)
+            {
+                int currentPawnCount = pawnTable.PawnsListForReading.Count;
+                int currentDividerCount = organizer.CurrentWorklist?.Dividers?.Count ?? 0;
+
+                if (_lastPawnCount != currentPawnCount || _lastDividerCount != currentDividerCount)
                 {
-                    Vector2 size = base.InitialSize;
-                    size.x += 25f;
-                    return size;
+                    EnsureWindowRectMatchesContent(organizer.Layout);
+                    _lastPawnCount = currentPawnCount;
+                    _lastDividerCount = currentDividerCount;
                 }
             }
-    
-            /// <summary>
-            /// Main window rendering method called every frame.
-            /// Draws vanilla PawnTable first, then adds custom UI elements on top.
-            /// </summary>
-            public override void DoWindowContents(Rect inRect)
+
+            if (Event.current.type == EventType.Layout)
             {
-                // --- Draw the vanilla Work table first ---
-                base.DoWindowContents(inRect);
+                return;
+            }
 
-                PawnTable currentPawnTable = GetPawnTable();
-                Log.Message($"[BetterWorkTab] DoWindowContents: currentPawnTable is null: {currentPawnTable == null}");
-                // REMOVED: if (currentPawnTable == null) return; // Early exit if PawnTable is null
+            organizer?.HandleInput(Event.current);
 
-                // ExtraTopSpace is a protected property in MainTabWindow_PawnTable
-                Vector2 tableOrigin = new Vector2(inRect.x, inRect.y + this.ExtraTopSpace);
+            DrawManualPrioritiesCheckbox();
+            DrawPriorityLegend(inRect);
 
-                if (_api == null || _api.GetTable() != currentPawnTable || _api.GetTableOrigin() != tableOrigin)
-                {
-                    Log.Message($"[BetterWorkTab] DoWindowContents: Creating new API instance. _api == null: {_api == null}, _api.GetTable() != currentPawnTable: {(_api != null && _api.GetTable() != currentPawnTable)}, _api.GetTableOrigin() != tableOrigin: {(_api != null && _api.GetTableOrigin() != tableOrigin)}");
-                    _api = new WorkTabRowColumnAPI(currentPawnTable, tableOrigin);
-                }
-                Log.Message($"[BetterWorkTab] DoWindowContents: PawnOrganizerSystem.Instance is null: {PawnOrganizerSystem.Instance == null}");
+            DrawWorkTable(pawnTable, organizer?.Layout, inRect);
+            organizer?.DrawDragOverlays();
 
-                PawnOrganizerSystem.Instance?.OnWorkTabGUI(currentPawnTable, _api);
-                PawnOrganizerSystem.Instance?.DrawOrganization(currentPawnTable, _api);
-    
-                // --- Draw overlay toggles and buttons if not during layout ---
-                if (Event.current == null || Event.current.type == EventType.Layout)
-                    return;
-    
-                // Log shift key press once
-                bool currentShiftState = Event.current.shift;
-                if (currentShiftState && !_lastShiftState)
-                {
-                    Log.Message("[BetterWorkTab] Shift key is now pressed in Work Tab.");
-                }
-                _lastShiftState = currentShiftState;
-                    // Calculate the settings/info icon rect in the bottom-right,
-            // then lay out our buttons immediately to its left.
             var gearRect = GetInfoIconRect(inRect);
-
-            // Draw our two button groups anchored to the right,
-            // immediately to the left of the info icon (from right->left).
             DrawBottomRightButtons(inRect, gearRect);
+            DrawInfoButton(gearRect);
+        }
 
-            // Draw the info/settings button (gear) on Repaint so it's above the table.
-            if (Event.current.type == EventType.Repaint && Mouse.IsOver(inRect))
+        private void DrawWorkTable(PawnTable table, IWorkTabLayoutController layout, Rect inRect)
+        {
+            if (layout == null || table == null)
             {
-                if (Widgets.ButtonImage(gearRect, TexButton.Info))
+                return;
+            }
+
+            DrawHeaders(layout, table);
+            DrawRows(table, layout, inRect);
+        }
+
+        private void DrawHeaders(IWorkTabLayoutController layout, PawnTable table)
+        {
+            foreach (var column in layout.Columns)
+            {
+                column.Column.Worker.DoHeader(column.HeaderRect, table);
+            }
+        }
+
+                private void DrawRows(PawnTable table, IWorkTabLayoutController layout, Rect inRect)
                 {
-                    // open your mod’s settings dialog
-                    var mod = LoadedModManager.GetMod<BetterWorkTabMod>();
-                    if (mod != null)
-                        Find.WindowStack.Add(new Dialog_ModSettings(mod));
+                    if (layout?.Table == null) return;
+        
+                    float headerBottom = layout.TableOrigin.y + layout.HeaderHeight;
+        
+                    // Available height is the space left in the window
+                    float maxAvailableHeight = inRect.height - headerBottom - this.ExtraBottomSpace;
+                    if (maxAvailableHeight < 0f) maxAvailableHeight = 0f;
+        
+                    // Viewport is the visible scroll area
+                    float viewportHeight;
+                    if (windowRect.height < _maxHeight)
+                    {
+                        // If window is not at max height, viewport should be exactly the content height
+                        viewportHeight = layout.ContentHeight;
+                    }
+                    else
+                    {
+                        // If window is at max height, viewport is clamped to available space
+                        viewportHeight = maxAvailableHeight;
+                    }
+        
+                    Rect outRect = new Rect(
+                        layout.TableOrigin.x,
+                        headerBottom,
+                        layout.Table.Size.x,
+                        viewportHeight);
+        
+                    // View rect is the total scrollable content area (unclamped)
+                    float viewHeight = layout.ContentHeight; // Total content height, unclamped
+                    Rect viewRect = new Rect(0f, 0f, outRect.width - 16f, viewHeight);
+        
+                    var scroll = table.scrollPosition;
+                    Widgets.BeginScrollView(outRect, ref scroll, viewRect);
+                    table.scrollPosition = scroll;
+        
+                    foreach (var column in layout.Columns)
+                    {
+                        for (int i = 0; i < layout.Rows.Count; i++)
+                        {
+                            var row = layout.Rows[i];
+                            if (row.IsDivider || row.Pawn == null)
+                            {
+                                continue;
+                            }
+        
+                            Rect cellRect = new Rect(column.OffsetX, row.OffsetY, column.Width, row.Height);
+                            column.Column.Worker.DoCell(cellRect, row.Pawn, table);
+                        }
+                    }
+        
+                    float contentWidth = viewRect.width;
+                    foreach (var row in layout.Rows)
+                    {
+                        Rect rowRect = new Rect(0f, row.OffsetY, contentWidth, row.Height);
+                        if (row.IsDivider)
+                        {
+                            DrawDividerRow(layout, row, contentWidth, rowRect);
+                        }
+                        else if (row.Pawn != null)
+                        {
+                            DrawPawnRowOverlay(row, rowRect);
+                        }
+                    }
+        
+                    Widgets.EndScrollView();
+                }
+        private void DrawPawnRowOverlay(WorkTabLayoutRow row, Rect rowRect)
+        {
+            if (Find.Selector.IsSelected(row.Pawn))
+            {
+                Widgets.DrawHighlightSelected(rowRect);
+            }
+            else if (Mouse.IsOver(rowRect))
+            {
+                Widgets.DrawHighlight(rowRect);
+            }
+
+            if (row.Pawn.Downed)
+            {
+                GUI.color = new Color(1f, 0f, 0f, 0.5f);
+                Widgets.DrawLineHorizontal(0f, rowRect.center.y, rowRect.width);
+                GUI.color = Color.white;
+            }
+        }
+
+        private void DrawDividerRow(IWorkTabLayoutController layout, WorkTabLayoutRow row, float contentWidth, Rect rowRect)
+        {
+            var divider = row.Divider;
+            if (divider == null)
+            {
+                return;
+            }
+
+            Color fill = divider.DividerColor;
+            Widgets.DrawBoxSolid(rowRect, fill);
+            Widgets.DrawBox(rowRect, 1);
+
+            float nameColumnOffset = GetNameColumnOffset(layout);
+            Rect labelRect = new Rect(
+                Mathf.Max(0f, nameColumnOffset),
+                rowRect.y,
+                Mathf.Max(0f, contentWidth - nameColumnOffset - 24f),
+                rowRect.height);
+
+            bool clicked =
+                Widgets.ButtonInvisible(labelRect);
+
+            Text.Anchor = TextAnchor.MiddleLeft;
+            Text.Font = GameFont.Small;
+            Widgets.Label(labelRect, divider.DividerName ?? "Divider");
+            Text.Anchor = TextAnchor.UpperLeft;
+
+            if (clicked)
+            {
+                OpenDividerEditor(divider);
+            }
+
+            Rect deleteRect = new Rect(
+                rowRect.xMax - 18f,
+                rowRect.y + (rowRect.height - 16f) / 2f,
+                16f,
+                16f);
+            if (Widgets.ButtonImage(deleteRect, TexButton.CloseXSmall))
+            {
+                PawnOrganizerSystem.Instance?.Layout.RemoveDivider(divider);
+            }
+        }
+
+        private void OpenDividerEditor(PawnDivider divider)
+        {
+            if (divider == null)
+            {
+                return;
+            }
+
+            Find.WindowStack.Add(new Dialog_EditDivider(divider));
+        }
+
+        private void EnsureWindowRectMatchesContent(IWorkTabLayoutController layout)
+        {
+            if (layout?.Table == null)
+                return;
+
+            Vector2 minSize = base.InitialSize;
+            float targetWidth = Mathf.Max(minSize.x, layout.Table.Size.x + this.Margin * 2f);
+
+            // Calculate desired height based on content
+            float rawContentHeight = ExtraTopSpace + ExtraBottomSpace +
+                                      layout.HeaderHeight + layout.ContentHeight +
+                                      this.Margin * 2f;
+
+            // Cap height at screen space (main tab bar is at bottom, ~35px)
+            _maxHeight = global::Verse.UI.screenHeight - 35f - 10f; // 10f buffer from bottom edge
+            float newHeight = Mathf.Clamp(rawContentHeight, minSize.y, _maxHeight); // CLAMP here!
+
+            windowRect.width = targetWidth;
+            windowRect.height = newHeight; // This is now capped
+
+            if (this.Anchor == MainTabWindowAnchor.Left)
+            {
+                windowRect.x = 0f;
+            }
+            else
+            {
+                windowRect.x = global::Verse.UI.screenWidth - windowRect.width;
+            }
+
+            windowRect.y = (global::Verse.UI.screenHeight - 35f) - windowRect.height;
+        }
+
+        private static float GetNameColumnOffset(IWorkTabLayoutController layout)
+        {
+            foreach (var column in layout.Columns)
+            {
+                if (column.Column.Worker is PawnColumnWorker_Label)
+                {
+                    return column.OffsetX;
+                }
+            }
+            return 0f;
+        }
+
+        private void DrawManualPrioritiesCheckbox()
+        {
+            Text.Font = GameFont.Small;
+            GUI.color = Color.white;
+            Text.Anchor = TextAnchor.UpperLeft;
+            Rect rect = new Rect(5f, 5f, 140f, 30f);
+            bool wasEnabled = Current.Game.playSettings.useWorkPriorities;
+            Widgets.CheckboxLabeled(rect, "ManualPriorities".Translate(), ref Current.Game.playSettings.useWorkPriorities);
+            bool isEnabled = Current.Game.playSettings.useWorkPriorities;
+            if (wasEnabled != isEnabled)
+            {
+                foreach (Pawn pawn in PawnsFinder.AllMapsWorldAndTemporary_Alive)
+                {
+                    if (pawn.Faction == Faction.OfPlayer && pawn.workSettings != null)
+                    {
+                        pawn.workSettings.Notify_UseWorkPrioritiesChanged();
+                    }
+                }
+            }
+            if (Current.Game.playSettings.useWorkPriorities)
+            {
+                using (new TextBlock(new Color(1f, 1f, 1f, 0.5f)))
+                {
+                    Widgets.Label(new Rect(rect.x, rect.yMax - 6f, rect.width, 60f), "PriorityOneDoneFirst".Translate());
+                }
+            }
+            else
+            {
+                UIHighlighter.HighlightOpportunity(rect, "ManualPriorities-Off");
+            }
+        }
+
+        private void DrawPriorityLegend(Rect rect)
+        {
+            GUI.color = new Color(1f, 1f, 1f, 0.5f);
+            Text.Anchor = TextAnchor.UpperCenter;
+            Text.Font = GameFont.Tiny;
+            Widgets.Label(new Rect(370f, rect.y + 5f, 160f, 30f), "<= " + "HigherPriority".Translate());
+            Widgets.Label(new Rect(630f, rect.y + 5f, 160f, 30f), "LowerPriority".Translate() + " =>");
+            GUI.color = Color.white;
+            Text.Font = GameFont.Small;
+            Text.Anchor = TextAnchor.UpperLeft;
+        }
+
+        private void DrawInfoButton(Rect gearRect)
+        {
+            if (Widgets.ButtonImage(gearRect, TexButton.Info))
+            {
+                var mod = LoadedModManager.GetMod<BetterWorkTabMod>();
+                if (mod != null)
+                {
+                    Find.WindowStack.Add(new Dialog_ModSettings(mod));
                 }
             }
         }
 
-        private PawnTable GetPawnTable()
-        {
-            Log.Message($"[BetterWorkTab] GetPawnTable: Attempting to retrieve PawnTable via reflection."); // NEW LOG
-            // Get the 'table' field from the base class (MainTabWindow_PawnTable) using reflection
-            var field = typeof(MainTabWindow_PawnTable).GetField("table", BindingFlags.NonPublic | BindingFlags.Instance);
-            PawnTable table = (PawnTable)field.GetValue(this);
-            Log.Message($"[BetterWorkTab] GetPawnTable: Retrieved PawnTable is null: {table == null}");
-            return table;
-        }
-
-        /// <summary>
-        /// Returns the rectangle for the small "info/settings" button in the bottom-right.
-        /// 24×24 px gear. 10 px margin from edges.
-        /// </summary>
         private static Rect GetInfoIconRect(Rect inRect)
         {
             return new Rect(
                 inRect.xMax - InfoIconSize - RightEdgeMargin,
-                inRect.yMax - InfoIconSize - BottomEdgeMargin,
+                inRect.yMax - InfoIconSize - 10f,
                 InfoIconSize,
-                InfoIconSize
-            );
+                InfoIconSize);
         }
 
-        /// <summary>
-        /// Draws the workload and auto-assign buttons at the bottom-right,
-        /// immediately to the left of the info icon. Anchored to the right.
-        /// Order (left-to-right on screen): [Workload][...][Auto-assign][...][Info].
-        /// </summary>
         private void DrawBottomRightButtons(Rect inRect, Rect gearRect)
         {
-            float y = inRect.yMax - AutoAssignButtonHeight - BottomEdgeMargin;
-
-            // Start laying out from the right, immediately to the left of the gear icon.
-            float xRight = gearRect.x - InterControlGap;
-
             HeaderButtons.DrawBottomRightGrouped(inRect, gearRect);
-            // Small gap between groups
-            xRight -= InterControlGap;
-
             Text.Font = GameFont.Small;
             GUI.color = Color.white;
             Text.Anchor = TextAnchor.LowerLeft;
             Rect textRect = new Rect(inRect.x, inRect.y, inRect.width, inRect.height);
             Widgets.Label(textRect, "Shift to switch mode | ctrl to reorder");
             Text.Anchor = TextAnchor.UpperLeft;
-            GUI.color = Color.white;
-
         }
 
-
-        /// <summary>
-        /// Creates and opens the workload management FloatMenu.
-        /// </summary>
-        private void ShowWorkloadMenu(GameComponent_WorkloadSaver workloadSaver)
+        private PawnTable GetPawnTable()
         {
-            var options = new List<FloatMenuOption>();
-
-            // List existing workloads (most recent first)
-            var workloads = workloadSaver.SavedWorklists.ListFullCopy();
-            workloads.Reverse();
-
-            foreach (var workload in workloads)
-            {
-                options.Add(
-                    new FloatMenuOption(
-                        workload.RenamableLabel,
-                        () =>
-                        {
-                            workloadSaver.CurrentWorklist = workload;
-                            SoundDefOf.Tick_Low.PlayOneShotOnCamera();
-                        }
-                    )
-                );
-            }
-
-            // Add management options
-            options.Add(
-                new FloatMenuOption("New Workload", () => CreateNewWorkload(workloadSaver))
-            );
-
-            if (workloads.Any())
-            {
-                options.Add(
-                    new FloatMenuOption(
-                        "Rename Workload",
-                        () => ShowRenameMenu(workloads)
-                    )
-                );
-                options.Add(
-                    new FloatMenuOption(
-                        "Delete Saved Workload",
-                        () => ShowDeleteMenu(workloadSaver, workloads)
-                    )
-                );
-            }
-
-            Find.WindowStack.Add(new FloatMenu(options));
+            var field = typeof(MainTabWindow_PawnTable).GetField("table", BindingFlags.NonPublic | BindingFlags.Instance);
+            return (PawnTable)field?.GetValue(this);
         }
 
-        /// <summary>
-        /// Shows a submenu for renaming workloads.
-        /// </summary>
-        private void ShowRenameMenu(List<Worklist> workloads)
-        {
-            var options = workloads
-                .Select(
-                    w =>
-                        new FloatMenuOption(
-                            $"Rename {w.RenamableLabel}",
-                            () =>
-                            {
-                                Find.WindowStack.Add(new Dialog_RenameWorkload(w));
-                                SoundDefOf.Tick_Low.PlayOneShotOnCamera();
-                            }
-                        )
-                )
-                .ToList();
-
-            var screenWidth = Verse.UI.screenWidth;
-            var screenHeight = Verse.UI.screenHeight;
-            var menuRect = new Rect(
-                screenWidth / 2f - 100f,
-                screenHeight / 2f - 75f,
-                200f,
-                150f
-            );
-            var menu = new FloatMenu(options) { windowRect = menuRect };
-
-            Find.WindowStack.Add(menu);
-        }
-
-        /// <summary>
-        /// Shows a submenu for deleting workloads.
-        /// </summary>
-        private void ShowDeleteMenu(
-            GameComponent_WorkloadSaver workloadSaver,
-            List<Worklist> workloads
-        )
-        {
-            var options = workloads
-                .Select(
-                    w =>
-                        new FloatMenuOption(
-                            $"Delete {w.RenamableLabel}",
-                            () =>
-                            {
-                                int index = workloadSaver.SavedWorklists.IndexOf(w);
-                                workloadSaver.SavedWorklists.Remove(w);
-
-                                if (!workloadSaver.SavedWorklists.Any())
-                                {
-                                    workloadSaver.CurrentWorklist = null;
-                                }
-                                else
-                                {
-                                    int newIndex = Mathf.Max(
-                                        0,
-                                        Mathf.Min(
-                                            index - 1,
-                                            workloadSaver.SavedWorklists.Count - 1
-                                        )
-                                    );
-                                    workloadSaver.CurrentWorklist =
-                                        workloadSaver.SavedWorklists[newIndex];
-                                }
-
-                                SoundDefOf.Tick_Low.PlayOneShotOnCamera();
-                            }
-                        )
-                )
-                .ToList();
-
-            var screenWidth = Verse.UI.screenWidth;
-            var screenHeight = Verse.UI.screenHeight;
-            var menuRect = new Rect(
-                screenWidth / 2f - 100f,
-                screenHeight / 2f - 75f,
-                200f,
-                150f
-            );
-            var menu = new FloatMenu(options) { windowRect = menuRect };
-
-            Find.WindowStack.Add(menu);
-        }
-
-        /// <summary>
-        /// Creates a new workload and opens the naming dialog.
-        /// </summary>
-        private void CreateNewWorkload(GameComponent_WorkloadSaver workloadSaver)
-        {
-            var newWorkload = new Worklist(
-                $"Custom Workload {workloadSaver.SavedWorklists.Count}"
-            );
-            Find.WindowStack.Add(new Dialog_NameNewWorklist(newWorkload));
-            workloadSaver.SavedWorklists.Add(newWorkload);
-            workloadSaver.CurrentWorklist = newWorkload;
-        }
-
-        /// <summary>
-        /// Called when window is closed. Cleanup highlights and state.
-        /// </summary>
         public override void PreClose()
         {
             base.PreClose();
