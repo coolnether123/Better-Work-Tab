@@ -68,8 +68,18 @@ namespace Better_Work_Tab.PawnOrganizer.API
         /// </summary>
         public static void LoadColors(Dictionary<string, Color> loadedColors)
         {
-            _pawnColors = loadedColors ?? new Dictionary<string, Color>();
+            _pawnColors = loadedColors != null
+                ? new Dictionary<string, Color>(loadedColors)
+                : new Dictionary<string, Color>();
             Log.Message($"[BetterWorkTab] Loaded {_pawnColors.Count} pawn colors from save.");
+        }
+
+        /// <summary>
+        /// Clears all cached pawn colors. Use when a save is unloaded to avoid leaking references.
+        /// </summary>
+        public static void Clear()
+        {
+            _pawnColors.Clear();
         }
     }
 }

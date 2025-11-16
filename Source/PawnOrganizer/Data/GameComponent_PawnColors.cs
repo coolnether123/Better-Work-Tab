@@ -23,7 +23,6 @@ namespace Better_Work_Tab.PawnOrganizer.Data
 
             if (Scribe.mode == LoadSaveMode.Saving)
             {
-                // When saving, get the current colors from the database
                 _pawnColorsToSave = PawnColorDatabase.GetColors();
             }
 
@@ -31,7 +30,6 @@ namespace Better_Work_Tab.PawnOrganizer.Data
 
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
-                // When loading is finished, load the data into the static database
                 PawnColorDatabase.LoadColors(_pawnColorsToSave);
             }
         }
@@ -39,8 +37,29 @@ namespace Better_Work_Tab.PawnOrganizer.Data
         public override void FinalizeInit()
         {
             base.FinalizeInit();
-            // On game load, after all data is exposed, ensure the database is populated.
-            // This is a fallback for older saves or different load orders.
+            EnsureDatabaseSync();
+        }
+
+        public override void LoadedGame()
+        {
+            base.LoadedGame();
+            EnsureDatabaseSync();
+        }
+
+        public override void StartedNewGame()
+        {
+            base.StartedNewGame();
+            _pawnColorsToSave = new Dictionary<string, Color>();
+            PawnColorDatabase.Clear();
+        }
+
+        private void EnsureDatabaseSync()
+        {
+            if (_pawnColorsToSave == null)
+            {
+                PawnColorDatabase.Clear();
+            }
+
             PawnColorDatabase.LoadColors(_pawnColorsToSave);
         }
     }

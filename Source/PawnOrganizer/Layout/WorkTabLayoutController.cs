@@ -4,6 +4,7 @@ using System.Reflection;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.PawnOrganizer.Data;
+using Better_Work_Tab.UI;
 using HarmonyLib;
 using RimWorld;
 using UnityEngine;
@@ -311,6 +312,7 @@ namespace Better_Work_Tab.PawnOrganizer
             }
 
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+            MainTabWindow_BetterWork.FlagWindowSnap();
         }
     }
 }
