@@ -237,7 +237,7 @@ namespace Better_Work_Tab
             Scribe_Collections.Look(ref workColumnOrderDefNames, "workColumnOrderDefNames", LookMode.Value);
         }
 
-        public void ResoreDefaultes()
+        public void RestoreDefaults()
         {
             enableSkillOverlayFeature = DefaultSettings.enableSkillOverlayFeature;
             enableAutoAssignFeature = DefaultSettings.enableAutoAssignFeature;
