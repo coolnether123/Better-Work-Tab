@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using Verse;
 using Multiplayer.API;
+using Better_Work_Tab.UI;
 
 namespace Better_Work_Tab.Patches
 {
@@ -165,6 +166,7 @@ namespace Better_Work_Tab.Patches
 
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
             Log.Message("OnReorderPawnRow: MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged called.");
+            Better_Work_Tab.UI.MainTabWindow_BetterWork.FlagWindowSnap();
         }
     }
 

@@ -1,5 +1,6 @@
 ﻿using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.Workloads;
+using Better_Work_Tab.Mod_Support.Multiplayer;
 using Better_Work_Tab.UI;
 using RimWorld;
 using System.Collections.Generic;
@@ -50,12 +51,7 @@ namespace Better_Work_Tab.UI
                     overrideTextAnchor: TextAnchor.MiddleLeft))
             {
                 SoundDefOf.Tick_Low.PlayOneShotOnCamera();
-                if (curRuleset != null)
-                {
-                    if (curRuleset.ResetBeforeApplying)
-                        WorkAssignmentRuleset.SetAllToZero();
-                    curRuleset.ApplyAutoAssignments();
-                }
+                BetterWorkTabMultiplayer.RequestApplyRuleset(curRuleset);
             }
 
             if (Widgets.ButtonText(dotRect, "..."))
@@ -66,7 +62,7 @@ namespace Better_Work_Tab.UI
                     var local = ruleset;
                     options.Add(new FloatMenuOption(local.Name, () =>
                     {
-                        BetterWorkTabMod.Settings.CurrentRuleset = local;
+                        BetterWorkTabMultiplayer.RequestRulesetSelection(local);
                         SoundDefOf.Tick_Low.PlayOneShotOnCamera();
                     }));
                 }
@@ -87,7 +83,7 @@ namespace Better_Work_Tab.UI
         {
             var workloadSaver = Current.Game.GetComponent<GameComponent_BWTWorldSettings>();
             if (workloadSaver == null)
-                workloadSaver = new GameComponent_BWTWorldSettings(Current.Game);
+                return xRight;
 
             var dotRect = new Rect(xRight - WorkloadButtonHeight, y,
                 WorkloadButtonHeight, WorkloadButtonHeight);
@@ -104,7 +100,7 @@ namespace Better_Work_Tab.UI
             {
                 if (workloadSaver.CurrentWorklist != null)
                 {
-                    workloadSaver.CurrentWorklist.Apply();
+                    BetterWorkTabMultiplayer.RequestApplyWorklist(workloadSaver, workloadSaver.CurrentWorklist);
                     SoundDefOf.Tick_Low.PlayOneShotOnCamera();
                 }
                 else
@@ -130,7 +126,7 @@ namespace Better_Work_Tab.UI
                 var local = wl;
                 options.Add(new FloatMenuOption(local.RenamableLabel, () =>
                 {
-                    workloadSaver.CurrentWorklist = local;
+                    BetterWorkTabMultiplayer.RequestWorklistSelection(workloadSaver, local);
                     SoundDefOf.Tick_Low.PlayOneShotOnCamera();
                 }));
             }
@@ -151,7 +147,7 @@ namespace Better_Work_Tab.UI
                         ren.Add(new FloatMenuOption("Rename " + local.RenamableLabel,
                             () =>
                             {
-                                Find.WindowStack.Add(new Dialog_RenameWorklist(local));
+                                BetterWorkTabMultiplayer.RequestRenameWorklist(workloadSaver, local);
                                 SoundDefOf.Tick_Low.PlayOneShotOnCamera();
                             }));
                     }
@@ -167,15 +163,7 @@ namespace Better_Work_Tab.UI
                         del.Add(new FloatMenuOption("Delete " + local.RenamableLabel,
                             () =>
                             {
-                                var newCurrentIndex = Mathf.Clamp(
-                                    workloadSaver.SavedWorklists.IndexOf(local) - 1, 0,
-                                    int.MaxValue);
-                                workloadSaver.SavedWorklists.Remove(local);
-                                if (!workloadSaver.SavedWorklists.Any())
-                                    workloadSaver.CurrentWorklist = null;
-                                else
-                                    workloadSaver.CurrentWorklist =
-                                        workloadSaver.SavedWorklists[newCurrentIndex];
+                                BetterWorkTabMultiplayer.RequestDeleteWorklist(workloadSaver, local);
                                 SoundDefOf.Tick_Low.PlayOneShotOnCamera();
                             }));
                     }
@@ -188,10 +176,7 @@ namespace Better_Work_Tab.UI
 
         private static void CreateNewWorkload(GameComponent_BWTWorldSettings workloadSaver)
         {
-            var newWorkload = new Worklist($"Custom Workload {workloadSaver.SavedWorklists.Count}");
-            Find.WindowStack.Add(new Dialog_NameNewWorklist(newWorkload));
-            workloadSaver.SavedWorklists.Add(newWorkload);
-            workloadSaver.CurrentWorklist = newWorkload;
+            BetterWorkTabMultiplayer.RequestCreateWorklist(workloadSaver);
         }
     }
 }
