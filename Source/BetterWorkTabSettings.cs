@@ -19,6 +19,8 @@ namespace Better_Work_Tab
         public static bool enableAutoAssignFeature = true;
         public static List<string> workColumnOrderDefNames = new List<string>();
         public static bool firstTimeSetupDone = false;
+        public static float dividerHeight = 18f;
+        public static bool drawDividerHighlight = true;
 
 
         // This rule ensures at least one colonist is assigned to a specific work type at a given priority
@@ -122,6 +124,8 @@ namespace Better_Work_Tab
         // This provides master toggles for major features so users can disable parts they don't want
         public bool enableSkillOverlayFeature = true;
         public bool enableAutoAssignFeature = true;
+        public float dividerHeight = DefaultSettings.dividerHeight;
+        public bool drawDividerHighlight = DefaultSettings.drawDividerHighlight;
         public List<string> workColumnOrderDefNames = new List<string>();
 
         // This sets the baseline priority for work types not handled by specific rules (0 = leave unchanged)
@@ -222,6 +226,9 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref ShowUIMode_ShowSmallSkillNumbers, "ShowUIMode_ShowSmallSkillNumbers", DefaultSettings.ShowUIMode_ShowSmallSkillNumbers);
             Scribe_Values.Look(ref ShowUIMode_ShowPawnForSkillSquare, "ShowUIMode_ShowPawnForSkillSquare", DefaultSettings.ShowUIMode_ShowPawnForSkillSquare);
 
+            Scribe_Values.Look(ref dividerHeight, "dividerHeight", DefaultSettings.dividerHeight);
+            Scribe_Values.Look(ref drawDividerHighlight, "drawDividerHighlight", DefaultSettings.drawDividerHighlight);
+
             // Load from save
             Scribe_Collections.Look(ref SavedRulesets, "SavedRulesets", LookMode.Deep);
             
@@ -251,6 +258,8 @@ namespace Better_Work_Tab
             Color_ExcellentSkill = DefaultSettings.Color_ExcellentSkill;
             ShowUIMode_ShowSmallSkillNumbers = DefaultSettings.ShowUIMode_ShowSmallSkillNumbers;
             ShowUIMode_ShowPawnForSkillSquare = DefaultSettings.ShowUIMode_ShowPawnForSkillSquare;
+            dividerHeight = DefaultSettings.dividerHeight;
+            drawDividerHighlight = DefaultSettings.drawDividerHighlight;
         }
 
         private void InitializeRulesets()

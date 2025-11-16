@@ -34,7 +34,7 @@ namespace Better_Work_Tab.PawnOrganizer
         public float ContentHeight => _contentHeight;
         public Vector2 TableOrigin => _origin;
         public float HeaderHeight => _table?.cachedHeaderHeight ?? 0f;
-        public float DividerHeight => 18f;
+        public float DividerHeight => BetterWorkTabMod.Settings.dividerHeight;
         public PawnTable Table => _table;
 
         public void Rebuild(PawnTable table, Worklist worklist, Vector2 origin)
