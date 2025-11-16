@@ -85,9 +85,9 @@ namespace Better_Work_Tab.UI
 
         private static float DrawWorkloadGroup(float xRight, float y)
         {
-            var workloadSaver = Current.Game.GetComponent<GameComponent_WorkloadSaver>();
+            var workloadSaver = Current.Game.GetComponent<GameComponent_BWTWorldSettings>();
             if (workloadSaver == null)
-                workloadSaver = new GameComponent_WorkloadSaver(Current.Game);
+                workloadSaver = new GameComponent_BWTWorldSettings(Current.Game);
 
             var dotRect = new Rect(xRight - WorkloadButtonHeight, y,
                 WorkloadButtonHeight, WorkloadButtonHeight);
@@ -119,7 +119,7 @@ namespace Better_Work_Tab.UI
             return newRight;
         }
 
-        private static void ShowWorkloadMenu(GameComponent_WorkloadSaver workloadSaver)
+        private static void ShowWorkloadMenu(GameComponent_BWTWorldSettings workloadSaver)
         {
             var options = new List<FloatMenuOption>();
             var workloads = workloadSaver.SavedWorklists.ListFullCopy();
@@ -186,7 +186,7 @@ namespace Better_Work_Tab.UI
             Find.WindowStack.Add(new FloatMenu(options));
         }
 
-        private static void CreateNewWorkload(GameComponent_WorkloadSaver workloadSaver)
+        private static void CreateNewWorkload(GameComponent_BWTWorldSettings workloadSaver)
         {
             var newWorkload = new Worklist($"Custom Workload {workloadSaver.SavedWorklists.Count}");
             Find.WindowStack.Add(new Dialog_NameNewWorklist(newWorkload));

@@ -12,7 +12,7 @@ namespace Better_Work_Tab.UI
         private bool _focusedRenameField;
         private int _startAcceptingInputAtFrame;
 
-        public override Vector2 InitialSize => new Vector2(280f, 175f);
+        public override Vector2 InitialSize => new Vector2(280f, 191f);
 
         public Dialog_RenameGeneric(string currentName, Action<string> callback)
         {
@@ -38,7 +38,7 @@ namespace Better_Work_Tab.UI
         {
             Text.Font = GameFont.Small;
             bool enterPressed = false;
-            if (Event.current.type == EventType.KeyDown && (Event.current.keyCode == KeyCode.Return || Event.current.keyCode == KeyCode.KeypadEnter))
+            if (Event.current.type == EventType.KeyUp && (Event.current.keyCode == KeyCode.Return || Event.current.keyCode == KeyCode.KeypadEnter))
             {
                 enterPressed = true;
                 Event.current.Use();
