@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -21,6 +21,7 @@ namespace Better_Work_Tab.PawnOrganizer
             AccessTools.Method(typeof(PawnTable), "RecacheIfDirty");
 
         private const float DefaultDividerHeight = 18f;
+
 
         private readonly IColumnWidthStore _columnWidthStore;
         private readonly List<WorkTabLayoutRow> _rows = new List<WorkTabLayoutRow>();
@@ -109,16 +110,21 @@ namespace Better_Work_Tab.PawnOrganizer
                 return false;
             }
 
+            Log.Message($"[TryGetRowAt] contentY={contentY}, checking {_rows.Count} rows");
             for (int i = 0; i < _rows.Count; i++)
             {
+                Log.Message($"  Row {i}: OffsetY={_rows[i].OffsetY}, Height={_rows[i].Height}, " +
+                    $"Range=[{_rows[i].OffsetY}, {_rows[i].OffsetY + _rows[i].Height})");
                 var candidate = _rows[i];
-                if (contentY >= candidate.OffsetY && contentY < candidate.OffsetY + candidate.Height)
+                float rowStart = candidate.OffsetY;
+                float rowEnd = candidate.OffsetY + candidate.Height;
+
+                if (contentY >= rowStart && contentY < rowEnd)
                 {
                     row = candidate;
                     return true;
                 }
             }
-
             return false;
         }
 
@@ -149,6 +155,11 @@ namespace Better_Work_Tab.PawnOrganizer
                 return null;
             }
 
+            if (_table.SortingBy != null)
+            {
+                return AddDividerAfterPawnWhileSorting(pawn, label, color);
+            }
+
             int baseOrder = pawn.playerSettings?.displayOrder ?? Rows.Count;
             int targetOrder = baseOrder + 1;
             ShiftDisplayOrdersFrom(targetOrder);
@@ -162,9 +173,133 @@ namespace Better_Work_Tab.PawnOrganizer
                 return null;
             }
 
+            if (_table.SortingBy != null)
+            {
+                return AddDividerBeforePawnWhileSorting(pawn, label, color);
+            }
+
             int targetOrder = pawn.playerSettings?.displayOrder ?? 0;
             ShiftDisplayOrdersFrom(targetOrder);
             return CreateDivider(label, color, targetOrder);
+        }
+
+        private PawnDivider AddDividerAfterPawnWhileSorting(Pawn pawn, string label, Color color)
+        {
+            // ✅ Defensive checks
+            if (_table == null)
+            {
+                Log.Error("[AddDividerAfterPawnWhileSorting] _table is null!");
+                return null;
+            }
+
+            if (pawn?.playerSettings == null)
+            {
+                Log.Error($"[AddDividerAfterPawnWhileSorting] Pawn {pawn?.LabelShort} has no playerSettings!");
+                return null;
+            }
+
+            // Find the pawn's current visual position in the sorted rows
+            int visualIndex = -1;
+            for (int i = 0; i < _rows.Count; i++)
+            {
+                if (_rows[i].Pawn == pawn)
+                {
+                    visualIndex = i;
+                    break;
+                }
+            }
+
+            if (visualIndex < 0)
+            {
+                Log.Error($"[AddDividerAfterPawnWhileSorting] Could not find pawn {pawn.LabelShort} in current rows");
+                return null;
+            }
+
+            Log.Message($"[AddDividerAfterPawnWhileSorting] Pawn {pawn.LabelShort} is at visual index {visualIndex}");
+
+            
+
+            // Recalculate displayOrder to match current visual order
+            RecalculateDisplayOrderFromVisualOrder();
+
+            // Now add the divider using the updated displayOrder
+            int newDisplayOrder = pawn.playerSettings.displayOrder + 1;
+            ShiftDisplayOrdersFrom(newDisplayOrder);
+            var divider = CreateDivider(label, color, newDisplayOrder);
+
+            Log.Message($"[AddDividerAfterPawnWhileSorting] Created divider with displayOrder {newDisplayOrder}");
+
+            return divider;
+        }
+
+        private PawnDivider AddDividerBeforePawnWhileSorting(Pawn pawn, string label, Color color)
+        {
+            // ✅ Defensive checks
+            if (_table == null)
+            {
+                Log.Error("[AddDividerBeforePawnWhileSorting] _table is null!");
+                return null;
+            }
+
+            if (pawn?.playerSettings == null)
+            {
+                Log.Error($"[AddDividerBeforePawnWhileSorting] Pawn {pawn?.LabelShort} has no playerSettings!");
+                return null;
+            }
+
+            // Find the pawn's current visual position in the sorted rows
+            int visualIndex = -1;
+            for (int i = 0; i < _rows.Count; i++)
+            {
+                if (_rows[i].Pawn == pawn)
+                {
+                    visualIndex = i;
+                    break;
+                }
+            }
+
+            if (visualIndex < 0)
+            {
+                Log.Error($"[AddDividerBeforePawnWhileSorting] Could not find pawn {pawn.LabelShort} in current rows");
+                return null;
+            }
+
+            Log.Message($"[AddDividerBeforePawnWhileSorting] Pawn {pawn.LabelShort} is at visual index {visualIndex}");
+
+            
+
+            // Recalculate displayOrder to match current visual order
+            RecalculateDisplayOrderFromVisualOrder();
+
+            // Now add the divider using the updated displayOrder
+            int newDisplayOrder = pawn.playerSettings.displayOrder;
+            ShiftDisplayOrdersFrom(newDisplayOrder);
+            var divider = CreateDivider(label, color, newDisplayOrder);
+
+            Log.Message($"[AddDividerBeforePawnWhileSorting] Created divider with displayOrder {newDisplayOrder}");
+
+            return divider;
+        }
+
+        private void RecalculateDisplayOrderFromVisualOrder()
+        {
+            Log.Message($"[RecalculateDisplayOrderFromVisualOrder] Recalculating displayOrder from {_rows.Count} rows");
+
+            for (int i = 0; i < _rows.Count; i++)
+            {
+                var element = _rows[i];
+
+                if (element.Pawn != null && element.Pawn.playerSettings != null)
+                {
+                    element.Pawn.playerSettings.displayOrder = i;
+                    Log.Message($"  Row {i}: {element.Pawn.LabelShort} → displayOrder {i}");
+                }
+                else if (element.Divider != null)
+                {
+                    element.Divider.DisplayOrder = i;
+                    Log.Message($"  Row {i}: Divider '{element.Divider.DividerName}' → displayOrder {i}");
+                }
+            }
         }
 
         public void RemoveDivider(PawnDivider divider)
@@ -284,60 +419,66 @@ namespace Better_Work_Tab.PawnOrganizer
                 _workingElements.AddRange(_snapshotDividers.Select(d => new DividerElement(d)));
             }
 
+            // If no sorting, use manual order
             if (_table.SortingBy == null)
             {
                 return _workingElements
                     .OrderBy(e => e.DisplayOrder)
-                    .ThenBy(e => e.IsDivider ? 1 : 0)
                     .ToList();
             }
 
-            var finalSortedList = new List<DisplayElement>();
+            // ✅ When sorting, dividers act as immovable barriers
+            // Pawns can only sort WITHIN sections between dividers
+
             var manuallyOrdered = _workingElements.OrderBy(e => e.DisplayOrder).ToList();
-            var currentPawnGroup = new List<Pawn>();
+            var result = new List<DisplayElement>();
+
             Func<Pawn, Pawn, int> comparator = (a, b) =>
             {
                 if (_table.SortingDescending)
-                {
                     return _table.SortingBy.Worker.Compare(b, a);
-                }
-
                 return _table.SortingBy.Worker.Compare(a, b);
             };
 
-            void SortAndAddCurrentGroup()
-            {
-                if (!currentPawnGroup.Any())
-                {
-                    return;
-                }
-
-                currentPawnGroup.SortStable(comparator);
-                for (int i = 0; i < currentPawnGroup.Count; i++)
-                {
-                    finalSortedList.Add(new PawnElement(currentPawnGroup[i]));
-                }
-                currentPawnGroup.Clear();
-            }
+            // Partition the list by dividers and sort each section independently
+            var currentSection = new List<Pawn>();
 
             foreach (var element in manuallyOrdered)
             {
                 if (element.IsDivider)
                 {
-                    SortAndAddCurrentGroup();
-                    finalSortedList.Add(element);
-                    continue;
-                }
+                    // Sort and add the current section of pawns
+                    if (currentSection.Count > 0)
+                    {
+                        currentSection.SortStable(comparator);
+                        foreach (var pawn in currentSection)
+                        {
+                            result.Add(new PawnElement(pawn));
+                        }
+                        currentSection.Clear();
+                    }
 
-                if (element is PawnElement pawnElement)
+                    // Add the divider as an immovable barrier
+                    result.Add(element);
+
+                }
+                else if (element is PawnElement pawnElement)
                 {
-                    currentPawnGroup.Add(pawnElement.Pawn);
+                    currentSection.Add(pawnElement.Pawn);
                 }
             }
 
-            SortAndAddCurrentGroup();
+            // Don't forget to sort and add the final section after the last divider
+            if (currentSection.Count > 0)
+            {
+                currentSection.SortStable(comparator);
+                foreach (var pawn in currentSection)
+                {
+                    result.Add(new PawnElement(pawn));
+                }
+            }
 
-            return finalSortedList;
+            return result;
         }
 
         private PawnDivider CreateDivider(string label, Color color, int displayOrder)
