@@ -278,16 +278,50 @@ namespace Better_Work_Tab.PawnOrganizer
         private List<DisplayElement> BuildOrderedElements()
         {
             _workingElements.Clear();
-            _workingElements.AddRange(_snapshotPawns.Select(p => new PawnElement(p)));
-            if (_snapshotDividers != null)
-            {
-                _workingElements.AddRange(_snapshotDividers.Select(d => new DividerElement(d)));
-            }
 
-            return _workingElements
-                .OrderBy(e => e.DisplayOrder)
-                .ThenBy(e => e.IsDivider ? 1 : 0)
-                .ToList();
+            // If the table is being sorted by a column, respect its pawn order.
+            if (_table.SortingBy != null)
+            {
+                // The table's PawnsListForReading is already sorted correctly.
+                // We just need to wrap them and insert the dividers at the right positions.
+                _workingElements.AddRange(_snapshotPawns.Select(p => new PawnElement(p)));
+                if (_snapshotDividers != null)
+                {
+                    _workingElements.AddRange(_snapshotDividers.Select(d => new DividerElement(d)));
+                }
+
+                // Since we can't rely on a simple OrderBy, we must sort carefully to preserve
+                // the table's pawn order while placing dividers.
+                // A simple way is to use the pawn's new index in the sorted list as its order.
+                var pawnOrderMap = new Dictionary<Pawn, int>();
+                for (int i = 0; i < _snapshotPawns.Count; i++)
+                {
+                    pawnOrderMap[_snapshotPawns[i]] = i;
+                }
+
+                return _workingElements.OrderBy(e =>
+                {
+                    if (e is PawnElement pe && pawnOrderMap.TryGetValue(pe.Pawn, out int order))
+                    {
+                        return order;
+                    }
+                    // For dividers, fall back to their own displayOrder, but this is less critical during a column sort.
+                    return e.DisplayOrder;
+                }).ToList();
+            }
+            else // Otherwise, use our manual displayOrder for everything.
+            {
+                _workingElements.AddRange(_snapshotPawns.Select(p => new PawnElement(p)));
+                if (_snapshotDividers != null)
+                {
+                    _workingElements.AddRange(_snapshotDividers.Select(d => new DividerElement(d)));
+                }
+
+                return _workingElements
+                    .OrderBy(e => e.DisplayOrder)
+                    .ThenBy(e => e.IsDivider ? 1 : 0) // Ensure dividers with same order appear after pawns
+                    .ToList();
+            }
         }
 
         private PawnDivider CreateDivider(string label, Color color, int displayOrder)
