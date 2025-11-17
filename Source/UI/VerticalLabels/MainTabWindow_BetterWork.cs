@@ -152,6 +152,7 @@ namespace Better_Work_Tab.UI
 
             layout.AddDividerBeforePawn(pawn, "New Divider", Color.gray);
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+            FlagWindowSnap(); 
         }
 
         private void InsertDividerBelow(Pawn pawn)
@@ -165,6 +166,7 @@ namespace Better_Work_Tab.UI
 
             layout.AddDividerAfterPawn(pawn, "New Divider", Color.gray);
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+            FlagWindowSnap(); 
         }
 
         private void ShowBackgroundColorPicker(Pawn pawn)
@@ -320,7 +322,7 @@ namespace Better_Work_Tab.UI
             if (_pendingWindowSnap)
             {
                 _pendingWindowSnap = false;
-                windowRect.y = Mathf.Clamp(windowRect.y, 0f, Verse.UI.screenHeight - windowRect.height);
+                windowRect.y = (Verse.UI.screenHeight - 35f) - windowRect.height;
             }
         }
 

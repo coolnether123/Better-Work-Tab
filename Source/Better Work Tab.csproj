@@ -69,6 +69,7 @@
     <Compile Include="Mod Support\Multiplayer\BetterWorkTabMultiplayer.cs" />
     <Compile Include="Features\ColumnWidthPersistence.cs" />
     <Compile Include="PawnOrganizer\API\IPawnOrganizerSnapshot.cs" />
+    <Compile Include="PawnOrganizer\API\WorkTabSnapshot.cs" />
     <Compile Include="PawnOrganizer\API\IWorkTabLayoutController.cs" />
     <Compile Include="PawnOrganizer\API\PawnColorDatabase.cs" />
     <Compile Include="PawnOrganizer\API\PawnTextColorDatabase.cs" />
@@ -80,7 +81,6 @@
     <Compile Include="PawnOrganizer\PawnOrganizerSystem.cs" />
     <Compile Include="Mod Support\Multiplayer\WorkColumnOrderSync.cs" />
     <Compile Include="UI\VerticalLabels\MainTabWindow_BetterWork.cs" />
-    <Compile Include="UI\WorkTabSnapshot.cs" />
     <Compile Include="Features\WorkColumnOrderManager.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="BetterWorkTabSettings.cs" />

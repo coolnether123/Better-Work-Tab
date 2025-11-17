@@ -8,9 +8,6 @@ using Verse;
 
 namespace Better_Work_Tab.DragDrop
 {
-    /// <summary>
-    /// Handles ctrl+drag row reordering against the layout controller.
-    /// </summary>
     public class RowDragController
     {
         private readonly IWorkTabLayoutController _layout;
@@ -29,10 +26,7 @@ namespace Better_Work_Tab.DragDrop
 
         public void HandleInput(Event evt)
         {
-            if (_layout?.Table == null || evt == null)
-            {
-                return;
-            }
+            if (_layout?.Table == null || evt == null) return;
 
             if (evt.type == EventType.MouseDown && evt.button == 0 && evt.control)
             {
@@ -44,10 +38,7 @@ namespace Better_Work_Tab.DragDrop
                 return;
             }
 
-            if (!IsDragging)
-            {
-                return;
-            }
+            if (!IsDragging) return;
 
             if (evt.type == EventType.MouseDrag)
             {
@@ -57,12 +48,14 @@ namespace Better_Work_Tab.DragDrop
             }
             else if (evt.type == EventType.MouseUp)
             {
+                Log.Message("[BWT_RowDrag] MouseUp detected. Calling Commit().");
                 Commit();
                 Reset();
                 evt.Use();
             }
             else if (evt.type == EventType.KeyDown && evt.keyCode == KeyCode.Escape)
             {
+                Log.Message("[BWT_RowDrag] Escape key pressed. Cancelling drag.");
                 Reset();
                 evt.Use();
             }
@@ -70,26 +63,14 @@ namespace Better_Work_Tab.DragDrop
 
         public void DrawOverlay(IWorkTabLayoutController layout)
         {
-            if (!IsDragging || layout?.Table == null)
-            {
-                return;
-            }
-
+            if (!IsDragging || layout?.Table == null) return;
             var baseRect = layout.GetScreenRect(_rowSnapshot);
             var ghostRect = baseRect;
             ghostRect.y = _mouse.y - _dragOffsetY;
             Widgets.DrawBoxSolid(ghostRect, new Color(0f, 0f, 0f, 0.25f));
             Widgets.DrawBox(ghostRect, 1);
-
-            if (_rowSnapshot.IsDivider && _rowSnapshot.Divider != null)
-            {
-                DrawDividerGhostLabel(ghostRect, _rowSnapshot.Divider);
-            }
-            else if (_rowSnapshot.Pawn != null)
-            {
-                DrawPawnGhostLabel(ghostRect, _rowSnapshot.Pawn);
-            }
-
+            if (_rowSnapshot.IsDivider && _rowSnapshot.Divider != null) DrawDividerGhostLabel(ghostRect, _rowSnapshot.Divider);
+            else if (_rowSnapshot.Pawn != null) DrawPawnGhostLabel(ghostRect, _rowSnapshot.Pawn);
             if (_targetIndex >= 0)
             {
                 float lineY = CalculateInsertionY(layout, _targetIndex);
@@ -106,13 +87,15 @@ namespace Better_Work_Tab.DragDrop
             var rect = _layout.GetScreenRect(row);
             _dragOffsetY = mousePosition.y - rect.y;
             _targetIndex = row.VisualIndex;
+
+            string elementName = row.Pawn?.LabelShort ?? row.Divider?.DividerName ?? "Unknown";
+            Log.Message($"[BWT_RowDrag] BeginDrag: Dragging '{elementName}' from index {row.VisualIndex}. Stored reference to DisplayElement.");
         }
 
         private void UpdateInsertionIndex(Vector2 mousePosition)
         {
             float headerTop = _layout.TableOrigin.y + _layout.HeaderHeight;
             float contentY = mousePosition.y - headerTop + _layout.Table.scrollPosition.y;
-
             int newIndex = _layout.Rows.Count;
             for (int i = 0; i < _layout.Rows.Count; i++)
             {
@@ -123,60 +106,64 @@ namespace Better_Work_Tab.DragDrop
                     break;
                 }
             }
-            if (newIndex < 0)
+            newIndex = Mathf.Clamp(newIndex, 0, _layout.Rows.Count);
+            if (newIndex != _targetIndex)
             {
-                newIndex = 0;
+                _targetIndex = newIndex;
+                Log.Message($"[BWT_RowDrag] UpdateInsertionIndex: Target index changed to {_targetIndex}.");
             }
-            else if (newIndex > _layout.Rows.Count)
-            {
-                newIndex = _layout.Rows.Count;
-            }
-            _targetIndex = newIndex;
         }
 
         private float CalculateInsertionY(IWorkTabLayoutController layout, int targetIndex)
         {
-            if (layout.Rows.Count == 0)
-            {
-                return layout.TableOrigin.y + layout.HeaderHeight;
-            }
-
-            if (targetIndex >= layout.Rows.Count)
-            {
-                var lastRect = layout.GetScreenRect(layout.Rows[layout.Rows.Count - 1]);
-                return lastRect.yMax;
-            }
-
+            if (layout.Rows.Count == 0) return layout.TableOrigin.y + layout.HeaderHeight;
+            if (targetIndex >= layout.Rows.Count) return layout.GetScreenRect(layout.Rows.Last()).yMax;
             return layout.GetScreenRect(layout.Rows[targetIndex]).y;
         }
 
         private void Commit()
         {
-            if (!IsDragging || _layout?.Rows == null)
+            if (!IsDragging)
             {
+                Log.Error("[BWT_RowDrag] Commit called but IsDragging is false. Aborting.");
                 return;
             }
+
+            Log.Message($"[BWT_RowDrag] Commit: Starting commit for target index {_targetIndex}.");
 
             var ordered = _layout.Rows.OrderBy(r => r.VisualIndex).ToList();
-            int currentIndex = ordered.FindIndex(r => ReferenceEquals(r.Element, _draggedElement));
+
+            // ==================================================================
+            // ===== THE FIX IS HERE ============================================
+            // ==================================================================
+            // Instead of comparing DisplayElement references, we compare the
+            // stable Pawn or PawnDivider reference *inside* the element.
+            int currentIndex = -1;
+            if (_draggedElement is PawnElement draggedPawnElement)
+            {
+                currentIndex = ordered.FindIndex(r => (r.Element as PawnElement)?.Pawn == draggedPawnElement.Pawn);
+            }
+            else if (_draggedElement is DividerElement draggedDividerElement)
+            {
+                currentIndex = ordered.FindIndex(r => (r.Element as DividerElement)?.Divider == draggedDividerElement.Divider);
+            }
+            // ==================================================================
+
             if (currentIndex < 0)
             {
+                Log.Error("[BWT_RowDrag] Commit FAILED: Could not find the dragged element in the current row list. This can happen if the list was refreshed mid-drag. Aborting.");
                 return;
             }
+            Log.Message($"[BWT_RowDrag] Commit: Found dragged element at current index {currentIndex}.");
 
-            var row = ordered[currentIndex];
+            var rowToMove = ordered[currentIndex];
             ordered.RemoveAt(currentIndex);
 
             int insertIndex = Mathf.Clamp(_targetIndex, 0, ordered.Count);
-            if (insertIndex >= ordered.Count)
-            {
-                ordered.Add(row);
-            }
-            else
-            {
-                ordered.Insert(insertIndex, row);
-            }
+            ordered.Insert(insertIndex, rowToMove);
+            Log.Message($"[BWT_RowDrag] Commit: Moved element from {currentIndex} to {insertIndex}. List now has {ordered.Count} items.");
 
+            Log.Message("[BWT_RowDrag] Commit: Applying new displayOrder values...");
             for (int i = 0; i < ordered.Count; i++)
             {
                 if (ordered[i].Pawn != null)
@@ -192,12 +179,15 @@ namespace Better_Work_Tab.DragDrop
                     ordered[i].Divider.DisplayOrder = i;
                 }
             }
+            Log.Message("[BWT_RowDrag] Commit: New displayOrder values applied.");
 
+            Log.Message("[BWT_RowDrag] Commit: Calling NotifyAllPawnTables_PawnsChanged() to trigger table rebuild.");
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
             if (Find.ColonistBar != null)
             {
                 Find.ColonistBar.MarkColonistsDirty();
             }
+            Log.Message("[BWT_RowDrag] Commit: FINISHED.");
         }
 
         private static void DrawDividerGhostLabel(Rect rect, PawnDivider divider)
