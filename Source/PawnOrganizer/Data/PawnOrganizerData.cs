@@ -11,12 +11,16 @@ namespace Better_Work_Tab.PawnOrganizer.Data
         public string DividerName = "New Divider";
         public Color DividerColor = new Color(0.3f, 0.3f, 0.3f, 1f);
         public int DisplayOrder = 0; // Position in the pawn list (like pawn.displayOrder)
+        public bool ShowLabel = true;
+        public GameFont LabelFont = GameFont.Small;
 
         public void ExposeData()
         {
             Scribe_Values.Look(ref DividerName, "DividerName", "New Divider");
             Scribe_Values.Look(ref DividerColor, "DividerColor", Color.gray);
             Scribe_Values.Look(ref DisplayOrder, "DisplayOrder", 0);
+            Scribe_Values.Look(ref ShowLabel, "ShowLabel", true);
+            Scribe_Values.Look(ref LabelFont, "LabelFont", GameFont.Small);
         }
     }
 
