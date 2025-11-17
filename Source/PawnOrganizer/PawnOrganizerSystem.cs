@@ -21,6 +21,7 @@ namespace Better_Work_Tab.PawnOrganizer
         private readonly ColumnDragController _columnDragController;
 
         public IWorkTabLayoutController Layout => _layoutController;
+        public bool IsDraggingRow => _rowDragController?.IsDragging ?? false;
 
         public PawnOrganizerSystem(IColumnWidthStore columnWidthStore)
         {
