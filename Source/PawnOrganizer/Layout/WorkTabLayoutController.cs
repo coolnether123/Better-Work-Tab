@@ -439,13 +439,17 @@ namespace Better_Work_Tab.PawnOrganizer
                 _workingElements.AddRange(_snapshotDividers.Select(d => new DividerElement(d)));
             }
 
+            List<DisplayElement> ordered;
+
             // If no sorting, use manual order
             if (_table.SortingBy == null)
             {
-                return _workingElements
+                ordered = _workingElements
                     .OrderBy(e => e.DisplayOrder)
                     .ToList();
             }
+            else
+            {
 
             // ✅ When sorting, dividers act as immovable barriers
             // Pawns can only sort WITHIN sections between dividers
@@ -498,21 +502,28 @@ namespace Better_Work_Tab.PawnOrganizer
                 }
             }
 
-            if (!result.Any(e => e.IsDivider && (e as DividerElement)?.Divider?.IsCollapsed == true))
-            {
-                return result;
+            ordered = result;
             }
 
-            var filtered = new List<DisplayElement>(result.Count);
+            if (!ordered.Any(e => e.IsDivider && (e as DividerElement)?.Divider?.IsCollapsed == true))
+            {
+                return ordered;
+            }
+
+            var filtered = new List<DisplayElement>(ordered.Count);
             bool skipPawns = false;
 
-            for (int i = 0; i < result.Count; i++)
+            for (int i = 0; i < ordered.Count; i++)
             {
-                var element = result[i];
+                var element = ordered[i];
                 if (element.IsDivider)
                 {
                     filtered.Add(element);
                     var divider = (element as DividerElement)?.Divider;
+                    if (divider != null)
+                    {
+                        Log.Message($"[BWT] Checking collapsed divider: {divider.DividerName}, IsCollapsed={divider.IsCollapsed}");
+                    }
                     skipPawns = divider?.IsCollapsed ?? false;
                     continue;
                 }

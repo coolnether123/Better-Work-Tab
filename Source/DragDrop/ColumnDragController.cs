@@ -3,6 +3,7 @@ using System.Linq;
 using Better_Work_Tab.Features;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
+using Better_Work_Tab.UI;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -25,6 +26,7 @@ namespace Better_Work_Tab.DragDrop
         private int _targetIndex = -1;
         private bool _hasPendingColumn;
         private WorkTabLayoutColumn _pendingColumn;
+        private Rect _pendingBounds;
         private readonly List<WorkTabLayoutColumn> _workColumns = new List<WorkTabLayoutColumn>();
 
         public ColumnDragController(IWorkTabLayoutController layout)
@@ -53,21 +55,25 @@ namespace Better_Work_Tab.DragDrop
                     _pendingColumn = column;
                     _hasPendingColumn = true;
                     _initialMouse = evt.mousePosition;
-                    evt.Use();
+                    _pendingBounds = column.HeaderRect;
                 }
                 else
                 {
                     _hasPendingColumn = false;
+                    _pendingColumn = default;
+                    _pendingBounds = Rect.zero;
                 }
                 return;
             }
 
             if (_hasPendingColumn && evt.type == EventType.MouseDrag)
             {
-                if ((evt.mousePosition - _initialMouse).magnitude >= DragStartThreshold)
+                if (MouseLeftPendingColumn(evt.mousePosition))
                 {
                     BeginDrag(_pendingColumn, evt.mousePosition);
                     _hasPendingColumn = false;
+                    _pendingColumn = default;
+                    _pendingBounds = Rect.zero;
                     evt.Use();
                     return;
                 }
@@ -76,6 +82,8 @@ namespace Better_Work_Tab.DragDrop
             if (_hasPendingColumn && evt.type == EventType.MouseUp)
             {
                 _hasPendingColumn = false;
+                _pendingColumn = default;
+                _pendingBounds = Rect.zero;
             }
 
             if (!IsDragging)
@@ -144,6 +152,17 @@ namespace Better_Work_Tab.DragDrop
                 var lineRect = new Rect(lineX - 1f, layout.TableOrigin.y, 2f, fullHeight);
                 Widgets.DrawBoxSolid(lineRect, Color.white);
             }
+        }
+
+        private bool MouseLeftPendingColumn(Vector2 mousePosition)
+        {
+            if (_pendingBounds.width <= 0f || _pendingBounds.height <= 0f)
+            {
+                float sqrThreshold = DragStartThreshold * DragStartThreshold;
+                return (mousePosition - _initialMouse).sqrMagnitude >= sqrThreshold;
+            }
+
+            return !_pendingBounds.Contains(mousePosition);
         }
 
         private void BeginDrag(WorkTabLayoutColumn column, Vector2 mouse)
@@ -269,6 +288,8 @@ namespace Better_Work_Tab.DragDrop
             WorkColumnOrderManager.CaptureCurrent(def);
             WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+            MainTabWindow_BetterWork.MarkColumnsReordered();
+            MainTabWindow_BetterWork.FlagWindowSnap();
         }
 
         private void Reset()
@@ -281,6 +302,8 @@ namespace Better_Work_Tab.DragDrop
             _workColumns.Clear();
             _hasPendingColumn = false;
             _pendingColumn = default;
+            _pendingBounds = Rect.zero;
+            _initialMouse = Vector2.zero;
         }
     }
 }

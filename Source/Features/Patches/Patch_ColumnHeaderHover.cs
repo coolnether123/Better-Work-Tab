@@ -1,4 +1,5 @@
 ﻿using HarmonyLib;
+using System.Collections.Generic;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -23,6 +24,8 @@ namespace Better_Work_Tab.Patches
     [StaticConstructorOnStartup]
     public static class Patch_ColumnHeaderHover
     {
+        private static readonly List<Rect> HeaderRects = new List<Rect>();
+
         static Patch_ColumnHeaderHover()
         {
             var harmony = new Harmony("Coolnether123.betterworktab.columnhover");
@@ -46,9 +49,22 @@ namespace Better_Work_Tab.Patches
         private static void ClearHoverState_Prefix()
         {
             var evtType = Event.current.type;
-            if (evtType == EventType.Repaint || evtType == EventType.MouseMove || evtType == EventType.MouseLeaveWindow)
+            switch (evtType)
             {
-                ColumnHoverManager.Clear();
+                case EventType.Repaint:
+                    HeaderRects.Clear();
+                    ColumnHoverManager.Clear();
+                    break;
+                case EventType.MouseMove:
+                    if (!IsMouseOverAnyHeader(Event.current.mousePosition))
+                    {
+                        ColumnHoverManager.Clear();
+                    }
+                    break;
+                case EventType.MouseLeaveWindow:
+                    HeaderRects.Clear();
+                    ColumnHoverManager.Clear();
+                    break;
             }
         }
 
@@ -58,10 +74,29 @@ namespace Better_Work_Tab.Patches
         /// </summary>
         private static void SetHoverState_Postfix(PawnColumnWorker_WorkPriority __instance, Rect rect)
         {
-            if (Event.current.type == EventType.Repaint && Mouse.IsOver(rect))
+            if (Event.current.type != EventType.Repaint)
+            {
+                return;
+            }
+
+            HeaderRects.Add(rect);
+            if (Mouse.IsOver(rect))
             {
                 ColumnHoverManager.Set(__instance.def.workType);
             }
+        }
+
+        private static bool IsMouseOverAnyHeader(Vector2 mousePosition)
+        {
+            for (int i = 0; i < HeaderRects.Count; i++)
+            {
+                if (HeaderRects[i].Contains(mousePosition))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }
