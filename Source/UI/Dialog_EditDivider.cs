@@ -1,3 +1,4 @@
+using System;
 using Better_Work_Tab.PawnOrganizer.Data;
 using RimWorld;
 using Spine.UI.ColourPicker;
@@ -15,14 +16,19 @@ namespace Better_Work_Tab.UI
         private string _nameBuffer;
         private Color _currentColor;
         private bool _focusedField;
+        private bool _showLabel;
+        private GameFont _labelFont;
+        private static readonly GameFont[] FontOptions = { GameFont.Small, GameFont.Medium };
 
-        public override Vector2 InitialSize => new Vector2(360f, 196f);
+        public override Vector2 InitialSize => new Vector2(360f, 360f);
 
         public Dialog_EditDivider(PawnDivider divider)
         {
             _divider = divider;
             _nameBuffer = divider.DividerName ?? "Divider";
             _currentColor = divider.DividerColor;
+            _showLabel = divider.ShowLabel;
+            _labelFont = divider.LabelFont;
 
             forcePause = false;
             doCloseX = true;
@@ -57,7 +63,19 @@ namespace Better_Work_Tab.UI
                 }));
             }
 
-            float buttonY = inRect.height - 35f;
+            float optionsTop = colorButtonRect.yMax + 14f;
+            Rect showLabelRect = new Rect(0f, optionsTop, inRect.width, 30f);
+            Widgets.CheckboxLabeled(showLabelRect, "Show label", ref _showLabel);
+
+            Rect fontButtonRect = new Rect(0f, showLabelRect.yMax + 8f, inRect.width, 30f);
+            GUI.enabled = _showLabel;
+            if (Widgets.ButtonText(fontButtonRect, $"Text size: {GetFontLabel(_labelFont)}"))
+            {
+                _labelFont = GetNextFont(_labelFont);
+            }
+            GUI.enabled = true;
+
+            float buttonY = inRect.height - 50f;
             Rect okButton = new Rect(inRect.width - 170f, buttonY, 80f, 30f);
             Rect cancelButton = new Rect(inRect.width - 85f, buttonY, 80f, 30f);
 
@@ -93,7 +111,35 @@ namespace Better_Work_Tab.UI
 
             _divider.DividerName = trimmed;
             _divider.DividerColor = _currentColor;
+            _divider.ShowLabel = _showLabel;
+            _divider.LabelFont = _labelFont;
             return true;
+        }
+
+        private static GameFont GetNextFont(GameFont current)
+        {
+            int index = Array.IndexOf(FontOptions, current);
+            if (index < 0)
+            {
+                index = 0;
+            }
+            index = (index + 1) % FontOptions.Length;
+            return FontOptions[index];
+        }
+
+        private static string GetFontLabel(GameFont font)
+        {
+            switch (font)
+            {
+                case GameFont.Tiny:
+                    return "Tiny";
+                case GameFont.Small:
+                    return "Small";
+                case GameFont.Medium:
+                    return "Medium";
+                default:
+                    return font.ToString();
+            }
         }
     }
 }

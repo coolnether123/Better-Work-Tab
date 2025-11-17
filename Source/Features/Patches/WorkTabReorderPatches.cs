@@ -166,7 +166,6 @@ namespace Better_Work_Tab.Patches
 
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
             Log.Message("OnReorderPawnRow: MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged called.");
-            Better_Work_Tab.UI.MainTabWindow_BetterWork.FlagWindowSnap();
         }
     }
 
