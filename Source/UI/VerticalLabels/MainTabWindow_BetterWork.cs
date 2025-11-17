@@ -506,7 +506,6 @@ namespace Better_Work_Tab.UI
         {
             base.PreClose();
             HighlightManager.ClearHighlight();
-            Better_Work_Tab.Patches.WorkTabReorder_PostOpen.ResetAppliedOrderFlag();
         }
 
         internal static void FlagWindowSnap()

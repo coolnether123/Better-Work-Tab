@@ -18,11 +18,25 @@ namespace Better_Work_Tab.Features.Workloads
 
         public override void ExposeData()
         {
-            Scribe_Deep.Look(ref CurrentWorklist, "CurrentWorklist");
-            Scribe_Collections.Look(ref SavedWorklists, "SavedWorklists", LookMode.Deep);
+            string currentWorklistName = "";
+            if (Scribe.mode == LoadSaveMode.Saving && CurrentWorklist != null)
+            {
+                currentWorklistName = CurrentWorklist.RenamableLabel;
+            }
+
+            Scribe_Values.Look(ref currentWorklistName, "currentWorklistName");
+            Scribe_Collections.Look(ref SavedWorklists, "SavedWorklists", LookMode.Deep, new object[0]);
 
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
+                // On load, find the worklist by its saved name.
+                if (!string.IsNullOrEmpty(currentWorklistName))
+                {
+                    CurrentWorklist = SavedWorklists.FirstOrDefault(w => w.RenamableLabel == currentWorklistName);
+                }
+
+                // The EnsureCurrentWorklist method will act as a fallback if the named
+                // worklist wasn't found or if none was active.
                 EnsureCurrentWorklist();
             }
         }

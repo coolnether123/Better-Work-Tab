@@ -42,6 +42,8 @@
   <ItemGroup>
     <Compile Include="BetterWorkTab.cs" />
     <Compile Include="DragDrop\ColumnDragController.cs" />
+    <Compile Include="Features\Patches\Patch_ColumnHeaderHover.cs" />
+    <Compile Include="Features\Patches\Patch_WorkPriority_DoCell_Unified.cs" />
     <Compile Include="Features\Rules\AssignmentValidationResult.cs" />
     <Compile Include="Features\Rules\Validators\AssignmentConstraintsValidator.cs" />
     <Compile Include="Features\Rules\Validators\BiologicalValidator.cs" />
@@ -58,11 +60,8 @@
     <Compile Include="Features\Workloads\WorkloadNamers.cs" />
     <Compile Include="Features\Workloads\PawnWorkload.cs" />
     <Compile Include="Features\Patches\FloatMenuPatches.cs" />
-    <Compile Include="Features\Patches\WorkTabReorderPatches.cs" />
     <Compile Include="Features\Patches\WorkTabSortPatches.cs" />
     <Compile Include="Features\Patches\CustomWorkBoxDrawer.cs" />
-    <Compile Include="Features\Patches\Patch_WorkPriority_DoCell_CornerNumber.cs" />
-    <Compile Include="Features\Patches\Patch_WorkPriority_DoCell_ReplaceNumber.cs" />
     <Compile Include="Features\Patches\PawnTable_HighlightRowAndColumn.cs" />
     <Compile Include="Features\Patches\ShiftHelper.cs" />
     <Compile Include="DragDrop\RowDragController.cs" />

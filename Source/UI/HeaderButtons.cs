@@ -119,13 +119,13 @@ namespace Better_Work_Tab.UI
         {
             var options = new List<FloatMenuOption>();
             var workloads = workloadSaver.SavedWorklists.ListFullCopy();
-            workloads.Reverse();
 
             foreach (var wl in workloads)
             {
                 var local = wl;
                 options.Add(new FloatMenuOption(local.RenamableLabel, () =>
                 {
+                    // This logic is now reliable because the list order matches.
                     BetterWorkTabMultiplayer.RequestWorklistSelection(workloadSaver, local);
                     SoundDefOf.Tick_Low.PlayOneShotOnCamera();
                 }));
@@ -141,6 +141,7 @@ namespace Better_Work_Tab.UI
                 options.Add(new FloatMenuOption("Rename Workload", () =>
                 {
                     var ren = new List<FloatMenuOption>();
+                    // This loop now uses the correct, non-reversed list.
                     foreach (var wl in workloads)
                     {
                         var local = wl;
@@ -157,6 +158,7 @@ namespace Better_Work_Tab.UI
                 options.Add(new FloatMenuOption("Delete Saved Workload", () =>
                 {
                     var del = new List<FloatMenuOption>();
+                    // This loop also now uses the correct, non-reversed list.
                     foreach (var wl in workloads)
                     {
                         var local = wl;
