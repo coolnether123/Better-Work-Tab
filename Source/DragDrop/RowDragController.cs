@@ -183,6 +183,7 @@ namespace Better_Work_Tab.DragDrop
             {
                 Find.ColonistBar.MarkColonistsDirty();
             }
+            UI.MainTabWindow_BetterWork.FlagWindowSnap();
             Log.Message("[BWT_RowDrag] Commit: FINISHED.");
         }
 
