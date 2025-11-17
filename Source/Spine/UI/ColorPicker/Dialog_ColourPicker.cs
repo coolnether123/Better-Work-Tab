@@ -200,10 +200,20 @@ namespace Spine.UI.ColourPicker {
         {
             get
             {
+                float recentWidth = _previewSize * 2f;
+                int cols = Mathf.Max(1, Mathf.FloorToInt(recentWidth / _recentSize));
+                float pinnedHeight = 0f;
+                if (_recentColours.PinnedCount > 0)
+                {
+                    int pinnedRows = Mathf.CeilToInt(_recentColours.PinnedCount / (float)cols);
+                    pinnedHeight = (pinnedRows * _recentSize) + 4f;
+                }
+
                 // Calculate the total height required by the right-hand column content
                 float rightColumnHeight = _previewSize          // New/Old color preview
                                         + _margin               // Gap
                                         + (_recentSize * 2)     // Recent colors box
+                                        + pinnedHeight
                                         + _margin               // Gap
                                         + (_fieldHeight * 3)    // HSV, RGB, HEX fields
                                         + (_margin * 2)         // Gaps between fields

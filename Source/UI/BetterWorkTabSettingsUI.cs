@@ -30,7 +30,6 @@ namespace Better_Work_Tab.UI
             l.CheckboxLabeled("Enable Selected Pawn Highlight", ref s.DoSelectedPawnHighlight, "Whether to highlight the currently selected pawn in the work tab.");
             l.CheckboxLabeled("Use Custom Mouse Hover Highlight", ref s.UseCustomMouseHoverHighlight, "Whether to use a separate color for currently hovered worktype(?)");
             l.CheckboxLabeled("Enable Row and Column Highlighting", ref s.enableRowColumnHighlights, "If disabled, the Better Work Tab will stop tinting hovered headers and rows.");
-            l.CheckboxLabeled("Show Pawn Activity Overlay", ref s.showPawnActivityOverlay, "Draw a lightweight heat-map style indicator that shows each pawn's active job.");
             l.CheckboxLabeled("Show Pawn Count at Bottom", ref s.showPawnCountAtBottom, "Adds the current colonist count to the lower left corner of the work tab.");
             l.CheckboxLabeled("Show Bed Count at Bottom", ref s.showBedCountAtBottom, "Also show how many colonist-usable beds exist on the current map.");
             l.CheckboxLabeled("Disable Left-Click Close", ref s.disableLeftClickClose, "Prevents the tab from closing when clicking outside of it.");

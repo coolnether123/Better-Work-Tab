@@ -124,12 +124,19 @@ namespace Better_Work_Tab.Patches
 
         private static void DrawPriorityOnHover(Rect rect, Pawn pawn, WorkTypeDef workType)
         {
-            if (!Current.Game.playSettings.useWorkPriorities)
+            if (!Mouse.IsOver(rect))
             {
                 return;
             }
 
-            if (!Mouse.IsOver(rect))
+            bool showSmallSkills = ShouldShowUI(BetterWorkTabMod.Settings.ShowUIMode_ShowSmallSkillNumbers, ShiftHelper.State);
+            if (showSmallSkills)
+            {
+                int level = GetSkillLevel(pawn, workType);
+                DrawSmallSkillNumbers(rect, level);
+            }
+
+            if (!Current.Game.playSettings.useWorkPriorities)
             {
                 return;
             }
