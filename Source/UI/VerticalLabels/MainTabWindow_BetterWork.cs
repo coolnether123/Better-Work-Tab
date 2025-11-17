@@ -21,6 +21,9 @@ namespace Better_Work_Tab.UI
         private const float InfoIconSize = 24f;
         private static bool _pendingWindowSnap;
         private WorkTabLayoutColumn? _hoveredColumn;
+
+        private static Color CurrentRowTextColor = Color.white;
+
         public override void PreOpen()
         {
             base.PreOpen();
@@ -88,16 +91,13 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
+
             if (layout.TryGetRowAt(evt.mousePosition, out var row))
             {
                 if (row.Pawn != null)
                 {
-                    if (TryGetBodyColumnAt(layout, evt.mousePosition, out var column) &&
-                        column.Column?.Worker is PawnColumnWorker_Label)
-                    {
-                        ShowPawnContextMenu(row.Pawn);
-                        evt.Use();
-                    }
+                    ShowPawnContextMenu(row.Pawn);
+                    evt.Use();
                 }
                 else if (row.Divider != null)
                 {
@@ -144,6 +144,7 @@ namespace Better_Work_Tab.UI
                 new FloatMenuOption("Delete", () =>
                 {
                     PawnOrganizerSystem.Instance?.Layout.RemoveDivider(divider);
+                    UI.MainTabWindow_BetterWork.FlagWindowSnap();
                     MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
                 })
             };
@@ -260,6 +261,8 @@ namespace Better_Work_Tab.UI
             {
                 var overlay = new Color(color.r, color.g, color.b, Mathf.Clamp(color.a, 0.08f, 0.6f));
                 Widgets.DrawBoxSolid(rect, overlay);
+
+                CurrentRowTextColor = Spine.UI.TextColorHelper.GetContrastingTextColor(overlay);
             }
             else if (row.Divider != null)
             {
@@ -394,7 +397,7 @@ namespace Better_Work_Tab.UI
 
             try
             {
-                GUI.color = Color.white;
+                GUI.color = Spine.UI.TextColorHelper.GetContrastingTextColor(divider.DividerColor);
                 Text.Anchor = TextAnchor.MiddleLeft;
                 Text.Font = divider.LabelFont;
 
