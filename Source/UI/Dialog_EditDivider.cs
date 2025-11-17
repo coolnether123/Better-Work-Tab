@@ -20,7 +20,7 @@ namespace Better_Work_Tab.UI
         private GameFont _labelFont;
         private static readonly GameFont[] FontOptions = { GameFont.Small, GameFont.Medium };
 
-        public override Vector2 InitialSize => new Vector2(360f, 360f);
+        public override Vector2 InitialSize => new Vector2(360f, 330f);
 
         public Dialog_EditDivider(PawnDivider divider)
         {
@@ -76,8 +76,8 @@ namespace Better_Work_Tab.UI
             GUI.enabled = true;
 
             float buttonY = inRect.height - 50f;
-            Rect okButton = new Rect(inRect.width - 170f, buttonY, 80f, 30f);
-            Rect cancelButton = new Rect(inRect.width - 85f, buttonY, 80f, 30f);
+            Rect okButton = new Rect(inRect.width - 170f, buttonY, 70f, 30f);
+            Rect cancelButton = new Rect(inRect.width - 85f, buttonY, 70f, 30f);
 
             bool enterPressed = Event.current.type == EventType.KeyUp && Event.current.keyCode == KeyCode.Return;
 

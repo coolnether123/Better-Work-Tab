@@ -77,8 +77,10 @@
     <Compile Include="PawnOrganizer\Layout\WorkTabLayoutColumn.cs" />
     <Compile Include="PawnOrganizer\Layout\WorkTabLayoutController.cs" />
     <Compile Include="PawnOrganizer\Layout\WorkTabLayoutRow.cs" />
+    <Compile Include="PawnOrganizer\Patches\Patch_PawnColumnWorker_Label_DoCell.cs" />
     <Compile Include="PawnOrganizer\PawnOrganizerSystem.cs" />
     <Compile Include="Mod Support\Multiplayer\WorkColumnOrderSync.cs" />
+    <Compile Include="Spine\UI\TextColorHelper.cs" />
     <Compile Include="UI\VerticalLabels\MainTabWindow_BetterWork.cs" />
     <Compile Include="Features\WorkColumnOrderManager.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
