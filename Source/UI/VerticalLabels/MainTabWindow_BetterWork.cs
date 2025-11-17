@@ -21,7 +21,6 @@ namespace Better_Work_Tab.UI
         private const float InfoIconSize = 24f;
         private static bool _pendingWindowSnap;
         private WorkTabLayoutColumn? _hoveredColumn;
-
         public override void PreOpen()
         {
             base.PreOpen();
@@ -114,6 +113,7 @@ namespace Better_Work_Tab.UI
             {
                 new FloatMenuOption("Insert divider above", () => InsertDividerAbove(pawn)),
                 new FloatMenuOption("Insert divider below", () => InsertDividerBelow(pawn)),
+                new FloatMenuOption("Change title...", () => ShowRenamePawnDialog(pawn)),
                 new FloatMenuOption("Set background color...", () => ShowBackgroundColorPicker(pawn))
             };
 
@@ -126,6 +126,11 @@ namespace Better_Work_Tab.UI
             }
 
             Find.WindowStack.Add(new FloatMenu(options));
+        }
+
+        private void ShowRenamePawnDialog(Pawn pawn)
+        {
+            Find.WindowStack.Add(pawn.NamePawnDialog());
         }
 
         private void ShowDividerContextMenu(PawnDivider divider)
@@ -229,7 +234,16 @@ namespace Better_Work_Tab.UI
                 }
                 else if (row.Divider != null)
                 {
-                    DrawDividerRow(row, rowRect, nameColumn);
+                    if (nameColumn.HasValue)
+                    {
+                        Rect labelCellRect = new Rect(
+                            nameColumn.Value.OffsetX,
+                            rowRect.y,
+                            nameColumn.Value.Width,
+                            rowRect.height
+                        );
+                        DrawDividerLabel(row.Divider, labelCellRect);
+                    }
                 }
 
                 GUI.color = new Color(1f, 1f, 1f, 0.12f);
@@ -367,25 +381,34 @@ namespace Better_Work_Tab.UI
             }
         }
 
-        private void DrawDividerRow(WorkTabLayoutRow row, Rect rowRect, WorkTabLayoutColumn? nameColumn)
+        private void DrawDividerLabel(PawnDivider divider, Rect labelCellRect)
         {
-            var divider = row.Divider;
-            if (divider == null || !divider.ShowLabel)
+            if (!divider.ShowLabel)
             {
                 return;
             }
 
-            GUI.color = Color.white;
-            Text.Anchor = TextAnchor.MiddleLeft;
-            Text.Font = divider.LabelFont;
-            Rect labelRect = nameColumn.HasValue
-                ? new Rect(nameColumn.Value.OffsetX, rowRect.y, nameColumn.Value.Width, rowRect.height)
-                : rowRect;
-            labelRect.xMin += 6f;
-            labelRect.xMax -= 6f;
-            Widgets.Label(labelRect, divider.DividerName ?? "Divider");
-            Text.Anchor = TextAnchor.UpperLeft;
-            Text.Font = GameFont.Small;
+            var originalAnchor = Text.Anchor;
+            var originalFont = Text.Font;
+            var originalColor = GUI.color;
+
+            try
+            {
+                GUI.color = Color.white;
+                Text.Anchor = TextAnchor.MiddleLeft;
+                Text.Font = divider.LabelFont;
+
+                // Increase the left indent to match pawn name padding
+                labelCellRect.xMin += 33f; 
+
+                Widgets.Label(labelCellRect, divider.DividerName ?? "Divider");
+            }
+            finally
+            {
+                Text.Anchor = originalAnchor;
+                Text.Font = originalFont;
+                GUI.color = originalColor;
+            }
         }
 
         private void AdjustWindowHeight(IWorkTabLayoutController layout, Rect inRect)
