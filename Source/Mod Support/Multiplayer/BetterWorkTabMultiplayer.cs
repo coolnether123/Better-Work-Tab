@@ -185,6 +185,12 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer
             }
 
             var newWorklist = new Worklist(defaultLabel);
+            if (component.CurrentWorklist != null && component.CurrentWorklist.Dividers.Any())
+            {
+                // We perform a deep copy of each divider to prevent the new and old
+                // worklists from sharing the same divider object references.
+                newWorklist.Dividers = component.CurrentWorklist.Dividers.Select(d => d.Copy()).ToList();
+            }
             component.SavedWorklists.Add(newWorklist);
             component.CurrentWorklist = newWorklist;
             Find.WindowStack.Add(new Dialog_NameNewWorklist(newWorklist));
