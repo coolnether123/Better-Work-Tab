@@ -20,6 +20,7 @@ namespace Better_Work_Tab.UI
         private const float RightEdgeMargin = 10f;
         private const float InfoIconSize = 24f;
         private static bool _pendingWindowSnap;
+        private WorkTabLayoutColumn? _hoveredColumn;
 
         public override void PreOpen()
         {
@@ -92,8 +93,12 @@ namespace Better_Work_Tab.UI
             {
                 if (row.Pawn != null)
                 {
-                    ShowPawnContextMenu(row.Pawn);
-                    evt.Use();
+                    if (TryGetBodyColumnAt(layout, evt.mousePosition, out var column) &&
+                        column.Column?.Worker is PawnColumnWorker_Label)
+                    {
+                        ShowPawnContextMenu(row.Pawn);
+                        evt.Use();
+                    }
                 }
                 else if (row.Divider != null)
                 {
@@ -185,36 +190,32 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
+            CalculateScrollRects(layout, inRect, out var outRect, out var viewRect);
+            UpdateHoveredColumn(layout);
+
             DrawHeaders(layout, table);
-            DrawRows(table, layout, inRect);
+            DrawRows(table, layout, outRect, viewRect);
         }
 
         private void DrawHeaders(IWorkTabLayoutController layout, PawnTable table)
         {
             foreach (var column in layout.Columns)
             {
+                bool highlightHeader = _hoveredColumn.HasValue &&
+                                       ReferenceEquals(_hoveredColumn.Value.Column, column.Column);
+                if (highlightHeader)
+                {
+                    Widgets.DrawHighlight(column.HeaderRect);
+                }
+
                 column.Column.Worker.DoHeader(column.HeaderRect, table);
             }
         }
 
-        private void DrawRows(PawnTable table, IWorkTabLayoutController layout, Rect inRect)
+        private void DrawRows(PawnTable table, IWorkTabLayoutController layout, Rect outRect, Rect viewRect)
         {
-            float headerHeight = layout.HeaderHeight;
-            Rect outRect = new Rect(
-                layout.TableOrigin.x,
-                layout.TableOrigin.y + headerHeight,
-                layout.Table.Size.x,
-                Mathf.Max(0f, inRect.height - headerHeight - ExtraBottomSpace));
-
-            float widthWithoutScrollbar = layout.Table.Size.x - 16f;
-            float totalColumnWidth = layout.Columns.Count > 0
-                ? layout.Columns[layout.Columns.Count - 1].OffsetX + layout.Columns[layout.Columns.Count - 1].Width
-                : widthWithoutScrollbar;
-            float viewWidth = Mathf.Max(widthWithoutScrollbar, totalColumnWidth);
-            float contentHeight = Mathf.Max(layout.ContentHeight, 1f);
-            Rect viewRect = new Rect(0f, 0f, viewWidth, Mathf.Max(contentHeight, outRect.height));
-
             Widgets.BeginScrollView(outRect, ref table.scrollPosition, viewRect);
+            var nameColumn = FindNameColumn(layout.Columns);
 
             foreach (var row in layout.Rows)
             {
@@ -228,7 +229,7 @@ namespace Better_Work_Tab.UI
                 }
                 else if (row.Divider != null)
                 {
-                    DrawDividerRow(row, rowRect);
+                    DrawDividerRow(row, rowRect, nameColumn);
                 }
 
                 GUI.color = new Color(1f, 1f, 1f, 0.12f);
@@ -250,6 +251,86 @@ namespace Better_Work_Tab.UI
             {
                 Widgets.DrawBoxSolid(rect, row.Divider.DividerColor);
             }
+        }
+
+        private void CalculateScrollRects(IWorkTabLayoutController layout, Rect inRect, out Rect outRect, out Rect viewRect)
+        {
+            float headerHeight = layout.HeaderHeight;
+            outRect = new Rect(
+                layout.TableOrigin.x,
+                layout.TableOrigin.y + headerHeight,
+                layout.Table.Size.x,
+                Mathf.Max(0f, inRect.height - headerHeight - ExtraBottomSpace));
+
+            float widthWithoutScrollbar = layout.Table.Size.x - 16f;
+            float totalColumnWidth = layout.Columns.Count > 0
+                ? layout.Columns[layout.Columns.Count - 1].OffsetX + layout.Columns[layout.Columns.Count - 1].Width
+                : widthWithoutScrollbar;
+            float viewWidth = Mathf.Max(widthWithoutScrollbar, totalColumnWidth);
+            float contentHeight = Mathf.Max(layout.ContentHeight, 1f);
+            viewRect = new Rect(0f, 0f, viewWidth, Mathf.Max(contentHeight, outRect.height));
+        }
+
+        private WorkTabLayoutColumn? FindNameColumn(IReadOnlyList<WorkTabLayoutColumn> columns)
+        {
+            for (int i = 0; i < columns.Count; i++)
+            {
+                if (columns[i].Column?.Worker is PawnColumnWorker_Label)
+                {
+                    return columns[i];
+                }
+            }
+
+            return null;
+        }
+
+        private void UpdateHoveredColumn(IWorkTabLayoutController layout)
+        {
+            _hoveredColumn = null;
+            if (layout == null)
+            {
+                return;
+            }
+
+            Vector2 mousePosition = Event.current.mousePosition;
+            if (layout.TryGetColumnAt(mousePosition, out var headerColumn))
+            {
+                _hoveredColumn = headerColumn;
+            }
+        }
+
+        private bool TryGetBodyColumnAt(IWorkTabLayoutController layout, Vector2 mousePosition, out WorkTabLayoutColumn column)
+        {
+            column = default;
+            if (layout?.Table == null)
+            {
+                return false;
+            }
+
+            float headerTop = layout.TableOrigin.y + layout.HeaderHeight;
+            float bodyBottom = layout.TableOrigin.y + layout.Table.Size.y;
+            if (mousePosition.y < headerTop || mousePosition.y > bodyBottom)
+            {
+                return false;
+            }
+
+            float localX = mousePosition.x - layout.TableOrigin.x;
+            if (localX < 0f)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < layout.Columns.Count; i++)
+            {
+                var candidate = layout.Columns[i];
+                if (localX >= candidate.OffsetX && localX <= candidate.OffsetX + candidate.Width)
+                {
+                    column = candidate;
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private void DrawPawnRow(PawnTable table, WorkTabLayoutRow row, Rect rowRect, IReadOnlyList<WorkTabLayoutColumn> columns)
@@ -286,18 +367,20 @@ namespace Better_Work_Tab.UI
             }
         }
 
-        private void DrawDividerRow(WorkTabLayoutRow row, Rect rowRect)
+        private void DrawDividerRow(WorkTabLayoutRow row, Rect rowRect, WorkTabLayoutColumn? nameColumn)
         {
             var divider = row.Divider;
-            if (divider == null)
+            if (divider == null || !divider.ShowLabel)
             {
                 return;
             }
 
             GUI.color = Color.white;
             Text.Anchor = TextAnchor.MiddleLeft;
-            Text.Font = rowRect.height > 22f ? GameFont.Medium : GameFont.Small;
-            Rect labelRect = rowRect;
+            Text.Font = divider.LabelFont;
+            Rect labelRect = nameColumn.HasValue
+                ? new Rect(nameColumn.Value.OffsetX, rowRect.y, nameColumn.Value.Width, rowRect.height)
+                : rowRect;
             labelRect.xMin += 6f;
             labelRect.xMax -= 6f;
             Widgets.Label(labelRect, divider.DividerName ?? "Divider");
@@ -324,11 +407,16 @@ namespace Better_Work_Tab.UI
             float maxHeight = Verse.UI.screenHeight - 45f;
             float minHeight = InitialSize.y;
 
+            float previousHeight = windowRect.height;
             windowRect.height = Mathf.Clamp(desiredHeight, minHeight, maxHeight);
             if (_pendingWindowSnap)
             {
                 _pendingWindowSnap = false;
-                windowRect.y = (Verse.UI.screenHeight - 35f) - windowRect.height;
+                if (PawnOrganizerSystem.Instance?.IsDraggingRow != true &&
+                    Mathf.Abs(windowRect.height - previousHeight) > 0.01f)
+                {
+                    windowRect.y = (Verse.UI.screenHeight - 35f) - windowRect.height;
+                }
             }
         }
 
