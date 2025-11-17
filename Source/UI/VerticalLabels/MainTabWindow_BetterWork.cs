@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using Better_Work_Tab.Features;
-using Better_Work_Tab.Features.Activity;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
@@ -25,17 +24,23 @@ namespace Better_Work_Tab.UI
         private const float HeightSnapThreshold = 12f;
         private const float WindowSnapCooldownSeconds = 0.25f;
         private static bool _pendingWindowSnap;
+        private static bool _columnsReordered;
         private WorkTabLayoutColumn? _hoveredColumn;
-        private readonly List<Pawn> _visiblePawns = new List<Pawn>();
         private float _lastKnownHeight = -1f;
         private float _lastWindowSnapTime;
+        private PawnColumnDef _lastSortColumn;
+        private bool _lastSortDescending;
 
         private static Color CurrentRowTextColor = Color.white;
+        private static readonly Color ColumnReorderTint = new Color(1f, 0.85f, 0.2f, 0.28f);
 
         public override void PreOpen()
         {
             base.PreOpen();
             closeOnClickedOutside = !BetterWorkTabMod.Settings.disableLeftClickClose;
+            ClearColumnReorderFlag();
+            _lastSortColumn = null;
+            _lastSortDescending = false;
 
             if (PawnOrganizerSystem.Instance == null)
             {
@@ -218,18 +223,46 @@ namespace Better_Work_Tab.UI
 
             CalculateScrollRects(layout, inRect, out var outRect, out var viewRect);
             UpdateHoveredColumn(layout);
+            UpdateSortState(table);
 
             DrawHeaders(layout, table);
             DrawRows(table, layout, outRect, viewRect);
+        }
+
+        private void UpdateSortState(PawnTable table)
+        {
+            if (table == null)
+            {
+                _lastSortColumn = null;
+                _lastSortDescending = false;
+                return;
+            }
+
+            var current = table.SortingBy;
+            bool descending = current != null && table.SortingDescending;
+            if (!ReferenceEquals(current, _lastSortColumn) || descending != _lastSortDescending)
+            {
+                ClearColumnReorderFlag();
+                _lastSortColumn = current;
+                _lastSortDescending = descending;
+            }
         }
 
         private void DrawHeaders(IWorkTabLayoutController layout, PawnTable table)
         {
             foreach (var column in layout.Columns)
             {
+                bool isWorkColumn = column.Column?.Worker is PawnColumnWorker_WorkPriority;
+                bool showReorder = _columnsReordered && isWorkColumn;
                 bool highlightHeader = BetterWorkTabMod.Settings.enableRowColumnHighlights &&
                                        _hoveredColumn.HasValue &&
                                        ReferenceEquals(_hoveredColumn.Value.Column, column.Column);
+
+                if (showReorder)
+                {
+                    Widgets.DrawBoxSolid(column.HeaderRect, ColumnReorderTint);
+                }
+
                 if (highlightHeader)
                 {
                     var highlightColor = BetterWorkTabMod.Settings.Color_MouseHoverHighlight;
@@ -238,7 +271,30 @@ namespace Better_Work_Tab.UI
                 }
 
                 column.Column.Worker.DoHeader(column.HeaderRect, table);
+
+                if (showReorder)
+                {
+                    DrawColumnReorderMarker(column.HeaderRect);
+                }
             }
+        }
+
+        private void DrawColumnReorderMarker(Rect headerRect)
+        {
+            var prevAnchor = Text.Anchor;
+            var prevFont = Text.Font;
+            var prevColor = GUI.color;
+
+            Text.Anchor = TextAnchor.UpperCenter;
+            Text.Font = GameFont.Tiny;
+            GUI.color = new Color(1f, 0.92f, 0.25f);
+
+            Rect starRect = new Rect(headerRect.x, headerRect.y + 2f, headerRect.width, 12f);
+            Widgets.Label(starRect, "*");
+
+            GUI.color = prevColor;
+            Text.Font = prevFont;
+            Text.Anchor = prevAnchor;
         }
 
         private void DrawRows(PawnTable table, IWorkTabLayoutController layout, Rect outRect, Rect viewRect)
@@ -252,20 +308,6 @@ namespace Better_Work_Tab.UI
             try
             {
                 var nameColumn = FindNameColumn(layout.Columns);
-
-                if (BetterWorkTabMod.Settings.showPawnActivityOverlay)
-                {
-                    _visiblePawns.Clear();
-                    for (int i = 0; i < layout.Rows.Count; i++)
-                    {
-                        var pawn = layout.Rows[i].Pawn;
-                        if (pawn != null)
-                        {
-                            _visiblePawns.Add(pawn);
-                        }
-                    }
-                    PawnActivityTracker.Instance.PruneInvisible(_visiblePawns);
-                }
 
                 foreach (var row in layout.Rows)
                 {
@@ -281,7 +323,6 @@ namespace Better_Work_Tab.UI
                     {
                         DrawPawnRow(table, row, rowRect, layout.Columns);
                         DrawPawnRowOverlay(row, rowRect);
-                        DrawActivityOverlay(row, rowRect);
                     }
                     else if (row.Divider != null && nameColumn.HasValue)
                     {
@@ -453,42 +494,6 @@ namespace Better_Work_Tab.UI
             SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
         }
 
-        private void DrawActivityOverlay(WorkTabLayoutRow row, Rect rowRect)
-        {
-            if (!BetterWorkTabMod.Settings.showPawnActivityOverlay)
-            {
-                return;
-            }
-
-            var pawn = row.Pawn;
-            if (pawn == null)
-            {
-                return;
-            }
-
-            var snapshot = PawnActivityTracker.Instance.Observe(pawn);
-            if (!snapshot.HasData || snapshot.TotalTicks <= 0f)
-            {
-                return;
-            }
-
-            Rect barRect = new Rect(rowRect.x + 4f, rowRect.yMax - 5f, rowRect.width - 8f, 3f);
-            float cursor = barRect.xMin;
-            for (int i = 0; i < snapshot.Segments.Count; i++)
-            {
-                var segment = snapshot.Segments[i];
-                float width = barRect.width * (segment.Duration / snapshot.TotalTicks);
-                Rect segmentRect = new Rect(cursor, barRect.y, Mathf.Max(1f, width), barRect.height);
-                Widgets.DrawBoxSolid(segmentRect, segment.Color);
-                cursor += width;
-            }
-
-            if (!string.IsNullOrEmpty(snapshot.CurrentLabel))
-            {
-                TooltipHandler.TipRegion(barRect, $"Activity: {snapshot.CurrentLabel}");
-            }
-        }
-
         private void DrawPawnRow(PawnTable table, WorkTabLayoutRow row, Rect rowRect, IReadOnlyList<WorkTabLayoutColumn> columns)
         {
             foreach (var column in columns)
@@ -585,7 +590,17 @@ namespace Better_Work_Tab.UI
                 _lastKnownHeight = windowRect.height;
             }
 
-            bool shouldSnap = _pendingWindowSnap || heightDelta > HeightSnapThreshold;
+            if (Prefs.DevMode && heightDelta > 0.01f)
+            {
+                Log.Message($"[BWT] Height: {_lastKnownHeight:F1} -> {desiredHeight:F1}, delta={heightDelta:F1}, pendingSnap={_pendingWindowSnap}");
+            }
+
+            bool autoSnapRequested = heightDelta > HeightSnapThreshold;
+            bool shouldSnap = _pendingWindowSnap;
+            if (!shouldSnap && autoSnapRequested && Prefs.DevMode)
+            {
+                Log.Message($"[BWT] Auto-snap suppressed (delta={heightDelta:F1})");
+            }
             if (!shouldSnap)
             {
                 return;
@@ -737,7 +752,7 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
-            var rect = new Rect(inRect.x + 6f, inRect.yMax - 22f, inRect.width * 0.5f, 20f);
+            var rect = new Rect(inRect.x + 6f, inRect.yMax - 45f, inRect.width * 0.5f, 20f);
             Text.Anchor = TextAnchor.UpperLeft;
             Text.Font = GameFont.Tiny;
             GUI.color = new Color(1f, 1f, 1f, 0.7f);
@@ -756,6 +771,19 @@ namespace Better_Work_Tab.UI
         {
             base.PreClose();
             HighlightManager.ClearHighlight();
+            ClearColumnReorderFlag();
+            _lastSortColumn = null;
+            _lastSortDescending = false;
+        }
+
+        internal static void MarkColumnsReordered()
+        {
+            _columnsReordered = true;
+        }
+
+        internal static void ClearColumnReorderFlag()
+        {
+            _columnsReordered = false;
         }
 
         internal static void FlagWindowSnap()

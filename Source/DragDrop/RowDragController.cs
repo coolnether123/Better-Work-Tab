@@ -16,6 +16,7 @@ namespace Better_Work_Tab.DragDrop
         private WorkTabLayoutRow _rowSnapshot;
         private WorkTabLayoutRow _pendingRow;
         private bool _hasPendingRow;
+        private Rect _pendingBounds;
         private float _dragOffsetY;
         private Vector2 _mouse;
         private Vector2 _initialMouse;
@@ -45,21 +46,25 @@ namespace Better_Work_Tab.DragDrop
                     _pendingRow = row;
                     _hasPendingRow = true;
                     _initialMouse = evt.mousePosition;
-                    evt.Use();
+                    _pendingBounds = _layout.GetScreenRect(row);
                 }
                 else
                 {
                     _hasPendingRow = false;
+                    _pendingRow = default;
+                    _pendingBounds = Rect.zero;
                 }
                 return;
             }
 
             if (_hasPendingRow && evt.type == EventType.MouseDrag)
             {
-                if ((evt.mousePosition - _initialMouse).magnitude >= DragStartThreshold)
+                if (MouseLeftPendingRow(evt.mousePosition))
                 {
                     BeginDrag(_pendingRow, evt.mousePosition);
                     _hasPendingRow = false;
+                    _pendingRow = default;
+                    _pendingBounds = Rect.zero;
                     evt.Use();
                     return;
                 }
@@ -68,6 +73,8 @@ namespace Better_Work_Tab.DragDrop
             if (_hasPendingRow && evt.type == EventType.MouseUp)
             {
                 _hasPendingRow = false;
+                _pendingRow = default;
+                _pendingBounds = Rect.zero;
             }
 
             if (!IsDragging)
@@ -118,6 +125,17 @@ namespace Better_Work_Tab.DragDrop
                 var lineRect = new Rect(layout.TableOrigin.x, lineY - 1f, layout.Table.Size.x - 16f, 2f);
                 Widgets.DrawBoxSolid(lineRect, Color.white);
             }
+        }
+
+        private bool MouseLeftPendingRow(Vector2 mousePosition)
+        {
+            if (_pendingBounds.width <= 0f || _pendingBounds.height <= 0f)
+            {
+                float sqrThreshold = DragStartThreshold * DragStartThreshold;
+                return (mousePosition - _initialMouse).sqrMagnitude >= sqrThreshold;
+            }
+
+            return !_pendingBounds.Contains(mousePosition);
         }
 
         private void BeginDrag(WorkTabLayoutRow row, Vector2 mousePosition)
@@ -256,6 +274,8 @@ namespace Better_Work_Tab.DragDrop
             _mouse = Vector2.zero;
             _hasPendingRow = false;
             _pendingRow = default;
+            _pendingBounds = Rect.zero;
+            _initialMouse = Vector2.zero;
         }
     }
 }
