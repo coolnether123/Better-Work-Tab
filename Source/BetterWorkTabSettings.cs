@@ -27,6 +27,14 @@ namespace Better_Work_Tab
         public static bool firstTimeSetupDone = false;
         public static float dividerHeight = 18f;
         public static bool drawDividerHighlight = true;
+        public static bool showOnlyLineDragIndicatorRows = false;
+        public static bool showOnlyLineDragIndicatorColumns = false;
+        public static bool requireCtrlForDrag = true;
+        public static bool disableLeftClickClose = false;
+        public static bool showPawnCountAtBottom = true;
+        public static bool showBedCountAtBottom = false;
+        public static bool enableRowColumnHighlights = true;
+        public static bool showPawnActivityOverlay = true;
 
 
         // This rule ensures at least one colonist is assigned to a specific work type at a given priority
@@ -132,6 +140,14 @@ namespace Better_Work_Tab
         public bool enableAutoAssignFeature = true;
         public float dividerHeight = DefaultSettings.dividerHeight;
         public bool drawDividerHighlight = DefaultSettings.drawDividerHighlight;
+        public bool showOnlyLineDragIndicatorRows = DefaultSettings.showOnlyLineDragIndicatorRows;
+        public bool showOnlyLineDragIndicatorColumns = DefaultSettings.showOnlyLineDragIndicatorColumns;
+        public bool requireCtrlForDrag = DefaultSettings.requireCtrlForDrag;
+        public bool disableLeftClickClose = DefaultSettings.disableLeftClickClose;
+        public bool showPawnCountAtBottom = DefaultSettings.showPawnCountAtBottom;
+        public bool showBedCountAtBottom = DefaultSettings.showBedCountAtBottom;
+        public bool enableRowColumnHighlights = DefaultSettings.enableRowColumnHighlights;
+        public bool showPawnActivityOverlay = DefaultSettings.showPawnActivityOverlay;
         public List<string> workColumnOrderDefNames = new List<string>();
         public Dictionary<string, float> storedColumnWidths = new Dictionary<string, float>();
 
@@ -217,6 +233,14 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref ShowFloatMenuPawnAndWorktypeHighlight, "ShowFloatMenuPawnAndWorktypeHighlight", DefaultSettings.ShowFloatMenuPawnAndWorktypeHighlight);
             Scribe_Values.Look(ref DoSelectedPawnHighlight, "DoSelectedPawnHighlight", DefaultSettings.DoSelectedPawnHighlight);
             Scribe_Values.Look(ref UseCustomMouseHoverHighlight, "UseCustomMouseHoverHighlight", DefaultSettings.UseCustomMouseHoverHighlight);
+            Scribe_Values.Look(ref enableRowColumnHighlights, "enableRowColumnHighlights", DefaultSettings.enableRowColumnHighlights);
+            Scribe_Values.Look(ref showPawnCountAtBottom, "showPawnCountAtBottom", DefaultSettings.showPawnCountAtBottom);
+            Scribe_Values.Look(ref showBedCountAtBottom, "showBedCountAtBottom", DefaultSettings.showBedCountAtBottom);
+            Scribe_Values.Look(ref disableLeftClickClose, "disableLeftClickClose", DefaultSettings.disableLeftClickClose);
+            Scribe_Values.Look(ref requireCtrlForDrag, "requireCtrlForDrag", DefaultSettings.requireCtrlForDrag);
+            Scribe_Values.Look(ref showOnlyLineDragIndicatorRows, "showOnlyLineDragIndicatorRows", DefaultSettings.showOnlyLineDragIndicatorRows);
+            Scribe_Values.Look(ref showOnlyLineDragIndicatorColumns, "showOnlyLineDragIndicatorColumns", DefaultSettings.showOnlyLineDragIndicatorColumns);
+            Scribe_Values.Look(ref showPawnActivityOverlay, "showPawnActivityOverlay", DefaultSettings.showPawnActivityOverlay);
             
             
             Scribe_Values.Look(ref Color_CursorHighlight, "Color_CursorHighlight", DefaultSettings.Color_CursorHighlight);
@@ -272,6 +296,14 @@ namespace Better_Work_Tab
             ShowUIMode_ShowPawnForSkillSquare = DefaultSettings.ShowUIMode_ShowPawnForSkillSquare;
             dividerHeight = DefaultSettings.dividerHeight;
             drawDividerHighlight = DefaultSettings.drawDividerHighlight;
+            showOnlyLineDragIndicatorRows = DefaultSettings.showOnlyLineDragIndicatorRows;
+            showOnlyLineDragIndicatorColumns = DefaultSettings.showOnlyLineDragIndicatorColumns;
+            requireCtrlForDrag = DefaultSettings.requireCtrlForDrag;
+            disableLeftClickClose = DefaultSettings.disableLeftClickClose;
+            showPawnCountAtBottom = DefaultSettings.showPawnCountAtBottom;
+            showBedCountAtBottom = DefaultSettings.showBedCountAtBottom;
+            enableRowColumnHighlights = DefaultSettings.enableRowColumnHighlights;
+            showPawnActivityOverlay = DefaultSettings.showPawnActivityOverlay;
         }
 
         private void InitializeRulesets()

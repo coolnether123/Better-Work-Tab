@@ -11,6 +11,7 @@ namespace Spine.UI.ColourPicker {
     public class RecentColours {
         private const int max = 20;
         private static List<Color> _colors = new List<Color>();
+        private static List<Color> _pinnedColors = new List<Color>();
 
         static RecentColours() {
             Read();
@@ -19,9 +20,11 @@ namespace Spine.UI.ColourPicker {
         public Color this[int index] => _colors[index];
 
         public int Count => _colors.Count;
+        public IReadOnlyList<Color> PinnedColors => _pinnedColors;
+        public int PinnedCount => _pinnedColors.Count;
 
         public void Add(Color color) {
-            _colors.RemoveAll(c => c == color);
+            _colors.RemoveAll(c => ColorsEqual(c, color));
             _colors.Insert(0, color);
 
             while (_colors.Count > max) {
@@ -31,9 +34,36 @@ namespace Spine.UI.ColourPicker {
             Write();
         }
 
+        public bool IsPinned(Color color)
+        {
+            return _pinnedColors.Exists(c => ColorsEqual(c, color));
+        }
+
+        public void Pin(Color color)
+        {
+            if (IsPinned(color))
+            {
+                return;
+            }
+
+            _pinnedColors.Insert(0, color);
+            Write();
+        }
+
+        public void Unpin(Color color)
+        {
+            int removed = _pinnedColors.RemoveAll(c => ColorsEqual(c, color));
+            if (removed > 0)
+            {
+                Write();
+            }
+        }
+
         private static void Read() {
             string path = Path.Combine(GenFilePaths.ConfigFolderPath, "ColourPicker.xml");
             if (!File.Exists(path)) {
+                _colors.Clear();
+                _pinnedColors.Clear();
                 return;
             }
 
@@ -44,6 +74,11 @@ namespace Spine.UI.ColourPicker {
                 Log.Error("ColourPicker :: Error loading recent colours from file:" + ex);
             } finally {
                 Scribe.loader.FinalizeLoading();
+            }
+
+            if (_pinnedColors == null)
+            {
+                _pinnedColors = new List<Color>();
             }
         }
 
@@ -61,6 +96,25 @@ namespace Spine.UI.ColourPicker {
 
         private static void ExposeData() {
             Scribe_Collections.Look(ref _colors, "RecentColors");
+            Scribe_Collections.Look(ref _pinnedColors, "PinnedColors");
+
+            if (_colors == null)
+            {
+                _colors = new List<Color>();
+            }
+            if (_pinnedColors == null)
+            {
+                _pinnedColors = new List<Color>();
+            }
+        }
+
+        private static bool ColorsEqual(Color a, Color b)
+        {
+            const float tolerance = 0.001f;
+            return Mathf.Abs(a.r - b.r) < tolerance &&
+                   Mathf.Abs(a.g - b.g) < tolerance &&
+                   Mathf.Abs(a.b - b.b) < tolerance &&
+                   Mathf.Abs(a.a - b.a) < tolerance;
         }
     }
 }
