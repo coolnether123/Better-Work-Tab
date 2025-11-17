@@ -248,9 +248,7 @@ namespace Better_Work_Tab.UI
             }
             else if (row.Divider != null)
             {
-                var baseColor = row.Divider.DividerColor;
-                var overlay = new Color(baseColor.r, baseColor.g, baseColor.b, 0.35f);
-                Widgets.DrawBoxSolid(rect, overlay);
+                Widgets.DrawBoxSolid(rect, row.Divider.DividerColor);
             }
         }
 
@@ -299,13 +297,21 @@ namespace Better_Work_Tab.UI
             GUI.color = Color.white;
             Text.Anchor = TextAnchor.MiddleLeft;
             Text.Font = rowRect.height > 22f ? GameFont.Medium : GameFont.Small;
-            Widgets.Label(rowRect.ContractedBy(6f), divider.DividerName ?? "Divider");
+            Rect labelRect = rowRect;
+            labelRect.xMin += 6f;
+            labelRect.xMax -= 6f;
+            Widgets.Label(labelRect, divider.DividerName ?? "Divider");
             Text.Anchor = TextAnchor.UpperLeft;
             Text.Font = GameFont.Small;
         }
 
         private void AdjustWindowHeight(IWorkTabLayoutController layout, Rect inRect)
         {
+            if (PawnOrganizerSystem.Instance?.IsDraggingRow == true)
+            {
+                return;
+            }
+
             if (layout == null)
             {
                 return;
