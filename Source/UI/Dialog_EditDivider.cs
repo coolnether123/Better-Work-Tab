@@ -18,9 +18,10 @@ namespace Better_Work_Tab.UI
         private bool _focusedField;
         private bool _showLabel;
         private GameFont _labelFont;
+        private float _height;
         private static readonly GameFont[] FontOptions = { GameFont.Small, GameFont.Medium };
 
-        public override Vector2 InitialSize => new Vector2(360f, 330f);
+        public override Vector2 InitialSize => new Vector2(360f, 380f);
 
         public Dialog_EditDivider(PawnDivider divider)
         {
@@ -29,6 +30,7 @@ namespace Better_Work_Tab.UI
             _currentColor = divider.DividerColor;
             _showLabel = divider.ShowLabel;
             _labelFont = divider.LabelFont;
+            _height = divider.Height > 0f ? divider.Height : (BetterWorkTabMod.Settings?.dividerHeight ?? 18f);
 
             forcePause = false;
             doCloseX = true;
@@ -39,7 +41,7 @@ namespace Better_Work_Tab.UI
         public override void DoWindowContents(Rect inRect)
         {
             Text.Font = GameFont.Small;
-            Widgets.Label(new Rect(0f, 0f, inRect.width, 24f), "Rename".Translate());
+            Widgets.Label(new Rect(0f, 0f, inRect.width, 24f), "Edit divider");
 
             GUI.SetNextControlName("DividerRename");
             _nameBuffer = Widgets.TextField(new Rect(0f, 28f, inRect.width, 32f), _nameBuffer ?? string.Empty);
@@ -74,6 +76,12 @@ namespace Better_Work_Tab.UI
                 _labelFont = GetNextFont(_labelFont);
             }
             GUI.enabled = true;
+
+            float heightBlockTop = fontButtonRect.yMax + 12f;
+            var heightLabelRect = new Rect(0f, heightBlockTop, inRect.width, 22f);
+            Widgets.Label(heightLabelRect, $"Height: {_height:F0}px");
+            var heightSliderRect = new Rect(0f, heightLabelRect.yMax + 4f, inRect.width, 22f);
+            _height = Widgets.HorizontalSlider(heightSliderRect, _height, 10f, 80f, false, null, "Thin", "Tall");
 
             float buttonY = inRect.height - 50f;
             Rect okButton = new Rect(inRect.width - 170f, buttonY, 70f, 30f);
@@ -113,6 +121,7 @@ namespace Better_Work_Tab.UI
             _divider.DividerColor = _currentColor;
             _divider.ShowLabel = _showLabel;
             _divider.LabelFont = _labelFont;
+            _divider.Height = Mathf.Clamp(_height, 10f, 80f);
             return true;
         }
 

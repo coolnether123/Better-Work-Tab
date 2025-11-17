@@ -4,18 +4,12 @@ using UnityEngine;
 using Verse;
 using Better_Work_Tab.PawnOrganizer.API;
 using Spine.UI;               // for TextColorHelper
-using System.Collections.Generic;
 
 namespace Better_Work_Tab.Patches
 {
     [HarmonyPatch(typeof(PawnColumnWorker_Label), nameof(PawnColumnWorker_Label.DoCell))]
     public static class Patch_PawnColumnWorker_Label_DoCell
     {
-        // Mirror vanilla statics for the truncation cache:
-        private static readonly Dictionary<string, TaggedString> labelCache = new Dictionary<string, TaggedString>();
-        private static float labelCacheForWidth = -1f;
-        private const int LeftMargin = 3;
-
         public static bool Prefix(
             PawnColumnWorker_Label __instance,
             Rect rect,
@@ -95,19 +89,7 @@ namespace Better_Work_Tab.Patches
             var getLabelMI = AccessTools.Method(typeof(PawnColumnWorker_Label), "GetLabel");
             TaggedString vanillaLabel = (TaggedString)getLabelMI.Invoke(worker, new object[] { pawn });
 
-            Log.Message($"[BWT DEBUG] Pawn '{pawn.LabelShort}' vanilla label returned: '{vanillaLabel}' (KindLabel: '{pawn.KindLabel}')");
-
-            // REMOVE all vanilla markup (especially <color=#999...>)
             string finalLabel = vanillaLabel.Resolve().StripTags();
-
-            // Truncate if needed
-            if (Mathf.Abs(rect2.width - labelCacheForWidth) > 0.001f)
-            {
-                labelCacheForWidth = rect2.width;
-                labelCache.Clear();
-            }
-            if (Text.CalcSize(finalLabel).x > rect2.width)
-                finalLabel = finalLabel.Truncate(rect2.width);
 
             // ===================================================================
             // 7) SINGLE CONTRAST COLOR FOR ENTIRE LABEL (Name + Title)

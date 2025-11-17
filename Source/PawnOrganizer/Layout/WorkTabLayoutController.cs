@@ -52,42 +52,56 @@ namespace Better_Work_Tab.PawnOrganizer
 
         public void Rebuild(PawnTable table, IPawnOrganizerSnapshot snapshot, Vector2 origin)
         {
-            _table = table;
-            _origin = origin;
-            _rows.Clear();
-            _columns.Clear();
-            _contentHeight = 0f;
-            _rowWidth = 0f;
-            _dividerHeight = BetterWorkTabMod.Settings?.dividerHeight ?? DefaultDividerHeight;
-
-            _snapshotPawns = snapshot?.Pawns
-                             ?? (table != null ? (IReadOnlyList<Pawn>)table.PawnsListForReading : Array.Empty<Pawn>())
-                             ?? Array.Empty<Pawn>();
-
-            if (snapshot?.Dividers is IList<PawnDivider> dividerList && !dividerList.IsReadOnly)
+            if (table == null)
             {
-                _snapshotDividers = dividerList;
-            }
-            else
-            {
-                _dividerBuffer.Clear();
-                if (snapshot?.Dividers != null)
-                {
-                    _dividerBuffer.AddRange(snapshot.Dividers);
-                }
-                _snapshotDividers = _dividerBuffer;
-            }
-
-            if (_table == null)
-            {
+                Log.Error("[BWT] WorkTabLayoutController.Rebuild failed: table is null.");
+                _rows.Clear();
+                _columns.Clear();
+                _contentHeight = 0f;
                 return;
             }
 
-            EnsureTableFresh();
-            _rowWidth = Mathf.Max(0f, _table.Size.x - 16f);
+            try
+            {
+                _table = table;
+                _origin = origin;
+                _rows.Clear();
+                _columns.Clear();
+                _contentHeight = 0f;
+                _rowWidth = 0f;
+                _dividerHeight = BetterWorkTabMod.Settings?.dividerHeight ?? DefaultDividerHeight;
 
-            BuildColumns();
-            BuildRows();
+                _snapshotPawns = snapshot?.Pawns
+                                 ?? (IReadOnlyList<Pawn>)table.PawnsListForReading
+                                 ?? Array.Empty<Pawn>();
+
+                if (snapshot?.Dividers is IList<PawnDivider> dividerList && !dividerList.IsReadOnly)
+                {
+                    _snapshotDividers = dividerList;
+                }
+                else
+                {
+                    _dividerBuffer.Clear();
+                    if (snapshot?.Dividers != null)
+                    {
+                        _dividerBuffer.AddRange(snapshot.Dividers);
+                    }
+                    _snapshotDividers = _dividerBuffer;
+                }
+
+                EnsureTableFresh();
+                _rowWidth = Mathf.Max(0f, _table.Size.x - 16f);
+
+                BuildColumns();
+                BuildRows();
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"[BWT] WorkTabLayoutController.Rebuild encountered an error: {ex}");
+                _rows.Clear();
+                _columns.Clear();
+                _contentHeight = 0f;
+            }
         }
 
         public bool TryGetRowAt(Vector2 mousePosition, out WorkTabLayoutRow row)
@@ -380,6 +394,12 @@ namespace Better_Work_Tab.PawnOrganizer
                         height = 30f;
                     }
                 }
+                else if (element is DividerElement dividerElement)
+                {
+                    var divider = dividerElement.Divider;
+                    float requestedHeight = divider?.Height ?? _dividerHeight;
+                    height = Mathf.Clamp(requestedHeight, 10f, 80f);
+                }
                 else
                 {
                     height = _dividerHeight;
@@ -478,7 +498,32 @@ namespace Better_Work_Tab.PawnOrganizer
                 }
             }
 
-            return result;
+            if (!result.Any(e => e.IsDivider && (e as DividerElement)?.Divider?.IsCollapsed == true))
+            {
+                return result;
+            }
+
+            var filtered = new List<DisplayElement>(result.Count);
+            bool skipPawns = false;
+
+            for (int i = 0; i < result.Count; i++)
+            {
+                var element = result[i];
+                if (element.IsDivider)
+                {
+                    filtered.Add(element);
+                    var divider = (element as DividerElement)?.Divider;
+                    skipPawns = divider?.IsCollapsed ?? false;
+                    continue;
+                }
+
+                if (!skipPawns)
+                {
+                    filtered.Add(element);
+                }
+            }
+
+            return filtered;
         }
 
         private PawnDivider CreateDivider(string label, Color color, int displayOrder)
@@ -492,7 +537,9 @@ namespace Better_Work_Tab.PawnOrganizer
             {
                 DividerName = string.IsNullOrWhiteSpace(label) ? "Divider" : label.Trim(),
                 DividerColor = color,
-                DisplayOrder = displayOrder
+                DisplayOrder = displayOrder,
+                Height = Mathf.Clamp(_dividerHeight, 10f, 80f),
+                IsCollapsed = false
             };
 
             _snapshotDividers.Add(divider);

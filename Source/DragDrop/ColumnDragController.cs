@@ -14,13 +14,17 @@ namespace Better_Work_Tab.DragDrop
     /// </summary>
     public class ColumnDragController
     {
+        private const float DragStartThreshold = 5f;
         private readonly IWorkTabLayoutController _layout;
         private PawnColumnDef _draggedColumn;
         private WorkTypeDef _draggedWorkType;
         private Rect _originRect;
         private float _dragOffsetX;
         private Vector2 _mouse;
+        private Vector2 _initialMouse;
         private int _targetIndex = -1;
+        private bool _hasPendingColumn;
+        private WorkTabLayoutColumn _pendingColumn;
         private readonly List<WorkTabLayoutColumn> _workColumns = new List<WorkTabLayoutColumn>();
 
         public ColumnDragController(IWorkTabLayoutController layout)
@@ -37,15 +41,41 @@ namespace Better_Work_Tab.DragDrop
                 return;
             }
 
-            if (evt.type == EventType.MouseDown && evt.button == 0 && evt.control)
+            bool requireCtrl = BetterWorkTabMod.Settings?.requireCtrlForDrag ?? true;
+            bool ctrlSatisfied = !requireCtrl || evt.control;
+
+            if (evt.type == EventType.MouseDown && evt.button == 0)
             {
-                if (_layout.TryGetColumnAt(evt.mousePosition, out var column) &&
+                if (ctrlSatisfied &&
+                    _layout.TryGetColumnAt(evt.mousePosition, out var column) &&
                     column.Column?.Worker is PawnColumnWorker_WorkPriority)
                 {
-                    BeginDrag(column, evt.mousePosition);
+                    _pendingColumn = column;
+                    _hasPendingColumn = true;
+                    _initialMouse = evt.mousePosition;
                     evt.Use();
                 }
+                else
+                {
+                    _hasPendingColumn = false;
+                }
                 return;
+            }
+
+            if (_hasPendingColumn && evt.type == EventType.MouseDrag)
+            {
+                if ((evt.mousePosition - _initialMouse).magnitude >= DragStartThreshold)
+                {
+                    BeginDrag(_pendingColumn, evt.mousePosition);
+                    _hasPendingColumn = false;
+                    evt.Use();
+                    return;
+                }
+            }
+
+            if (_hasPendingColumn && evt.type == EventType.MouseUp)
+            {
+                _hasPendingColumn = false;
             }
 
             if (!IsDragging)
@@ -53,22 +83,22 @@ namespace Better_Work_Tab.DragDrop
                 return;
             }
 
-            if (evt.type == EventType.MouseDrag)
+            switch (evt.type)
             {
-                _mouse = evt.mousePosition;
-                UpdateInsertionIndex(evt.mousePosition);
-                evt.Use();
-            }
-            else if (evt.type == EventType.MouseUp)
-            {
-                Commit();
-                Reset();
-                evt.Use();
-            }
-            else if (evt.type == EventType.KeyDown && evt.keyCode == KeyCode.Escape)
-            {
-                Reset();
-                evt.Use();
+                case EventType.MouseDrag:
+                    _mouse = evt.mousePosition;
+                    UpdateInsertionIndex(evt.mousePosition);
+                    evt.Use();
+                    break;
+                case EventType.MouseUp:
+                    Commit();
+                    Reset();
+                    evt.Use();
+                    break;
+                case EventType.KeyDown when evt.keyCode == KeyCode.Escape:
+                    Reset();
+                    evt.Use();
+                    break;
             }
         }
 
@@ -80,28 +110,32 @@ namespace Better_Work_Tab.DragDrop
             }
 
             float fullHeight = layout.HeaderHeight + layout.ContentHeight;
-            var ghostRect = new Rect(
-                _mouse.x - _dragOffsetX,
-                layout.TableOrigin.y,
-                _originRect.width,
-                fullHeight);
-
-            Widgets.DrawBoxSolid(ghostRect, new Color(0f, 0f, 0f, 0.15f));
-            Widgets.DrawBox(ghostRect, 1);
-
-            Rect headerLabelRect = new Rect(
-                ghostRect.x,
-                layout.TableOrigin.y,
-                ghostRect.width,
-                layout.HeaderHeight);
-
-            if (_draggedColumn != null)
+            bool lineOnly = BetterWorkTabMod.Settings?.showOnlyLineDragIndicatorColumns == true;
+            if (!lineOnly)
             {
-                Text.Font = GameFont.Tiny;
-                Text.Anchor = TextAnchor.MiddleCenter;
-                Widgets.Label(headerLabelRect.ContractedBy(2f), _draggedColumn.defName);
-                Text.Anchor = TextAnchor.UpperLeft;
-                Text.Font = GameFont.Small;
+                var ghostRect = new Rect(
+                    _mouse.x - _dragOffsetX,
+                    layout.TableOrigin.y,
+                    _originRect.width,
+                    fullHeight);
+
+                Widgets.DrawBoxSolid(ghostRect, new Color(0f, 0f, 0f, 0.15f));
+                Widgets.DrawBox(ghostRect, 1);
+
+                Rect headerLabelRect = new Rect(
+                    ghostRect.x,
+                    layout.TableOrigin.y,
+                    ghostRect.width,
+                    layout.HeaderHeight);
+
+                if (_draggedColumn != null)
+                {
+                    Text.Font = GameFont.Tiny;
+                    Text.Anchor = TextAnchor.MiddleCenter;
+                    Widgets.Label(headerLabelRect.ContractedBy(2f), _draggedColumn.defName);
+                    Text.Anchor = TextAnchor.UpperLeft;
+                    Text.Font = GameFont.Small;
+                }
             }
 
             if (_targetIndex >= 0)
@@ -245,6 +279,8 @@ namespace Better_Work_Tab.DragDrop
             _dragOffsetX = 0f;
             _targetIndex = -1;
             _workColumns.Clear();
+            _hasPendingColumn = false;
+            _pendingColumn = default;
         }
     }
 }

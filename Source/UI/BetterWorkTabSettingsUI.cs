@@ -29,6 +29,14 @@ namespace Better_Work_Tab.UI
             l.CheckboxLabeled("Show Float Menu Pawn And Worktype Highlight", ref s.ShowFloatMenuPawnAndWorktypeHighlight, "Whether to show the highlight in the work tab when opened from a float menu.");
             l.CheckboxLabeled("Enable Selected Pawn Highlight", ref s.DoSelectedPawnHighlight, "Whether to highlight the currently selected pawn in the work tab.");
             l.CheckboxLabeled("Use Custom Mouse Hover Highlight", ref s.UseCustomMouseHoverHighlight, "Whether to use a separate color for currently hovered worktype(?)");
+            l.CheckboxLabeled("Enable Row and Column Highlighting", ref s.enableRowColumnHighlights, "If disabled, the Better Work Tab will stop tinting hovered headers and rows.");
+            l.CheckboxLabeled("Show Pawn Activity Overlay", ref s.showPawnActivityOverlay, "Draw a lightweight heat-map style indicator that shows each pawn's active job.");
+            l.CheckboxLabeled("Show Pawn Count at Bottom", ref s.showPawnCountAtBottom, "Adds the current colonist count to the lower left corner of the work tab.");
+            l.CheckboxLabeled("Show Bed Count at Bottom", ref s.showBedCountAtBottom, "Also show how many colonist-usable beds exist on the current map.");
+            l.CheckboxLabeled("Disable Left-Click Close", ref s.disableLeftClickClose, "Prevents the tab from closing when clicking outside of it.");
+            l.CheckboxLabeled("Require Ctrl for Drag Reordering", ref s.requireCtrlForDrag, "Uncheck to allow dragging rows/columns without holding Ctrl.");
+            l.CheckboxLabeled("Row Drag Overlay Uses Insertion Line Only", ref s.showOnlyLineDragIndicatorRows, "When enabled, dragging a row only shows the insertion line.");
+            l.CheckboxLabeled("Column Drag Overlay Uses Insertion Line Only", ref s.showOnlyLineDragIndicatorColumns, "When enabled, dragging a column only shows the insertion line.");
             SpineWidgets.LS_ChooseFromEnum<BetterWorkTabSettings.ShowUIMode>(l, "Show Small Skill Numbers", s, nameof(s.ShowUIMode_ShowSmallSkillNumbers));
             SpineWidgets.LS_ChooseFromEnum<BetterWorkTabSettings.ShowUIMode>(l, "Show Pawn for Skill Square", s, nameof(s.ShowUIMode_ShowPawnForSkillSquare));
             

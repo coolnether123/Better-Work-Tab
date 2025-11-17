@@ -16,6 +16,8 @@ namespace Better_Work_Tab.PawnOrganizer.Data
         public int DisplayOrder = 0; // Position in the pawn list (like pawn.displayOrder)
         public bool ShowLabel = true;
         public GameFont LabelFont = GameFont.Small;
+        public bool IsCollapsed = false;
+        public float Height = DefaultSettings.dividerHeight;
 
         public void ExposeData()
         {
@@ -24,6 +26,8 @@ namespace Better_Work_Tab.PawnOrganizer.Data
             Scribe_Values.Look(ref DisplayOrder, "DisplayOrder", 0);
             Scribe_Values.Look(ref ShowLabel, "ShowLabel", true);
             Scribe_Values.Look(ref LabelFont, "LabelFont", GameFont.Small);
+            Scribe_Values.Look(ref IsCollapsed, "IsCollapsed", false);
+            Scribe_Values.Look(ref Height, "Height", DefaultSettings.dividerHeight);
         }
 
         /// <summary>
