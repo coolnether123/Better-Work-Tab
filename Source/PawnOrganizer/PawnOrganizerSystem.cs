@@ -1,3 +1,4 @@
+using System;
 using Better_Work_Tab.DragDrop;
 using Better_Work_Tab.Features;
 using Better_Work_Tab.PawnOrganizer.API;
@@ -33,23 +34,72 @@ namespace Better_Work_Tab.PawnOrganizer
 
         public void Update(PawnTable table, Vector2 tableOrigin, IPawnOrganizerSnapshot snapshot)
         {
-            _layoutController.Rebuild(table, snapshot, tableOrigin);
+            if (_layoutController == null)
+            {
+                Log.Error("[BWT] PawnOrganizerSystem.Update aborted: layout controller missing.");
+                return;
+            }
+
+            if (table == null)
+            {
+                Log.Error("[BWT] PawnOrganizerSystem.Update aborted: table is null.");
+                return;
+            }
+
+            try
+            {
+                _layoutController.Rebuild(table, snapshot, tableOrigin);
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"[BWT] PawnOrganizerSystem.Update failed: {ex}");
+            }
         }
 
         public void HandleInput(Event evt)
         {
-            _columnDragController.HandleInput(evt);
-            _rowDragController.HandleInput(evt);
+            if (_layoutController == null || evt == null)
+            {
+                return;
+            }
+
+            try
+            {
+                _columnDragController.HandleInput(evt);
+                _rowDragController.HandleInput(evt);
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"[BWT] PawnOrganizerSystem.HandleInput failed: {ex}");
+            }
         }
 
         public void DrawDragOverlays()
         {
-            _columnDragController.DrawOverlay(_layoutController);
-            _rowDragController.DrawOverlay(_layoutController);
+            if (_layoutController == null)
+            {
+                return;
+            }
+
+            try
+            {
+                _columnDragController.DrawOverlay(_layoutController);
+                _rowDragController.DrawOverlay(_layoutController);
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"[BWT] PawnOrganizerSystem.DrawDragOverlays failed: {ex}");
+            }
         }
 
         public void SetPawnBackgroundColor(Pawn pawn, Color color)
         {
+            if (pawn == null)
+            {
+                Log.Warning("[BWT] Attempted to set background color for a null pawn.");
+                return;
+            }
+
             API.PawnColorDatabase.SetColor(pawn, color);
         }
     }

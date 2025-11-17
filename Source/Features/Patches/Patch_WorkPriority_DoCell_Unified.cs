@@ -82,16 +82,21 @@ namespace Better_Work_Tab.Patches
         /// </summary>
         public static void Postfix(PawnColumnWorker_WorkPriority __instance, Rect rect, Pawn pawn, PawnTable table)
         {
-            // If Shift is held, the Prefix already did everything. Do nothing here.
-            if (ShiftHelper.State == BetterWorkTabSettings.ShowUIMode.Shifted)
+            var workType = __instance.def.workType;
+            if (pawn.Dead || pawn.workSettings == null || !pawn.workSettings.EverWork || workType == null || pawn.WorkTypeIsDisabled(workType))
             {
                 return;
             }
 
-            // --- Shift is NOT held, so we add overlays to the vanilla UI ---
+            bool overlayActive = BetterWorkTabMod.Settings.enableSkillOverlayFeature &&
+                                 ShiftHelper.State == BetterWorkTabSettings.ShowUIMode.Shifted;
+            if (overlayActive)
+            {
+                DrawPriorityOnHover(rect, pawn, workType);
+                return;
+            }
 
-            var workType = __instance.def.workType;
-            if (pawn.Dead || pawn.workSettings == null || !pawn.workSettings.EverWork || workType == null || pawn.WorkTypeIsDisabled(workType) || workType.relevantSkills.Count == 0)
+            if (workType.relevantSkills.Count == 0)
             {
                 return;
             }
@@ -115,6 +120,38 @@ namespace Better_Work_Tab.Patches
         private static bool ShouldShowUI(BetterWorkTabSettings.ShowUIMode mode, BetterWorkTabSettings.ShowUIMode currentState)
         {
             return mode == BetterWorkTabSettings.ShowUIMode.Always || mode == currentState;
+        }
+
+        private static void DrawPriorityOnHover(Rect rect, Pawn pawn, WorkTypeDef workType)
+        {
+            if (!Current.Game.playSettings.useWorkPriorities)
+            {
+                return;
+            }
+
+            if (!Mouse.IsOver(rect))
+            {
+                return;
+            }
+
+            int priority = pawn.workSettings?.GetPriority(workType) ?? 0;
+            if (priority <= 0)
+            {
+                return;
+            }
+
+            var oldFont = Text.Font;
+            var oldAnchor = Text.Anchor;
+            var oldColor = GUI.color;
+
+            Text.Font = GameFont.Tiny;
+            Text.Anchor = TextAnchor.UpperRight;
+            GUI.color = Color.white;
+            Widgets.Label(rect.ContractedBy(2f), priority.ToString());
+
+            GUI.color = oldColor;
+            Text.Font = oldFont;
+            Text.Anchor = oldAnchor;
         }
 
         private static int GetSkillLevel(Pawn pawn, WorkTypeDef workType)

@@ -45,8 +45,8 @@ namespace Better_Work_Tab.Patches
         /// </summary>
         private static void ClearHoverState_Prefix()
         {
-            // Only clear if the event is a Repaint, which is the main drawing pass.
-            if (Event.current.type == EventType.Repaint)
+            var evtType = Event.current.type;
+            if (evtType == EventType.Repaint || evtType == EventType.MouseMove || evtType == EventType.MouseLeaveWindow)
             {
                 ColumnHoverManager.Clear();
             }

@@ -1,6 +1,8 @@
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 using Better_Work_Tab.Features;
+using Better_Work_Tab.Features.Activity;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
@@ -9,6 +11,7 @@ using RimWorld;
 using Spine.UI.ColourPicker;
 using UnityEngine;
 using Verse;
+using Verse.Sound;
 
 namespace Better_Work_Tab.UI
 {
@@ -19,14 +22,20 @@ namespace Better_Work_Tab.UI
     {
         private const float RightEdgeMargin = 10f;
         private const float InfoIconSize = 24f;
+        private const float HeightSnapThreshold = 12f;
+        private const float WindowSnapCooldownSeconds = 0.25f;
         private static bool _pendingWindowSnap;
         private WorkTabLayoutColumn? _hoveredColumn;
+        private readonly List<Pawn> _visiblePawns = new List<Pawn>();
+        private float _lastKnownHeight = -1f;
+        private float _lastWindowSnapTime;
 
         private static Color CurrentRowTextColor = Color.white;
 
         public override void PreOpen()
         {
             base.PreOpen();
+            closeOnClickedOutside = !BetterWorkTabMod.Settings.disableLeftClickClose;
 
             if (PawnOrganizerSystem.Instance == null)
             {
@@ -68,6 +77,7 @@ namespace Better_Work_Tab.UI
             Rect infoRect = GetInfoIconRect(inRect);
             DrawBottomRightButtons(inRect, infoRect);
             DrawInfoButton(infoRect);
+            DrawBottomCounters(inRect, table);
         }
 
         private IPawnOrganizerSnapshot BuildSnapshotForOrganizer(PawnTable table)
@@ -92,18 +102,28 @@ namespace Better_Work_Tab.UI
             }
 
 
-            if (layout.TryGetRowAt(evt.mousePosition, out var row))
+            if (!layout.TryGetRowAt(evt.mousePosition, out var row))
             {
-                if (row.Pawn != null)
-                {
-                    ShowPawnContextMenu(row.Pawn);
-                    evt.Use();
-                }
-                else if (row.Divider != null)
-                {
-                    ShowDividerContextMenu(row.Divider);
-                    evt.Use();
-                }
+                return;
+            }
+
+            if (row.Divider != null)
+            {
+                ShowDividerContextMenu(row.Divider);
+                evt.Use();
+                return;
+            }
+
+            if (row.Pawn == null)
+            {
+                return;
+            }
+
+            if (TryGetBodyColumnAt(layout, evt.mousePosition, out var column) &&
+                column.Column?.Worker is PawnColumnWorker_Label)
+            {
+                ShowPawnContextMenu(row.Pawn);
+                evt.Use();
             }
         }
 
@@ -207,11 +227,14 @@ namespace Better_Work_Tab.UI
         {
             foreach (var column in layout.Columns)
             {
-                bool highlightHeader = _hoveredColumn.HasValue &&
+                bool highlightHeader = BetterWorkTabMod.Settings.enableRowColumnHighlights &&
+                                       _hoveredColumn.HasValue &&
                                        ReferenceEquals(_hoveredColumn.Value.Column, column.Column);
                 if (highlightHeader)
                 {
-                    Widgets.DrawHighlight(column.HeaderRect);
+                    var highlightColor = BetterWorkTabMod.Settings.Color_MouseHoverHighlight;
+                    Widgets.DrawBoxSolid(column.HeaderRect, highlightColor);
+                    Widgets.DrawBox(column.HeaderRect, 1);
                 }
 
                 column.Column.Worker.DoHeader(column.HeaderRect, table);
@@ -220,53 +243,83 @@ namespace Better_Work_Tab.UI
 
         private void DrawRows(PawnTable table, IWorkTabLayoutController layout, Rect outRect, Rect viewRect)
         {
-            Widgets.BeginScrollView(outRect, ref table.scrollPosition, viewRect);
-            var nameColumn = FindNameColumn(layout.Columns);
-
-            foreach (var row in layout.Rows)
+            if (layout?.Rows == null)
             {
-                Rect rowRect = new Rect(0f, row.OffsetY, viewRect.width, row.Height);
-                DrawRowBackground(row, rowRect);
-
-                if (row.Pawn != null)
-                {
-                    DrawPawnRow(table, row, rowRect, layout.Columns);
-                    DrawPawnRowOverlay(row, rowRect);
-                }
-                else if (row.Divider != null)
-                {
-                    if (nameColumn.HasValue)
-                    {
-                        Rect labelCellRect = new Rect(
-                            nameColumn.Value.OffsetX,
-                            rowRect.y,
-                            nameColumn.Value.Width,
-                            rowRect.height
-                        );
-                        DrawDividerLabel(row.Divider, labelCellRect);
-                    }
-                }
-
-                GUI.color = new Color(1f, 1f, 1f, 0.12f);
-                Widgets.DrawLineHorizontal(0f, rowRect.yMax - 1f, viewRect.width);
-                GUI.color = Color.white;
+                return;
             }
 
-            Widgets.EndScrollView();
+            Widgets.BeginScrollView(outRect, ref table.scrollPosition, viewRect);
+            try
+            {
+                var nameColumn = FindNameColumn(layout.Columns);
+
+                if (BetterWorkTabMod.Settings.showPawnActivityOverlay)
+                {
+                    _visiblePawns.Clear();
+                    for (int i = 0; i < layout.Rows.Count; i++)
+                    {
+                        var pawn = layout.Rows[i].Pawn;
+                        if (pawn != null)
+                        {
+                            _visiblePawns.Add(pawn);
+                        }
+                    }
+                    PawnActivityTracker.Instance.PruneInvisible(_visiblePawns);
+                }
+
+                foreach (var row in layout.Rows)
+                {
+                    Rect rowRect = new Rect(0f, row.OffsetY, viewRect.width, row.Height);
+                    DrawRowBackground(row, rowRect);
+
+                    if (BetterWorkTabMod.Settings.enableRowColumnHighlights && _hoveredColumn.HasValue)
+                    {
+                        DrawColumnHighlight(rowRect, _hoveredColumn.Value);
+                    }
+
+                    if (row.Pawn != null)
+                    {
+                        DrawPawnRow(table, row, rowRect, layout.Columns);
+                        DrawPawnRowOverlay(row, rowRect);
+                        DrawActivityOverlay(row, rowRect);
+                    }
+                    else if (row.Divider != null && nameColumn.HasValue)
+                    {
+                        DrawDividerRow(row.Divider, rowRect, nameColumn.Value);
+                    }
+
+                    GUI.color = new Color(1f, 1f, 1f, 0.12f);
+                    Widgets.DrawLineHorizontal(0f, rowRect.yMax - 1f, viewRect.width);
+                    GUI.color = Color.white;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"[BWT] DrawRows failed: {ex}");
+            }
+            finally
+            {
+                Widgets.EndScrollView();
+            }
         }
 
         private void DrawRowBackground(WorkTabLayoutRow row, Rect rect)
         {
-            if (row.Pawn != null && PawnOrganizer.API.PawnColorDatabase.TryGetColor(row.Pawn, out var color) && color.a > 0f)
+            if (row.Pawn != null && PawnOrganizer.API.PawnColorDatabase.TryGetColor(row.Pawn, out var pawnColor) && pawnColor.a > 0f)
             {
-                var overlay = new Color(color.r, color.g, color.b, Mathf.Clamp(color.a, 0.08f, 0.6f));
+                var overlay = new Color(pawnColor.r, pawnColor.g, pawnColor.b, Mathf.Clamp(pawnColor.a, 0.08f, 0.6f));
                 Widgets.DrawBoxSolid(rect, overlay);
 
                 CurrentRowTextColor = Spine.UI.TextColorHelper.GetContrastingTextColor(overlay);
             }
             else if (row.Divider != null)
             {
-                Widgets.DrawBoxSolid(rect, row.Divider.DividerColor);
+                var dividerColor = row.Divider.DividerColor;
+                if (row.Divider.IsCollapsed)
+                {
+                    dividerColor.a = Mathf.Clamp01(dividerColor.a * 0.6f);
+                }
+                Widgets.DrawBoxSolid(rect, dividerColor);
             }
         }
 
@@ -303,12 +356,19 @@ namespace Better_Work_Tab.UI
 
         private void UpdateHoveredColumn(IWorkTabLayoutController layout)
         {
-            _hoveredColumn = null;
             if (layout == null)
+            {
+                _hoveredColumn = null;
+                return;
+            }
+
+            var evtType = Event.current.type;
+            if (evtType != EventType.Repaint && evtType != EventType.MouseMove)
             {
                 return;
             }
 
+            _hoveredColumn = null;
             Vector2 mousePosition = Event.current.mousePosition;
             if (layout.TryGetColumnAt(mousePosition, out var headerColumn))
             {
@@ -350,6 +410,85 @@ namespace Better_Work_Tab.UI
             return false;
         }
 
+        private void DrawColumnHighlight(Rect rowRect, WorkTabLayoutColumn column)
+        {
+            Rect highlightRect = new Rect(column.OffsetX, rowRect.y, column.Width, rowRect.height);
+            var color = BetterWorkTabMod.Settings.Color_MouseHoverHighlight;
+            var overlay = new Color(color.r, color.g, color.b, Mathf.Clamp(color.a, 0.08f, 0.35f));
+            Widgets.DrawBoxSolid(highlightRect, overlay);
+        }
+
+        private void DrawDividerRow(PawnDivider divider, Rect rowRect, WorkTabLayoutColumn nameColumn)
+        {
+            Rect cellRect = new Rect(nameColumn.OffsetX, rowRect.y, nameColumn.Width, rowRect.height);
+            DrawDividerToggle(divider, cellRect);
+            DrawDividerLabel(divider, cellRect);
+        }
+
+        private void DrawDividerToggle(PawnDivider divider, Rect labelCellRect)
+        {
+            Rect arrowRect = new Rect(labelCellRect.xMin + 6f, labelCellRect.y + (labelCellRect.height - 16f) / 2f, 18f, 16f);
+            string arrowChar = divider.IsCollapsed ? "▶" : "▼";
+            if (Widgets.ButtonInvisible(arrowRect))
+            {
+                ToggleDividerCollapsed(divider);
+            }
+            var originalAnchor = Text.Anchor;
+            Text.Anchor = TextAnchor.MiddleCenter;
+            Widgets.Label(arrowRect, arrowChar);
+            Text.Anchor = originalAnchor;
+            TooltipHandler.TipRegion(arrowRect, divider.IsCollapsed ? "Expand section" : "Collapse section");
+        }
+
+        private void ToggleDividerCollapsed(PawnDivider divider)
+        {
+            if (divider == null)
+            {
+                return;
+            }
+
+            divider.IsCollapsed = !divider.IsCollapsed;
+            MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+            FlagWindowSnap();
+            SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
+        }
+
+        private void DrawActivityOverlay(WorkTabLayoutRow row, Rect rowRect)
+        {
+            if (!BetterWorkTabMod.Settings.showPawnActivityOverlay)
+            {
+                return;
+            }
+
+            var pawn = row.Pawn;
+            if (pawn == null)
+            {
+                return;
+            }
+
+            var snapshot = PawnActivityTracker.Instance.Observe(pawn);
+            if (!snapshot.HasData || snapshot.TotalTicks <= 0f)
+            {
+                return;
+            }
+
+            Rect barRect = new Rect(rowRect.x + 4f, rowRect.yMax - 5f, rowRect.width - 8f, 3f);
+            float cursor = barRect.xMin;
+            for (int i = 0; i < snapshot.Segments.Count; i++)
+            {
+                var segment = snapshot.Segments[i];
+                float width = barRect.width * (segment.Duration / snapshot.TotalTicks);
+                Rect segmentRect = new Rect(cursor, barRect.y, Mathf.Max(1f, width), barRect.height);
+                Widgets.DrawBoxSolid(segmentRect, segment.Color);
+                cursor += width;
+            }
+
+            if (!string.IsNullOrEmpty(snapshot.CurrentLabel))
+            {
+                TooltipHandler.TipRegion(barRect, $"Activity: {snapshot.CurrentLabel}");
+            }
+        }
+
         private void DrawPawnRow(PawnTable table, WorkTabLayoutRow row, Rect rowRect, IReadOnlyList<WorkTabLayoutColumn> columns)
         {
             foreach (var column in columns)
@@ -371,7 +510,7 @@ namespace Better_Work_Tab.UI
                 Widgets.DrawHighlight(rowRect, 0.6f);
             }
 
-            if (Mouse.IsOver(rowRect))
+            if (BetterWorkTabMod.Settings.enableRowColumnHighlights && Mouse.IsOver(rowRect))
             {
                 Widgets.DrawHighlight(rowRect);
             }
@@ -435,15 +574,37 @@ namespace Better_Work_Tab.UI
 
             float previousHeight = windowRect.height;
             windowRect.height = Mathf.Clamp(desiredHeight, minHeight, maxHeight);
-            if (_pendingWindowSnap)
+            if (_lastKnownHeight < 0f)
             {
-                _pendingWindowSnap = false;
-                if (PawnOrganizerSystem.Instance?.IsDraggingRow != true &&
-                    Mathf.Abs(windowRect.height - previousHeight) > 0.01f)
-                {
-                    windowRect.y = (Verse.UI.screenHeight - 35f) - windowRect.height;
-                }
+                _lastKnownHeight = windowRect.height;
             }
+
+            float heightDelta = Mathf.Abs(windowRect.height - _lastKnownHeight);
+            if (heightDelta > 0.5f)
+            {
+                _lastKnownHeight = windowRect.height;
+            }
+
+            bool shouldSnap = _pendingWindowSnap || heightDelta > HeightSnapThreshold;
+            if (!shouldSnap)
+            {
+                return;
+            }
+
+            if (PawnOrganizerSystem.Instance?.IsDraggingRow == true)
+            {
+                return;
+            }
+
+            float now = Time.realtimeSinceStartup;
+            if (now - _lastWindowSnapTime < WindowSnapCooldownSeconds && Mathf.Approximately(previousHeight, windowRect.height))
+            {
+                return;
+            }
+
+            _pendingWindowSnap = false;
+            windowRect.y = Mathf.Max(0f, (Verse.UI.screenHeight - 35f) - windowRect.height);
+            _lastWindowSnapTime = now;
         }
 
         private void DrawManualPrioritiesCheckbox()
@@ -497,7 +658,10 @@ namespace Better_Work_Tab.UI
             GUI.color = Color.white;
             Text.Anchor = TextAnchor.LowerLeft;
             Rect textRect = new Rect(inRect.x, inRect.y, inRect.width, inRect.height);
-            Widgets.Label(textRect, "Shift to switch mode | ctrl to reorder");
+            string dragInstruction = BetterWorkTabMod.Settings.requireCtrlForDrag
+                ? "Ctrl + drag to reorder"
+                : "Drag to reorder";
+            Widgets.Label(textRect, $"Shift toggles overlay | {dragInstruction}");
             Text.Anchor = TextAnchor.UpperLeft;
         }
 
@@ -520,6 +684,66 @@ namespace Better_Work_Tab.UI
                 inRect.yMax - InfoIconSize - 10f,
                 InfoIconSize,
                 InfoIconSize);
+        }
+
+        private void DrawBottomCounters(Rect inRect, PawnTable table)
+        {
+            bool showPawns = BetterWorkTabMod.Settings.showPawnCountAtBottom;
+            bool showBeds = BetterWorkTabMod.Settings.showBedCountAtBottom;
+            if (!showPawns && !showBeds)
+            {
+                return;
+            }
+
+            int pawnCount = showPawns ? table?.cachedPawns?.Count ?? 0 : 0;
+            int bedCount = 0;
+            if (showBeds)
+            {
+                Map map = Find.CurrentMap;
+                if (map?.listerBuildings != null)
+                {
+                    var beds = map.listerBuildings.AllBuildingsColonistOfClass<Building_Bed>();
+                    if (beds != null)
+                    {
+                        foreach (var bed in beds)
+                        {
+                            if (bed == null || bed.ForPrisoners || bed.Faction != Faction.OfPlayer)
+                            {
+                                continue;
+                            }
+
+                            bedCount += bed.SleepingSlotsCount;
+                        }
+                    }
+                }
+            }
+
+            string label = string.Empty;
+            if (showPawns)
+            {
+                label = $"Colonists: {pawnCount}";
+            }
+            if (showBeds)
+            {
+                if (!string.IsNullOrEmpty(label))
+                {
+                    label += " | ";
+                }
+                label += $"Beds: {bedCount}";
+            }
+
+            if (string.IsNullOrEmpty(label))
+            {
+                return;
+            }
+
+            var rect = new Rect(inRect.x + 6f, inRect.yMax - 22f, inRect.width * 0.5f, 20f);
+            Text.Anchor = TextAnchor.UpperLeft;
+            Text.Font = GameFont.Tiny;
+            GUI.color = new Color(1f, 1f, 1f, 0.7f);
+            Widgets.Label(rect, label);
+            GUI.color = Color.white;
+            Text.Font = GameFont.Small;
         }
 
         private PawnTable GetPawnTable()
