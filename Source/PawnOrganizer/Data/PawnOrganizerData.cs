@@ -6,6 +6,9 @@ namespace Better_Work_Tab.PawnOrganizer.Data
     /// <summary>
     /// A simple visual divider that can be positioned between pawn rows.
     /// </summary>
+    /// <summary>
+    /// A simple visual divider that can be positioned between pawn rows.
+    /// </summary>
     public class PawnDivider : IExposable
     {
         public string DividerName = "New Divider";
@@ -22,12 +25,22 @@ namespace Better_Work_Tab.PawnOrganizer.Data
             Scribe_Values.Look(ref ShowLabel, "ShowLabel", true);
             Scribe_Values.Look(ref LabelFont, "LabelFont", GameFont.Small);
         }
+
+        /// <summary>
+        /// Creates a deep copy of this divider.
+        /// This is essential for creating a new Worklist based on the current one
+        /// without them sharing the same divider instances.
+        /// </summary>
+        public PawnDivider Copy()
+        {
+            return (PawnDivider)this.MemberwiseClone();
+        }
     }
 
-    /// <summary>
-    /// Unified element for rendering - either a pawn or a divider.
-    /// </summary>
-    public abstract class DisplayElement
+        /// <summary>
+        /// Unified element for rendering - either a pawn or a divider.
+        /// </summary>
+        public abstract class DisplayElement
     {
         public abstract bool IsDivider { get; }
         public abstract int DisplayOrder { get; }

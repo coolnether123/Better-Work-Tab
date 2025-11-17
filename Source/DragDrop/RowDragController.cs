@@ -133,21 +133,17 @@ namespace Better_Work_Tab.DragDrop
 
             var ordered = _layout.Rows.OrderBy(r => r.VisualIndex).ToList();
 
-            // ==================================================================
-            // ===== THE FIX IS HERE ============================================
-            // ==================================================================
-            // Instead of comparing DisplayElement references, we compare the
-            // stable Pawn or PawnDivider reference *inside* the element.
             int currentIndex = -1;
             if (_draggedElement is PawnElement draggedPawnElement)
             {
+                // Find the row corresponding to the dragged PAWN.
                 currentIndex = ordered.FindIndex(r => (r.Element as PawnElement)?.Pawn == draggedPawnElement.Pawn);
             }
             else if (_draggedElement is DividerElement draggedDividerElement)
             {
+                // Find the row corresponding to the dragged DIVIDER.
                 currentIndex = ordered.FindIndex(r => (r.Element as DividerElement)?.Divider == draggedDividerElement.Divider);
             }
-            // ==================================================================
 
             if (currentIndex < 0)
             {
