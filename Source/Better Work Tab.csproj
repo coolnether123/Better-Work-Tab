@@ -89,6 +89,7 @@
     <Compile Include="Spine\UI\ColorPicker\RecentColours.cs" />
     <Compile Include="Spine\UI\ColorPicker\TextField.cs" />
     <Compile Include="Spine\UI\Widgets\SpineWidgets.cs" />
+    <Compile Include="Features\Activity\PawnActivityTracker.cs" />
     <Compile Include="UI\Dialog_EditDivider.cs" />
     <Compile Include="UI\BetterWorkTabSettingsUI.cs" />
     <Compile Include="UI\Window_RulesManager.cs" />

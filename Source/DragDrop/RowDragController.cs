@@ -10,11 +10,15 @@ namespace Better_Work_Tab.DragDrop
 {
     public class RowDragController
     {
+        private const float DragStartThreshold = 5f;
         private readonly IWorkTabLayoutController _layout;
         private DisplayElement _draggedElement;
         private WorkTabLayoutRow _rowSnapshot;
+        private WorkTabLayoutRow _pendingRow;
+        private bool _hasPendingRow;
         private float _dragOffsetY;
         private Vector2 _mouse;
+        private Vector2 _initialMouse;
         private int _targetIndex = -1;
 
         public RowDragController(IWorkTabLayoutController layout)
@@ -26,51 +30,88 @@ namespace Better_Work_Tab.DragDrop
 
         public void HandleInput(Event evt)
         {
-            if (_layout?.Table == null || evt == null) return;
-
-            if (evt.type == EventType.MouseDown && evt.button == 0 && evt.control)
+            if (_layout?.Table == null || evt == null)
             {
-                if (_layout.TryGetRowAt(evt.mousePosition, out var row))
+                return;
+            }
+
+            bool requireCtrl = BetterWorkTabMod.Settings?.requireCtrlForDrag ?? true;
+            bool ctrlSatisfied = !requireCtrl || evt.control;
+
+            if (evt.type == EventType.MouseDown && evt.button == 0)
+            {
+                if (ctrlSatisfied && _layout.TryGetRowAt(evt.mousePosition, out var row))
                 {
-                    BeginDrag(row, evt.mousePosition);
+                    _pendingRow = row;
+                    _hasPendingRow = true;
+                    _initialMouse = evt.mousePosition;
                     evt.Use();
+                }
+                else
+                {
+                    _hasPendingRow = false;
                 }
                 return;
             }
 
-            if (!IsDragging) return;
+            if (_hasPendingRow && evt.type == EventType.MouseDrag)
+            {
+                if ((evt.mousePosition - _initialMouse).magnitude >= DragStartThreshold)
+                {
+                    BeginDrag(_pendingRow, evt.mousePosition);
+                    _hasPendingRow = false;
+                    evt.Use();
+                    return;
+                }
+            }
 
-            if (evt.type == EventType.MouseDrag)
+            if (_hasPendingRow && evt.type == EventType.MouseUp)
             {
-                _mouse = evt.mousePosition;
-                UpdateInsertionIndex(evt.mousePosition);
-                evt.Use();
+                _hasPendingRow = false;
             }
-            else if (evt.type == EventType.MouseUp)
+
+            if (!IsDragging)
             {
-                Log.Message("[BWT_RowDrag] MouseUp detected. Calling Commit().");
-                Commit();
-                Reset();
-                evt.Use();
+                return;
             }
-            else if (evt.type == EventType.KeyDown && evt.keyCode == KeyCode.Escape)
+
+            switch (evt.type)
             {
-                Log.Message("[BWT_RowDrag] Escape key pressed. Cancelling drag.");
-                Reset();
-                evt.Use();
+                case EventType.MouseDrag:
+                    _mouse = evt.mousePosition;
+                    UpdateInsertionIndex(evt.mousePosition);
+                    evt.Use();
+                    break;
+                case EventType.MouseUp:
+                    Log.Message("[BWT_RowDrag] MouseUp detected. Calling Commit().");
+                    Commit();
+                    Reset();
+                    evt.Use();
+                    break;
+                case EventType.KeyDown when evt.keyCode == KeyCode.Escape:
+                    Log.Message("[BWT_RowDrag] Escape key pressed. Cancelling drag.");
+                    Reset();
+                    evt.Use();
+                    break;
             }
         }
 
         public void DrawOverlay(IWorkTabLayoutController layout)
         {
             if (!IsDragging || layout?.Table == null) return;
-            var baseRect = layout.GetScreenRect(_rowSnapshot);
-            var ghostRect = baseRect;
-            ghostRect.y = _mouse.y - _dragOffsetY;
-            Widgets.DrawBoxSolid(ghostRect, new Color(0f, 0f, 0f, 0.25f));
-            Widgets.DrawBox(ghostRect, 1);
-            if (_rowSnapshot.IsDivider && _rowSnapshot.Divider != null) DrawDividerGhostLabel(ghostRect, _rowSnapshot.Divider);
-            else if (_rowSnapshot.Pawn != null) DrawPawnGhostLabel(ghostRect, _rowSnapshot.Pawn);
+
+            bool lineOnly = BetterWorkTabMod.Settings?.showOnlyLineDragIndicatorRows == true;
+            if (!lineOnly)
+            {
+                var baseRect = layout.GetScreenRect(_rowSnapshot);
+                var ghostRect = baseRect;
+                ghostRect.y = _mouse.y - _dragOffsetY;
+                Widgets.DrawBoxSolid(ghostRect, new Color(0f, 0f, 0f, 0.25f));
+                Widgets.DrawBox(ghostRect, 1);
+                if (_rowSnapshot.IsDivider && _rowSnapshot.Divider != null) DrawDividerGhostLabel(ghostRect, _rowSnapshot.Divider);
+                else if (_rowSnapshot.Pawn != null) DrawPawnGhostLabel(ghostRect, _rowSnapshot.Pawn);
+            }
+
             if (_targetIndex >= 0)
             {
                 float lineY = CalculateInsertionY(layout, _targetIndex);
@@ -123,9 +164,9 @@ namespace Better_Work_Tab.DragDrop
 
         private void Commit()
         {
-            if (!IsDragging)
+            if (!IsDragging || _draggedElement == null)
             {
-                Log.Error("[BWT_RowDrag] Commit called but IsDragging is false. Aborting.");
+                Log.Error($"[BWT_RowDrag] Commit called without an active element. Element={_draggedElement?.GetType().Name ?? "null"}");
                 return;
             }
 
@@ -213,6 +254,8 @@ namespace Better_Work_Tab.DragDrop
             _targetIndex = -1;
             _dragOffsetY = 0f;
             _mouse = Vector2.zero;
+            _hasPendingRow = false;
+            _pendingRow = default;
         }
     }
 }
