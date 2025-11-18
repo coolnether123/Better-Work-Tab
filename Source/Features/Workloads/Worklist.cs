@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Unity.Properties;
 using Verse;
+using Better_Work_Tab.PawnOrganizer.Data;
 
 namespace Better_Work_Tab.Features.Workloads
 {
@@ -29,6 +30,8 @@ namespace Better_Work_Tab.Features.Workloads
         public List<PawnWorkload> PawnWorklists = new List<PawnWorkload>();
         public string worklistName = "New Worklist";
 
+        public List<PawnDivider> Dividers = new List<PawnDivider>();
+
         public string RenamableLabel { get => worklistName; set => worklistName = value; }
 
         public string BaseLabel { get; }
@@ -51,6 +54,7 @@ namespace Better_Work_Tab.Features.Workloads
             Scribe_Values.Look(ref UseAdvancedMode, "UseAdvancedMode", true);
             worklistName = RenamableLabel;
             Scribe_Collections.Look(ref PawnWorklists, "pawnWorklists", LookMode.Deep);
+            Scribe_Collections.Look(ref Dividers, "Dividers", LookMode.Deep);
         }
     }
 }

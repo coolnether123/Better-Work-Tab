@@ -13,12 +13,27 @@ using LudeonTK;
 
 namespace Better_Work_Tab
 {
+    [StaticConstructorOnStartup]
     static class DefaultSettings
     {
+        static DefaultSettings()
+        {
+            DefOfHelper.EnsureInitializedInCtor(typeof(WorkTypeDefOf));
+        }
+
         public static bool enableSkillOverlayFeature = true;
         public static bool enableAutoAssignFeature = true;
         public static List<string> workColumnOrderDefNames = new List<string>();
         public static bool firstTimeSetupDone = false;
+        public static float dividerHeight = 18f;
+        public static bool drawDividerHighlight = true;
+        public static bool showOnlyLineDragIndicatorRows = false;
+        public static bool showOnlyLineDragIndicatorColumns = false;
+        public static bool requireCtrlForDrag = true;
+        public static bool disableLeftClickClose = false;
+        public static bool showPawnCountAtBottom = true;
+        public static bool showBedCountAtBottom = false;
+        public static bool enableRowColumnHighlights = true;
 
 
         // This rule ensures at least one colonist is assigned to a specific work type at a given priority
@@ -112,14 +127,27 @@ namespace Better_Work_Tab
     // This contains all configurable settings for the Better Work Tab mod with reasonable defaults
     public class BetterWorkTabSettings : ModSettings
     {
-        public BetterWorkTabSettings() { }
+        public BetterWorkTabSettings()
+        {
+            InitializeRulesets();
+        }
 
         public bool firstTimeSetupDone = DefaultSettings.firstTimeSetupDone;
 
         // This provides master toggles for major features so users can disable parts they don't want
         public bool enableSkillOverlayFeature = true;
         public bool enableAutoAssignFeature = true;
+        public float dividerHeight = DefaultSettings.dividerHeight;
+        public bool drawDividerHighlight = DefaultSettings.drawDividerHighlight;
+        public bool showOnlyLineDragIndicatorRows = DefaultSettings.showOnlyLineDragIndicatorRows;
+        public bool showOnlyLineDragIndicatorColumns = DefaultSettings.showOnlyLineDragIndicatorColumns;
+        public bool requireCtrlForDrag = DefaultSettings.requireCtrlForDrag;
+        public bool disableLeftClickClose = DefaultSettings.disableLeftClickClose;
+        public bool showPawnCountAtBottom = DefaultSettings.showPawnCountAtBottom;
+        public bool showBedCountAtBottom = DefaultSettings.showBedCountAtBottom;
+        public bool enableRowColumnHighlights = DefaultSettings.enableRowColumnHighlights;
         public List<string> workColumnOrderDefNames = new List<string>();
+        public Dictionary<string, float> storedColumnWidths = new Dictionary<string, float>();
 
         // This sets the baseline priority for work types not handled by specific rules (0 = leave unchanged)
 
@@ -203,6 +231,13 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref ShowFloatMenuPawnAndWorktypeHighlight, "ShowFloatMenuPawnAndWorktypeHighlight", DefaultSettings.ShowFloatMenuPawnAndWorktypeHighlight);
             Scribe_Values.Look(ref DoSelectedPawnHighlight, "DoSelectedPawnHighlight", DefaultSettings.DoSelectedPawnHighlight);
             Scribe_Values.Look(ref UseCustomMouseHoverHighlight, "UseCustomMouseHoverHighlight", DefaultSettings.UseCustomMouseHoverHighlight);
+            Scribe_Values.Look(ref enableRowColumnHighlights, "enableRowColumnHighlights", DefaultSettings.enableRowColumnHighlights);
+            Scribe_Values.Look(ref showPawnCountAtBottom, "showPawnCountAtBottom", DefaultSettings.showPawnCountAtBottom);
+            Scribe_Values.Look(ref showBedCountAtBottom, "showBedCountAtBottom", DefaultSettings.showBedCountAtBottom);
+            Scribe_Values.Look(ref disableLeftClickClose, "disableLeftClickClose", DefaultSettings.disableLeftClickClose);
+            Scribe_Values.Look(ref requireCtrlForDrag, "requireCtrlForDrag", DefaultSettings.requireCtrlForDrag);
+            Scribe_Values.Look(ref showOnlyLineDragIndicatorRows, "showOnlyLineDragIndicatorRows", DefaultSettings.showOnlyLineDragIndicatorRows);
+            Scribe_Values.Look(ref showOnlyLineDragIndicatorColumns, "showOnlyLineDragIndicatorColumns", DefaultSettings.showOnlyLineDragIndicatorColumns);
             
             
             Scribe_Values.Look(ref Color_CursorHighlight, "Color_CursorHighlight", DefaultSettings.Color_CursorHighlight);
@@ -216,14 +251,26 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref Color_GoodLowSkill, "Color_GoodLowSkill", DefaultSettings.Color_GoodLowSkill);
             Scribe_Values.Look(ref Color_ExcellentSkill, "Color_ExcellentSkill", DefaultSettings.Color_ExcellentSkill);
 
-            Scribe_Values.Look(ref ShowUIMode_ShowSmallSkillNumbers, "CurreShowUIMode_ShowSmallSkillNumbersntAutoAssignRuleset", DefaultSettings.ShowUIMode_ShowSmallSkillNumbers);
+            Scribe_Values.Look(ref ShowUIMode_ShowSmallSkillNumbers, "ShowUIMode_ShowSmallSkillNumbers", DefaultSettings.ShowUIMode_ShowSmallSkillNumbers);
             Scribe_Values.Look(ref ShowUIMode_ShowPawnForSkillSquare, "ShowUIMode_ShowPawnForSkillSquare", DefaultSettings.ShowUIMode_ShowPawnForSkillSquare);
 
+            Scribe_Values.Look(ref dividerHeight, "dividerHeight", DefaultSettings.dividerHeight);
+            Scribe_Values.Look(ref drawDividerHighlight, "drawDividerHighlight", DefaultSettings.drawDividerHighlight);
+
+            // Load from save
             Scribe_Collections.Look(ref SavedRulesets, "SavedRulesets", LookMode.Deep);
+            
+            // Reinitialize after load if needed
+            InitializeRulesets();
             Scribe_Collections.Look(ref workColumnOrderDefNames, "workColumnOrderDefNames", LookMode.Value);
+            Scribe_Collections.Look(ref storedColumnWidths, "storedColumnWidths", LookMode.Value, LookMode.Value);
+            if (storedColumnWidths == null)
+            {
+                storedColumnWidths = new Dictionary<string, float>();
+            }
         }
 
-        public void ResoreDefaultes()
+        public void RestoreDefaults()
         {
             enableSkillOverlayFeature = DefaultSettings.enableSkillOverlayFeature;
             enableAutoAssignFeature = DefaultSettings.enableAutoAssignFeature;
@@ -244,6 +291,33 @@ namespace Better_Work_Tab
             Color_ExcellentSkill = DefaultSettings.Color_ExcellentSkill;
             ShowUIMode_ShowSmallSkillNumbers = DefaultSettings.ShowUIMode_ShowSmallSkillNumbers;
             ShowUIMode_ShowPawnForSkillSquare = DefaultSettings.ShowUIMode_ShowPawnForSkillSquare;
+            dividerHeight = DefaultSettings.dividerHeight;
+            drawDividerHighlight = DefaultSettings.drawDividerHighlight;
+            showOnlyLineDragIndicatorRows = DefaultSettings.showOnlyLineDragIndicatorRows;
+            showOnlyLineDragIndicatorColumns = DefaultSettings.showOnlyLineDragIndicatorColumns;
+            requireCtrlForDrag = DefaultSettings.requireCtrlForDrag;
+            disableLeftClickClose = DefaultSettings.disableLeftClickClose;
+            showPawnCountAtBottom = DefaultSettings.showPawnCountAtBottom;
+            showBedCountAtBottom = DefaultSettings.showBedCountAtBottom;
+            enableRowColumnHighlights = DefaultSettings.enableRowColumnHighlights;
+        }
+
+        private void InitializeRulesets()
+        {
+            if (SavedRulesets == null)
+            {
+                SavedRulesets = new List<WorkAssignmentRuleset>();
+            }
+
+            if (!SavedRulesets.Any())
+            {
+                SavedRulesets.AddRange(DefaultSettings.SavedRulesets);
+            }
+
+            if (CurrentRuleset == null)
+            {
+                CurrentRuleset = SavedRulesets.FirstOrDefault();
+            }
         }
     }
 }

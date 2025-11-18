@@ -29,8 +29,18 @@ namespace Better_Work_Tab.UI
             l.CheckboxLabeled("Show Float Menu Pawn And Worktype Highlight", ref s.ShowFloatMenuPawnAndWorktypeHighlight, "Whether to show the highlight in the work tab when opened from a float menu.");
             l.CheckboxLabeled("Enable Selected Pawn Highlight", ref s.DoSelectedPawnHighlight, "Whether to highlight the currently selected pawn in the work tab.");
             l.CheckboxLabeled("Use Custom Mouse Hover Highlight", ref s.UseCustomMouseHoverHighlight, "Whether to use a separate color for currently hovered worktype(?)");
+            l.CheckboxLabeled("Enable Row and Column Highlighting", ref s.enableRowColumnHighlights, "If disabled, the Better Work Tab will stop tinting hovered headers and rows.");
+            l.CheckboxLabeled("Show Pawn Count at Bottom", ref s.showPawnCountAtBottom, "Adds the current colonist count to the lower left corner of the work tab.");
+            l.CheckboxLabeled("Show Bed Count at Bottom", ref s.showBedCountAtBottom, "Also show how many colonist-usable beds exist on the current map.");
+            l.CheckboxLabeled("Disable Left-Click Close", ref s.disableLeftClickClose, "Prevents the tab from closing when clicking outside of it.");
+            l.CheckboxLabeled("Require Ctrl for Drag Reordering", ref s.requireCtrlForDrag, "Uncheck to allow dragging rows/columns without holding Ctrl.");
+            l.CheckboxLabeled("Row Drag Overlay Uses Insertion Line Only", ref s.showOnlyLineDragIndicatorRows, "When enabled, dragging a row only shows the insertion line.");
+            l.CheckboxLabeled("Column Drag Overlay Uses Insertion Line Only", ref s.showOnlyLineDragIndicatorColumns, "When enabled, dragging a column only shows the insertion line.");
             SpineWidgets.LS_ChooseFromEnum<BetterWorkTabSettings.ShowUIMode>(l, "Show Small Skill Numbers", s, nameof(s.ShowUIMode_ShowSmallSkillNumbers));
             SpineWidgets.LS_ChooseFromEnum<BetterWorkTabSettings.ShowUIMode>(l, "Show Pawn for Skill Square", s, nameof(s.ShowUIMode_ShowPawnForSkillSquare));
+            
+            DrawDividerHeightSlider(l, s);
+            l.CheckboxLabeled("Draw Divider Highlight", ref s.drawDividerHighlight, "Whether to draw a white highlight around the dividers.");
             
             //public enum ShowUIMode { Always, Never, Shifted, Unshifted }
         //ShowUIMode_ShowSmallSkillNumbers = ShowUIMode.Unshifted;
@@ -57,7 +67,7 @@ namespace Better_Work_Tab.UI
             Rect resetButRect = new Rect(inRect.width - butW - 29f, 0f, butW, butH);
             if (Widgets.ButtonText(resetButRect, "Reset Defaults"))
             {
-                Find.WindowStack.Add(new Dialog_Confirm("Really Restore ALL Defaults?", s.ResoreDefaultes));
+                Find.WindowStack.Add(new Dialog_Confirm("Really Restore ALL Defaults?", s.RestoreDefaults));
             }
 
             resetButRect.x -= butW + 10f;
@@ -71,6 +81,17 @@ namespace Better_Work_Tab.UI
         private static void DrawRulesUI(Listing_Standard listing, BetterWorkTabSettings s)
         {
 
+        }
+
+        private static void DrawDividerHeightSlider(Listing_Standard l, BetterWorkTabSettings s)
+        {
+            var row = l.GetRect(RowHeight);
+            Widgets.Label(new Rect(row.x, row.y, LabelWidth, row.height), "Divider Height");
+            var sliderRect = new Rect(row.x + LabelWidth + LabelSliderGap, row.y + (row.height - SliderHeight) / 2, row.width - LabelWidth - LabelSliderGap, SliderHeight);
+            var cur = Mathf.Clamp(s.dividerHeight, 1f, 30f);
+            float v = Widgets.HorizontalSlider(sliderRect, cur, 1f, 30f, middleAlignment: true);
+            TooltipHandler.TipRegion(sliderRect, "The height of the dividers in the work tab.");
+            s.dividerHeight = Mathf.Round(v);
         }
 
         private static void IntAdjust(ref int val, int min, int max, Rect row)

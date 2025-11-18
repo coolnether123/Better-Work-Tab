@@ -200,10 +200,20 @@ namespace Spine.UI.ColourPicker {
         {
             get
             {
+                float recentWidth = _previewSize * 2f;
+                int cols = Mathf.Max(1, Mathf.FloorToInt(recentWidth / _recentSize));
+                float pinnedHeight = 0f;
+                if (_recentColours.PinnedCount > 0)
+                {
+                    int pinnedRows = Mathf.CeilToInt(_recentColours.PinnedCount / (float)cols);
+                    pinnedHeight = (pinnedRows * _recentSize) + 4f;
+                }
+
                 // Calculate the total height required by the right-hand column content
                 float rightColumnHeight = _previewSize          // New/Old color preview
                                         + _margin               // Gap
                                         + (_recentSize * 2)     // Recent colors box
+                                        + pinnedHeight
                                         + _margin               // Gap
                                         + (_fieldHeight * 3)    // HSV, RGB, HEX fields
                                         + (_margin * 2)         // Gaps between fields
@@ -405,7 +415,7 @@ namespace Spine.UI.ColourPicker {
 
             // HSV colours, S = V = 1
             for (int y = 0; y < h; y++) {
-                tex.SetPixel(0, y, Color.HSVToRGB(hu * y, 1f, 1f));
+                tex.SetPixel(0, y, Color.HSVToRGB(hu * y, 1f, 1f, true));
             }
 
             tex.Apply();
@@ -436,6 +446,7 @@ namespace Spine.UI.ColourPicker {
             Rect previewOldRect = new Rect(previewRect.xMax, inRect.yMin, _previewSize, _previewSize);
             Rect recentRect = new Rect(previewRect.xMin, previewRect.yMax + _margin, _previewSize * 2,
                           _recentSize * 2);
+            recentRect.height = Mathf.Max(recentRect.height, GetRecentSectionHeight(recentRect.width));
 
             Rect hsvFieldRect = new Rect(alphaRect.xMax + _margin,
                                         recentRect.yMax + _margin,
@@ -670,38 +681,123 @@ namespace Spine.UI.ColourPicker {
             }
         }
 
+        private float GetRecentSectionHeight(float width)
+        {
+            int cols = Mathf.Max(1, (int)(width / _recentSize));
+            int pinnedRows = Mathf.CeilToInt(_recentColours.PinnedCount / (float)cols);
+            int recentRows = Mathf.CeilToInt(_recentColours.Count / (float)cols);
+            float totalRows = pinnedRows + recentRows;
+            if (totalRows <= 0f)
+            {
+                return _recentSize * 2f;
+            }
+
+            float gap = pinnedRows > 0 && recentRows > 0 ? 4f : 0f;
+            return Mathf.Max(_recentSize * 2f, totalRows * _recentSize + gap);
+        }
+
         private void DrawRecent(Rect canvas)
         {
-            int cols = (int)(canvas.width / _recentSize);
-            int rows = (int)(canvas.height / _recentSize);
-            int n = Math.Min(cols * rows, _recentColours.Count);
-
+            int cols = Mathf.Max(1, (int)(canvas.width / _recentSize));
             GUI.BeginGroup(canvas);
-            for (int i = 0; i < n; i++)
-            {
-                int col = i % cols;
-                int row = i / cols;
-                Color color = _recentColours[i];
-                Rect rect = new Rect(col * _recentSize, row * _recentSize, _recentSize, _recentSize);
-                Widgets.DrawBoxSolid(rect, color);
-                if (Mouse.IsOver(rect))
-                {
-                    Widgets.DrawBox(rect);
-                }
+            float yOffset = 0f;
 
-                if (Widgets.ButtonInvisible(rect))
+            var pinned = _recentColours.PinnedColors;
+            if (pinned.Count > 0)
+            {
+                DrawColourSection(pinned.Count, i => pinned[i], cols, ref yOffset, true);
+                if (_recentColours.Count > 0)
                 {
-                    tempColour = color;
-                    NotifyRGBUpdated();
+                    yOffset += 4f;
                 }
+            }
+
+            if (_recentColours.Count > 0)
+            {
+                DrawColourSection(_recentColours.Count, i => _recentColours[i], cols, ref yOffset, false);
             }
 
             GUI.EndGroup();
         }
 
+        private void DrawColourSection(int count, Func<int, Color> colorGetter, int cols, ref float yOffset, bool pinnedSection)
+        {
+            if (count == 0)
+            {
+                return;
+            }
+
+            for (int i = 0; i < count; i++)
+            {
+                int col = i % cols;
+                int row = i / cols;
+                Rect rect = new Rect(col * _recentSize, yOffset + row * _recentSize, _recentSize, _recentSize);
+                DrawColourSwatch(rect, colorGetter(i), pinnedSection);
+            }
+
+            int requiredRows = Mathf.CeilToInt(count / (float)cols);
+            yOffset += requiredRows * _recentSize;
+        }
+
+        private void DrawColourSwatch(Rect rect, Color color, bool fromPinnedSection)
+        {
+            Widgets.DrawBoxSolid(rect, color);
+            if (Mouse.IsOver(rect))
+            {
+                Widgets.DrawBox(rect);
+            }
+
+            bool used = false;
+            Rect pinRect = new Rect(rect.xMax - 12f, rect.y + 2f, 10f, 10f);
+            bool pinned = _recentColours.IsPinned(color);
+            if (fromPinnedSection || Mouse.IsOver(rect))
+            {
+                DrawPinIcon(pinRect, pinned);
+                if (Widgets.ButtonInvisible(pinRect))
+                {
+                    if (pinned)
+                    {
+                        _recentColours.Unpin(color);
+                    }
+                    else
+                    {
+                        _recentColours.Pin(color);
+                    }
+                    used = true;
+                }
+            }
+
+            if (!used && Widgets.ButtonInvisible(rect))
+            {
+                tempColour = color;
+                NotifyRGBUpdated();
+            }
+        }
+
+        private void DrawPinIcon(Rect rect, bool active)
+        {
+            if (rect.width <= 0f || rect.height <= 0f)
+            {
+                return;
+            }
+
+            var oldFont = Text.Font;
+            var oldAnchor = Text.Anchor;
+            var oldColor = GUI.color;
+
+            Text.Font = GameFont.Tiny;
+            Text.Anchor = TextAnchor.MiddleCenter;
+            GUI.color = active ? Color.yellow : new Color(1f, 1f, 1f, 0.4f);
+            Widgets.Label(rect, active ? "*" : "+");
+
+            GUI.color = oldColor;
+            Text.Font = oldFont;
+            Text.Anchor = oldAnchor;
+        }
+
         public static Color HSVAToRGB(float H, float S, float V, float A)
         {
-            Color color = Color.HSVToRGB(H, S, V);
+            Color color = Color.HSVToRGB(H, S, V, true);
             color.a = A;
             return color;
         }
@@ -737,7 +833,7 @@ namespace Spine.UI.ColourPicker {
             Debug($"HSV updated: ({_h}, {_s}, {_v})");
 
             // update rgb colour
-            Color color = Color.HSVToRGB(H, S, V);
+            Color color = Color.HSVToRGB(H, S, V, true);
             color.a = A;
             tempColour = color;
 
@@ -805,6 +901,7 @@ namespace Spine.UI.ColourPicker {
         {
             base.PostClose();
             onPostClose?.Invoke();
+            DisposeGeneratedTextures();
         }
 
         public void PickerAction(Vector2 pos)
@@ -855,9 +952,32 @@ namespace Spine.UI.ColourPicker {
             _alphaPosition = (1f - A) / UnitsPerPixel;
         }
 
+        private void DisposeGeneratedTextures()
+        {
+            DestroyTexture(ref _colourPickerBG);
+            DestroyTexture(ref _huePickerBG);
+            DestroyTexture(ref _alphaPickerBG);
+            DestroyTexture(ref _tempPreviewBG);
+            DestroyTexture(ref _previewBG);
+            DestroyTexture(ref _pickerAlphaBG);
+            DestroyTexture(ref _sliderAlphaBG);
+            DestroyTexture(ref _previewAlphaBG);
+        }
+
+        private static void DestroyTexture(ref Texture2D tex)
+        {
+            if (tex == null)
+            {
+                return;
+            }
+
+            Object.Destroy(tex);
+            tex = null;
+        }
+
         private void SwapTexture(ref Texture2D tex, Texture2D newTex)
         {
-            Object.Destroy(tex);
+            DestroyTexture(ref tex);
             tex = newTex;
         }
 
