@@ -1,5 +1,6 @@
 // --- START OF FILE UI/VerticalLabels/AngledHeaderDrawer.cs (CORRECTED) ---
 
+using Better_Work_Tab.Features;
 using HarmonyLib;
 using RimWorld;
 using System.Collections.Generic;
@@ -89,6 +90,20 @@ namespace Better_Work_Tab.UI
             if (workType == null) return;
 
             string text = workType.labelShort.CapitalizeFirst();
+
+            // Check if THIS specific column is out of vanilla position
+            var vanillaOrder = WorkColumnOrderManager.GetVanillaOrder();
+            var currentOrder = BetterWorkTabMod.Settings.workColumnOrderDefNames;
+            bool isReordered = false;
+
+            if (vanillaOrder != null && vanillaOrder.Count > 0 &&
+                currentOrder != null && currentOrder.Count > 0)
+            {
+                int vanillaPos = vanillaOrder.IndexOf(workType.defName);
+                int currentPos = currentOrder.IndexOf(workType.defName);
+                isReordered = (vanillaPos >= 0 && currentPos >= 0 && vanillaPos != currentPos);
+            }
+
             if (string.IsNullOrEmpty(text)) return;
 
             float centerX = headerRect.x + headerRect.width * 0.5f;
@@ -103,18 +118,20 @@ namespace Better_Work_Tab.UI
             {
                 Text.Font = GameFont.Small;
                 Text.Anchor = TextAnchor.MiddleLeft;
-                Vector2 textSize = Text.CalcSize(text);
+
+                // Add asterisk only if THIS specific column was reordered
+                string displayText = isReordered ? text + "*" : text;
+                Vector2 textSize = Text.CalcSize(displayText);
                 float textWidth = textSize.x;
                 float lineHeight = Text.LineHeight;
 
                 GUIUtility.RotateAroundPivot(ROTATION_ANGLE, pivot);
 
-                // Draw the custom rotated highlight if the mouse is over the cell
+                // Draw white highlight only on mouse over (not when reordered)
                 if (isMouseOver)
                 {
                     Rect highlightRect = new Rect(pivot.x, pivot.y - lineHeight, textWidth, lineHeight).ExpandedBy(2f);
                     GUI.color = new Color(1f, 1f, 1f, 0.2f);
-                    // FIXED: Use TexUI.HighlightTex instead of GenUI.HighlightTex
                     GUI.DrawTexture(highlightRect, TexUI.HighlightTex);
                     GUI.color = Color.white;
                 }
@@ -126,9 +143,11 @@ namespace Better_Work_Tab.UI
                     Widgets.DrawLine(lineStart, lineEnd, Color.white, UNDERLINE_THICKNESS);
                 }
 
+                // Set text color to yellow only if THIS specific column was reordered
                 Text.Anchor = TextAnchor.LowerLeft;
+                GUI.color = isReordered ? new Color(1f, 0.85f, 0.2f, 1f) : Color.white;
                 var labelRect = new Rect(pivot.x, pivot.y - lineHeight, 200f, lineHeight);
-                Widgets.Label(labelRect, text);
+                Widgets.Label(labelRect, displayText);
             }
             finally
             {
