@@ -9,7 +9,7 @@ using Verse;
 
 namespace Spine.UI.ColourPicker {
     public class RecentColours {
-        private const int max = 20;
+        private const int max = 18;
         private static List<Color> _colors = new List<Color>();
         private static List<Color> _pinnedColors = new List<Color>();
 

@@ -51,7 +51,15 @@ namespace Better_Work_Tab.UI
                     overrideTextAnchor: TextAnchor.MiddleLeft))
             {
                 SoundDefOf.Tick_Low.PlayOneShotOnCamera();
-                BetterWorkTabMultiplayer.RequestApplyRuleset(curRuleset);
+                // Rulesets are now local-only (not synced in multiplayer)
+                if (curRuleset != null)
+                {
+                    if (curRuleset.ResetBeforeApplying)
+                    {
+                        WorkAssignmentRuleset.SetAllToZero();
+                    }
+                    curRuleset.ApplyAutoAssignments();
+                }
             }
 
             if (Widgets.ButtonText(dotRect, "..."))
@@ -62,7 +70,8 @@ namespace Better_Work_Tab.UI
                     var local = ruleset;
                     options.Add(new FloatMenuOption(local.Name, () =>
                     {
-                        BetterWorkTabMultiplayer.RequestRulesetSelection(local);
+                        // Rulesets are now local-only (not synced in multiplayer)
+                        BetterWorkTabMod.Settings.CurrentRuleset = local;
                         SoundDefOf.Tick_Low.PlayOneShotOnCamera();
                     }));
                 }

@@ -218,8 +218,13 @@ namespace Better_Work_Tab.DragDrop
             ordered.Insert(insertIndex, rowToMove);
             Log.Message($"[BWT_RowDrag] Commit: Moved element from {currentIndex} to {insertIndex}. List now has {ordered.Count} items.");
 
-            Log.Message("[BWT_RowDrag] Commit: Applying new displayOrder values...");
-            for (int i = 0; i < ordered.Count; i++)
+            // Only update displayOrder for the affected range
+            int minIndex = Mathf.Min(currentIndex, insertIndex);
+            int maxIndex = Mathf.Max(currentIndex, insertIndex);
+
+            Log.Message($"[BWT_RowDrag] Commit: Applying new displayOrder values for range {minIndex} to {maxIndex}...");
+            
+            for (int i = minIndex; i <= maxIndex && i < ordered.Count; i++)
             {
                 if (ordered[i].Pawn != null)
                 {
@@ -234,7 +239,7 @@ namespace Better_Work_Tab.DragDrop
                     ordered[i].Divider.DisplayOrder = i;
                 }
             }
-            Log.Message("[BWT_RowDrag] Commit: New displayOrder values applied.");
+            Log.Message("[BWT_RowDrag] Commit: New displayOrder values applied (Optimized).");
 
             Log.Message("[BWT_RowDrag] Commit: Calling NotifyAllPawnTables_PawnsChanged() to trigger table rebuild.");
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();

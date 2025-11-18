@@ -51,6 +51,7 @@ namespace Spine.UI.ColourPicker {
 
         private readonly RecentColours _recentColours = new RecentColours();
 
+
         // used in the picker only
         private Color _tempColour;
 
@@ -212,7 +213,7 @@ namespace Spine.UI.ColourPicker {
                 // Calculate the total height required by the right-hand column content
                 float rightColumnHeight = _previewSize          // New/Old color preview
                                         + _margin               // Gap
-                                        + (_recentSize * 2)     // Recent colors box
+                                        // Recent colors box height calculated dynamically
                                         + pinnedHeight
                                         + _margin               // Gap
                                         + (_fieldHeight * 3)    // HSV, RGB, HEX fields
@@ -689,11 +690,11 @@ namespace Spine.UI.ColourPicker {
             float totalRows = pinnedRows + recentRows;
             if (totalRows <= 0f)
             {
-                return _recentSize * 2f;
+                return 0f;  // No minimum height when empty
             }
 
             float gap = pinnedRows > 0 && recentRows > 0 ? 4f : 0f;
-            return Mathf.Max(_recentSize * 2f, totalRows * _recentSize + gap);
+            return totalRows * _recentSize + gap;
         }
 
         private void DrawRecent(Rect canvas)
@@ -794,6 +795,7 @@ namespace Spine.UI.ColourPicker {
             Text.Font = oldFont;
             Text.Anchor = oldAnchor;
         }
+
 
         public static Color HSVAToRGB(float H, float S, float V, float A)
         {
