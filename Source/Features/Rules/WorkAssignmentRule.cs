@@ -193,23 +193,7 @@ namespace Better_Work_Tab.Features.Rules
         /// <returns></returns>
         public bool Apply(Pawn pawn, List<Pawn> currentPawns, WorkTypeDef worktype = null)
         {
-            //if (Parameters.WorktypeDefNameIgnoreIfNonexistant != "")
-            //{
-            //    if (!AllWorkTypes.Contains(DefDatabase<WorkTypeDef>.GetNamedSilentFail(Parameters.WorktypeDefNameIgnoreIfNonexistant)))
-            //    {
-            //        //Log.Message("Worktype " + Parameters.WorktypeDefNameIgnoreIfNonexistant + " does not exist. Skipping this assignment.");
-            //        //true skips remaining pawns. 
-            //        return true;
-            //    }
-            //    else
-            //    {
-            //        //Log.Message(Parameters.WorktypeDefNameIgnoreIfNonexistant + " should exist.");
-            //        Parameters.Worktype = DefDatabase<WorkTypeDef>.GetNamed(Parameters.WorktypeDefNameIgnoreIfNonexistant);
-            //    }
-            //}
-
-                bool skipRemainingPawns = false;
-
+            bool skipRemainingPawns = false;
 
             // Determine the work type to apply this rule to
             //starting with the worktype in the params
