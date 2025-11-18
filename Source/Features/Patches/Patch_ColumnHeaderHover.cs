@@ -25,6 +25,7 @@ namespace Better_Work_Tab.Patches
     public static class Patch_ColumnHeaderHover
     {
         private static readonly List<Rect> HeaderRects = new List<Rect>();
+        private static readonly List<Rect> _currentFrameHeaderRects = new List<Rect>();
 
         static Patch_ColumnHeaderHover()
         {
@@ -48,15 +49,21 @@ namespace Better_Work_Tab.Patches
         /// </summary>
         private static void ClearHoverState_Prefix()
         {
+            HeaderRects.Clear();
+            HeaderRects.AddRange(_currentFrameHeaderRects);
+            _currentFrameHeaderRects.Clear();
+
             var evtType = Event.current.type;
             switch (evtType)
             {
                 case EventType.Repaint:
-                    HeaderRects.Clear();
-                    ColumnHoverManager.Clear();
+                    if (!IsMouseOverAnyHeader(Event.current.mousePosition, HeaderRects))
+                    {
+                        ColumnHoverManager.Clear();
+                    }
                     break;
                 case EventType.MouseMove:
-                    if (!IsMouseOverAnyHeader(Event.current.mousePosition))
+                    if (!IsMouseOverAnyHeader(Event.current.mousePosition, HeaderRects))
                     {
                         ColumnHoverManager.Clear();
                     }
@@ -79,18 +86,22 @@ namespace Better_Work_Tab.Patches
                 return;
             }
 
-            HeaderRects.Add(rect);
+            _currentFrameHeaderRects.Add(rect);
             if (Mouse.IsOver(rect))
             {
                 ColumnHoverManager.Set(__instance.def.workType);
             }
+            else if (!IsMouseOverAnyHeader(Event.current.mousePosition, _currentFrameHeaderRects))
+            {
+                ColumnHoverManager.Clear();
+            }
         }
 
-        private static bool IsMouseOverAnyHeader(Vector2 mousePosition)
+        private static bool IsMouseOverAnyHeader(Vector2 mousePosition, List<Rect> rects)
         {
-            for (int i = 0; i < HeaderRects.Count; i++)
+            for (int i = 0; i < rects.Count; i++)
             {
-                if (HeaderRects[i].Contains(mousePosition))
+                if (rects[i].Contains(mousePosition))
                 {
                     return true;
                 }
