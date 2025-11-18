@@ -620,7 +620,7 @@ namespace Better_Work_Tab.UI
 
                     if (item != null && !item.IsDefault)
                     {
-                        DoDeleteButton(rect4);
+                        DoDeleteButton(rect4, item);
                     }
 
                     if (Widgets.ButtonInvisible(rect4))
@@ -639,7 +639,7 @@ namespace Better_Work_Tab.UI
             Widgets.EndScrollView();
         }
 
-        private void DoDeleteButton(Rect rect4)
+        private void DoDeleteButton(Rect rect4, WorkAssignmentRuleset deletableRuleset)
         {
             Rect rect6 = new Rect(rect4);
             rect6.width = 24f;
@@ -647,18 +647,11 @@ namespace Better_Work_Tab.UI
             rect6.x = rect4.xMax - rect6.width - (Settings.SavedRulesets.Count >= 14 ? 20f : 0);
             rect6.y = rect4.y + (rect4.height - rect6.height) / 2f;
 
-
             if (Widgets.ButtonImage(rect6, TexButton.Delete))
             {
-                Log.Message("Here 1");
 
-                
-            Log.Message("Here 2");
-
-                Find.WindowStack.Add(new Dialog_Confirm("Really delete " + CurrentRuleset.Name + "?", () =>
+                Find.WindowStack.Add(new Dialog_Confirm("Really delete " + deletableRuleset.Name + "?", () =>
                 {
-            Log.Message("Here 3");
-
                     var rulesets = BetterWorkTabMod.Settings.SavedRulesets;
                     if (rulesets.Count == 0)
                     {
@@ -666,39 +659,27 @@ namespace Better_Work_Tab.UI
                     }
                     var count = rulesets.Count;
                     WorkAssignmentRuleset ruleset = null;
-            Log.Message("Here 4");
-                    if (CurrentRuleset == null)
+                    
+                    if (deletableRuleset == null)
                     {
-                        Log.Message("here 4.1");
-                        //Don't bother with anything if there's no current ruleset
                         return;
                     }
 
-                    if (count > rulesets.IndexOf(CurrentRuleset) + 1)
+                    if (count > rulesets.IndexOf(deletableRuleset) + 1)
                     {
-                        Log.Message("+1 : " + (rulesets.IndexOf(CurrentRuleset) + 1));
-
-                        ruleset = rulesets[rulesets.IndexOf(CurrentRuleset) + 1];
+                        ruleset = rulesets[rulesets.IndexOf(deletableRuleset) + 1];
                     }
-                    else if (count > rulesets.IndexOf(CurrentRuleset) - 1 && rulesets.IndexOf(CurrentRuleset) - 1 > 0)
+                    else if (count > rulesets.IndexOf(deletableRuleset) - 1 && rulesets.IndexOf(deletableRuleset) - 1 > 0)
                     {
-                        Log.Message("-1 : " + (rulesets.IndexOf(CurrentRuleset) - 1));
-
-                        ruleset = rulesets[rulesets.IndexOf(CurrentRuleset) - 1];
+                        ruleset = rulesets[rulesets.IndexOf(deletableRuleset) - 1];
                     }
-                    Log.Message("Here 5");
 
-                    BetterWorkTabMod.Settings.SavedRulesets.Remove(CurrentRuleset);
-                    Log.Message("Here 5.1");
+                    BetterWorkTabMod.Settings.SavedRulesets.Remove(deletableRuleset);
 
                     ruleNameBuffer = ruleset!=null?ruleset.Name : "";
-                    Log.Message("Here 5.2");
                     BetterWorkTabMod.Settings.CurrentRuleset = ruleset;
-            Log.Message("Here 6");
                 }));
-
             }
-
         }
 
         public override void PostClose()
