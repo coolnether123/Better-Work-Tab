@@ -1,9 +1,10 @@
+using Better_Work_Tab.Features;
+using Better_Work_Tab.Features.Workloads;
+using Better_Work_Tab.PawnOrganizer;
 using HarmonyLib;
 using System;
 using UnityEngine;
 using Verse;
-using Better_Work_Tab.PawnOrganizer;
-using Better_Work_Tab.Features.Workloads;
 
 /// <summary>
 /// Main mod entry point for the Better Work Tab mod. This class serves as the primary initializer,
@@ -23,6 +24,8 @@ namespace Better_Work_Tab
         /// Defaults (e.g., enabled features, column order, default ruleset) are set during mod initialization.
         /// </summary>
         public static BetterWorkTabSettings Settings;
+
+        
 
         /// <summary>
         /// Mod constructor invoked during game startup when the Better Work Tab mod is loaded.
@@ -47,9 +50,11 @@ namespace Better_Work_Tab
 
             Settings = GetSettings<BetterWorkTabSettings>();
 
+
             // Ensure game component exists and check for worklist
             LongEventHandler.ExecuteWhenFinished(() =>
             {
+                WorkColumnOrderManager.InitializeOnGameLoad();
                 if (Current.Game != null)
                 {
                     var component = Current.Game.GetComponent<GameComponent_BWTWorldSettings>();

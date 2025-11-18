@@ -21,41 +21,14 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer
                 return;
             }
 
-            MP.RegisterSyncMethod(typeof(BetterWorkTabMultiplayer), nameof(SyncSelectRuleset));
-            MP.RegisterSyncMethod(typeof(BetterWorkTabMultiplayer), nameof(SyncApplyRuleset));
             MP.RegisterSyncMethod(typeof(BetterWorkTabMultiplayer), nameof(SyncSelectWorklist));
             MP.RegisterSyncMethod(typeof(BetterWorkTabMultiplayer), nameof(SyncApplyWorklist));
             MP.RegisterSyncMethod(typeof(BetterWorkTabMultiplayer), nameof(SyncCreateWorklist));
-            MP.RegisterSyncMethod(typeof(BetterWorkTabMultiplayer), nameof(SyncPromptRenameWorklist));
             MP.RegisterSyncMethod(typeof(BetterWorkTabMultiplayer), nameof(SyncDeleteWorklist));
         }
 
-        internal static void RequestRulesetSelection(WorkAssignmentRuleset ruleset)
-        {
-            int index = BetterWorkTabMod.Settings.SavedRulesets.IndexOf(ruleset);
-            if (index < 0)
-            {
-                return;
-            }
+        // Ruleset syncing removed as per user request.
 
-            SyncSelectRuleset(index);
-        }
-
-        internal static void RequestApplyRuleset(WorkAssignmentRuleset ruleset)
-        {
-            if (ruleset == null)
-            {
-                return;
-            }
-
-            int index = BetterWorkTabMod.Settings.SavedRulesets.IndexOf(ruleset);
-            if (index < 0)
-            {
-                return;
-            }
-
-            SyncApplyRuleset(index, ruleset.ResetBeforeApplying);
-        }
 
         internal static void RequestWorklistSelection(GameComponent_BWTWorldSettings component, Worklist worklist)
         {
@@ -82,13 +55,7 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer
 
         internal static void RequestRenameWorklist(GameComponent_BWTWorldSettings component, Worklist worklist)
         {
-            int index = GetWorklistIndex(component, worklist);
-            if (index < 0)
-            {
-                return;
-            }
-
-            SyncPromptRenameWorklist(index);
+            // Renaming is now local-only or handled differently, removed sync call.
         }
 
         internal static void RequestDeleteWorklist(GameComponent_BWTWorldSettings component, Worklist worklist)
@@ -112,34 +79,7 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer
             return component.SavedWorklists.IndexOf(worklist);
         }
 
-        [SyncMethod]
-        private static void SyncSelectRuleset(int index)
-        {
-            var rulesets = BetterWorkTabMod.Settings.SavedRulesets;
-            if (index < 0 || index >= rulesets.Count)
-            {
-                return;
-            }
 
-            BetterWorkTabMod.Settings.CurrentRuleset = rulesets[index];
-        }
-
-        [SyncMethod]
-        private static void SyncApplyRuleset(int index, bool resetBeforeApplying)
-        {
-            var rulesets = BetterWorkTabMod.Settings.SavedRulesets;
-            if (index < 0 || index >= rulesets.Count)
-            {
-                return;
-            }
-
-            if (resetBeforeApplying)
-            {
-                WorkAssignmentRuleset.SetAllToZero();
-            }
-
-            rulesets[index].ApplyAutoAssignments();
-        }
 
         [SyncMethod]
         private static void SyncSelectWorklist(int index)
@@ -196,17 +136,7 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer
             Find.WindowStack.Add(new Dialog_NameNewWorklist(newWorklist));
         }
 
-        [SyncMethod]
-        private static void SyncPromptRenameWorklist(int index)
-        {
-            var component = Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
-            if (component == null || index < 0 || index >= component.SavedWorklists.Count)
-            {
-                return;
-            }
 
-            Find.WindowStack.Add(new Dialog_RenameWorkload(component.SavedWorklists[index]));
-        }
 
         [SyncMethod]
         private static void SyncDeleteWorklist(int index)
