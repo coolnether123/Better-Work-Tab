@@ -2,6 +2,8 @@ using HarmonyLib;
 using System;
 using UnityEngine;
 using Verse;
+using Better_Work_Tab.PawnOrganizer;
+using Better_Work_Tab.Features.Workloads;
 
 /// <summary>
 /// Main mod entry point for the Better Work Tab mod. This class serves as the primary initializer,
@@ -42,6 +44,21 @@ namespace Better_Work_Tab
             {
                 Log.Error($"[Better Work Tab] Harmony failed: {ex}");
             }
+
+            Settings = GetSettings<BetterWorkTabSettings>();
+
+            // Ensure game component exists and check for worklist
+            LongEventHandler.ExecuteWhenFinished(() =>
+            {
+                if (Current.Game != null)
+                {
+                    var component = Current.Game.GetComponent<GameComponent_BWTWorldSettings>();
+                    if (component?.CurrentWorklist == null)
+                    {
+                        Log.Warning("[BetterWorkTab] No current worklist on startup. Create one in the Work tab.");
+                    }
+                }
+            });
 
             Settings = GetSettings<BetterWorkTabSettings>();
 

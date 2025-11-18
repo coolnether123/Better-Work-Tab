@@ -26,7 +26,7 @@ namespace Better_Work_Tab.Features.Workloads
             {
                 return result;
             }
-            if (name != renaming.RenamableLabel && Current.Game.GetComponent<GameComponent_WorkloadSaver>().SavedWorklists.Where(wl => name == wl.RenamableLabel).Any())
+            if (name != renaming.RenamableLabel && Current.Game.GetComponent<GameComponent_BWTWorldSettings>().SavedWorklists.Where(wl => name == wl.RenamableLabel).Any())
             {
                 return "NameIsInUse".Translate();
             }
