@@ -288,7 +288,7 @@ namespace Better_Work_Tab.DragDrop
             WorkColumnOrderManager.CaptureCurrent(def);
             WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
-            MainTabWindow_BetterWork.MarkColumnsReordered();
+            MainTabWindow_BetterWork.MarkColumnsReordered(_draggedColumn);
             MainTabWindow_BetterWork.FlagWindowSnap();
         }
 

@@ -1,3 +1,4 @@
+using Better_Work_Tab.Features;
 using RimWorld;
 using Spine.UI.WidgetExtensions;
 using UnityEngine;
@@ -41,13 +42,23 @@ namespace Better_Work_Tab.UI
             
             DrawDividerHeightSlider(l, s);
             l.CheckboxLabeled("Draw Divider Highlight", ref s.drawDividerHighlight, "Whether to draw a white highlight around the dividers.");
-            
+
+            // Reset columns button
+            if (l.ButtonText("Reset Columns to Vanilla Order"))
+            {
+                Find.WindowStack.Add(new Dialog_Confirm(
+                    "Reset all work columns to vanilla order? Any custom column ordering will be lost.",
+                    () => WorkColumnOrderManager.ResetToVanilla()
+                ));
+            }
+
+
             //public enum ShowUIMode { Always, Never, Shifted, Unshifted }
-        //ShowUIMode_ShowSmallSkillNumbers = ShowUIMode.Unshifted;
-        //public ShowUIMode ShowUIMode_ShowPawnForSkillSquare = ShowUIMode.Shifted;
+            //ShowUIMode_ShowSmallSkillNumbers = ShowUIMode.Unshifted;
+            //public ShowUIMode ShowUIMode_ShowPawnForSkillSquare = ShowUIMode.Shifted;
 
 
-        l.NewColumn();
+            l.NewColumn();
             //l.ColumnWidth = inRect.width / 4f - 12f;
             SpineWidgets.LS_ColorPickButton_Settings(l, s, nameof(s.Color_VeryLowSkill), "Very Low Skill");
             SpineWidgets.LS_ColorPickButton_Settings(l, s, nameof(s.Color_LowSkill), "Low Skill");
@@ -64,7 +75,18 @@ namespace Better_Work_Tab.UI
 
             int butW = 150;
             int butH = 30;
-            Rect resetButRect = new Rect(inRect.width - butW - 29f, 0f, butW, butH);
+
+            // Reset columns button
+            Rect resetColButRect = new Rect(inRect.width - (butW * 3) - 60f, 0f, butW, butH);
+            if (Widgets.ButtonText(resetColButRect, "Reset Work Columns"))
+            {
+                Find.WindowStack.Add(new Dialog_Confirm(
+                    "Reset all work columns to vanilla order?",
+                    () => WorkColumnOrderManager.ResetToVanilla()
+                ));
+            }
+
+            Rect resetButRect = new Rect(inRect.width - (butW * 2) - 35f, 0f, butW, butH);
             if (Widgets.ButtonText(resetButRect, "Reset Defaults"))
             {
                 Find.WindowStack.Add(new Dialog_Confirm("Really Restore ALL Defaults?", s.RestoreDefaults));

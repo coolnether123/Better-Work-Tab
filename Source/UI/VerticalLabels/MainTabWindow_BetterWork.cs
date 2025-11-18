@@ -253,15 +253,15 @@ namespace Better_Work_Tab.UI
             foreach (var column in layout.Columns)
             {
                 bool isWorkColumn = column.Column?.Worker is PawnColumnWorker_WorkPriority;
-                bool showReorder = _columnsReordered && isWorkColumn;
+                // Check if THIS specific column is out of vanilla position
+                bool showReorder = _columnsReordered && isWorkColumn &&
+                                  column.Column?.workType != null &&
+                                  IsColumnOutOfVanillaPosition(column.Column.workType);
+
                 bool highlightHeader = BetterWorkTabMod.Settings.enableRowColumnHighlights &&
                                        _hoveredColumn.HasValue &&
                                        ReferenceEquals(_hoveredColumn.Value.Column, column.Column);
 
-                if (showReorder)
-                {
-                    Widgets.DrawBoxSolid(column.HeaderRect, ColumnReorderTint);
-                }
 
                 if (highlightHeader)
                 {
@@ -272,12 +272,34 @@ namespace Better_Work_Tab.UI
 
                 column.Column.Worker.DoHeader(column.HeaderRect, table);
 
-                if (showReorder)
-                {
-                    DrawColumnReorderMarker(column.HeaderRect);
-                }
             }
         }
+
+        /// <summary>
+        /// Checks if the column order has been modified from vanilla.
+        /// </summary>
+        private static bool IsColumnInVanillaPosition(WorkTypeDef workType)
+        {
+            var vanillaOrder = WorkColumnOrderManager.GetVanillaOrder();
+
+            if (vanillaOrder == null || vanillaOrder.Count == 0)
+                return true; // Assume vanilla position if we can't determine
+
+            var currentOrder = BetterWorkTabMod.Settings.workColumnOrderDefNames;
+            if (currentOrder == null || currentOrder.Count == 0)
+                return true; // No custom order, so it's vanilla
+
+            // Find positions in both lists
+            int vanillaPos = vanillaOrder.IndexOf(workType.defName);
+            int currentPos = currentOrder.IndexOf(workType.defName);
+
+            // If not found in vanilla or current, assume vanilla
+            if (vanillaPos < 0 || currentPos < 0)
+                return true;
+
+            return vanillaPos == currentPos;
+        }
+
 
         private void DrawColumnReorderMarker(Rect headerRect)
         {
@@ -776,7 +798,7 @@ namespace Better_Work_Tab.UI
             _lastSortDescending = false;
         }
 
-        internal static void MarkColumnsReordered()
+        internal static void MarkColumnsReordered(PawnColumnDef column)
         {
             _columnsReordered = true;
         }
@@ -784,6 +806,31 @@ namespace Better_Work_Tab.UI
         internal static void ClearColumnReorderFlag()
         {
             _columnsReordered = false;
+        }
+
+        /// <summary>
+        /// Check if a specific column is out of its vanilla position
+        /// </summary>
+        private static bool IsColumnOutOfVanillaPosition(WorkTypeDef workType)
+        {
+            if (!_columnsReordered)
+                return false;
+
+            var vanillaOrder = WorkColumnOrderManager.GetVanillaOrder();
+            var currentOrder = BetterWorkTabMod.Settings.workColumnOrderDefNames;
+
+            // If no custom order, column is in vanilla position
+            if (currentOrder == null || currentOrder.Count == 0)
+                return false;
+
+            // Find positions
+            int vanillaPos = vanillaOrder?.IndexOf(workType.defName) ?? -1;
+            int currentPos = currentOrder.IndexOf(workType.defName);
+
+            if (vanillaPos < 0 || currentPos < 0)
+                return false;
+
+            return vanillaPos != currentPos;
         }
 
         internal static void FlagWindowSnap()
