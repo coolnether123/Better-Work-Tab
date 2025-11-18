@@ -162,7 +162,7 @@ namespace Better_Work_Tab.UI
         {
             var options = new List<FloatMenuOption>
             {
-                new FloatMenuOption("Rename...", () =>
+                new FloatMenuOption("Edit...", () =>
                 {
                     Find.WindowStack.Add(new Dialog_EditDivider(divider));
                 }),
