@@ -59,6 +59,13 @@ namespace Better_Work_Tab.UI
             {
                 Find.WindowStack.Add(new Dialog_Confirm("Really Restore ALL Defaults?", s.ResoreDefaultes));
             }
+
+            resetButRect.x -= butW + 10f;
+            if (Widgets.ButtonText(resetButRect, "Restore Default Rulesets"))
+            {
+                Find.WindowStack.Add(new Dialog_Confirm("Really Restore ALL Defaults? (This will RESET ALL RULESETS.)", s.CreateDefaultRulesets));
+            }
+
         }
 
         private static void DrawRulesUI(Listing_Standard listing, BetterWorkTabSettings s)
