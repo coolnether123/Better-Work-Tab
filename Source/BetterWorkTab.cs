@@ -67,13 +67,13 @@ namespace Better_Work_Tab
 
             Settings = GetSettings<BetterWorkTabSettings>();
 
-            if (!Settings.firstTimeSetupDone)
-            {
-                Log.Message("Setting up default rulesets for the first time.");
-                LongEventHandler.ExecuteWhenFinished(Settings.CreateDefaultRulesets);
-                BetterWorkTabMod.Settings.firstTimeSetupDone = true;
-                BetterWorkTabMod.Settings.Write();
-            }
+            //if (!Settings.firstTimeSetupDone)
+            //{
+            //    Log.Message("Setting up default rulesets for the first time.");
+            //    LongEventHandler.ExecuteWhenFinished(Settings.CreateDefaultRulesets);
+            //    BetterWorkTabMod.Settings.firstTimeSetupDone = true;
+            //    BetterWorkTabMod.Settings.Write();
+            //}
         }
 
         /// <summary>
