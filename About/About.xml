@@ -1,25 +1,79 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ModMetaData>
-  <name>Better Work Tab</name>
-  <author>Coolnether123</author>
-  <supportedVersions>
-    <!-- <li>1.5</li> -->
-    <li>1.6</li>
-  </supportedVersions>
-  <packageId>Coolnether123.BetterWorkTab</packageId>
-  <description>
-  Overhauls the work tab to have an "Automatically Assign" button and display additional useful information.
-  </description>
-  <loadAfter>
-    <li>brrainz.harmony</li>
-    <li>Ludeon.RimWorld</li>
-  </loadAfter>
-  <modDependencies>
-    <li>
-      <packageId>brrainz.harmony</packageId>
-      <displayName>Harmony</displayName>
-      <steamWorkshopUrl>steam://url/CommunityFilePage/2009463077</steamWorkshopUrl>
-      <downloadUrl>https://github.com/pardeike/HarmonyRimWorld/releases/latest</downloadUrl>
-    </li>
-  </modDependencies>
+ <name>Better Work Tab</name>
+ <author>Coolnether123</author>
+ <supportedVersions>
+   <li>1.4</li>
+   <li>1.5</li>
+   <li>1.6</li>
+ </supportedVersions>
+ <packageId>Coolnether123.BetterWorkTab</packageId>
+ <description>
+&lt;color=orange&gt;&lt;b&gt;Completely overhauls RimWorld's Work tab with drag-and-drop, skill overlays, automation rules, and visual customization.&lt;/b&gt;&lt;/color&gt;
+
+&lt;b&gt;Core Features:&lt;/b&gt;
+• &lt;color=#99FF99&gt;Drag &amp; Drop Reordering&lt;/color&gt; - Click and drag columns (Ctrl+drag) and pawn rows to rearrange your work tab layout. Changes persist between saves.
+• &lt;color=#99FF99&gt;Skill Level Overlay&lt;/color&gt; - Hold SHIFT to see skill levels instead of priorities. Color-coded (red→green) with "best pawn" highlighting.
+• &lt;color=#99FF99&gt;Auto-Assignment Rulesets&lt;/color&gt; - Create smart rules to automatically assign work priorities based on passions, skills, traits, xenotypes, gender, pregnancy, and more.
+• &lt;color=#99FF99&gt;Workload Presets&lt;/color&gt; - Save and load entire priority configurations as named presets. Switch between different colony setups instantly.
+• &lt;color=#99FF99&gt;Visual Dividers&lt;/color&gt; - Organize pawns into collapsible sections with custom labels, colors, and fonts.
+• &lt;color=#99FF99&gt;Pawn Highlights&lt;/color&gt; - Color-code pawn rows for easy identification. Set custom background colors per pawn.
+• &lt;color=#99FF99&gt;Advanced Highlighting&lt;/color&gt; - Highlight selected pawns, hovered rows/columns, and similar work types. Fully customizable colors and opacity.
+• &lt;color=#99FF99&gt;Multiplayer Support&lt;/color&gt; - Sync workload presets and column reordering across players (row reordering is local-only).
+
+&lt;b&gt;Rule-Based Automation:&lt;/b&gt;
+Build complex assignment logic with 25+ parameters:
+- Skill/passion thresholds (min/max)
+- Trait and xenotype requirements
+- Gender and pregnancy filters
+- "Highest skill", "top X skills", "Nth best" logic
+- Work type limits per pawn
+- Priority protection/overwrite rules
+- Random assignment for ties
+
+Includes 5 default rulesets: Vanilla Starting Pawn, Vanilla New Pawn, BWT Default (passion-based), Best Pawn to 1, and Reset All.
+
+&lt;b&gt;Quality of Life:&lt;/b&gt;
+- Angled column headers save space and look great
+- Show colonist/bed counts at bottom
+- Disable left-click closing if needed
+- Show only insertion lines for cleaner drag preview
+- Right-click pawn name for quick actions (set color, rename, add divider)
+
+&lt;b&gt;Requirements:&lt;/b&gt;
+- Harmony (required)
+
+&lt;b&gt;Compatibility:&lt;/b&gt;
+- Designed to work with most work-type mods
+- Patches are postfix/transpiler-based for maximum compatibility
+- May conflict with other work-tab overhaul mods (test before adding)
+
+&lt;b&gt;Performance:&lt;/b&gt;
+- Optimized for large colonies (50+ pawns)
+- Minimal overhead when idle
+- Efficient caching prevents frame drops
+
+&lt;b&gt;Credits:&lt;/b&gt;
+- Colour picker by Karel Kroeze (MIT License)
+- Harmony team for patch framework
+
+Questions? See the Steam Workshop page or GitHub repository for detailed documentation and tutorials.
+ </description>
+ <url>https://github.com/coolnether123/BetterWorkTab</url>
+ <loadAfter>
+   <li>brrainz.harmony</li>
+   <li>Ludeon.RimWorld</li>
+ </loadAfter>
+ <modDependencies>
+   <li>
+     <packageId>brrainz.harmony</packageId>
+     <displayName>Harmony</displayName>
+     <steamWorkshopUrl>steam://url/CommunityFilePage/2009463077</steamWorkshopUrl>
+     <downloadUrl>https://github.com/pardeike/HarmonyRimWorld/releases/latest</downloadUrl>
+   </li>
+ </modDependencies>
+ <incompatibleWith>
+   <li>Fluffy.WorkTab</li>
+   <li>Numbers</li>
+ </incompatibleWith>
 </ModMetaData>
