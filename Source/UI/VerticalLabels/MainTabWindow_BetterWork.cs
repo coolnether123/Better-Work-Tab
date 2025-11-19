@@ -1,13 +1,15 @@
-using System;
-using System.Collections.Generic;
-using System.Reflection;
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.Workloads;
+using Better_Work_Tab.Patches;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.PawnOrganizer.Data;
 using RimWorld;
 using Spine.UI.ColourPicker;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using UnityEngine;
 using Verse;
 using Verse.Sound;
@@ -25,7 +27,6 @@ namespace Better_Work_Tab.UI
         private const float WindowSnapCooldownSeconds = 0.25f;
         private static bool _pendingWindowSnap;
         private static bool _columnsReordered;
-        private WorkTabLayoutColumn? _hoveredColumn;
         private float _lastKnownHeight = -1f;
         private float _lastWindowSnapTime;
         private PawnColumnDef _lastSortColumn;
@@ -222,7 +223,6 @@ namespace Better_Work_Tab.UI
             }
 
             CalculateScrollRects(layout, inRect, out var outRect, out var viewRect);
-            UpdateHoveredColumn(layout);
             UpdateSortState(table);
 
             DrawHeaders(layout, table);
@@ -250,6 +250,8 @@ namespace Better_Work_Tab.UI
 
         private void DrawHeaders(IWorkTabLayoutController layout, PawnTable table)
         {
+            float totalHeight = layout.ContentHeight;
+
             foreach (var column in layout.Columns)
             {
                 bool isWorkColumn = column.Column?.Worker is PawnColumnWorker_WorkPriority;
@@ -258,16 +260,11 @@ namespace Better_Work_Tab.UI
                                   column.Column?.workType != null &&
                                   IsColumnOutOfVanillaPosition(column.Column.workType);
 
-                bool highlightHeader = BetterWorkTabMod.Settings.enableRowColumnHighlights &&
-                                       _hoveredColumn.HasValue &&
-                                       ReferenceEquals(_hoveredColumn.Value.Column, column.Column);
-
-
-                if (highlightHeader)
+                if (BetterWorkTabMod.Settings.ShowCursorPawnAndWorktypeHighlight && isWorkColumn && Mouse.IsOver(column.HeaderRect))
                 {
-                    var highlightColor = BetterWorkTabMod.Settings.Color_MouseHoverHighlight;
-                    Widgets.DrawBoxSolid(column.HeaderRect, highlightColor);
-                    Widgets.DrawBox(column.HeaderRect, 1);
+                    Color useColor = BetterWorkTabMod.Settings.Color_MouseHoverHighlight;
+                    Rect columnRect = new Rect(column.OffsetX, layout.TableOrigin.y + layout.HeaderHeight, column.Width, totalHeight);
+                    Widgets.DrawBoxSolid(columnRect, useColor);
                 }
 
                 column.Column.Worker.DoHeader(column.HeaderRect, table);
@@ -331,15 +328,68 @@ namespace Better_Work_Tab.UI
             {
                 var nameColumn = FindNameColumn(layout.Columns);
 
+                // === CALCULATE TOTALS FOR HIGHLIGHTING ===
+                float totalWidth = 0f;
+                foreach (var col in layout.Columns)
+                {
+                    totalWidth += col.Width;
+                }
+
+                // === HIGHLIGHT ROWS (HORIZONTAL) ===
+                float startingY = 0f;
+                foreach (var row in layout.Rows)
+                {
+                    Rect rowRect = new Rect(0f, startingY, totalWidth, row.Height);
+
+                    // Highlight selected row
+                    if (row.Pawn != null && Find.Selector.IsSelected(row.Pawn))
+                    {
+                        if (BetterWorkTabMod.Settings.ShowFloatMenuPawnAndWorktypeHighlight && PawnTable_HighlightRowAndColumn.worktypeToHighlight != null)
+                            Widgets.DrawBoxSolid(rowRect, BetterWorkTabMod.Settings.Color_FloatMenuHighlight);
+                        else if (BetterWorkTabMod.Settings.DoSelectedPawnHighlight)
+                            Widgets.DrawBoxSolid(rowRect, BetterWorkTabMod.Settings.Color_CursorHighlight);
+                    }
+
+                    // Highlight hovered row
+                    if (BetterWorkTabMod.Settings.ShowCursorPawnAndWorktypeHighlight && Mouse.IsOver(rowRect))
+                        Widgets.DrawBoxSolid(rowRect, BetterWorkTabMod.Settings.Color_MouseHoverHighlight);
+
+                    startingY += row.Height;
+                }
+
+                // === HIGHLIGHT COLUMNS (VERTICAL) ===
+                float startingX = 0f;
+                float totalHeight = layout.ContentHeight;
+                foreach (var column in layout.Columns)
+                {
+                    Rect columnRect = new Rect(startingX, 0f, column.Width, totalHeight);
+
+                    bool isWorkColumn = column.Column?.Worker is PawnColumnWorker_WorkPriority;
+
+                    // Highlight float menu worktype
+                    if (isWorkColumn && BetterWorkTabMod.Settings.ShowFloatMenuPawnAndWorktypeHighlight &&
+                        PawnTable_HighlightRowAndColumn.worktypeToHighlight == column.Column.workType)
+                        Widgets.DrawBoxSolid(columnRect, BetterWorkTabMod.Settings.Color_FloatMenuHighlight);
+
+                    // Highlight hovered column
+                    if (isWorkColumn && BetterWorkTabMod.Settings.ShowCursorPawnAndWorktypeHighlight && Mouse.IsOver(columnRect))
+                    {
+                        Color useColor = BetterWorkTabMod.Settings.Color_MouseHoverHighlight;
+                        Widgets.DrawBoxSolid(columnRect, useColor);
+                        Widgets.DrawHighlight(columnRect);
+
+                        // Highlight similar worktypes
+                        HighlightSimilarWorktypes(column.Column.workType, layout.Columns, column, layout);
+                    }
+
+                    startingX += column.Width;
+                }
+
+                // === NOW DRAW ACTUAL CONTENT ===
                 foreach (var row in layout.Rows)
                 {
                     Rect rowRect = new Rect(0f, row.OffsetY, viewRect.width, row.Height);
                     DrawRowBackground(row, rowRect);
-
-                    if (BetterWorkTabMod.Settings.enableRowColumnHighlights && _hoveredColumn.HasValue)
-                    {
-                        DrawColumnHighlight(rowRect, _hoveredColumn.Value);
-                    }
 
                     if (row.Pawn != null)
                     {
@@ -355,6 +405,7 @@ namespace Better_Work_Tab.UI
                     Widgets.DrawLineHorizontal(0f, rowRect.yMax - 1f, viewRect.width);
                     GUI.color = Color.white;
                 }
+    
             }
             catch (Exception ex)
             {
@@ -363,6 +414,35 @@ namespace Better_Work_Tab.UI
             finally
             {
                 Widgets.EndScrollView();
+            }
+        }
+
+        private void HighlightSimilarWorktypes(WorkTypeDef worktype, IReadOnlyList<WorkTabLayoutColumn> columns, WorkTabLayoutColumn myColumn, IWorkTabLayoutController layout)
+        {
+            var relevantSkills = worktype.relevantSkills;
+            float startingX = 0f;
+            float totalHeight = layout.ContentHeight;
+
+            foreach (var column in columns)
+            {
+                bool isWorkColumn = column.Column?.Worker is PawnColumnWorker_WorkPriority;
+
+                if (isWorkColumn && column.Column.workType != worktype)
+                {
+                    var rect = new Rect(startingX, 0f, column.Width, totalHeight);
+
+                    foreach (var skill in relevantSkills)
+                    {
+                        if (column.Column.workType.relevantSkills.Contains(skill))
+                        {
+                            Widgets.DrawBoxSolid(rect, BetterWorkTabMod.Settings.Color_SimilarWorktypeMouseOver);
+                            Widgets.DrawHighlight(rect);
+                            break;
+                        }
+                    }
+                }
+
+                startingX += column.Width;
             }
         }
 
@@ -417,27 +497,6 @@ namespace Better_Work_Tab.UI
             return null;
         }
 
-        private void UpdateHoveredColumn(IWorkTabLayoutController layout)
-        {
-            if (layout == null)
-            {
-                _hoveredColumn = null;
-                return;
-            }
-
-            var evtType = Event.current.type;
-            if (evtType != EventType.Repaint && evtType != EventType.MouseMove)
-            {
-                return;
-            }
-
-            _hoveredColumn = null;
-            Vector2 mousePosition = Event.current.mousePosition;
-            if (layout.TryGetColumnAt(mousePosition, out var headerColumn))
-            {
-                _hoveredColumn = headerColumn;
-            }
-        }
 
         private bool TryGetBodyColumnAt(IWorkTabLayoutController layout, Vector2 mousePosition, out WorkTabLayoutColumn column)
         {
@@ -471,14 +530,6 @@ namespace Better_Work_Tab.UI
             }
 
             return false;
-        }
-
-        private void DrawColumnHighlight(Rect rowRect, WorkTabLayoutColumn column)
-        {
-            Rect highlightRect = new Rect(column.OffsetX, rowRect.y, column.Width, rowRect.height);
-            var color = BetterWorkTabMod.Settings.Color_MouseHoverHighlight;
-            var overlay = new Color(color.r, color.g, color.b, Mathf.Clamp(color.a, 0.08f, 0.35f));
-            Widgets.DrawBoxSolid(highlightRect, overlay);
         }
 
         private void DrawDividerRow(PawnDivider divider, Rect rowRect, WorkTabLayoutColumn nameColumn)
