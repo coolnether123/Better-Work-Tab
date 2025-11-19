@@ -755,32 +755,39 @@ namespace Better_Work_Tab.UI
                 }
             }
 
-            string label = string.Empty;
-            if (showPawns)
-            {
-                label = $"Colonists: {pawnCount}";
-            }
-            if (showBeds)
-            {
-                if (!string.IsNullOrEmpty(label))
-                {
-                    label += " | ";
-                }
-                label += $"Beds: {bedCount}";
-            }
-
-            if (string.IsNullOrEmpty(label))
-            {
-                return;
-            }
-
             var rect = new Rect(inRect.x + 6f, inRect.yMax - 45f, inRect.width * 0.5f, 20f);
             Text.Anchor = TextAnchor.UpperLeft;
             Text.Font = GameFont.Tiny;
-            GUI.color = new Color(1f, 1f, 1f, 0.7f);
-            Widgets.Label(rect, label);
+
+            // Draw colonist count in gray
+            if (showPawns)
+            {
+                GUI.color = new Color(1f, 1f, 1f, 0.7f);
+                Widgets.Label(rect, $"Colonists: {pawnCount}");
+            }
+
+            // Draw bed count in red if less than pawns, otherwise gray
+            if (showBeds)
+            {
+                string bedLabel = showPawns ? $" | Beds: {bedCount}" : $"Beds: {bedCount}";
+                float colonistWidth = showPawns ? Text.CalcSize($"Colonists: {pawnCount}").x : 0f;
+                Rect bedRect = new Rect(rect.x + colonistWidth, rect.y, rect.width - colonistWidth, rect.height);
+
+                if (bedCount < pawnCount)
+                {
+                    GUI.color = new Color(0.8f, 0.1f, 0.1f); // Darker red
+                }
+                else
+                {
+                    GUI.color = new Color(1f, 1f, 1f, 0.7f);
+                }
+
+                Widgets.Label(bedRect, bedLabel);
+            }
+
             GUI.color = Color.white;
             Text.Font = GameFont.Small;
+            Text.Anchor = TextAnchor.UpperLeft;
         }
 
         private PawnTable GetPawnTable()
