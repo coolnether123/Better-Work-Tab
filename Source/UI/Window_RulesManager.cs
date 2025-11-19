@@ -515,7 +515,7 @@ namespace Better_Work_Tab.UI
 
                 // Only show delete button for rules if ruleset is not default
                 if (CurrentRuleset != null && !CurrentRuleset.IsDefault)
-                    DoDeleteButton_Rules(ref ruleToRemove, ref rect4);
+                    DoDeleteButton_Rules(ref ruleToRemove, ref rect4, item);
 
                 if (Widgets.ButtonInvisible(rect4))
                 {
@@ -536,7 +536,7 @@ namespace Better_Work_Tab.UI
         /// <summary>
         /// Draws delete button for a rule. Only appears if ruleset is not default.
         /// </summary>
-        private void DoDeleteButton_Rules(ref WorkAssignmentRule ruleToRemove, ref Rect rect4)
+        private void DoDeleteButton_Rules(ref WorkAssignmentRule ruleToRemove, ref Rect rect4, WorkAssignmentRule currentRule)
         {
             Rect rect6 = new Rect(rect4);
             rect6.width = 24f;
@@ -546,12 +546,17 @@ namespace Better_Work_Tab.UI
 
             if (Widgets.ButtonImage(rect6, TexButton.Delete))
             {
-                var newCurrentIndex = Mathf.Clamp(RulesetRules.IndexOf(SelectedRule) - 1, 0, int.MaxValue);
-                ruleToRemove = SelectedRule;
-                if (RulesetRules.Count - 1 <= 0)
-                    SelectedRule = null;
-                else
-                    SelectedRule = RulesetRules[newCurrentIndex];
+                var newCurrentIndex = Mathf.Clamp(RulesetRules.IndexOf(currentRule) - 1, 0, int.MaxValue);
+                ruleToRemove = currentRule;
+                        SelectedRule = null;
+                //if (ruleToRemove == SelectedRule)
+                //{
+
+                //    Log.Message("Selected rule is being deleted.");
+                //    if (RulesetRules.Count - 1 <= 0)
+                //    else
+                //        SelectedRule = RulesetRules[newCurrentIndex+1];
+                //}
             }
         }
 
