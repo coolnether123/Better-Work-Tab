@@ -82,12 +82,12 @@ namespace Better_Work_Tab
 
             new WorkAssignmentRuleset("BWT Default", new List<WorkAssignmentParameters>()
             {
-                new WorkAssignmentParameters("Always Firefight", 1, worktype: WorkTypeDefOf.Firefighter),
-                new WorkAssignmentParameters("Best Doc", 1, worktype: WorkTypeDefOf.Doctor, hasHighestSkill: true),
+                new WorkAssignmentParameters("Always Firefight", 1, worktype: DefDatabase<WorkTypeDef>.GetNamedSilentFail("Firefighter")),
+                new WorkAssignmentParameters("Best Doc", 1, worktype: DefDatabase<WorkTypeDef>.GetNamedSilentFail("Doctor"), hasHighestSkill: true),
                 new WorkAssignmentParameters("HaulUrg if able", 2, worktype: DefDatabase<WorkTypeDef>.GetNamedSilentFail("HaulUrgently")),
-                new WorkAssignmentParameters("Childcare", 2, worktype: WorkTypeDefOf.Childcare, hasChildOnMap: true),
+                new WorkAssignmentParameters("Childcare", 2, worktype: DefDatabase<WorkTypeDef>.GetNamedSilentFail("Childcare"), hasChildOnMap: true),
                 new WorkAssignmentParameters("Passion 2", 2, passionLevel: 2),
-                new WorkAssignmentParameters("Always haul", 3, worktype: WorkTypeDefOf.Hauling),
+                new WorkAssignmentParameters("Always haul", 3, worktype: DefDatabase<WorkTypeDef>.GetNamedSilentFail("Hauling")),
                 new WorkAssignmentParameters("Passion 1", 3, passionLevel: 1),
                 new WorkAssignmentParameters("Top 6", 3, isTopXSkill: 6),
                 new WorkAssignmentParameters("Always Assigns", 3, isNaturalAlwaysAssign: true),
