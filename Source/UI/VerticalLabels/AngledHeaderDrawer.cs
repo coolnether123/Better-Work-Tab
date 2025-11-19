@@ -85,6 +85,10 @@ namespace Better_Work_Tab.UI
         private const float TEXT_UNDERLINE_GAP = 1f;
         private const bool DRAW_UNDERLINE = true;
 
+        private static Dictionary<string, Vector2> _textSizeCache =
+        new Dictionary<string, Vector2>();
+        private static string _lastCachedText = null;
+
         public static void Draw(Rect headerRect, WorkTypeDef workType, bool isMouseOver)
         {
             if (workType == null) return;
@@ -104,7 +108,23 @@ namespace Better_Work_Tab.UI
                 isReordered = (vanillaPos >= 0 && currentPos >= 0 && vanillaPos != currentPos);
             }
 
-            if (string.IsNullOrEmpty(text)) return;
+            string displayText = isReordered ? text + "*" : text;
+
+            // Only recalculate text size if text changed
+            if (!_textSizeCache.TryGetValue(displayText, out var textSize))
+            {
+                var oldFont = Text.Font;
+                Text.Font = GameFont.Small;
+                textSize = Text.CalcSize(displayText);
+                Text.Font = oldFont;
+                _textSizeCache[displayText] = textSize;
+
+                // Clear cache if it gets too large (shouldn't happen with ~30 columns)
+                if (_textSizeCache.Count > 50)
+                {
+                    _textSizeCache.Clear();
+                }
+            }
 
             float centerX = headerRect.x + headerRect.width * 0.5f;
             Vector2 pivot = new Vector2(centerX, headerRect.yMax - STEM_BOTTOM_GAP);
@@ -119,11 +139,8 @@ namespace Better_Work_Tab.UI
                 Text.Font = GameFont.Small;
                 Text.Anchor = TextAnchor.MiddleLeft;
 
-                // Add asterisk only if THIS specific column was reordered
-                string displayText = isReordered ? text + "*" : text;
-                Vector2 textSize = Text.CalcSize(displayText);
                 float textWidth = textSize.x;
-                float lineHeight = Text.LineHeight;
+                float lineHeight = textSize.y;
 
                 GUIUtility.RotateAroundPivot(ROTATION_ANGLE, pivot);
 
