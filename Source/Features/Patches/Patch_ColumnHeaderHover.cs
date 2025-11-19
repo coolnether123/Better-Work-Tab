@@ -1,15 +1,11 @@
 ﻿using HarmonyLib;
-using System.Collections.Generic;
 using RimWorld;
+using System.Collections.Generic;
 using UnityEngine;
 using Verse;
 
 namespace Better_Work_Tab.Patches
 {
-    /// <summary>
-    /// A simple static class to track which work type column header is currently being hovered by the mouse.
-    /// This state is used by the DoCell patch to dynamically change its rendering.
-    /// </summary>
     public static class ColumnHoverManager
     {
         public static WorkTypeDef HoveredWorkType { get; private set; }
@@ -18,87 +14,127 @@ namespace Better_Work_Tab.Patches
         public static void Clear() => HoveredWorkType = null;
     }
 
-    /// <summary>
-    /// This class contains the Harmony patches responsible for updating the ColumnHoverManager's state each frame.
-    /// </summary>
     [StaticConstructorOnStartup]
     public static class Patch_ColumnHeaderHover
     {
-        private static readonly List<Rect> HeaderRects = new List<Rect>();
-        private static readonly List<Rect> _currentFrameHeaderRects = new List<Rect>();
+        private static readonly List<Rect> HeaderRects =
+            new List<Rect>();
+
+        private static readonly List<Rect> CurrentFrameHeaderRects =
+            new List<Rect>();
+
+        private static Vector2 _lastMousePos;
+        private static bool _mouseMoved;
 
         static Patch_ColumnHeaderHover()
         {
-            var harmony = new Harmony("Coolnether123.betterworktab.columnhover");
+            var harmony = new Harmony(
+                "Coolnether123.betterworktab.columnhover");
 
-            // Patch DoWindowContents to clear the hover state at the start of each frame.
             harmony.Patch(
-                AccessTools.Method(typeof(MainTabWindow_Work), nameof(MainTabWindow_Work.DoWindowContents)),
-                prefix: new HarmonyMethod(typeof(Patch_ColumnHeaderHover), nameof(ClearHoverState_Prefix))
+                AccessTools.Method(
+                    typeof(MainTabWindow_Work),
+                    nameof(MainTabWindow_Work.DoWindowContents)),
+                prefix: new HarmonyMethod(
+                    typeof(Patch_ColumnHeaderHover),
+                    nameof(OnFrameStart))
             );
 
-            // Patch DoHeader to set the hover state when the mouse is over a column header.
             harmony.Patch(
-                AccessTools.Method(typeof(PawnColumnWorker_WorkPriority), nameof(PawnColumnWorker_WorkPriority.DoHeader)),
-                postfix: new HarmonyMethod(typeof(Patch_ColumnHeaderHover), nameof(SetHoverState_Postfix))
+                AccessTools.Method(
+                    typeof(PawnColumnWorker_WorkPriority),
+                    nameof(PawnColumnWorker_WorkPriority.DoHeader)),
+                postfix: new HarmonyMethod(
+                    typeof(Patch_ColumnHeaderHover),
+                    nameof(OnHeaderDraw))
             );
         }
 
         /// <summary>
-        /// Prefix patch that runs before the main window draws, ensuring the hover state is reset every frame.
+        /// Runs once per Work tab frame before drawing.
+        /// Only recomputes hover when the mouse actually moved.
         /// </summary>
-        private static void ClearHoverState_Prefix()
+        private static void OnFrameStart()
         {
-            HeaderRects.Clear();
-            HeaderRects.AddRange(_currentFrameHeaderRects);
-            _currentFrameHeaderRects.Clear();
-
-            var evtType = Event.current.type;
-            switch (evtType)
-            {
-                case EventType.Repaint:
-                    if (!IsMouseOverAnyHeader(Event.current.mousePosition, HeaderRects))
-                    {
-                        ColumnHoverManager.Clear();
-                    }
-                    break;
-                case EventType.MouseMove:
-                    if (!IsMouseOverAnyHeader(Event.current.mousePosition, HeaderRects))
-                    {
-                        ColumnHoverManager.Clear();
-                    }
-                    break;
-                case EventType.MouseLeaveWindow:
-                    HeaderRects.Clear();
-                    ColumnHoverManager.Clear();
-                    break;
-            }
-        }
-
-        /// <summary>
-        /// Postfix patch that runs after a column header is drawn. It checks if the mouse is
-        /// over the header and updates the hover manager accordingly.
-        /// </summary>
-        private static void SetHoverState_Postfix(PawnColumnWorker_WorkPriority __instance, Rect rect)
-        {
-            if (Event.current.type != EventType.Repaint)
+            var evt = Event.current;
+            if (evt == null)
             {
                 return;
             }
 
-            _currentFrameHeaderRects.Add(rect);
-            if (Mouse.IsOver(rect))
+            var mousePos = evt.mousePosition;
+            _mouseMoved =
+                (mousePos - _lastMousePos).sqrMagnitude > 0.25f;
+            _lastMousePos = mousePos;
+
+            if (evt.type == EventType.MouseLeaveWindow)
             {
-                ColumnHoverManager.Set(__instance.def.workType);
+                HeaderRects.Clear();
+                CurrentFrameHeaderRects.Clear();
+                ColumnHoverManager.Clear();
+                return;
             }
-            else if (!IsMouseOverAnyHeader(Event.current.mousePosition, _currentFrameHeaderRects))
+
+            // If mouse did not move, keep previous hover state.
+            if (!_mouseMoved)
+            {
+                return;
+            }
+
+            // Reuse the header rects from last frame.
+            HeaderRects.Clear();
+            HeaderRects.AddRange(CurrentFrameHeaderRects);
+            CurrentFrameHeaderRects.Clear();
+
+            // Mouse moved, but not over any header -> clear hover.
+            if (!IsMouseOverAnyHeader(mousePos, HeaderRects))
             {
                 ColumnHoverManager.Clear();
             }
         }
 
-        private static bool IsMouseOverAnyHeader(Vector2 mousePosition, List<Rect> rects)
+        /// <summary>
+        /// Called once per work column header during repaint.
+        /// Only does work when the mouse moved this frame.
+        /// </summary>
+        private static void OnHeaderDraw(
+            PawnColumnWorker_WorkPriority __instance,
+            Rect rect)
         {
+            var evt = Event.current;
+            if (evt == null
+                || evt.type != EventType.Repaint
+                || !_mouseMoved)
+            {
+                return;
+            }
+
+            CurrentFrameHeaderRects.Add(rect);
+
+            if (rect.Contains(_lastMousePos))
+            {
+                ColumnHoverManager.Set(__instance.def.workType);
+            }
+        }
+
+        private static bool IsMouseOverAnyHeader(
+            Vector2 mousePosition,
+            List<Rect> rects)
+        {
+            if (rects.Count == 0)
+            {
+                return false;
+            }
+
+            // Cheap span check first.
+            float minX = rects[0].xMin;
+            float maxX = rects[rects.Count - 1].xMax;
+
+            if (mousePosition.x < minX || mousePosition.x > maxX)
+            {
+                return false;
+            }
+
             for (int i = 0; i < rects.Count; i++)
             {
                 if (rects[i].Contains(mousePosition))
