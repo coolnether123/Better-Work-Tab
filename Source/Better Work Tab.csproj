@@ -42,7 +42,6 @@
   <ItemGroup>
     <Compile Include="BetterWorkTab.cs" />
     <Compile Include="DragDrop\ColumnDragController.cs" />
-    <Compile Include="Features\Patches\Patch_ColumnHeaderHover.cs" />
     <Compile Include="Features\Patches\Patch_WorkPriority_DoCell_Unified.cs" />
     <Compile Include="Features\Rules\AssignmentValidationResult.cs" />
     <Compile Include="Features\Rules\Validators\AssignmentConstraintsValidator.cs" />

@@ -1,24 +1,22 @@
-// --- START OF FILE UI/VerticalLabels/AngledHeaderDrawer.cs (CORRECTED) ---
-
 using Better_Work_Tab.Features;
 using HarmonyLib;
 using RimWorld;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
-using System.Reflection.Emit;
+using System.Reflection.Emit; // Required for Transpiler
 using UnityEngine;
 using Verse;
 
 namespace Better_Work_Tab.UI
 {
-    // ====================================================================
-    // This patch and its Transpiler are responsible for REMOVING the vanilla drawing
-    // and ADDING our custom angled drawing.
-    // ====================================================================
     [HarmonyPatch(typeof(PawnColumnWorker_WorkPriority), nameof(PawnColumnWorker_WorkPriority.DoHeader))]
     public static class PawnColumnWorker_WorkPriority_DoHeader_Patch
     {
+        // === PERFORMANCE CACHE ===
+        private static int _lastCachedFrame = -1;
+        private static Vector2 _cachedMousePos = Vector2.zero;
+        private static WorkTypeDef _cachedHoveredWorkType = null;
+
         [HarmonyPostfix]
         [HarmonyPriority(Priority.Last)]
         public static void Postfix(PawnColumnWorker_WorkPriority __instance, Rect rect, PawnTable table)
@@ -26,13 +24,32 @@ namespace Better_Work_Tab.UI
             var workType = __instance?.def?.workType;
             if (workType == null) return;
 
-            // Check if the mouse is over the entire header cell
-            bool isMouseOver = Mouse.IsOver(rect);
+            // 1. Cache mouse data once per frame
+            int currentFrame = Time.frameCount;
+            if (_lastCachedFrame != currentFrame)
+            {
+                _cachedMousePos = Event.current?.mousePosition ?? Vector2.zero;
+                _lastCachedFrame = currentFrame;
 
-            // Pass the mouseover state to our drawer
+                // Reset hover cache for this frame
+                _cachedHoveredWorkType = null;
+
+                // We can't easily know WHICH rect is hovered here globally without a manager, 
+                // but we can check locally very cheaply now.
+            }
+
+            // 2. Update the global hover tracking if this specific rect is hovered
+            // (This replaces the old ColumnHoverManager logic)
+            if (rect.Contains(_cachedMousePos))
+            {
+                _cachedHoveredWorkType = workType;
+            }
+
+            bool isMouseOver = (_cachedHoveredWorkType == workType);
             AngledLabelDrawer.Draw(rect, workType, isMouseOver);
         }
 
+        // === RESTORED TRANSPILER: THIS HIDES THE VANILLA HEADERS ===
         [HarmonyTranspiler]
         public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator il)
         {
@@ -43,6 +60,7 @@ namespace Better_Work_Tab.UI
             int startIndex = -1;
             int endIndex = -1;
 
+            // Find where vanilla starts drawing the region
             for (int i = 0; i < code.Count; i++)
             {
                 if (code[i].Calls(doRegionMethod))
@@ -52,6 +70,7 @@ namespace Better_Work_Tab.UI
                 }
             }
 
+            // Find where vanilla stops drawing (vertical lines)
             if (startIndex != -1)
             {
                 for (int i = code.Count - 1; i >= startIndex; i--)
@@ -64,6 +83,7 @@ namespace Better_Work_Tab.UI
                 }
             }
 
+            // Remove the vanilla drawing instructions
             if (startIndex != -1 && endIndex != -1 && endIndex >= startIndex)
             {
                 int count = (endIndex - startIndex) + 1;
@@ -74,9 +94,6 @@ namespace Better_Work_Tab.UI
         }
     }
 
-    // ====================================================================
-    // The self-contained drawer class.
-    // ====================================================================
     public static class AngledLabelDrawer
     {
         public const float ROTATION_ANGLE = -60f;
@@ -85,9 +102,8 @@ namespace Better_Work_Tab.UI
         private const float TEXT_UNDERLINE_GAP = 1f;
         private const bool DRAW_UNDERLINE = true;
 
-        private static Dictionary<string, Vector2> _textSizeCache =
-        new Dictionary<string, Vector2>();
-        private static string _lastCachedText = null;
+        // Cache text sizes to prevent constant recalculation
+        private static Dictionary<string, Vector2> _textSizeCache = new Dictionary<string, Vector2>(64);
 
         public static void Draw(Rect headerRect, WorkTypeDef workType, bool isMouseOver)
         {
@@ -95,22 +111,10 @@ namespace Better_Work_Tab.UI
 
             string text = workType.labelShort.CapitalizeFirst();
 
-            // Check if THIS specific column is out of vanilla position
-            var vanillaOrder = WorkColumnOrderManager.GetVanillaOrder();
-            var currentOrder = BetterWorkTabMod.Settings.workColumnOrderDefNames;
-            bool isReordered = false;
-
-            if (vanillaOrder != null && vanillaOrder.Count > 0 &&
-                currentOrder != null && currentOrder.Count > 0)
-            {
-                int vanillaPos = vanillaOrder.IndexOf(workType.defName);
-                int currentPos = currentOrder.IndexOf(workType.defName);
-                isReordered = (vanillaPos >= 0 && currentPos >= 0 && vanillaPos != currentPos);
-            }
-
+            // Optimization: Only check reorder if settings exist
+            bool isReordered = IsColumnReordered(workType);
             string displayText = isReordered ? text + "*" : text;
 
-            // Only recalculate text size if text changed
             if (!_textSizeCache.TryGetValue(displayText, out var textSize))
             {
                 var oldFont = Text.Font;
@@ -119,11 +123,8 @@ namespace Better_Work_Tab.UI
                 Text.Font = oldFont;
                 _textSizeCache[displayText] = textSize;
 
-                // Clear cache if it gets too large (shouldn't happen with ~30 columns)
-                if (_textSizeCache.Count > 50)
-                {
-                    _textSizeCache.Clear();
-                }
+                // Prevent memory leak if dynamic text changes
+                if (_textSizeCache.Count > 100) _textSizeCache.Clear();
             }
 
             float centerX = headerRect.x + headerRect.width * 0.5f;
@@ -144,7 +145,6 @@ namespace Better_Work_Tab.UI
 
                 GUIUtility.RotateAroundPivot(ROTATION_ANGLE, pivot);
 
-                // Draw white highlight only on mouse over (not when reordered)
                 if (isMouseOver)
                 {
                     Rect highlightRect = new Rect(pivot.x, pivot.y - lineHeight, textWidth, lineHeight).ExpandedBy(2f);
@@ -160,7 +160,6 @@ namespace Better_Work_Tab.UI
                     Widgets.DrawLine(lineStart, lineEnd, Color.white, UNDERLINE_THICKNESS);
                 }
 
-                // Set text color to yellow only if THIS specific column was reordered
                 Text.Anchor = TextAnchor.LowerLeft;
                 GUI.color = isReordered ? new Color(1f, 0.85f, 0.2f, 1f) : Color.white;
                 var labelRect = new Rect(pivot.x, pivot.y - lineHeight, 200f, lineHeight);
@@ -174,11 +173,23 @@ namespace Better_Work_Tab.UI
                 GUI.color = savedColor;
             }
         }
+
+        private static bool IsColumnReordered(WorkTypeDef workType)
+        {
+            var vanillaOrder = WorkColumnOrderManager.GetVanillaOrder();
+            var currentOrder = BetterWorkTabMod.Settings.workColumnOrderDefNames;
+
+            if (vanillaOrder == null || currentOrder == null || vanillaOrder.Count == 0 || currentOrder.Count == 0)
+                return false;
+
+            int vanillaPos = vanillaOrder.IndexOf(workType.defName);
+            int currentPos = currentOrder.IndexOf(workType.defName);
+
+            return vanillaPos >= 0 && currentPos >= 0 && vanillaPos != currentPos;
+        }
     }
 
-    // ====================================================================
-    // The patch for increasing header height. No changes here.
-    // ====================================================================
+    // === HEADER HEIGHT PATCH ===
     [HarmonyPatch(typeof(PawnTable), "HeaderHeight", MethodType.Getter)]
     public static class Patch_PawnTable_HeaderHeight_Getter
     {
@@ -196,6 +207,7 @@ namespace Better_Work_Tab.UI
             }
 
             Text.Font = GameFont.Small;
+            // Use a fixed representative string for calc to avoid constant recalculation
             const string testLabel = "Priority hauling";
             Vector2 size = Text.CalcSize(testLabel);
 
@@ -208,22 +220,7 @@ namespace Better_Work_Tab.UI
         }
     }
 
-    // ====================================================================
-    // The patch for expanding the interactive area. No changes here.
-    // ====================================================================
-    [HarmonyPatch(typeof(PawnColumnWorker_WorkPriority), "GetInteractableHeaderRect")]
-    public static class Patch_PawnColumnWorker_WorkPriority_GetInteractableHeaderRect
-    {
-        [HarmonyPostfix]
-        public static void Postfix(ref Rect __result, Rect headerRect)
-        {
-            __result = headerRect;
-        }
-    }
-
-    // ====================================================================
-    // The patch for disabling the vanilla rectangular highlight. This is the new one.
-    // ====================================================================
+    // === DISABLE VANILLA HIGHLIGHT PATCH ===
     [HarmonyPatch(typeof(PawnColumnWorker), nameof(PawnColumnWorker.DoHeader))]
     public static class Patch_PawnColumnWorker_DoHeader_DisableHighlight
     {
