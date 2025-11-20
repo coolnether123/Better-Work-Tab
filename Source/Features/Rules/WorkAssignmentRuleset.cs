@@ -93,12 +93,12 @@ namespace Better_Work_Tab.Features
                         if (rule.Parameters.Worktype != worktype)
                             continue;
                     }
-                    //if (rule.Parameters.WorktypeDefNameIgnoreIfNonexistant != "")
-                    //{
-                    //    //if there's a rule that applies to only one ignorable worktype, skip all others.
-                    //    if (!DefDatabase<WorkTypeDef>.AllDefs.Contains(DefDatabase<WorkTypeDef>.GetNamedSilentFail(rule.Parameters.WorktypeDefNameIgnoreIfNonexistant)))
-                    //        continue;
-                    //}
+                    if (rule.Parameters.IgnoreIfWorktypeNonexistant)
+                    {
+                        //if there's a rule that applies to only one ignorable worktype, skip all others.
+                        if (!DefDatabase<WorkTypeDef>.AllDefs.Contains(DefDatabase<WorkTypeDef>.GetNamedSilentFail(rule.Parameters.Worktype?.defName ?? rule.Parameters.WorktypeString)))
+                            continue;
+                    }
                     List<Pawn> pawnsForThisWorktype = new List<Pawn>();
 
                     //Log.Message($"Auto-assigning work type: {worktype.defName}");
