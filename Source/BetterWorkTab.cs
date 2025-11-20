@@ -48,24 +48,37 @@ namespace Better_Work_Tab
                 Log.Error($"[Better Work Tab] Harmony failed: {ex}");
             }
 
-            Settings = GetSettings<BetterWorkTabSettings>();
+
+            var settings = GetSettings<BetterWorkTabSettings>();
+            Settings = settings;
+
+
+
+            LongEventHandler.ExecuteWhenFinished(Settings.InitializeRulesets);
 
 
             // Ensure game component exists and check for worklist
-            LongEventHandler.ExecuteWhenFinished(() =>
-            {
-                WorkColumnOrderManager.InitializeOnGameLoad();
-                if (Current.Game != null)
-                {
-                    var component = Current.Game.GetComponent<GameComponent_BWTWorldSettings>();
-                    if (component?.CurrentWorklist == null)
-                    {
-                        Log.Warning("[BetterWorkTab] No current worklist on startup. Create one in the Work tab.");
-                    }
-                }
-            });
+            //LongEventHandler.ExecuteWhenFinished(() =>
+            //{
+            //    WorkColumnOrderManager.InitializeOnGameLoad();
+            //    if (Current.Game != null)
+            //    {
+            //        Log.Message("BWT Here");
+            //        var component = Current.Game.GetComponent<GameComponent_BWTWorldSettings>();
+            //        Log.Message("BWT Here 1");
+            //        if (component?.CurrentWorklist == null)
+            //        {
+            //            Log.Message("BWT Here 2");
 
-            Settings = GetSettings<BetterWorkTabSettings>();
+            //            Log.Warning("[BetterWorkTab] No current worklist on startup. Create one in the Work tab.");
+            //        }
+            //        Log.Message("BWT Here 3");
+
+            //    }
+            //});
+
+
+
 
             //if (!Settings.firstTimeSetupDone)
             //{
