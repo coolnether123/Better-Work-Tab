@@ -30,7 +30,9 @@ namespace Better_Work_Tab.Features.Rules.Validators
 
             // Xenotype requirement
             if (p.Xenotype != null && pawn.genes?.Xenotype != p.Xenotype)
+            {
                 return false;
+            }
 
             // Trait requirement (def + degree)
             if (p.RequiredTrait != null)
@@ -39,6 +41,7 @@ namespace Better_Work_Tab.Features.Rules.Validators
                 var degree = p.RequiredTrait.Item2;
                 bool hasTrait = pawn.story?.traits.HasTrait(traitDef, degree) ?? false;
 
+               
                 if (!hasTrait)
                     return false;
             }
