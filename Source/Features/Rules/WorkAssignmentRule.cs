@@ -104,7 +104,37 @@ namespace Better_Work_Tab.Features.Rules
 
         private WorkTypeDef DetermineWorktype(WorkTypeDef callSiteWorktype)
         {
-            return Parameters.Worktype ?? CachedWorktype ?? callSiteWorktype;
+            //Log.Message("WorktypeString: " + Parameters.WorktypeString);
+            WorkTypeDef returnable;
+
+            if(Parameters.Worktype != null)
+            {
+                //use cached worktype first
+                returnable = Parameters.Worktype;
+                //if worktype string is not set to defname, update it
+                if (Parameters.WorktypeString != Parameters.Worktype.defName)
+                {
+                    Parameters.WorktypeString = Parameters.Worktype.defName;
+                }
+            }
+            else if (Parameters.WorktypeString != null && Parameters.WorktypeString != "") {
+                //next try to get worktype from string
+                returnable = DefDatabase<WorkTypeDef>.GetNamedSilentFail(Parameters.WorktypeString);
+                if(Parameters.Worktype == null)
+                {
+                    Log.Message("[BWT] (Worktype) Successfully retrieved worktype " + returnable.defName + " from string for " + Name);
+                    //and cache it for next time
+                    Parameters.Worktype = returnable;
+                }
+            }
+            else
+            {
+                //otherwise use a callsite worktype
+                returnable =  CachedWorktype ?? callSiteWorktype;
+            }
+
+            
+            return returnable;
         }
 
         public WorkAssignmentRule Copy()

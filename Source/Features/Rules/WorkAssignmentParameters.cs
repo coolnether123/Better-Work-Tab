@@ -58,26 +58,71 @@ namespace Better_Work_Tab.Features.Rules
         [RuleParameter]
         public bool RandomIfMultiple;
         [RuleParameter]
-        public string WorktypeNamedIgnoreIfNonexistant;
+        public bool IgnoreIfWorktypeNonexistant;
         [RuleParameter]
         public float MoveSpeedGreaterThan = -1;
         [RuleParameter]
         public float MoveSpeedLessThan = -1;
 
+        public string WorktypeString = "";
+
         public WorkAssignmentParameters() { }
 
-        public WorkAssignmentParameters(string ruleName = "", int priority = 0, WorkTypeDef worktype = null, int skipIfPriorityForThisWorktypeAreadyAssigned = -1, bool skipIfAnotherPawnAssigned = false, bool assignToPawnWithFewestWorkPriorities = false, Gender? gender = null, bool isPregnant = false, XenotypeDef xenotype = null, Tuple<TraitDef, int> requiredTrait = null, bool isNaturalAlwaysAssign = false, bool isCapableOfViolence = false, bool allowOverwritingHigherPriority = false, int limitNumberOfWorktypes = 0, int passionLevel = -1, int skillLevelGreaterThan = -1, int skillLevelLessThan = -1, bool hasHighestSkill = false, int isTopXSkill = 0, int isNthBestPawn = 0, int isNthBestSkill = 0, bool hasChildOnMap = false, bool randomIfMultiple = false, string worktypeNamedIgnoreIfNonexistant = "", float moveSpeedGreaterThan = -1, float moveSpeedLessThan = -1)
+        public WorkAssignmentParameters(string ruleName = "", 
+            int priority = 0, 
+            WorkTypeDef worktype = null, 
+            int skipIfPriorityForThisWorktypeAreadyAssigned = -1, 
+            bool skipIfAnotherPawnAssigned = false, 
+            bool assignToPawnWithFewestWorkPriorities = false, 
+            Gender? gender = null, 
+            bool isPregnant = false, 
+            XenotypeDef xenotype = null, 
+            Tuple<TraitDef, int> requiredTrait = null, 
+            bool isNaturalAlwaysAssign = false, 
+            bool isCapableOfViolence = false, 
+            bool allowOverwritingHigherPriority = false, 
+            int limitNumberOfWorktypes = 0, 
+            int passionLevel = -1, 
+            int skillLevelGreaterThan = -1, 
+            int skillLevelLessThan = -1, 
+            bool hasHighestSkill = false, 
+            int isTopXSkill = 0, 
+            int isNthBestPawn = 0, 
+            int isNthBestSkill = 0, 
+            bool hasChildOnMap = false, 
+            bool randomIfMultiple = false, 
+            bool ignoreIfWorktypeNonexistant = false, 
+            float moveSpeedGreaterThan = -1, 
+            float moveSpeedLessThan = -1, 
+            string worktypeString = "")
         {
             RuleName = ruleName;
             Priority = priority;
-            Worktype = worktype;
+
+            if (worktype != null)
+            {
+                Worktype = worktype;
+                WorktypeString = worktype.defName;
+            }
+            else if (worktypeString != "")
+            {
+
+                WorktypeString = worktypeString;
+                //Worktype = DefDatabase<WorkTypeDef>.GetNamed(WorktypeString);
+            }
+
             SkipIfPriorityForThisWorktypeAreadyAssigned = skipIfPriorityForThisWorktypeAreadyAssigned;
             SkipIfAnotherPawnAssigned = skipIfAnotherPawnAssigned;
             AssignToPawnWithFewestWorkPriorities = assignToPawnWithFewestWorkPriorities;
             Gender = gender;
             IsPregnant = isPregnant;
             Xenotype = xenotype;
+
+           
+
             RequiredTrait = requiredTrait;
+            
+
             IsNaturalAlwaysAssign = isNaturalAlwaysAssign;
             IsCapableOfViolence = isCapableOfViolence;
             AllowOverwritingHigherPriority = allowOverwritingHigherPriority;
@@ -91,7 +136,7 @@ namespace Better_Work_Tab.Features.Rules
             IsNthBestSkill = isNthBestSkill;
             HasChildOnMap = hasChildOnMap;
             RandomIfMultiple = randomIfMultiple;
-            WorktypeNamedIgnoreIfNonexistant = worktypeNamedIgnoreIfNonexistant;
+            IgnoreIfWorktypeNonexistant = ignoreIfWorktypeNonexistant;
             MoveSpeedGreaterThan = moveSpeedGreaterThan;
             MoveSpeedLessThan = moveSpeedLessThan;
         }
@@ -104,7 +149,9 @@ namespace Better_Work_Tab.Features.Rules
         public void ExposeData()
         {
             Scribe_Values.Look(ref RuleName, "RuleName");
-            Scribe_Defs.Look(ref Worktype, "Worktype");
+            if(Worktype != null)
+                Scribe_Defs.Look(ref Worktype, "Worktype");
+            Scribe_Values.Look(ref WorktypeString, "WorktypeString");
             Scribe_Values.Look(ref Priority, "Priority");
             Scribe_Values.Look(ref SkipIfPriorityForThisWorktypeAreadyAssigned, "SkipIfPriorityForThisWorktypeAreadyAssigned", -1);
             Scribe_Values.Look(ref SkipIfAnotherPawnAssigned, "SkipIfAnotherPawnAssigned");
@@ -142,7 +189,7 @@ namespace Better_Work_Tab.Features.Rules
             Scribe_Values.Look(ref IsNthBestSkill, "IsNthBestSkill");
             Scribe_Values.Look(ref HasChildOnMap, "HasChildOnMap");
             Scribe_Values.Look(ref RandomIfMultiple, "RandomIfMultiple");
-            Scribe_Values.Look(ref WorktypeNamedIgnoreIfNonexistant, "WorktypeNamedIgnoreIfNonexistant");
+            Scribe_Values.Look(ref IgnoreIfWorktypeNonexistant, "WorktypeNamedIgnoreIfNonexistant");
             Scribe_Values.Look(ref MoveSpeedGreaterThan, "MoveSpeedGreaterThan", -1f);
             Scribe_Values.Look(ref MoveSpeedLessThan, "MoveSpeedLessThan", -1f);
         }
