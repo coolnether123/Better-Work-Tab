@@ -10,6 +10,7 @@ using UnityEngine;
 using UnityEngine.SocialPlatforms.Impl;
 using Verse;
 using LudeonTK;
+using Better_Work_Tab.UI;
 
 namespace Better_Work_Tab
 {
@@ -18,7 +19,11 @@ namespace Better_Work_Tab
     {
         static DefaultSettings()
         {
-            DefOfHelper.EnsureInitializedInCtor(typeof(WorkTypeDefOf));
+            //Log.Message(BetterWorkTabMod.Settings == null ? "Settings is null" : "Settings is NOT null");
+            //if(BetterWorkTabMod.Settings != null)
+            //    BetterWorkTabMod.Settings.InitializeRulesets();
+
+            //DefOfHelper.EnsureInitializedInCtor(typeof(WorkTypeDefOf));
         }
 
         public static bool enableSkillOverlayFeature = true;
@@ -82,12 +87,12 @@ namespace Better_Work_Tab
 
             new WorkAssignmentRuleset("BWT Default", new List<WorkAssignmentParameters>()
             {
-                new WorkAssignmentParameters("Always Firefight", 1, worktype: DefDatabase<WorkTypeDef>.GetNamedSilentFail("Firefighter")),
-                new WorkAssignmentParameters("Best Doc", 1, worktype: DefDatabase<WorkTypeDef>.GetNamedSilentFail("Doctor"), hasHighestSkill: true),
-                new WorkAssignmentParameters("HaulUrg if able", 2, worktype: DefDatabase<WorkTypeDef>.GetNamedSilentFail("HaulUrgently")),
-                new WorkAssignmentParameters("Childcare", 2, worktype: DefDatabase<WorkTypeDef>.GetNamedSilentFail("Childcare"), hasChildOnMap: true),
+                new WorkAssignmentParameters("Always Firefight", 1, worktypeString: "Firefighter"),
+                new WorkAssignmentParameters("Best Doc", 1, worktypeString: "Doctor", hasHighestSkill: true),
+                new WorkAssignmentParameters("HaulUrg if able", 2, worktypeString: "HaulUrgently", ignoreIfWorktypeNonexistant: true),
+                new WorkAssignmentParameters("Childcare", 2, worktypeString: "Childcare", hasChildOnMap: true),
                 new WorkAssignmentParameters("Passion 2", 2, passionLevel: 2),
-                new WorkAssignmentParameters("Always haul", 3, worktype: DefDatabase<WorkTypeDef>.GetNamedSilentFail("Hauling")),
+                new WorkAssignmentParameters("Always haul", 3, worktypeString: "Hauling"),
                 new WorkAssignmentParameters("Passion 1", 3, passionLevel: 1),
                 new WorkAssignmentParameters("Top 6", 3, isTopXSkill: 6),
                 new WorkAssignmentParameters("Always Assigns", 3, isNaturalAlwaysAssign: true),
@@ -117,7 +122,7 @@ namespace Better_Work_Tab
         public BetterWorkTabSettings()
         {
             // Initialize rulesets immediately on construction
-            InitializeRulesets();
+            //InitializeRulesets();
         }
 
         public bool firstTimeSetupDone = DefaultSettings.firstTimeSetupDone;
@@ -259,7 +264,7 @@ namespace Better_Work_Tab
             Scribe_Collections.Look(ref SavedRulesets, "SavedRulesets", LookMode.Deep);
 
             // Reinitialize rulesets after load (restores defaults if missing)
-            InitializeRulesets();
+            //InitializeRulesets();
 
             // Column order and widths persistence
             Scribe_Collections.Look(ref workColumnOrderDefNames, "workColumnOrderDefNames", LookMode.Value);
@@ -321,8 +326,9 @@ namespace Better_Work_Tab
         /// Initializes/recovers rulesets. Called on construction and after loading saves.
         /// Automatically restores defaults if no rulesets exist (recovery from accidental deletion).
         /// </summary>
-        private void InitializeRulesets()
+        public void InitializeRulesets()
         {
+
             // Create the list if it doesn't exist
             if (SavedRulesets == null)
             {
@@ -332,7 +338,28 @@ namespace Better_Work_Tab
             // If there are no saved rulesets, restore from defaults
             if (!SavedRulesets.Any())
             {
-                SavedRulesets.AddRange(DefaultSettings.SavedRulesets);
+                foreach (var ruleset in DefaultSettings.SavedRulesets)
+                {
+                    // Ensure worktypes and their string names are synchronized
+                    foreach (var rule in ruleset.Rules)
+                    {
+                        var parameters = rule.Parameters;
+                        //worktype
+                        if (parameters.Worktype == null && parameters.WorktypeString != null && parameters.WorktypeString != "")
+                        {
+                            rule.Parameters.Worktype = DefDatabase<WorkTypeDef>.GetNamedSilentFail(parameters.WorktypeString);
+                        }
+                        else if ((parameters.WorktypeString == null || parameters.WorktypeString == "") && parameters.Worktype != null)
+                        {
+                            rule.Parameters.WorktypeString = parameters.Worktype.defName;
+                        }
+
+                       
+                    }
+
+
+                    SavedRulesets.AddRange(DefaultSettings.SavedRulesets);
+                }
             }
 
             // Set current ruleset to first available if none selected
@@ -340,6 +367,7 @@ namespace Better_Work_Tab
             {
                 CurrentRuleset = SavedRulesets.FirstOrDefault();
             }
+
         }
     }
 }
