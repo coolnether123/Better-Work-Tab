@@ -281,7 +281,7 @@ namespace Better_Work_Tab.UI
                     continue;
                 }
 
-                if (field.FieldType == typeof(XenotypeDef))
+                if (ModsConfig.BiotechActive && field.FieldType == typeof(XenotypeDef))
                 {
                     XenotypeDef refValue = (XenotypeDef)field.GetValue(SelectedRule.Parameters) ?? null;
                     Widgets.Label(rect5, paramLabel);
