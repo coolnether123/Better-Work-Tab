@@ -25,7 +25,7 @@ namespace Better_Work_Tab.UI
     {
         private static FieldInfo[] CachedParameterFields;
 
-        private static FieldInfo[] GetParameterFields()
+        public static FieldInfo[] GetParameterFields()
         {
             if (CachedParameterFields == null)
             {
@@ -126,16 +126,13 @@ namespace Better_Work_Tab.UI
             rect3.y = rect2.yMax - Window.CloseButSize.y - 10f;
             rect3.height = Window.CloseButSize.y;
             Rect outRect = rect2;
-            outRect.yMax = rect3.y - 10f;
+            outRect.yMin -= 24f;
+            outRect.yMax = rect3.y + 39f;
             Widgets.DrawMenuSection(rect2);
 
-            int num = 0;
-            foreach (var ruleset in typeof(WorkAssignmentParameters).GetConstructors().First().GetParameters())
-            {
-                num++;
-            }
+            int num = typeof(WorkAssignmentParameters).GetConstructors().First().GetParameters().Length;
 
-            Rect viewRect = new Rect(0f, 0f, outRect.width, (float)num * 32f);
+            Rect viewRect = new Rect(0f, 0f, outRect.width, (float)(num * 32f));
             Widgets.AdjustRectsForScrollView(rect2, ref outRect, ref viewRect);
             Widgets.BeginScrollView(outRect, ref rightScroll, viewRect);
 
@@ -244,9 +241,19 @@ namespace Better_Work_Tab.UI
                 Text.Font = fontsize;
                 GUI.color = Color.white;
 
+                //This has updated to assume there will only ever be one worktype per rule.
                 if (field.FieldType == typeof(WorkTypeDef))
                 {
                     WorkTypeDef refValue = (WorkTypeDef)field.GetValue(SelectedRule.Parameters) ?? null;
+
+                    // Fallback: try to get WorkTypeDef by name if null
+                    if (refValue == null && SelectedRule.Parameters.WorktypeString != null &&SelectedRule.Parameters.WorktypeString != "")
+                    {
+                        Log.Message("Fallback: retrieving WorkTypeDef by name: " + SelectedRule.Parameters.WorktypeString);
+                        refValue = DefDatabase<WorkTypeDef>.GetNamedSilentFail(SelectedRule.Parameters.WorktypeString);
+                        SelectedRule.Parameters.Worktype = refValue;
+                    }
+
                     Widgets.Label(rect5, paramLabel);
                     if (uneditable) GUI.color = Color.gray;
                     if (Widgets.ButtonText(rect5.RightPart(0.25f), refValue?.labelShort.CapitalizeFirst() ?? "Unassigned", active: !uneditable))
@@ -265,6 +272,7 @@ namespace Better_Work_Tab.UI
                             defOptions.Add(new FloatMenuOption(def.labelShort.CapitalizeFirst(), delegate
                             {
                                 field.SetValue(SelectedRule.Parameters, def);
+                                SelectedRule.Parameters.WorktypeString = def.defName;
                                 SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
                             }));
                         }
@@ -330,8 +338,10 @@ namespace Better_Work_Tab.UI
                                 SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
                             })
                         };
-
-                        foreach (TraitDef item in DefDatabase<TraitDef>.AllDefs.OrderByDescending((TraitDef td) => td.GetGenderSpecificCommonality(Gender.None)))
+                        var sorted = DefDatabase<TraitDef>.AllDefs.OrderByDescending((TraitDef td) => td.GetGenderSpecificCommonality(Gender.None));
+                        var sortedList = sorted.ToList();
+                            sortedList.SortBy((TraitDef td) => td.defName);
+                        foreach (TraitDef item in sortedList)
                         {
                             foreach (TraitDegreeData degreeData in item.degreeDatas)
                             {
@@ -467,11 +477,7 @@ namespace Better_Work_Tab.UI
             }
             if (uneditable) GUI.color = Color.white;
 
-            int num = 0;
-            foreach (var ruleset in RulesetRules)
-            {
-                num++;
-            }
+            int num = RulesetRules.Count;
 
             Rect viewRect = new Rect(0f, 0f, outRect.width, (float)num * 32f);
             Widgets.AdjustRectsForScrollView(rect2, ref outRect, ref viewRect);
@@ -590,6 +596,10 @@ namespace Better_Work_Tab.UI
                 Settings.SavedRulesets.Add(newRuleset);
                 Settings.CurrentRuleset = newRuleset;
                 ruleNameBuffer = Settings.CurrentRuleset.Name;
+
+                WorkAssignmentRule newRule = new WorkAssignmentRule(new WorkAssignmentParameters("New Rule " + (RulesetRules.Count + 1), 0));
+                Settings.CurrentRuleset.Rules.Add(newRule);
+                SelectedRule = newRule;
             }
 
             if (Widgets.ButtonText(bottom, "Duplicate Ruleset"))
