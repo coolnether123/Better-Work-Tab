@@ -132,14 +132,16 @@ namespace Better_Work_Tab.UI
 
             int num = typeof(WorkAssignmentParameters).GetConstructors().First().GetParameters().Length;
 
-            Rect viewRect = new Rect(0f, 0f, outRect.width, (float)(num * 32f));
+            Log.Message("Number of parameters: " + num);
+
+            Rect viewRect = new Rect(0f, 0f, outRect.width, (num * 32));
             Widgets.AdjustRectsForScrollView(rect2, ref outRect, ref viewRect);
             Widgets.BeginScrollView(outRect, ref rightScroll, viewRect);
 
             if (rule == null)
             {
                 GUI.color = Color.gray;
-                Widgets.Label(rect3, "No rule selected");
+                Widgets.Label(viewRect, "No rule selected");
                 GUI.color = Color.white;
                 Widgets.EndScrollView();
                 return;
@@ -307,6 +309,7 @@ namespace Better_Work_Tab.UI
                             defOptions.Add(new FloatMenuOption(def.LabelCap, delegate
                             {
                                 field.SetValue(SelectedRule.Parameters, def);
+                                SelectedRule.Parameters.XenotypeString = def.defName;
                                 SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
                             }, def.Icon, XenotypeDef.IconColor, MenuOptionPriority.Default));
                         }
@@ -329,6 +332,7 @@ namespace Better_Work_Tab.UI
                     traitButtonRect.width = rect5.width - Text.CalcSize(field.Name).x - 64f;
                     traitButtonRect.x = rect5.xMax - traitButtonRect.width;
 
+                    if (uneditable) GUI.color = Color.gray;
                     if (Widgets.ButtonText(traitButtonRect, label, active: !uneditable))
                     {
                         List<FloatMenuOption> list = new List<FloatMenuOption>() {
@@ -350,6 +354,8 @@ namespace Better_Work_Tab.UI
                                 list.Add(new FloatMenuOption(localDeg.LabelCap, delegate
                                 {
                                     field.SetValue(SelectedRule.Parameters, new Tuple<TraitDef, int>(localDef, localDeg.degree));
+                                    SelectedRule.Parameters.TraitString = localDef.defName;
+                                    SelectedRule.Parameters.TraitDegree = localDeg.degree;
                                     SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
                                 }));
                             }
