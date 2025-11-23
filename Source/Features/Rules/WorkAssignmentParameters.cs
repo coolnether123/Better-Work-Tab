@@ -65,8 +65,10 @@ namespace Better_Work_Tab.Features.Rules
         public float MoveSpeedLessThan = -1;
 
         public string WorktypeString = "";
+        public string XenotypeString = "";
+        public string TraitString = "";
+        public int? TraitDegree = null;
 
-        public WorkAssignmentParameters() { }
 
         public WorkAssignmentParameters(string ruleName = "", 
             int priority = 0, 
@@ -116,10 +118,18 @@ namespace Better_Work_Tab.Features.Rules
             AssignToPawnWithFewestWorkPriorities = assignToPawnWithFewestWorkPriorities;
             Gender = gender;
             IsPregnant = isPregnant;
+
             Xenotype = xenotype;
+            if(xenotype != null)
+            {
+                XenotypeString = xenotype.defName;
+            }
 
-           
-
+            if(requiredTrait != null)
+            {
+                TraitString = requiredTrait.Item1.defName;
+                TraitDegree = requiredTrait.Item2;
+            }
             RequiredTrait = requiredTrait;
             
 
@@ -140,6 +150,7 @@ namespace Better_Work_Tab.Features.Rules
             MoveSpeedGreaterThan = moveSpeedGreaterThan;
             MoveSpeedLessThan = moveSpeedLessThan;
         }
+        public WorkAssignmentParameters() { }
 
         public WorkAssignmentParameters Copy()
         {
@@ -148,34 +159,60 @@ namespace Better_Work_Tab.Features.Rules
 
         public void ExposeData()
         {
+            Log.Message("exposing WorkAssignmentParameters: " + RuleName);
+
             Scribe_Values.Look(ref RuleName, "RuleName");
-            if(Worktype != null)
+            if (Worktype != null)
                 Scribe_Defs.Look(ref Worktype, "Worktype");
+
             Scribe_Values.Look(ref WorktypeString, "WorktypeString");
+
+            Log.Message("XenotypeString during ExposeData: " + XenotypeString);
+            Scribe_Values.Look(ref XenotypeString, "XenotypeString");
+
+            Scribe_Values.Look(ref TraitString, "TraitString");
+            Scribe_Values.Look(ref TraitDegree, "TraitDegree");
+
+
+
             Scribe_Values.Look(ref Priority, "Priority");
             Scribe_Values.Look(ref SkipIfPriorityForThisWorktypeAreadyAssigned, "SkipIfPriorityForThisWorktypeAreadyAssigned", -1);
             Scribe_Values.Look(ref SkipIfAnotherPawnAssigned, "SkipIfAnotherPawnAssigned");
             Scribe_Values.Look(ref AssignToPawnWithFewestWorkPriorities, "AssignToPawnWithFewestWorkPriorities");
             Scribe_Values.Look(ref Gender, "Gender");
             Scribe_Values.Look(ref IsPregnant, "IsPregnant");
-            Scribe_Defs.Look(ref Xenotype, "Xenotype");
 
-            TraitDef requiredTraitDef = RequiredTrait?.Item1;
-            int requiredTraitDegree = RequiredTrait?.Item2 ?? -1;
-            Scribe_Defs.Look(ref requiredTraitDef, "RequiredTraitDef");
-            Scribe_Values.Look(ref requiredTraitDegree, "RequiredTraitDegree", -1);
-
-            if (Scribe.mode == LoadSaveMode.LoadingVars || Scribe.mode == LoadSaveMode.PostLoadInit)
+            //Log.Message("Xenotype during ExposeData: " + (Xenotype != null ? Xenotype.defName : "null"));
+            if (Xenotype != null)
             {
-                if (requiredTraitDef != null && requiredTraitDegree >= 0)
+                Log.Message("Here 1");
+                Scribe_Defs.Look(ref Xenotype, "Xenotype");
+                Log.Message("Here 2");
+            }
+
+            if (RequiredTrait != null)
+            {
+                TraitDef requiredTraitDef = RequiredTrait?.Item1;
+                int requiredTraitDegree = RequiredTrait?.Item2 ?? -1;
+
+
+                //Log.Message("Trait Def during ExposeData: " + (requiredTraitDef != null ? requiredTraitDef.defName : "null"));
+                Scribe_Defs.Look(ref requiredTraitDef, "RequiredTraitDef");
+                Scribe_Values.Look(ref requiredTraitDegree, "RequiredTraitDegree", -1);
+
+                if (Scribe.mode == LoadSaveMode.LoadingVars || Scribe.mode == LoadSaveMode.PostLoadInit)
                 {
-                    RequiredTrait = new Tuple<TraitDef, int>(requiredTraitDef, requiredTraitDegree);
-                }
-                else
-                {
-                    RequiredTrait = null;
+                    if (requiredTraitDef != null && requiredTraitDegree >= 0)
+                    {
+                        RequiredTrait = new Tuple<TraitDef, int>(requiredTraitDef, requiredTraitDegree);
+                    }
+                    else
+                    {
+                        RequiredTrait = null;
+                    }
                 }
             }
+
             Scribe_Values.Look(ref IsNaturalAlwaysAssign, "IsNaturalAlwaysAssign");
             Scribe_Values.Look(ref IsCapableOfViolence, "IsCapableOfViolence");
             Scribe_Values.Look(ref AllowOverwritingHigherPriority, "AllowOverwritingHigherPriority");
