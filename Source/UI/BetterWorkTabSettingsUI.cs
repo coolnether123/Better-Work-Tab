@@ -77,16 +77,9 @@ namespace Better_Work_Tab.UI
             int butH = 30;
 
             // Reset columns button
-            Rect resetColButRect = new Rect(inRect.width - (butW * 3) - 60f, 0f, butW, butH);
-            if (Widgets.ButtonText(resetColButRect, "Reset Work Columns"))
-            {
-                Find.WindowStack.Add(new Dialog_Confirm(
-                    "Reset all work columns to vanilla order?",
-                    () => WorkColumnOrderManager.ResetToVanilla()
-                ));
-            }
+            //Rect resetColButRect = new Rect(inRect.width - (butW * 3) - 60f, 0f, butW, butH);
 
-            Rect resetButRect = new Rect(inRect.width - (butW * 2) - 35f, 0f, butW, butH);
+            Rect resetButRect = new Rect(inRect.width - (butW) - 35f, 0f, butW, butH);
             if (Widgets.ButtonText(resetButRect, "Reset Defaults"))
             {
                 Find.WindowStack.Add(new Dialog_Confirm("Really Restore ALL Defaults?", s.RestoreDefaults));
@@ -96,6 +89,15 @@ namespace Better_Work_Tab.UI
             if (Widgets.ButtonText(resetButRect, "Restore Default Rulesets"))
             {
                 Find.WindowStack.Add(new Dialog_Confirm("Really Restore ALL Defaults? (This will RESET ALL RULESETS.)", s.CreateDefaultRulesets));
+            }
+            resetButRect.x -= butW + 10f;
+
+            if (Widgets.ButtonText(resetButRect, "Reset Work Columns"))
+            {
+                Find.WindowStack.Add(new Dialog_Confirm(
+                    "Reset all work columns to vanilla order?",
+                    () => WorkColumnOrderManager.ResetToVanilla()
+                ));
             }
 
         }
