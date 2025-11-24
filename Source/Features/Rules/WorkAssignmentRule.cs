@@ -102,12 +102,38 @@ namespace Better_Work_Tab.Features.Rules
             return validationResult.ShouldSkipRemainingPawns;
         }
 
+        private void EnsureNonWorktypeDefsCached()
+        {
+            if(Parameters.RequiredTrait == null && (Parameters.TraitString != null && Parameters.TraitString != "") && Parameters.TraitDegree != null)
+            {
+                var traitDef = DefDatabase<TraitDef>.GetNamedSilentFail(Parameters.TraitString);
+                if(traitDef != null)
+                {
+                    Parameters.RequiredTrait = new Tuple<TraitDef, int>(traitDef, (int)Parameters.TraitDegree);
+                    Log.Message("[BWT] (Trait) Successfully retrieved trait " + traitDef.defName + " from string for " + Name);
+                }
+            }
+
+            if (Parameters.Xenotype == null && (Parameters.XenotypeString != null && Parameters.XenotypeString != ""))
+            {
+                var xenotypeDef = DefDatabase<XenotypeDef>.GetNamedSilentFail(Parameters.XenotypeString);
+                if (xenotypeDef != null)
+                {
+                    Parameters.Xenotype = xenotypeDef;
+                    Log.Message("[BWT] (Xenotype) Successfully retrieved trait " + xenotypeDef.defName + " from string for " + Name);
+                }
+            }
+
+        }
+
         private WorkTypeDef DetermineWorktype(WorkTypeDef callSiteWorktype)
         {
             //Log.Message("WorktypeString: " + Parameters.WorktypeString);
             WorkTypeDef returnable;
+            
+            EnsureNonWorktypeDefsCached();
 
-            if(Parameters.Worktype != null)
+            if (Parameters.Worktype != null)
             {
                 //use cached worktype first
                 returnable = Parameters.Worktype;
