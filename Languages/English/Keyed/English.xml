@@ -16,7 +16,7 @@
 <BWT_HasChildOnMap>Has child on map</BWT_HasChildOnMap>
 <BWT_IsNaturalAlwaysAssign>Is vanilla always assign</BWT_IsNaturalAlwaysAssign>
 <BWT_RandomIfMultiple>Random if multiple</BWT_RandomIfMultiple>
-<BWT_IgnoreIfWorktypeNonexistant>Ignore Worktype if Nonexistant</BWT_IgnoreIfWorktypeNonexistant>
+<BWT_IgnoreIfWorktypeNonexistent>Ignore Worktype if Nonexistent</BWT_IgnoreIfWorktypeNonexistent>
 <BWT_IsTopXSkill>Is top X skill</BWT_IsTopXSkill>
 <BWT_IsNthBestPawn>Is Nth best pawn</BWT_IsNthBestPawn>
 <BWT_IsNthBestSkill>Is Nth best skill</BWT_IsNthBestSkill>
@@ -45,7 +45,7 @@
 <BWT_HasChildOnMap_Desc>Only apply if the pawn has a child of learning age on the map.</BWT_HasChildOnMap_Desc>
 <BWT_IsNaturalAlwaysAssign_Desc>Only assign if Vanilla tags the work type as an "always assign" work type. (Vanilla always assigns these.)</BWT_IsNaturalAlwaysAssign_Desc>
 <BWT_RandomIfMultiple_Desc>If multiple pawns were assigned the work type, choose one at random to assign.</BWT_RandomIfMultiple_Desc>
-<BWT_IgnoreIfWorktypeNonexistant_Desc>Only assign this worktype if it exists. (Used for modded worktypes.)</BWT_IgnoreIfWorktypeNonexistant_Desc>
+<BWT_IgnoreIfWorktypeNonexistent_Desc>Only assign this worktype if it exists. (Used for modded worktypes.)</BWT_IgnoreIfWorktypeNonexistent_Desc>
 <BWT_IsTopXSkill_Desc>Only assign if the work type is one of the pawn's top X skills. (Vanilla automatically assigns the top 6 skills.)</BWT_IsTopXSkill_Desc>
 <BWT_IsNthBestPawn_Desc>Only assign if the pawn is Nth best at this work type. It must be exact.</BWT_IsNthBestPawn_Desc>
 <BWT_IsNthBestSkill_Desc>Only assign if the work type is this pawn's Nth best skill. It must be exact.</BWT_IsNthBestSkill_Desc>
