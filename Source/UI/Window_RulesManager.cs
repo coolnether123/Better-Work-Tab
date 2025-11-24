@@ -130,22 +130,28 @@ namespace Better_Work_Tab.UI
             outRect.yMax = rect3.y + 39f;
             Widgets.DrawMenuSection(rect2);
 
-            int num = typeof(WorkAssignmentParameters).GetConstructors().First().GetParameters().Length;
+            int num = GetParameterFields().Length;
 
             Log.Message("Number of parameters: " + num);
+            if (rule == null)
+            {
+                GUI.color = Color.gray;
+
+                var defaultAnchor = Text.Anchor;
+                Text.Anchor = TextAnchor.MiddleCenter;
+                Widgets.Label(outRect, "No rule selected");
+                Text.Anchor = defaultAnchor;
+
+                GUI.color = Color.white;
+                return;
+            }
+           
 
             Rect viewRect = new Rect(0f, 0f, outRect.width, (num * 32));
             Widgets.AdjustRectsForScrollView(rect2, ref outRect, ref viewRect);
             Widgets.BeginScrollView(outRect, ref rightScroll, viewRect);
 
-            if (rule == null)
-            {
-                GUI.color = Color.gray;
-                Widgets.Label(viewRect, "No rule selected");
-                GUI.color = Color.white;
-                Widgets.EndScrollView();
-                return;
-            }
+            
 
             SelectedRule.Name = SelectedRule.Parameters.RuleName == "" ? "New Rule " + (RulesetRules.IndexOf(SelectedRule) + 1) : SelectedRule.Parameters.RuleName;
 
@@ -153,6 +159,10 @@ namespace Better_Work_Tab.UI
 
             foreach (FieldInfo field in GetParameterFields())
             {
+                if (!ModsConfig.BiotechActive && field.FieldType == typeof(XenotypeDef))
+                    //skip xenotype field if biotech is not active
+                    continue;
+
                 Rect rect4 = new Rect(0f, num2, outRect.width - 30f, 32f);
                 Rect rect5 = rect4;
                 rect5.x += 10f;
@@ -164,6 +174,7 @@ namespace Better_Work_Tab.UI
                 var fontsize = Text.Font;
 
                 TooltipHandler.TipRegion(rect5, ("BWT_" + field.Name + "_Desc").Translate());
+
 
                 if (field.FieldType == typeof(bool))
                 {
@@ -258,6 +269,17 @@ namespace Better_Work_Tab.UI
 
                     Widgets.Label(rect5, paramLabel);
                     if (uneditable) GUI.color = Color.gray;
+
+                    if(SelectedRule.Parameters.IgnoreIfWorktypeNonexistent && SelectedRule.Parameters.WorktypeString != null && SelectedRule.Parameters.WorktypeString != "" && DefDatabase<WorkTypeDef>.GetNamedSilentFail(SelectedRule.Parameters.WorktypeString) == null)
+                    {
+                        var defaultAnchor = Text.Anchor;
+                        Text.Anchor = TextAnchor.MiddleRight;
+                        Widgets.Label(rect5.RightPart(0.5f), "\""+SelectedRule.Parameters.WorktypeString + "\" (Nonexistant)");
+                        Text.Anchor = defaultAnchor;
+
+                    }
+                    else
+
                     if (Widgets.ButtonText(rect5.RightPart(0.25f), refValue?.labelShort.CapitalizeFirst() ?? "Unassigned", active: !uneditable))
                     {
                         List<FloatMenuOption> defOptions = new List<FloatMenuOption>()
@@ -265,6 +287,7 @@ namespace Better_Work_Tab.UI
                             new FloatMenuOption("Unassigned", delegate
                             {
                                 field.SetValue(SelectedRule.Parameters, null);
+                                SelectedRule.Parameters.WorktypeString = "";
                                 SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
                             })
                         };
@@ -283,7 +306,7 @@ namespace Better_Work_Tab.UI
                     continue;
                 }
 
-                if (ModsConfig.BiotechActive && field.FieldType == typeof(XenotypeDef))
+                if (field.FieldType == typeof(XenotypeDef))
                 {
                     XenotypeDef refValue = (XenotypeDef)field.GetValue(SelectedRule.Parameters) ?? null;
                     Widgets.Label(rect5, paramLabel);
@@ -301,6 +324,7 @@ namespace Better_Work_Tab.UI
                             new FloatMenuOption("Unassigned", delegate
                             {
                                 field.SetValue(SelectedRule.Parameters, null);
+                                SelectedRule.Parameters.XenotypeString = "";
                                 SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
                             })
                         };
@@ -339,6 +363,8 @@ namespace Better_Work_Tab.UI
                             new FloatMenuOption("Unassigned", delegate
                             {
                                 field.SetValue(SelectedRule.Parameters, null);
+                                SelectedRule.Parameters.TraitString = "";
+                                SelectedRule.Parameters.TraitDegree = null;
                                 SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
                             })
                         };
@@ -483,6 +509,17 @@ namespace Better_Work_Tab.UI
             }
             if (uneditable) GUI.color = Color.white;
 
+            if(RulesetRules.Count == 0)
+            {
+                GUI.color = Color.gray;
+                var defaultAnchor = Text.Anchor;
+                Text.Anchor = TextAnchor.MiddleCenter;
+                Widgets.Label(outRect, "No rules in ruleset");
+                Text.Anchor = defaultAnchor;
+                GUI.color = Color.white;
+                return;
+            }
+
             int num = RulesetRules.Count;
 
             Rect viewRect = new Rect(0f, 0f, outRect.width, (float)num * 32f);
@@ -500,10 +537,7 @@ namespace Better_Work_Tab.UI
                 rect5.x += 10f;
                 num2 += 32f;
 
-                if (SelectedRule == null && CurrentRuleset?.Rules?.Any() == true)
-                {
-                    SelectedRule = CurrentRuleset.Rules.First();
-                }
+               
 
                 if (SelectedRule == item)
                 {
@@ -541,7 +575,12 @@ namespace Better_Work_Tab.UI
 
             if (ruleToRemove != null)
                 RulesetRules.Remove(ruleToRemove);
-
+            
+            if (SelectedRule == null && CurrentRuleset?.Rules?.Any() == true)
+            {
+                SelectedRule = CurrentRuleset.Rules.First();
+            }
+            
             Widgets.EndScrollView();
         }
 
@@ -560,7 +599,7 @@ namespace Better_Work_Tab.UI
             {
                 var newCurrentIndex = Mathf.Clamp(RulesetRules.IndexOf(currentRule) - 1, 0, int.MaxValue);
                 ruleToRemove = currentRule;
-                        SelectedRule = null;
+                SelectedRule = null;
                 //if (ruleToRemove == SelectedRule)
                 //{
 
