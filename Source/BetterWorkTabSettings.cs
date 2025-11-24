@@ -89,7 +89,7 @@ namespace Better_Work_Tab
             {
                 new WorkAssignmentParameters("Always Firefight", 1, worktypeString: "Firefighter"),
                 new WorkAssignmentParameters("Best Doc", 1, worktypeString: "Doctor", hasHighestSkill: true),
-                new WorkAssignmentParameters("HaulUrg if able", 2, worktypeString: "HaulUrgently", ignoreIfWorktypeNonexistant: true),
+                new WorkAssignmentParameters("HaulUrg if able", 2, worktypeString: "HaulUrgently", ignoreIfWorktypeNonexistent: true),
                 new WorkAssignmentParameters("Childcare", 2, worktypeString: "Childcare", hasChildOnMap: true),
                 new WorkAssignmentParameters("Passion 2", 2, passionLevel: 2),
                 new WorkAssignmentParameters("Always haul", 3, worktypeString: "Hauling"),
