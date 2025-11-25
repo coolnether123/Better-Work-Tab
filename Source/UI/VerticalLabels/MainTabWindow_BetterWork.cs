@@ -5,6 +5,7 @@ using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.PawnOrganizer.Data;
 using RimWorld;
+using Spine.Profiling;
 using Spine.UI.ColourPicker;
 using System;
 using System.Collections.Generic;
@@ -315,6 +316,14 @@ namespace Better_Work_Tab.UI
             Text.Font = prevFont;
             Text.Anchor = prevAnchor;
         }
+
+        public override void PostOpen()
+        {
+            base.PostOpen();
+            SpineTiming.NotifyWorkTabOpen(true);
+        }
+
+        
 
         private void DrawRows(PawnTable table, IWorkTabLayoutController layout, Rect outRect, Rect viewRect)
         {
@@ -854,6 +863,7 @@ namespace Better_Work_Tab.UI
             ClearColumnReorderFlag();
             _lastSortColumn = null;
             _lastSortDescending = false;
+            SpineTiming.NotifyWorkTabOpen(false);
         }
 
         internal static void MarkColumnsReordered(PawnColumnDef column)

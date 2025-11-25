@@ -1,30 +1,45 @@
 ﻿using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.Rules;
 using HarmonyLib;
-using NAudio.Dmo;
 using RimWorld;
+using Spine.DragDropApi;
+using Spine.DragDropApi.Util;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net;
 using System.Reflection;
-using System.Security.Cryptography;
-using System.Text;
-using System.Threading.Tasks;
-using System.Transactions;
 using UnityEngine;
-using UnityEngine.UIElements;
 using Verse;
-using Verse.Noise;
 using Verse.Sound;
-using static HarmonyLib.Code;
 
 namespace Better_Work_Tab.UI
 {
+    /// <summary>
+    /// Central window for managing work assignment rulesets and their rules.
+    /// Supports drag-drop reordering for both rulesets and individual rules.
+    /// Provides a parameter editor for customizing rule conditions and assignments.
+    /// </summary>
     internal class Window_RulesManager : Window
     {
+        // Drag-drop UI for reordering rulesets in the left column
+        private List<WorkAssignmentRuleset> _rulesets;
+        private RulesetListDragUI _rulesetListUI;
+
+        // Drag-drop controller for rules in the middle column
+        private readonly DragDropController<WorkAssignmentRule> _ruleDragController;
+        private Rect _rulesListScreenRect;
+        private const float RuleRowHeight = 32f;
+        private bool _rulesMouseDown;
+        private Vector2 _rulesMouseDownPos;
+        private WorkAssignmentRule _pendingRuleDrag;
+
+        // Parameter field caching
         private static FieldInfo[] CachedParameterFields;
 
+        /// <summary>
+        /// Gets all fields marked with [RuleParameter] attribute.
+        /// Results are cached for performance.
+        /// </summary>
         public static FieldInfo[] GetParameterFields()
         {
             if (CachedParameterFields == null)
@@ -39,10 +54,15 @@ namespace Better_Work_Tab.UI
 
         public Window_RulesManager()
         {
-            this.forcePause = true;
-            this.doCloseX = true;
-            this.preventCameraMotion = true;
-            this.resizeable = false;
+            forcePause = true;
+            doCloseX = true;
+            preventCameraMotion = true;
+            resizeable = false;
+
+            // Initialize drag controller for rules with target index calculator
+            _ruleDragController = new DragDropController<WorkAssignmentRule>(
+                mousePos => CalculateRuleTargetIndex(mousePos)
+            );
         }
 
         public override Vector2 InitialSize => new Vector2(800f, 600f);
@@ -54,24 +74,17 @@ namespace Better_Work_Tab.UI
         private Vector2 rightScroll;
         private string ruleNameBuffer = "";
 
-        // Fixed: Handle null CurrentRuleset safely
-        private bool uneditable => CurrentRuleset?.IsDefault ?? false;
-
+        private bool uneditable => _rulesetListUI?.SelectedRuleset?.IsDefault ?? false;
         private WorkAssignmentRuleset CurrentRuleset => Settings.CurrentRuleset;
-
-        private List<WorkAssignmentRule> RulesetRules
-        {
-            get
-            {
-                return CurrentRuleset?.Rules ?? new List<WorkAssignmentRule>();
-            }
-        }
-        WorkAssignmentRule SelectedRule;
+        private WorkAssignmentRule SelectedRule;
 
         public override void PreOpen()
         {
             base.PreOpen();
-            ruleNameBuffer = CurrentRuleset != null ? CurrentRuleset.Name : "New Rule";
+            _rulesets = BetterWorkTabMod.Settings.SavedRulesets;
+
+            // Initialize drag-drop UI for rulesets with selection callback
+            _rulesetListUI = new RulesetListDragUI(_rulesets, OnRulesetSelected);
         }
 
         public override void DoWindowContents(Rect inRect)
@@ -80,30 +93,69 @@ namespace Better_Work_Tab.UI
             Widgets.Label(inRect, "Manage Rules");
             Text.Font = GameFont.Small;
             float titleHeight = Text.CalcHeight("Manage Rules", 0) + 12f;
-            Rect rect = inRect;
-            rect.height -= titleHeight;
-            rect.y += titleHeight;
 
-            Rect leftRect;
-            Rect midRect;
-            Rect rightRect;
+            Rect contentRect = inRect;
+            contentRect.height -= titleHeight;
+            contentRect.y += titleHeight;
 
-            rect.SplitVerticallyWithMargin(out Rect leftSide, out rightRect, 10f);
-            leftSide.SplitVerticallyWithMargin(out leftRect, out midRect, 10f);
+            // Split into three columns: Rulesets | Rules | Parameters
+            contentRect.SplitVerticallyWithMargin(out Rect leftSide, out Rect rightSide, 10f);
+            leftSide.SplitVerticallyWithMargin(out Rect leftRect, out Rect midRect, 10f);
 
-            DoRulesetListing(leftRect);
-            if (CurrentRuleset != null)
+            // LEFT: Rulesets list with drag-drop reordering
+            _rulesetListUI.DoListUI(leftRect);
+
+            // MIDDLE: Rules for selected ruleset
+            if (_rulesetListUI.SelectedRuleset != null)
             {
-                DoRulesetRulesListing(midRect);
-                DoRuleContents(rightRect, SelectedRule);
+                DoRulesetRulesListing(midRect, _rulesetListUI.SelectedRuleset);
+
+                // RIGHT: Rule parameters editor
+                if (SelectedRule != null)
+                {
+                    DoRuleContents(rightSide, SelectedRule);
+                }
             }
         }
 
         /// <summary>
-        /// Draws the UI for editing the parameters of a selected rule.
+        /// Called when user selects a ruleset from the drag-drop list.
         /// </summary>
-        /// <param name="rightRect">The rectangle to draw the UI in.</param>
-        /// <param name="rule">The rule to edit.</param>
+        private void OnRulesetSelected(WorkAssignmentRuleset ruleset)
+        {
+            if (ruleset != null)
+            {
+                BetterWorkTabMod.Settings.CurrentRuleset = ruleset;
+                ruleNameBuffer = ruleset.Name;
+                SelectedRule = ruleset.Rules.FirstOrDefault();
+            }
+        }
+
+        /// <summary>
+        /// Calculate rule insertion index based on mouse position and current list rect.
+        /// Bias mouse Y slightly so snapping feels closer to the gap nearest the cursor.
+        /// </summary>
+        private int CalculateRuleTargetIndex(Vector2 mousePos)
+        {
+            var ruleset = _rulesetListUI?.SelectedRuleset;
+            if (ruleset == null || ruleset.Rules == null || ruleset.Rules.Count == 0)
+                return 0;
+
+            float biasedY = mousePos.y + (RuleRowHeight * 0.5f);
+
+            return ListDragCalculator.CalculateInsertionIndex(
+                ruleset.Rules.Count,
+                biasedY,
+                _rulesListScreenRect.y,
+                midScroll.y,
+                _ => RuleRowHeight
+            );
+        }
+
+        /// <summary>
+        /// Draws the UI for editing the parameters of a selected rule.
+        /// Supports all parameter types: bool, int, string, Gender, WorkTypeDef, XenotypeDef, and Trait.
+        /// </summary>
         void DoRuleContents(Rect rightRect, WorkAssignmentRule rule)
         {
             Rect rect = rightRect;
@@ -132,35 +184,29 @@ namespace Better_Work_Tab.UI
 
             int num = GetParameterFields().Length;
 
-            Log.Message("Number of parameters: " + num);
             if (rule == null)
             {
                 GUI.color = Color.gray;
-
                 var defaultAnchor = Text.Anchor;
                 Text.Anchor = TextAnchor.MiddleCenter;
                 Widgets.Label(outRect, "No rule selected");
                 Text.Anchor = defaultAnchor;
-
                 GUI.color = Color.white;
                 return;
             }
-           
 
             Rect viewRect = new Rect(0f, 0f, outRect.width, (num * 32));
             Widgets.AdjustRectsForScrollView(rect2, ref outRect, ref viewRect);
             Widgets.BeginScrollView(outRect, ref rightScroll, viewRect);
 
-            
-
-            SelectedRule.Name = SelectedRule.Parameters.RuleName == "" ? "New Rule " + (RulesetRules.IndexOf(SelectedRule) + 1) : SelectedRule.Parameters.RuleName;
+            SelectedRule.Name = SelectedRule.Parameters.RuleName == "" ? "New Rule " + (rule == null ? 0 : SelectedRule.Parameters.Priority) : SelectedRule.Parameters.RuleName;
 
             float num2 = 32f;
 
             foreach (FieldInfo field in GetParameterFields())
             {
+                // Skip Biotech-exclusive fields if mod is not installed
                 if (!ModsConfig.BiotechActive && field.FieldType == typeof(XenotypeDef))
-                    //skip xenotype field if biotech is not active
                     continue;
 
                 Rect rect4 = new Rect(0f, num2, outRect.width - 30f, 32f);
@@ -174,7 +220,6 @@ namespace Better_Work_Tab.UI
                 var fontsize = Text.Font;
 
                 TooltipHandler.TipRegion(rect5, ("BWT_" + field.Name + "_Desc").Translate());
-
 
                 if (field.FieldType == typeof(bool))
                 {
@@ -254,15 +299,14 @@ namespace Better_Work_Tab.UI
                 Text.Font = fontsize;
                 GUI.color = Color.white;
 
-                //This has updated to assume there will only ever be one worktype per rule.
+                // WorkTypeDef with serialization fallback
                 if (field.FieldType == typeof(WorkTypeDef))
                 {
                     WorkTypeDef refValue = (WorkTypeDef)field.GetValue(SelectedRule.Parameters) ?? null;
 
                     // Fallback: try to get WorkTypeDef by name if null
-                    if (refValue == null && SelectedRule.Parameters.WorktypeString != null &&SelectedRule.Parameters.WorktypeString != "")
+                    if (refValue == null && SelectedRule.Parameters.WorktypeString != null && SelectedRule.Parameters.WorktypeString != "")
                     {
-                        Log.Message("Fallback: retrieving WorkTypeDef by name: " + SelectedRule.Parameters.WorktypeString);
                         refValue = DefDatabase<WorkTypeDef>.GetNamedSilentFail(SelectedRule.Parameters.WorktypeString);
                         SelectedRule.Parameters.Worktype = refValue;
                     }
@@ -270,17 +314,15 @@ namespace Better_Work_Tab.UI
                     Widgets.Label(rect5, paramLabel);
                     if (uneditable) GUI.color = Color.gray;
 
-                    if(SelectedRule.Parameters.IgnoreIfWorktypeNonexistent && SelectedRule.Parameters.WorktypeString != null && SelectedRule.Parameters.WorktypeString != "" && DefDatabase<WorkTypeDef>.GetNamedSilentFail(SelectedRule.Parameters.WorktypeString) == null)
+                    // Show "(Nonexistent)" if worktype def doesn't exist but was saved
+                    if (SelectedRule.Parameters.IgnoreIfWorktypeNonexistent && SelectedRule.Parameters.WorktypeString != null && SelectedRule.Parameters.WorktypeString != "" && DefDatabase<WorkTypeDef>.GetNamedSilentFail(SelectedRule.Parameters.WorktypeString) == null)
                     {
                         var defaultAnchor = Text.Anchor;
                         Text.Anchor = TextAnchor.MiddleRight;
-                        Widgets.Label(rect5.RightPart(0.5f), "\""+SelectedRule.Parameters.WorktypeString + "\" (Nonexistant)");
+                        Widgets.Label(rect5.RightPart(0.5f), "\"" + SelectedRule.Parameters.WorktypeString + "\" (Nonexistent)");
                         Text.Anchor = defaultAnchor;
-
                     }
-                    else
-
-                    if (Widgets.ButtonText(rect5.RightPart(0.25f), refValue?.labelShort.CapitalizeFirst() ?? "Unassigned", active: !uneditable))
+                    else if (Widgets.ButtonText(rect5.RightPart(0.25f), refValue?.labelShort.CapitalizeFirst() ?? "Unassigned", active: !uneditable))
                     {
                         List<FloatMenuOption> defOptions = new List<FloatMenuOption>()
                         {
@@ -347,7 +389,7 @@ namespace Better_Work_Tab.UI
                     Tuple<TraitDef, int> refValue = (Tuple<TraitDef, int>)field.GetValue(SelectedRule.Parameters) ?? null;
                     Widgets.Label(rect5, paramLabel);
                     string label = "Unassigned";
-                    if (SelectedRule.Parameters.RequiredTrait != null && refValue.Item1 != null)
+                    if (SelectedRule.Parameters.RequiredTrait != null && refValue?.Item1 != null)
                     {
                         label = refValue.Item1.DataAtDegree(SelectedRule.Parameters.RequiredTrait.Item2).LabelCap;
                     }
@@ -359,7 +401,8 @@ namespace Better_Work_Tab.UI
                     if (uneditable) GUI.color = Color.gray;
                     if (Widgets.ButtonText(traitButtonRect, label, active: !uneditable))
                     {
-                        List<FloatMenuOption> list = new List<FloatMenuOption>() {
+                        List<FloatMenuOption> list = new List<FloatMenuOption>()
+                        {
                             new FloatMenuOption("Unassigned", delegate
                             {
                                 field.SetValue(SelectedRule.Parameters, null);
@@ -370,7 +413,7 @@ namespace Better_Work_Tab.UI
                         };
                         var sorted = DefDatabase<TraitDef>.AllDefs.OrderByDescending((TraitDef td) => td.GetGenderSpecificCommonality(Gender.None));
                         var sortedList = sorted.ToList();
-                            sortedList.SortBy((TraitDef td) => td.defName);
+                        sortedList.SortBy((TraitDef td) => td.defName);
                         foreach (TraitDef item in sortedList)
                         {
                             foreach (TraitDegreeData degreeData in item.degreeDatas)
@@ -396,7 +439,7 @@ namespace Better_Work_Tab.UI
 
                 if (field.FieldType == typeof(WorkAssignmentParameters))
                 {
-                    Widgets.Label(rect5, "BAHAHA YOU WANT TO DO NESTED RULES??");
+                    Widgets.Label(rect5, "NESTED RULES NOT SUPPORTED");
                     continue;
                 }
             }
@@ -406,19 +449,14 @@ namespace Better_Work_Tab.UI
 
         /// <summary>
         /// Draws a UI control with +/- buttons and text field for integer editing.
-        /// Respects the disabled flag to prevent editing of default rulesets.
         /// </summary>
         public static void DrawPlusMinusOneField(Rect rect, ref int value, ref string editBuffer, int multiplier = 1, bool disabled = false)
         {
             if (disabled) GUI.color = Color.gray;
 
-            Rect leftRect;
-            Rect midRect;
-            Rect rightRect;
-
-            leftRect = rect.LeftPart(0.33f);
-            rightRect = rect.RightPart(0.33f);
-            midRect = rect.MiddlePart(0.33f, 1f);
+            Rect leftRect = rect.LeftPart(0.33f);
+            Rect rightRect = rect.RightPart(0.33f);
+            Rect midRect = rect.MiddlePart(0.33f, 1f);
 
             if (Widgets.ButtonText(leftRect, "-1", active: !disabled))
             {
@@ -448,11 +486,11 @@ namespace Better_Work_Tab.UI
 
         /// <summary>
         /// Draws the list of rules for the currently selected ruleset.
-        /// Rules can only be edited if the parent ruleset is not a default.
+        /// Supports drag-drop reordering via _ruleDragController.
         /// </summary>
-        void DoRulesetRulesListing(Rect midRect)
+        void DoRulesetRulesListing(Rect midRect, WorkAssignmentRuleset selectedRuleset)
         {
-            if (CurrentRuleset == null)
+            if (selectedRuleset == null)
             {
                 return;
             }
@@ -465,10 +503,8 @@ namespace Better_Work_Tab.UI
 
             rect2.SplitHorizontally(32f, out Rect titleRect, out rect2);
 
-            if (CurrentRuleset != null)
-                CurrentRuleset.Name = ruleNameBuffer == "" ? "New Ruleset " + (Settings.SavedRulesets?.IndexOf(CurrentRuleset) + 1) ?? ruleNameBuffer : ruleNameBuffer;
+            selectedRuleset.Name = ruleNameBuffer == "" ? "New Ruleset " + (Settings.SavedRulesets?.IndexOf(selectedRuleset) + 1) ?? ruleNameBuffer : ruleNameBuffer;
 
-            // Show title as read-only if this is a default ruleset
             if (uneditable)
             {
                 var b4 = Text.Anchor;
@@ -493,23 +529,26 @@ namespace Better_Work_Tab.UI
 
             rect3.SplitHorizontally(rect3.height * 0.5f, out Rect topRect, out Rect bottomRect);
 
-            // Disable rule creation/duplication for default rulesets
             if (uneditable) GUI.color = Color.gray;
             if (Widgets.ButtonText(topRect, "New Rule", active: !uneditable))
             {
-                WorkAssignmentRule newRule = new WorkAssignmentRule(new WorkAssignmentParameters("New Rule " + (RulesetRules.Count + 1), 0));
-                Settings.CurrentRuleset.Rules.Add(newRule);
+                WorkAssignmentRule newRule = new WorkAssignmentRule(new WorkAssignmentParameters("New Rule " + (selectedRuleset.Rules.Count + 1), 0));
+                selectedRuleset.Rules.Add(newRule);
                 SelectedRule = newRule;
             }
             if (Widgets.ButtonText(bottomRect, "Duplicate Rule", active: !uneditable))
             {
-                WorkAssignmentRule newRule = SelectedRule.Copy();
-                Settings.CurrentRuleset.Rules.Add(newRule);
-                SelectedRule = newRule;
+                if (SelectedRule != null)
+                {
+                    WorkAssignmentRule newRule = SelectedRule.Copy();
+                    selectedRuleset.Rules.Add(newRule);
+                    SelectedRule = newRule;
+                }
             }
             if (uneditable) GUI.color = Color.white;
 
-            if(RulesetRules.Count == 0)
+            // Check if ruleset has no rules
+            if (selectedRuleset.Rules.Count == 0)
             {
                 GUI.color = Color.gray;
                 var defaultAnchor = Text.Anchor;
@@ -520,24 +559,26 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
-            int num = RulesetRules.Count;
+            int num = selectedRuleset.Rules.Count;
 
-            Rect viewRect = new Rect(0f, 0f, outRect.width, (float)num * 32f);
+            Rect viewRect = new Rect(0f, 0f, outRect.width, num * RuleRowHeight);
             Widgets.AdjustRectsForScrollView(rect2, ref outRect, ref viewRect);
+
+            // Store the visible list rect for drag calculations
+            _rulesListScreenRect = outRect;
+
             Widgets.BeginScrollView(outRect, ref midScroll, viewRect);
 
-            float num2 = 0f;
-            int num3 = 0;
+            float curY = 0f;
+            int rowIndex = 0;
             WorkAssignmentRule ruleToRemove = null;
 
-            foreach (var item in RulesetRules)
+            foreach (var item in selectedRuleset.Rules)
             {
-                Rect rect4 = new Rect(0f, num2, outRect.width, 32f);
+                Rect rect4 = new Rect(0f, curY, outRect.width, RuleRowHeight);
                 Rect rect5 = rect4;
                 rect5.x += 10f;
-                num2 += 32f;
-
-               
+                curY += RuleRowHeight;
 
                 if (SelectedRule == item)
                 {
@@ -547,221 +588,202 @@ namespace Better_Work_Tab.UI
                 {
                     Widgets.DrawHighlight(rect4);
                 }
-                else if (num3 % 2 == 1)
+                else if (rowIndex % 2 == 1)
                 {
                     Widgets.DrawLightHighlight(rect4);
                 }
 
-                num3++;
+                rowIndex++;
                 string text = item.Name;
                 using (new TextBlock(TextAnchor.MiddleLeft))
                 {
                     Widgets.Label(rect5, text);
                 }
 
-                // Only show delete button for rules if ruleset is not default
-                if (CurrentRuleset != null && !CurrentRuleset.IsDefault)
-                    DoDeleteButton_Rules(ref ruleToRemove, ref rect4, item);
+                if (selectedRuleset != null && !selectedRuleset.IsDefault)
+                    DoDeleteButton_Rules(ref ruleToRemove, ref rect4, item, selectedRuleset);
 
-                if (Widgets.ButtonInvisible(rect4))
-                {
-                    if (SelectedRule.Parameters.RuleName == "")
-                    {
-                        SelectedRule.Parameters.RuleName = "New Rule " + (RulesetRules.IndexOf(SelectedRule) + 1);
-                    }
-                    SelectedRule = item;
-                }
+
             }
 
             if (ruleToRemove != null)
-                RulesetRules.Remove(ruleToRemove);
-            
-            if (SelectedRule == null && CurrentRuleset?.Rules?.Any() == true)
-            {
-                SelectedRule = CurrentRuleset.Rules.First();
-            }
-            
+                selectedRuleset.Rules.Remove(ruleToRemove);
+
             Widgets.EndScrollView();
+
+            HandleRulesListInput(_rulesListScreenRect, selectedRuleset);
+            DrawRuleDragOverlay(_rulesListScreenRect, selectedRuleset);
         }
 
         /// <summary>
-        /// Draws delete button for a rule. Only appears if ruleset is not default.
+        /// Handles mouse input for rule list dragging and selection.
         /// </summary>
-        private void DoDeleteButton_Rules(ref WorkAssignmentRule ruleToRemove, ref Rect rect4, WorkAssignmentRule currentRule)
+        private void HandleRulesListInput(Rect listScreenRect, WorkAssignmentRuleset selectedRuleset)
         {
-            Rect rect6 = new Rect(rect4);
-            rect6.width = 24f;
-            rect6.height = 24f;
-            rect6.x = rect4.xMax - rect6.width - (RulesetRules.Count >= 13 ? 20f : 0);
-            rect6.y = rect4.y + (rect4.height - rect6.height) / 2f;
+            var evt = Event.current;
+            if (evt == null || selectedRuleset == null)
+                return;
 
-            if (Widgets.ButtonImage(rect6, TexButton.Delete))
+            var rules = selectedRuleset.Rules;
+            if (rules == null)
+                return;
+
+            // Active drag in progress
+            if (_ruleDragController.IsActive)
             {
-                var newCurrentIndex = Mathf.Clamp(RulesetRules.IndexOf(currentRule) - 1, 0, int.MaxValue);
-                ruleToRemove = currentRule;
-                SelectedRule = null;
-                //if (ruleToRemove == SelectedRule)
-                //{
+                _ruleDragController.UpdateDrag(evt.mousePosition);
 
-                //    Log.Message("Selected rule is being deleted.");
-                //    if (RulesetRules.Count - 1 <= 0)
-                //    else
-                //        SelectedRule = RulesetRules[newCurrentIndex+1];
-                //}
-            }
-        }
+                float contentHeight = rules.Count * RuleRowHeight;
+                _ruleDragController.ApplyAutoScroll(
+                    ref midScroll,
+                    evt.mousePosition,
+                    listScreenRect,
+                    contentHeight,
+                    Time.deltaTime
+                );
 
-        /// <summary>
-        /// Draws the list of saved rulesets.
-        /// Default rulesets are marked with an asterisk and cannot be deleted.
-        /// </summary>
-        void DoRulesetListing(Rect leftRect)
-        {
-            Rect rect = leftRect;
-            rect.y = leftRect.yMax - 24f;
-            rect.height = 24f;
-            Rect rect2 = leftRect;
-            rect2.yMax = rect.y - 10f;
-            Rect rect3 = rect2;
-            rect3.xMin += 10f;
-            rect3.xMax -= 10f;
-            rect3.y = rect2.yMax - Window.CloseButSize.y - 10f;
-            rect3.height = Window.CloseButSize.y;
-            Rect outRect = rect2;
-            outRect.yMax = rect3.y - 10f;
-
-            quickSearch.OnGUI(rect);
-            Widgets.DrawMenuSection(rect2);
-
-            rect3.SplitHorizontally(rect3.height * 0.5f, out Rect top, out Rect bottom);
-
-            if (Widgets.ButtonText(top, "New Ruleset"))
-            {
-                WorkAssignmentRuleset newRuleset = new WorkAssignmentRuleset("New Ruleset", new List<WorkAssignmentParameters>());
-                Settings.SavedRulesets.Add(newRuleset);
-                Settings.CurrentRuleset = newRuleset;
-                ruleNameBuffer = Settings.CurrentRuleset.Name;
-
-                WorkAssignmentRule newRule = new WorkAssignmentRule(new WorkAssignmentParameters("New Rule " + (RulesetRules.Count + 1), 0));
-                Settings.CurrentRuleset.Rules.Add(newRule);
-                SelectedRule = newRule;
-            }
-
-            if (Widgets.ButtonText(bottom, "Duplicate Ruleset"))
-            {
-                var newRules = CurrentRuleset.Copy();
-                Settings.SavedRulesets.Add(newRules);
-                ruleNameBuffer = newRules.Name;
-                BetterWorkTabMod.Settings.CurrentRuleset = newRules;
-            }
-
-            int num = 0;
-            foreach (var ruleset in Settings.SavedRulesets)
-            {
-                if (quickSearch.filter.Matches(ruleset.Name))
+                if (evt.type == EventType.MouseUp)
                 {
-                    num++;
+                    FinalizeRuleDrop(selectedRuleset);
+                    evt.Use();
                 }
-            }
 
-            Rect viewRect = new Rect(0f, 0f, outRect.width, (float)num * 32f);
-            Widgets.AdjustRectsForScrollView(rect2, ref outRect, ref viewRect);
-            Widgets.BeginScrollView(outRect, ref leftScroll, viewRect);
-
-            float num2 = 0f;
-            int num3 = 0;
-
-            var defaultPolicy = Settings.SavedRulesets.Any() ? Settings.SavedRulesets.First() : null;
-
-            if (defaultPolicy == null)
-            {
-                Widgets.EndScrollView();
                 return;
             }
 
-            // Sort rulesets: default ones first, then alphabetically
-            foreach (var item in from x in Settings.SavedRulesets
-                                 orderby defaultPolicy != x, x.Name
-                                 select x)
+            switch (evt.type)
             {
-                if (quickSearch.filter.Matches(item.Name))
-                {
-                    Rect rect4 = new Rect(0f, num2, outRect.width, 32f);
-                    Rect rect5 = rect4;
-                    rect5.x += 10f;
-                    num2 += 32f;
+                case EventType.MouseDown:
+                    if (evt.button == 0 && listScreenRect.Contains(evt.mousePosition))
+                    {
+                        _rulesMouseDown = true;
+                        _rulesMouseDownPos = evt.mousePosition;
 
-                    if (CurrentRuleset == item)
-                    {
-                        Widgets.DrawHighlightSelected(rect4);
-                    }
-                    else if (Mouse.IsOver(rect4))
-                    {
-                        Widgets.DrawHighlight(rect4);
-                    }
-                    else if (num3 % 2 == 1)
-                    {
-                        Widgets.DrawLightHighlight(rect4);
-                    }
+                        float localY = evt.mousePosition.y - listScreenRect.y + midScroll.y;
+                        int index = Mathf.FloorToInt(localY / RuleRowHeight);
 
-                    num3++;
-                    string text = item.Name;
-
-                    // Mark default rulesets with an asterisk
-                    if (defaultPolicy == item)
-                    {
-                        text += "*".Colorize(Color.gray);
-                    }
-
-                    using (new TextBlock(TextAnchor.MiddleLeft))
-                    {
-                        Widgets.Label(rect5, text);
-                    }
-
-                    // Only show delete button for non-default rulesets
-                    if (item != null && !item.IsDefault)
-                    {
-                        DoDeleteButton(rect4, item);
-                    }
-
-                    if (Widgets.ButtonInvisible(rect4))
-                    {
-                        if (CurrentRuleset.Name == "")
+                        if (index >= 0 && index < rules.Count)
                         {
-                            CurrentRuleset.Name = "New Ruleset " + (Settings.SavedRulesets.IndexOf(CurrentRuleset) + 1);
+                            _pendingRuleDrag = rules[index];
+                            SelectedRule = _pendingRuleDrag;
                         }
-
-                        Settings.CurrentRuleset = item;
-                        ruleNameBuffer = Settings.CurrentRuleset.Name;
-                        SelectedRule = item.Rules.Any() ? item.Rules.First() : null;
+                        else
+                        {
+                            _pendingRuleDrag = null;
+                        }
                     }
-                }
-            }
+                    break;
 
-            Widgets.EndScrollView();
+                case EventType.MouseDrag:
+                    if (_rulesMouseDown && _pendingRuleDrag != null && !uneditable)
+                    {
+                        if ((evt.mousePosition - _rulesMouseDownPos).magnitude > 5f)
+                        {
+                            int srcIndex = rules.IndexOf(_pendingRuleDrag);
+                            if (srcIndex >= 0)
+                            {
+                                bool started = _ruleDragController.TryStartDrag(
+                                    _pendingRuleDrag,
+                                    srcIndex,
+                                    rules.Count,
+                                    evt.mousePosition
+                                );
+
+                                if (started)
+                                {
+                                    evt.Use();
+                                }
+                            }
+
+                            _rulesMouseDown = false;
+                            _pendingRuleDrag = null;
+                        }
+                    }
+                    break;
+
+                case EventType.MouseUp:
+                    if (_rulesMouseDown && _pendingRuleDrag != null)
+                    {
+                        SelectedRule = _pendingRuleDrag;
+                        evt.Use();
+                    }
+
+                    _rulesMouseDown = false;
+                    _pendingRuleDrag = null;
+                    break;
+            }
         }
 
         /// <summary>
-        /// Draws the delete button for a ruleset.
-        /// Only shows for non-default rulesets.
-        /// Passes the ruleset instance to ensure the correct one is deleted.
+        /// Draws the insertion line overlay while dragging a rule.
         /// </summary>
-        private void DoDeleteButton(Rect rect4, WorkAssignmentRuleset ruleset)
+        private void DrawRuleDragOverlay(Rect listScreenRect, WorkAssignmentRuleset selectedRuleset)
+        {
+            if (!_ruleDragController.IsActive)
+                return;
+
+            var session = _ruleDragController.CurrentSession;
+            if (session == null)
+                return;
+
+            float lineY = listScreenRect.y - midScroll.y + (session.TargetIndex * RuleRowHeight);
+
+            if (lineY >= listScreenRect.y && lineY <= listScreenRect.yMax)
+            {
+                ListDragVisuals.DrawInsertionLine(
+                    listScreenRect.x,
+                    lineY,
+                    listScreenRect.width
+                );
+            }
+        }
+
+        /// <summary>
+        /// Finalizes the rule reordering after drop.
+        /// </summary>
+        private void FinalizeRuleDrop(WorkAssignmentRuleset selectedRuleset)
+        {
+            if (selectedRuleset == null)
+            {
+                _ruleDragController.CancelDrag();
+                return;
+            }
+
+            var rules = selectedRuleset.Rules;
+            if (rules == null || rules.Count == 0)
+            {
+                _ruleDragController.CancelDrag();
+                return;
+            }
+
+            var reason = _ruleDragController.FinalizeDrag(rules);
+
+            if (reason == DragEndReason.Success)
+            {
+                BetterWorkTabMod.Settings.Write();
+            }
+        }
+
+        /// <summary>
+        /// Draws delete button for a rule. Only shown for non-default rulesets.
+        /// </summary>
+        private void DoDeleteButton_Rules(ref WorkAssignmentRule ruleToRemove, ref Rect rect4, WorkAssignmentRule currentRule, WorkAssignmentRuleset selectedRuleset)
         {
             Rect rect6 = new Rect(rect4);
             rect6.width = 24f;
             rect6.height = 24f;
-            rect6.x = rect4.xMax - rect6.width - (Settings.SavedRulesets.Count >= 14 ? 20f : 0);
+            rect6.x = rect4.xMax - rect6.width - (selectedRuleset.Rules.Count >= 13 ? 20f : 0);
             rect6.y = rect4.y + (rect4.height - rect6.height) / 2f;
 
             if (Widgets.ButtonImage(rect6, TexButton.Delete))
             {
-                Find.WindowStack.Add(new Dialog_Confirm($"Really delete {ruleset.Name}?", () => DeleteRuleset(ruleset)));
+                ruleToRemove = currentRule;
+                SelectedRule = null;
             }
         }
 
         /// <summary>
-        /// Deletes the specified ruleset and handles the CurrentRuleset reassignment.
+        /// Deletes the specified ruleset and reassigns CurrentRuleset if needed.
         /// </summary>
         private void DeleteRuleset(WorkAssignmentRuleset rulesetToDelete)
         {
