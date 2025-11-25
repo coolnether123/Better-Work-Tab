@@ -1,24 +1,34 @@
-﻿using System;
+﻿using Better_Work_Tab.Patches;
+using Spine.Profiling;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Verse;
 
 namespace Better_Work_Tab.Features.Workloads
 {
     internal class GameComponent_BWTWorldSettings : GameComponent
     {
-        public GameComponent_BWTWorldSettings(Game game)
-        {
-        }
-        // This stores saved workloads for easy switching between different work setups
         public List<Worklist> SavedWorklists = new List<Worklist>();
         public Worklist CurrentWorklist = null;
+
+        public GameComponent_BWTWorldSettings(Game game) : base()
+        {
+        }
+
+        public override void FinalizeInit()
+        {
+            base.FinalizeInit();
+            EnsureCurrentWorklist();
+
+            // Enable profiling while you are testing.
+            // Turn this off or gate it behind a dev flag for release.
+            SpineTiming.Enabled = true;
+        }
 
         public override void ExposeData()
         {
             string currentWorklistName = "";
+
             if (Scribe.mode == LoadSaveMode.Saving && CurrentWorklist != null)
             {
                 currentWorklistName = CurrentWorklist.RenamableLabel;
@@ -29,22 +39,29 @@ namespace Better_Work_Tab.Features.Workloads
 
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
-                // On load, find the worklist by its saved name.
                 if (!string.IsNullOrEmpty(currentWorklistName))
                 {
-                    CurrentWorklist = SavedWorklists.FirstOrDefault(w => w.RenamableLabel == currentWorklistName);
+                    CurrentWorklist = SavedWorklists.FirstOrDefault(
+                        w => w.RenamableLabel == currentWorklistName);
                 }
 
-                // The EnsureCurrentWorklist method will act as a fallback if the named
-                // worklist wasn't found or if none was active.
                 EnsureCurrentWorklist();
             }
         }
 
-        public override void FinalizeInit()
+        public override void GameComponentUpdate()
         {
-            base.FinalizeInit();
-            EnsureCurrentWorklist();
+            SpineTiming.OnFrameStart();
+            Patch_WorkPriority_DoCell_Unified.TrimCacheIfNeeded();
+            base.GameComponentUpdate();
+        }
+
+        public override void GameComponentOnGUI()
+        {
+            base.GameComponentOnGUI();
+
+            // Handle 1 / Shift+1 for reporting / clearing
+            SpineTiming.HandleInput();
         }
 
         private void EnsureCurrentWorklist()

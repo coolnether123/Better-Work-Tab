@@ -1,9 +1,11 @@
-﻿using HarmonyLib;
+﻿using Better_Work_Tab.PawnOrganizer.API;
+using HarmonyLib;
 using RimWorld;
+using Spine.Profiling;
+using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using Verse;
-using Better_Work_Tab.PawnOrganizer.API;
-using System.Collections.Generic;
 
 namespace Better_Work_Tab.Patches
 {
@@ -17,6 +19,10 @@ namespace Better_Work_Tab.Patches
         private static Vector2 _cachedMousePos = Vector2.zero;
         private static int _cachedMouseFrame = -1;
 
+        private const int MaxCacheEntries = 512; // Prevent unbounded growth of best pawn cache
+
+        private static BetterWorkTabSettings.ShowUIMode _cachedUiState;
+
         /// <summary>
         /// Cache shift/feature state once per frame (not 290k times)
         /// </summary>
@@ -24,13 +30,13 @@ namespace Better_Work_Tab.Patches
         {
             int currentFrame = Time.frameCount;
             if (_lastCachedFrame == currentFrame)
-            {
                 return;
-            }
 
             _lastCachedFrame = currentFrame;
+
             _cachedFeatureEnabled = BetterWorkTabMod.Settings?.enableSkillOverlayFeature ?? false;
-            _cachedShiftHeld = ShiftHelper.State == BetterWorkTabSettings.ShowUIMode.Shifted;
+            _cachedUiState = ShiftHelper.State;
+            _cachedShiftHeld = _cachedUiState == BetterWorkTabSettings.ShowUIMode.Shifted;
         }
 
         /// <summary>
@@ -86,12 +92,12 @@ namespace Better_Work_Tab.Patches
             Pawn pawn,
             PawnTable table)
         {
-            // === ULTRA-FAST EARLY EXITS ===
+            // === CHECK SHIFT STATE DIRECTLY (NOT CACHED) ===
+            UpdateFrameCache();
 
             if (!_cachedFeatureEnabled || !_cachedShiftHeld)
-            {
-                return; // Exit immediately
-            }
+                return;
+
 
             var workType = __instance.def.workType;
 
@@ -99,7 +105,6 @@ namespace Better_Work_Tab.Patches
             {
                 return;
             }
-
 
             // === NOW DO THE EXPENSIVE WORK ===
 
@@ -131,8 +136,8 @@ namespace Better_Work_Tab.Patches
 
             // Best-pawn outline
             if (ShouldShowUI(
-                    BetterWorkTabMod.Settings.ShowUIMode_ShowPawnForSkillSquare,
-                    ShiftHelper.State))
+                BetterWorkTabMod.Settings.ShowUIMode_ShowPawnForSkillSquare,
+                _cachedUiState))
             {
                 DrawBestPawnForSkillBox(rect, pawn, table, __instance);
             }
@@ -184,6 +189,9 @@ namespace Better_Work_Tab.Patches
             return mode == BetterWorkTabSettings.ShowUIMode.Always || mode == currentState;
         }
 
+        private static readonly string[] _skillStrings =
+        Enumerable.Range(0, 21).Select(i => i.ToString()).ToArray();
+
         private static void DrawBigSkillNumber(Rect rect, int level)
         {
             var oldFont = Text.Font;
@@ -193,7 +201,7 @@ namespace Better_Work_Tab.Patches
             Text.Font = GameFont.Medium;
             Text.Anchor = TextAnchor.MiddleCenter;
             GUI.color = ColorForSkillLevel(level);
-            Widgets.Label(rect, level.ToString());
+            Widgets.Label(rect, _skillStrings[level]);
 
             GUI.color = oldColor;
             Text.Font = oldFont;
@@ -210,29 +218,95 @@ namespace Better_Work_Tab.Patches
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.MiddleCenter;
             GUI.color = ColorForSkillLevel(level);
-            Widgets.Label(boxRect, level.ToString());
+            Widgets.Label(boxRect, _skillStrings[level]);
 
             GUI.color = oldColor;
             Text.Font = oldFont;
             Text.Anchor = oldAnchor;
         }
 
-        private static void DrawBestPawnForSkillBox(
-            Rect rect, Pawn pawn, PawnTable table, PawnColumnWorker_WorkPriority instance)
+        private struct BestPawnCacheEntry
         {
-            foreach (var otherPawn in table.cachedPawns)
+            public Pawn Pawn;
+            public int PawnCount;
+            public int Frame;
+        }
+
+        private static readonly Dictionary<(PawnTable, WorkTypeDef), BestPawnCacheEntry> _bestPawnCache =
+            new Dictionary<(PawnTable, WorkTypeDef), BestPawnCacheEntry>();
+
+        private const int MaxBestPawnCacheEntries = 512;
+        private const int BestPawnCacheFrameValidity = 60; // ~1 second at 60fps
+
+        public static void TrimCacheIfNeeded()
+        {
+            if (_bestPawnCache.Count > MaxCacheEntries)
             {
-                if (otherPawn != pawn && instance.Compare(pawn, otherPawn) < 0)
-                    return;
+                _bestPawnCache.Clear();
+                // optional: dev log only
+                // Log.Message($"[BWT] Best pawn cache trimmed (>{MaxCacheEntries}).");
+            }
+        }
+
+        private static void DrawBestPawnForSkillBox(
+    Rect rect, Pawn pawn, PawnTable table, PawnColumnWorker_WorkPriority instance)
+        {
+            var workType = instance.def.workType;
+            if (workType == null || table == null) return;
+
+            var pawns = table.cachedPawns;
+            if (pawns == null || pawns.Count == 0) return;
+
+            var key = (table, workType);
+            Pawn bestPawn = null;
+
+            if (_bestPawnCache.TryGetValue(key, out var entry))
+            {
+                bool stillFresh =
+                    entry.Pawn != null &&
+                    entry.PawnCount == pawns.Count &&
+                    Time.frameCount - entry.Frame < BestPawnCacheFrameValidity;
+
+                if (stillFresh)
+                {
+                    bestPawn = entry.Pawn;
+                }
             }
 
+            if (bestPawn == null)
+            {
+                Pawn candidate = null;
+                for (int i = 0; i < pawns.Count; i++)
+                {
+                    var p = pawns[i];
+                    if (candidate == null || instance.Compare(p, candidate) < 0)
+                        candidate = p;
+                }
+
+                bestPawn = candidate;
+                _bestPawnCache[key] = new BestPawnCacheEntry
+                {
+                    Pawn = bestPawn,
+                    PawnCount = pawns.Count,
+                    Frame = Time.frameCount
+                };
+            }
+
+            if (bestPawn != pawn)
+                return;
+
+            // draw outline as before
             float x = rect.x + (rect.width - 25f) / 2f;
             float y = rect.y + 2.5f;
             Rect outlineRect = new Rect(Mathf.FloorToInt(x) - 2, Mathf.FloorToInt(y) - 2, 29f, 29f);
 
-            Widgets.DrawBoxSolidWithOutline(outlineRect, Color.clear,
-                BetterWorkTabMod.Settings.Color_BestPawnForSkillSquare, 3);
+            Widgets.DrawBoxSolidWithOutline(
+                outlineRect,
+                Color.clear,
+                BetterWorkTabMod.Settings.Color_BestPawnForSkillSquare,
+                3);
         }
+
 
         private static bool IsIncapableOfWholeWorkType(Pawn p, WorkTypeDef work)
         {
