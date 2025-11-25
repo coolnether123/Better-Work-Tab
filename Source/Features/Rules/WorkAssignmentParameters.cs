@@ -239,7 +239,7 @@ namespace Better_Work_Tab.Features.Rules
             Scribe_Values.Look(ref IsNthBestSkill, "IsNthBestSkill");
             Scribe_Values.Look(ref HasChildOnMap, "HasChildOnMap");
             Scribe_Values.Look(ref RandomIfMultiple, "RandomIfMultiple");
-            Scribe_Values.Look(ref IgnoreIfWorktypeNonexistent, "WorktypeNamedIgnoreIfNonexistant");
+            Scribe_Values.Look(ref IgnoreIfWorktypeNonexistent, "IgnoreIfWorktypeNonexistent");
             Scribe_Values.Look(ref MoveSpeedGreaterThan, "MoveSpeedGreaterThan", -1f);
             Scribe_Values.Look(ref MoveSpeedLessThan, "MoveSpeedLessThan", -1f);
         }
