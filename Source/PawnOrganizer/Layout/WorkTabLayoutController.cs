@@ -22,6 +22,10 @@ namespace Better_Work_Tab.PawnOrganizer
 
         private const float DefaultDividerHeight = 18f;
 
+        private List<RowDescriptor> _cachedRowDescriptors;
+        private bool _rowDescriptorsDirty = true;
+        private const float PawnRowHeight = 30f;
+
 
         private readonly IColumnWidthStore _columnWidthStore;
         private readonly List<WorkTabLayoutRow> _rows = new List<WorkTabLayoutRow>();
@@ -38,9 +42,58 @@ namespace Better_Work_Tab.PawnOrganizer
         private float _rowWidth;
         private float _dividerHeight = DefaultDividerHeight;
 
+        /// <summary>
+        /// Initialize the layout controller with column width storage.
+        /// </summary>
         public WorkTabLayoutController(IColumnWidthStore columnWidthStore)
         {
             _columnWidthStore = columnWidthStore;
+            _cachedRowDescriptors = new List<RowDescriptor>();
+            _rowDescriptorsDirty = true;
+        }
+
+        /// <summary>
+        /// Returns cached row descriptors; rebuilds from elements if cache is invalid.
+        /// </summary>
+        public List<RowDescriptor> GetRowDescriptors()
+        {
+            if (_rowDescriptorsDirty)
+            {
+                _cachedRowDescriptors = BuildRowDescriptorsInternal();
+                _rowDescriptorsDirty = false;
+            }
+            return _cachedRowDescriptors;
+        }
+
+        /// <summary>
+        /// Mark row descriptors cache as invalid; will rebuild on next GetRowDescriptors() call.
+        /// </summary>
+        public void InvalidateRowDescriptors()
+        {
+            _rowDescriptorsDirty = true;
+        }
+
+        /// <summary>
+        /// Builds row descriptors from current pawn/divider elements, preserving order and heights.
+        /// </summary>
+        private List<RowDescriptor> BuildRowDescriptorsInternal()
+        {
+            var elements = BuildOrderedElements();
+            var descriptors = new List<RowDescriptor>(elements.Count);
+
+            foreach (var element in elements)
+            {
+                if (element is DividerElement divEl)
+                {
+                    descriptors.Add(new RowDescriptor(divEl.Divider, divEl.Divider.Height));
+                }
+                else if (element is PawnElement pawnEl)
+                {
+                    descriptors.Add(new RowDescriptor(pawnEl.Pawn, PawnRowHeight));
+                }
+            }
+
+            return descriptors;
         }
 
         public IReadOnlyList<WorkTabLayoutRow> Rows => _rows;

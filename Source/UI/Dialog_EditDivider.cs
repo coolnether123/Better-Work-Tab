@@ -123,7 +123,6 @@ namespace Better_Work_Tab.UI
             _divider.LabelFont = _labelFont;
             _divider.Height = Mathf.Clamp(_height, 10f, 80f);
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
-            MainTabWindow_BetterWork.FlagWindowSnap();
             return true;
         }
 
