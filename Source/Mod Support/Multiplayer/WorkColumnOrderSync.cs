@@ -48,7 +48,7 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer
             Features.WorkColumnOrderManager.CaptureCurrent(tableDef);
             Features.WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
-            MainTabWindow_BetterWork.FlagWindowSnap();
+
         }
 
         // One-time registration (can be used if you prefer explicit registration)

@@ -42,6 +42,8 @@
   <ItemGroup>
     <Compile Include="BetterWorkTab.cs" />
     <Compile Include="DragDrop\ColumnDragHandler.cs" />
+    <Compile Include="Features\Patches\Debug_WorkTabWindow.cs" />
+    <Compile Include="Features\Patches\Patch_PawnTable_RecacheIfDirty.cs" />
     <Compile Include="Features\Patches\Patch_WorkPriority_DoCell_Unified.cs" />
     <Compile Include="Features\Rules\AssignmentValidationResult.cs" />
     <Compile Include="Features\Rules\Validators\AssignmentConstraintsValidator.cs" />
@@ -79,6 +81,7 @@
     <Compile Include="PawnOrganizer\Patches\Patch_PawnColumnWorker_Label_DoCell.cs" />
     <Compile Include="PawnOrganizer\PawnOrganizerSystem.cs" />
     <Compile Include="Mod Support\Multiplayer\WorkColumnOrderSync.cs" />
+    <Compile Include="PawnOrganizer\RowDescriptor.cs.cs" />
     <Compile Include="Spine\DragDrop\DragDropController.cs" />
     <Compile Include="Spine\DragDrop\DragDropManager.cs" />
     <Compile Include="Spine\DragDrop\DragEndReason.cs" />

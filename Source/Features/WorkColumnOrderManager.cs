@@ -268,8 +268,6 @@ namespace Better_Work_Tab.Features
 
             // Notify UI to rebuild
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
-            UI.MainTabWindow_BetterWork.ClearColumnReorderFlag();
-            UI.MainTabWindow_BetterWork.FlagWindowSnap();
 
             Log.Message("WorkColumnOrderManager.ResetToVanilla: Complete. Columns reset to vanilla order.");
         }

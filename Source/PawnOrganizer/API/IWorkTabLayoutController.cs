@@ -13,6 +13,16 @@ namespace Better_Work_Tab.PawnOrganizer.API
     public interface IWorkTabLayoutController
     {
         /// <summary>
+        /// Cached row descriptors (pawns + dividers). Rebuilds on demand if marked invalid.
+        /// </summary>
+        List<RowDescriptor> GetRowDescriptors();
+
+        /// <summary>
+        /// Mark row descriptors as stale; they will rebuild on next GetRowDescriptors() call.
+        /// </summary>
+        void InvalidateRowDescriptors();
+
+        /// <summary>
         /// Latest snapshot of rows (pawns + dividers) in draw order.
         /// </summary>
         IReadOnlyList<WorkTabLayoutRow> Rows { get; }
