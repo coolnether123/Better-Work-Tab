@@ -24,12 +24,9 @@ namespace Better_Work_Tab.UI
     {
         private const float RightEdgeMargin = 10f;
         private const float InfoIconSize = 24f;
-        private const float HeightSnapThreshold = 12f;
-        private const float WindowSnapCooldownSeconds = 0.25f;
-        private static bool _pendingWindowSnap;
+
         private static bool _columnsReordered;
-        private float _lastKnownHeight = -1f;
-        private float _lastWindowSnapTime;
+
         private PawnColumnDef _lastSortColumn;
         private bool _lastSortDescending;
 
@@ -40,7 +37,7 @@ namespace Better_Work_Tab.UI
         {
             base.PreOpen();
             closeOnClickedOutside = !BetterWorkTabMod.Settings.disableLeftClickClose;
-            ClearColumnReorderFlag();
+
             _lastSortColumn = null;
             _lastSortDescending = false;
 
@@ -59,6 +56,7 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
+
             var organizer = PawnOrganizerSystem.Instance;
             Vector2 tableOrigin = new Vector2(inRect.x, inRect.y + ExtraTopSpace);
             var snapshot = BuildSnapshotForOrganizer(table);
@@ -72,7 +70,6 @@ namespace Better_Work_Tab.UI
                 ProcessRightClicks(organizer?.Layout);
             }
 
-            AdjustWindowHeight(organizer?.Layout, inRect);
 
             DrawWorkTable(table, organizer?.Layout, inRect);
 
@@ -171,7 +168,7 @@ namespace Better_Work_Tab.UI
                 new FloatMenuOption("Delete", () =>
                 {
                     PawnOrganizerSystem.Instance?.Layout.RemoveDivider(divider);
-                    UI.MainTabWindow_BetterWork.FlagWindowSnap();
+
                     MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
                 })
             };
@@ -190,8 +187,33 @@ namespace Better_Work_Tab.UI
 
             layout.AddDividerBeforePawn(pawn, "New Divider", Color.gray);
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
-            FlagWindowSnap(); 
         }
+
+
+        public override Vector2 RequestedTabSize
+        {
+            get
+            {
+                var table = GetPawnTable();
+                if (table == null) return Vector2.zero;
+
+                var organizer = PawnOrganizerSystem.Instance;
+                if (organizer?.Layout != null)
+                {
+                    var snapshot = BuildSnapshotForOrganizer(table);
+                    organizer.Update(table, Vector2.zero, snapshot);
+                }
+
+                // Read table.Size - this triggers RecacheIfDirty and our postfix
+                float tableHeight = table.Size.y;
+                float tableWidth = table.Size.x;
+
+                float finalHeight = tableHeight + ExtraBottomSpace + ExtraTopSpace + Margin * 2f;
+
+                return new Vector2(tableWidth + Margin * 2f, finalHeight);
+            }
+        }
+
 
         private void InsertDividerBelow(Pawn pawn)
         {
@@ -204,7 +226,6 @@ namespace Better_Work_Tab.UI
 
             layout.AddDividerAfterPawn(pawn, "New Divider", Color.gray);
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
-            FlagWindowSnap(); 
         }
 
         private void ShowBackgroundColorPicker(Pawn pawn)
@@ -243,7 +264,7 @@ namespace Better_Work_Tab.UI
             bool descending = current != null && table.SortingDescending;
             if (!ReferenceEquals(current, _lastSortColumn) || descending != _lastSortDescending)
             {
-                ClearColumnReorderFlag();
+
                 _lastSortColumn = current;
                 _lastSortDescending = descending;
             }
@@ -323,11 +344,11 @@ namespace Better_Work_Tab.UI
             SpineTiming.NotifyWorkTabOpen(true);
         }
 
-        
+
 
         private void DrawRows(PawnTable table, IWorkTabLayoutController layout, Rect outRect, Rect viewRect)
         {
-            if (layout?.Rows == null)
+            if (layout == null)
             {
                 return;
             }
@@ -335,6 +356,14 @@ namespace Better_Work_Tab.UI
             Widgets.BeginScrollView(outRect, ref table.scrollPosition, viewRect);
             try
             {
+                // Get the row descriptors (single source of truth for what rows exist and their heights)
+                // This is the same list used by the sizing system, guaranteeing layout consistency
+                var rowDescriptors = layout.GetRowDescriptors();
+                if (rowDescriptors == null || rowDescriptors.Count == 0)
+                {
+                    return;
+                }
+
                 var nameColumn = FindNameColumn(layout.Columns);
 
                 // === CALCULATE TOTALS FOR HIGHLIGHTING ===
@@ -344,14 +373,19 @@ namespace Better_Work_Tab.UI
                     totalWidth += col.Width;
                 }
 
-                // === HIGHLIGHT ROWS (HORIZONTAL) ===
-                float startingY = 0f;
-                foreach (var row in layout.Rows)
-                {
-                    Rect rowRect = new Rect(0f, startingY, totalWidth, row.Height);
+                float totalHeight = layout.ContentHeight;
 
-                    // Highlight selected row
-                    if (row.Pawn != null && Find.Selector.IsSelected(row.Pawn))
+                // === HIGHLIGHT ROWS (HORIZONTAL) ===
+                // Loop through descriptors to highlight selected and hovered rows
+                // Calculate Y positions as we go (same as your original startingY)
+                float currentY = 0f;
+                for (int i = 0; i < rowDescriptors.Count; i++)
+                {
+                    var descriptor = rowDescriptors[i];
+                    Rect rowRect = new Rect(0f, currentY, totalWidth, descriptor.Height);
+
+                    // Highlight selected row (only for pawns, dividers can't be selected)
+                    if (descriptor.IsPawn && Find.Selector.IsSelected(descriptor.Pawn))
                     {
                         if (BetterWorkTabMod.Settings.ShowFloatMenuPawnAndWorktypeHighlight && PawnTable_HighlightRowAndColumn.worktypeToHighlight != null)
                             Widgets.DrawBoxSolid(rowRect, BetterWorkTabMod.Settings.Color_FloatMenuHighlight);
@@ -363,31 +397,30 @@ namespace Better_Work_Tab.UI
                     if (BetterWorkTabMod.Settings.ShowCursorPawnAndWorktypeHighlight && Mouse.IsOver(rowRect))
                         Widgets.DrawBoxSolid(rowRect, BetterWorkTabMod.Settings.Color_MouseHoverHighlight);
 
-                    startingY += row.Height;
+                    currentY += descriptor.Height;
                 }
 
                 // === HIGHLIGHT COLUMNS (VERTICAL) ===
                 float startingX = 0f;
-                float totalHeight = layout.ContentHeight;
                 foreach (var column in layout.Columns)
                 {
                     Rect columnRect = new Rect(startingX, 0f, column.Width, totalHeight);
 
                     bool isWorkColumn = column.Column?.Worker is PawnColumnWorker_WorkPriority;
 
-                    // Highlight float menu worktype
+                    // Highlight float menu worktype column
                     if (isWorkColumn && BetterWorkTabMod.Settings.ShowFloatMenuPawnAndWorktypeHighlight &&
                         PawnTable_HighlightRowAndColumn.worktypeToHighlight == column.Column.workType)
                         Widgets.DrawBoxSolid(columnRect, BetterWorkTabMod.Settings.Color_FloatMenuHighlight);
 
-                    // Highlight hovered column
+                    // Highlight hovered column and related worktypes
                     if (isWorkColumn && BetterWorkTabMod.Settings.ShowCursorPawnAndWorktypeHighlight && Mouse.IsOver(columnRect))
                     {
                         Color useColor = BetterWorkTabMod.Settings.Color_MouseHoverHighlight;
                         Widgets.DrawBoxSolid(columnRect, useColor);
                         Widgets.DrawHighlight(columnRect);
 
-                        // Highlight similar worktypes
+                        // Highlight other columns that share relevant skills (similar worktypes)
                         HighlightSimilarWorktypes(column.Column.workType, layout.Columns, column, layout);
                     }
 
@@ -395,26 +428,45 @@ namespace Better_Work_Tab.UI
                 }
 
                 // === NOW DRAW ACTUAL CONTENT ===
-                foreach (var row in layout.Rows)
+                // Loop through descriptors in the same order as highlighting, creating temporary wrappers for rendering
+                currentY = 0f;
+                for (int i = 0; i < rowDescriptors.Count; i++)
                 {
-                    Rect rowRect = new Rect(0f, row.OffsetY, viewRect.width, row.Height);
-                    DrawRowBackground(row, rowRect);
+                    var descriptor = rowDescriptors[i];
+                    Rect rowRect = new Rect(0f, currentY, viewRect.width, descriptor.Height);
 
-                    if (row.Pawn != null)
+                    // Create temporary wrapper objects to maintain compatibility with existing draw methods
+                    // These are small allocations; only optimize with pooling if profiling shows it's necessary
+                    if (descriptor.IsPawn)
                     {
-                        DrawPawnRow(table, row, rowRect, layout.Columns);
-                        DrawPawnRowOverlay(row, rowRect);
+                        // Create wrapper for pawn rendering (preserves all selection/highlight state behavior)
+                        var pawnElement = new PawnElement(descriptor.Pawn);
+                        var renderRow = new WorkTabLayoutRow(pawnElement, currentY, descriptor.Height, i);
+
+                        DrawRowBackground(renderRow, rowRect);
+                        DrawPawnRow(table, renderRow, rowRect, layout.Columns);
+                        DrawPawnRowOverlay(renderRow, rowRect);
                     }
-                    else if (row.Divider != null && nameColumn.HasValue)
+                    else if (descriptor.IsDivider)
                     {
-                        DrawDividerRow(row.Divider, rowRect, nameColumn.Value);
+                        // Create wrapper for divider rendering (preserves collapse state and styling)
+                        var dividerElement = new DividerElement(descriptor.Divider);
+                        var renderRow = new WorkTabLayoutRow(dividerElement, currentY, descriptor.Height, i);
+
+                        DrawRowBackground(renderRow, rowRect);
+                        if (nameColumn.HasValue)
+                        {
+                            DrawDividerRow(descriptor.Divider, rowRect, nameColumn.Value);
+                        }
                     }
 
+                    // Draw horizontal separator line between rows
                     GUI.color = new Color(1f, 1f, 1f, 0.12f);
                     Widgets.DrawLineHorizontal(0f, rowRect.yMax - 1f, viewRect.width);
                     GUI.color = Color.white;
+
+                    currentY += descriptor.Height;
                 }
-    
             }
             catch (Exception ex)
             {
@@ -478,11 +530,14 @@ namespace Better_Work_Tab.UI
         private void CalculateScrollRects(IWorkTabLayoutController layout, Rect inRect, out Rect outRect, out Rect viewRect)
         {
             float headerHeight = layout.HeaderHeight;
-            outRect = new Rect(
+            float scrollAreaHeight = Mathf.Max(0f,
+        inRect.height - ExtraTopSpace - headerHeight - ExtraBottomSpace);
+
+            outRect = new Rect( 
                 layout.TableOrigin.x,
                 layout.TableOrigin.y + headerHeight,
                 layout.Table.Size.x,
-                Mathf.Max(0f, inRect.height - headerHeight - ExtraBottomSpace));
+                scrollAreaHeight);
 
             float widthWithoutScrollbar = layout.Table.Size.x - 16f;
             float totalColumnWidth = layout.Columns.Count > 0
@@ -491,6 +546,7 @@ namespace Better_Work_Tab.UI
             float viewWidth = Mathf.Max(widthWithoutScrollbar, totalColumnWidth);
             float contentHeight = Mathf.Max(layout.ContentHeight, 1f);
             viewRect = new Rect(0f, 0f, viewWidth, Mathf.Max(contentHeight, outRect.height));
+
         }
 
         private WorkTabLayoutColumn? FindNameColumn(IReadOnlyList<WorkTabLayoutColumn> columns)
@@ -572,7 +628,6 @@ namespace Better_Work_Tab.UI
 
             divider.IsCollapsed = !divider.IsCollapsed;
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
-            FlagWindowSnap();
             SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
         }
 
@@ -639,71 +694,7 @@ namespace Better_Work_Tab.UI
                 GUI.color = originalColor;
             }
         }
-
-        private void AdjustWindowHeight(IWorkTabLayoutController layout, Rect inRect)
-        {
-            if (PawnOrganizerSystem.Instance?.IsDraggingRow == true)
-            {
-                return;
-            }
-
-            if (layout == null)
-            {
-                return;
-            }
-
-            float desiredHeight = ExtraTopSpace + ExtraBottomSpace +
-                                 layout.HeaderHeight + layout.ContentHeight +
-                                 Margin * 2f;
-
-            float maxHeight = Verse.UI.screenHeight - 45f;
-            float minHeight = InitialSize.y;
-
-            float previousHeight = windowRect.height;
-            windowRect.height = Mathf.Clamp(desiredHeight, minHeight, maxHeight);
-            if (_lastKnownHeight < 0f)
-            {
-                _lastKnownHeight = windowRect.height;
-            }
-
-            float heightDelta = Mathf.Abs(windowRect.height - _lastKnownHeight);
-            if (heightDelta > 0.5f)
-            {
-                _lastKnownHeight = windowRect.height;
-            }
-
-            if (Prefs.DevMode && heightDelta > 0.01f)
-            {
-                Log.Message($"[BWT] Height: {_lastKnownHeight:F1} -> {desiredHeight:F1}, delta={heightDelta:F1}, pendingSnap={_pendingWindowSnap}");
-            }
-
-            bool autoSnapRequested = heightDelta > HeightSnapThreshold;
-            bool shouldSnap = _pendingWindowSnap;
-            if (!shouldSnap && autoSnapRequested && Prefs.DevMode)
-            {
-                Log.Message($"[BWT] Auto-snap suppressed (delta={heightDelta:F1})");
-            }
-            if (!shouldSnap)
-            {
-                return;
-            }
-
-            if (PawnOrganizerSystem.Instance?.IsDraggingRow == true)
-            {
-                return;
-            }
-
-            float now = Time.realtimeSinceStartup;
-            if (now - _lastWindowSnapTime < WindowSnapCooldownSeconds && Mathf.Approximately(previousHeight, windowRect.height))
-            {
-                return;
-            }
-
-            _pendingWindowSnap = false;
-            windowRect.y = Mathf.Max(0f, (Verse.UI.screenHeight - 35f) - windowRect.height);
-            _lastWindowSnapTime = now;
-        }
-
+        
         private void DrawManualPrioritiesCheckbox()
         {
             Text.Font = GameFont.Small;
@@ -860,20 +851,9 @@ namespace Better_Work_Tab.UI
         {
             base.PreClose();
             HighlightManager.ClearHighlight();
-            ClearColumnReorderFlag();
             _lastSortColumn = null;
             _lastSortDescending = false;
             SpineTiming.NotifyWorkTabOpen(false);
-        }
-
-        internal static void MarkColumnsReordered(PawnColumnDef column)
-        {
-            _columnsReordered = true;
-        }
-
-        internal static void ClearColumnReorderFlag()
-        {
-            _columnsReordered = false;
         }
 
         /// <summary>
@@ -899,11 +879,6 @@ namespace Better_Work_Tab.UI
                 return false;
 
             return vanillaPos != currentPos;
-        }
-
-        internal static void FlagWindowSnap()
-        {
-            _pendingWindowSnap = true;
         }
     }
 }
