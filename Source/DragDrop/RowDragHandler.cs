@@ -152,7 +152,7 @@ namespace Better_Work_Tab.DragDrop
 
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
             if (Find.ColonistBar != null) Find.ColonistBar.MarkColonistsDirty();
-            MainTabWindow_BetterWork.FlagWindowSnap();
+
 
             _isDragging = false;
         }
