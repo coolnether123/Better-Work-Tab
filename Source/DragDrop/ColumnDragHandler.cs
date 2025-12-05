@@ -110,8 +110,17 @@ namespace Better_Work_Tab.DragDrop
 
             if (current != null)
             {
+                int currentIndex = workCols.IndexOf(current);
                 workCols.Remove(current);
-                int insert = Mathf.Clamp(_targetIndex, 0, workCols.Count);
+
+                // Adjust BEFORE clamping
+                int adjustedTarget = _targetIndex;
+                if (currentIndex < _targetIndex)
+                {
+                    adjustedTarget--;
+                }
+
+                int insert = Mathf.Clamp(adjustedTarget, 0, workCols.Count);
                 workCols.Insert(insert, current);
 
                 // Reconstruct table def columns
@@ -136,6 +145,7 @@ namespace Better_Work_Tab.DragDrop
                 WorkColumnOrderManager.CaptureCurrent(def);
                 WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
                 MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+                MainTabWindow_BetterWork.MarkColumnMoved(_column.workType);
 
             }
 

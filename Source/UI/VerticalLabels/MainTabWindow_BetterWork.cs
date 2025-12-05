@@ -4,6 +4,7 @@ using Better_Work_Tab.Patches;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.PawnOrganizer.Data;
+using Multiplayer.API;
 using RimWorld;
 using Spine.Profiling;
 using Spine.UI.ColourPicker;
@@ -22,16 +23,37 @@ namespace Better_Work_Tab.UI
     /// </summary>
     public class MainTabWindow_BetterWork : MainTabWindow_Work
     {
+        private static PawnColumnDef _lastDraggedColumn;
+
         private const float RightEdgeMargin = 10f;
         private const float InfoIconSize = 24f;
 
         private static bool _columnsReordered;
+        private static readonly HashSet<string> _movedColumns = new HashSet<string>();
+        private static readonly Color ColumnReorderTint = new Color(1f, 0.85f, 0.2f, 0.28f);
 
         private PawnColumnDef _lastSortColumn;
         private bool _lastSortDescending;
 
         private static Color CurrentRowTextColor = Color.white;
-        private static readonly Color ColumnReorderTint = new Color(1f, 0.85f, 0.2f, 0.28f);
+
+        /// <summary>
+        /// Multiplayer registration for column reordering sync.
+        /// Uses nested class pattern to keep MP setup organized.
+        /// </summary>
+        [StaticConstructorOnStartup]
+        private static class MPRegistration
+        {
+            static MPRegistration()
+            {
+                if (!MP.enabled)
+                    return;
+
+                MP.RegisterSyncMethod(typeof(MainTabWindow_BetterWork),
+                                      nameof(MarkColumnMoved));
+            }
+        }
+
 
         public override void PreOpen()
         {
@@ -46,6 +68,16 @@ namespace Better_Work_Tab.UI
                 var widthStore = new ColumnWidthPersistence();
                 new PawnOrganizerSystem(widthStore);
             }
+
+            // Check if columns are already out of order from a saved game
+            CheckAndMarkReorderedColumns();
+        }
+
+        private void CheckAndMarkReorderedColumns()
+        {
+            RecomputeMovedColumnsFromCurrentOrder();
+            // Ensure saved order matches current live table:
+            WorkColumnOrderManager.CaptureCurrent(PawnTableDefOf.Work);
         }
 
         public override void DoWindowContents(Rect inRect)
@@ -277,10 +309,10 @@ namespace Better_Work_Tab.UI
             foreach (var column in layout.Columns)
             {
                 bool isWorkColumn = column.Column?.Worker is PawnColumnWorker_WorkPriority;
+                var workType = column.Column?.workType;
                 // Check if THIS specific column is out of vanilla position
-                bool showReorder = _columnsReordered && isWorkColumn &&
-                                  column.Column?.workType != null &&
-                                  IsColumnOutOfVanillaPosition(column.Column.workType);
+                bool isOutOfVanilla = workType != null && IsColumnOutOfVanillaPosition(workType);
+                bool showReorder = _columnsReordered && isWorkColumn && workType != null && isOutOfVanilla;
 
                 if (BetterWorkTabMod.Settings.ShowCursorPawnAndWorktypeHighlight && isWorkColumn && Mouse.IsOver(column.HeaderRect))
                 {
@@ -290,7 +322,6 @@ namespace Better_Work_Tab.UI
                 }
 
                 column.Column.Worker.DoHeader(column.HeaderRect, table);
-
             }
         }
 
@@ -336,6 +367,109 @@ namespace Better_Work_Tab.UI
             GUI.color = prevColor;
             Text.Font = prevFont;
             Text.Anchor = prevAnchor;
+        }
+
+        [SyncMethod]
+        internal static void MarkColumnMoved(WorkTypeDef workType)
+        {
+            if (workType?.defName == null) return;
+
+            var vanillaOrder = WorkColumnOrderManager.GetVanillaOrder();
+            if (vanillaOrder?.Count == 0)
+            {
+                Log.Warning("[BWT] Vanilla column order not available.");
+                return;
+            }
+
+            // Read from LIVE table
+            var def = PawnTableDefOf.Work;
+            if (def?.columns == null) return;
+
+            var liveOrder = def.columns
+                .Where(c => c.Worker is PawnColumnWorker_WorkPriority && c.workType != null)
+                .Select(c => c.workType.defName)
+                .ToList();
+
+            if (liveOrder.Count == 0) return;
+
+            int vanillaPos = vanillaOrder.IndexOf(workType.defName);
+            int livePos = liveOrder.IndexOf(workType.defName);
+
+            if (vanillaPos < 0)
+            {
+                Log.Warning($"[BWT] Worktype {workType.defName} not in vanilla order.");
+                return;
+            }
+
+            if (livePos < 0)
+            {
+                Log.Warning($"[BWT] Worktype {workType.defName} not in live order.");
+                return;
+            }
+
+            if (vanillaPos == livePos)
+            {
+                _movedColumns.Remove(workType.defName);
+            }
+            else
+            {
+                _movedColumns.Add(workType.defName);
+            }
+
+            _columnsReordered = _movedColumns.Count > 0;
+        }
+
+        internal static bool IsColumnMarkedAsMoved(WorkTypeDef workType)
+        {
+            if (workType == null) return false;
+            return _movedColumns.Contains(workType.defName);
+        }
+
+        internal static void ClearAllMovedMarks()
+        {
+            _movedColumns.Clear();
+            _columnsReordered = false;
+        }
+
+        internal static bool ColumnsReordered => _columnsReordered;
+
+        private static void RecomputeMovedColumnsFromCurrentOrder()
+        {
+            _movedColumns.Clear();
+
+            var def = PawnTableDefOf.Work;
+            if (def?.columns == null)
+            {
+                _columnsReordered = false;
+                return;
+            }
+
+            // Use the actual current table order instead of relying solely on settings
+            var currentOrder = def.columns
+                .Where(c => c.Worker is PawnColumnWorker_WorkPriority && c.workType != null)
+                .Select(c => c.workType.defName)
+                .ToList();
+
+            var vanillaOrder = WorkColumnOrderManager.GetVanillaOrder();
+
+            if (vanillaOrder == null || vanillaOrder.Count == 0 ||
+                currentOrder == null || currentOrder.Count == 0)
+            {
+                _columnsReordered = false;
+                return;
+            }
+
+            for (int i = 0; i < currentOrder.Count; i++)
+            {
+                string defName = currentOrder[i];
+                int vanillaPos = vanillaOrder.IndexOf(defName);
+                if (vanillaPos >= 0 && vanillaPos != i)
+                {
+                    _movedColumns.Add(defName);
+                }
+            }
+
+            _columnsReordered = _movedColumns.Count > 0;
         }
 
         public override void PostOpen()
@@ -859,26 +993,9 @@ namespace Better_Work_Tab.UI
         /// <summary>
         /// Check if a specific column is out of its vanilla position
         /// </summary>
-        private static bool IsColumnOutOfVanillaPosition(WorkTypeDef workType)
+        internal static bool IsColumnOutOfVanillaPosition(WorkTypeDef workType)
         {
-            if (!_columnsReordered)
-                return false;
-
-            var vanillaOrder = WorkColumnOrderManager.GetVanillaOrder();
-            var currentOrder = BetterWorkTabMod.Settings.workColumnOrderDefNames;
-
-            // If no custom order, column is in vanilla position
-            if (currentOrder == null || currentOrder.Count == 0)
-                return false;
-
-            // Find positions
-            int vanillaPos = vanillaOrder?.IndexOf(workType.defName) ?? -1;
-            int currentPos = currentOrder.IndexOf(workType.defName);
-
-            if (vanillaPos < 0 || currentPos < 0)
-                return false;
-
-            return vanillaPos != currentPos;
+            return IsColumnMarkedAsMoved(workType);
         }
     }
 }
