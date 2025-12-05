@@ -176,16 +176,7 @@ namespace Better_Work_Tab.UI
 
         private static bool IsColumnReordered(WorkTypeDef workType)
         {
-            var vanillaOrder = WorkColumnOrderManager.GetVanillaOrder();
-            var currentOrder = BetterWorkTabMod.Settings.workColumnOrderDefNames;
-
-            if (vanillaOrder == null || currentOrder == null || vanillaOrder.Count == 0 || currentOrder.Count == 0)
-                return false;
-
-            int vanillaPos = vanillaOrder.IndexOf(workType.defName);
-            int currentPos = currentOrder.IndexOf(workType.defName);
-
-            return vanillaPos >= 0 && currentPos >= 0 && vanillaPos != currentPos;
+            return MainTabWindow_BetterWork.IsColumnMarkedAsMoved(workType);
         }
     }
 
