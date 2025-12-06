@@ -1,4 +1,4 @@
-using Better_Work_Tab.Features;
+﻿using Better_Work_Tab.Features;
 using HarmonyLib;
 using RimWorld;
 using System.Collections.Generic;
@@ -102,31 +102,60 @@ namespace Better_Work_Tab.UI
         private const float TEXT_UNDERLINE_GAP = 1f;
         private const bool DRAW_UNDERLINE = true;
 
-        // Cache text sizes to prevent constant recalculation
-        private static Dictionary<string, Vector2> _textSizeCache = new Dictionary<string, Vector2>(64);
+        private static Dictionary<string, (Vector2 size, int lastUsedFrame)> _textSizeCache =
+    new Dictionary<string, (Vector2, int)>(64);
+
+        private const int TextCacheMaxSize = 100;
+        private const int TextCacheInvalidateFrames = 300;  // ~5 seconds at 60fps
 
         public static void Draw(Rect headerRect, WorkTypeDef workType, bool isMouseOver)
         {
             if (workType == null) return;
 
             string text = workType.labelShort.CapitalizeFirst();
-
-            // Optimization: Only check reorder if settings exist
             bool isReordered = IsColumnReordered(workType);
             string displayText = isReordered ? text + "*" : text;
 
-            if (!_textSizeCache.TryGetValue(displayText, out var textSize))
-            {
-                var oldFont = Text.Font;
-                Text.Font = GameFont.Small;
-                textSize = Text.CalcSize(displayText);
-                Text.Font = oldFont;
-                _textSizeCache[displayText] = textSize;
+            int currentFrame = Time.frameCount;
 
-                // Prevent memory leak if dynamic text changes
-                if (_textSizeCache.Count > 100) _textSizeCache.Clear();
+            // Try to get cached size
+            if (_textSizeCache.TryGetValue(displayText, out var cached))
+            {
+                // ✅ Update last-used frame and use cached size
+                _textSizeCache[displayText] = (cached.size, currentFrame);
+                DrawWithSize(headerRect, displayText, cached.size, isReordered, isMouseOver);
+                return;
             }
 
+            // Calculate size
+            var oldFont = Text.Font;
+            Text.Font = GameFont.Small;
+            Vector2 textSize = Text.CalcSize(displayText);
+            Text.Font = oldFont;
+
+            // ✅ Incremental eviction: remove oldest entry if at capacity
+            if (_textSizeCache.Count >= TextCacheMaxSize)
+            {
+                var oldest = _textSizeCache
+                    .OrderBy(kvp => kvp.Value.lastUsedFrame)
+                    .First();
+                _textSizeCache.Remove(oldest.Key);
+            }
+
+            // Cache with timestamp
+            _textSizeCache[displayText] = (textSize, currentFrame);
+
+            DrawWithSize(headerRect, displayText, textSize, isReordered, isMouseOver);
+        }
+
+        private static bool IsColumnReordered(WorkTypeDef workType)
+        {
+            return MainTabWindow_BetterWork.IsColumnOutOfVanillaPosition(workType);
+        }
+
+
+        private static void DrawWithSize(Rect headerRect, string displayText, Vector2 textSize, bool isReordered, bool isMouseOver)
+        {
             float centerX = headerRect.x + headerRect.width * 0.5f;
             Vector2 pivot = new Vector2(centerX, headerRect.yMax - STEM_BOTTOM_GAP);
 
@@ -172,11 +201,6 @@ namespace Better_Work_Tab.UI
                 Text.Anchor = savedAnchor;
                 GUI.color = savedColor;
             }
-        }
-
-        private static bool IsColumnReordered(WorkTypeDef workType)
-        {
-            return MainTabWindow_BetterWork.IsColumnMarkedAsMoved(workType);
         }
     }
 

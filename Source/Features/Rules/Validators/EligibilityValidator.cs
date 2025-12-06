@@ -19,6 +19,9 @@ namespace Better_Work_Tab.Features.Rules.Validators
             WorkAssignmentParameters p
         )
         {
+            if (pawn == null) 
+                return false;
+
             // Restrict to natural "always active" worktypes if requested
             if (p.IsNaturalAlwaysAssign && !wt.alwaysStartActive)
                 return false;

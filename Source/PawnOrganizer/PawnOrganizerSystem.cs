@@ -126,7 +126,7 @@ namespace Better_Work_Tab.PawnOrganizer
         /// </summary>
         private void HandleActiveRowDrag(Event evt)
         {
-            if (_activeRowDrag == null)
+            if (_activeRowDrag == null || evt == null)
                 return;
 
             switch (evt.type)
@@ -155,7 +155,7 @@ namespace Better_Work_Tab.PawnOrganizer
         /// </summary>
         private void HandleActiveColumnDrag(Event evt)
         {
-            if (_activeColumnDrag == null)
+            if (_activeColumnDrag == null || evt == null)
                 return;
 
             switch (evt.type)
