@@ -25,6 +25,9 @@ namespace Better_Work_Tab.Features.Rules.Validators
             WorkAssignmentParameters p
         )
         {
+            if (pawn?.skills == null)  
+                return false;
+
             var skills = pawn.skills;
 
             // Passion filter
@@ -62,7 +65,7 @@ namespace Better_Work_Tab.Features.Rules.Validators
             {
                 foreach (var other in allPawns)
                 {
-                    if (other == pawn)
+                    if (other?.skills == null) 
                         continue;
 
                     float my = skills?.AverageOfRelevantSkillsFor(wt) ?? 0f;

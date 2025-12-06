@@ -77,7 +77,7 @@ namespace Better_Work_Tab.Patches
                 if (BetterWorkTabMod.Settings.ShowCursorPawnAndWorktypeHighlight && Mouse.IsOver(rect) && __instance.columns[i].Worker is PawnColumnWorker_WorkPriority)
                 {
                     Color useColor = BetterWorkTabMod.Settings.Color_MouseHoverHighlight;
-                    Log.Message($"Using hover color: {useColor}, Custom enabled: {BetterWorkTabMod.Settings.UseCustomMouseHoverHighlight}");
+                    //Log.Message($"Using hover color: {useColor}, Custom enabled: {BetterWorkTabMod.Settings.UseCustomMouseHoverHighlight}");
                     Widgets.DrawBoxSolid(rect, useColor);
                     Widgets.DrawHighlight(rect);
                 }
@@ -106,7 +106,7 @@ namespace Better_Work_Tab.Patches
                 {
 
                     Color useColor = BetterWorkTabMod.Settings.Color_MouseHoverHighlight;
-                    Log.Message($"[HighlightWorktype] Custom enabled: {BetterWorkTabMod.Settings.UseCustomMouseHoverHighlight}, Using color: R={useColor.r:F2} G={useColor.g:F2} B={useColor.b:F2} A={useColor.a:F2}");
+                    //Log.Message($"[HighlightWorktype] Custom enabled: {BetterWorkTabMod.Settings.UseCustomMouseHoverHighlight}, Using color: R={useColor.r:F2} G={useColor.g:F2} B={useColor.b:F2} A={useColor.a:F2}");
 
                     Widgets.DrawBoxSolid(rect, BetterWorkTabMod.Settings.Color_MouseHoverHighlight);
                     Widgets.DrawHighlight(rect);

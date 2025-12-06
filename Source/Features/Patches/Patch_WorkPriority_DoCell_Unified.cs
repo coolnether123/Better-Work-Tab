@@ -47,6 +47,15 @@ namespace Better_Work_Tab.Patches
             int currentFrame = Time.frameCount;
             if (_cachedMouseFrame != currentFrame)
             {
+                // Explicit null check with warning
+                if (Event.current == null)
+                {
+                    Log.Warning("[BWT] GetCachedMousePosition called outside OnGUI context. Returning cached position.");
+                    // Don't update cache, just return stale value
+                    _cachedMouseFrame = currentFrame;
+                    return _cachedMousePos;
+                }
+
                 _cachedMousePos = Event.current?.mousePosition ?? Vector2.zero;
                 _cachedMouseFrame = currentFrame;
             }
@@ -147,6 +156,8 @@ namespace Better_Work_Tab.Patches
         private static Dictionary<int, Color> _colorCache = new Dictionary<int, Color>(21);
         private static Dictionary<(int, string), (int level, int frame)> _skillCache =
             new Dictionary<(int, string), (int, int)>(256);
+
+        private const int SkillCacheMaxSize = 512;
         private const int SkillCacheFrameValidity = 30; // 500ms at 60fps
 
         private static int GetSkillLevel(Pawn pawn, WorkTypeDef workType)
@@ -245,6 +256,36 @@ namespace Better_Work_Tab.Patches
                 _bestPawnCache.Clear();
                 // optional: dev log only
                 // Log.Message($"[BWT] Best pawn cache trimmed (>{MaxCacheEntries}).");
+            }
+
+            if (_skillCache.Count > SkillCacheMaxSize)
+            {
+                int currentFrame = Time.frameCount;
+                var expiredKeys = new List<(int, string)>();
+
+                foreach (var kvp in _skillCache)
+                {
+                    int frameAge = currentFrame - kvp.Value.frame;
+                    // Remove entries older than 2x validity period
+                    if (frameAge > SkillCacheFrameValidity * 2)
+                    {
+                        expiredKeys.Add(kvp.Key);
+                    }
+                }
+
+                // If we still have too many after removing old entries, nuke everything
+                if (expiredKeys.Count == 0)
+                {
+                    _skillCache.Clear();
+                    Log.Warning("[BWT] Skill cache hit max size with no expired entries. Clearing all.");
+                }
+                else
+                {
+                    foreach (var key in expiredKeys)
+                    {
+                        _skillCache.Remove(key);
+                    }
+                }
             }
         }
 

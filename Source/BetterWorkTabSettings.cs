@@ -338,27 +338,25 @@ namespace Better_Work_Tab
             // If there are no saved rulesets, restore from defaults
             if (!SavedRulesets.Any())
             {
-                foreach (var ruleset in DefaultSettings.SavedRulesets)
+                SavedRulesets.AddRange(DefaultSettings.SavedRulesets); // Moved from the foreach loop since that would apply it 5 times.
+
+                // Ensure worktypes and strings are synchronized
+                foreach (var ruleset in SavedRulesets)
                 {
-                    // Ensure worktypes and their string names are synchronized
                     foreach (var rule in ruleset.Rules)
                     {
                         var parameters = rule.Parameters;
-                        //worktype
-                        if (parameters.Worktype == null && parameters.WorktypeString != null && parameters.WorktypeString != "")
-                        {
-                            rule.Parameters.Worktype = DefDatabase<WorkTypeDef>.GetNamedSilentFail(parameters.WorktypeString);
-                        }
-                        else if ((parameters.WorktypeString == null || parameters.WorktypeString == "") && parameters.Worktype != null)
-                        {
-                            rule.Parameters.WorktypeString = parameters.Worktype.defName;
-                        }
 
-                       
+                        // Sync worktype <-> worktype string
+                        if (parameters.Worktype == null && !string.IsNullOrEmpty(parameters.WorktypeString))
+                        {
+                            parameters.Worktype = DefDatabase<WorkTypeDef>.GetNamedSilentFail(parameters.WorktypeString);
+                        }
+                        else if (parameters.Worktype != null && string.IsNullOrEmpty(parameters.WorktypeString))
+                        {
+                            parameters.WorktypeString = parameters.Worktype.defName;
+                        }
                     }
-
-
-                    SavedRulesets.AddRange(DefaultSettings.SavedRulesets);
                 }
             }
 
