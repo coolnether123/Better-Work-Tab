@@ -75,9 +75,10 @@ namespace Better_Work_Tab.UI
 
         private void CheckAndMarkReorderedColumns()
         {
-            RecomputeMovedColumnsFromCurrentOrder();
             // Ensure saved order matches current live table:
             WorkColumnOrderManager.CaptureCurrent(PawnTableDefOf.Work);
+
+            RecomputeMovedColumnsFromCurrentOrder();
         }
 
         public override void DoWindowContents(Rect inRect)
@@ -330,24 +331,36 @@ namespace Better_Work_Tab.UI
         /// </summary>
         private static bool IsColumnInVanillaPosition(WorkTypeDef workType)
         {
+            if (workType?.defName == null) return true;  // Assume vanilla if unknown
+
             var vanillaOrder = WorkColumnOrderManager.GetVanillaOrder();
+            if (vanillaOrder?.Count == 0) return true;  // Can't determine, assume vanilla
 
-            if (vanillaOrder == null || vanillaOrder.Count == 0)
-                return true; // Assume vanilla position if we can't determine
+            var def = PawnTableDefOf.Work;
+            if (def?.columns == null) return true;
 
-            var currentOrder = BetterWorkTabMod.Settings.workColumnOrderDefNames;
-            if (currentOrder == null || currentOrder.Count == 0)
-                return true; // No custom order, so it's vanilla
+            var currentOrder = def.columns
+                .Where(c => c.Worker is PawnColumnWorker_WorkPriority && c.workType != null)
+                .Select(c => c.workType.defName)
+                .ToList();
 
-            // Find positions in both lists
             int vanillaPos = vanillaOrder.IndexOf(workType.defName);
             int currentPos = currentOrder.IndexOf(workType.defName);
 
-            // If not found in vanilla or current, assume vanilla
-            if (vanillaPos < 0 || currentPos < 0)
-                return true;
+            if (vanillaPos < 0 || currentPos < 0) return true;  // Not found, assume vanilla
 
             return vanillaPos == currentPos;
+        }
+
+        // Use the single method everywhere
+        internal static bool IsColumnOutOfVanillaPosition(WorkTypeDef workType)
+        {
+            return !IsColumnInVanillaPosition(workType);
+        }
+
+        internal static bool IsColumnMarkedAsMoved(WorkTypeDef workType)
+        {
+            return !IsColumnInVanillaPosition(workType);  // Consistent
         }
 
 
@@ -419,11 +432,6 @@ namespace Better_Work_Tab.UI
             _columnsReordered = _movedColumns.Count > 0;
         }
 
-        internal static bool IsColumnMarkedAsMoved(WorkTypeDef workType)
-        {
-            if (workType == null) return false;
-            return _movedColumns.Contains(workType.defName);
-        }
 
         internal static void ClearAllMovedMarks()
         {
@@ -988,14 +996,6 @@ namespace Better_Work_Tab.UI
             _lastSortColumn = null;
             _lastSortDescending = false;
             SpineTiming.NotifyWorkTabOpen(false);
-        }
-
-        /// <summary>
-        /// Check if a specific column is out of its vanilla position
-        /// </summary>
-        internal static bool IsColumnOutOfVanillaPosition(WorkTypeDef workType)
-        {
-            return IsColumnMarkedAsMoved(workType);
         }
     }
 }

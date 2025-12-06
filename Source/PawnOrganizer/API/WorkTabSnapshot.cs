@@ -1,5 +1,7 @@
-using System.Collections.Generic;
 using Better_Work_Tab.PawnOrganizer.Data;
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using Verse;
 
 namespace Better_Work_Tab.PawnOrganizer.API
@@ -11,8 +13,8 @@ namespace Better_Work_Tab.PawnOrganizer.API
 
         public WorkTabSnapshot(IReadOnlyList<Pawn> pawns, IReadOnlyList<PawnDivider> dividers)
         {
-            Pawns = pawns;
-            Dividers = dividers;
+            Pawns = pawns ?? (IReadOnlyList<Pawn>)Array.Empty<Pawn>();
+            Dividers = dividers ?? (IReadOnlyList<PawnDivider>)Array.Empty<PawnDivider>();
         }
     }
 }

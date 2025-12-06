@@ -42,6 +42,91 @@ namespace Better_Work_Tab.PawnOrganizer
         private float _rowWidth;
         private float _dividerHeight = DefaultDividerHeight;
 
+        // === DIRTY STATE TRACKING ===
+        private bool _isDirty = true;
+        private int _cachedPawnCount = 0;
+        private int _cachedDividerCount = 0;
+        private PawnColumnDef _lastSortingBy = null;
+        private bool _lastSortingDescending = false;
+        private Dictionary<int, int> _lastDisplayOrders = new Dictionary<int, int>(); // pawn ID -> displayOrder
+
+        private List<bool> _lastCollapsedStates = new List<bool>(); // Track divider collapse states
+
+        /// <summary>
+        /// Mark rebuild as needed only if something actually changed.
+        /// </summary>
+        private bool ShouldRebuild(PawnTable table, IPawnOrganizerSnapshot snapshot)
+        {
+            if (_isDirty) return true;
+            if (table == null || snapshot == null) return true;
+
+            // Check pawn count change
+            if (snapshot.Pawns == null || snapshot.Pawns.Count != _cachedPawnCount)
+                return true;
+
+            // Check divider count change
+            if (snapshot.Dividers == null || snapshot.Dividers.Count != _cachedDividerCount)
+                return true;
+
+            // Check sort state change
+            if (table.SortingBy != _lastSortingBy || table.SortingDescending != _lastSortingDescending)
+                return true;
+
+            // Check pawn display order changes (after drag-reorder)
+            for (int i = 0; i < snapshot.Pawns.Count; i++)
+            {
+                var pawn = snapshot.Pawns[i];
+                if (pawn?.playerSettings == null) continue;
+
+                int currentOrder = pawn.playerSettings.displayOrder;
+                if (!_lastDisplayOrders.TryGetValue(pawn.thingIDNumber, out int lastOrder) || lastOrder != currentOrder)
+                    return true;
+            }
+
+            // Check divider collapse states
+            if (snapshot.Dividers != null && snapshot.Dividers.Count == _lastCollapsedStates.Count)
+            {
+                for (int i = 0; i < snapshot.Dividers.Count; i++)
+                {
+                    if (snapshot.Dividers[i].IsCollapsed != _lastCollapsedStates[i])
+                        return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Cache the current state after a rebuild.
+        /// </summary>
+        private void CacheState(PawnTable table, IPawnOrganizerSnapshot snapshot)
+        {
+            _cachedPawnCount = snapshot?.Pawns?.Count ?? 0;
+            _cachedDividerCount = snapshot?.Dividers?.Count ?? 0;
+            _lastSortingBy = table?.SortingBy;
+            _lastSortingDescending = table?.SortingDescending ?? false;
+
+            _lastDisplayOrders.Clear();
+            if (snapshot?.Pawns != null)
+            {
+                foreach (var pawn in snapshot.Pawns)
+                {
+                    if (pawn?.playerSettings != null)
+                        _lastDisplayOrders[pawn.thingIDNumber] = pawn.playerSettings.displayOrder;
+                }
+            }
+
+            _lastCollapsedStates.Clear();
+            if (snapshot?.Dividers != null)
+            {
+                foreach (var div in snapshot.Dividers)
+                    _lastCollapsedStates.Add(div.IsCollapsed);
+            }
+
+            _isDirty = false;
+        }
+
+
         /// <summary>
         /// Initialize the layout controller with column width storage.
         /// </summary>
@@ -71,6 +156,7 @@ namespace Better_Work_Tab.PawnOrganizer
         public void InvalidateRowDescriptors()
         {
             _rowDescriptorsDirty = true;
+            _isDirty = true; // Also mark layout as dirty
         }
 
         /// <summary>
@@ -105,6 +191,12 @@ namespace Better_Work_Tab.PawnOrganizer
 
         public void Rebuild(PawnTable table, IPawnOrganizerSnapshot snapshot, Vector2 origin)
         {
+            // SKIP REBUILD IF NOTHING CHANGED
+            if (!ShouldRebuild(table, snapshot))
+            {
+                return; // All cached data is still valid
+            }
+
             if (table == null)
             {
                 Log.Error("[BWT] WorkTabLayoutController.Rebuild failed: table is null.");
@@ -155,6 +247,7 @@ namespace Better_Work_Tab.PawnOrganizer
                 _columns.Clear();
                 _contentHeight = 0f;
             }
+            CacheState(table, snapshot);
         }
 
         public bool TryGetRowAt(Vector2 mousePosition, out WorkTabLayoutRow row)
@@ -282,7 +375,7 @@ namespace Better_Work_Tab.PawnOrganizer
                 return null;
             }
 
-            Log.Message($"[AddDividerAfterPawnWhileSorting] Pawn {pawn.LabelShort} is at visual index {visualIndex}");
+            //Log.Message($"[AddDividerAfterPawnWhileSorting] Pawn {pawn.LabelShort} is at visual index {visualIndex}");
 
             
 
@@ -294,7 +387,7 @@ namespace Better_Work_Tab.PawnOrganizer
             ShiftDisplayOrdersFrom(newDisplayOrder);
             var divider = CreateDivider(label, color, newDisplayOrder);
 
-            Log.Message($"[AddDividerAfterPawnWhileSorting] Created divider with displayOrder {newDisplayOrder}");
+            //Log.Message($"[AddDividerAfterPawnWhileSorting] Created divider with displayOrder {newDisplayOrder}");
 
             return divider;
         }
@@ -343,14 +436,14 @@ namespace Better_Work_Tab.PawnOrganizer
             ShiftDisplayOrdersFrom(newDisplayOrder);
             var divider = CreateDivider(label, color, newDisplayOrder);
 
-            Log.Message($"[AddDividerBeforePawnWhileSorting] Created divider with displayOrder {newDisplayOrder}");
+            //Log.Message($"[AddDividerBeforePawnWhileSorting] Created divider with displayOrder {newDisplayOrder}");
 
             return divider;
         }
 
         private void RecalculateDisplayOrderFromVisualOrder()
         {
-            Log.Message($"[RecalculateDisplayOrderFromVisualOrder] Recalculating displayOrder from {_rows.Count} rows");
+            //Log.Message($"[RecalculateDisplayOrderFromVisualOrder] Recalculating displayOrder from {_rows.Count} rows");
 
             for (int i = 0; i < _rows.Count; i++)
             {
@@ -503,88 +596,101 @@ namespace Better_Work_Tab.PawnOrganizer
             }
             else
             {
+                // When sorting, dividers act as immovable barriers
+                // Pawns can only sort WITHIN sections between dividers
 
-            // ✅ When sorting, dividers act as immovable barriers
-            // Pawns can only sort WITHIN sections between dividers
+                var manuallyOrdered = _workingElements.OrderBy(e => e.DisplayOrder).ToList();
+                var result = new List<DisplayElement>();
 
-            var manuallyOrdered = _workingElements.OrderBy(e => e.DisplayOrder).ToList();
-            var result = new List<DisplayElement>();
-
-            Func<Pawn, Pawn, int> comparator = (a, b) =>
-            {
-                if (_table.SortingDescending)
-                    return _table.SortingBy.Worker.Compare(b, a);
-                return _table.SortingBy.Worker.Compare(a, b);
-            };
-
-            // Partition the list by dividers and sort each section independently
-            var currentSection = new List<Pawn>();
-
-            foreach (var element in manuallyOrdered)
-            {
-                if (element.IsDivider)
+                Func<Pawn, Pawn, int> comparator = (a, b) =>
                 {
-                    // Sort and add the current section of pawns
-                    if (currentSection.Count > 0)
+                    if (_table.SortingDescending)
+                        return _table.SortingBy.Worker.Compare(b, a);
+                    return _table.SortingBy.Worker.Compare(a, b);
+                };
+
+                // Partition the list by dividers and sort each section independently
+                var sortingSection = new List<Pawn>();  
+
+                foreach (var element in manuallyOrdered)
+                {
+                    if (element.IsDivider)
                     {
-                        currentSection.SortStable(comparator);
-                        foreach (var pawn in currentSection)
+                        // Sort and add the current section of pawns
+                        if (sortingSection.Count > 0)
                         {
-                            result.Add(new PawnElement(pawn));
+                            sortingSection.SortStable(comparator);
+                            foreach (var pawn in sortingSection)
+                            {
+                                result.Add(new PawnElement(pawn));
+                            }
+                            sortingSection.Clear();
                         }
-                        currentSection.Clear();
+
+                        // Add the divider as an immovable barrier
+                        result.Add(element);
                     }
-
-                    // Add the divider as an immovable barrier
-                    result.Add(element);
-
+                    else if (element is PawnElement pawnElement)
+                    {
+                        sortingSection.Add(pawnElement.Pawn);
+                    }
                 }
-                else if (element is PawnElement pawnElement)
+
+                // Don't forget to sort and add the final section after the last divider
+                if (sortingSection.Count > 0)
                 {
-                    currentSection.Add(pawnElement.Pawn);
+                    sortingSection.SortStable(comparator);
+                    foreach (var pawn in sortingSection)
+                    {
+                        result.Add(new PawnElement(pawn));
+                    }
                 }
+
+                ordered = result;
             }
 
-            // Don't forget to sort and add the final section after the last divider
-            if (currentSection.Count > 0)
-            {
-                currentSection.SortStable(comparator);
-                foreach (var pawn in currentSection)
-                {
-                    result.Add(new PawnElement(pawn));
-                }
-            }
-
-            ordered = result;
-            }
-
-            if (!ordered.Any(e => e.IsDivider && (e as DividerElement)?.Divider?.IsCollapsed == true))
+            // Check for collapsed dividers ONCE
+            bool hasCollapsedDividers = ordered.Any(e => e.IsDivider && (e as DividerElement)?.Divider?.IsCollapsed == true);
+            if (!hasCollapsedDividers)
             {
                 return ordered;
             }
 
+            // Partition by dividers and filter pawns based on preceding divider state
             var filtered = new List<DisplayElement>(ordered.Count);
-            bool skipPawns = false;
+            var filteringSection = new List<DisplayElement>();  
+            PawnDivider lastDivider = null;
 
             for (int i = 0; i < ordered.Count; i++)
             {
                 var element = ordered[i];
+
                 if (element.IsDivider)
                 {
-                    filtered.Add(element);
                     var divider = (element as DividerElement)?.Divider;
-                    if (divider != null)
-                    {
-                        Log.Message($"[BWT] Checking collapsed divider: {divider.DividerName}, IsCollapsed={divider.IsCollapsed}");
-                    }
-                    skipPawns = divider?.IsCollapsed ?? false;
-                    continue;
-                }
 
-                if (!skipPawns)
-                {
+                    // Only add previous section if the divider wasn't collapsed
+                    if (lastDivider == null || !lastDivider.IsCollapsed)
+                    {
+                        filtered.AddRange(filteringSection);
+                    }
+
+                    // Always add the divider itself
                     filtered.Add(element);
+
+                    lastDivider = divider;
+                    filteringSection.Clear();
                 }
+                else if (element is PawnElement)
+                {
+                    filteringSection.Add(element);
+                }
+            }
+
+            // Handle final section: add if last divider wasn't collapsed (or no dividers exist)
+            if (lastDivider == null || !lastDivider.IsCollapsed)
+            {
+                filtered.AddRange(filteringSection);
             }
 
             return filtered;
