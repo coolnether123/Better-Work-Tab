@@ -22,6 +22,9 @@ namespace Better_Work_Tab.Features.Rules.Validators
             WorkAssignmentParameters p
         )
         {
+            if (pawn?.workSettings == null) 
+                return new AssignmentValidationResult(false, false);
+
             bool isValid = true;
             bool shouldSkipRemainingPawns = false;
 
@@ -30,7 +33,7 @@ namespace Better_Work_Tab.Features.Rules.Validators
             {
                 foreach (var other in allPawns)
                 {
-                    if (other == pawn)
+                    if (other == pawn || other?.workSettings == null) 
                         continue;
 
                     if (other.workSettings.GetPriority(wt) == p.SkipIfPriorityForThisWorktypeAreadyAssigned)
@@ -43,7 +46,7 @@ namespace Better_Work_Tab.Features.Rules.Validators
             {
                 foreach (var other in allPawns)
                 {
-                    if (other == pawn)
+                    if (other == pawn || other?.workSettings == null)  
                         continue;
 
                     if (other.workSettings.GetPriority(wt) > 0)
@@ -61,8 +64,11 @@ namespace Better_Work_Tab.Features.Rules.Validators
 
                 foreach (var pp in allPawns)
                 {
+                    if (pp?.workSettings == null)
+                        continue;
+
                     int count = allWorkTypes
-                        .Count(w => pp.workSettings.GetPriority(w) > 0);  
+                        .Count(w => pp.workSettings.GetPriority(w) > 0);
 
                     if (count < fewest && !pp.WorkTypeIsDisabled(wt))
                     {
