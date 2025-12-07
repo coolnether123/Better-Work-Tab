@@ -144,6 +144,11 @@ namespace Better_Work_Tab
         public List<string> workColumnOrderDefNames = new List<string>();
         public Dictionary<string, float> storedColumnWidths = new Dictionary<string, float>();
 
+        // Tracks which columns the player has directly dragged. Only columns in this list
+        // that are also currently out of their vanilla position will show the yellow asterisk.
+        // This distinguishes player-dragged columns from columns that merely shifted as a side effect.
+        public List<string> playerDraggedColumns = new List<string>();
+
         // Skill level colors
         public Color Color_VeryLowSkill = new Color(0.82f, 0.25f, 0.25f);
         public Color Color_LowSkill = new Color(0.95f, 0.75f, 0.20f);
@@ -277,9 +282,17 @@ namespace Better_Work_Tab
             Scribe_Collections.Look(ref workColumnOrderDefNames, "workColumnOrderDefNames", LookMode.Value);
             Scribe_Collections.Look(ref storedColumnWidths, "storedColumnWidths", LookMode.Value, LookMode.Value);
 
+            // Save/load the list of columns the player has directly dragged
+            Scribe_Collections.Look(ref playerDraggedColumns, "playerDraggedColumns", LookMode.Value);
+
             if (storedColumnWidths == null)
             {
                 storedColumnWidths = new Dictionary<string, float>();
+            }
+
+            if (playerDraggedColumns == null)
+            {
+                playerDraggedColumns = new List<string>();
             }
         }
 
@@ -375,6 +388,41 @@ namespace Better_Work_Tab
                 CurrentRuleset = SavedRulesets.FirstOrDefault();
             }
 
+        }
+
+        /// <summary>
+        /// Records that the player directly dragged a column. Called when the drag operation completes.
+        /// We only add to the list if not already present to avoid duplicates.
+        /// </summary>
+        public void RecordPlayerDraggedColumn(string defName)
+        {
+            if (string.IsNullOrEmpty(defName))
+                return;
+
+            if (!playerDraggedColumns.Contains(defName))
+            {
+                playerDraggedColumns.Add(defName);
+            }
+        }
+
+        /// <summary>
+        /// Clears all player-dragged column records. Called when resetting columns to vanilla order.
+        /// </summary>
+        public void ClearPlayerDraggedColumns()
+        {
+            playerDraggedColumns.Clear();
+        }
+
+        /// <summary>
+        /// Checks if a column was directly dragged by the player (as opposed to just shifting
+        /// as a side effect of another column being dragged).
+        /// </summary>
+        public bool WasColumnDraggedByPlayer(string defName)
+        {
+            if (string.IsNullOrEmpty(defName))
+                return false;
+
+            return playerDraggedColumns.Contains(defName);
         }
     }
 }
