@@ -26,6 +26,8 @@ namespace Better_Work_Tab
             //DefOfHelper.EnsureInitializedInCtor(typeof(WorkTypeDefOf));
         }
 
+        public static float workTabMaxHeight = -1f; // -1 = use vanilla default (fill screen)
+
         public static bool enableSkillOverlayFeature = true;
         public static bool enableAutoAssignFeature = true;
         public static List<string> workColumnOrderDefNames = new List<string>();
@@ -195,6 +197,8 @@ namespace Better_Work_Tab
         public ShowUIMode ShowUIMode_ShowSmallSkillNumbers = ShowUIMode.Unshifted;
         public ShowUIMode ShowUIMode_ShowPawnForSkillSquare = ShowUIMode.Shifted;
 
+        public float workTabMaxHeight = DefaultSettings.workTabMaxHeight;
+
         /// <summary>
         /// Creates/restores all default rulesets from the static defaults.
         /// </summary>
@@ -219,6 +223,9 @@ namespace Better_Work_Tab
 
         public override void ExposeData()
         {
+            Scribe_Values.Look(ref workTabMaxHeight, "workTabMaxHeight", DefaultSettings.workTabMaxHeight);
+
+
             // Core feature toggles
             Scribe_Values.Look(ref firstTimeSetupDone, "firstTimeSetupDone", DefaultSettings.firstTimeSetupDone);
             Scribe_Values.Look(ref enableSkillOverlayFeature, "enableSkillOverlayFeature", DefaultSettings.enableSkillOverlayFeature);
@@ -281,6 +288,8 @@ namespace Better_Work_Tab
         /// </summary>
         public void RestoreDefaults()
         {
+            workTabMaxHeight = DefaultSettings.workTabMaxHeight;
+
             // Features
             enableSkillOverlayFeature = DefaultSettings.enableSkillOverlayFeature;
             enableAutoAssignFeature = DefaultSettings.enableAutoAssignFeature;
