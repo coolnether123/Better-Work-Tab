@@ -515,11 +515,14 @@ namespace Better_Work_Tab.UI
                     totalWidth += col.Width;
                 }
 
-                float totalHeight = layout.ContentHeight;
+                // Calculate total height from descriptor heights to match rendering
+                float totalHeight = 0f;
+                foreach (var descriptor in rowDescriptors)
+                {
+                    totalHeight += descriptor.Height;
+                }
 
                 // === HIGHLIGHT ROWS (HORIZONTAL) ===
-                // Loop through descriptors to highlight selected and hovered rows
-                // Calculate Y positions as we go (same as your original startingY)
                 float currentY = 0f;
                 for (int i = 0; i < rowDescriptors.Count; i++)
                 {
@@ -563,7 +566,7 @@ namespace Better_Work_Tab.UI
                         Widgets.DrawHighlight(columnRect);
 
                         // Highlight other columns that share relevant skills (similar worktypes)
-                        HighlightSimilarWorktypes(column.Column.workType, layout.Columns, column, layout);
+                        HighlightSimilarWorktypes(column.Column.workType, layout.Columns, column, layout, totalHeight);
                     }
 
                     startingX += column.Width;
@@ -620,11 +623,10 @@ namespace Better_Work_Tab.UI
             }
         }
 
-        private void HighlightSimilarWorktypes(WorkTypeDef worktype, IReadOnlyList<WorkTabLayoutColumn> columns, WorkTabLayoutColumn myColumn, IWorkTabLayoutController layout)
+        private void HighlightSimilarWorktypes(WorkTypeDef worktype, IReadOnlyList<WorkTabLayoutColumn> columns, WorkTabLayoutColumn myColumn, IWorkTabLayoutController layout, float totalHeight)
         {
             var relevantSkills = worktype.relevantSkills;
             float startingX = 0f;
-            float totalHeight = layout.ContentHeight;
 
             foreach (var column in columns)
             {
