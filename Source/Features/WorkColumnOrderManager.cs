@@ -10,6 +10,8 @@ namespace Better_Work_Tab.Features
     {
         private static List<string> _vanillaColumnOrder;
         private static bool _initialized = false;
+        private static Dictionary<WorkTypeDef, List<WorkTypeDef>> _similarWorktypeMap;
+        private static readonly List<WorkTypeDef> EmptySimilarWorktypeList = new List<WorkTypeDef>(0);
 
         /// <summary>
         /// Initialize vanilla order and apply saved order. Called after defs are loaded.
@@ -23,6 +25,60 @@ namespace Better_Work_Tab.Features
             CaptureVanillaOrder();
             ApplySaved(PawnTableDefOf.Work);
             Log.Message("[BWT] WorkColumnOrderManager initialized.");
+        }
+
+        /// <summary>
+        /// Pre-compute which work types share any relevant skills. Runs once after defs load.
+        /// </summary>
+        public static void InitializeSimilarWorktypeMap()
+        {
+            if (_similarWorktypeMap != null)
+            {
+                return;
+            }
+
+            _similarWorktypeMap = new Dictionary<WorkTypeDef, List<WorkTypeDef>>();
+            var allWorkTypes = DefDatabase<WorkTypeDef>.AllDefsListForReading;
+
+            foreach (var mainWorkType in allWorkTypes)
+            {
+                var similarList = new List<WorkTypeDef>();
+
+                if (mainWorkType.relevantSkills == null || mainWorkType.relevantSkills.Count == 0)
+                {
+                    _similarWorktypeMap[mainWorkType] = similarList;
+                    continue;
+                }
+
+                foreach (var otherWorkType in allWorkTypes)
+                {
+                    if (mainWorkType == otherWorkType || otherWorkType.relevantSkills == null)
+                    {
+                        continue;
+                    }
+
+                    if (mainWorkType.relevantSkills.Any(s => otherWorkType.relevantSkills.Contains(s)))
+                    {
+                        similarList.Add(otherWorkType);
+                    }
+                }
+
+                _similarWorktypeMap[mainWorkType] = similarList;
+            }
+
+            Log.Message("[BWT] SimilarWorktypeMap initialized (one-time cost).");
+        }
+
+        public static List<WorkTypeDef> GetSimilarWorktypes(WorkTypeDef workType)
+        {
+            if (_similarWorktypeMap == null || workType == null)
+            {
+                return EmptySimilarWorktypeList;
+            }
+
+            return _similarWorktypeMap.TryGetValue(workType, out var list)
+                ? list
+                : EmptySimilarWorktypeList;
         }
 
         /// <summary>

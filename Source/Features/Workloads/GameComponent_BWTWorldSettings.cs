@@ -1,4 +1,5 @@
 ﻿using Better_Work_Tab.Patches;
+using Better_Work_Tab.PawnOrganizer;
 using Spine.Profiling;
 using System.Collections.Generic;
 using System.Linq;
@@ -18,6 +19,7 @@ namespace Better_Work_Tab.Features.Workloads
         public override void FinalizeInit()
         {
             base.FinalizeInit();
+            DisplayElementPool.Clear();
             EnsureCurrentWorklist();
 
             // Enable profiling while you are testing.
