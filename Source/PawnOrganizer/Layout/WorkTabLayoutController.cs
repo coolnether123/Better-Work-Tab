@@ -33,6 +33,10 @@ namespace Better_Work_Tab.PawnOrganizer
         private readonly List<WorkTabLayoutColumn> _columns = new List<WorkTabLayoutColumn>();
         private readonly List<DisplayElement> _workingElements = new List<DisplayElement>();
         private readonly List<PawnDivider> _dividerBuffer = new List<PawnDivider>();
+        private readonly List<DisplayElement> _orderedBuffer = new List<DisplayElement>();
+        private readonly List<DisplayElement> _sortingSectionBuffer = new List<DisplayElement>();
+        private readonly List<DisplayElement> _filteringBuffer = new List<DisplayElement>();
+        private readonly List<DisplayElement> _filteringSectionBuffer = new List<DisplayElement>();
 
         private IReadOnlyList<Pawn> _snapshotPawns = Array.Empty<Pawn>();
         private IList<PawnDivider> _snapshotDividers = Array.Empty<PawnDivider>();
@@ -127,6 +131,39 @@ namespace Better_Work_Tab.PawnOrganizer
             _isDirty = false;
         }
 
+        private static void ReleaseDisplayElement(DisplayElement element)
+        {
+            if (element is PawnElement pawnElement)
+            {
+                DisplayElementPool.ReleasePawnElement(pawnElement);
+            }
+            else if (element is DividerElement dividerElement)
+            {
+                DisplayElementPool.ReleaseDividerElement(dividerElement);
+            }
+        }
+
+        private void ReleaseRowsToPool()
+        {
+            for (int i = 0; i < _rows.Count; i++)
+            {
+                ReleaseDisplayElement(_rows[i].Element);
+            }
+        }
+
+        private static void ReleaseElements(IList<DisplayElement> elements)
+        {
+            if (elements == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < elements.Count; i++)
+            {
+                ReleaseDisplayElement(elements[i]);
+            }
+        }
+
 
         /// <summary>
         /// Initialize the layout controller with column width storage.
@@ -186,6 +223,13 @@ namespace Better_Work_Tab.PawnOrganizer
                 }
             }
 
+            ReleaseElements(elements);
+            _workingElements.Clear();
+            _orderedBuffer.Clear();
+            _filteringBuffer.Clear();
+            _sortingSectionBuffer.Clear();
+            _filteringSectionBuffer.Clear();
+
             return descriptors;
         }
 
@@ -215,6 +259,7 @@ namespace Better_Work_Tab.PawnOrganizer
 
             try
             {
+                ReleaseRowsToPool();
                 _table = table;
                 _origin = origin;
                 _rows.Clear();
@@ -593,10 +638,18 @@ namespace Better_Work_Tab.PawnOrganizer
         private List<DisplayElement> BuildOrderedElements()
         {
             _workingElements.Clear();
-            _workingElements.AddRange(_snapshotPawns.Select(p => new PawnElement(p)));
+
+            for (int i = 0; i < _snapshotPawns.Count; i++)
+            {
+                _workingElements.Add(DisplayElementPool.GetPawnElement(_snapshotPawns[i]));
+            }
+
             if (_snapshotDividers != null)
             {
-                _workingElements.AddRange(_snapshotDividers.Select(d => new DividerElement(d)));
+                for (int i = 0; i < _snapshotDividers.Count; i++)
+                {
+                    _workingElements.Add(DisplayElementPool.GetDividerElement(_snapshotDividers[i]));
+                }
             }
 
             List<DisplayElement> ordered;
@@ -604,75 +657,84 @@ namespace Better_Work_Tab.PawnOrganizer
             // If no sorting, use manual order
             if (_table.SortingBy == null)
             {
-                ordered = _workingElements
-                    .OrderBy(e => e.DisplayOrder)
-                    .ToList();
+                _orderedBuffer.Clear();
+                foreach (var element in _workingElements.OrderBy(e => e.DisplayOrder))
+                {
+                    _orderedBuffer.Add(element);
+                }
+
+                ordered = _orderedBuffer;
             }
             else
             {
                 // When sorting, dividers act as immovable barriers
                 // Pawns can only sort WITHIN sections between dividers
 
-                var manuallyOrdered = _workingElements.OrderBy(e => e.DisplayOrder).ToList();
-                var result = new List<DisplayElement>();
+                var manuallyOrdered = _workingElements.OrderBy(e => e.DisplayOrder);
+                _orderedBuffer.Clear();
+                _sortingSectionBuffer.Clear();
 
-                Func<Pawn, Pawn, int> comparator = (a, b) =>
+                void FlushSortingSection()
                 {
-                    if (_table.SortingDescending)
-                        return _table.SortingBy.Worker.Compare(b, a);
-                    return _table.SortingBy.Worker.Compare(a, b);
-                };
+                    if (_sortingSectionBuffer.Count == 0)
+                    {
+                        return;
+                    }
+
+                    _sortingSectionBuffer.SortStable((a, b) =>
+                    {
+                        var pawnA = (a as PawnElement)?.Pawn;
+                        var pawnB = (b as PawnElement)?.Pawn;
+                        return _table.SortingDescending
+                            ? _table.SortingBy.Worker.Compare(pawnB, pawnA)
+                            : _table.SortingBy.Worker.Compare(pawnA, pawnB);
+                    });
+
+                    _orderedBuffer.AddRange(_sortingSectionBuffer);
+                    _sortingSectionBuffer.Clear();
+                }
 
                 // Partition the list by dividers and sort each section independently
-                var sortingSection = new List<Pawn>();  
-
                 foreach (var element in manuallyOrdered)
                 {
                     if (element.IsDivider)
                     {
-                        // Sort and add the current section of pawns
-                        if (sortingSection.Count > 0)
-                        {
-                            sortingSection.SortStable(comparator);
-                            foreach (var pawn in sortingSection)
-                            {
-                                result.Add(new PawnElement(pawn));
-                            }
-                            sortingSection.Clear();
-                        }
-
                         // Add the divider as an immovable barrier
-                        result.Add(element);
+                        FlushSortingSection();
+                        _orderedBuffer.Add(element);
                     }
                     else if (element is PawnElement pawnElement)
                     {
-                        sortingSection.Add(pawnElement.Pawn);
+                        _sortingSectionBuffer.Add(pawnElement);
                     }
                 }
 
-                // Don't forget to sort and add the final section after the last divider
-                if (sortingSection.Count > 0)
-                {
-                    sortingSection.SortStable(comparator);
-                    foreach (var pawn in sortingSection)
-                    {
-                        result.Add(new PawnElement(pawn));
-                    }
-                }
+                FlushSortingSection();
 
-                ordered = result;
+                ordered = _orderedBuffer;
             }
 
             // Check for collapsed dividers ONCE
-            bool hasCollapsedDividers = ordered.Any(e => e.IsDivider && (e as DividerElement)?.Divider?.IsCollapsed == true);
+            bool hasCollapsedDividers = false;
+            for (int i = 0; i < ordered.Count; i++)
+            {
+                if (ordered[i] is DividerElement dividerElement && dividerElement.Divider?.IsCollapsed == true)
+                {
+                    hasCollapsedDividers = true;
+                    break;
+                }
+            }
+
             if (!hasCollapsedDividers)
             {
                 return ordered;
             }
 
             // Partition by dividers and filter pawns based on preceding divider state
-            var filtered = new List<DisplayElement>(ordered.Count);
-            var filteringSection = new List<DisplayElement>();  
+            _filteringBuffer.Clear();
+            _filteringSectionBuffer.Clear();
+            var filtered = _filteringBuffer;
+            var filteringSection = _filteringSectionBuffer;
             PawnDivider lastDivider = null;
 
             for (int i = 0; i < ordered.Count; i++)

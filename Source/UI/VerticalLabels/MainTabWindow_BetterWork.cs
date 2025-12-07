@@ -549,6 +549,35 @@ namespace Better_Work_Tab.UI
     float totalWidth,
     float totalHeight)
         {
+            WorkTabLayoutColumn? hoveredColumn = null;
+            WorkTypeDef hoveredWorkType = null;
+
+            if (BetterWorkTabMod.Settings.ShowCursorPawnAndWorktypeHighlight)
+            {
+                float currentX = 0f;
+
+                for (int i = 0; i < columns.Count; i++)
+                {
+                    var col = columns[i];
+                    var columnRect = new Rect(currentX, 0f, col.Width, totalHeight);
+
+                    if (Mouse.IsOver(columnRect))
+                    {
+                        hoveredColumn = col;
+                        hoveredWorkType = col.Column?.workType;
+                        break;
+                    }
+
+                    currentX += col.Width;
+                }
+            }
+
+            MouseStateManager.UpdateHoverState(hoveredColumn);
+
+            var cachedSimilarWorktypes = hoveredWorkType != null
+                ? WorkColumnOrderManager.GetSimilarWorktypes(hoveredWorkType)
+                : null;
+
             // Get float menu highlight state (persists across frames)
             Pawn highlightedPawn = PawnTable_HighlightRowAndColumn.GetHighlightedPawn();
             WorkTypeDef highlightedWorkType = PawnTable_HighlightRowAndColumn.GetHighlightedWorkType();
@@ -609,53 +638,20 @@ namespace Better_Work_Tab.UI
                 }
                 // Highlight hovered column and related worktypes
                 else if (isWorkColumn &&
-                    BetterWorkTabMod.Settings.ShowCursorPawnAndWorktypeHighlight &&
-                    Mouse.IsOver(columnRect))
+                         BetterWorkTabMod.Settings.ShowCursorPawnAndWorktypeHighlight &&
+                         hoveredWorkType != null &&
+                         hoveredWorkType == column.Column.workType)
                 {
                     Color useColor = BetterWorkTabMod.Settings.Color_MouseHoverHighlight;
                     Widgets.DrawBoxSolid(columnRect, useColor);
                     Widgets.DrawHighlight(columnRect);
-
-                    // Also highlight columns that share relevant skills (dimmer highlight)
-                    DrawSimilarWorktypeHighlights(column, columns, totalHeight);
                 }
-
-                startingX += column.Width;
-            }
-        }
-
-        /// <summary>
-        /// Helper for DrawAllHighlights: highlights other columns that share relevant skills
-        /// with the currently hovered worktype column.
-        /// </summary>
-        private void DrawSimilarWorktypeHighlights(
-            WorkTabLayoutColumn hoveredColumn,
-            IReadOnlyList<WorkTabLayoutColumn> allColumns,
-            float totalHeight)
-        {
-            var hoveredWorkType = hoveredColumn.Column.workType;
-            var relevantSkills = hoveredWorkType.relevantSkills;
-
-            float startingX = 0f;
-            for (int i = 0; i < allColumns.Count; i++)
-            {
-                var column = allColumns[i];
-                bool isWorkColumn = column.Column?.Worker is PawnColumnWorker_WorkPriority;
-
-                // Skip the column we're already hovering over
-                if (isWorkColumn && column.Column.workType != hoveredWorkType)
+                else if (isWorkColumn &&
+                         cachedSimilarWorktypes != null &&
+                         cachedSimilarWorktypes.Contains(column.Column.workType))
                 {
-                    // Check if this column shares any relevant skills
-                    foreach (var skill in relevantSkills)
-                    {
-                        if (column.Column.workType.relevantSkills.Contains(skill))
-                        {
-                            Rect columnRect = new Rect(startingX, 0f, column.Width, totalHeight);
-                            Widgets.DrawBoxSolid(columnRect, BetterWorkTabMod.Settings.Color_SimilarWorktypeMouseOver);
-                            Widgets.DrawHighlight(columnRect);
-                            break; // Only highlight once per column
-                        }
-                    }
+                    Widgets.DrawBoxSolid(columnRect, BetterWorkTabMod.Settings.Color_SimilarWorktypeMouseOver);
+                    Widgets.DrawHighlight(columnRect);
                 }
 
                 startingX += column.Width;
@@ -1097,6 +1093,7 @@ namespace Better_Work_Tab.UI
             base.PostClose();
             // Clear float menu highlights when Work tab is closed
             PawnTable_HighlightRowAndColumn.ClearWorktypeHighlight();
+            MouseStateManager.ClearHover();
         }
     }
 }
