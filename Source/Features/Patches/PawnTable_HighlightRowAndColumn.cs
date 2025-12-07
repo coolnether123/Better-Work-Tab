@@ -9,146 +9,322 @@ namespace Better_Work_Tab.Patches
     [HarmonyPatch(typeof(PawnTable), nameof(PawnTable.PawnTableOnGUI))]
     public static class PawnTable_HighlightRowAndColumn
     {
-        public static WorkTypeDef worktypeToHighlight { get; set; }
+        // Float menu highlighting - persists until cleared
+        private static Pawn _floatMenuHighlightedPawn;
+        private static WorkTypeDef _floatMenuHighlightedWorkType;
 
-
-        public static void SetWorktypeToHighlight(WorkTypeDef wt)
+        /// <summary>
+        /// Called when a pawn is right-clicked and "Assign Work" is selected from the float menu.
+        /// Stores the pawn and work type to highlight until manually cleared.
+        /// </summary>
+        public static void SetWorktypeToHighlight(Pawn pawn, WorkTypeDef workType)
         {
-            worktypeToHighlight = wt;
+            _floatMenuHighlightedPawn = pawn;
+            _floatMenuHighlightedWorkType = workType;
+        }
+
+        /// <summary>
+        /// Clears the float menu highlight (call when Work tab is closed or after some time).
+        /// </summary>
+        public static void ClearWorktypeHighlight()
+        {
+            _floatMenuHighlightedPawn = null;
+            _floatMenuHighlightedWorkType = null;
+        }
+
+        /// <summary>
+        /// Gets the currently highlighted pawn from float menu selection.
+        /// </summary>
+        public static Pawn GetHighlightedPawn()
+        {
+            return _floatMenuHighlightedPawn;
+        }
+
+        /// <summary>
+        /// Gets the currently highlighted work type from float menu selection.
+        /// </summary>
+        public static WorkTypeDef GetHighlightedWorkType()
+        {
+            return _floatMenuHighlightedWorkType;
         }
 
         static void Prefix(PawnTable __instance, Vector2 position)
         {
-            //Skip if the feature is disabled
-            if (!BetterWorkTabMod.Settings.ShowPawnAndWorktypeHighlights) return;
+            if (!BetterWorkTabMod.Settings.ShowPawnAndWorktypeHighlights)
+                return;
 
-            //get all worktype columns to filter out non-worktype columns
-            var worktypeColumns = __instance.columns.FindAll((a) => { return a.workerClass == typeof(PawnColumnWorker_WorkPriority); });
+            var worktypeColumns = __instance.columns.FindAll(
+                a => a.workerClass == typeof(PawnColumnWorker_WorkPriority));
 
-            //if there are no worktype columns, this is not the worktab, so skip
-            if (!worktypeColumns.Any()) return;
+            if (!worktypeColumns.Any())
+                return;
 
-            //calculate total width and height of the table
-            float totalWidth = 0f;
-            foreach (var col in __instance.cachedColumnWidths)
+            // Handle float menu highlighting first (takes priority over hover highlighting)
+            if (BetterWorkTabMod.Settings.ShowFloatMenuPawnAndWorktypeHighlight &&
+                _floatMenuHighlightedPawn != null &&
+                _floatMenuHighlightedWorkType != null)
             {
-                totalWidth += col;
+                HighlightFloatMenuSelection(__instance, position);
+                return; // Skip hover highlighting when float menu highlight is active
             }
 
-            float totalHeight = 0f;
-            foreach (var col in __instance.cachedRowHeights)
-            {
-                totalHeight += col;
-            }
+            // ===== GET MOUSE POSITION FIRST =====
+            Vector2 mousePos = Event.current.mousePosition;
 
-            //vanilla scrollview setup. This makes it so the highlights scroll with the table, and stay within the table bounds
-            Rect outRect = new Rect((int)position.x, (int)position.y + (int)__instance.cachedHeaderHeight, (int)__instance.cachedSize.x, (int)__instance.cachedSize.y - (int)__instance.cachedHeaderHeight);
-            Rect viewRect = new Rect(0f, 0f, outRect.width - 16f, (int)__instance.cachedHeightNoScrollbar - (int)__instance.cachedHeaderHeight);
-            Widgets.BeginScrollView(outRect, ref __instance.scrollPosition, viewRect);
+            Rect tableArea = new Rect(
+                position.x,
+                position.y + __instance.cachedHeaderHeight,
+                __instance.cachedSize.x,
+                __instance.cachedSize.y);
 
-            //Run code for highlighting pawn rows and worktype columns. Each method handles whether to highlight based on settings.
-            HighlightPawn(__instance, position, totalWidth);
+            // EARLY EXIT if mouse not over table
+            if (!Mouse.IsOver(tableArea))
+                return;
 
-            HighlightWorktype(__instance, position, totalHeight);
+            // ===== CALCULATE WHICH ROW/COLUMN MOUSE IS OVER =====
+            int hoveredRowIndex = GetRowIndexAtMouseY(
+                __instance,
+                position,
+                mousePos.y);
 
-            Widgets.EndScrollView();
+            int hoveredColumnIndex = GetColumnIndexAtMouseX(
+                __instance,
+                position,
+                mousePos.x);
 
+            // ===== ONLY DRAW FOR THAT ROW/COLUMN =====
+            if (hoveredRowIndex >= 0)
+                HighlightSingleRow(__instance, position, hoveredRowIndex);
+
+            if (hoveredColumnIndex >= 0)
+                HighlightSingleColumn(__instance, position, hoveredColumnIndex);
         }
 
-        private static void HighlightPawn(PawnTable __instance, Vector2 position, float totalWidth)
+        /// <summary>
+        /// Highlights the pawn and work type that were selected from the float menu context.
+        /// </summary>
+        private static void HighlightFloatMenuSelection(PawnTable table, Vector2 position)
         {
-            //each row starts at the same x position, but the y position increases by the height of each row
-            float startingY = 0;
-            for (int i = 0; i < __instance.cachedPawns.Count; i++)
-            {
-                //create a rect that covers the entire row for this pawn
-                var rect = new Rect(position.x, startingY, totalWidth, __instance.cachedRowHeights[i]);
+            // Find and highlight the row for the selected pawn
+            int pawnRowIndex = table.cachedPawns.IndexOf(_floatMenuHighlightedPawn);
+            if (pawnRowIndex >= 0)
+                HighlightRowWithColor(table, position, pawnRowIndex, BetterWorkTabMod.Settings.Color_FloatMenuHighlight);
 
-                //highlight if selected
-                if (Find.Selector.IsSelected(__instance.cachedPawns[i]))
-                    //use float menu color if opened that way
-                    if (BetterWorkTabMod.Settings.ShowFloatMenuPawnAndWorktypeHighlight && worktypeToHighlight != null)
-                        Widgets.DrawBoxSolid(rect, BetterWorkTabMod.Settings.Color_FloatMenuHighlight);
-                    //otherwise use selected color
-                    else if (BetterWorkTabMod.Settings.DoSelectedPawnHighlight)
-                        Widgets.DrawBoxSolid(rect, BetterWorkTabMod.Settings.Color_CursorHighlight);
+            // Find and highlight the column for the selected work type
+            int workTypeColumnIndex = table.columns.FindIndex(
+                c => c.Worker is PawnColumnWorker_WorkPriority && c.workType == _floatMenuHighlightedWorkType);
 
-                //highlight if mouse is over
-                if (BetterWorkTabMod.Settings.ShowCursorPawnAndWorktypeHighlight && Mouse.IsOver(rect) && __instance.columns[i].Worker is PawnColumnWorker_WorkPriority)
-                {
-                    Color useColor = BetterWorkTabMod.Settings.Color_MouseHoverHighlight;
-                    //Log.Message($"Using hover color: {useColor}, Custom enabled: {BetterWorkTabMod.Settings.UseCustomMouseHoverHighlight}");
-                    Widgets.DrawBoxSolid(rect, useColor);
-                    Widgets.DrawHighlight(rect);
-                }
-
-                    //increment startingY for next row
-                    startingY += __instance.cachedRowHeights[i];
-            }
+            if (workTypeColumnIndex >= 0)
+                HighlightColumnWithColor(table, position, workTypeColumnIndex, BetterWorkTabMod.Settings.Color_FloatMenuHighlight);
         }
 
-        private static void HighlightWorktype(PawnTable __instance, Vector2 position, float totalHeight)
+        /// <summary>
+        /// Highlights a specific row with the given color.
+        /// </summary>
+        private static void HighlightRowWithColor(
+            PawnTable table,
+            Vector2 position,
+            int rowIndex,
+            Color highlightColor)
         {
+            if (rowIndex < 0 || rowIndex >= table.cachedRowHeights.Count)
+                return;
 
-            //each column starts at the same y position, but the x position increases by the width of each column
-            float startingX = 0;
-            for (int i = 0; i < __instance.columns.Count; i++)
-            {
-                //create a rect that covers the entire column for this worktype
-                var rect = new Rect(startingX, 0, __instance.cachedColumnWidths[i], totalHeight);
+            float rowY = CalculateRowY(table, position, rowIndex);
+            float totalWidth = table.cachedColumnWidths.Sum();
 
-                //highlight if opened from float menu
-                if (BetterWorkTabMod.Settings.ShowFloatMenuPawnAndWorktypeHighlight && worktypeToHighlight == __instance.columns[i].workType && __instance.columns[i].Worker is PawnColumnWorker_WorkPriority)
-                    Widgets.DrawBoxSolid(rect, BetterWorkTabMod.Settings.Color_FloatMenuHighlight);
-
-                //highlight if mouse is over
-                if (BetterWorkTabMod.Settings.ShowCursorPawnAndWorktypeHighlight && Mouse.IsOver(rect) && __instance.columns[i].Worker is PawnColumnWorker_WorkPriority)
-                {
-
-                    Color useColor = BetterWorkTabMod.Settings.Color_MouseHoverHighlight;
-                    //Log.Message($"[HighlightWorktype] Custom enabled: {BetterWorkTabMod.Settings.UseCustomMouseHoverHighlight}, Using color: R={useColor.r:F2} G={useColor.g:F2} B={useColor.b:F2} A={useColor.a:F2}");
-
-                    Widgets.DrawBoxSolid(rect, BetterWorkTabMod.Settings.Color_MouseHoverHighlight);
-                    Widgets.DrawHighlight(rect);
-                    if (!(__instance.columns[i].Worker is PawnColumnWorker_WorkPriority)) continue;
-                    HighlightSimilarWorktypes(__instance.columns[i].workType, __instance.columns.Count, i, __instance, totalHeight);
-                }
-                //increment startingX for next column
-                startingX += __instance.cachedColumnWidths[i];
-
-            }
-
+            var rect = new Rect(position.x, rowY, totalWidth, table.cachedRowHeights[rowIndex]);
+            Widgets.DrawBoxSolid(rect, highlightColor);
+            Widgets.DrawHighlight(rect);
         }
 
-        private static void HighlightSimilarWorktypes(WorkTypeDef worktype, int columnCount, int myIndex, PawnTable __instance, float totalHeight)
+        /// <summary>
+        /// Highlights a specific column with the given color.
+        /// </summary>
+        private static void HighlightColumnWithColor(
+            PawnTable table,
+            Vector2 position,
+            int columnIndex,
+            Color highlightColor)
+        {
+            if (columnIndex < 0 || columnIndex >= table.cachedColumnWidths.Count)
+                return;
+
+            float columnX = CalculateColumnX(table, position, columnIndex);
+            float totalHeight = table.cachedRowHeights.Sum() + table.cachedHeaderHeight;
+
+            var rect = new Rect(
+                columnX,
+                position.y,
+                table.cachedColumnWidths[columnIndex],
+                totalHeight);
+
+            Widgets.DrawBoxSolid(rect, highlightColor);
+            Widgets.DrawHighlight(rect);
+        }
+
+        /// <summary>
+        /// Calculates the Y position of a row based on cumulative row heights.
+        /// </summary>
+        private static float CalculateRowY(PawnTable table, Vector2 position, int rowIndex)
+        {
+            float y = position.y + table.cachedHeaderHeight;
+            for (int i = 0; i < rowIndex; i++)
+                y += table.cachedRowHeights[i];
+            return y;
+        }
+
+        /// <summary>
+        /// Calculates the X position of a column based on cumulative column widths.
+        /// </summary>
+        private static float CalculateColumnX(PawnTable table, Vector2 position, int columnIndex)
+        {
+            float x = position.x;
+            for (int i = 0; i < columnIndex; i++)
+                x += table.cachedColumnWidths[i];
+            return x;
+        }
+
+        // Get which row index the mouse Y is currently over
+        private static int GetRowIndexAtMouseY(
+            PawnTable table,
+            Vector2 tableOrigin,
+            float mouseY)
+        {
+            float cumulativeY = tableOrigin.y + table.cachedHeaderHeight;
+
+            for (int i = 0; i < table.cachedRowHeights.Count; i++)
+            {
+                cumulativeY += table.cachedRowHeights[i];
+                if (mouseY < cumulativeY)
+                    return i;
+            }
+
+            return -1; // Not over any row
+        }
+
+        // Get which column index the mouse X is currently over
+        private static int GetColumnIndexAtMouseX(
+            PawnTable table,
+            Vector2 tableOrigin,
+            float mouseX)
+        {
+            float cumulativeX = tableOrigin.x;
+
+            for (int i = 0; i < table.cachedColumnWidths.Count; i++)
+            {
+                cumulativeX += table.cachedColumnWidths[i];
+                if (mouseX < cumulativeX)
+                    return i;
+            }
+
+            return -1; // Not over any column
+        }
+
+        // Only highlight the ONE row mouse is over
+        private static void HighlightSingleRow(
+            PawnTable table,
+            Vector2 position,
+            int rowIndex)
+        {
+            if (rowIndex < 0 || rowIndex >= table.cachedPawns.Count)
+                return;
+
+            float rowY = CalculateRowY(table, position, rowIndex);
+            float totalWidth = table.cachedColumnWidths.Sum();
+
+            var rect = new Rect(position.x, rowY, totalWidth, table.cachedRowHeights[rowIndex]);
+
+            // Highlight logic
+            if (BetterWorkTabMod.Settings.DoSelectedPawnHighlight &&
+                Find.Selector.IsSelected(table.cachedPawns[rowIndex]))
+            {
+                Widgets.DrawBoxSolid(rect, BetterWorkTabMod.Settings.Color_CursorHighlight);
+            }
+
+            if (BetterWorkTabMod.Settings.ShowCursorPawnAndWorktypeHighlight)
+            {
+                Widgets.DrawBoxSolid(rect, BetterWorkTabMod.Settings.Color_MouseHoverHighlight);
+                Widgets.DrawHighlight(rect);
+            }
+        }
+
+        // Only highlight the ONE column mouse is over
+        private static void HighlightSingleColumn(
+            PawnTable table,
+            Vector2 position,
+            int colIndex)
+        {
+            if (colIndex < 0 || colIndex >= table.columns.Count)
+                return;
+
+            if (!(table.columns[colIndex].Worker is PawnColumnWorker_WorkPriority))
+                return;
+
+            float columnX = CalculateColumnX(table, position, colIndex);
+            float totalHeight = table.cachedRowHeights.Sum() + table.cachedHeaderHeight;
+
+            var rect = new Rect(
+                columnX,
+                position.y,
+                table.cachedColumnWidths[colIndex],
+                totalHeight);
+
+            Widgets.DrawBoxSolid(rect, BetterWorkTabMod.Settings.Color_MouseHoverHighlight);
+            Widgets.DrawHighlight(rect);
+
+            // Highlight similar work types
+            if (table.columns[colIndex].workType != null)
+            {
+                HighlightSimilarWorktypes(
+                    table.columns[colIndex].workType,
+                    table,
+                    position,
+                    colIndex,
+                    totalHeight);
+            }
+        }
+
+        private static void HighlightSimilarWorktypes(
+            WorkTypeDef worktype,
+            PawnTable table,
+            Vector2 position,
+            int myIndex,
+            float totalHeight)
         {
             var relevantSkills = worktype.relevantSkills;
-            float startingX = 0;
+            float startingX = position.x;
 
-            for (int i = 0; i < columnCount; i++)
+            for (int i = 0; i < table.columns.Count; i++)
             {
-
-                if (__instance.columns[i].Worker is PawnColumnWorker_WorkPriority)
+                if (!(table.columns[i].Worker is PawnColumnWorker_WorkPriority))
                 {
-                    var rect = new Rect(startingX, 0, __instance.cachedColumnWidths[i], totalHeight);
+                    startingX += table.cachedColumnWidths[i];
+                    continue;
+                }
+
+                if (i != myIndex && table.columns[i].workType != null)
+                {
+                    // Only check if they share skills
                     foreach (var skill in relevantSkills)
                     {
-                        if (__instance.columns[i].workType.relevantSkills.Contains(skill))
+                        if (table.columns[i].workType.relevantSkills.Contains(skill))
                         {
-                            if (i != myIndex)
-                            {
-                                Widgets.DrawBoxSolid(rect, BetterWorkTabMod.Settings.Color_SimilarWorktypeMouseOver);
-                                Widgets.DrawHighlight(rect);
+                            var rect = new Rect(
+                                startingX,
+                                position.y,
+                                table.cachedColumnWidths[i],
+                                totalHeight);
 
-                            }
+                            Widgets.DrawBoxSolid(rect, BetterWorkTabMod.Settings.Color_SimilarWorktypeMouseOver);
+                            Widgets.DrawHighlight(rect);
+                            break; // Found match, move to next column
                         }
                     }
                 }
-                startingX += __instance.cachedColumnWidths[i];
 
+                startingX += table.cachedColumnWidths[i];
             }
-
         }
-
     }
 }

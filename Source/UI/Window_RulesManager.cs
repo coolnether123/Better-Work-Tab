@@ -1,5 +1,6 @@
 ﻿using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.Rules;
+using Better_Work_Tab.Patches;
 using HarmonyLib;
 using RimWorld;
 using Spine.DragDropApi;

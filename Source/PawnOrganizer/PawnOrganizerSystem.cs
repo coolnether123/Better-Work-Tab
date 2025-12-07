@@ -1,9 +1,10 @@
-using System;
 using Better_Work_Tab.DragDrop;
 using Better_Work_Tab.Features;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.PawnOrganizer.Data;
+using Better_Work_Tab.UI;
 using RimWorld;
+using System;
 using UnityEngine;
 using Verse;
 
@@ -23,6 +24,8 @@ namespace Better_Work_Tab.PawnOrganizer
         // Active drag handlers
         private RowDragHandler _activeRowDrag;
         private ColumnDragHandler _activeColumnDrag;
+
+        private MainTabWindow_BetterWork _currentWorkTab;
 
         // Pending drag detection state - for threshold-based drag initiation
         private bool _hasPendingDrag;
@@ -119,6 +122,11 @@ namespace Better_Work_Tab.PawnOrganizer
             {
                 Log.Error($"[BWT] PawnOrganizerSystem.HandleInput failed: {ex}");
             }
+        }
+
+        public void SetCurrentWorkTab(MainTabWindow_BetterWork workTab)
+        {
+            _currentWorkTab = workTab;
         }
 
         /// <summary>
