@@ -28,10 +28,6 @@ namespace Better_Work_Tab.UI
         private const float RightEdgeMargin = 10f;
         private const float InfoIconSize = 24f;
 
-        private static bool _columnsReordered;
-        private static readonly HashSet<string> _movedColumns = new HashSet<string>();
-        private static readonly Color ColumnReorderTint = new Color(1f, 0.85f, 0.2f, 0.28f);
-
         private PawnColumnDef _lastSortColumn;
         private bool _lastSortDescending;
 
@@ -69,16 +65,57 @@ namespace Better_Work_Tab.UI
                 new PawnOrganizerSystem(widthStore);
             }
 
-            // Check if columns are already out of order from a saved game
-            CheckAndMarkReorderedColumns();
+            // Sync the dragged columns list on open in case settings were loaded from disk
+            SyncDraggedColumnsWithCurrentOrder();
         }
 
-        private void CheckAndMarkReorderedColumns()
+        /// <summary>
+        /// Synchronizes the player-dragged columns list with the current column order.
+        /// Removes any columns from the dragged list that are now back in their vanilla position.
+        /// This handles the case where saved settings had dragged columns but they've since been reset.
+        /// </summary>
+        private void SyncDraggedColumnsWithCurrentOrder()
         {
-            // Ensure saved order matches current live table:
-            WorkColumnOrderManager.CaptureCurrent(PawnTableDefOf.Work);
+            var settings = BetterWorkTabMod.Settings;
+            if (settings?.playerDraggedColumns == null)
+                return;
 
-            RecomputeMovedColumnsFromCurrentOrder();
+            var vanillaOrder = WorkColumnOrderManager.GetVanillaOrder();
+            if (vanillaOrder == null || vanillaOrder.Count == 0)
+                return;
+
+            var def = PawnTableDefOf.Work;
+            if (def?.columns == null)
+                return;
+
+            var currentOrder = def.columns
+                .Where(c => c.Worker is PawnColumnWorker_WorkPriority && c.workType != null)
+                .Select(c => c.workType.defName)
+                .ToList();
+
+            // Remove any dragged columns that are now back in vanilla position
+            var toRemove = new List<string>();
+            foreach (var defName in settings.playerDraggedColumns)
+            {
+                int vanillaPos = vanillaOrder.IndexOf(defName);
+                int currentPos = currentOrder.IndexOf(defName);
+
+                // If the column is back in its vanilla spot, unmark it
+                if (vanillaPos >= 0 && vanillaPos == currentPos)
+                {
+                    toRemove.Add(defName);
+                }
+            }
+
+            foreach (var defName in toRemove)
+            {
+                settings.playerDraggedColumns.Remove(defName);
+            }
+
+            if (toRemove.Count > 0)
+            {
+                settings.Write();
+            }
         }
 
         public override void DoWindowContents(Rect inRect)
@@ -326,9 +363,6 @@ namespace Better_Work_Tab.UI
             {
                 bool isWorkColumn = column.Column?.Worker is PawnColumnWorker_WorkPriority;
                 var workType = column.Column?.workType;
-                // Check if THIS specific column is out of vanilla position
-                bool isOutOfVanilla = workType != null && IsColumnOutOfVanillaPosition(workType);
-                bool showReorder = _columnsReordered && isWorkColumn && workType != null && isOutOfVanilla;
 
                 if (BetterWorkTabMod.Settings.ShowCursorPawnAndWorktypeHighlight && isWorkColumn && Mouse.IsOver(column.HeaderRect))
                 {
@@ -342,14 +376,40 @@ namespace Better_Work_Tab.UI
         }
 
         /// <summary>
-        /// Checks if the column order has been modified from vanilla.
+        /// Checks if a column should show the yellow asterisk marker.
+        /// A column is marked only if:
+        /// 1. The player directly dragged it (recorded in playerDraggedColumns), AND
+        /// 2. It is currently out of its vanilla position
+        /// 
+        /// Columns that shifted as a side effect of another drag are NOT marked.
+        /// </summary>
+        internal static bool ShouldShowColumnMarker(WorkTypeDef workType)
+        {
+            if (workType?.defName == null)
+                return false;
+
+            var settings = BetterWorkTabMod.Settings;
+            if (settings == null)
+                return false;
+
+            // First check: was this column directly dragged by the player?
+            if (!settings.WasColumnDraggedByPlayer(workType.defName))
+                return false;
+
+            // Second check: is it currently out of vanilla position?
+            return IsColumnOutOfVanillaPosition(workType);
+        }
+
+        /// <summary>
+        /// Checks if a column's current position differs from its vanilla position.
+        /// This is a pure position check with no marking logic.
         /// </summary>
         private static bool IsColumnInVanillaPosition(WorkTypeDef workType)
         {
-            if (workType?.defName == null) return true;  // Assume vanilla if unknown
+            if (workType?.defName == null) return true;
 
             var vanillaOrder = WorkColumnOrderManager.GetVanillaOrder();
-            if (vanillaOrder?.Count == 0) return true;  // Can't determine, assume vanilla
+            if (vanillaOrder?.Count == 0) return true;
 
             var def = PawnTableDefOf.Work;
             if (def?.columns == null) return true;
@@ -362,137 +422,54 @@ namespace Better_Work_Tab.UI
             int vanillaPos = vanillaOrder.IndexOf(workType.defName);
             int currentPos = currentOrder.IndexOf(workType.defName);
 
-            if (vanillaPos < 0 || currentPos < 0) return true;  // Not found, assume vanilla
+            if (vanillaPos < 0 || currentPos < 0) return true;
 
             return vanillaPos == currentPos;
         }
 
-        // Use the single method everywhere
+        /// <summary>
+        /// Returns true if the column is NOT in its vanilla position.
+        /// </summary>
         internal static bool IsColumnOutOfVanillaPosition(WorkTypeDef workType)
         {
             return !IsColumnInVanillaPosition(workType);
         }
 
-        internal static bool IsColumnMarkedAsMoved(WorkTypeDef workType)
-        {
-            return !IsColumnInVanillaPosition(workType);  // Consistent
-        }
-
-
-        private void DrawColumnReorderMarker(Rect headerRect)
-        {
-            var prevAnchor = Text.Anchor;
-            var prevFont = Text.Font;
-            var prevColor = GUI.color;
-
-            Text.Anchor = TextAnchor.UpperCenter;
-            Text.Font = GameFont.Tiny;
-            GUI.color = new Color(1f, 0.92f, 0.25f);
-
-            Rect starRect = new Rect(headerRect.x, headerRect.y + 2f, headerRect.width, 12f);
-            Widgets.Label(starRect, "*");
-
-            GUI.color = prevColor;
-            Text.Font = prevFont;
-            Text.Anchor = prevAnchor;
-        }
-
+        /// <summary>
+        /// Called after a column drag completes. Records that this specific column was
+        /// directly dragged by the player, then updates its marking status based on
+        /// whether it ended up out of vanilla position.
+        /// </summary>
         [SyncMethod]
         internal static void MarkColumnMoved(WorkTypeDef workType)
         {
-            if (workType?.defName == null) return;
-
-            var vanillaOrder = WorkColumnOrderManager.GetVanillaOrder();
-            if (vanillaOrder?.Count == 0)
-            {
-                Log.Warning("[BWT] Vanilla column order not available.");
+            if (workType?.defName == null)
                 return;
-            }
 
-            // Read from LIVE table
-            var def = PawnTableDefOf.Work;
-            if (def?.columns == null) return;
-
-            var liveOrder = def.columns
-                .Where(c => c.Worker is PawnColumnWorker_WorkPriority && c.workType != null)
-                .Select(c => c.workType.defName)
-                .ToList();
-
-            if (liveOrder.Count == 0) return;
-
-            int vanillaPos = vanillaOrder.IndexOf(workType.defName);
-            int livePos = liveOrder.IndexOf(workType.defName);
-
-            if (vanillaPos < 0)
-            {
-                Log.Warning($"[BWT] Worktype {workType.defName} not in vanilla order.");
+            var settings = BetterWorkTabMod.Settings;
+            if (settings == null)
                 return;
+
+            // Record that the player dragged this column
+            settings.RecordPlayerDraggedColumn(workType.defName);
+
+            // If the column ended up back in vanilla position, remove it from the dragged list
+            if (IsColumnInVanillaPosition(workType))
+            {
+                settings.playerDraggedColumns.Remove(workType.defName);
             }
 
-            if (livePos < 0)
-            {
-                Log.Warning($"[BWT] Worktype {workType.defName} not in live order.");
-                return;
-            }
-
-            if (vanillaPos == livePos)
-            {
-                _movedColumns.Remove(workType.defName);
-            }
-            else
-            {
-                _movedColumns.Add(workType.defName);
-            }
-
-            _columnsReordered = _movedColumns.Count > 0;
+            settings.Write();
         }
 
-
-        internal static void ClearAllMovedMarks()
+        /// <summary>
+        /// Clears all column markers. Called when resetting to vanilla order.
+        /// </summary>
+        internal static void ClearAllColumnMarkers()
         {
-            _movedColumns.Clear();
-            _columnsReordered = false;
-        }
-
-        internal static bool ColumnsReordered => _columnsReordered;
-
-        private static void RecomputeMovedColumnsFromCurrentOrder()
-        {
-            _movedColumns.Clear();
-
-            var def = PawnTableDefOf.Work;
-            if (def?.columns == null)
-            {
-                _columnsReordered = false;
-                return;
-            }
-
-            // Use the actual current table order instead of relying solely on settings
-            var currentOrder = def.columns
-                .Where(c => c.Worker is PawnColumnWorker_WorkPriority && c.workType != null)
-                .Select(c => c.workType.defName)
-                .ToList();
-
-            var vanillaOrder = WorkColumnOrderManager.GetVanillaOrder();
-
-            if (vanillaOrder == null || vanillaOrder.Count == 0 ||
-                currentOrder == null || currentOrder.Count == 0)
-            {
-                _columnsReordered = false;
-                return;
-            }
-
-            for (int i = 0; i < currentOrder.Count; i++)
-            {
-                string defName = currentOrder[i];
-                int vanillaPos = vanillaOrder.IndexOf(defName);
-                if (vanillaPos >= 0 && vanillaPos != i)
-                {
-                    _movedColumns.Add(defName);
-                }
-            }
-
-            _columnsReordered = _movedColumns.Count > 0;
+            var settings = BetterWorkTabMod.Settings;
+            settings?.ClearPlayerDraggedColumns();
+            settings?.Write();
         }
 
         public override void PostOpen()
@@ -500,8 +477,6 @@ namespace Better_Work_Tab.UI
             base.PostOpen();
             SpineTiming.NotifyWorkTabOpen(true);
         }
-
-
 
         private void DrawRows(PawnTable table, IWorkTabLayoutController layout, Rect outRect, Rect viewRect)
         {

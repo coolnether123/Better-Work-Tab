@@ -143,10 +143,12 @@ namespace Better_Work_Tab.DragDrop
                 def.columns.AddRange(post);
 
                 WorkColumnOrderManager.CaptureCurrent(def);
-                WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
-                MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+
+                // Record that this column was directly dragged by the player
                 MainTabWindow_BetterWork.MarkColumnMoved(_column.workType);
 
+                WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
+                MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
             }
 
             _isDragging = false;
