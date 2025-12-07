@@ -72,6 +72,7 @@
     <Compile Include="PawnOrganizer\API\IWorkTabLayoutController.cs" />
     <Compile Include="PawnOrganizer\API\PawnColorDatabase.cs" />
     <Compile Include="PawnOrganizer\API\PawnTextColorDatabase.cs" />
+    <Compile Include="PawnOrganizer\ObjectPools.cs" />
     <Compile Include="PawnOrganizer\Data\GameComponent_PawnColors.cs" />
     <Compile Include="PawnOrganizer\Data\PawnOrganizerData.cs" />
     <Compile Include="PawnOrganizer\Layout\WorkTabLayoutColumn.cs" />
@@ -107,6 +108,7 @@
     <Compile Include="UI\Dialog_RenameWorkload.cs" />
     <Compile Include="UI\VerticalLabels\AngledHeaderDrawer.cs" />
     <Compile Include="UI\HeaderButtons.cs" />
+    <Compile Include="UI\MouseStateManager.cs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Krafs.Publicizer">
