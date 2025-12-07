@@ -1,3 +1,4 @@
+using Better_Work_Tab.UI;
 using RimWorld;
 using System.Collections.Generic;
 using System.Linq;
@@ -168,6 +169,7 @@ namespace Better_Work_Tab.Features
 
         /// <summary>
         /// Resets work columns to their vanilla RimWorld order.
+        /// This also clears all player-dragged column markers since we're going back to the original layout.
         /// </summary>
         public static void ResetToVanilla()
         {
@@ -244,6 +246,9 @@ namespace Better_Work_Tab.Features
 
             // Clear the saved custom order
             BetterWorkTabMod.Settings.workColumnOrderDefNames.Clear();
+
+            // Clear all player-dragged column markers since we're back to vanilla
+            MainTabWindow_BetterWork.ClearAllColumnMarkers();
 
             // Remove stored column widths for work columns
             if (BetterWorkTabMod.Settings.storedColumnWidths != null)
