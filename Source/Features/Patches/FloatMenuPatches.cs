@@ -69,7 +69,8 @@ namespace Better_Work_Tab.Patches
                 // Add a new option to quickly navigate to the work tab to assign the work type.
                 Patch_FloatMenuOptionProvider_WorkGivers_GetWorkGiverOptionFor.AdditionalOptions.Add(new FloatMenuOption("BWTNotAssignedAssignWork".Translate(workType.gerundLabel), () =>
                 {
-                    HighlightManager.SetWorkTypeToHighlight(workType);
+                    // Highlight the pawn and work type when opening the work tab
+                    PawnTable_HighlightRowAndColumn.SetWorktypeToHighlight(pawn, workType);
                     Find.MainTabsRoot.SetCurrentTab(MainButtonDefOf.Work);
                 }, orderInPriority: (int)MenuOptionPriority.VeryLow));
 
