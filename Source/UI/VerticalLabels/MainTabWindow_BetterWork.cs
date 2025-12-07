@@ -242,13 +242,13 @@ namespace Better_Work_Tab.UI
                     // Use layout controller's content height (includes dividers)
                     float layoutHeight = organizer.Layout.HeaderHeight + organizer.Layout.ContentHeight;
                     finalHeight = layoutHeight + ExtraBottomSpace + ExtraTopSpace + Margin * 2f;
-                    finalWidth = table.Size.x + Margin * 2f;
+                    finalWidth = table.Size.x + Margin * 2f + 20f; // Added 20f to stop headers from clipping edge
                 }
                 else
                 {
                     // Fallback to vanilla size if organizer not ready
                     finalHeight = table.Size.y + ExtraBottomSpace + ExtraTopSpace + Margin * 2f;
-                    finalWidth = table.Size.x + Margin * 2f;
+                    finalWidth = table.Size.x + Margin * 2f + 20f; // Same as above
                 }
 
                 // Determine max height: use setting if configured, otherwise vanilla default (fill screen)
