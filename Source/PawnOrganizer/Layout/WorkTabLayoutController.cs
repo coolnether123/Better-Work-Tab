@@ -177,7 +177,8 @@ namespace Better_Work_Tab.PawnOrganizer
             {
                 if (element is DividerElement divEl)
                 {
-                    descriptors.Add(new RowDescriptor(divEl.Divider, divEl.Divider.Height));
+                    float height = Mathf.Clamp(divEl.Divider.Height, 10f, 80f);
+                    descriptors.Add(new RowDescriptor(divEl.Divider, height));
                 }
                 else if (element is PawnElement pawnEl)
                 {
@@ -551,10 +552,7 @@ namespace Better_Work_Tab.PawnOrganizer
 
                 if (element is PawnElement pawnElement)
                 {
-                    if (!pawnHeights.TryGetValue(pawnElement.Pawn, out height))
-                    {
-                        height = 30f;
-                    }
+                    height = PawnRowHeight;
                 }
                 else if (element is DividerElement dividerElement)
                 {
