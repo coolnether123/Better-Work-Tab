@@ -23,6 +23,7 @@ namespace Better_Work_Tab.PawnOrganizer
         private const float DefaultDividerHeight = 18f;
 
         private List<RowDescriptor> _cachedRowDescriptors;
+        private List<float> _cachedDescriptorHeights;
         private bool _rowDescriptorsDirty = true;
         private const float PawnRowHeight = 30f;
 
@@ -139,6 +140,11 @@ namespace Better_Work_Tab.PawnOrganizer
 
         /// <summary>
         /// Returns cached row descriptors; rebuilds from elements if cache is invalid.
+        /// 
+        /// IMPORTANT: Descriptors use RENDERING heights (PawnRowHeight constant for pawns,
+        /// raw Height for dividers). This differs from _rows which uses actual cached 
+        /// PawnTable heights. All hit-testing and visual line positioning must use 
+        /// GetRowDescriptors() heights to match what's actually drawn on screen.
         /// </summary>
         public List<RowDescriptor> GetRowDescriptors()
         {
@@ -175,7 +181,7 @@ namespace Better_Work_Tab.PawnOrganizer
                 }
                 else if (element is PawnElement pawnEl)
                 {
-                    descriptors.Add(new RowDescriptor(pawnEl.Pawn, PawnRowHeight));
+                    descriptors.Add(new RowDescriptor(pawnEl.Pawn, PawnRowHeight)); 
                 }
             }
 
@@ -239,6 +245,8 @@ namespace Better_Work_Tab.PawnOrganizer
 
                 BuildColumns();
                 BuildRows();
+
+                _rowDescriptorsDirty = true;
             }
             catch (Exception ex)
             {
@@ -270,20 +278,28 @@ namespace Better_Work_Tab.PawnOrganizer
                 return false;
             }
 
-            Log.Message($"[TryGetRowAt] contentY={contentY}, checking {_rows.Count} rows");
-            for (int i = 0; i < _rows.Count; i++)
+            var descriptors = GetRowDescriptors();
+
+            int count = Math.Min(descriptors.Count, _rows.Count);
+            if (count == 0)
             {
-                Log.Message($"  Row {i}: OffsetY={_rows[i].OffsetY}, Height={_rows[i].Height}, " +
-                    $"Range=[{_rows[i].OffsetY}, {_rows[i].OffsetY + _rows[i].Height})");
-                var candidate = _rows[i];
-                float rowStart = candidate.OffsetY;
-                float rowEnd = candidate.OffsetY + candidate.Height;
+                return false;
+            }
+
+            float cumulativeY = 0f;
+            for (int i = 0; i < descriptors.Count && i < _rows.Count; i++)
+            {
+                float rowHeight = descriptors[i].Height;
+                float rowStart = cumulativeY;
+                float rowEnd = cumulativeY + rowHeight;
 
                 if (contentY >= rowStart && contentY < rowEnd)
                 {
-                    row = candidate;
+                    row = _rows[i];
                     return true;
                 }
+
+                cumulativeY += rowHeight;
             }
             return false;
         }
