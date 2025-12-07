@@ -3,7 +3,7 @@ using HarmonyLib;
 using RimWorld;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection.Emit; // Required for Transpiler
+using System.Reflection.Emit;
 using UnityEngine;
 using Verse;
 
@@ -24,7 +24,7 @@ namespace Better_Work_Tab.UI
             var workType = __instance?.def?.workType;
             if (workType == null) return;
 
-            // 1. Cache mouse data once per frame
+            // 1. Cache mouse data once per frame to avoid redundant Event.current calls
             int currentFrame = Time.frameCount;
             if (_lastCachedFrame != currentFrame)
             {
@@ -33,13 +33,10 @@ namespace Better_Work_Tab.UI
 
                 // Reset hover cache for this frame
                 _cachedHoveredWorkType = null;
-
-                // We can't easily know WHICH rect is hovered here globally without a manager, 
-                // but we can check locally very cheaply now.
             }
 
             // 2. Update the global hover tracking if this specific rect is hovered
-            // (This replaces the old ColumnHoverManager logic)
+            // This replaces the old ColumnHoverManager logic
             if (rect.Contains(_cachedMousePos))
             {
                 _cachedHoveredWorkType = workType;
@@ -49,7 +46,9 @@ namespace Better_Work_Tab.UI
             AngledLabelDrawer.Draw(rect, workType, isMouseOver);
         }
 
-        // === RESTORED TRANSPILER: THIS HIDES THE VANILLA HEADERS ===
+        // === THIS HIDES THE VANILLA HEADERS ===
+        // The transpiler removes vanilla's header drawing code (DoRegion and DrawLineVertical calls)
+        // so our custom AngledLabelDrawer can take over completely.
         [HarmonyTranspiler]
         public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator il)
         {
@@ -94,6 +93,11 @@ namespace Better_Work_Tab.UI
         }
     }
 
+    /// <summary>
+    /// Handles the custom angled-text header drawing for work columns.
+    /// Displays the column name rotated -60 degrees and optionally adds a yellow
+    /// asterisk (*) for columns that were directly dragged by the player.
+    /// </summary>
     public static class AngledLabelDrawer
     {
         public const float ROTATION_ANGLE = -60f;
@@ -102,38 +106,47 @@ namespace Better_Work_Tab.UI
         private const float TEXT_UNDERLINE_GAP = 1f;
         private const bool DRAW_UNDERLINE = true;
 
+        // Cache text sizes to avoid recalculating them every frame
         private static Dictionary<string, (Vector2 size, int lastUsedFrame)> _textSizeCache =
-    new Dictionary<string, (Vector2, int)>(64);
+            new Dictionary<string, (Vector2, int)>(64);
 
         private const int TextCacheMaxSize = 100;
         private const int TextCacheInvalidateFrames = 300;  // ~5 seconds at 60fps
 
+        /// <summary>
+        /// Draws the angled header for a work column.
+        /// If the column was directly dragged by the player, appends an asterisk
+        /// and colors the text yellow to indicate it's been moved from vanilla position.
+        /// </summary>
         public static void Draw(Rect headerRect, WorkTypeDef workType, bool isMouseOver)
         {
             if (workType == null) return;
 
             string text = workType.labelShort.CapitalizeFirst();
-            bool isReordered = IsColumnReordered(workType);
-            string displayText = isReordered ? text + "*" : text;
+
+            // Check if this column should show a marker asterisk.
+            // Only columns directly dragged that are currently out of position get marked.
+            bool shouldShowMarker = MainTabWindow_BetterWork.ShouldShowColumnMarker(workType);
+            string displayText = shouldShowMarker ? text + "*" : text;
 
             int currentFrame = Time.frameCount;
 
-            // Try to get cached size
+            // Try to get cached size to avoid recalculating text dimensions
             if (_textSizeCache.TryGetValue(displayText, out var cached))
             {
-                // ✅ Update last-used frame and use cached size
+                // Update last-used frame and use cached size
                 _textSizeCache[displayText] = (cached.size, currentFrame);
-                DrawWithSize(headerRect, displayText, cached.size, isReordered, isMouseOver);
+                DrawWithSize(headerRect, displayText, cached.size, shouldShowMarker, isMouseOver);
                 return;
             }
 
-            // Calculate size
+            // Calculate size (this happens only if not cached)
             var oldFont = Text.Font;
             Text.Font = GameFont.Small;
             Vector2 textSize = Text.CalcSize(displayText);
             Text.Font = oldFont;
 
-            // ✅ Incremental eviction: remove oldest entry if at capacity
+            // Incremental eviction: remove oldest entry if at capacity
             if (_textSizeCache.Count >= TextCacheMaxSize)
             {
                 var oldest = _textSizeCache
@@ -142,21 +155,20 @@ namespace Better_Work_Tab.UI
                 _textSizeCache.Remove(oldest.Key);
             }
 
-            // Cache with timestamp
+            // Cache with timestamp for future frames
             _textSizeCache[displayText] = (textSize, currentFrame);
 
-            DrawWithSize(headerRect, displayText, textSize, isReordered, isMouseOver);
+            DrawWithSize(headerRect, displayText, textSize, shouldShowMarker, isMouseOver);
         }
 
-        private static bool IsColumnReordered(WorkTypeDef workType)
-        {
-            return MainTabWindow_BetterWork.IsColumnOutOfVanillaPosition(workType);
-        }
-
-
-        private static void DrawWithSize(Rect headerRect, string displayText, Vector2 textSize, bool isReordered, bool isMouseOver)
+        /// <summary>
+        /// Internal draw function that handles the actual rendering at a known text size.
+        /// Rotates the text -60 degrees around the pivot point and applies color/styling.
+        /// </summary>
+        private static void DrawWithSize(Rect headerRect, string displayText, Vector2 textSize, bool shouldShowMarker, bool isMouseOver)
         {
             float centerX = headerRect.x + headerRect.width * 0.5f;
+            // Pivot is at the bottom-center of the column, where text rotation originates
             Vector2 pivot = new Vector2(centerX, headerRect.yMax - STEM_BOTTOM_GAP);
 
             var savedMatrix = GUI.matrix;
@@ -172,8 +184,10 @@ namespace Better_Work_Tab.UI
                 float textWidth = textSize.x;
                 float lineHeight = textSize.y;
 
+                // Rotate around the pivot point (bottom-center)
                 GUIUtility.RotateAroundPivot(ROTATION_ANGLE, pivot);
 
+                // Draw mouse-over highlight if hovering
                 if (isMouseOver)
                 {
                     Rect highlightRect = new Rect(pivot.x, pivot.y - lineHeight, textWidth, lineHeight).ExpandedBy(2f);
@@ -182,6 +196,7 @@ namespace Better_Work_Tab.UI
                     GUI.color = Color.white;
                 }
 
+                // Draw underline beneath the text for visual clarity
                 if (DRAW_UNDERLINE)
                 {
                     Vector2 lineStart = new Vector2(pivot.x, pivot.y - TEXT_UNDERLINE_GAP);
@@ -189,8 +204,10 @@ namespace Better_Work_Tab.UI
                     Widgets.DrawLine(lineStart, lineEnd, Color.white, UNDERLINE_THICKNESS);
                 }
 
+                // Draw the text itself
+                // Color is yellow if marked, white otherwise
                 Text.Anchor = TextAnchor.LowerLeft;
-                GUI.color = isReordered ? new Color(1f, 0.85f, 0.2f, 1f) : Color.white;
+                GUI.color = shouldShowMarker ? new Color(1f, 0.85f, 0.2f, 1f) : Color.white;
                 var labelRect = new Rect(pivot.x, pivot.y - lineHeight, 200f, lineHeight);
                 Widgets.Label(labelRect, displayText);
             }
@@ -205,6 +222,7 @@ namespace Better_Work_Tab.UI
     }
 
     // === HEADER HEIGHT PATCH ===
+    // Increases header height to accommodate the angled text without clipping.
     [HarmonyPatch(typeof(PawnTable), "HeaderHeight", MethodType.Getter)]
     public static class Patch_PawnTable_HeaderHeight_Getter
     {
@@ -212,23 +230,27 @@ namespace Better_Work_Tab.UI
 
         public static void Postfix(ref float __result)
         {
+            // Only apply custom header height to the Work tab
             if (Find.MainTabsRoot?.OpenTab?.defName != "Work")
                 return;
 
+            // Cache the calculation to avoid recalculating every frame
             if (Event.current?.type == EventType.Layout && cachedAngleHeaderHeight > 0f)
             {
                 __result = Mathf.Max(__result, cachedAngleHeaderHeight);
                 return;
             }
 
+            // Calculate the space needed for rotated text.
+            // We use a representative string to get a typical text height.
             Text.Font = GameFont.Small;
-            // Use a fixed representative string for calc to avoid constant recalculation
             const string testLabel = "Priority hauling";
             Vector2 size = Text.CalcSize(testLabel);
 
+            // Calculate how much vertical space the rotated text needs
             float angleRad = Mathf.Abs(AngledLabelDrawer.ROTATION_ANGLE) * Mathf.Deg2Rad;
             float needed = Mathf.Abs(size.x * Mathf.Sin(angleRad)) + Mathf.Abs(size.y * Mathf.Cos(angleRad));
-            needed += 20f;
+            needed += 20f; // Add padding
 
             cachedAngleHeaderHeight = Mathf.Ceil(needed);
             __result = Mathf.Max(__result, cachedAngleHeaderHeight * 1.7f);
@@ -236,6 +258,8 @@ namespace Better_Work_Tab.UI
     }
 
     // === DISABLE VANILLA HIGHLIGHT PATCH ===
+    // Prevents vanilla from drawing its default header highlight on work columns,
+    // letting our custom AngledLabelDrawer handle all visual feedback.
     [HarmonyPatch(typeof(PawnColumnWorker), nameof(PawnColumnWorker.DoHeader))]
     public static class Patch_PawnColumnWorker_DoHeader_DisableHighlight
     {
@@ -246,6 +270,7 @@ namespace Better_Work_Tab.UI
             var drawHighlightMethod = AccessTools.Method(typeof(Widgets), nameof(Widgets.DrawHighlightIfMouseover));
             var workPriorityWorkerType = typeof(PawnColumnWorker_WorkPriority);
 
+            // Skip vanilla highlight drawing for work priority columns
             for (int i = 0; i < codes.Count; i++)
             {
                 if (codes[i].Calls(drawHighlightMethod))
