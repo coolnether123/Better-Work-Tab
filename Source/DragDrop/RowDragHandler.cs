@@ -5,6 +5,7 @@ using Better_Work_Tab.UI;
 using RimWorld;
 using Spine.DragDropApi;
 using Spine.DragDropApi.Util;
+using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using Verse;
@@ -25,6 +26,9 @@ namespace Better_Work_Tab.DragDrop
         private int _targetIndex = -1;
         private bool _isDragging = false;
 
+        private List<float> _cachedDescriptorHeights;
+        private int _lastDescriptorCount = -1;
+
         public int TargetIndex => _targetIndex;
 
         public RowDragHandler(IWorkTabLayoutController layout, WorkTabLayoutRow row, Vector2 startMouse)
@@ -35,6 +39,8 @@ namespace Better_Work_Tab.DragDrop
             _dragOffsetY = startMouse.y - _originalRect.y;
             _targetIndex = row.VisualIndex;
             _isDragging = true;
+
+            RefreshHeightCache();
         }
 
         public bool IsDragging => _isDragging;
@@ -45,23 +51,25 @@ namespace Better_Work_Tab.DragDrop
             float headerBottom = _layout.TableOrigin.y + _layout.HeaderHeight;
             float contentY = mousePos.y - headerBottom + _layout.Table.scrollPosition.y;
 
-            int newIndex = _layout.Rows.Count;
+            var descriptors = _layout.GetRowDescriptors();
+            int newIndex = descriptors.Count;
 
             // Midpoint semantics: if we're above the midpoint of row i,
             // we insert at i; otherwise we keep walking.
-            for (int i = 0; i < _layout.Rows.Count; i++)
+            float cumulativeY = 0f;
+            for (int i = 0; i < descriptors.Count; i++)
             {
-                var r = _layout.Rows[i];
-                float mid = r.OffsetY + (r.Height * 0.5f);
+                float mid = cumulativeY + (descriptors[i].Height * 0.5f);
 
                 if (contentY < mid)
                 {
                     newIndex = i;
                     break;
                 }
+                cumulativeY += descriptors[i].Height;
             }
 
-            _targetIndex = Mathf.Clamp(newIndex, 0, _layout.Rows.Count);
+            _targetIndex = Mathf.Clamp(newIndex, 0, descriptors.Count);
         }
 
         public void OnDrawOverlay()
@@ -75,19 +83,24 @@ namespace Better_Work_Tab.DragDrop
                 Rect ghostRect = _originalRect;
                 ghostRect.y = Event.current.mousePosition.y - _dragOffsetY;
 
-                string label = _draggedRow.Pawn?.LabelCap ?? _draggedRow.Divider?.DividerName ?? "";
+                // Handle potential null divider name
+                string label = _draggedRow.Pawn?.LabelCap
+                    ?? _draggedRow.Divider?.DividerName
+                    ?? "Divider";  // Fallback 
                 ListDragVisuals.DrawGhost(ghostRect, label);
             }
 
             if (_targetIndex >= 0)
             {
                 // Use ListDragVisuals + per-row heights so the insertion line is consistent
-                var heights = _layout.Rows.Select(r => r.Height).ToList();
+                var descriptors = _layout.GetRowDescriptors();
+                var heights = descriptors.Select(r => r.Height).ToList();
+
                 float headerBottom = _layout.TableOrigin.y + _layout.HeaderHeight;
 
                 float lineY = ListDragVisuals.GetInsertionLineY(
                     _targetIndex,
-                    heights,
+                    _cachedDescriptorHeights,
                     headerBottom,
                     _layout.Table.scrollPosition.y);
 
@@ -155,6 +168,25 @@ namespace Better_Work_Tab.DragDrop
 
 
             _isDragging = false;
+        }
+
+        private void RefreshHeightCache()
+        {
+            var descriptors = _layout.GetRowDescriptors();
+            if (_cachedDescriptorHeights == null || descriptors.Count != _lastDescriptorCount)
+            {
+                _cachedDescriptorHeights = new List<float>(descriptors.Count);
+                _lastDescriptorCount = descriptors.Count;
+            }
+            else
+            {
+                _cachedDescriptorHeights.Clear();
+            }
+
+            for (int i = 0; i < descriptors.Count; i++)
+            {
+                _cachedDescriptorHeights.Add(descriptors[i].Height);
+            }
         }
     }
 }
