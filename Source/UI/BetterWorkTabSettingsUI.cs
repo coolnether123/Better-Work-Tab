@@ -3,7 +3,7 @@ using Better_Work_Tab.Features.Rules;
 using RimWorld;
 using Spine.UI.ColourPicker;
 using Spine.UI.SettingsFramework;
-using Spine.UI.WidgetExtensions;
+using Spine.UI.WidgetExtensions; // Renamed file usage
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,90 +12,85 @@ using Verse;
 
 namespace Better_Work_Tab.UI
 {
-    /// <summary>
-    /// Main settings UI with category navigation and favorites support.
-    /// </summary>
     public static class BetterWorkTabSettingsUI
     {
-        private static Vector2 _scrollPosition;
+        private static Vector2 _mainScrollPosition;
         private static bool _initialized;
+        private static float _mainViewHeight = 1000f;
 
-        // Category definitions
+        // --- THE 6 BIG BUTTON CATEGORIES ---
         private static readonly List<CategoryDefinition> Categories = new List<CategoryDefinition>
         {
             new CategoryDefinition(
-                "autoassign",
-                "Auto-Assign Rules",
-                "Configure automatic work priority assignment rulesets",
-                DrawAutoAssignCategory),
+                "automation",
+                "Automation",
+                "Workloads, Auto-Assign rules, and manager behavior",
+                DrawAutomationCategory),
 
             new CategoryDefinition(
-                "layout",
-                "Layout & Interaction",
-                "Window behavior, drag settings, and display options",
-                DrawLayoutCategory),
+                "appearance",
+                "Appearance & Colors",
+                "Skill levels, custom UI styling, and theming",
+                DrawAppearanceCategory),
 
             new CategoryDefinition(
                 "overlay",
                 "Skill Overlay",
-                "Skill numbers, best pawn indicators, and overlay modes",
+                "Visuals shown when holding Shift (Skills/Passions)",
                 DrawSkillOverlayCategory),
 
             new CategoryDefinition(
-                "highlights",
-                "Highlights & Hover",
-                "Row, column, and pawn highlighting behavior",
-                DrawHighlightsCategory),
+                "interaction",
+                "Interaction & Highlights",
+                "Drag settings, selection highlights, and mouse behaviors",
+                DrawInteractionCategory),
 
             new CategoryDefinition(
-                "colors",
-                "Colors & Appearance",
-                "Skill colors, highlight colors, and visual styling",
-                DrawColorsCategory),
+                "layout",
+                "Layout & Columns",
+                "Dimensions, dividers, bottom counters, and column reset",
+                DrawLayoutCategory),
 
             new CategoryDefinition(
-                "columns",
-                "Column Management",
-                "Work column ordering and reset options",
-                DrawColumnManagementCategory),
-
-            new CategoryDefinition(
-                "reset",
-                "Reset & Restore",
-                "Restore defaults and manage saved data",
-                DrawResetCategory)
+                "maintenance",
+                "Maintenance",
+                "Restoring defaults, clearing data, and debugging",
+                DrawMaintenanceCategory)
         };
 
-        /// <summary>
-        /// Main entry point called by the mod settings window.
-        /// </summary>
         public static void DoSettingsWindowContents(Rect inRect, BetterWorkTabSettings settings)
         {
             EnsureInitialized();
 
+            // Main Scroll View
+            Rect viewRect = new Rect(0f, 0f, inRect.width - 16f, _mainViewHeight);
+            Widgets.BeginScrollView(inRect, ref _mainScrollPosition, viewRect);
+
             var listing = new Listing_Standard();
-            listing.Begin(inRect);
+            listing.Begin(viewRect);
 
-            // Favorites section (if any exist)
+            // 1. Favorites Section (Dynamic)
             DrawFavoritesSection(listing, settings);
-
+            
             listing.GapLine();
+            listing.Gap(10f);
 
-            // Category navigation grid
+            // 2. Category Grid (6 Buttons)
             DrawCategoryNavigation(listing, settings);
 
+            // Recalculate height for scrolling
+            _mainViewHeight = listing.CurHeight + 50f;
+
             listing.End();
+            Widgets.EndScrollView();
         }
 
         private static void EnsureInitialized()
         {
-            if (_initialized)
-                return;
-
+            if (_initialized) return;
             FavoritesManager.Instance.Initialize(GenFilePaths.ConfigFolderPath);
             _initialized = true;
         }
-
 
         private static void DrawFavoritesSection(Listing_Standard listing, BetterWorkTabSettings settings)
         {
@@ -103,11 +98,9 @@ namespace Better_Work_Tab.UI
             if (favorites.Count == 0)
             {
                 Rect hintRect = listing.GetRect(24f);
-                var oldColor = GUI.color;
-                GUI.color = new Color(0.6f, 0.6f, 0.6f);
-                Widgets.Label(hintRect, "★ Click stars in category settings to pin favorites here");
-                GUI.color = oldColor;
-                listing.Gap(4f);
+                GUI.color = Color.gray;
+                Widgets.Label(hintRect, "★ Click stars inside categories to pin your favorite settings here.");
+                GUI.color = Color.white;
                 return;
             }
 
@@ -115,87 +108,19 @@ namespace Better_Work_Tab.UI
 
             foreach (var favId in favorites)
             {
+                // Dispatcher to draw the correct widget based on ID
+                // Note: Every setting in the sub-menus must have a matching case here
                 DrawFavoriteSetting(listing, favId, settings);
-            }
-
-            listing.Gap(8f);
-        }
-
-        private static void DrawFavoriteSetting(
-            Listing_Standard listing,
-            string settingId,
-            BetterWorkTabSettings settings)
-        {
-            // Map setting IDs to actual drawing logic
-            switch (settingId)
-            {
-                case "enableSkillOverlay":
-                    RimworldSettingsWidgets.CheckboxFavoritable(listing, settingId,
-                        "Enable Skill Overlay",
-                        ref settings.enableSkillOverlayFeature,
-                        "Show skill numbers when holding Shift");
-                    break;
-
-                case "enableAutoAssign":
-                    RimworldSettingsWidgets.CheckboxFavoritable(listing, settingId,
-                        "Enable Auto-Assign Feature",
-                        ref settings.enableAutoAssignFeature,
-                        "Show auto-assign controls on work tab");
-                    break;
-
-                case "requireCtrlForDrag":
-                    RimworldSettingsWidgets.CheckboxFavoritable(listing, settingId,
-                        "Require Ctrl for Drag",
-                        ref settings.requireCtrlForDrag,
-                        "Hold Ctrl to drag rows/columns");
-                    break;
-
-                case "showPawnCount":
-                    RimworldSettingsWidgets.CheckboxFavoritable(listing, settingId,
-                        "Show Pawn Count",
-                        ref settings.showPawnCountAtBottom,
-                        "Display colonist count at bottom");
-                    break;
-
-                case "showBedCount":
-                    RimworldSettingsWidgets.CheckboxFavoritable(listing, settingId,
-                        "Show Bed Count",
-                        ref settings.showBedCountAtBottom,
-                        "Display bed count at bottom");
-                    break;
-
-                case "masterHighlights":
-                    RimworldSettingsWidgets.CheckboxFavoritable(listing, settingId,
-                        "Enable All Highlights",
-                        ref settings.ShowPawnAndWorktypeHighlights,
-                        "Master toggle for row/column highlighting");
-                    break;
-
-                case "dividerHeight":
-                    settings.dividerHeight = RimworldSettingsWidgets.SliderFavoritable(listing, settingId,
-                        "Divider Height",
-                        settings.dividerHeight,
-                        1f, 30f,
-                        "Height of divider rows in pixels");
-                    break;
-
-                default:
-                    // Unknown favorite, just skip
-                    break;
             }
         }
 
         private static void DrawCategoryNavigation(Listing_Standard listing, BetterWorkTabSettings settings)
         {
-            RimworldSettingsWidgets.SectionHeader(listing, "Settings Categories");
-
-            listing.Gap(8f);
-
-            // Calculate grid layout
             float availableWidth = listing.ColumnWidth;
-            int columns = availableWidth > 500f ? 2 : 1;
-            float buttonWidth = (availableWidth - (columns - 1) * 8f) / columns;
-            float buttonHeight = 60f;
+            // 2 Columns for big buttons
+            int columns = 2; 
+            float buttonWidth = (availableWidth - (columns - 1) * 10f) / columns;
+            float buttonHeight = 70f; // Big buttons
 
             int index = 0;
             Rect rowRect = Rect.zero;
@@ -207,11 +132,11 @@ namespace Better_Work_Tab.UI
                 if (col == 0)
                 {
                     rowRect = listing.GetRect(buttonHeight);
-                    listing.Gap(8f);
+                    listing.Gap(10f);
                 }
 
                 Rect buttonRect = new Rect(
-                    rowRect.x + col * (buttonWidth + 8f),
+                    rowRect.x + col * (buttonWidth + 10f),
                     rowRect.y,
                     buttonWidth,
                     buttonHeight);
@@ -226,30 +151,6 @@ namespace Better_Work_Tab.UI
 
                 index++;
             }
-
-            listing.Gap(16f);
-
-            // Quick access: Edit Rulesets button
-            Rect rulesetRect = listing.GetRect(35f);
-            DrawQuickRulesetAccess(rulesetRect, settings);
-        }
-
-        private static void DrawQuickRulesetAccess(Rect rect, BetterWorkTabSettings settings)
-        {
-            Rect labelRect = rect.LeftPart(0.5f);
-            Rect buttonRect = rect.RightPart(0.48f);
-
-            string activeRuleset = settings.CurrentRuleset?.Name ?? "None";
-
-            var oldAnchor = Text.Anchor;
-            Text.Anchor = TextAnchor.MiddleLeft;
-            Widgets.Label(labelRect, $"Active Ruleset: {activeRuleset}");
-            Text.Anchor = oldAnchor;
-
-            if (Widgets.ButtonText(buttonRect, "Open Ruleset Manager"))
-            {
-                Find.WindowStack.Add(new Window_RulesManager());
-            }
         }
 
         private static void OpenCategoryDialog(CategoryDefinition category)
@@ -258,383 +159,314 @@ namespace Better_Work_Tab.UI
                 category.Id,
                 category.Label,
                 category.DrawAction);
-
             Find.WindowStack.Add(dialog);
         }
 
-        #region Category Drawing Methods
+        // ==================================================================================
+        // CATEGORY DRAWING IMPLEMENTATIONS
+        // ==================================================================================
 
-        private static void DrawAutoAssignCategory(Listing_Standard l, BetterWorkTabSettings s)
+        private static void DrawAutomationCategory(Listing_Standard l, BetterWorkTabSettings s)
         {
+            RimworldSettingsWidgets.SectionHeader(l, "Auto-Assign Features");
+
             RimworldSettingsWidgets.CheckboxFavoritable(l, "enableAutoAssign",
-                "Enable Auto-Assign Feature",
+                "Enable Auto-Assign System",
                 ref s.enableAutoAssignFeature,
-                "Show auto-assign controls on the work tab");
+                "Show the auto-assign button and enable ruleset logic.");
 
-            l.Gap(12f);
+            RimworldSettingsWidgets.CheckboxFavoritable(l, "hideWorkloadButton",
+                "Hide 'Workloads' Button",
+                ref s.hideWorkloadButton,
+                "Hide the Workload management button from the Work tab footer.");
 
-            Rect rulesetInfoRect = l.GetRect(60f);
-            Widgets.DrawBoxSolid(rulesetInfoRect, new Color(0.15f, 0.15f, 0.15f));
-            Widgets.DrawBox(rulesetInfoRect, 1);
+            RimworldSettingsWidgets.CheckboxFavoritable(l, "hideAutoAssignButton",
+                "Hide 'Auto-Assign' Button",
+                ref s.hideAutoAssignButton,
+                "Hide the specific ruleset button (accessible via Manager only).");
 
-            Rect innerRect = rulesetInfoRect.ContractedBy(8f);
-            string rulesetName = s.CurrentRuleset?.Name ?? "None selected";
-            int ruleCount = s.CurrentRuleset?.Rules?.Count ?? 0;
-
-            var oldFont = Text.Font;
-            Text.Font = GameFont.Small;
-            Widgets.Label(new Rect(innerRect.x, innerRect.y, innerRect.width, 24f),
-                $"Active: {rulesetName}");
-            
-            Text.Font = GameFont.Tiny;
-            GUI.color = Color.gray;
-            Widgets.Label(new Rect(innerRect.x, innerRect.y + 26f, innerRect.width, 20f),
-                $"{ruleCount} rule(s) defined");
-            GUI.color = Color.white;
-            Text.Font = oldFont;
-
-            l.Gap(12f);
+            l.Gap();
 
             if (l.ButtonText("Open Ruleset Manager"))
             {
                 Find.WindowStack.Add(new Window_RulesManager());
             }
 
-            l.Gap(8f);
+            RimworldSettingsWidgets.SectionHeader(l, "Behavior Templates (Future)");
 
-            l.Label("Quick Apply:", tooltip: "Apply a ruleset without opening the manager");
-            l.Gap(4f);
-
-            if (s.SavedRulesets != null)
-            {
-                foreach (var ruleset in s.SavedRulesets.Take(5))
-                {
-                    if (l.ButtonText($"  Apply: {ruleset.Name}"))
-                    {
-                        s.CurrentRuleset = ruleset;
-                        if (ruleset.ResetBeforeApplying)
-                        {
-                            WorkAssignmentRuleset.SetAllToZero();
-                        }
-                        ruleset.ApplyAutoAssignments();
-                        Messages.Message($"Applied ruleset: {ruleset.Name}", MessageTypeDefOf.TaskCompletion, false);
-                    }
-                }
-            }
+            RimworldSettingsWidgets.CheckboxFavoritable(l, "confirmRulesetApplication",
+                "[Template] Confirm Ruleset Application",
+                ref s.confirmRulesetApplication,
+                "Requires confirmation dialog before overwriting priorities with a ruleset.");
         }
 
-        private static void DrawLayoutCategory(Listing_Standard l, BetterWorkTabSettings s)
+        private static void DrawAppearanceCategory(Listing_Standard l, BetterWorkTabSettings s)
         {
-            RimworldSettingsWidgets.SectionHeader(l, "Window Behavior");
+            RimworldSettingsWidgets.SectionHeader(l, "Skill Level Colors");
 
-            RimworldSettingsWidgets.CheckboxFavoritable(l, "disableLeftClickClose",
-                "Disable Left-Click Close",
-                ref s.disableLeftClickClose,
-                "Prevents the tab from closing when clicking outside");
+            RimworldSettingsWidgets.ColorPickerFavoritable(l, "col_verylow", "Very Low Skill (0-3)", ref s.Color_VeryLowSkill);
+            RimworldSettingsWidgets.ColorPickerFavoritable(l, "col_low", "Low Skill (4-9)", ref s.Color_LowSkill);
+            RimworldSettingsWidgets.ColorPickerFavoritable(l, "col_good", "Good Skill (10-15)", ref s.Color_GoodLowSkill);
+            RimworldSettingsWidgets.ColorPickerFavoritable(l, "col_exc", "Excellent Skill (16+)", ref s.Color_ExcellentSkill);
 
-            RimworldSettingsWidgets.SectionHeader(l, "Drag & Drop");
+            RimworldSettingsWidgets.SectionHeader(l, "Highlight Colors");
+            RimworldSettingsWidgets.ColorPickerFavoritable(l, "col_cursor", "Cursor Hover", ref s.Color_CursorHighlight);
+            RimworldSettingsWidgets.ColorPickerFavoritable(l, "col_float", "Float Menu Selection", ref s.Color_FloatMenuHighlight);
+            RimworldSettingsWidgets.ColorPickerFavoritable(l, "col_incapable", "Incapable Warning", ref s.Color_IncapableBecauseOfCapacities);
+            RimworldSettingsWidgets.ColorPickerFavoritable(l, "col_best", "Best Pawn Indicator", ref s.Color_BestPawnForSkillSquare);
+            
+            if (s.UseCustomMouseHoverHighlight)
+            {
+                RimworldSettingsWidgets.ColorPickerFavoritable(l, "col_cust_hover", "Custom Hover Tint", ref s.Color_CustomMouseHighlight);
+                RimworldSettingsWidgets.ColorPickerFavoritable(l, "col_cust_sim", "Similar Worktype Tint", ref s.Color_CustomSimilarWorktypeHighlight);
+            }
 
-            RimworldSettingsWidgets.CheckboxFavoritable(l, "requireCtrlForDrag",
-                "Require Ctrl for Drag Reordering",
-                ref s.requireCtrlForDrag,
-                "Hold Ctrl to drag rows/columns. Uncheck for direct dragging.");
-
-            RimworldSettingsWidgets.CheckboxFavoritable(l, null,
-                "Row Drag: Line Only",
-                ref s.showOnlyLineDragIndicatorRows,
-                "Show only insertion line when dragging rows (no ghost)");
-
-            RimworldSettingsWidgets.CheckboxFavoritable(l, null,
-                "Column Drag: Line Only",
-                ref s.showOnlyLineDragIndicatorColumns,
-                "Show only insertion line when dragging columns (no ghost)");
-
-            RimworldSettingsWidgets.SectionHeader(l, "Bottom Display");
-
-            RimworldSettingsWidgets.CheckboxFavoritable(l, "showPawnCount",
-                "Show Pawn Count",
-                ref s.showPawnCountAtBottom,
-                "Display colonist count in lower-left corner");
-
-            RimworldSettingsWidgets.CheckboxFavoritable(l, "showBedCount",
-                "Show Bed Count",
-                ref s.showBedCountAtBottom,
-                "Display available beds (red if fewer than pawns)");
-
-            RimworldSettingsWidgets.SectionHeader(l, "Dividers");
-
-            s.dividerHeight = RimworldSettingsWidgets.SliderFavoritable(l, "dividerHeight",
-                "Divider Height",
-                s.dividerHeight, 1f, 30f,
-                "Height of section dividers in pixels");
-
-            RimworldSettingsWidgets.CheckboxFavoritable(l, null,
-                "Draw Divider Highlight",
-                ref s.drawDividerHighlight,
-                "Show white border around dividers");
+            RimworldSettingsWidgets.SectionHeader(l, "UI Theme Templates (Future)");
+            
+            // Templates for future wiring
+            RimworldSettingsWidgets.ColorPickerFavoritable(l, "tpl_header_text", "[Template] Header Text", ref s.Color_HeaderText, "Color of angled headers");
+            RimworldSettingsWidgets.ColorPickerFavoritable(l, "tpl_div_text", "[Template] Divider Text", ref s.Color_DividerText, "Default color for divider labels");
+            RimworldSettingsWidgets.ColorPickerFavoritable(l, "tpl_borders", "[Template] Borders & Lines", ref s.Color_Borders, "Color of grid lines and borders");
         }
 
         private static void DrawSkillOverlayCategory(Listing_Standard l, BetterWorkTabSettings s)
         {
+            RimworldSettingsWidgets.SectionHeader(l, "Main Settings");
+
             RimworldSettingsWidgets.CheckboxFavoritable(l, "enableSkillOverlay",
-                "Enable Skill Overlay Feature",
+                "Enable Skill Overlay",
                 ref s.enableSkillOverlayFeature,
-                "Show skill numbers when holding Shift in work tab");
+                "Show detailed skill info when holding Shift in the work tab.");
 
-            l.Gap(12f);
+            l.Gap();
+            l.Label((TaggedString)"Visual Modes:");
 
-            l.Label("Small Skill Numbers Display:");
-            if (l.ButtonText($"  Mode: {s.ShowUIMode_ShowSmallSkillNumbers}"))
+            // Note: Enum selection isn't strictly favoritable in the boolean/float sense, 
+            // but we can wrap it if we expand the Favorite system. 
+            // For now, these remain standard buttons, but we can wrap visibility logic.
+            
+            if (l.ButtonText($"Numbers: {s.ShowUIMode_ShowSmallSkillNumbers}"))
             {
-                ShowEnumMenu<BetterWorkTabSettings.ShowUIMode>(
-                    mode => s.ShowUIMode_ShowSmallSkillNumbers = mode);
+                ShowEnumMenu<BetterWorkTabSettings.ShowUIMode>(m => s.ShowUIMode_ShowSmallSkillNumbers = m);
             }
+            l.Label((TaggedString)"  (Shows small skill numbers in cells)", -1f, default(TipSignal?));
+            l.Gap(4f);
 
-            l.Gap(8f);
-
-            l.Label("Best Pawn Indicator Display:");
-            if (l.ButtonText($"  Mode: {s.ShowUIMode_ShowPawnForSkillSquare}"))
+            if (l.ButtonText($"Best Pawn: {s.ShowUIMode_ShowPawnForSkillSquare}"))
             {
-                ShowEnumMenu<BetterWorkTabSettings.ShowUIMode>(
-                    mode => s.ShowUIMode_ShowPawnForSkillSquare = mode);
+                ShowEnumMenu<BetterWorkTabSettings.ShowUIMode>(m => s.ShowUIMode_ShowPawnForSkillSquare = m);
             }
-
-            l.Gap(12f);
-
-            var oldColor = GUI.color;
-            GUI.color = Color.gray;
-            l.Label("Modes: Always | Never | Shifted (Shift held) | Unshifted (Shift not held)");
-            GUI.color = oldColor;
+            l.Label((TaggedString)"  (Highlights the pawn with the highest skill)", -1f, default(TipSignal?));
         }
 
-        private static void DrawHighlightsCategory(Listing_Standard l, BetterWorkTabSettings s)
+        private static void DrawInteractionCategory(Listing_Standard l, BetterWorkTabSettings s)
         {
-            RimworldSettingsWidgets.SectionHeader(l, "Master Toggle");
+            RimworldSettingsWidgets.SectionHeader(l, "Drag & Drop Behavior");
+
+            RimworldSettingsWidgets.CheckboxFavoritable(l, "requireCtrlForDrag",
+                "Require Ctrl for Dragging",
+                ref s.requireCtrlForDrag,
+                "Prevents accidental drags. Uncheck to drag directly.");
+
+            RimworldSettingsWidgets.CheckboxFavoritable(l, "rowDragLineOnly",
+                "Simple Row Drag Overlay",
+                ref s.showOnlyLineDragIndicatorRows,
+                "Shows only a line instead of a ghost image when moving rows.");
+
+            RimworldSettingsWidgets.CheckboxFavoritable(l, "colDragLineOnly",
+                "Simple Column Drag Overlay",
+                ref s.showOnlyLineDragIndicatorColumns,
+                "Shows only a line instead of a ghost image when moving columns.");
+
+            RimworldSettingsWidgets.SectionHeader(l, "Mouse Highlighting");
 
             RimworldSettingsWidgets.CheckboxFavoritable(l, "masterHighlights",
                 "Enable All Highlights",
                 ref s.ShowPawnAndWorktypeHighlights,
-                "Master toggle for all row/column highlighting");
+                "Master switch for row/column tinting.");
 
-            if (!s.ShowPawnAndWorktypeHighlights)
+            if (s.ShowPawnAndWorktypeHighlights)
             {
-                l.Gap(8f);
-                GUI.color = Color.gray;
-                l.Label("(Enable master toggle to configure individual highlights)");
-                GUI.color = Color.white;
-                return;
+                RimworldSettingsWidgets.CheckboxFavoritable(l, "hoverHighlights",
+                    "Highlight on Hover",
+                    ref s.ShowCursorPawnAndWorktypeHighlight,
+                    "Tint row/column under cursor.");
+
+                RimworldSettingsWidgets.CheckboxFavoritable(l, "selectHighlight",
+                    "Highlight Selected Pawn",
+                    ref s.DoSelectedPawnHighlight,
+                    "Always highlight the selected pawn's row.");
+
+                RimworldSettingsWidgets.CheckboxFavoritable(l, "floatHighlight",
+                    "Highlight Context Source",
+                    ref s.ShowFloatMenuPawnAndWorktypeHighlight,
+                    "Highlight row/column when right-click menu is open.");
+
+                RimworldSettingsWidgets.CheckboxFavoritable(l, "useCustomHover",
+                    "Use Custom Hover Colors",
+                    ref s.UseCustomMouseHoverHighlight,
+                    "Enable separate color pickers for hover states.");
             }
 
-            RimworldSettingsWidgets.SectionHeader(l, "Cursor Highlights");
-
-            RimworldSettingsWidgets.CheckboxFavoritable(l, null,
-                "Highlight Hovered Row/Column",
-                ref s.ShowCursorPawnAndWorktypeHighlight,
-                "Highlight rows and columns under the cursor");
-
-            RimworldSettingsWidgets.CheckboxFavoritable(l, null,
-                "Enable Row/Column Tinting",
-                ref s.enableRowColumnHighlights,
-                "Apply color tint to hovered headers and rows");
-
-            RimworldSettingsWidgets.SectionHeader(l, "Selection Highlights");
-
-            RimworldSettingsWidgets.CheckboxFavoritable(l, null,
-                "Highlight Selected Pawn",
-                ref s.DoSelectedPawnHighlight,
-                "Highlight the row of the currently selected pawn");
-
-            RimworldSettingsWidgets.CheckboxFavoritable(l, null,
-                "Float Menu Highlight",
-                ref s.ShowFloatMenuPawnAndWorktypeHighlight,
-                "Highlight pawn/worktype when opened from context menu");
-
-            RimworldSettingsWidgets.SectionHeader(l, "Custom Hover Color");
-
-            RimworldSettingsWidgets.CheckboxFavoritable(l, null,
-                "Use Custom Mouse Hover Color",
-                ref s.UseCustomMouseHoverHighlight,
-                "Use separate color for hover (vs. derived from cursor highlight)");
+            RimworldSettingsWidgets.SectionHeader(l, "Interaction Templates (Future)");
+            
+            s.dragStartThreshold = RimworldSettingsWidgets.SliderFavoritable(l, "tpl_dragThresh", 
+                "[Template] Drag Sensitivity", s.dragStartThreshold, 0f, 20f, "Pixels mouse must move to start drag");
+            
+            s.scrollSpeed = RimworldSettingsWidgets.SliderFavoritable(l, "tpl_scrollSpd", 
+                "[Template] Auto-Scroll Speed", s.scrollSpeed, 1f, 50f, "Speed of scroll when dragging near edge");
         }
 
-        private static void DrawColorsCategory(Listing_Standard l, BetterWorkTabSettings s)
+        private static void DrawLayoutCategory(Listing_Standard l, BetterWorkTabSettings s)
         {
-            RimworldSettingsWidgets.SectionHeader(l, "Skill Level Colors");
+            RimworldSettingsWidgets.SectionHeader(l, "General Layout");
 
-            Color c1 = s.Color_VeryLowSkill;
-            RimworldSettingsWidgets.ColorPickerFavoritable(l, null, "Very Low Skill (0-3)", ref c1);
-            s.Color_VeryLowSkill = c1;
+            RimworldSettingsWidgets.CheckboxFavoritable(l, "disableLeftClickClose",
+                "Prevent Click-Off Close",
+                ref s.disableLeftClickClose,
+                "Keep tab open when clicking the map.");
 
-            Color c2 = s.Color_LowSkill;
-            RimworldSettingsWidgets.ColorPickerFavoritable(l, null, "Low Skill (4-9)", ref c2);
-            s.Color_LowSkill = c2;
+            RimworldSettingsWidgets.CheckboxFavoritable(l, "showPawnCount",
+                "Show Colonist Count",
+                ref s.showPawnCountAtBottom,
+                "Bottom-left counter.");
 
-            Color c3 = s.Color_GoodLowSkill;
-            RimworldSettingsWidgets.ColorPickerFavoritable(l, null, "Good Skill (10-15)", ref c3);
-            s.Color_GoodLowSkill = c3;
+            RimworldSettingsWidgets.CheckboxFavoritable(l, "showBedCount",
+                "Show Bed Count",
+                ref s.showBedCountAtBottom,
+                "Bottom-left counter (Red if insufficient).");
 
-            Color c4 = s.Color_ExcellentSkill;
-            RimworldSettingsWidgets.ColorPickerFavoritable(l, null, "Excellent Skill (16+)", ref c4);
-            s.Color_ExcellentSkill = c4;
+            RimworldSettingsWidgets.SectionHeader(l, "Dividers");
 
-            RimworldSettingsWidgets.SectionHeader(l, "Highlight Colors");
+            s.dividerHeight = RimworldSettingsWidgets.SliderFavoritable(l, "dividerHeight",
+                "Divider Height", s.dividerHeight, 10f, 50f, "Height in pixels");
 
-            Color h1 = s.Color_CursorHighlight;
-            RimworldSettingsWidgets.ColorPickerFavoritable(l, null, "Cursor Highlight", ref h1);
-            s.Color_CursorHighlight = h1;
+            RimworldSettingsWidgets.CheckboxFavoritable(l, "drawDividerHighlight",
+                "Draw Divider Border",
+                ref s.drawDividerHighlight,
+                "Visual border around divider rows.");
 
-            Color h2 = s.Color_FloatMenuHighlight;
-            RimworldSettingsWidgets.ColorPickerFavoritable(l, null, "Float Menu Highlight", ref h2);
-            s.Color_FloatMenuHighlight = h2;
+            RimworldSettingsWidgets.SectionHeader(l, "Column Management");
 
-            if (s.UseCustomMouseHoverHighlight)
-            {
-                Color h3 = s.Color_CustomMouseHighlight;
-                RimworldSettingsWidgets.ColorPickerFavoritable(l, null, "Custom Mouse Hover", ref h3);
-                s.Color_CustomMouseHighlight = h3;
-
-                Color h4 = s.Color_CustomSimilarWorktypeHighlight;
-                RimworldSettingsWidgets.ColorPickerFavoritable(l, null, "Similar Worktype", ref h4);
-                s.Color_CustomSimilarWorktypeHighlight = h4;
-            }
-
-            RimworldSettingsWidgets.SectionHeader(l, "Special Indicators");
-
-            Color s1 = s.Color_IncapableBecauseOfCapacities;
-            RimworldSettingsWidgets.ColorPickerFavoritable(l, null, "Incapable Indicator", ref s1);
-            s.Color_IncapableBecauseOfCapacities = s1;
-
-            Color s2 = s.Color_BestPawnForSkillSquare;
-            RimworldSettingsWidgets.ColorPickerFavoritable(l, null, "Best Pawn Indicator", ref s2);
-            s.Color_BestPawnForSkillSquare = s2;
-        }
-
-        private static void DrawColumnManagementCategory(Listing_Standard l, BetterWorkTabSettings s)
-        {
-            l.Label("Column Order Management", tooltip: "Work columns can be reordered by Ctrl+dragging in the work tab");
-
-            l.Gap(12f);
-
-            Rect infoRect = l.GetRect(40f);
-            Widgets.DrawBoxSolid(infoRect, new Color(0.15f, 0.15f, 0.15f));
-            infoRect = infoRect.ContractedBy(8f);
-
-            int customCount = s.playerDraggedColumns?.Count ?? 0;
-            GUI.color = customCount > 0 ? new Color(1f, 0.85f, 0.2f) : Color.gray;
-            Widgets.Label(infoRect, customCount > 0
-                ? $"{customCount} column(s) moved from vanilla position"
-                : "All columns in vanilla order");
-            GUI.color = Color.white;
-
-            l.Gap(12f);
-
-            if (l.ButtonText("Reset Columns to Vanilla Order"))
+            if (l.ButtonText("Reset Columns to Vanilla"))
             {
                 Find.WindowStack.Add(new Dialog_Confirm(
-                    "Reset all work columns to vanilla order?\n\nAny custom column positions will be lost.",
-                    () =>
-                    {
+                    "Reset all work columns to vanilla order? Custom layouts will be lost.",
+                    () => {
                         WorkColumnOrderManager.ResetToVanilla();
-                        Messages.Message("Columns reset to vanilla order", MessageTypeDefOf.TaskCompletion, false);
+                        Messages.Message("Columns reset.", MessageTypeDefOf.TaskCompletion, false);
                     }));
             }
-
-            l.Gap(8f);
-
-            GUI.color = Color.gray;
-            l.Label("Tip: Columns marked with * have been moved from their vanilla position.");
-            l.Label("Drag columns in the work tab to reorder execution priority.");
-            GUI.color = Color.white;
         }
 
-        private static void DrawResetCategory(Listing_Standard l, BetterWorkTabSettings s)
+        private static void DrawMaintenanceCategory(Listing_Standard l, BetterWorkTabSettings s)
         {
-            RimworldSettingsWidgets.SectionHeader(l, "Reset Settings");
-
-            l.Gap(8f);
-
-            GUI.color = new Color(1f, 0.7f, 0.7f);
-            l.Label("⚠ These actions cannot be undone");
-            GUI.color = Color.white;
-
-            l.Gap(12f);
-
-            if (l.ButtonText("Reset All Settings to Defaults"))
+            RimworldSettingsWidgets.SectionHeader(l, "Reset Configuration");
+            
+            if (l.ButtonText("Restore Factory Defaults"))
             {
                 Find.WindowStack.Add(new Dialog_Confirm(
-                    "Reset ALL Better Work Tab settings to defaults?\n\n" +
-                    "This includes colors, toggles, and UI preferences.\n" +
-                    "Rulesets will NOT be affected.",
-                    () =>
-                    {
-                        s.RestoreDefaults();
-                        Messages.Message("Settings restored to defaults", MessageTypeDefOf.TaskCompletion, false);
-                    }));
+                    "Reset ALL settings (colors, behaviors) to default? Rulesets are safe.",
+                    s.RestoreDefaults));
             }
 
-            l.Gap(8f);
+            l.Gap(6f);
 
             if (l.ButtonText("Restore Default Rulesets"))
             {
                 Find.WindowStack.Add(new Dialog_Confirm(
-                    "Restore all default rulesets?\n\n" +
-                    "This will ADD the default rulesets back.\n" +
-                    "Custom rulesets will be preserved.",
-                    () =>
-                    {
-                        s.AddDefaultRules();
-                        Messages.Message("Default rulesets restored", MessageTypeDefOf.TaskCompletion, false);
-                    }));
+                    "Re-add default rulesets? (Duplicates may occur if renamed)",
+                    s.AddDefaultRules));
             }
 
-            l.Gap(8f);
+            l.Gap(6f);
 
-            if (l.ButtonText("Reset Rulesets (Delete All Custom)"))
+            if (l.ButtonText("Nuke & Reset Rulesets"))
             {
                 Find.WindowStack.Add(new Dialog_Confirm(
-                    "DELETE all rulesets and restore ONLY defaults?\n\n" +
-                    "⚠ All custom rulesets will be permanently deleted!",
-                    () =>
-                    {
+                    "DELETE ALL CUSTOM RULES and restore defaults only?",
+                    () => {
                         s.CreateDefaultRulesets();
-                        Messages.Message("All rulesets reset to defaults", MessageTypeDefOf.TaskCompletion, false);
+                        Messages.Message("Rulesets reset.", MessageTypeDefOf.TaskCompletion, false);
                     }));
             }
 
-            l.Gap(8f);
+            RimworldSettingsWidgets.SectionHeader(l, "Data Management");
 
-            if (l.ButtonText("Reset Work Column Order"))
-            {
-                Find.WindowStack.Add(new Dialog_Confirm(
-                    "Reset work columns to vanilla order?",
-                    () =>
-                    {
-                        WorkColumnOrderManager.ResetToVanilla();
-                        Messages.Message("Columns reset to vanilla order", MessageTypeDefOf.TaskCompletion, false);
-                    }));
-            }
-
-            RimworldSettingsWidgets.SectionHeader(l, "Favorites");
-
-            l.Gap(4f);
-
-            int favCount = FavoritesManager.Instance.FavoriteCount;
-            l.Label($"Pinned settings: {favCount}");
-
-            if (favCount > 0 && l.ButtonText("Clear All Pinned Settings"))
+            if (l.ButtonText("Clear Pinned Favorites"))
             {
                 foreach (var fav in FavoritesManager.Instance.GetAllFavorites().ToList())
                 {
                     FavoritesManager.Instance.SetFavorite(fav, false);
                 }
                 FavoritesManager.Instance.SaveIfDirty(GenFilePaths.ConfigFolderPath);
-                Messages.Message("Cleared all pinned settings", MessageTypeDefOf.TaskCompletion, false);
+                Messages.Message("Favorites cleared.", MessageTypeDefOf.TaskCompletion, false);
             }
         }
 
-        #endregion
+        // ==================================================================================
+        // DISPATCHER FOR FAVORITES
+        // ==================================================================================
 
-        #region Helpers
+        /// <summary>
+        /// Renders a specific setting row based on its ID.
+        /// This allows favorites to appear on the main page.
+        /// </summary>
+        private static void DrawFavoriteSetting(Listing_Standard l, string settingId, BetterWorkTabSettings s)
+        {
+            // Note: This switch statement essentially mirrors the drawing logic in the categories.
+            // When you add a new favoritable setting, add it here too.
+            switch (settingId)
+            {
+                // Automation
+                case "enableAutoAssign":
+                    RimworldSettingsWidgets.CheckboxFavoritable(l, settingId, "Enable Auto-Assign", ref s.enableAutoAssignFeature); break;
+                case "hideWorkloadButton":
+                    RimworldSettingsWidgets.CheckboxFavoritable(l, settingId, "Hide Workload Button", ref s.hideWorkloadButton); break;
+                case "hideAutoAssignButton":
+                    RimworldSettingsWidgets.CheckboxFavoritable(l, settingId, "Hide Auto-Assign Button", ref s.hideAutoAssignButton); break;
+                
+                // Overlay
+                case "enableSkillOverlay":
+                    RimworldSettingsWidgets.CheckboxFavoritable(l, settingId, "Enable Skill Overlay", ref s.enableSkillOverlayFeature); break;
+
+                // Colors
+                case "col_verylow": RimworldSettingsWidgets.ColorPickerFavoritable(l, settingId, "Very Low Skill", ref s.Color_VeryLowSkill); break;
+                case "col_low": RimworldSettingsWidgets.ColorPickerFavoritable(l, settingId, "Low Skill", ref s.Color_LowSkill); break;
+                case "col_good": RimworldSettingsWidgets.ColorPickerFavoritable(l, settingId, "Good Skill", ref s.Color_GoodLowSkill); break;
+                case "col_exc": RimworldSettingsWidgets.ColorPickerFavoritable(l, settingId, "Excellent Skill", ref s.Color_ExcellentSkill); break;
+                case "col_cursor": RimworldSettingsWidgets.ColorPickerFavoritable(l, settingId, "Cursor Highlight", ref s.Color_CursorHighlight); break;
+                
+                // Interaction
+                case "requireCtrlForDrag":
+                    RimworldSettingsWidgets.CheckboxFavoritable(l, settingId, "Require Ctrl to Drag", ref s.requireCtrlForDrag); break;
+                case "masterHighlights":
+                    RimworldSettingsWidgets.CheckboxFavoritable(l, settingId, "Master Highlights", ref s.ShowPawnAndWorktypeHighlights); break;
+                case "hoverHighlights":
+                    RimworldSettingsWidgets.CheckboxFavoritable(l, settingId, "Hover Highlights", ref s.ShowCursorPawnAndWorktypeHighlight); break;
+                case "useCustomHover":
+                    RimworldSettingsWidgets.CheckboxFavoritable(l, settingId, "Custom Hover Color", ref s.UseCustomMouseHoverHighlight); break;
+                
+                // Layout
+                case "disableLeftClickClose":
+                    RimworldSettingsWidgets.CheckboxFavoritable(l, settingId, "Prevent Click-Off Close", ref s.disableLeftClickClose); break;
+                case "dividerHeight":
+                    s.dividerHeight = RimworldSettingsWidgets.SliderFavoritable(l, settingId, "Divider Height", s.dividerHeight, 10f, 50f); break;
+                case "showPawnCount":
+                    RimworldSettingsWidgets.CheckboxFavoritable(l, settingId, "Show Pawn Count", ref s.showPawnCountAtBottom); break;
+
+                // Templates (Future)
+                case "tpl_dragThresh": s.dragStartThreshold = RimworldSettingsWidgets.SliderFavoritable(l, settingId, "Drag Sensitivity", s.dragStartThreshold, 0f, 20f); break;
+                case "tpl_scrollSpd": s.scrollSpeed = RimworldSettingsWidgets.SliderFavoritable(l, settingId, "Scroll Speed", s.scrollSpeed, 1f, 50f); break;
+                case "tpl_header_text": RimworldSettingsWidgets.ColorPickerFavoritable(l, settingId, "Header Text", ref s.Color_HeaderText); break;
+                case "tpl_div_text": RimworldSettingsWidgets.ColorPickerFavoritable(l, settingId, "Divider Text", ref s.Color_DividerText); break;
+                case "tpl_borders": RimworldSettingsWidgets.ColorPickerFavoritable(l, settingId, "Borders", ref s.Color_Borders); break;
+
+                default:
+                    // Fallback for ID mismatches
+                    break;
+            }
+        }
 
         private static void ShowEnumMenu<T>(Action<T> onSelect) where T : Enum
         {
@@ -647,11 +479,6 @@ namespace Better_Work_Tab.UI
             Find.WindowStack.Add(new FloatMenu(options));
         }
 
-        #endregion
-
-        /// <summary>
-        /// Internal category definition for navigation.
-        /// </summary>
         private class CategoryDefinition
         {
             public string Id { get; }
