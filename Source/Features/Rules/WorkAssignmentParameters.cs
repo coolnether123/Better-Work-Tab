@@ -184,11 +184,12 @@ namespace Better_Work_Tab.Features.Rules
 
         public void ExposeData()
         {
-            Log.Message("exposing WorkAssignmentParameters: " + RuleName);
+            if (Scribe.mode == LoadSaveMode.Saving)
+            {
+                SyncBackingStringsFromDefs();
+            }
 
             Scribe_Values.Look(ref RuleName, "RuleName");
-            if (Worktype != null)
-                Scribe_Defs.Look(ref Worktype, "Worktype");
             Scribe_Values.Look(ref WorktypeString, "WorktypeString");
             Scribe_Values.Look(ref XenotypeString, "XenotypeString");
             Scribe_Values.Look(ref TraitString, "TraitString");
@@ -199,33 +200,6 @@ namespace Better_Work_Tab.Features.Rules
             Scribe_Values.Look(ref AssignToPawnWithFewestWorkPriorities, "AssignToPawnWithFewestWorkPriorities");
             Scribe_Values.Look(ref Gender, "Gender");
             Scribe_Values.Look(ref IsPregnant, "IsPregnant");
-
-            if (Xenotype != null)
-                Scribe_Defs.Look(ref Xenotype, "Xenotype");
-
-            if (RequiredTrait != null)
-            {
-                TraitDef requiredTraitDef = RequiredTrait?.Item1;
-                int requiredTraitDegree = RequiredTrait?.Item2 ?? -1;
-
-
-                //Log.Message("Trait Def during ExposeData: " + (requiredTraitDef != null ? requiredTraitDef.defName : "null"));
-                Scribe_Defs.Look(ref requiredTraitDef, "RequiredTraitDef");
-                Scribe_Values.Look(ref requiredTraitDegree, "RequiredTraitDegree", -1);
-
-                if (Scribe.mode == LoadSaveMode.LoadingVars || Scribe.mode == LoadSaveMode.PostLoadInit)
-                {
-                    if (requiredTraitDef != null && requiredTraitDegree >= 0)
-                    {
-                        RequiredTrait = new Tuple<TraitDef, int>(requiredTraitDef, requiredTraitDegree);
-                    }
-                    else
-                    {
-                        RequiredTrait = null;
-                    }
-                }
-            }
-
             Scribe_Values.Look(ref IsNaturalAlwaysAssign, "IsNaturalAlwaysAssign");
             Scribe_Values.Look(ref IsCapableOfViolence, "IsCapableOfViolence");
             Scribe_Values.Look(ref AllowOverwritingHigherPriority, "AllowOverwritingHigherPriority");
@@ -242,6 +216,85 @@ namespace Better_Work_Tab.Features.Rules
             Scribe_Values.Look(ref IgnoreIfWorktypeNonexistent, "IgnoreIfWorktypeNonexistent");
             Scribe_Values.Look(ref MoveSpeedGreaterThan, "MoveSpeedGreaterThan", -1f);
             Scribe_Values.Look(ref MoveSpeedLessThan, "MoveSpeedLessThan", -1f);
+
+            Scribe_Defs.Look(ref Worktype, "Worktype");
+            Scribe_Defs.Look(ref Xenotype, "Xenotype");
+
+            TraitDef requiredTraitDef = RequiredTrait?.Item1;
+            int requiredTraitDegree = RequiredTrait?.Item2 ?? -1;
+            Scribe_Defs.Look(ref requiredTraitDef, "RequiredTraitDef");
+            Scribe_Values.Look(ref requiredTraitDegree, "RequiredTraitDegree", -1);
+
+            if (Scribe.mode == LoadSaveMode.LoadingVars || Scribe.mode == LoadSaveMode.PostLoadInit)
+            {
+                WorktypeString ??= string.Empty;
+                XenotypeString ??= string.Empty;
+                TraitString ??= string.Empty;
+
+                ResolveWorktypeFromString();
+                ResolveXenotypeFromString();
+                ResolveTraitRequirement(requiredTraitDef, requiredTraitDegree);
+            }
+        }
+
+        private void SyncBackingStringsFromDefs()
+        {
+            WorktypeString = Worktype?.defName ?? WorktypeString ?? "";
+            XenotypeString = Xenotype?.defName ?? XenotypeString ?? "";
+            TraitString = RequiredTrait?.Item1?.defName ?? TraitString ?? "";
+            TraitDegree = RequiredTrait?.Item2 ?? TraitDegree;
+        }
+
+        private void ResolveWorktypeFromString()
+        {
+            if (Worktype == null && !string.IsNullOrEmpty(WorktypeString))
+            {
+                Worktype = DefDatabase<WorkTypeDef>.GetNamedSilentFail(WorktypeString);
+
+                if (Worktype == null && IgnoreIfWorktypeNonexistent)
+                {
+                    Log.Warning($"[BWT] Worktype \"{WorktypeString}\" referenced by rule \"{RuleName}\" is missing; rule will be skipped.");
+                }
+            }
+        }
+
+        private void ResolveXenotypeFromString()
+        {
+            if (Xenotype == null && !string.IsNullOrEmpty(XenotypeString))
+            {
+                Xenotype = DefDatabase<XenotypeDef>.GetNamedSilentFail(XenotypeString);
+            }
+        }
+
+        private void ResolveTraitRequirement(TraitDef loadedTrait, int loadedDegree)
+        {
+            if (loadedTrait != null)
+            {
+                RequiredTrait = new Tuple<TraitDef, int>(loadedTrait, loadedDegree);
+                TraitString = loadedTrait.defName;
+                TraitDegree = loadedDegree;
+                return;
+            }
+
+            if (!string.IsNullOrEmpty(TraitString))
+            {
+                var resolved = DefDatabase<TraitDef>.GetNamedSilentFail(TraitString);
+                if (resolved != null)
+                {
+                    int degree = loadedDegree >= 0 ? loadedDegree : (TraitDegree ?? 0);
+                    RequiredTrait = new Tuple<TraitDef, int>(resolved, degree);
+                    TraitDegree = degree;
+                }
+                else
+                {
+                    RequiredTrait = null;
+                    Log.Warning($"[BWT] Trait \"{TraitString}\" referenced by rule \"{RuleName}\" no longer exists; clearing requirement.");
+                }
+            }
+            else
+            {
+                RequiredTrait = null;
+            }
         }
     }
 }

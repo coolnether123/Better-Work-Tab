@@ -1,4 +1,6 @@
-﻿using Better_Work_Tab.PawnOrganizer.API;
+﻿using Better_Work_Tab.Features;
+using Better_Work_Tab.PawnOrganizer;
+using Better_Work_Tab.PawnOrganizer.API;
 using HarmonyLib;
 using RimWorld;
 using System.Collections.Generic;
@@ -8,10 +10,6 @@ using Verse;
 
 namespace Better_Work_Tab.Patches
 {
-    /// <summary>
-    /// Tracks which column header is being hovered while shift is held.
-    /// When a header is hovered, that column shows priorities instead of skills.
-    /// </summary>
     [HarmonyPatch(typeof(PawnColumnWorker_WorkPriority), nameof(PawnColumnWorker_WorkPriority.DoHeader))]
     public static class Patch_WorkPriority_DoHeader_HoverTracker
     {
@@ -22,7 +20,6 @@ namespace Better_Work_Tab.Patches
         {
             get
             {
-                // Return null if stale (different frame)
                 if (Time.frameCount != _hoveredHeaderFrame)
                     return null;
                 return _hoveredHeaderWorkType;
@@ -31,21 +28,18 @@ namespace Better_Work_Tab.Patches
 
         public static void Postfix(PawnColumnWorker_WorkPriority __instance, Rect rect, PawnTable table)
         {
-            // Only track when shift is held and feature is enabled
             if (!Event.current.shift)
                 return;
 
             if (!(BetterWorkTabMod.Settings?.enableSkillOverlayFeature ?? false))
                 return;
 
-            // Clear stale hover state at frame start
             if (Time.frameCount != _hoveredHeaderFrame)
             {
                 _hoveredHeaderWorkType = null;
                 _hoveredHeaderFrame = Time.frameCount;
             }
 
-            // Check if mouse is over this header's label rect
             Rect labelRect = GetLabelRect(__instance, rect);
             if (Mouse.IsOver(labelRect))
             {
@@ -53,9 +47,6 @@ namespace Better_Work_Tab.Patches
             }
         }
 
-        /// <summary>
-        /// Replicates vanilla's GetLabelRect calculation for header hover detection.
-        /// </summary>
         private static Rect GetLabelRect(PawnColumnWorker_WorkPriority worker, Rect headerRect)
         {
             Vector2 labelSize = Text.CalcSize(worker.def.workType.labelShort.CapitalizeFirst());
@@ -75,22 +66,32 @@ namespace Better_Work_Tab.Patches
     [HarmonyPatch(typeof(PawnColumnWorker_WorkPriority), nameof(PawnColumnWorker_WorkPriority.DoCell))]
     public static class Patch_WorkPriority_DoCell_Unified
     {
-        // === FRAME-LEVEL CACHING ===
+        // === FRAME-LEVEL STATE ===
         private static int _lastCachedFrame = -1;
         private static bool _cachedShiftHeld = false;
         private static bool _cachedFeatureEnabled = false;
-        private static Vector2 _cachedMousePos = Vector2.zero;
-        private static int _cachedMouseFrame = -1;
-        private static readonly Dictionary<(PawnTable, WorkTypeDef), (Pawn bestPawn, int pawnCount, int cacheFrame)>
-            _bestPawnPerWorktypeCache = new Dictionary<(PawnTable, WorkTypeDef), (Pawn, int, int)>(64);
-
         private static BetterWorkTabSettings.ShowUIMode _cachedUiState;
-        private const int BestPawnCacheFrameValidity = 60;
-        private const int MaxBestPawnCacheEntries = 256;
 
-        /// <summary>
-        /// Cache shift/feature state once per frame (not per cell)
-        /// </summary>
+        // === CACHES ===
+        private static readonly Dictionary<int, int> _skillCache = new Dictionary<int, int>(1024);
+        private static readonly Dictionary<int, int> _skillCacheTimestamps = new Dictionary<int, int>(1024);
+        private static readonly Dictionary<int, byte> _incapableCache = new Dictionary<int, byte>(1024);
+        private static readonly Dictionary<int, int> _incapableCacheTimestamps = new Dictionary<int, int>(1024);
+        private static readonly Dictionary<int, Pawn> _bestPawnCache = new Dictionary<int, Pawn>(64);
+        private static readonly Dictionary<int, int> _bestPawnCacheTimestamps = new Dictionary<int, int>(64);
+        private static readonly Dictionary<int, Color> _colorCache = new Dictionary<int, Color>(21);
+
+        // Constants
+        private const int SkillCacheFrameValidity = 60;
+        private const int IncapableCacheFrameValidity = 120;
+        private const int BestPawnCacheFrameValidity = 60;
+        private const float SkillBoxSize = 25f;
+        private const float SkillBoxVerticalPadding = 2.5f;
+        private const float SmallSkillOffsetX = 16f;
+        private const float SmallSkillOffsetY = -2f;
+        private const float SkillBoxOutlinePadding = 2f;
+        private const int BestPawnOutlineThickness = 3;
+
         private static void UpdateFrameCache()
         {
             int currentFrame = Time.frameCount;
@@ -98,31 +99,9 @@ namespace Better_Work_Tab.Patches
                 return;
 
             _lastCachedFrame = currentFrame;
-
             _cachedFeatureEnabled = BetterWorkTabMod.Settings?.enableSkillOverlayFeature ?? false;
             _cachedUiState = ShiftHelper.State;
             _cachedShiftHeld = _cachedUiState == BetterWorkTabSettings.ShowUIMode.Shifted;
-        }
-
-        /// <summary>
-        /// Cache mouse position once per frame (not per cell)
-        /// </summary>
-        private static Vector2 GetCachedMousePosition()
-        {
-            int currentFrame = Time.frameCount;
-            if (_cachedMouseFrame != currentFrame)
-            {
-                if (Event.current == null)
-                {
-                    Log.Warning("[BWT] GetCachedMousePosition called outside OnGUI context.");
-                    _cachedMouseFrame = currentFrame;
-                    return _cachedMousePos;
-                }
-
-                _cachedMousePos = Event.current?.mousePosition ?? Vector2.zero;
-                _cachedMouseFrame = currentFrame;
-            }
-            return _cachedMousePos;
         }
 
         [HarmonyPrefix]
@@ -132,42 +111,40 @@ namespace Better_Work_Tab.Patches
             Pawn pawn,
             PawnTable table)
         {
-            var workType = __instance.def.workType;
-
-            // Fast validation - let vanilla handle edge cases
-            if (pawn?.Dead != false || pawn.workSettings == null || !pawn.workSettings.EverWork ||
-                workType == null || pawn.WorkTypeIsDisabled(workType))
-            {
+            if (pawn == null || pawn.Dead || pawn.workSettings == null || !pawn.workSettings.EverWork)
                 return true;
-            }
+
+            WorkTypeDef workType = __instance.def.workType;
+            if (workType == null) return true;
 
             UpdateFrameCache();
 
-            // Feature disabled or shift not held - run vanilla
             if (!_cachedFeatureEnabled || !_cachedShiftHeld)
-            {
                 return true;
-            }
 
-            // If this column's header is being hovered, show priorities (vanilla behavior)
             if (Patch_WorkPriority_DoHeader_HoverTracker.HoveredHeaderWorkType == workType)
-            {
                 return true;
-            }
 
-            // Incapable pawns should show vanilla disabled box
-            if (IsIncapableOfWholeWorkType(pawn, workType))
-            {
+            if (GetIsIncapable(pawn, workType))
                 return true;
-            }
 
-            // Skip vanilla for non-skill work types when shift held (we'll draw disabled or nothing)
+            if (pawn.WorkTypeIsDisabled(workType))
+                return true;
+
             if (workType.relevantSkills == null || workType.relevantSkills.Count == 0)
+                return false; // Skip vanilla drawing if no relevant skills, to draw nothing or custom
+
+            // === CRITICAL FIX ===
+            // If the mouse is hovering THIS SPECIFIC CELL, return TRUE to run Vanilla logic.
+            // Vanilla logic draws the interactive WorkBox (priority number, click handling).
+            // Postfix will then draw the small skill numbers on top.
+            if (Mouse.IsOver(rect))
             {
-                return false;
+                return true;
             }
 
-            // When showing the skill overlay, skip vanilla drawing entirely and let postfix render.
+            // If NOT hovering, return FALSE to skip Vanilla.
+            // Postfix will draw the Big Skill Number and static background.
             return false;
         }
 
@@ -178,104 +155,162 @@ namespace Better_Work_Tab.Patches
             Pawn pawn,
             PawnTable table)
         {
-            UpdateFrameCache();
-
             if (!_cachedFeatureEnabled || !_cachedShiftHeld)
                 return;
 
-            var workType = __instance.def.workType;
-
-            if (pawn?.Dead != false || workType == null)
+            WorkTypeDef workType = __instance.def.workType;
+            if (pawn == null || pawn.Dead || workType == null)
                 return;
 
-            // If this column's header is being hovered, vanilla already drew priorities/checkboxes
             if (Patch_WorkPriority_DoHeader_HoverTracker.HoveredHeaderWorkType == workType)
                 return;
 
-            // If pawn is disabled for this work type by settings/backstory/age/etc,
             if (pawn.WorkTypeIsDisabled(workType))
                 return;
 
-            // Incapable pawns - vanilla already drew the disabled box
-            if (IsIncapableOfWholeWorkType(pawn, workType))
+            if (GetIsIncapable(pawn, workType))
                 return;
 
-            // No skills to show - don't draw anything
             if (workType.relevantSkills == null || workType.relevantSkills.Count == 0)
                 return;
 
-            // === DRAW SKILL OVERLAY ===
             int skillLevel = GetSkillLevel(pawn, workType);
+            bool hovering = Mouse.IsOver(rect);
 
-            // Use cached mouse position instead of Mouse.IsOver
-            Vector2 cachedMouse = GetCachedMousePosition();
-            bool hovering = rect.Contains(cachedMouse);
-
-            float boxXSkill = rect.x + (rect.width - 25f) / 2f;
-            float boxYSkill = rect.y + 2.5f;
-            Rect boxRect = new Rect(boxXSkill, boxYSkill, 25f, 25f);
+            float boxXSkill = rect.x + (rect.width - SkillBoxSize) / 2f;
+            float boxYSkill = rect.y + SkillBoxVerticalPadding;
+            Rect boxRect = new Rect(boxXSkill, boxYSkill, SkillBoxSize, SkillBoxSize);
 
             if (!hovering)
             {
-                if (Event.current.type == EventType.Repaint)
-                {
-                    CustomWorkBoxDrawer.DrawWorkBoxForSkillOverlay(boxXSkill, boxYSkill, pawn, workType, false);
-                }
-
+                // Prefix returned false, so Vanilla didn't draw.
+                // We draw the static visuals (Big Number + Box Background).
+                CustomWorkBoxDrawer.DrawWorkBoxForSkillOverlay(boxXSkill, boxYSkill, pawn, workType, false);
                 DrawBigSkillNumber(boxRect, skillLevel);
             }
             else
             {
+                // Prefix returned true, so Vanilla already drew the Interactive Box.
+                // We just draw the small skill numbers on top.
                 DrawSmallSkillNumbers(rect, skillLevel);
             }
 
-            // Best-pawn outline — only for capable/allowed pawns (Also filter
-            // candidates inside DrawBestPawnForSkillBox below).
-            if (ShouldShowUI(
-                BetterWorkTabMod.Settings.ShowUIMode_ShowPawnForSkillSquare,
-                _cachedUiState))
+            if (ShouldShowUI(BetterWorkTabMod.Settings.ShowUIMode_ShowPawnForSkillSquare, _cachedUiState))
             {
-                var bestPawn = GetBestPawnForWorktype(table, workType, __instance);
+                Pawn bestPawn = GetBestPawnForWorktype(table, workType, __instance);
                 if (bestPawn == pawn)
                 {
-                    float x = rect.x + (rect.width - 25f) / 2f;
-                    float y = rect.y + 2.5f;
-                    Rect outlineRect = new Rect(Mathf.FloorToInt(x) - 2, Mathf.FloorToInt(y) - 2, 29f, 29f);
-
-                    Widgets.DrawBoxSolidWithOutline(
-                        outlineRect,
-                        Color.clear,
-                        BetterWorkTabMod.Settings.Color_BestPawnForSkillSquare,
-                        3);
+                    DrawBestPawnOutline(rect);
                 }
             }
         }
 
-        // ====== CACHING ======
-        private static Dictionary<int, Color> _colorCache = new Dictionary<int, Color>(21);
-        private static Dictionary<(int, string), (int level, int frame)> _skillCache =
-            new Dictionary<(int, string), (int, int)>(256);
+        // ... [Rest of the caching and drawing helper methods remain exactly the same] ...
 
-        private const int SkillCacheMaxSize = 512;
-        private const int SkillCacheFrameValidity = 30;
+        // ==========================================================
+        //  OPTIMIZED CACHING LOGIC
+        // ==========================================================
+
+        private static bool GetIsIncapable(Pawn p, WorkTypeDef work)
+        {
+            int key = (p.thingIDNumber << 16) | work.shortHash;
+            int currentFrame = Time.frameCount;
+
+            if (_incapableCacheTimestamps.TryGetValue(key, out int timestamp))
+            {
+                if (currentFrame - timestamp < IncapableCacheFrameValidity)
+                {
+                    return _incapableCache[key] == 1;
+                }
+            }
+
+            bool canDoAny = false;
+            for (int i = 0; i < work.workGiversByPriority.Count; i++)
+            {
+                bool thisGiverOk = true;
+                var reqs = work.workGiversByPriority[i].requiredCapacities;
+                for (int j = 0; j < reqs.Count; j++)
+                {
+                    if (!p.health.capacities.CapableOf(reqs[j]))
+                    {
+                        thisGiverOk = false;
+                        break;
+                    }
+                }
+                if (thisGiverOk)
+                {
+                    canDoAny = true;
+                    break;
+                }
+            }
+            bool isIncapable = !canDoAny;
+
+            _incapableCache[key] = (byte)(isIncapable ? 1 : 0);
+            _incapableCacheTimestamps[key] = currentFrame;
+            return isIncapable;
+        }
 
         private static int GetSkillLevel(Pawn pawn, WorkTypeDef workType)
         {
-            if (pawn?.skills == null)
-                return 0;
+            int key = (pawn.thingIDNumber << 16) | workType.shortHash;
+            int currentFrame = Time.frameCount;
 
-            var key = (pawn.thingIDNumber, workType.defName);
-
-            if (_skillCache.TryGetValue(key, out var cached))
+            if (_skillCacheTimestamps.TryGetValue(key, out int timestamp))
             {
-                if (Time.frameCount - cached.frame < SkillCacheFrameValidity)
-                    return cached.level;
+                if (currentFrame - timestamp < SkillCacheFrameValidity)
+                {
+                    return _skillCache[key];
+                }
             }
 
             float avg = pawn.skills.AverageOfRelevantSkillsFor(workType);
             int level = Mathf.Clamp(Mathf.RoundToInt(avg), 0, 20);
-            _skillCache[key] = (level, Time.frameCount);
+
+            _skillCache[key] = level;
+            _skillCacheTimestamps[key] = currentFrame;
             return level;
+        }
+
+        private static Pawn GetBestPawnForWorktype(PawnTable table, WorkTypeDef workType, PawnColumnWorker_WorkPriority worker)
+        {
+            if (table == null || table.cachedPawns == null) return null;
+
+            int key = (table.GetHashCode() << 16) | workType.shortHash;
+            int currentFrame = Time.frameCount;
+
+            if (_bestPawnCacheTimestamps.TryGetValue(key, out int timestamp))
+            {
+                if (currentFrame - timestamp < BestPawnCacheFrameValidity)
+                {
+                    Pawn cached = _bestPawnCache[key];
+                    if (cached != null && !cached.Dead && cached.Map != null)
+                        return cached;
+                }
+            }
+
+            Pawn bestPawn = null;
+            var pawns = table.cachedPawns;
+
+            for (int i = 0; i < pawns.Count; i++)
+            {
+                Pawn p = pawns[i];
+                if (p.Dead || p.workSettings == null || !p.workSettings.EverWork) continue;
+                if (p.WorkTypeIsDisabled(workType)) continue;
+                if (GetIsIncapable(p, workType)) continue;
+
+                if (bestPawn == null)
+                {
+                    bestPawn = p;
+                }
+                else if (worker.Compare(p, bestPawn) > 0)
+                {
+                    bestPawn = p;
+                }
+            }
+
+            _bestPawnCache[key] = bestPawn;
+            _bestPawnCacheTimestamps[key] = currentFrame;
+            return bestPawn;
         }
 
         private static Color ColorForSkillLevel(int level)
@@ -292,67 +327,6 @@ namespace Better_Work_Tab.Patches
             return result;
         }
 
-        /// <summary>
-        /// Return best pawn for a worktype using cached results to avoid per-cell scans.
-        /// </summary>
-        private static Pawn GetBestPawnForWorktype(
-            PawnTable table,
-            WorkTypeDef workType,
-            PawnColumnWorker_WorkPriority worker)
-        {
-            if (table?.cachedPawns == null || workType == null)
-            {
-                return null;
-            }
-
-            var key = (table, workType);
-            int currentFrame = Time.frameCount;
-
-            if (_bestPawnPerWorktypeCache.TryGetValue(key, out var cached))
-            {
-                if (currentFrame - cached.cacheFrame < BestPawnCacheFrameValidity &&
-                    cached.pawnCount == table.cachedPawns.Count)
-                {
-                    return cached.bestPawn;
-                }
-            }
-
-            Pawn bestPawn = null;
-            var pawns = table.cachedPawns;
-
-            for (int i = 0; i < pawns.Count; i++)
-            {
-                var p = pawns[i];
-                if (p == null || p.Dead) continue;
-                if (p.workSettings == null || !p.workSettings.EverWork) continue;
-                if (p.WorkTypeIsDisabled(workType)) continue;
-                if (IsIncapableOfWholeWorkType(p, workType)) continue;
-
-                if (bestPawn == null || (worker != null && worker.Compare(p, bestPawn) > 0))
-                {
-                    bestPawn = p;
-                }
-            }
-
-            if (_bestPawnPerWorktypeCache.Count >= MaxBestPawnCacheEntries)
-            {
-                _bestPawnPerWorktypeCache.Clear();
-            }
-
-            _bestPawnPerWorktypeCache[key] = (bestPawn, pawns.Count, currentFrame);
-            return bestPawn;
-        }
-
-        private static bool ShouldShowUI(
-            BetterWorkTabSettings.ShowUIMode mode,
-            BetterWorkTabSettings.ShowUIMode currentState)
-        {
-            return mode == BetterWorkTabSettings.ShowUIMode.Always || mode == currentState;
-        }
-
-        private static readonly string[] _skillStrings =
-            Enumerable.Range(0, 21).Select(i => i.ToString()).ToArray();
-
         private static void DrawBigSkillNumber(Rect rect, int level)
         {
             var oldFont = Text.Font;
@@ -362,7 +336,7 @@ namespace Better_Work_Tab.Patches
             Text.Font = GameFont.Medium;
             Text.Anchor = TextAnchor.MiddleCenter;
             GUI.color = ColorForSkillLevel(level);
-            Widgets.Label(rect, _skillStrings[level]);
+            Widgets.Label(rect, level.ToString());
 
             GUI.color = oldColor;
             Text.Font = oldFont;
@@ -371,7 +345,7 @@ namespace Better_Work_Tab.Patches
 
         private static void DrawSmallSkillNumbers(Rect rect, int level)
         {
-            Rect boxRect = new Rect(rect.x + 16f, rect.y - 2f, 25f, 25f);
+            Rect boxRect = new Rect(rect.x + SmallSkillOffsetX, rect.y + SmallSkillOffsetY, SkillBoxSize, SkillBoxSize);
             var oldFont = Text.Font;
             var oldAnchor = Text.Anchor;
             var oldColor = GUI.color;
@@ -379,75 +353,61 @@ namespace Better_Work_Tab.Patches
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.MiddleCenter;
             GUI.color = ColorForSkillLevel(level);
-            Widgets.Label(boxRect, _skillStrings[level]);
+            Widgets.Label(boxRect, level.ToString());
 
             GUI.color = oldColor;
             Text.Font = oldFont;
             Text.Anchor = oldAnchor;
         }
 
+        private static void DrawBestPawnOutline(Rect rect)
+        {
+            float x = rect.x + (rect.width - SkillBoxSize) / 2f;
+            float y = rect.y + SkillBoxVerticalPadding;
+            float outlineSize = SkillBoxSize + (SkillBoxOutlinePadding * 2f);
+
+            Rect outlineRect = new Rect(
+                Mathf.FloorToInt(x) - SkillBoxOutlinePadding,
+                Mathf.FloorToInt(y) - SkillBoxOutlinePadding,
+                outlineSize,
+                outlineSize);
+
+            Widgets.DrawBoxSolidWithOutline(
+                outlineRect,
+                Color.clear,
+                BetterWorkTabMod.Settings.Color_BestPawnForSkillSquare,
+                BestPawnOutlineThickness);
+        }
+
+        private static bool ShouldShowUI(BetterWorkTabSettings.ShowUIMode mode, BetterWorkTabSettings.ShowUIMode currentState)
+        {
+            return mode == BetterWorkTabSettings.ShowUIMode.Always || mode == currentState;
+        }
+
         public static void TrimCacheIfNeeded()
         {
-            if (_bestPawnPerWorktypeCache.Count > MaxBestPawnCacheEntries)
+            if (_skillCache.Count > 2000)
             {
-                _bestPawnPerWorktypeCache.Clear();
+                _skillCache.Clear();
+                _skillCacheTimestamps.Clear();
             }
-
-            if (_skillCache.Count > SkillCacheMaxSize)
+            if (_incapableCache.Count > 2000)
             {
-                int currentFrame = Time.frameCount;
-                var expiredKeys = new List<(int, string)>();
-
-                foreach (var kvp in _skillCache)
-                {
-                    int frameAge = currentFrame - kvp.Value.frame;
-                    // Remove entries older than 2x validity period
-                    if (frameAge > SkillCacheFrameValidity * 2)
-                    {
-                        expiredKeys.Add(kvp.Key);
-                    }
-                }
-
-                // If we still have too many after removing old entries, nuke everything
-                if (expiredKeys.Count == 0)
-                {
-                    _skillCache.Clear();
-                    Log.Warning("[BWT] Skill cache hit max size with no expired entries. Clearing all.");
-                }
-                else
-                {
-                    foreach (var key in expiredKeys)
-                    {
-                        _skillCache.Remove(key);
-                    }
-                }
+                _incapableCache.Clear();
+                _incapableCacheTimestamps.Clear();
             }
         }
 
-        /// <summary>
-        /// Checks if a pawn is incapable of ALL work givers for a work type.
-        /// </summary>
-        private static bool IsIncapableOfWholeWorkType(Pawn p, WorkTypeDef work)
+        public static void ClearCaches()
         {
-            for (int i = 0; i < work.workGiversByPriority.Count; i++)
-            {
-                bool canDoThisGiver = true;
-                var reqs = work.workGiversByPriority[i].requiredCapacities;
-
-                for (int j = 0; j < reqs.Count; j++)
-                {
-                    if (!p.health.capacities.CapableOf(reqs[j]))
-                    {
-                        canDoThisGiver = false;
-                        break;
-                    }
-                }
-
-                if (canDoThisGiver)
-                    return false;
-            }
-
-            return true;
+            _lastCachedFrame = -1;
+            _skillCache.Clear();
+            _skillCacheTimestamps.Clear();
+            _incapableCache.Clear();
+            _incapableCacheTimestamps.Clear();
+            _bestPawnCache.Clear();
+            _bestPawnCacheTimestamps.Clear();
+            _colorCache.Clear();
         }
     }
 }

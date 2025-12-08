@@ -346,6 +346,13 @@ namespace Better_Work_Tab.UI
                 ref s.drawDividerHighlight,
                 "Visual border around divider rows.");
 
+            s.dividerMinAlpha = RimworldSettingsWidgets.SliderFavoritable(l, "dividerMinAlpha",
+                "Divider Minimum Alpha",
+                s.dividerMinAlpha,
+                0f,
+                1f,
+                "Lower bound for divider background opacity so dividers stay visible.");
+
             RimworldSettingsWidgets.SectionHeader(l, "Column Management");
 
             if (l.ButtonText("Reset Columns to Vanilla"))
