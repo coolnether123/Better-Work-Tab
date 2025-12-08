@@ -409,6 +409,23 @@ namespace Better_Work_Tab.UI
                 FavoritesManager.Instance.SaveIfDirty(GenFilePaths.ConfigFolderPath);
                 Messages.Message("Favorites cleared.", MessageTypeDefOf.TaskCompletion, false);
             }
+
+            RimworldSettingsWidgets.CheckboxFavoritable(l, "enableDebugLogging",
+                "Enable Debug Logging",
+                ref s.enableDebugLogging,
+                "Shows detailed debug messages in the log.");
+
+            if (s.enableDebugLogging)
+            {
+                RimworldSettingsWidgets.SectionHeader(l, "Debug Features");
+
+                foreach (var feature in Enum.GetValues(typeof(DebugFeature)).Cast<DebugFeature>())
+                {
+                    bool enabled = s.debugFeatureToggles[feature];
+                    Widgets.CheckboxLabeled(l.GetRect(24f), $"Debug: {feature}", ref enabled);
+                    s.debugFeatureToggles[feature] = enabled;
+                }
+            }
         }
 
         // ==================================================================================

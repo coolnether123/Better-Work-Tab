@@ -71,7 +71,7 @@ namespace Better_Work_Tab.Features.Workloads
             if (CurrentWorklist == null)
             {
                 CurrentWorklist = new Worklist { RenamableLabel = "Default Worklist" };
-                Log.Message("[BetterWorkTab] Created default worklist during initialization.");
+                BetterWorkTabMod.DebugLog("[BetterWorkTab] Created default worklist during initialization.", DebugFeature.Workloads);
             }
 
             if (!SavedWorklists.Contains(CurrentWorklist))
