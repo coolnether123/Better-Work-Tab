@@ -41,6 +41,7 @@ namespace Better_Work_Tab
         public static bool showPawnCountAtBottom = true;
         public static bool showBedCountAtBottom = false;
         public static bool enableRowColumnHighlights = true;
+        public static float dividerMinAlpha = 0.35f;
 
         // Behavior Templates
         public enum BehaviorTemplate { Standard, Conservative, Aggressive, Custom }
@@ -181,6 +182,7 @@ namespace Better_Work_Tab
         public bool hideWorkloadButton = DefaultSettings.hideWorkloadButton;
         public bool hideAutoAssignButton = DefaultSettings.hideAutoAssignButton;
         public bool enableRowColumnHighlights = DefaultSettings.enableRowColumnHighlights;
+        public float dividerMinAlpha = DefaultSettings.dividerMinAlpha;
         public List<string> workColumnOrderDefNames = new List<string>();
         public Dictionary<string, float> storedColumnWidths = new Dictionary<string, float>();
 
@@ -301,6 +303,7 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref showOnlyLineDragIndicatorColumns, "showOnlyLineDragIndicatorColumns", DefaultSettings.showOnlyLineDragIndicatorColumns);
             Scribe_Values.Look(ref hideWorkloadButton, "hideWorkloadButton", DefaultSettings.hideWorkloadButton);
             Scribe_Values.Look(ref hideAutoAssignButton, "hideAutoAssignButton", DefaultSettings.hideAutoAssignButton);
+            Scribe_Values.Look(ref dividerMinAlpha, "dividerMinAlpha", DefaultSettings.dividerMinAlpha);
 
             // Colors
             Scribe_Values.Look(ref Color_CursorHighlight, "Color_CursorHighlight", DefaultSettings.Color_CursorHighlight);
@@ -372,6 +375,7 @@ namespace Better_Work_Tab
             DoSelectedPawnHighlight = DefaultSettings.DoSelectedPawnHighlight;
             UseCustomMouseHoverHighlight = DefaultSettings.UseCustomMouseHoverHighlight;
             enableRowColumnHighlights = DefaultSettings.enableRowColumnHighlights;
+            dividerMinAlpha = DefaultSettings.dividerMinAlpha;
 
             // UI display
             showPawnCountAtBottom = DefaultSettings.showPawnCountAtBottom;

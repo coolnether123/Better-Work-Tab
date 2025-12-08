@@ -26,6 +26,7 @@ namespace Better_Work_Tab.PawnOrganizer
         private List<float> _cachedDescriptorHeights;
         private bool _rowDescriptorsDirty = true;
         private const float PawnRowHeight = 30f;
+        private readonly object _stateLock = new object();
 
 
         private readonly IColumnWidthStore _columnWidthStore;
@@ -185,11 +186,26 @@ namespace Better_Work_Tab.PawnOrganizer
         /// </summary>
         public List<RowDescriptor> GetRowDescriptors()
         {
+            if (!_rowDescriptorsDirty && _cachedRowDescriptors != null)
+                return _cachedRowDescriptors;
+
+            lock (_stateLock)
+            {
+                if (!_rowDescriptorsDirty && _cachedRowDescriptors != null)
+                    return _cachedRowDescriptors;
+
+                return GetRowDescriptorsLocked();
+            }
+        }
+
+        private List<RowDescriptor> GetRowDescriptorsLocked()
+        {
             if (_rowDescriptorsDirty)
             {
                 _cachedRowDescriptors = BuildRowDescriptorsInternal();
                 _rowDescriptorsDirty = false;
             }
+
             return _cachedRowDescriptors;
         }
 
@@ -198,8 +214,11 @@ namespace Better_Work_Tab.PawnOrganizer
         /// </summary>
         public void InvalidateRowDescriptors()
         {
-            _rowDescriptorsDirty = true;
-            _isDirty = true; // Also mark layout as dirty
+            lock (_stateLock)
+            {
+                _rowDescriptorsDirty = true;
+                _isDirty = true; // Also mark layout as dirty
+            }
         }
 
         /// <summary>
@@ -242,132 +261,141 @@ namespace Better_Work_Tab.PawnOrganizer
 
         public void Rebuild(PawnTable table, IPawnOrganizerSnapshot snapshot, Vector2 origin)
         {
-            // SKIP REBUILD IF NOTHING CHANGED
-            if (!ShouldRebuild(table, snapshot))
+            lock (_stateLock)
             {
-                return; // All cached data is still valid
-            }
-
-            if (table == null)
-            {
-                Log.Error("[BWT] WorkTabLayoutController.Rebuild failed: table is null.");
-                _rows.Clear();
-                _columns.Clear();
-                _contentHeight = 0f;
-                return;
-            }
-
-            try
-            {
-                ReleaseRowsToPool();
-                _table = table;
-                _origin = origin;
-                _rows.Clear();
-                _columns.Clear();
-                _contentHeight = 0f;
-                _rowWidth = 0f;
-                _dividerHeight = BetterWorkTabMod.Settings?.dividerHeight ?? DefaultDividerHeight;
-
-                _snapshotPawns = snapshot?.Pawns
-                                 ?? (IReadOnlyList<Pawn>)table.PawnsListForReading
-                                 ?? Array.Empty<Pawn>();
-
-                if (snapshot?.Dividers is IList<PawnDivider> dividerList && !dividerList.IsReadOnly)
+                // SKIP REBUILD IF NOTHING CHANGED
+                if (!ShouldRebuild(table, snapshot))
                 {
-                    _snapshotDividers = dividerList;
+                    return; // All cached data is still valid
                 }
-                else
+
+                if (table == null)
                 {
-                    _dividerBuffer.Clear();
-                    if (snapshot?.Dividers != null)
+                    Log.Error("[BWT] WorkTabLayoutController.Rebuild failed: table is null.");
+                    _rows.Clear();
+                    _columns.Clear();
+                    _contentHeight = 0f;
+                    return;
+                }
+
+                try
+                {
+                    ReleaseRowsToPool();
+                    _table = table;
+                    _origin = origin;
+                    _rows.Clear();
+                    _columns.Clear();
+                    _contentHeight = 0f;
+                    _rowWidth = 0f;
+                    _dividerHeight = BetterWorkTabMod.Settings?.dividerHeight ?? DefaultDividerHeight;
+
+                    _snapshotPawns = snapshot?.Pawns
+                                     ?? (IReadOnlyList<Pawn>)table.PawnsListForReading
+                                     ?? Array.Empty<Pawn>();
+
+                    if (snapshot?.Dividers is IList<PawnDivider> dividerList && !dividerList.IsReadOnly)
                     {
-                        _dividerBuffer.AddRange(snapshot.Dividers);
+                        _snapshotDividers = dividerList;
                     }
-                    _snapshotDividers = _dividerBuffer;
+                    else
+                    {
+                        _dividerBuffer.Clear();
+                        if (snapshot?.Dividers != null)
+                        {
+                            _dividerBuffer.AddRange(snapshot.Dividers);
+                        }
+                        _snapshotDividers = _dividerBuffer;
+                    }
+
+                    EnsureTableFresh();
+                    _rowWidth = Mathf.Max(0f, _table.Size.x - 16f);
+
+                    BuildColumns();
+                    BuildRows();
+
+                    _rowDescriptorsDirty = true;
                 }
-
-                EnsureTableFresh();
-                _rowWidth = Mathf.Max(0f, _table.Size.x - 16f);
-
-                BuildColumns();
-                BuildRows();
-
-                _rowDescriptorsDirty = true;
+                catch (Exception ex)
+                {
+                    Log.Error($"[BWT] WorkTabLayoutController.Rebuild encountered an error: {ex}");
+                    _rows.Clear();
+                    _columns.Clear();
+                    _contentHeight = 0f;
+                }
+                CacheState(table, snapshot);
             }
-            catch (Exception ex)
-            {
-                Log.Error($"[BWT] WorkTabLayoutController.Rebuild encountered an error: {ex}");
-                _rows.Clear();
-                _columns.Clear();
-                _contentHeight = 0f;
-            }
-            CacheState(table, snapshot);
         }
 
         public bool TryGetRowAt(Vector2 mousePosition, out WorkTabLayoutRow row)
         {
             row = default;
-            if (_table == null)
+            lock (_stateLock)
             {
-                return false;
-            }
-
-            float headerTop = _origin.y + HeaderHeight;
-            if (mousePosition.x < _origin.x || mousePosition.x > _origin.x + _rowWidth)
-            {
-                return false;
-            }
-
-            float contentY = mousePosition.y - headerTop + _table.scrollPosition.y;
-            if (contentY < 0f)
-            {
-                return false;
-            }
-
-            var descriptors = GetRowDescriptors();
-
-            int count = Math.Min(descriptors.Count, _rows.Count);
-            if (count == 0)
-            {
-                return false;
-            }
-
-            float cumulativeY = 0f;
-            for (int i = 0; i < descriptors.Count && i < _rows.Count; i++)
-            {
-                float rowHeight = descriptors[i].Height;
-                float rowStart = cumulativeY;
-                float rowEnd = cumulativeY + rowHeight;
-
-                if (contentY >= rowStart && contentY < rowEnd)
+                if (_table == null)
                 {
-                    row = _rows[i];
-                    return true;
+                    return false;
                 }
 
-                cumulativeY += rowHeight;
+                float headerTop = _origin.y + HeaderHeight;
+                if (mousePosition.x < _origin.x || mousePosition.x > _origin.x + _rowWidth)
+                {
+                    return false;
+                }
+
+                float contentY = mousePosition.y - headerTop + _table.scrollPosition.y;
+                if (contentY < 0f)
+                {
+                    return false;
+                }
+
+                var descriptors = GetRowDescriptorsLocked();
+
+                int count = Math.Min(descriptors.Count, _rows.Count);
+                if (count == 0)
+                {
+                    return false;
+                }
+
+                float cumulativeY = 0f;
+                for (int i = 0; i < descriptors.Count && i < _rows.Count; i++)
+                {
+                    float rowHeight = descriptors[i].Height;
+                    float rowStart = cumulativeY;
+                    float rowEnd = cumulativeY + rowHeight;
+
+                    if (contentY >= rowStart && contentY < rowEnd)
+                    {
+                        row = _rows[i];
+                        return true;
+                    }
+
+                    cumulativeY += rowHeight;
+                }
+                return false;
             }
-            return false;
         }
 
         public bool TryGetColumnAt(Vector2 mousePosition, out WorkTabLayoutColumn column)
         {
             column = default;
-            if (_columns.Count == 0)
+            lock (_stateLock)
             {
+                if (_columns.Count == 0)
+                {
+                    return false;
+                }
+
+                for (int i = 0; i < _columns.Count; i++)
+                {
+                    if (_columns[i].HeaderRect.Contains(mousePosition))
+                    {
+                        column = _columns[i];
+                        return true;
+                    }
+                }
+
                 return false;
             }
-
-            for (int i = 0; i < _columns.Count; i++)
-            {
-                if (_columns[i].HeaderRect.Contains(mousePosition))
-                {
-                    column = _columns[i];
-                    return true;
-                }
-            }
-
-            return false;
         }
 
         public PawnDivider AddDividerAfterPawn(Pawn pawn, string label, Color color)
@@ -486,9 +514,6 @@ namespace Better_Work_Tab.PawnOrganizer
                 return null;
             }
 
-            Log.Message($"[AddDividerBeforePawnWhileSorting] Pawn {pawn.LabelShort} is at visual index {visualIndex}");
-
-            
 
             // Recalculate displayOrder to match current visual order
             RecalculateDisplayOrderFromVisualOrder();
@@ -639,16 +664,21 @@ namespace Better_Work_Tab.PawnOrganizer
         {
             _workingElements.Clear();
 
-            for (int i = 0; i < _snapshotPawns.Count; i++)
+            if (_snapshotPawns != null)
             {
-                _workingElements.Add(DisplayElementPool.GetPawnElement(_snapshotPawns[i]));
+                for (int i = 0; i < _snapshotPawns.Count; i++)
+                {
+                    if (_snapshotPawns[i] != null) // Defensive check
+                        _workingElements.Add(DisplayElementPool.GetPawnElement(_snapshotPawns[i]));
+                }
             }
 
             if (_snapshotDividers != null)
             {
                 for (int i = 0; i < _snapshotDividers.Count; i++)
                 {
-                    _workingElements.Add(DisplayElementPool.GetDividerElement(_snapshotDividers[i]));
+                    if (_snapshotDividers[i] != null) // Defensive check
+                        _workingElements.Add(DisplayElementPool.GetDividerElement(_snapshotDividers[i]));
                 }
             }
 

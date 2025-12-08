@@ -1,4 +1,5 @@
 using System;
+using Better_Work_Tab.Features;
 using Better_Work_Tab.PawnOrganizer.Data;
 using RimWorld;
 using Spine.UI.ColourPicker;
@@ -80,7 +81,7 @@ namespace Better_Work_Tab.UI
             float heightBlockTop = fontButtonRect.yMax + 12f;
             var heightLabelRect = new Rect(0f, heightBlockTop, inRect.width, 22f);
             Widgets.Label(heightLabelRect, $"Height: {_height:F0}px");
-            var heightSliderRect = new Rect(0f, heightLabelRect.yMax + 4f, inRect.width, 27);
+            var heightSliderRect = new Rect(0f, heightLabelRect.yMax + 15f, inRect.width, 27);
             _height = Widgets.HorizontalSlider(heightSliderRect, _height, 10f, 80f, false, null, "Thin", "Tall");
 
             float buttonY = inRect.height - 50f;
