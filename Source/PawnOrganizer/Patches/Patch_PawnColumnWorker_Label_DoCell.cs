@@ -1,9 +1,10 @@
-﻿using HarmonyLib;
+using System;
+using Better_Work_Tab.PawnOrganizer.API;
+using HarmonyLib;
 using RimWorld;
+using Spine.UI; // for TextColorHelper
 using UnityEngine;
 using Verse;
-using Better_Work_Tab.PawnOrganizer.API;
-using Spine.UI;               // for TextColorHelper
 
 namespace Better_Work_Tab.Patches
 {
@@ -16,43 +17,36 @@ namespace Better_Work_Tab.Patches
             Pawn pawn,
             PawnTable table)
         {
-            // If no game/pawn or no custom background set, let vanilla run unmodified:
             if (Current.Game == null
                 || pawn == null
                 || !PawnColorDatabase.TryGetColor(pawn, out var bg)
                 || bg.a <= 0f)
             {
-                return true; // run vanilla
+                return true;
             }
 
-            // Otherwise, draw our copy with contrast‐aware text
             DoCell_Contrast(__instance, rect, pawn, table, bg);
-            return false;    // skip vanilla
+            return false;
         }
 
-
         private static void DoCell_Contrast(
-    PawnColumnWorker_Label worker,
-    Rect rect,
-    Pawn pawn,
-    PawnTable table,
-    Color backgroundColor)
+            PawnColumnWorker_Label worker,
+            Rect rect,
+            Pawn pawn,
+            PawnTable table,
+            Color backgroundColor)
         {
-            // 1) Compute our drawing rects (exact vanilla)
             Rect rect1 = new Rect(
                 rect.x,
                 rect.y,
                 rect.width,
-                Mathf.Min(rect.height,
-                    worker.def.groupable
-                        ? rect.height
-                        : worker.GetMinCellHeight(pawn))
-            );
+                Mathf.Min(
+                    rect.height,
+                    worker.def.groupable ? rect.height : worker.GetMinCellHeight(pawn)));
 
             Rect rect2 = rect1;
             rect2.xMin += 3f;
 
-            // 2) Icon & selection overlay (exact vanilla)
             if (worker.def.showIcon)
             {
                 rect2.xMin += rect1.height;
@@ -64,7 +58,6 @@ namespace Better_Work_Tab.Patches
                 Widgets.ThingIcon(iconRect, pawn);
             }
 
-            // 3) Health bar (exact vanilla)
             if (pawn.health.summaryHealth.SummaryHealthPercent < 0.99f)
             {
                 Rect barRect = new Rect(rect2.x - 3f, rect2.y, rect2.width + 3f, rect2.height);
@@ -78,50 +71,40 @@ namespace Better_Work_Tab.Patches
                     doBorder: false);
             }
 
-            // 4) Mouse-over highlight (exact vanilla)
             if (Mouse.IsOver(rect1))
                 GUI.DrawTexture(rect1, TexUI.HighlightTex);
 
-            // ===================================================================
-            // 5) GET EXACT VANILLA LABEL TEXT (Name + Title)
-            // ===================================================================
-            // Call vanilla's exact GetLabel() to get precise text - e.g., "Morrison, Colonist" or "Lewwis, Bodyguard"
             var getLabelMI = AccessTools.Method(typeof(PawnColumnWorker_Label), "GetLabel");
             TaggedString vanillaLabel = (TaggedString)getLabelMI.Invoke(worker, new object[] { pawn });
 
             string finalLabel = vanillaLabel.Resolve().StripTags();
 
-            // ===================================================================
-            // 7) SINGLE CONTRAST COLOR FOR ENTIRE LABEL (Name + Title)
-            // ===================================================================
             Color textCol = TextColorHelper.GetContrastingTextColor(
                 backgroundColor,
                 darkTextColor: Color.black,
                 lightTextColor: Color.white);
 
-            // 8) Draw with uniform contrast color
             var oldFont = Text.Font;
             var oldAnchor = Text.Anchor;
             var oldWrap = Text.WordWrap;
-            var oldGuiColor = GUI.color;
             try
             {
                 Text.Font = GameFont.Small;
-                Text.Anchor = TextAnchor.MiddleLeft;  // Fixed: Always MiddleLeft (vanilla default)
+                Text.Anchor = TextAnchor.MiddleLeft;
                 Text.WordWrap = false;
-                GUI.color = textCol;  // ONE color for "(Name), (Title)"
 
-                Widgets.Label(rect2, finalLabel);
+                using (new GUIColorScope(textCol))
+                {
+                    Widgets.Label(rect2, finalLabel);
+                }
             }
             finally
             {
                 Text.Font = oldFont;
                 Text.Anchor = oldAnchor;
                 Text.WordWrap = oldWrap;
-                GUI.color = oldGuiColor;
             }
 
-            // 9) Invisible button + tooltip (exact vanilla)
             if (Widgets.ButtonInvisible(rect1))
             {
                 CameraJumper.TryJumpAndSelect(pawn);
@@ -133,6 +116,22 @@ namespace Better_Work_Tab.Patches
                 TipSignal tooltip = pawn.GetTooltip();
                 tooltip.text = "ClickToJumpTo".Translate() + "\n\n" + tooltip.text;
                 TooltipHandler.TipRegion(rect1, tooltip);
+            }
+        }
+
+        private readonly struct GUIColorScope : IDisposable
+        {
+            private readonly Color _previous;
+
+            public GUIColorScope(Color color)
+            {
+                _previous = GUI.color;
+                GUI.color = color;
+            }
+
+            public void Dispose()
+            {
+                GUI.color = _previous;
             }
         }
     }

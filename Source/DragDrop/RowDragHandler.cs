@@ -1,3 +1,4 @@
+using Better_Work_Tab.Features;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.PawnOrganizer.Data;
@@ -16,42 +17,33 @@ namespace Better_Work_Tab.DragDrop
     /// Handles row (Pawn/Divider) dragging within the work tab.
     /// Uses the refactored DragDropApi for visuals and midpoint snapping.
     /// </summary>
-    public class RowDragHandler
+    public class RowDragHandler : DragHandler<WorkTabLayoutRow>
     {
-        private readonly IWorkTabLayoutController _layout;
         private readonly WorkTabLayoutRow _draggedRow;
         private readonly Rect _originalRect;
         private readonly float _dragOffsetY;
 
-        private int _targetIndex = -1;
-        private bool _isDragging = false;
-
         private List<float> _cachedDescriptorHeights;
         private int _lastDescriptorCount = -1;
 
-        public int TargetIndex => _targetIndex;
-
         public RowDragHandler(IWorkTabLayoutController layout, WorkTabLayoutRow row, Vector2 startMouse)
+            : base(layout)
         {
-            _layout = layout;
             _draggedRow = row;
             _originalRect = layout.GetScreenRect(row);
             _dragOffsetY = startMouse.y - _originalRect.y;
-            _targetIndex = row.VisualIndex;
-            _isDragging = true;
+            TargetIndex = row.VisualIndex;
 
             RefreshHeightCache();
         }
 
-        public bool IsDragging => _isDragging;
-
-        public void OnDragUpdate(Vector2 mousePos)
+        public override void OnDragUpdate(Vector2 mousePos)
         {
             // Convert mouse Y into "content space" below the header, including scroll.
-            float headerBottom = _layout.TableOrigin.y + _layout.HeaderHeight;
-            float contentY = mousePos.y - headerBottom + _layout.Table.scrollPosition.y;
+            float headerBottom = Layout.TableOrigin.y + Layout.HeaderHeight;
+            float contentY = mousePos.y - headerBottom + Layout.Table.scrollPosition.y;
 
-            var descriptors = _layout.GetRowDescriptors();
+            var descriptors = Layout.GetRowDescriptors();
             int newIndex = descriptors.Count;
 
             // Midpoint semantics: if we're above the midpoint of row i,
@@ -69,12 +61,12 @@ namespace Better_Work_Tab.DragDrop
                 cumulativeY += descriptors[i].Height;
             }
 
-            _targetIndex = Mathf.Clamp(newIndex, 0, descriptors.Count);
+            TargetIndex = Mathf.Clamp(newIndex, 0, descriptors.Count);
         }
 
-        public void OnDrawOverlay()
+        public override void OnDrawOverlay()
         {
-            if (!_isDragging) return;
+            if (!IsDragging) return;
 
             bool lineOnly = BetterWorkTabMod.Settings?.showOnlyLineDragIndicatorRows ?? false;
 
@@ -90,42 +82,32 @@ namespace Better_Work_Tab.DragDrop
                 ListDragVisuals.DrawGhost(ghostRect, label);
             }
 
-            if (_targetIndex >= 0)
+            if (TargetIndex >= 0)
             {
                 // Use ListDragVisuals + per-row heights so the insertion line is consistent
-                var descriptors = _layout.GetRowDescriptors();
+                var descriptors = Layout.GetRowDescriptors();
                 var heights = descriptors.Select(r => r.Height).ToList();
 
-                float headerBottom = _layout.TableOrigin.y + _layout.HeaderHeight;
+                float headerBottom = Layout.TableOrigin.y + Layout.HeaderHeight;
 
                 float lineY = ListDragVisuals.GetInsertionLineY(
-                    _targetIndex,
+                    TargetIndex,
                     _cachedDescriptorHeights,
                     headerBottom,
-                    _layout.Table.scrollPosition.y);
+                    Layout.Table.scrollPosition.y);
 
                 ListDragVisuals.DrawInsertionLine(
-                    _layout.TableOrigin.x,
+                    Layout.TableOrigin.x,
                     lineY,
-                    _layout.Table.Size.x - 16f);
+                    Layout.Table.Size.x - 16f);
             }
         }
 
-        public void OnDrop()
+        protected override void CommitReorder()
         {
-            CommitReorder();
-        }
+            if (!IsDragging) return;
 
-        public void OnCancel()
-        {
-            _isDragging = false;
-        }
-
-        private void CommitReorder()
-        {
-            if (!_isDragging) return;
-
-            var ordered = _layout.Rows.OrderBy(r => r.VisualIndex).ToList();
+            var ordered = Layout.Rows.OrderBy(r => r.VisualIndex).ToList();
 
             int currentIndex = -1;
             if (_draggedRow.Element is PawnElement draggedPawnElement)
@@ -139,7 +121,7 @@ namespace Better_Work_Tab.DragDrop
 
             if (currentIndex < 0)
             {
-                _isDragging = false;
+                IsDragging = false;
                 return;
             }
 
@@ -147,7 +129,7 @@ namespace Better_Work_Tab.DragDrop
             ordered.RemoveAt(currentIndex);
 
             // Adjust target for removal
-            int finalTargetIndex = _targetIndex;
+            int finalTargetIndex = TargetIndex;
             if (currentIndex < finalTargetIndex)
                 finalTargetIndex--;
 
@@ -165,14 +147,11 @@ namespace Better_Work_Tab.DragDrop
 
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
             if (Find.ColonistBar != null) Find.ColonistBar.MarkColonistsDirty();
-
-
-            _isDragging = false;
         }
 
         private void RefreshHeightCache()
         {
-            var descriptors = _layout.GetRowDescriptors();
+            var descriptors = Layout.GetRowDescriptors();
             if (_cachedDescriptorHeights == null || descriptors.Count != _lastDescriptorCount)
             {
                 _cachedDescriptorHeights = new List<float>(descriptors.Count);

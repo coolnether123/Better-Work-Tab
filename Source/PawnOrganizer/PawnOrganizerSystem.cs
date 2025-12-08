@@ -105,13 +105,13 @@ namespace Better_Work_Tab.PawnOrganizer
                 // Phase 1: update active drag, if any
                 if (_activeRowDrag != null)
                 {
-                    HandleActiveRowDrag(evt);
+                    HandleActiveDrag(_activeRowDrag, () => _activeRowDrag = null, evt);
                     return;
                 }
 
                 if (_activeColumnDrag != null)
                 {
-                    HandleActiveColumnDrag(evt);
+                    HandleActiveDrag(_activeColumnDrag, () => _activeColumnDrag = null, evt);
                     return;
                 }
 
@@ -129,59 +129,27 @@ namespace Better_Work_Tab.PawnOrganizer
             _currentWorkTab = workTab;
         }
 
-        /// <summary>
-        /// Handles updates for an active row drag.
-        /// </summary>
-        private void HandleActiveRowDrag(Event evt)
+        private void HandleActiveDrag<T>(DragHandler<T> handler, Action clearHandler, Event evt)
         {
-            if (_activeRowDrag == null || evt == null)
+            if (handler == null || evt == null)
                 return;
 
             switch (evt.type)
             {
                 case EventType.MouseDrag:
-                    _activeRowDrag.OnDragUpdate(evt.mousePosition);
+                    handler.OnDragUpdate(evt.mousePosition);
                     evt.Use();
                     break;
 
                 case EventType.MouseUp:
-                    _activeRowDrag.OnDrop();
-                    _activeRowDrag = null;
+                    handler.OnDrop();
+                    clearHandler();
                     evt.Use();
                     break;
 
                 case EventType.KeyDown when evt.keyCode == KeyCode.Escape:
-                    _activeRowDrag.OnCancel();
-                    _activeRowDrag = null;
-                    evt.Use();
-                    break;
-            }
-        }
-
-        /// <summary>
-        /// Handles updates for an active column drag.
-        /// </summary>
-        private void HandleActiveColumnDrag(Event evt)
-        {
-            if (_activeColumnDrag == null || evt == null)
-                return;
-
-            switch (evt.type)
-            {
-                case EventType.MouseDrag:
-                    _activeColumnDrag.OnDragUpdate(evt.mousePosition);
-                    evt.Use();
-                    break;
-
-                case EventType.MouseUp:
-                    _activeColumnDrag.OnDrop();
-                    _activeColumnDrag = null;
-                    evt.Use();
-                    break;
-
-                case EventType.KeyDown when evt.keyCode == KeyCode.Escape:
-                    _activeColumnDrag.OnCancel();
-                    _activeColumnDrag = null;
+                    handler.OnCancel();
+                    clearHandler();
                     evt.Use();
                     break;
             }

@@ -104,63 +104,47 @@ namespace Better_Work_Tab.Features.Rules
 
         private void EnsureNonWorktypeDefsCached()
         {
-            if(Parameters.RequiredTrait == null && (Parameters.TraitString != null && Parameters.TraitString != "") && Parameters.TraitDegree != null)
+            if (Parameters.RequiredTrait == null && !string.IsNullOrEmpty(Parameters.TraitString) && Parameters.TraitDegree != null)
             {
                 var traitDef = DefDatabase<TraitDef>.GetNamedSilentFail(Parameters.TraitString);
-                if(traitDef != null)
+                if (traitDef != null)
                 {
                     Parameters.RequiredTrait = new Tuple<TraitDef, int>(traitDef, (int)Parameters.TraitDegree);
-                    Log.Message("[BWT] (Trait) Successfully retrieved trait " + traitDef.defName + " from string for " + Name);
                 }
             }
 
-            if (Parameters.Xenotype == null && (Parameters.XenotypeString != null && Parameters.XenotypeString != ""))
+            if (Parameters.Xenotype == null && !string.IsNullOrEmpty(Parameters.XenotypeString))
             {
-                var xenotypeDef = DefDatabase<XenotypeDef>.GetNamedSilentFail(Parameters.XenotypeString);
-                if (xenotypeDef != null)
-                {
-                    Parameters.Xenotype = xenotypeDef;
-                    Log.Message("[BWT] (Xenotype) Successfully retrieved trait " + xenotypeDef.defName + " from string for " + Name);
-                }
+                Parameters.Xenotype = DefDatabase<XenotypeDef>.GetNamedSilentFail(Parameters.XenotypeString);
             }
-
         }
 
         private WorkTypeDef DetermineWorktype(WorkTypeDef callSiteWorktype)
         {
-            //Log.Message("WorktypeString: " + Parameters.WorktypeString);
-            WorkTypeDef returnable;
-            
             EnsureNonWorktypeDefsCached();
 
-            if (Parameters.Worktype != null)
+            if (Parameters.Worktype == null && !string.IsNullOrEmpty(Parameters.WorktypeString))
             {
-                //use cached worktype first
-                returnable = Parameters.Worktype;
-                //if worktype string is not set to defname, update it
-                if (Parameters.WorktypeString != Parameters.Worktype.defName)
+                Parameters.Worktype = DefDatabase<WorkTypeDef>.GetNamedSilentFail(Parameters.WorktypeString);
+                if (Parameters.Worktype == null && Parameters.IgnoreIfWorktypeNonexistent)
                 {
-                    Parameters.WorktypeString = Parameters.Worktype.defName;
+                    return null;
                 }
-            }
-            else if (Parameters.WorktypeString != null && Parameters.WorktypeString != "") {
-                //next try to get worktype from string
-                returnable = DefDatabase<WorkTypeDef>.GetNamedSilentFail(Parameters.WorktypeString);
-                if(Parameters.Worktype == null)
-                {
-                    Log.Message("[BWT] (Worktype) Successfully retrieved worktype " + returnable.defName + " from string for " + Name);
-                    //and cache it for next time
-                    Parameters.Worktype = returnable;
-                }
-            }
-            else
-            {
-                //otherwise use a callsite worktype
-                returnable =  CachedWorktype ?? callSiteWorktype;
             }
 
-            
-            return returnable;
+            WorkTypeDef resolved = Parameters.Worktype ?? CachedWorktype ?? callSiteWorktype;
+
+            if (resolved == null && !string.IsNullOrEmpty(Parameters.WorktypeString))
+            {
+                int key = $"BWTMissingWorktype_{Parameters.WorktypeString}".GetHashCode();
+                Log.WarningOnce($"[BWT] Unable to resolve worktype \"{Parameters.WorktypeString}\" for rule \"{Name}\".", key);
+            }
+            else if (resolved != null && Parameters.WorktypeString != resolved.defName)
+            {
+                Parameters.WorktypeString = resolved.defName;
+            }
+
+            return resolved;
         }
 
         public WorkAssignmentRule Copy()
