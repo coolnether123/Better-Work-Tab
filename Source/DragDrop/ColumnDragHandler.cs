@@ -11,34 +11,26 @@ using Verse;
 
 namespace Better_Work_Tab.DragDrop
 {
-    public class ColumnDragHandler
+    public class ColumnDragHandler : DragHandler<WorkTabLayoutColumn>
     {
-        private readonly IWorkTabLayoutController _layout;
         private readonly PawnColumnDef _column;
         private readonly List<WorkTabLayoutColumn> _workColumns;
-        private int _targetIndex;
         private Rect _originRect;
-        private bool _isDragging = false;
-
-        public int TargetIndex => _targetIndex;
 
         public ColumnDragHandler(IWorkTabLayoutController layout, WorkTabLayoutColumn col)
+            : base(layout)
         {
-            _layout = layout;
             _column = col.Column;
             _originRect = col.HeaderRect;
 
-            _workColumns = _layout.Columns
+            _workColumns = Layout.Columns
                 .Where(c => c.Column.Worker is PawnColumnWorker_WorkPriority)
                 .ToList();
 
-            _targetIndex = _workColumns.FindIndex(c => c.Column == _column);
-            _isDragging = true;
+            TargetIndex = _workColumns.FindIndex(c => c.Column == _column);
         }
 
-        public bool IsDragging => _isDragging;
-
-        public void OnDragUpdate(Vector2 mousePos)
+        public override void OnDragUpdate(Vector2 mousePos)
         {
             int index = _workColumns.Count;
             for (int i = 0; i < _workColumns.Count; i++)
@@ -49,56 +41,46 @@ namespace Better_Work_Tab.DragDrop
                     break;
                 }
             }
-            _targetIndex = Mathf.Clamp(index, 0, _workColumns.Count);
+            TargetIndex = Mathf.Clamp(index, 0, _workColumns.Count);
         }
 
-        public void OnDrawOverlay()
+        public override void OnDrawOverlay()
         {
-            if (!_isDragging) return;
+            if (!IsDragging) return;
 
-            float fullHeight = _layout.HeaderHeight + _layout.ContentHeight;
+            float fullHeight = Layout.HeaderHeight + Layout.ContentHeight;
             bool lineOnly = BetterWorkTabMod.Settings?.showOnlyLineDragIndicatorColumns ?? false;
 
             if (!lineOnly)
             {
                 Rect ghost = new Rect(
                     Event.current.mousePosition.x - (_originRect.width / 2f),
-                    _layout.TableOrigin.y,
+                    Layout.TableOrigin.y,
                     _originRect.width,
                     fullHeight);
 
                 ListDragVisuals.DrawGhost(ghost, _column.defName);
             }
 
-            if (_targetIndex >= 0)
+            if (TargetIndex >= 0)
             {
                 float lineX;
                 if (_workColumns.Count == 0) lineX = _originRect.x;
-                else if (_targetIndex >= _workColumns.Count) lineX = _workColumns.Last().HeaderRect.xMax;
-                else lineX = _workColumns[_targetIndex].HeaderRect.xMin;
+                else if (TargetIndex >= _workColumns.Count) lineX = _workColumns.Last().HeaderRect.xMax;
+                else lineX = _workColumns[TargetIndex].HeaderRect.xMin;
 
-                Widgets.DrawBoxSolid(new Rect(lineX - 1f, _layout.TableOrigin.y, 2f, fullHeight), Color.white);
+                Widgets.DrawBoxSolid(new Rect(lineX - 1f, Layout.TableOrigin.y, 2f, fullHeight), Color.white);
             }
         }
 
-        public void OnDrop()
+        protected override void CommitReorder()
         {
-            CommitReorder();
-        }
-
-        public void OnCancel()
-        {
-            _isDragging = false;
-        }
-
-        private void CommitReorder()
-        {
-            if (!_isDragging) return;
+            if (!IsDragging) return;
 
             PawnTableDef def = PawnTableDefOf.Work;
             if (def?.columns == null)
             {
-                _isDragging = false;
+                IsDragging = false;
                 return;
             }
 
@@ -114,10 +96,20 @@ namespace Better_Work_Tab.DragDrop
                 workCols.Remove(current);
 
                 // Adjust BEFORE clamping
-                int adjustedTarget = _targetIndex;
-                if (currentIndex < _targetIndex)
+                int adjustedTarget = TargetIndex;
+                if (currentIndex < TargetIndex)
                 {
                     adjustedTarget--;
+                }
+
+                int finalInsertIndex = Mathf.Clamp(adjustedTarget, 0, workCols.Count - 1);
+
+                // === Only reorder if actually moving to different position ===
+                if (currentIndex == finalInsertIndex)
+                {
+                    // No actual move - don't mark as moved
+                    IsDragging = false;
+                    return;
                 }
 
                 int insert = Mathf.Clamp(adjustedTarget, 0, workCols.Count);
@@ -147,11 +139,17 @@ namespace Better_Work_Tab.DragDrop
                 // Record that this column was directly dragged by the player
                 MainTabWindow_BetterWork.MarkColumnMoved(_column.workType);
 
+                // Force layout to rebuild with new column order
+                var layout = PawnOrganizerSystem.Instance?.Layout;
+                if (layout is WorkTabLayoutController workLayout)
+                {
+                    workLayout.InvalidateRowDescriptors();
+                }
+
                 WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
                 MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
             }
-
-            _isDragging = false;
+            IsDragging = false;
         }
     }
 }

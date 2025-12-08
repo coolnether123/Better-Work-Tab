@@ -35,7 +35,28 @@ namespace Better_Work_Tab.UI
         private WorkAssignmentRule _pendingRuleDrag;
 
         // Parameter field caching
-        private static FieldInfo[] CachedParameterFields;
+        private static readonly Lazy<FieldInfo[]> CachedParameterFields = new Lazy<FieldInfo[]>(() =>
+            typeof(WorkAssignmentParameters)
+                .GetFields(BindingFlags.Public | BindingFlags.Instance)
+                .Where(f => f.GetCustomAttribute<RuleParameterAttribute>() != null)
+                .ToArray());
+
+        private const float ParameterRowHeight = 32f;
+        private const float ParameterRowWidthReduction = 30f;
+        private const float ParameterRowIndent = 10f;
+        private const float ParameterValuePortion = 0.25f;
+        private const float TraitButtonMinWidth = 150f;
+        private static readonly Vector2 XenotypeIconSize = new Vector2(22f, 22f);
+
+        private delegate void ParameterDrawer(
+            Window_RulesManager manager,
+            FieldInfo field,
+            Rect rowRect,
+            Rect valueRect,
+            string label);
+
+        private static readonly Dictionary<Type, ParameterDrawer> ParameterDrawers =
+            CreateParameterDrawers();
 
         /// <summary>
         /// Gets all fields marked with [RuleParameter] attribute.
@@ -43,14 +64,27 @@ namespace Better_Work_Tab.UI
         /// </summary>
         public static FieldInfo[] GetParameterFields()
         {
-            if (CachedParameterFields == null)
+            return CachedParameterFields.Value;
+        }
+
+        private static Dictionary<Type, ParameterDrawer> CreateParameterDrawers()
+        {
+            return new Dictionary<Type, ParameterDrawer>
             {
-                CachedParameterFields = typeof(WorkAssignmentParameters)
-                    .GetFields(BindingFlags.Public | BindingFlags.Instance)
-                    .Where(f => f.GetCustomAttribute<RuleParameterAttribute>() != null)
-                    .ToArray();
-            }
-            return CachedParameterFields;
+                { typeof(bool), (mgr, field, rowRect, valueRect, label) => mgr.DrawBoolParameter(field, rowRect, label) },
+                { typeof(int), (mgr, field, rowRect, valueRect, label) => mgr.DrawIntParameter(field, rowRect, valueRect, label) },
+                { typeof(string), (mgr, field, rowRect, valueRect, label) => mgr.DrawStringParameter(field, rowRect, valueRect, label) },
+                { typeof(Gender?), (mgr, field, rowRect, valueRect, label) => mgr.DrawGenderParameter(field, rowRect, valueRect, label) },
+                { typeof(WorkTypeDef), (mgr, field, rowRect, valueRect, label) => mgr.DrawWorkTypeParameter(field, rowRect, valueRect, label) },
+                { typeof(XenotypeDef), (mgr, field, rowRect, valueRect, label) => mgr.DrawXenotypeParameter(field, rowRect, valueRect, label) },
+                { typeof(Tuple<TraitDef, int>), (mgr, field, rowRect, valueRect, label) => mgr.DrawTraitParameter(field, rowRect, valueRect, label) },
+                { typeof(WorkAssignmentParameters), (mgr, field, rowRect, valueRect, label) => mgr.DrawUnsupportedParameter(rowRect) }
+            };
+        }
+
+        private static string GetTranslationKey(FieldInfo field)
+        {
+            return $"BWT_{field.Name}";
         }
 
         public Window_RulesManager()
@@ -165,17 +199,8 @@ namespace Better_Work_Tab.UI
             Rect rect2 = rightRect;
             rect2.yMax = rect.y - 10f;
             Rect rect3 = rect2;
-            rect3.xMin += 10f;
-
-            /// <summary>
-            /// Converts a PascalCase field name to a translation key.
-            /// </summary>
-            string GetTranslationKey(FieldInfo field)
-            {
-                return $"BWT_{field.Name}";
-            }
-
-            rect3.xMax -= 10f;
+            rect3.xMin += ParameterRowIndent;
+            rect3.xMax -= ParameterRowIndent;
             rect3.y = rect2.yMax - Window.CloseButSize.y - 10f;
             rect3.height = Window.CloseButSize.y;
             Rect outRect = rect2;
@@ -183,269 +208,276 @@ namespace Better_Work_Tab.UI
             outRect.yMax = rect3.y + 39f;
             Widgets.DrawMenuSection(rect2);
 
-            int num = GetParameterFields().Length;
+            int parameterCount = GetParameterFields().Count(f => ModsConfig.BiotechActive || f.FieldType != typeof(XenotypeDef));
 
             if (rule == null)
             {
+                var oldColor = GUI.color;
                 GUI.color = Color.gray;
                 var defaultAnchor = Text.Anchor;
                 Text.Anchor = TextAnchor.MiddleCenter;
                 Widgets.Label(outRect, "No rule selected");
                 Text.Anchor = defaultAnchor;
-                GUI.color = Color.white;
+                GUI.color = oldColor;
                 return;
             }
 
-            Rect viewRect = new Rect(0f, 0f, outRect.width, (num * 32));
+            Rect viewRect = new Rect(0f, 0f, outRect.width, (parameterCount * ParameterRowHeight));
             Widgets.AdjustRectsForScrollView(rect2, ref outRect, ref viewRect);
             Widgets.BeginScrollView(outRect, ref rightScroll, viewRect);
 
             SelectedRule.Name = SelectedRule.Parameters.RuleName == "" ? "New Rule " + (rule == null ? 0 : SelectedRule.Parameters.Priority) : SelectedRule.Parameters.RuleName;
 
-            float num2 = 32f;
+            float curY = ParameterRowHeight;
 
             foreach (FieldInfo field in GetParameterFields())
             {
-                // Skip Biotech-exclusive fields if mod is not installed
                 if (!ModsConfig.BiotechActive && field.FieldType == typeof(XenotypeDef))
                     continue;
 
-                Rect rect4 = new Rect(0f, num2, outRect.width - 30f, 32f);
-                Rect rect5 = rect4;
-                rect5.x += 10f;
-                num2 += 32f;
-                Rect rightPart = rect5.RightPart(0.25f);
+                Rect rowRect = new Rect(0f, curY, outRect.width - ParameterRowWidthReduction, ParameterRowHeight);
+                rowRect.x += ParameterRowIndent;
+                rowRect.width -= ParameterRowIndent;
+                curY += ParameterRowHeight;
+                Rect valueRect = rowRect.RightPart(ParameterValuePortion);
                 string paramLabel = GetTranslationKey(field).Translate();
 
-                GUI.color = Color.white;
-                var fontsize = Text.Font;
+                TooltipHandler.TipRegion(rowRect, ("BWT_" + field.Name + "_Desc").Translate());
 
-                TooltipHandler.TipRegion(rect5, ("BWT_" + field.Name + "_Desc").Translate());
-
-                if (field.FieldType == typeof(bool))
+                if (ParameterDrawers.TryGetValue(field.FieldType, out var drawer))
                 {
-                    bool refValue = (bool)field.GetValue(SelectedRule.Parameters);
-                    Widgets.CheckboxLabeled(rect5, paramLabel, ref refValue, disabled: uneditable);
-                    field.SetValue(SelectedRule.Parameters, refValue);
-                    continue;
+                    drawer(this, field, rowRect, valueRect, paramLabel);
                 }
-
-                GUI.color = Color.white;
-
-                if (field.FieldType == typeof(int))
+                else
                 {
-                    int refValue = (int)field.GetValue(SelectedRule.Parameters);
-                    Widgets.Label(rect5, paramLabel);
-
-                    string editBuffer = refValue.ToString();
-                    DrawPlusMinusOneField(rightPart, ref refValue, ref editBuffer, disabled: uneditable);
-                    field.SetValue(SelectedRule.Parameters, refValue);
-
-                    continue;
-                }
-
-                GUI.color = Color.white;
-
-                if (field.FieldType == typeof(string))
-                {
-                    string refValue = (string)field.GetValue(SelectedRule.Parameters) == null ? "" : (string)field.GetValue(SelectedRule.Parameters);
-                    Widgets.Label(rect5, paramLabel);
-
-                    if (uneditable)
-                    {
-                        Widgets.Label(rect5.RightHalf(), refValue);
-                    }
-                    else
-                    {
-                        refValue = Widgets.TextField(rect5.RightHalf(), refValue, 24);
-                        field.SetValue(SelectedRule.Parameters, refValue);
-                    }
-
-                    continue;
-                }
-
-                Text.Font = fontsize;
-                GUI.color = Color.white;
-
-                if (field.FieldType == typeof(Gender?))
-                {
-                    Gender? refValue = (Gender?)field.GetValue(SelectedRule.Parameters) ?? null;
-
-                    Widgets.Label(rect5, paramLabel);
-                    if (uneditable) GUI.color = Color.gray;
-                    if (Widgets.ButtonText(rightPart, refValue?.ToString() ?? "Unassigned", active: !uneditable))
-                    {
-                        List<FloatMenuOption> enums = new List<FloatMenuOption>()
-                        {
-                            new FloatMenuOption("Unassigned", delegate
-                            {
-                                field.SetValue(SelectedRule.Parameters, null);
-                                SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
-                            })
-                        };
-
-                        foreach (var e in Enum.GetValues(typeof(Gender)))
-                        {
-                            enums.Add(new FloatMenuOption(e.ToString(), delegate
-                            {
-                                field.SetValue(SelectedRule.Parameters, e);
-                                SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
-                            }));
-                        }
-                        Find.WindowStack.Add(new FloatMenu(enums));
-                    }
-                    continue;
-                }
-
-                Text.Font = fontsize;
-                GUI.color = Color.white;
-
-                // WorkTypeDef with serialization fallback
-                if (field.FieldType == typeof(WorkTypeDef))
-                {
-                    WorkTypeDef refValue = (WorkTypeDef)field.GetValue(SelectedRule.Parameters) ?? null;
-
-                    // Fallback: try to get WorkTypeDef by name if null
-                    if (refValue == null && SelectedRule.Parameters.WorktypeString != null && SelectedRule.Parameters.WorktypeString != "")
-                    {
-                        refValue = DefDatabase<WorkTypeDef>.GetNamedSilentFail(SelectedRule.Parameters.WorktypeString);
-                        SelectedRule.Parameters.Worktype = refValue;
-                    }
-
-                    Widgets.Label(rect5, paramLabel);
-                    if (uneditable) GUI.color = Color.gray;
-
-                    // Show "(Nonexistent)" if worktype def doesn't exist but was saved
-                    if (SelectedRule.Parameters.IgnoreIfWorktypeNonexistent && SelectedRule.Parameters.WorktypeString != null && SelectedRule.Parameters.WorktypeString != "" && DefDatabase<WorkTypeDef>.GetNamedSilentFail(SelectedRule.Parameters.WorktypeString) == null)
-                    {
-                        var defaultAnchor = Text.Anchor;
-                        Text.Anchor = TextAnchor.MiddleRight;
-                        Widgets.Label(rect5.RightPart(0.5f), "\"" + SelectedRule.Parameters.WorktypeString + "\" (Nonexistent)");
-                        Text.Anchor = defaultAnchor;
-                    }
-                    else if (Widgets.ButtonText(rect5.RightPart(0.25f), refValue?.labelShort.CapitalizeFirst() ?? "Unassigned", active: !uneditable))
-                    {
-                        List<FloatMenuOption> defOptions = new List<FloatMenuOption>()
-                        {
-                            new FloatMenuOption("Unassigned", delegate
-                            {
-                                field.SetValue(SelectedRule.Parameters, null);
-                                SelectedRule.Parameters.WorktypeString = "";
-                                SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
-                            })
-                        };
-
-                        foreach (var def in DefDatabase<WorkTypeDef>.AllDefsListForReading.OrderByDescending(w => w.naturalPriority))
-                        {
-                            defOptions.Add(new FloatMenuOption(def.labelShort.CapitalizeFirst(), delegate
-                            {
-                                field.SetValue(SelectedRule.Parameters, def);
-                                SelectedRule.Parameters.WorktypeString = def.defName;
-                                SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
-                            }));
-                        }
-                        Find.WindowStack.Add(new FloatMenu(defOptions));
-                    }
-                    continue;
-                }
-
-                if (field.FieldType == typeof(XenotypeDef))
-                {
-                    XenotypeDef refValue = (XenotypeDef)field.GetValue(SelectedRule.Parameters) ?? null;
-                    Widgets.Label(rect5, paramLabel);
-
-                    if (uneditable)
-                    {
-                        GUI.color = Color.gray;
-                        Widgets.ButtonImageWithBG(rect5.RightPart(0.25f), refValue?.Icon ?? TexButton.CloseXSmall, new Vector2(22f, 22f));
-                        GUI.color = Color.white;
-                    }
-                    else if (Widgets.ButtonImageWithBG(rect5.RightPart(0.25f), refValue?.Icon ?? TexButton.CloseXSmall, new Vector2(22f, 22f)))
-                    {
-                        List<FloatMenuOption> defOptions = new List<FloatMenuOption>()
-                        {
-                            new FloatMenuOption("Unassigned", delegate
-                            {
-                                field.SetValue(SelectedRule.Parameters, null);
-                                SelectedRule.Parameters.XenotypeString = "";
-                                SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
-                            })
-                        };
-                        foreach (var def in DefDatabase<XenotypeDef>.AllDefsListForReading)
-                        {
-                            defOptions.Add(new FloatMenuOption(def.LabelCap, delegate
-                            {
-                                field.SetValue(SelectedRule.Parameters, def);
-                                SelectedRule.Parameters.XenotypeString = def.defName;
-                                SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
-                            }, def.Icon, XenotypeDef.IconColor, MenuOptionPriority.Default));
-                        }
-                        Find.WindowStack.Add(new FloatMenu(defOptions));
-                    }
-                    continue;
-                }
-
-                if (field.FieldType == typeof(Tuple<TraitDef, int>))
-                {
-                    Tuple<TraitDef, int> refValue = (Tuple<TraitDef, int>)field.GetValue(SelectedRule.Parameters) ?? null;
-                    Widgets.Label(rect5, paramLabel);
-                    string label = "Unassigned";
-                    if (SelectedRule.Parameters.RequiredTrait != null && refValue?.Item1 != null)
-                    {
-                        label = refValue.Item1.DataAtDegree(SelectedRule.Parameters.RequiredTrait.Item2).LabelCap;
-                    }
-
-                    Rect traitButtonRect = new Rect(rect5);
-                    traitButtonRect.width = rect5.width - Text.CalcSize(field.Name).x - 64f;
-                    traitButtonRect.x = rect5.xMax - traitButtonRect.width;
-
-                    if (uneditable) GUI.color = Color.gray;
-                    if (Widgets.ButtonText(traitButtonRect, label, active: !uneditable))
-                    {
-                        List<FloatMenuOption> list = new List<FloatMenuOption>()
-                        {
-                            new FloatMenuOption("Unassigned", delegate
-                            {
-                                field.SetValue(SelectedRule.Parameters, null);
-                                SelectedRule.Parameters.TraitString = "";
-                                SelectedRule.Parameters.TraitDegree = null;
-                                SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
-                            })
-                        };
-                        var sorted = DefDatabase<TraitDef>.AllDefs.OrderByDescending((TraitDef td) => td.GetGenderSpecificCommonality(Gender.None));
-                        var sortedList = sorted.ToList();
-                        sortedList.SortBy((TraitDef td) => td.defName);
-                        foreach (TraitDef item in sortedList)
-                        {
-                            foreach (TraitDegreeData degreeData in item.degreeDatas)
-                            {
-                                TraitDef localDef = item;
-                                TraitDegreeData localDeg = degreeData;
-                                list.Add(new FloatMenuOption(localDeg.LabelCap, delegate
-                                {
-                                    field.SetValue(SelectedRule.Parameters, new Tuple<TraitDef, int>(localDef, localDeg.degree));
-                                    SelectedRule.Parameters.TraitString = localDef.defName;
-                                    SelectedRule.Parameters.TraitDegree = localDeg.degree;
-                                    SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
-                                }));
-                            }
-                        }
-                        Find.WindowStack.Add(new FloatMenu(list));
-                    }
-                    continue;
-                }
-
-                Text.Font = fontsize;
-                GUI.color = Color.white;
-
-                if (field.FieldType == typeof(WorkAssignmentParameters))
-                {
-                    Widgets.Label(rect5, "NESTED RULES NOT SUPPORTED");
-                    continue;
+                    DrawUnsupportedParameter(rowRect);
                 }
             }
 
             Widgets.EndScrollView();
+        }
+
+        private void DrawBoolParameter(FieldInfo field, Rect rowRect, string label)
+        {
+            bool value = (bool)field.GetValue(SelectedRule.Parameters);
+            var oldColor = GUI.color;
+            if (uneditable) GUI.color = Color.gray;
+
+            Widgets.CheckboxLabeled(rowRect, label, ref value, disabled: uneditable);
+            field.SetValue(SelectedRule.Parameters, value);
+
+            GUI.color = oldColor;
+        }
+
+        private void DrawIntParameter(FieldInfo field, Rect rowRect, Rect valueRect, string label)
+        {
+            Widgets.Label(rowRect.LeftPart(1f - ParameterValuePortion), label);
+
+            int value = (int)field.GetValue(SelectedRule.Parameters);
+            string editBuffer = value.ToString();
+            DrawPlusMinusOneField(valueRect, ref value, ref editBuffer, disabled: uneditable);
+            field.SetValue(SelectedRule.Parameters, value);
+        }
+
+        private void DrawStringParameter(FieldInfo field, Rect rowRect, Rect valueRect, string label)
+        {
+            Widgets.Label(rowRect.LeftPart(1f - ParameterValuePortion), label);
+
+            string value = (string)field.GetValue(SelectedRule.Parameters) ?? string.Empty;
+
+            if (uneditable)
+            {
+                Widgets.Label(valueRect, value);
+            }
+            else
+            {
+                value = Widgets.TextField(valueRect, value, 24);
+                field.SetValue(SelectedRule.Parameters, value);
+            }
+        }
+
+        private void DrawGenderParameter(FieldInfo field, Rect rowRect, Rect valueRect, string label)
+        {
+            Widgets.Label(rowRect.LeftPart(1f - ParameterValuePortion), label);
+            var oldColor = GUI.color;
+            if (uneditable) GUI.color = Color.gray;
+
+            Gender? value = (Gender?)field.GetValue(SelectedRule.Parameters);
+            if (Widgets.ButtonText(valueRect, value?.ToString() ?? "Unassigned", active: !uneditable))
+            {
+                List<FloatMenuOption> enums = new List<FloatMenuOption>()
+                {
+                    new FloatMenuOption("Unassigned", delegate
+                    {
+                        field.SetValue(SelectedRule.Parameters, null);
+                        SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
+                    })
+                };
+
+                foreach (var e in Enum.GetValues(typeof(Gender)))
+                {
+                    enums.Add(new FloatMenuOption(e.ToString(), delegate
+                    {
+                        field.SetValue(SelectedRule.Parameters, e);
+                        SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
+                    }));
+                }
+                Find.WindowStack.Add(new FloatMenu(enums));
+            }
+
+            GUI.color = oldColor;
+        }
+
+        private void DrawWorkTypeParameter(FieldInfo field, Rect rowRect, Rect valueRect, string label)
+        {
+            Widgets.Label(rowRect.LeftPart(1f - ParameterValuePortion), label);
+
+            var parameters = SelectedRule.Parameters;
+            WorkTypeDef worktype = (WorkTypeDef)field.GetValue(parameters);
+
+            if (worktype == null && !string.IsNullOrEmpty(parameters.WorktypeString))
+            {
+                worktype = DefDatabase<WorkTypeDef>.GetNamedSilentFail(parameters.WorktypeString);
+                parameters.Worktype = worktype;
+            }
+
+            bool missingSavedWorktype = !string.IsNullOrEmpty(parameters.WorktypeString) && worktype == null;
+            string buttonLabel = worktype?.labelShort.CapitalizeFirst() ?? "Unassigned";
+            if (missingSavedWorktype)
+            {
+                buttonLabel = $"\"{parameters.WorktypeString}\" (Missing)";
+            }
+
+            var oldColor = GUI.color;
+            if (uneditable) GUI.color = Color.gray;
+
+            if (Widgets.ButtonText(valueRect, buttonLabel, active: !uneditable))
+            {
+                List<FloatMenuOption> defOptions = new List<FloatMenuOption>()
+                {
+                    new FloatMenuOption("Unassigned", delegate
+                    {
+                        field.SetValue(parameters, null);
+                        parameters.WorktypeString = "";
+                        SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
+                    })
+                };
+
+                foreach (var def in DefDatabase<WorkTypeDef>.AllDefsListForReading.OrderByDescending(w => w.naturalPriority))
+                {
+                    defOptions.Add(new FloatMenuOption(def.labelShort.CapitalizeFirst(), delegate
+                    {
+                        field.SetValue(parameters, def);
+                        parameters.WorktypeString = def.defName;
+                        SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
+                    }));
+                }
+                Find.WindowStack.Add(new FloatMenu(defOptions));
+            }
+
+            GUI.color = oldColor;
+        }
+
+        private void DrawXenotypeParameter(FieldInfo field, Rect rowRect, Rect valueRect, string label)
+        {
+            Widgets.Label(rowRect.LeftPart(1f - ParameterValuePortion), label);
+            var parameters = SelectedRule.Parameters;
+            XenotypeDef value = (XenotypeDef)field.GetValue(parameters);
+            var oldColor = GUI.color;
+            if (uneditable) GUI.color = Color.gray;
+
+            bool clicked = Widgets.ButtonImageWithBG(valueRect, value?.Icon ?? TexButton.CloseXSmall, XenotypeIconSize);
+            if (!uneditable && clicked)
+            {
+                List<FloatMenuOption> defOptions = new List<FloatMenuOption>()
+                {
+                    new FloatMenuOption("Unassigned", delegate
+                    {
+                        field.SetValue(parameters, null);
+                        parameters.XenotypeString = "";
+                        SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
+                    })
+                };
+                foreach (var def in DefDatabase<XenotypeDef>.AllDefsListForReading)
+                {
+                    defOptions.Add(new FloatMenuOption(def.LabelCap, delegate
+                    {
+                        field.SetValue(parameters, def);
+                        parameters.XenotypeString = def.defName;
+                        SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
+                    }, def.Icon, XenotypeDef.IconColor, MenuOptionPriority.Default));
+                }
+                Find.WindowStack.Add(new FloatMenu(defOptions));
+            }
+
+            GUI.color = oldColor;
+        }
+
+        private void DrawTraitParameter(FieldInfo field, Rect rowRect, Rect valueRect, string label)
+        {
+            Widgets.Label(rowRect.LeftPart(1f - ParameterValuePortion), label);
+
+            var parameters = SelectedRule.Parameters;
+            Tuple<TraitDef, int> trait = (Tuple<TraitDef, int>)field.GetValue(parameters);
+            string buttonLabel = "Unassigned";
+            if (trait?.Item1 != null)
+            {
+                buttonLabel = trait.Item1.DataAtDegree(trait.Item2).LabelCap;
+            }
+            else if (!string.IsNullOrEmpty(parameters.TraitString))
+            {
+                buttonLabel = $"\"{parameters.TraitString}\" (Missing)";
+            }
+
+            var oldColor = GUI.color;
+            if (uneditable) GUI.color = Color.gray;
+
+            Rect buttonRect = valueRect;
+            if (buttonRect.width < TraitButtonMinWidth)
+            {
+                buttonRect.width = TraitButtonMinWidth;
+                buttonRect.x = rowRect.xMax - buttonRect.width;
+            }
+
+            if (Widgets.ButtonText(buttonRect, buttonLabel, active: !uneditable))
+            {
+                List<FloatMenuOption> list = new List<FloatMenuOption>()
+                {
+                    new FloatMenuOption("Unassigned", delegate
+                    {
+                        field.SetValue(parameters, null);
+                        parameters.TraitString = "";
+                        parameters.TraitDegree = null;
+                        SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
+                    })
+                };
+                var sorted = DefDatabase<TraitDef>.AllDefs.OrderByDescending((TraitDef td) => td.GetGenderSpecificCommonality(Gender.None));
+                var sortedList = sorted.ToList();
+                sortedList.SortBy((TraitDef td) => td.defName);
+                foreach (TraitDef item in sortedList)
+                {
+                    foreach (TraitDegreeData degreeData in item.degreeDatas)
+                    {
+                        TraitDef localDef = item;
+                        TraitDegreeData localDeg = degreeData;
+                        list.Add(new FloatMenuOption(localDeg.LabelCap, delegate
+                        {
+                            field.SetValue(parameters, new Tuple<TraitDef, int>(localDef, localDeg.degree));
+                            parameters.TraitString = localDef.defName;
+                            parameters.TraitDegree = localDeg.degree;
+                            SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
+                        }));
+                    }
+                }
+                Find.WindowStack.Add(new FloatMenu(list));
+            }
+
+            GUI.color = oldColor;
+        }
+
+        private void DrawUnsupportedParameter(Rect rowRect)
+        {
+            Widgets.Label(rowRect, "NESTED RULES NOT SUPPORTED");
         }
 
         /// <summary>
@@ -453,6 +485,7 @@ namespace Better_Work_Tab.UI
         /// </summary>
         public static void DrawPlusMinusOneField(Rect rect, ref int value, ref string editBuffer, int multiplier = 1, bool disabled = false)
         {
+            var oldColor = GUI.color;
             if (disabled) GUI.color = Color.gray;
 
             Rect leftRect = rect.LeftPart(0.33f);
@@ -483,6 +516,7 @@ namespace Better_Work_Tab.UI
                 Widgets.TextFieldNumeric(midRect, ref value, ref editBuffer);
             }
             value = Mathf.Clamp(value, -1, 4);
+            GUI.color = oldColor;
         }
 
         /// <summary>
