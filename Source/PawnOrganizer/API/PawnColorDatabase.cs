@@ -17,7 +17,7 @@ namespace Better_Work_Tab.PawnOrganizer.API
         static PawnColorDatabase()
         {
             _pawnColors = new Dictionary<string, Color>();
-            Log.Message("[BetterWorkTab] PawnColorDatabase initialized.");
+            BetterWorkTabMod.DebugLog("[BetterWorkTab] PawnColorDatabase initialized.", DebugFeature.Layout);
         }
 
         /// <summary>
@@ -27,7 +27,7 @@ namespace Better_Work_Tab.PawnOrganizer.API
         {
             if (pawn == null) return;
             _pawnColors[pawn.ThingID] = color;
-            Log.Message($"[BetterWorkTab] Set color for {pawn.LabelShort}: {color}");
+            BetterWorkTabMod.DebugLog($"[BetterWorkTab] Set color for {pawn.LabelShort}: {color}", DebugFeature.Layout);
         }
 
         /// <summary>
@@ -51,7 +51,7 @@ namespace Better_Work_Tab.PawnOrganizer.API
             if (pawn != null && _pawnColors.ContainsKey(pawn.ThingID))
             {
                 _pawnColors.Remove(pawn.ThingID);
-                Log.Message($"[BetterWorkTab] Cleared color for {pawn.LabelShort}");
+                BetterWorkTabMod.DebugLog($"[BetterWorkTab] Cleared color for {pawn.LabelShort}", DebugFeature.Layout);
             }
         }
 
@@ -71,7 +71,7 @@ namespace Better_Work_Tab.PawnOrganizer.API
             _pawnColors = loadedColors != null
                 ? new Dictionary<string, Color>(loadedColors)
                 : new Dictionary<string, Color>();
-            Log.Message($"[BetterWorkTab] Loaded {_pawnColors.Count} pawn colors from save.");
+            BetterWorkTabMod.DebugLog($"[BetterWorkTab] Loaded {_pawnColors.Count} pawn colors from save.", DebugFeature.Layout);
         }
 
         /// <summary>

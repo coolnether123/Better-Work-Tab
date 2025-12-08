@@ -24,7 +24,7 @@ namespace Better_Work_Tab.Features
             _initialized = true;
             CaptureVanillaOrder();
             ApplySaved(PawnTableDefOf.Work);
-            Log.Message("[BWT] WorkColumnOrderManager initialized.");
+            BetterWorkTabMod.DebugLog("[BWT] WorkColumnOrderManager initialized.", DebugFeature.DragDrop);
         }
 
         /// <summary>
@@ -66,7 +66,7 @@ namespace Better_Work_Tab.Features
                 _similarWorktypeMap[mainWorkType] = similarList;
             }
 
-            Log.Message("[BWT] SimilarWorktypeMap initialized (one-time cost).");
+            BetterWorkTabMod.DebugLog("[BWT] SimilarWorktypeMap initialized (one-time cost).", DebugFeature.DragDrop);
         }
 
         public static List<WorkTypeDef> GetSimilarWorktypes(WorkTypeDef workType)
@@ -106,7 +106,7 @@ namespace Better_Work_Tab.Features
                 }
             }
 
-            Log.Message($"WorkColumnOrderManager.CaptureVanillaOrder: Captured vanilla order: {string.Join(", ", _vanillaColumnOrder)}");
+            BetterWorkTabMod.DebugLog($"WorkColumnOrderManager.CaptureVanillaOrder: Captured vanilla order: {string.Join(", ", _vanillaColumnOrder)}", DebugFeature.DragDrop);
         }
 
         /// <summary>
@@ -122,10 +122,10 @@ namespace Better_Work_Tab.Features
         /// </summary>
         public static void CaptureCurrent(PawnTableDef def)
         {
-            Log.Message("WorkColumnOrderManager.CaptureCurrent called.");
+            BetterWorkTabMod.DebugLog("WorkColumnOrderManager.CaptureCurrent called.", DebugFeature.DragDrop);
             if (def?.columns == null)
             {
-                Log.Message("WorkColumnOrderManager.CaptureCurrent: def or columns are null.");
+                BetterWorkTabMod.DebugLog("WorkColumnOrderManager.CaptureCurrent: def or columns are null.", DebugFeature.DragDrop);
                 return;
             }
 
@@ -138,7 +138,7 @@ namespace Better_Work_Tab.Features
 
             BetterWorkTabMod.Settings.workColumnOrderDefNames = order;
             BetterWorkTabMod.Settings.Write();
-            Log.Message($"WorkColumnOrderManager.CaptureCurrent: Captured order: {string.Join(", ", order)}");
+            BetterWorkTabMod.DebugLog($"WorkColumnOrderManager.CaptureCurrent: Captured order: {string.Join(", ", order)}", DebugFeature.DragDrop);
         }
 
         /// <summary>
@@ -148,18 +148,18 @@ namespace Better_Work_Tab.Features
         {
             if (def?.columns == null)
             {
-                Log.Message("WorkColumnOrderManager.ApplySaved: def or columns are null.");
+                BetterWorkTabMod.DebugLog("WorkColumnOrderManager.ApplySaved: def or columns are null.", DebugFeature.DragDrop);
                 return;
             }
 
             var saved = BetterWorkTabMod.Settings.workColumnOrderDefNames;
             if (saved == null || saved.Count == 0)
             {
-                Log.Message("WorkColumnOrderManager.ApplySaved: No saved order found.");
+                BetterWorkTabMod.DebugLog("WorkColumnOrderManager.ApplySaved: No saved order found.", DebugFeature.DragDrop);
                 return;
             }
 
-            Log.Message($"WorkColumnOrderManager.ApplySaved: Saved order: {string.Join(", ", saved)}");
+            BetterWorkTabMod.DebugLog($"WorkColumnOrderManager.ApplySaved: Saved order: {string.Join(", ", saved)}", DebugFeature.DragDrop);
 
             // Separate columns into pre-work, work, and post-work
             var preWork = new List<PawnColumnDef>();
@@ -212,7 +212,7 @@ namespace Better_Work_Tab.Features
                     sorted.Add(c);
             }
 
-            Log.Message($"WorkColumnOrderManager.ApplySaved: Sorted columns: {string.Join(", ", sorted.Select(c => c.defName))}");
+            BetterWorkTabMod.DebugLog($"WorkColumnOrderManager.ApplySaved: Sorted columns: {string.Join(", ", sorted.Select(c => c.defName))}", DebugFeature.DragDrop);
 
             // Rebuild def.columns
             def.columns.Clear();
@@ -220,7 +220,7 @@ namespace Better_Work_Tab.Features
             def.columns.AddRange(sorted);
             def.columns.AddRange(postWork);
 
-            Log.Message("WorkColumnOrderManager.ApplySaved: Columns reordered.");
+            BetterWorkTabMod.DebugLog("WorkColumnOrderManager.ApplySaved: Columns reordered.", DebugFeature.DragDrop);
         }
 
         /// <summary>
@@ -229,7 +229,7 @@ namespace Better_Work_Tab.Features
         /// </summary>
         public static void ResetToVanilla()
         {
-            Log.Message("WorkColumnOrderManager.ResetToVanilla called.");
+            BetterWorkTabMod.DebugLog("WorkColumnOrderManager.ResetToVanilla called.", DebugFeature.DragDrop);
 
             var def = PawnTableDefOf.Work;
             if (def?.columns == null)
@@ -330,7 +330,7 @@ namespace Better_Work_Tab.Features
             // Notify UI to rebuild
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
 
-            Log.Message("WorkColumnOrderManager.ResetToVanilla: Complete. Columns reset to vanilla order.");
+            BetterWorkTabMod.DebugLog("WorkColumnOrderManager.ResetToVanilla: Complete. Columns reset to vanilla order.", DebugFeature.DragDrop);
         }
 
         public static Dictionary<WorkTypeDef, int> WorkTypeOrder = new Dictionary<WorkTypeDef, int>();

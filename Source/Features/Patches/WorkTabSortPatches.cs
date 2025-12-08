@@ -27,7 +27,7 @@ namespace Better_Work_Tab.Patches
             if (__instance.SortingBy != null)
                 return;
 
-            Log.Message("[BWT_SortPatch] Applying custom sort by playerSettings.displayOrder.");
+            BetterWorkTabMod.DebugLog("[BWT_SortPatch] Applying custom sort by playerSettings.displayOrder.", DebugFeature.DragDrop);
 
             // Order by player display order, as used by the ColonistBar and persisted by vanilla.
             __result = PlayerPawnsDisplayOrderUtility.InOrder(__result);

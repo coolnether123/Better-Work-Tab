@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using Better_Work_Tab;
 using HarmonyLib;
 using UnityEngine;
 using Verse;
@@ -434,7 +435,7 @@ namespace Spine.UI.ColourPicker {
                 Log.ResetMessageCount();
             }
 
-            Log.Message($"ColourPicker :: {msg}");
+            BetterWorkTabMod.DebugLog($"ColourPicker :: {msg}", DebugFeature.Layout);
         }
 
         public override void DoWindowContents(Rect inRect)

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
+using Better_Work_Tab;
 using UnityEngine;
 using Verse;
 
@@ -203,7 +204,7 @@ namespace Spine.Profiling
             _startRealtime = UTime.realtimeSinceStartup;
             _workTabOpenSeconds = 0;
 
-            Log.Message("[SpineTiming] Data cleared.");
+            BetterWorkTabMod.DebugLog("[SpineTiming] Data cleared.", DebugFeature.Performance);
         }
 
         /// <summary>
@@ -218,7 +219,7 @@ namespace Spine.Profiling
         {
             if (_data.Count == 0)
             {
-                Log.Message("[SpineTiming] No data collected.");
+                BetterWorkTabMod.DebugLog("[SpineTiming] No data collected.", DebugFeature.Performance);
                 return;
             }
 
@@ -262,7 +263,7 @@ namespace Spine.Profiling
                 sb.AppendLine("----------------------------------");
             }
 
-            Log.Message(sb.ToString());
+            BetterWorkTabMod.DebugLog(sb.ToString(), DebugFeature.Performance);
         }
     }
 }
