@@ -25,7 +25,20 @@ namespace Better_Work_Tab
         /// </summary>
         public static BetterWorkTabSettings Settings;
 
-        
+        public static void DebugLog(string message, DebugFeature feature = DebugFeature.General)
+        {
+            if (!(Settings?.enableDebugLogging ?? false))
+            {
+                return;
+            }
+
+            if (!Settings.debugFeatureToggles.TryGetValue(feature, out var enabled) || !enabled)
+            {
+                return;
+            }
+
+            Log.Message($"[BWT-{feature}] {message}");
+        }
 
         /// <summary>
         /// Mod constructor invoked during game startup when the Better Work Tab mod is loaded.
@@ -38,20 +51,18 @@ namespace Better_Work_Tab
         /// <param name="content">The mod's content pack, providing access to assets like textures and defs.</param>
         public BetterWorkTabMod(ModContentPack content) : base(content)
         {
+            var settings = GetSettings<BetterWorkTabSettings>();
+            Settings = settings;
+
             try
             {
                 new Harmony("Coolnether123.betterworktab").PatchAll();
-                Log.Message("[Better Work Tab] Harmony patched successfully.");
+                DebugLog("Harmony patched successfully.");
             }
             catch (Exception ex)
             {
                 Log.Error($"[Better Work Tab] Harmony failed: {ex}");
             }
-
-
-            var settings = GetSettings<BetterWorkTabSettings>();
-            Settings = settings;
-
 
 
             LongEventHandler.ExecuteWhenFinished(Settings.InitializeRulesets);

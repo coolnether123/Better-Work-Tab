@@ -59,7 +59,7 @@ namespace Better_Work_Tab.Features.Workloads
                 if (!owningPawn.WorkTypeIsDisabled(worktype))
                 {
                     owningPawn.workSettings.SetPriority(worktype, priority);
-                    Log.Message("Set " + owningPawn.Name + " " + worktype.defName + " to " + priority);
+                    BetterWorkTabMod.DebugLog("Set " + owningPawn.Name + " " + worktype.defName + " to " + priority, DebugFeature.Workloads);
                 }
             }
         }

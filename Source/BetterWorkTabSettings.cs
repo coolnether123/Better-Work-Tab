@@ -14,6 +14,17 @@ using Better_Work_Tab.UI;
 
 namespace Better_Work_Tab
 {
+    public enum DebugFeature
+    {
+        General,
+        DragDrop,
+        Layout,
+        SkillOverlay,
+        Rules,
+        Workloads,
+        Performance
+    }
+
     [StaticConstructorOnStartup]
     static class DefaultSettings
     {
@@ -183,6 +194,17 @@ namespace Better_Work_Tab
         public bool hideAutoAssignButton = DefaultSettings.hideAutoAssignButton;
         public bool enableRowColumnHighlights = DefaultSettings.enableRowColumnHighlights;
         public float dividerMinAlpha = DefaultSettings.dividerMinAlpha;
+        public bool enableDebugLogging = false;
+        public Dictionary<DebugFeature, bool> debugFeatureToggles = new Dictionary<DebugFeature, bool>
+        {
+            { DebugFeature.General, false },
+            { DebugFeature.DragDrop, false },
+            { DebugFeature.Layout, false },
+            { DebugFeature.SkillOverlay, false },
+            { DebugFeature.Rules, false },
+            { DebugFeature.Workloads, false },
+            { DebugFeature.Performance, false }
+        };
         public List<string> workColumnOrderDefNames = new List<string>();
         public Dictionary<string, float> storedColumnWidths = new Dictionary<string, float>();
 
@@ -304,6 +326,7 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref hideWorkloadButton, "hideWorkloadButton", DefaultSettings.hideWorkloadButton);
             Scribe_Values.Look(ref hideAutoAssignButton, "hideAutoAssignButton", DefaultSettings.hideAutoAssignButton);
             Scribe_Values.Look(ref dividerMinAlpha, "dividerMinAlpha", DefaultSettings.dividerMinAlpha);
+            Scribe_Values.Look(ref enableDebugLogging, "enableDebugLogging", false);
 
             // Colors
             Scribe_Values.Look(ref Color_CursorHighlight, "Color_CursorHighlight", DefaultSettings.Color_CursorHighlight);
@@ -342,6 +365,7 @@ namespace Better_Work_Tab
             // Column order and widths persistence
             Scribe_Collections.Look(ref workColumnOrderDefNames, "workColumnOrderDefNames", LookMode.Value);
             Scribe_Collections.Look(ref storedColumnWidths, "storedColumnWidths", LookMode.Value, LookMode.Value);
+            Scribe_Collections.Look(ref debugFeatureToggles, "debugFeatureToggles", LookMode.Value, LookMode.Value);
 
             // Save/load the list of columns the player has directly dragged
             Scribe_Collections.Look(ref playerDraggedColumns, "playerDraggedColumns", LookMode.Value);
@@ -355,6 +379,8 @@ namespace Better_Work_Tab
             {
                 playerDraggedColumns = new List<string>();
             }
+
+            EnsureDebugFeatureTogglesInitialized();
         }
 
         /// <summary>
@@ -386,6 +412,12 @@ namespace Better_Work_Tab
             showOnlyLineDragIndicatorColumns = DefaultSettings.showOnlyLineDragIndicatorColumns;
             hideWorkloadButton = DefaultSettings.hideWorkloadButton;
             hideAutoAssignButton = DefaultSettings.hideAutoAssignButton;
+            enableDebugLogging = false;
+            EnsureDebugFeatureTogglesInitialized();
+            foreach (var feature in debugFeatureToggles.Keys.ToList())
+            {
+                debugFeatureToggles[feature] = false;
+            }
 
             // Colors
             Color_CursorHighlight = DefaultSettings.Color_CursorHighlight;
@@ -495,6 +527,22 @@ namespace Better_Work_Tab
                 return false;
 
             return playerDraggedColumns.Contains(defName);
+        }
+
+        private void EnsureDebugFeatureTogglesInitialized()
+        {
+            if (debugFeatureToggles == null)
+            {
+                debugFeatureToggles = new Dictionary<DebugFeature, bool>();
+            }
+
+            foreach (DebugFeature feature in System.Enum.GetValues(typeof(DebugFeature)))
+            {
+                if (!debugFeatureToggles.ContainsKey(feature))
+                {
+                    debugFeatureToggles[feature] = false;
+                }
+            }
         }
     }
 }

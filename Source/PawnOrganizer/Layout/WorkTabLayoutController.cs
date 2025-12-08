@@ -539,12 +539,12 @@ namespace Better_Work_Tab.PawnOrganizer
                 if (element.Pawn != null && element.Pawn.playerSettings != null)
                 {
                     element.Pawn.playerSettings.displayOrder = i;
-                    Log.Message($"  Row {i}: {element.Pawn.LabelShort} → displayOrder {i}");
+                    BetterWorkTabMod.DebugLog($"  Row {i}: {element.Pawn.LabelShort} → displayOrder {i}", DebugFeature.DragDrop);
                 }
                 else if (element.Divider != null)
                 {
                     element.Divider.DisplayOrder = i;
-                    Log.Message($"  Row {i}: Divider '{element.Divider.DividerName}' → displayOrder {i}");
+                    BetterWorkTabMod.DebugLog($"  Row {i}: Divider '{element.Divider.DividerName}' → displayOrder {i}", DebugFeature.DragDrop);
                 }
             }
         }
