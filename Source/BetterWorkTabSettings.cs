@@ -42,6 +42,44 @@ namespace Better_Work_Tab
         public static bool showBedCountAtBottom = false;
         public static bool enableRowColumnHighlights = true;
 
+        // Behavior Templates
+        public enum BehaviorTemplate { Standard, Conservative, Aggressive, Custom }
+        public static BehaviorTemplate behaviorTemplate = BehaviorTemplate.Standard;
+
+        // Color Templates
+        public enum ColorScheme { RimWorldDefault, Colorblind_Deuteranopia, Colorblind_Protanopia, HighContrast, Custom }
+        public static ColorScheme colorScheme = ColorScheme.RimWorldDefault;
+
+        // UI Visibility
+        public static bool showWorkloadButton = true;
+        public static bool showRulesetButton = true;
+        public static bool hideWorkloadButton = false;
+        public static bool hideAutoAssignButton = false;
+
+        // Template Color Placeholders (for future features)
+        public static Color Color_WorktypeIndicator = new Color(0.7f, 0.7f, 0.7f);
+        public static Color Color_PriorityLevel1 = new Color(0.2f, 0.8f, 0.2f);
+        public static Color Color_PriorityLevel2 = new Color(0.8f, 0.8f, 0.2f);
+        public static Color Color_PriorityLevel3 = new Color(0.8f, 0.5f, 0.2f);
+        public static Color Color_PriorityLevel4 = new Color(0.8f, 0.2f, 0.2f);
+        public static Color Color_StatusEffect_Sick = new Color(0.6f, 0.4f, 0.8f);
+        public static Color Color_StatusEffect_Injured = new Color(0.8f, 0.4f, 0.2f);
+        public static Color Color_CustomCategory1 = new Color(0.5f, 0.7f, 0.9f);
+        public static Color Color_CustomCategory2 = new Color(0.9f, 0.7f, 0.5f);
+        public static Color Color_HeaderText = Color.white;
+        public static Color Color_DividerText = Color.white;
+        public static Color Color_Borders = Color.gray;
+
+        // Behavior Template Placeholders (for future features)
+        public static float dragSnapThreshold = 5f; // Future: adjust snap distance
+        public static float dragStartThreshold = 5f; // Future: adjust drag sensitivity
+        public static float scrollSpeed = 15f; // Future: auto-scroll speed while dragging
+        public static float highlightOpacity = 0.5f; // Future: opacity slider
+        public static float rowSpacingScale = 1.0f; // Future: row density
+        public static bool autoAssignRequireConfirmation = true; // Future: safety toggle
+        public static bool confirmRulesetApplication = true; // Future: confirmation before applying ruleset
+        public static int autoAssignMaxPriorityChange = 0; // Future: change limiter (0 = unlimited)
+
         // This rule ensures at least one colonist is assigned to a specific work type at a given priority
         public static Dictionary<WorkTypeDef, int> rule_AlwaysHaveOneByWorkType = new Dictionary<WorkTypeDef, int>();
 
@@ -140,6 +178,8 @@ namespace Better_Work_Tab
         public bool disableLeftClickClose = DefaultSettings.disableLeftClickClose;
         public bool showPawnCountAtBottom = DefaultSettings.showPawnCountAtBottom;
         public bool showBedCountAtBottom = DefaultSettings.showBedCountAtBottom;
+        public bool hideWorkloadButton = DefaultSettings.hideWorkloadButton;
+        public bool hideAutoAssignButton = DefaultSettings.hideAutoAssignButton;
         public bool enableRowColumnHighlights = DefaultSettings.enableRowColumnHighlights;
         public List<string> workColumnOrderDefNames = new List<string>();
         public Dictionary<string, float> storedColumnWidths = new Dictionary<string, float>();
@@ -167,6 +207,9 @@ namespace Better_Work_Tab
         public Color Color_FloatMenuHighlight = new Color(0.114f, 0.737f, 0.737f, 0.5f);
         public Color Color_CustomMouseHighlight = new Color(0.737f, 0.737f, 0.114f, 0.25f);
         public Color Color_CustomSimilarWorktypeHighlight = new Color(0.737f, 0.737f, 0.114f, 0.125f);
+        public Color Color_HeaderText = Color.white;
+        public Color Color_DividerText = Color.white;
+        public Color Color_Borders = Color.gray;
 
         // Derived colors (calculated from above)
         public Color Color_MouseHoverHighlight
@@ -196,6 +239,11 @@ namespace Better_Work_Tab
         // Ruleset management
         public List<WorkAssignmentRuleset> SavedRulesets;
         public WorkAssignmentRuleset CurrentRuleset = null;
+
+        // Future behavior templates
+        public bool confirmRulesetApplication = true;
+        public float dragStartThreshold = 5f;
+        public float scrollSpeed = 15f;
 
         // UI mode settings
         public enum ShowUIMode { Always, Never, Shifted, Unshifted }
@@ -251,6 +299,8 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref requireCtrlForDrag, "requireCtrlForDrag", DefaultSettings.requireCtrlForDrag);
             Scribe_Values.Look(ref showOnlyLineDragIndicatorRows, "showOnlyLineDragIndicatorRows", DefaultSettings.showOnlyLineDragIndicatorRows);
             Scribe_Values.Look(ref showOnlyLineDragIndicatorColumns, "showOnlyLineDragIndicatorColumns", DefaultSettings.showOnlyLineDragIndicatorColumns);
+            Scribe_Values.Look(ref hideWorkloadButton, "hideWorkloadButton", DefaultSettings.hideWorkloadButton);
+            Scribe_Values.Look(ref hideAutoAssignButton, "hideAutoAssignButton", DefaultSettings.hideAutoAssignButton);
 
             // Colors
             Scribe_Values.Look(ref Color_CursorHighlight, "Color_CursorHighlight", DefaultSettings.Color_CursorHighlight);
@@ -263,10 +313,18 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref Color_LowSkill, "Color_LowSkill", DefaultSettings.Color_LowSkill);
             Scribe_Values.Look(ref Color_GoodLowSkill, "Color_GoodLowSkill", DefaultSettings.Color_GoodLowSkill);
             Scribe_Values.Look(ref Color_ExcellentSkill, "Color_ExcellentSkill", DefaultSettings.Color_ExcellentSkill);
+            Scribe_Values.Look(ref Color_HeaderText, "Color_HeaderText", DefaultSettings.Color_HeaderText);
+            Scribe_Values.Look(ref Color_DividerText, "Color_DividerText", DefaultSettings.Color_DividerText);
+            Scribe_Values.Look(ref Color_Borders, "Color_Borders", DefaultSettings.Color_Borders);
 
             // UI modes
             Scribe_Values.Look(ref ShowUIMode_ShowSmallSkillNumbers, "ShowUIMode_ShowSmallSkillNumbers", DefaultSettings.ShowUIMode_ShowSmallSkillNumbers);
             Scribe_Values.Look(ref ShowUIMode_ShowPawnForSkillSquare, "ShowUIMode_ShowPawnForSkillSquare", DefaultSettings.ShowUIMode_ShowPawnForSkillSquare);
+
+            // Future behavior templates
+            Scribe_Values.Look(ref confirmRulesetApplication, "confirmRulesetApplication", DefaultSettings.confirmRulesetApplication);
+            Scribe_Values.Look(ref dragStartThreshold, "dragStartThreshold", DefaultSettings.dragStartThreshold);
+            Scribe_Values.Look(ref scrollSpeed, "scrollSpeed", DefaultSettings.scrollSpeed);
 
             // Divider settings
             Scribe_Values.Look(ref dividerHeight, "dividerHeight", DefaultSettings.dividerHeight);
@@ -322,6 +380,8 @@ namespace Better_Work_Tab
             requireCtrlForDrag = DefaultSettings.requireCtrlForDrag;
             showOnlyLineDragIndicatorRows = DefaultSettings.showOnlyLineDragIndicatorRows;
             showOnlyLineDragIndicatorColumns = DefaultSettings.showOnlyLineDragIndicatorColumns;
+            hideWorkloadButton = DefaultSettings.hideWorkloadButton;
+            hideAutoAssignButton = DefaultSettings.hideAutoAssignButton;
 
             // Colors
             Color_CursorHighlight = DefaultSettings.Color_CursorHighlight;
@@ -334,10 +394,18 @@ namespace Better_Work_Tab
             Color_LowSkill = DefaultSettings.Color_LowSkill;
             Color_GoodLowSkill = DefaultSettings.Color_GoodLowSkill;
             Color_ExcellentSkill = DefaultSettings.Color_ExcellentSkill;
+            Color_HeaderText = DefaultSettings.Color_HeaderText;
+            Color_DividerText = DefaultSettings.Color_DividerText;
+            Color_Borders = DefaultSettings.Color_Borders;
 
             // UI modes
             ShowUIMode_ShowSmallSkillNumbers = DefaultSettings.ShowUIMode_ShowSmallSkillNumbers;
             ShowUIMode_ShowPawnForSkillSquare = DefaultSettings.ShowUIMode_ShowPawnForSkillSquare;
+
+            // Future behaviors
+            confirmRulesetApplication = DefaultSettings.confirmRulesetApplication;
+            dragStartThreshold = DefaultSettings.dragStartThreshold;
+            scrollSpeed = DefaultSettings.scrollSpeed;
 
             // Dividers
             dividerHeight = DefaultSettings.dividerHeight;
