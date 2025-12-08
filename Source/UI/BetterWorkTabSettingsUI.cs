@@ -1,143 +1,698 @@
 using Better_Work_Tab.Features;
+using Better_Work_Tab.Features.Rules;
 using RimWorld;
+using Spine.UI.ColourPicker;
+using Spine.UI.SettingsFramework;
 using Spine.UI.WidgetExtensions;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using Verse;
 
 namespace Better_Work_Tab.UI
 {
+    /// <summary>
+    /// Main settings UI with category navigation and favorites support.
+    /// </summary>
     public static class BetterWorkTabSettingsUI
     {
-        private const float LabelWidth = 90f;
-        private const float LabelSliderGap = 2f;
-        private const float RowHeight = 24f;
-        private const float SliderHeight = 20f;
-        private const float ButtonWidth = 24f;
-        private const float IntAdjustLabelWidth = 64f;
+        private static Vector2 _scrollPosition;
+        private static bool _initialized;
 
-        public static void DoSettingsWindowContents(Rect inRect, BetterWorkTabSettings s)
+        // Category definitions
+        private static readonly List<CategoryDefinition> Categories = new List<CategoryDefinition>
         {
-            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
-            var l = new Listing_Standard { ColumnWidth = inRect.width / 2f - 12f };
-            l.Begin(inRect);
+            new CategoryDefinition(
+                "autoassign",
+                "Auto-Assign Rules",
+                "Configure automatic work priority assignment rulesets",
+                DrawAutoAssignCategory),
 
-            DrawRulesUI(l, s);
-            /// Settings TODO:
-            l.CheckboxLabeled("Enable Skill OverlayFeature", ref s.enableSkillOverlayFeature, "Whether to show the Skill Overlay when shift is pressed in the work tab.");
-            l.CheckboxLabeled("Enable Auto Assign Feature", ref s.enableAutoAssignFeature, "Whether to show the auto assign button on the work tab.");
-            l.CheckboxLabeled("Enable Pawn and Worktype Highlights", ref s.ShowPawnAndWorktypeHighlights, "Whether to enable any row/column highlights in the work tab.");
-            l.CheckboxLabeled("Show Cursor and Worktype Highlights", ref s.ShowCursorPawnAndWorktypeHighlight, "Whether to highlight rows/columns when hovered with the cursor.");
-            l.CheckboxLabeled("Show Float Menu Pawn And Worktype Highlight", ref s.ShowFloatMenuPawnAndWorktypeHighlight, "Whether to show the highlight in the work tab when opened from a float menu.");
-            l.CheckboxLabeled("Enable Selected Pawn Highlight", ref s.DoSelectedPawnHighlight, "Whether to highlight the currently selected pawn in the work tab.");
-            l.CheckboxLabeled("Use Custom Mouse Hover Highlight", ref s.UseCustomMouseHoverHighlight, "Whether to use a separate color for currently hovered worktype(?)");
-            l.CheckboxLabeled("Enable Row and Column Highlighting", ref s.enableRowColumnHighlights, "If disabled, the Better Work Tab will stop tinting hovered headers and rows.");
-            l.CheckboxLabeled("Show Pawn Count at Bottom", ref s.showPawnCountAtBottom, "Adds the current colonist count to the lower left corner of the work tab.");
-            l.CheckboxLabeled("Show Bed Count at Bottom", ref s.showBedCountAtBottom, "Also show how many colonist-usable beds exist on the current map.");
-            l.CheckboxLabeled("Disable Left-Click Close", ref s.disableLeftClickClose, "Prevents the tab from closing when clicking outside of it.");
-            l.CheckboxLabeled("Require Ctrl for Drag Reordering", ref s.requireCtrlForDrag, "Uncheck to allow dragging rows/columns without holding Ctrl.");
-            l.CheckboxLabeled("Row Drag Overlay Uses Insertion Line Only", ref s.showOnlyLineDragIndicatorRows, "When enabled, dragging a row only shows the insertion line.");
-            l.CheckboxLabeled("Column Drag Overlay Uses Insertion Line Only", ref s.showOnlyLineDragIndicatorColumns, "When enabled, dragging a column only shows the insertion line.");
-            SpineWidgets.LS_ChooseFromEnum<BetterWorkTabSettings.ShowUIMode>(l, "Show Small Skill Numbers", s, nameof(s.ShowUIMode_ShowSmallSkillNumbers));
-            SpineWidgets.LS_ChooseFromEnum<BetterWorkTabSettings.ShowUIMode>(l, "Show Pawn for Skill Square", s, nameof(s.ShowUIMode_ShowPawnForSkillSquare));
+            new CategoryDefinition(
+                "layout",
+                "Layout & Interaction",
+                "Window behavior, drag settings, and display options",
+                DrawLayoutCategory),
+
+            new CategoryDefinition(
+                "overlay",
+                "Skill Overlay",
+                "Skill numbers, best pawn indicators, and overlay modes",
+                DrawSkillOverlayCategory),
+
+            new CategoryDefinition(
+                "highlights",
+                "Highlights & Hover",
+                "Row, column, and pawn highlighting behavior",
+                DrawHighlightsCategory),
+
+            new CategoryDefinition(
+                "colors",
+                "Colors & Appearance",
+                "Skill colors, highlight colors, and visual styling",
+                DrawColorsCategory),
+
+            new CategoryDefinition(
+                "columns",
+                "Column Management",
+                "Work column ordering and reset options",
+                DrawColumnManagementCategory),
+
+            new CategoryDefinition(
+                "reset",
+                "Reset & Restore",
+                "Restore defaults and manage saved data",
+                DrawResetCategory)
+        };
+
+        /// <summary>
+        /// Main entry point called by the mod settings window.
+        /// </summary>
+        public static void DoSettingsWindowContents(Rect inRect, BetterWorkTabSettings settings)
+        {
+            EnsureInitialized();
+
+            var listing = new Listing_Standard();
+            listing.Begin(inRect);
+
+            // Title
+            DrawTitle(listing);
+
+            // Favorites section (if any exist)
+            DrawFavoritesSection(listing, settings);
+
+            listing.GapLine();
+
+            // Category navigation grid
+            DrawCategoryNavigation(listing, settings);
+
+            listing.End();
+        }
+
+        private static void EnsureInitialized()
+        {
+            if (_initialized)
+                return;
+
+            FavoritesManager.Instance.Initialize(GenFilePaths.ConfigFolderPath);
+            _initialized = true;
+        }
+
+        private static void DrawTitle(Listing_Standard listing)
+        {
+            Rect titleRect = listing.GetRect(36f);
+
+            var oldFont = Text.Font;
+            var oldAnchor = Text.Anchor;
+            var oldColor = GUI.color;
+
+            Text.Font = GameFont.Medium;
+            Text.Anchor = TextAnchor.MiddleLeft;
+            GUI.color = new Color(0.9f, 0.85f, 0.7f);
+
+            Widgets.Label(titleRect, "Better Work Tab Settings");
+
+            Text.Font = oldFont;
+            Text.Anchor = oldAnchor;
+            GUI.color = oldColor;
+
+            listing.Gap(4f);
+        }
+
+        private static void DrawFavoritesSection(Listing_Standard listing, BetterWorkTabSettings settings)
+        {
+            var favorites = FavoritesManager.Instance.GetAllFavorites();
+            if (favorites.Count == 0)
+            {
+                Rect hintRect = listing.GetRect(24f);
+                var oldColor = GUI.color;
+                GUI.color = new Color(0.6f, 0.6f, 0.6f);
+                Widgets.Label(hintRect, "★ Click stars in category settings to pin favorites here");
+                GUI.color = oldColor;
+                listing.Gap(4f);
+                return;
+            }
+
+            SpineSettingsWidgets.SectionHeader(listing, "★ Pinned Settings");
+
+            foreach (var favId in favorites)
+            {
+                DrawFavoriteSetting(listing, favId, settings);
+            }
+
+            listing.Gap(8f);
+        }
+
+        private static void DrawFavoriteSetting(
+            Listing_Standard listing,
+            string settingId,
+            BetterWorkTabSettings settings)
+        {
+            // Map setting IDs to actual drawing logic
+            switch (settingId)
+            {
+                case "enableSkillOverlay":
+                    SpineSettingsWidgets.CheckboxFavoritable(listing, settingId,
+                        "Enable Skill Overlay",
+                        ref settings.enableSkillOverlayFeature,
+                        "Show skill numbers when holding Shift");
+                    break;
+
+                case "enableAutoAssign":
+                    SpineSettingsWidgets.CheckboxFavoritable(listing, settingId,
+                        "Enable Auto-Assign Feature",
+                        ref settings.enableAutoAssignFeature,
+                        "Show auto-assign controls on work tab");
+                    break;
+
+                case "requireCtrlForDrag":
+                    SpineSettingsWidgets.CheckboxFavoritable(listing, settingId,
+                        "Require Ctrl for Drag",
+                        ref settings.requireCtrlForDrag,
+                        "Hold Ctrl to drag rows/columns");
+                    break;
+
+                case "showPawnCount":
+                    SpineSettingsWidgets.CheckboxFavoritable(listing, settingId,
+                        "Show Pawn Count",
+                        ref settings.showPawnCountAtBottom,
+                        "Display colonist count at bottom");
+                    break;
+
+                case "showBedCount":
+                    SpineSettingsWidgets.CheckboxFavoritable(listing, settingId,
+                        "Show Bed Count",
+                        ref settings.showBedCountAtBottom,
+                        "Display bed count at bottom");
+                    break;
+
+                case "masterHighlights":
+                    SpineSettingsWidgets.CheckboxFavoritable(listing, settingId,
+                        "Enable All Highlights",
+                        ref settings.ShowPawnAndWorktypeHighlights,
+                        "Master toggle for row/column highlighting");
+                    break;
+
+                case "dividerHeight":
+                    settings.dividerHeight = SpineSettingsWidgets.SliderFavoritable(listing, settingId,
+                        "Divider Height",
+                        settings.dividerHeight,
+                        1f, 30f,
+                        "Height of divider rows in pixels");
+                    break;
+
+                default:
+                    // Unknown favorite, just skip
+                    break;
+            }
+        }
+
+        private static void DrawCategoryNavigation(Listing_Standard listing, BetterWorkTabSettings settings)
+        {
+            SpineSettingsWidgets.SectionHeader(listing, "Settings Categories");
+
+            listing.Gap(8f);
+
+            // Calculate grid layout
+            float availableWidth = listing.ColumnWidth;
+            int columns = availableWidth > 500f ? 2 : 1;
+            float buttonWidth = (availableWidth - (columns - 1) * 8f) / columns;
+            float buttonHeight = 60f;
+
+            int index = 0;
+            Rect rowRect = Rect.zero;
+
+            foreach (var category in Categories)
+            {
+                int col = index % columns;
+
+                if (col == 0)
+                {
+                    rowRect = listing.GetRect(buttonHeight);
+                    listing.Gap(8f);
+                }
+
+                Rect buttonRect = new Rect(
+                    rowRect.x + col * (buttonWidth + 8f),
+                    rowRect.y,
+                    buttonWidth,
+                    buttonHeight);
+
+                if (SpineSettingsWidgets.DrawCategoryButton(
+                    buttonRect,
+                    category.Label,
+                    category.Description))
+                {
+                    OpenCategoryDialog(category);
+                }
+
+                index++;
+            }
+
+            listing.Gap(16f);
+
+            // Quick access: Edit Rulesets button
+            Rect rulesetRect = listing.GetRect(35f);
+            DrawQuickRulesetAccess(rulesetRect, settings);
+        }
+
+        private static void DrawQuickRulesetAccess(Rect rect, BetterWorkTabSettings settings)
+        {
+            Rect labelRect = rect.LeftPart(0.5f);
+            Rect buttonRect = rect.RightPart(0.48f);
+
+            string activeRuleset = settings.CurrentRuleset?.Name ?? "None";
+
+            var oldAnchor = Text.Anchor;
+            Text.Anchor = TextAnchor.MiddleLeft;
+            Widgets.Label(labelRect, $"Active Ruleset: {activeRuleset}");
+            Text.Anchor = oldAnchor;
+
+            if (Widgets.ButtonText(buttonRect, "Open Ruleset Manager"))
+            {
+                Find.WindowStack.Add(new Window_RulesManager());
+            }
+        }
+
+        private static void OpenCategoryDialog(CategoryDefinition category)
+        {
+            var dialog = new Dialog_SettingsCategory(
+                category.Id,
+                category.Label,
+                category.DrawAction);
+
+            Find.WindowStack.Add(dialog);
+        }
+
+        #region Category Drawing Methods
+
+        private static void DrawAutoAssignCategory(Listing_Standard l, BetterWorkTabSettings s)
+        {
+            SpineSettingsWidgets.CheckboxFavoritable(l, "enableAutoAssign",
+                "Enable Auto-Assign Feature",
+                ref s.enableAutoAssignFeature,
+                "Show auto-assign controls on the work tab");
+
+            l.Gap(12f);
+
+            Rect rulesetInfoRect = l.GetRect(60f);
+            Widgets.DrawBoxSolid(rulesetInfoRect, new Color(0.15f, 0.15f, 0.15f));
+            Widgets.DrawBox(rulesetInfoRect, 1);
+
+            Rect innerRect = rulesetInfoRect.ContractedBy(8f);
+            string rulesetName = s.CurrentRuleset?.Name ?? "None selected";
+            int ruleCount = s.CurrentRuleset?.Rules?.Count ?? 0;
+
+            var oldFont = Text.Font;
+            Text.Font = GameFont.Small;
+            Widgets.Label(new Rect(innerRect.x, innerRect.y, innerRect.width, 24f),
+                $"Active: {rulesetName}");
             
-            DrawDividerHeightSlider(l, s);
-            l.CheckboxLabeled("Draw Divider Highlight", ref s.drawDividerHighlight, "Whether to draw a white highlight around the dividers.");
+            Text.Font = GameFont.Tiny;
+            GUI.color = Color.gray;
+            Widgets.Label(new Rect(innerRect.x, innerRect.y + 26f, innerRect.width, 20f),
+                $"{ruleCount} rule(s) defined");
+            GUI.color = Color.white;
+            Text.Font = oldFont;
 
-            // Reset columns button
+            l.Gap(12f);
+
+            if (l.ButtonText("Open Ruleset Manager"))
+            {
+                Find.WindowStack.Add(new Window_RulesManager());
+            }
+
+            l.Gap(8f);
+
+            l.Label("Quick Apply:", tooltip: "Apply a ruleset without opening the manager");
+            l.Gap(4f);
+
+            if (s.SavedRulesets != null)
+            {
+                foreach (var ruleset in s.SavedRulesets.Take(5))
+                {
+                    if (l.ButtonText($"  Apply: {ruleset.Name}"))
+                    {
+                        s.CurrentRuleset = ruleset;
+                        if (ruleset.ResetBeforeApplying)
+                        {
+                            WorkAssignmentRuleset.SetAllToZero();
+                        }
+                        ruleset.ApplyAutoAssignments();
+                        Messages.Message($"Applied ruleset: {ruleset.Name}", MessageTypeDefOf.TaskCompletion, false);
+                    }
+                }
+            }
+        }
+
+        private static void DrawLayoutCategory(Listing_Standard l, BetterWorkTabSettings s)
+        {
+            SpineSettingsWidgets.SectionHeader(l, "Window Behavior");
+
+            SpineSettingsWidgets.CheckboxFavoritable(l, "disableLeftClickClose",
+                "Disable Left-Click Close",
+                ref s.disableLeftClickClose,
+                "Prevents the tab from closing when clicking outside");
+
+            SpineSettingsWidgets.SectionHeader(l, "Drag & Drop");
+
+            SpineSettingsWidgets.CheckboxFavoritable(l, "requireCtrlForDrag",
+                "Require Ctrl for Drag Reordering",
+                ref s.requireCtrlForDrag,
+                "Hold Ctrl to drag rows/columns. Uncheck for direct dragging.");
+
+            SpineSettingsWidgets.CheckboxFavoritable(l, null,
+                "Row Drag: Line Only",
+                ref s.showOnlyLineDragIndicatorRows,
+                "Show only insertion line when dragging rows (no ghost)");
+
+            SpineSettingsWidgets.CheckboxFavoritable(l, null,
+                "Column Drag: Line Only",
+                ref s.showOnlyLineDragIndicatorColumns,
+                "Show only insertion line when dragging columns (no ghost)");
+
+            SpineSettingsWidgets.SectionHeader(l, "Bottom Display");
+
+            SpineSettingsWidgets.CheckboxFavoritable(l, "showPawnCount",
+                "Show Pawn Count",
+                ref s.showPawnCountAtBottom,
+                "Display colonist count in lower-left corner");
+
+            SpineSettingsWidgets.CheckboxFavoritable(l, "showBedCount",
+                "Show Bed Count",
+                ref s.showBedCountAtBottom,
+                "Display available beds (red if fewer than pawns)");
+
+            SpineSettingsWidgets.SectionHeader(l, "Dividers");
+
+            s.dividerHeight = SpineSettingsWidgets.SliderFavoritable(l, "dividerHeight",
+                "Divider Height",
+                s.dividerHeight, 1f, 30f,
+                "Height of section dividers in pixels");
+
+            SpineSettingsWidgets.CheckboxFavoritable(l, null,
+                "Draw Divider Highlight",
+                ref s.drawDividerHighlight,
+                "Show white border around dividers");
+        }
+
+        private static void DrawSkillOverlayCategory(Listing_Standard l, BetterWorkTabSettings s)
+        {
+            SpineSettingsWidgets.CheckboxFavoritable(l, "enableSkillOverlay",
+                "Enable Skill Overlay Feature",
+                ref s.enableSkillOverlayFeature,
+                "Show skill numbers when holding Shift in work tab");
+
+            l.Gap(12f);
+
+            l.Label("Small Skill Numbers Display:");
+            if (l.ButtonText($"  Mode: {s.ShowUIMode_ShowSmallSkillNumbers}"))
+            {
+                ShowEnumMenu<BetterWorkTabSettings.ShowUIMode>(
+                    mode => s.ShowUIMode_ShowSmallSkillNumbers = mode);
+            }
+
+            l.Gap(8f);
+
+            l.Label("Best Pawn Indicator Display:");
+            if (l.ButtonText($"  Mode: {s.ShowUIMode_ShowPawnForSkillSquare}"))
+            {
+                ShowEnumMenu<BetterWorkTabSettings.ShowUIMode>(
+                    mode => s.ShowUIMode_ShowPawnForSkillSquare = mode);
+            }
+
+            l.Gap(12f);
+
+            var oldColor = GUI.color;
+            GUI.color = Color.gray;
+            l.Label("Modes: Always | Never | Shifted (Shift held) | Unshifted (Shift not held)");
+            GUI.color = oldColor;
+        }
+
+        private static void DrawHighlightsCategory(Listing_Standard l, BetterWorkTabSettings s)
+        {
+            SpineSettingsWidgets.SectionHeader(l, "Master Toggle");
+
+            SpineSettingsWidgets.CheckboxFavoritable(l, "masterHighlights",
+                "Enable All Highlights",
+                ref s.ShowPawnAndWorktypeHighlights,
+                "Master toggle for all row/column highlighting");
+
+            if (!s.ShowPawnAndWorktypeHighlights)
+            {
+                l.Gap(8f);
+                GUI.color = Color.gray;
+                l.Label("(Enable master toggle to configure individual highlights)");
+                GUI.color = Color.white;
+                return;
+            }
+
+            SpineSettingsWidgets.SectionHeader(l, "Cursor Highlights");
+
+            SpineSettingsWidgets.CheckboxFavoritable(l, null,
+                "Highlight Hovered Row/Column",
+                ref s.ShowCursorPawnAndWorktypeHighlight,
+                "Highlight rows and columns under the cursor");
+
+            SpineSettingsWidgets.CheckboxFavoritable(l, null,
+                "Enable Row/Column Tinting",
+                ref s.enableRowColumnHighlights,
+                "Apply color tint to hovered headers and rows");
+
+            SpineSettingsWidgets.SectionHeader(l, "Selection Highlights");
+
+            SpineSettingsWidgets.CheckboxFavoritable(l, null,
+                "Highlight Selected Pawn",
+                ref s.DoSelectedPawnHighlight,
+                "Highlight the row of the currently selected pawn");
+
+            SpineSettingsWidgets.CheckboxFavoritable(l, null,
+                "Float Menu Highlight",
+                ref s.ShowFloatMenuPawnAndWorktypeHighlight,
+                "Highlight pawn/worktype when opened from context menu");
+
+            SpineSettingsWidgets.SectionHeader(l, "Custom Hover Color");
+
+            SpineSettingsWidgets.CheckboxFavoritable(l, null,
+                "Use Custom Mouse Hover Color",
+                ref s.UseCustomMouseHoverHighlight,
+                "Use separate color for hover (vs. derived from cursor highlight)");
+        }
+
+        private static void DrawColorsCategory(Listing_Standard l, BetterWorkTabSettings s)
+        {
+            SpineSettingsWidgets.SectionHeader(l, "Skill Level Colors");
+
+            Color c1 = s.Color_VeryLowSkill;
+            SpineSettingsWidgets.ColorPickerFavoritable(l, null, "Very Low Skill (0-3)", ref c1);
+            s.Color_VeryLowSkill = c1;
+
+            Color c2 = s.Color_LowSkill;
+            SpineSettingsWidgets.ColorPickerFavoritable(l, null, "Low Skill (4-9)", ref c2);
+            s.Color_LowSkill = c2;
+
+            Color c3 = s.Color_GoodLowSkill;
+            SpineSettingsWidgets.ColorPickerFavoritable(l, null, "Good Skill (10-15)", ref c3);
+            s.Color_GoodLowSkill = c3;
+
+            Color c4 = s.Color_ExcellentSkill;
+            SpineSettingsWidgets.ColorPickerFavoritable(l, null, "Excellent Skill (16+)", ref c4);
+            s.Color_ExcellentSkill = c4;
+
+            SpineSettingsWidgets.SectionHeader(l, "Highlight Colors");
+
+            Color h1 = s.Color_CursorHighlight;
+            SpineSettingsWidgets.ColorPickerFavoritable(l, null, "Cursor Highlight", ref h1);
+            s.Color_CursorHighlight = h1;
+
+            Color h2 = s.Color_FloatMenuHighlight;
+            SpineSettingsWidgets.ColorPickerFavoritable(l, null, "Float Menu Highlight", ref h2);
+            s.Color_FloatMenuHighlight = h2;
+
+            if (s.UseCustomMouseHoverHighlight)
+            {
+                Color h3 = s.Color_CustomMouseHighlight;
+                SpineSettingsWidgets.ColorPickerFavoritable(l, null, "Custom Mouse Hover", ref h3);
+                s.Color_CustomMouseHighlight = h3;
+
+                Color h4 = s.Color_CustomSimilarWorktypeHighlight;
+                SpineSettingsWidgets.ColorPickerFavoritable(l, null, "Similar Worktype", ref h4);
+                s.Color_CustomSimilarWorktypeHighlight = h4;
+            }
+
+            SpineSettingsWidgets.SectionHeader(l, "Special Indicators");
+
+            Color s1 = s.Color_IncapableBecauseOfCapacities;
+            SpineSettingsWidgets.ColorPickerFavoritable(l, null, "Incapable Indicator", ref s1);
+            s.Color_IncapableBecauseOfCapacities = s1;
+
+            Color s2 = s.Color_BestPawnForSkillSquare;
+            SpineSettingsWidgets.ColorPickerFavoritable(l, null, "Best Pawn Indicator", ref s2);
+            s.Color_BestPawnForSkillSquare = s2;
+        }
+
+        private static void DrawColumnManagementCategory(Listing_Standard l, BetterWorkTabSettings s)
+        {
+            l.Label("Column Order Management", tooltip: "Work columns can be reordered by Ctrl+dragging in the work tab");
+
+            l.Gap(12f);
+
+            Rect infoRect = l.GetRect(40f);
+            Widgets.DrawBoxSolid(infoRect, new Color(0.15f, 0.15f, 0.15f));
+            infoRect = infoRect.ContractedBy(8f);
+
+            int customCount = s.playerDraggedColumns?.Count ?? 0;
+            GUI.color = customCount > 0 ? new Color(1f, 0.85f, 0.2f) : Color.gray;
+            Widgets.Label(infoRect, customCount > 0
+                ? $"{customCount} column(s) moved from vanilla position"
+                : "All columns in vanilla order");
+            GUI.color = Color.white;
+
+            l.Gap(12f);
+
             if (l.ButtonText("Reset Columns to Vanilla Order"))
             {
                 Find.WindowStack.Add(new Dialog_Confirm(
-                    "Reset all work columns to vanilla order? Any custom column ordering will be lost.",
-                    () => WorkColumnOrderManager.ResetToVanilla()
-                ));
+                    "Reset all work columns to vanilla order?\n\nAny custom column positions will be lost.",
+                    () =>
+                    {
+                        WorkColumnOrderManager.ResetToVanilla();
+                        Messages.Message("Columns reset to vanilla order", MessageTypeDefOf.TaskCompletion, false);
+                    }));
             }
 
+            l.Gap(8f);
 
-            //public enum ShowUIMode { Always, Never, Shifted, Unshifted }
-            //ShowUIMode_ShowSmallSkillNumbers = ShowUIMode.Unshifted;
-            //public ShowUIMode ShowUIMode_ShowPawnForSkillSquare = ShowUIMode.Shifted;
+            GUI.color = Color.gray;
+            l.Label("Tip: Columns marked with * have been moved from their vanilla position.");
+            l.Label("Drag columns in the work tab to reorder execution priority.");
+            GUI.color = Color.white;
+        }
 
+        private static void DrawResetCategory(Listing_Standard l, BetterWorkTabSettings s)
+        {
+            SpineSettingsWidgets.SectionHeader(l, "Reset Settings");
 
-            l.NewColumn();
-            //l.ColumnWidth = inRect.width / 4f - 12f;
-            SpineWidgets.LS_ColorPickButton_Settings(l, s, nameof(s.Color_VeryLowSkill), "Very Low Skill");
-            SpineWidgets.LS_ColorPickButton_Settings(l, s, nameof(s.Color_LowSkill), "Low Skill");
-            SpineWidgets.LS_ColorPickButton_Settings(l, s, nameof(s.Color_GoodLowSkill), "Good Low Skill");
-            SpineWidgets.LS_ColorPickButton_Settings(l, s, nameof(s.Color_ExcellentSkill), "Excellent Skill");
-            SpineWidgets.LS_ColorPickButton_Settings(l, s, nameof(s.Color_CursorHighlight), "Cursor Highlight");
-            SpineWidgets.LS_ColorPickButton_Settings(l, s, nameof(s.Color_FloatMenuHighlight), "Float Menu Highlight");
-            SpineWidgets.LS_ColorPickButton_Settings(l, s, nameof(s.Color_CustomMouseHighlight), "Custom Mouse Highlight", dependsOn: !s.UseCustomMouseHoverHighlight);
-            SpineWidgets.LS_ColorPickButton_Settings(l, s, nameof(s.Color_CustomSimilarWorktypeHighlight), "Custom Similar Worktype Highlight", dependsOn: !s.UseCustomMouseHoverHighlight);
-            SpineWidgets.LS_ColorPickButton_Settings(l, s, nameof(s.Color_IncapableBecauseOfCapacities), "Incapable Because of Capacities Highlight");
-            SpineWidgets.LS_ColorPickButton_Settings(l, s, nameof(s.Color_BestPawnForSkillSquare), "Best Pawn for Skill Highlight");
+            l.Gap(8f);
 
-            l.End();
+            GUI.color = new Color(1f, 0.7f, 0.7f);
+            l.Label("⚠ These actions cannot be undone");
+            GUI.color = Color.white;
 
-            int butW = 150;
-            int butH = 30;
+            l.Gap(12f);
 
-            // Reset columns button
-            //Rect resetColButRect = new Rect(inRect.width - (butW * 3) - 60f, 0f, butW, butH);
-
-            Rect resetButRect = new Rect(inRect.width - (butW) - 35f, 0f, butW, butH);
-            if (Widgets.ButtonText(resetButRect, "Reset Defaults"))
-            {
-                Find.WindowStack.Add(new Dialog_Confirm("Really Restore ALL Defaults?", s.RestoreDefaults));
-            }
-
-            resetButRect.x -= butW + 10f;
-            if (Widgets.ButtonText(resetButRect, "Restore Default Rulesets"))
-            {
-                Find.WindowStack.Add(new Dialog_Confirm("Really Restore ALL Defaults? (This will RESET ALL RULESETS.)", s.CreateDefaultRulesets));
-            }
-            resetButRect.x -= butW + 10f;
-
-            if (Widgets.ButtonText(resetButRect, "Reset Work Columns"))
+            if (l.ButtonText("Reset All Settings to Defaults"))
             {
                 Find.WindowStack.Add(new Dialog_Confirm(
-                    "Reset all work columns to vanilla order?",
-                    () => WorkColumnOrderManager.ResetToVanilla()
-                ));
+                    "Reset ALL Better Work Tab settings to defaults?\n\n" +
+                    "This includes colors, toggles, and UI preferences.\n" +
+                    "Rulesets will NOT be affected.",
+                    () =>
+                    {
+                        s.RestoreDefaults();
+                        Messages.Message("Settings restored to defaults", MessageTypeDefOf.TaskCompletion, false);
+                    }));
             }
 
+            l.Gap(8f);
+
+            if (l.ButtonText("Restore Default Rulesets"))
+            {
+                Find.WindowStack.Add(new Dialog_Confirm(
+                    "Restore all default rulesets?\n\n" +
+                    "This will ADD the default rulesets back.\n" +
+                    "Custom rulesets will be preserved.",
+                    () =>
+                    {
+                        s.AddDefaultRules();
+                        Messages.Message("Default rulesets restored", MessageTypeDefOf.TaskCompletion, false);
+                    }));
+            }
+
+            l.Gap(8f);
+
+            if (l.ButtonText("Reset Rulesets (Delete All Custom)"))
+            {
+                Find.WindowStack.Add(new Dialog_Confirm(
+                    "DELETE all rulesets and restore ONLY defaults?\n\n" +
+                    "⚠ All custom rulesets will be permanently deleted!",
+                    () =>
+                    {
+                        s.CreateDefaultRulesets();
+                        Messages.Message("All rulesets reset to defaults", MessageTypeDefOf.TaskCompletion, false);
+                    }));
+            }
+
+            l.Gap(8f);
+
+            if (l.ButtonText("Reset Work Column Order"))
+            {
+                Find.WindowStack.Add(new Dialog_Confirm(
+                    "Reset work columns to vanilla order?",
+                    () =>
+                    {
+                        WorkColumnOrderManager.ResetToVanilla();
+                        Messages.Message("Columns reset to vanilla order", MessageTypeDefOf.TaskCompletion, false);
+                    }));
+            }
+
+            SpineSettingsWidgets.SectionHeader(l, "Favorites");
+
+            l.Gap(4f);
+
+            int favCount = FavoritesManager.Instance.FavoriteCount;
+            l.Label($"Pinned settings: {favCount}");
+
+            if (favCount > 0 && l.ButtonText("Clear All Pinned Settings"))
+            {
+                foreach (var fav in FavoritesManager.Instance.GetAllFavorites().ToList())
+                {
+                    FavoritesManager.Instance.SetFavorite(fav, false);
+                }
+                FavoritesManager.Instance.SaveIfDirty(GenFilePaths.ConfigFolderPath);
+                Messages.Message("Cleared all pinned settings", MessageTypeDefOf.TaskCompletion, false);
+            }
         }
 
-        private static void DrawRulesUI(Listing_Standard listing, BetterWorkTabSettings s)
-        {
+        #endregion
 
+        #region Helpers
+
+        private static void ShowEnumMenu<T>(Action<T> onSelect) where T : Enum
+        {
+            var options = new List<FloatMenuOption>();
+            foreach (T value in Enum.GetValues(typeof(T)))
+            {
+                T localValue = value;
+                options.Add(new FloatMenuOption(value.ToString(), () => onSelect(localValue)));
+            }
+            Find.WindowStack.Add(new FloatMenu(options));
         }
 
-        private static void DrawDividerHeightSlider(Listing_Standard l, BetterWorkTabSettings s)
-        {
-            var row = l.GetRect(RowHeight);
-            Widgets.Label(new Rect(row.x, row.y, LabelWidth, row.height), "Divider Height");
-            var sliderRect = new Rect(row.x + LabelWidth + LabelSliderGap, row.y + (row.height - SliderHeight) / 2, row.width - LabelWidth - LabelSliderGap, SliderHeight);
-            var cur = Mathf.Clamp(s.dividerHeight, 1f, 30f);
-            float v = Widgets.HorizontalSlider(sliderRect, cur, 1f, 30f, middleAlignment: true);
-            TooltipHandler.TipRegion(sliderRect, "The height of the dividers in the work tab.");
-            s.dividerHeight = Mathf.Round(v);
-        }
+        #endregion
 
-        private static void IntAdjust(ref int val, int min, int max, Rect row)
+        /// <summary>
+        /// Internal category definition for navigation.
+        /// </summary>
+        private class CategoryDefinition
         {
-            var minus = new Rect(row.x, row.y, ButtonWidth, ButtonWidth);
-            var label = new Rect(row.x + ButtonWidth + LabelSliderGap, row.y, IntAdjustLabelWidth, row.height);
-            var plus = new Rect(row.x + ButtonWidth + LabelSliderGap + IntAdjustLabelWidth + LabelSliderGap, row.y, ButtonWidth, ButtonWidth);
+            public string Id { get; }
+            public string Label { get; }
+            public string Description { get; }
+            public Action<Listing_Standard, BetterWorkTabSettings> DrawAction { get; }
 
-            if (Widgets.ButtonText(minus, "–")) val = Mathf.Max(min, val - 1);
-            Widgets.Label(label, val.ToString());
-            if (Widgets.ButtonText(plus, "+")) val = Mathf.Min(max, val + 1);
-        }
-
-        private static void DrawPassionField(Listing_Standard l, string label, ref int value)
-        {
-            var row = l.GetRect(RowHeight);
-            Widgets.Label(new Rect(row.x, row.y, LabelWidth, row.height), label);
-            var sliderRect = new Rect(row.x + LabelWidth + LabelSliderGap, row.y + (row.height - SliderHeight) / 2, row.width - LabelWidth - LabelSliderGap, SliderHeight);
-            var cur = Mathf.Clamp(value, 0, 4);
-            int v = Mathf.RoundToInt(Widgets.HorizontalSlider(sliderRect, cur, 0, 4, middleAlignment: true));
-            TooltipHandler.TipRegion(sliderRect, "0 = don't change\n1..4 = set passion to this priority");
-            value = Mathf.Clamp(v, 0, 4);
+            public CategoryDefinition(
+                string id,
+                string label,
+                string description,
+                Action<Listing_Standard, BetterWorkTabSettings> drawAction)
+            {
+                Id = id;
+                Label = label;
+                Description = description;
+                DrawAction = drawAction;
+            }
         }
     }
 }
