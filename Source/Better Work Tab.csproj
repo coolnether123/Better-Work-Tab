@@ -95,7 +95,7 @@
     <Compile Include="Spine\UI\SettingsFramework\SettingDefinition.cs" />
     <Compile Include="Spine\UI\SettingsFramework\FavoritesManager.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingsUIHelpers.cs" />
-    <Compile Include="Spine\UI\WidgetExtensions\SpineSettingsWidgets.cs" />
+    <Compile Include="Spine\UI\WidgetExtensions\RimworldSettingsWidgets.cs" />
     <Compile Include="UI\RulesetListDragUI.cs" />
     <Compile Include="UI\VerticalLabels\MainTabWindow_BetterWork.cs" />
     <Compile Include="Features\WorkColumnOrderManager.cs" />
