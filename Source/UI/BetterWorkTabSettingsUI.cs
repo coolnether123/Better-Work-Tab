@@ -76,9 +76,6 @@ namespace Better_Work_Tab.UI
             var listing = new Listing_Standard();
             listing.Begin(inRect);
 
-            // Title
-            DrawTitle(listing);
-
             // Favorites section (if any exist)
             DrawFavoritesSection(listing, settings);
 
@@ -99,26 +96,6 @@ namespace Better_Work_Tab.UI
             _initialized = true;
         }
 
-        private static void DrawTitle(Listing_Standard listing)
-        {
-            Rect titleRect = listing.GetRect(36f);
-
-            var oldFont = Text.Font;
-            var oldAnchor = Text.Anchor;
-            var oldColor = GUI.color;
-
-            Text.Font = GameFont.Medium;
-            Text.Anchor = TextAnchor.MiddleLeft;
-            GUI.color = new Color(0.9f, 0.85f, 0.7f);
-
-            Widgets.Label(titleRect, "Better Work Tab Settings");
-
-            Text.Font = oldFont;
-            Text.Anchor = oldAnchor;
-            GUI.color = oldColor;
-
-            listing.Gap(4f);
-        }
 
         private static void DrawFavoritesSection(Listing_Standard listing, BetterWorkTabSettings settings)
         {
@@ -134,7 +111,7 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
-            SpineSettingsWidgets.SectionHeader(listing, "★ Pinned Settings");
+            RimworldSettingsWidgets.SectionHeader(listing, "★ Pinned Settings");
 
             foreach (var favId in favorites)
             {
@@ -153,49 +130,49 @@ namespace Better_Work_Tab.UI
             switch (settingId)
             {
                 case "enableSkillOverlay":
-                    SpineSettingsWidgets.CheckboxFavoritable(listing, settingId,
+                    RimworldSettingsWidgets.CheckboxFavoritable(listing, settingId,
                         "Enable Skill Overlay",
                         ref settings.enableSkillOverlayFeature,
                         "Show skill numbers when holding Shift");
                     break;
 
                 case "enableAutoAssign":
-                    SpineSettingsWidgets.CheckboxFavoritable(listing, settingId,
+                    RimworldSettingsWidgets.CheckboxFavoritable(listing, settingId,
                         "Enable Auto-Assign Feature",
                         ref settings.enableAutoAssignFeature,
                         "Show auto-assign controls on work tab");
                     break;
 
                 case "requireCtrlForDrag":
-                    SpineSettingsWidgets.CheckboxFavoritable(listing, settingId,
+                    RimworldSettingsWidgets.CheckboxFavoritable(listing, settingId,
                         "Require Ctrl for Drag",
                         ref settings.requireCtrlForDrag,
                         "Hold Ctrl to drag rows/columns");
                     break;
 
                 case "showPawnCount":
-                    SpineSettingsWidgets.CheckboxFavoritable(listing, settingId,
+                    RimworldSettingsWidgets.CheckboxFavoritable(listing, settingId,
                         "Show Pawn Count",
                         ref settings.showPawnCountAtBottom,
                         "Display colonist count at bottom");
                     break;
 
                 case "showBedCount":
-                    SpineSettingsWidgets.CheckboxFavoritable(listing, settingId,
+                    RimworldSettingsWidgets.CheckboxFavoritable(listing, settingId,
                         "Show Bed Count",
                         ref settings.showBedCountAtBottom,
                         "Display bed count at bottom");
                     break;
 
                 case "masterHighlights":
-                    SpineSettingsWidgets.CheckboxFavoritable(listing, settingId,
+                    RimworldSettingsWidgets.CheckboxFavoritable(listing, settingId,
                         "Enable All Highlights",
                         ref settings.ShowPawnAndWorktypeHighlights,
                         "Master toggle for row/column highlighting");
                     break;
 
                 case "dividerHeight":
-                    settings.dividerHeight = SpineSettingsWidgets.SliderFavoritable(listing, settingId,
+                    settings.dividerHeight = RimworldSettingsWidgets.SliderFavoritable(listing, settingId,
                         "Divider Height",
                         settings.dividerHeight,
                         1f, 30f,
@@ -210,7 +187,7 @@ namespace Better_Work_Tab.UI
 
         private static void DrawCategoryNavigation(Listing_Standard listing, BetterWorkTabSettings settings)
         {
-            SpineSettingsWidgets.SectionHeader(listing, "Settings Categories");
+            RimworldSettingsWidgets.SectionHeader(listing, "Settings Categories");
 
             listing.Gap(8f);
 
@@ -239,7 +216,7 @@ namespace Better_Work_Tab.UI
                     buttonWidth,
                     buttonHeight);
 
-                if (SpineSettingsWidgets.DrawCategoryButton(
+                if (RimworldSettingsWidgets.DrawCategoryButton(
                     buttonRect,
                     category.Label,
                     category.Description))
@@ -289,7 +266,7 @@ namespace Better_Work_Tab.UI
 
         private static void DrawAutoAssignCategory(Listing_Standard l, BetterWorkTabSettings s)
         {
-            SpineSettingsWidgets.CheckboxFavoritable(l, "enableAutoAssign",
+            RimworldSettingsWidgets.CheckboxFavoritable(l, "enableAutoAssign",
                 "Enable Auto-Assign Feature",
                 ref s.enableAutoAssignFeature,
                 "Show auto-assign controls on the work tab");
@@ -348,50 +325,50 @@ namespace Better_Work_Tab.UI
 
         private static void DrawLayoutCategory(Listing_Standard l, BetterWorkTabSettings s)
         {
-            SpineSettingsWidgets.SectionHeader(l, "Window Behavior");
+            RimworldSettingsWidgets.SectionHeader(l, "Window Behavior");
 
-            SpineSettingsWidgets.CheckboxFavoritable(l, "disableLeftClickClose",
+            RimworldSettingsWidgets.CheckboxFavoritable(l, "disableLeftClickClose",
                 "Disable Left-Click Close",
                 ref s.disableLeftClickClose,
                 "Prevents the tab from closing when clicking outside");
 
-            SpineSettingsWidgets.SectionHeader(l, "Drag & Drop");
+            RimworldSettingsWidgets.SectionHeader(l, "Drag & Drop");
 
-            SpineSettingsWidgets.CheckboxFavoritable(l, "requireCtrlForDrag",
+            RimworldSettingsWidgets.CheckboxFavoritable(l, "requireCtrlForDrag",
                 "Require Ctrl for Drag Reordering",
                 ref s.requireCtrlForDrag,
                 "Hold Ctrl to drag rows/columns. Uncheck for direct dragging.");
 
-            SpineSettingsWidgets.CheckboxFavoritable(l, null,
+            RimworldSettingsWidgets.CheckboxFavoritable(l, null,
                 "Row Drag: Line Only",
                 ref s.showOnlyLineDragIndicatorRows,
                 "Show only insertion line when dragging rows (no ghost)");
 
-            SpineSettingsWidgets.CheckboxFavoritable(l, null,
+            RimworldSettingsWidgets.CheckboxFavoritable(l, null,
                 "Column Drag: Line Only",
                 ref s.showOnlyLineDragIndicatorColumns,
                 "Show only insertion line when dragging columns (no ghost)");
 
-            SpineSettingsWidgets.SectionHeader(l, "Bottom Display");
+            RimworldSettingsWidgets.SectionHeader(l, "Bottom Display");
 
-            SpineSettingsWidgets.CheckboxFavoritable(l, "showPawnCount",
+            RimworldSettingsWidgets.CheckboxFavoritable(l, "showPawnCount",
                 "Show Pawn Count",
                 ref s.showPawnCountAtBottom,
                 "Display colonist count in lower-left corner");
 
-            SpineSettingsWidgets.CheckboxFavoritable(l, "showBedCount",
+            RimworldSettingsWidgets.CheckboxFavoritable(l, "showBedCount",
                 "Show Bed Count",
                 ref s.showBedCountAtBottom,
                 "Display available beds (red if fewer than pawns)");
 
-            SpineSettingsWidgets.SectionHeader(l, "Dividers");
+            RimworldSettingsWidgets.SectionHeader(l, "Dividers");
 
-            s.dividerHeight = SpineSettingsWidgets.SliderFavoritable(l, "dividerHeight",
+            s.dividerHeight = RimworldSettingsWidgets.SliderFavoritable(l, "dividerHeight",
                 "Divider Height",
                 s.dividerHeight, 1f, 30f,
                 "Height of section dividers in pixels");
 
-            SpineSettingsWidgets.CheckboxFavoritable(l, null,
+            RimworldSettingsWidgets.CheckboxFavoritable(l, null,
                 "Draw Divider Highlight",
                 ref s.drawDividerHighlight,
                 "Show white border around dividers");
@@ -399,7 +376,7 @@ namespace Better_Work_Tab.UI
 
         private static void DrawSkillOverlayCategory(Listing_Standard l, BetterWorkTabSettings s)
         {
-            SpineSettingsWidgets.CheckboxFavoritable(l, "enableSkillOverlay",
+            RimworldSettingsWidgets.CheckboxFavoritable(l, "enableSkillOverlay",
                 "Enable Skill Overlay Feature",
                 ref s.enableSkillOverlayFeature,
                 "Show skill numbers when holding Shift in work tab");
@@ -432,9 +409,9 @@ namespace Better_Work_Tab.UI
 
         private static void DrawHighlightsCategory(Listing_Standard l, BetterWorkTabSettings s)
         {
-            SpineSettingsWidgets.SectionHeader(l, "Master Toggle");
+            RimworldSettingsWidgets.SectionHeader(l, "Master Toggle");
 
-            SpineSettingsWidgets.CheckboxFavoritable(l, "masterHighlights",
+            RimworldSettingsWidgets.CheckboxFavoritable(l, "masterHighlights",
                 "Enable All Highlights",
                 ref s.ShowPawnAndWorktypeHighlights,
                 "Master toggle for all row/column highlighting");
@@ -448,33 +425,33 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
-            SpineSettingsWidgets.SectionHeader(l, "Cursor Highlights");
+            RimworldSettingsWidgets.SectionHeader(l, "Cursor Highlights");
 
-            SpineSettingsWidgets.CheckboxFavoritable(l, null,
+            RimworldSettingsWidgets.CheckboxFavoritable(l, null,
                 "Highlight Hovered Row/Column",
                 ref s.ShowCursorPawnAndWorktypeHighlight,
                 "Highlight rows and columns under the cursor");
 
-            SpineSettingsWidgets.CheckboxFavoritable(l, null,
+            RimworldSettingsWidgets.CheckboxFavoritable(l, null,
                 "Enable Row/Column Tinting",
                 ref s.enableRowColumnHighlights,
                 "Apply color tint to hovered headers and rows");
 
-            SpineSettingsWidgets.SectionHeader(l, "Selection Highlights");
+            RimworldSettingsWidgets.SectionHeader(l, "Selection Highlights");
 
-            SpineSettingsWidgets.CheckboxFavoritable(l, null,
+            RimworldSettingsWidgets.CheckboxFavoritable(l, null,
                 "Highlight Selected Pawn",
                 ref s.DoSelectedPawnHighlight,
                 "Highlight the row of the currently selected pawn");
 
-            SpineSettingsWidgets.CheckboxFavoritable(l, null,
+            RimworldSettingsWidgets.CheckboxFavoritable(l, null,
                 "Float Menu Highlight",
                 ref s.ShowFloatMenuPawnAndWorktypeHighlight,
                 "Highlight pawn/worktype when opened from context menu");
 
-            SpineSettingsWidgets.SectionHeader(l, "Custom Hover Color");
+            RimworldSettingsWidgets.SectionHeader(l, "Custom Hover Color");
 
-            SpineSettingsWidgets.CheckboxFavoritable(l, null,
+            RimworldSettingsWidgets.CheckboxFavoritable(l, null,
                 "Use Custom Mouse Hover Color",
                 ref s.UseCustomMouseHoverHighlight,
                 "Use separate color for hover (vs. derived from cursor highlight)");
@@ -482,53 +459,53 @@ namespace Better_Work_Tab.UI
 
         private static void DrawColorsCategory(Listing_Standard l, BetterWorkTabSettings s)
         {
-            SpineSettingsWidgets.SectionHeader(l, "Skill Level Colors");
+            RimworldSettingsWidgets.SectionHeader(l, "Skill Level Colors");
 
             Color c1 = s.Color_VeryLowSkill;
-            SpineSettingsWidgets.ColorPickerFavoritable(l, null, "Very Low Skill (0-3)", ref c1);
+            RimworldSettingsWidgets.ColorPickerFavoritable(l, null, "Very Low Skill (0-3)", ref c1);
             s.Color_VeryLowSkill = c1;
 
             Color c2 = s.Color_LowSkill;
-            SpineSettingsWidgets.ColorPickerFavoritable(l, null, "Low Skill (4-9)", ref c2);
+            RimworldSettingsWidgets.ColorPickerFavoritable(l, null, "Low Skill (4-9)", ref c2);
             s.Color_LowSkill = c2;
 
             Color c3 = s.Color_GoodLowSkill;
-            SpineSettingsWidgets.ColorPickerFavoritable(l, null, "Good Skill (10-15)", ref c3);
+            RimworldSettingsWidgets.ColorPickerFavoritable(l, null, "Good Skill (10-15)", ref c3);
             s.Color_GoodLowSkill = c3;
 
             Color c4 = s.Color_ExcellentSkill;
-            SpineSettingsWidgets.ColorPickerFavoritable(l, null, "Excellent Skill (16+)", ref c4);
+            RimworldSettingsWidgets.ColorPickerFavoritable(l, null, "Excellent Skill (16+)", ref c4);
             s.Color_ExcellentSkill = c4;
 
-            SpineSettingsWidgets.SectionHeader(l, "Highlight Colors");
+            RimworldSettingsWidgets.SectionHeader(l, "Highlight Colors");
 
             Color h1 = s.Color_CursorHighlight;
-            SpineSettingsWidgets.ColorPickerFavoritable(l, null, "Cursor Highlight", ref h1);
+            RimworldSettingsWidgets.ColorPickerFavoritable(l, null, "Cursor Highlight", ref h1);
             s.Color_CursorHighlight = h1;
 
             Color h2 = s.Color_FloatMenuHighlight;
-            SpineSettingsWidgets.ColorPickerFavoritable(l, null, "Float Menu Highlight", ref h2);
+            RimworldSettingsWidgets.ColorPickerFavoritable(l, null, "Float Menu Highlight", ref h2);
             s.Color_FloatMenuHighlight = h2;
 
             if (s.UseCustomMouseHoverHighlight)
             {
                 Color h3 = s.Color_CustomMouseHighlight;
-                SpineSettingsWidgets.ColorPickerFavoritable(l, null, "Custom Mouse Hover", ref h3);
+                RimworldSettingsWidgets.ColorPickerFavoritable(l, null, "Custom Mouse Hover", ref h3);
                 s.Color_CustomMouseHighlight = h3;
 
                 Color h4 = s.Color_CustomSimilarWorktypeHighlight;
-                SpineSettingsWidgets.ColorPickerFavoritable(l, null, "Similar Worktype", ref h4);
+                RimworldSettingsWidgets.ColorPickerFavoritable(l, null, "Similar Worktype", ref h4);
                 s.Color_CustomSimilarWorktypeHighlight = h4;
             }
 
-            SpineSettingsWidgets.SectionHeader(l, "Special Indicators");
+            RimworldSettingsWidgets.SectionHeader(l, "Special Indicators");
 
             Color s1 = s.Color_IncapableBecauseOfCapacities;
-            SpineSettingsWidgets.ColorPickerFavoritable(l, null, "Incapable Indicator", ref s1);
+            RimworldSettingsWidgets.ColorPickerFavoritable(l, null, "Incapable Indicator", ref s1);
             s.Color_IncapableBecauseOfCapacities = s1;
 
             Color s2 = s.Color_BestPawnForSkillSquare;
-            SpineSettingsWidgets.ColorPickerFavoritable(l, null, "Best Pawn Indicator", ref s2);
+            RimworldSettingsWidgets.ColorPickerFavoritable(l, null, "Best Pawn Indicator", ref s2);
             s.Color_BestPawnForSkillSquare = s2;
         }
 
@@ -572,7 +549,7 @@ namespace Better_Work_Tab.UI
 
         private static void DrawResetCategory(Listing_Standard l, BetterWorkTabSettings s)
         {
-            SpineSettingsWidgets.SectionHeader(l, "Reset Settings");
+            RimworldSettingsWidgets.SectionHeader(l, "Reset Settings");
 
             l.Gap(8f);
 
@@ -637,7 +614,7 @@ namespace Better_Work_Tab.UI
                     }));
             }
 
-            SpineSettingsWidgets.SectionHeader(l, "Favorites");
+            RimworldSettingsWidgets.SectionHeader(l, "Favorites");
 
             l.Gap(4f);
 
