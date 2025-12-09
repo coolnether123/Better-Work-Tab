@@ -12,6 +12,24 @@ namespace Better_Work_Tab.Patches
     [HarmonyPatch(typeof(PawnColumnWorker_Label), nameof(PawnColumnWorker_Label.DoCell))]
     public static class Patch_PawnColumnWorker_Label_DoCell
     {
+        // Postfix ensures overlays draw after vanilla rendering when Prefix returns true (e.g., no contrast mode)
+        public static void Postfix(PawnColumnWorker_Label __instance, Rect rect, Pawn pawn, PawnTable table)
+        {
+            if (pawn == null || !__instance.def.showIcon)
+                return;
+
+            Rect rect1 = new Rect(
+                rect.x,
+                rect.y,
+                rect.width,
+                Mathf.Min(
+                    rect.height,
+                    __instance.def.groupable ? rect.height : __instance.GetMinCellHeight(pawn)));
+
+            Rect iconRect = new Rect(rect1.x, rect1.y, rect1.height, rect1.height);
+            ModSupportManager.OnPawnRowDrawn(pawn, iconRect);
+        }
+
         public static bool Prefix(
             PawnColumnWorker_Label __instance,
             Rect rect,
@@ -23,21 +41,6 @@ namespace Better_Work_Tab.Patches
                 return true;
             }
 
-            // Always compute the icon rect so mod support overlays can draw even if we fall back to vanilla rendering.
-            Rect rect1 = new Rect(
-                rect.x,
-                rect.y,
-                rect.width,
-                Mathf.Min(
-                    rect.height,
-                    __instance.def.groupable ? rect.height : __instance.GetMinCellHeight(pawn)));
-
-            if (__instance.def.showIcon)
-            {
-                Rect iconRect = new Rect(rect1.x, rect1.y, rect1.height, rect1.height);
-                ModSupportManager.OnPawnRowDrawn(pawn, iconRect);
-            }
-
             if (Current.Game == null
                 || !PawnColorDatabase.TryGetColor(pawn, out var bg)
                 || bg.a <= 0f)
@@ -45,7 +48,7 @@ namespace Better_Work_Tab.Patches
                 return true;
             }
 
-            DoCell_Contrast(__instance, rect, pawn, table, bg, rect1);
+            DoCell_Contrast(__instance, rect, pawn, table, bg);
             return false;
         }
 
@@ -54,9 +57,16 @@ namespace Better_Work_Tab.Patches
             Rect rect,
             Pawn pawn,
             PawnTable table,
-            Color backgroundColor,
-            Rect rect1)
+            Color backgroundColor)
         {
+            Rect rect1 = new Rect(
+                rect.x,
+                rect.y,
+                rect.width,
+                Mathf.Min(
+                    rect.height,
+                    worker.def.groupable ? rect.height : worker.GetMinCellHeight(pawn)));
+
             Rect rect2 = rect1;
             rect2.xMin += 3f;
 
@@ -69,6 +79,7 @@ namespace Better_Work_Tab.Patches
                     SelectionDrawerUtility.DrawSelectionOverlayWholeGUI(iconRect.ContractedBy(2f));
 
                 Widgets.ThingIcon(iconRect, pawn);
+                ModSupportManager.OnPawnRowDrawn(pawn, iconRect);
             }
 
             if (pawn.health.summaryHealth.SummaryHealthPercent < 0.99f)
