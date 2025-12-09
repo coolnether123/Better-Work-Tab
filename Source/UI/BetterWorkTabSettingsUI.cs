@@ -287,6 +287,11 @@ namespace Better_Work_Tab.UI
 
             if (s.ShowPawnAndWorktypeHighlights)
             {
+                RimworldSettingsWidgets.CheckboxFavoritable(l, "useOutlineHighlights",
+                    "Use Outline Highlights",
+                    ref s.useOutlineHighlights,
+                    "Draw highlights as outlines instead of solid boxes.");
+
                 RimworldSettingsWidgets.CheckboxFavoritable(l, "hoverHighlights",
                     "Highlight on Hover",
                     ref s.ShowCursorPawnAndWorktypeHighlight,
@@ -453,6 +458,9 @@ namespace Better_Work_Tab.UI
                 // Overlay
                 case "enableSkillOverlay":
                     RimworldSettingsWidgets.CheckboxFavoritable(l, settingId, "Enable Skill Overlay", ref s.enableSkillOverlayFeature); break;
+                case "useOutlineHighlights":
+                    RimworldSettingsWidgets.CheckboxFavoritable(l, settingId, "Use Outline Highlights", ref s.useOutlineHighlights); break;
+
 
                 // Colors
                 case "col_verylow": RimworldSettingsWidgets.ColorPickerFavoritable(l, settingId, "Very Low Skill", ref s.Color_VeryLowSkill); break;

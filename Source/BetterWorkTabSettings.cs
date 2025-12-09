@@ -22,7 +22,8 @@ namespace Better_Work_Tab
         SkillOverlay,
         Rules,
         Workloads,
-        Performance
+        Performance,
+        ModSupport
     }
 
     [StaticConstructorOnStartup]
@@ -177,6 +178,8 @@ namespace Better_Work_Tab
             //InitializeRulesets();
         }
 
+        public bool useOutlineHighlights = false;
+
         public bool firstTimeSetupDone = DefaultSettings.firstTimeSetupDone;
 
         // Master feature toggles
@@ -203,7 +206,8 @@ namespace Better_Work_Tab
             { DebugFeature.SkillOverlay, false },
             { DebugFeature.Rules, false },
             { DebugFeature.Workloads, false },
-            { DebugFeature.Performance, false }
+            { DebugFeature.Performance, false },
+            { DebugFeature.ModSupport, false }
         };
         public List<string> workColumnOrderDefNames = new List<string>();
         public Dictionary<string, float> storedColumnWidths = new Dictionary<string, float>();
@@ -315,6 +319,7 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref DoSelectedPawnHighlight, "DoSelectedPawnHighlight", DefaultSettings.DoSelectedPawnHighlight);
             Scribe_Values.Look(ref UseCustomMouseHoverHighlight, "UseCustomMouseHoverHighlight", DefaultSettings.UseCustomMouseHoverHighlight);
             Scribe_Values.Look(ref enableRowColumnHighlights, "enableRowColumnHighlights", DefaultSettings.enableRowColumnHighlights);
+            Scribe_Values.Look(ref useOutlineHighlights, "useOutlineHighlights", false);
 
             // UI display settings
             Scribe_Values.Look(ref showPawnCountAtBottom, "showPawnCountAtBottom", DefaultSettings.showPawnCountAtBottom);
