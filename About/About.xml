@@ -72,6 +72,6 @@ Questions? See the Steam Workshop page or GitHub repository for detailed documen
  </modDependencies>
  <incompatibleWith>
    <li>Fluffy.WorkTab</li>
-   <li>Numbers</li>
+   <li>Mlie.CompactWorkTab</li>
  </incompatibleWith>
 </ModMetaData>
