@@ -43,6 +43,7 @@
     <Compile Include="BetterWorkTab.cs" />
     <Compile Include="DragDrop\DragHandler.cs" />
     <Compile Include="DragDrop\ColumnDragHandler.cs" />
+    <Compile Include="Features\DrawAllHighlights.cs" />
     <Compile Include="Features\Patches\Patch_PawnTable_RecacheIfDirty.cs" />
     <Compile Include="Features\Patches\Patch_WorkPriority_DoCell_Unified.cs" />
     <Compile Include="Features\Rules\AssignmentValidationResult.cs" />
@@ -66,7 +67,7 @@
     <Compile Include="Features\Patches\PawnTable_HighlightRowAndColumn.cs" />
     <Compile Include="Features\Patches\ShiftHelper.cs" />
     <Compile Include="DragDrop\RowDragHandler.cs" />
-    <Compile Include="Mod Support\Multiplayer\BetterWorkTabMultiplayer.cs" />
+    <Compile Include="Mod Support\Mods\Multiplayer\BetterWorkTabMultiplayer.cs" />
     <Compile Include="Features\ColumnWidthPersistence.cs" />
     <Compile Include="PawnOrganizer\API\IPawnOrganizerSnapshot.cs" />
     <Compile Include="PawnOrganizer\API\WorkTabSnapshot.cs" />
@@ -81,7 +82,11 @@
     <Compile Include="PawnOrganizer\Layout\WorkTabLayoutRow.cs" />
     <Compile Include="PawnOrganizer\Patches\Patch_PawnColumnWorker_Label_DoCell.cs" />
     <Compile Include="PawnOrganizer\PawnOrganizerSystem.cs" />
-    <Compile Include="Mod Support\Multiplayer\WorkColumnOrderSync.cs" />
+    <Compile Include="Mod Support\IModSupportModule.cs" />
+    <Compile Include="Mod Support\ModSupportManager.cs" />
+    <Compile Include="Mod Support\ModSupportModuleBase.cs" />
+    <Compile Include="Mod Support\Mods\Useful Marks\UsefulMarksSupport.cs" />
+    <Compile Include="Mod Support\Mods\Multiplayer\WorkColumnOrderSync.cs" />
     <Compile Include="PawnOrganizer\RowDescriptor.cs" />
     <Compile Include="Spine\DragDrop\DragDropController.cs" />
     <Compile Include="Spine\DragDrop\DragDropManager.cs" />
