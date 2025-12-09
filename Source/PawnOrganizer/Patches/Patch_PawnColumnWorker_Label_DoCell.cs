@@ -5,6 +5,7 @@ using RimWorld;
 using Spine.UI; // for TextColorHelper
 using UnityEngine;
 using Verse;
+using Better_Work_Tab.ModSupport;
 
 namespace Better_Work_Tab.Patches
 {
@@ -17,15 +18,34 @@ namespace Better_Work_Tab.Patches
             Pawn pawn,
             PawnTable table)
         {
+            if (pawn == null)
+            {
+                return true;
+            }
+
+            // Always compute the icon rect so mod support overlays can draw even if we fall back to vanilla rendering.
+            Rect rect1 = new Rect(
+                rect.x,
+                rect.y,
+                rect.width,
+                Mathf.Min(
+                    rect.height,
+                    __instance.def.groupable ? rect.height : __instance.GetMinCellHeight(pawn)));
+
+            if (__instance.def.showIcon)
+            {
+                Rect iconRect = new Rect(rect1.x, rect1.y, rect1.height, rect1.height);
+                ModSupportManager.OnPawnRowDrawn(pawn, iconRect);
+            }
+
             if (Current.Game == null
-                || pawn == null
                 || !PawnColorDatabase.TryGetColor(pawn, out var bg)
                 || bg.a <= 0f)
             {
                 return true;
             }
 
-            DoCell_Contrast(__instance, rect, pawn, table, bg);
+            DoCell_Contrast(__instance, rect, pawn, table, bg, rect1);
             return false;
         }
 
@@ -34,16 +54,9 @@ namespace Better_Work_Tab.Patches
             Rect rect,
             Pawn pawn,
             PawnTable table,
-            Color backgroundColor)
+            Color backgroundColor,
+            Rect rect1)
         {
-            Rect rect1 = new Rect(
-                rect.x,
-                rect.y,
-                rect.width,
-                Mathf.Min(
-                    rect.height,
-                    worker.def.groupable ? rect.height : worker.GetMinCellHeight(pawn)));
-
             Rect rect2 = rect1;
             rect2.xMin += 3f;
 

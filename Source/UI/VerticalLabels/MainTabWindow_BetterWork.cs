@@ -597,21 +597,21 @@ namespace Better_Work_Tab.UI
                     descriptor.Pawn == highlightedPawn &&
                     BetterWorkTabMod.Settings.ShowFloatMenuPawnAndWorktypeHighlight)
                 {
-                    Widgets.DrawBoxSolid(rowRect, BetterWorkTabMod.Settings.Color_FloatMenuHighlight);
+                    HighlightDrawer.DrawHighlight(rowRect, BetterWorkTabMod.Settings.Color_FloatMenuHighlight);
                 }
                 // Highlight selected row (only pawns can be selected)
                 else if (descriptor.IsPawn && Find.Selector.IsSelected(descriptor.Pawn))
                 {
                     if (BetterWorkTabMod.Settings.DoSelectedPawnHighlight)
                     {
-                        Widgets.DrawBoxSolid(rowRect, BetterWorkTabMod.Settings.Color_CursorHighlight);
+                        HighlightDrawer.DrawHighlight(rowRect, BetterWorkTabMod.Settings.Color_CursorHighlight);
                     }
                 }
 
                 // Highlight hovered row (works for both pawns and dividers)
                 if (BetterWorkTabMod.Settings.ShowCursorPawnAndWorktypeHighlight && Mouse.IsOver(rowRect))
                 {
-                    Widgets.DrawBoxSolid(rowRect, BetterWorkTabMod.Settings.Color_MouseHoverHighlight);
+                    HighlightDrawer.DrawHighlight(rowRect, BetterWorkTabMod.Settings.Color_MouseHoverHighlight);
                 }
 
                 currentY += descriptor.Height;
@@ -628,13 +628,13 @@ namespace Better_Work_Tab.UI
 
                 bool isWorkColumn = column.Column?.Worker is PawnColumnWorker_WorkPriority;
 
-                // Highlight float menu worktype column (when opened via right-click on work cell)
+                // Highlight float menu worktype column
                 if (isWorkColumn &&
                     highlightedWorkType != null &&
                     column.Column.workType == highlightedWorkType &&
                     BetterWorkTabMod.Settings.ShowFloatMenuPawnAndWorktypeHighlight)
                 {
-                    Widgets.DrawBoxSolid(columnRect, BetterWorkTabMod.Settings.Color_FloatMenuHighlight);
+                    HighlightDrawer.DrawHighlight(columnRect, BetterWorkTabMod.Settings.Color_FloatMenuHighlight);
                 }
                 // Highlight hovered column and related worktypes
                 else if (isWorkColumn &&
@@ -642,15 +642,14 @@ namespace Better_Work_Tab.UI
                          hoveredWorkType != null &&
                          hoveredWorkType == column.Column.workType)
                 {
-                    Color useColor = BetterWorkTabMod.Settings.Color_MouseHoverHighlight;
-                    Widgets.DrawBoxSolid(columnRect, useColor);
+                    HighlightDrawer.DrawHighlight(columnRect, BetterWorkTabMod.Settings.Color_MouseHoverHighlight);
                     Widgets.DrawHighlight(columnRect);
                 }
                 else if (isWorkColumn &&
                          cachedSimilarWorktypes != null &&
                          cachedSimilarWorktypes.Contains(column.Column.workType))
                 {
-                    Widgets.DrawBoxSolid(columnRect, BetterWorkTabMod.Settings.Color_SimilarWorktypeMouseOver);
+                    HighlightDrawer.DrawHighlight(columnRect, BetterWorkTabMod.Settings.Color_SimilarWorktypeMouseOver);
                     Widgets.DrawHighlight(columnRect);
                 }
 

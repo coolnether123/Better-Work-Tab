@@ -1,3 +1,4 @@
+using Better_Work_Tab.UI;
 using HarmonyLib;
 using RimWorld;
 using System.Linq;
@@ -134,8 +135,7 @@ namespace Better_Work_Tab.Patches
             float totalWidth = table.cachedColumnWidths.Sum();
 
             var rect = new Rect(position.x, rowY, totalWidth, table.cachedRowHeights[rowIndex]);
-            Widgets.DrawBoxSolid(rect, highlightColor);
-            Widgets.DrawHighlight(rect);
+            HighlightDrawer.DrawHighlight(rect, highlightColor);
         }
 
         /// <summary>
@@ -159,8 +159,7 @@ namespace Better_Work_Tab.Patches
                 table.cachedColumnWidths[columnIndex],
                 totalHeight);
 
-            Widgets.DrawBoxSolid(rect, highlightColor);
-            Widgets.DrawHighlight(rect);
+            HighlightDrawer.DrawHighlight(rect, highlightColor);
         }
 
         /// <summary>
@@ -237,14 +236,14 @@ namespace Better_Work_Tab.Patches
 
             // Highlight logic
             if (BetterWorkTabMod.Settings.DoSelectedPawnHighlight &&
-                Find.Selector.IsSelected(table.cachedPawns[rowIndex]))
+            Find.Selector.IsSelected(table.cachedPawns[rowIndex]))
             {
-                Widgets.DrawBoxSolid(rect, BetterWorkTabMod.Settings.Color_CursorHighlight);
+                HighlightDrawer.DrawHighlight(rect, BetterWorkTabMod.Settings.Color_CursorHighlight);
             }
 
             if (BetterWorkTabMod.Settings.ShowCursorPawnAndWorktypeHighlight)
             {
-                Widgets.DrawBoxSolid(rect, BetterWorkTabMod.Settings.Color_MouseHoverHighlight);
+                HighlightDrawer.DrawHighlight(rect, BetterWorkTabMod.Settings.Color_MouseHoverHighlight);
                 Widgets.DrawHighlight(rect);
             }
         }
@@ -270,7 +269,7 @@ namespace Better_Work_Tab.Patches
                 table.cachedColumnWidths[colIndex],
                 totalHeight);
 
-            Widgets.DrawBoxSolid(rect, BetterWorkTabMod.Settings.Color_MouseHoverHighlight);
+            HighlightDrawer.DrawHighlight(rect, BetterWorkTabMod.Settings.Color_MouseHoverHighlight);
             Widgets.DrawHighlight(rect);
 
             // Highlight similar work types
