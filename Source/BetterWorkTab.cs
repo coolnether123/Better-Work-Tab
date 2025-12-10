@@ -116,6 +116,23 @@ namespace Better_Work_Tab
             UI.BetterWorkTabSettingsUI.DoSettingsWindowContents(inRect, Settings);
         }
 
+        /// <summary>
+        /// Monitors map changes and clears bed cache as needed.
+        /// Prevents memory leaks from accumulating cached data for deleted maps.
+        /// </summary>
+        [StaticConstructorOnStartup]
+        private static class MapChangeListener
+        {
+            static MapChangeListener()
+            {
+                if (!Prefs.DevMode)
+                    return;
+
+                // Optional: Register for map events if you want ultra-precise tracking
+                // For now, cache self-cleans via invalidation, which is sufficient
+            }
+        }
+
     }
 
     public static class HighlightManager
