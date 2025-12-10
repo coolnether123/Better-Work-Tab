@@ -1,4 +1,5 @@
 using Better_Work_Tab.Features;
+using Better_Work_Tab.Features.Caching;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.Patches;
 using Better_Work_Tab.PawnOrganizer;
@@ -1044,26 +1045,14 @@ namespace Better_Work_Tab.UI
             }
 
             int pawnCount = showPawns ? table?.cachedPawns?.Count ?? 0 : 0;
+
+            // Use cached bed count instead of calculating every frame
             int bedCount = 0;
             if (showBeds)
             {
                 Map map = Find.CurrentMap;
-                if (map?.listerBuildings != null)
-                {
-                    var beds = map.listerBuildings.AllBuildingsColonistOfClass<Building_Bed>();
-                    if (beds != null)
-                    {
-                        foreach (var bed in beds)
-                        {
-                            if (bed == null || bed.ForPrisoners || bed.Faction != Faction.OfPlayer)
-                            {
-                                continue;
-                            }
-
-                            bedCount += bed.SleepingSlotsCount;
-                        }
-                    }
-                }
+                // Cached lookup: invalidated via Harmony patches and time-based expiry
+                bedCount = BedCountCache.GetBedCount(map);
             }
 
             var rect = new Rect(inRect.x + 6f, inRect.yMax - 45f, inRect.width * 0.5f, 20f);
@@ -1077,16 +1066,17 @@ namespace Better_Work_Tab.UI
                 Widgets.Label(rect, $"Colonists: {pawnCount}");
             }
 
-            // Draw bed count in red if less than pawns, otherwise gray
+            // Draw bed count in red if insufficient, otherwise gray
             if (showBeds)
             {
                 string bedLabel = showPawns ? $" | Beds: {bedCount}" : $"Beds: {bedCount}";
                 float colonistWidth = showPawns ? Text.CalcSize($"Colonists: {pawnCount}").x : 0f;
                 Rect bedRect = new Rect(rect.x + colonistWidth, rect.y, rect.width - colonistWidth, rect.height);
 
+                // Red if fewer beds than pawns, gray otherwise
                 if (bedCount < pawnCount)
                 {
-                    GUI.color = new Color(0.8f, 0.1f, 0.1f); // Darker red
+                    GUI.color = new Color(0.8f, 0.1f, 0.1f); // Dark red
                 }
                 else
                 {
