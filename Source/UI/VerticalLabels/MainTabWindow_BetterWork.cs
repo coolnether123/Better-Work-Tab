@@ -505,7 +505,13 @@ namespace Better_Work_Tab.UI
                 DrawAllHighlights(rowDescriptors, layout.Columns, totalWidth, totalHeight);
 
                 // Phase 2: Draw actual row content (pawn data, divider labels, backgrounds)
-                DrawAllRowContent(table, rowDescriptors, layout.Columns, viewRect.width, nameColumn);
+                DrawAllRowContent(table,
+                    rowDescriptors,
+                    layout.Columns,
+                    viewRect.width,
+                    nameColumn,
+                    outRect,
+                    table.scrollPosition);
 
                 // Phase 3: Draw separator lines between rows
                 DrawRowSeparators(rowDescriptors, viewRect.width);
@@ -671,49 +677,72 @@ namespace Better_Work_Tab.UI
             List<RowDescriptor> rowDescriptors,
             IReadOnlyList<WorkTabLayoutColumn> columns,
             float viewWidth,
-            WorkTabLayoutColumn? nameColumn)
+            WorkTabLayoutColumn? nameColumn,
+            Rect viewportRect,
+            Vector2 scrollOffset)
         {
+            // Only render rows that intersect the scroll viewport (with small buffer to avoid pop-in)
             float currentY = 0f;
+            float viewportTop = scrollOffset.y;
+            float viewportBottom = scrollOffset.y + viewportRect.height;
+            const float BufferPixels = 60f; // 2 extra rows for smooth scrolling
 
             for (int i = 0; i < rowDescriptors.Count; i++)
             {
                 var descriptor = rowDescriptors[i];
-                Rect rowRect = new Rect(0f, currentY, viewWidth, descriptor.Height);
+                float rowBottom = currentY + descriptor.Height;
+                bool isVisible = rowBottom >= (viewportTop - BufferPixels) &&
+                                 currentY <= (viewportBottom + BufferPixels);
 
-                // Create temporary wrapper objects to maintain compatibility with existing draw methods.
-                // These are small allocations; only optimize with pooling if profiling shows it's necessary.
-                if (descriptor.IsPawn)
+                if (isVisible)
                 {
-                    // Wrap pawn in element and row for rendering (preserves selection/highlight state)
-                    var pawnElement = new PawnElement(descriptor.Pawn);
-                    var renderRow = new WorkTabLayoutRow(pawnElement, currentY, descriptor.Height, i);
-
-                    // 1. Draw row background (custom pawn color if set)
-                    DrawRowBackground(renderRow, rowRect);
-
-                    // 2. Draw all column cells for this pawn (work priorities, name, etc)
-                    DrawPawnRow(table, renderRow, rowRect, columns);
-
-                    // 3. Draw overlays (selection glow, hover, downed strike-through)
-                    DrawPawnRowOverlay(renderRow, rowRect);
-                }
-                else if (descriptor.IsDivider)
-                {
-                    // Wrap divider in element and row for rendering (preserves collapse state and styling)
-                    var dividerElement = new DividerElement(descriptor.Divider);
-                    var renderRow = new WorkTabLayoutRow(dividerElement, currentY, descriptor.Height, i);
-
-                    // 1. Draw divider background (uses divider color, dimmed if collapsed)
-                    DrawRowBackground(renderRow, rowRect);
-
-                    // 2. Draw divider label and collapse arrow (only in name column)
-                    if (nameColumn.HasValue)
-                    {
-                        DrawDividerRow(descriptor.Divider, rowRect, nameColumn.Value);
-                    }
+                    Rect rowRect = new Rect(0f, currentY, viewWidth, descriptor.Height);
+                    DrawSingleRowContent(table, descriptor, columns, rowRect, nameColumn, i);
                 }
 
                 currentY += descriptor.Height;
+            }
+        }
+
+        private void DrawSingleRowContent(
+            PawnTable table,
+            RowDescriptor descriptor,
+            IReadOnlyList<WorkTabLayoutColumn> columns,
+            Rect rowRect,
+            WorkTabLayoutColumn? nameColumn,
+            int rowIndex)
+        {
+            // Create temporary wrapper objects to maintain compatibility with existing draw methods.
+            // These are small allocations; only optimize with pooling if profiling shows it's necessary.
+            if (descriptor.IsPawn)
+            {
+                // Wrap pawn in element and row for rendering (preserves selection/highlight state)
+                var pawnElement = new PawnElement(descriptor.Pawn);
+                var renderRow = new WorkTabLayoutRow(pawnElement, rowRect.y, descriptor.Height, rowIndex);
+
+                // 1. Draw row background (custom pawn color if set)
+                DrawRowBackground(renderRow, rowRect);
+
+                // 2. Draw all column cells for this pawn (work priorities, name, etc)
+                DrawPawnRow(table, renderRow, rowRect, columns);
+
+                // 3. Draw overlays (selection glow, hover, downed strike-through)
+                DrawPawnRowOverlay(renderRow, rowRect);
+            }
+            else if (descriptor.IsDivider)
+            {
+                // Wrap divider in element and row for rendering (preserves collapse state and styling)
+                var dividerElement = new DividerElement(descriptor.Divider);
+                var renderRow = new WorkTabLayoutRow(dividerElement, rowRect.y, descriptor.Height, rowIndex);
+
+                // 1. Draw divider background (uses divider color, dimmed if collapsed)
+                DrawRowBackground(renderRow, rowRect);
+
+                // 2. Draw divider label and collapse arrow (only in name column)
+                if (nameColumn.HasValue)
+                {
+                    DrawDividerRow(descriptor.Divider, rowRect, nameColumn.Value);
+                }
             }
         }
 
