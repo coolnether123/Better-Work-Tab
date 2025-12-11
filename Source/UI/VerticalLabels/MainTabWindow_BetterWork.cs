@@ -119,20 +119,23 @@ namespace Better_Work_Tab.UI
             }
         }
 
+        /// <summary>
+        /// Draws the work tab contents and routes input while honoring drag state.
+        /// </summary>
         public override void DoWindowContents(Rect inRect)
         {
             PawnTable table = GetPawnTable();
-            if (table == null)
-            {
-                return;
-            }
-
+            if (table == null) return;
 
             var organizer = PawnOrganizerSystem.Instance;
             Vector2 tableOrigin = new Vector2(inRect.x, inRect.y + ExtraTopSpace);
             var snapshot = BuildSnapshotForOrganizer(table);
 
-            organizer?.Update(table, tableOrigin, snapshot);
+            // Avoid rebuilding the layout mid-drag so the handler keeps valid positioning data.
+            if (organizer != null && !organizer.IsDragging)
+            {
+                organizer.Update(table, tableOrigin, snapshot);
+            }
 
             Event evt = Event.current;
             if (evt.type != EventType.Repaint && evt.type != EventType.Layout)
@@ -140,7 +143,6 @@ namespace Better_Work_Tab.UI
                 organizer?.HandleInput(evt);
                 ProcessRightClicks(organizer?.Layout);
             }
-
 
             DrawWorkTable(table, organizer?.Layout, inRect);
 
@@ -261,6 +263,9 @@ namespace Better_Work_Tab.UI
         }
 
 
+        /// <summary>
+        /// Computes the work tab size; avoids rebuilding layout during an active drag.
+        /// </summary>
         public override Vector2 RequestedTabSize
         {
             get
@@ -272,7 +277,7 @@ namespace Better_Work_Tab.UI
                 float finalWidth;
 
                 var organizer = PawnOrganizerSystem.Instance;
-                if (organizer?.Layout != null)
+                if (organizer?.Layout != null && !organizer.IsDragging)
                 {
                     var snapshot = BuildSnapshotForOrganizer(table);
                     organizer.Update(table, Vector2.zero, snapshot);

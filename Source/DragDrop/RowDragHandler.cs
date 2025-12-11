@@ -1,10 +1,8 @@
-using Better_Work_Tab.Features;
+using Better_Work_Tab;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.PawnOrganizer.Data;
-using Better_Work_Tab.UI;
 using RimWorld;
-using Spine.DragDropApi;
 using Spine.DragDropApi.Util;
 using System.Collections.Generic;
 using System.Linq;
@@ -15,45 +13,74 @@ namespace Better_Work_Tab.DragDrop
 {
     /// <summary>
     /// Handles row (Pawn/Divider) dragging within the work tab.
-    /// Uses the refactored DragDropApi for visuals and midpoint snapping.
+    /// Uses RowDragSession so only stable Pawn/Divider references are stored; row wrappers can be rebuilt freely.
     /// </summary>
-    public class RowDragHandler : DragHandler<WorkTabLayoutRow>
+    public sealed class RowDragHandler
     {
-        private readonly WorkTabLayoutRow _draggedRow;
-        private readonly Rect _originalRect;
-        private readonly float _dragOffsetY;
+        private readonly IWorkTabLayoutController _layout;
+        private readonly RowDragSession _session;
 
-        private List<float> _cachedDescriptorHeights;
-        private int _lastDescriptorCount = -1;
+        /// <summary>
+        /// True while this drag operation is active.
+        /// Set to false when dropped or cancelled.
+        /// </summary>
+        public bool IsDragging { get; private set; }
 
-        public RowDragHandler(IWorkTabLayoutController layout, WorkTabLayoutRow row, Vector2 startMouse)
-            : base(layout)
+        /// <summary>
+        /// Create a new row drag handler for an active drag session.
+        /// </summary>
+        /// <param name="layout">Layout controller for position calculations.</param>
+        /// <param name="session">The drag session containing stable references.</param>
+        public RowDragHandler(IWorkTabLayoutController layout, RowDragSession session)
         {
-            _draggedRow = row;
-            _originalRect = layout.GetScreenRect(row);
-            _dragOffsetY = startMouse.y - _originalRect.y;
-            TargetIndex = row.VisualIndex;
+            _layout = layout;
+            _session = session;
+            IsDragging = true;
 
-            RefreshHeightCache();
+            BetterWorkTabMod.DebugLog(
+                $"Row drag started for {_session.Describe()} at visual index {_session.StartVisualIndex}.",
+                DebugFeature.DragDrop);
         }
 
-        public override void OnDragUpdate(Vector2 mousePos)
+        /// <summary>
+        /// Update the target insertion index based on current mouse position.
+        /// Called each frame while dragging.
+        /// </summary>
+        public void OnDragUpdate(Vector2 mousePos)
         {
-            // Convert mouse Y into "content space" below the header, including scroll.
-            float headerBottom = Layout.TableOrigin.y + Layout.HeaderHeight;
-            float contentY = mousePos.y - headerBottom + Layout.Table.scrollPosition.y;
+            if (!IsDragging) return;
 
-            var descriptors = Layout.GetRowDescriptors();
+            // Validate the session is still valid (pawn not destroyed, etc.)
+            if (!_session.IsValid())
+            {
+                BetterWorkTabMod.DebugLog(
+                    $"Row drag cancelled: {_session.Describe()} is no longer valid.",
+                    DebugFeature.DragDrop);
+                IsDragging = false;
+                return;
+            }
+
+            // Calculate target index from mouse position
+            _session.TargetIndex = CalculateTargetIndex(mousePos);
+        }
+
+        /// <summary>
+        /// Calculate which row index the mouse is currently over.
+        /// Uses midpoint semantics: if above midpoint of row i, insert at i.
+        /// </summary>
+        private int CalculateTargetIndex(Vector2 mousePos)
+        {
+            float headerBottom = _layout.TableOrigin.y + _layout.HeaderHeight;
+            float contentY = mousePos.y - headerBottom + _layout.Table.scrollPosition.y;
+
+            var descriptors = _layout.GetRowDescriptors();
             int newIndex = descriptors.Count;
 
-            // Midpoint semantics: if we're above the midpoint of row i,
-            // we insert at i; otherwise we keep walking.
             float cumulativeY = 0f;
             for (int i = 0; i < descriptors.Count; i++)
             {
-                float mid = cumulativeY + (descriptors[i].Height * 0.5f);
-
-                if (contentY < mid)
+                float midpoint = cumulativeY + (descriptors[i].Height * 0.5f);
+                if (contentY < midpoint)
                 {
                     newIndex = i;
                     break;
@@ -61,110 +88,157 @@ namespace Better_Work_Tab.DragDrop
                 cumulativeY += descriptors[i].Height;
             }
 
-            TargetIndex = Mathf.Clamp(newIndex, 0, descriptors.Count);
+            return Mathf.Clamp(newIndex, 0, descriptors.Count);
         }
 
-        public override void OnDrawOverlay()
+        /// <summary>
+        /// Draw the drag ghost and insertion line.
+        /// </summary>
+        public void OnDrawOverlay()
         {
             if (!IsDragging) return;
 
             bool lineOnly = BetterWorkTabMod.Settings?.showOnlyLineDragIndicatorRows ?? false;
 
+            // Draw ghost rectangle following the mouse
             if (!lineOnly)
             {
-                Rect ghostRect = _originalRect;
-                ghostRect.y = Event.current.mousePosition.y - _dragOffsetY;
-
-                // Handle potential null divider name
-                string label = _draggedRow.Pawn?.LabelCap
-                    ?? _draggedRow.Divider?.DividerName
-                    ?? "Divider";  // Fallback 
-                ListDragVisuals.DrawGhost(ghostRect, label);
+                Rect ghostRect = _session.OriginalRect;
+                ghostRect.y = Event.current.mousePosition.y - _session.DragOffsetY;
+                ListDragVisuals.DrawGhost(ghostRect, _session.GetDisplayLabel());
             }
 
-            if (TargetIndex >= 0)
+            // Draw insertion line at target position
+            if (_session.TargetIndex >= 0)
             {
-                // Use ListDragVisuals + per-row heights so the insertion line is consistent
-                var descriptors = Layout.GetRowDescriptors();
-                var heights = descriptors.Select(r => r.Height).ToList();
+                var descriptors = _layout.GetRowDescriptors();
+                var heights = descriptors.Select(d => d.Height).ToList();
 
-                float headerBottom = Layout.TableOrigin.y + Layout.HeaderHeight;
-
+                float headerBottom = _layout.TableOrigin.y + _layout.HeaderHeight;
                 float lineY = ListDragVisuals.GetInsertionLineY(
-                    TargetIndex,
-                    _cachedDescriptorHeights,
+                    _session.TargetIndex,
+                    heights,
                     headerBottom,
-                    Layout.Table.scrollPosition.y);
+                    _layout.Table.scrollPosition.y);
 
                 ListDragVisuals.DrawInsertionLine(
-                    Layout.TableOrigin.x,
+                    _layout.TableOrigin.x,
                     lineY,
-                    Layout.Table.Size.x - 16f);
+                    _layout.Table.Size.x - 16f);
             }
         }
 
-        protected override void CommitReorder()
+        /// <summary>
+        /// Finalize the drag: reorder the pawn/divider list.
+        /// </summary>
+        public void OnDrop()
         {
             if (!IsDragging) return;
 
-            var ordered = Layout.Rows.OrderBy(r => r.VisualIndex).ToList();
+            CommitReorder();
+            IsDragging = false;
+        }
 
-            int currentIndex = -1;
-            if (_draggedRow.Element is PawnElement draggedPawnElement)
-            {
-                currentIndex = ordered.FindIndex(r => (r.Element as PawnElement)?.Pawn == draggedPawnElement.Pawn);
-            }
-            else if (_draggedRow.Element is DividerElement draggedDividerElement)
-            {
-                currentIndex = ordered.FindIndex(r => (r.Element as DividerElement)?.Divider == draggedDividerElement.Divider);
-            }
+        /// <summary>
+        /// Cancel the drag without making changes.
+        /// </summary>
+        public void OnCancel()
+        {
+            BetterWorkTabMod.DebugLog(
+                $"Row drag cancelled for {_session.Describe()}.",
+                DebugFeature.DragDrop);
+            IsDragging = false;
+        }
 
+        /// <summary>
+        /// Commit the reorder by updating displayOrder values.
+        /// Looks up the current row list fresh so we act on the latest layout state.
+        /// </summary>
+        private void CommitReorder()
+        {
+            // Get current layout rows, sorted by visual index
+            var orderedRows = _layout.Rows.OrderBy(r => r.VisualIndex).ToList();
+
+            // Find the dragged item in the current layout using stable references
+            int currentIndex = FindCurrentIndex(orderedRows);
+            
             if (currentIndex < 0)
             {
-                IsDragging = false;
+                BetterWorkTabMod.DebugLog(
+                    $"Row drag commit failed: {_session.Describe()} not found in current layout. " +
+                    $"Row count: {orderedRows.Count}",
+                    DebugFeature.DragDrop);
                 return;
             }
 
-            var rowToMove = ordered[currentIndex];
-            ordered.RemoveAt(currentIndex);
+            // Calculate final insertion position
+            int targetIndex = _session.TargetIndex;
+            
+            // Remove the item from its current position
+            var rowToMove = orderedRows[currentIndex];
+            orderedRows.RemoveAt(currentIndex);
 
-            // Adjust target for removal
-            int finalTargetIndex = TargetIndex;
-            if (currentIndex < finalTargetIndex)
-                finalTargetIndex--;
-
-            int insertIndex = Mathf.Clamp(finalTargetIndex, 0, ordered.Count);
-            ordered.Insert(insertIndex, rowToMove);
-
-            // Update display order
-            for (int i = 0; i < ordered.Count; i++)
+            // Adjust target if we removed an item before it
+            int finalTargetIndex = targetIndex;
+            if (currentIndex < targetIndex)
             {
-                if (ordered[i].Pawn?.playerSettings != null)
-                    ordered[i].Pawn.playerSettings.displayOrder = i;
-                else if (ordered[i].Divider != null)
-                    ordered[i].Divider.DisplayOrder = i;
+                finalTargetIndex--;
             }
 
+            // Clamp and insert
+            int insertIndex = Mathf.Clamp(finalTargetIndex, 0, orderedRows.Count);
+            orderedRows.Insert(insertIndex, rowToMove);
+
+            BetterWorkTabMod.DebugLog(
+                $"Row drag commit: {_session.Describe()} from index {currentIndex} -> {insertIndex} " +
+                $"(requested {targetIndex}, start {_session.StartVisualIndex}).",
+                DebugFeature.DragDrop);
+
+            // Update all display orders to match new visual order
+            UpdateDisplayOrders(orderedRows);
+
+            // Notify the game to refresh
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
-            if (Find.ColonistBar != null) Find.ColonistBar.MarkColonistsDirty();
+            Find.ColonistBar?.MarkColonistsDirty();
         }
 
-        private void RefreshHeightCache()
+        /// <summary>
+        /// Find the current index of our dragged item using stable game object references.
+        /// </summary>
+        private int FindCurrentIndex(List<WorkTabLayoutRow> rows)
         {
-            var descriptors = Layout.GetRowDescriptors();
-            if (_cachedDescriptorHeights == null || descriptors.Count != _lastDescriptorCount)
+            if (_session.IsDraggingPawn)
             {
-                _cachedDescriptorHeights = new List<float>(descriptors.Count);
-                _lastDescriptorCount = descriptors.Count;
+                // Find by pawn reference (stable)
+                return rows.FindIndex(r => r.Pawn == _session.DraggedPawn);
             }
-            else
+            
+            if (_session.IsDraggingDivider)
             {
-                _cachedDescriptorHeights.Clear();
+                // Find by divider reference (stable)
+                return rows.FindIndex(r => r.Divider == _session.DraggedDivider);
             }
 
-            for (int i = 0; i < descriptors.Count; i++)
+            return -1;
+        }
+
+        /// <summary>
+        /// Update displayOrder values to match the new visual order.
+        /// </summary>
+        private void UpdateDisplayOrders(List<WorkTabLayoutRow> orderedRows)
+        {
+            for (int i = 0; i < orderedRows.Count; i++)
             {
-                _cachedDescriptorHeights.Add(descriptors[i].Height);
+                var row = orderedRows[i];
+                
+                if (row.Pawn?.playerSettings != null)
+                {
+                    row.Pawn.playerSettings.displayOrder = i;
+                }
+                else if (row.Divider != null)
+                {
+                    row.Divider.DisplayOrder = i;
+                }
             }
         }
     }
