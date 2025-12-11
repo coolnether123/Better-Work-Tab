@@ -3,6 +3,13 @@ using UnityEngine;
 
 namespace Better_Work_Tab.DragDrop
 {
+    /// <summary>
+    /// Base class for column drag handler.
+    /// 
+    /// NOTE: RowDragHandler no longer uses this base class.
+    /// It was separated because rows need special handling for
+    /// stable references that columns don't require.
+    /// </summary>
     public abstract class DragHandler<T>
     {
         protected readonly IWorkTabLayoutController Layout;
@@ -21,9 +28,7 @@ namespace Better_Work_Tab.DragDrop
 
         public void OnDrop()
         {
-            if (!IsDragging)
-                return;
-
+            if (!IsDragging) return;
             CommitReorder();
             IsDragging = false;
         }
@@ -31,13 +36,8 @@ namespace Better_Work_Tab.DragDrop
         public void OnCancel()
         {
             IsDragging = false;
-            OnCancelled();
         }
 
         protected abstract void CommitReorder();
-
-        protected virtual void OnCancelled()
-        {
-        }
     }
 }
