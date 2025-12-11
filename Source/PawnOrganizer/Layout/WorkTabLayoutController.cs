@@ -329,50 +329,75 @@ namespace Better_Work_Tab.PawnOrganizer
         public bool TryGetRowAt(Vector2 mousePosition, out WorkTabLayoutRow row)
         {
             row = default;
-            lock (_stateLock)
+
+            // Check if mouse is in the row content area (below header)
+            float headerBottom = TableOrigin.y + HeaderHeight;
+            if (mousePosition.y < headerBottom)
+                return false;
+
+            // Convert to local Y within scrolled content
+            float localY = mousePosition.y - headerBottom + Table.scrollPosition.y;
+
+            // Use the VISIBLE row descriptors (respects collapsed dividers)
+            var descriptors = GetRowDescriptors();
+            float cumulativeY = 0f;
+
+            for (int i = 0; i < descriptors.Count; i++)
             {
-                if (_table == null)
+                float rowBottom = cumulativeY + descriptors[i].Height;
+
+                if (localY < rowBottom)
                 {
-                    return false;
-                }
-
-                float headerTop = _origin.y + HeaderHeight;
-                if (mousePosition.x < _origin.x || mousePosition.x > _origin.x + _rowWidth)
-                {
-                    return false;
-                }
-
-                float contentY = mousePosition.y - headerTop + _table.scrollPosition.y;
-                if (contentY < 0f)
-                {
-                    return false;
-                }
-
-                var descriptors = GetRowDescriptorsLocked();
-
-                int count = Math.Min(descriptors.Count, _rows.Count);
-                if (count == 0)
-                {
-                    return false;
-                }
-
-                float cumulativeY = 0f;
-                for (int i = 0; i < descriptors.Count && i < _rows.Count; i++)
-                {
-                    float rowHeight = descriptors[i].Height;
-                    float rowStart = cumulativeY;
-                    float rowEnd = cumulativeY + rowHeight;
-
-                    if (contentY >= rowStart && contentY < rowEnd)
+                    // Found the row - return the corresponding WorkTabLayoutRow from Rows
+                    if (i < Rows.Count)
                     {
-                        row = _rows[i];
+                        row = Rows[i];
                         return true;
                     }
-
-                    cumulativeY += rowHeight;
+                    return false;
                 }
-                return false;
+
+                cumulativeY = rowBottom;
             }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Gets a row at the given mouse position, but ONLY if it's a visible row.
+        /// This respects collapsed dividers - hidden rows are never returned.
+        /// </summary>
+        public bool TryGetVisibleRowAt(Vector2 mousePosition, out WorkTabLayoutRow row)
+        {
+            row = default;
+
+            float headerBottom = TableOrigin.y + HeaderHeight;
+            if (mousePosition.y < headerBottom)
+                return false;
+
+            float localY = mousePosition.y - headerBottom + Table.scrollPosition.y;
+            var descriptors = GetRowDescriptors(); // ONLY visible rows
+
+            float cumulativeY = 0f;
+            for (int i = 0; i < descriptors.Count; i++)
+            {
+                float rowBottom = cumulativeY + descriptors[i].Height;
+
+                if (localY < rowBottom)
+                {
+                    // Map descriptor index to actual Rows index
+                    if (i < Rows.Count)
+                    {
+                        row = Rows[i];
+                        return true;
+                    }
+                    return false;
+                }
+
+                cumulativeY = rowBottom;
+            }
+
+            return false;
         }
 
         public bool TryGetColumnAt(Vector2 mousePosition, out WorkTabLayoutColumn column)
