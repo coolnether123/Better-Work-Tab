@@ -72,7 +72,7 @@ namespace Better_Work_Tab.UI
 
         /// <summary>
         /// Synchronizes the player-dragged columns list with the current column order.
-        /// Removes any columns from the dragged list that are now back in their vanilla position.
+        /// Removes any columns from the dragged list that are now back in their baseline position.
         /// This handles the case where saved settings had dragged columns but they've since been reset.
         /// </summary>
         private void SyncDraggedColumnsWithCurrentOrder()
@@ -81,8 +81,8 @@ namespace Better_Work_Tab.UI
             if (settings?.playerDraggedColumns == null)
                 return;
 
-            var vanillaOrder = WorkColumnOrderManager.GetVanillaOrder();
-            if (vanillaOrder == null || vanillaOrder.Count == 0)
+            var baselineOrder = WorkColumnOrderManager.GetBaselineOrder();
+            if (baselineOrder == null || baselineOrder.Count == 0)
                 return;
 
             var def = PawnTableDefOf.Work;
@@ -98,10 +98,10 @@ namespace Better_Work_Tab.UI
             var toRemove = new List<string>();
             foreach (var defName in settings.playerDraggedColumns)
             {
-                int vanillaPos = vanillaOrder.IndexOf(defName);
+                int vanillaPos = baselineOrder.IndexOf(defName);
                 int currentPos = currentOrder.IndexOf(defName);
 
-                // If the column is back in its vanilla spot, unmark it
+                // If the column is back in its baseline spot, unmark it
                 if (vanillaPos >= 0 && vanillaPos == currentPos)
                 {
                     toRemove.Add(defName);
@@ -385,7 +385,7 @@ namespace Better_Work_Tab.UI
         /// Checks if a column should show the yellow asterisk marker.
         /// A column is marked only if:
         /// 1. The player directly dragged it (recorded in playerDraggedColumns), AND
-        /// 2. It is currently out of its vanilla position
+        /// 2. It is currently out of its baseline position
         /// 
         /// Columns that shifted as a side effect of another drag are NOT marked.
         /// </summary>
@@ -402,20 +402,20 @@ namespace Better_Work_Tab.UI
             if (!settings.WasColumnDraggedByPlayer(workType.defName))
                 return false;
 
-            // Second check: is it currently out of vanilla position?
-            return IsColumnOutOfVanillaPosition(workType);
+            // Second check: is it currently out of baseline position?
+            return IsColumnOutOfBaselinePosition(workType);
         }
 
         /// <summary>
-        /// Checks if a column's current position differs from its vanilla position.
+        /// Checks if a column's current position differs from its baseline position.
         /// This is a pure position check with no marking logic.
         /// </summary>
-        private static bool IsColumnInVanillaPosition(WorkTypeDef workType)
+        private static bool IsColumnInBaselinePosition(WorkTypeDef workType)
         {
             if (workType?.defName == null) return true;
 
-            var vanillaOrder = WorkColumnOrderManager.GetVanillaOrder();
-            if (vanillaOrder?.Count == 0) return true;
+            var baselineOrder = WorkColumnOrderManager.GetBaselineOrder();
+            if (baselineOrder?.Count == 0) return true;
 
             var def = PawnTableDefOf.Work;
             if (def?.columns == null) return true;
@@ -425,7 +425,7 @@ namespace Better_Work_Tab.UI
                 .Select(c => c.workType.defName)
                 .ToList();
 
-            int vanillaPos = vanillaOrder.IndexOf(workType.defName);
+            int vanillaPos = baselineOrder.IndexOf(workType.defName);
             int currentPos = currentOrder.IndexOf(workType.defName);
 
             if (vanillaPos < 0 || currentPos < 0) return true;
@@ -434,11 +434,11 @@ namespace Better_Work_Tab.UI
         }
 
         /// <summary>
-        /// Returns true if the column is NOT in its vanilla position.
+        /// Returns true if the column is NOT in its baseline position.
         /// </summary>
-        internal static bool IsColumnOutOfVanillaPosition(WorkTypeDef workType)
+        internal static bool IsColumnOutOfBaselinePosition(WorkTypeDef workType)
         {
-            return !IsColumnInVanillaPosition(workType);
+            return !IsColumnInBaselinePosition(workType);
         }
 
         /// <summary>
@@ -459,8 +459,8 @@ namespace Better_Work_Tab.UI
             // Record that the player dragged this column
             settings.RecordPlayerDraggedColumn(workType.defName);
 
-            // If the column ended up back in vanilla position, remove it from the dragged list
-            if (IsColumnInVanillaPosition(workType))
+            // If the column ended up back in baseline position, remove it from the dragged list
+            if (IsColumnInBaselinePosition(workType))
             {
                 settings.playerDraggedColumns.Remove(workType.defName);
             }
