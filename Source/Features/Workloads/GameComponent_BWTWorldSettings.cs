@@ -1,4 +1,5 @@
-﻿using Better_Work_Tab.Patches;
+using Better_Work_Tab.Features;
+using Better_Work_Tab.Patches;
 using Better_Work_Tab.PawnOrganizer;
 using Spine.Profiling;
 using System.Collections.Generic;
@@ -7,10 +8,11 @@ using Verse;
 
 namespace Better_Work_Tab.Features.Workloads
 {
-    internal class GameComponent_BWTWorldSettings : GameComponent
+    public class GameComponent_BWTWorldSettings : GameComponent
     {
         public List<Worklist> SavedWorklists = new List<Worklist>();
         public Worklist CurrentWorklist = null;
+        public List<string> ColumnBaselineOrder = new List<string>();
 
         public GameComponent_BWTWorldSettings(Game game) : base()
         {
@@ -21,6 +23,7 @@ namespace Better_Work_Tab.Features.Workloads
             base.FinalizeInit();
             DisplayElementPool.Clear();
             EnsureCurrentWorklist();
+            ColumnBaselineManager.EnsureBaseline(this);
 
             // Enable profiling while you are testing.
             // Turn this off or gate it behind a dev flag for release.
@@ -38,9 +41,21 @@ namespace Better_Work_Tab.Features.Workloads
 
             Scribe_Values.Look(ref currentWorklistName, "currentWorklistName");
             Scribe_Collections.Look(ref SavedWorklists, "SavedWorklists", LookMode.Deep, new object[0]);
+            Scribe_Collections.Look(ref ColumnBaselineOrder, "columnBaselineOrder", LookMode.Value);
 
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
+                if (ColumnBaselineOrder == null)
+                {
+                    ColumnBaselineOrder = new List<string>();
+                }
+
+                if (ColumnBaselineOrder.Count == 0)
+                {
+                    ColumnBaselineOrder = ColumnBaselineManager.CaptureCurrentOrder();
+                    BetterWorkTabMod.DebugLog($"[BWT] Migration captured baseline order on load: {string.Join(", ", ColumnBaselineOrder)}", DebugFeature.DragDrop);
+                }
+
                 if (!string.IsNullOrEmpty(currentWorklistName))
                 {
                     CurrentWorklist = SavedWorklists.FirstOrDefault(
