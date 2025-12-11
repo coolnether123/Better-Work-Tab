@@ -1,3 +1,4 @@
+using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.UI;
 using RimWorld;
 using System.Collections.Generic;
@@ -8,7 +9,7 @@ namespace Better_Work_Tab.Features
 {
     public static class WorkColumnOrderManager
     {
-        private static List<string> _vanillaColumnOrder;
+        private static List<string> _trueVanillaColumnOrder;
         private static bool _initialized = false;
         private static Dictionary<WorkTypeDef, List<WorkTypeDef>> _similarWorktypeMap;
         private static readonly List<WorkTypeDef> EmptySimilarWorktypeList = new List<WorkTypeDef>(0);
@@ -23,6 +24,7 @@ namespace Better_Work_Tab.Features
 
             _initialized = true;
             CaptureVanillaOrder();
+            ColumnBaselineManager.EnsureBaseline(Current.Game?.GetComponent<GameComponent_BWTWorldSettings>());
             ApplySaved(PawnTableDefOf.Work);
             BetterWorkTabMod.DebugLog("[BWT] WorkColumnOrderManager initialized.", DebugFeature.DragDrop);
         }
@@ -86,35 +88,51 @@ namespace Better_Work_Tab.Features
         /// </summary>
         public static void CaptureVanillaOrder()
         {
-            if (_vanillaColumnOrder != null)
+            if (_trueVanillaColumnOrder != null)
                 return;
 
-            _vanillaColumnOrder = new List<string>();
-            var def = PawnTableDefOf.Work;
+            _trueVanillaColumnOrder = new List<string>(ColumnBaselineManager.GetTrueVanillaOrder());
 
-            if (def?.columns == null)
+            if (_trueVanillaColumnOrder == null || _trueVanillaColumnOrder.Count == 0)
             {
                 Log.Warning("WorkColumnOrderManager.CaptureVanillaOrder: Could not capture vanilla order.");
+                _trueVanillaColumnOrder = new List<string>();
                 return;
             }
 
-            foreach (var col in def.columns)
-            {
-                if (col.Worker is PawnColumnWorker_WorkPriority && col.workType != null)
-                {
-                    _vanillaColumnOrder.Add(col.workType.defName);
-                }
-            }
-
-            BetterWorkTabMod.DebugLog($"WorkColumnOrderManager.CaptureVanillaOrder: Captured vanilla order: {string.Join(", ", _vanillaColumnOrder)}", DebugFeature.DragDrop);
+            BetterWorkTabMod.DebugLog($"WorkColumnOrderManager.CaptureVanillaOrder: Captured vanilla order: {string.Join(", ", _trueVanillaColumnOrder)}", DebugFeature.DragDrop);
         }
 
         /// <summary>
-        /// Gets the stored vanilla column order.
+        /// Gets the stored per-save baseline order (includes modded work types), or falls back to vanilla if missing.
         /// </summary>
         public static List<string> GetVanillaOrder()
         {
-            return _vanillaColumnOrder ?? new List<string>();
+            return GetBaselineOrder();
+        }
+
+        /// <summary>
+        /// Gets the per-save baseline order if available, otherwise returns true vanilla.
+        /// </summary>
+        public static List<string> GetBaselineOrder()
+        {
+            var component = Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
+            var baseline = ColumnBaselineManager.GetBaselineOrder(component);
+            if (baseline != null && baseline.Count > 0)
+            {
+                return baseline;
+            }
+
+            return GetTrueVanillaOrder();
+        }
+
+        /// <summary>
+        /// Gets the static vanilla order (official RimWorld work types).
+        /// </summary>
+        public static List<string> GetTrueVanillaOrder()
+        {
+            CaptureVanillaOrder();
+            return _trueVanillaColumnOrder ?? new List<string>();
         }
 
         /// <summary>
@@ -229,108 +247,62 @@ namespace Better_Work_Tab.Features
         /// </summary>
         public static void ResetToVanilla()
         {
-            BetterWorkTabMod.DebugLog("WorkColumnOrderManager.ResetToVanilla called.", DebugFeature.DragDrop);
+            ResetToBaseline();
+        }
+
+        /// <summary>
+        /// Resets work columns to the per-save baseline captured when the game was first created (includes modded columns).
+        /// </summary>
+        public static void ResetToBaseline()
+        {
+            BetterWorkTabMod.DebugLog("WorkColumnOrderManager.ResetToBaseline called.", DebugFeature.DragDrop);
 
             var def = PawnTableDefOf.Work;
             if (def?.columns == null)
             {
-                Log.Warning("WorkColumnOrderManager.ResetToVanilla: def or columns are null.");
+                Log.Warning("WorkColumnOrderManager.ResetToBaseline: def or columns are null.");
                 return;
             }
 
-            var vanillaOrder = GetVanillaOrder();
+            var baselineOrder = GetBaselineOrder();
+            if (baselineOrder == null || baselineOrder.Count == 0)
+            {
+                Log.Warning("WorkColumnOrderManager.ResetToBaseline: No baseline order available.");
+                return;
+            }
+
+            ResetColumnsToOrder(def, baselineOrder, null, "ResetToBaseline");
+        }
+
+        /// <summary>
+        /// Resets work columns to true vanilla RimWorld order.
+        /// Modded columns are appended after vanilla, preserving their baseline order when possible.
+        /// </summary>
+        public static void ResetToTrueVanilla()
+        {
+            BetterWorkTabMod.DebugLog("WorkColumnOrderManager.ResetToTrueVanilla called.", DebugFeature.DragDrop);
+
+            var def = PawnTableDefOf.Work;
+            if (def?.columns == null)
+            {
+                Log.Warning("WorkColumnOrderManager.ResetToTrueVanilla: def or columns are null.");
+                return;
+            }
+
+            var vanillaOrder = GetTrueVanillaOrder();
             if (vanillaOrder == null || vanillaOrder.Count == 0)
             {
-                Log.Warning("WorkColumnOrderManager.ResetToVanilla: No vanilla order available.");
+                Log.Warning("WorkColumnOrderManager.ResetToTrueVanilla: No vanilla order available.");
                 return;
             }
 
-            // Separate columns into pre-work, work, and post-work
-            var preWork = new List<PawnColumnDef>();
-            var workCols = new List<PawnColumnDef>();
-            var postWork = new List<PawnColumnDef>();
+            // Use baseline order as a hint for modded columns so they keep their initial relative order.
+            var baselineOrder = GetBaselineOrder();
+            var extrasInBaselineOrder = baselineOrder
+                .Where(defName => !vanillaOrder.Contains(defName))
+                .ToList();
 
-            bool passedFirstWork = false;
-
-            foreach (var col in def.columns)
-            {
-                bool isWorkCol = col.Worker is PawnColumnWorker_WorkPriority && col.workType != null;
-
-                if (isWorkCol)
-                {
-                    passedFirstWork = true;
-                    workCols.Add(col);
-                }
-                else if (!passedFirstWork)
-                {
-                    preWork.Add(col);
-                }
-                else
-                {
-                    postWork.Add(col);
-                }
-            }
-
-            if (workCols.Count == 0)
-            {
-                Log.Warning("WorkColumnOrderManager.ResetToVanilla: No work columns found.");
-                return;
-            }
-
-            // Build a map of defName -> column for reordering
-            var colMap = new Dictionary<string, PawnColumnDef>();
-            foreach (var col in workCols)
-            {
-                colMap[col.workType.defName] = col;
-            }
-
-            // Build the reordered work columns list based on vanilla order
-            var reorderedWork = new List<PawnColumnDef>();
-            foreach (var defName in vanillaOrder)
-            {
-                if (colMap.TryGetValue(defName, out var col))
-                {
-                    reorderedWork.Add(col);
-                }
-            }
-
-            // Rebuild def.columns with vanilla order
-            def.columns.Clear();
-            def.columns.AddRange(preWork);
-            def.columns.AddRange(reorderedWork);
-            def.columns.AddRange(postWork);
-
-            // Clear the saved custom order
-            BetterWorkTabMod.Settings.workColumnOrderDefNames.Clear();
-
-            // Clear all player-dragged column markers since we're back to vanilla
-            MainTabWindow_BetterWork.ClearAllColumnMarkers();
-
-            // Remove stored column widths for work columns
-            if (BetterWorkTabMod.Settings.storedColumnWidths != null)
-            {
-                var keysToRemove = new List<string>();
-                foreach (var kvp in BetterWorkTabMod.Settings.storedColumnWidths)
-                {
-                    var col = def.columns.FirstOrDefault(c => c.defName == kvp.Key);
-                    if (col != null && col.Worker is PawnColumnWorker_WorkPriority)
-                    {
-                        keysToRemove.Add(kvp.Key);
-                    }
-                }
-                foreach (var key in keysToRemove)
-                {
-                    BetterWorkTabMod.Settings.storedColumnWidths.Remove(key);
-                }
-            }
-
-            // Save changes
-            BetterWorkTabMod.Settings.Write();
-
-            // Notify UI to rebuild
-            MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
-
-            BetterWorkTabMod.DebugLog("WorkColumnOrderManager.ResetToVanilla: Complete. Columns reset to vanilla order.", DebugFeature.DragDrop);
+            ResetColumnsToOrder(def, vanillaOrder, extrasInBaselineOrder, "ResetToTrueVanilla");
         }
 
         public static Dictionary<WorkTypeDef, int> WorkTypeOrder = new Dictionary<WorkTypeDef, int>();
@@ -369,6 +341,138 @@ namespace Better_Work_Tab.Features
                     }
                 }
             }
+        }
+
+        private static bool TrySplitColumns(PawnTableDef def, out List<PawnColumnDef> preWork, out List<PawnColumnDef> workCols, out List<PawnColumnDef> postWork)
+        {
+            preWork = new List<PawnColumnDef>();
+            workCols = new List<PawnColumnDef>();
+            postWork = new List<PawnColumnDef>();
+
+            if (def?.columns == null)
+            {
+                return false;
+            }
+
+            bool passedFirstWork = false;
+
+            foreach (var col in def.columns)
+            {
+                bool isWorkCol = col.Worker is PawnColumnWorker_WorkPriority && col.workType != null;
+
+                if (isWorkCol)
+                {
+                    passedFirstWork = true;
+                    workCols.Add(col);
+                }
+                else if (!passedFirstWork)
+                {
+                    preWork.Add(col);
+                }
+                else
+                {
+                    postWork.Add(col);
+                }
+            }
+
+            return workCols.Count > 0;
+        }
+
+        private static List<PawnColumnDef> BuildOrderedWorkColumns(List<PawnColumnDef> workCols, List<string> primaryOrder, List<string> secondaryOrder)
+        {
+            var colMap = workCols
+                .Where(c => c.workType != null)
+                .ToDictionary(c => c.workType.defName, c => c);
+
+            var reorderedWork = new List<PawnColumnDef>();
+
+            void AppendOrder(IEnumerable<string> order)
+            {
+                if (order == null)
+                {
+                    return;
+                }
+
+                foreach (var defName in order)
+                {
+                    if (colMap.TryGetValue(defName, out var col))
+                    {
+                        reorderedWork.Add(col);
+                        colMap.Remove(defName);
+                    }
+                }
+            }
+
+            AppendOrder(primaryOrder);
+            AppendOrder(secondaryOrder);
+
+            // Append any missing/unknown in their current order
+            foreach (var col in workCols)
+            {
+                if (!reorderedWork.Contains(col))
+                {
+                    reorderedWork.Add(col);
+                }
+            }
+
+            return reorderedWork;
+        }
+
+        private static void RemoveStoredWorkColumnWidths(PawnTableDef def)
+        {
+            if (BetterWorkTabMod.Settings.storedColumnWidths == null)
+            {
+                return;
+            }
+
+            var keysToRemove = new List<string>();
+            foreach (var kvp in BetterWorkTabMod.Settings.storedColumnWidths)
+            {
+                var col = def.columns.FirstOrDefault(c => c.defName == kvp.Key);
+                if (col != null && col.Worker is PawnColumnWorker_WorkPriority)
+                {
+                    keysToRemove.Add(kvp.Key);
+                }
+            }
+
+            foreach (var key in keysToRemove)
+            {
+                BetterWorkTabMod.Settings.storedColumnWidths.Remove(key);
+            }
+        }
+
+        private static void ResetColumnsToOrder(PawnTableDef def, List<string> primaryOrder, List<string> secondaryOrder, string debugContext)
+        {
+            if (!TrySplitColumns(def, out var preWork, out var workCols, out var postWork))
+            {
+                Log.Warning($"WorkColumnOrderManager.{debugContext}: No work columns found.");
+                return;
+            }
+
+            var reorderedWork = BuildOrderedWorkColumns(workCols, primaryOrder, secondaryOrder);
+
+            // Rebuild def.columns with target order
+            def.columns.Clear();
+            def.columns.AddRange(preWork);
+            def.columns.AddRange(reorderedWork);
+            def.columns.AddRange(postWork);
+
+            // Clear the saved custom order
+            BetterWorkTabMod.Settings.workColumnOrderDefNames.Clear();
+
+            // Clear all player-dragged column markers since we're back to baseline/vanilla
+            MainTabWindow_BetterWork.ClearAllColumnMarkers();
+
+            // Remove stored column widths for work columns
+            RemoveStoredWorkColumnWidths(def);
+
+            // Save changes
+            BetterWorkTabMod.Settings.Write();
+
+            // Notify UI to rebuild
+            MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+
+            BetterWorkTabMod.DebugLog($"WorkColumnOrderManager.{debugContext}: Complete. Columns reset.", DebugFeature.DragDrop);
         }
     }
 }

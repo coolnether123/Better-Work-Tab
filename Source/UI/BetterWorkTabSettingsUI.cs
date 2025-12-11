@@ -360,13 +360,23 @@ namespace Better_Work_Tab.UI
 
             RimworldSettingsWidgets.SectionHeader(l, "Column Management");
 
-            if (l.ButtonText("Reset Columns to Vanilla"))
+            if (l.ButtonText("Reset Columns to Baseline"))
             {
                 Find.WindowStack.Add(new Dialog_Confirm(
-                    "Reset all work columns to vanilla order? Custom layouts will be lost.",
+                    "Reset all work columns to this save's baseline order? (Includes modded columns in their original spots.)",
                     () => {
-                        WorkColumnOrderManager.ResetToVanilla();
-                        Messages.Message("Columns reset.", MessageTypeDefOf.TaskCompletion, false);
+                        WorkColumnOrderManager.ResetToBaseline();
+                        Messages.Message("Columns reset to baseline order.", MessageTypeDefOf.TaskCompletion, false);
+                    }));
+            }
+
+            if (l.ButtonText("Reset Columns to True Vanilla"))
+            {
+                Find.WindowStack.Add(new Dialog_Confirm(
+                    "Reset work columns to RimWorld vanilla order?\n\nModded columns will be moved to the end in their baseline order.",
+                    () => {
+                        WorkColumnOrderManager.ResetToTrueVanilla();
+                        Messages.Message("Columns reset to true vanilla order.", MessageTypeDefOf.TaskCompletion, false);
                     }));
             }
         }
