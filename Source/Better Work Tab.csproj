@@ -58,6 +58,7 @@
     <Compile Include="Features\Rules\WorkAssignmentRuleset.cs" />
     <Compile Include="Features\Rules\WorkAssignmentRule.cs" />
     <Compile Include="Features\Rules\WorkAssignmentParameters.cs" />
+    <Compile Include="Features\ColumnBaselineManager.cs" />
     <Compile Include="Features\WorkExecutionOrder.cs" />
     <Compile Include="Features\Workloads\GameComponent_BWTWorldSettings.cs" />
     <Compile Include="Features\Workloads\Worklist.cs" />
