@@ -1,43 +1,67 @@
+using Better_Work_Tab;
+using Better_Work_Tab.Features;
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using UnityEngine;
 
 namespace Spine.UI.SettingsFramework
 {
     /// <summary>
-    /// Defines a single setting's metadata. Pure C# for reusability.
+    /// Data-driven definition for a single Better Work Tab setting.
     /// </summary>
     public class SettingDefinition
     {
-        public string Id { get; }
-        public string Label { get; }
-        public string Tooltip { get; }
-        public string CategoryId { get; }
-        public SettingType Type { get; }
-        public string FieldName { get; }
-        public object DefaultValue { get; }
-        public bool IsFavoritable { get; }
+        // Identity
+        public string Id;
+        public string FieldName;
 
-        public SettingDefinition(
-            string id,
-            string label,
-            string tooltip,
-            string categoryId,
-            SettingType type,
-            string fieldName,
-            object defaultValue = null,
-            bool isFavoritable = true)
-        {
-            Id = id;
-            Label = label;
-            Tooltip = tooltip;
-            CategoryId = categoryId;
-            Type = type;
-            FieldName = fieldName;
-            DefaultValue = defaultValue;
-            IsFavoritable = isFavoritable;
-        }
+        // Display
+        public string Label;
+        public string Tooltip;
+        public string CategoryId;
+        public int SortOrder;
+
+        // Type info
+        public SettingType Type;
+        public object DefaultValue;
+
+        // Slider metadata
+        public float? MinValue;
+        public float? MaxValue;
+        public string MinLabel;
+        public string MaxLabel;
+
+        // Enum metadata
+        public Type EnumType;
+
+        // Visibility
+        public bool ShowInSimpleView;
+        public bool ShowInAdvancedView = true;
+        public Func<BetterWorkTabSettings, bool> VisibleWhen;
+
+        // Behavior
+        public bool IsFavoritable;
+        public bool RequiresRestart;
+        public Action<BetterWorkTabSettings> OnChanged;
     }
 
+    /// <summary>
+    /// Describes a category shown in the settings UI.
+    /// </summary>
+    public class SettingsCategoryDefinition
+    {
+        public string Id;
+        public string Label;
+        public string Description;
+        public Color HeaderColor;
+        public int SortOrder;
+        public string IconPath;
+    }
+
+    /// <summary>
+    /// Supported setting widget types.
+    /// </summary>
     public enum SettingType
     {
         Bool,
@@ -46,88 +70,470 @@ namespace Spine.UI.SettingsFramework
         Color,
         Enum,
         Button,
-        Slider
+        Header,
+        Spacer
     }
 
     /// <summary>
-    /// Defines a settings category. Pure C# for reusability.
+    /// Central registry for categories and settings used by both views.
     /// </summary>
-    public class SettingsCategory
+    public static class SettingsRegistry
     {
-        public string Id { get; }
-        public string Label { get; }
-        public string Description { get; }
-        public string IconPath { get; }
-        public int DisplayOrder { get; }
-        public List<SettingDefinition> Settings { get; }
+        private static readonly List<SettingsCategoryDefinition> _categories = new List<SettingsCategoryDefinition>();
+        private static readonly List<SettingDefinition> _settings = new List<SettingDefinition>();
+        private static bool _initialized = false;
 
-        public SettingsCategory(
-            string id,
-            string label,
-            string description,
-            string iconPath = null,
-            int displayOrder = 0)
+        public static IReadOnlyList<SettingsCategoryDefinition> Categories => _categories;
+        public static IReadOnlyList<SettingDefinition> Settings => _settings;
+
+        public static void EnsureInitialized()
         {
-            Id = id;
-            Label = label;
-            Description = description;
-            IconPath = iconPath;
-            DisplayOrder = displayOrder;
-            Settings = new List<SettingDefinition>();
-        }
-
-        public SettingsCategory AddSetting(SettingDefinition setting)
-        {
-            Settings.Add(setting);
-            return this;
-        }
-    }
-
-    /// <summary>
-    /// Registry for all settings categories. Pure C# singleton pattern.
-    /// </summary>
-    public class SettingsRegistry
-    {
-        private static SettingsRegistry _instance;
-        public static SettingsRegistry Instance => _instance ?? (_instance = new SettingsRegistry());
-
-        private readonly Dictionary<string, SettingsCategory> _categories;
-        private readonly Dictionary<string, SettingDefinition> _allSettings;
-
-        private SettingsRegistry()
-        {
-            _categories = new Dictionary<string, SettingsCategory>();
-            _allSettings = new Dictionary<string, SettingDefinition>();
-        }
-
-        public void RegisterCategory(SettingsCategory category)
-        {
-            _categories[category.Id] = category;
-            foreach (var setting in category.Settings)
+            if (_initialized)
             {
-                _allSettings[setting.Id] = setting;
+                return;
             }
+
+            RegisterCategories();
+            RegisterAllSettings();
+            _initialized = true;
         }
 
-        public SettingsCategory GetCategory(string id)
+        public static IEnumerable<SettingDefinition> GetByCategory(string categoryId)
         {
-            return _categories.TryGetValue(id, out var cat) ? cat : null;
+            return _settings
+                .Where(s => s.CategoryId == categoryId)
+                .OrderBy(s => s.SortOrder);
         }
 
-        public SettingDefinition GetSetting(string id)
+        public static IEnumerable<SettingDefinition> GetForSimpleView()
         {
-            return _allSettings.TryGetValue(id, out var setting) ? setting : null;
+            return _settings
+                .Where(s => s.ShowInSimpleView)
+                .OrderBy(s => GetCategorySortOrder(s.CategoryId))
+                .ThenBy(s => s.SortOrder);
         }
 
-        public IEnumerable<SettingsCategory> GetAllCategories()
+        /// <summary>
+        /// Searches settings using translated labels and tooltips.
+        /// </summary>
+        public static IEnumerable<SettingDefinition> Search(string query)
         {
-            return _categories.Values;
+            if (string.IsNullOrWhiteSpace(query))
+            {
+                return _settings;
+            }
+
+            return _settings.Where(s => SettingsTranslation.MatchesSearch(s, query));
         }
 
-        public void Clear()
+        private static int GetCategorySortOrder(string categoryId)
         {
-            _categories.Clear();
-            _allSettings.Clear();
+            var category = _categories.FirstOrDefault(c => c.Id == categoryId);
+            return category?.SortOrder ?? int.MaxValue;
+        }
+
+        private static void Register(SettingDefinition definition)
+        {
+            _settings.Add(definition);
+        }
+
+        private static void RegisterCategories()
+        {
+            _categories.Add(new SettingsCategoryDefinition
+            {
+                Id = "highlights",
+                Label = "Highlights",
+                Description = "Row and column highlighting behavior",
+                HeaderColor = new Color(0.4f, 0.6f, 0.9f),
+                SortOrder = 0
+            });
+
+            _categories.Add(new SettingsCategoryDefinition
+            {
+                Id = "layout",
+                Label = "Layout & Behavior",
+                Description = "Drag-drop, dividers, counters, columns",
+                HeaderColor = new Color(0.5f, 0.8f, 0.5f),
+                SortOrder = 1
+            });
+
+            _categories.Add(new SettingsCategoryDefinition
+            {
+                Id = "skillView",
+                Label = "Skill View",
+                Description = "Shift behavior and skill display",
+                HeaderColor = new Color(0.9f, 0.7f, 0.4f),
+                SortOrder = 2
+            });
+
+            _categories.Add(new SettingsCategoryDefinition
+            {
+                Id = "advanced",
+                Label = "Advanced & Maintenance",
+                Description = "Debug, reset, experimental options",
+                HeaderColor = new Color(0.6f, 0.6f, 0.6f),
+                SortOrder = 3
+            });
+        }
+
+        private static void RegisterAllSettings()
+        {
+            // ═══════════════════════════════════════════
+            // HIGHLIGHTS
+            // ═══════════════════════════════════════════
+
+            Register(new SettingDefinition
+            {
+                Id = "highlights.masterToggle",
+                FieldName = "ShowPawnAndWorktypeHighlights",
+                Label = "Enable All Highlights",
+                Tooltip = "Master switch for all row and column highlighting. " +
+                          "Turn off for a cleaner look or better performance.",
+                CategoryId = "highlights",
+                Type = SettingType.Bool,
+                DefaultValue = true,
+                ShowInSimpleView = true,
+                SortOrder = 0,
+                IsFavoritable = true
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = "highlights.hoverHighlight",
+                FieldName = "ShowCursorPawnAndWorktypeHighlight",
+                Label = "Highlight on Hover",
+                Tooltip = "Tint the row and column under your cursor.",
+                CategoryId = "highlights",
+                Type = SettingType.Bool,
+                DefaultValue = true,
+                ShowInSimpleView = true,
+                SortOrder = 1,
+                VisibleWhen = s => s.ShowPawnAndWorktypeHighlights
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = "highlights.selectedPawn",
+                FieldName = "DoSelectedPawnHighlight",
+                Label = "Highlight Selected Pawn",
+                Tooltip = "Always highlight the currently selected pawn's row.",
+                CategoryId = "highlights",
+                Type = SettingType.Bool,
+                DefaultValue = true,
+                ShowInSimpleView = true,
+                SortOrder = 2,
+                VisibleWhen = s => s.ShowPawnAndWorktypeHighlights
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = "highlights.floatMenu",
+                FieldName = "ShowFloatMenuPawnAndWorktypeHighlight",
+                Label = "Highlight Context Source",
+                Tooltip = "Highlight row/column when right-click menu is open.",
+                CategoryId = "highlights",
+                Type = SettingType.Bool,
+                DefaultValue = true,
+                ShowInSimpleView = true,
+                SortOrder = 3,
+                VisibleWhen = s => s.ShowPawnAndWorktypeHighlights
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = "highlights.outlineMode",
+                FieldName = "useOutlineHighlights",
+                Label = "Use Outline Highlights",
+                Tooltip = "Draw highlights as outlines instead of solid boxes.",
+                CategoryId = "highlights",
+                Type = SettingType.Bool,
+                DefaultValue = false,
+                ShowInSimpleView = true,
+                SortOrder = 4,
+                VisibleWhen = s => s.ShowPawnAndWorktypeHighlights
+            });
+
+            // ═══════════════════════════════════════════
+            // LAYOUT & BEHAVIOR
+            // ═══════════════════════════════════════════
+
+            Register(new SettingDefinition
+            {
+                Id = "layout.ctrlDrag",
+                FieldName = "requireCtrlForDrag",
+                Label = "Require Ctrl for Dragging",
+                Tooltip = "Hold Ctrl to drag rows/columns. Prevents accidental reordering.",
+                CategoryId = "layout",
+                Type = SettingType.Bool,
+                DefaultValue = true,
+                ShowInSimpleView = true,
+                SortOrder = 0,
+                IsFavoritable = true
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = "layout.clickClose",
+                FieldName = "disableLeftClickClose",
+                Label = "Prevent Click-Off Close",
+                Tooltip = "Keep the Work tab open when clicking the map.",
+                CategoryId = "layout",
+                Type = SettingType.Bool,
+                DefaultValue = false,
+                ShowInSimpleView = true,
+                SortOrder = 1
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = "layout.pawnCount",
+                FieldName = "showPawnCountAtBottom",
+                Label = "Show Colonist Count",
+                Tooltip = "Display colonist count in the bottom-left corner.",
+                CategoryId = "layout",
+                Type = SettingType.Bool,
+                DefaultValue = true,
+                ShowInSimpleView = true,
+                SortOrder = 2
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = "layout.bedCount",
+                FieldName = "showBedCountAtBottom",
+                Label = "Show Bed Count",
+                Tooltip = "Display bed count (red if insufficient).",
+                CategoryId = "layout",
+                Type = SettingType.Bool,
+                DefaultValue = false,
+                ShowInSimpleView = true,
+                SortOrder = 3
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = "layout.dividerHeight",
+                FieldName = "dividerHeight",
+                Label = "Divider Default Height",
+                Tooltip = "Default height of divider rows in pixels.",
+                CategoryId = "layout",
+                Type = SettingType.Float,
+                DefaultValue = 18f,
+                MinValue = 10f,
+                MaxValue = 50f,
+                MinLabel = "Thin",
+                MaxLabel = "Thick",
+                ShowInSimpleView = true,
+                SortOrder = 4
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = "layout.dividerAlpha",
+                FieldName = "dividerMinAlpha",
+                Label = "Divider Minimum Opacity",
+                Tooltip = "Minimum background opacity for dividers.",
+                CategoryId = "layout",
+                Type = SettingType.Float,
+                DefaultValue = 0.35f,
+                MinValue = 0f,
+                MaxValue = 1f,
+                ShowInSimpleView = true,
+                SortOrder = 5
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = "layout.resetColumns",
+                Label = "Reset Columns to Vanilla",
+                Tooltip = "Restore all work columns to their default order.",
+                CategoryId = "layout",
+                Type = SettingType.Button,
+                ShowInSimpleView = true,
+                SortOrder = 10,
+                OnChanged = _ => WorkColumnOrderManager.ResetToVanilla()
+            });
+
+            // ═══════════════════════════════════════════
+            // SKILL VIEW
+            // ═══════════════════════════════════════════
+
+            Register(new SettingDefinition
+            {
+                Id = "overlay.enable",
+                FieldName = "enableSkillOverlayFeature",
+                Label = "Enable Skill Overlay",
+                Tooltip = "Show skill information when holding Shift in the Work tab.",
+                CategoryId = "skillView",
+                Type = SettingType.Bool,
+                DefaultValue = true,
+                ShowInSimpleView = true,
+                SortOrder = 0,
+                IsFavoritable = true
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = "overlay.numbersMode",
+                FieldName = "ShowUIMode_ShowSmallSkillNumbers",
+                Label = "Skill Numbers Display",
+                Tooltip = "When to show small skill numbers in cells.",
+                CategoryId = "skillView",
+                Type = SettingType.Enum,
+                EnumType = typeof(BetterWorkTabSettings.ShowUIMode),
+                DefaultValue = BetterWorkTabSettings.ShowUIMode.Unshifted,
+                ShowInSimpleView = true,
+                SortOrder = 1,
+                VisibleWhen = s => s.enableSkillOverlayFeature
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = "overlay.bestPawnMode",
+                FieldName = "ShowUIMode_ShowPawnForSkillSquare",
+                Label = "Best Pawn Indicator",
+                Tooltip = "When to highlight the pawn with highest skill.",
+                CategoryId = "skillView",
+                Type = SettingType.Enum,
+                EnumType = typeof(BetterWorkTabSettings.ShowUIMode),
+                DefaultValue = BetterWorkTabSettings.ShowUIMode.Shifted,
+                ShowInSimpleView = true,
+                SortOrder = 2,
+                VisibleWhen = s => s.enableSkillOverlayFeature
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = "colors.skillVeryLow",
+                FieldName = "Color_VeryLowSkill",
+                Label = "Very Low Skill (0-3)",
+                Tooltip = "Color for skills at level 0-3.",
+                CategoryId = "advanced",
+                Type = SettingType.Color,
+                DefaultValue = new Color(0.82f, 0.25f, 0.25f),
+                ShowInSimpleView = true,
+                SortOrder = 3
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = "colors.skillLow",
+                FieldName = "Color_LowSkill",
+                Label = "Low Skill (4-9)",
+                Tooltip = "Color for skills at level 4-9.",
+                CategoryId = "advanced",
+                Type = SettingType.Color,
+                DefaultValue = new Color(0.95f, 0.75f, 0.20f),
+                ShowInSimpleView = true,
+                SortOrder = 4
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = "colors.skillGood",
+                FieldName = "Color_GoodLowSkill",
+                Label = "Good Skill (10-15)",
+                Tooltip = "Color for skills at level 10-15.",
+                CategoryId = "advanced",
+                Type = SettingType.Color,
+                DefaultValue = new Color(0.95f, 0.95f, 0.95f),
+                ShowInSimpleView = true,
+                SortOrder = 5
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = "colors.skillExcellent",
+                FieldName = "Color_ExcellentSkill",
+                Label = "Excellent Skill (16+)",
+                Tooltip = "Color for skills at level 16+.",
+                CategoryId = "advanced",
+                Type = SettingType.Color,
+                DefaultValue = new Color(0.35f, 0.85f, 0.35f),
+                ShowInSimpleView = true,
+                SortOrder = 6
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = "colors.cursorHighlight",
+                FieldName = "Color_CursorHighlight",
+                Label = "Cursor Highlight",
+                Tooltip = "Color for hover/selection highlighting.",
+                CategoryId = "advanced",
+                Type = SettingType.Color,
+                DefaultValue = new Color(0.737f, 0.737f, 0.114f, 0.5f),
+                ShowInSimpleView = true,
+                SortOrder = 7
+            });
+
+            // ═══════════════════════════════════════════
+            // ADVANCED & MAINTENANCE
+            // ═══════════════════════════════════════════
+
+            Register(new SettingDefinition
+            {
+                Id = "advanced.autoAssign",
+                FieldName = "enableAutoAssignFeature",
+                Label = "Enable Auto-Assign System",
+                Tooltip = "Show auto-assign buttons and enable ruleset logic.",
+                CategoryId = "advanced",
+                Type = SettingType.Bool,
+                DefaultValue = true,
+                ShowInSimpleView = true,
+                SortOrder = 0
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = "advanced.hideWorkloadBtn",
+                FieldName = "hideWorkloadButton",
+                Label = "Hide Workloads Button",
+                Tooltip = "Hide the Workload button from the Work tab footer.",
+                CategoryId = "advanced",
+                Type = SettingType.Bool,
+                DefaultValue = false,
+                ShowInSimpleView = true,
+                SortOrder = 1
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = "advanced.hideAutoAssignBtn",
+                FieldName = "hideAutoAssignButton",
+                Label = "Hide Auto-Assign Button",
+                Tooltip = "Hide the ruleset button (still accessible via Manager).",
+                CategoryId = "advanced",
+                Type = SettingType.Bool,
+                DefaultValue = false,
+                ShowInSimpleView = true,
+                SortOrder = 2
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = "advanced.debugLogging",
+                FieldName = "enableDebugLogging",
+                Label = "Enable Debug Logging",
+                Tooltip = "Output detailed debug messages to the log.",
+                CategoryId = "advanced",
+                Type = SettingType.Bool,
+                DefaultValue = false,
+                ShowInSimpleView = true,
+                SortOrder = 10
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = "advanced.restoreDefaults",
+                Label = "Restore Factory Defaults",
+                Tooltip = "Reset ALL settings to default values.",
+                CategoryId = "advanced",
+                Type = SettingType.Button,
+                ShowInSimpleView = true,
+                SortOrder = 20,
+                OnChanged = s => s.RestoreDefaults()
+            });
         }
     }
 }

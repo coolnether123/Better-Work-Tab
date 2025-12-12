@@ -11,6 +11,7 @@ using UnityEngine.SocialPlatforms.Impl;
 using Verse;
 using LudeonTK;
 using Better_Work_Tab.UI;
+using Spine.UI.SettingsFramework;
 
 namespace Better_Work_Tab
 {
@@ -46,8 +47,8 @@ namespace Better_Work_Tab
         public static bool firstTimeSetupDone = false;
         public static float dividerHeight = 18f;
         public static bool drawDividerHighlight = true;
-        public static bool showOnlyLineDragIndicatorRows = false;
-        public static bool showOnlyLineDragIndicatorColumns = false;
+        public static bool showOnlyLineDragIndicatorRows = true;
+        public static bool showOnlyLineDragIndicatorColumns = true;
         public static bool requireCtrlForDrag = true;
         public static bool disableLeftClickClose = false;
         public static bool showPawnCountAtBottom = true;
@@ -178,6 +179,13 @@ namespace Better_Work_Tab
             //InitializeRulesets();
         }
 
+        public enum SettingsViewMode
+        {
+            Simple,
+            Advanced
+        }
+
+        public SettingsViewMode settingsViewMode = SettingsViewMode.Simple;
         public bool useOutlineHighlights = false;
 
         public bool firstTimeSetupDone = DefaultSettings.firstTimeSetupDone;
@@ -311,6 +319,7 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref firstTimeSetupDone, "firstTimeSetupDone", DefaultSettings.firstTimeSetupDone);
             Scribe_Values.Look(ref enableSkillOverlayFeature, "enableSkillOverlayFeature", DefaultSettings.enableSkillOverlayFeature);
             Scribe_Values.Look(ref enableAutoAssignFeature, "enableAutoAssignFeature", DefaultSettings.enableAutoAssignFeature);
+            Scribe_Values.Look(ref settingsViewMode, "settingsViewMode", SettingsViewMode.Simple);
 
             // Highlight settings
             Scribe_Values.Look(ref ShowPawnAndWorktypeHighlights, "ShowPawnAndWorktypeHighlights", DefaultSettings.ShowPawnAndWorktypeHighlights);
@@ -394,6 +403,7 @@ namespace Better_Work_Tab
         public void RestoreDefaults()
         {
             workTabMaxHeight = DefaultSettings.workTabMaxHeight;
+            settingsViewMode = SettingsViewMode.Simple;
 
             // Features
             enableSkillOverlayFeature = DefaultSettings.enableSkillOverlayFeature;
@@ -451,6 +461,39 @@ namespace Better_Work_Tab
             // Dividers
             dividerHeight = DefaultSettings.dividerHeight;
             drawDividerHighlight = DefaultSettings.drawDividerHighlight;
+
+            ApplyRegisteredDefaults();
+        }
+
+        /// <summary>
+        /// Applies default values declared in the settings registry to matching fields.
+        /// </summary>
+        private void ApplyRegisteredDefaults()
+        {
+            SettingsRegistry.EnsureInitialized();
+
+            foreach (var def in SettingsRegistry.Settings)
+            {
+                if (def.DefaultValue == null || string.IsNullOrEmpty(def.FieldName))
+                {
+                    continue;
+                }
+
+                var field = GetType().GetField(def.FieldName);
+                if (field == null)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    field.SetValue(this, def.DefaultValue);
+                }
+                catch
+                {
+                    // Ignore assignment issues so one bad field does not break resets.
+                }
+            }
         }
 
         /// <summary>
