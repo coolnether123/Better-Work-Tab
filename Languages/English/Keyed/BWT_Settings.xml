@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+    <!-- UI Chrome -->
+    <BWT_Settings_UI_Simple>Simple</BWT_Settings_UI_Simple>
+    <BWT_Settings_UI_Advanced>Advanced</BWT_Settings_UI_Advanced>
+    <BWT_Settings_UI_Edit>Edit</BWT_Settings_UI_Edit>
+    <BWT_Settings_UI_Close>Close</BWT_Settings_UI_Close>
+    <BWT_Settings_UI_NoResults>No settings match your search.</BWT_Settings_UI_NoResults>
+    <BWT_Settings_UI_PinnedSettings>★ Pinned Settings</BWT_Settings_UI_PinnedSettings>
+    
+    <!-- Categories -->
+    <BWT_Settings_highlights>Highlights</BWT_Settings_highlights>
+    <BWT_Settings_highlights_Desc>Row and column highlighting behavior</BWT_Settings_highlights_Desc>
+    
+    <BWT_Settings_layout>Layout &amp; Behavior</BWT_Settings_layout>
+    <BWT_Settings_layout_Desc>Drag-drop, dividers, counters, columns</BWT_Settings_layout_Desc>
+    
+    <BWT_Settings_skillView>Skill View</BWT_Settings_skillView>
+    <BWT_Settings_skillView_Desc>Shift behavior and skill display</BWT_Settings_skillView_Desc>
+    
+    <BWT_Settings_advanced>Advanced &amp; Maintenance</BWT_Settings_advanced>
+    <BWT_Settings_advanced_Desc>Debug, reset, experimental options</BWT_Settings_advanced_Desc>
+    
+    <!-- Highlights Settings -->
+    <BWT_Settings_highlights.masterToggle>Enable All Highlights</BWT_Settings_highlights.masterToggle>
+    <BWT_Settings_highlights.masterToggle_Tooltip>Master switch for all row and column highlighting. Turn off for a cleaner look or better performance.</BWT_Settings_highlights.masterToggle_Tooltip>
+    
+    <BWT_Settings_highlights.hoverHighlight>Highlight on Hover</BWT_Settings_highlights.hoverHighlight>
+    <BWT_Settings_highlights.hoverHighlight_Tooltip>Tint the row and column under your cursor.</BWT_Settings_highlights.hoverHighlight_Tooltip>
+    
+    <BWT_Settings_highlights.selectedPawn>Highlight Selected Pawn</BWT_Settings_highlights.selectedPawn>
+    <BWT_Settings_highlights.selectedPawn_Tooltip>Always highlight the currently selected pawn's row.</BWT_Settings_highlights.selectedPawn_Tooltip>
+    
+    <BWT_Settings_highlights.floatMenu>Highlight Context Source</BWT_Settings_highlights.floatMenu>
+    <BWT_Settings_highlights.floatMenu_Tooltip>Highlight row/column when right-click menu is open.</BWT_Settings_highlights.floatMenu_Tooltip>
+    
+    <BWT_Settings_highlights.outlineMode>Use Outline Highlights</BWT_Settings_highlights.outlineMode>
+    <BWT_Settings_highlights.outlineMode_Tooltip>Draw highlights as outlines instead of solid boxes.</BWT_Settings_highlights.outlineMode_Tooltip>
+    
+    <!-- Layout Settings -->
+    <BWT_Settings_layout.ctrlDrag>Require Ctrl for Dragging</BWT_Settings_layout.ctrlDrag>
+    <BWT_Settings_layout.ctrlDrag_Tooltip>Hold Ctrl to drag rows/columns. Prevents accidental reordering.</BWT_Settings_layout.ctrlDrag_Tooltip>
+    
+    <BWT_Settings_layout.clickClose>Prevent Click-Off Close</BWT_Settings_layout.clickClose>
+    <BWT_Settings_layout.clickClose_Tooltip>Keep the Work tab open when clicking the map.</BWT_Settings_layout.clickClose_Tooltip>
+    
+    <BWT_Settings_layout.pawnCount>Show Colonist Count</BWT_Settings_layout.pawnCount>
+    <BWT_Settings_layout.pawnCount_Tooltip>Display colonist count in the bottom-left corner.</BWT_Settings_layout.pawnCount_Tooltip>
+    
+    <BWT_Settings_layout.bedCount>Show Bed Count</BWT_Settings_layout.bedCount>
+    <BWT_Settings_layout.bedCount_Tooltip>Display bed count (red if insufficient).</BWT_Settings_layout.bedCount_Tooltip>
+    
+    <BWT_Settings_layout.dividerHeight>Divider Default Height</BWT_Settings_layout.dividerHeight>
+    <BWT_Settings_layout.dividerHeight_Tooltip>Default height of divider rows in pixels.</BWT_Settings_layout.dividerHeight_Tooltip>
+    
+    <BWT_Settings_layout.dividerAlpha>Divider Minimum Opacity</BWT_Settings_layout.dividerAlpha>
+    <BWT_Settings_layout.dividerAlpha_Tooltip>Minimum background opacity for dividers.</BWT_Settings_layout.dividerAlpha_Tooltip>
+    
+    <BWT_Settings_layout.resetColumns>Reset Columns to Vanilla</BWT_Settings_layout.resetColumns>
+    <BWT_Settings_layout.resetColumns_Tooltip>Restore all work columns to their default order.</BWT_Settings_layout.resetColumns_Tooltip>
+    
+    <!-- Overlay Settings -->
+    <BWT_Settings_overlay.enable>Enable Skill Overlay</BWT_Settings_overlay.enable>
+    <BWT_Settings_overlay.enable_Tooltip>Show skill information when holding Shift in the Work tab.</BWT_Settings_overlay.enable_Tooltip>
+    
+    <BWT_Settings_overlay.numbersMode>Skill Numbers Display</BWT_Settings_overlay.numbersMode>
+    <BWT_Settings_overlay.numbersMode_Tooltip>When to show small skill numbers in cells.</BWT_Settings_overlay.numbersMode_Tooltip>
+    
+    <BWT_Settings_overlay.bestPawnMode>Best Pawn Indicator</BWT_Settings_overlay.bestPawnMode>
+    <BWT_Settings_overlay.bestPawnMode_Tooltip>When to highlight the pawn with highest skill.</BWT_Settings_overlay.bestPawnMode_Tooltip>
+    
+    <!-- Color Settings -->
+    <BWT_Settings_colors.skillVeryLow>Very Low Skill (0-3)</BWT_Settings_colors.skillVeryLow>
+    <BWT_Settings_colors.skillVeryLow_Tooltip>Color for skills at level 0-3.</BWT_Settings_colors.skillVeryLow_Tooltip>
+    
+    <BWT_Settings_colors.skillLow>Low Skill (4-9)</BWT_Settings_colors.skillLow>
+    <BWT_Settings_colors.skillLow_Tooltip>Color for skills at level 4-9.</BWT_Settings_colors.skillLow_Tooltip>
+    
+    <BWT_Settings_colors.skillGood>Good Skill (10-15)</BWT_Settings_colors.skillGood>
+    <BWT_Settings_colors.skillGood_Tooltip>Color for skills at level 10-15.</BWT_Settings_colors.skillGood_Tooltip>
+    
+    <BWT_Settings_colors.skillExcellent>Excellent Skill (16+)</BWT_Settings_colors.skillExcellent>
+    <BWT_Settings_colors.skillExcellent_Tooltip>Color for skills at level 16+.</BWT_Settings_colors.skillExcellent_Tooltip>
+    
+    <BWT_Settings_colors.cursorHighlight>Cursor Highlight</BWT_Settings_colors.cursorHighlight>
+    <BWT_Settings_colors.cursorHighlight_Tooltip>Color for hover/selection highlighting.</BWT_Settings_colors.cursorHighlight_Tooltip>
+    
+    <!-- Advanced Settings -->
+    <BWT_Settings_advanced.autoAssign>Enable Auto-Assign System</BWT_Settings_advanced.autoAssign>
+    <BWT_Settings_advanced.autoAssign_Tooltip>Show auto-assign buttons and enable ruleset logic.</BWT_Settings_advanced.autoAssign_Tooltip>
+    
+    <BWT_Settings_advanced.hideWorkloadBtn>Hide Workloads Button</BWT_Settings_advanced.hideWorkloadBtn>
+    <BWT_Settings_advanced.hideWorkloadBtn_Tooltip>Hide the Workload button from the Work tab footer.</BWT_Settings_advanced.hideWorkloadBtn_Tooltip>
+    
+    <BWT_Settings_advanced.hideAutoAssignBtn>Hide Auto-Assign Button</BWT_Settings_advanced.hideAutoAssignBtn>
+    <BWT_Settings_advanced.hideAutoAssignBtn_Tooltip>Hide the ruleset button (still accessible via Manager).</BWT_Settings_advanced.hideAutoAssignBtn_Tooltip>
+    
+    <BWT_Settings_advanced.debugLogging>Enable Debug Logging</BWT_Settings_advanced.debugLogging>
+    <BWT_Settings_advanced.debugLogging_Tooltip>Output detailed debug messages to the log.</BWT_Settings_advanced.debugLogging_Tooltip>
+    
+    <BWT_Settings_advanced.restoreDefaults>Restore Factory Defaults</BWT_Settings_advanced.restoreDefaults>
+    <BWT_Settings_advanced.restoreDefaults_Tooltip>Reset ALL settings to default values.</BWT_Settings_advanced.restoreDefaults_Tooltip>
+</LanguageData>
