@@ -1,5 +1,6 @@
 using Better_Work_Tab.Features;
 using RimWorld;
+using Spine.UI.SettingsFramework;
 using Spine.UI.WidgetExtensions;
 using System;
 using UnityEngine;
@@ -103,7 +104,7 @@ namespace Better_Work_Tab.UI
         private void DrawFooter(Rect rect)
         {
             Rect closeButton = new Rect(rect.xMax - 120f, rect.y, 120f, rect.height);
-            if (Widgets.ButtonText(closeButton, "Close"))
+            if (Widgets.ButtonText(closeButton, SettingsTranslation.Close))
             {
                 Close();
             }
