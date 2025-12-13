@@ -73,6 +73,9 @@ namespace Better_Work_Tab.Patches
         private static BetterWorkTabSettings.ShowUIMode _cachedUiState;
         private static bool _cachedHoverCellOverlayEnabled = true;
         private static BetterWorkTabSettings.SkillViewHoverMode _cachedHoverMode = BetterWorkTabSettings.SkillViewHoverMode.Standard;
+        private static BetterWorkTabSettings.HoverEffectScope _cachedHoverScope = BetterWorkTabSettings.HoverEffectScope.CellOnly;
+        private static WorkTypeDef _columnHoveredWorkType;
+        private static int _columnHoveredFrame = -1;
 
         // === CACHES ===
         private static readonly Dictionary<int, int> _skillCache = new Dictionary<int, int>(1024);
@@ -106,6 +109,7 @@ namespace Better_Work_Tab.Patches
             _cachedShiftHeld = _cachedUiState == BetterWorkTabSettings.ShowUIMode.Shifted;
             _cachedHoverCellOverlayEnabled = BetterWorkTabMod.Settings?.showHoverCellOverlay ?? true;
             _cachedHoverMode = BetterWorkTabMod.Settings?.skillViewHoverMode ?? BetterWorkTabSettings.SkillViewHoverMode.Standard;
+            _cachedHoverScope = BetterWorkTabMod.Settings?.hoverEffectScope ?? BetterWorkTabSettings.HoverEffectScope.CellOnly;
         }
 
         public static void ClearColorCache()
@@ -143,12 +147,33 @@ namespace Better_Work_Tab.Patches
             if (workType.relevantSkills == null || workType.relevantSkills.Count == 0)
                 return false; // Skip vanilla drawing if no relevant skills, to draw nothing or custom
 
+            bool hoveringCell = Mouse.IsOver(rect);
+            if (hoveringCell && _cachedHoverScope == BetterWorkTabSettings.HoverEffectScope.ColumnWide)
+            {
+                _columnHoveredWorkType = workType;
+                _columnHoveredFrame = Time.frameCount;
+            }
+            bool columnHovered = _cachedHoverScope == BetterWorkTabSettings.HoverEffectScope.ColumnWide &&
+                                 _columnHoveredWorkType != null &&
+                                 _columnHoveredWorkType == workType &&
+                                 (_columnHoveredFrame == Time.frameCount || _columnHoveredFrame == Time.frameCount - 1);
+
             // Decide whether vanilla should draw based on hover mode.
-            if (Mouse.IsOver(rect))
+            if (hoveringCell)
             {
                 // Let vanilla draw for interactive priority handling in Standard or SkillFocused.
                 if (_cachedHoverMode == BetterWorkTabSettings.SkillViewHoverMode.Standard ||
                     _cachedHoverMode == BetterWorkTabSettings.SkillViewHoverMode.SkillFocused)
+                {
+                    return true;
+                }
+                return false;
+            }
+
+            if (columnHovered)
+            {
+                // For column-wide hover, allow vanilla draw in Standard so priority numbers render across the column.
+                if (_cachedHoverMode == BetterWorkTabSettings.SkillViewHoverMode.Standard)
                 {
                     return true;
                 }
@@ -187,7 +212,12 @@ namespace Better_Work_Tab.Patches
                 return;
 
             int skillLevel = GetSkillLevel(pawn, workType);
-            bool hovering = Mouse.IsOver(rect);
+            bool hoveringCell = Mouse.IsOver(rect);
+            bool columnHovered = _cachedHoverScope == BetterWorkTabSettings.HoverEffectScope.ColumnWide &&
+                                 _columnHoveredWorkType != null &&
+                                 _columnHoveredWorkType == workType &&
+                                 (_columnHoveredFrame == Time.frameCount || _columnHoveredFrame == Time.frameCount - 1);
+            bool hovering = hoveringCell || columnHovered;
 
             float boxXSkill = rect.x + (rect.width - SkillBoxSize) / 2f;
             float boxYSkill = rect.y + SkillBoxVerticalPadding;
