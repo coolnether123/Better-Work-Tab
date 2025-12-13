@@ -105,18 +105,17 @@ namespace Better_Work_Tab.DragDrop
                     adjustedTarget--;
                 }
 
-                int finalInsertIndex = Mathf.Clamp(adjustedTarget, 0, workCols.Count - 1);
+                int insertIndex = Mathf.Clamp(adjustedTarget, 0, workCols.Count);
 
                 // === Only reorder if actually moving to different position ===
-                if (currentIndex == finalInsertIndex)
+                if (currentIndex == insertIndex)
                 {
                     // No actual move - don't mark as moved
                     IsDragging = false;
                     return;
                 }
 
-                int insert = Mathf.Clamp(adjustedTarget, 0, workCols.Count);
-                workCols.Insert(insert, current);
+                workCols.Insert(insertIndex, current);
 
                 // Reconstruct table def columns
                 var original = def.columns.ToList();
