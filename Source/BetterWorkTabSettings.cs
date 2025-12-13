@@ -56,6 +56,7 @@ namespace Better_Work_Tab
         public static bool enableRowColumnHighlights = true;
         public static float dividerMinAlpha = 0.35f;
         public static bool showHoverCellOverlay = true;
+        public static BetterWorkTabSettings.SkillViewHoverMode skillViewHoverMode = BetterWorkTabSettings.SkillViewHoverMode.Standard;
 
         // Behavior Templates
         public enum BehaviorTemplate { Standard, Conservative, Aggressive, Custom }
@@ -293,8 +294,15 @@ namespace Better_Work_Tab
 
         // UI mode settings
         public enum ShowUIMode { Always, Never, Shifted, Unshifted }
+        public enum SkillViewHoverMode
+        {
+            Standard,      // Vanilla: interactive priority box with small skill number
+            SkillFocused,  // Big skill number with small priority in corner
+            None           // Hover does nothing special
+        }
         public ShowUIMode ShowUIMode_ShowSmallSkillNumbers = ShowUIMode.Unshifted;
         public ShowUIMode ShowUIMode_ShowPawnForSkillSquare = ShowUIMode.Shifted;
+        public SkillViewHoverMode skillViewHoverMode = DefaultSettings.skillViewHoverMode;
 
         public float workTabMaxHeight = DefaultSettings.workTabMaxHeight;
 
@@ -354,6 +362,7 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref dividerMinAlpha, "dividerMinAlpha", DefaultSettings.dividerMinAlpha);
             Scribe_Values.Look(ref enableDebugLogging, "enableDebugLogging", false);
             Scribe_Values.Look(ref showHoverCellOverlay, "showHoverCellOverlay", DefaultSettings.showHoverCellOverlay);
+            Scribe_Values.Look(ref skillViewHoverMode, "skillViewHoverMode", DefaultSettings.skillViewHoverMode);
 
             // Colors
             Scribe_Values.Look(ref Color_CursorHighlight, "Color_CursorHighlight", DefaultSettings.Color_CursorHighlight);
@@ -472,6 +481,7 @@ namespace Better_Work_Tab
             // UI modes
             ShowUIMode_ShowSmallSkillNumbers = DefaultSettings.ShowUIMode_ShowSmallSkillNumbers;
             ShowUIMode_ShowPawnForSkillSquare = DefaultSettings.ShowUIMode_ShowPawnForSkillSquare;
+            skillViewHoverMode = DefaultSettings.skillViewHoverMode;
 
             // Future behaviors
             confirmRulesetApplication = DefaultSettings.confirmRulesetApplication;
