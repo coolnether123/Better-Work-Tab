@@ -11,6 +11,7 @@ using UnityEngine.SocialPlatforms.Impl;
 using Verse;
 using LudeonTK;
 using Better_Work_Tab.UI;
+using Better_Work_Tab.UI.Settings;
 using Spine.UI.SettingsFramework;
 
 namespace Better_Work_Tab
@@ -509,9 +510,9 @@ namespace Better_Work_Tab
         /// </summary>
         private void ApplyRegisteredDefaults()
         {
-            SettingsRegistry.EnsureInitialized();
+            BWTSettingsRegistry.EnsureInitialized();
 
-            foreach (var def in SettingsRegistry.Settings)
+            foreach (var def in BWTSettingsRegistry.Definitions)
             {
                 if (def.DefaultValue == null || string.IsNullOrEmpty(def.FieldName))
                 {
