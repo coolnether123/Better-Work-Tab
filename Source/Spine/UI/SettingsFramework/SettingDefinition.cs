@@ -435,6 +435,24 @@ namespace Spine.UI.SettingsFramework
 
             Register(new SettingDefinition
             {
+                Id = "overlay.hoverMode",
+                FieldName = "skillViewHoverMode",
+                Label = "Hover Behavior",
+                Tooltip = "Determines what happens when hovering over a cell while holding Shift.\n\n" +
+                          "Standard: Shows interactive priority box (Big Priority, Small Skill).\n" +
+                          "Skill Focused: Shows Big Skill number, with Priority in top-right.\n" +
+                          "None: Does nothing (Skill remains visible).",
+                CategoryId = "skillView",
+                Type = SettingType.Enum,
+                EnumType = typeof(BetterWorkTabSettings.SkillViewHoverMode),
+                DefaultValue = BetterWorkTabSettings.SkillViewHoverMode.Standard,
+                ShowInSimpleView = true,
+                SortOrder = 4,
+                VisibleWhen = s => s.enableSkillOverlayFeature
+            });
+
+            Register(new SettingDefinition
+            {
                 Id = "colors.skillVeryLow",
                 FieldName = "Color_VeryLowSkill",
                 Label = "Very Low Skill (0-3)",
