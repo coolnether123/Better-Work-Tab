@@ -470,15 +470,31 @@ namespace Better_Work_Tab.UI.Settings
 
             Register(new SettingDefinition
             {
+                Id = LayoutColumnSpacing,
+                ParentId = FeaturesDragdrop,
+                FieldName = "columnSpacing",
+                Label = "Column Spacing (px)",
+                Tooltip = "Extra horizontal space inserted between work columns.",
+                Type = SettingType.Float,
+                DefaultValue = DefaultSettings.columnSpacing,
+                MinValue = 0f,
+                MaxValue = 20f,
+                ShowInSimpleView = false,
+                SortOrder = 1014
+            });
+
+            Register(new SettingDefinition
+            {
                 Id = LayoutClickClose,
+                ParentId = AdvancedHeader,
                 FieldName = "disableLeftClickClose",
                 Label = "Keep Tab Open When Selecting Pawn",
                 Tooltip = "Left-clicking a pawn jumps to and selects it but keeps the Work tab open instead of closing (also stops closing on map clicks).",
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.disableLeftClickClose,
-                ShowInSimpleView = true,
-                SortOrder = 102,
-                ParentId = FeaturesClicks
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 405
             });
 
             Register(new SettingDefinition
@@ -490,6 +506,7 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.closeOnMapClick,
                 ShowInSimpleView = false,
+                ShowInAdvancedView = false,
                 SortOrder = 1021,
                 ParentId = FeaturesClicks
             });
@@ -689,66 +706,15 @@ namespace Better_Work_Tab.UI.Settings
                 Tooltip = "Restore all work columns to their default order.",
                 Type = SettingType.Button,
                 ShowInSimpleView = true,
-                SortOrder = 110,
+                SortOrder = 1015,
                 ParentId = FeaturesDragdrop,
                 OnChanged = _ => WorkColumnOrderManager.ResetToVanilla()
             });
 
             Register(new SettingDefinition
             {
-                Id = ColumnsHeader,
-                ParentId = FeaturesDragdrop,
-                Label = "Column Management",
-                Tooltip = "Column order and width persistence.",
-                Type = SettingType.Header,
-                ShowInSimpleView = false,
-                SortOrder = 111
-            });
-
-            Register(new SettingDefinition
-            {
-                Id = ColumnsEnable,
-                ParentId = ColumnsHeader,
-                FieldName = "enableColumnOrderSaving",
-                Label = "Enable Column Saving",
-                Tooltip = "Enable saving custom column order/widths.",
-                Type = SettingType.Bool,
-                DefaultValue = DefaultSettings.enableColumnOrderSaving,
-                ControlsChildVisibility = true,
-                ShowInSimpleView = false,
-                SortOrder = 112
-            });
-
-            Register(new SettingDefinition
-            {
-                Id = ColumnsSaveOrder,
-                ParentId = ColumnsEnable,
-                FieldName = "persistColumnOrder",
-                Label = "Save Column Order",
-                Tooltip = "Remember custom column order between sessions.",
-                Type = SettingType.Bool,
-                DefaultValue = DefaultSettings.persistColumnOrder,
-                ShowInSimpleView = false,
-                SortOrder = 113
-            });
-
-            Register(new SettingDefinition
-            {
-                Id = ColumnsSaveWidths,
-                ParentId = ColumnsEnable,
-                FieldName = "persistColumnWidths",
-                Label = "Save Column Widths",
-                Tooltip = "Remember custom column widths between sessions.",
-                Type = SettingType.Bool,
-                DefaultValue = DefaultSettings.persistColumnWidths,
-                ShowInSimpleView = false,
-                SortOrder = 114
-            });
-
-            Register(new SettingDefinition
-            {
                 Id = ColumnsShowMovedIndicator,
-                ParentId = ColumnsEnable,
+                ParentId = FeaturesDragdrop,
                 FieldName = "showColumnMovedMarker",
                 Label = "Show Moved Indicator",
                 Tooltip = "Show indicator on manually moved columns.",
@@ -761,12 +727,12 @@ namespace Better_Work_Tab.UI.Settings
             Register(new SettingDefinition
             {
                 Id = ColumnsResetWidths,
-                ParentId = ColumnsEnable,
+                ParentId = FeaturesDragdrop,
                 Label = "Reset Column Widths",
                 Tooltip = "Clear saved column widths.",
                 Type = SettingType.Button,
                 ShowInSimpleView = false,
-                SortOrder = 116,
+                SortOrder = 1016,
                 OnChanged = settingsObj =>
                 {
                     if (settingsObj is BetterWorkTabSettings s)
@@ -801,6 +767,7 @@ namespace Better_Work_Tab.UI.Settings
                 EnumType = typeof(BetterWorkTabSettings.ShowUIMode),
                 DefaultValue = BetterWorkTabSettings.ShowUIMode.Unshifted,
                 ShowInSimpleView = false,
+                ShowInAdvancedView = false,
                 SortOrder = 0
             });
 
@@ -836,7 +803,7 @@ namespace Better_Work_Tab.UI.Settings
                 Id = OverlayHoverMode,
                 ParentId = OverlayHoverCellOverlay,
                 FieldName = "skillViewHoverMode",
-                Label = "Hover Behavior (Skill/priority focus)",
+                Label = "Hover Behavior (Priority/Skill)",
                 Tooltip = "Choose hover visuals: Skill focused (big skill number + small priority) or Priority focused (vanilla box + tiny skill).",
                 Type = SettingType.Enum,
                 EnumType = typeof(BetterWorkTabSettings.SkillViewHoverMode),

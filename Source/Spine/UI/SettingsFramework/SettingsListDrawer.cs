@@ -150,7 +150,23 @@ namespace Spine.UI.SettingsFramework
 
             if (visibleSettings.Count == 0)
             {
-                Widgets.Label(rect, NoResultsLabel);
+                string emptyLabel = NoResultsLabel;
+
+                // If we're in Simple view and nothing matches, hint that Advanced may have results.
+                if (viewMode == SettingsViewMode.Simple && !string.IsNullOrWhiteSpace(_searchQuery))
+                {
+                    var advancedMatches = _hierarchy.Search(_searchQuery, SettingsViewMode.Advanced);
+                    if (advancedMatches != null)
+                    {
+                        foreach (var _ in advancedMatches)
+                        {
+                            emptyLabel = "Switch to advanced mode for more settings";
+                            break;
+                        }
+                    }
+                }
+
+                Widgets.Label(rect, emptyLabel);
                 return;
             }
 
