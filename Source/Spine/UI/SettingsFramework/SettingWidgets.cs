@@ -33,6 +33,52 @@ namespace Spine.UI.SettingsFramework
         }
 
         /// <summary>
+        /// Draws a checkbox with header styling (bold label with underline) while remaining clickable.
+        /// </summary>
+        public static bool DrawHeaderBool(
+            Rect rect,
+            string label,
+            ref bool value,
+            Color? headerColor = null,
+            string tooltip = null,
+            bool disabled = false)
+        {
+            bool original = value;
+
+            // Header-styled label on the left, checkbox on the right
+            var labelRect = rect.LeftPart(0.7f);
+            var toggleRect = rect.RightPart(0.25f);
+
+            var oldFont = Text.Font;
+            var oldColor = GUI.color;
+
+            Text.Font = GameFont.Medium;
+            Color resolved = headerColor ?? new Color(0.9f, 0.85f, 0.7f);
+            GUI.color = resolved;
+            Widgets.Label(labelRect, label);
+            Rect lineRect = new Rect(labelRect.x, labelRect.yMax - 4f, labelRect.width, 2f);
+            Widgets.DrawBoxSolid(lineRect, resolved);
+
+            Text.Font = oldFont;
+            GUI.color = oldColor;
+
+            Widgets.CheckboxLabeled(toggleRect, string.Empty, ref value, disabled);
+
+            // Allow clicking the header label area to toggle as well (when not disabled)
+            if (!disabled && Widgets.ButtonInvisible(labelRect))
+            {
+                value = !value;
+            }
+
+            if (!string.IsNullOrEmpty(tooltip))
+            {
+                TooltipHandler.TipRegion(rect, tooltip);
+            }
+
+            return original != value;
+        }
+
+        /// <summary>
         /// Draws a horizontal slider for float values with labels.
         /// </summary>
         public static bool DrawFloat(

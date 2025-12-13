@@ -62,7 +62,7 @@ namespace Better_Work_Tab
         public static bool rowDraggingEnabled = true;
         public static bool columnDraggingEnabled = true;
         public static float dragThreshold = 5f;
-        public static bool requireCtrlForDrag = true;
+        public static bool requireCtrlForDrag = false;
         public static bool disableLeftClickClose = false;
         public static bool closeOnMapClick = true;
         public static bool enableContextMenuOnRightClick = true;
@@ -104,8 +104,6 @@ namespace Better_Work_Tab
         public static bool showWorkloadButtonFooter = true;
         public static bool enableWorkloadSaving = true;
         public static bool enableWorkloadLoading = true;
-        public static bool autoSaveCurrentWorkload = false;
-        public static bool confirmWorkloadLoad = true;
         public static bool persistDividersInWorkloads = true;
 
         // Template Color Placeholders (for future features)
@@ -366,8 +364,6 @@ namespace Better_Work_Tab
         public bool showWorkloadButtonFooter = DefaultSettings.showWorkloadButtonFooter;
         public bool enableWorkloadSaving = DefaultSettings.enableWorkloadSaving;
         public bool enableWorkloadLoading = DefaultSettings.enableWorkloadLoading;
-        public bool autoSaveCurrentWorkload = DefaultSettings.autoSaveCurrentWorkload;
-        public bool confirmWorkloadLoad = DefaultSettings.confirmWorkloadLoad;
         public bool persistDividersInWorkloads = DefaultSettings.persistDividersInWorkloads;
 
         // Performance
@@ -534,8 +530,6 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref showWorkloadButtonFooter, "showWorkloadButtonFooter", DefaultSettings.showWorkloadButtonFooter);
             Scribe_Values.Look(ref enableWorkloadSaving, "enableWorkloadSaving", DefaultSettings.enableWorkloadSaving);
             Scribe_Values.Look(ref enableWorkloadLoading, "enableWorkloadLoading", DefaultSettings.enableWorkloadLoading);
-            Scribe_Values.Look(ref autoSaveCurrentWorkload, "autoSaveCurrentWorkload", DefaultSettings.autoSaveCurrentWorkload);
-            Scribe_Values.Look(ref confirmWorkloadLoad, "confirmWorkloadLoad", DefaultSettings.confirmWorkloadLoad);
             Scribe_Values.Look(ref persistDividersInWorkloads, "persistDividersInWorkloads", DefaultSettings.persistDividersInWorkloads);
             Scribe_Values.Look(ref cacheBedCounts, "cacheBedCounts", true);
             Scribe_Values.Look(ref cacheSkillLevels, "cacheSkillLevels", true);
