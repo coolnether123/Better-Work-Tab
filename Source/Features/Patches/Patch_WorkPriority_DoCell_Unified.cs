@@ -71,6 +71,7 @@ namespace Better_Work_Tab.Patches
         private static bool _cachedShiftHeld = false;
         private static bool _cachedFeatureEnabled = false;
         private static BetterWorkTabSettings.ShowUIMode _cachedUiState;
+        private static bool _cachedHoverCellOverlayEnabled = true;
 
         // === CACHES ===
         private static readonly Dictionary<int, int> _skillCache = new Dictionary<int, int>(1024);
@@ -102,6 +103,12 @@ namespace Better_Work_Tab.Patches
             _cachedFeatureEnabled = BetterWorkTabMod.Settings?.enableSkillOverlayFeature ?? false;
             _cachedUiState = ShiftHelper.State;
             _cachedShiftHeld = _cachedUiState == BetterWorkTabSettings.ShowUIMode.Shifted;
+            _cachedHoverCellOverlayEnabled = BetterWorkTabMod.Settings?.showHoverCellOverlay ?? true;
+        }
+
+        public static void ClearColorCache()
+        {
+            _colorCache.Clear();
         }
 
         [HarmonyPrefix]
@@ -119,7 +126,7 @@ namespace Better_Work_Tab.Patches
 
             UpdateFrameCache();
 
-            if (!_cachedFeatureEnabled || !_cachedShiftHeld)
+            if (!_cachedFeatureEnabled || !_cachedShiftHeld || !_cachedHoverCellOverlayEnabled)
                 return true;
 
             if (Patch_WorkPriority_DoHeader_HoverTracker.HoveredHeaderWorkType == workType)
@@ -155,7 +162,7 @@ namespace Better_Work_Tab.Patches
             Pawn pawn,
             PawnTable table)
         {
-            if (!_cachedFeatureEnabled || !_cachedShiftHeld)
+            if (!_cachedFeatureEnabled || !_cachedShiftHeld || !_cachedHoverCellOverlayEnabled)
                 return;
 
             WorkTypeDef workType = __instance.def.workType;
