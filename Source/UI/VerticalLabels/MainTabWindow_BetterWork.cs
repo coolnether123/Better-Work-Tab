@@ -27,6 +27,7 @@ namespace Better_Work_Tab.UI
 
         private const float RightEdgeMargin = 10f;
         private const float InfoIconSize = 24f;
+        private const float MinWorkTabHeight = 200f;
 
         private PawnColumnDef _lastSortColumn;
         private bool _lastSortDescending;
@@ -54,7 +55,10 @@ namespace Better_Work_Tab.UI
         public override void PreOpen()
         {
             base.PreOpen();
-            closeOnClickedOutside = !BetterWorkTabMod.Settings.disableLeftClickClose;
+            var settings = BetterWorkTabMod.Settings;
+            bool keepOpen = settings?.disableLeftClickClose ?? false;
+            bool allowMapClose = settings?.closeOnMapClick ?? true;
+            closeOnClickedOutside = !keepOpen && allowMapClose;
 
             _lastSortColumn = null;
             _lastSortDescending = false;
@@ -160,12 +164,20 @@ namespace Better_Work_Tab.UI
         {
             var pawns = new List<Pawn>(table.PawnsListForReading);
             var comp = Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
-            var dividers = comp?.CurrentWorklist?.Dividers ?? new List<PawnDivider>();
+            var settings = BetterWorkTabMod.Settings;
+            bool useDividers = (settings?.enableDividers ?? true) && (settings?.showDividers ?? true);
+            var dividers = useDividers ? comp?.CurrentWorklist?.Dividers ?? new List<PawnDivider>() : new List<PawnDivider>();
             return new WorkTabSnapshot(pawns, dividers);
         }
 
         private void ProcessRightClicks(IWorkTabLayoutController layout)
         {
+            var settings = BetterWorkTabMod.Settings;
+            if (!(settings?.enableContextMenuOnRightClick ?? true))
+            {
+                return;
+            }
+
             if (layout == null)
             {
                 return;
@@ -231,6 +243,11 @@ namespace Better_Work_Tab.UI
 
         private void ShowDividerContextMenu(PawnDivider divider)
         {
+            if (!(BetterWorkTabMod.Settings?.enableDividers ?? true))
+            {
+                return;
+            }
+
             var options = new List<FloatMenuOption>
             {
                 new FloatMenuOption("Edit...", () =>
@@ -253,6 +270,11 @@ namespace Better_Work_Tab.UI
             var worklist = Current.Game?.GetComponent<GameComponent_BWTWorldSettings>()?.CurrentWorklist;
             var layout = PawnOrganizerSystem.Instance?.Layout;
             if (layout == null || pawn == null || worklist == null)
+            {
+                return;
+            }
+
+            if (!(BetterWorkTabMod.Settings?.enableDividers ?? true))
             {
                 return;
             }
@@ -294,9 +316,10 @@ namespace Better_Work_Tab.UI
                 }
 
                 // Determine max height: use setting if configured, otherwise vanilla default (fill screen)
-                float targetMaxHeight = BetterWorkTabMod.Settings.workTabMaxHeight > 0f
-                    ? BetterWorkTabMod.Settings.workTabMaxHeight
-                    : Verse.UI.screenHeight - 35f;  // Vanilla default: screen height minus top bar
+                float configuredMaxHeight = BetterWorkTabMod.Settings.workTabMaxHeight;
+                float targetMaxHeight = configuredMaxHeight > 0f
+                    ? Mathf.Max(configuredMaxHeight, MinWorkTabHeight)
+                    : Mathf.Max(Verse.UI.screenHeight - 35f, MinWorkTabHeight);  // Vanilla default: screen height minus top bar
 
                 finalHeight = Mathf.Min(finalHeight, targetMaxHeight);
 
@@ -310,6 +333,11 @@ namespace Better_Work_Tab.UI
             var worklist = Current.Game?.GetComponent<GameComponent_BWTWorldSettings>()?.CurrentWorklist;
             var layout = PawnOrganizerSystem.Instance?.Layout;
             if (layout == null || pawn == null || worklist == null)
+            {
+                return;
+            }
+
+            if (!(BetterWorkTabMod.Settings?.enableDividers ?? true))
             {
                 return;
             }
@@ -397,6 +425,9 @@ namespace Better_Work_Tab.UI
             if (settings == null)
                 return false;
 
+            if (!settings.showColumnMovedMarker || !(settings.enableColumnOrderSaving) || !(settings.persistColumnOrder))
+                return false;
+
             // First check: was this column directly dragged by the player?
             if (!settings.WasColumnDraggedByPlayer(workType.defName))
                 return false;
@@ -453,6 +484,9 @@ namespace Better_Work_Tab.UI
 
             var settings = BetterWorkTabMod.Settings;
             if (settings == null)
+                return;
+
+            if (!settings.enableColumnOrderSaving || !settings.persistColumnOrder)
                 return;
 
             // Record that the player dragged this column
@@ -561,7 +595,7 @@ namespace Better_Work_Tab.UI
             float totalHeight)
         {
             var settings = BetterWorkTabMod.Settings;
-            if (!settings.ShowPawnAndWorktypeHighlights) return;
+            if (!settings.ShowPawnAndWorktypeHighlights || !settings.enableRowColumnHighlights) return;
 
             WorkTabLayoutColumn? hoveredColumn = null;
             WorkTypeDef hoveredWorkType = null;
@@ -635,7 +669,7 @@ namespace Better_Work_Tab.UI
                     HighlightDrawer.DrawHighlight(columnRect, HighlightDrawer.GetColumnHoverColor());
                     Widgets.DrawHighlight(columnRect);
                 }
-                else if (isWorkColumn && cachedSimilarWorktypes != null && cachedSimilarWorktypes.Contains(column.Column.workType))
+                else if (isWorkColumn && settings.ShowSimilarWorktypeHighlight && cachedSimilarWorktypes != null && cachedSimilarWorktypes.Contains(column.Column.workType))
                 {
                     HighlightDrawer.DrawHighlight(columnRect, HighlightDrawer.GetSimilarWorktypeColor());
                     Widgets.DrawHighlight(columnRect);
@@ -663,6 +697,8 @@ namespace Better_Work_Tab.UI
             Rect viewportRect,
             Vector2 scrollOffset)
         {
+            var settings = BetterWorkTabMod.Settings;
+            bool useCulling = (settings?.enablePerformanceOptimizations ?? true) && (settings?.viewportCulling ?? true);
             // Only render rows that intersect the scroll viewport (with small buffer to avoid pop-in)
             float currentY = 0f;
             float viewportTop = scrollOffset.y;
@@ -673,8 +709,10 @@ namespace Better_Work_Tab.UI
             {
                 var descriptor = rowDescriptors[i];
                 float rowBottom = currentY + descriptor.Height;
-                bool isVisible = rowBottom >= (viewportTop - BufferPixels) &&
-                                 currentY <= (viewportBottom + BufferPixels);
+                bool isVisible = useCulling
+                    ? rowBottom >= (viewportTop - BufferPixels) &&
+                                 currentY <= (viewportBottom + BufferPixels)
+                    : true;
 
                 if (isVisible)
                 {
@@ -760,7 +798,14 @@ namespace Better_Work_Tab.UI
             }
             else if (row.Divider != null)
             {
+                var settings = BetterWorkTabMod.Settings;
                 var dividerColor = row.Divider.DividerColor;
+                if (!(settings?.allowCustomDividerColors ?? true))
+                {
+                    dividerColor = Color.gray;
+                }
+                float minAlpha = settings?.dividerMinAlpha ?? 0.35f;
+                dividerColor.a = Mathf.Max(dividerColor.a, minAlpha);
                 if (row.Divider.IsCollapsed)
                 {
                     dividerColor.a = Mathf.Clamp01(dividerColor.a * 0.6f);
@@ -868,6 +913,12 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
+            var settings = BetterWorkTabMod.Settings;
+            if (!(settings?.enableDividers ?? true) || !(settings?.allowDividerCollapse ?? true))
+            {
+                return;
+            }
+
             divider.IsCollapsed = !divider.IsCollapsed;
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
             SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
@@ -884,17 +935,18 @@ namespace Better_Work_Tab.UI
 
         private void DrawPawnRowOverlay(WorkTabLayoutRow row, Rect rowRect)
         {
+            var settings = BetterWorkTabMod.Settings;
             if (row.Pawn == null)
             {
                 return;
             }
 
-            if (Find.Selector.IsSelected(row.Pawn))
+            if (Find.Selector.IsSelected(row.Pawn) && (settings?.DoSelectedPawnHighlight ?? true))
             {
-                Widgets.DrawHighlight(rowRect, 0.6f);
+                HighlightDrawer.DrawHighlight(rowRect, HighlightDrawer.GetSelectedPawnColor());
             }
 
-            if (BetterWorkTabMod.Settings.enableRowColumnHighlights && Mouse.IsOver(rowRect))
+            if ((settings?.enableRowColumnHighlights ?? true) && Mouse.IsOver(rowRect))
             {
                 Widgets.DrawHighlight(rowRect);
             }
@@ -910,6 +962,12 @@ namespace Better_Work_Tab.UI
         private void DrawDividerLabel(PawnDivider divider, Rect labelCellRect)
         {
             if (!divider.ShowLabel)
+            {
+                return;
+            }
+
+            var settings = BetterWorkTabMod.Settings;
+            if (!(settings?.showDividerLabels ?? true))
             {
                 return;
             }
@@ -939,6 +997,12 @@ namespace Better_Work_Tab.UI
         
         private void DrawManualPrioritiesCheckbox()
         {
+            var settings = BetterWorkTabMod.Settings;
+            if (!(settings?.enableUIElements ?? true) || !(settings?.showManualPrioritiesCheckbox ?? true))
+            {
+                return;
+            }
+
             Text.Font = GameFont.Small;
             GUI.color = Color.white;
             Text.Anchor = TextAnchor.UpperLeft;
@@ -971,6 +1035,12 @@ namespace Better_Work_Tab.UI
 
         private void DrawPriorityLegend(Rect rect)
         {
+            var settings = BetterWorkTabMod.Settings;
+            if (!(settings?.enableUIElements ?? true) || !(settings?.showPriorityLegend ?? true))
+            {
+                return;
+            }
+
             GUI.color = new Color(1f, 1f, 1f, 0.5f);
             Text.Anchor = TextAnchor.UpperCenter;
             Text.Font = GameFont.Tiny;
@@ -987,11 +1057,31 @@ namespace Better_Work_Tab.UI
             Text.Font = GameFont.Small;
             GUI.color = Color.white;
             Text.Anchor = TextAnchor.LowerLeft;
-            Rect textRect = new Rect(inRect.x, inRect.y, inRect.width, inRect.height);
-            string dragInstruction = BetterWorkTabMod.Settings.requireCtrlForDrag
-                ? "Ctrl + drag to reorder"
-                : "Drag to reorder";
-            Widgets.Label(textRect, $"Shift toggles overlay | {dragInstruction}");
+
+            var settings = BetterWorkTabMod.Settings;
+            if (settings?.enableUIElements ?? true)
+            {
+                if (settings.showDragInstructions)
+                {
+                    bool overlayEnabled = settings.enableSkillOverlayFeature;
+                    bool dragEnabled = settings.enableDragDropReordering && (settings.rowDraggingEnabled || settings.columnDraggingEnabled);
+
+                    string overlayText = overlayEnabled ? "Shift toggles overlay" : string.Empty;
+                    string dragInstruction = dragEnabled
+                        ? (settings.requireCtrlForDrag ? "Ctrl + drag to reorder" : "Drag to reorder")
+                        : string.Empty;
+
+                    string combined = string.IsNullOrEmpty(overlayText)
+                        ? dragInstruction
+                        : (string.IsNullOrEmpty(dragInstruction) ? overlayText : $"{overlayText} | {dragInstruction}");
+
+                    if (!string.IsNullOrEmpty(combined))
+                    {
+                        Rect textRect = new Rect(inRect.x, inRect.y, inRect.width, inRect.height);
+                        Widgets.Label(textRect, combined);
+                    }
+                }
+            }
             Text.Anchor = TextAnchor.UpperLeft;
         }
 
@@ -1018,8 +1108,14 @@ namespace Better_Work_Tab.UI
 
         private void DrawBottomCounters(Rect inRect, PawnTable table)
         {
-            bool showPawns = BetterWorkTabMod.Settings.showPawnCountAtBottom;
-            bool showBeds = BetterWorkTabMod.Settings.showBedCountAtBottom;
+            var settings = BetterWorkTabMod.Settings;
+            if (!(settings?.enableUIElements ?? true))
+            {
+                return;
+            }
+
+            bool showPawns = settings.showPawnCountAtBottom;
+            bool showBeds = settings.showBedCountAtBottom;
             if (!showPawns && !showBeds)
             {
                 return;

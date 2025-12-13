@@ -37,6 +37,10 @@ namespace Better_Work_Tab.UI
 
         private static float DrawAutoAssignGroup(Rect inRect, float xRight, float y)
         {
+            var settings = BetterWorkTabMod.Settings;
+            if (!(settings?.enableAutoAssignFeature ?? true))
+                return xRight;
+
             var curRuleset = BetterWorkTabMod.Settings.CurrentRuleset;
             var dotRect = new Rect(xRight - AutoAssignButtonHeight, y,
                 AutoAssignButtonHeight, AutoAssignButtonHeight);
@@ -90,6 +94,10 @@ namespace Better_Work_Tab.UI
 
         private static float DrawWorkloadGroup(float xRight, float y)
         {
+            var settings = BetterWorkTabMod.Settings;
+            if (!(settings?.enableWorkloads ?? true))
+                return xRight;
+
             var workloadSaver = Current.Game.GetComponent<GameComponent_BWTWorldSettings>();
             if (workloadSaver == null)
                 return xRight;
@@ -157,7 +165,7 @@ namespace Better_Work_Tab.UI
                         ren.Add(new FloatMenuOption("Rename " + local.RenamableLabel,
                             () =>
                             {
-                                BetterWorkTabMultiplayer.RequestRenameWorklist(workloadSaver, local);
+                                BetterWorkTabMultiplayer.RequestRenameWorklist(workloadSaver, local, local.RenamableLabel);
                                 SoundDefOf.Tick_Low.PlayOneShotOnCamera();
                             }));
                     }

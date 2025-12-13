@@ -30,6 +30,14 @@ namespace Better_Work_Tab.Features.Caching
             if (map == null)
                 return 0;
 
+            var settings = BetterWorkTabMod.Settings;
+            bool allowCache = (settings?.enablePerformanceOptimizations ?? true) &&
+                              (settings?.cacheBedCounts ?? true);
+            if (!allowCache)
+            {
+                return CalculateBedCount(map);
+            }
+
             int mapId = map.uniqueID;
             float currentTime = Time.realtimeSinceStartup;
 

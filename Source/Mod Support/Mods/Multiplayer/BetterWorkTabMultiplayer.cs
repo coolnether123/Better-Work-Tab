@@ -38,24 +38,91 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer
                 return;
             }
 
-            SyncSelectWorklist(index);
+            SyncSelectWorklist(component, index);
         }
 
         internal static void RequestApplyWorklist(GameComponent_BWTWorldSettings component, Worklist worklist)
         {
-            int index = GetWorklistIndex(component, worklist ?? component?.CurrentWorklist);
-            SyncApplyWorklist(index);
+            int index = GetWorklistIndex(component, worklist);
+            if (index < 0)
+            {
+                return;
+            }
+
+            SyncApplyWorklist(component, index);
+        }
+
+        internal static void RequestWorklistSelectionByIndex(GameComponent_BWTWorldSettings component, int index)
+        {
+            SyncSelectWorklist(component, index);
+        }
+
+        internal static void RequestApplyWorklistByIndex(GameComponent_BWTWorldSettings component, int index)
+        {
+            SyncApplyWorklist(component, index);
+        }
+
+        private static int GetWorklistIndex(GameComponent_BWTWorldSettings component, Worklist worklist)
+        {
+            if (component?.SavedWorklists == null || worklist == null)
+            {
+                return -1;
+            }
+
+            return component.SavedWorklists.IndexOf(worklist);
+        }
+
+        private static bool TryGetWorklist(GameComponent_BWTWorldSettings component, int index, out Worklist worklist)
+        {
+            worklist = null;
+
+            if (component?.SavedWorklists == null)
+            {
+                return false;
+            }
+
+            if (index < 0 || index >= component.SavedWorklists.Count)
+            {
+                return false;
+            }
+
+            worklist = component.SavedWorklists[index];
+            return worklist != null;
+        }
+
+        private static void SyncSelectWorklist(GameComponent_BWTWorldSettings component, int index)
+        {
+            if (component == null)
+            {
+                return;
+            }
+
+            if (!TryGetWorklist(component, index, out var worklist))
+            {
+                return;
+            }
+
+            component.SelectWorklist(worklist);
+        }
+
+        private static void SyncApplyWorklist(GameComponent_BWTWorldSettings component, int index)
+        {
+            if (component == null)
+            {
+                return;
+            }
+
+            if (!TryGetWorklist(component, index, out var worklist))
+            {
+                return;
+            }
+
+            component.ApplyWorklist(worklist);
         }
 
         internal static void RequestCreateWorklist(GameComponent_BWTWorldSettings component)
         {
-            string label = $"Custom Workload {component?.SavedWorklists.Count ?? 0}";
-            SyncCreateWorklist(label);
-        }
-
-        internal static void RequestRenameWorklist(GameComponent_BWTWorldSettings component, Worklist worklist)
-        {
-            // Renaming is now local-only or handled differently, removed sync call.
+            SyncCreateWorklist(component, "New Worklist");
         }
 
         internal static void RequestDeleteWorklist(GameComponent_BWTWorldSettings component, Worklist worklist)
@@ -66,101 +133,39 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer
                 return;
             }
 
-            SyncDeleteWorklist(index);
+            SyncDeleteWorklist(component, index);
         }
 
-        private static int GetWorklistIndex(GameComponent_BWTWorldSettings component, Worklist worklist)
+        internal static void RequestDeleteWorklistByIndex(GameComponent_BWTWorldSettings component, int index)
         {
-            if (component == null || worklist == null)
-            {
-                return -1;
-            }
-
-            return component.SavedWorklists.IndexOf(worklist);
+            SyncDeleteWorklist(component, index);
         }
 
-
-
-        [SyncMethod]
-        private static void SyncSelectWorklist(int index)
+        private static void SyncCreateWorklist(GameComponent_BWTWorldSettings component, string label)
         {
-            var component = Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
-            if (component == null || index < 0 || index >= component.SavedWorklists.Count)
-            {
-                return;
-            }
-
-            component.CurrentWorklist = component.SavedWorklists[index];
+            component?.CreateWorklist(label);
         }
 
-        [SyncMethod]
-        private static void SyncApplyWorklist(int index)
+        private static void SyncDeleteWorklist(GameComponent_BWTWorldSettings component, int index)
         {
-            var component = Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
             if (component == null)
             {
                 return;
             }
 
-            Worklist worklist = null;
-            if (index >= 0 && index < component.SavedWorklists.Count)
+            if (!TryGetWorklist(component, index, out var worklist))
             {
-                worklist = component.SavedWorklists[index];
-            }
-            else
-            {
-                worklist = component.CurrentWorklist;
+                return;
             }
 
-            worklist?.Apply();
+            component.DeleteWorklist(worklist);
         }
 
-        [SyncMethod]
-        private static void SyncCreateWorklist(string defaultLabel)
+        internal static void RequestRenameWorklist(GameComponent_BWTWorldSettings component, Worklist worklist, string newLabel)
         {
-            var component = Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
-            if (component == null)
-            {
+            if (component == null || worklist == null || string.IsNullOrEmpty(newLabel))
                 return;
-            }
-
-            var newWorklist = new Worklist(defaultLabel);
-            if (component.CurrentWorklist != null && component.CurrentWorklist.Dividers.Any())
-            {
-                // We perform a deep copy of each divider to prevent the new and old
-                // worklists from sharing the same divider object references.
-                newWorklist.Dividers = component.CurrentWorklist.Dividers.Select(d => d.Copy()).ToList();
-            }
-            component.SavedWorklists.Add(newWorklist);
-            component.CurrentWorklist = newWorklist;
-            Find.WindowStack.Add(new Dialog_NameNewWorklist(newWorklist));
-        }
-
-
-
-        [SyncMethod]
-        private static void SyncDeleteWorklist(int index)
-        {
-            var component = Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
-            if (component == null || index < 0 || index >= component.SavedWorklists.Count)
-            {
-                return;
-            }
-
-            bool removingCurrent = component.CurrentWorklist == component.SavedWorklists[index];
-            component.SavedWorklists.RemoveAt(index);
-
-            if (!component.SavedWorklists.Any())
-            {
-                component.CurrentWorklist = null;
-                return;
-            }
-
-            if (removingCurrent)
-            {
-                int newIndex = Mathf.Clamp(index - 1, 0, component.SavedWorklists.Count - 1);
-                component.CurrentWorklist = component.SavedWorklists[newIndex];
-            }
+            component.RenameWorklist(worklist, newLabel);
         }
     }
 }
