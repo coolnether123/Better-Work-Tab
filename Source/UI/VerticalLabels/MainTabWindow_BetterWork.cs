@@ -787,7 +787,7 @@ namespace Better_Work_Tab.UI
                 : widthWithoutScrollbar;
             float viewWidth = Mathf.Max(widthWithoutScrollbar, totalColumnWidth);
             float contentHeight = Mathf.Max(layout.ContentHeight, 1f);
-            viewRect = new Rect(0f, 0f, viewWidth, Mathf.Max(contentHeight, outRect.height));
+            viewRect = new Rect(0f, 0f, viewWidth, contentHeight);
 
         }
 
