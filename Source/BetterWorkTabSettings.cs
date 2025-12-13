@@ -57,6 +57,7 @@ namespace Better_Work_Tab
         public static float dividerMinAlpha = 0.35f;
         public static bool showHoverCellOverlay = true;
         public static BetterWorkTabSettings.SkillViewHoverMode skillViewHoverMode = BetterWorkTabSettings.SkillViewHoverMode.Standard;
+        public static BetterWorkTabSettings.HoverEffectScope hoverEffectScope = BetterWorkTabSettings.HoverEffectScope.CellOnly;
 
         // Behavior Templates
         public enum BehaviorTemplate { Standard, Conservative, Aggressive, Custom }
@@ -300,9 +301,15 @@ namespace Better_Work_Tab
             SkillFocused,  // Big skill number with small priority in corner
             None           // Hover does nothing special
         }
+        public enum HoverEffectScope
+        {
+            CellOnly,
+            ColumnWide
+        }
         public ShowUIMode ShowUIMode_ShowSmallSkillNumbers = ShowUIMode.Unshifted;
         public ShowUIMode ShowUIMode_ShowPawnForSkillSquare = ShowUIMode.Shifted;
         public SkillViewHoverMode skillViewHoverMode = DefaultSettings.skillViewHoverMode;
+        public HoverEffectScope hoverEffectScope = DefaultSettings.hoverEffectScope;
 
         public float workTabMaxHeight = DefaultSettings.workTabMaxHeight;
 
@@ -384,6 +391,7 @@ namespace Better_Work_Tab
             // UI modes
             Scribe_Values.Look(ref ShowUIMode_ShowSmallSkillNumbers, "ShowUIMode_ShowSmallSkillNumbers", DefaultSettings.ShowUIMode_ShowSmallSkillNumbers);
             Scribe_Values.Look(ref ShowUIMode_ShowPawnForSkillSquare, "ShowUIMode_ShowPawnForSkillSquare", DefaultSettings.ShowUIMode_ShowPawnForSkillSquare);
+            Scribe_Values.Look(ref hoverEffectScope, "hoverEffectScope", DefaultSettings.hoverEffectScope);
 
             // Future behavior templates
             Scribe_Values.Look(ref confirmRulesetApplication, "confirmRulesetApplication", DefaultSettings.confirmRulesetApplication);
@@ -481,6 +489,7 @@ namespace Better_Work_Tab
             // UI modes
             ShowUIMode_ShowSmallSkillNumbers = DefaultSettings.ShowUIMode_ShowSmallSkillNumbers;
             ShowUIMode_ShowPawnForSkillSquare = DefaultSettings.ShowUIMode_ShowPawnForSkillSquare;
+            hoverEffectScope = DefaultSettings.hoverEffectScope;
             skillViewHoverMode = DefaultSettings.skillViewHoverMode;
 
             // Future behaviors

@@ -453,6 +453,23 @@ namespace Spine.UI.SettingsFramework
 
             Register(new SettingDefinition
             {
+                Id = "overlay.hoverScope",
+                FieldName = "hoverEffectScope",
+                Label = "Hover Effect Scope",
+                Tooltip = "Controls whether hover overlays are shown only on the hovered cell or across the whole column.\n\n" +
+                          "Cell Only: Only the hovered cell shows skill/priority overlays.\n" +
+                          "Column-Wide: Hovering any cell shows overlays for the entire column.",
+                CategoryId = "skillView",
+                Type = SettingType.Enum,
+                EnumType = typeof(BetterWorkTabSettings.HoverEffectScope),
+                DefaultValue = BetterWorkTabSettings.HoverEffectScope.CellOnly,
+                ShowInSimpleView = false,
+                SortOrder = 5,
+                VisibleWhen = s => s.enableSkillOverlayFeature
+            });
+
+            Register(new SettingDefinition
+            {
                 Id = "colors.skillVeryLow",
                 FieldName = "Color_VeryLowSkill",
                 Label = "Very Low Skill (0-3)",
