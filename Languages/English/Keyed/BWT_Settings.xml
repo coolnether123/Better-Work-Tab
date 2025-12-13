@@ -27,6 +27,9 @@
     
     <BWT_Settings_highlights.hoverHighlight>Highlight on Hover</BWT_Settings_highlights.hoverHighlight>
     <BWT_Settings_highlights.hoverHighlight_Tooltip>Tint the row and column under your cursor.</BWT_Settings_highlights.hoverHighlight_Tooltip>
+
+    <BWT_Settings_highlights.hoverColor>Hover Highlight Color</BWT_Settings_highlights.hoverColor>
+    <BWT_Settings_highlights.hoverColor_Tooltip>Color for row/column highlight on hover.</BWT_Settings_highlights.hoverColor_Tooltip>
     
     <BWT_Settings_highlights.selectedPawn>Highlight Selected Pawn</BWT_Settings_highlights.selectedPawn>
     <BWT_Settings_highlights.selectedPawn_Tooltip>Always highlight the currently selected pawn's row.</BWT_Settings_highlights.selectedPawn_Tooltip>
@@ -69,6 +72,9 @@
     <BWT_Settings_overlay.bestPawnMode>Best Pawn Indicator</BWT_Settings_overlay.bestPawnMode>
     <BWT_Settings_overlay.bestPawnMode_Tooltip>When to highlight the pawn with highest skill.</BWT_Settings_overlay.bestPawnMode_Tooltip>
     
+    <BWT_Settings_overlay.hoverCellOverlay>Show Hover Cell Overlay</BWT_Settings_overlay.hoverCellOverlay>
+    <BWT_Settings_overlay.hoverCellOverlay_Tooltip>When holding Shift, show skill/priority info when hovering a cell. Disable to keep cells unchanged on hover.</BWT_Settings_overlay.hoverCellOverlay_Tooltip>
+    
     <!-- Color Settings -->
     <BWT_Settings_colors.skillVeryLow>Very Low Skill (0-3)</BWT_Settings_colors.skillVeryLow>
     <BWT_Settings_colors.skillVeryLow_Tooltip>Color for skills at level 0-3.</BWT_Settings_colors.skillVeryLow_Tooltip>
@@ -100,4 +106,16 @@
     
     <BWT_Settings_advanced.restoreDefaults>Restore Factory Defaults</BWT_Settings_advanced.restoreDefaults>
     <BWT_Settings_advanced.restoreDefaults_Tooltip>Reset ALL settings to default values.</BWT_Settings_advanced.restoreDefaults_Tooltip>
+
+    <BWT_Settings_highlights.rowHoverColor>Row Hover Color</BWT_Settings_highlights.rowHoverColor>
+    <BWT_Settings_highlights.rowHoverColor_Tooltip>Override color for row highlight on hover.</BWT_Settings_highlights.rowHoverColor_Tooltip>
+
+    <BWT_Settings_highlights.columnHoverColor>Column Hover Color</BWT_Settings_highlights.columnHoverColor>
+    <BWT_Settings_highlights.columnHoverColor_Tooltip>Override color for column highlight on hover.</BWT_Settings_highlights.columnHoverColor_Tooltip>
+
+    <BWT_Settings_highlights.resetRowHoverColor>Reset Row Hover Color</BWT_Settings_highlights.resetRowHoverColor>
+    <BWT_Settings_highlights.resetRowHoverColor_Tooltip>Reset row hover highlight to the general hover color.</BWT_Settings_highlights.resetRowHoverColor_Tooltip>
+
+    <BWT_Settings_highlights.resetColumnHoverColor>Reset Column Hover Color</BWT_Settings_highlights.resetColumnHoverColor>
+    <BWT_Settings_highlights.resetColumnHoverColor_Tooltip>Reset column hover highlight to the general hover color.</BWT_Settings_highlights.resetColumnHoverColor_Tooltip>
 </LanguageData>

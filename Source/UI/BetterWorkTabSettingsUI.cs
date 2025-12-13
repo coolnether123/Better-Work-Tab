@@ -1,3 +1,4 @@
+using Better_Work_Tab;
 using RimWorld;
 using Spine.UI.SettingsFramework;
 using System.Collections.Generic;
@@ -239,6 +240,25 @@ namespace Better_Work_Tab.UI
                 curY += rowHeight;
             }
 
+            // Include debug feature toggles when searching for debug while logging is enabled
+            if (settings.enableDebugLogging && _searchQuery.Trim().ToLowerInvariant().Contains("debug"))
+            {
+                settings.EnsureDebugFeatureTogglesInitialized();
+                curY += 10f;
+                Rect headerRect = new Rect(0f, curY, viewRect.width, headerHeight);
+                Widgets.Label(headerRect, "Debug Features");
+                curY += headerHeight;
+
+                foreach (DebugFeature feature in System.Enum.GetValues(typeof(DebugFeature)))
+                {
+                    bool enabled = settings.debugFeatureToggles.TryGetValue(feature, out var val) && val;
+                    Rect rowRect = new Rect(10f, curY, viewRect.width - 20f, rowHeight);
+                    Widgets.CheckboxLabeled(rowRect, $"Debug: {feature}", ref enabled);
+                    settings.debugFeatureToggles[feature] = enabled;
+                    curY += rowHeight;
+                }
+            }
+
             Widgets.EndScrollView();
         }
 
@@ -351,6 +371,11 @@ namespace Better_Work_Tab.UI
 
         private static void DrawCategorySettings(Listing_Standard listing, BetterWorkTabSettings settings, string categoryId)
         {
+            if (categoryId == "advanced" && settings.enableDebugLogging)
+            {
+                settings.EnsureDebugFeatureTogglesInitialized();
+            }
+
             foreach (var def in SettingsRegistry.GetByCategory(categoryId))
             {
                 if (!def.ShowInAdvancedView)
@@ -365,6 +390,21 @@ namespace Better_Work_Tab.UI
 
                 Rect rowRect = listing.GetRect(32f);
                 SettingRenderer.Draw(rowRect, def, settings, showFavoriteStar: true, drawHoverOutline: false);
+            }
+
+            // Additional debug feature toggles when debug logging is enabled
+            if (categoryId == "advanced" && settings.enableDebugLogging)
+            {
+                listing.GapLine();
+                listing.Label("Debug Features:");
+
+                foreach (DebugFeature feature in System.Enum.GetValues(typeof(DebugFeature)))
+                {
+                    bool enabled = settings.debugFeatureToggles.TryGetValue(feature, out var val) && val;
+                    Rect row = listing.GetRect(24f);
+                    Widgets.CheckboxLabeled(row, $"Debug: {feature}", ref enabled);
+                    settings.debugFeatureToggles[feature] = enabled;
+                }
             }
         }
     }
