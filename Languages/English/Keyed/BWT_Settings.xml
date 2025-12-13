@@ -44,8 +44,8 @@
     <BWT_Settings_layout.ctrlDrag>Require Ctrl for Dragging</BWT_Settings_layout.ctrlDrag>
     <BWT_Settings_layout.ctrlDrag_Tooltip>Hold Ctrl to drag rows/columns. Prevents accidental reordering.</BWT_Settings_layout.ctrlDrag_Tooltip>
     
-    <BWT_Settings_layout.clickClose>Prevent Click-Off Close</BWT_Settings_layout.clickClose>
-    <BWT_Settings_layout.clickClose_Tooltip>Keep the Work tab open when clicking the map.</BWT_Settings_layout.clickClose_Tooltip>
+    <BWT_Settings_layout.clickClose>Keep Tab Open When Selecting Pawn</BWT_Settings_layout.clickClose>
+    <BWT_Settings_layout.clickClose_Tooltip>Left-clicking a pawn jumps and selects without closing the Work tab (also stops closing on map clicks).</BWT_Settings_layout.clickClose_Tooltip>
     
     <BWT_Settings_layout.pawnCount>Show Colonist Count</BWT_Settings_layout.pawnCount>
     <BWT_Settings_layout.pawnCount_Tooltip>Display colonist count in the bottom-left corner.</BWT_Settings_layout.pawnCount_Tooltip>
