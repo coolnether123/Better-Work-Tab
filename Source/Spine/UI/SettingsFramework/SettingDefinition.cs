@@ -1,5 +1,7 @@
 using Better_Work_Tab;
 using Better_Work_Tab.Features;
+using Better_Work_Tab.Patches;
+using Better_Work_Tab.UI;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -213,6 +215,21 @@ namespace Spine.UI.SettingsFramework
 
             Register(new SettingDefinition
             {
+                Id = "highlights.hoverColor",
+                FieldName = "Color_CursorHighlight",
+                Label = "Hover Highlight Color",
+                Tooltip = "Color for row/column highlight on hover.",
+                CategoryId = "highlights",
+                Type = SettingType.Color,
+                DefaultValue = DefaultSettings.Color_CursorHighlight,
+                ShowInSimpleView = true,
+                SortOrder = 2,
+                VisibleWhen = s => s.ShowCursorPawnAndWorktypeHighlight,
+                OnChanged = _ => { }
+            });
+
+            Register(new SettingDefinition
+            {
                 Id = "highlights.selectedPawn",
                 FieldName = "DoSelectedPawnHighlight",
                 Label = "Highlight Selected Pawn",
@@ -221,7 +238,7 @@ namespace Spine.UI.SettingsFramework
                 Type = SettingType.Bool,
                 DefaultValue = true,
                 ShowInSimpleView = true,
-                SortOrder = 2,
+                SortOrder = 3,
                 VisibleWhen = s => s.ShowPawnAndWorktypeHighlights
             });
 
@@ -235,7 +252,7 @@ namespace Spine.UI.SettingsFramework
                 Type = SettingType.Bool,
                 DefaultValue = true,
                 ShowInSimpleView = true,
-                SortOrder = 3,
+                SortOrder = 4,
                 VisibleWhen = s => s.ShowPawnAndWorktypeHighlights
             });
 
@@ -249,7 +266,7 @@ namespace Spine.UI.SettingsFramework
                 Type = SettingType.Bool,
                 DefaultValue = false,
                 ShowInSimpleView = true,
-                SortOrder = 4,
+                SortOrder = 5,
                 VisibleWhen = s => s.ShowPawnAndWorktypeHighlights
             });
 
@@ -404,6 +421,20 @@ namespace Spine.UI.SettingsFramework
 
             Register(new SettingDefinition
             {
+                Id = "overlay.hoverCellOverlay",
+                FieldName = "showHoverCellOverlay",
+                Label = "Show Hover Cell Overlay",
+                Tooltip = "When holding Shift, show skill/priority info when hovering a cell. Disable to keep cells unchanged on hover.",
+                CategoryId = "skillView",
+                Type = SettingType.Bool,
+                DefaultValue = true,
+                ShowInSimpleView = true,
+                SortOrder = 3,
+                VisibleWhen = s => s.enableSkillOverlayFeature
+            });
+
+            Register(new SettingDefinition
+            {
                 Id = "colors.skillVeryLow",
                 FieldName = "Color_VeryLowSkill",
                 Label = "Very Low Skill (0-3)",
@@ -411,8 +442,9 @@ namespace Spine.UI.SettingsFramework
                 CategoryId = "advanced",
                 Type = SettingType.Color,
                 DefaultValue = new Color(0.82f, 0.25f, 0.25f),
-                ShowInSimpleView = true,
-                SortOrder = 3
+                ShowInSimpleView = false,
+                SortOrder = 3,
+                OnChanged = _ => Patch_WorkPriority_DoCell_Unified.ClearColorCache()
             });
 
             Register(new SettingDefinition
@@ -424,8 +456,9 @@ namespace Spine.UI.SettingsFramework
                 CategoryId = "advanced",
                 Type = SettingType.Color,
                 DefaultValue = new Color(0.95f, 0.75f, 0.20f),
-                ShowInSimpleView = true,
-                SortOrder = 4
+                ShowInSimpleView = false,
+                SortOrder = 4,
+                OnChanged = _ => Patch_WorkPriority_DoCell_Unified.ClearColorCache()
             });
 
             Register(new SettingDefinition
@@ -437,8 +470,9 @@ namespace Spine.UI.SettingsFramework
                 CategoryId = "advanced",
                 Type = SettingType.Color,
                 DefaultValue = new Color(0.95f, 0.95f, 0.95f),
-                ShowInSimpleView = true,
-                SortOrder = 5
+                ShowInSimpleView = false,
+                SortOrder = 5,
+                OnChanged = _ => Patch_WorkPriority_DoCell_Unified.ClearColorCache()
             });
 
             Register(new SettingDefinition
@@ -450,21 +484,73 @@ namespace Spine.UI.SettingsFramework
                 CategoryId = "advanced",
                 Type = SettingType.Color,
                 DefaultValue = new Color(0.35f, 0.85f, 0.35f),
-                ShowInSimpleView = true,
-                SortOrder = 6
+                ShowInSimpleView = false,
+                SortOrder = 6,
+                OnChanged = _ => Patch_WorkPriority_DoCell_Unified.ClearColorCache()
             });
 
             Register(new SettingDefinition
             {
-                Id = "colors.cursorHighlight",
-                FieldName = "Color_CursorHighlight",
-                Label = "Cursor Highlight",
-                Tooltip = "Color for hover/selection highlighting.",
+                Id = "highlights.rowHoverColor",
+                FieldName = "Color_RowHoverHighlight",
+                Label = "Row Hover Color",
+                Tooltip = "Override color for row highlight on hover.",
                 CategoryId = "advanced",
                 Type = SettingType.Color,
-                DefaultValue = new Color(0.737f, 0.737f, 0.114f, 0.5f),
-                ShowInSimpleView = true,
-                SortOrder = 7
+                DefaultValue = DefaultSettings.Color_RowHoverHighlight,
+                ShowInSimpleView = false,
+                SortOrder = 7,
+                VisibleWhen = s => s.ShowCursorPawnAndWorktypeHighlight,
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = "highlights.columnHoverColor",
+                FieldName = "Color_ColumnHoverHighlight",
+                Label = "Column Hover Color",
+                Tooltip = "Override color for column highlight on hover.",
+                CategoryId = "advanced",
+                Type = SettingType.Color,
+                DefaultValue = DefaultSettings.Color_ColumnHoverHighlight,
+                ShowInSimpleView = false,
+                SortOrder = 8,
+                VisibleWhen = s => s.ShowCursorPawnAndWorktypeHighlight,
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = "highlights.resetRowHoverColor",
+                Label = "Reset Row Hover Color",
+                Tooltip = "Reset row hover highlight to the general hover color.",
+                CategoryId = "advanced",
+                Type = SettingType.Button,
+                ShowInSimpleView = false,
+                SortOrder = 9,
+                VisibleWhen = s => s.ShowCursorPawnAndWorktypeHighlight,
+                OnChanged = s =>
+                {
+                    s.useRowHoverOverride = false;
+                    s.Color_RowHoverHighlight = s.Color_MouseHoverHighlight;
+                    s.Write();
+                }
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = "highlights.resetColumnHoverColor",
+                Label = "Reset Column Hover Color",
+                Tooltip = "Reset column hover highlight to the general hover color.",
+                CategoryId = "advanced",
+                Type = SettingType.Button,
+                ShowInSimpleView = false,
+                SortOrder = 10,
+                VisibleWhen = s => s.ShowCursorPawnAndWorktypeHighlight,
+                OnChanged = s =>
+                {
+                    s.useColumnHoverOverride = false;
+                    s.Color_ColumnHoverHighlight = s.Color_MouseHoverHighlight;
+                    s.Write();
+                }
             });
 
             // ═══════════════════════════════════════════

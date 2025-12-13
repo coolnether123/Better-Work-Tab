@@ -133,7 +133,8 @@ namespace Better_Work_Tab.UI
             }
         }
 
-        private static void DrawColor(Rect rect, SettingDefinition def, BetterWorkTabSettings settings, string label)
+        private static void DrawColor(Rect rect, SettingDefinition def,
+    BetterWorkTabSettings settings, string label)
         {
             var field = AccessTools.Field(typeof(BetterWorkTabSettings), def.FieldName);
             if (field == null)
@@ -154,8 +155,9 @@ namespace Better_Work_Tab.UI
             {
                 Find.WindowStack.Add(new Dialog_ColourPicker(value, (newColor, _) =>
                 {
-                    field.SetValue(settings, newColor);
-                    def.OnChanged?.Invoke(settings);
+                    field.SetValue(BetterWorkTabMod.Settings, newColor);
+                    def.OnChanged?.Invoke(BetterWorkTabMod.Settings);
+                    BetterWorkTabMod.Settings.Write();
                 }));
             }
         }

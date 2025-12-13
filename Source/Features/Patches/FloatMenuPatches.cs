@@ -1,3 +1,4 @@
+using Better_Work_Tab.Features;
 using HarmonyLib;
 using RimWorld;
 using System;
@@ -70,7 +71,7 @@ namespace Better_Work_Tab.Patches
                     "BWTNotAssignedAssignWork".Translate(workType.gerundLabel),
                     () =>
                     {
-                        PawnTable_HighlightRowAndColumn.SetWorktypeToHighlight(pawn, workType);
+                        HighlightState.SetWorktypeToHighlight(pawn, workType);
                         Find.MainTabsRoot.SetCurrentTab(MainButtonDefOf.Work);
                     },
                     orderInPriority: (int)MenuOptionPriority.VeryLow));
