@@ -1,7 +1,6 @@
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.Caching;
 using Better_Work_Tab.Features.Workloads;
-using Better_Work_Tab.Patches;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.PawnOrganizer.Data;
@@ -556,18 +555,21 @@ namespace Better_Work_Tab.UI
         /// - Similar worktype highlighting (vertical, dimmer)
         /// </summary>
         private void DrawAllHighlights(
-    List<RowDescriptor> rowDescriptors,
-    IReadOnlyList<WorkTabLayoutColumn> columns,
-    float totalWidth,
-    float totalHeight)
+            List<RowDescriptor> rowDescriptors,
+            IReadOnlyList<WorkTabLayoutColumn> columns,
+            float totalWidth,
+            float totalHeight)
         {
+            var settings = BetterWorkTabMod.Settings;
+            if (!settings.ShowPawnAndWorktypeHighlights) return;
+
             WorkTabLayoutColumn? hoveredColumn = null;
             WorkTypeDef hoveredWorkType = null;
 
-            if (BetterWorkTabMod.Settings.ShowCursorPawnAndWorktypeHighlight)
+            // 1. Detect Hovered Column
+            if (settings.ShowCursorPawnAndWorktypeHighlight)
             {
                 float currentX = 0f;
-
                 for (int i = 0; i < columns.Count; i++)
                 {
                     var col = columns[i];
@@ -579,7 +581,6 @@ namespace Better_Work_Tab.UI
                         hoveredWorkType = col.Column?.workType;
                         break;
                     }
-
                     currentX += col.Width;
                 }
             }
@@ -590,78 +591,53 @@ namespace Better_Work_Tab.UI
                 ? WorkColumnOrderManager.GetSimilarWorktypes(hoveredWorkType)
                 : null;
 
-            // Get float menu highlight state (persists across frames)
-            Pawn highlightedPawn = PawnTable_HighlightRowAndColumn.GetHighlightedPawn();
-            WorkTypeDef highlightedWorkType = PawnTable_HighlightRowAndColumn.GetHighlightedWorkType();
+            // Get persistent float menu state
+            Pawn highlightedPawn = HighlightState.GetHighlightedPawn();
+            WorkTypeDef highlightedWorkType = HighlightState.GetHighlightedWorkType();
 
-            // === HORIZONTAL HIGHLIGHTS (Rows) ===
-            // Highlight selected or hovered pawn rows.
-            // Uses descriptor heights so dividers are properly accounted for.
+            // 2. Draw Horizontal Highlights (Rows)
             float currentY = 0f;
             for (int i = 0; i < rowDescriptors.Count; i++)
             {
                 var descriptor = rowDescriptors[i];
                 Rect rowRect = new Rect(0f, currentY, totalWidth, descriptor.Height);
 
-                // Highlight float menu selected pawn
-                if (descriptor.IsPawn &&
-                    highlightedPawn != null &&
-                    descriptor.Pawn == highlightedPawn &&
-                    BetterWorkTabMod.Settings.ShowFloatMenuPawnAndWorktypeHighlight)
+                if (descriptor.IsPawn && highlightedPawn != null && descriptor.Pawn == highlightedPawn && settings.ShowFloatMenuPawnAndWorktypeHighlight)
                 {
-                    HighlightDrawer.DrawHighlight(rowRect, BetterWorkTabMod.Settings.Color_FloatMenuHighlight);
+                    HighlightDrawer.DrawHighlight(rowRect, HighlightDrawer.GetFloatMenuColor());
                 }
-                // Highlight selected row (only pawns can be selected)
-                else if (descriptor.IsPawn && Find.Selector.IsSelected(descriptor.Pawn))
+                else if (settings.ShowCursorPawnAndWorktypeHighlight && Mouse.IsOver(rowRect))
                 {
-                    if (BetterWorkTabMod.Settings.DoSelectedPawnHighlight)
-                    {
-                        HighlightDrawer.DrawHighlight(rowRect, BetterWorkTabMod.Settings.Color_CursorHighlight);
-                    }
+                    HighlightDrawer.DrawHighlight(rowRect, HighlightDrawer.GetRowHoverColor());
                 }
-
-                // Highlight hovered row (works for both pawns and dividers)
-                if (BetterWorkTabMod.Settings.ShowCursorPawnAndWorktypeHighlight && Mouse.IsOver(rowRect))
+                else if (descriptor.IsPawn && Find.Selector.IsSelected(descriptor.Pawn) && settings.DoSelectedPawnHighlight)
                 {
-                    HighlightDrawer.DrawHighlight(rowRect, BetterWorkTabMod.Settings.Color_MouseHoverHighlight);
+                    HighlightDrawer.DrawHighlight(rowRect, HighlightDrawer.GetSelectedPawnColor());
                 }
 
                 currentY += descriptor.Height;
             }
 
-            // === VERTICAL HIGHLIGHTS (Columns) ===
-            // Highlight entire columns for worktype-related interactions.
-            // totalHeight already accounts for all rows including variable-height dividers.
+            // 3. Draw Vertical Highlights (Columns)
             float startingX = 0f;
             for (int i = 0; i < columns.Count; i++)
             {
                 var column = columns[i];
                 Rect columnRect = new Rect(startingX, 0f, column.Width, totalHeight);
-
                 bool isWorkColumn = column.Column?.Worker is PawnColumnWorker_WorkPriority;
 
-                // Highlight float menu worktype column
-                if (isWorkColumn &&
-                    highlightedWorkType != null &&
-                    column.Column.workType == highlightedWorkType &&
-                    BetterWorkTabMod.Settings.ShowFloatMenuPawnAndWorktypeHighlight)
+                if (isWorkColumn && highlightedWorkType != null && column.Column.workType == highlightedWorkType && settings.ShowFloatMenuPawnAndWorktypeHighlight)
                 {
-                    HighlightDrawer.DrawHighlight(columnRect, BetterWorkTabMod.Settings.Color_FloatMenuHighlight);
+                    HighlightDrawer.DrawHighlight(columnRect, HighlightDrawer.GetFloatMenuColor());
                 }
-                // Highlight hovered column and related worktypes
-                else if (isWorkColumn &&
-                         BetterWorkTabMod.Settings.ShowCursorPawnAndWorktypeHighlight &&
-                         hoveredWorkType != null &&
-                         hoveredWorkType == column.Column.workType)
+                else if (isWorkColumn && settings.ShowCursorPawnAndWorktypeHighlight && hoveredWorkType != null && hoveredWorkType == column.Column.workType)
                 {
-                    HighlightDrawer.DrawHighlight(columnRect, BetterWorkTabMod.Settings.Color_MouseHoverHighlight);
+                    HighlightDrawer.DrawHighlight(columnRect, HighlightDrawer.GetColumnHoverColor());
                     Widgets.DrawHighlight(columnRect);
                 }
-                else if (isWorkColumn &&
-                         cachedSimilarWorktypes != null &&
-                         cachedSimilarWorktypes.Contains(column.Column.workType))
+                else if (isWorkColumn && cachedSimilarWorktypes != null && cachedSimilarWorktypes.Contains(column.Column.workType))
                 {
-                    HighlightDrawer.DrawHighlight(columnRect, BetterWorkTabMod.Settings.Color_SimilarWorktypeMouseOver);
+                    HighlightDrawer.DrawHighlight(columnRect, HighlightDrawer.GetSimilarWorktypeColor());
                     Widgets.DrawHighlight(columnRect);
                 }
 
@@ -1115,7 +1091,7 @@ namespace Better_Work_Tab.UI
         {
             base.PostClose();
             // Clear float menu highlights when Work tab is closed
-            PawnTable_HighlightRowAndColumn.ClearWorktypeHighlight();
+            HighlightState.ClearWorktypeHighlight();
             MouseStateManager.ClearHover();
         }
     }

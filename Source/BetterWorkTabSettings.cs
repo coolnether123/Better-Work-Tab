@@ -55,6 +55,7 @@ namespace Better_Work_Tab
         public static bool showBedCountAtBottom = false;
         public static bool enableRowColumnHighlights = true;
         public static float dividerMinAlpha = 0.35f;
+        public static bool showHoverCellOverlay = true;
 
         // Behavior Templates
         public enum BehaviorTemplate { Standard, Conservative, Aggressive, Custom }
@@ -122,6 +123,10 @@ namespace Better_Work_Tab
         public static Color Color_CustomSimilarWorktypeHighlight = new Color(0.737f, 0.737f, 0.114f, 0.125f);
         public static Color Color_IncapableBecauseOfCapacities = new Color(1f, 0.3f, 0.3f);
         public static Color Color_BestPawnForSkillSquare = new Color(0.35f, 0.85f, 0.35f);
+        public static Color Color_RowHoverHighlight = Color_CursorHighlight;
+        public static Color Color_ColumnHoverHighlight = Color_CursorHighlight;
+        public static bool useRowHoverOverride = false;
+        public static bool useColumnHoverOverride = false;
 
         // Default rulesets - all marked as isDefault: true to prevent deletion
         public static List<WorkAssignmentRuleset> SavedRulesets = new List<WorkAssignmentRuleset>
@@ -205,6 +210,7 @@ namespace Better_Work_Tab
         public bool hideAutoAssignButton = DefaultSettings.hideAutoAssignButton;
         public bool enableRowColumnHighlights = DefaultSettings.enableRowColumnHighlights;
         public float dividerMinAlpha = DefaultSettings.dividerMinAlpha;
+        public bool showHoverCellOverlay = DefaultSettings.showHoverCellOverlay;
         public bool enableDebugLogging = false;
         public Dictionary<DebugFeature, bool> debugFeatureToggles = new Dictionary<DebugFeature, bool>
         {
@@ -243,6 +249,10 @@ namespace Better_Work_Tab
         public Color Color_FloatMenuHighlight = new Color(0.114f, 0.737f, 0.737f, 0.5f);
         public Color Color_CustomMouseHighlight = new Color(0.737f, 0.737f, 0.114f, 0.25f);
         public Color Color_CustomSimilarWorktypeHighlight = new Color(0.737f, 0.737f, 0.114f, 0.125f);
+        public Color Color_RowHoverHighlight = DefaultSettings.Color_RowHoverHighlight;
+        public Color Color_ColumnHoverHighlight = DefaultSettings.Color_ColumnHoverHighlight;
+        public bool useRowHoverOverride = DefaultSettings.useRowHoverOverride;
+        public bool useColumnHoverOverride = DefaultSettings.useColumnHoverOverride;
         public Color Color_HeaderText = Color.white;
         public Color Color_DividerText = Color.white;
         public Color Color_Borders = Color.gray;
@@ -329,6 +339,8 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref UseCustomMouseHoverHighlight, "UseCustomMouseHoverHighlight", DefaultSettings.UseCustomMouseHoverHighlight);
             Scribe_Values.Look(ref enableRowColumnHighlights, "enableRowColumnHighlights", DefaultSettings.enableRowColumnHighlights);
             Scribe_Values.Look(ref useOutlineHighlights, "useOutlineHighlights", false);
+            Scribe_Values.Look(ref useRowHoverOverride, "useRowHoverOverride", DefaultSettings.useRowHoverOverride);
+            Scribe_Values.Look(ref useColumnHoverOverride, "useColumnHoverOverride", DefaultSettings.useColumnHoverOverride);
 
             // UI display settings
             Scribe_Values.Look(ref showPawnCountAtBottom, "showPawnCountAtBottom", DefaultSettings.showPawnCountAtBottom);
@@ -341,6 +353,7 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref hideAutoAssignButton, "hideAutoAssignButton", DefaultSettings.hideAutoAssignButton);
             Scribe_Values.Look(ref dividerMinAlpha, "dividerMinAlpha", DefaultSettings.dividerMinAlpha);
             Scribe_Values.Look(ref enableDebugLogging, "enableDebugLogging", false);
+            Scribe_Values.Look(ref showHoverCellOverlay, "showHoverCellOverlay", DefaultSettings.showHoverCellOverlay);
 
             // Colors
             Scribe_Values.Look(ref Color_CursorHighlight, "Color_CursorHighlight", DefaultSettings.Color_CursorHighlight);
@@ -353,6 +366,8 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref Color_LowSkill, "Color_LowSkill", DefaultSettings.Color_LowSkill);
             Scribe_Values.Look(ref Color_GoodLowSkill, "Color_GoodLowSkill", DefaultSettings.Color_GoodLowSkill);
             Scribe_Values.Look(ref Color_ExcellentSkill, "Color_ExcellentSkill", DefaultSettings.Color_ExcellentSkill);
+            Scribe_Values.Look(ref Color_RowHoverHighlight, "Color_RowHoverHighlight", DefaultSettings.Color_RowHoverHighlight);
+            Scribe_Values.Look(ref Color_ColumnHoverHighlight, "Color_ColumnHoverHighlight", DefaultSettings.Color_ColumnHoverHighlight);
             Scribe_Values.Look(ref Color_HeaderText, "Color_HeaderText", DefaultSettings.Color_HeaderText);
             Scribe_Values.Look(ref Color_DividerText, "Color_DividerText", DefaultSettings.Color_DividerText);
             Scribe_Values.Look(ref Color_Borders, "Color_Borders", DefaultSettings.Color_Borders);
@@ -428,6 +443,7 @@ namespace Better_Work_Tab
             hideWorkloadButton = DefaultSettings.hideWorkloadButton;
             hideAutoAssignButton = DefaultSettings.hideAutoAssignButton;
             enableDebugLogging = false;
+            showHoverCellOverlay = DefaultSettings.showHoverCellOverlay;
             EnsureDebugFeatureTogglesInitialized();
             foreach (var feature in debugFeatureToggles.Keys.ToList())
             {
@@ -445,6 +461,10 @@ namespace Better_Work_Tab
             Color_LowSkill = DefaultSettings.Color_LowSkill;
             Color_GoodLowSkill = DefaultSettings.Color_GoodLowSkill;
             Color_ExcellentSkill = DefaultSettings.Color_ExcellentSkill;
+            Color_RowHoverHighlight = DefaultSettings.Color_RowHoverHighlight;
+            Color_ColumnHoverHighlight = DefaultSettings.Color_ColumnHoverHighlight;
+            useRowHoverOverride = DefaultSettings.useRowHoverOverride;
+            useColumnHoverOverride = DefaultSettings.useColumnHoverOverride;
             Color_HeaderText = DefaultSettings.Color_HeaderText;
             Color_DividerText = DefaultSettings.Color_DividerText;
             Color_Borders = DefaultSettings.Color_Borders;
@@ -577,7 +597,7 @@ namespace Better_Work_Tab
             return playerDraggedColumns.Contains(defName);
         }
 
-        private void EnsureDebugFeatureTogglesInitialized()
+        public void EnsureDebugFeatureTogglesInitialized()
         {
             if (debugFeatureToggles == null)
             {
