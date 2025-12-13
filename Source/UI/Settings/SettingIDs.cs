@@ -18,11 +18,7 @@ namespace Better_Work_Tab.UI.Settings
         public const string ColorsSkillGood = "colors.skillGood";
         public const string ColorsSkillLow = "colors.skillLow";
         public const string ColorsSkillVeryLow = "colors.skillVeryLow";
-        public const string ColumnsEnable = "columns.enable";
-        public const string ColumnsHeader = "columns.header";
         public const string ColumnsResetWidths = "columns.resetWidths";
-        public const string ColumnsSaveOrder = "columns.saveOrder";
-        public const string ColumnsSaveWidths = "columns.saveWidths";
         public const string ColumnsShowMovedIndicator = "columns.showMovedIndicator";
         public const string DividersCollapse = "dividers.collapse";
         public const string DividersCustomColors = "dividers.customColors";
@@ -67,6 +63,7 @@ namespace Better_Work_Tab.UI.Settings
         public const string LayoutDragColumns = "layout.dragColumns";
         public const string LayoutDragRows = "layout.dragRows";
         public const string LayoutDragThreshold = "layout.dragThreshold";
+        public const string LayoutColumnSpacing = "layout.columnSpacing";
         public const string LayoutPawnCount = "layout.pawnCount";
         public const string LayoutResetColumns = "layout.resetColumns";
         public const string MpConflictMode = "mp.conflictMode";
