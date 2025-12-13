@@ -62,6 +62,7 @@ namespace Better_Work_Tab
         public static bool rowDraggingEnabled = true;
         public static bool columnDraggingEnabled = true;
         public static float dragThreshold = 5f;
+        public static float columnSpacing = 0f;
         public static bool requireCtrlForDrag = false;
         public static bool disableLeftClickClose = false;
         public static bool closeOnMapClick = true;
@@ -253,6 +254,7 @@ namespace Better_Work_Tab
         public bool rowDraggingEnabled = DefaultSettings.rowDraggingEnabled;
         public bool columnDraggingEnabled = DefaultSettings.columnDraggingEnabled;
         public float dragThreshold = DefaultSettings.dragThreshold;
+        public float columnSpacing = DefaultSettings.columnSpacing;
         public bool requireCtrlForDrag = DefaultSettings.requireCtrlForDrag;
         public bool disableLeftClickClose = DefaultSettings.disableLeftClickClose;
         public bool closeOnMapClick = DefaultSettings.closeOnMapClick;
@@ -486,6 +488,7 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref rowDraggingEnabled, "rowDraggingEnabled", DefaultSettings.rowDraggingEnabled);
             Scribe_Values.Look(ref columnDraggingEnabled, "columnDraggingEnabled", DefaultSettings.columnDraggingEnabled);
             Scribe_Values.Look(ref dragThreshold, "dragThreshold", DefaultSettings.dragThreshold);
+            Scribe_Values.Look(ref columnSpacing, "columnSpacing", DefaultSettings.columnSpacing);
             Scribe_Values.Look(ref hideWorkloadButton, "hideWorkloadButton", DefaultSettings.hideWorkloadButton);
             Scribe_Values.Look(ref hideAutoAssignButton, "hideAutoAssignButton", DefaultSettings.hideAutoAssignButton);
             Scribe_Values.Look(ref persistColumnOrder, "persistColumnOrder", DefaultSettings.persistColumnOrder);
@@ -495,6 +498,11 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref enableDebugLogging, "enableDebugLogging", false);
             Scribe_Values.Look(ref showHoverCellOverlay, "showHoverCellOverlay", DefaultSettings.showHoverCellOverlay);
             Scribe_Values.Look(ref skillViewHoverMode, "skillViewHoverMode", DefaultSettings.skillViewHoverMode);
+
+            // Column saving is always on; ignore old toggles.
+            enableColumnOrderSaving = true;
+            persistColumnOrder = true;
+            persistColumnWidths = true;
 
             // Colors
             Scribe_Values.Look(ref Color_CursorHighlight, "Color_CursorHighlight", DefaultSettings.Color_CursorHighlight);

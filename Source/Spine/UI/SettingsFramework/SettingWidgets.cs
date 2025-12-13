@@ -239,13 +239,16 @@ namespace Spine.UI.SettingsFramework
                 GUI.color = Color.gray;
             }
 
-            if (Widgets.ButtonText(buttonRect, currentValue?.ToString() ?? string.Empty) && enumType != null)
+            string currentLabel = ResolveEnumLabel(enumType, currentValue);
+
+            if (Widgets.ButtonText(buttonRect, currentLabel) && enumType != null)
             {
                 var options = new List<FloatMenuOption>();
                 foreach (var enumValue in Enum.GetValues(enumType))
                 {
                     var local = enumValue;
-                    options.Add(new FloatMenuOption(local.ToString(), () => onSelected?.Invoke(local)));
+                    string optionLabel = ResolveEnumLabel(enumType, local);
+                    options.Add(new FloatMenuOption(optionLabel, () => onSelected?.Invoke(local)));
                 }
 
                 Find.WindowStack.Add(new FloatMenu(options));
@@ -261,6 +264,34 @@ namespace Spine.UI.SettingsFramework
             {
                 TooltipHandler.TipRegion(rect, tooltip);
             }
+        }
+
+        private static string ResolveEnumLabel(Type enumType, object value)
+        {
+            if (enumType == null || value == null)
+            {
+                return string.Empty;
+            }
+
+            string key = $"BWT_Enum_{enumType.Name}_{value}";
+            if (key.CanTranslate())
+            {
+                return key.Translate();
+            }
+
+            // Localized labels for Better Work Tab hover modes without renaming the enum values.
+            if (enumType.Name == "SkillViewHoverMode")
+            {
+                switch (value.ToString())
+                {
+                    case "Standard":
+                        return "Priority";
+                    case "SkillFocused":
+                        return "Skill";
+                }
+            }
+
+            return value.ToString();
         }
 
         /// <summary>
