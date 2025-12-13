@@ -94,5 +94,53 @@ namespace Better_Work_Tab.Features.Workloads
                 SavedWorklists.Add(CurrentWorklist);
             }
         }
+
+        public void SelectWorklist(Worklist worklist)
+        {
+            if (worklist == null)
+            {
+                return;
+            }
+
+            if (!SavedWorklists.Contains(worklist))
+            {
+                SavedWorklists.Add(worklist);
+            }
+
+            CurrentWorklist = worklist;
+        }
+
+        public void ApplyWorklist(Worklist worklist)
+        {
+            worklist?.Apply();
+        }
+
+        public void CreateWorklist(string label)
+        {
+            var newList = new Worklist(string.IsNullOrEmpty(label) ? "New Worklist" : label);
+            SavedWorklists.Add(newList);
+            CurrentWorklist = newList;
+        }
+
+        public void DeleteWorklist(Worklist worklist)
+        {
+            if (worklist == null)
+                return;
+
+            SavedWorklists.Remove(worklist);
+            if (CurrentWorklist == worklist)
+            {
+                CurrentWorklist = SavedWorklists.FirstOrDefault();
+                EnsureCurrentWorklist();
+            }
+        }
+
+        public void RenameWorklist(Worklist worklist, string newLabel)
+        {
+            if (worklist == null || string.IsNullOrEmpty(newLabel))
+                return;
+
+            worklist.Rename(newLabel);
+        }
     }
 }

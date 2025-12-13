@@ -51,7 +51,8 @@ namespace Better_Work_Tab.PawnOrganizer
         /// Minimum mouse movement before a drag starts.
         /// Prevents accidental drags from clicks.
         /// </summary>
-        private const float DragThreshold = 5f;
+        private float DragThreshold =>
+            BetterWorkTabMod.Settings?.dragThreshold is float v && v > 0f ? v : 5f;
 
         public IWorkTabLayoutController Layout => _layoutController;
         
@@ -97,6 +98,12 @@ namespace Better_Work_Tab.PawnOrganizer
         public void HandleInput(Event evt)
         {
             if (_layoutController == null || evt == null) return;
+
+            var settings = BetterWorkTabMod.Settings;
+            if (!(settings?.enableDragDropReordering ?? true))
+            {
+                return;
+            }
 
             try
             {
@@ -185,8 +192,11 @@ namespace Better_Work_Tab.PawnOrganizer
         /// </summary>
         private void HandleDragDetection(Event evt)
         {
+            var settings = BetterWorkTabMod.Settings;
             bool requireCtrl = BetterWorkTabMod.Settings?.requireCtrlForDrag ?? true;
             bool ctrlSatisfied = !requireCtrl || evt.control;
+            bool allowRows = settings?.rowDraggingEnabled ?? true;
+            bool allowColumns = settings?.columnDraggingEnabled ?? true;
 
             switch (evt.type)
             {
@@ -194,7 +204,7 @@ namespace Better_Work_Tab.PawnOrganizer
                     if (evt.button != 0) return;
                     if (!ctrlSatisfied) return;
                     
-                    TryStartPendingDrag(evt.mousePosition);
+                    TryStartPendingDrag(evt.mousePosition, allowColumns, allowRows);
                     break;
 
                 case EventType.MouseDrag:
@@ -229,10 +239,10 @@ namespace Better_Work_Tab.PawnOrganizer
         /// This ensures the pending drag survives any layout rebuilds between
         /// MouseDown and when the drag actually starts.
         /// </summary>
-        private void TryStartPendingDrag(Vector2 mousePos)
+        private void TryStartPendingDrag(Vector2 mousePos, bool allowColumns, bool allowRows)
         {
             // Check for column drag first (headers are above rows)
-            if (_layoutController.TryGetColumnAt(mousePos, out var column))
+            if (allowColumns && _layoutController.TryGetColumnAt(mousePos, out var column))
             {
                 if (column.Column?.Worker is PawnColumnWorker_WorkPriority)
                 {
@@ -246,7 +256,7 @@ namespace Better_Work_Tab.PawnOrganizer
             }
 
             // Check for row drag
-            if (_layoutController.TryGetVisibleRowAt(mousePos, out var row))
+            if (allowRows && _layoutController.TryGetVisibleRowAt(mousePos, out var row))
             {
                 _hasPendingDrag = true;
                 _pendingStartMouse = mousePos;

@@ -56,5 +56,13 @@ namespace Better_Work_Tab.Features.Workloads
             Scribe_Collections.Look(ref PawnWorklists, "pawnWorklists", LookMode.Deep);
             Scribe_Collections.Look(ref Dividers, "Dividers", LookMode.Deep);
         }
+
+        public void Rename(string newLabel)
+        {
+            if (!string.IsNullOrEmpty(newLabel))
+            {
+                RenamableLabel = newLabel;
+            }
+        }
     }
 }

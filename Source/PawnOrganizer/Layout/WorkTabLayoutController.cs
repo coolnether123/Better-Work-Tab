@@ -186,6 +186,12 @@ namespace Better_Work_Tab.PawnOrganizer
         /// </summary>
         public List<RowDescriptor> GetRowDescriptors()
         {
+            var settings = BetterWorkTabMod.Settings;
+            if (!((settings?.enablePerformanceOptimizations ?? true) && (settings?.cacheRowDescriptors ?? true)))
+            {
+                _rowDescriptorsDirty = true;
+            }
+
             if (!_rowDescriptorsDirty && _cachedRowDescriptors != null)
                 return _cachedRowDescriptors;
 
