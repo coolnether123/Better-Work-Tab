@@ -68,18 +68,6 @@ namespace Better_Work_Tab.UI.Settings
         {
             _settings = new List<SettingDefinition>();
 
-            // Feature master toggles (Simple view anchors)
-            Register(new SettingDefinition
-            {
-                Id = FeaturesHeader,
-                Label = "Features",
-                Type = SettingType.Header,
-                Tooltip = "Master feature toggles.",
-                HeaderColor = new Color(0.55f, 0.75f, 0.95f),
-                ShowInSimpleView = true,
-                SortOrder = -50
-            });
-
             Register(new SettingDefinition
             {
                 Id = FeaturesOverlay,
@@ -90,7 +78,9 @@ namespace Better_Work_Tab.UI.Settings
                 DefaultValue = DefaultSettings.enableSkillOverlayFeature,
                 ControlsChildVisibility = true,
                 ShowInSimpleView = true,
-                SortOrder = -49
+                SortOrder = -49,
+                EmphasizeAsHeader = true,
+                HeaderColor = new Color(0.9f, 0.7f, 0.4f)
             });
 
             Register(new SettingDefinition
@@ -98,12 +88,14 @@ namespace Better_Work_Tab.UI.Settings
                 Id = FeaturesDragdrop,
                 FieldName = "enableDragDropReordering",
                 Label = "Drag & Drop Reordering",
-                Tooltip = "Allow dragging rows/columns to reorder.",
+                Tooltip = "Disabling prevents reordering but keeps saved order",
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.enableDragDropReordering,
                 ControlsChildVisibility = true,
                 ShowInSimpleView = true,
-                SortOrder = -48
+                SortOrder = -48,
+                EmphasizeAsHeader = true,
+                HeaderColor = new Color(0.5f, 0.8f, 0.5f)
             });
 
             Register(new SettingDefinition
@@ -116,7 +108,9 @@ namespace Better_Work_Tab.UI.Settings
                 DefaultValue = DefaultSettings.ShowPawnAndWorktypeHighlights,
                 ControlsChildVisibility = true,
                 ShowInSimpleView = true,
-                SortOrder = -47
+                SortOrder = -47,
+                EmphasizeAsHeader = true,
+                HeaderColor = new Color(0.4f, 0.6f, 0.9f)
             });
 
             Register(new SettingDefinition
@@ -129,7 +123,9 @@ namespace Better_Work_Tab.UI.Settings
                 DefaultValue = DefaultSettings.enableDividers,
                 ControlsChildVisibility = true,
                 ShowInSimpleView = true,
-                SortOrder = -46
+                SortOrder = -46,
+                EmphasizeAsHeader = true,
+                HeaderColor = new Color(0.8f, 0.8f, 0.6f)
             });
 
             Register(new SettingDefinition
@@ -142,7 +138,9 @@ namespace Better_Work_Tab.UI.Settings
                 DefaultValue = DefaultSettings.enableAutoAssignFeature,
                 ControlsChildVisibility = true,
                 ShowInSimpleView = true,
-                SortOrder = -45
+                SortOrder = -45,
+                EmphasizeAsHeader = true,
+                HeaderColor = new Color(0.6f, 0.6f, 0.6f)
             });
 
             Register(new SettingDefinition
@@ -155,7 +153,9 @@ namespace Better_Work_Tab.UI.Settings
                 DefaultValue = DefaultSettings.enableWorkloads,
                 ControlsChildVisibility = true,
                 ShowInSimpleView = true,
-                SortOrder = -44
+                SortOrder = -44,
+                EmphasizeAsHeader = true,
+                HeaderColor = new Color(0.6f, 0.6f, 0.6f)
             });
 
             Register(new SettingDefinition
@@ -175,12 +175,14 @@ namespace Better_Work_Tab.UI.Settings
                 Id = FeaturesPerformance,
                 FieldName = "enablePerformanceOptimizations",
                 Label = "Performance",
-                Tooltip = "Enable caching and optimizations.",
+                Tooltip = "Disabling may reduce performance on large colonies",
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.enablePerformanceOptimizations,
                 ControlsChildVisibility = true,
                 ShowInSimpleView = false,
-                SortOrder = -41
+                SortOrder = -41,
+                EmphasizeAsHeader = true,
+                HeaderColor = new Color(0.6f, 0.8f, 0.8f)
             });
 
             Register(new SettingDefinition
@@ -198,18 +200,6 @@ namespace Better_Work_Tab.UI.Settings
             });
 
             // Highlights
-            Register(new SettingDefinition
-            {
-                Id = HighlightsHeader,
-                Label = "Highlights",
-                Type = SettingType.Header,
-                Tooltip = "Row and column highlighting behavior.",
-                HeaderColor = new Color(0.4f, 0.6f, 0.9f),
-                ShowInSimpleView = true,
-                SortOrder = 0,
-                ParentId = FeaturesHighlights
-            });
-
             Register(new SettingDefinition
             {
                 Id = HighlightsHover,
@@ -960,7 +950,8 @@ namespace Better_Work_Tab.UI.Settings
                 Tooltip = "Show confirmation before applying a ruleset.",
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.showAutoAssignConfirmation,
-                ShowInSimpleView = true,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = false,
                 SortOrder = 401
             });
 
@@ -974,6 +965,7 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.resetWorkBeforeAutoAssign,
                 ShowInSimpleView = false,
+                ShowInAdvancedView = false,
                 SortOrder = 402
             });
 
@@ -986,34 +978,9 @@ namespace Better_Work_Tab.UI.Settings
                 Tooltip = "Highlight affected pawns/work types after applying.",
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.showAutoAssignVisualFeedback,
-                ShowInSimpleView = true,
-                SortOrder = 403
-            });
-
-            Register(new SettingDefinition
-            {
-                Id = WorkloadsAutoSave,
-                ParentId = FeaturesWorkloads,
-                FieldName = "autoSaveCurrentWorkload",
-                Label = "Auto-Save Current",
-                Tooltip = "Automatically update the current workload with changes.",
-                Type = SettingType.Bool,
-                DefaultValue = DefaultSettings.autoSaveCurrentWorkload,
                 ShowInSimpleView = false,
-                SortOrder = 4023
-            });
-
-            Register(new SettingDefinition
-            {
-                Id = WorkloadsConfirmOnLoad,
-                ParentId = FeaturesWorkloads,
-                FieldName = "confirmWorkloadLoad",
-                Label = "Confirm on Load",
-                Tooltip = "Show confirmation before loading a workload.",
-                Type = SettingType.Bool,
-                DefaultValue = DefaultSettings.confirmWorkloadLoad,
-                ShowInSimpleView = true,
-                SortOrder = 4024
+                ShowInAdvancedView = false,
+                SortOrder = 403
             });
 
             Register(new SettingDefinition
@@ -1038,7 +1005,8 @@ namespace Better_Work_Tab.UI.Settings
                 Tooltip = "Hide the ruleset button (still accessible via Manager).",
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.hideAutoAssignButton,
-                ShowInSimpleView = true,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = false,
                 SortOrder = 404
             });
 
@@ -1142,6 +1110,7 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Bool,
                 DefaultValue = false,
                 ShowInSimpleView = false,
+                ShowInAdvancedView = false,
                 SortOrder = 411
             });
 
@@ -1154,6 +1123,7 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Bool,
                 DefaultValue = false,
                 ShowInSimpleView = false,
+                ShowInAdvancedView = false,
                 SortOrder = 412
             });
 

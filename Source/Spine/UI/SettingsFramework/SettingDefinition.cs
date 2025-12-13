@@ -108,5 +108,10 @@ namespace Spine.UI.SettingsFramework
         /// Callback invoked when the value changes. Receives the settings object.
         /// </summary>
         public Action<object> OnChanged;
+
+        /// <summary>
+        /// When true for a Bool type, render it with header styling (bold/underline) while keeping toggle behavior.
+        /// </summary>
+        public bool EmphasizeAsHeader = false;
     }
 }
