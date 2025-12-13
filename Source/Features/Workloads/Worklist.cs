@@ -55,6 +55,11 @@ namespace Better_Work_Tab.Features.Workloads
             worklistName = RenamableLabel;
             Scribe_Collections.Look(ref PawnWorklists, "pawnWorklists", LookMode.Deep);
             Scribe_Collections.Look(ref Dividers, "Dividers", LookMode.Deep);
+
+            if (Scribe.mode == LoadSaveMode.PostLoadInit)
+            {
+                EnsureCollections();
+            }
         }
 
         public void Rename(string newLabel)
@@ -62,6 +67,22 @@ namespace Better_Work_Tab.Features.Workloads
             if (!string.IsNullOrEmpty(newLabel))
             {
                 RenamableLabel = newLabel;
+            }
+        }
+
+        /// <summary>
+        /// Guarantees that collection fields are non-null after load/migration.
+        /// </summary>
+        public void EnsureCollections()
+        {
+            if (PawnWorklists == null)
+            {
+                PawnWorklists = new List<PawnWorkload>();
+            }
+
+            if (Dividers == null)
+            {
+                Dividers = new List<PawnDivider>();
             }
         }
     }
