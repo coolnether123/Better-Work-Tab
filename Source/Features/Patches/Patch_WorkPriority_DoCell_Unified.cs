@@ -72,6 +72,7 @@ namespace Better_Work_Tab.Patches
         private static bool _cachedFeatureEnabled = false;
         private static BetterWorkTabSettings.ShowUIMode _cachedUiState;
         private static bool _cachedHoverCellOverlayEnabled = true;
+        private static BetterWorkTabSettings.SkillViewHoverMode _cachedHoverMode = BetterWorkTabSettings.SkillViewHoverMode.Standard;
 
         // === CACHES ===
         private static readonly Dictionary<int, int> _skillCache = new Dictionary<int, int>(1024);
@@ -104,6 +105,7 @@ namespace Better_Work_Tab.Patches
             _cachedUiState = ShiftHelper.State;
             _cachedShiftHeld = _cachedUiState == BetterWorkTabSettings.ShowUIMode.Shifted;
             _cachedHoverCellOverlayEnabled = BetterWorkTabMod.Settings?.showHoverCellOverlay ?? true;
+            _cachedHoverMode = BetterWorkTabMod.Settings?.skillViewHoverMode ?? BetterWorkTabSettings.SkillViewHoverMode.Standard;
         }
 
         public static void ClearColorCache()
@@ -141,13 +143,16 @@ namespace Better_Work_Tab.Patches
             if (workType.relevantSkills == null || workType.relevantSkills.Count == 0)
                 return false; // Skip vanilla drawing if no relevant skills, to draw nothing or custom
 
-            // === CRITICAL FIX ===
-            // If the mouse is hovering THIS SPECIFIC CELL, return TRUE to run Vanilla logic.
-            // Vanilla logic draws the interactive WorkBox (priority number, click handling).
-            // Postfix will then draw the small skill numbers on top.
+            // Decide whether vanilla should draw based on hover mode.
             if (Mouse.IsOver(rect))
             {
-                return true;
+                // Let vanilla draw for interactive priority handling in Standard or SkillFocused.
+                if (_cachedHoverMode == BetterWorkTabSettings.SkillViewHoverMode.Standard ||
+                    _cachedHoverMode == BetterWorkTabSettings.SkillViewHoverMode.SkillFocused)
+                {
+                    return true;
+                }
+                return false;
             }
 
             // If NOT hovering, return FALSE to skip Vanilla.
@@ -188,18 +193,42 @@ namespace Better_Work_Tab.Patches
             float boxYSkill = rect.y + SkillBoxVerticalPadding;
             Rect boxRect = new Rect(boxXSkill, boxYSkill, SkillBoxSize, SkillBoxSize);
 
-            if (!hovering)
+            bool drawBigSkill = true;
+            bool drawSmallSkill = false;
+            bool drawSmallPriority = false;
+
+            if (hovering)
             {
-                // Prefix returned false, so Vanilla didn't draw.
-                // We draw the static visuals (Big Number + Box Background).
+                if (_cachedHoverMode == BetterWorkTabSettings.SkillViewHoverMode.Standard)
+                {
+                    drawBigSkill = false;
+                    drawSmallSkill = true;
+                }
+                else if (_cachedHoverMode == BetterWorkTabSettings.SkillViewHoverMode.SkillFocused)
+                {
+                    // Keep big skill visible and show priority in the small-number slot.
+                    drawSmallPriority = true;
+                }
+            }
+
+            if (drawBigSkill)
+            {
                 CustomWorkBoxDrawer.DrawWorkBoxForSkillOverlay(boxXSkill, boxYSkill, pawn, workType, false);
                 DrawBigSkillNumber(boxRect, skillLevel);
             }
-            else
+
+            if (drawSmallSkill)
             {
-                // Prefix returned true, so Vanilla already drew the Interactive Box.
-                // We just draw the small skill numbers on top.
                 DrawSmallSkillNumbers(rect, skillLevel);
+            }
+
+            if (drawSmallPriority)
+            {
+                int priority = pawn.workSettings.GetPriority(workType);
+                if (priority > 0)
+                {
+                    DrawSmallPriorityNumber(rect, priority);
+                }
             }
 
             if (ShouldShowUI(BetterWorkTabMod.Settings.ShowUIMode_ShowPawnForSkillSquare, _cachedUiState))
@@ -361,6 +390,25 @@ namespace Better_Work_Tab.Patches
             Text.Anchor = TextAnchor.MiddleCenter;
             GUI.color = ColorForSkillLevel(level);
             Widgets.Label(boxRect, level.ToString());
+
+            GUI.color = oldColor;
+            Text.Font = oldFont;
+            Text.Anchor = oldAnchor;
+        }
+
+        private static void DrawSmallPriorityNumber(Rect rect, int priority)
+        {
+            // Reuse the same placement as the small skill numbers for consistency.
+            Rect prioRect = new Rect(rect.x + SmallSkillOffsetX, rect.y + SmallSkillOffsetY, SkillBoxSize, SkillBoxSize);
+            var oldFont = Text.Font;
+            var oldAnchor = Text.Anchor;
+            var oldColor = GUI.color;
+
+            Text.Font = GameFont.Tiny;
+            Text.Anchor = TextAnchor.MiddleRight;
+            // Match vanilla priority number coloring.
+            GUI.color = Color.white;
+            Widgets.Label(prioRect, priority.ToString());
 
             GUI.color = oldColor;
             Text.Font = oldFont;
