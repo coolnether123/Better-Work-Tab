@@ -35,7 +35,6 @@ namespace Better_Work_Tab.UI.Settings
         public const string FeaturesClicks = "features.clicks";
         public const string FeaturesDividers = "features.dividers";
         public const string FeaturesDragdrop = "features.dragdrop";
-        public const string FeaturesHeader = "features.header";
         public const string FeaturesHighlights = "features.highlights";
         public const string FeaturesMultiplayer = "features.multiplayer";
         public const string FeaturesOverlay = "features.overlay";
@@ -89,8 +88,6 @@ namespace Better_Work_Tab.UI.Settings
         public const string UiDragInstructions = "ui.dragInstructions";
         public const string UiManualPriorities = "ui.manualPriorities";
         public const string UiPriorityLegend = "ui.priorityLegend";
-        public const string WorkloadsAutoSave = "workloads.autoSave";
-        public const string WorkloadsConfirmOnLoad = "workloads.confirmOnLoad";
         public const string WorkloadsPersistDividers = "workloads.persistDividers";
     }
 }

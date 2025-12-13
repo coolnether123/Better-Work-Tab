@@ -209,7 +209,10 @@ namespace Spine.UI.SettingsFramework
                     if (field != null && field.FieldType == typeof(bool))
                     {
                         bool boolValue = (bool)field.GetValue(settingsObject);
-                        if (SettingWidgets.DrawBool(contentRect, label, ref boolValue, tooltip, disabled))
+                        bool changed = def.EmphasizeAsHeader
+                            ? SettingWidgets.DrawHeaderBool(contentRect, label, ref boolValue, def.HeaderColor, tooltip, disabled)
+                            : SettingWidgets.DrawBool(contentRect, label, ref boolValue, tooltip, disabled);
+                        if (changed)
                         {
                             field.SetValue(settingsObject, boolValue);
                             def.OnChanged?.Invoke(settingsObject);
