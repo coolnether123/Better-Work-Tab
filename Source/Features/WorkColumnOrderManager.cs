@@ -140,6 +140,12 @@ namespace Better_Work_Tab.Features
         /// </summary>
         public static void CaptureCurrent(PawnTableDef def)
         {
+            var settings = BetterWorkTabMod.Settings;
+            if (!(settings?.enableColumnOrderSaving ?? true) || !(settings?.persistColumnOrder ?? true))
+            {
+                return;
+            }
+
             BetterWorkTabMod.DebugLog("WorkColumnOrderManager.CaptureCurrent called.", DebugFeature.DragDrop);
             if (def?.columns == null)
             {
@@ -154,8 +160,8 @@ namespace Better_Work_Tab.Features
                     order.Add(c.workType.defName);
             }
 
-            BetterWorkTabMod.Settings.workColumnOrderDefNames = order;
-            BetterWorkTabMod.Settings.Write();
+            settings.workColumnOrderDefNames = order;
+            settings.Write();
             BetterWorkTabMod.DebugLog($"WorkColumnOrderManager.CaptureCurrent: Captured order: {string.Join(", ", order)}", DebugFeature.DragDrop);
         }
 
@@ -164,13 +170,20 @@ namespace Better_Work_Tab.Features
         /// </summary>
         public static void ApplySaved(PawnTableDef def)
         {
+            var settings = BetterWorkTabMod.Settings;
+            if (!(settings?.enableColumnOrderSaving ?? true) || !(settings?.persistColumnOrder ?? true))
+            {
+                BetterWorkTabMod.DebugLog("WorkColumnOrderManager.ApplySaved: Column saving disabled.", DebugFeature.DragDrop);
+                return;
+            }
+
             if (def?.columns == null)
             {
                 BetterWorkTabMod.DebugLog("WorkColumnOrderManager.ApplySaved: def or columns are null.", DebugFeature.DragDrop);
                 return;
             }
 
-            var saved = BetterWorkTabMod.Settings.workColumnOrderDefNames;
+            var saved = settings.workColumnOrderDefNames;
             if (saved == null || saved.Count == 0)
             {
                 BetterWorkTabMod.DebugLog("WorkColumnOrderManager.ApplySaved: No saved order found.", DebugFeature.DragDrop);

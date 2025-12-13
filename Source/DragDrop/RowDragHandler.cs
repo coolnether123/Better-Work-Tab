@@ -98,10 +98,13 @@ namespace Better_Work_Tab.DragDrop
         {
             if (!IsDragging) return;
 
-            bool lineOnly = BetterWorkTabMod.Settings?.showOnlyLineDragIndicatorRows ?? false;
+            var settings = BetterWorkTabMod.Settings;
+            bool showGhost = false; // default to line-only by design
+            bool showLine = true;
+            bool lineOnly = true;
 
             // Draw ghost rectangle following the mouse
-            if (!lineOnly)
+            if (!lineOnly && showGhost)
             {
                 Rect ghostRect = _session.OriginalRect;
                 ghostRect.y = Event.current.mousePosition.y - _session.DragOffsetY;
@@ -109,7 +112,7 @@ namespace Better_Work_Tab.DragDrop
             }
 
             // Draw insertion line at target position
-            if (_session.TargetIndex >= 0)
+            if (_session.TargetIndex >= 0 && showLine)
             {
                 var descriptors = _layout.GetRowDescriptors();
                 var heights = descriptors.Select(d => d.Height).ToList();
