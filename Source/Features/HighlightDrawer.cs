@@ -36,12 +36,24 @@ namespace Better_Work_Tab.UI
 
         public static Color GetSelectedPawnColor()
         {
-            return BetterWorkTabMod.Settings?.Color_CursorHighlight ?? Color.yellow;
+            var settings = BetterWorkTabMod.Settings;
+            var color = settings?.Color_SelectedPawnHighlight ?? Color.yellow;
+            if (settings != null)
+            {
+                color.a = settings.SelectedPawnHighlightOpacity;
+            }
+            return color;
         }
 
         public static Color GetSimilarWorktypeColor()
         {
-            return BetterWorkTabMod.Settings?.Color_SimilarWorktypeMouseOver ?? new Color(1f, 1f, 1f, 0.1f);
+            var settings = BetterWorkTabMod.Settings;
+            var color = settings?.Color_SimilarWorktypeMouseOver ?? new Color(1f, 1f, 1f, 0.1f);
+            if (settings != null)
+            {
+                color.a = settings.SimilarWorktypeHighlightOpacity;
+            }
+            return color;
         }
     }
 }

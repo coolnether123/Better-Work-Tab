@@ -226,6 +226,8 @@ namespace Better_Work_Tab.Patches
             bool drawBigSkill = true;
             bool drawSmallSkill = false;
             bool drawSmallPriority = false;
+            bool showTinySkillNumbers = (BetterWorkTabMod.Settings?.enableSkillOverlayFeature ?? false) &&
+                                        ShouldShowUI(BetterWorkTabMod.Settings.ShowUIMode_ShowSmallSkillNumbers, _cachedUiState);
 
             if (hovering)
             {
@@ -239,6 +241,11 @@ namespace Better_Work_Tab.Patches
                     // Keep big skill visible and show priority in the small-number slot.
                     drawSmallPriority = true;
                 }
+            }
+
+            if (showTinySkillNumbers && !drawSmallPriority)
+            {
+                drawSmallSkill = true;
             }
 
             if (drawBigSkill)
@@ -281,8 +288,11 @@ namespace Better_Work_Tab.Patches
         {
             int key = (p.thingIDNumber << 16) | work.shortHash;
             int currentFrame = Time.frameCount;
+            var settings = BetterWorkTabMod.Settings;
+            bool useCache = (settings?.enablePerformanceOptimizations ?? true) &&
+                            (settings?.cacheIncapabilityChecks ?? true);
 
-            if (_incapableCacheTimestamps.TryGetValue(key, out int timestamp))
+            if (useCache && _incapableCacheTimestamps.TryGetValue(key, out int timestamp))
             {
                 if (currentFrame - timestamp < IncapableCacheFrameValidity)
                 {
@@ -311,8 +321,11 @@ namespace Better_Work_Tab.Patches
             }
             bool isIncapable = !canDoAny;
 
-            _incapableCache[key] = (byte)(isIncapable ? 1 : 0);
-            _incapableCacheTimestamps[key] = currentFrame;
+            if (useCache)
+            {
+                _incapableCache[key] = (byte)(isIncapable ? 1 : 0);
+                _incapableCacheTimestamps[key] = currentFrame;
+            }
             return isIncapable;
         }
 
@@ -320,8 +333,11 @@ namespace Better_Work_Tab.Patches
         {
             int key = (pawn.thingIDNumber << 16) | workType.shortHash;
             int currentFrame = Time.frameCount;
+            var settings = BetterWorkTabMod.Settings;
+            bool useCache = (settings?.enablePerformanceOptimizations ?? true) &&
+                            (settings?.cacheSkillLevels ?? true);
 
-            if (_skillCacheTimestamps.TryGetValue(key, out int timestamp))
+            if (useCache && _skillCacheTimestamps.TryGetValue(key, out int timestamp))
             {
                 if (currentFrame - timestamp < SkillCacheFrameValidity)
                 {
@@ -332,19 +348,25 @@ namespace Better_Work_Tab.Patches
             float avg = pawn.skills.AverageOfRelevantSkillsFor(workType);
             int level = Mathf.Clamp(Mathf.RoundToInt(avg), 0, 20);
 
-            _skillCache[key] = level;
-            _skillCacheTimestamps[key] = currentFrame;
+            if (useCache)
+            {
+                _skillCache[key] = level;
+                _skillCacheTimestamps[key] = currentFrame;
+            }
             return level;
         }
 
         private static Pawn GetBestPawnForWorktype(PawnTable table, WorkTypeDef workType, PawnColumnWorker_WorkPriority worker)
         {
             if (table == null || table.cachedPawns == null) return null;
+            var settings = BetterWorkTabMod.Settings;
+            bool useCache = (settings?.enablePerformanceOptimizations ?? true) &&
+                            (settings?.cacheSkillLevels ?? true);
 
             int key = (table.GetHashCode() << 16) | workType.shortHash;
             int currentFrame = Time.frameCount;
 
-            if (_bestPawnCacheTimestamps.TryGetValue(key, out int timestamp))
+            if (useCache && _bestPawnCacheTimestamps.TryGetValue(key, out int timestamp))
             {
                 if (currentFrame - timestamp < BestPawnCacheFrameValidity)
                 {
@@ -374,8 +396,11 @@ namespace Better_Work_Tab.Patches
                 }
             }
 
-            _bestPawnCache[key] = bestPawn;
-            _bestPawnCacheTimestamps[key] = currentFrame;
+            if (useCache)
+            {
+                _bestPawnCache[key] = bestPawn;
+                _bestPawnCacheTimestamps[key] = currentFrame;
+            }
             return bestPawn;
         }
 

@@ -49,9 +49,12 @@ namespace Better_Work_Tab.DragDrop
             if (!IsDragging) return;
 
             float fullHeight = Layout.HeaderHeight + Layout.ContentHeight;
-            bool lineOnly = BetterWorkTabMod.Settings?.showOnlyLineDragIndicatorColumns ?? false;
+            var settings = BetterWorkTabMod.Settings;
+            bool showGhost = false; // default to line-only for columns
+            bool showLine = true;
+            bool lineOnly = true;
 
-            if (!lineOnly)
+            if (!lineOnly && showGhost)
             {
                 Rect ghost = new Rect(
                     Event.current.mousePosition.x - (_originRect.width / 2f),
@@ -62,7 +65,7 @@ namespace Better_Work_Tab.DragDrop
                 ListDragVisuals.DrawGhost(ghost, _column.defName);
             }
 
-            if (TargetIndex >= 0)
+            if (TargetIndex >= 0 && showLine)
             {
                 float lineX;
                 if (_workColumns.Count == 0) lineX = _originRect.x;
