@@ -1,7 +1,4 @@
 using RimWorld;
-using Spine.UI.ColourPicker;
-using Spine.UI.SettingsFramework;
-using System;
 using System.Collections.Generic;
 using UnityEngine;
 using Verse;
@@ -16,12 +13,9 @@ namespace Spine.UI.WidgetExtensions
     {
         private const float CategoryButtonHeight = 60f;
         private const float CategoryButtonSpacing = 8f;
-        private const float FavoriteStarSize = 18f;
 
         private static readonly Color CategoryButtonColor = new Color(0.2f, 0.2f, 0.2f, 0.8f);
         private static readonly Color CategoryButtonHoverColor = new Color(0.3f, 0.3f, 0.3f, 0.9f);
-        private static readonly Color FavoriteStarActive = new Color(1f, 0.85f, 0.2f);
-        private static readonly Color FavoriteStarInactive = new Color(0.5f, 0.5f, 0.5f, 0.5f);
 
         /// <summary>
         /// Draws a large category navigation button.
@@ -67,158 +61,6 @@ namespace Spine.UI.WidgetExtensions
             }
 
             return Widgets.ButtonInvisible(rect);
-        }
-
-        /// <summary>
-        /// Draws a favorite star toggle button.
-        /// </summary>
-        public static bool DrawFavoriteStar(Rect rect, bool isFavorite, string tooltip = null)
-        {
-            Color starColor = isFavorite ? FavoriteStarActive : FavoriteStarInactive;
-
-            var oldColor = GUI.color;
-            var oldFont = Text.Font;
-            var oldAnchor = Text.Anchor;
-
-            GUI.color = starColor;
-            Text.Font = GameFont.Small;
-            Text.Anchor = TextAnchor.MiddleCenter;
-
-            string starChar = isFavorite ? "★" : "☆";
-            Widgets.Label(rect, starChar);
-
-            GUI.color = oldColor;
-            Text.Font = oldFont;
-            Text.Anchor = oldAnchor;
-
-            if (!string.IsNullOrEmpty(tooltip))
-            {
-                TooltipHandler.TipRegion(rect, tooltip);
-            }
-
-            bool clicked = Widgets.ButtonInvisible(rect);
-            if (clicked)
-            {
-                SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
-            }
-
-            return clicked;
-        }
-
-        /// <summary>
-        /// Draws a setting row with an optional favorite star.
-        /// </summary>
-        public static Rect DrawSettingRowStart(Listing_Standard listing, string settingId, float height = 24f)
-        {
-            Rect row = listing.GetRect(height);
-            
-            if (!string.IsNullOrEmpty(settingId))
-            {
-                Rect starRect = new Rect(row.x, row.y + (row.height - FavoriteStarSize) / 2f, 
-                    FavoriteStarSize, FavoriteStarSize);
-                
-                bool isFav = FavoritesManager.Instance.IsFavorite(settingId);
-                if (DrawFavoriteStar(starRect, isFav, isFav ? "Remove from favorites" : "Add to favorites"))
-                {
-                    FavoritesManager.Instance.ToggleFavorite(settingId);
-                }
-
-                row.xMin += FavoriteStarSize + 4f;
-            }
-
-            return row;
-        }
-
-        /// <summary>
-        /// Draws a checkbox with favorite support.
-        /// </summary>
-        public static void CheckboxFavoritable(
-            Listing_Standard listing,
-            string settingId,
-            string label,
-            ref bool value,
-            string tooltip = null,
-            bool disabled = false)
-        {
-            Rect row = DrawSettingRowStart(listing, settingId);
-
-            if (disabled) GUI.color = Color.gray;
-
-            bool oldValue = value;
-            Widgets.CheckboxLabeled(row, label, ref value, disabled);
-            
-            if (!string.IsNullOrEmpty(tooltip))
-            {
-                TooltipHandler.TipRegion(row, tooltip);
-            }
-
-            if (disabled) GUI.color = Color.white;
-        }
-
-        /// <summary>
-        /// Draws a slider with favorite support.
-        /// </summary>
-        public static float SliderFavoritable(
-            Listing_Standard listing,
-            string settingId,
-            string label,
-            float value,
-            float min,
-            float max,
-            string tooltip = null,
-            float labelWidth = 150f)
-        {
-            Rect row = DrawSettingRowStart(listing, settingId);
-
-            Rect labelRect = new Rect(row.x, row.y, labelWidth, row.height);
-            Rect sliderRect = new Rect(row.x + labelWidth + 4f, row.y, row.width - labelWidth - 4f, row.height);
-
-            Widgets.Label(labelRect, label);
-            float result = Widgets.HorizontalSlider(sliderRect, value, min, max, true);
-
-            if (!string.IsNullOrEmpty(tooltip))
-            {
-                TooltipHandler.TipRegion(row, tooltip);
-            }
-
-            return result;
-        }
-
-        /// <summary>
-        /// Draws a color picker button with favorite support.
-        /// </summary>
-        public static void ColorPickerFavoritable(
-            Listing_Standard listing,
-            string settingId,
-            string label,
-            ref Color color,
-            string tooltip = null)
-        {
-            Rect row = DrawSettingRowStart(listing, settingId, 32f);
-
-            Rect colorRect = new Rect(row.x, row.y + 2f, 28f, 28f);
-            Rect labelRect = new Rect(row.x + 36f, row.y, row.width - 136f, row.height);
-            Rect buttonRect = new Rect(row.xMax - 90f, row.y + 2f, 90f, row.height - 4f);
-
-            Widgets.DrawBoxSolid(colorRect, color);
-            Widgets.DrawBox(colorRect, 1);
-
-            Widgets.Label(labelRect, label);
-
-            Color localColor = color;
-            if (Widgets.ButtonText(buttonRect, "Choose..."))
-            {
-                Find.WindowStack.Add(new Dialog_ColourPicker(localColor, (newColor, _) =>
-                {
-                    localColor = newColor;
-                }));
-            }
-            color = localColor;
-
-            if (!string.IsNullOrEmpty(tooltip))
-            {
-                TooltipHandler.TipRegion(row, tooltip);
-            }
         }
 
         /// <summary>
