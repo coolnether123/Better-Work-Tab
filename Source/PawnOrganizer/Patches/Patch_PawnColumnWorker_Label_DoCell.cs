@@ -1,17 +1,29 @@
 using System;
 using Better_Work_Tab.PawnOrganizer.API;
+using System.Collections.Generic;
 using HarmonyLib;
 using RimWorld;
 using Spine.UI; // for TextColorHelper
 using UnityEngine;
 using Verse;
 using Better_Work_Tab.ModSupport;
+using System.Reflection.Emit;
+using System.Reflection;
 
 namespace Better_Work_Tab.Patches
 {
     [HarmonyPatch(typeof(PawnColumnWorker_Label), nameof(PawnColumnWorker_Label.DoCell))]
     public static class Patch_PawnColumnWorker_Label_DoCell
     {
+        private static readonly MethodInfo GetLabelMethod =
+            AccessTools.Method(typeof(PawnColumnWorker_Label), "GetLabel");
+        private static readonly Func<PawnColumnWorker_Label, Pawn, TaggedString> GetLabel =
+            AccessTools.MethodDelegate<Func<PawnColumnWorker_Label, Pawn, TaggedString>>(GetLabelMethod);
+
+        // NOTE: Prefix and Transpiler are mutually exclusive execution paths:
+        // - If contrast mode (Prefix returns false): DoCell_Contrast gates close directly.
+        // - If vanilla mode (Prefix returns true): Transpiler intercepts EscapeCurrentTab.
+        // Both honor disableLeftClickClose via ShouldCloseWorkTab().
         // Postfix ensures overlays draw after vanilla rendering when Prefix returns true (e.g., no contrast mode)
         public static void Postfix(PawnColumnWorker_Label __instance, Rect rect, Pawn pawn, PawnTable table)
         {
@@ -98,8 +110,7 @@ namespace Better_Work_Tab.Patches
             if (Mouse.IsOver(rect1))
                 GUI.DrawTexture(rect1, TexUI.HighlightTex);
 
-            var getLabelMI = AccessTools.Method(typeof(PawnColumnWorker_Label), "GetLabel");
-            TaggedString vanillaLabel = (TaggedString)getLabelMI.Invoke(worker, new object[] { pawn });
+            TaggedString vanillaLabel = GetLabel(worker, pawn);
 
             string finalLabel = vanillaLabel.Resolve().StripTags();
 
@@ -133,7 +144,13 @@ namespace Better_Work_Tab.Patches
             {
                 CameraJumper.TryJumpAndSelect(pawn);
                 if (Current.ProgramState == ProgramState.Playing && Event.current.button == 0)
-                    Find.MainTabsRoot.EscapeCurrentTab(false);
+                {
+                    // Keep the Work tab open when the user opts into the setting; otherwise mimic vanilla.
+                    if (ShouldCloseWorkTab())
+                    {
+                        Find.MainTabsRoot.EscapeCurrentTab(false);
+                    }
+                }
             }
             else if (Mouse.IsOver(rect1))
             {
@@ -142,6 +159,36 @@ namespace Better_Work_Tab.Patches
                 TooltipHandler.TipRegion(rect1, tooltip);
             }
         }
+
+        public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
+        {
+            var escape = AccessTools.Method(typeof(MainTabsRoot), nameof(MainTabsRoot.EscapeCurrentTab), new[] { typeof(bool) });
+            var replacement = AccessTools.Method(typeof(Patch_PawnColumnWorker_Label_DoCell), nameof(MaybeCloseWorkTab));
+
+            foreach (var inst in instructions)
+            {
+                if (inst.Calls(escape))
+                {
+                    yield return new CodeInstruction(OpCodes.Call, replacement);
+                }
+                else
+                {
+                    yield return inst;
+                }
+            }
+        }
+
+        private static void MaybeCloseWorkTab(MainTabsRoot root, bool playSound)
+        {
+            // Transpiler covers the vanilla draw path; Prefix handles the contrast path.
+            if (ShouldCloseWorkTab())
+            {
+                root?.EscapeCurrentTab(playSound);
+            }
+        }
+
+        private static bool ShouldCloseWorkTab() =>
+            !(BetterWorkTabMod.Settings?.disableLeftClickClose ?? false);
 
         private readonly struct GUIColorScope : IDisposable
         {
