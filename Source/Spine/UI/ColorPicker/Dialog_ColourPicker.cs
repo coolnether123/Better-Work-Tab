@@ -204,18 +204,14 @@ namespace Spine.UI.ColourPicker {
             {
                 float recentWidth = _previewSize * 2f;
                 int cols = Mathf.Max(1, Mathf.FloorToInt(recentWidth / _recentSize));
-                float pinnedHeight = 0f;
-                if (_recentColours.PinnedCount > 0)
-                {
-                    int pinnedRows = Mathf.CeilToInt(_recentColours.PinnedCount / (float)cols);
-                    pinnedHeight = (pinnedRows * _recentSize) + 4f;
-                }
+
+                // Calculate FULL recent colors height (pinned + unpinned)
+                float recentHeight = GetRecentSectionHeight(recentWidth);
 
                 // Calculate the total height required by the right-hand column content
                 float rightColumnHeight = _previewSize          // New/Old color preview
                                         + _margin               // Gap
-                                        // Recent colors box height calculated dynamically
-                                        + pinnedHeight
+                                        + recentHeight          // Recent colors (full height)
                                         + _margin               // Gap
                                         + (_fieldHeight * 3)    // HSV, RGB, HEX fields
                                         + (_margin * 2)         // Gaps between fields
@@ -704,19 +700,26 @@ namespace Spine.UI.ColourPicker {
             GUI.BeginGroup(canvas);
             float yOffset = 0f;
 
-            var pinned = _recentColours.PinnedColors;
-            if (pinned.Count > 0)
+            // Make copies to avoid modification during iteration
+            var pinnedCopy = new List<Color>(_recentColours.PinnedColors);
+            var recentCopy = new List<Color>();
+            for (int i = 0; i < _recentColours.Count; i++)
             {
-                DrawColourSection(pinned.Count, i => pinned[i], cols, ref yOffset, true);
-                if (_recentColours.Count > 0)
+                recentCopy.Add(_recentColours[i]);
+            }
+
+            if (pinnedCopy.Count > 0)
+            {
+                DrawColourSection(pinnedCopy.Count, i => pinnedCopy[i], cols, ref yOffset, true);
+                if (recentCopy.Count > 0)
                 {
                     yOffset += 4f;
                 }
             }
 
-            if (_recentColours.Count > 0)
+            if (recentCopy.Count > 0)
             {
-                DrawColourSection(_recentColours.Count, i => _recentColours[i], cols, ref yOffset, false);
+                DrawColourSection(recentCopy.Count, i => recentCopy[i], cols, ref yOffset, false);
             }
 
             GUI.EndGroup();
@@ -754,8 +757,10 @@ namespace Spine.UI.ColourPicker {
             bool pinned = _recentColours.IsPinned(color);
             if (fromPinnedSection || Mouse.IsOver(rect))
             {
-                DrawPinIcon(pinRect, pinned);
-                if (Widgets.ButtonInvisible(pinRect))
+                bool canPin = pinned || _recentColours.CanPin();
+                DrawPinIcon(pinRect, pinned, canPin);
+
+                if (canPin && Widgets.ButtonInvisible(pinRect))
                 {
                     if (pinned)
                     {
@@ -767,6 +772,11 @@ namespace Spine.UI.ColourPicker {
                     }
                     used = true;
                 }
+
+                if (!canPin)
+                {
+                    TooltipHandler.TipRegion(pinRect, "Pin limit reached (max 9)");
+                }
             }
 
             if (!used && Widgets.ButtonInvisible(rect))
@@ -776,7 +786,7 @@ namespace Spine.UI.ColourPicker {
             }
         }
 
-        private void DrawPinIcon(Rect rect, bool active)
+        private void DrawPinIcon(Rect rect, bool active, bool canPin = true)
         {
             if (rect.width <= 0f || rect.height <= 0f)
             {
@@ -789,7 +799,16 @@ namespace Spine.UI.ColourPicker {
 
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.MiddleCenter;
-            GUI.color = active ? Color.yellow : new Color(1f, 1f, 1f, 0.4f);
+
+            if (!canPin)
+            {
+                GUI.color = new Color(1f, 1f, 1f, 0.2f);
+            }
+            else
+            {
+                GUI.color = active ? Color.yellow : new Color(1f, 1f, 1f, 0.4f);
+            }
+
             Widgets.Label(rect, active ? "*" : "+");
 
             GUI.color = oldColor;

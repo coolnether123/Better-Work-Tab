@@ -10,6 +10,7 @@ using Verse;
 namespace Spine.UI.ColourPicker {
     public class RecentColours {
         private const int max = 18;
+        private const int maxPinned = 9;
         private static List<Color> _colors = new List<Color>();
         private static List<Color> _pinnedColors = new List<Color>();
 
@@ -46,8 +47,19 @@ namespace Spine.UI.ColourPicker {
                 return;
             }
 
+            // Don't allow pinning more than maxPinned colors
+            if (_pinnedColors.Count >= maxPinned)
+            {
+                return;
+            }
+
             _pinnedColors.Insert(0, color);
             Write();
+        }
+
+        public bool CanPin()
+        {
+            return _pinnedColors.Count < maxPinned;
         }
 
         public void Unpin(Color color)

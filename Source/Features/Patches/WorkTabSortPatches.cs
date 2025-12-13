@@ -11,7 +11,7 @@ namespace Better_Work_Tab.Patches
     ///
     /// Why: PawnTable by default label-sorts pawns regardless of input sequence. Since our
     /// row drag/drop writes displayOrder on drop, we sort by displayOrder here to reflect
-    /// the user’s manual ordering (Option 1 for rows).
+    /// the user’s manual ordering.
     /// </summary>
     [HarmonyPatch(typeof(PawnTable), nameof(PawnTable.PrimarySortFunction))]
     public static class WorkTab_PrimarySort_UseDisplayOrder
