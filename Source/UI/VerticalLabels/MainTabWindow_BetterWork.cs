@@ -166,7 +166,7 @@ namespace Better_Work_Tab.UI
             var comp = Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
             var settings = BetterWorkTabMod.Settings;
             bool useDividers = (settings?.enableDividers ?? true) && (settings?.showDividers ?? true);
-            var dividers = useDividers ? comp?.CurrentWorklist?.Dividers ?? new List<PawnDivider>() : new List<PawnDivider>();
+            var dividers = useDividers ? comp?.ActiveDividers ?? new List<PawnDivider>() : new List<PawnDivider>();
             return new WorkTabSnapshot(pawns, dividers);
         }
 
