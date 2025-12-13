@@ -102,9 +102,11 @@
     <Compile Include="Spine\Profiling\SpineTiming.cs" />
     <Compile Include="Spine\UI\TextColorHelper.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingDefinition.cs" />
-    <Compile Include="Spine\UI\SettingsFramework\FavoritesManager.cs" />
+    <Compile Include="Spine\UI\SettingsFramework\SettingType.cs" />
+    <Compile Include="Spine\UI\SettingsFramework\SettingsHierarchy.cs" />
+    <Compile Include="Spine\UI\SettingsFramework\SettingWidgets.cs" />
+    <Compile Include="Spine\UI\SettingsFramework\SettingsListDrawer.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingsUIHelpers.cs" />
-    <Compile Include="Spine\UI\SettingsFramework\SettingsTranslation.cs" />
     <Compile Include="Spine\UI\WidgetExtensions\RimworldSettingsWidgets.cs" />
     <Compile Include="UI\RulesetListDragUI.cs" />
     <Compile Include="UI\VerticalLabels\MainTabWindow_BetterWork.cs" />
@@ -116,9 +118,9 @@
     <Compile Include="Spine\UI\ColorPicker\TextField.cs" />
     <Compile Include="Spine\UI\Widgets\SpineWidgets.cs" />
     <Compile Include="UI\Dialog_EditDivider.cs" />
-    <Compile Include="UI\Dialog_SettingsCategory.cs" />
     <Compile Include="UI\BetterWorkTabSettingsUI.cs" />
-    <Compile Include="UI\SettingRenderer.cs" />
+    <Compile Include="UI\Settings\BWTSettingsRegistry.cs" />
+    <Compile Include="UI\Settings\BWTSettingsTranslation.cs" />
     <Compile Include="UI\Window_RulesManager.cs" />
     <Compile Include="UI\Dialog_RenameGeneric.cs" />
     <Compile Include="UI\Dialog_RenameWorkload.cs" />

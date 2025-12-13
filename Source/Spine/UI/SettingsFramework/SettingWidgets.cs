@@ -1,0 +1,281 @@
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+using Verse;
+using Spine.UI.ColourPicker;
+
+namespace Spine.UI.SettingsFramework
+{
+    /// <summary>
+    /// Stateless widget renderers for individual setting types.
+    /// </summary>
+    public static class SettingWidgets
+    {
+        /// <summary>
+        /// Draws a checkbox setting with optional tooltip and disabled state.
+        /// </summary>
+        public static bool DrawBool(
+            Rect rect,
+            string label,
+            ref bool value,
+            string tooltip = null,
+            bool disabled = false)
+        {
+            bool original = value;
+            Widgets.CheckboxLabeled(rect, label, ref value, disabled);
+
+            if (!string.IsNullOrEmpty(tooltip))
+            {
+                TooltipHandler.TipRegion(rect, tooltip);
+            }
+
+            return original != value;
+        }
+
+        /// <summary>
+        /// Draws a horizontal slider for float values with labels.
+        /// </summary>
+        public static bool DrawFloat(
+            Rect rect,
+            string label,
+            ref float value,
+            float min,
+            float max,
+            string minLabel = null,
+            string maxLabel = null,
+            string tooltip = null,
+            bool disabled = false)
+        {
+            float original = value;
+
+            var labelRect = rect.LeftPart(0.5f);
+            var sliderRect = rect.RightPart(0.48f);
+
+            Widgets.Label(labelRect, $"{label}: {value:F1}");
+
+            bool prevEnabled = GUI.enabled;
+            if (disabled)
+            {
+                GUI.enabled = false;
+                GUI.color = Color.gray;
+            }
+
+            value = Widgets.HorizontalSlider(
+                sliderRect,
+                value,
+                min,
+                max,
+                middleAlignment: true,
+                leftAlignedLabel: minLabel,
+                rightAlignedLabel: maxLabel);
+
+            if (disabled)
+            {
+                GUI.enabled = prevEnabled;
+                GUI.color = Color.white;
+            }
+
+            if (!string.IsNullOrEmpty(tooltip))
+            {
+                TooltipHandler.TipRegion(rect, tooltip);
+            }
+
+            return !Mathf.Approximately(original, value);
+        }
+
+        /// <summary>
+        /// Draws an integer slider with optional tooltip.
+        /// </summary>
+        public static bool DrawInt(
+            Rect rect,
+            string label,
+            ref int value,
+            int min,
+            int max,
+            string tooltip = null,
+            bool disabled = false)
+        {
+            int original = value;
+
+            var labelRect = rect.LeftPart(0.5f);
+            var sliderRect = rect.RightPart(0.48f);
+
+            Widgets.Label(labelRect, $"{label}: {value}");
+
+            bool prevEnabled = GUI.enabled;
+            if (disabled)
+            {
+                GUI.enabled = false;
+                GUI.color = Color.gray;
+            }
+
+            float sliderValue = Widgets.HorizontalSlider(sliderRect, value, min, max, true);
+            int rounded = Mathf.RoundToInt(sliderValue);
+            if (rounded < min) rounded = min;
+            if (rounded > max) rounded = max;
+            value = rounded;
+
+            if (disabled)
+            {
+                GUI.enabled = prevEnabled;
+                GUI.color = Color.white;
+            }
+
+            if (!string.IsNullOrEmpty(tooltip))
+            {
+                TooltipHandler.TipRegion(rect, tooltip);
+            }
+
+            return original != value;
+        }
+
+        /// <summary>
+        /// Draws a color swatch with an edit button that opens a picker.
+        /// </summary>
+        public static bool DrawColor(
+            Rect rect,
+            string label,
+            ref Color value,
+            string tooltip = null,
+            bool disabled = false,
+            Action<Color, Action<Color>> openColorPicker = null,
+            string editLabel = "Edit")
+        {
+            var labelRect = rect.LeftPart(0.6f);
+            var colorRect = new Rect(rect.xMax - 96f, rect.y + 2f, 28f, rect.height - 4f);
+            var buttonRect = new Rect(colorRect.xMax + 4f, rect.y + 2f, 60f, rect.height - 4f);
+
+            Widgets.Label(labelRect, label);
+            Widgets.DrawBoxSolid(colorRect, value);
+            Widgets.DrawBox(colorRect, 1);
+
+            if (!disabled && Widgets.ButtonText(buttonRect, editLabel))
+            {
+                if (openColorPicker != null)
+                {
+                    openColorPicker(value, null);
+                }
+                else
+                {
+                    Find.WindowStack.Add(new Dialog_ColourPicker(value));
+                }
+            }
+
+            if (!string.IsNullOrEmpty(tooltip))
+            {
+                TooltipHandler.TipRegion(rect, tooltip);
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Draws an enum dropdown button.
+        /// </summary>
+        public static void DrawEnum(
+            Rect rect,
+            string label,
+            object currentValue,
+            Type enumType,
+            string tooltip = null,
+            bool disabled = false,
+            Action<object> onSelected = null)
+        {
+            var labelRect = rect.LeftPart(0.5f);
+            var buttonRect = rect.RightPart(0.48f);
+
+            Widgets.Label(labelRect, label);
+
+            bool prevEnabled = GUI.enabled;
+            if (disabled)
+            {
+                GUI.enabled = false;
+                GUI.color = Color.gray;
+            }
+
+            if (Widgets.ButtonText(buttonRect, currentValue?.ToString() ?? string.Empty) && enumType != null)
+            {
+                var options = new List<FloatMenuOption>();
+                foreach (var enumValue in Enum.GetValues(enumType))
+                {
+                    var local = enumValue;
+                    options.Add(new FloatMenuOption(local.ToString(), () => onSelected?.Invoke(local)));
+                }
+
+                Find.WindowStack.Add(new FloatMenu(options));
+            }
+
+            if (disabled)
+            {
+                GUI.enabled = prevEnabled;
+                GUI.color = Color.white;
+            }
+
+            if (!string.IsNullOrEmpty(tooltip))
+            {
+                TooltipHandler.TipRegion(rect, tooltip);
+            }
+        }
+
+        /// <summary>
+        /// Draws a clickable button.
+        /// </summary>
+        public static bool DrawButton(
+            Rect rect,
+            string label,
+            string tooltip = null,
+            bool disabled = false)
+        {
+            bool prevEnabled = GUI.enabled;
+            if (disabled)
+            {
+                GUI.enabled = false;
+                GUI.color = Color.gray;
+            }
+
+            bool clicked = Widgets.ButtonText(rect, label);
+
+            if (disabled)
+            {
+                GUI.enabled = prevEnabled;
+                GUI.color = Color.white;
+            }
+
+            if (!string.IsNullOrEmpty(tooltip))
+            {
+                TooltipHandler.TipRegion(rect, tooltip);
+            }
+
+            return clicked;
+        }
+
+        /// <summary>
+        /// Draws a styled section header.
+        /// </summary>
+        public static void DrawHeader(Rect rect, string label, Color? color = null)
+        {
+            var oldFont = Text.Font;
+            var oldColor = GUI.color;
+
+            Text.Font = GameFont.Medium;
+            Color resolved = color ?? new Color(0.9f, 0.85f, 0.7f);
+            GUI.color = resolved;
+            Widgets.Label(rect, label);
+
+            // Underline for visual separation
+            Rect lineRect = new Rect(rect.x, rect.yMax - 4f, rect.width, 2f);
+            Widgets.DrawBoxSolid(lineRect, resolved);
+
+            Text.Font = oldFont;
+            GUI.color = oldColor;
+        }
+
+        /// <summary>
+        /// Draws empty vertical space.
+        /// </summary>
+        public static void DrawSpacer(Rect rect)
+        {
+            // Intentionally left blank
+        }
+    }
+}
