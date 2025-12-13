@@ -292,8 +292,8 @@ namespace Spine.UI.SettingsFramework
             {
                 Id = "layout.clickClose",
                 FieldName = "disableLeftClickClose",
-                Label = "Prevent Click-Off Close",
-                Tooltip = "Keep the Work tab open when clicking the map.",
+                Label = "Keep Tab Open When Selecting Pawn",
+                Tooltip = "Left-clicking a pawn jumps to and selects it but keeps the Work tab open instead of closing (also stops closing on map clicks).",
                 CategoryId = "layout",
                 Type = SettingType.Bool,
                 DefaultValue = false,
