@@ -2,7 +2,7 @@
 using HarmonyLib;
 using RimWorld;
 using System.Collections.Generic;
-using System.Linq;
+using System.Reflection;
 using System.Reflection.Emit;
 using UnityEngine;
 using Verse;
@@ -16,34 +16,73 @@ namespace Better_Work_Tab.UI
         private static int _lastCachedFrame = -1;
         private static Vector2 _cachedMousePos = Vector2.zero;
         private static WorkTypeDef _cachedHoveredWorkType = null;
+        private static Vector2 _lastMousePosChecked = new Vector2(float.NaN, float.NaN);
+        private static WorkTypeDef _lastHoverWorkType = null;
+        private static int _lastHoverResultFrame = -1;
+        private static int _lastColumnsCount = -1;
 
-        [HarmonyPostfix]
+        [HarmonyPrefix]
         [HarmonyPriority(Priority.Last)]
-        public static void Postfix(PawnColumnWorker_WorkPriority __instance, Rect rect, PawnTable table)
+        public static bool Prefix(PawnColumnWorker_WorkPriority __instance, Rect rect, PawnTable table)
         {
+            var evt = Event.current;
+            var evtType = evt?.type ?? EventType.Layout;
+            bool shouldDraw = evtType == EventType.Repaint;
+            bool handleInput = evtType == EventType.MouseDown || evtType == EventType.MouseMove || evtType == EventType.MouseDrag || evtType == EventType.MouseUp;
+            if (!shouldDraw && !handleInput)
+            {
+                return false;
+            }
+
             var workType = __instance?.def?.workType;
-            if (workType == null) return;
+            if (workType == null) return false;
+
+            int columnsCount = PawnTableDefOf.Work?.columns?.Count ?? -1;
 
             // 1. Cache mouse data once per frame to avoid redundant Event.current calls
             int currentFrame = Time.frameCount;
-            if (_lastCachedFrame != currentFrame)
+            if (_lastCachedFrame != currentFrame || handleInput)
             {
-                _cachedMousePos = Event.current?.mousePosition ?? Vector2.zero;
+                _cachedMousePos = evt?.mousePosition ?? Vector2.zero;
                 _lastCachedFrame = currentFrame;
 
                 // Reset hover cache for this frame
                 _cachedHoveredWorkType = null;
             }
 
+            bool mouseUnchanged = _cachedMousePos == _lastMousePosChecked;
+            bool reuseHover = mouseUnchanged && _lastHoverResultFrame == (currentFrame - 1) && _lastColumnsCount == columnsCount;
+
             // 2. Update the global hover tracking if this specific rect is hovered
             // This replaces the old ColumnHoverManager logic
-            if (rect.Contains(_cachedMousePos))
+            if (!AngledHeaderCache.TryGetLayout(rect, workType, AngledLabelDrawer.RotCos, AngledLabelDrawer.RotSin, AngledLabelDrawer.STEM_BOTTOM_GAP, out var cached))
+            {
+                return false;
+            }
+
+            bool isMouseOver = false;
+            if (reuseHover)
+            {
+                isMouseOver = _lastHoverWorkType == workType;
+            }
+            else if (_cachedMousePos.y >= rect.yMin && _cachedMousePos.y <= rect.yMax)
+            {
+                isMouseOver = AngledHeaderCache.IsMouseOver(cached.Quad, _cachedMousePos);
+            }
+
+            if (isMouseOver)
             {
                 _cachedHoveredWorkType = workType;
             }
 
-            bool isMouseOver = (_cachedHoveredWorkType == workType);
-            AngledLabelDrawer.Draw(rect, workType, isMouseOver);
+            // Store hover computation state for potential reuse next frame
+            _lastHoverWorkType = isMouseOver ? workType : null;
+            _lastHoverResultFrame = currentFrame;
+            _lastMousePosChecked = _cachedMousePos;
+            _lastColumnsCount = columnsCount;
+
+            AngledLabelDrawer.HandleInteractions(__instance, table, cached.Layout, cached.Bounds, cached.Quad, isMouseOver, shouldDraw);
+            return false; // Skip vanilla header drawing entirely
         }
 
         // === THIS HIDES THE VANILLA HEADERS ===
@@ -89,7 +128,7 @@ namespace Better_Work_Tab.UI
                 code.RemoveRange(startIndex, count);
             }
 
-            return code.AsEnumerable();
+            return code;
         }
     }
 
@@ -101,76 +140,34 @@ namespace Better_Work_Tab.UI
     public static class AngledLabelDrawer
     {
         public const float ROTATION_ANGLE = -60f;
-        private const float STEM_BOTTOM_GAP = 0f;
+        internal static readonly float RotCos = Mathf.Cos(ROTATION_ANGLE * Mathf.Deg2Rad);
+        internal static readonly float RotSin = Mathf.Sin(ROTATION_ANGLE * Mathf.Deg2Rad);
+        internal const float STEM_BOTTOM_GAP = 0f;
         private const float UNDERLINE_THICKNESS = 1f;
         private const float TEXT_UNDERLINE_GAP = 1f;
         private const bool DRAW_UNDERLINE = true;
 
-        // Cache text sizes to avoid recalculating them every frame
-        private static Dictionary<string, (Vector2 size, int lastUsedFrame)> _textSizeCache =
-            new Dictionary<string, (Vector2, int)>(64);
-
-        private const int TextCacheMaxSize = 100;
-        private const int TextCacheInvalidateFrames = 300;  // ~5 seconds at 60fps
-
-        /// <summary>
-        /// Draws the angled header for a work column.
-        /// If the column was directly dragged by the player, appends an asterisk
-        /// and colors the text yellow to indicate it's been moved from vanilla position.
-        /// </summary>
-        public static void Draw(Rect headerRect, WorkTypeDef workType, bool isMouseOver)
+        public readonly struct AngledLabelLayout
         {
-            if (workType == null) return;
+            public readonly string Text;
+            public readonly Vector2 Size;
+            public readonly Vector2 Pivot;
+            public readonly bool ShowMarker;
 
-            string text = workType.labelShort.CapitalizeFirst();
-
-            // Check if this column should show a marker asterisk.
-            // Only columns directly dragged that are currently out of position get marked.
-            bool shouldShowMarker = MainTabWindow_BetterWork.ShouldShowColumnMarker(workType);
-            string displayText = shouldShowMarker ? text + "*" : text;
-
-            int currentFrame = Time.frameCount;
-
-            // Try to get cached size to avoid recalculating text dimensions
-            if (_textSizeCache.TryGetValue(displayText, out var cached))
+            public AngledLabelLayout(string text, Vector2 size, Vector2 pivot, bool showMarker)
             {
-                // Update last-used frame and use cached size
-                _textSizeCache[displayText] = (cached.size, currentFrame);
-                DrawWithSize(headerRect, displayText, cached.size, shouldShowMarker, isMouseOver);
-                return;
+                Text = text;
+                Size = size;
+                Pivot = pivot;
+                ShowMarker = showMarker;
             }
-
-            // Calculate size (this happens only if not cached)
-            var oldFont = Text.Font;
-            Text.Font = GameFont.Small;
-            Vector2 textSize = Text.CalcSize(displayText);
-            Text.Font = oldFont;
-
-            // Incremental eviction: remove oldest entry if at capacity
-            if (_textSizeCache.Count >= TextCacheMaxSize)
-            {
-                var oldest = _textSizeCache
-                    .OrderBy(kvp => kvp.Value.lastUsedFrame)
-                    .First();
-                _textSizeCache.Remove(oldest.Key);
-            }
-
-            // Cache with timestamp for future frames
-            _textSizeCache[displayText] = (textSize, currentFrame);
-
-            DrawWithSize(headerRect, displayText, textSize, shouldShowMarker, isMouseOver);
         }
 
         /// <summary>
-        /// Internal draw function that handles the actual rendering at a known text size.
-        /// Rotates the text -60 degrees around the pivot point and applies color/styling.
+        /// Draws the angled header for a work column using a prepared layout.
         /// </summary>
-        private static void DrawWithSize(Rect headerRect, string displayText, Vector2 textSize, bool shouldShowMarker, bool isMouseOver)
+        public static void Draw(AngledLabelLayout layout, bool isMouseOver)
         {
-            float centerX = headerRect.x + headerRect.width * 0.5f;
-            // Pivot is at the bottom-center of the column, where text rotation originates
-            Vector2 pivot = new Vector2(centerX, headerRect.yMax - STEM_BOTTOM_GAP);
-
             var savedMatrix = GUI.matrix;
             var savedFont = Text.Font;
             var savedAnchor = Text.Anchor;
@@ -181,8 +178,9 @@ namespace Better_Work_Tab.UI
                 Text.Font = GameFont.Small;
                 Text.Anchor = TextAnchor.MiddleLeft;
 
-                float textWidth = textSize.x;
-                float lineHeight = textSize.y;
+                float textWidth = layout.Size.x;
+                float lineHeight = layout.Size.y;
+                Vector2 pivot = layout.Pivot;
 
                 // Rotate around the pivot point (bottom-center)
                 GUIUtility.RotateAroundPivot(ROTATION_ANGLE, pivot);
@@ -191,7 +189,7 @@ namespace Better_Work_Tab.UI
                 if (isMouseOver)
                 {
                     Rect highlightRect = new Rect(pivot.x, pivot.y - lineHeight, textWidth, lineHeight).ExpandedBy(2f);
-                    GUI.color = new Color(1f, 1f, 1f, 0.2f);
+                    GUI.color = new Color(1f, 1f, 1f, 0.35f); // match vanilla header hover opacity
                     GUI.DrawTexture(highlightRect, TexUI.HighlightTex);
                     GUI.color = Color.white;
                 }
@@ -207,9 +205,9 @@ namespace Better_Work_Tab.UI
                 // Draw the text itself
                 // Color is yellow if marked, white otherwise
                 Text.Anchor = TextAnchor.LowerLeft;
-                GUI.color = shouldShowMarker ? new Color(1f, 0.85f, 0.2f, 1f) : Color.white;
+                GUI.color = layout.ShowMarker ? new Color(1f, 0.85f, 0.2f, 1f) : Color.white;
                 var labelRect = new Rect(pivot.x, pivot.y - lineHeight, 200f, lineHeight);
-                Widgets.Label(labelRect, displayText);
+                Widgets.Label(labelRect, layout.Text);
             }
             finally
             {
@@ -219,6 +217,107 @@ namespace Better_Work_Tab.UI
                 GUI.color = savedColor;
             }
         }
+
+        public static void HandleInteractions(PawnColumnWorker_WorkPriority worker, PawnTable table, AngledLabelLayout layout, Rect bounds, Vector2[] quad, bool isMouseOver, bool shouldDraw)
+        {
+            // Draw visual only on repaint
+            if (shouldDraw)
+            {
+                Draw(layout, isMouseOver);
+            }
+
+            // Handle tooltip on hover
+            if (isMouseOver)
+            {
+                TooltipHandler.TipRegion(bounds, AngledHeaderCache.GetTooltip(worker));
+            }
+
+            // Handle clicks using the rotated hit test; consume the event so vanilla rect logic doesn't double-fire
+            var evt = Event.current;
+            if (evt != null && evt.type == EventType.MouseDown && (evt.button == 0 || evt.button == 1) && isMouseOver)
+            {
+                if (evt.shift)
+                {
+                    HandleShiftClick(worker, table, evt.button);
+                }
+                else
+                {
+                    InvokeBaseHeaderClicked(worker, bounds, table);
+                }
+                evt.Use();
+            }
+        }
+
+        private static void HandleShiftClick(PawnColumnWorker_WorkPriority worker, PawnTable table, int mouseButton)
+        {
+            if (table == null)
+            {
+                return;
+            }
+
+            var pawns = table.PawnsListForReading;
+            var workType = worker?.def?.workType;
+            if (workType == null || pawns == null)
+            {
+                return;
+            }
+
+            bool useWorkPriorities = Find.PlaySettings.useWorkPriorities;
+
+            for (int i = 0; i < pawns.Count; i++)
+            {
+                var pawn = pawns[i];
+                if (pawn?.workSettings == null || !pawn.workSettings.EverWork || pawn.WorkTypeIsDisabled(workType))
+                {
+                    continue;
+                }
+
+                if (useWorkPriorities)
+                {
+                    int priority = pawn.workSettings.GetPriority(workType);
+                    if (mouseButton == 0)
+                    {
+                        int next = priority - 1;
+                        if (next < 0) next = 4;
+                        pawn.workSettings.SetPriority(workType, next);
+                    }
+                    else if (mouseButton == 1)
+                    {
+                        int next = priority + 1;
+                        if (next > 4) next = 0;
+                        pawn.workSettings.SetPriority(workType, next);
+                    }
+                }
+                else
+                {
+                    int current = pawn.workSettings.GetPriority(workType);
+                    if (current > 0)
+                    {
+                        if (mouseButton == 1)
+                        {
+                            pawn.workSettings.SetPriority(workType, 0);
+                        }
+                    }
+                    else if (mouseButton == 0)
+                    {
+                        pawn.workSettings.SetPriority(workType, 3);
+                    }
+                }
+            }
+        }
+
+        private static void InvokeBaseHeaderClicked(PawnColumnWorker_WorkPriority worker, Rect bounds, PawnTable table)
+        {
+            if (worker == null)
+            {
+                return;
+            }
+
+            _baseHeaderClicked ??= AccessTools.Method(typeof(PawnColumnWorker), "HeaderClicked", new[] { typeof(Rect), typeof(PawnTable) });
+            _baseHeaderClicked?.Invoke(worker, new object[] { bounds, table });
+        }
+
+        private static MethodInfo _baseHeaderClicked;
     }
 
     // === HEADER HEIGHT PATCH ===
