@@ -56,7 +56,9 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
             // Delete button
             if (!isReadOnly)
             {
-                Rect deleteRect = new Rect(rect.xMax - DeleteButtonSize - 6f, rect.y + 6f, DeleteButtonSize, DeleteButtonSize);
+                float deleteX = listRect.xMax - DeleteButtonSize - 3f;
+                float deleteY = headerRect.y + (NameHeight - DeleteButtonSize) / 2f;
+                Rect deleteRect = new Rect(deleteX, deleteY, DeleteButtonSize, DeleteButtonSize);
                 if (RWWidgets.ButtonImage(deleteRect, TexButton.Delete, Color.white, GenUI.MouseoverColor))
                 {
                     action = CardAction.Delete;
