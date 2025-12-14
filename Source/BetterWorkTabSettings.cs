@@ -107,6 +107,7 @@ namespace Better_Work_Tab
         public static bool enableWorkloadSaving = true;
         public static bool enableWorkloadLoading = true;
         public static bool persistDividersInWorkloads = true;
+        public static bool alwaysShowConditionEditors = true;
 
         // Template Color Placeholders (for future features)
         public static Color Color_WorktypeIndicator = new Color(0.7f, 0.7f, 0.7f);
@@ -367,6 +368,7 @@ namespace Better_Work_Tab
         public bool enableWorkloadSaving = DefaultSettings.enableWorkloadSaving;
         public bool enableWorkloadLoading = DefaultSettings.enableWorkloadLoading;
         public bool persistDividersInWorkloads = DefaultSettings.persistDividersInWorkloads;
+        public bool alwaysShowConditionEditors = DefaultSettings.alwaysShowConditionEditors;
 
         // Performance
         public bool cacheBedCounts = true;
@@ -612,6 +614,7 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref enableWorkloadSaving, "enableWorkloadSaving", DefaultSettings.enableWorkloadSaving);
             Scribe_Values.Look(ref enableWorkloadLoading, "enableWorkloadLoading", DefaultSettings.enableWorkloadLoading);
             Scribe_Values.Look(ref persistDividersInWorkloads, "persistDividersInWorkloads", DefaultSettings.persistDividersInWorkloads);
+            Scribe_Values.Look(ref alwaysShowConditionEditors, "alwaysShowConditionEditors", DefaultSettings.alwaysShowConditionEditors);
             Scribe_Values.Look(ref cacheBedCounts, "cacheBedCounts", true);
             Scribe_Values.Look(ref cacheSkillLevels, "cacheSkillLevels", true);
             Scribe_Values.Look(ref cacheRowDescriptors, "cacheRowDescriptors", true);
