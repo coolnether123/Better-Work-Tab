@@ -2,6 +2,7 @@
 using Better_Work_Tab.Features.Rules;
 using Better_Work_Tab.Features.Workloads;
 using RimWorld;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Unity.Burst.Intrinsics;
@@ -173,39 +174,38 @@ namespace Better_Work_Tab
         {
             new WorkAssignmentRuleset("Vanilla Starting Pawn", new List<WorkAssignmentParameters>()
             {
-                new WorkAssignmentParameters("Highest Skill", 3, hasHighestSkill: true, randomIfMultiple: true),
-                new WorkAssignmentParameters("Skills > 5", 3, skillLevelGreaterThan: 5),
+                new WorkAssignmentParameters("Top 6", 3, isTopXSkill: 6),
                 new WorkAssignmentParameters("Always Assigns", 3, isNaturalAlwaysAssign: true),
-            }, isDefault: true),
+            }, resetBeforeApplying: true, isDefault: true),
 
             new WorkAssignmentRuleset("Vanilla New Pawn", new List<WorkAssignmentParameters>()
             {
                 new WorkAssignmentParameters("Top 6", 3, isTopXSkill: 6),
                 new WorkAssignmentParameters("Always Assigns", 3, isNaturalAlwaysAssign: true),
-            }, isDefault: true),
+            }, resetBeforeApplying: false, isDefault: true),
 
             new WorkAssignmentRuleset("BWT Default", new List<WorkAssignmentParameters>()
             {
                 new WorkAssignmentParameters("Always Firefight", 1, worktypeString: "Firefighter"),
                 new WorkAssignmentParameters("Best Doc", 1, worktypeString: "Doctor", hasHighestSkill: true),
                 new WorkAssignmentParameters("HaulUrg if able", 2, worktypeString: "HaulUrgently", ignoreIfWorktypeNonexistent: true),
-                new WorkAssignmentParameters("Childcare", 2, worktypeString: "Childcare", hasChildOnMap: true),
+                new WorkAssignmentParameters("Childcare", 2, worktypeString: "Childcare", hasChildOnMap: true, ignoreIfWorktypeNonexistent: true),
                 new WorkAssignmentParameters("Passion 2", 2, passionLevel: 2),
                 new WorkAssignmentParameters("Always haul", 3, worktypeString: "Hauling"),
                 new WorkAssignmentParameters("Passion 1", 3, passionLevel: 1),
                 new WorkAssignmentParameters("Top 6", 3, isTopXSkill: 6),
                 new WorkAssignmentParameters("Always Assigns", 3, isNaturalAlwaysAssign: true),
-            }, isDefault: true),
+            }, resetBeforeApplying: true, isDefault: true),
 
             new WorkAssignmentRuleset("Best Pawn to 1", new List<WorkAssignmentParameters>()
             {
                 new WorkAssignmentParameters("Best to 1", 1, hasHighestSkill: true),
-            }, isDefault: true),
+            }, resetBeforeApplying: false, isDefault: true),
 
             new WorkAssignmentRuleset("Set all to 0", new List<WorkAssignmentParameters>()
             {
-                new WorkAssignmentParameters("Reset", 0),
-            }, isDefault: true)
+                new WorkAssignmentParameters("Reset", 0, allowOverwritingHigherPriority: true),
+            }, resetBeforeApplying: false, isDefault: true)
         };
 
         public static WorkAssignmentRuleset CurrentAutoAssignRuleset = SavedRulesets[0];
@@ -417,8 +417,9 @@ namespace Better_Work_Tab
         /// </summary>
         public void CreateDefaultRulesets()
         {
-            SavedRulesets = new List<WorkAssignmentRuleset>(DefaultSettings.SavedRulesets);
-            CurrentRuleset = SavedRulesets.FirstOrDefault();
+            SavedRulesets = CloneDefaultRulesets();
+            SyncWorktypeReferences(SavedRulesets);
+            CurrentRuleset = SelectPreferredRuleset();
             BetterWorkTabMod.Settings.Write();
         }
 
@@ -431,7 +432,79 @@ namespace Better_Work_Tab
             {
                 SavedRulesets = new List<WorkAssignmentRuleset>();
             }
-            SavedRulesets.AddRange(DefaultSettings.SavedRulesets);
+
+            foreach (var ruleset in CloneDefaultRulesets())
+            {
+                if (!SavedRulesets.Any(rs => string.Equals(rs.Name, ruleset.Name, StringComparison.OrdinalIgnoreCase)))
+                {
+                    SavedRulesets.Add(ruleset);
+                }
+            }
+        }
+
+        private static List<WorkAssignmentRuleset> CloneDefaultRulesets()
+        {
+            return DefaultSettings.SavedRulesets
+                .Select(CloneRulesetTemplate)
+                .ToList();
+        }
+
+        private static WorkAssignmentRuleset CloneRulesetTemplate(WorkAssignmentRuleset template)
+        {
+            var clonedRules = template.Rules?
+                .Select(rule => new WorkAssignmentRule(
+                    rule.Name,
+                    rule.Parameters?.Copy() ?? new WorkAssignmentParameters(),
+                    rule.CachedWorktype))
+                .ToList() ?? new List<WorkAssignmentRule>();
+
+            return new WorkAssignmentRuleset(
+                template.Name,
+                clonedRules,
+                template.ResetBeforeApplying,
+                template.IsDefault);
+        }
+
+        private static void SyncWorktypeReferences(IEnumerable<WorkAssignmentRuleset> rulesets)
+        {
+            if (rulesets == null)
+            {
+                return;
+            }
+
+            foreach (var ruleset in rulesets)
+            {
+                foreach (var rule in ruleset.Rules)
+                {
+                    var parameters = rule.Parameters;
+                    if (parameters == null)
+                    {
+                        continue;
+                    }
+
+                    if (parameters.Worktype == null && !string.IsNullOrEmpty(parameters.WorktypeString))
+                    {
+                        parameters.Worktype = DefDatabase<WorkTypeDef>.GetNamedSilentFail(parameters.WorktypeString);
+                    }
+                    else if (parameters.Worktype != null && string.IsNullOrEmpty(parameters.WorktypeString))
+                    {
+                        parameters.WorktypeString = parameters.Worktype.defName;
+                    }
+                }
+            }
+        }
+
+        private WorkAssignmentRuleset SelectPreferredRuleset()
+        {
+            if (SavedRulesets == null || !SavedRulesets.Any())
+            {
+                return null;
+            }
+
+            var preferred = SavedRulesets.FirstOrDefault(rs =>
+                string.Equals(rs.Name, defaultAutoAssignRuleset, StringComparison.OrdinalIgnoreCase));
+
+            return preferred ?? SavedRulesets.First();
         }
 
         public override void ExposeData()
@@ -639,44 +712,48 @@ namespace Better_Work_Tab
         /// </summary>
         public void InitializeRulesets()
         {
-
-            // Create the list if it doesn't exist
             if (SavedRulesets == null)
             {
                 SavedRulesets = new List<WorkAssignmentRuleset>();
             }
 
-            // If there are no saved rulesets, restore from defaults
+            var defaultRules = CloneDefaultRulesets();
+
             if (!SavedRulesets.Any())
             {
-                SavedRulesets.AddRange(DefaultSettings.SavedRulesets); // Moved from the foreach loop since that would apply it 5 times.
-
-                // Ensure worktypes and strings are synchronized
-                foreach (var ruleset in SavedRulesets)
+                SavedRulesets.AddRange(defaultRules);
+            }
+            else
+            {
+                foreach (var template in defaultRules)
                 {
-                    foreach (var rule in ruleset.Rules)
-                    {
-                        var parameters = rule.Parameters;
+                    int existingIndex = SavedRulesets.FindIndex(rs =>
+                        string.Equals(rs.Name, template.Name, StringComparison.OrdinalIgnoreCase));
 
-                        // Sync worktype <-> worktype string
-                        if (parameters.Worktype == null && !string.IsNullOrEmpty(parameters.WorktypeString))
-                        {
-                            parameters.Worktype = DefDatabase<WorkTypeDef>.GetNamedSilentFail(parameters.WorktypeString);
-                        }
-                        else if (parameters.Worktype != null && string.IsNullOrEmpty(parameters.WorktypeString))
-                        {
-                            parameters.WorktypeString = parameters.Worktype.defName;
-                        }
+                    if (existingIndex >= 0)
+                    {
+                        SavedRulesets[existingIndex] = template;
+                    }
+                    else
+                    {
+                        SavedRulesets.Add(template);
                     }
                 }
             }
 
-            // Set current ruleset to first available if none selected
-            if (CurrentRuleset == null && SavedRulesets.Any())
+            SyncWorktypeReferences(SavedRulesets);
+
+            // Re-select by name if the old reference was replaced by a fresh template.
+            if (CurrentRuleset != null && !SavedRulesets.Contains(CurrentRuleset))
             {
-                CurrentRuleset = SavedRulesets.FirstOrDefault();
+                CurrentRuleset = SavedRulesets.FirstOrDefault(rs =>
+                    string.Equals(rs.Name, CurrentRuleset.Name, StringComparison.OrdinalIgnoreCase));
             }
 
+            if (CurrentRuleset == null && SavedRulesets.Any())
+            {
+                CurrentRuleset = SelectPreferredRuleset();
+            }
         }
 
         /// <summary>

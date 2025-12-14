@@ -123,7 +123,9 @@ namespace Better_Work_Tab.Features.Rules
         {
             EnsureNonWorktypeDefsCached();
 
-            if (Parameters.Worktype == null && !string.IsNullOrEmpty(Parameters.WorktypeString))
+            bool hasExplicitWorktypeString = !string.IsNullOrEmpty(Parameters.WorktypeString);
+
+            if (Parameters.Worktype == null && hasExplicitWorktypeString)
             {
                 Parameters.Worktype = DefDatabase<WorkTypeDef>.GetNamedSilentFail(Parameters.WorktypeString);
                 if (Parameters.Worktype == null && Parameters.IgnoreIfWorktypeNonexistent)
@@ -134,12 +136,12 @@ namespace Better_Work_Tab.Features.Rules
 
             WorkTypeDef resolved = Parameters.Worktype ?? CachedWorktype ?? callSiteWorktype;
 
-            if (resolved == null && !string.IsNullOrEmpty(Parameters.WorktypeString))
+            if (resolved == null && hasExplicitWorktypeString)
             {
                 int key = $"BWTMissingWorktype_{Parameters.WorktypeString}".GetHashCode();
                 Log.WarningOnce($"[BWT] Unable to resolve worktype \"{Parameters.WorktypeString}\" for rule \"{Name}\".", key);
             }
-            else if (resolved != null && Parameters.WorktypeString != resolved.defName)
+            else if (resolved != null && hasExplicitWorktypeString && Parameters.WorktypeString != resolved.defName)
             {
                 Parameters.WorktypeString = resolved.defName;
             }
