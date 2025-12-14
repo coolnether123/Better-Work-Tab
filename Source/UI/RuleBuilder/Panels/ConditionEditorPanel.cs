@@ -26,6 +26,8 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
         private const float AddButtonHeight = 32f;
         private const float ConditionSetMinHeight = 80f;
         private const float ConditionSetSpacing = 8f;
+        private bool _expandedChain;
+        private int _lastPriority = -1;
 
         /// <summary>
         /// Draws the condition editor panel.
@@ -72,10 +74,15 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
 
         private void DrawHeader(Rect rect, RuleBuilderState state)
         {
-            // Work type + Priority display
-            string workTypeName = state.SelectedWorkType.labelShort.CapitalizeFirst();
-            int priority = state.SelectedPriority;
-            Color priorityColor = RuleBuilderConstants.PriorityColors[priority];
+            // Collapse chain when selected priority changes to mimic initial view
+            // (only show up to the active priority until explicitly expanded).
+            // This keeps the header concise while editing.
+            // The chain will expand only when user clicks the "more" segment.
+            if (state.SelectedPriority != _lastPriority)
+            {
+                _expandedChain = false;
+                _lastPriority = state.SelectedPriority;
+            }
 
             // Title line
             Rect titleRect = new Rect(rect.x, rect.y, rect.width, 28f);
@@ -84,31 +91,9 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             GUI.color = RuleBuilderConstants.HeaderColor;
             RWWidgets.Label(titleRect, "BWT_ConditionsFor".Translate());
 
-            // Work type + priority badges
-            Rect badgesRect = new Rect(rect.x, titleRect.yMax, rect.width, 20f);
-
-            // Work type badge
-            float workTypeWidth = Text.CalcSize(workTypeName).x + 16f;
-            Rect workTypeBadge = new Rect(badgesRect.x, badgesRect.y, workTypeWidth, badgesRect.height);
-            RWWidgets.DrawBoxSolid(workTypeBadge, RuleBuilderConstants.CardBackground);
-            RWWidgets.DrawBox(workTypeBadge, 1);
-            Text.Anchor = TextAnchor.MiddleCenter;
-            GUI.color = Color.white;
-            RWWidgets.Label(workTypeBadge, workTypeName);
-
-            // Arrow
-            Rect arrowRect = new Rect(workTypeBadge.xMax + 4f, badgesRect.y, 20f, badgesRect.height);
-            GUI.color = RuleBuilderConstants.SubtleTextColor;
-            RWWidgets.Label(arrowRect, "→");
-
-            // Priority badge
-            string priorityLabel = priority == 0 ? "X" : $"P{priority}";
-            float priorityWidth = Text.CalcSize(priorityLabel).x + 16f;
-            Rect priorityBadge = new Rect(arrowRect.xMax + 4f, badgesRect.y, priorityWidth, badgesRect.height);
-            RWWidgets.DrawBoxSolid(priorityBadge, priorityColor);
-            RWWidgets.DrawBox(priorityBadge, 1);
-            GUI.color = Color.white;
-            RWWidgets.Label(priorityBadge, priorityLabel);
+            // Work type + priority chain (collapsible, supports dynamic priorities)
+            Rect chainRect = new Rect(rect.x, titleRect.yMax, rect.width, 24f);
+            _expandedChain = PriorityChainWidget.Draw(chainRect, state, _expandedChain);
 
             Text.Anchor = TextAnchor.UpperLeft;
             GUI.color = Color.white;

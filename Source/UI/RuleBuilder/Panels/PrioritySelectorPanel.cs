@@ -18,6 +18,8 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
         private const float ButtonHeight = 40f;
         private const float ButtonSpacing = 6f;
         private const float BadgeSize = 20f;
+        private string _draggingKey;
+        private float? _previewLineY;
 
         /// <summary>
         /// Draws the priority selector panel.
@@ -28,6 +30,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             RWWidgets.DrawBox(rect, 1);
 
             Rect innerRect = rect.ContractedBy(8f);
+            state.EnsurePriorityOrder();
 
             if (state.SelectedWorkType == null)
             {
@@ -78,12 +81,15 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
 
             // Buttons
             float buttonY = labelRect.yMax + 8f;
+            var order = state.PriorityOrder;
+            var rects = new System.Collections.Generic.List<(int priority, Rect rect)>();
 
-            for (int priority = 0; priority <= state.MaxPriority; priority++)
+            for (int idx = 0; idx < order.Count; idx++)
             {
+                int priority = order[idx];
                 Rect buttonRect = new Rect(
                     rect.x,
-                    buttonY + priority * (ButtonHeight + ButtonSpacing),
+                    buttonY + idx * (ButtonHeight + ButtonSpacing),
                     rect.width,
                     ButtonHeight);
 
@@ -91,6 +97,20 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
                 bool isSelected = state.SelectedPriority == priority;
 
                 DrawPriorityButton(buttonRect, priority, ruleCount, isSelected, isReadOnly, state);
+                rects.Add((priority, buttonRect));
+            }
+
+            if (!isReadOnly)
+            {
+                HandlePriorityDrag(rects, state);
+            }
+
+            if (_previewLineY.HasValue)
+            {
+                var oldColor = GUI.color;
+                GUI.color = RuleBuilderConstants.HeaderColor;
+                RWWidgets.DrawLineHorizontal(rect.x, _previewLineY.Value, rect.width);
+                GUI.color = oldColor;
             }
         }
 
@@ -235,6 +255,64 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             RWWidgets.Label(rect, message);
             Text.Anchor = TextAnchor.UpperLeft;
             GUI.color = Color.white;
+        }
+
+        private void HandlePriorityDrag(System.Collections.Generic.List<(int priority, Rect rect)> rects, RuleBuilderState state)
+        {
+            var evt = Event.current;
+            if (evt == null || rects.Count == 0) return;
+
+            if (evt.type == EventType.MouseDown && evt.button == 0)
+            {
+                foreach (var tuple in rects)
+                {
+                    if (tuple.rect.Contains(evt.mousePosition))
+                    {
+                        _draggingKey = tuple.priority.ToString();
+                        evt.Use();
+                        break;
+                    }
+                }
+            }
+            else if (!string.IsNullOrEmpty(_draggingKey) && (evt.type == EventType.MouseDrag || evt.type == EventType.MouseMove))
+            {
+                int draggingPriority = int.Parse(_draggingKey);
+                int targetIndex = CalculateTargetIndex(rects, evt.mousePosition.y);
+                state.MovePriority(draggingPriority, targetIndex);
+                _previewLineY = CalculatePreviewLine(rects, targetIndex);
+                evt.Use();
+            }
+            else if (!string.IsNullOrEmpty(_draggingKey) && (evt.type == EventType.MouseUp || evt.type == EventType.MouseLeaveWindow))
+            {
+                _draggingKey = null;
+                _previewLineY = null;
+                evt.Use();
+            }
+        }
+
+        private int CalculateTargetIndex(System.Collections.Generic.List<(int priority, Rect rect)> rects, float mouseY)
+        {
+            for (int i = 0; i < rects.Count; i++)
+            {
+                if (mouseY < rects[i].rect.center.y)
+                {
+                    return i;
+                }
+            }
+            return rects.Count;
+        }
+
+        private float CalculatePreviewLine(System.Collections.Generic.List<(int priority, Rect rect)> rects, int targetIndex)
+        {
+            if (targetIndex <= 0)
+            {
+                return rects[0].rect.y;
+            }
+            if (targetIndex >= rects.Count)
+            {
+                return rects[^1].rect.yMax;
+            }
+            return rects[targetIndex - 1].rect.yMax;
         }
     }
 }
