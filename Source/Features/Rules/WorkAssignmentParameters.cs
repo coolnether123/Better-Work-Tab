@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Verse;
+using Better_Work_Tab;
 
 namespace Better_Work_Tab.Features.Rules
 {
@@ -338,13 +339,23 @@ namespace Better_Work_Tab.Features.Rules
 
         private void ResolveWorktypeFromString()
         {
-            if (Worktype == null && !string.IsNullOrEmpty(WorktypeString))
+            if (string.IsNullOrEmpty(WorktypeString))
             {
-                Worktype = DefDatabase<WorkTypeDef>.GetNamedSilentFail(WorktypeString);
+                Worktype = null;
+                return;
+            }
 
-                if (Worktype == null && IgnoreIfWorktypeNonexistent)
+            Worktype = DefDatabase<WorkTypeDef>.GetNamedSilentFail(WorktypeString);
+            if (Worktype == null)
+            {
+                // Only warn if we're NOT currently loading a save file
+                if (Scribe.mode != LoadSaveMode.LoadingVars &&
+                    Scribe.mode != LoadSaveMode.PostLoadInit &&
+                    (BetterWorkTabMod.Settings?.enableDebugLogging ?? false))
                 {
-                    Log.Warning($"[BWT] Worktype \"{WorktypeString}\" referenced by rule \"{RuleName}\" is missing; rule will be skipped.");
+                    Log.Warning(
+                        $"[BWT] Worktype \"{WorktypeString}\" referenced by rule \"{RuleName}\" is missing; rule will be skipped."
+                    );
                 }
             }
         }
@@ -379,7 +390,14 @@ namespace Better_Work_Tab.Features.Rules
                 else
                 {
                     RequiredTrait = null;
-                    Log.Warning($"[BWT] Trait \"{TraitString}\" referenced by rule \"{RuleName}\" no longer exists; clearing requirement.");
+                    // Don't warn during save load; only when debug is enabled AND we're in normal gameplay
+                    if (Scribe.mode == LoadSaveMode.Inactive &&
+                        (BetterWorkTabMod.Settings?.enableDebugLogging ?? false))
+                    {
+                        Log.Warning(
+                            $"[BWT] Trait \"{TraitString}\" referenced by rule \"{RuleName}\" no longer exists; clearing requirement."
+                        );
+                    }
                 }
             }
             else

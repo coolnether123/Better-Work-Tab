@@ -1,6 +1,7 @@
 using Better_Work_Tab.Features.Rules;
 using Better_Work_Tab.UI.RuleBuilder.Services;
 using Better_Work_Tab.UI.RuleBuilder.State;
+using System.Collections.Generic;
 using UnityEngine;
 using Verse;
 using Verse.Sound;
@@ -16,6 +17,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
         public enum CardAction { None, Delete, Edit }
 
         private static string _editingConditionKey;
+        private static readonly ConditionDragController DragController = new ConditionDragController();
 
         private const float NameHeight = 24f;
         private const float RowHeight = 28f;
@@ -100,6 +102,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
         {
             var conditions = ConditionRegistry.GetActiveConditions(parameters);
             float curY = rect.y;
+            var rowRects = new List<(string key, Rect rect)>();
 
             if (conditions.Count == 0)
             {
@@ -116,7 +119,22 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
                 {
                     Rect rowRect = new Rect(rect.x, curY, rect.width, RowHeight);
                     DrawConditionRow(rowRect, condition, isReadOnly, parameters, state);
+                    rowRects.Add((condition.Key, rowRect));
                     curY += RowHeight + RowSpacing;
+                }
+            }
+
+            // Enable drag/drop reordering to match classic rule editing flexibility.
+            if (!isReadOnly)
+            {
+                DragController.HandleDrag(rowRects, parameters, state);
+                if (DragController.IsDragging && DragController.PreviewLineY.HasValue)
+                {
+                    float lineY = DragController.PreviewLineY.Value;
+                    var oldColor = GUI.color;
+                    GUI.color = RuleBuilderConstants.HeaderColor;
+                    RWWidgets.DrawLineHorizontal(rect.x, lineY, rect.width);
+                    GUI.color = oldColor;
                 }
             }
 
