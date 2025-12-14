@@ -4,7 +4,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Verse;
-using System.Reflection;
 
 namespace Better_Work_Tab.Features.Rules
 {
@@ -91,10 +90,34 @@ namespace Better_Work_Tab.Features.Rules
         [RuleParameter]
         public float MoveSpeedLessThan = -1;
 
+        /// <summary>
+        /// Serialization fallback when <see cref="Worktype"/> cannot be resolved.
+        /// Populated before saving and used to re-resolve defs after load.
+        /// </summary>
         public string WorktypeString = "";
+
+        /// <summary>
+        /// Serialization fallback for <see cref="Xenotype"/>.
+        /// Preserves the xenotype defName even if the def is missing on load.
+        /// </summary>
         public string XenotypeString = "";
+
+        /// <summary>
+        /// Serialization fallback for <see cref="RequiredTrait"/>.<see cref="Tuple{T1,T2}.Item1"/>.
+        /// Keeps the trait defName around so we can warn if it no longer exists.
+        /// </summary>
         public string TraitString = "";
+
+        /// <summary>
+        /// Serialization fallback for <see cref="RequiredTrait"/>.<see cref="Tuple{T1,T2}.Item2"/>.
+        /// Stored alongside <see cref="TraitString"/> so trait requirements can be reconstructed.
+        /// </summary>
         public int? TraitDegree = null;
+
+        /// <summary>
+        /// Names of condition fields that are explicitly active for this rule.
+        /// Values must match <see cref="RuleParameterAttribute"/> field names on <see cref="WorkAssignmentParameters"/>.
+        /// </summary>
         public List<string> ActiveConditions = new List<string>();
 
 
@@ -180,11 +203,48 @@ namespace Better_Work_Tab.Features.Rules
         }
         public WorkAssignmentParameters() { }
 
+        /// <summary>
+        /// Creates a deep copy of this parameter set.
+        /// Reference-type fields are cloned to avoid shared state between rules.
+        /// </summary>
         public WorkAssignmentParameters Copy()
         {
-            var copy = (WorkAssignmentParameters)this.MemberwiseClone();
-            copy.ActiveConditions = ActiveConditions?.ToList() ?? new List<string>();
-            return copy;
+            return new WorkAssignmentParameters
+            {
+                RuleName = RuleName,
+                Worktype = Worktype,
+                IgnoreIfWorktypeNonexistent = IgnoreIfWorktypeNonexistent,
+                Priority = Priority,
+                AllowOverwritingHigherPriority = AllowOverwritingHigherPriority,
+                PassionLevel = PassionLevel,
+                Xenotype = Xenotype,
+                RequiredTrait = RequiredTrait != null
+                    ? new Tuple<TraitDef, int>(RequiredTrait.Item1, RequiredTrait.Item2)
+                    : null,
+                Gender = Gender,
+                HasHighestSkill = HasHighestSkill,
+                IsTopXSkill = IsTopXSkill,
+                IsNthBestPawn = IsNthBestPawn,
+                IsNthBestSkill = IsNthBestSkill,
+                RandomIfMultiple = RandomIfMultiple,
+                IsNaturalAlwaysAssign = IsNaturalAlwaysAssign,
+                AssignToPawnWithFewestWorkPriorities = AssignToPawnWithFewestWorkPriorities,
+                SkipIfAnotherPawnAssigned = SkipIfAnotherPawnAssigned,
+                SkipIfPriorityForThisWorktypeAreadyAssigned = SkipIfPriorityForThisWorktypeAreadyAssigned,
+                LimitNumberOfWorktypes = LimitNumberOfWorktypes,
+                SkillLevelGreaterThan = SkillLevelGreaterThan,
+                SkillLevelLessThan = SkillLevelLessThan,
+                IsCapableOfViolence = IsCapableOfViolence,
+                IsPregnant = IsPregnant,
+                HasChildOnMap = HasChildOnMap,
+                MoveSpeedGreaterThan = MoveSpeedGreaterThan,
+                MoveSpeedLessThan = MoveSpeedLessThan,
+                WorktypeString = WorktypeString,
+                XenotypeString = XenotypeString,
+                TraitString = TraitString,
+                TraitDegree = TraitDegree,
+                ActiveConditions = ActiveConditions?.ToList() ?? new List<string>()
+            };
         }
 
         public void ExposeData()
@@ -241,6 +301,7 @@ namespace Better_Work_Tab.Features.Rules
                 ResolveWorktypeFromString();
                 ResolveXenotypeFromString();
                 ResolveTraitRequirement(requiredTraitDef, requiredTraitDegree);
+                ValidateActiveConditions();
             }
         }
 
@@ -250,6 +311,29 @@ namespace Better_Work_Tab.Features.Rules
             XenotypeString = Xenotype?.defName ?? XenotypeString ?? "";
             TraitString = RequiredTrait?.Item1?.defName ?? TraitString ?? "";
             TraitDegree = RequiredTrait?.Item2 ?? TraitDegree;
+        }
+
+        /// <summary>
+        /// Removes any condition names that no longer correspond to known parameters.
+        /// Should be invoked after deserialization to catch stale or renamed fields.
+        /// </summary>
+        public void ValidateActiveConditions()
+        {
+            if (ActiveConditions == null || ActiveConditions.Count == 0)
+            {
+                return;
+            }
+
+            var validFieldNames = RuleParameterRegistry.FieldNames;
+            var invalid = ActiveConditions
+                .Where(name => !validFieldNames.Contains(name))
+                .ToList();
+
+            foreach (var orphan in invalid)
+            {
+                ActiveConditions.Remove(orphan);
+                Log.Warning($"[BWT] Rule \"{RuleName}\" references unknown condition \"{orphan}\"; removing.");
+            }
         }
 
         private void ResolveWorktypeFromString()

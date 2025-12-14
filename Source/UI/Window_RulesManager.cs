@@ -35,11 +35,8 @@ namespace Better_Work_Tab.UI
         private WorkAssignmentRule _pendingRuleDrag;
 
         // Parameter field caching
-        private static readonly Lazy<FieldInfo[]> CachedParameterFields = new Lazy<FieldInfo[]>(() =>
-            typeof(WorkAssignmentParameters)
-                .GetFields(BindingFlags.Public | BindingFlags.Instance)
-                .Where(f => f.GetCustomAttribute<RuleParameterAttribute>() != null)
-                .ToArray());
+        private static readonly Lazy<FieldInfo[]> CachedParameterFields = new Lazy<FieldInfo[]>(
+            () => RuleParameterRegistry.Fields.ToArray());
 
         private const float ParameterRowHeight = 32f;
         private const float ParameterRowWidthReduction = 30f;

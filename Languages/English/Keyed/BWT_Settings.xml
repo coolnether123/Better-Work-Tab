@@ -94,6 +94,9 @@
     <!-- Advanced Settings -->
     <BWT_Settings_advanced.autoAssign>Enable Auto-Assign System</BWT_Settings_advanced.autoAssign>
     <BWT_Settings_advanced.autoAssign_Tooltip>Show auto-assign buttons and enable ruleset logic.</BWT_Settings_advanced.autoAssign_Tooltip>
+
+    <BWT_Settings_autoAssign.alwaysShowConditionEditors>Always show condition editors</BWT_Settings_autoAssign.alwaysShowConditionEditors>
+    <BWT_Settings_autoAssign.alwaysShowConditionEditors_Tooltip>Condition rows are always editable without an initial click.</BWT_Settings_autoAssign.alwaysShowConditionEditors_Tooltip>
     
     <BWT_Settings_advanced.hideWorkloadBtn>Hide Workloads Button</BWT_Settings_advanced.hideWorkloadBtn>
     <BWT_Settings_advanced.hideWorkloadBtn_Tooltip>Hide the Workload button from the Work tab footer.</BWT_Settings_advanced.hideWorkloadBtn_Tooltip>

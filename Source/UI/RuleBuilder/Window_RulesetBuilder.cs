@@ -38,11 +38,11 @@ namespace Better_Work_Tab.UI.RuleBuilder
 
         public Window_RulesetBuilder()
         {
-            forcePause = true;
+            forcePause = false;
             doCloseX = true;
             preventCameraMotion = true;
-            resizeable = true;
-            draggable = true;
+            resizeable = false;
+            draggable = false;
         }
 
         public override Vector2 InitialSize => new Vector2(1100f, 700f);
@@ -98,7 +98,7 @@ namespace Better_Work_Tab.UI.RuleBuilder
             Text.Font = GameFont.Medium;
             Text.Anchor = TextAnchor.MiddleLeft;
             GUI.color = RuleBuilderConstants.HeaderColor;
-            RWWidgets.Label(titleRect, "BWT_RulesetBuilder".Translate());
+            RWWidgets.Label(titleRect, "BWT_RuleBuilder_Title".Translate());
             GUI.color = Color.white;
 
             // Ruleset dropdown
@@ -151,7 +151,7 @@ namespace Better_Work_Tab.UI.RuleBuilder
                     options.Add(new FloatMenuOption("---", null));
                 }
 
-                options.Add(new FloatMenuOption("BWT_ManageRulesets".Translate(), () =>
+                options.Add(new FloatMenuOption("BWT_RuleBuilder_ManageRulesets".Translate(), () =>
                 {
                     Find.WindowStack.Add(new Window_RulesManager());
                 }));

@@ -21,6 +21,9 @@ namespace Better_Work_Tab.UI.RuleBuilder
         /// <summary>Standard padding inside panels.</summary>
         public const float PanelPadding = 12f;
 
+        /// <summary>Background for panel chrome and headers.</summary>
+        public static readonly Color PanelBackground = new Color(0.14f, 0.14f, 0.14f, 0.95f);
+
         /// <summary>Width of priority selector column (middle).</summary>
         public const float PrioritySelectorColumnWidth = 240f;
 
@@ -39,6 +42,21 @@ namespace Better_Work_Tab.UI.RuleBuilder
         /// <summary>Height of condition set card header.</summary>
         public const float ConditionSetHeaderHeight = 32f;
 
+        /// <summary>Row height for inline condition editors.</summary>
+        public const float ConditionRowHeight = 28f;
+
+        /// <summary>Maximum characters allowed for rule names.</summary>
+        public const int MaxRuleNameLength = 64;
+
+        /// <summary>Width of a work type card in the selector grid.</summary>
+        public const float WorkTypeCardWidth = 170f;
+
+        /// <summary>Height of a work type card in the selector grid.</summary>
+        public const float WorkTypeCardHeight = 120f;
+
+        /// <summary>Spacing between cards in grids and rows.</summary>
+        public const float CardSpacing = 8f;
+
         // ═══════════════════════════════════════════════════════════════
         // COLORS
         // ═══════════════════════════════════════════════════════════════
@@ -54,6 +72,9 @@ namespace Better_Work_Tab.UI.RuleBuilder
 
         /// <summary>Light background for panel sections.</summary>
         public static readonly Color PanelBackgroundLight = new Color(0.16f, 0.16f, 0.16f, 0.95f);
+
+        /// <summary>Border color for configured items.</summary>
+        public static readonly Color CardBorderConfigured = new Color(0.45f, 0.9f, 0.45f);
 
         /// <summary>Color for section headers.</summary>
         public static readonly Color HeaderColor = new Color(0.9f, 0.85f, 0.7f);

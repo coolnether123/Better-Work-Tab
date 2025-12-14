@@ -4,6 +4,7 @@ using Better_Work_Tab.Features;
 using Better_Work_Tab.Patches;
 using Spine.UI.SettingsFramework;
 using UnityEngine;
+using Verse;
 using static Better_Work_Tab.UI.Settings.SettingIDs;
 
 namespace Better_Work_Tab.UI.Settings
@@ -980,14 +981,14 @@ namespace Better_Work_Tab.UI.Settings
             {
                 Id = AdvancedAlwaysShowConditionEditors,
                 ParentId = FeaturesAutoassign,
-                FieldName = "alwaysShowConditionEditors",
-                Label = "Always show condition editors",
-                Tooltip = "When enabled, condition rows are always editable without clicking first.",
+                FieldName = nameof(BetterWorkTabSettings.alwaysShowConditionEditors),
+                Label = "BWT_Settings_autoAssign.alwaysShowConditionEditors".Translate(),
+                Tooltip = "BWT_Settings_autoAssign.alwaysShowConditionEditors_Tooltip".Translate(),
                 Type = SettingType.Bool,
-                DefaultValue = true,
+                DefaultValue = DefaultSettings.alwaysShowConditionEditors,
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
-                SortOrder = 420
+                SortOrder = 420 // After persistDividersInWorkloads (4025), before perf toggles
             });
 
             // Workloads are above; Performance toggles

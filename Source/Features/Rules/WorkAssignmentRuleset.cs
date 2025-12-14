@@ -137,7 +137,7 @@ namespace Better_Work_Tab.Features
                             //if (p.workSettings.GetPriority(worktype) == rule.Parameters.Priority)
                             p.workSettings.SetPriority(worktype, 0);
                         }
-                        //directly ripped straight out of rimworld but what can I do? it's a mod lol.
+                        // Mirrors vanilla RimWorld's selection logic for picking one pawn among eligible candidates.
                         List<Pawn> eligiblePawns = new List<Pawn>();
                         foreach (var pawn in pawnsForThisWorktype)
                         {
