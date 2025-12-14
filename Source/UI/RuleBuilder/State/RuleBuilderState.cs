@@ -61,6 +61,16 @@ namespace Better_Work_Tab.UI.RuleBuilder.State
         /// </summary>
         public bool IsRulesetReadOnly => SelectedRuleset?.IsDefault ?? true;
 
+        /// <summary>
+        /// Current wizard step for the rule builder UI.
+        /// </summary>
+        public RuleBuilderStep CurrentStep { get; private set; } = RuleBuilderStep.SelectWorkType;
+
+        /// <summary>
+        /// When true, the work type selector shows only work types that already have rules configured.
+        /// </summary>
+        public bool ShowOnlyConfiguredWorkTypes { get; set; }
+
         // ═══════════════════════════════════════════════════════════════
         // COLUMN 1: WORK TYPE SELECTION
         // ═══════════════════════════════════════════════════════════════
@@ -171,6 +181,12 @@ namespace Better_Work_Tab.UI.RuleBuilder.State
                 return GetRulesFor(SelectedWorkType, SelectedPriority);
             }
         }
+
+        /// <summary>
+        /// All rules that apply to the currently selected work type.
+        /// </summary>
+        public List<WorkAssignmentRule> RulesForSelectedWorkType =>
+            SelectedWorkType == null ? new List<WorkAssignmentRule>() : GetRulesForWorkType(SelectedWorkType);
 
         /// <summary>
         /// Gets the count of rules for each priority level for the selected work type.
@@ -375,6 +391,25 @@ namespace Better_Work_Tab.UI.RuleBuilder.State
             SelectedPriority = -1;
             SelectedRule = null;
             WorkTypeSearchFilter = "";
+            CurrentStep = RuleBuilderStep.SelectWorkType;
+        }
+
+        /// <summary>
+        /// Advance the UI to the specified step.
+        /// </summary>
+        public void NavigateTo(RuleBuilderStep step)
+        {
+            CurrentStep = step;
+        }
+
+        /// <summary>
+        /// Navigate back to work type selection and clear downstream selections.
+        /// </summary>
+        public void NavigateBack()
+        {
+            CurrentStep = RuleBuilderStep.SelectWorkType;
+            SelectedPriority = -1;
+            SelectedRule = null;
         }
     }
 }

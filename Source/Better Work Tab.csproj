@@ -59,6 +59,7 @@
     <Compile Include="Features\Rules\WorkAssignmentRuleset.cs" />
     <Compile Include="Features\Rules\WorkAssignmentRule.cs" />
     <Compile Include="Features\Rules\WorkAssignmentParameters.cs" />
+    <Compile Include="Features\Rules\RuleParameterRegistry.cs" />
     <Compile Include="Features\ColumnBaselineManager.cs" />
     <Compile Include="Features\WorkExecutionOrder.cs" />
     <Compile Include="Features\Workloads\GameComponent_BWTWorldSettings.cs" />
@@ -138,12 +139,18 @@
     <Compile Include="UI\RuleBuilder\Services\RuleMatchCalculator.cs" />
     <Compile Include="UI\RuleBuilder\Services\ConditionNameGenerator.cs" />
     <Compile Include="UI\RuleBuilder\Services\ConditionRegistry.cs" />
+    <Compile Include="UI\RuleBuilder\Panels\IRuleBuilderPanel.cs" />
     <Compile Include="UI\RuleBuilder\Panels\WorkTypeListPanel.cs" />
     <Compile Include="UI\RuleBuilder\Panels\PrioritySelectorPanel.cs" />
     <Compile Include="UI\RuleBuilder\Panels\ConditionEditorPanel.cs" />
+    <Compile Include="UI\RuleBuilder\Panels\RuleEditorPanel.cs" />
+    <Compile Include="UI\RuleBuilder\Panels\WorkTypeSelectorPanel.cs" />
     <Compile Include="UI\RuleBuilder\Widgets\ConditionSetCard.cs" />
     <Compile Include="UI\RuleBuilder\Widgets\ConditionPickerMenu.cs" />
     <Compile Include="UI\RuleBuilder\Widgets\ConditionValueEditor.cs" />
+    <Compile Include="UI\RuleBuilder\Widgets\ConditionBuilderWidget.cs" />
+    <Compile Include="UI\RuleBuilder\Widgets\RuleRowWidget.cs" />
+    <Compile Include="UI\RuleBuilder\Widgets\WorkTypeCard.cs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Krafs.Publicizer">

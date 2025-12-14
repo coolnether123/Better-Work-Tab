@@ -50,7 +50,7 @@ namespace Better_Work_Tab.UI
 
             float newRight = mainRect.x - 4f;
 
-            string btnLbl = curRuleset != null ? curRuleset.Name : "No ruleset";
+            string btnLbl = curRuleset != null ? curRuleset.Name : "BWT_NoRuleset".Translate();
 
             if (Widgets.ButtonText(mainRect, "  " + btnLbl,
                     overrideTextAnchor: TextAnchor.MiddleLeft))
@@ -81,16 +81,7 @@ namespace Better_Work_Tab.UI
                     }));
                 }
 
-                options.Add(new FloatMenuOption("Ruleset Builder...", () =>
-                {
-                    Find.WindowStack.Add(new Window_RulesetBuilder());
-                    SoundDefOf.Tick_Low.PlayOneShotOnCamera();
-                }));
-                options.Add(new FloatMenuOption("Manage Rulesets (classic)...", () =>
-                {
-                    Find.WindowStack.Add(new Window_RulesManager());
-                    SoundDefOf.Tick_Low.PlayOneShotOnCamera();
-                }));
+                AddRulesetManagementOptions(options);
 
                 Find.WindowStack.Add(new FloatMenu(options));
             }
@@ -202,6 +193,25 @@ namespace Better_Work_Tab.UI
         private static void CreateNewWorkload(GameComponent_BWTWorldSettings workloadSaver)
         {
             BetterWorkTabMultiplayer.RequestCreateWorklist(workloadSaver);
+        }
+
+        /// <summary>
+        /// Adds the standard ruleset management options to the provided menu.
+        /// Keeps labels and behaviors consistent across entry points.
+        /// </summary>
+        private static void AddRulesetManagementOptions(List<FloatMenuOption> options)
+        {
+            options.Add(new FloatMenuOption("BWT_RuleBuilder_OpenBuilder".Translate(), () =>
+            {
+                Find.WindowStack.Add(new Window_RulesetBuilder());
+                SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+            }));
+
+            options.Add(new FloatMenuOption("BWT_RuleBuilder_ManageRulesetsClassic".Translate(), () =>
+            {
+                Find.WindowStack.Add(new Window_RulesManager());
+                SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+            }));
         }
     }
 }
