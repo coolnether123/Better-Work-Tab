@@ -62,5 +62,58 @@
 <BWT_AssignSimilarWorktypes_Desc>I don't want to do the menu for this one. But if/when I do it'll be like 'Assign this rule to worktypes that have the same relevant skill(s) as this work type.'</BWT_AssignSimilarWorktypes_Desc>
 <BWT_FailedToApplyFallback_Desc>I don't want to do the menu for this one either. But if/when I do the tooltip will be like 'Assign this rule instead if the main rule didn't assign any pawns.'</BWT_FailedToApplyFallback_Desc>
 
+<BWT_RulesetBuilder_Title>Ruleset builder</BWT_RulesetBuilder_Title>
+<BWT_NoRuleset>No ruleset selected</BWT_NoRuleset>
+<BWT_ManageRulesets>Manage rulesets</BWT_ManageRulesets>
+<BWT_Back>Back</BWT_Back>
+<BWT_EditingRulesFor>Editing rules for {0}</BWT_EditingRulesFor>
+<BWT_AddNewRule>Add new rule</BWT_AddNewRule>
+<BWT_CannotModifyDefault>Default rulesets cannot be edited.</BWT_CannotModifyDefault>
+<BWT_NoRulesForWorkType>No rules for this work type yet.</BWT_NoRulesForWorkType>
+<BWT_AssignPriority>Assign priority</BWT_AssignPriority>
+<BWT_Disabled>Disabled</BWT_Disabled>
+<BWT_PriorityLevel_Tooltip>Set priority to {0}.</BWT_PriorityLevel_Tooltip>
+<BWT_Conditions>Conditions</BWT_Conditions>
+<BWT_AddCondition>Add condition</BWT_AddCondition>
+<BWT_SelectWorkTypeFirst>Select a work type to edit rules.</BWT_SelectWorkTypeFirst>
+<BWT_SelectOrCreateRule>Select a rule or create a new one.</BWT_SelectOrCreateRule>
+<BWT_NewRule>New Rule</BWT_NewRule>
+<BWT_Add_HasHighestSkill>Require highest skill</BWT_Add_HasHighestSkill>
+<BWT_Add_IsTopXSkill>Require top X skill</BWT_Add_IsTopXSkill>
+<BWT_Add_PassionLevel>Require passion level</BWT_Add_PassionLevel>
+<BWT_Add_SkillLevelGreaterThan>Skill level greater than</BWT_Add_SkillLevelGreaterThan>
+<BWT_Add_SkillLevelLessThan>Skill level less than</BWT_Add_SkillLevelLessThan>
+<BWT_Add_IsNaturalAlwaysAssign>Require always-active work type</BWT_Add_IsNaturalAlwaysAssign>
+<BWT_Add_RequiredTrait>Require trait</BWT_Add_RequiredTrait>
+<BWT_Add_Gender>Require gender</BWT_Add_Gender>
+<BWT_Add_Xenotype>Require xenotype</BWT_Add_Xenotype>
+<BWT_Add_IsCapableOfViolence>Require violence capable</BWT_Add_IsCapableOfViolence>
+<BWT_Add_HasChildOnMap>Require child on map</BWT_Add_HasChildOnMap>
+<BWT_Add_IsPregnant>Require pregnant pawn</BWT_Add_IsPregnant>
+<BWT_Add_RandomIfMultiple>Random if multiple</BWT_Add_RandomIfMultiple>
+<BWT_Add_AllowOverwritingHigherPriority>Allow overwriting higher priority</BWT_Add_AllowOverwritingHigherPriority>
+<BWT_NoConditionsAvailable>No additional conditions available.</BWT_NoConditionsAvailable>
+
+<BWT_WorkTypes>Work Types</BWT_WorkTypes>
+<BWT_SelectWorkType>Select Work Type</BWT_SelectWorkType>
+<BWT_Matches>Matches</BWT_Matches>
+<BWT_NoConditions>No conditions set. Click below to add.</BWT_NoConditions>
+<BWT_NewRuleset>New Ruleset</BWT_NewRuleset>
+<BWT_Yes>Yes</BWT_Yes>
+<BWT_No>No</BWT_No>
+<BWT_None>None</BWT_None>
+<BWT_Minor>Minor</BWT_Minor>
+<BWT_Major>Major</BWT_Major>
+<BWT_Step1_Title>Select a work type</BWT_Step1_Title>
+<BWT_Step1_Subtitle>Pick a column to configure rules for.</BWT_Step1_Subtitle>
+<BWT_ShowOnlyConfigured>Show only configured ({0})</BWT_ShowOnlyConfigured>
+<BWT_ShowOnlyConfigured_Tooltip>Only show work types that already have rules configured.</BWT_ShowOnlyConfigured_Tooltip>
+<BWT_NoConfiguredWorkTypes>No work types have rules yet.</BWT_NoConfiguredWorkTypes>
+<BWT_NoMatchingWorkTypes>No work types match your search.</BWT_NoMatchingWorkTypes>
+
+<BWT_RelevantSkills>Relevant skills</BWT_RelevantSkills>
+<BWT_RulesConfigured>{0} rules configured</BWT_RulesConfigured>
+<BWT_NoRulesConfigured>No rules configured</BWT_NoRulesConfigured>
+<BWT_ClickToEdit>Click to edit</BWT_ClickToEdit>
 
 </LanguageData>

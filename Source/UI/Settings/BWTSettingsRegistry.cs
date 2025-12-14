@@ -976,6 +976,19 @@ namespace Better_Work_Tab.UI.Settings
                 ShowInAdvancedView = false,
                 SortOrder = 404
             });
+            Register(new SettingDefinition
+            {
+                Id = AdvancedAlwaysShowConditionEditors,
+                ParentId = FeaturesAutoassign,
+                FieldName = "alwaysShowConditionEditors",
+                Label = "Always show condition editors",
+                Tooltip = "When enabled, condition rows are always editable without clicking first.",
+                Type = SettingType.Bool,
+                DefaultValue = true,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 420
+            });
 
             // Workloads are above; Performance toggles
             Register(new SettingDefinition

@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <!-- Window titles -->
+  <BWT_RulesetBuilder>Ruleset Builder</BWT_RulesetBuilder>
+  <BWT_New>New</BWT_New>
+
+  <!-- Column headers -->
+  <BWT_SelectPriority>Select a priority level:</BWT_SelectPriority>
+  <BWT_SelectPriorityFirst>Select a priority level first</BWT_SelectPriorityFirst>
+
+  <!-- Conditions -->
+  <BWT_NoConditionsSet>No conditions are set for this priority.</BWT_NoConditionsSet>
+  <BWT_AddConditionInstructions>Click "+ Add condition set" below to create rules.</BWT_AddConditionInstructions>
+  <BWT_AddConditionSet>Add condition set</BWT_AddConditionSet>
+  <BWT_AddConditionSet_Tooltip>Create a new set of conditions that will assign this priority to matching pawns.</BWT_AddConditionSet_Tooltip>
+  <BWT_ConditionsFor>Conditions for:</BWT_ConditionsFor>
+
+  <!-- Priorities -->
+  <BWT_Priority_Disabled>Disabled (0)</BWT_Priority_Disabled>
+  <BWT_Priority_Highest>Highest Priority (1)</BWT_Priority_Highest>
+  <BWT_Priority_High>High Priority (2)</BWT_Priority_High>
+  <BWT_Priority_Normal>Normal Priority (3)</BWT_Priority_Normal>
+  <BWT_Priority_Low>Low Priority (4)</BWT_Priority_Low>
+
+  <BWT_Priority_Disabled_Desc>This pawn will not be assigned to this work type.</BWT_Priority_Disabled_Desc>
+  <BWT_Priority_Highest_Desc>Highest priority. This pawn will be assigned first.</BWT_Priority_Highest_Desc>
+  <BWT_Priority_High_Desc>High priority. This pawn will be assigned before normal priority pawns.</BWT_Priority_High_Desc>
+  <BWT_Priority_Normal_Desc>Normal priority. Standard assignment.</BWT_Priority_Normal_Desc>
+  <BWT_Priority_Low_Desc>Low priority. This pawn will be assigned last.</BWT_Priority_Low_Desc>
+
+  <!-- Condition categories -->
+  <BWT_Category_Skill>Skill-Based</BWT_Category_Skill>
+  <BWT_Category_Biological>Biological</BWT_Category_Biological>
+  <BWT_Category_Social>Social</BWT_Category_Social>
+  <BWT_Category_Capability>Capability</BWT_Category_Capability>
+  <BWT_Category_Behavior>Behavior</BWT_Category_Behavior>
+
+  <!-- Condition names -->
+  <BWT_CondName_BestSkill>Best Skill</BWT_CondName_BestSkill>
+  <BWT_CondName_TopX>Top {0}</BWT_CondName_TopX>
+  <BWT_CondName_Passion>Passion: {0}</BWT_CondName_Passion>
+  <BWT_CondName_SkillAbove>Skill &gt; {0}</BWT_CondName_SkillAbove>
+  <BWT_CondName_SkillBelow>Skill &lt; {0}</BWT_CondName_SkillBelow>
+  <BWT_CondName_HasChild>Parent</BWT_CondName_HasChild>
+  <BWT_CondName_Pregnant>Pregnant</BWT_CondName_Pregnant>
+  <BWT_CondName_CanFight>Fighter</BWT_CondName_CanFight>
+  <BWT_CondName_AlwaysAssign>Always</BWT_CondName_AlwaysAssign>
+  <BWT_CondName_Random>Random</BWT_CondName_Random>
+  <BWT_CondName_NoConditions>No conditions</BWT_CondName_NoConditions>
+  <BWT_CondName_Overwrite>Overwrite</BWT_CondName_Overwrite>
+
+  <!-- Misc -->
+  <BWT_DeleteRule>Delete this rule</BWT_DeleteRule>
+  <BWT_SelectRuleset>Select Ruleset</BWT_SelectRuleset>
+  <!-- Condition editing -->
+  <BWT_SelectTrait>Select Trait</BWT_SelectTrait>
+  <BWT_Any>Any</BWT_Any>
+  <BWT_BiotechRequired>Requires Biotech DLC</BWT_BiotechRequired>
+</LanguageData>
