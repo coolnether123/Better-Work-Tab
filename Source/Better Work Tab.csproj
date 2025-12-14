@@ -127,6 +127,7 @@
     <Compile Include="UI\Dialog_RenameGeneric.cs" />
     <Compile Include="UI\Dialog_RenameWorkload.cs" />
     <Compile Include="UI\VerticalLabels\AngledHeaderDrawer.cs" />
+    <Compile Include="UI\VerticalLabels\AngledHeaderCache.cs" />
     <Compile Include="UI\HeaderButtons.cs" />
     <Compile Include="UI\MouseStateManager.cs" />
     <Compile Include="Features\Patches\Patch_Building_Bed_Cache.cs" />
