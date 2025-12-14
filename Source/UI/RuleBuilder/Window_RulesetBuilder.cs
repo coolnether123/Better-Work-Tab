@@ -146,11 +146,6 @@ namespace Better_Work_Tab.UI.RuleBuilder
                     }));
                 }
 
-                if (rulesets.Any())
-                {
-                    options.Add(new FloatMenuOption("---", null));
-                }
-
                 options.Add(new FloatMenuOption("BWT_RuleBuilder_ManageRulesets".Translate(), () =>
                 {
                     Find.WindowStack.Add(new Window_RulesManager());

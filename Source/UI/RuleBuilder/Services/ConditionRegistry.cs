@@ -272,22 +272,27 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
         public static List<ConditionInfo> GetActiveConditions(WorkAssignmentParameters p)
         {
             var result = new List<ConditionInfo>();
+            var activeKeys = ResolveActiveKeys(p);
 
-            foreach (var def in Definitions)
+            foreach (var key in activeKeys)
             {
-                if (IsActive(def.Key, p))
+                var def = Definitions.FirstOrDefault(d => d.Key == key);
+                if (def == null)
                 {
-                    result.Add(new ConditionInfo(def.Key, def.Type, GetValue(def.Key, p))
-                    {
-                        MinValue = def.MinValue,
-                        MaxValue = def.MaxValue,
-                        DefaultValue = def.DefaultValue,
-                        Category = def.Category,
-                        ShortLabel = def.ShortLabel
-                    });
+                    continue;
                 }
+
+                result.Add(new ConditionInfo(def.Key, def.Type, GetValue(def.Key, p))
+                {
+                    MinValue = def.MinValue,
+                    MaxValue = def.MaxValue,
+                    DefaultValue = def.DefaultValue,
+                    Category = def.Category,
+                    ShortLabel = def.ShortLabel
+                });
             }
 
+            p.ActiveConditions = activeKeys;
             return result;
         }
 
@@ -514,6 +519,27 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
             }
 
             return filtered;
+        }
+
+        private static List<string> ResolveActiveKeys(WorkAssignmentParameters p)
+        {
+            var orderedActive = p.ActiveConditions != null && p.ActiveConditions.Count > 0
+                ? p.ActiveConditions.Where(key => IsActive(key, p)).ToList()
+                : Definitions.Where(def => IsActive(def.Key, p)).Select(def => def.Key).ToList();
+
+            // Preserve only known keys; add any missing active ones in definition order.
+            var known = new HashSet<string>(Definitions.Select(d => d.Key));
+            orderedActive = orderedActive.Where(known.Contains).ToList();
+
+            foreach (var def in Definitions)
+            {
+                if (IsActive(def.Key, p) && !orderedActive.Contains(def.Key))
+                {
+                    orderedActive.Add(def.Key);
+                }
+            }
+
+            return orderedActive;
         }
     }
 

@@ -150,6 +150,8 @@
     <Compile Include="UI\RuleBuilder\Widgets\ConditionValueEditor.cs" />
     <Compile Include="UI\RuleBuilder\Widgets\ConditionBuilderWidget.cs" />
     <Compile Include="UI\RuleBuilder\Widgets\RuleRowWidget.cs" />
+    <Compile Include="UI\RuleBuilder\Widgets\ConditionDragController.cs" />
+    <Compile Include="UI\RuleBuilder\Widgets\PriorityChainWidget.cs" />
     <Compile Include="UI\RuleBuilder\Widgets\WorkTypeCard.cs" />
   </ItemGroup>
   <ItemGroup>

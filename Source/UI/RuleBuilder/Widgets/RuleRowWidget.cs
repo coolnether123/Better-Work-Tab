@@ -38,7 +38,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
 
             var oldColor = GUI.color;
             GUI.color = new Color(0.7f, 0.9f, 0.7f);
-            Verse.Widgets.Label(matchRect, $"Match {matchCount}");
+            Verse.Widgets.Label(matchRect, $"{ "BWT_Matches".Translate() } {matchCount}");
             GUI.color = oldColor;
 
             if (!isDisabled)
