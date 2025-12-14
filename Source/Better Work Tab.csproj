@@ -129,6 +129,21 @@
     <Compile Include="UI\HeaderButtons.cs" />
     <Compile Include="UI\MouseStateManager.cs" />
     <Compile Include="Features\Patches\Patch_Building_Bed_Cache.cs" />
+    <Compile Include="UI\RuleBuilder\RuleBuilderConstants.cs" />
+    <Compile Include="UI\RuleBuilder\Window_RulesetBuilder.cs" />
+    <Compile Include="UI\RuleBuilder\State\RuleBuilderStep.cs" />
+    <Compile Include="UI\RuleBuilder\State\RuleMatchResult.cs" />
+    <Compile Include="UI\RuleBuilder\State\RuleBuilderState.cs" />
+    <Compile Include="UI\RuleBuilder\State\ConditionInfo.cs" />
+    <Compile Include="UI\RuleBuilder\Services\RuleMatchCalculator.cs" />
+    <Compile Include="UI\RuleBuilder\Services\ConditionNameGenerator.cs" />
+    <Compile Include="UI\RuleBuilder\Services\ConditionRegistry.cs" />
+    <Compile Include="UI\RuleBuilder\Panels\WorkTypeListPanel.cs" />
+    <Compile Include="UI\RuleBuilder\Panels\PrioritySelectorPanel.cs" />
+    <Compile Include="UI\RuleBuilder\Panels\ConditionEditorPanel.cs" />
+    <Compile Include="UI\RuleBuilder\Widgets\ConditionSetCard.cs" />
+    <Compile Include="UI\RuleBuilder\Widgets\ConditionPickerMenu.cs" />
+    <Compile Include="UI\RuleBuilder\Widgets\ConditionValueEditor.cs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Krafs.Publicizer">

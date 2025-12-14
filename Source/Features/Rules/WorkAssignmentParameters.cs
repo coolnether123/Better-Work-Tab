@@ -1,6 +1,8 @@
 
 using RimWorld;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using Verse;
 using System.Reflection;
 
@@ -93,6 +95,7 @@ namespace Better_Work_Tab.Features.Rules
         public string XenotypeString = "";
         public string TraitString = "";
         public int? TraitDegree = null;
+        public List<string> ActiveConditions = new List<string>();
 
 
         public WorkAssignmentParameters(string ruleName = "", 
@@ -179,7 +182,9 @@ namespace Better_Work_Tab.Features.Rules
 
         public WorkAssignmentParameters Copy()
         {
-            return (WorkAssignmentParameters)this.MemberwiseClone();
+            var copy = (WorkAssignmentParameters)this.MemberwiseClone();
+            copy.ActiveConditions = ActiveConditions?.ToList() ?? new List<string>();
+            return copy;
         }
 
         public void ExposeData()
@@ -216,6 +221,7 @@ namespace Better_Work_Tab.Features.Rules
             Scribe_Values.Look(ref IgnoreIfWorktypeNonexistent, "IgnoreIfWorktypeNonexistent");
             Scribe_Values.Look(ref MoveSpeedGreaterThan, "MoveSpeedGreaterThan", -1f);
             Scribe_Values.Look(ref MoveSpeedLessThan, "MoveSpeedLessThan", -1f);
+            Scribe_Collections.Look(ref ActiveConditions, "ActiveConditions", LookMode.Value);
 
             Scribe_Defs.Look(ref Worktype, "Worktype");
             Scribe_Defs.Look(ref Xenotype, "Xenotype");
@@ -230,6 +236,7 @@ namespace Better_Work_Tab.Features.Rules
                 WorktypeString ??= string.Empty;
                 XenotypeString ??= string.Empty;
                 TraitString ??= string.Empty;
+                ActiveConditions ??= new List<string>();
 
                 ResolveWorktypeFromString();
                 ResolveXenotypeFromString();

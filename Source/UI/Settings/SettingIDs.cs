@@ -10,6 +10,7 @@ namespace Better_Work_Tab.UI.Settings
         public const string AdvancedLogToFile = "advanced.logToFile";
         public const string AdvancedProfiler = "advanced.profiler";
         public const string AdvancedRestoreDefaults = "advanced.restoreDefaults";
+        public const string AdvancedAlwaysShowConditionEditors = "advanced.alwaysShowConditionEditors";
         public const string AutoassignConfirm = "autoassign.confirm";
         public const string AutoassignResetBefore = "autoassign.resetBefore";
         public const string AutoassignVisual = "autoassign.visual";
