@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Verse;
+using UnityEngine;
 
 namespace Better_Work_Tab.UI.RuleBuilder.State
 {
@@ -51,6 +52,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.State
                     SelectedWorkType = null;
                     SelectedPriority = -1;
                     SelectedRule = null;
+                    SyncPriorityOrderFromRuleset();
                     OnRulesetChanged?.Invoke(value);
                 }
             }
@@ -90,6 +92,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.State
                     // Reset downstream selections
                     SelectedPriority = -1;
                     SelectedRule = null;
+                    SelectFirstPriorityWithRules();
                     OnWorkTypeChanged?.Invoke(value);
                 }
             }
@@ -126,6 +129,11 @@ namespace Better_Work_Tab.UI.RuleBuilder.State
         /// Default is 4, but can be extended.
         /// </summary>
         public int MaxPriority { get; set; } = 4;
+
+        /// <summary>
+        /// Current UI ordering of priorities (0..MaxPriority). Defaults to 1..MaxPriority then 0 (disabled).
+        /// </summary>
+        public List<int> PriorityOrder { get; private set; } = new List<int>();
 
         // ═══════════════════════════════════════════════════════════════
         // COLUMN 3: RULE/CONDITION SELECTION
@@ -194,14 +202,19 @@ namespace Better_Work_Tab.UI.RuleBuilder.State
         /// </summary>
         public Dictionary<int, int> GetPriorityRuleCounts(WorkTypeDef workType)
         {
-            var result = new Dictionary<int, int>();
+            var counts = new Dictionary<int, int>();
+            if (SelectedRuleset?.Rules == null)
+                return counts;
 
-            for (int p = 0; p <= MaxPriority; p++)
+            foreach (var rule in SelectedRuleset.Rules)
             {
-                result[p] = GetRulesFor(workType, p).Count;
+                if (RuleAppliesToWorkType(rule, workType) && rule.Parameters?.Priority >= 0)
+                {
+                    int priority = rule.Parameters.Priority;
+                    counts[priority] = (counts.ContainsKey(priority) ? counts[priority] : 0) + 1;
+                }
             }
-
-            return result;
+            return counts;
         }
 
         /// <summary>
@@ -392,6 +405,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.State
             SelectedRule = null;
             WorkTypeSearchFilter = "";
             CurrentStep = RuleBuilderStep.SelectWorkType;
+            EnsurePriorityOrder();
         }
 
         /// <summary>
@@ -410,6 +424,101 @@ namespace Better_Work_Tab.UI.RuleBuilder.State
             CurrentStep = RuleBuilderStep.SelectWorkType;
             SelectedPriority = -1;
             SelectedRule = null;
+        }
+
+        /// <summary>
+        /// Ensures PriorityOrder is initialized in the desired default order (1..MaxPriority, then 0).
+        /// </summary>
+        public void EnsurePriorityOrder()
+        {
+            if ((PriorityOrder == null || PriorityOrder.Count == 0) &&
+                SelectedRuleset?.PriorityOrder != null &&
+                SelectedRuleset.PriorityOrder.Count > 0)
+            {
+                PriorityOrder = SelectedRuleset.PriorityOrder.ToList();
+            }
+
+            if (PriorityOrder == null || PriorityOrder.Count == 0)
+            {
+                PriorityOrder = Enumerable.Range(1, MaxPriority).ToList();
+                if (!PriorityOrder.Contains(0))
+                {
+                    PriorityOrder.Add(0);
+                }
+            }
+
+            // Make sure any new priorities or missing disabled are added.
+            for (int p = 0; p <= MaxPriority; p++)
+            {
+                if (!PriorityOrder.Contains(p))
+                {
+                    PriorityOrder.Add(p);
+                }
+            }
+
+            if (SelectedRuleset != null)
+            {
+                SelectedRuleset.PriorityOrder = PriorityOrder.ToList();
+            }
+        }
+
+        /// <summary>
+        /// Moves a priority to a new index within the UI order.
+        /// </summary>
+        public void MovePriority(int priority, int targetIndex)
+        {
+            EnsurePriorityOrder();
+            int currentIndex = PriorityOrder.IndexOf(priority);
+            if (currentIndex < 0 || targetIndex < 0 || targetIndex > PriorityOrder.Count)
+                return;
+
+            PriorityOrder.RemoveAt(currentIndex);
+            targetIndex = Mathf.Clamp(targetIndex, 0, PriorityOrder.Count);
+            PriorityOrder.Insert(targetIndex, priority);
+
+            if (SelectedRuleset != null)
+            {
+                SelectedRuleset.PriorityOrder = PriorityOrder.ToList();
+            }
+        }
+
+        /// <summary>
+        /// Selects the first priority (in UI order) that has at least one rule for the current work type.
+        /// Falls back to the first priority in order if none have rules.
+        /// </summary>
+        public void SelectFirstPriorityWithRules()
+        {
+            EnsurePriorityOrder();
+            if (SelectedRuleset?.Rules == null || SelectedWorkType == null)
+            {
+                return;
+            }
+
+            var rules = SelectedRuleset.Rules.Where(r => RuleAppliesToWorkType(r, SelectedWorkType)).ToList();
+            foreach (var p in PriorityOrder)
+            {
+                if (rules.Any(r => r.Parameters?.Priority == p))
+                {
+                    SelectedPriority = p;
+                    return;
+                }
+            }
+
+            // Fallback to the first available priority
+            if (PriorityOrder.Count > 0)
+            {
+                SelectedPriority = PriorityOrder[0];
+            }
+        }
+
+        private void SyncPriorityOrderFromRuleset()
+        {
+            if (SelectedRuleset?.PriorityOrder != null && SelectedRuleset.PriorityOrder.Count > 0)
+            {
+                PriorityOrder = SelectedRuleset.PriorityOrder.ToList();
+            }
+
+            EnsurePriorityOrder();
         }
     }
 }

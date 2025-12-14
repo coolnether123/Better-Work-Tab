@@ -19,6 +19,7 @@ namespace Better_Work_Tab.Features
         public bool ResetBeforeApplying = true;
         public List<WorkAssignmentRule> Rules = new List<WorkAssignmentRule>();
         public bool IsDefault = false;
+        public List<int> PriorityOrder = new List<int>();
         private static List<WorkTypeDef> cachedWorkTypes;
 
         private static List<WorkTypeDef> CachedWorkTypes
@@ -42,6 +43,7 @@ namespace Better_Work_Tab.Features
         {
             Name = rulesetName;
             ResetBeforeApplying = resetBeforeApplying;
+            EnsurePriorityOrder();
 
             foreach (var p in parameters)
             {
@@ -56,6 +58,7 @@ namespace Better_Work_Tab.Features
             Rules = rules;
             ResetBeforeApplying = resetBeforeApplying;
             IsDefault = isDefault;
+            EnsurePriorityOrder();
         }
 
         public static void SetAllToZero()
@@ -81,7 +84,7 @@ namespace Better_Work_Tab.Features
             var allWorkTypes = CachedWorkTypes;
 
 
-            foreach (var rule in Rules)
+            foreach (var rule in GetRulesInPriorityOrder())
             {
                 foreach (var worktype in allWorkTypes)
                 {
@@ -170,12 +173,74 @@ namespace Better_Work_Tab.Features
             Scribe_Values.Look(ref Name, "Name");
             Scribe_Values.Look(ref ResetBeforeApplying, "ResetBeforeApplying");
             Scribe_Collections.Look(ref Rules, "Rules", LookMode.Deep);
+            Scribe_Collections.Look(ref PriorityOrder, "PriorityOrder", LookMode.Value);
+
+            if (Scribe.mode == LoadSaveMode.PostLoadInit || Scribe.mode == LoadSaveMode.ResolvingCrossRefs)
+            {
+                EnsurePriorityOrder();
+            }
         }
 
         public WorkAssignmentRuleset Copy()
         {
             //                                                                                              VVV Never let this be true for a copy because it will be impossible to delete!
-            return new WorkAssignmentRuleset((Name + " (Copy)"), Rules.ListFullCopy(), ResetBeforeApplying, false );
+            var copy = new WorkAssignmentRuleset((Name + " (Copy)"), Rules.ListFullCopy(), ResetBeforeApplying, false);
+            copy.PriorityOrder = PriorityOrder?.ToList() ?? new List<int>();
+            copy.EnsurePriorityOrder();
+            return copy;
+        }
+
+        /// <summary>
+        /// Ensures the priority order list exists and contains all priorities 0..MaxPriority (default 4).
+        /// </summary>
+        public void EnsurePriorityOrder(int maxPriority = 4)
+        {
+            if (PriorityOrder == null || PriorityOrder.Count == 0)
+            {
+                PriorityOrder = Enumerable.Range(1, maxPriority).ToList();
+                if (!PriorityOrder.Contains(0))
+                {
+                    PriorityOrder.Add(0);
+                }
+            }
+
+            for (int p = 0; p <= maxPriority; p++)
+            {
+                if (!PriorityOrder.Contains(p))
+                {
+                    PriorityOrder.Add(p);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Yields rules grouped in the current priority order, preserving their original relative order.
+        /// </summary>
+        private IEnumerable<WorkAssignmentRule> GetRulesInPriorityOrder()
+        {
+            EnsurePriorityOrder();
+            var priorityIndex = PriorityOrder
+                .Select((p, idx) => (priority: p, idx))
+                .ToDictionary(x => x.priority, x => x.idx);
+
+            // Preserve original order within each priority bucket.
+            var indexedRules = Rules.Select((rule, idx) => (rule, idx)).ToList();
+
+            foreach (var p in PriorityOrder)
+            {
+                foreach (var entry in indexedRules.Where(r => (r.rule?.Parameters?.Priority ?? -1) == p)
+                                                  .OrderBy(r => r.idx))
+                {
+                    yield return entry.rule;
+                }
+            }
+
+            // Any rules with priorities not present in the order list are appended at the end in original order.
+            foreach (var entry in indexedRules.Where(r => !priorityIndex.ContainsKey(r.rule?.Parameters?.Priority ?? -1))
+                                              .OrderBy(r => r.idx))
+            {
+                yield return entry.rule;
+            }
         }
     }
 }
