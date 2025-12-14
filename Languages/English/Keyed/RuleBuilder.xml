@@ -2,6 +2,12 @@
 <LanguageData>
   <!-- Window titles -->
   <BWT_RulesetBuilder>Ruleset Builder</BWT_RulesetBuilder>
+  <BWT_RuleBuilder_Title>Ruleset Builder</BWT_RuleBuilder_Title>
+  <BWT_RuleBuilder_OpenBuilder>Ruleset Builder...</BWT_RuleBuilder_OpenBuilder>
+  <BWT_RuleBuilder_ManageRulesets>Manage Rulesets</BWT_RuleBuilder_ManageRulesets>
+  <BWT_RuleBuilder_ManageRulesetsClassic>Manage Rulesets (classic)...</BWT_RuleBuilder_ManageRulesetsClassic>
+  <BWT_RuleBuilder_Back>Back</BWT_RuleBuilder_Back>
+  <BWT_RuleBuilder_EditingRulesFor>Editing rules for {0}</BWT_RuleBuilder_EditingRulesFor>
   <BWT_New>New</BWT_New>
 
   <!-- Column headers -->

@@ -320,7 +320,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
 
         private static List<ConditionDefinition> BuildDefinitions()
         {
-            return new List<ConditionDefinition>
+            var definitions = new List<ConditionDefinition>
             {
                 // Skill category
                 new ConditionDefinition
@@ -498,6 +498,22 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
                     ShortLabel = "Max jobs"
                 }
             };
+
+            var validFieldNames = RuleParameterRegistry.FieldNames;
+            var filtered = definitions.Where(def => validFieldNames.Contains(def.Key)).ToList();
+
+            var missing = definitions
+                .Where(def => !validFieldNames.Contains(def.Key))
+                .Select(def => def.Key)
+                .ToList();
+
+            if (missing.Count > 0)
+            {
+                var joined = string.Join(", ", missing);
+                Log.Warning($"[BWT] Ignoring unknown condition definitions: {joined}");
+            }
+
+            return filtered;
         }
     }
 
