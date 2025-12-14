@@ -2,6 +2,7 @@
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.Mod_Support.Multiplayer;
 using Better_Work_Tab.UI;
+using Better_Work_Tab.UI.RuleBuilder;
 using RimWorld;
 using System.Collections.Generic;
 using UnityEngine;
@@ -80,7 +81,12 @@ namespace Better_Work_Tab.UI
                     }));
                 }
 
-                options.Add(new FloatMenuOption("Manage Rulesets...", () =>
+                options.Add(new FloatMenuOption("Ruleset Builder...", () =>
+                {
+                    Find.WindowStack.Add(new Window_RulesetBuilder());
+                    SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                }));
+                options.Add(new FloatMenuOption("Manage Rulesets (classic)...", () =>
                 {
                     Find.WindowStack.Add(new Window_RulesManager());
                     SoundDefOf.Tick_Low.PlayOneShotOnCamera();
