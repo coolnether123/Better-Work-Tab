@@ -429,7 +429,7 @@ namespace Better_Work_Tab.UI
             if (settings == null)
                 return false;
 
-            if (!settings.showColumnMovedMarker || !(settings.enableColumnOrderSaving) || !(settings.persistColumnOrder))
+            if (!settings.showColumnMovedMarker)
                 return false;
 
             // First check: was this column directly dragged by the player?
@@ -488,9 +488,6 @@ namespace Better_Work_Tab.UI
 
             var settings = BetterWorkTabMod.Settings;
             if (settings == null)
-                return;
-
-            if (!settings.enableColumnOrderSaving || !settings.persistColumnOrder)
                 return;
 
             // Record that the player dragged this column
