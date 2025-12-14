@@ -23,6 +23,7 @@ namespace Better_Work_Tab.Features.Workloads
         public override void FinalizeInit()
         {
             base.FinalizeInit();
+            WorkColumnOrderManager.InitializeOnGameLoad();
             DisplayElementPool.Clear();
             EnsureCurrentWorklist();
             ColumnBaselineManager.EnsureBaseline(this);

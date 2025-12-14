@@ -19,7 +19,7 @@ namespace Better_Work_Tab.Features
             }
 
             var settings = BetterWorkTabMod.Settings;
-            if (settings == null || !(settings.enableColumnOrderSaving) || !(settings.persistColumnWidths))
+            if (settings == null || !(settings.persistColumnWidths))
             {
                 return defaultWidth;
             }
@@ -41,7 +41,7 @@ namespace Better_Work_Tab.Features
             }
 
             var settings = BetterWorkTabMod.Settings;
-            if (settings == null || !(settings.enableColumnOrderSaving) || !(settings.persistColumnWidths))
+            if (settings == null || !(settings.persistColumnWidths))
             {
                 return;
             }

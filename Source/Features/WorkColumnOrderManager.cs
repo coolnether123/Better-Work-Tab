@@ -10,7 +10,7 @@ namespace Better_Work_Tab.Features
     public static class WorkColumnOrderManager
     {
         private static List<string> _trueVanillaColumnOrder;
-        private static bool _initialized = false;
+        private static Game _lastInitializedGame;
         private static Dictionary<WorkTypeDef, List<WorkTypeDef>> _similarWorktypeMap;
         private static readonly List<WorkTypeDef> EmptySimilarWorktypeList = new List<WorkTypeDef>(0);
 
@@ -19,14 +19,26 @@ namespace Better_Work_Tab.Features
         /// </summary>
         public static void InitializeOnGameLoad()
         {
-            if (_initialized)
-                return;
-
-            _initialized = true;
             CaptureVanillaOrder();
-            ColumnBaselineManager.EnsureBaseline(Current.Game?.GetComponent<GameComponent_BWTWorldSettings>());
+
+            var game = Current.Game;
+            if (game == null)
+            {
+                return;
+            }
+
+            if (ReferenceEquals(_lastInitializedGame, game))
+            {
+                return;
+            }
+
+            _lastInitializedGame = game;
+
+            EnsureColumnsMatchTrueVanillaShape();
+            var component = game.GetComponent<GameComponent_BWTWorldSettings>();
+            ColumnBaselineManager.EnsureBaseline(component);
             ApplySaved(PawnTableDefOf.Work);
-            BetterWorkTabMod.DebugLog("[BWT] WorkColumnOrderManager initialized.", DebugFeature.DragDrop);
+            BetterWorkTabMod.DebugLog("[BWT] WorkColumnOrderManager initialized for game.", DebugFeature.DragDrop);
         }
 
         /// <summary>
@@ -141,7 +153,7 @@ namespace Better_Work_Tab.Features
         public static void CaptureCurrent(PawnTableDef def)
         {
             var settings = BetterWorkTabMod.Settings;
-            if (!(settings?.enableColumnOrderSaving ?? true) || !(settings?.persistColumnOrder ?? true))
+            if (settings == null)
             {
                 return;
             }
@@ -171,9 +183,9 @@ namespace Better_Work_Tab.Features
         public static void ApplySaved(PawnTableDef def)
         {
             var settings = BetterWorkTabMod.Settings;
-            if (!(settings?.enableColumnOrderSaving ?? true) || !(settings?.persistColumnOrder ?? true))
+            if (settings == null)
             {
-                BetterWorkTabMod.DebugLog("WorkColumnOrderManager.ApplySaved: Column saving disabled.", DebugFeature.DragDrop);
+                BetterWorkTabMod.DebugLog("WorkColumnOrderManager.ApplySaved: Settings unavailable.", DebugFeature.DragDrop);
                 return;
             }
 
@@ -318,42 +330,36 @@ namespace Better_Work_Tab.Features
             ResetColumnsToOrder(def, vanillaOrder, extrasInBaselineOrder, "ResetToTrueVanilla");
         }
 
-        public static Dictionary<WorkTypeDef, int> WorkTypeOrder = new Dictionary<WorkTypeDef, int>();
-
-        public static void SetWorkTypeOrder(WorkTypeDef workType, int newOrder)
+        /// <summary>
+        /// Ensures the work columns are arranged in true vanilla order (official work types),
+        /// with any modded extras appended in their current order. Used on game load so the
+        /// baseline capture compares against an unmodified vanilla layout.
+        /// </summary>
+        private static void EnsureColumnsMatchTrueVanillaShape()
         {
-            int changedCount = 0;
-            if (!WorkTypeOrder.ContainsKey(workType))
+            var def = PawnTableDefOf.Work;
+            if (!TrySplitColumns(def, out var preWork, out var workCols, out var postWork))
             {
-                WorkTypeOrder.Add(workType, newOrder);
                 return;
             }
 
-            int oldOrder = WorkTypeOrder[workType];
-            WorkTypeOrder[workType] = newOrder;
+            var vanillaOrder = GetTrueVanillaOrder();
+            if (vanillaOrder == null || vanillaOrder.Count == 0)
+            {
+                return;
+            }
 
-            if (newOrder > oldOrder)
-            {
-                foreach (var kvp in WorkTypeOrder.ToList())
-                {
-                    if (kvp.Key != workType && kvp.Value > oldOrder && kvp.Value <= newOrder)
-                    {
-                        WorkTypeOrder[kvp.Key]--;
-                        changedCount++;
-                    }
-                }
-            }
-            else if (newOrder < oldOrder)
-            {
-                foreach (var kvp in WorkTypeOrder.ToList())
-                {
-                    if (kvp.Key != workType && kvp.Value >= newOrder && kvp.Value < oldOrder)
-                    {
-                        WorkTypeOrder[kvp.Key]++;
-                        changedCount++;
-                    }
-                }
-            }
+            var currentOrder = workCols
+                .Where(c => c.workType != null)
+                .Select(c => c.workType.defName)
+                .ToList();
+
+            var reorderedWork = BuildOrderedWorkColumns(workCols, vanillaOrder, currentOrder);
+
+            def.columns.Clear();
+            def.columns.AddRange(preWork);
+            def.columns.AddRange(reorderedWork);
+            def.columns.AddRange(postWork);
         }
 
         private static bool TrySplitColumns(PawnTableDef def, out List<PawnColumnDef> preWork, out List<PawnColumnDef> workCols, out List<PawnColumnDef> postWork)
