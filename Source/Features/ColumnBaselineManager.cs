@@ -49,7 +49,27 @@ namespace Better_Work_Tab.Features
 
             if (worldSettings.ColumnBaselineOrder.Count == 0)
             {
-                worldSettings.ColumnBaselineOrder = CaptureCurrentOrder();
+                var baseline = new List<string>();
+                baseline.AddRange(GetTrueVanillaOrder());
+
+                var currentOrder = CaptureCurrentOrder();
+
+                if (baseline.Count == 0)
+                {
+                    baseline.AddRange(currentOrder);
+                }
+                else
+                {
+                    foreach (var defName in currentOrder)
+                    {
+                        if (!baseline.Contains(defName))
+                        {
+                            baseline.Add(defName);
+                        }
+                    }
+                }
+
+                worldSettings.ColumnBaselineOrder = baseline;
                 BetterWorkTabMod.DebugLog($"[BWT] Captured column baseline order: {string.Join(", ", worldSettings.ColumnBaselineOrder)}", DebugFeature.DragDrop);
             }
         }
