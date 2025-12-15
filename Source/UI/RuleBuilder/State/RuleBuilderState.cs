@@ -1,5 +1,6 @@
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.Rules;
+using Better_Work_Tab.UI.RuleBuilder.Services;
 using RimWorld;
 using System;
 using System.Collections.Generic;
@@ -143,6 +144,13 @@ namespace Better_Work_Tab.UI.RuleBuilder.State
         /// Currently selected rule for detailed editing (optional).
         /// </summary>
         public WorkAssignmentRule SelectedRule { get; set; }
+
+        public RuleDragController DragController { get; private set; }
+
+        public RuleBuilderState()
+        {
+            DragController = new RuleDragController(this);
+        }
 
         // ═══════════════════════════════════════════════════════════════
         // COMPUTED QUERIES

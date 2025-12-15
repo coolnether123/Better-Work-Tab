@@ -64,6 +64,7 @@ namespace Better_Work_Tab.UI.Settings
         public const string LayoutDragColumns = "layout.dragColumns";
         public const string LayoutDragRows = "layout.dragRows";
         public const string LayoutDragThreshold = "layout.dragThreshold";
+        public const string LayoutDragHoverDelay = "layout.dragHoverDelay";
         public const string LayoutColumnSpacing = "layout.columnSpacing";
         public const string LayoutPawnCount = "layout.pawnCount";
         public const string LayoutResetColumns = "layout.resetColumns";
