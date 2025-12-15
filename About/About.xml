@@ -6,12 +6,14 @@
    <li>1.6</li>
  </supportedVersions>
  <packageId>Coolnether123.BetterWorkTab</packageId>
+ <modVersion>0.95</modVersion>
  <description>
 &lt;color=orange&gt;&lt;b&gt;Completely overhauls RimWorld's Work tab with drag-and-drop, skill overlays, automation rules, and visual customization.&lt;/b&gt;&lt;/color&gt;
 
 &lt;b&gt;Core Features:&lt;/b&gt;
 • &lt;color=#99FF99&gt;Drag &amp; Drop Reordering&lt;/color&gt; - Click and drag columns and pawn rows to rearrange your work tab layout. Changes persist between saves.
 • &lt;color=#99FF99&gt;Skill Level Overlay&lt;/color&gt; - Hold SHIFT to see skill levels instead of priorities. Color-coded (red→green) with "best pawn" highlighting.
+• &lt;color=#99FF99&gt;Visual Rule Builder&lt;/color&gt; - NEW! Intuitive 3-column interface for creating auto-assignment rules. Drag-and-drop to duplicate rules across work types and priorities.
 • &lt;color=#99FF99&gt;Auto-Assignment Rulesets&lt;/color&gt; - Create smart rules to automatically assign work priorities based on passions, skills, traits, xenotypes, gender, pregnancy, and more.
 • &lt;color=#99FF99&gt;Workload Presets&lt;/color&gt; - Save and load entire priority configurations as named presets. Switch between different colony setups instantly.
 • &lt;color=#99FF99&gt;Visual Dividers&lt;/color&gt; - Organize pawns into collapsible sections with custom labels, colors, and fonts.
