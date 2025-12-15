@@ -139,6 +139,7 @@
     <Compile Include="UI\RuleBuilder\State\RuleBuilderState.cs" />
     <Compile Include="UI\RuleBuilder\State\ConditionInfo.cs" />
     <Compile Include="UI\RuleBuilder\Services\RuleMatchCalculator.cs" />
+    <Compile Include="UI\RuleBuilder\Services\RuleDragController.cs" />
     <Compile Include="UI\RuleBuilder\Services\ConditionNameGenerator.cs" />
     <Compile Include="UI\RuleBuilder\Services\ConditionRegistry.cs" />
     <Compile Include="UI\RuleBuilder\Panels\IRuleBuilderPanel.cs" />

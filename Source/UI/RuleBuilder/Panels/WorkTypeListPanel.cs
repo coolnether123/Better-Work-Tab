@@ -125,9 +125,20 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             RuleBuilderState state)
         {
             // Background
+            bool isDragging = state.DragController.IsDragging;
+            bool isDragHover = isDragging && Mouse.IsOver(rect);
+            
             if (isSelected)
             {
                 RWWidgets.DrawBoxSolid(rect, RuleBuilderConstants.CardBackgroundSelected);
+            }
+            else if (isDragHover)
+            {
+                // Special highlight when dragging over
+                RWWidgets.DrawBoxSolid(rect, new Color(0.3f, 0.5f, 0.7f, 0.4f));
+                GUI.color = new Color(0.5f, 0.7f, 1f, 0.8f);
+                RWWidgets.DrawBox(rect, 2);
+                GUI.color = Color.white;
             }
             else if (Mouse.IsOver(rect))
             {
@@ -157,6 +168,12 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
                 GUI.color = Color.white;
                 RWWidgets.Label(badgeRect, ruleCount.ToString());
                 Text.Font = GameFont.Small;
+            }
+
+            // Hover switch for drag
+            if (state.DragController.IsDragging && Mouse.IsOver(rect))
+            {
+                state.DragController.NotifyWorkTypeHover(workType);
             }
 
             Text.Anchor = TextAnchor.UpperLeft;
