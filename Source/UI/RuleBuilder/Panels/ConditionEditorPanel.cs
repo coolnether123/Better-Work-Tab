@@ -34,8 +34,31 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
         /// </summary>
         public void Draw(Rect rect, RuleBuilderState state)
         {
-            RWWidgets.DrawBoxSolid(rect, RuleBuilderConstants.PanelBackgroundLight);
-            RWWidgets.DrawBox(rect, 1);
+            // Draw drop zone highlight when dragging
+            bool isDragging = state.DragController.IsDragging;
+            bool isValidDropTarget = isDragging && !state.IsRulesetReadOnly && 
+                                     state.SelectedWorkType != null && state.SelectedPriority >= 0;
+            
+            if (isDragging && Mouse.IsOver(rect))
+            {
+                // Highlight the entire panel as drop zone
+                Color highlightColor = isValidDropTarget 
+                    ? new Color(0.3f, 0.6f, 0.4f, 0.3f)  // Green tint for valid
+                    : new Color(0.6f, 0.3f, 0.3f, 0.2f); // Red tint for invalid
+                RWWidgets.DrawBoxSolid(rect, highlightColor);
+                
+                // Draw prominent border
+                GUI.color = isValidDropTarget 
+                    ? new Color(0.4f, 0.8f, 0.5f, 0.9f) 
+                    : new Color(0.8f, 0.4f, 0.4f, 0.6f);
+                RWWidgets.DrawBox(rect, 3);
+                GUI.color = Color.white;
+            }
+            else
+            {
+                RWWidgets.DrawBoxSolid(rect, RuleBuilderConstants.PanelBackgroundLight);
+                RWWidgets.DrawBox(rect, 1);
+            }
 
             Rect innerRect = rect.ContractedBy(8f);
 
@@ -70,33 +93,99 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
                 innerRect.height - headerRect.height - (isReadOnly ? 8f : AddButtonHeight + 16f));
 
             DrawConditionSetsList(listRect, state);
+
+            // Draw "Drop here" overlay when dragging
+            if (isDragging && Mouse.IsOver(rect) && isValidDropTarget)
+            {
+                DrawDropOverlay(rect);
+            }
+
+            HandleDrop(rect, state);
+        }
+
+        private void DrawDropOverlay(Rect rect)
+        {
+            // Draw semi-transparent overlay with "Drop here" text
+            Text.Font = GameFont.Medium;
+            Text.Anchor = TextAnchor.MiddleCenter;
+            GUI.color = new Color(0.9f, 1f, 0.9f, 0.9f);
+            
+            Rect labelRect = new Rect(rect.x, rect.yMax - 40f, rect.width, 30f);
+            string dropText = "BWT_DropHere".CanTranslate() ? "BWT_DropHere".Translate() : "↓ Drop here to duplicate ↓";
+            Verse.Widgets.Label(labelRect, dropText);
+            
+            Text.Font = GameFont.Small;
+            Text.Anchor = TextAnchor.UpperLeft;
+            GUI.color = Color.white;
+        }
+
+        private void HandleDrop(Rect rect, RuleBuilderState state)
+        {
+            if (state.DragController.IsDragging &&
+                Event.current.type == EventType.MouseUp &&
+                Mouse.IsOver(rect))
+            {
+                if (!state.IsRulesetReadOnly && state.SelectedWorkType != null && state.SelectedPriority >= 0)
+                {
+                    // Perform the paste
+                    var dragged = state.DragController.DraggedRules;
+                    foreach (var rule in dragged)
+                    {
+                        var copy = rule.Copy();
+                        copy.Parameters.Worktype = state.SelectedWorkType;
+                        copy.Parameters.WorktypeString = state.SelectedWorkType.defName;
+                        copy.Parameters.Priority = state.SelectedPriority;
+                        state.SelectedRuleset.Rules.Add(copy);
+                    }
+                    state.NotifyRulesModified();
+                    SoundDefOf.DropElement.PlayOneShotOnCamera();
+                }
+
+                state.DragController.EndDrag();
+                Event.current.Use();
+            }
         }
 
         private void DrawHeader(Rect rect, RuleBuilderState state)
         {
             // Collapse chain when selected priority changes to mimic initial view
-            // (only show up to the active priority until explicitly expanded).
-            // This keeps the header concise while editing.
-            // The chain will expand only when user clicks the "more" segment.
             if (state.SelectedPriority != _lastPriority)
             {
                 _expandedChain = false;
                 _lastPriority = state.SelectedPriority;
             }
 
+            // Layout: [Title + Chain] [Drag Handle]
+            float handleWidth = 60f;
+            float handleHeight = rect.height - 8f;
+            
+            // Drag handle on the right
+            Rect handleRect = new Rect(
+                rect.xMax - handleWidth - 4f, 
+                rect.y + 4f, 
+                handleWidth, 
+                handleHeight);
+            
+            // Title and chain on the left
+            Rect leftRect = new Rect(rect.x, rect.y, rect.width - handleWidth - 12f, rect.height);
+            
             // Title line
-            Rect titleRect = new Rect(rect.x, rect.y, rect.width, 28f);
+            Rect titleRect = new Rect(leftRect.x, leftRect.y, leftRect.width, 28f);
             Text.Font = GameFont.Small;
             Text.Anchor = TextAnchor.MiddleLeft;
             GUI.color = RuleBuilderConstants.HeaderColor;
             RWWidgets.Label(titleRect, "BWT_ConditionsFor".Translate());
 
-            // Work type + priority chain (collapsible, supports dynamic priorities)
-            Rect chainRect = new Rect(rect.x, titleRect.yMax, rect.width, 24f);
+            // Work type + priority chain (collapsible)
+            Rect chainRect = new Rect(leftRect.x, titleRect.yMax, leftRect.width, 24f);
             _expandedChain = PriorityChainWidget.Draw(chainRect, state, _expandedChain);
 
             Text.Anchor = TextAnchor.UpperLeft;
             GUI.color = Color.white;
+
+            // Draw the drag handle (only if we have rules)
+            var rules = state.CurrentRules;
+            state.DragController.DrawDragHandle(handleRect, rules, state.SelectedWorkType, state.SelectedPriority);
         }
 
         private void DrawConditionSetsList(Rect rect, RuleBuilderState state)

@@ -471,6 +471,22 @@ namespace Better_Work_Tab.UI.Settings
 
             Register(new SettingDefinition
             {
+                Id = LayoutDragHoverDelay,
+                ParentId = FeaturesAutoassign,
+                FieldName = "dragHoverDelay",
+                Label = "Rule Builder: Drag Hover Delay (s)",
+                Tooltip = "Time in seconds to hover before switching categories while dragging rules.",
+                Type = SettingType.Float,
+                DefaultValue = DefaultSettings.dragHoverDelay,
+                MinValue = 0.2f,
+                MaxValue = 2.0f,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 430
+            });
+
+            Register(new SettingDefinition
+            {
                 Id = LayoutColumnSpacing,
                 ParentId = FeaturesDragdrop,
                 FieldName = "columnSpacing",

@@ -33,6 +33,14 @@ namespace Better_Work_Tab.UI
 
         public override void DoWindowContents(Rect inRect)
         {
+            // Handle Enter key
+            bool enterPressed = false;
+            if (Event.current.type == EventType.KeyDown && (Event.current.keyCode == KeyCode.Return || Event.current.keyCode == KeyCode.KeypadEnter))
+            {
+                enterPressed = true;
+                Event.current.Use();
+            }
+
             // Title
             Rect titleRect = new Rect(inRect.x, inRect.y, inRect.width, 30f);
             Text.Font = GameFont.Medium;
@@ -49,6 +57,7 @@ namespace Better_Work_Tab.UI
                 inRect.width - Padding * 2,
                 FieldHeight);
 
+            GUI.SetNextControlName("RulesetNameField");
             _buffer = Widgets.TextField(fieldRect, _buffer, 64);
 
             // Buttons
@@ -66,7 +75,7 @@ namespace Better_Work_Tab.UI
                 buttonWidth,
                 ButtonHeight);
 
-            if (Widgets.ButtonText(confirmRect, "BWT_Confirm".Translate()))
+            if (Widgets.ButtonText(confirmRect, "BWT_Confirm".Translate()) || enterPressed)
             {
                 if (!string.IsNullOrEmpty(_buffer.Trim()) && _ruleset != null)
                 {
@@ -84,7 +93,6 @@ namespace Better_Work_Tab.UI
             // Focus field on open
             if (GUI.GetNameOfFocusedControl() != "RulesetNameField")
             {
-                GUI.SetNextControlName("RulesetNameField");
                 GUI.FocusControl("RulesetNameField");
             }
         }

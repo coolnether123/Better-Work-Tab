@@ -88,6 +88,13 @@ namespace Better_Work_Tab.UI.RuleBuilder
                 inRect.height - headerRect.height - 12f);
 
             DrawThreeColumnLayout(contentRect);
+
+            // Drag Drop
+            if (_state?.DragController != null)
+            {
+                _state.DragController.Update();
+                _state.DragController.DrawDragVisual();
+            }
         }
 
         /// <summary>
