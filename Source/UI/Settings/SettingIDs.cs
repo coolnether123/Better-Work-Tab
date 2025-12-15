@@ -13,6 +13,7 @@ namespace Better_Work_Tab.UI.Settings
         public const string AdvancedAlwaysShowConditionEditors = "advanced.alwaysShowConditionEditors";
         public const string AutoassignConfirm = "autoassign.confirm";
         public const string AutoassignResetBefore = "autoassign.resetBefore";
+        public const string AutoassignViewMode = "autoassign.viewMode";
         public const string AutoassignVisual = "autoassign.visual";
         public const string ColorsBestPawnOutline = "colors.bestPawnOutline";
         public const string ColorsSkillExcellent = "colors.skillExcellent";

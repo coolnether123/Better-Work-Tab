@@ -124,6 +124,17 @@ namespace Better_Work_Tab.UI.RuleBuilder
 
             // New ruleset button
             Rect newButtonRect = new Rect(rect.xMax - 110f, rect.y + 6f, 100f, 28f);
+            
+            // Edit button (to the left of New button)
+            if (_state.SelectedRuleset != null && !_state.SelectedRuleset.IsDefault)
+            {
+                Rect editButtonRect = new Rect(newButtonRect.x - 70f - 10f, rect.y + 6f, 70f, 28f);
+                if (RWWidgets.ButtonText(editButtonRect, "Edit"))
+                {
+                    OpenRenameDialog(_state.SelectedRuleset);
+                }
+            }
+
             if (RWWidgets.ButtonText(newButtonRect, "+ " + "BWT_New".Translate()))
             {
                 CreateNewRuleset();
@@ -178,10 +189,19 @@ namespace Better_Work_Tab.UI.RuleBuilder
                 }));
             }
 
-            options.Add(new FloatMenuOption("BWT_RuleBuilder_ManageRulesets".Translate(), () =>
+            // Add manage options based on view mode (Raw/Both)
+            var mode = BetterWorkTabMod.Settings.rulesetViewMode;
+            if (mode == BetterWorkTabSettings.RulesetViewMode.Raw || mode == BetterWorkTabSettings.RulesetViewMode.Both)
             {
-                Find.WindowStack.Add(new Window_RulesManager());
-            }));
+                string label = mode == BetterWorkTabSettings.RulesetViewMode.Raw 
+                    ? "BWT_RuleBuilder_ManageRulesets".Translate() 
+                    : "BWT_RuleBuilder_ManageRulesets".Translate() + " (Raw)";
+
+                options.Add(new FloatMenuOption(label, () =>
+                {
+                    Find.WindowStack.Add(new Window_RulesManager());
+                }));
+            }
 
             if (selected != null && !selected.IsDefault)
             {

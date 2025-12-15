@@ -416,6 +416,14 @@ namespace Better_Work_Tab
 
         public float workTabMaxHeight = DefaultSettings.workTabMaxHeight;
 
+        public enum RulesetViewMode
+        {
+            Raw,
+            Regular,
+            Both
+        }
+        public RulesetViewMode rulesetViewMode = RulesetViewMode.Regular;
+
         /// <summary>
         /// Creates/restores all default rulesets from the static defaults.
         /// </summary>
@@ -630,6 +638,7 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref mpSyncWorkloads, "mpSyncWorkloads", true);
             Scribe_Values.Look(ref mpSyncRulesets, "mpSyncRulesets", true);
             Scribe_Values.Look(ref mpConflictMode, "mpConflictMode", MpConflictMode.PlayerPriority);
+            Scribe_Values.Look(ref rulesetViewMode, "rulesetViewMode", RulesetViewMode.Regular);
 
             // Divider settings
             Scribe_Values.Look(ref dividerHeight, "dividerHeight", DefaultSettings.dividerHeight);
