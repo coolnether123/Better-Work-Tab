@@ -126,6 +126,7 @@
     <Compile Include="UI\Window_RulesManager.cs" />
     <Compile Include="UI\Dialog_RenameGeneric.cs" />
     <Compile Include="UI\Dialog_RenameWorkload.cs" />
+    <Compile Include="UI\Dialog_RenameRuleset.cs" />
     <Compile Include="UI\VerticalLabels\AngledHeaderDrawer.cs" />
     <Compile Include="UI\VerticalLabels\AngledHeaderCache.cs" />
     <Compile Include="UI\HeaderButtons.cs" />
