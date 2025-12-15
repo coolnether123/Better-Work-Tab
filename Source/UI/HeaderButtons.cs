@@ -201,17 +201,32 @@ namespace Better_Work_Tab.UI
         /// </summary>
         private static void AddRulesetManagementOptions(List<FloatMenuOption> options)
         {
-            options.Add(new FloatMenuOption("BWT_RuleBuilder_OpenBuilder".Translate(), () =>
-            {
-                Find.WindowStack.Add(new Window_RulesetBuilder());
-                SoundDefOf.Tick_Low.PlayOneShotOnCamera();
-            }));
+            var mode = BetterWorkTabMod.Settings.rulesetViewMode;
 
-            options.Add(new FloatMenuOption("BWT_RuleBuilder_ManageRulesetsClassic".Translate(), () =>
+            // Regular (Visual Builder)
+            if (mode == BetterWorkTabSettings.RulesetViewMode.Regular || mode == BetterWorkTabSettings.RulesetViewMode.Both)
             {
-                Find.WindowStack.Add(new Window_RulesManager());
-                SoundDefOf.Tick_Low.PlayOneShotOnCamera();
-            }));
+                options.Add(new FloatMenuOption("BWT_RuleBuilder_OpenBuilder".Translate(), () =>
+                {
+                    Find.WindowStack.Add(new Window_RulesetBuilder());
+                    SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                }));
+            }
+
+            // Raw (Classic/Manager)
+            if (mode == BetterWorkTabSettings.RulesetViewMode.Raw || mode == BetterWorkTabSettings.RulesetViewMode.Both)
+            {
+                // In Both mode, we differentiate with "(Raw)".
+                string label = mode == BetterWorkTabSettings.RulesetViewMode.Raw 
+                    ? "BWT_RuleBuilder_ManageRulesets".Translate() 
+                    : "BWT_RuleBuilder_ManageRulesets".Translate() + " (Raw)";
+
+                options.Add(new FloatMenuOption(label, () =>
+                {
+                    Find.WindowStack.Add(new Window_RulesManager());
+                    SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                }));
+            }
         }
     }
 }
