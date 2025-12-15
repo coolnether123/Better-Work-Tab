@@ -7,6 +7,9 @@ using Verse;
 using Verse.Sound;
 using RWWidgets = Verse.Widgets;
 
+using Better_Work_Tab.UI.RuleBuilder.Widgets;
+using Better_Work_Tab.UI;
+
 namespace Better_Work_Tab.UI.RuleBuilder.Widgets
 {
     /// <summary>
@@ -44,7 +47,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
 
             // Header row
             Rect headerRect = new Rect(innerRect.x, innerRect.y, innerRect.width, NameHeight);
-            DrawHeader(headerRect, rule, matchCount);
+            DrawHeader(headerRect, rule, matchCount, isReadOnly);
 
             // Conditions list
             Rect listRect = new Rect(
@@ -77,8 +80,19 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
             return action;
         }
 
-        private static void DrawHeader(Rect rect, WorkAssignmentRule rule, int matchCount)
+        private static void DrawHeader(Rect rect, WorkAssignmentRule rule, int matchCount, bool isReadOnly)
         {
+            // Handle double-click rename
+            if (!isReadOnly && Mouse.IsOver(rect) && Event.current.type == EventType.MouseDown && Event.current.clickCount == 2)
+            {
+                Event.current.Use();
+                string currentName = rule.Name ?? "";
+                Find.WindowStack.Add(new Dialog_RenameGeneric(currentName, (newName) =>
+                {
+                    rule.Name = newName;
+                }));
+            }
+
             Text.Anchor = TextAnchor.MiddleLeft;
             GUI.color = RuleBuilderConstants.LabelColor;
 
