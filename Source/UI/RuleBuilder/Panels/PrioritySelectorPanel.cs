@@ -123,10 +123,17 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             RuleBuilderState state)
         {
             // Background color based on selection state
+            bool isDragging = state.DragController.IsDragging;
+            bool isDragHover = isDragging && Mouse.IsOver(rect);
+            
             Color bgColor;
             if (isSelected)
             {
                 bgColor = RuleBuilderConstants.PriorityColors[priority];
+            }
+            else if (isDragHover)
+            {
+                bgColor = new Color(0.3f, 0.5f, 0.7f, 0.5f);
             }
             else if (Mouse.IsOver(rect))
             {
@@ -138,7 +145,18 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             }
 
             RWWidgets.DrawBoxSolid(rect, bgColor);
-            RWWidgets.DrawBox(rect, isSelected ? 2 : 1);
+            
+            // Draw special border when drag hovering
+            if (isDragHover)
+            {
+                GUI.color = new Color(0.5f, 0.7f, 1f, 0.8f);
+                RWWidgets.DrawBox(rect, 3);
+                GUI.color = Color.white;
+            }
+            else
+            {
+                RWWidgets.DrawBox(rect, isSelected ? 2 : 1);
+            }
 
             // Priority indicator
             Rect indicatorRect = new Rect(rect.x + 8f, rect.y + 8f, 24f, 24f);
@@ -181,6 +199,12 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
                 GUI.color = Color.white;
                 RWWidgets.Label(badgeRect, ruleCount.ToString());
                 Text.Font = GameFont.Small;
+            }
+            
+            // Hover switch for drag
+            if (state.DragController.IsDragging && Mouse.IsOver(rect))
+            {
+                state.DragController.NotifyPriorityHover(priority);
             }
 
             Text.Anchor = TextAnchor.UpperLeft;
