@@ -62,4 +62,9 @@
   <BWT_SelectTrait>Select Trait</BWT_SelectTrait>
   <BWT_Any>Any</BWT_Any>
   <BWT_BiotechRequired>Requires Biotech DLC</BWT_BiotechRequired>
+  
+  <BWT_RenameRuleset>Rename Ruleset</BWT_RenameRuleset>
+  <BWT_Rename>Rename</BWT_Rename>
+  <BWT_Confirm>Confirm</BWT_Confirm>
+  <BWT_Cancel>Cancel</BWT_Cancel>
 </LanguageData>
