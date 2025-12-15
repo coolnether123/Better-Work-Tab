@@ -11,6 +11,7 @@ using UnityEngine;
 using Verse;
 using Verse.Sound;
 using RWWidgets = Verse.Widgets;
+using Better_Work_Tab.UI;
 
 namespace Better_Work_Tab.UI.RuleBuilder
 {
@@ -31,6 +32,10 @@ namespace Better_Work_Tab.UI.RuleBuilder
         private WorkTypeListPanel _workTypePanel;
         private PrioritySelectorPanel _priorityPanel;
         private ConditionEditorPanel _conditionPanel;
+
+        private float _lastRulesetClickTime;
+        private string _lastRulesetClickedName;
+        private const float DoubleClickTimeWindow = 0.3f;
 
         // ═══════════════════════════════════════════════════════════════
         // WINDOW SETUP
@@ -101,14 +106,14 @@ namespace Better_Work_Tab.UI.RuleBuilder
             RWWidgets.Label(titleRect, "BWT_RuleBuilder_Title".Translate());
             GUI.color = Color.white;
 
-            // Ruleset dropdown
+            // Ruleset dropdown/rename
             Rect dropdownRect = new Rect(
                 rect.x + rect.width / 2f - 150f,
                 rect.y + 6f,
                 300f,
                 28f);
 
-            DrawRulesetDropdown(dropdownRect);
+            DrawRulesetDropdownWithRename(dropdownRect);
 
             // New ruleset button
             Rect newButtonRect = new Rect(rect.xMax - 110f, rect.y + 6f, 100f, 28f);
@@ -122,37 +127,74 @@ namespace Better_Work_Tab.UI.RuleBuilder
         }
 
         /// <summary>
-        /// Draws the ruleset selector dropdown.
+        /// Draws ruleset selector with double-click rename support.
         /// </summary>
-        private void DrawRulesetDropdown(Rect rect)
+        private void DrawRulesetDropdownWithRename(Rect rect)
         {
             var rulesets = BetterWorkTabMod.Settings.SavedRulesets ?? new List<WorkAssignmentRuleset>();
             var selected = _state.SelectedRuleset;
 
             string label = selected?.Name ?? "BWT_SelectRuleset".Translate();
 
+            // Draw the button
             if (RWWidgets.ButtonText(rect, label))
             {
-                var options = new List<FloatMenuOption>();
-
-                foreach (var ruleset in rulesets)
-                {
-                    var local = ruleset;
-                    string optionLabel = local.Name + (local.IsDefault ? " *" : "");
-                    options.Add(new FloatMenuOption(optionLabel, () =>
-                    {
-                        _state.SelectedRuleset = local;
-                        BetterWorkTabMod.Settings.CurrentRuleset = local;
-                    }));
-                }
-
-                options.Add(new FloatMenuOption("BWT_RuleBuilder_ManageRulesets".Translate(), () =>
-                {
-                    Find.WindowStack.Add(new Window_RulesManager());
-                }));
-
-                Find.WindowStack.Add(new FloatMenu(options));
+                HandleRulesetClick(selected);
             }
+
+            // Handle double-click for rename
+            if (Event.current.type == EventType.MouseDown &&
+                Event.current.clickCount == 2 &&
+                rect.Contains(Event.current.mousePosition) &&
+                selected != null && !selected.IsDefault)
+            {
+                Event.current.Use();
+                OpenRenameDialog(selected);
+            }
+        }
+
+        private void HandleRulesetClick(WorkAssignmentRuleset selected)
+        {
+            var rulesets = BetterWorkTabMod.Settings.SavedRulesets ?? new List<WorkAssignmentRuleset>();
+
+            var options = new List<FloatMenuOption>();
+
+            foreach (var ruleset in rulesets)
+            {
+                var local = ruleset;
+                string optionLabel = local.Name + (local.IsDefault ? " *" : "");
+                
+                options.Add(new FloatMenuOption(optionLabel, () =>
+                {
+                    _state.SelectedRuleset = local;
+                    BetterWorkTabMod.Settings.CurrentRuleset = local;
+                }));
+            }
+
+            options.Add(new FloatMenuOption("BWT_RuleBuilder_ManageRulesets".Translate(), () =>
+            {
+                Find.WindowStack.Add(new Window_RulesManager());
+            }));
+
+            if (selected != null && !selected.IsDefault)
+            {
+                options.Add(new FloatMenuOption("BWT_Rename".Translate(), () =>
+                {
+                    OpenRenameDialog(selected);
+                }));
+            }
+
+            Find.WindowStack.Add(new FloatMenu(options));
+        }
+
+        private void OpenRenameDialog(WorkAssignmentRuleset ruleset)
+        {
+            var dialog = new Dialog_RenameRuleset(ruleset, () =>
+            {
+                BetterWorkTabMod.Settings.Write();
+            });
+
+            Find.WindowStack.Add(dialog);
         }
 
         /// <summary>
