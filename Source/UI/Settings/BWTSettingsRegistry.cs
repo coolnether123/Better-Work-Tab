@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Better_Work_Tab;
 using Better_Work_Tab.Features;
@@ -925,6 +926,21 @@ namespace Better_Work_Tab.UI.Settings
             });
 
             // Auto-assign settings
+            Register(new SettingDefinition
+            {
+                Id = AutoassignViewMode,
+                ParentId = FeaturesAutoassign,
+                FieldName = "rulesetViewMode",
+                Label = "Ruleset Interface Mode",
+                Tooltip = "Choose between the new visual builder (Regular), the classic list (Raw), or show both options.",
+                Type = SettingType.Enum,
+                DefaultValue = BetterWorkTabSettings.RulesetViewMode.Regular,
+                EnumType = typeof(BetterWorkTabSettings.RulesetViewMode),
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 405
+            });
+
             Register(new SettingDefinition
             {
                 Id = AutoassignConfirm,

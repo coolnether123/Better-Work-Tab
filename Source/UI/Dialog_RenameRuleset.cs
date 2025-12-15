@@ -29,7 +29,7 @@ namespace Better_Work_Tab.UI
             absorbInputAroundWindow = true;
         }
 
-        public override Vector2 InitialSize => new Vector2(400f, 140f);
+        public override Vector2 InitialSize => new Vector2(400f, 180f);
 
         public override void DoWindowContents(Rect inRect)
         {
