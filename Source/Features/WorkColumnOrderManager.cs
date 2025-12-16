@@ -1,8 +1,10 @@
 using Better_Work_Tab.Features.Workloads;
+using Better_Work_Tab.Mod_Support.Multiplayer;
 using Better_Work_Tab.UI;
 using RimWorld;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEngine;
 using Verse;
 
 namespace Better_Work_Tab.Features
@@ -13,6 +15,20 @@ namespace Better_Work_Tab.Features
         private static Game _lastInitializedGame;
         private static Dictionary<WorkTypeDef, List<WorkTypeDef>> _similarWorktypeMap;
         private static readonly List<WorkTypeDef> EmptySimilarWorktypeList = new List<WorkTypeDef>(0);
+
+        private static GameComponent_BWTWorldSettings SharedState
+            => Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
+
+        private static List<string> GetSharedOrderOrNull()
+            => SharedState?.ColumnCurrentOrder is { Count: > 0 } list ? list : null;
+
+        private static void SetSharedOrder(List<string> order)
+        {
+            if (SharedState == null)
+                return;
+
+            SharedState.ColumnCurrentOrder = order;
+        }
 
         /// <summary>
         /// Initialize vanilla order and apply saved order. Called after defs are loaded.
@@ -172,122 +188,105 @@ namespace Better_Work_Tab.Features
         }
 
         /// <summary>
-        /// Captures the current order of work type columns and saves to settings.
+        /// Captures the current order of work type columns and saves to the shared component.
         /// </summary>
-        public static void CaptureCurrent(PawnTableDef def)
+        public static List<string> CaptureCurrent(PawnTableDef tableDef)
         {
-            var settings = BetterWorkTabMod.Settings;
-            if (settings == null)
-            {
-                return;
-            }
-
             BetterWorkTabMod.DebugLog("WorkColumnOrderManager.CaptureCurrent called.", DebugFeature.DragDrop);
-            if (def?.columns == null)
+
+            if (tableDef?.columns == null)
             {
                 BetterWorkTabMod.DebugLog("WorkColumnOrderManager.CaptureCurrent: def or columns are null.", DebugFeature.DragDrop);
-                return;
+                return new List<string>();
             }
 
             var order = new List<string>();
-            foreach (var c in def.columns)
+            foreach (var col in tableDef.columns)
             {
-                if (c.Worker is PawnColumnWorker_WorkPriority && c.workType != null)
-                    order.Add(c.workType.defName);
+                if (col.Worker is PawnColumnWorker_WorkPriority && col.workType != null)
+                    order.Add(col.workType.defName);
             }
 
-            settings.workColumnOrderDefNames = order;
-            settings.Write();
+            SetSharedOrder(order);
+
+            if (!MultiplayerBridge.Active)
+            {
+                var settings = BetterWorkTabMod.Settings;
+                if (settings != null)
+                {
+                    settings.workColumnOrderDefNames = new List<string>(order);
+                    settings.Write();
+                }
+            }
+
             BetterWorkTabMod.DebugLog($"WorkColumnOrderManager.CaptureCurrent: Captured order: {string.Join(", ", order)}", DebugFeature.DragDrop);
+            return order;
         }
 
         /// <summary>
-        /// Applies the saved custom work column order from settings to def.columns.
+        /// Applies the saved custom work column order using shared state.
         /// </summary>
-        public static void ApplySaved(PawnTableDef def)
+        public static void ApplySaved(PawnTableDef tableDef)
         {
-            var settings = BetterWorkTabMod.Settings;
-            if (settings == null)
+            var order = GetSharedOrderOrNull();
+
+            if (order == null || order.Count == 0)
             {
-                BetterWorkTabMod.DebugLog("WorkColumnOrderManager.ApplySaved: Settings unavailable.", DebugFeature.DragDrop);
-                return;
-            }
-
-            if (def?.columns == null)
-            {
-                BetterWorkTabMod.DebugLog("WorkColumnOrderManager.ApplySaved: def or columns are null.", DebugFeature.DragDrop);
-                return;
-            }
-
-            var saved = settings.workColumnOrderDefNames;
-            if (saved == null || saved.Count == 0)
-            {
-                BetterWorkTabMod.DebugLog("WorkColumnOrderManager.ApplySaved: No saved order found.", DebugFeature.DragDrop);
-                return;
-            }
-
-            BetterWorkTabMod.DebugLog($"WorkColumnOrderManager.ApplySaved: Saved order: {string.Join(", ", saved)}", DebugFeature.DragDrop);
-
-            // Separate columns into pre-work, work, and post-work
-            var preWork = new List<PawnColumnDef>();
-            var workCols = new List<PawnColumnDef>();
-            var postWork = new List<PawnColumnDef>();
-
-            bool passedFirstWork = false;
-
-            foreach (var col in def.columns)
-            {
-                bool isWorkCol = col.Worker is PawnColumnWorker_WorkPriority && col.workType != null;
-
-                if (isWorkCol)
+                var settingsOrder = BetterWorkTabMod.Settings?.workColumnOrderDefNames;
+                if (settingsOrder != null && settingsOrder.Count > 0)
                 {
-                    passedFirstWork = true;
-                    workCols.Add(col);
-                }
-                else if (!passedFirstWork)
-                {
-                    preWork.Add(col);
-                }
-                else
-                {
-                    postWork.Add(col);
+                    order = new List<string>(settingsOrder);
+                    SetSharedOrder(order);
                 }
             }
 
-            if (workCols.Count == 0)
+            if (order == null || order.Count == 0)
             {
                 return;
             }
 
-            // Build map of defName -> column
-            var byDefName = workCols.ToDictionary(c => c.workType?.defName ?? "", c => c);
+            ApplyOrderToTable(tableDef, order);
+        }
+
+        private static void ApplyOrderToTable(PawnTableDef tableDef, List<string> order)
+        {
+            if (tableDef?.columns == null)
+                return;
+
+            var workColumns = tableDef.columns
+                .Where(c => c.Worker is PawnColumnWorker_WorkPriority && c.workType != null)
+                .ToList();
+
+            var nonWork = tableDef.columns
+                .Where(c => !(c.Worker is PawnColumnWorker_WorkPriority))
+                .ToList();
+
             var sorted = new List<PawnColumnDef>();
 
-            foreach (var defName in saved)
+            foreach (var defName in order)
             {
-                if (byDefName.TryGetValue(defName, out var c))
-                {
-                    sorted.Add(c);
-                    byDefName.Remove(defName);
-                }
+                var match = workColumns.FirstOrDefault(w => w.workType?.defName == defName);
+                if (match != null)
+                    sorted.Add(match);
             }
 
-            // Append any missing/unknown in their current order
-            foreach (var c in workCols)
+            foreach (var wc in workColumns)
             {
-                if (!sorted.Contains(c))
-                    sorted.Add(c);
+                if (!sorted.Contains(wc))
+                    sorted.Add(wc);
             }
 
-            BetterWorkTabMod.DebugLog($"WorkColumnOrderManager.ApplySaved: Sorted columns: {string.Join(", ", sorted.Select(c => c.defName))}", DebugFeature.DragDrop);
+            tableDef.columns.Clear();
+            tableDef.columns.AddRange(nonWork);
+            tableDef.columns.AddRange(sorted);
 
-            // Rebuild def.columns
-            def.columns.Clear();
-            def.columns.AddRange(preWork);
-            def.columns.AddRange(sorted);
-            def.columns.AddRange(postWork);
+            SetSharedOrder(sorted
+                .Where(c => c.workType != null)
+                .Select(c => c.workType.defName)
+                .ToList());
 
-            BetterWorkTabMod.DebugLog("WorkColumnOrderManager.ApplySaved: Columns reordered.", DebugFeature.DragDrop);
+            WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
+            MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
         }
 
         /// <summary>
@@ -499,6 +498,11 @@ namespace Better_Work_Tab.Features
             def.columns.AddRange(preWork);
             def.columns.AddRange(reorderedWork);
             def.columns.AddRange(postWork);
+
+            SetSharedOrder(reorderedWork
+                .Where(c => c.workType != null)
+                .Select(c => c.workType.defName)
+                .ToList());
 
             // Clear the saved custom order
             BetterWorkTabMod.Settings.workColumnOrderDefNames.Clear();

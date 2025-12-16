@@ -52,6 +52,10 @@ namespace Better_Work_Tab
         public static bool enableUIElements = true;
         public static bool enablePerformanceOptimizations = true;
         public static bool enableMultiplayerSync = true;
+        public static bool mpShowOtherPlayersHover = false;
+        public static bool mpAllowOthersToRequestLayout = true;
+        public static bool mpAllowPresenceBroadcast = false;
+        public static bool mpShowLinkedIndicator = true;
         public static List<string> workColumnOrderDefNames = new List<string>();
         public static bool firstTimeSetupDone = false;
         public static float dividerHeight = 18f;
@@ -386,6 +390,10 @@ namespace Better_Work_Tab
         public bool mpSyncRulesets = true;
         public enum MpConflictMode { PlayerPriority, HostPriority, AskPlayer }
         public MpConflictMode mpConflictMode = MpConflictMode.PlayerPriority;
+        public bool mpShowOtherPlayersHover = DefaultSettings.mpShowOtherPlayersHover;
+        public bool mpAllowOthersToRequestLayout = DefaultSettings.mpAllowOthersToRequestLayout;
+        public bool mpAllowPresenceBroadcast = DefaultSettings.mpAllowPresenceBroadcast;
+        public bool mpShowLinkedIndicator = DefaultSettings.mpShowLinkedIndicator;
 
         // Future behavior templates
         public bool confirmRulesetApplication = true;
@@ -636,6 +644,10 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref mpSyncWorkloads, "mpSyncWorkloads", true);
             Scribe_Values.Look(ref mpSyncRulesets, "mpSyncRulesets", true);
             Scribe_Values.Look(ref mpConflictMode, "mpConflictMode", MpConflictMode.PlayerPriority);
+            Scribe_Values.Look(ref mpShowOtherPlayersHover, "mpShowOtherPlayersHover", DefaultSettings.mpShowOtherPlayersHover);
+            Scribe_Values.Look(ref mpAllowOthersToRequestLayout, "mpAllowOthersToRequestLayout", DefaultSettings.mpAllowOthersToRequestLayout);
+            Scribe_Values.Look(ref mpAllowPresenceBroadcast, "mpAllowPresenceBroadcast", DefaultSettings.mpAllowPresenceBroadcast);
+            Scribe_Values.Look(ref mpShowLinkedIndicator, "mpShowLinkedIndicator", DefaultSettings.mpShowLinkedIndicator);
             Scribe_Values.Look(ref rulesetViewMode, "rulesetViewMode", RulesetViewMode.Regular);
 
             // Divider settings

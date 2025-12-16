@@ -236,7 +236,7 @@ namespace Better_Work_Tab.DragDrop
                 
                 if (row.Pawn?.playerSettings != null)
                 {
-                    row.Pawn.playerSettings.displayOrder = i;
+                    RowOrderUtility.SetPawnRowOrder(row.Pawn, i);
                 }
                 else if (row.Divider != null)
                 {

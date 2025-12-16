@@ -55,7 +55,7 @@ namespace Better_Work_Tab.PawnOrganizer.Data
         public Pawn Pawn;
         public PawnElement(Pawn p) => Pawn = p;
         public override bool IsDivider => false;
-        public override int DisplayOrder => Pawn.playerSettings?.displayOrder ?? 0;
+        public override int DisplayOrder => Better_Work_Tab.PawnOrganizer.RowOrderUtility.GetPawnRowOrder(Pawn);
     }
 
     public class DividerElement : DisplayElement
