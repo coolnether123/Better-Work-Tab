@@ -2,7 +2,10 @@ using System;
 using System.Collections.Generic;
 using Better_Work_Tab;
 using Better_Work_Tab.Features;
+using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.Patches;
+using RimWorld;
+using Spine.UI.ColourPicker;
 using Spine.UI.SettingsFramework;
 using UnityEngine;
 using Verse;
@@ -218,10 +221,38 @@ namespace Better_Work_Tab.UI.Settings
 
             Register(new SettingDefinition
             {
+                Id = "highlights.masterColor",
+                ParentId = HighlightsHover,
+                Label = "Set Master Highlight Color",
+                Tooltip = "Select a color to apply to ALL highlight settings (Hover, Selected, etc).",
+                Type = SettingType.Button,
+                ShowInSimpleView = false,
+                SortOrder = 0, 
+                OnChanged = settingsObj =>
+                {
+                    if (settingsObj is BetterWorkTabSettings s)
+                    {
+                         Find.WindowStack.Add(new Dialog_ColourPicker(s.Color_CursorHighlight, (picked, closing) =>
+                         {
+                             s.Color_CursorHighlight = picked;
+                             s.Color_RowHoverHighlight = picked;
+                             s.Color_ColumnHoverHighlight = picked;
+                             s.Color_SelectedPawnHighlight = picked;
+                             s.Color_FloatMenuHighlight = picked;
+                             s.Write();
+                             Messages.Message("Master color applied to all highlight settings.", MessageTypeDefOf.PositiveEvent, false);
+                         }));
+                    }
+                }
+            });
+
+            Register(new SettingDefinition
+            {
                 Id = HighlightsHoverColor,
                 ParentId = HighlightsHover,
                 FieldName = "Color_CursorHighlight",
                 Label = "Hover Highlight Color",
+                Tooltip = "Color used to highlight the row and column when hovering over cells.",
                 Type = SettingType.Color,
                 DefaultValue = DefaultSettings.Color_CursorHighlight,
                 ShowInSimpleView = true,
@@ -325,7 +356,7 @@ namespace Better_Work_Tab.UI.Settings
                 Id = HighlightsSelectedOpacity,
                 ParentId = HighlightsSelected,
                 FieldName = "SelectedPawnHighlightOpacity",
-                Label = "Selected Highlight Opacity",
+                Label = "Selected Pawn Highlight Opacity",
                 Tooltip = "Opacity for selected pawn highlight.",
                 Type = SettingType.Float,
                 DefaultValue = DefaultSettings.SelectedPawnHighlightOpacity,
@@ -364,20 +395,20 @@ namespace Better_Work_Tab.UI.Settings
             Register(new SettingDefinition
             {
                 Id = HighlightsOutlineMode,
-                ParentId = FeaturesHighlights,
+                ParentId = HighlightsHover,
                 FieldName = "useOutlineHighlights",
                 Label = "Use Outline Highlights",
                 Tooltip = "Draw highlights as outlines instead of solid boxes.",
                 Type = SettingType.Bool,
                 DefaultValue = false,
                 ShowInSimpleView = true,
-                SortOrder = 4
+                SortOrder = 4 // Placed after colors in HighlightHover
             });
 
             Register(new SettingDefinition
             {
                 Id = HighlightsSimilar,
-                ParentId = FeaturesHighlights,
+                ParentId = HighlightsHover,
                 FieldName = "ShowSimilarWorktypeHighlight",
                 Label = "Similar Worktypes",
                 Tooltip = "Dimly highlight work types sharing relevant skills.",
@@ -654,19 +685,6 @@ namespace Better_Work_Tab.UI.Settings
 
             Register(new SettingDefinition
             {
-                Id = DividersHighlight,
-                FieldName = "drawDividerHighlight",
-                Label = "Highlight Dividers",
-                Tooltip = "Highlight divider rows when hovering.",
-                Type = SettingType.Bool,
-                DefaultValue = DefaultSettings.drawDividerHighlight,
-                ShowInSimpleView = false,
-                SortOrder = 108,
-                ParentId = FeaturesDividers
-            });
-
-            Register(new SettingDefinition
-            {
                 Id = DividersCustomColors,
                 FieldName = "allowCustomDividerColors",
                 Label = "Allow Custom Colors",
@@ -674,21 +692,21 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.allowCustomDividerColors,
                 ShowInSimpleView = false,
-                SortOrder = 109,
+                SortOrder = 108,
                 ParentId = FeaturesDividers
             });
 
             Register(new SettingDefinition
             {
-                Id = DividersCustomFonts,
-                FieldName = "allowCustomDividerFonts",
-                Label = "Allow Custom Fonts",
-                Tooltip = "Allow per-divider custom fonts/sizes.",
+                Id = "dividers.highlight",
+                ParentId = FeaturesDividers,
+                FieldName = "highlightDividersOnHover",
+                Label = "Highlight on Hover",
+                Tooltip = "Highlight dividers when hovering over them using the hover highlight color.",
                 Type = SettingType.Bool,
-                DefaultValue = DefaultSettings.allowCustomDividerFonts,
+                DefaultValue = true,
                 ShowInSimpleView = false,
-                SortOrder = 110,
-                ParentId = FeaturesDividers
+                SortOrder = 109
             });
 
             Register(new SettingDefinition
@@ -704,6 +722,7 @@ namespace Better_Work_Tab.UI.Settings
                 ParentId = FeaturesDividers
             });
 
+
             Register(new SettingDefinition
             {
                 Id = DividersCollapse,
@@ -715,6 +734,32 @@ namespace Better_Work_Tab.UI.Settings
                 ShowInSimpleView = true,
                 SortOrder = 112,
                 ParentId = FeaturesDividers
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = "dividers.resetHeight",
+                Label = "Reset All Dividers Height",
+                Tooltip = "Reset the height of all dividers to the default value.",
+                Type = SettingType.Button,
+                ShowInSimpleView = true,
+                SortOrder = 113,
+                ParentId = FeaturesDividers,
+                OnChanged = settingsObj =>
+                {
+                    if (settingsObj is BetterWorkTabSettings settings && Current.Game?.GetComponent<GameComponent_BWTWorldSettings>() is GameComponent_BWTWorldSettings worldSettings)
+                    {
+                        if (worldSettings.ActiveDividers != null)
+                        {
+                            foreach (var div in worldSettings.ActiveDividers)
+                            {
+                                div.Height = settings.dividerHeight;
+                            }
+                            MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+                            Messages.Message("Dividers reset to default height.", MessageTypeDefOf.PositiveEvent, false);
+                        }
+                    }
+                }
             });
 
             Register(new SettingDefinition
@@ -1210,8 +1255,12 @@ namespace Better_Work_Tab.UI.Settings
                 {
                     if (settingsObj is BetterWorkTabSettings settings)
                     {
-                        settings.RestoreDefaults();
-                        settings.Write();
+                        Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation("Are you sure you want to restore factory defaults? current settings will be lost.", () =>
+                        {
+                            settings.RestoreDefaults();
+                            settings.Write();
+                            Messages.Message("Factory defaults restored.", MessageTypeDefOf.PositiveEvent, false);
+                        }, true, "Confirm Restore"));
                     }
                 }
             });

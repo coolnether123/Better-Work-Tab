@@ -11,7 +11,9 @@ namespace Better_Work_Tab.UI
         {
             if (BetterWorkTabMod.Settings?.useOutlineHighlights ?? false)
             {
-                Widgets.DrawBoxSolidWithOutline(rect, Color.clear, color, (int)OutlineThickness);
+                Color opaqueColor = color;
+                opaqueColor.a = 1f;
+                Widgets.DrawBoxSolidWithOutline(rect, Color.clear, opaqueColor, (int)OutlineThickness);
             }
             else
             {

@@ -55,7 +55,6 @@ namespace Better_Work_Tab
         public static List<string> workColumnOrderDefNames = new List<string>();
         public static bool firstTimeSetupDone = false;
         public static float dividerHeight = 18f;
-        public static bool drawDividerHighlight = true;
         public static bool showOnlyLineDragIndicatorRows = true;
         public static bool showOnlyLineDragIndicatorColumns = true;
         public static bool showGhostDragIndicator = true;
@@ -79,7 +78,6 @@ namespace Better_Work_Tab
         public static bool showManualPrioritiesCheckbox = true;
         public static bool showDividers = true;
         public static bool allowCustomDividerColors = true;
-        public static bool allowCustomDividerFonts = true;
         public static bool showDividerLabels = true;
         public static bool allowDividerCollapse = true;
         public static bool enableRowColumnHighlights = true;
@@ -248,7 +246,6 @@ namespace Better_Work_Tab
         public bool enablePerformanceOptimizations = DefaultSettings.enablePerformanceOptimizations;
         public bool enableMultiplayerSync = DefaultSettings.enableMultiplayerSync;
         public float dividerHeight = DefaultSettings.dividerHeight;
-        public bool drawDividerHighlight = DefaultSettings.drawDividerHighlight;
         public bool showOnlyLineDragIndicatorRows = DefaultSettings.showOnlyLineDragIndicatorRows;
         public bool showOnlyLineDragIndicatorColumns = DefaultSettings.showOnlyLineDragIndicatorColumns;
         public bool showGhostDragIndicator = false;
@@ -269,7 +266,6 @@ namespace Better_Work_Tab
         public bool showManualPrioritiesCheckbox = DefaultSettings.showManualPrioritiesCheckbox;
         public bool showDividers = DefaultSettings.showDividers;
         public bool allowCustomDividerColors = DefaultSettings.allowCustomDividerColors;
-        public bool allowCustomDividerFonts = DefaultSettings.allowCustomDividerFonts;
         public bool showDividerLabels = DefaultSettings.showDividerLabels;
         public bool allowDividerCollapse = DefaultSettings.allowDividerCollapse;
         public bool hideWorkloadButton = DefaultSettings.hideWorkloadButton;
@@ -395,6 +391,9 @@ namespace Better_Work_Tab
         public bool confirmRulesetApplication = true;
         public float dragStartThreshold = 5f;
         public float scrollSpeed = 15f;
+
+        // Dividers
+        public bool highlightDividersOnHover = true;
 
         // UI mode settings
         public enum ShowUIMode { Always, Never, Shifted, Unshifted }
@@ -563,7 +562,6 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref showManualPrioritiesCheckbox, "showManualPrioritiesCheckbox", DefaultSettings.showManualPrioritiesCheckbox);
             Scribe_Values.Look(ref showDividers, "showDividers", DefaultSettings.showDividers);
             Scribe_Values.Look(ref allowCustomDividerColors, "allowCustomDividerColors", DefaultSettings.allowCustomDividerColors);
-            Scribe_Values.Look(ref allowCustomDividerFonts, "allowCustomDividerFonts", DefaultSettings.allowCustomDividerFonts);
             Scribe_Values.Look(ref showDividerLabels, "showDividerLabels", DefaultSettings.showDividerLabels);
             Scribe_Values.Look(ref allowDividerCollapse, "allowDividerCollapse", DefaultSettings.allowDividerCollapse);
             Scribe_Values.Look(ref showOnlyLineDragIndicatorRows, "showOnlyLineDragIndicatorRows", true);
@@ -642,7 +640,7 @@ namespace Better_Work_Tab
 
             // Divider settings
             Scribe_Values.Look(ref dividerHeight, "dividerHeight", DefaultSettings.dividerHeight);
-            Scribe_Values.Look(ref drawDividerHighlight, "drawDividerHighlight", DefaultSettings.drawDividerHighlight);
+            Scribe_Values.Look(ref highlightDividersOnHover, "highlightDividersOnHover", true);
 
             // Load rulesets from save file
             Scribe_Collections.Look(ref SavedRulesets, "SavedRulesets", LookMode.Deep);
