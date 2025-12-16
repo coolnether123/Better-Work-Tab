@@ -284,13 +284,6 @@ namespace Better_Work_Tab.Features.Rules
             Scribe_Values.Look(ref MoveSpeedLessThan, "MoveSpeedLessThan", -1f);
             Scribe_Collections.Look(ref ActiveConditions, "ActiveConditions", LookMode.Value);
 
-            Scribe_Defs.Look(ref Worktype, "Worktype");
-            Scribe_Defs.Look(ref Xenotype, "Xenotype");
-
-            TraitDef requiredTraitDef = RequiredTrait?.Item1;
-            int requiredTraitDegree = RequiredTrait?.Item2 ?? -1;
-            Scribe_Defs.Look(ref requiredTraitDef, "RequiredTraitDef");
-            Scribe_Values.Look(ref requiredTraitDegree, "RequiredTraitDegree", -1);
 
             if (Scribe.mode == LoadSaveMode.LoadingVars || Scribe.mode == LoadSaveMode.PostLoadInit)
             {
@@ -301,7 +294,7 @@ namespace Better_Work_Tab.Features.Rules
 
                 ResolveWorktypeFromString();
                 ResolveXenotypeFromString();
-                ResolveTraitRequirement(requiredTraitDef, requiredTraitDegree);
+                ResolveTraitRequirement(null, -1);  // Resolve from strings only
                 ValidateActiveConditions();
             }
         }
