@@ -81,7 +81,7 @@ namespace Better_Work_Tab.UI
             _lastMousePosChecked = _cachedMousePos;
             _lastColumnsCount = columnsCount;
 
-            AngledLabelDrawer.HandleInteractions(__instance, table, cached.Layout, cached.Bounds, cached.Quad, isMouseOver, shouldDraw);
+            AngledLabelDrawer.HandleInteractions(__instance, table, cached.Layout, cached.Bounds, cached.Quad, isMouseOver, shouldDraw, rect);
             return false; // Skip vanilla header drawing entirely
         }
 
@@ -166,7 +166,7 @@ namespace Better_Work_Tab.UI
         /// <summary>
         /// Draws the angled header for a work column using a prepared layout.
         /// </summary>
-        public static void Draw(AngledLabelLayout layout, bool isMouseOver)
+        public static void Draw(AngledLabelLayout layout, bool isMouseOver, bool isSorted = false, bool sortDescending = false, Rect headerRect = default)
         {
             var savedMatrix = GUI.matrix;
             var savedFont = Text.Font;
@@ -189,7 +189,7 @@ namespace Better_Work_Tab.UI
                 if (isMouseOver)
                 {
                     Rect highlightRect = new Rect(pivot.x, pivot.y - lineHeight, textWidth, lineHeight).ExpandedBy(2f);
-                    GUI.color = new Color(1f, 1f, 1f, 0.35f); // match vanilla header hover opacity
+                    GUI.color = new Color(1f, 1f, 1f, 0.35f);
                     GUI.DrawTexture(highlightRect, TexUI.HighlightTex);
                     GUI.color = Color.white;
                 }
@@ -203,7 +203,6 @@ namespace Better_Work_Tab.UI
                 }
 
                 // Draw the text itself
-                // Color is yellow if marked, white otherwise
                 Text.Anchor = TextAnchor.LowerLeft;
                 GUI.color = layout.ShowMarker ? new Color(1f, 0.85f, 0.2f, 1f) : Color.white;
                 var labelRect = new Rect(pivot.x, pivot.y - lineHeight, 200f, lineHeight);
@@ -216,14 +215,42 @@ namespace Better_Work_Tab.UI
                 Text.Anchor = savedAnchor;
                 GUI.color = savedColor;
             }
+
+            // Draw sort indicator at top-right of header box (fixed position, independent of text size)
+            if (isSorted && headerRect != default(Rect))
+            {
+                GUI.color = new Color(0.6f, 0.6f, 0.6f, 0.9f); // Grey
+                Text.Font = GameFont.Tiny;
+                Text.Anchor = TextAnchor.MiddleCenter;
+
+                string sortArrow = sortDescending ? "▼" : "▲";
+
+                // Position arrow at top-right corner of the actual header box
+                float arrowSize = 14f;
+                Rect arrowRect = new Rect(
+                    headerRect.xMax - arrowSize - 2f,
+                    headerRect.y + 40f,
+                    arrowSize,
+                    arrowSize);
+
+                Widgets.Label(arrowRect, sortArrow);
+
+                GUI.color = Color.white;
+                Text.Font = GameFont.Small;
+                Text.Anchor = TextAnchor.UpperLeft;
+            }
         }
 
-        public static void HandleInteractions(PawnColumnWorker_WorkPriority worker, PawnTable table, AngledLabelLayout layout, Rect bounds, Vector2[] quad, bool isMouseOver, bool shouldDraw)
+        public static void HandleInteractions(PawnColumnWorker_WorkPriority worker, PawnTable table, AngledLabelLayout layout, Rect bounds, Vector2[] quad, bool isMouseOver, bool shouldDraw, Rect headerRect)
         {
+            // Check if this column is currently sorted
+            bool isSorted = table?.SortingBy == worker?.def;
+            bool sortDescending = table?.SortingDescending ?? false;
+
             // Draw visual only on repaint
             if (shouldDraw)
             {
-                Draw(layout, isMouseOver);
+                Draw(layout, isMouseOver, isSorted, sortDescending, headerRect);
             }
 
             // Handle tooltip on hover
