@@ -78,7 +78,9 @@ namespace Better_Work_Tab.Features.Workloads
 
                 if (Scribe.mode == LoadSaveMode.Saving)
                 {
-                    BWTLocalProfileStore.SaveIfDirty();
+                    // Don't call SaveIfDirty() here - it would nest Scribe operations!
+                    // Just mark dirty; the timer in GameComponentUpdate() will save it
+                    BWTLocalProfileStore.MarkDirty();
                 }
             }
 
@@ -145,11 +147,23 @@ namespace Better_Work_Tab.Features.Workloads
             }
         }
 
+        private int _profileSaveTimer = 0;
+
         public override void GameComponentUpdate()
         {
             SpineTiming.OnFrameStart();
             Patch_WorkPriority_DoCell_Unified.TrimCacheIfNeeded();
             base.GameComponentUpdate();
+
+            // Save profile every 300 ticks (~5 seconds) if dirty
+            // This avoids Scribe nesting issues when called from ExposeData
+            _profileSaveTimer++;
+            if (_profileSaveTimer > 300)
+            {
+                _profileSaveTimer = 0;
+                if (MultiplayerBridge.Active)
+                    BWTLocalProfileStore.SaveIfDirty();
+            }
         }
 
         public override void GameComponentOnGUI()
