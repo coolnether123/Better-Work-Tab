@@ -42,6 +42,30 @@ namespace Better_Work_Tab.Features
         }
 
         /// <summary>
+        /// Gets the current column order from the Work table def.
+        /// Returns a list of work type defNames in current order.
+        /// </summary>
+        internal static List<string> GetCurrentOrder()
+        {
+            var tableDef = DefDatabase<PawnTableDef>.GetNamed("Work");
+            if (tableDef?.columns == null || tableDef.columns.Count == 0)
+            {
+                return new List<string>();
+            }
+
+            var order = new List<string>();
+            foreach (var col in tableDef.columns)
+            {
+                if (col.Worker is PawnColumnWorker_WorkPriority && col.workType != null)
+                {
+                    order.Add(col.workType.defName);
+                }
+            }
+
+            return order;
+        }
+
+        /// <summary>
         /// Pre-compute which work types share any relevant skills. Runs once after defs load.
         /// </summary>
         public static void InitializeSimilarWorktypeMap()
