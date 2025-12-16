@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Better_Work_Tab.Features;
+using Better_Work_Tab.Mod_Support.LocalProfiles;
+using Better_Work_Tab.Mod_Support.Multiplayer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.PawnOrganizer.Data;
 using HarmonyLib;
@@ -84,7 +86,7 @@ namespace Better_Work_Tab.PawnOrganizer
                 var pawn = snapshot.Pawns[i];
                 if (pawn?.playerSettings == null) continue;
 
-                int currentOrder = pawn.playerSettings.displayOrder;
+                int currentOrder = RowOrderUtility.GetPawnRowOrder(pawn);
                 if (!_lastDisplayOrders.TryGetValue(pawn.thingIDNumber, out int lastOrder) || lastOrder != currentOrder)
                     return true;
             }
@@ -118,7 +120,7 @@ namespace Better_Work_Tab.PawnOrganizer
                 foreach (var pawn in snapshot.Pawns)
                 {
                     if (pawn?.playerSettings != null)
-                        _lastDisplayOrders[pawn.thingIDNumber] = pawn.playerSettings.displayOrder;
+                        _lastDisplayOrders[pawn.thingIDNumber] = RowOrderUtility.GetPawnRowOrder(pawn);
                 }
             }
 
@@ -441,7 +443,7 @@ namespace Better_Work_Tab.PawnOrganizer
                 return AddDividerAfterPawnWhileSorting(pawn, label, color);
             }
 
-            int baseOrder = pawn.playerSettings?.displayOrder ?? Rows.Count;
+            int baseOrder = RowOrderUtility.GetPawnRowOrder(pawn);
             int targetOrder = baseOrder + 1;
             ShiftDisplayOrdersFrom(targetOrder);
             return CreateDivider(label, color, targetOrder);
@@ -459,7 +461,7 @@ namespace Better_Work_Tab.PawnOrganizer
                 return AddDividerBeforePawnWhileSorting(pawn, label, color);
             }
 
-            int targetOrder = pawn.playerSettings?.displayOrder ?? 0;
+            int targetOrder = RowOrderUtility.GetPawnRowOrder(pawn);
             ShiftDisplayOrdersFrom(targetOrder);
             return CreateDivider(label, color, targetOrder);
         }
@@ -504,7 +506,7 @@ namespace Better_Work_Tab.PawnOrganizer
             RecalculateDisplayOrderFromVisualOrder();
 
             // Now add the divider using the updated displayOrder
-            int newDisplayOrder = pawn.playerSettings.displayOrder + 1;
+            int newDisplayOrder = RowOrderUtility.GetPawnRowOrder(pawn) + 1;
             ShiftDisplayOrdersFrom(newDisplayOrder);
             var divider = CreateDivider(label, color, newDisplayOrder);
 
@@ -550,7 +552,7 @@ namespace Better_Work_Tab.PawnOrganizer
             RecalculateDisplayOrderFromVisualOrder();
 
             // Now add the divider using the updated displayOrder
-            int newDisplayOrder = pawn.playerSettings.displayOrder;
+            int newDisplayOrder = RowOrderUtility.GetPawnRowOrder(pawn);
             ShiftDisplayOrdersFrom(newDisplayOrder);
             var divider = CreateDivider(label, color, newDisplayOrder);
 
@@ -569,7 +571,7 @@ namespace Better_Work_Tab.PawnOrganizer
 
                 if (element.Pawn != null && element.Pawn.playerSettings != null)
                 {
-                    element.Pawn.playerSettings.displayOrder = i;
+                    RowOrderUtility.SetPawnRowOrder(element.Pawn, i);
                     BetterWorkTabMod.DebugLog($"  Row {i}: {element.Pawn.LabelShort} → displayOrder {i}", DebugFeature.DragDrop);
                 }
                 else if (element.Divider != null)
@@ -858,6 +860,7 @@ namespace Better_Work_Tab.PawnOrganizer
             };
 
             _snapshotDividers.Add(divider);
+            SyncDividersToProfile();
             return divider;
         }
 
@@ -865,15 +868,7 @@ namespace Better_Work_Tab.PawnOrganizer
         {
             if (_snapshotPawns != null)
             {
-                for (int i = 0; i < _snapshotPawns.Count; i++)
-                {
-                    var pawn = _snapshotPawns[i];
-                    var settings = pawn?.playerSettings;
-                    if (settings != null && settings.displayOrder >= targetOrder)
-                    {
-                        settings.displayOrder++;
-                    }
-                }
+                RowOrderUtility.ShiftPawnRowOrdersFrom(_snapshotPawns.ToList(), targetOrder);
             }
 
             if (_snapshotDividers == null)
@@ -889,6 +884,36 @@ namespace Better_Work_Tab.PawnOrganizer
                     divider.DisplayOrder++;
                 }
             }
+
+            SyncDividersToProfile();
+        }
+
+        private void SyncDividersToProfile()
+        {
+            if (!MultiplayerBridge.Active)
+            {
+                return;
+            }
+
+            var profile = BWTLocalProfileStore.Current;
+            if (profile == null)
+            {
+                return;
+            }
+
+            if (_snapshotDividers != null)
+            {
+                profile.ActiveDividers = _snapshotDividers
+                    .Where(div => div != null)
+                    .Select(div => div.Copy())
+                    .ToList();
+            }
+            else
+            {
+                profile.ActiveDividers = new List<PawnDivider>();
+            }
+
+            BWTLocalProfileStore.MarkDirty();
         }
     }
 }
