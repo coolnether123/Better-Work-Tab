@@ -1,7 +1,9 @@
 ﻿using Better_Work_Tab.Features;
+using Better_Work_Tab.Mod_Support.Multiplayer;
 using Better_Work_Tab.Patches;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.Data;
+using Multiplayer.API;
 using Spine.Profiling;
 using System.Collections.Generic;
 using System.Linq;
@@ -24,7 +26,33 @@ namespace Better_Work_Tab.Features.Workloads
         public override void FinalizeInit()
         {
             base.FinalizeInit();
-            WorkColumnOrderManager.InitializeOnGameLoad();
+
+            // In MP: clients should NOT load their local column order
+            // Only host's order matters for deterministic AI
+            if (MP.enabled && !MP.IsHosting)
+            {
+                // Skip initializing column order from local settings
+                // It will be synced from the host when they reorder
+                BetterWorkTabMod.DebugLog(
+                    "[BWT] Client joined MP session. Awaiting host column order sync.",
+                    DebugFeature.DragDrop);
+            }
+            else
+            {
+                // Host: initialize normally
+                WorkColumnOrderManager.InitializeOnGameLoad();
+
+                // If in MP, broadcast current order to all clients immediately
+                if (MP.enabled)
+                {
+                    var currentOrder = WorkColumnOrderManager.GetCurrentOrder();
+                    WorkColumnOrderSync.SyncEntireColumnOrder(currentOrder);
+                    BetterWorkTabMod.DebugLog(
+                        "[BWT] Host syncing column order to clients.",
+                        DebugFeature.DragDrop);
+                }
+            }
+
             DisplayElementPool.Clear();
             EnsureCurrentWorklist();
             ColumnBaselineManager.EnsureBaseline(this);
