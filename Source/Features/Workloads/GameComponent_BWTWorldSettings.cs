@@ -1,4 +1,4 @@
-using Better_Work_Tab.Features;
+﻿using Better_Work_Tab.Features;
 using Better_Work_Tab.Patches;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.Data;
@@ -13,6 +13,7 @@ namespace Better_Work_Tab.Features.Workloads
     {
         public List<Worklist> SavedWorklists = new List<Worklist>();
         public Worklist CurrentWorklist = null;
+        public List<string> ColumnCurrentOrder = new List<string>();
         public List<string> ColumnBaselineOrder = new List<string>();
         public List<PawnDivider> ActiveDividers = new List<PawnDivider>();
 
@@ -34,7 +35,7 @@ namespace Better_Work_Tab.Features.Workloads
 
         public override void ExposeData()
         {
-            // Keep a valid worklist reference for compatibility; dividers are saved independently.
+            // Keep a valid worklist reference for compatibility
             if (Scribe.mode == LoadSaveMode.Saving)
             {
                 EnsureCurrentWorklist();
@@ -50,6 +51,7 @@ namespace Better_Work_Tab.Features.Workloads
             Scribe_Values.Look(ref currentWorklistName, "currentWorklistName");
             Scribe_Collections.Look(ref SavedWorklists, "SavedWorklists", LookMode.Deep, new object[0]);
             Scribe_Collections.Look(ref ColumnBaselineOrder, "columnBaselineOrder", LookMode.Value);
+            Scribe_Collections.Look(ref ColumnCurrentOrder, "columnCurrentOrder", LookMode.Value);  // ← ADD THIS LINE
             Scribe_Collections.Look(ref ActiveDividers, "ActiveDividers", LookMode.Deep);
 
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
@@ -59,13 +61,22 @@ namespace Better_Work_Tab.Features.Workloads
                     ColumnBaselineOrder = new List<string>();
                 }
 
+                if (ColumnCurrentOrder == null)
+                {
+                    ColumnCurrentOrder = new List<string>();
+                }
+
                 if (ColumnBaselineOrder.Count == 0)
                 {
                     ColumnBaselineOrder = ColumnBaselineManager.CaptureCurrentOrder();
-                    BetterWorkTabMod.DebugLog($"[BWT] Migration captured baseline order on load: {string.Join(", ", ColumnBaselineOrder)}", DebugFeature.DragDrop);
                 }
 
-                // Defensive: ensure every worklist has a dividers list after load.
+                if (ColumnCurrentOrder.Count == 0)
+                {
+                    ColumnCurrentOrder = new List<string>(ColumnBaselineOrder);
+                }
+
+                // Defensive: ensure every worklist has a dividers list after load
                 if (SavedWorklists != null)
                 {
                     for (int i = 0; i < SavedWorklists.Count; i++)
@@ -88,7 +99,7 @@ namespace Better_Work_Tab.Features.Workloads
 
                 EnsureCurrentWorklist();
 
-                // Migration: first-load fallback to old per-worklist dividers if the new store is empty.
+                // Migration: first-load fallback to old per-worklist dividers
                 if ((ActiveDividers == null || ActiveDividers.Count == 0) && CurrentWorklist != null && CurrentWorklist.Dividers != null)
                 {
                     ActiveDividers = new List<PawnDivider>(CurrentWorklist.Dividers.Select(d => d?.Copy()).Where(d => d != null));
@@ -119,8 +130,13 @@ namespace Better_Work_Tab.Features.Workloads
         {
             if (CurrentWorklist == null)
             {
-                CurrentWorklist = new Worklist { RenamableLabel = "Default Worklist" };
-                BetterWorkTabMod.DebugLog("[BetterWorkTab] Created default worklist during initialization.", DebugFeature.Workloads);
+                int i = 1;
+                while (SavedWorklists.Any(w => w.RenamableLabel == $"Workload {i}"))
+                {
+                    i++;
+                }
+                CurrentWorklist = new Worklist { RenamableLabel = $"Workload {i}" };
+                BetterWorkTabMod.DebugLog($"[BetterWorkTab] Created default worklist: {CurrentWorklist.RenamableLabel}", DebugFeature.Workloads);
             }
 
             if (!SavedWorklists.Contains(CurrentWorklist))
@@ -156,7 +172,18 @@ namespace Better_Work_Tab.Features.Workloads
 
         public void CreateWorklist(string label)
         {
-            var newList = new Worklist(string.IsNullOrEmpty(label) ? "New Worklist" : label);
+            string finalLabel = label;
+            if (string.IsNullOrEmpty(finalLabel))
+            {
+                int i = 1;
+                while (SavedWorklists.Any(w => w.RenamableLabel == $"Workload {i}"))
+                {
+                    i++;
+                }
+                finalLabel = $"Workload {i}";
+            }
+
+            var newList = new Worklist(finalLabel);
             SavedWorklists.Add(newList);
             CurrentWorklist = newList;
         }

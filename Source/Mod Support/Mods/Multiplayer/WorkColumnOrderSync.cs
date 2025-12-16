@@ -1,5 +1,6 @@
 ﻿using System.Linq;
-using Better_Work_Tab.UI;
+using Better_Work_Tab.Features;
+using Better_Work_Tab.Features.Workloads;
 using Multiplayer.API;
 using RimWorld;
 using Verse;
@@ -8,12 +9,17 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer
 {
     internal static class WorkColumnOrderSync
     {
-        // This method is what MP will replicate.
-        [SyncMethod]   // marked so MP can replicate calls :contentReference[oaicite:3]{index=3}
+        /// <summary>
+        /// Synced method that applies a column move and updates the shared game component.
+        /// This ensures all players have the same column order for deterministic work execution.
+        /// </summary>
+        [SyncMethod]
         internal static void ApplyWorkColumnMove(string columnDefName, int targetWorkIndex)
         {
-            // Find the Work tab PawnTableDef (adjust if you use a custom one)
+            // Find the Work tab PawnTableDef
             var tableDef = DefDatabase<PawnTableDef>.GetNamed("Work");
+            if (tableDef == null)
+                return;
 
             var colToMove = tableDef.columns.FirstOrDefault(c => c.defName == columnDefName);
             if (colToMove == null)
@@ -44,22 +50,34 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer
 
             tableDef.columns.Insert(insertIndex, colToMove);
 
-            // Persist + mark dirty, same as your existing code
-            Features.WorkColumnOrderManager.CaptureCurrent(tableDef);
+            // Update shared game component with new column order
+            // This ensures deterministic work execution across all players
+            var comp = Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
+            if (comp != null)
+            {
+                comp.ColumnCurrentOrder = tableDef.columns
+                    .Where(c => c.Worker is PawnColumnWorker_WorkPriority && c.workType != null)
+                    .Select(c => c.workType.defName)
+                    .ToList();
+            }
+
+            // Rebuild work giver order so pawns use new column priority tiebreaker
             Features.WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
         }
 
-        // One-time registration (can be used if you prefer explicit registration)
+        /// <summary>
+        /// One-time registration for multiplayer sync.
+        /// </summary>
         [StaticConstructorOnStartup]
         private static class MPRegistration
         {
             static MPRegistration()
             {
-                if (!MP.enabled) return;
-                // Not strictly needed if [SyncMethod] is auto-scanned, but safe:
-                MP.RegisterSyncMethod(typeof(WorkColumnOrderSync),
-                                      nameof(ApplyWorkColumnMove));
+                if (!MP.enabled)
+                    return;
+
+                MP.RegisterSyncMethod(typeof(WorkColumnOrderSync), nameof(ApplyWorkColumnMove));
             }
         }
     }
