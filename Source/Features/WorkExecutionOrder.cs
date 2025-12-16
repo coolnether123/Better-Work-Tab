@@ -1,3 +1,4 @@
+using Better_Work_Tab.Features.Workloads;
 using HarmonyLib;
 using RimWorld;
 using System;
@@ -58,7 +59,8 @@ namespace Better_Work_Tab.Features
             }
 
             // 2) Build saved order index map from settings (workType.defName -> index)
-            var saved = BetterWorkTabMod.Settings?.workColumnOrderDefNames ?? new List<string>();
+            var comp = Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
+            var saved = comp?.ColumnCurrentOrder ?? new List<string>();
             var indexMap = new Dictionary<string, int>(StringComparer.Ordinal);
             for (int i = 0; i < saved.Count; i++)
             {

@@ -20,16 +20,9 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer
             {
                 return;
             }
-
-            MP.RegisterSyncMethod(typeof(BetterWorkTabMultiplayer), nameof(SyncSelectWorklist));
-            MP.RegisterSyncMethod(typeof(BetterWorkTabMultiplayer), nameof(SyncApplyWorklist));
-            MP.RegisterSyncMethod(typeof(BetterWorkTabMultiplayer), nameof(SyncCreateWorklist));
-            MP.RegisterSyncMethod(typeof(BetterWorkTabMultiplayer), nameof(SyncDeleteWorklist));
         }
 
-        // Ruleset syncing removed as per user request.
-
-
+        /*
         internal static void RequestWorklistSelection(GameComponent_BWTWorldSettings component, Worklist worklist)
         {
             int index = GetWorklistIndex(component, worklist);
@@ -166,6 +159,6 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer
             if (component == null || worklist == null || string.IsNullOrEmpty(newLabel))
                 return;
             component.RenameWorklist(worklist, newLabel);
-        }
+        }*/
     }
 }

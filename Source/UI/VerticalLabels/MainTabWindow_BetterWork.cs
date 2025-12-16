@@ -653,7 +653,25 @@ namespace Better_Work_Tab.UI
                 currentY += descriptor.Height;
             }
 
-            // 3. Draw Vertical Highlights (Columns)
+            // 3. Draw Divider Highlight if active
+            if (settings.highlightDividersOnHover && settings.enableDividers)
+            {
+                currentY = 0f;
+                for (int i = 0; i < rowDescriptors.Count; i++)
+                {
+                    var descriptor = rowDescriptors[i];
+                    Rect rowRect = new Rect(0f, currentY, totalWidth, descriptor.Height);
+
+                    if (descriptor.IsDivider && Mouse.IsOver(rowRect))
+                    {
+                        HighlightDrawer.DrawHighlight(rowRect, HighlightDrawer.GetRowHoverColor());
+                    }
+
+                    currentY += descriptor.Height;
+                }
+            }
+
+            // 4. Draw Vertical Highlights (Columns)
             float startingX = 0f;
             for (int i = 0; i < columns.Count; i++)
             {
@@ -668,12 +686,10 @@ namespace Better_Work_Tab.UI
                 else if (isWorkColumn && settings.ShowCursorPawnAndWorktypeHighlight && hoveredWorkType != null && hoveredWorkType == column.Column.workType)
                 {
                     HighlightDrawer.DrawHighlight(columnRect, HighlightDrawer.GetColumnHoverColor());
-                    Widgets.DrawHighlight(columnRect);
                 }
                 else if (isWorkColumn && settings.ShowSimilarWorktypeHighlight && cachedSimilarWorktypes != null && cachedSimilarWorktypes.Contains(column.Column.workType))
                 {
                     HighlightDrawer.DrawHighlight(columnRect, HighlightDrawer.GetSimilarWorktypeColor());
-                    Widgets.DrawHighlight(columnRect);
                 }
 
                 startingX += column.Width;
@@ -894,6 +910,12 @@ namespace Better_Work_Tab.UI
 
         private void DrawDividerToggle(PawnDivider divider, Rect labelCellRect)
         {
+            var settings = BetterWorkTabMod.Settings;
+            if (!(settings?.allowDividerCollapse ?? true))
+            {
+                return;
+            }
+
             Rect arrowRect = new Rect(labelCellRect.xMin + 6f, labelCellRect.y + (labelCellRect.height - 16f) / 2f, 18f, 16f);
             string arrowChar = divider.IsCollapsed ? "▶" : "▼";
             if (Widgets.ButtonInvisible(arrowRect))
@@ -949,7 +971,8 @@ namespace Better_Work_Tab.UI
 
             if ((settings?.enableRowColumnHighlights ?? true) && Mouse.IsOver(rowRect))
             {
-                Widgets.DrawHighlight(rowRect);
+               // Custom row highlight is drawn in DrawAllHighlights (Phase 1).
+               // We don't draw vanilla highlight here to avoid yellow overlay.
             }
 
             if (row.Pawn != null && row.Pawn.Downed)
@@ -973,6 +996,12 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
+            // Skip drawing label if the divider is too small to contain it reasonably
+            if (labelCellRect.height < 14f) 
+            {
+                return;
+            }
+
             var originalAnchor = Text.Anchor;
             var originalFont = Text.Font;
             var originalColor = GUI.color;
@@ -984,9 +1013,21 @@ namespace Better_Work_Tab.UI
                 Text.Font = divider.LabelFont;
 
                 // Increase the left indent to match pawn name padding
-                labelCellRect.xMin += 33f; 
+                // Only indent for the arrow if collapse is allowed
+                float indent = (settings?.allowDividerCollapse ?? true) ? 33f : 6f;
+                labelCellRect.xMin += indent; 
 
-                Widgets.Label(labelCellRect, divider.DividerName ?? "Divider");
+                // Clip text to avoid overflow on small-width columns
+                if (labelCellRect.width > 0)
+                {
+                    string label = divider.DividerName ?? "Divider";
+                    // If height is small, force Tiny font to try and fit
+                    if (labelCellRect.height < 18f)
+                    {
+                          Text.Font = GameFont.Tiny;
+                    }
+                    Widgets.Label(labelCellRect, label);
+                }
             }
             finally
             {

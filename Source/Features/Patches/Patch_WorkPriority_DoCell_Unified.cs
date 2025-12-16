@@ -132,7 +132,8 @@ namespace Better_Work_Tab.Patches
 
             UpdateFrameCache();
 
-            if (!_cachedFeatureEnabled || !_cachedShiftHeld || !_cachedHoverCellOverlayEnabled)
+            // If skill overlay feature is disabled or shift is not held, use vanilla rendering
+            if (!_cachedFeatureEnabled || !_cachedShiftHeld)
                 return true;
 
             if (Patch_WorkPriority_DoHeader_HoverTracker.HoveredHeaderWorkType == workType)
@@ -147,19 +148,24 @@ namespace Better_Work_Tab.Patches
             if (workType.relevantSkills == null || workType.relevantSkills.Count == 0)
                 return false; // Skip vanilla drawing if no relevant skills, to draw nothing or custom
 
+            // Track column hover state only if hover cell overlay is enabled
             bool hoveringCell = Mouse.IsOver(rect);
-            if (hoveringCell && _cachedHoverScope == BetterWorkTabSettings.HoverEffectScope.ColumnWide)
+            if (_cachedHoverCellOverlayEnabled && hoveringCell && _cachedHoverScope == BetterWorkTabSettings.HoverEffectScope.ColumnWide)
             {
                 _columnHoveredWorkType = workType;
                 _columnHoveredFrame = Time.frameCount;
             }
-            bool columnHovered = _cachedHoverScope == BetterWorkTabSettings.HoverEffectScope.ColumnWide &&
+            
+            // Determine column hover status (only valid if hover overlay is enabled)
+            bool columnHovered = _cachedHoverCellOverlayEnabled &&
+                                 _cachedHoverScope == BetterWorkTabSettings.HoverEffectScope.ColumnWide &&
                                  _columnHoveredWorkType != null &&
                                  _columnHoveredWorkType == workType &&
                                  (_columnHoveredFrame == Time.frameCount || _columnHoveredFrame == Time.frameCount - 1);
 
             // Decide whether vanilla should draw based on hover mode.
-            if (hoveringCell)
+            // Only apply hover behavior changes if hover overlay is enabled.
+            if (hoveringCell && _cachedHoverCellOverlayEnabled)
             {
                 // Let vanilla draw for interactive priority handling in Standard or SkillFocused.
                 if (_cachedHoverMode == BetterWorkTabSettings.SkillViewHoverMode.Standard ||
@@ -192,7 +198,8 @@ namespace Better_Work_Tab.Patches
             Pawn pawn,
             PawnTable table)
         {
-            if (!_cachedFeatureEnabled || !_cachedShiftHeld || !_cachedHoverCellOverlayEnabled)
+            // Basic feature check: if skill overlay is disabled or shift not held, skip everything
+            if (!_cachedFeatureEnabled || !_cachedShiftHeld)
                 return;
 
             WorkTypeDef workType = __instance.def.workType;
@@ -213,7 +220,10 @@ namespace Better_Work_Tab.Patches
 
             int skillLevel = GetSkillLevel(pawn, workType);
             bool hoveringCell = Mouse.IsOver(rect);
-            bool columnHovered = _cachedHoverScope == BetterWorkTabSettings.HoverEffectScope.ColumnWide &&
+            
+            // Only check column hover if hover overlay is enabled
+            bool columnHovered = _cachedHoverCellOverlayEnabled &&
+                                 _cachedHoverScope == BetterWorkTabSettings.HoverEffectScope.ColumnWide &&
                                  _columnHoveredWorkType != null &&
                                  _columnHoveredWorkType == workType &&
                                  (_columnHoveredFrame == Time.frameCount || _columnHoveredFrame == Time.frameCount - 1);
@@ -229,20 +239,23 @@ namespace Better_Work_Tab.Patches
             bool showTinySkillNumbers = (BetterWorkTabMod.Settings?.enableSkillOverlayFeature ?? false) &&
                                         ShouldShowUI(BetterWorkTabMod.Settings.ShowUIMode_ShowSmallSkillNumbers, _cachedUiState);
 
-            if (hovering)
+            // Apply hover-based transformations only if hover overlay is enabled
+            if (_cachedHoverCellOverlayEnabled && hovering)
             {
                 if (_cachedHoverMode == BetterWorkTabSettings.SkillViewHoverMode.Standard)
                 {
+                    // Standard mode: hide big skill, show small skill on hover
                     drawBigSkill = false;
                     drawSmallSkill = true;
                 }
                 else if (_cachedHoverMode == BetterWorkTabSettings.SkillViewHoverMode.SkillFocused)
                 {
-                    // Keep big skill visible and show priority in the small-number slot.
+                    // SkillFocused mode: keep big skill visible and show priority in the small-number slot
                     drawSmallPriority = true;
                 }
             }
 
+            // Always show tiny skill numbers if configured (regardless of hover state)
             if (showTinySkillNumbers && !drawSmallPriority)
             {
                 drawSmallSkill = true;
@@ -453,16 +466,23 @@ namespace Better_Work_Tab.Patches
 
         private static void DrawSmallPriorityNumber(Rect rect, int priority)
         {
-            // Reuse the same placement as the small skill numbers for consistency.
-            Rect prioRect = new Rect(rect.x + SmallSkillOffsetX, rect.y + SmallSkillOffsetY, SkillBoxSize, SkillBoxSize);
+            // Use same position as small skill numbers
+            Rect prioRect = new Rect(
+                rect.x + SmallSkillOffsetX,
+                rect.y + SmallSkillOffsetY,
+                SkillBoxSize,
+                SkillBoxSize);
+
             var oldFont = Text.Font;
             var oldAnchor = Text.Anchor;
             var oldColor = GUI.color;
 
             Text.Font = GameFont.Tiny;
-            Text.Anchor = TextAnchor.MiddleRight;
-            // Match vanilla priority number coloring.
-            GUI.color = Color.white;
+            Text.Anchor = TextAnchor.MiddleCenter;
+
+            // Use vanilla priority number color (white/gray like vanilla)
+            GUI.color = new Color(0.9f, 0.9f, 0.9f);
+
             Widgets.Label(prioRect, priority.ToString());
 
             GUI.color = oldColor;

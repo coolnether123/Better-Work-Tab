@@ -15,32 +15,67 @@ namespace Better_Work_Tab.UI
         private Worklist workload;
         private string curName = "";
 
+        public override Vector2 InitialSize => new Vector2(300f, 140f);
+
         public Dialog_RenameWorkload(Worklist workload)
         {
             this.workload = workload;
-            curName = workload.RenamableLabel;
+            curName = workload?.RenamableLabel ?? "Workload";
             closeOnAccept = true;
             closeOnClickedOutside = true;
+            doCloseX = true;
+            absorbInputAroundWindow = true;
+            forcePause = false;
         }
 
         public override void DoWindowContents(Rect rect)
         {
-            GUI.BeginGroup(rect);
-            float curY = 0f;
-            Widgets.Label(new Rect(0f, curY, rect.width, 35f), "Rename workload");
-            curY += 35f;
+            Text.Font = GameFont.Small;
 
-            string tempName = curName;
-            string text = Widgets.TextField(rect.AtZero(), workload.RenamableLabel);
-            curName = tempName;
-            curY += 45f;
+            // Label
+            Widgets.Label(new Rect(0f, 0f, rect.width, 30f), "Rename workload");
 
-            if (Widgets.ButtonText(new Rect((rect.width - 120f) / 2f, curY, 120f, 40f), "Accept"))
+            // Text input field
+            curName = Widgets.TextField(new Rect(0f, 35f, rect.width, 35f), curName);
+
+            // Buttons
+            float buttonY = rect.height - 30f;
+            Rect acceptRect = new Rect(0f, buttonY, (rect.width - 10f) / 2f, 35f);
+            Rect cancelRect = new Rect(acceptRect.xMax + 10f, buttonY, (rect.width - 10f) / 2f, 35f);
+
+            if (Widgets.ButtonText(acceptRect, "Accept"))
             {
-                workload.RenamableLabel = curName;
+                if (ApplyRename())
+                {
+                    Close();
+                }
+            }
+
+            if (Widgets.ButtonText(cancelRect, "Cancel"))
+            {
                 Close();
             }
-            GUI.EndGroup();
+        }
+
+        private bool ApplyRename()
+        {
+            if (workload == null)
+            {
+                return false;
+            }
+
+            string trimmed = (curName ?? string.Empty).Trim();
+            if (trimmed.Length == 0)
+            {
+                Messages.Message("NameCannotBeEmpty".Translate(), MessageTypeDefOf.RejectInput, false);
+                return false;
+            }
+
+            workload.RenamableLabel = trimmed;
+            MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+            BetterWorkTabMod.Settings?.Write();
+
+            return true;
         }
     }
 }
