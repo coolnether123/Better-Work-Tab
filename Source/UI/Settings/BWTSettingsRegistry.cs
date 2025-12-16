@@ -4,6 +4,7 @@ using Better_Work_Tab;
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.Patches;
+using Multiplayer.API;
 using RimWorld;
 using Spine.UI.ColourPicker;
 using Spine.UI.SettingsFramework;
@@ -201,6 +202,7 @@ namespace Better_Work_Tab.UI.Settings
                 ControlsChildVisibility = true,
                 ShowInSimpleView = false,
                 ShowInAdvancedView = false,
+                VisibleWhen = _ => MP.enabled && MP.IsInMultiplayer,
                 SortOrder = -40
             });
 
@@ -1241,6 +1243,66 @@ namespace Better_Work_Tab.UI.Settings
                 ShowInSimpleView = false,
                 ShowInAdvancedView = false,
                 SortOrder = 414
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = MpShowOtherPlayersHover,
+                ParentId = FeaturesMultiplayer,
+                FieldName = nameof(BetterWorkTabSettings.mpShowOtherPlayersHover),
+                Label = "Show other players' hovered cell",
+                Tooltip = "Render hover indicators shared by other players.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.mpShowOtherPlayersHover,
+                VisibleWhen = _ => MP.enabled && MP.IsInMultiplayer,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = false,
+                SortOrder = 415
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = MpAllowPresenceBroadcast,
+                ParentId = FeaturesMultiplayer,
+                FieldName = nameof(BetterWorkTabSettings.mpAllowPresenceBroadcast),
+                Label = "Broadcast my hovered cell",
+                Tooltip = "Share the hovered cell you are looking at with your peers.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.mpAllowPresenceBroadcast,
+                VisibleWhen = _ => MP.enabled && MP.IsInMultiplayer,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = false,
+                SortOrder = 416
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = MpAllowOthersToRequestLayout,
+                ParentId = FeaturesMultiplayer,
+                FieldName = nameof(BetterWorkTabSettings.mpAllowOthersToRequestLayout),
+                Label = "Allow layout requests",
+                Tooltip = "Permit other players to request snapshots of your layout.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.mpAllowOthersToRequestLayout,
+                VisibleWhen = _ => MP.enabled && MP.IsInMultiplayer,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = false,
+                SortOrder = 417
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = MpShowLinkedIndicator,
+                ParentId = FeaturesMultiplayer,
+                FieldName = nameof(BetterWorkTabSettings.mpShowLinkedIndicator),
+                Label = "Show linked indicator",
+                Tooltip = "Display a linked/peered indicator when viewing another player's layout.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.mpShowLinkedIndicator,
+                VisibleWhen = _ => MP.enabled && MP.IsInMultiplayer,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = false,
+                SortOrder = 418
             });
 
             Register(new SettingDefinition

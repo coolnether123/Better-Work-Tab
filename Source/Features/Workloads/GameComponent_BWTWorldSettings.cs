@@ -1,4 +1,5 @@
-﻿using Better_Work_Tab.Features;
+using Better_Work_Tab.Features;
+using Better_Work_Tab.Mod_Support.LocalProfiles;
 using Better_Work_Tab.Mod_Support.Multiplayer;
 using Better_Work_Tab.Patches;
 using Better_Work_Tab.PawnOrganizer;
@@ -27,31 +28,13 @@ namespace Better_Work_Tab.Features.Workloads
         {
             base.FinalizeInit();
 
-            // In MP: clients should NOT load their local column order
-            // Only host's order matters for deterministic AI
-            if (MP.enabled && !MP.IsHosting)
-            {
-                // Skip initializing column order from local settings
-                // It will be synced from the host when they reorder
-                BetterWorkTabMod.DebugLog(
-                    "[BWT] Client joined MP session. Awaiting host column order sync.",
-                    DebugFeature.DragDrop);
-            }
-            else
-            {
-                // Host: initialize normally
-                WorkColumnOrderManager.InitializeOnGameLoad();
+            if (MultiplayerBridge.Active)
+                BWTLocalProfileStore.LoadOrCreateForCurrentSession();
 
-                // If in MP, broadcast current order to all clients immediately
-                if (MP.enabled)
-                {
-                    var currentOrder = WorkColumnOrderManager.GetCurrentOrder();
-                    WorkColumnOrderSync.SyncEntireColumnOrder(currentOrder);
-                    BetterWorkTabMod.DebugLog(
-                        "[BWT] Host syncing column order to clients.",
-                        DebugFeature.DragDrop);
-                }
-            }
+            WorkColumnOrderManager.InitializeOnGameLoad();
+
+            if (MultiplayerBridge.Active)
+                LoadLocalUiStateIntoRuntime();
 
             DisplayElementPool.Clear();
             EnsureCurrentWorklist();
@@ -63,24 +46,41 @@ namespace Better_Work_Tab.Features.Workloads
 
         public override void ExposeData()
         {
-            // Keep a valid worklist reference for compatibility
+            base.ExposeData();
+
             if (Scribe.mode == LoadSaveMode.Saving)
             {
                 EnsureCurrentWorklist();
             }
 
             string currentWorklistName = "";
-
             if (Scribe.mode == LoadSaveMode.Saving && CurrentWorklist != null)
             {
                 currentWorklistName = CurrentWorklist.RenamableLabel;
             }
 
             Scribe_Values.Look(ref currentWorklistName, "currentWorklistName");
-            Scribe_Collections.Look(ref SavedWorklists, "SavedWorklists", LookMode.Deep, new object[0]);
             Scribe_Collections.Look(ref ColumnBaselineOrder, "columnBaselineOrder", LookMode.Value);
-            Scribe_Collections.Look(ref ColumnCurrentOrder, "columnCurrentOrder", LookMode.Value);  // ← ADD THIS LINE
-            Scribe_Collections.Look(ref ActiveDividers, "ActiveDividers", LookMode.Deep);
+            Scribe_Collections.Look(ref ColumnCurrentOrder, "columnCurrentOrder", LookMode.Value);
+
+            if (!MultiplayerBridge.Active)
+            {
+                Scribe_Collections.Look(ref SavedWorklists, "SavedWorklists", LookMode.Deep, new object[0]);
+                Scribe_Deep.Look(ref CurrentWorklist, "CurrentWorklist");
+                Scribe_Collections.Look(ref ActiveDividers, "ActiveDividers", LookMode.Deep);
+            }
+            else
+            {
+                if (Scribe.mode == LoadSaveMode.PostLoadInit)
+                {
+                    BWTLocalProfileStore.LoadOrCreateForCurrentSession();
+                }
+
+                if (Scribe.mode == LoadSaveMode.Saving)
+                {
+                    BWTLocalProfileStore.SaveIfDirty();
+                }
+            }
 
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
@@ -104,34 +104,40 @@ namespace Better_Work_Tab.Features.Workloads
                     ColumnCurrentOrder = new List<string>(ColumnBaselineOrder);
                 }
 
-                // Defensive: ensure every worklist has a dividers list after load
-                if (SavedWorklists != null)
+                if (!MultiplayerBridge.Active)
                 {
-                    for (int i = 0; i < SavedWorklists.Count; i++)
+                    if (SavedWorklists != null)
                     {
-                        SavedWorklists[i].EnsureCollections();
+                        for (int i = 0; i < SavedWorklists.Count; i++)
+                        {
+                            SavedWorklists[i].EnsureCollections();
+                        }
+                    }
+
+                    if (!string.IsNullOrEmpty(currentWorklistName) && SavedWorklists != null)
+                    {
+                        CurrentWorklist = SavedWorklists.FirstOrDefault(
+                            w => w.RenamableLabel == currentWorklistName);
+                    }
+
+                    if (CurrentWorklist == null && SavedWorklists != null && SavedWorklists.Count > 0)
+                    {
+                        CurrentWorklist = SavedWorklists[0];
+                    }
+
+                    EnsureCurrentWorklist();
+
+                    if ((ActiveDividers == null || ActiveDividers.Count == 0) && CurrentWorklist != null && CurrentWorklist.Dividers != null)
+                    {
+                        ActiveDividers = new List<PawnDivider>(CurrentWorklist.Dividers.Select(d => d?.Copy()).Where(d => d != null));
                     }
                 }
-
-                if (!string.IsNullOrEmpty(currentWorklistName))
+                else
                 {
-                    CurrentWorklist = SavedWorklists.FirstOrDefault(
-                        w => w.RenamableLabel == currentWorklistName);
+                    LoadLocalUiStateIntoRuntime();
+                    EnsureCurrentWorklist();
                 }
 
-                // Fallback: if we couldn't resolve by name but have saved worklists, pick the first one.
-                if (CurrentWorklist == null && SavedWorklists.Count > 0)
-                {
-                    CurrentWorklist = SavedWorklists[0];
-                }
-
-                EnsureCurrentWorklist();
-
-                // Migration: first-load fallback to old per-worklist dividers
-                if ((ActiveDividers == null || ActiveDividers.Count == 0) && CurrentWorklist != null && CurrentWorklist.Dividers != null)
-                {
-                    ActiveDividers = new List<PawnDivider>(CurrentWorklist.Dividers.Select(d => d?.Copy()).Where(d => d != null));
-                }
                 if (ActiveDividers == null)
                 {
                     ActiveDividers = new List<PawnDivider>();
@@ -176,6 +182,7 @@ namespace Better_Work_Tab.Features.Workloads
             {
                 ActiveDividers = new List<PawnDivider>();
             }
+            PersistLocalUiState();
         }
 
         public void SelectWorklist(Worklist worklist)
@@ -191,6 +198,7 @@ namespace Better_Work_Tab.Features.Workloads
             }
 
             CurrentWorklist = worklist;
+            PersistLocalUiState();
         }
 
         public void ApplyWorklist(Worklist worklist)
@@ -214,6 +222,7 @@ namespace Better_Work_Tab.Features.Workloads
             var newList = new Worklist(finalLabel);
             SavedWorklists.Add(newList);
             CurrentWorklist = newList;
+            PersistLocalUiState();
         }
 
         public void DeleteWorklist(Worklist worklist)
@@ -227,6 +236,7 @@ namespace Better_Work_Tab.Features.Workloads
                 CurrentWorklist = SavedWorklists.FirstOrDefault();
                 EnsureCurrentWorklist();
             }
+            PersistLocalUiState();
         }
 
         public void RenameWorklist(Worklist worklist, string newLabel)
@@ -235,6 +245,49 @@ namespace Better_Work_Tab.Features.Workloads
                 return;
 
             worklist.Rename(newLabel);
+            PersistLocalUiState();
+        }
+
+        private void LoadLocalUiStateIntoRuntime()
+        {
+            var profile = BWTLocalProfileStore.Current;
+            if (profile == null)
+                return;
+
+            SavedWorklists = profile.Worklists ?? new List<Worklist>();
+            foreach (var worklist in SavedWorklists)
+            {
+                worklist?.EnsureCollections();
+            }
+
+            ActiveDividers = profile.ActiveDividers ?? new List<PawnDivider>();
+
+            CurrentWorklist = null;
+            if (!string.IsNullOrEmpty(profile.SelectedWorklistName))
+            {
+                CurrentWorklist = SavedWorklists.FirstOrDefault(
+                    w => w.RenamableLabel == profile.SelectedWorklistName);
+            }
+
+            if (CurrentWorklist == null && SavedWorklists.Count > 0)
+            {
+                CurrentWorklist = SavedWorklists[0];
+            }
+        }
+
+        private void PersistLocalUiState()
+        {
+            if (!MultiplayerBridge.Active)
+                return;
+
+            var profile = BWTLocalProfileStore.Current;
+            if (profile == null)
+                return;
+
+            profile.Worklists = SavedWorklists ?? new List<Worklist>();
+            profile.ActiveDividers = ActiveDividers ?? new List<PawnDivider>();
+            profile.SelectedWorklistName = CurrentWorklist?.RenamableLabel;
+            BWTLocalProfileStore.MarkDirty();
         }
     }
 }

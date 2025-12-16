@@ -71,6 +71,10 @@ namespace Better_Work_Tab.UI.Settings
         public const string MpSyncColumnOrder = "mp.syncColumnOrder";
         public const string MpSyncRulesets = "mp.syncRulesets";
         public const string MpSyncWorkloads = "mp.syncWorkloads";
+        public const string MpShowOtherPlayersHover = "mp.showOtherPlayersHover";
+        public const string MpAllowOthersToRequestLayout = "mp.allowOthersToRequestLayout";
+        public const string MpAllowPresenceBroadcast = "mp.allowPresenceBroadcast";
+        public const string MpShowLinkedIndicator = "mp.showLinkedIndicator";
         public const string OverlayBestPawnMode = "overlay.bestPawnMode";
         public const string OverlayHeader = "overlay.header";
         public const string OverlayHoverCellOverlay = "overlay.hoverCellOverlay";
