@@ -1,4 +1,6 @@
-﻿using Better_Work_Tab.Features;
+using Better_Work_Tab.Features;
+using Better_Work_Tab.Mod_Support.Multiplayer.Sync;
+using Better_Work_Tab.Mod_Support.Multiplayer;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI;
@@ -111,6 +113,13 @@ namespace Better_Work_Tab.DragDrop
                 if (currentIndex == insertIndex)
                 {
                     // No actual move - don't mark as moved
+                    IsDragging = false;
+                    return;
+                }
+
+                if (MultiplayerBridge.Active)
+                {
+                    WorkColumnOrderSync.ApplyWorkColumnMove(_column.workType?.defName, insertIndex);
                     IsDragging = false;
                     return;
                 }
