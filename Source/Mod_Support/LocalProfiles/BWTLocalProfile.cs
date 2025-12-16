@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using Verse;
 using Better_Work_Tab.Features.Workloads;
@@ -39,8 +40,34 @@ namespace Better_Work_Tab.Mod_Support.LocalProfiles
 
             Scribe_Collections.Look(ref PawnRowOrder, nameof(PawnRowOrder), LookMode.Value, LookMode.Value);
 
-            Scribe_Collections.Look(ref PawnBackgroundColors, nameof(PawnBackgroundColors), LookMode.Value, LookMode.Value);
-            Scribe_Collections.Look(ref PawnTextColors, nameof(PawnTextColors), LookMode.Value, LookMode.Value);
+            // Serialize colors as hex strings for reliable save/load
+            if (Scribe.mode == LoadSaveMode.Saving)
+            {
+                var bgColorStrings = PawnBackgroundColors?.ToDictionary(
+                    kvp => kvp.Key,
+                    kvp => ColorUtility.ToHtmlStringRGBA(kvp.Value)) ?? new Dictionary<string, string>();
+                var textColorStrings = PawnTextColors?.ToDictionary(
+                    kvp => kvp.Key,
+                    kvp => ColorUtility.ToHtmlStringRGBA(kvp.Value)) ?? new Dictionary<string, string>();
+
+                Scribe_Collections.Look(ref bgColorStrings, "PawnBackgroundColors", LookMode.Value, LookMode.Value);
+                Scribe_Collections.Look(ref textColorStrings, "PawnTextColors", LookMode.Value, LookMode.Value);
+            }
+            else if (Scribe.mode == LoadSaveMode.LoadingVars)
+            {
+                Dictionary<string, string> bgColorStrings = null;
+                Dictionary<string, string> textColorStrings = null;
+
+                Scribe_Collections.Look(ref bgColorStrings, "PawnBackgroundColors", LookMode.Value, LookMode.Value);
+                Scribe_Collections.Look(ref textColorStrings, "PawnTextColors", LookMode.Value, LookMode.Value);
+
+                PawnBackgroundColors = bgColorStrings?.ToDictionary(
+                    kvp => kvp.Key,
+                    kvp => ParseColor(kvp.Value)) ?? new Dictionary<string, Color>();
+                PawnTextColors = textColorStrings?.ToDictionary(
+                    kvp => kvp.Key,
+                    kvp => ParseColor(kvp.Value)) ?? new Dictionary<string, Color>();
+            }
 
             Scribe_Values.Look(ref AllowLayoutRequests, nameof(AllowLayoutRequests), true);
             Scribe_Values.Look(ref AllowPresenceBroadcast, nameof(AllowPresenceBroadcast), false);
@@ -53,6 +80,13 @@ namespace Better_Work_Tab.Mod_Support.LocalProfiles
                 PawnBackgroundColors ??= new Dictionary<string, Color>();
                 PawnTextColors ??= new Dictionary<string, Color>();
             }
+        }
+
+        private static Color ParseColor(string hexString)
+        {
+            if (ColorUtility.TryParseHtmlString("#" + hexString, out Color color))
+                return color;
+            return Color.white; // fallback
         }
     }
 }
