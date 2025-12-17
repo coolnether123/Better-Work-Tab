@@ -203,6 +203,12 @@ namespace Better_Work_Tab.DragDrop
             // Notify the game to refresh
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
             Find.ColonistBar?.MarkColonistsDirty();
+
+            // Notify multiplayer followers
+            if (Better_Work_Tab.Mod_Support.Multiplayer.MultiplayerBridge.Active)
+            {
+               Better_Work_Tab.Mod_Support.Multiplayer.Features.Layouts.LayoutSharingManager.NotifyLayoutChanged();
+            }
         }
 
         /// <summary>

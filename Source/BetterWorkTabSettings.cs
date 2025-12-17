@@ -394,6 +394,12 @@ namespace Better_Work_Tab
         public bool mpAllowOthersToRequestLayout = DefaultSettings.mpAllowOthersToRequestLayout;
         public bool mpAllowPresenceBroadcast = DefaultSettings.mpAllowPresenceBroadcast;
         public bool mpShowLinkedIndicator = DefaultSettings.mpShowLinkedIndicator;
+        
+        /// <summary>
+        /// Unique identifier for this BWT installation in multiplayer
+        /// Auto-generated but user-configurable
+        /// </summary>
+        public string bwtPlayerIdentifier = "";
 
         // Future behavior templates
         public bool confirmRulesetApplication = true;
@@ -648,6 +654,7 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref mpAllowOthersToRequestLayout, "mpAllowOthersToRequestLayout", DefaultSettings.mpAllowOthersToRequestLayout);
             Scribe_Values.Look(ref mpAllowPresenceBroadcast, "mpAllowPresenceBroadcast", DefaultSettings.mpAllowPresenceBroadcast);
             Scribe_Values.Look(ref mpShowLinkedIndicator, "mpShowLinkedIndicator", DefaultSettings.mpShowLinkedIndicator);
+            Scribe_Values.Look(ref bwtPlayerIdentifier, "bwtPlayerIdentifier", "");
             Scribe_Values.Look(ref rulesetViewMode, "rulesetViewMode", RulesetViewMode.Regular);
 
             // Divider settings
