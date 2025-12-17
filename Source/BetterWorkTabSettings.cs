@@ -65,7 +65,8 @@ namespace Better_Work_Tab
         public static bool showInsertionLineIndicator = true;
         public static bool rowDraggingEnabled = true;
         public static bool columnDraggingEnabled = true;
-        public static float dragThreshold = 5f;
+        public static int columnInsertionLineInset = 5;
+        public static int dragThreshold = 5;
         public static float dragHoverDelay = 0.2f;
         public static float columnSpacing = 0f;
         public static bool requireCtrlForDrag = false;
@@ -256,7 +257,8 @@ namespace Better_Work_Tab
         public bool showInsertionLineIndicator = true;
         public bool rowDraggingEnabled = DefaultSettings.rowDraggingEnabled;
         public bool columnDraggingEnabled = DefaultSettings.columnDraggingEnabled;
-        public float dragThreshold = DefaultSettings.dragThreshold;
+        public int columnInsertionLineInset = DefaultSettings.columnInsertionLineInset;
+        public int dragThreshold = DefaultSettings.dragThreshold;
         public float dragHoverDelay = DefaultSettings.dragHoverDelay;
         public float columnSpacing = DefaultSettings.columnSpacing;
         public bool requireCtrlForDrag = DefaultSettings.requireCtrlForDrag;
@@ -584,6 +586,7 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref showInsertionLineIndicator, "showInsertionLineIndicator", true);
             Scribe_Values.Look(ref rowDraggingEnabled, "rowDraggingEnabled", DefaultSettings.rowDraggingEnabled);
             Scribe_Values.Look(ref columnDraggingEnabled, "columnDraggingEnabled", DefaultSettings.columnDraggingEnabled);
+            Scribe_Values.Look(ref columnInsertionLineInset, "columnInsertionLineInset", DefaultSettings.columnInsertionLineInset);
             Scribe_Values.Look(ref dragThreshold, "dragThreshold", DefaultSettings.dragThreshold);
             Scribe_Values.Look(ref dragHoverDelay, "dragHoverDelay", DefaultSettings.dragHoverDelay);
             Scribe_Values.Look(ref columnSpacing, "columnSpacing", DefaultSettings.columnSpacing);

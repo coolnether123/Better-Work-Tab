@@ -495,12 +495,27 @@ namespace Better_Work_Tab.UI.Settings
                 FieldName = "dragThreshold",
                 Label = "Drag Threshold (px)",
                 Tooltip = "Minimum mouse movement before a drag begins.",
-                Type = SettingType.Float,
+                Type = SettingType.Int,
                 DefaultValue = DefaultSettings.dragThreshold,
                 MinValue = 1f,
                 MaxValue = 20f,
                 ShowInSimpleView = false,
                 SortOrder = 1013
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = LayoutDragColumnLineInset,
+                ParentId = FeaturesDragdrop,
+                FieldName = "columnInsertionLineInset",
+                Label = "Column Drag Line Top Offset (px)",
+                Tooltip = "Vertical offset measured up from the header bottom for the column insertion line. 0 = start at the content; increasing moves the line upward into the header (up to full header height).",
+                Type = SettingType.Int,
+                DefaultValue = DefaultSettings.columnInsertionLineInset,
+                MinValue = 0f,
+                MaxValue = 64f,
+                ShowInSimpleView = false,
+                SortOrder = 1014
             });
 
             Register(new SettingDefinition
@@ -531,7 +546,7 @@ namespace Better_Work_Tab.UI.Settings
                 MinValue = 0f,
                 MaxValue = 20f,
                 ShowInSimpleView = false,
-                SortOrder = 1014
+                SortOrder = 1015
             });
 
             Register(new SettingDefinition
