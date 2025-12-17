@@ -1,4 +1,6 @@
 using Better_Work_Tab.Features;
+using Better_Work_Tab.Mod_Support.Multiplayer;
+using Better_Work_Tab.Mod_Support.Multiplayer.Features.Layouts;
 using Better_Work_Tab.Features.Caching;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.PawnOrganizer;
@@ -236,6 +238,14 @@ namespace Better_Work_Tab.UI
                     PawnOrganizer.API.PawnColorDatabase.ClearColor(pawn);
                 }));
             }
+            
+            // Multiplayer follow mode: Copy this pawn row
+            if (LayoutSharingManager.IsFollowing)
+            {
+                options.Add(new FloatMenuOption(
+                    $"Copy {pawn.NameShortColored} row position to my layout (stop following)",
+                    () => LayoutSharingManager.CopyPawnRowToLocalAndStop(pawn)));
+            }
 
             Find.WindowStack.Add(new FloatMenu(options));
         }
@@ -263,8 +273,19 @@ namespace Better_Work_Tab.UI
                     PawnOrganizerSystem.Instance?.Layout.RemoveDivider(divider);
 
                     MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+                    
+                    if (MultiplayerBridge.Active)
+                        LayoutSharingManager.NotifyLayoutChanged();
                 })
             };
+            
+            // Multiplayer follow mode: Copy this divider
+            if (LayoutSharingManager.IsFollowing)
+            {
+                options.Add(new FloatMenuOption(
+                    "Copy this divider to my layout (stop following)",
+                    () => LayoutSharingManager.CopyDividerToLocalAndStop(divider)));
+            }
 
             Find.WindowStack.Add(new FloatMenu(options));
         }
@@ -285,6 +306,9 @@ namespace Better_Work_Tab.UI
 
             layout.AddDividerBeforePawn(pawn, "New Divider", Color.gray);
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+            
+            if (MultiplayerBridge.Active)
+                LayoutSharingManager.NotifyLayoutChanged();
         }
 
 
@@ -348,6 +372,9 @@ namespace Better_Work_Tab.UI
 
             layout.AddDividerAfterPawn(pawn, "New Divider", Color.gray);
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+
+            if (MultiplayerBridge.Active)
+                LayoutSharingManager.NotifyLayoutChanged();
         }
 
         private void ShowBackgroundColorPicker(Pawn pawn)
@@ -921,6 +948,9 @@ namespace Better_Work_Tab.UI
             if (Widgets.ButtonInvisible(arrowRect))
             {
                 ToggleDividerCollapsed(divider);
+                
+                if (MultiplayerBridge.Active)
+                    LayoutSharingManager.NotifyLayoutChanged();
             }
             var originalAnchor = Text.Anchor;
             Text.Anchor = TextAnchor.MiddleCenter;
@@ -1223,6 +1253,15 @@ namespace Better_Work_Tab.UI
             _lastSortColumn = null;
             _lastSortDescending = false;
             SpineTiming.NotifyWorkTabOpen(false);
+            
+            // === PRESENCE FEATURE DISABLED ===
+            /*
+            if (MultiplayerBridge.Active)
+            {
+                Mod_Support.Multiplayer.Features.Presence.WorkTabPresenceRegistry.ClearPresence();
+                Log.Message($"[BWT-MP] Work tab closed");
+            }
+            */
         }
 
         public override void PostClose()

@@ -20,6 +20,20 @@ namespace Better_Work_Tab.PawnOrganizer.Data
         {
         }
 
+        public override void GameComponentUpdate()
+        {
+            base.GameComponentUpdate();
+            _profileSaveTimer++;
+            if (_profileSaveTimer > 300)
+            {
+                _profileSaveTimer = 0;
+                if (MultiplayerBridge.Active)
+                    BWTLocalProfileStore.SaveIfDirty();
+            }
+        }
+
+        private int _profileSaveTimer;
+
         public override void ExposeData()
         {
             base.ExposeData();
@@ -119,7 +133,7 @@ namespace Better_Work_Tab.PawnOrganizer.Data
             profile.PawnBackgroundColors = new Dictionary<string, Color>(PawnColorDatabase.GetColors());
             profile.PawnTextColors = new Dictionary<string, Color>(PawnTextColorDatabase.GetColors());
             BWTLocalProfileStore.MarkDirty();
-            BWTLocalProfileStore.SaveIfDirty();
+            // Don't save immediately - let the timer handle it
         }
     }
 }

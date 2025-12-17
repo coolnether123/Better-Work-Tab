@@ -10,8 +10,10 @@ namespace Better_Work_Tab.Mod_Support.LocalProfiles
     {
         private static BWTLocalProfile _current;
         private static bool _dirty;
+        private static bool _suspendSaving; // Prevents saves while following
 
         public static BWTLocalProfile Current => _current;
+        public static bool SuspendSaving { get => _suspendSaving; set => _suspendSaving = value; }
 
         public static void MarkDirty() => _dirty = true;
 
@@ -40,7 +42,7 @@ namespace Better_Work_Tab.Mod_Support.LocalProfiles
 
         public static void SaveIfDirty()
         {
-            if (!MultiplayerBridge.Active || _current == null || !_dirty)
+            if (!MultiplayerBridge.Active || _current == null || !_dirty || _suspendSaving)
                 return;
 
             var path = GetProfilePath(_current.SaveKey, _current.PlayerKey);
