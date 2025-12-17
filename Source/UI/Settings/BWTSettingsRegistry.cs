@@ -536,21 +536,6 @@ namespace Better_Work_Tab.UI.Settings
 
             Register(new SettingDefinition
             {
-                Id = LayoutColumnSpacing,
-                ParentId = FeaturesDragdrop,
-                FieldName = "columnSpacing",
-                Label = "Column Spacing (px)",
-                Tooltip = "Extra horizontal space inserted between work columns.",
-                Type = SettingType.Float,
-                DefaultValue = DefaultSettings.columnSpacing,
-                MinValue = 0f,
-                MaxValue = 20f,
-                ShowInSimpleView = false,
-                SortOrder = 1015
-            });
-
-            Register(new SettingDefinition
-            {
                 Id = LayoutClickClose,
                 ParentId = AdvancedHeader,
                 FieldName = "disableLeftClickClose",
