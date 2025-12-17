@@ -102,6 +102,7 @@
     <Compile Include="Spine\DragDrop\DragDropManager.cs" />
     <Compile Include="Spine\DragDrop\DragEndReason.cs" />
     <Compile Include="Spine\DragDrop\Util\HeightCache.cs" />
+    <Compile Include="Spine\DragDrop\Util\ClickOrDragGate.cs" />
     <Compile Include="Spine\DragDrop\Util\ListDragCalculator.cs" />
     <Compile Include="Spine\DragDrop\Util\ListDragHelpers.cs" />
     <Compile Include="Spine\DragDrop\ListDragSession.cs" />
