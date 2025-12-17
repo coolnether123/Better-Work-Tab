@@ -189,14 +189,18 @@ namespace Better_Work_Tab.PawnOrganizer
                     break;
 
                 case EventType.MouseUp:
-                    _activeColumnDrag.OnDrop();
+                    var completedDrag = _activeColumnDrag;
+                    completedDrag?.OnDrop();
                     _activeColumnDrag = null;
+                    AngledLabelDrawer.ClearPendingHeaderClick(completedDrag?.ColumnDef);
                     evt.Use();
                     break;
 
                 case EventType.KeyDown when evt.keyCode == KeyCode.Escape:
-                    _activeColumnDrag.OnCancel();
+                    var cancelledDrag = _activeColumnDrag;
+                    cancelledDrag?.OnCancel();
                     _activeColumnDrag = null;
+                    AngledLabelDrawer.ClearPendingHeaderClick(cancelledDrag?.ColumnDef);
                     evt.Use();
                     break;
             }
@@ -324,6 +328,7 @@ namespace Better_Work_Tab.PawnOrganizer
             }
 
             _activeColumnDrag = new ColumnDragHandler(_layoutController, column);
+            AngledLabelDrawer.NotifyColumnDragStarted(_pendingColumn);
         }
 
         private void InitiateRowDrag(Pawn pawn, PawnDivider divider)
