@@ -8,7 +8,7 @@ using Better_Work_Tab.PawnOrganizer.Data;
 
 namespace Better_Work_Tab.Features.Workloads
 {
-    public class Worklist : IExposable, IRenameable
+    public class Worklist : IExposable
     {
         public Worklist(string name)
         {

@@ -15,14 +15,6 @@ namespace Better_Work_Tab.Patches
     [HarmonyPatch(typeof(PawnColumnWorker_Label), nameof(PawnColumnWorker_Label.DoCell))]
     public static class Patch_PawnColumnWorker_Label_DoCell
     {
-        private static readonly MethodInfo GetLabelMethod =
-            AccessTools.Method(typeof(PawnColumnWorker_Label), "GetLabel");
-        private static readonly Func<PawnColumnWorker_Label, Pawn, TaggedString> GetLabel =
-            (Func<PawnColumnWorker_Label, Pawn, TaggedString>)Delegate.CreateDelegate(
-                typeof(Func<PawnColumnWorker_Label, Pawn, TaggedString>),
-                null,
-                GetLabelMethod);
-
         // NOTE: Prefix and Transpiler are mutually exclusive execution paths:
         // - If contrast mode (Prefix returns false): DoCell_Contrast gates close directly.
         // - If vanilla mode (Prefix returns true): Transpiler intercepts EscapeCurrentTab.
@@ -91,7 +83,7 @@ namespace Better_Work_Tab.Patches
                 Rect iconRect = new Rect(rect1.x, rect1.y, rect1.height, rect1.height);
 
                 if (Find.Selector.IsSelected(pawn))
-                    SelectionDrawerUtility.DrawSelectionOverlayWholeGUI(iconRect.ContractedBy(2f));
+                    SelectionDrawerUtility.DrawSelectionOverlayOnGUI(pawn, iconRect.ContractedBy(2f), 1f, 1f);
 
                 Widgets.ThingIcon(iconRect, pawn);
                 ModSupportManager.OnPawnRowDrawn(pawn, iconRect);
@@ -113,9 +105,7 @@ namespace Better_Work_Tab.Patches
             if (Mouse.IsOver(rect1))
                 GUI.DrawTexture(rect1, TexUI.HighlightTex);
 
-            TaggedString vanillaLabel = GetLabel(worker, pawn);
-
-            string finalLabel = vanillaLabel.Resolve().StripTags();
+            string finalLabel = BuildVanillaLabel(worker, pawn);
 
             Color textCol = TextColorHelper.GetContrastingTextColor(
                 backgroundColor,
@@ -188,6 +178,34 @@ namespace Better_Work_Tab.Patches
             {
                 root?.EscapeCurrentTab(playSound);
             }
+        }
+
+        /// <summary>
+        /// Rebuilds the vanilla label for a pawn row (copied from RW 1.4 PawnColumnWorker_Label.DoCell).
+        /// </summary>
+        private static string BuildVanillaLabel(PawnColumnWorker_Label worker, Pawn pawn)
+        {
+            if (pawn == null)
+            {
+                return string.Empty;
+            }
+
+            string label;
+            if (pawn.RaceProps.Humanlike || pawn.RaceProps.Animal || pawn.Name == null || pawn.Name.Numerical)
+            {
+                label = worker.def.useLabelShort ? pawn.LabelShortCap : pawn.LabelNoCount.CapitalizeFirst();
+            }
+            else
+            {
+                label = pawn.Name.ToStringShort.CapitalizeFirst() + ", " + pawn.KindLabel.Colorize(ColoredText.SubtleGrayColor);
+            }
+
+            if (pawn.IsSlave || pawn.IsColonyMech)
+            {
+                label = label.Colorize(PawnNameColorUtility.PawnNameColorOf(pawn));
+            }
+
+            return label.StripTags();
         }
 
         private static bool ShouldCloseWorkTab() =>

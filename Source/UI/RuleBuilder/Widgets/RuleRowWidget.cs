@@ -49,7 +49,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
 
                 if (Verse.Widgets.ButtonText(upRect, "Up")) return RowAction.MoveUp;
                 if (Verse.Widgets.ButtonText(downRect, "Dn")) return RowAction.MoveDown;
-                if (Verse.Widgets.ButtonImage(deleteRect, TexButton.Delete, Color.white, GenUI.MouseoverColor))
+                if (Verse.Widgets.ButtonImage(deleteRect, TexButton.DeleteX, Color.white, GenUI.MouseoverColor))
                     return RowAction.Delete;
             }
 
