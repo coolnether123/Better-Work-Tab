@@ -85,9 +85,9 @@ namespace Better_Work_Tab.UI
                 }
             }
 
-            if (Widgets.ButtonText(cancelRect, "BWT_Cancel".Translate()))
+            if (Widgets.ButtonText(cancelRect, "BWT_DeleteRuleset".Translate()))
             {
-                Close();
+                PromptDeleteRuleset();
             }
 
             // Focus field on open
@@ -95,6 +95,65 @@ namespace Better_Work_Tab.UI
             {
                 GUI.FocusControl("RulesetNameField");
             }
+        }
+
+        private void PromptDeleteRuleset()
+        {
+            if (_ruleset == null || _ruleset.IsDefault)
+            {
+                Close();
+                return;
+            }
+
+            void DoDelete()
+            {
+                if (!TryDeleteRuleset())
+                {
+                    return;
+                }
+
+                _onConfirm?.Invoke();
+                Close();
+            }
+
+            Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
+                "BWT_DeleteRulesetConfirm".Translate(),
+                DoDelete,
+                destructive: true));
+        }
+
+        private bool TryDeleteRuleset()
+        {
+            var settings = BetterWorkTabMod.Settings;
+            var rulesets = settings?.SavedRulesets;
+            if (rulesets == null || _ruleset == null || _ruleset.IsDefault)
+            {
+                return false;
+            }
+
+            int index = rulesets.IndexOf(_ruleset);
+            if (index < 0)
+            {
+                return false;
+            }
+
+            rulesets.RemoveAt(index);
+
+            if (settings.CurrentRuleset == _ruleset)
+            {
+                if (rulesets.Count > 0)
+                {
+                    int newIndex = Mathf.Clamp(index - 1, 0, rulesets.Count - 1);
+                    settings.CurrentRuleset = rulesets[newIndex];
+                }
+                else
+                {
+                    settings.CurrentRuleset = null;
+                }
+            }
+
+            settings.Write();
+            return true;
         }
     }
 }
