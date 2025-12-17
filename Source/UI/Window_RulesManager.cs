@@ -562,13 +562,14 @@ namespace Better_Work_Tab.UI
             rect3.SplitHorizontally(rect3.height * 0.5f, out Rect topRect, out Rect bottomRect);
 
             if (uneditable) GUI.color = Color.gray;
-            if (Widgets.ButtonText(topRect, "New Rule", active: !uneditable))
+            if (Widgets.ButtonText(topRect, "BWT_NewRule".Translate(), active: !uneditable))
             {
-                WorkAssignmentRule newRule = new WorkAssignmentRule(new WorkAssignmentParameters("New Rule " + (selectedRuleset.Rules.Count + 1), 0));
+                string ruleName = $"{ "BWT_NewRule".Translate() } {selectedRuleset.Rules.Count + 1}";
+                WorkAssignmentRule newRule = new WorkAssignmentRule(new WorkAssignmentParameters(ruleName, 0));
                 selectedRuleset.Rules.Add(newRule);
                 SelectedRule = newRule;
             }
-            if (Widgets.ButtonText(bottomRect, "Duplicate Rule", active: !uneditable))
+            if (Widgets.ButtonText(bottomRect, "BWT_DuplicateRule".Translate(), active: !uneditable))
             {
                 if (SelectedRule != null)
                 {
@@ -585,7 +586,7 @@ namespace Better_Work_Tab.UI
                 GUI.color = Color.gray;
                 var defaultAnchor = Text.Anchor;
                 Text.Anchor = TextAnchor.MiddleCenter;
-                Widgets.Label(outRect, "No rules in ruleset");
+                Widgets.Label(outRect, "BWT_NoRulesInRuleset".Translate());
                 Text.Anchor = defaultAnchor;
                 GUI.color = Color.white;
                 return;

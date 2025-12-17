@@ -68,7 +68,6 @@ namespace Better_Work_Tab
         public static int columnInsertionLineInset = 5;
         public static int dragThreshold = 5;
         public static float dragHoverDelay = 0.2f;
-        public static float columnSpacing = 0f;
         public static bool requireCtrlForDrag = false;
         public static bool disableLeftClickClose = false;
         public static bool closeOnMapClick = true;
@@ -260,7 +259,6 @@ namespace Better_Work_Tab
         public int columnInsertionLineInset = DefaultSettings.columnInsertionLineInset;
         public int dragThreshold = DefaultSettings.dragThreshold;
         public float dragHoverDelay = DefaultSettings.dragHoverDelay;
-        public float columnSpacing = DefaultSettings.columnSpacing;
         public bool requireCtrlForDrag = DefaultSettings.requireCtrlForDrag;
         public bool disableLeftClickClose = DefaultSettings.disableLeftClickClose;
         public bool closeOnMapClick = DefaultSettings.closeOnMapClick;
@@ -589,7 +587,6 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref columnInsertionLineInset, "columnInsertionLineInset", DefaultSettings.columnInsertionLineInset);
             Scribe_Values.Look(ref dragThreshold, "dragThreshold", DefaultSettings.dragThreshold);
             Scribe_Values.Look(ref dragHoverDelay, "dragHoverDelay", DefaultSettings.dragHoverDelay);
-            Scribe_Values.Look(ref columnSpacing, "columnSpacing", DefaultSettings.columnSpacing);
             Scribe_Values.Look(ref hideWorkloadButton, "hideWorkloadButton", DefaultSettings.hideWorkloadButton);
             Scribe_Values.Look(ref hideAutoAssignButton, "hideAutoAssignButton", DefaultSettings.hideAutoAssignButton);
             Scribe_Values.Look(ref persistColumnOrder, "persistColumnOrder", DefaultSettings.persistColumnOrder);

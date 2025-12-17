@@ -625,7 +625,7 @@ namespace Better_Work_Tab.PawnOrganizer
             var columns = _table.Columns;
             float currentX = _origin.x;
             float usedWidth = 0f;
-            float spacing = BetterWorkTabMod.Settings?.columnSpacing ?? 0f;
+            const float spacing = 0f;
 
             for (int i = 0; i < columns.Count; i++)
             {
