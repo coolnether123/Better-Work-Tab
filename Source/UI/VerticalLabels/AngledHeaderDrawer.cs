@@ -1,5 +1,6 @@
 ﻿using Better_Work_Tab.Features;
 using Better_Work_Tab;
+using Spine.DragDropApi.Util;
 using HarmonyLib;
 using RimWorld;
 using System.Collections.Generic;
@@ -147,7 +148,7 @@ namespace Better_Work_Tab.UI
         private const float UNDERLINE_THICKNESS = 1f;
         private const float TEXT_UNDERLINE_GAP = 1f;
         private const bool DRAW_UNDERLINE = true;
-        private static readonly HeaderClickTracker ClickTracker = new HeaderClickTracker();
+        private static readonly ClickOrDragGate<PawnColumnDef> ClickTracker = new ClickOrDragGate<PawnColumnDef>();
         private static float DragThreshold => BetterWorkTabMod.Settings?.dragThreshold is float v && v > 0f ? v : 5f;
 
         public readonly struct AngledLabelLayout
@@ -269,16 +270,22 @@ namespace Better_Work_Tab.UI
             }
 
             var columnDef = worker?.def;
+            bool headerRectHit = headerRect != default(Rect) && headerRect.Contains(evt.mousePosition);
+            bool clickHit = isMouseOver || headerRectHit;
+
             switch (evt.type)
             {
-                case EventType.MouseDown when (evt.button == 0 || evt.button == 1) && isMouseOver:
+                case EventType.MouseDown when (evt.button == 0 || evt.button == 1) && clickHit:
                     if (evt.shift)
                     {
                         HandleShiftClick(worker, table, evt.button);
                     }
                     else
                     {
-                        ClickTracker.Begin(columnDef, evt.button, evt.mousePosition);
+                        if (columnDef != null)
+                        {
+                            ClickTracker.Begin(columnDef, evt.button, evt.mousePosition);
+                        }
                     }
                     evt.Use();
                     break;
@@ -288,7 +295,7 @@ namespace Better_Work_Tab.UI
                     break;
 
                 case EventType.MouseUp:
-                    if (ClickTracker.TryComplete(columnDef, evt.button, isMouseOver))
+                    if (ClickTracker.TryComplete(columnDef, evt.button, clickHit))
                     {
                         InvokeBaseHeaderClicked(worker, bounds, table);
                         evt.Use();
@@ -378,84 +385,6 @@ namespace Better_Work_Tab.UI
             ClickTracker.ClearIfTracking(column);
         }
 
-        /// <summary>
-        /// Tracks whether a header click should trigger sorting or be suppressed by a drag.
-        /// </summary>
-        private sealed class HeaderClickTracker
-        {
-            private PawnColumnDef _column;
-            private int _mouseButton = -1;
-            private Vector2 _startPos;
-            private bool _dragged;
-
-            public void Begin(PawnColumnDef column, int button, Vector2 startPos)
-            {
-                if (column == null)
-                {
-                    return;
-                }
-
-                _column = column;
-                _mouseButton = button;
-                _startPos = startPos;
-                _dragged = false;
-            }
-
-            public void RegisterDrag(PawnColumnDef column, Vector2 currentPos, float threshold)
-            {
-                if (!IsTracking(column) || _dragged)
-                {
-                    return;
-                }
-
-                float sqThreshold = threshold * threshold;
-                if ((currentPos - _startPos).sqrMagnitude >= sqThreshold)
-                {
-                    _dragged = true;
-                }
-            }
-
-            public bool TryComplete(PawnColumnDef column, int button, bool isMouseOver)
-            {
-                if (!IsTracking(column))
-                {
-                    return false;
-                }
-
-                bool shouldClick = !_dragged && button == _mouseButton && isMouseOver;
-                Clear();
-                return shouldClick;
-            }
-
-            public void MarkDragStarted(PawnColumnDef column)
-            {
-                if (IsTracking(column))
-                {
-                    _dragged = true;
-                }
-            }
-
-            public void ClearIfTracking(PawnColumnDef column)
-            {
-                if (IsTracking(column))
-                {
-                    Clear();
-                }
-            }
-
-            private bool IsTracking(PawnColumnDef column)
-            {
-                return column != null && column == _column;
-            }
-
-            private void Clear()
-            {
-                _column = null;
-                _mouseButton = -1;
-                _startPos = default;
-                _dragged = false;
-            }
-        }
     }
 
     // === HEADER HEIGHT PATCH ===
