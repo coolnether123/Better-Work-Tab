@@ -159,6 +159,11 @@ namespace Better_Work_Tab.DragDrop
 
                 WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
                 MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+
+                if (MultiplayerBridge.Active)
+                {
+                    Better_Work_Tab.Mod_Support.Multiplayer.Features.Layouts.LayoutSharingManager.NotifyLayoutChanged();
+                }
             }
             IsDragging = false;
         }
