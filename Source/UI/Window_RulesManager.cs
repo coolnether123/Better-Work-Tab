@@ -487,7 +487,7 @@ namespace Better_Work_Tab.UI
 
             Rect leftRect = rect.LeftPart(0.33f);
             Rect rightRect = rect.RightPart(0.33f);
-            Rect midRect = rect.MiddlePart(0.33f, 1f);
+            //Rect midRect = rect.MiddlePart(0.33f, 1f);
 
             if (Widgets.ButtonText(leftRect, "-1", active: !disabled))
             {
@@ -505,12 +505,12 @@ namespace Better_Work_Tab.UI
             {
                 var b4 = Text.Anchor;
                 Text.Anchor = TextAnchor.MiddleCenter;
-                Widgets.Label(midRect, value.ToString());
+                //Widgets.Label(midRect, value.ToString());
                 Text.Anchor = b4;
             }
             else
             {
-                Widgets.TextFieldNumeric(midRect, ref value, ref editBuffer);
+                //Widgets.TextFieldNumeric(midRect, ref value, ref editBuffer);
             }
             value = Mathf.Clamp(value, -1, 4);
             GUI.color = oldColor;

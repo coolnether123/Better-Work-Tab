@@ -1,108 +1,162 @@
 using Better_Work_Tab.Features;
 using HarmonyLib;
 using RimWorld;
-using System;
 using System.Collections.Generic;
+using System.Linq;
+using UnityEngine;
 using Verse;
 using Verse.AI;
 
 namespace Better_Work_Tab.Patches
 {
-    [HarmonyPatch(typeof(FloatMenuOptionProvider_WorkGivers), nameof(FloatMenuOptionProvider_WorkGivers.GetWorkGiverOption))]
-    public static class Patch_FloatMenuOptionProvider_WorkGivers_GetWorkGiverOption
+    /// <summary>
+    /// Backport of the 1.6 "do once / open work tab" float-menu options to 1.5.
+    /// The 1.5 API builds options in FloatMenuMakerMap.AddJobGiverWorkOrders, so we
+    /// add our extras in a postfix while keeping vanilla options intact.
+    /// </summary>
+    [HarmonyPatch(typeof(FloatMenuMakerMap), "AddJobGiverWorkOrders")]
+    public static class Patch_FloatMenuMakerMap_AddJobGiverWorkOrders
     {
-        public static FloatMenuOption Postfix(FloatMenuOption value, Pawn pawn, WorkGiverDef workGiver, LocalTargetInfo target, FloatMenuContext context)
+        public static void Postfix(Vector3 clickPos, Pawn pawn, List<FloatMenuOption> opts, bool drafted)
         {
-            if (value == null)
+            // Only relevant if work settings exist.
+            if (pawn?.workSettings == null)
             {
-                return value;
+                return;
             }
 
-            if (workGiver.Worker is not WorkGiver_Scanner workGiverScanner)
+            IntVec3 clickCell = IntVec3.FromVector3(clickPos);
+            if (pawn.Map == null || !clickCell.InBounds(pawn.Map))
             {
-                return value;
+                return;
             }
 
-            WorkTypeDef workType = workGiverScanner.def.workType;
-            if (workType == null || pawn == null || context == null)
+            foreach (WorkTypeDef workType in DefDatabase<WorkTypeDef>.AllDefsListForReading)
             {
-                return value;
-            }
-
-            if (pawn.workSettings.GetPriority(workType) != 0 || pawn.WorkTypeIsDisabled(workType))
-            {
-                return value;
-            }
-
-            Job job = target.HasThing
-                ? (workGiverScanner.HasJobOnThing(pawn, target.Thing, true) ? workGiverScanner.JobOnThing(pawn, target.Thing, true) : null)
-                : (workGiverScanner.HasJobOnCell(pawn, target.Cell, true) ? workGiverScanner.JobOnCell(pawn, target.Cell, true) : null);
-
-            if (job == null)
-            {
-                return value;
-            }
-
-            job.workGiverDef = workGiverScanner.def;
-            Job localJob = job;
-            WorkGiver_Scanner localScanner = workGiverScanner;
-            WorkGiverDef giver = workGiver;
-
-            void AssignOnce()
-            {
-                if (pawn.jobs.TryTakeOrderedJobPrioritizedWork(localJob, localScanner, context.ClickedCell))
+                if (pawn.workSettings.GetPriority(workType) != 0 || pawn.WorkTypeIsDisabled(workType))
                 {
-                    if (giver.forceMote != null)
+                    continue;
+                }
+
+                foreach (WorkGiverDef workGiver in workType.workGiversByPriority)
+                {
+                    if (drafted && !workGiver.canBeDoneWhileDrafted)
                     {
-                        MoteMaker.MakeStaticMote(context.ClickedCell, pawn.Map, giver.forceMote);
+                        continue;
                     }
 
-                    if (giver.forceFleck != null)
+                    if (workGiver.Worker is not WorkGiver_Scanner scanner || !scanner.def.directOrderable)
                     {
-                        FleckMaker.Static(context.ClickedCell, pawn.Map, giver.forceFleck);
+                        continue;
                     }
+
+                    TryAddThingOption(pawn, clickCell, workGiver, scanner, opts);
+                    TryAddCellOption(pawn, clickCell, workGiver, scanner, opts, drafted);
                 }
             }
+        }
 
-            var text = "BWTNotAssignedDoOnce".Translate(workType.gerundLabel);
+        private static void TryAddThingOption(Pawn pawn, IntVec3 clickCell, WorkGiverDef workGiver, WorkGiver_Scanner scanner, List<FloatMenuOption> opts)
+        {
+            Map map = pawn.Map;
+            foreach (Thing thing in map.thingGrid.ThingsAt(clickCell))
+            {
+                if (!scanner.PotentialWorkThingRequest.Accepts(thing))
+                {
+                    continue;
+                }
 
-            Patch_FloatMenuOptionProvider_WorkGivers_GetWorkGiverOptionFor.AdditionalOptions.Add(
-                new FloatMenuOption(
-                    "BWTNotAssignedAssignWork".Translate(workType.gerundLabel),
+                if (scanner.ShouldSkip(pawn, true) || !scanner.HasJobOnThing(pawn, thing, true))
+                {
+                    continue;
+                }
+
+                Job job = scanner.JobOnThing(pawn, thing, true);
+                if (job == null)
+                {
+                    continue;
+                }
+
+                job.workGiverDef = workGiver;
+                AddNotAssignedOptions(pawn, workGiver, scanner, opts, thing, clickCell, job);
+            }
+        }
+
+        private static void TryAddCellOption(Pawn pawn, IntVec3 clickCell, WorkGiverDef workGiver, WorkGiver_Scanner scanner, List<FloatMenuOption> opts, bool drafted)
+        {
+            if (drafted && !workGiver.canBeDoneWhileDrafted)
+            {
+                return;
+            }
+
+            var potentialCells = scanner.PotentialWorkCellsGlobal(pawn);
+            if (potentialCells == null || !potentialCells.Contains(clickCell) || scanner.ShouldSkip(pawn, true))
+            {
+                return;
+            }
+
+            Job job = scanner.HasJobOnCell(pawn, clickCell, true) ? scanner.JobOnCell(pawn, clickCell, true) : null;
+            if (job == null)
+            {
+                return;
+            }
+
+            job.workGiverDef = workGiver;
+            AddNotAssignedOptions(pawn, workGiver, scanner, opts, clickCell, clickCell, job);
+        }
+
+        private static void AddNotAssignedOptions(Pawn pawn, WorkGiverDef workGiver, WorkGiver_Scanner scanner, List<FloatMenuOption> opts, LocalTargetInfo target, IntVec3 clickedCell, Job job)
+        {
+            WorkTypeDef workType = scanner.def.workType;
+            if (workType == null)
+            {
+                return;
+            }
+
+            string doOnceLabel = "BWTNotAssignedDoOnce".Translate(workType.gerundLabel);
+            string openTabLabel = "BWTNotAssignedAssignWork".Translate(workType.gerundLabel);
+
+            // Avoid duplicates if multiple workgivers hit the same target.
+            if (!opts.Any(o => o.Label == openTabLabel))
+            {
+                opts.Add(new FloatMenuOption(
+                    openTabLabel,
                     () =>
                     {
                         HighlightState.SetWorktypeToHighlight(pawn, workType);
                         Find.MainTabsRoot.SetCurrentTab(MainButtonDefOf.Work);
                     },
                     orderInPriority: (int)MenuOptionPriority.VeryLow));
+            }
 
-            Patch_FloatMenuOptionProvider_WorkGivers_GetWorkGiverOptionFor.AdditionalOptions.Add(value);
+            if (opts.Any(o => o.Label == doOnceLabel))
+            {
+                return;
+            }
 
-            return FloatMenuUtility.DecoratePrioritizedTask(
-                new FloatMenuOption(text, AssignOnce, orderInPriority: -1),
+            void AssignOnce()
+            {
+                if (pawn.jobs.TryTakeOrderedJobPrioritizedWork(job, scanner, clickedCell))
+                {
+                    if (workGiver.forceMote != null)
+                    {
+                        MoteMaker.MakeStaticMote(clickedCell, pawn.Map, workGiver.forceMote);
+                    }
+
+                    if (workGiver.forceFleck != null)
+                    {
+                        FleckMaker.Static(clickedCell, pawn.Map, workGiver.forceFleck);
+                    }
+                }
+            }
+
+            var option = FloatMenuUtility.DecoratePrioritizedTask(
+                new FloatMenuOption(doOnceLabel, AssignOnce, orderInPriority: -1),
                 pawn,
-                target);
-        }
-    }
+                target,
+                layer: scanner.GetReservationLayer(pawn, target));
 
-    [HarmonyPatch(typeof(FloatMenuOptionProvider_WorkGivers), nameof(FloatMenuOptionProvider_WorkGivers.GetWorkGiversOptionsFor))]
-    public static class Patch_FloatMenuOptionProvider_WorkGivers_GetWorkGiverOptionFor
-    {
-        public static readonly List<FloatMenuOption> AdditionalOptions = new List<FloatMenuOption>();
-
-        public static IEnumerable<FloatMenuOption> Postfix(IEnumerable<FloatMenuOption> value, Pawn pawn, LocalTargetInfo target, FloatMenuContext context)
-        {
-            foreach (var option in value)
-            {
-                yield return option;
-            }
-
-            foreach (var option in AdditionalOptions)
-            {
-                yield return option;
-            }
-
-            AdditionalOptions.Clear();
+            opts.Add(option);
         }
     }
 
