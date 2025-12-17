@@ -149,7 +149,14 @@ namespace Better_Work_Tab.UI
         private const float TEXT_UNDERLINE_GAP = 1f;
         private const bool DRAW_UNDERLINE = true;
         private static readonly ClickOrDragGate<PawnColumnDef> ClickTracker = new ClickOrDragGate<PawnColumnDef>();
-        private static float DragThreshold => BetterWorkTabMod.Settings?.dragThreshold is float v && v > 0f ? v : 5f;
+        private static float DragThreshold
+        {
+            get
+            {
+                int v = BetterWorkTabMod.Settings?.dragThreshold ?? DefaultSettings.dragThreshold;
+                return Mathf.Max(1f, v);
+            }
+        }
 
         public readonly struct AngledLabelLayout
         {

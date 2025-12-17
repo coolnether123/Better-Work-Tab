@@ -62,6 +62,7 @@ namespace Better_Work_Tab.UI.Settings
         public const string LayoutDividerHeight = "layout.dividerHeight";
         public const string LayoutDragColumns = "layout.dragColumns";
         public const string LayoutDragRows = "layout.dragRows";
+        public const string LayoutDragColumnLineInset = "layout.dragColumnLineInset";
         public const string LayoutDragThreshold = "layout.dragThreshold";
         public const string LayoutDragHoverDelay = "layout.dragHoverDelay";
         public const string LayoutColumnSpacing = "layout.columnSpacing";
