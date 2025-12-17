@@ -52,7 +52,6 @@ namespace Better_Work_Tab.DragDrop
             if (!IsDragging) return;
 
             float fullHeight = Layout.HeaderHeight + Layout.ContentHeight;
-            var settings = BetterWorkTabMod.Settings;
             bool showGhost = false; // default to line-only for columns
             bool showLine = true;
             bool lineOnly = true;
@@ -75,9 +74,11 @@ namespace Better_Work_Tab.DragDrop
                 else if (TargetIndex >= _workColumns.Count) lineX = _workColumns.Last().HeaderRect.xMax;
                 else lineX = _workColumns[TargetIndex].HeaderRect.xMin;
 
-                float inset = -5f;
-                float lineY = Layout.TableOrigin.y + Layout.HeaderHeight + inset;
-                float lineHeight = Mathf.Max(0f, Layout.ContentHeight - inset);
+                int insetSetting = BetterWorkTabMod.Settings?.columnInsertionLineInset ?? DefaultSettings.columnInsertionLineInset;
+                int inset = Mathf.Clamp(insetSetting, 0, Mathf.RoundToInt(Layout.HeaderHeight));
+                // Treat inset as distance upward from the header bottom so 0 = start at content, max = include full header.
+                float lineY = Layout.TableOrigin.y + (Layout.HeaderHeight - inset);
+                float lineHeight = Mathf.Max(0f, Layout.ContentHeight + inset);
 
                 Widgets.DrawBoxSolid(new Rect(lineX - 1f, lineY, 2f, lineHeight), Color.white);
             }

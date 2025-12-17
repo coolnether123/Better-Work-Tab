@@ -51,8 +51,14 @@ namespace Better_Work_Tab.PawnOrganizer
         /// Minimum mouse movement before a drag starts.
         /// Prevents accidental drags from clicks.
         /// </summary>
-        private float DragThreshold =>
-            BetterWorkTabMod.Settings?.dragThreshold is float v && v > 0f ? v : 5f;
+        private float DragThreshold
+        {
+            get
+            {
+                int v = BetterWorkTabMod.Settings?.dragThreshold ?? DefaultSettings.dragThreshold;
+                return Mathf.Max(1f, v);
+            }
+        }
 
         public IWorkTabLayoutController Layout => _layoutController;
         
