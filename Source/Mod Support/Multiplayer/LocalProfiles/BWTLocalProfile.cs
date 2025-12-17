@@ -25,8 +25,9 @@ namespace Better_Work_Tab.Mod_Support.LocalProfiles
         public Dictionary<string, Color> PawnTextColors = new();
 
         // privacy toggles (local-only)
-        public bool AllowLayoutRequests = true;
-        public bool AllowPresenceBroadcast = false;
+        public bool AllowLayoutRequests = true;        // Respond to "send me your layout" requests
+        public bool AllowLiveLayoutBroadcast = true;   // Push live updates to followers
+        public bool AllowPresenceBroadcast = true;
 
         public void ExposeData()
         {
@@ -70,7 +71,8 @@ namespace Better_Work_Tab.Mod_Support.LocalProfiles
             }
 
             Scribe_Values.Look(ref AllowLayoutRequests, nameof(AllowLayoutRequests), true);
-            Scribe_Values.Look(ref AllowPresenceBroadcast, nameof(AllowPresenceBroadcast), false);
+            Scribe_Values.Look(ref AllowLiveLayoutBroadcast, nameof(AllowLiveLayoutBroadcast), true);
+            Scribe_Values.Look(ref AllowPresenceBroadcast, nameof(AllowPresenceBroadcast), true);
 
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
