@@ -1,10 +1,10 @@
 ﻿using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.Rules;
+using Spine.DragDropApi.Util;
 using Better_Work_Tab.Patches;
 using HarmonyLib;
 using RimWorld;
 using Spine.DragDropApi;
-using Spine.DragDropApi.Util;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -30,8 +30,8 @@ namespace Better_Work_Tab.UI
         private readonly DragDropController<WorkAssignmentRule> _ruleDragController;
         private Rect _rulesListScreenRect;
         private const float RuleRowHeight = 32f;
-        private bool _rulesMouseDown;
-        private Vector2 _rulesMouseDownPos;
+        private const float RuleDragThreshold = 5f;
+        private readonly ClickOrDragGate<WorkAssignmentRule> _rulesClickGate = new ClickOrDragGate<WorkAssignmentRule>();
         private WorkAssignmentRule _pendingRuleDrag;
 
         // Parameter field caching
@@ -663,6 +663,8 @@ namespace Better_Work_Tab.UI
             // Active drag in progress
             if (_ruleDragController.IsActive)
             {
+                var session = _ruleDragController.CurrentSession;
+
                 _ruleDragController.UpdateDrag(evt.mousePosition);
 
                 float contentHeight = rules.Count * RuleRowHeight;
@@ -676,6 +678,7 @@ namespace Better_Work_Tab.UI
 
                 if (evt.type == EventType.MouseUp)
                 {
+                    _rulesClickGate.ClearIfTracking(session?.DraggedItem);
                     FinalizeRuleDrop(selectedRuleset);
                     evt.Use();
                 }
@@ -688,9 +691,6 @@ namespace Better_Work_Tab.UI
                 case EventType.MouseDown:
                     if (evt.button == 0 && listScreenRect.Contains(evt.mousePosition))
                     {
-                        _rulesMouseDown = true;
-                        _rulesMouseDownPos = evt.mousePosition;
-
                         float localY = evt.mousePosition.y - listScreenRect.y + midScroll.y;
                         int index = Mathf.FloorToInt(localY / RuleRowHeight);
 
@@ -698,6 +698,8 @@ namespace Better_Work_Tab.UI
                         {
                             _pendingRuleDrag = rules[index];
                             SelectedRule = _pendingRuleDrag;
+
+                            _rulesClickGate.Begin(_pendingRuleDrag, evt.button, evt.mousePosition);
                         }
                         else
                         {
@@ -707,9 +709,9 @@ namespace Better_Work_Tab.UI
                     break;
 
                 case EventType.MouseDrag:
-                    if (_rulesMouseDown && _pendingRuleDrag != null && !uneditable)
+                    if (_pendingRuleDrag != null && !uneditable)
                     {
-                        if ((evt.mousePosition - _rulesMouseDownPos).magnitude > 5f)
+                        if (_rulesClickGate.RegisterDrag(_pendingRuleDrag, evt.mousePosition, RuleDragThreshold))
                         {
                             int srcIndex = rules.IndexOf(_pendingRuleDrag);
                             if (srcIndex >= 0)
@@ -723,24 +725,24 @@ namespace Better_Work_Tab.UI
 
                                 if (started)
                                 {
+                                    _rulesClickGate.MarkDragStarted(_pendingRuleDrag);
                                     evt.Use();
                                 }
                             }
 
-                            _rulesMouseDown = false;
                             _pendingRuleDrag = null;
                         }
                     }
                     break;
 
                 case EventType.MouseUp:
-                    if (_rulesMouseDown && _pendingRuleDrag != null)
+                    if (_pendingRuleDrag != null &&
+                        _rulesClickGate.TryComplete(_pendingRuleDrag, evt.button, listScreenRect.Contains(evt.mousePosition)))
                     {
                         SelectedRule = _pendingRuleDrag;
                         evt.Use();
                     }
 
-                    _rulesMouseDown = false;
                     _pendingRuleDrag = null;
                     break;
             }
