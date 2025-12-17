@@ -18,6 +18,7 @@ namespace Better_Work_Tab.DragDrop
         private readonly PawnColumnDef _column;
         private readonly List<WorkTabLayoutColumn> _workColumns;
         private Rect _originRect;
+        public PawnColumnDef ColumnDef => _column;
 
         public ColumnDragHandler(IWorkTabLayoutController layout, WorkTabLayoutColumn col)
             : base(layout)
