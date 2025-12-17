@@ -75,7 +75,11 @@ namespace Better_Work_Tab.DragDrop
                 else if (TargetIndex >= _workColumns.Count) lineX = _workColumns.Last().HeaderRect.xMax;
                 else lineX = _workColumns[TargetIndex].HeaderRect.xMin;
 
-                Widgets.DrawBoxSolid(new Rect(lineX - 1f, Layout.TableOrigin.y, 2f, fullHeight), Color.white);
+                float inset = -5f;
+                float lineY = Layout.TableOrigin.y + Layout.HeaderHeight + inset;
+                float lineHeight = Mathf.Max(0f, Layout.ContentHeight - inset);
+
+                Widgets.DrawBoxSolid(new Rect(lineX - 1f, lineY, 2f, lineHeight), Color.white);
             }
         }
 
