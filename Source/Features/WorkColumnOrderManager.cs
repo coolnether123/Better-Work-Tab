@@ -140,7 +140,7 @@ namespace Better_Work_Tab.Features
         /// </summary>
         public static void CaptureVanillaOrder()
         {
-            if (_trueVanillaColumnOrder != null)
+            if (_trueVanillaColumnOrder != null && _trueVanillaColumnOrder.Count > 0)
                 return;
 
             _trueVanillaColumnOrder = new List<string>(ColumnBaselineManager.GetTrueVanillaOrder());
