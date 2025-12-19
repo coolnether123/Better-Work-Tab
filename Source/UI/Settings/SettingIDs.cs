@@ -22,6 +22,7 @@ namespace Better_Work_Tab.UI.Settings
         public const string ColorsSkillVeryLow = "colors.skillVeryLow";
         public const string ColumnsResetWidths = "columns.resetWidths";
         public const string ColumnsShowMovedIndicator = "columns.showMovedIndicator";
+        public const string ColumnsShowBaselineLine = "columns.showBaselineLine";
         public const string DividersCollapse = "dividers.collapse";
         public const string DividersCustomColors = "dividers.customColors";
         public const string DividersLabels = "dividers.labels";
