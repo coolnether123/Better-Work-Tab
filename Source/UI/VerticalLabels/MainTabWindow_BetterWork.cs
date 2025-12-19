@@ -647,6 +647,11 @@ namespace Better_Work_Tab.UI
                 }
             }
 
+            if (hoveredWorkType == null)
+            {
+                hoveredWorkType = PawnColumnWorker_WorkPriority_DoHeader_Patch.HoveredWorkType;
+            }
+
             MouseStateManager.UpdateHoverState(hoveredColumn);
 
             var cachedSimilarWorktypes = hoveredWorkType != null
