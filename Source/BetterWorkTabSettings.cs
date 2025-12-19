@@ -67,9 +67,9 @@ namespace Better_Work_Tab
         public static bool columnDraggingEnabled = true;
         public static int columnInsertionLineInset = 5;
         public static int dragThreshold = 5;
-        public static float dragHoverDelay = 0.2f;
+        public static float dragHoverDelay = 0.5f;
         public static bool requireCtrlForDrag = false;
-        public static bool disableLeftClickClose = false;
+        public static bool disableLeftClickClose = true;
         public static bool closeOnMapClick = true;
         public static bool enableContextMenuOnRightClick = true;
         public static bool persistColumnOrder = true;
@@ -77,7 +77,7 @@ namespace Better_Work_Tab
         public static bool showColumnMovedMarker = true;
         public static bool showColumnBaselineLine = true;
         public static bool showPawnCountAtBottom = true;
-        public static bool showBedCountAtBottom = false;
+        public static bool showBedCountAtBottom = true;
         public static bool showPriorityLegend = true;
         public static bool showDragInstructions = true;
         public static bool showManualPrioritiesCheckbox = true;
@@ -158,21 +158,21 @@ namespace Better_Work_Tab
         // Custom highlight color settings
         public static bool UseCustomMouseHoverHighlight = false;
         public static bool ShowSimilarWorktypeHighlight = true;
-        public static float SelectedPawnHighlightOpacity = 0.6f;
-        public static float SimilarWorktypeHighlightOpacity = 0.25f;
+        public static float SelectedPawnHighlightOpacity = 0.3f;
+        public static float SimilarWorktypeHighlightOpacity = 0.4f;
 
         // Highlight colors (RGBA)
-        public static Color Color_CursorHighlight = new Color(0.737f, 0.737f, 0.114f, 0.5f);
-        public static Color Color_FloatMenuHighlight = new Color(0.114f, 0.737f, 0.737f, 0.5f);
-        public static Color Color_CustomMouseHighlight = new Color(0.737f, 0.737f, 0.114f, 0.25f);
-        public static Color Color_CustomSimilarWorktypeHighlight = new Color(0.737f, 0.737f, 0.114f, 1f);
+        public static Color Color_CursorHighlight = new Color(0.5568628f, 0.5529412f, 0.5529412f, 0.5803922f);
+        public static Color Color_FloatMenuHighlight = new Color(0.5568628f, 0.5529412f, 0.5529412f, 0.5803922f);
+        public static Color Color_CustomMouseHighlight = new Color(0.5568628f, 0.5529412f, 0.5529412f, 0.5803922f);
+        public static Color Color_CustomSimilarWorktypeHighlight = new Color(0.5568628f, 0.5529412f, 0.5529412f, 0.5803922f);
         public static Color Color_IncapableBecauseOfCapacities = new Color(1f, 0.3f, 0.3f);
         public static Color Color_BestPawnForSkillSquare = new Color(0.35f, 0.85f, 0.35f);
         public static Color Color_RowHoverHighlight = Color_CursorHighlight;
         public static Color Color_ColumnHoverHighlight = Color_CursorHighlight;
         public static bool useRowHoverOverride = false;
         public static bool useColumnHoverOverride = false;
-        public static Color Color_SelectedPawnHighlight = new Color(0.737f, 0.737f, 0.114f, 0.6f);
+        public static Color Color_SelectedPawnHighlight = new Color(0.5568628f, 0.5529412f, 0.5529412f, 0.5803922f);
 
         // Default rulesets - all marked as isDefault: true to prevent deletion
         public static List<WorkAssignmentRuleset> SavedRulesets = new List<WorkAssignmentRuleset>
@@ -316,7 +316,7 @@ namespace Better_Work_Tab
 
         // Custom highlight colors
         public bool UseCustomMouseHoverHighlight = false;
-        public Color Color_CursorHighlight = new Color(0.737f, 0.737f, 0.114f, 0.5f);
+        public Color Color_CursorHighlight = DefaultSettings.Color_CursorHighlight;
         public Color Color_FloatMenuHighlight = new Color(0.114f, 0.737f, 0.737f, 0.5f);
         public Color Color_CustomMouseHighlight = new Color(0.737f, 0.737f, 0.114f, 0.25f);
         public Color Color_CustomSimilarWorktypeHighlight = DefaultSettings.Color_CustomSimilarWorktypeHighlight;
