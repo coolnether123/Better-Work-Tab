@@ -23,6 +23,19 @@ namespace Better_Work_Tab.UI
         private static int _lastHoverResultFrame = -1;
         private static int _lastColumnsCount = -1;
 
+        public static WorkTypeDef HoveredWorkType
+        {
+            get
+            {
+                if (_lastCachedFrame != Time.frameCount)
+                {
+                    return null;
+                }
+
+                return _cachedHoveredWorkType;
+            }
+        }
+
         [HarmonyPrefix]
         [HarmonyPriority(Priority.Last)]
         public static bool Prefix(PawnColumnWorker_WorkPriority __instance, Rect rect, PawnTable table)

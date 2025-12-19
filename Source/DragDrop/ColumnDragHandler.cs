@@ -67,6 +67,8 @@ namespace Better_Work_Tab.DragDrop
                 ListDragVisuals.DrawGhost(ghost, _column.defName);
             }
 
+            DrawBaselineLineIfNeeded();
+
             if (TargetIndex >= 0 && showLine)
             {
                 float lineX;
@@ -82,6 +84,120 @@ namespace Better_Work_Tab.DragDrop
 
                 Widgets.DrawBoxSolid(new Rect(lineX - 1f, lineY, 2f, lineHeight), Color.white);
             }
+        }
+
+        private void DrawBaselineLineIfNeeded()
+        {
+            var settings = BetterWorkTabMod.Settings;
+            if (!(settings?.showColumnBaselineLine ?? true))
+            {
+                return;
+            }
+
+            var workType = _column?.workType;
+            if (workType?.defName == null)
+            {
+                return;
+            }
+
+            if (!MainTabWindow_BetterWork.IsColumnOutOfBaselinePosition(workType))
+            {
+                return;
+            }
+
+            if (_workColumns.Count == 0)
+            {
+                return;
+            }
+
+            var baselineOrder = WorkColumnOrderManager.GetBaselineOrder();
+            if (baselineOrder == null || baselineOrder.Count == 0)
+            {
+                return;
+            }
+
+            var currentDefs = new HashSet<string>();
+            for (int i = 0; i < _workColumns.Count; i++)
+            {
+                var defName = _workColumns[i].Column?.workType?.defName;
+                if (!string.IsNullOrEmpty(defName))
+                {
+                    currentDefs.Add(defName);
+                }
+            }
+
+            var filteredBaseline = new List<string>(baselineOrder.Count);
+            for (int i = 0; i < baselineOrder.Count; i++)
+            {
+                var defName = baselineOrder[i];
+                if (currentDefs.Contains(defName))
+                {
+                    filteredBaseline.Add(defName);
+                }
+            }
+
+            int baselineIndex = filteredBaseline.IndexOf(workType.defName);
+            if (baselineIndex < 0)
+            {
+                return;
+            }
+
+            var baselineIndexByDef = new Dictionary<string, int>(filteredBaseline.Count);
+            for (int i = 0; i < filteredBaseline.Count; i++)
+            {
+                baselineIndexByDef[filteredBaseline[i]] = i;
+            }
+
+            int targetIndex = 0;
+            for (int i = 0; i < _workColumns.Count; i++)
+            {
+                var defName = _workColumns[i].Column?.workType?.defName;
+                if (string.IsNullOrEmpty(defName) || defName == workType.defName)
+                {
+                    continue;
+                }
+
+                int otherIndex = baselineIndexByDef.TryGetValue(defName, out var idx) ? idx : int.MaxValue;
+                if (otherIndex < baselineIndex)
+                {
+                    targetIndex++;
+                }
+            }
+
+            float lineX = _workColumns[0].HeaderRect.xMin;
+            int seen = 0;
+            bool positioned = false;
+            for (int i = 0; i < _workColumns.Count; i++)
+            {
+                var defName = _workColumns[i].Column?.workType?.defName;
+                if (string.IsNullOrEmpty(defName) || defName == workType.defName)
+                {
+                    continue;
+                }
+
+                if (seen == targetIndex)
+                {
+                    lineX = _workColumns[i].HeaderRect.xMin;
+                    positioned = true;
+                    break;
+                }
+
+                lineX = _workColumns[i].HeaderRect.xMax;
+                seen++;
+            }
+
+            if (!positioned && _workColumns.Count > 0)
+            {
+                lineX = _workColumns[_workColumns.Count - 1].HeaderRect.xMax;
+            }
+
+            int insetSetting = settings?.columnInsertionLineInset ?? DefaultSettings.columnInsertionLineInset;
+            int inset = Mathf.Clamp(insetSetting, 0, Mathf.RoundToInt(Layout.HeaderHeight));
+            float lineY = Layout.TableOrigin.y + (Layout.HeaderHeight - inset);
+            float lineHeight = Mathf.Max(0f, Layout.ContentHeight + inset);
+
+            var baselineColor = new Color(1f, 0.85f, 0.2f, 1f);
+            Widgets.DrawBoxSolid(new Rect(lineX - 1f, lineY, 2f, lineHeight), baselineColor);
         }
 
         protected override void CommitReorder()
