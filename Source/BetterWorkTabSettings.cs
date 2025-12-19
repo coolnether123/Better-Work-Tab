@@ -75,6 +75,7 @@ namespace Better_Work_Tab
         public static bool persistColumnOrder = true;
         public static bool persistColumnWidths = true;
         public static bool showColumnMovedMarker = true;
+        public static bool showColumnBaselineLine = true;
         public static bool showPawnCountAtBottom = true;
         public static bool showBedCountAtBottom = false;
         public static bool showPriorityLegend = true;
@@ -164,7 +165,7 @@ namespace Better_Work_Tab
         public static Color Color_CursorHighlight = new Color(0.737f, 0.737f, 0.114f, 0.5f);
         public static Color Color_FloatMenuHighlight = new Color(0.114f, 0.737f, 0.737f, 0.5f);
         public static Color Color_CustomMouseHighlight = new Color(0.737f, 0.737f, 0.114f, 0.25f);
-        public static Color Color_CustomSimilarWorktypeHighlight = new Color(0.737f, 0.737f, 0.114f, 0.125f);
+        public static Color Color_CustomSimilarWorktypeHighlight = new Color(0.737f, 0.737f, 0.114f, 1f);
         public static Color Color_IncapableBecauseOfCapacities = new Color(1f, 0.3f, 0.3f);
         public static Color Color_BestPawnForSkillSquare = new Color(0.35f, 0.85f, 0.35f);
         public static Color Color_RowHoverHighlight = Color_CursorHighlight;
@@ -277,6 +278,7 @@ namespace Better_Work_Tab
         public bool persistColumnOrder = DefaultSettings.persistColumnOrder;
         public bool persistColumnWidths = DefaultSettings.persistColumnWidths;
         public bool showColumnMovedMarker = DefaultSettings.showColumnMovedMarker;
+        public bool showColumnBaselineLine = DefaultSettings.showColumnBaselineLine;
         public bool enableRowColumnHighlights = DefaultSettings.enableRowColumnHighlights;
         public float dividerMinAlpha = DefaultSettings.dividerMinAlpha;
         public bool showHoverCellOverlay = DefaultSettings.showHoverCellOverlay;
@@ -317,7 +319,7 @@ namespace Better_Work_Tab
         public Color Color_CursorHighlight = new Color(0.737f, 0.737f, 0.114f, 0.5f);
         public Color Color_FloatMenuHighlight = new Color(0.114f, 0.737f, 0.737f, 0.5f);
         public Color Color_CustomMouseHighlight = new Color(0.737f, 0.737f, 0.114f, 0.25f);
-        public Color Color_CustomSimilarWorktypeHighlight = new Color(0.737f, 0.737f, 0.114f, 0.125f);
+        public Color Color_CustomSimilarWorktypeHighlight = DefaultSettings.Color_CustomSimilarWorktypeHighlight;
         public Color Color_RowHoverHighlight = DefaultSettings.Color_RowHoverHighlight;
         public Color Color_ColumnHoverHighlight = DefaultSettings.Color_ColumnHoverHighlight;
         public bool useRowHoverOverride = DefaultSettings.useRowHoverOverride;
@@ -345,9 +347,7 @@ namespace Better_Work_Tab
         {
             get
             {
-                Color halvedAlpha = Color_MouseHoverHighlight;
-                halvedAlpha.a = halvedAlpha.a / 2f;
-                return UseCustomMouseHoverHighlight ? Color_CustomSimilarWorktypeHighlight : halvedAlpha;
+                return Color_CustomSimilarWorktypeHighlight;
             }
         }
 
@@ -592,6 +592,7 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref persistColumnOrder, "persistColumnOrder", DefaultSettings.persistColumnOrder);
             Scribe_Values.Look(ref persistColumnWidths, "persistColumnWidths", DefaultSettings.persistColumnWidths);
             Scribe_Values.Look(ref showColumnMovedMarker, "showColumnMovedMarker", DefaultSettings.showColumnMovedMarker);
+            Scribe_Values.Look(ref showColumnBaselineLine, "showColumnBaselineLine", DefaultSettings.showColumnBaselineLine);
             Scribe_Values.Look(ref dividerMinAlpha, "dividerMinAlpha", DefaultSettings.dividerMinAlpha);
             Scribe_Values.Look(ref enableDebugLogging, "enableDebugLogging", false);
             Scribe_Values.Look(ref showHoverCellOverlay, "showHoverCellOverlay", DefaultSettings.showHoverCellOverlay);

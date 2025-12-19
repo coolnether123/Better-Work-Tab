@@ -241,6 +241,7 @@ namespace Better_Work_Tab.UI.Settings
                              s.Color_ColumnHoverHighlight = picked;
                              s.Color_SelectedPawnHighlight = picked;
                              s.Color_FloatMenuHighlight = picked;
+                             s.Color_CustomSimilarWorktypeHighlight = picked;
                              s.Write();
                              Messages.Message("Master color applied to all highlight settings.", MessageTypeDefOf.PositiveEvent, false);
                          }));
@@ -785,8 +786,21 @@ namespace Better_Work_Tab.UI.Settings
                 Tooltip = "Show indicator on manually moved columns.",
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.showColumnMovedMarker,
-                ShowInSimpleView = false,
+                ShowInSimpleView = true,
                 SortOrder = 115
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = ColumnsShowBaselineLine,
+                ParentId = FeaturesDragdrop,
+                FieldName = "showColumnBaselineLine",
+                Label = "Show Baseline Line While Dragging",
+                Tooltip = "Show a line at the column's baseline position while dragging moved columns.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.showColumnBaselineLine,
+                ShowInSimpleView = true,
+                SortOrder = 116
             });
 
             Register(new SettingDefinition
