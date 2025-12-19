@@ -1,6 +1,7 @@
 ﻿using Better_Work_Tab.Features;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
+using Better_Work_Tab.UI;
 using HarmonyLib;
 using RimWorld;
 using System.Collections.Generic;
@@ -40,8 +41,14 @@ namespace Better_Work_Tab.Patches
                 _hoveredHeaderFrame = Time.frameCount;
             }
 
-            Rect labelRect = GetLabelRect(__instance, rect);
-            if (Mouse.IsOver(labelRect))
+            bool isHovered = PawnColumnWorker_WorkPriority_DoHeader_Patch.HoveredWorkType == __instance.def.workType;
+            if (!isHovered)
+            {
+                Rect labelRect = GetLabelRect(__instance, rect);
+                isHovered = Mouse.IsOver(labelRect);
+            }
+
+            if (isHovered)
             {
                 _hoveredHeaderWorkType = __instance.def.workType;
             }

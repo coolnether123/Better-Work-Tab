@@ -59,11 +59,14 @@ namespace Better_Work_Tab.UI
                 // Rulesets are now local-only (not synced in multiplayer)
                 if (curRuleset != null)
                 {
-                    if (curRuleset.ResetBeforeApplying)
+                    ConfirmApplyWithResetWarning("Apply ruleset?", () =>
                     {
-                        WorkAssignmentRuleset.SetAllToZero();
-                    }
-                    curRuleset.ApplyAutoAssignments();
+                        if (curRuleset.ResetBeforeApplying)
+                        {
+                            WorkAssignmentRuleset.SetAllToZero();
+                        }
+                        curRuleset.ApplyAutoAssignments();
+                    });
                 }
             }
 
@@ -114,9 +117,12 @@ namespace Better_Work_Tab.UI
             {
                 if (workloadSaver.CurrentWorklist != null)
                 {
-                    workloadSaver.CurrentWorklist.Apply();
-                    MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
-                    SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                    ConfirmApplyWithResetWarning("Apply workload?", () =>
+                    {
+                        workloadSaver.CurrentWorklist.Apply();
+                        MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+                        SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                    });
                 }
                 else
                 {
@@ -250,6 +256,15 @@ namespace Better_Work_Tab.UI
                     SoundDefOf.Tick_Low.PlayOneShotOnCamera();
                 }));
             }
+        }
+
+        private static void ConfirmApplyWithResetWarning(string title, System.Action onConfirm)
+        {
+            Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
+                "Applying this will reset the current work tab priority configuration. Continue?",
+                onConfirm,
+                true,
+                title));
         }
     }
 }
