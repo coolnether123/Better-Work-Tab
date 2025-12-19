@@ -861,6 +861,7 @@ namespace Better_Work_Tab.PawnOrganizer
 
             _snapshotDividers.Add(divider);
             SyncDividersToProfile();
+            InvalidateRowDescriptors();
             return divider;
         }
 

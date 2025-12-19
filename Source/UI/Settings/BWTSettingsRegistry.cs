@@ -186,6 +186,8 @@ namespace Better_Work_Tab.UI.Settings
                 DefaultValue = DefaultSettings.enablePerformanceOptimizations,
                 ControlsChildVisibility = true,
                 ShowInSimpleView = false,
+                ShowInAdvancedView = false,
+                VisibleWhen = _ => false,
                 SortOrder = -41,
                 EmphasizeAsHeader = true,
                 HeaderColor = new Color(0.6f, 0.8f, 0.8f)
@@ -228,7 +230,7 @@ namespace Better_Work_Tab.UI.Settings
                 Label = "Set Master Highlight Color",
                 Tooltip = "Select a color to apply to ALL highlight settings (Hover, Selected, etc).",
                 Type = SettingType.Button,
-                ShowInSimpleView = false,
+                ShowInSimpleView = true,
                 SortOrder = 0, 
                 OnChanged = settingsObj =>
                 {
@@ -241,6 +243,7 @@ namespace Better_Work_Tab.UI.Settings
                              s.Color_ColumnHoverHighlight = picked;
                              s.Color_SelectedPawnHighlight = picked;
                              s.Color_FloatMenuHighlight = picked;
+                             s.Color_CustomMouseHighlight = picked;
                              s.Color_CustomSimilarWorktypeHighlight = picked;
                              s.Write();
                              Messages.Message("Master color applied to all highlight settings.", MessageTypeDefOf.PositiveEvent, false);
@@ -258,7 +261,8 @@ namespace Better_Work_Tab.UI.Settings
                 Tooltip = "Color used to highlight the row and column when hovering over cells.",
                 Type = SettingType.Color,
                 DefaultValue = DefaultSettings.Color_CursorHighlight,
-                ShowInSimpleView = true,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
                 SortOrder = 1
             });
 
@@ -1054,6 +1058,7 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.persistDividersInWorkloads,
                 ShowInSimpleView = false,
+                ShowInAdvancedView = false,
                 SortOrder = 4025
             });
 
@@ -1095,6 +1100,7 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Bool,
                 DefaultValue = true,
                 ShowInSimpleView = false,
+                ShowInAdvancedView = false,
                 SortOrder = 405
             });
 
@@ -1108,6 +1114,7 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Bool,
                 DefaultValue = true,
                 ShowInSimpleView = false,
+                ShowInAdvancedView = false,
                 SortOrder = 406
             });
 
@@ -1121,6 +1128,7 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Bool,
                 DefaultValue = true,
                 ShowInSimpleView = false,
+                ShowInAdvancedView = false,
                 SortOrder = 407
             });
 
@@ -1134,6 +1142,7 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Bool,
                 DefaultValue = true,
                 ShowInSimpleView = false,
+                ShowInAdvancedView = false,
                 SortOrder = 408
             });
 
@@ -1147,6 +1156,7 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Bool,
                 DefaultValue = true,
                 ShowInSimpleView = false,
+                ShowInAdvancedView = false,
                 SortOrder = 409
             });
 
@@ -1160,6 +1170,7 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Bool,
                 DefaultValue = true,
                 ShowInSimpleView = false,
+                ShowInAdvancedView = false,
                 SortOrder = 410
             });
 
@@ -1172,6 +1183,7 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Bool,
                 DefaultValue = false,
                 ShowInSimpleView = false,
+                ShowInAdvancedView = false,
                 SortOrder = 500
             });
 
