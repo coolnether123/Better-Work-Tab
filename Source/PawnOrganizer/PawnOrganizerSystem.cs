@@ -198,7 +198,7 @@ namespace Better_Work_Tab.PawnOrganizer
                     var completedDrag = _activeColumnDrag;
                     completedDrag?.OnDrop();
                     _activeColumnDrag = null;
-                    AngledLabelDrawer.ClearPendingHeaderClick(completedDrag?.ColumnDef);
+                    AngledHeaderInteraction.ClearPendingHeaderClick(completedDrag?.ColumnDef);
                     evt.Use();
                     break;
 
@@ -206,7 +206,7 @@ namespace Better_Work_Tab.PawnOrganizer
                     var cancelledDrag = _activeColumnDrag;
                     cancelledDrag?.OnCancel();
                     _activeColumnDrag = null;
-                    AngledLabelDrawer.ClearPendingHeaderClick(cancelledDrag?.ColumnDef);
+                    AngledHeaderInteraction.ClearPendingHeaderClick(cancelledDrag?.ColumnDef);
                     evt.Use();
                     break;
             }
@@ -334,7 +334,7 @@ namespace Better_Work_Tab.PawnOrganizer
             }
 
             _activeColumnDrag = new ColumnDragHandler(_layoutController, column);
-            AngledLabelDrawer.NotifyColumnDragStarted(_pendingColumn);
+            AngledHeaderInteraction.NotifyColumnDragStarted(_pendingColumn);
         }
 
         private void InitiateRowDrag(Pawn pawn, PawnDivider divider)
