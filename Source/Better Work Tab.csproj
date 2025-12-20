@@ -134,7 +134,9 @@
     <Compile Include="UI\Dialog_RenameGeneric.cs" />
     <Compile Include="UI\Dialog_RenameWorkload.cs" />
     <Compile Include="UI\Dialog_RenameRuleset.cs" />
-    <Compile Include="UI\VerticalLabels\AngledHeaderDrawer.cs" />
+    <Compile Include="UI\VerticalLabels\AngledLabelDrawer.cs" />
+    <Compile Include="UI\VerticalLabels\AngledHeaderInteraction.cs" />
+    <Compile Include="UI\VerticalLabels\WorkPriorityHeaderPatches.cs" />
     <Compile Include="UI\VerticalLabels\AngledHeaderCache.cs" />
     <Compile Include="UI\HeaderButtons.cs" />
     <Compile Include="UI\MouseStateManager.cs" />
