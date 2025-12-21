@@ -129,6 +129,15 @@ namespace Better_Work_Tab.PawnOrganizer
                 // Otherwise, detect new drags
                 HandleDragDetection(evt);
 
+                // Clear selection when Ctrl is released
+                if (evt.type == EventType.KeyUp && (evt.keyCode == KeyCode.LeftControl || evt.keyCode == KeyCode.RightControl))
+                {
+                    if (BetterWorkTabMod.Settings.enableColumnGrouping)
+                    {
+                        ColumnSelectionManager.Clear();
+                    }
+                }
+
                 // === PRESENCE FEATURE DISABLED ===
                 /*
                 // Update presence (called from input context where syncing works)

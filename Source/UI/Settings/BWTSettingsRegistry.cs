@@ -1326,40 +1326,102 @@ namespace Better_Work_Tab.UI.Settings
             Register(new SettingDefinition
             {
                 Id = AdvancedDebugLogging,
+                ParentId = AdvancedHeader,
                 FieldName = "enableDebugLogging",
                 Label = "Enable Debug Logging",
                 Tooltip = "Output detailed debug messages to the log.",
                 Type = SettingType.Bool,
                 DefaultValue = false,
                 ShowInSimpleView = false,
-                ShowInAdvancedView = false,
+                ShowInAdvancedView = true,
+                ControlsChildVisibility = true,
                 SortOrder = 500
             });
+
+            if (settings != null)
+            {
+                Register(new SettingDefinition
+                {
+                    Id = "debug.features",
+                    ParentId = AdvancedDebugLogging,
+                    Label = "Debug Features",
+                    Tooltip = "Select which debug features to enable logging for.",
+                    Type = SettingType.DropdownListAdder,
+                    DropdownOptionsProvider = () => Enum.GetValues(typeof(DebugFeature))
+                        .Cast<DebugFeature>()
+                        .Where(f => !settings.debugFeatureToggles.ContainsKey(f) || !settings.debugFeatureToggles[f])
+                        .Select(f => f.ToString())
+                        .OrderBy(l => l),
+                    OnOptionAdded = (option) =>
+                    {
+                        if (Enum.TryParse<DebugFeature>(option, out var feature))
+                        {
+                            settings.debugFeatureToggles[feature] = true;
+                            settings.Write();
+                            _initialized = false;
+                            BetterWorkTabSettingsUI.NotifySettingsChanged();
+                            EnsureInitialized();
+                        }
+                    },
+                    ShowInSimpleView = false,
+                    ShowInAdvancedView = true,
+                    SortOrder = 501
+                });
+
+                // Add buttons for each enabled debug feature
+                var enabledFeatures = settings.debugFeatureToggles.Where(kvp => kvp.Value).Select(kvp => kvp.Key).ToList();
+                foreach (var feature in enabledFeatures)
+                {
+                    var localFeature = feature;
+                    Register(new SettingDefinition
+                    {
+                        Id = "debug.feature." + feature.ToString(),
+                        ParentId = "debug.features",
+                        Label = "  - " + feature.ToString(),
+                        Tooltip = "Click to disable logging for this feature.",
+                        Type = SettingType.Button,
+                        OnChanged = (s) =>
+                        {
+                            var settingsObj = (BetterWorkTabSettings)s;
+                            settingsObj.debugFeatureToggles[localFeature] = false;
+                            settingsObj.Write();
+                            _initialized = false;
+                            BetterWorkTabSettingsUI.NotifySettingsChanged();
+                            EnsureInitialized();
+                        },
+                        ShowInSimpleView = false,
+                        ShowInAdvancedView = true,
+                        SortOrder = 502
+                    });
+                }
+            }
 
             Register(new SettingDefinition
             {
                 Id = AdvancedProfiler,
+                ParentId = AdvancedHeader,
                 FieldName = "enableProfiler",
                 Label = "Enable Profiler",
                 Tooltip = "Enable in-game profiler (1 to report, Shift+1 to clear).",
                 Type = SettingType.Bool,
                 DefaultValue = false,
                 ShowInSimpleView = false,
-                ShowInAdvancedView = false,
-                SortOrder = 411
+                ShowInAdvancedView = true,
+                SortOrder = 503
             });
 
             Register(new SettingDefinition
             {
                 Id = AdvancedLogToFile,
+                ParentId = AdvancedHeader,
                 FieldName = "logDebugToFile",
                 Label = "Log to File",
                 Tooltip = "Write debug logs to file in addition to console.",
                 Type = SettingType.Bool,
                 DefaultValue = false,
                 ShowInSimpleView = false,
-                ShowInAdvancedView = false,
-                SortOrder = 412
+                ShowInAdvancedView = true,
+                SortOrder = 504
             });
 
             // Multiplayer sync
