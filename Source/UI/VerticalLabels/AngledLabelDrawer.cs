@@ -1,6 +1,7 @@
 ﻿using RimWorld;
 using UnityEngine;
 using Verse;
+using Better_Work_Tab.DragDrop;
 
 namespace Better_Work_Tab.UI
 {
@@ -38,7 +39,7 @@ namespace Better_Work_Tab.UI
             return Mathf.Floor(coord * scale + 0.001f) / scale;
         }
 
-        public static void Draw(AngledLabelLayout layout, bool isMouseOver, bool isSorted = false, bool sortDescending = false, Rect headerRect = default)
+        public static void Draw(AngledLabelLayout layout, bool isMouseOver, bool isSorted = false, bool sortDescending = false, Rect headerRect = default, PawnColumnDef column = null)
         {
             // 1. Calculate the Snapped Pivot
             // We force the rotation center to align with the physical monitor grid.
@@ -73,9 +74,19 @@ namespace Better_Work_Tab.UI
                     GUI.DrawTexture(highlight, TexUI.HighlightTex);
                     GUI.color = Color.white;
                 }
+                else if (column != null && ColumnSelectionManager.IsSelected(column))
+                {
+                    Rect highlight = new Rect(labelRect.x, labelRect.y, layout.Size.x, layout.Size.y).ExpandedBy(2f);
+                    GUI.color = new Color(0.9f, 0.9f, 0.9f, 0.25f); // Slight grey-white highlight for selection
+                    GUI.DrawTexture(highlight, TexUI.HighlightTex);
+                    GUI.color = Color.white;
+                }
 
                 // Underline
-                Widgets.DrawLine(new Vector2(snappedPivot.x, snappedPivot.y), new Vector2(snappedPivot.x + layout.Size.x, snappedPivot.y), Color.white, 1f);
+                if (!BetterWorkTabMod.Settings.removeHeaderUnderline)
+                {
+                    Widgets.DrawLine(new Vector2(snappedPivot.x, snappedPivot.y), new Vector2(snappedPivot.x + layout.Size.x, snappedPivot.y), Color.white, 1f);
+                }
 
                 Text.Anchor = TextAnchor.LowerLeft;
                 Text.Font = GameFont.Small;
@@ -107,7 +118,8 @@ namespace Better_Work_Tab.UI
             GUI.color = new Color(0.6f, 0.6f, 0.6f, 0.8f);
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.MiddleCenter;
-            Rect sortRect = new Rect(headerRect.xMax - 14f, headerRect.yMin + 2f, 12f, 12f);
+            // Move it to the bottom of the header area, centered horizontally
+            Rect sortRect = new Rect(headerRect.x + (headerRect.width - 6f) / 2f + 5f, headerRect.yMax - 9f, 12f, 12f);
             Widgets.Label(sortRect, descending ? "▼" : "▲");
             GUI.color = Color.white;
         }
