@@ -47,6 +47,9 @@ namespace Better_Work_Tab.DragDrop
             // TargetIndex is relative to _workColumns (excluding columns being dragged if we use the same logic as rows, 
             // but column dragging currently uses a simple insertion line based on visual overlaps).
             TargetIndex = _workColumns.FindIndex(c => c.Column == _primaryColumn);
+            
+            // Set local flag to prevent priority edits during drag
+            BetterWorkTabLocalState.IsHeaderDragging = true;
         }
 
         public override void OnDragUpdate(Vector2 mousePos)
@@ -216,6 +219,12 @@ namespace Better_Work_Tab.DragDrop
             Widgets.DrawBoxSolid(new Rect(lineX - 1f, lineY, 2f, lineHeight), baselineColor);
         }
 
+        public new void OnCancel()
+        {
+            BetterWorkTabLocalState.IsHeaderDragging = false;
+            base.OnCancel();
+        }
+
         protected override void CommitReorder()
         {
             if (!IsDragging) return;
@@ -321,6 +330,9 @@ namespace Better_Work_Tab.DragDrop
 
             // Clear selection after successful drop
             ColumnSelectionManager.Clear();
+            
+            // Clear the dragging flag
+            BetterWorkTabLocalState.IsHeaderDragging = false;
             IsDragging = false;
         }
     }

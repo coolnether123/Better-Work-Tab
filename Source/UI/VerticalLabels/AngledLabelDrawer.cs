@@ -101,7 +101,6 @@ namespace Better_Work_Tab.UI
             {
                 // 5. Restore State
                 GUI.matrix = savedMatrix;
-                UnityGUIBugsFixer.Notify_GUIMatrixChanged();
                 Text.Anchor = savedAnchor;
                 Text.Font = savedFont;
                 GUI.color = savedColor;
