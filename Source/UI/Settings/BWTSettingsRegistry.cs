@@ -84,7 +84,7 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.enableSkillOverlayFeature,
                 ControlsChildVisibility = true,
-                ShowInSimpleView = false,
+                ShowInSimpleView = true,
                 SortOrder = -49,
                 EmphasizeAsHeader = true,
                 HeaderColor = new Color(0.9f, 0.7f, 0.4f)
@@ -920,7 +920,7 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Header,
                 Tooltip = "Skill overlay behaviors when using Shift and hover.",
                 HeaderColor = new Color(0.8f, 0.8f, 0.6f),
-                ShowInSimpleView = true,
+                ShowInSimpleView = false,
                 SortOrder = 104,
                 ParentId = FeaturesOverlay
             });
