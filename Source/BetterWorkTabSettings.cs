@@ -26,7 +26,8 @@ namespace Better_Work_Tab
         Rules,
         Workloads,
         Performance,
-        ModSupport
+        ModSupport,
+        AngledHeaders
     }
 
     [StaticConstructorOnStartup]

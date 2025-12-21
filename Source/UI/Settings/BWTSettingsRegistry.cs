@@ -928,6 +928,8 @@ namespace Better_Work_Tab.UI.Settings
             var settings = BetterWorkTabMod.Settings;
             if (settings != null)
             {
+                // Dynamic settings generation: The DropdownListAdder lets users add hidden work types,
+                // and for each hidden type, we create a removable button tag below.
                 Register(new SettingDefinition
                 {
                     Id = HideWorktypes,
@@ -1323,6 +1325,7 @@ namespace Better_Work_Tab.UI.Settings
                 SortOrder = 410
             });
 
+            // Master toggle for debug logging. When false, no BWT debug messages (except errors) will fire.
             Register(new SettingDefinition
             {
                 Id = AdvancedDebugLogging,
@@ -1340,6 +1343,7 @@ namespace Better_Work_Tab.UI.Settings
 
             if (settings != null)
             {
+                // Dynamic list of debug features. Uses DropdownListAdder to let users pick specific sub-systems to log.
                 Register(new SettingDefinition
                 {
                     Id = "debug.features",
@@ -1368,7 +1372,7 @@ namespace Better_Work_Tab.UI.Settings
                     SortOrder = 501
                 });
 
-                // Add buttons for each enabled debug feature
+                // Display each currently enabled debug feature as a removable button tag.
                 var enabledFeatures = settings.debugFeatureToggles.Where(kvp => kvp.Value).Select(kvp => kvp.Key).ToList();
                 foreach (var feature in enabledFeatures)
                 {
@@ -1396,6 +1400,7 @@ namespace Better_Work_Tab.UI.Settings
                 }
             }
 
+            // Controls whether BWT tracks performance metrics (visible via debug commands).
             Register(new SettingDefinition
             {
                 Id = AdvancedProfiler,
@@ -1410,6 +1415,7 @@ namespace Better_Work_Tab.UI.Settings
                 SortOrder = 503
             });
 
+            // If enabled, debug messages are mirrored to a dedicated .txt file in the mod folder.
             Register(new SettingDefinition
             {
                 Id = AdvancedLogToFile,
