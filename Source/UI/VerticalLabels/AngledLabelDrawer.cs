@@ -42,11 +42,17 @@ namespace Better_Work_Tab.UI
         public static void Draw(AngledLabelLayout layout, bool isMouseOver, bool isSorted = false, bool sortDescending = false, Rect headerRect = default, PawnColumnDef column = null)
         {
             // 1. Calculate the Snapped Pivot
-            // We force the rotation center to align with the physical monitor grid.
             Vector2 snappedPivot = new Vector2(
                 SnapToPhysical(layout.Pivot.x),
                 SnapToPhysical(layout.Pivot.y)
             );
+
+            // Manual compensation for 1.25x scale
+            if (Mathf.Approximately(Prefs.UIScale, 1.25f))
+            {
+                snappedPivot.x -= 85f; // This is the exact positioning
+                snappedPivot.y += 49f;
+            }
 
             // 2. Save State
             Matrix4x4 savedMatrix = GUI.matrix;
@@ -55,8 +61,6 @@ namespace Better_Work_Tab.UI
             Color savedColor = GUI.color;
 
             // 3. Apply Rotation
-            // We use Verse.UI.RotateAroundPivot which correctly handles Prefs.UIScale
-            // in RimWorld's root matrix-based scaling system.
             Verse.UI.RotateAroundPivot(ROTATION_ANGLE, snappedPivot);
 
             try
