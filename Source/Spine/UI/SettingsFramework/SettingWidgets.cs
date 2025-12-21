@@ -354,5 +354,48 @@ namespace Spine.UI.SettingsFramework
         {
             // Intentionally left blank
         }
+
+        /// <summary>
+        /// Draws a button that opens a dropdown to add items to a list.
+        /// </summary>
+        public static void DrawDropdownListAdder(
+            Rect rect,
+            string label,
+            Func<IEnumerable<string>> optionsProvider,
+            Action<string> onAdded,
+            string tooltip = null,
+            bool disabled = false)
+        {
+            var labelRect = rect.LeftPart(0.6f);
+            var buttonRect = rect.RightPart(0.38f);
+
+            Widgets.Label(labelRect, label);
+
+            if (!disabled && Widgets.ButtonText(buttonRect, "BWT_AddOption".Translate()))
+            {
+                var options = new List<FloatMenuOption>();
+                var available = optionsProvider?.Invoke();
+                if (available != null)
+                {
+                    foreach (var opt in available)
+                    {
+                        var local = opt;
+                        options.Add(new FloatMenuOption(local, () => onAdded?.Invoke(local)));
+                    }
+                }
+
+                if (options.Count == 0)
+                {
+                    options.Add(new FloatMenuOption("BWT_NoOptionsAvailable".Translate(), null));
+                }
+
+                Find.WindowStack.Add(new FloatMenu(options));
+            }
+
+            if (!string.IsNullOrEmpty(tooltip))
+            {
+                TooltipHandler.TipRegion(rect, tooltip);
+            }
+        }
     }
 }

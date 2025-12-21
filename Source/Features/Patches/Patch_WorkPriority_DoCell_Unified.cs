@@ -102,7 +102,6 @@ namespace Better_Work_Tab.Patches
         private const float SmallSkillOffsetX = 16f;
         private const float SmallSkillOffsetY = -2f;
         private const float SkillBoxOutlinePadding = 2f;
-        private const int BestPawnOutlineThickness = 3;
 
         private static void UpdateFrameCache()
         {
@@ -288,13 +287,13 @@ namespace Better_Work_Tab.Patches
                 }
             }
 
-            if (ShouldShowUI(BetterWorkTabMod.Settings.ShowUIMode_ShowPawnForSkillSquare, _cachedUiState))
+            if (!BetterWorkTabMod.Settings.disableBestPawnHighlight && ShouldShowUI(BetterWorkTabMod.Settings.ShowUIMode_ShowPawnForSkillSquare, _cachedUiState))
             {
                 Pawn bestPawn = GetBestPawnForWorktype(table, workType, __instance);
-                if (bestPawn == pawn)
-                {
-                    DrawBestPawnOutline(rect);
-                }
+                    if (bestPawn == pawn)
+                    {
+                        DrawBestPawnOutline(rect);
+                    }
             }
         }
 
@@ -513,8 +512,24 @@ namespace Better_Work_Tab.Patches
                 outlineRect,
                 Color.clear,
                 BetterWorkTabMod.Settings.Color_BestPawnForSkillSquare,
-                BestPawnOutlineThickness);
+                Mathf.RoundToInt(BetterWorkTabMod.Settings.bestPawnHighlightThickness));
         }
+
+        private static void DrawBestPawnBackground(Rect rect)
+        {
+            float x = rect.x + (rect.width - SkillBoxSize) / 2f;
+            float y = rect.y + SkillBoxVerticalPadding;
+            Rect boxRect = new Rect(x, y, SkillBoxSize, SkillBoxSize);
+
+            Color highlightColor = BetterWorkTabMod.Settings.Color_BestPawnForSkillSquare;
+            highlightColor.a = 0.5f; // Semi-transparent background
+            GUI.DrawTexture(boxRect, BaseContent.WhiteTex);
+            Color oldColor = GUI.color;
+            GUI.color = highlightColor;
+            GUI.DrawTexture(boxRect, BaseContent.WhiteTex);
+            GUI.color = oldColor;
+        }
+
 
         private static bool ShouldShowUI(BetterWorkTabSettings.ShowUIMode mode, BetterWorkTabSettings.ShowUIMode currentState)
         {

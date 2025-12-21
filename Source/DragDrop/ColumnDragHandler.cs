@@ -15,22 +15,38 @@ namespace Better_Work_Tab.DragDrop
 {
     public class ColumnDragHandler : DragHandler<WorkTabLayoutColumn>
     {
-        private readonly PawnColumnDef _column;
+        private readonly PawnColumnDef _primaryColumn;
+        private readonly List<PawnColumnDef> _draggedColumns = new List<PawnColumnDef>();
         private readonly List<WorkTabLayoutColumn> _workColumns;
         private Rect _originRect;
-        public PawnColumnDef ColumnDef => _column;
+        public PawnColumnDef ColumnDef => _primaryColumn;
 
         public ColumnDragHandler(IWorkTabLayoutController layout, WorkTabLayoutColumn col)
             : base(layout)
         {
-            _column = col.Column;
+            _primaryColumn = col.Column;
             _originRect = col.HeaderRect;
 
             _workColumns = Layout.Columns
                 .Where(c => c.Column.Worker is PawnColumnWorker_WorkPriority)
                 .ToList();
 
-            TargetIndex = _workColumns.FindIndex(c => c.Column == _column);
+            if (ColumnSelectionManager.IsSelected(_primaryColumn))
+            {
+                // Drag the whole selection
+                var allWorkColDefs = _workColumns.Select(c => c.Column);
+                _draggedColumns.AddRange(ColumnSelectionManager.GetSelectedInOrder(allWorkColDefs));
+            }
+            else
+            {
+                // Drag only this column and clear selection
+                _draggedColumns.Add(_primaryColumn);
+                ColumnSelectionManager.Clear();
+            }
+
+            // TargetIndex is relative to _workColumns (excluding columns being dragged if we use the same logic as rows, 
+            // but column dragging currently uses a simple insertion line based on visual overlaps).
+            TargetIndex = _workColumns.FindIndex(c => c.Column == _primaryColumn);
         }
 
         public override void OnDragUpdate(Vector2 mousePos)
@@ -64,7 +80,7 @@ namespace Better_Work_Tab.DragDrop
                     _originRect.width,
                     fullHeight);
 
-                ListDragVisuals.DrawGhost(ghost, _column.defName);
+                ListDragVisuals.DrawGhost(ghost, _primaryColumn.defName);
             }
 
             DrawBaselineLineIfNeeded();
@@ -94,7 +110,7 @@ namespace Better_Work_Tab.DragDrop
                 return;
             }
 
-            var workType = _column?.workType;
+            var workType = _primaryColumn?.workType;
             if (workType?.defName == null)
             {
                 return;
@@ -152,7 +168,7 @@ namespace Better_Work_Tab.DragDrop
             for (int i = 0; i < _workColumns.Count; i++)
             {
                 var defName = _workColumns[i].Column?.workType?.defName;
-                if (string.IsNullOrEmpty(defName) || defName == workType.defName)
+                if (string.IsNullOrEmpty(defName) || _draggedColumns.Any(dc => dc.workType?.defName == defName))
                 {
                     continue;
                 }
@@ -170,7 +186,7 @@ namespace Better_Work_Tab.DragDrop
             for (int i = 0; i < _workColumns.Count; i++)
             {
                 var defName = _workColumns[i].Column?.workType?.defName;
-                if (string.IsNullOrEmpty(defName) || defName == workType.defName)
+                if (string.IsNullOrEmpty(defName) || _draggedColumns.Any(dc => dc.workType?.defName == defName))
                 {
                     continue;
                 }
@@ -215,78 +231,96 @@ namespace Better_Work_Tab.DragDrop
                 .Where(c => c.Worker is PawnColumnWorker_WorkPriority && c.workType != null)
                 .ToList();
 
-            var current = workCols.FirstOrDefault(c => c == _column);
-
-            if (current != null)
+            // Find all columns in workCols that are in our dragged group
+            var toRemove = workCols.Where(c => _draggedColumns.Contains(c)).ToList();
+            if (toRemove.Count == 0)
             {
-                int currentIndex = workCols.IndexOf(current);
-                workCols.Remove(current);
-
-                // Adjust BEFORE clamping
-                int adjustedTarget = TargetIndex;
-                if (currentIndex < TargetIndex)
-                {
-                    adjustedTarget--;
-                }
-
-                int insertIndex = Mathf.Clamp(adjustedTarget, 0, workCols.Count);
-
-                // === Only reorder if actually moving to different position ===
-                if (currentIndex == insertIndex)
-                {
-                    // No actual move - don't mark as moved
-                    IsDragging = false;
-                    return;
-                }
-
-                if (MultiplayerBridge.Active)
-                {
-                    WorkColumnOrderSync.ApplyWorkColumnMove(_column.workType?.defName, insertIndex);
-                    IsDragging = false;
-                    return;
-                }
-
-                workCols.Insert(insertIndex, current);
-
-                // Reconstruct table def columns
-                var original = def.columns.ToList();
-                var pre = new List<PawnColumnDef>();
-                var post = new List<PawnColumnDef>();
-                bool inWork = false;
-
-                foreach (var col in original)
-                {
-                    bool isWork = col.Worker is PawnColumnWorker_WorkPriority && col.workType != null;
-                    if (isWork) inWork = true;
-                    else if (!inWork) pre.Add(col);
-                    else post.Add(col);
-                }
-
-                def.columns.Clear();
-                def.columns.AddRange(pre);
-                def.columns.AddRange(workCols);
-                def.columns.AddRange(post);
-
-                WorkColumnOrderManager.CaptureCurrent(def);
-
-                // Record that this column was directly dragged by the player
-                MainTabWindow_BetterWork.MarkColumnMoved(_column.workType);
-
-                // Force layout to rebuild with new column order
-                var layout = PawnOrganizerSystem.Instance?.Layout;
-                if (layout is WorkTabLayoutController workLayout)
-                {
-                    workLayout.InvalidateRowDescriptors();
-                }
-
-                WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
-                MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
-
-                if (MultiplayerBridge.Active)
-                {
-                    Better_Work_Tab.Mod_Support.Multiplayer.Features.Layouts.LayoutSharingManager.NotifyLayoutChanged();
-                }
+                IsDragging = false;
+                return;
             }
+
+            // Record original index of the group (usually the first one)
+            int firstOriginalIndex = workCols.IndexOf(toRemove[0]);
+
+            // Remove all from the list
+            foreach (var col in toRemove)
+            {
+                workCols.Remove(col);
+            }
+
+            // Adjust BEFORE clamping
+            int adjustedTarget = TargetIndex;
+            if (firstOriginalIndex < TargetIndex)
+            {
+                adjustedTarget -= toRemove.Count;
+            }
+
+            int insertIndex = Mathf.Clamp(adjustedTarget, 0, workCols.Count);
+
+            // === Only reorder if actually moving to different position ===
+            if (firstOriginalIndex == insertIndex)
+            {
+                // No actual move - don't mark as moved
+                IsDragging = false;
+                return;
+            }
+
+            if (MultiplayerBridge.Active)
+            {
+                // Multiplayer support for group drag would need a new sync method
+                // For now, we sync the primary one
+                WorkColumnOrderSync.ApplyWorkColumnMove(_primaryColumn.workType?.defName, insertIndex);
+                IsDragging = false;
+                return;
+            }
+
+            // Actually move all dragged columns
+            for (int i = 0; i < _draggedColumns.Count; i++)
+            {
+                workCols.Insert(insertIndex + i, _draggedColumns[i]);
+            }
+
+            // Reconstruct table def columns
+            var original = def.columns.ToList();
+            var pre = new List<PawnColumnDef>();
+            var post = new List<PawnColumnDef>();
+            bool inWork = false;
+
+            foreach (var col in original)
+            {
+                bool isWork = col.Worker is PawnColumnWorker_WorkPriority && col.workType != null;
+                if (isWork) inWork = true;
+                else if (!inWork) pre.Add(col);
+                else post.Add(col);
+            }
+
+            def.columns.Clear();
+            def.columns.AddRange(pre);
+            def.columns.AddRange(workCols);
+            def.columns.AddRange(post);
+
+            WorkColumnOrderManager.CaptureCurrent(def);
+
+            // Record that this column was directly dragged by the player
+            MainTabWindow_BetterWork.MarkColumnMoved(_primaryColumn.workType);
+
+            // Force layout to rebuild with new column order
+            var layout = PawnOrganizerSystem.Instance?.Layout;
+            if (layout is WorkTabLayoutController workLayout)
+            {
+                workLayout.InvalidateRowDescriptors();
+            }
+
+            WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
+            MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+
+            if (MultiplayerBridge.Active)
+            {
+                Better_Work_Tab.Mod_Support.Multiplayer.Features.Layouts.LayoutSharingManager.NotifyLayoutChanged();
+            }
+
+            // Clear selection after successful drop
+            ColumnSelectionManager.Clear();
             IsDragging = false;
         }
     }

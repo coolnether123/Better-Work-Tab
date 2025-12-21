@@ -59,14 +59,23 @@ namespace Better_Work_Tab.UI
                 // Rulesets are now local-only (not synced in multiplayer)
                 if (curRuleset != null)
                 {
-                    ConfirmApplyWithResetWarning("Apply ruleset?", () =>
+                    System.Action applyAction = () =>
                     {
                         if (curRuleset.ResetBeforeApplying)
                         {
                             WorkAssignmentRuleset.SetAllToZero();
                         }
                         curRuleset.ApplyAutoAssignments();
-                    });
+                    };
+
+                    if (settings.warnOnApplyRuleset)
+                    {
+                        ConfirmApplyWithResetWarning("Apply ruleset?", applyAction);
+                    }
+                    else
+                    {
+                        applyAction();
+                    }
                 }
             }
 
@@ -117,12 +126,21 @@ namespace Better_Work_Tab.UI
             {
                 if (workloadSaver.CurrentWorklist != null)
                 {
-                    ConfirmApplyWithResetWarning("Apply workload?", () =>
+                    System.Action applyAction = () =>
                     {
                         workloadSaver.CurrentWorklist.Apply();
                         MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
                         SoundDefOf.Tick_Low.PlayOneShotOnCamera();
-                    });
+                    };
+
+                    if (settings.warnOnApplyWorkload)
+                    {
+                        ConfirmApplyWithResetWarning("Apply workload?", applyAction);
+                    }
+                    else
+                    {
+                        applyAction();
+                    }
                 }
                 else
                 {
