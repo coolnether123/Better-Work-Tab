@@ -13,6 +13,10 @@ using Verse;
 
 namespace Better_Work_Tab.DragDrop
 {
+    /// <summary>
+    /// Handles dragging single or grouped work columns to reorder them.
+    /// Supports multi-column selection via ColumnSelectionManager.
+    /// </summary>
     public class ColumnDragHandler : DragHandler<WorkTabLayoutColumn>
     {
         private readonly PawnColumnDef _primaryColumn;
@@ -54,6 +58,9 @@ namespace Better_Work_Tab.DragDrop
             BetterWorkTabLocalState.IsHeaderDragging = true;
         }
 
+        /// <summary>
+        /// Updates the target insertion index based on mouse position.
+        /// </summary>
         public override void OnDragUpdate(Vector2 mousePos)
         {
             int index = _workColumns.Count;
@@ -68,6 +75,9 @@ namespace Better_Work_Tab.DragDrop
             TargetIndex = Mathf.Clamp(index, 0, _workColumns.Count);
         }
 
+        /// <summary>
+        /// Draws the insertion line and baseline indicator during drag.
+        /// </summary>
         public override void OnDrawOverlay()
         {
             if (!IsDragging) return;
@@ -253,6 +263,7 @@ namespace Better_Work_Tab.DragDrop
             // Record the visual target column we are dropping at.
             // When dragging a group, if the drop point is inside the group, we need to find 
             // the first column to the right that ISN'T being moved to determine the true insertion point.
+            // This prevents the group from "disappearing" or jumping to the end when dropped on itself.
             PawnColumnDef targetAnchor = null;
             for (int i = TargetIndex; i < _workColumns.Count; i++)
             {
@@ -263,34 +274,36 @@ namespace Better_Work_Tab.DragDrop
                 }
             }
 
-            // Record original index of the group (usually the first one)
+            // Record original index of the group (usually the first one) to detect no-ops later.
             int firstOriginalIndex = workCols.IndexOf(toRemove[0]);
 
-            // Remove all from the list
+            // Remove all dragged columns from the temporary list.
             foreach (var col in toRemove)
             {
                 workCols.Remove(col);
             }
 
-            // Determine true insertion index in the absolute list (after removals)
+            // Determine true insertion index in the absolute list (after removals).
+            // This is the index of the stationary column we found earlier.
             int insertIndex;
             if (targetAnchor != null)
             {
                 insertIndex = workCols.IndexOf(targetAnchor);
-                if (insertIndex < 0) insertIndex = workCols.Count; // Fallback
+                if (insertIndex < 0) insertIndex = workCols.Count; // Fallback to end if anchor lost
             }
             else
             {
-                insertIndex = workCols.Count;
+                insertIndex = workCols.Count; // Dropped after the last non-dragged column
             }
 
             BetterWorkTabMod.DebugLog($"[BWT] Reorder Group Map: firstIndex={firstOriginalIndex}, target={TargetIndex}, insertIndex={insertIndex}", DebugFeature.DragDrop);
 
-            // Re-check for no-op
-            // If the start position (before removals) matches the end position (after removals), it's a no-op
+            // Re-check for no-op.
+            // If the start position (before removals) matches the end position (after removals), it's a no-op.
+            // This handles cases where the user drops the group back exactly where it came from.
             if (insertIndex == firstOriginalIndex)
             {
-                BetterWorkTabMod.DebugLog("[BWT] Reorder Group No-Op detected.", DebugFeature.DragDrop);
+                BetterWorkTabMod.DebugLog("[BWT] Reorder Group No-Op detected. Original position maintained.", DebugFeature.DragDrop);
                 IsDragging = false;
                 return;
             }
