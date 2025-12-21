@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Spine.UI.SettingsFramework
@@ -113,5 +114,15 @@ namespace Spine.UI.SettingsFramework
         /// When true for a Bool type, render it with header styling (bold/underline) while keeping toggle behavior.
         /// </summary>
         public bool EmphasizeAsHeader = false;
+
+        /// <summary>
+        /// Provides the list of options for a DropdownListAdder setting.
+        /// </summary>
+        public Func<IEnumerable<string>> DropdownOptionsProvider;
+
+        /// <summary>
+        /// Callback invoked when an option is selected from a DropdownListAdder.
+        /// </summary>
+        public Action<string> OnOptionAdded;
     }
 }

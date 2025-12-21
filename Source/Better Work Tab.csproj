@@ -44,6 +44,7 @@
     <Compile Include="DragDrop\DragHandler.cs" />
     <Compile Include="DragDrop\DragSession.cs" />
     <Compile Include="DragDrop\ColumnDragHandler.cs" />
+    <Compile Include="DragDrop\ColumnSelectionManager.cs" />
     <Compile Include="Features\HighlightDrawer.cs" />
     <Compile Include="Features\HighlightState.cs" />
     <Compile Include="Features\Caching\BedCountCache.cs" />

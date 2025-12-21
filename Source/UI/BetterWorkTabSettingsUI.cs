@@ -31,6 +31,11 @@ namespace Better_Work_Tab.UI
                 : BetterWorkTabSettings.SettingsViewMode.Advanced;
         }
 
+        public static void NotifySettingsChanged()
+        {
+            _drawer = null;
+        }
+
         /// <summary>
         /// Lazily builds the drawer with Better Work Tab specific translators.
         /// </summary>
