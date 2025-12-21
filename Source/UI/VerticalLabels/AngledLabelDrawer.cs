@@ -58,7 +58,6 @@ namespace Better_Work_Tab.UI
             // We use Verse.UI.RotateAroundPivot which correctly handles Prefs.UIScale
             // in RimWorld's root matrix-based scaling system.
             Verse.UI.RotateAroundPivot(ROTATION_ANGLE, snappedPivot);
-            UnityGUIBugsFixer.Notify_GUIMatrixChanged();
 
             try
             {
@@ -67,17 +66,19 @@ namespace Better_Work_Tab.UI
                 float textHeight = layout.Size.y;
                 Rect labelRect = new Rect(snappedPivot.x, snappedPivot.y - textHeight, 200f, textHeight);
 
-                if (isMouseOver)
+                if (column != null && ColumnSelectionManager.IsSelected(column))
                 {
                     Rect highlight = new Rect(labelRect.x, labelRect.y, layout.Size.x, layout.Size.y).ExpandedBy(2f);
-                    GUI.color = new Color(1f, 1f, 1f, 0.35f);
+                    // Distinct yellow highlight for selected columns
+                    GUI.color = new Color(1f, 0.92f, 0.4f, 0.4f);
                     GUI.DrawTexture(highlight, TexUI.HighlightTex);
                     GUI.color = Color.white;
                 }
-                else if (column != null && ColumnSelectionManager.IsSelected(column))
+
+                if (isMouseOver)
                 {
                     Rect highlight = new Rect(labelRect.x, labelRect.y, layout.Size.x, layout.Size.y).ExpandedBy(2f);
-                    GUI.color = new Color(0.9f, 0.9f, 0.9f, 0.25f); // Slight grey-white highlight for selection
+                    GUI.color = new Color(1f, 1f, 1f, 0.25f);
                     GUI.DrawTexture(highlight, TexUI.HighlightTex);
                     GUI.color = Color.white;
                 }

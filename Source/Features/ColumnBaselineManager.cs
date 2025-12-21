@@ -21,39 +21,14 @@ namespace Better_Work_Tab.Features
         /// </summary>
         private static List<string> BuildTrueVanillaOrder()
         {
-            // Use the same ordering vanilla uses to render the Work tab so DLC work types
-            // are always included, even if the Work table hasn't yet built its columns.
-            var officialDefs = WorkTypeDefsUtility.WorkTypeDefsInPriorityOrder
-                .Where(wt => wt != null && (wt.modContentPack == null || wt.modContentPack.IsOfficialMod))
+            // Use the natural priority order defined by the game and mods.
+            // This is the order vanilla RimWorld uses to populate the table initially.
+            // By using this as the "true" baseline for ALL work types, we can always
+            // detect when a column has been moved from its intended position.
+            return WorkTypeDefsUtility.WorkTypeDefsInPriorityOrder
+                .Where(wt => wt != null)
                 .Select(wt => wt.defName)
                 .ToList();
-
-            if (officialDefs.Count > 0)
-            {
-                return officialDefs;
-            }
-
-            // Fallback: mirror the previous behavior of scanning the current table layout.
-            var fallback = new List<string>();
-            var def = PawnTableDefOf.Work;
-            if (def?.columns == null)
-            {
-                return fallback;
-            }
-
-            foreach (var col in def.columns)
-            {
-                if (col.Worker is PawnColumnWorker_WorkPriority && col.workType != null)
-                {
-                    var pack = col.workType.modContentPack;
-                    if (pack == null || pack.IsOfficialMod)
-                    {
-                        fallback.Add(col.workType.defName);
-                    }
-                }
-            }
-
-            return fallback;
         }
 
         /// <summary>
