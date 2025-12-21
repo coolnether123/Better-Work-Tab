@@ -13,6 +13,7 @@ namespace Better_Work_Tab.UI
     {
         private static readonly ClickOrDragGate<PawnColumnDef> ClickTracker = new ClickOrDragGate<PawnColumnDef>();
         private static MethodInfo _baseHeaderClicked;
+        private static PawnColumnDef _pendingCtrlDeselect;
 
         public static void HandleInteractions(PawnColumnWorker_WorkPriority worker, PawnTable table, AngledLabelDrawer.AngledLabelLayout layout, Rect bounds, Vector2[] quad, bool isMouseOver, bool shouldDraw, Rect headerRect)
         {
@@ -27,16 +28,30 @@ namespace Better_Work_Tab.UI
 
             if (evt.type == EventType.MouseDown && evt.shift)
             {
+                BetterWorkTabMod.DebugLog($"[BWT] Shift-Click on {worker.def.defName}", DebugFeature.DragDrop);
                 HandleShiftClick(worker, table, evt.button);
                 evt.Use();
             }
             else if (evt.type == EventType.MouseDown && evt.control && BetterWorkTabMod.Settings.enableColumnGrouping)
             {
-                ColumnSelectionManager.ToggleSelection(worker.def);
-                evt.Use();
+                // If not selected, select immediately so we can drag the selection
+                if (!ColumnSelectionManager.IsSelected(worker.def))
+                {
+                    ColumnSelectionManager.ToggleSelection(worker.def);
+                    BetterWorkTabMod.DebugLog($"[BWT] Ctrl-Click select on {worker.def.defName}", DebugFeature.DragDrop);
+                    _pendingCtrlDeselect = null;
+                }
+                else
+                {
+                    // Already selected - wait for MouseUp to deselect, so we can drag if desired
+                    _pendingCtrlDeselect = worker.def;
+                    BetterWorkTabMod.DebugLog($"[BWT] Ctrl-Click on ALREADY selected {worker.def.defName}. Delaying potential deselect.", DebugFeature.DragDrop);
+                }
             }
-            else if (evt.type == EventType.MouseDown)
+            
+            if (evt.type == EventType.MouseDown)
             {
+                BetterWorkTabMod.DebugLog($"[BWT] MouseDown on {worker.def.defName}. Pending drag start.", DebugFeature.DragDrop);
                 ClickTracker.Begin(worker.def, evt.button, evt.mousePosition);
                 evt.Use();
             }
@@ -48,9 +63,22 @@ namespace Better_Work_Tab.UI
             {
                 if (ClickTracker.TryComplete(worker.def, evt.button, true))
                 {
-                    _baseHeaderClicked ??= AccessTools.Method(typeof(PawnColumnWorker), "HeaderClicked");
-                    _baseHeaderClicked?.Invoke(worker, new object[] { bounds, table });
+                    if (evt.control && BetterWorkTabMod.Settings.enableColumnGrouping)
+                    {
+                        if (_pendingCtrlDeselect == worker.def)
+                        {
+                            ColumnSelectionManager.ToggleSelection(worker.def);
+                            BetterWorkTabMod.DebugLog($"[BWT] Ctrl-Click deselect on {worker.def.defName}", DebugFeature.DragDrop);
+                        }
+                        // Sort is prevented when Ctrl is held for selection
+                    }
+                    else
+                    {
+                        _baseHeaderClicked ??= AccessTools.Method(typeof(PawnColumnWorker), "HeaderClicked");
+                        _baseHeaderClicked?.Invoke(worker, new object[] { bounds, table });
+                    }
                 }
+                _pendingCtrlDeselect = null;
                 evt.Use();
             }
         }
