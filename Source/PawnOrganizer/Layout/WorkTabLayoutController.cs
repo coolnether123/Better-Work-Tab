@@ -622,27 +622,42 @@ namespace Better_Work_Tab.PawnOrganizer
 
         private void BuildColumns()
         {
-            var columns = _table.Columns;
+            var allColumns = _table.Columns;
+            var hiddenWorktypes = BetterWorkTabMod.Settings?.hiddenWorktypes;
+
+            var visibleColumns = new List<(PawnColumnDef def, int originalIndex)>();
+            for (int i = 0; i < allColumns.Count; i++)
+            {
+                var def = allColumns[i];
+                if (def.workType != null && hiddenWorktypes != null && hiddenWorktypes.Contains(def.workType.defName))
+                {
+                    continue;
+                }
+                visibleColumns.Add((def, i));
+            }
+
             float currentX = _origin.x;
             float usedWidth = 0f;
             const float spacing = 0f;
 
-            for (int i = 0; i < columns.Count; i++)
+            for (int i = 0; i < visibleColumns.Count; i++)
             {
-                float defaultWidth = (i == columns.Count - 1)
-                    ? Mathf.Max(0f, _rowWidth - usedWidth)
-                    : _table.cachedColumnWidths[i];
+                var (columnDef, originalIndex) = visibleColumns[i];
 
-                float width = _columnWidthStore?.GetWidth(columns[i], defaultWidth) ?? defaultWidth;
+                float defaultWidth = (i == visibleColumns.Count - 1)
+                    ? Mathf.Max(0f, _rowWidth - usedWidth)
+                    : _table.cachedColumnWidths[originalIndex];
+
+                float width = _columnWidthStore?.GetWidth(columnDef, defaultWidth) ?? defaultWidth;
 
                 var headerRect = new Rect(currentX, _origin.y, width, HeaderHeight);
-                _columns.Add(new WorkTabLayoutColumn(columns[i], headerRect, currentX - _origin.x, width));
+                _columns.Add(new WorkTabLayoutColumn(columnDef, headerRect, currentX - _origin.x, width));
 
                 currentX += width;
                 usedWidth += width;
 
                 // Apply spacing between columns but not after the last column.
-                if (i < columns.Count - 1 && spacing > 0f)
+                if (i < visibleColumns.Count - 1 && spacing > 0f)
                 {
                     currentX += spacing;
                     usedWidth += spacing;

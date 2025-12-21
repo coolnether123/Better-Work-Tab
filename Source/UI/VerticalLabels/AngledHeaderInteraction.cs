@@ -1,4 +1,5 @@
 using Better_Work_Tab.Features;
+using Better_Work_Tab.DragDrop;
 using HarmonyLib;
 using RimWorld;
 using Spine.DragDropApi.Util;
@@ -15,7 +16,7 @@ namespace Better_Work_Tab.UI
 
         public static void HandleInteractions(PawnColumnWorker_WorkPriority worker, PawnTable table, AngledLabelDrawer.AngledLabelLayout layout, Rect bounds, Vector2[] quad, bool isMouseOver, bool shouldDraw, Rect headerRect)
         {
-            if (shouldDraw) AngledLabelDrawer.Draw(layout, isMouseOver, table?.SortingBy == worker?.def, table?.SortingDescending ?? false, headerRect);
+            if (shouldDraw) AngledLabelDrawer.Draw(layout, isMouseOver, table?.SortingBy == worker?.def, table?.SortingDescending ?? false, headerRect, worker?.def);
             if (isMouseOver) TooltipHandler.TipRegion(bounds, AngledHeaderCache.GetTooltip(worker));
 
             var evt = Event.current;
@@ -27,6 +28,11 @@ namespace Better_Work_Tab.UI
             if (evt.type == EventType.MouseDown && evt.shift)
             {
                 HandleShiftClick(worker, table, evt.button);
+                evt.Use();
+            }
+            else if (evt.type == EventType.MouseDown && evt.control && BetterWorkTabMod.Settings.enableColumnGrouping)
+            {
+                ColumnSelectionManager.ToggleSelection(worker.def);
                 evt.Use();
             }
             else if (evt.type == EventType.MouseDown)

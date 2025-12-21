@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Better_Work_Tab;
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.Workloads;
@@ -83,7 +84,7 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.enableSkillOverlayFeature,
                 ControlsChildVisibility = true,
-                ShowInSimpleView = true,
+                ShowInSimpleView = false,
                 SortOrder = -49,
                 EmphasizeAsHeader = true,
                 HeaderColor = new Color(0.9f, 0.7f, 0.4f)
@@ -151,6 +152,19 @@ namespace Better_Work_Tab.UI.Settings
 
             Register(new SettingDefinition
             {
+                Id = AutoassignWarnOnApply,
+                ParentId = FeaturesAutoassign,
+                FieldName = "warnOnApplyRuleset",
+                Label = "Warn before applying Ruleset",
+                Tooltip = "Show a confirmation warning before applying a ruleset to all colonists.",
+                Type = SettingType.Bool,
+                DefaultValue = true,
+                ShowInSimpleView = true,
+                SortOrder = 1
+            });
+
+            Register(new SettingDefinition
+            {
                 Id = FeaturesWorkloads,
                 FieldName = "enableWorkloads",
                 Label = "Workloads",
@@ -162,6 +176,19 @@ namespace Better_Work_Tab.UI.Settings
                 SortOrder = -44,
                 EmphasizeAsHeader = true,
                 HeaderColor = new Color(0.6f, 0.6f, 0.6f)
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = WorkloadsWarnOnApply,
+                ParentId = FeaturesWorkloads,
+                FieldName = "warnOnApplyWorkload",
+                Label = "Warn before applying Workload",
+                Tooltip = "Show a confirmation warning before applying a workload to all colonists.",
+                Type = SettingType.Bool,
+                DefaultValue = true,
+                ShowInSimpleView = true,
+                SortOrder = 1
             });
 
             Register(new SettingDefinition
@@ -414,6 +441,37 @@ namespace Better_Work_Tab.UI.Settings
 
             Register(new SettingDefinition
             {
+                Id = HighlightsDisableBestPawn,
+                ParentId = FeaturesOverlay,
+                FieldName = "disableBestPawnHighlight",
+                Label = "Disable Best Pawn Highlight",
+                Tooltip = "Disable the green highlight for the best pawn in a work type.",
+                Type = SettingType.Bool,
+                DefaultValue = false,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 41
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = HighlightsBestPawnBackground,
+                ParentId = FeaturesOverlay,
+                FieldName = "bestPawnHighlightThickness",
+                Label = "Best Pawn Outline Thickness",
+                Tooltip = "Adjust the thickness of the green outline for the best pawn in a work type.",
+                Type = SettingType.Float,
+                DefaultValue = 1f,
+                MinValue = 1f,
+                MaxValue = 6f,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 42,
+                VisibleWhen = s => !((BetterWorkTabSettings)s).disableBestPawnHighlight
+            });
+
+            Register(new SettingDefinition
+            {
                 Id = HighlightsSimilar,
                 ParentId = HighlightsHover,
                 FieldName = "ShowSimilarWorktypeHighlight",
@@ -465,6 +523,34 @@ namespace Better_Work_Tab.UI.Settings
                 ShowInSimpleView = true,
                 SortOrder = 95,
                 ParentId = FeaturesDragdrop
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = DragdropEnableGrouping,
+                ParentId = FeaturesDragdrop,
+                FieldName = "enableColumnGrouping",
+                Label = "Enable Column Grouping (Ctrl+Click)",
+                Tooltip = "Allows selecting multiple columns with Ctrl+Click to drag them together.",
+                Type = SettingType.Bool,
+                DefaultValue = false,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 96
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = DragdropRemoveHeaderUnderline,
+                ParentId = FeaturesDragdrop,
+                FieldName = "removeHeaderUnderline",
+                Label = "Remove Header Underline",
+                Tooltip = "Remove the underline from work tab header labels.",
+                Type = SettingType.Bool,
+                DefaultValue = false,
+                ShowInSimpleView = true,
+                ShowInAdvancedView = true,
+                SortOrder = 97
             });
 
             Register(new SettingDefinition
@@ -833,11 +919,74 @@ namespace Better_Work_Tab.UI.Settings
                 Label = "Skill Colors",
                 Type = SettingType.Header,
                 Tooltip = "Skill overlay behaviors when using Shift and hover.",
-                HeaderColor = new Color(0.9f, 0.7f, 0.4f),
-                ShowInSimpleView = false,
-                SortOrder = 200,
+                HeaderColor = new Color(0.8f, 0.8f, 0.6f),
+                ShowInSimpleView = true,
+                SortOrder = 104,
                 ParentId = FeaturesOverlay
             });
+
+            var settings = BetterWorkTabMod.Settings;
+            if (settings != null)
+            {
+                Register(new SettingDefinition
+                {
+                    Id = HideWorktypes,
+                    ParentId = FeaturesUiElements,
+                    FieldName = "hiddenWorktypes",
+                    Label = "Hidden Work Types",
+                    Tooltip = "Select work types to hide from the work tab.",
+                    Type = SettingType.DropdownListAdder,
+                    DropdownOptionsProvider = () => DefDatabase<WorkTypeDef>.AllDefsListForReading
+                        .Where(wt => !settings.hiddenWorktypes.Contains(wt.defName))
+                        .Select(w => w.labelShort.CapitalizeFirst())
+                        .OrderBy(l => l),
+                    OnOptionAdded = (option) =>
+                    {
+                        var wt = DefDatabase<WorkTypeDef>.AllDefsListForReading.FirstOrDefault(w => w.labelShort.CapitalizeFirst() == option);
+                        if (wt != null && !settings.hiddenWorktypes.Contains(wt.defName))
+                        {
+                            settings.hiddenWorktypes.Add(wt.defName);
+                            settings.Write();
+                            _initialized = false;
+                            BetterWorkTabSettingsUI.NotifySettingsChanged();
+                            EnsureInitialized();
+                            MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+                        }
+                    },
+                    ShowInSimpleView = false,
+                    ShowInAdvancedView = true,
+                    SortOrder = 105
+                });
+
+                foreach (var hiddenDefName in settings.hiddenWorktypes)
+                {
+                    var wt = DefDatabase<WorkTypeDef>.GetNamedSilentFail(hiddenDefName);
+                    if (wt == null) continue;
+
+                    string localHiddenDefName = hiddenDefName;
+                    Register(new SettingDefinition
+                    {
+                        Id = "hide.wt." + hiddenDefName,
+                        ParentId = HideWorktypes,
+                        Label = "  - " + wt.labelShort.CapitalizeFirst(),
+                        Tooltip = "Click to unhide this work type.",
+                        Type = SettingType.Button,
+                        OnChanged = (s) =>
+                        {
+                            var settingsObj = (BetterWorkTabSettings)s;
+                            settingsObj.hiddenWorktypes.Remove(localHiddenDefName);
+                            settingsObj.Write();
+                            _initialized = false;
+                            BetterWorkTabSettingsUI.NotifySettingsChanged();
+                            EnsureInitialized();
+                            MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+                        },
+                        ShowInSimpleView = false,
+                        ShowInAdvancedView = true,
+                        SortOrder = 106
+                    });
+                }
+            }
 
             Register(new SettingDefinition
             {

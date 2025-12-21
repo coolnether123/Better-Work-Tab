@@ -309,6 +309,9 @@ namespace Spine.UI.SettingsFramework
                 case SettingType.Spacer:
                     SettingWidgets.DrawSpacer(contentRect);
                     break;
+                case SettingType.DropdownListAdder:
+                    SettingWidgets.DrawDropdownListAdder(contentRect, label, def.DropdownOptionsProvider, def.OnOptionAdded, tooltip, disabled);
+                    break;
             }
 
             if (!string.IsNullOrEmpty(tooltip))
