@@ -1395,7 +1395,7 @@ namespace Better_Work_Tab.UI.Settings
                         }
                     },
                     ShowInSimpleView = false,
-                    ShowInAdvancedView = false,
+                    ShowInAdvancedView = true, //false
                     SortOrder = 501
                 });
 
@@ -1421,7 +1421,7 @@ namespace Better_Work_Tab.UI.Settings
                             EnsureInitialized();
                         },
                         ShowInSimpleView = false,
-                        ShowInAdvancedView = false,
+                        ShowInAdvancedView = true, //false
                         SortOrder = 502
                     });
                 }
