@@ -215,6 +215,8 @@ namespace Better_Work_Tab
         // UI mode settings for work tab visibility
         public static BetterWorkTabSettings.ShowUIMode ShowUIMode_ShowSmallSkillNumbers = BetterWorkTabSettings.ShowUIMode.Unshifted;
         public static BetterWorkTabSettings.ShowUIMode ShowUIMode_ShowPawnForSkillSquare = BetterWorkTabSettings.ShowUIMode.Shifted;
+
+        public static int maxPriority = 4;
     }
 
     // Contains all configurable settings for Better Work Tab mod
@@ -390,6 +392,11 @@ namespace Better_Work_Tab
         public bool mpSyncRulesets = true;
         public enum MpConflictMode { PlayerPriority, HostPriority, AskPlayer }
         public MpConflictMode mpConflictMode = MpConflictMode.PlayerPriority;
+        
+        // Max Priority Int Settings
+        public const int MAX_PRIORITY_HARD_LIMIT = 99;
+        public int maxPriorityInt = 4;
+
 
         // Future behavior templates
         public bool confirmRulesetApplication = true;
@@ -639,6 +646,8 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref mpSyncRulesets, "mpSyncRulesets", true);
             Scribe_Values.Look(ref mpConflictMode, "mpConflictMode", MpConflictMode.PlayerPriority);
             Scribe_Values.Look(ref rulesetViewMode, "rulesetViewMode", RulesetViewMode.Regular);
+            
+            Scribe_Values.Look(ref maxPriorityInt, "maxPriorityInt", 4);
 
             // Divider settings
             Scribe_Values.Look(ref dividerHeight, "dividerHeight", DefaultSettings.dividerHeight);
