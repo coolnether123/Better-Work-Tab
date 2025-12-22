@@ -99,5 +99,6 @@ namespace Better_Work_Tab.UI.Settings
         public const string AutoassignWarnOnApply = "autoassign.warnOnApply";
         public const string WorkloadsWarnOnApply = "workloads.warnOnApply";
         public const string HideWorktypes = "ux.hideWorktypes";
+        public const string AdvancedScrollWheelPriority = "advanced.scrollWheelPriority";
     }
 }

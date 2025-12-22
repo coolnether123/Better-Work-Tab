@@ -1325,6 +1325,20 @@ namespace Better_Work_Tab.UI.Settings
                 SortOrder = 410
             });
 
+            Register(new SettingDefinition
+            {
+                Id = AdvancedScrollWheelPriority,
+                ParentId = AdvancedHeader,
+                FieldName = "enableScrollWheelPriority",
+                Label = "Enable Scroll Wheel Priority",
+                Tooltip = "Allows you to change a pawn's work priority by scrolling the mouse wheel while hovering over a work cell.",
+                Type = SettingType.Bool,
+                DefaultValue = false,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 490
+            });
+
             // Master toggle for debug logging. When false, no BWT debug messages (except errors) will fire.
             Register(new SettingDefinition
             {
