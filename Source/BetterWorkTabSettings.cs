@@ -408,7 +408,7 @@ namespace Better_Work_Tab
 
         // Max Priority Int Settings
         public const int MAX_PRIORITY_HARD_LIMIT = 99;
-        public int maxPriorityInt = 4;
+        public int maxPriorityInt = 99;
 
         public bool mpShowOtherPlayersHover = DefaultSettings.mpShowOtherPlayersHover;
         public bool mpAllowOthersToRequestLayout = DefaultSettings.mpAllowOthersToRequestLayout;
@@ -685,11 +685,10 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref mpConflictMode, "mpConflictMode", MpConflictMode.PlayerPriority);
             Scribe_Values.Look(ref rulesetViewMode, "rulesetViewMode", RulesetViewMode.Regular);
 
-            Scribe_Values.Look(ref maxPriorityInt, "maxPriorityInt", 4);
+            //Scribe_Values.Look(ref maxPriorityInt, "maxPriorityInt", 4);
 
             // Divider settings
             Scribe_Values.Look(ref dividerHeight, "dividerHeight", DefaultSettings.dividerHeight);
-            Scribe_Values.Look(ref drawDividerHighlight, "drawDividerHighlight", DefaultSettings.drawDividerHighlight);
 
             // Load rulesets from save file
             Scribe_Collections.Look(ref SavedRulesets, "SavedRulesets", LookMode.Deep);
