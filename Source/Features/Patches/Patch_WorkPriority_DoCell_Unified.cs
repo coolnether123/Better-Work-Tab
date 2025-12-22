@@ -138,6 +138,47 @@ namespace Better_Work_Tab.Patches
 
             UpdateFrameCache();
 
+            // Handle Scroll Wheel Priority Adjustment
+            if (BetterWorkTabMod.Settings.enableScrollWheelPriority && Event.current.type == EventType.ScrollWheel && Mouse.IsOver(rect))
+            {
+                int currentPriority = pawn.workSettings.GetPriority(workType);
+                int delta = Event.current.delta.y > 0 ? -1 : 1; // Scroll up = increase priority (closer to 1), Scroll down = decrease
+                // TODO: Will need to update this when custom priorities are added
+                if (Find.PlaySettings.useWorkPriorities)
+                {
+                    // Manual priorities: 1-4, 0 is disabled.
+                    // Note: RimWorld priorities are 1 (Highest) to 4 (Lowest). 0 is Off.
+                    // Scroll Up (delta +1): 0 -> 4 -> 3 -> 2 -> 1
+                    // Scroll Down (delta -1): 1 -> 2 -> 3 -> 4 -> 0
+                    int nextPriority = currentPriority;
+                    if (delta > 0) // Increase (1 is high, 4 is low)
+                    {
+                        if (currentPriority == 0) nextPriority = 4;
+                        else if (currentPriority > 1) nextPriority = currentPriority - 1;
+                    }
+                    else // Decrease
+                    {
+                        if (currentPriority == 4) nextPriority = 0;
+                        else if (currentPriority > 0) nextPriority = currentPriority + 1;
+                    }
+
+                    if (nextPriority != currentPriority)
+                    {
+                        pawn.workSettings.SetPriority(workType, nextPriority);
+                    }
+                }
+                else
+                {
+                    // Checkbox mode: 0 or 3
+                    int nextPriority = (currentPriority > 0) ? 0 : 3;
+                    if (nextPriority != currentPriority)
+                    {
+                        pawn.workSettings.SetPriority(workType, nextPriority);
+                    }
+                }
+                Event.current.Use();
+            }
+
             // If skill overlay feature is disabled or shift is not held, use vanilla rendering
             if (!_cachedFeatureEnabled || !_cachedShiftHeld)
                 return true;

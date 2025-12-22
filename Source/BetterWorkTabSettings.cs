@@ -158,6 +158,7 @@ namespace Better_Work_Tab
         public static bool warnOnApplyRuleset = true;
         public static bool warnOnApplyWorkload = true;
         public static bool removeHeaderUnderline = false;
+        public static bool enableScrollWheelPriority = false;
 
         // Pawn/worktype highlight visibility settings
         public static bool ShowPawnAndWorktypeHighlights = true;
@@ -247,6 +248,7 @@ namespace Better_Work_Tab
 
         public SettingsViewMode settingsViewMode = SettingsViewMode.Simple;
         public bool useOutlineHighlights = false;
+        public bool enableScrollWheelPriority = DefaultSettings.enableScrollWheelPriority;
 
         public bool firstTimeSetupDone = DefaultSettings.firstTimeSetupDone;
 
@@ -619,6 +621,7 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref warnOnApplyRuleset, "warnOnApplyRuleset", true);
             Scribe_Values.Look(ref warnOnApplyWorkload, "warnOnApplyWorkload", true);
             Scribe_Values.Look(ref removeHeaderUnderline, "removeHeaderUnderline", false);
+            Scribe_Values.Look(ref enableScrollWheelPriority, "enableScrollWheelPriority", false);
 
             if (hiddenWorktypes == null) hiddenWorktypes = new List<string>();
 
