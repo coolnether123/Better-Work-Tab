@@ -58,12 +58,21 @@ namespace Better_Work_Tab.UI
             Widgets.DrawBox(colorStripRect, 1);
 
             Rect colorButtonRect = new Rect(0f, colorStripRect.yMax + 6f, inRect.width, 30f);
-            if (Widgets.ButtonText(colorButtonRect, "Divider Color"))
+            if (BetterWorkTabMod.Settings?.allowCustomDividerColors ?? true)
             {
-                Find.WindowStack.Add(new Dialog_ColourPicker(_currentColor, (picked, closing) =>
+                if (Widgets.ButtonText(colorButtonRect, "Divider Color"))
                 {
-                    _currentColor = picked;
-                }));
+                    Find.WindowStack.Add(new Dialog_ColourPicker(_currentColor, (picked, closing) =>
+                    {
+                        _currentColor = picked;
+                    }));
+                }
+            }
+            else
+            {
+                GUI.color = Color.gray;
+                Widgets.ButtonText(colorButtonRect, "Divider Color (Disabled)");
+                GUI.color = Color.white;
             }
 
             float optionsTop = colorButtonRect.yMax + 14f;

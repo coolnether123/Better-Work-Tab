@@ -1,8 +1,8 @@
 ﻿using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.Rules;
+using Spine.DragDropApi.Util;
 using RimWorld;
 using Spine.DragDropApi;
-using Spine.DragDropApi.Util;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -28,13 +28,12 @@ namespace Better_Work_Tab.UI
         private Vector2 _scrollPosition = Vector2.zero;
         private readonly List<WorkAssignmentRuleset> _filteredItems;
         private const float ItemHeight = 32f;
+        private const float DragThreshold = 5f;
 
         // Track list screen rect for drag calculations
         private Rect _listScreenRect = Rect.zero;
 
-        // Pending drag detection
-        private bool _isMouseDown;
-        private Vector2 _mouseDownPos;
+        private readonly ClickOrDragGate<WorkAssignmentRuleset> _clickGate = new ClickOrDragGate<WorkAssignmentRuleset>();
         private WorkAssignmentRuleset _pendingDragItem;
 
         public WorkAssignmentRuleset SelectedRuleset { get; private set; }
@@ -147,6 +146,8 @@ namespace Better_Work_Tab.UI
             // ===== ACTIVE DRAG HANDLING =====
             if (_dragController.IsActive)
             {
+                var session = _dragController.CurrentSession;
+
                 // UpdateDrag recalculates using CalculateTargetIndex, which uses _listScreenRect
                 _dragController.UpdateDrag(evt.mousePosition);
 
@@ -162,6 +163,7 @@ namespace Better_Work_Tab.UI
 
                 if (evt.type == EventType.MouseUp)
                 {
+                    _clickGate.ClearIfTracking(session?.DraggedItem);
                     FinalizeDrop();
                     evt.Use();
                 }
@@ -175,9 +177,6 @@ namespace Better_Work_Tab.UI
                 case EventType.MouseDown:
                     if (evt.button == 0 && listScreenRect.Contains(evt.mousePosition))
                     {
-                        _isMouseDown = true;
-                        _mouseDownPos = evt.mousePosition;
-
                         // Find item under mouse using proper local coordinates
                         float localY = evt.mousePosition.y - listScreenRect.y + _scrollPosition.y;
                         int index = Mathf.FloorToInt(localY / ItemHeight);
@@ -185,13 +184,19 @@ namespace Better_Work_Tab.UI
                         _pendingDragItem = (index >= 0 && index < _filteredItems.Count)
                             ? _filteredItems[index]
                             : null;
+
+                        if (_pendingDragItem != null)
+                        {
+                            _clickGate.Begin(_pendingDragItem, evt.button, evt.mousePosition);
+                        }
                     }
                     break;
 
                 case EventType.MouseDrag:
-                    if (_isMouseDown && _pendingDragItem != null)
+                    if (_pendingDragItem != null)
                     {
-                        if ((evt.mousePosition - _mouseDownPos).magnitude > 5f)
+                        bool passedThreshold = _clickGate.RegisterDrag(_pendingDragItem, evt.mousePosition, DragThreshold);
+                        if (passedThreshold)
                         {
                             int visualIndex = _filteredItems.IndexOf(_pendingDragItem);
 
@@ -206,26 +211,25 @@ namespace Better_Work_Tab.UI
 
                                 if (started)
                                 {
+                                    _clickGate.MarkDragStarted(_pendingDragItem);
                                     evt.Use();
                                 }
                             }
 
-                            _isMouseDown = false;
                             _pendingDragItem = null;
                         }
                     }
                     break;
 
                 case EventType.MouseUp:
-                    if (_isMouseDown && _pendingDragItem != null &&
-                        (evt.mousePosition - _mouseDownPos).magnitude <= 5f)
+                    if (_pendingDragItem != null &&
+                        _clickGate.TryComplete(_pendingDragItem, evt.button, listScreenRect.Contains(evt.mousePosition)))
                     {
                         SelectedRuleset = _pendingDragItem;
                         _onSelect?.Invoke(_pendingDragItem);
                         evt.Use();
                     }
 
-                    _isMouseDown = false;
                     _pendingDragItem = null;
                     break;
             }

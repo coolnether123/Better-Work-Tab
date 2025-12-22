@@ -142,7 +142,7 @@ namespace Spine.UI.SettingsFramework
             SettingsViewMode viewMode,
             object settingsObject)
         {
-            foreach (var root in EnumerateInView(viewMode))
+            foreach (var root in _rootSettings)
             {
                 foreach (var item in EnumerateWithChildren(root, viewMode, settingsObject))
                 {
@@ -156,7 +156,7 @@ namespace Spine.UI.SettingsFramework
         /// </summary>
         public IEnumerable<SettingDefinition> Search(string query, SettingsViewMode viewMode)
         {
-            var ordered = EnumerateInView(viewMode).SelectMany(s => EnumerateWithChildren(s, viewMode, null));
+            var ordered = _rootSettings.SelectMany(s => EnumerateWithChildren(s, viewMode, null));
 
             if (string.IsNullOrWhiteSpace(query))
             {
@@ -175,17 +175,18 @@ namespace Spine.UI.SettingsFramework
             SettingsViewMode viewMode,
             object settingsObject)
         {
-            if (!IsVisibleInView(setting, viewMode))
+            if (IsVisibleInView(setting, viewMode))
             {
-                yield break;
+                if (settingsObject == null || setting.VisibleWhen == null || setting.VisibleWhen(settingsObject))
+                {
+                    yield return setting;
+                }
+                else
+                {
+                    // If hidden by predicate, skip children too
+                    yield break;
+                }
             }
-
-            if (settingsObject != null && setting.VisibleWhen != null && !setting.VisibleWhen(settingsObject))
-            {
-                yield break;
-            }
-
-            yield return setting;
 
             if (_childrenOf.TryGetValue(setting.Id, out var children))
             {
@@ -199,16 +200,6 @@ namespace Spine.UI.SettingsFramework
             }
         }
 
-        private IEnumerable<SettingDefinition> EnumerateInView(SettingsViewMode viewMode)
-        {
-            foreach (var root in _rootSettings)
-            {
-                if (IsVisibleInView(root, viewMode))
-                {
-                    yield return root;
-                }
-            }
-        }
 
         private static bool IsVisibleInView(SettingDefinition def, SettingsViewMode viewMode)
         {

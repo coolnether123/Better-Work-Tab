@@ -22,10 +22,9 @@ namespace Better_Work_Tab.UI.Settings
         public const string ColorsSkillVeryLow = "colors.skillVeryLow";
         public const string ColumnsResetWidths = "columns.resetWidths";
         public const string ColumnsShowMovedIndicator = "columns.showMovedIndicator";
+        public const string ColumnsShowBaselineLine = "columns.showBaselineLine";
         public const string DividersCollapse = "dividers.collapse";
         public const string DividersCustomColors = "dividers.customColors";
-        public const string DividersCustomFonts = "dividers.customFonts";
-        public const string DividersHighlight = "dividers.highlight";
         public const string DividersLabels = "dividers.labels";
         public const string DividersShow = "dividers.show";
         public const string DragdropVisualHeader = "dragdrop.visual.header";
@@ -64,15 +63,19 @@ namespace Better_Work_Tab.UI.Settings
         public const string LayoutDividerHeight = "layout.dividerHeight";
         public const string LayoutDragColumns = "layout.dragColumns";
         public const string LayoutDragRows = "layout.dragRows";
+        public const string LayoutDragColumnLineInset = "layout.dragColumnLineInset";
         public const string LayoutDragThreshold = "layout.dragThreshold";
         public const string LayoutDragHoverDelay = "layout.dragHoverDelay";
-        public const string LayoutColumnSpacing = "layout.columnSpacing";
         public const string LayoutPawnCount = "layout.pawnCount";
         public const string LayoutResetColumns = "layout.resetColumns";
         public const string MpConflictMode = "mp.conflictMode";
         public const string MpSyncColumnOrder = "mp.syncColumnOrder";
         public const string MpSyncRulesets = "mp.syncRulesets";
         public const string MpSyncWorkloads = "mp.syncWorkloads";
+        public const string MpShowOtherPlayersHover = "mp.showOtherPlayersHover";
+        public const string MpAllowOthersToRequestLayout = "mp.allowOthersToRequestLayout";
+        public const string MpAllowPresenceBroadcast = "mp.allowPresenceBroadcast";
+        public const string MpShowLinkedIndicator = "mp.showLinkedIndicator";
         public const string OverlayBestPawnMode = "overlay.bestPawnMode";
         public const string OverlayHeader = "overlay.header";
         public const string OverlayHoverCellOverlay = "overlay.hoverCellOverlay";
@@ -89,5 +92,13 @@ namespace Better_Work_Tab.UI.Settings
         public const string UiManualPriorities = "ui.manualPriorities";
         public const string UiPriorityLegend = "ui.priorityLegend";
         public const string WorkloadsPersistDividers = "workloads.persistDividers";
+        public const string HighlightsDisableBestPawn = "highlights.disableBestPawn";
+        public const string HighlightsBestPawnBackground = "highlights.bestPawnBackground";
+        public const string DragdropEnableGrouping = "dragdrop.enableGrouping";
+        public const string DragdropRemoveHeaderUnderline = "dragdrop.removeHeaderUnderline";
+        public const string AutoassignWarnOnApply = "autoassign.warnOnApply";
+        public const string WorkloadsWarnOnApply = "workloads.warnOnApply";
+        public const string HideWorktypes = "ux.hideWorktypes";
+        public const string AdvancedScrollWheelPriority = "advanced.scrollWheelPriority";
     }
 }

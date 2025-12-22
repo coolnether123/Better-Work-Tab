@@ -29,6 +29,9 @@ namespace Spine.UI.SettingsFramework
         Header,
 
         /// <summary>Empty space for visual separation.</summary>
-        Spacer
+        Spacer,
+
+        /// <summary>Dropdown button that adds selected options to a list of toggleable children.</summary>
+        DropdownListAdder
     }
 }

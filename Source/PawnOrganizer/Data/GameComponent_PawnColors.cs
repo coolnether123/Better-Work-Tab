@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using Better_Work_Tab.Mod_Support.LocalProfiles;
+using Better_Work_Tab.Mod_Support.Multiplayer;
 using Better_Work_Tab.PawnOrganizer.API;
 using UnityEngine;
 using Verse;
@@ -18,9 +20,38 @@ namespace Better_Work_Tab.PawnOrganizer.Data
         {
         }
 
+        public override void GameComponentUpdate()
+        {
+            base.GameComponentUpdate();
+            _profileSaveTimer++;
+            if (_profileSaveTimer > 300)
+            {
+                _profileSaveTimer = 0;
+                if (MultiplayerBridge.Active)
+                    BWTLocalProfileStore.SaveIfDirty();
+            }
+        }
+
+        private int _profileSaveTimer;
+
         public override void ExposeData()
         {
             base.ExposeData();
+
+            if (MultiplayerBridge.Active)
+            {
+                if (Scribe.mode == LoadSaveMode.PostLoadInit)
+                {
+                    LoadColorsFromProfile();
+                }
+
+                if (Scribe.mode == LoadSaveMode.Saving)
+                {
+                    SaveColorsToProfile();
+                }
+
+                return;
+            }
 
             if (Scribe.mode == LoadSaveMode.Saving)
             {
@@ -61,6 +92,12 @@ namespace Better_Work_Tab.PawnOrganizer.Data
 
         private void EnsureDatabaseSync()
         {
+            if (MultiplayerBridge.Active)
+            {
+                LoadColorsFromProfile();
+                return;
+            }
+
             if (_backgroundColors == null)
             {
                 PawnColorDatabase.Clear();
@@ -78,6 +115,25 @@ namespace Better_Work_Tab.PawnOrganizer.Data
             {
                 PawnTextColorDatabase.LoadColors(_textColors);
             }
+        }
+
+        private void LoadColorsFromProfile()
+        {
+            var profile = BWTLocalProfileStore.Current;
+            PawnColorDatabase.LoadColors(profile?.PawnBackgroundColors);
+            PawnTextColorDatabase.LoadColors(profile?.PawnTextColors);
+        }
+
+        private void SaveColorsToProfile()
+        {
+            var profile = BWTLocalProfileStore.Current;
+            if (profile == null)
+                return;
+
+            profile.PawnBackgroundColors = new Dictionary<string, Color>(PawnColorDatabase.GetColors());
+            profile.PawnTextColors = new Dictionary<string, Color>(PawnTextColorDatabase.GetColors());
+            BWTLocalProfileStore.MarkDirty();
+            // Don't save immediately - let the timer handle it
         }
     }
 }

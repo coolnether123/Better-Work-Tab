@@ -12,6 +12,9 @@
     <BWT_Settings_highlights>Highlights</BWT_Settings_highlights>
     <BWT_Settings_highlights_Desc>Row and column highlighting behavior</BWT_Settings_highlights_Desc>
     
+    <BWT_AddOption>Add</BWT_AddOption>
+    <BWT_NoOptionsAvailable>No options available</BWT_NoOptionsAvailable>
+    
     <BWT_Settings_layout>Layout &amp; Behavior</BWT_Settings_layout>
     <BWT_Settings_layout_Desc>Drag-drop, dividers, counters, columns</BWT_Settings_layout_Desc>
     
@@ -121,4 +124,13 @@
 
     <BWT_Settings_highlights.resetColumnHoverColor>Reset Column Hover Color</BWT_Settings_highlights.resetColumnHoverColor>
     <BWT_Settings_highlights.resetColumnHoverColor_Tooltip>Reset column hover highlight to the general hover color.</BWT_Settings_highlights.resetColumnHoverColor_Tooltip>
+
+    <BWT_Settings_highlights.disableBestPawn>Disable Best Pawn Highlight</BWT_Settings_highlights.disableBestPawn>
+    <BWT_Settings_highlights.disableBestPawn_Tooltip>Disable the green highlight for the best pawn in a work type.</BWT_Settings_highlights.disableBestPawn_Tooltip>
+
+    <BWT_Settings_highlights.bestPawnBackground>Best Pawn Outline Thickness</BWT_Settings_highlights.bestPawnBackground>
+    <BWT_Settings_highlights.bestPawnBackground_Tooltip>Adjust the thickness of the green outline for the best pawn in a work type.</BWT_Settings_highlights.bestPawnBackground_Tooltip>
+
+    <BWT_Settings_ux.hideWorktypes>Hidden Work Types</BWT_Settings_ux.hideWorktypes>
+    <BWT_Settings_ux.hideWorktypes_Tooltip>Select work types to hide from the work tab.</BWT_Settings_ux.hideWorktypes_Tooltip>
 </LanguageData>
