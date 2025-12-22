@@ -636,31 +636,89 @@ namespace Better_Work_Tab.PawnOrganizer
                 visibleColumns.Add((def, i));
             }
 
-            float currentX = _origin.x;
-            float usedWidth = 0f;
+            if (visibleColumns.Count == 0)
+            {
+                return;
+            }
+
+            // 1. Identify the best 'fill' column. In RimWorld work tabs, we typically want 
+            // one stretchable column (usually Pawn Label) while keeping work priorities 
+            // at their small, fixed widths so they remain equidistant and visually aligned.
+            int fillerIndex = -1;
+            for (int i = 0; i < visibleColumns.Count; i++)
+            {
+                if (visibleColumns[i].def.Worker is PawnColumnWorker_Label)
+                {
+                    fillerIndex = i;
+                    break;
+                }
+            }
+
+            // Fallback: If no Label column, prefer the first non-work-priority column.
+            if (fillerIndex == -1)
+            {
+                for (int i = 0; i < visibleColumns.Count; i++)
+                {
+                    if (!(visibleColumns[i].def.Worker is PawnColumnWorker_WorkPriority))
+                    {
+                        fillerIndex = i;
+                        break;
+                    }
+                }
+            }
+
+            // Ultimate fallback (e.g. if the tab ONLY has work columns): use the last one.
+            if (fillerIndex == -1)
+            {
+                fillerIndex = visibleColumns.Count - 1;
+            }
+
+            // 2. Calculate natural widths and identify surplus/deficit relative to _rowWidth.
+            float totalNaturalWidth = 0f;
+            float[] widths = new float[visibleColumns.Count];
             const float spacing = 0f;
 
             for (int i = 0; i < visibleColumns.Count; i++)
             {
                 var (columnDef, originalIndex) = visibleColumns[i];
+                float w = _columnWidthStore?.GetWidth(columnDef, -1f) ?? -1f;
+                
+                if (w < 0f)
+                {
+                    w = (originalIndex < _table.cachedColumnWidths.Count) 
+                        ? _table.cachedColumnWidths[originalIndex] 
+                        : 30f;
+                }
+                
+                widths[i] = w;
+                totalNaturalWidth += w;
+                if (i < visibleColumns.Count - 1) totalNaturalWidth += spacing;
+            }
 
-                float defaultWidth = (i == visibleColumns.Count - 1)
-                    ? Mathf.Max(0f, _rowWidth - usedWidth)
-                    : _table.cachedColumnWidths[originalIndex];
+            // Distribute any remainder to our designated filler.
+            float surplus = _rowWidth - totalNaturalWidth;
+            widths[fillerIndex] = Mathf.Max(widths[fillerIndex] + surplus, 10f);
 
-                float width = _columnWidthStore?.GetWidth(columnDef, defaultWidth) ?? defaultWidth;
+            // 3. Build the final column layouts.
+            float currentX = _origin.x;
+            for (int i = 0; i < visibleColumns.Count; i++)
+            {
+                var (columnDef, _) = visibleColumns[i];
+                float width = widths[i];
+
+                // Ensure the absolute last column hits the edge perfectly to avoid rounding gaps.
+                if (i == visibleColumns.Count - 1)
+                {
+                    width = Mathf.Max(0f, (_origin.x + _rowWidth) - currentX);
+                }
 
                 var headerRect = new Rect(currentX, _origin.y, width, HeaderHeight);
                 _columns.Add(new WorkTabLayoutColumn(columnDef, headerRect, currentX - _origin.x, width));
 
                 currentX += width;
-                usedWidth += width;
-
-                // Apply spacing between columns but not after the last column.
-                if (i < visibleColumns.Count - 1 && spacing > 0f)
+                if (i < visibleColumns.Count - 1)
                 {
                     currentX += spacing;
-                    usedWidth += spacing;
                 }
             }
         }
