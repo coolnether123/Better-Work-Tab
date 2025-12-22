@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using Verse;
+using Verse.Sound;
 
 namespace Better_Work_Tab.Patches
 {
@@ -161,18 +162,19 @@ namespace Better_Work_Tab.Patches
                     int nextPriority = currentPriority;
                     if (delta > 0) // Increase (1 is high, 4 is low)
                     {
-                        if (currentPriority == 0) nextPriority = 4;
+                        if (currentPriority == 0) nextPriority = BetterWorkTabMod.Settings.maxPriorityInt;
                         else if (currentPriority > 1) nextPriority = currentPriority - 1;
                     }
                     else // Decrease
                     {
-                        if (currentPriority == 4) nextPriority = 0;
+                        if (currentPriority == BetterWorkTabMod.Settings.maxPriorityInt) nextPriority = 0;
                         else if (currentPriority > 0) nextPriority = currentPriority + 1;
                     }
 
                     if (nextPriority != currentPriority)
                     {
                         pawn.workSettings.SetPriority(workType, nextPriority);
+                        SoundDefOf.DragSlider.PlayOneShotOnCamera();
                     }
                 }
                 else
@@ -182,6 +184,8 @@ namespace Better_Work_Tab.Patches
                     if (nextPriority != currentPriority)
                     {
                         pawn.workSettings.SetPriority(workType, nextPriority);
+                        SoundDefOf.DragSlider.PlayOneShotOnCamera();
+
                     }
                 }
                 Event.current.Use();

@@ -112,6 +112,7 @@
     <Compile Include="Spine\DragDrop\ListDragSession.cs" />
     <Compile Include="Spine\DragDrop\Util\ListDragVisuals.cs" />
     <Compile Include="Spine\Profiling\SpineTiming.cs" />
+    <Compile Include="Spine\Utils\SpineUtils.cs" />
     <Compile Include="Spine\UI\TextColorHelper.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingDefinition.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingType.cs" />
