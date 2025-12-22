@@ -1363,7 +1363,7 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Bool,
                 DefaultValue = false,
                 ShowInSimpleView = false,
-                ShowInAdvancedView = true,
+                ShowInAdvancedView = false,
                 ControlsChildVisibility = true,
                 SortOrder = 500
             });
@@ -1395,7 +1395,7 @@ namespace Better_Work_Tab.UI.Settings
                         }
                     },
                     ShowInSimpleView = false,
-                    ShowInAdvancedView = true,
+                    ShowInAdvancedView = false,
                     SortOrder = 501
                 });
 
@@ -1421,7 +1421,7 @@ namespace Better_Work_Tab.UI.Settings
                             EnsureInitialized();
                         },
                         ShowInSimpleView = false,
-                        ShowInAdvancedView = true,
+                        ShowInAdvancedView = false,
                         SortOrder = 502
                     });
                 }
@@ -1438,7 +1438,7 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Bool,
                 DefaultValue = false,
                 ShowInSimpleView = false,
-                ShowInAdvancedView = true,
+                ShowInAdvancedView = false,
                 SortOrder = 503
             });
 
@@ -1453,7 +1453,7 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Bool,
                 DefaultValue = false,
                 ShowInSimpleView = false,
-                ShowInAdvancedView = true,
+                ShowInAdvancedView = false,
                 SortOrder = 504
             });
 
