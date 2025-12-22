@@ -11,6 +11,7 @@ namespace Better_Work_Tab.UI
         {
             if (BetterWorkTabMod.Settings?.useOutlineHighlights ?? false)
             {
+                // Respect configured alpha so transparency adjustments apply to outline mode too.
                 Widgets.DrawBoxSolidWithOutline(rect, Color.clear, color, (int)OutlineThickness);
             }
             else
@@ -40,7 +41,7 @@ namespace Better_Work_Tab.UI
             var color = settings?.Color_SelectedPawnHighlight ?? Color.yellow;
             if (settings != null)
             {
-                color.a = settings.SelectedPawnHighlightOpacity;
+                color.a = Mathf.Clamp01(color.a * settings.SelectedPawnHighlightOpacity);
             }
             return color;
         }
@@ -51,7 +52,7 @@ namespace Better_Work_Tab.UI
             var color = settings?.Color_SimilarWorktypeMouseOver ?? new Color(1f, 1f, 1f, 0.1f);
             if (settings != null)
             {
-                color.a = settings.SimilarWorktypeHighlightOpacity;
+                color.a = Mathf.Clamp01(color.a * settings.SimilarWorktypeHighlightOpacity);
             }
             return color;
         }

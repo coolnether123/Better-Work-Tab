@@ -1,4 +1,6 @@
 using Better_Work_Tab.Features;
+using Better_Work_Tab.Mod_Support.Multiplayer;
+using Better_Work_Tab.Mod_Support.Multiplayer.Features.Layouts;
 using Better_Work_Tab.Features.Caching;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.PawnOrganizer;
@@ -71,6 +73,15 @@ namespace Better_Work_Tab.UI
 
             // Sync the dragged columns list on open in case settings were loaded from disk
             SyncDraggedColumnsWithCurrentOrder();
+
+            // Auto-enable manual priorities if setting is enabled
+            if (settings?.autoEnableManualPriorities ?? false)
+            {
+                if (Current.Game?.playSettings != null)
+                {
+                    Current.Game.playSettings.useWorkPriorities = true;
+                }
+            }
         }
 
         /// <summary>
@@ -236,6 +247,14 @@ namespace Better_Work_Tab.UI
                     PawnOrganizer.API.PawnColorDatabase.ClearColor(pawn);
                 }));
             }
+            
+            // Multiplayer follow mode: Copy this pawn row
+            if (LayoutSharingManager.IsFollowing)
+            {
+                options.Add(new FloatMenuOption(
+                    $"Copy {pawn.NameShortColored} row position to my layout (stop following)",
+                    () => LayoutSharingManager.CopyPawnRowToLocalAndStop(pawn)));
+            }
 
             Find.WindowStack.Add(new FloatMenu(options));
         }
@@ -263,8 +282,19 @@ namespace Better_Work_Tab.UI
                     PawnOrganizerSystem.Instance?.Layout.RemoveDivider(divider);
 
                     MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+                    
+                    if (MultiplayerBridge.Active)
+                        LayoutSharingManager.NotifyLayoutChanged();
                 })
             };
+            
+            // Multiplayer follow mode: Copy this divider
+            if (LayoutSharingManager.IsFollowing)
+            {
+                options.Add(new FloatMenuOption(
+                    "Copy this divider to my layout (stop following)",
+                    () => LayoutSharingManager.CopyDividerToLocalAndStop(divider)));
+            }
 
             Find.WindowStack.Add(new FloatMenu(options));
         }
@@ -285,6 +315,9 @@ namespace Better_Work_Tab.UI
 
             layout.AddDividerBeforePawn(pawn, "New Divider", Color.gray);
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+            
+            if (MultiplayerBridge.Active)
+                LayoutSharingManager.NotifyLayoutChanged();
         }
 
 
@@ -348,6 +381,9 @@ namespace Better_Work_Tab.UI
 
             layout.AddDividerAfterPawn(pawn, "New Divider", Color.gray);
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+
+            if (MultiplayerBridge.Active)
+                LayoutSharingManager.NotifyLayoutChanged();
         }
 
         private void ShowBackgroundColorPicker(Pawn pawn)
@@ -620,6 +656,11 @@ namespace Better_Work_Tab.UI
                 }
             }
 
+            if (hoveredWorkType == null)
+            {
+                hoveredWorkType = PawnColumnWorker_WorkPriority_DoHeader_Patch.HoveredWorkType;
+            }
+
             MouseStateManager.UpdateHoverState(hoveredColumn);
 
             var cachedSimilarWorktypes = hoveredWorkType != null
@@ -653,7 +694,25 @@ namespace Better_Work_Tab.UI
                 currentY += descriptor.Height;
             }
 
-            // 3. Draw Vertical Highlights (Columns)
+            // 3. Draw Divider Highlight if active
+            if (settings.highlightDividersOnHover && settings.enableDividers)
+            {
+                currentY = 0f;
+                for (int i = 0; i < rowDescriptors.Count; i++)
+                {
+                    var descriptor = rowDescriptors[i];
+                    Rect rowRect = new Rect(0f, currentY, totalWidth, descriptor.Height);
+
+                    if (descriptor.IsDivider && Mouse.IsOver(rowRect))
+                    {
+                        HighlightDrawer.DrawHighlight(rowRect, HighlightDrawer.GetRowHoverColor());
+                    }
+
+                    currentY += descriptor.Height;
+                }
+            }
+
+            // 4. Draw Vertical Highlights (Columns)
             float startingX = 0f;
             for (int i = 0; i < columns.Count; i++)
             {
@@ -668,12 +727,10 @@ namespace Better_Work_Tab.UI
                 else if (isWorkColumn && settings.ShowCursorPawnAndWorktypeHighlight && hoveredWorkType != null && hoveredWorkType == column.Column.workType)
                 {
                     HighlightDrawer.DrawHighlight(columnRect, HighlightDrawer.GetColumnHoverColor());
-                    Widgets.DrawHighlight(columnRect);
                 }
                 else if (isWorkColumn && settings.ShowSimilarWorktypeHighlight && cachedSimilarWorktypes != null && cachedSimilarWorktypes.Contains(column.Column.workType))
                 {
                     HighlightDrawer.DrawHighlight(columnRect, HighlightDrawer.GetSimilarWorktypeColor());
-                    Widgets.DrawHighlight(columnRect);
                 }
 
                 startingX += column.Width;
@@ -894,11 +951,20 @@ namespace Better_Work_Tab.UI
 
         private void DrawDividerToggle(PawnDivider divider, Rect labelCellRect)
         {
+            var settings = BetterWorkTabMod.Settings;
+            if (!(settings?.allowDividerCollapse ?? true))
+            {
+                return;
+            }
+
             Rect arrowRect = new Rect(labelCellRect.xMin + 6f, labelCellRect.y + (labelCellRect.height - 16f) / 2f, 18f, 16f);
             string arrowChar = divider.IsCollapsed ? "▶" : "▼";
             if (Widgets.ButtonInvisible(arrowRect))
             {
                 ToggleDividerCollapsed(divider);
+                
+                if (MultiplayerBridge.Active)
+                    LayoutSharingManager.NotifyLayoutChanged();
             }
             var originalAnchor = Text.Anchor;
             Text.Anchor = TextAnchor.MiddleCenter;
@@ -949,7 +1015,8 @@ namespace Better_Work_Tab.UI
 
             if ((settings?.enableRowColumnHighlights ?? true) && Mouse.IsOver(rowRect))
             {
-                Widgets.DrawHighlight(rowRect);
+               // Custom row highlight is drawn in DrawAllHighlights (Phase 1).
+               // We don't draw vanilla highlight here to avoid yellow overlay.
             }
 
             if (row.Pawn != null && row.Pawn.Downed)
@@ -973,6 +1040,12 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
+            // Skip drawing label if the divider is too small to contain it reasonably
+            if (labelCellRect.height < 14f) 
+            {
+                return;
+            }
+
             var originalAnchor = Text.Anchor;
             var originalFont = Text.Font;
             var originalColor = GUI.color;
@@ -984,9 +1057,21 @@ namespace Better_Work_Tab.UI
                 Text.Font = divider.LabelFont;
 
                 // Increase the left indent to match pawn name padding
-                labelCellRect.xMin += 33f; 
+                // Only indent for the arrow if collapse is allowed
+                float indent = (settings?.allowDividerCollapse ?? true) ? 33f : 6f;
+                labelCellRect.xMin += indent; 
 
-                Widgets.Label(labelCellRect, divider.DividerName ?? "Divider");
+                // Clip text to avoid overflow on small-width columns
+                if (labelCellRect.width > 0)
+                {
+                    string label = divider.DividerName ?? "Divider";
+                    // If height is small, force Tiny font to try and fit
+                    if (labelCellRect.height < 18f)
+                    {
+                          Text.Font = GameFont.Tiny;
+                    }
+                    Widgets.Label(labelCellRect, label);
+                }
             }
             finally
             {
@@ -1182,6 +1267,15 @@ namespace Better_Work_Tab.UI
             _lastSortColumn = null;
             _lastSortDescending = false;
             SpineTiming.NotifyWorkTabOpen(false);
+            
+            // === PRESENCE FEATURE DISABLED ===
+            /*
+            if (MultiplayerBridge.Active)
+            {
+                Mod_Support.Multiplayer.Features.Presence.WorkTabPresenceRegistry.ClearPresence();
+                Log.Message($"[BWT-MP] Work tab closed");
+            }
+            */
         }
 
         public override void PostClose()
