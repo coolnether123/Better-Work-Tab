@@ -59,11 +59,27 @@ namespace Better_Work_Tab.UI
                 // Rulesets are now local-only (not synced in multiplayer)
                 if (curRuleset != null)
                 {
-                    if (curRuleset.ResetBeforeApplying)
+                    System.Action applyAction = () =>
                     {
-                        WorkAssignmentRuleset.SetAllToZero();
+                        if (curRuleset.ResetBeforeApplying)
+                        {
+                            WorkAssignmentRuleset.SetAllToZero();
+                        }
+                        curRuleset.ApplyAutoAssignments();
+                    };
+
+                    if (settings.warnOnApplyRuleset)
+                    {
+                        ConfirmApplyWithResetWarning("Apply ruleset?", applyAction, (val) =>
+                        {
+                            settings.warnOnApplyRuleset = !val;
+                            settings.Write();
+                        });
                     }
-                    curRuleset.ApplyAutoAssignments();
+                    else
+                    {
+                        applyAction();
+                    }
                 }
             }
 
@@ -114,8 +130,25 @@ namespace Better_Work_Tab.UI
             {
                 if (workloadSaver.CurrentWorklist != null)
                 {
-                    BetterWorkTabMultiplayer.RequestApplyWorklist(workloadSaver, workloadSaver.CurrentWorklist);
-                    SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                    System.Action applyAction = () =>
+                    {
+                        workloadSaver.CurrentWorklist.Apply();
+                        MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+                        SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                    };
+
+                    if (settings.warnOnApplyWorkload)
+                    {
+                        ConfirmApplyWithResetWarning("Apply workload?", applyAction, (val) =>
+                        {
+                            settings.warnOnApplyWorkload = !val;
+                            settings.Write();
+                        });
+                    }
+                    else
+                    {
+                        applyAction();
+                    }
                 }
                 else
                 {
@@ -140,7 +173,8 @@ namespace Better_Work_Tab.UI
                 options.Add(new FloatMenuOption(local.RenamableLabel, () =>
                 {
                     // This logic is now reliable because the list order matches.
-                    BetterWorkTabMultiplayer.RequestWorklistSelection(workloadSaver, local);
+                    workloadSaver.CurrentWorklist = local;
+                    MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
                     SoundDefOf.Tick_Low.PlayOneShotOnCamera();
                 }));
             }
@@ -162,7 +196,7 @@ namespace Better_Work_Tab.UI
                         ren.Add(new FloatMenuOption("Rename " + local.RenamableLabel,
                             () =>
                             {
-                                BetterWorkTabMultiplayer.RequestRenameWorklist(workloadSaver, local, local.RenamableLabel);
+                                Find.WindowStack.Add(new Dialog_RenameWorkload(local));
                                 SoundDefOf.Tick_Low.PlayOneShotOnCamera();
                             }));
                     }
@@ -179,7 +213,12 @@ namespace Better_Work_Tab.UI
                         del.Add(new FloatMenuOption("Delete " + local.RenamableLabel,
                             () =>
                             {
-                                BetterWorkTabMultiplayer.RequestDeleteWorklist(workloadSaver, local);
+                                workloadSaver.SavedWorklists.Remove(local);
+                                if (workloadSaver.CurrentWorklist == local)
+                                    workloadSaver.CurrentWorklist = null;
+
+                                MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+
                                 SoundDefOf.Tick_Low.PlayOneShotOnCamera();
                             }));
                     }
@@ -192,8 +231,24 @@ namespace Better_Work_Tab.UI
 
         private static void CreateNewWorkload(GameComponent_BWTWorldSettings workloadSaver)
         {
-            BetterWorkTabMultiplayer.RequestCreateWorklist(workloadSaver);
+            // pick a simple unique default name
+            int i = 1;
+            string name;
+            do
+            {
+                name = $"Workload {i++}";
+            }
+            while (workloadSaver.SavedWorklists.Any(w => w != null && w.RenamableLabel == name));
+
+            var wl = new Worklist(name);
+            workloadSaver.SavedWorklists.Add(wl);
+            workloadSaver.CurrentWorklist = wl;
+
+            // immediately prompt for a nicer name
+            Find.WindowStack.Add(new Dialog_RenameWorkload(wl));
+            MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
         }
+
 
         /// <summary>
         /// Adds the standard ruleset management options to the provided menu.
@@ -227,6 +282,15 @@ namespace Better_Work_Tab.UI
                     SoundDefOf.Tick_Low.PlayOneShotOnCamera();
                 }));
             }
+        }
+
+        private static void ConfirmApplyWithResetWarning(string title, System.Action onConfirm, System.Action<bool> setDoNotShowAgain)
+        {
+            Find.WindowStack.Add(new Dialog_WarningWithCheckbox(
+                "Applying this will reset the current work tab priority configuration. Continue?",
+                title,
+                onConfirm,
+                setDoNotShowAgain));
         }
     }
 }

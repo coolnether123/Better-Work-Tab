@@ -51,8 +51,14 @@ namespace Better_Work_Tab.PawnOrganizer
         /// Minimum mouse movement before a drag starts.
         /// Prevents accidental drags from clicks.
         /// </summary>
-        private float DragThreshold =>
-            BetterWorkTabMod.Settings?.dragThreshold is float v && v > 0f ? v : 5f;
+        private float DragThreshold
+        {
+            get
+            {
+                int v = BetterWorkTabMod.Settings?.dragThreshold ?? DefaultSettings.dragThreshold;
+                return Mathf.Max(1f, v);
+            }
+        }
 
         public IWorkTabLayoutController Layout => _layoutController;
         
@@ -122,6 +128,35 @@ namespace Better_Work_Tab.PawnOrganizer
 
                 // Otherwise, detect new drags
                 HandleDragDetection(evt);
+
+                // Clear selection when Ctrl is released
+                if (evt.type == EventType.KeyUp && (evt.keyCode == KeyCode.LeftControl || evt.keyCode == KeyCode.RightControl))
+                {
+                    if (BetterWorkTabMod.Settings.enableColumnGrouping)
+                    {
+                        ColumnSelectionManager.Clear();
+                    }
+                }
+
+                // === PRESENCE FEATURE DISABLED ===
+                /*
+                // Update presence (called from input context where syncing works)
+                if (Mod_Support.Multiplayer.MultiplayerBridge.Active && 
+                    (evt.type == EventType.MouseMove || evt.type == EventType.MouseDrag))
+                {
+                    Pawn pawn = null;
+                    WorkTypeDef workType = null;
+                    
+                    if (_layoutController.TryGetVisibleRowAt(evt.mousePosition, out var row))
+                        pawn = row.Pawn;
+                    
+                    if (_layoutController.TryGetColumnAt(evt.mousePosition, out var col))
+                        workType = col.Column?.workType;
+                    
+                    Mod_Support.Multiplayer.Features.Presence.WorkTabPresenceRegistry.UpdatePresence(true, pawn, workType);
+                }
+                */
+
             }
             catch (Exception ex)
             {
@@ -169,14 +204,18 @@ namespace Better_Work_Tab.PawnOrganizer
                     break;
 
                 case EventType.MouseUp:
-                    _activeColumnDrag.OnDrop();
+                    var completedDrag = _activeColumnDrag;
+                    completedDrag?.OnDrop();
                     _activeColumnDrag = null;
+                    AngledHeaderInteraction.ClearPendingHeaderClick(completedDrag?.ColumnDef);
                     evt.Use();
                     break;
 
                 case EventType.KeyDown when evt.keyCode == KeyCode.Escape:
-                    _activeColumnDrag.OnCancel();
+                    var cancelledDrag = _activeColumnDrag;
+                    cancelledDrag?.OnCancel();
                     _activeColumnDrag = null;
+                    AngledHeaderInteraction.ClearPendingHeaderClick(cancelledDrag?.ColumnDef);
                     evt.Use();
                     break;
             }
@@ -304,6 +343,7 @@ namespace Better_Work_Tab.PawnOrganizer
             }
 
             _activeColumnDrag = new ColumnDragHandler(_layoutController, column);
+            AngledHeaderInteraction.NotifyColumnDragStarted(_pendingColumn);
         }
 
         private void InitiateRowDrag(Pawn pawn, PawnDivider divider)
@@ -404,8 +444,34 @@ namespace Better_Work_Tab.PawnOrganizer
         {
             try
             {
+                // === PRESENCE FEATURE DISABLED ===
+                // Mod_Support.Multiplayer.Features.Presence.PresenceOverlay.Draw(Layout);
+                
                 _activeRowDrag?.OnDrawOverlay();
                 _activeColumnDrag?.OnDrawOverlay();
+                
+                /*
+                // Multiplayer presence: just record state, don't sync yet (we're in Draw context)
+                if (Mod_Support.Multiplayer.MultiplayerBridge.Active)
+                {
+                    Pawn hoveredPawn = null;
+                    WorkTypeDef hoveredWorkType = null;
+                    
+                    if (_layoutController != null)
+                    {
+                        var mousePos = Event.current.mousePosition;
+                        
+                        if (_layoutController.TryGetVisibleRowAt(mousePos, out var row))
+                            hoveredPawn = row.Pawn;
+                        
+                        if (_layoutController.TryGetColumnAt(mousePos, out var col))
+                            hoveredWorkType = col.Column?.workType;
+                    }
+                    
+                    // Just record - don't sync yet (we're in Draw context)
+                    Mod_Support.Multiplayer.Features.Presence.PresenceManager.RecordHoverState(true, hoveredPawn, hoveredWorkType);
+                }
+                */
             }
             catch (Exception ex)
             {
@@ -420,6 +486,11 @@ namespace Better_Work_Tab.PawnOrganizer
         {
             if (pawn == null) return;
             API.PawnColorDatabase.SetColor(pawn, color);
+            
+            if (Mod_Support.Multiplayer.MultiplayerBridge.Active)
+            {
+               Mod_Support.Multiplayer.Features.Layouts.LayoutSharingManager.NotifyLayoutChanged();
+            }
         }
     }
 }

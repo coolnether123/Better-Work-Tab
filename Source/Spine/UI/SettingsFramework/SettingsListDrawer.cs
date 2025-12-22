@@ -18,6 +18,15 @@ namespace Spine.UI.SettingsFramework
         private readonly QuickSearchWidget _searchWidget = new QuickSearchWidget();
 
         /// <summary>
+        /// Gets or sets the current scroll position. Used for preserving scroll state across drawer recreations.
+        /// </summary>
+        public Vector2 ScrollPosition
+        {
+            get => _scrollPosition;
+            set => _scrollPosition = value;
+        }
+
+        /// <summary>
         /// Pixels of indentation per hierarchy level.
         /// </summary>
         public float IndentPerLevel { get; set; } = 20f;
@@ -308,6 +317,9 @@ namespace Spine.UI.SettingsFramework
                     break;
                 case SettingType.Spacer:
                     SettingWidgets.DrawSpacer(contentRect);
+                    break;
+                case SettingType.DropdownListAdder:
+                    SettingWidgets.DrawDropdownListAdder(contentRect, label, def.DropdownOptionsProvider, def.OnOptionAdded, tooltip, disabled);
                     break;
             }
 

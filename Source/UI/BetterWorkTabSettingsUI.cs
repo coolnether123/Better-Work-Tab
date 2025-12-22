@@ -12,6 +12,7 @@ namespace Better_Work_Tab.UI
     {
         private static SettingsListDrawer _drawer;
         private static SettingsViewMode _viewMode = SettingsViewMode.Simple;
+        private static Vector2 _preservedScrollPosition = Vector2.zero;
 
         /// <summary>
         /// Renders the settings window contents.
@@ -29,6 +30,16 @@ namespace Better_Work_Tab.UI
             settings.settingsViewMode = _viewMode == SettingsViewMode.Simple
                 ? BetterWorkTabSettings.SettingsViewMode.Simple
                 : BetterWorkTabSettings.SettingsViewMode.Advanced;
+        }
+
+        public static void NotifySettingsChanged()
+        {
+            // Preserve scroll position before destroying drawer
+            if (_drawer != null)
+            {
+                _preservedScrollPosition = _drawer.ScrollPosition;
+            }
+            _drawer = null;
         }
 
         /// <summary>
@@ -51,7 +62,8 @@ namespace Better_Work_Tab.UI
                 NoResultsLabel = BWTSettingsTranslation.NoResults,
                 EditColorLabel = BWTSettingsTranslation.Edit,
                 IndentPerLevel = 20f,
-                RowHeight = 32f
+                RowHeight = 32f,
+                ScrollPosition = _preservedScrollPosition // Restore scroll position
             };
         }
     }

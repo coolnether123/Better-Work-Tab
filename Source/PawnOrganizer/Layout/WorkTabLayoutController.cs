@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Better_Work_Tab.Features;
+using Better_Work_Tab.Mod_Support.LocalProfiles;
+using Better_Work_Tab.Mod_Support.Multiplayer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.PawnOrganizer.Data;
 using HarmonyLib;
@@ -84,7 +86,7 @@ namespace Better_Work_Tab.PawnOrganizer
                 var pawn = snapshot.Pawns[i];
                 if (pawn?.playerSettings == null) continue;
 
-                int currentOrder = pawn.playerSettings.displayOrder;
+                int currentOrder = RowOrderUtility.GetPawnRowOrder(pawn);
                 if (!_lastDisplayOrders.TryGetValue(pawn.thingIDNumber, out int lastOrder) || lastOrder != currentOrder)
                     return true;
             }
@@ -118,7 +120,7 @@ namespace Better_Work_Tab.PawnOrganizer
                 foreach (var pawn in snapshot.Pawns)
                 {
                     if (pawn?.playerSettings != null)
-                        _lastDisplayOrders[pawn.thingIDNumber] = pawn.playerSettings.displayOrder;
+                        _lastDisplayOrders[pawn.thingIDNumber] = RowOrderUtility.GetPawnRowOrder(pawn);
                 }
             }
 
@@ -441,7 +443,7 @@ namespace Better_Work_Tab.PawnOrganizer
                 return AddDividerAfterPawnWhileSorting(pawn, label, color);
             }
 
-            int baseOrder = pawn.playerSettings?.displayOrder ?? Rows.Count;
+            int baseOrder = RowOrderUtility.GetPawnRowOrder(pawn);
             int targetOrder = baseOrder + 1;
             ShiftDisplayOrdersFrom(targetOrder);
             return CreateDivider(label, color, targetOrder);
@@ -459,7 +461,7 @@ namespace Better_Work_Tab.PawnOrganizer
                 return AddDividerBeforePawnWhileSorting(pawn, label, color);
             }
 
-            int targetOrder = pawn.playerSettings?.displayOrder ?? 0;
+            int targetOrder = RowOrderUtility.GetPawnRowOrder(pawn);
             ShiftDisplayOrdersFrom(targetOrder);
             return CreateDivider(label, color, targetOrder);
         }
@@ -504,7 +506,7 @@ namespace Better_Work_Tab.PawnOrganizer
             RecalculateDisplayOrderFromVisualOrder();
 
             // Now add the divider using the updated displayOrder
-            int newDisplayOrder = pawn.playerSettings.displayOrder + 1;
+            int newDisplayOrder = RowOrderUtility.GetPawnRowOrder(pawn) + 1;
             ShiftDisplayOrdersFrom(newDisplayOrder);
             var divider = CreateDivider(label, color, newDisplayOrder);
 
@@ -550,7 +552,7 @@ namespace Better_Work_Tab.PawnOrganizer
             RecalculateDisplayOrderFromVisualOrder();
 
             // Now add the divider using the updated displayOrder
-            int newDisplayOrder = pawn.playerSettings.displayOrder;
+            int newDisplayOrder = RowOrderUtility.GetPawnRowOrder(pawn);
             ShiftDisplayOrdersFrom(newDisplayOrder);
             var divider = CreateDivider(label, color, newDisplayOrder);
 
@@ -569,7 +571,7 @@ namespace Better_Work_Tab.PawnOrganizer
 
                 if (element.Pawn != null && element.Pawn.playerSettings != null)
                 {
-                    element.Pawn.playerSettings.displayOrder = i;
+                    RowOrderUtility.SetPawnRowOrder(element.Pawn, i);
                     BetterWorkTabMod.DebugLog($"  Row {i}: {element.Pawn.LabelShort} → displayOrder {i}", DebugFeature.DragDrop);
                 }
                 else if (element.Divider != null)
@@ -620,30 +622,103 @@ namespace Better_Work_Tab.PawnOrganizer
 
         private void BuildColumns()
         {
-            var columns = _table.Columns;
-            float currentX = _origin.x;
-            float usedWidth = 0f;
-            float spacing = BetterWorkTabMod.Settings?.columnSpacing ?? 0f;
+            var allColumns = _table.Columns;
+            var hiddenWorktypes = BetterWorkTabMod.Settings?.hiddenWorktypes;
 
-            for (int i = 0; i < columns.Count; i++)
+            var visibleColumns = new List<(PawnColumnDef def, int originalIndex)>();
+            for (int i = 0; i < allColumns.Count; i++)
             {
-                float defaultWidth = (i == columns.Count - 1)
-                    ? Mathf.Max(0f, _rowWidth - usedWidth)
-                    : _table.cachedColumnWidths[i];
+                var def = allColumns[i];
+                if (def.workType != null && hiddenWorktypes != null && hiddenWorktypes.Contains(def.workType.defName))
+                {
+                    continue;
+                }
+                visibleColumns.Add((def, i));
+            }
 
-                float width = _columnWidthStore?.GetWidth(columns[i], defaultWidth) ?? defaultWidth;
+            if (visibleColumns.Count == 0)
+            {
+                return;
+            }
+
+            // 1. Identify the best 'fill' column. In RimWorld work tabs, we typically want 
+            // one stretchable column (usually Pawn Label) while keeping work priorities 
+            // at their small, fixed widths so they remain equidistant and visually aligned.
+            int fillerIndex = -1;
+            for (int i = 0; i < visibleColumns.Count; i++)
+            {
+                if (visibleColumns[i].def.Worker is PawnColumnWorker_Label)
+                {
+                    fillerIndex = i;
+                    break;
+                }
+            }
+
+            // Fallback: If no Label column, prefer the first non-work-priority column.
+            if (fillerIndex == -1)
+            {
+                for (int i = 0; i < visibleColumns.Count; i++)
+                {
+                    if (!(visibleColumns[i].def.Worker is PawnColumnWorker_WorkPriority))
+                    {
+                        fillerIndex = i;
+                        break;
+                    }
+                }
+            }
+
+            // Ultimate fallback (e.g. if the tab ONLY has work columns): use the last one.
+            if (fillerIndex == -1)
+            {
+                fillerIndex = visibleColumns.Count - 1;
+            }
+
+            // 2. Calculate natural widths and identify surplus/deficit relative to _rowWidth.
+            float totalNaturalWidth = 0f;
+            float[] widths = new float[visibleColumns.Count];
+            const float spacing = 0f;
+
+            for (int i = 0; i < visibleColumns.Count; i++)
+            {
+                var (columnDef, originalIndex) = visibleColumns[i];
+                float w = _columnWidthStore?.GetWidth(columnDef, -1f) ?? -1f;
+                
+                if (w < 0f)
+                {
+                    w = (originalIndex < _table.cachedColumnWidths.Count) 
+                        ? _table.cachedColumnWidths[originalIndex] 
+                        : 30f;
+                }
+                
+                widths[i] = w;
+                totalNaturalWidth += w;
+                if (i < visibleColumns.Count - 1) totalNaturalWidth += spacing;
+            }
+
+            // Distribute any remainder to our designated filler.
+            float surplus = _rowWidth - totalNaturalWidth;
+            widths[fillerIndex] = Mathf.Max(widths[fillerIndex] + surplus, 10f);
+
+            // 3. Build the final column layouts.
+            float currentX = _origin.x;
+            for (int i = 0; i < visibleColumns.Count; i++)
+            {
+                var (columnDef, _) = visibleColumns[i];
+                float width = widths[i];
+
+                // Ensure the absolute last column hits the edge perfectly to avoid rounding gaps.
+                if (i == visibleColumns.Count - 1)
+                {
+                    width = Mathf.Max(0f, (_origin.x + _rowWidth) - currentX);
+                }
 
                 var headerRect = new Rect(currentX, _origin.y, width, HeaderHeight);
-                _columns.Add(new WorkTabLayoutColumn(columns[i], headerRect, currentX - _origin.x, width));
+                _columns.Add(new WorkTabLayoutColumn(columnDef, headerRect, currentX - _origin.x, width));
 
                 currentX += width;
-                usedWidth += width;
-
-                // Apply spacing between columns but not after the last column.
-                if (i < columns.Count - 1 && spacing > 0f)
+                if (i < visibleColumns.Count - 1)
                 {
                     currentX += spacing;
-                    usedWidth += spacing;
                 }
             }
         }
@@ -858,6 +933,8 @@ namespace Better_Work_Tab.PawnOrganizer
             };
 
             _snapshotDividers.Add(divider);
+            SyncDividersToProfile();
+            InvalidateRowDescriptors();
             return divider;
         }
 
@@ -865,15 +942,7 @@ namespace Better_Work_Tab.PawnOrganizer
         {
             if (_snapshotPawns != null)
             {
-                for (int i = 0; i < _snapshotPawns.Count; i++)
-                {
-                    var pawn = _snapshotPawns[i];
-                    var settings = pawn?.playerSettings;
-                    if (settings != null && settings.displayOrder >= targetOrder)
-                    {
-                        settings.displayOrder++;
-                    }
-                }
+                RowOrderUtility.ShiftPawnRowOrdersFrom(_snapshotPawns.ToList(), targetOrder);
             }
 
             if (_snapshotDividers == null)
@@ -889,6 +958,36 @@ namespace Better_Work_Tab.PawnOrganizer
                     divider.DisplayOrder++;
                 }
             }
+
+            SyncDividersToProfile();
+        }
+
+        private void SyncDividersToProfile()
+        {
+            if (!MultiplayerBridge.Active)
+            {
+                return;
+            }
+
+            var profile = BWTLocalProfileStore.Current;
+            if (profile == null)
+            {
+                return;
+            }
+
+            if (_snapshotDividers != null)
+            {
+                profile.ActiveDividers = _snapshotDividers
+                    .Where(div => div != null)
+                    .Select(div => div.Copy())
+                    .ToList();
+            }
+            else
+            {
+                profile.ActiveDividers = new List<PawnDivider>();
+            }
+
+            BWTLocalProfileStore.MarkDirty();
         }
     }
 }

@@ -15,6 +15,23 @@ namespace Better_Work_Tab.Features
         private static List<string> _trueVanillaOrder;
 
         /// <summary>
+        /// Builds the canonical "true vanilla" order using official WorkTypeDefs
+        /// sorted in the same priority order vanilla uses (naturalPriority).
+        /// Falls back to scanning the table if defs are unexpectedly unavailable.
+        /// </summary>
+        private static List<string> BuildTrueVanillaOrder()
+        {
+            // Use the natural priority order defined by the game and mods.
+            // This is the order vanilla RimWorld uses to populate the table initially.
+            // By using this as the "true" baseline for ALL work types, we can always
+            // detect when a column has been moved from its intended position.
+            return WorkTypeDefsUtility.WorkTypeDefsInPriorityOrder
+                .Where(wt => wt != null)
+                .Select(wt => wt.defName)
+                .ToList();
+        }
+
+        /// <summary>
         /// Returns the per-save baseline order, capturing it from the current work table if missing.
         /// </summary>
         public static List<string> GetBaselineOrder(GameComponent_BWTWorldSettings worldSettings)
@@ -129,33 +146,26 @@ namespace Better_Work_Tab.Features
 
         private static void EnsureTrueVanillaOrder()
         {
-            if (_trueVanillaOrder != null)
+            if (_trueVanillaOrder != null && _trueVanillaOrder.Count > 0)
             {
                 return;
             }
 
-            _trueVanillaOrder = new List<string>();
-            var def = PawnTableDefOf.Work;
+            _trueVanillaOrder = BuildTrueVanillaOrder();
 
-            if (def?.columns == null)
+            if (_trueVanillaOrder == null)
             {
-                return;
+                _trueVanillaOrder = new List<string>();
             }
 
-            // Only track columns from official RimWorld content (Core/DLC); modded work types are excluded.
-            foreach (var col in def.columns)
+            if (_trueVanillaOrder.Count == 0)
             {
-                if (col.Worker is PawnColumnWorker_WorkPriority && col.workType != null)
-                {
-                    var pack = col.workType.modContentPack;
-                    if (pack == null || pack.IsOfficialMod)
-                    {
-                        _trueVanillaOrder.Add(col.workType.defName);
-                    }
-                }
+                Log.Warning("[BWT] Could not capture true vanilla column order; list is empty.");
             }
-
-            BetterWorkTabMod.DebugLog($"[BWT] Captured true vanilla column order: {string.Join(", ", _trueVanillaOrder)}", DebugFeature.DragDrop);
+            else
+            {
+                BetterWorkTabMod.DebugLog($"[BWT] Captured true vanilla column order: {string.Join(", ", _trueVanillaOrder)}", DebugFeature.DragDrop);
+            }
         }
     }
 }

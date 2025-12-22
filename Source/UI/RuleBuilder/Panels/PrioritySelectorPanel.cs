@@ -334,7 +334,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             }
             if (targetIndex >= rects.Count)
             {
-                return rects[^1].rect.yMax;
+                return rects[rects.Count - 1].rect.yMax;
             }
             return rects[targetIndex - 1].rect.yMax;
         }
