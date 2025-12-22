@@ -70,7 +70,11 @@ namespace Better_Work_Tab.UI
 
                     if (settings.warnOnApplyRuleset)
                     {
-                        ConfirmApplyWithResetWarning("Apply ruleset?", applyAction);
+                        ConfirmApplyWithResetWarning("Apply ruleset?", applyAction, (val) =>
+                        {
+                            settings.warnOnApplyRuleset = !val;
+                            settings.Write();
+                        });
                     }
                     else
                     {
@@ -135,7 +139,11 @@ namespace Better_Work_Tab.UI
 
                     if (settings.warnOnApplyWorkload)
                     {
-                        ConfirmApplyWithResetWarning("Apply workload?", applyAction);
+                        ConfirmApplyWithResetWarning("Apply workload?", applyAction, (val) =>
+                        {
+                            settings.warnOnApplyWorkload = !val;
+                            settings.Write();
+                        });
                     }
                     else
                     {
@@ -276,13 +284,13 @@ namespace Better_Work_Tab.UI
             }
         }
 
-        private static void ConfirmApplyWithResetWarning(string title, System.Action onConfirm)
+        private static void ConfirmApplyWithResetWarning(string title, System.Action onConfirm, System.Action<bool> setDoNotShowAgain)
         {
-            Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
+            Find.WindowStack.Add(new Dialog_WarningWithCheckbox(
                 "Applying this will reset the current work tab priority configuration. Continue?",
+                title,
                 onConfirm,
-                true,
-                title));
+                setDoNotShowAgain));
         }
     }
 }

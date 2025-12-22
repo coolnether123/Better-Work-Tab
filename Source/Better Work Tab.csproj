@@ -142,6 +142,7 @@
     <Compile Include="UI\VerticalLabels\WorkPriorityHeaderPatches.cs" />
     <Compile Include="UI\VerticalLabels\AngledHeaderCache.cs" />
     <Compile Include="UI\HeaderButtons.cs" />
+    <Compile Include="UI\Dialog_WarningWithCheckbox.cs" />
     <Compile Include="UI\MouseStateManager.cs" />
     <Compile Include="Features\Patches\Patch_Building_Bed_Cache.cs" />
     <Compile Include="UI\RuleBuilder\RuleBuilderConstants.cs" />

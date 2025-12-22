@@ -544,7 +544,7 @@ namespace Better_Work_Tab.UI.Settings
                 Id = DragdropRemoveHeaderUnderline,
                 ParentId = FeaturesDragdrop,
                 FieldName = "removeHeaderUnderline",
-                Label = "Remove Header Underline",
+                Label = "Hide Header Underline",
                 Tooltip = "Remove the underline from work tab header labels.",
                 Type = SettingType.Bool,
                 DefaultValue = false,
@@ -936,7 +936,7 @@ namespace Better_Work_Tab.UI.Settings
                     ParentId = FeaturesUiElements,
                     FieldName = "hiddenWorktypes",
                     Label = "Hidden Work Types",
-                    Tooltip = "Select work types to hide from the work tab.",
+                    Tooltip = "Select work types to hide from the work tab. (Beta Testing Phase. Please reach out to discord with ideas for improving)",
                     Type = SettingType.DropdownListAdder,
                     DropdownOptionsProvider = () => DefDatabase<WorkTypeDef>.AllDefsListForReading
                         .Where(wt => !settings.hiddenWorktypes.Contains(wt.defName))
