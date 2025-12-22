@@ -83,6 +83,7 @@ namespace Better_Work_Tab.Patches
         private static BetterWorkTabSettings.HoverEffectScope _cachedHoverScope = BetterWorkTabSettings.HoverEffectScope.CellOnly;
         private static WorkTypeDef _columnHoveredWorkType;
         private static int _columnHoveredFrame = -1;
+        private static float _cachedSmallSkillXOffset = SmallSkillOffsetX;
 
         // === CACHES ===
         private static readonly Dictionary<int, int> _skillCache = new Dictionary<int, int>(1024);
@@ -116,6 +117,13 @@ namespace Better_Work_Tab.Patches
             _cachedHoverCellOverlayEnabled = BetterWorkTabMod.Settings?.showHoverCellOverlay ?? true;
             _cachedHoverMode = BetterWorkTabMod.Settings?.skillViewHoverMode ?? BetterWorkTabSettings.SkillViewHoverMode.Standard;
             _cachedHoverScope = BetterWorkTabMod.Settings?.hoverEffectScope ?? BetterWorkTabSettings.HoverEffectScope.CellOnly;
+
+            // Handle 1.25x scale offset for shift overlay numbers
+            _cachedSmallSkillXOffset = SmallSkillOffsetX;
+            if (Mathf.Approximately(Prefs.UIScale, 1.25f))
+            {
+                _cachedSmallSkillXOffset -= 11f;
+            }
         }
 
         public static void ClearColorCache()
@@ -496,7 +504,7 @@ namespace Better_Work_Tab.Patches
 
         private static void DrawSmallSkillNumbers(Rect rect, int level)
         {
-            Rect boxRect = new Rect(rect.x + SmallSkillOffsetX, rect.y + SmallSkillOffsetY, SkillBoxSize, SkillBoxSize);
+            Rect boxRect = new Rect(rect.x + _cachedSmallSkillXOffset, rect.y + SmallSkillOffsetY, SkillBoxSize, SkillBoxSize);
             var oldFont = Text.Font;
             var oldAnchor = Text.Anchor;
             var oldColor = GUI.color;
@@ -515,7 +523,7 @@ namespace Better_Work_Tab.Patches
         {
             // Use same position as small skill numbers
             Rect prioRect = new Rect(
-                rect.x + SmallSkillOffsetX,
+                rect.x + _cachedSmallSkillXOffset,
                 rect.y + SmallSkillOffsetY,
                 SkillBoxSize,
                 SkillBoxSize);
@@ -541,19 +549,19 @@ namespace Better_Work_Tab.Patches
         {
             float x = rect.x + (rect.width - SkillBoxSize) / 2f;
             float y = rect.y + SkillBoxVerticalPadding;
-            float outlineSize = SkillBoxSize + (SkillBoxOutlinePadding * 2f);
 
+            // Outline extends 1px beyond the skill box on all sides
             Rect outlineRect = new Rect(
-                Mathf.FloorToInt(x) - SkillBoxOutlinePadding,
-                Mathf.FloorToInt(y) - SkillBoxOutlinePadding,
-                outlineSize,
-                outlineSize);
+                x - 1f,
+                y - 1f,
+                SkillBoxSize + 2f,
+                SkillBoxSize + 2f);
 
             Widgets.DrawBoxSolidWithOutline(
                 outlineRect,
                 Color.clear,
                 BetterWorkTabMod.Settings.Color_BestPawnForSkillSquare,
-                Mathf.RoundToInt(BetterWorkTabMod.Settings.bestPawnHighlightThickness));
+                BetterWorkTabMod.Settings.bestPawnHighlightThickness);
         }
 
         private static void DrawBestPawnBackground(Rect rect)

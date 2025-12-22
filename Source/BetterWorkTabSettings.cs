@@ -152,13 +152,14 @@ namespace Better_Work_Tab
 
         // New Refinement Settings
         public static bool disableBestPawnHighlight = false;
-        public static float bestPawnHighlightThickness = 1f;
+        public static int bestPawnHighlightThickness = 1;
         public static bool enableColumnGrouping = false;
         public static List<string> hiddenWorktypes = new List<string>();
         public static bool warnOnApplyRuleset = true;
         public static bool warnOnApplyWorkload = true;
         public static bool removeHeaderUnderline = false;
         public static bool enableScrollWheelPriority = false;
+        public static bool autoEnableManualPriorities = false;
 
         // Pawn/worktype highlight visibility settings
         public static bool ShowPawnAndWorktypeHighlights = true;
@@ -439,12 +440,13 @@ namespace Better_Work_Tab
         public SkillViewHoverMode skillViewHoverMode = DefaultSettings.skillViewHoverMode;
         public HoverEffectScope hoverEffectScope = DefaultSettings.hoverEffectScope;
         public bool disableBestPawnHighlight = DefaultSettings.disableBestPawnHighlight;
-        public float bestPawnHighlightThickness = DefaultSettings.bestPawnHighlightThickness;
+        public int bestPawnHighlightThickness = DefaultSettings.bestPawnHighlightThickness;
         public bool enableColumnGrouping = DefaultSettings.enableColumnGrouping;
         public List<string> hiddenWorktypes = new List<string>(DefaultSettings.hiddenWorktypes);
         public bool warnOnApplyRuleset = DefaultSettings.warnOnApplyRuleset;
         public bool warnOnApplyWorkload = DefaultSettings.warnOnApplyWorkload;
         public bool removeHeaderUnderline = DefaultSettings.removeHeaderUnderline;
+        public bool autoEnableManualPriorities = DefaultSettings.autoEnableManualPriorities;
 
 
         public float workTabMaxHeight = DefaultSettings.workTabMaxHeight;
@@ -615,13 +617,14 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref showColumnBaselineLine, "showColumnBaselineLine", DefaultSettings.showColumnBaselineLine);
             Scribe_Values.Look(ref dividerMinAlpha, "dividerMinAlpha", DefaultSettings.dividerMinAlpha);
             Scribe_Values.Look(ref disableBestPawnHighlight, "disableBestPawnHighlight", false);
-            Scribe_Values.Look(ref bestPawnHighlightThickness, "bestPawnHighlightThickness", 1f);
+            Scribe_Values.Look(ref bestPawnHighlightThickness, "bestPawnHighlightThickness", 1);
             Scribe_Values.Look(ref enableColumnGrouping, "enableColumnGrouping", false);
             Scribe_Collections.Look(ref hiddenWorktypes, "hiddenWorktypes", LookMode.Value);
             Scribe_Values.Look(ref warnOnApplyRuleset, "warnOnApplyRuleset", true);
             Scribe_Values.Look(ref warnOnApplyWorkload, "warnOnApplyWorkload", true);
             Scribe_Values.Look(ref removeHeaderUnderline, "removeHeaderUnderline", false);
             Scribe_Values.Look(ref enableScrollWheelPriority, "enableScrollWheelPriority", false);
+            Scribe_Values.Look(ref autoEnableManualPriorities, "autoEnableManualPriorities", false);
 
             if (hiddenWorktypes == null) hiddenWorktypes = new List<string>();
 
