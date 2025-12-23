@@ -8,6 +8,9 @@ using Verse;
 
 namespace Better_Work_Tab.UI.WorkGiverReassignments
 {
+    /// <summary>
+    /// Main window for the WorkGiver sub-menu, allowing per-WorkGiver priority customization and reordering.
+    /// </summary>
     internal class Window_WorkGiverSubMenu : Window
     {
         private readonly WorkTypeDef _workType;
@@ -15,11 +18,14 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         private readonly Vector2 _triggerPos;
         
         private List<WorkGiver> _workGivers;
-        private const float ColumnWidth = 32f;
-        private const float HeaderHeight = 110f; 
-        private const float PriorityRowHeight = 32f;
-        private const float FooterHeight = 35f;
-        private const float Margin = 10f;
+        private WorkGiverBaselineTracker _baselineTracker;
+        private WorkGiverDragHandler _dragHandler;
+        
+        private const float ColumnWidth = 35f;
+        private const float HeaderHeight = 120f; 
+        private const float PriorityRowHeight = 45f;
+        private const float FooterHeight = 50f;
+        private const float Margin = 12f;
 
         public Window_WorkGiverSubMenu(WorkTypeDef workType, Vector2 triggerPos, Pawn pawn = null)
         {
@@ -40,13 +46,15 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         private void RefreshWorkGivers()
         {
             _workGivers = WorkGiverReassignmentManager.GetOrderedWorkGiversForWorkType(_workType, _pawn).ToList();
+            _baselineTracker = new WorkGiverBaselineTracker(_workType, _workGivers);
+            _dragHandler = new WorkGiverDragHandler(this, _workType);
         }
 
         public override Vector2 InitialSize
         {
             get
             {
-                float width = Math.Max(220f, _workGivers.Count * ColumnWidth + Margin * 2);
+                float width = Math.Max(250f, _workGivers.Count * ColumnWidth + Margin * 2);
                 float height = HeaderHeight + PriorityRowHeight + FooterHeight + Margin * 2;
                 return new Vector2(width, height);
             }
@@ -56,15 +64,12 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         {
             base.SetInitialSizeAndPosition();
             
-            // Trigger position is already in screen coordinates from Event.current.mousePosition
-            // Position the window above and centered on the trigger point
             windowRect.x = _triggerPos.x - (windowRect.width / 2f);
             windowRect.y = _triggerPos.y - windowRect.height - 5f;
             
-            // Keep on screen with better boundary checks
             if (windowRect.x < 10f) windowRect.x = 10f;
             if (windowRect.xMax > Verse.UI.screenWidth - 10f) windowRect.x = Verse.UI.screenWidth - windowRect.width - 10f;
-            if (windowRect.y < 10f) windowRect.y = _triggerPos.y + 5f; // If it doesn't fit above, show below
+            if (windowRect.y < 10f) windowRect.y = _triggerPos.y + 5f;
             if (windowRect.yMax > Verse.UI.screenHeight - 10f) windowRect.y = Verse.UI.screenHeight - windowRect.height - 10f;
         }
 
@@ -76,150 +81,113 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 return;
             }
 
-            // Title/Header Info
+            DrawTitle(inRect);
+            
+            float headerY = 30f;
+            float boxY = HeaderHeight;
+            
+            _dragHandler.UpdateDrag(Event.current.mousePosition, _workGivers, Margin, ColumnWidth);
+            
+            DrawWorkGiverColumns(headerY, boxY);
+            DrawDragOverlay(headerY, boxY);
+            DrawFooter(boxY);
+            
+            HandleEscapeKey();
+        }
+
+        private void DrawTitle(Rect inRect)
+        {
             Text.Font = GameFont.Small;
             string titleText = _pawn == null 
                 ? $"Global: {_workType.labelShort.CapitalizeFirst()}" 
                 : $"{_pawn.LabelShortCap}: {_workType.labelShort.CapitalizeFirst()}";
             Widgets.Label(new Rect(0, 0, inRect.width, 24f), titleText.Colorize(Color.gray));
+        }
 
+        private void DrawWorkGiverColumns(float headerY, float boxY)
+        {
             float curX = Margin;
-            float baseY = HeaderHeight;
             
             for (int i = 0; i < _workGivers.Count; i++)
             {
                 var wg = _workGivers[i];
-                Rect cellRect = new Rect(curX, baseY, ColumnWidth, PriorityRowHeight);
+                Rect headerRect = new Rect(curX, headerY, ColumnWidth, HeaderHeight - headerY);
+                Rect cellRect = new Rect(curX, boxY, ColumnWidth, PriorityRowHeight);
                 
-                // 1. Draw Angled Header (stems from cellRect top)
-                DrawAngledHeaderFor(wg, cellRect);
-                
-                // 2. Draw Priority Box
-                DrawPriorityBoxFor(wg, cellRect, i);
+                bool isMovedFromBaseline = _baselineTracker.IsMovedFromBaseline(wg.def.defName);
+                DrawAngledHeader(wg, headerRect, i, isMovedFromBaseline);
+                DrawPriorityBox(wg, cellRect);
                 
                 curX += ColumnWidth;
             }
-            
-            // 3. Footer
-            Rect footerRect = new Rect(0, baseY + PriorityRowHeight + 10f, inRect.width, FooterHeight);
-            DrawFooter(footerRect);
-            
-            if (Event.current.type == EventType.KeyDown && Event.current.keyCode == KeyCode.Escape)
-            {
-                Close();
-            }
         }
 
-        private void DrawAngledHeaderFor(WorkGiver wg, Rect cellRect)
+        private void DrawAngledHeader(WorkGiver wg, Rect headerRect, int index, bool isMovedFromBaseline)
         {
             string label = wg.def.label.CapitalizeFirst();
+            if (isMovedFromBaseline)
+            {
+                label += " *";
+            }
+            
             Vector2 textSize = Text.CalcSize(label);
+            Vector2 pivot = new Vector2(headerRect.center.x, headerRect.yMax - AngledLabelDrawer.STEM_BOTTOM_GAP);
             
-            // Pivot at the top-center of the cell
-            Vector2 pivot = new Vector2(cellRect.center.x, cellRect.y - AngledLabelDrawer.STEM_BOTTOM_GAP);
+            var layout = new AngledLabelDrawer.AngledLabelLayout(label, textSize, pivot, isMovedFromBaseline);
+            bool isHovered = Mouse.IsOver(headerRect);
+            AngledLabelDrawer.Draw(layout, isHovered, applyCompensation: false);
             
-            // We need to bypass the 1.25x scale hardcoded compensation in AngledLabelDrawer if we want it to work here,
-            // but for now let's see how it looks. If it drifts, we'll need to adjust the pivot we pass.
-            
-            var layout = new AngledLabelDrawer.AngledLabelLayout(label, textSize, pivot, false);
-            
-            // Better Work Tab's AngledLabelDrawer.Draw is static and takes layout.
-            // We pass applyCompensation: false because we don't need the main tab's hardcoded offsets here.
-            AngledLabelDrawer.Draw(layout, Mouse.IsOver(cellRect), applyCompensation: false);
+            // Handle drag initiation from header ONLY
+            if (isHovered && !_dragHandler.IsDragging)
+            {
+                if (Event.current.type == EventType.MouseDown && Event.current.button == 0)
+                {
+                    _dragHandler.BeginDrag(index, Event.current.mousePosition);
+                    Event.current.Use();
+                }
+            }
         }
 
-        private void DrawPriorityBoxFor(WorkGiver wg, Rect rect, int index)
+        private void DrawPriorityBox(WorkGiver wg, Rect cellRect)
         {
-            // Use same box size as Skill Overlay for consistency
-            float boxSize = 25f;
-            float x = rect.x + (rect.width - boxSize) / 2f;
-            float y = rect.y + (rect.height - boxSize) / 2f;
+            const float boxSize = 25f;
+            float x = cellRect.x + (cellRect.width - boxSize) / 2f;
+            float y = cellRect.y + (cellRect.height - boxSize) / 2f;
             Rect boxRect = new Rect(x, y, boxSize, boxSize);
 
-            int priority = WorkGiverReassignmentManager.GetWorkGiverPriority(_pawn, wg.def, 3);
-
-
-            // Draw vanilla-style work box
-            if (_pawn != null)
-            {
-                // Check incapability
-                bool incapable = false;
-                if (wg.def.requiredCapacities != null)
-                {
-                    foreach (var cap in wg.def.requiredCapacities)
-                    {
-                        if (!_pawn.health.capacities.CapableOf(cap))
-                        {
-                            incapable = true;
-                            break;
-                        }
-                    }
-                }
-
-                if (incapable) GUI.color = new Color(1f, 0.3f, 0.3f);
-                WidgetsWork.DrawWorkBoxBackground(boxRect, _pawn, _workType);
-                GUI.color = Color.white;
-            }
-            else
-            {
-                // Global mode - draw vanilla background with a dummy pawn if possible or just a clean box
-                // Since DrawWorkBoxBackground requires a pawn, let's just use highlight + box for now 
-                // but ensure it looks premium.
-                Widgets.DrawHighlight(boxRect);
-                Widgets.DrawBox(boxRect);
-            }
-
-            // Click handling
-            if (Widgets.ButtonInvisible(boxRect))
-            {
-                CyclePriority(wg, priority);
-                Event.current.Use();
-            }
-
-            // Highlight
-            Widgets.DrawHighlightIfMouseover(boxRect);
-
-            // Draw priority number (vanilla style)
-            if (priority > 0)
-            {
-                Text.Anchor = TextAnchor.MiddleCenter;
-                Text.Font = GameFont.Small;
-                GUI.color = WidgetsWork.ColorOfPriority(priority);
-                // Expand rect slightly for label to match vanilla behavior
-                Widgets.Label(boxRect.ContractedBy(-3f), priority.ToString());
-                GUI.color = Color.white;
-                Text.Anchor = TextAnchor.UpperLeft;
-            }
+            // Notify renderer if priority changed (for refresh)
+            int oldPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(_pawn, wg.def, 0);
+            WorkGiverPriorityBoxRenderer.DrawPriorityBox(wg, _workType, _pawn, boxRect);
+            int newPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(_pawn, wg.def, 0);
             
-            TooltipHandler.TipRegion(boxRect, wg.def.LabelCap);
+            if (oldPriority != newPriority)
+            {
+                RefreshWorkGivers();
+            }
         }
 
-        private void CyclePriority(WorkGiver wg, int current)
+        private void DrawDragOverlay(float headerY, float boxY)
         {
-            int next = (current + 1) % 5;
-            if (Find.PlaySettings.useWorkPriorities == false && next > 0) next = 3; // checkbox mode
-            
-            // Set override (handles global if _pawn is null)
-            WorkGiverReassignmentManager.SetPawnOverride(_pawn, wg.def, next);
-            
-            RefreshWorkGivers();
+            float lineHeight = HeaderHeight - headerY + PriorityRowHeight;
+            _dragHandler.DrawDragOverlay(Margin, ColumnWidth, headerY, lineHeight, _workGivers, _baselineTracker);
         }
 
-        private void DrawFooter(Rect rect)
+        private void DrawFooter(float boxY)
         {
+            Rect footerRect = new Rect(0, boxY + PriorityRowHeight + 5f, windowRect.width - 2 * Margin, FooterHeight);
+            Widgets.DrawLineHorizontal(footerRect.x, footerRect.y, footerRect.width);
+            
             List<Pawn> overrides = WorkGiverReassignmentManager.GetPawnsWithOverrides(_workType);
             int count = overrides.Count;
             
-            Rect textRect = new Rect(rect.x + 5f, rect.y + 5f, rect.width - 40f, 24f);
-            Widgets.Label(textRect, "Pawns not following this: " + count);
+            Rect textRect = new Rect(footerRect.x + 5f, footerRect.y + 8f, footerRect.width - 40f, 24f);
+            Widgets.Label(textRect, $"Pawns with overrides: {count}");
             
-            Rect btnRect = new Rect(rect.xMax - 30f, rect.y + 5f, 24f, 24f);
-            if (Widgets.ButtonText(btnRect, "v"))
+            Rect btnRect = new Rect(footerRect.xMax - 30f, footerRect.y + 8f, 24f, 24f);
+            if (Widgets.ButtonText(btnRect, "▼"))
             {
                 ShowPawnDropdown(overrides);
             }
-            
-            Widgets.DrawLineHorizontal(rect.x, rect.y, rect.width);
         }
 
         private void ShowPawnDropdown(List<Pawn> pawns)
@@ -235,13 +203,20 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 {
                     var localP = p;
                     options.Add(new FloatMenuOption(localP.LabelShortCap, () => {
-                        // Switch this sub-menu to this pawn
                         Find.WindowStack.Add(new Window_WorkGiverSubMenu(_workType, _triggerPos, localP));
                         this.Close();
                     }));
                 }
             }
             Find.WindowStack.Add(new FloatMenu(options));
+        }
+
+        private void HandleEscapeKey()
+        {
+            if (Event.current.type == EventType.KeyDown && Event.current.keyCode == KeyCode.Escape)
+            {
+                Close();
+            }
         }
     }
 }
