@@ -231,7 +231,7 @@ namespace Better_Work_Tab.DragDrop
             Widgets.DrawBoxSolid(new Rect(lineX - 1f, lineY, 2f, lineHeight), baselineColor);
         }
 
-        public new void OnCancel()
+        public override void OnCancel()
         {
             BetterWorkTabLocalState.IsHeaderDragging = false;
             base.OnCancel();
@@ -241,151 +241,151 @@ namespace Better_Work_Tab.DragDrop
         {
             if (!IsDragging) return;
 
-            PawnTableDef def = PawnTableDefOf.Work;
-            if (def?.columns == null)
+            try
             {
-                IsDragging = false;
-                return;
-            }
-
-            var workCols = def.columns
-                .Where(c => c.Worker is PawnColumnWorker_WorkPriority && c.workType != null)
-                .ToList();
-
-            // Find all columns in workCols that are in our dragged group
-            var toRemove = workCols.Where(c => _draggedColumns.Contains(c)).ToList();
-            if (toRemove.Count == 0)
-            {
-                IsDragging = false;
-                return;
-            }
-
-            // Record the visual target column we are dropping at.
-            // When dragging a group, if the drop point is inside the group, we need to find 
-            // the first column to the right that ISN'T being moved to determine the true insertion point.
-            // This prevents the group from "disappearing" or jumping to the end when dropped on itself.
-            PawnColumnDef targetAnchor = null;
-            for (int i = TargetIndex; i < _workColumns.Count; i++)
-            {
-                if (!_draggedColumns.Contains(_workColumns[i].Column))
+                PawnTableDef def = PawnTableDefOf.Work;
+                if (def?.columns == null)
                 {
-                    targetAnchor = _workColumns[i].Column;
-                    break;
+                    return;
                 }
-            }
 
-            // Record original index of the group (usually the first one) to detect no-ops later.
-            int firstOriginalIndex = workCols.IndexOf(toRemove[0]);
-
-            // Remove all dragged columns from the temporary list.
-            foreach (var col in toRemove)
-            {
-                workCols.Remove(col);
-            }
-
-            // Determine true insertion index in the absolute list (after removals).
-            // This is the index of the stationary column we found earlier.
-            int insertIndex;
-            if (targetAnchor != null)
-            {
-                insertIndex = workCols.IndexOf(targetAnchor);
-                if (insertIndex < 0) insertIndex = workCols.Count; // Fallback to end if anchor lost
-            }
-            else
-            {
-                insertIndex = workCols.Count; // Dropped after the last non-dragged column
-            }
-
-            BetterWorkTabMod.DebugLog($"[BWT] Reorder Group Map: firstIndex={firstOriginalIndex}, target={TargetIndex}, insertIndex={insertIndex}", DebugFeature.DragDrop);
-
-            // Re-check for no-op.
-            // If the start position (before removals) matches the end position (after removals), it's a no-op.
-            // This handles cases where the user drops the group back exactly where it came from.
-            if (insertIndex == firstOriginalIndex)
-            {
-                BetterWorkTabMod.DebugLog("[BWT] Reorder Group No-Op detected. Original position maintained.", DebugFeature.DragDrop);
-                IsDragging = false;
-                return;
-            }
-
-            if (MultiplayerBridge.Active)
-            {
-                // Sync the entire resulting order for multiplayer consistency
-                var finalOrder = workCols
-                    .Where(c => c.workType != null)
-                    .Select(c => c.workType.defName)
-                    .ToList();
-                
-                var movedNames = _draggedColumns
-                    .Where(c => c.workType != null)
-                    .Select(c => c.workType.defName)
+                var workCols = def.columns
+                    .Where(c => c.Worker is PawnColumnWorker_WorkPriority && c.workType != null)
                     .ToList();
 
-                WorkColumnOrderSync.ApplyWorkColumnOrder(finalOrder, movedNames);
-                IsDragging = false;
-                return;
-            }
-
-            // Actually move all dragged columns
-            for (int i = 0; i < _draggedColumns.Count; i++)
-            {
-                workCols.Insert(insertIndex + i, _draggedColumns[i]);
-            }
-
-            // Reconstruct table def columns
-            var original = def.columns.ToList();
-            var pre = new List<PawnColumnDef>();
-            var post = new List<PawnColumnDef>();
-            bool inWork = false;
-
-            foreach (var col in original)
-            {
-                bool isWork = col.Worker is PawnColumnWorker_WorkPriority && col.workType != null;
-                if (isWork) inWork = true;
-                else if (!inWork) pre.Add(col);
-                else post.Add(col);
-            }
-
-            def.columns.Clear();
-            def.columns.AddRange(pre);
-            def.columns.AddRange(workCols);
-            def.columns.AddRange(post);
-
-            WorkColumnOrderManager.CaptureCurrent(def);
-
-            // Record that ALL dragged columns were directly moved by the player
-            foreach (var col in _draggedColumns)
-            {
-                if (col.workType != null)
+                // Find all columns in workCols that are in our dragged group
+                var toRemove = workCols.Where(c => _draggedColumns.Contains(c)).ToList();
+                if (toRemove.Count == 0)
                 {
-                    MainTabWindow_BetterWork.MarkColumnMoved(col.workType);
+                    return;
+                }
+
+                // Record the visual target column we are dropping at.
+                // When dragging a group, if the drop point is inside the group, we need to find 
+                // the first column to the right that ISN'T being moved to determine the true insertion point.
+                // This prevents the group from "disappearing" or jumping to the end when dropped on itself.
+                PawnColumnDef targetAnchor = null;
+                for (int i = TargetIndex; i < _workColumns.Count; i++)
+                {
+                    if (!_draggedColumns.Contains(_workColumns[i].Column))
+                    {
+                        targetAnchor = _workColumns[i].Column;
+                        break;
+                    }
+                }
+
+                // Record original index of the group (usually the first one) to detect no-ops later.
+                int firstOriginalIndex = workCols.IndexOf(toRemove[0]);
+
+                // Remove all dragged columns from the temporary list.
+                foreach (var col in toRemove)
+                {
+                    workCols.Remove(col);
+                }
+
+                // Determine true insertion index in the absolute list (after removals).
+                // This is the index of the stationary column we found earlier.
+                int insertIndex;
+                if (targetAnchor != null)
+                {
+                    insertIndex = workCols.IndexOf(targetAnchor);
+                    if (insertIndex < 0) insertIndex = workCols.Count; // Fallback to end if anchor lost
+                }
+                else
+                {
+                    insertIndex = workCols.Count; // Dropped after the last non-dragged column
+                }
+
+                BetterWorkTabMod.DebugLog($"[BWT] Reorder Group Map: firstIndex={firstOriginalIndex}, target={TargetIndex}, insertIndex={insertIndex}", DebugFeature.DragDrop);
+
+                // Re-check for no-op.
+                // If the start position (before removals) matches the end position (after removals), it's a no-op.
+                // This handles cases where the user drops the group back exactly where it came from.
+                if (insertIndex == firstOriginalIndex)
+                {
+                    BetterWorkTabMod.DebugLog("[BWT] Reorder Group No-Op detected. Original position maintained.", DebugFeature.DragDrop);
+                    return;
+                }
+
+                if (MultiplayerBridge.Active)
+                {
+                    // Sync the entire resulting order for multiplayer consistency
+                    var finalOrder = workCols
+                        .Where(c => c.workType != null)
+                        .Select(c => c.workType.defName)
+                        .ToList();
+
+                    var movedNames = _draggedColumns
+                        .Where(c => c.workType != null)
+                        .Select(c => c.workType.defName)
+                        .ToList();
+
+                    WorkColumnOrderSync.ApplyWorkColumnOrder(finalOrder, movedNames);
+                    return;
+                }
+
+                // Actually move all dragged columns
+                for (int i = 0; i < _draggedColumns.Count; i++)
+                {
+                    workCols.Insert(insertIndex + i, _draggedColumns[i]);
+                }
+
+                // Reconstruct table def columns
+                var original = def.columns.ToList();
+                var pre = new List<PawnColumnDef>();
+                var post = new List<PawnColumnDef>();
+                bool inWork = false;
+
+                foreach (var col in original)
+                {
+                    bool isWork = col.Worker is PawnColumnWorker_WorkPriority && col.workType != null;
+                    if (isWork) inWork = true;
+                    else if (!inWork) pre.Add(col);
+                    else post.Add(col);
+                }
+
+                def.columns.Clear();
+                def.columns.AddRange(pre);
+                def.columns.AddRange(workCols);
+                def.columns.AddRange(post);
+
+                WorkColumnOrderManager.CaptureCurrent(def);
+
+                // Record that ALL dragged columns were directly moved by the player
+                foreach (var col in _draggedColumns)
+                {
+                    if (col.workType != null)
+                    {
+                        MainTabWindow_BetterWork.MarkColumnMoved(col.workType);
+                    }
+                }
+
+                // Force layout to rebuild with new column order
+                var layout = PawnOrganizerSystem.Instance?.Layout;
+                if (layout is WorkTabLayoutController workLayout)
+                {
+                    workLayout.InvalidateRowDescriptors();
+                }
+
+                WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
+                MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+
+                if (MultiplayerBridge.Active)
+                {
+                    Better_Work_Tab.Mod_Support.Multiplayer.Features.Layouts.LayoutSharingManager.NotifyLayoutChanged();
+                }
+
+                // Clear selection after successful drop unless Ctrl is still held
+                if (!Event.current.control || !BetterWorkTabMod.Settings.enableColumnGrouping)
+                {
+                    ColumnSelectionManager.Clear();
                 }
             }
-
-            // Force layout to rebuild with new column order
-            var layout = PawnOrganizerSystem.Instance?.Layout;
-            if (layout is WorkTabLayoutController workLayout)
+            finally
             {
-                workLayout.InvalidateRowDescriptors();
+                // Clear the dragging flag
+                BetterWorkTabLocalState.IsHeaderDragging = false;
             }
-
-            WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
-            MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
-
-            if (MultiplayerBridge.Active)
-            {
-                Better_Work_Tab.Mod_Support.Multiplayer.Features.Layouts.LayoutSharingManager.NotifyLayoutChanged();
-            }
-
-            // Clear selection after successful drop unless Ctrl is still held
-            if (!Event.current.control || !BetterWorkTabMod.Settings.enableColumnGrouping)
-            {
-                ColumnSelectionManager.Clear();
-            }
-            
-            // Clear the dragging flag
-            BetterWorkTabLocalState.IsHeaderDragging = false;
-            IsDragging = false;
         }
     }
 }

@@ -1284,6 +1284,9 @@ namespace Better_Work_Tab.UI
             // Clear float menu highlights when Work tab is closed
             HighlightState.ClearWorktypeHighlight();
             MouseStateManager.ClearHover();
+
+            // Cancel any active drag operations to ensure priority editing is re-enabled
+            PawnOrganizerSystem.Instance?.CancelActiveDrag();
         }
     }
 }
