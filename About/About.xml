@@ -6,7 +6,7 @@
    <li>1.6</li>
  </supportedVersions>
  <packageId>Coolnether123.BetterWorkTab</packageId>
- <modVersion>1.0.1</modVersion>
+ <modVersion>1.0.2</modVersion>
  <description><![CDATA[Completely overhauls RimWorld’s Work tab with drag-and-drop, skill overlays, automation rules, and visual customization.
 
 All features are toggleable in settings with extensive customization options.
