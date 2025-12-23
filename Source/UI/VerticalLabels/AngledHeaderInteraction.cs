@@ -26,6 +26,17 @@ namespace Better_Work_Tab.UI
             bool hit = isMouseOver || (headerRect != default && headerRect.Contains(evt.mousePosition));
             if (!hit) return;
 
+            if (evt.type == EventType.MouseDown && evt.button == 1 && evt.control)
+            {
+                // Convert GUI coordinates to logical UI space (account for scale and groups)
+                Vector2 localPos = new Vector2(headerRect.center.x, headerRect.y);
+                Vector2 screenPos = Verse.UI.GUIToScreenPoint(localPos) / Prefs.UIScale;
+                
+                Find.WindowStack.Add(new UI.WorkGiverReassignments.Window_WorkGiverSubMenu(worker.def.workType, screenPos));
+                evt.Use();
+                return;
+            }
+
             if (evt.type == EventType.MouseDown && evt.shift)
             {
                 BetterWorkTabMod.DebugLog($"[BWT] Shift-Click on {worker.def.defName}", DebugFeature.DragDrop);

@@ -146,6 +146,16 @@ namespace Better_Work_Tab.Patches
 
             UpdateFrameCache();
 
+            // Handle WorkGiver Sub-Menu (Ctrl + Right Click)
+            if (Event.current.type == EventType.MouseDown && Event.current.button == 1 && Event.current.control && Mouse.IsOver(rect))
+            {
+                Vector2 localPos = new Vector2(rect.center.x, rect.y);
+                Vector2 screenPos = Verse.UI.GUIToScreenPoint(localPos) / Prefs.UIScale;
+                Find.WindowStack.Add(new Better_Work_Tab.UI.WorkGiverReassignments.Window_WorkGiverSubMenu(workType, screenPos, pawn));
+                Event.current.Use();
+                return false;
+            }
+
             // Handle Scroll Wheel Priority Adjustment
             if (BetterWorkTabMod.Settings.enableScrollWheelPriority && Event.current.type == EventType.ScrollWheel && Mouse.IsOver(rect))
             {

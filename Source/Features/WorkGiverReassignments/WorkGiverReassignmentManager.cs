@@ -1,0 +1,516 @@
+using Better_Work_Tab;
+using Better_Work_Tab.Mod_Support.Multiplayer;
+using Better_Work_Tab.Features;
+using Multiplayer.API;
+using RimWorld;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using Verse;
+
+namespace Better_Work_Tab.Features.WorkGiverReassignments
+{
+    /// <summary>
+    /// Central coordinator for workgiver reassignment lookups, caching, and mutation.
+    /// </summary>
+    internal static class WorkGiverReassignmentManager
+    {
+        private static readonly Dictionary<int, WorkTypeDef> WorkGiverTargetCache = new Dictionary<int, WorkTypeDef>();
+        private static readonly Dictionary<int, bool> ReassignedCache = new Dictionary<int, bool>();
+        private static readonly Dictionary<string, List<WorkGiver>> OrderedWorkGiverCache = new Dictionary<string, List<WorkGiver>>(StringComparer.Ordinal);
+
+        private static int _cachedSyncVersion = -1;
+
+        private static BetterWorkTabSettings Settings => BetterWorkTabMod.Settings;
+
+        private static WorkGiverReassignmentData Data
+        {
+            get
+            {
+                if (Settings == null)
+                {
+                    return null;
+                }
+
+                if (Settings.WorkGiverReassignments == null)
+                {
+                    Settings.WorkGiverReassignments = new WorkGiverReassignmentData();
+                }
+
+                return Settings.WorkGiverReassignments;
+            }
+        }
+
+        /// <summary>
+        /// Clear caches when the sync version changes or the settings are reloaded.
+        /// </summary>
+        internal static void InvalidateCaches()
+        {
+            WorkGiverTargetCache.Clear();
+            ReassignedCache.Clear();
+            OrderedWorkGiverCache.Clear();
+        }
+
+        internal static void OnSettingsLoaded()
+        {
+            InvalidateCaches();
+            _cachedSyncVersion = Data?.SyncVersion ?? 0;
+            CleanupOrphanedReassignments();
+        }
+
+        private static void EnsureVersion()
+        {
+            int version = Data?.SyncVersion ?? 0;
+            if (version == _cachedSyncVersion)
+            {
+                return;
+            }
+
+            InvalidateCaches();
+            _cachedSyncVersion = version;
+        }
+
+        internal static WorkTypeDef GetTargetWorkType(WorkGiverDef def)
+        {
+            if (def == null)
+            {
+                return null;
+            }
+
+            EnsureVersion();
+
+            if (WorkGiverTargetCache.TryGetValue(def.shortHash, out var cached))
+            {
+                return cached;
+            }
+
+            WorkTypeDef target = def.workType;
+            var data = Data;
+
+            if (data?.WorkGiverToWorkTypeMap != null &&
+                data.WorkGiverToWorkTypeMap.TryGetValue(def.defName, out var targetWorkTypeName) &&
+                !string.IsNullOrEmpty(targetWorkTypeName))
+            {
+                var mapped = DefDatabase<WorkTypeDef>.GetNamedSilentFail(targetWorkTypeName);
+                if (mapped != null)
+                {
+                    target = mapped;
+                }
+            }
+
+            WorkGiverTargetCache[def.shortHash] = target;
+            ReassignedCache[def.shortHash] = target != def.workType;
+            return target;
+        }
+
+        internal static bool IsReassigned(WorkGiverDef def)
+        {
+            if (def == null)
+            {
+                return false;
+            }
+
+            EnsureVersion();
+
+            if (ReassignedCache.TryGetValue(def.shortHash, out var cached))
+            {
+                return cached;
+            }
+
+            var target = GetTargetWorkType(def);
+            bool reassigned = target != null && target != def.workType;
+            ReassignedCache[def.shortHash] = reassigned;
+            return reassigned;
+        }
+
+        internal static IReadOnlyList<WorkGiver> GetOrderedWorkGiversForWorkType(WorkTypeDef workType, Pawn pawn = null)
+        {
+            EnsureVersion();
+
+            if (workType == null)
+            {
+                return Array.Empty<WorkGiver>();
+            }
+
+            if (pawn == null && OrderedWorkGiverCache.TryGetValue(workType.defName, out var cached))
+            {
+                return cached;
+            }
+
+            var result = new List<WorkGiver>();
+            var data = Data;
+
+            List<string> orderedNames = null;
+            if (data?.WorkTypeWorkGiverOrder != null)
+            {
+                data.WorkTypeWorkGiverOrder.TryGetValue(workType.defName, out orderedNames);
+            }
+
+            var handled = new HashSet<string>(StringComparer.Ordinal);
+            if (orderedNames != null)
+            {
+                for (int i = 0; i < orderedNames.Count; i++)
+                {
+                    var name = orderedNames[i];
+                    if (handled.Contains(name))
+                    {
+                        continue;
+                    }
+
+                    var def = DefDatabase<WorkGiverDef>.GetNamedSilentFail(name);
+                    if (def != null && GetTargetWorkType(def) == workType)
+                    {
+                        var worker = def.Worker;
+                        if (worker != null)
+                        {
+                            result.Add(worker);
+                            handled.Add(name);
+                        }
+                    }
+                }
+            }
+
+            var remaining = new List<WorkGiverDef>();
+            foreach (var def in DefDatabase<WorkGiverDef>.AllDefsListForReading)
+            {
+                if (GetTargetWorkType(def) != workType)
+                {
+                    continue;
+                }
+
+                if (!handled.Contains(def.defName))
+                {
+                    remaining.Add(def);
+                }
+            }
+
+            remaining.Sort((a, b) => b.priorityInType.CompareTo(a.priorityInType));
+            for (int i = 0; i < remaining.Count; i++)
+            {
+                var worker = remaining[i].Worker;
+                if (worker != null)
+                {
+                    result.Add(worker);
+                }
+            }
+
+            // Apply sorting based on priorities (pawn-specific or global defaults)
+            var sortingPawn = pawn;
+            int defaultPrio = 3; // Baseline for sorting
+            
+            var indexed = result.Select((g, idx) => new { g, idx }).ToList();
+            indexed.Sort((a, b) =>
+            {
+                int pa = GetWorkGiverPriority(sortingPawn, a.g.def, defaultPrio);
+                int pb = GetWorkGiverPriority(sortingPawn, b.g.def, defaultPrio);
+                
+                // Treat 0 as disabled (lowest priority)
+                int valA = (pa == 0) ? 999 : pa;
+                int valB = (pb == 0) ? 999 : pb;
+                
+                int c = valA.CompareTo(valB);
+                if (c != 0) return c;
+                
+                // Secondary sort: vanilla priorityInType (higher is better)
+                c = b.g.def.priorityInType.CompareTo(a.g.def.priorityInType);
+                if (c != 0) return c;
+
+                return a.idx.CompareTo(b.idx);
+            });
+            result = indexed.Select(x => x.g).ToList();
+
+            if (pawn == null)
+            {
+                OrderedWorkGiverCache[workType.defName] = result;
+            }
+
+            return result;
+        }
+
+        internal static List<Pawn> GetPawnsWithOverrides(WorkTypeDef workType)
+        {
+            var data = Data;
+            if (data?.PawnWorkGiverPriorityOverrides == null || workType == null)
+            {
+                return new List<Pawn>();
+            }
+
+            var wgs = GetOrderedWorkGiversForWorkType(workType);
+            var wgNames = new HashSet<string>(wgs.Select(g => g.def.defName));
+
+            var results = new List<Pawn>();
+            foreach (var kv in data.PawnWorkGiverPriorityOverrides)
+            {
+                if (kv.Value == null || kv.Value.Count == 0) continue;
+                
+                bool hasMatch = false;
+                foreach (var wgName in kv.Value.Keys)
+                {
+                    if (wgNames.Contains(wgName))
+                    {
+                        hasMatch = true;
+                        break;
+                    }
+                }
+
+                if (hasMatch)
+                {
+                    var pawn = PawnsFinder.All_AliveOrDead.FirstOrDefault(p => p.thingIDNumber == kv.Key);
+                    if (pawn != null)
+                    {
+                        results.Add(pawn);
+                    }
+                }
+            }
+
+            return results;
+        }
+
+        internal static bool HasAnyPawnOverride(WorkTypeDef workType, Pawn pawn)
+        {
+            var data = Data;
+            if (data?.PawnWorkGiverPriorityOverrides == null || workType == null || pawn == null)
+            {
+                return false;
+            }
+
+            if (!data.PawnWorkGiverPriorityOverrides.TryGetValue(pawn.thingIDNumber, out var pawnDict) || pawnDict == null)
+            {
+                return false;
+            }
+
+            var wgs = GetOrderedWorkGiversForWorkType(workType);
+            foreach (var g in wgs)
+            {
+                if (pawnDict.ContainsKey(g.def.defName)) return true;
+            }
+
+            return false;
+        }
+
+        internal static bool HasNonEmergencyWorkGiver(WorkTypeDef workType)
+        {
+            return GetOrderedWorkGiversForWorkType(workType).Any(w => w?.def != null && !w.def.emergency);
+        }
+
+        internal static bool CanPawnUseMappedWorkType(Pawn pawn, WorkGiverDef def)
+        {
+            if (pawn?.workSettings == null)
+            {
+                return true;
+            }
+
+            var targetWorkType = GetTargetWorkType(def);
+            if (targetWorkType == null)
+            {
+                return true;
+            }
+
+            if (pawn.WorkTypeIsDisabled(targetWorkType))
+            {
+                return false;
+            }
+
+            return pawn.workSettings.GetPriority(targetWorkType) > 0;
+        }
+
+        internal static int GetWorkGiverPriority(Pawn pawn, WorkGiverDef workGiver, int defaultPriority)
+        {
+            var data = Data;
+            if (data == null) return defaultPriority;
+
+            // 1. Pawn-specific override
+            if (pawn != null &&
+                data.PawnWorkGiverPriorityOverrides.TryGetValue(pawn.thingIDNumber, out var pawnDict) &&
+                pawnDict != null &&
+                pawnDict.TryGetValue(workGiver.defName, out int pawnPriority))
+            {
+                return pawnPriority;
+            }
+            
+            // 2. Global override (Pawn ID -1)
+            if (data.PawnWorkGiverPriorityOverrides.TryGetValue(-1, out var globalDict) &&
+                globalDict != null &&
+                globalDict.TryGetValue(workGiver.defName, out int globalPriority))
+            {
+                return globalPriority;
+            }
+
+            return defaultPriority;
+        }
+
+        internal static void SetPawnOverride(Pawn pawn, WorkGiverDef workGiver, int priority)
+        {
+            var data = Data;
+            if (data == null || workGiver == null) return;
+            int pawnId = pawn?.thingIDNumber ?? -1;
+
+            if (!data.PawnWorkGiverPriorityOverrides.TryGetValue(pawnId, out var dict) || dict == null)
+            {
+                dict = new Dictionary<string, int>(StringComparer.Ordinal);
+                data.PawnWorkGiverPriorityOverrides[pawnId] = dict;
+            }
+
+            if (priority <= 0)
+            {
+                dict.Remove(workGiver.defName);
+            }
+            else
+            {
+                dict[workGiver.defName] = priority;
+            }
+
+            data.SyncVersion++;
+            InvalidateCaches();
+            WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
+        }
+
+        internal static bool TryReassignWorkGiver(string workGiverDefName, string targetWorkTypeDefName, int? insertIndex, out string errorMsg)
+        {
+            errorMsg = null;
+            var workGiverDef = DefDatabase<WorkGiverDef>.GetNamedSilentFail(workGiverDefName);
+            if (workGiverDef == null)
+            {
+                errorMsg = $"WorkGiver '{workGiverDefName}' not found";
+                return false;
+            }
+
+            var targetWorkTypeDef = DefDatabase<WorkTypeDef>.GetNamedSilentFail(targetWorkTypeDefName);
+            if (targetWorkTypeDef == null)
+            {
+                errorMsg = $"WorkType '{targetWorkTypeDefName}' not found";
+                return false;
+            }
+
+            if (MultiplayerBridge.Active)
+            {
+                SyncReassignWorkGiver(workGiverDef.defName, targetWorkTypeDef.defName, insertIndex ?? targetWorkTypeDef.workGiversByPriority.Count);
+                return true;
+            }
+
+            ApplyReassignment(workGiverDef, targetWorkTypeDef, insertIndex);
+            BetterWorkTabMod.DebugLog($"Reassigned {workGiverDef.defName} -> {targetWorkTypeDef.defName}", DebugFeature.General);
+            return true;
+        }
+
+        internal static void MoveWithinWorkType(string workTypeDefName, string workGiverDefName, int newIndex)
+        {
+            var data = Data;
+            if (data == null)
+            {
+                return;
+            }
+
+            var workType = DefDatabase<WorkTypeDef>.GetNamedSilentFail(workTypeDefName);
+            var workGiver = DefDatabase<WorkGiverDef>.GetNamedSilentFail(workGiverDefName);
+            if (workType == null || workGiver == null)
+            {
+                return;
+            }
+
+            if (!data.WorkTypeWorkGiverOrder.TryGetValue(workType.defName, out var list) || list == null)
+            {
+                list = new List<string>();
+                data.WorkTypeWorkGiverOrder[workType.defName] = list;
+            }
+
+            list.Remove(workGiver.defName);
+            newIndex = Math.Max(0, Math.Min(newIndex, list.Count));
+            list.Insert(newIndex, workGiver.defName);
+
+            data.SyncVersion++;
+            InvalidateCaches();
+            WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
+        }
+
+        [SyncMethod]
+        internal static void SyncReassignWorkGiver(string workGiverDefName, string targetWorkTypeDefName, int insertIndex)
+        {
+            var wg = DefDatabase<WorkGiverDef>.GetNamedSilentFail(workGiverDefName);
+            var wt = DefDatabase<WorkTypeDef>.GetNamedSilentFail(targetWorkTypeDefName);
+            if (wg == null || wt == null)
+            {
+                return;
+            }
+
+            ApplyReassignment(wg, wt, insertIndex);
+        }
+
+        /// <summary>
+        /// Mutate mapping + ordering and invalidate caches.
+        /// </summary>
+        private static void ApplyReassignment(WorkGiverDef workGiverDef, WorkTypeDef targetWorkTypeDef, int? insertIndex = null)
+        {
+            var data = Data;
+            if (data == null)
+            {
+                return;
+            }
+
+            data.WorkGiverToWorkTypeMap[workGiverDef.defName] = targetWorkTypeDef.defName;
+
+            if (data.WorkTypeWorkGiverOrder != null)
+            {
+                foreach (var kv in data.WorkTypeWorkGiverOrder)
+                {
+                    kv.Value?.Remove(workGiverDef.defName);
+                }
+            }
+            else
+            {
+                data.WorkTypeWorkGiverOrder = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+            }
+
+            if (!data.WorkTypeWorkGiverOrder.TryGetValue(targetWorkTypeDef.defName, out var targetList) || targetList == null)
+            {
+                targetList = new List<string>();
+                data.WorkTypeWorkGiverOrder[targetWorkTypeDef.defName] = targetList;
+            }
+
+            int index = insertIndex.HasValue ? Math.Max(0, Math.Min(insertIndex.Value, targetList.Count)) : targetList.Count;
+            targetList.Insert(index, workGiverDef.defName);
+
+            data.SyncVersion++;
+            InvalidateCaches();
+            WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
+        }
+
+        internal static void CleanupOrphanedReassignments()
+        {
+            var data = Data;
+            if (data?.WorkGiverToWorkTypeMap == null)
+            {
+                return;
+            }
+
+            var orphaned = new List<string>();
+            foreach (var wgName in data.WorkGiverToWorkTypeMap.Keys.ToList())
+            {
+                if (DefDatabase<WorkGiverDef>.GetNamedSilentFail(wgName) == null)
+                {
+                    orphaned.Add(wgName);
+                }
+            }
+
+            foreach (var wgName in orphaned)
+            {
+                data.WorkGiverToWorkTypeMap.Remove(wgName);
+                foreach (var list in data.WorkTypeWorkGiverOrder.Values)
+                {
+                    list?.Remove(wgName);
+                }
+
+                foreach (var pawnDict in data.PawnWorkGiverPriorityOverrides.Values)
+                {
+                    pawnDict?.Remove(wgName);
+                }
+            }
+
+            if (orphaned.Count > 0)
+            {
+                InvalidateCaches();
+                BetterWorkTabMod.DebugLog($"Cleaned up {orphaned.Count} orphaned WorkGiver reassignments", DebugFeature.General);
+            }
+        }
+    }
+}

@@ -65,6 +65,9 @@
     <Compile Include="Features\Rules\RuleParameterRegistry.cs" />
     <Compile Include="Features\ColumnBaselineManager.cs" />
     <Compile Include="Features\WorkExecutionOrder.cs" />
+    <Compile Include="Features\WorkGiverReassignments\WorkGiverReassignmentData.cs" />
+    <Compile Include="Features\WorkGiverReassignments\WorkGiverReassignmentManager.cs" />
+    <Compile Include="Features\WorkGiverReassignments\WorkGiverReassignmentPatches.cs" />
     <Compile Include="Features\Workloads\GameComponent_BWTWorldSettings.cs" />
     <Compile Include="Features\Workloads\Worklist.cs" />
     <Compile Include="Features\Workloads\WorkloadNamers.cs" />
@@ -118,6 +121,7 @@
     <Compile Include="Spine\UI\SettingsFramework\SettingWidgets.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingsListDrawer.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingsUIHelpers.cs" />
+    <Compile Include="UI\WorkGiverReassignments\Window_WorkGiverSubMenu.cs" />
     <Compile Include="Spine\UI\WidgetExtensions\RimworldSettingsWidgets.cs" />
     <Compile Include="UI\RulesetListDragUI.cs" />
     <Compile Include="UI\VerticalLabels\MainTabWindow_BetterWork.cs" />

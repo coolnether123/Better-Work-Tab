@@ -1,5 +1,6 @@
 ﻿using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.Rules;
+using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.Workloads;
 using RimWorld;
 using System;
@@ -309,6 +310,7 @@ namespace Better_Work_Tab
         };
         public List<string> workColumnOrderDefNames = new List<string>();
         public Dictionary<string, float> storedColumnWidths = new Dictionary<string, float>();
+        public WorkGiverReassignmentData WorkGiverReassignments = new WorkGiverReassignmentData();
 
         // Tracks which columns the player has directly dragged. Only columns in this list
         // that are also currently out of their vanilla position will show the yellow asterisk.
@@ -633,6 +635,8 @@ namespace Better_Work_Tab
             // Reinitialize rulesets after load (restores defaults if missing)
             //InitializeRulesets();
 
+            Scribe_Deep.Look(ref WorkGiverReassignments, "workGiverReassignments");
+
             // Column order and widths persistence
             Scribe_Collections.Look(ref workColumnOrderDefNames, "workColumnOrderDefNames", LookMode.Value);
             Scribe_Collections.Look(ref storedColumnWidths, "storedColumnWidths", LookMode.Value, LookMode.Value);
@@ -640,6 +644,16 @@ namespace Better_Work_Tab
 
             // Save/load the list of columns the player has directly dragged
             Scribe_Collections.Look(ref playerDraggedColumns, "playerDraggedColumns", LookMode.Value);
+
+            if (WorkGiverReassignments == null)
+            {
+                WorkGiverReassignments = new WorkGiverReassignmentData();
+            }
+
+            if (Scribe.mode == LoadSaveMode.PostLoadInit)
+            {
+                WorkGiverReassignmentManager.OnSettingsLoaded();
+            }
 
             if (storedColumnWidths == null)
             {
