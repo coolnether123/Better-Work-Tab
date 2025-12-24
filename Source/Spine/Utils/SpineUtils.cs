@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Unity.Mathematics;
+using UnityEngine;
 
 namespace Spine.Utils
 {
@@ -25,7 +26,8 @@ namespace Spine.Utils
             float from2,
             float to2)
         {
-            return math.remap(from1, to1, from2, to2, value);
+            //https://stackoverflow.com/questions/3451553/value-remapping
+            return from2 + (value - from1) * (to2 - from2) / (to1 - from1); //math.remap(from1, to1, from2, to2, value);
         }
     }
 }
