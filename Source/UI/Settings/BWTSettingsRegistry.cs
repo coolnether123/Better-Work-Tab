@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Better_Work_Tab;
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.Workloads;
@@ -151,6 +152,19 @@ namespace Better_Work_Tab.UI.Settings
 
             Register(new SettingDefinition
             {
+                Id = AutoassignWarnOnApply,
+                ParentId = FeaturesAutoassign,
+                FieldName = "warnOnApplyRuleset",
+                Label = "Warn before applying Ruleset",
+                Tooltip = "Show a confirmation warning before applying a ruleset to all colonists.",
+                Type = SettingType.Bool,
+                DefaultValue = true,
+                ShowInSimpleView = true,
+                SortOrder = 1
+            });
+
+            Register(new SettingDefinition
+            {
                 Id = FeaturesWorkloads,
                 FieldName = "enableWorkloads",
                 Label = "Workloads",
@@ -162,6 +176,19 @@ namespace Better_Work_Tab.UI.Settings
                 SortOrder = -44,
                 EmphasizeAsHeader = true,
                 HeaderColor = new Color(0.6f, 0.6f, 0.6f)
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = WorkloadsWarnOnApply,
+                ParentId = FeaturesWorkloads,
+                FieldName = "warnOnApplyWorkload",
+                Label = "Warn before applying Workload",
+                Tooltip = "Show a confirmation warning before applying a workload to all colonists.",
+                Type = SettingType.Bool,
+                DefaultValue = true,
+                ShowInSimpleView = true,
+                SortOrder = 1
             });
 
             Register(new SettingDefinition
@@ -186,6 +213,8 @@ namespace Better_Work_Tab.UI.Settings
                 DefaultValue = DefaultSettings.enablePerformanceOptimizations,
                 ControlsChildVisibility = true,
                 ShowInSimpleView = false,
+                ShowInAdvancedView = false,
+                VisibleWhen = _ => false,
                 SortOrder = -41,
                 EmphasizeAsHeader = true,
                 HeaderColor = new Color(0.6f, 0.8f, 0.8f)
@@ -228,7 +257,7 @@ namespace Better_Work_Tab.UI.Settings
                 Label = "Set Master Highlight Color",
                 Tooltip = "Select a color to apply to ALL highlight settings (Hover, Selected, etc).",
                 Type = SettingType.Button,
-                ShowInSimpleView = false,
+                ShowInSimpleView = true,
                 SortOrder = 0, 
                 OnChanged = settingsObj =>
                 {
@@ -241,6 +270,8 @@ namespace Better_Work_Tab.UI.Settings
                              s.Color_ColumnHoverHighlight = picked;
                              s.Color_SelectedPawnHighlight = picked;
                              s.Color_FloatMenuHighlight = picked;
+                             s.Color_CustomMouseHighlight = picked;
+                             s.Color_CustomSimilarWorktypeHighlight = picked;
                              s.Write();
                              Messages.Message("Master color applied to all highlight settings.", MessageTypeDefOf.PositiveEvent, false);
                          }));
@@ -257,7 +288,8 @@ namespace Better_Work_Tab.UI.Settings
                 Tooltip = "Color used to highlight the row and column when hovering over cells.",
                 Type = SettingType.Color,
                 DefaultValue = DefaultSettings.Color_CursorHighlight,
-                ShowInSimpleView = true,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
                 SortOrder = 1
             });
 
@@ -409,6 +441,37 @@ namespace Better_Work_Tab.UI.Settings
 
             Register(new SettingDefinition
             {
+                Id = HighlightsDisableBestPawn,
+                ParentId = FeaturesOverlay,
+                FieldName = "disableBestPawnHighlight",
+                Label = "Disable Best Pawn Highlight",
+                Tooltip = "Disable the green highlight for the best pawn in a work type.",
+                Type = SettingType.Bool,
+                DefaultValue = false,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 41
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = HighlightsBestPawnBackground,
+                ParentId = FeaturesOverlay,
+                FieldName = "bestPawnHighlightThickness",
+                Label = "Best Pawn Outline Thickness",
+                Tooltip = "Adjust the thickness of the green outline for the best pawn in a work type.",
+                Type = SettingType.Int,
+                DefaultValue = 1,
+                MinValue = 1f,
+                MaxValue = 4f,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 42,
+                VisibleWhen = s => !((BetterWorkTabSettings)s).disableBestPawnHighlight
+            });
+
+            Register(new SettingDefinition
+            {
                 Id = HighlightsSimilar,
                 ParentId = HighlightsHover,
                 FieldName = "ShowSimilarWorktypeHighlight",
@@ -460,6 +523,34 @@ namespace Better_Work_Tab.UI.Settings
                 ShowInSimpleView = true,
                 SortOrder = 95,
                 ParentId = FeaturesDragdrop
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = DragdropEnableGrouping,
+                ParentId = FeaturesDragdrop,
+                FieldName = "enableColumnGrouping",
+                Label = "Enable Column Grouping (Ctrl+Click)",
+                Tooltip = "Allows selecting multiple columns with Ctrl+Click to drag them together.",
+                Type = SettingType.Bool,
+                DefaultValue = false,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 96
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = DragdropRemoveHeaderUnderline,
+                ParentId = FeaturesDragdrop,
+                FieldName = "removeHeaderUnderline",
+                Label = "Hide Header Underline",
+                Tooltip = "Remove the underline from work tab header labels.",
+                Type = SettingType.Bool,
+                DefaultValue = false,
+                ShowInSimpleView = true,
+                ShowInAdvancedView = true,
+                SortOrder = 97
             });
 
             Register(new SettingDefinition
@@ -642,6 +733,19 @@ namespace Better_Work_Tab.UI.Settings
 
             Register(new SettingDefinition
             {
+                Id = "ui.autoEnableManualPriorities",
+                FieldName = "autoEnableManualPriorities",
+                Label = "Auto-Enable Manual Priorities",
+                Tooltip = "Automatically check the Manual Priorities checkbox when opening the Work tab.",
+                Type = SettingType.Bool,
+                DefaultValue = false,
+                ShowInSimpleView = true,
+                SortOrder = 1044,
+                ParentId = FeaturesUiElements
+            });
+
+            Register(new SettingDefinition
+            {
                 Id = LayoutDividerHeight,
                 FieldName = "dividerHeight",
                 Label = "Divider Default Height",
@@ -785,8 +889,21 @@ namespace Better_Work_Tab.UI.Settings
                 Tooltip = "Show indicator on manually moved columns.",
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.showColumnMovedMarker,
-                ShowInSimpleView = false,
+                ShowInSimpleView = true,
                 SortOrder = 115
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = ColumnsShowBaselineLine,
+                ParentId = FeaturesDragdrop,
+                FieldName = "showColumnBaselineLine",
+                Label = "Show Baseline Line While Dragging",
+                Tooltip = "Show a line at the column's baseline position while dragging moved columns.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.showColumnBaselineLine,
+                ShowInSimpleView = true,
+                SortOrder = 116
             });
 
             Register(new SettingDefinition
@@ -815,11 +932,76 @@ namespace Better_Work_Tab.UI.Settings
                 Label = "Skill Colors",
                 Type = SettingType.Header,
                 Tooltip = "Skill overlay behaviors when using Shift and hover.",
-                HeaderColor = new Color(0.9f, 0.7f, 0.4f),
+                HeaderColor = new Color(0.8f, 0.8f, 0.6f),
                 ShowInSimpleView = false,
-                SortOrder = 200,
+                SortOrder = 104,
                 ParentId = FeaturesOverlay
             });
+
+            var settings = BetterWorkTabMod.Settings;
+            if (settings != null)
+            {
+                // Dynamic settings generation: The DropdownListAdder lets users add hidden work types,
+                // and for each hidden type, we create a removable button tag below.
+                Register(new SettingDefinition
+                {
+                    Id = HideWorktypes,
+                    ParentId = FeaturesUiElements,
+                    FieldName = "hiddenWorktypes",
+                    Label = "Hidden Work Types",
+                    Tooltip = "Select work types to hide from the work tab. (Beta Testing Phase. Please reach out to discord with ideas for improving)",
+                    Type = SettingType.DropdownListAdder,
+                    DropdownOptionsProvider = () => DefDatabase<WorkTypeDef>.AllDefsListForReading
+                        .Where(wt => !settings.hiddenWorktypes.Contains(wt.defName))
+                        .Select(w => w.labelShort.CapitalizeFirst())
+                        .OrderBy(l => l),
+                    OnOptionAdded = (option) =>
+                    {
+                        var wt = DefDatabase<WorkTypeDef>.AllDefsListForReading.FirstOrDefault(w => w.labelShort.CapitalizeFirst() == option);
+                        if (wt != null && !settings.hiddenWorktypes.Contains(wt.defName))
+                        {
+                            settings.hiddenWorktypes.Add(wt.defName);
+                            settings.Write();
+                            _initialized = false;
+                            BetterWorkTabSettingsUI.NotifySettingsChanged();
+                            EnsureInitialized();
+                            MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+                        }
+                    },
+                    ShowInSimpleView = false,
+                    ShowInAdvancedView = true,
+                    SortOrder = 105
+                });
+
+                foreach (var hiddenDefName in settings.hiddenWorktypes)
+                {
+                    var wt = DefDatabase<WorkTypeDef>.GetNamedSilentFail(hiddenDefName);
+                    if (wt == null) continue;
+
+                    string localHiddenDefName = hiddenDefName;
+                    Register(new SettingDefinition
+                    {
+                        Id = "hide.wt." + hiddenDefName,
+                        ParentId = HideWorktypes,
+                        Label = "  - " + wt.labelShort.CapitalizeFirst(),
+                        Tooltip = "Click to unhide this work type.",
+                        Type = SettingType.Button,
+                        OnChanged = (s) =>
+                        {
+                            var settingsObj = (BetterWorkTabSettings)s;
+                            settingsObj.hiddenWorktypes.Remove(localHiddenDefName);
+                            settingsObj.Write();
+                            _initialized = false;
+                            BetterWorkTabSettingsUI.NotifySettingsChanged();
+                            EnsureInitialized();
+                            MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+                        },
+                        ShowInSimpleView = false,
+                        ShowInAdvancedView = true,
+                        SortOrder = 106
+                    });
+                }
+            }
 
             Register(new SettingDefinition
             {
@@ -1040,6 +1222,7 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.persistDividersInWorkloads,
                 ShowInSimpleView = false,
+                ShowInAdvancedView = false,
                 SortOrder = 4025
             });
 
@@ -1081,6 +1264,7 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Bool,
                 DefaultValue = true,
                 ShowInSimpleView = false,
+                ShowInAdvancedView = false,
                 SortOrder = 405
             });
 
@@ -1094,6 +1278,7 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Bool,
                 DefaultValue = true,
                 ShowInSimpleView = false,
+                ShowInAdvancedView = false,
                 SortOrder = 406
             });
 
@@ -1107,6 +1292,7 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Bool,
                 DefaultValue = true,
                 ShowInSimpleView = false,
+                ShowInAdvancedView = false,
                 SortOrder = 407
             });
 
@@ -1120,6 +1306,7 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Bool,
                 DefaultValue = true,
                 ShowInSimpleView = false,
+                ShowInAdvancedView = false,
                 SortOrder = 408
             });
 
@@ -1133,6 +1320,7 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Bool,
                 DefaultValue = true,
                 ShowInSimpleView = false,
+                ShowInAdvancedView = false,
                 SortOrder = 409
             });
 
@@ -1146,24 +1334,104 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Bool,
                 DefaultValue = true,
                 ShowInSimpleView = false,
+                ShowInAdvancedView = false,
                 SortOrder = 410
             });
 
             Register(new SettingDefinition
             {
+                Id = AdvancedScrollWheelPriority,
+                ParentId = AdvancedHeader,
+                FieldName = "enableScrollWheelPriority",
+                Label = "Enable Scroll Wheel Priority",
+                Tooltip = "Allows you to change a pawn's work priority by scrolling the mouse wheel while hovering over a work cell.",
+                Type = SettingType.Bool,
+                DefaultValue = false,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 490
+            });
+
+            // Master toggle for debug logging. When false, no BWT debug messages (except errors) will fire.
+            Register(new SettingDefinition
+            {
                 Id = AdvancedDebugLogging,
+                ParentId = AdvancedHeader,
                 FieldName = "enableDebugLogging",
                 Label = "Enable Debug Logging",
                 Tooltip = "Output detailed debug messages to the log.",
                 Type = SettingType.Bool,
                 DefaultValue = false,
                 ShowInSimpleView = false,
+                ShowInAdvancedView = false,
+                ControlsChildVisibility = true,
                 SortOrder = 500
             });
 
+            if (settings != null)
+            {
+                // Dynamic list of debug features. Uses DropdownListAdder to let users pick specific sub-systems to log.
+                Register(new SettingDefinition
+                {
+                    Id = "debug.features",
+                    ParentId = AdvancedDebugLogging,
+                    Label = "Debug Features",
+                    Tooltip = "Select which debug features to enable logging for.",
+                    Type = SettingType.DropdownListAdder,
+                    DropdownOptionsProvider = () => Enum.GetValues(typeof(DebugFeature))
+                        .Cast<DebugFeature>()
+                        .Where(f => !settings.debugFeatureToggles.ContainsKey(f) || !settings.debugFeatureToggles[f])
+                        .Select(f => f.ToString())
+                        .OrderBy(l => l),
+                    OnOptionAdded = (option) =>
+                    {
+                        if (Enum.TryParse<DebugFeature>(option, out var feature))
+                        {
+                            settings.debugFeatureToggles[feature] = true;
+                            settings.Write();
+                            _initialized = false;
+                            BetterWorkTabSettingsUI.NotifySettingsChanged();
+                            EnsureInitialized();
+                        }
+                    },
+                    ShowInSimpleView = false,
+                    ShowInAdvancedView = false,
+                    SortOrder = 501
+                });
+
+                // Display each currently enabled debug feature as a removable button tag.
+                var enabledFeatures = settings.debugFeatureToggles.Where(kvp => kvp.Value).Select(kvp => kvp.Key).ToList();
+                foreach (var feature in enabledFeatures)
+                {
+                    var localFeature = feature;
+                    Register(new SettingDefinition
+                    {
+                        Id = "debug.feature." + feature.ToString(),
+                        ParentId = "debug.features",
+                        Label = "  - " + feature.ToString(),
+                        Tooltip = "Click to disable logging for this feature.",
+                        Type = SettingType.Button,
+                        OnChanged = (s) =>
+                        {
+                            var settingsObj = (BetterWorkTabSettings)s;
+                            settingsObj.debugFeatureToggles[localFeature] = false;
+                            settingsObj.Write();
+                            _initialized = false;
+                            BetterWorkTabSettingsUI.NotifySettingsChanged();
+                            EnsureInitialized();
+                        },
+                        ShowInSimpleView = false,
+                        ShowInAdvancedView = false,
+                        SortOrder = 502
+                    });
+                }
+            }
+
+            // Controls whether BWT tracks performance metrics (visible via debug commands).
             Register(new SettingDefinition
             {
                 Id = AdvancedProfiler,
+                ParentId = AdvancedHeader,
                 FieldName = "enableProfiler",
                 Label = "Enable Profiler",
                 Tooltip = "Enable in-game profiler (1 to report, Shift+1 to clear).",
@@ -1171,12 +1439,14 @@ namespace Better_Work_Tab.UI.Settings
                 DefaultValue = false,
                 ShowInSimpleView = false,
                 ShowInAdvancedView = false,
-                SortOrder = 411
+                SortOrder = 503
             });
 
+            // If enabled, debug messages are mirrored to a dedicated .txt file in the mod folder.
             Register(new SettingDefinition
             {
                 Id = AdvancedLogToFile,
+                ParentId = AdvancedHeader,
                 FieldName = "logDebugToFile",
                 Label = "Log to File",
                 Tooltip = "Write debug logs to file in addition to console.",
@@ -1184,7 +1454,7 @@ namespace Better_Work_Tab.UI.Settings
                 DefaultValue = false,
                 ShowInSimpleView = false,
                 ShowInAdvancedView = false,
-                SortOrder = 412
+                SortOrder = 504
             });
 
             // Multiplayer sync

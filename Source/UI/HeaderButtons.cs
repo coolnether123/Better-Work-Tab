@@ -59,11 +59,27 @@ namespace Better_Work_Tab.UI
                 // Rulesets are now local-only (not synced in multiplayer)
                 if (curRuleset != null)
                 {
-                    if (curRuleset.ResetBeforeApplying)
+                    System.Action applyAction = () =>
                     {
-                        WorkAssignmentRuleset.SetAllToZero();
+                        if (curRuleset.ResetBeforeApplying)
+                        {
+                            WorkAssignmentRuleset.SetAllToZero();
+                        }
+                        curRuleset.ApplyAutoAssignments();
+                    };
+
+                    if (settings.warnOnApplyRuleset)
+                    {
+                        ConfirmApplyWithResetWarning("Apply ruleset?", applyAction, (val) =>
+                        {
+                            settings.warnOnApplyRuleset = !val;
+                            settings.Write();
+                        });
                     }
-                    curRuleset.ApplyAutoAssignments();
+                    else
+                    {
+                        applyAction();
+                    }
                 }
             }
 
@@ -114,9 +130,25 @@ namespace Better_Work_Tab.UI
             {
                 if (workloadSaver.CurrentWorklist != null)
                 {
-                    workloadSaver.CurrentWorklist.Apply();
-                    MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
-                    SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                    System.Action applyAction = () =>
+                    {
+                        workloadSaver.CurrentWorklist.Apply();
+                        MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+                        SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                    };
+
+                    if (settings.warnOnApplyWorkload)
+                    {
+                        ConfirmApplyWithResetWarning("Apply workload?", applyAction, (val) =>
+                        {
+                            settings.warnOnApplyWorkload = !val;
+                            settings.Write();
+                        });
+                    }
+                    else
+                    {
+                        applyAction();
+                    }
                 }
                 else
                 {
@@ -250,6 +282,15 @@ namespace Better_Work_Tab.UI
                     SoundDefOf.Tick_Low.PlayOneShotOnCamera();
                 }));
             }
+        }
+
+        private static void ConfirmApplyWithResetWarning(string title, System.Action onConfirm, System.Action<bool> setDoNotShowAgain)
+        {
+            Find.WindowStack.Add(new Dialog_WarningWithCheckbox(
+                "Applying this will reset the current work tab priority configuration. Continue?",
+                title,
+                onConfirm,
+                setDoNotShowAgain));
         }
     }
 }

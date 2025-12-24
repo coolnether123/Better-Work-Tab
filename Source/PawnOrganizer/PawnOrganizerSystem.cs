@@ -129,6 +129,15 @@ namespace Better_Work_Tab.PawnOrganizer
                 // Otherwise, detect new drags
                 HandleDragDetection(evt);
 
+                // Clear selection when Ctrl is released
+                if (evt.type == EventType.KeyUp && (evt.keyCode == KeyCode.LeftControl || evt.keyCode == KeyCode.RightControl))
+                {
+                    if (BetterWorkTabMod.Settings.enableColumnGrouping)
+                    {
+                        ColumnSelectionManager.Clear();
+                    }
+                }
+
                 // === PRESENCE FEATURE DISABLED ===
                 /*
                 // Update presence (called from input context where syncing works)
@@ -198,7 +207,7 @@ namespace Better_Work_Tab.PawnOrganizer
                     var completedDrag = _activeColumnDrag;
                     completedDrag?.OnDrop();
                     _activeColumnDrag = null;
-                    AngledLabelDrawer.ClearPendingHeaderClick(completedDrag?.ColumnDef);
+                    AngledHeaderInteraction.ClearPendingHeaderClick(completedDrag?.ColumnDef);
                     evt.Use();
                     break;
 
@@ -206,7 +215,7 @@ namespace Better_Work_Tab.PawnOrganizer
                     var cancelledDrag = _activeColumnDrag;
                     cancelledDrag?.OnCancel();
                     _activeColumnDrag = null;
-                    AngledLabelDrawer.ClearPendingHeaderClick(cancelledDrag?.ColumnDef);
+                    AngledHeaderInteraction.ClearPendingHeaderClick(cancelledDrag?.ColumnDef);
                     evt.Use();
                     break;
             }
@@ -334,7 +343,7 @@ namespace Better_Work_Tab.PawnOrganizer
             }
 
             _activeColumnDrag = new ColumnDragHandler(_layoutController, column);
-            AngledLabelDrawer.NotifyColumnDragStarted(_pendingColumn);
+            AngledHeaderInteraction.NotifyColumnDragStarted(_pendingColumn);
         }
 
         private void InitiateRowDrag(Pawn pawn, PawnDivider divider)
@@ -424,11 +433,19 @@ namespace Better_Work_Tab.PawnOrganizer
             _pendingColumn = null;
         }
 
+        public void CancelActiveDrag()
+        {
+            _activeRowDrag?.OnCancel();
+            _activeColumnDrag?.OnCancel();
+            ClearAllDragState();
+        }
+
         private void ClearAllDragState()
         {
             ClearPendingDrag();
             _activeRowDrag = null;
             _activeColumnDrag = null;
+            BetterWorkTabLocalState.IsHeaderDragging = false;
         }
 
         public void DrawDragOverlays()

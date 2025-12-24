@@ -22,6 +22,7 @@ namespace Better_Work_Tab.UI.Settings
         public const string ColorsSkillVeryLow = "colors.skillVeryLow";
         public const string ColumnsResetWidths = "columns.resetWidths";
         public const string ColumnsShowMovedIndicator = "columns.showMovedIndicator";
+        public const string ColumnsShowBaselineLine = "columns.showBaselineLine";
         public const string DividersCollapse = "dividers.collapse";
         public const string DividersCustomColors = "dividers.customColors";
         public const string DividersLabels = "dividers.labels";
@@ -91,5 +92,13 @@ namespace Better_Work_Tab.UI.Settings
         public const string UiManualPriorities = "ui.manualPriorities";
         public const string UiPriorityLegend = "ui.priorityLegend";
         public const string WorkloadsPersistDividers = "workloads.persistDividers";
+        public const string HighlightsDisableBestPawn = "highlights.disableBestPawn";
+        public const string HighlightsBestPawnBackground = "highlights.bestPawnBackground";
+        public const string DragdropEnableGrouping = "dragdrop.enableGrouping";
+        public const string DragdropRemoveHeaderUnderline = "dragdrop.removeHeaderUnderline";
+        public const string AutoassignWarnOnApply = "autoassign.warnOnApply";
+        public const string WorkloadsWarnOnApply = "workloads.warnOnApply";
+        public const string HideWorktypes = "ux.hideWorktypes";
+        public const string AdvancedScrollWheelPriority = "advanced.scrollWheelPriority";
     }
 }
