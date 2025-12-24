@@ -1,4 +1,4 @@
-using RimWorld;
+﻿using RimWorld;
 using System.Collections.Generic;
 using UnityEngine;
 using Verse;
@@ -77,8 +77,9 @@ namespace Better_Work_Tab.UI
 
             Vector2 textSize = GetTextSize(displayText, uiScale, currentFrame);
 
-            float centerX = headerRect.x + headerRect.width * 0.5f;
-            Vector2 pivot = new Vector2(centerX, headerRect.yMax - stemBottomGap);
+            float centerX = headerRect.x + (headerRect.width * 0.5f);
+            // Pivot is at the center-bottom of the header cell
+            Vector2 pivot = new Vector2(centerX, headerRect.yMax - AngledLabelDrawer.STEM_BOTTOM_GAP);
 
             var layout = new AngledLabelDrawer.AngledLabelLayout(displayText, textSize, pivot, shouldShowMarker);
             var quad = BuildHighlightQuad(layout, rotCos, rotSin);
@@ -176,24 +177,32 @@ namespace Better_Work_Tab.UI
 
         private static Vector2[] BuildHighlightQuad(AngledLabelDrawer.AngledLabelLayout layout, float rotCos, float rotSin)
         {
-            // Local coordinates relative to pivot before rotation
+            float w = layout.Size.x;
+            float h = layout.Size.y;
+
+            // Local points relative to the pivot (0,0)
             Vector2 bl = new Vector2(0f, 0f);
-            Vector2 br = new Vector2(layout.Size.x, 0f);
-            Vector2 tr = new Vector2(layout.Size.x, -layout.Size.y);
-            Vector2 tl = new Vector2(0f, -layout.Size.y);
+            Vector2 br = new Vector2(w, 0f);
+            Vector2 tr = new Vector2(w, -h);
+            Vector2 tl = new Vector2(0f, -h);
+
+            // Calculate the same snapped pivot as the drawer
+            Vector2 snappedPivot = new Vector2(
+                Mathf.Floor(layout.Pivot.x * Prefs.UIScale + 0.001f) / Prefs.UIScale,
+                Mathf.Floor(layout.Pivot.y * Prefs.UIScale + 0.001f) / Prefs.UIScale
+            );
 
             Vector2 Rotate(Vector2 local)
             {
-                return new Vector2(local.x * rotCos - local.y * rotSin, local.x * rotSin + local.y * rotCos) + layout.Pivot;
+                // standard 2D rotation: 
+                // x' = x*cos - y*sin
+                // y' = x*sin + y*cos
+                float rx = local.x * rotCos - local.y * rotSin;
+                float ry = local.x * rotSin + local.y * rotCos;
+                return new Vector2(rx, ry) + snappedPivot;
             }
 
-            return new[]
-            {
-                Rotate(bl),
-                Rotate(br),
-                Rotate(tr),
-                Rotate(tl)
-            };
+            return new[] { Rotate(bl), Rotate(br), Rotate(tr), Rotate(tl) };
         }
 
         private static Rect GetAabb(Vector2[] quad)

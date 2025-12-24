@@ -8,60 +8,34 @@
    <li>1.6</li>
  </supportedVersions>
  <packageId>Coolnether123.BetterWorkTab</packageId>
- <modVersion>0.95</modVersion>
- <description>
-&lt;color=orange&gt;&lt;b&gt;Completely overhauls RimWorld's Work tab with drag-and-drop, skill overlays, automation rules, and visual customization.&lt;/b&gt;&lt;/color&gt;
+ <modVersion>1.0.2</modVersion>
+ <description><![CDATA[Completely overhauls RimWorld’s Work tab with drag-and-drop, skill overlays, automation rules, and visual customization.
 
-&lt;b&gt;Core Features:&lt;/b&gt;
-• &lt;color=#99FF99&gt;Drag &amp; Drop Reordering&lt;/color&gt; - Click and drag columns and pawn rows to rearrange your work tab layout. Changes persist between saves.
-• &lt;color=#99FF99&gt;Skill Level Overlay&lt;/color&gt; - Hold SHIFT to see skill levels instead of priorities. Color-coded (red→green) with "best pawn" highlighting.
-• &lt;color=#99FF99&gt;Visual Rule Builder&lt;/color&gt; - NEW! Intuitive 3-column interface for creating auto-assignment rules. Drag-and-drop to duplicate rules across work types and priorities.
-• &lt;color=#99FF99&gt;Auto-Assignment Rulesets&lt;/color&gt; - Create smart rules to automatically assign work priorities based on passions, skills, traits, xenotypes, gender, pregnancy, and more.
-• &lt;color=#99FF99&gt;Workload Presets&lt;/color&gt; - Save and load entire priority configurations as named presets. Switch between different colony setups instantly.
-• &lt;color=#99FF99&gt;Visual Dividers&lt;/color&gt; - Organize pawns into collapsible sections with custom labels, colors, and fonts.
-• &lt;color=#99FF99&gt;Pawn Highlights&lt;/color&gt; - Color-code pawn rows for easy identification. Set custom background colors per pawn.
-• &lt;color=#99FF99&gt;Advanced Highlighting&lt;/color&gt; - Highlight selected pawns, hovered rows/columns, and similar work types. Fully customizable colors and opacity.
-• &lt;color=#99FF99&gt;Multiplayer Support&lt;/color&gt; - Sync workload presets and column reordering across players (row reordering is local-only).
+All features are toggleable in settings with extensive customization options.
 
-&lt;b&gt;Rule-Based Automation:&lt;/b&gt;
-Build complex assignment logic with 25+ parameters:
-- Skill/passion thresholds (min/max)
-- Trait and xenotype requirements
-- Gender and pregnancy filters
-- "Highest skill", "top X skills", "Nth best" logic
-- Work type limits per pawn
-- Priority protection/overwrite rules
-- Random assignment for ties
+<b>Features</b>
+• Drag & drop reordering  
+• Skill level overlay (hold SHIFT)  
+• Auto-assignment rulesets  
+• Workload presets  
+• Visual dividers  
+• Force pawns to work on unassigned tasks
+• Advanced Pawn and Column highlighting   
+• Angled column headers  
+• Colonist / bed counts  
+• Right-click pawn quick actions (Rename/Background color)
+• Multiplayer support (With Zetrith Multiplayer mod)
 
-Includes 5 default rulesets: Vanilla Starting Pawn, Vanilla New Pawn, BWT Default (passion-based), Best Pawn to 1, and Reset All.
+<b>Compatibility</b>
+• Compatible with most work-type mods  
+• May conflict with other work-tab overhauls
 
-&lt;b&gt;Quality of Life:&lt;/b&gt;
-- Angled column headers save space and look great
-- Show colonist/bed counts at bottom
-- Disable left-click closing if needed
-- Show only insertion lines for cleaner drag preview
-- Right-click pawn name for quick actions (set color, rename, add divider)
+<b>Support</b>
+Questions, bug reports, or suggestions?  
+Join the Discord: <color=#99CCFF>https://discord.gg/QYBBaRkKWs</color>
+]]></description>
 
-&lt;b&gt;Requirements:&lt;/b&gt;
-- Harmony (required)
-
-&lt;b&gt;Compatibility:&lt;/b&gt;
-- Designed to work with most work-type mods
-- Patches are postfix/transpiler-based for maximum compatibility
-- May conflict with other work-tab overhaul mods (test before adding)
-
-&lt;b&gt;Performance:&lt;/b&gt;
-- Optimized for large colonies (50+ pawns)
-- Minimal overhead when idle
-- Efficient caching prevents frame drops
-
-&lt;b&gt;Credits:&lt;/b&gt;
-- Colour picker by Karel Kroeze (MIT License)
-- Harmony team for patch framework
-
-Questions? See the Steam Workshop page or GitHub repository for detailed documentation and tutorials.
- </description>
- <url>https://github.com/coolnether123/BetterWorkTab</url>
+ <url>https://github.com/coolnether123/Better-Work-Tab</url>
  <loadAfter>
    <li>brrainz.harmony</li>
    <li>Ludeon.RimWorld</li>

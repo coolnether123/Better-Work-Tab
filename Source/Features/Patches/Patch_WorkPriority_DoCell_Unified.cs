@@ -1,6 +1,7 @@
 ﻿using Better_Work_Tab.Features;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
+using Better_Work_Tab.UI;
 using HarmonyLib;
 using RimWorld;
 using System.Collections.Generic;
@@ -40,8 +41,14 @@ namespace Better_Work_Tab.Patches
                 _hoveredHeaderFrame = Time.frameCount;
             }
 
-            Rect labelRect = GetLabelRect(__instance, rect);
-            if (Mouse.IsOver(labelRect))
+            bool isHovered = PawnColumnWorker_WorkPriority_DoHeader_Patch.HoveredWorkType == __instance.def.workType;
+            if (!isHovered)
+            {
+                Rect labelRect = GetLabelRect(__instance, rect);
+                isHovered = Mouse.IsOver(labelRect);
+            }
+
+            if (isHovered)
             {
                 _hoveredHeaderWorkType = __instance.def.workType;
             }
@@ -76,6 +83,7 @@ namespace Better_Work_Tab.Patches
         private static BetterWorkTabSettings.HoverEffectScope _cachedHoverScope = BetterWorkTabSettings.HoverEffectScope.CellOnly;
         private static WorkTypeDef _columnHoveredWorkType;
         private static int _columnHoveredFrame = -1;
+        private static float _cachedSmallSkillXOffset = SmallSkillOffsetX;
 
         // === CACHES ===
         private static readonly Dictionary<int, int> _skillCache = new Dictionary<int, int>(1024);
@@ -95,7 +103,6 @@ namespace Better_Work_Tab.Patches
         private const float SmallSkillOffsetX = 16f;
         private const float SmallSkillOffsetY = -2f;
         private const float SkillBoxOutlinePadding = 2f;
-        private const int BestPawnOutlineThickness = 3;
 
         private static void UpdateFrameCache()
         {
@@ -110,6 +117,13 @@ namespace Better_Work_Tab.Patches
             _cachedHoverCellOverlayEnabled = BetterWorkTabMod.Settings?.showHoverCellOverlay ?? true;
             _cachedHoverMode = BetterWorkTabMod.Settings?.skillViewHoverMode ?? BetterWorkTabSettings.SkillViewHoverMode.Standard;
             _cachedHoverScope = BetterWorkTabMod.Settings?.hoverEffectScope ?? BetterWorkTabSettings.HoverEffectScope.CellOnly;
+
+            // Handle 1.25x scale offset for shift overlay numbers
+            _cachedSmallSkillXOffset = SmallSkillOffsetX;
+            if (Mathf.Approximately(Prefs.UIScale, 1.25f))
+            {
+                _cachedSmallSkillXOffset -= 11f;
+            }
         }
 
         public static void ClearColorCache()
@@ -131,6 +145,47 @@ namespace Better_Work_Tab.Patches
             if (workType == null) return true;
 
             UpdateFrameCache();
+
+            // Handle Scroll Wheel Priority Adjustment
+            if (BetterWorkTabMod.Settings.enableScrollWheelPriority && Event.current.type == EventType.ScrollWheel && Mouse.IsOver(rect))
+            {
+                int currentPriority = pawn.workSettings.GetPriority(workType);
+                int delta = Event.current.delta.y > 0 ? -1 : 1; // Scroll up = increase priority (closer to 1), Scroll down = decrease
+                // TODO: Will need to update this when custom priorities are added
+                if (Find.PlaySettings.useWorkPriorities)
+                {
+                    // Manual priorities: 1-4, 0 is disabled.
+                    // Note: RimWorld priorities are 1 (Highest) to 4 (Lowest). 0 is Off.
+                    // Scroll Up (delta +1): 0 -> 4 -> 3 -> 2 -> 1
+                    // Scroll Down (delta -1): 1 -> 2 -> 3 -> 4 -> 0
+                    int nextPriority = currentPriority;
+                    if (delta > 0) // Increase (1 is high, 4 is low)
+                    {
+                        if (currentPriority == 0) nextPriority = 4;
+                        else if (currentPriority > 1) nextPriority = currentPriority - 1;
+                    }
+                    else // Decrease
+                    {
+                        if (currentPriority == 4) nextPriority = 0;
+                        else if (currentPriority > 0) nextPriority = currentPriority + 1;
+                    }
+
+                    if (nextPriority != currentPriority)
+                    {
+                        pawn.workSettings.SetPriority(workType, nextPriority);
+                    }
+                }
+                else
+                {
+                    // Checkbox mode: 0 or 3
+                    int nextPriority = (currentPriority > 0) ? 0 : 3;
+                    if (nextPriority != currentPriority)
+                    {
+                        pawn.workSettings.SetPriority(workType, nextPriority);
+                    }
+                }
+                Event.current.Use();
+            }
 
             // If skill overlay feature is disabled or shift is not held, use vanilla rendering
             if (!_cachedFeatureEnabled || !_cachedShiftHeld)
@@ -281,13 +336,13 @@ namespace Better_Work_Tab.Patches
                 }
             }
 
-            if (ShouldShowUI(BetterWorkTabMod.Settings.ShowUIMode_ShowPawnForSkillSquare, _cachedUiState))
+            if (!BetterWorkTabMod.Settings.disableBestPawnHighlight && ShouldShowUI(BetterWorkTabMod.Settings.ShowUIMode_ShowPawnForSkillSquare, _cachedUiState))
             {
                 Pawn bestPawn = GetBestPawnForWorktype(table, workType, __instance);
-                if (bestPawn == pawn)
-                {
-                    DrawBestPawnOutline(rect);
-                }
+                    if (bestPawn == pawn)
+                    {
+                        DrawBestPawnOutline(rect);
+                    }
             }
         }
 
@@ -449,7 +504,7 @@ namespace Better_Work_Tab.Patches
 
         private static void DrawSmallSkillNumbers(Rect rect, int level)
         {
-            Rect boxRect = new Rect(rect.x + SmallSkillOffsetX, rect.y + SmallSkillOffsetY, SkillBoxSize, SkillBoxSize);
+            Rect boxRect = new Rect(rect.x + _cachedSmallSkillXOffset, rect.y + SmallSkillOffsetY, SkillBoxSize, SkillBoxSize);
             var oldFont = Text.Font;
             var oldAnchor = Text.Anchor;
             var oldColor = GUI.color;
@@ -468,7 +523,7 @@ namespace Better_Work_Tab.Patches
         {
             // Use same position as small skill numbers
             Rect prioRect = new Rect(
-                rect.x + SmallSkillOffsetX,
+                rect.x + _cachedSmallSkillXOffset,
                 rect.y + SmallSkillOffsetY,
                 SkillBoxSize,
                 SkillBoxSize);
@@ -494,20 +549,36 @@ namespace Better_Work_Tab.Patches
         {
             float x = rect.x + (rect.width - SkillBoxSize) / 2f;
             float y = rect.y + SkillBoxVerticalPadding;
-            float outlineSize = SkillBoxSize + (SkillBoxOutlinePadding * 2f);
 
+            // Outline extends 1px beyond the skill box on all sides
             Rect outlineRect = new Rect(
-                Mathf.FloorToInt(x) - SkillBoxOutlinePadding,
-                Mathf.FloorToInt(y) - SkillBoxOutlinePadding,
-                outlineSize,
-                outlineSize);
+                x - 1f,
+                y - 1f,
+                SkillBoxSize + 2f,
+                SkillBoxSize + 2f);
 
             Widgets.DrawBoxSolidWithOutline(
                 outlineRect,
                 Color.clear,
                 BetterWorkTabMod.Settings.Color_BestPawnForSkillSquare,
-                BestPawnOutlineThickness);
+                BetterWorkTabMod.Settings.bestPawnHighlightThickness);
         }
+
+        private static void DrawBestPawnBackground(Rect rect)
+        {
+            float x = rect.x + (rect.width - SkillBoxSize) / 2f;
+            float y = rect.y + SkillBoxVerticalPadding;
+            Rect boxRect = new Rect(x, y, SkillBoxSize, SkillBoxSize);
+
+            Color highlightColor = BetterWorkTabMod.Settings.Color_BestPawnForSkillSquare;
+            highlightColor.a = 0.5f; // Semi-transparent background
+            GUI.DrawTexture(boxRect, BaseContent.WhiteTex);
+            Color oldColor = GUI.color;
+            GUI.color = highlightColor;
+            GUI.DrawTexture(boxRect, BaseContent.WhiteTex);
+            GUI.color = oldColor;
+        }
+
 
         private static bool ShouldShowUI(BetterWorkTabSettings.ShowUIMode mode, BetterWorkTabSettings.ShowUIMode currentState)
         {

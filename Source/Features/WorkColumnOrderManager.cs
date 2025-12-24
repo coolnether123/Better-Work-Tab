@@ -140,7 +140,7 @@ namespace Better_Work_Tab.Features
         /// </summary>
         public static void CaptureVanillaOrder()
         {
-            if (_trueVanillaColumnOrder != null)
+            if (_trueVanillaColumnOrder != null && _trueVanillaColumnOrder.Count > 0)
                 return;
 
             _trueVanillaColumnOrder = new List<string>(ColumnBaselineManager.GetTrueVanillaOrder());
@@ -209,16 +209,6 @@ namespace Better_Work_Tab.Features
 
             SetSharedOrder(order);
 
-            if (!MultiplayerBridge.Active)
-            {
-                var settings = BetterWorkTabMod.Settings;
-                if (settings != null)
-                {
-                    settings.workColumnOrderDefNames = new List<string>(order);
-                    settings.Write();
-                }
-            }
-
             BetterWorkTabMod.DebugLog($"WorkColumnOrderManager.CaptureCurrent: Captured order: {string.Join(", ", order)}", DebugFeature.DragDrop);
             return order;
         }
@@ -229,16 +219,6 @@ namespace Better_Work_Tab.Features
         public static void ApplySaved(PawnTableDef tableDef)
         {
             var order = GetSharedOrderOrNull();
-
-            if (order == null || order.Count == 0)
-            {
-                var settingsOrder = BetterWorkTabMod.Settings?.workColumnOrderDefNames;
-                if (settingsOrder != null && settingsOrder.Count > 0)
-                {
-                    order = new List<string>(settingsOrder);
-                    SetSharedOrder(order);
-                }
-            }
 
             if (order == null || order.Count == 0)
             {

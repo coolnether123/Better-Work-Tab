@@ -47,13 +47,16 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="BetterWorkTab.cs" />
+    <Compile Include="BetterWorkTabLocalState.cs" />
     <Compile Include="DragDrop\DragHandler.cs" />
     <Compile Include="DragDrop\DragSession.cs" />
     <Compile Include="DragDrop\ColumnDragHandler.cs" />
+    <Compile Include="DragDrop\ColumnSelectionManager.cs" />
     <Compile Include="Features\HighlightDrawer.cs" />
     <Compile Include="Features\HighlightState.cs" />
     <Compile Include="Features\Caching\BedCountCache.cs" />
     <Compile Include="Features\Patches\Patch_PawnTable_RecacheIfDirty.cs" />
+    <Compile Include="Features\Patches\Patch_Pawn_WorkSettings_SetPriority.cs" />
     <Compile Include="Features\Patches\Patch_WorkPriority_DoCell_Unified.cs" />
     <Compile Include="Features\Rules\AssignmentValidationResult.cs" />
     <Compile Include="Features\Rules\Validators\AssignmentConstraintsValidator.cs" />
@@ -140,9 +143,12 @@
     <Compile Include="UI\Dialog_RenameGeneric.cs" />
     <Compile Include="UI\Dialog_RenameWorkload.cs" />
     <Compile Include="UI\Dialog_RenameRuleset.cs" />
-    <Compile Include="UI\VerticalLabels\AngledHeaderDrawer.cs" />
+    <Compile Include="UI\VerticalLabels\AngledLabelDrawer.cs" />
+    <Compile Include="UI\VerticalLabels\AngledHeaderInteraction.cs" />
+    <Compile Include="UI\VerticalLabels\WorkPriorityHeaderPatches.cs" />
     <Compile Include="UI\VerticalLabels\AngledHeaderCache.cs" />
     <Compile Include="UI\HeaderButtons.cs" />
+    <Compile Include="UI\Dialog_WarningWithCheckbox.cs" />
     <Compile Include="UI\MouseStateManager.cs" />
     <Compile Include="Features\Patches\Patch_Building_Bed_Cache.cs" />
     <Compile Include="UI\RuleBuilder\RuleBuilderConstants.cs" />
