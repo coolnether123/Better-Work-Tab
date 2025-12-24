@@ -43,7 +43,7 @@ namespace Better_Work_Tab.UI
         private const float ParameterRowIndent = 10f;
         private const float ParameterValuePortion = 0.25f;
         private const float TraitButtonMinWidth = 150f;
-#if !v1_3
+#if !v1_3 && !v1_2
         private static readonly Vector2 XenotypeIconSize = new Vector2(22f, 22f);
 #endif
 
@@ -75,7 +75,7 @@ namespace Better_Work_Tab.UI
                 { typeof(string), (mgr, field, rowRect, valueRect, label) => mgr.DrawStringParameter(field, rowRect, valueRect, label) },
                 { typeof(Gender?), (mgr, field, rowRect, valueRect, label) => mgr.DrawGenderParameter(field, rowRect, valueRect, label) },
                 { typeof(WorkTypeDef), (mgr, field, rowRect, valueRect, label) => mgr.DrawWorkTypeParameter(field, rowRect, valueRect, label) },
-#if !v1_3
+#if !v1_3 && !v1_2
                 { typeof(XenotypeDef), (mgr, field, rowRect, valueRect, label) => mgr.DrawXenotypeParameter(field, rowRect, valueRect, label) },
 #endif
                 { typeof(Tuple<TraitDef, int>), (mgr, field, rowRect, valueRect, label) => mgr.DrawTraitParameter(field, rowRect, valueRect, label) },
@@ -208,14 +208,14 @@ namespace Better_Work_Tab.UI
             Rect rect3 = rect2;
             rect3.xMin += ParameterRowIndent;
             rect3.xMax -= ParameterRowIndent;
-            rect3.y = rect2.yMax - Window.CloseButSize.y - 10f;
-            rect3.height = Window.CloseButSize.y;
+            rect3.y = rect2.yMax - this.CloseButSize.y - 10f;
+            rect3.height = this.CloseButSize.y;
             Rect outRect = rect2;
             outRect.yMin -= 24f;
             outRect.yMax = rect3.y + 39f;
             Widgets.DrawMenuSection(rect2);
 
-#if !v1_3
+#if !v1_3 && !v1_2
             int parameterCount = GetParameterFields().Count(f => ModsConfig.BiotechActive || f.FieldType != typeof(XenotypeDef));
 #else
             int parameterCount = GetParameterFields().Count();
@@ -242,7 +242,7 @@ namespace Better_Work_Tab.UI
 
             foreach (FieldInfo field in GetParameterFields())
             {
-#if !v1_3
+#if !v1_3 && !v1_2
                 if (!ModsConfig.BiotechActive && field.FieldType == typeof(XenotypeDef))
                     continue;
 #else
@@ -306,7 +306,11 @@ namespace Better_Work_Tab.UI
             }
             else
             {
+#if v1_2
+                value = Widgets12.TextField(valueRect, value, 24);
+#else
                 value = Widgets.TextField(valueRect, value, 24);
+#endif
                 field.SetValue(SelectedRule.Parameters, value);
             }
         }
@@ -394,7 +398,7 @@ namespace Better_Work_Tab.UI
         }
 
 
-#if !v1_3
+#if !v1_3 && !v1_2
         private void DrawXenotypeParameter(FieldInfo field, Rect rowRect, Rect valueRect, string label)
         {
             Widgets.Label(rowRect.LeftPart(1f - ParameterValuePortion), label);
@@ -566,7 +570,11 @@ namespace Better_Work_Tab.UI
                 Text.Anchor = b4;
             }
             else
+#if v1_2
+                ruleNameBuffer = Widgets12.TextField(titleRect, ruleNameBuffer, 21);
+#else
                 ruleNameBuffer = Widgets.TextField(titleRect, ruleNameBuffer, 21);
+#endif
 
             rect2.height -= 10f;
             rect2.y += 10f;
@@ -574,8 +582,8 @@ namespace Better_Work_Tab.UI
             Rect rect3 = rect2;
             rect3.xMin += 10f;
             rect3.xMax -= 10f;
-            rect3.y = rect2.yMax - Window.CloseButSize.y - 10f;
-            rect3.height = Window.CloseButSize.y;
+            rect3.y = rect2.yMax - this.CloseButSize.y - 10f;
+            rect3.height = this.CloseButSize.y;
             Rect outRect = rect2;
             outRect.yMax = rect3.y - 10f;
             Widgets.DrawMenuSection(rect2);

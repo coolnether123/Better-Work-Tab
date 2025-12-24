@@ -118,26 +118,42 @@ namespace Better_Work_Tab.UI
             string gerund = workType.gerundLabel ?? workType.labelShort ?? workType.defName ?? "Work";
             string desc = workType.description ?? string.Empty;
 
+#if v1_2
+            TaggedString tip = gerund.CapitalizeFirst().Colorize(ColoredTextCompat.TipSectionTitleColor)
+#else
             TaggedString tip = gerund.CapitalizeFirst().Colorize(ColoredText.TipSectionTitleColor)
+#endif
                                 + "\n\n" + desc
                                 + "\n\n" + BuildSpecificWorkListString(workType) + "\n";
 
             if (worker.def.sortable)
             {
+#if v1_2
+                tip += "\n" + ((string)"ClickToSortByThisColumn".Translate()).Colorize(ColoredTextCompat.SubtleGrayColor);
+#else
                 tip += "\n" + "ClickToSortByThisColumn".Translate().Colorize(ColoredText.SubtleGrayColor);
+#endif
             }
 
-#if !v1_3
+#if !v1_3 && !v1_2
             if (!SteamDeck.IsSteamDeckInNonKeyboardMode)
 #endif
             {
                 if (Find.PlaySettings.useWorkPriorities)
                 {
+#if v1_2
+                    tip += "\n" + ((string)"WorkPriorityShiftClickTip".Translate()).Colorize(ColoredTextCompat.SubtleGrayColor);
+#else
                     tip += "\n" + "WorkPriorityShiftClickTip".Translate().Colorize(ColoredText.SubtleGrayColor);
+#endif
                 }
                 else
                 {
+#if v1_2
+                    tip += "\n" + ((string)"WorkPriorityShiftClickEnableDisableTip".Translate()).Colorize(ColoredTextCompat.SubtleGrayColor);
+#else
                     tip += "\n" + "WorkPriorityShiftClickEnableDisableTip".Translate().Colorize(ColoredText.SubtleGrayColor);
+#endif
                 }
             }
 

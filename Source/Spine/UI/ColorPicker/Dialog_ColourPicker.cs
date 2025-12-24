@@ -913,11 +913,13 @@ namespace Spine.UI.ColourPicker {
             base.OnCancelKeyPressed();
         }
 
+#if !v1_2
         public override void Notify_ClickOutsideWindow()
         {
             onCancel?.Invoke();
             base.Notify_ClickOutsideWindow();
         }
+#endif
 
         public override void PostClose()
         {

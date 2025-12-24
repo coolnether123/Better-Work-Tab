@@ -495,10 +495,12 @@ namespace Better_Work_Tab.PawnOrganizer
             if (pawn == null) return;
             API.PawnColorDatabase.SetColor(pawn, color);
             
+#if !v1_2
             if (Mod_Support.Multiplayer.MultiplayerBridge.Active)
             {
                Mod_Support.Multiplayer.Features.Layouts.LayoutSharingManager.NotifyLayoutChanged();
             }
+#endif
         }
     }
 }

@@ -1,5 +1,7 @@
 using Better_Work_Tab.Features;
+#if !v1_2
 using Better_Work_Tab.Mod_Support.Multiplayer.Sync;
+#endif
 using Better_Work_Tab.Mod_Support.Multiplayer;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
@@ -307,6 +309,7 @@ namespace Better_Work_Tab.DragDrop
                     return;
                 }
 
+#if !v1_2
                 if (MultiplayerBridge.Active)
                 {
                     // Sync the entire resulting order for multiplayer consistency
@@ -323,6 +326,7 @@ namespace Better_Work_Tab.DragDrop
                     WorkColumnOrderSync.ApplyWorkColumnOrder(finalOrder, movedNames);
                     return;
                 }
+#endif
 
                 // Actually move all dragged columns
                 for (int i = 0; i < _draggedColumns.Count; i++)
@@ -370,10 +374,12 @@ namespace Better_Work_Tab.DragDrop
                 WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
                 MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
 
+#if !v1_2
                 if (MultiplayerBridge.Active)
                 {
                     Better_Work_Tab.Mod_Support.Multiplayer.Features.Layouts.LayoutSharingManager.NotifyLayoutChanged();
                 }
+#endif
 
                 // Clear selection after successful drop unless Ctrl is still held
                 if (!Event.current.control || !BetterWorkTabMod.Settings.enableColumnGrouping)

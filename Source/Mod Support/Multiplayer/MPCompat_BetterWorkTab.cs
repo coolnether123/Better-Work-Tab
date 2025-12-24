@@ -1,3 +1,4 @@
+#if !v1_2
 using Multiplayer.API;
 using Verse;
 
@@ -15,3 +16,4 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer
         }
     }
 }
+#endif

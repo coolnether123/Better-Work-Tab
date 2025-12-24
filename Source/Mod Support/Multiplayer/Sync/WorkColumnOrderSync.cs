@@ -1,3 +1,4 @@
+#if !v1_2
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.UI;
@@ -133,3 +134,4 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Sync
         }
     }
 }
+#endif

@@ -1,12 +1,16 @@
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Mod_Support.Multiplayer;
+#if !v1_2
 using Better_Work_Tab.Mod_Support.Multiplayer.Features.Layouts;
+#endif
 using Better_Work_Tab.Features.Caching;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.PawnOrganizer.Data;
+#if !v1_2
 using Multiplayer.API;
+#endif
 using RimWorld;
 using Spine.Profiling;
 using Spine.UI.ColourPicker;
@@ -36,6 +40,7 @@ namespace Better_Work_Tab.UI
 
         private static Color CurrentRowTextColor = Color.white;
 
+#if !v1_2
         /// <summary>
         /// Multiplayer registration for column reordering sync.
         /// Uses nested class pattern to keep MP setup organized.
@@ -52,6 +57,7 @@ namespace Better_Work_Tab.UI
                                       nameof(MarkColumnMoved));
             }
         }
+#endif
 
 
         public override void PreOpen()
@@ -249,19 +255,21 @@ namespace Better_Work_Tab.UI
             }
             
             // Multiplayer follow mode: Copy this pawn row
+#if !v1_2
             if (LayoutSharingManager.IsFollowing)
             {
                 options.Add(new FloatMenuOption(
                     $"Copy {pawn.NameShortColored} row position to my layout (stop following)",
                     () => LayoutSharingManager.CopyPawnRowToLocalAndStop(pawn)));
             }
+#endif
 
             Find.WindowStack.Add(new FloatMenu(options));
         }
 
         private void ShowRenamePawnDialog(Pawn pawn)
         {
-#if v1_3
+#if v1_3 || v1_2
             Find.WindowStack.Add(new Dialog_NamePawn(pawn));
 #else
             Find.WindowStack.Add(pawn.NamePawnDialog());
@@ -287,18 +295,22 @@ namespace Better_Work_Tab.UI
 
                     MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
                     
+#if !v1_2
                     if (MultiplayerBridge.Active)
                         LayoutSharingManager.NotifyLayoutChanged();
+#endif
                 })
             };
             
             // Multiplayer follow mode: Copy this divider
+#if !v1_2
             if (LayoutSharingManager.IsFollowing)
             {
                 options.Add(new FloatMenuOption(
                     "Copy this divider to my layout (stop following)",
                     () => LayoutSharingManager.CopyDividerToLocalAndStop(divider)));
             }
+#endif
 
             Find.WindowStack.Add(new FloatMenu(options));
         }
@@ -320,8 +332,10 @@ namespace Better_Work_Tab.UI
             layout.AddDividerBeforePawn(pawn, "New Divider", Color.gray);
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
             
+#if !v1_2
             if (MultiplayerBridge.Active)
                 LayoutSharingManager.NotifyLayoutChanged();
+#endif
         }
 
 
@@ -386,8 +400,10 @@ namespace Better_Work_Tab.UI
             layout.AddDividerAfterPawn(pawn, "New Divider", Color.gray);
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
 
+#if !v1_2
             if (MultiplayerBridge.Active)
                 LayoutSharingManager.NotifyLayoutChanged();
+#endif
         }
 
         private void ShowBackgroundColorPicker(Pawn pawn)
@@ -520,7 +536,9 @@ namespace Better_Work_Tab.UI
         /// directly dragged by the player, then updates its marking status based on
         /// whether it ended up out of vanilla position.
         /// </summary>
+#if !v1_2
         [SyncMethod]
+#endif
         internal static void MarkColumnMoved(WorkTypeDef workType)
         {
             if (workType?.defName == null)
@@ -967,8 +985,10 @@ namespace Better_Work_Tab.UI
             {
                 ToggleDividerCollapsed(divider);
                 
+#if !v1_2
                 if (MultiplayerBridge.Active)
                     LayoutSharingManager.NotifyLayoutChanged();
+#endif
             }
             var originalAnchor = Text.Anchor;
             Text.Anchor = TextAnchor.MiddleCenter;
@@ -1182,7 +1202,7 @@ namespace Better_Work_Tab.UI
                 var mod = LoadedModManager.GetMod<BetterWorkTabMod>();
                 if (mod != null)
                 {
-#if v1_3
+#if v1_3 || v1_2
                     var dialog = new Dialog_ModSettings();
                     typeof(Dialog_ModSettings).GetField("selMod", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).SetValue(dialog, mod);
                     Find.WindowStack.Add(dialog);

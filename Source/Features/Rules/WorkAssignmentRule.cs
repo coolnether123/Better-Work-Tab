@@ -113,7 +113,7 @@ namespace Better_Work_Tab.Features.Rules
                 }
             }
 
-#if !v1_3
+#if !v1_3 && !v1_2
             if (Parameters.Xenotype == null && !string.IsNullOrEmpty(Parameters.XenotypeString))
             {
                 Parameters.Xenotype = DefDatabase<XenotypeDef>.GetNamedSilentFail(Parameters.XenotypeString);
@@ -140,8 +140,10 @@ namespace Better_Work_Tab.Features.Rules
 
             if (resolved == null && hasExplicitWorktypeString)
             {
-                int key = $"BWTMissingWorktype_{Parameters.WorktypeString}".GetHashCode();
-#if v1_3
+            int key = $"BWTMissingWorktype_{Parameters.WorktypeString}".GetHashCode();
+#if v1_2
+                LogCompat.WarningOnce($"[BWT] Unable to resolve worktype \"{Parameters.WorktypeString}\" for rule \"{Name}\".", key);
+#elif v1_3
                 Log.Warning($"[BWT] Unable to resolve worktype \"{Parameters.WorktypeString}\" for rule \"{Name}\".");
 #else
                 Log.WarningOnce($"[BWT] Unable to resolve worktype \"{Parameters.WorktypeString}\" for rule \"{Name}\".", key);

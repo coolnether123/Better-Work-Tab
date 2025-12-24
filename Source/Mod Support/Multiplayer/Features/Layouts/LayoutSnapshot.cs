@@ -1,3 +1,4 @@
+#if !v1_2
 using System.Collections.Generic;
 using System.Linq;
 using Verse;
@@ -82,3 +83,4 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Layouts
         }
     }
 }
+#endif
