@@ -25,26 +25,25 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         [HarmonyPostfix]
         public static void Postfix(ref Color __result, int prio)
         {
-            //get the number percent based on the max priority setting
-            float numPercent = (float)prio / (float)BetterWorkTabMod.Settings.maxPriorityInt;
-            numPercent *= 100f;
-            switch (numPercent)
+            if(prio == 0)
             {
-                case <= 25:
-                    if(numPercent == 0f)
-                    {
-                        __result = Color.grey;
-                        break;
-                    }
+                __result = Color.grey;
+                return;
+            }
+
+            prio = (int)SpineUtils.Remap(prio, 1, BetterWorkTabMod.Settings.maxPriorityInt, 1, 4);
+            switch (prio)
+            {
+                case 1:
                     __result = new Color(0f, 1f, 0f);
                     break;
-                case <= 50:
+                case 2:
                     __result = new Color(1f, 0.9f, 0.5f);
                     break;
-                case <= 75:
+                case 3:
                     __result = new Color(0.8f, 0.7f, 0.5f);
                     break;
-                case < 100:
+                case 4:
                     __result = new Color(0.74f, 0.74f, 0.74f);
                     break;
                 default:
@@ -111,7 +110,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 return 0;
             }
             //otherwise, remap the priority to 1-4
-            return (int)SpineUtils.Remap(1, BetterWorkTabMod.Settings.maxPriorityInt, 1, 4, priority);
+            return (int)SpineUtils.Remap(priority, 1, BetterWorkTabMod.Settings.maxPriorityInt, 1, 4);
         }
 
     }
