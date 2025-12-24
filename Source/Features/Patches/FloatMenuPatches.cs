@@ -150,11 +150,18 @@ namespace Better_Work_Tab.Patches
                 }
             }
 
+#if v1_3
+            var option = FloatMenuUtility.DecoratePrioritizedTask(
+                new FloatMenuOption(doOnceLabel, AssignOnce, orderInPriority: -1),
+                pawn,
+                target);
+#else
             var option = FloatMenuUtility.DecoratePrioritizedTask(
                 new FloatMenuOption(doOnceLabel, AssignOnce, orderInPriority: -1),
                 pawn,
                 target,
                 layer: scanner.GetReservationLayer(pawn, target));
+#endif
 
             opts.Add(option);
         }

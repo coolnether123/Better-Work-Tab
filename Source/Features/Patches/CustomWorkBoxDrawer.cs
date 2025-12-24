@@ -16,6 +16,7 @@ namespace Better_Work_Tab.Patches
         {
             if (p.WorkTypeIsDisabled(wType))
             {
+#if !v1_3
                 // This handles age-disabled work types by showing the vanilla age restriction texture and message
                 int minAgeRequired;
                 if (!p.IsWorkTypeDisabledByAge(wType, out minAgeRequired))
@@ -30,7 +31,7 @@ namespace Better_Work_Tab.Patches
                     SoundDefOf.ClickReject.PlayOneShotOnCamera();
                 }
                 GUI.DrawTexture(rect, WidgetsWork.WorkBoxBGTex_AgeDisabled);
-
+#endif
             }
             else
             {

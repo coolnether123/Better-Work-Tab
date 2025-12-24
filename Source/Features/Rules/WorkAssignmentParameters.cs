@@ -31,8 +31,10 @@ namespace Better_Work_Tab.Features.Rules
         [RuleParameter]
         public int PassionLevel = -1;
 
+#if !v1_3
         [RuleParameter]
         public XenotypeDef Xenotype;
+#endif
 
         [RuleParameter]
         public Tuple<TraitDef, int> RequiredTrait;
@@ -130,7 +132,9 @@ namespace Better_Work_Tab.Features.Rules
             bool assignToPawnWithFewestWorkPriorities = false, 
             Gender? gender = null, 
             bool isPregnant = false, 
+#if !v1_3
             XenotypeDef xenotype = null, 
+#endif
             Tuple<TraitDef, int> requiredTrait = null, 
             bool isNaturalAlwaysAssign = false, 
             bool isCapableOfViolence = false, 
@@ -171,11 +175,13 @@ namespace Better_Work_Tab.Features.Rules
             Gender = gender;
             IsPregnant = isPregnant;
 
+#if !v1_3
             Xenotype = xenotype;
             if(xenotype != null)
             {
                 XenotypeString = xenotype.defName;
             }
+#endif
 
             if(requiredTrait != null)
             {
@@ -218,7 +224,9 @@ namespace Better_Work_Tab.Features.Rules
                 Priority = Priority,
                 AllowOverwritingHigherPriority = AllowOverwritingHigherPriority,
                 PassionLevel = PassionLevel,
+#if !v1_3
                 Xenotype = Xenotype,
+#endif
                 RequiredTrait = RequiredTrait != null
                     ? new Tuple<TraitDef, int>(RequiredTrait.Item1, RequiredTrait.Item2)
                     : null,
@@ -302,7 +310,9 @@ namespace Better_Work_Tab.Features.Rules
         private void SyncBackingStringsFromDefs()
         {
             WorktypeString = Worktype?.defName ?? WorktypeString ?? "";
+#if !v1_3
             XenotypeString = Xenotype?.defName ?? XenotypeString ?? "";
+#endif
             TraitString = RequiredTrait?.Item1?.defName ?? TraitString ?? "";
             TraitDegree = RequiredTrait?.Item2 ?? TraitDegree;
         }
@@ -355,10 +365,12 @@ namespace Better_Work_Tab.Features.Rules
 
         private void ResolveXenotypeFromString()
         {
+#if !v1_3
             if (Xenotype == null && !string.IsNullOrEmpty(XenotypeString))
             {
                 Xenotype = DefDatabase<XenotypeDef>.GetNamedSilentFail(XenotypeString);
             }
+#endif
         }
 
         private void ResolveTraitRequirement(TraitDef loadedTrait, int loadedDegree)

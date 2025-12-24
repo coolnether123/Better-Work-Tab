@@ -52,8 +52,12 @@ namespace Better_Work_Tab.UI
 
             string btnLbl = curRuleset != null ? curRuleset.Name : "BWT_NoRuleset".Translate();
 
+#if v1_3
+            if (Widgets.ButtonText(mainRect, "  " + btnLbl))
+#else
             if (Widgets.ButtonText(mainRect, "  " + btnLbl,
                     overrideTextAnchor: TextAnchor.MiddleLeft))
+#endif
             {
                 SoundDefOf.Tick_Low.PlayOneShotOnCamera();
                 // Rulesets are now local-only (not synced in multiplayer)
@@ -125,8 +129,12 @@ namespace Better_Work_Tab.UI
             string buttonLabel = workloadSaver.CurrentWorklist?.RenamableLabel
                 ?? "New Workload";
 
+#if v1_3
+            if (Widgets.ButtonText(mainRect, "  " + buttonLabel))
+#else
             if (Widgets.ButtonText(mainRect, "  " + buttonLabel,
                     overrideTextAnchor: TextAnchor.MiddleLeft))
+#endif
             {
                 if (workloadSaver.CurrentWorklist != null)
                 {

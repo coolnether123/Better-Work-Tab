@@ -113,10 +113,12 @@ namespace Better_Work_Tab.Features.Rules
                 }
             }
 
+#if !v1_3
             if (Parameters.Xenotype == null && !string.IsNullOrEmpty(Parameters.XenotypeString))
             {
                 Parameters.Xenotype = DefDatabase<XenotypeDef>.GetNamedSilentFail(Parameters.XenotypeString);
             }
+#endif
         }
 
         private WorkTypeDef DetermineWorktype(WorkTypeDef callSiteWorktype)
@@ -139,7 +141,11 @@ namespace Better_Work_Tab.Features.Rules
             if (resolved == null && hasExplicitWorktypeString)
             {
                 int key = $"BWTMissingWorktype_{Parameters.WorktypeString}".GetHashCode();
+#if v1_3
+                Log.Warning($"[BWT] Unable to resolve worktype \"{Parameters.WorktypeString}\" for rule \"{Name}\".");
+#else
                 Log.WarningOnce($"[BWT] Unable to resolve worktype \"{Parameters.WorktypeString}\" for rule \"{Name}\".", key);
+#endif
             }
             else if (resolved != null && hasExplicitWorktypeString && Parameters.WorktypeString != resolved.defName)
             {

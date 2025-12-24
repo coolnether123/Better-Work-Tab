@@ -261,7 +261,11 @@ namespace Better_Work_Tab.UI
 
         private void ShowRenamePawnDialog(Pawn pawn)
         {
+#if v1_3
+            Find.WindowStack.Add(new Dialog_NamePawn(pawn));
+#else
             Find.WindowStack.Add(pawn.NamePawnDialog());
+#endif
         }
 
         private void ShowDividerContextMenu(PawnDivider divider)
@@ -1178,7 +1182,13 @@ namespace Better_Work_Tab.UI
                 var mod = LoadedModManager.GetMod<BetterWorkTabMod>();
                 if (mod != null)
                 {
+#if v1_3
+                    var dialog = new Dialog_ModSettings();
+                    typeof(Dialog_ModSettings).GetField("selMod", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).SetValue(dialog, mod);
+                    Find.WindowStack.Add(dialog);
+#else
                     Find.WindowStack.Add(new Dialog_ModSettings(mod));
+#endif
                 }
             }
         }

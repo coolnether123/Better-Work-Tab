@@ -127,7 +127,9 @@ namespace Better_Work_Tab.UI
                 tip += "\n" + "ClickToSortByThisColumn".Translate().Colorize(ColoredText.SubtleGrayColor);
             }
 
+#if !v1_3
             if (!SteamDeck.IsSteamDeckInNonKeyboardMode)
+#endif
             {
                 if (Find.PlaySettings.useWorkPriorities)
                 {

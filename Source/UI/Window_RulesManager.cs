@@ -43,7 +43,9 @@ namespace Better_Work_Tab.UI
         private const float ParameterRowIndent = 10f;
         private const float ParameterValuePortion = 0.25f;
         private const float TraitButtonMinWidth = 150f;
+#if !v1_3
         private static readonly Vector2 XenotypeIconSize = new Vector2(22f, 22f);
+#endif
 
         private delegate void ParameterDrawer(
             Window_RulesManager manager,
@@ -73,7 +75,9 @@ namespace Better_Work_Tab.UI
                 { typeof(string), (mgr, field, rowRect, valueRect, label) => mgr.DrawStringParameter(field, rowRect, valueRect, label) },
                 { typeof(Gender?), (mgr, field, rowRect, valueRect, label) => mgr.DrawGenderParameter(field, rowRect, valueRect, label) },
                 { typeof(WorkTypeDef), (mgr, field, rowRect, valueRect, label) => mgr.DrawWorkTypeParameter(field, rowRect, valueRect, label) },
+#if !v1_3
                 { typeof(XenotypeDef), (mgr, field, rowRect, valueRect, label) => mgr.DrawXenotypeParameter(field, rowRect, valueRect, label) },
+#endif
                 { typeof(Tuple<TraitDef, int>), (mgr, field, rowRect, valueRect, label) => mgr.DrawTraitParameter(field, rowRect, valueRect, label) },
                 { typeof(WorkAssignmentParameters), (mgr, field, rowRect, valueRect, label) => mgr.DrawUnsupportedParameter(rowRect) }
             };
@@ -211,7 +215,11 @@ namespace Better_Work_Tab.UI
             outRect.yMax = rect3.y + 39f;
             Widgets.DrawMenuSection(rect2);
 
+#if !v1_3
             int parameterCount = GetParameterFields().Count(f => ModsConfig.BiotechActive || f.FieldType != typeof(XenotypeDef));
+#else
+            int parameterCount = GetParameterFields().Count();
+#endif
 
             if (rule == null)
             {
@@ -234,8 +242,13 @@ namespace Better_Work_Tab.UI
 
             foreach (FieldInfo field in GetParameterFields())
             {
+#if !v1_3
                 if (!ModsConfig.BiotechActive && field.FieldType == typeof(XenotypeDef))
                     continue;
+#else
+                if (field.FieldType.Name == "XenotypeDef") // Fail-safe for 1.3
+                    continue;
+#endif
 
                 Rect rowRect = new Rect(0f, curY, outRect.width - ParameterRowWidthReduction, ParameterRowHeight);
                 rowRect.x += ParameterRowIndent;
@@ -380,6 +393,8 @@ namespace Better_Work_Tab.UI
             GUI.color = oldColor;
         }
 
+
+#if !v1_3
         private void DrawXenotypeParameter(FieldInfo field, Rect rowRect, Rect valueRect, string label)
         {
             Widgets.Label(rowRect.LeftPart(1f - ParameterValuePortion), label);
@@ -414,6 +429,7 @@ namespace Better_Work_Tab.UI
 
             GUI.color = oldColor;
         }
+#endif
 
         private void DrawTraitParameter(FieldInfo field, Rect rowRect, Rect valueRect, string label)
         {

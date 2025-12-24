@@ -37,7 +37,9 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
                 ConditionType.Passion => DrawPassionEditor(rect, condition, parameters, state),
                 ConditionType.Gender => DrawGenderEditor(rect, condition, parameters, state),
                 ConditionType.Trait => DrawTraitEditor(rect, condition, parameters, state),
+#if !v1_3
                 ConditionType.Xenotype => DrawXenotypeEditor(rect, condition, parameters, state),
+#endif
                 _ => false
             };
         }
@@ -348,6 +350,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
             return false;
         }
 
+#if !v1_3
         private static bool DrawXenotypeEditor(
             Rect rect,
             ConditionInfo condition,
@@ -362,7 +365,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
                 return false;
             }
 
-            var currentValue = (XenotypeDef)ConditionRegistry.GetValue(condition.Key, parameters);
+            var currentValue = parameters.Xenotype;
             string label = currentValue?.LabelCap ?? "BWT_Any".Translate();
 
             if (Verse.Widgets.ButtonText(rect, label))
@@ -371,7 +374,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
                 {
                     new FloatMenuOption("BWT_Any".Translate(), () =>
                     {
-                        ConditionRegistry.SetValue(condition.Key, parameters, null);
+                        parameters.Xenotype = null;
                         state.NotifyRulesModified();
                         SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
                     })
@@ -382,7 +385,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
                     var localXeno = xenotype;
                     options.Add(new FloatMenuOption(xenotype.LabelCap, () =>
                     {
-                        ConditionRegistry.SetValue(condition.Key, parameters, localXeno);
+                        parameters.Xenotype = localXeno;
                         state.NotifyRulesModified();
                         SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
                     }));
@@ -394,6 +397,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
 
             return false;
         }
+#endif
 
         private static bool DrawIntRangeEditor(
             Rect rect,
