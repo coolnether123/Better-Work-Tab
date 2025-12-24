@@ -195,11 +195,11 @@ namespace Better_Work_Tab
                 new WorkAssignmentParameters("Always Assigns", 3, isNaturalAlwaysAssign: true),
             }, resetBeforeApplying: true, isDefault: true),
 
-            new WorkAssignmentRuleset("Vanilla New Pawn", new List<WorkAssignmentParameters>()
-            {
-                new WorkAssignmentParameters("Top 6", 3, isTopXSkill: 6),
-                new WorkAssignmentParameters("Always Assigns", 3, isNaturalAlwaysAssign: true),
-            }, resetBeforeApplying: false, isDefault: true),
+            //new WorkAssignmentRuleset("Vanilla New Pawn", new List<WorkAssignmentParameters>()
+            //{
+            //    new WorkAssignmentParameters("Top 6", 3, isTopXSkill: 6),
+            //    new WorkAssignmentParameters("Always Assigns", 3, isNaturalAlwaysAssign: true),
+            //}, resetBeforeApplying: false, isDefault: true),
 
             new WorkAssignmentRuleset("BWT Default", new List<WorkAssignmentParameters>()
             {
