@@ -13,7 +13,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
     {
         public static void DrawPriorityBox(WorkGiver wg, WorkTypeDef workType, Pawn pawn, Rect boxRect)
         {
-            int workGiverPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, wg.def, 0);
+            int workGiverPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, wg.def, 3);
             
             if (pawn != null)
             {
@@ -32,29 +32,42 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             // Save current WorkType priority
             int originalPriority = pawn.workSettings.GetPriority(workType);
             
-            // Temporarily set WorkType priority to match WorkGiver priority for vanilla rendering
-            if (workGiverPriority != originalPriority)
+            try
             {
-                pawn.workSettings.SetPriority(workType, workGiverPriority);
-            }
-            
-            bool incapable = IsIncapable(pawn, wg);
+                // Temporarily set WorkType priority to match WorkGiver priority for vanilla rendering
+                if (workGiverPriority != originalPriority)
+                {
+                    pawn.workSettings.SetPriority(workType, workGiverPriority);
+                }
+                
+                bool incapable = IsIncapable(pawn, wg);
 
-            // Draw vanilla work box - this handles everything: background, flames, priority number, clicks
-            WidgetsWork.DrawWorkBoxFor(boxRect.x, boxRect.y, pawn, workType, incapable);
-            
-            // Check if the priority changed due to vanilla's click handling
-            int newPriority = pawn.workSettings.GetPriority(workType);
-            if (newPriority != workGiverPriority)
-            {
-                // Vanilla changed it, sync to WorkGiver system
-                WorkGiverReassignmentManager.SetPawnOverride(pawn, wg.def, newPriority);
+                // Draw vanilla work box - this handles everything: background, flames, priority number, clicks
+                WidgetsWork.DrawWorkBoxFor(boxRect.x, boxRect.y, pawn, workType, incapable);
+                
+                // Consume the click event so drag logic doesn't see it
+                // Vanilla may or may not consume the event, so we ensure it's consumed
+                if (Mouse.IsOver(boxRect) && Event.current.type == EventType.MouseDown)
+                {
+                    Event.current.Use();
+                }
+                
+                // Check if the priority changed due to vanilla's click handling
+                int newPriority = pawn.workSettings.GetPriority(workType);
+                if (newPriority != workGiverPriority)
+                {
+                    // Vanilla changed it, sync to WorkGiver system
+                    WorkGiverReassignmentManager.SyncSetPawnOverride(pawn.thingIDNumber, wg.def.defName, newPriority);
+                }
             }
-            
-            // Restore original WorkType priority
-            if (originalPriority != newPriority)
+            finally
             {
-                pawn.workSettings.SetPriority(workType, originalPriority);
+                // Restore original WorkType priority
+                int finalPawnPriority = pawn.workSettings.GetPriority(workType);
+                if (originalPriority != finalPawnPriority)
+                {
+                    pawn.workSettings.SetPriority(workType, originalPriority);
+                }
             }
         }
 
@@ -84,7 +97,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 
                 if (newPriority != workGiverPriority)
                 {
-                    WorkGiverReassignmentManager.SetPawnOverride(null, wg.def, newPriority);
+                    WorkGiverReassignmentManager.SyncSetPawnOverride(-1, wg.def.defName, newPriority);
                     SoundDefOf.DragSlider.PlayOneShotOnCamera();
                 }
                 

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using RimWorld;
 using UnityEngine;
@@ -34,12 +35,15 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             _workType = workType;
         }
 
-        public void BeginDrag(int index, Vector2 mousePos)
+        private List<WorkGiver> _originalWorkGivers;
+
+        public void BeginDrag(int index, Vector2 mousePos, List<WorkGiver> workGivers)
         {
             _draggedIndex = index;
             _dragStartPos = mousePos;
             _dragStartFrame = Time.frameCount;
             _isDragging = false;
+            _originalWorkGivers = new List<WorkGiver>(workGivers);
         }
 
         public void UpdateDrag(Vector2 mousePos, List<WorkGiver> workGivers, float margin, float columnWidth)
@@ -63,9 +67,9 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
                 if (_isDragging)
                 {
-                    // Update target index based on mouse position
-                    _targetIndex = workGivers.Count;
-                    for (int i = 0; i < workGivers.Count; i++)
+                    // Update target index based on mouse position relative to ORIGINAL list
+                    _targetIndex = _originalWorkGivers.Count;
+                    for (int i = 0; i < _originalWorkGivers.Count; i++)
                     {
                         float x = margin + i * columnWidth;
                         if (mousePos.x < x + columnWidth / 2f)
@@ -90,15 +94,24 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
         private void CommitReorder(List<WorkGiver> workGivers)
         {
-            if (_draggedIndex < 0 || _draggedIndex >= workGivers.Count) return;
-            if (_targetIndex < 0 || _targetIndex > workGivers.Count) return;
+            if (_draggedIndex < 0 || _draggedIndex >= _originalWorkGivers.Count) return;
+            
+            var draggedWg = _originalWorkGivers[_draggedIndex];
+            
+            // Remove from current list if present
+            workGivers.RemoveAll(wg => wg.def.defName == draggedWg.def.defName);
+            
+            // Insert at target index
+            int insertIndex = Mathf.Clamp(_targetIndex, 0, workGivers.Count);
+            workGivers.Insert(insertIndex, draggedWg);
 
-            var temp = workGivers[_draggedIndex];
-            workGivers.RemoveAt(_draggedIndex);
-            _targetIndex = Mathf.Clamp(_targetIndex, 0, workGivers.Count);
-            workGivers.Insert(_targetIndex, temp);
-
-            WorkGiverReassignmentManager.MoveWithinWorkType(_workType.defName, temp.def.defName, _targetIndex);
+            WorkGiverReassignmentManager.SyncSetPawnWorkGiverOrder(
+                _window.Pawn?.thingIDNumber ?? -1, 
+                _window.WorkType.defName, 
+                workGivers.Select(wg => wg.def.defName).ToList()
+            );
+            
+            _window.NotifyDragCompleted();
             SoundDefOf.Tick_High.PlayOneShotOnCamera();
         }
 
@@ -107,19 +120,28 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             _draggedIndex = -1;
             _isDragging = false;
             _targetIndex = -1;
+            _originalWorkGivers = null;
         }
 
-        public void DrawDragOverlay(float margin, float columnWidth, float headerY, float lineHeight, 
+        public void DrawDragOverlay(float margin, float columnWidth, float headerY, float totalHeight, 
             List<WorkGiver> workGivers, WorkGiverBaselineTracker baselineTracker)
         {
             if (!_isDragging || _targetIndex < 0) return;
 
-            // Draw white insertion line
+            var settings = BetterWorkTabMod.Settings;
+            int inset = settings != null ? Mathf.Clamp(settings.columnInsertionLineInset, 0, 50) : 5;
+            
+            // Adjust start position and height based on inset setting
+            float lineY = headerY + (_window.DynamicHeaderHeight - headerY) - inset;
+            float actualLineHeight = (totalHeight - (lineY - headerY));
+
+            // Draw white insertion line - use 1f width to match vanilla-style dividers if that's what's meant
+            // But centered on the column boundary
             float lineX = _targetIndex >= workGivers.Count 
                 ? margin + workGivers.Count * columnWidth 
                 : margin + _targetIndex * columnWidth;
 
-            Widgets.DrawBoxSolid(new Rect(lineX - 1f, headerY, 2f, lineHeight), Color.white);
+            Widgets.DrawBoxSolid(new Rect(lineX, lineY, 1f, actualLineHeight), Color.white);
 
             // Draw yellow baseline line showing original position
             if (_draggedIndex >= 0 && _draggedIndex < workGivers.Count)
@@ -132,7 +154,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 {
                     float baselineX = margin + targetBaselinePos * columnWidth;
                     var baselineColor = new Color(1f, 0.85f, 0.2f, 1f);
-                    Widgets.DrawBoxSolid(new Rect(baselineX - 1f, headerY, 2f, lineHeight), baselineColor);
+                    Widgets.DrawBoxSolid(new Rect(baselineX, lineY, 1f, actualLineHeight), baselineColor);
                 }
             }
         }

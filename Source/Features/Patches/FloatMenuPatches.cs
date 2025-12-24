@@ -29,6 +29,7 @@ namespace Better_Work_Tab.Patches
                 return value;
             }
 
+            // Check if work TYPE is disabled (vanilla)
             if (pawn.workSettings.GetPriority(workType) != 0 || pawn.WorkTypeIsDisabled(workType))
             {
                 return value;
@@ -50,6 +51,13 @@ namespace Better_Work_Tab.Patches
 
             void AssignOnce()
             {
+                // If it was disabled (0), enable it (1) so it can be done
+                int wgPriority = Features.WorkGiverReassignments.WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, giver, 3);
+                if (wgPriority == 0)
+                {
+                    Features.WorkGiverReassignments.WorkGiverReassignmentManager.SyncSetPawnOverride(pawn.thingIDNumber, giver.defName, 1);
+                }
+
                 if (pawn.jobs.TryTakeOrderedJobPrioritizedWork(localJob, localScanner, context.ClickedCell))
                 {
                     if (giver.forceMote != null)
@@ -65,6 +73,30 @@ namespace Better_Work_Tab.Patches
             }
 
             var text = "BWTNotAssignedDoOnce".Translate(workType.gerundLabel);
+
+            // BWT: Check if specific work giver is disabled (not just the whole work type)
+            var targetWorkType = Features.WorkGiverReassignments.WorkGiverReassignmentManager.GetTargetWorkType(workGiver);
+            if (targetWorkType != null)
+            {
+                int wgPriority = Features.WorkGiverReassignments.WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, workGiver, 3);
+                
+                // If this specific work giver is disabled in BWT, add "Go to Work Giver Sub-Menu" option
+                if (wgPriority == 0)
+                {
+                    Patch_FloatMenuOptionProvider_WorkGivers_GetWorkGiverOptionFor.AdditionalOptions.Add(
+                        new FloatMenuOption(
+                            "BWTManageWorkGivers".Translate(targetWorkType.labelShort),
+                            () =>
+                            {
+                                var screenPos = new UnityEngine.Vector2(Verse.UI.screenWidth / 2f, Verse.UI.screenHeight / 2f);
+                                bool hasOverride = Features.WorkGiverReassignments.WorkGiverReassignmentManager.HasAnyPawnOverride(targetWorkType, pawn) ||
+                                                   Features.WorkGiverReassignments.WorkGiverReassignmentManager.HasPawnOrdering(pawn, targetWorkType);
+                                Pawn windowPawn = hasOverride ? pawn : null;
+                                Find.WindowStack.Add(new UI.WorkGiverReassignments.Window_WorkGiverSubMenu(targetWorkType, screenPos, windowPawn));
+                            },
+                            orderInPriority: (int)MenuOptionPriority.VeryLow));
+                }
+            }
 
             Patch_FloatMenuOptionProvider_WorkGivers_GetWorkGiverOptionFor.AdditionalOptions.Add(
                 new FloatMenuOption(

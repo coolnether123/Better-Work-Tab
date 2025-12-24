@@ -1,6 +1,9 @@
+using System;
 using HarmonyLib;
 using RimWorld;
+using UnityEngine;
 using Verse;
+using Verse.AI;
 
 namespace Better_Work_Tab.Features.WorkGiverReassignments
 {
@@ -15,17 +18,20 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             }
 
             var mappedWorkType = WorkGiverReassignmentManager.GetTargetWorkType(giver.def);
-            if (mappedWorkType == null || mappedWorkType == giver.def.workType)
+            if (mappedWorkType == null)
             {
-                return true; // not reassigned, run vanilla
+                return true;
             }
 
-            int priority = pawn?.workSettings?.GetPriority(mappedWorkType) ?? 0;
+            int workTypePriority = pawn?.workSettings?.GetPriority(mappedWorkType) ?? 0;
+            int wgPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, giver.def, 3);
+
             __result =
                 (giver.def.nonColonistsCanDo || pawn.IsColonist || pawn.IsColonyMech || pawn.IsColonySubhuman) &&
                 !pawn.WorkTagIsDisabled(giver.def.workTags) &&
                 !pawn.WorkTypeIsDisabled(mappedWorkType) &&
-                priority > 0 &&
+                workTypePriority > 0 &&
+                wgPriority > 0 &&
                 !giver.ShouldSkip(pawn) &&
                 giver.MissingRequiredCapacity(pawn) == null &&
                 (!pawn.RaceProps.IsMechanoid || giver.def.canBeDoneByMechs);
@@ -39,7 +45,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
     {
         public static bool Prefix(WorkGiver_Scanner __instance, Pawn pawn, Thing t, bool forced, ref bool __result)
         {
-            if (!WorkGiverScannerExtensions.ShouldAllowForPawn(__instance, pawn))
+            if (!WorkGiverScannerExtensions.ShouldAllowForPawn(__instance, pawn, forced))
             {
                 __result = false;
                 return false;
@@ -54,7 +60,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
     {
         public static bool Prefix(WorkGiver_Scanner __instance, Pawn pawn, IntVec3 c, bool forced, ref bool __result)
         {
-            if (!WorkGiverScannerExtensions.ShouldAllowForPawn(__instance, pawn))
+            if (!WorkGiverScannerExtensions.ShouldAllowForPawn(__instance, pawn, forced))
             {
                 __result = false;
                 return false;
@@ -66,15 +72,17 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
     internal static class WorkGiverScannerExtensions
     {
-        internal static bool ShouldAllowForPawn(WorkGiver_Scanner scanner, Pawn pawn)
+        internal static bool ShouldAllowForPawn(WorkGiver_Scanner scanner, Pawn pawn, bool forced = false)
         {
+            if (forced) return true;
+
             if (scanner?.def == null)
             {
                 return true;
             }
 
             var mappedWorkType = WorkGiverReassignmentManager.GetTargetWorkType(scanner.def);
-            if (mappedWorkType == null || mappedWorkType == scanner.def.workType)
+            if (mappedWorkType == null)
             {
                 return true;
             }
@@ -89,7 +97,10 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 return false;
             }
 
-            return pawn.workSettings.GetPriority(mappedWorkType) > 0;
+            int wtPriority = pawn.workSettings.GetPriority(mappedWorkType);
+            int wgPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, scanner.def, 3);
+
+            return wtPriority > 0 && wgPriority > 0;
         }
     }
 }

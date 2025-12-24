@@ -20,6 +20,9 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         private static readonly Dictionary<string, List<WorkGiver>> OrderedWorkGiverCache = new Dictionary<string, List<WorkGiver>>(StringComparer.Ordinal);
 
         private static int _cachedSyncVersion = -1;
+        
+        internal static Pawn InterceptingPawn;
+        internal static WorkGiverDef InterceptingWorkGiver;
 
         private static BetterWorkTabSettings Settings => BetterWorkTabMod.Settings;
 
@@ -141,7 +144,15 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             var data = Data;
 
             List<string> orderedNames = null;
-            if (data?.WorkTypeWorkGiverOrder != null)
+            if (pawn != null && data?.PawnWorkGiverOrdering != null)
+            {
+                if (data.PawnWorkGiverOrdering.TryGetValue(pawn.thingIDNumber, out var pawnOrders) && pawnOrders != null)
+                {
+                    pawnOrders.TryGetValue(workType.defName, out orderedNames);
+                }
+            }
+
+            if (orderedNames == null && data?.WorkTypeWorkGiverOrder != null)
             {
                 data.WorkTypeWorkGiverOrder.TryGetValue(workType.defName, out orderedNames);
             }
@@ -196,7 +207,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
             // Apply sorting based on priorities (pawn-specific or global defaults)
             var sortingPawn = pawn;
-            int defaultPrio = 3; // Baseline for sorting
+            int defaultPrio = 3; // Baseline is vanilla priority 3
             
             var indexed = result.Select((g, idx) => new { g, idx }).ToList();
             indexed.Sort((a, b) =>
@@ -230,36 +241,47 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         internal static List<Pawn> GetPawnsWithOverrides(WorkTypeDef workType)
         {
             var data = Data;
-            if (data?.PawnWorkGiverPriorityOverrides == null || workType == null)
+            if (data == null || workType == null)
             {
                 return new List<Pawn>();
             }
 
-            var wgs = GetOrderedWorkGiversForWorkType(workType);
-            var wgNames = new HashSet<string>(wgs.Select(g => g.def.defName));
-
             var results = new List<Pawn>();
-            foreach (var kv in data.PawnWorkGiverPriorityOverrides)
+            var pawnIds = new HashSet<int>();
+
+            // Check priority overrides
+            if (data.PawnWorkGiverPriorityOverrides != null)
             {
-                if (kv.Value == null || kv.Value.Count == 0) continue;
-                
-                bool hasMatch = false;
-                foreach (var wgName in kv.Value.Keys)
+                var workGiversInType = new HashSet<string>(GetOrderedWorkGiversForWorkType(workType).Select(wg => wg.def.defName));
+                foreach (var kv in data.PawnWorkGiverPriorityOverrides)
                 {
-                    if (wgNames.Contains(wgName))
+                    if (kv.Key == -1) continue;
+                    if (kv.Value != null && kv.Value.Keys.Any(name => workGiversInType.Contains(name)))
                     {
-                        hasMatch = true;
-                        break;
+                        pawnIds.Add(kv.Key);
                     }
                 }
+            }
 
-                if (hasMatch)
+            // Check ordering overrides
+            if (data.PawnWorkGiverOrdering != null)
+            {
+                foreach (var kv in data.PawnWorkGiverOrdering)
                 {
-                    var pawn = PawnsFinder.All_AliveOrDead.FirstOrDefault(p => p.thingIDNumber == kv.Key);
-                    if (pawn != null)
+                    if (kv.Key == -1) continue;
+                    if (kv.Value != null && kv.Value.ContainsKey(workType.defName))
                     {
-                        results.Add(pawn);
+                        pawnIds.Add(kv.Key);
                     }
+                }
+            }
+
+            foreach (int id in pawnIds)
+            {
+                var pawn = PawnsFinder.All_AliveOrDead.FirstOrDefault(p => p.thingIDNumber == id);
+                if (pawn != null)
+                {
+                    results.Add(pawn);
                 }
             }
 
@@ -286,6 +308,19 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             }
 
             return false;
+        }
+
+        internal static bool HasPawnOrdering(Pawn pawn, WorkTypeDef workType)
+        {
+            var data = Data;
+            if (data?.PawnWorkGiverOrdering == null || pawn == null || workType == null)
+            {
+                return false;
+            }
+
+            return data.PawnWorkGiverOrdering.TryGetValue(pawn.thingIDNumber, out var orders) && 
+                   orders != null && 
+                   orders.ContainsKey(workType.defName);
         }
 
         internal static bool HasNonEmergencyWorkGiver(WorkTypeDef workType)
@@ -316,6 +351,11 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         internal static int GetWorkGiverPriority(Pawn pawn, WorkGiverDef workGiver, int defaultPriority)
         {
+            if (pawn != null && pawn == InterceptingPawn && workGiver == InterceptingWorkGiver)
+            {
+                return 1;
+            }
+
             var data = Data;
             if (data == null) return defaultPriority;
 
@@ -339,7 +379,17 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             return defaultPriority;
         }
 
-        internal static void SetPawnOverride(Pawn pawn, WorkGiverDef workGiver, int priority)
+        [SyncMethod]
+        public static void SyncSetPawnOverride(int pawnId, string workGiverDefName, int priority)
+        {
+            var pawn = pawnId == -1 ? null : PawnsFinder.All_AliveOrDead.FirstOrDefault(p => p.thingIDNumber == pawnId);
+            var workGiver = DefDatabase<WorkGiverDef>.GetNamedSilentFail(workGiverDefName);
+            if (workGiver == null) return;
+            
+            SetPawnOverride(pawn, workGiver, priority);
+        }
+
+        private static void SetPawnOverride(Pawn pawn, WorkGiverDef workGiver, int priority)
         {
             var data = Data;
             if (data == null || workGiver == null) return;
@@ -393,34 +443,49 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             return true;
         }
 
-        internal static void MoveWithinWorkType(string workTypeDefName, string workGiverDefName, int newIndex)
+        [SyncMethod]
+        public static void SyncSetPawnWorkGiverOrder(int pawnId, string workTypeDefName, List<string> orderedWorkGiverNames)
+        {
+            SetPawnWorkGiverOrder(pawnId, workTypeDefName, orderedWorkGiverNames);
+        }
+
+        private static void SetPawnWorkGiverOrder(int pawnId, string workTypeDefName, List<string> orderedWorkGiverNames)
         {
             var data = Data;
-            if (data == null)
-            {
-                return;
-            }
+            if (data == null) return;
 
-            var workType = DefDatabase<WorkTypeDef>.GetNamedSilentFail(workTypeDefName);
-            var workGiver = DefDatabase<WorkGiverDef>.GetNamedSilentFail(workGiverDefName);
-            if (workType == null || workGiver == null)
+            if (pawnId == -1)
             {
-                return;
+                // Global order
+                data.WorkTypeWorkGiverOrder[workTypeDefName] = orderedWorkGiverNames;
             }
-
-            if (!data.WorkTypeWorkGiverOrder.TryGetValue(workType.defName, out var list) || list == null)
+            else
             {
-                list = new List<string>();
-                data.WorkTypeWorkGiverOrder[workType.defName] = list;
+                // Pawn-specific order
+                if (!data.PawnWorkGiverOrdering.TryGetValue(pawnId, out var pawnOrders) || pawnOrders == null)
+                {
+                    pawnOrders = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+                    data.PawnWorkGiverOrdering[pawnId] = pawnOrders;
+                }
+                pawnOrders[workTypeDefName] = orderedWorkGiverNames;
             }
-
-            list.Remove(workGiver.defName);
-            newIndex = Math.Max(0, Math.Min(newIndex, list.Count));
-            list.Insert(newIndex, workGiver.defName);
 
             data.SyncVersion++;
             InvalidateCaches();
             WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
+        }
+
+        internal static void MoveWithinWorkType(string workTypeDefName, string workGiverDefName, int newIndex, Pawn pawn = null)
+        {
+            var currentOrder = GetOrderedWorkGiversForWorkType(DefDatabase<WorkTypeDef>.GetNamedSilentFail(workTypeDefName), pawn)
+                .Select(wg => wg.def.defName)
+                .ToList();
+
+            currentOrder.Remove(workGiverDefName);
+            newIndex = Math.Max(0, Math.Min(newIndex, currentOrder.Count));
+            currentOrder.Insert(newIndex, workGiverDefName);
+
+            SetPawnWorkGiverOrder(pawn?.thingIDNumber ?? -1, workTypeDefName, currentOrder);
         }
 
         [SyncMethod]
@@ -501,6 +566,11 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 }
 
                 foreach (var pawnDict in data.PawnWorkGiverPriorityOverrides.Values)
+                {
+                    pawnDict?.Remove(wgName);
+                }
+
+                foreach (var pawnDict in data.PawnWorkGiverOrdering.Values)
                 {
                     pawnDict?.Remove(wgName);
                 }

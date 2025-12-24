@@ -16,13 +16,19 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         private readonly WorkTypeDef _workType;
         private readonly Pawn _pawn;
         private readonly Vector2 _triggerPos;
-        
+
+        public WorkTypeDef WorkType => _workType;
+        public Pawn Pawn => _pawn;
+        public float DynamicHeaderHeight => _dynamicHeaderHeight;
+
         private List<WorkGiver> _workGivers;
         private WorkGiverBaselineTracker _baselineTracker;
         private WorkGiverDragHandler _dragHandler;
         
+        private bool _needsRefresh = false;
+        private float _dynamicHeaderHeight = 120f;
+        
         private const float ColumnWidth = 35f;
-        private const float HeaderHeight = 120f; 
         private const float PriorityRowHeight = 45f;
         private const float FooterHeight = 50f;
         private const float Margin = 12f;
@@ -43,19 +49,64 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             shadowAlpha = 0.6f;
         }
 
+        public void NotifyPriorityChanged()
+        {
+            _needsRefresh = true;
+        }
+
+        public void NotifyDragCompleted()
+        {
+            _baselineTracker.UpdateMovedStatus(_workGivers);
+        }
+
         private void RefreshWorkGivers()
         {
             _workGivers = WorkGiverReassignmentManager.GetOrderedWorkGiversForWorkType(_workType, _pawn).ToList();
-            _baselineTracker = new WorkGiverBaselineTracker(_workType, _workGivers);
-            _dragHandler = new WorkGiverDragHandler(this, _workType);
+            _baselineTracker = new WorkGiverBaselineTracker(_workType, _workGivers, _pawn);
+            if (_dragHandler == null)
+            {
+                _dragHandler = new WorkGiverDragHandler(this, _workType);
+            }
+            
+            CalculateHeaderHeight();
+            _needsRefresh = false;
+        }
+
+        private void CalculateHeaderHeight()
+        {
+            float maxHeight = 80f; // Minimum baseline
+            Text.Font = GameFont.Small;
+            
+            foreach (var wg in _workGivers)
+            {
+                string label = wg.def.label.CapitalizeFirst();
+                if (_baselineTracker.IsMovedFromBaseline(wg.def.defName))
+                {
+                    label += " *";
+                }
+                
+                Vector2 size = Text.CalcSize(label);
+                // For 45 degree rotation, the vertical space needed is approximately the text width
+                // Add extra padding for very long labels
+                float rotatedHeight = size.x * 0.85f; // Diagonal height
+                if (rotatedHeight > maxHeight)
+                {
+                    maxHeight = rotatedHeight;
+                }
+            }
+            
+            _dynamicHeaderHeight = Mathf.Min(maxHeight + 30f, 250f); // Cap at 250px to prevent extreme cases
         }
 
         public override Vector2 InitialSize
         {
             get
             {
-                float width = Math.Max(250f, _workGivers.Count * ColumnWidth + Margin * 2);
-                float height = HeaderHeight + PriorityRowHeight + FooterHeight + Margin * 2;
+                float desiredWidth = _workGivers.Count * ColumnWidth + Margin * 2;
+                float maxAllowedWidth = Verse.UI.screenWidth - 40f; // Leave 20px margin on each side
+                float width = Mathf.Max(250f, Mathf.Min(desiredWidth, maxAllowedWidth));
+                
+                float height = _dynamicHeaderHeight + PriorityRowHeight + FooterHeight + Margin * 2;
                 return new Vector2(width, height);
             }
         }
@@ -81,10 +132,15 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 return;
             }
 
+            if (_needsRefresh)
+            {
+                RefreshWorkGivers();
+            }
+
             DrawTitle(inRect);
             
             float headerY = 30f;
-            float boxY = HeaderHeight;
+            float boxY = _dynamicHeaderHeight;
             
             _dragHandler.UpdateDrag(Event.current.mousePosition, _workGivers, Margin, ColumnWidth);
             
@@ -111,13 +167,22 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             for (int i = 0; i < _workGivers.Count; i++)
             {
                 var wg = _workGivers[i];
-                Rect headerRect = new Rect(curX, headerY, ColumnWidth, HeaderHeight - headerY);
+                Rect headerRect = new Rect(curX, headerY, ColumnWidth, _dynamicHeaderHeight - headerY);
                 Rect cellRect = new Rect(curX, boxY, ColumnWidth, PriorityRowHeight);
                 
                 bool isMovedFromBaseline = _baselineTracker.IsMovedFromBaseline(wg.def.defName);
                 DrawAngledHeader(wg, headerRect, i, isMovedFromBaseline);
                 DrawPriorityBox(wg, cellRect);
                 
+                // Draw standard column divider line (1px grey) to match main work tab
+                if (i < _workGivers.Count - 1)
+                {
+                    float dividerX = curX + ColumnWidth;
+                    // Draw divider from bottom of header area through priority row
+                    Rect dividerRect = new Rect(dividerX, boxY, 1f, PriorityRowHeight);
+                    Widgets.DrawBoxSolid(dividerRect, new Color(1f, 1f, 1f, 0.1f)); // Match vanilla/BWT subtle divider
+                }
+
                 curX += ColumnWidth;
             }
         }
@@ -137,12 +202,15 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             bool isHovered = Mouse.IsOver(headerRect);
             AngledLabelDrawer.Draw(layout, isHovered, applyCompensation: false);
             
+            // Guard: Don't start drag if event was already consumed (e.g., by priority box click)
+            if (Event.current.type == EventType.Used) return;
+            
             // Handle drag initiation from header ONLY
             if (isHovered && !_dragHandler.IsDragging)
             {
                 if (Event.current.type == EventType.MouseDown && Event.current.button == 0)
                 {
-                    _dragHandler.BeginDrag(index, Event.current.mousePosition);
+                    _dragHandler.BeginDrag(index, Event.current.mousePosition, _workGivers);
                     Event.current.Use();
                 }
             }
@@ -155,25 +223,22 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             float y = cellRect.y + (cellRect.height - boxSize) / 2f;
             Rect boxRect = new Rect(x, y, boxSize, boxSize);
 
-            // Notify renderer if priority changed (for refresh)
-            int oldPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(_pawn, wg.def, 0);
+            // Just draw the priority box - no need to refresh ordering when priority changes
+            // The displayed priority will update via the renderer without reordering
             WorkGiverPriorityBoxRenderer.DrawPriorityBox(wg, _workType, _pawn, boxRect);
-            int newPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(_pawn, wg.def, 0);
-            
-            if (oldPriority != newPriority)
-            {
-                RefreshWorkGivers();
-            }
         }
 
         private void DrawDragOverlay(float headerY, float boxY)
         {
-            float lineHeight = HeaderHeight - headerY + PriorityRowHeight;
-            _dragHandler.DrawDragOverlay(Margin, ColumnWidth, headerY, lineHeight, _workGivers, _baselineTracker);
+            float totalHeight = (boxY - headerY) + PriorityRowHeight;
+            _dragHandler.DrawDragOverlay(Margin, ColumnWidth, headerY, totalHeight, _workGivers, _baselineTracker);
         }
 
         private void DrawFooter(float boxY)
         {
+            // Only show footer in global window, not pawn-specific windows
+            if (_pawn != null) return;
+            
             Rect footerRect = new Rect(0, boxY + PriorityRowHeight + 5f, windowRect.width - 2 * Margin, FooterHeight);
             Widgets.DrawLineHorizontal(footerRect.x, footerRect.y, footerRect.width);
             

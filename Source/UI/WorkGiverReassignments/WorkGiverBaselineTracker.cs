@@ -17,19 +17,28 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         private readonly List<string> _baselineOrder;
         private readonly Dictionary<string, bool> _movedFromBaseline;
 
-        public WorkGiverBaselineTracker(WorkTypeDef workType, List<WorkGiver> currentWorkGivers)
+        public WorkGiverBaselineTracker(WorkTypeDef workType, List<WorkGiver> currentWorkGivers, Pawn pawn = null)
         {
             _workType = workType;
             _movedFromBaseline = new Dictionary<string, bool>();
             
-            // Get vanilla order for this WorkType (sorted by priorityInType)
-            var vanillaGivers = DefDatabase<WorkGiverDef>.AllDefsListForReading
-                .Where(wg => wg.workType == _workType)
-                .OrderByDescending(wg => wg.priorityInType)
-                .Select(wg => wg.defName)
-                .ToList();
+            if (pawn != null)
+            {
+                // Baseline for pawn window is the GLOBAL order
+                _baselineOrder = WorkGiverReassignmentManager.GetOrderedWorkGiversForWorkType(workType, null)
+                    .Select(wg => wg.def.defName)
+                    .ToList();
+            }
+            else
+            {
+                // Baseline for global window is VANILLA order
+                _baselineOrder = DefDatabase<WorkGiverDef>.AllDefsListForReading
+                    .Where(wg => WorkGiverReassignmentManager.GetTargetWorkType(wg) == _workType)
+                    .OrderByDescending(wg => wg.priorityInType)
+                    .Select(wg => wg.defName)
+                    .ToList();
+            }
             
-            _baselineOrder = vanillaGivers;
             UpdateMovedStatus(currentWorkGivers);
         }
 
