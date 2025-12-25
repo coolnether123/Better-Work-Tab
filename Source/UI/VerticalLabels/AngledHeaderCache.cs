@@ -77,12 +77,8 @@ namespace Better_Work_Tab.UI
 
             Vector2 textSize = GetTextSize(displayText, uiScale, currentFrame);
 
-            float centerX = headerRect.x + (headerRect.width * 0.5f);
-            // Pivot is at the center-bottom of the header cell
-            Vector2 pivot = new Vector2(centerX, headerRect.yMax - AngledLabelDrawer.STEM_BOTTOM_GAP);
-
-            var layout = new AngledLabelDrawer.AngledLabelLayout(displayText, textSize, pivot, shouldShowMarker);
-            var quad = BuildHighlightQuad(layout, rotCos, rotSin);
+            var layout = new AngledLabelDrawer.AngledLabelLayout(displayText, textSize, shouldShowMarker);
+            var quad = BuildHighlightQuad(layout, headerRect, rotCos, rotSin);
             Rect bounds = GetAabb(quad);
 
             var updated = new CachedHeaderData
@@ -175,7 +171,7 @@ namespace Better_Work_Tab.UI
             return sb.ToString();
         }
 
-        private static Vector2[] BuildHighlightQuad(AngledLabelDrawer.AngledLabelLayout layout, float rotCos, float rotSin)
+        private static Vector2[] BuildHighlightQuad(AngledLabelDrawer.AngledLabelLayout layout, Rect headerRect, float rotCos, float rotSin)
         {
             float w = layout.Size.x;
             float h = layout.Size.y;
@@ -186,10 +182,14 @@ namespace Better_Work_Tab.UI
             Vector2 tr = new Vector2(w, -h);
             Vector2 tl = new Vector2(0f, -h);
 
-            // Calculate the same snapped pivot as the drawer
+            // Compute the same pivot as the drawer: bottom-left of header + design offsets
+            Vector2 basePivot = new Vector2(headerRect.xMin, headerRect.yMax) + new Vector2(2f, -AngledLabelDrawer.STEM_BOTTOM_GAP);
+            
+            // Snap to physical pixels the same way
+            float s = Prefs.UIScale;
             Vector2 snappedPivot = new Vector2(
-                Mathf.Floor(layout.Pivot.x * Prefs.UIScale + 0.001f) / Prefs.UIScale,
-                Mathf.Floor(layout.Pivot.y * Prefs.UIScale + 0.001f) / Prefs.UIScale
+                Mathf.Round(basePivot.x * s) / s,
+                Mathf.Round(basePivot.y * s) / s
             );
 
             Vector2 Rotate(Vector2 local)
