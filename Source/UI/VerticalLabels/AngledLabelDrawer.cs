@@ -28,47 +28,51 @@ namespace Better_Work_Tab.UI
             }
         }
 
-        /// <summary>
-        /// Snaps a logical UI coordinate to the nearest physical monitor pixel.
-        /// This prevents the "staircase" drift at 1.25x or 1.5x scales.
-        /// </summary>
-        private static float SnapToPhysical(float coord)
-        {
-            float scale = Prefs.UIScale;
-            // Formula: floor(coord * scale) / scale
-            return Mathf.Floor(coord * scale + 0.001f) / scale;
-        }
-
         public static void Draw(AngledLabelLayout layout, bool isMouseOver, bool isSorted = false, bool sortDescending = false, Rect headerRect = default, PawnColumnDef column = null)
         {
-            // 1. Calculate the Snapped Pivot
-            Vector2 snappedPivot = new Vector2(
-                SnapToPhysical(layout.Pivot.x),
-                SnapToPhysical(layout.Pivot.y)
-            );
+            // 1. Start with the deterministic anchor: bottom-left of the header cell
+            // This ensures we're always anchored to the same point within the header rect,
+            // preventing accumulated drift across columns
+            Vector2 basePivot = new Vector2(headerRect.xMin, headerRect.yMax);
+            
+            // 2. Add small design offsets in logical space (not scale-specific hacks)
+            // These are intentional layout adjustments for aesthetics and spacing
+            basePivot += new Vector2(2f, -STEM_BOTTOM_GAP);
+            
+            // 3. Snap the pivot in *physical* pixel space, then convert back to logical
+            // This is the critical fix: we snap in the same coordinate system that 
+            // RotateAroundPivot effectively uses, preventing sub-pixel drift at fractional scales
+            float s = Prefs.UIScale;
+            
+            // Convert to physical pixels
+            float px = basePivot.x * s;
+            float py = basePivot.y * s;
+            
+            // Snap in physical space (Round is more stable than Floor for pivots)
+            px = Mathf.Round(px);
+            py = Mathf.Round(py);
+            
+            // Convert back to logical space
+            Vector2 snappedPivot = new Vector2(px / s, py / s);
 
-            // Manual compensation for 1.25x scale
-            if (Mathf.Approximately(Prefs.UIScale, 1.25f))
-            {
-                snappedPivot.x -= 85f; // This is the exact positioning
-                snappedPivot.y += 49f;
-            }
-
-            // 2. Save State
+            // 4. Save State
             Matrix4x4 savedMatrix = GUI.matrix;
             TextAnchor savedAnchor = Text.Anchor;
             GameFont savedFont = Text.Font;
             Color savedColor = GUI.color;
 
-            // 3. Apply Rotation
+            // 5. Apply Rotation
             Verse.UI.RotateAroundPivot(ROTATION_ANGLE, snappedPivot);
 
             try
             {
-                // 4. Draw Relative to Snapped Pivot
-                // Bottom-Left of text anchors to the snappedPivot
-                float textHeight = layout.Size.y;
-                Rect labelRect = new Rect(snappedPivot.x, snappedPivot.y - textHeight, 200f, textHeight);
+                // 6. Build label rect from the snapped pivot
+                // Use the actual measured text width plus small padding (not hardcoded 200f)
+                float w = layout.Size.x + 4f;  // Small padding for visual breathing room
+                float h = layout.Size.y;
+                
+                // Bottom-left anchored at the snapped pivot
+                Rect labelRect = new Rect(snappedPivot.x, snappedPivot.y - h, w, h);
 
                 if (column != null && ColumnSelectionManager.IsSelected(column))
                 {
