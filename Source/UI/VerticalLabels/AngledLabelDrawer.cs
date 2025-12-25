@@ -12,20 +12,36 @@ namespace Better_Work_Tab.UI
         public static readonly float RotSin = Mathf.Sin(ROTATION_ANGLE * Mathf.Deg2Rad);
         public const float STEM_BOTTOM_GAP = 2f;
 
+        // Cached colors to avoid allocations every frame
+        private static readonly Color SelectedColor = new Color(1f, 0.92f, 0.4f, 0.4f);
+        private static readonly Color HoverColor = new Color(1f, 1f, 1f, 0.25f);
+        private static readonly Color MarkerColor = new Color(1f, 0.85f, 0.2f, 1f);
+        private static readonly Color SortColor = new Color(0.6f, 0.6f, 0.6f, 0.8f);
+
         public readonly struct AngledLabelLayout
         {
             public readonly string Text;
             public readonly Vector2 Size;
-            public readonly Vector2 Pivot;
             public readonly bool ShowMarker;
 
-            public AngledLabelLayout(string text, Vector2 size, Vector2 pivot, bool showMarker)
+            public AngledLabelLayout(string text, Vector2 size, bool showMarker)
             {
                 Text = text;
                 Size = size;
-                Pivot = pivot;
                 ShowMarker = showMarker;
             }
+        }
+
+        /// <summary>
+        /// Snaps a logical pivot to physical pixel boundaries to prevent sub-pixel drift at fractional UI scales.
+        /// </summary>
+        private static Vector2 SnapPivotToPhysical(Vector2 logical)
+        {
+            float s = Prefs.UIScale;
+            return new Vector2(
+                Mathf.Round(logical.x * s) / s,
+                Mathf.Round(logical.y * s) / s
+            );
         }
 
         public static void Draw(AngledLabelLayout layout, bool isMouseOver, bool isSorted = false, bool sortDescending = false, Rect headerRect = default, PawnColumnDef column = null)
@@ -39,21 +55,8 @@ namespace Better_Work_Tab.UI
             // These are intentional layout adjustments for aesthetics and spacing
             basePivot += new Vector2(2f, -STEM_BOTTOM_GAP);
             
-            // 3. Snap the pivot in *physical* pixel space, then convert back to logical
-            // This is the critical fix: we snap in the same coordinate system that 
-            // RotateAroundPivot effectively uses, preventing sub-pixel drift at fractional scales
-            float s = Prefs.UIScale;
-            
-            // Convert to physical pixels
-            float px = basePivot.x * s;
-            float py = basePivot.y * s;
-            
-            // Snap in physical space (Round is more stable than Floor for pivots)
-            px = Mathf.Round(px);
-            py = Mathf.Round(py);
-            
-            // Convert back to logical space
-            Vector2 snappedPivot = new Vector2(px / s, py / s);
+            // 3. Snap the pivot in physical pixel space to prevent sub-pixel drift
+            Vector2 snappedPivot = SnapPivotToPhysical(basePivot);
 
             // 4. Save State
             Matrix4x4 savedMatrix = GUI.matrix;
@@ -78,7 +81,7 @@ namespace Better_Work_Tab.UI
                 {
                     Rect highlight = new Rect(labelRect.x, labelRect.y, layout.Size.x, layout.Size.y).ExpandedBy(2f);
                     // Distinct yellow highlight for selected columns
-                    GUI.color = new Color(1f, 0.92f, 0.4f, 0.4f);
+                    GUI.color = SelectedColor;
                     GUI.DrawTexture(highlight, TexUI.HighlightTex);
                     GUI.color = Color.white;
                 }
@@ -86,7 +89,7 @@ namespace Better_Work_Tab.UI
                 if (isMouseOver)
                 {
                     Rect highlight = new Rect(labelRect.x, labelRect.y, layout.Size.x, layout.Size.y).ExpandedBy(2f);
-                    GUI.color = new Color(1f, 1f, 1f, 0.25f);
+                    GUI.color = HoverColor;
                     GUI.DrawTexture(highlight, TexUI.HighlightTex);
                     GUI.color = Color.white;
                 }
@@ -99,7 +102,7 @@ namespace Better_Work_Tab.UI
 
                 Text.Anchor = TextAnchor.LowerLeft;
                 Text.Font = GameFont.Small;
-                GUI.color = layout.ShowMarker ? new Color(1f, 0.85f, 0.2f, 1f) : Color.white;
+                GUI.color = layout.ShowMarker ? MarkerColor : Color.white;
 
                 // Use GUI.Label directly instead of Widgets.Label.
                 // Widgets.Label performs its own pixel-snapping which assumes axis-alignment.
@@ -115,7 +118,7 @@ namespace Better_Work_Tab.UI
                 GUI.color = savedColor;
             }
 
-            if (isSorted && headerRect != default)
+            if (isSorted && headerRect.width > 0f && headerRect.height > 0f)
             {
                 DrawSortIndicator(headerRect, sortDescending);
             }
@@ -123,13 +126,32 @@ namespace Better_Work_Tab.UI
 
         private static void DrawSortIndicator(Rect headerRect, bool descending)
         {
-            GUI.color = new Color(0.6f, 0.6f, 0.6f, 0.8f);
-            Text.Font = GameFont.Tiny;
-            Text.Anchor = TextAnchor.MiddleCenter;
-            // Move it to the bottom of the header area, centered horizontally
-            Rect sortRect = new Rect(headerRect.x + (headerRect.width - 6f) / 2f + 5f, headerRect.yMax - 9f, 12f, 12f);
-            Widgets.Label(sortRect, descending ? "▼" : "▲");
-            GUI.color = Color.white;
+            Color savedColor = GUI.color;
+            GameFont savedFont = Text.Font;
+            TextAnchor savedAnchor = Text.Anchor;
+
+            try
+            {
+                GUI.color = SortColor;
+                Text.Font = GameFont.Tiny;
+                Text.Anchor = TextAnchor.MiddleCenter;
+
+                // Move it to the bottom of the header area, centered horizontally
+                Rect sortRect = new Rect(
+                    headerRect.x + (headerRect.width - 6f) / 2f + 5f,
+                    headerRect.yMax - 9f,
+                    12f,
+                    12f
+                );
+
+                Widgets.Label(sortRect, descending ? "▼" : "▲");
+            }
+            finally
+            {
+                GUI.color = savedColor;
+                Text.Font = savedFont;
+                Text.Anchor = savedAnchor;
+            }
         }
     }
 }
