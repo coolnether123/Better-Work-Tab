@@ -30,6 +30,11 @@ namespace Better_Work_Tab.UI
                 var evt = Event.current;
                 var evtType = evt?.type ?? EventType.Layout;
 
+                if (!BetterWorkTabMod.Settings.enableAngledHeaders)
+                {
+                    return true;
+                }
+
                 bool shouldDraw = evtType == EventType.Repaint;
                 bool handleInput = evtType == EventType.MouseDown
                                    || evtType == EventType.MouseMove
@@ -65,8 +70,8 @@ namespace Better_Work_Tab.UI
                 if (!AngledHeaderCache.TryGetLayout(
                         rect,
                         workType,
-                        AngledLabelDrawer.RotCos,
-                        AngledLabelDrawer.RotSin,
+                        AngledLabelDrawer.CurrentRotCos,
+                        AngledLabelDrawer.CurrentRotSin,
                         AngledLabelDrawer.STEM_BOTTOM_GAP,
                         out var cached))
                 {
@@ -156,9 +161,15 @@ namespace Better_Work_Tab.UI
     [HarmonyPatch(typeof(PawnColumnWorker_WorkPriority), nameof(PawnColumnWorker_WorkPriority.GetMinHeaderHeight))]
     public static class Patch_PawnColumnWorker_WorkPriority_GetMinHeaderHeight
     {
+        [HarmonyPriority(Priority.Last)]
         public static void Postfix(PawnColumnWorker_WorkPriority __instance, PawnTable table, ref int __result)
         {
             if (Find.MainTabsRoot?.OpenTab?.defName != "Work")
+            {
+                return;
+            }
+
+            if (!BetterWorkTabMod.Settings.enableAngledHeaders)
             {
                 return;
             }
@@ -172,7 +183,7 @@ namespace Better_Work_Tab.UI
             Vector2 size = Text.CalcSize(text);
             Text.Font = originalFont;
 
-            float angleRad = Mathf.Abs(AngledLabelDrawer.ROTATION_ANGLE) * Mathf.Deg2Rad;
+            float angleRad = Mathf.Abs(AngledLabelDrawer.CurrentRotation) * Mathf.Deg2Rad;
             float needed = Mathf.Abs(size.x * Mathf.Sin(angleRad)) + Mathf.Abs(size.y * Mathf.Cos(angleRad)) + 20f;
 
             int required = Mathf.CeilToInt(needed);
