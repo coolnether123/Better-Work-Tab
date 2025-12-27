@@ -31,6 +31,13 @@ namespace Better_Work_Tab.UI
         private static readonly Dictionary<string, (Vector2 size, int lastFrame)> TextSizeCache =
             new Dictionary<string, (Vector2, int)>(64);
 
+        public static void ClearCache()
+        {
+            LayoutCache.Clear();
+            TooltipCache.Clear();
+            TextSizeCache.Clear();
+        }
+
         internal static bool TryGetLayout(
             Rect headerRect,
             WorkTypeDef workType,
@@ -190,7 +197,7 @@ namespace Better_Work_Tab.UI
             Vector2 snappedPivot = new Vector2(
                 Mathf.Floor(layout.Pivot.x * Prefs.UIScale + 0.001f) / Prefs.UIScale,
                 Mathf.Floor(layout.Pivot.y * Prefs.UIScale + 0.001f) / Prefs.UIScale
-            );
+            ) + AngledLabelDrawer.GetOffset(Prefs.UIScale);
 
             Vector2 Rotate(Vector2 local)
             {
