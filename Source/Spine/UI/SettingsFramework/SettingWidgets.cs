@@ -397,5 +397,66 @@ namespace Spine.UI.SettingsFramework
                 TooltipHandler.TipRegion(rect, tooltip);
             }
         }
+
+        /// <summary>
+        /// Draws an integer input with +/- buttons and a numeric text field.
+        /// </summary>
+        public static bool DrawNumericInt(
+            Rect rect,
+            string label,
+            ref int value,
+            int min,
+            int max,
+            string tooltip = null,
+            bool disabled = false)
+        {
+            int original = value;
+            var labelRect = rect.LeftPart(0.5f);
+            var controlRect = rect.RightPart(0.48f);
+
+            Widgets.Label(labelRect, label);
+
+            bool prevEnabled = GUI.enabled;
+            if (disabled)
+            {
+                GUI.enabled = false;
+                GUI.color = Color.gray;
+            }
+
+            float buttonWidth = 22f;
+            float spacing = 2f;
+            float textWidth = 50f;
+
+            Rect btnMinusRect = new Rect(controlRect.x, controlRect.y + (controlRect.height - buttonWidth) / 2f, buttonWidth, buttonWidth);
+            Rect btnPlusRect = new Rect(btnMinusRect.xMax + spacing, btnMinusRect.y, buttonWidth, buttonWidth);
+            Rect textRect = new Rect(btnPlusRect.xMax + spacing, controlRect.y + (controlRect.height - buttonWidth) / 2f, textWidth, buttonWidth);
+
+            if (Widgets.ButtonText(btnMinusRect, "-"))
+            {
+                value--;
+                if (value < min) value = min;
+            }
+            if (Widgets.ButtonText(btnPlusRect, "+"))
+            {
+                value++;
+                if (value > max) value = max;
+            }
+
+            string buffer = value.ToString();
+            Widgets.TextFieldNumeric(textRect, ref value, ref buffer, min, max);
+
+            if (disabled)
+            {
+                GUI.enabled = prevEnabled;
+                GUI.color = Color.white;
+            }
+
+            if (!string.IsNullOrEmpty(tooltip))
+            {
+                TooltipHandler.TipRegion(rect, tooltip);
+            }
+
+            return original != value;
+        }
     }
 }
