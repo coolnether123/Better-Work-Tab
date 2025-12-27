@@ -5,6 +5,7 @@ using Better_Work_Tab;
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.Patches;
+using Better_Work_Tab.UI;
 using Multiplayer.API;
 using RimWorld;
 using Spine.UI.ColourPicker;
@@ -1560,6 +1561,165 @@ namespace Better_Work_Tab.UI.Settings
                 ShowInSimpleView = false,
                 ShowInAdvancedView = false,
                 SortOrder = 418
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = HeadersHeader,
+                Label = "Headers",
+                Type = SettingType.Header,
+                Tooltip = "Angled header settings.",
+                HeaderColor = new Color(0.7f, 0.7f, 0.9f),
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 505
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = HeadersAngled,
+                ParentId = HeadersHeader,
+                FieldName = "enableAngledHeaders",
+                Label = "Angled headers",
+                Tooltip = "Toggle angled column headers. Disabling allows vanilla headers to work.",
+                Type = SettingType.Bool,
+                DefaultValue = true,
+                ControlsChildVisibility = true,
+                OnChanged = s => AngledHeaderCache.ClearCache(),
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 506
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = HeadersAngleRotation,
+                ParentId = HeadersAngled,
+                FieldName = "angledHeaderRotation",
+                Label = "Angle rotation",
+                Tooltip = "Rotate the angled headers (-90 to 90 degrees).",
+                Type = SettingType.Float,
+                DefaultValue = 45f,
+                MinValue = -90f,
+                MaxValue = 90f,
+                OnChanged = s => AngledHeaderCache.ClearCache(),
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 507
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = HeadersScaleFixMode,
+                ParentId = HeadersAngled,
+                FieldName = "scaleFixMode",
+                Label = "Scale Fix",
+                Tooltip = "Choose between automatic or manual scale-based positioning fixes.",
+                Type = SettingType.Enum,
+                EnumType = typeof(BetterWorkTabSettings.ScaleFixMode),
+                DefaultValue = BetterWorkTabSettings.ScaleFixMode.Auto,
+                ControlsChildVisibility = true,
+                OnChanged = s => AngledHeaderCache.ClearCache(),
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 508
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = HeadersRedCenterLine,
+                ParentId = HeadersScaleFixMode,
+                FieldName = "showRedCenterLine",
+                Label = "Red center line",
+                Tooltip = "Show where the center position of the headers needs to be to be correct.",
+                Type = SettingType.Bool,
+                DefaultValue = true,
+                VisibleWhen = s => ((BetterWorkTabSettings)s).scaleFixMode == BetterWorkTabSettings.ScaleFixMode.Manual,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 509
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = HeadersKnownFixes,
+                ParentId = HeadersScaleFixMode,
+                Label = "Known scale fixes",
+                Tooltip = "Select a known scale to populate X and Y offsets.",
+                Type = SettingType.Button,
+                OnChanged = (s) =>
+                {
+                    var options = new List<FloatMenuOption>();
+                    var settingsObj = (BetterWorkTabSettings)s;
+                    foreach (var kvp in settingsObj.knownScaleFixes)
+                    {
+                        float scale = kvp.Key;
+                        Vector2 offset = kvp.Value;
+                        options.Add(new FloatMenuOption($"{scale}x", () =>
+                        {
+                            settingsObj.angledHeaderXOffset = (int)offset.x;
+                            settingsObj.angledHeaderYOffset = (int)offset.y;
+                            settingsObj.Write();
+                            AngledHeaderCache.ClearCache();
+                        }));
+                    }
+                    Find.WindowStack.Add(new FloatMenu(options));
+                },
+                VisibleWhen = s => ((BetterWorkTabSettings)s).scaleFixMode == BetterWorkTabSettings.ScaleFixMode.Manual,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 510
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = HeadersXOffset,
+                ParentId = HeadersScaleFixMode,
+                FieldName = "angledHeaderXOffset",
+                Label = "X offset",
+                Tooltip = "Horizontal offset for angled headers.",
+                Type = SettingType.NumericInt,
+                MinValue = -1000f,
+                MaxValue = 1000f,
+                OnChanged = s => AngledHeaderCache.ClearCache(),
+                VisibleWhen = s => ((BetterWorkTabSettings)s).scaleFixMode == BetterWorkTabSettings.ScaleFixMode.Manual,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 511
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = HeadersYOffset,
+                ParentId = HeadersScaleFixMode,
+                FieldName = "angledHeaderYOffset",
+                Label = "Y offset",
+                Tooltip = "Vertical offset for angled headers.",
+                Type = SettingType.NumericInt,
+                MinValue = -1000f,
+                MaxValue = 1000f,
+                OnChanged = s => AngledHeaderCache.ClearCache(),
+                VisibleWhen = s => ((BetterWorkTabSettings)s).scaleFixMode == BetterWorkTabSettings.ScaleFixMode.Manual,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 512
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = HeadersDebugLog,
+                ParentId = HeadersAngled,
+                Label = "Debug log current scale/offsets",
+                Type = SettingType.Button,
+                OnChanged = s =>
+                {
+                    float curScale = Prefs.UIScale;
+                    var settingsObj = (BetterWorkTabSettings)s;
+                    Log.Message($"BWT Angled Headers Debug: Scale={curScale:F2}, XOffset={settingsObj.angledHeaderXOffset}, YOffset={settingsObj.angledHeaderYOffset}");
+                },
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 513
             });
 
             Register(new SettingDefinition

@@ -1,4 +1,4 @@
-﻿using RimWorld;
+using RimWorld;
 using UnityEngine;
 using Verse;
 using Better_Work_Tab.DragDrop;
@@ -8,8 +8,9 @@ namespace Better_Work_Tab.UI
     public static class AngledLabelDrawer
     {
         public const float ROTATION_ANGLE = -60f;
-        public static readonly float RotCos = Mathf.Cos(ROTATION_ANGLE * Mathf.Deg2Rad);
-        public static readonly float RotSin = Mathf.Sin(ROTATION_ANGLE * Mathf.Deg2Rad);
+        public static float CurrentRotation => BetterWorkTabMod.Settings.enableAngledHeaders ? BetterWorkTabMod.Settings.angledHeaderRotation : ROTATION_ANGLE;
+        public static float CurrentRotCos => Mathf.Cos(CurrentRotation * Mathf.Deg2Rad);
+        public static float CurrentRotSin => Mathf.Sin(CurrentRotation * Mathf.Deg2Rad);
         public const float STEM_BOTTOM_GAP = 2f;
 
         public readonly struct AngledLabelLayout
@@ -35,24 +36,37 @@ namespace Better_Work_Tab.UI
         private static float SnapToPhysical(float coord)
         {
             float scale = Prefs.UIScale;
-            // Formula: floor(coord * scale) / scale
+        // Formula: floor(coord * scale) / scale
             return Mathf.Floor(coord * scale + 0.001f) / scale;
+        }
+
+        public static Vector2 GetOffset(float scale)
+        {
+            if (BetterWorkTabMod.Settings.scaleFixMode == BetterWorkTabSettings.ScaleFixMode.Manual)
+            {
+                return new Vector2(BetterWorkTabMod.Settings.angledHeaderXOffset, BetterWorkTabMod.Settings.angledHeaderYOffset);
+            }
+            else
+            {
+                if (!Mathf.Approximately(scale, 1f))
+                {
+                    float factor = (scale - 1f) / 0.25f;
+                    return new Vector2(factor * -85f, factor * 49f);
+                }
+                return Vector2.zero;
+            }
         }
 
         public static void Draw(AngledLabelLayout layout, bool isMouseOver, bool isSorted = false, bool sortDescending = false, Rect headerRect = default, PawnColumnDef column = null)
         {
+            float rotation = CurrentRotation;
+            float scale = Prefs.UIScale;
+
             // 1. Calculate the Snapped Pivot
             Vector2 snappedPivot = new Vector2(
                 SnapToPhysical(layout.Pivot.x),
                 SnapToPhysical(layout.Pivot.y)
-            );
-
-            // Manual compensation for 1.25x scale
-            if (Mathf.Approximately(Prefs.UIScale, 1.25f))
-            {
-                snappedPivot.x -= 85f; // This is the exact positioning
-                snappedPivot.y += 49f;
-            }
+            ) + GetOffset(scale);
 
             // 2. Save State
             Matrix4x4 savedMatrix = GUI.matrix;
@@ -61,19 +75,17 @@ namespace Better_Work_Tab.UI
             Color savedColor = GUI.color;
 
             // 3. Apply Rotation
-            Verse.UI.RotateAroundPivot(ROTATION_ANGLE, snappedPivot);
+            Verse.UI.RotateAroundPivot(rotation, snappedPivot);
 
             try
             {
                 // 4. Draw Relative to Snapped Pivot
-                // Bottom-Left of text anchors to the snappedPivot
                 float textHeight = layout.Size.y;
                 Rect labelRect = new Rect(snappedPivot.x, snappedPivot.y - textHeight, 200f, textHeight);
 
                 if (column != null && ColumnSelectionManager.IsSelected(column))
                 {
                     Rect highlight = new Rect(labelRect.x, labelRect.y, layout.Size.x, layout.Size.y).ExpandedBy(2f);
-                    // Distinct yellow highlight for selected columns
                     GUI.color = new Color(1f, 0.92f, 0.4f, 0.4f);
                     GUI.DrawTexture(highlight, TexUI.HighlightTex);
                     GUI.color = Color.white;
@@ -97,9 +109,6 @@ namespace Better_Work_Tab.UI
                 Text.Font = GameFont.Small;
                 GUI.color = layout.ShowMarker ? new Color(1f, 0.85f, 0.2f, 1f) : Color.white;
 
-                // Use GUI.Label directly instead of Widgets.Label.
-                // Widgets.Label performs its own pixel-snapping which assumes axis-alignment.
-                // Since we are inside a rotated matrix, axis-aligned snapping causes jitter.
                 GUI.Label(labelRect, layout.Text, Text.CurFontStyle);
             }
             finally
@@ -109,6 +118,21 @@ namespace Better_Work_Tab.UI
                 Text.Anchor = savedAnchor;
                 Text.Font = savedFont;
                 GUI.color = savedColor;
+            }
+
+            // Draw column center indicator at bottom of header if enabled
+            if (BetterWorkTabMod.Settings.scaleFixMode == BetterWorkTabSettings.ScaleFixMode.Manual && BetterWorkTabMod.Settings.showRedCenterLine && headerRect != default)
+            {
+                float centerX = headerRect.x + (headerRect.width * 0.5f);
+                float bottomY = headerRect.yMax;
+
+                GUI.color = Color.red;
+                Widgets.DrawLine(
+                    new Vector2(centerX, bottomY),
+                    new Vector2(centerX, bottomY + 3f),
+                    Color.red,
+                    2f); // 2f thickness makes it visible
+                GUI.color = Color.white;
             }
 
             if (isSorted && headerRect != default)

@@ -32,6 +32,9 @@ namespace Spine.UI.SettingsFramework
         Spacer,
 
         /// <summary>Dropdown button that adds selected options to a list of toggleable children.</summary>
-        DropdownListAdder
+        DropdownListAdder,
+
+        /// <summary>Integer input with +/- buttons and text field.</summary>
+        NumericInt
     }
 }
