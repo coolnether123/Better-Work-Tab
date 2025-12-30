@@ -8,6 +8,7 @@ namespace Better_Work_Tab.UI
     public static class AngledLabelDrawer
     {
         public const float ROTATION_ANGLE = -60f;
+        public const float HEADER_HORIZONTAL_OFFSET = 10f; // Adjustable offset to position header start point
         public static float CurrentRotation => BetterWorkTabMod.Settings.enableAngledHeaders ? BetterWorkTabMod.Settings.angledHeaderRotation : ROTATION_ANGLE;
         public static float CurrentRotCos => Mathf.Cos(CurrentRotation * Mathf.Deg2Rad);
         public static float CurrentRotSin => Mathf.Sin(CurrentRotation * Mathf.Deg2Rad);
@@ -66,6 +67,9 @@ namespace Better_Work_Tab.UI
             
             // Create a rectangle for the rotated label centered on the original header rectangle
             Rect rotatedRect = new Rect(0f, 0f, headerRect.height, labelSize.y) { center = headerRect.center };
+            
+            // Apply horizontal offset to position the header start point (adjustable for fine-tuning)
+            rotatedRect.x += HEADER_HORIZONTAL_OFFSET;
             
             // Save state
             Matrix4x4 originalMatrix = GUI.matrix;
@@ -140,6 +144,17 @@ namespace Better_Work_Tab.UI
             {
                 DrawSortIndicator(headerRect, sortDescending);
             }
+
+            float centerX = headerRect.x + (headerRect.width * 0.5f);
+            float bottomY = headerRect.yMax;
+
+            GUI.color = Color.red;
+            Widgets.DrawLine(
+                new Vector2(centerX, bottomY),
+                new Vector2(centerX, bottomY + 3f),
+                Color.red,
+                2f); // 2f thickness makes it visible
+            GUI.color = Color.white;
         }
 
         private static void DrawSortIndicator(Rect headerRect, bool descending)
