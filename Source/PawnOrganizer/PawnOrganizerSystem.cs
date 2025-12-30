@@ -433,11 +433,19 @@ namespace Better_Work_Tab.PawnOrganizer
             _pendingColumn = null;
         }
 
+        public void CancelActiveDrag()
+        {
+            _activeRowDrag?.OnCancel();
+            _activeColumnDrag?.OnCancel();
+            ClearAllDragState();
+        }
+
         private void ClearAllDragState()
         {
             ClearPendingDrag();
             _activeRowDrag = null;
             _activeColumnDrag = null;
+            BetterWorkTabLocalState.IsHeaderDragging = false;
         }
 
         public void DrawDragOverlays()
