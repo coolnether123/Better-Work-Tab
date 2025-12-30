@@ -84,12 +84,17 @@ namespace Better_Work_Tab.UI
 
             Vector2 textSize = GetTextSize(displayText, uiScale, currentFrame);
 
-            float xMax = headerRect.xMax;
-            // Pivot is at the right-bottom of the header cell for "Screen-Space Unclipping" alignment
-            Vector2 pivot = new Vector2(xMax, headerRect.yMax - AngledLabelDrawer.STEM_BOTTOM_GAP);
+            // Calculate the rotatedRect centered on the original header rectangle, matching Draw() logic
+            Rect rotatedRect = new Rect(0f, 0f, headerRect.height, textSize.y) { center = headerRect.center };
+            
+            // Apply horizontal offset to position the header start point (must match Draw() exactly)
+            rotatedRect.x += BetterWorkTabMod.Settings.angledHeaderHorizontalOffset;
+
+            // The pivot for the highlight quad is the center of the rotated rectangle
+            Vector2 pivot = rotatedRect.center;
 
             var layout = new AngledLabelDrawer.AngledLabelLayout(displayText, textSize, pivot, shouldShowMarker);
-            var quad = BuildHighlightQuad(layout, rotCos, rotSin);
+            var quad = BuildHighlightQuad(layout, rotCos, rotSin, rotatedRect.width);
             Rect bounds = GetAabb(quad);
 
             var updated = new CachedHeaderData
@@ -182,20 +187,27 @@ namespace Better_Work_Tab.UI
             return sb.ToString();
         }
 
-        private static Vector2[] BuildHighlightQuad(AngledLabelDrawer.AngledLabelLayout layout, float rotCos, float rotSin)
+        private static Vector2[] BuildHighlightQuad(AngledLabelDrawer.AngledLabelLayout layout, float rotCos, float rotSin, float fullWidth)
         {
-            float w = layout.Size.x;
-            float h = layout.Size.y;
+            float textWidth = layout.Size.x;
+            float textHeight = layout.Size.y;
 
-            // Local points relative to the pivot (0,0)
-            Vector2 bl = new Vector2(0f, 0f);
-            Vector2 br = new Vector2(w, 0f);
-            Vector2 tr = new Vector2(w, -h);
-            Vector2 tl = new Vector2(0f, -h);
+            // The text is drawn with Anchor.MiddleLeft in a Rect of fullWidth.
+            // Local coordinates relative to the center of that Rect:
+            float localLeft = -fullWidth / 2f;
+            float localRight = localLeft + textWidth;
+            float localBottom = textHeight / 2f;
+            float localTop = -textHeight / 2f;
+
+            // Local points for the highlight box
+            Vector2 bl = new Vector2(localLeft, localBottom);
+            Vector2 br = new Vector2(localRight, localBottom);
+            Vector2 tr = new Vector2(localRight, localTop);
+            Vector2 tl = new Vector2(localLeft, localTop);
 
             Vector2 Rotate(Vector2 local)
             {
-                // Standard 2D rotation
+                // Standard 2D rotation around (0,0) then offset by pivot
                 float rx = local.x * rotCos - local.y * rotSin;
                 float ry = local.x * rotSin + local.y * rotCos;
                 return new Vector2(rx, ry) + layout.Pivot;

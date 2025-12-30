@@ -161,16 +161,7 @@ namespace Better_Work_Tab
         public static bool enableScrollWheelPriority = false;
         public static bool enableAngledHeaders = true;
         public static float angledHeaderRotation = -60f;
-        public static BetterWorkTabSettings.ScaleFixMode scaleFixMode = BetterWorkTabSettings.ScaleFixMode.Auto;
-        public static bool showRedCenterLine = true;
-        public static int angledHeaderXOffset = 0;
-        public static int angledHeaderYOffset = 0;
-        public static Dictionary<float, Vector2> knownScaleFixes = new Dictionary<float, Vector2>
-        {
-            { 0.9f, new Vector2(77f, -45f) },
-            { 1f, Vector2.zero },
-            { 1.25f, new Vector2(-85f, 49f) }
-        };
+        public static int angledHeaderHorizontalOffset = 10;
         public static bool autoEnableManualPriorities = false;
 
         // Pawn/worktype highlight visibility settings
@@ -447,7 +438,6 @@ namespace Better_Work_Tab
             CellOnly,
             ColumnWide
         }
-        public enum ScaleFixMode { Auto, Manual }
         public ShowUIMode ShowUIMode_ShowSmallSkillNumbers = ShowUIMode.Unshifted;
         public ShowUIMode ShowUIMode_ShowPawnForSkillSquare = ShowUIMode.Shifted;
         public SkillViewHoverMode skillViewHoverMode = DefaultSettings.skillViewHoverMode;
@@ -461,11 +451,7 @@ namespace Better_Work_Tab
         public bool removeHeaderUnderline = DefaultSettings.removeHeaderUnderline;
         public bool enableAngledHeaders = DefaultSettings.enableAngledHeaders;
         public float angledHeaderRotation = DefaultSettings.angledHeaderRotation;
-        public ScaleFixMode scaleFixMode = DefaultSettings.scaleFixMode;
-        public bool showRedCenterLine = DefaultSettings.showRedCenterLine;
-        public int angledHeaderXOffset = DefaultSettings.angledHeaderXOffset;
-        public int angledHeaderYOffset = DefaultSettings.angledHeaderYOffset;
-        public Dictionary<float, Vector2> knownScaleFixes = new Dictionary<float, Vector2>(DefaultSettings.knownScaleFixes);
+        public int angledHeaderHorizontalOffset = DefaultSettings.angledHeaderHorizontalOffset;
         public bool autoEnableManualPriorities = DefaultSettings.autoEnableManualPriorities;
 
 
@@ -646,12 +632,7 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref enableScrollWheelPriority, "enableScrollWheelPriority", false);
             Scribe_Values.Look(ref enableAngledHeaders, "enableAngledHeaders", true);
             Scribe_Values.Look(ref angledHeaderRotation, "angledHeaderRotation", -60f);
-            Scribe_Values.Look(ref scaleFixMode, "scaleFixMode", ScaleFixMode.Auto);
-            Scribe_Values.Look(ref showRedCenterLine, "showRedCenterLine", true);
-            Scribe_Values.Look(ref angledHeaderXOffset, "angledHeaderXOffset", 0);
-            Scribe_Values.Look(ref angledHeaderYOffset, "angledHeaderYOffset", 0);
-            Scribe_Collections.Look(ref knownScaleFixes, "knownScaleFixes", LookMode.Value, LookMode.Value);
-            if (knownScaleFixes == null) knownScaleFixes = new Dictionary<float, Vector2>(DefaultSettings.knownScaleFixes);
+            Scribe_Values.Look(ref angledHeaderHorizontalOffset, "angledHeaderHorizontalOffset", 10);
             Scribe_Values.Look(ref autoEnableManualPriorities, "autoEnableManualPriorities", false);
 
             if (hiddenWorktypes == null) hiddenWorktypes = new List<string>();
