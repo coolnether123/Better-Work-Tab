@@ -84,9 +84,9 @@ namespace Better_Work_Tab.UI
 
             Vector2 textSize = GetTextSize(displayText, uiScale, currentFrame);
 
-            float centerX = headerRect.x + (headerRect.width * 0.5f);
-            // Pivot is at the center-bottom of the header cell
-            Vector2 pivot = new Vector2(centerX, headerRect.yMax - AngledLabelDrawer.STEM_BOTTOM_GAP);
+            float xMax = headerRect.xMax;
+            // Pivot is at the right-bottom of the header cell for "Screen-Space Unclipping" alignment
+            Vector2 pivot = new Vector2(xMax, headerRect.yMax - AngledLabelDrawer.STEM_BOTTOM_GAP);
 
             var layout = new AngledLabelDrawer.AngledLabelLayout(displayText, textSize, pivot, shouldShowMarker);
             var quad = BuildHighlightQuad(layout, rotCos, rotSin);
@@ -193,20 +193,12 @@ namespace Better_Work_Tab.UI
             Vector2 tr = new Vector2(w, -h);
             Vector2 tl = new Vector2(0f, -h);
 
-            // Calculate the same snapped pivot as the drawer
-            Vector2 snappedPivot = new Vector2(
-                Mathf.Floor(layout.Pivot.x * Prefs.UIScale + 0.001f) / Prefs.UIScale,
-                Mathf.Floor(layout.Pivot.y * Prefs.UIScale + 0.001f) / Prefs.UIScale
-            ) + AngledLabelDrawer.GetOffset(Prefs.UIScale);
-
             Vector2 Rotate(Vector2 local)
             {
-                // standard 2D rotation: 
-                // x' = x*cos - y*sin
-                // y' = x*sin + y*cos
+                // Standard 2D rotation
                 float rx = local.x * rotCos - local.y * rotSin;
                 float ry = local.x * rotSin + local.y * rotCos;
-                return new Vector2(rx, ry) + snappedPivot;
+                return new Vector2(rx, ry) + layout.Pivot;
             }
 
             return new[] { Rotate(bl), Rotate(br), Rotate(tr), Rotate(tl) };
