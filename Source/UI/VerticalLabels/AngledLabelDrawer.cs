@@ -8,7 +8,6 @@ namespace Better_Work_Tab.UI
     public static class AngledLabelDrawer
     {
         public const float ROTATION_ANGLE = -60f;
-        public const float HEADER_HORIZONTAL_OFFSET = 10f; // Adjustable offset to position header start point
         public static float CurrentRotation => BetterWorkTabMod.Settings.enableAngledHeaders ? BetterWorkTabMod.Settings.angledHeaderRotation : ROTATION_ANGLE;
         public static float CurrentRotCos => Mathf.Cos(CurrentRotation * Mathf.Deg2Rad);
         public static float CurrentRotSin => Mathf.Sin(CurrentRotation * Mathf.Deg2Rad);
@@ -30,33 +29,7 @@ namespace Better_Work_Tab.UI
             }
         }
 
-        /// <summary>
-        /// Snaps a logical UI coordinate to the nearest physical monitor pixel.
-        /// This prevents the "staircase" drift at 1.25x or 1.5x scales.
-        /// </summary>
-        private static float SnapToPhysical(float coord)
-        {
-            float scale = Prefs.UIScale;
-        // Formula: floor(coord * scale) / scale
-            return Mathf.Floor(coord * scale + 0.001f) / scale;
-        }
 
-        public static Vector2 GetOffset(float scale)
-        {
-            if (BetterWorkTabMod.Settings.scaleFixMode == BetterWorkTabSettings.ScaleFixMode.Manual)
-            {
-                return new Vector2(BetterWorkTabMod.Settings.angledHeaderXOffset, BetterWorkTabMod.Settings.angledHeaderYOffset);
-            }
-            else
-            {
-                if (!Mathf.Approximately(scale, 1f))
-                {
-                    float factor = (scale - 1f) / 0.25f;
-                    return new Vector2(factor * -85f, factor * 49f);
-                }
-                return Vector2.zero;
-            }
-        }
 
         public static void Draw(AngledLabelLayout layout, bool isMouseOver, bool isSorted = false, bool sortDescending = false, Rect headerRect = default, PawnColumnDef column = null)
         {
@@ -69,7 +42,7 @@ namespace Better_Work_Tab.UI
             Rect rotatedRect = new Rect(0f, 0f, headerRect.height, labelSize.y) { center = headerRect.center };
             
             // Apply horizontal offset to position the header start point (adjustable for fine-tuning)
-            rotatedRect.x += HEADER_HORIZONTAL_OFFSET;
+            rotatedRect.x += BetterWorkTabMod.Settings.angledHeaderHorizontalOffset;
             
             // Save state
             Matrix4x4 originalMatrix = GUI.matrix;
@@ -145,16 +118,6 @@ namespace Better_Work_Tab.UI
                 DrawSortIndicator(headerRect, sortDescending);
             }
 
-            float centerX = headerRect.x + (headerRect.width * 0.5f);
-            float bottomY = headerRect.yMax;
-
-            GUI.color = Color.red;
-            Widgets.DrawLine(
-                new Vector2(centerX, bottomY),
-                new Vector2(centerX, bottomY + 3f),
-                Color.red,
-                2f); // 2f thickness makes it visible
-            GUI.color = Color.white;
         }
 
         private static void DrawSortIndicator(Rect headerRect, bool descending)
