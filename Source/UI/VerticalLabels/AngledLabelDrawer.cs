@@ -60,81 +60,82 @@ namespace Better_Work_Tab.UI
         public static void Draw(AngledLabelLayout layout, bool isMouseOver, bool isSorted = false, bool sortDescending = false, Rect headerRect = default, PawnColumnDef column = null)
         {
             float rotation = CurrentRotation;
-            float scale = Prefs.UIScale;
-
-            // 1. Calculate the Snapped Pivot
-            Vector2 snappedPivot = new Vector2(
-                SnapToPhysical(layout.Pivot.x),
-                SnapToPhysical(layout.Pivot.y)
-            ) + GetOffset(scale);
-
-            // 2. Save State
-            Matrix4x4 savedMatrix = GUI.matrix;
+            
+            // Calculate the size of the label
+            Vector2 labelSize = layout.Size;
+            
+            // Create a rectangle for the rotated label centered on the original header rectangle
+            Rect rotatedRect = new Rect(0f, 0f, headerRect.height, labelSize.y) { center = headerRect.center };
+            
+            // Save state
+            Matrix4x4 originalMatrix = GUI.matrix;
             TextAnchor savedAnchor = Text.Anchor;
             GameFont savedFont = Text.Font;
             Color savedColor = GUI.color;
-
-            // 3. Apply Rotation
-            Verse.UI.RotateAroundPivot(rotation, snappedPivot);
-
+            bool savedWordWrap = Text.WordWrap;
+            
             try
             {
-                // 4. Draw Relative to Snapped Pivot
-                float textHeight = layout.Size.y;
-                Rect labelRect = new Rect(snappedPivot.x, snappedPivot.y - textHeight, 200f, textHeight);
-
+                // Reset GUI matrix to identity
+                GUI.matrix = Matrix4x4.identity;
+                
+                // Set the pivot point for rotation using Unclip
+                Vector2 pivotPoint = GUIClipUtility.Unclip(rotatedRect.center);
+                
+                // Build transformation matrix
+                Matrix4x4 transformationMatrix = originalMatrix;
+                transformationMatrix *= Matrix4x4.TRS(pivotPoint, Quaternion.identity, Vector3.one);
+                transformationMatrix *= Matrix4x4.TRS(Vector3.zero, Quaternion.Euler(0f, 0f, rotation), Vector3.one);
+                transformationMatrix *= Matrix4x4.TRS(-pivotPoint, Quaternion.identity, Vector3.one);
+                
+                // Apply the transformation
+                GUI.matrix = transformationMatrix;
+                
+                // Set drawing properties
+                Text.Anchor = TextAnchor.MiddleLeft;
+                Text.Font = GameFont.Small;
+                Text.WordWrap = false;
+                
+                // Draw selection highlight
                 if (column != null && ColumnSelectionManager.IsSelected(column))
                 {
-                    Rect highlight = new Rect(labelRect.x, labelRect.y, layout.Size.x, layout.Size.y).ExpandedBy(2f);
                     GUI.color = new Color(1f, 0.92f, 0.4f, 0.4f);
-                    GUI.DrawTexture(highlight, TexUI.HighlightTex);
-                    GUI.color = Color.white;
+                    GUI.DrawTexture(rotatedRect.ExpandedBy(2f), TexUI.HighlightTex);
                 }
-
+                
+                // Draw mouse-over highlight
                 if (isMouseOver)
                 {
-                    Rect highlight = new Rect(labelRect.x, labelRect.y, layout.Size.x, layout.Size.y).ExpandedBy(2f);
                     GUI.color = new Color(1f, 1f, 1f, 0.25f);
-                    GUI.DrawTexture(highlight, TexUI.HighlightTex);
-                    GUI.color = Color.white;
+                    GUI.DrawTexture(rotatedRect.ExpandedBy(2f), TexUI.HighlightTex);
                 }
-
-                // Underline
+                
+                // Set text color
+                GUI.color = layout.ShowMarker ? new Color(1f, 0.85f, 0.2f, 1f) : new Color(0.8f, 0.8f, 0.8f);
+                
+                // Draw the label
+                Widgets.Label(rotatedRect, layout.Text);
+                
+                // Draw underline (text-width length, white color)
                 if (!BetterWorkTabMod.Settings.removeHeaderUnderline)
                 {
-                    Widgets.DrawLine(new Vector2(snappedPivot.x, snappedPivot.y), new Vector2(snappedPivot.x + layout.Size.x, snappedPivot.y), Color.white, 1f);
+                    float textWidth = labelSize.x;
+                    Vector2 underlineStart = new Vector2(rotatedRect.xMin, rotatedRect.yMax);
+                    Vector2 underlineEnd = new Vector2(rotatedRect.xMin + textWidth, rotatedRect.yMax);
+                    Widgets.DrawLine(underlineStart, underlineEnd, Color.white, 1f);
                 }
-
-                Text.Anchor = TextAnchor.LowerLeft;
-                Text.Font = GameFont.Small;
-                GUI.color = layout.ShowMarker ? new Color(1f, 0.85f, 0.2f, 1f) : Color.white;
-
-                GUI.Label(labelRect, layout.Text, Text.CurFontStyle);
             }
             finally
             {
-                // 5. Restore State
-                GUI.matrix = savedMatrix;
+                // Restore state
+                GUI.matrix = originalMatrix;
                 Text.Anchor = savedAnchor;
                 Text.Font = savedFont;
                 GUI.color = savedColor;
+                Text.WordWrap = savedWordWrap;
             }
-
-            // Draw column center indicator at bottom of header if enabled
-            if (BetterWorkTabMod.Settings.scaleFixMode == BetterWorkTabSettings.ScaleFixMode.Manual && BetterWorkTabMod.Settings.showRedCenterLine && headerRect != default)
-            {
-                float centerX = headerRect.x + (headerRect.width * 0.5f);
-                float bottomY = headerRect.yMax;
-
-                GUI.color = Color.red;
-                Widgets.DrawLine(
-                    new Vector2(centerX, bottomY),
-                    new Vector2(centerX, bottomY + 3f),
-                    Color.red,
-                    2f); // 2f thickness makes it visible
-                GUI.color = Color.white;
-            }
-
+            
+            // Draw sorting indicators
             if (isSorted && headerRect != default)
             {
                 DrawSortIndicator(headerRect, sortDescending);
