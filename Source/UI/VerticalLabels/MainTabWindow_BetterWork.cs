@@ -73,6 +73,15 @@ namespace Better_Work_Tab.UI
 
             // Sync the dragged columns list on open in case settings were loaded from disk
             SyncDraggedColumnsWithCurrentOrder();
+
+            // Auto-enable manual priorities if setting is enabled
+            if (settings?.autoEnableManualPriorities ?? false)
+            {
+                if (Current.Game?.playSettings != null)
+                {
+                    Current.Game.playSettings.useWorkPriorities = true;
+                }
+            }
         }
 
         /// <summary>
@@ -1275,6 +1284,9 @@ namespace Better_Work_Tab.UI
             // Clear float menu highlights when Work tab is closed
             HighlightState.ClearWorktypeHighlight();
             MouseStateManager.ClearHover();
+
+            // Cancel any active drag operations to ensure priority editing is re-enabled
+            PawnOrganizerSystem.Instance?.CancelActiveDrag();
         }
     }
 }

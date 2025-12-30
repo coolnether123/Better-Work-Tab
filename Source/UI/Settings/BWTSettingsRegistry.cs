@@ -461,10 +461,10 @@ namespace Better_Work_Tab.UI.Settings
                 FieldName = "bestPawnHighlightThickness",
                 Label = "Best Pawn Outline Thickness",
                 Tooltip = "Adjust the thickness of the green outline for the best pawn in a work type.",
-                Type = SettingType.Float,
-                DefaultValue = 1f,
+                Type = SettingType.Int,
+                DefaultValue = 1,
                 MinValue = 1f,
-                MaxValue = 6f,
+                MaxValue = 4f,
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
                 SortOrder = 42,
@@ -729,6 +729,19 @@ namespace Better_Work_Tab.UI.Settings
                 DefaultValue = DefaultSettings.showManualPrioritiesCheckbox,
                 ShowInSimpleView = true,
                 SortOrder = 1043,
+                ParentId = FeaturesUiElements
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = "ui.autoEnableManualPriorities",
+                FieldName = "autoEnableManualPriorities",
+                Label = "Auto-Enable Manual Priorities",
+                Tooltip = "Automatically check the Manual Priorities checkbox when opening the Work tab.",
+                Type = SettingType.Bool,
+                DefaultValue = false,
+                ShowInSimpleView = true,
+                SortOrder = 1044,
                 ParentId = FeaturesUiElements
             });
 
@@ -1351,7 +1364,7 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Bool,
                 DefaultValue = false,
                 ShowInSimpleView = false,
-                ShowInAdvancedView = true,
+                ShowInAdvancedView = false,
                 ControlsChildVisibility = true,
                 SortOrder = 500
             });
@@ -1383,7 +1396,7 @@ namespace Better_Work_Tab.UI.Settings
                         }
                     },
                     ShowInSimpleView = false,
-                    ShowInAdvancedView = true,
+                    ShowInAdvancedView = false,
                     SortOrder = 501
                 });
 
@@ -1409,7 +1422,7 @@ namespace Better_Work_Tab.UI.Settings
                             EnsureInitialized();
                         },
                         ShowInSimpleView = false,
-                        ShowInAdvancedView = true,
+                        ShowInAdvancedView = false,
                         SortOrder = 502
                     });
                 }
@@ -1426,7 +1439,7 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Bool,
                 DefaultValue = false,
                 ShowInSimpleView = false,
-                ShowInAdvancedView = true,
+                ShowInAdvancedView = false,
                 SortOrder = 503
             });
 
@@ -1441,7 +1454,7 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Bool,
                 DefaultValue = false,
                 ShowInSimpleView = false,
-                ShowInAdvancedView = true,
+                ShowInAdvancedView = false,
                 SortOrder = 504
             });
 
