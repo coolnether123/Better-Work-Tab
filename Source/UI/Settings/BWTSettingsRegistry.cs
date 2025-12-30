@@ -1623,116 +1623,19 @@ namespace Better_Work_Tab.UI.Settings
 
             Register(new SettingDefinition
             {
-                Id = HeadersScaleFixMode,
+                Id = "headers.horizontalOffset",
                 ParentId = HeadersAngled,
-                FieldName = "scaleFixMode",
-                Label = "Scale Fix",
-                Tooltip = "Choose between automatic or manual scale-based positioning fixes.",
-                Type = SettingType.Enum,
-                EnumType = typeof(BetterWorkTabSettings.ScaleFixMode),
-                DefaultValue = BetterWorkTabSettings.ScaleFixMode.Auto,
-                ControlsChildVisibility = true,
+                FieldName = "angledHeaderHorizontalOffset",
+                Label = "Horizontal offset",
+                Tooltip = "Adjust the horizontal position of the angled headers. 0 = centered, 10 = default offset.",
+                Type = SettingType.NumericInt,
+                DefaultValue = 10,
+                MinValue = -100f,
+                MaxValue = 100f,
                 OnChanged = s => AngledHeaderCache.ClearCache(),
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
                 SortOrder = 508
-            });
-
-            Register(new SettingDefinition
-            {
-                Id = HeadersRedCenterLine,
-                ParentId = HeadersScaleFixMode,
-                FieldName = "showRedCenterLine",
-                Label = "Red center line",
-                Tooltip = "Show where the center position of the headers needs to be to be correct.",
-                Type = SettingType.Bool,
-                DefaultValue = true,
-                VisibleWhen = s => ((BetterWorkTabSettings)s).scaleFixMode == BetterWorkTabSettings.ScaleFixMode.Manual,
-                ShowInSimpleView = false,
-                ShowInAdvancedView = true,
-                SortOrder = 509
-            });
-
-            Register(new SettingDefinition
-            {
-                Id = HeadersKnownFixes,
-                ParentId = HeadersScaleFixMode,
-                Label = "Known scale fixes",
-                Tooltip = "Select a known scale to populate X and Y offsets.",
-                Type = SettingType.Button,
-                OnChanged = (s) =>
-                {
-                    var options = new List<FloatMenuOption>();
-                    var settingsObj = (BetterWorkTabSettings)s;
-                    foreach (var kvp in settingsObj.knownScaleFixes)
-                    {
-                        float scale = kvp.Key;
-                        Vector2 offset = kvp.Value;
-                        options.Add(new FloatMenuOption($"{scale}x", () =>
-                        {
-                            settingsObj.angledHeaderXOffset = (int)offset.x;
-                            settingsObj.angledHeaderYOffset = (int)offset.y;
-                            settingsObj.Write();
-                            AngledHeaderCache.ClearCache();
-                        }));
-                    }
-                    Find.WindowStack.Add(new FloatMenu(options));
-                },
-                VisibleWhen = s => ((BetterWorkTabSettings)s).scaleFixMode == BetterWorkTabSettings.ScaleFixMode.Manual,
-                ShowInSimpleView = false,
-                ShowInAdvancedView = true,
-                SortOrder = 510
-            });
-
-            Register(new SettingDefinition
-            {
-                Id = HeadersXOffset,
-                ParentId = HeadersScaleFixMode,
-                FieldName = "angledHeaderXOffset",
-                Label = "X offset",
-                Tooltip = "Horizontal offset for angled headers.",
-                Type = SettingType.NumericInt,
-                MinValue = -1000f,
-                MaxValue = 1000f,
-                OnChanged = s => AngledHeaderCache.ClearCache(),
-                VisibleWhen = s => ((BetterWorkTabSettings)s).scaleFixMode == BetterWorkTabSettings.ScaleFixMode.Manual,
-                ShowInSimpleView = false,
-                ShowInAdvancedView = true,
-                SortOrder = 511
-            });
-
-            Register(new SettingDefinition
-            {
-                Id = HeadersYOffset,
-                ParentId = HeadersScaleFixMode,
-                FieldName = "angledHeaderYOffset",
-                Label = "Y offset",
-                Tooltip = "Vertical offset for angled headers.",
-                Type = SettingType.NumericInt,
-                MinValue = -1000f,
-                MaxValue = 1000f,
-                OnChanged = s => AngledHeaderCache.ClearCache(),
-                VisibleWhen = s => ((BetterWorkTabSettings)s).scaleFixMode == BetterWorkTabSettings.ScaleFixMode.Manual,
-                ShowInSimpleView = false,
-                ShowInAdvancedView = true,
-                SortOrder = 512
-            });
-
-            Register(new SettingDefinition
-            {
-                Id = HeadersDebugLog,
-                ParentId = HeadersAngled,
-                Label = "Debug log current scale/offsets",
-                Type = SettingType.Button,
-                OnChanged = s =>
-                {
-                    float curScale = Prefs.UIScale;
-                    var settingsObj = (BetterWorkTabSettings)s;
-                    Log.Message($"BWT Angled Headers Debug: Scale={curScale:F2}, XOffset={settingsObj.angledHeaderXOffset}, YOffset={settingsObj.angledHeaderYOffset}");
-                },
-                ShowInSimpleView = false,
-                ShowInAdvancedView = true,
-                SortOrder = 513
             });
 
             Register(new SettingDefinition
