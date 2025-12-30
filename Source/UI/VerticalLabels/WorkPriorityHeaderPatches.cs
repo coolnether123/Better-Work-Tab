@@ -174,19 +174,36 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
-            var workType = __instance?.def?.workType;
-            string baseText = workType?.labelShort ?? workType?.label ?? workType?.defName ?? "Work";
-            string text = baseText.CapitalizeFirst();
-
+            // To prevent "Diagonal Clipping", we must ensure the header box is tall enough for the longest label.
+            float maxTextWidth = 0f;
+            var columns = table.def.columns;
+            
             var originalFont = Text.Font;
             Text.Font = GameFont.Small;
-            Vector2 size = Text.CalcSize(text);
-            Text.Font = originalFont;
+
+            foreach (var col in columns)
+            {
+                if (col.workType != null)
+                {
+                    string baseText = col.workType.labelShort ?? col.workType.label ?? col.workType.defName ?? "Work";
+                    string text = baseText.CapitalizeFirst();
+                    if (MainTabWindow_BetterWork.ShouldShowColumnMarker(col.workType))
+                    {
+                        text += "*";
+                    }
+                    Vector2 size = Text.CalcSize(text);
+                    if (size.x > maxTextWidth) maxTextWidth = size.x;
+                }
+            }
 
             float angleRad = Mathf.Abs(AngledLabelDrawer.CurrentRotation) * Mathf.Deg2Rad;
-            float needed = Mathf.Abs(size.x * Mathf.Sin(angleRad)) + Mathf.Abs(size.y * Mathf.Cos(angleRad)) + 20f;
+            // Basic trig: opposite side = hypotenuse * sin(theta)
+            // We add 30f for icons (sorting) and some bottom padding.
+            float neededVertical = (maxTextWidth * Mathf.Sin(angleRad)) + 30f;
 
-            int required = Mathf.CeilToInt(needed);
+            Text.Font = originalFont;
+
+            int required = Mathf.CeilToInt(neededVertical);
             if (__result < required)
             {
                 __result = required;
