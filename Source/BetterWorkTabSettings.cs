@@ -163,7 +163,7 @@ namespace Better_Work_Tab
         public static bool enableScrollWheelPriority = false;
         public static bool enableAngledHeaders = true;
         public static int angledHeaderRotation = -60;
-        public static int angledHeaderHorizontalOffset = 0;
+        public static int angledHeaderHorizontalOffset = 10;
         public static bool autoEnableManualPriorities = false;
 
         // Pawn/worktype highlight visibility settings

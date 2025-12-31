@@ -44,6 +44,7 @@ namespace Better_Work_Tab.UI
             float rotCos,
             float rotSin,
             float stemBottomGap,
+            float horizontalOffset,
             out CachedHeaderData cached)
         {
             cached = null;
@@ -63,7 +64,7 @@ namespace Better_Work_Tab.UI
             bool shouldShowMarker = MainTabWindow_BetterWork.ShouldShowColumnMarker(workType);
             string displayText = shouldShowMarker ? text + "*" : text;
 
-            string key = workType.defName ?? displayText;
+            string key = $"{workType.defName ?? displayText}_{horizontalOffset:F1}";
             float uiScale = Prefs.UIScale;
             int currentFrame = Time.frameCount;
 
@@ -84,18 +85,15 @@ namespace Better_Work_Tab.UI
 
             Vector2 textSize = GetTextSize(displayText, uiScale, currentFrame);
 
-            // 1. Calculate the anchor point: horizontal center of column + offset, at the bottom of the header area
-            float anchorX = headerRect.center.x + BetterWorkTabMod.Settings.angledHeaderHorizontalOffset;
-            float anchorY = headerRect.yMax - AngledLabelDrawer.STEM_BOTTOM_GAP;
-            
-            // 2. Create the label rectangle (must match Draw() exactly)
-            Rect rotatedRect = new Rect(anchorX, anchorY - textSize.y, textSize.x, textSize.y);
+            // Create centered rectangle with horizontal offset
+            Rect rotatedRect = new Rect(0f, 0f, headerRect.height, textSize.y) { center = headerRect.center };
+            rotatedRect.x += horizontalOffset;
 
-            // The pivot point for rotation is the BOTTOM-LEFT of the label rect
-            Vector2 pivot = new Vector2(rotatedRect.xMin, rotatedRect.yMax);
+            // The pivot for the layout is the center of the adjusted rectangle
+            Vector2 pivot = rotatedRect.center;
 
             var layout = new AngledLabelDrawer.AngledLabelLayout(displayText, textSize, pivot, shouldShowMarker);
-            var quad = BuildHighlightQuad(layout, rotCos, rotSin);
+            var quad = BuildHighlightQuad(layout, headerRect.height, rotCos, rotSin);
             Rect bounds = GetAabb(quad);
 
             var updated = new CachedHeaderData
@@ -188,23 +186,18 @@ namespace Better_Work_Tab.UI
             return sb.ToString();
         }
 
-        private static Vector2[] BuildHighlightQuad(AngledLabelDrawer.AngledLabelLayout layout, float rotCos, float rotSin)
+        private static Vector2[] BuildHighlightQuad(AngledLabelDrawer.AngledLabelLayout layout, float labelWidth, float rotCos, float rotSin)
         {
-            float textWidth = layout.Size.x;
-            float textHeight = layout.Size.y;
+            // In the "old way", the rectangle is centered on the pivot.
+            // labelWidth (headerRect.height in Draw) and layout.Size.y (text height)
+            float halfW = (labelWidth / 2f) + 2f; // ExpandedBy(2f)
+            float halfH = (layout.Size.y / 2f) + 2f; // ExpandedBy(2f)
 
-            // The text is drawn with Anchor.MiddleLeft/Bottom-ish starting from the pivot.
-            // Local coordinates relative to the bottom-left pivot:
-            float localLeft = 0f;
-            float localRight = textWidth;
-            float localBottom = 0f;
-            float localTop = -textHeight;
-
-            // Local points for the highlight box
-            Vector2 bl = new Vector2(localLeft, localBottom);
-            Vector2 br = new Vector2(localRight, localBottom);
-            Vector2 tr = new Vector2(localRight, localTop);
-            Vector2 tl = new Vector2(localLeft, localTop);
+            // Local coordinates relative to center pivot (0,0)
+            Vector2 bl = new Vector2(-halfW, -halfH);
+            Vector2 br = new Vector2(halfW, -halfH);
+            Vector2 tr = new Vector2(halfW, halfH);
+            Vector2 tl = new Vector2(-halfW, halfH);
 
             Vector2 Rotate(Vector2 local)
             {
