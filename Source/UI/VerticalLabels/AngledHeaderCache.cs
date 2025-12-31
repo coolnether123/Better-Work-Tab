@@ -84,17 +84,18 @@ namespace Better_Work_Tab.UI
 
             Vector2 textSize = GetTextSize(displayText, uiScale, currentFrame);
 
-            // Calculate the rotatedRect centered on the original header rectangle, matching Draw() logic
-            Rect rotatedRect = new Rect(0f, 0f, headerRect.height, textSize.y) { center = headerRect.center };
+            // 1. Calculate the anchor point: horizontal center of column + offset, at the bottom of the header area
+            float anchorX = headerRect.center.x + BetterWorkTabMod.Settings.angledHeaderHorizontalOffset;
+            float anchorY = headerRect.yMax - AngledLabelDrawer.STEM_BOTTOM_GAP;
             
-            // Apply horizontal offset to position the header start point (must match Draw() exactly)
-            rotatedRect.x += BetterWorkTabMod.Settings.angledHeaderHorizontalOffset;
+            // 2. Create the label rectangle (must match Draw() exactly)
+            Rect rotatedRect = new Rect(anchorX, anchorY - textSize.y, textSize.x, textSize.y);
 
-            // The pivot for the highlight quad is the center of the rotated rectangle
-            Vector2 pivot = rotatedRect.center;
+            // The pivot point for rotation is the BOTTOM-LEFT of the label rect
+            Vector2 pivot = new Vector2(rotatedRect.xMin, rotatedRect.yMax);
 
             var layout = new AngledLabelDrawer.AngledLabelLayout(displayText, textSize, pivot, shouldShowMarker);
-            var quad = BuildHighlightQuad(layout, rotCos, rotSin, rotatedRect.width);
+            var quad = BuildHighlightQuad(layout, rotCos, rotSin);
             Rect bounds = GetAabb(quad);
 
             var updated = new CachedHeaderData
@@ -187,17 +188,17 @@ namespace Better_Work_Tab.UI
             return sb.ToString();
         }
 
-        private static Vector2[] BuildHighlightQuad(AngledLabelDrawer.AngledLabelLayout layout, float rotCos, float rotSin, float fullWidth)
+        private static Vector2[] BuildHighlightQuad(AngledLabelDrawer.AngledLabelLayout layout, float rotCos, float rotSin)
         {
             float textWidth = layout.Size.x;
             float textHeight = layout.Size.y;
 
-            // The text is drawn with Anchor.MiddleLeft in a Rect of fullWidth.
-            // Local coordinates relative to the center of that Rect:
-            float localLeft = -fullWidth / 2f;
-            float localRight = localLeft + textWidth;
-            float localBottom = textHeight / 2f;
-            float localTop = -textHeight / 2f;
+            // The text is drawn with Anchor.MiddleLeft/Bottom-ish starting from the pivot.
+            // Local coordinates relative to the bottom-left pivot:
+            float localLeft = 0f;
+            float localRight = textWidth;
+            float localBottom = 0f;
+            float localTop = -textHeight;
 
             // Local points for the highlight box
             Vector2 bl = new Vector2(localLeft, localBottom);

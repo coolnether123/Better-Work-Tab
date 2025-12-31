@@ -8,7 +8,7 @@ namespace Better_Work_Tab.UI
     public static class AngledLabelDrawer
     {
         public const float ROTATION_ANGLE = -60f;
-        public static float CurrentRotation => BetterWorkTabMod.Settings.enableAngledHeaders ? BetterWorkTabMod.Settings.angledHeaderRotation : ROTATION_ANGLE;
+        public static float CurrentRotation => BetterWorkTabMod.Settings.enableAngledHeaders ? BetterWorkTabMod.Settings.angledHeaderRotation : 0f;
         public static float CurrentRotCos => Mathf.Cos(CurrentRotation * Mathf.Deg2Rad);
         public static float CurrentRotSin => Mathf.Sin(CurrentRotation * Mathf.Deg2Rad);
         public const float STEM_BOTTOM_GAP = 2f;
@@ -35,16 +35,16 @@ namespace Better_Work_Tab.UI
         {
             float rotation = CurrentRotation;
             
-            // Calculate the size of the label
-            Vector2 labelSize = layout.Size;
+            // 1. Calculate the spatial anchor: The horizontal center of the column + user-defined offset, 
+            // pinned to the bottom of the header area with a small vertical gap.
+            float anchorX = headerRect.center.x + BetterWorkTabMod.Settings.angledHeaderHorizontalOffset;
+            float anchorY = headerRect.yMax - STEM_BOTTOM_GAP;
             
-            // Create a rectangle for the rotated label centered on the original header rectangle
-            Rect rotatedRect = new Rect(0f, 0f, headerRect.height, labelSize.y) { center = headerRect.center };
+            // 2. Define the label dimensions. We orient the rectangle so that its bottom-left corner 
+            // aligns with the anchor point before rotation is applied.
+            Rect rotatedRect = new Rect(anchorX, anchorY - layout.Size.y, layout.Size.x, layout.Size.y);
             
-            // Apply horizontal offset to position the header start point (adjustable for fine-tuning)
-            rotatedRect.x += BetterWorkTabMod.Settings.angledHeaderHorizontalOffset;
-            
-            // Save state
+            // 3. Persist current GUI state to ensure restoration after custom transformation.
             Matrix4x4 originalMatrix = GUI.matrix;
             TextAnchor savedAnchor = Text.Anchor;
             GameFont savedFont = Text.Font;
@@ -53,50 +53,38 @@ namespace Better_Work_Tab.UI
             
             try
             {
-                // Reset GUI matrix to identity
-                GUI.matrix = Matrix4x4.identity;
+                // 4. Apply transformation: Pivot rotation around the anchor point (bottom-left of the text).
+                Vector2 pivotPoint = new Vector2(rotatedRect.xMin, rotatedRect.yMax);
+                GUIUtility.RotateAroundPivot(rotation, pivotPoint);
                 
-                // Set the pivot point for rotation using Unclip
-                Vector2 pivotPoint = GUIClipUtility.Unclip(rotatedRect.center);
-                
-                // Build transformation matrix
-                Matrix4x4 transformationMatrix = originalMatrix;
-                transformationMatrix *= Matrix4x4.TRS(pivotPoint, Quaternion.identity, Vector3.one);
-                transformationMatrix *= Matrix4x4.TRS(Vector3.zero, Quaternion.Euler(0f, 0f, rotation), Vector3.one);
-                transformationMatrix *= Matrix4x4.TRS(-pivotPoint, Quaternion.identity, Vector3.one);
-                
-                // Apply the transformation
-                GUI.matrix = transformationMatrix;
-                
-                // Set drawing properties
+                // 5. Configure text rendering properties.
                 Text.Anchor = TextAnchor.MiddleLeft;
                 Text.Font = GameFont.Small;
                 Text.WordWrap = false;
                 
-                // Draw selection highlight
+                // 6. Project selection and interaction highlights using the transformed matrix.
                 if (column != null && ColumnSelectionManager.IsSelected(column))
                 {
                     GUI.color = new Color(1f, 0.92f, 0.4f, 0.4f);
                     GUI.DrawTexture(rotatedRect.ExpandedBy(2f), TexUI.HighlightTex);
                 }
                 
-                // Draw mouse-over highlight
                 if (isMouseOver)
                 {
                     GUI.color = new Color(1f, 1f, 1f, 0.25f);
                     GUI.DrawTexture(rotatedRect.ExpandedBy(2f), TexUI.HighlightTex);
                 }
                 
-                // Set text color
-                GUI.color = layout.ShowMarker ? new Color(1f, 0.85f, 0.2f, 1f) : new Color(0.8f, 0.8f, 0.8f);
+                // 7. Resolve the final text color: prioritizing the Column Marker (gold) or the user's custom setting.
+                GUI.color = layout.ShowMarker ? new Color(1f, 0.85f, 0.2f, 1f) : BetterWorkTabMod.Settings.angledHeaderColor;
                 
-                // Draw the label
+                // 8. Execute final draw calls for text and visual indicators.
                 Widgets.Label(rotatedRect, layout.Text);
                 
-                // Draw underline (text-width length, white color)
+                // Draw a stylistic underline that follows the rotation of the label.
                 if (!BetterWorkTabMod.Settings.removeHeaderUnderline)
                 {
-                    float textWidth = labelSize.x;
+                    float textWidth = layout.Size.x;
                     Vector2 underlineStart = new Vector2(rotatedRect.xMin, rotatedRect.yMax);
                     Vector2 underlineEnd = new Vector2(rotatedRect.xMin + textWidth, rotatedRect.yMax);
                     Widgets.DrawLine(underlineStart, underlineEnd, Color.white, 1f);
@@ -104,7 +92,7 @@ namespace Better_Work_Tab.UI
             }
             finally
             {
-                // Restore state
+                // 9. Revert GUI state to prevent layout contamination.
                 GUI.matrix = originalMatrix;
                 Text.Anchor = savedAnchor;
                 Text.Font = savedFont;
