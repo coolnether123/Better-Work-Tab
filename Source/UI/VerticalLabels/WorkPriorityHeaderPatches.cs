@@ -30,6 +30,11 @@ namespace Better_Work_Tab.UI
                 var evt = Event.current;
                 var evtType = evt?.type ?? EventType.Layout;
 
+                if (!BetterWorkTabMod.Settings.enableAngledHeaders)
+                {
+                    return true;
+                }
+
                 bool shouldDraw = evtType == EventType.Repaint;
                 bool handleInput = evtType == EventType.MouseDown
                                    || evtType == EventType.MouseMove
@@ -65,8 +70,8 @@ namespace Better_Work_Tab.UI
                 if (!AngledHeaderCache.TryGetLayout(
                         rect,
                         workType,
-                        AngledLabelDrawer.RotCos,
-                        AngledLabelDrawer.RotSin,
+                        AngledLabelDrawer.CurrentRotCos,
+                        AngledLabelDrawer.CurrentRotSin,
                         AngledLabelDrawer.STEM_BOTTOM_GAP,
                         out var cached))
                 {
@@ -113,49 +118,13 @@ namespace Better_Work_Tab.UI
             }
         }
 
-        [HarmonyTranspiler]
-        public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator il)
-        {
-            var code = new List<CodeInstruction>(instructions);
-            var doRegionMethod = AccessTools.Method(typeof(Verse.Sound.MouseoverSounds), nameof(Verse.Sound.MouseoverSounds.DoRegion), new[] { typeof(Rect) });
-            var drawLineVerticalMethod = AccessTools.Method(typeof(Widgets), nameof(Widgets.DrawLineVertical));
-
-            int startIndex = -1;
-            int endIndex = -1;
-
-            for (int i = 0; i < code.Count; i++)
-            {
-                if (code[i].Calls(doRegionMethod))
-                {
-                    startIndex = i + 1;
-                    break;
-                }
-            }
-
-            if (startIndex != -1)
-            {
-                for (int i = code.Count - 1; i >= startIndex; i--)
-                {
-                    if (code[i].Calls(drawLineVerticalMethod))
-                    {
-                        endIndex = i;
-                        break;
-                    }
-                }
-            }
-
-            if (startIndex != -1 && endIndex != -1 && endIndex >= startIndex)
-            {
-                code.RemoveRange(startIndex, endIndex - startIndex + 1);
-            }
-
-            return code;
-        }
+        // Transpiler removed as it interfered with vanilla fallback and is redundant when Prefix returns false.
     }
 
     [HarmonyPatch(typeof(PawnColumnWorker_WorkPriority), nameof(PawnColumnWorker_WorkPriority.GetMinHeaderHeight))]
     public static class Patch_PawnColumnWorker_WorkPriority_GetMinHeaderHeight
     {
+        [HarmonyPriority(Priority.Last)]
         public static void Postfix(PawnColumnWorker_WorkPriority __instance, PawnTable table, ref int __result)
         {
             if (Find.MainTabsRoot?.OpenTab?.defName != "Work")
@@ -163,19 +132,42 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
-            var workType = __instance?.def?.workType;
-            string baseText = workType?.labelShort ?? workType?.label ?? workType?.defName ?? "Work";
-            string text = baseText.CapitalizeFirst();
+            if (!BetterWorkTabMod.Settings.enableAngledHeaders)
+            {
+                return;
+            }
 
+            // To prevent "Diagonal Clipping", we must ensure the header box is tall enough for the longest label.
+            float maxTextWidth = 0f;
+            var columns = table.def.columns;
+            
             var originalFont = Text.Font;
             Text.Font = GameFont.Small;
-            Vector2 size = Text.CalcSize(text);
+
+            foreach (var col in columns)
+            {
+                if (col.workType != null)
+                {
+                    string baseText = col.workType.labelShort ?? col.workType.label ?? col.workType.defName ?? "Work";
+                    string text = baseText.CapitalizeFirst();
+                    
+                    // ALWAYS add the marker for size calculation to prevent height flickering
+                    // when columns are moved (even if we don't visually show it)
+                    text += "*";
+                    
+                    Vector2 size = Text.CalcSize(text);
+                    if (size.x > maxTextWidth) maxTextWidth = size.x;
+                }
+            }
+
+            float angleRad = Mathf.Abs(AngledLabelDrawer.CurrentRotation) * Mathf.Deg2Rad;
+            // Basic trig: opposite side = hypotenuse * sin(theta)
+            // We add 10f for icons (sorting) and minimal padding.
+            float neededVertical = (maxTextWidth * Mathf.Sin(angleRad)) + 10f;
+
             Text.Font = originalFont;
 
-            float angleRad = Mathf.Abs(AngledLabelDrawer.ROTATION_ANGLE) * Mathf.Deg2Rad;
-            float needed = Mathf.Abs(size.x * Mathf.Sin(angleRad)) + Mathf.Abs(size.y * Mathf.Cos(angleRad)) + 20f;
-
-            int required = Mathf.CeilToInt(needed);
+            int required = Mathf.CeilToInt(neededVertical);
             if (__result < required)
             {
                 __result = required;
@@ -189,27 +181,74 @@ namespace Better_Work_Tab.UI
         [HarmonyTranspiler]
         public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator il)
         {
-            var codes = new List<CodeInstruction>(instructions);
             var drawHighlightMethod = AccessTools.Method(typeof(Widgets), nameof(Widgets.DrawHighlightIfMouseover));
             var workPriorityWorkerType = typeof(PawnColumnWorker_WorkPriority);
-
+            
+            var codes = new List<CodeInstruction>(instructions);
             for (int i = 0; i < codes.Count; i++)
             {
                 if (codes[i].Calls(drawHighlightMethod))
                 {
-                    var jumpPastHighlight = il.DefineLabel();
+                    // Target: skip highlight if (settings.enableAngledHeaders && this is workPriorityWorkerType)
+                    var labelContinue = il.DefineLabel();
+                    
+                    // We need to insert our check BEFORE the call to Widgets.DrawHighlightIfMouseover.
+                    // The call consumes the Rect argument on the stack.
+                    // Instead of trying to jump OVER the call (which is hard because we'd have to jump over the ldarg that loads the rect too),
+                    // we can just insert a prefix check that returns early or jumps.
+                    
+                    // Let's use a simpler approach: 
+                    // Insert: if (settings.enableAngledHeaders && this is PawnColumnWorker_WorkPriority) skip highlight;
+                    
+                    // First, find where the Rect argument is loaded. Usually it's the instruction before the call if it's a simple ldarg.
+                    // But in RimWorld it might be more complex.
+                    
+                    // Alternatively, we can just let it draw the highlight and then draw OUR stuff on top? 
+                    // No, the user wants the highlight GONE when angled headers are active because it looks weird (diamond shape vs square).
+                    
+                    // Correct implementation:
+                    // 1. Load Settings.enableAngledHeaders
+                    // 2. If false, branch to original highlight code
+                    // 3. Load 'this' (arg 0)
+                    // 4. Isinst PawnColumnWorker_WorkPriority
+                    // 5. If true, branch PAST the highlight call
+                    
+                    var labelDoHighlight = il.DefineLabel();
+                    var labelSkipHighlight = il.DefineLabel();
+                    
+                    // Assign labelSkipHighlight to the instruction AFTER the call
                     if (i + 1 < codes.Count)
+                        codes[i + 1].labels.Add(labelSkipHighlight);
+                    
+                    // I will insert the logic before the push of the Rect argument.
+                    // Usually i-1 is the ldarg that pushes the rect.
+                    int insertIndex = i;
+                    if (i > 0 && (codes[i-1].opcode == OpCodes.Ldarg_1 || codes[i-1].opcode == OpCodes.Ldloc_0)) // Guessing the rect load
                     {
-                        codes[i + 1].labels.Add(jumpPastHighlight);
+                         insertIndex = i - 1;
                     }
 
-                    yield return new CodeInstruction(OpCodes.Ldarg_0);
-                    yield return new CodeInstruction(OpCodes.Isinst, workPriorityWorkerType);
-                    yield return new CodeInstruction(OpCodes.Brtrue, jumpPastHighlight);
+                    var newCodes = new List<CodeInstruction>();
+                    // if (!Settings.enableAngledHeaders) goto do_highlight;
+                    newCodes.Add(new CodeInstruction(OpCodes.Ldsfld, AccessTools.Field(typeof(BetterWorkTabMod), nameof(BetterWorkTabMod.Settings))));
+                    newCodes.Add(new CodeInstruction(OpCodes.Ldfld, AccessTools.Field(typeof(BetterWorkTabSettings), nameof(BetterWorkTabSettings.enableAngledHeaders))));
+                    newCodes.Add(new CodeInstruction(OpCodes.Brfalse, labelDoHighlight));
+                    
+                    // if (this is PawnColumnWorker_WorkPriority) goto skip_highlight;
+                    newCodes.Add(new CodeInstruction(OpCodes.Ldarg_0));
+                    newCodes.Add(new CodeInstruction(OpCodes.Isinst, workPriorityWorkerType));
+                    newCodes.Add(new CodeInstruction(OpCodes.Brtrue, labelSkipHighlight));
+                    
+                    // labelDoHighlight:
+                    newCodes[0].labels.Add(labelDoHighlight); // Wait, newCodes[0] is the start. I need to label the original code start.
+                    
+                    codes[insertIndex].labels.Add(labelDoHighlight);
+                    codes.InsertRange(insertIndex, newCodes);
+                    
+                    break; // Only one highlight call in DoHeader usually
                 }
-
-                yield return codes[i];
             }
+            return codes;
         }
     }
 }

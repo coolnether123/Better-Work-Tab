@@ -128,6 +128,8 @@ namespace Better_Work_Tab
         public static Color Color_DividerText = Color.white;
         public static Color Color_Borders = Color.gray;
 
+        public static Color Color_AngledHeaderText = Color.white;
+
         // Behavior Template Placeholders (for future features)
         public static float dragSnapThreshold = 5f; // Future: adjust snap distance
         public static float dragStartThreshold = 5f; // Future: adjust drag sensitivity
@@ -159,6 +161,9 @@ namespace Better_Work_Tab
         public static bool warnOnApplyWorkload = true;
         public static bool removeHeaderUnderline = false;
         public static bool enableScrollWheelPriority = false;
+        public static bool enableAngledHeaders = true;
+        public static int angledHeaderRotation = -60;
+        public static int angledHeaderHorizontalOffset = 0;
         public static bool autoEnableManualPriorities = false;
 
         // Pawn/worktype highlight visibility settings
@@ -446,6 +451,10 @@ namespace Better_Work_Tab
         public bool warnOnApplyRuleset = DefaultSettings.warnOnApplyRuleset;
         public bool warnOnApplyWorkload = DefaultSettings.warnOnApplyWorkload;
         public bool removeHeaderUnderline = DefaultSettings.removeHeaderUnderline;
+        public bool enableAngledHeaders = DefaultSettings.enableAngledHeaders;
+        public int angledHeaderRotation = (int)DefaultSettings.angledHeaderRotation;
+        public int angledHeaderHorizontalOffset = DefaultSettings.angledHeaderHorizontalOffset;
+        public Color angledHeaderColor = DefaultSettings.Color_AngledHeaderText;
         public bool autoEnableManualPriorities = DefaultSettings.autoEnableManualPriorities;
 
 
@@ -624,7 +633,11 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref warnOnApplyWorkload, "warnOnApplyWorkload", true);
             Scribe_Values.Look(ref removeHeaderUnderline, "removeHeaderUnderline", false);
             Scribe_Values.Look(ref enableScrollWheelPriority, "enableScrollWheelPriority", false);
-            Scribe_Values.Look(ref autoEnableManualPriorities, "autoEnableManualPriorities", false);
+            Scribe_Values.Look(ref enableAngledHeaders, "enableAngledHeaders", DefaultSettings.enableAngledHeaders);
+            Scribe_Values.Look(ref angledHeaderRotation, "angledHeaderRotation", (int)DefaultSettings.angledHeaderRotation);
+            Scribe_Values.Look(ref angledHeaderHorizontalOffset, "angledHeaderHorizontalOffset", DefaultSettings.angledHeaderHorizontalOffset);
+            Scribe_Values.Look(ref angledHeaderColor, "angledHeaderColor", DefaultSettings.Color_AngledHeaderText);
+            Scribe_Values.Look(ref autoEnableManualPriorities, "autoEnableManualPriorities", DefaultSettings.autoEnableManualPriorities);
 
             if (hiddenWorktypes == null) hiddenWorktypes = new List<string>();
 

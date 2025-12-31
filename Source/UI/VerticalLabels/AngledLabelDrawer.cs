@@ -1,4 +1,4 @@
-﻿using RimWorld;
+using RimWorld;
 using UnityEngine;
 using Verse;
 using Better_Work_Tab.DragDrop;
@@ -8,8 +8,49 @@ namespace Better_Work_Tab.UI
     public static class AngledLabelDrawer
     {
         public const float ROTATION_ANGLE = -60f;
-        public static readonly float RotCos = Mathf.Cos(ROTATION_ANGLE * Mathf.Deg2Rad);
-        public static readonly float RotSin = Mathf.Sin(ROTATION_ANGLE * Mathf.Deg2Rad);
+        public static float CurrentRotation => BetterWorkTabMod.Settings.enableAngledHeaders ? BetterWorkTabMod.Settings.angledHeaderRotation : 0f;
+        public static float CurrentRotCos => Mathf.Cos(CurrentRotation * Mathf.Deg2Rad);
+        public static float CurrentRotSin => Mathf.Sin(CurrentRotation * Mathf.Deg2Rad);
+        public static float GetNeededHeight(PawnTable table)
+        {
+            if (table == null) return 0f;
+
+            float maxH = 0f;
+            var tableDef = PawnTableDefOf.Work;
+            if (tableDef?.columns == null) return 0f;
+
+            float absSin = Mathf.Abs(Mathf.Sin(CurrentRotation * Mathf.Deg2Rad));
+            float absCos = Mathf.Abs(Mathf.Cos(CurrentRotation * Mathf.Deg2Rad));
+
+            // Set font to match drawing for accurate measurement
+            GameFont oldFont = Text.Font;
+            Text.Font = GameFont.Small;
+
+            foreach (var col in tableDef.columns)
+            {
+                // We only care about work priority columns which are the ones we angle
+                if (col.Worker is PawnColumnWorker_WorkPriority && col.workType != null)
+                {
+                    string label = col.workType.labelShort;
+                    if (string.IsNullOrEmpty(label))
+                        label = col.workType.label;
+                    if (string.IsNullOrEmpty(label))
+                        label = col.workType.defName;
+                    
+                    // ALWAYS reserve space for the marker to prevent height flickering when columns are moved
+                    label += "*";
+
+                    Vector2 size = Text.CalcSize(label);
+                    
+                    // Height calculation for a rotated rectangle: width*sin(theta) + height*cos(theta)
+                    float h = (size.x * absSin) + (size.y * absCos);
+                    if (h > maxH) maxH = h;
+                }
+            }
+
+            Text.Font = oldFont;
+            return maxH + STEM_BOTTOM_GAP;
+        }
         public const float STEM_BOTTOM_GAP = 2f;
 
         public readonly struct AngledLabelLayout
@@ -28,93 +69,83 @@ namespace Better_Work_Tab.UI
             }
         }
 
-        /// <summary>
-        /// Snaps a logical UI coordinate to the nearest physical monitor pixel.
-        /// This prevents the "staircase" drift at 1.25x or 1.5x scales.
-        /// </summary>
-        private static float SnapToPhysical(float coord)
-        {
-            float scale = Prefs.UIScale;
-            // Formula: floor(coord * scale) / scale
-            return Mathf.Floor(coord * scale + 0.001f) / scale;
-        }
+
 
         public static void Draw(AngledLabelLayout layout, bool isMouseOver, bool isSorted = false, bool sortDescending = false, Rect headerRect = default, PawnColumnDef column = null)
         {
-            // 1. Calculate the Snapped Pivot
-            Vector2 snappedPivot = new Vector2(
-                SnapToPhysical(layout.Pivot.x),
-                SnapToPhysical(layout.Pivot.y)
-            );
-
-            // Manual compensation for 1.25x scale
-            if (Mathf.Approximately(Prefs.UIScale, 1.25f))
-            {
-                snappedPivot.x -= 85f; // This is the exact positioning
-                snappedPivot.y += 49f;
-            }
-
-            // 2. Save State
-            Matrix4x4 savedMatrix = GUI.matrix;
+            float rotation = CurrentRotation;
+            
+            // 1. Calculate the spatial anchor: The horizontal center of the column + user-defined offset, 
+            // pinned to the bottom of the header area with a small vertical gap.
+            float anchorX = headerRect.center.x + BetterWorkTabMod.Settings.angledHeaderHorizontalOffset;
+            float anchorY = headerRect.yMax - STEM_BOTTOM_GAP;
+            
+            // 2. Define the label dimensions. We orient the rectangle so that its bottom-left corner 
+            // aligns with the anchor point before rotation is applied.
+            Rect rotatedRect = new Rect(anchorX, anchorY - layout.Size.y, layout.Size.x, layout.Size.y);
+            
+            // 3. Persist current GUI state to ensure restoration after custom transformation.
+            Matrix4x4 originalMatrix = GUI.matrix;
             TextAnchor savedAnchor = Text.Anchor;
             GameFont savedFont = Text.Font;
             Color savedColor = GUI.color;
-
-            // 3. Apply Rotation
-            Verse.UI.RotateAroundPivot(ROTATION_ANGLE, snappedPivot);
-
+            bool savedWordWrap = Text.WordWrap;
+            
             try
             {
-                // 4. Draw Relative to Snapped Pivot
-                // Bottom-Left of text anchors to the snappedPivot
-                float textHeight = layout.Size.y;
-                Rect labelRect = new Rect(snappedPivot.x, snappedPivot.y - textHeight, 200f, textHeight);
-
+                // 4. Apply transformation: Pivot rotation around the anchor point (bottom-left of the text).
+                Vector2 pivotPoint = new Vector2(rotatedRect.xMin, rotatedRect.yMax);
+                GUIUtility.RotateAroundPivot(rotation, pivotPoint);
+                
+                // 5. Configure text rendering properties.
+                Text.Anchor = TextAnchor.MiddleLeft;
+                Text.Font = GameFont.Small;
+                Text.WordWrap = false;
+                
+                // 6. Project selection and interaction highlights using the transformed matrix.
                 if (column != null && ColumnSelectionManager.IsSelected(column))
                 {
-                    Rect highlight = new Rect(labelRect.x, labelRect.y, layout.Size.x, layout.Size.y).ExpandedBy(2f);
-                    // Distinct yellow highlight for selected columns
                     GUI.color = new Color(1f, 0.92f, 0.4f, 0.4f);
-                    GUI.DrawTexture(highlight, TexUI.HighlightTex);
-                    GUI.color = Color.white;
+                    GUI.DrawTexture(rotatedRect.ExpandedBy(2f), TexUI.HighlightTex);
                 }
-
+                
                 if (isMouseOver)
                 {
-                    Rect highlight = new Rect(labelRect.x, labelRect.y, layout.Size.x, layout.Size.y).ExpandedBy(2f);
                     GUI.color = new Color(1f, 1f, 1f, 0.25f);
-                    GUI.DrawTexture(highlight, TexUI.HighlightTex);
-                    GUI.color = Color.white;
+                    GUI.DrawTexture(rotatedRect.ExpandedBy(2f), TexUI.HighlightTex);
                 }
-
-                // Underline
+                
+                // 7. Resolve the final text color: prioritizing the Column Marker (gold) or the user's custom setting.
+                GUI.color = layout.ShowMarker ? new Color(1f, 0.85f, 0.2f, 1f) : BetterWorkTabMod.Settings.angledHeaderColor;
+                
+                // 8. Execute final draw calls for text and visual indicators.
+                Widgets.Label(rotatedRect, layout.Text);
+                
+                // Draw a stylistic underline that follows the rotation of the label.
                 if (!BetterWorkTabMod.Settings.removeHeaderUnderline)
                 {
-                    Widgets.DrawLine(new Vector2(snappedPivot.x, snappedPivot.y), new Vector2(snappedPivot.x + layout.Size.x, snappedPivot.y), Color.white, 1f);
+                    float textWidth = layout.Size.x;
+                    Vector2 underlineStart = new Vector2(rotatedRect.xMin, rotatedRect.yMax);
+                    Vector2 underlineEnd = new Vector2(rotatedRect.xMin + textWidth, rotatedRect.yMax);
+                    Widgets.DrawLine(underlineStart, underlineEnd, Color.white, 1f);
                 }
-
-                Text.Anchor = TextAnchor.LowerLeft;
-                Text.Font = GameFont.Small;
-                GUI.color = layout.ShowMarker ? new Color(1f, 0.85f, 0.2f, 1f) : Color.white;
-
-                // Use GUI.Label directly instead of Widgets.Label.
-                // Widgets.Label performs its own pixel-snapping which assumes axis-alignment.
-                // Since we are inside a rotated matrix, axis-aligned snapping causes jitter.
-                GUI.Label(labelRect, layout.Text, Text.CurFontStyle);
             }
             finally
             {
-                // 5. Restore State
-                GUI.matrix = savedMatrix;
+                // 9. Revert GUI state to prevent layout contamination.
+                GUI.matrix = originalMatrix;
                 Text.Anchor = savedAnchor;
                 Text.Font = savedFont;
                 GUI.color = savedColor;
+                Text.WordWrap = savedWordWrap;
             }
-
+            
+            // Draw sorting indicators
             if (isSorted && headerRect != default)
             {
                 DrawSortIndicator(headerRect, sortDescending);
             }
+
         }
 
         private static void DrawSortIndicator(Rect headerRect, bool descending)

@@ -5,6 +5,7 @@ using Better_Work_Tab;
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.Patches;
+using Better_Work_Tab.UI;
 using Multiplayer.API;
 using RimWorld;
 using Spine.UI.ColourPicker;
@@ -1573,6 +1574,88 @@ namespace Better_Work_Tab.UI.Settings
                 ShowInSimpleView = false,
                 ShowInAdvancedView = false,
                 SortOrder = 418
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = HeadersHeader,
+                Label = "Headers",
+                Type = SettingType.Header,
+                Tooltip = "Angled header settings.",
+                HeaderColor = new Color(0.7f, 0.7f, 0.9f),
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 350
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = HeadersAngled,
+                ParentId = HeadersHeader,
+                FieldName = "enableAngledHeaders",
+                Label = "Angled headers",
+                Tooltip = "Toggle angled column headers. Disabling allows vanilla headers to work. Note: Vanilla headers will not look right with drag and drop.",
+                Type = SettingType.Bool,
+                DefaultValue = true,
+                ControlsChildVisibility = true,
+                OnChanged = s => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 506
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = HeadersAngleRotation,
+                ParentId = HeadersAngled,
+                FieldName = "angledHeaderRotation",
+                Label = "Angle rotation",
+                Tooltip = "Rotate the angled headers (-90 to 90 degrees). Snaps to 5-degree increments.",
+                Type = SettingType.Int,
+                DefaultValue = -60,
+                MinValue = -90f,
+                MaxValue = 90f,
+                OnChanged = s => 
+                {
+                    var bSettings = (BetterWorkTabSettings)s;
+                    bSettings.angledHeaderRotation = Mathf.RoundToInt(bSettings.angledHeaderRotation / 5f) * 5;
+                    MainTabWindow_BetterWork.NotifyAngledHeadersChanged();
+                },
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 507
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = "headers.angledColor",
+                ParentId = HeadersAngled,
+                FieldName = "angledHeaderColor",
+                Label = "Header text color",
+                Tooltip = "Custom color for the angled header text.",
+                Type = SettingType.Color,
+                DefaultValue = Color.white,
+                OnChanged = s => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 5071
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = "headers.horizontalOffset",
+                ParentId = HeadersAngled,
+                FieldName = "angledHeaderHorizontalOffset",
+                Label = "Horizontal offset",
+                Tooltip = "Adjust the horizontal position of the angled headers. 0 = centered (Default).",
+                Type = SettingType.NumericInt,
+                DefaultValue = 0,
+                MinValue = -100f,
+                MaxValue = 100f,
+                OnChanged = s => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 508
             });
 
             Register(new SettingDefinition

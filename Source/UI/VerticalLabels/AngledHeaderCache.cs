@@ -31,6 +31,13 @@ namespace Better_Work_Tab.UI
         private static readonly Dictionary<string, (Vector2 size, int lastFrame)> TextSizeCache =
             new Dictionary<string, (Vector2, int)>(64);
 
+        public static void ClearCache()
+        {
+            LayoutCache.Clear();
+            TooltipCache.Clear();
+            TextSizeCache.Clear();
+        }
+
         internal static bool TryGetLayout(
             Rect headerRect,
             WorkTypeDef workType,
@@ -77,9 +84,15 @@ namespace Better_Work_Tab.UI
 
             Vector2 textSize = GetTextSize(displayText, uiScale, currentFrame);
 
-            float centerX = headerRect.x + (headerRect.width * 0.5f);
-            // Pivot is at the center-bottom of the header cell
-            Vector2 pivot = new Vector2(centerX, headerRect.yMax - AngledLabelDrawer.STEM_BOTTOM_GAP);
+            // 1. Calculate the anchor point: horizontal center of column + offset, at the bottom of the header area
+            float anchorX = headerRect.center.x + BetterWorkTabMod.Settings.angledHeaderHorizontalOffset;
+            float anchorY = headerRect.yMax - AngledLabelDrawer.STEM_BOTTOM_GAP;
+            
+            // 2. Create the label rectangle (must match Draw() exactly)
+            Rect rotatedRect = new Rect(anchorX, anchorY - textSize.y, textSize.x, textSize.y);
+
+            // The pivot point for rotation is the BOTTOM-LEFT of the label rect
+            Vector2 pivot = new Vector2(rotatedRect.xMin, rotatedRect.yMax);
 
             var layout = new AngledLabelDrawer.AngledLabelLayout(displayText, textSize, pivot, shouldShowMarker);
             var quad = BuildHighlightQuad(layout, rotCos, rotSin);
@@ -177,29 +190,28 @@ namespace Better_Work_Tab.UI
 
         private static Vector2[] BuildHighlightQuad(AngledLabelDrawer.AngledLabelLayout layout, float rotCos, float rotSin)
         {
-            float w = layout.Size.x;
-            float h = layout.Size.y;
+            float textWidth = layout.Size.x;
+            float textHeight = layout.Size.y;
 
-            // Local points relative to the pivot (0,0)
-            Vector2 bl = new Vector2(0f, 0f);
-            Vector2 br = new Vector2(w, 0f);
-            Vector2 tr = new Vector2(w, -h);
-            Vector2 tl = new Vector2(0f, -h);
+            // The text is drawn with Anchor.MiddleLeft/Bottom-ish starting from the pivot.
+            // Local coordinates relative to the bottom-left pivot:
+            float localLeft = 0f;
+            float localRight = textWidth;
+            float localBottom = 0f;
+            float localTop = -textHeight;
 
-            // Calculate the same snapped pivot as the drawer
-            Vector2 snappedPivot = new Vector2(
-                Mathf.Floor(layout.Pivot.x * Prefs.UIScale + 0.001f) / Prefs.UIScale,
-                Mathf.Floor(layout.Pivot.y * Prefs.UIScale + 0.001f) / Prefs.UIScale
-            );
+            // Local points for the highlight box
+            Vector2 bl = new Vector2(localLeft, localBottom);
+            Vector2 br = new Vector2(localRight, localBottom);
+            Vector2 tr = new Vector2(localRight, localTop);
+            Vector2 tl = new Vector2(localLeft, localTop);
 
             Vector2 Rotate(Vector2 local)
             {
-                // standard 2D rotation: 
-                // x' = x*cos - y*sin
-                // y' = x*sin + y*cos
+                // Standard 2D rotation around (0,0) then offset by pivot
                 float rx = local.x * rotCos - local.y * rotSin;
                 float ry = local.x * rotSin + local.y * rotCos;
-                return new Vector2(rx, ry) + snappedPivot;
+                return new Vector2(rx, ry) + layout.Pivot;
             }
 
             return new[] { Rotate(bl), Rotate(br), Rotate(tr), Rotate(tl) };

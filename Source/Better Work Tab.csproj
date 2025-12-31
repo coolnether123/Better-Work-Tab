@@ -144,6 +144,7 @@
     <Compile Include="UI\VerticalLabels\AngledHeaderInteraction.cs" />
     <Compile Include="UI\VerticalLabels\WorkPriorityHeaderPatches.cs" />
     <Compile Include="UI\VerticalLabels\AngledHeaderCache.cs" />
+    <Compile Include="UI\VerticalLabels\GUIClipUtility.cs" />
     <Compile Include="UI\HeaderButtons.cs" />
     <Compile Include="UI\Dialog_WarningWithCheckbox.cs" />
     <Compile Include="UI\MouseStateManager.cs" />

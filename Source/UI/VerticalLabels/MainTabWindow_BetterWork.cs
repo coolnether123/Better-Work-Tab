@@ -26,6 +26,29 @@ namespace Better_Work_Tab.UI
     public class MainTabWindow_BetterWork : MainTabWindow_Work
     {
         private static PawnColumnDef _lastDraggedColumn;
+        
+        public static void NotifyAngledHeadersChanged()
+        {
+            AngledHeaderCache.ClearCache();
+            if (Find.MainTabsRoot?.OpenTab?.TabWindow is MainTabWindow_BetterWork workTab)
+            {
+                var table = workTab.GetPawnTable();
+                if (table != null)
+                {
+                    // Mark the table as dirty to force a full recache of heights and widths
+                    var setDirtyMethod = typeof(PawnTable).GetMethod("SetDirty", BindingFlags.NonPublic | BindingFlags.Instance);
+                    if (setDirtyMethod != null)
+                    {
+                        setDirtyMethod.Invoke(table, null);
+                    }
+                    else
+                    {
+                        // Fallback if SetDirty not found (unlikely in vanilla but for safety)
+                        MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+                    }
+                }
+            }
+        }
 
         private const float RightEdgeMargin = 10f;
         private const float InfoIconSize = 24f;
