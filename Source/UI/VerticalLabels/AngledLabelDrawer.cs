@@ -11,6 +11,46 @@ namespace Better_Work_Tab.UI
         public static float CurrentRotation => BetterWorkTabMod.Settings.enableAngledHeaders ? BetterWorkTabMod.Settings.angledHeaderRotation : 0f;
         public static float CurrentRotCos => Mathf.Cos(CurrentRotation * Mathf.Deg2Rad);
         public static float CurrentRotSin => Mathf.Sin(CurrentRotation * Mathf.Deg2Rad);
+        public static float GetNeededHeight(PawnTable table)
+        {
+            if (table == null) return 0f;
+
+            float maxH = 0f;
+            var tableDef = PawnTableDefOf.Work;
+            if (tableDef?.columns == null) return 0f;
+
+            float absSin = Mathf.Abs(Mathf.Sin(CurrentRotation * Mathf.Deg2Rad));
+            float absCos = Mathf.Abs(Mathf.Cos(CurrentRotation * Mathf.Deg2Rad));
+
+            // Set font to match drawing for accurate measurement
+            GameFont oldFont = Text.Font;
+            Text.Font = GameFont.Small;
+
+            foreach (var col in tableDef.columns)
+            {
+                // We only care about work priority columns which are the ones we angle
+                if (col.Worker is PawnColumnWorker_WorkPriority && col.workType != null)
+                {
+                    string label = col.workType.labelShort;
+                    if (string.IsNullOrEmpty(label))
+                        label = col.workType.label;
+                    if (string.IsNullOrEmpty(label))
+                        label = col.workType.defName;
+                    
+                    // ALWAYS reserve space for the marker to prevent height flickering when columns are moved
+                    label += "*";
+
+                    Vector2 size = Text.CalcSize(label);
+                    
+                    // Height calculation for a rotated rectangle: width*sin(theta) + height*cos(theta)
+                    float h = (size.x * absSin) + (size.y * absCos);
+                    if (h > maxH) maxH = h;
+                }
+            }
+
+            Text.Font = oldFont;
+            return maxH + STEM_BOTTOM_GAP;
+        }
         public const float STEM_BOTTOM_GAP = 2f;
 
         public readonly struct AngledLabelLayout
