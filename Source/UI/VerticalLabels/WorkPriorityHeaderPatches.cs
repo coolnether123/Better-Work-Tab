@@ -73,6 +73,7 @@ namespace Better_Work_Tab.UI
                         AngledLabelDrawer.CurrentRotCos,
                         AngledLabelDrawer.CurrentRotSin,
                         AngledLabelDrawer.STEM_BOTTOM_GAP,
+                        BetterWorkTabMod.Settings.angledHeaderHorizontalOffset,
                         out var cached))
                 {
                     return false;
@@ -162,8 +163,8 @@ namespace Better_Work_Tab.UI
 
             float angleRad = Mathf.Abs(AngledLabelDrawer.CurrentRotation) * Mathf.Deg2Rad;
             // Basic trig: opposite side = hypotenuse * sin(theta)
-            // We add 10f for icons (sorting) and minimal padding.
-            float neededVertical = (maxTextWidth * Mathf.Sin(angleRad)) + 10f;
+            // We add 30f for icons (sorting) and breathing room, matching the Testing branch.
+            float neededVertical = (maxTextWidth * Mathf.Sin(angleRad)) + 30f;
 
             Text.Font = originalFont;
 
