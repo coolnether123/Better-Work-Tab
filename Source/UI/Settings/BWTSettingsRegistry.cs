@@ -1585,7 +1585,7 @@ namespace Better_Work_Tab.UI.Settings
                 HeaderColor = new Color(0.7f, 0.7f, 0.9f),
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
-                SortOrder = 505
+                SortOrder = 350
             });
 
             Register(new SettingDefinition
@@ -1594,11 +1594,11 @@ namespace Better_Work_Tab.UI.Settings
                 ParentId = HeadersHeader,
                 FieldName = "enableAngledHeaders",
                 Label = "Angled headers",
-                Tooltip = "Toggle angled column headers. Disabling allows vanilla headers to work.",
+                Tooltip = "Toggle angled column headers. Disabling allows vanilla headers to work. Note: Vanilla headers will not look right with drag and drop.",
                 Type = SettingType.Bool,
                 DefaultValue = true,
                 ControlsChildVisibility = true,
-                OnChanged = s => AngledHeaderCache.ClearCache(),
+                OnChanged = s => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
                 SortOrder = 506
@@ -1610,15 +1610,35 @@ namespace Better_Work_Tab.UI.Settings
                 ParentId = HeadersAngled,
                 FieldName = "angledHeaderRotation",
                 Label = "Angle rotation",
-                Tooltip = "Rotate the angled headers (-90 to 90 degrees).",
-                Type = SettingType.Float,
-                DefaultValue = 45f,
+                Tooltip = "Rotate the angled headers (-90 to 90 degrees). Snaps to 5-degree increments.",
+                Type = SettingType.Int,
+                DefaultValue = -60,
                 MinValue = -90f,
                 MaxValue = 90f,
-                OnChanged = s => AngledHeaderCache.ClearCache(),
+                OnChanged = s => 
+                {
+                    var bSettings = (BetterWorkTabSettings)s;
+                    bSettings.angledHeaderRotation = Mathf.RoundToInt(bSettings.angledHeaderRotation / 5f) * 5;
+                    MainTabWindow_BetterWork.NotifyAngledHeadersChanged();
+                },
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
                 SortOrder = 507
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = "headers.angledColor",
+                ParentId = HeadersAngled,
+                FieldName = "angledHeaderColor",
+                Label = "Header text color",
+                Tooltip = "Custom color for the angled header text.",
+                Type = SettingType.Color,
+                DefaultValue = Color.white,
+                OnChanged = s => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 5071
             });
 
             Register(new SettingDefinition
@@ -1627,12 +1647,12 @@ namespace Better_Work_Tab.UI.Settings
                 ParentId = HeadersAngled,
                 FieldName = "angledHeaderHorizontalOffset",
                 Label = "Horizontal offset",
-                Tooltip = "Adjust the horizontal position of the angled headers. 0 = centered, 10 = default offset.",
+                Tooltip = "Adjust the horizontal position of the angled headers. 0 = centered (Default).",
                 Type = SettingType.NumericInt,
-                DefaultValue = 10,
+                DefaultValue = 0,
                 MinValue = -100f,
                 MaxValue = 100f,
-                OnChanged = s => AngledHeaderCache.ClearCache(),
+                OnChanged = s => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
                 SortOrder = 508
