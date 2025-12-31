@@ -150,10 +150,11 @@ namespace Better_Work_Tab.UI
                 {
                     string baseText = col.workType.labelShort ?? col.workType.label ?? col.workType.defName ?? "Work";
                     string text = baseText.CapitalizeFirst();
-                    if (MainTabWindow_BetterWork.ShouldShowColumnMarker(col.workType))
-                    {
-                        text += "*";
-                    }
+                    
+                    // ALWAYS add the marker for size calculation to prevent height flickering
+                    // when columns are moved (even if we don't visually show it)
+                    text += "*";
+                    
                     Vector2 size = Text.CalcSize(text);
                     if (size.x > maxTextWidth) maxTextWidth = size.x;
                 }
