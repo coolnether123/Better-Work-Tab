@@ -213,20 +213,22 @@ namespace Better_Work_Tab.UI
             
             Widgets.Label(textRect, text);
 
-            // If we've repositioned, draw a connection line
-            if (yOffset > 0.1f)
+            // Draw stem line from bottom of text down to the column (like vanilla)
+            // This applies to ALL headers, not just displaced ones
             {
-                GUI.color = new Color(1f, 1f, 1f, 0.3f);
-                float centerX = adjustedHeaderRect.center.x;
-                float lineStart = adjustedHeaderRect.yMax;
-                float lineEnd = headerRect.yMax;
-                float lineHeight = lineEnd - lineStart;
+                float centerX = textRect.center.x;
                 
-                if (lineHeight > 0.1f)
+                // Start at bottom of the text
+                float stemTop = textRect.yMax;
+                // End at bottom of entire header area (where the column data begins)
+                float stemBottom = headerRect.yMax;
+                float stemHeight = stemBottom - stemTop;
+                
+                // Draw if there's enough space for a visible line
+                if (stemHeight >= 2f)
                 {
-                    // Draw thicker line to match vanilla stem lines
-                    Widgets.DrawLineVertical(centerX, lineStart, lineHeight);
-                    Widgets.DrawLineVertical(centerX + 1f, lineStart, lineHeight);
+                    Rect stemRect = new Rect(centerX - 1f, stemTop, 2f, stemHeight);
+                    Widgets.DrawBoxSolid(stemRect, new Color(1f, 1f, 1f, 0.35f));
                 }
             }
             
