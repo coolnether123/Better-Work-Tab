@@ -178,10 +178,17 @@ namespace Better_Work_Tab.UI
             Rect adjustedHeaderRect = headerRect;
             adjustedHeaderRect.y += yOffset;
 
-            // Center the text within the adjusted header rect
+            // Position text at BOTTOM of header area like vanilla does
+            // For baseline (yOffset=0), text sits near headerRect.yMax
+            // The stem gap constant matches vanilla's spacing
+            float stemGap = 4f;
+            float textY = headerRect.yMax - textSize.y - stemGap - yOffset;
+            
+            // For displaced headers, they move UP from the baseline
+            // yOffset pushes them up by that amount
             Rect textRect = new Rect(
-                adjustedHeaderRect.center.x - textSize.x / 2f, 
-                adjustedHeaderRect.y, 
+                headerRect.center.x - textSize.x / 2f, 
+                textY, 
                 textSize.x, 
                 textSize.y
             );
