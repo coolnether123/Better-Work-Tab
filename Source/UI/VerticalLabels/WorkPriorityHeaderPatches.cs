@@ -30,9 +30,34 @@ namespace Better_Work_Tab.UI
                 var evt = Event.current;
                 var evtType = evt?.type ?? EventType.Layout;
 
-                if (!BetterWorkTabMod.Settings.enableAngledHeaders)
+                bool enableAngled = BetterWorkTabMod.Settings.enableAngledHeaders;
+                
+                // In vanilla mode, only intercept if there are ANY moved columns
+                // (this activates overlap prevention for all headers)
+                if (!enableAngled)
                 {
-                    return true;
+                    // Quick check: are there any moved columns at all?
+                    bool hasAnyMovedColumns = false;
+                    var tableCols = table?.def?.columns;
+                    if (tableCols != null)
+                    {
+                        foreach (var col in tableCols)
+                        {
+                            if (col?.workType != null && MainTabWindow_BetterWork.ShouldShowColumnMarker(col.workType))
+                            {
+                                hasAnyMovedColumns = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    // If no columns have been moved, let vanilla handle everything
+                    if (!hasAnyMovedColumns)
+                    {
+                        return true;
+                    }
+                    
+                    // Otherwise, we intercept all headers to handle repositioning
                 }
 
                 bool shouldDraw = evtType == EventType.Repaint;
@@ -62,16 +87,15 @@ namespace Better_Work_Tab.UI
                     _cachedHoveredWorkType = null;
                 }
 
-                bool mouseUnchanged = _cachedMousePos == _lastMousePosChecked;
-                bool reuseHover = mouseUnchanged
-                                  && _lastHoverResultFrame == currentFrame - 1
-                                  && _lastColumnsCount == columnsCount;
+                float rot = enableAngled ? AngledLabelDrawer.CurrentRotation : 0f;
+                float rotCos = Mathf.Cos(rot * Mathf.Deg2Rad);
+                float rotSin = Mathf.Sin(rot * Mathf.Deg2Rad);
 
                 if (!AngledHeaderCache.TryGetLayout(
                         rect,
                         workType,
-                        AngledLabelDrawer.CurrentRotCos,
-                        AngledLabelDrawer.CurrentRotSin,
+                        rotCos,
+                        rotSin,
                         AngledLabelDrawer.STEM_BOTTOM_GAP,
                         BetterWorkTabMod.Settings.angledHeaderHorizontalOffset,
                         out var cached))
@@ -80,13 +104,25 @@ namespace Better_Work_Tab.UI
                 }
 
                 bool isMouseOver = false;
+                bool reuseHover = _cachedMousePos == _lastMousePosChecked
+                                  && _lastHoverResultFrame == currentFrame - 1
+                                  && _lastColumnsCount == columnsCount;
+
                 if (reuseHover)
                 {
                     isMouseOver = _lastHoverWorkType == workType;
                 }
                 else if (_cachedMousePos.y >= rect.yMin && _cachedMousePos.y <= rect.yMax)
                 {
-                    isMouseOver = AngledHeaderCache.IsMouseOver(cached.Quad, _cachedMousePos);
+                    if (enableAngled)
+                    {
+                        isMouseOver = AngledHeaderCache.IsMouseOver(cached.Quad, _cachedMousePos);
+                    }
+                    else
+                    {
+                        // For vanilla, use the bounding box since it's the simplest check
+                        isMouseOver = rect.Contains(_cachedMousePos);
+                    }
                 }
 
                 if (isMouseOver)
@@ -99,6 +135,8 @@ namespace Better_Work_Tab.UI
                 _lastMousePosChecked = _cachedMousePos;
                 _lastColumnsCount = columnsCount;
 
+                var renderer = HeaderDrawingCoordinator.GetActiveRenderer();
+
                 AngledHeaderInteraction.HandleInteractions(
                     __instance,
                     table,
@@ -107,14 +145,14 @@ namespace Better_Work_Tab.UI
                     cached.Quad,
                     isMouseOver,
                     shouldDraw,
-                    rect);
+                    rect,
+                    renderer);
 
                 return false;
             }
             catch (System.Exception ex)
             {
                 Log.Error($"[BWT] WorkPriority header failed: {ex}");
-                // Fall back to vanilla drawing if something went wrong.
                 return true;
             }
         }
@@ -135,6 +173,38 @@ namespace Better_Work_Tab.UI
 
             if (!BetterWorkTabMod.Settings.enableAngledHeaders)
             {
+                // Check if any columns need markers (and thus might be repositioned)
+                bool hasMovedColumns = false;
+                var tableCols = table?.def?.columns;
+                if (tableCols != null)
+                {
+                    foreach (var col in tableCols)
+                    {
+                        if (col?.workType != null && MainTabWindow_BetterWork.ShouldShowColumnMarker(col.workType))
+                        {
+                            hasMovedColumns = true;
+                            break;
+                        }
+                    }
+                }
+
+                // If we have moved columns, ensure extra height for repositioning
+                if (hasMovedColumns)
+                {
+                    GameFont oldFont = Text.Font;
+                    Text.Font = GameFont.Small;
+                    float rowHeight = Text.LineHeight + 2f;
+                    
+                    // Add space for 2 levels of repositioning (3 total positions)
+                    int extraHeight = Mathf.CeilToInt(rowHeight * 2f);
+                    if (__result < extraHeight + 20) // +20 for base header space
+                    {
+                        __result = extraHeight + 20;
+                    }
+                    
+                    Text.Font = oldFont;
+                }
+                
                 return;
             }
 
@@ -168,10 +238,10 @@ namespace Better_Work_Tab.UI
 
             Text.Font = originalFont;
 
-            int required = Mathf.CeilToInt(neededVertical);
-            if (__result < required)
+            int angledRequired = Mathf.CeilToInt(neededVertical);
+            if (__result < angledRequired)
             {
-                __result = required;
+                __result = angledRequired;
             }
         }
     }

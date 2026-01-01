@@ -360,6 +360,9 @@ namespace Better_Work_Tab.DragDrop
                     }
                 }
 
+                // Clear vanilla header renderer cache to force recalculation of all positions
+                VanillaHeaderRenderer.ClearCache();
+
                 // Force layout to rebuild with new column order
                 var layout = PawnOrganizerSystem.Instance?.Layout;
                 if (layout is WorkTabLayoutController workLayout)
