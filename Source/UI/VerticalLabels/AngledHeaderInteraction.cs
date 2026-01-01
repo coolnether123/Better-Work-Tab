@@ -15,9 +15,16 @@ namespace Better_Work_Tab.UI
         private static MethodInfo _baseHeaderClicked;
         private static PawnColumnDef _pendingCtrlDeselect;
 
-        public static void HandleInteractions(PawnColumnWorker_WorkPriority worker, PawnTable table, AngledLabelDrawer.AngledLabelLayout layout, Rect bounds, Vector2[] quad, bool isMouseOver, bool shouldDraw, Rect headerRect)
+        public static void HandleInteractions(PawnColumnWorker_WorkPriority worker, PawnTable table, AngledLabelDrawer.AngledLabelLayout layout, Rect bounds, Vector2[] quad, bool isMouseOver, bool shouldDraw, Rect headerRect, IHeaderRenderer renderer)
         {
-            if (shouldDraw) AngledLabelDrawer.Draw(layout, isMouseOver, table?.SortingBy == worker?.def, table?.SortingDescending ?? false, headerRect, worker?.def);
+            if (shouldDraw && renderer != null)
+            {
+                bool isSorted = table?.SortingBy == worker?.def;
+                bool descending = table?.SortingDescending ?? false;
+                bool showMarker = MainTabWindow_BetterWork.ShouldShowColumnMarker(worker?.def?.workType);
+                renderer.DrawHeader(layout, isMouseOver, isSorted, descending, headerRect, worker?.def, showMarker);
+            }
+
             if (isMouseOver) TooltipHandler.TipRegion(bounds, AngledHeaderCache.GetTooltip(worker));
 
             var evt = Event.current;
