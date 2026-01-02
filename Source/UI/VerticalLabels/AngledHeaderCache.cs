@@ -64,7 +64,10 @@ namespace Better_Work_Tab.UI
             bool shouldShowMarker = MainTabWindow_BetterWork.ShouldShowColumnMarker(workType);
             string displayText = shouldShowMarker ? text + "*" : text;
 
-            string key = $"{workType.defName ?? displayText}_{horizontalOffset:F1}_{rotCos:F3}_{rotSin:F3}_{shouldShowMarker}";
+            // Vanilla mode has 0 rotation, so including rotCos/rotSin is wasteful
+            string key = BetterWorkTabMod.Settings.enableAngledHeaders
+                ? $"{workType.defName ?? displayText}_{horizontalOffset:F1}_{rotCos:F3}_{rotSin:F3}_{shouldShowMarker}"
+                : $"{workType.defName ?? displayText}_{shouldShowMarker}";
             float uiScale = Prefs.UIScale;
             int currentFrame = Time.frameCount;
 
