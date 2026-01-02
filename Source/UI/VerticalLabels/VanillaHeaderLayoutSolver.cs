@@ -9,12 +9,18 @@ namespace Better_Work_Tab.UI
     /// <summary>
     /// Solves the layout for ALL vanilla headers in a single pass.
     /// FIXED: Coordinate system now matches Vanilla staggering exactly.
-    /// PERFORMANCE: Only solves when explicitly invalidated, not every frame.
+    /// PERFORMANCE: Self-validating signature check handles resizing/text changes automatically.
     /// </summary>
     public class VanillaHeaderLayoutSolver
     {
         private bool _solutionValid = false;
         private Dictionary<PawnColumnDef, float> _frameOffsets = new Dictionary<PawnColumnDef, float>();
+        private Dictionary<PawnColumnDef, int> _levels = new Dictionary<PawnColumnDef, int>();
+        private int _lastMaxLevel = 1;
+
+        // Auto-invalidation Signature
+        private int _currentSignature;
+        private int _lastSolvedSignature;
 
         // Collection: gather actual header rects during Layout event
         private int _collectedFrame = -1;
@@ -112,6 +118,29 @@ namespace Better_Work_Tab.UI
             _solutionValid = false;
         }
 
+        private static int Quant(float v, float step = 0.25f) => Mathf.RoundToInt(v / step);
+
+        private void BeginCollectSignature()
+        {
+            unchecked { _currentSignature = 17; }
+        }
+
+        private void AddToCollectSignature(ColumnLayoutInfo info)
+        {
+            unchecked
+            {
+                // PawnColumnDef is stable; GetHashCode is fine for a signature.
+                _currentSignature = _currentSignature * 397 ^ (info.ColumnDef?.GetHashCode() ?? 0);
+
+                // Quantize floats so tiny float jitter doesn’t thrash the solver.
+                _currentSignature = _currentSignature * 397 ^ Quant(info.HeaderRect.x);
+                _currentSignature = _currentSignature * 397 ^ Quant(info.HeaderRect.width);
+                _currentSignature = _currentSignature * 397 ^ Quant(info.TextSize.x);
+                _currentSignature = _currentSignature * 397 ^ info.VanillaLevel;
+                _currentSignature = _currentSignature * 397 ^ (info.IsMoved ? 1 : 0);
+            }
+        }
+
         /// <summary>
         /// Collects the actual header rect and work type info during Layout event.
         /// This gathers REAL runtime data instead of trying to reconstruct from PawnColumnDef (which has width=-1).
@@ -126,6 +155,7 @@ namespace Better_Work_Tab.UI
             {
                 _collectedFrame = frame;
                 _collected.Clear();
+                BeginCollectSignature();
             }
 
             GameFont oldFont = Text.Font;
@@ -151,15 +181,18 @@ namespace Better_Work_Tab.UI
                 // Vanilla stagger flag lives on the PawnColumnDef.
                 int vanillaLevel = colDef.moveWorkTypeLabelDown ? 0 : 1;
 
-                _collected[colDef] = new ColumnLayoutInfo
+                var info = new ColumnLayoutInfo
                 {
                     ColumnDef = colDef,
-                    HeaderRect = headerRect,   // <- REAL rect from DoHeader, not reconstructed garbage
+                    HeaderRect = headerRect,
                     TextSize = textSize,
                     VanillaLevel = vanillaLevel,
                     IsMoved = isMoved,
                     Text = text
                 };
+
+                _collected[colDef] = info;
+                AddToCollectSignature(info);
             }
             finally
             {
@@ -170,14 +203,20 @@ namespace Better_Work_Tab.UI
 
         public void SolveLayout(PawnTable table)
         {
-            if (_solutionValid) return;
+            if (_solutionValid && _currentSignature == _lastSolvedSignature) return;
+
+            // Signature changed or invalidation requested -> re-solve
+            _solutionValid = false; 
+
             if (table == null) return;
 
             _frameOffsets.Clear();
+            _levels.Clear();
             _columns.Clear();
 
             if (_collected.Count == 0)
             {
+                _lastSolvedSignature = _currentSignature;
                 _solutionValid = true;
                 return;
             }
@@ -232,6 +271,9 @@ namespace Better_Work_Tab.UI
             var debugLog = new System.Text.StringBuilder();
             debugLog.AppendLine($"[VanillaHeaderLayoutSolver] GLOBAL SOLVE (Frame {Time.frameCount})");
             debugLog.AppendLine("═══════════════════════════════════════════════════════════════");
+
+            int globalMaxLevel = 1;
+            int globalLevelSum = 0;
 
             foreach (var compIndices in components)
             {
@@ -314,37 +356,71 @@ namespace Better_Work_Tab.UI
 
                 Dfs(0, new Cost());
 
+                // Fallback greedy logic (using 'order' direction now, with -1 init)
                 if (bestAssign == null)
                 {
-                    bestAssign = new int[localNodes.Length];
-                    for (int i = 0; i < bestAssign.Length; i++)
+                    bestAssign = Enumerable.Repeat(-1, localNodes.Length).ToArray();
+                    foreach (int v in order)
                     {
-                        int v = i;
                         for (int level = 0; level <= MaxLevel; level++)
                         {
                             bool ok = true;
                             foreach (int nb in localNodes[v].Neighbors)
                             {
-                                if (bestAssign[nb] == level) { ok = false; break; }
+                                // Only check already-assigned neighbors
+                                if (bestAssign[nb] == level) 
+                                { 
+                                    ok = false; 
+                                    break; 
+                                }
                             }
-                            if (ok) { bestAssign[v] = level; break; }
+                            if (ok) 
+                            { 
+                                bestAssign[v] = level; 
+                                break; 
+                            }
                         }
+                        // Absolute fallback if MaxLevel exceeded
+                        if (bestAssign[v] == -1) 
+                            bestAssign[v] = MaxLevel; 
                     }
                 }
+
+                int localMax = 0;
+                int localSum = 0;
 
                 for (int i = 0; i < localNodes.Length; i++)
                 {
                     var info = localNodes[i].Info;
                     int level = bestAssign[i];
+
+                    _levels[info.ColumnDef] = level;
                     float yOffset = Level0Offset + (level * LevelStepHeight);
                     _frameOffsets[info.ColumnDef] = yOffset;
                     
+                    if (level > localMax) localMax = level;
+                    localSum += level;
+                    
                     debugLog.AppendLine($"  '{info.Text}' | Level {level} (Vanilla={info.VanillaLevel}) | X={localNodes[i].XMin:F1}..{localNodes[i].XMax:F1}");
                 }
+
+                if (localMax > globalMaxLevel) globalMaxLevel = localMax;
+                globalLevelSum += localSum;
+
+                // Component summary
+                debugLog.AppendLine($"  -- Component Max: {localMax} | Sum: {localSum}");
             }
 
             debugLog.AppendLine("═══════════════════════════════════════════════════════════════");
-            Log.Message(debugLog.ToString());
+            debugLog.AppendLine($"Global Max Level: {globalMaxLevel} | Global Level Sum: {globalLevelSum}");
+            
+            if (BetterWorkTabMod.Settings.debugPrintLayout)
+            {
+                Log.Message(debugLog.ToString());
+            }
+
+            _lastMaxLevel = globalMaxLevel;
+            _lastSolvedSignature = _currentSignature;
             _solutionValid = true;
         }
 
@@ -356,16 +432,7 @@ namespace Better_Work_Tab.UI
 
         public int GetMaxLevelUsed()
         {
-            if (_frameOffsets.Count == 0) return 1; 
-
-            float maxOffset = 0f;
-            foreach (var offset in _frameOffsets.Values)
-            {
-                if (offset > maxOffset) maxOffset = offset;
-            }
-
-            int level = Mathf.RoundToInt((maxOffset - Level0Offset) / LevelStepHeight);
-            return Mathf.Max(1, level);
+            return _lastMaxLevel;
         }
 
         /// <summary>

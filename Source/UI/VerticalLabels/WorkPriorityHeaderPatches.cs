@@ -278,12 +278,11 @@ namespace Better_Work_Tab.UI
                     var solver = HeaderDrawingCoordinator.GetVanillaSolver();
                     int maxLevel = solver?.GetMaxLevelUsed() ?? 1;
 
-                    // Vanilla is levels 0 and 1.
-                    // If maxLevel > 1, we add extra space for those levels.
-                    // Level 0: 0, Level 1: 1, Level 2: 2, Level 3: 3
-                    // The result should scale with maxLevel.
-                    // A multiplier of 1.2 per level beyond the base (which is effectively 2 levels)
-                    int minRequired = Mathf.CeilToInt(rowHeight * (maxLevel + 1.5f)); 
+                    // Vanilla baseline is roughly 50px.
+                    // MaxLevel 1 (Vanilla): (1 + 1.2) * 22 = 48.4px (Matches vanilla)
+                    // MaxLevel 2: (2 + 1.2) * 22 = 70.4px
+                    // MaxLevel 3: (3 + 1.2) * 22 = 92.4px
+                    int minRequired = Mathf.CeilToInt(rowHeight * (maxLevel + 1.2f)); 
 
                     if (__result < minRequired)
                     {
