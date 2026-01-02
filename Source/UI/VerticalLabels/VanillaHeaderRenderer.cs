@@ -37,9 +37,9 @@ namespace Better_Work_Tab.UI
 
             // === POSITIONING MATH ===
             // yOffset = distance from headerBottom (pawn box) to TEXT MIDDLE
-            //   Level 0 (low):  24px from text middle to pawn box
-            //   Level 1 (high): 44px from text middle to pawn box
-            //   Level 2:        64px from text middle to pawn box
+            //   Level 0 (low):  19px from text middle to pawn box
+            //   Level 1 (high): 39px from text middle to pawn box
+            //   Level 2:        59px from text middle to pawn box
             // 
             // Formula: 
             //   textMiddle = headerBottom - yOffset
@@ -112,20 +112,21 @@ namespace Better_Work_Tab.UI
             if (settings?.removeHeaderUnderline ?? false)
                 return;
 
-            const float gap = 2f; // 2px gap between text and line (vanilla spec)
+            const float manualAdjustment = -3f; // -5f (font compensation) + 2f (desired gap) = -3f
             
             // Calculate which level this is based on distance from headerBottom
-            // Level 0: 24px, Level 1: 44px, Level 2: 64px
+            // Level 0: 19px, Level 1: 39px, Level 2: 59px
             float textMiddle = textRect.center.y;
             float distanceFromBottom = headerBottom - textMiddle;
-            int level = Mathf.RoundToInt((distanceFromBottom - 24f) / 20f);
+            int level = Mathf.RoundToInt((distanceFromBottom - 19f) / 20f);
             level = Mathf.Max(0, level); // Ensure non-negative
             
             // Fixed stem heights: 11px for level 0, 31px for level 1, etc.
             float stemHeight = 11f + (level * 20f);
 
             float centerX = textRect.center.x;
-            float stemTop = textRect.yMax + gap;
+            // Calculate visual bottom of text (center + half height) + manual adjustment
+            float stemTop = textRect.center.y + (textRect.height / 2f) + manualAdjustment;
 
             // Only draw if there's enough room
             if (stemHeight > 0.5f)
