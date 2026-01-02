@@ -314,6 +314,8 @@ namespace Better_Work_Tab
         };
         public List<string> workColumnOrderDefNames = new List<string>();
         public Dictionary<string, float> storedColumnWidths = new Dictionary<string, float>();
+        
+        public bool debugPrintLayout = false; // Added to fix CS1061
 
         // Tracks which columns the player has directly dragged. Only columns in this list
         // that are also currently out of their vanilla position will show the yellow asterisk.
