@@ -9,11 +9,16 @@ namespace Better_Work_Tab.UI
     /// <summary>
     /// Solves the layout for ALL vanilla headers in a single pass.
     /// FIXED: Coordinate system now matches Vanilla staggering exactly.
+    /// PERFORMANCE: Only solves when explicitly invalidated, not every frame.
     /// </summary>
     public class VanillaHeaderLayoutSolver
     {
-        private int _solvedFrame = -1;
+        private bool _solutionValid = false;
         private Dictionary<PawnColumnDef, float> _frameOffsets = new Dictionary<PawnColumnDef, float>();
+
+        // Collection: gather actual header rects during Layout event
+        private int _collectedFrame = -1;
+        private readonly Dictionary<PawnColumnDef, ColumnLayoutInfo> _collected = new Dictionary<PawnColumnDef, ColumnLayoutInfo>();
 
         // Height of one "step" in the stagger - exact vanilla spacing
         private const float LevelStepHeight = 20f;
@@ -24,99 +29,323 @@ namespace Better_Work_Tab.UI
         // Level 1 (high): 39px from middle of text to pawn box
         private const float Level0Offset = 19f; 
 
+        // Max level for header placement
+        private const int MaxLevel = 3;
+
         private List<ColumnLayoutInfo> _columns = new List<ColumnLayoutInfo>();
-        private List<Rect> _placedRects = new List<Rect>();
 
-        public void SolveLayout(PawnTable table)
+        private const float CollisionPadding = 1f;
+
+        private struct Cost
         {
-            if (Time.frameCount == _solvedFrame) return;
+            public int ExcessLevelSum;     // Sum(max(0, level - VanillaLevel))
+            public int VanillaMovedCount;
+            public int LevelSum;
+            public int VanillaDeviationSum;
 
-            _solvedFrame = Time.frameCount;
-            _frameOffsets.Clear();
-            _columns.Clear();
-            _placedRects.Clear();
-
-            if (table == null) return;
-            var tableDef = table.def;
-            if (tableDef?.columns == null) return;
-
-            float currentX = 0f;
-            foreach (var col in tableDef.columns)
+            public static Cost MaxValue => new Cost
             {
-                if (col?.Worker == null) continue;
-                if (!(col.Worker is PawnColumnWorker_WorkPriority)) continue;
+                ExcessLevelSum = int.MaxValue / 4,
+                VanillaMovedCount = int.MaxValue / 4,
+                LevelSum = int.MaxValue / 4,
+                VanillaDeviationSum = int.MaxValue / 4
+            };
 
-                var workType = col.workType;
-                if (workType == null) continue;
+            public bool IsBetterThan(Cost other)
+            {
+                // Primary: minimize "Excess height" pushed above vanilla stagger
+                if (ExcessLevelSum != other.ExcessLevelSum) return ExcessLevelSum < other.ExcessLevelSum;
 
-                string text = !col.LabelCap.NullOrEmpty() ? col.LabelCap.ToString() : "Work";
-                bool isMoved = workType != null && MainTabWindow_BetterWork.ShouldShowColumnMarker(workType);
+                // Secondary: minimize how many "vanilla" (non-moved) headers we displace
+                if (VanillaMovedCount != other.VanillaMovedCount) return VanillaMovedCount < other.VanillaMovedCount;
 
+                // Tertiary: minimize total sum of levels for overall compaction
+                if (LevelSum != other.LevelSum) return LevelSum < other.LevelSum;
+
+                // Final tie-breaker: total distance moved
+                return VanillaDeviationSum < other.VanillaDeviationSum;
+            }
+
+            public void AddFor(ColumnLayoutInfo info, int level)
+            {
+                ExcessLevelSum += Mathf.Max(0, level - info.VanillaLevel);
+                LevelSum += level;
+                
+                if (!info.IsMoved)
+                {
+                    if (level != info.VanillaLevel)
+                    {
+                        VanillaMovedCount += 1;
+                        VanillaDeviationSum += Mathf.Abs(level - info.VanillaLevel);
+                    }
+                }
+            }
+        }
+
+        private struct Node
+        {
+            public ColumnLayoutInfo Info;
+            public float XMin;
+            public float XMax;
+            public List<int> Neighbors;
+        }
+
+        private static void ComputeXInterval(Rect headerRect, Vector2 textSize, out float xMin, out float xMax)
+        {
+            float left = headerRect.center.x - (textSize.x / 2f) - CollisionPadding;
+            float right = left + textSize.x + (CollisionPadding * 2f);
+            xMin = left;
+            xMax = right;
+        }
+
+        private static bool XOverlaps(Node a, Node b)
+        {
+            return a.XMin < b.XMax && a.XMax > b.XMin;
+        }
+
+        /// <summary>
+        /// Call this to invalidate the current solution and force a recalculation on next SolveLayout call.
+        /// Should be called when columns are moved or settings change.
+        /// </summary>
+        public void InvalidateSolution()
+        {
+            _solutionValid = false;
+        }
+
+        /// <summary>
+        /// Collects the actual header rect and work type info during Layout event.
+        /// This gathers REAL runtime data instead of trying to reconstruct from PawnColumnDef (which has width=-1).
+        /// </summary>
+        public void CollectHeader(PawnColumnDef colDef, Rect headerRect, WorkTypeDef workType, bool isMoved)
+        {
+            if (colDef == null || workType == null) return;
+
+            // Collect per-frame during Layout. Clear collection when frame changes.
+            int frame = Time.frameCount;
+            if (_collectedFrame != frame)
+            {
+                _collectedFrame = frame;
+                _collected.Clear();
+            }
+
+            GameFont oldFont = Text.Font;
+            bool oldWordWrap = Text.WordWrap;
+            try
+            {
+                Text.Font = GameFont.Small;
+                Text.WordWrap = false;
+
+                // Use actual work type label, not col.LabelCap (which is just "Work")
+                string baseText = workType.labelShort;
+                if (baseText.NullOrEmpty())
+                    baseText = workType.label;
+                if (baseText.NullOrEmpty())
+                    baseText = workType.defName;
+
+                string text = (baseText.NullOrEmpty() ? "Work" : baseText).CapitalizeFirst();
                 if (isMoved && !text.EndsWith("*"))
                     text += "*";
 
                 Vector2 textSize = Text.CalcSize(text);
 
-                // === FIX: VANILLA LEVEL LOGIC ===
-                // moveWorkTypeLabelDown = TRUE  -> Low Position  (Level 0)
-                // moveWorkTypeLabelDown = FALSE -> High Position (Level 1)
-                // Previous code had this inverted.
-                int vanillaLevel = col.moveWorkTypeLabelDown ? 0 : 1;
+                // Vanilla stagger flag lives on the PawnColumnDef.
+                int vanillaLevel = colDef.moveWorkTypeLabelDown ? 0 : 1;
 
-                _columns.Add(new ColumnLayoutInfo
+                _collected[colDef] = new ColumnLayoutInfo
                 {
-                    ColumnDef = col,
-                    HeaderRect = new Rect(currentX, 0f, col.width, 30f),
+                    ColumnDef = colDef,
+                    HeaderRect = headerRect,   // <- REAL rect from DoHeader, not reconstructed garbage
                     TextSize = textSize,
                     VanillaLevel = vanillaLevel,
                     IsMoved = isMoved,
                     Text = text
-                });
+                };
+            }
+            finally
+            {
+                Text.Font = oldFont;
+                Text.WordWrap = oldWordWrap;
+            }
+        }
 
-                currentX += col.width;
+        public void SolveLayout(PawnTable table)
+        {
+            if (_solutionValid) return;
+            if (table == null) return;
+
+            _frameOffsets.Clear();
+            _columns.Clear();
+
+            if (_collected.Count == 0)
+            {
+                _solutionValid = true;
+                return;
             }
 
-            // PASS 1: Place non-moved columns at vanilla levels
-            foreach (var colInfo in _columns)
+            _columns.AddRange(_collected.Values);
+
+            // Build nodes with X intervals
+            var nodes = new List<Node>(_columns.Count);
+            foreach (var info in _columns)
             {
-                if (colInfo.IsMoved) continue;
-
-                // Calculate offset: Level 0 = 19px, Level 1 = 39px, Level 2 = 59px, etc.
-                float yOffset = Level0Offset + (colInfo.VanillaLevel * LevelStepHeight);
-                Rect screenCollisionRect = CalculateScreenCollisionRect(colInfo.HeaderRect, colInfo.TextSize, yOffset);
-
-                _frameOffsets[colInfo.ColumnDef] = yOffset;
-                _placedRects.Add(screenCollisionRect);
-            }
-
-            // PASS 2: Place moved columns
-            foreach (var colInfo in _columns)
-            {
-                if (!colInfo.IsMoved) continue;
-
-                int[] levelsToTry = GenerateLevelSearchOrder(colInfo.VanillaLevel);
-                bool placed = false;
-
-                foreach (int level in levelsToTry)
+                ComputeXInterval(info.HeaderRect, info.TextSize, out float xMin, out float xMax);
+                nodes.Add(new Node
                 {
-                    // Calculate offset: Level 0 = 19px, Level 1 = 39px, Level 2 = 59px, etc.
-                    float yOffset = Level0Offset + (level * LevelStepHeight);
-                    Rect testScreenRect = CalculateScreenCollisionRect(colInfo.HeaderRect, colInfo.TextSize, yOffset);
+                    Info = info,
+                    XMin = xMin,
+                    XMax = xMax,
+                    Neighbors = null
+                });
+            }
 
-                    if (!_placedRects.Any(placed2 => testScreenRect.Overlaps(placed2)))
+            // Sort by XMin so we can split into connected components cheaply
+            nodes.Sort((a, b) => a.XMin.CompareTo(b.XMin));
+
+            // Split into components (interval-graph components)
+            var components = new List<List<int>>();
+            if (nodes.Count > 0)
+            {
+                int start = 0;
+                float currentMaxX = nodes[0].XMax;
+
+                for (int i = 1; i < nodes.Count; i++)
+                {
+                    if (nodes[i].XMin <= currentMaxX)
                     {
-                        _frameOffsets[colInfo.ColumnDef] = yOffset;
-                        _placedRects.Add(testScreenRect);
-                        placed = true;
-                        break;
+                        if (nodes[i].XMax > currentMaxX) currentMaxX = nodes[i].XMax;
+                    }
+                    else
+                    {
+                        var comp = new List<int>();
+                        for (int k = start; k < i; k++) comp.Add(k);
+                        components.Add(comp);
+
+                        start = i;
+                        currentMaxX = nodes[i].XMax;
+                    }
+                }
+                var last = new List<int>();
+                for (int k = start; k < nodes.Count; k++) last.Add(k);
+                components.Add(last);
+            }
+
+            var debugLog = new System.Text.StringBuilder();
+            debugLog.AppendLine($"[VanillaHeaderLayoutSolver] GLOBAL SOLVE (Frame {Time.frameCount})");
+            debugLog.AppendLine("═══════════════════════════════════════════════════════════════");
+
+            foreach (var compIndices in components)
+            {
+                var localNodes = new Node[compIndices.Count];
+                for (int i = 0; i < compIndices.Count; i++)
+                {
+                    var n = nodes[compIndices[i]];
+                    n.Neighbors = new List<int>();
+                    localNodes[i] = n;
+                }
+
+                for (int i = 0; i < localNodes.Length; i++)
+                {
+                    for (int j = i + 1; j < localNodes.Length; j++)
+                    {
+                        if (localNodes[j].XMin >= localNodes[i].XMax) break;
+                        if (XOverlaps(localNodes[i], localNodes[j]))
+                        {
+                            localNodes[i].Neighbors.Add(j);
+                            localNodes[j].Neighbors.Add(i);
+                        }
                     }
                 }
 
-                if (!placed)
+                var assignment = new int[localNodes.Length];
+                for (int i = 0; i < assignment.Length; i++) assignment[i] = -1;
+
+                var order = Enumerable.Range(0, localNodes.Length)
+                                      .OrderByDescending(i => localNodes[i].Neighbors.Count)
+                                      .ThenByDescending(i => (localNodes[i].XMax - localNodes[i].XMin))
+                                      .ToArray();
+
+                Cost bestCost = Cost.MaxValue;
+                int[] bestAssign = null;
+
+                void Dfs(int pos, Cost costSoFar)
                 {
-                    _frameOffsets[colInfo.ColumnDef] = Level0Offset; // Fallback to level 0 position
+                    if (pos == order.Length)
+                    {
+                        if (costSoFar.IsBetterThan(bestCost))
+                        {
+                            bestCost = costSoFar;
+                            bestAssign = (int[])assignment.Clone();
+                        }
+                        return;
+                    }
+
+                    int v = order[pos];
+                    ref Node node = ref localNodes[v];
+
+                    for (int level = 0; level <= MaxLevel; level++)
+                    {
+                        bool ok = true;
+                        foreach (int nb in node.Neighbors)
+                        {
+                            if (assignment[nb] == level)
+                            {
+                                ok = false;
+                                break;
+                            }
+                        }
+                        if (!ok) continue;
+
+                        Cost next = costSoFar;
+                        next.AddFor(node.Info, level);
+
+                        // Pruning logic must match IsBetterThan priority
+                        if (next.ExcessLevelSum > bestCost.ExcessLevelSum) continue;
+                        if (next.ExcessLevelSum == bestCost.ExcessLevelSum && next.VanillaMovedCount > bestCost.VanillaMovedCount) continue;
+                        if (next.ExcessLevelSum == bestCost.ExcessLevelSum && next.VanillaMovedCount == bestCost.VanillaMovedCount &&
+                            next.LevelSum > bestCost.LevelSum) continue;
+                        if (next.ExcessLevelSum == bestCost.ExcessLevelSum && next.VanillaMovedCount == bestCost.VanillaMovedCount &&
+                            next.LevelSum == bestCost.LevelSum && next.VanillaDeviationSum >= bestCost.VanillaDeviationSum) continue;
+
+                        assignment[v] = level;
+                        Dfs(pos + 1, next);
+                        assignment[v] = -1;
+                    }
+                }
+
+                Dfs(0, new Cost());
+
+                if (bestAssign == null)
+                {
+                    bestAssign = new int[localNodes.Length];
+                    for (int i = 0; i < bestAssign.Length; i++)
+                    {
+                        int v = i;
+                        for (int level = 0; level <= MaxLevel; level++)
+                        {
+                            bool ok = true;
+                            foreach (int nb in localNodes[v].Neighbors)
+                            {
+                                if (bestAssign[nb] == level) { ok = false; break; }
+                            }
+                            if (ok) { bestAssign[v] = level; break; }
+                        }
+                    }
+                }
+
+                for (int i = 0; i < localNodes.Length; i++)
+                {
+                    var info = localNodes[i].Info;
+                    int level = bestAssign[i];
+                    float yOffset = Level0Offset + (level * LevelStepHeight);
+                    _frameOffsets[info.ColumnDef] = yOffset;
+                    
+                    debugLog.AppendLine($"  '{info.Text}' | Level {level} (Vanilla={info.VanillaLevel}) | X={localNodes[i].XMin:F1}..{localNodes[i].XMax:F1}");
                 }
             }
+
+            debugLog.AppendLine("═══════════════════════════════════════════════════════════════");
+            Log.Message(debugLog.ToString());
+            _solutionValid = true;
         }
 
         public float GetOffset(PawnColumnDef column)
@@ -126,38 +355,25 @@ namespace Better_Work_Tab.UI
         }
 
         /// <summary>
-        /// Calculates the bounding box of the text in actual screen coordinates.
-        /// This ensures collision detection matches what the user sees.
+        /// Returns the actual bounding box of the header label for collision/hover detection.
         /// </summary>
-        private Rect CalculateScreenCollisionRect(Rect headerRect, Vector2 textSize, float yOffset)
+        public Rect GetBounds(PawnColumnDef column)
         {
-            const float padding = 1f;
+            if (column == null || !_collected.TryGetValue(column, out var info))
+                return Rect.zero;
 
-            // Math must match VanillaHeaderRenderer exactly
-            float headerBottom = headerRect.yMax;
+            float yOffset = GetOffset(column);
             
-            // yOffset = distance from headerBottom to TEXT MIDDLE
-            // textMiddle = headerBottom - yOffset
-            // textY (top) = textMiddle - (textSize.y / 2)
-            float textY = headerBottom - yOffset - (textSize.y / 2f);
+            // Formula from CalculateScreenCollisionRect
+            float headerBottom = info.HeaderRect.yMax;
+            float textY = headerBottom - yOffset - (info.TextSize.y / 2f);
 
             return new Rect(
-                headerRect.center.x - (textSize.x / 2f) - padding,
-                textY - padding,
-                textSize.x + (padding * 2f),
-                textSize.y + (padding * 2f)
+                info.HeaderRect.center.x - (info.TextSize.x / 2f) - CollisionPadding,
+                textY - CollisionPadding,
+                info.TextSize.x + (CollisionPadding * 2f),
+                info.TextSize.y + (CollisionPadding * 2f)
             );
-        }
-
-        private int[] GenerateLevelSearchOrder(int vanillaLevel)
-        {
-            var levels = new List<int> { vanillaLevel };
-            for (int i = 1; i <= 5; i++)
-            {
-                if (vanillaLevel + i >= 0) levels.Add(vanillaLevel + i);
-                if (vanillaLevel - i >= 0) levels.Add(vanillaLevel - i);
-            }
-            return levels.ToArray();
         }
 
         private class ColumnLayoutInfo

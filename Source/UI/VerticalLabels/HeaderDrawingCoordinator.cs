@@ -42,6 +42,14 @@ namespace Better_Work_Tab.UI
         }
 
         /// <summary>
+        /// Returns the vanilla solver for collecting header data.
+        /// </summary>
+        public static VanillaHeaderLayoutSolver GetVanillaSolver()
+        {
+            return _vanillaSolver;
+        }
+
+        /// <summary>
         /// Returns the active renderer based on settings.
         /// </summary>
         public static IHeaderRenderer GetActiveRenderer()
@@ -57,6 +65,7 @@ namespace Better_Work_Tab.UI
         /// </summary>
         public static void InvalidateCaches()
         {
+            // Create new solver (starts with _solutionValid = false, triggering recalculation)
             _vanillaSolver = new VanillaHeaderLayoutSolver();
             _vanillaRenderer = new VanillaHeaderRenderer(_vanillaSolver);
             AngledHeaderCache.ClearCache();
