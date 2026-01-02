@@ -31,11 +31,14 @@ namespace Better_Work_Tab.UI
                 // We only care about work priority columns which are the ones we angle
                 if (col.Worker is PawnColumnWorker_WorkPriority && col.workType != null)
                 {
-                    string label = col.workType.labelShort;
-                    if (string.IsNullOrEmpty(label))
-                        label = col.workType.label;
-                    if (string.IsNullOrEmpty(label))
-                        label = col.workType.defName;
+                    // Use actual work type label, not col.LabelCap (which is just "Work")
+                    string baseText = col.workType.labelShort;
+                    if (baseText.NullOrEmpty())
+                        baseText = col.workType.label;
+                    if (baseText.NullOrEmpty())
+                        baseText = col.workType.defName;
+                    
+                    string label = (baseText.NullOrEmpty() ? "Work" : baseText).CapitalizeFirst();
                     
                     // ALWAYS reserve space for the marker to prevent height flickering when columns are moved
                     label += "*";
