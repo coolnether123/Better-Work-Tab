@@ -354,6 +354,20 @@ namespace Better_Work_Tab.UI
             return _frameOffsets.TryGetValue(column, out float offset) ? offset : 0f;
         }
 
+        public int GetMaxLevelUsed()
+        {
+            if (_frameOffsets.Count == 0) return 1; 
+
+            float maxOffset = 0f;
+            foreach (var offset in _frameOffsets.Values)
+            {
+                if (offset > maxOffset) maxOffset = offset;
+            }
+
+            int level = Mathf.RoundToInt((maxOffset - Level0Offset) / LevelStepHeight);
+            return Mathf.Max(1, level);
+        }
+
         /// <summary>
         /// Returns the actual bounding box of the header label for collision/hover detection.
         /// </summary>

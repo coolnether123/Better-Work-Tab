@@ -275,10 +275,15 @@ namespace Better_Work_Tab.UI
                     Text.Font = GameFont.Small;
                     float rowHeight = Text.LineHeight + 2f;
 
-                    // We can have up to 6 levels (0, 1, 2, 3, 4, 5)
-                    // Reserve space for all of them
-                    int extraHeight = Mathf.CeilToInt(rowHeight * 5f); // 5 extra rows beyond baseline
-                    int minRequired = extraHeight + 20; // +20 for base header space
+                    var solver = HeaderDrawingCoordinator.GetVanillaSolver();
+                    int maxLevel = solver?.GetMaxLevelUsed() ?? 1;
+
+                    // Vanilla is levels 0 and 1.
+                    // If maxLevel > 1, we add extra space for those levels.
+                    // Level 0: 0, Level 1: 1, Level 2: 2, Level 3: 3
+                    // The result should scale with maxLevel.
+                    // A multiplier of 1.2 per level beyond the base (which is effectively 2 levels)
+                    int minRequired = Mathf.CeilToInt(rowHeight * (maxLevel + 1.5f)); 
 
                     if (__result < minRequired)
                     {
