@@ -90,7 +90,7 @@ namespace Better_Work_Tab.UI
                 // Sort Indicator
                 if (isSorted)
                 {
-                    DrawSortIndicator(textRect, sortDescending);
+                    DrawSortIndicator(headerRect, sortDescending);
                 }
             }
             finally
@@ -138,16 +138,23 @@ namespace Better_Work_Tab.UI
             }
         }
 
-        private void DrawSortIndicator(Rect textRect, bool descending)
+        private void DrawSortIndicator(Rect headerRect, bool descending)
         {
-            var oldFont = Text.Font;
+            GameFont oldFont = Text.Font;
             Text.Font = GameFont.Tiny;
+            TextAnchor oldAnchor = Text.Anchor;
+            Text.Anchor = TextAnchor.MiddleCenter;
+
+            Color oldColor = GUI.color;
             GUI.color = new Color(0.6f, 0.6f, 0.6f, 0.8f);
 
-            Rect sortRect = new Rect(textRect.xMax + 2f, textRect.y + 1f, 10f, 10f);
+            // Match AngledLabelDrawer exactly: bottom of header area, slightly right of center
+            Rect sortRect = new Rect(headerRect.x + (headerRect.width - 6f) / 2f + 5f, headerRect.yMax - 9f, 12f, 12f);
             Widgets.Label(sortRect, descending ? "▼" : "▲");
 
+            GUI.color = oldColor;
             Text.Font = oldFont;
+            Text.Anchor = oldAnchor;
         }
     }
 }
