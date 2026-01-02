@@ -18,6 +18,7 @@ namespace Better_Work_Tab.UI
         private static WorkTypeDef _lastHoverWorkType;
         private static int _lastHoverResultFrame = -1;
         private static int _lastColumnsCount = -1;
+        private static WorkTypeDef _lastFrameHoveredWorkType;
 
         public static WorkTypeDef HoveredWorkType =>
             _lastCachedFrame == Time.frameCount ? _cachedHoveredWorkType : null;
@@ -33,6 +34,13 @@ namespace Better_Work_Tab.UI
 
                 bool enableAngled = BetterWorkTabMod.Settings.enableAngledHeaders;
 
+                // Get work type once at the top
+                var workType = __instance?.def?.workType;
+                if (workType == null)
+                {
+                    return false;
+                }
+
                 // ===== VANILLA MODE TAKEOVER LOGIC =====
                 // If angled headers are OFF, check if ANY columns are moved
                 // If so, we take over ALL headers to ensure consistent positioning
@@ -46,9 +54,17 @@ namespace Better_Work_Tab.UI
                         return true; // Fall through to vanilla
                     }
 
-                    // === We're taking over: ensure layout is solved ===
-                    // This is the CRITICAL call that happens once per frame
+                    // === Collect header data during Layout event ===
                     if (evtType == EventType.Layout)
+                    {
+                        bool isMoved = MainTabWindow_BetterWork.ShouldShowColumnMarker(workType);
+                        var solver = HeaderDrawingCoordinator.GetVanillaSolver();
+                        solver.CollectHeader(__instance.def, rect, workType, isMoved);
+                    }
+
+                    // === We're taking over: ensure layout is solved ===
+                    // This happens during Repaint after all headers have been collected
+                    if (evtType == EventType.Repaint)
                     {
                         HeaderDrawingCoordinator.EnsureLayoutSolved(table);
                     }
@@ -66,18 +82,16 @@ namespace Better_Work_Tab.UI
                     return false;
                 }
 
-                var workType = __instance?.def?.workType;
-                if (workType == null)
-                {
-                    return false;
-                }
-
                 int columnsCount = PawnTableDefOf.Work?.columns?.Count ?? -1;
                 int currentFrame = Time.frameCount;
 
                 // Cache mouse position
                 if (_lastCachedFrame != currentFrame || handleInput)
                 {
+                    // capture last frame's hovered type before clearing
+                    if (_lastCachedFrame != currentFrame)
+                        _lastFrameHoveredWorkType = _cachedHoveredWorkType;
+
                     _cachedMousePos = evt?.mousePosition ?? Vector2.zero;
                     _lastCachedFrame = currentFrame;
                     _cachedHoveredWorkType = null;
@@ -102,7 +116,7 @@ namespace Better_Work_Tab.UI
                 }
 
                 // Determine if mouse is over this header
-                bool isMouseOver = DetermineMouseOver(enableAngled, rect, cached, columnsCount, currentFrame);
+                bool isMouseOver = DetermineMouseOver(enableAngled, rect, workType, cached, columnsCount, currentFrame, __instance.def);
 
                 if (isMouseOver)
                 {
@@ -117,12 +131,36 @@ namespace Better_Work_Tab.UI
                 // Get the active renderer
                 var renderer = HeaderDrawingCoordinator.GetActiveRenderer();
 
+                // Get correct bounds and layout for interactions
+                Rect interactionBounds = cached.Bounds;
+                AngledLabelDrawer.AngledLabelLayout interactionLayout = cached.Layout;
+
+                if (!enableAngled)
+                {
+                    var solver = HeaderDrawingCoordinator.GetVanillaSolver();
+                    interactionBounds = solver.GetBounds(__instance.def);
+                    // For vanilla mode, text layout is simple
+                    string baseText = workType.labelShort;
+                    if (baseText.NullOrEmpty())
+                        baseText = workType.label;
+                    if (baseText.NullOrEmpty())
+                        baseText = workType.defName;
+
+                    string label = (baseText.NullOrEmpty() ? "Work" : baseText).CapitalizeFirst();
+                    interactionLayout = new AngledLabelDrawer.AngledLabelLayout(
+                        label,
+                        interactionBounds.size,
+                        interactionBounds.center,
+                        MainTabWindow_BetterWork.ShouldShowColumnMarker(workType)
+                    );
+                }
+
                 // Handle interactions and rendering
                 AngledHeaderInteraction.HandleInteractions(
                     __instance,
                     table,
-                    cached.Layout,
-                    cached.Bounds,
+                    interactionLayout,
+                    interactionBounds,
                     cached.Quad,
                     isMouseOver,
                     shouldDraw,
@@ -162,7 +200,7 @@ namespace Better_Work_Tab.UI
         /// Uses a reuse cache to avoid recalculating every frame.
         /// </summary>
         private static bool DetermineMouseOver(bool enableAngled, Rect rect, 
-            AngledHeaderCache.CachedHeaderData cached, int columnsCount, int currentFrame)
+            WorkTypeDef workType, AngledHeaderCache.CachedHeaderData cached, int columnsCount, int currentFrame, PawnColumnDef columnDef)
         {
             bool reuseHover = _cachedMousePos == _lastMousePosChecked
                               && _lastHoverResultFrame == currentFrame - 1
@@ -170,24 +208,38 @@ namespace Better_Work_Tab.UI
 
             if (reuseHover)
             {
-                return _lastHoverWorkType != null;
+                // Reuse the *specific* header that was hovered last frame.
+                // If none was hovered, everything returns false.
+                return _lastFrameHoveredWorkType != null && workType == _lastFrameHoveredWorkType;
             }
 
-            // Y bounds check
-            if (_cachedMousePos.y < rect.yMin || _cachedMousePos.y > rect.yMax)
-            {
-                return false;
-            }
-
-            // Different checks for angled vs vanilla
+            // For angled headers, we check Y bounds first
             if (enableAngled)
             {
+                if (_cachedMousePos.y < rect.yMin || _cachedMousePos.y > rect.yMax)
+                {
+                    return false;
+                }
                 return AngledHeaderCache.IsMouseOver(cached.Quad, _cachedMousePos);
             }
             else
             {
-                // Vanilla: simple rect check (no rotation math needed)
-                return rect.Contains(_cachedMousePos);
+                // Vanilla mode: use the actual staggered bounds from the solver!
+                var solver = HeaderDrawingCoordinator.GetVanillaSolver();
+                Rect staggeredBounds = solver.GetBounds(columnDef);
+                
+                // Allow hover if within the staggered label bounds
+                if (staggeredBounds.Contains(_cachedMousePos))
+                {
+                    return true;
+                }
+
+                // Also allow hover if within the horizontal center strip of the column (for the stem line)
+                // but only above the pawn row
+                float centerX = staggeredBounds.center.x;
+                Rect stemChannel = new Rect(centerX - 5f, staggeredBounds.yMax, 10f, rect.yMax - staggeredBounds.yMax);
+                
+                return stemChannel.Contains(_cachedMousePos);
             }
         }
 
