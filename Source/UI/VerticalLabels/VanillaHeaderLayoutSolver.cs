@@ -19,9 +19,10 @@ namespace Better_Work_Tab.UI
         private const float LevelStepHeight = 20f;
         
         // Base offset for level 0 - distance from header bottom to TEXT MIDDLE
-        // Level 0 (low): 24px from middle of text to pawn box
-        // Level 1 (high): 44px from middle of text to pawn box
-        private const float Level0Offset = 24f; 
+        // Adjusted to 19px to achieve 2px gap between text bottom and stem line
+        // Level 0 (low): 19px from middle of text to pawn box
+        // Level 1 (high): 39px from middle of text to pawn box
+        private const float Level0Offset = 19f; 
 
         private List<ColumnLayoutInfo> _columns = new List<ColumnLayoutInfo>();
         private List<Rect> _placedRects = new List<Rect>();
@@ -80,7 +81,7 @@ namespace Better_Work_Tab.UI
             {
                 if (colInfo.IsMoved) continue;
 
-                // Calculate offset: Level 0 = 18px, Level 1 = 38px, Level 2 = 58px, etc.
+                // Calculate offset: Level 0 = 19px, Level 1 = 39px, Level 2 = 59px, etc.
                 float yOffset = Level0Offset + (colInfo.VanillaLevel * LevelStepHeight);
                 Rect screenCollisionRect = CalculateScreenCollisionRect(colInfo.HeaderRect, colInfo.TextSize, yOffset);
 
@@ -98,7 +99,7 @@ namespace Better_Work_Tab.UI
 
                 foreach (int level in levelsToTry)
                 {
-                    // Calculate offset: Level 0 = 18px, Level 1 = 38px, Level 2 = 58px, etc.
+                    // Calculate offset: Level 0 = 19px, Level 1 = 39px, Level 2 = 59px, etc.
                     float yOffset = Level0Offset + (level * LevelStepHeight);
                     Rect testScreenRect = CalculateScreenCollisionRect(colInfo.HeaderRect, colInfo.TextSize, yOffset);
 
