@@ -131,14 +131,9 @@ namespace Better_Work_Tab.UI
             // Only draw if there's enough room
             if (stemHeight > 0.5f)
             {
-                // Draw black outline first (4px wide, shifted 1px right)
-                Rect outlineRect = new Rect(centerX - 1f, stemTop, 4f, stemHeight);
-                GUI.color = Color.black;
-                Widgets.DrawBoxSolid(outlineRect, GUI.color);
-                
-                // Then draw the vanilla grey stem on top (2px wide, shifted 1px right)
+                // Draw the vanilla grey stem (2px wide, shifted 1px right)
                 Rect stemRect = new Rect(centerX, stemTop, 2f, stemHeight);
-                GUI.color = new Color(1f, 1f, 1f, 0.35f); // Vanilla-like faint grey
+                GUI.color = new Color(91f/255f, 96f/255f, 100f/255f, 1f); // #5b6064 - exact vanilla color
                 Widgets.DrawBoxSolid(stemRect, GUI.color);
             }
         }
