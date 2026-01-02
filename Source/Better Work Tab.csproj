@@ -146,6 +146,7 @@
     <Compile Include="UI\VerticalLabels\HeaderPositioningManager.cs" />
     <Compile Include="UI\VerticalLabels\HeaderDrawingCoordinator.cs" />
     <Compile Include="UI\VerticalLabels\VanillaHeaderRenderer.cs" />
+    <Compile Include="UI\VerticalLabels\VanillaHeaderLayoutSolver.cs" />
     <Compile Include="UI\VerticalLabels\AngledHeaderRenderer.cs" />
     <Compile Include="UI\HeaderButtons.cs" />
     <Compile Include="UI\Dialog_WarningWithCheckbox.cs" />

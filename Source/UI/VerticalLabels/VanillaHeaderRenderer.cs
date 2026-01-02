@@ -1,265 +1,157 @@
 using UnityEngine;
 using RimWorld;
 using Verse;
-using System.Collections.Generic;
-using System.Linq;
 using Better_Work_Tab.DragDrop;
-using Better_Work_Tab.PawnOrganizer;
 
 namespace Better_Work_Tab.UI
 {
     /// <summary>
-    /// Renders vanilla-style headers with the yellow asterisk marker when columns are moved.
-    /// Automatically repositions headers vertically if they would overlap with neighbors.
-    /// This renderer is only used when angled headers are disabled AND a column needs the marker.
+    /// Renders vanilla-style headers with exact vanilla positioning rules.
+    /// Includes the 1px gap between text and stem line.
     /// </summary>
     public class VanillaHeaderRenderer : IHeaderRenderer
     {
-        // Global layout cache for the current frame
-        private static int _layoutFrame = -1;
-        private static Dictionary<PawnColumnDef, float> _frameOffsets = new Dictionary<PawnColumnDef, float>();
-        
-        /// <summary>
-        /// Solves the layout for the entire header row once per frame.
-        /// Uses a Left-to-Right greedy packing algorithm to prevent overlaps.
-        /// </summary>
-        private void EnsureLayoutBuilt(PawnTable table)
+        private VanillaHeaderLayoutSolver _solver;
+
+        public VanillaHeaderRenderer(VanillaHeaderLayoutSolver solver)
         {
-            // Safety: Ensure static cache is initialized
-            if (_frameOffsets == null) _frameOffsets = new Dictionary<PawnColumnDef, float>();
-
-            // Frame check
-            if (Time.frameCount == _layoutFrame) return;
-            _layoutFrame = Time.frameCount;
-            _frameOffsets.Clear();
-
-            // Safety: access singleton safely
-            var organizer = PawnOrganizerSystem.Instance;
-            if (organizer == null) return;
-            
-            var layout = organizer.Layout;
-            if (layout == null || layout.Columns == null) return;
-
-            // We need to simulate the placement of every active column
-            List<Rect> placedRects = new List<Rect>();
-
-            GameFont oldFont = Text.Font;
-            Text.Font = GameFont.Small;
-
-            float rowHeight = Text.LineHeight + 2f; 
-
-            // Iterate through all columns in visual order
-            foreach (var colData in layout.Columns)
-            {
-                // colData is a struct, so it cannot be null, but its properties might be
-                PawnColumnDef col = null;
-                try { col = colData.Column; } catch { continue; }
-                
-                if (col == null) continue;
-                if (col.Worker == null) continue;
-                if (!(col.Worker is PawnColumnWorker_WorkPriority)) continue;
-
-                var workType = col.workType;
-                
-                bool showMarker = false;
-                try 
-                {
-                    if (workType != null)
-                        showMarker = MainTabWindow_BetterWork.ShouldShowColumnMarker(workType);
-                }
-                catch { } // Swallow
-                
-                string text = "Header";
-                try 
-                { 
-                    if (!string.IsNullOrEmpty(col.LabelCap)) 
-                        text = col.LabelCap; 
-                } 
-                catch { }
-
-                if (showMarker && !text.EndsWith("*")) text += "*";
-
-                Vector2 textSize = Vector2.zero;
-                if (!string.IsNullOrEmpty(text))
-                {
-                    textSize = Text.CalcSize(text);
-                }
-                
-                Rect headerRect;
-                try { headerRect = colData.HeaderRect; } catch { headerRect = default(Rect); }
-
-                // Determine base rect
-                Rect placedRect = new Rect(
-                    headerRect.center.x - textSize.x / 2f,
-                    0f, 
-                    textSize.x,
-                    textSize.y
-                );
-                
-                // Expand rect slightly for padding
-                Rect collisionRect = placedRect;
-                collisionRect.xMin -= 2f;
-                collisionRect.xMax += 2f;
-
-                // Find a valid Y-level
-                int level = 0;
-                while (true)
-                {
-                    float currentY = level * rowHeight;
-                    collisionRect.y = currentY; 
-                    
-                    bool overlap = false;
-                    for (int i = 0; i < placedRects.Count; i++)
-                    {
-                        if (collisionRect.Overlaps(placedRects[i]))
-                        {
-                            overlap = true;
-                            break;
-                        }
-                    }
-
-                    if (!overlap)
-                    {
-                        // Found a spot!
-                        if (col != null)
-                        {
-                            _frameOffsets[col] = currentY;
-                        }
-                        
-                        Rect finalOccupied = collisionRect;
-                        finalOccupied.y = currentY;
-                        placedRects.Add(finalOccupied);
-                        break;
-                    }
-
-                    level++;
-                    if (level > 10) 
-                    {
-                         if (col != null)
-                            _frameOffsets[col] = currentY;
-                         break;
-                    }
-                }
-            }
-
-            Text.Font = oldFont;
+            _solver = solver;
         }
 
-        public void DrawHeader(AngledLabelDrawer.AngledLabelLayout layout, bool isMouseOver, 
-                               bool isSorted, bool sortDescending, Rect headerRect, 
+        public void DrawHeader(AngledLabelDrawer.AngledLabelLayout layout, bool isMouseOver,
+                               bool isSorted, bool sortDescending, Rect headerRect,
                                PawnColumnDef column, bool showMarker)
         {
-            // Ensure global layout is solved for this frame
-            // We pass 'null' for table since we access it via singleton/manager if needed, 
-            // but ideally we should pass the table if available. 
-            // layout.Columns in EnsureLayoutBuilt comes from PawnOrganizerSystem.
-            EnsureLayoutBuilt(null);
+            if (column == null || _solver == null)
+                return;
 
-            // Calculate text with marker if needed
-            string text = layout.Text;
-            if (showMarker && !text.EndsWith("*"))
-            {
-                text += "*";
-            }
+            float yOffset = _solver.GetOffset(column);
 
-            // Use vanilla font and sizing
+            string displayText = layout.Text;
+            if (showMarker && !displayText.EndsWith("*"))
+                displayText += "*";
+
             GameFont oldFont = Text.Font;
             Text.Font = GameFont.Small;
-            Vector2 textSize = Text.CalcSize(text);
+            Vector2 textSize = Text.CalcSize(displayText);
 
-            // Get cached offset from the solver
-            float yOffset = 0f;
-            if (_frameOffsets.TryGetValue(column, out float offset))
-            {
-                yOffset = offset;
-            }
+            // === POSITIONING MATH ===
+            // yOffset = distance from headerBottom (pawn box) to TEXT MIDDLE
+            //   Level 0 (low):  24px from text middle to pawn box
+            //   Level 1 (high): 44px from text middle to pawn box
+            //   Level 2:        64px from text middle to pawn box
+            // 
+            // Formula: 
+            //   textMiddle = headerBottom - yOffset
+            //   textY (top) = textMiddle - (textSize.y / 2)
+            float headerBottom = headerRect.yMax;
+            float textY = headerBottom - yOffset - (textSize.y / 2f);
 
-            // Apply Y offset to header rect
-            Rect adjustedHeaderRect = headerRect;
-            adjustedHeaderRect.y += yOffset;
-
-            // Position text at BOTTOM of header area like vanilla does
-            // For baseline (yOffset=0), text sits near headerRect.yMax
-            // The stem gap constant matches vanilla's spacing
-            float stemGap = 4f;
-            float textY = headerRect.yMax - textSize.y - stemGap - yOffset;
-            
-            // For displaced headers, they move UP from the baseline
-            // yOffset pushes them up by that amount
             Rect textRect = new Rect(
-                headerRect.center.x - textSize.x / 2f, 
-                textY, 
-                textSize.x, 
+                headerRect.center.x - (textSize.x / 2f),
+                textY,
+                textSize.x,
                 textSize.y
             );
 
-            // Drawing logic
             TextAnchor oldAnchor = Text.Anchor;
             Color oldColor = GUI.color;
-            
-            Text.Anchor = TextAnchor.MiddleCenter;
-            
-            // Highlights (use the adjusted header rect - full column width but shifted down)
-            if (isMouseOver)
-            {
-                GUI.color = new Color(1f, 1f, 1f, 0.2f);
-                Widgets.DrawHighlight(adjustedHeaderRect);
-            }
-            
-            // Multi-select highlight (mod feature)
-            if (column != null && ColumnSelectionManager.IsSelected(column))
-            {
-                GUI.color = new Color(1f, 0.92f, 0.4f, 0.4f);
-                Widgets.DrawHighlight(adjustedHeaderRect);
-            }
 
-            // Text color: yellow if showing marker, otherwise use setting
-            GUI.color = showMarker 
-                ? new Color(1f, 0.85f, 0.2f, 1f) 
-                : BetterWorkTabMod.Settings.angledHeaderColor;
-            
-            Widgets.Label(textRect, text);
-
-            // Draw stem line from bottom of text down to the column (like vanilla)
-            // This applies to ALL headers, not just displaced ones
+            try
             {
-                float centerX = textRect.center.x;
-                
-                // Start at bottom of the text
-                float stemTop = textRect.yMax;
-                // End at bottom of entire header area (where the column data begins)
-                float stemBottom = headerRect.yMax;
-                float stemHeight = stemBottom - stemTop;
-                
-                // Draw if there's enough space for a visible line
-                if (stemHeight >= 2f)
+                Text.Anchor = TextAnchor.MiddleCenter;
+
+                // Highlights
+                if (isMouseOver)
                 {
-                    Rect stemRect = new Rect(centerX - 1f, stemTop, 2f, stemHeight);
-                    Widgets.DrawBoxSolid(stemRect, new Color(1f, 1f, 1f, 0.35f));
+                    GUI.color = new Color(1f, 1f, 1f, 0.2f);
+                    // Highlight the full vertical strip for this level
+                    Rect highlightRect = new Rect(headerRect.x, textY, headerRect.width, headerRect.yMax - textY);
+                    Widgets.DrawHighlight(highlightRect);
+                }
+
+                if (column != null && ColumnSelectionManager.IsSelected(column))
+                {
+                    GUI.color = new Color(1f, 0.92f, 0.4f, 0.4f);
+                    Rect highlightRect = new Rect(headerRect.x, textY, headerRect.width, headerRect.yMax - textY);
+                    Widgets.DrawHighlight(highlightRect);
+                }
+
+                // Text Color
+                GUI.color = showMarker
+                    ? new Color(1f, 0.85f, 0.2f, 1f) 
+                    : BetterWorkTabMod.Settings.angledHeaderColor;
+
+                Widgets.Label(textRect, displayText);
+
+                // Stem Line
+                DrawStemLine(textRect, headerBottom);
+
+                // Sort Indicator
+                if (isSorted)
+                {
+                    DrawSortIndicator(textRect, sortDescending);
                 }
             }
-            
-            // Sort indicator (vanilla)
-            if (isSorted)
+            finally
             {
-                GUI.color = Color.white;
-                Text.Font = GameFont.Tiny;
-                Rect sortRect = new Rect(textRect.xMax + 2f, textRect.y, 10f, 10f);
-                Widgets.Label(sortRect, sortDescending ? "▼" : "▲");
+                Text.Font = oldFont;
+                Text.Anchor = oldAnchor;
+                GUI.color = oldColor;
             }
-            
-            Text.Font = oldFont;
-            Text.Anchor = oldAnchor;
-            GUI.color = oldColor;
         }
 
-        // Removed old CalculateYOffset and related caches as they are replaced by the global solver
-        private Rect CheckAndRepositionIfNeeded(Rect labelRect, PawnColumnDef column, Rect headerRect) => labelRect;
-        
-        public static void ClearCache()
+        /// <summary>
+        /// Draws the vertical stem line.
+        /// Logic: 4px gap from text, then exact stem height based on level.
+        /// Level 0: 11px, Level 1: 31px, Level 2: 51px, etc.
+        /// </summary>
+        private void DrawStemLine(Rect textRect, float headerBottom)
         {
-            _layoutFrame = -1;
-            _frameOffsets.Clear();
+            var settings = BetterWorkTabMod.Settings;
+            if (settings?.removeHeaderUnderline ?? false)
+                return;
+
+            const float gap = 2f; // 2px gap between text and line (vanilla spec)
+            
+            // Calculate which level this is based on distance from headerBottom
+            // Level 0: 24px, Level 1: 44px, Level 2: 64px
+            float textMiddle = textRect.center.y;
+            float distanceFromBottom = headerBottom - textMiddle;
+            int level = Mathf.RoundToInt((distanceFromBottom - 24f) / 20f);
+            level = Mathf.Max(0, level); // Ensure non-negative
+            
+            // Fixed stem heights: 11px for level 0, 31px for level 1, etc.
+            float stemHeight = 11f + (level * 20f);
+
+            float centerX = textRect.center.x;
+            float stemTop = textRect.yMax + gap;
+
+            // Only draw if there's enough room
+            if (stemHeight > 0.5f)
+            {
+                // Draw black outline first (4px wide, shifted 1px right)
+                Rect outlineRect = new Rect(centerX - 1f, stemTop, 4f, stemHeight);
+                GUI.color = Color.black;
+                Widgets.DrawBoxSolid(outlineRect, GUI.color);
+                
+                // Then draw the vanilla grey stem on top (2px wide, shifted 1px right)
+                Rect stemRect = new Rect(centerX, stemTop, 2f, stemHeight);
+                GUI.color = new Color(1f, 1f, 1f, 0.35f); // Vanilla-like faint grey
+                Widgets.DrawBoxSolid(stemRect, GUI.color);
+            }
+        }
+
+        private void DrawSortIndicator(Rect textRect, bool descending)
+        {
+            var oldFont = Text.Font;
+            Text.Font = GameFont.Tiny;
+            GUI.color = new Color(0.6f, 0.6f, 0.6f, 0.8f);
+
+            Rect sortRect = new Rect(textRect.xMax + 2f, textRect.y + 1f, 10f, 10f);
+            Widgets.Label(sortRect, descending ? "▼" : "▲");
+
+            Text.Font = oldFont;
         }
     }
 }
