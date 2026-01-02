@@ -29,6 +29,7 @@ namespace Better_Work_Tab.UI
         
         public static void NotifyAngledHeadersChanged()
         {
+            HeaderDrawingCoordinator.NotifyAngledHeadersChanged(); // NEW: Invalidate all header rendering caches
             AngledHeaderCache.ClearCache();
             if (Find.MainTabsRoot?.OpenTab?.TabWindow is MainTabWindow_BetterWork workTab)
             {

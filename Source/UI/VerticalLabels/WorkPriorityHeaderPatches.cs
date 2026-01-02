@@ -10,6 +10,7 @@ namespace Better_Work_Tab.UI
     [HarmonyPatch(typeof(PawnColumnWorker_WorkPriority), nameof(PawnColumnWorker_WorkPriority.DoHeader))]
     public static class PawnColumnWorker_WorkPriority_DoHeader_Patch
     {
+        // Frame-based caching for hover detection
         private static int _lastCachedFrame = -1;
         private static Vector2 _cachedMousePos;
         private static WorkTypeDef _cachedHoveredWorkType;
@@ -31,35 +32,29 @@ namespace Better_Work_Tab.UI
                 var evtType = evt?.type ?? EventType.Layout;
 
                 bool enableAngled = BetterWorkTabMod.Settings.enableAngledHeaders;
-                
-                // In vanilla mode, only intercept if there are ANY moved columns
-                // (this activates overlap prevention for all headers)
+
+                // ===== VANILLA MODE TAKEOVER LOGIC =====
+                // If angled headers are OFF, check if ANY columns are moved
+                // If so, we take over ALL headers to ensure consistent positioning
                 if (!enableAngled)
                 {
-                    // Quick check: are there any moved columns at all?
-                    bool hasAnyMovedColumns = false;
-                    var tableCols = table?.def?.columns;
-                    if (tableCols != null)
-                    {
-                        foreach (var col in tableCols)
-                        {
-                            if (col?.workType != null && MainTabWindow_BetterWork.ShouldShowColumnMarker(col.workType))
-                            {
-                                hasAnyMovedColumns = true;
-                                break;
-                            }
-                        }
-                    }
+                    bool hasAnyMovedColumns = CheckIfAnyColumnsAreMoved(table);
 
-                    // If no columns have been moved, let vanilla handle everything
+                    // If no columns moved, use vanilla rendering
                     if (!hasAnyMovedColumns)
                     {
-                        return true;
+                        return true; // Fall through to vanilla
                     }
-                    
-                    // Otherwise, we intercept all headers to handle repositioning
+
+                    // === We're taking over: ensure layout is solved ===
+                    // This is the CRITICAL call that happens once per frame
+                    if (evtType == EventType.Layout)
+                    {
+                        HeaderDrawingCoordinator.EnsureLayoutSolved(table);
+                    }
                 }
 
+                // ===== INPUT/RENDER HANDLING =====
                 bool shouldDraw = evtType == EventType.Repaint;
                 bool handleInput = evtType == EventType.MouseDown
                                    || evtType == EventType.MouseMove
@@ -80,6 +75,7 @@ namespace Better_Work_Tab.UI
                 int columnsCount = PawnTableDefOf.Work?.columns?.Count ?? -1;
                 int currentFrame = Time.frameCount;
 
+                // Cache mouse position
                 if (_lastCachedFrame != currentFrame || handleInput)
                 {
                     _cachedMousePos = evt?.mousePosition ?? Vector2.zero;
@@ -87,10 +83,12 @@ namespace Better_Work_Tab.UI
                     _cachedHoveredWorkType = null;
                 }
 
+                // Get rotation for angled or vanilla
                 float rot = enableAngled ? AngledLabelDrawer.CurrentRotation : 0f;
                 float rotCos = Mathf.Cos(rot * Mathf.Deg2Rad);
                 float rotSin = Mathf.Sin(rot * Mathf.Deg2Rad);
 
+                // Get layout from cache
                 if (!AngledHeaderCache.TryGetLayout(
                         rect,
                         workType,
@@ -103,27 +101,8 @@ namespace Better_Work_Tab.UI
                     return false;
                 }
 
-                bool isMouseOver = false;
-                bool reuseHover = _cachedMousePos == _lastMousePosChecked
-                                  && _lastHoverResultFrame == currentFrame - 1
-                                  && _lastColumnsCount == columnsCount;
-
-                if (reuseHover)
-                {
-                    isMouseOver = _lastHoverWorkType == workType;
-                }
-                else if (_cachedMousePos.y >= rect.yMin && _cachedMousePos.y <= rect.yMax)
-                {
-                    if (enableAngled)
-                    {
-                        isMouseOver = AngledHeaderCache.IsMouseOver(cached.Quad, _cachedMousePos);
-                    }
-                    else
-                    {
-                        // For vanilla, use the bounding box since it's the simplest check
-                        isMouseOver = rect.Contains(_cachedMousePos);
-                    }
-                }
+                // Determine if mouse is over this header
+                bool isMouseOver = DetermineMouseOver(enableAngled, rect, cached, columnsCount, currentFrame);
 
                 if (isMouseOver)
                 {
@@ -135,8 +114,10 @@ namespace Better_Work_Tab.UI
                 _lastMousePosChecked = _cachedMousePos;
                 _lastColumnsCount = columnsCount;
 
+                // Get the active renderer
                 var renderer = HeaderDrawingCoordinator.GetActiveRenderer();
 
+                // Handle interactions and rendering
                 AngledHeaderInteraction.HandleInteractions(
                     __instance,
                     table,
@@ -148,16 +129,74 @@ namespace Better_Work_Tab.UI
                     rect,
                     renderer);
 
-                return false;
+                return false; // Skip vanilla
             }
             catch (System.Exception ex)
             {
                 Log.Error($"[BWT] WorkPriority header failed: {ex}");
-                return true;
+                return true; // Fallback to vanilla on error
             }
         }
 
-        // Transpiler removed as it interfered with vanilla fallback and is redundant when Prefix returns false.
+        /// <summary>
+        /// Checks if ANY work priority column has been moved from vanilla position.
+        /// </summary>
+        private static bool CheckIfAnyColumnsAreMoved(PawnTable table)
+        {
+            var tableCols = table?.def?.columns;
+            if (tableCols == null) return false;
+
+            foreach (var col in tableCols)
+            {
+                if (col?.workType != null && MainTabWindow_BetterWork.ShouldShowColumnMarker(col.workType))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Determines if the mouse is currently over the header for this column.
+        /// Uses a reuse cache to avoid recalculating every frame.
+        /// </summary>
+        private static bool DetermineMouseOver(bool enableAngled, Rect rect, 
+            AngledHeaderCache.CachedHeaderData cached, int columnsCount, int currentFrame)
+        {
+            bool reuseHover = _cachedMousePos == _lastMousePosChecked
+                              && _lastHoverResultFrame == currentFrame - 1
+                              && _lastColumnsCount == columnsCount;
+
+            if (reuseHover)
+            {
+                return _lastHoverWorkType != null;
+            }
+
+            // Y bounds check
+            if (_cachedMousePos.y < rect.yMin || _cachedMousePos.y > rect.yMax)
+            {
+                return false;
+            }
+
+            // Different checks for angled vs vanilla
+            if (enableAngled)
+            {
+                return AngledHeaderCache.IsMouseOver(cached.Quad, _cachedMousePos);
+            }
+            else
+            {
+                // Vanilla: simple rect check (no rotation math needed)
+                return rect.Contains(_cachedMousePos);
+            }
+        }
+
+        [HarmonyPriority(Priority.Last)]
+        public static void Postfix(PawnColumnWorker_WorkPriority __instance, Rect rect, PawnTable table)
+        {
+            // If we took over rendering (prefix returned false), we handled everything
+            // If vanilla handled it (prefix returned true), nothing to do here
+        }
     }
 
     [HarmonyPatch(typeof(PawnColumnWorker_WorkPriority), nameof(PawnColumnWorker_WorkPriority.GetMinHeaderHeight))]
@@ -171,47 +210,39 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
-            if (!BetterWorkTabMod.Settings.enableAngledHeaders)
-            {
-                // Check if any columns need markers (and thus might be repositioned)
-                bool hasMovedColumns = false;
-                var tableCols = table?.def?.columns;
-                if (tableCols != null)
-                {
-                    foreach (var col in tableCols)
-                    {
-                        if (col?.workType != null && MainTabWindow_BetterWork.ShouldShowColumnMarker(col.workType))
-                        {
-                            hasMovedColumns = true;
-                            break;
-                        }
-                    }
-                }
+            bool enableAngled = BetterWorkTabMod.Settings.enableAngledHeaders;
 
-                // If we have moved columns, ensure extra height for repositioning
+            if (!enableAngled)
+            {
+                // For vanilla mode, calculate height based on number of levels
+                bool hasMovedColumns = CheckIfAnyColumnsAreMoved(table);
+
                 if (hasMovedColumns)
                 {
                     GameFont oldFont = Text.Font;
                     Text.Font = GameFont.Small;
                     float rowHeight = Text.LineHeight + 2f;
-                    
-                    // Add space for 2 levels of repositioning (3 total positions)
-                    int extraHeight = Mathf.CeilToInt(rowHeight * 2f);
-                    if (__result < extraHeight + 20) // +20 for base header space
+
+                    // We can have up to 6 levels (0, 1, 2, 3, 4, 5)
+                    // Reserve space for all of them
+                    int extraHeight = Mathf.CeilToInt(rowHeight * 5f); // 5 extra rows beyond baseline
+                    int minRequired = extraHeight + 20; // +20 for base header space
+
+                    if (__result < minRequired)
                     {
-                        __result = extraHeight + 20;
+                        __result = minRequired;
                     }
-                    
+
                     Text.Font = oldFont;
                 }
-                
+
                 return;
             }
 
-            // To prevent "Diagonal Clipping", we must ensure the header box is tall enough for the longest label.
+            // ===== ANGLED HEADERS MODE =====
             float maxTextWidth = 0f;
             var columns = table.def.columns;
-            
+
             var originalFont = Text.Font;
             Text.Font = GameFont.Small;
 
@@ -221,19 +252,16 @@ namespace Better_Work_Tab.UI
                 {
                     string baseText = col.workType.labelShort ?? col.workType.label ?? col.workType.defName ?? "Work";
                     string text = baseText.CapitalizeFirst();
-                    
-                    // ALWAYS add the marker for size calculation to prevent height flickering
-                    // when columns are moved (even if we don't visually show it)
+
+                    // Always include marker for consistent height
                     text += "*";
-                    
+
                     Vector2 size = Text.CalcSize(text);
                     if (size.x > maxTextWidth) maxTextWidth = size.x;
                 }
             }
 
             float angleRad = Mathf.Abs(AngledLabelDrawer.CurrentRotation) * Mathf.Deg2Rad;
-            // Basic trig: opposite side = hypotenuse * sin(theta)
-            // We add 30f for icons (sorting) and breathing room, matching the Testing branch.
             float neededVertical = (maxTextWidth * Mathf.Sin(angleRad)) + 30f;
 
             Text.Font = originalFont;
@@ -243,6 +271,22 @@ namespace Better_Work_Tab.UI
             {
                 __result = angledRequired;
             }
+        }
+
+        private static bool CheckIfAnyColumnsAreMoved(PawnTable table)
+        {
+            var tableCols = table?.def?.columns;
+            if (tableCols == null) return false;
+
+            foreach (var col in tableCols)
+            {
+                if (col?.workType != null && MainTabWindow_BetterWork.ShouldShowColumnMarker(col.workType))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 
@@ -254,69 +298,40 @@ namespace Better_Work_Tab.UI
         {
             var drawHighlightMethod = AccessTools.Method(typeof(Widgets), nameof(Widgets.DrawHighlightIfMouseover));
             var workPriorityWorkerType = typeof(PawnColumnWorker_WorkPriority);
-            
+
             var codes = new List<CodeInstruction>(instructions);
             for (int i = 0; i < codes.Count; i++)
             {
                 if (codes[i].Calls(drawHighlightMethod))
                 {
-                    // Target: skip highlight if (settings.enableAngledHeaders && this is workPriorityWorkerType)
-                    var labelContinue = il.DefineLabel();
-                    
-                    // We need to insert our check BEFORE the call to Widgets.DrawHighlightIfMouseover.
-                    // The call consumes the Rect argument on the stack.
-                    // Instead of trying to jump OVER the call (which is hard because we'd have to jump over the ldarg that loads the rect too),
-                    // we can just insert a prefix check that returns early or jumps.
-                    
-                    // Let's use a simpler approach: 
-                    // Insert: if (settings.enableAngledHeaders && this is PawnColumnWorker_WorkPriority) skip highlight;
-                    
-                    // First, find where the Rect argument is loaded. Usually it's the instruction before the call if it's a simple ldarg.
-                    // But in RimWorld it might be more complex.
-                    
-                    // Alternatively, we can just let it draw the highlight and then draw OUR stuff on top? 
-                    // No, the user wants the highlight GONE when angled headers are active because it looks weird (diamond shape vs square).
-                    
-                    // Correct implementation:
-                    // 1. Load Settings.enableAngledHeaders
-                    // 2. If false, branch to original highlight code
-                    // 3. Load 'this' (arg 0)
-                    // 4. Isinst PawnColumnWorker_WorkPriority
-                    // 5. If true, branch PAST the highlight call
-                    
                     var labelDoHighlight = il.DefineLabel();
                     var labelSkipHighlight = il.DefineLabel();
-                    
-                    // Assign labelSkipHighlight to the instruction AFTER the call
+
                     if (i + 1 < codes.Count)
                         codes[i + 1].labels.Add(labelSkipHighlight);
-                    
-                    // I will insert the logic before the push of the Rect argument.
-                    // Usually i-1 is the ldarg that pushes the rect.
+
                     int insertIndex = i;
-                    if (i > 0 && (codes[i-1].opcode == OpCodes.Ldarg_1 || codes[i-1].opcode == OpCodes.Ldloc_0)) // Guessing the rect load
+                    if (i > 0 && (codes[i - 1].opcode == OpCodes.Ldarg_1 || codes[i - 1].opcode == OpCodes.Ldloc_0))
                     {
-                         insertIndex = i - 1;
+                        insertIndex = i - 1;
                     }
 
                     var newCodes = new List<CodeInstruction>();
+
                     // if (!Settings.enableAngledHeaders) goto do_highlight;
                     newCodes.Add(new CodeInstruction(OpCodes.Ldsfld, AccessTools.Field(typeof(BetterWorkTabMod), nameof(BetterWorkTabMod.Settings))));
                     newCodes.Add(new CodeInstruction(OpCodes.Ldfld, AccessTools.Field(typeof(BetterWorkTabSettings), nameof(BetterWorkTabSettings.enableAngledHeaders))));
                     newCodes.Add(new CodeInstruction(OpCodes.Brfalse, labelDoHighlight));
-                    
+
                     // if (this is PawnColumnWorker_WorkPriority) goto skip_highlight;
                     newCodes.Add(new CodeInstruction(OpCodes.Ldarg_0));
                     newCodes.Add(new CodeInstruction(OpCodes.Isinst, workPriorityWorkerType));
                     newCodes.Add(new CodeInstruction(OpCodes.Brtrue, labelSkipHighlight));
-                    
-                    // labelDoHighlight:
-                    newCodes[0].labels.Add(labelDoHighlight); // Wait, newCodes[0] is the start. I need to label the original code start.
-                    
+
                     codes[insertIndex].labels.Add(labelDoHighlight);
                     codes.InsertRange(insertIndex, newCodes);
-                    
-                    break; // Only one highlight call in DoHeader usually
+
+                    break;
                 }
             }
             return codes;
