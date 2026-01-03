@@ -3,7 +3,7 @@ using System.Reflection;
 using UnityEngine;
 using HarmonyLib;
 
-namespace Better_Work_Tab.UI
+namespace Better_Work_Tab.UI.Headers.Angled
 {
     /// <summary>
     /// Proxy class to access the internal UnityEngine.GUIClip.Unclip method via reflection.
@@ -17,16 +17,23 @@ namespace Better_Work_Tab.UI
 
         static GUIClipUtility()
         {
-            // GUI resides in the same assembly as GUIClip in most Unity versions
-            var assembly = typeof(GUI).Assembly;
-            var type = assembly.GetType("UnityEngine.GUIClip");
-            if (type != null)
+            try
             {
-                var method = AccessTools.Method(type, "Unclip", new Type[] { typeof(Vector2) });
-                if (method != null)
+                // GUI resides in the same assembly as GUIClip in most Unity versions
+                var assembly = typeof(GUI).Assembly;
+                var type = assembly.GetType("UnityEngine.GUIClip");
+                if (type != null)
                 {
-                    UnclipHandle = (UnclipDelegate)Delegate.CreateDelegate(typeof(UnclipDelegate), method);
+                    var method = AccessTools.Method(type, "Unclip", new Type[] { typeof(Vector2) });
+                    if (method != null)
+                    {
+                        UnclipHandle = (UnclipDelegate)Delegate.CreateDelegate(typeof(UnclipDelegate), method);
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                Verse.Log.Error($"[Better Work Tab] Exception while binding GUIClip.Unclip: {ex}");
             }
             
             if (UnclipHandle == null)

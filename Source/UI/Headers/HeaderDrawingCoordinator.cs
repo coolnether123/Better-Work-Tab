@@ -1,17 +1,14 @@
 using RimWorld;
 using UnityEngine;
 using Verse;
+using Better_Work_Tab.UI.Headers.Vanilla;
+using Better_Work_Tab.UI.Headers.Angled;
 
-namespace Better_Work_Tab.UI
+namespace Better_Work_Tab.UI.Headers
 {
     /// <summary>
     /// Central coordinator for header rendering.
     /// Manages the lifecycle of the layout solver and renderer selection.
-    /// 
-    /// Responsibilities:
-    /// 1. Ensure layout is solved once per frame (before rendering)
-    /// 2. Return the active renderer (angled or vanilla)
-    /// 3. Handle cache invalidation when needed
     /// </summary>
     public static class HeaderDrawingCoordinator
     {
@@ -30,6 +27,7 @@ namespace Better_Work_Tab.UI
         /// Call this once per frame BEFORE header rendering begins.
         /// Ensures the layout solver has solved for the current frame.
         /// </summary>
+        /// <param name="table">The pawn table being rendered.</param>
         public static void EnsureLayoutSolved(PawnTable table)
         {
             if (table == null) return;
@@ -44,14 +42,16 @@ namespace Better_Work_Tab.UI
         /// <summary>
         /// Returns the vanilla solver for collecting header data.
         /// </summary>
+        /// <returns>The active VanillaHeaderLayoutSolver instance.</returns>
         public static VanillaHeaderLayoutSolver GetVanillaSolver()
         {
             return _vanillaSolver;
         }
 
         /// <summary>
-        /// Returns the active renderer based on settings.
+        /// Returns the active renderer based on current mod settings.
         /// </summary>
+        /// <returns>An implementation of IHeaderRenderer (Angled or Vanilla).</returns>
         public static IHeaderRenderer GetActiveRenderer()
         {
             return BetterWorkTabMod.Settings.enableAngledHeaders
@@ -61,7 +61,7 @@ namespace Better_Work_Tab.UI
 
         /// <summary>
         /// Called when user resets columns to vanilla order or changes angled header setting.
-        /// Clears all caches to force rebuild.
+        /// Clears all caches to force a rebuild of the header layout.
         /// </summary>
         public static void InvalidateCaches()
         {
@@ -71,6 +71,10 @@ namespace Better_Work_Tab.UI
             AngledHeaderCache.ClearCache();
         }
 
+        /// <summary>
+        /// Notification that angled header settings (rotation, offset) have changed.
+        /// Triggers a cache invalidation.
+        /// </summary>
         public static void NotifyAngledHeadersChanged()
         {
             InvalidateCaches();
