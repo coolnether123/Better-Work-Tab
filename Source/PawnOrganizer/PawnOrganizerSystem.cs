@@ -4,6 +4,7 @@ using Better_Work_Tab.DragDrop;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.PawnOrganizer.Data;
 using Better_Work_Tab.UI;
+using Better_Work_Tab.UI.Headers.Angled;
 using RimWorld;
 using System;
 using UnityEngine;
@@ -207,7 +208,7 @@ namespace Better_Work_Tab.PawnOrganizer
                     var completedDrag = _activeColumnDrag;
                     completedDrag?.OnDrop();
                     _activeColumnDrag = null;
-                    AngledHeaderInteraction.ClearPendingHeaderClick(completedDrag?.ColumnDef);
+                    Better_Work_Tab.UI.Headers.Angled.AngledHeaderInteraction.ClearPendingHeaderClick(completedDrag?.ColumnDef);
                     evt.Use();
                     break;
 

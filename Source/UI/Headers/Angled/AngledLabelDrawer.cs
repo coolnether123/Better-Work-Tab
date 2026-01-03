@@ -3,49 +3,68 @@ using UnityEngine;
 using Verse;
 using Better_Work_Tab.DragDrop;
 
-namespace Better_Work_Tab.UI
+namespace Better_Work_Tab.UI.Headers.Angled
 {
+    /// <summary>
+    /// Static utility for drawing rotated (angled) text labels with underlines and highlights.
+    /// Handles the matrix transformations required for rotation.
+    /// </summary>
     public static class AngledLabelDrawer
     {
-        public const float ROTATION_ANGLE = -60f;
-        public static float CurrentRotation => BetterWorkTabMod.Settings.enableAngledHeaders ? BetterWorkTabMod.Settings.angledHeaderRotation : ROTATION_ANGLE;
+        /// <summary>
+        /// Default rotation angle if the mod setting is somehow invalid.
+        /// </summary>
+        public const float DefaultRotationAngle = -60f;
+
+        /// <summary>
+        /// The gap between the bottom of the stem and the start of the rotated label.
+        /// </summary>
+        public const float STEM_BOTTOM_GAP = 2f;
+
+        /// <summary>
+        /// Returns the current rotation angle from settings or default.
+        /// </summary>
+        public static float CurrentRotation => BetterWorkTabMod.Settings.enableAngledHeaders ? BetterWorkTabMod.Settings.angledHeaderRotation : DefaultRotationAngle;
+        
+        /// <summary>
+        /// Returns the cosine of the current rotation angle.
+        /// </summary>
         public static float CurrentRotCos => Mathf.Cos(CurrentRotation * Mathf.Deg2Rad);
+        
+        /// <summary>
+        /// Returns the sine of the current rotation angle.
+        /// </summary>
         public static float CurrentRotSin => Mathf.Sin(CurrentRotation * Mathf.Deg2Rad);
+
+        /// <summary>
+        /// Calculates the total vertical height needed for the header area to fit all angled labels.
+        /// </summary>
+        /// <param name="table">The pawn table to measure.</param>
+        /// <returns>The maximum required vertical height.</returns>
         public static float GetNeededHeight(PawnTable table)
         {
             if (table == null) return 0f;
 
             float maxH = 0f;
-            var tableDef = PawnTableDefOf.Work;
-            if (tableDef?.columns == null) return 0f;
+            var columns = table.Columns;
+            if (columns == null) return 0f;
 
             float absSin = Mathf.Abs(Mathf.Sin(CurrentRotation * Mathf.Deg2Rad));
             float absCos = Mathf.Abs(Mathf.Cos(CurrentRotation * Mathf.Deg2Rad));
 
-            // Set font to match drawing for accurate measurement
             GameFont oldFont = Text.Font;
             Text.Font = GameFont.Small;
 
-            foreach (var col in tableDef.columns)
+            foreach (var col in columns)
             {
-                // We only care about work priority columns which are the ones we angle
                 if (col.Worker is PawnColumnWorker_WorkPriority && col.workType != null)
                 {
-                    // Use actual work type label, not col.LabelCap (which is just "Work")
-                    string baseText = col.workType.labelShort;
-                    if (baseText.NullOrEmpty())
-                        baseText = col.workType.label;
-                    if (baseText.NullOrEmpty())
-                        baseText = col.workType.defName;
-                    
-                    string label = (baseText.NullOrEmpty() ? "Work" : baseText).CapitalizeFirst();
-                    
-                    // ALWAYS reserve space for the marker to prevent height flickering when columns are moved
-                    label += "*";
+                    // For height calculation, we always include the moved marker to ensure stability.
+                    string labelText = HeaderUtility.GetHeaderText(col.workType, true);
 
-                    Vector2 size = Text.CalcSize(label);
+                    Vector2 size = Text.CalcSize(labelText);
                     
-                    // Height calculation for a rotated rectangle: width*sin(theta) + height*cos(theta)
+                    // Height of a rotated rectangle: width*sin(theta) + height*cos(theta)
                     float h = (size.x * absSin) + (size.y * absCos);
                     if (h > maxH) maxH = h;
                 }
@@ -54,8 +73,10 @@ namespace Better_Work_Tab.UI
             Text.Font = oldFont;
             return maxH + STEM_BOTTOM_GAP;
         }
-        public const float STEM_BOTTOM_GAP = 2f;
 
+        /// <summary>
+        /// Defines the pre-calculated layout data for an angled label.
+        /// </summary>
         public readonly struct AngledLabelLayout
         {
             public readonly string Text;
@@ -72,8 +93,9 @@ namespace Better_Work_Tab.UI
             }
         }
 
-
-
+        /// <summary>
+        /// Core drawing method for an angled header.
+        /// </summary>
         public static void Draw(AngledLabelLayout layout, bool isMouseOver, bool isSorted = false, bool sortDescending = false, Rect headerRect = default, PawnColumnDef column = null)
         {
             float rotation = CurrentRotation;
@@ -108,24 +130,24 @@ namespace Better_Work_Tab.UI
                 Text.Font = GameFont.Small;
                 Text.WordWrap = false;
 
-                // 5. Draw highlights using the transformed matrix.
+                // Highlights
                 if (column != null && ColumnSelectionManager.IsSelected(column))
                 {
-                    GUI.color = new Color(1f, 0.92f, 0.4f, 0.4f);
+                    GUI.color = HeaderUtility.Colors.SelectedHighlight;
                     GUI.DrawTexture(rotatedRect.ExpandedBy(2f), TexUI.HighlightTex);
                 }
 
                 if (isMouseOver)
                 {
-                    GUI.color = new Color(1f, 1f, 1f, 0.25f);
+                    GUI.color = HeaderUtility.Colors.HoverHighlight;
                     GUI.DrawTexture(rotatedRect.ExpandedBy(2f), TexUI.HighlightTex);
                 }
 
-                // 6. Draw the text with user-defined or default colors.
-                GUI.color = layout.ShowMarker ? new Color(1f, 0.85f, 0.2f, 1f) : BetterWorkTabMod.Settings.angledHeaderColor;
+                // Text
+                GUI.color = layout.ShowMarker ? HeaderUtility.Colors.MovedMarkerColor : BetterWorkTabMod.Settings.angledHeaderColor;
                 Widgets.Label(rotatedRect, layout.Text);
 
-                // 7. Draw the underline.
+                // Underline
                 if (!BetterWorkTabMod.Settings.removeHeaderUnderline)
                 {
                     float textWidth = labelSize.x;
@@ -154,7 +176,7 @@ namespace Better_Work_Tab.UI
             GUI.color = new Color(0.6f, 0.6f, 0.6f, 0.8f);
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.MiddleCenter;
-            // Move it to the bottom of the header area, centered horizontally
+            // Move it to the bottom of the header area, centered horizontally (Old working coordinates)
             Rect sortRect = new Rect(headerRect.x + (headerRect.width - 6f) / 2f + 5f, headerRect.yMax - 9f, 12f, 12f);
             Widgets.Label(sortRect, descending ? "▼" : "▲");
             GUI.color = Color.white;

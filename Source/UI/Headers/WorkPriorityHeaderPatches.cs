@@ -1,0 +1,162 @@
+using HarmonyLib;
+using RimWorld;
+using System.Collections.Generic;
+using System.Reflection.Emit;
+using UnityEngine;
+using Verse;
+using Better_Work_Tab.UI.Headers.Vanilla;
+using Better_Work_Tab.UI.Headers.Angled;
+
+namespace Better_Work_Tab.UI.Headers
+{
+    /// <summary>
+    /// Harmony patches for PawnColumnWorker_WorkPriority to inject custom header rendering and interactions.
+    /// Supports both Vanilla (staggered) and Angled header styles.
+    /// </summary>
+    [HarmonyPatch(typeof(PawnColumnWorker_WorkPriority), nameof(PawnColumnWorker_WorkPriority.DoHeader))]
+    public static class PawnColumnWorker_WorkPriority_DoHeader_Patch
+    {
+        /// <summary>
+        /// The work type currently being hovered, as detected by the active controller.
+        /// </summary>
+        public static WorkTypeDef HoveredWorkType => HeaderInputController.HoveredWorkType;
+
+        /// <summary>
+        /// Prefix patch that diverts the standard header rendering to our custom system.
+        /// </summary>
+        /// <returns>False to skip the original vanilla method, True to allow it (fallback).</returns>
+        [HarmonyPrefix]
+        [HarmonyPriority(Priority.Last)]
+        public static bool Prefix(PawnColumnWorker_WorkPriority __instance, Rect rect, PawnTable table)
+        {
+            try
+            {
+                // Update shared input cache once per frame
+                HeaderInputController.UpdateCache(Event.current);
+
+                var workType = __instance?.def?.workType;
+                if (workType == null) return false;
+
+                bool enableAngled = BetterWorkTabMod.Settings.enableAngledHeaders;
+
+                if (enableAngled)
+                {
+                     // Angled Mode: Always take over if enabled
+                     return AngledHeaderController.DoHeader(__instance, rect, table); // Returns false to skip vanilla
+                }
+                else
+                {
+                     // Vanilla Mode: Only take over if columns are moved, otherwise return true to run vanilla
+                     return VanillaHeaderController.DoHeader(__instance, rect, table);
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Log.Error($"[BWT] WorkPriority header failed: {ex}");
+                return true; // Fallback to vanilla on error
+            }
+        }
+
+        /// <summary>
+        /// Postfix patch (currently empty, kept for structural symmetry).
+        /// </summary>
+        [HarmonyPriority(Priority.Last)]
+        public static void Postfix(PawnColumnWorker_WorkPriority __instance, Rect rect, PawnTable table)
+        {
+            // Logic handled in Prefix
+        }
+    }
+
+    /// <summary>
+    /// Patches the header height calculation to accommodate staggered or angled labels.
+    /// </summary>
+    [HarmonyPatch(typeof(PawnColumnWorker_WorkPriority), nameof(PawnColumnWorker_WorkPriority.GetMinHeaderHeight))]
+    public static class Patch_PawnColumnWorker_WorkPriority_GetMinHeaderHeight
+    {
+        /// <summary>
+        /// Postfix that expands the header height if needed by the active layout strategy.
+        /// </summary>
+        [HarmonyPriority(Priority.Last)]
+        public static void Postfix(PawnColumnWorker_WorkPriority __instance, PawnTable table, ref int __result)
+        {
+            // Only apply to the Work tab
+            if (Find.MainTabsRoot?.OpenTab?.defName != "Work") return;
+
+            bool enableAngled = BetterWorkTabMod.Settings.enableAngledHeaders;
+
+            if (enableAngled)
+            {
+                AngledHeaderController.CalculateMinHeaderHeight(table, ref __result);
+            }
+            else
+            {
+                VanillaHeaderController.CalculateMinHeaderHeight(table, ref __result);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Transpiler: Injects a condition before Widgets.DrawHighlightIfMouseover to skip 
+    /// the vanilla highlight if:
+    /// - Angled headers are enabled AND
+    /// - We're in a PawnColumnWorker_WorkPriority (our custom header handler)
+    /// 
+    /// Result: Our custom hover highlights override vanilla's, preventing "double-highlighting" 
+    /// artifacts where both vanilla and BWT stagger systems try to draw over each other.
+    ///
+    /// IL Pseudo-code:
+    ///   if (!Settings.enableAngledHeaders) goto do_highlight;
+    ///   if (!(this is PawnColumnWorker_WorkPriority)) goto do_highlight;
+    ///   goto skip_highlight;
+    ///   do_highlight:
+    ///     Widgets.DrawHighlightIfMouseover(rect);
+    ///   skip_highlight:
+    /// </summary>
+    [HarmonyPatch(typeof(PawnColumnWorker), nameof(PawnColumnWorker.DoHeader))]
+    public static class Patch_PawnColumnWorker_DoHeader_DisableHighlight
+    {
+        [HarmonyTranspiler]
+        public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator il)
+        {
+            var drawHighlightMethod = AccessTools.Method(typeof(Widgets), nameof(Widgets.DrawHighlightIfMouseover));
+            var workPriorityWorkerType = typeof(PawnColumnWorker_WorkPriority);
+
+            var codes = new List<CodeInstruction>(instructions);
+            for (int i = 0; i < codes.Count; i++)
+            {
+                if (codes[i].Calls(drawHighlightMethod))
+                {
+                    var labelDoHighlight = il.DefineLabel();
+                    var labelSkipHighlight = il.DefineLabel();
+
+                    if (i + 1 < codes.Count)
+                        codes[i + 1].labels.Add(labelSkipHighlight);
+
+                    int insertIndex = i;
+                    if (i > 0 && (codes[i - 1].opcode == OpCodes.Ldarg_1 || codes[i - 1].opcode == OpCodes.Ldloc_0))
+                    {
+                        insertIndex = i - 1;
+                    }
+
+                    var newCodes = new List<CodeInstruction>();
+
+                    // if (!Settings.enableAngledHeaders) goto do_highlight;
+                    newCodes.Add(new CodeInstruction(OpCodes.Ldsfld, AccessTools.Field(typeof(BetterWorkTabMod), nameof(BetterWorkTabMod.Settings))));
+                    newCodes.Add(new CodeInstruction(OpCodes.Ldfld, AccessTools.Field(typeof(BetterWorkTabSettings), nameof(BetterWorkTabSettings.enableAngledHeaders))));
+                    newCodes.Add(new CodeInstruction(OpCodes.Brfalse, labelDoHighlight));
+
+                    // if (this is PawnColumnWorker_WorkPriority) goto skip_highlight;
+                    newCodes.Add(new CodeInstruction(OpCodes.Ldarg_0));
+                    newCodes.Add(new CodeInstruction(OpCodes.Isinst, workPriorityWorkerType));
+                    newCodes.Add(new CodeInstruction(OpCodes.Brtrue, labelSkipHighlight));
+
+                    codes[insertIndex].labels.Add(labelDoHighlight);
+                    codes.InsertRange(insertIndex, newCodes);
+
+                    break;
+                }
+            }
+            return codes;
+        }
+    }
+}

@@ -70,24 +70,15 @@ namespace Better_Work_Tab.Features.Patches
             float totalHeight = headerHeight + contentHeight;
 
             // ═══════════════════════════════════════════════════════════════════════════
-            // Clamp to maximum allowed height
-            // maxTableHeight prevents content from exceeding screen bounds.
-            // If content would overflow, the scroll view handles the overflow.
-            // ═══════════════════════════════════════════════════════════════════════════
-            float maxHeight = 861f;
-            if (MaxTableHeightField != null)
-            {
-                maxHeight = (int)MaxTableHeightField.GetValue(__instance);
-            }
-
-            float clampedHeight = Mathf.Min(totalHeight, maxHeight);
-
-            // ═══════════════════════════════════════════════════════════════════════════
             // Sync back to vanilla's fields
+            // We do NOT clamp to maxTableHeight here; we let the window's RequestedTabSize
+            // handle clamping to screen bounds. This prevents the PawnTable size from 
+            // being smaller than its content, which would trigger unnecessary scrollbars
+            // even when the window has room to grow.
             // ═══════════════════════════════════════════════════════════════════════════
             float width = __instance.cachedSize.x;
             CachedRowHeightsField.SetValue(__instance, rowHeights);
-            CachedSizeField.SetValue(__instance, new Vector2(width, clampedHeight));
+            CachedSizeField.SetValue(__instance, new Vector2(width, totalHeight));
         }
     }
 
