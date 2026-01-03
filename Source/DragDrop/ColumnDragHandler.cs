@@ -4,6 +4,7 @@ using Better_Work_Tab.Mod_Support.Multiplayer;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI;
+using Better_Work_Tab.UI.Headers;
 using RimWorld;
 using Spine.DragDropApi.Util;
 using System.Collections.Generic;
@@ -361,7 +362,7 @@ namespace Better_Work_Tab.DragDrop
                 }
 
                 // Clear vanilla header renderer cache to force recalculation of all positions
-                HeaderDrawingCoordinator.InvalidateCaches();
+                Better_Work_Tab.UI.Headers.HeaderDrawingCoordinator.InvalidateCaches();
 
                 // Force layout to rebuild with new column order
                 var layout = PawnOrganizerSystem.Instance?.Layout;

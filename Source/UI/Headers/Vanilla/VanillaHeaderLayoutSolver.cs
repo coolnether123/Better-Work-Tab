@@ -4,14 +4,14 @@ using Verse;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Better_Work_Tab.UI
+namespace Better_Work_Tab.UI.Headers.Vanilla
 {
     /// <summary>
-    /// Solves the layout for ALL vanilla headers in a single pass.
-    /// FIXED: Coordinate system now matches Vanilla staggering exactly.
-    /// PERFORMANCE: Self-validating signature check handles resizing/text changes automatically.
+    /// Solves the layout for ALL vanilla headers in a single Pass.
+    /// Coordinate system is designed to match Vanilla RimWorld staggering logic.
+    /// Implements a backtracking solver to find optimal non-overlapping placements.
     /// </summary>
-    public class VanillaHeaderLayoutSolver
+    public class VanillaHeaderLayoutSolver : FrameCachedSystem
     {
         private bool _solutionValid = false;
         private Dictionary<PawnColumnDef, float> _frameOffsets = new Dictionary<PawnColumnDef, float>();
@@ -23,7 +23,6 @@ namespace Better_Work_Tab.UI
         private int _lastSolvedSignature;
 
         // Collection: gather actual header rects during Layout event
-        private int _collectedFrame = -1;
         private readonly Dictionary<PawnColumnDef, ColumnLayoutInfo> _collected = new Dictionary<PawnColumnDef, ColumnLayoutInfo>();
 
         // Height of one "step" in the stagger - exact vanilla spacing
@@ -31,8 +30,6 @@ namespace Better_Work_Tab.UI
         
         // Base offset for level 0 - distance from header bottom to TEXT MIDDLE
         // Adjusted to 19px to achieve 2px gap between text bottom and stem line
-        // Level 0 (low): 19px from middle of text to pawn box
-        // Level 1 (high): 39px from middle of text to pawn box
         private const float Level0Offset = 19f; 
 
         // Max level for header placement
@@ -40,14 +37,32 @@ namespace Better_Work_Tab.UI
 
         private List<ColumnLayoutInfo> _columns = new List<ColumnLayoutInfo>();
 
-        private const float CollisionPadding = 1f;
+        private const float CollisionPadding = HeaderUtility.CollisionPadding;
+        private const float QuantizationStep = 0.25f;
+        private const int SignatureSeed = 17;
+        private const int SignatureMultiplier = 397;
 
         private struct Cost
         {
             public int ExcessLevelSum;     // Sum(max(0, level - VanillaLevel))
-            public int VanillaMovedCount;
-            public int LevelSum;
-            public int VanillaDeviationSum;
+            public int VanillaMovedCount;  // How many vanilla headers were displaced
+            public int LevelSum;           // Total sum of levels (compaction)
+            public int VanillaDeviationSum;// Total distance vanilla headers moved
+
+            /// <summary>
+            /// Definition of cost priorities for tie-breaking and pruning.
+            /// 1. Minimize height above vanilla (ExcessLevelSum)
+            /// 2. Minimize displaced vanilla headers (VanillaMovedCount)
+            /// 3. Minimize total levels (LevelSum)
+            /// 4. Minimize distance moved (VanillaDeviationSum)
+            /// </summary>
+            private static readonly (System.Func<Cost, int> selector, string description)[] Priorities =
+            {
+                (c => c.ExcessLevelSum, "Minimize height above vanilla"),
+                (c => c.VanillaMovedCount, "Minimize displaced vanilla headers"),
+                (c => c.LevelSum, "Minimize total levels"),
+                (c => c.VanillaDeviationSum, "Minimize distance moved"),
+            };
 
             public static Cost MaxValue => new Cost
             {
@@ -59,17 +74,13 @@ namespace Better_Work_Tab.UI
 
             public bool IsBetterThan(Cost other)
             {
-                // Primary: minimize "Excess height" pushed above vanilla stagger
-                if (ExcessLevelSum != other.ExcessLevelSum) return ExcessLevelSum < other.ExcessLevelSum;
-
-                // Secondary: minimize how many "vanilla" (non-moved) headers we displace
-                if (VanillaMovedCount != other.VanillaMovedCount) return VanillaMovedCount < other.VanillaMovedCount;
-
-                // Tertiary: minimize total sum of levels for overall compaction
-                if (LevelSum != other.LevelSum) return LevelSum < other.LevelSum;
-
-                // Final tie-breaker: total distance moved
-                return VanillaDeviationSum < other.VanillaDeviationSum;
+                foreach (var (selector, _) in Priorities)
+                {
+                    int thisVal = selector(this);
+                    int otherVal = selector(other);
+                    if (thisVal != otherVal) return thisVal < otherVal;
+                }
+                return false;
             }
 
             public void AddFor(ColumnLayoutInfo info, int level)
@@ -110,7 +121,7 @@ namespace Better_Work_Tab.UI
         }
 
         /// <summary>
-        /// Call this to invalidate the current solution and force a recalculation on next SolveLayout call.
+        /// Call to invalidate the current solution and force a recalculation on next SolveLayout call.
         /// Should be called when columns are moved or settings change.
         /// </summary>
         public void InvalidateSolution()
@@ -118,11 +129,11 @@ namespace Better_Work_Tab.UI
             _solutionValid = false;
         }
 
-        private static int Quant(float v, float step = 0.25f) => Mathf.RoundToInt(v / step);
+        private static int Quant(float v) => Mathf.RoundToInt(v / QuantizationStep);
 
         private void BeginCollectSignature()
         {
-            unchecked { _currentSignature = 17; }
+            unchecked { _currentSignature = SignatureSeed; }
         }
 
         private void AddToCollectSignature(ColumnLayoutInfo info)
@@ -130,30 +141,28 @@ namespace Better_Work_Tab.UI
             unchecked
             {
                 // PawnColumnDef is stable; GetHashCode is fine for a signature.
-                _currentSignature = _currentSignature * 397 ^ (info.ColumnDef?.GetHashCode() ?? 0);
+                _currentSignature = _currentSignature * SignatureMultiplier ^ (info.ColumnDef?.GetHashCode() ?? 0);
 
                 // Quantize floats so tiny float jitter doesn’t thrash the solver.
-                _currentSignature = _currentSignature * 397 ^ Quant(info.HeaderRect.x);
-                _currentSignature = _currentSignature * 397 ^ Quant(info.HeaderRect.width);
-                _currentSignature = _currentSignature * 397 ^ Quant(info.TextSize.x);
-                _currentSignature = _currentSignature * 397 ^ info.VanillaLevel;
-                _currentSignature = _currentSignature * 397 ^ (info.IsMoved ? 1 : 0);
+                _currentSignature = _currentSignature * SignatureMultiplier ^ Quant(info.HeaderRect.x);
+                _currentSignature = _currentSignature * SignatureMultiplier ^ Quant(info.HeaderRect.width);
+                _currentSignature = _currentSignature * SignatureMultiplier ^ Quant(info.TextSize.x);
+                _currentSignature = _currentSignature * SignatureMultiplier ^ info.VanillaLevel;
+                _currentSignature = _currentSignature * SignatureMultiplier ^ (info.IsMoved ? 1 : 0);
             }
         }
 
         /// <summary>
         /// Collects the actual header rect and work type info during Layout event.
-        /// This gathers REAL runtime data instead of trying to reconstruct from PawnColumnDef (which has width=-1).
+        /// This gathers REAL runtime data instead of trying to reconstruct from PawnColumnDef.
         /// </summary>
         public void CollectHeader(PawnColumnDef colDef, Rect headerRect, WorkTypeDef workType, bool isMoved)
         {
             if (colDef == null || workType == null) return;
 
             // Collect per-frame during Layout. Clear collection when frame changes.
-            int frame = Time.frameCount;
-            if (_collectedFrame != frame)
+            if (IsFrameNew())
             {
-                _collectedFrame = frame;
                 _collected.Clear();
                 BeginCollectSignature();
             }
@@ -165,17 +174,7 @@ namespace Better_Work_Tab.UI
                 Text.Font = GameFont.Small;
                 Text.WordWrap = false;
 
-                // Use actual work type label, not col.LabelCap (which is just "Work")
-                string baseText = workType.labelShort;
-                if (baseText.NullOrEmpty())
-                    baseText = workType.label;
-                if (baseText.NullOrEmpty())
-                    baseText = workType.defName;
-
-                string text = (baseText.NullOrEmpty() ? "Work" : baseText).CapitalizeFirst();
-                if (isMoved && !text.EndsWith("*"))
-                    text += "*";
-
+                string text = HeaderUtility.GetHeaderText(workType, isMoved);
                 Vector2 textSize = Text.CalcSize(text);
 
                 // Vanilla stagger flag lives on the PawnColumnDef.
@@ -201,6 +200,9 @@ namespace Better_Work_Tab.UI
             }
         }
 
+        /// <summary>
+        /// Solves the layout for all collected headers if the signature has changed.
+        /// </summary>
         public void SolveLayout(PawnTable table)
         {
             if (_solutionValid && _currentSignature == _lastSolvedSignature) return;
@@ -306,84 +308,15 @@ namespace Better_Work_Tab.UI
                                       .ThenByDescending(i => (localNodes[i].XMax - localNodes[i].XMin))
                                       .ToArray();
 
-                Cost bestCost = Cost.MaxValue;
-                int[] bestAssign = null;
+                // Solve the coloring problem for this component
+                var problem = new ColoringProblem(localNodes, order);
+                int[] bestAssign = problem.Solve();
 
-                void Dfs(int pos, Cost costSoFar)
-                {
-                    if (pos == order.Length)
-                    {
-                        if (costSoFar.IsBetterThan(bestCost))
-                        {
-                            bestCost = costSoFar;
-                            bestAssign = (int[])assignment.Clone();
-                        }
-                        return;
-                    }
-
-                    int v = order[pos];
-                    ref Node node = ref localNodes[v];
-
-                    for (int level = 0; level <= MaxLevel; level++)
-                    {
-                        bool ok = true;
-                        foreach (int nb in node.Neighbors)
-                        {
-                            if (assignment[nb] == level)
-                            {
-                                ok = false;
-                                break;
-                            }
-                        }
-                        if (!ok) continue;
-
-                        Cost next = costSoFar;
-                        next.AddFor(node.Info, level);
-
-                        // Pruning logic must match IsBetterThan priority
-                        if (next.ExcessLevelSum > bestCost.ExcessLevelSum) continue;
-                        if (next.ExcessLevelSum == bestCost.ExcessLevelSum && next.VanillaMovedCount > bestCost.VanillaMovedCount) continue;
-                        if (next.ExcessLevelSum == bestCost.ExcessLevelSum && next.VanillaMovedCount == bestCost.VanillaMovedCount &&
-                            next.LevelSum > bestCost.LevelSum) continue;
-                        if (next.ExcessLevelSum == bestCost.ExcessLevelSum && next.VanillaMovedCount == bestCost.VanillaMovedCount &&
-                            next.LevelSum == bestCost.LevelSum && next.VanillaDeviationSum >= bestCost.VanillaDeviationSum) continue;
-
-                        assignment[v] = level;
-                        Dfs(pos + 1, next);
-                        assignment[v] = -1;
-                    }
-                }
-
-                Dfs(0, new Cost());
-
-                // Fallback greedy logic (using 'order' direction now, with -1 init)
+                // Fallback: DFS timeout or exceptional case (shouldn't normally trigger)
+                // Use greedy first-fit coloring as emergency backup
                 if (bestAssign == null)
                 {
-                    bestAssign = Enumerable.Repeat(-1, localNodes.Length).ToArray();
-                    foreach (int v in order)
-                    {
-                        for (int level = 0; level <= MaxLevel; level++)
-                        {
-                            bool ok = true;
-                            foreach (int nb in localNodes[v].Neighbors)
-                            {
-                                // Only check already-assigned neighbors
-                                if (bestAssign[nb] == level) 
-                                { 
-                                    ok = false; 
-                                    break; 
-                                }
-                            }
-                            if (ok) 
-                            { 
-                                bestAssign[v] = level; 
-                                break; 
-                            }
-                        }
-                        // Absolute fallback if MaxLevel exceeded
-                        if (bestAssign[v] == -1) 
-                            bestAssign[v] = MaxLevel; 
-                    }
+                    bestAssign = GreedyColoring(localNodes, order);
                 }
 
                 int localMax = 0;
@@ -407,7 +340,6 @@ namespace Better_Work_Tab.UI
                 if (localMax > globalMaxLevel) globalMaxLevel = localMax;
                 globalLevelSum += localSum;
 
-                // Component summary
                 debugLog.AppendLine($"  -- Component Max: {localMax} | Sum: {localSum}");
             }
 
@@ -424,12 +356,18 @@ namespace Better_Work_Tab.UI
             _solutionValid = true;
         }
 
+        /// <summary>
+        /// Gets the vertical offset for a specific column based on the solved layout.
+        /// </summary>
         public float GetOffset(PawnColumnDef column)
         {
             if (column == null || _frameOffsets == null) return 0f;
             return _frameOffsets.TryGetValue(column, out float offset) ? offset : 0f;
         }
 
+        /// <summary>
+        /// Gets the maximum stagger level used in the current solution.
+        /// </summary>
         public int GetMaxLevelUsed()
         {
             return _lastMaxLevel;
@@ -444,8 +382,6 @@ namespace Better_Work_Tab.UI
                 return Rect.zero;
 
             float yOffset = GetOffset(column);
-            
-            // Formula from CalculateScreenCollisionRect
             float headerBottom = info.HeaderRect.yMax;
             float textY = headerBottom - yOffset - (info.TextSize.y / 2f);
 
@@ -465,6 +401,114 @@ namespace Better_Work_Tab.UI
             public int VanillaLevel;
             public bool IsMoved;
             public string Text;
+        }
+
+        /// <summary>
+        /// Dedicated solver for the header coloring (staggering) problem using backtracking DFS.
+        /// Extracts the algorithm from the main controller to manage state cleanly.
+        /// </summary>
+        private class ColoringProblem
+        {
+            private readonly Node[] _nodes;
+            private readonly int[] _order;
+            private readonly int[] _assignment;
+            private int[] _bestAssign;
+            private Cost _bestCost;
+
+            public ColoringProblem(Node[] nodes, int[] order)
+            {
+                _nodes = nodes;
+                _order = order;
+                _assignment = new int[nodes.Length];
+                System.Array.Fill(_assignment, -1);
+                _bestCost = Cost.MaxValue;
+            }
+
+            public int[] Solve()
+            {
+                Dfs(0, new Cost());
+                return _bestAssign;
+            }
+
+            private void Dfs(int pos, Cost costSoFar)
+            {
+                // Base case: All nodes in this component assigned a level
+                if (pos == _order.Length)
+                {
+                    if (costSoFar.IsBetterThan(_bestCost))
+                    {
+                        _bestCost = costSoFar;
+                        _bestAssign = (int[])_assignment.Clone();
+                    }
+                    return;
+                }
+
+                int v = _order[pos];
+                Node node = _nodes[v]; // Copy into local for fast neighbor access
+
+                // Optimization: Try levels in a stable order
+                for (int level = 0; level <= MaxLevel; level++)
+                {
+                    // Check for vertical collisions with already-assigned neighbors
+                    bool ok = true;
+                    foreach (int nb in node.Neighbors)
+                    {
+                        if (_assignment[nb] == level)
+                        {
+                            ok = false;
+                            break;
+                        }
+                    }
+                    if (!ok) continue;
+
+                    Cost next = costSoFar;
+                    next.AddFor(node.Info, level);
+
+                    // Centralized Pruning: Skip this branch if it's already worse than our best solution
+                    if (!next.IsBetterThan(_bestCost)) continue;
+
+                    // Recursively solve next node in order
+                    _assignment[v] = level;
+                    Dfs(pos + 1, next);
+                    _assignment[v] = -1; // Backtrack
+                }
+            }
+        }
+
+        /// <summary>
+        /// Emergency backup coloring using a greedy first-fit approach.
+        /// Called only if the DFS fails to find any solution (which should be impossible for this problem).
+        /// </summary>
+        private static int[] GreedyColoring(Node[] nodes, int[] order)
+        {
+            int[] assignment = Enumerable.Repeat(-1, nodes.Length).ToArray();
+            foreach (int v in order)
+            {
+                for (int level = 0; level <= MaxLevel; level++)
+                {
+                    bool ok = true;
+                    foreach (int nb in nodes[v].Neighbors)
+                    {
+                        if (assignment[nb] == level)
+                        {
+                            ok = false;
+                            break;
+                        }
+                    }
+                    if (ok)
+                    {
+                        assignment[v] = level;
+                        break;
+                    }
+                }
+                
+                // Absolute fallback: just cap at MaxLevel
+                if (assignment[v] == -1)
+                {
+                    assignment[v] = MaxLevel;
+                }
+            }
+            return assignment;
         }
     }
 }

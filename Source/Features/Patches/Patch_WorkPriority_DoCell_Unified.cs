@@ -2,6 +2,7 @@
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI;
+using Better_Work_Tab.UI.Headers;
 using HarmonyLib;
 using RimWorld;
 using System.Collections.Generic;
