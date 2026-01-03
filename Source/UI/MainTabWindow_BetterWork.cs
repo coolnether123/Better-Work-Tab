@@ -6,6 +6,8 @@ using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.PawnOrganizer.Data;
+using Better_Work_Tab.UI.Headers;
+using Better_Work_Tab.UI.Headers.Angled;
 using Multiplayer.API;
 using RimWorld;
 using Spine.Profiling;
@@ -27,10 +29,14 @@ namespace Better_Work_Tab.UI
     {
         private static PawnColumnDef _lastDraggedColumn;
         
+        /// <summary>
+        /// Global notification that header settings (like rotation) have changed.
+        /// Flushes all layout and drawing caches.
+        /// </summary>
         public static void NotifyAngledHeadersChanged()
         {
-            HeaderDrawingCoordinator.NotifyAngledHeadersChanged(); // NEW: Invalidate all header rendering caches
-            AngledHeaderCache.ClearCache();
+            HeaderDrawingCoordinator.NotifyAngledHeadersChanged(); 
+            
             if (Find.MainTabsRoot?.OpenTab?.TabWindow is MainTabWindow_BetterWork workTab)
             {
                 var table = workTab.GetPawnTable();
@@ -359,13 +365,18 @@ namespace Better_Work_Tab.UI
                 float finalWidth;
 
                 var organizer = PawnOrganizerSystem.Instance;
-                if (organizer?.Layout != null && !organizer.IsDragging)
+                if (organizer?.Layout != null)
                 {
-                    var snapshot = BuildSnapshotForOrganizer(table);
-                    organizer.Update(table, Vector2.zero, snapshot);
+                    if (!organizer.IsDragging)
+                    {
+                        var snapshot = BuildSnapshotForOrganizer(table);
+                        organizer.Update(table, Vector2.zero, snapshot);
+                    }
 
-                    // Use layout controller's content height (includes dividers)
-                    float layoutHeight = organizer.Layout.HeaderHeight + organizer.Layout.ContentHeight;
+                    // Use table's current header height (updates dynamically with vanilla staggering)
+                    // combined with layout controller's content height (includes dividers)
+                    // This is consistent during drag, preventing scrollbar flickers
+                    float layoutHeight = table.cachedHeaderHeight + organizer.Layout.ContentHeight;
                     finalHeight = layoutHeight + ExtraBottomSpace + ExtraTopSpace + Margin * 2f;
                     finalWidth = table.Size.x + Margin * 2f + 25f; // Added 20f to stop headers from clipping edge
                 }
