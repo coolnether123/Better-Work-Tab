@@ -115,9 +115,8 @@ namespace Better_Work_Tab.UI.Headers.Angled
             {
                 text = text + "\n\n" + worker.def.headerTip;
             }
-            // Add instructions
+            // Add instructions (vanilla behavior)
             text += "\n\n" + "ClickToSortByThisColumn".Translate();
-            text += "\n" + "RightClickToOpenOptions".Translate();
             
             return text;
         }
@@ -149,31 +148,10 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
         private static void HandleRightClick(PawnColumnWorker_WorkPriority worker, PawnTable table, Event evt)
         {
-            // Open column options menu (vanilla-like)
-            List<FloatMenuOption> options = new List<FloatMenuOption>();
-            
-            options.Add(new FloatMenuOption("SortDescending".Translate(), () => 
-            {
-                table.SortBy(worker.def, true);
-                table.SetDirty();
-            }));
-
-            options.Add(new FloatMenuOption("SortAscending".Translate(), () => 
-            {
-                table.SortBy(worker.def, false);
-                table.SetDirty();
-            }));
-
-            if (table.SortingBy != null)
-            {
-                options.Add(new FloatMenuOption("Clear sorting", () =>
-                {
-                    table.SortBy(null, false);
-                    table.SetDirty();
-                }));
-            }
-
-            Find.WindowStack.Add(new FloatMenu(options));
+            // Vanilla behavior: Right-click sorts descending immediately
+            table.SortBy(worker.def, true);
+            table.SetDirty();
+            SoundDefOf.Tick_Low.PlayOneShotOnCamera();
         }
 
         /// <summary>

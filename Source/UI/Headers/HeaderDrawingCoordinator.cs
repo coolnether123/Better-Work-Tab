@@ -60,8 +60,18 @@ namespace Better_Work_Tab.UI.Headers
         }
 
         /// <summary>
+        /// Invalidates only the current solver solution, forcing recalculation on next frame.
+        /// Preserves the solver instance and its cached max level to prevent header height jumps.
+        /// Use this for column reordering.
+        /// </summary>
+        public static void InvalidateSolution()
+        {
+            _vanillaSolver?.InvalidateSolution();
+        }
+
+        /// <summary>
         /// Called when user resets columns to vanilla order or changes angled header setting.
-        /// Clears all caches to force a rebuild of the header layout.
+        /// Completely recreates all caches and solvers from scratch.
         /// </summary>
         public static void InvalidateCaches()
         {

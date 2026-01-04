@@ -129,6 +129,14 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
             _solutionValid = false;
         }
 
+        /// <summary>
+        /// Returns true if the solver has a valid solution for the current frame.
+        /// </summary>
+        public bool HasValidSolution()
+        {
+            return _solutionValid;
+        }
+
         private static int Quant(float v) => Mathf.RoundToInt(v / QuantizationStep);
 
         private void BeginCollectSignature()
@@ -366,7 +374,8 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
         }
 
         /// <summary>
-        /// Gets the maximum stagger level used in the current solution.
+        /// Gets the maximum stagger level used in the current OR last valid solution.
+        /// Preserved across InvalidateSolution() calls to prevent header height jumps.
         /// </summary>
         public int GetMaxLevelUsed()
         {
