@@ -534,25 +534,12 @@ namespace Better_Work_Tab.UI.Settings
                 Label = "Enable Column Grouping (Ctrl+Click)",
                 Tooltip = "Allows selecting multiple columns with Ctrl+Click to drag them together.",
                 Type = SettingType.Bool,
-                DefaultValue = false,
+                DefaultValue = DefaultSettings.enableColumnGrouping,
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
                 SortOrder = 96
             });
 
-            Register(new SettingDefinition
-            {
-                Id = DragdropRemoveHeaderUnderline,
-                ParentId = FeaturesDragdrop,
-                FieldName = "removeHeaderUnderline",
-                Label = "Hide Header Underline",
-                Tooltip = "Remove the underline from work tab header labels.",
-                Type = SettingType.Bool,
-                DefaultValue = false,
-                ShowInSimpleView = true,
-                ShowInAdvancedView = true,
-                SortOrder = 97
-            });
 
             Register(new SettingDefinition
             {
@@ -1602,6 +1589,20 @@ namespace Better_Work_Tab.UI.Settings
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
                 SortOrder = 506
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = DragdropRemoveHeaderUnderline,
+                ParentId = HeadersHeader,
+                FieldName = "removeHeaderUnderline",
+                Label = "Hide Header Underline",
+                Tooltip = "Remove the underline from work tab header labels.",
+                Type = SettingType.Bool,
+                DefaultValue = false,
+                ShowInSimpleView = true,
+                ShowInAdvancedView = true,
+                SortOrder = 5061 // Immediately after HeadersAngled
             });
 
             Register(new SettingDefinition

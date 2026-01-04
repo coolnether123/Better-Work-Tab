@@ -89,10 +89,8 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
             }
 
             // === We're taking over: ensure layout is solved ===
-            if (Event.current.type == EventType.Repaint)
-            {
-                HeaderDrawingCoordinator.EnsureLayoutSolved(table);
-            }
+            // We need this for interaction (MouseDown/MouseUp) too, not just Repaint.
+            HeaderDrawingCoordinator.EnsureLayoutSolved(table);
 
             // Handle Input/Draw
             return HandleDrawAndInput(worker, rect, table);
