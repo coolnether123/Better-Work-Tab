@@ -3,6 +3,7 @@ using Verse;
 using RimWorld;
 using System.Collections.Generic;
 using Verse.Sound;
+using Better_Work_Tab.DragDrop;
 
 namespace Better_Work_Tab.UI.Headers.Angled
 {
@@ -123,6 +124,20 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
         private static void HandleLeftClick(PawnColumnWorker_WorkPriority worker, PawnTable table, Event evt)
         {
+            // Handle Multi-Selection (Ctrl+Click)
+            if (evt.control && BetterWorkTabMod.Settings.enableColumnGrouping)
+            {
+                Better_Work_Tab.DragDrop.ColumnSelectionManager.ToggleSelection(worker.def);
+                SoundDefOf.Tick_High.PlayOneShotOnCamera();
+                return;
+            }
+
+            // Normal Left Click: Clear selection and handle sorting
+            if (Better_Work_Tab.DragDrop.ColumnSelectionManager.HasSelection)
+            {
+                Better_Work_Tab.DragDrop.ColumnSelectionManager.Clear();
+            }
+
             // Standard Vanilla behavior: Sort by this column (3-state cycle)
             if (table.SortingBy != worker.def)
             {
