@@ -155,7 +155,7 @@ namespace Better_Work_Tab
         // New Refinement Settings
         public static bool disableBestPawnHighlight = false;
         public static int bestPawnHighlightThickness = 1;
-        public static bool enableColumnGrouping = false;
+        public static bool enableColumnGrouping = true;
         public static List<string> hiddenWorktypes = new List<string>();
         public static bool warnOnApplyRuleset = true;
         public static bool warnOnApplyWorkload = true;

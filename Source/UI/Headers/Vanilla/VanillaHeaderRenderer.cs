@@ -68,7 +68,7 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
                     Widgets.DrawHighlight(highlightRect);
                 }
 
-                if (column != null && ColumnSelectionManager.IsSelected(column))
+                if (column != null && Better_Work_Tab.DragDrop.ColumnSelectionManager.IsSelected(column))
                 {
                     GUI.color = HeaderUtility.Colors.SelectedHighlight;
                     Rect highlightRect = new Rect(headerRect.x, textY, headerRect.width, headerRect.yMax - textY);
