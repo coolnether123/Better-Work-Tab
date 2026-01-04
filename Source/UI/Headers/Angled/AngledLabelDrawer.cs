@@ -167,19 +167,8 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
             if (isSorted && headerRect != default)
             {
-                DrawSortIndicator(headerRect, sortDescending);
+                HeaderUtility.DrawSortIndicator(headerRect, sortDescending);
             }
-        }
-
-        private static void DrawSortIndicator(Rect headerRect, bool descending)
-        {
-            GUI.color = new Color(0.6f, 0.6f, 0.6f, 0.8f);
-            Text.Font = GameFont.Tiny;
-            Text.Anchor = TextAnchor.MiddleCenter;
-            // Move it to the bottom of the header area, centered horizontally (Old working coordinates)
-            Rect sortRect = new Rect(headerRect.x + (headerRect.width - 6f) / 2f + 5f, headerRect.yMax - 9f, 12f, 12f);
-            Widgets.Label(sortRect, descending ? "▼" : "▲");
-            GUI.color = Color.white;
         }
     }
 }
