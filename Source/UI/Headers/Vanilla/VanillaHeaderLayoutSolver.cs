@@ -85,7 +85,9 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
 
             public void AddFor(ColumnLayoutInfo info, int level)
             {
-                ExcessLevelSum += Mathf.Max(0, level - info.VanillaLevel);
+                // Both Level 0 and Level 1 are "Free" in terms of vanilla header height (~50px).
+                // Only levels 2+ increase the required height and shrink the content area.
+                ExcessLevelSum += Mathf.Max(0, level - 1);
                 LevelSum += level;
                 
                 if (!info.IsMoved)
@@ -168,10 +170,19 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
         {
             if (colDef == null || workType == null) return;
 
-            // Collect per-frame during Layout. Clear collection when frame changes.
-            if (IsFrameNew())
+            // Collect per-frame during Layout. 
+            // CRITICAL: We only clear at the start of a Layout event.
+            // If we clear during Repaint, we'll have no data for the rest of the frame 
+            // (since headers are drawn one by one and solver needs the full set).
+            if (Event.current.type == EventType.Layout && IsFrameNew())
             {
                 _collected.Clear();
+                BeginCollectSignature();
+            }
+            else if (IsFrameNew())
+            {
+                // If it's a new frame but NOT a layout event, we just prepare for a potential re-solve
+                // but we DO NOT clear the collected data from the previous layout pass.
                 BeginCollectSignature();
             }
 
