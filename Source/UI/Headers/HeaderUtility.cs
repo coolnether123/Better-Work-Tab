@@ -115,16 +115,15 @@ namespace Better_Work_Tab.UI.Headers
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.MiddleCenter;
 
-            // Positioning constant to align with angled and vanilla headers
-            const float indicatorWidth = 10f;
-            const float indicatorHeight = 10f;
-            const float yOffsetFromBottom = 12f;
+            // Position to match angled headers (9px from bottom, centered)
+            const float indicatorSize = 12f;
+            const float yOffsetFromBottom = 9f;
 
             Rect sortRect = new Rect(
-                headerRect.center.x - (indicatorWidth / 2f), 
+                headerRect.center.x - (indicatorSize / 2f) + 9f, 
                 headerRect.yMax - yOffsetFromBottom, 
-                indicatorWidth, 
-                indicatorHeight
+                indicatorSize, 
+                indicatorSize
             );
 
             Widgets.Label(sortRect, descending ? "▼" : "▲");
