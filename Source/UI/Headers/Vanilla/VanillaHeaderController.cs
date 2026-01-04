@@ -16,30 +16,55 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
 
         /// <summary>
         /// Calculates the minimum height required for the header area when staggered.
+        /// Only modifies header height when the actual stagger levels exceed vanilla.
         /// </summary>
         public static void CalculateMinHeaderHeight(PawnTable table, ref int __result)
         {
-            // For vanilla mode, calculate height based on number of levels
-            if (HeaderUtility.CheckIfAnyColumnsAreMoved(table))
+            // Only calculate custom height if columns are moved
+            // Otherwise, let vanilla use its default height
+            if (!HeaderUtility.CheckIfAnyColumnsAreMoved(table))
             {
-                GameFont oldFont = Text.Font;
-                Text.Font = GameFont.Small;
-                float rowHeight = Text.LineHeight + StemLineGap;
-
-                var solver = HeaderDrawingCoordinator.GetVanillaSolver();
-                int maxLevel = solver?.GetMaxLevelUsed() ?? 1;
-
-                // Vanilla baseline is roughly 50px.
-                // MaxLevel 1 (Vanilla): (1 + 1.2) * 22 = 48.4px (Matches vanilla)
-                int minRequired = Mathf.CeilToInt(rowHeight * (maxLevel + 1.2f)); 
-
-                if (__result < minRequired)
-                {
-                    __result = minRequired;
-                }
-
-                Text.Font = oldFont;
+                return; // Don't modify __result - use vanilla header height
             }
+
+            // For vanilla mode, calculate height based on number of levels
+            GameFont oldFont = Text.Font;
+            Text.Font = GameFont.Small;
+            float rowHeight = Text.LineHeight + StemLineGap;
+
+            // Get the solver and check if it has a valid solution
+            var solver = HeaderDrawingCoordinator.GetVanillaSolver();
+            
+            // If the solver doesn't have a valid solution yet, don't modify the height.
+            // Let vanilla handle it until we have actual layout data.
+            // This prevents premature header expansion that would shrink the content area.
+            if (solver == null || !solver.HasValidSolution())
+            {
+                Text.Font = oldFont;
+                return;
+            }
+
+            int maxLevel = solver.GetMaxLevelUsed();
+
+            // CRITICAL: Only increase header height if we actually need more than vanilla (level 1).
+            // Vanilla provides ~50px which is enough for levels 0-1.
+            // Only expand the header (and shrink content area) if we have level 2+ headers.
+            if (maxLevel <= 1)
+            {
+                // Vanilla height is sufficient, don't modify
+                Text.Font = oldFont;
+                return;
+            }
+
+            // We need more than vanilla height
+            int minRequired = Mathf.CeilToInt(rowHeight * (maxLevel + 1.2f)); 
+
+            if (__result < minRequired)
+            {
+                __result = minRequired;
+            }
+
+            Text.Font = oldFont;
         }
 
         /// <summary>

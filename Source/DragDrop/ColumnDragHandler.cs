@@ -361,8 +361,9 @@ namespace Better_Work_Tab.DragDrop
                     }
                 }
 
-                // Clear vanilla header renderer cache to force recalculation of all positions
-                Better_Work_Tab.UI.Headers.HeaderDrawingCoordinator.InvalidateCaches();
+                // Invalidate the solver solution to force recalculation with new column order
+                // (preserves max level to prevent header height jumps)
+                Better_Work_Tab.UI.Headers.HeaderDrawingCoordinator.InvalidateSolution();
 
                 // Force layout to rebuild with new column order
                 var layout = PawnOrganizerSystem.Instance?.Layout;
