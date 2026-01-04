@@ -64,7 +64,7 @@ namespace Better_Work_Tab.UI.Headers
 
             foreach (var col in tableCols)
             {
-                if (col?.workType != null && MainTabWindow_BetterWork.ShouldShowColumnMarker(col.workType))
+                if (col?.workType != null && MainTabWindow_BetterWork.IsColumnOutOfBaselinePosition(col.workType))
                 {
                     return true;
                 }

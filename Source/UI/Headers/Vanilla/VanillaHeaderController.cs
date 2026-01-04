@@ -20,12 +20,7 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
         /// </summary>
         public static void CalculateMinHeaderHeight(PawnTable table, ref int __result)
         {
-            // Only calculate custom height if columns are moved
-            // Otherwise, let vanilla use its default height
-            if (!HeaderUtility.CheckIfAnyColumnsAreMoved(table))
-            {
-                return; // Don't modify __result - use vanilla header height
-            }
+            // Height calculation is always managed by BWT to ensure the content area size matches our requirements.
 
             // For vanilla mode, calculate height based on number of levels
             GameFont oldFont = Text.Font;
@@ -73,12 +68,7 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
         /// <returns>True to allow vanilla execution (fallback), False to skip (handled).</returns>
         public static bool DoHeader(PawnColumnWorker_WorkPriority worker, Rect rect, PawnTable table)
         {
-            // If angled headers are OFF, check if ANY columns are moved
-            if (!HeaderUtility.CheckIfAnyColumnsAreMoved(table))
-            {
-                // If no columns moved, use standard vanilla rendering (return true to let vanilla run)
-                return true; 
-            }
+            // BWT takes over header rendering to provide robust staggered layout.
 
             // === Collect header data during Layout event ===
             if (Event.current.type == EventType.Layout)
