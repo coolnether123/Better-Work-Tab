@@ -59,7 +59,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
             {
                 if (col.Worker is PawnColumnWorker_WorkPriority && col.workType != null)
                 {
-                    // For height calculation, we always include the moved marker to ensure stability.
+                    // For height calculation, the moved indicator is incorporated to maintain layout stability.
                     string labelText = HeaderUtility.GetHeaderText(col.workType, true);
 
                     Vector2 size = Text.CalcSize(labelText);
@@ -102,7 +102,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
             Vector2 labelSize = layout.Size;
             float horizontalOffset = BetterWorkTabMod.Settings.angledHeaderHorizontalOffset;
 
-            // Create a centered rotated rectangle with horizontal offset applied
+            // Instantiate a centered rotated rectangle with the configured horizontal offset.
             Rect rotatedRect = new Rect(0f, 0f, headerRect.height, labelSize.y) { center = headerRect.center };
             rotatedRect.x += horizontalOffset;
 
