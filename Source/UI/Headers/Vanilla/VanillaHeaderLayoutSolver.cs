@@ -29,7 +29,7 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
         private const float LevelStepHeight = 20f;
         
         // Base offset for level 0 - distance from header bottom to TEXT MIDDLE
-        // Adjusted to 19px to achieve 2px gap between text bottom and stem line
+        // Adjusted to 19px to establish a 2nd-pixel gap between text bottom and stem line
         private const float Level0Offset = 19f; 
 
         // Max level for header placement
@@ -153,7 +153,7 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
                 // PawnColumnDef is stable; GetHashCode is fine for a signature.
                 _currentSignature = _currentSignature * SignatureMultiplier ^ (info.ColumnDef?.GetHashCode() ?? 0);
 
-                // Quantize floats so tiny float jitter doesn’t thrash the solver.
+                // Quantize floats so tiny float jitter does not interfere with the solver.
                 _currentSignature = _currentSignature * SignatureMultiplier ^ Quant(info.HeaderRect.x);
                 _currentSignature = _currentSignature * SignatureMultiplier ^ Quant(info.HeaderRect.width);
                 _currentSignature = _currentSignature * SignatureMultiplier ^ Quant(info.TextSize.x);
@@ -331,8 +331,8 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
                 var problem = new ColoringProblem(localNodes, order);
                 int[] bestAssign = problem.Solve();
 
-                // Fallback: DFS timeout or exceptional case (shouldn't normally trigger)
-                // Use greedy first-fit coloring as emergency backup
+                // This condition is generally not expected to manifest under normal operations; 
+                // however, a greedy first-fit coloring is provided as a contingency.
                 if (bestAssign == null)
                 {
                     bestAssign = GreedyColoring(localNodes, order);
@@ -497,7 +497,7 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
 
         /// <summary>
         /// Emergency backup coloring using a greedy first-fit approach.
-        /// Called only if the DFS fails to find any solution (which should be impossible for this problem).
+        /// Called only if the DFS fails to find any solution (though a failure is not mathematically anticipated for this constraint set).
         /// </summary>
         private static int[] GreedyColoring(Node[] nodes, int[] order)
         {
