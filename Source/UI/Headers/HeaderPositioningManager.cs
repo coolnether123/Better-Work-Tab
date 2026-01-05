@@ -30,8 +30,8 @@ namespace Better_Work_Tab.UI.Headers
             float rowHeight = Text.LineHeight + VerticalPadding;
             
             // Offsets from baseline
-            // Priority: Stay at baseline first, then move DOWN (positive Y)
-            _standardHeights[0] = 0f;              // Baseline (highest priority - stay here if possible)
+            // Priority: Prioritize baseline placement, then extend vertically downward (positive Y)
+            _standardHeights[0] = 0f;              // Baseline placement preference
             _standardHeights[1] = rowHeight;       // One row DOWN
             _standardHeights[2] = rowHeight * 2f;  // Two rows DOWN
             
@@ -81,7 +81,7 @@ namespace Better_Work_Tab.UI.Headers
         }
 
         /// <summary>
-        /// Snaps a header rect to the first available vertical level that doesn't overlap its neighbors.
+        /// Snaps a header rect to the first available vertical level that does not overlap its neighbors.
         /// </summary>
         /// <param name="headerRect">The original rect.</param>
         /// <param name="leftNeighbor">Optional bounds of the left neighbor.</param>

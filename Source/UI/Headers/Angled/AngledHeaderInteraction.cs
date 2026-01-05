@@ -71,8 +71,8 @@ namespace Better_Work_Tab.UI.Headers.Angled
             }
 
             // --- Click Interactions ---
-            // We use MouseUp for sorting to distinguish between a click and the start of a drag.
-            // If a drag starts, the drag handler will consume the MouseUp event, preventing sorting.
+            // MouseUp is utilized for sorting to differentiate between a standard click and the initiation of a drag operation.
+            // If a drag commences, the drag handler consumes the MouseUp event, preventing sorting.
             if (evt.type == EventType.MouseDown)
             {
                 if (evt.button == 0 || evt.button == 1)

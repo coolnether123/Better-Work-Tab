@@ -20,7 +20,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
         {
             float needed = AngledLabelDrawer.GetNeededHeight(table);
             
-            // Add some base padding to ensure the labels aren't jammed against the bottom
+            // Add some base padding to prevent labels from being positioned too close to the bottom
             int angledRequired = Mathf.CeilToInt(needed + 10f);
             
             if (__result < angledRequired)
