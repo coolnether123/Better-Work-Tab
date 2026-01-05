@@ -121,6 +121,18 @@ namespace Better_Work_Tab.Features.Caching
                     if (bed == null || bed.ForPrisoners || bed.Faction != Faction.OfPlayer)
                         continue;
 
+                    // Skip animal beds (not humanlike)
+                    if (!bed.def.building.bed_humanlike)
+                        continue;
+
+                    // Skip cribs (babies don't show up in the work tab)
+                    if (bed.ForHumanBabies)
+                        continue;
+
+                    // Skip deathrest caskets (Biotech)
+                    if (ModsConfig.BiotechActive && bed.def == ThingDefOf.DeathrestCasket)
+                        continue;
+
                     // Count the available sleeping slots on valid colonist beds
                     totalSlots += bed.SleepingSlotsCount;
                 }
