@@ -30,8 +30,8 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
             // Get the solver and check if it has a valid solution
             var solver = HeaderDrawingCoordinator.GetVanillaSolver();
             
-            // If the solver doesn't have a valid solution yet, don't modify the height.
-            // Let vanilla handle it until we have actual layout data.
+            // If the solver does not have a valid solution yet, the height is not modified.
+            // Vanilla logic is utilized until valid layout data is available.
             // This prevents premature header expansion that would shrink the content area.
             if (solver == null || !solver.HasValidSolution())
             {
@@ -41,9 +41,7 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
 
             int maxLevel = solver.GetMaxLevelUsed();
 
-            // CRITICAL: Only increase header height if we actually need more than vanilla (level 1).
-            // Vanilla provides ~50px which is enough for levels 0-1.
-            // Only expand the header (and shrink content area) if we have level 2+ headers.
+            // Vanilla height is sufficient; do not modify.
             if (maxLevel <= 1)
             {
                 // Vanilla height is sufficient, don't modify
@@ -78,8 +76,8 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
                 solver.CollectHeader(worker.def, rect, worker.def.workType, isMoved);
             }
 
-            // === We're taking over: ensure layout is solved ===
-            // We need this for interaction (MouseDown/MouseUp) too, not just Repaint.
+            // === The custom system assumes control: ensure layout is solved ===
+            // Resolved layout is necessary for interaction (MouseDown/MouseUp) and Repaint events.
             HeaderDrawingCoordinator.EnsureLayoutSolved(table);
 
             // Handle Input/Draw

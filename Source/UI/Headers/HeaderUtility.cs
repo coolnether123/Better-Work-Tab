@@ -6,7 +6,7 @@ namespace Better_Work_Tab.UI.Headers
 {
     /// <summary>
     /// Shared utility methods and constants for header rendering and logic.
-    /// Ensures DRY (Don't Repeat Yourself) practices across vanilla and angled implementations.
+    /// Minimizes code duplication across vanilla and angled implementations.
     /// </summary>
     public static class HeaderUtility
     {

@@ -32,7 +32,7 @@ namespace Better_Work_Tab.UI.Headers
         {
             if (table == null) return;
             
-            // Only solve for vanilla mode; angled headers don't need this
+            // Only solve for vanilla mode; angled headers do not require this
             if (!BetterWorkTabMod.Settings.enableAngledHeaders)
             {
                 _vanillaSolver.SolveLayout(table);
@@ -70,8 +70,8 @@ namespace Better_Work_Tab.UI.Headers
         }
 
         /// <summary>
-        /// Called when user resets columns to vanilla order or changes angled header setting.
-        /// Completely recreates all caches and solvers from scratch.
+        /// Invoked upon column reset to vanilla order or when angled header settings are toggled.
+        /// Completely recreates all caches and solvers.
         /// </summary>
         public static void InvalidateCaches()
         {

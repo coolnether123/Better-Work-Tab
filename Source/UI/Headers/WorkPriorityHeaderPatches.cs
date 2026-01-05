@@ -22,7 +22,7 @@ namespace Better_Work_Tab.UI.Headers
         public static WorkTypeDef HoveredWorkType => HeaderInputController.HoveredWorkType;
 
         /// <summary>
-        /// Prefix patch that diverts the standard header rendering to our custom system.
+        /// Prefix patch that redirects standard header rendering to the custom system.
         /// </summary>
         /// <returns>False to skip the original vanilla method, True to allow it (fallback).</returns>
         [HarmonyPrefix]
@@ -41,12 +41,12 @@ namespace Better_Work_Tab.UI.Headers
 
                 if (enableAngled)
                 {
-                     // Angled Mode: Always take over if enabled
+                     // Angled Mode: Always take over execution if enabled
                      return AngledHeaderController.DoHeader(__instance, rect, table); // Returns false to skip vanilla
                 }
                 else
                 {
-                     // Vanilla Mode: Only take over if columns are moved, otherwise return true to run vanilla
+                     // Vanilla Mode: Only intervenes if columns are moved; otherwise, permits vanilla execution
                      return VanillaHeaderController.DoHeader(__instance, rect, table);
                 }
             }
@@ -101,8 +101,8 @@ namespace Better_Work_Tab.UI.Headers
     /// - Angled headers are enabled AND
     /// - We're in a PawnColumnWorker_WorkPriority (our custom header handler)
     /// 
-    /// Result: Our custom hover highlights override vanilla's, preventing "double-highlighting" 
-    /// artifacts where both vanilla and BWT stagger systems try to draw over each other.
+    /// Result: Custom hover highlights override vanilla defaults, preventing artifacts 
+    /// where both vanilla and BWT stagger systems attempt to render simultaneously.
     ///
     /// IL Pseudo-code:
     ///   if (!Settings.enableAngledHeaders) goto do_highlight;

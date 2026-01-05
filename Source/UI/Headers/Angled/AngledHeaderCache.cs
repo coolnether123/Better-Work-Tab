@@ -7,7 +7,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
 {
     /// <summary>
     /// Caches the geometry and layout of angled headers to avoid expensive calculations every frame.
-    /// invalidated by frame count and signature changes.
+    /// Invalidation is driven by frame count and signature changes.
     /// </summary>
     public static class AngledHeaderCache
     {
@@ -22,7 +22,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
             public AngledLabelDrawer.AngledLabelLayout Layout;
             public Rect Bounds;
             public Vector2[] Quad;
-            public int ParamSignature; // NEW: cos, sin, offset hash to detect parameter changes
+            public int ParamSignature; // Hash of cosine, sine, and offset used to detect parameter changes
         }
 
         /// <summary>
