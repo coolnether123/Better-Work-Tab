@@ -138,23 +138,73 @@ namespace Better_Work_Tab.UI
                 .Select(c => c.workType.defName)
                 .ToList();
 
-            // Remove any dragged columns that are now back in vanilla position
+            var filteredBaseline = baselineOrder.Where(b => currentOrder.Contains(b)).ToList();
+
+            // Remove any dragged columns that are now back in vanilla RELATIVE position
             var toRemove = new List<string>();
             foreach (var defName in settings.playerDraggedColumns)
             {
-                int vanillaPos = baselineOrder.IndexOf(defName);
+                int relVanillaPos = filteredBaseline.IndexOf(defName);
                 int currentPos = currentOrder.IndexOf(defName);
 
-                // If the column is back in its baseline spot, unmark it
-                if (vanillaPos >= 0 && vanillaPos == currentPos)
+                // If the column is back in its relative baseline spot, unmark it
+                if (relVanillaPos >= 0 && relVanillaPos == currentPos)
                 {
                     toRemove.Add(defName);
                 }
             }
 
+            // Perform removals
             foreach (var defName in toRemove)
             {
                 settings.playerDraggedColumns.Remove(defName);
+            }
+
+            // HEAL PHASE: If we have a custom order but NO columns are marked as dragged,
+            // we've lost the intent data. We use a Longest Increasing Subsequence (LIS) 
+            // approach to find the minimum number of 'moves' to explain the current table.
+            if (settings.playerDraggedColumns.Count == 0)
+            {
+                var currentIndices = currentOrder.Select(c => filteredBaseline.IndexOf(c)).ToList();
+
+                // Simple LIS (Patient Sorting style)
+                var tails = new List<int>();
+                var prev = new int[currentIndices.Count];
+                var tailIdx = new List<int>();
+
+                for (int i = 0; i < currentIndices.Count; i++) {
+                    int val = currentIndices[i];
+                    int pos = tails.BinarySearch(val);
+                    if (pos < 0) pos = ~pos;
+
+                    if (pos < tails.Count) {
+                        tails[pos] = val;
+                        tailIdx[pos] = i;
+                    } else {
+                        tails.Add(val);
+                        tailIdx.Add(i);
+                    }
+                    prev[i] = (pos > 0) ? tailIdx[pos-1] : -1;
+                }
+
+                // Reconstruct LIS indices
+                var lisIndices = new HashSet<int>();
+                if (tailIdx.Count > 0) {
+                    int curr = tailIdx.Last();
+                    while (curr != -1) {
+                        lisIndices.Add(curr);
+                        curr = prev[curr];
+                    }
+                }
+
+                // Mark elements NOT in LIS as moved
+                for (int i = 0; i < currentOrder.Count; i++) {
+                    if (!lisIndices.Contains(i)) {
+                        string defName = currentOrder[i];
+                        settings.playerDraggedColumns.Add(defName);
+                        toRemove.Add(defName); // Trigger save
+                    }
+                }
             }
 
             if (toRemove.Count > 0)
@@ -530,12 +580,17 @@ namespace Better_Work_Tab.UI
                 .Select(c => c.workType.defName)
                 .ToList();
 
-            int vanillaPos = baselineOrder.IndexOf(workType.defName);
+            // FILTERED BASELINE: Only compare against columns that are actually present.
+            // This prevents columns from being marked 'moved' just because a mod added/removed 
+            // a different column that shifted our absolute index.
+            var filteredBaseline = baselineOrder.Where(b => currentOrder.Contains(b)).ToList();
+
+            int relVanillaPos = filteredBaseline.IndexOf(workType.defName);
             int currentPos = currentOrder.IndexOf(workType.defName);
 
-            if (vanillaPos < 0 || currentPos < 0) return true;
+            if (relVanillaPos < 0 || currentPos < 0) return true;
 
-            return vanillaPos == currentPos;
+            return relVanillaPos == currentPos;
         }
 
         /// <summary>
