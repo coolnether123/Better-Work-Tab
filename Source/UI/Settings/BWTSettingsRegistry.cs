@@ -1570,7 +1570,7 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Header,
                 Tooltip = "Angled header settings.",
                 HeaderColor = new Color(0.7f, 0.7f, 0.9f),
-                ShowInSimpleView = false,
+                ShowInSimpleView = true,
                 ShowInAdvancedView = true,
                 SortOrder = 350
             });
@@ -1586,7 +1586,7 @@ namespace Better_Work_Tab.UI.Settings
                 DefaultValue = true,
                 ControlsChildVisibility = true,
                 OnChanged = s => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
-                ShowInSimpleView = false,
+                ShowInSimpleView = true,
                 ShowInAdvancedView = true,
                 SortOrder = 506
             });
@@ -1594,7 +1594,7 @@ namespace Better_Work_Tab.UI.Settings
             Register(new SettingDefinition
             {
                 Id = DragdropRemoveHeaderUnderline,
-                ParentId = HeadersHeader,
+                ParentId = HeadersAngled,
                 FieldName = "removeHeaderUnderline",
                 Label = "Hide Header Underline",
                 Tooltip = "Remove the underline from work tab header labels.",
