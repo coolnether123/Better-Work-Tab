@@ -10,7 +10,7 @@
    <li>1.6</li>
  </supportedVersions>
  <packageId>Coolnether123.BetterWorkTab</packageId>
- <modVersion>1.0.3</modVersion>
+ <modVersion>1.0.4</modVersion>
  <description><![CDATA[Completely overhauls RimWorld’s Work tab with drag-and-drop, skill overlays, automation rules, and visual customization.
 
 All features are toggleable in settings with extensive customization options.
@@ -34,10 +34,10 @@ All features are toggleable in settings with extensive customization options.
 • May conflict with other work-tab overhauls
 
 <b>Version Difference</b>
-• 1.6 -> v1.0.3 - Angled Headers scale fix
-• 1.5 -> v1.0.2
-• 1.4 -> v1.0.2
-• 1.3 -> v1.0.2
+• 1.6 -> v1.0.4
+• 1.5 -> v1.0.2 -  Angled Headers scale not fixed 
+• 1.4 -> v1.0.2 
+• 1.3 -> v1.0.2 
 • 1.2 -> v1.0.2 - Multiplayer does not work
 • 1.1 (Join discord to request)
 • 1.0 (Join discord to request)
