@@ -160,8 +160,8 @@ namespace Better_Work_Tab.UI
                 settings.playerDraggedColumns.Remove(defName);
             }
 
-            // HEAL PHASE: If we have a custom order but NO columns are marked as dragged,
-            // we've lost the intent data. We use a Longest Increasing Subsequence (LIS) 
+            // HEAL PHASE: If there is a custom order but NO columns are marked as dragged,
+            // then the intent data is lost. Use the Longest Increasing Subsequence (LIS) 
             // approach to find the minimum number of 'moves' to explain the current table.
             if (settings.playerDraggedColumns.Count == 0)
             {
