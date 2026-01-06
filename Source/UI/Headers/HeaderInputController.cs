@@ -1,6 +1,7 @@
 using UnityEngine;
 using Verse;
 using RimWorld;
+using Better_Work_Tab.DragDrop;
 
 namespace Better_Work_Tab.UI.Headers
 {
@@ -40,6 +41,13 @@ namespace Better_Work_Tab.UI.Headers
                 _cachedMousePos = evt?.mousePosition ?? Vector2.zero;
                 _lastCacheFrame = currentFrame;
                 _cachedHoveredWorkType = null;
+
+                // If Ctrl is released and we aren't currently dragging a column group, clear the multi-selection.
+                // This ensures selection is only active while the user is actively managing a group with Ctrl.
+                if (evt != null && !evt.control && !BetterWorkTabLocalState.IsHeaderDragging && ColumnSelectionManager.HasSelection)
+                {
+                    ColumnSelectionManager.Clear();
+                }
             }
         }
 
