@@ -77,6 +77,8 @@ namespace Better_Work_Tab
         public static bool persistColumnWidths = true;
         public static bool showColumnMovedMarker = true;
         public static bool showColumnBaselineLine = true;
+        public static bool showMovedColumnColorTint = true;
+        public static Color Color_MovedMarkerColor = new Color(1f, 0.85f, 0.2f, 1f);
         public static bool showPawnCountAtBottom = true;
         public static bool showBedCountAtBottom = true;
         public static bool showPriorityLegend = true;
@@ -164,6 +166,7 @@ namespace Better_Work_Tab
         public static bool enableAngledHeaders = true;
         public static int angledHeaderRotation = -60;
         public static int angledHeaderHorizontalOffset = 10;
+        public static bool useVerticalStackingForCJK = true;
         public static bool autoEnableManualPriorities = false;
 
         // Pawn/worktype highlight visibility settings
@@ -297,6 +300,8 @@ namespace Better_Work_Tab
         public bool persistColumnWidths = DefaultSettings.persistColumnWidths;
         public bool showColumnMovedMarker = DefaultSettings.showColumnMovedMarker;
         public bool showColumnBaselineLine = DefaultSettings.showColumnBaselineLine;
+        public bool showMovedColumnColorTint = DefaultSettings.showMovedColumnColorTint;
+        public Color movedMarkerColor = DefaultSettings.Color_MovedMarkerColor;
         public bool enableRowColumnHighlights = DefaultSettings.enableRowColumnHighlights;
         public float dividerMinAlpha = DefaultSettings.dividerMinAlpha;
         public bool showHoverCellOverlay = DefaultSettings.showHoverCellOverlay;
@@ -456,6 +461,7 @@ namespace Better_Work_Tab
         public bool enableAngledHeaders = DefaultSettings.enableAngledHeaders;
         public int angledHeaderRotation = (int)DefaultSettings.angledHeaderRotation;
         public int angledHeaderHorizontalOffset = DefaultSettings.angledHeaderHorizontalOffset;
+        public bool useVerticalStackingForCJK = DefaultSettings.useVerticalStackingForCJK;
         public Color angledHeaderColor = DefaultSettings.Color_AngledHeaderText;
         public bool autoEnableManualPriorities = DefaultSettings.autoEnableManualPriorities;
 
@@ -626,6 +632,8 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref persistColumnWidths, "persistColumnWidths", DefaultSettings.persistColumnWidths);
             Scribe_Values.Look(ref showColumnMovedMarker, "showColumnMovedMarker", DefaultSettings.showColumnMovedMarker);
             Scribe_Values.Look(ref showColumnBaselineLine, "showColumnBaselineLine", DefaultSettings.showColumnBaselineLine);
+            Scribe_Values.Look(ref showMovedColumnColorTint, "showMovedColumnColorTint", DefaultSettings.showMovedColumnColorTint);
+            Scribe_Values.Look(ref movedMarkerColor, "movedMarkerColor", DefaultSettings.Color_MovedMarkerColor);
             Scribe_Values.Look(ref dividerMinAlpha, "dividerMinAlpha", DefaultSettings.dividerMinAlpha);
             Scribe_Values.Look(ref disableBestPawnHighlight, "disableBestPawnHighlight", false);
             Scribe_Values.Look(ref bestPawnHighlightThickness, "bestPawnHighlightThickness", 1);
@@ -638,6 +646,7 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref enableAngledHeaders, "enableAngledHeaders", DefaultSettings.enableAngledHeaders);
             Scribe_Values.Look(ref angledHeaderRotation, "angledHeaderRotation", (int)DefaultSettings.angledHeaderRotation);
             Scribe_Values.Look(ref angledHeaderHorizontalOffset, "angledHeaderHorizontalOffset", DefaultSettings.angledHeaderHorizontalOffset);
+            Scribe_Values.Look(ref useVerticalStackingForCJK, "useVerticalStackingForCJK", true);
             Scribe_Values.Look(ref angledHeaderColor, "angledHeaderColor", DefaultSettings.Color_AngledHeaderText);
             Scribe_Values.Look(ref autoEnableManualPriorities, "autoEnableManualPriorities", DefaultSettings.autoEnableManualPriorities);
 

@@ -75,8 +75,8 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
                     Widgets.DrawHighlight(highlightRect);
                 }
 
-                // Text Color
-                GUI.color = showMarker
+                // Text Color: Apply moved marker color only if color tint is enabled
+                GUI.color = (showMarker && BetterWorkTabMod.Settings.showMovedColumnColorTint)
                     ? HeaderUtility.Colors.MovedMarkerColor 
                     : BetterWorkTabMod.Settings.angledHeaderColor;
 

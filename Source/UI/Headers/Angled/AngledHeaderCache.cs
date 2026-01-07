@@ -84,24 +84,38 @@ namespace Better_Work_Tab.UI.Headers.Angled
             bool isMoved = MainTabWindow_BetterWork.ShouldShowColumnMarker(workType);
             string label = HeaderUtility.GetHeaderText(workType, isMoved);
             
+            bool isCJK = HeaderUtility.IsCJK(label);
+            bool isCJKVertical = isCJK && BetterWorkTabMod.Settings.useVerticalStackingForCJK && Mathf.Abs(AngledLabelDrawer.CurrentRotation + 90f) < 5f;
+
             GameFont oldFont = Text.Font;
             Text.Font = GameFont.Small;
             Vector2 size = Text.CalcSize(label);
+            
+            if (isCJKVertical)
+            {
+                // In vertical mode, the 'size' width is a single char, and height is the stack
+                float charH = Text.LineHeight * 0.9f;
+                size = new Vector2(size.y, label.Length * charH); 
+            }
             Text.Font = oldFont;
 
             // Pivot point is at the center of the header rect with horizontal offset applied
             // Width of the text area is fixed to the header's height (to match old behavior)
-            Rect rotatedRect = new Rect(0f, 0f, rect.height, size.y) { center = rect.center };
-            rotatedRect.x += horizontalOffset;
-            Vector2 pivot = rotatedRect.center;
+            // UNLESS it's vertical CJK, where the draw width is just the char width.
+            float drawWidth = isCJKVertical ? size.x : rect.height;
+            Rect drawRect = new Rect(0f, 0f, drawWidth, size.y) { center = rect.center };
+            drawRect.x += horizontalOffset;
+            Vector2 pivot = drawRect.center;
 
             // Bounds and Quad: 
             // Build the quad centered on the pivot for accurate collision detection.
-            Vector2[] quad = CalculateRotatedQuad(pivot, rect.height, size.y, cos, sin);
+            float effectiveCos = isCJKVertical ? 1f : cos;
+            float effectiveSin = isCJKVertical ? 0f : sin;
+            Vector2[] quad = CalculateRotatedQuad(pivot, drawWidth, size.y, effectiveCos, effectiveSin);
 
             cached = new CachedHeaderData
             {
-                Layout = new AngledLabelDrawer.AngledLabelLayout(label, size, pivot, isMoved),
+                Layout = new AngledLabelDrawer.AngledLabelLayout(label, size, pivot, isMoved, isCJKVertical),
                 Quad = quad,
                 Bounds = rect, // Approximate screen bounds for early clipping
                 ParamSignature = currentSig
