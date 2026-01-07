@@ -77,6 +77,23 @@ namespace Better_Work_Tab.UI.Headers.Angled
             {
                 if (evt.button == 0 || evt.button == 1)
                 {
+                    // Handle Shift+Click immediately on MouseDown to prevent it from reaching sorting (on MouseUp) or dragging.
+                    if (evt.shift || (evt.modifiers & EventModifiers.Shift) != 0)
+                    {
+                        HandleShiftClick(ctx.Worker, ctx.Table, evt.button);
+                        evt.Use();
+                        return;
+                    }
+
+                    // Handle Multi-Selection (Ctrl+Click) immediately on MouseDown if dragging isn't starting
+                    if (evt.control && BetterWorkTabMod.Settings.enableColumnGrouping)
+                    {
+                        Better_Work_Tab.DragDrop.ColumnSelectionManager.ToggleSelection(ctx.Worker.def);
+                        SoundDefOf.Tick_High.PlayOneShotOnCamera();
+                        evt.Use();
+                        return;
+                    }
+
                     _pendingClickColumn = ctx.Worker.def;
                 }
             }
@@ -110,28 +127,58 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
         private static string GetTooltip(PawnColumnWorker_WorkPriority worker, PawnTable table)
         {
-            // Reconstruct the vanilla tooltip but for the specific work type
-            string text = worker.def.LabelCap;
-            if (!worker.def.headerTip.NullOrEmpty())
-            {
-                text = text + "\n\n" + worker.def.headerTip;
-            }
-            // Add instructions (vanilla behavior)
-            text += "\n\n" + "ClickToSortByThisColumn".Translate();
+            // Replicate vanilla GetHeaderTip from PawnColumnWorker_WorkPriority
+            var workType = worker.def.workType;
             
-            return text;
+            TaggedString tooltip = workType.gerundLabel.CapitalizeFirst().Colorize(ColoredText.TipSectionTitleColor) 
+                + "\n\n" + workType.description 
+                + "\n\n" + SpecificWorkListString(workType) 
+                + "\n";
+            
+            if (worker.def.sortable)
+            {
+                tooltip += "\n" + "ClickToSortByThisColumn".Translate().Colorize(ColoredText.SubtleGrayColor);
+            }
+            
+            if (!Verse.Steam.SteamDeck.IsSteamDeckInNonKeyboardMode)
+            {
+                if (Find.PlaySettings.useWorkPriorities)
+                {
+                    tooltip += "\n" + "WorkPriorityShiftClickTip".Translate().Colorize(ColoredText.SubtleGrayColor);
+                }
+                else
+                {
+                    tooltip += "\n" + "WorkPriorityShiftClickEnableDisableTip".Translate().Colorize(ColoredText.SubtleGrayColor);
+                }
+            }
+            
+            return tooltip.Resolve();
+        }
+        
+        /// <summary>
+        /// Builds the list of specific work givers for the work type.
+        /// Exact implementation from vanilla PawnColumnWorker_WorkPriority.
+        /// </summary>
+        private static string SpecificWorkListString(WorkTypeDef def)
+        {
+            System.Text.StringBuilder stringBuilder = new System.Text.StringBuilder();
+            for (int i = 0; i < def.workGiversByPriority.Count; i++)
+            {
+                stringBuilder.Append(" - " + def.workGiversByPriority[i].LabelCap);
+                if (def.workGiversByPriority[i].emergency)
+                {
+                    stringBuilder.Append(" (" + "EmergencyWorkMarker".Translate() + ")");
+                }
+                if (i < def.workGiversByPriority.Count - 1)
+                {
+                    stringBuilder.AppendLine();
+                }
+            }
+            return stringBuilder.ToString();
         }
 
         private static void HandleLeftClick(PawnColumnWorker_WorkPriority worker, PawnTable table, Event evt)
         {
-            // Handle Multi-Selection (Ctrl+Click)
-            if (evt.control && BetterWorkTabMod.Settings.enableColumnGrouping)
-            {
-                Better_Work_Tab.DragDrop.ColumnSelectionManager.ToggleSelection(worker.def);
-                SoundDefOf.Tick_High.PlayOneShotOnCamera();
-                return;
-            }
-
             // Normal Left Click: Clear selection and handle sorting
             if (Better_Work_Tab.DragDrop.ColumnSelectionManager.HasSelection)
             {
@@ -167,6 +214,59 @@ namespace Better_Work_Tab.UI.Headers.Angled
             table.SortBy(worker.def, true);
             table.SetDirty();
             SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+        }
+
+        private static void HandleShiftClick(PawnColumnWorker_WorkPriority worker, PawnTable table, int button)
+        {
+            var workType = worker.def.workType;
+            List<Pawn> pawns = table.PawnsListForReading;
+            bool useWorkPriorities = Find.PlaySettings.useWorkPriorities;
+
+            bool changed = false;
+            for (int i = 0; i < pawns.Count; i++)
+            {
+                Pawn pawn = pawns[i];
+                if (pawn.Dead || pawn.workSettings == null || !pawn.workSettings.EverWork || pawn.WorkTypeIsDisabled(workType))
+                    continue;
+
+                int curPriority = pawn.workSettings.GetPriority(workType);
+
+                if (useWorkPriorities)
+                {
+                    // Manual Priorities (1-9 or 1-4)
+                    if (button == 0) // Left click (Increase priority / Decrement number)
+                    {
+                        // Cycle: 0 -> 4 -> 3 -> 2 -> 1 (stays at 1)
+                        if (curPriority == 0) pawn.workSettings.SetPriority(workType, 4);
+                        else if (curPriority > 1) pawn.workSettings.SetPriority(workType, curPriority - 1);
+                    }
+                    else // Right click (Decrease priority / Increment number)
+                    {
+                        // Cycle: 1 -> 2 -> 3 -> 4 -> 0 (stays at 0)
+                        if (curPriority == 4) pawn.workSettings.SetPriority(workType, 0);
+                        else if (curPriority > 0) pawn.workSettings.SetPriority(workType, curPriority + 1);
+                    }
+                }
+                else
+                {
+                    // Vanilla Priorities (On/Off)
+                    if (button == 0) pawn.workSettings.SetPriority(workType, 3);
+                    else pawn.workSettings.SetPriority(workType, 0);
+                }
+                changed = true;
+            }
+
+            if (changed)
+            {
+                if (useWorkPriorities)
+                    SoundDefOf.DragSlider.PlayOneShotOnCamera();
+                else if (button == 0)
+                    SoundDefOf.Checkbox_TurnedOn.PlayOneShotOnCamera();
+                else
+                    SoundDefOf.Checkbox_TurnedOff.PlayOneShotOnCamera();
+
+                table.SetDirty();
+            }
         }
 
         /// <summary>
