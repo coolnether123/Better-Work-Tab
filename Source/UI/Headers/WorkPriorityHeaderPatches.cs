@@ -22,6 +22,27 @@ namespace Better_Work_Tab.UI.Headers
         public static WorkTypeDef HoveredWorkType => HeaderInputController.HoveredWorkType;
 
         /// <summary>
+        /// Checks if the currently open tab is a Work tab (vanilla or BWT).
+        /// Returns false for other tabs like MechTab to avoid interference.
+        /// </summary>
+        public static bool IsWorkTab()
+        {
+            if (BetterWorkTabMod.Settings == null) return false;
+            var windowStack = Find.WindowStack;
+            if (windowStack == null) return false;
+            
+            var windows = windowStack.Windows;
+            if (windows == null) return false;
+
+            for (int i = 0; i < windows.Count; i++)
+            {
+                if (windows[i] is MainTabWindow_Work)
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>
         /// Prefix patch that redirects standard header rendering to the custom system.
         /// </summary>
         /// <returns>False to skip the original vanilla method, True to allow it (fallback).</returns>
@@ -29,15 +50,22 @@ namespace Better_Work_Tab.UI.Headers
         [HarmonyPriority(Priority.Last)]
         public static bool Prefix(PawnColumnWorker_WorkPriority __instance, Rect rect, PawnTable table)
         {
+            // Only apply BWT patches to the Work tab (vanilla or BWT), not other tabs like MechTab
+            if (!IsWorkTab())
+                return true;
+
             try
             {
                 // Update shared input cache once per frame
                 HeaderInputController.UpdateCache(Event.current);
 
+                var settings = BetterWorkTabMod.Settings;
+                if (settings == null) return true;
+
                 var workType = __instance?.def?.workType;
                 if (workType == null) return false;
 
-                bool enableAngled = BetterWorkTabMod.Settings.enableAngledHeaders;
+                bool enableAngled = settings.enableAngledHeaders;
 
                 if (enableAngled)
                 {
@@ -79,10 +107,14 @@ namespace Better_Work_Tab.UI.Headers
         [HarmonyPriority(Priority.Last)]
         public static void Postfix(PawnColumnWorker_WorkPriority __instance, PawnTable table, ref int __result)
         {
-            // Only apply to the Work tab
-            if (Find.MainTabsRoot?.OpenTab?.defName != "Work") return;
+            // Only apply to the Work tab (vanilla or BWT), not other tabs like MechTab
+            if (!PawnColumnWorker_WorkPriority_DoHeader_Patch.IsWorkTab())
+                return;
 
-            bool enableAngled = BetterWorkTabMod.Settings.enableAngledHeaders;
+            var settings = BetterWorkTabMod.Settings;
+            if (settings == null) return;
+
+            bool enableAngled = settings.enableAngledHeaders;
 
             if (enableAngled)
             {
@@ -140,9 +172,17 @@ namespace Better_Work_Tab.UI.Headers
 
                     var newCodes = new List<CodeInstruction>();
 
+                    // if (Settings == null) goto do_highlight;
+                    newCodes.Add(new CodeInstruction(OpCodes.Ldsfld, AccessTools.Field(typeof(BetterWorkTabMod), nameof(BetterWorkTabMod.Settings))));
+                    newCodes.Add(new CodeInstruction(OpCodes.Brfalse, labelDoHighlight));
+
                     // if (!Settings.enableAngledHeaders) goto do_highlight;
                     newCodes.Add(new CodeInstruction(OpCodes.Ldsfld, AccessTools.Field(typeof(BetterWorkTabMod), nameof(BetterWorkTabMod.Settings))));
                     newCodes.Add(new CodeInstruction(OpCodes.Ldfld, AccessTools.Field(typeof(BetterWorkTabSettings), nameof(BetterWorkTabSettings.enableAngledHeaders))));
+                    newCodes.Add(new CodeInstruction(OpCodes.Brfalse, labelDoHighlight));
+
+                    // if (!PawnColumnWorker_WorkPriority_DoHeader_Patch.IsWorkTab()) goto do_highlight;
+                    newCodes.Add(new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(PawnColumnWorker_WorkPriority_DoHeader_Patch), nameof(PawnColumnWorker_WorkPriority_DoHeader_Patch.IsWorkTab))));
                     newCodes.Add(new CodeInstruction(OpCodes.Brfalse, labelDoHighlight));
 
                     // if (this is PawnColumnWorker_WorkPriority) goto skip_highlight;

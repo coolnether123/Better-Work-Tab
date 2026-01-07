@@ -43,12 +43,31 @@ namespace Better_Work_Tab.UI.Headers
 
             string label = (baseText.NullOrEmpty() ? DefaultHeaderText : baseText).CapitalizeFirst();
 
-            if (isMoved && !label.EndsWith(MovedMarker))
+            var settings = BetterWorkTabMod.Settings;
+            if (isMoved && settings != null && settings.showColumnMovedMarker && !label.EndsWith(MovedMarker))
             {
                 label += MovedMarker;
             }
 
             return label;
+        }
+
+        /// <summary>
+        /// Detects if a string contains CJK characters (Chinese, Japanese, Korean)
+        /// based on Unicode ranges.
+        /// </summary>
+        public static bool IsCJK(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return false;
+            foreach (char c in text)
+            {
+                // Check ranges for Korean, Chinese, and Japanese scripts
+                if ((c >= 0x4E00 && c <= 0x9FFF) || // CJK Ideographs
+                    (c >= 0xAC00 && c <= 0xD7AF) || // Hangul Syllables
+                    (c >= 0x3040 && c <= 0x30FF))   // Hiragana/Katakana
+                    return true;
+            }
+            return false;
         }
 
         /// <summary>
@@ -80,8 +99,9 @@ namespace Better_Work_Tab.UI.Headers
         {
             /// <summary>
             /// Color for the yellow marker indicating a moved column.
+            /// Reads from settings to allow user customization.
             /// </summary>
-            public static readonly Color MovedMarkerColor = new Color(1f, 0.85f, 0.2f, 1f);
+            public static Color MovedMarkerColor => BetterWorkTabMod.Settings?.movedMarkerColor ?? new Color(1f, 0.85f, 0.2f, 1f);
 
             /// <summary>
             /// Color for the highlight box when a column is selected.
