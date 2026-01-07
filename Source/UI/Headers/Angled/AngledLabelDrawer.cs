@@ -49,11 +49,14 @@ namespace Better_Work_Tab.UI.Headers.Angled
             var columns = table.Columns;
             if (columns == null) return 0f;
 
-            float absSin = Mathf.Abs(Mathf.Sin(CurrentRotation * Mathf.Deg2Rad));
-            float absCos = Mathf.Abs(Mathf.Cos(CurrentRotation * Mathf.Deg2Rad));
+            float rotation = CurrentRotation;
+            float absSin = Mathf.Abs(Mathf.Sin(rotation * Mathf.Deg2Rad));
+            float absCos = Mathf.Abs(Mathf.Cos(rotation * Mathf.Deg2Rad));
+            bool useVerticalCJK = BetterWorkTabMod.Settings.useVerticalStackingForCJK && Mathf.Abs(rotation + 90f) < 5f;
 
             GameFont oldFont = Text.Font;
             Text.Font = GameFont.Small;
+            float lineHeightCJK = Text.LineHeight * 0.9f;
 
             foreach (var col in columns)
             {
@@ -62,10 +65,19 @@ namespace Better_Work_Tab.UI.Headers.Angled
                     // For height calculation, the moved indicator is incorporated to maintain layout stability.
                     string labelText = HeaderUtility.GetHeaderText(col.workType, true);
 
-                    Vector2 size = Text.CalcSize(labelText);
-                    
-                    // Height of a rotated rectangle: width*sin(theta) + height*cos(theta)
-                    float h = (size.x * absSin) + (size.y * absCos);
+                    float h;
+                    if (useVerticalCJK && HeaderUtility.IsCJK(labelText))
+                    {
+                        // Stacked Vertical height: characters * line height
+                        h = labelText.Length * lineHeightCJK;
+                    }
+                    else
+                    {
+                        Vector2 size = Text.CalcSize(labelText);
+                        // Height of a rotated rectangle: width*sin(theta) + height*cos(theta)
+                        h = (size.x * absSin) + (size.y * absCos);
+                    }
+
                     if (h > maxH) maxH = h;
                 }
             }
@@ -83,13 +95,15 @@ namespace Better_Work_Tab.UI.Headers.Angled
             public readonly Vector2 Size;
             public readonly Vector2 Pivot;
             public readonly bool ShowMarker;
+            public readonly bool IsCJKVertical;
 
-            public AngledLabelLayout(string text, Vector2 size, Vector2 pivot, bool showMarker)
+            public AngledLabelLayout(string text, Vector2 size, Vector2 pivot, bool showMarker, bool isCJKVertical = false)
             {
                 Text = text;
                 Size = size;
                 Pivot = pivot;
                 ShowMarker = showMarker;
+                IsCJKVertical = isCJKVertical;
             }
         }
 
@@ -98,13 +112,15 @@ namespace Better_Work_Tab.UI.Headers.Angled
         /// </summary>
         public static void Draw(AngledLabelLayout layout, bool isMouseOver, bool isSorted = false, bool sortDescending = false, Rect headerRect = default, PawnColumnDef column = null)
         {
-            float rotation = CurrentRotation;
+            bool isCJKVertical = layout.IsCJKVertical;
+            float rotation = isCJKVertical ? 0f : CurrentRotation;
             Vector2 labelSize = layout.Size;
             float horizontalOffset = BetterWorkTabMod.Settings.angledHeaderHorizontalOffset;
 
             // Instantiate a centered rotated rectangle with the configured horizontal offset.
-            Rect rotatedRect = new Rect(0f, 0f, headerRect.height, labelSize.y) { center = headerRect.center };
-            rotatedRect.x += horizontalOffset;
+            // For CJK vertical mode, we use the vertical size directly.
+            Rect drawRect = new Rect(0f, 0f, isCJKVertical ? labelSize.x : headerRect.height, labelSize.y) { center = headerRect.center };
+            drawRect.x += horizontalOffset;
 
             Matrix4x4 originalMatrix = GUI.matrix;
             TextAnchor savedAnchor = Text.Anchor;
@@ -116,7 +132,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
             {
                 // Reset to identity matrix and unclip the pivot for screen-space rendering
                 GUI.matrix = Matrix4x4.identity;
-                Vector2 pivotPoint = GUIClipUtility.Unclip(rotatedRect.center);
+                Vector2 pivotPoint = GUIClipUtility.Unclip(drawRect.center);
 
                 // Build transformation matrix: Translate to pivot -> Rotate -> Translate back
                 Matrix4x4 transformationMatrix = originalMatrix;
@@ -126,7 +142,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
                 GUI.matrix = transformationMatrix;
 
-                Text.Anchor = TextAnchor.MiddleLeft;
+                Text.Anchor = isCJKVertical ? TextAnchor.UpperCenter : TextAnchor.MiddleLeft;
                 Text.Font = GameFont.Small;
                 Text.WordWrap = false;
 
@@ -134,25 +150,44 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 if (column != null && ColumnSelectionManager.IsSelected(column))
                 {
                     GUI.color = HeaderUtility.Colors.SelectedHighlight;
-                    GUI.DrawTexture(rotatedRect.ExpandedBy(2f), TexUI.HighlightTex);
+                    GUI.DrawTexture(drawRect.ExpandedBy(2f), TexUI.HighlightTex);
                 }
 
                 if (isMouseOver)
                 {
                     GUI.color = HeaderUtility.Colors.HoverHighlight;
-                    GUI.DrawTexture(rotatedRect.ExpandedBy(2f), TexUI.HighlightTex);
+                    GUI.DrawTexture(drawRect.ExpandedBy(2f), TexUI.HighlightTex);
                 }
 
-                // Text
-                GUI.color = layout.ShowMarker ? HeaderUtility.Colors.MovedMarkerColor : BetterWorkTabMod.Settings.angledHeaderColor;
-                Widgets.Label(rotatedRect, layout.Text);
+                // Text: Apply moved marker color only if color tint is enabled
+                GUI.color = (layout.ShowMarker && BetterWorkTabMod.Settings.showMovedColumnColorTint) 
+                    ? HeaderUtility.Colors.MovedMarkerColor 
+                    : BetterWorkTabMod.Settings.angledHeaderColor;
 
-                // Underline
-                if (!BetterWorkTabMod.Settings.removeHeaderUnderline)
+                if (isCJKVertical)
+                {
+                    // East Asian Vertical Stacking: Draw characters one by one
+                    float curY = drawRect.y;
+                    float charH = Text.LineHeight * 0.9f; // Tighter vertical spacing for CJK
+                    string text = layout.Text;
+                    for (int i = 0; i < text.Length; i++)
+                    {
+                        Rect charRect = new Rect(drawRect.x, curY, drawRect.width, charH + 2f);
+                        Widgets.Label(charRect, text[i].ToString());
+                        curY += charH;
+                    }
+                }
+                else
+                {
+                    Widgets.Label(drawRect, layout.Text);
+                }
+
+                // Underline (Disabled for CJK Vertical as it doesn't align well)
+                if (!BetterWorkTabMod.Settings.removeHeaderUnderline && !isCJKVertical)
                 {
                     float textWidth = labelSize.x;
-                    Vector2 underlineStart = new Vector2(rotatedRect.xMin, rotatedRect.yMax);
-                    Vector2 underlineEnd = new Vector2(rotatedRect.xMin + textWidth, rotatedRect.yMax);
+                    Vector2 underlineStart = new Vector2(drawRect.xMin, drawRect.yMax);
+                    Vector2 underlineEnd = new Vector2(drawRect.xMin + textWidth, drawRect.yMax);
                     Widgets.DrawLine(underlineStart, underlineEnd, Color.white, 1f);
                 }
             }

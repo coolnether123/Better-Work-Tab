@@ -887,11 +887,38 @@ namespace Better_Work_Tab.UI.Settings
                 ParentId = FeaturesDragdrop,
                 FieldName = "showColumnBaselineLine",
                 Label = "Show Baseline Line While Dragging",
-                Tooltip = "Show a line at the column's baseline position while dragging moved columns.",
+                Tooltip = "Show a line at the column's vanilla position while dragging moved columns.",
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.showColumnBaselineLine,
                 ShowInSimpleView = true,
                 SortOrder = 116
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = "columns.showMovedColorTint",
+                ParentId = FeaturesDragdrop,
+                FieldName = "showMovedColumnColorTint",
+                Label = "Color tint for reordered columns",
+                Tooltip = "Apply a color tint to the text of manually reordered columns.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.showMovedColumnColorTint,
+                ShowInSimpleView = true,
+                SortOrder = 117
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = "columns.movedMarkerColor",
+                ParentId = FeaturesDragdrop,
+                FieldName = "movedMarkerColor",
+                Label = "Moved Column Marker Color",
+                Tooltip = "Color used for the moved column indicator (*) and yellow tint.",
+                Type = SettingType.Color,
+                DefaultValue = DefaultSettings.Color_MovedMarkerColor,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 118
             });
 
             Register(new SettingDefinition
@@ -1625,6 +1652,21 @@ namespace Better_Work_Tab.UI.Settings
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
                 SortOrder = 507
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = "headers.useVerticalStackingForCJK",
+                ParentId = HeadersAngled,
+                FieldName = "useVerticalStackingForCJK",
+                Label = "Vertical stacking for CJK",
+                Tooltip = "Draw East Asian characters (Korean, Chinese, Japanese) vertically when angled headers are enabled. This is much more legible than rotated text.",
+                Type = SettingType.Bool,
+                DefaultValue = true,
+                OnChanged = s => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
+                ShowInSimpleView = true,
+                ShowInAdvancedView = true,
+                SortOrder = 5072
             });
 
             Register(new SettingDefinition
