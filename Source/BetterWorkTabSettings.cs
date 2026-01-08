@@ -167,6 +167,7 @@ namespace Better_Work_Tab
         public static int angledHeaderRotation = -60;
         public static int angledHeaderHorizontalOffset = 10;
         public static bool useVerticalStackingForCJK = true;
+        public static float cjkVerticalKerning = 0.75f;
         public static bool autoEnableManualPriorities = false;
 
         // Pawn/worktype highlight visibility settings
@@ -462,6 +463,7 @@ namespace Better_Work_Tab
         public int angledHeaderRotation = (int)DefaultSettings.angledHeaderRotation;
         public int angledHeaderHorizontalOffset = DefaultSettings.angledHeaderHorizontalOffset;
         public bool useVerticalStackingForCJK = DefaultSettings.useVerticalStackingForCJK;
+        public float cjkVerticalKerning = DefaultSettings.cjkVerticalKerning;
         public Color angledHeaderColor = DefaultSettings.Color_AngledHeaderText;
         public bool autoEnableManualPriorities = DefaultSettings.autoEnableManualPriorities;
 
@@ -647,6 +649,7 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref angledHeaderRotation, "angledHeaderRotation", (int)DefaultSettings.angledHeaderRotation);
             Scribe_Values.Look(ref angledHeaderHorizontalOffset, "angledHeaderHorizontalOffset", DefaultSettings.angledHeaderHorizontalOffset);
             Scribe_Values.Look(ref useVerticalStackingForCJK, "useVerticalStackingForCJK", true);
+            Scribe_Values.Look(ref cjkVerticalKerning, "cjkVerticalKerning", 0.75f);
             Scribe_Values.Look(ref angledHeaderColor, "angledHeaderColor", DefaultSettings.Color_AngledHeaderText);
             Scribe_Values.Look(ref autoEnableManualPriorities, "autoEnableManualPriorities", DefaultSettings.autoEnableManualPriorities);
 

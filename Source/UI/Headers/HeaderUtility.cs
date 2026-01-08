@@ -53,9 +53,11 @@ namespace Better_Work_Tab.UI.Headers
         }
 
         /// <summary>
-        /// Detects if a string contains CJK characters (Chinese, Japanese, Korean)
-        /// based on Unicode ranges.
+        /// Detects if a string contains CJK (Chinese, Japanese, Korean) characters by checking specific Unicode ranges.
+        /// Coverage includes CJK Unified Ideographs, Hangul Syllables, and Hiragana/Katakana.
         /// </summary>
+        /// <param name="text">The string to analyze.</param>
+        /// <returns>True if at least one CJK character is found.</returns>
         public static bool IsCJK(string text)
         {
             if (string.IsNullOrEmpty(text)) return false;
@@ -67,6 +69,32 @@ namespace Better_Work_Tab.UI.Headers
                     (c >= 0x3040 && c <= 0x30FF))   // Hiragana/Katakana
                     return true;
             }
+            return false;
+        }
+
+        /// <summary>
+        /// Determines if any column in the provided table is eligible for specialized CJK vertical stacking.
+        /// This depends on the 'useVerticalStackingForCJK' setting, the current header rotation (must be near -90 degrees),
+        /// and the presence of CJK characters in the column labels.
+        /// </summary>
+        /// <param name="table">The pawn table to inspect.</param>
+        /// <returns>True if specialized vertical stacking logic should be applied to the header area.</returns>
+        public static bool IsAnyCJKVertical(PawnTable table)
+        {
+            var settings = BetterWorkTabMod.Settings;
+            if (settings == null || !settings.useVerticalStackingForCJK || table?.Columns == null)
+                return false;
+
+            // Only relevant at -90 rotation
+            if (Mathf.Abs(settings.angledHeaderRotation + 90f) > 5f)
+                return false;
+
+            foreach (var col in table.Columns)
+            {
+                if (col.workType != null && IsCJK(GetHeaderText(col.workType, false)))
+                    return true;
+            }
+
             return false;
         }
 

@@ -37,6 +37,24 @@ namespace Better_Work_Tab.UI.Headers.Angled
         public static float CurrentRotSin => Mathf.Sin(CurrentRotation * Mathf.Deg2Rad);
 
         /// <summary>
+        /// Returns the horizontal offset to use. At -90 degrees, the offset is forced to 0
+        /// for perfect centering, but the original setting is preserved when switching back.
+        /// </summary>
+        public static float EffectiveHorizontalOffset
+        {
+            get
+            {
+                float rotation = CurrentRotation;
+                // Force 0 offset at -90 degrees for perfect vertical stacking alignment.
+                if (Mathf.Abs(rotation + 90f) < 0.1f)
+                {
+                    return 0f;
+                }
+                return BetterWorkTabMod.Settings.angledHeaderHorizontalOffset;
+            }
+        }
+
+        /// <summary>
         /// Calculates the total vertical height needed for the header area to fit all angled labels.
         /// </summary>
         /// <param name="table">The pawn table to measure.</param>
@@ -56,7 +74,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
             GameFont oldFont = Text.Font;
             Text.Font = GameFont.Small;
-            float lineHeightCJK = Text.LineHeight * 0.9f;
+            float lineHeightCJK = Text.LineHeight * BetterWorkTabMod.Settings.cjkVerticalKerning;
 
             foreach (var col in columns)
             {
@@ -95,6 +113,10 @@ namespace Better_Work_Tab.UI.Headers.Angled
             public readonly Vector2 Size;
             public readonly Vector2 Pivot;
             public readonly bool ShowMarker;
+            /// <summary>
+            /// Indicates if this label should be drawn using character-by-character vertical stacking 
+            /// instead of standard matrix rotation.
+            /// </summary>
             public readonly bool IsCJKVertical;
 
             public AngledLabelLayout(string text, Vector2 size, Vector2 pivot, bool showMarker, bool isCJKVertical = false)
@@ -115,12 +137,21 @@ namespace Better_Work_Tab.UI.Headers.Angled
             bool isCJKVertical = layout.IsCJKVertical;
             float rotation = isCJKVertical ? 0f : CurrentRotation;
             Vector2 labelSize = layout.Size;
-            float horizontalOffset = BetterWorkTabMod.Settings.angledHeaderHorizontalOffset;
+            float horizontalOffset = EffectiveHorizontalOffset;
 
-            // Instantiate a centered rotated rectangle with the configured horizontal offset.
-            // For CJK vertical mode, we use the vertical size directly.
-            Rect drawRect = new Rect(0f, 0f, isCJKVertical ? labelSize.x : headerRect.height, labelSize.y) { center = headerRect.center };
-            drawRect.x += horizontalOffset;
+            // Center horizontally, and either bottom-anchor (CJK) or center-anchor (Standard) vertically.
+            Rect drawRect;
+            if (isCJKVertical)
+            {
+                drawRect = new Rect(0f, 0f, labelSize.x, labelSize.y);
+                drawRect.x = headerRect.center.x - drawRect.width / 2f + horizontalOffset;
+                drawRect.y = headerRect.yMax - labelSize.y - STEM_BOTTOM_GAP;
+            }
+            else
+            {
+                drawRect = new Rect(0f, 0f, headerRect.height, labelSize.y) { center = headerRect.center };
+                drawRect.x += horizontalOffset;
+            }
 
             Matrix4x4 originalMatrix = GUI.matrix;
             TextAnchor savedAnchor = Text.Anchor;
@@ -166,9 +197,10 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
                 if (isCJKVertical)
                 {
-                    // East Asian Vertical Stacking: Draw characters one by one
+                    // East Asian Vertical Stacking: Draw characters one by one to avoid sideways characters.
+                    // Sub-centering within the stack ensures characters are aligned regardless of glyph width variations.
                     float curY = drawRect.y;
-                    float charH = Text.LineHeight * 0.9f; // Tighter vertical spacing for CJK
+                    float charH = Text.LineHeight * BetterWorkTabMod.Settings.cjkVerticalKerning; // Use user-configurable kerning
                     string text = layout.Text;
                     for (int i = 0; i < text.Length; i++)
                     {
@@ -182,7 +214,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
                     Widgets.Label(drawRect, layout.Text);
                 }
 
-                // Underline (Disabled for CJK Vertical as it doesn't align well)
+                // Underline: Traditionally vertical CJK text does not use work-tab-style underlines as they conflict with legibility.
                 if (!BetterWorkTabMod.Settings.removeHeaderUnderline && !isCJKVertical)
                 {
                     float textWidth = labelSize.x;

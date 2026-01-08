@@ -10,7 +10,6 @@ namespace Better_Work_Tab.UI.Headers.Angled
     /// </summary>
     public static class AngledHeaderController
     {
-        private const float BaseVerticalPadding = 30f;
 
         /// <summary>
         /// Calculates the minimum height required for the header area when angled.
@@ -20,8 +19,11 @@ namespace Better_Work_Tab.UI.Headers.Angled
         {
             float needed = AngledLabelDrawer.GetNeededHeight(table);
             
-            // Add some base padding to prevent labels from being positioned too close to the bottom
-            int angledRequired = Mathf.CeilToInt(needed + 10f);
+            // Padding Logic:
+            // CJK Vertical stacking looks best with minimal padding (compact bottom-anchor).
+            // Standard angled headers require more padding to prevent visual collision with the tab's upper edge.
+            int padding = HeaderUtility.IsAnyCJKVertical(table) ? 2 : 10;
+            int angledRequired = Mathf.CeilToInt(needed + padding);
             
             if (__result < angledRequired)
             {
@@ -44,14 +46,13 @@ namespace Better_Work_Tab.UI.Headers.Angled
             float rotCos = Mathf.Cos(rot * Mathf.Deg2Rad);
             float rotSin = Mathf.Sin(rot * Mathf.Deg2Rad);
 
-            // Get layout from cache
             if (!AngledHeaderCache.TryGetLayout(
                     rect,
                     worker.def.workType,
                     rotCos,
                     rotSin,
                     AngledLabelDrawer.STEM_BOTTOM_GAP,
-                    BetterWorkTabMod.Settings.angledHeaderHorizontalOffset,
+                    AngledLabelDrawer.EffectiveHorizontalOffset,
                     out var cached))
             {
                 return false;
