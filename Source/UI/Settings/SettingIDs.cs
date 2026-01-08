@@ -109,5 +109,6 @@ namespace Better_Work_Tab.UI.Settings
         public const string HeadersXOffset = "headers.xOffset";
         public const string HeadersYOffset = "headers.yOffset";
         public const string HeadersDebugLog = "headers.debugLog";
+        public const string HeadersUseVerticalStackingForCJK = "headers.useVerticalStackingForCJK";
     }
 }
