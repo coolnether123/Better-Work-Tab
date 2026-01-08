@@ -93,18 +93,29 @@ namespace Better_Work_Tab.UI.Headers.Angled
             
             if (isCJKVertical)
             {
-                // In vertical mode, the 'size' width is a single char, and height is the stack
-                float charH = Text.LineHeight * 0.9f;
+                // In vertical stacking, the 'width' becomes the character width, 
+                // and the 'height' becomes the cumulative stack of characters.
+                float charH = Text.LineHeight * BetterWorkTabMod.Settings.cjkVerticalKerning;
                 size = new Vector2(size.y, label.Length * charH); 
             }
             Text.Font = oldFont;
 
-            // Pivot point is at the center of the header rect with horizontal offset applied
-            // Width of the text area is fixed to the header's height (to match old behavior)
-            // UNLESS it's vertical CJK, where the draw width is just the char width.
+            // Layout Anchor Logic:
+            // For standard angled headers, we use vertical centering relative to the header area.
+            // For CJK Vertical headers, we push the text down to the bottom (anchored near the pawn rows) 
+            // for maximum space efficiency and a more traditional vertical label aesthetic.
             float drawWidth = isCJKVertical ? size.x : rect.height;
-            Rect drawRect = new Rect(0f, 0f, drawWidth, size.y) { center = rect.center };
-            drawRect.x += horizontalOffset;
+            Rect drawRect;
+            if (isCJKVertical)
+            {
+                float yPos = rect.yMax - size.y - AngledLabelDrawer.STEM_BOTTOM_GAP;
+                drawRect = new Rect(rect.center.x - drawWidth / 2f + horizontalOffset, yPos, drawWidth, size.y);
+            }
+            else
+            {
+                drawRect = new Rect(0f, 0f, drawWidth, size.y) { center = rect.center };
+                drawRect.x += horizontalOffset;
+            }
             Vector2 pivot = drawRect.center;
 
             // Bounds and Quad: 

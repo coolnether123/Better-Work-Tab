@@ -1671,6 +1671,23 @@ namespace Better_Work_Tab.UI.Settings
 
             Register(new SettingDefinition
             {
+                Id = "headers.cjkVerticalKerning",
+                ParentId = "headers.useVerticalStackingForCJK", // Nest under the toggle
+                FieldName = "cjkVerticalKerning",
+                Label = "CJK vertical kerning",
+                Tooltip = "Adjust the vertical spacing between characters in Asian vertical stacking. Lower values mean tighter spacing.",
+                Type = SettingType.Float,
+                DefaultValue = 0.75f,
+                MinValue = 0.5f,
+                MaxValue = 1.5f,
+                OnChanged = s => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 5073
+            });
+
+            Register(new SettingDefinition
+            {
                 Id = "headers.angledColor",
                 ParentId = HeadersAngled,
                 FieldName = "angledHeaderColor",
@@ -1690,7 +1707,7 @@ namespace Better_Work_Tab.UI.Settings
                 ParentId = HeadersAngled,
                 FieldName = "angledHeaderHorizontalOffset",
                 Label = "Horizontal offset",
-                Tooltip = "Adjust the horizontal position of the angled headers. 0 = centered, 10 = Default.",
+                Tooltip = "Adjust the horizontal position of the angled headers. 0 = centered, 10 = Default. (Automatically forced to 0 at -90° for perfect alignment).",
                 Type = SettingType.NumericInt,
                 DefaultValue = 10,
                 MinValue = -100f,
