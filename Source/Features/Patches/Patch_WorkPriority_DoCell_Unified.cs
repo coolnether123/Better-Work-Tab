@@ -2,6 +2,7 @@
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI;
+using Better_Work_Tab.UI.Headers;
 using HarmonyLib;
 using RimWorld;
 using System.Collections.Generic;
@@ -29,6 +30,10 @@ namespace Better_Work_Tab.Patches
 
         public static void Postfix(PawnColumnWorker_WorkPriority __instance, Rect rect, PawnTable table)
         {
+            // Only apply BWT patches to the Work tab (vanilla or BWT), not other tabs like MechTab
+            if (!UI.Headers.PawnColumnWorker_WorkPriority_DoHeader_Patch.IsWorkTab())
+                return;
+
             if (!Event.current.shift)
                 return;
 
@@ -41,7 +46,7 @@ namespace Better_Work_Tab.Patches
                 _hoveredHeaderFrame = Time.frameCount;
             }
 
-            bool isHovered = PawnColumnWorker_WorkPriority_DoHeader_Patch.HoveredWorkType == __instance.def.workType;
+            bool isHovered = UI.Headers.PawnColumnWorker_WorkPriority_DoHeader_Patch.HoveredWorkType == __instance.def.workType;
             if (!isHovered)
             {
                 Rect labelRect = GetLabelRect(__instance, rect);
@@ -83,7 +88,6 @@ namespace Better_Work_Tab.Patches
         private static BetterWorkTabSettings.HoverEffectScope _cachedHoverScope = BetterWorkTabSettings.HoverEffectScope.CellOnly;
         private static WorkTypeDef _columnHoveredWorkType;
         private static int _columnHoveredFrame = -1;
-        private static float _cachedSmallSkillXOffset = SmallSkillOffsetX;
 
         // === CACHES ===
         private static readonly Dictionary<int, int> _skillCache = new Dictionary<int, int>(1024);
@@ -100,7 +104,6 @@ namespace Better_Work_Tab.Patches
         private const int BestPawnCacheFrameValidity = 60;
         private const float SkillBoxSize = 25f;
         private const float SkillBoxVerticalPadding = 2.5f;
-        private const float SmallSkillOffsetX = 16f;
         private const float SmallSkillOffsetY = -2f;
         private const float SkillBoxOutlinePadding = 2f;
 
@@ -117,13 +120,6 @@ namespace Better_Work_Tab.Patches
             _cachedHoverCellOverlayEnabled = BetterWorkTabMod.Settings?.showHoverCellOverlay ?? true;
             _cachedHoverMode = BetterWorkTabMod.Settings?.skillViewHoverMode ?? BetterWorkTabSettings.SkillViewHoverMode.Standard;
             _cachedHoverScope = BetterWorkTabMod.Settings?.hoverEffectScope ?? BetterWorkTabSettings.HoverEffectScope.CellOnly;
-
-            // Handle 1.25x scale offset for shift overlay numbers
-            _cachedSmallSkillXOffset = SmallSkillOffsetX;
-            if (Mathf.Approximately(Prefs.UIScale, 1.25f))
-            {
-                _cachedSmallSkillXOffset -= 11f;
-            }
         }
 
         public static void ClearColorCache()
@@ -138,6 +134,10 @@ namespace Better_Work_Tab.Patches
             Pawn pawn,
             PawnTable table)
         {
+            // Only apply BWT patches to the Work tab (vanilla or BWT), not other tabs like MechTab
+            if (!UI.Headers.PawnColumnWorker_WorkPriority_DoHeader_Patch.IsWorkTab())
+                return true;
+
             if (pawn == null || pawn.Dead || pawn.workSettings == null || !pawn.workSettings.EverWork)
                 return true;
 
@@ -265,15 +265,12 @@ namespace Better_Work_Tab.Patches
             Pawn pawn,
             PawnTable table)
         {
-            // Basic feature check: if skill overlay is disabled or shift not held, skip everything
-            if (!_cachedFeatureEnabled || !_cachedShiftHeld)
+            // Only apply BWT patches to the Work tab (vanilla or BWT), not other tabs like MechTab
+            if (!UI.Headers.PawnColumnWorker_WorkPriority_DoHeader_Patch.IsWorkTab())
                 return;
 
             WorkTypeDef workType = __instance.def.workType;
             if (pawn == null || pawn.Dead || workType == null)
-                return;
-
-            if (Patch_WorkPriority_DoHeader_HoverTracker.HoveredHeaderWorkType == workType)
                 return;
 
             if (pawn.WorkTypeIsDisabled(workType))
@@ -283,6 +280,18 @@ namespace Better_Work_Tab.Patches
                 return;
 
             if (workType.relevantSkills == null || workType.relevantSkills.Count == 0)
+                return;
+
+            // Draw best pawn outline - this uses the ShowUIMode setting to determine when to show
+            // (can be Always, Shifted, Unshifted, or Never)
+            DrawBestPawnOutlineIfNeeded(__instance, rect, pawn, table, workType);
+
+            // === Skill Overlay Section (only when shift is held) ===
+            // Basic feature check: if skill overlay is disabled or shift not held, skip skill overlay
+            if (!_cachedFeatureEnabled || !_cachedShiftHeld)
+                return;
+
+            if (Patch_WorkPriority_DoHeader_HoverTracker.HoveredHeaderWorkType == workType)
                 return;
 
             int skillLevel = GetSkillLevel(pawn, workType);
@@ -346,15 +355,6 @@ namespace Better_Work_Tab.Patches
                 {
                     DrawSmallPriorityNumber(rect, priority);
                 }
-            }
-
-            if (!BetterWorkTabMod.Settings.disableBestPawnHighlight && ShouldShowUI(BetterWorkTabMod.Settings.ShowUIMode_ShowPawnForSkillSquare, _cachedUiState))
-            {
-                Pawn bestPawn = GetBestPawnForWorktype(table, workType, __instance);
-                    if (bestPawn == pawn)
-                    {
-                        DrawBestPawnOutline(rect);
-                    }
             }
         }
 
@@ -516,7 +516,15 @@ namespace Better_Work_Tab.Patches
 
         private static void DrawSmallSkillNumbers(Rect rect, int level)
         {
-            Rect boxRect = new Rect(rect.x + _cachedSmallSkillXOffset, rect.y + SmallSkillOffsetY, SkillBoxSize, SkillBoxSize);
+            // Position in top-right corner: right edge minus skill box size minus small padding
+            string levelStr = level.ToString();
+            float rightPadding = levelStr.Length >= 2 ? 0f : -3f;
+            Rect boxRect = new Rect(
+                rect.xMax - SkillBoxSize - rightPadding, 
+                rect.y + SmallSkillOffsetY, 
+                SkillBoxSize, 
+                SkillBoxSize);
+            
             var oldFont = Text.Font;
             var oldAnchor = Text.Anchor;
             var oldColor = GUI.color;
@@ -533,9 +541,10 @@ namespace Better_Work_Tab.Patches
 
         private static void DrawSmallPriorityNumber(Rect rect, int priority)
         {
-            // Use same position as small skill numbers
+            string prioStr = priority.ToString();
+            float rightPadding = prioStr.Length >= 2 ? 0f : -3f;
             Rect prioRect = new Rect(
-                rect.x + _cachedSmallSkillXOffset,
+                rect.xMax - SkillBoxSize - rightPadding,
                 rect.y + SmallSkillOffsetY,
                 SkillBoxSize,
                 SkillBoxSize);
@@ -555,6 +564,32 @@ namespace Better_Work_Tab.Patches
             GUI.color = oldColor;
             Text.Font = oldFont;
             Text.Anchor = oldAnchor;
+        }
+
+        /// <summary>
+        /// Draws the best pawn outline if the settings allow it based on ShowUIMode.
+        /// This is called BEFORE the shift check so it can work with Always/Shifted/Unshifted modes.
+        /// </summary>
+        private static void DrawBestPawnOutlineIfNeeded(
+            PawnColumnWorker_WorkPriority worker,
+            Rect rect,
+            Pawn pawn,
+            PawnTable table,
+            WorkTypeDef workType)
+        {
+            // Check if best pawn highlight is enabled and the ShowUIMode allows it
+            var settings = BetterWorkTabMod.Settings;
+            if (settings == null || settings.disableBestPawnHighlight)
+                return;
+
+            if (!ShouldShowUI(settings.ShowUIMode_ShowPawnForSkillSquare, _cachedUiState))
+                return;
+
+            Pawn bestPawn = GetBestPawnForWorktype(table, workType, worker);
+            if (bestPawn == pawn)
+            {
+                DrawBestPawnOutline(rect);
+            }
         }
 
         private static void DrawBestPawnOutline(Rect rect)

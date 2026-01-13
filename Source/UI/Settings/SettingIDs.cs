@@ -100,5 +100,15 @@ namespace Better_Work_Tab.UI.Settings
         public const string WorkloadsWarnOnApply = "workloads.warnOnApply";
         public const string HideWorktypes = "ux.hideWorktypes";
         public const string AdvancedScrollWheelPriority = "advanced.scrollWheelPriority";
+        public const string HeadersHeader = "headers.header";
+        public const string HeadersAngled = "headers.angled";
+        public const string HeadersAngleRotation = "headers.angleRotation";
+        public const string HeadersScaleFixMode = "headers.scaleFixMode";
+        public const string HeadersRedCenterLine = "headers.redCenterLine";
+        public const string HeadersKnownFixes = "headers.knownFixes";
+        public const string HeadersXOffset = "headers.xOffset";
+        public const string HeadersYOffset = "headers.yOffset";
+        public const string HeadersDebugLog = "headers.debugLog";
+        public const string HeadersUseVerticalStackingForCJK = "headers.useVerticalStackingForCJK";
     }
 }
