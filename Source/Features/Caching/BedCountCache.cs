@@ -110,7 +110,7 @@ namespace Better_Work_Tab.Features.Caching
 
             int totalSlots = 0;
 
-            // Get all beds at once (this is what's expensive, so we cache it)
+            // Retrieve all player-faction beds (this is a computationally expensive operation; results are cached)
             var beds = map.listerBuildings.AllBuildingsColonistOfClass<Building_Bed>();
 
             if (beds != null)
@@ -119,6 +119,18 @@ namespace Better_Work_Tab.Features.Caching
                 {
                     // Skip prisoner beds and non-player faction beds
                     if (bed == null || bed.ForPrisoners || bed.Faction != Faction.OfPlayer)
+                        continue;
+
+                    // Skip animal beds (those without the humanlike property)
+                    if (!bed.def.building.bed_humanlike)
+                        continue;
+
+                    // Skip cribs (babies do not appear in the work tab)
+                    if (bed.ForHumanBabies)
+                        continue;
+
+                    // Skip deathrest caskets (Biotech)
+                    if (ModsConfig.BiotechActive && bed.def == ThingDefOf.DeathrestCasket)
                         continue;
 
                     // Count the available sleeping slots on valid colonist beds
