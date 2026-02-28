@@ -240,7 +240,7 @@ namespace Better_Work_Tab
         public static BetterWorkTabSettings.ShowUIMode ShowUIMode_ShowSmallSkillNumbers = BetterWorkTabSettings.ShowUIMode.Unshifted;
         public static BetterWorkTabSettings.ShowUIMode ShowUIMode_ShowPawnForSkillSquare = BetterWorkTabSettings.ShowUIMode.Shifted;
 
-        public static int maxPriority = 4;
+        public static int maxPriority = 9;
     }
 
     // Contains all configurable settings for Better Work Tab mod
@@ -421,6 +421,8 @@ namespace Better_Work_Tab
 
         // Max Priority Int Settings
         public const int MAX_PRIORITY_HARD_LIMIT = 99;
+
+        [TweakValue("AAA Max Priority", 1, MAX_PRIORITY_HARD_LIMIT)]
         public int maxPriorityInt = 99;
 
         public bool mpShowOtherPlayersHover = DefaultSettings.mpShowOtherPlayersHover;
@@ -659,6 +661,7 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref cjkVerticalKerning, "cjkVerticalKerning", 0.75f);
             Scribe_Values.Look(ref angledHeaderColor, "angledHeaderColor", DefaultSettings.Color_AngledHeaderText);
             Scribe_Values.Look(ref autoEnableManualPriorities, "autoEnableManualPriorities", DefaultSettings.autoEnableManualPriorities);
+            Scribe_Values.Look(ref maxPriorityInt, "maxPriorityInt", DefaultSettings.maxPriority);
 
             if (hiddenWorktypes == null) hiddenWorktypes = new List<string>();
 

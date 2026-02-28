@@ -203,6 +203,21 @@ namespace Better_Work_Tab.UI.Settings
                 SortOrder = -43
             });
 
+            Register(new SettingDefinition
+            {
+                Id = UiMaxPriority,
+                ParentId = FeaturesUiElements,
+                FieldName = "maxPriorityInt",
+                Label = "Max priority",
+                Tooltip = "The maximum integer value pawns can be assigned in the work tab.",
+                Type = SettingType.Int,
+                DefaultValue = DefaultSettings.maxPriority,
+                MinValue = 4f,
+                MaxValue = BetterWorkTabSettings.MAX_PRIORITY_HARD_LIMIT,
+                ShowInSimpleView = true,
+                SortOrder = 42,
+            });
+
 
             Register(new SettingDefinition
             {
