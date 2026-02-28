@@ -122,7 +122,7 @@
     <Compile Include="Spine\UI\SettingsFramework\SettingsUIHelpers.cs" />
     <Compile Include="Spine\UI\WidgetExtensions\RimworldSettingsWidgets.cs" />
     <Compile Include="UI\RulesetListDragUI.cs" />
-    <Compile Include="UI\VerticalLabels\MainTabWindow_BetterWork.cs" />
+    <Compile Include="UI\MainTabWindow_BetterWork.cs" />
     <Compile Include="Features\WorkColumnOrderManager.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="BetterWorkTabSettings.cs" />
@@ -139,10 +139,21 @@
     <Compile Include="UI\Dialog_RenameGeneric.cs" />
     <Compile Include="UI\Dialog_RenameWorkload.cs" />
     <Compile Include="UI\Dialog_RenameRuleset.cs" />
-    <Compile Include="UI\VerticalLabels\AngledLabelDrawer.cs" />
-    <Compile Include="UI\VerticalLabels\AngledHeaderInteraction.cs" />
-    <Compile Include="UI\VerticalLabels\WorkPriorityHeaderPatches.cs" />
-    <Compile Include="UI\VerticalLabels\AngledHeaderCache.cs" />
+    <Compile Include="UI\Headers\Angled\AngledLabelDrawer.cs" />
+    <Compile Include="UI\Headers\Angled\AngledHeaderInteraction.cs" />
+    <Compile Include="UI\Headers\WorkPriorityHeaderPatches.cs" />
+    <Compile Include="UI\Headers\Angled\AngledHeaderCache.cs" />
+    <Compile Include="UI\Headers\Angled\GUIClipUtility.cs" />
+    <Compile Include="UI\Headers\IHeaderRenderer.cs" />
+    <Compile Include="UI\Headers\HeaderPositioningManager.cs" />
+    <Compile Include="UI\Headers\HeaderDrawingCoordinator.cs" />
+    <Compile Include="UI\Headers\Vanilla\VanillaHeaderRenderer.cs" />
+    <Compile Include="UI\Headers\Vanilla\VanillaHeaderLayoutSolver.cs" />
+    <Compile Include="UI\Headers\Angled\AngledHeaderRenderer.cs" />
+    <Compile Include="UI\Headers\Vanilla\VanillaHeaderController.cs" />
+    <Compile Include="UI\Headers\Angled\AngledHeaderController.cs" />
+    <Compile Include="UI\Headers\HeaderInputController.cs" />
+    <Compile Include="UI\Headers\HeaderUtility.cs" />
     <Compile Include="UI\HeaderButtons.cs" />
     <Compile Include="UI\Dialog_WarningWithCheckbox.cs" />
     <Compile Include="UI\MouseStateManager.cs" />
@@ -179,10 +190,10 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Krafs.Rimworld.Ref">
-      <Version>1.6.4566</Version>
+      <Version>1.6.4633</Version>
     </PackageReference>
     <PackageReference Include="Lib.Harmony">
-      <Version>2.4.1</Version>
+      <Version>2.4.2</Version>
     </PackageReference>
     <PackageReference Include="RimWorld.MultiplayerAPI">
       <Version>0.6.0</Version>

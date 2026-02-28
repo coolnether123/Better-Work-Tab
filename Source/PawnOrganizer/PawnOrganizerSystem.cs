@@ -4,6 +4,7 @@ using Better_Work_Tab.DragDrop;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.PawnOrganizer.Data;
 using Better_Work_Tab.UI;
+using Better_Work_Tab.UI.Headers.Angled;
 using RimWorld;
 using System;
 using UnityEngine;
@@ -126,17 +127,8 @@ namespace Better_Work_Tab.PawnOrganizer
                     return;
                 }
 
-                // Otherwise, detect new drags
+                // Detect new drags
                 HandleDragDetection(evt);
-
-                // Clear selection when Ctrl is released
-                if (evt.type == EventType.KeyUp && (evt.keyCode == KeyCode.LeftControl || evt.keyCode == KeyCode.RightControl))
-                {
-                    if (BetterWorkTabMod.Settings.enableColumnGrouping)
-                    {
-                        ColumnSelectionManager.Clear();
-                    }
-                }
 
                 // === PRESENCE FEATURE DISABLED ===
                 /*
@@ -207,7 +199,7 @@ namespace Better_Work_Tab.PawnOrganizer
                     var completedDrag = _activeColumnDrag;
                     completedDrag?.OnDrop();
                     _activeColumnDrag = null;
-                    AngledHeaderInteraction.ClearPendingHeaderClick(completedDrag?.ColumnDef);
+                    Better_Work_Tab.UI.Headers.Angled.AngledHeaderInteraction.ClearPendingHeaderClick(completedDrag?.ColumnDef);
                     evt.Use();
                     break;
 
@@ -433,11 +425,19 @@ namespace Better_Work_Tab.PawnOrganizer
             _pendingColumn = null;
         }
 
+        public void CancelActiveDrag()
+        {
+            _activeRowDrag?.OnCancel();
+            _activeColumnDrag?.OnCancel();
+            ClearAllDragState();
+        }
+
         private void ClearAllDragState()
         {
             ClearPendingDrag();
             _activeRowDrag = null;
             _activeColumnDrag = null;
+            BetterWorkTabLocalState.IsHeaderDragging = false;
         }
 
         public void DrawDragOverlays()

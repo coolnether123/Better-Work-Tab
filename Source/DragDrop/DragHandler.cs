@@ -33,7 +33,7 @@ namespace Better_Work_Tab.DragDrop
             IsDragging = false;
         }
 
-        public void OnCancel()
+        public virtual void OnCancel()
         {
             IsDragging = false;
         }
