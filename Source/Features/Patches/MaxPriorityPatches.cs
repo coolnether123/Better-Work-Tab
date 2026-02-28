@@ -138,12 +138,10 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 {
                     if (getPriorityMethodIndexes[0] == -1)
                     {
-                        Log.Message("found at: " + i.ToString());
                         getPriorityMethodIndexes[0] = i;
                     }
                     else
                     {
-                        Log.Message("found second get priority method at index: " + i.ToString());
                         getPriorityMethodIndexes[1] = i;
                         break;
                         //Found both, so exit the loop
@@ -152,17 +150,12 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             }
             if (getPriorityMethodIndexes[0] > -1 && getPriorityMethodIndexes[1] > -1)
             {
-                Log.Message("first result: " + getPriorityMethodIndexes[0].ToString());
-                Log.Message("second result: " + getPriorityMethodIndexes[1].ToString());
-
                 int firstOpcodeIndex = getPriorityMethodIndexes[0] + 12;
 
-                Log.Message("first result opcode before: " + codes[firstOpcodeIndex].ToString());
-                Log.Message("maxPriorityInt: " + BetterWorkTabMod.Settings.maxPriorityInt.ToString());
-
+                //Replace the opcode that loads the constant value for the max priority (originally 4) with our mod setting value
                 codes[firstOpcodeIndex] = new CodeInstruction(OpCodes.Ldc_I4_S, BetterWorkTabMod.Settings.maxPriorityInt);
-                Log.Message("first result opcode after: " + codes[firstOpcodeIndex].ToString());
-
+                
+                //Also replace the second occurrence of the max priority constant in the method
                 codes[getPriorityMethodIndexes[1] + 11] = new CodeInstruction(OpCodes.Ldc_I4_S, BetterWorkTabMod.Settings.maxPriorityInt);
 
             }
@@ -172,8 +165,6 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         }
 
     }
-
-
 
     [HarmonyPatch(typeof(PawnColumnWorker_WorkPriority), nameof(PawnColumnWorker_WorkPriority.HeaderClicked))]
     public static class Patch_PawnColumnWorker_WorkPriority_HeaderClicked
@@ -198,55 +189,31 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 {
                     if (getPriorityMethodIndexes[0] == -1)
                     {
-                        Log.Message("-------");
-                        Log.Message("found at: " + i.ToString());
                         getPriorityMethodIndexes[0] = i;
                     }
                     else
                     {
-                        Log.Message("found second get priority method at index: " + i.ToString());
                         getPriorityMethodIndexes[1] = i;
                         break;
                         //Found both, so exit the loop
                     }
                 }
             }
+            // If we found the indexes, change the opcodes to the max priority value from our mod settings
             if (getPriorityMethodIndexes[0] > -1 && getPriorityMethodIndexes[1] > -1)
             {
-                Log.Message("first result: " + getPriorityMethodIndexes[0].ToString());
-                Log.Message("second result: " + getPriorityMethodIndexes[1].ToString());
-
                 int firstOpcodeIndex = getPriorityMethodIndexes[0] + 12;
-
-                Log.Message("first opcode: " + codes[firstOpcodeIndex].ToString());
-                Log.Message("second opcode: " + codes[getPriorityMethodIndexes[1] + 10].ToString());
-
-
-                Log.Message("first result opcode before: " + codes[firstOpcodeIndex].ToString());
-                Log.Message("maxPriorityInt: " + BetterWorkTabMod.Settings.maxPriorityInt.ToString());
 
                 //Replace the opcode that loads the constant value for the max priority (originally 4) with our mod setting value
                 codes[firstOpcodeIndex] = new CodeInstruction(OpCodes.Ldc_I4_S, BetterWorkTabMod.Settings.maxPriorityInt);
                 
-                codes.Insert(getPriorityMethodIndexes[0] + 2, CodeInstruction.Call(() => DebugMessage())); // Insert a NOP to preserve instruction offsets for debugging/logging purposes
-
-                Log.Message("first result opcode after: " + codes[firstOpcodeIndex].ToString());
-
                 //Also replace the second occurrence of the max priority constant in the method
                 codes[getPriorityMethodIndexes[1] + 10] = new CodeInstruction(OpCodes.Ldc_I4_S, BetterWorkTabMod.Settings.maxPriorityInt);
 
             }
-            else
-            {
-                Log.Message("Did not find the expected opcodes to modify in PawnColumnWorker_WorkPriority.HeaderClicked. Transpiler may need to be updated if the method's implementation has changed.");
-            }
 
 
             return codes.AsEnumerable();
-        }
-        public static void DebugMessage()
-        {
-            Log.Message("Debug message from Patch_PawnColumnWorker_WorkPriority_HeaderClicked");
         }
     }
 
@@ -259,7 +226,43 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         [HarmonyTranspiler]
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
         {
-            return instructions;
+            //init the variable to hold the index of the opcode we want to start from
+            int getPriorityMethodIndex = -1;
+
+            //convert the instructions to a list for easy manipulation
+            var codes = new List<CodeInstruction>(instructions);
+            //find the index of the opcode we want to start from by checking each instruction's operand
+            for (var i = 0; i < codes.Count; i++)
+            {
+                var operand = codes[i].operand as string;
+                if (operand == "Trying to set work to invalid priority ")
+                {
+                    if (getPriorityMethodIndex == -1)
+                    {
+                        getPriorityMethodIndex = i;
+                        break;
+                        //Found it, so exit the loop
+                    }
+                }
+            }
+
+            if (getPriorityMethodIndex > -1)
+            {
+                int opcodeIndex = getPriorityMethodIndex - 2;
+                Log.Message("opcode to replace: " + opcodeIndex.ToString() + codes[opcodeIndex].ToString());
+                //Replace the opcode that loads the constant value for the max priority (originally 4) with our mod setting value
+                codes[opcodeIndex] = new CodeInstruction(OpCodes.Ldc_I4_S, BetterWorkTabMod.Settings.maxPriorityInt);
+
+
+                Log.Message("opcode replaced with: " + codes[opcodeIndex].ToString());
+
+            }
+
+            return codes.AsEnumerable();
+        }
+        public static void DebugMessage()
+        {
+            Log.Message("Debug message from Patch_PawnColumnWorker_WorkPriority_HeaderClicked");
         }
 
     }
