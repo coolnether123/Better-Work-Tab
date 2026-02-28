@@ -237,13 +237,13 @@ namespace Better_Work_Tab.UI.Headers.Angled
                     if (button == 0) // Left click (Increase priority / Decrement number)
                     {
                         // Cycle: 0 -> 4 -> 3 -> 2 -> 1 (stays at 1)
-                        if (curPriority == 0) pawn.workSettings.SetPriority(workType, 4);
+                        if (curPriority == 0) pawn.workSettings.SetPriority(workType, BetterWorkTabMod.Settings.maxPriorityInt);
                         else if (curPriority > 1) pawn.workSettings.SetPriority(workType, curPriority - 1);
                     }
                     else // Right click (Decrease priority / Increment number)
                     {
                         // Cycle: 1 -> 2 -> 3 -> 4 -> 0 (stays at 0)
-                        if (curPriority == 4) pawn.workSettings.SetPriority(workType, 0);
+                        if (curPriority == BetterWorkTabMod.Settings.maxPriorityInt) pawn.workSettings.SetPriority(workType, 0);
                         else if (curPriority > 0) pawn.workSettings.SetPriority(workType, curPriority + 1);
                     }
                 }
