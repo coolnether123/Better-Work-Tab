@@ -31,25 +31,33 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 return;
             }
 
-            prio = (int)SpineUtils.Remap(prio, 1, BetterWorkTabMod.Settings.maxPriorityInt, 1, 4);
-            switch (prio)
+            //prio = (int)SpineUtils.Remap(prio, 1, BetterWorkTabMod.Settings.maxPriorityInt, 1, 4);
+
+            int percentage = (int)(((float)prio/ (float)BetterWorkTabMod.Settings.maxPriorityInt)*100);
+            Log.Message($"Priority: {prio}, Percentage: {percentage}");
+
+            __result = Color.grey;
+
+            if (percentage < BetterWorkTabMod.Settings.priorityColorPercentage_Green)
             {
-                case 1:
                     __result = new Color(0f, 1f, 0f);
-                    break;
-                case 2:
-                    __result = new Color(1f, 0.9f, 0.5f);
-                    break;
-                case 3:
-                    __result = new Color(0.8f, 0.7f, 0.5f);
-                    break;
-                case 4:
-                    __result = new Color(0.74f, 0.74f, 0.74f);
-                    break;
-                default:
-                    __result = Color.grey;
-                    break;
             }
+            else if (percentage < BetterWorkTabMod.Settings.priorityColorPercentage_Yellow)
+            {
+                __result = new Color(1f, 0.9f, 0.5f);
+
+            }
+            else if (percentage < BetterWorkTabMod.Settings.priorityColorPercentage_Tan)
+            {
+                __result = new Color(0.8f, 0.7f, 0.5f);
+
+            }
+            else
+            {
+                __result = new Color(0.74f, 0.74f, 0.74f);
+
+            }
+
         }
     }
 
@@ -249,22 +257,12 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             if (getPriorityMethodIndex > -1)
             {
                 int opcodeIndex = getPriorityMethodIndex - 2;
-                Log.Message("opcode to replace: " + opcodeIndex.ToString() + codes[opcodeIndex].ToString());
                 //Replace the opcode that loads the constant value for the max priority (originally 4) with our mod setting value
                 codes[opcodeIndex] = new CodeInstruction(OpCodes.Ldc_I4_S, BetterWorkTabMod.Settings.maxPriorityInt);
-
-
-                Log.Message("opcode replaced with: " + codes[opcodeIndex].ToString());
-
             }
 
             return codes.AsEnumerable();
         }
-        public static void DebugMessage()
-        {
-            Log.Message("Debug message from Patch_PawnColumnWorker_WorkPriority_HeaderClicked");
-        }
-
     }
 
 
