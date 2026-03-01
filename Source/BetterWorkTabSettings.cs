@@ -241,6 +241,9 @@ namespace Better_Work_Tab
         public static BetterWorkTabSettings.ShowUIMode ShowUIMode_ShowPawnForSkillSquare = BetterWorkTabSettings.ShowUIMode.Shifted;
 
         public static int maxPriority = 9;
+        public static int priorityColorPercentage_Green = 10;
+        public static int priorityColorPercentage_Yellow = 50;
+        public static int priorityColorPercentage_Tan = 75;
     }
 
     // Contains all configurable settings for Better Work Tab mod
@@ -422,8 +425,10 @@ namespace Better_Work_Tab
         // Max Priority Int Settings
         public const int MAX_PRIORITY_HARD_LIMIT = 99;
 
-        [TweakValue("AAA Max Priority", 1, MAX_PRIORITY_HARD_LIMIT)]
         public int maxPriorityInt = 99;
+        public int priorityColorPercentage_Green = 10;
+        public int priorityColorPercentage_Yellow = 50;
+        public int priorityColorPercentage_Tan = 75;
 
         public bool mpShowOtherPlayersHover = DefaultSettings.mpShowOtherPlayersHover;
         public bool mpAllowOthersToRequestLayout = DefaultSettings.mpAllowOthersToRequestLayout;
@@ -662,6 +667,9 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref angledHeaderColor, "angledHeaderColor", DefaultSettings.Color_AngledHeaderText);
             Scribe_Values.Look(ref autoEnableManualPriorities, "autoEnableManualPriorities", DefaultSettings.autoEnableManualPriorities);
             Scribe_Values.Look(ref maxPriorityInt, "maxPriorityInt", DefaultSettings.maxPriority);
+            Scribe_Values.Look(ref priorityColorPercentage_Green, "priorityColorPercentage_Green", DefaultSettings.priorityColorPercentage_Green);
+            Scribe_Values.Look(ref priorityColorPercentage_Yellow , "priorityColorPercentage_Yellow", DefaultSettings.priorityColorPercentage_Yellow );
+            Scribe_Values.Look(ref priorityColorPercentage_Tan , "priorityColorPercentage_Tan", DefaultSettings.priorityColorPercentage_Tan );
 
             if (hiddenWorktypes == null) hiddenWorktypes = new List<string>();
 
