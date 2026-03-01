@@ -203,6 +203,68 @@ namespace Better_Work_Tab.UI.Settings
                 SortOrder = -43
             });
 
+            Register(new SettingDefinition
+            {
+                Id = UiMaxPriority,
+                ParentId = FeaturesUiElements,
+                FieldName = "maxPriorityInt",
+                Label = "Max priority",
+                Tooltip = "The maximum integer value pawns can be assigned in the work tab.",
+                Type = SettingType.Int,
+                DefaultValue = DefaultSettings.maxPriority,
+                MinValue = 4f,
+                MaxValue = BetterWorkTabSettings.MAX_PRIORITY_HARD_LIMIT,
+                ShowInSimpleView = true,
+                SortOrder = 42,
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = UiPriorityColorPercentageGreen,
+                ParentId = FeaturesUiElements,
+                FieldName = "priorityColorPercentage_Green",
+                Label = "Color Percentage - Green",
+                Tooltip = "The percentage at which numbers will be green when displayed on the work tab.",
+                Type = SettingType.Int,
+                DefaultValue = DefaultSettings.priorityColorPercentage_Green,
+                MinValue = 1,
+                MaxValue = 100,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 43,
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = UiPriorityColorPercentageYellow,
+                ParentId = FeaturesUiElements,
+                FieldName = "priorityColorPercentage_Yellow",
+                Label = "Color Percentage - Yellow",
+                Tooltip = "The percentage at which numbers will be yellow when displayed on the work tab.",
+                Type = SettingType.Int,
+                DefaultValue = DefaultSettings.priorityColorPercentage_Yellow,
+                MinValue = 1,
+                MaxValue = 100,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 44,
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = UiPriorityColorPercentageTan,
+                ParentId = FeaturesUiElements,
+                FieldName = "priorityColorPercentage_Tan",
+                Label = "Color Percentage - Tan",
+                Tooltip = "The percentage at which numbers will be tan when displayed on the work tab.",
+                Type = SettingType.Int,
+                DefaultValue = DefaultSettings.priorityColorPercentage_Tan,
+                MinValue = 1,
+                MaxValue = 100,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 45,
+            });
 
             Register(new SettingDefinition
             {
@@ -1410,7 +1472,7 @@ namespace Better_Work_Tab.UI.Settings
                         }
                     },
                     ShowInSimpleView = false,
-                    ShowInAdvancedView = false,
+                    ShowInAdvancedView = true, //false
                     SortOrder = 501
                 });
 
@@ -1436,7 +1498,7 @@ namespace Better_Work_Tab.UI.Settings
                             EnsureInitialized();
                         },
                         ShowInSimpleView = false,
-                        ShowInAdvancedView = false,
+                        ShowInAdvancedView = true, //false
                         SortOrder = 502
                     });
                 }
