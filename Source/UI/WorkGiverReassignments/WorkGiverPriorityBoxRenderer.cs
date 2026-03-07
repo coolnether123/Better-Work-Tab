@@ -13,7 +13,13 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
     {
         public static void DrawPriorityBox(WorkGiver wg, WorkTypeDef workType, Pawn pawn, Rect boxRect)
         {
-            int workGiverPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, wg.def, 3);
+            int defaultPriority = 3;
+            if (pawn?.workSettings != null && workType != null)
+            {
+                defaultPriority = pawn.workSettings.GetPriority(workType);
+            }
+
+            int workGiverPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, wg.def, defaultPriority);
             
             if (pawn != null)
             {

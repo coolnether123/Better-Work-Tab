@@ -4,6 +4,7 @@ using RimWorld;
 using System.Collections.Generic;
 using Verse.Sound;
 using Better_Work_Tab.DragDrop;
+using Better_Work_Tab.UI.WorkGiverReassignments;
 
 namespace Better_Work_Tab.UI.Headers.Angled
 {
@@ -75,6 +76,15 @@ namespace Better_Work_Tab.UI.Headers.Angled
             // If a drag commences, the drag handler consumes the MouseUp event, preventing sorting.
             if (evt.type == EventType.MouseDown)
             {
+                // Ctrl + Right Click: Open WorkGiver sub-menu (global, header-based)
+                if (evt.button == 1 && evt.control)
+                {
+                    Vector2 screenPos = Verse.UI.GUIToScreenPoint(evt.mousePosition) / Prefs.UIScale;
+                    Find.WindowStack.Add(new Window_WorkGiverSubMenu(workType, screenPos, pawn: null));
+                    evt.Use();
+                    return;
+                }
+
                 if (evt.button == 0 || evt.button == 1)
                 {
                     // Handle Shift+Click immediately on MouseDown to prevent it from reaching sorting (on MouseUp) or dragging.

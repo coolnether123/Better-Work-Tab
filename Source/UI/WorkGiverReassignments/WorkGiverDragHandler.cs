@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.UI.Headers;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -82,9 +83,32 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             }
             else if (evt.type == EventType.MouseUp)
             {
-                if (_isDragging && _targetIndex >= 0 && _targetIndex != _draggedIndex)
+                if (_isDragging && _originalWorkGivers != null && _draggedIndex >= 0 && _draggedIndex < _originalWorkGivers.Count)
                 {
-                    CommitReorder(workGivers);
+                    var draggedWg = _originalWorkGivers[_draggedIndex];
+                    var hoveredWorkType = HeaderInputController.HoveredWorkType;
+
+                    if (hoveredWorkType != null && hoveredWorkType != _workType)
+                    {
+                        // Dragged out onto another work type header: reassign to that work type.
+                        if (!WorkGiverReassignmentManager.TryReassignWorkGiver(draggedWg.def.defName, hoveredWorkType.defName, null, out var error))
+                        {
+                            if (!error.NullOrEmpty())
+                            {
+                                Messages.Message(error, MessageTypeDefOf.RejectInput, false);
+                            }
+                        }
+                        else
+                        {
+                            SoundDefOf.Tick_High.PlayOneShotOnCamera();
+                            _window.NotifyPriorityChanged(); // Refresh submenu to reflect removal
+                            _window.Close(); // Close current submenu after sending the workgiver away
+                        }
+                    }
+                    else if (_targetIndex >= 0 && _targetIndex != _draggedIndex)
+                    {
+                        CommitReorder(workGivers);
+                    }
                 }
 
                 CancelDrag();
@@ -126,6 +150,27 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         public void DrawDragOverlay(float margin, float columnWidth, float headerY, float totalHeight, 
             List<WorkGiver> workGivers, WorkGiverBaselineTracker baselineTracker)
         {
+            // Cross-worktype visual cue: yellow box on cursor or hovered header
+            if (_isDragging)
+            {
+                Rect targetBox;
+                var hoveredRect = HeaderInputController.HoveredWorkTypeRect;
+                if (HeaderInputController.HoveredWorkType != null && hoveredRect.HasValue)
+                {
+                    targetBox = hoveredRect.Value.ExpandedBy(3f);
+                }
+                else
+                {
+                    Vector2 mouse = Event.current.mousePosition;
+                    const float size = 26f;
+                    targetBox = new Rect(mouse.x - size / 2f, mouse.y - size / 2f, size, size);
+                }
+
+                var fill = new Color(1f, 1f, 0f, 0.12f);
+                var outline = new Color(1f, 0.9f, 0.2f, 0.9f);
+                Widgets.DrawBoxSolidWithOutline(targetBox, fill, outline);
+            }
+
             if (!_isDragging || _targetIndex < 0) return;
 
             var settings = BetterWorkTabMod.Settings;

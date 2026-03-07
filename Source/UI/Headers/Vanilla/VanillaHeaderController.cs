@@ -95,7 +95,8 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
             bool isMouseOver = DetermineMouseOver(rect, worker.def);
             if (isMouseOver)
             {
-                HeaderInputController.SetHoveredWorkType(worker.def.workType);
+                var solver = HeaderDrawingCoordinator.GetVanillaSolver();
+                HeaderInputController.SetHoveredWorkType(worker.def.workType, solver?.GetBounds(worker.def));
             }
 
             // Get Render/Layout Objects
