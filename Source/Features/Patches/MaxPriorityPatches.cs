@@ -1,269 +1,331 @@
-﻿using Better_Work_Tab.Patches;
-using HarmonyLib;
-using RimWorld;
-using Spine.Utils;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Net;
 using System.Reflection;
 using System.Reflection.Emit;
-using System.Text;
-using System.Threading.Tasks;
-using Unity.Mathematics;
+using HarmonyLib;
+using ModAPI.Harmony;
+using RimWorld;
 using UnityEngine;
 using Verse;
 
 namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 {
-    [HarmonyPatch(typeof(WidgetsWork), nameof(WidgetsWork.ColorOfPriority))]
-    internal class Patch_WidgetsWork_ColorOfPriority
+    /// <summary>
+    /// Shared method handles used by the max-priority patches.
+    /// </summary>
+    internal static class PriorityIl
     {
-        // Patch WidgetsWork.ColorOfPriority(int priority) to support priorities greater than 4
-        // line number: 54 in WidgetsWork.cs
+        internal static readonly MethodInfo GetPriority = AccessTools.Method(
+            typeof(Pawn_WorkSettings),
+            nameof(Pawn_WorkSettings.GetPriority),
+            new[] { typeof(WorkTypeDef) });
 
-        [HarmonyPostfix]
-        public static void Postfix(ref Color __result, int prio)
-        {
-            if(prio == 0)
-            {
-                __result = Color.grey;
-                return;
-            }
+        internal static readonly MethodInfo GetTooltipPriority = AccessTools.Method(
+            typeof(MaxPriorityLogic),
+            nameof(MaxPriorityLogic.GetTooltipPriority),
+            new[] { typeof(Pawn_WorkSettings), typeof(WorkTypeDef) });
 
-            //prio = (int)SpineUtils.Remap(prio, 1, BetterWorkTabMod.Settings.maxPriorityInt, 1, 4);
-
-            int percentage = (int)(((float)prio/ (float)BetterWorkTabMod.Settings.maxPriorityInt)*100);
-            Log.Message($"Priority: {prio}, Percentage: {percentage}");
-
-            __result = Color.grey;
-
-            if (percentage < BetterWorkTabMod.Settings.priorityColorPercentage_Green)
-            {
-                    __result = new Color(0f, 1f, 0f);
-            }
-            else if (percentage < BetterWorkTabMod.Settings.priorityColorPercentage_Yellow)
-            {
-                __result = new Color(1f, 0.9f, 0.5f);
-
-            }
-            else if (percentage < BetterWorkTabMod.Settings.priorityColorPercentage_Tan)
-            {
-                __result = new Color(0.8f, 0.7f, 0.5f);
-
-            }
-            else
-            {
-                __result = new Color(0.74f, 0.74f, 0.74f);
-
-            }
-
-        }
+        internal static readonly MethodInfo GetMaxPriority = AccessTools.Method(
+            typeof(MaxPriorityLogic),
+            nameof(MaxPriorityLogic.GetMaxPriority));
     }
 
-
-    [HarmonyPatch(typeof(WidgetsWork), nameof(WidgetsWork.TipForPawnWorker))]
-    public static class Patch_WidgetsWork_TipForPawnWorker
+    /// <summary>
+    /// Centralized rules for extended manual priorities.
+    /// </summary>
+    internal static class MaxPriorityLogic
     {
-        // Patch WidgetsWork.TipForPawnWorker(Pawn pawn, WorkTypeDef workType) to support priorities greater than 4
-        // line number: 180 in WidgetsWork.cs
-        [HarmonyTranspiler]
-        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
+        /// <summary>
+        /// Returns the configured upper bound for manual priorities.
+        /// </summary>
+        internal static int GetMaxPriority()
         {
-            //init the variable to hold the index of the opcode we want to start from
-            var priorityStrIndex = -1;
-
-            //convert the instructions to a list for easy manipulation
-            var codes = new List<CodeInstruction>(instructions);
-
-            //find the index of the opcode that loads the "Priority" string by checking each instruction's operand
-            for (var i = 0; i < codes.Count; i++)
-            {
-                // Identify the next return instruction
-                var strOperand = codes[i].operand as string;
-                if (strOperand == "Priority")
-                {
-                    priorityStrIndex = i;
-                    //Found it, so exit the loop
-                    break;
-                }
-
-            }
-
-            //If we found the index, we can now insert our new instructions
-            if (priorityStrIndex > -1)
-            {
-                //adjust to get the index of where exactly we want to insert our new instructions
-                var findPriorityOpcodeIndex = priorityStrIndex - 3;
-                //setup the method we want to call to remap the priority value
-                var remapMethod = AccessTools.Method(typeof(Patch_WidgetsWork_TipForPawnWorker), nameof(RemapPriority));
-
-                //load the local variable so it can be used as an argument for our remap method
-                codes.Insert(findPriorityOpcodeIndex + 1, new CodeInstruction(OpCodes.Ldloc_2));
-                //call our remap method
-                codes.Insert(findPriorityOpcodeIndex + 2, new CodeInstruction(OpCodes.Call, remapMethod));
-                //store the result back into the local variable for RimWorld to use
-                codes.Insert(findPriorityOpcodeIndex + 3, new CodeInstruction(OpCodes.Stloc_2));
-            }
-            //Return the modified instructions as an enumerable
-            return codes.AsEnumerable();
+            return Math.Max(1, BetterWorkTabMod.Settings.maxPriorityInt);
         }
 
-        // Remap the priority value from the extended range back to 0-4 for display purposes
-        private static int RemapPriority(int priority)
+        /// <summary>
+        /// Maps extended priorities back into RimWorld's tooltip display range.
+        /// </summary>
+        internal static int MapPriorityToVanillaDisplay(int priority)
         {
-            // If priority is 0, return 0 directly because it means no work assigned
-            if (priority == 0)
+            if (priority <= 0)
             {
                 return 0;
             }
-            //otherwise, remap the priority to 1-4
-            return (int)SpineUtils.Remap(priority, 1, BetterWorkTabMod.Settings.maxPriorityInt, 1, 4);
+
+            int maxPriority = GetMaxPriority();
+            if (maxPriority <= 1)
+            {
+                return 1;
+            }
+
+            return Mathf.Clamp((int)Math.Round(Spine.Utils.SpineUtils.Remap(priority, 1, maxPriority, 1, 4)), 1, 4);
         }
 
+        /// <summary>
+        /// Supplies the tooltip priority after remapping it into the vanilla display range.
+        /// </summary>
+        internal static int GetTooltipPriority(Pawn_WorkSettings workSettings, WorkTypeDef workType)
+        {
+            if (workSettings == null || workType == null)
+            {
+                return 0;
+            }
+
+            return MapPriorityToVanillaDisplay(workSettings.GetPriority(workType));
+        }
+
+        /// <summary>
+        /// Returns the color used for a manual priority value.
+        /// </summary>
+        internal static Color GetPriorityColor(int priority)
+        {
+            if (priority <= 0)
+            {
+                return Color.grey;
+            }
+
+            int percentage = (int)(((float)priority / GetMaxPriority()) * 100f);
+
+            if (percentage < BetterWorkTabMod.Settings.priorityColorPercentage_Green)
+            {
+                return new Color(0f, 1f, 0f);
+            }
+
+            if (percentage < BetterWorkTabMod.Settings.priorityColorPercentage_Yellow)
+            {
+                return new Color(1f, 0.9f, 0.5f);
+            }
+
+            if (percentage < BetterWorkTabMod.Settings.priorityColorPercentage_Tan)
+            {
+                return new Color(0.8f, 0.7f, 0.5f);
+            }
+
+            return new Color(0.74f, 0.74f, 0.74f);
+        }
+    }
+
+    /// <summary>
+    /// Locates the specific IL instructions that enforce RimWorld's vanilla max priority.
+    /// </summary>
+    internal static class PriorityTranspilerPatterns
+    {
+        /// <summary>
+        /// Finds the constant used by RimWorld's decrement wraparound path.
+        /// The matched sequence is:
+        /// GetPriority, subtract 1, store to a local, test that local against 0, and if it is negative load 4.
+        /// The returned index is the final 4 load, which is the instruction replaced with GetMaxPriority().
+        /// </summary>
+        internal static int FindPriorityWrapUnderflowIndex(List<CodeInstruction> codes, int startIndex)
+        {
+            return FindPattern(
+                codes,
+                startIndex,
+                (list, i) => i + 7 < list.Count &&
+                             list[i].Calls(PriorityIl.GetPriority) &&
+                             list[i + 1].LoadsConstant(1) &&
+                             list[i + 2].opcode == OpCodes.Sub &&
+                             IsStoreLocal(list[i + 3]) &&
+                             IsLoadLocal(list[i + 4]) &&
+                             list[i + 5].LoadsConstant(0) &&
+                             IsBranch(list[i + 6], OpCodes.Bge, OpCodes.Bge_S) &&
+                             list[i + 7].LoadsConstant(4),
+                i => i + 7);
+        }
+
+        /// <summary>
+        /// Finds the constant used by RimWorld's increment wraparound path.
+        /// The matched sequence is:
+        /// GetPriority, add 1, store to a local, compare that local against 4, and if it exceeds the limit load 0.
+        /// The returned index is the comparison's 4 load, which is the instruction replaced with GetMaxPriority().
+        /// </summary>
+        internal static int FindPriorityWrapOverflowIndex(List<CodeInstruction> codes, int startIndex)
+        {
+            return FindPattern(
+                codes,
+                startIndex,
+                (list, i) => i + 7 < list.Count &&
+                             list[i].Calls(PriorityIl.GetPriority) &&
+                             list[i + 1].LoadsConstant(1) &&
+                             list[i + 2].opcode == OpCodes.Add &&
+                             IsStoreLocal(list[i + 3]) &&
+                             IsLoadLocal(list[i + 4]) &&
+                             list[i + 5].LoadsConstant(4) &&
+                             IsBranch(list[i + 6], OpCodes.Ble, OpCodes.Ble_S) &&
+                             list[i + 7].LoadsConstant(0),
+                i => i + 5);
+        }
+
+        /// <summary>
+        /// Finds the upper-bound check inside Pawn_WorkSettings.SetPriority.
+        /// </summary>
+        internal static int FindSetPriorityUpperBoundIndex(List<CodeInstruction> codes)
+        {
+            return FindPattern(
+                codes,
+                0,
+                (list, i) => i + 5 < list.Count &&
+                             IsLoadArgument(list[i], 2) &&
+                             list[i + 1].LoadsConstant(0) &&
+                             IsBranch(list[i + 2], OpCodes.Blt, OpCodes.Blt_S) &&
+                             IsLoadArgument(list[i + 3], 2) &&
+                             list[i + 4].LoadsConstant(4) &&
+                             IsBranch(list[i + 5], OpCodes.Ble, OpCodes.Ble_S),
+                i => i + 4);
+        }
+
+        /// <summary>
+        /// Replaces a vanilla constant load with a call that returns the configured max priority.
+        /// </summary>
+        internal static void ReplaceWithMaxPriorityCall(List<CodeInstruction> codes, int index)
+        {
+            codes[index] = new CodeInstruction(OpCodes.Call, PriorityIl.GetMaxPriority);
+        }
+
+        private static int FindPattern(List<CodeInstruction> codes, int startIndex, Func<List<CodeInstruction>, int, bool> predicate, Func<int, int> resultSelector)
+        {
+            for (int i = Math.Max(0, startIndex); i < codes.Count; i++)
+            {
+                if (predicate(codes, i))
+                {
+                    return resultSelector(i);
+                }
+            }
+
+            return -1;
+        }
+
+        private static bool IsBranch(CodeInstruction instruction, OpCode longForm, OpCode shortForm)
+        {
+            return instruction.opcode == longForm || instruction.opcode == shortForm;
+        }
+
+        private static bool IsLoadLocal(CodeInstruction instruction)
+        {
+            return instruction.opcode.Name.StartsWith("ldloc", StringComparison.Ordinal);
+        }
+
+        private static bool IsStoreLocal(CodeInstruction instruction)
+        {
+            return instruction.opcode.Name.StartsWith("stloc", StringComparison.Ordinal);
+        }
+
+        private static bool IsLoadArgument(CodeInstruction instruction, int argumentIndex)
+        {
+            return argumentIndex switch
+            {
+                0 => instruction.opcode == OpCodes.Ldarg_0,
+                1 => instruction.opcode == OpCodes.Ldarg_1,
+                2 => instruction.opcode == OpCodes.Ldarg_2 ||
+                     (instruction.opcode == OpCodes.Ldarg_S &&
+                      ((instruction.operand is byte byteIndex && byteIndex == 2) ||
+                       (instruction.operand is ushort shortIndex && shortIndex == 2))),
+                3 => instruction.opcode == OpCodes.Ldarg_3,
+                _ => false
+            };
+        }
+    }
+
+    [HarmonyPatch(typeof(WidgetsWork), nameof(WidgetsWork.ColorOfPriority))]
+    internal static class Patch_WidgetsWork_ColorOfPriority
+    {
+        /// <summary>
+        /// Extends RimWorld's priority color calculation beyond the vanilla 1..4 range.
+        /// </summary>
+        [HarmonyPostfix]
+        private static void Postfix(ref Color __result, int prio)
+        {
+            __result = MaxPriorityLogic.GetPriorityColor(prio);
+        }
+    }
+
+    [HarmonyPatch(typeof(WidgetsWork), nameof(WidgetsWork.TipForPawnWorker))]
+    internal static class Patch_WidgetsWork_TipForPawnWorker
+    {
+        /// <summary>
+        /// Redirects the tooltip priority lookup so tooltips keep using RimWorld's translated
+        /// 1..4 labels even when the stored priority exceeds 4.
+        /// </summary>
+        [HarmonyTranspiler]
+        private static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions, MethodBase original)
+        {
+            return FluentTranspiler.Execute(instructions, original, null, t =>
+            {
+                t.MatchCall(PriorityIl.GetPriority)
+                 .AssertValid()
+                 .ReplaceWithCall(typeof(MaxPriorityLogic), nameof(MaxPriorityLogic.GetTooltipPriority), new[] { typeof(Pawn_WorkSettings), typeof(WorkTypeDef) });
+            });
+        }
     }
 
     [HarmonyPatch(typeof(WidgetsWork), nameof(WidgetsWork.DrawWorkBoxFor))]
-    public static class Patch_WidgetsWork_DrawWorkBoxFor
+    internal static class Patch_WidgetsWork_DrawWorkBoxFor
     {
-        // Transpile WidgetsWork.DrawWorkBoxFor() to support priorities greater than 4
-        // line number: 71 in WidgetsWork.cs
-
+        /// <summary>
+        /// Replaces the two wraparound constants used by the work-cell click handlers.
+        /// </summary>
         [HarmonyTranspiler]
-        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
+        private static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions, MethodBase original)
         {
-            //init the variable to hold the index of the opcode we want to start from
-            int[] getPriorityMethodIndexes = [-1,-1];
-
-            //convert the instructions to a list for easy manipulation
             var codes = new List<CodeInstruction>(instructions);
+            int leftWrapIndex = PriorityTranspilerPatterns.FindPriorityWrapUnderflowIndex(codes, 0);
+            int rightWrapIndex = PriorityTranspilerPatterns.FindPriorityWrapOverflowIndex(codes, leftWrapIndex + 1);
 
-            //find the index of the opcode we want to start from by checking each instruction's operand
-            for (var i = 0; i < codes.Count; i++)
+            if (leftWrapIndex < 0 || rightWrapIndex < 0)
             {
-                var operand = codes[i].operand as MethodInfo;
-                if (operand == AccessTools.PropertyGetter(typeof(Event), "button"))
-                {
-                    if (getPriorityMethodIndexes[0] == -1)
-                    {
-                        getPriorityMethodIndexes[0] = i;
-                    }
-                    else
-                    {
-                        getPriorityMethodIndexes[1] = i;
-                        break;
-                        //Found both, so exit the loop
-                    }
-                }
-            }
-            if (getPriorityMethodIndexes[0] > -1 && getPriorityMethodIndexes[1] > -1)
-            {
-                int firstOpcodeIndex = getPriorityMethodIndexes[0] + 12;
-
-                //Replace the opcode that loads the constant value for the max priority (originally 4) with our mod setting value
-                codes[firstOpcodeIndex] = new CodeInstruction(OpCodes.Ldc_I4_S, BetterWorkTabMod.Settings.maxPriorityInt);
-                
-                //Also replace the second occurrence of the max priority constant in the method
-                codes[getPriorityMethodIndexes[1] + 11] = new CodeInstruction(OpCodes.Ldc_I4_S, BetterWorkTabMod.Settings.maxPriorityInt);
-
+                throw new InvalidOperationException($"Unable to locate work-box priority wrap checks in {original?.DeclaringType?.Name}.{original?.Name}.");
             }
 
-
-            return codes.AsEnumerable();
+            PriorityTranspilerPatterns.ReplaceWithMaxPriorityCall(codes, leftWrapIndex);
+            PriorityTranspilerPatterns.ReplaceWithMaxPriorityCall(codes, rightWrapIndex);
+            return codes;
         }
-
     }
 
     [HarmonyPatch(typeof(PawnColumnWorker_WorkPriority), nameof(PawnColumnWorker_WorkPriority.HeaderClicked))]
-    public static class Patch_PawnColumnWorker_WorkPriority_HeaderClicked
+    internal static class Patch_PawnColumnWorker_WorkPriority_HeaderClicked
     {
-        // Transpile PawnColumnWorker_WorkPriority.HeaderClicked(Rect headerRect, PawnTable table) to support priorities greater than 4
-        // line number: 178 in PawnColumnWorker_WorkPriority.cs
-
+        /// <summary>
+        /// Replaces the two wraparound constants used by the header bulk-edit controls.
+        /// </summary>
         [HarmonyTranspiler]
-        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
+        private static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions, MethodBase original)
         {
-            //init the variable to hold the index of the opcode we want to start from
-            int[] getPriorityMethodIndexes = [-1, -1];
-
-            //convert the instructions to a list for easy manipulation
             var codes = new List<CodeInstruction>(instructions);
+            int leftWrapIndex = PriorityTranspilerPatterns.FindPriorityWrapUnderflowIndex(codes, 0);
+            int rightWrapIndex = PriorityTranspilerPatterns.FindPriorityWrapOverflowIndex(codes, leftWrapIndex + 1);
 
-            //find the index of the opcode we want to start from by checking each instruction's operand
-            for (var i = 0; i < codes.Count; i++)
+            if (leftWrapIndex < 0 || rightWrapIndex < 0)
             {
-                var operand = codes[i].operand as MethodInfo;
-                if (operand == AccessTools.PropertyGetter(typeof(Event), "button"))
-                {
-                    if (getPriorityMethodIndexes[0] == -1)
-                    {
-                        getPriorityMethodIndexes[0] = i;
-                    }
-                    else
-                    {
-                        getPriorityMethodIndexes[1] = i;
-                        break;
-                        //Found both, so exit the loop
-                    }
-                }
-            }
-            // If we found the indexes, change the opcodes to the max priority value from our mod settings
-            if (getPriorityMethodIndexes[0] > -1 && getPriorityMethodIndexes[1] > -1)
-            {
-                int firstOpcodeIndex = getPriorityMethodIndexes[0] + 12;
-
-                //Replace the opcode that loads the constant value for the max priority (originally 4) with our mod setting value
-                codes[firstOpcodeIndex] = new CodeInstruction(OpCodes.Ldc_I4_S, BetterWorkTabMod.Settings.maxPriorityInt);
-                
-                //Also replace the second occurrence of the max priority constant in the method
-                codes[getPriorityMethodIndexes[1] + 10] = new CodeInstruction(OpCodes.Ldc_I4_S, BetterWorkTabMod.Settings.maxPriorityInt);
-
+                throw new InvalidOperationException($"Unable to locate header priority wrap checks in {original?.DeclaringType?.Name}.{original?.Name}.");
             }
 
-
-            return codes.AsEnumerable();
+            PriorityTranspilerPatterns.ReplaceWithMaxPriorityCall(codes, leftWrapIndex);
+            PriorityTranspilerPatterns.ReplaceWithMaxPriorityCall(codes, rightWrapIndex);
+            return codes;
         }
     }
 
     [HarmonyPatch(typeof(Pawn_WorkSettings), nameof(Pawn_WorkSettings.SetPriority))]
-    public static class PatchPawn_WorkSettings_SetPriority
+    internal static class Patch_Pawn_WorkSettings_SetPriority
     {
-        // Transpile Pawn_WorkSettings.SetPriority(WorkTypeDef w, int priority) to support priorities greater than 4
-        // line number: 160 in Pawn_WorkSettings.cs
-        
+        /// <summary>
+        /// Replaces RimWorld's validation ceiling so values above 4 remain valid.
+        /// </summary>
         [HarmonyTranspiler]
-        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
+        private static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions, MethodBase original)
         {
-            //init the variable to hold the index of the opcode we want to start from
-            int getPriorityMethodIndex = -1;
-
-            //convert the instructions to a list for easy manipulation
             var codes = new List<CodeInstruction>(instructions);
-            //find the index of the opcode we want to start from by checking each instruction's operand
-            for (var i = 0; i < codes.Count; i++)
+            int upperBoundIndex = PriorityTranspilerPatterns.FindSetPriorityUpperBoundIndex(codes);
+
+            if (upperBoundIndex < 0)
             {
-                var operand = codes[i].operand as string;
-                if (operand == "Trying to set work to invalid priority ")
-                {
-                    if (getPriorityMethodIndex == -1)
-                    {
-                        getPriorityMethodIndex = i;
-                        break;
-                        //Found it, so exit the loop
-                    }
-                }
+                throw new InvalidOperationException($"Unable to locate the SetPriority upper-bound check in {original?.DeclaringType?.Name}.{original?.Name}.");
             }
 
-            if (getPriorityMethodIndex > -1)
-            {
-                int opcodeIndex = getPriorityMethodIndex - 2;
-                //Replace the opcode that loads the constant value for the max priority (originally 4) with our mod setting value
-                codes[opcodeIndex] = new CodeInstruction(OpCodes.Ldc_I4_S, BetterWorkTabMod.Settings.maxPriorityInt);
-            }
-
-            return codes.AsEnumerable();
+            PriorityTranspilerPatterns.ReplaceWithMaxPriorityCall(codes, upperBoundIndex);
+            return codes;
         }
     }
-
-
 }
