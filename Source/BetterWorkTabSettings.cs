@@ -425,7 +425,7 @@ namespace Better_Work_Tab
         // Max Priority Int Settings
         public const int MAX_PRIORITY_HARD_LIMIT = 99;
 
-        public int maxPriorityInt = 99;
+        public int maxPriorityInt = DefaultSettings.maxPriority;
         public int priorityColorPercentage_Green = 10;
         public int priorityColorPercentage_Yellow = 50;
         public int priorityColorPercentage_Tan = 75;

@@ -4,6 +4,7 @@ using RimWorld;
 using System.Collections.Generic;
 using Verse.Sound;
 using Better_Work_Tab.DragDrop;
+using Better_Work_Tab.Features.RaisedPriorityMaximum;
 
 namespace Better_Work_Tab.UI.Headers.Angled
 {
@@ -250,7 +251,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 else
                 {
                     // Vanilla Priorities (On/Off)
-                    if (button == 0) pawn.workSettings.SetPriority(workType, 3);
+                    if (button == 0) pawn.workSettings.SetPriority(workType, MaxPriorityLogic.GetDefaultEnabledPriority());
                     else pawn.workSettings.SetPriority(workType, 0);
                 }
                 changed = true;

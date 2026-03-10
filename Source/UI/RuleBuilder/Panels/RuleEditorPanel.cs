@@ -25,6 +25,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
         private Vector2 _ruleListScroll;
         private Vector2 _conditionScroll;
         private WorkAssignmentRule _editingRule;
+        private string _priorityBuffer = string.Empty;
 
         private readonly RuleMatchCalculator _matchCalculator = new RuleMatchCalculator();
 
@@ -57,6 +58,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             }
 
             _editingRule = state.SelectedRule;
+            _priorityBuffer = state.SelectedRule?.Parameters?.Priority.ToString() ?? string.Empty;
         }
 
         public void OnDeactivate(RuleBuilderState state)
@@ -219,6 +221,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
                     case RuleRowWidget.RowAction.Select:
                         state.SelectedRule = rule;
                         _editingRule = rule;
+                        _priorityBuffer = rule.Parameters?.Priority.ToString() ?? string.Empty;
                         break;
                     case RuleRowWidget.RowAction.Delete:
                         ruleToDelete = rule;
@@ -441,47 +444,79 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
         {
             var rule = state.SelectedRule;
             bool isDefault = state.SelectedRuleset?.IsDefault ?? false;
+            int maxPriority = Mathf.Max(0, BetterWorkTabMod.Settings?.maxPriorityInt ?? state.MaxPriority);
+            int currentPriority = Mathf.Clamp(rule.Parameters.Priority, 0, maxPriority);
+
+            if (_editingRule != rule)
+            {
+                _editingRule = rule;
+                _priorityBuffer = currentPriority.ToString();
+            }
 
             Rect labelRect = new Rect(rect.x, rect.y, 120f, rect.height);
             Verse.Widgets.Label(labelRect, "BWT_AssignPriority".Translate() + ":");
 
-            float buttonWidth = 50f;
-            float buttonStartX = labelRect.xMax + 8f;
+            Rect minusRect = new Rect(labelRect.xMax + 8f, rect.y, 28f, rect.height);
+            Rect fieldRect = new Rect(minusRect.xMax + 4f, rect.y, 64f, rect.height);
+            Rect plusRect = new Rect(fieldRect.xMax + 4f, rect.y, 28f, rect.height);
+            Rect hintRect = new Rect(plusRect.xMax + 8f, rect.y, Mathf.Max(0f, rect.xMax - plusRect.xMax - 8f), rect.height);
 
-            for (int p = 0; p <= 4; p++)
+            if (string.IsNullOrEmpty(_priorityBuffer))
             {
-                Rect buttonRect = new Rect(
-                    buttonStartX + p * (buttonWidth + 4f),
-                    rect.y,
-                    buttonWidth,
-                    rect.height);
+                _priorityBuffer = currentPriority.ToString();
+            }
 
-                bool isSelected = rule.Parameters.Priority == p;
-                Color btnColor = isSelected
-                    ? RuleBuilderConstants.PriorityColors[p]
-                    : RuleBuilderConstants.CardBackground;
+            int newPriority = currentPriority;
 
-                Verse.Widgets.DrawBoxSolid(buttonRect, btnColor);
-                Verse.Widgets.DrawBox(buttonRect, 1);
-
-                string label = p == 0 ? "BWT_Disabled".Translate().ToString() : p.ToString();
-
-                var oldAnchor = Text.Anchor;
+            if (isDefault)
+            {
+                GUI.color = Color.gray;
+                Verse.Widgets.DrawBoxSolid(fieldRect, RuleBuilderConstants.CardBackground);
+                Verse.Widgets.DrawBox(fieldRect, 1);
                 Text.Anchor = TextAnchor.MiddleCenter;
-                GUI.color = isSelected ? Color.white : Color.gray;
-                Verse.Widgets.Label(buttonRect, label);
-                Text.Anchor = oldAnchor;
+                Verse.Widgets.Label(fieldRect, currentPriority.ToString());
+                Text.Anchor = TextAnchor.UpperLeft;
                 GUI.color = Color.white;
-
-                if (!isDefault && Verse.Widgets.ButtonInvisible(buttonRect))
+            }
+            else
+            {
+                if (Verse.Widgets.ButtonText(minusRect, "-"))
                 {
-                    rule.Parameters.Priority = p;
-                    state.NotifyRulesModified();
+                    newPriority = Mathf.Max(0, currentPriority - 1);
                 }
 
-                TooltipHandler.TipRegion(buttonRect,
-                    "BWT_PriorityLevel_Tooltip".Translate(p));
+                Verse.Widgets.TextFieldNumeric(fieldRect, ref newPriority, ref _priorityBuffer, 0, maxPriority);
+
+                if (Verse.Widgets.ButtonText(plusRect, "+"))
+                {
+                    newPriority = Mathf.Min(maxPriority, newPriority + 1);
+                }
+
+                Event evt = Event.current;
+                if (evt != null &&
+                    evt.type == EventType.ScrollWheel &&
+                    (Mouse.IsOver(fieldRect) || Mouse.IsOver(minusRect) || Mouse.IsOver(plusRect)))
+                {
+                    int delta = evt.delta.y > 0f ? 1 : -1;
+                    newPriority = Mathf.Clamp(newPriority + delta, 0, maxPriority);
+                    _priorityBuffer = newPriority.ToString();
+                    evt.Use();
+                }
+
+                if (newPriority != currentPriority)
+                {
+                    rule.Parameters.Priority = newPriority;
+                    state.SelectedPriority = newPriority;
+                    _priorityBuffer = newPriority.ToString();
+                    state.NotifyRulesModified();
+                }
             }
+
+            GUI.color = RuleBuilderConstants.SubtleTextColor;
+            Verse.Widgets.Label(hintRect, $"0-{maxPriority}  (mouse wheel adjusts by 1)");
+            GUI.color = Color.white;
+
+            TooltipHandler.TipRegion(fieldRect, $"Priority value from 0 to {maxPriority}. Use the mouse wheel to adjust quickly.");
         }
 
         private void DrawConditionEditor(Rect rect, RuleBuilderState state)

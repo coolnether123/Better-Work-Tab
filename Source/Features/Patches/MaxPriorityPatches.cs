@@ -44,6 +44,15 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         }
 
         /// <summary>
+        /// Returns the default priority used when enabling a work type outside manual priorities.
+        /// Uses vanilla's normal priority as a baseline, clamped to the configured range.
+        /// </summary>
+        internal static int GetDefaultEnabledPriority()
+        {
+            return Mathf.Clamp(3, 1, GetMaxPriority());
+        }
+
+        /// <summary>
         /// Maps extended priorities back into RimWorld's tooltip display range.
         /// </summary>
         internal static int MapPriorityToVanillaDisplay(int priority)
