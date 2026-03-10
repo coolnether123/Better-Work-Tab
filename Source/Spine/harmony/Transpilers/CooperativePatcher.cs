@@ -180,16 +180,15 @@ namespace ModAPI.Harmony
                     }
                      
                     // Build strictness is policy-driven so safer defaults can be enforced globally.
-                    bool strictBuild = TranspilerSafetyPolicy.CooperativeStrictBuild;
-                    var nextInstructions = t.Build(strict: strictBuild, validateStack: true);
-                    if (t.Warnings.Any(TranspilerSafetyPolicy.IsCriticalWarning))
+                    var nextInstructions = t.Build(TranspilerSafetyPolicy.DefaultCooperativeProfile);
+                    if (t.Diagnostics.Any(TranspilerSafetyPolicy.IsCriticalDiagnostic))
                     {
                         throw new InvalidOperationException(
                             $"Critical transpiler warnings for {patch.OwnerMod}:{patch.AnchorId}: " +
-                            string.Join("; ", t.Warnings.Where(TranspilerSafetyPolicy.IsCriticalWarning).ToArray()));
+                            string.Join("; ", t.Diagnostics.Where(TranspilerSafetyPolicy.IsCriticalDiagnostic).Select(d => d.Message).ToArray()));
                     }
 
-                    if (t.Warnings.Any(w => !w.StartsWith("DeclareLocal"))) // Filter informational
+                    if (t.Warnings.Count > 0)
                     {
                          MMLog.WriteWarning(
                             $"[CooperativePatcher] {patch.OwnerMod}:{patch.AnchorId} resulted in warnings: " +
@@ -206,16 +205,20 @@ namespace ModAPI.Harmony
                     var stepName = original != null && original.DeclaringType != null
                         ? original.DeclaringType.FullName + "." + original.Name
                         : (original != null ? original.Name : "UnknownMethod");
-                    TranspilerDebugger.RecordSnapshot(
-                        patch.OwnerMod,
-                        stepName,
-                        beforeInstructions,
-                        currentInstructions,
-                        sw.Elapsed.TotalMilliseconds,
-                        t.Warnings != null ? t.Warnings.Count : 0,
-                        original,
-                        origin);
-                    MMLog.WriteDebug("[CooperativePatcher] Snapshot recorded for patch origin: " + origin);
+                    if (TranspilerSafetyPolicy.ShouldRecordDebugSnapshot(t.Warnings.Count, t.SoftFailures.Count, t.Notes.Count))
+                    {
+                        TranspilerDebugger.RecordSnapshot(
+                            patch.OwnerMod,
+                            stepName,
+                            beforeInstructions,
+                            currentInstructions,
+                            sw.Elapsed.TotalMilliseconds,
+                            t.Warnings.Count,
+                            original,
+                            origin,
+                            warnings: t.Diagnostics.Select(d => d.ToString()));
+                        MMLog.WriteDebug("[CooperativePatcher] Snapshot recorded for patch origin: " + origin);
+                    }
                 }
                 catch (Exception ex)
                 {

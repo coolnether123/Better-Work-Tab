@@ -137,7 +137,8 @@ namespace ModAPI.Harmony
             }
             else
             {
-                t.AddWarning($"FindNextAnchor: No anchor with score >= {minUniqueness} found after index {t.CurrentIndex}");
+                t.AddSoftFailure(TranspilerDiagnosticCategory.Match,
+                    $"FindNextAnchor: No anchor with score >= {minUniqueness} found after index {t.CurrentIndex}");
             }
             return t;
         }
@@ -191,7 +192,7 @@ namespace ModAPI.Harmony
             {
                 string msg = $"Fuzzy match suggestions for {opcode} {operand}: Lines " + 
                              string.Join(", ", suggestions.Select(s => s.ToString()).ToArray());
-                t.AddWarning(msg);
+                t.AddNote(TranspilerDiagnosticCategory.Trace, msg);
                 MMLog.WriteWarning("[Cartographer] " + msg);
             }
         }

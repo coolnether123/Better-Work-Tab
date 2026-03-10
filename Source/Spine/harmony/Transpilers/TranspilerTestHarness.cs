@@ -7,23 +7,6 @@ using HarmonyLib;
 
 namespace ModAPI.Harmony
 {
-    public enum TranspilerWarningLevel
-    {
-        Info,       // DeclareLocal, position logging
-        Warning,    // Stack analysis soft failures
-        Error       // No match found, invalid operation
-    }
-
-    public class TranspilerWarning
-    {
-        public TranspilerWarningLevel Level;
-        public string Message;
-        public int? InstructionIndex;
-        public string Operation; // "MatchCall", "ReplaceWith", etc.
-
-        public override string ToString() => $"[{Level}] {Operation}: {Message} {(InstructionIndex.HasValue ? $"@ {InstructionIndex}" : "")}";
-    }
-
     /// <summary>
     /// Test harness for FluentTranspiler logic without needing a running game instance.
     /// Useful for unit testing transpilers.
@@ -56,6 +39,11 @@ namespace ModAPI.Harmony
             return transpiler.Build(strict: strict, validateStack: validateStack).ToList();
         }
 
+        public static List<CodeInstruction> RunTest(FluentTranspiler transpiler, FluentTranspiler.BuildProfile profile)
+        {
+            return transpiler.Build(profile).ToList();
+        }
+
         /// <summary>
         /// Validates stack depth and types. Throws on error.
         /// </summary>
@@ -73,7 +61,7 @@ namespace ModAPI.Harmony
         public static void AssertMatch(FluentTranspiler transpiler, string message = "Expected match not found")
         {
             if (!transpiler.HasMatch)
-                throw new Exception(message + ": " + (transpiler.Warnings.LastOrDefault() ?? "No details"));
+                throw new Exception(message + ": " + (transpiler.SoftFailures.LastOrDefault() ?? transpiler.Warnings.LastOrDefault() ?? "No details"));
         }
 
         /// <summary>

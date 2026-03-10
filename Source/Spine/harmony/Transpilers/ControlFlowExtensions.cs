@@ -41,7 +41,8 @@ namespace ModAPI.Harmony
                 }
             }
 
-            t.AddWarning($"FindLoop: No backward jumps found for loop type {type} starting from {currentPos}.");
+            t.AddSoftFailure(TranspilerDiagnosticCategory.Match,
+                $"FindLoop: No backward jumps found for loop type {type} starting from {currentPos}.");
             return t; 
         }
 
@@ -106,7 +107,8 @@ namespace ModAPI.Harmony
                 }
             }
             
-            t.AddWarning("AtThenBlockStart: Current instruction is not a conditional branch.");
+            t.AddSoftFailure(TranspilerDiagnosticCategory.Match,
+                "AtThenBlockStart: Current instruction is not a conditional branch.");
             return t;
         }
 
