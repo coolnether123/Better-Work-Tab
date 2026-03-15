@@ -1,5 +1,6 @@
 using Better_Work_Tab.UI.RuleBuilder.State;
 using RimWorld;
+using System.Collections.Generic;
 using UnityEngine;
 using Verse;
 using Verse.Sound;
@@ -18,8 +19,10 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
         private const float ButtonHeight = 40f;
         private const float ButtonSpacing = 6f;
         private const float BadgeSize = 20f;
+        private const float AddControlHeight = 32f;
         private string _draggingKey;
         private float? _previewLineY;
+        private string _addPriorityBuffer = string.Empty;
 
         /// <summary>
         /// Draws the priority selector panel.
@@ -70,6 +73,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
         {
             var ruleCounts = state.GetPriorityRuleCounts(state.SelectedWorkType);
             bool isReadOnly = state.IsRulesetReadOnly;
+            var visibleOrder = state.GetVisiblePriorityOrder(state.SelectedWorkType);
 
             // Label
             Rect labelRect = new Rect(rect.x, rect.y, rect.width, 24f);
@@ -81,12 +85,11 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
 
             // Buttons
             float buttonY = labelRect.yMax + 8f;
-            var order = state.PriorityOrder;
-            var rects = new System.Collections.Generic.List<(int priority, Rect rect)>();
+            var rects = new List<(int priority, Rect rect)>();
 
-            for (int idx = 0; idx < order.Count; idx++)
+            for (int idx = 0; idx < visibleOrder.Count; idx++)
             {
-                int priority = order[idx];
+                int priority = visibleOrder[idx];
                 Rect buttonRect = new Rect(
                     rect.x,
                     buttonY + idx * (ButtonHeight + ButtonSpacing),
@@ -98,6 +101,21 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
 
                 DrawPriorityButton(buttonRect, priority, ruleCount, isSelected, isReadOnly, state);
                 rects.Add((priority, buttonRect));
+            }
+
+            float afterButtonsY = buttonY + visibleOrder.Count * (ButtonHeight + ButtonSpacing);
+
+            if (visibleOrder.Count == 0)
+            {
+                Rect emptyRect = new Rect(rect.x, buttonY + 10f, rect.width, 40f);
+                DrawEmptyState(emptyRect, "No priorities are configured for this work type yet.");
+                afterButtonsY = emptyRect.yMax + 8f;
+            }
+
+            if (!isReadOnly)
+            {
+                Rect addRect = new Rect(rect.x, afterButtonsY, rect.width, AddControlHeight);
+                DrawAddPriorityControl(addRect, state);
             }
 
             if (!isReadOnly)
@@ -292,6 +310,76 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             RWWidgets.Label(rect, message);
             Text.Anchor = TextAnchor.UpperLeft;
             GUI.color = Color.white;
+        }
+
+        private void DrawAddPriorityControl(Rect rect, RuleBuilderState state)
+        {
+            int maxPriority = Mathf.Max(0, BetterWorkTabMod.Settings?.maxPriorityInt ?? state.MaxPriority);
+            Rect labelRect = new Rect(rect.x, rect.y, 66f, rect.height);
+            Rect fieldRect = new Rect(labelRect.xMax + 2f, rect.y, 56f, rect.height);
+            Rect goRect = new Rect(fieldRect.xMax + 6f, rect.y, rect.xMax - (fieldRect.xMax + 6f), rect.height);
+
+            Verse.Widgets.Label(labelRect, "Priority:");
+
+            if (string.IsNullOrEmpty(_addPriorityBuffer))
+            {
+                _addPriorityBuffer = state.SelectedPriority >= 0
+                    ? state.SelectedPriority.ToString()
+                    : "1";
+            }
+
+            int newPriority = Mathf.Clamp(state.SelectedPriority >= 0 ? state.SelectedPriority : 1, 0, maxPriority);
+            Verse.Widgets.TextFieldNumeric(fieldRect, ref newPriority, ref _addPriorityBuffer, 0, maxPriority);
+            bool useDropdown = string.IsNullOrWhiteSpace(_addPriorityBuffer) || newPriority <= 0;
+
+            Event evt = Event.current;
+            if (evt != null && evt.type == EventType.ScrollWheel && Mouse.IsOver(fieldRect))
+            {
+                int delta = evt.delta.y > 0f ? 1 : -1;
+                newPriority = Mathf.Clamp(newPriority + delta, 0, maxPriority);
+                _addPriorityBuffer = newPriority.ToString();
+                evt.Use();
+                useDropdown = string.IsNullOrWhiteSpace(_addPriorityBuffer) || newPriority <= 0;
+            }
+
+            string buttonLabel = useDropdown ? "Select Priority" : "+ Add Priority";
+            if (Verse.Widgets.ButtonText(goRect, buttonLabel))
+            {
+                if (useDropdown)
+                {
+                    ShowPriorityPicker(state);
+                }
+                else
+                {
+                    state.SelectedPriority = newPriority;
+                    _addPriorityBuffer = newPriority.ToString();
+                }
+            }
+
+            TooltipHandler.TipRegion(fieldRect, $"Enter a priority from 0 to {maxPriority}. Existing priorities are selected, unused priorities can be added.");
+        }
+
+        private void ShowPriorityPicker(RuleBuilderState state)
+        {
+            var options = new List<FloatMenuOption>();
+
+            foreach (int priority in state.PriorityOrder)
+            {
+                string label = priority == 0
+                    ? "BWT_Priority_Disabled".Translate().ToString()
+                    : GetPriorityLabel(priority);
+
+                options.Add(new FloatMenuOption(label, () =>
+                {
+                    state.SelectedPriority = priority;
+                    _addPriorityBuffer = priority > 0 ? priority.ToString() : string.Empty;
+                }));
+            }
+
+            if (options.Count > 0)
+            {
+                Find.WindowStack.Add(new FloatMenu(options));
+            }
         }
 
         private void HandlePriorityDrag(System.Collections.Generic.List<(int priority, Rect rect)> rects, RuleBuilderState state)

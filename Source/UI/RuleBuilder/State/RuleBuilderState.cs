@@ -226,6 +226,27 @@ namespace Better_Work_Tab.UI.RuleBuilder.State
         }
 
         /// <summary>
+        /// Gets the visible priority order for a work type, limited to priorities that
+        /// currently have rules configured for that work type.
+        /// </summary>
+        public List<int> GetVisiblePriorityOrder(WorkTypeDef workType)
+        {
+            EnsurePriorityOrder();
+
+            if (workType == null)
+                return new List<int>();
+
+            var counts = GetPriorityRuleCounts(workType);
+            if (counts.Count == 0)
+                return new List<int>();
+
+            return PriorityOrder
+                .Where(p => counts.TryGetValue(p, out var count) && count > 0)
+                .Distinct()
+                .ToList();
+        }
+
+        /// <summary>
         /// Gets all work types that have at least one rule configured.
         /// </summary>
         public HashSet<WorkTypeDef> ConfiguredWorkTypes
@@ -501,6 +522,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.State
             EnsurePriorityOrder();
             if (SelectedRuleset?.Rules == null || SelectedWorkType == null)
             {
+                SelectedPriority = -1;
                 return;
             }
 
@@ -514,11 +536,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.State
                 }
             }
 
-            // Fallback to the first available priority
-            if (PriorityOrder.Count > 0)
-            {
-                SelectedPriority = PriorityOrder[0];
-            }
+            SelectedPriority = -1;
         }
 
         private void SyncPriorityOrderFromRuleset()

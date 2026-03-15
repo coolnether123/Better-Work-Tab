@@ -96,17 +96,17 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
             int percentage = (int)(((float)priority / GetMaxPriority()) * 100f);
 
-            if (percentage < BetterWorkTabMod.Settings.priorityColorPercentage_Green)
+            if (percentage <= BetterWorkTabMod.Settings.priorityColorPercentage_Green)
             {
                 return new Color(0f, 1f, 0f);
             }
 
-            if (percentage < BetterWorkTabMod.Settings.priorityColorPercentage_Yellow)
+            if (percentage <= BetterWorkTabMod.Settings.priorityColorPercentage_Yellow)
             {
                 return new Color(1f, 0.9f, 0.5f);
             }
 
-            if (percentage < BetterWorkTabMod.Settings.priorityColorPercentage_Tan)
+            if (percentage <= BetterWorkTabMod.Settings.priorityColorPercentage_Tan)
             {
                 return new Color(0.8f, 0.7f, 0.5f);
             }
