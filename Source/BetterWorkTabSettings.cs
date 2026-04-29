@@ -657,6 +657,19 @@ namespace Better_Work_Tab
 
             Scribe_Collections.Look(ref SavedRulesets, "SavedRulesets", LookMode.Deep);
 
+            string currentRulesetName = CurrentRuleset?.Name;
+            Scribe_Values.Look(ref currentRulesetName, "CurrentRulesetName", null, forceSave: true);
+            if (Scribe.mode == LoadSaveMode.LoadingVars && SavedRulesets != null)
+            {
+                CurrentRuleset = currentRulesetName != null
+                    ? SavedRulesets.FirstOrDefault(rs =>
+                        string.Equals(rs.Name, currentRulesetName, StringComparison.OrdinalIgnoreCase))
+                    : null;
+
+                if (CurrentRuleset == null)
+                    CurrentRuleset = SelectPreferredRuleset();
+            }
+
             // Reinitialize rulesets after load (restores defaults if missing)
             //InitializeRulesets();
 
