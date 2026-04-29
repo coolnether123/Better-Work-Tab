@@ -323,7 +323,6 @@ namespace Better_Work_Tab.UI.RuleBuilder.State
                 return null;
 
             var copy = rule.Copy();
-            copy.Name = copy.Name + " (Copy)";
 
             SelectedRuleset.Rules.Add(copy);
             SelectedRule = copy;

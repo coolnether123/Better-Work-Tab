@@ -10,6 +10,7 @@ namespace Better_Work_Tab.Features.Rules
 {
     public class WorkAssignmentRule : IExposable
     {
+        public string RuleId;
         public string Name;
         public WorkTypeDef CachedWorktype;
         public WorkAssignmentParameters Parameters;
@@ -40,6 +41,7 @@ namespace Better_Work_Tab.Features.Rules
             WorkTypeDef worktype = null
         )
         {
+            RuleId = Guid.NewGuid().ToString();
             CachedWorktype = worktype;
             Parameters = parameters;
             Name = parameters.RuleName;
@@ -51,6 +53,7 @@ namespace Better_Work_Tab.Features.Rules
             WorkTypeDef worktype = null
         )
         {
+            RuleId = Guid.NewGuid().ToString();
             CachedWorktype = worktype;
             Parameters = parameters;
             parameters.RuleName = name;
@@ -152,7 +155,7 @@ namespace Better_Work_Tab.Features.Rules
         public WorkAssignmentRule Copy()
         {
             return new WorkAssignmentRule(
-                Name + " (Copy)",
+                Name,
                 Parameters.Copy(),
                 CachedWorktype
             );
@@ -160,9 +163,21 @@ namespace Better_Work_Tab.Features.Rules
 
         public void ExposeData()
         {
+            Scribe_Values.Look(ref RuleId, "RuleId", null);
             Scribe_Values.Look(ref Name, "Name");
             Scribe_Defs.Look(ref CachedWorktype, "Worktype");
             Scribe_Deep.Look(ref Parameters, "Parameters");
+
+            if (Scribe.mode == LoadSaveMode.PostLoadInit)
+            {
+                if (string.IsNullOrEmpty(RuleId))
+                    RuleId = Guid.NewGuid().ToString();
+
+                Name = Name?.Replace("(Copy)", "").Trim();
+
+                if (Parameters != null)
+                    Parameters.RuleName = Parameters.RuleName?.Replace("(Copy)", "").Trim();
+            }
         }
     }
 }
