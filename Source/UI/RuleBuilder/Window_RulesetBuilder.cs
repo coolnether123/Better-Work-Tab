@@ -36,7 +36,7 @@ namespace Better_Work_Tab.UI.RuleBuilder
 
         public Window_RulesetBuilder()
         {
-            forcePause = false;
+            forcePause = true;
             doCloseX = true;
             preventCameraMotion = true;
             resizeable = false;
