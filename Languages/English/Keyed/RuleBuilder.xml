@@ -72,4 +72,18 @@
   <BWT_NewRule>New Rule</BWT_NewRule>
   <BWT_DuplicateRule>Duplicate Rule</BWT_DuplicateRule>
   <BWT_NoRulesInRuleset>No rules in ruleset</BWT_NoRulesInRuleset>
+
+  <!-- Preview panel -->
+  <BWT_PreviewTitle>Preview</BWT_PreviewTitle>
+  <BWT_PreviewShow>▼ Preview</BWT_PreviewShow>
+  <BWT_PreviewHide>▲ Preview</BWT_PreviewHide>
+  <BWT_PreviewShowAll>Show all work types</BWT_PreviewShowAll>
+  <BWT_PreviewMatched>{0} / {1} colonists matched</BWT_PreviewMatched>
+  <BWT_PreviewNoMap>No map loaded — open a save to see the preview.</BWT_PreviewNoMap>
+  <BWT_PreviewNoColonists>No colonists on the current map.</BWT_PreviewNoColonists>
+  <BWT_PreviewNoChanges>This ruleset makes no changes. Enable "Show all work types" to see all columns.</BWT_PreviewNoChanges>
+  <BWT_PreviewPawnMatched>{0} — matched by this ruleset.</BWT_PreviewPawnMatched>
+  <BWT_PreviewPawnUnmatched>{0} — not matched by this ruleset.</BWT_PreviewPawnUnmatched>
+  <BWT_PreviewCellChanged>{0}: {1} → {2} (would change)</BWT_PreviewCellChanged>
+  <BWT_PreviewCellUnchanged>{0}: priority {1} (no change)</BWT_PreviewCellUnchanged>
 </LanguageData>

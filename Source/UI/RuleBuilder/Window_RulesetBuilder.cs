@@ -17,29 +17,25 @@ namespace Better_Work_Tab.UI.RuleBuilder
 {
     /// <summary>
     /// Main window for the interactive ruleset builder.
-    /// Organizes UI into three columns:
-    /// 1. Work Type selector (left)
-    /// 2. Priority selector (middle)
-    /// 3. Condition editor (right)
+    /// Three-column editor (work types / priority / conditions) with an optional
+    /// live preview panel below showing the simulated work tab result.
     /// </summary>
     public class Window_RulesetBuilder : Window
     {
-        // ═══════════════════════════════════════════════════════════════
-        // STATE & PANELS
-        // ═══════════════════════════════════════════════════════════════
+        // ── State & panels ────────────────────────────────────────────────────
 
         private RuleBuilderState _state;
         private WorkTypeListPanel _workTypePanel;
         private PrioritySelectorPanel _priorityPanel;
         private ConditionEditorPanel _conditionPanel;
+        private PreviewPanel _previewPanel;
 
-        private float _lastRulesetClickTime;
-        private string _lastRulesetClickedName;
-        private const float DoubleClickTimeWindow = 0.3f;
+        private bool _showPreview;
 
-        // ═══════════════════════════════════════════════════════════════
-        // WINDOW SETUP
-        // ═══════════════════════════════════════════════════════════════
+        private const float BaseWindowHeight = 700f;
+        private const float BaseWindowWidth = 1100f;
+
+        // ── Window setup ──────────────────────────────────────────────────────
 
         public Window_RulesetBuilder()
         {
@@ -50,46 +46,61 @@ namespace Better_Work_Tab.UI.RuleBuilder
             draggable = false;
         }
 
-        public override Vector2 InitialSize => new Vector2(1100f, 700f);
+        public override Vector2 InitialSize => new Vector2(BaseWindowWidth, BaseWindowHeight);
 
         public override void PreOpen()
         {
             base.PreOpen();
 
-            // Initialize state
             _state = new RuleBuilderState();
             _state.SelectedRuleset = BetterWorkTabMod.Settings.CurrentRuleset
                 ?? BetterWorkTabMod.Settings.SavedRulesets?.FirstOrDefault();
 
-            // Initialize panels
             _workTypePanel = new WorkTypeListPanel();
             _priorityPanel = new PrioritySelectorPanel();
             _conditionPanel = new ConditionEditorPanel();
+            _previewPanel = new PreviewPanel();
 
-            // Wire up state events
             _state.OnWorkTypeChanged += _ => _workTypePanel.InvalidateCache();
+            _state.OnRulesModified += () => _previewPanel.Invalidate();
+            _state.OnRulesetChanged += _ => _previewPanel.Invalidate();
         }
 
-        // ═══════════════════════════════════════════════════════════════
-        // MAIN DRAW
-        // ═══════════════════════════════════════════════════════════════
+        // ── Main draw ─────────────────────────────────────────────────────────
 
         public override void DoWindowContents(Rect inRect)
         {
-            // Header with ruleset dropdown
+            // Header
             Rect headerRect = new Rect(inRect.x, inRect.y, inRect.width, RuleBuilderConstants.NavBarHeight);
             DrawHeader(headerRect);
 
-            // Content area
-            Rect contentRect = new Rect(
+            // Three-column editor — shrinks vertically when preview is open
+            float editorHeight = _showPreview
+                ? inRect.height - RuleBuilderConstants.NavBarHeight - 12f
+                  - RuleBuilderConstants.PreviewPanelHeight - RuleBuilderConstants.ColumnGap
+                : inRect.height - RuleBuilderConstants.NavBarHeight - 12f;
+
+            Rect editorRect = new Rect(
                 inRect.x,
                 headerRect.yMax + 8f,
                 inRect.width,
-                inRect.height - headerRect.height - 12f);
+                editorHeight);
 
-            DrawThreeColumnLayout(contentRect);
+            DrawThreeColumnLayout(editorRect);
 
-            // Drag Drop
+            // Preview panel
+            if (_showPreview)
+            {
+                Rect previewRect = new Rect(
+                    inRect.x,
+                    editorRect.yMax + RuleBuilderConstants.ColumnGap,
+                    inRect.width,
+                    RuleBuilderConstants.PreviewPanelHeight);
+
+                _previewPanel.Draw(previewRect, _state);
+            }
+
+            // Drag overlay (always on top)
             if (_state?.DragController != null)
             {
                 _state.DragController.Update();
@@ -97,9 +108,8 @@ namespace Better_Work_Tab.UI.RuleBuilder
             }
         }
 
-        /// <summary>
-        /// Draws the header with ruleset selection and new button.
-        /// </summary>
+        // ── Header ────────────────────────────────────────────────────────────
+
         private void DrawHeader(Rect rect)
         {
             RWWidgets.DrawBoxSolid(rect, RuleBuilderConstants.CardBackground);
@@ -113,54 +123,77 @@ namespace Better_Work_Tab.UI.RuleBuilder
             RWWidgets.Label(titleRect, "BWT_RuleBuilder_Title".Translate());
             GUI.color = Color.white;
 
-            // Ruleset dropdown/rename
+            // Ruleset dropdown (centered)
             Rect dropdownRect = new Rect(
                 rect.x + rect.width / 2f - 150f,
                 rect.y + 6f,
                 300f,
                 28f);
-
             DrawRulesetDropdownWithRename(dropdownRect);
 
-            // New ruleset button
+            // Right-side buttons (right → left): New | Edit | Preview
             Rect newButtonRect = new Rect(rect.xMax - 110f, rect.y + 6f, 100f, 28f);
-            
-            // Edit button (to the left of New button)
+
             if (_state.SelectedRuleset != null && !_state.SelectedRuleset.IsDefault)
             {
-                Rect editButtonRect = new Rect(newButtonRect.x - 70f - 10f, rect.y + 6f, 70f, 28f);
+                Rect editButtonRect = new Rect(newButtonRect.x - 80f, rect.y + 6f, 70f, 28f);
                 if (RWWidgets.ButtonText(editButtonRect, "Edit"))
-                {
                     OpenRenameDialog(_state.SelectedRuleset);
-                }
+
+                Rect previewButtonRect = new Rect(editButtonRect.x - 100f, rect.y + 6f, 90f, 28f);
+                DrawPreviewToggleButton(previewButtonRect);
+            }
+            else
+            {
+                Rect previewButtonRect = new Rect(newButtonRect.x - 100f, rect.y + 6f, 90f, 28f);
+                DrawPreviewToggleButton(previewButtonRect);
             }
 
             if (RWWidgets.ButtonText(newButtonRect, "+ " + "BWT_New".Translate()))
-            {
                 CreateNewRuleset();
-            }
 
             Text.Font = GameFont.Small;
             Text.Anchor = TextAnchor.UpperLeft;
         }
 
-        /// <summary>
-        /// Draws ruleset selector with double-click rename support.
-        /// </summary>
+        private void DrawPreviewToggleButton(Rect rect)
+        {
+            string label = _showPreview
+                ? "BWT_PreviewHide".Translate()
+                : "BWT_PreviewShow".Translate();
+
+            if (RWWidgets.ButtonText(rect, label))
+                TogglePreview();
+        }
+
+        // ── Preview toggle ────────────────────────────────────────────────────
+
+        private void TogglePreview()
+        {
+            _showPreview = !_showPreview;
+
+            float newHeight = _showPreview
+                ? BaseWindowHeight + RuleBuilderConstants.PreviewPanelHeight + RuleBuilderConstants.ColumnGap
+                : BaseWindowHeight;
+
+            // Re-center vertically; keep horizontal position
+            float newY = Mathf.Max(0f, Verse.UI.screenHeight / 2f - newHeight / 2f);
+            windowRect = new Rect(windowRect.x, newY, BaseWindowWidth, newHeight);
+
+            if (!_showPreview)
+                _previewPanel.Invalidate();
+        }
+
+        // ── Ruleset dropdown ──────────────────────────────────────────────────
+
         private void DrawRulesetDropdownWithRename(Rect rect)
         {
-            var rulesets = BetterWorkTabMod.Settings.SavedRulesets ?? new List<WorkAssignmentRuleset>();
             var selected = _state.SelectedRuleset;
-
             string label = selected?.Name ?? "BWT_SelectRuleset".Translate();
 
-            // Draw the button
             if (RWWidgets.ButtonText(rect, label))
-            {
                 HandleRulesetClick(selected);
-            }
 
-            // Handle double-click for rename
             if (Event.current.type == EventType.MouseDown &&
                 Event.current.clickCount == 2 &&
                 rect.Contains(Event.current.mousePosition) &&
@@ -174,14 +207,22 @@ namespace Better_Work_Tab.UI.RuleBuilder
         private void HandleRulesetClick(WorkAssignmentRuleset selected)
         {
             var rulesets = BetterWorkTabMod.Settings.SavedRulesets ?? new List<WorkAssignmentRuleset>();
-
             var options = new List<FloatMenuOption>();
+
+            // Calculate match counts for each ruleset when the dropdown opens
+            var previewCalc = new RulesetPreviewCalculator();
 
             foreach (var ruleset in rulesets)
             {
                 var local = ruleset;
-                string optionLabel = local.Name + (local.IsDefault ? " *" : "");
-                
+
+                // Show matched-colonist count next to each ruleset name
+                var previewResult = previewCalc.Calculate(local);
+                string countSuffix = previewResult.HasData
+                    ? $"  ({previewResult.MatchedPawns.Count}/{previewResult.Pawns.Count})"
+                    : "";
+                string optionLabel = local.Name + (local.IsDefault ? " *" : "") + countSuffix;
+
                 options.Add(new FloatMenuOption(optionLabel, () =>
                 {
                     _state.SelectedRuleset = local;
@@ -189,26 +230,21 @@ namespace Better_Work_Tab.UI.RuleBuilder
                 }));
             }
 
-            // Add manage options based on view mode (Raw/Both)
             var mode = BetterWorkTabMod.Settings.rulesetViewMode;
             if (mode == BetterWorkTabSettings.RulesetViewMode.Raw || mode == BetterWorkTabSettings.RulesetViewMode.Both)
             {
-                string label = mode == BetterWorkTabSettings.RulesetViewMode.Raw 
-                    ? "BWT_RuleBuilder_ManageRulesets".Translate() 
+                string manageLabel = mode == BetterWorkTabSettings.RulesetViewMode.Raw
+                    ? "BWT_RuleBuilder_ManageRulesets".Translate()
                     : "BWT_RuleBuilder_ManageRulesets".Translate() + " (Raw)";
 
-                options.Add(new FloatMenuOption(label, () =>
-                {
-                    Find.WindowStack.Add(new Window_RulesManager());
-                }));
+                options.Add(new FloatMenuOption(manageLabel, () =>
+                    Find.WindowStack.Add(new Window_RulesManager())));
             }
 
             if (selected != null && !selected.IsDefault)
             {
                 options.Add(new FloatMenuOption("BWT_Rename".Translate(), () =>
-                {
-                    OpenRenameDialog(selected);
-                }));
+                    OpenRenameDialog(selected)));
             }
 
             Find.WindowStack.Add(new FloatMenu(options));
@@ -216,17 +252,10 @@ namespace Better_Work_Tab.UI.RuleBuilder
 
         private void OpenRenameDialog(WorkAssignmentRuleset ruleset)
         {
-            var dialog = new Dialog_RenameRuleset(ruleset, () =>
-            {
-                BetterWorkTabMod.Settings.Write();
-            });
-
-            Find.WindowStack.Add(dialog);
+            Find.WindowStack.Add(new Dialog_RenameRuleset(ruleset, () =>
+                BetterWorkTabMod.Settings.Write()));
         }
 
-        /// <summary>
-        /// Creates a new ruleset with a default name.
-        /// </summary>
         private void CreateNewRuleset()
         {
             var rulesets = BetterWorkTabMod.Settings.SavedRulesets;
@@ -248,41 +277,30 @@ namespace Better_Work_Tab.UI.RuleBuilder
             BetterWorkTabMod.Settings.Write();
         }
 
-        /// <summary>
-        /// Draws the three-column layout.
-        /// </summary>
+        // ── Three-column editor ───────────────────────────────────────────────
+
         private void DrawThreeColumnLayout(Rect rect)
         {
-            // Column 1: Work Types
             Rect col1Rect = new Rect(
-                rect.x,
-                rect.y,
-                RuleBuilderConstants.WorkTypeListColumnWidth,
-                rect.height);
+                rect.x, rect.y,
+                RuleBuilderConstants.WorkTypeListColumnWidth, rect.height);
 
-            // Column 2: Priorities
             Rect col2Rect = new Rect(
-                col1Rect.xMax + RuleBuilderConstants.ColumnGap,
-                rect.y,
-                RuleBuilderConstants.PrioritySelectorColumnWidth,
-                rect.height);
+                col1Rect.xMax + RuleBuilderConstants.ColumnGap, rect.y,
+                RuleBuilderConstants.PrioritySelectorColumnWidth, rect.height);
 
-            // Column 3: Conditions (remaining space)
             Rect col3Rect = new Rect(
-                col2Rect.xMax + RuleBuilderConstants.ColumnGap,
-                rect.y,
+                col2Rect.xMax + RuleBuilderConstants.ColumnGap, rect.y,
                 rect.width - col1Rect.width - col2Rect.width - RuleBuilderConstants.ColumnGap * 2,
                 rect.height);
 
-            // Draw all three columns
             _workTypePanel.Draw(col1Rect, _state);
             _priorityPanel.Draw(col2Rect, _state);
             _conditionPanel.Draw(col3Rect, _state);
         }
 
-        /// <summary>
-        /// Saves settings when window closes.
-        /// </summary>
+        // ── Lifecycle ─────────────────────────────────────────────────────────
+
         public override void PostClose()
         {
             base.PostClose();

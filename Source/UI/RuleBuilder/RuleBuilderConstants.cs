@@ -57,6 +57,20 @@ namespace Better_Work_Tab.UI.RuleBuilder
         /// <summary>Spacing between cards in grids and rows.</summary>
         public const float CardSpacing = 8f;
 
+        // ── Preview panel ────────────────────────────────────────────────────
+
+        /// <summary>Total height of the preview panel (header + grid).</summary>
+        public const float PreviewPanelHeight = 260f;
+
+        /// <summary>Height of each pawn row in the preview grid.</summary>
+        public const float PreviewRowHeight = 22f;
+
+        /// <summary>Width of each priority cell in the preview grid.</summary>
+        public const float PreviewCellWidth = 26f;
+
+        /// <summary>Width of the pawn-name column in the preview grid.</summary>
+        public const float PreviewNameColumnWidth = 128f;
+
         // ═══════════════════════════════════════════════════════════════
         // COLORS
         // ═══════════════════════════════════════════════════════════════
