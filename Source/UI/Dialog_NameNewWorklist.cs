@@ -29,9 +29,7 @@ namespace Better_Work_Tab.UI
             Widgets.Label(new Rect(0f, curY, rect.width, 35f), "Name new workload");
             curY += 35f;
 
-            string tempName = curName;
-            Widgets.TextEntry(new Rect(0f, curY, rect.width, 35f), ref tempName, 50);
-            curName = tempName;
+            curName = Widgets.TextField(new Rect(0f, curY, rect.width, 35f), curName, 50);
             curY += 45f;
 
             if (Widgets.ButtonText(new Rect((rect.width - 120f) / 2f, curY, 120f, 40f), "Accept"))
