@@ -1,4 +1,6 @@
 using Better_Work_Tab.Features;
+using Better_Work_Tab.UI.Headers;
+using Better_Work_Tab.UI.Headers.Angled;
 using Better_Work_Tab.UI.RuleBuilder.Services;
 using Better_Work_Tab.UI.RuleBuilder.State;
 using RimWorld;
@@ -31,8 +33,12 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
         private Vector2 _scrollPosition;
 
         private const float HeaderBarHeight = 28f;
-        private const float WorkTypeHeaderHeight = 22f;
         private const float MatchDotSize = 8f;
+
+        // Header row is tall enough for angled text at the current rotation setting.
+        // Recomputed when the display work type list changes.
+        private float _workTypeHeaderHeight = 80f;
+        private List<WorkTypeDef> _lastHeaderWorkTypes;
 
         // ── Public API ────────────────────────────────────────────────────────
 
@@ -128,16 +134,18 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             float cell = RuleBuilderConstants.PreviewCellWidth;
             float rowH = RuleBuilderConstants.PreviewRowHeight;
 
+            RefreshHeaderHeight(workTypes);
+
             float contentW = nameCol + cell * workTypes.Count + 2f;
-            float contentH = WorkTypeHeaderHeight + rowH * result.Pawns.Count + 2f;
+            float contentH = _workTypeHeaderHeight + rowH * result.Pawns.Count + 2f;
 
             RWWidgets.BeginScrollView(rect, ref _scrollPosition, new Rect(0f, 0f, contentW, contentH));
 
-            // Work type abbreviation header
-            DrawWorkTypeHeader(new Rect(0f, 0f, contentW, WorkTypeHeaderHeight), workTypes);
+            // Work type header with angled labels
+            DrawWorkTypeHeader(new Rect(0f, 0f, contentW, _workTypeHeaderHeight), workTypes);
 
             // One row per pawn
-            float y = WorkTypeHeaderHeight;
+            float y = _workTypeHeaderHeight;
             for (int i = 0; i < result.Pawns.Count; i++)
             {
                 DrawPawnRow(
@@ -157,7 +165,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             float nameCol = RuleBuilderConstants.PreviewNameColumnWidth;
             float cell = RuleBuilderConstants.PreviewCellWidth;
 
-            // Empty cell above pawn names
+            // Background behind the pawn-name column
             RWWidgets.DrawBoxSolid(
                 new Rect(rect.x, rect.y, nameCol, rect.height),
                 new Color(0.14f, 0.14f, 0.14f, 0.9f));
@@ -168,15 +176,21 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
                 Rect cellRect = new Rect(x + 1f, rect.y + 1f, cell - 2f, rect.height - 2f);
                 RWWidgets.DrawBoxSolid(cellRect, new Color(0.2f, 0.2f, 0.2f, 0.9f));
 
-                string abbrev = wt.labelShort ?? wt.defName;
-                if (abbrev.Length > 3) abbrev = abbrev.Substring(0, 3);
+                string labelText = HeaderUtility.GetHeaderText(wt);
+                bool isCJKVertical = BetterWorkTabMod.Settings.useVerticalStackingForCJK
+                    && Mathf.Abs(BetterWorkTabMod.Settings.angledHeaderRotation + 90f) < 5f
+                    && HeaderUtility.IsCJK(labelText);
 
-                Text.Font = GameFont.Tiny;
-                Text.Anchor = TextAnchor.MiddleCenter;
-                GUI.color = RuleBuilderConstants.SubtleTextColor;
-                RWWidgets.Label(cellRect, abbrev.ToUpperInvariant());
+                Text.Font = GameFont.Small;
+                var layout = new AngledLabelDrawer.AngledLabelLayout(
+                    text: labelText,
+                    size: Text.CalcSize(labelText),
+                    pivot: cellRect.center,
+                    showMarker: false,
+                    isCJKVertical: isCJKVertical);
 
-                TooltipHandler.TipRegion(cellRect, wt.labelShort.CapitalizeFirst());
+                AngledLabelDrawer.Draw(layout, isMouseOver: Mouse.IsOver(cellRect),
+                    isSorted: false, sortDescending: false, headerRect: cellRect, column: null);
 
                 x += cell;
             }
@@ -296,6 +310,41 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
         }
 
         // ── Helpers ───────────────────────────────────────────────────────────
+
+        private void RefreshHeaderHeight(List<WorkTypeDef> workTypes)
+        {
+            if (workTypes == _lastHeaderWorkTypes) return;
+            _lastHeaderWorkTypes = workTypes;
+
+            float rotation = AngledLabelDrawer.CurrentRotation;
+            float absSin = Mathf.Abs(Mathf.Sin(rotation * Mathf.Deg2Rad));
+            float absCos = Mathf.Abs(Mathf.Cos(rotation * Mathf.Deg2Rad));
+            float maxH = 22f; // minimum
+
+            GameFont savedFont = Text.Font;
+            Text.Font = GameFont.Small;
+
+            foreach (var wt in workTypes)
+            {
+                string label = HeaderUtility.GetHeaderText(wt);
+                bool isCJKVertical = BetterWorkTabMod.Settings.useVerticalStackingForCJK
+                    && Mathf.Abs(BetterWorkTabMod.Settings.angledHeaderRotation + 90f) < 5f
+                    && HeaderUtility.IsCJK(label);
+
+                float h;
+                if (isCJKVertical)
+                    h = label.Length * Text.LineHeight * BetterWorkTabMod.Settings.cjkVerticalKerning;
+                else
+                {
+                    Vector2 size = Text.CalcSize(label);
+                    h = size.x * absSin + size.y * absCos;
+                }
+                if (h > maxH) maxH = h;
+            }
+
+            Text.Font = savedFont;
+            _workTypeHeaderHeight = maxH + AngledLabelDrawer.STEM_BOTTOM_GAP + 4f;
+        }
 
         private void EnsureCalculated(WorkAssignmentRuleset ruleset)
         {
