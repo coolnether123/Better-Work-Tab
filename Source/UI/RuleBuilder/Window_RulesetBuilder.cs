@@ -30,10 +30,7 @@ namespace Better_Work_Tab.UI.RuleBuilder
         private ConditionEditorPanel _conditionPanel;
         private PreviewPanel _previewPanel;
 
-        private bool _showPreview;
-
-        private const float BaseWindowHeight = 700f;
-        private const float BaseWindowWidth = 1100f;
+        private bool _showPreview = true;
 
         // ── Window setup ──────────────────────────────────────────────────────
 
@@ -46,7 +43,9 @@ namespace Better_Work_Tab.UI.RuleBuilder
             draggable = false;
         }
 
-        public override Vector2 InitialSize => new Vector2(BaseWindowWidth, BaseWindowHeight);
+        public override Vector2 InitialSize => new Vector2(
+            Verse.UI.screenWidth,
+            Verse.UI.screenHeight - 35f);
 
         public override void PreOpen()
         {
@@ -131,25 +130,39 @@ namespace Better_Work_Tab.UI.RuleBuilder
                 28f);
             DrawRulesetDropdownWithRename(dropdownRect);
 
-            // Right-side buttons (right → left): New | Edit | Preview
-            Rect newButtonRect = new Rect(rect.xMax - 110f, rect.y + 6f, 100f, 28f);
+            // Right-side buttons — widths sized from text so nothing clips.
+            // Layout (right → left): [+ New] [Edit?] [▼/▲ Preview]
+            const float btnH = 28f;
+            const float btnPad = 16f;
+            const float btnGap = 6f;
+            Text.Font = GameFont.Small;
+
+            string newLabel = "+ " + "BWT_New".Translate();
+            string previewLabel = (_showPreview ? "BWT_PreviewHide" : "BWT_PreviewShow").Translate();
+            string editLabel = "BWT_Rename".Translate();
+
+            float newW = Mathf.Max(70f, Text.CalcSize(newLabel).x + btnPad);
+            float previewW = Mathf.Max(80f, Text.CalcSize(previewLabel).x + btnPad);
+            float editW = Mathf.Max(60f, Text.CalcSize(editLabel).x + btnPad);
+
+            Rect newButtonRect = new Rect(rect.xMax - newW - btnGap, rect.y + 6f, newW, btnH);
 
             if (_state.SelectedRuleset != null && !_state.SelectedRuleset.IsDefault)
             {
-                Rect editButtonRect = new Rect(newButtonRect.x - 80f, rect.y + 6f, 70f, 28f);
-                if (RWWidgets.ButtonText(editButtonRect, "Edit"))
+                Rect editButtonRect = new Rect(newButtonRect.x - editW - btnGap, rect.y + 6f, editW, btnH);
+                if (RWWidgets.ButtonText(editButtonRect, editLabel))
                     OpenRenameDialog(_state.SelectedRuleset);
 
-                Rect previewButtonRect = new Rect(editButtonRect.x - 100f, rect.y + 6f, 90f, 28f);
+                Rect previewButtonRect = new Rect(editButtonRect.x - previewW - btnGap, rect.y + 6f, previewW, btnH);
                 DrawPreviewToggleButton(previewButtonRect);
             }
             else
             {
-                Rect previewButtonRect = new Rect(newButtonRect.x - 100f, rect.y + 6f, 90f, 28f);
+                Rect previewButtonRect = new Rect(newButtonRect.x - previewW - btnGap, rect.y + 6f, previewW, btnH);
                 DrawPreviewToggleButton(previewButtonRect);
             }
 
-            if (RWWidgets.ButtonText(newButtonRect, "+ " + "BWT_New".Translate()))
+            if (RWWidgets.ButtonText(newButtonRect, newLabel))
                 CreateNewRuleset();
 
             Text.Font = GameFont.Small;
@@ -171,15 +184,6 @@ namespace Better_Work_Tab.UI.RuleBuilder
         private void TogglePreview()
         {
             _showPreview = !_showPreview;
-
-            float newHeight = _showPreview
-                ? BaseWindowHeight + RuleBuilderConstants.PreviewPanelHeight + RuleBuilderConstants.ColumnGap
-                : BaseWindowHeight;
-
-            // Re-center vertically; keep horizontal position
-            float newY = Mathf.Max(0f, Verse.UI.screenHeight / 2f - newHeight / 2f);
-            windowRect = new Rect(windowRect.x, newY, BaseWindowWidth, newHeight);
-
             if (!_showPreview)
                 _previewPanel.Invalidate();
         }
