@@ -81,8 +81,18 @@ namespace Better_Work_Tab.Features
             var pawns = map.mapPawns.FreeColonists.ToList();
             if (pawns.Count == 0) return;
 
-            var allWorkTypes = CachedWorkTypes;
+            ApplyToList(pawns);
+        }
 
+        /// <summary>
+        /// Applies all rules to an explicit pawn list without touching map or play settings.
+        /// Used by the preview calculator to simulate assignments without side effects.
+        /// </summary>
+        public void ApplyToList(List<Pawn> pawns)
+        {
+            if (pawns == null || pawns.Count == 0) return;
+
+            var allWorkTypes = CachedWorkTypes;
 
             foreach (var rule in GetRulesInPriorityOrder())
             {
@@ -91,78 +101,48 @@ namespace Better_Work_Tab.Features
 
                     if (rule.Parameters.Worktype != null)
                     {
-
-                        //if there's a rule that applies to only one worktype, skip all others.
                         if (rule.Parameters.Worktype != worktype)
                             continue;
                     }
                     if (rule.Parameters.IgnoreIfWorktypeNonexistent)
                     {
-                        //if there's a rule that applies to only one ignorable worktype, skip all others.
                         if (!DefDatabase<WorkTypeDef>.AllDefs.Contains(DefDatabase<WorkTypeDef>.GetNamedSilentFail(rule.Parameters.Worktype?.defName ?? rule.Parameters.WorktypeString)))
                             continue;
                     }
                     List<Pawn> pawnsForThisWorktype = new List<Pawn>();
 
-                    //Log.Message($"Auto-assigning work type: {worktype.defName}");
                     foreach (var pawn in pawns)
                     {
                         if (pawn.workSettings == null) continue;
                         int originalPriority = pawn.workSettings.GetPriority(worktype);
                         bool pawnAlreadyAssigned = originalPriority > 0;
-                        //// Apply all rules
                         if (rule.Apply(pawn, pawns, worktype))
-                        {
-                            //Log.Message("assigned " + worktype.defName +" to " + pawn.NameShortColored +". Skipping remaining pawns.");
-                            //Apply returns true if the rest of the pawns should be skipped for this worktype
                             break;
-                        }
                         if (rule.Parameters.RandomIfMultiple)
                         {
                             int updatedPriority = pawn.workSettings.GetPriority(worktype);
                             if (updatedPriority > 0 && !pawnAlreadyAssigned)
-                            {
-                                //this was assigned. add to list for potential randomization later.
                                 pawnsForThisWorktype.Add(pawn);
-                            }
                         }
                     }
 
                     if (rule.Parameters.RandomIfMultiple && pawnsForThisWorktype.Count > 0)
                     {
-                        //copy the list so we can sort it
-                        //filter to only those with a priority that has been set
-
-                        //reset before reassigning for randomization
                         foreach (var p in pawnsForThisWorktype)
                         {
                             BetterWorkTabMod.DebugLog($"Resetting {worktype.defName} for {p.NameShortColored} before random assignment.", DebugFeature.Rules);
-                            //if (p.workSettings.GetPriority(worktype) == rule.Parameters.Priority)
                             p.workSettings.SetPriority(worktype, 0);
                         }
-                        // Mirrors vanilla RimWorld's selection logic for picking one pawn among eligible candidates.
                         List<Pawn> eligiblePawns = new List<Pawn>();
                         foreach (var pawn in pawnsForThisWorktype)
                         {
                             if (!pawn.WorkTypeIsDisabled(worktype))
-                            {
                                 eligiblePawns.Add(pawn);
-                            }
                         }
 
                         if (eligiblePawns.Count > 0)
-                        {
                             eligiblePawns.RandomElement().workSettings.SetPriority(worktype, rule.Parameters.Priority);
-                        }
                     }
-
-                    //if (rule.Parameters.FailedToApplyFallback != null && !pawns.Where(p => { return p.workSettings.GetPriority(worktype) > 0; }).Any())
-                    //{
-                    //    Log.Message($"No pawn could be assigned to work type: {worktype.defName}. Applying fallback.");
-                    //    foreach (var pawn in pawns)
-                    //        new WorkAssignmentRule(rule.Parameters.FailedToApplyFallback).Apply(pawn, pawns, worktype);
-                    //}
-
                 }
             }
         }
