@@ -66,7 +66,7 @@ namespace Better_Work_Tab.UI.RuleBuilder
         public const float PreviewRowHeight = 22f;
 
         /// <summary>Width of each priority cell in the preview grid.</summary>
-        public const float PreviewCellWidth = 26f;
+        public const float PreviewCellWidth = 34f;
 
         /// <summary>Width of the pawn-name column in the preview grid.</summary>
         public const float PreviewNameColumnWidth = 128f;

@@ -260,7 +260,6 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
         {
             bool isDisabled = pawn.WorkTypeIsDisabled(wt);
             int afterPriority = result.GetAfterPriority(pawn, wt);
-            bool changed = result.HasChanged(pawn, wt);
 
             if (isDisabled)
             {
@@ -287,20 +286,10 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
                 RWWidgets.DrawBoxSolid(rect, new Color(0.15f, 0.15f, 0.15f, 0.5f));
             }
 
-            // Gold outline on changed cells
-            if (changed)
-            {
-                GUI.color = new Color(1f, 0.85f, 0.2f, 0.9f);
-                RWWidgets.DrawBox(rect, 1);
-            }
-
             // Cell tooltip
             if (!isDisabled)
             {
-                int beforePriority = result.GetBeforePriority(pawn, wt);
-                string tip = changed
-                    ? "BWT_PreviewCellChanged".Translate(wt.labelShort, beforePriority, afterPriority)
-                    : "BWT_PreviewCellUnchanged".Translate(wt.labelShort, afterPriority);
+                string tip = "BWT_PreviewCellUnchanged".Translate(wt.labelShort, afterPriority);
                 TooltipHandler.TipRegion(rect, tip);
             }
 
