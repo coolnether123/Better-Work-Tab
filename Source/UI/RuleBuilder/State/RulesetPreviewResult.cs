@@ -18,8 +18,9 @@ namespace Better_Work_Tab.UI.RuleBuilder.State
             List<Pawn> pawns,
             List<WorkTypeDef> workTypes,
             Dictionary<Pawn, Dictionary<WorkTypeDef, int>> before,
+            Dictionary<Pawn, Dictionary<WorkTypeDef, int>> baseline,
             Dictionary<Pawn, Dictionary<WorkTypeDef, int>> after)
-            : base(pawns, workTypes, before, after)
+            : base(pawns, workTypes, before, baseline, after)
         { }
     }
 }

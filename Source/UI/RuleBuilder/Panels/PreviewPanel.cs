@@ -29,7 +29,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
         private RulesetPreviewResult _cachedResult;
         private WorkAssignmentRuleset _cachedForRuleset;
 
-        private bool _showAllWorkTypes;
+        private bool _showAllWorkTypes = true;
         private Vector2 _scrollPosition;
 
         private const float HeaderBarHeight = 28f;

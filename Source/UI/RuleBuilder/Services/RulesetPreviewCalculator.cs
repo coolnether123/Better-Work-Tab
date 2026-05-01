@@ -29,23 +29,34 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
 
             var before = TakeSnapshot(pawns, allWorkTypes);
 
+            // Use a fixed seed so RandomIfMultiple rules produce a stable preview
+            // rather than flickering on every recalculation.
+            var savedRandomState = UnityEngine.Random.state;
+            UnityEngine.Random.InitState(42);
+
             try
             {
                 if (ruleset.ResetBeforeApplying)
                     ZeroPriorities(pawns, allWorkTypes);
 
+                // Snapshot after any reset so HasChanged compares rule assignments
+                // to the post-reset baseline, not to the pre-reset colony state.
+                var baseline = TakeSnapshot(pawns, allWorkTypes);
+
                 ruleset.ApplyToList(pawns);
+
+                var after = TakeSnapshot(pawns, allWorkTypes);
+                UnityEngine.Random.state = savedRandomState;
+                RestoreSnapshot(pawns, before);
+
+                return new RulesetPreviewResult(pawns, allWorkTypes, before, baseline, after);
             }
             catch
             {
+                UnityEngine.Random.state = savedRandomState;
                 RestoreSnapshot(pawns, before);
                 return RulesetPreviewResult.Empty;
             }
-
-            var after = TakeSnapshot(pawns, allWorkTypes);
-            RestoreSnapshot(pawns, before);
-
-            return new RulesetPreviewResult(pawns, allWorkTypes, before, after);
         }
 
         private static Dictionary<Pawn, Dictionary<WorkTypeDef, int>> TakeSnapshot(
