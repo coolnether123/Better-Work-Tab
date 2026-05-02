@@ -24,27 +24,31 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
             var byCategory = ConditionRegistry.GetByCategory();
             bool hasSkill = state?.SelectedWorkType?.relevantSkills?.Count > 0;
 
+            // RimWorld's FloatMenu sorts null-action options to the bottom, so we cannot
+            // use disabled headers as visual separators. Instead present conditions as a
+            // flat list sorted by category — grouping is implicit from the ordering.
             foreach (var category in byCategory.Keys)
             {
                 if (!hasSkill && category == "BWT_Category_Skill")
                     continue;
 
-                var categoryConditions = byCategory[category];
-
-                var available = new List<ConditionDefinition>();
-                foreach (var def in categoryConditions)
-                {
-                    if (!ConditionRegistry.IsActive(def.Key, parameters))
-                        available.Add(def);
-                }
-
-                if (!available.Any()) continue;
-
                 string categoryLabel = category.CanTranslate() ? category.Translate() : category;
-                options.Add(new FloatMenuOption($"— {categoryLabel} —", null));
 
-                foreach (var def in available)
-                    AddConditionOption(options, def, parameters, state);
+                foreach (var def in byCategory[category])
+                {
+                    if (ConditionRegistry.IsActive(def.Key, parameters))
+                        continue;
+
+                    string label = def.Label ?? $"BWT_{def.Key}".Translate();
+                    string fullLabel = $"[{categoryLabel}] {label}";
+                    var captured = def;
+
+                    options.Add(new FloatMenuOption(fullLabel, () =>
+                    {
+                        ConditionRegistry.SetValue(captured.Key, parameters, captured.DefaultValue);
+                        state.NotifyRulesModified();
+                    }));
+                }
             }
 
             if (!options.Any())
@@ -53,20 +57,5 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
             Find.WindowStack.Add(new FloatMenu(options));
         }
 
-        private static void AddConditionOption(
-            List<FloatMenuOption> options,
-            ConditionDefinition def,
-            WorkAssignmentParameters parameters,
-            RuleBuilderState state)
-        {
-            string label = def.Label ?? $"BWT_{def.Key}".Translate();
-
-            options.Add(new FloatMenuOption(label, () =>
-            {
-                // Set to default value
-                ConditionRegistry.SetValue(def.Key, parameters, def.DefaultValue);
-                state.NotifyRulesModified();
-            }));
-        }
     }
 }
