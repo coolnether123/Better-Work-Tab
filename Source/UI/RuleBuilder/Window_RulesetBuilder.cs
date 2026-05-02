@@ -62,7 +62,7 @@ namespace Better_Work_Tab.UI.RuleBuilder
 
             _state.OnWorkTypeChanged += _ => _workTypePanel.InvalidateCache();
             _state.OnRulesModified += () => _previewPanel.Invalidate();
-            _state.OnRulesetChanged += _ => _previewPanel.Invalidate();
+            _state.OnRulesetChanged += _ => _previewPanel.InvalidateForRulesetChange();
         }
 
         // ── Main draw ─────────────────────────────────────────────────────────

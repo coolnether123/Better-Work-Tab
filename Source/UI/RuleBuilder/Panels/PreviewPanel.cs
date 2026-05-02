@@ -29,6 +29,12 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
         private RulesetPreviewResult _cachedResult;
         private WorkAssignmentRuleset _cachedForRuleset;
 
+        // Opening baseline: the first result calculated for the current ruleset.
+        // Diffs are shown relative to this so there are no highlights on open,
+        // and gold borders appear only as the user actually edits rules.
+        private RulesetPreviewResult _openingResult;
+        private WorkAssignmentRuleset _openingForRuleset;
+
         private bool _showAllWorkTypes = true;
         private Vector2 _scrollPosition;
 
@@ -42,11 +48,28 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
 
         // ── Public API ────────────────────────────────────────────────────────
 
-        /// <summary>Discard the cached preview result (call when rules or ruleset change).</summary>
+        /// <summary>
+        /// Discard the cached result so it is recalculated next frame.
+        /// Does NOT reset the opening baseline, so diffs remain relative
+        /// to the state when this ruleset was first opened.
+        /// </summary>
         public void Invalidate()
         {
             _cachedResult = null;
             _cachedForRuleset = null;
+        }
+
+        /// <summary>
+        /// Discard both the cache and the opening baseline.
+        /// Call when the selected ruleset changes so the new ruleset
+        /// starts with a clean diff state.
+        /// </summary>
+        public void InvalidateForRulesetChange()
+        {
+            _cachedResult = null;
+            _cachedForRuleset = null;
+            _openingResult = null;
+            _openingForRuleset = null;
         }
 
         public void Draw(Rect rect, RuleBuilderState state)
@@ -152,6 +175,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
                     new Rect(0f, y, contentW, rowH),
                     result.Pawns[i],
                     result,
+                    _openingResult,
                     workTypes,
                     altRow: (i % 2) == 1);
                 y += rowH;
@@ -204,6 +228,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             Rect rect,
             Pawn pawn,
             RulesetPreviewResult result,
+            RulesetPreviewResult opening,
             List<WorkTypeDef> workTypes,
             bool altRow)
         {
@@ -248,7 +273,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             {
                 DrawPriorityCell(
                     new Rect(x + 1f, rect.y + 1f, cell - 2f, rect.height - 2f),
-                    pawn, wt, result);
+                    pawn, wt, result, opening);
                 x += cell;
             }
 
@@ -256,10 +281,12 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             GUI.color = Color.white;
         }
 
-        private static void DrawPriorityCell(Rect rect, Pawn pawn, WorkTypeDef wt, RulesetPreviewResult result)
+        private static void DrawPriorityCell(Rect rect, Pawn pawn, WorkTypeDef wt, RulesetPreviewResult result, RulesetPreviewResult opening)
         {
             bool isDisabled = pawn.WorkTypeIsDisabled(wt);
             int afterPriority = result.GetAfterPriority(pawn, wt);
+            int openingPriority = opening?.GetAfterPriority(pawn, wt) ?? afterPriority;
+            bool changed = openingPriority != afterPriority;
 
             if (isDisabled)
             {
@@ -286,10 +313,19 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
                 RWWidgets.DrawBoxSolid(rect, new Color(0.15f, 0.15f, 0.15f, 0.5f));
             }
 
+            // Gold border only when the user has changed something since opening
+            if (changed)
+            {
+                GUI.color = new Color(1f, 0.85f, 0.2f, 0.9f);
+                RWWidgets.DrawBox(rect, 1);
+            }
+
             // Cell tooltip
             if (!isDisabled)
             {
-                string tip = "BWT_PreviewCellUnchanged".Translate(wt.labelShort, afterPriority);
+                string tip = changed
+                    ? "BWT_PreviewCellChanged".Translate(wt.labelShort, openingPriority, afterPriority)
+                    : "BWT_PreviewCellUnchanged".Translate(wt.labelShort, afterPriority);
                 TooltipHandler.TipRegion(rect, tip);
             }
 
@@ -342,6 +378,13 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
 
             _cachedResult = _calculator.Calculate(ruleset);
             _cachedForRuleset = ruleset;
+
+            // Pin the opening baseline the first time we calculate for this ruleset.
+            if (_openingResult == null || _openingForRuleset != ruleset)
+            {
+                _openingResult = _cachedResult;
+                _openingForRuleset = ruleset;
+            }
         }
 
         private List<WorkTypeDef> GetDisplayWorkTypes(RulesetPreviewResult result)
