@@ -24,54 +24,31 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
             var byCategory = ConditionRegistry.GetByCategory();
             bool hasSkill = state?.SelectedWorkType?.relevantSkills?.Count > 0;
 
-            // Group by category
             foreach (var category in byCategory.Keys)
             {
                 if (!hasSkill && category == "BWT_Category_Skill")
-                {
                     continue;
-                }
 
                 var categoryConditions = byCategory[category];
 
-                if (categoryConditions.Count == 1)
+                var available = new List<ConditionDefinition>();
+                foreach (var def in categoryConditions)
                 {
-                    // Single item, no submenu needed
-                    var def = categoryConditions[0];
                     if (!ConditionRegistry.IsActive(def.Key, parameters))
-                    {
-                        AddConditionOption(options, def, parameters, state);
-                    }
+                        available.Add(def);
                 }
-                else
-                {
-                    // Multiple items, create submenu
-                    var submenu = new List<FloatMenuOption>();
-                    foreach (var def in categoryConditions)
-                    {
-                        if (!ConditionRegistry.IsActive(def.Key, parameters))
-                        {
-                            AddConditionOption(submenu, def, parameters, state);
-                        }
-                    }
 
-                    if (submenu.Any())
-                    {
-                        string categoryLabel = category.CanTranslate()
-                            ? category.Translate()
-                            : category;
+                if (!available.Any()) continue;
 
-                        options.Add(new FloatMenuOption(
-                            categoryLabel,
-                            () => Find.WindowStack.Add(new FloatMenu(submenu))));
-                    }
-                }
+                string categoryLabel = category.CanTranslate() ? category.Translate() : category;
+                options.Add(new FloatMenuOption($"— {categoryLabel} —", null));
+
+                foreach (var def in available)
+                    AddConditionOption(options, def, parameters, state);
             }
 
             if (!options.Any())
-            {
                 options.Add(new FloatMenuOption("BWT_NoConditionsAvailable".Translate(), null));
-            }
 
             Find.WindowStack.Add(new FloatMenu(options));
         }
