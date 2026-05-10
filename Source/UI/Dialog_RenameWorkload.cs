@@ -71,7 +71,7 @@ namespace Better_Work_Tab.UI
                 return false;
             }
 
-            workload.RenamableLabel = trimmed;
+            Current.Game?.GetComponent<GameComponent_BWTWorldSettings>()?.RenameWorklist(workload, trimmed);
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
             BetterWorkTabMod.Settings?.Write();
 

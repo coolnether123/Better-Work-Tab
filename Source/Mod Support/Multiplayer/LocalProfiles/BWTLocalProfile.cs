@@ -13,6 +13,7 @@ namespace Better_Work_Tab.Mod_Support.LocalProfiles
         public string PlayerKey;
 
         public List<Worklist> Worklists = new();
+        public string SelectedWorklistId;
         public string SelectedWorklistName;
 
         public List<PawnDivider> ActiveDividers = new();
@@ -35,6 +36,7 @@ namespace Better_Work_Tab.Mod_Support.LocalProfiles
             Scribe_Values.Look(ref PlayerKey, nameof(PlayerKey));
 
             Scribe_Collections.Look(ref Worklists, nameof(Worklists), LookMode.Deep);
+            Scribe_Values.Look(ref SelectedWorklistId, nameof(SelectedWorklistId));
             Scribe_Values.Look(ref SelectedWorklistName, nameof(SelectedWorklistName));
 
             Scribe_Collections.Look(ref ActiveDividers, nameof(ActiveDividers), LookMode.Deep);

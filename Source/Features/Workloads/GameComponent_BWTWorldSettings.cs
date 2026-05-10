@@ -28,6 +28,17 @@ namespace Better_Work_Tab.Features.Workloads
         {
             base.FinalizeInit();
 
+            // Replace any local rulesets left over from a previous session with this save's local rulesets.
+            var settings = BetterWorkTabMod.Settings;
+            if (settings?.SavedRulesets != null)
+            {
+                settings.SavedRulesets.RemoveAll(r => !r.IsGlobal && !r.IsDefault);
+                if (LocalRulesets != null)
+                    settings.SavedRulesets.AddRange(LocalRulesets);
+                settings.ResolveCurrentRulesetSelection();
+            }
+
+
             if (MultiplayerBridge.Active)
                 BWTLocalProfileStore.LoadOrCreateForCurrentSession();
 
@@ -277,7 +288,13 @@ namespace Better_Work_Tab.Features.Workloads
             ActiveDividers = profile.ActiveDividers ?? new List<PawnDivider>();
 
             CurrentWorklist = null;
-            if (!string.IsNullOrEmpty(profile.SelectedWorklistName))
+            if (!string.IsNullOrEmpty(profile.SelectedWorklistId))
+            {
+                CurrentWorklist = SavedWorklists.FirstOrDefault(
+                    w => w != null && w.WorklistId == profile.SelectedWorklistId);
+            }
+
+            if (CurrentWorklist == null && !string.IsNullOrEmpty(profile.SelectedWorklistName))
             {
                 CurrentWorklist = SavedWorklists.FirstOrDefault(
                     w => w.RenamableLabel == profile.SelectedWorklistName);
@@ -300,6 +317,7 @@ namespace Better_Work_Tab.Features.Workloads
 
             profile.Worklists = SavedWorklists ?? new List<Worklist>();
             profile.ActiveDividers = ActiveDividers ?? new List<PawnDivider>();
+            profile.SelectedWorklistId = CurrentWorklist?.WorklistId;
             profile.SelectedWorklistName = CurrentWorklist?.RenamableLabel;
             BWTLocalProfileStore.MarkDirty();
         }

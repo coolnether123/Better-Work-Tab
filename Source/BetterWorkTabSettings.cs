@@ -384,6 +384,7 @@ namespace Better_Work_Tab
         // Ruleset management
         public List<WorkAssignmentRuleset> SavedRulesets;
         public WorkAssignmentRuleset CurrentRuleset = null;
+        private string loadedCurrentRulesetName;
 
         // Auto-assign
         public bool showAutoAssignConfirmation = DefaultSettings.showAutoAssignConfirmation;
@@ -661,13 +662,11 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref currentRulesetName, "CurrentRulesetName", null, forceSave: true);
             if (Scribe.mode == LoadSaveMode.LoadingVars && SavedRulesets != null)
             {
+                loadedCurrentRulesetName = currentRulesetName;
                 CurrentRuleset = currentRulesetName != null
                     ? SavedRulesets.FirstOrDefault(rs =>
                         string.Equals(rs.Name, currentRulesetName, StringComparison.OrdinalIgnoreCase))
                     : null;
-
-                if (CurrentRuleset == null)
-                    CurrentRuleset = SelectPreferredRuleset();
             }
 
             // Reinitialize rulesets after load (restores defaults if missing)
@@ -780,15 +779,25 @@ namespace Better_Work_Tab
             }
 
             SyncWorktypeReferences(SavedRulesets);
+            ResolveCurrentRulesetSelection();
+        }
 
-            // Re-select by name if the old reference was replaced by a fresh template.
-            if (CurrentRuleset != null && !SavedRulesets.Contains(CurrentRuleset))
+        public void ResolveCurrentRulesetSelection()
+        {
+            if (SavedRulesets == null || !SavedRulesets.Any())
             {
-                CurrentRuleset = SavedRulesets.FirstOrDefault(rs =>
-                    string.Equals(rs.Name, CurrentRuleset.Name, StringComparison.OrdinalIgnoreCase));
+                CurrentRuleset = null;
+                return;
             }
 
-            if (CurrentRuleset == null && SavedRulesets.Any())
+            string preferredName = loadedCurrentRulesetName ?? CurrentRuleset?.Name;
+            if (!string.IsNullOrEmpty(preferredName))
+            {
+                CurrentRuleset = SavedRulesets.FirstOrDefault(rs =>
+                    string.Equals(rs.Name, preferredName, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (CurrentRuleset == null)
             {
                 CurrentRuleset = SelectPreferredRuleset();
             }

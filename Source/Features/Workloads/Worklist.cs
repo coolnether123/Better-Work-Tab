@@ -11,8 +11,11 @@ namespace Better_Work_Tab.Features.Workloads
 {
     public class Worklist : IExposable, IRenameable
     {
+        public string WorklistId;
+
         public Worklist(string name)
         {
+            WorklistId = Guid.NewGuid().ToString();
             RenamableLabel = name;
             foreach (var pawn in Find.CurrentMap.mapPawns.FreeColonists)
             {
@@ -23,6 +26,7 @@ namespace Better_Work_Tab.Features.Workloads
 
         public Worklist()
         {
+            WorklistId = Guid.NewGuid().ToString();
         }
 
         public bool UseAdvancedMode = true;
@@ -50,6 +54,7 @@ namespace Better_Work_Tab.Features.Workloads
         public void ExposeData()
         {
             RenamableLabel = worklistName;
+            Scribe_Values.Look(ref WorklistId, nameof(WorklistId));
             Scribe_Values.Look(ref worklistName, "worklistName", "New Worklist");
             Scribe_Values.Look(ref UseAdvancedMode, "UseAdvancedMode", true);
             worklistName = RenamableLabel;
@@ -75,6 +80,11 @@ namespace Better_Work_Tab.Features.Workloads
         /// </summary>
         public void EnsureCollections()
         {
+            if (string.IsNullOrEmpty(WorklistId))
+            {
+                WorklistId = Guid.NewGuid().ToString();
+            }
+
             if (PawnWorklists == null)
             {
                 PawnWorklists = new List<PawnWorkload>();
