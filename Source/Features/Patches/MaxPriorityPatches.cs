@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using HarmonyLib;
+using ModAPI.Harmony;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -205,53 +205,6 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             codes[index] = replacement;
         }
 
-        internal static bool HasMaxPriorityProviderCall(IEnumerable<CodeInstruction> codes)
-        {
-            return codes.Any(instruction =>
-            {
-                if (!instruction.Calls(PriorityIl.GetMaxPriority) && instruction.opcode != OpCodes.Call)
-                {
-                    return false;
-                }
-
-                if (instruction.operand is not MethodInfo method)
-                {
-                    return false;
-                }
-
-                if (method == PriorityIl.GetMaxPriority)
-                {
-                    return true;
-                }
-
-                string declaringType = method.DeclaringType?.FullName ?? string.Empty;
-                return method.Name == "GetMaximumPriority" &&
-                       declaringType.IndexOf("PriorityMod", StringComparison.OrdinalIgnoreCase) >= 0;
-            });
-        }
-
-        internal static bool HasTooltipPriorityProviderCall(IEnumerable<CodeInstruction> codes)
-        {
-            return codes.Any(instruction => instruction.Calls(PriorityIl.GetTooltipPriority));
-        }
-
-        internal static CodeInstruction CreateReplacementCall(CodeInstruction original, MethodInfo method)
-        {
-            var replacement = new CodeInstruction(OpCodes.Call, method);
-
-            if (original.labels != null)
-            {
-                replacement.labels.AddRange(original.labels);
-            }
-
-            if (original.blocks != null)
-            {
-                replacement.blocks.AddRange(original.blocks);
-            }
-
-            return replacement;
-        }
-
         private static int FindPattern(List<CodeInstruction> codes, int startIndex, Func<List<CodeInstruction>, int, bool> predicate, Func<int, int> resultSelector)
         {
             for (int i = Math.Max(0, startIndex); i < codes.Count; i++)
@@ -301,11 +254,6 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
     /// </summary>
     internal static class PriorityTranspilerDiagnostics
     {
-        internal static IEnumerable<CodeInstruction> ReturnOriginalSilently(List<CodeInstruction> codes)
-        {
-            return codes;
-        }
-
         internal static IEnumerable<CodeInstruction> ReturnOriginalWithWarning(
             List<CodeInstruction> codes,
             MethodBase original,
@@ -365,27 +313,13 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
             try
             {
-                for (int i = 0; i < codes.Count; i++)
+                var workingCodes = new List<CodeInstruction>(codes);
+                return FluentTranspiler.Execute(workingCodes, original, null, t =>
                 {
-                    if (!codes[i].Calls(PriorityIl.GetPriority))
-                    {
-                        continue;
-                    }
-
-                    codes[i] = PriorityTranspilerPatterns.CreateReplacementCall(codes[i], PriorityIl.GetTooltipPriority);
-                    return codes;
-                }
-
-                if (PriorityTranspilerPatterns.HasTooltipPriorityProviderCall(codes))
-                {
-                    return PriorityTranspilerDiagnostics.ReturnOriginalSilently(codes);
-                }
-
-                return PriorityTranspilerDiagnostics.ReturnOriginalWithWarning(
-                    codes,
-                    original,
-                    nameof(Patch_WidgetsWork_TipForPawnWorker),
-                    $"expected priority lookup was not found (instructions={codes.Count})");
+                    t.MatchCall(PriorityIl.GetPriority)
+                     .AssertValid()
+                     .ReplaceWithCall(typeof(MaxPriorityLogic), nameof(MaxPriorityLogic.GetTooltipPriority), new[] { typeof(Pawn_WorkSettings), typeof(WorkTypeDef) });
+                });
             }
             catch (Exception ex)
             {
@@ -413,11 +347,6 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
             if (leftWrapIndex < 0 || rightWrapIndex < 0)
             {
-                if (PriorityTranspilerPatterns.HasMaxPriorityProviderCall(codes))
-                {
-                    return PriorityTranspilerDiagnostics.ReturnOriginalSilently(codes);
-                }
-
                 return PriorityTranspilerDiagnostics.ReturnOriginalWithWarning(
                     codes,
                     original,
@@ -445,11 +374,6 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
             if (upperBoundIndex < 0)
             {
-                if (PriorityTranspilerPatterns.HasMaxPriorityProviderCall(codes))
-                {
-                    return PriorityTranspilerDiagnostics.ReturnOriginalSilently(codes);
-                }
-
                 return PriorityTranspilerDiagnostics.ReturnOriginalWithWarning(
                     codes,
                     original,
