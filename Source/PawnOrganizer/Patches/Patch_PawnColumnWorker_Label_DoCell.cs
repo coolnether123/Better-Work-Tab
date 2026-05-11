@@ -2,12 +2,12 @@ using System;
 using Better_Work_Tab.PawnOrganizer.API;
 using System.Collections.Generic;
 using HarmonyLib;
+using ModAPI.Harmony;
 using RimWorld;
 using Spine.UI; // for TextColorHelper
 using UnityEngine;
 using Verse;
 using Better_Work_Tab.ModSupport;
-using System.Reflection.Emit;
 using System.Reflection;
 
 namespace Better_Work_Tab.Patches
@@ -160,22 +160,43 @@ namespace Better_Work_Tab.Patches
             }
         }
 
-        public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
+        public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions, MethodBase original)
         {
             var escape = AccessTools.Method(typeof(MainTabsRoot), nameof(MainTabsRoot.EscapeCurrentTab), new[] { typeof(bool) });
             var replacement = AccessTools.Method(typeof(Patch_PawnColumnWorker_Label_DoCell), nameof(MaybeCloseWorkTab));
 
-            foreach (var inst in instructions)
-            {
-                if (inst.Calls(escape))
+            return FluentTranspilerExecution.ExecuteOrOriginal(
+                instructions,
+                original,
+                null,
+                transpiler =>
                 {
-                    yield return new CodeInstruction(OpCodes.Call, replacement);
-                }
-                else
-                {
-                    yield return inst;
-                }
-            }
+                    FluentReplacementResult result = transpiler.ReplaceCalls(escape)
+                                                               .WithCall(replacement);
+
+                    if (result == FluentReplacementResult.NoMatch)
+                    {
+                        throw new InvalidOperationException("expected EscapeCurrentTab call was not found");
+                    }
+                },
+                (codes, method, exception) => ReturnOriginalWithWarning(codes, method, exception));
+        }
+
+        private static IEnumerable<CodeInstruction> ReturnOriginalWithWarning(
+            List<CodeInstruction> codes,
+            MethodBase original,
+            Exception exception)
+        {
+            string methodName = original?.DeclaringType != null
+                ? $"{original.DeclaringType.FullName}.{original.Name}"
+                : original?.Name ?? "<unknown method>";
+
+            string message =
+                $"[BWT] Pawn label close-tab transpiler skipped for {methodName}: " +
+                $"{exception.GetType().Name}: {exception.Message}. Leaving the original IL unchanged.";
+
+            Log.WarningOnce(message, message.GetHashCode());
+            return codes;
         }
 
         private static void MaybeCloseWorkTab(MainTabsRoot root, bool playSound)

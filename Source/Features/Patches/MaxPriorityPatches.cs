@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
-using System.Reflection.Emit;
 using HarmonyLib;
 using ModAPI.Harmony;
 using RimWorld;
@@ -116,136 +115,104 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
     }
 
     /// <summary>
-    /// Locates the specific IL instructions that enforce RimWorld's vanilla max priority.
+    /// BWT-specific compatibility rules for other max-priority providers.
     /// </summary>
     internal static class PriorityTranspilerPatterns
     {
-        /// <summary>
-        /// Finds the constant used by RimWorld's decrement wraparound path.
-        /// The matched sequence is:
-        /// GetPriority, subtract 1, store to a local, test that local against 0, and if it is negative load 4.
-        /// The returned index is the final 4 load, which is the instruction replaced with GetMaxPriority().
-        /// </summary>
-        internal static int FindPriorityWrapUnderflowIndex(List<CodeInstruction> codes, int startIndex)
+        private const string ExternalMaxPriorityPatchLogKeyPrefix = "BWT.MaxPriority.ExternalProvider.";
+        private static readonly HashSet<string> LoggedExternalMaxPriorityProviders = new HashSet<string>();
+
+        internal static bool IsExternalMaxPriorityProvider(MethodInfo method)
         {
-            return FindPattern(
-                codes,
-                startIndex,
-                (list, i) => i + 7 < list.Count &&
-                             list[i].Calls(PriorityIl.GetPriority) &&
-                             list[i + 1].LoadsConstant(1) &&
-                             list[i + 2].opcode == OpCodes.Sub &&
-                             IsStoreLocal(list[i + 3]) &&
-                             IsLoadLocal(list[i + 4]) &&
-                             list[i + 5].LoadsConstant(0) &&
-                             IsBranch(list[i + 6], OpCodes.Bge, OpCodes.Bge_S) &&
-                             list[i + 7].LoadsConstant(4),
-                i => i + 7);
+            string declaringType = method.DeclaringType?.FullName ?? string.Empty;
+            return method.Name == "GetMaximumPriority" &&
+                   declaringType.IndexOf("PriorityMod", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
-        /// <summary>
-        /// Finds the constant used by RimWorld's increment wraparound path.
-        /// The matched sequence is:
-        /// GetPriority, add 1, store to a local, compare that local against 4, and if it exceeds the limit load 0.
-        /// The returned index is the comparison's 4 load, which is the instruction replaced with GetMaxPriority().
-        /// </summary>
-        internal static int FindPriorityWrapOverflowIndex(List<CodeInstruction> codes, int startIndex)
+        internal static void LogExternalMaxPriorityProviderReplacement(MethodBase original)
         {
-            return FindPattern(
-                codes,
-                startIndex,
-                (list, i) => i + 7 < list.Count &&
-                             list[i].Calls(PriorityIl.GetPriority) &&
-                             list[i + 1].LoadsConstant(1) &&
-                             list[i + 2].opcode == OpCodes.Add &&
-                             IsStoreLocal(list[i + 3]) &&
-                             IsLoadLocal(list[i + 4]) &&
-                             list[i + 5].LoadsConstant(4) &&
-                             IsBranch(list[i + 6], OpCodes.Ble, OpCodes.Ble_S) &&
-                             list[i + 7].LoadsConstant(0),
-                i => i + 5);
-        }
+            string methodName = original?.DeclaringType != null
+                ? $"{original.DeclaringType.FullName}.{original.Name}"
+                : original?.Name ?? "<unknown method>";
 
-        /// <summary>
-        /// Finds the upper-bound check inside Pawn_WorkSettings.SetPriority.
-        /// </summary>
-        internal static int FindSetPriorityUpperBoundIndex(List<CodeInstruction> codes)
-        {
-            return FindPattern(
-                codes,
-                0,
-                (list, i) => i + 5 < list.Count &&
-                             IsLoadArgument(list[i], 2) &&
-                             list[i + 1].LoadsConstant(0) &&
-                             IsBranch(list[i + 2], OpCodes.Blt, OpCodes.Blt_S) &&
-                             IsLoadArgument(list[i + 3], 2) &&
-                             list[i + 4].LoadsConstant(4) &&
-                             IsBranch(list[i + 5], OpCodes.Ble, OpCodes.Ble_S),
-                i => i + 4);
-        }
-
-        /// <summary>
-        /// Replaces a vanilla constant load with a call that returns the configured max priority.
-        /// </summary>
-        internal static void ReplaceWithMaxPriorityCall(List<CodeInstruction> codes, int index)
-        {
-            CodeInstruction original = codes[index];
-            var replacement = new CodeInstruction(OpCodes.Call, PriorityIl.GetMaxPriority);
-
-            if (original.labels != null)
+            string logKey = ExternalMaxPriorityPatchLogKeyPrefix + methodName;
+            if (LoggedExternalMaxPriorityProviders.Add(logKey))
             {
-                replacement.labels.AddRange(original.labels);
+                Log.Message($"[BWT] Another mod patched max priorities in {methodName}; Better Work Tab patched after it and now owns the final max-priority provider.");
+            }
+        }
+    }
+
+    /// <summary>
+    /// BWT-specific max-priority edits expressed through the generic FluentTranspiler API.
+    /// </summary>
+    internal static class MaxPriorityFluentPatches
+    {
+        internal static void ReplaceTooltipPriorityLookup(FluentTranspiler transpiler)
+        {
+            transpiler.MatchCall(PriorityIl.GetPriority)
+                      .AssertValid()
+                      .ReplaceWithCall(PriorityIl.GetTooltipPriority);
+        }
+
+        internal static void ReplaceWorkBoxWrapConstants(FluentTranspiler transpiler, MethodBase original)
+        {
+            FluentWrapBoundsReplacementResult result = transpiler.ForCallResult(PriorityIl.GetPriority)
+                                                                 .AsWrappedRange(0, 4)
+                                                                 .ReplaceUpperBoundWithCallOrCompatibleProvider(
+                                                                     PriorityIl.GetMaxPriority,
+                                                                     PriorityTranspilerPatterns.IsExternalMaxPriorityProvider,
+                                                                     "External max-priority provider replacement");
+
+            if (result.ReplacedFallbackCall)
+            {
+                PriorityTranspilerPatterns.LogExternalMaxPriorityProviderReplacement(original);
             }
 
-            if (original.blocks != null)
+            if (!result.Succeeded)
             {
-                replacement.blocks.AddRange(original.blocks);
+                throw new InvalidOperationException(
+                    $"expected wrap patterns were not found ({result}, instructions={CountInstructions(transpiler)})");
+            }
+        }
+
+        internal static void ReplaceSetPriorityUpperBound(FluentTranspiler transpiler, MethodBase original)
+        {
+            FluentReplacementResult result = transpiler.ForArgument(2)
+                                                       .InRangeCheck(0, 4)
+                                                       .ReplaceUpperBoundWithCallOrCompatibleProvider(
+                                                           PriorityIl.GetMaxPriority,
+                                                           PriorityTranspilerPatterns.IsExternalMaxPriorityProvider,
+                                                           "External max-priority provider replacement");
+
+            LogExternalProviderReplacementIfNeeded(result, original);
+
+            if (result != FluentReplacementResult.NoMatch)
+            {
+                return;
             }
 
-            codes[index] = replacement;
+            throw new InvalidOperationException(
+                $"expected upper-bound pattern was not found (instructions={CountInstructions(transpiler)})");
         }
 
-        private static int FindPattern(List<CodeInstruction> codes, int startIndex, Func<List<CodeInstruction>, int, bool> predicate, Func<int, int> resultSelector)
+        private static void LogExternalProviderReplacementIfNeeded(FluentReplacementResult result, MethodBase original)
         {
-            for (int i = Math.Max(0, startIndex); i < codes.Count; i++)
+            if (result == FluentReplacementResult.FallbackCallReplaced)
             {
-                if (predicate(codes, i))
-                {
-                    return resultSelector(i);
-                }
+                PriorityTranspilerPatterns.LogExternalMaxPriorityProviderReplacement(original);
+            }
+        }
+
+        private static int CountInstructions(FluentTranspiler transpiler)
+        {
+            int count = 0;
+            foreach (CodeInstruction _ in transpiler.Instructions())
+            {
+                count++;
             }
 
-            return -1;
-        }
-
-        private static bool IsBranch(CodeInstruction instruction, OpCode longForm, OpCode shortForm)
-        {
-            return instruction.opcode == longForm || instruction.opcode == shortForm;
-        }
-
-        private static bool IsLoadLocal(CodeInstruction instruction)
-        {
-            return instruction.opcode.Name.StartsWith("ldloc", StringComparison.Ordinal);
-        }
-
-        private static bool IsStoreLocal(CodeInstruction instruction)
-        {
-            return instruction.opcode.Name.StartsWith("stloc", StringComparison.Ordinal);
-        }
-
-        private static bool IsLoadArgument(CodeInstruction instruction, int argumentIndex)
-        {
-            return argumentIndex switch
-            {
-                0 => instruction.opcode == OpCodes.Ldarg_0,
-                1 => instruction.opcode == OpCodes.Ldarg_1,
-                2 => instruction.opcode == OpCodes.Ldarg_2 ||
-                     (instruction.opcode == OpCodes.Ldarg_S &&
-                      ((instruction.operand is byte byteIndex && byteIndex == 2) ||
-                       (instruction.operand is ushort shortIndex && shortIndex == 2))),
-                3 => instruction.opcode == OpCodes.Ldarg_3,
-                _ => false
-            };
+            return count;
         }
     }
 
@@ -254,6 +221,20 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
     /// </summary>
     internal static class PriorityTranspilerDiagnostics
     {
+        internal static IEnumerable<CodeInstruction> ExecuteWithWarningFallback(
+            IEnumerable<CodeInstruction> instructions,
+            MethodBase original,
+            string patchName,
+            Action<FluentTranspiler> patch)
+        {
+            return FluentTranspilerExecution.ExecuteOrOriginal(
+                instructions,
+                original,
+                null,
+                patch,
+                (codes, method, exception) => ReturnOriginalWithWarning(codes, method, patchName, exception));
+        }
+
         internal static IEnumerable<CodeInstruction> ReturnOriginalWithWarning(
             List<CodeInstruction> codes,
             MethodBase original,
@@ -309,26 +290,11 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         [HarmonyTranspiler]
         private static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions, MethodBase original)
         {
-            var codes = new List<CodeInstruction>(instructions);
-
-            try
-            {
-                var workingCodes = new List<CodeInstruction>(codes);
-                return FluentTranspiler.Execute(workingCodes, original, null, t =>
-                {
-                    t.MatchCall(PriorityIl.GetPriority)
-                     .AssertValid()
-                     .ReplaceWithCall(typeof(MaxPriorityLogic), nameof(MaxPriorityLogic.GetTooltipPriority), new[] { typeof(Pawn_WorkSettings), typeof(WorkTypeDef) });
-                });
-            }
-            catch (Exception ex)
-            {
-                return PriorityTranspilerDiagnostics.ReturnOriginalWithWarning(
-                    codes,
-                    original,
-                    nameof(Patch_WidgetsWork_TipForPawnWorker),
-                    ex);
-            }
+            return PriorityTranspilerDiagnostics.ExecuteWithWarningFallback(
+                instructions,
+                original,
+                nameof(Patch_WidgetsWork_TipForPawnWorker),
+                MaxPriorityFluentPatches.ReplaceTooltipPriorityLookup);
         }
     }
 
@@ -341,22 +307,11 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         [HarmonyTranspiler]
         private static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions, MethodBase original)
         {
-            var codes = new List<CodeInstruction>(instructions);
-            int leftWrapIndex = PriorityTranspilerPatterns.FindPriorityWrapUnderflowIndex(codes, 0);
-            int rightWrapIndex = PriorityTranspilerPatterns.FindPriorityWrapOverflowIndex(codes, leftWrapIndex + 1);
-
-            if (leftWrapIndex < 0 || rightWrapIndex < 0)
-            {
-                return PriorityTranspilerDiagnostics.ReturnOriginalWithWarning(
-                    codes,
-                    original,
-                    nameof(Patch_WidgetsWork_DrawWorkBoxFor),
-                    $"expected left/right wrap constants were not found (left={leftWrapIndex}, right={rightWrapIndex}, instructions={codes.Count})");
-            }
-
-            PriorityTranspilerPatterns.ReplaceWithMaxPriorityCall(codes, leftWrapIndex);
-            PriorityTranspilerPatterns.ReplaceWithMaxPriorityCall(codes, rightWrapIndex);
-            return codes;
+            return PriorityTranspilerDiagnostics.ExecuteWithWarningFallback(
+                instructions,
+                original,
+                nameof(Patch_WidgetsWork_DrawWorkBoxFor),
+                transpiler => MaxPriorityFluentPatches.ReplaceWorkBoxWrapConstants(transpiler, original));
         }
     }
 
@@ -369,20 +324,11 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         [HarmonyTranspiler]
         private static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions, MethodBase original)
         {
-            var codes = new List<CodeInstruction>(instructions);
-            int upperBoundIndex = PriorityTranspilerPatterns.FindSetPriorityUpperBoundIndex(codes);
-
-            if (upperBoundIndex < 0)
-            {
-                return PriorityTranspilerDiagnostics.ReturnOriginalWithWarning(
-                    codes,
-                    original,
-                    nameof(Patch_Pawn_WorkSettings_SetPriority),
-                    $"expected upper-bound constant was not found (instructions={codes.Count})");
-            }
-
-            PriorityTranspilerPatterns.ReplaceWithMaxPriorityCall(codes, upperBoundIndex);
-            return codes;
+            return PriorityTranspilerDiagnostics.ExecuteWithWarningFallback(
+                instructions,
+                original,
+                nameof(Patch_Pawn_WorkSettings_SetPriority),
+                transpiler => MaxPriorityFluentPatches.ReplaceSetPriorityUpperBound(transpiler, original));
         }
     }
 }
