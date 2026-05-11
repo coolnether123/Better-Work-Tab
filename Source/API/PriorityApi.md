@@ -21,6 +21,8 @@ This API exists so other mods can read Better Work Tab's extended priority setti
 - `GetDefaultEnabledPriority()`
 - `MapPriorityToVanillaDisplay(int priority)`
 - `IsDisabledPriority(int priority)`
+- `ClampPriority(int priority)`
+- `IsValidPriority(int priority)`
 - `GetSnapshot()`
 - `TryGetSnapshot(out PriorityApiSnapshot snapshot)`
 
@@ -42,4 +44,7 @@ If you do not want a compile-time reference to Better Work Tab:
 
 - `0` means disabled
 - Higher numbers are lower priority
+- `ClampPriority(...)` clamps values to `0..MaxPriority`
+- `IsValidPriority(...)` accepts `0..MaxPriority`
 - `MapPriorityToVanillaDisplay(...)` intentionally compresses extended priorities back into vanilla `1..4` display buckets for compatibility-oriented UI
+- API fallback paths log a one-time warning and return conservative defaults instead of throwing

@@ -2,6 +2,7 @@ using Better_Work_Tab.Features;
 using Better_Work_Tab.Mod_Support.Multiplayer;
 using Better_Work_Tab.Mod_Support.Multiplayer.Features.Layouts;
 using Better_Work_Tab.Features.Caching;
+using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
@@ -109,7 +110,7 @@ namespace Better_Work_Tab.UI
             {
                 if (Current.Game?.playSettings != null)
                 {
-                    Current.Game.playSettings.useWorkPriorities = true;
+                    PriorityCommandRouter.SetUseWorkPriorities(true);
                 }
             }
         }

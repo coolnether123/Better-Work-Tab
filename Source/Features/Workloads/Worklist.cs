@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Unity.Properties;
 using Verse;
+using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.PawnOrganizer.Data;
 
 namespace Better_Work_Tab.Features.Workloads
@@ -40,11 +41,13 @@ namespace Better_Work_Tab.Features.Workloads
 
         public void Apply()
         {
-            Current.Game.playSettings.useWorkPriorities = UseAdvancedMode;
+            PriorityCommandRouter.SetUseWorkPriorities(UseAdvancedMode);
+            var changes = new List<PriorityChange>();
             foreach (var pw in PawnWorklists)
             {
-                pw.Apply();
+                pw.AppendPriorityChanges(changes);
             }
+            PriorityCommandRouter.ApplyPriorityChanges(changes);
         }
 
         public void ExposeData()

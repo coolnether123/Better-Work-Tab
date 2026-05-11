@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
+using Verse;
 
 namespace Better_Work_Tab.API
 {
@@ -38,6 +40,9 @@ namespace Better_Work_Tab.API
     /// </summary>
     public static class PriorityApi
     {
+        private static readonly object LogLock = new object();
+        private static readonly HashSet<string> LoggedFallbacks = new HashSet<string>();
+
         /// <summary>
         /// Stable API version for reflection-based callers.
         /// Increment only when the public contract changes incompatibly.
@@ -64,8 +69,9 @@ namespace Better_Work_Tab.API
             {
                 return MaxPriorityLogic.GetMaxPriority();
             }
-            catch
+            catch (Exception ex)
             {
+                LogFallbackOnce(nameof(GetMaxPriority), ex);
                 return Math.Max(1, DefaultSettings.maxPriority);
             }
         }
@@ -79,8 +85,9 @@ namespace Better_Work_Tab.API
             {
                 return MaxPriorityLogic.GetDefaultEnabledPriority();
             }
-            catch
+            catch (Exception ex)
             {
+                LogFallbackOnce(nameof(GetDefaultEnabledPriority), ex);
                 return Clamp(3, 1, GetMaxPriority());
             }
         }
@@ -95,8 +102,9 @@ namespace Better_Work_Tab.API
             {
                 return MaxPriorityLogic.MapPriorityToVanillaDisplay(priority);
             }
-            catch
+            catch (Exception ex)
             {
+                LogFallbackOnce(nameof(MapPriorityToVanillaDisplay), ex);
                 if (priority <= 0)
                 {
                     return 0;
@@ -122,6 +130,23 @@ namespace Better_Work_Tab.API
         }
 
         /// <summary>
+        /// Clamps a stored priority into Better Work Tab's supported range.
+        /// Values below 0 become 0, where 0 means disabled.
+        /// </summary>
+        public static int ClampPriority(int priority)
+        {
+            return Clamp(priority, 0, GetMaxPriority());
+        }
+
+        /// <summary>
+        /// True when a value can be stored as a Better Work Tab work priority.
+        /// </summary>
+        public static bool IsValidPriority(int priority)
+        {
+            return priority >= 0 && priority <= GetMaxPriority();
+        }
+
+        /// <summary>
         /// Returns a small versioned snapshot for reflection-friendly integration.
         /// This is the preferred call for mods that want one round-trip instead of multiple method calls.
         /// </summary>
@@ -144,11 +169,26 @@ namespace Better_Work_Tab.API
                 snapshot = GetSnapshot();
                 return true;
             }
-            catch
+            catch (Exception ex)
             {
-                snapshot = new PriorityApiSnapshot(ApiVersion, Math.Max(1, DefaultSettings.maxPriority), 3);
+                LogFallbackOnce(nameof(TryGetSnapshot), ex);
+                int fallbackMaxPriority = Math.Max(1, DefaultSettings.maxPriority);
+                snapshot = new PriorityApiSnapshot(ApiVersion, fallbackMaxPriority, Clamp(3, 1, fallbackMaxPriority));
                 return false;
             }
+        }
+
+        private static void LogFallbackOnce(string methodName, Exception exception)
+        {
+            lock (LogLock)
+            {
+                if (!LoggedFallbacks.Add(methodName))
+                {
+                    return;
+                }
+            }
+
+            Log.Warning($"[BWT] PriorityApi.{methodName} used fallback values after {exception.GetType().Name}: {exception.Message}");
         }
 
         private static int Clamp(int value, int min, int max)

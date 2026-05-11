@@ -223,39 +223,9 @@ namespace Better_Work_Tab.UI.Headers.Angled
             List<Pawn> pawns = table.PawnsListForReading;
             bool useWorkPriorities = Find.PlaySettings.useWorkPriorities;
 
-            bool changed = false;
-            for (int i = 0; i < pawns.Count; i++)
-            {
-                Pawn pawn = pawns[i];
-                if (pawn.Dead || pawn.workSettings == null || !pawn.workSettings.EverWork || pawn.WorkTypeIsDisabled(workType))
-                    continue;
-
-                int curPriority = pawn.workSettings.GetPriority(workType);
-
-                if (useWorkPriorities)
-                {
-                    // Manual Priorities (1-9 or 1-4)
-                    if (button == 0) // Left click (Increase priority / Decrement number)
-                    {
-                        // Cycle: 0 -> 4 -> 3 -> 2 -> 1 (stays at 1)
-                        if (curPriority == 0) pawn.workSettings.SetPriority(workType, BetterWorkTabMod.Settings.maxPriorityInt);
-                        else if (curPriority > 1) pawn.workSettings.SetPriority(workType, curPriority - 1);
-                    }
-                    else // Right click (Decrease priority / Increment number)
-                    {
-                        // Cycle: 1 -> 2 -> 3 -> 4 -> 0 (stays at 0)
-                        if (curPriority == BetterWorkTabMod.Settings.maxPriorityInt) pawn.workSettings.SetPriority(workType, 0);
-                        else if (curPriority > 0) pawn.workSettings.SetPriority(workType, curPriority + 1);
-                    }
-                }
-                else
-                {
-                    // Vanilla Priorities (On/Off)
-                    if (button == 0) pawn.workSettings.SetPriority(workType, MaxPriorityLogic.GetDefaultEnabledPriority());
-                    else pawn.workSettings.SetPriority(workType, 0);
-                }
-                changed = true;
-            }
+            List<PriorityChange> changes = PriorityAuthority.BuildHeaderPriorityChanges(pawns, workType, button, useWorkPriorities);
+            bool changed = changes.Count > 0;
+            PriorityCommandRouter.ApplyPriorityChanges(changes);
 
             if (changed)
             {
@@ -286,6 +256,11 @@ namespace Better_Work_Tab.UI.Headers.Angled
             if (_columnSuppressingClicks == column)
             {
                 _columnSuppressingClicks = null;
+            }
+
+            if (_pendingClickColumn == column)
+            {
+                _pendingClickColumn = null;
             }
         }
     }

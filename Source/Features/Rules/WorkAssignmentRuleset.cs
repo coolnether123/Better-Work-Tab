@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -76,7 +77,7 @@ namespace Better_Work_Tab.Features
             var map = Find.CurrentMap;
             if (map == null) return;
 
-            Find.PlaySettings.useWorkPriorities = true;
+            PriorityCommandRouter.SetUseWorkPriorities(true);
 
             var pawns = map.mapPawns.FreeColonists.ToList();
             if (pawns.Count == 0) return;
@@ -138,7 +139,7 @@ namespace Better_Work_Tab.Features
                         {
                             BetterWorkTabMod.DebugLog($"Resetting {worktype.defName} for {p.NameShortColored} before random assignment.", DebugFeature.Rules);
                             //if (p.workSettings.GetPriority(worktype) == rule.Parameters.Priority)
-                            p.workSettings.SetPriority(worktype, 0);
+                            PriorityCommandRouter.ApplyPriority(p, worktype, 0);
                         }
                         // Mirrors vanilla RimWorld's selection logic for picking one pawn among eligible candidates.
                         List<Pawn> eligiblePawns = new List<Pawn>();
@@ -152,11 +153,7 @@ namespace Better_Work_Tab.Features
 
                         if (eligiblePawns.Count > 0)
                         {
-                            int maxPriority = Mathf.Max(1, BetterWorkTabMod.Settings?.maxPriorityInt ?? 4);
-                            eligiblePawns.RandomElement().workSettings.SetPriority(
-                                worktype,
-                                Mathf.Clamp(rule.Parameters.Priority, 0, maxPriority)
-                            );
+                            PriorityCommandRouter.ApplyPriority(eligiblePawns.RandomElement(), worktype, rule.Parameters.Priority);
                         }
                     }
 
@@ -195,11 +192,11 @@ namespace Better_Work_Tab.Features
         }
 
         /// <summary>
-        /// Ensures the priority order list exists and contains all priorities 0..MaxPriority (default 4).
+        /// Ensures the priority order list exists and contains all priorities 0..MaxPriority.
         /// </summary>
-        public void EnsurePriorityOrder(int maxPriority = 4)
+        public void EnsurePriorityOrder(int maxPriority = 0)
         {
-            maxPriority = Mathf.Max(1, maxPriority <= 0 ? BetterWorkTabMod.Settings?.maxPriorityInt ?? 4 : maxPriority);
+            maxPriority = Mathf.Max(1, maxPriority <= 0 ? PriorityAuthority.GetEffectiveMaxPriority() : maxPriority);
 
             if (PriorityOrder == null || PriorityOrder.Count == 0)
             {

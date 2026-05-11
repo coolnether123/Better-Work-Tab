@@ -1,5 +1,6 @@
 ﻿using Better_Work_Tab.Features;
 using Better_Work_Tab.PawnOrganizer;
+using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.Headers;
@@ -155,30 +156,20 @@ namespace Better_Work_Tab.Patches
                 int delta = Event.current.delta.y > 0 ? -1 : 1;
                 if (Find.PlaySettings.useWorkPriorities)
                 {
-                    int nextPriority = currentPriority;
-                    if (delta > 0)
-                    {
-                        if (currentPriority == 0) nextPriority = BetterWorkTabMod.Settings.maxPriorityInt;
-                        else if (currentPriority > 1) nextPriority = currentPriority - 1;
-                    }
-                    else
-                    {
-                        if (currentPriority == BetterWorkTabMod.Settings.maxPriorityInt) nextPriority = 0;
-                        else if (currentPriority > 0) nextPriority = currentPriority + 1;
-                    }
+                    int nextPriority = PriorityAuthority.GetNextManualPriority(currentPriority, delta);
 
                     if (nextPriority != currentPriority)
                     {
-                        pawn.workSettings.SetPriority(workType, nextPriority);
+                        PriorityCommandRouter.ApplyPriority(pawn, workType, nextPriority);
                         SoundDefOf.DragSlider.PlayOneShotOnCamera();
                     }
                 }
                 else
                 {
-                    int nextPriority = (currentPriority > 0) ? 0 : 3;
+                    int nextPriority = (currentPriority > 0) ? 0 : MaxPriorityLogic.GetDefaultEnabledPriority();
                     if (nextPriority != currentPriority)
                     {
-                        pawn.workSettings.SetPriority(workType, nextPriority);
+                        PriorityCommandRouter.ApplyPriority(pawn, workType, nextPriority);
                         SoundDefOf.DragSlider.PlayOneShotOnCamera();
 
                     }

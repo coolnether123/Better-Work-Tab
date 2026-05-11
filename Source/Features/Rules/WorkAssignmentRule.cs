@@ -5,6 +5,7 @@ using System.Linq;
 using UnityEngine;
 using Verse;
 using Better_Work_Tab.Features.Rules.Validators;
+using Better_Work_Tab.Features.RaisedPriorityMaximum;
 
 namespace Better_Work_Tab.Features.Rules
 {
@@ -94,10 +95,7 @@ namespace Better_Work_Tab.Features.Rules
                 return false;
 
             // All checks passed – assign the priority
-            pawn.workSettings.SetPriority(
-                assigningWorktype,
-                Mathf.Clamp(Parameters.Priority, 0, Mathf.Max(1, BetterWorkTabMod.Settings?.maxPriorityInt ?? 4))
-            );
+            PriorityCommandRouter.ApplyPriority(pawn, assigningWorktype, Parameters.Priority);
 
             return validationResult.ShouldSkipRemainingPawns;
         }

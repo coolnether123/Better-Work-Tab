@@ -314,7 +314,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
 
         private void DrawAddPriorityControl(Rect rect, RuleBuilderState state)
         {
-            int maxPriority = Mathf.Max(0, BetterWorkTabMod.Settings?.maxPriorityInt ?? state.MaxPriority);
+            int maxPriority = Mathf.Max(0, Better_Work_Tab.Features.RaisedPriorityMaximum.PriorityAuthority.GetEffectiveMaxPriority());
             Rect labelRect = new Rect(rect.x, rect.y, 66f, rect.height);
             Rect fieldRect = new Rect(labelRect.xMax + 2f, rect.y, 56f, rect.height);
             Rect goRect = new Rect(fieldRect.xMax + 6f, rect.y, rect.xMax - (fieldRect.xMax + 6f), rect.height);
@@ -330,7 +330,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
 
             int newPriority = Mathf.Clamp(state.SelectedPriority >= 0 ? state.SelectedPriority : 1, 0, maxPriority);
             Verse.Widgets.TextFieldNumeric(fieldRect, ref newPriority, ref _addPriorityBuffer, 0, maxPriority);
-            bool useDropdown = string.IsNullOrWhiteSpace(_addPriorityBuffer) || newPriority <= 0;
+            bool useDropdown = string.IsNullOrWhiteSpace(_addPriorityBuffer);
 
             Event evt = Event.current;
             if (evt != null && evt.type == EventType.ScrollWheel && Mouse.IsOver(fieldRect))
@@ -339,7 +339,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
                 newPriority = Mathf.Clamp(newPriority + delta, 0, maxPriority);
                 _addPriorityBuffer = newPriority.ToString();
                 evt.Use();
-                useDropdown = string.IsNullOrWhiteSpace(_addPriorityBuffer) || newPriority <= 0;
+                useDropdown = string.IsNullOrWhiteSpace(_addPriorityBuffer);
             }
 
             string buttonLabel = useDropdown ? "Select Priority" : "+ Add Priority";

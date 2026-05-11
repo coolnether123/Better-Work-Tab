@@ -25,7 +25,7 @@ namespace Better_Work_Tab.UI
                 ? SettingsViewMode.Simple
                 : SettingsViewMode.Advanced;
 
-            _drawer.Draw(inRect, settings, ref _viewMode, () => settings.Write());
+            _drawer.Draw(inRect, settings, ref _viewMode, () => settings.Mod?.WriteSettings());
 
             settings.settingsViewMode = _viewMode == SettingsViewMode.Simple
                 ? BetterWorkTabSettings.SettingsViewMode.Simple

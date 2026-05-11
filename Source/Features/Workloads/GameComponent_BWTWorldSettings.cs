@@ -19,6 +19,7 @@ namespace Better_Work_Tab.Features.Workloads
         public List<string> ColumnCurrentOrder = new List<string>();
         public List<string> ColumnBaselineOrder = new List<string>();
         public List<PawnDivider> ActiveDividers = new List<PawnDivider>();
+        public int SharedMaxPriority = 0;
 
         public GameComponent_BWTWorldSettings(Game game) : base()
         {
@@ -39,6 +40,7 @@ namespace Better_Work_Tab.Features.Workloads
             DisplayElementPool.Clear();
             EnsureCurrentWorklist();
             ColumnBaselineManager.EnsureBaseline(this);
+            RaisedPriorityMaximum.PriorityCommandRouter.EnsureSharedMaxPriorityInitialized();
 
             // Profiling is on during dev; gate or disable for release builds.
             SpineTiming.Enabled = true;
@@ -62,6 +64,7 @@ namespace Better_Work_Tab.Features.Workloads
             Scribe_Values.Look(ref currentWorklistName, "currentWorklistName");
             Scribe_Collections.Look(ref ColumnBaselineOrder, "columnBaselineOrder", LookMode.Value);
             Scribe_Collections.Look(ref ColumnCurrentOrder, "columnCurrentOrder", LookMode.Value);
+            Scribe_Values.Look(ref SharedMaxPriority, "sharedMaxPriority", 0);
 
             if (!MultiplayerBridge.Active)
             {
@@ -138,6 +141,8 @@ namespace Better_Work_Tab.Features.Workloads
                 {
                     LoadLocalUiStateIntoRuntime();
                     EnsureCurrentWorklist();
+                    RaisedPriorityMaximum.PriorityAuthority.SyncLocalSettingsToSharedValue(
+                        SharedMaxPriority > 0 ? SharedMaxPriority : DefaultSettings.maxPriority);
                 }
 
                 if (ActiveDividers == null)

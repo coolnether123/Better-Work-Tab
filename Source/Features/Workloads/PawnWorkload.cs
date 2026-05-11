@@ -1,5 +1,6 @@
 ﻿using HarmonyLib;
 using System;
+using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.Remoting.Messaging;
@@ -25,7 +26,9 @@ namespace Better_Work_Tab.Features.Workloads
 
         public void Apply()
         {
-            Paste();
+            var changes = new List<PriorityChange>();
+            AppendPriorityChanges(changes);
+            PriorityCommandRouter.ApplyPriorityChanges(changes);
         }
 
 
@@ -50,15 +53,18 @@ namespace Better_Work_Tab.Features.Workloads
                 //Log.Message("Stored " + owningPawn.Name + "'s " + worktype.defName + " priority of " + priority);
             }
         }
-        void Paste()
+        internal void AppendPriorityChanges(List<PriorityChange> changes)
         {
+            if (changes == null)
+                return;
+
             foreach(var kvp in Priorities)
             {
                 WorkTypeDef worktype = kvp.Key;
                 int priority = kvp.Value;
                 if (!owningPawn.WorkTypeIsDisabled(worktype))
                 {
-                    owningPawn.workSettings.SetPriority(worktype, priority);
+                    changes.Add(PriorityCommandService.CreateChange(owningPawn, worktype, priority));
                     BetterWorkTabMod.DebugLog("Set " + owningPawn.Name + " " + worktype.defName + " to " + priority, DebugFeature.Workloads);
                 }
             }

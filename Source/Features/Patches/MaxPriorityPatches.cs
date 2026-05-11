@@ -40,7 +40,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         /// </summary>
         internal static int GetMaxPriority()
         {
-            return Math.Max(1, BetterWorkTabMod.Settings.maxPriorityInt);
+            return PriorityAuthority.GetEffectiveMaxPriority();
         }
 
         /// <summary>
@@ -189,7 +189,20 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         /// </summary>
         internal static void ReplaceWithMaxPriorityCall(List<CodeInstruction> codes, int index)
         {
-            codes[index] = new CodeInstruction(OpCodes.Call, PriorityIl.GetMaxPriority);
+            CodeInstruction original = codes[index];
+            var replacement = new CodeInstruction(OpCodes.Call, PriorityIl.GetMaxPriority);
+
+            if (original.labels != null)
+            {
+                replacement.labels.AddRange(original.labels);
+            }
+
+            if (original.blocks != null)
+            {
+                replacement.blocks.AddRange(original.blocks);
+            }
+
+            codes[index] = replacement;
         }
 
         private static int FindPattern(List<CodeInstruction> codes, int startIndex, Func<List<CodeInstruction>, int, bool> predicate, Func<int, int> resultSelector)
@@ -236,6 +249,43 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         }
     }
 
+    /// <summary>
+    /// Shared fail-safe logging for priority transpilers.
+    /// </summary>
+    internal static class PriorityTranspilerDiagnostics
+    {
+        internal static IEnumerable<CodeInstruction> ReturnOriginalWithWarning(
+            List<CodeInstruction> codes,
+            MethodBase original,
+            string patchName,
+            string reason)
+        {
+            string methodName = original?.DeclaringType != null
+                ? $"{original.DeclaringType.FullName}.{original.Name}"
+                : original?.Name ?? "<unknown method>";
+
+            string message =
+                $"[BWT] Max-priority transpiler '{patchName}' skipped for {methodName}: {reason}. " +
+                "Leaving the original IL unchanged to preserve compatibility.";
+
+            Log.WarningOnce(message, message.GetHashCode());
+            return codes;
+        }
+
+        internal static IEnumerable<CodeInstruction> ReturnOriginalWithWarning(
+            List<CodeInstruction> codes,
+            MethodBase original,
+            string patchName,
+            Exception exception)
+        {
+            return ReturnOriginalWithWarning(
+                codes,
+                original,
+                patchName,
+                $"{exception.GetType().Name}: {exception.Message}");
+        }
+    }
+
     [HarmonyPatch(typeof(WidgetsWork), nameof(WidgetsWork.ColorOfPriority))]
     internal static class Patch_WidgetsWork_ColorOfPriority
     {
@@ -259,12 +309,26 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         [HarmonyTranspiler]
         private static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions, MethodBase original)
         {
-            return FluentTranspiler.Execute(instructions, original, null, t =>
+            var codes = new List<CodeInstruction>(instructions);
+
+            try
             {
-                t.MatchCall(PriorityIl.GetPriority)
-                 .AssertValid()
-                 .ReplaceWithCall(typeof(MaxPriorityLogic), nameof(MaxPriorityLogic.GetTooltipPriority), new[] { typeof(Pawn_WorkSettings), typeof(WorkTypeDef) });
-            });
+                var workingCodes = new List<CodeInstruction>(codes);
+                return FluentTranspiler.Execute(workingCodes, original, null, t =>
+                {
+                    t.MatchCall(PriorityIl.GetPriority)
+                     .AssertValid()
+                     .ReplaceWithCall(typeof(MaxPriorityLogic), nameof(MaxPriorityLogic.GetTooltipPriority), new[] { typeof(Pawn_WorkSettings), typeof(WorkTypeDef) });
+                });
+            }
+            catch (Exception ex)
+            {
+                return PriorityTranspilerDiagnostics.ReturnOriginalWithWarning(
+                    codes,
+                    original,
+                    nameof(Patch_WidgetsWork_TipForPawnWorker),
+                    ex);
+            }
         }
     }
 
@@ -283,7 +347,11 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
             if (leftWrapIndex < 0 || rightWrapIndex < 0)
             {
-                throw new InvalidOperationException($"Unable to locate work-box priority wrap checks in {original?.DeclaringType?.Name}.{original?.Name}.");
+                return PriorityTranspilerDiagnostics.ReturnOriginalWithWarning(
+                    codes,
+                    original,
+                    nameof(Patch_WidgetsWork_DrawWorkBoxFor),
+                    $"expected left/right wrap constants were not found (left={leftWrapIndex}, right={rightWrapIndex}, instructions={codes.Count})");
             }
 
             PriorityTranspilerPatterns.ReplaceWithMaxPriorityCall(codes, leftWrapIndex);
@@ -307,7 +375,11 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
             if (leftWrapIndex < 0 || rightWrapIndex < 0)
             {
-                throw new InvalidOperationException($"Unable to locate header priority wrap checks in {original?.DeclaringType?.Name}.{original?.Name}.");
+                return PriorityTranspilerDiagnostics.ReturnOriginalWithWarning(
+                    codes,
+                    original,
+                    nameof(Patch_PawnColumnWorker_WorkPriority_HeaderClicked),
+                    $"expected left/right wrap constants were not found (left={leftWrapIndex}, right={rightWrapIndex}, instructions={codes.Count})");
             }
 
             PriorityTranspilerPatterns.ReplaceWithMaxPriorityCall(codes, leftWrapIndex);
@@ -330,7 +402,11 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
             if (upperBoundIndex < 0)
             {
-                throw new InvalidOperationException($"Unable to locate the SetPriority upper-bound check in {original?.DeclaringType?.Name}.{original?.Name}.");
+                return PriorityTranspilerDiagnostics.ReturnOriginalWithWarning(
+                    codes,
+                    original,
+                    nameof(Patch_Pawn_WorkSettings_SetPriority),
+                    $"expected upper-bound constant was not found (instructions={codes.Count})");
             }
 
             PriorityTranspilerPatterns.ReplaceWithMaxPriorityCall(codes, upperBoundIndex);

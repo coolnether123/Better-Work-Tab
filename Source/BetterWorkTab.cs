@@ -116,6 +116,12 @@ namespace Better_Work_Tab
             UI.BetterWorkTabSettingsUI.DoSettingsWindowContents(inRect, Settings);
         }
 
+        public override void WriteSettings()
+        {
+            base.WriteSettings();
+            Features.RaisedPriorityMaximum.PriorityCommandRouter.SynchronizeSharedMaxPriorityFromSettings();
+        }
+
         /// <summary>
         /// Monitors map changes and clears bed cache as needed.
         /// Prevents memory leaks from accumulating cached data for deleted maps.
