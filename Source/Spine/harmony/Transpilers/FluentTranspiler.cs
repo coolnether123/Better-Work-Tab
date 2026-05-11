@@ -87,6 +87,8 @@ namespace ModAPI.Harmony
         private readonly List<CodeInstruction> _initialInstructions;
         private readonly List<TranspilerDebugger.PatchEdit> _patchEdits = new List<TranspilerDebugger.PatchEdit>();
         private readonly Dictionary<Label, int> _labelIndexCache = new Dictionary<Label, int>();
+        private readonly List<string> _traceMessages = new List<string>();
+        private BuildProfile _buildProfile = BuildProfile.Runtime;
         private bool _labelIndexCacheDirty = true;
 
         private FluentTranspiler(IEnumerable<CodeInstruction> instructions, MethodBase originalMethod = null, ILGenerator generator = null)
@@ -182,9 +184,30 @@ namespace ModAPI.Harmony
             ILGenerator generator,
             Action<FluentTranspiler> transformer)
         {
+            return Execute(
+                instructions,
+                original,
+                generator,
+                TranspilerSafetyPolicy.DefaultExecuteProfile,
+                transformer);
+        }
+
+        /// <summary>
+        /// Runs the fluent transpiler lifecycle with an explicit build profile.
+        /// Use <see cref="BuildProfile.Debug"/> only for deliberate troubleshooting; runtime patches
+        /// should stay on <see cref="BuildProfile.Runtime"/> so successful patches do not log noise.
+        /// </summary>
+        public static IEnumerable<CodeInstruction> Execute(
+            IEnumerable<CodeInstruction> instructions,
+            MethodBase original,
+            ILGenerator generator,
+            BuildProfile profile,
+            Action<FluentTranspiler> transformer)
+        {
             var transpiler = For(instructions, original, generator);
+            transpiler._buildProfile = profile;
             transformer(transpiler);
-            return transpiler.Build(TranspilerSafetyPolicy.DefaultExecuteProfile);
+            return transpiler.Build(profile);
         }
         /// <summary>
         /// Power-search for a method call using a high-level API.
@@ -336,6 +359,80 @@ namespace ModAPI.Harmony
             }
             
             return this;
+        }
+
+        /// <summary>
+        /// Finds a sequence using instruction predicates. Use this for IL patterns that depend
+        /// on operand semantics, local loads/stores, or mixed opcode forms.
+        /// </summary>
+        public FluentTranspiler FindSequence(SearchMode mode, params Func<CodeInstruction, bool>[] predicates)
+        {
+            if (!TryFindSequence(mode, predicates))
+            {
+                int length = predicates != null ? predicates.Length : 0;
+                AddSoftFailure($"Predicate sequence not found: length {length}");
+            }
+
+            return this;
+        }
+
+        /// <summary>
+        /// Attempts to find a predicate sequence without adding diagnostics when absent.
+        /// This is useful for optional compatibility patterns where another patch shape is valid.
+        /// </summary>
+        public bool TryFindSequence(SearchMode mode, params Func<CodeInstruction, bool>[] predicates)
+        {
+            if (predicates == null || predicates.Length == 0)
+            {
+                AddWarning("TryFindSequence received an empty predicate sequence.");
+                return false;
+            }
+
+            var instructions = _matcher.Instructions();
+            int startIndex = 0;
+            if (mode == SearchMode.Current)
+            {
+                startIndex = _matcher.IsValid ? _matcher.Pos : 0;
+            }
+            else if (mode == SearchMode.Next)
+            {
+                startIndex = _matcher.IsValid ? _matcher.Pos + 1 : 0;
+            }
+
+            for (int i = Math.Max(0, startIndex); i <= instructions.Count - predicates.Length; i++)
+            {
+                bool matched = true;
+                for (int j = 0; j < predicates.Length; j++)
+                {
+                    Func<CodeInstruction, bool> predicate = predicates[j];
+                    if (predicate == null || !predicate(instructions[i + j]))
+                    {
+                        matched = false;
+                        break;
+                    }
+                }
+
+                if (!matched)
+                {
+                    continue;
+                }
+
+                _matcher.Start();
+                if (i > 0)
+                {
+                    _matcher.Advance(i);
+                }
+
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>Match a sequence using instruction predicates.</summary>
+        public FluentTranspiler MatchSequence(params Func<CodeInstruction, bool>[] predicates)
+        {
+            return FindSequence(SearchMode.Start, predicates);
         }
 
         /// <summary>Match a sequence of opcodes (pattern matching).</summary>
@@ -686,12 +783,6 @@ namespace ModAPI.Harmony
         /// <param name="parameterTypes">Optional parameter types for overload resolution.</param>
         public FluentTranspiler ReplaceWithCall(Type type, string methodName, Type[] parameterTypes = null)
         {
-            if (!_matcher.IsValid)
-            {
-                AddSoftFailure("ReplaceWithCall: No valid match.");
-                return this;
-            }
-            
             MethodInfo method;
             if (parameterTypes != null)
             {
@@ -704,19 +795,39 @@ namespace ModAPI.Harmony
                 method = type.GetMethod(methodName,
                     BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
             }
-            
+
             if (method == null)
             {
                 AddWarning($"Method {type.Name}.{methodName} not found");
                 return this;
             }
-            
+
+            return ReplaceWithCall(method);
+        }
+
+        /// <summary>
+        /// Replaces the current instruction with a static method call.
+        /// </summary>
+        public FluentTranspiler ReplaceWithCall(MethodInfo method)
+        {
+            if (!_matcher.IsValid)
+            {
+                AddSoftFailure("ReplaceWithCall: No valid match.");
+                return this;
+            }
+
+            if (method == null)
+            {
+                AddWarning("ReplaceWithCall received a null method.");
+                return this;
+            }
+
             // Transpiler replacements replace an instance or static call with a static call. 
             // Replacing an instance call with a non-static method would lead to an invalid 
             // stack state (missing 'this' pointer).
             if (!method.IsStatic)
             {
-                AddWarning($"Method {type.Name}.{methodName} must be static for transpiler replacement");
+                AddWarning($"Method {method.DeclaringType?.Name}.{method.Name} must be static for transpiler replacement");
                 return this;
             }
             
@@ -724,7 +835,7 @@ namespace ModAPI.Harmony
             var oldInstr = _matcher.Instruction;
             var newInstr = new CodeInstruction(OpCodes.Call, method);
             SetInstructionSafe(newInstr);
-            RecordPatchEdit("ReplaceWithCall", beforeIndex, new[] { oldInstr }, beforeIndex, new[] { newInstr }, $"{type.Name}.{methodName}", "exact");
+            RecordPatchEdit("ReplaceWithCall", beforeIndex, new[] { oldInstr }, beforeIndex, new[] { newInstr }, $"{method.DeclaringType?.Name}.{method.Name}", "exact");
             return this;
         }
 
@@ -2046,21 +2157,20 @@ namespace ModAPI.Harmony
         /// <param name="validateStack">If true, runs stack and lint validation before returning instructions.</param>
         public IEnumerable<CodeInstruction> Build(BuildProfile profile)
         {
+            _buildProfile = profile;
             var options = TranspilerSafetyPolicy.ResolveBuildOptions(profile);
             return Build(options.Strict, options.ValidateStack, options.ForceSnapshot);
         }
 
         public IEnumerable<CodeInstruction> Build(bool strict = true, bool validateStack = true)
         {
+            _buildProfile = strict ? BuildProfile.Strict : BuildProfile.Runtime;
             return Build(strict, validateStack, forceSnapshot: false);
         }
 
         private IEnumerable<CodeInstruction> Build(bool strict, bool validateStack, bool forceSnapshot)
         {
             var instructions = _matcher.Instructions().ToList();
-            var warnings = Warnings;
-            var softFailures = SoftFailures;
-            var notes = Notes;
             bool skipStackValidationForExceptionHandlers = validateStack && MethodHasExceptionHandlingClauses();
             if (validateStack)
             {
@@ -2117,17 +2227,28 @@ namespace ModAPI.Harmony
                 }
                 else
                 {
-                    LogTrace($"[FluentTranspiler] Skipping StackSentinel validation for EH method {_originalMethod?.DeclaringType?.FullName}.{_originalMethod?.Name}.");
+                    AddNote($"StackSentinel validation skipped for EH method {_originalMethod?.DeclaringType?.FullName}.{_originalMethod?.Name}.");
                 }
 
                 // Run Linter
                 Lint(instructions);
             }
 
+            var warnings = Warnings;
+            var softFailures = SoftFailures;
+            var notes = Notes;
+            bool hasCriticalWarning = warnings.Any(TranspilerSafetyPolicy.IsCriticalWarning);
+
             _stopwatch.Stop();
             double duration = _stopwatch.Elapsed.TotalMilliseconds;
 
-            if (forceSnapshot || TranspilerSafetyPolicy.ShouldRecordDebugSnapshot(warnings.Count, softFailures.Count, notes.Count))
+            bool shouldRecordSnapshot =
+                forceSnapshot ||
+                hasCriticalWarning ||
+                (_buildProfile == BuildProfile.Debug &&
+                 TranspilerSafetyPolicy.ShouldRecordDebugSnapshot(warnings.Count, softFailures.Count, notes.Count));
+
+            if (shouldRecordSnapshot)
             {
                 TranspilerDebugger.RecordSnapshot(
                     _callerMod,
@@ -2144,7 +2265,6 @@ namespace ModAPI.Harmony
 
             if (warnings.Count > 0)
             {
-                bool hasCriticalWarning = warnings.Any(TranspilerSafetyPolicy.IsCriticalWarning);
                 var heading = hasCriticalWarning
                     ? $"[{_callerMod}] Transpiler validation failed:"
                     : $"[{_callerMod}] Transpiler validation warnings:";
@@ -2154,12 +2274,17 @@ namespace ModAPI.Harmony
                     throw new InvalidOperationException(message);
                 }
 
-                if (hasCriticalWarning || TranspilerSafetyPolicy.LogValidationWarnings)
+                if (hasCriticalWarning)
+                {
+                    MMLog.WriteError(message);
+                }
+                else if (_buildProfile == BuildProfile.Debug && TranspilerSafetyPolicy.LogValidationWarnings)
                 {
                     MMLog.WriteWarning(message);
                 }
             }
 
+            FlushTraceLog(duration, warnings.Count, softFailures.Count, notes.Count);
             return _matcher.Instructions().ToList();
         }
 
@@ -2209,12 +2334,35 @@ namespace ModAPI.Harmony
 
         private void LogTrace(string message)
         {
-            if (!TranspilerSafetyPolicy.VerboseTracingEnabled)
+            if (_buildProfile != BuildProfile.Debug || !TranspilerSafetyPolicy.VerboseTracingEnabled)
             {
                 return;
             }
 
-            MMLog.WriteDebug(message);
+            _traceMessages.Add(message);
+        }
+
+        private void FlushTraceLog(double durationMilliseconds, int warningCount, int softFailureCount, int noteCount)
+        {
+            if (_traceMessages.Count == 0)
+            {
+                return;
+            }
+
+            string methodName = _originalMethod?.DeclaringType != null
+                ? _originalMethod.DeclaringType.FullName + "." + _originalMethod.Name
+                : _originalMethod?.Name ?? "<unknown method>";
+
+            var lines = new List<string>
+            {
+                "Method: " + methodName,
+                "Duration: " + durationMilliseconds.ToString("F2") + " ms",
+                "Diagnostics: warnings=" + warningCount + ", softFailures=" + softFailureCount + ", notes=" + noteCount
+            };
+            lines.AddRange(_traceMessages);
+            _traceMessages.Clear();
+
+            MMLog.WriteDebugBlock("[FluentTranspiler:" + (_callerMod ?? "Unknown") + "] Trace", lines);
         }
 
         private static TranspilerDiagnosticCategory ClassifyDiagnostic(string message, TranspilerDiagnosticSeverity severity)

@@ -25,14 +25,29 @@ namespace ModAPI.Core
             Log.Message(Prefix + (message ?? string.Empty));
         }
 
+        public static void WriteInfoBlock(string heading, IEnumerable<string> lines)
+        {
+            WriteInfo(BuildBlock(heading, lines));
+        }
+
         public static void WriteWarning(string message)
         {
             Log.Warning(Prefix + (message ?? string.Empty));
         }
 
+        public static void WriteWarningBlock(string heading, IEnumerable<string> lines)
+        {
+            WriteWarning(BuildBlock(heading, lines));
+        }
+
         public static void WriteError(string message)
         {
             Log.Error(Prefix + (message ?? string.Empty));
+        }
+
+        public static void WriteErrorBlock(string heading, IEnumerable<string> lines)
+        {
+            WriteError(BuildBlock(heading, lines));
         }
 
         public static void WriteDebug(string message)
@@ -43,6 +58,16 @@ namespace ModAPI.Core
             }
 
             Log.Message(Prefix + "[Debug] " + (message ?? string.Empty));
+        }
+
+        public static void WriteDebugBlock(string heading, IEnumerable<string> lines)
+        {
+            if (!ShouldLogDebug())
+            {
+                return;
+            }
+
+            Log.Message(Prefix + "[Debug] " + BuildBlock(heading, lines));
         }
 
         public static void WarnOnce(string key, string message)
@@ -62,6 +87,28 @@ namespace ModAPI.Core
             }
 
             Log.Warning(Prefix + (message ?? string.Empty));
+        }
+
+        private static string BuildBlock(string heading, IEnumerable<string> lines)
+        {
+            var parts = new List<string>();
+            if (!string.IsNullOrEmpty(heading))
+            {
+                parts.Add(heading);
+            }
+
+            if (lines != null)
+            {
+                foreach (string line in lines)
+                {
+                    if (!string.IsNullOrEmpty(line))
+                    {
+                        parts.Add(line);
+                    }
+                }
+            }
+
+            return string.Join("\n", parts.ToArray());
         }
 
         private static bool ShouldLogDebug()

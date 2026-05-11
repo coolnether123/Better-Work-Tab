@@ -22,7 +22,7 @@ namespace ModAPI.Harmony
         public static bool WarnOnExceptionHandlerMethods => ModPrefs.TranspilerWarnOnExceptionHandlerMethods;
         public static bool VerboseTracingEnabled => ModPrefs.DebugTranspilers;
         public static FluentTranspiler.BuildProfile DefaultExecuteProfile =>
-            VerboseTracingEnabled ? FluentTranspiler.BuildProfile.Debug : FluentTranspiler.BuildProfile.Runtime;
+            FluentTranspiler.BuildProfile.Runtime;
         public static FluentTranspiler.BuildProfile DefaultCooperativeProfile =>
             CooperativeStrictBuild ? FluentTranspiler.BuildProfile.Strict : DefaultExecuteProfile;
 
