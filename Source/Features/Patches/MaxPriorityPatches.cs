@@ -360,34 +360,6 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         }
     }
 
-    [HarmonyPatch(typeof(PawnColumnWorker_WorkPriority), nameof(PawnColumnWorker_WorkPriority.HeaderClicked))]
-    internal static class Patch_PawnColumnWorker_WorkPriority_HeaderClicked
-    {
-        /// <summary>
-        /// Replaces the two wraparound constants used by the header bulk-edit controls.
-        /// </summary>
-        [HarmonyTranspiler]
-        private static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions, MethodBase original)
-        {
-            var codes = new List<CodeInstruction>(instructions);
-            int leftWrapIndex = PriorityTranspilerPatterns.FindPriorityWrapUnderflowIndex(codes, 0);
-            int rightWrapIndex = PriorityTranspilerPatterns.FindPriorityWrapOverflowIndex(codes, leftWrapIndex + 1);
-
-            if (leftWrapIndex < 0 || rightWrapIndex < 0)
-            {
-                return PriorityTranspilerDiagnostics.ReturnOriginalWithWarning(
-                    codes,
-                    original,
-                    nameof(Patch_PawnColumnWorker_WorkPriority_HeaderClicked),
-                    $"expected left/right wrap constants were not found (left={leftWrapIndex}, right={rightWrapIndex}, instructions={codes.Count})");
-            }
-
-            PriorityTranspilerPatterns.ReplaceWithMaxPriorityCall(codes, leftWrapIndex);
-            PriorityTranspilerPatterns.ReplaceWithMaxPriorityCall(codes, rightWrapIndex);
-            return codes;
-        }
-    }
-
     [HarmonyPatch(typeof(Pawn_WorkSettings), nameof(Pawn_WorkSettings.SetPriority))]
     internal static class Patch_Pawn_WorkSettings_SetPriority
     {
