@@ -50,6 +50,99 @@ namespace ModAPI.Harmony
             return instr.operand is MethodInfo method && method.DeclaringType == type && method.Name == methodName;
         }
 
+        /// <summary>Check if instruction is one of the supplied branch opcodes.</summary>
+        public static bool IsBranch(this CodeInstruction instr, params OpCode[] opcodes)
+        {
+            if (instr == null || opcodes == null)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < opcodes.Length; i++)
+            {
+                if (instr.opcode == opcodes[i])
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>Check if instruction loads a local variable, including short and indexed forms.</summary>
+        public static bool IsLoadLocal(this CodeInstruction instr)
+        {
+            return instr != null && instr.opcode.Name.StartsWith("ldloc", StringComparison.Ordinal);
+        }
+
+        /// <summary>Check if instruction stores a local variable, including short and indexed forms.</summary>
+        public static bool IsStoreLocal(this CodeInstruction instr)
+        {
+            return instr != null && instr.opcode.Name.StartsWith("stloc", StringComparison.Ordinal);
+        }
+
+        /// <summary>Check if instruction loads the requested method argument index.</summary>
+        public static bool IsLoadArgument(this CodeInstruction instr, int argumentIndex)
+        {
+            if (instr == null)
+            {
+                return false;
+            }
+
+            switch (argumentIndex)
+            {
+                case 0:
+                    return instr.opcode == OpCodes.Ldarg_0 ||
+                           IsIndexedOperand(instr, OpCodes.Ldarg, OpCodes.Ldarg_S, 0);
+                case 1:
+                    return instr.opcode == OpCodes.Ldarg_1 ||
+                           IsIndexedOperand(instr, OpCodes.Ldarg, OpCodes.Ldarg_S, 1);
+                case 2:
+                    return instr.opcode == OpCodes.Ldarg_2 ||
+                           IsIndexedOperand(instr, OpCodes.Ldarg, OpCodes.Ldarg_S, 2);
+                case 3:
+                    return instr.opcode == OpCodes.Ldarg_3 ||
+                           IsIndexedOperand(instr, OpCodes.Ldarg, OpCodes.Ldarg_S, 3);
+                default:
+                    return IsIndexedOperand(instr, OpCodes.Ldarg, OpCodes.Ldarg_S, argumentIndex);
+            }
+        }
+
+        private static bool IsIndexedOperand(CodeInstruction instr, OpCode longForm, OpCode shortForm, int expectedIndex)
+        {
+            if (instr.opcode != longForm && instr.opcode != shortForm)
+            {
+                return false;
+            }
+
+            if (instr.operand is int intIndex)
+            {
+                return intIndex == expectedIndex;
+            }
+
+            if (instr.operand is byte byteIndex)
+            {
+                return byteIndex == expectedIndex;
+            }
+
+            if (instr.operand is sbyte signedByteIndex)
+            {
+                return signedByteIndex == expectedIndex;
+            }
+
+            if (instr.operand is short shortIndex)
+            {
+                return shortIndex == expectedIndex;
+            }
+
+            if (instr.operand is ushort ushortIndex)
+            {
+                return ushortIndex == expectedIndex;
+            }
+
+            return false;
+        }
+
         #endregion
 
         #region FluentTranspiler Wrappers for Predicates

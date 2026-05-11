@@ -123,7 +123,14 @@
     <Compile Include="Spine\harmony\Transpilers\ControlFlowExtensions.cs" />
     <Compile Include="Spine\harmony\Transpilers\CooperativePatcher.cs" />
     <Compile Include="Spine\harmony\Transpilers\FluentTranspiler.cs" />
+    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerCallRecipes.cs" />
+    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerCompatibilityExtensions.cs" />
+    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerExecution.cs" />
+    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerFormatting.cs" />
+    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerGuardRecipes.cs" />
     <Compile Include="Spine\harmony\Transpilers\FluentTranspilerPatterns.cs" />
+    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerRangeCheckRecipes.cs" />
+    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerWrapRecipes.cs" />
     <Compile Include="Spine\harmony\Transpilers\FluentTranspiler_Features.cs" />
     <Compile Include="Spine\harmony\Transpilers\IntentAPI.cs" />
     <Compile Include="Spine\harmony\Transpilers\ShelteredPatterns.cs" />
