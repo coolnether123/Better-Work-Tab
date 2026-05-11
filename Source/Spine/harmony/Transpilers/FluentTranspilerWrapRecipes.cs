@@ -128,29 +128,45 @@ namespace ModAPI.Harmony
                 return FluentWrapBoundsReplacementResult.NoMatch;
             }
 
-            FluentReplacementResult underflowResult = _transpiler.ReplaceSequenceOffsetWithCallOrFallbackCall(
+            bool replacementAlreadyPresentBefore =
+                replacementMethod != null &&
+                _transpiler.HasMatchingCall(method => method == replacementMethod);
+
+            FluentReplacementResult underflowResult = _transpiler.TryReplaceSequenceOffsetWithCall(
                 BuildUnderflowPattern(),
                 UnderflowUpperBoundPatternOffset,
                 replacementMethod,
-                fallbackMethodPredicate,
-                editLabel,
-                mode);
+                mode)
+                ? FluentReplacementResult.PatternReplaced
+                : FluentReplacementResult.NoMatch;
 
-            if (underflowResult == FluentReplacementResult.FallbackCallReplaced ||
-                underflowResult == FluentReplacementResult.ReplacementAlreadyPresent)
-            {
-                return new FluentWrapBoundsReplacementResult(underflowResult, FluentReplacementResult.NoMatch);
-            }
-
-            FluentReplacementResult overflowResult = _transpiler.ReplaceSequenceOffsetWithCallOrFallbackCall(
+            FluentReplacementResult overflowResult = _transpiler.TryReplaceSequenceOffsetWithCall(
                 BuildOverflowPattern(),
                 OverflowUpperBoundPatternOffset,
                 replacementMethod,
-                fallbackMethodPredicate,
-                editLabel,
-                mode);
+                mode)
+                ? FluentReplacementResult.PatternReplaced
+                : FluentReplacementResult.NoMatch;
 
-            return new FluentWrapBoundsReplacementResult(underflowResult, overflowResult);
+            bool replacedFallbackProvider = false;
+            bool hasGlobalCompatibleProviderCoverage = replacementAlreadyPresentBefore;
+            if (underflowResult == FluentReplacementResult.NoMatch ||
+                overflowResult == FluentReplacementResult.NoMatch)
+            {
+                int fallbackReplacements = _transpiler.ReplaceMatchingCalls(
+                    fallbackMethodPredicate,
+                    replacementMethod,
+                    editLabel);
+
+                replacedFallbackProvider = fallbackReplacements > 0;
+                hasGlobalCompatibleProviderCoverage = hasGlobalCompatibleProviderCoverage || replacedFallbackProvider;
+            }
+
+            return new FluentWrapBoundsReplacementResult(
+                underflowResult,
+                overflowResult,
+                hasGlobalCompatibleProviderCoverage,
+                replacedFallbackProvider);
         }
 
         private bool IsValid()
@@ -217,22 +233,31 @@ namespace ModAPI.Harmony
         public static readonly FluentWrapBoundsReplacementResult NoMatch =
             new FluentWrapBoundsReplacementResult(FluentReplacementResult.NoMatch, FluentReplacementResult.NoMatch);
 
-        public FluentWrapBoundsReplacementResult(FluentReplacementResult underflowResult, FluentReplacementResult overflowResult)
+        public FluentWrapBoundsReplacementResult(
+            FluentReplacementResult underflowResult,
+            FluentReplacementResult overflowResult,
+            bool hasGlobalProviderCoverage = false,
+            bool replacedFallbackProvider = false)
         {
             UnderflowResult = underflowResult;
             OverflowResult = overflowResult;
+            HasGlobalProviderCoverage = hasGlobalProviderCoverage;
+            ReplacedFallbackProvider = replacedFallbackProvider;
         }
 
         public FluentReplacementResult UnderflowResult { get; }
 
         public FluentReplacementResult OverflowResult { get; }
 
+        public bool HasGlobalProviderCoverage { get; }
+
+        public bool ReplacedFallbackProvider { get; }
+
         public bool Succeeded
         {
             get
             {
-                return UnderflowResult == FluentReplacementResult.FallbackCallReplaced ||
-                       UnderflowResult == FluentReplacementResult.ReplacementAlreadyPresent ||
+                return HasGlobalProviderCoverage ||
                        (UnderflowResult == FluentReplacementResult.PatternReplaced &&
                         OverflowResult == FluentReplacementResult.PatternReplaced);
             }
@@ -242,14 +267,13 @@ namespace ModAPI.Harmony
         {
             get
             {
-                return UnderflowResult == FluentReplacementResult.FallbackCallReplaced ||
-                       OverflowResult == FluentReplacementResult.FallbackCallReplaced;
+                return ReplacedFallbackProvider;
             }
         }
 
         public override string ToString()
         {
-            return $"underflow={UnderflowResult}, overflow={OverflowResult}";
+            return $"underflow={UnderflowResult}, overflow={OverflowResult}, globalProvider={HasGlobalProviderCoverage}, fallbackProviderReplaced={ReplacedFallbackProvider}";
         }
     }
 }

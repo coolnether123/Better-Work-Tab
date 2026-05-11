@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using HarmonyLib;
@@ -35,12 +36,12 @@ namespace ModAPI.Harmony
             Action<FluentTranspiler> transformer,
             Func<List<CodeInstruction>, MethodBase, Exception, IEnumerable<CodeInstruction>> onFailure)
         {
-            var originalInstructions = new List<CodeInstruction>(instructions);
+            var originalInstructions = CloneInstructions(instructions);
 
             try
             {
                 return FluentTranspiler.Execute(
-                    new List<CodeInstruction>(originalInstructions),
+                    CloneInstructions(originalInstructions),
                     original,
                     generator,
                     profile,
@@ -52,6 +53,11 @@ namespace ModAPI.Harmony
                     ? onFailure(originalInstructions, original, ex)
                     : originalInstructions;
             }
+        }
+
+        private static List<CodeInstruction> CloneInstructions(IEnumerable<CodeInstruction> instructions)
+        {
+            return instructions.Select(instruction => new CodeInstruction(instruction)).ToList();
         }
     }
 }
