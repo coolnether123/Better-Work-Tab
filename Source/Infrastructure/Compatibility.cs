@@ -5,7 +5,7 @@ using System.Text.RegularExpressions;
 using UnityEngine;
 using Verse;
 
-#if v1_2
+#if v1_2 || v1_1
 namespace RimWorld
 {
     public class QuickSearchFilter

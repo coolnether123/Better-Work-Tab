@@ -16,7 +16,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.State
         Passion,
         Gender,
         Trait,
-#if !v1_3 && !v1_2
+#if !v1_3 && !v1_2 && !v1_1
         Xenotype
 #endif
     }
@@ -73,7 +73,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.State
             switch (Type)
             {
                 case ConditionType.Bool:
-                    return (bool)Value ? "✓" : "✗";
+                    return (bool)Value ? "\u2713" : "\u2717";
 
                 case ConditionType.Int:
                 case ConditionType.IntRange:
@@ -101,7 +101,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.State
                     }
                     return "None";
 
-#if !v1_3 && !v1_2
+#if !v1_3 && !v1_2 && !v1_1
                 case ConditionType.Xenotype:
                     var xeno = Value as XenotypeDef;
                     return xeno?.LabelCap ?? "None";

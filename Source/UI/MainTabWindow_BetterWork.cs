@@ -1,6 +1,6 @@
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Mod_Support.Multiplayer;
-#if !v1_2
+#if !v1_2 && !v1_1
 using Better_Work_Tab.Mod_Support.Multiplayer.Features.Layouts;
 #endif
 using Better_Work_Tab.Features.Caching;
@@ -10,7 +10,7 @@ using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.PawnOrganizer.Data;
 using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.Headers.Angled;
-#if !v1_2
+#if !v1_2 && !v1_1
 using Multiplayer.API;
 #endif
 using RimWorld;
@@ -70,7 +70,7 @@ namespace Better_Work_Tab.UI
 
         private static Color CurrentRowTextColor = Color.white;
 
-#if !v1_2
+#if !v1_2 && !v1_1
         /// <summary>
         /// Multiplayer registration for column reordering sync.
         /// Uses nested class pattern to keep MP setup organized.
@@ -263,7 +263,7 @@ namespace Better_Work_Tab.UI
 
         private IPawnOrganizerSnapshot BuildSnapshotForOrganizer(PawnTable table)
         {
-            var pawns = new List<Pawn>(table.PawnsListForReading);
+            var pawns = new List<Pawn>(PawnTableCompat.GetPawnsListForReading(table));
             var comp = Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
             var settings = BetterWorkTabMod.Settings;
             bool useDividers = (settings?.enableDividers ?? true) && (settings?.showDividers ?? true);
@@ -335,7 +335,7 @@ namespace Better_Work_Tab.UI
             }
             
             // Multiplayer follow mode: Copy this pawn row
-#if !v1_2
+#if !v1_2 && !v1_1
             if (LayoutSharingManager.IsFollowing)
             {
                 options.Add(new FloatMenuOption(
@@ -349,7 +349,7 @@ namespace Better_Work_Tab.UI
 
         private void ShowRenamePawnDialog(Pawn pawn)
         {
-#if v1_3 || v1_2
+#if v1_3 || v1_2 || v1_1
             Find.WindowStack.Add(new Dialog_NamePawn(pawn));
 #else
             Find.WindowStack.Add(pawn.NamePawnDialog());
@@ -375,7 +375,7 @@ namespace Better_Work_Tab.UI
 
                     MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
                     
-#if !v1_2
+#if !v1_2 && !v1_1
                     if (MultiplayerBridge.Active)
                         LayoutSharingManager.NotifyLayoutChanged();
 #endif
@@ -383,7 +383,7 @@ namespace Better_Work_Tab.UI
             };
             
             // Multiplayer follow mode: Copy this divider
-#if !v1_2
+#if !v1_2 && !v1_1
             if (LayoutSharingManager.IsFollowing)
             {
                 options.Add(new FloatMenuOption(
@@ -412,7 +412,7 @@ namespace Better_Work_Tab.UI
             layout.AddDividerBeforePawn(pawn, "New Divider", Color.gray);
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
             
-#if !v1_2
+#if !v1_2 && !v1_1
             if (MultiplayerBridge.Active)
                 LayoutSharingManager.NotifyLayoutChanged();
 #endif
@@ -444,15 +444,15 @@ namespace Better_Work_Tab.UI
                     // Use table's current header height (updates dynamically with vanilla staggering)
                     // combined with layout controller's content height (includes dividers)
                     // This is consistent during drag, preventing scrollbar flickers
-                    float layoutHeight = table.cachedHeaderHeight + organizer.Layout.ContentHeight;
+                    float layoutHeight = PawnTableCompat.GetHeaderHeight(table) + organizer.Layout.ContentHeight;
                     finalHeight = layoutHeight + ExtraBottomSpace + ExtraTopSpace + Margin * 2f;
-                    finalWidth = table.Size.x + Margin * 2f + 25f; // Added 20f to stop headers from clipping edge
+                    finalWidth = PawnTableCompat.GetSize(table).x + Margin * 2f + 25f; // Added 20f to stop headers from clipping edge
                 }
                 else
                 {
                     // Fallback to vanilla size if organizer not ready
-                    finalHeight = table.Size.y + ExtraBottomSpace + ExtraTopSpace + Margin * 2f;
-                    finalWidth = table.Size.x + Margin * 2f + 25f; // Same as above
+                    finalHeight = PawnTableCompat.GetSize(table).y + ExtraBottomSpace + ExtraTopSpace + Margin * 2f;
+                    finalWidth = PawnTableCompat.GetSize(table).x + Margin * 2f + 25f; // Same as above
                 }
 
                 // Determine max height: use setting if configured, otherwise vanilla default (fill screen)
@@ -485,7 +485,7 @@ namespace Better_Work_Tab.UI
             layout.AddDividerAfterPawn(pawn, "New Divider", Color.gray);
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
 
-#if !v1_2
+#if !v1_2 && !v1_1
             if (MultiplayerBridge.Active)
                 LayoutSharingManager.NotifyLayoutChanged();
 #endif
@@ -626,7 +626,7 @@ namespace Better_Work_Tab.UI
         /// directly dragged by the player, then updates its marking status based on
         /// whether it ended up out of vanilla position.
         /// </summary>
-#if !v1_2
+#if !v1_2 && !v1_1
         [SyncMethod]
 #endif
         internal static void MarkColumnMoved(WorkTypeDef workType)
@@ -673,7 +673,7 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
-            Widgets.BeginScrollView(outRect, ref table.scrollPosition, viewRect);
+            PawnTableCompat.BeginScrollView(table, outRect, viewRect);
             try
             {
                 // Get the row descriptors (single source of truth for what rows exist and their heights)
@@ -699,7 +699,7 @@ namespace Better_Work_Tab.UI
                     viewRect.width,
                     nameColumn,
                     outRect,
-                    table.scrollPosition);
+                    PawnTableCompat.GetScrollPosition(table));
 
                 // Phase 3: Draw separator lines between rows
                 DrawRowSeparators(rowDescriptors, viewRect.width);
@@ -1070,12 +1070,12 @@ namespace Better_Work_Tab.UI
             }
 
             Rect arrowRect = new Rect(labelCellRect.xMin + 6f, labelCellRect.y + (labelCellRect.height - 16f) / 2f, 18f, 16f);
-            string arrowChar = divider.IsCollapsed ? "▶" : "▼";
+            string arrowChar = divider.IsCollapsed ? "\u25B6" : "\u25BC";
             if (Widgets.ButtonInvisible(arrowRect))
             {
                 ToggleDividerCollapsed(divider);
                 
-#if !v1_2
+#if !v1_2 && !v1_1
                 if (MultiplayerBridge.Active)
                     LayoutSharingManager.NotifyLayoutChanged();
 #endif
@@ -1292,7 +1292,7 @@ namespace Better_Work_Tab.UI
                 var mod = LoadedModManager.GetMod<BetterWorkTabMod>();
                 if (mod != null)
                 {
-#if v1_3 || v1_2
+#if v1_3 || v1_2 || v1_1
                     var dialog = new Dialog_ModSettings();
                     typeof(Dialog_ModSettings).GetField("selMod", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).SetValue(dialog, mod);
                     Find.WindowStack.Add(dialog);
@@ -1327,7 +1327,7 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
-            int pawnCount = showPawns ? table?.cachedPawns?.Count ?? 0 : 0;
+            int pawnCount = showPawns ? PawnTableCompat.GetPawnCount(table) : 0;
 
             // Use cached bed count instead of calculating every frame
             int bedCount = 0;

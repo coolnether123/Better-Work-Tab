@@ -71,7 +71,7 @@ namespace Better_Work_Tab.DragDrop
         private int CalculateTargetIndex(Vector2 mousePos)
         {
             float headerBottom = _layout.TableOrigin.y + _layout.HeaderHeight;
-            float contentY = mousePos.y - headerBottom + _layout.Table.scrollPosition.y;
+            float contentY = mousePos.y - headerBottom + PawnTableCompat.GetScrollPosition(_layout.Table).y;
 
             var descriptors = _layout.GetRowDescriptors();
             int newIndex = descriptors.Count;
@@ -122,12 +122,12 @@ namespace Better_Work_Tab.DragDrop
                     _session.TargetIndex,
                     heights,
                     headerBottom,
-                    _layout.Table.scrollPosition.y);
+                    PawnTableCompat.GetScrollPosition(_layout.Table).y);
 
                 ListDragVisuals.DrawInsertionLine(
                     _layout.TableOrigin.x,
                     lineY,
-                    _layout.Table.Size.x - 16f);
+                    PawnTableCompat.GetSize(_layout.Table).x - 16f);
             }
         }
 
@@ -205,7 +205,7 @@ namespace Better_Work_Tab.DragDrop
             Find.ColonistBar?.MarkColonistsDirty();
 
             // Notify multiplayer followers
-#if !v1_2
+#if !v1_2 && !v1_1
             if (Better_Work_Tab.Mod_Support.Multiplayer.MultiplayerBridge.Active)
             {
                Better_Work_Tab.Mod_Support.Multiplayer.Features.Layouts.LayoutSharingManager.NotifyLayoutChanged();

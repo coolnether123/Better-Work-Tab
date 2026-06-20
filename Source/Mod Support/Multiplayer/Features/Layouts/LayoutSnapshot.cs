@@ -1,4 +1,4 @@
-#if !v1_2
+#if !v1_2 && !v1_1
 using System.Collections.Generic;
 using System.Linq;
 using Verse;

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -263,7 +263,7 @@ namespace Better_Work_Tab.PawnOrganizer
         public IReadOnlyList<WorkTabLayoutRow> Rows => _rows;
         public IReadOnlyList<WorkTabLayoutColumn> Columns => _columns;
         public float ContentHeight => _contentHeight;
-        public float HeaderHeight => _table?.cachedHeaderHeight ?? 0f;
+        public float HeaderHeight => PawnTableCompat.GetHeaderHeight(_table);
         public Vector2 TableOrigin => _origin;
         public PawnTable Table => _table;
 
@@ -298,7 +298,7 @@ namespace Better_Work_Tab.PawnOrganizer
                     _dividerHeight = BetterWorkTabMod.Settings?.dividerHeight ?? DefaultDividerHeight;
 
                     _snapshotPawns = snapshot?.Pawns
-                                     ?? (IReadOnlyList<Pawn>)table.PawnsListForReading
+                                     ?? PawnTableCompat.GetPawnsListForReading(table)
                                      ?? Array.Empty<Pawn>();
 
                     if (snapshot?.Dividers is IList<PawnDivider> dividerList && !dividerList.IsReadOnly)
@@ -316,7 +316,7 @@ namespace Better_Work_Tab.PawnOrganizer
                     }
 
                     EnsureTableFresh();
-                    _rowWidth = Mathf.Max(0f, _table.Size.x - 16f);
+                    _rowWidth = Mathf.Max(0f, PawnTableCompat.GetSize(_table).x - 16f);
 
                     BuildColumns();
                     BuildRows();
@@ -344,7 +344,7 @@ namespace Better_Work_Tab.PawnOrganizer
                 return false;
 
             // Convert to local Y within scrolled content
-            float localY = mousePosition.y - headerBottom + Table.scrollPosition.y;
+            float localY = mousePosition.y - headerBottom + PawnTableCompat.GetScrollPosition(Table).y;
 
             // Use the VISIBLE row descriptors (respects collapsed dividers)
             var descriptors = GetRowDescriptors();
@@ -383,7 +383,7 @@ namespace Better_Work_Tab.PawnOrganizer
             if (mousePosition.y < headerBottom)
                 return false;
 
-            float localY = mousePosition.y - headerBottom + Table.scrollPosition.y;
+            float localY = mousePosition.y - headerBottom + PawnTableCompat.GetScrollPosition(Table).y;
             var descriptors = GetRowDescriptors(); // ONLY visible rows
 
             float cumulativeY = 0f;
@@ -611,7 +611,7 @@ namespace Better_Work_Tab.PawnOrganizer
                 return Rect.zero;
             }
 
-            float screenY = _origin.y + HeaderHeight + row.OffsetY - _table.scrollPosition.y;
+            float screenY = _origin.y + HeaderHeight + row.OffsetY - PawnTableCompat.GetScrollPosition(_table).y;
             return new Rect(_origin.x, screenY, _rowWidth, row.Height);
         }
 
@@ -622,7 +622,7 @@ namespace Better_Work_Tab.PawnOrganizer
 
         private void BuildColumns()
         {
-#if v1_3 || v1_2
+#if v1_3 || v1_2 || v1_1
             var allColumns = _table.ColumnsListForReading;
 #else
             var allColumns = _table.Columns;
@@ -689,9 +689,7 @@ namespace Better_Work_Tab.PawnOrganizer
                 
                 if (w < 0f)
                 {
-                    w = (originalIndex < _table.cachedColumnWidths.Count) 
-                        ? _table.cachedColumnWidths[originalIndex] 
-                        : 30f;
+                    w = PawnTableCompat.GetCachedColumnWidth(_table, originalIndex, 30f);
                 }
                 
                 widths[i] = w;
@@ -761,18 +759,19 @@ namespace Better_Work_Tab.PawnOrganizer
         private Dictionary<Pawn, float> CachePawnRowHeights()
         {
             var dict = new Dictionary<Pawn, float>();
-            if (_table?.cachedPawns == null)
+            var cachedPawns = PawnTableCompat.GetCachedPawns(_table);
+            if (cachedPawns.Count == 0)
             {
                 return dict;
             }
 
-            var cachedHeights = _table.cachedRowHeights;
-            for (int i = 0; i < _table.cachedPawns.Count; i++)
+            var cachedHeights = PawnTableCompat.GetCachedRowHeights(_table);
+            for (int i = 0; i < cachedPawns.Count; i++)
             {
                 float height = (cachedHeights != null && i < cachedHeights.Count)
                     ? cachedHeights[i]
                     : 30f;
-                dict[_table.cachedPawns[i]] = height;
+                dict[cachedPawns[i]] = height;
             }
 
             return dict;

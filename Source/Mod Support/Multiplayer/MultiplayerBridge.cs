@@ -1,4 +1,4 @@
-#if !v1_2
+#if !v1_2 && !v1_1
 using Multiplayer.API;
 
 namespace Better_Work_Tab.Mod_Support.Multiplayer

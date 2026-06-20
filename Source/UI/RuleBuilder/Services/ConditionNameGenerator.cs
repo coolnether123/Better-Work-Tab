@@ -63,7 +63,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
             }
 
             // Xenotype
-#if !v1_3 && !v1_2
+#if !v1_3 && !v1_2 && !v1_1
             if (p.Xenotype != null)
                 parts.Add(p.Xenotype.LabelCap);
 #endif

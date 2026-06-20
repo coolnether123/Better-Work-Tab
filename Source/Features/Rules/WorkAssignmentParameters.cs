@@ -31,7 +31,7 @@ namespace Better_Work_Tab.Features.Rules
         [RuleParameter]
         public int PassionLevel = -1;
 
-#if !v1_3 && !v1_2
+#if !v1_3 && !v1_2 && !v1_1
         [RuleParameter]
         public XenotypeDef Xenotype;
 #endif
@@ -132,7 +132,7 @@ namespace Better_Work_Tab.Features.Rules
             bool assignToPawnWithFewestWorkPriorities = false, 
             Gender? gender = null, 
             bool isPregnant = false, 
-#if !v1_3 && !v1_2
+#if !v1_3 && !v1_2 && !v1_1
             XenotypeDef xenotype = null, 
 #endif
             Tuple<TraitDef, int> requiredTrait = null, 
@@ -175,7 +175,7 @@ namespace Better_Work_Tab.Features.Rules
             Gender = gender;
             IsPregnant = isPregnant;
 
-#if !v1_3 && !v1_2
+#if !v1_3 && !v1_2 && !v1_1
             Xenotype = xenotype;
             if(xenotype != null)
             {
@@ -224,7 +224,7 @@ namespace Better_Work_Tab.Features.Rules
                 Priority = Priority,
                 AllowOverwritingHigherPriority = AllowOverwritingHigherPriority,
                 PassionLevel = PassionLevel,
-#if !v1_3 && !v1_2
+#if !v1_3 && !v1_2 && !v1_1
                 Xenotype = Xenotype,
 #endif
                 RequiredTrait = RequiredTrait != null
@@ -310,7 +310,7 @@ namespace Better_Work_Tab.Features.Rules
         private void SyncBackingStringsFromDefs()
         {
             WorktypeString = Worktype?.defName ?? WorktypeString ?? "";
-#if !v1_3 && !v1_2
+#if !v1_3 && !v1_2 && !v1_1
             XenotypeString = Xenotype?.defName ?? XenotypeString ?? "";
 #endif
             TraitString = RequiredTrait?.Item1?.defName ?? TraitString ?? "";
@@ -365,7 +365,7 @@ namespace Better_Work_Tab.Features.Rules
 
         private void ResolveXenotypeFromString()
         {
-#if !v1_3 && !v1_2
+#if !v1_3 && !v1_2 && !v1_1
             if (Xenotype == null && !string.IsNullOrEmpty(XenotypeString))
             {
                 Xenotype = DefDatabase<XenotypeDef>.GetNamedSilentFail(XenotypeString);

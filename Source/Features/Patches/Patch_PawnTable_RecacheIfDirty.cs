@@ -1,4 +1,4 @@
-﻿using Better_Work_Tab.PawnOrganizer;
+using Better_Work_Tab.PawnOrganizer;
 using HarmonyLib;
 using RimWorld;
 using System.Collections.Generic;
@@ -18,25 +18,19 @@ namespace Better_Work_Tab.Features.Patches
     /// - Clamp total height to maxTableHeight to prevent content overflow
     /// - Update cachedSize with clamped dimensions
     /// </summary>
-    [HarmonyPatch(typeof(PawnTable), nameof(PawnTable.RecacheIfDirty))]
+    [HarmonyPatch]
     public static class Patch_PawnTable_RecacheIfDirty
     {
-        private static readonly FieldInfo CachedRowHeightsField =
-            AccessTools.Field(typeof(PawnTable), "cachedRowHeights");
-
-        private static readonly FieldInfo CachedSizeField =
-            AccessTools.Field(typeof(PawnTable), "cachedSize");
-
-        private static readonly FieldInfo MaxTableHeightField =
-            AccessTools.Field(typeof(PawnTable), "maxTableHeight");
+        private static MethodBase TargetMethod()
+        {
+            return AccessTools.Method(typeof(PawnTable), "RecacheIfDirty")
+                ?? AccessTools.Method(typeof(PawnTable), nameof(PawnTable.PawnTableOnGUI));
+        }
 
         public static void Postfix(PawnTable __instance)
         {
             // Only process the Work tab
-            if (__instance.def != PawnTableDefOf.Work)
-                return;
-
-            if (CachedRowHeightsField == null || CachedSizeField == null)
+            if (!PawnTableCompat.IsWorkTable(__instance))
                 return;
 
             var layout = PawnOrganizerSystem.Instance?.Layout;
@@ -66,7 +60,7 @@ namespace Better_Work_Tab.Features.Patches
                 contentHeight += desc.Height;
             }
 
-            float headerHeight = __instance.cachedHeaderHeight;
+            float headerHeight = PawnTableCompat.GetHeaderHeight(__instance);
             float totalHeight = headerHeight + contentHeight;
 
             // ═══════════════════════════════════════════════════════════════════════════
@@ -76,9 +70,9 @@ namespace Better_Work_Tab.Features.Patches
             // being smaller than its content, which would trigger unnecessary scrollbars
             // even when the window has room to grow.
             // ═══════════════════════════════════════════════════════════════════════════
-            float width = __instance.cachedSize.x;
-            CachedRowHeightsField.SetValue(__instance, rowHeights);
-            CachedSizeField.SetValue(__instance, new Vector2(width, totalHeight));
+            float width = PawnTableCompat.GetSize(__instance).x;
+            PawnTableCompat.TrySetCachedRowHeights(__instance, rowHeights);
+            PawnTableCompat.TrySetCachedSize(__instance, new Vector2(width, totalHeight));
         }
     }
 

@@ -156,7 +156,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
             return tooltip.Resolve();
         }
 
-#if v1_2
+#if v1_2 || v1_1
         private static Color TooltipTitleColor => Color.white;
         private static Color TooltipSubtleColor => Color.gray;
         private static bool ShouldShowKeyboardTooltips => true;

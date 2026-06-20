@@ -4,7 +4,7 @@ using Better_Work_Tab.Mod_Support.Multiplayer;
 using Better_Work_Tab.Patches;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.Data;
-#if !v1_2
+#if !v1_2 && !v1_1
 using Multiplayer.API;
 #endif
 using Spine.Profiling;

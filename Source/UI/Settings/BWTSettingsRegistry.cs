@@ -6,7 +6,7 @@ using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.Patches;
 using Better_Work_Tab.UI;
-#if !v1_2
+#if !v1_2 && !v1_1
 using Multiplayer.API;
 #endif
 using RimWorld;
@@ -296,7 +296,7 @@ namespace Better_Work_Tab.UI.Settings
                 ControlsChildVisibility = true,
                 ShowInSimpleView = false,
                 ShowInAdvancedView = false,
-#if !v1_2
+#if !v1_2 && !v1_1
                 VisibleWhen = _ => MP.enabled && MP.IsInMultiplayer,
 #else
                 VisibleWhen = _ => false,
@@ -1607,7 +1607,7 @@ namespace Better_Work_Tab.UI.Settings
                 Tooltip = "Render hover indicators shared by other players.",
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.mpShowOtherPlayersHover,
-#if !v1_2
+#if !v1_2 && !v1_1
                 VisibleWhen = _ => MP.enabled && MP.IsInMultiplayer,
 #else
                 VisibleWhen = _ => false,
@@ -1626,7 +1626,7 @@ namespace Better_Work_Tab.UI.Settings
                 Tooltip = "Share the hovered cell you are looking at with your peers.",
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.mpAllowPresenceBroadcast,
-#if !v1_2
+#if !v1_2 && !v1_1
                 VisibleWhen = _ => MP.enabled && MP.IsInMultiplayer,
 #else
                 VisibleWhen = _ => false,
@@ -1645,7 +1645,7 @@ namespace Better_Work_Tab.UI.Settings
                 Tooltip = "Permit other players to request snapshots of your layout.",
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.mpAllowOthersToRequestLayout,
-#if !v1_2
+#if !v1_2 && !v1_1
                 VisibleWhen = _ => MP.enabled && MP.IsInMultiplayer,
 #else
                 VisibleWhen = _ => false,
@@ -1664,7 +1664,7 @@ namespace Better_Work_Tab.UI.Settings
                 Tooltip = "Display a linked/peered indicator when viewing another player's layout.",
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.mpShowLinkedIndicator,
-#if !v1_2
+#if !v1_2 && !v1_1
                 VisibleWhen = _ => MP.enabled && MP.IsInMultiplayer,
 #else
                 VisibleWhen = _ => false,
@@ -1791,7 +1791,7 @@ namespace Better_Work_Tab.UI.Settings
                 ParentId = HeadersAngled,
                 FieldName = "angledHeaderHorizontalOffset",
                 Label = "Horizontal offset",
-                Tooltip = "Adjust the horizontal position of the angled headers. 0 = centered, 10 = Default. (Automatically forced to 0 at -90° for perfect alignment).",
+                Tooltip = "Adjust the horizontal position of the angled headers. 0 = centered, 10 = Default. (Automatically forced to 0 at -90Â° for perfect alignment).",
                 Type = SettingType.NumericInt,
                 DefaultValue = 10,
                 MinValue = -100f,

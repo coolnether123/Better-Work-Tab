@@ -1,4 +1,4 @@
-﻿using RimWorld;
+using RimWorld;
 using Better_Work_Tab.Features.Rules;
 using System.Linq;
 using Verse;
@@ -21,7 +21,7 @@ namespace Better_Work_Tab.Features.Rules.Validators
             if (map == null)
                 return false;
 
-#if !v1_3 && !v1_2
+#if !v1_3 && !v1_2 && !v1_1
             foreach (var child in map.mapPawns.FreeColonists
                 .Where(ch => (int)ch.DevelopmentalStage < (int)DevelopmentalStage.Adult))
             {
