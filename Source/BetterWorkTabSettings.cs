@@ -262,7 +262,7 @@ namespace Better_Work_Tab
         {
             try
             {
-                return ExternalPriorityModPackageIds.Any(id => ModLister.GetActiveModWithIdentifier(id) != null);
+                return ExternalPriorityModPackageIds.Any(id => ModListerCompat.GetActiveModWithIdentifier(id) != null);
             }
             catch
             {
