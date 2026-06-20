@@ -21,6 +21,9 @@ namespace Better_Work_Tab
         private static readonly FieldInfo CachedRowHeightsField =
             AccessTools.Field(typeof(PawnTable), "cachedRowHeights");
 
+        private static readonly FieldInfo CachedHeaderHeightField =
+            AccessTools.Field(typeof(PawnTable), "cachedHeaderHeight");
+
         private static readonly FieldInfo CachedSizeField =
             AccessTools.Field(typeof(PawnTable), "cachedSize");
 
@@ -102,9 +105,39 @@ namespace Better_Work_Tab
 #endif
         }
 
+        public static float GetCachedHeaderHeight(PawnTable table)
+        {
+            if (table == null)
+                return 0f;
+
+#if v1_1 || (v1_0 || v0_19)
+            if (CachedHeaderHeightField?.GetValue(table) is float cachedHeaderHeight)
+                return cachedHeaderHeight;
+
+            return 0f;
+#else
+            return table.cachedHeaderHeight;
+#endif
+        }
+
         public static Vector2 GetSize(PawnTable table)
         {
             return table?.Size ?? Vector2.zero;
+        }
+
+        public static Vector2 GetCachedSize(PawnTable table)
+        {
+            if (table == null)
+                return Vector2.zero;
+
+#if v1_1 || (v1_0 || v0_19)
+            if (CachedSizeField?.GetValue(table) is Vector2 cachedSize)
+                return cachedSize;
+
+            return Vector2.zero;
+#else
+            return table.cachedSize;
+#endif
         }
 
         public static List<float> GetCachedRowHeights(PawnTable table)

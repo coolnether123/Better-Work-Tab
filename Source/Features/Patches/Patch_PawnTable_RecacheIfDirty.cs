@@ -60,7 +60,7 @@ namespace Better_Work_Tab.Features.Patches
                 contentHeight += desc.Height;
             }
 
-            float headerHeight = PawnTableCompat.GetHeaderHeight(__instance);
+            float headerHeight = PawnTableCompat.GetCachedHeaderHeight(__instance);
             float totalHeight = headerHeight + contentHeight;
 
             // ═══════════════════════════════════════════════════════════════════════════
@@ -70,7 +70,7 @@ namespace Better_Work_Tab.Features.Patches
             // being smaller than its content, which would trigger unnecessary scrollbars
             // even when the window has room to grow.
             // ═══════════════════════════════════════════════════════════════════════════
-            float width = PawnTableCompat.GetSize(__instance).x;
+            float width = PawnTableCompat.GetCachedSize(__instance).x;
             PawnTableCompat.TrySetCachedRowHeights(__instance, rowHeights);
             PawnTableCompat.TrySetCachedSize(__instance, new Vector2(width, totalHeight));
         }
