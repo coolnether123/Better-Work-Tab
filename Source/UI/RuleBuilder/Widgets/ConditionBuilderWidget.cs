@@ -38,7 +38,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
                     break;
                 case ConditionType.Trait:
                 case ConditionType.Gender:
-#if !v1_3 && !v1_2 && !v1_1 && !v1_0
+#if !v1_3 && !v1_2 && !v1_1 && !(v1_0 || v0_19)
                 case ConditionType.Xenotype:
 #endif
                     Verse.Widgets.Label(valueRect, "Configure via add menu");
@@ -112,7 +112,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
                 case "Gender":
                     parameters.Gender = null;
                     break;
-#if !v1_3 && !v1_2 && !v1_1 && !v1_0
+#if !v1_3 && !v1_2 && !v1_1 && !(v1_0 || v0_19)
                 case "Xenotype":
                     parameters.Xenotype = null;
                     parameters.XenotypeString = string.Empty;

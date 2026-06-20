@@ -1,4 +1,4 @@
-#if v1_0
+#if (v1_0 || v0_19)
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;

@@ -264,7 +264,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         }
     }
 
-#if !v1_0
+#if !(v1_0 || v0_19)
     [HarmonyPatch(typeof(WidgetsWork), nameof(WidgetsWork.TipForPawnWorker))]
     internal static class Patch_WidgetsWork_TipForPawnWorker
     {

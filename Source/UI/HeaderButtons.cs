@@ -54,7 +54,7 @@ namespace Better_Work_Tab.UI
 
 #if v1_3
             if (Widgets.ButtonText(mainRect, "  " + btnLbl))
-#elif v1_2 || v1_1 || v1_0
+#elif v1_2 || v1_1 || (v1_0 || v0_19)
             if (Widgets12.ButtonText(mainRect, "  " + btnLbl, true, true, true, TextAnchor.MiddleLeft))
 #else
             if (Widgets.ButtonText(mainRect, "  " + btnLbl,
@@ -133,7 +133,7 @@ namespace Better_Work_Tab.UI
 
 #if v1_3
             if (Widgets.ButtonText(mainRect, "  " + buttonLabel))
-#elif v1_2 || v1_1 || v1_0
+#elif v1_2 || v1_1 || (v1_0 || v0_19)
             if (Widgets12.ButtonText(mainRect, "  " + buttonLabel, true, true, true, TextAnchor.MiddleLeft))
 #else
             if (Widgets.ButtonText(mainRect, "  " + buttonLabel,

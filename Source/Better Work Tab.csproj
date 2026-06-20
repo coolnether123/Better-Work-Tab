@@ -59,13 +59,19 @@
     <DefineConstants>v1_0</DefineConstants>
     <LangVersion>9.0</LangVersion>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == '0.19|AnyCPU'">
+    <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
+    <OutputPath>..\Assemblies\</OutputPath>
+    <DefineConstants>v0_19</DefineConstants>
+    <LangVersion>9.0</LangVersion>
+  </PropertyGroup>
   <ItemGroup>
-    <Reference Include="System" Condition="'$(Configuration)' == '1.0'" />
+    <Reference Include="System" Condition="'$(Configuration)' == '1.0' Or '$(Configuration)' == '0.19'" />
     <Reference Include="System.Core" />
-    <Reference Include="System.Xml" Condition="'$(Configuration)' == '1.0'" />
-    <Reference Include="System.Xml.Linq" Condition="'$(Configuration)' == '1.0'" />
-    <Reference Include="Microsoft.CSharp" Condition="'$(Configuration)' != '1.0'" />
-    <Reference Include="System.Net.Http" Condition="'$(Configuration)' != '1.0'" />
+    <Reference Include="System.Xml" Condition="'$(Configuration)' == '1.0' Or '$(Configuration)' == '0.19'" />
+    <Reference Include="System.Xml.Linq" Condition="'$(Configuration)' == '1.0' Or '$(Configuration)' == '0.19'" />
+    <Reference Include="Microsoft.CSharp" Condition="'$(Configuration)' != '1.0' And '$(Configuration)' != '0.19'" />
+    <Reference Include="System.Net.Http" Condition="'$(Configuration)' != '1.0' And '$(Configuration)' != '0.19'" />
   </ItemGroup>
   <ItemGroup Condition="'$(Configuration)' == '1.0'">
     <Reference Include="Assembly-CSharp">
@@ -82,6 +88,24 @@
     </Reference>
     <Reference Include="UnityEngine.UI">
       <HintPath>$(NuGetPackageRoot)krafs.rimworld.ref\1.0.2559\ref\net472\UnityEngine.UI.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup Condition="'$(Configuration)' == '0.19'">
+    <Reference Include="Assembly-CSharp">
+      <HintPath>D:\Steam Library\steamapps\common\RimWorld\RimWorldWin64_Data\Managed\Assembly-CSharp.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Assembly-CSharp-firstpass">
+      <HintPath>D:\Steam Library\steamapps\common\RimWorld\RimWorldWin64_Data\Managed\Assembly-CSharp-firstpass.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="UnityEngine">
+      <HintPath>D:\Steam Library\steamapps\common\RimWorld\RimWorldWin64_Data\Managed\UnityEngine.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="UnityEngine.UI">
+      <HintPath>D:\Steam Library\steamapps\common\RimWorld\RimWorldWin64_Data\Managed\UnityEngine.UI.dll</HintPath>
       <Private>False</Private>
     </Reference>
   </ItemGroup>
@@ -259,18 +283,18 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
-    <PackageReference Include="Krafs.Rimworld.Ref" Condition="'$(Configuration)' != '1.0'">
+    <PackageReference Include="Krafs.Rimworld.Ref" Condition="'$(Configuration)' != '1.0' And '$(Configuration)' != '0.19'">
       <Version>1.0.2559</Version>
     </PackageReference>
-    <PackageReference Include="Lib.Harmony" Condition="'$(Configuration)' == '1.0'">
+    <PackageReference Include="Lib.Harmony" Condition="'$(Configuration)' == '1.0' Or '$(Configuration)' == '0.19'">
       <Version>2.3.6</Version>
     </PackageReference>
-    <PackageReference Include="Lib.Harmony" Condition="'$(Configuration)' != '1.0'">
+    <PackageReference Include="Lib.Harmony" Condition="'$(Configuration)' != '1.0' And '$(Configuration)' != '0.19'">
       <Version>2.4.2</Version>
     </PackageReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <Target Name="CopyRimWorld10Harmony" AfterTargets="Build" Condition="'$(Configuration)|$(Platform)' == '1.0|AnyCPU'">
+  <Target Name="CopyLegacyHarmony" AfterTargets="Build" Condition="'$(Configuration)|$(Platform)' == '1.0|AnyCPU' Or '$(Configuration)|$(Platform)' == '0.19|AnyCPU'">
     <Copy SourceFiles="$(NuGetPackageRoot)lib.harmony\2.3.6\lib\net35\0Harmony.dll" DestinationFolder="$(OutputPath)" OverwriteReadOnlyFiles="true" />
     <Delete Files="$(OutputPath)0Harmony.pdb" />
   </Target>

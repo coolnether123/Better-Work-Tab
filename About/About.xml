@@ -2,68 +2,34 @@
 <ModMetaData>
  <name>Better Work Tab</name>
  <author>Coolnether123</author>
- <supportedVersions>
-   <li>1.0</li>
-   <li>1.1</li>
-   <li>1.2</li>
-   <li>1.3</li>
-   <li>1.4</li>
-   <li>1.5</li>
-   <li>1.6</li>
- </supportedVersions>
- <packageId>Coolnether123.BetterWorkTab</packageId>
- <description><![CDATA[Completely overhauls RimWorld’s Work tab with drag-and-drop, skill overlays, automation rules, and visual customization.
+ <targetVersion>0.19.2009</targetVersion>
+ <description><![CDATA[Completely overhauls RimWorld's Work tab with drag-and-drop, skill overlays, automation rules, and visual customization.
 
 All features are toggleable in settings with extensive customization options.
 
 <b>Features</b>
-• Drag & drop reordering 
-• Skill level overlay (hold SHIFT)  
-• Auto-assignment rulesets  
-• Workload presets  
-• Visual dividers  
-• Force pawns to work on unassigned tasks
-• Advanced Pawn and Column highlighting   
-• Angled column headers  
-• Colonist / bed counts  
-• Right-click pawn quick actions (Rename/Background color)
-• Multiplayer support (With Zetrith Multiplayer mod)
-• Many settings to tweak and add functionality
+- Drag and drop reordering
+- Skill level overlay (hold SHIFT)
+- Auto-assignment rulesets
+- Workload presets
+- Visual dividers
+- Force pawns to work on unassigned tasks
+- Advanced pawn and column highlighting
+- Angled column headers
+- Colonist and bed counts
+- Right-click pawn quick actions
 
 <b>Compatibility</b>
-• Compatible with most work-type mods  
-• May conflict with other work-tab overhauls
+- Compatible with most work-type mods
+- May conflict with other work-tab overhauls
+- Multiplayer support does not work on RimWorld 0.19
 
 <b>Version Difference</b>
-• 1.6 -> v1.0.5
-• 1.5 -> v1.0.5
-• 1.4 -> v1.0.5
-• 1.3 -> v1.0.5
-• 1.2 -> v1.0.5 - Multiplayer does not work
-• 1.1 -> v1.0.5 - Multiplayer does not work
-• 1.0 -> v1.0.5 - Multiplayer does not work
-
+- 0.19 -> v1.0.5 - Multiplayer does not work
 
 <b>Support</b>
-Questions, bug reports, or suggestions?  
+Questions, bug reports, or suggestions?
 Join the Discord: <color=#99CCFF>https://discord.gg/QYBBaRkKWs</color>
 ]]></description>
-
  <url>https://github.com/coolnether123/Better-Work-Tab</url>
- <loadAfter>
-   <li>brrainz.harmony</li>
-   <li>Ludeon.RimWorld</li>
- </loadAfter>
- <modDependencies>
-   <li>
-     <packageId>brrainz.harmony</packageId>
-     <displayName>Harmony</displayName>
-     <steamWorkshopUrl>steam://url/CommunityFilePage/2009463077</steamWorkshopUrl>
-     <downloadUrl>https://github.com/pardeike/HarmonyRimWorld/releases/latest</downloadUrl>
-   </li>
- </modDependencies>
- <incompatibleWith>
-   <li>Fluffy.WorkTab</li>
-   <li>Mlie.CompactWorkTab</li>
- </incompatibleWith>
 </ModMetaData>

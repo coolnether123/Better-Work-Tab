@@ -49,7 +49,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
 
                 if (Verse.Widgets.ButtonText(upRect, "Up")) return RowAction.MoveUp;
                 if (Verse.Widgets.ButtonText(downRect, "Dn")) return RowAction.MoveDown;
-#if v1_2 || v1_1 || v1_0
+#if v1_2 || v1_1 || (v1_0 || v0_19)
                 if (Verse.Widgets.ButtonImage(deleteRect, RimWorld.TexButton.DeleteX, Color.white, GenUI.MouseoverColor))
 #else
                 if (Verse.Widgets.ButtonImage(deleteRect, TexButton.DeleteX, Color.white, GenUI.MouseoverColor))

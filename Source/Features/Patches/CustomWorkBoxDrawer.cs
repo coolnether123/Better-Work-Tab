@@ -23,7 +23,7 @@ namespace Better_Work_Tab.Patches
         {
             if (p.WorkTypeIsDisabled(wType))
             {
-#if !v1_3 && !v1_2 && !v1_1 && !v1_0
+#if !v1_3 && !v1_2 && !v1_1 && !(v1_0 || v0_19)
                 // This handles age-disabled work types by showing the vanilla age restriction texture and message
                 int minAgeRequired;
                 if (!p.IsWorkTypeDisabledByAge(wType, out minAgeRequired))
@@ -49,7 +49,7 @@ namespace Better_Work_Tab.Patches
                     GUI.color = BetterWorkTabMod.Settings.Color_IncapableBecauseOfCapacities;
 
                 // This draws the work box background including passion flame effects exactly like vanilla does
-#if v1_1 || v1_0
+#if v1_1 || (v1_0 || v0_19)
                 DrawLegacyWorkBoxBackground(rect, p, wType);
 #else
                 WidgetsWork.DrawWorkBoxBackground(rect, p, wType);
@@ -61,7 +61,7 @@ namespace Better_Work_Tab.Patches
             }
         }
 
-#if v1_1 || v1_0
+#if v1_1 || (v1_0 || v0_19)
         private static void DrawLegacyWorkBoxBackground(Rect rect, Pawn pawn, WorkTypeDef workType)
         {
             SkillRecord skill = GetFirstRelevantSkill(pawn, workType);
