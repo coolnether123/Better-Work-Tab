@@ -1,6 +1,5 @@
 using HarmonyLib;
 using RimWorld;
-using Verse;
 
 namespace Better_Work_Tab.Features.Patches
 {
@@ -14,13 +13,11 @@ namespace Better_Work_Tab.Features.Patches
         [HarmonyPrefix]
         public static bool Prefix()
         {
-            // Block priority changes if local player is currently dragging a header
             if (BetterWorkTabLocalState.IsHeaderDragging)
             {
-                return false; // Skip the original method
+                return false;
             }
-            
-            return true; // Allow the original method to run
+            return true;
         }
     }
 }

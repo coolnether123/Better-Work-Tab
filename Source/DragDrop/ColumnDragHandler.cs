@@ -6,6 +6,7 @@ using Better_Work_Tab.Mod_Support.Multiplayer;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI;
+using Better_Work_Tab.UI.Headers;
 using RimWorld;
 using Spine.DragDropApi.Util;
 using System.Collections.Generic;
@@ -363,6 +364,10 @@ namespace Better_Work_Tab.DragDrop
                         MainTabWindow_BetterWork.MarkColumnMoved(col.workType);
                     }
                 }
+
+                // Invalidate the solver solution to force recalculation with new column order
+                // (preserves max level to prevent header height jumps)
+                Better_Work_Tab.UI.Headers.HeaderDrawingCoordinator.InvalidateSolution();
 
                 // Force layout to rebuild with new column order
                 var layout = PawnOrganizerSystem.Instance?.Layout;

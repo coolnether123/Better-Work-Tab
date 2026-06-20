@@ -40,8 +40,8 @@ namespace Better_Work_Tab.Patches
         {
             if (__instance is Building_Bed)
             {
-                // __instance.Map may be null after DeSpawn, so we clear all maps
-                // (This is a very rare event, so the cost is acceptable)
+                // The map property may be null after DeSpawn; therefore, all maps are invalidated.
+                // (This event is infrequent, maintaining acceptable computational efficiency)
                 BedCountCache.InvalidateForMap(null);
             }
         }

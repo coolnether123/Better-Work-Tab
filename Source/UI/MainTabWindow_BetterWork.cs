@@ -8,6 +8,8 @@ using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.PawnOrganizer.Data;
+using Better_Work_Tab.UI.Headers;
+using Better_Work_Tab.UI.Headers.Angled;
 #if !v1_2
 using Multiplayer.API;
 #endif
@@ -30,6 +32,34 @@ namespace Better_Work_Tab.UI
     public class MainTabWindow_BetterWork : MainTabWindow_Work
     {
         private static PawnColumnDef _lastDraggedColumn;
+        
+        /// <summary>
+        /// Global notification that header settings (like rotation) have changed.
+        /// Flushes all layout and drawing caches.
+        /// </summary>
+        public static void NotifyAngledHeadersChanged()
+        {
+            HeaderDrawingCoordinator.NotifyAngledHeadersChanged(); 
+            
+            if (Find.MainTabsRoot?.OpenTab?.TabWindow is MainTabWindow_BetterWork workTab)
+            {
+                var table = workTab.GetPawnTable();
+                if (table != null)
+                {
+                    // Mark the table as dirty to force a full recache of heights and widths
+                    var setDirtyMethod = typeof(PawnTable).GetMethod("SetDirty", BindingFlags.NonPublic | BindingFlags.Instance);
+                    if (setDirtyMethod != null)
+                    {
+                        setDirtyMethod.Invoke(table, null);
+                    }
+                    else
+                    {
+                        // Fallback if SetDirty not found (unlikely in vanilla but for safety)
+                        MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+                    }
+                }
+            }
+        }
 
         private const float RightEdgeMargin = 10f;
         private const float InfoIconSize = 24f;
@@ -114,23 +144,73 @@ namespace Better_Work_Tab.UI
                 .Select(c => c.workType.defName)
                 .ToList();
 
-            // Remove any dragged columns that are now back in vanilla position
+            var filteredBaseline = baselineOrder.Where(b => currentOrder.Contains(b)).ToList();
+
+            // Remove any dragged columns that are now back in vanilla RELATIVE position
             var toRemove = new List<string>();
             foreach (var defName in settings.playerDraggedColumns)
             {
-                int vanillaPos = baselineOrder.IndexOf(defName);
+                int relVanillaPos = filteredBaseline.IndexOf(defName);
                 int currentPos = currentOrder.IndexOf(defName);
 
-                // If the column is back in its baseline spot, unmark it
-                if (vanillaPos >= 0 && vanillaPos == currentPos)
+                // If the column is back in its relative baseline spot, unmark it
+                if (relVanillaPos >= 0 && relVanillaPos == currentPos)
                 {
                     toRemove.Add(defName);
                 }
             }
 
+            // Perform removals
             foreach (var defName in toRemove)
             {
                 settings.playerDraggedColumns.Remove(defName);
+            }
+
+            // HEAL PHASE: If there is a custom order but NO columns are marked as dragged,
+            // then the intent data is lost. Use the Longest Increasing Subsequence (LIS) 
+            // approach to find the minimum number of 'moves' to explain the current table.
+            if (settings.playerDraggedColumns.Count == 0)
+            {
+                var currentIndices = currentOrder.Select(c => filteredBaseline.IndexOf(c)).ToList();
+
+                // Simple LIS (Patient Sorting style)
+                var tails = new List<int>();
+                var prev = new int[currentIndices.Count];
+                var tailIdx = new List<int>();
+
+                for (int i = 0; i < currentIndices.Count; i++) {
+                    int val = currentIndices[i];
+                    int pos = tails.BinarySearch(val);
+                    if (pos < 0) pos = ~pos;
+
+                    if (pos < tails.Count) {
+                        tails[pos] = val;
+                        tailIdx[pos] = i;
+                    } else {
+                        tails.Add(val);
+                        tailIdx.Add(i);
+                    }
+                    prev[i] = (pos > 0) ? tailIdx[pos-1] : -1;
+                }
+
+                // Reconstruct LIS indices
+                var lisIndices = new HashSet<int>();
+                if (tailIdx.Count > 0) {
+                    int curr = tailIdx.Last();
+                    while (curr != -1) {
+                        lisIndices.Add(curr);
+                        curr = prev[curr];
+                    }
+                }
+
+                // Mark elements NOT in LIS as moved
+                for (int i = 0; i < currentOrder.Count; i++) {
+                    if (!lisIndices.Contains(i)) {
+                        string defName = currentOrder[i];
+                        settings.playerDraggedColumns.Add(defName);
+                        toRemove.Add(defName); // Trigger save
+                    }
+                }
             }
 
             if (toRemove.Count > 0)
@@ -353,13 +433,18 @@ namespace Better_Work_Tab.UI
                 float finalWidth;
 
                 var organizer = PawnOrganizerSystem.Instance;
-                if (organizer?.Layout != null && !organizer.IsDragging)
+                if (organizer?.Layout != null)
                 {
-                    var snapshot = BuildSnapshotForOrganizer(table);
-                    organizer.Update(table, Vector2.zero, snapshot);
+                    if (!organizer.IsDragging)
+                    {
+                        var snapshot = BuildSnapshotForOrganizer(table);
+                        organizer.Update(table, Vector2.zero, snapshot);
+                    }
 
-                    // Use layout controller's content height (includes dividers)
-                    float layoutHeight = organizer.Layout.HeaderHeight + organizer.Layout.ContentHeight;
+                    // Use table's current header height (updates dynamically with vanilla staggering)
+                    // combined with layout controller's content height (includes dividers)
+                    // This is consistent during drag, preventing scrollbar flickers
+                    float layoutHeight = table.cachedHeaderHeight + organizer.Layout.ContentHeight;
                     finalHeight = layoutHeight + ExtraBottomSpace + ExtraTopSpace + Margin * 2f;
                     finalWidth = table.Size.x + Margin * 2f + 25f; // Added 20f to stop headers from clipping edge
                 }
@@ -515,12 +600,17 @@ namespace Better_Work_Tab.UI
                 .Select(c => c.workType.defName)
                 .ToList();
 
-            int vanillaPos = baselineOrder.IndexOf(workType.defName);
+            // FILTERED BASELINE: Only compare against columns that are actually present.
+            // This prevents columns from being marked 'moved' just because a mod added/removed 
+            // a different column that shifted our absolute index.
+            var filteredBaseline = baselineOrder.Where(b => currentOrder.Contains(b)).ToList();
+
+            int relVanillaPos = filteredBaseline.IndexOf(workType.defName);
             int currentPos = currentOrder.IndexOf(workType.defName);
 
-            if (vanillaPos < 0 || currentPos < 0) return true;
+            if (relVanillaPos < 0 || currentPos < 0) return true;
 
-            return vanillaPos == currentPos;
+            return relVanillaPos == currentPos;
         }
 
         /// <summary>

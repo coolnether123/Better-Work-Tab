@@ -5,6 +5,7 @@ using Better_Work_Tab;
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.Patches;
+using Better_Work_Tab.UI;
 #if !v1_2
 using Multiplayer.API;
 #endif
@@ -204,6 +205,68 @@ namespace Better_Work_Tab.UI.Settings
                 SortOrder = -43
             });
 
+            Register(new SettingDefinition
+            {
+                Id = UiMaxPriority,
+                ParentId = FeaturesUiElements,
+                FieldName = "maxPriorityInt",
+                Label = "Max priority",
+                Tooltip = "The maximum integer value pawns can be assigned in the work tab.",
+                Type = SettingType.Int,
+                DefaultValue = DefaultSettings.maxPriority,
+                MinValue = 4f,
+                MaxValue = BetterWorkTabSettings.MAX_PRIORITY_HARD_LIMIT,
+                ShowInSimpleView = true,
+                SortOrder = 42,
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = UiPriorityColorPercentageGreen,
+                ParentId = FeaturesUiElements,
+                FieldName = "priorityColorPercentage_Green",
+                Label = "Color Percentage - Green",
+                Tooltip = "The percentage at which numbers will be green when displayed on the work tab.",
+                Type = SettingType.Int,
+                DefaultValue = DefaultSettings.priorityColorPercentage_Green,
+                MinValue = 1,
+                MaxValue = 100,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 43,
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = UiPriorityColorPercentageYellow,
+                ParentId = FeaturesUiElements,
+                FieldName = "priorityColorPercentage_Yellow",
+                Label = "Color Percentage - Yellow",
+                Tooltip = "The percentage at which numbers will be yellow when displayed on the work tab.",
+                Type = SettingType.Int,
+                DefaultValue = DefaultSettings.priorityColorPercentage_Yellow,
+                MinValue = 1,
+                MaxValue = 100,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 44,
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = UiPriorityColorPercentageTan,
+                ParentId = FeaturesUiElements,
+                FieldName = "priorityColorPercentage_Tan",
+                Label = "Color Percentage - Tan",
+                Tooltip = "The percentage at which numbers will be tan when displayed on the work tab.",
+                Type = SettingType.Int,
+                DefaultValue = DefaultSettings.priorityColorPercentage_Tan,
+                MinValue = 1,
+                MaxValue = 100,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 45,
+            });
 
             Register(new SettingDefinition
             {
@@ -539,25 +602,12 @@ namespace Better_Work_Tab.UI.Settings
                 Label = "Enable Column Grouping (Ctrl+Click)",
                 Tooltip = "Allows selecting multiple columns with Ctrl+Click to drag them together.",
                 Type = SettingType.Bool,
-                DefaultValue = false,
+                DefaultValue = DefaultSettings.enableColumnGrouping,
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
                 SortOrder = 96
             });
 
-            Register(new SettingDefinition
-            {
-                Id = DragdropRemoveHeaderUnderline,
-                ParentId = FeaturesDragdrop,
-                FieldName = "removeHeaderUnderline",
-                Label = "Hide Header Underline",
-                Tooltip = "Remove the underline from work tab header labels.",
-                Type = SettingType.Bool,
-                DefaultValue = false,
-                ShowInSimpleView = true,
-                ShowInAdvancedView = true,
-                SortOrder = 97
-            });
 
             Register(new SettingDefinition
             {
@@ -905,11 +955,38 @@ namespace Better_Work_Tab.UI.Settings
                 ParentId = FeaturesDragdrop,
                 FieldName = "showColumnBaselineLine",
                 Label = "Show Baseline Line While Dragging",
-                Tooltip = "Show a line at the column's baseline position while dragging moved columns.",
+                Tooltip = "Show a line at the column's vanilla position while dragging moved columns.",
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.showColumnBaselineLine,
                 ShowInSimpleView = true,
                 SortOrder = 116
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = "columns.showMovedColorTint",
+                ParentId = FeaturesDragdrop,
+                FieldName = "showMovedColumnColorTint",
+                Label = "Color tint for reordered columns",
+                Tooltip = "Apply a color tint to the text of manually reordered columns.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.showMovedColumnColorTint,
+                ShowInSimpleView = true,
+                SortOrder = 117
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = "columns.movedMarkerColor",
+                ParentId = FeaturesDragdrop,
+                FieldName = "movedMarkerColor",
+                Label = "Moved Column Marker Color",
+                Tooltip = "Color used for the moved column indicator (*) and yellow tint.",
+                Type = SettingType.Color,
+                DefaultValue = DefaultSettings.Color_MovedMarkerColor,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 118
             });
 
             Register(new SettingDefinition
@@ -1401,7 +1478,7 @@ namespace Better_Work_Tab.UI.Settings
                         }
                     },
                     ShowInSimpleView = false,
-                    ShowInAdvancedView = false,
+                    ShowInAdvancedView = true, //false
                     SortOrder = 501
                 });
 
@@ -1427,7 +1504,7 @@ namespace Better_Work_Tab.UI.Settings
                             EnsureInitialized();
                         },
                         ShowInSimpleView = false,
-                        ShowInAdvancedView = false,
+                        ShowInAdvancedView = true, //false
                         SortOrder = 502
                     });
                 }
@@ -1595,6 +1672,134 @@ namespace Better_Work_Tab.UI.Settings
                 ShowInSimpleView = false,
                 ShowInAdvancedView = false,
                 SortOrder = 418
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = HeadersHeader,
+                Label = "Headers",
+                Type = SettingType.Header,
+                Tooltip = "Angled header settings.",
+                HeaderColor = new Color(0.7f, 0.7f, 0.9f),
+                ShowInSimpleView = true,
+                ShowInAdvancedView = true,
+                SortOrder = 350
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = HeadersAngled,
+                ParentId = HeadersHeader,
+                FieldName = "enableAngledHeaders",
+                Label = "Angled headers",
+                Tooltip = "Toggle angled column headers. Disabling allows vanilla headers to work. Note: Vanilla headers will not look right with drag and drop. The yellow indicator for out-of-place columns won't work with vanilla headers.",
+                Type = SettingType.Bool,
+                DefaultValue = true,
+                ControlsChildVisibility = true,
+                OnChanged = s => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
+                ShowInSimpleView = true,
+                ShowInAdvancedView = true,
+                SortOrder = 506
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = DragdropRemoveHeaderUnderline,
+                ParentId = HeadersAngled,
+                FieldName = "removeHeaderUnderline",
+                Label = "Hide Header Underline",
+                Tooltip = "Remove the underline from work tab header labels.",
+                Type = SettingType.Bool,
+                DefaultValue = false,
+                ShowInSimpleView = true,
+                ShowInAdvancedView = true,
+                SortOrder = 5061 // Immediately after HeadersAngled
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = HeadersAngleRotation,
+                ParentId = HeadersAngled,
+                FieldName = "angledHeaderRotation",
+                Label = "Angle rotation",
+                Tooltip = "Rotate the angled headers (-90 to 90 degrees). Snaps to 5-degree increments.",
+                Type = SettingType.Int,
+                DefaultValue = -60,
+                MinValue = -90f,
+                MaxValue = 90f,
+                OnChanged = s => 
+                {
+                    var bSettings = (BetterWorkTabSettings)s;
+                    bSettings.angledHeaderRotation = Mathf.RoundToInt(bSettings.angledHeaderRotation / 5f) * 5;
+                    MainTabWindow_BetterWork.NotifyAngledHeadersChanged();
+                },
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 507
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = "headers.useVerticalStackingForCJK",
+                ParentId = HeadersAngled,
+                FieldName = "useVerticalStackingForCJK",
+                Label = "Vertical stacking for CJK",
+                Tooltip = "Draw East Asian characters (Korean, Chinese, Japanese) vertically when angled headers are enabled. This is much more legible than rotated text.",
+                Type = SettingType.Bool,
+                DefaultValue = true,
+                OnChanged = s => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
+                ShowInSimpleView = true,
+                ShowInAdvancedView = true,
+                SortOrder = 5072
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = "headers.cjkVerticalKerning",
+                ParentId = "headers.useVerticalStackingForCJK", // Nest under the toggle
+                FieldName = "cjkVerticalKerning",
+                Label = "CJK vertical kerning",
+                Tooltip = "Adjust the vertical spacing between characters in Asian vertical stacking. Lower values mean tighter spacing.",
+                Type = SettingType.Float,
+                DefaultValue = 0.75f,
+                MinValue = 0.5f,
+                MaxValue = 1.5f,
+                OnChanged = s => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 5073
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = "headers.angledColor",
+                ParentId = HeadersAngled,
+                FieldName = "angledHeaderColor",
+                Label = "Header text color",
+                Tooltip = "Custom color for the angled header text.",
+                Type = SettingType.Color,
+                DefaultValue = Color.white,
+                OnChanged = s => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 5071
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = "headers.horizontalOffset",
+                ParentId = HeadersAngled,
+                FieldName = "angledHeaderHorizontalOffset",
+                Label = "Horizontal offset",
+                Tooltip = "Adjust the horizontal position of the angled headers. 0 = centered, 10 = Default. (Automatically forced to 0 at -90° for perfect alignment).",
+                Type = SettingType.NumericInt,
+                DefaultValue = 10,
+                MinValue = -100f,
+                MaxValue = 100f,
+                OnChanged = s => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 508
             });
 
             Register(new SettingDefinition

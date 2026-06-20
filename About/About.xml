@@ -10,13 +10,13 @@
    <li>1.6</li>
  </supportedVersions>
  <packageId>Coolnether123.BetterWorkTab</packageId>
- <modVersion>1.0.2</modVersion>
+ <modVersion>1.0.5</modVersion>
  <description><![CDATA[Completely overhauls RimWorld’s Work tab with drag-and-drop, skill overlays, automation rules, and visual customization.
 
 All features are toggleable in settings with extensive customization options.
 
 <b>Features</b>
-• Drag & drop reordering  
+• Drag & drop reordering 
 • Skill level overlay (hold SHIFT)  
 • Auto-assignment rulesets  
 • Workload presets  
@@ -27,10 +27,21 @@ All features are toggleable in settings with extensive customization options.
 • Colonist / bed counts  
 • Right-click pawn quick actions (Rename/Background color)
 • Multiplayer support (With Zetrith Multiplayer mod)
+• Many settings to tweak and add functionality
 
 <b>Compatibility</b>
 • Compatible with most work-type mods  
 • May conflict with other work-tab overhauls
+
+<b>Version Difference</b>
+• 1.6 -> v1.0.5
+• 1.5 -> v1.0.2 -  Angled Headers scale not fixed 
+• 1.4 -> v1.0.2 
+• 1.3 -> v1.0.2 
+• 1.2 -> v1.0.2 - Multiplayer does not work
+• 1.1 (Join discord to request)
+• 1.0 (Join discord to request)
+
 
 <b>Support</b>
 Questions, bug reports, or suggestions?  
