@@ -90,7 +90,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
                     if (evt.control && BetterWorkTabMod.Settings.enableColumnGrouping)
                     {
                         Better_Work_Tab.DragDrop.ColumnSelectionManager.ToggleSelection(ctx.Worker.def);
-                        SoundDefOf.Tick_High.PlayOneShotOnCamera();
+                        UISoundCompat.TickHigh.PlayOneShotOnCamera();
                         evt.Use();
                         return;
                     }
@@ -201,19 +201,19 @@ namespace Better_Work_Tab.UI.Headers.Angled
             {
                 // State 1: Sort Ascending
                 table.SortBy(worker.def, false);
-                SoundDefOf.Tick_High.PlayOneShotOnCamera();
+                UISoundCompat.TickHigh.PlayOneShotOnCamera();
             }
             else if (!table.SortingDescending)
             {
                 // State 2: Sort Descending
                 table.SortBy(worker.def, true);
-                SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                UISoundCompat.TickLow.PlayOneShotOnCamera();
             }
             else
             {
                 // State 3: Clear Sorting (Return to vanilla/default)
                 table.SortBy(null, false);
-                SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                UISoundCompat.TickLow.PlayOneShotOnCamera();
             }
             
             table.SetDirty();
@@ -224,7 +224,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
             // Vanilla behavior: Right-click sorts descending immediately
             table.SortBy(worker.def, true);
             table.SetDirty();
-            SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+            UISoundCompat.TickLow.PlayOneShotOnCamera();
         }
 
         private static void HandleShiftClick(PawnColumnWorker_WorkPriority worker, PawnTable table, int button)
@@ -261,9 +261,9 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 if (useWorkPriorities)
                     SoundDefOf.DragSlider.PlayOneShotOnCamera();
                 else if (button == 0)
-                    SoundDefOf.Checkbox_TurnedOn.PlayOneShotOnCamera();
+                    UISoundCompat.CheckboxTurnedOn.PlayOneShotOnCamera();
                 else
-                    SoundDefOf.Checkbox_TurnedOff.PlayOneShotOnCamera();
+                    UISoundCompat.CheckboxTurnedOff.PlayOneShotOnCamera();
 
                 table.SetDirty();
             }

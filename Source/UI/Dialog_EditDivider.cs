@@ -123,7 +123,7 @@ namespace Better_Work_Tab.UI
             string trimmed = (_nameBuffer ?? string.Empty).Trim();
             if (trimmed.Length == 0)
             {
-                Messages.Message("NameCannotBeEmpty".Translate(), MessageTypeDefOf.RejectInput, false);
+                MessageCompat.Message("NameCannotBeEmpty".Translate(), MessageTypeDefOf.RejectInput, false);
                 return false;
             }
 

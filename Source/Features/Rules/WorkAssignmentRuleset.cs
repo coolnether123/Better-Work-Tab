@@ -74,7 +74,7 @@ namespace Better_Work_Tab.Features
         /// </summary>
         public void ApplyAutoAssignments()
         {
-            var map = Find.CurrentMap;
+            var map = MapCompat.CurrentMap;
             if (map == null) return;
 
             Find.PlaySettings.useWorkPriorities = true;

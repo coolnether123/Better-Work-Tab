@@ -61,7 +61,7 @@ namespace Better_Work_Tab.UI
                     overrideTextAnchor: TextAnchor.MiddleLeft))
 #endif
             {
-                SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                UISoundCompat.TickLow.PlayOneShotOnCamera();
                 // Rulesets are now local-only (not synced in multiplayer)
                 if (curRuleset != null)
                 {
@@ -99,7 +99,7 @@ namespace Better_Work_Tab.UI
                     {
                         // Rulesets are now local-only (not synced in multiplayer)
                         BetterWorkTabMod.Settings.SetCurrentRuleset(local);
-                        SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                        UISoundCompat.TickLow.PlayOneShotOnCamera();
                     }));
                 }
 
@@ -146,7 +146,7 @@ namespace Better_Work_Tab.UI
                     {
                         workloadSaver.CurrentWorklist.Apply();
                         MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
-                        SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                        UISoundCompat.TickLow.PlayOneShotOnCamera();
                     };
 
                     if (settings.warnOnApplyWorkload)
@@ -187,7 +187,7 @@ namespace Better_Work_Tab.UI
                     // This logic is now reliable because the list order matches.
                     workloadSaver.CurrentWorklist = local;
                     MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
-                    SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                    UISoundCompat.TickLow.PlayOneShotOnCamera();
                 }));
             }
 
@@ -209,7 +209,7 @@ namespace Better_Work_Tab.UI
                             () =>
                             {
                                 Find.WindowStack.Add(new Dialog_RenameWorkload(local));
-                                SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                                UISoundCompat.TickLow.PlayOneShotOnCamera();
                             }));
                     }
                     Find.WindowStack.Add(new FloatMenu(ren));
@@ -231,7 +231,7 @@ namespace Better_Work_Tab.UI
 
                                 MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
 
-                                SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                                UISoundCompat.TickLow.PlayOneShotOnCamera();
                             }));
                     }
                     Find.WindowStack.Add(new FloatMenu(del));
@@ -276,7 +276,7 @@ namespace Better_Work_Tab.UI
                 options.Add(new FloatMenuOption("BWT_RuleBuilder_OpenBuilder".Translate(), () =>
                 {
                     Find.WindowStack.Add(new Window_RulesetBuilder());
-                    SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                    UISoundCompat.TickLow.PlayOneShotOnCamera();
                 }));
             }
 
@@ -291,7 +291,7 @@ namespace Better_Work_Tab.UI
                 options.Add(new FloatMenuOption(label, () =>
                 {
                     Find.WindowStack.Add(new Window_RulesManager());
-                    SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                    UISoundCompat.TickLow.PlayOneShotOnCamera();
                 }));
             }
         }

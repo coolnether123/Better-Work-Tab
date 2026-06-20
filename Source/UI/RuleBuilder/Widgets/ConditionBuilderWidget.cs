@@ -61,7 +61,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
         {
             ref bool target = ref GetBoolRef(key, parameters);
             bool val = target;
-            Verse.Widgets.Checkbox(valueRect.x, valueRect.y + 4f, ref val, disabled: disabled, paintable: true);
+            WidgetsCompat.Checkbox(valueRect.x, valueRect.y + 4f, ref val, disabled: disabled, paintable: true);
             if (val != target)
             {
                 target = val;

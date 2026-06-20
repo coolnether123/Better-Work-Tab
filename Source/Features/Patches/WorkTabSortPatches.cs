@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Verse;
 
+#if !v0_18 && !v0_17 && !v0_16
 namespace Better_Work_Tab.Patches
 {
     /// <summary>
@@ -34,4 +35,5 @@ namespace Better_Work_Tab.Patches
         }
     }
 }
+#endif
 

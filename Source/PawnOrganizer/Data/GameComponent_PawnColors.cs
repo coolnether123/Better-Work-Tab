@@ -59,8 +59,8 @@ namespace Better_Work_Tab.PawnOrganizer.Data
                 _textColors = PawnTextColorDatabase.GetColors();
             }
 
-            Scribe_Collections.Look(ref _backgroundColors, "pawnBackgroundColors", LookMode.Value, LookMode.Value);
-            Scribe_Collections.Look(ref _textColors, "pawnTextColors", LookMode.Value, LookMode.Value);
+            ScribeCompat.LookStringDictionary(ref _backgroundColors, "pawnBackgroundColors", LookMode.Value);
+            ScribeCompat.LookStringDictionary(ref _textColors, "pawnTextColors", LookMode.Value);
 
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {

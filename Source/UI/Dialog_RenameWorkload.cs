@@ -21,7 +21,9 @@ namespace Better_Work_Tab.UI
         {
             this.workload = workload;
             curName = workload?.RenamableLabel ?? "Workload";
+#if !(v0_18 || v0_17 || v0_16)
             closeOnAccept = true;
+#endif
             closeOnClickedOutside = true;
             doCloseX = true;
             absorbInputAroundWindow = true;
@@ -67,7 +69,7 @@ namespace Better_Work_Tab.UI
             string trimmed = (curName ?? string.Empty).Trim();
             if (trimmed.Length == 0)
             {
-                Messages.Message("NameCannotBeEmpty".Translate(), MessageTypeDefOf.RejectInput, false);
+                MessageCompat.Message("NameCannotBeEmpty".Translate(), MessageTypeDefOf.RejectInput, false);
                 return false;
             }
 

@@ -828,7 +828,7 @@ namespace Better_Work_Tab.PawnOrganizer
                         return;
                     }
 
-                    _sortingSectionBuffer.SortStable((a, b) =>
+                    _sortingSectionBuffer.SortStableCompat((a, b) =>
                     {
                         var pawnA = (a as PawnElement)?.Pawn;
                         var pawnB = (b as PawnElement)?.Pawn;

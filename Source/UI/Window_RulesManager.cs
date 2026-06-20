@@ -329,7 +329,7 @@ namespace Better_Work_Tab.UI
                     new FloatMenuOption("Unassigned", delegate
                     {
                         field.SetValue(SelectedRule.Parameters, null);
-                        SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
+                        UISoundCompat.TickTiny.PlayOneShotOnCamera();
                     })
                 };
 
@@ -338,7 +338,7 @@ namespace Better_Work_Tab.UI
                     enums.Add(new FloatMenuOption(e.ToString(), delegate
                     {
                         field.SetValue(SelectedRule.Parameters, e);
-                        SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
+                        UISoundCompat.TickTiny.PlayOneShotOnCamera();
                     }));
                 }
                 Find.WindowStack.Add(new FloatMenu(enums));
@@ -378,7 +378,7 @@ namespace Better_Work_Tab.UI
                     {
                         field.SetValue(parameters, null);
                         parameters.WorktypeString = "";
-                        SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
+                        UISoundCompat.TickTiny.PlayOneShotOnCamera();
                     })
                 };
 
@@ -388,7 +388,7 @@ namespace Better_Work_Tab.UI
                     {
                         field.SetValue(parameters, def);
                         parameters.WorktypeString = def.defName;
-                        SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
+                        UISoundCompat.TickTiny.PlayOneShotOnCamera();
                     }));
                 }
                 Find.WindowStack.Add(new FloatMenu(defOptions));
@@ -416,7 +416,7 @@ namespace Better_Work_Tab.UI
                     {
                         field.SetValue(parameters, null);
                         parameters.XenotypeString = "";
-                        SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
+                        UISoundCompat.TickTiny.PlayOneShotOnCamera();
                     })
                 };
                 foreach (var def in DefDatabase<XenotypeDef>.AllDefsListForReading)
@@ -425,7 +425,7 @@ namespace Better_Work_Tab.UI
                     {
                         field.SetValue(parameters, def);
                         parameters.XenotypeString = def.defName;
-                        SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
+                        UISoundCompat.TickTiny.PlayOneShotOnCamera();
                     }, def.Icon, XenotypeDef.IconColor, MenuOptionPriority.Default));
                 }
                 Find.WindowStack.Add(new FloatMenu(defOptions));
@@ -470,12 +470,19 @@ namespace Better_Work_Tab.UI
                         field.SetValue(parameters, null);
                         parameters.TraitString = "";
                         parameters.TraitDegree = null;
-                        SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
+                        UISoundCompat.TickTiny.PlayOneShotOnCamera();
                     })
                 };
-                var sorted = DefDatabase<TraitDef>.AllDefs.OrderByDescending((TraitDef td) => td.GetGenderSpecificCommonality(Gender.None));
-                var sortedList = sorted.ToList();
-                sortedList.SortBy((TraitDef td) => td.defName);
+#if v0_18 || v0_17 || v0_16
+                var sortedList = DefDatabase<TraitDef>.AllDefsListForReading
+                    .OrderBy(td => td.defName)
+                    .ToList();
+#else
+                var sortedList = DefDatabase<TraitDef>.AllDefs
+                    .OrderByDescending((TraitDef td) => td.GetGenderSpecificCommonality(Gender.None))
+                    .ThenBy(td => td.defName)
+                    .ToList();
+#endif
                 foreach (TraitDef item in sortedList)
                 {
                     foreach (TraitDegreeData degreeData in item.degreeDatas)
@@ -487,7 +494,7 @@ namespace Better_Work_Tab.UI
                             field.SetValue(parameters, new Tuple<TraitDef, int>(localDef, localDeg.degree));
                             parameters.TraitString = localDef.defName;
                             parameters.TraitDegree = localDeg.degree;
-                            SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
+                            UISoundCompat.TickTiny.PlayOneShotOnCamera();
                         }));
                     }
                 }
@@ -517,13 +524,13 @@ namespace Better_Work_Tab.UI
             if (Widgets.ButtonText(leftRect, "-1", active: !disabled))
             {
                 value -= 1 * multiplier;
-                SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
+                UISoundCompat.TickTiny.PlayOneShotOnCamera();
                 editBuffer = value.ToString();
             }
             if (Widgets.ButtonText(rightRect, "+1", active: !disabled))
             {
                 value += 1 * multiplier;
-                SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
+                UISoundCompat.TickTiny.PlayOneShotOnCamera();
                 editBuffer = value.ToString();
             }
             if (disabled)
@@ -651,7 +658,7 @@ namespace Better_Work_Tab.UI
                 }
                 else if (rowIndex % 2 == 1)
                 {
-                    Widgets.DrawLightHighlight(rect4);
+                    WidgetsCompat.DrawLightHighlight(rect4);
                 }
 
                 rowIndex++;

@@ -799,7 +799,7 @@ namespace Better_Work_Tab
 
             // Column order and widths persistence
             Scribe_Collections.Look(ref workColumnOrderDefNames, "workColumnOrderDefNames", LookMode.Value);
-            Scribe_Collections.Look(ref storedColumnWidths, "storedColumnWidths", LookMode.Value, LookMode.Value);
+            ScribeCompat.LookStringDictionary(ref storedColumnWidths, "storedColumnWidths", LookMode.Value);
             Scribe_Collections.Look(ref debugFeatureToggles, "debugFeatureToggles", LookMode.Value, LookMode.Value);
 
             // Save/load the list of columns the player has directly dragged

@@ -34,7 +34,7 @@ namespace Better_Work_Tab.Patches
                 // This preserves the vanilla age restriction feedback when clicking on age-disabled work
                 if (Event.current.type == EventType.MouseDown && Mouse.IsOver(rect))
                 {
-                    Messages.Message("MessageWorkTypeDisabledAge".Translate(p, p.ageTracker.AgeBiologicalYears, wType.labelShort, minAgeRequired), p, MessageTypeDefOf.RejectInput, false);
+                    MessageCompat.Message("MessageWorkTypeDisabledAge".Translate(p, p.ageTracker.AgeBiologicalYears, wType.labelShort, minAgeRequired), p, MessageTypeDefOf.RejectInput, false);
                     SoundDefOf.ClickReject.PlayOneShotOnCamera();
                 }
                 GUI.DrawTexture(rect, WidgetsWork.WorkBoxBGTex_AgeDisabled);

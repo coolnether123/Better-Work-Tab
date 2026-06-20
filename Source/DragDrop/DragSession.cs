@@ -106,7 +106,7 @@ namespace Better_Work_Tab.DragDrop
         {
             if (DraggedPawn != null)
             {
-                return $"Pawn '{DraggedPawn.LabelShortCap ?? DraggedPawn.LabelShort ?? "?"}'";
+                return $"Pawn '{PawnCompat.LabelShortCap(DraggedPawn)}'";
             }
             
             if (DraggedDivider != null)

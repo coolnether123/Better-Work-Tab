@@ -212,9 +212,9 @@ namespace Better_Work_Tab.Patches
             if (pawn.RaceProps.Humanlike || pawn.RaceProps.Animal || pawn.Name == null || pawn.Name.Numerical)
             {
 #if v1_3 || v1_2 || v1_1 || (v1_0 || v0_19)
-                label = pawn.LabelShortCap;
+                label = PawnCompat.LabelShortCap(pawn);
 #else
-                label = worker.def.useLabelShort ? pawn.LabelShortCap : pawn.LabelNoCount.CapitalizeFirst();
+                label = worker.def.useLabelShort ? PawnCompat.LabelShortCap(pawn) : pawn.LabelNoCount.CapitalizeFirst();
 #endif
             }
             else

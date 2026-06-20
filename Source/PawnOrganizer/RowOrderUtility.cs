@@ -7,11 +7,21 @@ namespace Better_Work_Tab.PawnOrganizer
 {
     internal static class RowOrderUtility
     {
+#if v0_18 || v0_17 || v0_16
+        private static readonly Dictionary<int, int> LegacyPawnRowOrder = new Dictionary<int, int>();
+#endif
+
         public static int GetPawnRowOrder(Pawn pawn)
         {
             if (pawn?.playerSettings == null)
                 return 0;
 
+#if v0_18 || v0_17 || v0_16
+            if (LegacyPawnRowOrder.TryGetValue(pawn.thingIDNumber, out var legacyOrder))
+                return legacyOrder;
+
+            return pawn.thingIDNumber;
+#else
             if (!MultiplayerBridge.Active)
                 return pawn.playerSettings.displayOrder;
 
@@ -22,6 +32,7 @@ namespace Better_Work_Tab.PawnOrganizer
             return profile.PawnRowOrder.TryGetValue(pawn.thingIDNumber, out var val)
                 ? val
                 : pawn.playerSettings.displayOrder;
+#endif
         }
 
         public static void SetPawnRowOrder(Pawn pawn, int order)
@@ -29,6 +40,9 @@ namespace Better_Work_Tab.PawnOrganizer
             if (pawn?.playerSettings == null)
                 return;
 
+#if v0_18 || v0_17 || v0_16
+            LegacyPawnRowOrder[pawn.thingIDNumber] = order;
+#else
             if (!MultiplayerBridge.Active)
             {
                 pawn.playerSettings.displayOrder = order;
@@ -41,6 +55,7 @@ namespace Better_Work_Tab.PawnOrganizer
 
             profile.PawnRowOrder[pawn.thingIDNumber] = order;
             BWTLocalProfileStore.MarkDirty();
+#endif
         }
 
         public static void ShiftPawnRowOrdersFrom(List<Pawn> pawns, int fromOrderInclusive)

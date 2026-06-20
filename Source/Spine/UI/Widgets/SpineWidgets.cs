@@ -1,4 +1,5 @@
-﻿using HarmonyLib;
+using HarmonyLib;
+using Better_Work_Tab;
 using RimWorld;
 using Spine.UI.ColourPicker;
 using System;
@@ -82,7 +83,7 @@ namespace Spine.UI.WidgetExtensions
                     enums.Add(new FloatMenuOption(e.ToString(), delegate
                     {
                         field.SetValue(s, e);
-                        SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
+                        UISoundCompat.TickTiny.PlayOneShotOnCamera();
                     }));
                 }
                 Find.WindowStack.Add(new FloatMenu(enums));

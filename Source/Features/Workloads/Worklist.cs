@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -13,7 +13,7 @@ namespace Better_Work_Tab.Features.Workloads
         public Worklist(string name)
         {
             RenamableLabel = name;
-            foreach (var pawn in Find.CurrentMap.mapPawns.FreeColonists)
+            foreach (var pawn in MapCompat.CurrentMap.mapPawns.FreeColonists)
             {
                 PawnWorklists.Add(new PawnWorkload(pawn));
             }

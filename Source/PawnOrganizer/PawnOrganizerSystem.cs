@@ -344,7 +344,7 @@ namespace Better_Work_Tab.PawnOrganizer
             if (!TryFindRow(pawn, divider, out var row))
             {
                 string itemDesc = pawn != null 
-                    ? $"Pawn '{pawn.LabelShortCap}'" 
+                    ? $"Pawn '{PawnCompat.LabelShortCap(pawn)}'" 
                     : $"Divider '{divider?.DividerName}'";
                     
                 BetterWorkTabMod.DebugLog(

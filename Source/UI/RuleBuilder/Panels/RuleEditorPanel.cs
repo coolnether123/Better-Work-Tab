@@ -664,7 +664,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
 
         private List<Pawn> GetCurrentPawns()
         {
-            var map = Find.CurrentMap;
+            var map = MapCompat.CurrentMap;
             return map?.mapPawns?.FreeColonists?.ToList() ?? new List<Pawn>();
         }
 

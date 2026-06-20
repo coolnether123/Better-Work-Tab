@@ -428,7 +428,9 @@ namespace Spine.UI.ColourPicker {
         [Conditional("DEBUG")]
         public static void Debug(string msg) { 
             if (Traverse.Create(typeof(Log)).Field("reachedMaxMessagesLimit").GetValue<bool>()) {
+#if !(v0_18 || v0_17 || v0_16)
                 Log.ResetMessageCount();
+#endif
             }
 
             BetterWorkTabMod.DebugLog($"ColourPicker :: {msg}", DebugFeature.Layout);
@@ -900,6 +902,7 @@ namespace Spine.UI.ColourPicker {
             HexField.Value = Hex;
         }
 
+#if !v0_18 && !v0_17 && !v0_16
         public override void OnAcceptKeyPressed()
         {
             base.OnAcceptKeyPressed();
@@ -912,6 +915,7 @@ namespace Spine.UI.ColourPicker {
             onCancel?.Invoke();
             base.OnCancelKeyPressed();
         }
+#endif
 
 #if !v1_2 && !v1_1 && !(v1_0 || v0_19)
         public override void Notify_ClickOutsideWindow()

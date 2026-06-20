@@ -342,7 +342,7 @@ namespace Better_Work_Tab.UI.Settings
                              s.Color_CustomMouseHighlight = picked;
                              s.Color_CustomSimilarWorktypeHighlight = picked;
                              s.Write();
-                             Messages.Message("Master color applied to all highlight settings.", MessageTypeDefOf.PositiveEvent, false);
+                             MessageCompat.Message("Master color applied to all highlight settings.", MessageTypeDefOf.PositiveEvent, false);
                          }));
                     }
                 }
@@ -918,7 +918,7 @@ namespace Better_Work_Tab.UI.Settings
                                 div.Height = settings.dividerHeight;
                             }
                             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
-                            Messages.Message("Dividers reset to default height.", MessageTypeDefOf.PositiveEvent, false);
+                            MessageCompat.Message("Dividers reset to default height.", MessageTypeDefOf.PositiveEvent, false);
                         }
                     }
                 }
@@ -1819,7 +1819,7 @@ namespace Better_Work_Tab.UI.Settings
                         {
                             settings.RestoreDefaults();
                             settings.Write();
-                            Messages.Message("Factory defaults restored.", MessageTypeDefOf.PositiveEvent, false);
+                            MessageCompat.Message("Factory defaults restored.", MessageTypeDefOf.PositiveEvent, false);
                         }, true, "Confirm Restore"));
                     }
                 }

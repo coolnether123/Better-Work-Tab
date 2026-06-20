@@ -51,16 +51,16 @@ namespace Better_Work_Tab.Mod_Support.LocalProfiles
                     kvp => kvp.Key,
                     kvp => ColorUtility.ToHtmlStringRGBA(kvp.Value)) ?? new Dictionary<string, string>();
 
-                Scribe_Collections.Look(ref bgColorStrings, "PawnBackgroundColors", LookMode.Value, LookMode.Value);
-                Scribe_Collections.Look(ref textColorStrings, "PawnTextColors", LookMode.Value, LookMode.Value);
+                ScribeCompat.LookStringDictionary(ref bgColorStrings, "PawnBackgroundColors", LookMode.Value);
+                ScribeCompat.LookStringDictionary(ref textColorStrings, "PawnTextColors", LookMode.Value);
             }
             else if (Scribe.mode == LoadSaveMode.LoadingVars)
             {
                 Dictionary<string, string> bgColorStrings = null;
                 Dictionary<string, string> textColorStrings = null;
 
-                Scribe_Collections.Look(ref bgColorStrings, "PawnBackgroundColors", LookMode.Value, LookMode.Value);
-                Scribe_Collections.Look(ref textColorStrings, "PawnTextColors", LookMode.Value, LookMode.Value);
+                ScribeCompat.LookStringDictionary(ref bgColorStrings, "PawnBackgroundColors", LookMode.Value);
+                ScribeCompat.LookStringDictionary(ref textColorStrings, "PawnTextColors", LookMode.Value);
 
                 PawnBackgroundColors = bgColorStrings?.ToDictionary(
                     kvp => kvp.Key,

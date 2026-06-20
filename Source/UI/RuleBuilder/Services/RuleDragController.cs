@@ -147,7 +147,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
             _hoverTimer = 0f;
             _lastHoveredTarget = null;
             
-            SoundDefOf.Tick_High.PlayOneShotOnCamera();
+            UISoundCompat.TickHigh.PlayOneShotOnCamera();
         }
 
         public void EndDrag()
@@ -172,7 +172,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
                 if (_state.SelectedWorkType != workType)
                 {
                     _state.SelectedWorkType = workType;
-                    SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                    UISoundCompat.TickLow.PlayOneShotOnCamera();
                 }
             });
         }
@@ -189,7 +189,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
                 if (_state.SelectedPriority != priority)
                 {
                     _state.SelectedPriority = priority;
-                    SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                    UISoundCompat.TickLow.PlayOneShotOnCamera();
                 }
             });
         }

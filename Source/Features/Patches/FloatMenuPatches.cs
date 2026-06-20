@@ -10,41 +10,46 @@ using Verse.AI;
 namespace Better_Work_Tab.Patches
 {
     /// <summary>
-    /// Backport of the 1.6 "do once / open work tab" float-menu options to 1.5.
-    /// The 1.5 API builds options in FloatMenuMakerMap.AddJobGiverWorkOrders, so we
+    /// Backport of the 1.6 "do once / open work tab" float-menu options.
+    /// Older APIs build options in different FloatMenuMakerMap methods, so we
     /// add our extras in a postfix while keeping vanilla options intact.
     /// </summary>
+#if v0_18 || v0_17 || v0_16
+    [HarmonyPatch(typeof(FloatMenuMakerMap), "ChoicesAtFor")]
+#else
     [HarmonyPatch(typeof(FloatMenuMakerMap), "AddJobGiverWorkOrders")]
+#endif
     public static class Patch_FloatMenuMakerMap_AddJobGiverWorkOrders
     {
-#if v1_3 || v1_2 || v1_1 || (v1_0 || v0_19)
+#if v0_18 || v0_17 || v0_16
+        public static void Postfix(Vector3 clickPos, Pawn pawn, List<FloatMenuOption> __result)
+        {
+            AddNotAssignedWorkOptions(IntVec3.FromVector3(clickPos), pawn, __result, pawn?.Drafted ?? false);
+        }
+#elif v1_3 || v1_2 || v1_1 || (v1_0 || v0_19)
         public static void Postfix(IntVec3 clickCell, Pawn pawn, List<FloatMenuOption> opts, bool drafted)
         {
-            // Only relevant if work settings exist.
-            if (pawn?.workSettings == null)
-            {
-                return;
-            }
-
-            if (pawn.Map == null || !clickCell.InBounds(pawn.Map))
-            {
-                return;
-            }
+            AddNotAssignedWorkOptions(clickCell, pawn, opts, drafted);
+        }
 #else
         public static void Postfix(Vector3 clickPos, Pawn pawn, List<FloatMenuOption> opts, bool drafted)
         {
+            AddNotAssignedWorkOptions(IntVec3.FromVector3(clickPos), pawn, opts, drafted);
+        }
+#endif
+
+        private static void AddNotAssignedWorkOptions(IntVec3 clickCell, Pawn pawn, List<FloatMenuOption> opts, bool drafted)
+        {
             // Only relevant if work settings exist.
             if (pawn?.workSettings == null)
             {
                 return;
             }
 
-            IntVec3 clickCell = IntVec3.FromVector3(clickPos);
             if (pawn.Map == null || !clickCell.InBounds(pawn.Map))
             {
                 return;
             }
-#endif
 
             foreach (WorkTypeDef workType in DefDatabase<WorkTypeDef>.AllDefsListForReading)
             {
@@ -55,7 +60,7 @@ namespace Better_Work_Tab.Patches
 
                 foreach (WorkGiverDef workGiver in workType.workGiversByPriority)
                 {
-                    if (drafted && !workGiver.canBeDoneWhileDrafted)
+                    if (drafted && !WorkGiverCompat.CanBeDoneWhileDrafted(workGiver))
                     {
                         continue;
                     }
@@ -81,7 +86,7 @@ namespace Better_Work_Tab.Patches
                     continue;
                 }
 
-                if (scanner.ShouldSkip(pawn, true) || !scanner.HasJobOnThing(pawn, thing, true))
+                if (WorkGiverCompat.ShouldSkip(scanner, pawn, true) || !scanner.HasJobOnThing(pawn, thing, true))
                 {
                     continue;
                 }
@@ -99,18 +104,20 @@ namespace Better_Work_Tab.Patches
 
         private static void TryAddCellOption(Pawn pawn, IntVec3 clickCell, WorkGiverDef workGiver, WorkGiver_Scanner scanner, List<FloatMenuOption> opts, bool drafted)
         {
-            if (drafted && !workGiver.canBeDoneWhileDrafted)
+            if (drafted && !WorkGiverCompat.CanBeDoneWhileDrafted(workGiver))
             {
                 return;
             }
 
             var potentialCells = scanner.PotentialWorkCellsGlobal(pawn);
-            if (potentialCells == null || !potentialCells.Contains(clickCell) || scanner.ShouldSkip(pawn, true))
+            if (potentialCells == null || !potentialCells.Contains(clickCell) || WorkGiverCompat.ShouldSkip(scanner, pawn, true))
             {
                 return;
             }
 
-            Job job = scanner.HasJobOnCell(pawn, clickCell, true) ? scanner.JobOnCell(pawn, clickCell, true) : null;
+            Job job = WorkGiverCompat.HasJobOnCell(scanner, pawn, clickCell, true)
+                ? WorkGiverCompat.JobOnCell(scanner, pawn, clickCell, true)
+                : null;
             if (job == null)
             {
                 return;
@@ -164,10 +171,7 @@ namespace Better_Work_Tab.Patches
             {
                 if (pawn.jobs.TryTakeOrderedJobPrioritizedWork(job, scanner, clickedCell))
                 {
-                    if (workGiver.forceMote != null)
-                    {
-                        MoteMaker.MakeStaticMote(clickedCell, pawn.Map, workGiver.forceMote);
-                    }
+                    WorkGiverCompat.TryPlaceForceFeedback(workGiver, clickedCell, pawn.Map);
 
 #if !v1_2 && !v1_1 && !(v1_0 || v0_19)
                     if (workGiver.forceFleck != null)

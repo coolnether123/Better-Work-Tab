@@ -66,7 +66,7 @@ namespace Better_Work_Tab.UI
             {
                 if (_currentName.Length == 0)
                 {
-                    Messages.Message("NameCannotBeEmpty".Translate(), MessageTypeDefOf.RejectInput, false);
+                    MessageCompat.Message("NameCannotBeEmpty".Translate(), MessageTypeDefOf.RejectInput, false);
                 }
                 else
                 {

@@ -17,7 +17,7 @@ namespace Better_Work_Tab.Features.Rules.Validators
             if (!p.HasChildOnMap)
                 return true;
 
-            var map = Find.CurrentMap;
+            var map = MapCompat.CurrentMap;
             if (map == null)
                 return false;
 

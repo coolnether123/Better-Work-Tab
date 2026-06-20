@@ -129,7 +129,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
                 {
                     ConditionRegistry.SetValue(condition.Key, parameters, i);
                     state.NotifyRulesModified();
-                    SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
+                    UISoundCompat.TickTiny.PlayOneShotOnCamera();
                     return true;
                 }
             }
@@ -176,7 +176,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
                 newValue = Mathf.Clamp(newValue, minValue, maxValue);
                 ConditionRegistry.SetValue(condition.Key, parameters, newValue);
                 state.NotifyRulesModified();
-                SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
+                UISoundCompat.TickTiny.PlayOneShotOnCamera();
             }
 
             return modified;
@@ -226,7 +226,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
                 {
                     ConditionRegistry.SetValue(condition.Key, parameters, i);
                     state.NotifyRulesModified();
-                    SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
+                    UISoundCompat.TickTiny.PlayOneShotOnCamera();
                     return true;
                 }
             }
@@ -259,7 +259,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
                     {
                         ConditionRegistry.SetValue(condition.Key, parameters, null);
                         state.NotifyRulesModified();
-                        SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
+                        UISoundCompat.TickTiny.PlayOneShotOnCamera();
                     })
                 };
 
@@ -270,7 +270,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
                     {
                         ConditionRegistry.SetValue(condition.Key, parameters, localGender);
                         state.NotifyRulesModified();
-                        SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
+                        UISoundCompat.TickTiny.PlayOneShotOnCamera();
                     }));
                 }
 
@@ -307,7 +307,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
                     {
                         ConditionRegistry.SetValue(condition.Key, parameters, null);
                         state.NotifyRulesModified();
-                        SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
+                        UISoundCompat.TickTiny.PlayOneShotOnCamera();
                     })
                 };
 
@@ -325,7 +325,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
                             var tuple = new Tuple<TraitDef, int>(localTrait, 0);
                             ConditionRegistry.SetValue(condition.Key, parameters, tuple);
                             state.NotifyRulesModified();
-                            SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
+                            UISoundCompat.TickTiny.PlayOneShotOnCamera();
                         }));
                         continue;
                     }
@@ -338,7 +338,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
                             var tuple = new Tuple<TraitDef, int>(localTrait, localDegree.degree);
                             ConditionRegistry.SetValue(condition.Key, parameters, tuple);
                             state.NotifyRulesModified();
-                            SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
+                            UISoundCompat.TickTiny.PlayOneShotOnCamera();
                         }));
                     }
                 }
@@ -376,7 +376,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
                     {
                         parameters.Xenotype = null;
                         state.NotifyRulesModified();
-                        SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
+                        UISoundCompat.TickTiny.PlayOneShotOnCamera();
                     })
                 };
 
@@ -387,7 +387,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
                     {
                         parameters.Xenotype = localXeno;
                         state.NotifyRulesModified();
-                        SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
+                        UISoundCompat.TickTiny.PlayOneShotOnCamera();
                     }));
                 }
 

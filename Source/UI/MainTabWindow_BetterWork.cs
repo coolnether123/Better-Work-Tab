@@ -349,7 +349,9 @@ namespace Better_Work_Tab.UI
 
         private void ShowRenamePawnDialog(Pawn pawn)
         {
-#if v1_3 || v1_2 || v1_1 || (v1_0 || v0_19)
+#if v0_18 || v0_17 || v0_16
+            Find.WindowStack.Add(new Dialog_ChangeNameTriple(pawn));
+#elif v1_3 || v1_2 || v1_1 || (v1_0 || v0_19)
             Find.WindowStack.Add(new Dialog_NamePawn(pawn));
 #else
             Find.WindowStack.Add(pawn.NamePawnDialog());
@@ -1102,7 +1104,7 @@ namespace Better_Work_Tab.UI
 
             divider.IsCollapsed = !divider.IsCollapsed;
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
-            SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
+            UISoundCompat.TickTiny.PlayOneShotOnCamera();
         }
 
         private void DrawPawnRow(PawnTable table, WorkTabLayoutRow row, Rect rowRect, IList<WorkTabLayoutColumn> columns)
@@ -1333,7 +1335,7 @@ namespace Better_Work_Tab.UI
             int bedCount = 0;
             if (showBeds)
             {
-                Map map = Find.CurrentMap;
+                Map map = MapCompat.CurrentMap;
                 // Cached lookup: invalidated via Harmony patches and time-based expiry
                 bedCount = BedCountCache.GetBedCount(map);
             }
