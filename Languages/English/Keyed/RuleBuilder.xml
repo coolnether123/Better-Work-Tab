@@ -33,6 +33,8 @@
   <BWT_Priority_High_Desc>High priority. This pawn will be assigned before normal priority pawns.</BWT_Priority_High_Desc>
   <BWT_Priority_Normal_Desc>Normal priority. Standard assignment.</BWT_Priority_Normal_Desc>
   <BWT_Priority_Low_Desc>Low priority. This pawn will be assigned last.</BWT_Priority_Low_Desc>
+  <BWT_Priority_Extended>Priority ({0})</BWT_Priority_Extended>
+  <BWT_Priority_Extended_Desc>Extended priority {0}. Higher numbers are lower priority and run after smaller non-zero values.</BWT_Priority_Extended_Desc>
 
   <!-- Condition categories -->
   <BWT_Category_Skill>Skill-Based</BWT_Category_Skill>

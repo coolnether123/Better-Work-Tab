@@ -91,17 +91,17 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
 
             bool shouldDraw = evt.type == EventType.Repaint;
 
+            var vanillaSolver = HeaderDrawingCoordinator.GetVanillaSolver();
+
             // Determine Hover
             bool isMouseOver = DetermineMouseOver(rect, worker.def);
             if (isMouseOver)
             {
-                var solver = HeaderDrawingCoordinator.GetVanillaSolver();
-                HeaderInputController.SetHoveredWorkType(worker.def.workType, solver?.GetBounds(worker.def));
+                HeaderInputController.SetHoveredWorkType(worker.def.workType, vanillaSolver?.GetBounds(worker.def));
             }
 
             // Get Render/Layout Objects
-            var solver = HeaderDrawingCoordinator.GetVanillaSolver();
-            Rect interactionBounds = solver.GetBounds(worker.def);
+            Rect interactionBounds = vanillaSolver.GetBounds(worker.def);
             bool isMoved = MainTabWindow_BetterWork.ShouldShowColumnMarker(worker.def.workType);
             
             // Text Layout construction

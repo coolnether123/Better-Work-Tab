@@ -439,6 +439,8 @@ namespace Better_Work_Tab.UI.RuleBuilder.State
         /// </summary>
         public void EnsurePriorityOrder()
         {
+            MaxPriority = Mathf.Max(1, BetterWorkTabMod.Settings?.maxPriorityInt ?? MaxPriority);
+
             if ((PriorityOrder == null || PriorityOrder.Count == 0) &&
                 SelectedRuleset?.PriorityOrder != null &&
                 SelectedRuleset.PriorityOrder.Count > 0)

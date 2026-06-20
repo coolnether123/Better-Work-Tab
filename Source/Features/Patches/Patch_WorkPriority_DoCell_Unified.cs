@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using Verse;
+using Verse.Sound;
 
 namespace Better_Work_Tab.Patches
 {
@@ -78,7 +79,7 @@ namespace Better_Work_Tab.Patches
     [HarmonyPatch(typeof(PawnColumnWorker_WorkPriority), nameof(PawnColumnWorker_WorkPriority.DoCell))]
     public static class Patch_WorkPriority_DoCell_Unified
     {
-        // === FRAME-LEVEL STATE ===
+        // Frame state
         private static int _lastCachedFrame = -1;
         private static bool _cachedShiftHeld = false;
         private static bool _cachedFeatureEnabled = false;
@@ -89,7 +90,7 @@ namespace Better_Work_Tab.Patches
         private static WorkTypeDef _columnHoveredWorkType;
         private static int _columnHoveredFrame = -1;
 
-        // === CACHES ===
+        // Cached per-frame and per-worktype values
         private static readonly Dictionary<int, int> _skillCache = new Dictionary<int, int>(1024);
         private static readonly Dictionary<int, int> _skillCacheTimestamps = new Dictionary<int, int>(1024);
         private static readonly Dictionary<int, byte> _incapableCache = new Dictionary<int, byte>(1024);
@@ -98,7 +99,7 @@ namespace Better_Work_Tab.Patches
         private static readonly Dictionary<int, int> _bestPawnCacheTimestamps = new Dictionary<int, int>(64);
         private static readonly Dictionary<int, Color> _colorCache = new Dictionary<int, Color>(21);
 
-        // Constants
+        // Layout and cache settings
         private const int SkillCacheFrameValidity = 60;
         private const int IncapableCacheFrameValidity = 120;
         private const int BestPawnCacheFrameValidity = 60;
@@ -142,7 +143,8 @@ namespace Better_Work_Tab.Patches
                 return true;
 
             WorkTypeDef workType = __instance.def.workType;
-            if (workType == null) return true;
+            if (workType == null)
+                return true;
 
             UpdateFrameCache();
 
@@ -162,38 +164,35 @@ namespace Better_Work_Tab.Patches
             if (BetterWorkTabMod.Settings.enableScrollWheelPriority && Event.current.type == EventType.ScrollWheel && Mouse.IsOver(rect))
             {
                 int currentPriority = pawn.workSettings.GetPriority(workType);
-                int delta = Event.current.delta.y > 0 ? -1 : 1; // Scroll up = increase priority (closer to 1), Scroll down = decrease
-                // TODO: Will need to update this when custom priorities are added
+                int delta = Event.current.delta.y > 0 ? -1 : 1;
                 if (Find.PlaySettings.useWorkPriorities)
                 {
-                    // Manual priorities: 1-4, 0 is disabled.
-                    // Note: RimWorld priorities are 1 (Highest) to 4 (Lowest). 0 is Off.
-                    // Scroll Up (delta +1): 0 -> 4 -> 3 -> 2 -> 1
-                    // Scroll Down (delta -1): 1 -> 2 -> 3 -> 4 -> 0
                     int nextPriority = currentPriority;
-                    if (delta > 0) // Increase (1 is high, 4 is low)
+                    if (delta > 0)
                     {
-                        if (currentPriority == 0) nextPriority = 4;
+                        if (currentPriority == 0) nextPriority = BetterWorkTabMod.Settings.maxPriorityInt;
                         else if (currentPriority > 1) nextPriority = currentPriority - 1;
                     }
-                    else // Decrease
+                    else
                     {
-                        if (currentPriority == 4) nextPriority = 0;
+                        if (currentPriority == BetterWorkTabMod.Settings.maxPriorityInt) nextPriority = 0;
                         else if (currentPriority > 0) nextPriority = currentPriority + 1;
                     }
 
                     if (nextPriority != currentPriority)
                     {
                         pawn.workSettings.SetPriority(workType, nextPriority);
+                        SoundDefOf.DragSlider.PlayOneShotOnCamera();
                     }
                 }
                 else
                 {
-                    // Checkbox mode: 0 or 3
                     int nextPriority = (currentPriority > 0) ? 0 : 3;
                     if (nextPriority != currentPriority)
                     {
                         pawn.workSettings.SetPriority(workType, nextPriority);
+                        SoundDefOf.DragSlider.PlayOneShotOnCamera();
+
                     }
                 }
                 Event.current.Use();
@@ -213,7 +212,7 @@ namespace Better_Work_Tab.Patches
                 return true;
 
             if (workType.relevantSkills == null || workType.relevantSkills.Count == 0)
-                return false; // Skip vanilla drawing if no relevant skills, to draw nothing or custom
+                return true;
 
             // Track column hover state only if hover cell overlay is enabled
             bool hoveringCell = Mouse.IsOver(rect);
@@ -245,7 +244,6 @@ namespace Better_Work_Tab.Patches
 
             if (columnHovered)
             {
-                // For column-wide hover, allow vanilla draw in Standard so priority numbers render across the column.
                 if (_cachedHoverMode == BetterWorkTabSettings.SkillViewHoverMode.Standard)
                 {
                     return true;
@@ -253,8 +251,6 @@ namespace Better_Work_Tab.Patches
                 return false;
             }
 
-            // If NOT hovering, return FALSE to skip Vanilla.
-            // Postfix will draw the Big Skill Number and static background.
             return false;
         }
 
@@ -279,21 +275,20 @@ namespace Better_Work_Tab.Patches
             if (GetIsIncapable(pawn, workType))
                 return;
 
-            if (workType.relevantSkills == null || workType.relevantSkills.Count == 0)
-                return;
-
             // Draw best pawn outline - this uses the ShowUIMode setting to determine when to show
             // (can be Always, Shifted, Unshifted, or Never)
             DrawBestPawnOutlineIfNeeded(__instance, rect, pawn, table, workType);
 
-            // === Skill Overlay Section (only when shift is held) ===
-            // Basic feature check: if skill overlay is disabled or shift not held, skip skill overlay
             if (!_cachedFeatureEnabled || !_cachedShiftHeld)
                 return;
 
             if (Patch_WorkPriority_DoHeader_HoverTracker.HoveredHeaderWorkType == workType)
                 return;
 
+            if (workType.relevantSkills == null || workType.relevantSkills.Count == 0)
+                return;
+
+            int priority = pawn.workSettings.GetPriority(workType);
             int skillLevel = GetSkillLevel(pawn, workType);
             bool hoveringCell = Mouse.IsOver(rect);
             
@@ -311,35 +306,32 @@ namespace Better_Work_Tab.Patches
 
             bool drawBigSkill = true;
             bool drawSmallSkill = false;
-            bool drawSmallPriority = false;
             bool showTinySkillNumbers = (BetterWorkTabMod.Settings?.enableSkillOverlayFeature ?? false) &&
                                         ShouldShowUI(BetterWorkTabMod.Settings.ShowUIMode_ShowSmallSkillNumbers, _cachedUiState);
 
-            // Apply hover-based transformations only if hover overlay is enabled
             if (_cachedHoverCellOverlayEnabled && hovering)
             {
                 if (_cachedHoverMode == BetterWorkTabSettings.SkillViewHoverMode.Standard)
                 {
-                    // Standard mode: hide big skill, show small skill on hover
                     drawBigSkill = false;
                     drawSmallSkill = true;
                 }
-                else if (_cachedHoverMode == BetterWorkTabSettings.SkillViewHoverMode.SkillFocused)
-                {
-                    // SkillFocused mode: keep big skill visible and show priority in the small-number slot
-                    drawSmallPriority = true;
-                }
             }
 
-            // Always show tiny skill numbers if configured (regardless of hover state)
-            if (showTinySkillNumbers && !drawSmallPriority)
+            if (showTinySkillNumbers)
             {
                 drawSmallSkill = true;
             }
 
+            CustomWorkBoxDrawer.DrawWorkBoxForSkillOverlay(boxXSkill, boxYSkill, pawn, workType, false);
+
+            if (priority > 0)
+            {
+                CustomWorkBoxDrawer.DrawCompactPriority(rect, priority);
+            }
+
             if (drawBigSkill)
             {
-                CustomWorkBoxDrawer.DrawWorkBoxForSkillOverlay(boxXSkill, boxYSkill, pawn, workType, false);
                 DrawBigSkillNumber(boxRect, skillLevel);
             }
 
@@ -347,22 +339,9 @@ namespace Better_Work_Tab.Patches
             {
                 DrawSmallSkillNumbers(rect, skillLevel);
             }
-
-            if (drawSmallPriority)
-            {
-                int priority = pawn.workSettings.GetPriority(workType);
-                if (priority > 0)
-                {
-                    DrawSmallPriorityNumber(rect, priority);
-                }
-            }
         }
 
-        // ... [Rest of the caching and drawing helper methods remain exactly the same] ...
-
-        // ==========================================================
-        //  OPTIMIZED CACHING LOGIC
-        // ==========================================================
+        // Caching helpers
 
         private static bool GetIsIncapable(Pawn p, WorkTypeDef work)
         {
@@ -533,33 +512,6 @@ namespace Better_Work_Tab.Patches
             Text.Anchor = TextAnchor.MiddleCenter;
             GUI.color = ColorForSkillLevel(level);
             Widgets.Label(boxRect, level.ToString());
-
-            GUI.color = oldColor;
-            Text.Font = oldFont;
-            Text.Anchor = oldAnchor;
-        }
-
-        private static void DrawSmallPriorityNumber(Rect rect, int priority)
-        {
-            string prioStr = priority.ToString();
-            float rightPadding = prioStr.Length >= 2 ? 0f : -3f;
-            Rect prioRect = new Rect(
-                rect.xMax - SkillBoxSize - rightPadding,
-                rect.y + SmallSkillOffsetY,
-                SkillBoxSize,
-                SkillBoxSize);
-
-            var oldFont = Text.Font;
-            var oldAnchor = Text.Anchor;
-            var oldColor = GUI.color;
-
-            Text.Font = GameFont.Tiny;
-            Text.Anchor = TextAnchor.MiddleCenter;
-
-            // Use vanilla priority number color (white/gray like vanilla)
-            GUI.color = new Color(0.9f, 0.9f, 0.9f);
-
-            Widgets.Label(prioRect, priority.ToString());
 
             GUI.color = oldColor;
             Text.Font = oldFont;
