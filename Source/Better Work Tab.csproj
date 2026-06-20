@@ -95,6 +95,7 @@
     <Compile Include="Features\Patches\WorkTabSortPatches.cs" />
     <Compile Include="Features\Patches\CustomWorkBoxDrawer.cs" />
     <Compile Include="Features\Patches\ShiftHelper.cs" />
+    <Compile Include="Features\RaisedPriorityMaximum\WorkPrioritySystem.cs" />
     <Compile Include="DragDrop\RowDragHandler.cs" />
     <Compile Include="Features\ColumnWidthPersistence.cs" />
     <Compile Include="PawnOrganizer\API\IPawnOrganizerSnapshot.cs" />
