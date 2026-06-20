@@ -167,15 +167,16 @@ namespace Better_Work_Tab.Patches
                 int delta = Event.current.delta.y > 0 ? -1 : 1;
                 if (Find.PlaySettings.useWorkPriorities)
                 {
+                    int maxPriority = BetterWorkTabMod.Settings.EffectiveMaxPriority;
                     int nextPriority = currentPriority;
                     if (delta > 0)
                     {
-                        if (currentPriority == 0) nextPriority = BetterWorkTabMod.Settings.maxPriorityInt;
+                        if (currentPriority == 0) nextPriority = maxPriority;
                         else if (currentPriority > 1) nextPriority = currentPriority - 1;
                     }
                     else
                     {
-                        if (currentPriority == BetterWorkTabMod.Settings.maxPriorityInt) nextPriority = 0;
+                        if (currentPriority == maxPriority) nextPriority = 0;
                         else if (currentPriority > 0) nextPriority = currentPriority + 1;
                     }
 

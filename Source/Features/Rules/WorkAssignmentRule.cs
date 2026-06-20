@@ -94,9 +94,10 @@ namespace Better_Work_Tab.Features.Rules
                 return false;
 
             // All checks passed – assign the priority
+            int maxPriority = BetterWorkTabMod.Settings?.EffectiveMaxPriority ?? DefaultSettings.maxPriority;
             pawn.workSettings.SetPriority(
                 assigningWorktype,
-                Mathf.Clamp(Parameters.Priority, 0, Mathf.Max(1, BetterWorkTabMod.Settings?.maxPriorityInt ?? 4))
+                Mathf.Clamp(Parameters.Priority, 0, maxPriority)
             );
 
             return validationResult.ShouldSkipRemainingPawns;

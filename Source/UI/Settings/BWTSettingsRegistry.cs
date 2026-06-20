@@ -212,7 +212,7 @@ namespace Better_Work_Tab.UI.Settings
                 Tooltip = "The maximum integer value pawns can be assigned in the work tab.",
                 Type = SettingType.Int,
                 DefaultValue = DefaultSettings.maxPriority,
-                MinValue = 4f,
+                MinValue = BetterWorkTabSettings.MAX_PRIORITY_MINIMUM,
                 MaxValue = BetterWorkTabSettings.MAX_PRIORITY_HARD_LIMIT,
                 ShowInSimpleView = true,
                 SortOrder = 42,

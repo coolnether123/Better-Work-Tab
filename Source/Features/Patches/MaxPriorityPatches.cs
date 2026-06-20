@@ -40,7 +40,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         /// </summary>
         internal static int GetMaxPriority()
         {
-            return Math.Max(1, BetterWorkTabMod.Settings.maxPriorityInt);
+            return BetterWorkTabMod.Settings?.EffectiveMaxPriority ?? DefaultSettings.maxPriority;
         }
 
         /// <summary>
