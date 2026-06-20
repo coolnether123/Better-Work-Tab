@@ -43,7 +43,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         /// </summary>
         internal static int FindPriorityWrapUnderflowIndex(List<CodeInstruction> codes, int startIndex)
         {
-            return FindPattern(
+            int index = FindPattern(
                 codes,
                 startIndex,
                 (list, i) => i + 7 < list.Count &&
@@ -56,6 +56,23 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                              IsBranch(list[i + 6], OpCodes.Bge, OpCodes.Bge_S) &&
                              list[i + 7].LoadsConstant(4),
                 i => i + 7);
+
+            if (index >= 0)
+            {
+                return index;
+            }
+
+            return FindPattern(
+                codes,
+                startIndex,
+                (list, i) => i >= 3 &&
+                             i + 1 < list.Count &&
+                             IsLoadLocal(list[i - 3]) &&
+                             list[i - 2].LoadsConstant(0) &&
+                             IsBranch(list[i - 1], OpCodes.Bge, OpCodes.Bge_S) &&
+                             list[i].LoadsConstant(4) &&
+                             IsStoreLocal(list[i + 1]),
+                i => i);
         }
 
         /// <summary>
@@ -66,7 +83,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         /// </summary>
         internal static int FindPriorityWrapOverflowIndex(List<CodeInstruction> codes, int startIndex)
         {
-            return FindPattern(
+            int index = FindPattern(
                 codes,
                 startIndex,
                 (list, i) => i + 7 < list.Count &&
@@ -79,6 +96,21 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                              IsBranch(list[i + 6], OpCodes.Ble, OpCodes.Ble_S) &&
                              list[i + 7].LoadsConstant(0),
                 i => i + 5);
+
+            if (index >= 0)
+            {
+                return index;
+            }
+
+            return FindPattern(
+                codes,
+                startIndex,
+                (list, i) => i >= 1 &&
+                             i + 1 < list.Count &&
+                             IsLoadLocal(list[i - 1]) &&
+                             list[i].LoadsConstant(4) &&
+                             IsBranch(list[i + 1], OpCodes.Ble, OpCodes.Ble_S),
+                i => i);
         }
 
         /// <summary>
