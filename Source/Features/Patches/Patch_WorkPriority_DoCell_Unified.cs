@@ -285,6 +285,7 @@ namespace Better_Work_Tab.Patches
 
             bool drawBigSkill = true;
             bool drawSmallSkill = false;
+            bool drawSmallPriority = false;
             bool showTinySkillNumbers = (BetterWorkTabMod.Settings?.enableSkillOverlayFeature ?? false) &&
                                         ShouldShowUI(BetterWorkTabMod.Settings.ShowUIMode_ShowSmallSkillNumbers, _cachedUiState);
 
@@ -295,28 +296,31 @@ namespace Better_Work_Tab.Patches
                     drawBigSkill = false;
                     drawSmallSkill = true;
                 }
+                else if (_cachedHoverMode == BetterWorkTabSettings.SkillViewHoverMode.SkillFocused)
+                {
+                    drawSmallPriority = true;
+                }
             }
 
-            if (showTinySkillNumbers)
+            if (showTinySkillNumbers && !drawSmallPriority)
             {
                 drawSmallSkill = true;
             }
 
-            CustomWorkBoxDrawer.DrawWorkBoxForSkillOverlay(boxXSkill, boxYSkill, pawn, workType, false);
-
-            if (priority > 0)
-            {
-                CustomWorkBoxDrawer.DrawCompactPriority(rect, priority);
-            }
-
             if (drawBigSkill)
             {
+                CustomWorkBoxDrawer.DrawWorkBoxForSkillOverlay(boxXSkill, boxYSkill, pawn, workType, false);
                 DrawBigSkillNumber(boxRect, skillLevel);
             }
 
             if (drawSmallSkill)
             {
                 DrawSmallSkillNumbers(rect, skillLevel);
+            }
+
+            if (drawSmallPriority && priority > 0)
+            {
+                DrawSmallPriorityNumber(rect, priority);
             }
         }
 
@@ -491,6 +495,30 @@ namespace Better_Work_Tab.Patches
             Text.Anchor = TextAnchor.MiddleCenter;
             GUI.color = ColorForSkillLevel(level);
             Widgets.Label(boxRect, level.ToString());
+
+            GUI.color = oldColor;
+            Text.Font = oldFont;
+            Text.Anchor = oldAnchor;
+        }
+
+        private static void DrawSmallPriorityNumber(Rect rect, int priority)
+        {
+            string priorityText = priority.ToString();
+            float rightPadding = priorityText.Length >= 2 ? 0f : -3f;
+            Rect priorityRect = new Rect(
+                rect.xMax - SkillBoxSize - rightPadding,
+                rect.y + SmallSkillOffsetY,
+                SkillBoxSize,
+                SkillBoxSize);
+
+            var oldFont = Text.Font;
+            var oldAnchor = Text.Anchor;
+            var oldColor = GUI.color;
+
+            Text.Font = GameFont.Tiny;
+            Text.Anchor = TextAnchor.MiddleCenter;
+            GUI.color = new Color(0.9f, 0.9f, 0.9f);
+            Widgets.Label(priorityRect, priorityText);
 
             GUI.color = oldColor;
             Text.Font = oldFont;
