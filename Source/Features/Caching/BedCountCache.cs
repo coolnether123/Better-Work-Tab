@@ -1,5 +1,6 @@
 using RimWorld;
 using System.Collections.Generic;
+using System.Reflection;
 using UnityEngine;
 using Verse;
 
@@ -20,6 +21,8 @@ namespace Better_Work_Tab.Features.Caching
         // Configuration
         private const float CacheValiditySeconds = 4f; // Recalculate every 4 seconds max
         private static bool _initialized;
+        private static readonly PropertyInfo ForHumanBabiesProperty =
+            typeof(Building_Bed).GetProperty("ForHumanBabies", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
         /// <summary>
         /// Gets the current colonist bed count for a map.
@@ -110,7 +113,7 @@ namespace Better_Work_Tab.Features.Caching
 
             int totalSlots = 0;
 
-            // Get all beds at once (this is what's expensive, so we cache it)
+            // Retrieve all player-faction beds (this is a computationally expensive operation; results are cached)
             var beds = map.listerBuildings.AllBuildingsColonistOfClass<Building_Bed>();
 
             if (beds != null)
@@ -121,12 +124,44 @@ namespace Better_Work_Tab.Features.Caching
                     if (bed == null || bed.ForPrisoners || bed.Faction != Faction.OfPlayer)
                         continue;
 
+                    // Skip animal beds (those without the humanlike property)
+                    if (!bed.def.building.bed_humanlike)
+                        continue;
+
+                    // Skip cribs (babies do not appear in the work tab)
+                    if (IsHumanBabyBed(bed))
+                        continue;
+
+                    // Skip deathrest caskets (Biotech)
+                    if (IsDeathrestCasket(bed))
+                        continue;
+
                     // Count the available sleeping slots on valid colonist beds
                     totalSlots += bed.SleepingSlotsCount;
                 }
             }
 
             return totalSlots;
+        }
+
+        private static bool IsHumanBabyBed(Building_Bed bed)
+        {
+            if (bed == null || ForHumanBabiesProperty == null || ForHumanBabiesProperty.PropertyType != typeof(bool))
+                return false;
+
+            try
+            {
+                return (bool)ForHumanBabiesProperty.GetValue(bed, null);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static bool IsDeathrestCasket(Building_Bed bed)
+        {
+            return bed?.def?.defName == "DeathrestCasket";
         }
 
         /// <summary>

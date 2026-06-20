@@ -1,3 +1,4 @@
+using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -8,6 +9,12 @@ namespace Better_Work_Tab.Patches
     // Custom work box drawer that preserves all vanilla visuals except priority number.
     public static class CustomWorkBoxDrawer
     {
+        private const float CompactPriorityPaddingX = 1f;
+        private const float CompactPriorityPaddingY = -1f;
+        private const float CompactPriorityHeight = 12f;
+        private const float CompactPriorityBaseWidth = 14f;
+        private const float CompactPriorityExtraWidthPerDigit = 6f;
+
         /// <summary>
         /// Draws a work box with vanilla visuals (background, passion flames, incapable tint)
         /// but WITHOUT the priority number or click handling.
@@ -48,6 +55,43 @@ namespace Better_Work_Tab.Patches
                 GUI.color = Color.white;
 
             }
+        }
+
+        /// <summary>
+        /// Draws a compact priority label for custom work cell views.
+        /// </summary>
+        public static void DrawCompactPriority(Rect cellRect, int priority)
+        {
+            if (priority <= 0)
+            {
+                return;
+            }
+
+            string label = priority.ToString();
+            float width = CompactPriorityBaseWidth + Mathf.Max(0, label.Length - 1) * CompactPriorityExtraWidthPerDigit;
+            Rect labelRect = new Rect(
+                cellRect.x + CompactPriorityPaddingX,
+                cellRect.y + CompactPriorityPaddingY,
+                width,
+                CompactPriorityHeight);
+
+            DrawPriorityLabel(labelRect, label, priority, GameFont.Tiny, TextAnchor.MiddleCenter);
+        }
+
+        private static void DrawPriorityLabel(Rect labelRect, string label, int priority, GameFont font, TextAnchor anchor)
+        {
+            var oldFont = Text.Font;
+            var oldAnchor = Text.Anchor;
+            var oldColor = GUI.color;
+
+            Text.Font = font;
+            Text.Anchor = anchor;
+            GUI.color = MaxPriorityLogic.GetPriorityColor(priority);
+            Widgets.Label(labelRect, label);
+
+            GUI.color = oldColor;
+            Text.Font = oldFont;
+            Text.Anchor = oldAnchor;
         }
     }
 }

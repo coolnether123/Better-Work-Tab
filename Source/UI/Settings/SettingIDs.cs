@@ -91,6 +91,10 @@ namespace Better_Work_Tab.UI.Settings
         public const string UiDragInstructions = "ui.dragInstructions";
         public const string UiManualPriorities = "ui.manualPriorities";
         public const string UiPriorityLegend = "ui.priorityLegend";
+        public const string UiMaxPriority = "ui.maxPriority";
+        public const string UiPriorityColorPercentageGreen = "ui.priorityColorPercentageGreen";
+        public const string UiPriorityColorPercentageYellow = "ui.priorityColorPercentageYellow";
+        public const string UiPriorityColorPercentageTan = "ui.priorityColorPercentageTan";
         public const string WorkloadsPersistDividers = "workloads.persistDividers";
         public const string HighlightsDisableBestPawn = "highlights.disableBestPawn";
         public const string HighlightsBestPawnBackground = "highlights.bestPawnBackground";
@@ -100,5 +104,15 @@ namespace Better_Work_Tab.UI.Settings
         public const string WorkloadsWarnOnApply = "workloads.warnOnApply";
         public const string HideWorktypes = "ux.hideWorktypes";
         public const string AdvancedScrollWheelPriority = "advanced.scrollWheelPriority";
+        public const string HeadersHeader = "headers.header";
+        public const string HeadersAngled = "headers.angled";
+        public const string HeadersAngleRotation = "headers.angleRotation";
+        public const string HeadersScaleFixMode = "headers.scaleFixMode";
+        public const string HeadersRedCenterLine = "headers.redCenterLine";
+        public const string HeadersKnownFixes = "headers.knownFixes";
+        public const string HeadersXOffset = "headers.xOffset";
+        public const string HeadersYOffset = "headers.yOffset";
+        public const string HeadersDebugLog = "headers.debugLog";
+        public const string HeadersUseVerticalStackingForCJK = "headers.useVerticalStackingForCJK";
     }
 }

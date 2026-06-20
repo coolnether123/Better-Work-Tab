@@ -152,7 +152,11 @@ namespace Better_Work_Tab.Features
 
                         if (eligiblePawns.Count > 0)
                         {
-                            eligiblePawns.RandomElement().workSettings.SetPriority(worktype, rule.Parameters.Priority);
+                            int maxPriority = Mathf.Max(1, BetterWorkTabMod.Settings?.maxPriorityInt ?? 4);
+                            eligiblePawns.RandomElement().workSettings.SetPriority(
+                                worktype,
+                                Mathf.Clamp(rule.Parameters.Priority, 0, maxPriority)
+                            );
                         }
                     }
 
@@ -195,6 +199,8 @@ namespace Better_Work_Tab.Features
         /// </summary>
         public void EnsurePriorityOrder(int maxPriority = 4)
         {
+            maxPriority = Mathf.Max(1, maxPriority <= 0 ? BetterWorkTabMod.Settings?.maxPriorityInt ?? 4 : maxPriority);
+
             if (PriorityOrder == null || PriorityOrder.Count == 0)
             {
                 PriorityOrder = Enumerable.Range(1, maxPriority).ToList();
