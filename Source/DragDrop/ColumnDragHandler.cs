@@ -1,5 +1,5 @@
 using Better_Work_Tab.Features;
-#if !v1_2
+#if !v1_2 && !v1_1 && !v1_0 && !v0_19
 using Better_Work_Tab.Mod_Support.Multiplayer.Sync;
 #endif
 using Better_Work_Tab.Mod_Support.Multiplayer;
@@ -310,7 +310,7 @@ namespace Better_Work_Tab.DragDrop
                     return;
                 }
 
-#if !v1_2
+#if !v1_2 && !v1_1 && !v1_0 && !v0_19
                 if (MultiplayerBridge.Active)
                 {
                     // Sync the entire resulting order for multiplayer consistency
@@ -379,7 +379,7 @@ namespace Better_Work_Tab.DragDrop
                 WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
                 MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
 
-#if !v1_2
+#if !v1_2 && !v1_1 && !v1_0 && !v0_19
                 if (MultiplayerBridge.Active)
                 {
                     Better_Work_Tab.Mod_Support.Multiplayer.Features.Layouts.LayoutSharingManager.NotifyLayoutChanged();

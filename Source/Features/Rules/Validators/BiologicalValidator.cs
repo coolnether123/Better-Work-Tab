@@ -21,7 +21,7 @@ namespace Better_Work_Tab.Features.Rules.Validators
                 return false;
 
             // Pregnancy requirement
-#if !v1_3 && !v1_2
+#if !v1_3 && !v1_2 && !v1_1 && !v1_0 && !v0_19
             if (p.IsPregnant)
             {
                 bool pregnant = pawn.health?.hediffSet?.HasHediff(HediffDefOf.PregnantHuman) ?? false;
@@ -31,7 +31,7 @@ namespace Better_Work_Tab.Features.Rules.Validators
 #endif
 
             // Xenotype requirement
-#if !v1_3 && !v1_2
+#if !v1_3 && !v1_2 && !v1_1 && !v1_0 && !v0_19
             if (p.Xenotype != null && pawn.genes?.Xenotype != p.Xenotype)
             {
                 return false;
