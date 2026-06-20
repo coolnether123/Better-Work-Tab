@@ -192,6 +192,21 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             codes[index] = new CodeInstruction(OpCodes.Call, PriorityIl.GetMaxPriority);
         }
 
+        internal static bool TryReplacePriorityWrapChecks(List<CodeInstruction> codes)
+        {
+            int leftWrapIndex = FindPriorityWrapUnderflowIndex(codes, 0);
+            int rightWrapIndex = FindPriorityWrapOverflowIndex(codes, leftWrapIndex + 1);
+
+            if (leftWrapIndex < 0 || rightWrapIndex < 0)
+            {
+                return false;
+            }
+
+            ReplaceWithMaxPriorityCall(codes, leftWrapIndex);
+            ReplaceWithMaxPriorityCall(codes, rightWrapIndex);
+            return true;
+        }
+
         private static int FindPattern(List<CodeInstruction> codes, int startIndex, Func<List<CodeInstruction>, int, bool> predicate, Func<int, int> resultSelector)
         {
             for (int i = Math.Max(0, startIndex); i < codes.Count; i++)
@@ -278,16 +293,12 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         private static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions, MethodBase original)
         {
             var codes = new List<CodeInstruction>(instructions);
-            int leftWrapIndex = PriorityTranspilerPatterns.FindPriorityWrapUnderflowIndex(codes, 0);
-            int rightWrapIndex = PriorityTranspilerPatterns.FindPriorityWrapOverflowIndex(codes, leftWrapIndex + 1);
 
-            if (leftWrapIndex < 0 || rightWrapIndex < 0)
+            if (!PriorityTranspilerPatterns.TryReplacePriorityWrapChecks(codes))
             {
                 throw new InvalidOperationException($"Unable to locate work-box priority wrap checks in {original?.DeclaringType?.Name}.{original?.Name}.");
             }
 
-            PriorityTranspilerPatterns.ReplaceWithMaxPriorityCall(codes, leftWrapIndex);
-            PriorityTranspilerPatterns.ReplaceWithMaxPriorityCall(codes, rightWrapIndex);
             return codes;
         }
     }
@@ -302,16 +313,15 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         private static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions, MethodBase original)
         {
             var codes = new List<CodeInstruction>(instructions);
-            int leftWrapIndex = PriorityTranspilerPatterns.FindPriorityWrapUnderflowIndex(codes, 0);
-            int rightWrapIndex = PriorityTranspilerPatterns.FindPriorityWrapOverflowIndex(codes, leftWrapIndex + 1);
 
-            if (leftWrapIndex < 0 || rightWrapIndex < 0)
+            if (!PriorityTranspilerPatterns.TryReplacePriorityWrapChecks(codes))
             {
-                throw new InvalidOperationException($"Unable to locate header priority wrap checks in {original?.DeclaringType?.Name}.{original?.Name}.");
+                BetterWorkTabMod.DebugLog(
+                    $"Skipped optional header priority wrap patch for {original?.DeclaringType?.Name}.{original?.Name}; RimWorld version does not match the expected vanilla header-click IL.",
+                    DebugFeature.General);
+                return codes;
             }
 
-            PriorityTranspilerPatterns.ReplaceWithMaxPriorityCall(codes, leftWrapIndex);
-            PriorityTranspilerPatterns.ReplaceWithMaxPriorityCall(codes, rightWrapIndex);
             return codes;
         }
     }
