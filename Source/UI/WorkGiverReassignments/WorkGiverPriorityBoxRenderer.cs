@@ -1,3 +1,4 @@
+using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using RimWorld;
 using UnityEngine;
@@ -13,11 +14,12 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
     {
         public static void DrawPriorityBox(WorkGiver wg, WorkTypeDef workType, Pawn pawn, Rect boxRect)
         {
-            int defaultPriority = 3;
-            if (pawn?.workSettings != null && workType != null)
+            if (wg?.def == null)
             {
-                defaultPriority = pawn.workSettings.GetPriority(workType);
+                return;
             }
+
+            int defaultPriority = WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, workType);
 
             int workGiverPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, wg.def, defaultPriority);
             
@@ -35,84 +37,61 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
         private static void DrawPawnPriorityBox(WorkGiver wg, WorkTypeDef workType, Pawn pawn, Rect boxRect, int workGiverPriority)
         {
-            // Save current WorkType priority
-            int originalPriority = pawn.workSettings.GetPriority(workType);
-            
-            try
-            {
-                // Temporarily set WorkType priority to match WorkGiver priority for vanilla rendering
-                if (workGiverPriority != originalPriority)
-                {
-                    pawn.workSettings.SetPriority(workType, workGiverPriority);
-                }
-                
-                bool incapable = IsIncapable(pawn, wg);
-
-                // Draw vanilla work box - this handles everything: background, flames, priority number, clicks
-                WidgetsWork.DrawWorkBoxFor(boxRect.x, boxRect.y, pawn, workType, incapable);
-                
-                // Consume the click event so drag logic doesn't see it
-                // Vanilla may or may not consume the event, so we ensure it's consumed
-                if (Mouse.IsOver(boxRect) && Event.current.type == EventType.MouseDown)
-                {
-                    Event.current.Use();
-                }
-                
-                // Check if the priority changed due to vanilla's click handling
-                int newPriority = pawn.workSettings.GetPriority(workType);
-                if (newPriority != workGiverPriority)
-                {
-                    // Vanilla changed it, sync to WorkGiver system
-                    WorkGiverReassignmentManager.SyncSetPawnOverride(pawn.thingIDNumber, wg.def.defName, newPriority);
-                }
-            }
-            finally
-            {
-                // Restore original WorkType priority
-                int finalPawnPriority = pawn.workSettings.GetPriority(workType);
-                if (originalPriority != finalPawnPriority)
-                {
-                    pawn.workSettings.SetPriority(workType, originalPriority);
-                }
-            }
+            DrawPriorityBoxContents(boxRect, workGiverPriority, IsIncapable(pawn, wg));
+            HandlePriorityClick(pawn.thingIDNumber, wg.def, boxRect, workGiverPriority);
         }
 
         private static void DrawGlobalPriorityBox(WorkGiver wg, Rect boxRect, int workGiverPriority)
         {
-            // Draw background texture based on priority
-            Texture2D bgTex = workGiverPriority == 0 
+            DrawPriorityBoxContents(boxRect, workGiverPriority, false);
+            HandlePriorityClick(-1, wg.def, boxRect, workGiverPriority);
+        }
+
+        private static void DrawPriorityBoxContents(Rect boxRect, int priority, bool incapable)
+        {
+            priority = WorkPrioritySystem.ClampPriority(priority);
+            Texture2D bgTex = priority == WorkPrioritySystem.DisabledPriority
                 ? WidgetsWork.WorkBoxBGTex_Bad 
                 : WidgetsWork.WorkBoxBGTex_Mid;
-            
-            GUI.DrawTexture(boxRect, bgTex);
-            
-            // Draw priority number
-            if (workGiverPriority > 0)
+
+            Color oldColor = GUI.color;
+            if (incapable)
             {
-                Text.Anchor = TextAnchor.MiddleCenter;
-                GUI.color = WidgetsWork.ColorOfPriority(workGiverPriority);
-                Widgets.Label(boxRect.ContractedBy(-3f), workGiverPriority.ToString());
-                GUI.color = Color.white;
-                Text.Anchor = TextAnchor.UpperLeft;
+                GUI.color = new Color(1f, 0.3f, 0.3f);
             }
-            
-            // Handle clicks
+
+            GUI.DrawTexture(boxRect, bgTex);
+            GUI.color = oldColor;
+
+            if (priority > 0)
+            {
+                var oldAnchor = Text.Anchor;
+                Text.Anchor = TextAnchor.MiddleCenter;
+                GUI.color = WorkPrioritySystem.GetPriorityColor(priority);
+                Widgets.Label(boxRect.ContractedBy(-3f), priority.ToString());
+                GUI.color = oldColor;
+                Text.Anchor = oldAnchor;
+            }
+
+            if (Mouse.IsOver(boxRect))
+            {
+                Widgets.DrawHighlight(boxRect);
+            }
+        }
+
+        private static void HandlePriorityClick(int pawnId, WorkGiverDef workGiverDef, Rect boxRect, int currentPriority)
+        {
             if (Mouse.IsOver(boxRect) && Event.current.type == EventType.MouseDown)
             {
-                int newPriority = HandleGlobalPriorityClick(workGiverPriority, Event.current.button);
+                int newPriority = WorkPrioritySystem.GetPriorityAfterMouseButton(currentPriority, Event.current.button);
                 
-                if (newPriority != workGiverPriority)
+                if (newPriority != currentPriority)
                 {
-                    WorkGiverReassignmentManager.SyncSetPawnOverride(-1, wg.def.defName, newPriority);
+                    WorkGiverReassignmentManager.SyncSetPawnOverride(pawnId, workGiverDef.defName, newPriority);
                     SoundDefOf.DragSlider.PlayOneShotOnCamera();
                 }
                 
                 Event.current.Use();
-            }
-            
-            if (Mouse.IsOver(boxRect))
-            {
-                Widgets.DrawHighlight(boxRect);
             }
         }
 
@@ -131,20 +110,5 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             return false;
         }
 
-        private static int HandleGlobalPriorityClick(int currentPriority, int button)
-        {
-            if (button == 0) // Left click - decrease priority
-            {
-                int newPriority = currentPriority - 1;
-                return newPriority < 0 ? 4 : newPriority;
-            }
-            else if (button == 1) // Right click - increase priority
-            {
-                int newPriority = currentPriority + 1;
-                return newPriority > 4 ? 0 : newPriority;
-            }
-            
-            return currentPriority;
-        }
     }
 }

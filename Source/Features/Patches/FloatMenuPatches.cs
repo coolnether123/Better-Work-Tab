@@ -1,4 +1,6 @@
 using Better_Work_Tab.Features;
+using Better_Work_Tab.Features.RaisedPriorityMaximum;
+using Better_Work_Tab.Features.WorkGiverReassignments;
 using HarmonyLib;
 using RimWorld;
 using System;
@@ -23,14 +25,16 @@ namespace Better_Work_Tab.Patches
                 return value;
             }
 
-            WorkTypeDef workType = workGiverScanner.def.workType;
+            WorkTypeDef workType = WorkGiverReassignmentManager.GetTargetWorkType(workGiverScanner.def)
+                ?? workGiverScanner.def.workType;
             if (workType == null || pawn == null || context == null)
             {
                 return value;
             }
 
             // Check if work TYPE is disabled (vanilla)
-            if (pawn.workSettings.GetPriority(workType) != 0 || pawn.WorkTypeIsDisabled(workType))
+            if (WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, workType) != WorkPrioritySystem.DisabledPriority ||
+                pawn.WorkTypeIsDisabled(workType))
             {
                 return value;
             }
@@ -51,11 +55,15 @@ namespace Better_Work_Tab.Patches
 
             void AssignOnce()
             {
-                // If it was disabled (0), enable it (1) so it can be done
-                int wgPriority = Features.WorkGiverReassignments.WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, giver, 3);
-                if (wgPriority == 0)
+                // If it was disabled, enable it so it can be done.
+                int parentPriority = WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, workType);
+                int wgPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, giver, parentPriority);
+                if (wgPriority == WorkPrioritySystem.DisabledPriority)
                 {
-                    Features.WorkGiverReassignments.WorkGiverReassignmentManager.SyncSetPawnOverride(pawn.thingIDNumber, giver.defName, 1);
+                    int enabledPriority = parentPriority > WorkPrioritySystem.DisabledPriority
+                        ? parentPriority
+                        : WorkPrioritySystem.GetDefaultEnabledPriority();
+                    WorkGiverReassignmentManager.SyncSetPawnOverride(pawn.thingIDNumber, giver.defName, enabledPriority);
                 }
 
                 if (pawn.jobs.TryTakeOrderedJobPrioritizedWork(localJob, localScanner, context.ClickedCell))
@@ -75,13 +83,14 @@ namespace Better_Work_Tab.Patches
             var text = "BWTNotAssignedDoOnce".Translate(workType.gerundLabel);
 
             // BWT: Check if specific work giver is disabled (not just the whole work type)
-            var targetWorkType = Features.WorkGiverReassignments.WorkGiverReassignmentManager.GetTargetWorkType(workGiver);
+            var targetWorkType = WorkGiverReassignmentManager.GetTargetWorkType(workGiver);
             if (targetWorkType != null)
             {
-                int wgPriority = Features.WorkGiverReassignments.WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, workGiver, 3);
+                int parentPriority = WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, targetWorkType);
+                int wgPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, workGiver, parentPriority);
                 
                 // If this specific work giver is disabled in BWT, add "Go to Work Giver Sub-Menu" option
-                if (wgPriority == 0)
+                if (wgPriority == WorkPrioritySystem.DisabledPriority)
                 {
                     Patch_FloatMenuOptionProvider_WorkGivers_GetWorkGiverOptionFor.AdditionalOptions.Add(
                         new FloatMenuOption(
@@ -89,8 +98,8 @@ namespace Better_Work_Tab.Patches
                             () =>
                             {
                                 var screenPos = new UnityEngine.Vector2(Verse.UI.screenWidth / 2f, Verse.UI.screenHeight / 2f);
-                                bool hasOverride = Features.WorkGiverReassignments.WorkGiverReassignmentManager.HasAnyPawnOverride(targetWorkType, pawn) ||
-                                                   Features.WorkGiverReassignments.WorkGiverReassignmentManager.HasPawnOrdering(pawn, targetWorkType);
+                                bool hasOverride = WorkGiverReassignmentManager.HasAnyPawnOverride(targetWorkType, pawn) ||
+                                                   WorkGiverReassignmentManager.HasPawnOrdering(pawn, targetWorkType);
                                 Pawn windowPawn = hasOverride ? pawn : null;
                                 Find.WindowStack.Add(new UI.WorkGiverReassignments.Window_WorkGiverSubMenu(targetWorkType, screenPos, windowPawn));
                             },

@@ -1,6 +1,7 @@
 using Better_Work_Tab;
 using Better_Work_Tab.Mod_Support.Multiplayer;
 using Better_Work_Tab.Features;
+using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Multiplayer.API;
 using RimWorld;
 using System;
@@ -20,10 +21,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         private static readonly Dictionary<string, List<WorkGiver>> OrderedWorkGiverCache = new Dictionary<string, List<WorkGiver>>(StringComparer.Ordinal);
 
         private static int _cachedSyncVersion = -1;
-        
-        internal static Pawn InterceptingPawn;
-        internal static WorkGiverDef InterceptingWorkGiver;
-
         private static BetterWorkTabSettings Settings => BetterWorkTabMod.Settings;
 
         private static WorkGiverReassignmentData Data
@@ -207,7 +204,9 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
             // Apply sorting based on priorities (pawn-specific or global defaults)
             var sortingPawn = pawn;
-            int defaultPrio = 3; // Baseline is vanilla priority 3
+            int defaultPrio = pawn == null
+                ? WorkPrioritySystem.GetDefaultEnabledPriority()
+                : WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, workType);
             
             var indexed = result.Select((g, idx) => new { g, idx }).ToList();
             indexed.Sort((a, b) =>
@@ -222,11 +221,11 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 int c = valA.CompareTo(valB);
                 if (c != 0) return c;
                 
-                // Secondary sort: vanilla priorityInType (higher is better)
-                c = b.g.def.priorityInType.CompareTo(a.g.def.priorityInType);
+                // Secondary sort: saved/manual order.
+                c = a.idx.CompareTo(b.idx);
                 if (c != 0) return c;
 
-                return a.idx.CompareTo(b.idx);
+                return b.g.def.priorityInType.CompareTo(a.g.def.priorityInType);
             });
             result = indexed.Select(x => x.g).ToList();
 
@@ -346,18 +345,18 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 return false;
             }
 
-            return pawn.workSettings.GetPriority(targetWorkType) > 0;
+            return WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, targetWorkType) > 0;
         }
 
         internal static int GetWorkGiverPriority(Pawn pawn, WorkGiverDef workGiver, int defaultPriority)
         {
-            if (pawn != null && pawn == InterceptingPawn && workGiver == InterceptingWorkGiver)
+            if (workGiver == null)
             {
-                return 1;
+                return WorkPrioritySystem.ClampPriority(defaultPriority);
             }
 
             var data = Data;
-            if (data == null) return defaultPriority;
+            if (data == null) return WorkPrioritySystem.ClampPriority(defaultPriority);
 
             // 1. Pawn-specific override
             if (pawn != null &&
@@ -365,7 +364,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 pawnDict != null &&
                 pawnDict.TryGetValue(workGiver.defName, out int pawnPriority))
             {
-                return pawnPriority;
+                return WorkPrioritySystem.ClampPriority(pawnPriority);
             }
             
             // 2. Global override (Pawn ID -1)
@@ -373,10 +372,10 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 globalDict != null &&
                 globalDict.TryGetValue(workGiver.defName, out int globalPriority))
             {
-                return globalPriority;
+                return WorkPrioritySystem.ClampPriority(globalPriority);
             }
 
-            return defaultPriority;
+            return WorkPrioritySystem.ClampPriority(defaultPriority);
         }
 
         [SyncMethod]
@@ -401,14 +400,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 data.PawnWorkGiverPriorityOverrides[pawnId] = dict;
             }
 
-            if (priority <= 0)
-            {
-                dict.Remove(workGiver.defName);
-            }
-            else
-            {
-                dict[workGiver.defName] = priority;
-            }
+            dict[workGiver.defName] = WorkPrioritySystem.ClampPriority(priority);
 
             data.SyncVersion++;
             InvalidateCaches();
@@ -434,7 +426,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
             if (MultiplayerBridge.Active)
             {
-                SyncReassignWorkGiver(workGiverDef.defName, targetWorkTypeDef.defName, insertIndex ?? targetWorkTypeDef.workGiversByPriority.Count);
+                SyncReassignWorkGiver(workGiverDef.defName, targetWorkTypeDef.defName, insertIndex ?? GetOrderedWorkGiversForWorkType(targetWorkTypeDef).Count);
                 return true;
             }
 

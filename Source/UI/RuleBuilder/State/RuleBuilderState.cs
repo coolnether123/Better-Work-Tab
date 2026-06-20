@@ -1,4 +1,5 @@
 using Better_Work_Tab.Features;
+using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.Rules;
 using Better_Work_Tab.UI.RuleBuilder.Services;
 using RimWorld;
@@ -116,11 +117,12 @@ namespace Better_Work_Tab.UI.RuleBuilder.State
             get => _selectedPriority;
             set
             {
-                if (_selectedPriority != value)
+                int normalized = value < 0 ? -1 : WorkPrioritySystem.ClampPriority(value);
+                if (_selectedPriority != normalized)
                 {
-                    _selectedPriority = value;
+                    _selectedPriority = normalized;
                     SelectedRule = null;
-                    OnPriorityChanged?.Invoke(value);
+                    OnPriorityChanged?.Invoke(normalized);
                 }
             }
         }
@@ -439,7 +441,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.State
         /// </summary>
         public void EnsurePriorityOrder()
         {
-            MaxPriority = BetterWorkTabMod.Settings?.EffectiveMaxPriority ?? BetterWorkTabSettings.NormalizeMaxPriority(MaxPriority);
+            MaxPriority = WorkPrioritySystem.GetMaxPriority();
 
             if ((PriorityOrder == null || PriorityOrder.Count == 0) &&
                 SelectedRuleset?.PriorityOrder != null &&

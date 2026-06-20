@@ -5,6 +5,7 @@ using RimWorld;
 using UnityEngine;
 using Verse;
 using Better_Work_Tab.Features.Rules;
+using Better_Work_Tab.Features.RaisedPriorityMaximum;
 
 namespace Better_Work_Tab.Features
 {
@@ -152,11 +153,10 @@ namespace Better_Work_Tab.Features
 
                         if (eligiblePawns.Count > 0)
                         {
-                            int maxPriority = BetterWorkTabMod.Settings?.EffectiveMaxPriority ?? DefaultSettings.maxPriority;
-                            eligiblePawns.RandomElement().workSettings.SetPriority(
+                            WorkPrioritySystem.SetPriority(
+                                eligiblePawns.RandomElement().workSettings,
                                 worktype,
-                                Mathf.Clamp(rule.Parameters.Priority, 0, maxPriority)
-                            );
+                                rule.Parameters.Priority);
                         }
                     }
 
@@ -200,8 +200,8 @@ namespace Better_Work_Tab.Features
         public void EnsurePriorityOrder(int maxPriority = 0)
         {
             maxPriority = maxPriority <= 0
-                ? BetterWorkTabMod.Settings?.EffectiveMaxPriority ?? DefaultSettings.maxPriority
-                : BetterWorkTabSettings.NormalizeMaxPriority(maxPriority);
+                ? WorkPrioritySystem.GetMaxPriority()
+                : WorkPrioritySystem.NormalizeMaxPriority(maxPriority);
 
             if (PriorityOrder == null || PriorityOrder.Count == 0)
             {

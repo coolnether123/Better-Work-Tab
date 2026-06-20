@@ -37,7 +37,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         private const float ColumnWidth = 35f;
         private const float PriorityRowHeight = 45f;
         private const float FooterHeight = 50f;
-        private const float Margin = 12f;
+        private const float WindowPadding = 12f;
         private const float HeaderTop = 30f;
         private const float VanillaMaxColumnWidth = 70f;
 
@@ -141,11 +141,11 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         {
             get
             {
-                float desiredWidth = _workGivers.Count * _columnWidth + Margin * 2;
+                float desiredWidth = _workGivers.Count * _columnWidth + WindowPadding * 2;
                 float maxAllowedWidth = Verse.UI.screenWidth - 40f; // Leave 20px margin on each side
                 float width = Mathf.Max(250f, Mathf.Min(desiredWidth, maxAllowedWidth));
                 
-                float height = _dynamicHeaderHeight + PriorityRowHeight + FooterHeight + Margin * 2;
+                float height = _dynamicHeaderHeight + PriorityRowHeight + FooterHeight + WindowPadding * 2;
                 return new Vector2(width, height);
             }
         }
@@ -193,7 +193,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             float headerY = HeaderTop;
             float boxY = _dynamicHeaderHeight;
             
-            _dragHandler.UpdateDrag(Event.current.mousePosition, _workGivers, Margin, _columnWidth);
+            _dragHandler.UpdateDrag(Event.current.mousePosition, _workGivers, WindowPadding, _columnWidth);
             
             DrawWorkGiverColumns(headerY, boxY);
             DrawDragOverlay(headerY, boxY);
@@ -213,7 +213,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
         private void DrawWorkGiverColumns(float headerY, float boxY)
         {
-            float curX = Margin;
+            float curX = WindowPadding;
             
             for (int i = 0; i < _workGivers.Count; i++)
             {
@@ -550,7 +550,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         private void DrawDragOverlay(float headerY, float boxY)
         {
             float totalHeight = (boxY - headerY) + PriorityRowHeight;
-            _dragHandler.DrawDragOverlay(Margin, _columnWidth, headerY, totalHeight, _workGivers, _baselineTracker);
+            _dragHandler.DrawDragOverlay(WindowPadding, _columnWidth, headerY, totalHeight, _workGivers, _baselineTracker);
         }
 
         private void DrawFooter(float boxY)
@@ -558,7 +558,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             // Only show footer in global window, not pawn-specific windows
             if (_pawn != null) return;
             
-            Rect footerRect = new Rect(0, boxY + PriorityRowHeight + 5f, windowRect.width - 2 * Margin, FooterHeight);
+            Rect footerRect = new Rect(0, boxY + PriorityRowHeight + 5f, windowRect.width - 2 * WindowPadding, FooterHeight);
             Widgets.DrawLineHorizontal(footerRect.x, footerRect.y, footerRect.width);
             
             List<Pawn> overrides = WorkGiverReassignmentManager.GetPawnsWithOverrides(_workType);

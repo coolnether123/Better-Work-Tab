@@ -1,5 +1,6 @@
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.Workloads;
+using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using HarmonyLib;
 using RimWorld;
 using System;
@@ -56,7 +57,7 @@ namespace Better_Work_Tab.Features
             for (int i = 0; i < allWorkTypes.Count; i++)
             {
                 var w = allWorkTypes[i];
-                int prio = ws.GetPriority(w);
+                int prio = GetPriority(ws, w);
                 if (prio > 0)
                 {
                     if (prio < minNonEmerg && WorkGiverReassignmentManager.HasNonEmergencyWorkGiver(w))
@@ -78,8 +79,8 @@ namespace Better_Work_Tab.Features
             // 3) Sort active work types: manual priority asc, saved order asc, naturalPriority desc
             activeWTs.Sort((a, b) =>
             {
-                int pa = ws.GetPriority(a);
-                int pb = ws.GetPriority(b);
+                int pa = GetPriority(ws, a);
+                int pb = GetPriority(ws, b);
                 int c = pa.CompareTo(pb);
                 if (c != 0) return c;
                 int ia = indexMap.TryGetValue(a.defName, out int iax) ? iax : int.MaxValue;
@@ -105,7 +106,7 @@ namespace Better_Work_Tab.Features
                         continue;
                     }
 
-                    if (worker.def.emergency && ws.GetPriority(wt) <= minNonEmerg)
+                    if (worker.def.emergency && GetPriority(ws, wt) <= minNonEmerg)
                         emerg.Add(worker);
                 }
             }
@@ -121,7 +122,7 @@ namespace Better_Work_Tab.Features
                         continue;
                     }
 
-                    if (!worker.def.emergency || ws.GetPriority(wt) > minNonEmerg)
+                    if (!worker.def.emergency || GetPriority(ws, wt) > minNonEmerg)
                         normal.Add(worker);
                 }
             }
@@ -130,6 +131,11 @@ namespace Better_Work_Tab.Features
             NormalFI.SetValue(ws, normal);
             EmergFI.SetValue(ws, emerg);
             DirtyFI.SetValue(ws, false);
+        }
+
+        private static int GetPriority(Pawn_WorkSettings workSettings, WorkTypeDef workType)
+        {
+            return WorkPrioritySystem.ClampPriority(workSettings.GetPriority(workType));
         }
 
         /// <summary>

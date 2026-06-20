@@ -1,5 +1,6 @@
 using System;
 using HarmonyLib;
+using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -23,8 +24,8 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 return true;
             }
 
-            int workTypePriority = pawn?.workSettings?.GetPriority(mappedWorkType) ?? 0;
-            int wgPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, giver.def, 3);
+            int workTypePriority = WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, mappedWorkType);
+            int wgPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, giver.def, workTypePriority);
 
             __result =
                 (giver.def.nonColonistsCanDo || pawn.IsColonist || pawn.IsColonyMech || pawn.IsColonySubhuman) &&
@@ -97,8 +98,8 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 return false;
             }
 
-            int wtPriority = pawn.workSettings.GetPriority(mappedWorkType);
-            int wgPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, scanner.def, 3);
+            int wtPriority = WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, mappedWorkType);
+            int wgPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, scanner.def, wtPriority);
 
             return wtPriority > 0 && wgPriority > 0;
         }

@@ -1,5 +1,7 @@
 ﻿using Better_Work_Tab.Features;
 using Better_Work_Tab.PawnOrganizer;
+using Better_Work_Tab.Features.RaisedPriorityMaximum;
+using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.Headers;
@@ -164,34 +166,25 @@ namespace Better_Work_Tab.Patches
             if (BetterWorkTabMod.Settings.enableScrollWheelPriority && Event.current.type == EventType.ScrollWheel && Mouse.IsOver(rect))
             {
                 int currentPriority = pawn.workSettings.GetPriority(workType);
-                int delta = Event.current.delta.y > 0 ? -1 : 1;
+                int direction = Event.current.delta.y > 0 ? -1 : 1;
                 if (Find.PlaySettings.useWorkPriorities)
                 {
-                    int maxPriority = BetterWorkTabMod.Settings.EffectiveMaxPriority;
-                    int nextPriority = currentPriority;
-                    if (delta > 0)
-                    {
-                        if (currentPriority == 0) nextPriority = maxPriority;
-                        else if (currentPriority > 1) nextPriority = currentPriority - 1;
-                    }
-                    else
-                    {
-                        if (currentPriority == maxPriority) nextPriority = 0;
-                        else if (currentPriority > 0) nextPriority = currentPriority + 1;
-                    }
+                    int nextPriority = WorkPrioritySystem.GetPriorityAfterBoundedStep(currentPriority, direction);
 
                     if (nextPriority != currentPriority)
                     {
-                        pawn.workSettings.SetPriority(workType, nextPriority);
+                        WorkPrioritySystem.SetPriority(pawn.workSettings, workType, nextPriority);
                         SoundDefOf.DragSlider.PlayOneShotOnCamera();
                     }
                 }
                 else
                 {
-                    int nextPriority = (currentPriority > 0) ? 0 : 3;
+                    int nextPriority = currentPriority > 0
+                        ? WorkPrioritySystem.DisabledPriority
+                        : WorkPrioritySystem.GetDefaultEnabledPriority();
                     if (nextPriority != currentPriority)
                     {
-                        pawn.workSettings.SetPriority(workType, nextPriority);
+                        WorkPrioritySystem.SetPriority(pawn.workSettings, workType, nextPriority);
                         SoundDefOf.DragSlider.PlayOneShotOnCamera();
 
                     }
@@ -361,11 +354,12 @@ namespace Better_Work_Tab.Patches
             }
 
             bool canDoAny = false;
-            for (int i = 0; i < work.workGiversByPriority.Count; i++)
+            var workGivers = WorkGiverReassignmentManager.GetOrderedWorkGiversForWorkType(work);
+            for (int i = 0; i < workGivers.Count; i++)
             {
                 bool thisGiverOk = true;
-                var reqs = work.workGiversByPriority[i].requiredCapacities;
-                for (int j = 0; j < reqs.Count; j++)
+                var reqs = workGivers[i]?.def?.requiredCapacities;
+                for (int j = 0; reqs != null && j < reqs.Count; j++)
                 {
                     if (!p.health.capacities.CapableOf(reqs[j]))
                     {

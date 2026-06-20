@@ -6,6 +6,7 @@ using Verse.Sound;
 using Better_Work_Tab.DragDrop;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
+using Better_Work_Tab.Features.WorkGiverReassignments;
 
 namespace Better_Work_Tab.UI.Headers.Angled
 {
@@ -167,20 +168,26 @@ namespace Better_Work_Tab.UI.Headers.Angled
         }
         
         /// <summary>
-        /// Builds the list of specific work givers for the work type.
-        /// Exact implementation from vanilla PawnColumnWorker_WorkPriority.
+        /// Builds the list of specific work givers for the work type using BWT's effective order.
         /// </summary>
         private static string SpecificWorkListString(WorkTypeDef def)
         {
             System.Text.StringBuilder stringBuilder = new System.Text.StringBuilder();
-            for (int i = 0; i < def.workGiversByPriority.Count; i++)
+            var workGivers = WorkGiverReassignmentManager.GetOrderedWorkGiversForWorkType(def);
+            for (int i = 0; i < workGivers.Count; i++)
             {
-                stringBuilder.Append(" - " + def.workGiversByPriority[i].LabelCap);
-                if (def.workGiversByPriority[i].emergency)
+                WorkGiverDef workGiverDef = workGivers[i]?.def;
+                if (workGiverDef == null)
+                {
+                    continue;
+                }
+
+                stringBuilder.Append(" - " + workGiverDef.LabelCap);
+                if (workGiverDef.emergency)
                 {
                     stringBuilder.Append(" (" + "EmergencyWorkMarker".Translate() + ")");
                 }
-                if (i < def.workGiversByPriority.Count - 1)
+                if (i < workGivers.Count - 1)
                 {
                     stringBuilder.AppendLine();
                 }
@@ -244,26 +251,21 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
                 if (useWorkPriorities)
                 {
-                    int maxPriority = BetterWorkTabMod.Settings.EffectiveMaxPriority;
-                    // Manual priorities cycle through the configured range.
-                    if (button == 0) // Left click (Increase priority / Decrement number)
-                    {
-                        // Cycle: 0 -> max -> ... -> 1 (stays at 1)
-                        if (curPriority == 0) pawn.workSettings.SetPriority(workType, maxPriority);
-                        else if (curPriority > 1) pawn.workSettings.SetPriority(workType, curPriority - 1);
-                    }
-                    else // Right click (Decrease priority / Increment number)
-                    {
-                        // Cycle: 1 -> ... -> max -> 0 (stays at 0)
-                        if (curPriority == maxPriority) pawn.workSettings.SetPriority(workType, 0);
-                        else if (curPriority > 0) pawn.workSettings.SetPriority(workType, curPriority + 1);
-                    }
+                    int direction = button == 0 ? 1 : -1;
+                    int nextPriority = WorkPrioritySystem.GetPriorityAfterBoundedStep(curPriority, direction);
+                    WorkPrioritySystem.SetPriority(pawn.workSettings, workType, nextPriority);
                 }
                 else
                 {
                     // Vanilla Priorities (On/Off)
-                    if (button == 0) pawn.workSettings.SetPriority(workType, MaxPriorityLogic.GetDefaultEnabledPriority());
-                    else pawn.workSettings.SetPriority(workType, 0);
+                    if (button == 0)
+                    {
+                        WorkPrioritySystem.SetPriority(pawn.workSettings, workType, WorkPrioritySystem.GetDefaultEnabledPriority());
+                    }
+                    else
+                    {
+                        WorkPrioritySystem.SetPriority(pawn.workSettings, workType, WorkPrioritySystem.DisabledPriority);
+                    }
                 }
                 changed = true;
             }
