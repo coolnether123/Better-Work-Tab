@@ -92,7 +92,7 @@ namespace Better_Work_Tab.UI
                     options.Add(new FloatMenuOption(local.Name, () =>
                     {
                         // Rulesets are now local-only (not synced in multiplayer)
-                        BetterWorkTabMod.Settings.CurrentRuleset = local;
+                        BetterWorkTabMod.Settings.SetCurrentRuleset(local);
                         SoundDefOf.Tick_Low.PlayOneShotOnCamera();
                     }));
                 }

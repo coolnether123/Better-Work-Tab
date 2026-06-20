@@ -1,4 +1,5 @@
 using Better_Work_Tab.Features;
+using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.Rules;
 using Better_Work_Tab.UI.RuleBuilder.Services;
 using RimWorld;
@@ -323,7 +324,6 @@ namespace Better_Work_Tab.UI.RuleBuilder.State
                 return null;
 
             var copy = rule.Copy();
-            copy.Name = copy.Name + " (Copy)";
 
             SelectedRuleset.Rules.Add(copy);
             SelectedRule = copy;
@@ -439,7 +439,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.State
         /// </summary>
         public void EnsurePriorityOrder()
         {
-            MaxPriority = Mathf.Max(1, BetterWorkTabMod.Settings?.maxPriorityInt ?? MaxPriority);
+            MaxPriority = WorkPrioritySystem.GetMaxPriority();
 
             if ((PriorityOrder == null || PriorityOrder.Count == 0) &&
                 SelectedRuleset?.PriorityOrder != null &&

@@ -163,7 +163,7 @@ namespace Better_Work_Tab.UI
         {
             if (ruleset != null)
             {
-                BetterWorkTabMod.Settings.CurrentRuleset = ruleset;
+                BetterWorkTabMod.Settings.SetCurrentRuleset(ruleset);
                 ruleNameBuffer = ruleset.Name;
                 SelectedRule = ruleset.Rules.FirstOrDefault();
             }
@@ -841,17 +841,17 @@ namespace Better_Work_Tab.UI
                 if (currentIndex < rulesets.Count)
                 {
                     // Move to the next ruleset
-                    Settings.CurrentRuleset = rulesets[currentIndex];
+                    Settings.SetCurrentRuleset(rulesets[currentIndex], writeSettings: false);
                 }
                 else if (rulesets.Count > 0)
                 {
                     // Move to the last ruleset
-                    Settings.CurrentRuleset = rulesets.Last();
+                    Settings.SetCurrentRuleset(rulesets.Last(), writeSettings: false);
                 }
                 else
                 {
                     // No rulesets left
-                    Settings.CurrentRuleset = null;
+                    Settings.SetCurrentRuleset(null, writeSettings: false);
                 }
             }
 
