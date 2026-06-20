@@ -121,7 +121,7 @@ namespace Better_Work_Tab.Features
         /// </summary>
         internal static void MarkAllPawnsWorkGiversDirty()
         {
-            foreach (var p in PawnsFinder.AllMapsWorldAndTemporary_Alive)
+            foreach (var p in PawnsFinderCompat.AllMapsWorldAndTemporaryAlive)
             {
                 try
                 {

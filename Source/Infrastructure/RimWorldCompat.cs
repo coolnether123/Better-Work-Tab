@@ -85,7 +85,55 @@ namespace Better_Work_Tab
 #if (v0_18 || v0_17 || v0_16)
                 return Find.VisibleMap ?? Find.Maps?.FirstOrDefault();
 #else
-                return MapCompat.CurrentMap;
+                return Find.CurrentMap;
+#endif
+            }
+        }
+    }
+
+    public static class RectCompat
+    {
+        public static Rect Zero
+        {
+            get { return new Rect(0f, 0f, 0f, 0f); }
+        }
+
+        public static Rect ExpandedBy(Rect rect, float margin)
+        {
+#if (v0_17 || v0_16)
+            return new Rect(
+                rect.x - margin,
+                rect.y - margin,
+                rect.width + margin * 2f,
+                rect.height + margin * 2f);
+#else
+            return rect.ExpandedBy(margin);
+#endif
+        }
+    }
+
+    public static class EventCompat
+    {
+        public static bool IsMouseLeaveWindow(EventType eventType)
+        {
+#if (v0_17 || v0_16)
+            return false;
+#else
+            return eventType == EventType.MouseLeaveWindow;
+#endif
+        }
+    }
+
+    public static class PawnsFinderCompat
+    {
+        public static IEnumerable<Pawn> AllMapsWorldAndTemporaryAlive
+        {
+            get
+            {
+#if (v0_17 || v0_16)
+                return PawnsFinder.AllMapsAndWorld_Alive;
+#else
+                return PawnsFinder.AllMapsWorldAndTemporary_Alive;
 #endif
             }
         }
@@ -95,7 +143,9 @@ namespace Better_Work_Tab
     {
         public static void Message(string text, MessageTypeDef type, bool historical = false)
         {
-#if (v0_18 || v0_17 || v0_16)
+#if (v0_17 || v0_16)
+            Messages.Message(text, type?.LegacySound ?? MessageSound.Standard);
+#elif v0_18
             Messages.Message(text, type);
 #else
             Messages.Message(text, type, historical);
@@ -104,7 +154,9 @@ namespace Better_Work_Tab
 
         public static void Message(string text, GlobalTargetInfo target, MessageTypeDef type, bool historical = false)
         {
-#if (v0_18 || v0_17 || v0_16)
+#if (v0_17 || v0_16)
+            Messages.Message(text, target, type?.LegacySound ?? MessageSound.Standard);
+#elif v0_18
             Messages.Message(text, target, type);
 #else
             Messages.Message(text, target, type, historical);
@@ -418,6 +470,24 @@ namespace Better_Work_Tab
 #if (v0_18 || v0_17 || v0_16)
 namespace RimWorld
 {
+#if v0_17 || v0_16
+    public class MessageTypeDef
+    {
+        public readonly MessageSound LegacySound;
+
+        public MessageTypeDef(MessageSound legacySound)
+        {
+            LegacySound = legacySound;
+        }
+    }
+
+    public static class MessageTypeDefOf
+    {
+        public static readonly MessageTypeDef RejectInput = new MessageTypeDef(MessageSound.RejectInput);
+        public static readonly MessageTypeDef PositiveEvent = new MessageTypeDef(MessageSound.Benefit);
+    }
+#endif
+
     public static class MainTabWindowUtility
     {
         public static void NotifyAllPawnTables_PawnsChanged()

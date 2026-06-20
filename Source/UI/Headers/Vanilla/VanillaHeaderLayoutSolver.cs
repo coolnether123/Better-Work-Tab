@@ -399,7 +399,7 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
         public Rect GetBounds(PawnColumnDef column)
         {
             if (column == null || !_collected.TryGetValue(column, out var info))
-                return Rect.zero;
+                return RectCompat.Zero;
 
             float yOffset = GetOffset(column);
             float headerBottom = info.HeaderRect.yMax;

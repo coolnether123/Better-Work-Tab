@@ -63,7 +63,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
             }
 
             // End drag
-            if (IsDragging && (evt.type == EventType.MouseUp || evt.type == EventType.MouseLeaveWindow))
+            if (IsDragging && (evt.type == EventType.MouseUp || EventCompat.IsMouseLeaveWindow(evt.type)))
             {
                 _dragKey = null;
                 _grabOffsetY = 0f;

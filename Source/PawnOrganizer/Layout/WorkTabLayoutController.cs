@@ -608,7 +608,7 @@ namespace Better_Work_Tab.PawnOrganizer
         {
             if (_table == null)
             {
-                return Rect.zero;
+                return RectCompat.Zero;
             }
 
             float screenY = _origin.y + HeaderHeight + row.OffsetY - PawnTableCompat.GetScrollPosition(_table).y;

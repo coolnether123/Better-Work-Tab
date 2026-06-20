@@ -319,7 +319,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
                 _previewLineY = CalculatePreviewLine(rects, targetIndex);
                 evt.Use();
             }
-            else if (!string.IsNullOrEmpty(_draggingKey) && (evt.type == EventType.MouseUp || evt.type == EventType.MouseLeaveWindow))
+            else if (!string.IsNullOrEmpty(_draggingKey) && (evt.type == EventType.MouseUp || EventCompat.IsMouseLeaveWindow(evt.type)))
             {
                 _draggingKey = null;
                 _previewLineY = null;

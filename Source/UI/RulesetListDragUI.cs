@@ -31,7 +31,7 @@ namespace Better_Work_Tab.UI
         private const float DragThreshold = 5f;
 
         // Track list screen rect for drag calculations
-        private Rect _listScreenRect = Rect.zero;
+        private Rect _listScreenRect = RectCompat.Zero;
 
         private readonly ClickOrDragGate<WorkAssignmentRuleset> _clickGate = new ClickOrDragGate<WorkAssignmentRuleset>();
         private WorkAssignmentRuleset _pendingDragItem;

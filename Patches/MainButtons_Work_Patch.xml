@@ -2,7 +2,7 @@
 <Patch>
     <!-- Replace vanilla Work tab window with our custom implementation -->
     <Operation Class="PatchOperationReplace">
-        <xpath>/Defs/MainButtonDef[defName="Work"]/tabWindowClass</xpath>
+        <xpath>/Defs/MainButtonDef[defName="Work"]/tabWindowClass | /MainButtonDefs/MainButtonDef[defName="Work"]/tabWindowClass</xpath>
         <value>
             <tabWindowClass>Better_Work_Tab.UI.MainTabWindow_BetterWork</tabWindowClass>
         </value>

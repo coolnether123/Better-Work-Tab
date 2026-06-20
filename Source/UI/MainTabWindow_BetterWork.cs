@@ -1214,7 +1214,7 @@ namespace Better_Work_Tab.UI
             bool isEnabled = Current.Game.playSettings.useWorkPriorities;
             if (wasEnabled != isEnabled)
             {
-                foreach (Pawn pawn in PawnsFinder.AllMapsWorldAndTemporary_Alive)
+                foreach (Pawn pawn in PawnsFinderCompat.AllMapsWorldAndTemporaryAlive)
                 {
                     if (pawn.Faction == Faction.OfPlayer && pawn.workSettings != null)
                     {
