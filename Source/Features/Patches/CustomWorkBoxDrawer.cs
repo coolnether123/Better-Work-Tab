@@ -85,7 +85,7 @@ namespace Better_Work_Tab.Patches
 
             Text.Font = font;
             Text.Anchor = anchor;
-            GUI.color = MaxPriorityLogic.GetPriorityColor(priority);
+            GUI.color = WorkPrioritySystem.GetPriorityColor(priority);
             Widgets.Label(labelRect, label);
 
             GUI.color = oldColor;
