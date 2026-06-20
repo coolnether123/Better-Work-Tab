@@ -73,6 +73,8 @@ namespace Better_Work_Tab
         public static bool persistColumnWidths = true;
         public static bool showColumnMovedMarker = true;
         public static bool showColumnBaselineLine = true;
+        public static bool showMovedColumnColorTint = true;
+        public static Color Color_MovedMarkerColor = new Color(1f, 0.85f, 0.2f, 1f);
         public static bool showPawnCountAtBottom = true;
         public static bool showBedCountAtBottom = true;
         public static bool showPriorityLegend = true;
@@ -124,6 +126,8 @@ namespace Better_Work_Tab
         public static Color Color_DividerText = Color.white;
         public static Color Color_Borders = Color.gray;
 
+        public static Color Color_AngledHeaderText = Color.white;
+
         // Behavior Template Placeholders (for future features)
         public static float dragSnapThreshold = 5f; // Future: adjust snap distance
         public static float dragStartThreshold = 5f; // Future: adjust drag sensitivity
@@ -149,12 +153,17 @@ namespace Better_Work_Tab
         // New Refinement Settings
         public static bool disableBestPawnHighlight = false;
         public static int bestPawnHighlightThickness = 1;
-        public static bool enableColumnGrouping = false;
+        public static bool enableColumnGrouping = true;
         public static List<string> hiddenWorktypes = new List<string>();
         public static bool warnOnApplyRuleset = true;
         public static bool warnOnApplyWorkload = true;
         public static bool removeHeaderUnderline = false;
         public static bool enableScrollWheelPriority = false;
+        public static bool enableAngledHeaders = true;
+        public static int angledHeaderRotation = -60;
+        public static int angledHeaderHorizontalOffset = 10;
+        public static bool useVerticalStackingForCJK = true;
+        public static float cjkVerticalKerning = 0.75f;
         public static bool autoEnableManualPriorities = false;
 
         // Pawn/worktype highlight visibility settings
@@ -191,11 +200,11 @@ namespace Better_Work_Tab
                 new WorkAssignmentParameters("Always Assigns", 3, isNaturalAlwaysAssign: true),
             }, resetBeforeApplying: true, isDefault: true),
 
-            new WorkAssignmentRuleset("Vanilla New Pawn", new List<WorkAssignmentParameters>()
-            {
-                new WorkAssignmentParameters("Top 6", 3, isTopXSkill: 6),
-                new WorkAssignmentParameters("Always Assigns", 3, isNaturalAlwaysAssign: true),
-            }, resetBeforeApplying: false, isDefault: true),
+            //new WorkAssignmentRuleset("Vanilla New Pawn", new List<WorkAssignmentParameters>()
+            //{
+            //    new WorkAssignmentParameters("Top 6", 3, isTopXSkill: 6),
+            //    new WorkAssignmentParameters("Always Assigns", 3, isNaturalAlwaysAssign: true),
+            //}, resetBeforeApplying: false, isDefault: true),
 
             new WorkAssignmentRuleset("BWT Default", new List<WorkAssignmentParameters>()
             {
@@ -226,6 +235,11 @@ namespace Better_Work_Tab
         // UI mode settings for work tab visibility
         public static BetterWorkTabSettings.ShowUIMode ShowUIMode_ShowSmallSkillNumbers = BetterWorkTabSettings.ShowUIMode.Unshifted;
         public static BetterWorkTabSettings.ShowUIMode ShowUIMode_ShowPawnForSkillSquare = BetterWorkTabSettings.ShowUIMode.Shifted;
+
+        public static int maxPriority = 9;
+        public static int priorityColorPercentage_Green = 10;
+        public static int priorityColorPercentage_Yellow = 50;
+        public static int priorityColorPercentage_Tan = 75;
     }
 
     // Contains all configurable settings for Better Work Tab mod
@@ -288,6 +302,8 @@ namespace Better_Work_Tab
         public bool persistColumnWidths = DefaultSettings.persistColumnWidths;
         public bool showColumnMovedMarker = DefaultSettings.showColumnMovedMarker;
         public bool showColumnBaselineLine = DefaultSettings.showColumnBaselineLine;
+        public bool showMovedColumnColorTint = DefaultSettings.showMovedColumnColorTint;
+        public Color movedMarkerColor = DefaultSettings.Color_MovedMarkerColor;
         public bool enableRowColumnHighlights = DefaultSettings.enableRowColumnHighlights;
         public float dividerMinAlpha = DefaultSettings.dividerMinAlpha;
         public bool showHoverCellOverlay = DefaultSettings.showHoverCellOverlay;
@@ -305,6 +321,8 @@ namespace Better_Work_Tab
         };
         public List<string> workColumnOrderDefNames = new List<string>();
         public Dictionary<string, float> storedColumnWidths = new Dictionary<string, float>();
+        
+        public bool debugPrintLayout = false; // Added to fix CS1061
 
         // Tracks which columns the player has directly dragged. Only columns in this list
         // that are also currently out of their vanilla position will show the yellow asterisk.
@@ -399,11 +417,20 @@ namespace Better_Work_Tab
         public bool mpSyncRulesets = true;
         public enum MpConflictMode { PlayerPriority, HostPriority, AskPlayer }
         public MpConflictMode mpConflictMode = MpConflictMode.PlayerPriority;
+
+        // Max Priority Int Settings
+        public const int MAX_PRIORITY_HARD_LIMIT = 99;
+
+        public int maxPriorityInt = DefaultSettings.maxPriority;
+        public int priorityColorPercentage_Green = 10;
+        public int priorityColorPercentage_Yellow = 50;
+        public int priorityColorPercentage_Tan = 75;
+
         public bool mpShowOtherPlayersHover = DefaultSettings.mpShowOtherPlayersHover;
         public bool mpAllowOthersToRequestLayout = DefaultSettings.mpAllowOthersToRequestLayout;
         public bool mpAllowPresenceBroadcast = DefaultSettings.mpAllowPresenceBroadcast;
         public bool mpShowLinkedIndicator = DefaultSettings.mpShowLinkedIndicator;
-        
+
         /// <summary>
         /// Unique identifier for this BWT installation in multiplayer
         /// Auto-generated but user-configurable
@@ -442,6 +469,12 @@ namespace Better_Work_Tab
         public bool warnOnApplyRuleset = DefaultSettings.warnOnApplyRuleset;
         public bool warnOnApplyWorkload = DefaultSettings.warnOnApplyWorkload;
         public bool removeHeaderUnderline = DefaultSettings.removeHeaderUnderline;
+        public bool enableAngledHeaders = DefaultSettings.enableAngledHeaders;
+        public int angledHeaderRotation = (int)DefaultSettings.angledHeaderRotation;
+        public int angledHeaderHorizontalOffset = DefaultSettings.angledHeaderHorizontalOffset;
+        public bool useVerticalStackingForCJK = DefaultSettings.useVerticalStackingForCJK;
+        public float cjkVerticalKerning = DefaultSettings.cjkVerticalKerning;
+        public Color angledHeaderColor = DefaultSettings.Color_AngledHeaderText;
         public bool autoEnableManualPriorities = DefaultSettings.autoEnableManualPriorities;
 
 
@@ -611,6 +644,8 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref persistColumnWidths, "persistColumnWidths", DefaultSettings.persistColumnWidths);
             Scribe_Values.Look(ref showColumnMovedMarker, "showColumnMovedMarker", DefaultSettings.showColumnMovedMarker);
             Scribe_Values.Look(ref showColumnBaselineLine, "showColumnBaselineLine", DefaultSettings.showColumnBaselineLine);
+            Scribe_Values.Look(ref showMovedColumnColorTint, "showMovedColumnColorTint", DefaultSettings.showMovedColumnColorTint);
+            Scribe_Values.Look(ref movedMarkerColor, "movedMarkerColor", DefaultSettings.Color_MovedMarkerColor);
             Scribe_Values.Look(ref dividerMinAlpha, "dividerMinAlpha", DefaultSettings.dividerMinAlpha);
             Scribe_Values.Look(ref disableBestPawnHighlight, "disableBestPawnHighlight", false);
             Scribe_Values.Look(ref bestPawnHighlightThickness, "bestPawnHighlightThickness", 1);
@@ -620,10 +655,76 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref warnOnApplyWorkload, "warnOnApplyWorkload", true);
             Scribe_Values.Look(ref removeHeaderUnderline, "removeHeaderUnderline", false);
             Scribe_Values.Look(ref enableScrollWheelPriority, "enableScrollWheelPriority", false);
-            Scribe_Values.Look(ref autoEnableManualPriorities, "autoEnableManualPriorities", false);
+            Scribe_Values.Look(ref enableAngledHeaders, "enableAngledHeaders", DefaultSettings.enableAngledHeaders);
+            Scribe_Values.Look(ref angledHeaderRotation, "angledHeaderRotation", (int)DefaultSettings.angledHeaderRotation);
+            Scribe_Values.Look(ref angledHeaderHorizontalOffset, "angledHeaderHorizontalOffset", DefaultSettings.angledHeaderHorizontalOffset);
+            Scribe_Values.Look(ref useVerticalStackingForCJK, "useVerticalStackingForCJK", true);
+            Scribe_Values.Look(ref cjkVerticalKerning, "cjkVerticalKerning", 0.75f);
+            Scribe_Values.Look(ref angledHeaderColor, "angledHeaderColor", DefaultSettings.Color_AngledHeaderText);
+            Scribe_Values.Look(ref autoEnableManualPriorities, "autoEnableManualPriorities", DefaultSettings.autoEnableManualPriorities);
+            Scribe_Values.Look(ref maxPriorityInt, "maxPriorityInt", DefaultSettings.maxPriority);
+            Scribe_Values.Look(ref priorityColorPercentage_Green, "priorityColorPercentage_Green", DefaultSettings.priorityColorPercentage_Green);
+            Scribe_Values.Look(ref priorityColorPercentage_Yellow , "priorityColorPercentage_Yellow", DefaultSettings.priorityColorPercentage_Yellow );
+            Scribe_Values.Look(ref priorityColorPercentage_Tan , "priorityColorPercentage_Tan", DefaultSettings.priorityColorPercentage_Tan );
 
             if (hiddenWorktypes == null) hiddenWorktypes = new List<string>();
 
+            // Colors
+            Scribe_Values.Look(ref Color_CursorHighlight, "Color_CursorHighlight", DefaultSettings.Color_CursorHighlight);
+            Scribe_Values.Look(ref Color_FloatMenuHighlight, "Color_FloatMenuHighlight", DefaultSettings.Color_FloatMenuHighlight);
+            Scribe_Values.Look(ref Color_CustomMouseHighlight, "Color_CustomMouseHighlight", DefaultSettings.Color_CustomMouseHighlight);
+            Scribe_Values.Look(ref Color_CustomSimilarWorktypeHighlight, "Color_CustomSimilarWorktypeHighlight", DefaultSettings.Color_CustomSimilarWorktypeHighlight);
+            Scribe_Values.Look(ref Color_IncapableBecauseOfCapacities, "Color_IncapableBecauseOfCapacities", DefaultSettings.Color_IncapableBecauseOfCapacities);
+            Scribe_Values.Look(ref Color_BestPawnForSkillSquare, "Color_BestPawnForSkillSquare", DefaultSettings.Color_BestPawnForSkillSquare);
+            Scribe_Values.Look(ref Color_VeryLowSkill, "Color_VeryLowSkill", DefaultSettings.Color_VeryLowSkill);
+            Scribe_Values.Look(ref Color_LowSkill, "Color_LowSkill", DefaultSettings.Color_LowSkill);
+            Scribe_Values.Look(ref Color_GoodLowSkill, "Color_GoodLowSkill", DefaultSettings.Color_GoodLowSkill);
+            Scribe_Values.Look(ref Color_ExcellentSkill, "Color_ExcellentSkill", DefaultSettings.Color_ExcellentSkill);
+            Scribe_Values.Look(ref Color_RowHoverHighlight, "Color_RowHoverHighlight", DefaultSettings.Color_RowHoverHighlight);
+            Scribe_Values.Look(ref Color_ColumnHoverHighlight, "Color_ColumnHoverHighlight", DefaultSettings.Color_ColumnHoverHighlight);
+            Scribe_Values.Look(ref Color_SelectedPawnHighlight, "Color_SelectedPawnHighlight", DefaultSettings.Color_SelectedPawnHighlight);
+            Scribe_Values.Look(ref Color_HeaderText, "Color_HeaderText", DefaultSettings.Color_HeaderText);
+            Scribe_Values.Look(ref Color_DividerText, "Color_DividerText", DefaultSettings.Color_DividerText);
+            Scribe_Values.Look(ref Color_Borders, "Color_Borders", DefaultSettings.Color_Borders);
+
+            // UI modes
+            Scribe_Values.Look(ref ShowUIMode_ShowSmallSkillNumbers, "ShowUIMode_ShowSmallSkillNumbers", DefaultSettings.ShowUIMode_ShowSmallSkillNumbers);
+            Scribe_Values.Look(ref ShowUIMode_ShowPawnForSkillSquare, "ShowUIMode_ShowPawnForSkillSquare", DefaultSettings.ShowUIMode_ShowPawnForSkillSquare);
+            Scribe_Values.Look(ref hoverEffectScope, "hoverEffectScope", DefaultSettings.hoverEffectScope);
+
+            // Future behavior templates
+            Scribe_Values.Look(ref confirmRulesetApplication, "confirmRulesetApplication", DefaultSettings.confirmRulesetApplication);
+            Scribe_Values.Look(ref dragStartThreshold, "dragStartThreshold", DefaultSettings.dragStartThreshold);
+            Scribe_Values.Look(ref scrollSpeed, "scrollSpeed", DefaultSettings.scrollSpeed);
+            Scribe_Values.Look(ref showAutoAssignConfirmation, "showAutoAssignConfirmation", DefaultSettings.showAutoAssignConfirmation);
+            Scribe_Values.Look(ref resetWorkBeforeAutoAssign, "resetWorkBeforeAutoAssign", DefaultSettings.resetWorkBeforeAutoAssign);
+            Scribe_Values.Look(ref showAutoAssignVisualFeedback, "showAutoAssignVisualFeedback", DefaultSettings.showAutoAssignVisualFeedback);
+            Scribe_Values.Look(ref defaultAutoAssignRuleset, "defaultAutoAssignRuleset", "BWT Default");
+            Scribe_Values.Look(ref showWorkloadButtonFooter, "showWorkloadButtonFooter", DefaultSettings.showWorkloadButtonFooter);
+            Scribe_Values.Look(ref enableWorkloadSaving, "enableWorkloadSaving", DefaultSettings.enableWorkloadSaving);
+            Scribe_Values.Look(ref enableWorkloadLoading, "enableWorkloadLoading", DefaultSettings.enableWorkloadLoading);
+            Scribe_Values.Look(ref persistDividersInWorkloads, "persistDividersInWorkloads", DefaultSettings.persistDividersInWorkloads);
+            Scribe_Values.Look(ref alwaysShowConditionEditors, "alwaysShowConditionEditors", DefaultSettings.alwaysShowConditionEditors);
+            Scribe_Values.Look(ref cacheBedCounts, "cacheBedCounts", true);
+            Scribe_Values.Look(ref cacheSkillLevels, "cacheSkillLevels", true);
+            Scribe_Values.Look(ref cacheRowDescriptors, "cacheRowDescriptors", true);
+            Scribe_Values.Look(ref cacheIncapabilityChecks, "cacheIncapabilityChecks", true);
+            Scribe_Values.Look(ref useElementPooling, "useElementPooling", true);
+            Scribe_Values.Look(ref viewportCulling, "viewportCulling", true);
+            Scribe_Values.Look(ref enableProfiler, "enableProfiler", false);
+            Scribe_Values.Look(ref logDebugToFile, "logDebugToFile", false);
+            Scribe_Values.Look(ref mpSyncColumnOrder, "mpSyncColumnOrder", true);
+            Scribe_Values.Look(ref mpSyncWorkloads, "mpSyncWorkloads", true);
+            Scribe_Values.Look(ref mpSyncRulesets, "mpSyncRulesets", true);
+            Scribe_Values.Look(ref mpConflictMode, "mpConflictMode", MpConflictMode.PlayerPriority);
+            Scribe_Values.Look(ref rulesetViewMode, "rulesetViewMode", RulesetViewMode.Regular);
+
+            //Scribe_Values.Look(ref maxPriorityInt, "maxPriorityInt", 4);
+
+            // Divider settings
+            Scribe_Values.Look(ref dividerHeight, "dividerHeight", DefaultSettings.dividerHeight);
+
+            // Load rulesets from save file
             Scribe_Collections.Look(ref SavedRulesets, "SavedRulesets", LookMode.Deep);
 
             // Reinitialize rulesets after load (restores defaults if missing)

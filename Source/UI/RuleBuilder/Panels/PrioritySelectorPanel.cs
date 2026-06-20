@@ -125,11 +125,12 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             // Background color based on selection state
             bool isDragging = state.DragController.IsDragging;
             bool isDragHover = isDragging && Mouse.IsOver(rect);
+            Color priorityColor = GetPriorityColor(priority);
             
             Color bgColor;
             if (isSelected)
             {
-                bgColor = RuleBuilderConstants.PriorityColors[priority];
+                bgColor = priorityColor;
             }
             else if (isDragHover)
             {
@@ -162,11 +163,11 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             Rect indicatorRect = new Rect(rect.x + 8f, rect.y + 8f, 24f, 24f);
             Color indicatorColor = isSelected
                 ? Color.white
-                : RuleBuilderConstants.PriorityColors[priority];
+                : priorityColor;
 
             RWWidgets.DrawBoxSolid(indicatorRect, indicatorColor);
             Text.Anchor = TextAnchor.MiddleCenter;
-            GUI.color = isSelected ? RuleBuilderConstants.PriorityColors[priority] : Color.white;
+            GUI.color = isSelected ? priorityColor : Color.white;
 
             string priorityLabel = priority == 0 ? "X" : priority.ToString();
             RWWidgets.Label(indicatorRect, priorityLabel);
@@ -221,6 +222,18 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             TooltipHandler.TipRegion(rect, tooltip);
         }
 
+        private Color GetPriorityColor(int priority)
+        {
+            if (priority < 0)
+            {
+                return RuleBuilderConstants.DisabledColor;
+            }
+
+            return RuleBuilderConstants.PriorityColors[
+                Mathf.Min(priority, RuleBuilderConstants.PriorityColors.Length - 1)
+            ];
+        }
+
         private string GetPriorityLabel(int priority)
         {
             return priority switch
@@ -230,7 +243,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
                 2 => "BWT_Priority_High".Translate(),
                 3 => "BWT_Priority_Normal".Translate(),
                 4 => "BWT_Priority_Low".Translate(),
-                _ => $"Priority {priority}"
+                _ => "BWT_Priority_Extended".Translate(priority)
             };
         }
 
@@ -248,7 +261,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
                 2 => "BWT_Priority_High_Desc".Translate(),
                 3 => "BWT_Priority_Normal_Desc".Translate(),
                 4 => "BWT_Priority_Low_Desc".Translate(),
-                _ => ""
+                _ => "BWT_Priority_Extended_Desc".Translate(priority)
             };
 
             if (!string.IsNullOrEmpty(desc))

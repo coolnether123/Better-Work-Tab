@@ -259,6 +259,20 @@ namespace Spine.UI.SettingsFramework
                         }
                     }
                     break;
+                case SettingType.NumericInt:
+                    if (field != null && field.FieldType == typeof(int))
+                    {
+                        int intValue = (int)field.GetValue(settingsObject);
+                        int min = def.MinValue.HasValue ? Mathf.RoundToInt(def.MinValue.Value) : int.MinValue;
+                        int max = def.MaxValue.HasValue ? Mathf.RoundToInt(def.MaxValue.Value) : int.MaxValue;
+                        if (SettingWidgets.DrawNumericInt(contentRect, label, ref intValue, min, max, tooltip, disabled))
+                        {
+                            field.SetValue(settingsObject, intValue);
+                            def.OnChanged?.Invoke(settingsObject);
+                            onSettingsChanged?.Invoke();
+                        }
+                    }
+                    break;
                 case SettingType.Float:
                     if (field != null && (field.FieldType == typeof(float) || field.FieldType == typeof(double)))
                     {
