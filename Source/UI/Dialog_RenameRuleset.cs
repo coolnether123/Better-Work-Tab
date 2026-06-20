@@ -144,11 +144,11 @@ namespace Better_Work_Tab.UI
                 if (rulesets.Count > 0)
                 {
                     int newIndex = Mathf.Clamp(index - 1, 0, rulesets.Count - 1);
-                    settings.CurrentRuleset = rulesets[newIndex];
+                    settings.SetCurrentRuleset(rulesets[newIndex], writeSettings: false);
                 }
                 else
                 {
-                    settings.CurrentRuleset = null;
+                    settings.SetCurrentRuleset(null, writeSettings: false);
                 }
             }
 

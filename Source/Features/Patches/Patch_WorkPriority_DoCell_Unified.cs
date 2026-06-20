@@ -1,4 +1,5 @@
 ﻿using Better_Work_Tab.Features;
+using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI;
@@ -155,18 +156,7 @@ namespace Better_Work_Tab.Patches
                 int delta = Event.current.delta.y > 0 ? -1 : 1;
                 if (Find.PlaySettings.useWorkPriorities)
                 {
-                    int maxPriority = BetterWorkTabMod.Settings.EffectiveMaxPriority;
-                    int nextPriority = currentPriority;
-                    if (delta > 0)
-                    {
-                        if (currentPriority == 0) nextPriority = maxPriority;
-                        else if (currentPriority > 1) nextPriority = currentPriority - 1;
-                    }
-                    else
-                    {
-                        if (currentPriority == maxPriority) nextPriority = 0;
-                        else if (currentPriority > 0) nextPriority = currentPriority + 1;
-                    }
+                    int nextPriority = WorkPrioritySystem.GetPriorityAfterMouseButton(currentPriority, delta > 0 ? 0 : 1);
 
                     if (nextPriority != currentPriority)
                     {

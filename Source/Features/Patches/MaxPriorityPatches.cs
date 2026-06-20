@@ -21,98 +21,13 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             new[] { typeof(WorkTypeDef) });
 
         internal static readonly MethodInfo GetTooltipPriority = AccessTools.Method(
-            typeof(MaxPriorityLogic),
-            nameof(MaxPriorityLogic.GetTooltipPriority),
+            typeof(WorkPrioritySystem),
+            nameof(WorkPrioritySystem.GetTooltipPriority),
             new[] { typeof(Pawn_WorkSettings), typeof(WorkTypeDef) });
 
         internal static readonly MethodInfo GetMaxPriority = AccessTools.Method(
-            typeof(MaxPriorityLogic),
-            nameof(MaxPriorityLogic.GetMaxPriority));
-    }
-
-    /// <summary>
-    /// Centralized rules for extended manual priorities.
-    /// </summary>
-    internal static class MaxPriorityLogic
-    {
-        /// <summary>
-        /// Returns the configured upper bound for manual priorities.
-        /// </summary>
-        internal static int GetMaxPriority()
-        {
-            return BetterWorkTabMod.Settings?.EffectiveMaxPriority ?? DefaultSettings.maxPriority;
-        }
-
-        /// <summary>
-        /// Returns the default priority used when enabling a work type outside manual priorities.
-        /// Uses vanilla's normal priority as a baseline, clamped to the configured range.
-        /// </summary>
-        internal static int GetDefaultEnabledPriority()
-        {
-            return Mathf.Clamp(3, 1, GetMaxPriority());
-        }
-
-        /// <summary>
-        /// Maps extended priorities back into RimWorld's tooltip display range.
-        /// </summary>
-        internal static int MapPriorityToVanillaDisplay(int priority)
-        {
-            if (priority <= 0)
-            {
-                return 0;
-            }
-
-            int maxPriority = GetMaxPriority();
-            if (maxPriority <= 1)
-            {
-                return 1;
-            }
-
-            return Mathf.Clamp((int)Math.Round(Spine.Utils.SpineUtils.Remap(priority, 1, maxPriority, 1, 4)), 1, 4);
-        }
-
-        /// <summary>
-        /// Supplies the tooltip priority after remapping it into the vanilla display range.
-        /// </summary>
-        internal static int GetTooltipPriority(Pawn_WorkSettings workSettings, WorkTypeDef workType)
-        {
-            if (workSettings == null || workType == null)
-            {
-                return 0;
-            }
-
-            return MapPriorityToVanillaDisplay(workSettings.GetPriority(workType));
-        }
-
-        /// <summary>
-        /// Returns the color used for a manual priority value.
-        /// </summary>
-        internal static Color GetPriorityColor(int priority)
-        {
-            if (priority <= 0)
-            {
-                return Color.grey;
-            }
-
-            int percentage = (int)(((float)priority / GetMaxPriority()) * 100f);
-
-            if (percentage < BetterWorkTabMod.Settings.priorityColorPercentage_Green)
-            {
-                return new Color(0f, 1f, 0f);
-            }
-
-            if (percentage < BetterWorkTabMod.Settings.priorityColorPercentage_Yellow)
-            {
-                return new Color(1f, 0.9f, 0.5f);
-            }
-
-            if (percentage < BetterWorkTabMod.Settings.priorityColorPercentage_Tan)
-            {
-                return new Color(0.8f, 0.7f, 0.5f);
-            }
-
-            return new Color(0.74f, 0.74f, 0.74f);
-        }
+            typeof(WorkPrioritySystem),
+            nameof(WorkPrioritySystem.GetMaxPriority));
     }
 
     /// <summary>
@@ -128,7 +43,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         /// </summary>
         internal static int FindPriorityWrapUnderflowIndex(List<CodeInstruction> codes, int startIndex)
         {
-            return FindPattern(
+            int index = FindPattern(
                 codes,
                 startIndex,
                 (list, i) => i + 7 < list.Count &&
@@ -141,6 +56,23 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                              IsBranch(list[i + 6], OpCodes.Bge, OpCodes.Bge_S) &&
                              list[i + 7].LoadsConstant(4),
                 i => i + 7);
+
+            if (index >= 0)
+            {
+                return index;
+            }
+
+            return FindPattern(
+                codes,
+                startIndex,
+                (list, i) => i >= 3 &&
+                             i + 1 < list.Count &&
+                             IsLoadLocal(list[i - 3]) &&
+                             list[i - 2].LoadsConstant(0) &&
+                             IsBranch(list[i - 1], OpCodes.Bge, OpCodes.Bge_S) &&
+                             list[i].LoadsConstant(4) &&
+                             IsStoreLocal(list[i + 1]),
+                i => i);
         }
 
         /// <summary>
@@ -151,7 +83,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         /// </summary>
         internal static int FindPriorityWrapOverflowIndex(List<CodeInstruction> codes, int startIndex)
         {
-            return FindPattern(
+            int index = FindPattern(
                 codes,
                 startIndex,
                 (list, i) => i + 7 < list.Count &&
@@ -164,6 +96,21 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                              IsBranch(list[i + 6], OpCodes.Ble, OpCodes.Ble_S) &&
                              list[i + 7].LoadsConstant(0),
                 i => i + 5);
+
+            if (index >= 0)
+            {
+                return index;
+            }
+
+            return FindPattern(
+                codes,
+                startIndex,
+                (list, i) => i >= 1 &&
+                             i + 1 < list.Count &&
+                             IsLoadLocal(list[i - 1]) &&
+                             list[i].LoadsConstant(4) &&
+                             IsBranch(list[i + 1], OpCodes.Ble, OpCodes.Ble_S),
+                i => i);
         }
 
         /// <summary>
@@ -245,7 +192,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         [HarmonyPostfix]
         private static void Postfix(ref Color __result, int prio)
         {
-            __result = MaxPriorityLogic.GetPriorityColor(prio);
+            __result = WorkPrioritySystem.GetPriorityColor(prio);
         }
     }
 
@@ -263,7 +210,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             {
                 t.MatchCall(PriorityIl.GetPriority)
                  .AssertValid()
-                 .ReplaceWithCall(typeof(MaxPriorityLogic), nameof(MaxPriorityLogic.GetTooltipPriority), new[] { typeof(Pawn_WorkSettings), typeof(WorkTypeDef) });
+                 .ReplaceWithCall(typeof(WorkPrioritySystem), nameof(WorkPrioritySystem.GetTooltipPriority), new[] { typeof(Pawn_WorkSettings), typeof(WorkTypeDef) });
             });
         }
     }

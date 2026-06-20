@@ -40,8 +40,7 @@ namespace Better_Work_Tab.Features.Workloads
             EnsureCurrentWorklist();
             ColumnBaselineManager.EnsureBaseline(this);
 
-            // Profiling is on during dev; gate or disable for release builds.
-            SpineTiming.Enabled = true;
+            SpineTiming.Enabled = BetterWorkTabMod.Settings?.enableProfiler ?? false;
         }
 
         public override void ExposeData()

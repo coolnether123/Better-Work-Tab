@@ -1,3 +1,4 @@
+using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.Rules;
 using Better_Work_Tab.UI.RuleBuilder.Services;
 using Better_Work_Tab.UI.RuleBuilder.State;
@@ -444,7 +445,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
         {
             var rule = state.SelectedRule;
             bool isDefault = state.SelectedRuleset?.IsDefault ?? false;
-            int maxPriority = BetterWorkTabMod.Settings?.EffectiveMaxPriority ?? state.MaxPriority;
+            int maxPriority = WorkPrioritySystem.GetMaxPriority();
             int currentPriority = Mathf.Clamp(rule.Parameters.Priority, 0, maxPriority);
 
             if (_editingRule != rule)

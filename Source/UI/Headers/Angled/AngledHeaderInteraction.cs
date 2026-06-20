@@ -234,25 +234,13 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
                 if (useWorkPriorities)
                 {
-                    int maxPriority = BetterWorkTabMod.Settings.EffectiveMaxPriority;
-                    // Manual priorities cycle through the configured range.
-                    if (button == 0) // Left click (Increase priority / Decrement number)
-                    {
-                        // Cycle: 0 -> max -> ... -> 1 (stays at 1)
-                        if (curPriority == 0) pawn.workSettings.SetPriority(workType, maxPriority);
-                        else if (curPriority > 1) pawn.workSettings.SetPriority(workType, curPriority - 1);
-                    }
-                    else // Right click (Decrease priority / Increment number)
-                    {
-                        // Cycle: 1 -> ... -> max -> 0 (stays at 0)
-                        if (curPriority == maxPriority) pawn.workSettings.SetPriority(workType, 0);
-                        else if (curPriority > 0) pawn.workSettings.SetPriority(workType, curPriority + 1);
-                    }
+                    int nextPriority = WorkPrioritySystem.GetPriorityAfterMouseButton(curPriority, button);
+                    pawn.workSettings.SetPriority(workType, nextPriority);
                 }
                 else
                 {
                     // Vanilla Priorities (On/Off)
-                    if (button == 0) pawn.workSettings.SetPriority(workType, MaxPriorityLogic.GetDefaultEnabledPriority());
+                    if (button == 0) pawn.workSettings.SetPriority(workType, WorkPrioritySystem.GetDefaultEnabledPriority());
                     else pawn.workSettings.SetPriority(workType, 0);
                 }
                 changed = true;

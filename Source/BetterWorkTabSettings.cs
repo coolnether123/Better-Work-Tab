@@ -240,10 +240,35 @@ namespace Better_Work_Tab
         public static BetterWorkTabSettings.ShowUIMode ShowUIMode_ShowSmallSkillNumbers = BetterWorkTabSettings.ShowUIMode.Unshifted;
         public static BetterWorkTabSettings.ShowUIMode ShowUIMode_ShowPawnForSkillSquare = BetterWorkTabSettings.ShowUIMode.Shifted;
 
-        public static int maxPriority = 9;
+        public static int maxPriority = 4;
+        public static int maxPriorityWhenExternalPriorityModIsActive = 9;
         public static int priorityColorPercentage_Green = 10;
         public static int priorityColorPercentage_Yellow = 50;
         public static int priorityColorPercentage_Tan = 75;
+
+        private static readonly string[] ExternalPriorityModPackageIds =
+        {
+            "Lauriichan.PriorityMaster"
+        };
+
+        public static int GetInitialMaxPriority()
+        {
+            return ShouldUseExternalPriorityDefault()
+                ? maxPriorityWhenExternalPriorityModIsActive
+                : maxPriority;
+        }
+
+        private static bool ShouldUseExternalPriorityDefault()
+        {
+            try
+            {
+                return ExternalPriorityModPackageIds.Any(id => ModLister.GetActiveModWithIdentifier(id) != null);
+            }
+            catch
+            {
+                return false;
+            }
+        }
     }
 
     // Contains all configurable settings for Better Work Tab mod
@@ -389,6 +414,7 @@ namespace Better_Work_Tab
         // Ruleset management
         public List<WorkAssignmentRuleset> SavedRulesets;
         public WorkAssignmentRuleset CurrentRuleset = null;
+        public string currentRulesetName = "";
 
         // Auto-assign
         public bool showAutoAssignConfirmation = DefaultSettings.showAutoAssignConfirmation;
@@ -426,7 +452,7 @@ namespace Better_Work_Tab
         public const int MAX_PRIORITY_HARD_LIMIT = 99;
         public const int MAX_PRIORITY_MINIMUM = 4;
 
-        public int maxPriorityInt = DefaultSettings.maxPriority;
+        public int maxPriorityInt = DefaultSettings.GetInitialMaxPriority();
         public int priorityColorPercentage_Green = 10;
         public int priorityColorPercentage_Yellow = 50;
         public int priorityColorPercentage_Tan = 75;
@@ -508,6 +534,7 @@ namespace Better_Work_Tab
             SavedRulesets = CloneDefaultRulesets();
             SyncWorktypeReferences(SavedRulesets);
             CurrentRuleset = SelectPreferredRuleset();
+            currentRulesetName = CurrentRuleset?.Name ?? "";
             BetterWorkTabMod.Settings.Write();
         }
 
@@ -589,10 +616,32 @@ namespace Better_Work_Tab
                 return null;
             }
 
+            if (!string.IsNullOrEmpty(currentRulesetName))
+            {
+                var selected = SavedRulesets.FirstOrDefault(rs =>
+                    string.Equals(rs.Name, currentRulesetName, StringComparison.OrdinalIgnoreCase));
+
+                if (selected != null)
+                {
+                    return selected;
+                }
+            }
+
             var preferred = SavedRulesets.FirstOrDefault(rs =>
                 string.Equals(rs.Name, defaultAutoAssignRuleset, StringComparison.OrdinalIgnoreCase));
 
             return preferred ?? SavedRulesets.First();
+        }
+
+        public void SetCurrentRuleset(WorkAssignmentRuleset ruleset, bool writeSettings = true)
+        {
+            CurrentRuleset = ruleset;
+            currentRulesetName = ruleset?.Name ?? "";
+
+            if (writeSettings)
+            {
+                Write();
+            }
         }
 
         public override void ExposeData()
@@ -674,7 +723,7 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref cjkVerticalKerning, "cjkVerticalKerning", 0.75f);
             Scribe_Values.Look(ref angledHeaderColor, "angledHeaderColor", DefaultSettings.Color_AngledHeaderText);
             Scribe_Values.Look(ref autoEnableManualPriorities, "autoEnableManualPriorities", DefaultSettings.autoEnableManualPriorities);
-            Scribe_Values.Look(ref maxPriorityInt, "maxPriorityInt", DefaultSettings.maxPriority);
+            Scribe_Values.Look(ref maxPriorityInt, "maxPriorityInt", DefaultSettings.GetInitialMaxPriority());
             Scribe_Values.Look(ref priorityColorPercentage_Green, "priorityColorPercentage_Green", DefaultSettings.priorityColorPercentage_Green);
             Scribe_Values.Look(ref priorityColorPercentage_Yellow , "priorityColorPercentage_Yellow", DefaultSettings.priorityColorPercentage_Yellow );
             Scribe_Values.Look(ref priorityColorPercentage_Tan , "priorityColorPercentage_Tan", DefaultSettings.priorityColorPercentage_Tan );
@@ -711,7 +760,13 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref showAutoAssignConfirmation, "showAutoAssignConfirmation", DefaultSettings.showAutoAssignConfirmation);
             Scribe_Values.Look(ref resetWorkBeforeAutoAssign, "resetWorkBeforeAutoAssign", DefaultSettings.resetWorkBeforeAutoAssign);
             Scribe_Values.Look(ref showAutoAssignVisualFeedback, "showAutoAssignVisualFeedback", DefaultSettings.showAutoAssignVisualFeedback);
+            if (Scribe.mode == LoadSaveMode.Saving && CurrentRuleset != null)
+            {
+                currentRulesetName = CurrentRuleset.Name;
+            }
+
             Scribe_Values.Look(ref defaultAutoAssignRuleset, "defaultAutoAssignRuleset", "BWT Default");
+            Scribe_Values.Look(ref currentRulesetName, "currentRulesetName", "");
             Scribe_Values.Look(ref showWorkloadButtonFooter, "showWorkloadButtonFooter", DefaultSettings.showWorkloadButtonFooter);
             Scribe_Values.Look(ref enableWorkloadSaving, "enableWorkloadSaving", DefaultSettings.enableWorkloadSaving);
             Scribe_Values.Look(ref enableWorkloadLoading, "enableWorkloadLoading", DefaultSettings.enableWorkloadLoading);
@@ -855,13 +910,15 @@ namespace Better_Work_Tab
             // Re-select by name if the old reference was replaced by a fresh template.
             if (CurrentRuleset != null && !SavedRulesets.Contains(CurrentRuleset))
             {
-                CurrentRuleset = SavedRulesets.FirstOrDefault(rs =>
-                    string.Equals(rs.Name, CurrentRuleset.Name, StringComparison.OrdinalIgnoreCase));
+                SetCurrentRuleset(
+                    SavedRulesets.FirstOrDefault(rs =>
+                        string.Equals(rs.Name, CurrentRuleset.Name, StringComparison.OrdinalIgnoreCase)),
+                    writeSettings: false);
             }
 
             if (CurrentRuleset == null && SavedRulesets.Any())
             {
-                CurrentRuleset = SelectPreferredRuleset();
+                SetCurrentRuleset(SelectPreferredRuleset(), writeSettings: false);
             }
         }
 
