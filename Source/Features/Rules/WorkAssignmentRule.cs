@@ -113,7 +113,7 @@ namespace Better_Work_Tab.Features.Rules
                 }
             }
 
-#if !v1_3 && !v1_2 && !v1_1
+#if !v1_3 && !v1_2 && !v1_1 && !v1_0 && !v0_19
             if (Parameters.Xenotype == null && !string.IsNullOrEmpty(Parameters.XenotypeString))
             {
                 Parameters.Xenotype = DefDatabase<XenotypeDef>.GetNamedSilentFail(Parameters.XenotypeString);

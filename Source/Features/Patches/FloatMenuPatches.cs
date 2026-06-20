@@ -169,7 +169,7 @@ namespace Better_Work_Tab.Patches
                         MoteMaker.MakeStaticMote(clickedCell, pawn.Map, workGiver.forceMote);
                     }
 
-#if !v1_2 && !v1_1
+#if !v1_2 && !v1_1 && !v1_0 && !v0_19
                     if (workGiver.forceFleck != null)
                     {
                         FleckMaker.Static(clickedCell, pawn.Map, workGiver.forceFleck);

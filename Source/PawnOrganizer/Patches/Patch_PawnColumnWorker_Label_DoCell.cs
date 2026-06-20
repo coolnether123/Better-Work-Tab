@@ -98,7 +98,7 @@ namespace Better_Work_Tab.Patches
                 rect2.xMin += rect1.height;
                 Rect iconRect = new Rect(rect1.x, rect1.y, rect1.height, rect1.height);
 
-#if !v1_3 && !v1_2 && !v1_1
+#if !v1_3 && !v1_2 && !v1_1 && !v1_0 && !v0_19
                 if (Find.Selector.IsSelected(pawn))
                     SelectionDrawerUtility.DrawSelectionOverlayOnGUI(pawn, iconRect.ContractedBy(2f), 1f, 1f);
 #endif

@@ -43,7 +43,7 @@ namespace Better_Work_Tab.UI
         private const float ParameterRowIndent = 10f;
         private const float ParameterValuePortion = 0.25f;
         private const float TraitButtonMinWidth = 150f;
-#if !v1_3 && !v1_2 && !v1_1
+#if !v1_3 && !v1_2 && !v1_1 && !v1_0 && !v0_19
         private static readonly Vector2 XenotypeIconSize = new Vector2(22f, 22f);
 #endif
 
@@ -75,7 +75,7 @@ namespace Better_Work_Tab.UI
                 { typeof(string), (mgr, field, rowRect, valueRect, label) => mgr.DrawStringParameter(field, rowRect, valueRect, label) },
                 { typeof(Gender?), (mgr, field, rowRect, valueRect, label) => mgr.DrawGenderParameter(field, rowRect, valueRect, label) },
                 { typeof(WorkTypeDef), (mgr, field, rowRect, valueRect, label) => mgr.DrawWorkTypeParameter(field, rowRect, valueRect, label) },
-#if !v1_3 && !v1_2 && !v1_1
+#if !v1_3 && !v1_2 && !v1_1 && !v1_0 && !v0_19
                 { typeof(XenotypeDef), (mgr, field, rowRect, valueRect, label) => mgr.DrawXenotypeParameter(field, rowRect, valueRect, label) },
 #endif
                 { typeof(Tuple<TraitDef, int>), (mgr, field, rowRect, valueRect, label) => mgr.DrawTraitParameter(field, rowRect, valueRect, label) },
@@ -215,7 +215,7 @@ namespace Better_Work_Tab.UI
             outRect.yMax = rect3.y + 39f;
             Widgets.DrawMenuSection(rect2);
 
-#if !v1_3 && !v1_2 && !v1_1
+#if !v1_3 && !v1_2 && !v1_1 && !v1_0 && !v0_19
             int parameterCount = GetParameterFields().Count(f => ModsConfig.BiotechActive || f.FieldType != typeof(XenotypeDef));
 #else
             int parameterCount = GetParameterFields().Count();
@@ -242,7 +242,7 @@ namespace Better_Work_Tab.UI
 
             foreach (FieldInfo field in GetParameterFields())
             {
-#if !v1_3 && !v1_2 && !v1_1
+#if !v1_3 && !v1_2 && !v1_1 && !v1_0 && !v0_19
                 if (!ModsConfig.BiotechActive && field.FieldType == typeof(XenotypeDef))
                     continue;
 #else
@@ -398,7 +398,7 @@ namespace Better_Work_Tab.UI
         }
 
 
-#if !v1_3 && !v1_2 && !v1_1
+#if !v1_3 && !v1_2 && !v1_1 && !v1_0 && !v0_19
         private void DrawXenotypeParameter(FieldInfo field, Rect rowRect, Rect valueRect, string label)
         {
             Widgets.Label(rowRect.LeftPart(1f - ParameterValuePortion), label);
