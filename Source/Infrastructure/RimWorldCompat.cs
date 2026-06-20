@@ -7,7 +7,7 @@ using UnityEngine;
 using Verse;
 using Verse.AI;
 
-#if v1_0
+#if (v1_0 || v0_19)
 namespace Verse
 {
     public static class PawnWorkCompatExtensions
@@ -53,7 +53,7 @@ namespace Better_Work_Tab
     {
         public static string NameShortColored(Pawn pawn)
         {
-#if v1_0
+#if (v1_0 || v0_19)
             return pawn?.LabelShortCap ?? pawn?.LabelShort ?? "Pawn";
 #else
             return pawn?.NameShortColored ?? "Pawn";
@@ -68,7 +68,7 @@ namespace Better_Work_Tab
             if (data == null)
                 return null;
 
-#if v1_0
+#if (v1_0 || v0_19)
             return data.label?.CapitalizeFirst();
 #else
             return data.LabelCap;
@@ -80,7 +80,7 @@ namespace Better_Work_Tab
     {
         public static ModMetaData GetActiveModWithIdentifier(string packageId)
         {
-#if v1_0
+#if (v1_0 || v0_19)
             if (string.IsNullOrEmpty(packageId))
                 return null;
 
@@ -96,7 +96,7 @@ namespace Better_Work_Tab
 #endif
         }
 
-#if v1_0
+#if (v1_0 || v0_19)
         private static bool MatchesIdentifier(ModMetaData mod, string packageId)
         {
             if (string.Equals(mod.Identifier, packageId, StringComparison.OrdinalIgnoreCase))
@@ -127,7 +127,7 @@ namespace Better_Work_Tab
     {
         public static void SetWorkGiverDef(Job job, WorkGiverDef workGiver)
         {
-#if !v1_0
+#if !(v1_0 || v0_19)
             if (job != null)
                 job.workGiverDef = workGiver;
 #endif
