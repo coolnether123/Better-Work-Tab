@@ -12,7 +12,7 @@ namespace Better_Work_Tab.Features.Rules
     /// </summary>
     public static class RuleParameterRegistry
     {
-        private static readonly Lazy<IReadOnlyList<FieldInfo>> CachedFields = new Lazy<IReadOnlyList<FieldInfo>>(
+        private static readonly Lazy<IList<FieldInfo>> CachedFields = new Lazy<IList<FieldInfo>>(
             () => typeof(WorkAssignmentParameters)
                 .GetFields(BindingFlags.Public | BindingFlags.Instance)
                 .Where(f => f.GetCustomAttribute<RuleParameterAttribute>() != null)
@@ -26,12 +26,12 @@ namespace Better_Work_Tab.Features.Rules
         /// <summary>
         /// All fields on <see cref="WorkAssignmentParameters"/> that participate in rule evaluation.
         /// </summary>
-        public static IReadOnlyList<FieldInfo> Fields => CachedFields.Value;
+        public static IList<FieldInfo> Fields => CachedFields.Value;
 
         /// <summary>
         /// All parameter field names for quick lookup.
         /// </summary>
-        public static IReadOnlyCollection<string> FieldNames => CachedFieldNames.Value;
+        public static ICollection<string> FieldNames => CachedFieldNames.Value;
 
         /// <summary>
         /// Standard display name for a parameter based on the translation key pattern.

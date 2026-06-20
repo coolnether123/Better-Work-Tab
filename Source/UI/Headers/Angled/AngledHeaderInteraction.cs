@@ -131,7 +131,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
             // Replicate vanilla GetHeaderTip from PawnColumnWorker_WorkPriority
             var workType = worker.def.workType;
             
-            TaggedString tooltip = workType.gerundLabel.CapitalizeFirst().Colorize(TooltipTitleColor) 
+            string tooltip = workType.gerundLabel.CapitalizeFirst().Colorize(TooltipTitleColor)
                 + "\n\n" + workType.description 
                 + "\n\n" + SpecificWorkListString(workType) 
                 + "\n";
@@ -156,7 +156,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
             return tooltip.Resolve();
         }
 
-#if v1_2 || v1_1
+#if v1_2 || v1_1 || v1_0
         private static Color TooltipTitleColor => Color.white;
         private static Color TooltipSubtleColor => Color.gray;
         private static bool ShouldShowKeyboardTooltips => true;

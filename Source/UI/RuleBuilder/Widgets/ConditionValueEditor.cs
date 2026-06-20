@@ -37,7 +37,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
                 ConditionType.Passion => DrawPassionEditor(rect, condition, parameters, state),
                 ConditionType.Gender => DrawGenderEditor(rect, condition, parameters, state),
                 ConditionType.Trait => DrawTraitEditor(rect, condition, parameters, state),
-#if !v1_3 && !v1_2 && !v1_1
+#if !v1_3 && !v1_2 && !v1_1 && !v1_0
                 ConditionType.Xenotype => DrawXenotypeEditor(rect, condition, parameters, state),
 #endif
                 _ => false
@@ -288,7 +288,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
             RuleBuilderState state)
         {
             var currentValue = (Tuple<TraitDef, int>)ConditionRegistry.GetValue(condition.Key, parameters);
-            string label = currentValue?.Item1?.DataAtDegree(currentValue.Item2)?.LabelCap
+            string label = TraitCompat.LabelCap(currentValue?.Item1?.DataAtDegree(currentValue.Item2))
                 ?? "BWT_SelectTrait".Translate();
 
             float buttonWidth = Mathf.Min(150f, rect.width);
@@ -333,7 +333,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
                     foreach (var degreeData in trait.degreeDatas)
                     {
                         var localDegree = degreeData;
-                        options.Add(new FloatMenuOption(degreeData.LabelCap, () =>
+                        options.Add(new FloatMenuOption(TraitCompat.LabelCap(degreeData), () =>
                         {
                             var tuple = new Tuple<TraitDef, int>(localTrait, localDegree.degree);
                             ConditionRegistry.SetValue(condition.Key, parameters, tuple);
@@ -350,7 +350,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
             return false;
         }
 
-#if !v1_3 && !v1_2 && !v1_1
+#if !v1_3 && !v1_2 && !v1_1 && !v1_0
         private static bool DrawXenotypeEditor(
             Rect rect,
             ConditionInfo condition,

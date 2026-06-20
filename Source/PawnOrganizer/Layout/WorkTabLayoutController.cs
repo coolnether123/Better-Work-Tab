@@ -41,8 +41,8 @@ namespace Better_Work_Tab.PawnOrganizer
         private readonly List<DisplayElement> _filteringBuffer = new List<DisplayElement>();
         private readonly List<DisplayElement> _filteringSectionBuffer = new List<DisplayElement>();
 
-        private IReadOnlyList<Pawn> _snapshotPawns = Array.Empty<Pawn>();
-        private IList<PawnDivider> _snapshotDividers = Array.Empty<PawnDivider>();
+        private IList<Pawn> _snapshotPawns = new Pawn[0];
+        private IList<PawnDivider> _snapshotDividers = new PawnDivider[0];
 
         private PawnTable _table;
         private Vector2 _origin;
@@ -260,8 +260,8 @@ namespace Better_Work_Tab.PawnOrganizer
             return descriptors;
         }
 
-        public IReadOnlyList<WorkTabLayoutRow> Rows => _rows;
-        public IReadOnlyList<WorkTabLayoutColumn> Columns => _columns;
+        public IList<WorkTabLayoutRow> Rows => _rows;
+        public IList<WorkTabLayoutColumn> Columns => _columns;
         public float ContentHeight => _contentHeight;
         public float HeaderHeight => PawnTableCompat.GetHeaderHeight(_table);
         public Vector2 TableOrigin => _origin;
@@ -299,7 +299,7 @@ namespace Better_Work_Tab.PawnOrganizer
 
                     _snapshotPawns = snapshot?.Pawns
                                      ?? PawnTableCompat.GetPawnsListForReading(table)
-                                     ?? Array.Empty<Pawn>();
+                                     ?? new Pawn[0];
 
                     if (snapshot?.Dividers is IList<PawnDivider> dividerList && !dividerList.IsReadOnly)
                     {
@@ -622,7 +622,7 @@ namespace Better_Work_Tab.PawnOrganizer
 
         private void BuildColumns()
         {
-#if v1_3 || v1_2 || v1_1
+#if v1_3 || v1_2 || v1_1 || v1_0
             var allColumns = _table.ColumnsListForReading;
 #else
             var allColumns = _table.Columns;
@@ -928,7 +928,7 @@ namespace Better_Work_Tab.PawnOrganizer
 
             var divider = new PawnDivider
             {
-                DividerName = string.IsNullOrWhiteSpace(label) ? "Divider" : label.Trim(),
+                DividerName = string.IsNullOrEmpty(label) || label.Trim().Length == 0 ? "Divider" : label.Trim(),
                 DividerColor = color,
                 DisplayOrder = displayOrder,
                 Height = Mathf.Clamp(_dividerHeight, 10f, 80f),

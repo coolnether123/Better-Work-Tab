@@ -138,7 +138,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
                         state.SelectedRuleset.Rules.Add(copy);
                     }
                     state.NotifyRulesModified();
-#if v1_2 || v1_1
+#if v1_2 || v1_1 || v1_0
                     SoundDefOf.Click.PlayOneShotOnCamera();
 #else
                     SoundDefOf.DropElement.PlayOneShotOnCamera();

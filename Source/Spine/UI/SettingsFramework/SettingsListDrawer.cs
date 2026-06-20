@@ -142,7 +142,7 @@ namespace Spine.UI.SettingsFramework
             SettingsViewMode viewMode,
             Action onSettingsChanged)
         {
-            IEnumerable<SettingDefinition> source = string.IsNullOrWhiteSpace(_searchQuery)
+            IEnumerable<SettingDefinition> source = string.IsNullOrEmpty(_searchQuery) || _searchQuery.Trim().Length == 0
                 ? _hierarchy.GetFlattenedForView(viewMode, settingsObject)
                 : _hierarchy.Search(_searchQuery, viewMode);
 
@@ -162,7 +162,7 @@ namespace Spine.UI.SettingsFramework
                 string emptyLabel = NoResultsLabel;
 
                 // If we're in Simple view and nothing matches, hint that Advanced may have results.
-                if (viewMode == SettingsViewMode.Simple && !string.IsNullOrWhiteSpace(_searchQuery))
+                if (viewMode == SettingsViewMode.Simple && !(string.IsNullOrEmpty(_searchQuery) || _searchQuery.Trim().Length == 0))
                 {
                     var advancedMatches = _hierarchy.Search(_searchQuery, SettingsViewMode.Advanced);
                     if (advancedMatches != null)
@@ -372,7 +372,7 @@ namespace Spine.UI.SettingsFramework
 
                     tooltip += parentParts.Count == 1
                         ? $"Parent: {parentParts[0]}"
-                        : $"Parent chain: {string.Join(" › ", parentParts)}";
+                        : $"Parent chain: {string.Join(" › ", parentParts.ToArray())}";
                 }
             }
 

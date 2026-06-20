@@ -16,7 +16,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.State
         Passion,
         Gender,
         Trait,
-#if !v1_3 && !v1_2 && !v1_1
+#if !v1_3 && !v1_2 && !v1_1 && !v1_0
         Xenotype
 #endif
     }
@@ -97,11 +97,11 @@ namespace Better_Work_Tab.UI.RuleBuilder.State
                     var trait = Value as Tuple<TraitDef, int>;
                     if (trait?.Item1 != null)
                     {
-                        return trait.Item1.DataAtDegree(trait.Item2)?.LabelCap ?? trait.Item1.defName;
+                        return TraitCompat.LabelCap(trait.Item1.DataAtDegree(trait.Item2)) ?? trait.Item1.defName;
                     }
                     return "None";
 
-#if !v1_3 && !v1_2 && !v1_1
+#if !v1_3 && !v1_2 && !v1_1 && !v1_0
                 case ConditionType.Xenotype:
                     var xeno = Value as XenotypeDef;
                     return xeno?.LabelCap ?? "None";

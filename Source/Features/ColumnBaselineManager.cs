@@ -87,7 +87,7 @@ namespace Better_Work_Tab.Features
                 }
 
                 worldSettings.ColumnBaselineOrder = baseline;
-                BetterWorkTabMod.DebugLog($"[BWT] Captured column baseline order: {string.Join(", ", worldSettings.ColumnBaselineOrder)}", DebugFeature.DragDrop);
+                BetterWorkTabMod.DebugLog($"[BWT] Captured column baseline order: {string.Join(", ", worldSettings.ColumnBaselineOrder.ToArray())}", DebugFeature.DragDrop);
             }
         }
 
@@ -164,7 +164,7 @@ namespace Better_Work_Tab.Features
             }
             else
             {
-                BetterWorkTabMod.DebugLog($"[BWT] Captured true vanilla column order: {string.Join(", ", _trueVanillaOrder)}", DebugFeature.DragDrop);
+                BetterWorkTabMod.DebugLog($"[BWT] Captured true vanilla column order: {string.Join(", ", _trueVanillaOrder.ToArray())}", DebugFeature.DragDrop);
             }
         }
     }

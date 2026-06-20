@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 using Verse;
 
@@ -29,7 +29,7 @@ namespace Spine.DragDropApi.Util
         /// </summary>
         public static float GetInsertionLineY(
             int insertionIndex,
-            IReadOnlyList<float> itemHeights,
+            IList<float> itemHeights,
             float listScreenY,
             float scrollOffsetY)
         {

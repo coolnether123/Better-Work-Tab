@@ -1,6 +1,6 @@
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Mod_Support.Multiplayer;
-#if !v1_2 && !v1_1
+#if !v1_2 && !v1_1 && !v1_0
 using Better_Work_Tab.Mod_Support.Multiplayer.Features.Layouts;
 #endif
 using Better_Work_Tab.Features.Caching;
@@ -10,7 +10,7 @@ using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.PawnOrganizer.Data;
 using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.Headers.Angled;
-#if !v1_2 && !v1_1
+#if !v1_2 && !v1_1 && !v1_0
 using Multiplayer.API;
 #endif
 using RimWorld;
@@ -70,7 +70,7 @@ namespace Better_Work_Tab.UI
 
         private static Color CurrentRowTextColor = Color.white;
 
-#if !v1_2 && !v1_1
+#if !v1_2 && !v1_1 && !v1_0
         /// <summary>
         /// Multiplayer registration for column reordering sync.
         /// Uses nested class pattern to keep MP setup organized.
@@ -335,7 +335,7 @@ namespace Better_Work_Tab.UI
             }
             
             // Multiplayer follow mode: Copy this pawn row
-#if !v1_2 && !v1_1
+#if !v1_2 && !v1_1 && !v1_0
             if (LayoutSharingManager.IsFollowing)
             {
                 options.Add(new FloatMenuOption(
@@ -349,7 +349,7 @@ namespace Better_Work_Tab.UI
 
         private void ShowRenamePawnDialog(Pawn pawn)
         {
-#if v1_3 || v1_2 || v1_1
+#if v1_3 || v1_2 || v1_1 || v1_0
             Find.WindowStack.Add(new Dialog_NamePawn(pawn));
 #else
             Find.WindowStack.Add(pawn.NamePawnDialog());
@@ -375,7 +375,7 @@ namespace Better_Work_Tab.UI
 
                     MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
                     
-#if !v1_2 && !v1_1
+#if !v1_2 && !v1_1 && !v1_0
                     if (MultiplayerBridge.Active)
                         LayoutSharingManager.NotifyLayoutChanged();
 #endif
@@ -383,7 +383,7 @@ namespace Better_Work_Tab.UI
             };
             
             // Multiplayer follow mode: Copy this divider
-#if !v1_2 && !v1_1
+#if !v1_2 && !v1_1 && !v1_0
             if (LayoutSharingManager.IsFollowing)
             {
                 options.Add(new FloatMenuOption(
@@ -412,7 +412,7 @@ namespace Better_Work_Tab.UI
             layout.AddDividerBeforePawn(pawn, "New Divider", Color.gray);
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
             
-#if !v1_2 && !v1_1
+#if !v1_2 && !v1_1 && !v1_0
             if (MultiplayerBridge.Active)
                 LayoutSharingManager.NotifyLayoutChanged();
 #endif
@@ -485,7 +485,7 @@ namespace Better_Work_Tab.UI
             layout.AddDividerAfterPawn(pawn, "New Divider", Color.gray);
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
 
-#if !v1_2 && !v1_1
+#if !v1_2 && !v1_1 && !v1_0
             if (MultiplayerBridge.Active)
                 LayoutSharingManager.NotifyLayoutChanged();
 #endif
@@ -626,7 +626,7 @@ namespace Better_Work_Tab.UI
         /// directly dragged by the player, then updates its marking status based on
         /// whether it ended up out of vanilla position.
         /// </summary>
-#if !v1_2 && !v1_1
+#if !v1_2 && !v1_1 && !v1_0
         [SyncMethod]
 #endif
         internal static void MarkColumnMoved(WorkTypeDef workType)
@@ -718,7 +718,7 @@ namespace Better_Work_Tab.UI
         /// Calculates the total width of all columns combined.
         /// Called once per frame, not per row.
         /// </summary>
-        private float CalculateTotalColumnWidth(IReadOnlyList<WorkTabLayoutColumn> columns)
+        private float CalculateTotalColumnWidth(IList<WorkTabLayoutColumn> columns)
         {
             float totalWidth = 0f;
             for (int i = 0; i < columns.Count; i++)
@@ -739,7 +739,7 @@ namespace Better_Work_Tab.UI
         /// </summary>
         private void DrawAllHighlights(
             List<RowDescriptor> rowDescriptors,
-            IReadOnlyList<WorkTabLayoutColumn> columns,
+            IList<WorkTabLayoutColumn> columns,
             float totalWidth,
             float totalHeight)
         {
@@ -861,7 +861,7 @@ namespace Better_Work_Tab.UI
         private void DrawAllRowContent(
             PawnTable table,
             List<RowDescriptor> rowDescriptors,
-            IReadOnlyList<WorkTabLayoutColumn> columns,
+            IList<WorkTabLayoutColumn> columns,
             float viewWidth,
             WorkTabLayoutColumn? nameColumn,
             Rect viewportRect,
@@ -897,7 +897,7 @@ namespace Better_Work_Tab.UI
         private void DrawSingleRowContent(
             PawnTable table,
             RowDescriptor descriptor,
-            IReadOnlyList<WorkTabLayoutColumn> columns,
+            IList<WorkTabLayoutColumn> columns,
             Rect rowRect,
             WorkTabLayoutColumn? nameColumn,
             int rowIndex)
@@ -1006,7 +1006,7 @@ namespace Better_Work_Tab.UI
 
         }
 
-        private WorkTabLayoutColumn? FindNameColumn(IReadOnlyList<WorkTabLayoutColumn> columns)
+        private WorkTabLayoutColumn? FindNameColumn(IList<WorkTabLayoutColumn> columns)
         {
             for (int i = 0; i < columns.Count; i++)
             {
@@ -1075,7 +1075,7 @@ namespace Better_Work_Tab.UI
             {
                 ToggleDividerCollapsed(divider);
                 
-#if !v1_2 && !v1_1
+#if !v1_2 && !v1_1 && !v1_0
                 if (MultiplayerBridge.Active)
                     LayoutSharingManager.NotifyLayoutChanged();
 #endif
@@ -1105,7 +1105,7 @@ namespace Better_Work_Tab.UI
             SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
         }
 
-        private void DrawPawnRow(PawnTable table, WorkTabLayoutRow row, Rect rowRect, IReadOnlyList<WorkTabLayoutColumn> columns)
+        private void DrawPawnRow(PawnTable table, WorkTabLayoutRow row, Rect rowRect, IList<WorkTabLayoutColumn> columns)
         {
             foreach (var column in columns)
             {
@@ -1292,7 +1292,7 @@ namespace Better_Work_Tab.UI
                 var mod = LoadedModManager.GetMod<BetterWorkTabMod>();
                 if (mod != null)
                 {
-#if v1_3 || v1_2 || v1_1
+#if v1_3 || v1_2 || v1_1 || v1_0
                     var dialog = new Dialog_ModSettings();
                     typeof(Dialog_ModSettings).GetField("selMod", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).SetValue(dialog, mod);
                     Find.WindowStack.Add(dialog);
