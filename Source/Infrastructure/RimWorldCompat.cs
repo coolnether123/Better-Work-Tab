@@ -179,6 +179,21 @@ namespace Better_Work_Tab
         }
     }
 
+    public static class ProgramStateCompat
+    {
+        public static bool IsPlaying
+        {
+            get
+            {
+#if (v0_15 || v0_14 || v0_13)
+                return Verse.Current.ProgramState == ProgramState.MapPlaying;
+#else
+                return Verse.Current.ProgramState == ProgramState.Playing;
+#endif
+            }
+        }
+    }
+
     public static class PawnCompat
     {
         public static string NameShortColored(Pawn pawn)
