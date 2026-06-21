@@ -1209,16 +1209,16 @@ namespace Better_Work_Tab.UI
             }
             if (Current.Game.playSettings.useWorkPriorities)
             {
-                using (new TextBlock(new Color(1f, 1f, 1f, 0.5f)))
-                {
-                    int maxPriority = WorkPrioritySystem.GetMaxPriority();
-                    TaggedString priorityHelp = maxPriority > 4
-                        ? "BWT_PriorityOneDoneFirstExtended".Translate(maxPriority)
-                        : "PriorityOneDoneFirst".Translate();
+                Color oldColor = GUI.color;
+                GUI.color = new Color(1f, 1f, 1f, 0.5f);
+                int maxPriority = WorkPrioritySystem.GetMaxPriority();
+                TaggedString priorityHelp = maxPriority > 4
+                    ? "BWT_PriorityOneDoneFirstExtended".Translate(maxPriority)
+                    : "PriorityOneDoneFirst".Translate();
 
-                    float helpWidth = maxPriority > 4 ? 220f : rect.width;
-                    Widgets.Label(new Rect(rect.x, rect.yMax - 6f, helpWidth, 60f), priorityHelp);
-                }
+                float helpWidth = maxPriority > 4 ? 220f : rect.width;
+                Widgets.Label(new Rect(rect.x, rect.yMax - 6f, helpWidth, 60f), priorityHelp);
+                GUI.color = oldColor;
             }
             else
             {
