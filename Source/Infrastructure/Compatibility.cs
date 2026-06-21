@@ -105,7 +105,7 @@ namespace RimWorld
                     onFilterChange();
             }
 
-            if (this.filter.Active && Verse.Widgets.ButtonImage(new Rect(rect1.xMax + 4f, y, num1, num1), RimWorld.TexButton.CloseXSmall))
+            if (this.filter.Active && Better_Work_Tab.WidgetsCompat.ButtonImage(new Rect(rect1.xMax + 4f, y, num1, num1), RimWorld.TexButton.CloseXSmall))
             {
                 this.filter.Text = "";
                 if (onFilterChange != null)
@@ -168,7 +168,7 @@ namespace Better_Work_Tab
         {
             TextAnchor old = Text.Anchor;
             Text.Anchor = overrideTextAnchor;
-            bool result = Verse.Widgets.ButtonText(rect, label, drawBackground, doMouseoverSound, active);
+            bool result = Better_Work_Tab.WidgetsCompat.ButtonText(rect, label, drawBackground, doMouseoverSound, active);
             Text.Anchor = old;
             return result;
         }
@@ -187,6 +187,34 @@ namespace Better_Work_Tab
             top = new Rect(rect.x, rect.y, rect.width, topHeight);
             bottom = new Rect(rect.x, rect.y + topHeight + gap, rect.width, rect.height - topHeight - gap);
         }
+
+        public static Rect LeftPart(this Rect rect, float pct)
+        {
+            return new Rect(rect.x, rect.y, rect.width * pct, rect.height);
+        }
+
+        public static Rect RightPart(this Rect rect, float pct)
+        {
+            float width = rect.width * pct;
+            return new Rect(rect.xMax - width, rect.y, width, rect.height);
+        }
+
+        public static Rect MiddlePart(this Rect rect, float pct, float xOffsetPct = 0.5f)
+        {
+            float width = rect.width * pct;
+            return new Rect(rect.x + (rect.width - width) * xOffsetPct, rect.y, width, rect.height);
+        }
+
+        public static Rect LeftHalf(this Rect rect)
+        {
+            return rect.LeftPart(0.5f);
+        }
+
+        public static Rect RightHalf(this Rect rect)
+        {
+            return rect.RightPart(0.5f);
+        }
+
     }
 
     public static class ColoredTextCompat
@@ -208,6 +236,33 @@ namespace Better_Work_Tab
                 Log.Warning(text);
                 warningsShown.Add(uniqueKey);
             }
+        }
+    }
+
+    public static class ListingStandardExtensions
+    {
+        public static bool ButtonText(this Listing_Standard listing, string label, float height = 30f)
+        {
+            return WidgetsCompat.ButtonText(listing.GetRect(height), label);
+        }
+
+        public static bool ButtonTextLabeled(this Listing_Standard listing, string label, string buttonLabel, float height = 30f)
+        {
+            Rect row = listing.GetRect(height);
+            Rect labelRect = row.LeftPart(0.55f);
+            Rect buttonRect = row.RightPart(0.4f);
+            Widgets.Label(labelRect, label);
+            return WidgetsCompat.ButtonText(buttonRect, buttonLabel);
+        }
+
+        public static void Gap(this Listing_Standard listing, float height = 12f)
+        {
+            listing.GetRect(height);
+        }
+
+        public static void Label(this Listing_Standard listing, string label, float height = 24f)
+        {
+            Widgets.Label(listing.GetRect(height), label);
         }
     }
 }
