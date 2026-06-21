@@ -117,12 +117,16 @@ namespace Better_Work_Tab.UI.RuleBuilder.State
             get => _selectedPriority;
             set
             {
-                int normalized = value < 0 ? -1 : WorkPrioritySystem.ClampPriority(value);
-                if (_selectedPriority != normalized)
+                int normalizedValue = value < 0
+                    ? -1
+                    : NormalizeRequestedPriority(value);
+
+                if (_selectedPriority != normalizedValue)
                 {
-                    _selectedPriority = normalized;
+                    _selectedPriority = normalizedValue;
                     SelectedRule = null;
-                    OnPriorityChanged?.Invoke(normalized);
+                    EnsurePriorityOrder();
+                    OnPriorityChanged?.Invoke(normalizedValue);
                 }
             }
         }
@@ -132,6 +136,10 @@ namespace Better_Work_Tab.UI.RuleBuilder.State
         /// Default is 4, but can be extended.
         /// </summary>
         public int MaxPriority { get; set; } = 4;
+
+        public int RequestableMaxPriority => WorkPrioritySystem.GetMaxPriority();
+
+        public bool CanRequestCustomPriority => RequestableMaxPriority > 4;
 
         /// <summary>
         /// Current UI ordering of priorities (0..MaxPriority). Defaults to 1..MaxPriority then 0 (disabled).
@@ -225,6 +233,65 @@ namespace Better_Work_Tab.UI.RuleBuilder.State
                 }
             }
             return counts;
+        }
+
+        /// <summary>
+        /// Returns the compact priority list shown in the Rule Builder column.
+        /// Extended ranges are requested through Window_PriorityNumberPicker instead of
+        /// expanding the middle column to every number up to the current maximum.
+        /// </summary>
+        public List<int> GetVisiblePriorityOrder(WorkTypeDef workType)
+        {
+            EnsurePriorityOrder();
+
+            if (workType == null)
+            {
+                return new List<int>();
+            }
+
+            if (!CanRequestCustomPriority)
+            {
+                return GetSelectablePriorityOrder();
+            }
+
+            var counts = GetPriorityRuleCounts(workType);
+            var visible = PriorityOrder
+                .Where(p => (counts.TryGetValue(p, out var count) && count > 0) ||
+                            p == SelectedPriority)
+                .Distinct()
+                .ToList();
+
+            if (visible.Count == 0 && SelectedPriority >= 0)
+            {
+                visible.Add(SelectedPriority);
+            }
+
+            return visible;
+        }
+
+        public List<int> GetSelectablePriorityOrder()
+        {
+            EnsurePriorityOrder();
+
+            var ordered = new List<int>();
+            int maxPriority = WorkPrioritySystem.GetMaxPriority();
+
+            for (int priority = 1; priority <= maxPriority; priority++)
+            {
+                ordered.Add(priority);
+            }
+
+            if (!ordered.Contains(0))
+            {
+                ordered.Add(0);
+            }
+
+            return ordered;
+        }
+
+        public int NormalizeRequestedPriority(int requestedPriority)
+        {
+            return WorkPrioritySystem.ClampPriority(requestedPriority);
         }
 
         /// <summary>
@@ -325,7 +392,6 @@ namespace Better_Work_Tab.UI.RuleBuilder.State
                 return null;
 
             var copy = rule.Copy();
-            copy.Name = copy.Name + " (Copy)";
 
             SelectedRuleset.Rules.Add(copy);
             SelectedRule = copy;
@@ -443,6 +509,11 @@ namespace Better_Work_Tab.UI.RuleBuilder.State
         {
             MaxPriority = WorkPrioritySystem.GetMaxPriority();
 
+            if (SelectedRuleset != null)
+            {
+                SelectedRuleset.EnsurePriorityOrder(MaxPriority);
+            }
+
             if ((PriorityOrder == null || PriorityOrder.Count == 0) &&
                 SelectedRuleset?.PriorityOrder != null &&
                 SelectedRuleset.PriorityOrder.Count > 0)
@@ -450,28 +521,47 @@ namespace Better_Work_Tab.UI.RuleBuilder.State
                 PriorityOrder = SelectedRuleset.PriorityOrder.ToList();
             }
 
-            if (PriorityOrder == null || PriorityOrder.Count == 0)
-            {
-                PriorityOrder = Enumerable.Range(1, MaxPriority).ToList();
-                if (!PriorityOrder.Contains(0))
-                {
-                    PriorityOrder.Add(0);
-                }
-            }
-
-            // Make sure any new priorities or missing disabled are added.
-            for (int p = 0; p <= MaxPriority; p++)
-            {
-                if (!PriorityOrder.Contains(p))
-                {
-                    PriorityOrder.Add(p);
-                }
-            }
+            PriorityOrder = NormalizePriorityOrder(PriorityOrder, MaxPriority);
 
             if (SelectedRuleset != null)
             {
                 SelectedRuleset.PriorityOrder = PriorityOrder.ToList();
             }
+        }
+
+        private static List<int> NormalizePriorityOrder(List<int> order, int maxPriority)
+        {
+            if (order == null || order.Count == 0)
+            {
+                order = Enumerable.Range(1, maxPriority).ToList();
+                order.Add(0);
+                return order;
+            }
+
+            var normalized = new List<int>(maxPriority + 1);
+            var seen = new HashSet<int>();
+
+            for (int i = 0; i < order.Count; i++)
+            {
+                int priority = WorkPrioritySystem.ClampPriority(order[i], maxPriority);
+                if (priority == 0 || !seen.Add(priority))
+                {
+                    continue;
+                }
+
+                normalized.Add(priority);
+            }
+
+            for (int priority = 1; priority <= maxPriority; priority++)
+            {
+                if (seen.Add(priority))
+                {
+                    normalized.Add(priority);
+                }
+            }
+
+            normalized.Add(0);
+            return normalized;
         }
 
         /// <summary>

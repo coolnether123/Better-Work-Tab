@@ -71,6 +71,7 @@
     <Compile Include="Features\WorkGiverReassignments\WorkGiverReassignmentManager.cs" />
     <Compile Include="Features\WorkGiverReassignments\WorkGiverReassignmentPatches.cs" />
     <Compile Include="Features\Workloads\GameComponent_BWTWorldSettings.cs" />
+    <Compile Include="Features\Testing\GameComponent_BWTModernQuickTestDriver.cs" />
     <Compile Include="Features\Workloads\Worklist.cs" />
     <Compile Include="Features\Workloads\WorkloadNamers.cs" />
     <Compile Include="Features\Workloads\PawnWorkload.cs" />
@@ -186,6 +187,7 @@
     <Compile Include="UI\MouseStateManager.cs" />
     <Compile Include="Features\Patches\Patch_Building_Bed_Cache.cs" />
     <Compile Include="UI\RuleBuilder\RuleBuilderConstants.cs" />
+    <Compile Include="UI\RuleBuilder\Window_PriorityNumberPicker.cs" />
     <Compile Include="UI\RuleBuilder\Window_RulesetBuilder.cs" />
     <Compile Include="UI\RuleBuilder\State\RuleBuilderStep.cs" />
     <Compile Include="UI\RuleBuilder\State\RuleMatchResult.cs" />
@@ -217,7 +219,7 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Krafs.Rimworld.Ref">
-      <Version>1.6.4633</Version>
+      <Version>1.6.4850</Version>
     </PackageReference>
     <PackageReference Include="Lib.Harmony">
       <Version>2.4.2</Version>

@@ -49,54 +49,16 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
                 return;
             }
 
-            if (categoryConditions.Count == 1)
+            string categoryLabel = categoryConditions.Count == 1 ? null : GetCategoryLabel(category);
+            foreach (var def in categoryConditions)
             {
-                AddSingleConditionOption(options, categoryConditions[0], parameters, state);
-                return;
+                AddConditionOption(options, def, parameters, state, categoryLabel);
             }
-
-            AddCategorySubmenuOption(options, category, categoryConditions, parameters, state);
         }
 
         private static bool ShouldShowCategory(string category, bool hasSkill)
         {
             return hasSkill || category != "BWT_Category_Skill";
-        }
-
-        private static void AddSingleConditionOption(
-            List<FloatMenuOption> options,
-            ConditionDefinition def,
-            WorkAssignmentParameters parameters,
-            RuleBuilderState state)
-        {
-            if (!ConditionRegistry.IsActive(def.Key, parameters))
-            {
-                AddConditionOption(options, def, parameters, state);
-            }
-        }
-
-        private static void AddCategorySubmenuOption(
-            List<FloatMenuOption> options,
-            string category,
-            List<ConditionDefinition> categoryConditions,
-            WorkAssignmentParameters parameters,
-            RuleBuilderState state)
-        {
-            var submenu = new List<FloatMenuOption>();
-            foreach (var def in categoryConditions)
-            {
-                if (!ConditionRegistry.IsActive(def.Key, parameters))
-                {
-                    AddConditionOption(submenu, def, parameters, state);
-                }
-            }
-
-            if (submenu.Any())
-            {
-                options.Add(new FloatMenuOption(
-                    GetCategoryLabel(category),
-                    () => Find.WindowStack.Add(new FloatMenu(submenu))));
-            }
         }
 
         private static string GetCategoryLabel(string category)
@@ -108,9 +70,19 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
             List<FloatMenuOption> options,
             ConditionDefinition def,
             WorkAssignmentParameters parameters,
-            RuleBuilderState state)
+            RuleBuilderState state,
+            string categoryLabel = null)
         {
+            if (ConditionRegistry.IsActive(def.Key, parameters))
+            {
+                return;
+            }
+
             string label = def.Label ?? $"BWT_{def.Key}".Translate();
+            if (!string.IsNullOrEmpty(categoryLabel))
+            {
+                label = $"[{categoryLabel}] {label}";
+            }
 
             options.Add(new FloatMenuOption(label, () =>
             {

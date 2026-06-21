@@ -1,6 +1,6 @@
 ﻿using Better_Work_Tab.Features;
-using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
+using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI;
@@ -108,6 +108,8 @@ namespace Better_Work_Tab.Patches
         private const float SkillBoxSize = 25f;
         private const float SkillBoxVerticalPadding = 2.5f;
         private const float SmallSkillOffsetY = -2f;
+        private const float SmallCornerLabelWidth = 18f;
+        private const float SmallCornerLabelHeight = 16f;
         private const float SkillBoxOutlinePadding = 2f;
 
         private static void UpdateFrameCache()
@@ -233,6 +235,8 @@ namespace Better_Work_Tab.Patches
                 {
                     return true;
                 }
+
+                TryHandleWorkPriorityInput(rect, pawn, workType);
                 return false;
             }
 
@@ -242,9 +246,12 @@ namespace Better_Work_Tab.Patches
                 {
                     return true;
                 }
+
+                TryHandleWorkPriorityInput(rect, pawn, workType);
                 return false;
             }
 
+            TryHandleWorkPriorityInput(rect, pawn, workType);
             return false;
         }
 
@@ -296,10 +303,11 @@ namespace Better_Work_Tab.Patches
 
             float boxXSkill = rect.x + (rect.width - SkillBoxSize) / 2f;
             float boxYSkill = rect.y + SkillBoxVerticalPadding;
-            Rect boxRect = new Rect(boxXSkill, boxYSkill, SkillBoxSize, SkillBoxSize);
+            Rect boxRect = GetWorkBoxRect(rect);
 
             bool drawBigSkill = true;
             bool drawSmallSkill = false;
+            bool drawSmallPriority = false;
             bool showTinySkillNumbers = (BetterWorkTabMod.Settings?.enableSkillOverlayFeature ?? false) &&
                                         ShouldShowUI(BetterWorkTabMod.Settings.ShowUIMode_ShowSmallSkillNumbers, _cachedUiState);
 
@@ -310,28 +318,31 @@ namespace Better_Work_Tab.Patches
                     drawBigSkill = false;
                     drawSmallSkill = true;
                 }
+                else if (_cachedHoverMode == BetterWorkTabSettings.SkillViewHoverMode.SkillFocused)
+                {
+                    drawSmallPriority = true;
+                }
             }
 
-            if (showTinySkillNumbers)
+            if (showTinySkillNumbers && !drawSmallPriority)
             {
                 drawSmallSkill = true;
             }
 
-            CustomWorkBoxDrawer.DrawWorkBoxForSkillOverlay(boxXSkill, boxYSkill, pawn, workType, false);
-
-            if (priority > 0)
-            {
-                CustomWorkBoxDrawer.DrawCompactPriority(rect, priority);
-            }
-
             if (drawBigSkill)
             {
+                CustomWorkBoxDrawer.DrawWorkBoxForSkillOverlay(boxXSkill, boxYSkill, pawn, workType, false);
                 DrawBigSkillNumber(boxRect, skillLevel);
             }
 
             if (drawSmallSkill)
             {
                 DrawSmallSkillNumbers(rect, skillLevel);
+            }
+
+            if (drawSmallPriority && priority > 0)
+            {
+                DrawSmallPriorityNumber(rect, priority);
             }
         }
 
@@ -490,23 +501,35 @@ namespace Better_Work_Tab.Patches
 
         private static void DrawSmallSkillNumbers(Rect rect, int level)
         {
-            // Position in top-right corner: right edge minus skill box size minus small padding
-            string levelStr = level.ToString();
-            float rightPadding = levelStr.Length >= 2 ? 0f : -3f;
-            Rect boxRect = new Rect(
-                rect.xMax - SkillBoxSize - rightPadding, 
-                rect.y + SmallSkillOffsetY, 
-                SkillBoxSize, 
-                SkillBoxSize);
+            Rect labelRect = GetTopRightOverlayRect(rect);
             
             var oldFont = Text.Font;
             var oldAnchor = Text.Anchor;
             var oldColor = GUI.color;
 
             Text.Font = GameFont.Tiny;
-            Text.Anchor = TextAnchor.MiddleCenter;
+            Text.Anchor = TextAnchor.UpperRight;
             GUI.color = ColorForSkillLevel(level);
-            Widgets.Label(boxRect, level.ToString());
+            Widgets.Label(labelRect, level.ToString());
+
+            GUI.color = oldColor;
+            Text.Font = oldFont;
+            Text.Anchor = oldAnchor;
+        }
+
+        private static void DrawSmallPriorityNumber(Rect rect, int priority)
+        {
+            string priorityText = priority.ToString();
+            Rect priorityRect = GetTopRightOverlayRect(rect);
+
+            var oldFont = Text.Font;
+            var oldAnchor = Text.Anchor;
+            var oldColor = GUI.color;
+
+            Text.Font = GameFont.Tiny;
+            Text.Anchor = TextAnchor.UpperRight;
+            GUI.color = new Color(0.9f, 0.9f, 0.9f);
+            Widgets.Label(priorityRect, priorityText);
 
             GUI.color = oldColor;
             Text.Font = oldFont;
@@ -603,6 +626,110 @@ namespace Better_Work_Tab.Patches
             _bestPawnCache.Clear();
             _bestPawnCacheTimestamps.Clear();
             _colorCache.Clear();
+        }
+
+        private static Rect GetWorkBoxRect(Rect cellRect)
+        {
+            return new Rect(
+                cellRect.x + (cellRect.width - SkillBoxSize) / 2f,
+                cellRect.y + SkillBoxVerticalPadding,
+                SkillBoxSize,
+                SkillBoxSize);
+        }
+
+        private static Rect GetTopRightOverlayRect(Rect cellRect)
+        {
+            Rect boxRect = GetWorkBoxRect(cellRect);
+            return new Rect(
+                boxRect.xMax - SmallCornerLabelWidth - 1f,
+                boxRect.y + SmallSkillOffsetY,
+                SmallCornerLabelWidth,
+                SmallCornerLabelHeight);
+        }
+
+        private static bool TryHandleWorkPriorityInput(Rect cellRect, Pawn pawn, WorkTypeDef workType)
+        {
+            Event evt = Event.current;
+            if (evt == null || evt.type != EventType.MouseDown)
+            {
+                return false;
+            }
+
+            if (!Mouse.IsOver(GetWorkBoxRect(cellRect)))
+            {
+                return false;
+            }
+
+            if (Find.PlaySettings.useWorkPriorities)
+            {
+                if (evt.button != 0 && evt.button != 1)
+                {
+                    return false;
+                }
+
+                bool wasActive = pawn.workSettings.WorkIsActive(workType);
+                int currentPriority = pawn.workSettings.GetPriority(workType);
+                int nextPriority = WorkPrioritySystem.GetPriorityAfterMouseButton(currentPriority, evt.button);
+
+                if (nextPriority != currentPriority)
+                {
+                    WorkPrioritySystem.SetPriority(pawn.workSettings, workType, nextPriority);
+                    SoundDefOf.DragSlider.PlayOneShotOnCamera();
+                }
+
+                NotifyWorkActivatedIfNeeded(pawn, workType, wasActive);
+                evt.Use();
+                PlayerKnowledgeDatabase.KnowledgeDemonstrated(ConceptDefOf.WorkTab, KnowledgeAmount.SpecificInteraction);
+                PlayerKnowledgeDatabase.KnowledgeDemonstrated(ConceptDefOf.ManualWorkPriorities, KnowledgeAmount.SmallInteraction);
+                return true;
+            }
+
+            if (evt.button != 0)
+            {
+                return false;
+            }
+
+            bool wasEnabled = pawn.workSettings.WorkIsActive(workType);
+            if (pawn.workSettings.GetPriority(workType) > 0)
+            {
+                WorkPrioritySystem.SetPriority(pawn.workSettings, workType, WorkPrioritySystem.DisabledPriority);
+                SoundDefOf.Checkbox_TurnedOff.PlayOneShotOnCamera();
+            }
+            else
+            {
+                WorkPrioritySystem.SetPriority(pawn.workSettings, workType, WorkPrioritySystem.GetDefaultEnabledPriority());
+                SoundDefOf.Checkbox_TurnedOn.PlayOneShotOnCamera();
+            }
+
+            NotifyWorkActivatedIfNeeded(pawn, workType, wasEnabled);
+            evt.Use();
+            PlayerKnowledgeDatabase.KnowledgeDemonstrated(ConceptDefOf.WorkTab, KnowledgeAmount.SpecificInteraction);
+            return true;
+        }
+
+        private static void NotifyWorkActivatedIfNeeded(Pawn pawn, WorkTypeDef workType, bool wasActive)
+        {
+            if (wasActive || !pawn.workSettings.WorkIsActive(workType))
+            {
+                return;
+            }
+
+            if (workType.relevantSkills != null &&
+                workType.relevantSkills.Any() &&
+                pawn.skills.AverageOfRelevantSkillsFor(workType) <= 2f)
+            {
+                SoundDefOf.Crunch.PlayOneShotOnCamera();
+            }
+
+            if (pawn.Ideo != null && pawn.Ideo.IsWorkTypeConsideredDangerous(workType))
+            {
+                Messages.Message(
+                    "MessageIdeoOpposedWorkTypeSelected".Translate(pawn, workType.gerundLabel),
+                    pawn,
+                    MessageTypeDefOf.CautionInput,
+                    false);
+                SoundDefOf.DislikedWorkTypeActivated.PlayOneShotOnCamera();
+            }
         }
     }
 }

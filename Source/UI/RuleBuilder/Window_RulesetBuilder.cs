@@ -185,7 +185,7 @@ namespace Better_Work_Tab.UI.RuleBuilder
                 options.Add(new FloatMenuOption(optionLabel, () =>
                 {
                     _state.SelectedRuleset = local;
-                    BetterWorkTabMod.Settings.CurrentRuleset = local;
+                    BetterWorkTabMod.Settings.SetCurrentRuleset(local);
                 }));
             }
 
@@ -244,8 +244,7 @@ namespace Better_Work_Tab.UI.RuleBuilder
 
             rulesets.Add(newRuleset);
             _state.SelectedRuleset = newRuleset;
-            BetterWorkTabMod.Settings.CurrentRuleset = newRuleset;
-            BetterWorkTabMod.Settings.Write();
+            BetterWorkTabMod.Settings.SetCurrentRuleset(newRuleset);
         }
 
         /// <summary>

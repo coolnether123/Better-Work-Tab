@@ -35,6 +35,20 @@
   <BWT_Priority_Low_Desc>Low priority. This pawn will be assigned last.</BWT_Priority_Low_Desc>
   <BWT_Priority_Extended>Priority ({0})</BWT_Priority_Extended>
   <BWT_Priority_Extended_Desc>Extended priority {0}. Higher numbers are lower priority and run after smaller non-zero values.</BWT_Priority_Extended_Desc>
+  <BWT_NoPrioritiesConfigured>No priorities configured.</BWT_NoPrioritiesConfigured>
+  <BWT_RuleCountConditionSets>{0} condition set(s)</BWT_RuleCountConditionSets>
+  <BWT_NoConditionsSetShort>No conditions set</BWT_NoConditionsSetShort>
+  <BWT_ClickToSelect>Click to select</BWT_ClickToSelect>
+  <BWT_PriorityInput_Label>Priority:</BWT_PriorityInput_Label>
+  <BWT_KeepPriority>Keep</BWT_KeepPriority>
+  <BWT_PickPriority>Pick...</BWT_PickPriority>
+  <BWT_PriorityInput_Tooltip>Pick or enter a priority from 0 to {0}. The main column only keeps configured or selected priorities visible.</BWT_PriorityInput_Tooltip>
+  <BWT_PriorityPicker_SelectPriority>Select priority</BWT_PriorityPicker_SelectPriority>
+  <BWT_PriorityPicker_Recent>Recent</BWT_PriorityPicker_Recent>
+  <BWT_PriorityPicker_Bucket>Bucket: {0}</BWT_PriorityPicker_Bucket>
+  <BWT_PriorityPicker_BucketHint>Use this when the exact number is not visible in the main list.</BWT_PriorityPicker_BucketHint>
+  <BWT_PriorityPicker_Picked>Picked</BWT_PriorityPicker_Picked>
+  <BWT_PriorityPicker_FooterHint>Esc cancels - Enter confirms - arrows move by one</BWT_PriorityPicker_FooterHint>
 
   <!-- Condition categories -->
   <BWT_Category_Skill>Skill-Based</BWT_Category_Skill>
@@ -74,4 +88,6 @@
   <BWT_NewRule>New Rule</BWT_NewRule>
   <BWT_DuplicateRule>Duplicate Rule</BWT_DuplicateRule>
   <BWT_NoRulesInRuleset>No rules in ruleset</BWT_NoRulesInRuleset>
+  <BWT_DropHere>Drop here to duplicate</BWT_DropHere>
+  <BWT_DragToDuplicate>Drag to duplicate these rules to another work type or priority.</BWT_DragToDuplicate>
 </LanguageData>
