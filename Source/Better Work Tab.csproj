@@ -65,6 +65,12 @@
     <DefineConstants>v0_19</DefineConstants>
     <LangVersion>9.0</LangVersion>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == '0.19' And '$(LegacyRimWorldManagedDir)' == '' And Exists('..\Decompiled\RimWorld\SteamInstall_0.19\RimWorldWin64_Data\Managed\Assembly-CSharp.dll')">
+    <LegacyRimWorldManagedDir>..\Decompiled\RimWorld\SteamInstall_0.19\RimWorldWin64_Data\Managed</LegacyRimWorldManagedDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == '0.19' And '$(LegacyRimWorldManagedDir)' == '' And Exists('D:\Steam Library\steamapps\common\RimWorld\RimWorldWin64_Data\Managed\Assembly-CSharp.dll')">
+    <LegacyRimWorldManagedDir>D:\Steam Library\steamapps\common\RimWorld\RimWorldWin64_Data\Managed</LegacyRimWorldManagedDir>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" Condition="'$(Configuration)' == '1.0' Or '$(Configuration)' == '0.19'" />
     <Reference Include="System.Core" />
@@ -93,19 +99,19 @@
   </ItemGroup>
   <ItemGroup Condition="'$(Configuration)' == '0.19'">
     <Reference Include="Assembly-CSharp">
-      <HintPath>D:\Steam Library\steamapps\common\RimWorld\RimWorldWin64_Data\Managed\Assembly-CSharp.dll</HintPath>
+      <HintPath>$(LegacyRimWorldManagedDir)\Assembly-CSharp.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="Assembly-CSharp-firstpass">
-      <HintPath>D:\Steam Library\steamapps\common\RimWorld\RimWorldWin64_Data\Managed\Assembly-CSharp-firstpass.dll</HintPath>
+      <HintPath>$(LegacyRimWorldManagedDir)\Assembly-CSharp-firstpass.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="UnityEngine">
-      <HintPath>D:\Steam Library\steamapps\common\RimWorld\RimWorldWin64_Data\Managed\UnityEngine.dll</HintPath>
+      <HintPath>$(LegacyRimWorldManagedDir)\UnityEngine.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="UnityEngine.UI">
-      <HintPath>D:\Steam Library\steamapps\common\RimWorld\RimWorldWin64_Data\Managed\UnityEngine.UI.dll</HintPath>
+      <HintPath>$(LegacyRimWorldManagedDir)\UnityEngine.UI.dll</HintPath>
       <Private>False</Private>
     </Reference>
   </ItemGroup>
