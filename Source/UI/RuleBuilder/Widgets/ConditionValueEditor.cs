@@ -1,3 +1,4 @@
+using Better_Work_Tab;
 using Better_Work_Tab.Features.Rules;
 using Better_Work_Tab.UI.RuleBuilder.Services;
 using Better_Work_Tab.UI.RuleBuilder.State;
@@ -54,7 +55,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
             bool newValue = currentValue;
 
             Rect checkRect = new Rect(rect.x + 8f, rect.y + 2f, 24f, 24f);
-            Verse.Widgets.Checkbox(checkRect.x, checkRect.y, ref newValue);
+            WidgetsCompat.Checkbox(checkRect.x, checkRect.y, ref newValue);
 
             if (newValue != currentValue)
             {

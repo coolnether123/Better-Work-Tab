@@ -129,6 +129,19 @@ namespace Better_Work_Tab.Patches
             DrawPriorityLabel(labelRect, label, priority, GameFont.Tiny, TextAnchor.MiddleCenter);
         }
 
+        public static void DrawCenteredPriority(Rect cellRect, int priority)
+        {
+            if (priority <= 0)
+            {
+                return;
+            }
+
+            string label = priority.ToString();
+            GameFont font = label.Length > 1 ? GameFont.Tiny : GameFont.Small;
+            Rect labelRect = new Rect(cellRect.x, cellRect.y, cellRect.width, cellRect.height);
+            DrawPriorityLabel(labelRect, label, priority, font, TextAnchor.MiddleCenter);
+        }
+
         private static void DrawPriorityLabel(Rect labelRect, string label, int priority, GameFont font, TextAnchor anchor)
         {
             var oldFont = Text.Font;

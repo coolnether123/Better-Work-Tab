@@ -3,6 +3,7 @@ using Verse;
 using RimWorld;
 using System.Collections.Generic;
 using Verse.Sound;
+using Better_Work_Tab;
 using Better_Work_Tab.DragDrop;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 
@@ -259,7 +260,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
             if (changed)
             {
                 if (useWorkPriorities)
-                    SoundDefOf.DragSlider.PlayOneShotOnCamera();
+                    UISoundCompat.DragSlider.PlayOneShotOnCamera();
                 else if (button == 0)
                     UISoundCompat.CheckboxTurnedOn.PlayOneShotOnCamera();
                 else

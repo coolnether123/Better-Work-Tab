@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Better_Work_Tab;
 using UnityEngine;
 using Verse;
 using Spine.UI.ColourPicker;
@@ -106,15 +107,7 @@ namespace Spine.UI.SettingsFramework
                 GUI.color = Color.gray;
             }
 
-#if v0_15
-            value = Widgets.HorizontalSlider(
-                sliderRect,
-                value,
-                min,
-                max,
-                middleAlignment: true);
-#else
-            value = Widgets.HorizontalSlider(
+            value = WidgetsCompat.HorizontalSlider(
                 sliderRect,
                 value,
                 min,
@@ -122,7 +115,6 @@ namespace Spine.UI.SettingsFramework
                 middleAlignment: true,
                 leftAlignedLabel: minLabel,
                 rightAlignedLabel: maxLabel);
-#endif
 
             if (disabled)
             {
@@ -164,7 +156,7 @@ namespace Spine.UI.SettingsFramework
                 GUI.color = Color.gray;
             }
 
-            float sliderValue = Widgets.HorizontalSlider(sliderRect, value, min, max, true);
+            float sliderValue = WidgetsCompat.HorizontalSlider(sliderRect, value, min, max, true);
             int rounded = Mathf.RoundToInt(sliderValue);
             if (rounded < min) rounded = min;
             if (rounded > max) rounded = max;

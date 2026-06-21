@@ -291,6 +291,20 @@ namespace Better_Work_Tab
 #endif
             }
         }
+
+        public static SoundDef DragSlider
+        {
+            get
+            {
+#if v0_14
+                return SoundDefOf.TickTiny;
+#elif (v0_18 || v0_17 || v0_16)
+                return SoundDefOf.DragSlider;
+#else
+                return UISoundCompat.DragSlider;
+#endif
+            }
+        }
     }
 
     public static class WorkGiverCompat
@@ -398,10 +412,49 @@ namespace Better_Work_Tab
 
         public static void Checkbox(float x, float y, ref bool checkOn, bool disabled = false, bool paintable = true)
         {
-#if (v0_18 || v0_17 || v0_16)
+#if v0_14
+            Widgets.Checkbox(new Vector2(x, y), ref checkOn, 24f, disabled);
+#elif (v0_18 || v0_17 || v0_16)
             Widgets.Checkbox(x, y, ref checkOn, 24f, disabled);
 #else
             Widgets.Checkbox(x, y, ref checkOn, disabled: disabled, paintable: paintable);
+#endif
+        }
+
+        public static float HorizontalSlider(
+            Rect rect,
+            float value,
+            float min,
+            float max,
+            bool middleAlignment = true,
+            string leftAlignedLabel = null,
+            string rightAlignedLabel = null)
+        {
+#if v0_14
+            return Mathf.Clamp(GUI.HorizontalSlider(rect, value, min, max), min, max);
+#elif v0_15
+            return Widgets.HorizontalSlider(rect, value, min, max, middleAlignment);
+#else
+            return Widgets.HorizontalSlider(
+                rect,
+                value,
+                min,
+                max,
+                middleAlignment: middleAlignment,
+                leftAlignedLabel: leftAlignedLabel,
+                rightAlignedLabel: rightAlignedLabel);
+#endif
+        }
+    }
+
+    public static class WidgetsWorkCompat
+    {
+        public static void DrawWorkBoxFor(float x, float y, Pawn pawn, WorkTypeDef workType, bool incapable)
+        {
+#if v0_14
+            WidgetsWork.DrawWorkBoxFor(new Vector2(x, y), pawn, workType, incapable);
+#else
+            WidgetsWork.DrawWorkBoxFor(x, y, pawn, workType, incapable);
 #endif
         }
     }

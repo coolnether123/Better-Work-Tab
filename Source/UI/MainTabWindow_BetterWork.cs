@@ -1,3 +1,4 @@
+using Better_Work_Tab;
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Mod_Support.Multiplayer;
 #if !v1_2 && !v1_1 && !(v1_0 || v0_19)
@@ -1408,7 +1409,13 @@ namespace Better_Work_Tab.UI
         private const float Legacy016TopAreaHeight = 40f;
         private const float Legacy016VanillaLabelRowHeight = 50f;
         private const float Legacy016AngledLabelRowHeight = 70f;
+#if v0_14
+        private const float Legacy016LeftColumnWidth = 165f;
+        private const float Legacy016CopyPasteWidth = 0f;
+#else
         private const float Legacy016LeftColumnWidth = 201f;
+        private const float Legacy016CopyPasteWidth = 36f;
+#endif
         private float _legacy016WorkColumnSpacing = -1f;
         private readonly List<WorkTypeDef> _legacy016VisibleWorkTypes = new List<WorkTypeDef>();
         private readonly DefMap<WorkTypeDef, Vector2> _legacy016CachedLabelSizes = new DefMap<WorkTypeDef, Vector2>();
@@ -1679,15 +1686,17 @@ namespace Better_Work_Tab.UI
         protected override void DrawPawnRow(Rect rect, Pawn pawn)
         {
             float x = 165f;
+#if !v0_14
             Action pasteAction = null;
             if (Legacy016Clipboard != null)
             {
                 pasteAction = () => Legacy016PasteTo(pawn);
             }
 
-            Rect copyPasteRect = new Rect(x, rect.y, 36f, rect.height);
+            Rect copyPasteRect = new Rect(x, rect.y, Legacy016CopyPasteWidth, rect.height);
             CopyPasteUI.DoCopyPasteButtons(copyPasteRect, () => Legacy016CopyFrom(pawn), pasteAction);
             x = copyPasteRect.xMax;
+#endif
             Text.Font = GameFont.Medium;
             float y = rect.y + 2.5f;
 
@@ -1713,7 +1722,14 @@ namespace Better_Work_Tab.UI
 
             if (pawn.WorkTypeIsDisabled(workType))
             {
-                WidgetsWork.DrawWorkBoxFor(rect.x, rect.y, pawn, workType, incapable);
+                WidgetsWorkCompat.DrawWorkBoxFor(rect.x, rect.y, pawn, workType, incapable);
+                return;
+            }
+
+            bool useManualPriorities = Current.Game?.playSettings?.useWorkPriorities ?? false;
+            if (!useManualPriorities)
+            {
+                WidgetsWorkCompat.DrawWorkBoxFor(rect.x, rect.y, pawn, workType, incapable);
                 return;
             }
 
@@ -1722,19 +1738,18 @@ namespace Better_Work_Tab.UI
 
             if (Mouse.IsOver(rect) && Event.current.type == EventType.MouseDown)
             {
-                bool useManualPriorities = Current.Game.playSettings.useWorkPriorities;
                 int nextPriority = WorkPrioritySystem.GetPriorityAfterMouseButton(currentPriority, Event.current.button, useManualPriorities);
 
                 if (nextPriority != currentPriority)
                 {
                     WorkPrioritySystem.SetPriority(pawn.workSettings, workType, nextPriority);
-                    SoundDefOf.DragSlider.PlayOneShotOnCamera();
+                    UISoundCompat.DragSlider.PlayOneShotOnCamera();
                 }
 
                 Event.current.Use();
             }
 
-            CustomWorkBoxDrawer.DrawCompactPriority(rect, WorkPrioritySystem.GetPriority(pawn.workSettings, workType));
+            CustomWorkBoxDrawer.DrawCenteredPriority(rect, WorkPrioritySystem.GetPriority(pawn.workSettings, workType));
         }
 
         private static bool Legacy016IsIncapableOfWholeWorkType(Pawn pawn, WorkTypeDef work)

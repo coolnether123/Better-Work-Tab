@@ -380,7 +380,7 @@ namespace RimWorld
             if (pawn == null || def?.workType == null)
                 return;
 
-            WidgetsWork.DrawWorkBoxFor(rect.x, rect.y, pawn, def.workType, false);
+            Better_Work_Tab.WidgetsWorkCompat.DrawWorkBoxFor(rect.x, rect.y, pawn, def.workType, false);
         }
 
         public override int GetMinHeaderHeight(PawnTable table)
@@ -481,4 +481,39 @@ namespace RimWorld
         }
     }
 }
+
+#if v0_14
+namespace Better_Work_Tab.UI
+{
+    internal static class UIHighlighter
+    {
+        public static void HighlightOpportunity(Rect rect, string key)
+        {
+        }
+    }
+
+    internal static class CopyPasteUI
+    {
+        public static void DoCopyPasteButtons(Rect rect, Action copyAction, Action pasteAction)
+        {
+            float buttonWidth = Mathf.Max(16f, rect.width / 2f - 1f);
+            Rect copyRect = new Rect(rect.x, rect.y + 2f, buttonWidth, rect.height - 4f);
+            Rect pasteRect = new Rect(copyRect.xMax + 2f, rect.y + 2f, buttonWidth, rect.height - 4f);
+
+            if (Widgets.ButtonText(copyRect, "C"))
+            {
+                copyAction?.Invoke();
+            }
+
+            bool previousEnabled = GUI.enabled;
+            GUI.enabled = pasteAction != null;
+            if (Widgets.ButtonText(pasteRect, "P"))
+            {
+                pasteAction?.Invoke();
+            }
+            GUI.enabled = previousEnabled;
+        }
+    }
+}
+#endif
 #endif

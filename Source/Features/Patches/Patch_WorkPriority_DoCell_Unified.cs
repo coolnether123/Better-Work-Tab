@@ -1,3 +1,4 @@
+using Better_Work_Tab;
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.PawnOrganizer;
@@ -161,7 +162,7 @@ namespace Better_Work_Tab.Patches
                     if (nextPriority != currentPriority)
                     {
                         pawn.workSettings.SetPriority(workType, nextPriority);
-                        SoundDefOf.DragSlider.PlayOneShotOnCamera();
+                        UISoundCompat.DragSlider.PlayOneShotOnCamera();
                     }
                 }
                 else
@@ -170,7 +171,7 @@ namespace Better_Work_Tab.Patches
                     if (nextPriority != currentPriority)
                     {
                         pawn.workSettings.SetPriority(workType, nextPriority);
-                        SoundDefOf.DragSlider.PlayOneShotOnCamera();
+                        UISoundCompat.DragSlider.PlayOneShotOnCamera();
 
                     }
                 }
