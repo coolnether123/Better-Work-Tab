@@ -19,21 +19,41 @@ namespace Better_Work_Tab
     [StaticConstructorOnStartup]
     internal static class Legacy016Bootstrap
     {
+        private static bool initialized;
+        private static bool queuedLongEvents;
+
         static Legacy016Bootstrap()
         {
+            Initialize();
+        }
+
+        internal static void Initialize()
+        {
             BetterWorkTabMod.Settings = Legacy016ModSettingsStore.Get<BetterWorkTabSettings>();
-            LegacyMainTabPatcher.ReplaceWorkTabWindow();
+            if (initialized)
+            {
+                return;
+            }
 
             try
             {
+                LegacyMainTabPatcher.ReplaceWorkTabWindow();
                 new Harmony("Coolnether123.betterworktab").PatchAll();
+                initialized = true;
                 BetterWorkTabMod.DebugLog("Harmony patched successfully.");
             }
             catch (Exception ex)
             {
                 Log.Error($"[Better Work Tab] Harmony failed: {ex}");
+                return;
             }
 
+            if (queuedLongEvents)
+            {
+                return;
+            }
+
+            queuedLongEvents = true;
             LongEventHandler.ExecuteWhenFinished(BetterWorkTabMod.Settings.InitializeRulesets);
             LongEventHandler.ExecuteWhenFinished(() =>
             {

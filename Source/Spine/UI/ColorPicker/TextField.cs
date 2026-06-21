@@ -4,6 +4,9 @@
 using System;
 using UnityEngine;
 using Verse;
+#if vAlpha4
+using Widgets = Better_Work_Tab.Widgets;
+#endif
 
 namespace Spine.UI.ColourPicker
 {

@@ -20,14 +20,14 @@ namespace Better_Work_Tab.Patches
         /// Called after a Thing is spawned. If it's a bed, invalidate the cache.
         /// </summary>
         public static void Postfix(Thing __instance
-#if !v0_15
+#if !v0_15 && !vAlpha4
             , Map map
 #endif
         )
         {
             if (__instance is Building_Bed)
             {
-#if v0_15
+#if v0_15 || vAlpha4
                 Map map = MapCompat.ThingMap(__instance);
 #endif
                 // New bed spawned on this map; drop cache entry so next lookup recalculates
@@ -58,6 +58,7 @@ namespace Better_Work_Tab.Patches
     /// Handle prisoner status changes (bed reassignment between colonist/prisoner use).
     /// If a bed's ForPrisoners flag changes, invalidate cache.
     /// </summary>
+#if !vAlpha4
     [HarmonyPatch(typeof(Building_Bed), nameof(Building_Bed.ForPrisoners), MethodType.Setter)]
     public static class Patch_Building_Bed_ForPrisoners
     {
@@ -83,11 +84,12 @@ namespace Better_Work_Tab.Patches
             }
         }
     }
+#endif
 
     /// <summary>
     /// Clear cache on game load to avoid stale data.
     /// </summary>
-#if !v0_13
+#if !v0_13 && !vAlpha4
 #if v0_15
     [HarmonyPatch(typeof(Game), nameof(Game.LoadData))]
 #else
@@ -105,7 +107,7 @@ namespace Better_Work_Tab.Patches
     /// <summary>
     /// Clear cache when game unloads to free memory.
     /// </summary>
-#if !v0_13
+#if !v0_13 && !vAlpha4
 #if v0_15
     [HarmonyPatch(typeof(MapIniter_NewGame), nameof(MapIniter_NewGame.InitNewGeneratedMap))]
 #else

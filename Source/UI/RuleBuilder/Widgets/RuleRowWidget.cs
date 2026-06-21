@@ -1,6 +1,7 @@
 using Better_Work_Tab.Features.Rules;
 using UnityEngine;
 using Verse;
+using RWWidgets = Better_Work_Tab.WidgetsCompat;
 
 namespace Better_Work_Tab.UI.RuleBuilder.Widgets
 {
@@ -24,21 +25,21 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
             bool isDisabled)
         {
             if (isSelected)
-                Verse.Widgets.DrawHighlightSelected(rect);
+                RWWidgets.DrawHighlightSelected(rect);
             else if (Mouse.IsOver(rect))
-                Verse.Widgets.DrawHighlight(rect);
+                RWWidgets.DrawHighlight(rect);
 
             Rect leftRect = rect.LeftPart(0.6f);
             Rect matchRect = rect.LeftPart(0.8f).RightPart(0.2f);
             Rect controlsRect = rect.RightPart(0.2f);
 
             Text.Anchor = TextAnchor.MiddleLeft;
-            Verse.Widgets.Label(leftRect, $"{indexDisplay}. {rule.Name}");
+            RWWidgets.Label(leftRect, $"{indexDisplay}. {rule.Name}");
             Text.Anchor = TextAnchor.UpperLeft;
 
             var oldColor = GUI.color;
             GUI.color = new Color(0.7f, 0.9f, 0.7f);
-            Verse.Widgets.Label(matchRect, $"{ "BWT_Matches".Translate() } {matchCount}");
+            RWWidgets.Label(matchRect, $"{ "BWT_Matches".Translate() } {matchCount}");
             GUI.color = oldColor;
 
             if (!isDisabled)

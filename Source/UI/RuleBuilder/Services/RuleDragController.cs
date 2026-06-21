@@ -7,6 +7,7 @@ using System.Linq;
 using UnityEngine;
 using Verse;
 using Verse.Sound;
+using RWWidgets = Better_Work_Tab.WidgetsCompat;
 
 namespace Better_Work_Tab.UI.RuleBuilder.Services
 {
@@ -57,7 +58,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
             {
                 // Draw disabled handle
                 GUI.color = new Color(0.3f, 0.3f, 0.3f, 0.5f);
-                Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, new Color(0.2f, 0.2f, 0.2f, 0.3f));
+                RWWidgets.DrawBoxSolid(rect, new Color(0.2f, 0.2f, 0.2f, 0.3f));
                 GUI.color = Color.white;
                 return false;
             }
@@ -66,11 +67,11 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
             
             // Draw handle background
             Color bgColor = isHovered ? HandleHoverColor : HandleBgColor;
-            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, bgColor);
+            RWWidgets.DrawBoxSolid(rect, bgColor);
             
             // Draw border
             GUI.color = HandleBorderColor;
-            Verse.Widgets.DrawBox(rect, 1);
+            RWWidgets.DrawBox(rect, 1);
             GUI.color = Color.white;
             
             // Draw grip lines (visual indicator)
@@ -84,7 +85,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
             for (int i = -1; i <= 1; i++)
             {
                 Rect lineRect = new Rect(startX, centerY + i * lineSpacing - 1f, lineWidth, 2f);
-                Better_Work_Tab.WidgetsCompat.DrawBoxSolid(lineRect, GUI.color);
+                RWWidgets.DrawBoxSolid(lineRect, GUI.color);
             }
             GUI.color = Color.white;
             
@@ -94,7 +95,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
             GUI.color = new Color(0.8f, 0.9f, 1f, isHovered ? 1f : 0.7f);
             // Increased height to 18f and moved up slightly to prevent clipping of descenders
             Rect labelRect = new Rect(rect.x, rect.yMax - 18f, rect.width, 18f);
-            Verse.Widgets.Label(labelRect, "⇄ Drag");
+            RWWidgets.Label(labelRect, "⇄ Drag");
             Text.Anchor = TextAnchor.UpperLeft;
             GUI.color = Color.white;
             
@@ -111,7 +112,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
             {
                 _pendingDrag = true;
                 _mouseDownPos = evt.mousePosition;
-                _dragVisualOffset = evt.mousePosition - rect.position;
+                _dragVisualOffset = evt.mousePosition - new Vector2(rect.x, rect.y);
                 _pendingRules = rules;
                 SourceWorkType = workType;
                 SourcePriority = priority;
@@ -239,8 +240,8 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
             // Determine size based on content
             int rulesCount = DraggedRules.Count;
             string countText = $"{rulesCount} rule{(rulesCount != 1 ? "s" : "")}";
-            string fromText = SourceWorkType != null 
-                ? $"from {SourceWorkType.labelShort}" 
+            string fromText = SourceWorkType != null
+                ? $"from {Better_Work_Tab.WorkTypeCompat.LabelShort(SourceWorkType)}"
                 : "";
             
             float boxWidth = 180f;
@@ -258,29 +259,29 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
                 Rect innerRect = new Rect(0, 0, drawRect.width, drawRect.height);
                 
                 // Background with gradient effect (simulated)
-                Better_Work_Tab.WidgetsCompat.DrawBoxSolid(innerRect, DragBoxBg);
+                RWWidgets.DrawBoxSolid(innerRect, DragBoxBg);
                 
                 // Accent bar on left
                 Rect accentBar = new Rect(0, 0, 4f, innerRect.height);
-                Better_Work_Tab.WidgetsCompat.DrawBoxSolid(accentBar, DragBoxBorder);
+                RWWidgets.DrawBoxSolid(accentBar, DragBoxBorder);
                 
                 // Border
                 GUI.color = DragBoxBorder;
-                Verse.Widgets.DrawBox(innerRect, 2);
+                RWWidgets.DrawBox(innerRect, 2);
                 
                 // Icon area
                 Rect iconRect = new Rect(10f, 8f, 24f, 24f);
                 GUI.color = DragBoxBorder;
                 Text.Font = GameFont.Medium;
                 Text.Anchor = TextAnchor.MiddleCenter;
-                Verse.Widgets.Label(iconRect, "⇄");
+                RWWidgets.Label(iconRect, "⇄");
                 
                 // Main text
                 GUI.color = DragBoxText;
                 Text.Font = GameFont.Small;
                 Text.Anchor = TextAnchor.MiddleLeft;
                 Rect textRect = new Rect(38f, 6f, innerRect.width - 44f, 20f);
-                Verse.Widgets.Label(textRect, "Duplicating " + countText);
+                RWWidgets.Label(textRect, "Duplicating " + countText);
                 
                 // Subtext
                 if (!string.IsNullOrEmpty(fromText))
@@ -288,7 +289,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
                     Text.Font = GameFont.Tiny;
                     GUI.color = new Color(0.7f, 0.8f, 0.9f, 0.8f);
                     Rect subRect = new Rect(38f, 26f, innerRect.width - 44f, 18f);
-                    Verse.Widgets.Label(subRect, fromText);
+                    RWWidgets.Label(subRect, fromText);
                 }
                 
                 Text.Anchor = TextAnchor.UpperLeft;

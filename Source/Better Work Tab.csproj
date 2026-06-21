@@ -110,7 +110,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Alpha4|AnyCPU'">
     <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
     <OutputPath>..\Assemblies\</OutputPath>
-    <DefineConstants>v0_19;v0_16;v0_15;v0_14;v0_13;vAlpha4</DefineConstants>
+    <DefineConstants>v0_19;v0_16;vAlpha4</DefineConstants>
     <LangVersion>9.0</LangVersion>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)' == '0.18' And '$(LegacyRimWorldManagedDir)' == '' And Exists('..\Decompiled\RimWorld\SteamInstall_0.18\RimWorldWin64_Data\Managed\Assembly-CSharp.dll')">
@@ -233,6 +233,8 @@
     <Compile Include="BetterWorkTabLocalState.cs" />
     <Compile Include="Infrastructure\Compatibility.cs" />
     <Compile Include="Infrastructure\Net35Compat.cs" />
+    <Compile Include="Infrastructure\Alpha4Api.cs" />
+    <Compile Include="Infrastructure\Alpha4Bootstrap.cs" />
     <Compile Include="Infrastructure\Legacy016Api.cs" />
     <Compile Include="Infrastructure\LegacyMainTabPatcher.cs" />
     <Compile Include="Infrastructure\PawnTableCompat.cs" />
@@ -245,6 +247,7 @@
     <Compile Include="Features\HighlightState.cs" />
     <Compile Include="Features\Caching\BedCountCache.cs" />
     <Compile Include="Features\Patches\MaxPriorityPatches.cs" />
+    <Compile Include="Features\Patches\Alpha4PriorityPatches.cs" />
     <Compile Include="Features\Patches\Patch_PawnTable_RecacheIfDirty.cs" />
     <Compile Include="Features\Patches\Patch_Pawn_WorkSettings_SetPriority.cs" />
     <Compile Include="Features\Patches\Patch_WorkPriority_DoCell_Unified.cs" />

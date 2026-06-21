@@ -11,7 +11,11 @@ using Verse;
 using Verse.AI;
 using Verse.Sound;
 
-#if v0_13
+#if vAlpha4
+using Pawn_WorkSettings = Verse.AI.Pawn_WorkSettings;
+#endif
+
+#if v0_13 || vAlpha4
 namespace UnityEngine
 {
     public static class ColorUtility
@@ -97,6 +101,11 @@ namespace Verse
         {
             return text ?? string.Empty;
         }
+
+        public static bool CanTranslate(this string text)
+        {
+            return !string.IsNullOrEmpty(text);
+        }
     }
 }
 #endif
@@ -107,7 +116,7 @@ namespace Better_Work_Tab
     {
         public static Color HSVToRGB(float h, float s, float v, bool hdr = false)
         {
-#if v0_13
+#if v0_13 || vAlpha4
             if (s <= 0f)
                 return new Color(v, v, v, 1f);
 
@@ -134,7 +143,7 @@ namespace Better_Work_Tab
 
         public static void RGBToHSV(Color rgb, out float h, out float s, out float v)
         {
-#if v0_13
+#if v0_13 || vAlpha4
             float min = Mathf.Min(rgb.r, Mathf.Min(rgb.g, rgb.b));
             float max = Mathf.Max(rgb.r, Mathf.Max(rgb.g, rgb.b));
             v = max;
@@ -170,7 +179,7 @@ namespace Better_Work_Tab
         {
             get
             {
-#if v0_13
+#if v0_13 || vAlpha4
                 return Faction.OfColony;
 #else
                 return Faction.OfPlayer;
@@ -181,9 +190,48 @@ namespace Better_Work_Tab
 
     public static class PawnCompat
     {
+        public static Pawn_WorkSettings WorkSettings(Pawn pawn)
+        {
+#if vAlpha4
+            return pawn?.WorkSettings;
+#else
+            return pawn?.workSettings;
+#endif
+        }
+
+        public static bool HasEverWork(Pawn pawn)
+        {
+            Pawn_WorkSettings workSettings = WorkSettings(pawn);
+#if vAlpha4
+            return workSettings != null;
+#else
+            return workSettings != null && workSettings.EverWork;
+#endif
+        }
+
+        public static bool IsDead(Pawn pawn)
+        {
+#if vAlpha4
+            return pawn == null;
+#else
+            return pawn?.Dead ?? true;
+#endif
+        }
+
+        public static bool IsDowned(Pawn pawn)
+        {
+#if vAlpha4
+            return pawn?.Incapacitated ?? false;
+#else
+            return pawn?.Downed ?? false;
+#endif
+        }
+
         public static string NameShortColored(Pawn pawn)
         {
-#if v0_13
+#if vAlpha4
+            return pawn?.Label ?? "Pawn";
+#elif v0_13
             return pawn?.LabelBaseShort ?? pawn?.Label ?? "Pawn";
 #elif (v0_18 || v0_17 || v0_16)
             return pawn?.LabelShort ?? "Pawn";
@@ -196,12 +244,88 @@ namespace Better_Work_Tab
 
         public static string LabelShortCap(Pawn pawn)
         {
-#if v0_13
+#if vAlpha4
+            return pawn?.Label?.CapitalizeFirst() ?? "Pawn";
+#elif v0_13
             return pawn?.LabelBaseCap ?? pawn?.LabelCap ?? "Pawn";
 #elif (v0_18 || v0_17 || v0_16)
             return pawn?.LabelShort?.CapitalizeFirst() ?? "Pawn";
 #else
             return pawn?.LabelShortCap ?? pawn?.LabelShort ?? "Pawn";
+#endif
+        }
+    }
+
+    public static class WorkTypeCompat
+    {
+#if vAlpha4
+        private static readonly Dictionary<WorkTypeDef, List<WorkGiverDef>> WorkGiverCache = new Dictionary<WorkTypeDef, List<WorkGiverDef>>();
+#endif
+
+        public static bool IsVisible(WorkTypeDef workType)
+        {
+#if vAlpha4
+            return workType != null;
+#else
+            return workType?.visible ?? false;
+#endif
+        }
+
+        public static string LabelShort(WorkTypeDef workType)
+        {
+            if (workType == null)
+                return string.Empty;
+
+#if vAlpha4
+            if (!string.IsNullOrEmpty(workType.label))
+                return workType.label;
+            if (!string.IsNullOrEmpty(workType.gerundLabel))
+                return workType.gerundLabel;
+            if (!string.IsNullOrEmpty(workType.pawnLabel))
+                return workType.pawnLabel;
+            return workType.defName ?? string.Empty;
+#else
+            return workType.labelShort ?? workType.label ?? workType.defName;
+#endif
+        }
+
+        public static List<WorkGiverDef> WorkGiversByPriority(WorkTypeDef workType)
+        {
+#if vAlpha4
+            if (workType == null)
+                return new List<WorkGiverDef>();
+
+            if (!WorkGiverCache.TryGetValue(workType, out List<WorkGiverDef> workGivers))
+            {
+                workGivers = DefDatabase<WorkGiverDef>.AllDefs
+                    .Where(def => def != null && def.workType == workType)
+                    .OrderBy(def => def.priorityInType)
+                    .ToList();
+                WorkGiverCache[workType] = workGivers;
+            }
+
+            return workGivers;
+#else
+            return workType?.workGiversByPriority ?? new List<WorkGiverDef>();
+#endif
+        }
+
+        public static string WorkGiverLabelCap(WorkGiverDef workGiver)
+        {
+            if (workGiver == null)
+                return string.Empty;
+
+#if vAlpha4
+            string label = workGiver.label;
+            if (string.IsNullOrEmpty(label))
+                label = workGiver.gerund;
+            if (string.IsNullOrEmpty(label))
+                label = workGiver.verb;
+            if (string.IsNullOrEmpty(label))
+                label = workGiver.defName;
+            return label?.CapitalizeFirst() ?? string.Empty;
+#else
+            return workGiver.LabelCap;
 #endif
         }
     }
@@ -212,7 +336,7 @@ namespace Better_Work_Tab
         {
             get
             {
-#if v0_15
+#if v0_15 || vAlpha4
                 return Find.Map;
 #elif (v0_18 || v0_17 || v0_16)
                 return Find.VisibleMap ?? Find.Maps?.FirstOrDefault();
@@ -224,7 +348,9 @@ namespace Better_Work_Tab
 
         public static Map ThingMap(Thing thing)
         {
-#if v0_15
+#if vAlpha4
+            return thing != null && thing.spawnedInWorld ? Find.Map : null;
+#elif v0_15
             return thing?.Spawned == true ? Find.Map : null;
 #else
             return thing?.Map;
@@ -233,7 +359,7 @@ namespace Better_Work_Tab
 
         public static int MapId(Map map)
         {
-#if v0_15
+#if v0_15 || vAlpha4
             return map == null ? -1 : 0;
 #else
             return map?.uniqueID ?? -1;
@@ -301,7 +427,9 @@ namespace Better_Work_Tab
         {
             get
             {
-#if v0_15
+#if vAlpha4
+                return Find.ListerPawns?.AllPawns ?? Enumerable.Empty<Pawn>();
+#elif v0_15
                 return Find.Map?.mapPawns?.AllPawnsSpawned ?? Enumerable.Empty<Pawn>();
 #elif (v0_17 || v0_16)
                 return PawnsFinder.AllMapsAndWorld_Alive;
@@ -316,7 +444,7 @@ namespace Better_Work_Tab
     {
         public static void MarkColonistsDirty()
         {
-#if v0_13
+#if v0_13 || vAlpha4
             return;
 #elif v0_15
             Find.ColonistBar?.MarkColonistsListDirty();
@@ -330,7 +458,7 @@ namespace Better_Work_Tab
     {
         public static int Level(SkillRecord skill)
         {
-#if v0_15
+#if v0_15 || vAlpha4
             return skill?.level ?? 0;
 #else
             return skill?.Level ?? 0;
@@ -342,7 +470,7 @@ namespace Better_Work_Tab
     {
         public static int PositiveMod(int value, int modulus)
         {
-#if v0_15
+#if v0_15 || vAlpha4
             int result = value % modulus;
             return result < 0 ? result + modulus : result;
 #else
@@ -355,7 +483,9 @@ namespace Better_Work_Tab
     {
         public static void Message(string text, MessageTypeDef type, bool historical = false)
         {
-#if (v0_17 || v0_16)
+#if vAlpha4
+            Messages.Message(text, type?.LegacySound ?? MessageSound.Standard);
+#elif (v0_17 || v0_16)
             Messages.Message(text, type?.LegacySound ?? MessageSound.Standard);
 #elif v0_18
             Messages.Message(text, type);
@@ -372,7 +502,9 @@ namespace Better_Work_Tab
 #else
         public static void Message(string text, GlobalTargetInfo target, MessageTypeDef type, bool historical = false)
         {
-#if (v0_17 || v0_16)
+#if vAlpha4
+            Messages.Message(text, type?.LegacySound ?? MessageSound.Standard);
+#elif (v0_17 || v0_16)
             Messages.Message(text, target, type?.LegacySound ?? MessageSound.Standard);
 #elif v0_18
             Messages.Message(text, target, type);
@@ -449,7 +581,7 @@ namespace Better_Work_Tab
         {
             get
             {
-#if v0_14
+#if v0_14 || vAlpha4
                 return SoundDefOf.TickTiny;
 #elif (v0_18 || v0_17 || v0_16)
                 return SoundDefOf.DragSlider;
@@ -476,14 +608,14 @@ namespace Better_Work_Tab
     {
         public static void DemonstrateWorkTab()
         {
-#if !(v0_14 || v0_13)
+#if !(v0_14 || v0_13 || vAlpha4)
             PlayerKnowledgeDatabase.KnowledgeDemonstrated(ConceptDefOf.WorkTab, KnowledgeAmount.SpecificInteraction);
 #endif
         }
 
         public static void DemonstrateManualWorkPriorities()
         {
-#if !(v0_14 || v0_13)
+#if !(v0_14 || v0_13 || vAlpha4)
             PlayerKnowledgeDatabase.KnowledgeDemonstrated(ConceptDefOf.ManualWorkPriorities, KnowledgeAmount.SmallInteraction);
 #endif
         }
@@ -509,7 +641,7 @@ namespace Better_Work_Tab
     {
         public static bool CanBeDoneWhileDrafted(WorkGiverDef workGiver)
         {
-#if (v0_18 || v0_17 || v0_16)
+#if vAlpha4 || (v0_18 || v0_17 || v0_16)
             return false;
 #else
             return workGiver?.canBeDoneWhileDrafted ?? false;
@@ -518,7 +650,9 @@ namespace Better_Work_Tab
 
         public static bool ShouldSkip(WorkGiver_Scanner scanner, Pawn pawn, bool forced)
         {
-#if (v0_18 || v0_17 || v0_16)
+#if vAlpha4
+            return false;
+#elif (v0_18 || v0_17 || v0_16)
             return scanner.ShouldSkip(pawn);
 #else
             return scanner.ShouldSkip(pawn, forced);
@@ -527,7 +661,9 @@ namespace Better_Work_Tab
 
         public static bool HasJobOnCell(WorkGiver_Scanner scanner, Pawn pawn, IntVec3 cell, bool forced)
         {
-#if (v0_18 || v0_17 || v0_16)
+#if vAlpha4
+            return scanner?.StartingJobOn(pawn, cell) != null;
+#elif (v0_18 || v0_17 || v0_16)
             return scanner.HasJobOnCell(pawn, cell);
 #else
             return scanner.HasJobOnCell(pawn, cell, forced);
@@ -536,7 +672,9 @@ namespace Better_Work_Tab
 
         public static Job JobOnCell(WorkGiver_Scanner scanner, Pawn pawn, IntVec3 cell, bool forced)
         {
-#if (v0_18 || v0_17 || v0_16)
+#if vAlpha4
+            return scanner?.StartingJobOn(pawn, cell);
+#elif (v0_18 || v0_17 || v0_16)
             return scanner.JobOnCell(pawn, cell);
 #else
             return scanner.JobOnCell(pawn, cell, forced);
@@ -545,7 +683,9 @@ namespace Better_Work_Tab
 
         public static bool HasJobOnThing(WorkGiver_Scanner scanner, Pawn pawn, Thing thing, bool forced)
         {
-#if (v0_18 || v0_17 || v0_16)
+#if vAlpha4
+            return scanner?.StartingJobForOn(pawn, thing) != null;
+#elif (v0_18 || v0_17 || v0_16)
             return scanner.HasJobOnThing(pawn, thing);
 #else
             return scanner.HasJobOnThing(pawn, thing, forced);
@@ -554,7 +694,9 @@ namespace Better_Work_Tab
 
         public static Job JobOnThing(WorkGiver_Scanner scanner, Pawn pawn, Thing thing, bool forced)
         {
-#if (v0_18 || v0_17 || v0_16)
+#if vAlpha4
+            return scanner?.StartingJobForOn(pawn, thing);
+#elif (v0_18 || v0_17 || v0_16)
             return scanner.JobOnThing(pawn, thing);
 #else
             return scanner.JobOnThing(pawn, thing, forced);
@@ -563,7 +705,7 @@ namespace Better_Work_Tab
 
         public static void TryPlaceForceFeedback(WorkGiverDef workGiver, IntVec3 clickedCell, Map map)
         {
-#if !(v0_18 || v0_17 || v0_16)
+#if !(v0_18 || v0_17 || v0_16 || vAlpha4)
             if (workGiver?.forceMote != null)
             {
                 MoteMaker.MakeStaticMote(clickedCell, map, workGiver.forceMote);
@@ -771,7 +913,9 @@ namespace Better_Work_Tab
 
         public static void CheckboxLabeled(Rect rect, string label, ref bool checkOn, bool disabled = false)
         {
-#if v0_13
+#if vAlpha4
+            Widgets.CheckboxLabeled(rect, label, ref checkOn, disabled);
+#elif v0_13
             Widgets.LabelCheckbox(rect, label, ref checkOn, disabled);
 #else
             Widgets.CheckboxLabeled(rect, label, ref checkOn, disabled);
@@ -824,7 +968,9 @@ namespace Better_Work_Tab
 
         public static void Checkbox(float x, float y, ref bool checkOn, bool disabled = false, bool paintable = true)
         {
-#if v0_14
+#if vAlpha4
+            Widgets.Checkbox(x, y, ref checkOn, disabled, paintable);
+#elif v0_14
             Widgets.Checkbox(new Vector2(x, y), ref checkOn, 24f, disabled);
 #elif (v0_18 || v0_17 || v0_16)
             Widgets.Checkbox(x, y, ref checkOn, 24f, disabled);
@@ -863,7 +1009,9 @@ namespace Better_Work_Tab
     {
         public static void DrawWorkBoxFor(float x, float y, Pawn pawn, WorkTypeDef workType, bool incapable)
         {
-#if v0_13 || v0_14
+#if vAlpha4
+            WidgetsWork.DrawWorkBoxFor(new Vector2(x, y), pawn, workType);
+#elif v0_13 || v0_14
             WidgetsWork.DrawWorkBoxFor(new Vector2(x, y), pawn, workType, incapable);
 #else
             WidgetsWork.DrawWorkBoxFor(x, y, pawn, workType, incapable);
@@ -892,7 +1040,9 @@ namespace Better_Work_Tab
     {
         public static void InitLoading(string path)
         {
-#if v0_16
+#if vAlpha4
+            return;
+#elif v0_16
             Scribe.InitLoading(path);
 #else
             Scribe.loader.InitLoading(path);
@@ -901,7 +1051,9 @@ namespace Better_Work_Tab
 
         public static void FinalizeLoading()
         {
-#if v0_16
+#if vAlpha4
+            return;
+#elif v0_16
             if (Scribe.mode == LoadSaveMode.LoadingVars)
             {
                 Scribe.FinalizeLoading();
@@ -913,7 +1065,9 @@ namespace Better_Work_Tab
 
         public static void InitSaving(string path, string documentElementName)
         {
-#if v0_16
+#if vAlpha4
+            return;
+#elif v0_16
             Scribe.InitWriting(path, documentElementName);
 #else
             Scribe.saver.InitSaving(path, documentElementName);
@@ -922,7 +1076,9 @@ namespace Better_Work_Tab
 
         public static void FinalizeSaving()
         {
-#if v0_16
+#if vAlpha4
+            return;
+#elif v0_16
             if (Scribe.mode == LoadSaveMode.Saving)
             {
                 Scribe.FinalizeWriting();
@@ -937,7 +1093,7 @@ namespace Better_Work_Tab
     {
         private static bool TryEnterNode(string label)
         {
-#if v0_13
+#if v0_13 || vAlpha4
             Scribe.EnterNode(label);
             return true;
 #else
@@ -949,7 +1105,7 @@ namespace Better_Work_Tab
         {
             get
             {
-#if v0_15
+#if v0_15 || vAlpha4
                 return LookMode.DefReference;
 #else
                 return LookMode.Def;
@@ -1040,7 +1196,9 @@ namespace Better_Work_Tab
 
         public static void LookDeep<T>(ref T target, string label, params object[] ctorArgs)
         {
-#if v0_16
+#if vAlpha4
+            return;
+#elif v0_16
             Scribe_Deep.LookDeep(ref target, label, ctorArgs);
 #else
             Scribe_Deep.Look(ref target, label, ctorArgs);
@@ -1048,9 +1206,10 @@ namespace Better_Work_Tab
         }
 
         public static void LookReference<T>(ref T reference, string label, bool saveDestroyedThings = false)
-            where T : ILoadReferenceable
         {
-#if v0_16
+#if vAlpha4
+            return;
+#elif v0_16
             Scribe_References.LookReference(ref reference, label, saveDestroyedThings);
 #else
             Scribe_References.Look(ref reference, label, saveDestroyedThings);
@@ -1131,7 +1290,7 @@ namespace Better_Work_Tab
     {
         public static ModMetaData GetActiveModWithIdentifier(string packageId)
         {
-#if v0_13
+#if v0_13 || vAlpha4
             return null;
 #elif (v1_0 || v0_19)
             if (string.IsNullOrEmpty(packageId))
@@ -1149,7 +1308,7 @@ namespace Better_Work_Tab
 #endif
         }
 
-#if !v0_13 && (v1_0 || v0_19)
+#if !v0_13 && !vAlpha4 && (v1_0 || v0_19)
         private static bool MatchesIdentifier(ModMetaData mod, string packageId)
         {
             if (string.Equals(mod.Identifier, packageId, StringComparison.OrdinalIgnoreCase))
@@ -1218,7 +1377,11 @@ namespace RimWorld
 
     public static class MessageTypeDefOf
     {
+#if vAlpha4
+        public static readonly MessageTypeDef RejectInput = new MessageTypeDef(MessageSound.Reject);
+#else
         public static readonly MessageTypeDef RejectInput = new MessageTypeDef(MessageSound.RejectInput);
+#endif
         public static readonly MessageTypeDef PositiveEvent = new MessageTypeDef(MessageSound.Benefit);
     }
 #endif
@@ -1227,6 +1390,11 @@ namespace RimWorld
     {
         public static void NotifyAllPawnTables_PawnsChanged()
         {
+#if vAlpha4
+            // Alpha4 does not expose a modern WindowStack/MainTabWindow_PawnTable surface.
+            // The Alpha4 work tab pulls pawn rows directly from Find.ListerPawns each draw.
+            return;
+#else
             if (Find.WindowStack == null)
                 return;
 
@@ -1238,6 +1406,7 @@ namespace RimWorld
                     table.Notify_PawnsChanged();
                 }
             }
+#endif
         }
     }
 }

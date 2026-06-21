@@ -21,7 +21,11 @@ namespace Better_Work_Tab.Features.Workloads
         protected override AcceptanceReport NameIsValid(string name)
         {
             var result = base.NameIsValid(name);
+#if vAlpha4
+            if (string.IsNullOrEmpty(name))
+#else
             if (!result.Accepted)
+#endif
             {
                 return result;
             }

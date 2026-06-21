@@ -14,6 +14,17 @@ namespace Better_Work_Tab.Patches
     /// Older APIs build options in different FloatMenuMakerMap methods, so we
     /// add our extras in a postfix while keeping vanilla options intact.
     /// </summary>
+#if vAlpha4
+    [HarmonyPatch(typeof(FloatMenuMaker), "ChoicesAtFor")]
+    public static class Patch_FloatMenuMakerMap_AddJobGiverWorkOrders
+    {
+        public static void Postfix(IntVec3 clickSq, Pawn myPawn, List<FloatMenuOption> __result)
+        {
+            // Alpha4 builds work options directly from JobGiver_WorkRoot inside Verse.FloatMenuMaker.
+            // BWT's work-tab integration is still applied through the tab and priority shims.
+        }
+    }
+#else
 #if !v0_15
 #if v0_18 || v0_17 || v0_16
     [HarmonyPatch(typeof(FloatMenuMakerMap), "ChoicesAtFor")]
@@ -42,7 +53,7 @@ namespace Better_Work_Tab.Patches
         private static void AddNotAssignedWorkOptions(IntVec3 clickCell, Pawn pawn, List<FloatMenuOption> opts, bool drafted)
         {
             // Only relevant if work settings exist.
-            if (pawn?.workSettings == null)
+            if (Better_Work_Tab.PawnCompat.WorkSettings(pawn) == null)
             {
                 return;
             }
@@ -54,12 +65,12 @@ namespace Better_Work_Tab.Patches
 
             foreach (WorkTypeDef workType in DefDatabase<WorkTypeDef>.AllDefsListForReading)
             {
-                if (pawn.workSettings.GetPriority(workType) != 0 || pawn.WorkTypeIsDisabled(workType))
+                if (Better_Work_Tab.PawnCompat.WorkSettings(pawn).GetPriority(workType) != 0 || pawn.WorkTypeIsDisabled(workType))
                 {
                     continue;
                 }
 
-                foreach (WorkGiverDef workGiver in workType.workGiversByPriority)
+                foreach (WorkGiverDef workGiver in Better_Work_Tab.WorkTypeCompat.WorkGiversByPriority(workType))
                 {
                     if (drafted && !WorkGiverCompat.CanBeDoneWhileDrafted(workGiver))
                     {
@@ -228,5 +239,6 @@ namespace Better_Work_Tab.Patches
     {
         public static MainButtonDef Work;
     }
+#endif
 #endif
 }

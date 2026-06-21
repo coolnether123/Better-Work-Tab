@@ -2,6 +2,9 @@ using System;
 using RimWorld;
 using UnityEngine;
 using Verse;
+#if vAlpha4
+using Pawn_WorkSettings = Verse.AI.Pawn_WorkSettings;
+#endif
 
 namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 {
@@ -73,6 +76,26 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             return currentPriority > DisabledPriority
                 ? DisabledPriority
                 : GetDefaultEnabledPriority();
+        }
+
+        internal static int GetPriorityAfterHeaderMouseButton(int currentPriority, int button, bool useManualPriorities)
+        {
+            if (useManualPriorities)
+            {
+                return GetPriorityAfterMouseButton(currentPriority, button);
+            }
+
+            if (button == 0)
+            {
+                return GetDefaultEnabledPriority();
+            }
+
+            if (button == 1)
+            {
+                return DisabledPriority;
+            }
+
+            return ClampPriority(currentPriority);
         }
 
         internal static int GetPriorityAfterMouseButton(int currentPriority, int button)

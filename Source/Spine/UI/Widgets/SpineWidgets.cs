@@ -12,6 +12,9 @@ using UnityEngine;
 using Verse;
 using Verse.Sound;
 using static HarmonyLib.Code;
+#if vAlpha4
+using Find = Better_Work_Tab.Find;
+#endif
 
 namespace Spine.UI.WidgetExtensions
 {

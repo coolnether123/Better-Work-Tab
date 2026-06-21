@@ -335,6 +335,19 @@ namespace Better_Work_Tab.UI
                 Rect delRect = new Rect(rect.xMax - 24f, rect.y + 4f, 24f, 24f);
                 if (Better_Work_Tab.WidgetsCompat.ButtonImage(delRect, TexButton.DeleteX, Color.white, GenUI.MouseoverColor))
                 {
+#if vAlpha4
+                    Find.WindowStack.Add(new FloatMenu(new List<FloatMenuOption>
+                    {
+                        new FloatMenuOption($"Delete {ruleset.Name}?", () =>
+                        {
+                            _items.Remove(ruleset);
+                            if (SelectedRuleset == ruleset)
+                                SelectedRuleset = null;
+                            BetterWorkTabMod.Settings.Write();
+                        }),
+                        new FloatMenuOption("Cancel".Translate(), delegate { })
+                    }));
+#else
                     Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
                         $"Delete {ruleset.Name}?",
                         () =>
@@ -345,6 +358,7 @@ namespace Better_Work_Tab.UI
                             BetterWorkTabMod.Settings.Write();
                         },
                         destructive: true));
+#endif
                 }
             }
         }

@@ -13,7 +13,8 @@ namespace Better_Work_Tab.Features.Workloads
         public Worklist(string name)
         {
             RenamableLabel = name;
-            foreach (var pawn in MapCompat.CurrentMap.mapPawns.FreeColonists)
+            foreach (var pawn in PawnsFinderCompat.AllMapsWorldAndTemporaryAlive
+                .Where(p => p != null && p.Faction == FactionCompat.OfPlayer))
             {
                 PawnWorklists.Add(new PawnWorkload(pawn));
             }

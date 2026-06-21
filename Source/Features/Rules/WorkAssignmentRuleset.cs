@@ -79,7 +79,9 @@ namespace Better_Work_Tab.Features
 
             Find.PlaySettings.useWorkPriorities = true;
 
-            var pawns = map.mapPawns.FreeColonists.ToList();
+            var pawns = PawnsFinderCompat.AllMapsWorldAndTemporaryAlive
+                .Where(pawn => pawn != null && pawn.Faction == FactionCompat.OfPlayer)
+                .ToList();
             if (pawns.Count == 0) return;
 
             var allWorkTypes = CachedWorkTypes;
@@ -108,8 +110,8 @@ namespace Better_Work_Tab.Features
                     //Log.Message($"Auto-assigning work type: {worktype.defName}");
                     foreach (var pawn in pawns)
                     {
-                        if (pawn.workSettings == null) continue;
-                        int originalPriority = pawn.workSettings.GetPriority(worktype);
+                        if (Better_Work_Tab.PawnCompat.WorkSettings(pawn) == null) continue;
+                        int originalPriority = Better_Work_Tab.PawnCompat.WorkSettings(pawn).GetPriority(worktype);
                         bool pawnAlreadyAssigned = originalPriority > 0;
                         //// Apply all rules
                         if (rule.Apply(pawn, pawns, worktype))
@@ -120,7 +122,7 @@ namespace Better_Work_Tab.Features
                         }
                         if (rule.Parameters.RandomIfMultiple)
                         {
-                            int updatedPriority = pawn.workSettings.GetPriority(worktype);
+                            int updatedPriority = Better_Work_Tab.PawnCompat.WorkSettings(pawn).GetPriority(worktype);
                             if (updatedPriority > 0 && !pawnAlreadyAssigned)
                             {
                                 //this was assigned. add to list for potential randomization later.
@@ -138,8 +140,8 @@ namespace Better_Work_Tab.Features
                         foreach (var p in pawnsForThisWorktype)
                         {
                             BetterWorkTabMod.DebugLog($"Resetting {worktype.defName} for {PawnCompat.NameShortColored(p)} before random assignment.", DebugFeature.Rules);
-                            //if (p.workSettings.GetPriority(worktype) == rule.Parameters.Priority)
-                            p.workSettings.SetPriority(worktype, 0);
+                            //if (Better_Work_Tab.PawnCompat.WorkSettings(p).GetPriority(worktype) == rule.Parameters.Priority)
+                            Better_Work_Tab.PawnCompat.WorkSettings(p).SetPriority(worktype, 0);
                         }
                         // Mirrors vanilla RimWorld's selection logic for picking one pawn among eligible candidates.
                         List<Pawn> eligiblePawns = new List<Pawn>();
@@ -153,14 +155,15 @@ namespace Better_Work_Tab.Features
 
                         if (eligiblePawns.Count > 0)
                         {
-                            eligiblePawns.RandomElement().workSettings.SetPriority(
+                            Pawn selectedPawn = eligiblePawns.RandomElement();
+                            Better_Work_Tab.PawnCompat.WorkSettings(selectedPawn).SetPriority(
                                 worktype,
                                 WorkPrioritySystem.ClampPriority(rule.Parameters.Priority)
                             );
                         }
                     }
 
-                    //if (rule.Parameters.FailedToApplyFallback != null && !pawns.Where(p => { return p.workSettings.GetPriority(worktype) > 0; }).Any())
+                    //if (rule.Parameters.FailedToApplyFallback != null && !pawns.Where(p => { return Better_Work_Tab.PawnCompat.WorkSettings(p).GetPriority(worktype) > 0; }).Any())
                     //{
                     //    Log.Message($"No pawn could be assigned to work type: {worktype.defName}. Applying fallback.");
                     //    foreach (var pawn in pawns)

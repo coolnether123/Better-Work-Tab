@@ -1036,11 +1036,11 @@ namespace Better_Work_Tab.UI.Settings
                     Type = SettingType.DropdownListAdder,
                     DropdownOptionsProvider = () => DefDatabase<WorkTypeDef>.AllDefsListForReading
                         .Where(wt => !settings.hiddenWorktypes.Contains(wt.defName))
-                        .Select(w => w.labelShort.CapitalizeFirst())
+                        .Select(w => Better_Work_Tab.WorkTypeCompat.LabelShort(w).CapitalizeFirst())
                         .OrderBy(l => l),
                     OnOptionAdded = (option) =>
                     {
-                        var wt = DefDatabase<WorkTypeDef>.AllDefsListForReading.FirstOrDefault(w => w.labelShort.CapitalizeFirst() == option);
+                        var wt = DefDatabase<WorkTypeDef>.AllDefsListForReading.FirstOrDefault(w => Better_Work_Tab.WorkTypeCompat.LabelShort(w).CapitalizeFirst() == option);
                         if (wt != null && !settings.hiddenWorktypes.Contains(wt.defName))
                         {
                             settings.hiddenWorktypes.Add(wt.defName);
@@ -1066,7 +1066,7 @@ namespace Better_Work_Tab.UI.Settings
                     {
                         Id = "hide.wt." + hiddenDefName,
                         ParentId = HideWorktypes,
-                        Label = "  - " + wt.labelShort.CapitalizeFirst(),
+                        Label = "  - " + Better_Work_Tab.WorkTypeCompat.LabelShort(wt).CapitalizeFirst(),
                         Tooltip = "Click to unhide this work type.",
                         Type = SettingType.Button,
                         OnChanged = (s) =>
@@ -1815,12 +1815,25 @@ namespace Better_Work_Tab.UI.Settings
                 {
                     if (settingsObj is BetterWorkTabSettings settings)
                     {
+#if vAlpha4
+                        Find.WindowStack.Add(new FloatMenu(new List<FloatMenuOption>
+                        {
+                            new FloatMenuOption("Confirm Restore", () =>
+                            {
+                                settings.RestoreDefaults();
+                                settings.Write();
+                                MessageCompat.Message("Factory defaults restored.", MessageTypeDefOf.PositiveEvent, false);
+                            }),
+                            new FloatMenuOption("Cancel".Translate(), delegate { })
+                        }));
+#else
                         Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation("Are you sure you want to restore factory defaults? current settings will be lost.", () =>
                         {
                             settings.RestoreDefaults();
                             settings.Write();
                             MessageCompat.Message("Factory defaults restored.", MessageTypeDefOf.PositiveEvent, false);
                         }, true, "Confirm Restore"));
+#endif
                     }
                 }
             });

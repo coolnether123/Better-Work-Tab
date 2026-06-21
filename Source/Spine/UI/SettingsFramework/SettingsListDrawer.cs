@@ -176,14 +176,14 @@ namespace Spine.UI.SettingsFramework
                     }
                 }
 
-                Widgets.Label(rect, emptyLabel);
+                Better_Work_Tab.WidgetsCompat.Label(rect, emptyLabel);
                 return;
             }
 
             float viewHeight = visibleSettings.Count * RowHeight;
             Rect viewRect = new Rect(0f, 0f, rect.width - 16f, viewHeight);
 
-            Widgets.BeginScrollView(rect, ref _scrollPosition, viewRect);
+            Better_Work_Tab.WidgetsCompat.BeginScrollView(rect, ref _scrollPosition, viewRect);
 
             float curY = 0f;
             foreach (var def in visibleSettings)
@@ -196,7 +196,7 @@ namespace Spine.UI.SettingsFramework
                 curY += RowHeight;
             }
 
-            Widgets.EndScrollView();
+            Better_Work_Tab.WidgetsCompat.EndScrollView();
         }
 
         /// <summary>
@@ -212,7 +212,7 @@ namespace Spine.UI.SettingsFramework
         {
             if (Mouse.IsOver(rect))
             {
-                Widgets.DrawHighlight(rect);
+                Better_Work_Tab.WidgetsCompat.DrawHighlight(rect);
             }
 
             string label = GetLabel?.Invoke(def) ?? def.Label ?? def.Id;
@@ -304,7 +304,7 @@ namespace Spine.UI.SettingsFramework
                                     onSelected?.Invoke(newColor);
                                 });
 
-                                Find.WindowStack.Add(dialog);
+                                Better_Work_Tab.Find.WindowStack.Add(dialog);
                             }, EditColorLabel);
                     }
                     break;

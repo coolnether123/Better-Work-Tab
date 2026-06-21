@@ -64,7 +64,7 @@ namespace Better_Work_Tab.Patches
 
         private static Rect GetLabelRect(PawnColumnWorker_WorkPriority worker, Rect headerRect)
         {
-            Vector2 labelSize = Text.CalcSize(worker.def.workType.labelShort.CapitalizeFirst());
+            Vector2 labelSize = Text.CalcSize(Better_Work_Tab.WorkTypeCompat.LabelShort(worker.def.workType).CapitalizeFirst());
             Rect labelRect = new Rect(
                 headerRect.center.x - labelSize.x / 2f,
                 headerRect.y,
@@ -141,7 +141,7 @@ namespace Better_Work_Tab.Patches
             if (!UI.Headers.PawnColumnWorker_WorkPriority_DoHeader_Patch.IsWorkTab())
                 return true;
 
-            if (pawn == null || pawn.Dead || pawn.workSettings == null || !pawn.workSettings.EverWork)
+            if (pawn == null || Better_Work_Tab.PawnCompat.IsDead(pawn) || Better_Work_Tab.PawnCompat.WorkSettings(pawn) == null || !Better_Work_Tab.PawnCompat.HasEverWork(pawn))
                 return true;
 
             WorkTypeDef workType = __instance.def.workType;
@@ -153,7 +153,7 @@ namespace Better_Work_Tab.Patches
             // Handle Scroll Wheel Priority Adjustment
             if (BetterWorkTabMod.Settings.enableScrollWheelPriority && Event.current.type == EventType.ScrollWheel && Mouse.IsOver(rect))
             {
-                int currentPriority = pawn.workSettings.GetPriority(workType);
+                int currentPriority = Better_Work_Tab.PawnCompat.WorkSettings(pawn).GetPriority(workType);
                 int delta = Event.current.delta.y > 0 ? -1 : 1;
                 if (Find.PlaySettings.useWorkPriorities)
                 {
@@ -161,7 +161,7 @@ namespace Better_Work_Tab.Patches
 
                     if (nextPriority != currentPriority)
                     {
-                        pawn.workSettings.SetPriority(workType, nextPriority);
+                        Better_Work_Tab.PawnCompat.WorkSettings(pawn).SetPriority(workType, nextPriority);
                         UISoundCompat.DragSlider.PlayOneShotOnCamera();
                     }
                 }
@@ -170,7 +170,7 @@ namespace Better_Work_Tab.Patches
                     int nextPriority = (currentPriority > 0) ? 0 : 3;
                     if (nextPriority != currentPriority)
                     {
-                        pawn.workSettings.SetPriority(workType, nextPriority);
+                        Better_Work_Tab.PawnCompat.WorkSettings(pawn).SetPriority(workType, nextPriority);
                         UISoundCompat.DragSlider.PlayOneShotOnCamera();
 
                     }
@@ -251,7 +251,7 @@ namespace Better_Work_Tab.Patches
                 return;
 
             WorkTypeDef workType = __instance.def.workType;
-            if (pawn == null || pawn.Dead || workType == null)
+            if (pawn == null || Better_Work_Tab.PawnCompat.IsDead(pawn) || workType == null)
                 return;
 
             if (pawn.WorkTypeIsDisabled(workType))
@@ -273,7 +273,7 @@ namespace Better_Work_Tab.Patches
             if (workType.relevantSkills == null || workType.relevantSkills.Count == 0)
                 return;
 
-            int priority = pawn.workSettings.GetPriority(workType);
+            int priority = Better_Work_Tab.PawnCompat.WorkSettings(pawn).GetPriority(workType);
             int skillLevel = GetSkillLevel(pawn, workType);
             bool hoveringCell = Mouse.IsOver(rect);
             
@@ -334,6 +334,9 @@ namespace Better_Work_Tab.Patches
 
         private static bool GetIsIncapable(Pawn p, WorkTypeDef work)
         {
+#if vAlpha4
+            return false;
+#else
             int key = (p.thingIDNumber << 16) | work.shortHash;
             int currentFrame = Time.frameCount;
             var settings = BetterWorkTabMod.Settings;
@@ -349,10 +352,10 @@ namespace Better_Work_Tab.Patches
             }
 
             bool canDoAny = false;
-            for (int i = 0; i < work.workGiversByPriority.Count; i++)
+            for (int i = 0; i < Better_Work_Tab.WorkTypeCompat.WorkGiversByPriority(work).Count; i++)
             {
                 bool thisGiverOk = true;
-                var reqs = work.workGiversByPriority[i].requiredCapacities;
+                var reqs = Better_Work_Tab.WorkTypeCompat.WorkGiversByPriority(work)[i].requiredCapacities;
                 for (int j = 0; j < reqs.Count; j++)
                 {
                     if (!p.health.capacities.CapableOf(reqs[j]))
@@ -375,6 +378,7 @@ namespace Better_Work_Tab.Patches
                 _incapableCacheTimestamps[key] = currentFrame;
             }
             return isIncapable;
+#endif
         }
 
         private static int GetSkillLevel(Pawn pawn, WorkTypeDef workType)
@@ -420,7 +424,7 @@ namespace Better_Work_Tab.Patches
                 if (currentFrame - timestamp < BestPawnCacheFrameValidity)
                 {
                     Pawn cached = _bestPawnCache[key];
-                    if (cached != null && !cached.Dead && MapCompat.ThingMap(cached) != null)
+                    if (cached != null && !Better_Work_Tab.PawnCompat.IsDead(cached) && MapCompat.ThingMap(cached) != null)
                         return cached;
                 }
             }
@@ -430,7 +434,7 @@ namespace Better_Work_Tab.Patches
             for (int i = 0; i < pawns.Count; i++)
             {
                 Pawn p = pawns[i];
-                if (p.Dead || p.workSettings == null || !p.workSettings.EverWork) continue;
+                if (Better_Work_Tab.PawnCompat.IsDead(p) || Better_Work_Tab.PawnCompat.WorkSettings(p) == null || !Better_Work_Tab.PawnCompat.HasEverWork(p)) continue;
                 if (p.WorkTypeIsDisabled(workType)) continue;
                 if (GetIsIncapable(p, workType)) continue;
 
@@ -574,7 +578,7 @@ namespace Better_Work_Tab.Patches
             Color outlineCol = BetterWorkTabMod.Settings.Color_BestPawnForSkillSquare;
             Color oldCol = GUI.color;
             GUI.color = outlineCol;
-            Verse.Widgets.DrawBox(outlineRect, (uint)BetterWorkTabMod.Settings.bestPawnHighlightThickness > 0 ? (int)BetterWorkTabMod.Settings.bestPawnHighlightThickness : 1);
+            Better_Work_Tab.WidgetsCompat.DrawBox(outlineRect, (uint)BetterWorkTabMod.Settings.bestPawnHighlightThickness > 0 ? (int)BetterWorkTabMod.Settings.bestPawnHighlightThickness : 1);
             GUI.color = oldCol;
 #else
             Better_Work_Tab.WidgetsCompat.DrawBoxSolidWithOutline(
@@ -593,10 +597,10 @@ namespace Better_Work_Tab.Patches
 
             Color highlightColor = BetterWorkTabMod.Settings.Color_BestPawnForSkillSquare;
             highlightColor.a = 0.5f; // Semi-transparent background
-            GUI.DrawTexture(boxRect, BaseContent.WhiteTex);
+            GUI.DrawTexture(boxRect, GenUI.WhiteTex);
             Color oldColor = GUI.color;
             GUI.color = highlightColor;
-            GUI.DrawTexture(boxRect, BaseContent.WhiteTex);
+            GUI.DrawTexture(boxRect, GenUI.WhiteTex);
             GUI.color = oldColor;
         }
 
@@ -661,13 +665,13 @@ namespace Better_Work_Tab.Patches
                     return false;
                 }
 
-                bool wasActive = pawn.workSettings.WorkIsActive(workType);
-                int currentPriority = pawn.workSettings.GetPriority(workType);
+                bool wasActive = Better_Work_Tab.PawnCompat.WorkSettings(pawn).WorkIsActive(workType);
+                int currentPriority = Better_Work_Tab.PawnCompat.WorkSettings(pawn).GetPriority(workType);
                 int nextPriority = WorkPrioritySystem.GetPriorityAfterMouseButton(currentPriority, evt.button);
 
                 if (nextPriority != currentPriority)
                 {
-                    pawn.workSettings.SetPriority(workType, nextPriority);
+                    Better_Work_Tab.PawnCompat.WorkSettings(pawn).SetPriority(workType, nextPriority);
                     UISoundCompat.DragSlider.PlayOneShotOnCamera();
                 }
 
@@ -683,15 +687,15 @@ namespace Better_Work_Tab.Patches
                 return false;
             }
 
-            bool wasEnabled = pawn.workSettings.WorkIsActive(workType);
-            if (pawn.workSettings.GetPriority(workType) > 0)
+            bool wasEnabled = Better_Work_Tab.PawnCompat.WorkSettings(pawn).WorkIsActive(workType);
+            if (Better_Work_Tab.PawnCompat.WorkSettings(pawn).GetPriority(workType) > 0)
             {
-                pawn.workSettings.SetPriority(workType, 0);
+                Better_Work_Tab.PawnCompat.WorkSettings(pawn).SetPriority(workType, 0);
                 UISoundCompat.CheckboxTurnedOff.PlayOneShotOnCamera();
             }
             else
             {
-                pawn.workSettings.SetPriority(workType, WorkPrioritySystem.GetDefaultEnabledPriority());
+                Better_Work_Tab.PawnCompat.WorkSettings(pawn).SetPriority(workType, WorkPrioritySystem.GetDefaultEnabledPriority());
                 UISoundCompat.CheckboxTurnedOn.PlayOneShotOnCamera();
             }
 
@@ -703,7 +707,7 @@ namespace Better_Work_Tab.Patches
 
         private static void NotifyWorkActivatedIfNeeded(Pawn pawn, WorkTypeDef workType, bool wasActive)
         {
-            if (wasActive || !pawn.workSettings.WorkIsActive(workType))
+            if (wasActive || !Better_Work_Tab.PawnCompat.WorkSettings(pawn).WorkIsActive(workType))
             {
                 return;
             }

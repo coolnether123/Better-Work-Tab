@@ -57,13 +57,17 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
             // Trait
             if (p.RequiredTrait != null)
             {
+#if vAlpha4
+                parts.Add("Trait");
+#else
                 string traitName = TraitCompat.LabelCap(p.RequiredTrait.Item1?.DataAtDegree(p.RequiredTrait.Item2))
                     ?? "Trait";
                 parts.Add(traitName);
+#endif
             }
 
             // Xenotype
-#if !v1_3 && !v1_2 && !v1_1 && !(v1_0 || v0_19)
+#if !vAlpha4 && !v1_3 && !v1_2 && !v1_1 && !(v1_0 || v0_19)
             if (p.Xenotype != null)
                 parts.Add(p.Xenotype.LabelCap);
 #endif

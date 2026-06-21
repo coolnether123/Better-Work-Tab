@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using Verse;
+using RWWidgets = Better_Work_Tab.WidgetsCompat;
 
 namespace Better_Work_Tab.UI.RuleBuilder.Panels
 {
@@ -78,7 +79,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
                 rect.y,
                 rect.width * 0.6f,
                 rect.height);
-            Verse.Widgets.Label(titleRect, "BWT_Step1_Title".Translate());
+            RWWidgets.Label(titleRect, "BWT_Step1_Title".Translate());
 
             Text.Font = GameFont.Small;
             GUI.color = Color.gray;
@@ -87,7 +88,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
                 rect.y,
                 rect.width - titleRect.width - RuleBuilderConstants.PanelPadding,
                 rect.height);
-            Verse.Widgets.Label(subtitleRect, "BWT_Step1_Subtitle".Translate());
+            RWWidgets.Label(subtitleRect, "BWT_Step1_Subtitle".Translate());
 
             Text.Font = oldFont;
             Text.Anchor = oldAnchor;
@@ -141,7 +142,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             float contentHeight = rows * (RuleBuilderConstants.WorkTypeCardHeight + RuleBuilderConstants.CardSpacing);
 
             Rect viewRect = new Rect(0f, 0f, rect.width - 20f, contentHeight);
-            Verse.Widgets.BeginScrollView(rect, ref _scrollPosition, viewRect);
+            RWWidgets.BeginScrollView(rect, ref _scrollPosition, viewRect);
 
             int index = 0;
             foreach (var workType in workTypes)
@@ -167,7 +168,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
                 index++;
             }
 
-            Verse.Widgets.EndScrollView();
+            RWWidgets.EndScrollView();
         }
 
         private void DrawEmptyState(Rect rect, RuleBuilderState state)
@@ -182,7 +183,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
                 ? "BWT_NoConfiguredWorkTypes".Translate()
                 : "BWT_NoMatchingWorkTypes".Translate();
 
-            Verse.Widgets.Label(rect, message);
+            RWWidgets.Label(rect, message);
 
             Text.Anchor = oldAnchor;
             GUI.color = oldColor;
@@ -211,7 +212,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
                 return true;
 
             string lowerFilter = filter.ToLowerInvariant();
-            return workType.labelShort.ToLowerInvariant().Contains(lowerFilter) ||
+            return Better_Work_Tab.WorkTypeCompat.LabelShort(workType).ToLowerInvariant().Contains(lowerFilter) ||
                    workType.defName.ToLowerInvariant().Contains(lowerFilter);
         }
 

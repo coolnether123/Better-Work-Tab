@@ -36,7 +36,7 @@ namespace Better_Work_Tab.Features.Rules.Validators
                 if (skills == null)
                     return false;
 
-                if (skills.MaxPassionOfRelevantSkillsFor(wt) != (Passion)p.PassionLevel)
+                if (MaxPassionOfRelevantSkillsFor(skills, wt) != (Passion)p.PassionLevel)
                     return false;
             }
 
@@ -136,6 +136,26 @@ namespace Better_Work_Tab.Features.Rules.Validators
             }
 
             return true;
+        }
+
+        private static Passion MaxPassionOfRelevantSkillsFor(Pawn_SkillTracker skills, WorkTypeDef workType)
+        {
+#if vAlpha4
+            Passion max = Passion.None;
+            if (skills == null || workType?.relevantSkills == null)
+                return max;
+
+            for (int i = 0; i < workType.relevantSkills.Count; i++)
+            {
+                SkillRecord skill = skills.GetSkill(workType.relevantSkills[i]);
+                if (skill != null && (int)skill.passion > (int)max)
+                    max = skill.passion;
+            }
+
+            return max;
+#else
+            return skills.MaxPassionOfRelevantSkillsFor(workType);
+#endif
         }
     }
 }

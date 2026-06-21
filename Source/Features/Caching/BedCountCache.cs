@@ -120,6 +120,12 @@ namespace Better_Work_Tab.Features.Caching
             {
                 foreach (var bed in beds)
                 {
+#if vAlpha4
+                    if (bed == null || bed.Faction != FactionCompat.OfPlayer)
+                        continue;
+
+                    totalSlots += 1;
+#else
                     // Skip prisoner beds and non-player faction beds
                     if (bed == null || bed.ForPrisoners || bed.Faction != FactionCompat.OfPlayer)
                         continue;
@@ -138,6 +144,7 @@ namespace Better_Work_Tab.Features.Caching
 
                     // Count the available sleeping slots on valid colonist beds
                     totalSlots += bed.SleepingSlotsCount;
+#endif
                 }
             }
 

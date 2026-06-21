@@ -16,7 +16,7 @@ namespace Better_Work_Tab.PawnOrganizer.Data
         private Dictionary<string, Color> _backgroundColors;
         private Dictionary<string, Color> _textColors;
 
-#if v0_13
+#if v0_13 || vAlpha4
         public GameComponent_PawnColors()
 #else
         public GameComponent_PawnColors(Game game)

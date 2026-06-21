@@ -10,6 +10,7 @@ using Better_Work_Tab.ModSupport;
 using System.Reflection.Emit;
 using System.Reflection;
 
+#if !vAlpha4
 namespace Better_Work_Tab.Patches
 {
     [HarmonyPatch(typeof(PawnColumnWorker_Label), nameof(PawnColumnWorker_Label.DoCell))]
@@ -277,3 +278,4 @@ namespace Better_Work_Tab.Patches
         }
     }
 }
+#endif

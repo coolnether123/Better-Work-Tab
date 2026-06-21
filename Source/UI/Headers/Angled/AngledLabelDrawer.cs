@@ -180,14 +180,12 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 // Highlights
                 if (column != null && ColumnSelectionManager.IsSelected(column))
                 {
-                    GUI.color = HeaderUtility.Colors.SelectedHighlight;
-                    GUI.DrawTexture(RectCompat.ExpandedBy(drawRect, 2f), TexUI.HighlightTex);
+                    Better_Work_Tab.WidgetsCompat.DrawBoxSolid(RectCompat.ExpandedBy(drawRect, 2f), HeaderUtility.Colors.SelectedHighlight);
                 }
 
                 if (isMouseOver)
                 {
-                    GUI.color = HeaderUtility.Colors.HoverHighlight;
-                    GUI.DrawTexture(RectCompat.ExpandedBy(drawRect, 2f), TexUI.HighlightTex);
+                    Better_Work_Tab.WidgetsCompat.DrawBoxSolid(RectCompat.ExpandedBy(drawRect, 2f), HeaderUtility.Colors.HoverHighlight);
                 }
 
                 // Text: Apply moved marker color only if color tint is enabled

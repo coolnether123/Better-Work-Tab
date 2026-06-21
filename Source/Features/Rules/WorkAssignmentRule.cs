@@ -95,7 +95,7 @@ namespace Better_Work_Tab.Features.Rules
                 return false;
 
             // All checks passed – assign the priority
-            pawn.workSettings.SetPriority(
+            Better_Work_Tab.PawnCompat.WorkSettings(pawn).SetPriority(
                 assigningWorktype,
                 WorkPrioritySystem.ClampPriority(Parameters.Priority)
             );
@@ -107,11 +107,13 @@ namespace Better_Work_Tab.Features.Rules
         {
             if (Parameters.RequiredTrait == null && !string.IsNullOrEmpty(Parameters.TraitString) && Parameters.TraitDegree != null)
             {
+#if !vAlpha4
                 var traitDef = DefDatabase<TraitDef>.GetNamedSilentFail(Parameters.TraitString);
                 if (traitDef != null)
                 {
-                    Parameters.RequiredTrait = new Tuple<TraitDef, int>(traitDef, (int)Parameters.TraitDegree);
+                    Parameters.RequiredTrait = new System.Tuple<TraitDef, int>(traitDef, (int)Parameters.TraitDegree);
                 }
+#endif
             }
 
 #if !v1_3 && !v1_2 && !v1_1 && !(v1_0 || v0_19)

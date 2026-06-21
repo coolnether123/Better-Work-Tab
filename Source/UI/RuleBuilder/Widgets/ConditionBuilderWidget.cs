@@ -3,6 +3,7 @@ using Better_Work_Tab.UI.RuleBuilder.State;
 using System;
 using UnityEngine;
 using Verse;
+using RWWidgets = Better_Work_Tab.WidgetsCompat;
 
 namespace Better_Work_Tab.UI.RuleBuilder.Widgets
 {
@@ -26,7 +27,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
             var oldColor = GUI.color;
             if (disabled) GUI.color = RuleBuilderConstants.DisabledColor;
 
-            Verse.Widgets.Label(labelRect, condition.Label);
+            RWWidgets.Label(labelRect, condition.Label);
 
             switch (condition.Type)
             {
@@ -41,10 +42,10 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
 #if !v1_3 && !v1_2 && !v1_1 && !(v1_0 || v0_19)
                 case ConditionType.Xenotype:
 #endif
-                    Verse.Widgets.Label(valueRect, "Configure via add menu");
+                    RWWidgets.Label(valueRect, "Configure via add menu");
                     break;
                 default:
-                    Verse.Widgets.Label(valueRect, "-");
+                    RWWidgets.Label(valueRect, "-");
                     break;
             }
 
@@ -61,7 +62,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
         {
             ref bool target = ref GetBoolRef(key, parameters);
             bool val = target;
-            WidgetsCompat.Checkbox(valueRect.x, valueRect.y + 4f, ref val, disabled: disabled, paintable: true);
+            RWWidgets.Checkbox(valueRect.x, valueRect.y + 4f, ref val, disabled: disabled, paintable: true);
             if (val != target)
             {
                 target = val;

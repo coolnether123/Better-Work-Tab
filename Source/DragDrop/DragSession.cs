@@ -82,7 +82,11 @@ namespace Better_Work_Tab.DragDrop
         {
             if (DraggedPawn != null)
             {
+#if vAlpha4
+                return true;
+#else
                 return !DraggedPawn.Destroyed;
+#endif
             }
             
             // Dividers stay valid unless the reference is null (they are owned by the worklist).
@@ -124,7 +128,7 @@ namespace Better_Work_Tab.DragDrop
         {
             if (DraggedPawn != null)
             {
-                return DraggedPawn.LabelCap ?? PawnCompat.LabelShortCap(DraggedPawn);
+                return PawnCompat.LabelShortCap(DraggedPawn);
             }
             
             if (DraggedDivider != null)

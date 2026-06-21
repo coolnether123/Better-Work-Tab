@@ -108,7 +108,7 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
             
             var interactionLayout = new Angled.AngledLabelDrawer.AngledLabelLayout(
                 label,
-                interactionBounds.size,
+                new Vector2(interactionBounds.width, interactionBounds.height),
                 interactionBounds.center,
                 isMoved
             );

@@ -93,8 +93,12 @@ namespace RimWorld
             else if (!this.filter.Active && !this.CurrentlyFocused())
                 GUI.color = this.inactiveTextColor;
 
+#if vAlpha4
+            string str = GUI.TextField(rect1, this.filter.Text ?? string.Empty);
+#else
             // Use Verse.Widgets to avoid ambiguity
             string str = Verse.Widgets.TextField(rect1, this.filter.Text);
+#endif
             if (str.Length > this.maxSearchTextLength) str = str.Substring(0, this.maxSearchTextLength);
 
             GUI.color = Color.white;
@@ -158,7 +162,12 @@ namespace Better_Work_Tab
     public static class Widgets12
     {
         public static string TextField(Rect rect, string text, int maxLength)
-        {            string input = Verse.Widgets.TextField(rect, text);
+        {
+#if vAlpha4
+            string input = GUI.TextField(rect, text ?? string.Empty);
+#else
+            string input = Verse.Widgets.TextField(rect, text);
+#endif
             if (input.Length <= maxLength)
                 return input;
             return text;
@@ -175,8 +184,12 @@ namespace Better_Work_Tab
         
         public static void DrawBox(Rect rect, int thickness, Texture2D lineTexture)
         {
+#if vAlpha4
+            GenUI.DrawBox(rect, thickness);
+#else
             // In 1.2, DrawBox doesn't accept lineTexture parameter, so we ignore it
             Verse.Widgets.DrawBox(rect, thickness);
+#endif
         }
     }
 
@@ -241,6 +254,28 @@ namespace Better_Work_Tab
 
     public static class ListingStandardExtensions
     {
+        private static readonly System.Reflection.FieldInfo ListingRectField =
+            typeof(Listing).GetField("listingRect", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+
+        private static readonly System.Reflection.FieldInfo CurYField =
+            typeof(Listing).GetField("curY", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+
+        public static Rect GetRect(this Listing_Standard listing, float height)
+        {
+            if (listing == null)
+            {
+                return RectCompat.Zero;
+            }
+
+            Rect listingRect = ListingRectField != null
+                ? (Rect)ListingRectField.GetValue(listing)
+                : new Rect(0f, 0f, 200f, 9999f);
+            float curY = CurYField != null ? (float)CurYField.GetValue(listing) : 0f;
+            Rect rect = new Rect(0f, curY, listingRect.width, height);
+            CurYField?.SetValue(listing, curY + height);
+            return rect;
+        }
+
         public static bool ButtonText(this Listing_Standard listing, string label, float height = 30f)
         {
             return WidgetsCompat.ButtonText(listing.GetRect(height), label);
@@ -263,6 +298,14 @@ namespace Better_Work_Tab
         public static void Label(this Listing_Standard listing, string label, float height = 24f)
         {
             Widgets.Label(listing.GetRect(height), label);
+        }
+
+        public static void GapLine(this Listing_Standard listing, float gap = 4f)
+        {
+            listing.Gap(gap);
+            Rect lineRect = listing.GetRect(1f);
+            WidgetsCompat.DrawLineHorizontal(lineRect.x, lineRect.y, lineRect.width);
+            listing.Gap(gap);
         }
     }
 }

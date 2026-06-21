@@ -37,7 +37,7 @@ namespace Better_Work_Tab.Features.Workloads
             foreach (var w in DefDatabase<WorkTypeDef>.AllDefsListForReading)
             {
                 WorkTypeDef worktype = w;
-                int priority = owningPawn.workSettings.GetPriority(w);
+                int priority = Better_Work_Tab.PawnCompat.WorkSettings(owningPawn).GetPriority(w);
                 //Log.Message("Saved " + owningPawn.Name + "'s " + worktype.defName + " priority of " + priority);
                 Priorities.Add(worktype, priority);
                 //Log.Message("Added " + owningPawn.Name + "'s " + Priorities.Last().Key + " priority of " + Priorities.Last().Value + " to Priorities");
@@ -58,7 +58,7 @@ namespace Better_Work_Tab.Features.Workloads
                 int priority = kvp.Value;
                 if (!owningPawn.WorkTypeIsDisabled(worktype))
                 {
-                    owningPawn.workSettings.SetPriority(worktype, priority);
+                    Better_Work_Tab.PawnCompat.WorkSettings(owningPawn).SetPriority(worktype, priority);
                     BetterWorkTabMod.DebugLog("Set " + owningPawn.Name + " " + worktype.defName + " to " + priority, DebugFeature.Workloads);
                 }
             }

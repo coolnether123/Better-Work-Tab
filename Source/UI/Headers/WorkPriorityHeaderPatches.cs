@@ -27,6 +27,9 @@ namespace Better_Work_Tab.UI.Headers
         /// </summary>
         public static bool IsWorkTab()
         {
+#if vAlpha4
+            return true;
+#else
             if (BetterWorkTabMod.Settings == null) return false;
             var windowStack = Find.WindowStack;
             if (windowStack == null) return false;
@@ -40,6 +43,7 @@ namespace Better_Work_Tab.UI.Headers
                     return true;
             }
             return false;
+#endif
         }
 
         /// <summary>
@@ -50,6 +54,9 @@ namespace Better_Work_Tab.UI.Headers
         [HarmonyPriority(Priority.Last)]
         public static bool Prefix(PawnColumnWorker_WorkPriority __instance, Rect rect, PawnTable table)
         {
+#if vAlpha4
+            return true;
+#else
             // Only apply BWT patches to the Work tab (vanilla or BWT), not other tabs like MechTab
             if (!IsWorkTab())
                 return true;
@@ -83,6 +90,7 @@ namespace Better_Work_Tab.UI.Headers
                 Log.Error($"[BWT] WorkPriority header failed: {ex}");
                 return true; // Fallback to vanilla on error
             }
+#endif
         }
 
         /// <summary>

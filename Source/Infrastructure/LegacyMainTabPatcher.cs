@@ -11,6 +11,9 @@ namespace Better_Work_Tab
     {
         public static void ReplaceWorkTabWindow()
         {
+#if vAlpha4
+            return;
+#else
             MainTabDef workTab = DefDatabase<MainTabDef>.GetNamed("Work", false);
             if (workTab == null)
             {
@@ -27,8 +30,10 @@ namespace Better_Work_Tab
             {
                 Log.Error("[Better Work Tab] Failed to replace legacy Work tab window: " + ex);
             }
+#endif
         }
 
+#if !vAlpha4
         private static void ClearCachedWindow(MainTabDef tab)
         {
             FieldInfo windowField = typeof(MainTabDef).GetField(
@@ -40,6 +45,7 @@ namespace Better_Work_Tab
                 windowField.SetValue(tab, null);
             }
         }
+#endif
     }
 }
 #endif

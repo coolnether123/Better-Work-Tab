@@ -6,6 +6,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Verse;
+#if vAlpha4
+using Pawn_WorkSettings = Verse.AI.Pawn_WorkSettings;
+using WorkGiver = Verse.AI.WorkGiver;
+#endif
 
 namespace Better_Work_Tab.Features
 {
@@ -16,6 +20,7 @@ namespace Better_Work_Tab.Features
     /// </summary>
     internal static class WorkExecutionOrder
     {
+#if !vAlpha4
         private static readonly BindingFlags InstPriv = BindingFlags.Instance | BindingFlags.NonPublic;
         private static FieldInfo fiEmerg;
         private static FieldInfo fiNormal;
@@ -33,12 +38,18 @@ namespace Better_Work_Tab.Features
         {
             get { return fiDirty ?? (fiDirty = typeof(Pawn_WorkSettings).GetField("workGiversDirty", InstPriv)); }
         }
+#endif
 
         /// <summary>
         /// Build and assign WorkGiversInOrder lists honoring saved column order.
         /// </summary>
         internal static void RebuildUsingSavedColumnOrder(Pawn_WorkSettings ws)
         {
+#if vAlpha4
+            // Alpha4 has no modern private work-giver cache fields. Its execution order is
+            // handled by the ActiveWorkTypesByPriority postfix below.
+            return;
+#else
             if (ws == null)
                 return;
 
@@ -52,7 +63,11 @@ namespace Better_Work_Tab.Features
                 int prio = ws.GetPriority(w);
                 if (prio > 0)
                 {
-                    if (prio < minNonEmerg && w.workGiversByPriority.Any(wg => !wg.emergency))
+#if vAlpha4
+                    if (prio < minNonEmerg && !w.emergency)
+#else
+                    if (prio < minNonEmerg && Better_Work_Tab.WorkTypeCompat.WorkGiversByPriority(w).Any(wg => !wg.emergency))
+#endif
                         minNonEmerg = prio;
                     activeWTs.Add(w);
                 }
@@ -89,22 +104,36 @@ namespace Better_Work_Tab.Features
             for (int i = 0; i < activeWTs.Count; i++)
             {
                 var wt = activeWTs[i];
-                var list = wt.workGiversByPriority;
+                var list = Better_Work_Tab.WorkTypeCompat.WorkGiversByPriority(wt);
                 for (int j = 0; j < list.Count; j++)
                 {
+#if vAlpha4
+                    var worker = CreateAlpha4WorkGiver(list[j]);
+                    if (worker == null)
+                        continue;
+                    if (wt.emergency && ws.GetPriority(wt) <= minNonEmerg)
+#else
                     var worker = list[j].Worker;
                     if (worker.def.emergency && ws.GetPriority(worker.def.workType) <= minNonEmerg)
+#endif
                         emerg.Add(worker);
                 }
             }
             for (int i = 0; i < activeWTs.Count; i++)
             {
                 var wt = activeWTs[i];
-                var list = wt.workGiversByPriority;
+                var list = Better_Work_Tab.WorkTypeCompat.WorkGiversByPriority(wt);
                 for (int j = 0; j < list.Count; j++)
                 {
+#if vAlpha4
+                    var worker = CreateAlpha4WorkGiver(list[j]);
+                    if (worker == null)
+                        continue;
+                    if (!wt.emergency || ws.GetPriority(wt) > minNonEmerg)
+#else
                     var worker = list[j].Worker;
                     if (!worker.def.emergency || ws.GetPriority(worker.def.workType) > minNonEmerg)
+#endif
                         normal.Add(worker);
                 }
             }
@@ -113,7 +142,25 @@ namespace Better_Work_Tab.Features
             NormalFI.SetValue(ws, normal);
             EmergFI.SetValue(ws, emerg);
             DirtyFI.SetValue(ws, false);
+#endif
         }
+
+#if vAlpha4
+        private static WorkGiver CreateAlpha4WorkGiver(WorkGiverDef def)
+        {
+            if (def?.giverClass == null)
+                return null;
+
+            try
+            {
+                return (WorkGiver)Activator.CreateInstance(def.giverClass, def);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+#endif
 
         /// <summary>
         /// Mark all pawns' work settings to recache WorkGivers on next use.
@@ -125,8 +172,8 @@ namespace Better_Work_Tab.Features
             {
                 try
                 {
-                    if (p?.Faction == FactionCompat.OfPlayer && p?.workSettings != null)
-                        p.workSettings.Notify_UseWorkPrioritiesChanged();
+                    if (p?.Faction == FactionCompat.OfPlayer && Better_Work_Tab.PawnCompat.WorkSettings(p) != null)
+                        Better_Work_Tab.PawnCompat.WorkSettings(p).Notify_UseWorkPrioritiesChanged();
                 }
                 catch { /* ignore individual pawn issues */ }
             }
@@ -137,6 +184,61 @@ namespace Better_Work_Tab.Features
     /// Prefix-patch CacheWorkGiversInOrder to fully replace list composition, using saved
     /// Work column order as the tie-breaker among equal manual priorities.
     /// </summary>
+#if vAlpha4
+    [HarmonyPatch(typeof(Pawn_WorkSettings), "get_ActiveWorkTypesByPriority")]
+    internal static class Patch_WorkExecutionOrder_ActiveWorkTypesByPriority
+    {
+        public static void Postfix(Pawn_WorkSettings __instance, ref IEnumerable<WorkTypeDef> __result)
+        {
+            try
+            {
+                if (__instance == null || __result == null)
+                {
+                    return;
+                }
+
+                var activeWorkTypes = __result.ToList();
+                var comp = Verse.Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
+                var saved = comp?.ColumnCurrentOrder ?? new List<string>();
+                var indexMap = new Dictionary<string, int>(StringComparer.Ordinal);
+                for (int i = 0; i < saved.Count; i++)
+                {
+                    if (!string.IsNullOrEmpty(saved[i]) && !indexMap.ContainsKey(saved[i]))
+                    {
+                        indexMap.Add(saved[i], i);
+                    }
+                }
+
+                activeWorkTypes.Sort((a, b) =>
+                {
+                    int pa = __instance.GetPriority(a);
+                    int pb = __instance.GetPriority(b);
+                    int c = pa.CompareTo(pb);
+                    if (c != 0)
+                    {
+                        return c;
+                    }
+
+                    int ia = indexMap.TryGetValue(a.defName, out int iax) ? iax : int.MaxValue;
+                    int ib = indexMap.TryGetValue(b.defName, out int ibx) ? ibx : int.MaxValue;
+                    c = ia.CompareTo(ib);
+                    if (c != 0)
+                    {
+                        return c;
+                    }
+
+                    return b.naturalPriority.CompareTo(a.naturalPriority);
+                });
+
+                __result = activeWorkTypes;
+            }
+            catch (Exception ex)
+            {
+                Verse.Log.Error($"[Better Work Tab/Error] Failed to sort Alpha4 active work types. Exception: {ex.Message}");
+            }
+        }
+    }
+#else
     [HarmonyPatch(typeof(Pawn_WorkSettings), "CacheWorkGiversInOrder")]
     internal static class Patch_WorkExecutionOrder_ReplaceCache
     {
@@ -154,4 +256,5 @@ namespace Better_Work_Tab.Features
             }
         }
     }
+#endif
 }

@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Verse;
 using Better_Work_Tab;
+using Tuple = System.Tuple;
 
 namespace Better_Work_Tab.Features.Rules
 {
@@ -37,7 +38,7 @@ namespace Better_Work_Tab.Features.Rules
 #endif
 
         [RuleParameter]
-        public Tuple<TraitDef, int> RequiredTrait;
+        public System.Tuple<TraitDef, int> RequiredTrait;
 
         [RuleParameter]
         public Gender? Gender;
@@ -124,29 +125,29 @@ namespace Better_Work_Tab.Features.Rules
         public List<string> ActiveConditions = new List<string>();
 
 
-        public WorkAssignmentParameters(string ruleName = "", 
-            int priority = 0, 
-            WorkTypeDef worktype = null, 
-            int skipIfPriorityForThisWorktypeAreadyAssigned = -1, 
-            bool skipIfAnotherPawnAssigned = false, 
-            bool assignToPawnWithFewestWorkPriorities = false, 
-            Gender? gender = null, 
-            bool isPregnant = false, 
+        public WorkAssignmentParameters(string ruleName = "",
+            int priority = 0,
+            WorkTypeDef worktype = null,
+            int skipIfPriorityForThisWorktypeAreadyAssigned = -1,
+            bool skipIfAnotherPawnAssigned = false,
+            bool assignToPawnWithFewestWorkPriorities = false,
+            Gender? gender = null,
+            bool isPregnant = false,
 #if !v1_3 && !v1_2 && !v1_1 && !(v1_0 || v0_19)
-            XenotypeDef xenotype = null, 
+            XenotypeDef xenotype = null,
 #endif
-            Tuple<TraitDef, int> requiredTrait = null, 
-            bool isNaturalAlwaysAssign = false, 
-            bool isCapableOfViolence = false, 
-            bool allowOverwritingHigherPriority = false, 
-            int limitNumberOfWorktypes = 0, 
-            int passionLevel = -1, 
-            int skillLevelGreaterThan = -1, 
-            int skillLevelLessThan = -1, 
-            bool hasHighestSkill = false, 
-            int isTopXSkill = 0, 
-            int isNthBestPawn = 0, 
-            int isNthBestSkill = 0, 
+            System.Tuple<TraitDef, int> requiredTrait = null,
+            bool isNaturalAlwaysAssign = false,
+            bool isCapableOfViolence = false,
+            bool allowOverwritingHigherPriority = false,
+            int limitNumberOfWorktypes = 0,
+            int passionLevel = -1,
+            int skillLevelGreaterThan = -1,
+            int skillLevelLessThan = -1,
+            bool hasHighestSkill = false,
+            int isTopXSkill = 0,
+            int isNthBestPawn = 0,
+            int isNthBestSkill = 0,
             bool hasChildOnMap = false, 
             bool randomIfMultiple = false, 
             bool ignoreIfWorktypeNonexistent = false, 
@@ -185,7 +186,11 @@ namespace Better_Work_Tab.Features.Rules
 
             if(requiredTrait != null)
             {
+#if vAlpha4
+                TraitString = null;
+#else
                 TraitString = requiredTrait.Item1.defName;
+#endif
                 TraitDegree = requiredTrait.Item2;
             }
             RequiredTrait = requiredTrait;
@@ -228,7 +233,7 @@ namespace Better_Work_Tab.Features.Rules
                 Xenotype = Xenotype,
 #endif
                 RequiredTrait = RequiredTrait != null
-                    ? new Tuple<TraitDef, int>(RequiredTrait.Item1, RequiredTrait.Item2)
+                    ? new System.Tuple<TraitDef, int>(RequiredTrait.Item1, RequiredTrait.Item2)
                     : null,
                 Gender = Gender,
                 HasHighestSkill = HasHighestSkill,
@@ -313,7 +318,11 @@ namespace Better_Work_Tab.Features.Rules
 #if !v1_3 && !v1_2 && !v1_1 && !(v1_0 || v0_19)
             XenotypeString = Xenotype?.defName ?? XenotypeString ?? "";
 #endif
+#if vAlpha4
+            TraitString = TraitString ?? "";
+#else
             TraitString = RequiredTrait?.Item1?.defName ?? TraitString ?? "";
+#endif
             TraitDegree = RequiredTrait?.Item2 ?? TraitDegree;
         }
 
@@ -375,9 +384,14 @@ namespace Better_Work_Tab.Features.Rules
 
         private void ResolveTraitRequirement(TraitDef loadedTrait, int loadedDegree)
         {
+#if vAlpha4
+            RequiredTrait = null;
+            TraitDegree = loadedDegree >= 0 ? loadedDegree : TraitDegree;
+            return;
+#else
             if (loadedTrait != null)
             {
-                RequiredTrait = new Tuple<TraitDef, int>(loadedTrait, loadedDegree);
+                RequiredTrait = new System.Tuple<TraitDef, int>(loadedTrait, loadedDegree);
                 TraitString = loadedTrait.defName;
                 TraitDegree = loadedDegree;
                 return;
@@ -389,7 +403,7 @@ namespace Better_Work_Tab.Features.Rules
                 if (resolved != null)
                 {
                     int degree = loadedDegree >= 0 ? loadedDegree : (TraitDegree ?? 0);
-                    RequiredTrait = new Tuple<TraitDef, int>(resolved, degree);
+                    RequiredTrait = new System.Tuple<TraitDef, int>(resolved, degree);
                     TraitDegree = degree;
                 }
                 else
@@ -409,6 +423,7 @@ namespace Better_Work_Tab.Features.Rules
             {
                 RequiredTrait = null;
             }
+#endif
         }
     }
 }

@@ -1,5 +1,6 @@
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using RimWorld;
+using System.Reflection;
 using UnityEngine;
 using Verse;
 using Verse.Sound;
@@ -21,6 +22,10 @@ namespace Better_Work_Tab.Patches
         /// </summary>
         public static void DrawWorkBoxForSkillOverlay(float x, float y, Pawn p, WorkTypeDef wType, bool incapableBecauseOfCapacities)
         {
+#if vAlpha4
+            DrawAlpha4WorkBoxBackground(x, y, p, wType, incapableBecauseOfCapacities);
+            return;
+#endif
             if (p.WorkTypeIsDisabled(wType))
             {
 #if !v1_3 && !v1_2 && !v1_1 && !(v1_0 || v0_19)
@@ -34,7 +39,7 @@ namespace Better_Work_Tab.Patches
                 // This preserves the vanilla age restriction feedback when clicking on age-disabled work
                 if (Event.current.type == EventType.MouseDown && Mouse.IsOver(rect))
                 {
-                    MessageCompat.Message("MessageWorkTypeDisabledAge".Translate(p, p.ageTracker.AgeBiologicalYears, wType.labelShort, minAgeRequired), p, MessageTypeDefOf.RejectInput, false);
+                    MessageCompat.Message("MessageWorkTypeDisabledAge".Translate(p, p.ageTracker.AgeBiologicalYears, Better_Work_Tab.WorkTypeCompat.LabelShort(wType), minAgeRequired), p, MessageTypeDefOf.RejectInput, false);
                     SoundDefOf.ClickReject.PlayOneShotOnCamera();
                 }
                 GUI.DrawTexture(rect, WidgetsWork.WorkBoxBGTex_AgeDisabled);
@@ -49,9 +54,9 @@ namespace Better_Work_Tab.Patches
                     GUI.color = BetterWorkTabMod.Settings.Color_IncapableBecauseOfCapacities;
 
                 // This draws the work box background including passion flame effects exactly like vanilla does
-#if v1_1 || (v1_0 || v0_19)
+#if !vAlpha4 && (v1_1 || (v1_0 || v0_19))
                 DrawLegacyWorkBoxBackground(rect, p, wType);
-#else
+#elif !vAlpha4
                 WidgetsWork.DrawWorkBoxBackground(rect, p, wType);
 #endif
 
@@ -66,6 +71,10 @@ namespace Better_Work_Tab.Patches
         /// </summary>
         public static void DrawWorkBoxForPriorityOnly(float x, float y, Pawn p, WorkTypeDef wType, bool incapableBecauseOfCapacities)
         {
+#if vAlpha4
+            DrawAlpha4WorkBoxBackground(x, y, p, wType, incapableBecauseOfCapacities);
+            return;
+#endif
             if (p.WorkTypeIsDisabled(wType))
             {
                 return;
@@ -76,16 +85,121 @@ namespace Better_Work_Tab.Patches
             if (incapableBecauseOfCapacities)
                 GUI.color = BetterWorkTabMod.Settings.Color_IncapableBecauseOfCapacities;
 
-#if v1_1 || (v1_0 || v0_19)
+#if !vAlpha4 && (v1_1 || (v1_0 || v0_19))
             DrawLegacyNeutralWorkBoxBackground(rect, p, wType);
-#else
+#elif !vAlpha4
             WidgetsWork.DrawWorkBoxBackground(rect, p, wType);
 #endif
 
             GUI.color = Color.white;
         }
 
-#if v1_1 || (v1_0 || v0_19)
+#if vAlpha4
+        private static readonly FieldInfo Alpha4WorkBoxBgBadField = typeof(WidgetsWork).GetField("WorkBoxBGTex_Bad", BindingFlags.Static | BindingFlags.NonPublic);
+        private static readonly FieldInfo Alpha4WorkBoxBgMidField = typeof(WidgetsWork).GetField("WorkBoxBGTex_Mid", BindingFlags.Static | BindingFlags.NonPublic);
+        private static readonly FieldInfo Alpha4WorkBoxBgExcellentField = typeof(WidgetsWork).GetField("WorkBoxBGTex_Excellent", BindingFlags.Static | BindingFlags.NonPublic);
+        private static readonly FieldInfo Alpha4WorkBoxCheckField = typeof(WidgetsWork).GetField("WorkBoxCheckTex", BindingFlags.Static | BindingFlags.NonPublic);
+        private static bool alpha4TexturesLoaded;
+        private static Texture2D alpha4WorkBoxBgBad;
+        private static Texture2D alpha4WorkBoxBgMid;
+        private static Texture2D alpha4WorkBoxBgExcellent;
+        private static Texture2D alpha4WorkBoxCheck;
+
+        public static void DrawAlpha4CheckboxState(Rect rect, bool enabled)
+        {
+            if (!enabled)
+            {
+                return;
+            }
+
+            LoadAlpha4WorkBoxTextures();
+            if (alpha4WorkBoxCheck != null)
+            {
+                GUI.DrawTexture(rect, alpha4WorkBoxCheck);
+                return;
+            }
+
+            var oldFont = Text.Font;
+            var oldAnchor = Text.Anchor;
+            var oldColor = GUI.color;
+            Text.Font = GameFont.Medium;
+            Text.Anchor = TextAnchor.MiddleCenter;
+            GUI.color = new Color(0.1f, 0.9f, 0.1f);
+            Widgets.Label(rect, "X");
+            GUI.color = oldColor;
+            Text.Anchor = oldAnchor;
+            Text.Font = oldFont;
+        }
+
+        private static void DrawAlpha4WorkBoxBackground(float x, float y, Pawn p, WorkTypeDef wType, bool incapableBecauseOfCapacities)
+        {
+            if (p == null || wType == null || p.WorkTypeIsDisabled(wType))
+            {
+                return;
+            }
+
+            Rect rect = new Rect(x, y, 25f, 25f);
+            Color oldColor = GUI.color;
+            LoadAlpha4WorkBoxTextures();
+
+            if (incapableBecauseOfCapacities)
+            {
+                GUI.color = BetterWorkTabMod.Settings.Color_IncapableBecauseOfCapacities;
+            }
+
+            float averageSkill = p.skills?.AverageOfRelevantSkillsFor(wType) ?? 0f;
+            Texture2D baseTexture;
+            Texture2D overlayTexture;
+            float overlayAlpha;
+
+            if (averageSkill <= 14f)
+            {
+                baseTexture = alpha4WorkBoxBgBad;
+                overlayTexture = alpha4WorkBoxBgMid;
+                overlayAlpha = averageSkill / 14f;
+            }
+            else
+            {
+                baseTexture = alpha4WorkBoxBgMid;
+                overlayTexture = alpha4WorkBoxBgExcellent;
+                overlayAlpha = (averageSkill - 14f) / 6f;
+            }
+
+            if (baseTexture != null)
+            {
+                GUI.DrawTexture(rect, baseTexture);
+            }
+            else
+            {
+                Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, new Color(0.25f, 0.25f, 0.25f, oldColor.a));
+            }
+
+            if (overlayTexture != null)
+            {
+                Color tintColor = GUI.color;
+                GUI.color = new Color(tintColor.r, tintColor.g, tintColor.b, tintColor.a * Mathf.Clamp01(overlayAlpha));
+                GUI.DrawTexture(rect, overlayTexture);
+            }
+
+            GUI.color = oldColor;
+        }
+
+        private static void LoadAlpha4WorkBoxTextures()
+        {
+            if (alpha4TexturesLoaded)
+            {
+                return;
+            }
+
+            alpha4TexturesLoaded = true;
+            alpha4WorkBoxBgBad = Alpha4WorkBoxBgBadField?.GetValue(null) as Texture2D;
+            alpha4WorkBoxBgMid = Alpha4WorkBoxBgMidField?.GetValue(null) as Texture2D;
+            alpha4WorkBoxBgExcellent = Alpha4WorkBoxBgExcellentField?.GetValue(null) as Texture2D;
+            alpha4WorkBoxCheck = Alpha4WorkBoxCheckField?.GetValue(null) as Texture2D;
+        }
+#endif
+
+#if !vAlpha4 && (v1_1 || (v1_0 || v0_19))
         private static void DrawLegacyWorkBoxBackground(Rect rect, Pawn pawn, WorkTypeDef workType)
         {
             SkillRecord skill = GetFirstRelevantSkill(pawn, workType);

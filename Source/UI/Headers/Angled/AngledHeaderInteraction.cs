@@ -174,14 +174,18 @@ namespace Better_Work_Tab.UI.Headers.Angled
         private static string SpecificWorkListString(WorkTypeDef def)
         {
             System.Text.StringBuilder stringBuilder = new System.Text.StringBuilder();
-            for (int i = 0; i < def.workGiversByPriority.Count; i++)
+            for (int i = 0; i < Better_Work_Tab.WorkTypeCompat.WorkGiversByPriority(def).Count; i++)
             {
-                stringBuilder.Append(" - " + def.workGiversByPriority[i].LabelCap);
-                if (def.workGiversByPriority[i].emergency)
+                stringBuilder.Append(" - " + Better_Work_Tab.WorkTypeCompat.WorkGiverLabelCap(Better_Work_Tab.WorkTypeCompat.WorkGiversByPriority(def)[i]));
+#if vAlpha4
+                if (def.emergency)
+#else
+                if (Better_Work_Tab.WorkTypeCompat.WorkGiversByPriority(def)[i].emergency)
+#endif
                 {
                     stringBuilder.Append(" (" + "EmergencyWorkMarker".Translate() + ")");
                 }
-                if (i < def.workGiversByPriority.Count - 1)
+                if (i < Better_Work_Tab.WorkTypeCompat.WorkGiversByPriority(def).Count - 1)
                 {
                     stringBuilder.AppendLine();
                 }
@@ -238,21 +242,21 @@ namespace Better_Work_Tab.UI.Headers.Angled
             for (int i = 0; i < pawns.Count; i++)
             {
                 Pawn pawn = pawns[i];
-                if (pawn.Dead || pawn.workSettings == null || !pawn.workSettings.EverWork || pawn.WorkTypeIsDisabled(workType))
+                if (Better_Work_Tab.PawnCompat.IsDead(pawn) || Better_Work_Tab.PawnCompat.WorkSettings(pawn) == null || !Better_Work_Tab.PawnCompat.HasEverWork(pawn) || pawn.WorkTypeIsDisabled(workType))
                     continue;
 
-                int curPriority = pawn.workSettings.GetPriority(workType);
+                int curPriority = Better_Work_Tab.PawnCompat.WorkSettings(pawn).GetPriority(workType);
 
                 if (useWorkPriorities)
                 {
                     int nextPriority = WorkPrioritySystem.GetPriorityAfterMouseButton(curPriority, button);
-                    pawn.workSettings.SetPriority(workType, nextPriority);
+                    Better_Work_Tab.PawnCompat.WorkSettings(pawn).SetPriority(workType, nextPriority);
                 }
                 else
                 {
                     // Vanilla Priorities (On/Off)
-                    if (button == 0) pawn.workSettings.SetPriority(workType, WorkPrioritySystem.GetDefaultEnabledPriority());
-                    else pawn.workSettings.SetPriority(workType, 0);
+                    if (button == 0) Better_Work_Tab.PawnCompat.WorkSettings(pawn).SetPriority(workType, WorkPrioritySystem.GetDefaultEnabledPriority());
+                    else Better_Work_Tab.PawnCompat.WorkSettings(pawn).SetPriority(workType, 0);
                 }
                 changed = true;
             }

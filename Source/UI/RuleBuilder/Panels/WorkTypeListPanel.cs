@@ -156,7 +156,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             Rect labelRect = new Rect(rect.x + 8f, rect.y, rect.width - 40f, rect.height);
             Text.Anchor = TextAnchor.MiddleLeft;
             GUI.color = isConfigured ? Color.white : RuleBuilderConstants.LabelColor;
-            RWWidgets.Label(labelRect, workType.labelShort.CapitalizeFirst());
+            RWWidgets.Label(labelRect, Better_Work_Tab.WorkTypeCompat.LabelShort(workType).CapitalizeFirst());
 
             // Rule count badge
             if (ruleCount > 0)
@@ -206,7 +206,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             {
                 string lower = state.WorkTypeSearchFilter.ToLowerInvariant();
                 _filteredWorkTypes = all
-                    .Where(wt => wt.labelShort.ToLowerInvariant().Contains(lower) ||
+                    .Where(wt => Better_Work_Tab.WorkTypeCompat.LabelShort(wt).ToLowerInvariant().Contains(lower) ||
                                  wt.defName.ToLowerInvariant().Contains(lower))
                     .ToList();
             }
@@ -215,7 +215,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
         private string BuildTooltip(WorkTypeDef workType, int ruleCount)
         {
             var sb = new System.Text.StringBuilder();
-            sb.AppendLine($"<b>{workType.labelShort.CapitalizeFirst()}</b>");
+            sb.AppendLine($"<b>{Better_Work_Tab.WorkTypeCompat.LabelShort(workType).CapitalizeFirst()}</b>");
 
             if (!string.IsNullOrEmpty(workType.description))
             {

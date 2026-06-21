@@ -48,7 +48,7 @@ namespace Better_Work_Tab.UI.Headers
             if (workType == null) return DefaultHeaderText;
 
             // Use the shortest available valid label
-            string baseText = workType.labelShort;
+            string baseText = Better_Work_Tab.WorkTypeCompat.LabelShort(workType);
             if (baseText.NullOrEmpty()) baseText = workType.label;
             if (baseText.NullOrEmpty()) baseText = workType.defName;
 

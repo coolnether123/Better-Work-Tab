@@ -25,7 +25,7 @@ namespace Better_Work_Tab
 
     internal static class Legacy016GameComponentStore
     {
-#if v0_13
+#if v0_13 || vAlpha4
         private static readonly Dictionary<Type, GameComponent> ComponentsByType =
             new Dictionary<Type, GameComponent>();
 
@@ -72,7 +72,7 @@ namespace Better_Work_Tab
 
 namespace Verse
 {
-#if v0_13
+#if v0_13 || vAlpha4
     public class ModContentPack
     {
     }
@@ -94,6 +94,17 @@ namespace Verse
 
     public sealed class LegacyCurrentGame
     {
+#if vAlpha4
+        public global::PlaySettings playSettings
+        {
+            get { return Find.PlaySettings; }
+        }
+
+        public RimWorld.Planet.World World
+        {
+            get { return RimWorld.Current.World; }
+        }
+#else
         public RimWorld.PlaySettings playSettings
         {
             get { return Find.PlaySettings; }
@@ -103,6 +114,7 @@ namespace Verse
         {
             get { return RimWorld.Current.World; }
         }
+#endif
 
         public LegacyGameInfo Info
         {
@@ -168,7 +180,7 @@ namespace Verse
 
     public abstract class GameComponent : IExposable
     {
-#if v0_13
+#if v0_13 || vAlpha4
         protected object game;
 #else
         protected Game game;
@@ -178,7 +190,7 @@ namespace Verse
         {
         }
 
-#if v0_13
+#if v0_13 || vAlpha4
         protected GameComponent(object game)
 #else
         protected GameComponent(Game game)
@@ -212,7 +224,7 @@ namespace Verse
         }
     }
 
-#if !v0_13
+#if !v0_13 && !vAlpha4
     public static class GameComponentCompatExtensions
     {
         public static T GetComponent<T>(this Game game) where T : GameComponent
@@ -222,7 +234,7 @@ namespace Verse
     }
 #endif
 
-#if v0_15
+#if v0_15 && !vAlpha4
     public static class UI
     {
         public static int screenWidth => Screen.width;
@@ -280,12 +292,12 @@ namespace Verse
             if (!string.IsNullOrEmpty(title))
             {
                 Text.Font = GameFont.Medium;
-                Widgets.Label(new Rect(0f, 0f, inRect.width, 32f), title);
+                Better_Work_Tab.WidgetsCompat.Label(new Rect(0f, 0f, inRect.width, 32f), title);
                 Text.Font = GameFont.Small;
                 top = 38f;
             }
 
-            Widgets.Label(new Rect(0f, top, inRect.width, inRect.height - top - 48f), text ?? string.Empty);
+            Better_Work_Tab.WidgetsCompat.Label(new Rect(0f, top, inRect.width, inRect.height - top - 48f), text ?? string.Empty);
 
             Rect confirmRect = new Rect(inRect.width - 190f, inRect.height - 35f, 85f, 32f);
             Rect cancelRect = new Rect(inRect.width - 95f, inRect.height - 35f, 85f, 32f);
@@ -418,7 +430,7 @@ namespace RimWorld
         public virtual void DoHeader(Rect rect, PawnTable table)
         {
             if (def?.workType != null)
-                Widgets.Label(rect, def.workType.labelShort);
+                Better_Work_Tab.WidgetsCompat.Label(rect, Better_Work_Tab.WorkTypeCompat.LabelShort(def.workType));
         }
 
         public virtual void DoCell(Rect rect, Pawn pawn, PawnTable table)
@@ -449,7 +461,7 @@ namespace RimWorld
                 return;
 
             Text.Anchor = TextAnchor.MiddleLeft;
-            Widgets.Label(rect, pawn.LabelCap);
+            Better_Work_Tab.WidgetsCompat.Label(rect, Better_Work_Tab.PawnCompat.LabelShortCap(pawn));
             Text.Anchor = TextAnchor.UpperLeft;
         }
     }
@@ -462,7 +474,7 @@ namespace RimWorld
                 return;
 
             Text.Anchor = TextAnchor.MiddleCenter;
-            Widgets.Label(rect, def.workType.labelShort);
+            Better_Work_Tab.WidgetsCompat.Label(rect, Better_Work_Tab.WorkTypeCompat.LabelShort(def.workType));
             Text.Anchor = TextAnchor.UpperLeft;
         }
 
@@ -488,8 +500,8 @@ namespace RimWorld
             if (def?.workType == null)
                 return 0;
 
-            int leftPriority = left?.workSettings?.GetPriority(def.workType) ?? 0;
-            int rightPriority = right?.workSettings?.GetPriority(def.workType) ?? 0;
+            int leftPriority = Better_Work_Tab.Features.RaisedPriorityMaximum.WorkPrioritySystem.GetPriority(Better_Work_Tab.PawnCompat.WorkSettings(left), def.workType);
+            int rightPriority = Better_Work_Tab.Features.RaisedPriorityMaximum.WorkPrioritySystem.GetPriority(Better_Work_Tab.PawnCompat.WorkSettings(right), def.workType);
             return leftPriority.CompareTo(rightPriority);
         }
     }
@@ -587,13 +599,13 @@ namespace RimWorld
 
             foreach (WorkTypeDef workType in WorkTypeDefsUtility.WorkTypeDefsInPriorityOrder)
             {
-                if (!workType.visible)
+                if (!Better_Work_Tab.WorkTypeCompat.IsVisible(workType))
                     continue;
 
                 def.columns.Add(new PawnColumnDef
                 {
                     defName = "WorkPriority_" + workType.defName,
-                    label = workType.labelShort,
+                    label = Better_Work_Tab.WorkTypeCompat.LabelShort(workType),
                     workType = workType,
                     width = 36f,
                     workerClass = typeof(PawnColumnWorker_WorkPriority)
@@ -605,7 +617,7 @@ namespace RimWorld
     }
 }
 
-#if v0_14
+#if v0_14 || vAlpha4
 namespace Better_Work_Tab.UI
 {
     internal static class UIHighlighter

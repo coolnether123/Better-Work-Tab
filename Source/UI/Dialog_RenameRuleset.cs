@@ -1,5 +1,6 @@
 using Better_Work_Tab.Features;
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using Verse;
 
@@ -124,10 +125,18 @@ namespace Better_Work_Tab.UI
                 Close();
             }
 
+#if vAlpha4
+            Find.WindowStack.Add(new FloatMenu(new List<FloatMenuOption>
+            {
+                new FloatMenuOption("BWT_DeleteRulesetConfirm".Translate(), DoDelete),
+                new FloatMenuOption("Cancel".Translate(), delegate { })
+            }));
+#else
             Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
                 "BWT_DeleteRulesetConfirm".Translate(),
                 DoDelete,
                 destructive: true));
+#endif
         }
 
         private bool TryDeleteRuleset()

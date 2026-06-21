@@ -242,7 +242,11 @@ namespace Better_Work_Tab.DragDrop
             {
                 var row = orderedRows[i];
                 
+#if vAlpha4
+                if (row.Pawn != null)
+#else
                 if (row.Pawn?.playerSettings != null)
+#endif
                 {
                     RowOrderUtility.SetPawnRowOrder(row.Pawn, i);
                 }

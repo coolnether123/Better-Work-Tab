@@ -91,7 +91,11 @@ namespace Better_Work_Tab.Mod_Support.LocalProfiles
             var candidate = game?.Info?.permadeathModeUniqueName;
 
             if (string.IsNullOrEmpty(candidate))
+#if vAlpha4
+                candidate = worldInfo?.name;
+#else
                 candidate = worldInfo?.FileNameNoExtension;
+#endif
 
             if (string.IsNullOrEmpty(candidate))
                 candidate = worldInfo?.name;

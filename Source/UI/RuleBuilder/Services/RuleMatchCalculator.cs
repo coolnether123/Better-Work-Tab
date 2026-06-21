@@ -33,7 +33,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
         {
             var p = rule.Parameters;
 
-            if (p == null || pawn?.workSettings == null)
+            if (p == null || Better_Work_Tab.PawnCompat.WorkSettings(pawn) == null)
                 return false;
 
             if (!EligibilityValidator.Validate(pawn, workType, p))

@@ -6,6 +6,9 @@ using Verse.Sound;
 #if v1_2 || v1_1 || (v1_0 || v0_19)
 using Better_Work_Tab;
 #endif
+#if vAlpha4
+using Widgets = Better_Work_Tab.Widgets;
+#endif
 
 namespace Spine.UI.WidgetExtensions
 {
@@ -30,9 +33,9 @@ namespace Spine.UI.WidgetExtensions
             
             Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, bgColor);
 #if v1_2 || v1_1 || (v1_0 || v0_19)
-            Widgets12.DrawBox(rect, 1, hovered ? Texture2D.whiteTexture : null);
+            Widgets12.DrawBox(rect, 1, hovered ? GenUI.WhiteTex : null);
 #else
-            Widgets.DrawBox(rect, 1, hovered ? Texture2D.whiteTexture : null);
+            Widgets.DrawBox(rect, 1, hovered ? GenUI.WhiteTex : null);
 #endif
 
             Rect labelRect = rect.ContractedBy(8f);

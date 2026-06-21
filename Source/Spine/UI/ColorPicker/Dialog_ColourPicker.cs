@@ -9,6 +9,9 @@ using HarmonyLib;
 using UnityEngine;
 using Verse;
 using Object = UnityEngine.Object;
+#if vAlpha4
+using Widgets = Better_Work_Tab.Widgets;
+#endif
 
 namespace Spine.UI.ColourPicker {
     public class Dialog_ColourPicker : Window {
@@ -428,7 +431,10 @@ namespace Spine.UI.ColourPicker {
         }
 
         public void CreatePreviewBG(ref Texture2D bg, Color col) {
-            SwapTexture(ref bg, SolidColorMaterials.NewSolidColorTexture(col));
+            var tex = new Texture2D(1, 1);
+            tex.SetPixel(0, 0, col);
+            tex.Apply();
+            SwapTexture(ref bg, tex);
         }
 
         [Conditional("DEBUG")]

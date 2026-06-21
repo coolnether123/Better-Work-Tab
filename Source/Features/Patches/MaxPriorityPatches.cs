@@ -7,7 +7,11 @@ using ModAPI.Harmony;
 using RimWorld;
 using UnityEngine;
 using Verse;
+#if vAlpha4
+using Pawn_WorkSettings = Verse.AI.Pawn_WorkSettings;
+#endif
 
+#if !vAlpha4
 namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 {
     /// <summary>
@@ -297,3 +301,4 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         }
     }
 }
+#endif

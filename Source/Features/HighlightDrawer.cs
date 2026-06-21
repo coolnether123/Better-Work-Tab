@@ -16,7 +16,7 @@ namespace Better_Work_Tab.UI
                 Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, Color.clear);
                 Color old = GUI.color;
                 GUI.color = color;
-                Verse.Widgets.DrawBox(rect, (int)OutlineThickness);
+                Better_Work_Tab.WidgetsCompat.DrawBox(rect, (int)OutlineThickness);
                 GUI.color = old;
 #else
                 Better_Work_Tab.WidgetsCompat.DrawBoxSolidWithOutline(rect, Color.clear, color, (int)OutlineThickness);

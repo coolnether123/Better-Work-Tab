@@ -1,6 +1,7 @@
 using RimWorld;
 using System;
 using Verse;
+using Tuple = System.Tuple;
 
 namespace Better_Work_Tab.UI.RuleBuilder.State
 {
@@ -16,7 +17,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.State
         Passion,
         Gender,
         Trait,
-#if !v1_3 && !v1_2 && !v1_1 && !(v1_0 || v0_19)
+#if !vAlpha4 && !v1_3 && !v1_2 && !v1_1 && !(v1_0 || v0_19)
         Xenotype
 #endif
     }
@@ -94,14 +95,18 @@ namespace Better_Work_Tab.UI.RuleBuilder.State
                     return gender?.ToString() ?? "Any";
 
                 case ConditionType.Trait:
+#if vAlpha4
+                    return Value == null ? "None" : "Trait";
+#else
                     var trait = Value as Tuple<TraitDef, int>;
                     if (trait?.Item1 != null)
                     {
                         return TraitCompat.LabelCap(trait.Item1.DataAtDegree(trait.Item2)) ?? trait.Item1.defName;
                     }
                     return "None";
+#endif
 
-#if !v1_3 && !v1_2 && !v1_1 && !(v1_0 || v0_19)
+#if !vAlpha4 && !v1_3 && !v1_2 && !v1_1 && !(v1_0 || v0_19)
                 case ConditionType.Xenotype:
                     var xeno = Value as XenotypeDef;
                     return xeno?.LabelCap ?? "None";

@@ -84,7 +84,7 @@ namespace Better_Work_Tab.PawnOrganizer
             for (int i = 0; i < snapshot.Pawns.Count; i++)
             {
                 var pawn = snapshot.Pawns[i];
-                if (pawn?.playerSettings == null) continue;
+                if (pawn == null) continue;
 
                 int currentOrder = RowOrderUtility.GetPawnRowOrder(pawn);
                 if (!_lastDisplayOrders.TryGetValue(pawn.thingIDNumber, out int lastOrder) || lastOrder != currentOrder)
@@ -119,7 +119,7 @@ namespace Better_Work_Tab.PawnOrganizer
             {
                 foreach (var pawn in snapshot.Pawns)
                 {
-                    if (pawn?.playerSettings != null)
+                    if (pawn != null)
                         _lastDisplayOrders[pawn.thingIDNumber] = RowOrderUtility.GetPawnRowOrder(pawn);
                 }
             }
@@ -475,9 +475,9 @@ namespace Better_Work_Tab.PawnOrganizer
                 return null;
             }
 
-            if (pawn?.playerSettings == null)
+            if (pawn == null)
             {
-                Log.Error($"[AddDividerAfterPawnWhileSorting] Pawn {PawnCompat.LabelShortCap(pawn)} has no playerSettings!");
+                Log.Error("[AddDividerAfterPawnWhileSorting] Pawn is null.");
                 return null;
             }
 
@@ -524,9 +524,9 @@ namespace Better_Work_Tab.PawnOrganizer
                 return null;
             }
 
-            if (pawn?.playerSettings == null)
+            if (pawn == null)
             {
-                Log.Error($"[AddDividerBeforePawnWhileSorting] Pawn {PawnCompat.LabelShortCap(pawn)} has no playerSettings!");
+                Log.Error("[AddDividerBeforePawnWhileSorting] Pawn is null.");
                 return null;
             }
 
@@ -569,7 +569,7 @@ namespace Better_Work_Tab.PawnOrganizer
             {
                 var element = _rows[i];
 
-                if (element.Pawn != null && element.Pawn.playerSettings != null)
+                if (element.Pawn != null)
                 {
                     RowOrderUtility.SetPawnRowOrder(element.Pawn, i);
                     BetterWorkTabMod.DebugLog($"  Row {i}: {PawnCompat.LabelShortCap(element.Pawn)} → displayOrder {i}", DebugFeature.DragDrop);

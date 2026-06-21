@@ -61,7 +61,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             Text.Font = GameFont.Medium;
             Text.Anchor = TextAnchor.MiddleCenter;
             GUI.color = RuleBuilderConstants.HeaderColor;
-            RWWidgets.Label(rect, workType.labelShort.CapitalizeFirst());
+            RWWidgets.Label(rect, Better_Work_Tab.WorkTypeCompat.LabelShort(workType).CapitalizeFirst());
 
             Rect lineRect = new Rect(rect.x, rect.yMax - 2f, rect.width, 2f);
             RWWidgets.DrawBoxSolid(lineRect, RuleBuilderConstants.HeaderColor * 0.5f);

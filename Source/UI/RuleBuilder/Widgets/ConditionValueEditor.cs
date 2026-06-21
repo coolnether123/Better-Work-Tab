@@ -9,6 +9,8 @@ using System.Linq;
 using UnityEngine;
 using Verse;
 using Verse.Sound;
+using Tuple = System.Tuple;
+using RWWidgets = Better_Work_Tab.WidgetsCompat;
 
 namespace Better_Work_Tab.UI.RuleBuilder.Widgets
 {
@@ -38,7 +40,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
                 ConditionType.Passion => DrawPassionEditor(rect, condition, parameters, state),
                 ConditionType.Gender => DrawGenderEditor(rect, condition, parameters, state),
                 ConditionType.Trait => DrawTraitEditor(rect, condition, parameters, state),
-#if !v1_3 && !v1_2 && !v1_1 && !(v1_0 || v0_19)
+#if !vAlpha4 && !v1_3 && !v1_2 && !v1_1 && !(v1_0 || v0_19)
                 ConditionType.Xenotype => DrawXenotypeEditor(rect, condition, parameters, state),
 #endif
                 _ => false
@@ -115,13 +117,13 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
                     bgColor = RuleBuilderConstants.CardBackgroundHover;
                 }
 
-                Better_Work_Tab.WidgetsCompat.DrawBoxSolid(buttonRect, bgColor);
-                Verse.Widgets.DrawBox(buttonRect, isSelected ? 2 : 1);
+                RWWidgets.DrawBoxSolid(buttonRect, bgColor);
+                RWWidgets.DrawBox(buttonRect, isSelected ? 2 : 1);
 
                 Text.Anchor = TextAnchor.MiddleCenter;
                 Text.Font = GameFont.Small;
                 GUI.color = isSelected ? Color.white : RuleBuilderConstants.LabelColor;
-                Verse.Widgets.Label(buttonRect, i.ToString());
+                RWWidgets.Label(buttonRect, i.ToString());
                 Text.Font = GameFont.Small;
                 Text.Anchor = TextAnchor.UpperLeft;
                 GUI.color = Color.white;
@@ -212,13 +214,13 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
                     bgColor = RuleBuilderConstants.CardBackgroundHover;
                 }
 
-                Better_Work_Tab.WidgetsCompat.DrawBoxSolid(buttonRect, bgColor);
-                Verse.Widgets.DrawBox(buttonRect, isSelected ? 2 : 1);
+                RWWidgets.DrawBoxSolid(buttonRect, bgColor);
+                RWWidgets.DrawBox(buttonRect, isSelected ? 2 : 1);
 
                 Text.Anchor = TextAnchor.MiddleCenter;
                 Text.Font = GameFont.Small;
                 GUI.color = isSelected ? Color.white : RuleBuilderConstants.LabelColor;
-                Verse.Widgets.Label(buttonRect, labels[i]);
+                RWWidgets.Label(buttonRect, labels[i]);
                 Text.Font = GameFont.Small;
                 Text.Anchor = TextAnchor.UpperLeft;
                 GUI.color = Color.white;
@@ -288,6 +290,12 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
             WorkAssignmentParameters parameters,
             RuleBuilderState state)
         {
+#if vAlpha4
+            GUI.color = RuleBuilderConstants.DisabledColor;
+            RWWidgets.Label(rect, "Trait selection unavailable");
+            GUI.color = Color.white;
+            return false;
+#else
             var currentValue = (Tuple<TraitDef, int>)ConditionRegistry.GetValue(condition.Key, parameters);
             string label = TraitCompat.LabelCap(currentValue?.Item1?.DataAtDegree(currentValue.Item2))
                 ?? "BWT_SelectTrait".Translate();
@@ -349,9 +357,10 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
             }
 
             return false;
+#endif
         }
 
-#if !v1_3 && !v1_2 && !v1_1 && !(v1_0 || v0_19)
+#if !vAlpha4 && !v1_3 && !v1_2 && !v1_1 && !(v1_0 || v0_19)
         private static bool DrawXenotypeEditor(
             Rect rect,
             ConditionInfo condition,
@@ -361,7 +370,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
             if (!ModsConfig.BiotechActive)
             {
                 GUI.color = RuleBuilderConstants.DisabledColor;
-                Verse.Widgets.Label(rect, "BWT_BiotechRequired".Translate());
+                RWWidgets.Label(rect, "BWT_BiotechRequired".Translate());
                 GUI.color = Color.white;
                 return false;
             }

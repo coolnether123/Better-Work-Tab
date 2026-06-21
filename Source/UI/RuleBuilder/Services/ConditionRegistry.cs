@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Verse;
+using Tuple = System.Tuple;
 
 namespace Better_Work_Tab.UI.RuleBuilder.Services
 {
@@ -72,7 +73,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
                     "IsNaturalAlwaysAssign" => p.IsNaturalAlwaysAssign,
                     "RequiredTrait" => p.RequiredTrait != null,
                     "Gender" => p.Gender != null,
-#if !v1_3 && !v1_2 && !v1_1 && !(v1_0 || v0_19)
+#if !vAlpha4 && !v1_3 && !v1_2 && !v1_1 && !(v1_0 || v0_19)
                     "Xenotype" => p.Xenotype != null,
 #endif
                     "IsCapableOfViolence" => p.IsCapableOfViolence,
@@ -107,7 +108,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
                 "IsNaturalAlwaysAssign" => p.IsNaturalAlwaysAssign,
                 "RequiredTrait" => p.RequiredTrait,
                 "Gender" => p.Gender,
-#if !v1_3 && !v1_2 && !v1_1 && !(v1_0 || v0_19)
+#if !vAlpha4 && !v1_3 && !v1_2 && !v1_1 && !(v1_0 || v0_19)
                 "Xenotype" => p.Xenotype,
 #endif
                 "IsCapableOfViolence" => p.IsCapableOfViolence,
@@ -151,14 +152,18 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
                     p.IsNaturalAlwaysAssign = (bool)value;
                     break;
                 case "RequiredTrait":
-                    p.RequiredTrait = value as Tuple<TraitDef, int>;
+                    p.RequiredTrait = value as System.Tuple<TraitDef, int>;
+#if vAlpha4
+                    p.TraitString = "";
+#else
                     p.TraitString = p.RequiredTrait?.Item1?.defName ?? "";
+#endif
                     p.TraitDegree = p.RequiredTrait?.Item2;
                     break;
                 case "Gender":
                     p.Gender = value as Gender?;
                     break;
-#if !v1_3 && !v1_2 && !v1_1 && !(v1_0 || v0_19)
+#if !vAlpha4 && !v1_3 && !v1_2 && !v1_1 && !(v1_0 || v0_19)
                 case "Xenotype":
                     p.Xenotype = value as XenotypeDef;
                     p.XenotypeString = p.Xenotype?.defName ?? "";
@@ -230,7 +235,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
                 case "Gender":
                     p.Gender = null;
                     break;
-#if !v1_3 && !v1_2 && !v1_1 && !(v1_0 || v0_19)
+#if !vAlpha4 && !v1_3 && !v1_2 && !v1_1 && !(v1_0 || v0_19)
                 case "Xenotype":
                     p.Xenotype = null;
                     p.XenotypeString = "";
@@ -313,8 +318,11 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
             }
         }
 
-        private static Tuple<TraitDef, int> GetDefaultTrait()
+        private static System.Tuple<TraitDef, int> GetDefaultTrait()
         {
+#if vAlpha4
+            return null;
+#else
             var trait = DefDatabase<TraitDef>.AllDefs
                 .OrderBy(t => t.defName)
                 .FirstOrDefault();
@@ -328,7 +336,8 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
                 degree = trait.degreeDatas[0].degree;
             }
 
-            return new Tuple<TraitDef, int>(trait, degree);
+            return new System.Tuple<TraitDef, int>(trait, degree);
+#endif
         }
 
         private static List<ConditionDefinition> BuildDefinitions()
@@ -422,7 +431,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
                     DefaultValue = true,
                     ShortLabel = "Pregnant"
                 },
-#if !v1_3 && !v1_2 && !v1_1 && !(v1_0 || v0_19)
+#if !vAlpha4 && !v1_3 && !v1_2 && !v1_1 && !(v1_0 || v0_19)
                 new ConditionDefinition
                 {
                     Key = "Xenotype",

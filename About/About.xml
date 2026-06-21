@@ -3,13 +3,13 @@
   <name>Better Work Tab</name>
   <author>Coolnether123</author>
   <url>https://github.com/coolnether123/Better-Work-Tab</url>
-  <targetVersion>0.13.1137</targetVersion>
-  <description><![CDATA[Better Work Tab v1.1 overhauls RimWorld's Work tab with drag-and-drop ordering, skill overlays, automation rules, extended priorities up to 99, workloads, dividers, and visual customization.
+  <targetVersion>0.4.460</targetVersion>
+  <description><![CDATA[Better Work Tab v1.1 port target for RimWorld Alpha 4.
 
-Features are toggleable in settings.
+This payload is being prepared for the Alpha 4 compatibility branch.
 
 Version support:
-- 0.13 -> v1.1 - Multiplayer does not work
+- Alpha 4 / 0.4.460 -> v1.1 target - Multiplayer does not work
 
 Support:
 Discord: https://discord.gg/QYBBaRkKWs

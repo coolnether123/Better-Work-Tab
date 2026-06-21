@@ -2,6 +2,7 @@ using RimWorld;
 using System.Linq;
 using UnityEngine;
 using Verse;
+using RWWidgets = Better_Work_Tab.WidgetsCompat;
 
 namespace Better_Work_Tab.UI.RuleBuilder.Widgets
 {
@@ -23,22 +24,22 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
             Color bgColor = isHovered
                 ? RuleBuilderConstants.CardBackgroundHover
                 : RuleBuilderConstants.CardBackground;
-            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, bgColor);
+            RWWidgets.DrawBoxSolid(rect, bgColor);
 
             if (isConfigured)
             {
 #if v1_2 || v1_1 || (v1_0 || v0_19)
-                Widgets12.DrawBox(rect, (int)BorderWidth, Texture2D.whiteTexture);
+                Widgets12.DrawBox(rect, (int)BorderWidth, GenUI.WhiteTex);
 #else
-                Verse.Widgets.DrawBox(rect, (int)BorderWidth, Texture2D.whiteTexture);
+                RWWidgets.DrawBox(rect, (int)BorderWidth, Texture2D.whiteTexture);
 #endif
                 GUI.color = RuleBuilderConstants.CardBorderConfigured;
-                Verse.Widgets.DrawBox(rect, (int)BorderWidth);
+                RWWidgets.DrawBox(rect, (int)BorderWidth);
                 GUI.color = Color.white;
             }
             else
             {
-                Verse.Widgets.DrawBox(rect, 1);
+                RWWidgets.DrawBox(rect, 1);
             }
 
             Rect iconRect = new Rect(
@@ -66,8 +67,8 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
             Text.Anchor = TextAnchor.UpperCenter;
             GUI.color = isConfigured ? Color.white : new Color(0.8f, 0.8f, 0.8f);
 
-            string label = workType.labelShort.CapitalizeFirst();
-            Verse.Widgets.Label(labelRect, label);
+            string label = Better_Work_Tab.WorkTypeCompat.LabelShort(workType).CapitalizeFirst();
+            RWWidgets.Label(labelRect, label);
 
             Text.Anchor = oldAnchor;
             Text.Font = oldFont;
@@ -97,7 +98,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
                 RuleCountBadgeSize,
                 RuleCountBadgeSize);
 
-            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(badgeRect, RuleBuilderConstants.SuccessColor);
+            RWWidgets.DrawBoxSolid(badgeRect, RuleBuilderConstants.SuccessColor);
 
             var oldFont = Text.Font;
             var oldAnchor = Text.Anchor;
@@ -107,7 +108,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
             Text.Anchor = TextAnchor.MiddleCenter;
             GUI.color = Color.white;
 
-            Verse.Widgets.Label(badgeRect, count.ToString());
+            RWWidgets.Label(badgeRect, count.ToString());
 
             Text.Font = oldFont;
             Text.Anchor = oldAnchor;
@@ -123,7 +124,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
         {
             var sb = new System.Text.StringBuilder();
 
-            sb.AppendLine($"<b>{workType.labelShort.CapitalizeFirst()}</b>");
+            sb.AppendLine($"<b>{Better_Work_Tab.WorkTypeCompat.LabelShort(workType).CapitalizeFirst()}</b>");
             sb.AppendLine();
 
             if (!string.IsNullOrEmpty(workType.description))
@@ -136,7 +137,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
             {
                 sb.Append("BWT_RelevantSkills".Translate() + ": ");
                 sb.AppendLine(string.Join(", ",
-                    workType.relevantSkills.Select(s => s.LabelCap).ToArray()));
+                    workType.relevantSkills.Select(GetSkillLabel).ToArray()));
                 sb.AppendLine();
             }
 
@@ -153,6 +154,15 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
             sb.AppendLine($"<i>{"BWT_ClickToEdit".Translate()}</i>");
 
             return sb.ToString();
+        }
+
+        private static string GetSkillLabel(SkillDef skill)
+        {
+#if vAlpha4
+            return skill?.label?.CapitalizeFirst() ?? skill?.ToString() ?? string.Empty;
+#else
+            return skill?.LabelCap ?? string.Empty;
+#endif
         }
     }
 }

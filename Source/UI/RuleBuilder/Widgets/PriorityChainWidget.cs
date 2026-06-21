@@ -36,7 +36,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
             float centerY = rect.y + rect.height / 2f;
 
             // Work type badge
-            string workLabel = workType?.labelShort.CapitalizeFirst() ?? "BWT_SelectWorkTypeFirst".Translate();
+            string workLabel = Better_Work_Tab.WorkTypeCompat.LabelShort(workType).CapitalizeFirst() ?? "BWT_SelectWorkTypeFirst".Translate();
             var wtSize = Text.CalcSize(workLabel) + new Vector2(16f, 6f);
             Rect wtRect = new Rect(curX, centerY - wtSize.y / 2f, wtSize.x, wtSize.y);
             DrawBadge(wtRect, workLabel, RuleBuilderConstants.CardBackground, Color.white);

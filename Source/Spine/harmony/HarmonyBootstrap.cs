@@ -288,7 +288,11 @@ namespace ModAPI.Harmony
 
         private void Update()
         {
+#if vAlpha4
+            _timer += Time.deltaTime;
+#else
             _timer += Time.unscaledDeltaTime;
+#endif
             if (_timer < 0.5f) return;
             _timer = 0f;
             _attempts++;

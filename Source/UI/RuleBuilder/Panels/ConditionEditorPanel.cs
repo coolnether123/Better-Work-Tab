@@ -112,7 +112,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             
             Rect labelRect = new Rect(rect.x, rect.yMax - 40f, rect.width, 30f);
             string dropText = "BWT_DropHere".CanTranslate() ? "BWT_DropHere".Translate() : "\u2193 Drop here to duplicate \u2193";
-            Verse.Widgets.Label(labelRect, dropText);
+            RWWidgets.Label(labelRect, dropText);
             
             Text.Font = GameFont.Small;
             Text.Anchor = TextAnchor.UpperLeft;
@@ -323,8 +323,12 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
 
         private List<Pawn> GetCurrentPawns()
         {
+#if vAlpha4
+            return Better_Work_Tab.Find.ListerPawns?.FreeColonists?.ToList() ?? new List<Pawn>();
+#else
             var map = MapCompat.CurrentMap;
             return map?.mapPawns?.FreeColonists?.ToList() ?? new List<Pawn>();
+#endif
         }
 
         private void DrawEmptyState(Rect rect, string message)

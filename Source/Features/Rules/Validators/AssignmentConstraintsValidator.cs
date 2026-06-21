@@ -1,4 +1,4 @@
-﻿using RimWorld;
+using RimWorld;
 using Better_Work_Tab.Features.Rules;
 using System.Collections.Generic;
 using System.Linq;
@@ -22,7 +22,7 @@ namespace Better_Work_Tab.Features.Rules.Validators
             WorkAssignmentParameters p
         )
         {
-            if (pawn?.workSettings == null) 
+            if (Better_Work_Tab.PawnCompat.WorkSettings(pawn) == null)
                 return new AssignmentValidationResult(false, false);
 
             bool isValid = true;
@@ -33,10 +33,10 @@ namespace Better_Work_Tab.Features.Rules.Validators
             {
                 foreach (var other in allPawns)
                 {
-                    if (other == pawn || other?.workSettings == null) 
+                    if (other == pawn || Better_Work_Tab.PawnCompat.WorkSettings(other) == null)
                         continue;
 
-                    if (other.workSettings.GetPriority(wt) == p.SkipIfPriorityForThisWorktypeAreadyAssigned)
+                    if (Better_Work_Tab.PawnCompat.WorkSettings(other).GetPriority(wt) == p.SkipIfPriorityForThisWorktypeAreadyAssigned)
                         return new AssignmentValidationResult(false, false);
                 }
             }
@@ -46,10 +46,10 @@ namespace Better_Work_Tab.Features.Rules.Validators
             {
                 foreach (var other in allPawns)
                 {
-                    if (other == pawn || other?.workSettings == null)  
+                    if (other == pawn || Better_Work_Tab.PawnCompat.WorkSettings(other) == null)
                         continue;
 
-                    if (other.workSettings.GetPriority(wt) > 0)
+                    if (Better_Work_Tab.PawnCompat.WorkSettings(other).GetPriority(wt) > 0)
                         return new AssignmentValidationResult(false, false);
                 }
             }
@@ -64,11 +64,11 @@ namespace Better_Work_Tab.Features.Rules.Validators
 
                 foreach (var pp in allPawns)
                 {
-                    if (pp?.workSettings == null)
+                    if (Better_Work_Tab.PawnCompat.WorkSettings(pp) == null)
                         continue;
 
                     int count = allWorkTypes
-                        .Count(w => pp.workSettings.GetPriority(w) > 0);
+                        .Count(w => Better_Work_Tab.PawnCompat.WorkSettings(pp).GetPriority(w) > 0);
 
                     if (count < fewest && !pp.WorkTypeIsDisabled(wt))
                     {

@@ -4,6 +4,10 @@ using Better_Work_Tab;
 using UnityEngine;
 using Verse;
 using Spine.UI.ColourPicker;
+#if vAlpha4
+using Widgets = Better_Work_Tab.Widgets;
+using Find = Better_Work_Tab.Find;
+#endif
 
 namespace Spine.UI.SettingsFramework
 {

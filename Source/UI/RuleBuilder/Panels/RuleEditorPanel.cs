@@ -11,6 +11,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using Verse;
+using RWWidgets = Better_Work_Tab.WidgetsCompat;
 
 namespace Better_Work_Tab.UI.RuleBuilder.Panels
 {
@@ -141,15 +142,15 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
                 rect.width - backRect.width - 24f,
                 rect.height);
 
-            string title = state.SelectedWorkType.labelShort.CapitalizeFirst();
-            Verse.Widgets.Label(titleRect, title);
+            string title = Better_Work_Tab.WorkTypeCompat.LabelShort(state.SelectedWorkType).CapitalizeFirst();
+            RWWidgets.Label(titleRect, title);
 
             Text.Font = oldFont;
             Text.Anchor = oldAnchor;
             GUI.color = oldColor;
 
             TooltipHandler.TipRegion(rect,
-                "BWT_EditingRulesFor".Translate(state.SelectedWorkType.labelShort));
+                "BWT_EditingRulesFor".Translate(Better_Work_Tab.WorkTypeCompat.LabelShort(state.SelectedWorkType)));
         }
 
         private void DrawAddRuleButton(Rect rect, RuleBuilderState state)
@@ -177,7 +178,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
 
         private void DrawRuleList(Rect rect, RuleBuilderState state)
         {
-            Verse.Widgets.DrawMenuSection(rect);
+            RWWidgets.DrawMenuSection(rect);
 
             _visibleRules = state.RulesForSelectedWorkType;
 
@@ -193,7 +194,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
 
             _rulesListScreenRect = innerRect;
 
-            Verse.Widgets.BeginScrollView(innerRect, ref _ruleListScroll, viewRect);
+            RWWidgets.BeginScrollView(innerRect, ref _ruleListScroll, viewRect);
 
             float yPos = 0f;
             WorkAssignmentRule ruleToDelete = null;
@@ -238,7 +239,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
                 yPos += RuleRowHeight;
             }
 
-            Verse.Widgets.EndScrollView();
+            RWWidgets.EndScrollView();
 
             HandleRuleDragInput();
 
@@ -373,7 +374,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             Text.Anchor = TextAnchor.MiddleCenter;
             GUI.color = Color.gray;
 
-            Verse.Widgets.Label(rect, "BWT_NoRulesForWorkType".Translate());
+            RWWidgets.Label(rect, "BWT_NoRulesForWorkType".Translate());
 
             Text.Anchor = oldAnchor;
             GUI.color = oldColor;
@@ -387,7 +388,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
                 return;
             }
 
-            Verse.Widgets.DrawMenuSection(rect);
+            RWWidgets.DrawMenuSection(rect);
 
             Rect nameRect = new Rect(
                 rect.x + RuleBuilderConstants.PanelPadding,
@@ -419,12 +420,12 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             Rect labelRect = new Rect(rect.x, rect.y, 80f, rect.height);
             Rect fieldRect = new Rect(labelRect.xMax + 8f, rect.y, rect.width - 88f, rect.height);
 
-            Verse.Widgets.Label(labelRect, "BWT_RuleName".Translate() + ":");
+            RWWidgets.Label(labelRect, "BWT_RuleName".Translate() + ":");
 
             if (isDefault)
             {
                 GUI.color = Color.gray;
-                Verse.Widgets.Label(fieldRect, rule.Name);
+                RWWidgets.Label(fieldRect, rule.Name);
                 GUI.color = Color.white;
             }
             else
@@ -433,7 +434,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
                 string newName = Widgets12.TextField(fieldRect, rule.Name,
                     RuleBuilderConstants.MaxRuleNameLength);
 #else
-                string newName = Verse.Widgets.TextField(fieldRect, rule.Name,
+                string newName = RWWidgets.TextField(fieldRect, rule.Name,
                     RuleBuilderConstants.MaxRuleNameLength);
 #endif
 
@@ -460,7 +461,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             }
 
             Rect labelRect = new Rect(rect.x, rect.y, 120f, rect.height);
-            Verse.Widgets.Label(labelRect, "BWT_AssignPriority".Translate() + ":");
+            RWWidgets.Label(labelRect, "BWT_AssignPriority".Translate() + ":");
 
             Rect minusRect = new Rect(labelRect.xMax + 8f, rect.y, 28f, rect.height);
             Rect fieldRect = new Rect(minusRect.xMax + 4f, rect.y, 64f, rect.height);
@@ -478,9 +479,9 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             {
                 GUI.color = Color.gray;
                 Better_Work_Tab.WidgetsCompat.DrawBoxSolid(fieldRect, RuleBuilderConstants.CardBackground);
-                Verse.Widgets.DrawBox(fieldRect, 1);
+                RWWidgets.DrawBox(fieldRect, 1);
                 Text.Anchor = TextAnchor.MiddleCenter;
-                Verse.Widgets.Label(fieldRect, currentPriority.ToString());
+                RWWidgets.Label(fieldRect, currentPriority.ToString());
                 Text.Anchor = TextAnchor.UpperLeft;
                 GUI.color = Color.white;
             }
@@ -519,7 +520,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             }
 
             GUI.color = RuleBuilderConstants.SubtleTextColor;
-            Verse.Widgets.Label(hintRect, $"0-{maxPriority}  (mouse wheel adjusts by 1)");
+            RWWidgets.Label(hintRect, $"0-{maxPriority}  (mouse wheel adjusts by 1)");
             GUI.color = Color.white;
 
             TooltipHandler.TipRegion(fieldRect, $"Priority value from 0 to {maxPriority}. Use the mouse wheel to adjust quickly.");
@@ -546,7 +547,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
 
             Rect viewRect = new Rect(0f, 0f, scrollRect.width - 16f, contentHeight);
 
-            Verse.Widgets.BeginScrollView(scrollRect, ref _conditionScroll, viewRect);
+            RWWidgets.BeginScrollView(scrollRect, ref _conditionScroll, viewRect);
 
             float yPos = 0f;
             foreach (var condition in activeConditions)
@@ -575,7 +576,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
                 }
             }
 
-            Verse.Widgets.EndScrollView();
+            RWWidgets.EndScrollView();
         }
 
         private void DrawSectionHeader(Rect rect, string text)
@@ -585,7 +586,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
 
             Text.Font = GameFont.Small;
             GUI.color = RuleBuilderConstants.HeaderColor;
-            Verse.Widgets.Label(rect, text);
+            RWWidgets.Label(rect, text);
 
             Rect lineRect = new Rect(rect.x, rect.yMax - 2f, rect.width, 1f);
             Better_Work_Tab.WidgetsCompat.DrawBoxSolid(lineRect, RuleBuilderConstants.HeaderColor * 0.5f);
@@ -599,18 +600,18 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             var oldAnchor = Text.Anchor;
             Text.Anchor = TextAnchor.MiddleCenter;
             GUI.color = Color.gray;
-            Verse.Widgets.Label(rect, "BWT_SelectWorkTypeFirst".Translate());
+            RWWidgets.Label(rect, "BWT_SelectWorkTypeFirst".Translate());
             Text.Anchor = oldAnchor;
             GUI.color = Color.white;
         }
 
         private void DrawNoRuleSelected(Rect rect)
         {
-            Verse.Widgets.DrawMenuSection(rect);
+            RWWidgets.DrawMenuSection(rect);
             var oldAnchor = Text.Anchor;
             Text.Anchor = TextAnchor.MiddleCenter;
             GUI.color = Color.gray;
-            Verse.Widgets.Label(rect, "BWT_SelectOrCreateRule".Translate());
+            RWWidgets.Label(rect, "BWT_SelectOrCreateRule".Translate());
             Text.Anchor = oldAnchor;
             GUI.color = Color.white;
         }
@@ -664,8 +665,12 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
 
         private List<Pawn> GetCurrentPawns()
         {
+#if vAlpha4
+            return Better_Work_Tab.Find.ListerPawns?.FreeColonists?.ToList() ?? new List<Pawn>();
+#else
             var map = MapCompat.CurrentMap;
             return map?.mapPawns?.FreeColonists?.ToList() ?? new List<Pawn>();
+#endif
         }
 
         private List<ConditionInfo> GetActiveConditions(WorkAssignmentParameters parameters)
@@ -696,7 +701,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             if (parameters.Gender != null)
                 result.Add(new ConditionInfo("Gender", ConditionType.Gender, parameters.Gender));
 
-#if !v1_3 && !v1_2 && !v1_1 && !(v1_0 || v0_19)
+#if !vAlpha4 && !v1_3 && !v1_2 && !v1_1 && !(v1_0 || v0_19)
             if (parameters.Xenotype != null)
                 result.Add(new ConditionInfo("Xenotype", ConditionType.Xenotype, parameters.Xenotype));
 #endif
@@ -754,9 +759,9 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
                 AddOption("RequiredTrait", "BWT_Add_RequiredTrait".Translate(), () => { /* placeholder until trait picker */ });
 
             if (parameters.Gender == null)
-                AddOption("Gender", "BWT_Add_Gender".Translate(), () => parameters.Gender = Gender.None);
+                AddOption("Gender", "BWT_Add_Gender".Translate(), () => parameters.Gender = GetDefaultGender());
 
-#if !v1_3 && !v1_2 && !v1_1 && !(v1_0 || v0_19)
+#if !vAlpha4 && !v1_3 && !v1_2 && !v1_1 && !(v1_0 || v0_19)
             if (parameters.Xenotype == null)
                 AddOption("Xenotype", "BWT_Add_Xenotype".Translate(), () => { /* placeholder until xenotype picker */ });
 #endif
@@ -782,6 +787,15 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             }
 
             Find.WindowStack.Add(new FloatMenu(options));
+        }
+
+        private static Gender GetDefaultGender()
+        {
+#if vAlpha4
+            return Enum.GetValues(typeof(Gender)).Cast<Gender>().FirstOrDefault();
+#else
+            return Gender.None;
+#endif
         }
 
         private int CalculateRuleTargetIndex(Vector2 mousePos)
