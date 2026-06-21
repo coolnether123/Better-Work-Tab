@@ -117,11 +117,16 @@ namespace Better_Work_Tab.UI.RuleBuilder.State
             get => _selectedPriority;
             set
             {
-                if (_selectedPriority != value)
+                int normalizedValue = value < 0
+                    ? -1
+                    : NormalizeRequestedPriority(value);
+
+                if (_selectedPriority != normalizedValue)
                 {
-                    _selectedPriority = value;
+                    _selectedPriority = normalizedValue;
                     SelectedRule = null;
-                    OnPriorityChanged?.Invoke(value);
+                    EnsurePriorityOrder();
+                    OnPriorityChanged?.Invoke(normalizedValue);
                 }
             }
         }
@@ -131,6 +136,10 @@ namespace Better_Work_Tab.UI.RuleBuilder.State
         /// Default is 4, but can be extended.
         /// </summary>
         public int MaxPriority { get; set; } = 4;
+
+        public int RequestableMaxPriority => WorkPrioritySystem.GetMaxPriority();
+
+        public bool CanRequestCustomPriority => RequestableMaxPriority > 4;
 
         /// <summary>
         /// Current UI ordering of priorities (0..MaxPriority). Defaults to 1..MaxPriority then 0 (disabled).
@@ -224,6 +233,65 @@ namespace Better_Work_Tab.UI.RuleBuilder.State
                 }
             }
             return counts;
+        }
+
+        /// <summary>
+        /// Returns the compact priority list shown in the Rule Builder column.
+        /// Extended ranges are requested through Window_PriorityNumberPicker instead of
+        /// expanding the middle column to every number up to the current maximum.
+        /// </summary>
+        public List<int> GetVisiblePriorityOrder(WorkTypeDef workType)
+        {
+            EnsurePriorityOrder();
+
+            if (workType == null)
+            {
+                return new List<int>();
+            }
+
+            if (!CanRequestCustomPriority)
+            {
+                return GetSelectablePriorityOrder();
+            }
+
+            var counts = GetPriorityRuleCounts(workType);
+            var visible = PriorityOrder
+                .Where(p => (counts.TryGetValue(p, out var count) && count > 0) ||
+                            p == SelectedPriority)
+                .Distinct()
+                .ToList();
+
+            if (visible.Count == 0 && SelectedPriority >= 0)
+            {
+                visible.Add(SelectedPriority);
+            }
+
+            return visible;
+        }
+
+        public List<int> GetSelectablePriorityOrder()
+        {
+            EnsurePriorityOrder();
+
+            var ordered = new List<int>();
+            int maxPriority = WorkPrioritySystem.GetMaxPriority();
+
+            for (int priority = 1; priority <= maxPriority; priority++)
+            {
+                ordered.Add(priority);
+            }
+
+            if (!ordered.Contains(0))
+            {
+                ordered.Add(0);
+            }
+
+            return ordered;
+        }
+
+        public int NormalizeRequestedPriority(int requestedPriority)
+        {
+            return WorkPrioritySystem.ClampPriority(requestedPriority);
         }
 
         /// <summary>
