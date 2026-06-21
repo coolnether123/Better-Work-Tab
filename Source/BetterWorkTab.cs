@@ -37,8 +37,12 @@ namespace Better_Work_Tab
 
             try
             {
+#if vAlpha4
+                Alpha4PatchInstaller.Install();
+#else
                 LegacyMainTabPatcher.ReplaceWorkTabWindow();
                 new Harmony("Coolnether123.betterworktab").PatchAll();
+#endif
                 initialized = true;
                 BetterWorkTabMod.DebugLog("Harmony patched successfully.");
             }

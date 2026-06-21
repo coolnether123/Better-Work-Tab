@@ -15,7 +15,11 @@ namespace Better_Work_Tab
             Type type = typeof(T);
             if (!SettingsByType.TryGetValue(type, out ModSettings settings))
             {
+#if vAlpha4
+                settings = Alpha4ModSettingsPersistence.Load<T>();
+#else
                 settings = new T();
+#endif
                 SettingsByType[type] = settings;
             }
 
@@ -151,6 +155,9 @@ namespace Verse
 
         public virtual void Write()
         {
+#if vAlpha4
+            Better_Work_Tab.Alpha4ModSettingsPersistence.Save(this);
+#endif
         }
     }
 
