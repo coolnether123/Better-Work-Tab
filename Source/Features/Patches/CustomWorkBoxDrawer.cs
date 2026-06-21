@@ -87,6 +87,11 @@ namespace Better_Work_Tab.Patches
 
         private static void DrawLegacyPassionIcon(Rect rect, Pawn pawn, WorkTypeDef workType)
         {
+#if vAlpha4
+            // Alpha4 has skill passions, but its work boxes do not render passion overlays.
+            // Keep the Alpha4 work-cell renderer limited to the visuals that exist there.
+            return;
+#else
             if (pawn?.skills == null || workType?.relevantSkills == null || workType.relevantSkills.Count == 0)
             {
                 return;
@@ -114,26 +119,15 @@ namespace Better_Work_Tab.Patches
             }
 
             GUI.color = oldColor;
-        }
-
-        private static Passion GetMaxRelevantPassion(Pawn pawn, WorkTypeDef workType)
-        {
-#if vAlpha4
-            Passion maxPassion = Passion.None;
-            for (int i = 0; i < workType.relevantSkills.Count; i++)
-            {
-                SkillRecord skill = pawn.skills.GetSkill(workType.relevantSkills[i]);
-                if (skill != null && (int)skill.passion > (int)maxPassion)
-                {
-                    maxPassion = skill.passion;
-                }
-            }
-
-            return maxPassion;
-#else
-            return pawn.skills.MaxPassionOfRelevantSkillsFor(workType);
 #endif
         }
+
+#if !vAlpha4
+        private static Passion GetMaxRelevantPassion(Pawn pawn, WorkTypeDef workType)
+        {
+            return pawn.skills.MaxPassionOfRelevantSkillsFor(workType);
+        }
+#endif
 
         private static void DrawModernPriorityNumber(Rect cellRect, int priority)
         {
