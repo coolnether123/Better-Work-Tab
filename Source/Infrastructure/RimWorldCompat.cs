@@ -566,7 +566,7 @@ namespace Better_Work_Tab
 
         public static void DrawBox(Rect rect, int thickness, Texture2D lineTexture)
         {
-#if v0_14 || v0_13
+#if v0_18 || v0_17 || v0_16 || v0_15 || v0_14 || v0_13
             DrawBox(rect, thickness);
 #else
             Widgets.DrawBox(rect, thickness, lineTexture);
@@ -696,7 +696,7 @@ namespace Better_Work_Tab
 
         public static bool ButtonImageWithBG(Rect rect, Texture2D texture, Vector2? size = null)
         {
-#if v0_14 || v0_13
+#if v0_18 || v0_17 || v0_16 || v0_15 || v0_14 || v0_13
             Widgets.DrawBox(rect, 1);
             Rect imageRect = rect;
             if (size.HasValue)
@@ -747,7 +747,7 @@ namespace Better_Work_Tab
 
         public static void DrawBoxSolidWithOutline(Rect rect, Color fillColor, Color outlineColor, int outlineThickness = 1)
         {
-#if v0_14 || v0_13
+#if v0_18 || v0_17 || v0_16 || v0_15 || v0_14 || v0_13
             DrawBoxSolid(rect, fillColor);
             Color previousColor = GUI.color;
             GUI.color = outlineColor;
@@ -818,7 +818,7 @@ namespace Better_Work_Tab
     {
         public static void DrawWorkBoxFor(float x, float y, Pawn pawn, WorkTypeDef workType, bool incapable)
         {
-#if v0_14
+#if v0_13
             WidgetsWork.DrawWorkBoxFor(new Vector2(x, y), pawn, workType, incapable);
 #else
             WidgetsWork.DrawWorkBoxFor(x, y, pawn, workType, incapable);
