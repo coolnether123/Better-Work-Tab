@@ -714,6 +714,7 @@ namespace Better_Work_Tab.Patches
                 SoundDefOf.Crunch.PlayOneShotOnCamera();
             }
 
+#if !v1_2 && !v1_1 && !(v1_0 || v0_19)
             if (pawn.Ideo != null && pawn.Ideo.IsWorkTypeConsideredDangerous(workType))
             {
                 Messages.Message(
@@ -723,6 +724,7 @@ namespace Better_Work_Tab.Patches
                     false);
                 SoundDefOf.DislikedWorkTypeActivated.PlayOneShotOnCamera();
             }
+#endif
         }
     }
 }
