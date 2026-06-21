@@ -218,6 +218,8 @@ namespace Better_Work_Tab.Patches
                 {
                     return true;
                 }
+
+                TryHandleWorkPriorityInput(rect, pawn, workType);
                 return false;
             }
 
@@ -227,9 +229,12 @@ namespace Better_Work_Tab.Patches
                 {
                     return true;
                 }
+
+                TryHandleWorkPriorityInput(rect, pawn, workType);
                 return false;
             }
 
+            TryHandleWorkPriorityInput(rect, pawn, workType);
             return false;
         }
 
@@ -281,7 +286,7 @@ namespace Better_Work_Tab.Patches
 
             float boxXSkill = rect.x + (rect.width - SkillBoxSize) / 2f;
             float boxYSkill = rect.y + SkillBoxVerticalPadding;
-            Rect boxRect = new Rect(boxXSkill, boxYSkill, SkillBoxSize, SkillBoxSize);
+            Rect boxRect = GetWorkBoxRect(rect);
 
             bool drawBigSkill = true;
             bool drawSmallSkill = false;
@@ -624,6 +629,102 @@ namespace Better_Work_Tab.Patches
             _bestPawnCache.Clear();
             _bestPawnCacheTimestamps.Clear();
             _colorCache.Clear();
+        }
+
+        private static Rect GetWorkBoxRect(Rect cellRect)
+        {
+            return new Rect(
+                cellRect.x + (cellRect.width - SkillBoxSize) / 2f,
+                cellRect.y + SkillBoxVerticalPadding,
+                SkillBoxSize,
+                SkillBoxSize);
+        }
+
+        private static bool TryHandleWorkPriorityInput(Rect cellRect, Pawn pawn, WorkTypeDef workType)
+        {
+            Event evt = Event.current;
+            if (evt == null || evt.type != EventType.MouseDown)
+            {
+                return false;
+            }
+
+            if (!Mouse.IsOver(GetWorkBoxRect(cellRect)))
+            {
+                return false;
+            }
+
+            if (Find.PlaySettings.useWorkPriorities)
+            {
+                if (evt.button != 0 && evt.button != 1)
+                {
+                    return false;
+                }
+
+                bool wasActive = pawn.workSettings.WorkIsActive(workType);
+                int currentPriority = pawn.workSettings.GetPriority(workType);
+                int nextPriority = WorkPrioritySystem.GetPriorityAfterMouseButton(currentPriority, evt.button);
+
+                if (nextPriority != currentPriority)
+                {
+                    pawn.workSettings.SetPriority(workType, nextPriority);
+                    SoundDefOf.DragSlider.PlayOneShotOnCamera();
+                }
+
+                NotifyWorkActivatedIfNeeded(pawn, workType, wasActive);
+                evt.Use();
+                PlayerKnowledgeDatabase.KnowledgeDemonstrated(ConceptDefOf.WorkTab, KnowledgeAmount.SpecificInteraction);
+                PlayerKnowledgeDatabase.KnowledgeDemonstrated(ConceptDefOf.ManualWorkPriorities, KnowledgeAmount.SmallInteraction);
+                return true;
+            }
+
+            if (evt.button != 0)
+            {
+                return false;
+            }
+
+            bool wasEnabled = pawn.workSettings.WorkIsActive(workType);
+            if (pawn.workSettings.GetPriority(workType) > 0)
+            {
+                pawn.workSettings.SetPriority(workType, 0);
+                SoundDefOf.Checkbox_TurnedOff.PlayOneShotOnCamera();
+            }
+            else
+            {
+                pawn.workSettings.SetPriority(workType, WorkPrioritySystem.GetDefaultEnabledPriority());
+                SoundDefOf.Checkbox_TurnedOn.PlayOneShotOnCamera();
+            }
+
+            NotifyWorkActivatedIfNeeded(pawn, workType, wasEnabled);
+            evt.Use();
+            PlayerKnowledgeDatabase.KnowledgeDemonstrated(ConceptDefOf.WorkTab, KnowledgeAmount.SpecificInteraction);
+            return true;
+        }
+
+        private static void NotifyWorkActivatedIfNeeded(Pawn pawn, WorkTypeDef workType, bool wasActive)
+        {
+            if (wasActive || !pawn.workSettings.WorkIsActive(workType))
+            {
+                return;
+            }
+
+            if (workType.relevantSkills != null &&
+                workType.relevantSkills.Any() &&
+                pawn.skills.AverageOfRelevantSkillsFor(workType) <= 2f)
+            {
+                SoundDefOf.Crunch.PlayOneShotOnCamera();
+            }
+
+#if !v1_2 && !v1_1 && !(v1_0 || v0_19)
+            if (pawn.Ideo != null && pawn.Ideo.IsWorkTypeConsideredDangerous(workType))
+            {
+                Messages.Message(
+                    "MessageIdeoOpposedWorkTypeSelected".Translate(pawn, workType.gerundLabel),
+                    pawn,
+                    MessageTypeDefOf.CautionInput,
+                    false);
+                SoundDefOf.DislikedWorkTypeActivated.PlayOneShotOnCamera();
+            }
+#endif
         }
     }
 }

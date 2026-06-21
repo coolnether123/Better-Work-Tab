@@ -254,6 +254,7 @@
     <Compile Include="UI\MouseStateManager.cs" />
     <Compile Include="Features\Patches\Patch_Building_Bed_Cache.cs" />
     <Compile Include="UI\RuleBuilder\RuleBuilderConstants.cs" />
+    <Compile Include="UI\RuleBuilder\Window_PriorityNumberPicker.cs" />
     <Compile Include="UI\RuleBuilder\Window_RulesetBuilder.cs" />
     <Compile Include="UI\RuleBuilder\State\RuleBuilderStep.cs" />
     <Compile Include="UI\RuleBuilder\State\RuleMatchResult.cs" />
