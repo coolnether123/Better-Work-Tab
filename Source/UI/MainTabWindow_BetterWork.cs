@@ -1655,6 +1655,7 @@ namespace Better_Work_Tab.UI
             }
 
             Rect infoRect = GetLegacy016InfoIconRect(rect);
+            HeaderButtons.DrawBottomRightGrouped(rect, infoRect);
             DrawInfoButton(infoRect);
             TooltipHandler.TipRegion(infoRect, "Better Work Tab settings");
         }
