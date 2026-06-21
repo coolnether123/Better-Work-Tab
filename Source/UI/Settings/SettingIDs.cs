@@ -90,6 +90,7 @@ namespace Better_Work_Tab.UI.Settings
         public const string PerfViewportCulling = "perf.viewportCulling";
         public const string UiDragInstructions = "ui.dragInstructions";
         public const string UiManualPriorities = "ui.manualPriorities";
+        public const string UiModernLegacyPriorityCells = "ui.modernLegacyPriorityCells";
         public const string UiPriorityLegend = "ui.priorityLegend";
         public const string UiMaxPriority = "ui.maxPriority";
         public const string UiPriorityColorPercentageGreen = "ui.priorityColorPercentageGreen";

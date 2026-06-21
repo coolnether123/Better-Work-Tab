@@ -787,6 +787,21 @@ namespace Better_Work_Tab.UI.Settings
                 ParentId = FeaturesUiElements
             });
 
+#if v0_16
+            Register(new SettingDefinition
+            {
+                Id = UiModernLegacyPriorityCells,
+                FieldName = "useModernLegacyPriorityCells",
+                Label = "Modern Legacy Priority Cells",
+                Tooltip = "Draw 0.16 and older manual priority cells with the vanilla-style skill background and priority label used by newer RimWorld versions.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.useModernLegacyPriorityCells,
+                ShowInSimpleView = true,
+                SortOrder = 1044,
+                ParentId = FeaturesUiElements
+            });
+
+#endif
             Register(new SettingDefinition
             {
                 Id = "ui.autoEnableManualPriorities",
@@ -796,7 +811,7 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Bool,
                 DefaultValue = false,
                 ShowInSimpleView = true,
-                SortOrder = 1044,
+                SortOrder = 1045,
                 ParentId = FeaturesUiElements
             });
 

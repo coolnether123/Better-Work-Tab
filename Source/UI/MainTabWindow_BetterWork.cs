@@ -2594,9 +2594,20 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
-            CustomWorkBoxDrawer.DrawWorkBoxForPriorityOnly(rect.x, rect.y, pawn, workType, incapable);
             Legacy016HandlePriorityInput(rect, pawn, workType, currentPriority, useManualPriorities);
+            if (Legacy016UseModernPriorityCells())
+            {
+                CustomWorkBoxDrawer.DrawModernLegacyPriorityCell(rect, pawn, workType, incapable, currentPriority);
+                return;
+            }
+
+            CustomWorkBoxDrawer.DrawWorkBoxForPriorityOnly(rect.x, rect.y, pawn, workType, incapable);
             CustomWorkBoxDrawer.DrawCenteredPriority(rect, currentPriority);
+        }
+
+        private static bool Legacy016UseModernPriorityCells()
+        {
+            return BetterWorkTabMod.Settings?.useModernLegacyPriorityCells ?? DefaultSettings.useModernLegacyPriorityCells;
         }
 
         private static bool Legacy016ShouldShowSkillOverlay()
