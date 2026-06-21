@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -66,8 +66,8 @@ namespace Better_Work_Tab.Features.Workloads
 
         public void ExposeData()
         {
-            Scribe_References.Look(ref owningPawn, "owningPawn");
-            Scribe_Collections.Look(ref Priorities, "Priorities");
+            Better_Work_Tab.ScribeCompat.LookReference(ref owningPawn, "owningPawn");
+            Better_Work_Tab.ScribeCompat.LookCollection(ref Priorities, "Priorities", LookMode.Def, LookMode.Value);
         }
     }
 }

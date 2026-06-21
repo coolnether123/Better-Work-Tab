@@ -15,6 +15,34 @@ using Verse;
 /// </summary>
 namespace Better_Work_Tab
 {
+#if v0_16
+    [StaticConstructorOnStartup]
+    internal static class Legacy016Bootstrap
+    {
+        static Legacy016Bootstrap()
+        {
+            BetterWorkTabMod.Settings = Legacy016ModSettingsStore.Get<BetterWorkTabSettings>();
+
+            try
+            {
+                new Harmony("Coolnether123.betterworktab").PatchAll();
+                BetterWorkTabMod.DebugLog("Harmony patched successfully.");
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"[Better Work Tab] Harmony failed: {ex}");
+            }
+
+            LongEventHandler.ExecuteWhenFinished(BetterWorkTabMod.Settings.InitializeRulesets);
+            LongEventHandler.ExecuteWhenFinished(() =>
+            {
+                WorkColumnOrderManager.InitializeSimilarWorktypeMap();
+                WorkColumnOrderManager.InitializeOnGameLoad();
+            });
+        }
+    }
+#endif
+
     public class BetterWorkTabMod : Mod
     {
         /// <summary>

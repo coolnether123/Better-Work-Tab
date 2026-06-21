@@ -169,9 +169,9 @@ namespace Better_Work_Tab.Features.Rules
 
         public void ExposeData()
         {
-            Scribe_Values.Look(ref Name, "Name");
-            Scribe_Defs.Look(ref CachedWorktype, "Worktype");
-            Scribe_Deep.Look(ref Parameters, "Parameters");
+            Better_Work_Tab.ScribeCompat.LookValue(ref Name, "Name");
+            Better_Work_Tab.ScribeCompat.LookDef(ref CachedWorktype, "Worktype");
+            Better_Work_Tab.ScribeCompat.LookDeep(ref Parameters, "Parameters");
         }
     }
 }

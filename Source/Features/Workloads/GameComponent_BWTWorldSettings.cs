@@ -60,15 +60,15 @@ namespace Better_Work_Tab.Features.Workloads
                 currentWorklistName = CurrentWorklist.RenamableLabel;
             }
 
-            Scribe_Values.Look(ref currentWorklistName, "currentWorklistName");
-            Scribe_Collections.Look(ref ColumnBaselineOrder, "columnBaselineOrder", LookMode.Value);
-            Scribe_Collections.Look(ref ColumnCurrentOrder, "columnCurrentOrder", LookMode.Value);
+            Better_Work_Tab.ScribeCompat.LookValue(ref currentWorklistName, "currentWorklistName");
+            Better_Work_Tab.ScribeCompat.LookCollection(ref ColumnBaselineOrder, "columnBaselineOrder", LookMode.Value);
+            Better_Work_Tab.ScribeCompat.LookCollection(ref ColumnCurrentOrder, "columnCurrentOrder", LookMode.Value);
 
             if (!MultiplayerBridge.Active)
             {
-                Scribe_Collections.Look(ref SavedWorklists, "SavedWorklists", LookMode.Deep, new object[0]);
-                Scribe_Deep.Look(ref CurrentWorklist, "CurrentWorklist");
-                Scribe_Collections.Look(ref ActiveDividers, "ActiveDividers", LookMode.Deep);
+                Better_Work_Tab.ScribeCompat.LookCollection(ref SavedWorklists, "SavedWorklists", LookMode.Deep, new object[0]);
+                Better_Work_Tab.ScribeCompat.LookDeep(ref CurrentWorklist, "CurrentWorklist");
+                Better_Work_Tab.ScribeCompat.LookCollection(ref ActiveDividers, "ActiveDividers", LookMode.Deep);
             }
             else
             {

@@ -48,7 +48,7 @@ namespace Better_Work_Tab.UI
             _nameBuffer = Widgets.TextField(new Rect(0f, 28f, inRect.width, 32f), _nameBuffer ?? string.Empty);
             if (!_focusedField)
             {
-                Verse.UI.FocusControl("DividerRename", this);
+                GUI.FocusControl("DividerRename");
                 _focusedField = true;
             }
 

@@ -263,34 +263,34 @@ namespace Better_Work_Tab.Features.Rules
                 SyncBackingStringsFromDefs();
             }
 
-            Scribe_Values.Look(ref RuleName, "RuleName");
-            Scribe_Values.Look(ref WorktypeString, "WorktypeString");
-            Scribe_Values.Look(ref XenotypeString, "XenotypeString");
-            Scribe_Values.Look(ref TraitString, "TraitString");
-            Scribe_Values.Look(ref TraitDegree, "TraitDegree");
-            Scribe_Values.Look(ref Priority, "Priority");
-            Scribe_Values.Look(ref SkipIfPriorityForThisWorktypeAreadyAssigned, "SkipIfPriorityForThisWorktypeAreadyAssigned", -1);
-            Scribe_Values.Look(ref SkipIfAnotherPawnAssigned, "SkipIfAnotherPawnAssigned");
-            Scribe_Values.Look(ref AssignToPawnWithFewestWorkPriorities, "AssignToPawnWithFewestWorkPriorities");
-            Scribe_Values.Look(ref Gender, "Gender");
-            Scribe_Values.Look(ref IsPregnant, "IsPregnant");
-            Scribe_Values.Look(ref IsNaturalAlwaysAssign, "IsNaturalAlwaysAssign");
-            Scribe_Values.Look(ref IsCapableOfViolence, "IsCapableOfViolence");
-            Scribe_Values.Look(ref AllowOverwritingHigherPriority, "AllowOverwritingHigherPriority");
-            Scribe_Values.Look(ref LimitNumberOfWorktypes, "LimitNumberOfWorktypes");
-            Scribe_Values.Look(ref PassionLevel, "PassionLevel", -1);
-            Scribe_Values.Look(ref SkillLevelGreaterThan, "SkillLevelGreaterThan", -1);
-            Scribe_Values.Look(ref SkillLevelLessThan, "SkillLevelLessThan", -1);
-            Scribe_Values.Look(ref HasHighestSkill, "HasHighestSkill");
-            Scribe_Values.Look(ref IsTopXSkill, "IsTopXSkill");
-            Scribe_Values.Look(ref IsNthBestPawn, "IsNthBestPawn");
-            Scribe_Values.Look(ref IsNthBestSkill, "IsNthBestSkill");
-            Scribe_Values.Look(ref HasChildOnMap, "HasChildOnMap");
-            Scribe_Values.Look(ref RandomIfMultiple, "RandomIfMultiple");
-            Scribe_Values.Look(ref IgnoreIfWorktypeNonexistent, "IgnoreIfWorktypeNonexistent");
-            Scribe_Values.Look(ref MoveSpeedGreaterThan, "MoveSpeedGreaterThan", -1f);
-            Scribe_Values.Look(ref MoveSpeedLessThan, "MoveSpeedLessThan", -1f);
-            Scribe_Collections.Look(ref ActiveConditions, "ActiveConditions", LookMode.Value);
+            Better_Work_Tab.ScribeCompat.LookValue(ref RuleName, "RuleName");
+            Better_Work_Tab.ScribeCompat.LookValue(ref WorktypeString, "WorktypeString");
+            Better_Work_Tab.ScribeCompat.LookValue(ref XenotypeString, "XenotypeString");
+            Better_Work_Tab.ScribeCompat.LookValue(ref TraitString, "TraitString");
+            Better_Work_Tab.ScribeCompat.LookValue(ref TraitDegree, "TraitDegree");
+            Better_Work_Tab.ScribeCompat.LookValue(ref Priority, "Priority");
+            Better_Work_Tab.ScribeCompat.LookValue(ref SkipIfPriorityForThisWorktypeAreadyAssigned, "SkipIfPriorityForThisWorktypeAreadyAssigned", -1);
+            Better_Work_Tab.ScribeCompat.LookValue(ref SkipIfAnotherPawnAssigned, "SkipIfAnotherPawnAssigned");
+            Better_Work_Tab.ScribeCompat.LookValue(ref AssignToPawnWithFewestWorkPriorities, "AssignToPawnWithFewestWorkPriorities");
+            Better_Work_Tab.ScribeCompat.LookValue(ref Gender, "Gender");
+            Better_Work_Tab.ScribeCompat.LookValue(ref IsPregnant, "IsPregnant");
+            Better_Work_Tab.ScribeCompat.LookValue(ref IsNaturalAlwaysAssign, "IsNaturalAlwaysAssign");
+            Better_Work_Tab.ScribeCompat.LookValue(ref IsCapableOfViolence, "IsCapableOfViolence");
+            Better_Work_Tab.ScribeCompat.LookValue(ref AllowOverwritingHigherPriority, "AllowOverwritingHigherPriority");
+            Better_Work_Tab.ScribeCompat.LookValue(ref LimitNumberOfWorktypes, "LimitNumberOfWorktypes");
+            Better_Work_Tab.ScribeCompat.LookValue(ref PassionLevel, "PassionLevel", -1);
+            Better_Work_Tab.ScribeCompat.LookValue(ref SkillLevelGreaterThan, "SkillLevelGreaterThan", -1);
+            Better_Work_Tab.ScribeCompat.LookValue(ref SkillLevelLessThan, "SkillLevelLessThan", -1);
+            Better_Work_Tab.ScribeCompat.LookValue(ref HasHighestSkill, "HasHighestSkill");
+            Better_Work_Tab.ScribeCompat.LookValue(ref IsTopXSkill, "IsTopXSkill");
+            Better_Work_Tab.ScribeCompat.LookValue(ref IsNthBestPawn, "IsNthBestPawn");
+            Better_Work_Tab.ScribeCompat.LookValue(ref IsNthBestSkill, "IsNthBestSkill");
+            Better_Work_Tab.ScribeCompat.LookValue(ref HasChildOnMap, "HasChildOnMap");
+            Better_Work_Tab.ScribeCompat.LookValue(ref RandomIfMultiple, "RandomIfMultiple");
+            Better_Work_Tab.ScribeCompat.LookValue(ref IgnoreIfWorktypeNonexistent, "IgnoreIfWorktypeNonexistent");
+            Better_Work_Tab.ScribeCompat.LookValue(ref MoveSpeedGreaterThan, "MoveSpeedGreaterThan", -1f);
+            Better_Work_Tab.ScribeCompat.LookValue(ref MoveSpeedLessThan, "MoveSpeedLessThan", -1f);
+            Better_Work_Tab.ScribeCompat.LookCollection(ref ActiveConditions, "ActiveConditions", LookMode.Value);
 
 
             if (Scribe.mode == LoadSaveMode.LoadingVars || Scribe.mode == LoadSaveMode.PostLoadInit)

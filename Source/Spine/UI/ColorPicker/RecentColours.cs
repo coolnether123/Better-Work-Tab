@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using Better_Work_Tab;
 using UnityEngine;
 using Verse;
 
@@ -72,7 +73,7 @@ namespace Spine.UI.ColourPicker {
         }
 
         private static void Read() {
-            string path = Path.Combine(GenFilePaths.ConfigFolderPath, "ColourPicker.xml");
+            string path = Path.Combine(GenFilePathsCompat.ConfigFolderPath, "ColourPicker.xml");
             if (!File.Exists(path)) {
                 _colors.Clear();
                 _pinnedColors.Clear();
@@ -80,12 +81,12 @@ namespace Spine.UI.ColourPicker {
             }
 
             try {
-                Scribe.loader.InitLoading(path);
+                ScribeFileCompat.InitLoading(path);
                 ExposeData();
             } catch (Exception ex) {
                 Log.Error("ColourPicker :: Error loading recent colours from file:" + ex);
             } finally {
-                Scribe.loader.FinalizeLoading();
+                ScribeFileCompat.FinalizeLoading();
             }
 
             if (_pinnedColors == null)
@@ -96,19 +97,19 @@ namespace Spine.UI.ColourPicker {
 
         private static void Write() {
             try {
-                string path = Path.Combine( GenFilePaths.ConfigFolderPath, "ColourPicker.xml" );
-                Scribe.saver.InitSaving(path, "ColourPicker");
+                string path = Path.Combine( GenFilePathsCompat.ConfigFolderPath, "ColourPicker.xml" );
+                ScribeFileCompat.InitSaving(path, "ColourPicker");
                 ExposeData();
             } catch (Exception ex) {
                 Log.Error("ColourPicker :: Error saving recent colours to file:" + ex);
             } finally {
-                Scribe.saver.FinalizeSaving();
+                ScribeFileCompat.FinalizeSaving();
             }
         }
 
         private static void ExposeData() {
-            Scribe_Collections.Look(ref _colors, "RecentColors");
-            Scribe_Collections.Look(ref _pinnedColors, "PinnedColors");
+            Better_Work_Tab.ScribeCompat.LookCollection(ref _colors, "RecentColors");
+            Better_Work_Tab.ScribeCompat.LookCollection(ref _pinnedColors, "PinnedColors");
 
             if (_colors == null)
             {

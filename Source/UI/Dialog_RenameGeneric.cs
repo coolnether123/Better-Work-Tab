@@ -58,7 +58,7 @@ namespace Better_Work_Tab.UI
 
             if (!_focusedRenameField)
             {
-                Verse.UI.FocusControl("RenameField", this);
+                GUI.FocusControl("RenameField");
                 _focusedRenameField = true;
             }
 

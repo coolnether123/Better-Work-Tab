@@ -153,7 +153,11 @@ namespace Better_Work_Tab.Patches
 
             if (Widgets.ButtonInvisible(rect1))
             {
+#if v0_16
+                JumpToTargetUtility.TryJumpAndSelect(pawn);
+#else
                 CameraJumper.TryJumpAndSelect(pawn);
+#endif
                 if (Current.ProgramState == ProgramState.Playing && Event.current.button == 0)
                 {
                     // Keep the Work tab open when the user opts into the setting; otherwise mimic vanilla.

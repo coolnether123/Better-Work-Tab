@@ -173,11 +173,11 @@ namespace Better_Work_Tab.Features
 
         public void ExposeData()
         {
-            Scribe_Values.Look(ref IsDefault, "IsDefault", false);
-            Scribe_Values.Look(ref Name, "Name");
-            Scribe_Values.Look(ref ResetBeforeApplying, "ResetBeforeApplying");
-            Scribe_Collections.Look(ref Rules, "Rules", LookMode.Deep);
-            Scribe_Collections.Look(ref PriorityOrder, "PriorityOrder", LookMode.Value);
+            Better_Work_Tab.ScribeCompat.LookValue(ref IsDefault, "IsDefault", false);
+            Better_Work_Tab.ScribeCompat.LookValue(ref Name, "Name");
+            Better_Work_Tab.ScribeCompat.LookValue(ref ResetBeforeApplying, "ResetBeforeApplying");
+            Better_Work_Tab.ScribeCompat.LookCollection(ref Rules, "Rules", LookMode.Deep);
+            Better_Work_Tab.ScribeCompat.LookCollection(ref PriorityOrder, "PriorityOrder", LookMode.Value);
 
             if (Scribe.mode == LoadSaveMode.PostLoadInit || Scribe.mode == LoadSaveMode.ResolvingCrossRefs)
             {

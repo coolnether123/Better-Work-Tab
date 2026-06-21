@@ -31,15 +31,15 @@ namespace Better_Work_Tab.Mod_Support.LocalProfiles
 
         public void ExposeData()
         {
-            Scribe_Values.Look(ref SaveKey, nameof(SaveKey));
-            Scribe_Values.Look(ref PlayerKey, nameof(PlayerKey));
+            Better_Work_Tab.ScribeCompat.LookValue(ref SaveKey, nameof(SaveKey));
+            Better_Work_Tab.ScribeCompat.LookValue(ref PlayerKey, nameof(PlayerKey));
 
-            Scribe_Collections.Look(ref Worklists, nameof(Worklists), LookMode.Deep);
-            Scribe_Values.Look(ref SelectedWorklistName, nameof(SelectedWorklistName));
+            Better_Work_Tab.ScribeCompat.LookCollection(ref Worklists, nameof(Worklists), LookMode.Deep);
+            Better_Work_Tab.ScribeCompat.LookValue(ref SelectedWorklistName, nameof(SelectedWorklistName));
 
-            Scribe_Collections.Look(ref ActiveDividers, nameof(ActiveDividers), LookMode.Deep);
+            Better_Work_Tab.ScribeCompat.LookCollection(ref ActiveDividers, nameof(ActiveDividers), LookMode.Deep);
 
-            Scribe_Collections.Look(ref PawnRowOrder, nameof(PawnRowOrder), LookMode.Value, LookMode.Value);
+            Better_Work_Tab.ScribeCompat.LookCollection(ref PawnRowOrder, nameof(PawnRowOrder), LookMode.Value, LookMode.Value);
 
             // Serialize colors as hex strings for reliable save/load
             if (Scribe.mode == LoadSaveMode.Saving)
@@ -70,9 +70,9 @@ namespace Better_Work_Tab.Mod_Support.LocalProfiles
                     kvp => ParseColor(kvp.Value)) ?? new Dictionary<string, Color>();
             }
 
-            Scribe_Values.Look(ref AllowLayoutRequests, nameof(AllowLayoutRequests), true);
-            Scribe_Values.Look(ref AllowLiveLayoutBroadcast, nameof(AllowLiveLayoutBroadcast), true);
-            Scribe_Values.Look(ref AllowPresenceBroadcast, nameof(AllowPresenceBroadcast), true);
+            Better_Work_Tab.ScribeCompat.LookValue(ref AllowLayoutRequests, nameof(AllowLayoutRequests), true);
+            Better_Work_Tab.ScribeCompat.LookValue(ref AllowLiveLayoutBroadcast, nameof(AllowLiveLayoutBroadcast), true);
+            Better_Work_Tab.ScribeCompat.LookValue(ref AllowPresenceBroadcast, nameof(AllowPresenceBroadcast), true);
 
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {

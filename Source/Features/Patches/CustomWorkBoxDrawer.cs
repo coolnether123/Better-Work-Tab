@@ -94,7 +94,11 @@ namespace Better_Work_Tab.Patches
 
             int level = skill.Level;
             if (level <= 3)
+#if v0_16
+                return WidgetsWork.WorkBoxBGTex_Bad;
+#else
                 return WidgetsWork.WorkBoxBGTex_Awful;
+#endif
             if (level <= 7)
                 return WidgetsWork.WorkBoxBGTex_Bad;
             if (level <= 13)

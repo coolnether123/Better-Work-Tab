@@ -39,6 +39,9 @@ namespace Better_Work_Tab.UI
         /// </summary>
         public static void NotifyAngledHeadersChanged()
         {
+#if v0_16
+            return;
+#else
             HeaderDrawingCoordinator.NotifyAngledHeadersChanged(); 
             
             if (Find.MainTabsRoot?.OpenTab?.TabWindow is MainTabWindow_BetterWork workTab)
@@ -59,11 +62,16 @@ namespace Better_Work_Tab.UI
                     }
                 }
             }
+#endif
         }
 
         private const float RightEdgeMargin = 10f;
         private const float InfoIconSize = 24f;
         private const float MinWorkTabHeight = 200f;
+#if v0_16
+        private const float ExtraTopSpace = 0f;
+        private const float ExtraBottomSpace = 0f;
+#endif
 
         private PawnColumnDef _lastSortColumn;
         private bool _lastSortDescending;
@@ -97,6 +105,11 @@ namespace Better_Work_Tab.UI
             bool keepOpen = settings?.disableLeftClickClose ?? false;
             bool allowMapClose = settings?.closeOnMapClick ?? true;
             closeOnClickedOutside = !keepOpen && allowMapClose;
+
+#if v0_16
+            Legacy016PreOpen();
+            return;
+#endif
 
             _lastSortColumn = null;
             _lastSortDescending = false;
@@ -224,6 +237,10 @@ namespace Better_Work_Tab.UI
         /// </summary>
         public override void DoWindowContents(Rect inRect)
         {
+#if v0_16
+            DoLegacy016WindowContents(inRect);
+            return;
+#else
             PawnTable table = GetPawnTable();
             if (table == null) return;
 
@@ -259,6 +276,7 @@ namespace Better_Work_Tab.UI
                 DrawInfoButton(infoRect);
             }
             DrawBottomCounters(inRect, table);
+#endif
         }
 
         private IPawnOrganizerSnapshot BuildSnapshotForOrganizer(PawnTable table)
@@ -428,6 +446,9 @@ namespace Better_Work_Tab.UI
         {
             get
             {
+#if v0_16
+                return Legacy016RequestedTabSize;
+#else
                 var table = GetPawnTable();
                 if (table == null) return Vector2.zero;
 
@@ -466,6 +487,7 @@ namespace Better_Work_Tab.UI
                 finalHeight = Mathf.Min(finalHeight, targetMaxHeight);
 
                 return new Vector2(finalWidth, finalHeight);
+#endif
             }
         }
 
@@ -1291,6 +1313,9 @@ namespace Better_Work_Tab.UI
         {
             if (Widgets.ButtonImage(gearRect, TexButton.Info))
             {
+#if v0_16
+                Find.WindowStack.Add(new Dialog_ModSettings());
+#else
                 var mod = LoadedModManager.GetMod<BetterWorkTabMod>();
                 if (mod != null)
                 {
@@ -1302,6 +1327,7 @@ namespace Better_Work_Tab.UI
                     Find.WindowStack.Add(new Dialog_ModSettings(mod));
 #endif
                 }
+#endif
             }
         }
 
@@ -1375,6 +1401,236 @@ namespace Better_Work_Tab.UI
             Text.Font = GameFont.Small;
             Text.Anchor = TextAnchor.UpperLeft;
         }
+
+#if v0_16
+        private const float Legacy016TopAreaHeight = 40f;
+        private const float Legacy016LabelRowHeight = 50f;
+        private const float Legacy016LeftColumnWidth = 201f;
+        private float _legacy016WorkColumnSpacing = -1f;
+        private readonly List<WorkTypeDef> _legacy016VisibleWorkTypes = new List<WorkTypeDef>();
+        private readonly DefMap<WorkTypeDef, Vector2> _legacy016CachedLabelSizes = new DefMap<WorkTypeDef, Vector2>();
+        private static DefMap<WorkTypeDef, int> Legacy016Clipboard;
+
+        private Vector2 Legacy016RequestedTabSize
+        {
+            get
+            {
+                int pawnCount = pawns?.Count ?? 0;
+                return new Vector2(1010f, 90f + pawnCount * 30f + 65f);
+            }
+        }
+
+        private void Legacy016PreOpen()
+        {
+            _legacy016VisibleWorkTypes.Clear();
+            _legacy016VisibleWorkTypes.AddRange(WorkTypeDefsUtility.WorkTypeDefsInPriorityOrder.Where(def => def.visible));
+
+            foreach (WorkTypeDef allDef in DefDatabase<WorkTypeDef>.AllDefs)
+            {
+                _legacy016CachedLabelSizes[allDef] = Text.CalcSize(allDef.labelShort);
+            }
+
+            if (BetterWorkTabMod.Settings?.autoEnableManualPriorities ?? false)
+            {
+                Current.Game.playSettings.useWorkPriorities = true;
+            }
+        }
+
+        private void DoLegacy016WindowContents(Rect rect)
+        {
+            SetInitialSizeAndPosition();
+            if (Event.current.type == EventType.Layout)
+                return;
+
+            DrawLegacy016TopArea(new Rect(0f, 0f, rect.width, Legacy016TopAreaHeight));
+
+            Rect workArea = new Rect(0f, Legacy016TopAreaHeight, rect.width, rect.height - Legacy016TopAreaHeight);
+            GUI.BeginGroup(workArea);
+            try
+            {
+                Text.Font = GameFont.Small;
+                GUI.color = Color.white;
+                Rect rowsRect = new Rect(0f, Legacy016LabelRowHeight, workArea.width, workArea.height - Legacy016LabelRowHeight);
+                _legacy016WorkColumnSpacing = (workArea.width - 16f - Legacy016LeftColumnWidth) / Mathf.Max(1, _legacy016VisibleWorkTypes.Count);
+                DrawLegacy016Headers(workArea.width);
+                DrawRows(rowsRect);
+            }
+            finally
+            {
+                GUI.EndGroup();
+            }
+        }
+
+        private void DrawLegacy016TopArea(Rect rect)
+        {
+            GUI.BeginGroup(rect);
+            try
+            {
+                Text.Font = GameFont.Small;
+                GUI.color = Color.white;
+                Text.Anchor = TextAnchor.UpperLeft;
+                Rect manualRect = new Rect(5f, 5f, 140f, 30f);
+                bool wasEnabled = Current.Game.playSettings.useWorkPriorities;
+                Widgets.CheckboxLabeled(manualRect, "ManualPriorities".Translate(), ref Current.Game.playSettings.useWorkPriorities);
+                if (wasEnabled != Current.Game.playSettings.useWorkPriorities)
+                {
+                    foreach (Pawn pawn in PawnsFinderCompat.AllMapsWorldAndTemporaryAlive)
+                    {
+                        if (pawn.Faction == Faction.OfPlayer && pawn.workSettings != null)
+                            pawn.workSettings.Notify_UseWorkPrioritiesChanged();
+                    }
+                }
+
+                if (!Current.Game.playSettings.useWorkPriorities)
+                {
+                    UIHighlighter.HighlightOpportunity(manualRect, "ManualPriorities-Off");
+                }
+
+                float first = rect.width / 3f;
+                float second = rect.width * 2f / 3f;
+                GUI.color = new Color(1f, 1f, 1f, 0.5f);
+                Text.Anchor = TextAnchor.UpperCenter;
+                Text.Font = GameFont.Tiny;
+                Widgets.Label(new Rect(first - 50f, 5f, 160f, 30f), "<= " + "HigherPriority".Translate());
+                Widgets.Label(new Rect(second - 50f, 5f, 160f, 30f), "LowerPriority".Translate() + " =>");
+            }
+            finally
+            {
+                Text.Font = GameFont.Small;
+                Text.Anchor = TextAnchor.UpperLeft;
+                GUI.color = Color.white;
+                GUI.EndGroup();
+            }
+        }
+
+        private void DrawLegacy016Headers(float width)
+        {
+            float x = Legacy016LeftColumnWidth;
+            for (int i = 0; i < _legacy016VisibleWorkTypes.Count; i++)
+            {
+                WorkTypeDef workType = _legacy016VisibleWorkTypes[i];
+                Vector2 size = _legacy016CachedLabelSizes[workType];
+                float centerX = x + 15f;
+                Rect labelRect = new Rect(centerX - size.x / 2f, 0f, size.x, size.y);
+                if (i % 2 == 1)
+                {
+                    labelRect.y += 20f;
+                }
+
+                if (Mouse.IsOver(labelRect))
+                {
+                    Widgets.DrawHighlight(labelRect);
+                }
+
+                Text.Anchor = TextAnchor.MiddleCenter;
+                Widgets.Label(labelRect, workType.labelShort);
+                TooltipHandler.TipRegion(labelRect, new TipSignal(() => workType.gerundLabel + "\n\n" + workType.description + "\n\n" + Legacy016SpecificWorkListString(workType), workType.GetHashCode()));
+
+                GUI.color = new Color(1f, 1f, 1f, 0.3f);
+                Widgets.DrawLineVertical(centerX, labelRect.yMax - 3f, Legacy016LabelRowHeight - labelRect.yMax + 3f);
+                Widgets.DrawLineVertical(centerX + 1f, labelRect.yMax - 3f, Legacy016LabelRowHeight - labelRect.yMax + 3f);
+                GUI.color = Color.white;
+                x += _legacy016WorkColumnSpacing;
+            }
+
+            Text.Anchor = TextAnchor.UpperLeft;
+        }
+
+        private static string Legacy016SpecificWorkListString(WorkTypeDef def)
+        {
+            var builder = new System.Text.StringBuilder();
+            for (int i = 0; i < def.workGiversByPriority.Count; i++)
+            {
+                builder.Append(def.workGiversByPriority[i].LabelCap);
+                if (def.workGiversByPriority[i].emergency)
+                {
+                    builder.Append(" (" + "EmergencyWorkMarker".Translate() + ")");
+                }
+                if (i < def.workGiversByPriority.Count - 1)
+                {
+                    builder.AppendLine();
+                }
+            }
+
+            return builder.ToString();
+        }
+
+        protected override void DrawPawnRow(Rect rect, Pawn pawn)
+        {
+            float x = 165f;
+            Action pasteAction = null;
+            if (Legacy016Clipboard != null)
+            {
+                pasteAction = () => Legacy016PasteTo(pawn);
+            }
+
+            Rect copyPasteRect = new Rect(x, rect.y, 36f, rect.height);
+            CopyPasteUI.DoCopyPasteButtons(copyPasteRect, () => Legacy016CopyFrom(pawn), pasteAction);
+            x = copyPasteRect.xMax;
+            Text.Font = GameFont.Medium;
+            float y = rect.y + 2.5f;
+
+            for (int i = 0; i < _legacy016VisibleWorkTypes.Count; i++)
+            {
+                WorkTypeDef workType = _legacy016VisibleWorkTypes[i];
+                bool incapable = Legacy016IsIncapableOfWholeWorkType(pawn, workType);
+                WidgetsWork.DrawWorkBoxFor(x, y, pawn, workType, incapable);
+                Rect boxRect = new Rect(x, y, 25f, 25f);
+                TooltipHandler.TipRegion(boxRect, () => WidgetsWork.TipForPawnWorker(pawn, workType, incapable), pawn.thingIDNumber ^ workType.GetHashCode());
+                x += _legacy016WorkColumnSpacing;
+            }
+
+            Text.Font = GameFont.Small;
+        }
+
+        private static bool Legacy016IsIncapableOfWholeWorkType(Pawn pawn, WorkTypeDef work)
+        {
+            for (int i = 0; i < work.workGiversByPriority.Count; i++)
+            {
+                bool capableOfGiver = true;
+                for (int j = 0; j < work.workGiversByPriority[i].requiredCapacities.Count; j++)
+                {
+                    PawnCapacityDef capacity = work.workGiversByPriority[i].requiredCapacities[j];
+                    if (!pawn.health.capacities.CapableOf(capacity))
+                    {
+                        capableOfGiver = false;
+                        break;
+                    }
+                }
+
+                if (capableOfGiver)
+                    return false;
+            }
+
+            return true;
+        }
+
+        private static void Legacy016CopyFrom(Pawn pawn)
+        {
+            if (Legacy016Clipboard == null)
+            {
+                Legacy016Clipboard = new DefMap<WorkTypeDef, int>();
+            }
+
+            foreach (WorkTypeDef workType in DefDatabase<WorkTypeDef>.AllDefs)
+            {
+                Legacy016Clipboard[workType] = pawn.story.WorkTypeIsDisabled(workType)
+                    ? 3
+                    : pawn.workSettings.GetPriority(workType);
+            }
+        }
+
+        private static void Legacy016PasteTo(Pawn pawn)
+        {
+            foreach (WorkTypeDef workType in DefDatabase<WorkTypeDef>.AllDefs)
+            {
+                if (!pawn.story.WorkTypeIsDisabled(workType))
+                {
+                    pawn.workSettings.SetPriority(workType, Legacy016Clipboard[workType]);
+                }
+            }
+        }
+#endif
 
         private PawnTable GetPawnTable()
         {

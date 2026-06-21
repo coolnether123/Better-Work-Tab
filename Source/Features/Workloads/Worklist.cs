@@ -49,11 +49,11 @@ namespace Better_Work_Tab.Features.Workloads
         public void ExposeData()
         {
             RenamableLabel = worklistName;
-            Scribe_Values.Look(ref worklistName, "worklistName", "New Worklist");
-            Scribe_Values.Look(ref UseAdvancedMode, "UseAdvancedMode", true);
+            Better_Work_Tab.ScribeCompat.LookValue(ref worklistName, "worklistName", "New Worklist");
+            Better_Work_Tab.ScribeCompat.LookValue(ref UseAdvancedMode, "UseAdvancedMode", true);
             worklistName = RenamableLabel;
-            Scribe_Collections.Look(ref PawnWorklists, "pawnWorklists", LookMode.Deep);
-            Scribe_Collections.Look(ref Dividers, "Dividers", LookMode.Deep);
+            Better_Work_Tab.ScribeCompat.LookCollection(ref PawnWorklists, "pawnWorklists", LookMode.Deep);
+            Better_Work_Tab.ScribeCompat.LookCollection(ref Dividers, "Dividers", LookMode.Deep);
 
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {

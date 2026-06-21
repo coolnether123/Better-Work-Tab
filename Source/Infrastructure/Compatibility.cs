@@ -119,7 +119,7 @@ namespace RimWorld
         public void Unfocus()
         {
             if (this.CurrentlyFocused())
-                UI.UnfocusCurrentControl();
+                GUI.FocusControl(null);
         }
 
         public void Focus() => GUI.FocusControl(this.controlName);

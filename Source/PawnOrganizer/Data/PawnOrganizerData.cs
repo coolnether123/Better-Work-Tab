@@ -21,13 +21,13 @@ namespace Better_Work_Tab.PawnOrganizer.Data
 
         public void ExposeData()
         {
-            Scribe_Values.Look(ref DividerName, "DividerName", "New Divider");
-            Scribe_Values.Look(ref DividerColor, "DividerColor", Color.gray);
-            Scribe_Values.Look(ref DisplayOrder, "DisplayOrder", 0);
-            Scribe_Values.Look(ref ShowLabel, "ShowLabel", true);
-            Scribe_Values.Look(ref LabelFont, "LabelFont", GameFont.Small);
-            Scribe_Values.Look(ref IsCollapsed, "IsCollapsed", false);
-            Scribe_Values.Look(ref Height, "Height", DefaultSettings.dividerHeight);
+            Better_Work_Tab.ScribeCompat.LookValue(ref DividerName, "DividerName", "New Divider");
+            Better_Work_Tab.ScribeCompat.LookValue(ref DividerColor, "DividerColor", Color.gray);
+            Better_Work_Tab.ScribeCompat.LookValue(ref DisplayOrder, "DisplayOrder", 0);
+            Better_Work_Tab.ScribeCompat.LookValue(ref ShowLabel, "ShowLabel", true);
+            Better_Work_Tab.ScribeCompat.LookValue(ref LabelFont, "LabelFont", GameFont.Small);
+            Better_Work_Tab.ScribeCompat.LookValue(ref IsCollapsed, "IsCollapsed", false);
+            Better_Work_Tab.ScribeCompat.LookValue(ref Height, "Height", DefaultSettings.dividerHeight);
         }
 
         /// <summary>

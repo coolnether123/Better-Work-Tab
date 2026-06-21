@@ -1,4 +1,4 @@
-﻿using Better_Work_Tab.Features;
+using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.Rules;
 using Better_Work_Tab.Features.Workloads;
 using RimWorld;
@@ -646,164 +646,164 @@ namespace Better_Work_Tab
 
         public override void ExposeData()
         {
-            Scribe_Values.Look(ref workTabMaxHeight, "workTabMaxHeight", DefaultSettings.workTabMaxHeight);
+            Better_Work_Tab.ScribeCompat.LookValue(ref workTabMaxHeight, "workTabMaxHeight", DefaultSettings.workTabMaxHeight);
 
 
             // Core feature toggles
-            Scribe_Values.Look(ref firstTimeSetupDone, "firstTimeSetupDone", DefaultSettings.firstTimeSetupDone);
-            Scribe_Values.Look(ref enableSkillOverlayFeature, "enableSkillOverlayFeature", DefaultSettings.enableSkillOverlayFeature);
-            Scribe_Values.Look(ref enableAutoAssignFeature, "enableAutoAssignFeature", DefaultSettings.enableAutoAssignFeature);
-            Scribe_Values.Look(ref enableDragDropReordering, "enableDragDropReordering", DefaultSettings.enableDragDropReordering);
-            Scribe_Values.Look(ref enableDividers, "enableDividers", DefaultSettings.enableDividers);
-            Scribe_Values.Look(ref enableWorkloads, "enableWorkloads", DefaultSettings.enableWorkloads);
-            Scribe_Values.Look(ref enableColumnOrderSaving, "enableColumnOrderSaving", DefaultSettings.enableColumnOrderSaving);
-            Scribe_Values.Look(ref enableUIElements, "enableUIElements", DefaultSettings.enableUIElements);
-            Scribe_Values.Look(ref enablePerformanceOptimizations, "enablePerformanceOptimizations", DefaultSettings.enablePerformanceOptimizations);
-            Scribe_Values.Look(ref enableMultiplayerSync, "enableMultiplayerSync", DefaultSettings.enableMultiplayerSync);
-            Scribe_Values.Look(ref settingsViewMode, "settingsViewMode", SettingsViewMode.Simple);
+            Better_Work_Tab.ScribeCompat.LookValue(ref firstTimeSetupDone, "firstTimeSetupDone", DefaultSettings.firstTimeSetupDone);
+            Better_Work_Tab.ScribeCompat.LookValue(ref enableSkillOverlayFeature, "enableSkillOverlayFeature", DefaultSettings.enableSkillOverlayFeature);
+            Better_Work_Tab.ScribeCompat.LookValue(ref enableAutoAssignFeature, "enableAutoAssignFeature", DefaultSettings.enableAutoAssignFeature);
+            Better_Work_Tab.ScribeCompat.LookValue(ref enableDragDropReordering, "enableDragDropReordering", DefaultSettings.enableDragDropReordering);
+            Better_Work_Tab.ScribeCompat.LookValue(ref enableDividers, "enableDividers", DefaultSettings.enableDividers);
+            Better_Work_Tab.ScribeCompat.LookValue(ref enableWorkloads, "enableWorkloads", DefaultSettings.enableWorkloads);
+            Better_Work_Tab.ScribeCompat.LookValue(ref enableColumnOrderSaving, "enableColumnOrderSaving", DefaultSettings.enableColumnOrderSaving);
+            Better_Work_Tab.ScribeCompat.LookValue(ref enableUIElements, "enableUIElements", DefaultSettings.enableUIElements);
+            Better_Work_Tab.ScribeCompat.LookValue(ref enablePerformanceOptimizations, "enablePerformanceOptimizations", DefaultSettings.enablePerformanceOptimizations);
+            Better_Work_Tab.ScribeCompat.LookValue(ref enableMultiplayerSync, "enableMultiplayerSync", DefaultSettings.enableMultiplayerSync);
+            Better_Work_Tab.ScribeCompat.LookValue(ref settingsViewMode, "settingsViewMode", SettingsViewMode.Simple);
 
             // Highlight settings
-            Scribe_Values.Look(ref ShowPawnAndWorktypeHighlights, "ShowPawnAndWorktypeHighlights", DefaultSettings.ShowPawnAndWorktypeHighlights);
-            Scribe_Values.Look(ref ShowCursorPawnAndWorktypeHighlight, "ShowCursorPawnAndWorktypeHighlight", DefaultSettings.ShowCursorPawnAndWorktypeHighlight);
-            Scribe_Values.Look(ref ShowFloatMenuPawnAndWorktypeHighlight, "ShowFloatMenuPawnAndWorktypeHighlight", DefaultSettings.ShowFloatMenuPawnAndWorktypeHighlight);
-            Scribe_Values.Look(ref DoSelectedPawnHighlight, "DoSelectedPawnHighlight", DefaultSettings.DoSelectedPawnHighlight);
-            Scribe_Values.Look(ref UseCustomMouseHoverHighlight, "UseCustomMouseHoverHighlight", DefaultSettings.UseCustomMouseHoverHighlight);
-            Scribe_Values.Look(ref enableRowColumnHighlights, "enableRowColumnHighlights", DefaultSettings.enableRowColumnHighlights);
-            Scribe_Values.Look(ref ShowSimilarWorktypeHighlight, "ShowSimilarWorktypeHighlight", DefaultSettings.ShowSimilarWorktypeHighlight);
-            Scribe_Values.Look(ref useOutlineHighlights, "useOutlineHighlights", false);
-            Scribe_Values.Look(ref useRowHoverOverride, "useRowHoverOverride", DefaultSettings.useRowHoverOverride);
-            Scribe_Values.Look(ref useColumnHoverOverride, "useColumnHoverOverride", DefaultSettings.useColumnHoverOverride);
-            Scribe_Values.Look(ref SelectedPawnHighlightOpacity, "SelectedPawnHighlightOpacity", DefaultSettings.SelectedPawnHighlightOpacity);
-            Scribe_Values.Look(ref SimilarWorktypeHighlightOpacity, "SimilarWorktypeHighlightOpacity", DefaultSettings.SimilarWorktypeHighlightOpacity);
+            Better_Work_Tab.ScribeCompat.LookValue(ref ShowPawnAndWorktypeHighlights, "ShowPawnAndWorktypeHighlights", DefaultSettings.ShowPawnAndWorktypeHighlights);
+            Better_Work_Tab.ScribeCompat.LookValue(ref ShowCursorPawnAndWorktypeHighlight, "ShowCursorPawnAndWorktypeHighlight", DefaultSettings.ShowCursorPawnAndWorktypeHighlight);
+            Better_Work_Tab.ScribeCompat.LookValue(ref ShowFloatMenuPawnAndWorktypeHighlight, "ShowFloatMenuPawnAndWorktypeHighlight", DefaultSettings.ShowFloatMenuPawnAndWorktypeHighlight);
+            Better_Work_Tab.ScribeCompat.LookValue(ref DoSelectedPawnHighlight, "DoSelectedPawnHighlight", DefaultSettings.DoSelectedPawnHighlight);
+            Better_Work_Tab.ScribeCompat.LookValue(ref UseCustomMouseHoverHighlight, "UseCustomMouseHoverHighlight", DefaultSettings.UseCustomMouseHoverHighlight);
+            Better_Work_Tab.ScribeCompat.LookValue(ref enableRowColumnHighlights, "enableRowColumnHighlights", DefaultSettings.enableRowColumnHighlights);
+            Better_Work_Tab.ScribeCompat.LookValue(ref ShowSimilarWorktypeHighlight, "ShowSimilarWorktypeHighlight", DefaultSettings.ShowSimilarWorktypeHighlight);
+            Better_Work_Tab.ScribeCompat.LookValue(ref useOutlineHighlights, "useOutlineHighlights", false);
+            Better_Work_Tab.ScribeCompat.LookValue(ref useRowHoverOverride, "useRowHoverOverride", DefaultSettings.useRowHoverOverride);
+            Better_Work_Tab.ScribeCompat.LookValue(ref useColumnHoverOverride, "useColumnHoverOverride", DefaultSettings.useColumnHoverOverride);
+            Better_Work_Tab.ScribeCompat.LookValue(ref SelectedPawnHighlightOpacity, "SelectedPawnHighlightOpacity", DefaultSettings.SelectedPawnHighlightOpacity);
+            Better_Work_Tab.ScribeCompat.LookValue(ref SimilarWorktypeHighlightOpacity, "SimilarWorktypeHighlightOpacity", DefaultSettings.SimilarWorktypeHighlightOpacity);
 
             // UI display settings
-            Scribe_Values.Look(ref showPawnCountAtBottom, "showPawnCountAtBottom", DefaultSettings.showPawnCountAtBottom);
-            Scribe_Values.Look(ref showBedCountAtBottom, "showBedCountAtBottom", DefaultSettings.showBedCountAtBottom);
-            Scribe_Values.Look(ref disableLeftClickClose, "disableLeftClickClose", DefaultSettings.disableLeftClickClose);
-            Scribe_Values.Look(ref closeOnMapClick, "closeOnMapClick", DefaultSettings.closeOnMapClick);
-            Scribe_Values.Look(ref enableContextMenuOnRightClick, "enableContextMenuOnRightClick", DefaultSettings.enableContextMenuOnRightClick);
-            Scribe_Values.Look(ref requireCtrlForDrag, "requireCtrlForDrag", DefaultSettings.requireCtrlForDrag);
-            Scribe_Values.Look(ref showPriorityLegend, "showPriorityLegend", DefaultSettings.showPriorityLegend);
-            Scribe_Values.Look(ref showDragInstructions, "showDragInstructions", DefaultSettings.showDragInstructions);
-            Scribe_Values.Look(ref showManualPrioritiesCheckbox, "showManualPrioritiesCheckbox", DefaultSettings.showManualPrioritiesCheckbox);
-            Scribe_Values.Look(ref showDividers, "showDividers", DefaultSettings.showDividers);
-            Scribe_Values.Look(ref allowCustomDividerColors, "allowCustomDividerColors", DefaultSettings.allowCustomDividerColors);
-            Scribe_Values.Look(ref showDividerLabels, "showDividerLabels", DefaultSettings.showDividerLabels);
-            Scribe_Values.Look(ref allowDividerCollapse, "allowDividerCollapse", DefaultSettings.allowDividerCollapse);
-            Scribe_Values.Look(ref showOnlyLineDragIndicatorRows, "showOnlyLineDragIndicatorRows", true);
-            Scribe_Values.Look(ref showOnlyLineDragIndicatorColumns, "showOnlyLineDragIndicatorColumns", true);
-            Scribe_Values.Look(ref showGhostDragIndicator, "showGhostDragIndicator", false);
-            Scribe_Values.Look(ref showInsertionLineIndicator, "showInsertionLineIndicator", true);
-            Scribe_Values.Look(ref rowDraggingEnabled, "rowDraggingEnabled", DefaultSettings.rowDraggingEnabled);
-            Scribe_Values.Look(ref columnDraggingEnabled, "columnDraggingEnabled", DefaultSettings.columnDraggingEnabled);
-            Scribe_Values.Look(ref columnInsertionLineInset, "columnInsertionLineInset", DefaultSettings.columnInsertionLineInset);
-            Scribe_Values.Look(ref dragThreshold, "dragThreshold", DefaultSettings.dragThreshold);
-            Scribe_Values.Look(ref dragHoverDelay, "dragHoverDelay", DefaultSettings.dragHoverDelay);
-            Scribe_Values.Look(ref hideWorkloadButton, "hideWorkloadButton", DefaultSettings.hideWorkloadButton);
-            Scribe_Values.Look(ref hideAutoAssignButton, "hideAutoAssignButton", DefaultSettings.hideAutoAssignButton);
-            Scribe_Values.Look(ref persistColumnOrder, "persistColumnOrder", DefaultSettings.persistColumnOrder);
-            Scribe_Values.Look(ref persistColumnWidths, "persistColumnWidths", DefaultSettings.persistColumnWidths);
-            Scribe_Values.Look(ref showColumnMovedMarker, "showColumnMovedMarker", DefaultSettings.showColumnMovedMarker);
-            Scribe_Values.Look(ref showColumnBaselineLine, "showColumnBaselineLine", DefaultSettings.showColumnBaselineLine);
-            Scribe_Values.Look(ref showMovedColumnColorTint, "showMovedColumnColorTint", DefaultSettings.showMovedColumnColorTint);
-            Scribe_Values.Look(ref movedMarkerColor, "movedMarkerColor", DefaultSettings.Color_MovedMarkerColor);
-            Scribe_Values.Look(ref dividerMinAlpha, "dividerMinAlpha", DefaultSettings.dividerMinAlpha);
-            Scribe_Values.Look(ref disableBestPawnHighlight, "disableBestPawnHighlight", false);
-            Scribe_Values.Look(ref bestPawnHighlightThickness, "bestPawnHighlightThickness", 1);
-            Scribe_Values.Look(ref enableColumnGrouping, "enableColumnGrouping", false);
-            Scribe_Collections.Look(ref hiddenWorktypes, "hiddenWorktypes", LookMode.Value);
-            Scribe_Values.Look(ref warnOnApplyRuleset, "warnOnApplyRuleset", true);
-            Scribe_Values.Look(ref warnOnApplyWorkload, "warnOnApplyWorkload", true);
-            Scribe_Values.Look(ref removeHeaderUnderline, "removeHeaderUnderline", false);
-            Scribe_Values.Look(ref enableScrollWheelPriority, "enableScrollWheelPriority", false);
-            Scribe_Values.Look(ref enableAngledHeaders, "enableAngledHeaders", DefaultSettings.enableAngledHeaders);
-            Scribe_Values.Look(ref angledHeaderRotation, "angledHeaderRotation", (int)DefaultSettings.angledHeaderRotation);
-            Scribe_Values.Look(ref angledHeaderHorizontalOffset, "angledHeaderHorizontalOffset", DefaultSettings.angledHeaderHorizontalOffset);
-            Scribe_Values.Look(ref useVerticalStackingForCJK, "useVerticalStackingForCJK", true);
-            Scribe_Values.Look(ref cjkVerticalKerning, "cjkVerticalKerning", 0.75f);
-            Scribe_Values.Look(ref angledHeaderColor, "angledHeaderColor", DefaultSettings.Color_AngledHeaderText);
-            Scribe_Values.Look(ref autoEnableManualPriorities, "autoEnableManualPriorities", DefaultSettings.autoEnableManualPriorities);
-            Scribe_Values.Look(ref maxPriorityInt, "maxPriorityInt", DefaultSettings.GetInitialMaxPriority());
-            Scribe_Values.Look(ref priorityColorPercentage_Green, "priorityColorPercentage_Green", DefaultSettings.priorityColorPercentage_Green);
-            Scribe_Values.Look(ref priorityColorPercentage_Yellow , "priorityColorPercentage_Yellow", DefaultSettings.priorityColorPercentage_Yellow );
-            Scribe_Values.Look(ref priorityColorPercentage_Tan , "priorityColorPercentage_Tan", DefaultSettings.priorityColorPercentage_Tan );
+            Better_Work_Tab.ScribeCompat.LookValue(ref showPawnCountAtBottom, "showPawnCountAtBottom", DefaultSettings.showPawnCountAtBottom);
+            Better_Work_Tab.ScribeCompat.LookValue(ref showBedCountAtBottom, "showBedCountAtBottom", DefaultSettings.showBedCountAtBottom);
+            Better_Work_Tab.ScribeCompat.LookValue(ref disableLeftClickClose, "disableLeftClickClose", DefaultSettings.disableLeftClickClose);
+            Better_Work_Tab.ScribeCompat.LookValue(ref closeOnMapClick, "closeOnMapClick", DefaultSettings.closeOnMapClick);
+            Better_Work_Tab.ScribeCompat.LookValue(ref enableContextMenuOnRightClick, "enableContextMenuOnRightClick", DefaultSettings.enableContextMenuOnRightClick);
+            Better_Work_Tab.ScribeCompat.LookValue(ref requireCtrlForDrag, "requireCtrlForDrag", DefaultSettings.requireCtrlForDrag);
+            Better_Work_Tab.ScribeCompat.LookValue(ref showPriorityLegend, "showPriorityLegend", DefaultSettings.showPriorityLegend);
+            Better_Work_Tab.ScribeCompat.LookValue(ref showDragInstructions, "showDragInstructions", DefaultSettings.showDragInstructions);
+            Better_Work_Tab.ScribeCompat.LookValue(ref showManualPrioritiesCheckbox, "showManualPrioritiesCheckbox", DefaultSettings.showManualPrioritiesCheckbox);
+            Better_Work_Tab.ScribeCompat.LookValue(ref showDividers, "showDividers", DefaultSettings.showDividers);
+            Better_Work_Tab.ScribeCompat.LookValue(ref allowCustomDividerColors, "allowCustomDividerColors", DefaultSettings.allowCustomDividerColors);
+            Better_Work_Tab.ScribeCompat.LookValue(ref showDividerLabels, "showDividerLabels", DefaultSettings.showDividerLabels);
+            Better_Work_Tab.ScribeCompat.LookValue(ref allowDividerCollapse, "allowDividerCollapse", DefaultSettings.allowDividerCollapse);
+            Better_Work_Tab.ScribeCompat.LookValue(ref showOnlyLineDragIndicatorRows, "showOnlyLineDragIndicatorRows", true);
+            Better_Work_Tab.ScribeCompat.LookValue(ref showOnlyLineDragIndicatorColumns, "showOnlyLineDragIndicatorColumns", true);
+            Better_Work_Tab.ScribeCompat.LookValue(ref showGhostDragIndicator, "showGhostDragIndicator", false);
+            Better_Work_Tab.ScribeCompat.LookValue(ref showInsertionLineIndicator, "showInsertionLineIndicator", true);
+            Better_Work_Tab.ScribeCompat.LookValue(ref rowDraggingEnabled, "rowDraggingEnabled", DefaultSettings.rowDraggingEnabled);
+            Better_Work_Tab.ScribeCompat.LookValue(ref columnDraggingEnabled, "columnDraggingEnabled", DefaultSettings.columnDraggingEnabled);
+            Better_Work_Tab.ScribeCompat.LookValue(ref columnInsertionLineInset, "columnInsertionLineInset", DefaultSettings.columnInsertionLineInset);
+            Better_Work_Tab.ScribeCompat.LookValue(ref dragThreshold, "dragThreshold", DefaultSettings.dragThreshold);
+            Better_Work_Tab.ScribeCompat.LookValue(ref dragHoverDelay, "dragHoverDelay", DefaultSettings.dragHoverDelay);
+            Better_Work_Tab.ScribeCompat.LookValue(ref hideWorkloadButton, "hideWorkloadButton", DefaultSettings.hideWorkloadButton);
+            Better_Work_Tab.ScribeCompat.LookValue(ref hideAutoAssignButton, "hideAutoAssignButton", DefaultSettings.hideAutoAssignButton);
+            Better_Work_Tab.ScribeCompat.LookValue(ref persistColumnOrder, "persistColumnOrder", DefaultSettings.persistColumnOrder);
+            Better_Work_Tab.ScribeCompat.LookValue(ref persistColumnWidths, "persistColumnWidths", DefaultSettings.persistColumnWidths);
+            Better_Work_Tab.ScribeCompat.LookValue(ref showColumnMovedMarker, "showColumnMovedMarker", DefaultSettings.showColumnMovedMarker);
+            Better_Work_Tab.ScribeCompat.LookValue(ref showColumnBaselineLine, "showColumnBaselineLine", DefaultSettings.showColumnBaselineLine);
+            Better_Work_Tab.ScribeCompat.LookValue(ref showMovedColumnColorTint, "showMovedColumnColorTint", DefaultSettings.showMovedColumnColorTint);
+            Better_Work_Tab.ScribeCompat.LookValue(ref movedMarkerColor, "movedMarkerColor", DefaultSettings.Color_MovedMarkerColor);
+            Better_Work_Tab.ScribeCompat.LookValue(ref dividerMinAlpha, "dividerMinAlpha", DefaultSettings.dividerMinAlpha);
+            Better_Work_Tab.ScribeCompat.LookValue(ref disableBestPawnHighlight, "disableBestPawnHighlight", false);
+            Better_Work_Tab.ScribeCompat.LookValue(ref bestPawnHighlightThickness, "bestPawnHighlightThickness", 1);
+            Better_Work_Tab.ScribeCompat.LookValue(ref enableColumnGrouping, "enableColumnGrouping", false);
+            Better_Work_Tab.ScribeCompat.LookCollection(ref hiddenWorktypes, "hiddenWorktypes", LookMode.Value);
+            Better_Work_Tab.ScribeCompat.LookValue(ref warnOnApplyRuleset, "warnOnApplyRuleset", true);
+            Better_Work_Tab.ScribeCompat.LookValue(ref warnOnApplyWorkload, "warnOnApplyWorkload", true);
+            Better_Work_Tab.ScribeCompat.LookValue(ref removeHeaderUnderline, "removeHeaderUnderline", false);
+            Better_Work_Tab.ScribeCompat.LookValue(ref enableScrollWheelPriority, "enableScrollWheelPriority", false);
+            Better_Work_Tab.ScribeCompat.LookValue(ref enableAngledHeaders, "enableAngledHeaders", DefaultSettings.enableAngledHeaders);
+            Better_Work_Tab.ScribeCompat.LookValue(ref angledHeaderRotation, "angledHeaderRotation", (int)DefaultSettings.angledHeaderRotation);
+            Better_Work_Tab.ScribeCompat.LookValue(ref angledHeaderHorizontalOffset, "angledHeaderHorizontalOffset", DefaultSettings.angledHeaderHorizontalOffset);
+            Better_Work_Tab.ScribeCompat.LookValue(ref useVerticalStackingForCJK, "useVerticalStackingForCJK", true);
+            Better_Work_Tab.ScribeCompat.LookValue(ref cjkVerticalKerning, "cjkVerticalKerning", 0.75f);
+            Better_Work_Tab.ScribeCompat.LookValue(ref angledHeaderColor, "angledHeaderColor", DefaultSettings.Color_AngledHeaderText);
+            Better_Work_Tab.ScribeCompat.LookValue(ref autoEnableManualPriorities, "autoEnableManualPriorities", DefaultSettings.autoEnableManualPriorities);
+            Better_Work_Tab.ScribeCompat.LookValue(ref maxPriorityInt, "maxPriorityInt", DefaultSettings.GetInitialMaxPriority());
+            Better_Work_Tab.ScribeCompat.LookValue(ref priorityColorPercentage_Green, "priorityColorPercentage_Green", DefaultSettings.priorityColorPercentage_Green);
+            Better_Work_Tab.ScribeCompat.LookValue(ref priorityColorPercentage_Yellow , "priorityColorPercentage_Yellow", DefaultSettings.priorityColorPercentage_Yellow );
+            Better_Work_Tab.ScribeCompat.LookValue(ref priorityColorPercentage_Tan , "priorityColorPercentage_Tan", DefaultSettings.priorityColorPercentage_Tan );
 
             if (hiddenWorktypes == null) hiddenWorktypes = new List<string>();
 
             // Colors
-            Scribe_Values.Look(ref Color_CursorHighlight, "Color_CursorHighlight", DefaultSettings.Color_CursorHighlight);
-            Scribe_Values.Look(ref Color_FloatMenuHighlight, "Color_FloatMenuHighlight", DefaultSettings.Color_FloatMenuHighlight);
-            Scribe_Values.Look(ref Color_CustomMouseHighlight, "Color_CustomMouseHighlight", DefaultSettings.Color_CustomMouseHighlight);
-            Scribe_Values.Look(ref Color_CustomSimilarWorktypeHighlight, "Color_CustomSimilarWorktypeHighlight", DefaultSettings.Color_CustomSimilarWorktypeHighlight);
-            Scribe_Values.Look(ref Color_IncapableBecauseOfCapacities, "Color_IncapableBecauseOfCapacities", DefaultSettings.Color_IncapableBecauseOfCapacities);
-            Scribe_Values.Look(ref Color_BestPawnForSkillSquare, "Color_BestPawnForSkillSquare", DefaultSettings.Color_BestPawnForSkillSquare);
-            Scribe_Values.Look(ref Color_VeryLowSkill, "Color_VeryLowSkill", DefaultSettings.Color_VeryLowSkill);
-            Scribe_Values.Look(ref Color_LowSkill, "Color_LowSkill", DefaultSettings.Color_LowSkill);
-            Scribe_Values.Look(ref Color_GoodLowSkill, "Color_GoodLowSkill", DefaultSettings.Color_GoodLowSkill);
-            Scribe_Values.Look(ref Color_ExcellentSkill, "Color_ExcellentSkill", DefaultSettings.Color_ExcellentSkill);
-            Scribe_Values.Look(ref Color_RowHoverHighlight, "Color_RowHoverHighlight", DefaultSettings.Color_RowHoverHighlight);
-            Scribe_Values.Look(ref Color_ColumnHoverHighlight, "Color_ColumnHoverHighlight", DefaultSettings.Color_ColumnHoverHighlight);
-            Scribe_Values.Look(ref Color_SelectedPawnHighlight, "Color_SelectedPawnHighlight", DefaultSettings.Color_SelectedPawnHighlight);
-            Scribe_Values.Look(ref Color_HeaderText, "Color_HeaderText", DefaultSettings.Color_HeaderText);
-            Scribe_Values.Look(ref Color_DividerText, "Color_DividerText", DefaultSettings.Color_DividerText);
-            Scribe_Values.Look(ref Color_Borders, "Color_Borders", DefaultSettings.Color_Borders);
+            Better_Work_Tab.ScribeCompat.LookValue(ref Color_CursorHighlight, "Color_CursorHighlight", DefaultSettings.Color_CursorHighlight);
+            Better_Work_Tab.ScribeCompat.LookValue(ref Color_FloatMenuHighlight, "Color_FloatMenuHighlight", DefaultSettings.Color_FloatMenuHighlight);
+            Better_Work_Tab.ScribeCompat.LookValue(ref Color_CustomMouseHighlight, "Color_CustomMouseHighlight", DefaultSettings.Color_CustomMouseHighlight);
+            Better_Work_Tab.ScribeCompat.LookValue(ref Color_CustomSimilarWorktypeHighlight, "Color_CustomSimilarWorktypeHighlight", DefaultSettings.Color_CustomSimilarWorktypeHighlight);
+            Better_Work_Tab.ScribeCompat.LookValue(ref Color_IncapableBecauseOfCapacities, "Color_IncapableBecauseOfCapacities", DefaultSettings.Color_IncapableBecauseOfCapacities);
+            Better_Work_Tab.ScribeCompat.LookValue(ref Color_BestPawnForSkillSquare, "Color_BestPawnForSkillSquare", DefaultSettings.Color_BestPawnForSkillSquare);
+            Better_Work_Tab.ScribeCompat.LookValue(ref Color_VeryLowSkill, "Color_VeryLowSkill", DefaultSettings.Color_VeryLowSkill);
+            Better_Work_Tab.ScribeCompat.LookValue(ref Color_LowSkill, "Color_LowSkill", DefaultSettings.Color_LowSkill);
+            Better_Work_Tab.ScribeCompat.LookValue(ref Color_GoodLowSkill, "Color_GoodLowSkill", DefaultSettings.Color_GoodLowSkill);
+            Better_Work_Tab.ScribeCompat.LookValue(ref Color_ExcellentSkill, "Color_ExcellentSkill", DefaultSettings.Color_ExcellentSkill);
+            Better_Work_Tab.ScribeCompat.LookValue(ref Color_RowHoverHighlight, "Color_RowHoverHighlight", DefaultSettings.Color_RowHoverHighlight);
+            Better_Work_Tab.ScribeCompat.LookValue(ref Color_ColumnHoverHighlight, "Color_ColumnHoverHighlight", DefaultSettings.Color_ColumnHoverHighlight);
+            Better_Work_Tab.ScribeCompat.LookValue(ref Color_SelectedPawnHighlight, "Color_SelectedPawnHighlight", DefaultSettings.Color_SelectedPawnHighlight);
+            Better_Work_Tab.ScribeCompat.LookValue(ref Color_HeaderText, "Color_HeaderText", DefaultSettings.Color_HeaderText);
+            Better_Work_Tab.ScribeCompat.LookValue(ref Color_DividerText, "Color_DividerText", DefaultSettings.Color_DividerText);
+            Better_Work_Tab.ScribeCompat.LookValue(ref Color_Borders, "Color_Borders", DefaultSettings.Color_Borders);
 
             // UI modes
-            Scribe_Values.Look(ref ShowUIMode_ShowSmallSkillNumbers, "ShowUIMode_ShowSmallSkillNumbers", DefaultSettings.ShowUIMode_ShowSmallSkillNumbers);
-            Scribe_Values.Look(ref ShowUIMode_ShowPawnForSkillSquare, "ShowUIMode_ShowPawnForSkillSquare", DefaultSettings.ShowUIMode_ShowPawnForSkillSquare);
-            Scribe_Values.Look(ref hoverEffectScope, "hoverEffectScope", DefaultSettings.hoverEffectScope);
+            Better_Work_Tab.ScribeCompat.LookValue(ref ShowUIMode_ShowSmallSkillNumbers, "ShowUIMode_ShowSmallSkillNumbers", DefaultSettings.ShowUIMode_ShowSmallSkillNumbers);
+            Better_Work_Tab.ScribeCompat.LookValue(ref ShowUIMode_ShowPawnForSkillSquare, "ShowUIMode_ShowPawnForSkillSquare", DefaultSettings.ShowUIMode_ShowPawnForSkillSquare);
+            Better_Work_Tab.ScribeCompat.LookValue(ref hoverEffectScope, "hoverEffectScope", DefaultSettings.hoverEffectScope);
 
             // Future behavior templates
-            Scribe_Values.Look(ref confirmRulesetApplication, "confirmRulesetApplication", DefaultSettings.confirmRulesetApplication);
-            Scribe_Values.Look(ref dragStartThreshold, "dragStartThreshold", DefaultSettings.dragStartThreshold);
-            Scribe_Values.Look(ref scrollSpeed, "scrollSpeed", DefaultSettings.scrollSpeed);
-            Scribe_Values.Look(ref showAutoAssignConfirmation, "showAutoAssignConfirmation", DefaultSettings.showAutoAssignConfirmation);
-            Scribe_Values.Look(ref resetWorkBeforeAutoAssign, "resetWorkBeforeAutoAssign", DefaultSettings.resetWorkBeforeAutoAssign);
-            Scribe_Values.Look(ref showAutoAssignVisualFeedback, "showAutoAssignVisualFeedback", DefaultSettings.showAutoAssignVisualFeedback);
+            Better_Work_Tab.ScribeCompat.LookValue(ref confirmRulesetApplication, "confirmRulesetApplication", DefaultSettings.confirmRulesetApplication);
+            Better_Work_Tab.ScribeCompat.LookValue(ref dragStartThreshold, "dragStartThreshold", DefaultSettings.dragStartThreshold);
+            Better_Work_Tab.ScribeCompat.LookValue(ref scrollSpeed, "scrollSpeed", DefaultSettings.scrollSpeed);
+            Better_Work_Tab.ScribeCompat.LookValue(ref showAutoAssignConfirmation, "showAutoAssignConfirmation", DefaultSettings.showAutoAssignConfirmation);
+            Better_Work_Tab.ScribeCompat.LookValue(ref resetWorkBeforeAutoAssign, "resetWorkBeforeAutoAssign", DefaultSettings.resetWorkBeforeAutoAssign);
+            Better_Work_Tab.ScribeCompat.LookValue(ref showAutoAssignVisualFeedback, "showAutoAssignVisualFeedback", DefaultSettings.showAutoAssignVisualFeedback);
             if (Scribe.mode == LoadSaveMode.Saving && CurrentRuleset != null)
             {
                 currentRulesetName = CurrentRuleset.Name;
             }
 
-            Scribe_Values.Look(ref defaultAutoAssignRuleset, "defaultAutoAssignRuleset", "BWT Default");
-            Scribe_Values.Look(ref currentRulesetName, "currentRulesetName", "");
-            Scribe_Values.Look(ref showWorkloadButtonFooter, "showWorkloadButtonFooter", DefaultSettings.showWorkloadButtonFooter);
-            Scribe_Values.Look(ref enableWorkloadSaving, "enableWorkloadSaving", DefaultSettings.enableWorkloadSaving);
-            Scribe_Values.Look(ref enableWorkloadLoading, "enableWorkloadLoading", DefaultSettings.enableWorkloadLoading);
-            Scribe_Values.Look(ref persistDividersInWorkloads, "persistDividersInWorkloads", DefaultSettings.persistDividersInWorkloads);
-            Scribe_Values.Look(ref alwaysShowConditionEditors, "alwaysShowConditionEditors", DefaultSettings.alwaysShowConditionEditors);
-            Scribe_Values.Look(ref cacheBedCounts, "cacheBedCounts", true);
-            Scribe_Values.Look(ref cacheSkillLevels, "cacheSkillLevels", true);
-            Scribe_Values.Look(ref cacheRowDescriptors, "cacheRowDescriptors", true);
-            Scribe_Values.Look(ref cacheIncapabilityChecks, "cacheIncapabilityChecks", true);
-            Scribe_Values.Look(ref useElementPooling, "useElementPooling", true);
-            Scribe_Values.Look(ref viewportCulling, "viewportCulling", true);
-            Scribe_Values.Look(ref enableProfiler, "enableProfiler", false);
-            Scribe_Values.Look(ref logDebugToFile, "logDebugToFile", false);
-            Scribe_Values.Look(ref mpSyncColumnOrder, "mpSyncColumnOrder", true);
-            Scribe_Values.Look(ref mpSyncWorkloads, "mpSyncWorkloads", true);
-            Scribe_Values.Look(ref mpSyncRulesets, "mpSyncRulesets", true);
-            Scribe_Values.Look(ref mpConflictMode, "mpConflictMode", MpConflictMode.PlayerPriority);
-            Scribe_Values.Look(ref rulesetViewMode, "rulesetViewMode", RulesetViewMode.Regular);
+            Better_Work_Tab.ScribeCompat.LookValue(ref defaultAutoAssignRuleset, "defaultAutoAssignRuleset", "BWT Default");
+            Better_Work_Tab.ScribeCompat.LookValue(ref currentRulesetName, "currentRulesetName", "");
+            Better_Work_Tab.ScribeCompat.LookValue(ref showWorkloadButtonFooter, "showWorkloadButtonFooter", DefaultSettings.showWorkloadButtonFooter);
+            Better_Work_Tab.ScribeCompat.LookValue(ref enableWorkloadSaving, "enableWorkloadSaving", DefaultSettings.enableWorkloadSaving);
+            Better_Work_Tab.ScribeCompat.LookValue(ref enableWorkloadLoading, "enableWorkloadLoading", DefaultSettings.enableWorkloadLoading);
+            Better_Work_Tab.ScribeCompat.LookValue(ref persistDividersInWorkloads, "persistDividersInWorkloads", DefaultSettings.persistDividersInWorkloads);
+            Better_Work_Tab.ScribeCompat.LookValue(ref alwaysShowConditionEditors, "alwaysShowConditionEditors", DefaultSettings.alwaysShowConditionEditors);
+            Better_Work_Tab.ScribeCompat.LookValue(ref cacheBedCounts, "cacheBedCounts", true);
+            Better_Work_Tab.ScribeCompat.LookValue(ref cacheSkillLevels, "cacheSkillLevels", true);
+            Better_Work_Tab.ScribeCompat.LookValue(ref cacheRowDescriptors, "cacheRowDescriptors", true);
+            Better_Work_Tab.ScribeCompat.LookValue(ref cacheIncapabilityChecks, "cacheIncapabilityChecks", true);
+            Better_Work_Tab.ScribeCompat.LookValue(ref useElementPooling, "useElementPooling", true);
+            Better_Work_Tab.ScribeCompat.LookValue(ref viewportCulling, "viewportCulling", true);
+            Better_Work_Tab.ScribeCompat.LookValue(ref enableProfiler, "enableProfiler", false);
+            Better_Work_Tab.ScribeCompat.LookValue(ref logDebugToFile, "logDebugToFile", false);
+            Better_Work_Tab.ScribeCompat.LookValue(ref mpSyncColumnOrder, "mpSyncColumnOrder", true);
+            Better_Work_Tab.ScribeCompat.LookValue(ref mpSyncWorkloads, "mpSyncWorkloads", true);
+            Better_Work_Tab.ScribeCompat.LookValue(ref mpSyncRulesets, "mpSyncRulesets", true);
+            Better_Work_Tab.ScribeCompat.LookValue(ref mpConflictMode, "mpConflictMode", MpConflictMode.PlayerPriority);
+            Better_Work_Tab.ScribeCompat.LookValue(ref rulesetViewMode, "rulesetViewMode", RulesetViewMode.Regular);
 
-            //Scribe_Values.Look(ref maxPriorityInt, "maxPriorityInt", 4);
+            //Better_Work_Tab.ScribeCompat.LookValue(ref maxPriorityInt, "maxPriorityInt", 4);
 
             // Divider settings
-            Scribe_Values.Look(ref dividerHeight, "dividerHeight", DefaultSettings.dividerHeight);
+            Better_Work_Tab.ScribeCompat.LookValue(ref dividerHeight, "dividerHeight", DefaultSettings.dividerHeight);
 
             // Load rulesets from save file
-            Scribe_Collections.Look(ref SavedRulesets, "SavedRulesets", LookMode.Deep);
+            Better_Work_Tab.ScribeCompat.LookCollection(ref SavedRulesets, "SavedRulesets", LookMode.Deep);
 
             // Reinitialize rulesets after load (restores defaults if missing)
             //InitializeRulesets();
 
             // Column order and widths persistence
-            Scribe_Collections.Look(ref workColumnOrderDefNames, "workColumnOrderDefNames", LookMode.Value);
+            Better_Work_Tab.ScribeCompat.LookCollection(ref workColumnOrderDefNames, "workColumnOrderDefNames", LookMode.Value);
             ScribeCompat.LookStringDictionary(ref storedColumnWidths, "storedColumnWidths", LookMode.Value);
-            Scribe_Collections.Look(ref debugFeatureToggles, "debugFeatureToggles", LookMode.Value, LookMode.Value);
+            Better_Work_Tab.ScribeCompat.LookCollection(ref debugFeatureToggles, "debugFeatureToggles", LookMode.Value, LookMode.Value);
 
             // Save/load the list of columns the player has directly dragged
-            Scribe_Collections.Look(ref playerDraggedColumns, "playerDraggedColumns", LookMode.Value);
+            Better_Work_Tab.ScribeCompat.LookCollection(ref playerDraggedColumns, "playerDraggedColumns", LookMode.Value);
 
             if (storedColumnWidths == null)
             {

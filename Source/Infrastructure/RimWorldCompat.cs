@@ -265,6 +265,24 @@ namespace Better_Work_Tab
 #endif
         }
 
+        public static bool HasJobOnThing(WorkGiver_Scanner scanner, Pawn pawn, Thing thing, bool forced)
+        {
+#if (v0_18 || v0_17 || v0_16)
+            return scanner.HasJobOnThing(pawn, thing);
+#else
+            return scanner.HasJobOnThing(pawn, thing, forced);
+#endif
+        }
+
+        public static Job JobOnThing(WorkGiver_Scanner scanner, Pawn pawn, Thing thing, bool forced)
+        {
+#if (v0_18 || v0_17 || v0_16)
+            return scanner.JobOnThing(pawn, thing);
+#else
+            return scanner.JobOnThing(pawn, thing, forced);
+#endif
+        }
+
         public static void TryPlaceForceFeedback(WorkGiverDef workGiver, IntVec3 clickedCell, Map map)
         {
 #if !(v0_18 || v0_17 || v0_16)
@@ -322,8 +340,170 @@ namespace Better_Work_Tab
         }
     }
 
+    public static class GenFilePathsCompat
+    {
+        public static string ConfigFolderPath
+        {
+            get
+            {
+#if v0_16
+                string path = Path.Combine(GenFilePaths.SaveDataFolderPath, "Config");
+                Directory.CreateDirectory(path);
+                return path;
+#else
+                return GenFilePaths.ConfigFolderPath;
+#endif
+            }
+        }
+    }
+
+    public static class ScribeFileCompat
+    {
+        public static void InitLoading(string path)
+        {
+#if v0_16
+            Scribe.InitLoading(path);
+#else
+            Scribe.loader.InitLoading(path);
+#endif
+        }
+
+        public static void FinalizeLoading()
+        {
+#if v0_16
+            if (Scribe.mode == LoadSaveMode.LoadingVars)
+            {
+                Scribe.FinalizeLoading();
+            }
+#else
+            Scribe.loader.FinalizeLoading();
+#endif
+        }
+
+        public static void InitSaving(string path, string documentElementName)
+        {
+#if v0_16
+            Scribe.InitWriting(path, documentElementName);
+#else
+            Scribe.saver.InitSaving(path, documentElementName);
+#endif
+        }
+
+        public static void FinalizeSaving()
+        {
+#if v0_16
+            if (Scribe.mode == LoadSaveMode.Saving)
+            {
+                Scribe.FinalizeWriting();
+            }
+#else
+            Scribe.saver.FinalizeSaving();
+#endif
+        }
+    }
+
     public static class ScribeCompat
     {
+        public static void LookValue<T>(ref T value, string label, T defaultValue = default, bool forceSave = false)
+        {
+#if v0_16
+            Scribe_Values.LookValue(ref value, label, defaultValue, forceSave);
+#else
+            Scribe_Values.Look(ref value, label, defaultValue, forceSave);
+#endif
+        }
+
+        public static void LookCollection<T>(
+            ref List<T> list,
+            string label,
+            LookMode lookMode = LookMode.Undefined,
+            params object[] ctorArgs)
+        {
+#if v0_16
+            Scribe_Collections.LookList(ref list, label, lookMode, ctorArgs);
+#else
+            Scribe_Collections.Look(ref list, label, lookMode, ctorArgs);
+#endif
+        }
+
+        public static void LookCollection<K, V>(
+            ref Dictionary<K, V> dictionary,
+            string label,
+            LookMode keyLookMode = LookMode.Undefined,
+            LookMode valueLookMode = LookMode.Undefined)
+        {
+#if v0_16
+            List<K> keys = null;
+            List<V> values = null;
+
+            if (Scribe.mode == LoadSaveMode.Saving && dictionary != null)
+            {
+                keys = dictionary.Keys.ToList();
+                values = new List<V>();
+                foreach (K key in keys)
+                {
+                    values.Add(dictionary[key]);
+                }
+            }
+
+            if (Scribe.EnterNode(label))
+            {
+                try
+                {
+                    LookCollection(ref keys, "keys", keyLookMode);
+                    LookCollection(ref values, "values", valueLookMode);
+
+                    if (Scribe.mode == LoadSaveMode.LoadingVars)
+                    {
+                        dictionary = new Dictionary<K, V>();
+                        if (keys != null && values != null)
+                        {
+                            int count = Math.Min(keys.Count, values.Count);
+                            for (int i = 0; i < count; i++)
+                            {
+                                dictionary[keys[i]] = values[i];
+                            }
+                        }
+                    }
+                }
+                finally
+                {
+                    Scribe.ExitNode();
+                }
+            }
+#else
+            Scribe_Collections.Look(ref dictionary, label, keyLookMode, valueLookMode);
+#endif
+        }
+
+        public static void LookDef<T>(ref T value, string label) where T : Def, new()
+        {
+#if v0_16
+            Scribe_Defs.LookDef(ref value, label);
+#else
+            Scribe_Defs.Look(ref value, label);
+#endif
+        }
+
+        public static void LookDeep<T>(ref T target, string label, params object[] ctorArgs)
+        {
+#if v0_16
+            Scribe_Deep.LookDeep(ref target, label, ctorArgs);
+#else
+            Scribe_Deep.Look(ref target, label, ctorArgs);
+#endif
+        }
+
+        public static void LookReference<T>(ref T reference, string label, bool saveDestroyedThings = false)
+            where T : ILoadReferenceable
+        {
+#if v0_16
+            Scribe_References.LookReference(ref reference, label, saveDestroyedThings);
+#else
+            Scribe_References.Look(ref reference, label, saveDestroyedThings);
+#endif
+        }
+
         public static void LookStringDictionary<T>(
             ref Dictionary<string, T> dictionary,
             string label,
@@ -347,8 +527,8 @@ namespace Better_Work_Tab
             {
                 try
                 {
-                    Scribe_Collections.Look(ref keys, "keys", LookMode.Value);
-                    Scribe_Collections.Look(ref values, "values", valueLookMode);
+                    LookCollection(ref keys, "keys", LookMode.Value);
+                    LookCollection(ref values, "values", valueLookMode);
 
                     if (Scribe.mode == LoadSaveMode.LoadingVars)
                     {
@@ -374,7 +554,7 @@ namespace Better_Work_Tab
                 dictionary = new Dictionary<string, T>();
             }
 #else
-            Scribe_Collections.Look(ref dictionary, label, LookMode.Value, valueLookMode);
+            LookCollection(ref dictionary, label, LookMode.Value, valueLookMode);
 #endif
         }
     }

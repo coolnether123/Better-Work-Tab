@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using UnityEngine;
 using Verse;
+using Better_Work_Tab;
 using Better_Work_Tab.Mod_Support.Multiplayer;
 
 namespace Better_Work_Tab.Mod_Support.LocalProfiles
@@ -49,16 +50,16 @@ namespace Better_Work_Tab.Mod_Support.LocalProfiles
 
             try
             {
-                Scribe.saver.InitSaving(path, "BWTLocalProfile");
+                ScribeFileCompat.InitSaving(path, "BWTLocalProfile");
                 var tmp = _current;
-                Scribe_Deep.Look(ref tmp, "Profile");
-                Scribe.saver.FinalizeSaving();
+                Better_Work_Tab.ScribeCompat.LookDeep(ref tmp, "Profile");
+                ScribeFileCompat.FinalizeSaving();
                 _dirty = false;
             }
             catch (Exception e)
             {
                 Log.Error($"[BWT] Local profile save failed: {e}");
-                try { Scribe.saver.FinalizeSaving(); } catch { /* ignore */ }
+                try { ScribeFileCompat.FinalizeSaving(); } catch { /* ignore */ }
             }
         }
 
@@ -69,16 +70,16 @@ namespace Better_Work_Tab.Mod_Support.LocalProfiles
 
             try
             {
-                Scribe.loader.InitLoading(path);
+                ScribeFileCompat.InitLoading(path);
                 BWTLocalProfile loaded = null;
-                Scribe_Deep.Look(ref loaded, "Profile");
-                Scribe.loader.FinalizeLoading();
+                Better_Work_Tab.ScribeCompat.LookDeep(ref loaded, "Profile");
+                ScribeFileCompat.FinalizeLoading();
                 return loaded;
             }
             catch (Exception e)
             {
                 Log.Warning($"[BWT] Local profile load failed, starting fresh. {e}");
-                try { Scribe.loader.FinalizeLoading(); } catch { /* ignore */ }
+                try { ScribeFileCompat.FinalizeLoading(); } catch { /* ignore */ }
                 return null;
             }
         }

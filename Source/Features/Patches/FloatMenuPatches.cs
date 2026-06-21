@@ -86,12 +86,12 @@ namespace Better_Work_Tab.Patches
                     continue;
                 }
 
-                if (WorkGiverCompat.ShouldSkip(scanner, pawn, true) || !scanner.HasJobOnThing(pawn, thing, true))
+                if (WorkGiverCompat.ShouldSkip(scanner, pawn, true) || !WorkGiverCompat.HasJobOnThing(scanner, pawn, thing, true))
                 {
                     continue;
                 }
 
-                Job job = scanner.JobOnThing(pawn, thing, true);
+                Job job = WorkGiverCompat.JobOnThing(scanner, pawn, thing, true);
                 if (job == null)
                 {
                     continue;
@@ -147,7 +147,11 @@ namespace Better_Work_Tab.Patches
                     () =>
                     {
                         HighlightState.SetWorktypeToHighlight(pawn, workType);
+#if v0_16
+                        Find.MainTabsRoot.SetCurrentTab(DefDatabase<MainTabDef>.GetNamed("Work", false));
+#else
                         Find.MainTabsRoot.SetCurrentTab(MainButtonDefOf.Work);
+#endif
                     },
                     priority: MenuOptionPriority.VeryLow));
 #else
@@ -182,7 +186,9 @@ namespace Better_Work_Tab.Patches
                 }
             }
 
-#if v1_2 || v1_1 || (v1_0 || v0_19)
+#if v0_16
+            var option = new FloatMenuOption(doOnceLabel, AssignOnce, MenuOptionPriority.VeryLow);
+#elif v1_2 || v1_1 || (v1_0 || v0_19)
             var option = FloatMenuUtility.DecoratePrioritizedTask(
                 new FloatMenuOption(doOnceLabel, AssignOnce),
                 pawn,
