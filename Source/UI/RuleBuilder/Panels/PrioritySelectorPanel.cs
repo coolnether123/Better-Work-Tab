@@ -110,7 +110,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             if (visibleOrder.Count == 0)
             {
                 Rect emptyRect = new Rect(rect.x, buttonY + 10f, rect.width, 40f);
-                DrawEmptyState(emptyRect, "No priorities configured.");
+                DrawEmptyState(emptyRect, "BWT_NoPrioritiesConfigured".Translate());
                 afterButtonsY = emptyRect.yMax + 8f;
             }
 
@@ -292,15 +292,15 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
 
             if (ruleCount > 0)
             {
-                sb.AppendLine($"<color=#66CC66>{ruleCount} condition set(s)</color>");
+                sb.AppendLine($"<color=#66CC66>{"BWT_RuleCountConditionSets".Translate(ruleCount)}</color>");
             }
             else
             {
-                sb.AppendLine("<color=#999999>No conditions set</color>");
+                sb.AppendLine($"<color=#999999>{"BWT_NoConditionsSetShort".Translate()}</color>");
             }
 
             sb.AppendLine();
-            sb.AppendLine("<i>Click to select</i>");
+            sb.AppendLine($"<i>{"BWT_ClickToSelect".Translate()}</i>");
 
             return sb.ToString();
         }
@@ -334,7 +334,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
 
             Text.Anchor = TextAnchor.MiddleLeft;
             GUI.color = RuleBuilderConstants.SubtleTextColor;
-            RWWidgets.Label(labelRect, "Priority:");
+            RWWidgets.Label(labelRect, "BWT_PriorityInput_Label".Translate());
             GUI.color = Color.white;
 
             string edited = RWWidgets.TextField(fieldRect, _addPriorityBuffer ?? string.Empty);
@@ -345,20 +345,20 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
 
             int priority = ParsePriorityBuffer(maxPriority, fallbackPriority);
 
-            if (RWWidgets.ButtonText(keepRect, "Keep"))
+            if (RWWidgets.ButtonText(keepRect, "BWT_KeepPriority".Translate()))
             {
                 state.SelectedPriority = priority;
                 _addPriorityBuffer = state.SelectedPriority.ToString();
             }
 
-            if (RWWidgets.ButtonText(pickerRect, "Pick..."))
+            if (RWWidgets.ButtonText(pickerRect, "BWT_PickPriority".Translate()))
             {
                 ShowPriorityPicker(state, priority);
             }
 
             TooltipHandler.TipRegion(
                 rect,
-                $"Pick or enter a priority from 0 to {maxPriority}. The main column only keeps configured or selected priorities visible.");
+                "BWT_PriorityInput_Tooltip".Translate(maxPriority));
         }
 
         private string SanitizePriorityBuffer(string edited, int maxPriority)
