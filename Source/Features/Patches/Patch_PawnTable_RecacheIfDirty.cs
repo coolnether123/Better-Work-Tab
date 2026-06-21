@@ -86,6 +86,7 @@ namespace Better_Work_Tab.Features.Patches
     /// Runs after vanilla's sizing logic to enforce this invariant:
     /// windowRect.y + windowRect.height = screenHeight - 35
     /// </summary>
+#if !v0_13
     [HarmonyPatch(typeof(MainTabWindow_PawnTable), nameof(MainTabWindow_PawnTable.Notify_PawnsChanged))]
     public static class Patch_MainTabWindow_PawnTable_AnchorToBottom
     {
@@ -110,4 +111,5 @@ namespace Better_Work_Tab.Features.Patches
             });
         }
     }
+#endif
 }

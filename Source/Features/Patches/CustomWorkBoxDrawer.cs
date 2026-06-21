@@ -61,6 +61,30 @@ namespace Better_Work_Tab.Patches
             }
         }
 
+        /// <summary>
+        /// Draws a work box background for priority-first views without the skill-level color fill or vanilla priority number.
+        /// </summary>
+        public static void DrawWorkBoxForPriorityOnly(float x, float y, Pawn p, WorkTypeDef wType, bool incapableBecauseOfCapacities)
+        {
+            if (p.WorkTypeIsDisabled(wType))
+            {
+                return;
+            }
+
+            Rect rect = new Rect(x, y, 25f, 25f);
+
+            if (incapableBecauseOfCapacities)
+                GUI.color = BetterWorkTabMod.Settings.Color_IncapableBecauseOfCapacities;
+
+#if v1_1 || (v1_0 || v0_19)
+            DrawLegacyNeutralWorkBoxBackground(rect, p, wType);
+#else
+            WidgetsWork.DrawWorkBoxBackground(rect, p, wType);
+#endif
+
+            GUI.color = Color.white;
+        }
+
 #if v1_1 || (v1_0 || v0_19)
         private static void DrawLegacyWorkBoxBackground(Rect rect, Pawn pawn, WorkTypeDef workType)
         {
@@ -77,6 +101,12 @@ namespace Better_Work_Tab.Patches
                 GUI.DrawTexture(rect, WidgetsWork.PassionWorkboxMinorIcon);
             else if (skill.passion == Passion.Major && WidgetsWork.PassionWorkboxMajorIcon != null)
                 GUI.DrawTexture(rect, WidgetsWork.PassionWorkboxMajorIcon);
+        }
+
+        private static void DrawLegacyNeutralWorkBoxBackground(Rect rect, Pawn pawn, WorkTypeDef workType)
+        {
+            if (WidgetsWork.WorkBoxBGTex_Mid != null)
+                GUI.DrawTexture(rect, WidgetsWork.WorkBoxBGTex_Mid);
         }
 
         private static SkillRecord GetFirstRelevantSkill(Pawn pawn, WorkTypeDef workType)
@@ -150,6 +180,10 @@ namespace Better_Work_Tab.Patches
 
             Text.Font = font;
             Text.Anchor = anchor;
+
+            GUI.color = new Color(0f, 0f, 0f, 0.85f);
+            Widgets.Label(new Rect(labelRect.x + 1f, labelRect.y + 1f, labelRect.width, labelRect.height), label);
+
             GUI.color = WorkPrioritySystem.GetPriorityColor(priority);
             Widgets.Label(labelRect, label);
 

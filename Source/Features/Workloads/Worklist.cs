@@ -17,7 +17,7 @@ namespace Better_Work_Tab.Features.Workloads
             {
                 PawnWorklists.Add(new PawnWorkload(pawn));
             }
-            UseAdvancedMode = Current.Game.playSettings.useWorkPriorities;
+            UseAdvancedMode = Verse.Current.Game.playSettings.useWorkPriorities;
         }
 
         public Worklist()
@@ -39,7 +39,7 @@ namespace Better_Work_Tab.Features.Workloads
 
         public void Apply()
         {
-            Current.Game.playSettings.useWorkPriorities = UseAdvancedMode;
+            Verse.Current.Game.playSettings.useWorkPriorities = UseAdvancedMode;
             foreach (var pw in PawnWorklists)
             {
                 pw.Apply();

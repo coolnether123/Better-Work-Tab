@@ -56,7 +56,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
             {
                 // Draw disabled handle
                 GUI.color = new Color(0.3f, 0.3f, 0.3f, 0.5f);
-                Verse.Widgets.DrawBoxSolid(rect, new Color(0.2f, 0.2f, 0.2f, 0.3f));
+                Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, new Color(0.2f, 0.2f, 0.2f, 0.3f));
                 GUI.color = Color.white;
                 return false;
             }
@@ -65,7 +65,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
             
             // Draw handle background
             Color bgColor = isHovered ? HandleHoverColor : HandleBgColor;
-            Verse.Widgets.DrawBoxSolid(rect, bgColor);
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, bgColor);
             
             // Draw border
             GUI.color = HandleBorderColor;
@@ -83,7 +83,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
             for (int i = -1; i <= 1; i++)
             {
                 Rect lineRect = new Rect(startX, centerY + i * lineSpacing - 1f, lineWidth, 2f);
-                Verse.Widgets.DrawBoxSolid(lineRect, GUI.color);
+                Better_Work_Tab.WidgetsCompat.DrawBoxSolid(lineRect, GUI.color);
             }
             GUI.color = Color.white;
             
@@ -253,11 +253,11 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
                 Rect innerRect = new Rect(0, 0, drawRect.width, drawRect.height);
                 
                 // Background with gradient effect (simulated)
-                Verse.Widgets.DrawBoxSolid(innerRect, DragBoxBg);
+                Better_Work_Tab.WidgetsCompat.DrawBoxSolid(innerRect, DragBoxBg);
                 
                 // Accent bar on left
                 Rect accentBar = new Rect(0, 0, 4f, innerRect.height);
-                Verse.Widgets.DrawBoxSolid(accentBar, DragBoxBorder);
+                Better_Work_Tab.WidgetsCompat.DrawBoxSolid(accentBar, DragBoxBorder);
                 
                 // Border
                 GUI.color = DragBoxBorder;

@@ -5,7 +5,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using Verse;
 using Verse.Sound;
-using RWWidgets = Verse.Widgets;
+using RWWidgets = Better_Work_Tab.WidgetsCompat;
 
 using Better_Work_Tab.UI.RuleBuilder.Widgets;
 using Better_Work_Tab.UI;

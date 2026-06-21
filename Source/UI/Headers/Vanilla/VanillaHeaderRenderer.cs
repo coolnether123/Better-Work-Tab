@@ -125,7 +125,7 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
                 // Draw the vanilla grey stem (2px wide)
                 Rect stemRect = new Rect(centerX, stemTop, StemWidth, stemHeight);
                 GUI.color = HeaderUtility.Colors.VanillaStemColor;
-                Widgets.DrawBoxSolid(stemRect, GUI.color);
+                Better_Work_Tab.WidgetsCompat.DrawBoxSolid(stemRect, GUI.color);
             }
         }
     }

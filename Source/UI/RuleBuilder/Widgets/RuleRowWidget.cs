@@ -47,17 +47,17 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
                 Rect upRect = new Rect(deleteRect.x - 26f, deleteRect.y, 24f, 24f);
                 Rect downRect = new Rect(upRect.x - 26f, upRect.y, 24f, 24f);
 
-                if (Verse.Widgets.ButtonText(upRect, "Up")) return RowAction.MoveUp;
-                if (Verse.Widgets.ButtonText(downRect, "Dn")) return RowAction.MoveDown;
+                if (Better_Work_Tab.WidgetsCompat.ButtonText(upRect, "Up")) return RowAction.MoveUp;
+                if (Better_Work_Tab.WidgetsCompat.ButtonText(downRect, "Dn")) return RowAction.MoveDown;
 #if v1_2 || v1_1 || (v1_0 || v0_19)
-                if (Verse.Widgets.ButtonImage(deleteRect, RimWorld.TexButton.DeleteX, Color.white, GenUI.MouseoverColor))
+                if (Better_Work_Tab.WidgetsCompat.ButtonImage(deleteRect, RimWorld.TexButton.DeleteX, Color.white, GenUI.MouseoverColor))
 #else
-                if (Verse.Widgets.ButtonImage(deleteRect, TexButton.DeleteX, Color.white, GenUI.MouseoverColor))
+                if (Better_Work_Tab.WidgetsCompat.ButtonImage(deleteRect, TexButton.DeleteX, Color.white, GenUI.MouseoverColor))
 #endif
                     return RowAction.Delete;
             }
 
-            if (Verse.Widgets.ButtonInvisible(rect))
+            if (Better_Work_Tab.WidgetsCompat.ButtonInvisible(rect))
             {
                 return RowAction.Select;
             }

@@ -10,7 +10,9 @@ namespace Better_Work_Tab.Patches
         {
             get
             {
-                if (Event.current != null && Event.current.shift)
+                if ((Event.current != null && Event.current.shift) ||
+                    Input.GetKey(KeyCode.LeftShift) ||
+                    Input.GetKey(KeyCode.RightShift))
                     return BetterWorkTabSettings.ShowUIMode.Shifted;
                 else
                     return BetterWorkTabSettings.ShowUIMode.Unshifted;

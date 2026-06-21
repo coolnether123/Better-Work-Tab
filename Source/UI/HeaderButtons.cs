@@ -54,11 +54,11 @@ namespace Better_Work_Tab.UI
             string btnLbl = curRuleset != null ? curRuleset.Name : "BWT_NoRuleset".Translate();
 
 #if v1_3
-            if (Widgets.ButtonText(mainRect, "  " + btnLbl))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(mainRect, "  " + btnLbl))
 #elif v1_2 || v1_1 || (v1_0 || v0_19)
             if (Widgets12.ButtonText(mainRect, "  " + btnLbl, true, true, true, TextAnchor.MiddleLeft))
 #else
-            if (Widgets.ButtonText(mainRect, "  " + btnLbl,
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(mainRect, "  " + btnLbl,
                     overrideTextAnchor: TextAnchor.MiddleLeft))
 #endif
             {
@@ -90,7 +90,7 @@ namespace Better_Work_Tab.UI
                 }
             }
 
-            if (Widgets.ButtonText(dotRect, "..."))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(dotRect, "..."))
             {
                 var options = new List<FloatMenuOption>();
                 foreach (var ruleset in BetterWorkTabMod.Settings.SavedRulesets)
@@ -118,7 +118,7 @@ namespace Better_Work_Tab.UI
             if (!(settings?.enableWorkloads ?? true))
                 return xRight;
 
-            var workloadSaver = Current.Game.GetComponent<GameComponent_BWTWorldSettings>();
+            var workloadSaver = Verse.Current.Game.GetComponent<GameComponent_BWTWorldSettings>();
             if (workloadSaver == null)
                 return xRight;
 
@@ -133,11 +133,11 @@ namespace Better_Work_Tab.UI
                 ?? "New Workload";
 
 #if v1_3
-            if (Widgets.ButtonText(mainRect, "  " + buttonLabel))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(mainRect, "  " + buttonLabel))
 #elif v1_2 || v1_1 || (v1_0 || v0_19)
             if (Widgets12.ButtonText(mainRect, "  " + buttonLabel, true, true, true, TextAnchor.MiddleLeft))
 #else
-            if (Widgets.ButtonText(mainRect, "  " + buttonLabel,
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(mainRect, "  " + buttonLabel,
                     overrideTextAnchor: TextAnchor.MiddleLeft))
 #endif
             {
@@ -169,7 +169,7 @@ namespace Better_Work_Tab.UI
                 }
             }
 
-            if (Widgets.ButtonText(dotRect, "..."))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(dotRect, "..."))
                 ShowWorkloadMenu(workloadSaver);
 
             return newRight;

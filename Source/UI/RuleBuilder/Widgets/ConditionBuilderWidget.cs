@@ -48,7 +48,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
                     break;
             }
 
-            if (!disabled && Verse.Widgets.ButtonText(removeRect, "X"))
+            if (!disabled && Better_Work_Tab.WidgetsCompat.ButtonText(removeRect, "X"))
             {
                 ClearCondition(condition.Key, parameters);
                 onChanged?.Invoke();
@@ -73,7 +73,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
         {
             int current = GetIntValue(key, parameters);
             string buffer = current.ToString();
-            Verse.Widgets.TextFieldNumeric(valueRect, ref current, ref buffer, 0, 99);
+            Better_Work_Tab.WidgetsCompat.TextFieldNumeric(valueRect, ref current, ref buffer, 0, 99);
 
             if (current != GetIntValue(key, parameters))
             {

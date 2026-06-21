@@ -11,6 +11,56 @@ using Verse;
 using Verse.AI;
 using Verse.Sound;
 
+#if v0_13
+namespace UnityEngine
+{
+    public static class ColorUtility
+    {
+        public static string ToHtmlStringRGB(Color color)
+        {
+            return Byte(color.r).ToString("X2") +
+                   Byte(color.g).ToString("X2") +
+                   Byte(color.b).ToString("X2");
+        }
+
+        public static string ToHtmlStringRGBA(Color color)
+        {
+            return ToHtmlStringRGB(color) + Byte(color.a).ToString("X2");
+        }
+
+        public static bool TryParseHtmlString(string htmlString, out Color color)
+        {
+            color = Color.white;
+            if (string.IsNullOrEmpty(htmlString))
+                return false;
+
+            string value = htmlString[0] == '#' ? htmlString.Substring(1) : htmlString;
+            if (value.Length != 6 && value.Length != 8)
+                return false;
+
+            try
+            {
+                byte r = Convert.ToByte(value.Substring(0, 2), 16);
+                byte g = Convert.ToByte(value.Substring(2, 2), 16);
+                byte b = Convert.ToByte(value.Substring(4, 2), 16);
+                byte a = value.Length == 8 ? Convert.ToByte(value.Substring(6, 2), 16) : (byte)255;
+                color = new Color(r / 255f, g / 255f, b / 255f, a / 255f);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static byte Byte(float value)
+        {
+            return (byte)Mathf.Clamp(Mathf.RoundToInt(value * 255f), 0, 255);
+        }
+    }
+}
+#endif
+
 #if (v1_0 || v0_19)
 namespace Verse
 {
@@ -53,11 +103,89 @@ namespace Verse
 
 namespace Better_Work_Tab
 {
+    public static class ColorCompat
+    {
+        public static Color HSVToRGB(float h, float s, float v, bool hdr = false)
+        {
+#if v0_13
+            if (s <= 0f)
+                return new Color(v, v, v, 1f);
+
+            h = Mathf.Repeat(h, 1f) * 6f;
+            int sector = Mathf.FloorToInt(h);
+            float fraction = h - sector;
+            float p = v * (1f - s);
+            float q = v * (1f - s * fraction);
+            float t = v * (1f - s * (1f - fraction));
+
+            switch (sector)
+            {
+                case 0: return new Color(v, t, p, 1f);
+                case 1: return new Color(q, v, p, 1f);
+                case 2: return new Color(p, v, t, 1f);
+                case 3: return new Color(p, q, v, 1f);
+                case 4: return new Color(t, p, v, 1f);
+                default: return new Color(v, p, q, 1f);
+            }
+#else
+            return Color.HSVToRGB(h, s, v, hdr);
+#endif
+        }
+
+        public static void RGBToHSV(Color rgb, out float h, out float s, out float v)
+        {
+#if v0_13
+            float min = Mathf.Min(rgb.r, Mathf.Min(rgb.g, rgb.b));
+            float max = Mathf.Max(rgb.r, Mathf.Max(rgb.g, rgb.b));
+            v = max;
+
+            float delta = max - min;
+            if (max <= 0f || delta <= 0f)
+            {
+                s = 0f;
+                h = 0f;
+                return;
+            }
+
+            s = delta / max;
+            if (Mathf.Approximately(rgb.r, max))
+                h = (rgb.g - rgb.b) / delta;
+            else if (Mathf.Approximately(rgb.g, max))
+                h = 2f + (rgb.b - rgb.r) / delta;
+            else
+                h = 4f + (rgb.r - rgb.g) / delta;
+
+            h /= 6f;
+            if (h < 0f)
+                h += 1f;
+#else
+            Color.RGBToHSV(rgb, out h, out s, out v);
+#endif
+        }
+    }
+
+    public static class FactionCompat
+    {
+        public static Faction OfPlayer
+        {
+            get
+            {
+#if v0_13
+                return Faction.OfColony;
+#else
+                return Faction.OfPlayer;
+#endif
+            }
+        }
+    }
+
     public static class PawnCompat
     {
         public static string NameShortColored(Pawn pawn)
         {
-#if (v0_18 || v0_17 || v0_16)
+#if v0_13
+            return pawn?.LabelBaseShort ?? pawn?.Label ?? "Pawn";
+#elif (v0_18 || v0_17 || v0_16)
             return pawn?.LabelShort ?? "Pawn";
 #elif (v1_0 || v0_19)
             return pawn?.LabelShortCap ?? pawn?.LabelShort ?? "Pawn";
@@ -68,7 +196,9 @@ namespace Better_Work_Tab
 
         public static string LabelShortCap(Pawn pawn)
         {
-#if (v0_18 || v0_17 || v0_16)
+#if v0_13
+            return pawn?.LabelBaseCap ?? pawn?.LabelCap ?? "Pawn";
+#elif (v0_18 || v0_17 || v0_16)
             return pawn?.LabelShort?.CapitalizeFirst() ?? "Pawn";
 #else
             return pawn?.LabelShortCap ?? pawn?.LabelShort ?? "Pawn";
@@ -130,6 +260,27 @@ namespace Better_Work_Tab
             return rect.ExpandedBy(margin);
 #endif
         }
+
+        public static Rect LeftPart(Rect rect, float pct)
+        {
+            return new Rect(rect.x, rect.y, rect.width * pct, rect.height);
+        }
+
+        public static Rect RightPart(Rect rect, float pct)
+        {
+            float width = rect.width * pct;
+            return new Rect(rect.xMax - width, rect.y, width, rect.height);
+        }
+
+        public static Rect LeftHalf(Rect rect)
+        {
+            return LeftPart(rect, 0.5f);
+        }
+
+        public static Rect RightHalf(Rect rect)
+        {
+            return RightPart(rect, 0.5f);
+        }
     }
 
     public static class EventCompat
@@ -165,7 +316,9 @@ namespace Better_Work_Tab
     {
         public static void MarkColonistsDirty()
         {
-#if v0_15
+#if v0_13
+            return;
+#elif v0_15
             Find.ColonistBar?.MarkColonistsListDirty();
 #else
             Find.ColonistBar?.MarkColonistsDirty();
@@ -401,6 +554,220 @@ namespace Better_Work_Tab
 
     public static class WidgetsCompat
     {
+        public static void Label(Rect rect, string label)
+        {
+            Widgets.Label(rect, label);
+        }
+
+        public static void DrawBox(Rect rect, int thickness = 1)
+        {
+            Widgets.DrawBox(rect, thickness);
+        }
+
+        public static void DrawBox(Rect rect, int thickness, Texture2D lineTexture)
+        {
+#if v0_14 || v0_13
+            DrawBox(rect, thickness);
+#else
+            Widgets.DrawBox(rect, thickness, lineTexture);
+#endif
+        }
+
+        public static void DrawHighlight(Rect rect)
+        {
+            Widgets.DrawHighlight(rect);
+        }
+
+        public static void DrawHighlightSelected(Rect rect)
+        {
+            Widgets.DrawHighlightSelected(rect);
+        }
+
+        public static void DrawHighlightIfMouseover(Rect rect)
+        {
+            Widgets.DrawHighlightIfMouseover(rect);
+        }
+
+        public static void DrawMenuSection(Rect rect)
+        {
+#if v0_13
+            Widgets.DrawBox(rect, 1);
+#else
+            Widgets.DrawMenuSection(rect);
+#endif
+        }
+
+        public static void BeginScrollView(Rect outRect, ref Vector2 scrollPosition, Rect viewRect)
+        {
+            Widgets.BeginScrollView(outRect, ref scrollPosition, viewRect);
+        }
+
+        public static void EndScrollView()
+        {
+            Widgets.EndScrollView();
+        }
+
+        public static string TextField(Rect rect, string text)
+        {
+            return Widgets.TextField(rect, text);
+        }
+
+        public static string TextField(Rect rect, string text, int maxLength)
+        {
+            string input = Widgets.TextField(rect, text);
+            return input != null && input.Length > maxLength ? text : input;
+        }
+
+        public static void TextFieldNumeric(Rect rect, ref int value, ref string buffer, int min = 0, int max = int.MaxValue)
+        {
+            buffer = Widgets.TextField(rect, buffer ?? value.ToString());
+            if (int.TryParse(buffer, out int parsed))
+                value = Mathf.Clamp(parsed, min, max);
+        }
+
+        public static void TextFieldNumeric(Rect rect, ref float value, ref string buffer, float min = 0f, float max = float.MaxValue)
+        {
+            buffer = Widgets.TextField(rect, buffer ?? value.ToString());
+            if (float.TryParse(buffer, out float parsed))
+                value = Mathf.Clamp(parsed, min, max);
+        }
+
+        public static bool ButtonText(Rect rect, string label, bool active = true)
+        {
+#if v0_13
+            bool previousEnabled = GUI.enabled;
+            GUI.enabled = previousEnabled && active;
+            bool clicked = Widgets.TextButton(rect, label, true, true);
+            GUI.enabled = previousEnabled;
+            return clicked && active;
+#else
+            return Widgets.ButtonText(rect, label, active: active);
+#endif
+        }
+
+        public static bool ButtonText(
+            Rect rect,
+            string label,
+            bool drawBackground,
+            bool doMouseoverSound,
+            bool active = true)
+        {
+#if v0_13
+            bool previousEnabled = GUI.enabled;
+            GUI.enabled = previousEnabled && active;
+            bool clicked = Widgets.TextButton(rect, label, drawBackground, doMouseoverSound);
+            GUI.enabled = previousEnabled;
+            return clicked && active;
+#else
+            return Widgets.ButtonText(
+                rect,
+                label,
+                drawBackground: drawBackground,
+                doMouseoverSound: doMouseoverSound,
+                active: active);
+#endif
+        }
+
+        public static bool ButtonImage(Rect rect, Texture2D texture)
+        {
+#if v0_13
+            return Widgets.ImageButton(rect, texture);
+#else
+            return Widgets.ButtonImage(rect, texture);
+#endif
+        }
+
+        public static bool ButtonImage(Rect rect, Texture2D texture, Color baseColor, Color mouseoverColor)
+        {
+#if v0_13
+            Color previousColor = GUI.color;
+            if (Mouse.IsOver(rect))
+                GUI.color = mouseoverColor;
+            else
+                GUI.color = baseColor;
+
+            bool clicked = Widgets.ImageButton(rect, texture, GUI.color);
+            GUI.color = previousColor;
+            return clicked;
+#else
+            return Widgets.ButtonImage(rect, texture, baseColor, mouseoverColor);
+#endif
+        }
+
+        public static bool ButtonImageWithBG(Rect rect, Texture2D texture, Vector2? size = null)
+        {
+#if v0_14 || v0_13
+            Widgets.DrawBox(rect, 1);
+            Rect imageRect = rect;
+            if (size.HasValue)
+            {
+                Vector2 value = size.Value;
+                imageRect = new Rect(rect.center.x - value.x / 2f, rect.center.y - value.y / 2f, value.x, value.y);
+            }
+
+#if v0_13
+            return Widgets.ImageButton(imageRect, texture);
+#else
+            return Widgets.ButtonImage(imageRect, texture);
+#endif
+#else
+            return Widgets.ButtonImageWithBG(rect, texture, size);
+#endif
+        }
+
+        public static bool ButtonInvisible(Rect rect)
+        {
+#if v0_13
+            return Widgets.InvisibleButton(rect);
+#else
+            return Widgets.ButtonInvisible(rect);
+#endif
+        }
+
+        public static void CheckboxLabeled(Rect rect, string label, ref bool checkOn, bool disabled = false)
+        {
+#if v0_13
+            Widgets.LabelCheckbox(rect, label, ref checkOn, disabled);
+#else
+            Widgets.CheckboxLabeled(rect, label, ref checkOn, disabled);
+#endif
+        }
+
+        public static void DrawBoxSolid(Rect rect, Color color)
+        {
+#if v0_13
+            Color previousColor = GUI.color;
+            GUI.color = color;
+            GUI.DrawTexture(rect, Texture2D.whiteTexture);
+            GUI.color = previousColor;
+#else
+            Widgets.DrawBoxSolid(rect, color);
+#endif
+        }
+
+        public static void DrawBoxSolidWithOutline(Rect rect, Color fillColor, Color outlineColor, int outlineThickness = 1)
+        {
+#if v0_14 || v0_13
+            DrawBoxSolid(rect, fillColor);
+            Color previousColor = GUI.color;
+            GUI.color = outlineColor;
+            Widgets.DrawBox(rect, outlineThickness);
+            GUI.color = previousColor;
+#else
+            Widgets.DrawBoxSolidWithOutline(rect, fillColor, outlineColor, outlineThickness);
+#endif
+        }
+
+        public static void DrawLineHorizontal(float x, float y, float length, Color color)
+        {
+            DrawBoxSolid(new Rect(x, y, length, 1f), color);
+        }
+
+        public static void DrawLineHorizontal(float x, float y, float length)
+        {
+            DrawLineHorizontal(x, y, length, Color.white);
+        }
+
         public static void DrawLightHighlight(Rect rect)
         {
 #if (v0_18 || v0_17 || v0_16)
@@ -523,6 +890,16 @@ namespace Better_Work_Tab
 
     public static class ScribeCompat
     {
+        private static bool TryEnterNode(string label)
+        {
+#if v0_13
+            Scribe.EnterNode(label);
+            return true;
+#else
+            return Scribe.EnterNode(label);
+#endif
+        }
+
         public static LookMode DefLookMode
         {
             get
@@ -577,7 +954,7 @@ namespace Better_Work_Tab
                 }
             }
 
-            if (Scribe.EnterNode(label))
+            if (TryEnterNode(label))
             {
                 try
                 {
@@ -654,7 +1031,7 @@ namespace Better_Work_Tab
                 }
             }
 
-            if (Scribe.EnterNode(label))
+            if (TryEnterNode(label))
             {
                 try
                 {
@@ -709,7 +1086,9 @@ namespace Better_Work_Tab
     {
         public static ModMetaData GetActiveModWithIdentifier(string packageId)
         {
-#if (v1_0 || v0_19)
+#if v0_13
+            return null;
+#elif (v1_0 || v0_19)
             if (string.IsNullOrEmpty(packageId))
                 return null;
 
@@ -725,7 +1104,7 @@ namespace Better_Work_Tab
 #endif
         }
 
-#if (v1_0 || v0_19)
+#if !v0_13 && (v1_0 || v0_19)
         private static bool MatchesIdentifier(ModMetaData mod, string packageId)
         {
             if (string.Equals(mod.Identifier, packageId, StringComparison.OrdinalIgnoreCase))

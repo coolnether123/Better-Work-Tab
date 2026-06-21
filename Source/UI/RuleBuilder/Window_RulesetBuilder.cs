@@ -10,7 +10,7 @@ using System.Linq;
 using UnityEngine;
 using Verse;
 using Verse.Sound;
-using RWWidgets = Verse.Widgets;
+using RWWidgets = Better_Work_Tab.WidgetsCompat;
 using Better_Work_Tab.UI;
 
 namespace Better_Work_Tab.UI.RuleBuilder
@@ -50,7 +50,11 @@ namespace Better_Work_Tab.UI.RuleBuilder
             draggable = false;
         }
 
+#if v0_13
+        public override Vector2 InitialWindowSize => new Vector2(1100f, 700f);
+#else
         public override Vector2 InitialSize => new Vector2(1100f, 700f);
+#endif
 
         public override void PreOpen()
         {

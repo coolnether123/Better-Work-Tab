@@ -29,7 +29,11 @@ namespace Better_Work_Tab.UI
             absorbInputAroundWindow = true;
         }
 
+#if v0_13
+        public override Vector2 InitialWindowSize => new Vector2(400f, 180f);
+#else
         public override Vector2 InitialSize => new Vector2(400f, 180f);
+#endif
 
         public override void DoWindowContents(Rect inRect)
         {
@@ -79,7 +83,7 @@ namespace Better_Work_Tab.UI
                 buttonWidth,
                 ButtonHeight);
 
-            if (Widgets.ButtonText(confirmRect, "BWT_Confirm".Translate()) || enterPressed)
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(confirmRect, "BWT_Confirm".Translate()) || enterPressed)
             {
                 if (!string.IsNullOrEmpty(_buffer.Trim()) && _ruleset != null)
                 {
@@ -89,7 +93,7 @@ namespace Better_Work_Tab.UI
                 }
             }
 
-            if (Widgets.ButtonText(cancelRect, "BWT_DeleteRuleset".Translate()))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(cancelRect, "BWT_DeleteRuleset".Translate()))
             {
                 PromptDeleteRuleset();
             }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using Better_Work_Tab;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -113,19 +114,19 @@ namespace Spine.UI.SettingsFramework
         /// </summary>
         private void DrawViewToggle(Rect rect, ref SettingsViewMode viewMode)
         {
-            Rect simpleRect = rect.LeftHalf().ContractedBy(2f);
-            Rect advancedRect = rect.RightHalf().ContractedBy(2f);
+            Rect simpleRect = RectCompat.LeftHalf(rect).ContractedBy(2f);
+            Rect advancedRect = RectCompat.RightHalf(rect).ContractedBy(2f);
 
             bool isSimple = viewMode == SettingsViewMode.Simple;
 
             GUI.color = isSimple ? Color.white : Color.gray;
-            if (Widgets.ButtonText(simpleRect, SimpleLabel))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(simpleRect, SimpleLabel))
             {
                 viewMode = SettingsViewMode.Simple;
             }
 
             GUI.color = !isSimple ? Color.white : Color.gray;
-            if (Widgets.ButtonText(advancedRect, AdvancedLabel))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(advancedRect, AdvancedLabel))
             {
                 viewMode = SettingsViewMode.Advanced;
             }

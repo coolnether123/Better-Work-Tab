@@ -34,7 +34,7 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Layouts
              snap.PawnHexColors = bg ?? new Dictionary<string, string>();
 
              // Also capture column order because "Follow Mode" implies following everything
-             var comp = Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
+             var comp = Verse.Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
              if (comp != null && comp.ColumnCurrentOrder != null)
                  snap.ColumnOrder = new List<string>(comp.ColumnCurrentOrder);
              
@@ -60,7 +60,7 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Layouts
              // If we are following, we usually want to follow column order too.
              if (ColumnOrder != null && ColumnOrder.Count > 0)
              {
-                  var comp = Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
+                  var comp = Verse.Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
                   if (comp != null)
                   {
                        comp.ColumnCurrentOrder = new List<string>(ColumnOrder);

@@ -27,7 +27,7 @@ namespace Better_Work_Tab.PawnOrganizer.API
         {
             if (pawn == null) return;
             _pawnColors[pawn.ThingID] = color;
-            BetterWorkTabMod.DebugLog($"[BetterWorkTab] Set color for {pawn.LabelShort}: {color}", DebugFeature.Layout);
+            BetterWorkTabMod.DebugLog($"[BetterWorkTab] Set color for {PawnCompat.LabelShortCap(pawn)}: {color}", DebugFeature.Layout);
         }
 
         /// <summary>
@@ -51,7 +51,7 @@ namespace Better_Work_Tab.PawnOrganizer.API
             if (pawn != null && _pawnColors.ContainsKey(pawn.ThingID))
             {
                 _pawnColors.Remove(pawn.ThingID);
-                BetterWorkTabMod.DebugLog($"[BetterWorkTab] Cleared color for {pawn.LabelShort}", DebugFeature.Layout);
+                BetterWorkTabMod.DebugLog($"[BetterWorkTab] Cleared color for {PawnCompat.LabelShortCap(pawn)}", DebugFeature.Layout);
             }
         }
 

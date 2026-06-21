@@ -49,7 +49,7 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Sync
             tableDef.columns.AddRange(nonWork);
             tableDef.columns.AddRange(result);
 
-            var game = Current.Game;
+            var game = Verse.Current.Game;
             if (game != null)
             {
                 var comp = game.GetComponent<GameComponent_BWTWorldSettings>();
@@ -115,7 +115,7 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Sync
             tableDef.columns.AddRange(nonWork);
             tableDef.columns.AddRange(workColumns);
 
-            var game = Current.Game;
+            var game = Verse.Current.Game;
             if (game != null)
             {
                 var comp = game.GetComponent<GameComponent_BWTWorldSettings>();
