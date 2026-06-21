@@ -313,7 +313,9 @@ namespace Better_Work_Tab.UI
             }
 
             Event evt = Event.current;
-            if (evt.type != EventType.MouseDown || evt.button != 1)
+            bool rightMouseDown = evt.type == EventType.MouseDown && evt.button == 1;
+            bool rightMouseUp = evt.type == EventType.MouseUp && evt.button == 1;
+            if (!rightMouseDown && !rightMouseUp)
             {
                 return;
             }
@@ -326,7 +328,11 @@ namespace Better_Work_Tab.UI
 
             if (row.Divider != null)
             {
-                ShowDividerContextMenu(row.Divider);
+                if (rightMouseDown)
+                {
+                    ShowDividerContextMenu(row.Divider);
+                }
+
                 evt.Use();
                 return;
             }
@@ -339,7 +345,11 @@ namespace Better_Work_Tab.UI
             if (TryGetBodyColumnAt(layout, evt.mousePosition, out var column) &&
                 column.Column?.Worker is PawnColumnWorker_Label)
             {
-                ShowPawnContextMenu(row.Pawn);
+                if (rightMouseDown)
+                {
+                    ShowPawnContextMenu(row.Pawn);
+                }
+
                 evt.Use();
             }
         }
@@ -1336,6 +1346,11 @@ namespace Better_Work_Tab.UI
 
             if (clicked)
             {
+                if (Find.WindowStack != null && Find.WindowStack.TryRemove(typeof(Dialog_ModSettings)))
+                {
+                    return;
+                }
+
 #if v0_16
                 Find.WindowStack.Add(new Dialog_ModSettings());
 #else
@@ -1458,8 +1473,10 @@ namespace Better_Work_Tab.UI
         private const int Legacy016NoSkillLevel = -1;
         private static readonly Dictionary<int, int> Legacy016SkillLevelCache = new Dictionary<int, int>();
         private static readonly Dictionary<int, bool> Legacy016IncapableCache = new Dictionary<int, bool>();
-        private static int Legacy016SkillLevelCacheFrame = -1;
-        private static int Legacy016IncapableCacheFrame = -1;
+        private static readonly Dictionary<int, int> Legacy016SkillLevelCacheTimestamps = new Dictionary<int, int>();
+        private static readonly Dictionary<int, int> Legacy016IncapableCacheTimestamps = new Dictionary<int, int>();
+        private const int Legacy016SkillCacheFrameValidity = 60;
+        private const int Legacy016IncapableCacheFrameValidity = 120;
         private readonly List<Pawn> _legacy016DisplayPawnsCache = new List<Pawn>();
         private readonly HashSet<int> _legacy016DisplayPawnSeen = new HashSet<int>();
         private int _legacy016DisplayPawnsCacheFrame = -1;
@@ -1558,8 +1575,8 @@ namespace Better_Work_Tab.UI
                 Rect rowsRect = new Rect(0f, headerHeight, workArea.width, workArea.height - headerHeight);
                 _legacy016WorkColumnSpacing = (workArea.width - 16f - Legacy016LeftColumnWidth) / Mathf.Max(1, _legacy016VisibleWorkTypes.Count);
                 DrawLegacy016Headers(workArea.width, headerHeight);
-                DrawLegacy016ColumnDragOverlay(workArea.width, headerHeight, rowsRect.height);
                 DrawLegacy016Rows(rowsRect);
+                DrawLegacy016ColumnDragOverlay(workArea.width, headerHeight, rowsRect.height);
             }
             finally
             {
@@ -1663,7 +1680,9 @@ namespace Better_Work_Tab.UI
             for (int i = 0; i < _legacy016VisibleWorkTypes.Count; i++)
             {
                 WorkTypeDef workType = _legacy016VisibleWorkTypes[i];
-                Vector2 size = _legacy016CachedLabelSizes[workType];
+                bool showMarker = ShouldShowColumnMarker(workType);
+                string label = HeaderUtility.GetHeaderText(workType, showMarker);
+                Vector2 size = Text.CalcSize(label);
                 float centerX = x + 15f;
                 Rect labelRect = new Rect(centerX - size.x / 2f, 0f, size.x, size.y);
                 if (i % 2 == 1)
@@ -1679,7 +1698,10 @@ namespace Better_Work_Tab.UI
                 Legacy016HandleHeaderInput(labelRect, workType);
 
                 Text.Anchor = TextAnchor.MiddleCenter;
-                Widgets.Label(labelRect, workType.labelShort);
+                GUI.color = showMarker && (BetterWorkTabMod.Settings?.showMovedColumnColorTint ?? true)
+                    ? HeaderUtility.Colors.MovedMarkerColor
+                    : (BetterWorkTabMod.Settings?.angledHeaderColor ?? DefaultSettings.Color_AngledHeaderText);
+                Widgets.Label(labelRect, label);
                 TooltipHandler.TipRegion(labelRect, new TipSignal(() => workType.gerundLabel + "\n\n" + workType.description + "\n\n" + Legacy016SpecificWorkListString(workType), workType.GetHashCode()));
 
                 GUI.color = new Color(1f, 1f, 1f, 0.3f);
@@ -1710,7 +1732,8 @@ namespace Better_Work_Tab.UI
                 for (int i = 0; i < _legacy016VisibleWorkTypes.Count; i++)
                 {
                     WorkTypeDef workType = _legacy016VisibleWorkTypes[i];
-                    string label = HeaderUtility.GetHeaderText(workType);
+                    bool showMarker = ShouldShowColumnMarker(workType);
+                    string label = HeaderUtility.GetHeaderText(workType, showMarker);
                     Vector2 labelSize = Text.CalcSize(label);
                     float centerX = x + 15f;
                     Rect headerRect = new Rect(centerX - columnWidth / 2f, 0f, columnWidth, headerHeight);
@@ -1721,7 +1744,7 @@ namespace Better_Work_Tab.UI
                     }
 
                     Legacy016HandleHeaderInput(headerRect, workType);
-                    DrawLegacy016AngledHeaderLabel(headerRect, label, labelSize);
+                    DrawLegacy016AngledHeaderLabel(headerRect, label, labelSize, showMarker);
                     TooltipHandler.TipRegion(headerRect, new TipSignal(() => workType.gerundLabel + "\n\n" + workType.description + "\n\n" + Legacy016SpecificWorkListString(workType), workType.GetHashCode()));
 
                     x += _legacy016WorkColumnSpacing;
@@ -1736,7 +1759,7 @@ namespace Better_Work_Tab.UI
             }
         }
 
-        private static void DrawLegacy016AngledHeaderLabel(Rect headerRect, string label, Vector2 labelSize)
+        private static void DrawLegacy016AngledHeaderLabel(Rect headerRect, string label, Vector2 labelSize, bool showMarker)
         {
             float rotation = BetterWorkTabMod.Settings?.angledHeaderRotation ?? DefaultSettings.angledHeaderRotation;
             float horizontalOffset = BetterWorkTabMod.Settings?.angledHeaderHorizontalOffset ?? DefaultSettings.angledHeaderHorizontalOffset;
@@ -1768,7 +1791,9 @@ namespace Better_Work_Tab.UI
                 Text.Font = GameFont.Small;
                 Text.Anchor = TextAnchor.MiddleLeft;
                 Text.WordWrap = false;
-                GUI.color = BetterWorkTabMod.Settings?.angledHeaderColor ?? DefaultSettings.Color_AngledHeaderText;
+                GUI.color = showMarker && (BetterWorkTabMod.Settings?.showMovedColumnColorTint ?? true)
+                    ? HeaderUtility.Colors.MovedMarkerColor
+                    : (BetterWorkTabMod.Settings?.angledHeaderColor ?? DefaultSettings.Color_AngledHeaderText);
                 Widgets.Label(drawRect, label);
 
                 if (!(BetterWorkTabMod.Settings?.removeHeaderUnderline ?? DefaultSettings.removeHeaderUnderline))
@@ -1908,6 +1933,8 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
+            DrawLegacy016ColumnBaselineLine(width, headerHeight, rowsHeight);
+
             float lineX = Legacy016LeftColumnWidth + _legacy016ColumnDragTargetIndex * _legacy016WorkColumnSpacing;
             lineX = Mathf.Clamp(lineX, Legacy016LeftColumnWidth, width - 16f);
             int insetSetting = BetterWorkTabMod.Settings?.columnInsertionLineInset ?? DefaultSettings.columnInsertionLineInset;
@@ -1916,6 +1943,72 @@ namespace Better_Work_Tab.UI
             float lineHeight = Mathf.Max(0f, rowsHeight + inset);
 
             Better_Work_Tab.WidgetsCompat.DrawBoxSolid(new Rect(lineX - 1f, lineY, 2f, lineHeight), Color.white);
+        }
+
+        private void DrawLegacy016ColumnBaselineLine(float width, float headerHeight, float rowsHeight)
+        {
+            var settings = BetterWorkTabMod.Settings;
+            if (!(settings?.showColumnBaselineLine ?? true))
+            {
+                return;
+            }
+
+            WorkTypeDef workType = _legacy016DraggingWorkType;
+            if (workType?.defName == null || !IsColumnOutOfBaselinePosition(workType))
+            {
+                return;
+            }
+
+            var baselineOrder = WorkColumnOrderManager.GetBaselineOrder();
+            if (baselineOrder == null || baselineOrder.Count == 0)
+            {
+                return;
+            }
+
+            var visibleDefNames = new HashSet<string>(_legacy016VisibleWorkTypes
+                .Where(def => def?.defName != null)
+                .Select(def => def.defName));
+            var filteredBaseline = baselineOrder.Where(visibleDefNames.Contains).ToList();
+            int baselineIndex = filteredBaseline.IndexOf(workType.defName);
+            if (baselineIndex < 0)
+            {
+                return;
+            }
+
+            var baselineIndexByDef = new Dictionary<string, int>(filteredBaseline.Count);
+            for (int i = 0; i < filteredBaseline.Count; i++)
+            {
+                baselineIndexByDef[filteredBaseline[i]] = i;
+            }
+
+            int targetIndex = 0;
+            for (int i = 0; i < _legacy016VisibleWorkTypes.Count; i++)
+            {
+                WorkTypeDef other = _legacy016VisibleWorkTypes[i];
+                if (other == null || other == workType || other.defName == null)
+                {
+                    continue;
+                }
+
+                int otherBaselineIndex = baselineIndexByDef.TryGetValue(other.defName, out int idx)
+                    ? idx
+                    : int.MaxValue;
+                if (otherBaselineIndex < baselineIndex)
+                {
+                    targetIndex++;
+                }
+            }
+
+            float lineX = Legacy016LeftColumnWidth + targetIndex * _legacy016WorkColumnSpacing;
+            lineX = Mathf.Clamp(lineX, Legacy016LeftColumnWidth, width - 16f);
+            int insetSetting = settings?.columnInsertionLineInset ?? DefaultSettings.columnInsertionLineInset;
+            float inset = Mathf.Clamp(insetSetting, 0f, headerHeight);
+            float lineY = headerHeight - inset;
+            float lineHeight = Mathf.Max(0f, rowsHeight + inset);
+
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(
+                new Rect(lineX - 1f, lineY, 2f, lineHeight),
+                HeaderUtility.Colors.MovedMarkerColor);
         }
 
         private void Legacy016CommitColumnDrag()
@@ -2260,6 +2353,12 @@ namespace Better_Work_Tab.UI
                 return true;
             }
 
+            if (evt.type == EventType.MouseUp && evt.button == 1 && overLabel)
+            {
+                evt.Use();
+                return true;
+            }
+
             if (_legacy016SortingWorkType != null)
             {
                 return false;
@@ -2514,14 +2613,15 @@ namespace Better_Work_Tab.UI
             }
 
             int currentFrame = Time.frameCount;
-            if (Legacy016SkillLevelCacheFrame != currentFrame)
-            {
-                Legacy016SkillLevelCache.Clear();
-                Legacy016SkillLevelCacheFrame = currentFrame;
-            }
+            var settings = BetterWorkTabMod.Settings;
+            bool useCache = (settings?.enablePerformanceOptimizations ?? true) &&
+                            (settings?.cacheSkillLevels ?? true);
 
             int key = (pawn.thingIDNumber << 16) ^ workType.shortHash;
-            if (Legacy016SkillLevelCache.TryGetValue(key, out int cachedLevel))
+            if (useCache &&
+                Legacy016SkillLevelCacheTimestamps.TryGetValue(key, out int timestamp) &&
+                currentFrame - timestamp < Legacy016SkillCacheFrameValidity &&
+                Legacy016SkillLevelCache.TryGetValue(key, out int cachedLevel))
             {
                 if (cachedLevel == Legacy016NoSkillLevel)
                 {
@@ -2548,13 +2648,35 @@ namespace Better_Work_Tab.UI
 
             if (count == 0)
             {
-                Legacy016SkillLevelCache[key] = Legacy016NoSkillLevel;
+                if (useCache)
+                {
+                    Legacy016SkillLevelCache[key] = Legacy016NoSkillLevel;
+                    Legacy016SkillLevelCacheTimestamps[key] = currentFrame;
+                }
+
                 return false;
             }
 
             level = Mathf.Clamp(Mathf.RoundToInt(total / (float)count), 0, 20);
-            Legacy016SkillLevelCache[key] = level;
+            if (useCache)
+            {
+                Legacy016SkillLevelCache[key] = level;
+                Legacy016SkillLevelCacheTimestamps[key] = currentFrame;
+                Legacy016TrimSkillCacheIfNeeded();
+            }
+
             return true;
+        }
+
+        private static void Legacy016TrimSkillCacheIfNeeded()
+        {
+            if (Legacy016SkillLevelCache.Count <= 2000)
+            {
+                return;
+            }
+
+            Legacy016SkillLevelCache.Clear();
+            Legacy016SkillLevelCacheTimestamps.Clear();
         }
 
         private static void Legacy016DrawSkillNumber(Rect rect, int level)
@@ -2680,10 +2802,10 @@ namespace Better_Work_Tab.UI
 
         private static void Legacy016InvalidateFrameCaches()
         {
-            Legacy016SkillLevelCacheFrame = -1;
-            Legacy016IncapableCacheFrame = -1;
             Legacy016SkillLevelCache.Clear();
             Legacy016IncapableCache.Clear();
+            Legacy016SkillLevelCacheTimestamps.Clear();
+            Legacy016IncapableCacheTimestamps.Clear();
         }
 
         private static bool Legacy016IsIncapableOfWholeWorkType(Pawn pawn, WorkTypeDef work)
@@ -2694,14 +2816,14 @@ namespace Better_Work_Tab.UI
             }
 
             int currentFrame = Time.frameCount;
-            if (Legacy016IncapableCacheFrame != currentFrame)
-            {
-                Legacy016IncapableCache.Clear();
-                Legacy016IncapableCacheFrame = currentFrame;
-            }
-
+            var settings = BetterWorkTabMod.Settings;
+            bool useCache = (settings?.enablePerformanceOptimizations ?? true) &&
+                            (settings?.cacheIncapabilityChecks ?? true);
             int key = (pawn.thingIDNumber << 16) ^ work.shortHash;
-            if (Legacy016IncapableCache.TryGetValue(key, out bool cached))
+            if (useCache &&
+                Legacy016IncapableCacheTimestamps.TryGetValue(key, out int timestamp) &&
+                currentFrame - timestamp < Legacy016IncapableCacheFrameValidity &&
+                Legacy016IncapableCache.TryGetValue(key, out bool cached))
             {
                 return cached;
             }
@@ -2721,13 +2843,35 @@ namespace Better_Work_Tab.UI
 
                 if (capableOfGiver)
                 {
-                    Legacy016IncapableCache[key] = false;
+                    if (useCache)
+                    {
+                        Legacy016IncapableCache[key] = false;
+                        Legacy016IncapableCacheTimestamps[key] = currentFrame;
+                    }
+
                     return false;
                 }
             }
 
-            Legacy016IncapableCache[key] = true;
+            if (useCache)
+            {
+                Legacy016IncapableCache[key] = true;
+                Legacy016IncapableCacheTimestamps[key] = currentFrame;
+                Legacy016TrimIncapableCacheIfNeeded();
+            }
+
             return true;
+        }
+
+        private static void Legacy016TrimIncapableCacheIfNeeded()
+        {
+            if (Legacy016IncapableCache.Count <= 2000)
+            {
+                return;
+            }
+
+            Legacy016IncapableCache.Clear();
+            Legacy016IncapableCacheTimestamps.Clear();
         }
 
         private static void Legacy016CopyFrom(Pawn pawn)

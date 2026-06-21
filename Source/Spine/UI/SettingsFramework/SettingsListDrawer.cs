@@ -114,8 +114,8 @@ namespace Spine.UI.SettingsFramework
         /// </summary>
         private void DrawViewToggle(Rect rect, ref SettingsViewMode viewMode)
         {
-            Rect simpleRect = rect.LeftHalf().ContractedBy(2f);
-            Rect advancedRect = rect.RightHalf().ContractedBy(2f);
+            Rect simpleRect = RectCompat.LeftHalf(rect).ContractedBy(2f);
+            Rect advancedRect = RectCompat.RightHalf(rect).ContractedBy(2f);
 
             bool isSimple = viewMode == SettingsViewMode.Simple;
 

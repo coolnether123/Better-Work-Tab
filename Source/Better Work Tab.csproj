@@ -101,11 +101,11 @@
     <DefineConstants>v0_19;v0_16;v0_15;v0_14;v0_13</DefineConstants>
     <LangVersion>9.0</LangVersion>
   </PropertyGroup>
-  <PropertyGroup Condition="('$(Configuration)' == '0.18' Or '$(Configuration)' == '0.17' Or '$(Configuration)' == '0.16' Or '$(Configuration)' == '0.15' Or '$(Configuration)' == '0.14' Or '$(Configuration)' == '0.13') And Exists('D:\Steam Library\steamapps\common\RimWorld\RimWorldWin64_Data\Managed\Assembly-CSharp.dll')">
-    <LegacyRimWorldManagedDir>D:\Steam Library\steamapps\common\RimWorld\RimWorldWin64_Data\Managed</LegacyRimWorldManagedDir>
-  </PropertyGroup>
-  <PropertyGroup Condition="('$(Configuration)' == '0.18' Or '$(Configuration)' == '0.17' Or '$(Configuration)' == '0.16' Or '$(Configuration)' == '0.15' Or '$(Configuration)' == '0.14' Or '$(Configuration)' == '0.13') And '$(LegacyRimWorldManagedDir)' == '' And Exists('D:\Steam Library\steamapps\common\RimWorld\RimWorldWin_Data\Managed\Assembly-CSharp.dll')">
+  <PropertyGroup Condition="('$(Configuration)' == '0.18' Or '$(Configuration)' == '0.17' Or '$(Configuration)' == '0.16' Or '$(Configuration)' == '0.15' Or '$(Configuration)' == '0.14' Or '$(Configuration)' == '0.13') And Exists('D:\Steam Library\steamapps\common\RimWorld\RimWorldWin_Data\Managed\Assembly-CSharp.dll')">
     <LegacyRimWorldManagedDir>D:\Steam Library\steamapps\common\RimWorld\RimWorldWin_Data\Managed</LegacyRimWorldManagedDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="('$(Configuration)' == '0.18' Or '$(Configuration)' == '0.17' Or '$(Configuration)' == '0.16' Or '$(Configuration)' == '0.15' Or '$(Configuration)' == '0.14' Or '$(Configuration)' == '0.13') And '$(LegacyRimWorldManagedDir)' == '' And Exists('D:\Steam Library\steamapps\common\RimWorld\RimWorldWin64_Data\Managed\Assembly-CSharp.dll')">
+    <LegacyRimWorldManagedDir>D:\Steam Library\steamapps\common\RimWorld\RimWorldWin64_Data\Managed</LegacyRimWorldManagedDir>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" Condition="'$(Configuration)' == '1.0' Or '$(Configuration)' == '0.19' Or '$(Configuration)' == '0.18' Or '$(Configuration)' == '0.17' Or '$(Configuration)' == '0.16' Or '$(Configuration)' == '0.15' Or '$(Configuration)' == '0.14' Or '$(Configuration)' == '0.13'" />

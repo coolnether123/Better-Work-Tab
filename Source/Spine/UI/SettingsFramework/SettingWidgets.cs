@@ -47,8 +47,8 @@ namespace Spine.UI.SettingsFramework
             bool original = value;
 
             // Header-styled label on the left, checkbox on the right
-            var labelRect = rect.LeftPart(0.7f);
-            var toggleRect = rect.RightPart(0.25f);
+            var labelRect = RectCompat.LeftPart(rect, 0.7f);
+            var toggleRect = RectCompat.RightPart(rect, 0.25f);
 
             var oldFont = Text.Font;
             var oldColor = GUI.color;
@@ -95,8 +95,8 @@ namespace Spine.UI.SettingsFramework
         {
             float original = value;
 
-            var labelRect = rect.LeftPart(0.5f);
-            var sliderRect = rect.RightPart(0.48f);
+            var labelRect = RectCompat.LeftPart(rect, 0.5f);
+            var sliderRect = RectCompat.RightPart(rect, 0.48f);
 
             Widgets.Label(labelRect, $"{label}: {value:F1}");
 
@@ -144,8 +144,8 @@ namespace Spine.UI.SettingsFramework
         {
             int original = value;
 
-            var labelRect = rect.LeftPart(0.5f);
-            var sliderRect = rect.RightPart(0.48f);
+            var labelRect = RectCompat.LeftPart(rect, 0.5f);
+            var sliderRect = RectCompat.RightPart(rect, 0.48f);
 
             Widgets.Label(labelRect, $"{label}: {value}");
 
@@ -188,7 +188,7 @@ namespace Spine.UI.SettingsFramework
             Action<Color, Action<Color>> openColorPicker = null,
             string editLabel = "Edit")
         {
-            var labelRect = rect.LeftPart(0.6f);
+            var labelRect = RectCompat.LeftPart(rect, 0.6f);
             var colorRect = new Rect(rect.xMax - 96f, rect.y + 2f, 28f, rect.height - 4f);
             var buttonRect = new Rect(colorRect.xMax + 4f, rect.y + 2f, 60f, rect.height - 4f);
 
@@ -228,8 +228,8 @@ namespace Spine.UI.SettingsFramework
             bool disabled = false,
             Action<object> onSelected = null)
         {
-            var labelRect = rect.LeftPart(0.5f);
-            var buttonRect = rect.RightPart(0.48f);
+            var labelRect = RectCompat.LeftPart(rect, 0.5f);
+            var buttonRect = RectCompat.RightPart(rect, 0.48f);
 
             Widgets.Label(labelRect, label);
 
@@ -367,8 +367,8 @@ namespace Spine.UI.SettingsFramework
             string tooltip = null,
             bool disabled = false)
         {
-            var labelRect = rect.LeftPart(0.6f);
-            var buttonRect = rect.RightPart(0.38f);
+            var labelRect = RectCompat.LeftPart(rect, 0.6f);
+            var buttonRect = RectCompat.RightPart(rect, 0.38f);
 
             Widgets.Label(labelRect, label);
 
@@ -412,8 +412,8 @@ namespace Spine.UI.SettingsFramework
             bool disabled = false)
         {
             int original = value;
-            var labelRect = rect.LeftPart(0.5f);
-            var controlRect = rect.RightPart(0.48f);
+            var labelRect = RectCompat.LeftPart(rect, 0.5f);
+            var controlRect = RectCompat.RightPart(rect, 0.48f);
 
             Widgets.Label(labelRect, label);
 
