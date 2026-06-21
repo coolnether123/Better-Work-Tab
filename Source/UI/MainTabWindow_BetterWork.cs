@@ -1236,7 +1236,7 @@ namespace Better_Work_Tab.UI
                 Color oldColor = GUI.color;
                 GUI.color = new Color(1f, 1f, 1f, 0.5f);
                 int maxPriority = WorkPrioritySystem.GetMaxPriority();
-                TaggedString priorityHelp = maxPriority > 4
+                string priorityHelp = maxPriority > 4
                     ? "BWT_PriorityOneDoneFirstExtended".Translate(maxPriority)
                     : "PriorityOneDoneFirst".Translate();
 
