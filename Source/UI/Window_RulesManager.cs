@@ -2,6 +2,7 @@ using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.Rules;
 using Spine.DragDropApi.Util;
 using Better_Work_Tab.Patches;
+using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using HarmonyLib;
 using RimWorld;
 using Spine.DragDropApi;
@@ -296,8 +297,28 @@ namespace Better_Work_Tab.UI
 
             int value = (int)field.GetValue(SelectedRule.Parameters);
             string editBuffer = value.ToString();
-            DrawPlusMinusOneField(valueRect, ref value, ref editBuffer, disabled: uneditable);
+            if (IsPriorityNumberField(field))
+            {
+                DrawPlusMinusOneField(
+                    valueRect,
+                    ref value,
+                    ref editBuffer,
+                    disabled: uneditable,
+                    minValue: field.Name == nameof(WorkAssignmentParameters.Priority) ? 0 : -1,
+                    maxValue: WorkPrioritySystem.GetMaxPriority());
+            }
+            else
+            {
+                DrawPlusMinusOneField(valueRect, ref value, ref editBuffer, disabled: uneditable);
+            }
             field.SetValue(SelectedRule.Parameters, value);
+        }
+
+        private static bool IsPriorityNumberField(FieldInfo field)
+        {
+            return field != null &&
+                   (field.Name == nameof(WorkAssignmentParameters.Priority) ||
+                    field.Name == nameof(WorkAssignmentParameters.SkipIfPriorityForThisWorktypeAreadyAssigned));
         }
 
         private void DrawStringParameter(FieldInfo field, Rect rowRect, Rect valueRect, string label)
@@ -535,7 +556,14 @@ namespace Better_Work_Tab.UI
         /// <summary>
         /// Draws a UI control with +/- buttons and text field for integer editing.
         /// </summary>
-        public static void DrawPlusMinusOneField(Rect rect, ref int value, ref string editBuffer, int multiplier = 1, bool disabled = false)
+        public static void DrawPlusMinusOneField(
+            Rect rect,
+            ref int value,
+            ref string editBuffer,
+            int multiplier = 1,
+            bool disabled = false,
+            int minValue = -1,
+            int maxValue = 4)
         {
             var oldColor = GUI.color;
             if (disabled) GUI.color = Color.gray;
@@ -567,7 +595,7 @@ namespace Better_Work_Tab.UI
             {
                 //Better_Work_Tab.WidgetsCompat.TextFieldNumeric(midRect, ref value, ref editBuffer);
             }
-            value = Mathf.Clamp(value, -1, 4);
+            value = Mathf.Clamp(value, minValue, maxValue);
             GUI.color = oldColor;
         }
 

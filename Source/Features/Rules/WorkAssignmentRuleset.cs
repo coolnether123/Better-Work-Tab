@@ -199,6 +199,7 @@ namespace Better_Work_Tab.Features
 
         /// <summary>
         /// Ensures the priority order list exists and contains all priorities 0..MaxPriority.
+        /// Disabled priority 0 is always last so extended enabled priorities run before reset/disabled rules.
         /// </summary>
         public void EnsurePriorityOrder(int maxPriority = 0)
         {
@@ -208,20 +209,41 @@ namespace Better_Work_Tab.Features
 
             if (PriorityOrder == null || PriorityOrder.Count == 0)
             {
-                PriorityOrder = Enumerable.Range(1, maxPriority).ToList();
-                if (!PriorityOrder.Contains(0))
+                PriorityOrder = BuildDefaultPriorityOrder(maxPriority);
+                return;
+            }
+
+            var normalized = new List<int>(maxPriority + 1);
+            var seen = new HashSet<int>();
+
+            for (int i = 0; i < PriorityOrder.Count; i++)
+            {
+                int priority = WorkPrioritySystem.ClampPriority(PriorityOrder[i], maxPriority);
+                if (priority == 0 || !seen.Add(priority))
                 {
-                    PriorityOrder.Add(0);
+                    continue;
+                }
+
+                normalized.Add(priority);
+            }
+
+            for (int priority = 1; priority <= maxPriority; priority++)
+            {
+                if (seen.Add(priority))
+                {
+                    normalized.Add(priority);
                 }
             }
 
-            for (int p = 0; p <= maxPriority; p++)
-            {
-                if (!PriorityOrder.Contains(p))
-                {
-                    PriorityOrder.Add(p);
-                }
-            }
+            normalized.Add(0);
+            PriorityOrder = normalized;
+        }
+
+        private static List<int> BuildDefaultPriorityOrder(int maxPriority)
+        {
+            var order = Enumerable.Range(1, maxPriority).ToList();
+            order.Add(0);
+            return order;
         }
 
         /// <summary>

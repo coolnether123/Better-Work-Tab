@@ -12,6 +12,8 @@ namespace Better_Work_Tab.Patches
     {
         private const float CompactPriorityCellSize = 25f;
         private const float CompactPriorityOffsetY = -2f;
+        private const float CompactPriorityLabelWidth = 18f;
+        private const float CompactPriorityLabelHeight = 16f;
 
 #if v0_16
         private static readonly FieldInfo LegacyWorkBoxBgBadField = typeof(WidgetsWork).GetField("WorkBoxBGTex_Bad", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
@@ -413,12 +415,11 @@ namespace Better_Work_Tab.Patches
             }
 
             string label = priority.ToString();
-            float rightPadding = label.Length >= 2 ? 0f : -3f;
             Rect labelRect = new Rect(
-                cellRect.xMax - CompactPriorityCellSize - rightPadding,
+                cellRect.xMax - CompactPriorityLabelWidth - 1f,
                 cellRect.y + CompactPriorityOffsetY,
-                CompactPriorityCellSize,
-                CompactPriorityCellSize);
+                CompactPriorityLabelWidth,
+                CompactPriorityLabelHeight);
 
             DrawTinyPriorityLabel(labelRect, label);
         }
@@ -443,7 +444,7 @@ namespace Better_Work_Tab.Patches
             var oldColor = GUI.color;
 
             Text.Font = GameFont.Tiny;
-            Text.Anchor = TextAnchor.MiddleCenter;
+            Text.Anchor = TextAnchor.UpperRight;
             GUI.color = new Color(0.9f, 0.9f, 0.9f);
             Widgets.Label(labelRect, label);
 

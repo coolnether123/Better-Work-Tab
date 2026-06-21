@@ -369,6 +369,7 @@ namespace Better_Work_Tab.UI
             {
                 options.Add(new FloatMenuOption("Change title...", () => ShowRenamePawnDialog(pawn)));
             }
+
             options.Add(new FloatMenuOption("Set background color...", () => ShowBackgroundColorPicker(pawn)));
 
             if (PawnOrganizer.API.PawnColorDatabase.TryGetColor(pawn, out _))
