@@ -61,6 +61,30 @@ namespace Better_Work_Tab.Patches
             }
         }
 
+        /// <summary>
+        /// Draws a work box background for priority-first views without the skill-level color fill or vanilla priority number.
+        /// </summary>
+        public static void DrawWorkBoxForPriorityOnly(float x, float y, Pawn p, WorkTypeDef wType, bool incapableBecauseOfCapacities)
+        {
+            if (p.WorkTypeIsDisabled(wType))
+            {
+                return;
+            }
+
+            Rect rect = new Rect(x, y, 25f, 25f);
+
+            if (incapableBecauseOfCapacities)
+                GUI.color = BetterWorkTabMod.Settings.Color_IncapableBecauseOfCapacities;
+
+#if v1_1 || (v1_0 || v0_19)
+            DrawLegacyNeutralWorkBoxBackground(rect, p, wType);
+#else
+            WidgetsWork.DrawWorkBoxBackground(rect, p, wType);
+#endif
+
+            GUI.color = Color.white;
+        }
+
 #if v1_1 || (v1_0 || v0_19)
         private static void DrawLegacyWorkBoxBackground(Rect rect, Pawn pawn, WorkTypeDef workType)
         {
@@ -79,6 +103,12 @@ namespace Better_Work_Tab.Patches
                 GUI.DrawTexture(rect, WidgetsWork.PassionWorkboxMajorIcon);
         }
 
+        private static void DrawLegacyNeutralWorkBoxBackground(Rect rect, Pawn pawn, WorkTypeDef workType)
+        {
+            if (WidgetsWork.WorkBoxBGTex_Mid != null)
+                GUI.DrawTexture(rect, WidgetsWork.WorkBoxBGTex_Mid);
+        }
+
         private static SkillRecord GetFirstRelevantSkill(Pawn pawn, WorkTypeDef workType)
         {
             if (pawn?.skills == null || workType?.relevantSkills == null || workType.relevantSkills.Count == 0)
@@ -92,7 +122,7 @@ namespace Better_Work_Tab.Patches
             if (skill == null)
                 return WidgetsWork.WorkBoxBGTex_Mid;
 
-            int level = skill.Level;
+            int level = SkillCompat.Level(skill);
             if (level <= 3)
 #if v0_16
                 return WidgetsWork.WorkBoxBGTex_Bad;
@@ -129,6 +159,19 @@ namespace Better_Work_Tab.Patches
             DrawPriorityLabel(labelRect, label, priority, GameFont.Tiny, TextAnchor.MiddleCenter);
         }
 
+        public static void DrawCenteredPriority(Rect cellRect, int priority)
+        {
+            if (priority <= 0)
+            {
+                return;
+            }
+
+            string label = priority.ToString();
+            GameFont font = label.Length > 1 ? GameFont.Tiny : GameFont.Small;
+            Rect labelRect = new Rect(cellRect.x, cellRect.y, cellRect.width, cellRect.height);
+            DrawPriorityLabel(labelRect, label, priority, font, TextAnchor.MiddleCenter);
+        }
+
         private static void DrawPriorityLabel(Rect labelRect, string label, int priority, GameFont font, TextAnchor anchor)
         {
             var oldFont = Text.Font;
@@ -137,6 +180,10 @@ namespace Better_Work_Tab.Patches
 
             Text.Font = font;
             Text.Anchor = anchor;
+
+            GUI.color = new Color(0f, 0f, 0f, 0.85f);
+            Widgets.Label(new Rect(labelRect.x + 1f, labelRect.y + 1f, labelRect.width, labelRect.height), label);
+
             GUI.color = WorkPrioritySystem.GetPriorityColor(priority);
             Widgets.Label(labelRect, label);
 

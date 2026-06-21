@@ -25,6 +25,23 @@ namespace Better_Work_Tab
 
     internal static class Legacy016GameComponentStore
     {
+#if v0_13
+        private static readonly Dictionary<Type, GameComponent> ComponentsByType =
+            new Dictionary<Type, GameComponent>();
+
+        public static T Get<T>() where T : GameComponent
+        {
+            Type type = typeof(T);
+            if (!ComponentsByType.TryGetValue(type, out GameComponent component))
+            {
+                component = (GameComponent)Activator.CreateInstance(type);
+                ComponentsByType[type] = component;
+                component.FinalizeInit();
+            }
+
+            return (T)component;
+        }
+#else
         private static readonly Dictionary<Game, Dictionary<Type, GameComponent>> ComponentsByGame =
             new Dictionary<Game, Dictionary<Type, GameComponent>>();
 
@@ -49,11 +66,71 @@ namespace Better_Work_Tab
 
             return (T)component;
         }
+#endif
     }
 }
 
 namespace Verse
 {
+#if v0_13
+    public class ModContentPack
+    {
+    }
+
+    public enum ProgramState
+    {
+        Entry,
+        Playing,
+        MapPlaying
+    }
+
+    public sealed class LegacyGameInfo
+    {
+        public string permadeathModeUniqueName
+        {
+            get { return null; }
+        }
+    }
+
+    public sealed class LegacyCurrentGame
+    {
+        public RimWorld.PlaySettings playSettings
+        {
+            get { return Find.PlaySettings; }
+        }
+
+        public RimWorld.Planet.World World
+        {
+            get { return RimWorld.Current.World; }
+        }
+
+        public LegacyGameInfo Info
+        {
+            get { return null; }
+        }
+
+        public T GetComponent<T>() where T : GameComponent
+        {
+            return Better_Work_Tab.Legacy016GameComponentStore.Get<T>();
+        }
+    }
+
+    public static class Current
+    {
+        private static readonly LegacyCurrentGame currentGame = new LegacyCurrentGame();
+
+        public static LegacyCurrentGame Game
+        {
+            get { return currentGame; }
+        }
+
+        public static ProgramState ProgramState
+        {
+            get { return Find.Map != null ? Verse.ProgramState.MapPlaying : Verse.ProgramState.Entry; }
+        }
+    }
+#endif
+
     public abstract class ModSettings : IExposable
     {
         public virtual void ExposeData()
@@ -91,13 +168,21 @@ namespace Verse
 
     public abstract class GameComponent : IExposable
     {
+#if v0_13
+        protected object game;
+#else
         protected Game game;
+#endif
 
         protected GameComponent()
         {
         }
 
+#if v0_13
+        protected GameComponent(object game)
+#else
         protected GameComponent(Game game)
+#endif
         {
             this.game = game;
         }
@@ -127,6 +212,7 @@ namespace Verse
         }
     }
 
+#if !v0_13
     public static class GameComponentCompatExtensions
     {
         public static T GetComponent<T>(this Game game) where T : GameComponent
@@ -134,6 +220,88 @@ namespace Verse
             return Better_Work_Tab.Legacy016GameComponentStore.Get<T>(game);
         }
     }
+#endif
+
+#if v0_15
+    public static class UI
+    {
+        public static int screenWidth => Screen.width;
+        public static int screenHeight => Screen.height;
+        public static Vector2 MousePositionOnUI => Event.current?.mousePosition ?? Vector2.zero;
+
+        public static void FocusControl(string controlName, Window window = null)
+        {
+            GUI.FocusControl(controlName);
+        }
+
+        public static void UnfocusCurrentControl()
+        {
+            GUI.FocusControl(null);
+        }
+    }
+
+    public class Dialog_MessageBox : Window
+    {
+        private readonly string text;
+        private readonly Action confirmedAct;
+        private readonly string title;
+
+#if v0_13
+        public override Vector2 InitialWindowSize => new Vector2(520f, 220f);
+#else
+        public override Vector2 InitialSize => new Vector2(520f, 220f);
+#endif
+
+        private Dialog_MessageBox(string text, Action confirmedAct, string title)
+        {
+            this.text = text;
+            this.confirmedAct = confirmedAct;
+            this.title = title;
+            forcePause = true;
+            absorbInputAroundWindow = true;
+            closeOnClickedOutside = true;
+            doCloseX = true;
+        }
+
+        public static Dialog_MessageBox CreateConfirmation(
+            string text,
+            Action confirmedAct,
+            bool destructive = false,
+            string title = null)
+        {
+            return new Dialog_MessageBox(text, confirmedAct, title);
+        }
+
+        public override void DoWindowContents(Rect inRect)
+        {
+            Text.Font = GameFont.Small;
+
+            float top = 0f;
+            if (!string.IsNullOrEmpty(title))
+            {
+                Text.Font = GameFont.Medium;
+                Widgets.Label(new Rect(0f, 0f, inRect.width, 32f), title);
+                Text.Font = GameFont.Small;
+                top = 38f;
+            }
+
+            Widgets.Label(new Rect(0f, top, inRect.width, inRect.height - top - 48f), text ?? string.Empty);
+
+            Rect confirmRect = new Rect(inRect.width - 190f, inRect.height - 35f, 85f, 32f);
+            Rect cancelRect = new Rect(inRect.width - 95f, inRect.height - 35f, 85f, 32f);
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(confirmRect, "OK".Translate()))
+            {
+                confirmedAct?.Invoke();
+                Close();
+            }
+
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(cancelRect, "Cancel".Translate()))
+            {
+                Close();
+            }
+        }
+    }
+#endif
 }
 
 namespace RimWorld
@@ -303,7 +471,7 @@ namespace RimWorld
             if (pawn == null || def?.workType == null)
                 return;
 
-            WidgetsWork.DrawWorkBoxFor(rect.x, rect.y, pawn, def.workType, false);
+            Better_Work_Tab.WidgetsWorkCompat.DrawWorkBoxFor(rect.x, rect.y, pawn, def.workType, false);
         }
 
         public override int GetMinHeaderHeight(PawnTable table)
@@ -338,6 +506,12 @@ namespace RimWorld
 
     public class Dialog_ModSettings : Window
     {
+        private const float SettingsWindowPreferredWidth = 1100f;
+        private const float SettingsWindowPreferredHeight = 760f;
+        private const float SettingsWindowMinimumWidth = 700f;
+        private const float SettingsWindowMinimumHeight = 600f;
+        private const float SettingsWindowEdgeMargin = 80f;
+
         private readonly Mod mod;
 
         public Dialog_ModSettings()
@@ -351,7 +525,23 @@ namespace RimWorld
             this.mod = mod;
         }
 
-        public override Vector2 InitialSize => new Vector2(700f, 600f);
+#if v0_13
+        public override Vector2 InitialWindowSize => SettingsWindowSize;
+#else
+        public override Vector2 InitialSize => SettingsWindowSize;
+#endif
+
+        private static Vector2 SettingsWindowSize
+        {
+            get
+            {
+                float availableWidth = Mathf.Max(SettingsWindowMinimumWidth, Screen.width - SettingsWindowEdgeMargin);
+                float availableHeight = Mathf.Max(SettingsWindowMinimumHeight, Screen.height - SettingsWindowEdgeMargin);
+                return new Vector2(
+                    Mathf.Min(SettingsWindowPreferredWidth, availableWidth),
+                    Mathf.Min(SettingsWindowPreferredHeight, availableHeight));
+            }
+        }
 
         public override void DoWindowContents(Rect inRect)
         {
@@ -361,9 +551,19 @@ namespace RimWorld
                 return;
             }
 
-            Text.Anchor = TextAnchor.MiddleCenter;
-            Widgets.Label(inRect, "Better Work Tab settings are available from newer RimWorld versions.");
-            Text.Anchor = TextAnchor.UpperLeft;
+            DrawBetterWorkTabSettings(inRect);
+        }
+
+        private static void DrawBetterWorkTabSettings(Rect inRect)
+        {
+            Better_Work_Tab.BetterWorkTabSettings settings = Better_Work_Tab.BetterWorkTabMod.Settings;
+            if (settings == null)
+            {
+                settings = Better_Work_Tab.Legacy016ModSettingsStore.Get<Better_Work_Tab.BetterWorkTabSettings>();
+                Better_Work_Tab.BetterWorkTabMod.Settings = settings;
+            }
+
+            Better_Work_Tab.UI.BetterWorkTabSettingsUI.DoSettingsWindowContents(inRect, settings);
         }
     }
 
@@ -404,4 +604,39 @@ namespace RimWorld
         }
     }
 }
+
+#if v0_14
+namespace Better_Work_Tab.UI
+{
+    internal static class UIHighlighter
+    {
+        public static void HighlightOpportunity(Rect rect, string key)
+        {
+        }
+    }
+
+    internal static class CopyPasteUI
+    {
+        public static void DoCopyPasteButtons(Rect rect, Action copyAction, Action pasteAction)
+        {
+            float buttonWidth = Mathf.Max(16f, rect.width / 2f - 1f);
+            Rect copyRect = new Rect(rect.x, rect.y + 2f, buttonWidth, rect.height - 4f);
+            Rect pasteRect = new Rect(copyRect.xMax + 2f, rect.y + 2f, buttonWidth, rect.height - 4f);
+
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(copyRect, "C"))
+            {
+                copyAction?.Invoke();
+            }
+
+            bool previousEnabled = GUI.enabled;
+            GUI.enabled = pasteAction != null;
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(pasteRect, "P"))
+            {
+                pasteAction?.Invoke();
+            }
+            GUI.enabled = previousEnabled;
+        }
+    }
+}
+#endif
 #endif
