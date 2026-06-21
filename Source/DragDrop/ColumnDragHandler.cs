@@ -243,7 +243,7 @@ namespace Better_Work_Tab.DragDrop
         private float GetVisibleRowStackBottom(float headerBottom)
         {
             float rowStackHeight = GetVisibleRowStackHeight();
-            float scrollY = Layout.Table?.scrollPosition.y ?? 0f;
+            float scrollY = Layout.Table == null ? 0f : PawnTableCompat.GetScrollPosition(Layout.Table).y;
             float bottom = headerBottom + Mathf.Max(0f, rowStackHeight - scrollY);
 
             if (Layout.Table != null)
