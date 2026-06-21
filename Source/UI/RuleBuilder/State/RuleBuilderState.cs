@@ -509,6 +509,11 @@ namespace Better_Work_Tab.UI.RuleBuilder.State
         {
             MaxPriority = WorkPrioritySystem.GetMaxPriority();
 
+            if (SelectedRuleset != null)
+            {
+                SelectedRuleset.EnsurePriorityOrder(MaxPriority);
+            }
+
             if ((PriorityOrder == null || PriorityOrder.Count == 0) &&
                 SelectedRuleset?.PriorityOrder != null &&
                 SelectedRuleset.PriorityOrder.Count > 0)
@@ -516,28 +521,47 @@ namespace Better_Work_Tab.UI.RuleBuilder.State
                 PriorityOrder = SelectedRuleset.PriorityOrder.ToList();
             }
 
-            if (PriorityOrder == null || PriorityOrder.Count == 0)
-            {
-                PriorityOrder = Enumerable.Range(1, MaxPriority).ToList();
-                if (!PriorityOrder.Contains(0))
-                {
-                    PriorityOrder.Add(0);
-                }
-            }
-
-            // Make sure any new priorities or missing disabled are added.
-            for (int p = 0; p <= MaxPriority; p++)
-            {
-                if (!PriorityOrder.Contains(p))
-                {
-                    PriorityOrder.Add(p);
-                }
-            }
+            PriorityOrder = NormalizePriorityOrder(PriorityOrder, MaxPriority);
 
             if (SelectedRuleset != null)
             {
                 SelectedRuleset.PriorityOrder = PriorityOrder.ToList();
             }
+        }
+
+        private static List<int> NormalizePriorityOrder(List<int> order, int maxPriority)
+        {
+            if (order == null || order.Count == 0)
+            {
+                order = Enumerable.Range(1, maxPriority).ToList();
+                order.Add(0);
+                return order;
+            }
+
+            var normalized = new List<int>(maxPriority + 1);
+            var seen = new HashSet<int>();
+
+            for (int i = 0; i < order.Count; i++)
+            {
+                int priority = WorkPrioritySystem.ClampPriority(order[i], maxPriority);
+                if (priority == 0 || !seen.Add(priority))
+                {
+                    continue;
+                }
+
+                normalized.Add(priority);
+            }
+
+            for (int priority = 1; priority <= maxPriority; priority++)
+            {
+                if (seen.Add(priority))
+                {
+                    normalized.Add(priority);
+                }
+            }
+
+            normalized.Add(0);
+            return normalized;
         }
 
         /// <summary>
