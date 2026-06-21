@@ -82,12 +82,32 @@ namespace Better_Work_Tab
         {
             get
             {
-#if (v0_18 || v0_17 || v0_16)
+#if v0_15
+                return Find.Map;
+#elif (v0_18 || v0_17 || v0_16)
                 return Find.VisibleMap ?? Find.Maps?.FirstOrDefault();
 #else
                 return Find.CurrentMap;
 #endif
             }
+        }
+
+        public static Map ThingMap(Thing thing)
+        {
+#if v0_15
+            return thing?.Spawned == true ? Find.Map : null;
+#else
+            return thing?.Map;
+#endif
+        }
+
+        public static int MapId(Map map)
+        {
+#if v0_15
+            return map == null ? -1 : 0;
+#else
+            return map?.uniqueID ?? -1;
+#endif
         }
     }
 
@@ -130,12 +150,51 @@ namespace Better_Work_Tab
         {
             get
             {
-#if (v0_17 || v0_16)
+#if v0_15
+                return Find.Map?.mapPawns?.AllPawnsSpawned ?? Enumerable.Empty<Pawn>();
+#elif (v0_17 || v0_16)
                 return PawnsFinder.AllMapsAndWorld_Alive;
 #else
                 return PawnsFinder.AllMapsWorldAndTemporary_Alive;
 #endif
             }
+        }
+    }
+
+    public static class ColonistBarCompat
+    {
+        public static void MarkColonistsDirty()
+        {
+#if v0_15
+            Find.ColonistBar?.MarkColonistsListDirty();
+#else
+            Find.ColonistBar?.MarkColonistsDirty();
+#endif
+        }
+    }
+
+    public static class SkillCompat
+    {
+        public static int Level(SkillRecord skill)
+        {
+#if v0_15
+            return skill?.level ?? 0;
+#else
+            return skill?.Level ?? 0;
+#endif
+        }
+    }
+
+    public static class MathCompat
+    {
+        public static int PositiveMod(int value, int modulus)
+        {
+#if v0_15
+            int result = value % modulus;
+            return result < 0 ? result + modulus : result;
+#else
+            return GenMath.PositiveMod(value, modulus);
+#endif
         }
     }
 
@@ -152,6 +211,12 @@ namespace Better_Work_Tab
 #endif
         }
 
+#if v0_15
+        public static void Message(string text, Thing target, MessageTypeDef type, bool historical = false)
+        {
+            Messages.Message(text, new TargetInfo(target), type?.LegacySound ?? MessageSound.Standard);
+        }
+#else
         public static void Message(string text, GlobalTargetInfo target, MessageTypeDef type, bool historical = false)
         {
 #if (v0_17 || v0_16)
@@ -162,6 +227,7 @@ namespace Better_Work_Tab
             Messages.Message(text, target, type, historical);
 #endif
         }
+#endif
     }
 
     public static class UISoundCompat
@@ -404,6 +470,18 @@ namespace Better_Work_Tab
 
     public static class ScribeCompat
     {
+        public static LookMode DefLookMode
+        {
+            get
+            {
+#if v0_15
+                return LookMode.DefReference;
+#else
+                return LookMode.Def;
+#endif
+            }
+        }
+
         public static void LookValue<T>(ref T value, string label, T defaultValue = default, bool forceSave = false)
         {
 #if v0_16

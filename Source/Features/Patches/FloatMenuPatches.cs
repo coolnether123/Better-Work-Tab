@@ -14,6 +14,7 @@ namespace Better_Work_Tab.Patches
     /// Older APIs build options in different FloatMenuMakerMap methods, so we
     /// add our extras in a postfix while keeping vanilla options intact.
     /// </summary>
+#if !v0_15
 #if v0_18 || v0_17 || v0_16
     [HarmonyPatch(typeof(FloatMenuMakerMap), "ChoicesAtFor")]
 #else
@@ -127,7 +128,11 @@ namespace Better_Work_Tab.Patches
             AddNotAssignedOptions(pawn, workGiver, scanner, opts, clickCell, clickCell, job);
         }
 
+#if v0_15
+        private static void AddNotAssignedOptions(Pawn pawn, WorkGiverDef workGiver, WorkGiver_Scanner scanner, List<FloatMenuOption> opts, object target, IntVec3 clickedCell, Job job)
+#else
         private static void AddNotAssignedOptions(Pawn pawn, WorkGiverDef workGiver, WorkGiver_Scanner scanner, List<FloatMenuOption> opts, LocalTargetInfo target, IntVec3 clickedCell, Job job)
+#endif
         {
             WorkTypeDef workType = scanner.def.workType;
             if (workType == null)
@@ -141,17 +146,22 @@ namespace Better_Work_Tab.Patches
             // Avoid duplicates if multiple workgivers hit the same target.
             if (!opts.Any(o => o.Label == openTabLabel))
             {
-#if v1_2 || v1_1 || (v1_0 || v0_19)
+#if v0_15 || v0_16
                 opts.Add(new FloatMenuOption(
                     openTabLabel,
                     () =>
                     {
                         HighlightState.SetWorktypeToHighlight(pawn, workType);
-#if v0_16
                         Find.MainTabsRoot.SetCurrentTab(DefDatabase<MainTabDef>.GetNamed("Work", false));
-#else
+                    },
+                    MenuOptionPriority.Low));
+#elif v1_2 || v1_1 || (v1_0 || v0_19)
+                opts.Add(new FloatMenuOption(
+                    openTabLabel,
+                    () =>
+                    {
+                        HighlightState.SetWorktypeToHighlight(pawn, workType);
                         Find.MainTabsRoot.SetCurrentTab(MainButtonDefOf.Work);
-#endif
                     },
                     priority: MenuOptionPriority.VeryLow));
 #else
@@ -186,8 +196,8 @@ namespace Better_Work_Tab.Patches
                 }
             }
 
-#if v0_16
-            var option = new FloatMenuOption(doOnceLabel, AssignOnce, MenuOptionPriority.VeryLow);
+#if v0_15 || v0_16
+            var option = new FloatMenuOption(doOnceLabel, AssignOnce, MenuOptionPriority.Low);
 #elif v1_2 || v1_1 || (v1_0 || v0_19)
             var option = FloatMenuUtility.DecoratePrioritizedTask(
                 new FloatMenuOption(doOnceLabel, AssignOnce),
@@ -209,11 +219,14 @@ namespace Better_Work_Tab.Patches
             opts.Add(option);
         }
     }
+#endif
 
 
+#if !v0_16
     [DefOf]
     public static class MainButtonDefOf
     {
         public static MainButtonDef Work;
     }
+#endif
 }

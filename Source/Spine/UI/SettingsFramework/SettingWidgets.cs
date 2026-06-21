@@ -106,6 +106,14 @@ namespace Spine.UI.SettingsFramework
                 GUI.color = Color.gray;
             }
 
+#if v0_15
+            value = Widgets.HorizontalSlider(
+                sliderRect,
+                value,
+                min,
+                max,
+                middleAlignment: true);
+#else
             value = Widgets.HorizontalSlider(
                 sliderRect,
                 value,
@@ -114,6 +122,7 @@ namespace Spine.UI.SettingsFramework
                 middleAlignment: true,
                 leftAlignedLabel: minLabel,
                 rightAlignedLabel: maxLabel);
+#endif
 
             if (disabled)
             {

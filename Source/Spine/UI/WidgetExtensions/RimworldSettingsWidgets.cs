@@ -87,7 +87,13 @@ namespace Spine.UI.WidgetExtensions
             Text.Font = oldFont;
             GUI.color = oldColor;
 
+#if v0_15
+            Rect lineRect = listing.GetRect(1f);
+            Widgets.DrawLineHorizontal(lineRect.x, lineRect.y, lineRect.width);
+            listing.Gap(4f);
+#else
             listing.GapLine(4f);
+#endif
         }
 
         /// <summary>

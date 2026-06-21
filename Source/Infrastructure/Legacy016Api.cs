@@ -134,6 +134,83 @@ namespace Verse
             return Better_Work_Tab.Legacy016GameComponentStore.Get<T>(game);
         }
     }
+
+#if v0_15
+    public static class UI
+    {
+        public static int screenWidth => Screen.width;
+        public static int screenHeight => Screen.height;
+        public static Vector2 MousePositionOnUI => Event.current?.mousePosition ?? Vector2.zero;
+
+        public static void FocusControl(string controlName, Window window = null)
+        {
+            GUI.FocusControl(controlName);
+        }
+
+        public static void UnfocusCurrentControl()
+        {
+            GUI.FocusControl(null);
+        }
+    }
+
+    public class Dialog_MessageBox : Window
+    {
+        private readonly string text;
+        private readonly Action confirmedAct;
+        private readonly string title;
+
+        public override Vector2 InitialSize => new Vector2(520f, 220f);
+
+        private Dialog_MessageBox(string text, Action confirmedAct, string title)
+        {
+            this.text = text;
+            this.confirmedAct = confirmedAct;
+            this.title = title;
+            forcePause = true;
+            absorbInputAroundWindow = true;
+            closeOnClickedOutside = true;
+            doCloseX = true;
+        }
+
+        public static Dialog_MessageBox CreateConfirmation(
+            string text,
+            Action confirmedAct,
+            bool destructive = false,
+            string title = null)
+        {
+            return new Dialog_MessageBox(text, confirmedAct, title);
+        }
+
+        public override void DoWindowContents(Rect inRect)
+        {
+            Text.Font = GameFont.Small;
+
+            float top = 0f;
+            if (!string.IsNullOrEmpty(title))
+            {
+                Text.Font = GameFont.Medium;
+                Widgets.Label(new Rect(0f, 0f, inRect.width, 32f), title);
+                Text.Font = GameFont.Small;
+                top = 38f;
+            }
+
+            Widgets.Label(new Rect(0f, top, inRect.width, inRect.height - top - 48f), text ?? string.Empty);
+
+            Rect confirmRect = new Rect(inRect.width - 190f, inRect.height - 35f, 85f, 32f);
+            Rect cancelRect = new Rect(inRect.width - 95f, inRect.height - 35f, 85f, 32f);
+            if (Widgets.ButtonText(confirmRect, "OK".Translate()))
+            {
+                confirmedAct?.Invoke();
+                Close();
+            }
+
+            if (Widgets.ButtonText(cancelRect, "Cancel".Translate()))
+            {
+                Close();
+            }
+        }
+    }
+#endif
 }
 
 namespace RimWorld

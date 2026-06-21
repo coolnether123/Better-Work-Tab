@@ -1406,7 +1406,8 @@ namespace Better_Work_Tab.UI
 
 #if v0_16
         private const float Legacy016TopAreaHeight = 40f;
-        private const float Legacy016LabelRowHeight = 50f;
+        private const float Legacy016VanillaLabelRowHeight = 50f;
+        private const float Legacy016AngledLabelRowHeight = 70f;
         private const float Legacy016LeftColumnWidth = 201f;
         private float _legacy016WorkColumnSpacing = -1f;
         private readonly List<WorkTypeDef> _legacy016VisibleWorkTypes = new List<WorkTypeDef>();
@@ -1418,9 +1419,19 @@ namespace Better_Work_Tab.UI
             get
             {
                 int pawnCount = pawns?.Count ?? 0;
-                return new Vector2(1010f, 90f + pawnCount * 30f + 65f);
+                return new Vector2(1010f, Legacy016TopAreaHeight + Legacy016HeaderHeight + pawnCount * 30f + 65f);
             }
         }
+
+        private static bool Legacy016UseAngledHeaders
+        {
+            get
+            {
+                return BetterWorkTabMod.Settings?.enableAngledHeaders ?? DefaultSettings.enableAngledHeaders;
+            }
+        }
+
+        private static float Legacy016HeaderHeight => Legacy016UseAngledHeaders ? Legacy016AngledLabelRowHeight : Legacy016VanillaLabelRowHeight;
 
         private void Legacy016PreOpen()
         {
@@ -1452,9 +1463,10 @@ namespace Better_Work_Tab.UI
             {
                 Text.Font = GameFont.Small;
                 GUI.color = Color.white;
-                Rect rowsRect = new Rect(0f, Legacy016LabelRowHeight, workArea.width, workArea.height - Legacy016LabelRowHeight);
+                float headerHeight = Legacy016HeaderHeight;
+                Rect rowsRect = new Rect(0f, headerHeight, workArea.width, workArea.height - headerHeight);
                 _legacy016WorkColumnSpacing = (workArea.width - 16f - Legacy016LeftColumnWidth) / Mathf.Max(1, _legacy016VisibleWorkTypes.Count);
-                DrawLegacy016Headers(workArea.width);
+                DrawLegacy016Headers(workArea.width, headerHeight);
                 DrawRows(rowsRect);
             }
             finally
@@ -1505,8 +1517,14 @@ namespace Better_Work_Tab.UI
             }
         }
 
-        private void DrawLegacy016Headers(float width)
+        private void DrawLegacy016Headers(float width, float headerHeight)
         {
+            if (Legacy016UseAngledHeaders)
+            {
+                DrawLegacy016AngledHeaders(width, headerHeight);
+                return;
+            }
+
             float x = Legacy016LeftColumnWidth;
             for (int i = 0; i < _legacy016VisibleWorkTypes.Count; i++)
             {
@@ -1529,13 +1547,114 @@ namespace Better_Work_Tab.UI
                 TooltipHandler.TipRegion(labelRect, new TipSignal(() => workType.gerundLabel + "\n\n" + workType.description + "\n\n" + Legacy016SpecificWorkListString(workType), workType.GetHashCode()));
 
                 GUI.color = new Color(1f, 1f, 1f, 0.3f);
-                Widgets.DrawLineVertical(centerX, labelRect.yMax - 3f, Legacy016LabelRowHeight - labelRect.yMax + 3f);
-                Widgets.DrawLineVertical(centerX + 1f, labelRect.yMax - 3f, Legacy016LabelRowHeight - labelRect.yMax + 3f);
+                Widgets.DrawLineVertical(centerX, labelRect.yMax - 3f, headerHeight - labelRect.yMax + 3f);
+                Widgets.DrawLineVertical(centerX + 1f, labelRect.yMax - 3f, headerHeight - labelRect.yMax + 3f);
                 GUI.color = Color.white;
                 x += _legacy016WorkColumnSpacing;
             }
 
             Text.Anchor = TextAnchor.UpperLeft;
+        }
+
+        private void DrawLegacy016AngledHeaders(float width, float headerHeight)
+        {
+            float x = Legacy016LeftColumnWidth;
+            float columnWidth = Mathf.Max(25f, _legacy016WorkColumnSpacing);
+            GameFont oldFont = Text.Font;
+            TextAnchor oldAnchor = Text.Anchor;
+            Color oldColor = GUI.color;
+            bool oldWordWrap = Text.WordWrap;
+
+            try
+            {
+                Text.Font = GameFont.Small;
+                Text.Anchor = TextAnchor.MiddleLeft;
+                Text.WordWrap = false;
+
+                for (int i = 0; i < _legacy016VisibleWorkTypes.Count; i++)
+                {
+                    WorkTypeDef workType = _legacy016VisibleWorkTypes[i];
+                    string label = HeaderUtility.GetHeaderText(workType);
+                    Vector2 labelSize = Text.CalcSize(label);
+                    float centerX = x + 15f;
+                    Rect headerRect = new Rect(centerX - columnWidth / 2f, 0f, columnWidth, headerHeight);
+
+                    if (Mouse.IsOver(headerRect))
+                    {
+                        Widgets.DrawHighlight(headerRect);
+                    }
+
+                    DrawLegacy016AngledHeaderLabel(headerRect, label, labelSize);
+                    TooltipHandler.TipRegion(headerRect, new TipSignal(() => workType.gerundLabel + "\n\n" + workType.description + "\n\n" + Legacy016SpecificWorkListString(workType), workType.GetHashCode()));
+
+                    if (!(BetterWorkTabMod.Settings?.removeHeaderUnderline ?? DefaultSettings.removeHeaderUnderline))
+                    {
+                        GUI.color = HeaderUtility.Colors.VanillaStemColor;
+                        Widgets.DrawLineVertical(centerX, headerHeight - 13f, 13f);
+                        Widgets.DrawLineVertical(centerX + 1f, headerHeight - 13f, 13f);
+                        GUI.color = oldColor;
+                    }
+
+                    x += _legacy016WorkColumnSpacing;
+                }
+            }
+            finally
+            {
+                Text.Font = oldFont;
+                Text.Anchor = oldAnchor;
+                Text.WordWrap = oldWordWrap;
+                GUI.color = oldColor;
+            }
+        }
+
+        private static void DrawLegacy016AngledHeaderLabel(Rect headerRect, string label, Vector2 labelSize)
+        {
+            float rotation = BetterWorkTabMod.Settings?.angledHeaderRotation ?? DefaultSettings.angledHeaderRotation;
+            float horizontalOffset = BetterWorkTabMod.Settings?.angledHeaderHorizontalOffset ?? DefaultSettings.angledHeaderHorizontalOffset;
+            if (Mathf.Abs(rotation + 90f) < 0.1f)
+            {
+                horizontalOffset = 0f;
+            }
+
+            Rect drawRect = new Rect(0f, 0f, headerRect.height, labelSize.y) { center = headerRect.center };
+            drawRect.x += horizontalOffset;
+
+            Matrix4x4 originalMatrix = GUI.matrix;
+            TextAnchor originalAnchor = Text.Anchor;
+            GameFont originalFont = Text.Font;
+            Color originalColor = GUI.color;
+            bool originalWordWrap = Text.WordWrap;
+
+            try
+            {
+                GUI.matrix = Matrix4x4.identity;
+                Vector2 pivotPoint = GUIClipUtility.Unclip(drawRect.center);
+
+                Matrix4x4 transform = originalMatrix;
+                transform *= Matrix4x4.TRS(pivotPoint, Quaternion.identity, Vector3.one);
+                transform *= Matrix4x4.TRS(Vector3.zero, Quaternion.Euler(0f, 0f, rotation), Vector3.one);
+                transform *= Matrix4x4.TRS(-pivotPoint, Quaternion.identity, Vector3.one);
+                GUI.matrix = transform;
+
+                Text.Font = GameFont.Small;
+                Text.Anchor = TextAnchor.MiddleLeft;
+                Text.WordWrap = false;
+                GUI.color = BetterWorkTabMod.Settings?.angledHeaderColor ?? DefaultSettings.Color_AngledHeaderText;
+                Widgets.Label(drawRect, label);
+
+                if (!(BetterWorkTabMod.Settings?.removeHeaderUnderline ?? DefaultSettings.removeHeaderUnderline))
+                {
+                    Widgets.DrawLine(new Vector2(drawRect.xMin, drawRect.yMax), new Vector2(drawRect.xMin + labelSize.x, drawRect.yMax), Color.white, 1f);
+                }
+            }
+            finally
+            {
+                GUI.matrix = originalMatrix;
+                Text.Anchor = originalAnchor;
+                Text.Font = originalFont;
+                GUI.color = originalColor;
+                Text.WordWrap = originalWordWrap;
+            }
         }
 
         private static string Legacy016SpecificWorkListString(WorkTypeDef def)
@@ -1650,8 +1769,8 @@ namespace Better_Work_Tab.UI
             foreach (WorkTypeDef workType in DefDatabase<WorkTypeDef>.AllDefs)
             {
                 Legacy016Clipboard[workType] = pawn.story.WorkTypeIsDisabled(workType)
-                    ? 3
-                    : pawn.workSettings.GetPriority(workType);
+                    ? WorkPrioritySystem.GetDefaultEnabledPriority()
+                    : WorkPrioritySystem.GetPriority(pawn.workSettings, workType);
             }
         }
 
@@ -1661,7 +1780,7 @@ namespace Better_Work_Tab.UI
             {
                 if (!pawn.story.WorkTypeIsDisabled(workType))
                 {
-                    pawn.workSettings.SetPriority(workType, Legacy016Clipboard[workType]);
+                    WorkPrioritySystem.SetPriority(pawn.workSettings, workType, Legacy016Clipboard[workType]);
                 }
             }
         }

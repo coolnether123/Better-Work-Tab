@@ -92,7 +92,7 @@ namespace Better_Work_Tab.Patches
             if (skill == null)
                 return WidgetsWork.WorkBoxBGTex_Mid;
 
-            int level = skill.Level;
+            int level = SkillCompat.Level(skill);
             if (level <= 3)
 #if v0_16
                 return WidgetsWork.WorkBoxBGTex_Bad;
