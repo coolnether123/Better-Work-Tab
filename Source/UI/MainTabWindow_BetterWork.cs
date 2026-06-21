@@ -2,6 +2,7 @@ using Better_Work_Tab.Features;
 using Better_Work_Tab.Mod_Support.Multiplayer;
 using Better_Work_Tab.Mod_Support.Multiplayer.Features.Layouts;
 using Better_Work_Tab.Features.Caching;
+using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
@@ -1208,10 +1209,16 @@ namespace Better_Work_Tab.UI
             }
             if (Current.Game.playSettings.useWorkPriorities)
             {
-                var oldColor = GUI.color;
-                GUI.color = new Color(1f, 1f, 1f, 0.5f);
-                Widgets.Label(new Rect(rect.x, rect.yMax - 6f, rect.width, 60f), "PriorityOneDoneFirst".Translate());
-                GUI.color = oldColor;
+                using (new TextBlock(new Color(1f, 1f, 1f, 0.5f)))
+                {
+                    int maxPriority = WorkPrioritySystem.GetMaxPriority();
+                    TaggedString priorityHelp = maxPriority > 4
+                        ? "BWT_PriorityOneDoneFirstExtended".Translate(maxPriority)
+                        : "PriorityOneDoneFirst".Translate();
+
+                    float helpWidth = maxPriority > 4 ? 220f : rect.width;
+                    Widgets.Label(new Rect(rect.x, rect.yMax - 6f, helpWidth, 60f), priorityHelp);
+                }
             }
             else
             {
