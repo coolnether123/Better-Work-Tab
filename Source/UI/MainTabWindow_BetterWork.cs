@@ -285,7 +285,9 @@ namespace Better_Work_Tab.UI
             }
 
             Event evt = Event.current;
-            if (evt.type != EventType.MouseDown || evt.button != 1)
+            bool rightMouseDown = evt.type == EventType.MouseDown && evt.button == 1;
+            bool rightMouseUp = evt.type == EventType.MouseUp && evt.button == 1;
+            if (!rightMouseDown && !rightMouseUp)
             {
                 return;
             }
@@ -298,7 +300,11 @@ namespace Better_Work_Tab.UI
 
             if (row.Divider != null)
             {
-                ShowDividerContextMenu(row.Divider);
+                if (rightMouseDown)
+                {
+                    ShowDividerContextMenu(row.Divider);
+                }
+
                 evt.Use();
                 return;
             }
@@ -311,7 +317,11 @@ namespace Better_Work_Tab.UI
             if (TryGetBodyColumnAt(layout, evt.mousePosition, out var column) &&
                 column.Column?.Worker is PawnColumnWorker_Label)
             {
-                ShowPawnContextMenu(row.Pawn);
+                if (rightMouseDown)
+                {
+                    ShowPawnContextMenu(row.Pawn);
+                }
+
                 evt.Use();
             }
         }
@@ -1291,17 +1301,26 @@ namespace Better_Work_Tab.UI
         {
             if (Widgets.ButtonImage(gearRect, TexButton.Info))
             {
+                if (Find.WindowStack != null && Find.WindowStack.TryRemove(typeof(Dialog_ModSettings)))
+                {
+                    return;
+                }
+
+#if v0_16
+                Find.WindowStack.Add(new Dialog_ModSettings());
+#else
                 var mod = LoadedModManager.GetMod<BetterWorkTabMod>();
                 if (mod != null)
                 {
 #if v1_3 || v1_2 || v1_1 || (v1_0 || v0_19)
                     var dialog = new Dialog_ModSettings();
-                    typeof(Dialog_ModSettings).GetField("selMod", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).SetValue(dialog, mod);
+                    typeof(Dialog_ModSettings).GetField("selMod", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(dialog, mod);
                     Find.WindowStack.Add(dialog);
 #else
                     Find.WindowStack.Add(new Dialog_ModSettings(mod));
 #endif
                 }
+#endif
             }
         }
 
