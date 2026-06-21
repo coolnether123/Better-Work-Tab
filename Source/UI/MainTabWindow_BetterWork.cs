@@ -356,13 +356,21 @@ namespace Better_Work_Tab.UI
 
         private void ShowPawnContextMenu(Pawn pawn)
         {
-            var options = new List<FloatMenuOption>
+            var options = new List<FloatMenuOption>();
+            bool dividersAvailable = (BetterWorkTabMod.Settings?.enableDividers ?? true) &&
+                                     Verse.Current.Game?.GetComponent<GameComponent_BWTWorldSettings>() != null;
+            if (dividersAvailable)
             {
-                new FloatMenuOption("Insert divider above", () => InsertDividerAbove(pawn)),
-                new FloatMenuOption("Insert divider below", () => InsertDividerBelow(pawn)),
-                new FloatMenuOption("Change title...", () => ShowRenamePawnDialog(pawn)),
-                new FloatMenuOption("Set background color...", () => ShowBackgroundColorPicker(pawn))
-            };
+                options.Add(new FloatMenuOption("Insert divider above", () => InsertDividerAbove(pawn)));
+                options.Add(new FloatMenuOption("Insert divider below", () => InsertDividerBelow(pawn)));
+            }
+
+            if (CanRenamePawnTitle())
+            {
+                options.Add(new FloatMenuOption("Change title...", () => ShowRenamePawnDialog(pawn)));
+            }
+
+            options.Add(new FloatMenuOption("Set background color...", () => ShowBackgroundColorPicker(pawn)));
 
             if (PawnOrganizer.API.PawnColorDatabase.TryGetColor(pawn, out _))
             {
@@ -387,12 +395,23 @@ namespace Better_Work_Tab.UI
 
         private void ShowRenamePawnDialog(Pawn pawn)
         {
-#if v0_18 || v0_17 || v0_16
+#if vAlpha4
+            MessageCompat.Message("[Better Work Tab] Pawn renaming is not available in Alpha4.", MessageTypeDefOf.RejectInput);
+#elif v0_18 || v0_17 || v0_16
             Find.WindowStack.Add(new Dialog_ChangeNameTriple(pawn));
 #elif v1_3 || v1_2 || v1_1 || (v1_0 || v0_19)
             Find.WindowStack.Add(new Dialog_NamePawn(pawn));
 #else
             Find.WindowStack.Add(pawn.NamePawnDialog());
+#endif
+        }
+
+        private static bool CanRenamePawnTitle()
+        {
+#if vAlpha4
+            return false;
+#else
+            return true;
 #endif
         }
 
@@ -411,7 +430,7 @@ namespace Better_Work_Tab.UI
                 }),
                 new FloatMenuOption("Delete", () =>
                 {
-                    PawnOrganizerSystem.Instance?.Layout.RemoveDivider(divider);
+                    RemoveDivider(divider);
 
                     MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
                     
@@ -437,9 +456,9 @@ namespace Better_Work_Tab.UI
 
         private void InsertDividerAbove(Pawn pawn)
         {
-            var worklist = Verse.Current.Game?.GetComponent<GameComponent_BWTWorldSettings>()?.CurrentWorklist;
+            var comp = Verse.Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
             var layout = PawnOrganizerSystem.Instance?.Layout;
-            if (layout == null || pawn == null || worklist == null)
+            if (pawn == null || comp == null)
             {
                 return;
             }
@@ -449,7 +468,15 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
-            layout.AddDividerBeforePawn(pawn, "New Divider", Color.gray);
+            if (layout != null)
+            {
+                layout.AddDividerBeforePawn(pawn, "New Divider", Color.gray);
+            }
+            else
+            {
+                Legacy016InsertDividerRelativeToPawn(pawn, insertAfter: false);
+            }
+
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
             
 #if !v1_2 && !v1_1 && !(v1_0 || v0_19)
@@ -514,9 +541,9 @@ namespace Better_Work_Tab.UI
 
         private void InsertDividerBelow(Pawn pawn)
         {
-            var worklist = Verse.Current.Game?.GetComponent<GameComponent_BWTWorldSettings>()?.CurrentWorklist;
+            var comp = Verse.Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
             var layout = PawnOrganizerSystem.Instance?.Layout;
-            if (layout == null || pawn == null || worklist == null)
+            if (pawn == null || comp == null)
             {
                 return;
             }
@@ -526,7 +553,15 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
-            layout.AddDividerAfterPawn(pawn, "New Divider", Color.gray);
+            if (layout != null)
+            {
+                layout.AddDividerAfterPawn(pawn, "New Divider", Color.gray);
+            }
+            else
+            {
+                Legacy016InsertDividerRelativeToPawn(pawn, insertAfter: true);
+            }
+
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
 
 #if !v1_2 && !v1_1 && !(v1_0 || v0_19)
@@ -540,7 +575,16 @@ namespace Better_Work_Tab.UI
             Color current = PawnOrganizer.API.PawnColorDatabase.TryGetColor(pawn, out var stored) ? stored : Color.white;
             Find.WindowStack.Add(new Dialog_ColourPicker(current, (newColor, _) =>
             {
-                PawnOrganizerSystem.Instance?.SetPawnBackgroundColor(pawn, newColor);
+                var organizer = PawnOrganizerSystem.Instance;
+                if (organizer != null)
+                {
+                    organizer.SetPawnBackgroundColor(pawn, newColor);
+                }
+                else
+                {
+                    PawnOrganizer.API.PawnColorDatabase.SetColor(pawn, newColor);
+                    Legacy016InvalidateFrameCaches();
+                }
             }));
         }
 
@@ -1489,13 +1533,23 @@ namespace Better_Work_Tab.UI
         private WorkTypeDef _legacy016DisplayPawnsSortWorkType;
         private bool _legacy016DisplayPawnsSortDescending;
         private int _legacy016DisplayPawnsSourceCount = -1;
+        private readonly List<RowDescriptor> _legacy016DisplayRowsCache = new List<RowDescriptor>();
+        private readonly List<DisplayElement> _legacy016DisplayElementBuffer = new List<DisplayElement>();
+        private readonly List<DisplayElement> _legacy016OrderedElementBuffer = new List<DisplayElement>();
+        private readonly List<DisplayElement> _legacy016SortingSectionBuffer = new List<DisplayElement>();
+        private readonly List<DisplayElement> _legacy016FilteringSectionBuffer = new List<DisplayElement>();
+        private readonly List<Pawn> _legacy016UniquePawnBuffer = new List<Pawn>();
+        private int _legacy016DisplayRowsCacheFrame = -1;
+        private int _legacy016DisplayRowsSourceCount = -1;
+        private int _legacy016DisplayRowsDividerStateHash;
+        private WorkTypeDef _legacy016DisplayRowsSortWorkType;
+        private bool _legacy016DisplayRowsSortDescending;
 
         private Vector2 Legacy016RequestedTabSize
         {
             get
             {
-                int pawnCount = pawns?.Count ?? 0;
-                return new Vector2(1010f, Legacy016TopAreaHeight + Legacy016HeaderHeight + pawnCount * 30f + 65f);
+                return new Vector2(1010f, Legacy016TopAreaHeight + Legacy016HeaderHeight + Legacy016RowsContentHeight(Legacy016DisplayRows()) + 65f);
             }
         }
 
@@ -1697,12 +1751,13 @@ namespace Better_Work_Tab.UI
                     labelRect.y += 20f;
                 }
 
-                if (Mouse.IsOver(labelRect))
+                bool isMouseOver = Mouse.IsOver(labelRect);
+                if (isMouseOver)
                 {
                     Widgets.DrawHighlight(labelRect);
                 }
 
-                Legacy016HandleHeaderInput(labelRect, workType);
+                Legacy016HandleHeaderInput(labelRect, workType, isMouseOver);
 
                 Text.Anchor = TextAnchor.MiddleCenter;
                 GUI.color = showMarker && (BetterWorkTabMod.Settings?.showMovedColumnColorTint ?? true)
@@ -1745,14 +1800,14 @@ namespace Better_Work_Tab.UI
                     float centerX = x + 15f;
                     Rect headerRect = new Rect(centerX - columnWidth / 2f, 0f, columnWidth, headerHeight);
 
-                    if (Mouse.IsOver(headerRect))
-                    {
-                        Widgets.DrawHighlight(headerRect);
-                    }
+                    Rect drawRect = Legacy016AngledHeaderDrawRect(headerRect, labelSize);
+                    Vector2[] hitQuad = Legacy016RotatedHeaderQuad(drawRect, labelSize);
+                    bool isMouseOver = AngledHeaderCache.IsMouseOver(hitQuad, Event.current.mousePosition);
+                    Rect hitBounds = Legacy016QuadBounds(hitQuad);
 
-                    Legacy016HandleHeaderInput(headerRect, workType);
-                    DrawLegacy016AngledHeaderLabel(headerRect, label, labelSize, showMarker);
-                    TooltipHandler.TipRegion(headerRect, new TipSignal(() => workType.gerundLabel + "\n\n" + workType.description + "\n\n" + Legacy016SpecificWorkListString(workType), workType.GetHashCode()));
+                    Legacy016HandleHeaderInput(hitBounds, workType, isMouseOver);
+                    DrawLegacy016AngledHeaderLabel(headerRect, label, labelSize, showMarker, isMouseOver);
+                    TooltipHandler.TipRegion(hitBounds, new TipSignal(() => workType.gerundLabel + "\n\n" + workType.description + "\n\n" + Legacy016SpecificWorkListString(workType), workType.GetHashCode()));
 
                     x += _legacy016WorkColumnSpacing;
                 }
@@ -1766,7 +1821,7 @@ namespace Better_Work_Tab.UI
             }
         }
 
-        private static void DrawLegacy016AngledHeaderLabel(Rect headerRect, string label, Vector2 labelSize, bool showMarker)
+        private static Rect Legacy016AngledHeaderDrawRect(Rect headerRect, Vector2 labelSize)
         {
             float rotation = BetterWorkTabMod.Settings?.angledHeaderRotation ?? DefaultSettings.angledHeaderRotation;
             float horizontalOffset = BetterWorkTabMod.Settings?.angledHeaderHorizontalOffset ?? DefaultSettings.angledHeaderHorizontalOffset;
@@ -1777,6 +1832,61 @@ namespace Better_Work_Tab.UI
 
             Rect drawRect = new Rect(0f, 0f, headerRect.height, labelSize.y) { center = headerRect.center };
             drawRect.x += horizontalOffset;
+            return drawRect;
+        }
+
+        private static Vector2[] Legacy016RotatedHeaderQuad(Rect drawRect, Vector2 labelSize)
+        {
+            float rotation = BetterWorkTabMod.Settings?.angledHeaderRotation ?? DefaultSettings.angledHeaderRotation;
+            float radians = rotation * Mathf.Deg2Rad;
+            float cos = Mathf.Cos(radians);
+            float sin = Mathf.Sin(radians);
+            float halfW = (drawRect.width / 2f) + 2f;
+            float halfH = (labelSize.y / 2f) + 2f;
+            Vector2 pivot = drawRect.center;
+
+            return new[]
+            {
+                Legacy016RotatePoint(new Vector2(-halfW, -halfH), cos, sin) + pivot,
+                Legacy016RotatePoint(new Vector2(halfW, -halfH), cos, sin) + pivot,
+                Legacy016RotatePoint(new Vector2(halfW, halfH), cos, sin) + pivot,
+                Legacy016RotatePoint(new Vector2(-halfW, halfH), cos, sin) + pivot
+            };
+        }
+
+        private static Vector2 Legacy016RotatePoint(Vector2 point, float cos, float sin)
+        {
+            return new Vector2(
+                (point.x * cos) - (point.y * sin),
+                (point.x * sin) + (point.y * cos));
+        }
+
+        private static Rect Legacy016QuadBounds(Vector2[] quad)
+        {
+            if (quad == null || quad.Length == 0)
+            {
+                return RectCompat.Zero;
+            }
+
+            float minX = quad[0].x;
+            float maxX = quad[0].x;
+            float minY = quad[0].y;
+            float maxY = quad[0].y;
+            for (int i = 1; i < quad.Length; i++)
+            {
+                minX = Mathf.Min(minX, quad[i].x);
+                maxX = Mathf.Max(maxX, quad[i].x);
+                minY = Mathf.Min(minY, quad[i].y);
+                maxY = Mathf.Max(maxY, quad[i].y);
+            }
+
+            return new Rect(minX, minY, maxX - minX, maxY - minY);
+        }
+
+        private static void DrawLegacy016AngledHeaderLabel(Rect headerRect, string label, Vector2 labelSize, bool showMarker, bool isMouseOver)
+        {
+            float rotation = BetterWorkTabMod.Settings?.angledHeaderRotation ?? DefaultSettings.angledHeaderRotation;
+            Rect drawRect = Legacy016AngledHeaderDrawRect(headerRect, labelSize);
 
             Matrix4x4 originalMatrix = GUI.matrix;
             TextAnchor originalAnchor = Text.Anchor;
@@ -1798,6 +1908,11 @@ namespace Better_Work_Tab.UI
                 Text.Font = GameFont.Small;
                 Text.Anchor = TextAnchor.MiddleLeft;
                 Text.WordWrap = false;
+                if (isMouseOver)
+                {
+                    Better_Work_Tab.WidgetsCompat.DrawBoxSolid(RectCompat.ExpandedBy(drawRect, 2f), HeaderUtility.Colors.HoverHighlight);
+                }
+
                 GUI.color = showMarker && (BetterWorkTabMod.Settings?.showMovedColumnColorTint ?? true)
                     ? HeaderUtility.Colors.MovedMarkerColor
                     : (BetterWorkTabMod.Settings?.angledHeaderColor ?? DefaultSettings.Color_AngledHeaderText);
@@ -1837,7 +1952,7 @@ namespace Better_Work_Tab.UI
             return builder.ToString();
         }
 
-        private void Legacy016HandleHeaderInput(Rect headerRect, WorkTypeDef workType)
+        private void Legacy016HandleHeaderInput(Rect headerRect, WorkTypeDef workType, bool overHeader)
         {
             Event evt = Event.current;
             if (evt == null || workType == null)
@@ -1862,7 +1977,6 @@ namespace Better_Work_Tab.UI
                 }
             }
 
-            bool overHeader = Mouse.IsOver(headerRect);
             if (evt.type == EventType.MouseDown && overHeader && (evt.button == 0 || evt.button == 1))
             {
                 if (evt.shift || (evt.modifiers & EventModifiers.Shift) != 0)
@@ -2201,32 +2315,264 @@ namespace Better_Work_Tab.UI
 
         private void DrawLegacy016Rows(Rect rect)
         {
-            List<Pawn> displayPawns = Legacy016DisplayPawns();
-            Rect viewRect = new Rect(0f, 0f, rect.width - 16f, displayPawns.Count * 30f);
+            List<RowDescriptor> displayRows = Legacy016DisplayRows();
+            Rect viewRect = new Rect(0f, 0f, rect.width - 16f, Legacy016RowsContentHeight(displayRows));
             Widgets.BeginScrollView(rect, ref scrollPosition, viewRect);
             try
             {
                 float y = 0f;
-                for (int i = 0; i < displayPawns.Count; i++)
+                for (int i = 0; i < displayRows.Count; i++)
                 {
-                    Pawn pawn = displayPawns[i];
-                    Rect rowRect = new Rect(0f, y, viewRect.width, 30f);
-                    if (!(y - scrollPosition.y + 30f < 0f) && !(y - scrollPosition.y > rect.height))
+                    RowDescriptor row = displayRows[i];
+                    Rect rowRect = new Rect(0f, y, viewRect.width, row.Height);
+                    if (!(y - scrollPosition.y + row.Height < 0f) && !(y - scrollPosition.y > rect.height))
                     {
-                        DrawLegacy016PawnRowBackground(rowRect, pawn, i, displayPawns.Count);
-                        DrawPawnRow(rowRect, pawn);
-                        DrawLegacy016PawnRowOverlay(rowRect, pawn);
+                        if (row.IsDivider)
+                        {
+                            DrawLegacy016DividerRow(rowRect, row.Divider);
+                        }
+                        else if (row.IsPawn)
+                        {
+                            DrawLegacy016PawnRowBackground(rowRect, row.Pawn, i, displayRows);
+                            DrawPawnRow(rowRect, row.Pawn);
+                            DrawLegacy016PawnRowOverlay(rowRect, row.Pawn);
+                        }
                     }
 
-                    y += 30f;
+                    y += row.Height;
                 }
 
-                DrawLegacy016RowDragOverlay(viewRect.width);
+                DrawLegacy016RowDragOverlay(displayRows, viewRect.width);
             }
             finally
             {
                 Widgets.EndScrollView();
                 Text.Anchor = TextAnchor.UpperLeft;
+            }
+        }
+
+        private List<RowDescriptor> Legacy016DisplayRows()
+        {
+            IList<PawnDivider> dividers = Legacy016ActiveDividers();
+            int currentFrame = Time.frameCount;
+            int sourceCount = pawns?.Count ?? 0;
+            int dividerStateHash = Legacy016DividerStateHash(dividers);
+
+            if (_legacy016DisplayRowsCacheFrame == currentFrame &&
+                _legacy016DisplayRowsSourceCount == sourceCount &&
+                _legacy016DisplayRowsDividerStateHash == dividerStateHash &&
+                _legacy016DisplayRowsSortWorkType == _legacy016SortingWorkType &&
+                _legacy016DisplayRowsSortDescending == _legacy016SortingDescending)
+            {
+                return _legacy016DisplayRowsCache;
+            }
+
+            _legacy016DisplayRowsCacheFrame = currentFrame;
+            _legacy016DisplayRowsSourceCount = sourceCount;
+            _legacy016DisplayRowsDividerStateHash = dividerStateHash;
+            _legacy016DisplayRowsSortWorkType = _legacy016SortingWorkType;
+            _legacy016DisplayRowsSortDescending = _legacy016SortingDescending;
+            _legacy016DisplayRowsCache.Clear();
+            _legacy016DisplayElementBuffer.Clear();
+            _legacy016OrderedElementBuffer.Clear();
+            _legacy016SortingSectionBuffer.Clear();
+            _legacy016FilteringSectionBuffer.Clear();
+
+            BuildLegacy016DisplayElements(dividers);
+            OrderLegacy016DisplayElements();
+            AddLegacy016VisibleRowsFromOrderedElements();
+
+            return _legacy016DisplayRowsCache;
+        }
+
+        private void BuildLegacy016DisplayElements(IList<PawnDivider> dividers)
+        {
+            _legacy016UniquePawnBuffer.Clear();
+            _legacy016DisplayPawnSeen.Clear();
+
+            if (pawns != null)
+            {
+                foreach (Pawn pawn in pawns)
+                {
+                    if (pawn == null || !_legacy016DisplayPawnSeen.Add(pawn.thingIDNumber))
+                    {
+                        continue;
+                    }
+
+                    _legacy016UniquePawnBuffer.Add(pawn);
+                    _legacy016DisplayElementBuffer.Add(new PawnElement(pawn));
+                }
+            }
+
+            if (dividers == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < dividers.Count; i++)
+            {
+                if (dividers[i] != null)
+                {
+                    _legacy016DisplayElementBuffer.Add(new DividerElement(dividers[i]));
+                }
+            }
+        }
+
+        private void OrderLegacy016DisplayElements()
+        {
+            IEnumerable<DisplayElement> manualOrder = _legacy016DisplayElementBuffer.OrderBy(element => element.DisplayOrder);
+
+            if (_legacy016SortingWorkType == null)
+            {
+                foreach (DisplayElement element in manualOrder)
+                {
+                    _legacy016OrderedElementBuffer.Add(element);
+                }
+
+                return;
+            }
+
+            foreach (DisplayElement element in manualOrder)
+            {
+                if (element.IsDivider)
+                {
+                    FlushLegacy016SortingSection();
+                    _legacy016OrderedElementBuffer.Add(element);
+                }
+                else
+                {
+                    _legacy016SortingSectionBuffer.Add(element);
+                }
+            }
+
+            FlushLegacy016SortingSection();
+        }
+
+        private void FlushLegacy016SortingSection()
+        {
+            if (_legacy016SortingSectionBuffer.Count == 0)
+            {
+                return;
+            }
+
+            _legacy016SortingSectionBuffer.Sort((left, right) =>
+            {
+                Pawn leftPawn = (left as PawnElement)?.Pawn;
+                Pawn rightPawn = (right as PawnElement)?.Pawn;
+                return Legacy016ComparePawnsForSort(leftPawn, rightPawn);
+            });
+
+            _legacy016OrderedElementBuffer.AddRange(_legacy016SortingSectionBuffer);
+            _legacy016SortingSectionBuffer.Clear();
+        }
+
+        private void AddLegacy016VisibleRowsFromOrderedElements()
+        {
+            PawnDivider lastDivider = null;
+            _legacy016FilteringSectionBuffer.Clear();
+
+            for (int i = 0; i < _legacy016OrderedElementBuffer.Count; i++)
+            {
+                DisplayElement element = _legacy016OrderedElementBuffer[i];
+                if (element.IsDivider)
+                {
+                    if (lastDivider == null || !lastDivider.IsCollapsed)
+                    {
+                        AddLegacy016PawnSection(_legacy016FilteringSectionBuffer);
+                    }
+
+                    PawnDivider divider = (element as DividerElement)?.Divider;
+                    if (divider != null)
+                    {
+                        _legacy016DisplayRowsCache.Add(new RowDescriptor(divider, Legacy016DividerHeight(divider)));
+                    }
+
+                    lastDivider = divider;
+                    _legacy016FilteringSectionBuffer.Clear();
+                }
+                else
+                {
+                    _legacy016FilteringSectionBuffer.Add(element);
+                }
+            }
+
+            if (lastDivider == null || !lastDivider.IsCollapsed)
+            {
+                AddLegacy016PawnSection(_legacy016FilteringSectionBuffer);
+            }
+        }
+
+        private void AddLegacy016PawnSection(List<DisplayElement> section)
+        {
+            for (int i = 0; i < section.Count; i++)
+            {
+                Pawn pawn = (section[i] as PawnElement)?.Pawn;
+                if (pawn != null)
+                {
+                    _legacy016DisplayRowsCache.Add(new RowDescriptor(pawn, 30f));
+                }
+            }
+        }
+
+        private static float Legacy016RowsContentHeight(List<RowDescriptor> rows)
+        {
+            if (rows == null || rows.Count == 0)
+            {
+                return 0f;
+            }
+
+            float height = 0f;
+            for (int i = 0; i < rows.Count; i++)
+            {
+                height += rows[i].Height;
+            }
+
+            return height;
+        }
+
+        private static float Legacy016DividerHeight(PawnDivider divider)
+        {
+            float fallback = BetterWorkTabMod.Settings?.dividerHeight ?? DefaultSettings.dividerHeight;
+            return Mathf.Clamp(divider?.Height ?? fallback, 10f, 80f);
+        }
+
+        private static IList<PawnDivider> Legacy016ActiveDividers()
+        {
+            var settings = BetterWorkTabMod.Settings;
+            if (!(settings?.enableDividers ?? true) || !(settings?.showDividers ?? true))
+            {
+                return new PawnDivider[0];
+            }
+
+            return Verse.Current.Game?.GetComponent<GameComponent_BWTWorldSettings>()?.ActiveDividers ?? new List<PawnDivider>();
+        }
+
+        private static int Legacy016DividerStateHash(IList<PawnDivider> dividers)
+        {
+            unchecked
+            {
+                int hash = 17;
+                if (dividers == null)
+                {
+                    return hash;
+                }
+
+                for (int i = 0; i < dividers.Count; i++)
+                {
+                    PawnDivider divider = dividers[i];
+                    if (divider == null)
+                    {
+                        continue;
+                    }
+
+                    hash = hash * 31 + divider.DisplayOrder;
+                    hash = hash * 31 + (divider.IsCollapsed ? 1 : 0);
+                    hash = hash * 31 + Mathf.RoundToInt(divider.Height * 10f);
+                    hash = hash * 31 + (divider.ShowLabel ? 1 : 0);
+                    hash = hash * 31 + (divider.DividerName == null ? 0 : divider.DividerName.GetHashCode());
+                }
+
+                return hash;
             }
         }
 
@@ -2269,25 +2615,88 @@ namespace Better_Work_Tab.UI
                 return _legacy016DisplayPawnsCache;
             }
 
-            _legacy016DisplayPawnsCache.Sort((left, right) =>
-            {
-                int leftPriority = WorkPrioritySystem.GetPriority(left?.workSettings, _legacy016SortingWorkType);
-                int rightPriority = WorkPrioritySystem.GetPriority(right?.workSettings, _legacy016SortingWorkType);
-                int result = leftPriority.CompareTo(rightPriority);
-                if (result != 0)
-                {
-                    return _legacy016SortingDescending ? -result : result;
-                }
-
-                result = RowOrderUtility.GetPawnRowOrder(left).CompareTo(RowOrderUtility.GetPawnRowOrder(right));
-                return result != 0 ? result : left.thingIDNumber.CompareTo(right.thingIDNumber);
-            });
+            _legacy016DisplayPawnsCache.Sort(Legacy016ComparePawnsForSort);
 
             return _legacy016DisplayPawnsCache;
         }
 
-        private void DrawLegacy016PawnRowBackground(Rect rect, Pawn pawn, int visualIndex, int rowCount)
+        private int Legacy016ComparePawnsForSort(Pawn left, Pawn right)
         {
+            if (left == right)
+            {
+                return 0;
+            }
+
+            if (left == null)
+            {
+                return 1;
+            }
+
+            if (right == null)
+            {
+                return -1;
+            }
+
+            int leftPriority = WorkPrioritySystem.GetPriority(left.workSettings, _legacy016SortingWorkType);
+            int rightPriority = WorkPrioritySystem.GetPriority(right.workSettings, _legacy016SortingWorkType);
+            int result = leftPriority.CompareTo(rightPriority);
+            if (result != 0)
+            {
+                return _legacy016SortingDescending ? -result : result;
+            }
+
+            result = RowOrderUtility.GetPawnRowOrder(left).CompareTo(RowOrderUtility.GetPawnRowOrder(right));
+            return result != 0 ? result : left.thingIDNumber.CompareTo(right.thingIDNumber);
+        }
+
+        private void DrawLegacy016DividerRow(Rect rect, PawnDivider divider)
+        {
+            if (divider == null)
+            {
+                return;
+            }
+
+            var row = new WorkTabLayoutRow(new DividerElement(divider), rect.y, rect.height, 0);
+            DrawRowBackground(row, rect);
+
+            if (Mouse.IsOver(rect))
+            {
+                GUI.DrawTexture(rect, TexUI.HighlightTex);
+            }
+
+            var labelColumn = new WorkTabLayoutColumn(null, rect, rect.x, rect.width);
+            DrawDividerRow(divider, rect, labelColumn);
+            Legacy016HandleDividerInput(rect, divider);
+        }
+
+        private void Legacy016HandleDividerInput(Rect rect, PawnDivider divider)
+        {
+            Event evt = Event.current;
+            if (evt == null || divider == null || !Mouse.IsOver(rect))
+            {
+                return;
+            }
+
+            if (evt.type == EventType.MouseDown && evt.button == 1 &&
+                (BetterWorkTabMod.Settings?.enableContextMenuOnRightClick ?? true))
+            {
+                ShowDividerContextMenu(divider);
+                evt.Use();
+            }
+            else if (evt.type == EventType.MouseUp && evt.button == 1)
+            {
+                evt.Use();
+            }
+        }
+
+        private void DrawLegacy016PawnRowBackground(Rect rect, Pawn pawn, int visualIndex, List<RowDescriptor> displayRows)
+        {
+            if (PawnOrganizer.API.PawnColorDatabase.TryGetColor(pawn, out var pawnColor) && pawnColor.a > 0f)
+            {
+                var overlay = new Color(pawnColor.r, pawnColor.g, pawnColor.b, Mathf.Clamp(pawnColor.a, 0.08f, 0.6f));
+                Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, overlay);
+            }
+
             if (Mouse.IsOver(rect))
             {
                 GUI.DrawTexture(rect, TexUI.HighlightTex);
@@ -2327,7 +2736,7 @@ namespace Better_Work_Tab.UI
             Widgets.Label(textRect, Legacy016PawnLabel(pawn));
             Text.WordWrap = true;
 
-            bool rowInputHandled = Legacy016HandleRowInput(labelRect, pawn, visualIndex, rowCount);
+            bool rowInputHandled = Legacy016HandleRowInput(labelRect, pawn, visualIndex, displayRows);
             if (!rowInputHandled && Better_Work_Tab.WidgetsCompat.ButtonInvisible(labelRect))
             {
                 Find.MainTabsRoot.EscapeCurrentTab(false);
@@ -2342,7 +2751,7 @@ namespace Better_Work_Tab.UI
             }
         }
 
-        private bool Legacy016HandleRowInput(Rect labelRect, Pawn pawn, int visualIndex, int rowCount)
+        private bool Legacy016HandleRowInput(Rect labelRect, Pawn pawn, int visualIndex, List<RowDescriptor> displayRows)
         {
             Event evt = Event.current;
             if (evt == null || pawn == null)
@@ -2407,7 +2816,7 @@ namespace Better_Work_Tab.UI
 
                 if (_legacy016RowDragActive)
                 {
-                    _legacy016RowDragTargetIndex = Legacy016RowTargetIndex(evt.mousePosition.y, rowCount);
+                    _legacy016RowDragTargetIndex = Legacy016RowTargetIndex(evt.mousePosition.y, displayRows);
                     evt.Use();
                     return true;
                 }
@@ -2417,7 +2826,7 @@ namespace Better_Work_Tab.UI
             {
                 if (_legacy016RowDragActive)
                 {
-                    Legacy016CommitRowDrag(rowCount);
+                    Legacy016CommitRowDrag(displayRows);
                 }
                 else if (overLabel)
                 {
@@ -2442,53 +2851,94 @@ namespace Better_Work_Tab.UI
             return _legacy016RowDragActive && _legacy016DraggingRowPawn == pawn;
         }
 
-        private int Legacy016RowTargetIndex(float mouseY, int rowCount)
+        private int Legacy016RowTargetIndex(float mouseY, List<RowDescriptor> displayRows)
         {
-            return Mathf.Clamp(Mathf.FloorToInt((mouseY + 15f) / 30f), 0, rowCount);
+            if (displayRows == null || displayRows.Count == 0)
+            {
+                return 0;
+            }
+
+            float y = 0f;
+            for (int i = 0; i < displayRows.Count; i++)
+            {
+                float midpoint = y + displayRows[i].Height * 0.5f;
+                if (mouseY < midpoint)
+                {
+                    return i;
+                }
+
+                y += displayRows[i].Height;
+            }
+
+            return displayRows.Count;
         }
 
-        private void DrawLegacy016RowDragOverlay(float width)
+        private void DrawLegacy016RowDragOverlay(List<RowDescriptor> displayRows, float width)
         {
             if (!_legacy016RowDragActive || _legacy016RowDragTargetIndex < 0)
             {
                 return;
             }
 
-            float y = Mathf.Max(0f, _legacy016RowDragTargetIndex * 30f);
+            float y = Legacy016InsertionY(displayRows, _legacy016RowDragTargetIndex);
             Better_Work_Tab.WidgetsCompat.DrawBoxSolid(new Rect(0f, y - 1f, width, 2f), Color.white);
         }
 
-        private void Legacy016CommitRowDrag(int rowCount)
+        private static float Legacy016InsertionY(List<RowDescriptor> displayRows, int targetIndex)
+        {
+            if (displayRows == null || displayRows.Count == 0 || targetIndex <= 0)
+            {
+                return 0f;
+            }
+
+            float y = 0f;
+            int count = Mathf.Min(targetIndex, displayRows.Count);
+            for (int i = 0; i < count; i++)
+            {
+                y += displayRows[i].Height;
+            }
+
+            return y;
+        }
+
+        private void Legacy016CommitRowDrag(List<RowDescriptor> displayRows)
         {
             Pawn pawn = _legacy016DraggingRowPawn;
-            if (pawn == null)
+            if (pawn == null || displayRows == null)
             {
                 return;
             }
 
-            List<Pawn> ordered = Legacy016DisplayPawns();
-            int oldIndex = ordered.IndexOf(pawn);
+            var ordered = new List<RowDescriptor>(displayRows);
+            int oldIndex = ordered.FindIndex(row => row.Pawn == pawn);
             if (oldIndex < 0)
             {
                 return;
             }
 
-            int insertIndex = Mathf.Clamp(_legacy016RowDragTargetIndex, 0, rowCount);
+            int insertIndex = Mathf.Clamp(_legacy016RowDragTargetIndex, 0, ordered.Count);
             if (insertIndex > oldIndex)
             {
                 insertIndex--;
             }
 
             ordered.RemoveAt(oldIndex);
-            ordered.Insert(Mathf.Clamp(insertIndex, 0, ordered.Count), pawn);
+            ordered.Insert(Mathf.Clamp(insertIndex, 0, ordered.Count), new RowDescriptor(pawn, 30f));
 
             for (int i = 0; i < ordered.Count; i++)
             {
-                RowOrderUtility.SetPawnRowOrder(ordered[i], i);
+                if (ordered[i].IsPawn)
+                {
+                    RowOrderUtility.SetPawnRowOrder(ordered[i].Pawn, i);
+                }
+                else if (ordered[i].IsDivider)
+                {
+                    ordered[i].Divider.DisplayOrder = i;
+                }
             }
 
             pawns.Clear();
-            pawns.AddRange(ordered);
+            pawns.AddRange(ordered.Where(row => row.IsPawn).Select(row => row.Pawn));
             Legacy016InvalidateDisplayPawnCache();
             UISoundCompat.TickHigh.PlayOneShotOnCamera();
         }
@@ -2704,14 +3154,15 @@ namespace Better_Work_Tab.UI
             var oldColor = GUI.color;
 
             string label = level.ToString();
-            Text.Font = label.Length > 1 ? GameFont.Small : GameFont.Medium;
+            Text.Font = GameFont.Small;
             Text.Anchor = TextAnchor.MiddleCenter;
 
+            Rect labelRect = new Rect(rect.x, rect.y + 1f, rect.width, rect.height);
             GUI.color = new Color(0f, 0f, 0f, 0.85f);
-            Widgets.Label(new Rect(rect.x + 1f, rect.y + 1f, rect.width, rect.height), label);
+            Widgets.Label(new Rect(labelRect.x + 1f, labelRect.y + 1f, labelRect.width, labelRect.height), label);
 
             GUI.color = Legacy016SkillColor(level);
-            Widgets.Label(rect, label);
+            Widgets.Label(labelRect, label);
 
             GUI.color = oldColor;
             Text.Font = oldFont;
@@ -2816,6 +3267,92 @@ namespace Better_Work_Tab.UI
             _legacy016DisplayPawnsSourceCount = -1;
             _legacy016DisplayPawnsCache.Clear();
             _legacy016DisplayPawnSeen.Clear();
+            _legacy016DisplayRowsCacheFrame = -1;
+            _legacy016DisplayRowsSourceCount = -1;
+            _legacy016DisplayRowsCache.Clear();
+        }
+
+        private void Legacy016InsertDividerRelativeToPawn(Pawn pawn, bool insertAfter)
+        {
+            if (pawn == null)
+            {
+                return;
+            }
+
+            var comp = Verse.Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
+            if (comp == null)
+            {
+                return;
+            }
+
+            if (comp.ActiveDividers == null)
+            {
+                comp.ActiveDividers = new List<PawnDivider>();
+            }
+
+            int targetOrder = RowOrderUtility.GetPawnRowOrder(pawn) + (insertAfter ? 1 : 0);
+            RowOrderUtility.ShiftPawnRowOrdersFrom(Legacy016UniquePawnsForOrdering(), targetOrder);
+            for (int i = 0; i < comp.ActiveDividers.Count; i++)
+            {
+                if (comp.ActiveDividers[i] != null && comp.ActiveDividers[i].DisplayOrder >= targetOrder)
+                {
+                    comp.ActiveDividers[i].DisplayOrder++;
+                }
+            }
+
+            var divider = new PawnDivider
+            {
+                DividerName = "New Divider",
+                DividerColor = Color.gray,
+                DisplayOrder = targetOrder,
+                Height = Mathf.Clamp(BetterWorkTabMod.Settings?.dividerHeight ?? DefaultSettings.dividerHeight, 10f, 80f),
+                IsCollapsed = false
+            };
+
+            comp.ActiveDividers.Add(divider);
+            Legacy016InvalidateDisplayPawnCache();
+        }
+
+        private List<Pawn> Legacy016UniquePawnsForOrdering()
+        {
+            _legacy016UniquePawnBuffer.Clear();
+            _legacy016DisplayPawnSeen.Clear();
+
+            if (pawns == null)
+            {
+                return _legacy016UniquePawnBuffer;
+            }
+
+            foreach (Pawn pawn in pawns)
+            {
+                if (pawn != null && _legacy016DisplayPawnSeen.Add(pawn.thingIDNumber))
+                {
+                    _legacy016UniquePawnBuffer.Add(pawn);
+                }
+            }
+
+            return _legacy016UniquePawnBuffer;
+        }
+
+        private void RemoveDivider(PawnDivider divider)
+        {
+            if (divider == null)
+            {
+                return;
+            }
+
+            var layout = PawnOrganizerSystem.Instance?.Layout;
+            if (layout != null)
+            {
+                layout.RemoveDivider(divider);
+            }
+            else
+            {
+                var dividers = Verse.Current.Game?.GetComponent<GameComponent_BWTWorldSettings>()?.ActiveDividers;
+                dividers?.Remove(divider);
+            }
+
+            Legacy016InvalidateDisplayPawnCache();
         }
 
         private static void Legacy016InvalidateFrameCaches()
