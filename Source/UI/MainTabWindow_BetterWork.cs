@@ -1359,7 +1359,7 @@ namespace Better_Work_Tab.UI
                 {
 #if v1_3 || v1_2 || v1_1 || (v1_0 || v0_19)
                     var dialog = new Dialog_ModSettings();
-                    typeof(Dialog_ModSettings).GetField("selMod", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).SetValue(dialog, mod);
+                    typeof(Dialog_ModSettings).GetField("selMod", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(dialog, mod);
                     Find.WindowStack.Add(dialog);
 #else
                     Find.WindowStack.Add(new Dialog_ModSettings(mod));

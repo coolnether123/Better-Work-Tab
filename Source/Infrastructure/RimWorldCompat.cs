@@ -458,6 +458,34 @@ namespace Better_Work_Tab
 #endif
             }
         }
+
+        public static SoundDef Crunch
+        {
+            get
+            {
+#if v0_16
+                return TickLow;
+#else
+                return SoundDefOf.Crunch;
+#endif
+            }
+        }
+    }
+
+    public static class UICompat
+    {
+        public static Vector2 MousePosUIInvertedUseEventIfCan
+        {
+            get
+            {
+#if (v0_18 || v0_17 || v0_16)
+                Event evt = Event.current;
+                return evt != null ? evt.mousePosition : Vector2.zero;
+#else
+                return Verse.UI.MousePosUIInvertedUseEventIfCan;
+#endif
+            }
+        }
     }
 
     public static class WorkGiverCompat
