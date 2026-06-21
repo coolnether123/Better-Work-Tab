@@ -107,6 +107,8 @@ namespace Better_Work_Tab.Patches
         private const float SkillBoxSize = 25f;
         private const float SkillBoxVerticalPadding = 2.5f;
         private const float SmallSkillOffsetY = -2f;
+        private const float SmallCornerLabelWidth = 18f;
+        private const float SmallCornerLabelHeight = 16f;
         private const float SkillBoxOutlinePadding = 2f;
 
         private static void UpdateFrameCache()
@@ -483,23 +485,16 @@ namespace Better_Work_Tab.Patches
 
         private static void DrawSmallSkillNumbers(Rect rect, int level)
         {
-            // Position in top-right corner: right edge minus skill box size minus small padding
-            string levelStr = level.ToString();
-            float rightPadding = levelStr.Length >= 2 ? 0f : -3f;
-            Rect boxRect = new Rect(
-                rect.xMax - SkillBoxSize - rightPadding, 
-                rect.y + SmallSkillOffsetY, 
-                SkillBoxSize, 
-                SkillBoxSize);
+            Rect labelRect = GetTopRightOverlayRect(rect);
             
             var oldFont = Text.Font;
             var oldAnchor = Text.Anchor;
             var oldColor = GUI.color;
 
             Text.Font = GameFont.Tiny;
-            Text.Anchor = TextAnchor.MiddleCenter;
+            Text.Anchor = TextAnchor.UpperRight;
             GUI.color = ColorForSkillLevel(level);
-            Widgets.Label(boxRect, level.ToString());
+            Widgets.Label(labelRect, level.ToString());
 
             GUI.color = oldColor;
             Text.Font = oldFont;
@@ -509,19 +504,14 @@ namespace Better_Work_Tab.Patches
         private static void DrawSmallPriorityNumber(Rect rect, int priority)
         {
             string priorityText = priority.ToString();
-            float rightPadding = priorityText.Length >= 2 ? 0f : -3f;
-            Rect priorityRect = new Rect(
-                rect.xMax - SkillBoxSize - rightPadding,
-                rect.y + SmallSkillOffsetY,
-                SkillBoxSize,
-                SkillBoxSize);
+            Rect priorityRect = GetTopRightOverlayRect(rect);
 
             var oldFont = Text.Font;
             var oldAnchor = Text.Anchor;
             var oldColor = GUI.color;
 
             Text.Font = GameFont.Tiny;
-            Text.Anchor = TextAnchor.MiddleCenter;
+            Text.Anchor = TextAnchor.UpperRight;
             GUI.color = new Color(0.9f, 0.9f, 0.9f);
             Widgets.Label(priorityRect, priorityText);
 
@@ -638,6 +628,16 @@ namespace Better_Work_Tab.Patches
                 cellRect.y + SkillBoxVerticalPadding,
                 SkillBoxSize,
                 SkillBoxSize);
+        }
+
+        private static Rect GetTopRightOverlayRect(Rect cellRect)
+        {
+            Rect boxRect = GetWorkBoxRect(cellRect);
+            return new Rect(
+                boxRect.xMax - SmallCornerLabelWidth - 1f,
+                boxRect.y + SmallSkillOffsetY,
+                SmallCornerLabelWidth,
+                SmallCornerLabelHeight);
         }
 
         private static bool TryHandleWorkPriorityInput(Rect cellRect, Pawn pawn, WorkTypeDef workType)
