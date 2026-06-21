@@ -65,6 +65,12 @@
     <DefineConstants>v0_19</DefineConstants>
     <LangVersion>9.0</LangVersion>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == '0.19' And '$(LegacyRimWorldManagedDir)' == '' And Exists('..\Decompiled\RimWorld\SteamInstall_0.19\RimWorldWin64_Data\Managed\Assembly-CSharp.dll')">
+    <LegacyRimWorldManagedDir>..\Decompiled\RimWorld\SteamInstall_0.19\RimWorldWin64_Data\Managed</LegacyRimWorldManagedDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == '0.19' And '$(LegacyRimWorldManagedDir)' == '' And Exists('D:\Steam Library\steamapps\common\RimWorld\RimWorldWin64_Data\Managed\Assembly-CSharp.dll')">
+    <LegacyRimWorldManagedDir>D:\Steam Library\steamapps\common\RimWorld\RimWorldWin64_Data\Managed</LegacyRimWorldManagedDir>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == '0.18|AnyCPU'">
     <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
     <OutputPath>..\Assemblies\</OutputPath>
@@ -101,7 +107,25 @@
     <DefineConstants>v0_19;v0_16;v0_15;v0_14;v0_13</DefineConstants>
     <LangVersion>9.0</LangVersion>
   </PropertyGroup>
-  <PropertyGroup Condition="('$(Configuration)' == '0.18' Or '$(Configuration)' == '0.17' Or '$(Configuration)' == '0.16' Or '$(Configuration)' == '0.15' Or '$(Configuration)' == '0.14' Or '$(Configuration)' == '0.13') And Exists('D:\Steam Library\steamapps\common\RimWorld\RimWorldWin_Data\Managed\Assembly-CSharp.dll')">
+  <PropertyGroup Condition="'$(Configuration)' == '0.18' And '$(LegacyRimWorldManagedDir)' == '' And Exists('..\Decompiled\RimWorld\SteamInstall_0.18\RimWorldWin64_Data\Managed\Assembly-CSharp.dll')">
+    <LegacyRimWorldManagedDir>..\Decompiled\RimWorld\SteamInstall_0.18\RimWorldWin64_Data\Managed</LegacyRimWorldManagedDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == '0.17' And '$(LegacyRimWorldManagedDir)' == '' And Exists('..\Decompiled\RimWorld\SteamInstall_0.17\RimWorldWin64_Data\Managed\Assembly-CSharp.dll')">
+    <LegacyRimWorldManagedDir>..\Decompiled\RimWorld\SteamInstall_0.17\RimWorldWin64_Data\Managed</LegacyRimWorldManagedDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == '0.16' And '$(LegacyRimWorldManagedDir)' == '' And Exists('..\Decompiled\RimWorld\SteamInstall_0.16\RimWorldWin_Data\Managed\Assembly-CSharp.dll')">
+    <LegacyRimWorldManagedDir>..\Decompiled\RimWorld\SteamInstall_0.16\RimWorldWin_Data\Managed</LegacyRimWorldManagedDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == '0.15' And '$(LegacyRimWorldManagedDir)' == '' And Exists('..\Decompiled\RimWorld\SteamInstall_0.15\RimWorldWin_Data\Managed\Assembly-CSharp.dll')">
+    <LegacyRimWorldManagedDir>..\Decompiled\RimWorld\SteamInstall_0.15\RimWorldWin_Data\Managed</LegacyRimWorldManagedDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == '0.14' And '$(LegacyRimWorldManagedDir)' == '' And Exists('..\Decompiled\RimWorld\SteamInstall_0.14\RimWorldWin_Data\Managed\Assembly-CSharp.dll')">
+    <LegacyRimWorldManagedDir>..\Decompiled\RimWorld\SteamInstall_0.14\RimWorldWin_Data\Managed</LegacyRimWorldManagedDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == '0.13' And '$(LegacyRimWorldManagedDir)' == '' And Exists('..\Decompiled\RimWorld\SteamInstall_0.13\RimWorldWin_Data\Managed\Assembly-CSharp.dll')">
+    <LegacyRimWorldManagedDir>..\Decompiled\RimWorld\SteamInstall_0.13\RimWorldWin_Data\Managed</LegacyRimWorldManagedDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="('$(Configuration)' == '0.18' Or '$(Configuration)' == '0.17' Or '$(Configuration)' == '0.16' Or '$(Configuration)' == '0.15' Or '$(Configuration)' == '0.14' Or '$(Configuration)' == '0.13') And '$(LegacyRimWorldManagedDir)' == '' And Exists('D:\Steam Library\steamapps\common\RimWorld\RimWorldWin_Data\Managed\Assembly-CSharp.dll')">
     <LegacyRimWorldManagedDir>D:\Steam Library\steamapps\common\RimWorld\RimWorldWin_Data\Managed</LegacyRimWorldManagedDir>
   </PropertyGroup>
   <PropertyGroup Condition="('$(Configuration)' == '0.18' Or '$(Configuration)' == '0.17' Or '$(Configuration)' == '0.16' Or '$(Configuration)' == '0.15' Or '$(Configuration)' == '0.14' Or '$(Configuration)' == '0.13') And '$(LegacyRimWorldManagedDir)' == '' And Exists('D:\Steam Library\steamapps\common\RimWorld\RimWorldWin64_Data\Managed\Assembly-CSharp.dll')">
@@ -135,19 +159,19 @@
   </ItemGroup>
   <ItemGroup Condition="'$(Configuration)' == '0.19'">
     <Reference Include="Assembly-CSharp">
-      <HintPath>D:\Steam Library\steamapps\common\RimWorld\RimWorldWin64_Data\Managed\Assembly-CSharp.dll</HintPath>
+      <HintPath>$(LegacyRimWorldManagedDir)\Assembly-CSharp.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="Assembly-CSharp-firstpass">
-      <HintPath>D:\Steam Library\steamapps\common\RimWorld\RimWorldWin64_Data\Managed\Assembly-CSharp-firstpass.dll</HintPath>
+      <HintPath>$(LegacyRimWorldManagedDir)\Assembly-CSharp-firstpass.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="UnityEngine">
-      <HintPath>D:\Steam Library\steamapps\common\RimWorld\RimWorldWin64_Data\Managed\UnityEngine.dll</HintPath>
+      <HintPath>$(LegacyRimWorldManagedDir)\UnityEngine.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="UnityEngine.UI">
-      <HintPath>D:\Steam Library\steamapps\common\RimWorld\RimWorldWin64_Data\Managed\UnityEngine.UI.dll</HintPath>
+      <HintPath>$(LegacyRimWorldManagedDir)\UnityEngine.UI.dll</HintPath>
       <Private>False</Private>
     </Reference>
   </ItemGroup>
@@ -317,6 +341,7 @@
     <Compile Include="Features\Patches\Patch_Building_Bed_Cache.cs" />
     <Compile Include="UI\RuleBuilder\RuleBuilderConstants.cs" />
     <Compile Include="UI\RuleBuilder\Window_RulesetBuilder.cs" />
+    <Compile Include="UI\RuleBuilder\Window_PriorityNumberPicker.cs" />
     <Compile Include="UI\RuleBuilder\State\RuleBuilderStep.cs" />
     <Compile Include="UI\RuleBuilder\State\RuleMatchResult.cs" />
     <Compile Include="UI\RuleBuilder\State\RuleBuilderState.cs" />
