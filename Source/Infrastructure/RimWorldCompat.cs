@@ -818,7 +818,7 @@ namespace Better_Work_Tab
     {
         public static void DrawWorkBoxFor(float x, float y, Pawn pawn, WorkTypeDef workType, bool incapable)
         {
-#if v0_13
+#if v0_13 || v0_14
             WidgetsWork.DrawWorkBoxFor(new Vector2(x, y), pawn, workType, incapable);
 #else
             WidgetsWork.DrawWorkBoxFor(x, y, pawn, workType, incapable);
