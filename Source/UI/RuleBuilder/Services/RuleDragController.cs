@@ -27,6 +27,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
         // Pending drag (for threshold)
         private bool _pendingDrag;
         private Vector2 _mouseDownPos;
+        private Vector2 _dragVisualOffset;
         private List<WorkAssignmentRule> _pendingRules;
         private const float DragThreshold = 5f;
         
@@ -110,6 +111,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
             {
                 _pendingDrag = true;
                 _mouseDownPos = evt.mousePosition;
+                _dragVisualOffset = evt.mousePosition - rect.position;
                 _pendingRules = rules;
                 SourceWorkType = workType;
                 SourcePriority = priority;
@@ -131,6 +133,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
             if (_pendingDrag && evt.type == EventType.MouseUp)
             {
                 _pendingDrag = false;
+                _dragVisualOffset = Vector2.zero;
                 _pendingRules = null;
             }
             
@@ -154,6 +157,8 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
         {
             IsDragging = false;
             DraggedRules = null;
+            _pendingDrag = false;
+            _dragVisualOffset = Vector2.zero;
             _hoverTimer = 0f;
             _lastHoveredTarget = null;
             SourceWorkType = null;
@@ -229,7 +234,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
         {
             if (!IsDragging || DraggedRules == null) return;
 
-            var mousePos = Verse.UI.MousePositionOnUI;
+            var mousePos = UICompat.MousePosUIInvertedUseEventIfCan;
             
             // Determine size based on content
             int rulesCount = DraggedRules.Count;
@@ -242,9 +247,9 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
             float boxHeight = 50f;
             
             Rect drawRect = new Rect(
-                mousePos.x, 
-                mousePos.y, 
-                boxWidth, 
+                mousePos.x - _dragVisualOffset.x,
+                mousePos.y - _dragVisualOffset.y,
+                boxWidth,
                 boxHeight);
 
             // Draw floating box using ImmediateWindow for proper layering
