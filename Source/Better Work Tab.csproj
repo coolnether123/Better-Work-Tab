@@ -180,6 +180,7 @@
     <Compile Include="Features\ColumnBaselineManager.cs" />
     <Compile Include="Features\WorkExecutionOrder.cs" />
     <Compile Include="Features\Workloads\GameComponent_BWTWorldSettings.cs" />
+    <Compile Include="Features\Testing\GameComponent_BWTModernQuickTestDriver.cs" />
     <Compile Include="Features\Workloads\Worklist.cs" />
     <Compile Include="Features\Workloads\WorkloadNamers.cs" />
     <Compile Include="Features\Workloads\PawnWorkload.cs" />
