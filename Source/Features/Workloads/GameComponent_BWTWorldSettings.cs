@@ -22,7 +22,11 @@ namespace Better_Work_Tab.Features.Workloads
         public List<string> ColumnBaselineOrder = new List<string>();
         public List<PawnDivider> ActiveDividers = new List<PawnDivider>();
 
+#if v0_13
+        public GameComponent_BWTWorldSettings() : base()
+#else
         public GameComponent_BWTWorldSettings(Game game) : base()
+#endif
         {
         }
 

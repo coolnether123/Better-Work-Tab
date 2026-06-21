@@ -124,7 +124,7 @@ namespace Better_Work_Tab.DragDrop
         {
             if (DraggedPawn != null)
             {
-                return DraggedPawn.LabelCap ?? DraggedPawn.LabelShort ?? "Pawn";
+                return DraggedPawn.LabelCap ?? PawnCompat.LabelShortCap(DraggedPawn);
             }
             
             if (DraggedDivider != null)

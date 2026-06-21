@@ -15,7 +15,11 @@ namespace Better_Work_Tab.UI
         private Worklist workload;
         private string curName = "";
 
+#if v0_13
+        public override Vector2 InitialWindowSize => new Vector2(300f, 140f);
+#else
         public override Vector2 InitialSize => new Vector2(300f, 140f);
+#endif
 
         public Dialog_RenameWorkload(Worklist workload)
         {
@@ -45,7 +49,7 @@ namespace Better_Work_Tab.UI
             Rect acceptRect = new Rect(0f, buttonY, (rect.width - 10f) / 2f, 35f);
             Rect cancelRect = new Rect(acceptRect.xMax + 10f, buttonY, (rect.width - 10f) / 2f, 35f);
 
-            if (Widgets.ButtonText(acceptRect, "Accept"))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(acceptRect, "Accept"))
             {
                 if (ApplyRename())
                 {
@@ -53,7 +57,7 @@ namespace Better_Work_Tab.UI
                 }
             }
 
-            if (Widgets.ButtonText(cancelRect, "Cancel"))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(cancelRect, "Cancel"))
             {
                 Close();
             }

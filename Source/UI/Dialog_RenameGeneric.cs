@@ -12,7 +12,11 @@ namespace Better_Work_Tab.UI
         private bool _focusedRenameField;
         private int _startAcceptingInputAtFrame;
 
+#if v0_13
+        public override Vector2 InitialWindowSize => new Vector2(280f, 191f);
+#else
         public override Vector2 InitialSize => new Vector2(280f, 191f);
+#endif
 
         public Dialog_RenameGeneric(string currentName, Action<string> callback)
         {
@@ -62,7 +66,7 @@ namespace Better_Work_Tab.UI
                 _focusedRenameField = true;
             }
 
-            if (Widgets.ButtonText(new Rect(15f, inRect.height - 35f - 10f, inRect.width - 30f, 35f), "OK") || enterPressed)
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(new Rect(15f, inRect.height - 35f - 10f, inRect.width - 30f, 35f), "OK") || enterPressed)
             {
                 if (_currentName.Length == 0)
                 {

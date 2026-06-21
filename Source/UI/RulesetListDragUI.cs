@@ -1,4 +1,4 @@
-﻿using Better_Work_Tab.Features;
+using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.Rules;
 using Spine.DragDropApi.Util;
 using RimWorld;
@@ -290,7 +290,7 @@ namespace Better_Work_Tab.UI
         {
             rect.SplitHorizontally(rect.height * 0.5f, out Rect topBtn, out Rect _);
 
-            if (Widgets.ButtonText(topBtn.LeftPart(0.48f), "New Ruleset"))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(topBtn.LeftPart(0.48f), "New Ruleset"))
             {
                 var newSet = new WorkAssignmentRuleset(
                     "New Ruleset " + (_items.Count + 1),
@@ -302,7 +302,7 @@ namespace Better_Work_Tab.UI
             }
 
             if (SelectedRuleset != null &&
-                Widgets.ButtonText(topBtn.RightPart(0.48f), "Duplicate"))
+                Better_Work_Tab.WidgetsCompat.ButtonText(topBtn.RightPart(0.48f), "Duplicate"))
             {
                 var copied = SelectedRuleset.Copy();
                 _items.Add(copied);
@@ -333,7 +333,7 @@ namespace Better_Work_Tab.UI
             if (!ruleset.IsDefault)
             {
                 Rect delRect = new Rect(rect.xMax - 24f, rect.y + 4f, 24f, 24f);
-                if (Widgets.ButtonImage(delRect, TexButton.DeleteX, Color.white, GenUI.MouseoverColor))
+                if (Better_Work_Tab.WidgetsCompat.ButtonImage(delRect, TexButton.DeleteX, Color.white, GenUI.MouseoverColor))
                 {
                     Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
                         $"Delete {ruleset.Name}?",

@@ -95,19 +95,25 @@
     <DefineConstants>v0_19;v0_16;v0_15;v0_14</DefineConstants>
     <LangVersion>9.0</LangVersion>
   </PropertyGroup>
-  <PropertyGroup Condition="('$(Configuration)' == '0.18' Or '$(Configuration)' == '0.17' Or '$(Configuration)' == '0.16' Or '$(Configuration)' == '0.15' Or '$(Configuration)' == '0.14') And Exists('D:\Steam Library\steamapps\common\RimWorld\RimWorldWin64_Data\Managed\Assembly-CSharp.dll')">
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == '0.13|AnyCPU'">
+    <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
+    <OutputPath>..\Assemblies\</OutputPath>
+    <DefineConstants>v0_19;v0_16;v0_15;v0_14;v0_13</DefineConstants>
+    <LangVersion>9.0</LangVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition="('$(Configuration)' == '0.18' Or '$(Configuration)' == '0.17' Or '$(Configuration)' == '0.16' Or '$(Configuration)' == '0.15' Or '$(Configuration)' == '0.14' Or '$(Configuration)' == '0.13') And Exists('D:\Steam Library\steamapps\common\RimWorld\RimWorldWin64_Data\Managed\Assembly-CSharp.dll')">
     <LegacyRimWorldManagedDir>D:\Steam Library\steamapps\common\RimWorld\RimWorldWin64_Data\Managed</LegacyRimWorldManagedDir>
   </PropertyGroup>
-  <PropertyGroup Condition="('$(Configuration)' == '0.18' Or '$(Configuration)' == '0.17' Or '$(Configuration)' == '0.16' Or '$(Configuration)' == '0.15' Or '$(Configuration)' == '0.14') And '$(LegacyRimWorldManagedDir)' == '' And Exists('D:\Steam Library\steamapps\common\RimWorld\RimWorldWin_Data\Managed\Assembly-CSharp.dll')">
+  <PropertyGroup Condition="('$(Configuration)' == '0.18' Or '$(Configuration)' == '0.17' Or '$(Configuration)' == '0.16' Or '$(Configuration)' == '0.15' Or '$(Configuration)' == '0.14' Or '$(Configuration)' == '0.13') And '$(LegacyRimWorldManagedDir)' == '' And Exists('D:\Steam Library\steamapps\common\RimWorld\RimWorldWin_Data\Managed\Assembly-CSharp.dll')">
     <LegacyRimWorldManagedDir>D:\Steam Library\steamapps\common\RimWorld\RimWorldWin_Data\Managed</LegacyRimWorldManagedDir>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="System" Condition="'$(Configuration)' == '1.0' Or '$(Configuration)' == '0.19' Or '$(Configuration)' == '0.18' Or '$(Configuration)' == '0.17' Or '$(Configuration)' == '0.16' Or '$(Configuration)' == '0.15' Or '$(Configuration)' == '0.14'" />
+    <Reference Include="System" Condition="'$(Configuration)' == '1.0' Or '$(Configuration)' == '0.19' Or '$(Configuration)' == '0.18' Or '$(Configuration)' == '0.17' Or '$(Configuration)' == '0.16' Or '$(Configuration)' == '0.15' Or '$(Configuration)' == '0.14' Or '$(Configuration)' == '0.13'" />
     <Reference Include="System.Core" />
-    <Reference Include="System.Xml" Condition="'$(Configuration)' == '1.0' Or '$(Configuration)' == '0.19' Or '$(Configuration)' == '0.18' Or '$(Configuration)' == '0.17' Or '$(Configuration)' == '0.16' Or '$(Configuration)' == '0.15' Or '$(Configuration)' == '0.14'" />
-    <Reference Include="System.Xml.Linq" Condition="'$(Configuration)' == '1.0' Or '$(Configuration)' == '0.19' Or '$(Configuration)' == '0.18' Or '$(Configuration)' == '0.17' Or '$(Configuration)' == '0.16' Or '$(Configuration)' == '0.15' Or '$(Configuration)' == '0.14'" />
-    <Reference Include="Microsoft.CSharp" Condition="'$(Configuration)' != '1.0' And '$(Configuration)' != '0.19' And '$(Configuration)' != '0.18' And '$(Configuration)' != '0.17' And '$(Configuration)' != '0.16' And '$(Configuration)' != '0.15' And '$(Configuration)' != '0.14'" />
-    <Reference Include="System.Net.Http" Condition="'$(Configuration)' != '1.0' And '$(Configuration)' != '0.19' And '$(Configuration)' != '0.18' And '$(Configuration)' != '0.17' And '$(Configuration)' != '0.16' And '$(Configuration)' != '0.15' And '$(Configuration)' != '0.14'" />
+    <Reference Include="System.Xml" Condition="'$(Configuration)' == '1.0' Or '$(Configuration)' == '0.19' Or '$(Configuration)' == '0.18' Or '$(Configuration)' == '0.17' Or '$(Configuration)' == '0.16' Or '$(Configuration)' == '0.15' Or '$(Configuration)' == '0.14' Or '$(Configuration)' == '0.13'" />
+    <Reference Include="System.Xml.Linq" Condition="'$(Configuration)' == '1.0' Or '$(Configuration)' == '0.19' Or '$(Configuration)' == '0.18' Or '$(Configuration)' == '0.17' Or '$(Configuration)' == '0.16' Or '$(Configuration)' == '0.15' Or '$(Configuration)' == '0.14' Or '$(Configuration)' == '0.13'" />
+    <Reference Include="Microsoft.CSharp" Condition="'$(Configuration)' != '1.0' And '$(Configuration)' != '0.19' And '$(Configuration)' != '0.18' And '$(Configuration)' != '0.17' And '$(Configuration)' != '0.16' And '$(Configuration)' != '0.15' And '$(Configuration)' != '0.14' And '$(Configuration)' != '0.13'" />
+    <Reference Include="System.Net.Http" Condition="'$(Configuration)' != '1.0' And '$(Configuration)' != '0.19' And '$(Configuration)' != '0.18' And '$(Configuration)' != '0.17' And '$(Configuration)' != '0.16' And '$(Configuration)' != '0.15' And '$(Configuration)' != '0.14' And '$(Configuration)' != '0.13'" />
   </ItemGroup>
   <ItemGroup Condition="'$(Configuration)' == '1.0'">
     <Reference Include="Assembly-CSharp">
@@ -145,7 +151,7 @@
       <Private>False</Private>
     </Reference>
   </ItemGroup>
-  <ItemGroup Condition="'$(Configuration)' == '0.18' Or '$(Configuration)' == '0.17' Or '$(Configuration)' == '0.16' Or '$(Configuration)' == '0.15' Or '$(Configuration)' == '0.14'">
+  <ItemGroup Condition="'$(Configuration)' == '0.18' Or '$(Configuration)' == '0.17' Or '$(Configuration)' == '0.16' Or '$(Configuration)' == '0.15' Or '$(Configuration)' == '0.14' Or '$(Configuration)' == '0.13'">
     <Reference Include="Assembly-CSharp">
       <HintPath>$(LegacyRimWorldManagedDir)\Assembly-CSharp.dll</HintPath>
       <Private>False</Private>
@@ -340,18 +346,18 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
-    <PackageReference Include="Krafs.Rimworld.Ref" Condition="'$(Configuration)' != '1.0' And '$(Configuration)' != '0.19' And '$(Configuration)' != '0.18' And '$(Configuration)' != '0.17' And '$(Configuration)' != '0.16' And '$(Configuration)' != '0.15' And '$(Configuration)' != '0.14'">
+    <PackageReference Include="Krafs.Rimworld.Ref" Condition="'$(Configuration)' != '1.0' And '$(Configuration)' != '0.19' And '$(Configuration)' != '0.18' And '$(Configuration)' != '0.17' And '$(Configuration)' != '0.16' And '$(Configuration)' != '0.15' And '$(Configuration)' != '0.14' And '$(Configuration)' != '0.13'">
       <Version>1.0.2559</Version>
     </PackageReference>
-    <PackageReference Include="Lib.Harmony" Condition="'$(Configuration)' == '1.0' Or '$(Configuration)' == '0.19' Or '$(Configuration)' == '0.18' Or '$(Configuration)' == '0.17' Or '$(Configuration)' == '0.16' Or '$(Configuration)' == '0.15' Or '$(Configuration)' == '0.14'">
+    <PackageReference Include="Lib.Harmony" Condition="'$(Configuration)' == '1.0' Or '$(Configuration)' == '0.19' Or '$(Configuration)' == '0.18' Or '$(Configuration)' == '0.17' Or '$(Configuration)' == '0.16' Or '$(Configuration)' == '0.15' Or '$(Configuration)' == '0.14' Or '$(Configuration)' == '0.13'">
       <Version>2.3.6</Version>
     </PackageReference>
-    <PackageReference Include="Lib.Harmony" Condition="'$(Configuration)' != '1.0' And '$(Configuration)' != '0.19' And '$(Configuration)' != '0.18' And '$(Configuration)' != '0.17' And '$(Configuration)' != '0.16' And '$(Configuration)' != '0.15' And '$(Configuration)' != '0.14'">
+    <PackageReference Include="Lib.Harmony" Condition="'$(Configuration)' != '1.0' And '$(Configuration)' != '0.19' And '$(Configuration)' != '0.18' And '$(Configuration)' != '0.17' And '$(Configuration)' != '0.16' And '$(Configuration)' != '0.15' And '$(Configuration)' != '0.14' And '$(Configuration)' != '0.13'">
       <Version>2.4.2</Version>
     </PackageReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <Target Name="CopyLegacyHarmony" AfterTargets="Build" Condition="'$(Configuration)|$(Platform)' == '1.0|AnyCPU' Or '$(Configuration)|$(Platform)' == '0.19|AnyCPU' Or '$(Configuration)|$(Platform)' == '0.18|AnyCPU' Or '$(Configuration)|$(Platform)' == '0.17|AnyCPU' Or '$(Configuration)|$(Platform)' == '0.16|AnyCPU' Or '$(Configuration)|$(Platform)' == '0.15|AnyCPU' Or '$(Configuration)|$(Platform)' == '0.14|AnyCPU'">
+  <Target Name="CopyLegacyHarmony" AfterTargets="Build" Condition="'$(Configuration)|$(Platform)' == '1.0|AnyCPU' Or '$(Configuration)|$(Platform)' == '0.19|AnyCPU' Or '$(Configuration)|$(Platform)' == '0.18|AnyCPU' Or '$(Configuration)|$(Platform)' == '0.17|AnyCPU' Or '$(Configuration)|$(Platform)' == '0.16|AnyCPU' Or '$(Configuration)|$(Platform)' == '0.15|AnyCPU' Or '$(Configuration)|$(Platform)' == '0.14|AnyCPU' Or '$(Configuration)|$(Platform)' == '0.13|AnyCPU'">
     <Copy SourceFiles="$(NuGetPackageRoot)lib.harmony\2.3.6\lib\net35\0Harmony.dll" DestinationFolder="$(OutputPath)" OverwriteReadOnlyFiles="true" />
     <Delete Files="$(OutputPath)0Harmony.pdb" />
   </Target>

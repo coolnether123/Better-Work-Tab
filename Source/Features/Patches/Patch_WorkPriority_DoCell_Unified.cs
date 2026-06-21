@@ -37,7 +37,7 @@ namespace Better_Work_Tab.Patches
             if (!UI.Headers.PawnColumnWorker_WorkPriority_DoHeader_Patch.IsWorkTab())
                 return;
 
-            if (!Event.current.shift)
+            if (ShiftHelper.State != BetterWorkTabSettings.ShowUIMode.Shifted)
                 return;
 
             if (!(BetterWorkTabMod.Settings?.enableSkillOverlayFeature ?? false))
@@ -565,14 +565,14 @@ namespace Better_Work_Tab.Patches
                 SkillBoxSize + 2f);
 
 #if v1_2 || v1_1 || (v1_0 || v0_19)
-            Verse.Widgets.DrawBoxSolid(outlineRect, Color.clear);
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(outlineRect, Color.clear);
             Color outlineCol = BetterWorkTabMod.Settings.Color_BestPawnForSkillSquare;
             Color oldCol = GUI.color;
             GUI.color = outlineCol;
             Verse.Widgets.DrawBox(outlineRect, (uint)BetterWorkTabMod.Settings.bestPawnHighlightThickness > 0 ? (int)BetterWorkTabMod.Settings.bestPawnHighlightThickness : 1);
             GUI.color = oldCol;
 #else
-            Widgets.DrawBoxSolidWithOutline(
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolidWithOutline(
                 outlineRect,
                 Color.clear,
                 BetterWorkTabMod.Settings.Color_BestPawnForSkillSquare,

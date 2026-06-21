@@ -909,7 +909,7 @@ namespace Better_Work_Tab.UI.Settings
                 ParentId = FeaturesDividers,
                 OnChanged = settingsObj =>
                 {
-                    if (settingsObj is BetterWorkTabSettings settings && Current.Game?.GetComponent<GameComponent_BWTWorldSettings>() is GameComponent_BWTWorldSettings worldSettings)
+                    if (settingsObj is BetterWorkTabSettings settings && Verse.Current.Game?.GetComponent<GameComponent_BWTWorldSettings>() is GameComponent_BWTWorldSettings worldSettings)
                     {
                         if (worldSettings.ActiveDividers != null)
                         {

@@ -195,10 +195,10 @@ namespace Spine.UI.ColourPicker {
         }
 
         public Vector2 InitialPosition => _initialPosition ??
-                                          new Vector2(Verse.UI.screenWidth - InitialSize.x,
-                                                      Verse.UI.screenHeight - InitialSize.y) / 2f;
+                                          new Vector2(Verse.UI.screenWidth - CalculatedInitialSize.x,
+                                                      Verse.UI.screenHeight - CalculatedInitialSize.y) / 2f;
 
-        public override Vector2 InitialSize
+        private Vector2 CalculatedInitialSize
         {
             get
             {
@@ -228,6 +228,12 @@ namespace Spine.UI.ColourPicker {
                     contentHeight + (StandardMargin * 2));
             }
         }
+
+#if v0_13
+        public override Vector2 InitialWindowSize => CalculatedInitialSize;
+#else
+        public override Vector2 InitialSize => CalculatedInitialSize;
+#endif
         public Texture2D PickerAlphaBG {
             get {
                 if (_pickerAlphaBG == null) {
@@ -413,7 +419,7 @@ namespace Spine.UI.ColourPicker {
 
             // HSV colours, S = V = 1
             for (int y = 0; y < h; y++) {
-                tex.SetPixel(0, y, Color.HSVToRGB(hu * y, 1f, 1f, true));
+                tex.SetPixel(0, y, ColorCompat.HSVToRGB(hu * y, 1f, 1f, true));
             }
 
             tex.Apply();
@@ -485,7 +491,7 @@ namespace Spine.UI.ColourPicker {
             GUI.DrawTexture(previewRect, TempPreviewBG);
             GUI.DrawTexture(previewOldRect, PreviewBG);
 
-            if (Widgets.ButtonInvisible(previewOldRect))
+            if (Better_Work_Tab.WidgetsCompat.ButtonInvisible(previewOldRect))
             {
                 tempColour = curColour;
                 NotifyRGBUpdated();
@@ -556,7 +562,7 @@ namespace Spine.UI.ColourPicker {
 
         private void DrawButtons(Rect doneRect, Rect setRect, Rect cancelRect)
         {
-            if (Widgets.ButtonText(doneRect, "OK"))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(doneRect, "OK"))
             {
                 SetColor(true);
                 Close();
@@ -564,12 +570,12 @@ namespace Spine.UI.ColourPicker {
                 //WantsToClose = true;
             }
 
-            if (Widgets.ButtonText(setRect, "Apply"))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(setRect, "Apply"))
             {
                 SetColor(false);
             }
 
-            if (Widgets.ButtonText(cancelRect, "Cancel"))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(cancelRect, "Cancel"))
             {
                 onCancel?.Invoke();
                 Close();
@@ -748,7 +754,7 @@ namespace Spine.UI.ColourPicker {
 
         private void DrawColourSwatch(Rect rect, Color color, bool fromPinnedSection)
         {
-            Widgets.DrawBoxSolid(rect, color);
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, color);
             if (Mouse.IsOver(rect))
             {
                 Widgets.DrawBox(rect);
@@ -762,7 +768,7 @@ namespace Spine.UI.ColourPicker {
                 bool canPin = pinned || _recentColours.CanPin();
                 DrawPinIcon(pinRect, pinned, canPin);
 
-                if (canPin && Widgets.ButtonInvisible(pinRect))
+                if (canPin && Better_Work_Tab.WidgetsCompat.ButtonInvisible(pinRect))
                 {
                     if (pinned)
                     {
@@ -781,7 +787,7 @@ namespace Spine.UI.ColourPicker {
                 }
             }
 
-            if (!used && Widgets.ButtonInvisible(rect))
+            if (!used && Better_Work_Tab.WidgetsCompat.ButtonInvisible(rect))
             {
                 tempColour = color;
                 NotifyRGBUpdated();
@@ -821,7 +827,7 @@ namespace Spine.UI.ColourPicker {
 
         public static Color HSVAToRGB(float H, float S, float V, float A)
         {
-            Color color = Color.HSVToRGB(H, S, V, true);
+            Color color = ColorCompat.HSVToRGB(H, S, V, true);
             color.a = A;
             return color;
         }
@@ -857,7 +863,7 @@ namespace Spine.UI.ColourPicker {
             Debug($"HSV updated: ({_h}, {_s}, {_v})");
 
             // update rgb colour
-            Color color = Color.HSVToRGB(H, S, V, true);
+            Color color = ColorCompat.HSVToRGB(H, S, V, true);
             color.a = A;
             tempColour = color;
 
@@ -882,7 +888,7 @@ namespace Spine.UI.ColourPicker {
             Debug($"RGB updated: ({R}, {G}, {B})");
 
             // Set HSV from RGB
-            Color.RGBToHSV(tempColour, out _h, out _s, out _v);
+            ColorCompat.RGBToHSV(tempColour, out _h, out _s, out _v);
 
             // rebuild textures
             CreateColourPickerBG();
@@ -957,6 +963,7 @@ namespace Spine.UI.ColourPicker {
             CreatePreviewBG(ref _previewBG, tempColour);
         }
 
+#if !v0_13
         protected override void SetInitialSizeAndPosition()
         {
             // get position based on requested size and position, limited by screen space.
@@ -970,6 +977,7 @@ namespace Spine.UI.ColourPicker {
 
             windowRect = new Rect(position.x, position.y, size.x, size.y);
         }
+#endif
 
         public void SetPickerPositions()
         {

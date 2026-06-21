@@ -26,7 +26,7 @@ namespace Better_Work_Tab.Features.Workloads
                 return result;
             }
 
-            var settings = Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
+            var settings = Verse.Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
             if (settings != null && settings.SavedWorklists.Any(wl => wl != null && wl != worklist && wl.RenamableLabel == name))
             {
                 return "NameIsInUse".Translate();
@@ -56,6 +56,10 @@ namespace Better_Work_Tab.Features.Workloads
         {
         }
 
+#if v0_13
+        public override Vector2 InitialWindowSize => new Vector2(280f, 175f);
+#else
         public override Vector2 InitialSize => new Vector2(280f, 175f);
+#endif
     }
 }

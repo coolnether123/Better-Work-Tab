@@ -13,18 +13,18 @@ namespace Better_Work_Tab.UI
             {
                 // Respect configured alpha so transparency adjustments apply to outline mode too.
 #if v1_2 || v1_1 || (v1_0 || v0_19)
-                Verse.Widgets.DrawBoxSolid(rect, Color.clear);
+                Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, Color.clear);
                 Color old = GUI.color;
                 GUI.color = color;
                 Verse.Widgets.DrawBox(rect, (int)OutlineThickness);
                 GUI.color = old;
 #else
-                Widgets.DrawBoxSolidWithOutline(rect, Color.clear, color, (int)OutlineThickness);
+                Better_Work_Tab.WidgetsCompat.DrawBoxSolidWithOutline(rect, Color.clear, color, (int)OutlineThickness);
 #endif
             }
             else
             {
-                Widgets.DrawBoxSolid(rect, color);
+                Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, color);
             }
         }
 

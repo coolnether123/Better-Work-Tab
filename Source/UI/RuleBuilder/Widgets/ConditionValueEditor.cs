@@ -115,7 +115,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
                     bgColor = RuleBuilderConstants.CardBackgroundHover;
                 }
 
-                Verse.Widgets.DrawBoxSolid(buttonRect, bgColor);
+                Better_Work_Tab.WidgetsCompat.DrawBoxSolid(buttonRect, bgColor);
                 Verse.Widgets.DrawBox(buttonRect, isSelected ? 2 : 1);
 
                 Text.Anchor = TextAnchor.MiddleCenter;
@@ -126,7 +126,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
                 Text.Anchor = TextAnchor.UpperLeft;
                 GUI.color = Color.white;
 
-                if (Verse.Widgets.ButtonInvisible(buttonRect))
+                if (Better_Work_Tab.WidgetsCompat.ButtonInvisible(buttonRect))
                 {
                     ConditionRegistry.SetValue(condition.Key, parameters, i);
                     state.NotifyRulesModified();
@@ -151,7 +151,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
             int newValue = currentValue;
 
             Rect minusRect = new Rect(rect.x, rect.y, ButtonSize, FieldHeight);
-            if (Verse.Widgets.ButtonText(minusRect, "-"))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(minusRect, "-"))
             {
                 newValue = Mathf.Max(minValue, currentValue - 1);
                 modified = true;
@@ -159,14 +159,14 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
 
             Rect fieldRect = new Rect(minusRect.xMax + 4f, rect.y, rect.width - ButtonSize * 2 - 12f, FieldHeight);
             string buffer = newValue.ToString();
-            Verse.Widgets.TextFieldNumeric(fieldRect, ref newValue, ref buffer, minValue, maxValue);
+            Better_Work_Tab.WidgetsCompat.TextFieldNumeric(fieldRect, ref newValue, ref buffer, minValue, maxValue);
             if (newValue != currentValue)
             {
                 modified = true;
             }
 
             Rect plusRect = new Rect(fieldRect.xMax + 4f, rect.y, ButtonSize, FieldHeight);
-            if (Verse.Widgets.ButtonText(plusRect, "+"))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(plusRect, "+"))
             {
                 newValue = Mathf.Min(maxValue, currentValue + 1);
                 modified = true;
@@ -212,7 +212,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
                     bgColor = RuleBuilderConstants.CardBackgroundHover;
                 }
 
-                Verse.Widgets.DrawBoxSolid(buttonRect, bgColor);
+                Better_Work_Tab.WidgetsCompat.DrawBoxSolid(buttonRect, bgColor);
                 Verse.Widgets.DrawBox(buttonRect, isSelected ? 2 : 1);
 
                 Text.Anchor = TextAnchor.MiddleCenter;
@@ -223,7 +223,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
                 Text.Anchor = TextAnchor.UpperLeft;
                 GUI.color = Color.white;
 
-                if (Verse.Widgets.ButtonInvisible(buttonRect))
+                if (Better_Work_Tab.WidgetsCompat.ButtonInvisible(buttonRect))
                 {
                     ConditionRegistry.SetValue(condition.Key, parameters, i);
                     state.NotifyRulesModified();
@@ -252,7 +252,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
                 buttonWidth,
                 buttonHeight);
 
-            if (Verse.Widgets.ButtonText(buttonRect, label))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(buttonRect, label))
             {
                 var options = new List<FloatMenuOption>
                 {
@@ -300,7 +300,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
                 buttonWidth,
                 buttonHeight);
 
-            if (Verse.Widgets.ButtonText(buttonRect, label))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(buttonRect, label))
             {
                 var options = new List<FloatMenuOption>
                 {
@@ -369,7 +369,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
             var currentValue = parameters.Xenotype;
             string label = currentValue?.LabelCap ?? "BWT_Any".Translate();
 
-            if (Verse.Widgets.ButtonText(rect, label))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(rect, label))
             {
                 var options = new List<FloatMenuOption>
                 {

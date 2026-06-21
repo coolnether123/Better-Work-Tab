@@ -59,7 +59,7 @@ namespace Better_Work_Tab.Features
             }
 
             // 2) Build saved order index map from settings (workType.defName -> index)
-            var comp = Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
+            var comp = Verse.Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
             var saved = comp?.ColumnCurrentOrder ?? new List<string>();
             var indexMap = new Dictionary<string, int>(StringComparer.Ordinal);
             for (int i = 0; i < saved.Count; i++)
@@ -125,7 +125,7 @@ namespace Better_Work_Tab.Features
             {
                 try
                 {
-                    if (p?.Faction == Faction.OfPlayer && p?.workSettings != null)
+                    if (p?.Faction == FactionCompat.OfPlayer && p?.workSettings != null)
                         p.workSettings.Notify_UseWorkPrioritiesChanged();
                 }
                 catch { /* ignore individual pawn issues */ }

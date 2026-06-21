@@ -34,7 +34,7 @@ namespace Better_Work_Tab.UI
             curName = tempName;
             curY += 45f;
 
-            if (Widgets.ButtonText(new Rect((rect.width - 120f) / 2f, curY, 120f, 40f), "Accept"))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(new Rect((rect.width - 120f) / 2f, curY, 120f, 40f), "Accept"))
             {
                 workload.RenamableLabel = curName;
                 Close();

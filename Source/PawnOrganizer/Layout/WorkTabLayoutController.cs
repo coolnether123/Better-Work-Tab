@@ -477,7 +477,7 @@ namespace Better_Work_Tab.PawnOrganizer
 
             if (pawn?.playerSettings == null)
             {
-                Log.Error($"[AddDividerAfterPawnWhileSorting] Pawn {pawn?.LabelShort} has no playerSettings!");
+                Log.Error($"[AddDividerAfterPawnWhileSorting] Pawn {PawnCompat.LabelShortCap(pawn)} has no playerSettings!");
                 return null;
             }
 
@@ -494,11 +494,11 @@ namespace Better_Work_Tab.PawnOrganizer
 
             if (visualIndex < 0)
             {
-                Log.Error($"[AddDividerAfterPawnWhileSorting] Could not find pawn {pawn.LabelShort} in current rows");
+                Log.Error($"[AddDividerAfterPawnWhileSorting] Could not find pawn {PawnCompat.LabelShortCap(pawn)} in current rows");
                 return null;
             }
 
-            //Log.Message($"[AddDividerAfterPawnWhileSorting] Pawn {pawn.LabelShort} is at visual index {visualIndex}");
+            //Log.Message($"[AddDividerAfterPawnWhileSorting] Pawn {PawnCompat.LabelShortCap(pawn)} is at visual index {visualIndex}");
 
             
 
@@ -526,7 +526,7 @@ namespace Better_Work_Tab.PawnOrganizer
 
             if (pawn?.playerSettings == null)
             {
-                Log.Error($"[AddDividerBeforePawnWhileSorting] Pawn {pawn?.LabelShort} has no playerSettings!");
+                Log.Error($"[AddDividerBeforePawnWhileSorting] Pawn {PawnCompat.LabelShortCap(pawn)} has no playerSettings!");
                 return null;
             }
 
@@ -543,7 +543,7 @@ namespace Better_Work_Tab.PawnOrganizer
 
             if (visualIndex < 0)
             {
-                Log.Error($"[AddDividerBeforePawnWhileSorting] Could not find pawn {pawn.LabelShort} in current rows");
+                Log.Error($"[AddDividerBeforePawnWhileSorting] Could not find pawn {PawnCompat.LabelShortCap(pawn)} in current rows");
                 return null;
             }
 
@@ -572,7 +572,7 @@ namespace Better_Work_Tab.PawnOrganizer
                 if (element.Pawn != null && element.Pawn.playerSettings != null)
                 {
                     RowOrderUtility.SetPawnRowOrder(element.Pawn, i);
-                    BetterWorkTabMod.DebugLog($"  Row {i}: {element.Pawn.LabelShort} → displayOrder {i}", DebugFeature.DragDrop);
+                    BetterWorkTabMod.DebugLog($"  Row {i}: {PawnCompat.LabelShortCap(element.Pawn)} → displayOrder {i}", DebugFeature.DragDrop);
                 }
                 else if (element.Divider != null)
                 {

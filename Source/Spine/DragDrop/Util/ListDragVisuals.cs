@@ -57,7 +57,7 @@ namespace Spine.DragDropApi.Util
             TextAnchor oldAnchor = Text.Anchor;
 
             GUI.color = new Color(1f, 1f, 1f, 1f);
-            Widgets.DrawBoxSolid(rect, new Color(0f, 0f, 0f, alpha));
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, new Color(0f, 0f, 0f, alpha));
             Widgets.DrawBox(rect, 1);
 
             Text.Font = GameFont.Small;
@@ -75,7 +75,7 @@ namespace Spine.DragDropApi.Util
         public static void DrawInsertionLine(float screenX, float screenY, float width)
         {
             Rect lineRect = new Rect(screenX, screenY - 1f, width, 2f);
-            Widgets.DrawBoxSolid(lineRect, Color.white);
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(lineRect, Color.white);
         }
     }
 }

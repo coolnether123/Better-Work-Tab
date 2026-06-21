@@ -42,7 +42,7 @@ namespace Spine.UI.WidgetExtensions
 
             Color value = (Color)field.GetValue(s);
 
-            Widgets.DrawBoxSolid(listingStandard.GetRect(10), value);
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(listingStandard.GetRect(10), value);
             if (dependsOn) GUI.color = Color.gray;
 
             if (dependsOn)

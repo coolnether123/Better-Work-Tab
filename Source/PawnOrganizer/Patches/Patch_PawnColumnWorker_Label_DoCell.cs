@@ -56,7 +56,7 @@ namespace Better_Work_Tab.Patches
                 return true;
             }
 
-            if (Current.Game == null
+            if (Verse.Current.Game == null
                 || !PawnColorDatabase.TryGetColor(pawn, out var bg)
                 || bg.a <= 0f)
             {
@@ -115,7 +115,9 @@ namespace Better_Work_Tab.Patches
                 Widgets.FillableBar(
                     barRect,
                     pawn.health.summaryHealth.SummaryHealthPercent,
-#if v0_15
+#if v0_13
+                    BaseContent.WhiteTex,
+#elif v0_15
                     GenWorldUI.OverlayHealthTex,
 #else
                     GenMapUI.OverlayHealthTex,
@@ -155,14 +157,14 @@ namespace Better_Work_Tab.Patches
                 Text.WordWrap = oldWrap;
             }
 
-            if (Widgets.ButtonInvisible(rect1))
+            if (Better_Work_Tab.WidgetsCompat.ButtonInvisible(rect1))
             {
 #if v0_16
                 JumpToTargetUtility.TryJumpAndSelect(pawn);
 #else
                 CameraJumper.TryJumpAndSelect(pawn);
 #endif
-                if (Current.ProgramState ==
+                if (Verse.Current.ProgramState ==
 #if v0_15
                     ProgramState.MapPlaying
 #else
