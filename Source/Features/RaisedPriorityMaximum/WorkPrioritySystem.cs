@@ -12,6 +12,10 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
     {
         internal const int DisabledPriority = 0;
         private const int VanillaDefaultEnabledPriority = 3;
+        private static readonly Color ExtendedPriorityGreen = new Color(0.2f, 0.8f, 0.2f);
+        private static readonly Color ExtendedPriorityYellow = new Color(0.9f, 0.82f, 0.42f);
+        private static readonly Color ExtendedPriorityTan = new Color(0.74f, 0.62f, 0.43f);
+        private static readonly Color ExtendedPriorityGrey = new Color(0.74f, 0.74f, 0.74f);
 
         internal static int NormalizeMaxPriority(int value)
         {
@@ -121,6 +125,11 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
             var settings = BetterWorkTabMod.Settings;
             int maxPriority = GetMaxPriority();
+            if (maxPriority <= 4)
+            {
+                return GetVanillaPriorityColor(priority);
+            }
+
             int percentage = (int)(((float)ClampPriority(priority, maxPriority) / maxPriority) * 100f);
 
             int greenThreshold = settings?.priorityColorPercentage_Green ?? DefaultSettings.priorityColorPercentage_Green;
@@ -129,44 +138,61 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
             if (percentage < greenThreshold)
             {
-                return new Color(0f, 1f, 0f);
+                return ExtendedPriorityGreen;
             }
 
             if (percentage < yellowThreshold)
             {
-                return new Color(1f, 0.9f, 0.5f);
+                return ExtendedPriorityYellow;
             }
 
             if (percentage < tanThreshold)
             {
-                return new Color(0.8f, 0.7f, 0.5f);
+                return ExtendedPriorityTan;
             }
 
-            return new Color(0.74f, 0.74f, 0.74f);
+            return ExtendedPriorityGrey;
+        }
+
+        private static Color GetVanillaPriorityColor(int priority)
+        {
+            switch (priority)
+            {
+                case 1:
+                    return new Color(0f, 1f, 0f);
+                case 2:
+                    return new Color(1f, 0.9f, 0.5f);
+                case 3:
+                    return new Color(0.8f, 0.7f, 0.5f);
+                case 4:
+                    return new Color(0.74f, 0.74f, 0.74f);
+                default:
+                    return Color.grey;
+            }
         }
 
         private static int CycleTowardHigherPriority(int currentPriority)
         {
             int maxPriority = GetMaxPriority();
-            int priority = ClampPriority(currentPriority, maxPriority);
-            if (priority == DisabledPriority)
+            int priority = ClampPriority(currentPriority, maxPriority) - 1;
+            if (priority < DisabledPriority)
             {
                 return maxPriority;
             }
 
-            return priority > 1 ? priority - 1 : priority;
+            return priority;
         }
 
         private static int CycleTowardLowerPriority(int currentPriority)
         {
             int maxPriority = GetMaxPriority();
-            int priority = ClampPriority(currentPriority, maxPriority);
-            if (priority == maxPriority)
+            int priority = ClampPriority(currentPriority, maxPriority) + 1;
+            if (priority > maxPriority)
             {
                 return DisabledPriority;
             }
 
-            return priority > DisabledPriority ? priority + 1 : priority;
+            return priority;
         }
     }
 }
