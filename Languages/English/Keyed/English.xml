@@ -17,22 +17,22 @@
 <BWT_HasChildOnMap>Has child on map</BWT_HasChildOnMap>
 <BWT_IsNaturalAlwaysAssign>Is vanilla always assign</BWT_IsNaturalAlwaysAssign>
 <BWT_RandomIfMultiple>Random if multiple</BWT_RandomIfMultiple>
-<BWT_IgnoreIfWorktypeNonexistent>Ignore Worktype if Nonexistent</BWT_IgnoreIfWorktypeNonexistent>
+<BWT_IgnoreIfWorktypeNonexistent>Ignore missing work type</BWT_IgnoreIfWorktypeNonexistent>
 <BWT_IsTopXSkill>Is top X skill</BWT_IsTopXSkill>
 <BWT_IsNthBestPawn>Is Nth best pawn</BWT_IsNthBestPawn>
 <BWT_IsNthBestSkill>Is Nth best skill</BWT_IsNthBestSkill>
 <BWT_LimitNumberOfWorktypes>Work type Limit</BWT_LimitNumberOfWorktypes>
-<BWT_SkipIfPriorityForThisWorktypeAreadyAssigned>Skip if priority X already assigned</BWT_SkipIfPriorityForThisWorktypeAreadyAssigned>
+<BWT_SkipIfPriorityForThisWorktypeAreadyAssigned>Skip if this priority is already assigned</BWT_SkipIfPriorityForThisWorktypeAreadyAssigned>
 <BWT_PassionLevel>Passion level</BWT_PassionLevel>
 <BWT_SkillLevelGreaterThan>Skill level more than</BWT_SkillLevelGreaterThan>
 <BWT_SkillLevelLessThan>Skill level less than</BWT_SkillLevelLessThan>
-<BWT_MoveSpeedGreaterThan>How did you find this?</BWT_MoveSpeedGreaterThan>
-<BWT_MoveSpeedLessThan>Also how did you find this??</BWT_MoveSpeedLessThan>
+<BWT_MoveSpeedGreaterThan>Move speed greater than</BWT_MoveSpeedGreaterThan>
+<BWT_MoveSpeedLessThan>Move speed less than</BWT_MoveSpeedLessThan>
 <BWT_Gender>Assign if gender is</BWT_Gender>
-<BWT_Xenotype>Assign if Xenotype is</BWT_Xenotype>
+<BWT_Xenotype>Assign if xenotype is</BWT_Xenotype>
 <BWT_RequiredTrait>Required trait</BWT_RequiredTrait>
-<BWT_AssignSimilarWorktypes>I don't want to do this one</BWT_AssignSimilarWorktypes>
-<BWT_FailedToApplyFallback>I also don't want to do THIS one</BWT_FailedToApplyFallback>
+<BWT_AssignSimilarWorktypes>Assign similar work types</BWT_AssignSimilarWorktypes>
+<BWT_FailedToApplyFallback>Fallback if no pawn matched</BWT_FailedToApplyFallback>
 
 <BWT_RuleName_Desc>A name to make it easier to tell what a rule does.</BWT_RuleName_Desc>
 <BWT_Priority_Desc>The priority to set the work type to. (Vanilla always assigns 3.)</BWT_Priority_Desc>
@@ -46,22 +46,22 @@
 <BWT_HasChildOnMap_Desc>Only apply if the pawn has a child of learning age on the map.</BWT_HasChildOnMap_Desc>
 <BWT_IsNaturalAlwaysAssign_Desc>Only assign if Vanilla tags the work type as an "always assign" work type. (Vanilla always assigns these.)</BWT_IsNaturalAlwaysAssign_Desc>
 <BWT_RandomIfMultiple_Desc>If multiple pawns were assigned the work type, choose one at random to assign.</BWT_RandomIfMultiple_Desc>
-<BWT_IgnoreIfWorktypeNonexistent_Desc>Only assign this worktype if it exists. (Used for modded worktypes.)</BWT_IgnoreIfWorktypeNonexistent_Desc>
+<BWT_IgnoreIfWorktypeNonexistent_Desc>Only assign this work type if it exists. Used for modded work types.</BWT_IgnoreIfWorktypeNonexistent_Desc>
 <BWT_IsTopXSkill_Desc>Only assign if the work type is one of the pawn's top X skills. (Vanilla automatically assigns the top 6 skills.)</BWT_IsTopXSkill_Desc>
 <BWT_IsNthBestPawn_Desc>Only assign if the pawn is Nth best at this work type. It must be exact.</BWT_IsNthBestPawn_Desc>
 <BWT_IsNthBestSkill_Desc>Only assign if the work type is this pawn's Nth best skill. It must be exact.</BWT_IsNthBestSkill_Desc>
 <BWT_LimitNumberOfWorktypes_Desc>Only assign if the pawn DOES NOT already have this many work types assigned.</BWT_LimitNumberOfWorktypes_Desc>
-<BWT_SkipIfPriorityForThisWorktypeAreadyAssigned_Desc>Only assign if this work type has not already been assigned. This may be exactly the same as skipIfAnotherPawnAssigned.</BWT_SkipIfPriorityForThisWorktypeAreadyAssigned_Desc>
-<BWT_PassionLevel_Desc>Only assign if the pawn's passion level for the worktype is exactly this number.</BWT_PassionLevel_Desc>
-<BWT_SkillLevelGreaterThan_Desc>Only assign if the pawn's skill in the worktype is greater than this number. (Vanilla assigns skills greater than 5 to starting pawns.)</BWT_SkillLevelGreaterThan_Desc>
-<BWT_SkillLevelLessThan_Desc>Only assign if the pawn's skill in the worktype is less than this number. </BWT_SkillLevelLessThan_Desc>
-<BWT_MoveSpeedGreaterThan_Desc>You should never see this, but if you do it's because I need to update the tooltip to say 'Only assign if the pawn's move speed is greater than this number.'</BWT_MoveSpeedGreaterThan_Desc>
-<BWT_MoveSpeedLessThan_Desc>You should never see this, but if you do it's because I need to update the tooltip to say 'Only assign if the pawn's move speed is less than this number.'</BWT_MoveSpeedLessThan_Desc>
+<BWT_SkipIfPriorityForThisWorktypeAreadyAssigned_Desc>Only assign if this priority has not already been assigned for this work type.</BWT_SkipIfPriorityForThisWorktypeAreadyAssigned_Desc>
+<BWT_PassionLevel_Desc>Only assign if the pawn's passion level for the work type is exactly this number.</BWT_PassionLevel_Desc>
+<BWT_SkillLevelGreaterThan_Desc>Only assign if the pawn's skill in the work type is greater than this number.</BWT_SkillLevelGreaterThan_Desc>
+<BWT_SkillLevelLessThan_Desc>Only assign if the pawn's skill in the work type is less than this number.</BWT_SkillLevelLessThan_Desc>
+<BWT_MoveSpeedGreaterThan_Desc>Only assign if the pawn's move speed is greater than this number.</BWT_MoveSpeedGreaterThan_Desc>
+<BWT_MoveSpeedLessThan_Desc>Only assign if the pawn's move speed is less than this number.</BWT_MoveSpeedLessThan_Desc>
 <BWT_Gender_Desc>Only assign to pawns of this gender.</BWT_Gender_Desc>
-<BWT_Xenotype_Desc>Only assign to pawns with this Xenotype.</BWT_Xenotype_Desc>
+<BWT_Xenotype_Desc>Only assign to pawns with this xenotype.</BWT_Xenotype_Desc>
 <BWT_RequiredTrait_Desc>Only assign to pawns with this trait.</BWT_RequiredTrait_Desc>
-<BWT_AssignSimilarWorktypes_Desc>I don't want to do the menu for this one. But if/when I do it'll be like 'Assign this rule to worktypes that have the same relevant skill(s) as this work type.'</BWT_AssignSimilarWorktypes_Desc>
-<BWT_FailedToApplyFallback_Desc>I don't want to do the menu for this one either. But if/when I do the tooltip will be like 'Assign this rule instead if the main rule didn't assign any pawns.'</BWT_FailedToApplyFallback_Desc>
+<BWT_AssignSimilarWorktypes_Desc>Also assign this rule to work types that use the same relevant skills.</BWT_AssignSimilarWorktypes_Desc>
+<BWT_FailedToApplyFallback_Desc>Apply this rule if the primary rule did not assign any pawns.</BWT_FailedToApplyFallback_Desc>
 
 <BWT_RulesetBuilder_Title>Ruleset builder</BWT_RulesetBuilder_Title>
 <BWT_NoRuleset>No ruleset selected</BWT_NoRuleset>

@@ -74,4 +74,6 @@
   <BWT_NewRule>New Rule</BWT_NewRule>
   <BWT_DuplicateRule>Duplicate Rule</BWT_DuplicateRule>
   <BWT_NoRulesInRuleset>No rules in ruleset</BWT_NoRulesInRuleset>
+  <BWT_DropHere>Drop here to duplicate</BWT_DropHere>
+  <BWT_DragToDuplicate>Drag to duplicate these rules to another work type or priority.</BWT_DragToDuplicate>
 </LanguageData>
