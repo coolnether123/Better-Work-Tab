@@ -85,7 +85,11 @@ namespace Better_Work_Tab
         public static bool showDragInstructions = true;
         public static bool showManualPrioritiesCheckbox = true;
 #if v0_16
+#if vAlpha4
+        public static bool useModernLegacyPriorityCells = false;
+#else
         public static bool useModernLegacyPriorityCells = true;
+#endif
 #endif
         public static bool showDividers = true;
         public static bool allowCustomDividerColors = true;
