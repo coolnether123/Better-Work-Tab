@@ -112,11 +112,9 @@ namespace Better_Work_Tab.DragDrop
 
                 int insetSetting = BetterWorkTabMod.Settings?.columnInsertionLineInset ?? DefaultSettings.columnInsertionLineInset;
                 int inset = Mathf.Clamp(insetSetting, 0, Mathf.RoundToInt(Layout.HeaderHeight));
-                // Treat inset as distance upward from the header bottom so 0 = start at content, max = include full header.
-                float lineY = Layout.TableOrigin.y + (Layout.HeaderHeight - inset);
-                float lineHeight = Mathf.Max(0f, Layout.ContentHeight + inset);
+                Rect lineRect = GetColumnGuideRect(lineX, inset);
 
-                Widgets.DrawBoxSolid(new Rect(lineX - 1f, lineY, 2f, lineHeight), Color.white);
+                Widgets.DrawBoxSolid(lineRect, Color.white);
             }
         }
 
@@ -227,11 +225,63 @@ namespace Better_Work_Tab.DragDrop
 
             int insetSetting = settings?.columnInsertionLineInset ?? DefaultSettings.columnInsertionLineInset;
             int inset = Mathf.Clamp(insetSetting, 0, Mathf.RoundToInt(Layout.HeaderHeight));
-            float lineY = Layout.TableOrigin.y + (Layout.HeaderHeight - inset);
-            float lineHeight = Mathf.Max(0f, Layout.ContentHeight + inset);
+            Rect lineRect = GetColumnGuideRect(lineX, inset);
 
             var baselineColor = new Color(1f, 0.85f, 0.2f, 1f);
-            Widgets.DrawBoxSolid(new Rect(lineX - 1f, lineY, 2f, lineHeight), baselineColor);
+            Widgets.DrawBoxSolid(lineRect, baselineColor);
+        }
+
+        private Rect GetColumnGuideRect(float lineX, int headerInset)
+        {
+            float headerBottom = Layout.TableOrigin.y + Layout.HeaderHeight;
+            float lineY = headerBottom - headerInset;
+            float lineBottom = GetVisibleRowStackBottom(headerBottom);
+            float lineHeight = Mathf.Max(0f, lineBottom - lineY);
+            return new Rect(lineX - 1f, lineY, 2f, lineHeight);
+        }
+
+        private float GetVisibleRowStackBottom(float headerBottom)
+        {
+            float rowStackHeight = GetVisibleRowStackHeight();
+            float scrollY = Layout.Table == null ? 0f : PawnTableCompat.GetScrollPosition(Layout.Table).y;
+            float bottom = headerBottom + Mathf.Max(0f, rowStackHeight - scrollY);
+
+            if (Layout.Table != null)
+            {
+                float viewportBottom = Layout.TableOrigin.y + Layout.Table.Size.y;
+                if (viewportBottom > headerBottom)
+                {
+                    bottom = Mathf.Min(bottom, viewportBottom);
+                }
+            }
+
+            return Mathf.Max(headerBottom, bottom);
+        }
+
+        private float GetVisibleRowStackHeight()
+        {
+            float total = 0f;
+            var descriptors = Layout.GetRowDescriptors();
+            if (descriptors != null && descriptors.Count > 0)
+            {
+                for (int i = 0; i < descriptors.Count; i++)
+                {
+                    total += descriptors[i].Height;
+                }
+
+                return total;
+            }
+
+            if (Layout.Rows != null && Layout.Rows.Count > 0)
+            {
+                for (int i = 0; i < Layout.Rows.Count; i++)
+                {
+                    var row = Layout.Rows[i];
+                    total = Mathf.Max(total, row.OffsetY + row.Height);
+                }
+            }
+
+            return total > 0f ? total : Layout.ContentHeight;
         }
 
         public override void OnCancel()
