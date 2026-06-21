@@ -39,6 +39,38 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             return Mathf.Clamp(VanillaDefaultEnabledPriority, 1, GetMaxPriority());
         }
 
+        internal static int GetPriority(Pawn_WorkSettings workSettings, WorkTypeDef workType)
+        {
+            if (workSettings == null || workType == null)
+            {
+                return DisabledPriority;
+            }
+
+            return ClampPriority(workSettings.GetPriority(workType));
+        }
+
+        internal static void SetPriority(Pawn_WorkSettings workSettings, WorkTypeDef workType, int priority)
+        {
+            if (workSettings == null || workType == null)
+            {
+                return;
+            }
+
+            workSettings.SetPriority(workType, ClampPriority(priority));
+        }
+
+        internal static int GetPriorityAfterMouseButton(int currentPriority, int button, bool useManualPriorities)
+        {
+            if (useManualPriorities)
+            {
+                return GetPriorityAfterMouseButton(currentPriority, button);
+            }
+
+            return currentPriority > DisabledPriority
+                ? DisabledPriority
+                : GetDefaultEnabledPriority();
+        }
+
         internal static int GetPriorityAfterMouseButton(int currentPriority, int button)
         {
             if (button == 0)

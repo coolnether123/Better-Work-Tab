@@ -4,10 +4,12 @@ using Better_Work_Tab.Mod_Support.Multiplayer;
 using Better_Work_Tab.Mod_Support.Multiplayer.Features.Layouts;
 #endif
 using Better_Work_Tab.Features.Caching;
+using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.PawnOrganizer.Data;
+using Better_Work_Tab.Patches;
 using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.Headers.Angled;
 #if !v1_2 && !v1_1 && !(v1_0 || v0_19)
@@ -1574,13 +1576,46 @@ namespace Better_Work_Tab.UI
             {
                 WorkTypeDef workType = _legacy016VisibleWorkTypes[i];
                 bool incapable = Legacy016IsIncapableOfWholeWorkType(pawn, workType);
-                WidgetsWork.DrawWorkBoxFor(x, y, pawn, workType, incapable);
                 Rect boxRect = new Rect(x, y, 25f, 25f);
+                DrawLegacy016WorkBox(boxRect, pawn, workType, incapable);
                 TooltipHandler.TipRegion(boxRect, () => WidgetsWork.TipForPawnWorker(pawn, workType, incapable), pawn.thingIDNumber ^ workType.GetHashCode());
                 x += _legacy016WorkColumnSpacing;
             }
 
             Text.Font = GameFont.Small;
+        }
+
+        private static void DrawLegacy016WorkBox(Rect rect, Pawn pawn, WorkTypeDef workType, bool incapable)
+        {
+            if (pawn == null || workType == null || pawn.workSettings == null)
+            {
+                return;
+            }
+
+            if (pawn.WorkTypeIsDisabled(workType))
+            {
+                WidgetsWork.DrawWorkBoxFor(rect.x, rect.y, pawn, workType, incapable);
+                return;
+            }
+
+            int currentPriority = WorkPrioritySystem.GetPriority(pawn.workSettings, workType);
+            CustomWorkBoxDrawer.DrawWorkBoxForSkillOverlay(rect.x, rect.y, pawn, workType, incapable);
+
+            if (Mouse.IsOver(rect) && Event.current.type == EventType.MouseDown)
+            {
+                bool useManualPriorities = Current.Game.playSettings.useWorkPriorities;
+                int nextPriority = WorkPrioritySystem.GetPriorityAfterMouseButton(currentPriority, Event.current.button, useManualPriorities);
+
+                if (nextPriority != currentPriority)
+                {
+                    WorkPrioritySystem.SetPriority(pawn.workSettings, workType, nextPriority);
+                    SoundDefOf.DragSlider.PlayOneShotOnCamera();
+                }
+
+                Event.current.Use();
+            }
+
+            CustomWorkBoxDrawer.DrawCompactPriority(rect, WorkPrioritySystem.GetPriority(pawn.workSettings, workType));
         }
 
         private static bool Legacy016IsIncapableOfWholeWorkType(Pawn pawn, WorkTypeDef work)
