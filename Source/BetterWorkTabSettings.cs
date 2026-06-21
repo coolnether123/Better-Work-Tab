@@ -84,6 +84,9 @@ namespace Better_Work_Tab
         public static bool showPriorityLegend = true;
         public static bool showDragInstructions = true;
         public static bool showManualPrioritiesCheckbox = true;
+#if v0_16
+        public static bool useModernLegacyPriorityCells = true;
+#endif
         public static bool showDividers = true;
         public static bool allowCustomDividerColors = true;
         public static bool showDividerLabels = true;
@@ -321,6 +324,9 @@ namespace Better_Work_Tab
         public bool showPriorityLegend = DefaultSettings.showPriorityLegend;
         public bool showDragInstructions = DefaultSettings.showDragInstructions;
         public bool showManualPrioritiesCheckbox = DefaultSettings.showManualPrioritiesCheckbox;
+#if v0_16
+        public bool useModernLegacyPriorityCells = DefaultSettings.useModernLegacyPriorityCells;
+#endif
         public bool showDividers = DefaultSettings.showDividers;
         public bool allowCustomDividerColors = DefaultSettings.allowCustomDividerColors;
         public bool showDividerLabels = DefaultSettings.showDividerLabels;
@@ -686,6 +692,9 @@ namespace Better_Work_Tab
             Better_Work_Tab.ScribeCompat.LookValue(ref showPriorityLegend, "showPriorityLegend", DefaultSettings.showPriorityLegend);
             Better_Work_Tab.ScribeCompat.LookValue(ref showDragInstructions, "showDragInstructions", DefaultSettings.showDragInstructions);
             Better_Work_Tab.ScribeCompat.LookValue(ref showManualPrioritiesCheckbox, "showManualPrioritiesCheckbox", DefaultSettings.showManualPrioritiesCheckbox);
+#if v0_16
+            Better_Work_Tab.ScribeCompat.LookValue(ref useModernLegacyPriorityCells, "useModernLegacyPriorityCells", DefaultSettings.useModernLegacyPriorityCells);
+#endif
             Better_Work_Tab.ScribeCompat.LookValue(ref showDividers, "showDividers", DefaultSettings.showDividers);
             Better_Work_Tab.ScribeCompat.LookValue(ref allowCustomDividerColors, "allowCustomDividerColors", DefaultSettings.allowCustomDividerColors);
             Better_Work_Tab.ScribeCompat.LookValue(ref showDividerLabels, "showDividerLabels", DefaultSettings.showDividerLabels);
