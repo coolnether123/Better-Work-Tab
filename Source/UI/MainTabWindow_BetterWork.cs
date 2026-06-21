@@ -1269,9 +1269,15 @@ namespace Better_Work_Tab.UI
             }
             if (Verse.Current.Game.playSettings.useWorkPriorities)
             {
-                var oldColor = GUI.color;
+                Color oldColor = GUI.color;
                 GUI.color = new Color(1f, 1f, 1f, 0.5f);
-                Widgets.Label(new Rect(rect.x, rect.yMax - 6f, rect.width, 60f), "PriorityOneDoneFirst".Translate());
+                int maxPriority = WorkPrioritySystem.GetMaxPriority();
+                string priorityHelp = maxPriority > 4
+                    ? "BWT_PriorityOneDoneFirstExtended".Translate(maxPriority)
+                    : "PriorityOneDoneFirst".Translate();
+
+                float helpWidth = maxPriority > 4 ? 220f : rect.width;
+                Widgets.Label(new Rect(rect.x, rect.yMax - 6f, helpWidth, 60f), priorityHelp);
                 GUI.color = oldColor;
             }
             else
