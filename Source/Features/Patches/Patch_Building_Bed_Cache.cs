@@ -87,6 +87,7 @@ namespace Better_Work_Tab.Patches
     /// <summary>
     /// Clear cache on game load to avoid stale data.
     /// </summary>
+#if !v0_13
 #if v0_15
     [HarmonyPatch(typeof(Game), nameof(Game.LoadData))]
 #else
@@ -99,10 +100,12 @@ namespace Better_Work_Tab.Patches
             BedCountCache.Clear();
         }
     }
+#endif
 
     /// <summary>
     /// Clear cache when game unloads to free memory.
     /// </summary>
+#if !v0_13
 #if v0_15
     [HarmonyPatch(typeof(MapIniter_NewGame), nameof(MapIniter_NewGame.InitNewGeneratedMap))]
 #else
@@ -115,4 +118,5 @@ namespace Better_Work_Tab.Patches
             BedCountCache.Clear();
         }
     }
+#endif
 }

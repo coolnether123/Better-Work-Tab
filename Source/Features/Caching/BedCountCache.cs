@@ -121,7 +121,7 @@ namespace Better_Work_Tab.Features.Caching
                 foreach (var bed in beds)
                 {
                     // Skip prisoner beds and non-player faction beds
-                    if (bed == null || bed.ForPrisoners || bed.Faction != Faction.OfPlayer)
+                    if (bed == null || bed.ForPrisoners || bed.Faction != FactionCompat.OfPlayer)
                         continue;
 
                     // Skip animal beds (those without the humanlike property)

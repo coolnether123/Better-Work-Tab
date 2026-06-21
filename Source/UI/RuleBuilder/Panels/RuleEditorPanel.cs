@@ -119,14 +119,14 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
 
         private void DrawWorkTypeHeader(Rect rect, RuleBuilderState state)
         {
-            Verse.Widgets.DrawBoxSolid(rect, RuleBuilderConstants.PanelBackground);
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, RuleBuilderConstants.PanelBackground);
 
             var oldFont = Text.Font;
             var oldAnchor = Text.Anchor;
             var oldColor = GUI.color;
 
             Rect backRect = new Rect(rect.x + 8f, rect.y + 8f, 70f, 28f);
-            if (Verse.Widgets.ButtonText(backRect, "< " + "BWT_Back".Translate()))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(backRect, "< " + "BWT_Back".Translate()))
             {
                 state.NavigateBack();
             }
@@ -162,7 +162,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
                 GUI.color = RuleBuilderConstants.DisabledColor;
             }
 
-            if (Verse.Widgets.ButtonText(rect, "+ " + "BWT_AddNewRule".Translate(), active: !isDefault))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(rect, "+ " + "BWT_AddNewRule".Translate(), active: !isDefault))
             {
                 CreateNewRule(state);
             }
@@ -477,7 +477,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             if (isDefault)
             {
                 GUI.color = Color.gray;
-                Verse.Widgets.DrawBoxSolid(fieldRect, RuleBuilderConstants.CardBackground);
+                Better_Work_Tab.WidgetsCompat.DrawBoxSolid(fieldRect, RuleBuilderConstants.CardBackground);
                 Verse.Widgets.DrawBox(fieldRect, 1);
                 Text.Anchor = TextAnchor.MiddleCenter;
                 Verse.Widgets.Label(fieldRect, currentPriority.ToString());
@@ -486,14 +486,14 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             }
             else
             {
-                if (Verse.Widgets.ButtonText(minusRect, "-"))
+                if (Better_Work_Tab.WidgetsCompat.ButtonText(minusRect, "-"))
                 {
                     newPriority = Mathf.Max(0, currentPriority - 1);
                 }
 
-                Verse.Widgets.TextFieldNumeric(fieldRect, ref newPriority, ref _priorityBuffer, 0, maxPriority);
+                Better_Work_Tab.WidgetsCompat.TextFieldNumeric(fieldRect, ref newPriority, ref _priorityBuffer, 0, maxPriority);
 
-                if (Verse.Widgets.ButtonText(plusRect, "+"))
+                if (Better_Work_Tab.WidgetsCompat.ButtonText(plusRect, "+"))
                 {
                     newPriority = Mathf.Min(maxPriority, newPriority + 1);
                 }
@@ -569,7 +569,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             if (!isDefault)
             {
                 Rect addCondRect = new Rect(0f, yPos + 8f, viewRect.width, ButtonRowHeight);
-                if (Verse.Widgets.ButtonText(addCondRect, "+ " + "BWT_AddCondition".Translate()))
+                if (Better_Work_Tab.WidgetsCompat.ButtonText(addCondRect, "+ " + "BWT_AddCondition".Translate()))
                 {
                     ShowAddConditionMenu(rule.Parameters, state);
                 }
@@ -588,7 +588,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             Verse.Widgets.Label(rect, text);
 
             Rect lineRect = new Rect(rect.x, rect.yMax - 2f, rect.width, 1f);
-            Verse.Widgets.DrawBoxSolid(lineRect, RuleBuilderConstants.HeaderColor * 0.5f);
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(lineRect, RuleBuilderConstants.HeaderColor * 0.5f);
 
             Text.Font = oldFont;
             GUI.color = oldColor;

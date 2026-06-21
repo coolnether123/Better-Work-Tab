@@ -11,7 +11,11 @@ namespace Better_Work_Tab.UI
         private readonly System.Action<bool> _setDoNotShowAgain;
         private bool _doNotShowAgain;
 
+#if v0_13
+        public override Vector2 InitialWindowSize => new Vector2(500f, 250f);
+#else
         public override Vector2 InitialSize => new Vector2(500f, 250f);
+#endif
 
         public Dialog_WarningWithCheckbox(string text, string title, System.Action onConfirm, System.Action<bool> setDoNotShowAgain)
         {
@@ -40,12 +44,12 @@ namespace Better_Work_Tab.UI
 
             // Checkbox
             Rect checkboxRect = new Rect(0f, inRect.height - buttonHeight - checkboxHeight - margin, inRect.width, checkboxHeight);
-            Widgets.CheckboxLabeled(checkboxRect, "BWT_DoNotShowAgain".Translate(), ref _doNotShowAgain);
+            Better_Work_Tab.WidgetsCompat.CheckboxLabeled(checkboxRect, "BWT_DoNotShowAgain".Translate(), ref _doNotShowAgain);
 
             // Buttons
             float btnWidth = (inRect.width - margin) / 2f;
             Rect confirmRect = new Rect(0f, inRect.height - buttonHeight, btnWidth, buttonHeight);
-            if (Widgets.ButtonText(confirmRect, "Confirm".Translate()))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(confirmRect, "Confirm".Translate()))
             {
                 if (_doNotShowAgain)
                 {
@@ -56,7 +60,7 @@ namespace Better_Work_Tab.UI
             }
 
             Rect cancelRect = new Rect(btnWidth + margin, inRect.height - buttonHeight, btnWidth, buttonHeight);
-            if (Widgets.ButtonText(cancelRect, "Cancel".Translate()))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(cancelRect, "Cancel".Translate()))
             {
                 Close();
             }

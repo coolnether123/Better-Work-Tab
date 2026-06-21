@@ -23,7 +23,11 @@ namespace Better_Work_Tab.UI
         private float _height;
         private static readonly GameFont[] FontOptions = { GameFont.Small, GameFont.Medium };
 
+#if v0_13
+        public override Vector2 InitialWindowSize => new Vector2(360f, 380f);
+#else
         public override Vector2 InitialSize => new Vector2(360f, 380f);
+#endif
 
         public Dialog_EditDivider(PawnDivider divider)
         {
@@ -55,13 +59,13 @@ namespace Better_Work_Tab.UI
 
             float colorTop = 70f;
             Rect colorStripRect = new Rect(0f, colorTop, inRect.width, 12f);
-            Widgets.DrawBoxSolid(colorStripRect, _currentColor);
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(colorStripRect, _currentColor);
             Widgets.DrawBox(colorStripRect, 1);
 
             Rect colorButtonRect = new Rect(0f, colorStripRect.yMax + 6f, inRect.width, 30f);
             if (BetterWorkTabMod.Settings?.allowCustomDividerColors ?? true)
             {
-                if (Widgets.ButtonText(colorButtonRect, "Divider Color"))
+                if (Better_Work_Tab.WidgetsCompat.ButtonText(colorButtonRect, "Divider Color"))
                 {
                     Find.WindowStack.Add(new Dialog_ColourPicker(_currentColor, (picked, closing) =>
                     {
@@ -72,17 +76,17 @@ namespace Better_Work_Tab.UI
             else
             {
                 GUI.color = Color.gray;
-                Widgets.ButtonText(colorButtonRect, "Divider Color (Disabled)");
+                Better_Work_Tab.WidgetsCompat.ButtonText(colorButtonRect, "Divider Color (Disabled)");
                 GUI.color = Color.white;
             }
 
             float optionsTop = colorButtonRect.yMax + 14f;
             Rect showLabelRect = new Rect(0f, optionsTop, inRect.width, 30f);
-            Widgets.CheckboxLabeled(showLabelRect, "Show label", ref _showLabel);
+            Better_Work_Tab.WidgetsCompat.CheckboxLabeled(showLabelRect, "Show label", ref _showLabel);
 
             Rect fontButtonRect = new Rect(0f, showLabelRect.yMax + 8f, inRect.width, 30f);
             GUI.enabled = _showLabel;
-            if (Widgets.ButtonText(fontButtonRect, $"Text size: {GetFontLabel(_labelFont)}"))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(fontButtonRect, $"Text size: {GetFontLabel(_labelFont)}"))
             {
                 _labelFont = GetNextFont(_labelFont);
             }
@@ -100,7 +104,7 @@ namespace Better_Work_Tab.UI
 
             bool enterPressed = Event.current.type == EventType.KeyUp && Event.current.keyCode == KeyCode.Return;
 
-            if (Widgets.ButtonText(okButton, "OK".Translate()) || enterPressed)
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(okButton, "OK".Translate()) || enterPressed)
             {
                 if (ApplyChanges())
                 {
@@ -108,7 +112,7 @@ namespace Better_Work_Tab.UI
                     Close();
                 }
             }
-            if (Widgets.ButtonText(cancelButton, "Cancel".Translate()))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(cancelButton, "Cancel".Translate()))
             {
                 Close();
             }

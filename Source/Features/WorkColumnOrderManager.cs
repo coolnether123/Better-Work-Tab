@@ -12,12 +12,12 @@ namespace Better_Work_Tab.Features
     public static class WorkColumnOrderManager
     {
         private static List<string> _trueVanillaColumnOrder;
-        private static Game _lastInitializedGame;
+        private static object _lastInitializedGame;
         private static Dictionary<WorkTypeDef, List<WorkTypeDef>> _similarWorktypeMap;
         private static readonly List<WorkTypeDef> EmptySimilarWorktypeList = new List<WorkTypeDef>(0);
 
         private static GameComponent_BWTWorldSettings SharedState
-            => Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
+            => Verse.Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
 
         private static List<string> GetSharedOrderOrNull()
             => SharedState?.ColumnCurrentOrder is { Count: > 0 } list ? list : null;
@@ -37,7 +37,7 @@ namespace Better_Work_Tab.Features
         {
             CaptureVanillaOrder();
 
-            var game = Current.Game;
+            var game = Verse.Current.Game;
             if (game == null)
             {
                 return;
@@ -168,7 +168,7 @@ namespace Better_Work_Tab.Features
         /// </summary>
         public static List<string> GetBaselineOrder()
         {
-            var component = Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
+            var component = Verse.Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
             var baseline = ColumnBaselineManager.GetBaselineOrder(component);
             if (baseline != null && baseline.Count > 0)
             {

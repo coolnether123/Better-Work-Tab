@@ -28,7 +28,7 @@ namespace Spine.UI.WidgetExtensions
             bool hovered = Mouse.IsOver(rect);
             Color bgColor = hovered ? CategoryButtonHoverColor : CategoryButtonColor;
             
-            Widgets.DrawBoxSolid(rect, bgColor);
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, bgColor);
 #if v1_2 || v1_1 || (v1_0 || v0_19)
             Widgets12.DrawBox(rect, 1, hovered ? Texture2D.whiteTexture : null);
 #else
@@ -67,7 +67,7 @@ namespace Spine.UI.WidgetExtensions
                 GUI.color = oldColor;
             }
 
-            return Widgets.ButtonInvisible(rect);
+            return Better_Work_Tab.WidgetsCompat.ButtonInvisible(rect);
         }
 
         /// <summary>
@@ -89,7 +89,7 @@ namespace Spine.UI.WidgetExtensions
 
 #if v0_15
             Rect lineRect = listing.GetRect(1f);
-            Widgets.DrawLineHorizontal(lineRect.x, lineRect.y, lineRect.width);
+            Better_Work_Tab.WidgetsCompat.DrawLineHorizontal(lineRect.x, lineRect.y, lineRect.width);
             listing.Gap(4f);
 #else
             listing.GapLine(4f);
@@ -139,7 +139,7 @@ namespace Spine.UI.WidgetExtensions
             Text.Font = GameFont.Small;
 
             Rect buttonRect = new Rect(rect.x, rect.y, 80f, 28f);
-            bool clicked = Widgets.ButtonText(buttonRect, "\u25C0 Back");
+            bool clicked = Better_Work_Tab.WidgetsCompat.ButtonText(buttonRect, "\u25C0 Back");
 
             Text.Font = oldFont;
             return clicked;

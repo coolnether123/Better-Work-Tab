@@ -70,6 +70,10 @@ namespace Better_Work_Tab.UI
 
         private const float RightEdgeMargin = 10f;
         private const float InfoIconSize = 24f;
+#if v0_16
+        private const float Legacy016InfoIconEdgeMargin = 2f;
+        private const float Legacy016InfoIconBottomMargin = 8f;
+#endif
         private const float MinWorkTabHeight = 200f;
 #if v0_16
         private const float ExtraTopSpace = 0f;
@@ -111,6 +115,9 @@ namespace Better_Work_Tab.UI
 
 #if v0_16
             Legacy016PreOpen();
+#if v0_13
+            Legacy013SetMainTabRect();
+#endif
             return;
 #endif
 
@@ -129,9 +136,9 @@ namespace Better_Work_Tab.UI
             // Auto-enable manual priorities if setting is enabled
             if (settings?.autoEnableManualPriorities ?? false)
             {
-                if (Current.Game?.playSettings != null)
+                if (Verse.Current.Game?.playSettings != null)
                 {
-                    Current.Game.playSettings.useWorkPriorities = true;
+                    Verse.Current.Game.playSettings.useWorkPriorities = true;
                 }
             }
         }
@@ -285,7 +292,7 @@ namespace Better_Work_Tab.UI
         private IPawnOrganizerSnapshot BuildSnapshotForOrganizer(PawnTable table)
         {
             var pawns = new List<Pawn>(PawnTableCompat.GetPawnsListForReading(table));
-            var comp = Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
+            var comp = Verse.Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
             var settings = BetterWorkTabMod.Settings;
             bool useDividers = (settings?.enableDividers ?? true) && (settings?.showDividers ?? true);
             var dividers = useDividers ? comp?.ActiveDividers ?? new List<PawnDivider>() : new List<PawnDivider>();
@@ -306,7 +313,9 @@ namespace Better_Work_Tab.UI
             }
 
             Event evt = Event.current;
-            if (evt.type != EventType.MouseDown || evt.button != 1)
+            bool rightMouseDown = evt.type == EventType.MouseDown && evt.button == 1;
+            bool rightMouseUp = evt.type == EventType.MouseUp && evt.button == 1;
+            if (!rightMouseDown && !rightMouseUp)
             {
                 return;
             }
@@ -319,7 +328,11 @@ namespace Better_Work_Tab.UI
 
             if (row.Divider != null)
             {
-                ShowDividerContextMenu(row.Divider);
+                if (rightMouseDown)
+                {
+                    ShowDividerContextMenu(row.Divider);
+                }
+
                 evt.Use();
                 return;
             }
@@ -332,7 +345,11 @@ namespace Better_Work_Tab.UI
             if (TryGetBodyColumnAt(layout, evt.mousePosition, out var column) &&
                 column.Column?.Worker is PawnColumnWorker_Label)
             {
-                ShowPawnContextMenu(row.Pawn);
+                if (rightMouseDown)
+                {
+                    ShowPawnContextMenu(row.Pawn);
+                }
+
                 evt.Use();
             }
         }
@@ -420,7 +437,7 @@ namespace Better_Work_Tab.UI
 
         private void InsertDividerAbove(Pawn pawn)
         {
-            var worklist = Current.Game?.GetComponent<GameComponent_BWTWorldSettings>()?.CurrentWorklist;
+            var worklist = Verse.Current.Game?.GetComponent<GameComponent_BWTWorldSettings>()?.CurrentWorklist;
             var layout = PawnOrganizerSystem.Instance?.Layout;
             if (layout == null || pawn == null || worklist == null)
             {
@@ -497,7 +514,7 @@ namespace Better_Work_Tab.UI
 
         private void InsertDividerBelow(Pawn pawn)
         {
-            var worklist = Current.Game?.GetComponent<GameComponent_BWTWorldSettings>()?.CurrentWorklist;
+            var worklist = Verse.Current.Game?.GetComponent<GameComponent_BWTWorldSettings>()?.CurrentWorklist;
             var layout = PawnOrganizerSystem.Instance?.Layout;
             if (layout == null || pawn == null || worklist == null)
             {
@@ -573,7 +590,7 @@ namespace Better_Work_Tab.UI
                 {
                     Color useColor = BetterWorkTabMod.Settings.Color_MouseHoverHighlight;
                     Rect columnRect = new Rect(column.OffsetX, layout.TableOrigin.y + layout.HeaderHeight, column.Width, totalHeight);
-                    Widgets.DrawBoxSolid(columnRect, useColor);
+                    Better_Work_Tab.WidgetsCompat.DrawBoxSolid(columnRect, useColor);
                 }
 
                 column.Column.Worker.DoHeader(column.HeaderRect, table);
@@ -690,6 +707,9 @@ namespace Better_Work_Tab.UI
         public override void PostOpen()
         {
             base.PostOpen();
+#if v0_13
+            Legacy013SetMainTabRect();
+#endif
             SpineTiming.NotifyWorkTabOpen(true);
         }
 
@@ -978,7 +998,7 @@ namespace Better_Work_Tab.UI
                 currentY += descriptor.Height;
 
                 // Draw horizontal line at the bottom of this row
-                Widgets.DrawLineHorizontal(0f, currentY - 1f, viewWidth);
+                Better_Work_Tab.WidgetsCompat.DrawLineHorizontal(0f, currentY - 1f, viewWidth);
             }
             GUI.color = Color.white;
         }
@@ -989,7 +1009,7 @@ namespace Better_Work_Tab.UI
             if (row.Pawn != null && PawnOrganizer.API.PawnColorDatabase.TryGetColor(row.Pawn, out var pawnColor) && pawnColor.a > 0f)
             {
                 var overlay = new Color(pawnColor.r, pawnColor.g, pawnColor.b, Mathf.Clamp(pawnColor.a, 0.08f, 0.6f));
-                Widgets.DrawBoxSolid(rect, overlay);
+                Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, overlay);
 
                 CurrentRowTextColor = Spine.UI.TextColorHelper.GetContrastingTextColor(overlay);
             }
@@ -1007,7 +1027,7 @@ namespace Better_Work_Tab.UI
                 {
                     dividerColor.a = Mathf.Clamp01(dividerColor.a * 0.6f);
                 }
-                Widgets.DrawBoxSolid(rect, dividerColor);
+                Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, dividerColor);
             }
         }
 
@@ -1098,7 +1118,7 @@ namespace Better_Work_Tab.UI
 
             Rect arrowRect = new Rect(labelCellRect.xMin + 6f, labelCellRect.y + (labelCellRect.height - 16f) / 2f, 18f, 16f);
             string arrowChar = divider.IsCollapsed ? "\u25B6" : "\u25BC";
-            if (Widgets.ButtonInvisible(arrowRect))
+            if (Better_Work_Tab.WidgetsCompat.ButtonInvisible(arrowRect))
             {
                 ToggleDividerCollapsed(divider);
                 
@@ -1163,7 +1183,7 @@ namespace Better_Work_Tab.UI
             if (row.Pawn != null && row.Pawn.Downed)
             {
                 GUI.color = new Color(1f, 0f, 0f, 0.5f);
-                Widgets.DrawLineHorizontal(rowRect.xMin, rowRect.center.y, rowRect.width);
+                Better_Work_Tab.WidgetsCompat.DrawLineHorizontal(rowRect.xMin, rowRect.center.y, rowRect.width);
                 GUI.color = Color.white;
             }
         }
@@ -1234,20 +1254,20 @@ namespace Better_Work_Tab.UI
             GUI.color = Color.white;
             Text.Anchor = TextAnchor.UpperLeft;
             Rect rect = new Rect(5f, 5f, 140f, 30f);
-            bool wasEnabled = Current.Game.playSettings.useWorkPriorities;
-            Widgets.CheckboxLabeled(rect, "ManualPriorities".Translate(), ref Current.Game.playSettings.useWorkPriorities);
-            bool isEnabled = Current.Game.playSettings.useWorkPriorities;
+            bool wasEnabled = Verse.Current.Game.playSettings.useWorkPriorities;
+            Better_Work_Tab.WidgetsCompat.CheckboxLabeled(rect, "ManualPriorities".Translate(), ref Verse.Current.Game.playSettings.useWorkPriorities);
+            bool isEnabled = Verse.Current.Game.playSettings.useWorkPriorities;
             if (wasEnabled != isEnabled)
             {
                 foreach (Pawn pawn in PawnsFinderCompat.AllMapsWorldAndTemporaryAlive)
                 {
-                    if (pawn.Faction == Faction.OfPlayer && pawn.workSettings != null)
+                    if (pawn.Faction == FactionCompat.OfPlayer && pawn.workSettings != null)
                     {
                         pawn.workSettings.Notify_UseWorkPrioritiesChanged();
                     }
                 }
             }
-            if (Current.Game.playSettings.useWorkPriorities)
+            if (Verse.Current.Game.playSettings.useWorkPriorities)
             {
                 var oldColor = GUI.color;
                 GUI.color = new Color(1f, 1f, 1f, 0.5f);
@@ -1314,8 +1334,23 @@ namespace Better_Work_Tab.UI
 
         private void DrawInfoButton(Rect gearRect)
         {
-            if (Widgets.ButtonImage(gearRect, TexButton.Info))
+            bool clicked;
+            if (TexButton.Info != null)
             {
+                clicked = Better_Work_Tab.WidgetsCompat.ButtonImage(gearRect, TexButton.Info);
+            }
+            else
+            {
+                clicked = Better_Work_Tab.WidgetsCompat.ButtonText(gearRect, "i");
+            }
+
+            if (clicked)
+            {
+                if (Find.WindowStack != null && Find.WindowStack.TryRemove(typeof(Dialog_ModSettings)))
+                {
+                    return;
+                }
+
 #if v0_16
                 Find.WindowStack.Add(new Dialog_ModSettings());
 #else
@@ -1324,7 +1359,7 @@ namespace Better_Work_Tab.UI
                 {
 #if v1_3 || v1_2 || v1_1 || (v1_0 || v0_19)
                     var dialog = new Dialog_ModSettings();
-                    typeof(Dialog_ModSettings).GetField("selMod", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).SetValue(dialog, mod);
+                    typeof(Dialog_ModSettings).GetField("selMod", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(dialog, mod);
                     Find.WindowStack.Add(dialog);
 #else
                     Find.WindowStack.Add(new Dialog_ModSettings(mod));
@@ -1420,6 +1455,34 @@ namespace Better_Work_Tab.UI
         private readonly List<WorkTypeDef> _legacy016VisibleWorkTypes = new List<WorkTypeDef>();
         private readonly DefMap<WorkTypeDef, Vector2> _legacy016CachedLabelSizes = new DefMap<WorkTypeDef, Vector2>();
         private static DefMap<WorkTypeDef, int> Legacy016Clipboard;
+        private WorkTypeDef _legacy016PendingHeaderClick;
+        private int _legacy016PendingHeaderButton = -1;
+        private Vector2 _legacy016PendingHeaderMouse;
+        private bool _legacy016ColumnDragActive;
+        private WorkTypeDef _legacy016DraggingWorkType;
+        private int _legacy016ColumnDragTargetIndex = -1;
+        private WorkTypeDef _legacy016SortingWorkType;
+        private bool _legacy016SortingDescending;
+        private Pawn _legacy016PendingRowPawn;
+        private Vector2 _legacy016PendingRowMouse;
+        private bool _legacy016RowDragActive;
+        private Pawn _legacy016DraggingRowPawn;
+        private int _legacy016RowDragTargetIndex = -1;
+        private static bool _legacy016PriorityPaintActive;
+        private static int _legacy016PriorityPaintValue;
+        private const int Legacy016NoSkillLevel = -1;
+        private static readonly Dictionary<int, int> Legacy016SkillLevelCache = new Dictionary<int, int>();
+        private static readonly Dictionary<int, bool> Legacy016IncapableCache = new Dictionary<int, bool>();
+        private static readonly Dictionary<int, int> Legacy016SkillLevelCacheTimestamps = new Dictionary<int, int>();
+        private static readonly Dictionary<int, int> Legacy016IncapableCacheTimestamps = new Dictionary<int, int>();
+        private const int Legacy016SkillCacheFrameValidity = 60;
+        private const int Legacy016IncapableCacheFrameValidity = 120;
+        private readonly List<Pawn> _legacy016DisplayPawnsCache = new List<Pawn>();
+        private readonly HashSet<int> _legacy016DisplayPawnSeen = new HashSet<int>();
+        private int _legacy016DisplayPawnsCacheFrame = -1;
+        private WorkTypeDef _legacy016DisplayPawnsSortWorkType;
+        private bool _legacy016DisplayPawnsSortDescending;
+        private int _legacy016DisplayPawnsSourceCount = -1;
 
         private Vector2 Legacy016RequestedTabSize
         {
@@ -1442,8 +1505,17 @@ namespace Better_Work_Tab.UI
 
         private void Legacy016PreOpen()
         {
-            _legacy016VisibleWorkTypes.Clear();
-            _legacy016VisibleWorkTypes.AddRange(WorkTypeDefsUtility.WorkTypeDefsInPriorityOrder.Where(def => def.visible));
+            WorkColumnOrderManager.InitializeOnGameLoad();
+            Legacy016RefreshVisibleWorkTypes();
+
+            if (_legacy016VisibleWorkTypes.Count == 0)
+            {
+                _legacy016VisibleWorkTypes.AddRange(WorkTypeDefsUtility.WorkTypeDefsInPriorityOrder.Where(def => def.visible));
+            }
+
+            _legacy016SortingWorkType = null;
+            _legacy016SortingDescending = false;
+            Legacy016CancelColumnDrag();
 
             foreach (WorkTypeDef allDef in DefDatabase<WorkTypeDef>.AllDefs)
             {
@@ -1452,15 +1524,44 @@ namespace Better_Work_Tab.UI
 
             if (BetterWorkTabMod.Settings?.autoEnableManualPriorities ?? false)
             {
-                Current.Game.playSettings.useWorkPriorities = true;
+                Verse.Current.Game.playSettings.useWorkPriorities = true;
+            }
+        }
+
+        private void Legacy016RefreshVisibleWorkTypes()
+        {
+            _legacy016VisibleWorkTypes.Clear();
+            PawnTableDef tableDef = PawnTableDefOf.Work;
+
+            if (tableDef?.columns == null)
+            {
+                return;
+            }
+
+            foreach (PawnColumnDef column in tableDef.columns)
+            {
+                WorkTypeDef workType = column?.workType;
+                if (workType != null && workType.visible && column.Worker is PawnColumnWorker_WorkPriority)
+                {
+                    _legacy016VisibleWorkTypes.Add(workType);
+                }
             }
         }
 
         private void DoLegacy016WindowContents(Rect rect)
         {
+#if v0_13
+            Legacy013SetMainTabRect();
+#else
             SetInitialSizeAndPosition();
+#endif
             if (Event.current.type == EventType.Layout)
                 return;
+
+            if (Event.current.type == EventType.MouseUp || Event.current.type == EventType.Ignore)
+            {
+                Legacy016ClearPriorityPaint();
+            }
 
             DrawLegacy016TopArea(new Rect(0f, 0f, rect.width, Legacy016TopAreaHeight));
 
@@ -1474,13 +1575,35 @@ namespace Better_Work_Tab.UI
                 Rect rowsRect = new Rect(0f, headerHeight, workArea.width, workArea.height - headerHeight);
                 _legacy016WorkColumnSpacing = (workArea.width - 16f - Legacy016LeftColumnWidth) / Mathf.Max(1, _legacy016VisibleWorkTypes.Count);
                 DrawLegacy016Headers(workArea.width, headerHeight);
-                DrawRows(rowsRect);
+                DrawLegacy016Rows(rowsRect);
+                DrawLegacy016ColumnDragOverlay(workArea.width, headerHeight, rowsRect.height);
             }
             finally
             {
                 GUI.EndGroup();
             }
+
+            DrawLegacy016BottomRightButtons(rect);
         }
+
+#if v0_13
+        private void Legacy013SetMainTabRect()
+        {
+            Vector2 size = Legacy016RequestedTabSize;
+            size.x = Mathf.Min(size.x, Verse.UI.screenWidth);
+            size.y = Mathf.Min(size.y, Verse.UI.screenHeight - 35f);
+
+            float x = Anchor == MainTabWindowAnchor.Left
+                ? 0f
+                : Verse.UI.screenWidth - size.x;
+
+            currentWindowRect = new Rect(
+                Mathf.Max(0f, x),
+                Mathf.Max(0f, Verse.UI.screenHeight - 35f - size.y),
+                size.x,
+                size.y);
+        }
+#endif
 
         private void DrawLegacy016TopArea(Rect rect)
         {
@@ -1491,18 +1614,18 @@ namespace Better_Work_Tab.UI
                 GUI.color = Color.white;
                 Text.Anchor = TextAnchor.UpperLeft;
                 Rect manualRect = new Rect(5f, 5f, 140f, 30f);
-                bool wasEnabled = Current.Game.playSettings.useWorkPriorities;
-                Widgets.CheckboxLabeled(manualRect, "ManualPriorities".Translate(), ref Current.Game.playSettings.useWorkPriorities);
-                if (wasEnabled != Current.Game.playSettings.useWorkPriorities)
+                bool wasEnabled = Verse.Current.Game.playSettings.useWorkPriorities;
+                Better_Work_Tab.WidgetsCompat.CheckboxLabeled(manualRect, "ManualPriorities".Translate(), ref Verse.Current.Game.playSettings.useWorkPriorities);
+                if (wasEnabled != Verse.Current.Game.playSettings.useWorkPriorities)
                 {
                     foreach (Pawn pawn in PawnsFinderCompat.AllMapsWorldAndTemporaryAlive)
                     {
-                        if (pawn.Faction == Faction.OfPlayer && pawn.workSettings != null)
+                        if (pawn.Faction == FactionCompat.OfPlayer && pawn.workSettings != null)
                             pawn.workSettings.Notify_UseWorkPrioritiesChanged();
                     }
                 }
 
-                if (!Current.Game.playSettings.useWorkPriorities)
+                if (!Verse.Current.Game.playSettings.useWorkPriorities)
                 {
                     UIHighlighter.HighlightOpportunity(manualRect, "ManualPriorities-Off");
                 }
@@ -1524,6 +1647,28 @@ namespace Better_Work_Tab.UI
             }
         }
 
+        private void DrawLegacy016BottomRightButtons(Rect rect)
+        {
+            if (!(BetterWorkTabMod.Settings?.enableUIElements ?? true))
+            {
+                return;
+            }
+
+            Rect infoRect = GetLegacy016InfoIconRect(rect);
+            HeaderButtons.DrawBottomRightGrouped(rect, infoRect);
+            DrawInfoButton(infoRect);
+            TooltipHandler.TipRegion(infoRect, "Better Work Tab settings");
+        }
+
+        private static Rect GetLegacy016InfoIconRect(Rect rect)
+        {
+            return new Rect(
+                rect.xMax - InfoIconSize - Legacy016InfoIconEdgeMargin,
+                rect.yMax - InfoIconSize - Legacy016InfoIconBottomMargin,
+                InfoIconSize,
+                InfoIconSize);
+        }
+
         private void DrawLegacy016Headers(float width, float headerHeight)
         {
             if (Legacy016UseAngledHeaders)
@@ -1536,7 +1681,9 @@ namespace Better_Work_Tab.UI
             for (int i = 0; i < _legacy016VisibleWorkTypes.Count; i++)
             {
                 WorkTypeDef workType = _legacy016VisibleWorkTypes[i];
-                Vector2 size = _legacy016CachedLabelSizes[workType];
+                bool showMarker = ShouldShowColumnMarker(workType);
+                string label = HeaderUtility.GetHeaderText(workType, showMarker);
+                Vector2 size = Text.CalcSize(label);
                 float centerX = x + 15f;
                 Rect labelRect = new Rect(centerX - size.x / 2f, 0f, size.x, size.y);
                 if (i % 2 == 1)
@@ -1549,8 +1696,13 @@ namespace Better_Work_Tab.UI
                     Widgets.DrawHighlight(labelRect);
                 }
 
+                Legacy016HandleHeaderInput(labelRect, workType);
+
                 Text.Anchor = TextAnchor.MiddleCenter;
-                Widgets.Label(labelRect, workType.labelShort);
+                GUI.color = showMarker && (BetterWorkTabMod.Settings?.showMovedColumnColorTint ?? true)
+                    ? HeaderUtility.Colors.MovedMarkerColor
+                    : (BetterWorkTabMod.Settings?.angledHeaderColor ?? DefaultSettings.Color_AngledHeaderText);
+                Widgets.Label(labelRect, label);
                 TooltipHandler.TipRegion(labelRect, new TipSignal(() => workType.gerundLabel + "\n\n" + workType.description + "\n\n" + Legacy016SpecificWorkListString(workType), workType.GetHashCode()));
 
                 GUI.color = new Color(1f, 1f, 1f, 0.3f);
@@ -1581,7 +1733,8 @@ namespace Better_Work_Tab.UI
                 for (int i = 0; i < _legacy016VisibleWorkTypes.Count; i++)
                 {
                     WorkTypeDef workType = _legacy016VisibleWorkTypes[i];
-                    string label = HeaderUtility.GetHeaderText(workType);
+                    bool showMarker = ShouldShowColumnMarker(workType);
+                    string label = HeaderUtility.GetHeaderText(workType, showMarker);
                     Vector2 labelSize = Text.CalcSize(label);
                     float centerX = x + 15f;
                     Rect headerRect = new Rect(centerX - columnWidth / 2f, 0f, columnWidth, headerHeight);
@@ -1591,16 +1744,9 @@ namespace Better_Work_Tab.UI
                         Widgets.DrawHighlight(headerRect);
                     }
 
-                    DrawLegacy016AngledHeaderLabel(headerRect, label, labelSize);
+                    Legacy016HandleHeaderInput(headerRect, workType);
+                    DrawLegacy016AngledHeaderLabel(headerRect, label, labelSize, showMarker);
                     TooltipHandler.TipRegion(headerRect, new TipSignal(() => workType.gerundLabel + "\n\n" + workType.description + "\n\n" + Legacy016SpecificWorkListString(workType), workType.GetHashCode()));
-
-                    if (!(BetterWorkTabMod.Settings?.removeHeaderUnderline ?? DefaultSettings.removeHeaderUnderline))
-                    {
-                        GUI.color = HeaderUtility.Colors.VanillaStemColor;
-                        Widgets.DrawLineVertical(centerX, headerHeight - 13f, 13f);
-                        Widgets.DrawLineVertical(centerX + 1f, headerHeight - 13f, 13f);
-                        GUI.color = oldColor;
-                    }
 
                     x += _legacy016WorkColumnSpacing;
                 }
@@ -1614,7 +1760,7 @@ namespace Better_Work_Tab.UI
             }
         }
 
-        private static void DrawLegacy016AngledHeaderLabel(Rect headerRect, string label, Vector2 labelSize)
+        private static void DrawLegacy016AngledHeaderLabel(Rect headerRect, string label, Vector2 labelSize, bool showMarker)
         {
             float rotation = BetterWorkTabMod.Settings?.angledHeaderRotation ?? DefaultSettings.angledHeaderRotation;
             float horizontalOffset = BetterWorkTabMod.Settings?.angledHeaderHorizontalOffset ?? DefaultSettings.angledHeaderHorizontalOffset;
@@ -1646,7 +1792,9 @@ namespace Better_Work_Tab.UI
                 Text.Font = GameFont.Small;
                 Text.Anchor = TextAnchor.MiddleLeft;
                 Text.WordWrap = false;
-                GUI.color = BetterWorkTabMod.Settings?.angledHeaderColor ?? DefaultSettings.Color_AngledHeaderText;
+                GUI.color = showMarker && (BetterWorkTabMod.Settings?.showMovedColumnColorTint ?? true)
+                    ? HeaderUtility.Colors.MovedMarkerColor
+                    : (BetterWorkTabMod.Settings?.angledHeaderColor ?? DefaultSettings.Color_AngledHeaderText);
                 Widgets.Label(drawRect, label);
 
                 if (!(BetterWorkTabMod.Settings?.removeHeaderUnderline ?? DefaultSettings.removeHeaderUnderline))
@@ -1683,6 +1831,691 @@ namespace Better_Work_Tab.UI
             return builder.ToString();
         }
 
+        private void Legacy016HandleHeaderInput(Rect headerRect, WorkTypeDef workType)
+        {
+            Event evt = Event.current;
+            if (evt == null || workType == null)
+            {
+                return;
+            }
+
+            if (_legacy016ColumnDragActive && _legacy016DraggingWorkType == workType)
+            {
+                if (evt.type == EventType.MouseDrag)
+                {
+                    _legacy016ColumnDragTargetIndex = Legacy016ColumnTargetIndex(evt.mousePosition.x);
+                    evt.Use();
+                    return;
+                }
+
+                if (evt.type == EventType.MouseUp)
+                {
+                    Legacy016CommitColumnDrag();
+                    evt.Use();
+                    return;
+                }
+            }
+
+            bool overHeader = Mouse.IsOver(headerRect);
+            if (evt.type == EventType.MouseDown && overHeader && (evt.button == 0 || evt.button == 1))
+            {
+                if (evt.shift || (evt.modifiers & EventModifiers.Shift) != 0)
+                {
+                    Legacy016ApplyHeaderPriority(workType, evt.button);
+                    evt.Use();
+                    return;
+                }
+
+                _legacy016PendingHeaderClick = workType;
+                _legacy016PendingHeaderButton = evt.button;
+                _legacy016PendingHeaderMouse = evt.mousePosition;
+                return;
+            }
+
+            if (evt.type == EventType.MouseDrag && _legacy016PendingHeaderClick == workType)
+            {
+                var settings = BetterWorkTabMod.Settings;
+                bool dragEnabled = settings?.enableDragDropReordering ?? true;
+                bool columnDragEnabled = settings?.columnDraggingEnabled ?? true;
+                bool requireCtrl = settings?.requireCtrlForDrag ?? DefaultSettings.requireCtrlForDrag;
+                bool ctrlSatisfied = !requireCtrl || evt.control;
+                float threshold = Mathf.Max(1f, settings?.dragThreshold ?? DefaultSettings.dragThreshold);
+
+                if (dragEnabled && columnDragEnabled && ctrlSatisfied &&
+                    (evt.mousePosition - _legacy016PendingHeaderMouse).magnitude >= threshold)
+                {
+                    _legacy016ColumnDragActive = true;
+                    _legacy016DraggingWorkType = workType;
+                    _legacy016ColumnDragTargetIndex = Legacy016ColumnTargetIndex(evt.mousePosition.x);
+                    BetterWorkTabLocalState.IsHeaderDragging = true;
+                    evt.Use();
+                }
+
+                return;
+            }
+
+            if (evt.type == EventType.MouseUp && _legacy016PendingHeaderClick == workType)
+            {
+                int button = _legacy016PendingHeaderButton;
+                Legacy016CancelPendingHeaderClick();
+
+                if (overHeader)
+                {
+                    Legacy016SortByHeader(workType, button);
+                    evt.Use();
+                }
+            }
+        }
+
+        private int Legacy016ColumnTargetIndex(float mouseX)
+        {
+            int target = _legacy016VisibleWorkTypes.Count;
+            float x = Legacy016LeftColumnWidth;
+
+            for (int i = 0; i < _legacy016VisibleWorkTypes.Count; i++)
+            {
+                float centerX = x + 15f;
+                if (mouseX < centerX)
+                {
+                    target = i;
+                    break;
+                }
+
+                x += _legacy016WorkColumnSpacing;
+            }
+
+            return Mathf.Clamp(target, 0, _legacy016VisibleWorkTypes.Count);
+        }
+
+        private void DrawLegacy016ColumnDragOverlay(float width, float headerHeight, float rowsHeight)
+        {
+            if (!_legacy016ColumnDragActive || _legacy016ColumnDragTargetIndex < 0)
+            {
+                return;
+            }
+
+            DrawLegacy016ColumnBaselineLine(width, headerHeight, rowsHeight);
+
+            float lineX = Legacy016LeftColumnWidth + _legacy016ColumnDragTargetIndex * _legacy016WorkColumnSpacing;
+            lineX = Mathf.Clamp(lineX, Legacy016LeftColumnWidth, width - 16f);
+            int insetSetting = BetterWorkTabMod.Settings?.columnInsertionLineInset ?? DefaultSettings.columnInsertionLineInset;
+            float inset = Mathf.Clamp(insetSetting, 0f, headerHeight);
+            float lineY = headerHeight - inset;
+            float lineHeight = Mathf.Max(0f, rowsHeight + inset);
+
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(new Rect(lineX - 1f, lineY, 2f, lineHeight), Color.white);
+        }
+
+        private void DrawLegacy016ColumnBaselineLine(float width, float headerHeight, float rowsHeight)
+        {
+            var settings = BetterWorkTabMod.Settings;
+            if (!(settings?.showColumnBaselineLine ?? true))
+            {
+                return;
+            }
+
+            WorkTypeDef workType = _legacy016DraggingWorkType;
+            if (workType?.defName == null || !IsColumnOutOfBaselinePosition(workType))
+            {
+                return;
+            }
+
+            var baselineOrder = WorkColumnOrderManager.GetBaselineOrder();
+            if (baselineOrder == null || baselineOrder.Count == 0)
+            {
+                return;
+            }
+
+            var visibleDefNames = new HashSet<string>(_legacy016VisibleWorkTypes
+                .Where(def => def?.defName != null)
+                .Select(def => def.defName));
+            var filteredBaseline = baselineOrder.Where(visibleDefNames.Contains).ToList();
+            int baselineIndex = filteredBaseline.IndexOf(workType.defName);
+            if (baselineIndex < 0)
+            {
+                return;
+            }
+
+            var baselineIndexByDef = new Dictionary<string, int>(filteredBaseline.Count);
+            for (int i = 0; i < filteredBaseline.Count; i++)
+            {
+                baselineIndexByDef[filteredBaseline[i]] = i;
+            }
+
+            int targetIndex = 0;
+            for (int i = 0; i < _legacy016VisibleWorkTypes.Count; i++)
+            {
+                WorkTypeDef other = _legacy016VisibleWorkTypes[i];
+                if (other == null || other == workType || other.defName == null)
+                {
+                    continue;
+                }
+
+                int otherBaselineIndex = baselineIndexByDef.TryGetValue(other.defName, out int idx)
+                    ? idx
+                    : int.MaxValue;
+                if (otherBaselineIndex < baselineIndex)
+                {
+                    targetIndex++;
+                }
+            }
+
+            float lineX = Legacy016LeftColumnWidth + targetIndex * _legacy016WorkColumnSpacing;
+            lineX = Mathf.Clamp(lineX, Legacy016LeftColumnWidth, width - 16f);
+            int insetSetting = settings?.columnInsertionLineInset ?? DefaultSettings.columnInsertionLineInset;
+            float inset = Mathf.Clamp(insetSetting, 0f, headerHeight);
+            float lineY = headerHeight - inset;
+            float lineHeight = Mathf.Max(0f, rowsHeight + inset);
+
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(
+                new Rect(lineX - 1f, lineY, 2f, lineHeight),
+                HeaderUtility.Colors.MovedMarkerColor);
+        }
+
+        private void Legacy016CommitColumnDrag()
+        {
+            WorkTypeDef workType = _legacy016DraggingWorkType;
+            int targetIndex = _legacy016ColumnDragTargetIndex;
+            Legacy016CancelColumnDrag();
+
+            if (workType == null || targetIndex < 0)
+            {
+                return;
+            }
+
+            int oldIndex = _legacy016VisibleWorkTypes.IndexOf(workType);
+            if (oldIndex < 0)
+            {
+                return;
+            }
+
+            int insertIndex = Mathf.Clamp(targetIndex, 0, _legacy016VisibleWorkTypes.Count);
+            if (insertIndex > oldIndex)
+            {
+                insertIndex--;
+            }
+
+            if (insertIndex == oldIndex)
+            {
+                return;
+            }
+
+            _legacy016VisibleWorkTypes.RemoveAt(oldIndex);
+            _legacy016VisibleWorkTypes.Insert(insertIndex, workType);
+            Legacy016ApplyVisibleOrderToTableDef();
+            Legacy016InvalidateDisplayPawnCache();
+            MarkColumnMoved(workType);
+            WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
+            MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+            UISoundCompat.TickHigh.PlayOneShotOnCamera();
+        }
+
+        private void Legacy016ApplyVisibleOrderToTableDef()
+        {
+            PawnTableDef def = PawnTableDefOf.Work;
+            if (def?.columns == null)
+            {
+                return;
+            }
+
+            var preWork = new List<PawnColumnDef>();
+            var postWork = new List<PawnColumnDef>();
+            var workColumns = new List<PawnColumnDef>();
+            bool passedWorkColumn = false;
+
+            foreach (PawnColumnDef column in def.columns)
+            {
+                bool isWorkColumn = column?.workType != null && column.Worker is PawnColumnWorker_WorkPriority;
+                if (isWorkColumn)
+                {
+                    passedWorkColumn = true;
+                    workColumns.Add(column);
+                }
+                else if (!passedWorkColumn)
+                {
+                    preWork.Add(column);
+                }
+                else
+                {
+                    postWork.Add(column);
+                }
+            }
+
+            var orderedWorkColumns = new List<PawnColumnDef>();
+            foreach (WorkTypeDef workType in _legacy016VisibleWorkTypes)
+            {
+                PawnColumnDef match = workColumns.FirstOrDefault(c => c.workType == workType);
+                if (match != null && !orderedWorkColumns.Contains(match))
+                {
+                    orderedWorkColumns.Add(match);
+                }
+            }
+
+            foreach (PawnColumnDef column in workColumns)
+            {
+                if (!orderedWorkColumns.Contains(column))
+                {
+                    orderedWorkColumns.Add(column);
+                }
+            }
+
+            def.columns.Clear();
+            def.columns.AddRange(preWork);
+            def.columns.AddRange(orderedWorkColumns);
+            def.columns.AddRange(postWork);
+            WorkColumnOrderManager.CaptureCurrent(def);
+            BetterWorkTabMod.Settings?.Write();
+        }
+
+        private void Legacy016CancelColumnDrag()
+        {
+            _legacy016ColumnDragActive = false;
+            _legacy016DraggingWorkType = null;
+            _legacy016ColumnDragTargetIndex = -1;
+            Legacy016CancelPendingHeaderClick();
+            Legacy016CancelRowDrag();
+            BetterWorkTabLocalState.IsHeaderDragging = false;
+        }
+
+        private void Legacy016CancelPendingHeaderClick()
+        {
+            _legacy016PendingHeaderClick = null;
+            _legacy016PendingHeaderButton = -1;
+        }
+
+        private void Legacy016SortByHeader(WorkTypeDef workType, int button)
+        {
+            if (workType == null)
+            {
+                return;
+            }
+
+            if (button == 1)
+            {
+                _legacy016SortingWorkType = workType;
+                _legacy016SortingDescending = true;
+                UISoundCompat.TickLow.PlayOneShotOnCamera();
+                return;
+            }
+
+            if (_legacy016SortingWorkType != workType)
+            {
+                _legacy016SortingWorkType = workType;
+                _legacy016SortingDescending = false;
+                UISoundCompat.TickHigh.PlayOneShotOnCamera();
+            }
+            else if (!_legacy016SortingDescending)
+            {
+                _legacy016SortingDescending = true;
+                UISoundCompat.TickLow.PlayOneShotOnCamera();
+            }
+            else
+            {
+                _legacy016SortingWorkType = null;
+                _legacy016SortingDescending = false;
+                UISoundCompat.TickLow.PlayOneShotOnCamera();
+            }
+        }
+
+        private void Legacy016ApplyHeaderPriority(WorkTypeDef workType, int button)
+        {
+            if (workType == null)
+            {
+                return;
+            }
+
+            bool useWorkPriorities = Verse.Current.Game?.playSettings?.useWorkPriorities ?? false;
+            bool changed = false;
+
+            foreach (Pawn pawn in pawns)
+            {
+                if (pawn == null || pawn.Dead || pawn.workSettings == null || !pawn.workSettings.EverWork || pawn.WorkTypeIsDisabled(workType))
+                {
+                    continue;
+                }
+
+                int currentPriority = WorkPrioritySystem.GetPriority(pawn.workSettings, workType);
+                int nextPriority = WorkPrioritySystem.GetPriorityAfterMouseButton(currentPriority, button, useWorkPriorities);
+                if (nextPriority == currentPriority)
+                {
+                    continue;
+                }
+
+                WorkPrioritySystem.SetPriority(pawn.workSettings, workType, nextPriority);
+                changed = true;
+            }
+
+            if (changed)
+            {
+                UISoundCompat.DragSlider.PlayOneShotOnCamera();
+                WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
+                Legacy016InvalidateFrameCaches();
+            }
+        }
+
+        private void DrawLegacy016Rows(Rect rect)
+        {
+            List<Pawn> displayPawns = Legacy016DisplayPawns();
+            Rect viewRect = new Rect(0f, 0f, rect.width - 16f, displayPawns.Count * 30f);
+            Widgets.BeginScrollView(rect, ref scrollPosition, viewRect);
+            try
+            {
+                float y = 0f;
+                for (int i = 0; i < displayPawns.Count; i++)
+                {
+                    Pawn pawn = displayPawns[i];
+                    Rect rowRect = new Rect(0f, y, viewRect.width, 30f);
+                    if (!(y - scrollPosition.y + 30f < 0f) && !(y - scrollPosition.y > rect.height))
+                    {
+                        DrawLegacy016PawnRowBackground(rowRect, pawn, i, displayPawns.Count);
+                        DrawPawnRow(rowRect, pawn);
+                        DrawLegacy016PawnRowOverlay(rowRect, pawn);
+                    }
+
+                    y += 30f;
+                }
+
+                DrawLegacy016RowDragOverlay(viewRect.width);
+            }
+            finally
+            {
+                Widgets.EndScrollView();
+                Text.Anchor = TextAnchor.UpperLeft;
+            }
+        }
+
+        private List<Pawn> Legacy016DisplayPawns()
+        {
+            int currentFrame = Time.frameCount;
+            int sourceCount = pawns?.Count ?? 0;
+            if (_legacy016DisplayPawnsCacheFrame == currentFrame &&
+                _legacy016DisplayPawnsSortWorkType == _legacy016SortingWorkType &&
+                _legacy016DisplayPawnsSortDescending == _legacy016SortingDescending &&
+                _legacy016DisplayPawnsSourceCount == sourceCount)
+            {
+                return _legacy016DisplayPawnsCache;
+            }
+
+            _legacy016DisplayPawnsCacheFrame = currentFrame;
+            _legacy016DisplayPawnsSortWorkType = _legacy016SortingWorkType;
+            _legacy016DisplayPawnsSortDescending = _legacy016SortingDescending;
+            _legacy016DisplayPawnsSourceCount = sourceCount;
+            _legacy016DisplayPawnsCache.Clear();
+            _legacy016DisplayPawnSeen.Clear();
+
+            foreach (Pawn pawn in pawns)
+            {
+                if (pawn == null || !_legacy016DisplayPawnSeen.Add(pawn.thingIDNumber))
+                {
+                    continue;
+                }
+
+                _legacy016DisplayPawnsCache.Add(pawn);
+            }
+
+            if (_legacy016SortingWorkType == null)
+            {
+                _legacy016DisplayPawnsCache.Sort((left, right) =>
+                {
+                    int result = RowOrderUtility.GetPawnRowOrder(left).CompareTo(RowOrderUtility.GetPawnRowOrder(right));
+                    return result != 0 ? result : left.thingIDNumber.CompareTo(right.thingIDNumber);
+                });
+                return _legacy016DisplayPawnsCache;
+            }
+
+            _legacy016DisplayPawnsCache.Sort((left, right) =>
+            {
+                int leftPriority = WorkPrioritySystem.GetPriority(left?.workSettings, _legacy016SortingWorkType);
+                int rightPriority = WorkPrioritySystem.GetPriority(right?.workSettings, _legacy016SortingWorkType);
+                int result = leftPriority.CompareTo(rightPriority);
+                if (result != 0)
+                {
+                    return _legacy016SortingDescending ? -result : result;
+                }
+
+                result = RowOrderUtility.GetPawnRowOrder(left).CompareTo(RowOrderUtility.GetPawnRowOrder(right));
+                return result != 0 ? result : left.thingIDNumber.CompareTo(right.thingIDNumber);
+            });
+
+            return _legacy016DisplayPawnsCache;
+        }
+
+        private void DrawLegacy016PawnRowBackground(Rect rect, Pawn pawn, int visualIndex, int rowCount)
+        {
+            if (Mouse.IsOver(rect))
+            {
+                GUI.DrawTexture(rect, TexUI.HighlightTex);
+            }
+
+            Rect labelRect = new Rect(rect.x, rect.y, Legacy016LeftColumnWidth - Legacy016CopyPasteWidth, rect.height);
+            if (pawn.health.summaryHealth.SummaryHealthPercent < 0.99f)
+            {
+                Rect healthRect = new Rect(labelRect);
+                healthRect.xMin -= 4f;
+                healthRect.yMin += 4f;
+                healthRect.yMax -= 6f;
+                Widgets.FillableBar(
+                    healthRect,
+                    pawn.health.summaryHealth.SummaryHealthPercent,
+#if v0_13
+                    BaseContent.WhiteTex,
+#elif v0_15
+                    GenWorldUI.OverlayHealthTex,
+#else
+                    GenMapUI.OverlayHealthTex,
+#endif
+                    BaseContent.ClearTex,
+                    doBorder: false);
+            }
+
+            if (Mouse.IsOver(labelRect))
+            {
+                GUI.DrawTexture(labelRect, TexUI.HighlightTex);
+            }
+
+            Text.Font = GameFont.Small;
+            Text.Anchor = TextAnchor.MiddleLeft;
+            Text.WordWrap = false;
+            Rect textRect = labelRect;
+            textRect.xMin += 3f;
+            Widgets.Label(textRect, Legacy016PawnLabel(pawn));
+            Text.WordWrap = true;
+
+            bool rowInputHandled = Legacy016HandleRowInput(labelRect, pawn, visualIndex, rowCount);
+            if (!rowInputHandled && Better_Work_Tab.WidgetsCompat.ButtonInvisible(labelRect))
+            {
+                Find.MainTabsRoot.EscapeCurrentTab(false);
+                Find.Selector.ClearSelection();
+                JumpToTargetUtility.TryJumpAndSelect(pawn);
+            }
+            else if (Mouse.IsOver(labelRect))
+            {
+                TipSignal tooltip = pawn.GetTooltip();
+                tooltip.text = "ClickToJumpTo".Translate() + "\n\n" + tooltip.text;
+                TooltipHandler.TipRegion(labelRect, tooltip);
+            }
+        }
+
+        private bool Legacy016HandleRowInput(Rect labelRect, Pawn pawn, int visualIndex, int rowCount)
+        {
+            Event evt = Event.current;
+            if (evt == null || pawn == null)
+            {
+                return false;
+            }
+
+            var settings = BetterWorkTabMod.Settings;
+            bool overLabel = Mouse.IsOver(labelRect);
+            if (evt.type == EventType.MouseDown && evt.button == 1 && overLabel &&
+                (settings?.enableContextMenuOnRightClick ?? true))
+            {
+                ShowPawnContextMenu(pawn);
+                evt.Use();
+                return true;
+            }
+
+            if (evt.type == EventType.MouseUp && evt.button == 1 && overLabel)
+            {
+                evt.Use();
+                return true;
+            }
+
+            if (_legacy016SortingWorkType != null)
+            {
+                return false;
+            }
+
+            bool dragEnabled = settings?.enableDragDropReordering ?? true;
+            bool rowDragEnabled = settings?.rowDraggingEnabled ?? true;
+            if (!dragEnabled || !rowDragEnabled)
+            {
+                return false;
+            }
+
+            bool requireCtrl = settings?.requireCtrlForDrag ?? DefaultSettings.requireCtrlForDrag;
+            bool ctrlSatisfied = !requireCtrl || evt.control;
+
+            if (evt.type == EventType.MouseDown && evt.button == 0 && overLabel && ctrlSatisfied)
+            {
+                _legacy016PendingRowPawn = pawn;
+                _legacy016PendingRowMouse = evt.mousePosition;
+                _legacy016RowDragTargetIndex = visualIndex;
+                evt.Use();
+                return true;
+            }
+
+            if (_legacy016PendingRowPawn != pawn && _legacy016DraggingRowPawn != pawn)
+            {
+                return false;
+            }
+
+            if (evt.type == EventType.MouseDrag && _legacy016PendingRowPawn == pawn)
+            {
+                float threshold = Mathf.Max(1f, settings?.dragThreshold ?? DefaultSettings.dragThreshold);
+                if ((evt.mousePosition - _legacy016PendingRowMouse).magnitude >= threshold)
+                {
+                    _legacy016RowDragActive = true;
+                    _legacy016DraggingRowPawn = pawn;
+                    BetterWorkTabLocalState.IsHeaderDragging = true;
+                }
+
+                if (_legacy016RowDragActive)
+                {
+                    _legacy016RowDragTargetIndex = Legacy016RowTargetIndex(evt.mousePosition.y, rowCount);
+                    evt.Use();
+                    return true;
+                }
+            }
+
+            if (evt.type == EventType.MouseUp && _legacy016PendingRowPawn == pawn)
+            {
+                if (_legacy016RowDragActive)
+                {
+                    Legacy016CommitRowDrag(rowCount);
+                }
+                else if (overLabel)
+                {
+                    Find.MainTabsRoot.EscapeCurrentTab(false);
+                    Find.Selector.ClearSelection();
+                    JumpToTargetUtility.TryJumpAndSelect(pawn);
+                }
+
+                Legacy016CancelRowDrag();
+                evt.Use();
+                return true;
+            }
+
+            if (evt.type == EventType.KeyDown && evt.keyCode == KeyCode.Escape &&
+                (_legacy016PendingRowPawn != null || _legacy016RowDragActive))
+            {
+                Legacy016CancelRowDrag();
+                evt.Use();
+                return true;
+            }
+
+            return _legacy016RowDragActive && _legacy016DraggingRowPawn == pawn;
+        }
+
+        private int Legacy016RowTargetIndex(float mouseY, int rowCount)
+        {
+            return Mathf.Clamp(Mathf.FloorToInt((mouseY + 15f) / 30f), 0, rowCount);
+        }
+
+        private void DrawLegacy016RowDragOverlay(float width)
+        {
+            if (!_legacy016RowDragActive || _legacy016RowDragTargetIndex < 0)
+            {
+                return;
+            }
+
+            float y = Mathf.Max(0f, _legacy016RowDragTargetIndex * 30f);
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(new Rect(0f, y - 1f, width, 2f), Color.white);
+        }
+
+        private void Legacy016CommitRowDrag(int rowCount)
+        {
+            Pawn pawn = _legacy016DraggingRowPawn;
+            if (pawn == null)
+            {
+                return;
+            }
+
+            List<Pawn> ordered = Legacy016DisplayPawns();
+            int oldIndex = ordered.IndexOf(pawn);
+            if (oldIndex < 0)
+            {
+                return;
+            }
+
+            int insertIndex = Mathf.Clamp(_legacy016RowDragTargetIndex, 0, rowCount);
+            if (insertIndex > oldIndex)
+            {
+                insertIndex--;
+            }
+
+            ordered.RemoveAt(oldIndex);
+            ordered.Insert(Mathf.Clamp(insertIndex, 0, ordered.Count), pawn);
+
+            for (int i = 0; i < ordered.Count; i++)
+            {
+                RowOrderUtility.SetPawnRowOrder(ordered[i], i);
+            }
+
+            pawns.Clear();
+            pawns.AddRange(ordered);
+            Legacy016InvalidateDisplayPawnCache();
+            UISoundCompat.TickHigh.PlayOneShotOnCamera();
+        }
+
+        private void Legacy016CancelRowDrag()
+        {
+            _legacy016PendingRowPawn = null;
+            _legacy016DraggingRowPawn = null;
+            _legacy016RowDragActive = false;
+            _legacy016RowDragTargetIndex = -1;
+            BetterWorkTabLocalState.IsHeaderDragging = false;
+        }
+
+        private static void DrawLegacy016PawnRowOverlay(Rect rect, Pawn pawn)
+        {
+            if (pawn.Downed)
+            {
+                GUI.color = new Color(1f, 0f, 0f, 0.5f);
+                Widgets.DrawLineHorizontal(rect.x, rect.center.y, rect.width);
+                GUI.color = Color.white;
+            }
+        }
+
+        private static string Legacy016PawnLabel(Pawn pawn)
+        {
+            if (pawn.RaceProps.Humanlike || pawn.Name == null || pawn.Name.Numerical)
+            {
+                return pawn.LabelCap;
+            }
+
+            return pawn.Name.ToStringShort.CapitalizeFirst() + ", " + pawn.KindLabel;
+        }
+
         protected override void DrawPawnRow(Rect rect, Pawn pawn)
         {
             float x = 165f;
@@ -1706,7 +2539,14 @@ namespace Better_Work_Tab.UI
                 bool incapable = Legacy016IsIncapableOfWholeWorkType(pawn, workType);
                 Rect boxRect = new Rect(x, y, 25f, 25f);
                 DrawLegacy016WorkBox(boxRect, pawn, workType, incapable);
+#if v0_13
+                if (Mouse.IsOver(boxRect))
+                {
+                    TooltipHandler.TipRegion(boxRect, WidgetsWork.TipForPawnWorker(pawn, workType, incapable));
+                }
+#else
                 TooltipHandler.TipRegion(boxRect, () => WidgetsWork.TipForPawnWorker(pawn, workType, incapable), pawn.thingIDNumber ^ workType.GetHashCode());
+#endif
                 x += _legacy016WorkColumnSpacing;
             }
 
@@ -1726,7 +2566,7 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
-            bool useManualPriorities = Current.Game?.playSettings?.useWorkPriorities ?? false;
+            bool useManualPriorities = Verse.Current.Game?.playSettings?.useWorkPriorities ?? false;
             if (!useManualPriorities)
             {
                 WidgetsWorkCompat.DrawWorkBoxFor(rect.x, rect.y, pawn, workType, incapable);
@@ -1734,26 +2574,261 @@ namespace Better_Work_Tab.UI
             }
 
             int currentPriority = WorkPrioritySystem.GetPriority(pawn.workSettings, workType);
-            CustomWorkBoxDrawer.DrawWorkBoxForSkillOverlay(rect.x, rect.y, pawn, workType, incapable);
-
-            if (Mouse.IsOver(rect) && Event.current.type == EventType.MouseDown)
+            int skillLevel = 0;
+            bool skillOverlayRequested = !incapable && Legacy016ShouldShowSkillOverlay();
+            if (skillOverlayRequested)
             {
-                int nextPriority = WorkPrioritySystem.GetPriorityAfterMouseButton(currentPriority, Event.current.button, useManualPriorities);
+                Legacy016HandlePriorityInput(rect, pawn, workType, currentPriority, useManualPriorities);
+
+                if (Legacy016TryGetSkillLevel(pawn, workType, out skillLevel))
+                {
+                    CustomWorkBoxDrawer.DrawWorkBoxForSkillOverlay(rect.x, rect.y, pawn, workType, incapable);
+                    Legacy016DrawSkillNumber(rect, skillLevel);
+                    CustomWorkBoxDrawer.DrawCompactPriority(rect, currentPriority);
+                }
+                else
+                {
+                    CustomWorkBoxDrawer.DrawWorkBoxForPriorityOnly(rect.x, rect.y, pawn, workType, incapable);
+                }
+
+                return;
+            }
+
+            CustomWorkBoxDrawer.DrawWorkBoxForPriorityOnly(rect.x, rect.y, pawn, workType, incapable);
+            Legacy016HandlePriorityInput(rect, pawn, workType, currentPriority, useManualPriorities);
+            CustomWorkBoxDrawer.DrawCenteredPriority(rect, currentPriority);
+        }
+
+        private static bool Legacy016ShouldShowSkillOverlay()
+        {
+            return (BetterWorkTabMod.Settings?.enableSkillOverlayFeature ?? false) &&
+                   ShiftHelper.State == BetterWorkTabSettings.ShowUIMode.Shifted;
+        }
+
+        private static bool Legacy016TryGetSkillLevel(Pawn pawn, WorkTypeDef workType, out int level)
+        {
+            level = 0;
+            if (pawn?.skills == null || workType?.relevantSkills == null || workType.relevantSkills.Count == 0)
+            {
+                return false;
+            }
+
+            int currentFrame = Time.frameCount;
+            var settings = BetterWorkTabMod.Settings;
+            bool useCache = (settings?.enablePerformanceOptimizations ?? true) &&
+                            (settings?.cacheSkillLevels ?? true);
+
+            int key = (pawn.thingIDNumber << 16) ^ workType.shortHash;
+            if (useCache &&
+                Legacy016SkillLevelCacheTimestamps.TryGetValue(key, out int timestamp) &&
+                currentFrame - timestamp < Legacy016SkillCacheFrameValidity &&
+                Legacy016SkillLevelCache.TryGetValue(key, out int cachedLevel))
+            {
+                if (cachedLevel == Legacy016NoSkillLevel)
+                {
+                    return false;
+                }
+
+                level = cachedLevel;
+                return true;
+            }
+
+            int total = 0;
+            int count = 0;
+            for (int i = 0; i < workType.relevantSkills.Count; i++)
+            {
+                SkillRecord skill = pawn.skills.GetSkill(workType.relevantSkills[i]);
+                if (skill == null)
+                {
+                    continue;
+                }
+
+                total += SkillCompat.Level(skill);
+                count++;
+            }
+
+            if (count == 0)
+            {
+                if (useCache)
+                {
+                    Legacy016SkillLevelCache[key] = Legacy016NoSkillLevel;
+                    Legacy016SkillLevelCacheTimestamps[key] = currentFrame;
+                }
+
+                return false;
+            }
+
+            level = Mathf.Clamp(Mathf.RoundToInt(total / (float)count), 0, 20);
+            if (useCache)
+            {
+                Legacy016SkillLevelCache[key] = level;
+                Legacy016SkillLevelCacheTimestamps[key] = currentFrame;
+                Legacy016TrimSkillCacheIfNeeded();
+            }
+
+            return true;
+        }
+
+        private static void Legacy016TrimSkillCacheIfNeeded()
+        {
+            if (Legacy016SkillLevelCache.Count <= 2000)
+            {
+                return;
+            }
+
+            Legacy016SkillLevelCache.Clear();
+            Legacy016SkillLevelCacheTimestamps.Clear();
+        }
+
+        private static void Legacy016DrawSkillNumber(Rect rect, int level)
+        {
+            var oldFont = Text.Font;
+            var oldAnchor = Text.Anchor;
+            var oldColor = GUI.color;
+
+            string label = level.ToString();
+            Text.Font = label.Length > 1 ? GameFont.Small : GameFont.Medium;
+            Text.Anchor = TextAnchor.MiddleCenter;
+
+            GUI.color = new Color(0f, 0f, 0f, 0.85f);
+            Widgets.Label(new Rect(rect.x + 1f, rect.y + 1f, rect.width, rect.height), label);
+
+            GUI.color = Legacy016SkillColor(level);
+            Widgets.Label(rect, label);
+
+            GUI.color = oldColor;
+            Text.Font = oldFont;
+            Text.Anchor = oldAnchor;
+        }
+
+        private static Color Legacy016SkillColor(int level)
+        {
+            var settings = BetterWorkTabMod.Settings;
+            if (settings == null)
+            {
+                return Color.white;
+            }
+
+            if (level <= 3)
+            {
+                return settings.Color_VeryLowSkill;
+            }
+
+            if (level <= 9)
+            {
+                return settings.Color_LowSkill;
+            }
+
+            if (level <= 15)
+            {
+                return settings.Color_GoodLowSkill;
+            }
+
+            return settings.Color_ExcellentSkill;
+        }
+
+        private static void Legacy016HandlePriorityInput(Rect rect, Pawn pawn, WorkTypeDef workType, int currentPriority, bool useManualPriorities)
+        {
+            Event evt = Event.current;
+            if (evt == null)
+            {
+                return;
+            }
+
+            if (evt.type == EventType.MouseUp || evt.type == EventType.Ignore)
+            {
+                Legacy016ClearPriorityPaint();
+                return;
+            }
+
+            if (BetterWorkTabMod.Settings.enableScrollWheelPriority && evt.type == EventType.ScrollWheel && Mouse.IsOver(rect))
+            {
+                int nextPriority = WorkPrioritySystem.GetPriorityAfterMouseButton(currentPriority, evt.delta.y > 0 ? 1 : 0, useManualPriorities);
 
                 if (nextPriority != currentPriority)
                 {
                     WorkPrioritySystem.SetPriority(pawn.workSettings, workType, nextPriority);
                     UISoundCompat.DragSlider.PlayOneShotOnCamera();
+                    WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
+                    Legacy016InvalidateFrameCaches();
                 }
 
-                Event.current.Use();
+                evt.Use();
+                return;
             }
 
-            CustomWorkBoxDrawer.DrawCenteredPriority(rect, WorkPrioritySystem.GetPriority(pawn.workSettings, workType));
+            if (Mouse.IsOver(rect) && evt.type == EventType.MouseDown && (evt.button == 0 || evt.button == 1))
+            {
+                int nextPriority = WorkPrioritySystem.GetPriorityAfterMouseButton(currentPriority, evt.button, useManualPriorities);
+                Legacy016ApplyPriority(pawn, workType, nextPriority, currentPriority);
+                _legacy016PriorityPaintActive = true;
+                _legacy016PriorityPaintValue = nextPriority;
+                evt.Use();
+                return;
+            }
+
+            if (_legacy016PriorityPaintActive && Mouse.IsOver(rect) && evt.type == EventType.MouseDrag)
+            {
+                Legacy016ApplyPriority(pawn, workType, _legacy016PriorityPaintValue, currentPriority);
+                evt.Use();
+            }
+        }
+
+        private static void Legacy016ApplyPriority(Pawn pawn, WorkTypeDef workType, int nextPriority, int currentPriority)
+        {
+            if (nextPriority == currentPriority)
+            {
+                return;
+            }
+
+            WorkPrioritySystem.SetPriority(pawn.workSettings, workType, nextPriority);
+            UISoundCompat.DragSlider.PlayOneShotOnCamera();
+            WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
+            Legacy016InvalidateFrameCaches();
+        }
+
+        private static void Legacy016ClearPriorityPaint()
+        {
+            _legacy016PriorityPaintActive = false;
+            _legacy016PriorityPaintValue = 0;
+        }
+
+        private void Legacy016InvalidateDisplayPawnCache()
+        {
+            _legacy016DisplayPawnsCacheFrame = -1;
+            _legacy016DisplayPawnsSourceCount = -1;
+            _legacy016DisplayPawnsCache.Clear();
+            _legacy016DisplayPawnSeen.Clear();
+        }
+
+        private static void Legacy016InvalidateFrameCaches()
+        {
+            Legacy016SkillLevelCache.Clear();
+            Legacy016IncapableCache.Clear();
+            Legacy016SkillLevelCacheTimestamps.Clear();
+            Legacy016IncapableCacheTimestamps.Clear();
         }
 
         private static bool Legacy016IsIncapableOfWholeWorkType(Pawn pawn, WorkTypeDef work)
         {
+            if (pawn?.health?.capacities == null || work?.workGiversByPriority == null)
+            {
+                return false;
+            }
+
+            int currentFrame = Time.frameCount;
+            var settings = BetterWorkTabMod.Settings;
+            bool useCache = (settings?.enablePerformanceOptimizations ?? true) &&
+                            (settings?.cacheIncapabilityChecks ?? true);
+            int key = (pawn.thingIDNumber << 16) ^ work.shortHash;
+            if (useCache &&
+                Legacy016IncapableCacheTimestamps.TryGetValue(key, out int timestamp) &&
+                currentFrame - timestamp < Legacy016IncapableCacheFrameValidity &&
+                Legacy016IncapableCache.TryGetValue(key, out bool cached))
+            {
+                return cached;
+            }
+
             for (int i = 0; i < work.workGiversByPriority.Count; i++)
             {
                 bool capableOfGiver = true;
@@ -1768,10 +2843,36 @@ namespace Better_Work_Tab.UI
                 }
 
                 if (capableOfGiver)
+                {
+                    if (useCache)
+                    {
+                        Legacy016IncapableCache[key] = false;
+                        Legacy016IncapableCacheTimestamps[key] = currentFrame;
+                    }
+
                     return false;
+                }
+            }
+
+            if (useCache)
+            {
+                Legacy016IncapableCache[key] = true;
+                Legacy016IncapableCacheTimestamps[key] = currentFrame;
+                Legacy016TrimIncapableCacheIfNeeded();
             }
 
             return true;
+        }
+
+        private static void Legacy016TrimIncapableCacheIfNeeded()
+        {
+            if (Legacy016IncapableCache.Count <= 2000)
+            {
+                return;
+            }
+
+            Legacy016IncapableCache.Clear();
+            Legacy016IncapableCacheTimestamps.Clear();
         }
 
         private static void Legacy016CopyFrom(Pawn pawn)

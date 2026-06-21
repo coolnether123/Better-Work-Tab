@@ -129,14 +129,14 @@ namespace Better_Work_Tab.ModSupport
                 object instance = _instanceField.GetValue(null);
                 if (instance == null)
                 {
-                    Debug($"[UsefulMarks] WorldComponent instance null; skipping pawn '{pawn?.LabelShort ?? "null"}'.");
+                    Debug($"[UsefulMarks] WorldComponent instance null; skipping pawn '{PawnLabel(pawn)}'.");
                     return false;
                 }
 
                 bool shouldDraw = (bool)_shouldDrawLabelMethod.Invoke(instance, new object[] { pawn });
                 if (!shouldDraw)
                 {
-                    Debug($"[UsefulMarks] No icon for pawn '{pawn?.LabelShort ?? "null"}'.");
+                    Debug($"[UsefulMarks] No icon for pawn '{PawnLabel(pawn)}'.");
                     return false;
                 }
 
@@ -147,12 +147,12 @@ namespace Better_Work_Tab.ModSupport
                     LabelColor = color
                 };
 
-                Debug($"[UsefulMarks] Pawn '{pawn?.LabelShort ?? "null"}' has a Useful Marks icon (color: {color}).");
+                Debug($"[UsefulMarks] Pawn '{PawnLabel(pawn)}' has a Useful Marks icon (color: {color}).");
                 return true;
             }
             catch (Exception ex)
             {
-                Debug($"[UsefulMarks] Error reading mark info for {pawn?.LabelShort ?? "null"}: {ex.Message}");
+                Debug($"[UsefulMarks] Error reading mark info for {PawnLabel(pawn)}: {ex.Message}");
                 return false;
             }
         }
@@ -202,7 +202,7 @@ namespace Better_Work_Tab.ModSupport
             }
             catch (Exception ex)
             {
-                Debug($"[UsefulMarks] Error while drawing marker for '{pawn?.LabelShort ?? "null"}': {ex.Message}");
+                Debug($"[UsefulMarks] Error while drawing marker for '{PawnLabel(pawn)}': {ex.Message}");
             }
             finally
             {
@@ -306,6 +306,11 @@ namespace Better_Work_Tab.ModSupport
             }
 
             _drewMarker = true;
+        }
+
+        private static string PawnLabel(Pawn pawn)
+        {
+            return pawn == null ? "null" : PawnCompat.LabelShortCap(pawn);
         }
     }
 }

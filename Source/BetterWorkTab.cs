@@ -102,9 +102,9 @@ namespace Better_Work_Tab
             {
                 WorkColumnOrderManager.InitializeSimilarWorktypeMap();
                 WorkColumnOrderManager.InitializeOnGameLoad();
-                if (Current.Game != null)
+                if (Verse.Current.Game != null)
                 {
-                    var component = Current.Game.GetComponent<GameComponent_BWTWorldSettings>();
+                    var component = Verse.Current.Game.GetComponent<GameComponent_BWTWorldSettings>();
                     if (component?.CurrentWorklist == null)
                     {
                         Log.Warning("[BetterWorkTab] No current worklist on startup. Create one in the Work tab.");

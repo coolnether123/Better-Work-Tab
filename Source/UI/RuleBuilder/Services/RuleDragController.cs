@@ -27,6 +27,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
         // Pending drag (for threshold)
         private bool _pendingDrag;
         private Vector2 _mouseDownPos;
+        private Vector2 _dragVisualOffset;
         private List<WorkAssignmentRule> _pendingRules;
         private const float DragThreshold = 5f;
         
@@ -56,7 +57,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
             {
                 // Draw disabled handle
                 GUI.color = new Color(0.3f, 0.3f, 0.3f, 0.5f);
-                Verse.Widgets.DrawBoxSolid(rect, new Color(0.2f, 0.2f, 0.2f, 0.3f));
+                Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, new Color(0.2f, 0.2f, 0.2f, 0.3f));
                 GUI.color = Color.white;
                 return false;
             }
@@ -65,7 +66,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
             
             // Draw handle background
             Color bgColor = isHovered ? HandleHoverColor : HandleBgColor;
-            Verse.Widgets.DrawBoxSolid(rect, bgColor);
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, bgColor);
             
             // Draw border
             GUI.color = HandleBorderColor;
@@ -83,7 +84,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
             for (int i = -1; i <= 1; i++)
             {
                 Rect lineRect = new Rect(startX, centerY + i * lineSpacing - 1f, lineWidth, 2f);
-                Verse.Widgets.DrawBoxSolid(lineRect, GUI.color);
+                Better_Work_Tab.WidgetsCompat.DrawBoxSolid(lineRect, GUI.color);
             }
             GUI.color = Color.white;
             
@@ -110,6 +111,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
             {
                 _pendingDrag = true;
                 _mouseDownPos = evt.mousePosition;
+                _dragVisualOffset = evt.mousePosition - rect.position;
                 _pendingRules = rules;
                 SourceWorkType = workType;
                 SourcePriority = priority;
@@ -131,6 +133,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
             if (_pendingDrag && evt.type == EventType.MouseUp)
             {
                 _pendingDrag = false;
+                _dragVisualOffset = Vector2.zero;
                 _pendingRules = null;
             }
             
@@ -154,6 +157,8 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
         {
             IsDragging = false;
             DraggedRules = null;
+            _pendingDrag = false;
+            _dragVisualOffset = Vector2.zero;
             _hoverTimer = 0f;
             _lastHoveredTarget = null;
             SourceWorkType = null;
@@ -229,7 +234,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
         {
             if (!IsDragging || DraggedRules == null) return;
 
-            var mousePos = Verse.UI.MousePositionOnUI;
+            var mousePos = UICompat.MousePosUIInvertedUseEventIfCan;
             
             // Determine size based on content
             int rulesCount = DraggedRules.Count;
@@ -242,9 +247,9 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
             float boxHeight = 50f;
             
             Rect drawRect = new Rect(
-                mousePos.x, 
-                mousePos.y, 
-                boxWidth, 
+                mousePos.x - _dragVisualOffset.x,
+                mousePos.y - _dragVisualOffset.y,
+                boxWidth,
                 boxHeight);
 
             // Draw floating box using ImmediateWindow for proper layering
@@ -253,11 +258,11 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
                 Rect innerRect = new Rect(0, 0, drawRect.width, drawRect.height);
                 
                 // Background with gradient effect (simulated)
-                Verse.Widgets.DrawBoxSolid(innerRect, DragBoxBg);
+                Better_Work_Tab.WidgetsCompat.DrawBoxSolid(innerRect, DragBoxBg);
                 
                 // Accent bar on left
                 Rect accentBar = new Rect(0, 0, 4f, innerRect.height);
-                Verse.Widgets.DrawBoxSolid(accentBar, DragBoxBorder);
+                Better_Work_Tab.WidgetsCompat.DrawBoxSolid(accentBar, DragBoxBorder);
                 
                 // Border
                 GUI.color = DragBoxBorder;

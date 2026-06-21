@@ -116,7 +116,7 @@ namespace Better_Work_Tab.DragDrop
                 float lineY = Layout.TableOrigin.y + (Layout.HeaderHeight - inset);
                 float lineHeight = Mathf.Max(0f, Layout.ContentHeight + inset);
 
-                Widgets.DrawBoxSolid(new Rect(lineX - 1f, lineY, 2f, lineHeight), Color.white);
+                Better_Work_Tab.WidgetsCompat.DrawBoxSolid(new Rect(lineX - 1f, lineY, 2f, lineHeight), Color.white);
             }
         }
 
@@ -231,7 +231,7 @@ namespace Better_Work_Tab.DragDrop
             float lineHeight = Mathf.Max(0f, Layout.ContentHeight + inset);
 
             var baselineColor = new Color(1f, 0.85f, 0.2f, 1f);
-            Widgets.DrawBoxSolid(new Rect(lineX - 1f, lineY, 2f, lineHeight), baselineColor);
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(new Rect(lineX - 1f, lineY, 2f, lineHeight), baselineColor);
         }
 
         public override void OnCancel()

@@ -112,7 +112,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             int configuredCount = state.ConfiguredWorkTypes.Count;
 
             string label = "BWT_ShowOnlyConfigured".Translate(configuredCount);
-            Verse.Widgets.CheckboxLabeled(rect, label, ref showOnlyConfigured);
+            Better_Work_Tab.WidgetsCompat.CheckboxLabeled(rect, label, ref showOnlyConfigured);
 
             if (showOnlyConfigured != state.ShowOnlyConfiguredWorkTypes)
             {

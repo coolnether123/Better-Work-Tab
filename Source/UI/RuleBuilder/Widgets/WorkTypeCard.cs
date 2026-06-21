@@ -23,7 +23,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
             Color bgColor = isHovered
                 ? RuleBuilderConstants.CardBackgroundHover
                 : RuleBuilderConstants.CardBackground;
-            Verse.Widgets.DrawBoxSolid(rect, bgColor);
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, bgColor);
 
             if (isConfigured)
             {
@@ -81,7 +81,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
             string tooltip = BuildTooltip(workType, isConfigured, ruleCount);
             TooltipHandler.TipRegion(rect, tooltip);
 
-            if (Verse.Widgets.ButtonInvisible(rect))
+            if (Better_Work_Tab.WidgetsCompat.ButtonInvisible(rect))
             {
                 clicked = true;
             }
@@ -97,7 +97,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
                 RuleCountBadgeSize,
                 RuleCountBadgeSize);
 
-            Verse.Widgets.DrawBoxSolid(badgeRect, RuleBuilderConstants.SuccessColor);
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(badgeRect, RuleBuilderConstants.SuccessColor);
 
             var oldFont = Text.Font;
             var oldAnchor = Text.Anchor;

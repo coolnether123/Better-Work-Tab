@@ -23,7 +23,7 @@ namespace Spine.UI.SettingsFramework
             bool disabled = false)
         {
             bool original = value;
-            Widgets.CheckboxLabeled(rect, label, ref value, disabled);
+            Better_Work_Tab.WidgetsCompat.CheckboxLabeled(rect, label, ref value, disabled);
 
             if (!string.IsNullOrEmpty(tooltip))
             {
@@ -47,8 +47,8 @@ namespace Spine.UI.SettingsFramework
             bool original = value;
 
             // Header-styled label on the left, checkbox on the right
-            var labelRect = rect.LeftPart(0.7f);
-            var toggleRect = rect.RightPart(0.25f);
+            var labelRect = RectCompat.LeftPart(rect, 0.7f);
+            var toggleRect = RectCompat.RightPart(rect, 0.25f);
 
             var oldFont = Text.Font;
             var oldColor = GUI.color;
@@ -58,15 +58,15 @@ namespace Spine.UI.SettingsFramework
             GUI.color = resolved;
             Widgets.Label(labelRect, label);
             Rect lineRect = new Rect(labelRect.x, labelRect.yMax - 4f, labelRect.width, 2f);
-            Widgets.DrawBoxSolid(lineRect, resolved);
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(lineRect, resolved);
 
             Text.Font = oldFont;
             GUI.color = oldColor;
 
-            Widgets.CheckboxLabeled(toggleRect, string.Empty, ref value, disabled);
+            Better_Work_Tab.WidgetsCompat.CheckboxLabeled(toggleRect, string.Empty, ref value, disabled);
 
             // Allow clicking the header label area to toggle as well (when not disabled)
-            if (!disabled && Widgets.ButtonInvisible(labelRect))
+            if (!disabled && Better_Work_Tab.WidgetsCompat.ButtonInvisible(labelRect))
             {
                 value = !value;
             }
@@ -95,8 +95,8 @@ namespace Spine.UI.SettingsFramework
         {
             float original = value;
 
-            var labelRect = rect.LeftPart(0.5f);
-            var sliderRect = rect.RightPart(0.48f);
+            var labelRect = RectCompat.LeftPart(rect, 0.5f);
+            var sliderRect = RectCompat.RightPart(rect, 0.48f);
 
             Widgets.Label(labelRect, $"{label}: {value:F1}");
 
@@ -144,8 +144,8 @@ namespace Spine.UI.SettingsFramework
         {
             int original = value;
 
-            var labelRect = rect.LeftPart(0.5f);
-            var sliderRect = rect.RightPart(0.48f);
+            var labelRect = RectCompat.LeftPart(rect, 0.5f);
+            var sliderRect = RectCompat.RightPart(rect, 0.48f);
 
             Widgets.Label(labelRect, $"{label}: {value}");
 
@@ -188,15 +188,15 @@ namespace Spine.UI.SettingsFramework
             Action<Color, Action<Color>> openColorPicker = null,
             string editLabel = "Edit")
         {
-            var labelRect = rect.LeftPart(0.6f);
+            var labelRect = RectCompat.LeftPart(rect, 0.6f);
             var colorRect = new Rect(rect.xMax - 96f, rect.y + 2f, 28f, rect.height - 4f);
             var buttonRect = new Rect(colorRect.xMax + 4f, rect.y + 2f, 60f, rect.height - 4f);
 
             Widgets.Label(labelRect, label);
-            Widgets.DrawBoxSolid(colorRect, value);
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(colorRect, value);
             Widgets.DrawBox(colorRect, 1);
 
-            if (!disabled && Widgets.ButtonText(buttonRect, editLabel))
+            if (!disabled && Better_Work_Tab.WidgetsCompat.ButtonText(buttonRect, editLabel))
             {
                 if (openColorPicker != null)
                 {
@@ -228,8 +228,8 @@ namespace Spine.UI.SettingsFramework
             bool disabled = false,
             Action<object> onSelected = null)
         {
-            var labelRect = rect.LeftPart(0.5f);
-            var buttonRect = rect.RightPart(0.48f);
+            var labelRect = RectCompat.LeftPart(rect, 0.5f);
+            var buttonRect = RectCompat.RightPart(rect, 0.48f);
 
             Widgets.Label(labelRect, label);
 
@@ -242,7 +242,7 @@ namespace Spine.UI.SettingsFramework
 
             string currentLabel = ResolveEnumLabel(enumType, currentValue);
 
-            if (Widgets.ButtonText(buttonRect, currentLabel) && enumType != null)
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(buttonRect, currentLabel) && enumType != null)
             {
                 var options = new List<FloatMenuOption>();
                 foreach (var enumValue in Enum.GetValues(enumType))
@@ -311,7 +311,7 @@ namespace Spine.UI.SettingsFramework
                 GUI.color = Color.gray;
             }
 
-            bool clicked = Widgets.ButtonText(rect, label);
+            bool clicked = Better_Work_Tab.WidgetsCompat.ButtonText(rect, label);
 
             if (disabled)
             {
@@ -342,7 +342,7 @@ namespace Spine.UI.SettingsFramework
 
             // Underline for visual separation
             Rect lineRect = new Rect(rect.x, rect.yMax - 4f, rect.width, 2f);
-            Widgets.DrawBoxSolid(lineRect, resolved);
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(lineRect, resolved);
 
             Text.Font = oldFont;
             GUI.color = oldColor;
@@ -367,12 +367,12 @@ namespace Spine.UI.SettingsFramework
             string tooltip = null,
             bool disabled = false)
         {
-            var labelRect = rect.LeftPart(0.6f);
-            var buttonRect = rect.RightPart(0.38f);
+            var labelRect = RectCompat.LeftPart(rect, 0.6f);
+            var buttonRect = RectCompat.RightPart(rect, 0.38f);
 
             Widgets.Label(labelRect, label);
 
-            if (!disabled && Widgets.ButtonText(buttonRect, "BWT_AddOption".Translate()))
+            if (!disabled && Better_Work_Tab.WidgetsCompat.ButtonText(buttonRect, "BWT_AddOption".Translate()))
             {
                 var options = new List<FloatMenuOption>();
                 var available = optionsProvider?.Invoke();
@@ -412,8 +412,8 @@ namespace Spine.UI.SettingsFramework
             bool disabled = false)
         {
             int original = value;
-            var labelRect = rect.LeftPart(0.5f);
-            var controlRect = rect.RightPart(0.48f);
+            var labelRect = RectCompat.LeftPart(rect, 0.5f);
+            var controlRect = RectCompat.RightPart(rect, 0.48f);
 
             Widgets.Label(labelRect, label);
 
@@ -432,19 +432,19 @@ namespace Spine.UI.SettingsFramework
             Rect btnPlusRect = new Rect(btnMinusRect.xMax + spacing, btnMinusRect.y, buttonWidth, buttonWidth);
             Rect textRect = new Rect(btnPlusRect.xMax + spacing, controlRect.y + (controlRect.height - buttonWidth) / 2f, textWidth, buttonWidth);
 
-            if (Widgets.ButtonText(btnMinusRect, "-"))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(btnMinusRect, "-"))
             {
                 value--;
                 if (value < min) value = min;
             }
-            if (Widgets.ButtonText(btnPlusRect, "+"))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(btnPlusRect, "+"))
             {
                 value++;
                 if (value > max) value = max;
             }
 
             string buffer = value.ToString();
-            Widgets.TextFieldNumeric(textRect, ref value, ref buffer, min, max);
+            Better_Work_Tab.WidgetsCompat.TextFieldNumeric(textRect, ref value, ref buffer, min, max);
 
             if (disabled)
             {
