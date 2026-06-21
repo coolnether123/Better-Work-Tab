@@ -11,7 +11,6 @@
     <li>1.4</li>
     <li>1.5</li>
     <li>1.6</li>
-    <li>1.7</li>
   </supportedVersions>
   <packageId>Coolnether123.BetterWorkTab</packageId>
   <description><![CDATA[Better Work Tab v1.1 overhauls RimWorld's Work tab with drag-and-drop, skill overlays, automation rules, extended priorities, and visual customization.
@@ -42,7 +41,6 @@ All features are toggleable in settings with extensive customization options.
 - Fluffy WorkTab and forks are hard conflicts
 
 <b>Version Support</b>
-- 1.7 -> v1.1
 - 1.6 -> v1.1
 - 1.5 -> v1.1
 - 1.4 -> v1.1

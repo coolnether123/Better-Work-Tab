@@ -18,7 +18,7 @@
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <OutputPath>..\1.7\Assemblies\</OutputPath>
+    <OutputPath>..\1.6\Assemblies\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
@@ -33,9 +33,6 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == '1.6|AnyCPU'">
     <OutputPath>..\1.6\Assemblies\</OutputPath>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == '1.7|AnyCPU'">
-    <OutputPath>..\1.7\Assemblies\</OutputPath>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System.Core" />
