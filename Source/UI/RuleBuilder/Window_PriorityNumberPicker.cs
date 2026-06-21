@@ -70,7 +70,7 @@ namespace Better_Work_Tab.UI.RuleBuilder
             Text.Font = GameFont.Medium;
             Text.Anchor = TextAnchor.MiddleLeft;
             GUI.color = RuleBuilderConstants.HeaderColor;
-            RWWidgets.Label(new Rect(rect.x, rect.y, 190f, rect.height), "Select priority");
+            RWWidgets.Label(new Rect(rect.x, rect.y, 190f, rect.height), "BWT_PriorityPicker_SelectPriority".Translate());
 
             Text.Font = GameFont.Small;
             GUI.color = Color.white;
@@ -87,7 +87,7 @@ namespace Better_Work_Tab.UI.RuleBuilder
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.MiddleLeft;
             GUI.color = RuleBuilderConstants.SubtleTextColor;
-            RWWidgets.Label(new Rect(rect.x, rect.y, 42f, rect.height), "Recent");
+            RWWidgets.Label(new Rect(rect.x, rect.y, 42f, rect.height), "BWT_PriorityPicker_Recent".Translate());
             GUI.color = Color.white;
 
             float x = rect.x + 46f;
@@ -135,11 +135,11 @@ namespace Better_Work_Tab.UI.RuleBuilder
             Text.Font = GameFont.Small;
             Text.Anchor = TextAnchor.MiddleLeft;
             GUI.color = RuleBuilderConstants.HeaderColor;
-            RWWidgets.Label(new Rect(rect.x + 12f, rect.y + 6f, rect.width - 24f, 22f), $"Bucket: {_selectedBucket.Label}");
+            RWWidgets.Label(new Rect(rect.x + 12f, rect.y + 6f, rect.width - 24f, 22f), "BWT_PriorityPicker_Bucket".Translate(_selectedBucket.Label));
 
             Text.Font = GameFont.Tiny;
             GUI.color = RuleBuilderConstants.SubtleTextColor;
-            RWWidgets.Label(new Rect(rect.x + 12f, rect.y + 28f, rect.width - 24f, 18f), "Use this when the exact number is not visible in the main list.");
+            RWWidgets.Label(new Rect(rect.x + 12f, rect.y + 28f, rect.width - 24f, 18f), "BWT_PriorityPicker_BucketHint".Translate());
             GUI.color = Color.white;
 
             Rect pickedRect = new Rect(rect.xMax - 88f, rect.y + 58f, 74f, rect.height - 76f);
@@ -183,7 +183,7 @@ namespace Better_Work_Tab.UI.RuleBuilder
             Text.Anchor = TextAnchor.MiddleCenter;
             Text.Font = GameFont.Tiny;
             GUI.color = RuleBuilderConstants.SubtleTextColor;
-            RWWidgets.Label(new Rect(rect.x, rect.y + 18f, rect.width, 18f), "Picked");
+            RWWidgets.Label(new Rect(rect.x, rect.y + 18f, rect.width, 18f), "BWT_PriorityPicker_Picked".Translate());
 
             Text.Font = GameFont.Medium;
             GUI.color = RuleBuilderConstants.SuccessColor;
@@ -199,7 +199,7 @@ namespace Better_Work_Tab.UI.RuleBuilder
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.MiddleLeft;
             GUI.color = RuleBuilderConstants.SubtleTextColor;
-            RWWidgets.Label(new Rect(rect.x, rect.y, rect.width - 160f, rect.height), "Esc cancels - Enter confirms - arrows move by one");
+            RWWidgets.Label(new Rect(rect.x, rect.y, rect.width - 160f, rect.height), "BWT_PriorityPicker_FooterHint".Translate());
 
             GUI.color = Color.white;
             Text.Font = GameFont.Small;
@@ -207,7 +207,7 @@ namespace Better_Work_Tab.UI.RuleBuilder
             Rect okRect = new Rect(rect.xMax - 50f, rect.y, 50f, rect.height);
             Rect cancelRect = new Rect(okRect.x - 58f, rect.y, 52f, rect.height);
 
-            if (RWWidgets.ButtonText(cancelRect, "Cancel"))
+            if (RWWidgets.ButtonText(cancelRect, "BWT_Cancel".Translate()))
             {
                 Close();
             }
