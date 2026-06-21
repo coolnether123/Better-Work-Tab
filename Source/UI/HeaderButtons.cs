@@ -106,7 +106,7 @@ namespace Better_Work_Tab.UI
 
                 AddRulesetManagementOptions(options);
 
-                Find.WindowStack.Add(new FloatMenu(options));
+                BWTFloatMenuPlacement.AddBottomRightAnchored(options, dotRect);
             }
 
             return newRight;
@@ -170,12 +170,12 @@ namespace Better_Work_Tab.UI
             }
 
             if (Better_Work_Tab.WidgetsCompat.ButtonText(dotRect, "..."))
-                ShowWorkloadMenu(workloadSaver);
+                ShowWorkloadMenu(workloadSaver, dotRect);
 
             return newRight;
         }
 
-        private static void ShowWorkloadMenu(GameComponent_BWTWorldSettings workloadSaver)
+        private static void ShowWorkloadMenu(GameComponent_BWTWorldSettings workloadSaver, Rect anchorRect)
         {
             var options = new List<FloatMenuOption>();
             var workloads = workloadSaver.SavedWorklists.ListFullCopy();
@@ -213,7 +213,7 @@ namespace Better_Work_Tab.UI
                                 UISoundCompat.TickLow.PlayOneShotOnCamera();
                             }));
                     }
-                    Find.WindowStack.Add(new FloatMenu(ren));
+                    BWTFloatMenuPlacement.AddBottomRightAtMouse(ren);
                 }));
 
                 options.Add(new FloatMenuOption("Delete Saved Workload", () =>
@@ -235,11 +235,11 @@ namespace Better_Work_Tab.UI
                                 UISoundCompat.TickLow.PlayOneShotOnCamera();
                             }));
                     }
-                    Find.WindowStack.Add(new FloatMenu(del));
+                    BWTFloatMenuPlacement.AddBottomRightAtMouse(del);
                 }));
             }
 
-            Find.WindowStack.Add(new FloatMenu(options));
+            BWTFloatMenuPlacement.AddBottomRightAnchored(options, anchorRect);
         }
 
         private static void CreateNewWorkload(GameComponent_BWTWorldSettings workloadSaver)

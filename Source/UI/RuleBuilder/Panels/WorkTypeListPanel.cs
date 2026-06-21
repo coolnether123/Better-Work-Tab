@@ -226,7 +226,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
 
             if (ruleCount > 0)
             {
-                sb.AppendLine($"<color=#66CC66>{ruleCount} {"BWT_RulesConfigured".Translate()}</color>");
+                sb.AppendLine($"<color=#66CC66>{"BWT_RulesConfigured".Translate(ruleCount)}</color>");
             }
             else
             {

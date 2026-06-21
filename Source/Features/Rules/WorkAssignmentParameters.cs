@@ -18,6 +18,9 @@ namespace Better_Work_Tab.Features.Rules
         public string RuleName;
         
         [RuleParameter]
+#if vAlpha4
+        [Unsaved]
+#endif
         public WorkTypeDef Worktype;
 
         [RuleParameter]
@@ -34,10 +37,16 @@ namespace Better_Work_Tab.Features.Rules
 
 #if !v1_3 && !v1_2 && !v1_1 && !(v1_0 || v0_19)
         [RuleParameter]
+#if vAlpha4
+        [Unsaved]
+#endif
         public XenotypeDef Xenotype;
 #endif
 
         [RuleParameter]
+#if vAlpha4
+        [Unsaved]
+#endif
         public System.Tuple<TraitDef, int> RequiredTrait;
 
         [RuleParameter]

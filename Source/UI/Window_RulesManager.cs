@@ -94,7 +94,7 @@ namespace Better_Work_Tab.UI
             forcePause = true;
             doCloseX = true;
             preventCameraMotion = true;
-            resizeable = false;
+            resizeable = true;
 
             // Initialize drag controller for rules with target index calculator
             _ruleDragController = new DragDropController<WorkAssignmentRule>(
@@ -103,9 +103,9 @@ namespace Better_Work_Tab.UI
         }
 
 #if v0_13
-        public override Vector2 InitialWindowSize => new Vector2(800f, 600f);
+        public override Vector2 InitialWindowSize => BWTWindowSizeUtility.FitToScreen(new Vector2(900f, 640f), new Vector2(700f, 500f));
 #else
-        public override Vector2 InitialSize => new Vector2(800f, 600f);
+        public override Vector2 InitialSize => BWTWindowSizeUtility.FitToScreen(new Vector2(900f, 640f), new Vector2(700f, 500f));
 #endif
 
         private BetterWorkTabSettings Settings => BetterWorkTabMod.Settings;
@@ -130,10 +130,11 @@ namespace Better_Work_Tab.UI
 
         public override void DoWindowContents(Rect inRect)
         {
+            string title = "BWT_RuleBuilder_ManageRulesets".Translate();
             Text.Font = GameFont.Medium;
-            Widgets.Label(inRect, "Manage Rules");
+            Widgets.Label(inRect, title);
             Text.Font = GameFont.Small;
-            float titleHeight = Text.CalcHeight("Manage Rules", 0) + 12f;
+            float titleHeight = Text.CalcHeight(title, 0) + 12f;
 
             Rect contentRect = inRect;
             contentRect.height -= titleHeight;

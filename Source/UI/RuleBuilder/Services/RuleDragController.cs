@@ -95,7 +95,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
             GUI.color = new Color(0.8f, 0.9f, 1f, isHovered ? 1f : 0.7f);
             // Increased height to 18f and moved up slightly to prevent clipping of descenders
             Rect labelRect = new Rect(rect.x, rect.yMax - 18f, rect.width, 18f);
-            RWWidgets.Label(labelRect, "⇄ Drag");
+            RWWidgets.Label(labelRect, "Drag");
             Text.Anchor = TextAnchor.UpperLeft;
             GUI.color = Color.white;
             

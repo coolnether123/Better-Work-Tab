@@ -104,7 +104,20 @@ namespace Verse
 
         public static bool CanTranslate(this string text)
         {
-            return !string.IsNullOrEmpty(text);
+            if (string.IsNullOrEmpty(text))
+            {
+                return false;
+            }
+
+            string translated;
+            if (LanguageDatabase.activeLanguage != null &&
+                LanguageDatabase.activeLanguage.TryGetTextFromKey(text, out translated))
+            {
+                return true;
+            }
+
+            return LanguageDatabase.defaultLanguage != null &&
+                   LanguageDatabase.defaultLanguage.TryGetTextFromKey(text, out translated);
         }
     }
 }

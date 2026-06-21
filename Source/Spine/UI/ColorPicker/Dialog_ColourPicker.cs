@@ -94,6 +94,9 @@ namespace Spine.UI.ColourPicker {
         public Dialog_ColourPicker(Color color, Action<Color, bool> callback = null, Vector2? position = null) {
             absorbInputAroundWindow = true;
             closeOnClickedOutside = true;
+#if vAlpha4
+            defaultTitle = "BWT_ColorPicker".Translate();
+#endif
 
             _callback = callback;
             _initialPosition = position;
@@ -117,6 +120,9 @@ namespace Spine.UI.ColourPicker {
             });
 
             NotifyRGBUpdated();
+#if vAlpha4
+            SetInitialSizeAndPosition();
+#endif
         }
 
         public float A {
@@ -568,7 +574,7 @@ namespace Spine.UI.ColourPicker {
 
         private void DrawButtons(Rect doneRect, Rect setRect, Rect cancelRect)
         {
-            if (Better_Work_Tab.WidgetsCompat.ButtonText(doneRect, "OK"))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(doneRect, "BWT_OK".Translate()))
             {
                 SetColor(true);
                 Close();
@@ -576,12 +582,12 @@ namespace Spine.UI.ColourPicker {
                 //WantsToClose = true;
             }
 
-            if (Better_Work_Tab.WidgetsCompat.ButtonText(setRect, "Apply"))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(setRect, "BWT_Apply".Translate()))
             {
                 SetColor(false);
             }
 
-            if (Better_Work_Tab.WidgetsCompat.ButtonText(cancelRect, "Cancel"))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(cancelRect, "BWT_Cancel".Translate()))
             {
                 onCancel?.Invoke();
                 Close();
@@ -982,6 +988,9 @@ namespace Spine.UI.ColourPicker {
                 Mathf.Max(0f, Mathf.Min(InitialPosition.y, Verse.UI.screenHeight - size.y)));
 
             windowRect = new Rect(position.x, position.y, size.x, size.y);
+#if vAlpha4
+            winRect = windowRect;
+#endif
         }
 #endif
 

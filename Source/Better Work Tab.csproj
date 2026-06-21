@@ -373,6 +373,8 @@
     <Compile Include="UI\Headers\Angled\AngledHeaderController.cs" />
     <Compile Include="UI\Headers\HeaderInputController.cs" />
     <Compile Include="UI\Headers\HeaderUtility.cs" />
+    <Compile Include="UI\BWTFloatMenuPlacement.cs" />
+    <Compile Include="UI\BWTWindowSizeUtility.cs" />
     <Compile Include="UI\HeaderButtons.cs" />
     <Compile Include="UI\Dialog_WarningWithCheckbox.cs" />
     <Compile Include="UI\MouseStateManager.cs" />

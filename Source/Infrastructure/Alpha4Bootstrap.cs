@@ -5,6 +5,7 @@ using Better_Work_Tab.Features;
 using Better_Work_Tab.UI;
 using HarmonyLib;
 using System.Reflection;
+using System.Xml;
 using UnityEngine;
 using Verse;
 using Verse.AI;
@@ -68,6 +69,7 @@ namespace Better_Work_Tab
                     typeof(Better_Work_Tab.Features.Patch_WorkExecutionOrder_ActiveWorkTypesByPriority),
                     nameof(Better_Work_Tab.Features.Patch_WorkExecutionOrder_ActiveWorkTypesByPriority.Postfix)));
 
+            Alpha4TranslationInjector.TryInject();
             Log.Message("[Better Work Tab] Alpha4 compatibility patches installed.");
         }
 
@@ -97,8 +99,108 @@ namespace Better_Work_Tab
     {
         public static void Prefix(Root __instance)
         {
+            Alpha4TranslationInjector.TryInject();
             Alpha4UiRootRepair.Ensure(__instance);
             Alpha4QuickTestDriver.Update(__instance);
+        }
+    }
+
+    internal static class Alpha4TranslationInjector
+    {
+        private static bool injected;
+
+        public static void TryInject()
+        {
+            if (injected || LanguageDatabase.activeLanguage == null)
+            {
+                return;
+            }
+
+            try
+            {
+                string keyedPath = KeyedLanguagePath();
+                if (keyedPath == null)
+                {
+                    Log.Warning("[Better Work Tab] Alpha4 translations were not found.");
+                    return;
+                }
+
+                int count = InjectInto(LanguageDatabase.defaultLanguage, keyedPath);
+                if (LanguageDatabase.activeLanguage != LanguageDatabase.defaultLanguage)
+                {
+                    count += InjectInto(LanguageDatabase.activeLanguage, keyedPath);
+                }
+
+                injected = true;
+                Log.Message("[Better Work Tab] Alpha4 injected " + count + " keyed translations.");
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[Better Work Tab] Alpha4 translation injection failed: " + ex);
+            }
+        }
+
+        private static int InjectInto(LoadedLanguage language, string keyedPath)
+        {
+            if (language == null || language.keyedReplacements == null)
+            {
+                return 0;
+            }
+
+            int count = 0;
+            foreach (string filePath in Directory.GetFiles(keyedPath, "*.xml", SearchOption.AllDirectories))
+            {
+                XmlDocument document = new XmlDocument();
+                document.Load(filePath);
+                XmlNode root = document.DocumentElement;
+                if (root == null)
+                {
+                    continue;
+                }
+
+                foreach (XmlNode node in root.ChildNodes)
+                {
+                    if (node.NodeType != XmlNodeType.Element)
+                    {
+                        continue;
+                    }
+
+                    language.keyedReplacements[node.Name] = node.InnerText.Replace("\\n", "\n");
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
+        private static string KeyedLanguagePath()
+        {
+            string root = ModRootPath();
+            string enUsPath = Path.Combine(Path.Combine(Path.Combine(root, "Languages"), "en-US"), "Keyed");
+            if (Directory.Exists(enUsPath))
+            {
+                return enUsPath;
+            }
+
+            string englishPath = Path.Combine(Path.Combine(Path.Combine(root, "Languages"), "English"), "Keyed");
+            return Directory.Exists(englishPath) ? englishPath : null;
+        }
+
+        private static string ModRootPath()
+        {
+            string assemblyFolder = Path.GetDirectoryName(typeof(Alpha4TranslationInjector).Assembly.Location);
+            if (string.IsNullOrEmpty(assemblyFolder))
+            {
+                return Directory.GetCurrentDirectory();
+            }
+
+            DirectoryInfo directory = new DirectoryInfo(assemblyFolder);
+            if (string.Equals(directory.Name, "Assemblies", StringComparison.OrdinalIgnoreCase) && directory.Parent != null)
+            {
+                return directory.Parent.FullName;
+            }
+
+            return assemblyFolder;
         }
     }
 
@@ -248,8 +350,19 @@ namespace Better_Work_Tab
             string path = SettingsPath(typeof(T));
             try
             {
-                T settings = XmlLoader.ItemFromXmlFile<T>(path);
-                return settings ?? new T();
+                if (!File.Exists(path))
+                {
+                    return new T();
+                }
+
+                XmlDocument document = new XmlDocument();
+                document.LoadXml(File.ReadAllText(path));
+                if (RemoveTransientRuleFields(document.DocumentElement))
+                {
+                    document.Save(path);
+                }
+
+                return XmlToItem.ItemFromXml<T>(document.DocumentElement, doPostLoad: false) ?? new T();
             }
             catch (Exception ex)
             {
@@ -275,6 +388,38 @@ namespace Better_Work_Tab
             {
                 Log.Error("[Better Work Tab] Alpha4 settings save failed for " + settings.GetType().Name + ": " + ex);
             }
+        }
+
+        private static bool RemoveTransientRuleFields(XmlNode node)
+        {
+            if (node == null)
+            {
+                return false;
+            }
+
+            bool removed = false;
+            for (int i = node.ChildNodes.Count - 1; i >= 0; i--)
+            {
+                XmlNode child = node.ChildNodes[i];
+                if (IsTransientRuleField(child.Name))
+                {
+                    node.RemoveChild(child);
+                    removed = true;
+                    continue;
+                }
+
+                removed |= RemoveTransientRuleFields(child);
+            }
+
+            return removed;
+        }
+
+        private static bool IsTransientRuleField(string nodeName)
+        {
+            return string.Equals(nodeName, "CachedWorktype", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(nodeName, "Worktype", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(nodeName, "Xenotype", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(nodeName, "RequiredTrait", StringComparison.OrdinalIgnoreCase);
         }
 
         private static string SettingsPath(Type settingsType)

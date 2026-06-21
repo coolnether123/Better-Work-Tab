@@ -290,10 +290,10 @@ namespace Better_Work_Tab.UI
         {
             rect.SplitHorizontally(rect.height * 0.5f, out Rect topBtn, out Rect _);
 
-            if (Better_Work_Tab.WidgetsCompat.ButtonText(topBtn.LeftPart(0.48f), "New Ruleset"))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(topBtn.LeftPart(0.48f), "BWT_NewRuleset".Translate()))
             {
                 var newSet = new WorkAssignmentRuleset(
-                    "New Ruleset " + (_items.Count + 1),
+                    "BWT_NewRuleset".Translate() + " " + (_items.Count + 1),
                     new List<WorkAssignmentParameters>());
 
                 _items.Add(newSet);
@@ -302,7 +302,7 @@ namespace Better_Work_Tab.UI
             }
 
             if (SelectedRuleset != null &&
-                Better_Work_Tab.WidgetsCompat.ButtonText(topBtn.RightPart(0.48f), "Duplicate"))
+                Better_Work_Tab.WidgetsCompat.ButtonText(topBtn.RightPart(0.48f), "BWT_Duplicate".Translate()))
             {
                 var copied = SelectedRuleset.Copy();
                 _items.Add(copied);
@@ -345,7 +345,7 @@ namespace Better_Work_Tab.UI
                                 SelectedRuleset = null;
                             BetterWorkTabMod.Settings.Write();
                         }),
-                        new FloatMenuOption("Cancel".Translate(), delegate { })
+                        new FloatMenuOption("BWT_Cancel".Translate(), delegate { })
                     }));
 #else
                     Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(

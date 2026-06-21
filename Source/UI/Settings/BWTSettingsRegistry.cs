@@ -1807,7 +1807,7 @@ namespace Better_Work_Tab.UI.Settings
                 ParentId = HeadersAngled,
                 FieldName = "angledHeaderHorizontalOffset",
                 Label = "Horizontal offset",
-                Tooltip = "Adjust the horizontal position of the angled headers. 0 = centered, 10 = Default. (Automatically forced to 0 at -90Â° for perfect alignment).",
+                Tooltip = "Adjust the horizontal position of the angled headers. 0 = centered, 10 = Default. (Automatically forced to 0 at -90 degrees for perfect alignment).",
                 Type = SettingType.NumericInt,
                 DefaultValue = 10,
                 MinValue = -100f,

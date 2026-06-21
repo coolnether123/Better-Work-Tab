@@ -46,14 +46,14 @@ namespace Better_Work_Tab.UI.RuleBuilder
             forcePause = false;
             doCloseX = true;
             preventCameraMotion = true;
-            resizeable = false;
-            draggable = false;
+            resizeable = true;
+            draggable = true;
         }
 
 #if v0_13
-        public override Vector2 InitialWindowSize => new Vector2(1100f, 700f);
+        public override Vector2 InitialWindowSize => BWTWindowSizeUtility.FitToScreen(new Vector2(1100f, 700f), new Vector2(760f, 520f));
 #else
-        public override Vector2 InitialSize => new Vector2(1100f, 700f);
+        public override Vector2 InitialSize => BWTWindowSizeUtility.FitToScreen(new Vector2(1100f, 700f), new Vector2(760f, 520f));
 #endif
 
         public override void PreOpen()

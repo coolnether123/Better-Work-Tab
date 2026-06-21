@@ -12,6 +12,9 @@ namespace Better_Work_Tab.Features.Rules
     public class WorkAssignmentRule : IExposable
     {
         public string Name;
+#if vAlpha4
+        [Unsaved]
+#endif
         public WorkTypeDef CachedWorktype;
         public WorkAssignmentParameters Parameters;
 
@@ -172,7 +175,9 @@ namespace Better_Work_Tab.Features.Rules
         public void ExposeData()
         {
             Better_Work_Tab.ScribeCompat.LookValue(ref Name, "Name");
+#if !vAlpha4
             Better_Work_Tab.ScribeCompat.LookDef(ref CachedWorktype, "Worktype");
+#endif
             Better_Work_Tab.ScribeCompat.LookDeep(ref Parameters, "Parameters");
         }
     }

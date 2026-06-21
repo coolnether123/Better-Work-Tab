@@ -537,6 +537,9 @@ namespace RimWorld
         {
             doCloseX = true;
             closeOnClickedOutside = true;
+#if vAlpha4
+            defaultTitle = "Better Work Tab";
+#endif
         }
 
         public Dialog_ModSettings(Mod mod) : this()

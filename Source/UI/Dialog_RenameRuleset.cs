@@ -129,7 +129,7 @@ namespace Better_Work_Tab.UI
             Find.WindowStack.Add(new FloatMenu(new List<FloatMenuOption>
             {
                 new FloatMenuOption("BWT_DeleteRulesetConfirm".Translate(), DoDelete),
-                new FloatMenuOption("Cancel".Translate(), delegate { })
+                new FloatMenuOption("BWT_Cancel".Translate(), delegate { })
             }));
 #else
             Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
