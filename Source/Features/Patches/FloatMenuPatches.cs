@@ -1,4 +1,6 @@
 using Better_Work_Tab.Features;
+using Better_Work_Tab.Features.RaisedPriorityMaximum;
+using Better_Work_Tab.Features.WorkGiverReassignments;
 using HarmonyLib;
 using RimWorld;
 using System.Collections.Generic;
@@ -65,25 +67,39 @@ namespace Better_Work_Tab.Patches
 
             foreach (WorkTypeDef workType in DefDatabase<WorkTypeDef>.AllDefsListForReading)
             {
-                if (Better_Work_Tab.PawnCompat.WorkSettings(pawn).GetPriority(workType) != 0 || pawn.WorkTypeIsDisabled(workType))
+                if (pawn.WorkTypeIsDisabled(workType))
                 {
                     continue;
                 }
 
-                foreach (WorkGiverDef workGiver in Better_Work_Tab.WorkTypeCompat.WorkGiversByPriority(workType))
+                int parentPriority = WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, workType);
+                bool parentDisabled = parentPriority == WorkPrioritySystem.DisabledPriority;
+                foreach (WorkGiver workGiver in WorkGiverReassignmentManager.GetOrderedWorkGiversForWorkType(workType, pawn))
                 {
-                    if (drafted && !WorkGiverCompat.CanBeDoneWhileDrafted(workGiver))
+                    WorkGiverDef workGiverDef = workGiver?.def;
+                    if (workGiverDef == null)
                     {
                         continue;
                     }
 
-                    if (workGiver.Worker is not WorkGiver_Scanner scanner || !scanner.def.directOrderable)
+                    if (drafted && !WorkGiverCompat.CanBeDoneWhileDrafted(workGiverDef))
                     {
                         continue;
                     }
 
-                    TryAddThingOption(pawn, clickCell, workGiver, scanner, opts);
-                    TryAddCellOption(pawn, clickCell, workGiver, scanner, opts, drafted);
+                    if (workGiver is not WorkGiver_Scanner scanner || !scanner.def.directOrderable)
+                    {
+                        continue;
+                    }
+
+                    int workGiverPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, workGiverDef, parentPriority);
+                    if (!parentDisabled && workGiverPriority != WorkPrioritySystem.DisabledPriority)
+                    {
+                        continue;
+                    }
+
+                    TryAddThingOption(pawn, clickCell, workGiverDef, scanner, opts);
+                    TryAddCellOption(pawn, clickCell, workGiverDef, scanner, opts, drafted);
                 }
             }
         }
@@ -145,7 +161,8 @@ namespace Better_Work_Tab.Patches
         private static void AddNotAssignedOptions(Pawn pawn, WorkGiverDef workGiver, WorkGiver_Scanner scanner, List<FloatMenuOption> opts, LocalTargetInfo target, IntVec3 clickedCell, Job job)
 #endif
         {
-            WorkTypeDef workType = scanner.def.workType;
+            WorkTypeDef workType = WorkGiverReassignmentManager.GetTargetWorkType(workGiver)
+                ?? scanner.def.workType;
             if (workType == null)
             {
                 return;
@@ -153,11 +170,43 @@ namespace Better_Work_Tab.Patches
 
             string doOnceLabel = "BWTNotAssignedDoOnce".Translate(workType.gerundLabel);
             string openTabLabel = "BWTNotAssignedAssignWork".Translate(workType.gerundLabel);
+            string manageWorkGiversLabel = "BWTManageWorkGivers".Translate(WorkTypeCompat.LabelShort(workType));
+            int parentPriority = WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, workType);
+            int workGiverPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, workGiver, parentPriority);
 
-            // Avoid duplicates if multiple workgivers hit the same target.
+            if (workGiverPriority == WorkPrioritySystem.DisabledPriority &&
+                !opts.Any(o => o.Label == manageWorkGiversLabel))
+            {
+#if v1_2 || v1_1 || v1_0 || v0_19 || v0_18 || v0_17 || v0_16 || v0_15 || v0_14 || v0_13 || vAlpha4
+                opts.Add(new FloatMenuOption(
+                    manageWorkGiversLabel,
+                    () =>
+                    {
+                        var screenPos = new Vector2(Verse.UI.screenWidth / 2f, Verse.UI.screenHeight / 2f);
+                        bool hasOverride = WorkGiverReassignmentManager.HasAnyPawnOverride(workType, pawn) ||
+                                           WorkGiverReassignmentManager.HasPawnOrdering(pawn, workType);
+                        Pawn windowPawn = hasOverride ? pawn : null;
+                        Find.WindowStack.Add(new UI.WorkGiverReassignments.Window_WorkGiverSubMenu(workType, screenPos, windowPawn));
+                    },
+                    priority: MenuOptionPriority.VeryLow));
+#else
+                opts.Add(new FloatMenuOption(
+                    manageWorkGiversLabel,
+                    () =>
+                    {
+                        var screenPos = new Vector2(Verse.UI.screenWidth / 2f, Verse.UI.screenHeight / 2f);
+                        bool hasOverride = WorkGiverReassignmentManager.HasAnyPawnOverride(workType, pawn) ||
+                                           WorkGiverReassignmentManager.HasPawnOrdering(pawn, workType);
+                        Pawn windowPawn = hasOverride ? pawn : null;
+                        Find.WindowStack.Add(new UI.WorkGiverReassignments.Window_WorkGiverSubMenu(workType, screenPos, windowPawn));
+                    },
+                    orderInPriority: (int)MenuOptionPriority.VeryLow));
+#endif
+            }
+
             if (!opts.Any(o => o.Label == openTabLabel))
             {
-#if v0_15 || v0_16
+#if v0_16 || v0_15 || v0_14 || v0_13 || vAlpha4
                 opts.Add(new FloatMenuOption(
                     openTabLabel,
                     () =>
@@ -194,6 +243,16 @@ namespace Better_Work_Tab.Patches
 
             void AssignOnce()
             {
+                int currentParentPriority = WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, workType);
+                int currentWorkGiverPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, workGiver, currentParentPriority);
+                if (currentWorkGiverPriority == WorkPrioritySystem.DisabledPriority)
+                {
+                    int enabledPriority = currentParentPriority > WorkPrioritySystem.DisabledPriority
+                        ? currentParentPriority
+                        : WorkPrioritySystem.GetDefaultEnabledPriority();
+                    WorkGiverReassignmentManager.SyncSetPawnOverride(pawn.thingIDNumber, workGiver.defName, enabledPriority);
+                }
+
                 if (pawn.jobs.TryTakeOrderedJobPrioritizedWork(job, scanner, clickedCell))
                 {
                     WorkGiverCompat.TryPlaceForceFeedback(workGiver, clickedCell, pawn.Map);

@@ -1,4 +1,6 @@
+using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.Workloads;
+using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using HarmonyLib;
 using RimWorld;
 using System;
@@ -38,6 +40,11 @@ namespace Better_Work_Tab.Features
         {
             get { return fiDirty ?? (fiDirty = typeof(Pawn_WorkSettings).GetField("workGiversDirty", InstPriv)); }
         }
+        private static FieldInfo fiPawn;
+        private static FieldInfo PawnFI
+        {
+            get { return fiPawn ?? (fiPawn = typeof(Pawn_WorkSettings).GetField("pawn", InstPriv)); }
+        }
 #endif
 
         /// <summary>
@@ -52,6 +59,7 @@ namespace Better_Work_Tab.Features
 #else
             if (ws == null)
                 return;
+            var pawn = PawnFI.GetValue(ws) as Pawn;
 
             // 1) Gather active work types and min non-emergency priority like vanilla
             var allWorkTypes = DefDatabase<WorkTypeDef>.AllDefsListForReading;
@@ -60,14 +68,10 @@ namespace Better_Work_Tab.Features
             for (int i = 0; i < allWorkTypes.Count; i++)
             {
                 var w = allWorkTypes[i];
-                int prio = ws.GetPriority(w);
+                int prio = GetPriority(ws, w);
                 if (prio > 0)
                 {
-#if vAlpha4
-                    if (prio < minNonEmerg && !w.emergency)
-#else
-                    if (prio < minNonEmerg && Better_Work_Tab.WorkTypeCompat.WorkGiversByPriority(w).Any(wg => !wg.emergency))
-#endif
+                    if (prio < minNonEmerg && WorkGiverReassignmentManager.HasNonEmergencyWorkGiver(w))
                         minNonEmerg = prio;
                     activeWTs.Add(w);
                 }
@@ -86,8 +90,8 @@ namespace Better_Work_Tab.Features
             // 3) Sort active work types: manual priority asc, saved order asc, naturalPriority desc
             activeWTs.Sort((a, b) =>
             {
-                int pa = ws.GetPriority(a);
-                int pb = ws.GetPriority(b);
+                int pa = GetPriority(ws, a);
+                int pb = GetPriority(ws, b);
                 int c = pa.CompareTo(pb);
                 if (c != 0) return c;
                 int ia = indexMap.TryGetValue(a.defName, out int iax) ? iax : int.MaxValue;
@@ -104,36 +108,32 @@ namespace Better_Work_Tab.Features
             for (int i = 0; i < activeWTs.Count; i++)
             {
                 var wt = activeWTs[i];
-                var list = Better_Work_Tab.WorkTypeCompat.WorkGiversByPriority(wt);
+                var list = WorkGiverReassignmentManager.GetOrderedWorkGiversForWorkType(wt, pawn);
                 for (int j = 0; j < list.Count; j++)
                 {
-#if vAlpha4
-                    var worker = CreateAlpha4WorkGiver(list[j]);
-                    if (worker == null)
+                    var worker = list[j];
+                    if (worker?.def == null)
+                    {
                         continue;
-                    if (wt.emergency && ws.GetPriority(wt) <= minNonEmerg)
-#else
-                    var worker = list[j].Worker;
-                    if (worker.def.emergency && ws.GetPriority(worker.def.workType) <= minNonEmerg)
-#endif
+                    }
+
+                    if (worker.def.emergency && GetPriority(ws, wt) <= minNonEmerg)
                         emerg.Add(worker);
                 }
             }
             for (int i = 0; i < activeWTs.Count; i++)
             {
                 var wt = activeWTs[i];
-                var list = Better_Work_Tab.WorkTypeCompat.WorkGiversByPriority(wt);
+                var list = WorkGiverReassignmentManager.GetOrderedWorkGiversForWorkType(wt, pawn);
                 for (int j = 0; j < list.Count; j++)
                 {
-#if vAlpha4
-                    var worker = CreateAlpha4WorkGiver(list[j]);
-                    if (worker == null)
+                    var worker = list[j];
+                    if (worker?.def == null)
+                    {
                         continue;
-                    if (!wt.emergency || ws.GetPriority(wt) > minNonEmerg)
-#else
-                    var worker = list[j].Worker;
-                    if (!worker.def.emergency || ws.GetPriority(worker.def.workType) > minNonEmerg)
-#endif
+                    }
+
+                    if (!worker.def.emergency || GetPriority(ws, wt) > minNonEmerg)
                         normal.Add(worker);
                 }
             }
@@ -159,6 +159,11 @@ namespace Better_Work_Tab.Features
             {
                 return null;
             }
+        }
+#else
+        private static int GetPriority(Pawn_WorkSettings workSettings, WorkTypeDef workType)
+        {
+            return WorkPrioritySystem.ClampPriority(workSettings.GetPriority(workType));
         }
 #endif
 

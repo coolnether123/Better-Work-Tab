@@ -1,3 +1,4 @@
+using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.UI.RuleBuilder.State;
 using System.Collections.Generic;
 using System.Linq;
@@ -112,7 +113,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
                     Rect prRect = new Rect(curX, centerY - labelSize.y / 2f, labelSize.x, labelSize.y);
                     DrawBadge(prRect,
                         label,
-                        RuleBuilderConstants.PriorityColors[Mathf.Min(item.Priority, RuleBuilderConstants.PriorityColors.Length - 1)],
+                        WorkPrioritySystem.GetPriorityColor(item.Priority),
                         item.IsSelected ? Color.white : Color.black);
                     if (RWWidgets.ButtonInvisible(prRect))
                     {

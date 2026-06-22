@@ -116,23 +116,44 @@ namespace Spine.Profiling
             }
             finally
             {
-                long end = Stopwatch.GetTimestamp();
-                long elapsed = end - start;
+                Record(name, Stopwatch.GetTimestamp() - start);
+            }
+        }
 
-                if (!_data.TryGetValue(name, out var entry))
-                {
-                    entry = new TimingData();
-                    _data[name] = entry;
-                }
+        public static T Time<T>(string name, Func<T> action)
+        {
+            if (!Enabled)
+            {
+                return action();
+            }
 
-                entry.TotalTicks += elapsed;
-                entry.TotalCalls++;
-                entry.CallsThisFrame++;
+            long start = Stopwatch.GetTimestamp();
 
-                if (elapsed > entry.MaxTicks)
-                {
-                    entry.MaxTicks = elapsed;
-                }
+            try
+            {
+                return action();
+            }
+            finally
+            {
+                Record(name, Stopwatch.GetTimestamp() - start);
+            }
+        }
+
+        private static void Record(string name, long elapsed)
+        {
+            if (!_data.TryGetValue(name, out var entry))
+            {
+                entry = new TimingData();
+                _data[name] = entry;
+            }
+
+            entry.TotalTicks += elapsed;
+            entry.TotalCalls++;
+            entry.CallsThisFrame++;
+
+            if (elapsed > entry.MaxTicks)
+            {
+                entry.MaxTicks = elapsed;
             }
         }
 
@@ -217,10 +238,14 @@ namespace Spine.Profiling
         /// </summary>
         public static void LogResults()
         {
+            BetterWorkTabMod.DebugLog(GetReport(), DebugFeature.Performance);
+        }
+
+        public static string GetReport()
+        {
             if (_data.Count == 0)
             {
-                BetterWorkTabMod.DebugLog("[SpineTiming] No data collected.", DebugFeature.Performance);
-                return;
+                return "[SpineTiming] No data collected.";
             }
 
             var sb = new StringBuilder();
@@ -242,6 +267,8 @@ namespace Spine.Profiling
                 double totalMs = t.TotalTicks / _ticksPerMs;
                 double maxMs = t.MaxTicks / _ticksPerMs;
                 double avgMs = totalMs / (t.TotalCalls > 0 ? t.TotalCalls : 1);
+                double callsPerFrame = t.TotalCalls / (double)frames;
+                double avgMsPerFrame = totalMs / frames;
 
                 // Approximate share of 16.6 ms (60 FPS) in the current frame.
                 // Uses average per call * callsThisFrame as an estimate.
@@ -250,6 +277,7 @@ namespace Spine.Profiling
 
                 sb.AppendLine($"[{name}]");
                 sb.AppendLine($"   Calls: {t.CallsThisFrame} this frame / {t.TotalCalls} total");
+                sb.AppendLine($"   Per frame: {callsPerFrame:F3} calls/frame | {avgMsPerFrame:F4} ms/frame");
 
                 string spikeWarning = maxMs > 2.0 ? " << SPIKE >>" : string.Empty;
                 sb.AppendLine($"   Time:  Avg {avgMs:F4} ms | Max {maxMs:F4} ms{spikeWarning}");
@@ -263,7 +291,7 @@ namespace Spine.Profiling
                 sb.AppendLine("----------------------------------");
             }
 
-            BetterWorkTabMod.DebugLog(sb.ToString(), DebugFeature.Performance);
+            return sb.ToString();
         }
     }
 }

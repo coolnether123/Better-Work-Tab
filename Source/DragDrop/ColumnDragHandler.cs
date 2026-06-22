@@ -7,6 +7,7 @@ using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.Headers;
+using Better_Work_Tab.Features.WorkGiverReassignments;
 using RimWorld;
 using Spine.DragDropApi.Util;
 using System.Collections.Generic;
@@ -25,6 +26,10 @@ namespace Better_Work_Tab.DragDrop
         private readonly PawnColumnDef _primaryColumn;
         private readonly List<PawnColumnDef> _draggedColumns = new List<PawnColumnDef>();
         private readonly List<WorkTabLayoutColumn> _workColumns;
+        private readonly bool _subWorkDrilldownDrag;
+        private readonly WorkTypeDef _subWorkType;
+        private readonly WorkGiverDef _subWorkGiver;
+        private readonly int _subWorkOriginalIndex = -1;
         private Rect _originRect;
         public PawnColumnDef ColumnDef => _primaryColumn;
 
@@ -38,7 +43,18 @@ namespace Better_Work_Tab.DragDrop
                 .Where(c => c.Column.Worker is PawnColumnWorker_WorkPriority)
                 .ToList();
 
-            if (ColumnSelectionManager.IsSelected(_primaryColumn))
+            if (SubWorkDrilldownState.IsActive &&
+                SubWorkDrilldownState.TryGetWorkGiverForColumn(_primaryColumn, out var workGiver, out var slotIndex))
+            {
+                _subWorkDrilldownDrag = true;
+                _subWorkType = SubWorkDrilldownState.ActiveWorkType;
+                _subWorkGiver = workGiver.def;
+                _subWorkOriginalIndex = slotIndex;
+                _draggedColumns.Add(_primaryColumn);
+                ColumnSelectionManager.Clear();
+                BetterWorkTabMod.DebugLog($"[BWT] Dragging sub-work job: {_subWorkGiver.defName}", DebugFeature.DragDrop);
+            }
+            else if (ColumnSelectionManager.IsSelected(_primaryColumn))
             {
                 // Drag the whole selection
                 var allWorkColDefs = _workColumns.Select(c => c.Column);
@@ -66,16 +82,17 @@ namespace Better_Work_Tab.DragDrop
         /// </summary>
         public override void OnDragUpdate(Vector2 mousePos)
         {
-            int index = _workColumns.Count;
-            for (int i = 0; i < _workColumns.Count; i++)
+            var targetColumns = GetVisualTargetColumns();
+            int index = targetColumns.Count;
+            for (int i = 0; i < targetColumns.Count; i++)
             {
-                if (mousePos.x < _workColumns[i].HeaderRect.center.x)
+                if (mousePos.x < targetColumns[i].HeaderRect.center.x)
                 {
                     index = i;
                     break;
                 }
             }
-            TargetIndex = Mathf.Clamp(index, 0, _workColumns.Count);
+            TargetIndex = Mathf.Clamp(index, 0, targetColumns.Count);
         }
 
         /// <summary>
@@ -105,10 +122,11 @@ namespace Better_Work_Tab.DragDrop
 
             if (TargetIndex >= 0 && showLine)
             {
+                var targetColumns = GetVisualTargetColumns();
                 float lineX;
-                if (_workColumns.Count == 0) lineX = _originRect.x;
-                else if (TargetIndex >= _workColumns.Count) lineX = _workColumns.Last().HeaderRect.xMax;
-                else lineX = _workColumns[TargetIndex].HeaderRect.xMin;
+                if (targetColumns.Count == 0) lineX = _originRect.x;
+                else if (TargetIndex >= targetColumns.Count) lineX = targetColumns.Last().HeaderRect.xMax;
+                else lineX = targetColumns[TargetIndex].HeaderRect.xMin;
 
                 int insetSetting = BetterWorkTabMod.Settings?.columnInsertionLineInset ?? DefaultSettings.columnInsertionLineInset;
                 int inset = Mathf.Clamp(insetSetting, 0, Mathf.RoundToInt(Layout.HeaderHeight));
@@ -120,6 +138,11 @@ namespace Better_Work_Tab.DragDrop
 
         private void DrawBaselineLineIfNeeded()
         {
+            if (_subWorkDrilldownDrag)
+            {
+                return;
+            }
+
             var settings = BetterWorkTabMod.Settings;
             if (!(settings?.showColumnBaselineLine ?? true))
             {
@@ -244,7 +267,8 @@ namespace Better_Work_Tab.DragDrop
         {
             float rowStackHeight = GetVisibleRowStackHeight();
             float scrollY = Layout.Table == null ? 0f : PawnTableCompat.GetScrollPosition(Layout.Table).y;
-            float bottom = headerBottom + Mathf.Max(0f, rowStackHeight - scrollY);
+            float pinnedRowsHeight = SubWorkDrilldownState.IsActive ? SubWorkDrilldownState.GlobalRowHeight : 0f;
+            float bottom = headerBottom + pinnedRowsHeight + Mathf.Max(0f, rowStackHeight - scrollY);
 
             if (Layout.Table != null)
             {
@@ -293,6 +317,12 @@ namespace Better_Work_Tab.DragDrop
         protected override void CommitReorder()
         {
             if (!IsDragging) return;
+
+            if (_subWorkDrilldownDrag)
+            {
+                CommitSubWorkReorder();
+                return;
+            }
 
             try
             {
@@ -445,6 +475,52 @@ namespace Better_Work_Tab.DragDrop
             finally
             {
                 // Clear the dragging flag
+                BetterWorkTabLocalState.IsHeaderDragging = false;
+            }
+        }
+
+        private List<WorkTabLayoutColumn> GetVisualTargetColumns()
+        {
+            if (!_subWorkDrilldownDrag)
+            {
+                return _workColumns;
+            }
+
+            return _workColumns
+                .Where(c => SubWorkDrilldownState.TryGetWorkGiverForColumn(c.Column, out _, out _))
+                .ToList();
+        }
+
+        private void CommitSubWorkReorder()
+        {
+            try
+            {
+                if (_subWorkType == null || _subWorkGiver == null)
+                {
+                    return;
+                }
+
+                var current = SubWorkDrilldownState.ActiveWorkGivers;
+                int maxIndex = current?.Count ?? 0;
+                int insertIndex = Mathf.Clamp(TargetIndex, 0, maxIndex);
+                if (_subWorkOriginalIndex >= 0 && _subWorkOriginalIndex < insertIndex)
+                {
+                    insertIndex--;
+                }
+
+                // TODO: Support dragging a sub-work job into another sub-work job view once
+                // there is a clear UX for choosing the target work type and inheritance rules.
+                WorkGiverReassignmentManager.MoveWithinWorkType(
+                    _subWorkType.defName,
+                    _subWorkGiver.defName,
+                    insertIndex);
+
+                Better_Work_Tab.UI.Headers.HeaderDrawingCoordinator.InvalidateSolution();
+                WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
+                MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+            }
+            finally
+            {
                 BetterWorkTabLocalState.IsHeaderDragging = false;
             }
         }

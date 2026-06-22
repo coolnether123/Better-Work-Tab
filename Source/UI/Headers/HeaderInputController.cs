@@ -15,6 +15,7 @@ namespace Better_Work_Tab.UI.Headers
         private static Vector2 _cachedMousePos;
         private static WorkTypeDef _cachedHoveredWorkType;
         private static WorkTypeDef _lastFrameHoveredWorkType;
+        private static Rect? _cachedHoveredRect;
 
         /// <summary>
         /// Current mouse position in UI coordinates, cached once per frame.
@@ -26,6 +27,12 @@ namespace Better_Work_Tab.UI.Headers
         /// </summary>
         public static WorkTypeDef HoveredWorkType =>
             _lastCacheFrame == Time.frameCount ? _cachedHoveredWorkType : null;
+
+        /// <summary>
+        /// The bounds of the currently hovered work type header (if known) for the current frame.
+        /// </summary>
+        public static Rect? HoveredWorkTypeRect =>
+            _lastCacheFrame == Time.frameCount ? _cachedHoveredRect : null;
 
         /// <summary>
         /// Updates the mouse position cache and rotates the hover state tracking.
@@ -41,6 +48,7 @@ namespace Better_Work_Tab.UI.Headers
                 _cachedMousePos = evt?.mousePosition ?? Vector2.zero;
                 _lastCacheFrame = currentFrame;
                 _cachedHoveredWorkType = null;
+                _cachedHoveredRect = null;
 
                 // If Ctrl is released and we aren't currently dragging a column group, clear the multi-selection.
                 // This ensures selection is only active while the user is actively managing a group with Ctrl.
@@ -55,9 +63,11 @@ namespace Better_Work_Tab.UI.Headers
         /// Sets the work type as being hovered for the current frame.
         /// </summary>
         /// <param name="workType">The work type that the mouse is over.</param>
-        public static void SetHoveredWorkType(WorkTypeDef workType)
+        /// <param name="bounds">Optional header bounds for drag/drop visuals.</param>
+        public static void SetHoveredWorkType(WorkTypeDef workType, Rect? bounds = null)
         {
             _cachedHoveredWorkType = workType;
+            _cachedHoveredRect = bounds;
         }
 
         /// <summary>

@@ -2,15 +2,20 @@ using Better_Work_Tab;
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.PawnOrganizer;
+using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.Headers;
+using Better_Work_Tab.UI.Input;
+using Better_Work_Tab.UI.WorkGiverReassignments;
 using HarmonyLib;
 using RimWorld;
+using Spine.Profiling;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using Verse;
+using Verse.AI;
 using Verse.Sound;
 
 namespace Better_Work_Tab.Patches
@@ -139,15 +144,51 @@ namespace Better_Work_Tab.Patches
             Pawn pawn,
             PawnTable table)
         {
+            if (SpineTiming.Enabled)
+            {
+                return SpineTiming.Time("Harmony.WorkPriority.DoCell.Prefix", () => PrefixProfiled(__instance, rect, pawn, table));
+            }
+
+            return PrefixProfiled(__instance, rect, pawn, table);
+        }
+
+        private static bool PrefixProfiled(
+            PawnColumnWorker_WorkPriority __instance,
+            Rect rect,
+            Pawn pawn,
+            PawnTable table)
+        {
             // Only apply BWT patches to the Work tab (vanilla or BWT), not other tabs like MechTab
             if (!UI.Headers.PawnColumnWorker_WorkPriority_DoHeader_Patch.IsWorkTab())
                 return true;
 
-            if (pawn == null || Better_Work_Tab.PawnCompat.IsDead(pawn) || Better_Work_Tab.PawnCompat.WorkSettings(pawn) == null || !Better_Work_Tab.PawnCompat.HasEverWork(pawn))
-                return true;
-
             WorkTypeDef workType = __instance.def.workType;
             if (workType == null)
+                return true;
+
+            if (SubWorkDrilldownState.IsActive)
+            {
+                if (!SubWorkDrilldownState.TryGetWorkGiverForColumn(__instance.def, out var workGiver, out _))
+                {
+                    return false;
+                }
+
+                if (pawn == null ||
+                    Better_Work_Tab.PawnCompat.IsDead(pawn) ||
+                    Better_Work_Tab.PawnCompat.WorkSettings(pawn) == null ||
+                    !Better_Work_Tab.PawnCompat.HasEverWork(pawn))
+                {
+                    return false;
+                }
+
+                DrawSubWorkPriorityCell(rect, pawn, workGiver);
+                return false;
+            }
+
+            if (pawn == null ||
+                Better_Work_Tab.PawnCompat.IsDead(pawn) ||
+                Better_Work_Tab.PawnCompat.WorkSettings(pawn) == null ||
+                !Better_Work_Tab.PawnCompat.HasEverWork(pawn))
                 return true;
 
             UpdateFrameCache();
@@ -155,24 +196,26 @@ namespace Better_Work_Tab.Patches
             // Handle Scroll Wheel Priority Adjustment
             if (BetterWorkTabMod.Settings.enableScrollWheelPriority && Event.current.type == EventType.ScrollWheel && Mouse.IsOver(rect))
             {
-                int currentPriority = Better_Work_Tab.PawnCompat.WorkSettings(pawn).GetPriority(workType);
-                int delta = Event.current.delta.y > 0 ? -1 : 1;
+            int currentPriority = Better_Work_Tab.PawnCompat.WorkSettings(pawn).GetPriority(workType);
+                int direction = Event.current.delta.y > 0 ? -1 : 1;
                 if (Find.PlaySettings.useWorkPriorities)
                 {
-                    int nextPriority = WorkPrioritySystem.GetPriorityAfterMouseButton(currentPriority, delta > 0 ? 0 : 1);
+                    int nextPriority = WorkPrioritySystem.GetPriorityAfterBoundedStep(currentPriority, direction);
 
                     if (nextPriority != currentPriority)
                     {
-                        Better_Work_Tab.PawnCompat.WorkSettings(pawn).SetPriority(workType, nextPriority);
+                        WorkPrioritySystem.SetPriority(Better_Work_Tab.PawnCompat.WorkSettings(pawn), workType, nextPriority);
                         UISoundCompat.DragSlider.PlayOneShotOnCamera();
                     }
                 }
                 else
                 {
-                    int nextPriority = (currentPriority > 0) ? 0 : 3;
+                    int nextPriority = currentPriority > 0
+                        ? WorkPrioritySystem.DisabledPriority
+                        : WorkPrioritySystem.GetDefaultEnabledPriority();
                     if (nextPriority != currentPriority)
                     {
-                        Better_Work_Tab.PawnCompat.WorkSettings(pawn).SetPriority(workType, nextPriority);
+                        WorkPrioritySystem.SetPriority(Better_Work_Tab.PawnCompat.WorkSettings(pawn), workType, nextPriority);
                         UISoundCompat.DragSlider.PlayOneShotOnCamera();
 
                     }
@@ -243,6 +286,21 @@ namespace Better_Work_Tab.Patches
 
         [HarmonyPostfix]
         public static void Postfix(
+            PawnColumnWorker_WorkPriority __instance,
+            Rect rect,
+            Pawn pawn,
+            PawnTable table)
+        {
+            if (SpineTiming.Enabled)
+            {
+                SpineTiming.Time("Harmony.WorkPriority.DoCell.Postfix", () => PostfixProfiled(__instance, rect, pawn, table));
+                return;
+            }
+
+            PostfixProfiled(__instance, rect, pawn, table);
+        }
+
+        private static void PostfixProfiled(
             PawnColumnWorker_WorkPriority __instance,
             Rect rect,
             Pawn pawn,
@@ -334,6 +392,19 @@ namespace Better_Work_Tab.Patches
 
         // Caching helpers
 
+        private static void DrawSubWorkPriorityCell(Rect rect, Pawn pawn, WorkGiver workGiver)
+        {
+            const float boxSize = 25f;
+            float x = rect.x + (rect.width - boxSize) / 2f;
+            float y = rect.y + SkillBoxVerticalPadding;
+            Rect boxRect = new Rect(x, y, boxSize, boxSize);
+            Better_Work_Tab.UI.WorkGiverReassignments.WorkGiverPriorityBoxRenderer.DrawPriorityBox(
+                workGiver,
+                SubWorkDrilldownState.ActiveWorkType,
+                pawn,
+                boxRect);
+        }
+
         private static bool GetIsIncapable(Pawn p, WorkTypeDef work)
         {
 #if vAlpha4
@@ -354,11 +425,12 @@ namespace Better_Work_Tab.Patches
             }
 
             bool canDoAny = false;
-            for (int i = 0; i < Better_Work_Tab.WorkTypeCompat.WorkGiversByPriority(work).Count; i++)
+            var workGivers = WorkGiverReassignmentManager.GetOrderedWorkGiversForWorkType(work);
+            for (int i = 0; i < workGivers.Count; i++)
             {
                 bool thisGiverOk = true;
-                var reqs = Better_Work_Tab.WorkTypeCompat.WorkGiversByPriority(work)[i].requiredCapacities;
-                for (int j = 0; j < reqs.Count; j++)
+                var reqs = workGivers[i]?.def?.requiredCapacities;
+                for (int j = 0; reqs != null && j < reqs.Count; j++)
                 {
                     if (!p.health.capacities.CapableOf(reqs[j]))
                     {
@@ -653,6 +725,11 @@ namespace Better_Work_Tab.Patches
                 return false;
             }
 
+            if (SubWorkDrilldownInput.MatchesGesture(evt))
+            {
+                return false;
+            }
+
             if (!Mouse.IsOver(GetWorkBoxRect(cellRect)))
             {
                 return false;
@@ -671,7 +748,7 @@ namespace Better_Work_Tab.Patches
 
                 if (nextPriority != currentPriority)
                 {
-                    Better_Work_Tab.PawnCompat.WorkSettings(pawn).SetPriority(workType, nextPriority);
+                    WorkPrioritySystem.SetPriority(Better_Work_Tab.PawnCompat.WorkSettings(pawn), workType, nextPriority);
                     UISoundCompat.DragSlider.PlayOneShotOnCamera();
                 }
 
@@ -690,12 +767,12 @@ namespace Better_Work_Tab.Patches
             bool wasEnabled = Better_Work_Tab.PawnCompat.WorkSettings(pawn).WorkIsActive(workType);
             if (Better_Work_Tab.PawnCompat.WorkSettings(pawn).GetPriority(workType) > 0)
             {
-                Better_Work_Tab.PawnCompat.WorkSettings(pawn).SetPriority(workType, 0);
+                WorkPrioritySystem.SetPriority(Better_Work_Tab.PawnCompat.WorkSettings(pawn), workType, WorkPrioritySystem.DisabledPriority);
                 UISoundCompat.CheckboxTurnedOff.PlayOneShotOnCamera();
             }
             else
             {
-                Better_Work_Tab.PawnCompat.WorkSettings(pawn).SetPriority(workType, WorkPrioritySystem.GetDefaultEnabledPriority());
+                WorkPrioritySystem.SetPriority(Better_Work_Tab.PawnCompat.WorkSettings(pawn), workType, WorkPrioritySystem.GetDefaultEnabledPriority());
                 UISoundCompat.CheckboxTurnedOn.PlayOneShotOnCamera();
             }
 
