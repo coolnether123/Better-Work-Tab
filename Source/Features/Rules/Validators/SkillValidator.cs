@@ -1,5 +1,6 @@
 ﻿using RimWorld;
 using Better_Work_Tab.Features.Rules;
+using Better_Work_Tab.ModSupport;
 using System.Collections.Generic;
 using System.Linq;
 using Verse;
@@ -36,7 +37,7 @@ namespace Better_Work_Tab.Features.Rules.Validators
                 if (skills == null)
                     return false;
 
-                if (MaxPassionOfRelevantSkillsFor(skills, wt) != (Passion)p.PassionLevel)
+                if (!VanillaSkillsExpandedSupport.PassionMatches(skills, wt, p.PassionLevel))
                     return false;
             }
 
@@ -138,24 +139,5 @@ namespace Better_Work_Tab.Features.Rules.Validators
             return true;
         }
 
-        private static Passion MaxPassionOfRelevantSkillsFor(Pawn_SkillTracker skills, WorkTypeDef workType)
-        {
-#if vAlpha4
-            Passion max = Passion.None;
-            if (skills == null || workType?.relevantSkills == null)
-                return max;
-
-            for (int i = 0; i < workType.relevantSkills.Count; i++)
-            {
-                SkillRecord skill = skills.GetSkill(workType.relevantSkills[i]);
-                if (skill != null && (int)skill.passion > (int)max)
-                    max = skill.passion;
-            }
-
-            return max;
-#else
-            return skills.MaxPassionOfRelevantSkillsFor(workType);
-#endif
-        }
     }
 }

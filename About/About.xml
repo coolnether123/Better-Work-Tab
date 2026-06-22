@@ -8,6 +8,12 @@
 
 This payload is being prepared for the Alpha 4 compatibility branch.
 
+Compatibility:
+- Compatible with most work-type mods
+- [FSF] Complex Jobs column ordering is supported
+- Vanilla Skills Expanded passion types are supported in rule conditions when the mod is active
+- Fluffy WorkTab and CompactWorkTab overlap this UI and should not be used together
+
 Version support:
 - Alpha 4 / 0.4.460 -> v1.1 target - Multiplayer does not work
 

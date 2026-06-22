@@ -15,7 +15,7 @@ namespace Better_Work_Tab.ModSupport
         private static readonly List<IModSupportModule> _allModules = new List<IModSupportModule>
         {
             new UsefulMarksSupport(),
-            // Add instances of other support modules here: new SomeOtherModSupport(),
+            new VanillaSkillsExpandedSupport(),
         };
 
         static ModSupportManager()

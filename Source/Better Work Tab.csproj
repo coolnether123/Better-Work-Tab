@@ -306,6 +306,7 @@
     <Compile Include="Mod Support\ModSupportManager.cs" />
     <Compile Include="Mod Support\ModSupportModuleBase.cs" />
     <Compile Include="Mod Support\Mods\Useful Marks\UsefulMarksSupport.cs" />
+    <Compile Include="Mod Support\Mods\Vanilla Skills Expanded\VanillaSkillsExpandedSupport.cs" />
     <Compile Include="Mod Support\Multiplayer\LocalProfiles\BWTLocalProfile.cs" />
     <Compile Include="Mod Support\Multiplayer\LocalProfiles\BWTLocalProfileStore.cs" />
     <Compile Include="Mod Support\Multiplayer\MPCompat_BetterWorkTab.cs" />

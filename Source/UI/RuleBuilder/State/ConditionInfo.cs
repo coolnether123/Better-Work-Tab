@@ -1,3 +1,4 @@
+using Better_Work_Tab.ModSupport;
 using RimWorld;
 using System;
 using Verse;
@@ -82,13 +83,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.State
 
                 case ConditionType.Passion:
                     int passionLevel = (int)Value;
-                    return passionLevel switch
-                    {
-                        0 => "BWT_None".Translate(),
-                        1 => "BWT_Minor".Translate(),
-                        2 => "BWT_Major".Translate(),
-                        _ => passionLevel.ToString()
-                    };
+                    return VanillaSkillsExpandedSupport.GetPassionLabel(passionLevel);
 
                 case ConditionType.Gender:
                     var gender = (Gender?)Value;
