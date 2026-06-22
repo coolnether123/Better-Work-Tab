@@ -971,7 +971,7 @@ namespace Better_Work_Tab.PawnOrganizer
             }
 
             var settings = BetterWorkTabMod.Settings;
-            if (!(settings?.subWorkAutoExpandColumns ?? DefaultSettings.subWorkAutoExpandColumns))
+            if (!ShouldExpandSubWorkPriorityColumns(settings))
             {
                 return;
             }
@@ -995,11 +995,6 @@ namespace Better_Work_Tab.PawnOrganizer
             if (settings?.subWorkEvenlyExpandColumns ?? DefaultSettings.subWorkEvenlyExpandColumns)
             {
                 ApplyEvenSubWorkExpansion(widths, surplus, workColumnIndexes);
-                return;
-            }
-
-            if (settings != null && settings.enableAngledHeaders)
-            {
                 return;
             }
 
@@ -1046,6 +1041,18 @@ namespace Better_Work_Tab.PawnOrganizer
             {
                 widths[workColumnIndexes[i]] += extra;
             }
+        }
+
+        private static bool ShouldExpandSubWorkPriorityColumns(BetterWorkTabSettings settings)
+        {
+            if (!(settings?.subWorkAutoExpandColumns ?? DefaultSettings.subWorkAutoExpandColumns))
+            {
+                return false;
+            }
+
+            // Angled headers already avoid label collisions vertically; horizontal expansion
+            // makes the sub-work columns drift away from vanilla compact work-tab spacing.
+            return !(settings?.enableAngledHeaders ?? DefaultSettings.enableAngledHeaders);
         }
 
         private static void ApplyEvenSubWorkExpansion(
