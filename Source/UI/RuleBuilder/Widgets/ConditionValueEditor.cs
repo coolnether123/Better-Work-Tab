@@ -190,7 +190,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
             RuleBuilderState state)
         {
             int currentValue = (int)ConditionRegistry.GetValue(condition.Key, parameters);
-            IReadOnlyList<VanillaSkillsExpandedSupport.PassionOption> options =
+            IList<VanillaSkillsExpandedSupport.PassionOption> options =
                 VanillaSkillsExpandedSupport.GetPassionOptions();
 
             if (options.Count <= 3)
@@ -233,7 +233,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
             WorkAssignmentParameters parameters,
             RuleBuilderState state,
             int currentValue,
-            IReadOnlyList<VanillaSkillsExpandedSupport.PassionOption> options)
+            IList<VanillaSkillsExpandedSupport.PassionOption> options)
         {
             float buttonWidth = (rect.width - 8f) / Mathf.Max(1, options.Count);
 
