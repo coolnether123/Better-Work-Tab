@@ -30,6 +30,8 @@ namespace Better_Work_Tab.PawnOrganizer
         private const int SubWorkDesiredVanillaMaxLevel = 2;
         private const float SubWorkMaxPriorityColumnWidth = 86f;
         private const float SubWorkHeaderWidthFactor = 0.68f;
+        private const float SubWorkMinPawnLabelColumnWidth = 170f;
+        private const float SubWorkMaxPawnLabelColumnWidth = 260f;
 
         private List<RowDescriptor> _cachedRowDescriptors;
         private bool _rowDescriptorsDirty = true;
@@ -859,7 +861,9 @@ namespace Better_Work_Tab.PawnOrganizer
 
             if (SubWorkDrilldownState.IsActive)
             {
-                ApplySubWorkPriorityWidthRelief(visibleColumns, widths, _rowWidth - totalNaturalWidth);
+                float surplus = _rowWidth - totalNaturalWidth;
+                surplus = ReserveSubWorkPawnLabelWidth(visibleColumns, widths, surplus, fillerIndex);
+                ApplySubWorkPriorityWidthRelief(visibleColumns, widths, surplus);
             }
             else
             {
@@ -890,6 +894,67 @@ namespace Better_Work_Tab.PawnOrganizer
                     currentX += spacing;
                 }
             }
+        }
+
+        private float ReserveSubWorkPawnLabelWidth(
+            List<(PawnColumnDef def, int originalIndex)> visibleColumns,
+            float[] widths,
+            float surplus,
+            int fillerIndex)
+        {
+            if (visibleColumns == null ||
+                widths == null ||
+                fillerIndex < 0 ||
+                fillerIndex >= visibleColumns.Count ||
+                surplus <= 0.5f ||
+                !(visibleColumns[fillerIndex].def.Worker is PawnColumnWorker_Label))
+            {
+                return surplus;
+            }
+
+            float targetWidth = GetDesiredSubWorkPawnLabelWidth();
+            float needed = Mathf.Max(0f, targetWidth - widths[fillerIndex]);
+            if (needed <= 0.5f)
+            {
+                return surplus;
+            }
+
+            float added = Mathf.Min(surplus, needed);
+            widths[fillerIndex] += added;
+            return surplus - added;
+        }
+
+        private float GetDesiredSubWorkPawnLabelWidth()
+        {
+            float desired = SubWorkMinPawnLabelColumnWidth;
+            GameFont oldFont = Text.Font;
+            bool oldWordWrap = Text.WordWrap;
+            try
+            {
+                Text.Font = GameFont.Small;
+                Text.WordWrap = false;
+
+                if (_snapshotPawns != null)
+                {
+                    for (int i = 0; i < _snapshotPawns.Count; i++)
+                    {
+                        var pawn = _snapshotPawns[i];
+                        if (pawn == null)
+                        {
+                            continue;
+                        }
+
+                        desired = Mathf.Max(desired, Text.CalcSize(pawn.LabelShortCap).x + 24f);
+                    }
+                }
+            }
+            finally
+            {
+                Text.Font = oldFont;
+                Text.WordWrap = oldWordWrap;
+            }
+
+            return Mathf.Clamp(desired, SubWorkMinPawnLabelColumnWidth, SubWorkMaxPawnLabelColumnWidth);
         }
 
         private void ApplySubWorkPriorityWidthRelief(
