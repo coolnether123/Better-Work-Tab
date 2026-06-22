@@ -1,4 +1,5 @@
 using Better_Work_Tab.Features.Rules;
+using Better_Work_Tab.ModSupport;
 using Better_Work_Tab.UI.RuleBuilder.State;
 using RimWorld;
 using System;
@@ -352,7 +353,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
                     Type = ConditionType.Passion,
                     Category = "BWT_Category_Skill",
                     MinValue = 0,
-                    MaxValue = 2,
+                    MaxValue = VanillaSkillsExpandedSupport.GetMaxPassionValue(),
                     DefaultValue = 1,
                     ShortLabel = "Passion"
                 },
