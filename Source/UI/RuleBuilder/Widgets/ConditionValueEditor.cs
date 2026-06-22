@@ -1,4 +1,5 @@
 using Better_Work_Tab.Features.Rules;
+using Better_Work_Tab.ModSupport;
 using Better_Work_Tab.UI.RuleBuilder.Services;
 using Better_Work_Tab.UI.RuleBuilder.State;
 using RimWorld;
@@ -189,19 +190,63 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
             RuleBuilderState state)
         {
             int currentValue = (int)ConditionRegistry.GetValue(condition.Key, parameters);
+            IList<VanillaSkillsExpandedSupport.PassionOption> options =
+                VanillaSkillsExpandedSupport.GetPassionOptions();
 
-            string[] labels = { "BWT_None".Translate(), "BWT_Minor".Translate(), "BWT_Major".Translate() };
-            float buttonWidth = (rect.width - 8f) / 3f;
-
-            for (int i = 0; i <= 2; i++)
+            if (options.Count <= 3)
             {
+                return DrawPassionButtonGrid(rect, condition, parameters, state, currentValue, options);
+            }
+
+            string label = VanillaSkillsExpandedSupport.GetPassionLabel(currentValue);
+            float buttonWidth = Mathf.Min(180f, rect.width);
+            Rect buttonRect = new Rect(
+                rect.x,
+                rect.y + (rect.height - FieldHeight) / 2f,
+                buttonWidth,
+                FieldHeight);
+
+            if (Verse.Widgets.ButtonText(buttonRect, label))
+            {
+                var menuOptions = new List<FloatMenuOption>();
+                foreach (VanillaSkillsExpandedSupport.PassionOption option in options)
+                {
+                    VanillaSkillsExpandedSupport.PassionOption localOption = option;
+                    menuOptions.Add(new FloatMenuOption(localOption.Label, () =>
+                    {
+                        ConditionRegistry.SetValue(condition.Key, parameters, localOption.Value);
+                        state.NotifyRulesModified();
+                        SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
+                    }));
+                }
+
+                Find.WindowStack.Add(new FloatMenu(menuOptions));
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool DrawPassionButtonGrid(
+            Rect rect,
+            ConditionInfo condition,
+            WorkAssignmentParameters parameters,
+            RuleBuilderState state,
+            int currentValue,
+            IList<VanillaSkillsExpandedSupport.PassionOption> options)
+        {
+            float buttonWidth = (rect.width - 8f) / Mathf.Max(1, options.Count);
+
+            for (int i = 0; i < options.Count; i++)
+            {
+                VanillaSkillsExpandedSupport.PassionOption option = options[i];
                 Rect buttonRect = new Rect(
                     rect.x + i * (buttonWidth + 2f),
                     rect.y + 2f,
                     buttonWidth,
                     FieldHeight);
 
-                bool isSelected = currentValue == i;
+                bool isSelected = currentValue == option.Value;
                 Color bgColor = isSelected
                     ? RuleBuilderConstants.CardBackgroundSelected
                     : RuleBuilderConstants.CardBackground;
@@ -217,14 +262,14 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
                 Text.Anchor = TextAnchor.MiddleCenter;
                 Text.Font = GameFont.Small;
                 GUI.color = isSelected ? Color.white : RuleBuilderConstants.LabelColor;
-                Verse.Widgets.Label(buttonRect, labels[i]);
+                Verse.Widgets.Label(buttonRect, option.Label);
                 Text.Font = GameFont.Small;
                 Text.Anchor = TextAnchor.UpperLeft;
                 GUI.color = Color.white;
 
                 if (Verse.Widgets.ButtonInvisible(buttonRect))
                 {
-                    ConditionRegistry.SetValue(condition.Key, parameters, i);
+                    ConditionRegistry.SetValue(condition.Key, parameters, option.Value);
                     state.NotifyRulesModified();
                     SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
                     return true;
