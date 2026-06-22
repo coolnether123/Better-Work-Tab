@@ -1504,6 +1504,20 @@ namespace Better_Work_Tab.UI.Settings
                 OnChanged = _ => MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged()
             });
 
+            Register(new SettingDefinition
+            {
+                Id = AdvancedHideSettingResetIcons,
+                ParentId = AdvancedHeader,
+                FieldName = nameof(BetterWorkTabSettings.hideSettingResetIcons),
+                Label = "Hide setting reset icons",
+                Tooltip = "Hide the per-setting reset buttons shown beside settings that differ from their defaults.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.hideSettingResetIcons,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 402
+            });
+
             // Auto-assign settings
             Register(new SettingDefinition
             {
@@ -1746,7 +1760,7 @@ namespace Better_Work_Tab.UI.Settings
                         }
                     },
                     ShowInSimpleView = false,
-                    ShowInAdvancedView = true, //false
+                    ShowInAdvancedView = false,
                     SortOrder = 501
                 });
 
@@ -1772,7 +1786,7 @@ namespace Better_Work_Tab.UI.Settings
                             EnsureInitialized();
                         },
                         ShowInSimpleView = false,
-                        ShowInAdvancedView = true, //false
+                        ShowInAdvancedView = false,
                         SortOrder = 502
                     });
                 }
