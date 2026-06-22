@@ -113,6 +113,8 @@ namespace Better_Work_Tab.UI.Headers.Angled
             public readonly Vector2 Size;
             public readonly Vector2 Pivot;
             public readonly bool ShowMarker;
+            public readonly bool HasCustomDrawRect;
+            public readonly Rect CustomDrawRect;
             /// <summary>
             /// Indicates if this label should be drawn using character-by-character vertical stacking 
             /// instead of standard matrix rotation.
@@ -120,12 +122,24 @@ namespace Better_Work_Tab.UI.Headers.Angled
             public readonly bool IsCJKVertical;
 
             public AngledLabelLayout(string text, Vector2 size, Vector2 pivot, bool showMarker, bool isCJKVertical = false)
+                : this(text, size, pivot, showMarker, isCJKVertical, false, default)
+            {
+            }
+
+            public AngledLabelLayout(string text, Vector2 size, Vector2 pivot, bool showMarker, bool isCJKVertical, Rect customDrawRect)
+                : this(text, size, pivot, showMarker, isCJKVertical, true, customDrawRect)
+            {
+            }
+
+            private AngledLabelLayout(string text, Vector2 size, Vector2 pivot, bool showMarker, bool isCJKVertical, bool hasCustomDrawRect, Rect customDrawRect)
             {
                 Text = text;
                 Size = size;
                 Pivot = pivot;
                 ShowMarker = showMarker;
                 IsCJKVertical = isCJKVertical;
+                HasCustomDrawRect = hasCustomDrawRect;
+                CustomDrawRect = customDrawRect;
             }
         }
 
@@ -141,7 +155,11 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
             // Center horizontally, and either bottom-anchor (CJK) or center-anchor (Standard) vertically.
             Rect drawRect;
-            if (isCJKVertical)
+            if (layout.HasCustomDrawRect)
+            {
+                drawRect = layout.CustomDrawRect;
+            }
+            else if (isCJKVertical)
             {
                 drawRect = new Rect(0f, 0f, labelSize.x, labelSize.y);
                 drawRect.x = headerRect.center.x - drawRect.width / 2f + horizontalOffset;

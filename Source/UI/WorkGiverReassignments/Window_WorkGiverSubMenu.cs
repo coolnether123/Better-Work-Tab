@@ -41,6 +41,10 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         private const float HeaderTop = 30f;
         private const float VanillaMaxColumnWidth = 70f;
 
+        private float DesiredContentWidth => _workGivers.Count * _columnWidth + WindowPadding * 2f;
+
+        private float DesiredContentHeight => _dynamicHeaderHeight + PriorityRowHeight + FooterHeight + WindowPadding * 2f;
+
         public Window_WorkGiverSubMenu(WorkTypeDef workType, Vector2 triggerPos, Pawn pawn = null)
         {
             _workType = workType;
@@ -141,11 +145,11 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         {
             get
             {
-                float desiredWidth = _workGivers.Count * _columnWidth + WindowPadding * 2;
+                float desiredWidth = DesiredContentWidth + Margin * 2f;
                 float maxAllowedWidth = Verse.UI.screenWidth - 40f; // Leave 20px margin on each side
                 float width = Mathf.Max(250f, Mathf.Min(desiredWidth, maxAllowedWidth));
                 
-                float height = _dynamicHeaderHeight + PriorityRowHeight + FooterHeight + WindowPadding * 2;
+                float height = DesiredContentHeight + Margin * 2f;
                 return new Vector2(width, height);
             }
         }
@@ -197,7 +201,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             
             DrawWorkGiverColumns(headerY, boxY);
             DrawDragOverlay(headerY, boxY);
-            DrawFooter(boxY);
+            DrawFooter(boxY, inRect.width);
             
             HandleEscapeKey();
         }
@@ -423,16 +427,22 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
             float drawWidth = isVerticalCjk ? size.x : headerRect.height;
             Rect drawRect;
-            float horizontalOffset = AngledLabelDrawer.EffectiveHorizontalOffset;
             if (isVerticalCjk)
             {
                 float yPos = headerRect.yMax - size.y - AngledLabelDrawer.STEM_BOTTOM_GAP;
-                drawRect = new Rect(headerRect.center.x - drawWidth / 2f + horizontalOffset, yPos, drawWidth, size.y);
+                drawRect = new Rect(headerRect.center.x - drawWidth / 2f, yPos, drawWidth, size.y);
             }
             else
             {
-                drawRect = new Rect(0f, 0f, drawWidth, size.y) { center = headerRect.center };
-                drawRect.x += horizontalOffset;
+                Vector2 anchor = new Vector2(headerRect.center.x, headerRect.yMax - AngledLabelDrawer.STEM_BOTTOM_GAP);
+                Vector2 localUnderlineStart = new Vector2(-drawWidth / 2f, size.y / 2f);
+                float anchorCos = Mathf.Cos(rotation * Mathf.Deg2Rad);
+                float anchorSin = Mathf.Sin(rotation * Mathf.Deg2Rad);
+                Vector2 rotatedUnderlineStart = RotatePoint(localUnderlineStart, anchorCos, anchorSin);
+                drawRect = new Rect(0f, 0f, drawWidth, size.y)
+                {
+                    center = anchor - rotatedUnderlineStart
+                };
             }
 
             Vector2 pivot = drawRect.center;
@@ -442,7 +452,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
             quad = CalculateRotatedQuad(pivot, drawWidth, size.y, cos, sin);
 
-            return new AngledLabelDrawer.AngledLabelLayout(label, size, pivot, showMarker, isVerticalCjk);
+            return new AngledLabelDrawer.AngledLabelLayout(label, size, pivot, showMarker, isVerticalCjk, drawRect);
         }
 
         private static Vector2[] CalculateRotatedQuad(Vector2 pivot, float labelWidth, float textHeight, float cos, float sin)
@@ -550,12 +560,12 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             _dragHandler.DrawDragOverlay(WindowPadding, _columnWidth, headerY, totalHeight, _workGivers, _baselineTracker);
         }
 
-        private void DrawFooter(float boxY)
+        private void DrawFooter(float boxY, float contentWidth)
         {
             // Only show footer in global window, not pawn-specific windows
             if (_pawn != null) return;
             
-            Rect footerRect = new Rect(0, boxY + PriorityRowHeight + 5f, windowRect.width - 2 * WindowPadding, FooterHeight);
+            Rect footerRect = new Rect(0, boxY + PriorityRowHeight + 5f, contentWidth, FooterHeight);
             Widgets.DrawLineHorizontal(footerRect.x, footerRect.y, footerRect.width);
             
             List<Pawn> overrides = WorkGiverReassignmentManager.GetPawnsWithOverrides(_workType);
