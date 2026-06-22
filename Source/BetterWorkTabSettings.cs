@@ -67,6 +67,7 @@ namespace Better_Work_Tab
         public static bool enableUIElements = true;
         public static bool enablePerformanceOptimizations = true;
         public static bool enableMultiplayerSync = true;
+        public static bool hideSettingResetIcons = false;
         public static bool mpShowOtherPlayersHover = false;
         public static bool mpAllowOthersToRequestLayout = true;
         public static bool mpAllowPresenceBroadcast = false;
@@ -307,6 +308,7 @@ namespace Better_Work_Tab
         public bool enableUIElements = DefaultSettings.enableUIElements;
         public bool enablePerformanceOptimizations = DefaultSettings.enablePerformanceOptimizations;
         public bool enableMultiplayerSync = DefaultSettings.enableMultiplayerSync;
+        public bool hideSettingResetIcons = DefaultSettings.hideSettingResetIcons;
         public float dividerHeight = DefaultSettings.dividerHeight;
         public bool showOnlyLineDragIndicatorRows = DefaultSettings.showOnlyLineDragIndicatorRows;
         public bool showOnlyLineDragIndicatorColumns = DefaultSettings.showOnlyLineDragIndicatorColumns;
@@ -792,6 +794,7 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref enableUIElements, "enableUIElements", DefaultSettings.enableUIElements);
             Scribe_Values.Look(ref enablePerformanceOptimizations, "enablePerformanceOptimizations", DefaultSettings.enablePerformanceOptimizations);
             Scribe_Values.Look(ref enableMultiplayerSync, "enableMultiplayerSync", DefaultSettings.enableMultiplayerSync);
+            Scribe_Values.Look(ref hideSettingResetIcons, "hideSettingResetIcons", DefaultSettings.hideSettingResetIcons);
             Scribe_Values.Look(ref settingsViewMode, "settingsViewMode", SettingsViewMode.Simple);
 
             // Highlight settings
