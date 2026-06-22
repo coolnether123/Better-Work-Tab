@@ -6,6 +6,8 @@ using UnityEngine;
 using Verse;
 using Better_Work_Tab.UI.Headers.Vanilla;
 using Better_Work_Tab.UI.Headers.Angled;
+using Better_Work_Tab.Features.WorkGiverReassignments;
+using Spine.Profiling;
 
 namespace Better_Work_Tab.UI.Headers
 {
@@ -50,6 +52,16 @@ namespace Better_Work_Tab.UI.Headers
         [HarmonyPriority(Priority.Last)]
         public static bool Prefix(PawnColumnWorker_WorkPriority __instance, Rect rect, PawnTable table)
         {
+            if (SpineTiming.Enabled)
+            {
+                return SpineTiming.Time("Harmony.WorkPriority.DoHeader.Prefix", () => PrefixProfiled(__instance, rect, table));
+            }
+
+            return PrefixProfiled(__instance, rect, table);
+        }
+
+        private static bool PrefixProfiled(PawnColumnWorker_WorkPriority __instance, Rect rect, PawnTable table)
+        {
             // Only apply BWT patches to the Work tab (vanilla or BWT), not other tabs like MechTab
             if (!IsWorkTab())
                 return true;
@@ -64,6 +76,11 @@ namespace Better_Work_Tab.UI.Headers
 
                 var workType = __instance?.def?.workType;
                 if (workType == null) return false;
+
+                if (SubWorkDrilldownState.IsBlankWorkColumn(__instance.def))
+                {
+                    return false;
+                }
 
                 bool enableAngled = settings.enableAngledHeaders;
 

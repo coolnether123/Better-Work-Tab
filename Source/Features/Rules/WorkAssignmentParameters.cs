@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Verse;
 using Better_Work_Tab;
+using Better_Work_Tab.Features.RaisedPriorityMaximum;
 
 namespace Better_Work_Tab.Features.Rules
 {
@@ -155,7 +156,7 @@ namespace Better_Work_Tab.Features.Rules
             string worktypeString = "")
         {
             RuleName = ruleName;
-            Priority = priority;
+            Priority = WorkPrioritySystem.ClampPriority(priority);
 
             if (worktype != null)
             {
@@ -221,7 +222,7 @@ namespace Better_Work_Tab.Features.Rules
                 RuleName = RuleName,
                 Worktype = Worktype,
                 IgnoreIfWorktypeNonexistent = IgnoreIfWorktypeNonexistent,
-                Priority = Priority,
+                Priority = WorkPrioritySystem.ClampPriority(Priority),
                 AllowOverwritingHigherPriority = AllowOverwritingHigherPriority,
                 PassionLevel = PassionLevel,
 #if !v1_3
@@ -299,6 +300,11 @@ namespace Better_Work_Tab.Features.Rules
                 XenotypeString ??= string.Empty;
                 TraitString ??= string.Empty;
                 ActiveConditions ??= new List<string>();
+                Priority = WorkPrioritySystem.ClampPriority(Priority);
+                if (SkipIfPriorityForThisWorktypeAreadyAssigned >= 0)
+                {
+                    SkipIfPriorityForThisWorktypeAreadyAssigned = WorkPrioritySystem.ClampPriority(SkipIfPriorityForThisWorktypeAreadyAssigned);
+                }
 
                 ResolveWorktypeFromString();
                 ResolveXenotypeFromString();
