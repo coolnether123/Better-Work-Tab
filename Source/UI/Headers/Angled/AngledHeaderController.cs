@@ -62,7 +62,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
             
             if (isMouseOver)
             {
-                HeaderInputController.SetHoveredWorkType(worker.def.workType);
+                HeaderInputController.SetHoveredWorkType(worker.def.workType, cached.Bounds);
             }
 
             var renderer = HeaderDrawingCoordinator.GetActiveRenderer();

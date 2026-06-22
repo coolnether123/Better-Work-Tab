@@ -164,10 +164,50 @@ namespace Spine.UI.SettingsFramework
             }
 
             string needle = query.ToLowerInvariant();
+            string normalizedNeedle = NormalizeSearchText(query);
             return ordered.Where(def =>
-                (!string.IsNullOrEmpty(def.Label) && def.Label.ToLowerInvariant().Contains(needle)) ||
-                (!string.IsNullOrEmpty(def.Tooltip) && def.Tooltip.ToLowerInvariant().Contains(needle)) ||
-                (!string.IsNullOrEmpty(def.Id) && def.Id.ToLowerInvariant().Contains(needle)));
+                SearchTextMatches(def.Label, needle, normalizedNeedle) ||
+                SearchTextMatches(def.Tooltip, needle, normalizedNeedle) ||
+                SearchTextMatches(def.Id, needle, normalizedNeedle));
+        }
+
+        private static bool SearchTextMatches(string text, string needle, string normalizedNeedle)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                return false;
+            }
+
+            string haystack = text.ToLowerInvariant();
+            if (haystack.Contains(needle))
+            {
+                return true;
+            }
+
+            string normalizedHaystack = NormalizeSearchText(text);
+            return !string.IsNullOrEmpty(normalizedNeedle) && normalizedHaystack.Contains(normalizedNeedle);
+        }
+
+        private static string NormalizeSearchText(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                return string.Empty;
+            }
+
+            char[] buffer = new char[text.Length];
+            int length = 0;
+            foreach (char c in text)
+            {
+                if (char.IsWhiteSpace(c) || c == '-' || c == '_' || c == '\u2010' || c == '\u2011' || c == '\u2012' || c == '\u2013' || c == '\u2014')
+                {
+                    continue;
+                }
+
+                buffer[length++] = char.ToLowerInvariant(c);
+            }
+
+            return new string(buffer, 0, length);
         }
 
         private IEnumerable<SettingDefinition> EnumerateWithChildren(

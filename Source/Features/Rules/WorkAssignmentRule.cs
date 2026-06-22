@@ -94,11 +94,8 @@ namespace Better_Work_Tab.Features.Rules
             if (!validationResult.IsValid)
                 return false;
 
-            // All checks passed – assign the priority
-            pawn.workSettings.SetPriority(
-                assigningWorktype,
-                WorkPrioritySystem.ClampPriority(Parameters.Priority)
-            );
+            // All checks passed - assign the priority.
+            WorkPrioritySystem.SetPriority(pawn.workSettings, assigningWorktype, Parameters.Priority);
 
             return validationResult.ShouldSkipRemainingPawns;
         }

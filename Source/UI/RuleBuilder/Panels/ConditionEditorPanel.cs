@@ -138,7 +138,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
                         state.SelectedRuleset.Rules.Add(copy);
                     }
                     state.NotifyRulesModified();
-                    SoundDefOf.DropElement.PlayOneShotOnCamera();
+                    SoundDefOf.Click.PlayOneShotOnCamera();
                 }
 
                 state.DragController.EndDrag();
