@@ -377,8 +377,7 @@ namespace Better_Work_Tab.DragDrop
                     }
                 }
 
-                // Record original index of the group (usually the first one) to detect no-ops later.
-                int firstOriginalIndex = workCols.IndexOf(toRemove[0]);
+                var originalWorkCols = workCols.ToList();
 
                 // Remove all dragged columns from the temporary list.
                 foreach (var col in toRemove)
@@ -399,12 +398,20 @@ namespace Better_Work_Tab.DragDrop
                     insertIndex = workCols.Count; // Dropped after the last non-dragged column
                 }
 
-                BetterWorkTabMod.DebugLog($"[BWT] Reorder Group Map: firstIndex={firstOriginalIndex}, target={TargetIndex}, insertIndex={insertIndex}", DebugFeature.DragDrop);
+                insertIndex = Mathf.Clamp(insertIndex, 0, workCols.Count);
 
-                // Re-check for no-op.
-                // If the start position (before removals) matches the end position (after removals), it's a no-op.
-                // This handles cases where the user drops the group back exactly where it came from.
-                if (insertIndex == firstOriginalIndex)
+                // Build the final order once and use it for both local and multiplayer paths.
+                // Multiplayer sync must receive the same post-drop order the local path applies.
+                var reorderedWorkCols = workCols.ToList();
+                for (int i = 0; i < toRemove.Count; i++)
+                {
+                    reorderedWorkCols.Insert(insertIndex + i, toRemove[i]);
+                }
+
+                BetterWorkTabMod.DebugLog($"[BWT] Reorder Group Map: target={TargetIndex}, insertIndex={insertIndex}", DebugFeature.DragDrop);
+
+                // Re-check for no-op against the final order rather than the insertion index.
+                if (originalWorkCols.SequenceEqual(reorderedWorkCols))
                 {
                     BetterWorkTabMod.DebugLog("[BWT] Reorder Group No-Op detected. Original position maintained.", DebugFeature.DragDrop);
                     return;
@@ -413,24 +420,18 @@ namespace Better_Work_Tab.DragDrop
                 if (MultiplayerBridge.Active)
                 {
                     // Sync the entire resulting order for multiplayer consistency
-                    var finalOrder = workCols
+                    var finalOrder = reorderedWorkCols
                         .Where(c => c.workType != null)
                         .Select(c => c.workType.defName)
                         .ToList();
 
-                    var movedNames = _draggedColumns
+                    var movedNames = toRemove
                         .Where(c => c.workType != null)
                         .Select(c => c.workType.defName)
                         .ToList();
 
                     WorkColumnOrderSync.ApplyWorkColumnOrder(finalOrder, movedNames);
                     return;
-                }
-
-                // Actually move all dragged columns
-                for (int i = 0; i < _draggedColumns.Count; i++)
-                {
-                    workCols.Insert(insertIndex + i, _draggedColumns[i]);
                 }
 
                 // Reconstruct table def columns
@@ -449,7 +450,7 @@ namespace Better_Work_Tab.DragDrop
 
                 def.columns.Clear();
                 def.columns.AddRange(pre);
-                def.columns.AddRange(workCols);
+                def.columns.AddRange(reorderedWorkCols);
                 def.columns.AddRange(post);
 
                 WorkColumnOrderManager.CaptureCurrent(def);
