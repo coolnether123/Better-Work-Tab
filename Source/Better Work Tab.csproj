@@ -145,6 +145,7 @@
     <Compile Include="Spine\UI\SettingsFramework\SettingsListDrawer.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingsUIHelpers.cs" />
     <Compile Include="UI\WorkGiverReassignments\Window_WorkGiverSubMenu.cs" />
+    <Compile Include="UI\WorkGiverReassignments\WorkGiverDisplayNameService.cs" />
     <Compile Include="UI\WorkGiverReassignments\WorkGiverBaselineTracker.cs" />
     <Compile Include="UI\WorkGiverReassignments\WorkGiverDragHandler.cs" />
     <Compile Include="UI\WorkGiverReassignments\WorkGiverPriorityBoxRenderer.cs" />

@@ -306,10 +306,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
         private string BuildHeaderLabel(WorkGiver wg, bool isMovedFromBaseline)
         {
-            string baseText = wg?.def?.label;
-            if (baseText.NullOrEmpty()) baseText = wg?.def?.defName ?? HeaderUtility.DefaultHeaderText;
-
-            string label = baseText.CapitalizeFirst();
+            string label = WorkGiverDisplayNameService.HeaderLabel(wg?.def);
             var settings = BetterWorkTabMod.Settings;
             if (isMovedFromBaseline && settings != null && settings.showColumnMovedMarker && !label.EndsWith(HeaderUtility.MovedMarker))
             {
@@ -323,7 +320,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         {
             if (wg?.def == null) return HeaderUtility.DefaultHeaderText;
 
-            string title = wg.def.LabelCap;
+            string title = WorkGiverDisplayNameService.FullLabel(wg.def);
             string desc = wg.def.description;
             string workType = wg.def.workType?.LabelCap ?? _workType?.labelShort?.CapitalizeFirst();
 
