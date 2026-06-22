@@ -42,6 +42,7 @@ All features are toggleable in settings with extensive customization options.
 <b>Compatibility</b>
 - Compatible with most work-type mods
 - [FSF] Complex Jobs column ordering is supported
+- Vanilla Skills Expanded passion types are supported in rule conditions when the mod is active
 - Useful Marks markers appear on pawn icons when available
 - Grouped Pawns List is overridden inside this Work tab
 - CompactWorkTab overlaps this UI and should not be used together
