@@ -203,6 +203,11 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 return;
             }
 
+            if (SubWorkDrilldownInput.MatchesGesture(Event.current))
+            {
+                return;
+            }
+
             if (Mouse.IsOver(boxRect) && Event.current.type == EventType.MouseDown)
             {
                 int newPriority = GetNextPriority(currentPriority, Event.current.button);

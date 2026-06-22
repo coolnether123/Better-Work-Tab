@@ -93,6 +93,7 @@ namespace Better_Work_Tab.UI.Settings
         public const string SubWorkOpenButton = "subWorkJobs.openButton";
         public const string SubWorkOpenModifier = "subWorkJobs.openModifier";
         public const string SubWorkRestoreCursor = "subWorkJobs.restoreCursor";
+        public const string SubWorkRestoreCursorFromPawnCells = "subWorkJobs.restoreCursorFromPawnCells";
         public const string UiDragInstructions = "ui.dragInstructions";
         public const string UiManualPriorities = "ui.manualPriorities";
         public const string UiPriorityLegend = "ui.priorityLegend";

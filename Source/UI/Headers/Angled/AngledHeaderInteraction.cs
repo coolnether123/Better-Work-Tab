@@ -81,8 +81,6 @@ namespace Better_Work_Tab.UI.Headers.Angled
             {
                 if (SubWorkDrilldownInput.MatchesGesture(evt))
                 {
-                    ToggleSubWorkDrilldown(workType, GuiMousePosition.ToRootUiPosition(evt.mousePosition), true);
-                    evt.Use();
                     return;
                 }
 

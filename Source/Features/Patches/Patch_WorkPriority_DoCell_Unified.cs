@@ -156,13 +156,6 @@ namespace Better_Work_Tab.Patches
                     return false;
                 }
 
-                if (SubWorkDrilldownInput.MatchesGesture(Event.current) && Mouse.IsOver(rect))
-                {
-                    SubWorkDrilldownBarRenderer.ExitDrilldown(restoreMousePosition: true);
-                    Event.current.Use();
-                    return false;
-                }
-
                 if (pawn == null || pawn.Dead || pawn.workSettings == null || !pawn.workSettings.EverWork)
                 {
                     return false;
@@ -176,15 +169,6 @@ namespace Better_Work_Tab.Patches
                 return true;
 
             UpdateFrameCache();
-
-            if (SubWorkDrilldownInput.MatchesGesture(Event.current) && Mouse.IsOver(rect))
-            {
-                SubWorkDrilldownState.Enter(workType, GuiMousePosition.ToRootUiPosition(Event.current.mousePosition));
-                HeaderDrawingCoordinator.NotifyAngledHeadersChanged();
-                SoundDefOf.Tick_High.PlayOneShotOnCamera();
-                Event.current.Use();
-                return false;
-            }
 
             // Handle Scroll Wheel Priority Adjustment
             if (BetterWorkTabMod.Settings.enableScrollWheelPriority && Event.current.type == EventType.ScrollWheel && Mouse.IsOver(rect))
@@ -686,6 +670,11 @@ namespace Better_Work_Tab.Patches
         {
             Event evt = Event.current;
             if (evt == null || evt.type != EventType.MouseDown)
+            {
+                return false;
+            }
+
+            if (SubWorkDrilldownInput.MatchesGesture(evt))
             {
                 return false;
             }

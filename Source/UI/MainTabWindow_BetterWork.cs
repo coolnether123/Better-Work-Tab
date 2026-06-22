@@ -67,6 +67,14 @@ namespace Better_Work_Tab.UI
 
         private PawnColumnDef _lastSortColumn;
         private bool _lastSortDescending;
+        private bool _pendingSubWorkGesture;
+        private Vector2 _pendingSubWorkStart;
+        private Rect _pendingSubWorkBounds;
+        private WorkTypeDef _pendingSubWorkOpenType;
+        private int _pendingSubWorkButton;
+        private bool _pendingSubWorkExit;
+        private bool _pendingSubWorkRestoreCursor;
+        private int _suppressSubWorkPriorityMouseDownFrame = -1;
 
         private static Color CurrentRowTextColor = Color.white;
 
@@ -252,6 +260,8 @@ namespace Better_Work_Tab.UI
                     organizer?.HandleInput(evt);
                     ProcessRightClicks(organizer?.Layout);
                 }
+
+                SuppressSubWorkPriorityMouseDownIfNeeded(evt);
             }
 
             DrawWorkTable(table, organizer?.Layout, inRect);
@@ -562,43 +572,8 @@ namespace Better_Work_Tab.UI
                     Widgets.DrawBoxSolid(columnRect, useColor);
                 }
 
-                if (TryHandleSubWorkHeaderOpen(column))
-                {
-                    continue;
-                }
-
                 column.Column.Worker.DoHeader(column.HeaderRect, table);
             }
-        }
-
-        private bool TryHandleSubWorkHeaderOpen(WorkTabLayoutColumn column)
-        {
-            if (SubWorkDrilldownState.IsActive)
-            {
-                return false;
-            }
-
-            if (!(column.Column?.Worker is PawnColumnWorker_WorkPriority) || column.Column.workType == null)
-            {
-                return false;
-            }
-
-            Event evt = Event.current;
-            if (!SubWorkDrilldownInput.MatchesGesture(evt) || !Mouse.IsOver(column.HeaderRect))
-            {
-                return false;
-            }
-
-            if (WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(column.Column.workType).Count == 0)
-            {
-                return false;
-            }
-
-            SubWorkDrilldownState.Enter(column.Column.workType, GuiMousePosition.ToRootUiPosition(evt.mousePosition));
-            HeaderDrawingCoordinator.NotifyAngledHeadersChanged();
-            SoundDefOf.Tick_High.PlayOneShotOnCamera();
-            evt.Use();
-            return true;
         }
 
         private bool TryHandleSubWorkHeaderOpen(IWorkTabLayoutController layout)
@@ -609,21 +584,76 @@ namespace Better_Work_Tab.UI
             }
 
             Event evt = Event.current;
-            if (!SubWorkDrilldownInput.MatchesGesture(evt))
+            if (evt == null)
             {
                 return false;
             }
 
-            for (int i = 0; i < layout.Columns.Count; i++)
+            if (evt.type == EventType.MouseDown)
             {
-                var column = layout.Columns[i];
-                if (column.HeaderRect.Contains(evt.mousePosition))
+                if (!SubWorkDrilldownInput.MatchesGesture(evt))
                 {
-                    return TryHandleSubWorkHeaderOpen(column);
+                    ClearPendingSubWorkGesture();
+                    return false;
                 }
+
+                if (!TryGetSubWorkOpenTarget(layout, evt.mousePosition, out var workType, out var bounds, out bool fromHeader))
+                {
+                    ClearPendingSubWorkGesture();
+                    return false;
+                }
+
+                Vector2? returnMousePosition = fromHeader
+                    ? GuiMousePosition.ToRootUiPosition(evt.mousePosition)
+                    : (Vector2?)null;
+
+                BeginPendingSubWorkGesture(
+                    start: evt.mousePosition,
+                    bounds: bounds,
+                    button: evt.button,
+                    openType: workType,
+                    exit: false,
+                    restoreCursor: returnMousePosition.HasValue);
+                MarkSubWorkPriorityMouseDownForSuppression();
+                return false;
             }
 
-            return false;
+            if (!_pendingSubWorkGesture || _pendingSubWorkExit)
+            {
+                return false;
+            }
+
+            if (evt.type == EventType.MouseDrag)
+            {
+                CancelPendingSubWorkIfDragged(evt.mousePosition);
+                return false;
+            }
+
+            if (evt.type != EventType.MouseUp || evt.button != _pendingSubWorkButton)
+            {
+                return false;
+            }
+
+            bool shouldOpen = IsPendingSubWorkClick(evt.mousePosition) &&
+                _pendingSubWorkOpenType != null &&
+                WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(_pendingSubWorkOpenType).Count > 0;
+
+            Vector2? storedReturnPosition = _pendingSubWorkRestoreCursor
+                ? GuiMousePosition.ToRootUiPosition(_pendingSubWorkStart)
+                : (Vector2?)null;
+            WorkTypeDef openType = _pendingSubWorkOpenType;
+            ClearPendingSubWorkGesture();
+
+            if (!shouldOpen)
+            {
+                return false;
+            }
+
+            SubWorkDrilldownState.Enter(openType, storedReturnPosition);
+            HeaderDrawingCoordinator.NotifyAngledHeadersChanged();
+            SoundDefOf.Tick_High.PlayOneShotOnCamera();
+            evt.Use();
+            return true;
         }
 
         private bool TryHandleSubWorkExitGesture(IWorkTabLayoutController layout)
@@ -646,30 +676,255 @@ namespace Better_Work_Tab.UI
                 return true;
             }
 
-            if (layout == null || evt.type != EventType.MouseDown)
+            if (layout == null)
             {
                 return false;
             }
 
-            if (!SubWorkDrilldownInput.MatchesGesture(evt))
+            if (evt.type == EventType.MouseDown)
+            {
+                if (!SubWorkDrilldownInput.MatchesGesture(evt))
+                {
+                    ClearPendingSubWorkGesture();
+                    return false;
+                }
+
+                if (!TryGetSubWorkExitTarget(layout, evt.mousePosition, out var bounds, out bool shouldRestoreCursor))
+                {
+                    ClearPendingSubWorkGesture();
+                    return false;
+                }
+
+                BeginPendingSubWorkGesture(
+                    start: evt.mousePosition,
+                    bounds: bounds,
+                    button: evt.button,
+                    openType: null,
+                    exit: true,
+                    restoreCursor: shouldRestoreCursor);
+                MarkSubWorkPriorityMouseDownForSuppression();
+                return false;
+            }
+
+            if (!_pendingSubWorkGesture || !_pendingSubWorkExit)
             {
                 return false;
             }
 
-            Rect drilldownHeaderArea = new Rect(
+            if (evt.type == EventType.MouseDrag)
+            {
+                CancelPendingSubWorkIfDragged(evt.mousePosition);
+                return false;
+            }
+
+            if (evt.type != EventType.MouseUp || evt.button != _pendingSubWorkButton)
+            {
+                return false;
+            }
+
+            bool shouldExit = IsPendingSubWorkClick(evt.mousePosition);
+            bool pendingRestoreCursor = _pendingSubWorkRestoreCursor;
+            ClearPendingSubWorkGesture();
+
+            if (!shouldExit)
+            {
+                return false;
+            }
+
+            SubWorkDrilldownBarRenderer.ExitDrilldown(restoreMousePosition: pendingRestoreCursor);
+            evt.Use();
+            return true;
+        }
+
+        private bool TryGetSubWorkOpenTarget(
+            IWorkTabLayoutController layout,
+            Vector2 mousePosition,
+            out WorkTypeDef workType,
+            out Rect bounds,
+            out bool fromHeader)
+        {
+            workType = null;
+            bounds = default;
+            fromHeader = false;
+
+            for (int i = 0; i < layout.Columns.Count; i++)
+            {
+                var column = layout.Columns[i];
+                if (column.HeaderRect.Contains(mousePosition))
+                {
+                    return TryGetOpenTargetFromColumn(column, column.HeaderRect, true, out workType, out bounds, out fromHeader);
+                }
+            }
+
+            WorkTabLayoutRow bodyRow;
+            WorkTabLayoutColumn bodyColumn;
+            if (layout.TryGetRowAt(mousePosition, out bodyRow) &&
+                TryGetBodyColumnAt(layout, mousePosition, out bodyColumn))
+            {
+                return TryGetOpenTargetFromColumn(bodyColumn, GetColumnBodyBounds(layout, bodyColumn), false, out workType, out bounds, out fromHeader);
+            }
+
+            return false;
+        }
+
+        private bool TryGetOpenTargetFromColumn(
+            WorkTabLayoutColumn column,
+            Rect candidateBounds,
+            bool isHeader,
+            out WorkTypeDef workType,
+            out Rect bounds,
+            out bool fromHeader)
+        {
+            workType = null;
+            bounds = default;
+            fromHeader = false;
+
+            if (!(column.Column?.Worker is PawnColumnWorker_WorkPriority) || column.Column.workType == null)
+            {
+                return false;
+            }
+
+            if (WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(column.Column.workType).Count == 0)
+            {
+                return false;
+            }
+
+            workType = column.Column.workType;
+            bounds = candidateBounds;
+            fromHeader = isHeader;
+            return true;
+        }
+
+        private bool TryGetSubWorkExitTarget(
+            IWorkTabLayoutController layout,
+            Vector2 mousePosition,
+            out Rect bounds,
+            out bool restoreCursor)
+        {
+            bounds = default;
+            restoreCursor = false;
+
+            Rect headerArea = new Rect(
                 layout.TableOrigin.x,
                 layout.TableOrigin.y,
                 layout.Table.Size.x,
-                layout.HeaderHeight + SubWorkDrilldownBarRenderer.RowHeight);
+                layout.HeaderHeight);
 
-            if (!drilldownHeaderArea.Contains(evt.mousePosition))
+            if (headerArea.Contains(mousePosition))
+            {
+                bounds = headerArea;
+                restoreCursor = BetterWorkTabMod.Settings?.restoreCursorOnSubWorkExit ?? true;
+                return true;
+            }
+
+            Rect globalRowArea = new Rect(
+                layout.TableOrigin.x,
+                layout.TableOrigin.y + layout.HeaderHeight,
+                layout.Table.Size.x,
+                SubWorkDrilldownBarRenderer.RowHeight);
+
+            if (globalRowArea.Contains(mousePosition))
+            {
+                bounds = globalRowArea;
+                restoreCursor = false;
+                return true;
+            }
+
+            WorkTabLayoutRow bodyRow;
+            WorkTabLayoutColumn column;
+            if (layout.TryGetRowAt(mousePosition, out bodyRow) &&
+                TryGetBodyColumnAt(layout, mousePosition, out column) &&
+                column.Column?.Worker is PawnColumnWorker_WorkPriority)
+            {
+                bounds = GetColumnBodyBounds(layout, column);
+                restoreCursor = BetterWorkTabMod.Settings?.restoreCursorOnSubWorkPawnCellExit ?? false;
+                return true;
+            }
+
+            return false;
+        }
+
+        private Rect GetColumnBodyBounds(IWorkTabLayoutController layout, WorkTabLayoutColumn column)
+        {
+            float yMin = layout.TableOrigin.y + layout.HeaderHeight;
+            if (SubWorkDrilldownState.IsActive)
+            {
+                yMin += SubWorkDrilldownBarRenderer.RowHeight;
+            }
+
+            float yMax = layout.TableOrigin.y + layout.Table.Size.y;
+            return new Rect(column.HeaderRect.x, yMin, column.Width, Mathf.Max(0f, yMax - yMin));
+        }
+
+        private void BeginPendingSubWorkGesture(
+            Vector2 start,
+            Rect bounds,
+            int button,
+            WorkTypeDef openType,
+            bool exit,
+            bool restoreCursor)
+        {
+            _pendingSubWorkGesture = true;
+            _pendingSubWorkStart = start;
+            _pendingSubWorkBounds = bounds;
+            _pendingSubWorkButton = button;
+            _pendingSubWorkOpenType = openType;
+            _pendingSubWorkExit = exit;
+            _pendingSubWorkRestoreCursor = restoreCursor;
+        }
+
+        private void CancelPendingSubWorkIfDragged(Vector2 mousePosition)
+        {
+            if (!_pendingSubWorkGesture)
+            {
+                return;
+            }
+
+            float threshold = Mathf.Max(1f, BetterWorkTabMod.Settings?.dragThreshold ?? DefaultSettings.dragThreshold);
+            if ((mousePosition - _pendingSubWorkStart).magnitude >= threshold)
+            {
+                ClearPendingSubWorkGesture();
+            }
+        }
+
+        private bool IsPendingSubWorkClick(Vector2 mousePosition)
+        {
+            if (!_pendingSubWorkGesture)
             {
                 return false;
             }
 
-            SubWorkDrilldownBarRenderer.ExitDrilldown(restoreMousePosition: true);
+            float threshold = Mathf.Max(1f, BetterWorkTabMod.Settings?.dragThreshold ?? DefaultSettings.dragThreshold);
+            return (mousePosition - _pendingSubWorkStart).magnitude < threshold &&
+                _pendingSubWorkBounds.Contains(mousePosition);
+        }
+
+        private void ClearPendingSubWorkGesture()
+        {
+            _pendingSubWorkGesture = false;
+            _pendingSubWorkStart = Vector2.zero;
+            _pendingSubWorkBounds = default;
+            _pendingSubWorkOpenType = null;
+            _pendingSubWorkButton = -1;
+            _pendingSubWorkExit = false;
+            _pendingSubWorkRestoreCursor = false;
+        }
+
+        private void MarkSubWorkPriorityMouseDownForSuppression()
+        {
+            _suppressSubWorkPriorityMouseDownFrame = Time.frameCount;
+        }
+
+        private void SuppressSubWorkPriorityMouseDownIfNeeded(Event evt)
+        {
+            if (evt == null ||
+                evt.type != EventType.MouseDown ||
+                _suppressSubWorkPriorityMouseDownFrame != Time.frameCount)
+            {
+                return;
+            }
+
             evt.Use();
-            return true;
         }
 
         /// <summary>

@@ -40,7 +40,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                    Input.GetKey(KeyCode.RightControl);
         }
 
-        private static bool MatchesButton(Event evt)
+        internal static bool MatchesButton(Event evt)
         {
             var button = BetterWorkTabMod.Settings.subWorkDrilldownButton;
             if (button == BetterWorkTabSettings.SubWorkDrilldownButton.Right)

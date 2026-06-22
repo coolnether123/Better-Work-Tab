@@ -482,6 +482,8 @@ namespace Better_Work_Tab.DragDrop
                 int maxIndex = current?.Count ?? 0;
                 int insertIndex = Mathf.Clamp(TargetIndex, 0, maxIndex);
 
+                // TODO: Support dragging a sub-work job into another sub-work job view once
+                // there is a clear UX for choosing the target work type and inheritance rules.
                 WorkGiverReassignmentManager.MoveWithinWorkType(
                     _subWorkType.defName,
                     _subWorkGiver.defName,

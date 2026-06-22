@@ -55,6 +55,7 @@ namespace Better_Work_Tab
         public static BetterWorkTabSettings.SubWorkDrilldownButton subWorkDrilldownButton = BetterWorkTabSettings.SubWorkDrilldownButton.Left;
         public static bool useVanillaSubWorkGlobalPriorityBoxes = false;
         public static bool restoreCursorOnSubWorkExit = true;
+        public static bool restoreCursorOnSubWorkPawnCellExit = false;
         public static bool enableColumnOrderSaving = true;
         public static bool enableUIElements = true;
         public static bool enablePerformanceOptimizations = true;
@@ -309,6 +310,7 @@ namespace Better_Work_Tab
         public SubWorkDrilldownButton subWorkDrilldownButton = DefaultSettings.subWorkDrilldownButton;
         public bool useVanillaSubWorkGlobalPriorityBoxes = DefaultSettings.useVanillaSubWorkGlobalPriorityBoxes;
         public bool restoreCursorOnSubWorkExit = DefaultSettings.restoreCursorOnSubWorkExit;
+        public bool restoreCursorOnSubWorkPawnCellExit = DefaultSettings.restoreCursorOnSubWorkPawnCellExit;
         public bool enableColumnOrderSaving = DefaultSettings.enableColumnOrderSaving;
         public bool enableUIElements = DefaultSettings.enableUIElements;
         public bool enablePerformanceOptimizations = DefaultSettings.enablePerformanceOptimizations;
@@ -675,6 +677,7 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref subWorkDrilldownButton, "subWorkDrilldownButton", DefaultSettings.subWorkDrilldownButton);
             Scribe_Values.Look(ref useVanillaSubWorkGlobalPriorityBoxes, "useVanillaSubWorkGlobalPriorityBoxes", DefaultSettings.useVanillaSubWorkGlobalPriorityBoxes);
             Scribe_Values.Look(ref restoreCursorOnSubWorkExit, "restoreCursorOnSubWorkExit", DefaultSettings.restoreCursorOnSubWorkExit);
+            Scribe_Values.Look(ref restoreCursorOnSubWorkPawnCellExit, "restoreCursorOnSubWorkPawnCellExit", DefaultSettings.restoreCursorOnSubWorkPawnCellExit);
             Scribe_Values.Look(ref enableColumnOrderSaving, "enableColumnOrderSaving", DefaultSettings.enableColumnOrderSaving);
             Scribe_Values.Look(ref enableUIElements, "enableUIElements", DefaultSettings.enableUIElements);
             Scribe_Values.Look(ref enablePerformanceOptimizations, "enablePerformanceOptimizations", DefaultSettings.enablePerformanceOptimizations);

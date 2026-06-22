@@ -93,7 +93,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             bool canDrawButton = buttonRect.width >= 18f;
             if (canDrawButton)
             {
-                if (Widgets.ButtonImage(buttonRect, TexUI.ArrowTexLeft, Color.white, GenUI.MouseoverColor))
+                if (Widgets.ButtonImage(buttonRect, TexButton.CloseXSmall, Color.white, GenUI.MouseoverColor))
                 {
                     ExitDrilldown();
                     return;

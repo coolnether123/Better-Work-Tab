@@ -253,12 +253,25 @@ namespace Better_Work_Tab.UI.Settings
                 Id = SubWorkRestoreCursor,
                 ParentId = FeaturesSubWorkJobs,
                 FieldName = "restoreCursorOnSubWorkExit",
-                Label = "Restore cursor when leaving",
-                Tooltip = "Move the cursor back to the work type or priority cell used to enter the sub-work job view.",
+                Label = "Restore cursor from headers",
+                Tooltip = "When leaving from a sub-work header, move the cursor back to the work type header used to enter the sub-work job view.",
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.restoreCursorOnSubWorkExit,
                 ShowInSimpleView = true,
                 SortOrder = 4
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = SubWorkRestoreCursorFromPawnCells,
+                ParentId = FeaturesSubWorkJobs,
+                FieldName = "restoreCursorOnSubWorkPawnCellExit",
+                Label = "Restore cursor from pawn cells",
+                Tooltip = "When leaving from a pawn priority cell, move the cursor back to the work type header used to enter the sub-work job view. Off keeps the cursor where you clicked.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.restoreCursorOnSubWorkPawnCellExit,
+                ShowInSimpleView = true,
+                SortOrder = 5
             });
 
             Register(new SettingDefinition
