@@ -5,6 +5,7 @@ using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.Headers;
+using Better_Work_Tab.Features.WorkGiverReassignments;
 using RimWorld;
 using Spine.DragDropApi.Util;
 using System.Collections.Generic;
@@ -23,6 +24,9 @@ namespace Better_Work_Tab.DragDrop
         private readonly PawnColumnDef _primaryColumn;
         private readonly List<PawnColumnDef> _draggedColumns = new List<PawnColumnDef>();
         private readonly List<WorkTabLayoutColumn> _workColumns;
+        private readonly bool _subWorkDrilldownDrag;
+        private readonly WorkTypeDef _subWorkType;
+        private readonly WorkGiverDef _subWorkGiver;
         private Rect _originRect;
         public PawnColumnDef ColumnDef => _primaryColumn;
 
@@ -36,7 +40,17 @@ namespace Better_Work_Tab.DragDrop
                 .Where(c => c.Column.Worker is PawnColumnWorker_WorkPriority)
                 .ToList();
 
-            if (ColumnSelectionManager.IsSelected(_primaryColumn))
+            if (SubWorkDrilldownState.IsActive &&
+                SubWorkDrilldownState.TryGetWorkGiverForColumn(_primaryColumn, out var workGiver, out _))
+            {
+                _subWorkDrilldownDrag = true;
+                _subWorkType = SubWorkDrilldownState.ActiveWorkType;
+                _subWorkGiver = workGiver.def;
+                _draggedColumns.Add(_primaryColumn);
+                ColumnSelectionManager.Clear();
+                BetterWorkTabMod.DebugLog($"[BWT] Dragging sub-work job: {_subWorkGiver.defName}", DebugFeature.DragDrop);
+            }
+            else if (ColumnSelectionManager.IsSelected(_primaryColumn))
             {
                 // Drag the whole selection
                 var allWorkColDefs = _workColumns.Select(c => c.Column);
@@ -118,6 +132,11 @@ namespace Better_Work_Tab.DragDrop
 
         private void DrawBaselineLineIfNeeded()
         {
+            if (_subWorkDrilldownDrag)
+            {
+                return;
+            }
+
             var settings = BetterWorkTabMod.Settings;
             if (!(settings?.showColumnBaselineLine ?? true))
             {
@@ -242,7 +261,8 @@ namespace Better_Work_Tab.DragDrop
         {
             float rowStackHeight = GetVisibleRowStackHeight();
             float scrollY = Layout.Table?.scrollPosition.y ?? 0f;
-            float bottom = headerBottom + Mathf.Max(0f, rowStackHeight - scrollY);
+            float pinnedRowsHeight = SubWorkDrilldownState.IsActive ? SubWorkDrilldownState.GlobalRowHeight : 0f;
+            float bottom = headerBottom + pinnedRowsHeight + Mathf.Max(0f, rowStackHeight - scrollY);
 
             if (Layout.Table != null)
             {
@@ -291,6 +311,12 @@ namespace Better_Work_Tab.DragDrop
         protected override void CommitReorder()
         {
             if (!IsDragging) return;
+
+            if (_subWorkDrilldownDrag)
+            {
+                CommitSubWorkReorder();
+                return;
+            }
 
             try
             {
@@ -439,6 +465,34 @@ namespace Better_Work_Tab.DragDrop
             finally
             {
                 // Clear the dragging flag
+                BetterWorkTabLocalState.IsHeaderDragging = false;
+            }
+        }
+
+        private void CommitSubWorkReorder()
+        {
+            try
+            {
+                if (_subWorkType == null || _subWorkGiver == null)
+                {
+                    return;
+                }
+
+                var current = SubWorkDrilldownState.ActiveWorkGivers;
+                int maxIndex = current?.Count ?? 0;
+                int insertIndex = Mathf.Clamp(TargetIndex, 0, maxIndex);
+
+                WorkGiverReassignmentManager.MoveWithinWorkType(
+                    _subWorkType.defName,
+                    _subWorkGiver.defName,
+                    insertIndex);
+
+                Better_Work_Tab.UI.Headers.HeaderDrawingCoordinator.InvalidateSolution();
+                WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
+                MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+            }
+            finally
+            {
                 BetterWorkTabLocalState.IsHeaderDragging = false;
             }
         }

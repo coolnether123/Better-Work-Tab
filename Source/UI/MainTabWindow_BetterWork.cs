@@ -3,12 +3,14 @@ using Better_Work_Tab.Mod_Support.Multiplayer;
 using Better_Work_Tab.Mod_Support.Multiplayer.Features.Layouts;
 using Better_Work_Tab.Features.Caching;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
+using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.PawnOrganizer.Data;
 using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.Headers.Angled;
+using Better_Work_Tab.UI.WorkGiverReassignments;
 using Multiplayer.API;
 using RimWorld;
 using Spine.Profiling;
@@ -222,6 +224,13 @@ namespace Better_Work_Tab.UI
             PawnTable table = GetPawnTable();
             if (table == null) return;
 
+            if (SubWorkDrilldownState.ConsumeLayoutRefresh())
+            {
+                HeaderDrawingCoordinator.NotifyAngledHeadersChanged();
+                table.SetDirty();
+                PawnOrganizerSystem.Instance?.Layout?.InvalidateRowDescriptors();
+            }
+
             var organizer = PawnOrganizerSystem.Instance;
             Vector2 tableOrigin = new Vector2(inRect.x, inRect.y + ExtraTopSpace);
             var snapshot = BuildSnapshotForOrganizer(table);
@@ -235,8 +244,12 @@ namespace Better_Work_Tab.UI
             Event evt = Event.current;
             if (evt.type != EventType.Repaint && evt.type != EventType.Layout)
             {
-                organizer?.HandleInput(evt);
-                ProcessRightClicks(organizer?.Layout);
+                bool handledSubWorkOpen = TryHandleSubWorkHeaderOpen(organizer?.Layout);
+                if (!handledSubWorkOpen)
+                {
+                    organizer?.HandleInput(evt);
+                    ProcessRightClicks(organizer?.Layout);
+                }
             }
 
             DrawWorkTable(table, organizer?.Layout, inRect);
@@ -502,6 +515,10 @@ namespace Better_Work_Tab.UI
             UpdateSortState(table);
 
             DrawHeaders(layout, table);
+            if (SubWorkDrilldownState.IsActive)
+            {
+                SubWorkDrilldownBarRenderer.Draw(layout);
+            }
             DrawRows(table, layout, outRect, viewRect);
         }
 
@@ -540,8 +557,68 @@ namespace Better_Work_Tab.UI
                     Widgets.DrawBoxSolid(columnRect, useColor);
                 }
 
+                if (TryHandleSubWorkHeaderOpen(column))
+                {
+                    continue;
+                }
+
                 column.Column.Worker.DoHeader(column.HeaderRect, table);
             }
+        }
+
+        private bool TryHandleSubWorkHeaderOpen(WorkTabLayoutColumn column)
+        {
+            if (SubWorkDrilldownState.IsActive)
+            {
+                return false;
+            }
+
+            if (!(column.Column?.Worker is PawnColumnWorker_WorkPriority) || column.Column.workType == null)
+            {
+                return false;
+            }
+
+            Event evt = Event.current;
+            if (evt == null || evt.type != EventType.MouseDown || evt.button != 0 || !Mouse.IsOver(column.HeaderRect))
+            {
+                return false;
+            }
+
+            if (WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(column.Column.workType).Count == 0)
+            {
+                return false;
+            }
+
+            SubWorkDrilldownState.Enter(column.Column.workType);
+            HeaderDrawingCoordinator.NotifyAngledHeadersChanged();
+            SoundDefOf.Tick_High.PlayOneShotOnCamera();
+            evt.Use();
+            return true;
+        }
+
+        private bool TryHandleSubWorkHeaderOpen(IWorkTabLayoutController layout)
+        {
+            if (layout == null || SubWorkDrilldownState.IsActive)
+            {
+                return false;
+            }
+
+            Event evt = Event.current;
+            if (evt == null || evt.type != EventType.MouseDown || evt.button != 0)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < layout.Columns.Count; i++)
+            {
+                var column = layout.Columns[i];
+                if (column.HeaderRect.Contains(evt.mousePosition))
+                {
+                    return TryHandleSubWorkHeaderOpen(column);
+                }
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -554,6 +631,11 @@ namespace Better_Work_Tab.UI
         /// </summary>
         internal static bool ShouldShowColumnMarker(WorkTypeDef workType)
         {
+            if (SubWorkDrilldownState.IsActive)
+            {
+                return false;
+            }
+
             if (workType?.defName == null)
                 return false;
 
@@ -985,6 +1067,12 @@ namespace Better_Work_Tab.UI
                 layout.Table.Size.x,
                 scrollAreaHeight);
 
+            if (SubWorkDrilldownState.IsActive)
+            {
+                outRect.y += SubWorkDrilldownBarRenderer.RowHeight;
+                outRect.height = Mathf.Max(0f, outRect.height - SubWorkDrilldownBarRenderer.RowHeight);
+            }
+
             float widthWithoutScrollbar = layout.Table.Size.x - 16f;
             float totalColumnWidth = layout.Columns.Count > 0
                 ? layout.Columns[layout.Columns.Count - 1].OffsetX + layout.Columns[layout.Columns.Count - 1].Width
@@ -1406,6 +1494,7 @@ namespace Better_Work_Tab.UI
             // Clear float menu highlights when Work tab is closed
             HighlightState.ClearWorktypeHighlight();
             MouseStateManager.ClearHover();
+            SubWorkDrilldownState.Exit();
 
             // Cancel any active drag operations to ensure priority editing is re-enabled
             PawnOrganizerSystem.Instance?.CancelActiveDrag();

@@ -71,6 +71,26 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         }
     }
 
+    [HarmonyPatch(typeof(PawnColumnWorker_WorkPriority), nameof(PawnColumnWorker_WorkPriority.Compare))]
+    internal static class Patch_PawnColumnWorker_WorkPriority_Compare_SubWorkDrilldown
+    {
+        public static bool Prefix(PawnColumnWorker_WorkPriority __instance, Pawn a, Pawn b, ref int __result)
+        {
+            if (!SubWorkDrilldownState.IsActive)
+            {
+                return true;
+            }
+
+            if (!SubWorkDrilldownState.TryGetWorkGiverForColumn(__instance.def, out _, out _))
+            {
+                return true;
+            }
+
+            __result = SubWorkDrilldownState.ComparePawnsForColumn(__instance.def, a, b);
+            return false;
+        }
+    }
+
     internal static class WorkGiverScannerExtensions
     {
         internal static bool ShouldAllowForPawn(WorkGiver_Scanner scanner, Pawn pawn, bool forced = false)

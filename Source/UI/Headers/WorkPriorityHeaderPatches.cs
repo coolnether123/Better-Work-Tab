@@ -6,6 +6,7 @@ using UnityEngine;
 using Verse;
 using Better_Work_Tab.UI.Headers.Vanilla;
 using Better_Work_Tab.UI.Headers.Angled;
+using Better_Work_Tab.Features.WorkGiverReassignments;
 
 namespace Better_Work_Tab.UI.Headers
 {
@@ -64,6 +65,11 @@ namespace Better_Work_Tab.UI.Headers
 
                 var workType = __instance?.def?.workType;
                 if (workType == null) return false;
+
+                if (SubWorkDrilldownState.IsBlankWorkColumn(__instance.def))
+                {
+                    return false;
+                }
 
                 bool enableAngled = settings.enableAngledHeaders;
 

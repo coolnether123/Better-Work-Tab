@@ -143,23 +143,39 @@ namespace Better_Work_Tab.Patches
             if (!UI.Headers.PawnColumnWorker_WorkPriority_DoHeader_Patch.IsWorkTab())
                 return true;
 
-            if (pawn == null || pawn.Dead || pawn.workSettings == null || !pawn.workSettings.EverWork)
-                return true;
-
             WorkTypeDef workType = __instance.def.workType;
             if (workType == null)
                 return true;
 
+            if (SubWorkDrilldownState.IsActive)
+            {
+                if (!SubWorkDrilldownState.TryGetWorkGiverForColumn(__instance.def, out var workGiver, out _))
+                {
+                    return false;
+                }
+
+                if (pawn == null || pawn.Dead || pawn.workSettings == null || !pawn.workSettings.EverWork)
+                {
+                    return false;
+                }
+
+                DrawSubWorkPriorityCell(rect, pawn, workGiver);
+                return false;
+            }
+
+            if (pawn == null || pawn.Dead || pawn.workSettings == null || !pawn.workSettings.EverWork)
+                return true;
+
             UpdateFrameCache();
 
-            // Handle WorkGiver Sub-Menu (Ctrl + Right Click)
-            if (Event.current.type == EventType.MouseDown && Event.current.button == 1 && Event.current.control && Mouse.IsOver(rect))
+            // Handle WorkGiver drilldown (middle click or Ctrl + Right Click)
+            if (Event.current.type == EventType.MouseDown &&
+                (Event.current.button == 2 || (Event.current.button == 1 && Event.current.control)) &&
+                Mouse.IsOver(rect))
             {
-                // Convert GUI coordinates to logical UI space (account for scale and groups)
-                Vector2 localPos = new Vector2(rect.center.x, rect.y);
-                Vector2 screenPos = Verse.UI.GUIToScreenPoint(localPos) / Prefs.UIScale;
-                
-                Find.WindowStack.Add(new Better_Work_Tab.UI.WorkGiverReassignments.Window_WorkGiverSubMenu(workType, screenPos, pawn));
+                SubWorkDrilldownState.Enter(workType);
+                HeaderDrawingCoordinator.NotifyAngledHeadersChanged();
+                SoundDefOf.Tick_High.PlayOneShotOnCamera();
                 Event.current.Use();
                 return false;
             }
@@ -347,6 +363,19 @@ namespace Better_Work_Tab.Patches
         }
 
         // Caching helpers
+
+        private static void DrawSubWorkPriorityCell(Rect rect, Pawn pawn, WorkGiver workGiver)
+        {
+            const float boxSize = 25f;
+            float x = rect.x + (rect.width - boxSize) / 2f;
+            float y = rect.y + SkillBoxVerticalPadding;
+            Rect boxRect = new Rect(x, y, boxSize, boxSize);
+            Better_Work_Tab.UI.WorkGiverReassignments.WorkGiverPriorityBoxRenderer.DrawPriorityBox(
+                workGiver,
+                SubWorkDrilldownState.ActiveWorkType,
+                pawn,
+                boxRect);
+        }
 
         private static bool GetIsIncapable(Pawn p, WorkTypeDef work)
         {

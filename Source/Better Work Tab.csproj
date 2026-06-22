@@ -70,6 +70,7 @@
     <Compile Include="Features\WorkGiverReassignments\WorkGiverReassignmentData.cs" />
     <Compile Include="Features\WorkGiverReassignments\WorkGiverReassignmentManager.cs" />
     <Compile Include="Features\WorkGiverReassignments\WorkGiverReassignmentPatches.cs" />
+    <Compile Include="Features\WorkGiverReassignments\SubWorkDrilldownState.cs" />
     <Compile Include="Features\Workloads\GameComponent_BWTWorldSettings.cs" />
     <Compile Include="Features\Testing\GameComponent_BWTModernQuickTestDriver.cs" />
     <Compile Include="Features\Workloads\Worklist.cs" />
@@ -145,6 +146,7 @@
     <Compile Include="Spine\UI\SettingsFramework\SettingsListDrawer.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingsUIHelpers.cs" />
     <Compile Include="UI\WorkGiverReassignments\Window_WorkGiverSubMenu.cs" />
+    <Compile Include="UI\WorkGiverReassignments\SubWorkDrilldownBarRenderer.cs" />
     <Compile Include="UI\WorkGiverReassignments\WorkGiverDisplayNameService.cs" />
     <Compile Include="UI\WorkGiverReassignments\WorkGiverBaselineTracker.cs" />
     <Compile Include="UI\WorkGiverReassignments\WorkGiverDragHandler.cs" />

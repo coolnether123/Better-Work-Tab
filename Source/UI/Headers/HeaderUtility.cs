@@ -1,6 +1,8 @@
 using RimWorld;
 using UnityEngine;
 using Verse;
+using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.UI.WorkGiverReassignments;
 
 namespace Better_Work_Tab.UI.Headers
 {
@@ -36,6 +38,11 @@ namespace Better_Work_Tab.UI.Headers
         {
             if (workType == null) return DefaultHeaderText;
 
+            if (SubWorkDrilldownState.IsActive && TryGetSubWorkHeaderText(workType, isMoved, out var subWorkText))
+            {
+                return subWorkText;
+            }
+
             // Use the shortest available valid label
             string baseText = workType.labelShort;
             if (baseText.NullOrEmpty()) baseText = workType.label;
@@ -50,6 +57,47 @@ namespace Better_Work_Tab.UI.Headers
             }
 
             return label;
+        }
+
+        private static bool TryGetSubWorkHeaderText(WorkTypeDef workType, bool isMoved, out string label)
+        {
+            label = string.Empty;
+            if (workType == null)
+            {
+                return false;
+            }
+
+            var tableDef = PawnTableDefOf.Work;
+            if (tableDef?.columns == null)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < tableDef.columns.Count; i++)
+            {
+                var column = tableDef.columns[i];
+                if (column?.workType != workType || !(column.Worker is PawnColumnWorker_WorkPriority))
+                {
+                    continue;
+                }
+
+                if (!SubWorkDrilldownState.TryGetWorkGiverForColumn(column, out var workGiver, out _))
+                {
+                    label = string.Empty;
+                    return true;
+                }
+
+                label = WorkGiverDisplayNameService.HeaderLabel(workGiver.def);
+                var settings = BetterWorkTabMod.Settings;
+                if (isMoved && settings != null && settings.showColumnMovedMarker && !label.EndsWith(MovedMarker))
+                {
+                    label += MovedMarker;
+                }
+
+                return true;
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -91,7 +139,8 @@ namespace Better_Work_Tab.UI.Headers
 
             foreach (var col in table.Columns)
             {
-                if (col.workType != null && IsCJK(GetHeaderText(col.workType, false)))
+                string headerText = col.workType != null ? GetHeaderText(col.workType, false) : null;
+                if (!headerText.NullOrEmpty() && IsCJK(headerText))
                     return true;
             }
 

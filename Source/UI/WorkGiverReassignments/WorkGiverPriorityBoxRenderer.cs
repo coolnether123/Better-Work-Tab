@@ -81,6 +81,11 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
         private static void HandlePriorityClick(int pawnId, WorkGiverDef workGiverDef, Rect boxRect, int currentPriority)
         {
+            if (BetterWorkTabLocalState.IsHeaderDragging)
+            {
+                return;
+            }
+
             if (Mouse.IsOver(boxRect) && Event.current.type == EventType.MouseDown)
             {
                 int newPriority = WorkPrioritySystem.GetPriorityAfterMouseButton(currentPriority, Event.current.button);

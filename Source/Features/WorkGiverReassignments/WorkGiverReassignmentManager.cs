@@ -41,6 +41,8 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             }
         }
 
+        internal static int CurrentSyncVersion => Data?.SyncVersion ?? 0;
+
         /// <summary>
         /// Clear caches when the sync version changes or the settings are reloaded.
         /// </summary>
@@ -125,6 +127,16 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         internal static IReadOnlyList<WorkGiver> GetOrderedWorkGiversForWorkType(WorkTypeDef workType, Pawn pawn = null)
         {
+            return GetWorkGiversForWorkType(workType, pawn, applyPrioritySort: true);
+        }
+
+        internal static IReadOnlyList<WorkGiver> GetDisplayWorkGiversForWorkType(WorkTypeDef workType, Pawn pawn = null)
+        {
+            return GetWorkGiversForWorkType(workType, pawn, applyPrioritySort: false);
+        }
+
+        private static IReadOnlyList<WorkGiver> GetWorkGiversForWorkType(WorkTypeDef workType, Pawn pawn, bool applyPrioritySort)
+        {
             EnsureVersion();
 
             if (workType == null)
@@ -132,7 +144,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 return Array.Empty<WorkGiver>();
             }
 
-            if (pawn == null && OrderedWorkGiverCache.TryGetValue(workType.defName, out var cached))
+            if (applyPrioritySort && pawn == null && OrderedWorkGiverCache.TryGetValue(workType.defName, out var cached))
             {
                 return cached;
             }
@@ -202,34 +214,37 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 }
             }
 
-            // Apply sorting based on priorities (pawn-specific or global defaults)
-            var sortingPawn = pawn;
-            int defaultPrio = pawn == null
-                ? WorkPrioritySystem.GetDefaultEnabledPriority()
-                : WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, workType);
-            
-            var indexed = result.Select((g, idx) => new { g, idx }).ToList();
-            indexed.Sort((a, b) =>
+            if (applyPrioritySort)
             {
-                int pa = GetWorkGiverPriority(sortingPawn, a.g.def, defaultPrio);
-                int pb = GetWorkGiverPriority(sortingPawn, b.g.def, defaultPrio);
-                
-                // Treat 0 as disabled (lowest priority)
-                int valA = (pa == 0) ? 999 : pa;
-                int valB = (pb == 0) ? 999 : pb;
-                
-                int c = valA.CompareTo(valB);
-                if (c != 0) return c;
-                
-                // Secondary sort: saved/manual order.
-                c = a.idx.CompareTo(b.idx);
-                if (c != 0) return c;
+                // Apply sorting based on priorities (pawn-specific or global defaults)
+                var sortingPawn = pawn;
+                int defaultPrio = pawn == null
+                    ? WorkPrioritySystem.GetDefaultEnabledPriority()
+                    : WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, workType);
 
-                return b.g.def.priorityInType.CompareTo(a.g.def.priorityInType);
-            });
-            result = indexed.Select(x => x.g).ToList();
+                var indexed = result.Select((g, idx) => new { g, idx }).ToList();
+                indexed.Sort((a, b) =>
+                {
+                    int pa = GetWorkGiverPriority(sortingPawn, a.g.def, defaultPrio);
+                    int pb = GetWorkGiverPriority(sortingPawn, b.g.def, defaultPrio);
 
-            if (pawn == null)
+                    // Treat 0 as disabled (lowest priority)
+                    int valA = (pa == 0) ? 999 : pa;
+                    int valB = (pb == 0) ? 999 : pb;
+
+                    int c = valA.CompareTo(valB);
+                    if (c != 0) return c;
+
+                    // Secondary sort: saved/manual order.
+                    c = a.idx.CompareTo(b.idx);
+                    if (c != 0) return c;
+
+                    return b.g.def.priorityInType.CompareTo(a.g.def.priorityInType);
+                });
+                result = indexed.Select(x => x.g).ToList();
+            }
+
+            if (applyPrioritySort && pawn == null)
             {
                 OrderedWorkGiverCache[workType.defName] = result;
             }
@@ -469,7 +484,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         internal static void MoveWithinWorkType(string workTypeDefName, string workGiverDefName, int newIndex, Pawn pawn = null)
         {
-            var currentOrder = GetOrderedWorkGiversForWorkType(DefDatabase<WorkTypeDef>.GetNamedSilentFail(workTypeDefName), pawn)
+            var currentOrder = GetDisplayWorkGiversForWorkType(DefDatabase<WorkTypeDef>.GetNamedSilentFail(workTypeDefName), pawn)
                 .Select(wg => wg.def.defName)
                 .ToList();
 

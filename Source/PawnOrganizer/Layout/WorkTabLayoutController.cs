@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Better_Work_Tab.Features;
+using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Mod_Support.LocalProfiles;
 using Better_Work_Tab.Mod_Support.Multiplayer;
 using Better_Work_Tab.PawnOrganizer.API;
@@ -340,6 +341,16 @@ namespace Better_Work_Tab.PawnOrganizer
 
             // Check if mouse is in the row content area (below header)
             float headerBottom = TableOrigin.y + HeaderHeight;
+            if (SubWorkDrilldownState.IsActive)
+            {
+                if (mousePosition.y < headerBottom + SubWorkDrilldownState.GlobalRowHeight)
+                {
+                    return false;
+                }
+
+                headerBottom += SubWorkDrilldownState.GlobalRowHeight;
+            }
+
             if (mousePosition.y < headerBottom)
                 return false;
 
@@ -380,6 +391,16 @@ namespace Better_Work_Tab.PawnOrganizer
             row = default;
 
             float headerBottom = TableOrigin.y + HeaderHeight;
+            if (SubWorkDrilldownState.IsActive)
+            {
+                if (mousePosition.y < headerBottom + SubWorkDrilldownState.GlobalRowHeight)
+                {
+                    return false;
+                }
+
+                headerBottom += SubWorkDrilldownState.GlobalRowHeight;
+            }
+
             if (mousePosition.y < headerBottom)
                 return false;
 
@@ -611,7 +632,8 @@ namespace Better_Work_Tab.PawnOrganizer
                 return Rect.zero;
             }
 
-            float screenY = _origin.y + HeaderHeight + row.OffsetY - _table.scrollPosition.y;
+            float pinnedRowsHeight = SubWorkDrilldownState.IsActive ? SubWorkDrilldownState.GlobalRowHeight : 0f;
+            float screenY = _origin.y + HeaderHeight + pinnedRowsHeight + row.OffsetY - _table.scrollPosition.y;
             return new Rect(_origin.x, screenY, _rowWidth, row.Height);
         }
 

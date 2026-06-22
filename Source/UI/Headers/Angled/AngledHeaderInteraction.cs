@@ -78,11 +78,10 @@ namespace Better_Work_Tab.UI.Headers.Angled
             // If a drag commences, the drag handler consumes the MouseUp event, preventing sorting.
             if (evt.type == EventType.MouseDown)
             {
-                // Ctrl + Right Click: Open WorkGiver sub-menu (global, header-based)
-                if (evt.button == 1 && evt.control)
+                // Middle click or Ctrl + Right Click: enter or leave sub-work drilldown.
+                if (evt.button == 2 || (evt.button == 1 && evt.control))
                 {
-                    Vector2 screenPos = Verse.UI.GUIToScreenPoint(evt.mousePosition) / Prefs.UIScale;
-                    Find.WindowStack.Add(new Window_WorkGiverSubMenu(workType, screenPos, pawn: null));
+                    ToggleSubWorkDrilldown(workType);
                     evt.Use();
                     return;
                 }
@@ -139,6 +138,11 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
         private static string GetTooltip(PawnColumnWorker_WorkPriority worker, PawnTable table)
         {
+            if (SubWorkDrilldownState.IsActive)
+            {
+                return GetSubWorkTooltip(worker, table);
+            }
+
             // Replicate vanilla GetHeaderTip from PawnColumnWorker_WorkPriority
             var workType = worker.def.workType;
             
@@ -165,6 +169,47 @@ namespace Better_Work_Tab.UI.Headers.Angled
             }
             
             return tooltip.Resolve();
+        }
+
+        private static string GetSubWorkTooltip(PawnColumnWorker_WorkPriority worker, PawnTable table)
+        {
+            if (!SubWorkDrilldownState.TryGetWorkGiverForColumn(worker.def, out var workGiver, out _))
+            {
+                return string.Empty;
+            }
+
+            var def = workGiver.def;
+            var activeWorkType = SubWorkDrilldownState.ActiveWorkType;
+            System.Text.StringBuilder tooltip = new System.Text.StringBuilder(160);
+
+            tooltip.Append(WorkGiverDisplayNameService.FullLabel(def).Colorize(ColoredText.TipSectionTitleColor));
+
+            string workTypeLabel = activeWorkType?.LabelCap.ToString();
+            if (!workTypeLabel.NullOrEmpty())
+            {
+                tooltip.Append("\n").Append("WorkType".Translate()).Append(": ").Append(workTypeLabel);
+            }
+
+            if (!def.description.NullOrEmpty())
+            {
+                tooltip.Append("\n\n").Append(def.description);
+            }
+
+            if (worker.def.sortable)
+            {
+                tooltip.Append("\n\n").Append("ClickToSortByThisColumn".Translate().Colorize(ColoredText.SubtleGrayColor));
+            }
+
+            if (Find.PlaySettings.useWorkPriorities)
+            {
+                tooltip.Append("\n").Append("WorkPriorityShiftClickTip".Translate().Colorize(ColoredText.SubtleGrayColor));
+            }
+            else
+            {
+                tooltip.Append("\n").Append("WorkPriorityShiftClickEnableDisableTip".Translate().Colorize(ColoredText.SubtleGrayColor));
+            }
+
+            return tooltip.ToString();
         }
         
         /// <summary>
@@ -236,6 +281,13 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
         private static void HandleShiftClick(PawnColumnWorker_WorkPriority worker, PawnTable table, int button)
         {
+            if (SubWorkDrilldownState.IsActive &&
+                SubWorkDrilldownState.TryGetWorkGiverForColumn(worker.def, out var workGiver, out _))
+            {
+                HandleSubWorkShiftClick(workGiver.def, table, button);
+                return;
+            }
+
             var workType = worker.def.workType;
             List<Pawn> pawns = table.PawnsListForReading;
             bool useWorkPriorities = Find.PlaySettings.useWorkPriorities;
@@ -281,6 +333,89 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
                 table.SetDirty();
             }
+        }
+
+        private static void HandleSubWorkShiftClick(WorkGiverDef workGiverDef, PawnTable table, int button)
+        {
+            var workType = SubWorkDrilldownState.ActiveWorkType;
+            List<Pawn> pawns = table.PawnsListForReading;
+            bool useWorkPriorities = Find.PlaySettings.useWorkPriorities;
+
+            bool changed = false;
+            for (int i = 0; i < pawns.Count; i++)
+            {
+                Pawn pawn = pawns[i];
+                if (pawn.Dead || pawn.workSettings == null || !pawn.workSettings.EverWork || pawn.WorkTypeIsDisabled(workType))
+                {
+                    continue;
+                }
+
+                int defaultPriority = WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, workType);
+                int curPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, workGiverDef, defaultPriority);
+                int nextPriority;
+
+                if (useWorkPriorities)
+                {
+                    int direction = button == 0 ? 1 : -1;
+                    nextPriority = WorkPrioritySystem.GetPriorityAfterBoundedStep(curPriority, direction);
+                }
+                else
+                {
+                    nextPriority = button == 0
+                        ? WorkPrioritySystem.GetDefaultEnabledPriority()
+                        : WorkPrioritySystem.DisabledPriority;
+                }
+
+                if (nextPriority == curPriority)
+                {
+                    continue;
+                }
+
+                WorkGiverReassignmentManager.SyncSetPawnOverride(pawn.thingIDNumber, workGiverDef.defName, nextPriority);
+                changed = true;
+            }
+
+            if (changed)
+            {
+                if (useWorkPriorities)
+                {
+                    SoundDefOf.DragSlider.PlayOneShotOnCamera();
+                }
+                else if (button == 0)
+                {
+                    SoundDefOf.Checkbox_TurnedOn.PlayOneShotOnCamera();
+                }
+                else
+                {
+                    SoundDefOf.Checkbox_TurnedOff.PlayOneShotOnCamera();
+                }
+
+                table.SetDirty();
+            }
+        }
+
+        private static void ToggleSubWorkDrilldown(WorkTypeDef workType)
+        {
+            if (SubWorkDrilldownState.IsActive)
+            {
+                SubWorkDrilldownBarRenderer.ExitDrilldown();
+                return;
+            }
+
+            if (workType == null)
+            {
+                return;
+            }
+
+            if (WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(workType).Count == 0)
+            {
+                SoundDefOf.ClickReject.PlayOneShotOnCamera();
+                return;
+            }
+
+            SubWorkDrilldownState.Enter(workType);
+            HeaderDrawingCoordinator.NotifyAngledHeadersChanged();
+            SoundDefOf.Tick_High.PlayOneShotOnCamera();
         }
 
         /// <summary>
