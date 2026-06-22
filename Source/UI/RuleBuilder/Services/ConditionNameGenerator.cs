@@ -1,4 +1,5 @@
 using Better_Work_Tab.Features.Rules;
+using Better_Work_Tab.ModSupport;
 using RimWorld;
 using System.Collections.Generic;
 using Verse;
@@ -37,7 +38,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
             // Passion
             if (p.PassionLevel >= 0)
             {
-                string passionName = ((Passion)p.PassionLevel).ToString();
+                string passionName = VanillaSkillsExpandedSupport.GetPassionLabel(p.PassionLevel);
                 parts.Add("BWT_CondName_Passion".Translate(passionName));
             }
 
