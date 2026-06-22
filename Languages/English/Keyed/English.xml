@@ -52,7 +52,7 @@
 <BWT_IsNthBestSkill_Desc>Only assign if the work type is this pawn's Nth best skill. It must be exact.</BWT_IsNthBestSkill_Desc>
 <BWT_LimitNumberOfWorktypes_Desc>Only assign if the pawn DOES NOT already have this many work types assigned.</BWT_LimitNumberOfWorktypes_Desc>
 <BWT_SkipIfPriorityForThisWorktypeAreadyAssigned_Desc>Only assign if this priority has not already been assigned for this work type.</BWT_SkipIfPriorityForThisWorktypeAreadyAssigned_Desc>
-<BWT_PassionLevel_Desc>Only assign if the pawn's passion level for the work type is exactly this number.</BWT_PassionLevel_Desc>
+<BWT_PassionLevel_Desc>Only assign if the pawn's best relevant passion for the work type matches the selected passion.</BWT_PassionLevel_Desc>
 <BWT_SkillLevelGreaterThan_Desc>Only assign if the pawn's skill in the work type is greater than this number.</BWT_SkillLevelGreaterThan_Desc>
 <BWT_SkillLevelLessThan_Desc>Only assign if the pawn's skill in the work type is less than this number.</BWT_SkillLevelLessThan_Desc>
 <BWT_MoveSpeedGreaterThan_Desc>Only assign if the pawn's move speed is greater than this number.</BWT_MoveSpeedGreaterThan_Desc>
