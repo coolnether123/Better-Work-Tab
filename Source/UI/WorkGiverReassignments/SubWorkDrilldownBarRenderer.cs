@@ -1,6 +1,8 @@
 using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI.Headers;
+using Better_Work_Tab.UI.Input;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -48,6 +50,11 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                     continue;
                 }
 
+                if (ShouldHighlightGlobalCell(column, cellRect))
+                {
+                    HighlightDrawer.DrawHighlight(cellRect, HighlightDrawer.GetColumnHoverColor());
+                }
+
                 if (SubWorkDrilldownState.TryGetWorkGiverForColumn(column.Column, out var workGiver, out _))
                 {
                     DrawGlobalPriorityCell(workGiver, cellRect);
@@ -55,18 +62,51 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             }
         }
 
+        private static bool ShouldHighlightGlobalCell(WorkTabLayoutColumn column, Rect cellRect)
+        {
+            var settings = BetterWorkTabMod.Settings;
+            if (settings == null ||
+                !settings.ShowPawnAndWorktypeHighlights ||
+                !settings.enableRowColumnHighlights ||
+                !settings.ShowCursorPawnAndWorktypeHighlight)
+            {
+                return false;
+            }
+
+            var workType = column.Column?.workType;
+            if (workType == null)
+            {
+                return false;
+            }
+
+            var hoveredWorkType = PawnColumnWorker_WorkPriority_DoHeader_Patch.HoveredWorkType;
+            return hoveredWorkType == workType || Mouse.IsOver(column.HeaderRect) || Mouse.IsOver(cellRect);
+        }
+
         private static void DrawLabelCell(Rect rect)
         {
-            Rect buttonRect = new Rect(rect.x + 5f, rect.y + 4f, Mathf.Min(28f, rect.width - 8f), RowHeight - 8f);
+            var oldAnchor = Text.Anchor;
+            var oldFont = Text.Font;
+            var oldColor = GUI.color;
+
+            Rect buttonRect = new Rect(rect.x + 6f, rect.y + 5f, Mathf.Min(20f, rect.width - 8f), RowHeight - 10f);
             bool canDrawButton = buttonRect.width >= 18f;
             if (canDrawButton)
             {
-                if (Widgets.ButtonText(buttonRect, "<"))
+                if (Widgets.ButtonImage(buttonRect, TexUI.ArrowTexLeft, Color.white, GenUI.MouseoverColor))
                 {
                     ExitDrilldown();
+                    return;
                 }
+            }
 
-                TooltipHandler.TipRegion(buttonRect, "Back to work types");
+            Rect clickRect = canDrawButton
+                ? new Rect(buttonRect.xMax, rect.y, Mathf.Max(0f, rect.xMax - buttonRect.xMax), rect.height)
+                : rect;
+            if (Widgets.ButtonInvisible(clickRect))
+            {
+                ExitDrilldown();
+                return;
             }
 
             Rect labelRect = new Rect(
@@ -75,9 +115,6 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 Mathf.Max(0f, rect.xMax - (canDrawButton ? buttonRect.xMax + 10f : rect.x + 10f)),
                 RowHeight);
 
-            var oldAnchor = Text.Anchor;
-            var oldFont = Text.Font;
-            var oldColor = GUI.color;
             Text.Anchor = TextAnchor.MiddleLeft;
             Text.Font = GameFont.Small;
             GUI.color = new Color(1f, 1f, 1f, 0.82f);
@@ -90,6 +127,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             GUI.color = oldColor;
             Text.Anchor = oldAnchor;
             Text.Font = oldFont;
+            TooltipHandler.TipRegion(rect, "Back to work types. " + SubWorkDrilldownInput.GestureLabel() + " or press Escape to return.");
         }
 
         private static void DrawGlobalPriorityCell(WorkGiver workGiver, Rect cellRect)
@@ -101,10 +139,20 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             WorkGiverPriorityBoxRenderer.DrawPriorityBox(workGiver, SubWorkDrilldownState.ActiveWorkType, null, boxRect);
         }
 
-        internal static void ExitDrilldown()
+        internal static void ExitDrilldown(bool restoreMousePosition = false)
         {
+            Vector2 returnMousePosition = Vector2.zero;
+            bool shouldRestoreMouse = restoreMousePosition &&
+                SubWorkDrilldownState.TryGetReturnMousePosition(out returnMousePosition);
+
             SubWorkDrilldownState.Exit();
             HeaderDrawingCoordinator.NotifyAngledHeadersChanged();
+
+            if (shouldRestoreMouse && (BetterWorkTabMod.Settings?.restoreCursorOnSubWorkExit ?? true))
+            {
+                NativeCursorPosition.ScheduleMoveToUiPosition(returnMousePosition);
+            }
+
             SoundDefOf.Tick_Low.PlayOneShotOnCamera();
         }
     }

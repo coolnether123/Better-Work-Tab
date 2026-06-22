@@ -7,6 +7,7 @@ using Better_Work_Tab.DragDrop;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.UI.Input;
 
 namespace Better_Work_Tab.UI.Headers.Angled
 {
@@ -78,10 +79,9 @@ namespace Better_Work_Tab.UI.Headers.Angled
             // If a drag commences, the drag handler consumes the MouseUp event, preventing sorting.
             if (evt.type == EventType.MouseDown)
             {
-                // Middle click or Ctrl + Right Click: enter or leave sub-work drilldown.
-                if (evt.button == 2 || (evt.button == 1 && evt.control))
+                if (SubWorkDrilldownInput.MatchesGesture(evt))
                 {
-                    ToggleSubWorkDrilldown(workType);
+                    ToggleSubWorkDrilldown(workType, GuiMousePosition.ToRootUiPosition(evt.mousePosition), true);
                     evt.Use();
                     return;
                 }
@@ -394,11 +394,11 @@ namespace Better_Work_Tab.UI.Headers.Angled
             }
         }
 
-        private static void ToggleSubWorkDrilldown(WorkTypeDef workType)
+        private static void ToggleSubWorkDrilldown(WorkTypeDef workType, Vector2? returnMousePosition, bool restoreMousePosition)
         {
             if (SubWorkDrilldownState.IsActive)
             {
-                SubWorkDrilldownBarRenderer.ExitDrilldown();
+                SubWorkDrilldownBarRenderer.ExitDrilldown(restoreMousePosition);
                 return;
             }
 
@@ -413,7 +413,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 return;
             }
 
-            SubWorkDrilldownState.Enter(workType);
+            SubWorkDrilldownState.Enter(workType, returnMousePosition);
             HeaderDrawingCoordinator.NotifyAngledHeadersChanged();
             SoundDefOf.Tick_High.PlayOneShotOnCamera();
         }

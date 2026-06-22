@@ -2,6 +2,7 @@
 using RimWorld;
 using Verse;
 using System.Collections.Generic;
+using Better_Work_Tab.Features.WorkGiverReassignments;
 
 namespace Better_Work_Tab.UI.Headers.Angled
 {
@@ -84,8 +85,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
             bool isMoved = MainTabWindow_BetterWork.ShouldShowColumnMarker(workType);
             string label = HeaderUtility.GetHeaderText(workType, isMoved);
             
-            bool isCJK = HeaderUtility.IsCJK(label);
-            bool isCJKVertical = isCJK && BetterWorkTabMod.Settings.useVerticalStackingForCJK && Mathf.Abs(AngledLabelDrawer.CurrentRotation + 90f) < 5f;
+            bool isCJKVertical = HeaderUtility.ShouldUseCJKVerticalLabel(label);
 
             GameFont oldFont = Text.Font;
             Text.Font = GameFont.Small;
@@ -104,12 +104,23 @@ namespace Better_Work_Tab.UI.Headers.Angled
             // For standard angled headers, we use vertical centering relative to the header area.
             // For CJK Vertical headers, we push the text down to the bottom (anchored near the pawn rows) 
             // for maximum space efficiency and a more traditional vertical label aesthetic.
-            float drawWidth = isCJKVertical ? size.x : rect.height;
+            bool useBottomAnchoredLabel = SubWorkDrilldownState.IsActive && !isCJKVertical;
+            float drawWidth = isCJKVertical || useBottomAnchoredLabel ? size.x : rect.height;
             Rect drawRect;
             if (isCJKVertical)
             {
                 float yPos = rect.yMax - size.y - AngledLabelDrawer.STEM_BOTTOM_GAP;
                 drawRect = new Rect(rect.center.x - drawWidth / 2f + horizontalOffset, yPos, drawWidth, size.y);
+            }
+            else if (useBottomAnchoredLabel)
+            {
+                Vector2 anchor = new Vector2(rect.center.x + horizontalOffset, rect.yMax - AngledLabelDrawer.STEM_BOTTOM_GAP);
+                Vector2 localUnderlineStart = new Vector2(-drawWidth / 2f, size.y / 2f);
+                Vector2 rotatedUnderlineStart = RotatePoint(localUnderlineStart, cos, sin);
+                drawRect = new Rect(0f, 0f, drawWidth, size.y)
+                {
+                    center = anchor - rotatedUnderlineStart
+                };
             }
             else
             {
@@ -126,7 +137,9 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
             cached = new CachedHeaderData
             {
-                Layout = new AngledLabelDrawer.AngledLabelLayout(label, size, pivot, isMoved, isCJKVertical),
+                Layout = (useBottomAnchoredLabel || isCJKVertical)
+                    ? new AngledLabelDrawer.AngledLabelLayout(label, size, pivot, isMoved, isCJKVertical, drawRect)
+                    : new AngledLabelDrawer.AngledLabelLayout(label, size, pivot, isMoved, isCJKVertical),
                 Quad = quad,
                 Bounds = rect, // Approximate screen bounds for early clipping
                 ParamSignature = currentSig

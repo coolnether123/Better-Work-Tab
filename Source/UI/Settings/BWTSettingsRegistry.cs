@@ -194,13 +194,82 @@ namespace Better_Work_Tab.UI.Settings
 
             Register(new SettingDefinition
             {
+                Id = FeaturesSubWorkJobs,
+                FieldName = "enableSubWorkDrilldown",
+                Label = "Sub-work Jobs",
+                Tooltip = "Open a work type into its individual jobs. Use the configured shortcut on a work header or cell. Use it again, or press Escape, to return.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.enableSubWorkDrilldown,
+                ControlsChildVisibility = true,
+                ShowInSimpleView = true,
+                SortOrder = -43,
+                EmphasizeAsHeader = true,
+                HeaderColor = new Color(0.55f, 0.75f, 0.9f)
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = SubWorkOpenModifier,
+                ParentId = FeaturesSubWorkJobs,
+                FieldName = "subWorkDrilldownModifier",
+                Label = "Open modifier",
+                Tooltip = "Modifier key required to open or leave a sub-work job view.",
+                Type = SettingType.Enum,
+                EnumType = typeof(BetterWorkTabSettings.SubWorkDrilldownModifier),
+                DefaultValue = DefaultSettings.subWorkDrilldownModifier,
+                ShowInSimpleView = true,
+                SortOrder = 1
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = SubWorkOpenButton,
+                ParentId = FeaturesSubWorkJobs,
+                FieldName = "subWorkDrilldownButton",
+                Label = "Open mouse button",
+                Tooltip = "Mouse button used with the modifier key to open or leave a sub-work job view.",
+                Type = SettingType.Enum,
+                EnumType = typeof(BetterWorkTabSettings.SubWorkDrilldownButton),
+                DefaultValue = DefaultSettings.subWorkDrilldownButton,
+                ShowInSimpleView = true,
+                SortOrder = 2
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = SubWorkGlobalVanillaPriorityBoxes,
+                ParentId = FeaturesSubWorkJobs,
+                FieldName = "useVanillaSubWorkGlobalPriorityBoxes",
+                Label = "Vanilla global priority boxes",
+                Tooltip = "Render the global sub-work priority row with vanilla-style work priority boxes. Off keeps BWT's custom global row render.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.useVanillaSubWorkGlobalPriorityBoxes,
+                ShowInSimpleView = true,
+                SortOrder = 3
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = SubWorkRestoreCursor,
+                ParentId = FeaturesSubWorkJobs,
+                FieldName = "restoreCursorOnSubWorkExit",
+                Label = "Restore cursor when leaving",
+                Tooltip = "Move the cursor back to the work type or priority cell used to enter the sub-work job view.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.restoreCursorOnSubWorkExit,
+                ShowInSimpleView = true,
+                SortOrder = 4
+            });
+
+            Register(new SettingDefinition
+            {
                 Id = FeaturesUiElements,
                 Label = "UI Display",
                 Type = SettingType.Header,
                 Tooltip = "Work tab UI display elements.",
                 HeaderColor = new Color(0.8f, 0.8f, 0.6f),
                 ShowInSimpleView = true,
-                SortOrder = -43
+                SortOrder = -42
             });
 
             Register(new SettingDefinition

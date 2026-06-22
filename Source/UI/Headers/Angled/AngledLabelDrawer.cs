@@ -70,8 +70,6 @@ namespace Better_Work_Tab.UI.Headers.Angled
             float rotation = CurrentRotation;
             float absSin = Mathf.Abs(Mathf.Sin(rotation * Mathf.Deg2Rad));
             float absCos = Mathf.Abs(Mathf.Cos(rotation * Mathf.Deg2Rad));
-            bool useVerticalCJK = BetterWorkTabMod.Settings.useVerticalStackingForCJK && Mathf.Abs(rotation + 90f) < 5f;
-
             GameFont oldFont = Text.Font;
             Text.Font = GameFont.Small;
             float lineHeightCJK = Text.LineHeight * BetterWorkTabMod.Settings.cjkVerticalKerning;
@@ -84,7 +82,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
                     string labelText = HeaderUtility.GetHeaderText(col.workType, true);
 
                     float h;
-                    if (useVerticalCJK && HeaderUtility.IsCJK(labelText))
+                    if (HeaderUtility.ShouldUseCJKVerticalLabel(labelText))
                     {
                         // Stacked Vertical height: characters * line height
                         h = labelText.Length * lineHeightCJK;

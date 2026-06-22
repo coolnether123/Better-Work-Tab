@@ -120,10 +120,15 @@ namespace Better_Work_Tab.UI.Headers
             return false;
         }
 
+        public static bool ShouldUseCJKVerticalLabel(string text)
+        {
+            var settings = BetterWorkTabMod.Settings;
+            return settings != null && settings.useVerticalStackingForCJK && IsCJK(text);
+        }
+
         /// <summary>
         /// Determines if any column in the provided table is eligible for specialized CJK vertical stacking.
-        /// This depends on the 'useVerticalStackingForCJK' setting, the current header rotation (must be near -90 degrees),
-        /// and the presence of CJK characters in the column labels.
+        /// This depends on the 'useVerticalStackingForCJK' setting and the presence of CJK characters in the column labels.
         /// </summary>
         /// <param name="table">The pawn table to inspect.</param>
         /// <returns>True if specialized vertical stacking logic should be applied to the header area.</returns>
@@ -133,14 +138,10 @@ namespace Better_Work_Tab.UI.Headers
             if (settings == null || !settings.useVerticalStackingForCJK || table?.Columns == null)
                 return false;
 
-            // Only relevant at -90 rotation
-            if (Mathf.Abs(settings.angledHeaderRotation + 90f) > 5f)
-                return false;
-
             foreach (var col in table.Columns)
             {
                 string headerText = col.workType != null ? GetHeaderText(col.workType, false) : null;
-                if (!headerText.NullOrEmpty() && IsCJK(headerText))
+                if (!headerText.NullOrEmpty() && ShouldUseCJKVerticalLabel(headerText))
                     return true;
             }
 

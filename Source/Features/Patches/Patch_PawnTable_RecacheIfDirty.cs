@@ -66,8 +66,11 @@ namespace Better_Work_Tab.Features.Patches
                 contentHeight += desc.Height;
             }
 
-            float headerHeight = __instance.cachedHeaderHeight;
-            float totalHeight = headerHeight + contentHeight;
+            float headerHeight = Better_Work_Tab.UI.WorkGiverReassignments.SubWorkDrilldownHeaderGeometry.GetEffectiveHeaderHeight(__instance);
+            float pinnedRowsHeight = Better_Work_Tab.Features.WorkGiverReassignments.SubWorkDrilldownState.IsActive
+                ? Better_Work_Tab.Features.WorkGiverReassignments.SubWorkDrilldownState.GlobalRowHeight
+                : 0f;
+            float totalHeight = headerHeight + pinnedRowsHeight + contentHeight;
 
             // ═══════════════════════════════════════════════════════════════════════════
             // Sync back to vanilla's fields

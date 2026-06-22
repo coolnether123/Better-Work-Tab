@@ -10,6 +10,7 @@ using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.PawnOrganizer.Data;
 using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.Headers.Angled;
+using Better_Work_Tab.UI.Input;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using Multiplayer.API;
 using RimWorld;
@@ -227,8 +228,8 @@ namespace Better_Work_Tab.UI
             if (SubWorkDrilldownState.ConsumeLayoutRefresh())
             {
                 HeaderDrawingCoordinator.NotifyAngledHeadersChanged();
-                table.SetDirty();
                 PawnOrganizerSystem.Instance?.Layout?.InvalidateRowDescriptors();
+                SetDirty();
             }
 
             var organizer = PawnOrganizerSystem.Instance;
@@ -244,8 +245,9 @@ namespace Better_Work_Tab.UI
             Event evt = Event.current;
             if (evt.type != EventType.Repaint && evt.type != EventType.Layout)
             {
-                bool handledSubWorkOpen = TryHandleSubWorkHeaderOpen(organizer?.Layout);
-                if (!handledSubWorkOpen)
+                bool handledSubWorkGesture = TryHandleSubWorkExitGesture(organizer?.Layout)
+                    || TryHandleSubWorkHeaderOpen(organizer?.Layout);
+                if (!handledSubWorkGesture)
                 {
                     organizer?.HandleInput(evt);
                     ProcessRightClicks(organizer?.Layout);
@@ -267,6 +269,7 @@ namespace Better_Work_Tab.UI
                 DrawInfoButton(infoRect);
             }
             DrawBottomCounters(inRect, table);
+            NativeCursorPosition.ProcessPendingMove();
         }
 
         private IPawnOrganizerSnapshot BuildSnapshotForOrganizer(PawnTable table)
@@ -450,7 +453,8 @@ namespace Better_Work_Tab.UI
                     // Use table's current header height (updates dynamically with vanilla staggering)
                     // combined with layout controller's content height (includes dividers)
                     // This is consistent during drag, preventing scrollbar flickers
-                    float layoutHeight = table.cachedHeaderHeight + organizer.Layout.ContentHeight;
+                    float pinnedRowsHeight = SubWorkDrilldownState.IsActive ? SubWorkDrilldownBarRenderer.RowHeight : 0f;
+                    float layoutHeight = organizer.Layout.HeaderHeight + pinnedRowsHeight + organizer.Layout.ContentHeight;
                     finalHeight = layoutHeight + ExtraBottomSpace + ExtraTopSpace + Margin * 2f;
                     finalWidth = table.Size.x + Margin * 2f + 25f; // Added 20f to stop headers from clipping edge
                 }
@@ -543,7 +547,8 @@ namespace Better_Work_Tab.UI
 
         private void DrawHeaders(IWorkTabLayoutController layout, PawnTable table)
         {
-            float totalHeight = layout.ContentHeight;
+            float pinnedRowsHeight = SubWorkDrilldownState.IsActive ? SubWorkDrilldownBarRenderer.RowHeight : 0f;
+            float totalHeight = pinnedRowsHeight + layout.ContentHeight;
 
             foreach (var column in layout.Columns)
             {
@@ -553,7 +558,7 @@ namespace Better_Work_Tab.UI
                 if (BetterWorkTabMod.Settings.ShowCursorPawnAndWorktypeHighlight && isWorkColumn && Mouse.IsOver(column.HeaderRect))
                 {
                     Color useColor = BetterWorkTabMod.Settings.Color_MouseHoverHighlight;
-                    Rect columnRect = new Rect(column.OffsetX, layout.TableOrigin.y + layout.HeaderHeight, column.Width, totalHeight);
+                    Rect columnRect = new Rect(column.HeaderRect.x, layout.TableOrigin.y + layout.HeaderHeight, column.Width, totalHeight);
                     Widgets.DrawBoxSolid(columnRect, useColor);
                 }
 
@@ -579,7 +584,7 @@ namespace Better_Work_Tab.UI
             }
 
             Event evt = Event.current;
-            if (evt == null || evt.type != EventType.MouseDown || evt.button != 0 || !Mouse.IsOver(column.HeaderRect))
+            if (!SubWorkDrilldownInput.MatchesGesture(evt) || !Mouse.IsOver(column.HeaderRect))
             {
                 return false;
             }
@@ -589,7 +594,7 @@ namespace Better_Work_Tab.UI
                 return false;
             }
 
-            SubWorkDrilldownState.Enter(column.Column.workType);
+            SubWorkDrilldownState.Enter(column.Column.workType, GuiMousePosition.ToRootUiPosition(evt.mousePosition));
             HeaderDrawingCoordinator.NotifyAngledHeadersChanged();
             SoundDefOf.Tick_High.PlayOneShotOnCamera();
             evt.Use();
@@ -604,7 +609,7 @@ namespace Better_Work_Tab.UI
             }
 
             Event evt = Event.current;
-            if (evt == null || evt.type != EventType.MouseDown || evt.button != 0)
+            if (!SubWorkDrilldownInput.MatchesGesture(evt))
             {
                 return false;
             }
@@ -621,6 +626,52 @@ namespace Better_Work_Tab.UI
             return false;
         }
 
+        private bool TryHandleSubWorkExitGesture(IWorkTabLayoutController layout)
+        {
+            if (!SubWorkDrilldownState.IsActive)
+            {
+                return false;
+            }
+
+            Event evt = Event.current;
+            if (evt == null)
+            {
+                return false;
+            }
+
+            if (evt.type == EventType.KeyDown && evt.keyCode == KeyCode.Escape)
+            {
+                SubWorkDrilldownBarRenderer.ExitDrilldown();
+                evt.Use();
+                return true;
+            }
+
+            if (layout == null || evt.type != EventType.MouseDown)
+            {
+                return false;
+            }
+
+            if (!SubWorkDrilldownInput.MatchesGesture(evt))
+            {
+                return false;
+            }
+
+            Rect drilldownHeaderArea = new Rect(
+                layout.TableOrigin.x,
+                layout.TableOrigin.y,
+                layout.Table.Size.x,
+                layout.HeaderHeight + SubWorkDrilldownBarRenderer.RowHeight);
+
+            if (!drilldownHeaderArea.Contains(evt.mousePosition))
+            {
+                return false;
+            }
+
+            SubWorkDrilldownBarRenderer.ExitDrilldown(restoreMousePosition: true);
+            evt.Use();
+            return true;
+        }
+
         /// <summary>
         /// Checks if a column should show the yellow asterisk marker.
         /// A column is marked only if:
@@ -631,11 +682,6 @@ namespace Better_Work_Tab.UI
         /// </summary>
         internal static bool ShouldShowColumnMarker(WorkTypeDef workType)
         {
-            if (SubWorkDrilldownState.IsActive)
-            {
-                return false;
-            }
-
             if (workType?.defName == null)
                 return false;
 
@@ -645,6 +691,12 @@ namespace Better_Work_Tab.UI
 
             if (!settings.showColumnMovedMarker)
                 return false;
+
+            if (SubWorkDrilldownState.IsActive)
+            {
+                return SubWorkDrilldownState.TryGetWorkGiverForWorkTypeSlot(workType, out var workGiver, out _) &&
+                       SubWorkDrilldownState.IsWorkGiverMovedFromBaseline(workGiver.def);
+            }
 
             // First check: was this column directly dragged by the player?
             if (!settings.WasColumnDraggedByPlayer(workType.defName))

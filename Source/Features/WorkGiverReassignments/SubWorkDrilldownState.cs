@@ -21,6 +21,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         private static int _cachedSyncVersion = -1;
         private static float _enteredAt;
         private static bool _layoutRefreshPending;
+        private static Vector2? _returnMousePosition;
 
         internal static bool IsActive => _activeWorkType != null;
 
@@ -48,7 +49,19 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             }
         }
 
-        internal static void Enter(WorkTypeDef workType)
+        internal static bool TryGetReturnMousePosition(out Vector2 position)
+        {
+            if (_returnMousePosition.HasValue)
+            {
+                position = _returnMousePosition.Value;
+                return true;
+            }
+
+            position = Vector2.zero;
+            return false;
+        }
+
+        internal static void Enter(WorkTypeDef workType, Vector2? returnMousePosition = null)
         {
             if (workType == null)
             {
@@ -60,6 +73,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             _cachedWorkTypeDefName = null;
             _cachedSyncVersion = -1;
             _enteredAt = Time.realtimeSinceStartup;
+            _returnMousePosition = returnMousePosition;
             _layoutRefreshPending = true;
             RefreshIfNeeded();
         }
@@ -69,6 +83,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             _activeWorkType = null;
             _cachedWorkTypeDefName = null;
             _cachedSyncVersion = -1;
+            _returnMousePosition = null;
             ActiveWorkGiversBuffer.Clear();
             _layoutRefreshPending = true;
         }
@@ -97,6 +112,80 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
             workGiver = ActiveWorkGiversBuffer[slotIndex];
             return workGiver?.def != null;
+        }
+
+        internal static bool TryGetWorkGiverForWorkTypeSlot(WorkTypeDef slotWorkType, out WorkGiver workGiver, out int slotIndex)
+        {
+            workGiver = null;
+            slotIndex = -1;
+            if (!IsActive || slotWorkType == null)
+            {
+                return false;
+            }
+
+            var tableDef = PawnTableDefOf.Work;
+            if (tableDef?.columns == null)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < tableDef.columns.Count; i++)
+            {
+                var column = tableDef.columns[i];
+                if (column?.workType == slotWorkType && column.Worker is PawnColumnWorker_WorkPriority)
+                {
+                    return TryGetWorkGiverForColumn(column, out workGiver, out slotIndex);
+                }
+            }
+
+            return false;
+        }
+
+        internal static bool IsWorkGiverMovedFromBaseline(WorkGiverDef workGiverDef)
+        {
+            if (!IsActive || workGiverDef == null || _activeWorkType == null)
+            {
+                return false;
+            }
+
+            RefreshIfNeeded();
+
+            int currentIndex = -1;
+            for (int i = 0; i < ActiveWorkGiversBuffer.Count; i++)
+            {
+                if (ActiveWorkGiversBuffer[i]?.def == workGiverDef)
+                {
+                    currentIndex = i;
+                    break;
+                }
+            }
+
+            if (currentIndex < 0)
+            {
+                return false;
+            }
+
+            var baseline = new List<WorkGiverDef>();
+            var allDefs = DefDatabase<WorkGiverDef>.AllDefsListForReading;
+            for (int i = 0; i < allDefs.Count; i++)
+            {
+                var def = allDefs[i];
+                if (WorkGiverReassignmentManager.GetTargetWorkType(def) == _activeWorkType)
+                {
+                    baseline.Add(def);
+                }
+            }
+
+            baseline.Sort((a, b) => b.priorityInType.CompareTo(a.priorityInType));
+            for (int i = 0; i < baseline.Count; i++)
+            {
+                if (baseline[i] == workGiverDef)
+                {
+                    return i != currentIndex;
+                }
+            }
+
+            return false;
         }
 
         internal static bool IsBlankWorkColumn(PawnColumnDef column)

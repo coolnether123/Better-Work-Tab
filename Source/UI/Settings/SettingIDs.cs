@@ -36,6 +36,7 @@ namespace Better_Work_Tab.UI.Settings
         public const string FeaturesMultiplayer = "features.multiplayer";
         public const string FeaturesOverlay = "features.overlay";
         public const string FeaturesPerformance = "features.performance";
+        public const string FeaturesSubWorkJobs = "features.subWorkJobs";
         public const string FeaturesUiElements = "features.uiElements";
         public const string FeaturesWorkloads = "features.workloads";
         public const string HighlightsColumnHoverColor = "highlights.columnHoverColor";
@@ -88,6 +89,10 @@ namespace Better_Work_Tab.UI.Settings
         public const string PerfCacheSkillLevels = "perf.cacheSkillLevels";
         public const string PerfUseElementPooling = "perf.useElementPooling";
         public const string PerfViewportCulling = "perf.viewportCulling";
+        public const string SubWorkGlobalVanillaPriorityBoxes = "subWorkJobs.globalVanillaPriorityBoxes";
+        public const string SubWorkOpenButton = "subWorkJobs.openButton";
+        public const string SubWorkOpenModifier = "subWorkJobs.openModifier";
+        public const string SubWorkRestoreCursor = "subWorkJobs.restoreCursor";
         public const string UiDragInstructions = "ui.dragInstructions";
         public const string UiManualPriorities = "ui.manualPriorities";
         public const string UiPriorityLegend = "ui.priorityLegend";

@@ -350,10 +350,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             float rotation = AngledLabelDrawer.CurrentRotation;
             float absSin = Mathf.Abs(Mathf.Sin(rotation * Mathf.Deg2Rad));
             float absCos = Mathf.Abs(Mathf.Cos(rotation * Mathf.Deg2Rad));
-            bool isVerticalCjk = settings != null
-                && settings.useVerticalStackingForCJK
-                && Mathf.Abs(rotation + 90f) < 5f
-                && HeaderUtility.IsCJK(label);
+            bool isVerticalCjk = HeaderUtility.ShouldUseCJKVerticalLabel(label);
 
             var oldFont = Text.Font;
             Text.Font = GameFont.Small;
@@ -410,10 +407,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         {
             var settings = BetterWorkTabMod.Settings;
             float rotation = AngledLabelDrawer.CurrentRotation;
-            bool isVerticalCjk = settings != null
-                && settings.useVerticalStackingForCJK
-                && Mathf.Abs(rotation + 90f) < 5f
-                && HeaderUtility.IsCJK(label);
+            bool isVerticalCjk = HeaderUtility.ShouldUseCJKVerticalLabel(label);
 
             var oldFont = Text.Font;
             Text.Font = GameFont.Small;

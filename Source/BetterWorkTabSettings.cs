@@ -50,6 +50,11 @@ namespace Better_Work_Tab
         public static bool enableDragDropReordering = true;
         public static bool enableDividers = true;
         public static bool enableWorkloads = true;
+        public static bool enableSubWorkDrilldown = false;
+        public static BetterWorkTabSettings.SubWorkDrilldownModifier subWorkDrilldownModifier = BetterWorkTabSettings.SubWorkDrilldownModifier.Ctrl;
+        public static BetterWorkTabSettings.SubWorkDrilldownButton subWorkDrilldownButton = BetterWorkTabSettings.SubWorkDrilldownButton.Left;
+        public static bool useVanillaSubWorkGlobalPriorityBoxes = false;
+        public static bool restoreCursorOnSubWorkExit = true;
         public static bool enableColumnOrderSaving = true;
         public static bool enableUIElements = true;
         public static bool enablePerformanceOptimizations = true;
@@ -299,6 +304,11 @@ namespace Better_Work_Tab
         public bool enableDragDropReordering = DefaultSettings.enableDragDropReordering;
         public bool enableDividers = DefaultSettings.enableDividers;
         public bool enableWorkloads = DefaultSettings.enableWorkloads;
+        public bool enableSubWorkDrilldown = DefaultSettings.enableSubWorkDrilldown;
+        public SubWorkDrilldownModifier subWorkDrilldownModifier = DefaultSettings.subWorkDrilldownModifier;
+        public SubWorkDrilldownButton subWorkDrilldownButton = DefaultSettings.subWorkDrilldownButton;
+        public bool useVanillaSubWorkGlobalPriorityBoxes = DefaultSettings.useVanillaSubWorkGlobalPriorityBoxes;
+        public bool restoreCursorOnSubWorkExit = DefaultSettings.restoreCursorOnSubWorkExit;
         public bool enableColumnOrderSaving = DefaultSettings.enableColumnOrderSaving;
         public bool enableUIElements = DefaultSettings.enableUIElements;
         public bool enablePerformanceOptimizations = DefaultSettings.enablePerformanceOptimizations;
@@ -487,6 +497,8 @@ namespace Better_Work_Tab
 
         // UI mode settings
         public enum ShowUIMode { Always, Never, Shifted, Unshifted }
+        public enum SubWorkDrilldownModifier { Ctrl, Shift }
+        public enum SubWorkDrilldownButton { Left, Right }
         public enum SkillViewHoverMode
         {
             Standard,      // Vanilla: interactive priority box with small skill number
@@ -658,6 +670,11 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref enableDragDropReordering, "enableDragDropReordering", DefaultSettings.enableDragDropReordering);
             Scribe_Values.Look(ref enableDividers, "enableDividers", DefaultSettings.enableDividers);
             Scribe_Values.Look(ref enableWorkloads, "enableWorkloads", DefaultSettings.enableWorkloads);
+            Scribe_Values.Look(ref enableSubWorkDrilldown, "enableSubWorkDrilldown", DefaultSettings.enableSubWorkDrilldown);
+            Scribe_Values.Look(ref subWorkDrilldownModifier, "subWorkDrilldownModifier", DefaultSettings.subWorkDrilldownModifier);
+            Scribe_Values.Look(ref subWorkDrilldownButton, "subWorkDrilldownButton", DefaultSettings.subWorkDrilldownButton);
+            Scribe_Values.Look(ref useVanillaSubWorkGlobalPriorityBoxes, "useVanillaSubWorkGlobalPriorityBoxes", DefaultSettings.useVanillaSubWorkGlobalPriorityBoxes);
+            Scribe_Values.Look(ref restoreCursorOnSubWorkExit, "restoreCursorOnSubWorkExit", DefaultSettings.restoreCursorOnSubWorkExit);
             Scribe_Values.Look(ref enableColumnOrderSaving, "enableColumnOrderSaving", DefaultSettings.enableColumnOrderSaving);
             Scribe_Values.Look(ref enableUIElements, "enableUIElements", DefaultSettings.enableUIElements);
             Scribe_Values.Look(ref enablePerformanceOptimizations, "enablePerformanceOptimizations", DefaultSettings.enablePerformanceOptimizations);

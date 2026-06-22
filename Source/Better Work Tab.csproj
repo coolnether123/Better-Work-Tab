@@ -70,6 +70,7 @@
     <Compile Include="Features\WorkGiverReassignments\WorkGiverReassignmentData.cs" />
     <Compile Include="Features\WorkGiverReassignments\WorkGiverReassignmentManager.cs" />
     <Compile Include="Features\WorkGiverReassignments\WorkGiverReassignmentPatches.cs" />
+    <Compile Include="Features\WorkGiverReassignments\SubWorkDrilldownInput.cs" />
     <Compile Include="Features\WorkGiverReassignments\SubWorkDrilldownState.cs" />
     <Compile Include="Features\Workloads\GameComponent_BWTWorldSettings.cs" />
     <Compile Include="Features\Testing\GameComponent_BWTModernQuickTestDriver.cs" />
@@ -147,11 +148,14 @@
     <Compile Include="Spine\UI\SettingsFramework\SettingsUIHelpers.cs" />
     <Compile Include="UI\WorkGiverReassignments\Window_WorkGiverSubMenu.cs" />
     <Compile Include="UI\WorkGiverReassignments\SubWorkDrilldownBarRenderer.cs" />
+    <Compile Include="UI\WorkGiverReassignments\SubWorkDrilldownHeaderGeometry.cs" />
     <Compile Include="UI\WorkGiverReassignments\WorkGiverDisplayNameService.cs" />
     <Compile Include="UI\WorkGiverReassignments\WorkGiverBaselineTracker.cs" />
     <Compile Include="UI\WorkGiverReassignments\WorkGiverDragHandler.cs" />
     <Compile Include="UI\WorkGiverReassignments\WorkGiverPriorityBoxRenderer.cs" />
     <Compile Include="Spine\UI\WidgetExtensions\RimworldSettingsWidgets.cs" />
+    <Compile Include="UI\Input\GuiMousePosition.cs" />
+    <Compile Include="UI\Input\NativeCursorPosition.cs" />
     <Compile Include="UI\RulesetListDragUI.cs" />
     <Compile Include="UI\MainTabWindow_BetterWork.cs" />
     <Compile Include="Features\WorkColumnOrderManager.cs" />

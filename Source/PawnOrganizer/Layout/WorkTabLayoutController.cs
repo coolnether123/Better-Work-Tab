@@ -8,6 +8,7 @@ using Better_Work_Tab.Mod_Support.LocalProfiles;
 using Better_Work_Tab.Mod_Support.Multiplayer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.PawnOrganizer.Data;
+using Better_Work_Tab.UI.WorkGiverReassignments;
 using HarmonyLib;
 using RimWorld;
 using UnityEngine;
@@ -264,7 +265,7 @@ namespace Better_Work_Tab.PawnOrganizer
         public IReadOnlyList<WorkTabLayoutRow> Rows => _rows;
         public IReadOnlyList<WorkTabLayoutColumn> Columns => _columns;
         public float ContentHeight => _contentHeight;
-        public float HeaderHeight => _table?.cachedHeaderHeight ?? 0f;
+        public float HeaderHeight => SubWorkDrilldownHeaderGeometry.GetEffectiveHeaderHeight(_table);
         public Vector2 TableOrigin => _origin;
         public PawnTable Table => _table;
 

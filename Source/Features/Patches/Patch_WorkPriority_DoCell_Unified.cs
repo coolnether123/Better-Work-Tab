@@ -5,6 +5,8 @@ using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.Headers;
+using Better_Work_Tab.UI.Input;
+using Better_Work_Tab.UI.WorkGiverReassignments;
 using HarmonyLib;
 using RimWorld;
 using System.Collections.Generic;
@@ -154,6 +156,13 @@ namespace Better_Work_Tab.Patches
                     return false;
                 }
 
+                if (SubWorkDrilldownInput.MatchesGesture(Event.current) && Mouse.IsOver(rect))
+                {
+                    SubWorkDrilldownBarRenderer.ExitDrilldown(restoreMousePosition: true);
+                    Event.current.Use();
+                    return false;
+                }
+
                 if (pawn == null || pawn.Dead || pawn.workSettings == null || !pawn.workSettings.EverWork)
                 {
                     return false;
@@ -168,12 +177,9 @@ namespace Better_Work_Tab.Patches
 
             UpdateFrameCache();
 
-            // Handle WorkGiver drilldown (middle click or Ctrl + Right Click)
-            if (Event.current.type == EventType.MouseDown &&
-                (Event.current.button == 2 || (Event.current.button == 1 && Event.current.control)) &&
-                Mouse.IsOver(rect))
+            if (SubWorkDrilldownInput.MatchesGesture(Event.current) && Mouse.IsOver(rect))
             {
-                SubWorkDrilldownState.Enter(workType);
+                SubWorkDrilldownState.Enter(workType, GuiMousePosition.ToRootUiPosition(Event.current.mousePosition));
                 HeaderDrawingCoordinator.NotifyAngledHeadersChanged();
                 SoundDefOf.Tick_High.PlayOneShotOnCamera();
                 Event.current.Use();
