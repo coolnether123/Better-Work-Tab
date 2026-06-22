@@ -7,6 +7,7 @@ using Verse;
 using Better_Work_Tab.UI.Headers.Vanilla;
 using Better_Work_Tab.UI.Headers.Angled;
 using Better_Work_Tab.Features.WorkGiverReassignments;
+using Spine.Profiling;
 
 namespace Better_Work_Tab.UI.Headers
 {
@@ -50,6 +51,16 @@ namespace Better_Work_Tab.UI.Headers
         [HarmonyPrefix]
         [HarmonyPriority(Priority.Last)]
         public static bool Prefix(PawnColumnWorker_WorkPriority __instance, Rect rect, PawnTable table)
+        {
+            if (SpineTiming.Enabled)
+            {
+                return SpineTiming.Time("Harmony.WorkPriority.DoHeader.Prefix", () => PrefixProfiled(__instance, rect, table));
+            }
+
+            return PrefixProfiled(__instance, rect, table);
+        }
+
+        private static bool PrefixProfiled(PawnColumnWorker_WorkPriority __instance, Rect rect, PawnTable table)
         {
             // Only apply BWT patches to the Work tab (vanilla or BWT), not other tabs like MechTab
             if (!IsWorkTab())

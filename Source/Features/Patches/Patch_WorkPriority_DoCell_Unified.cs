@@ -9,6 +9,7 @@ using Better_Work_Tab.UI.Input;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using HarmonyLib;
 using RimWorld;
+using Spine.Profiling;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -141,6 +142,20 @@ namespace Better_Work_Tab.Patches
             Pawn pawn,
             PawnTable table)
         {
+            if (SpineTiming.Enabled)
+            {
+                return SpineTiming.Time("Harmony.WorkPriority.DoCell.Prefix", () => PrefixProfiled(__instance, rect, pawn, table));
+            }
+
+            return PrefixProfiled(__instance, rect, pawn, table);
+        }
+
+        private static bool PrefixProfiled(
+            PawnColumnWorker_WorkPriority __instance,
+            Rect rect,
+            Pawn pawn,
+            PawnTable table)
+        {
             // Only apply BWT patches to the Work tab (vanilla or BWT), not other tabs like MechTab
             if (!UI.Headers.PawnColumnWorker_WorkPriority_DoHeader_Patch.IsWorkTab())
                 return true;
@@ -263,6 +278,21 @@ namespace Better_Work_Tab.Patches
 
         [HarmonyPostfix]
         public static void Postfix(
+            PawnColumnWorker_WorkPriority __instance,
+            Rect rect,
+            Pawn pawn,
+            PawnTable table)
+        {
+            if (SpineTiming.Enabled)
+            {
+                SpineTiming.Time("Harmony.WorkPriority.DoCell.Postfix", () => PostfixProfiled(__instance, rect, pawn, table));
+                return;
+            }
+
+            PostfixProfiled(__instance, rect, pawn, table);
+        }
+
+        private static void PostfixProfiled(
             PawnColumnWorker_WorkPriority __instance,
             Rect rect,
             Pawn pawn,

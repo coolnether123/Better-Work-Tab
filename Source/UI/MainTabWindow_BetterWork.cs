@@ -233,6 +233,17 @@ namespace Better_Work_Tab.UI
         /// </summary>
         public override void DoWindowContents(Rect inRect)
         {
+            if (SpineTiming.Enabled)
+            {
+                SpineTiming.Time("WorkTab.DoWindowContents", () => DoWindowContentsProfiled(inRect));
+                return;
+            }
+
+            DoWindowContentsProfiled(inRect);
+        }
+
+        private void DoWindowContentsProfiled(Rect inRect)
+        {
             PawnTable table = GetPawnTable();
             if (table == null) return;
 
@@ -250,18 +261,41 @@ namespace Better_Work_Tab.UI
             // Avoid rebuilding the layout mid-drag so the handler keeps valid positioning data.
             if (organizer != null && !organizer.IsDragging)
             {
-                organizer.Update(table, tableOrigin, snapshot);
+                if (SpineTiming.Enabled)
+                {
+                    SpineTiming.Time("WorkTab.Layout.Update", () => organizer.Update(table, tableOrigin, snapshot));
+                }
+                else
+                {
+                    organizer.Update(table, tableOrigin, snapshot);
+                }
             }
 
             Event evt = Event.current;
             if (evt.type != EventType.Repaint && evt.type != EventType.Layout)
             {
-                bool handledSubWorkGesture = TryHandleSubWorkExitGesture(organizer?.Layout)
-                    || TryHandleSubWorkHeaderOpen(organizer?.Layout);
-                if (!handledSubWorkGesture)
+                if (SpineTiming.Enabled)
                 {
-                    organizer?.HandleInput(evt);
-                    ProcessRightClicks(organizer?.Layout);
+                    SpineTiming.Time("WorkTab.Input", () =>
+                    {
+                        bool handledSubWorkGesture = TryHandleSubWorkExitGesture(organizer?.Layout)
+                            || TryHandleSubWorkHeaderOpen(organizer?.Layout);
+                        if (!handledSubWorkGesture)
+                        {
+                            organizer?.HandleInput(evt);
+                            ProcessRightClicks(organizer?.Layout);
+                        }
+                    });
+                }
+                else
+                {
+                    bool handledSubWorkGesture = TryHandleSubWorkExitGesture(organizer?.Layout)
+                        || TryHandleSubWorkHeaderOpen(organizer?.Layout);
+                    if (!handledSubWorkGesture)
+                    {
+                        organizer?.HandleInput(evt);
+                        ProcessRightClicks(organizer?.Layout);
+                    }
                 }
 
                 SuppressSubWorkPriorityMouseDownIfNeeded(evt);
@@ -269,10 +303,18 @@ namespace Better_Work_Tab.UI
 
             DrawWorkTable(table, organizer?.Layout, inRect);
 
-            organizer?.DrawDragOverlays();
-
-            DrawManualPrioritiesCheckbox();
-            DrawPriorityLegend(inRect);
+            if (SpineTiming.Enabled)
+            {
+                SpineTiming.Time("WorkTab.DrawDragOverlays", () => organizer?.DrawDragOverlays());
+                SpineTiming.Time("WorkTab.DrawManualPrioritiesCheckbox", DrawManualPrioritiesCheckbox);
+                SpineTiming.Time("WorkTab.DrawPriorityLegend", () => DrawPriorityLegend(inRect));
+            }
+            else
+            {
+                organizer?.DrawDragOverlays();
+                DrawManualPrioritiesCheckbox();
+                DrawPriorityLegend(inRect);
+            }
 
             bool mouseInside = Mouse.IsOver(inRect);
             Rect infoRect = GetInfoIconRect(inRect);
@@ -528,18 +570,50 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
-            CalculateScrollRects(layout, inRect, out var outRect, out var viewRect);
-            UpdateSortState(table);
+            Rect outRect = default(Rect);
+            Rect viewRect = default(Rect);
 
-            DrawHeaders(layout, table);
+            if (SpineTiming.Enabled)
+            {
+                SpineTiming.Time("WorkTab.CalculateScrollRects", () => CalculateScrollRects(layout, inRect, out outRect, out viewRect));
+                SpineTiming.Time("WorkTab.UpdateSortState", () => UpdateSortState(table));
+            }
+            else
+            {
+                CalculateScrollRects(layout, inRect, out outRect, out viewRect);
+                UpdateSortState(table);
+            }
+
+            if (SpineTiming.Enabled)
+            {
+                SpineTiming.Time("WorkTab.DrawHeaders", () => DrawHeaders(layout, table));
+            }
+            else
+            {
+                DrawHeaders(layout, table);
+            }
             if (SubWorkDrilldownState.IsActive)
             {
-                SubWorkDrilldownBarRenderer.Draw(layout);
+                if (SpineTiming.Enabled)
+                {
+                    SpineTiming.Time("WorkTab.DrawSubWorkGlobalRow", () => SubWorkDrilldownBarRenderer.Draw(layout));
+                }
+                else
+                {
+                    SubWorkDrilldownBarRenderer.Draw(layout);
+                }
             }
 #if DEBUG
             WorkTabGeometryDiagnostics.DumpHeaderLayoutIfRequested(layout);
 #endif
-            DrawRows(table, layout, outRect, viewRect);
+            if (SpineTiming.Enabled)
+            {
+                SpineTiming.Time("WorkTab.DrawRows", () => DrawRows(table, layout, outRect, viewRect));
+            }
+            else
+            {
+                DrawRows(table, layout, outRect, viewRect);
+            }
         }
 
         private void UpdateSortState(PawnTable table)
@@ -1076,20 +1150,35 @@ namespace Better_Work_Tab.UI
                 float totalWidth = CalculateTotalColumnWidth(layout.Columns);
                 float totalHeight = layout.ContentHeight; // Already accounts for all descriptor heights
 
-                // Phase 1: Draw all highlights (selected, hovered, float menu, similar worktypes)
-                DrawAllHighlights(rowDescriptors, layout.Columns, totalWidth, totalHeight);
+                if (SpineTiming.Enabled)
+                {
+                    SpineTiming.Time("WorkTab.Rows.DrawAllHighlights", () => DrawAllHighlights(rowDescriptors, layout.Columns, totalWidth, totalHeight));
+                    SpineTiming.Time("WorkTab.Rows.DrawAllRowContent", () => DrawAllRowContent(table,
+                        rowDescriptors,
+                        layout.Columns,
+                        viewRect.width,
+                        nameColumn,
+                        outRect,
+                        table.scrollPosition));
+                    SpineTiming.Time("WorkTab.Rows.DrawRowSeparators", () => DrawRowSeparators(rowDescriptors, viewRect.width));
+                }
+                else
+                {
+                    // Phase 1: Draw all highlights (selected, hovered, float menu, similar worktypes)
+                    DrawAllHighlights(rowDescriptors, layout.Columns, totalWidth, totalHeight);
 
-                // Phase 2: Draw actual row content (pawn data, divider labels, backgrounds)
-                DrawAllRowContent(table,
-                    rowDescriptors,
-                    layout.Columns,
-                    viewRect.width,
-                    nameColumn,
-                    outRect,
-                    table.scrollPosition);
+                    // Phase 2: Draw actual row content (pawn data, divider labels, backgrounds)
+                    DrawAllRowContent(table,
+                        rowDescriptors,
+                        layout.Columns,
+                        viewRect.width,
+                        nameColumn,
+                        outRect,
+                        table.scrollPosition);
 
-                // Phase 3: Draw separator lines between rows
-                DrawRowSeparators(rowDescriptors, viewRect.width);
+                    // Phase 3: Draw separator lines between rows
+                    DrawRowSeparators(rowDescriptors, viewRect.width);
+                }
             }
             catch (Exception ex)
             {
@@ -1293,33 +1382,66 @@ namespace Better_Work_Tab.UI
             // These are small allocations; only optimize with pooling if profiling shows it's necessary.
             if (descriptor.IsPawn)
             {
-                // Wrap pawn in element and row for rendering (preserves selection/highlight state)
-                var pawnElement = new PawnElement(descriptor.Pawn);
-                var renderRow = new WorkTabLayoutRow(pawnElement, rowRect.y, descriptor.Height, rowIndex);
-
-                // 1. Draw row background (custom pawn color if set)
-                DrawRowBackground(renderRow, rowRect);
-
-                // 2. Draw all column cells for this pawn (work priorities, name, etc)
-                DrawPawnRow(table, renderRow, rowRect, columns);
-
-                // 3. Draw overlays (selection glow, hover, downed strike-through)
-                DrawPawnRowOverlay(renderRow, rowRect);
+                if (SpineTiming.Enabled)
+                {
+                    SpineTiming.Time("WorkTab.Rows.DrawPawnRowContent", () => DrawPawnRowContent(table, descriptor, columns, rowRect, rowIndex));
+                }
+                else
+                {
+                    DrawPawnRowContent(table, descriptor, columns, rowRect, rowIndex);
+                }
             }
             else if (descriptor.IsDivider)
             {
-                // Wrap divider in element and row for rendering (preserves collapse state and styling)
-                var dividerElement = new DividerElement(descriptor.Divider);
-                var renderRow = new WorkTabLayoutRow(dividerElement, rowRect.y, descriptor.Height, rowIndex);
-
-                // 1. Draw divider background (uses divider color, dimmed if collapsed)
-                DrawRowBackground(renderRow, rowRect);
-
-                // 2. Draw divider label and collapse arrow (only in name column)
-                if (nameColumn.HasValue)
+                if (SpineTiming.Enabled)
                 {
-                    DrawDividerRow(descriptor.Divider, rowRect, nameColumn.Value);
+                    SpineTiming.Time("WorkTab.Rows.DrawDividerRowContent", () => DrawDividerRowContent(descriptor, rowRect, nameColumn, rowIndex));
                 }
+                else
+                {
+                    DrawDividerRowContent(descriptor, rowRect, nameColumn, rowIndex);
+                }
+            }
+        }
+
+        private void DrawPawnRowContent(
+            PawnTable table,
+            RowDescriptor descriptor,
+            IReadOnlyList<WorkTabLayoutColumn> columns,
+            Rect rowRect,
+            int rowIndex)
+        {
+            // Wrap pawn in element and row for rendering (preserves selection/highlight state)
+            var pawnElement = new PawnElement(descriptor.Pawn);
+            var renderRow = new WorkTabLayoutRow(pawnElement, rowRect.y, descriptor.Height, rowIndex);
+
+            // 1. Draw row background (custom pawn color if set)
+            DrawRowBackground(renderRow, rowRect);
+
+            // 2. Draw all column cells for this pawn (work priorities, name, etc)
+            DrawPawnRow(table, renderRow, rowRect, columns);
+
+            // 3. Draw overlays (selection glow, hover, downed strike-through)
+            DrawPawnRowOverlay(renderRow, rowRect);
+        }
+
+        private void DrawDividerRowContent(
+            RowDescriptor descriptor,
+            Rect rowRect,
+            WorkTabLayoutColumn? nameColumn,
+            int rowIndex)
+        {
+            // Wrap divider in element and row for rendering (preserves collapse state and styling)
+            var dividerElement = new DividerElement(descriptor.Divider);
+            var renderRow = new WorkTabLayoutRow(dividerElement, rowRect.y, descriptor.Height, rowIndex);
+
+            // 1. Draw divider background (uses divider color, dimmed if collapsed)
+            DrawRowBackground(renderRow, rowRect);
+
+            // 2. Draw divider label and collapse arrow (only in name column)
+            if (nameColumn.HasValue)
+            {
+                DrawDividerRow(descriptor.Divider, rowRect, nameColumn.Value);
             }
         }
 
@@ -1554,6 +1676,7 @@ namespace Better_Work_Tab.UI
             var originalAnchor = Text.Anchor;
             var originalFont = Text.Font;
             var originalColor = GUI.color;
+            bool originalWordWrap = Text.WordWrap;
 
             try
             {
@@ -1566,15 +1689,12 @@ namespace Better_Work_Tab.UI
                 float indent = (settings?.allowDividerCollapse ?? true) ? 33f : 6f;
                 labelCellRect.xMin += indent; 
 
-                // Clip text to avoid overflow on small-width columns
-                if (labelCellRect.width > 0)
+                if (labelCellRect.width > 4f)
                 {
                     string label = divider.DividerName ?? "Divider";
-                    // If height is small, force Tiny font to try and fit
-                    if (labelCellRect.height < 18f)
-                    {
-                          Text.Font = GameFont.Tiny;
-                    }
+                    Text.WordWrap = false;
+                    Text.Font = SelectDividerLabelFont(label, labelCellRect, divider.LabelFont);
+                    label = TrimDividerLabelToFit(label, labelCellRect);
                     Widgets.Label(labelCellRect, label);
                 }
             }
@@ -1583,7 +1703,84 @@ namespace Better_Work_Tab.UI
                 Text.Anchor = originalAnchor;
                 Text.Font = originalFont;
                 GUI.color = originalColor;
+                Text.WordWrap = originalWordWrap;
             }
+        }
+
+        private static GameFont SelectDividerLabelFont(string label, Rect rect, GameFont preferredFont)
+        {
+            GameFont originalFont = Text.Font;
+            try
+            {
+                foreach (GameFont font in DividerLabelFontCandidates(preferredFont))
+                {
+                    Text.Font = font;
+                    Vector2 size = Text.CalcSize(label);
+                    if (size.x <= rect.width && size.y <= rect.height + 2f)
+                    {
+                        return font;
+                    }
+                }
+
+                return GameFont.Tiny;
+            }
+            finally
+            {
+                Text.Font = originalFont;
+            }
+        }
+
+        private static IEnumerable<GameFont> DividerLabelFontCandidates(GameFont preferredFont)
+        {
+            if (preferredFont == GameFont.Medium)
+            {
+                yield return GameFont.Medium;
+                yield return GameFont.Small;
+                yield return GameFont.Tiny;
+                yield break;
+            }
+
+            if (preferredFont == GameFont.Small)
+            {
+                yield return GameFont.Small;
+                yield return GameFont.Tiny;
+                yield break;
+            }
+
+            yield return GameFont.Tiny;
+        }
+
+        private static string TrimDividerLabelToFit(string label, Rect rect)
+        {
+            if (string.IsNullOrEmpty(label) || Text.CalcSize(label).x <= rect.width)
+            {
+                return label;
+            }
+
+            const string suffix = "...";
+            float suffixWidth = Text.CalcSize(suffix).x;
+            if (suffixWidth >= rect.width)
+            {
+                return string.Empty;
+            }
+
+            int low = 0;
+            int high = label.Length;
+            while (low < high)
+            {
+                int mid = (low + high + 1) / 2;
+                string candidate = label.Substring(0, mid) + suffix;
+                if (Text.CalcSize(candidate).x <= rect.width)
+                {
+                    low = mid;
+                }
+                else
+                {
+                    high = mid - 1;
+                }
+            }
+
+            return low <= 0 ? suffix : label.Substring(0, low) + suffix;
         }
         
         private void DrawManualPrioritiesCheckbox()
