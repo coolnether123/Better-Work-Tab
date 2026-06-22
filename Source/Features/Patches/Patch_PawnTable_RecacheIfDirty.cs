@@ -21,6 +21,19 @@ namespace Better_Work_Tab.Features.Patches
     [HarmonyPatch(typeof(PawnTable), nameof(PawnTable.RecacheIfDirty))]
     public static class Patch_PawnTable_RecacheIfDirty
     {
+        private sealed class SyncState
+        {
+            public int LayoutRevision = -1;
+            public int DescriptorCount = -1;
+            public float HeaderHeight = -1f;
+            public float PinnedRowsHeight = -1f;
+            public float ContentHeight = -1f;
+            public float Width = -1f;
+            public readonly List<float> RowHeights = new List<float>();
+        }
+
+        private static readonly Dictionary<PawnTable, SyncState> SyncStates = new Dictionary<PawnTable, SyncState>();
+
         private static readonly FieldInfo CachedRowHeightsField =
             AccessTools.Field(typeof(PawnTable), "cachedRowHeights");
 
@@ -43,34 +56,48 @@ namespace Better_Work_Tab.Features.Patches
             if (layout == null || layout.Rows == null || layout.Rows.Count == 0)
                 return;
 
-            // Invalidate cached descriptors to force rebuild with current state
-            if (layout is WorkTabLayoutController workLayout)
-            {
-                workLayout.InvalidateRowDescriptors();
-            }
-
             var descriptors = layout.GetRowDescriptors();
             if (descriptors == null || descriptors.Count == 0)
                 return;
 
-            // ═══════════════════════════════════════════════════════════════════════════
-            // Build row heights from layout descriptors
-            // Create a new list each frame (not static) to avoid reference corruption
-            // ═══════════════════════════════════════════════════════════════════════════
-            var rowHeights = new List<float>(descriptors.Count);
-            float contentHeight = 0f;
-
-            foreach (var desc in descriptors)
-            {
-                rowHeights.Add(desc.Height);
-                contentHeight += desc.Height;
-            }
-
-            float headerHeight = Better_Work_Tab.UI.WorkGiverReassignments.SubWorkDrilldownHeaderGeometry.GetEffectiveHeaderHeight(__instance);
+            float headerHeight = layout.HeaderHeight;
             float pinnedRowsHeight = Better_Work_Tab.Features.WorkGiverReassignments.SubWorkDrilldownState.IsActive
                 ? Better_Work_Tab.Features.WorkGiverReassignments.SubWorkDrilldownState.GlobalRowHeight
                 : 0f;
+            float contentHeight = layout.ContentHeight;
             float totalHeight = headerHeight + pinnedRowsHeight + contentHeight;
+            float width = __instance.cachedSize.x;
+            int layoutRevision = layout is WorkTabLayoutController workLayout ? workLayout.LayoutRevision : -1;
+
+            if (!SyncStates.TryGetValue(__instance, out var state))
+            {
+                state = new SyncState();
+                SyncStates[__instance] = state;
+            }
+
+            bool sameLayout =
+                state.LayoutRevision == layoutRevision &&
+                state.DescriptorCount == descriptors.Count &&
+                Approximately(state.HeaderHeight, headerHeight) &&
+                Approximately(state.PinnedRowsHeight, pinnedRowsHeight) &&
+                Approximately(state.ContentHeight, contentHeight) &&
+                Approximately(state.Width, width);
+
+            if (sameLayout && IsAlreadySynced(__instance, state, totalHeight))
+                return;
+
+            state.RowHeights.Clear();
+            for (int i = 0; i < descriptors.Count; i++)
+            {
+                state.RowHeights.Add(descriptors[i].Height);
+            }
+
+            state.LayoutRevision = layoutRevision;
+            state.DescriptorCount = descriptors.Count;
+            state.HeaderHeight = headerHeight;
+            state.PinnedRowsHeight = pinnedRowsHeight;
+            state.ContentHeight = contentHeight;
+            state.Width = width;
 
             // ═══════════════════════════════════════════════════════════════════════════
             // Sync back to vanilla's fields
@@ -79,9 +106,19 @@ namespace Better_Work_Tab.Features.Patches
             // being smaller than its content, which would trigger unnecessary scrollbars
             // even when the window has room to grow.
             // ═══════════════════════════════════════════════════════════════════════════
-            float width = __instance.cachedSize.x;
-            CachedRowHeightsField.SetValue(__instance, rowHeights);
+            CachedRowHeightsField.SetValue(__instance, state.RowHeights);
             CachedSizeField.SetValue(__instance, new Vector2(width, totalHeight));
+        }
+
+        private static bool Approximately(float a, float b)
+        {
+            return Mathf.Abs(a - b) < 0.01f;
+        }
+
+        private static bool IsAlreadySynced(PawnTable table, SyncState state, float totalHeight)
+        {
+            return ReferenceEquals(CachedRowHeightsField.GetValue(table), state.RowHeights) &&
+                   Approximately(table.cachedSize.y, totalHeight);
         }
     }
 

@@ -17,9 +17,15 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         internal const float GlobalPriorityBoxSize = 25f;
 
         private static readonly List<WorkGiver> ActiveWorkGiversBuffer = new List<WorkGiver>();
+        private static readonly Dictionary<PawnColumnDef, int> VisibleColumnSlots = new Dictionary<PawnColumnDef, int>();
+        private static readonly Dictionary<WorkTypeDef, int> VisibleWorkTypeSlots = new Dictionary<WorkTypeDef, int>();
+        private static readonly HashSet<WorkGiverDef> MovedFromBaseline = new HashSet<WorkGiverDef>();
+        private static readonly Dictionary<WorkGiverDef, int> BaselineIndexByDef = new Dictionary<WorkGiverDef, int>();
+        private static readonly List<WorkGiverDef> BaselineWorkGivers = new List<WorkGiverDef>();
         private static WorkTypeDef _activeWorkType;
         private static string _cachedWorkTypeDefName;
         private static int _cachedSyncVersion = -1;
+        private static int _cachedSlotSignature = int.MinValue;
         private static float _enteredAt;
         private static float _baseHeaderDrawWidth;
         private static bool _layoutRefreshPending;
@@ -30,6 +36,22 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         internal static WorkTypeDef ActiveWorkType => _activeWorkType;
 
         internal static float BaseHeaderDrawWidth => _baseHeaderDrawWidth;
+
+        internal static int LayoutSignature
+        {
+            get
+            {
+                EnsureSlotCache();
+                unchecked
+                {
+                    int hash = 17;
+                    hash = hash * 31 + (_activeWorkType?.shortHash ?? 0);
+                    hash = hash * 31 + WorkGiverReassignmentManager.CurrentSyncVersion;
+                    hash = hash * 31 + _cachedSlotSignature;
+                    return hash;
+                }
+            }
+        }
 
         internal static IReadOnlyList<WorkGiver> ActiveWorkGivers
         {
@@ -91,6 +113,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             _baseHeaderDrawWidth = 0f;
             _returnMousePosition = null;
             ActiveWorkGiversBuffer.Clear();
+            MovedFromBaseline.Clear();
             _layoutRefreshPending = true;
         }
 
@@ -149,49 +172,13 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         internal static bool IsWorkGiverMovedFromBaseline(WorkGiverDef workGiverDef)
         {
-            if (!IsActive || workGiverDef == null || _activeWorkType == null)
+            if (!IsActive || workGiverDef == null)
             {
                 return false;
             }
 
             RefreshIfNeeded();
-
-            int currentIndex = -1;
-            for (int i = 0; i < ActiveWorkGiversBuffer.Count; i++)
-            {
-                if (ActiveWorkGiversBuffer[i]?.def == workGiverDef)
-                {
-                    currentIndex = i;
-                    break;
-                }
-            }
-
-            if (currentIndex < 0)
-            {
-                return false;
-            }
-
-            var baseline = new List<WorkGiverDef>();
-            var allDefs = DefDatabase<WorkGiverDef>.AllDefsListForReading;
-            for (int i = 0; i < allDefs.Count; i++)
-            {
-                var def = allDefs[i];
-                if (WorkGiverReassignmentManager.GetTargetWorkType(def) == _activeWorkType)
-                {
-                    baseline.Add(def);
-                }
-            }
-
-            baseline.Sort((a, b) => b.priorityInType.CompareTo(a.priorityInType));
-            for (int i = 0; i < baseline.Count; i++)
-            {
-                if (baseline[i] == workGiverDef)
-                {
-                    return i != currentIndex;
-                }
-            }
-
-            return false;
+            return MovedFromBaseline.Contains(workGiverDef);
         }
 
         internal static bool IsBlankWorkColumn(PawnColumnDef column)
@@ -206,37 +193,13 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 return -1;
             }
 
-            var tableDef = PawnTableDefOf.Work;
-            var columns = tableDef?.columns;
-            if (columns == null)
+            EnsureSlotCache();
+            if (VisibleColumnSlots.TryGetValue(column, out int slot))
             {
-                return -1;
+                return slot;
             }
 
-            int slot = 0;
-            var hidden = BetterWorkTabMod.Settings?.hiddenWorktypes;
-            for (int i = 0; i < columns.Count; i++)
-            {
-                var candidate = columns[i];
-                if (candidate?.workType == null || !(candidate.Worker is PawnColumnWorker_WorkPriority))
-                {
-                    continue;
-                }
-
-                if (hidden != null && hidden.Contains(candidate.workType.defName))
-                {
-                    continue;
-                }
-
-                if (ReferenceEquals(candidate, column) || candidate.workType == column.workType)
-                {
-                    return slot;
-                }
-
-                slot++;
-            }
-
-            return -1;
+            return VisibleWorkTypeSlots.TryGetValue(column.workType, out slot) ? slot : -1;
         }
 
         internal static int ComparePawnsForColumn(PawnColumnDef column, Pawn a, Pawn b)
@@ -289,8 +252,120 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
             ActiveWorkGiversBuffer.Clear();
             ActiveWorkGiversBuffer.AddRange(WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(_activeWorkType));
+            RebuildMovedBaselineCache();
             _cachedWorkTypeDefName = _activeWorkType.defName;
             _cachedSyncVersion = syncVersion;
+        }
+
+        private static void EnsureSlotCache()
+        {
+            int signature = ComputeSlotSignature();
+            if (signature == _cachedSlotSignature)
+            {
+                return;
+            }
+
+            VisibleColumnSlots.Clear();
+            VisibleWorkTypeSlots.Clear();
+
+            var columns = PawnTableDefOf.Work?.columns;
+            if (columns != null)
+            {
+                int slot = 0;
+                var hidden = BetterWorkTabMod.Settings?.hiddenWorktypes;
+                for (int i = 0; i < columns.Count; i++)
+                {
+                    var candidate = columns[i];
+                    if (candidate?.workType == null || !(candidate.Worker is PawnColumnWorker_WorkPriority))
+                    {
+                        continue;
+                    }
+
+                    if (hidden != null && hidden.Contains(candidate.workType.defName))
+                    {
+                        continue;
+                    }
+
+                    VisibleColumnSlots[candidate] = slot;
+                    VisibleWorkTypeSlots[candidate.workType] = slot;
+                    slot++;
+                }
+            }
+
+            _cachedSlotSignature = signature;
+        }
+
+        private static int ComputeSlotSignature()
+        {
+            unchecked
+            {
+                int hash = 17;
+                var columns = PawnTableDefOf.Work?.columns;
+                if (columns != null)
+                {
+                    hash = hash * 31 + columns.Count;
+                    for (int i = 0; i < columns.Count; i++)
+                    {
+                        var column = columns[i];
+                        if (column?.workType == null || !(column.Worker is PawnColumnWorker_WorkPriority))
+                        {
+                            continue;
+                        }
+
+                        hash = hash * 31 + column.shortHash;
+                        hash = hash * 31 + column.workType.shortHash;
+                    }
+                }
+
+                var hidden = BetterWorkTabMod.Settings?.hiddenWorktypes;
+                if (hidden != null)
+                {
+                    hash = hash * 31 + hidden.Count;
+                    for (int i = 0; i < hidden.Count; i++)
+                    {
+                        hash = hash * 31 + StringComparer.Ordinal.GetHashCode(hidden[i] ?? string.Empty);
+                    }
+                }
+
+                return hash;
+            }
+        }
+
+        private static void RebuildMovedBaselineCache()
+        {
+            MovedFromBaseline.Clear();
+            BaselineIndexByDef.Clear();
+            BaselineWorkGivers.Clear();
+
+            if (_activeWorkType == null)
+            {
+                return;
+            }
+
+            var allDefs = DefDatabase<WorkGiverDef>.AllDefsListForReading;
+            for (int i = 0; i < allDefs.Count; i++)
+            {
+                var def = allDefs[i];
+                if (WorkGiverReassignmentManager.GetTargetWorkType(def) == _activeWorkType)
+                {
+                    BaselineWorkGivers.Add(def);
+                }
+            }
+
+            BaselineWorkGivers.Sort((a, b) => b.priorityInType.CompareTo(a.priorityInType));
+            for (int i = 0; i < BaselineWorkGivers.Count; i++)
+            {
+                BaselineIndexByDef[BaselineWorkGivers[i]] = i;
+            }
+
+            for (int i = 0; i < ActiveWorkGiversBuffer.Count; i++)
+            {
+                var def = ActiveWorkGiversBuffer[i]?.def;
+                if (def != null && BaselineIndexByDef.TryGetValue(def, out int baselineIndex) && baselineIndex != i)
+                {
+                    MovedFromBaseline.Add(def);
+                }
+            }
         }
     }
 }

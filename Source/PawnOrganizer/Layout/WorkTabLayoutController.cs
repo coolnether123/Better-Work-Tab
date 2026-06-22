@@ -27,7 +27,6 @@ namespace Better_Work_Tab.PawnOrganizer
         private const float DefaultDividerHeight = 18f;
 
         private List<RowDescriptor> _cachedRowDescriptors;
-        private List<float> _cachedDescriptorHeights;
         private bool _rowDescriptorsDirty = true;
         private const float PawnRowHeight = 30f;
         private readonly object _stateLock = new object();
@@ -50,7 +49,9 @@ namespace Better_Work_Tab.PawnOrganizer
         private Vector2 _origin;
         private float _contentHeight;
         private float _rowWidth;
+        private float _headerHeight;
         private float _dividerHeight = DefaultDividerHeight;
+        private int _layoutRevision;
 
         // === DIRTY STATE TRACKING ===
         private bool _isDirty = true;
@@ -58,6 +59,14 @@ namespace Better_Work_Tab.PawnOrganizer
         private int _cachedDividerCount = 0;
         private PawnColumnDef _lastSortingBy = null;
         private bool _lastSortingDescending = false;
+        private PawnTable _lastTable;
+        private Vector2 _lastOrigin;
+        private float _lastTableWidth;
+        private float _lastCachedHeaderHeight;
+        private float _lastDividerHeight = DefaultDividerHeight;
+        private int _lastColumnSignature;
+        private int _lastHiddenWorktypesSignature;
+        private int _lastSubWorkSignature;
         private Dictionary<int, int> _lastDisplayOrders = new Dictionary<int, int>(); // pawn ID -> displayOrder
 
         private List<bool> _lastCollapsedStates = new List<bool>(); // Track divider collapse states
@@ -65,10 +74,35 @@ namespace Better_Work_Tab.PawnOrganizer
         /// <summary>
         /// Mark rebuild as needed only if something actually changed.
         /// </summary>
-        private bool ShouldRebuild(PawnTable table, IPawnOrganizerSnapshot snapshot)
+        private bool ShouldRebuild(PawnTable table, IPawnOrganizerSnapshot snapshot, Vector2 origin)
         {
             if (_isDirty) return true;
             if (table == null || snapshot == null) return true;
+
+            if (!ReferenceEquals(table, _lastTable))
+                return true;
+
+            if (!Approximately(origin.x, _lastOrigin.x) || !Approximately(origin.y, _lastOrigin.y))
+                return true;
+
+            if (!Approximately(table.cachedSize.x, _lastTableWidth))
+                return true;
+
+            if (!Approximately(table.cachedHeaderHeight, _lastCachedHeaderHeight))
+                return true;
+
+            float dividerHeight = BetterWorkTabMod.Settings?.dividerHeight ?? DefaultDividerHeight;
+            if (!Approximately(dividerHeight, _lastDividerHeight))
+                return true;
+
+            if (ComputeColumnSignature(table) != _lastColumnSignature)
+                return true;
+
+            if (ComputeHiddenWorktypesSignature() != _lastHiddenWorktypesSignature)
+                return true;
+
+            if (SubWorkDrilldownState.LayoutSignature != _lastSubWorkSignature)
+                return true;
 
             // Check pawn count change
             if (snapshot.Pawns == null || snapshot.Pawns.Count != _cachedPawnCount)
@@ -109,12 +143,20 @@ namespace Better_Work_Tab.PawnOrganizer
         /// <summary>
         /// Cache the current state after a rebuild.
         /// </summary>
-        private void CacheState(PawnTable table, IPawnOrganizerSnapshot snapshot)
+        private void CacheState(PawnTable table, IPawnOrganizerSnapshot snapshot, Vector2 origin)
         {
             _cachedPawnCount = snapshot?.Pawns?.Count ?? 0;
             _cachedDividerCount = snapshot?.Dividers?.Count ?? 0;
             _lastSortingBy = table?.SortingBy;
             _lastSortingDescending = table?.SortingDescending ?? false;
+            _lastTable = table;
+            _lastOrigin = origin;
+            _lastTableWidth = table?.cachedSize.x ?? 0f;
+            _lastCachedHeaderHeight = table?.cachedHeaderHeight ?? 0f;
+            _lastDividerHeight = BetterWorkTabMod.Settings?.dividerHeight ?? DefaultDividerHeight;
+            _lastColumnSignature = ComputeColumnSignature(table);
+            _lastHiddenWorktypesSignature = ComputeHiddenWorktypesSignature();
+            _lastSubWorkSignature = SubWorkDrilldownState.LayoutSignature;
 
             _lastDisplayOrders.Clear();
             if (snapshot?.Pawns != null)
@@ -134,6 +176,69 @@ namespace Better_Work_Tab.PawnOrganizer
             }
 
             _isDirty = false;
+        }
+
+        private static bool Approximately(float a, float b)
+        {
+            return Mathf.Abs(a - b) < 0.01f;
+        }
+
+        private int ComputeColumnSignature(PawnTable table)
+        {
+            unchecked
+            {
+                int hash = 17;
+                var columns = table?.Columns;
+                if (columns == null)
+                {
+                    return hash;
+                }
+
+                hash = hash * 31 + columns.Count;
+                var cachedWidths = table.cachedColumnWidths;
+                for (int i = 0; i < columns.Count; i++)
+                {
+                    var column = columns[i];
+                    hash = hash * 31 + (column?.shortHash ?? 0);
+                    hash = hash * 31 + (column?.workType?.shortHash ?? 0);
+                    if (column != null)
+                    {
+                        float storedWidth = _columnWidthStore?.GetWidth(column, -1f) ?? -1f;
+                        if (storedWidth >= 0f)
+                        {
+                            hash = hash * 31 + Mathf.RoundToInt(storedWidth * 100f);
+                        }
+                    }
+
+                    if (cachedWidths != null && i < cachedWidths.Count)
+                    {
+                        hash = hash * 31 + Mathf.RoundToInt(cachedWidths[i] * 100f);
+                    }
+                }
+
+                return hash;
+            }
+        }
+
+        private static int ComputeHiddenWorktypesSignature()
+        {
+            unchecked
+            {
+                int hash = 17;
+                var hidden = BetterWorkTabMod.Settings?.hiddenWorktypes;
+                if (hidden == null)
+                {
+                    return hash;
+                }
+
+                hash = hash * 31 + hidden.Count;
+                for (int i = 0; i < hidden.Count; i++)
+                {
+                    hash = hash * 31 + StringComparer.Ordinal.GetHashCode(hidden[i] ?? string.Empty);
+                }
+
+                return hash;
+            }
         }
 
         private static void ReleaseDisplayElement(DisplayElement element)
@@ -236,28 +341,21 @@ namespace Better_Work_Tab.PawnOrganizer
         /// </summary>
         private List<RowDescriptor> BuildRowDescriptorsInternal()
         {
-            var elements = BuildOrderedElements();
-            var descriptors = new List<RowDescriptor>(elements.Count);
+            var descriptors = new List<RowDescriptor>(_rows.Count);
 
-            foreach (var element in elements)
+            for (int i = 0; i < _rows.Count; i++)
             {
-                if (element is DividerElement divEl)
+                var row = _rows[i];
+                if (row.Divider != null)
                 {
-                    float height = Mathf.Clamp(divEl.Divider.Height, 10f, 80f);
-                    descriptors.Add(new RowDescriptor(divEl.Divider, height));
+                    float height = Mathf.Clamp(row.Divider.Height, 10f, 80f);
+                    descriptors.Add(new RowDescriptor(row.Divider, height));
                 }
-                else if (element is PawnElement pawnEl)
+                else if (row.Pawn != null)
                 {
-                    descriptors.Add(new RowDescriptor(pawnEl.Pawn, PawnRowHeight)); 
+                    descriptors.Add(new RowDescriptor(row.Pawn, PawnRowHeight));
                 }
             }
-
-            ReleaseElements(elements);
-            _workingElements.Clear();
-            _orderedBuffer.Clear();
-            _filteringBuffer.Clear();
-            _sortingSectionBuffer.Clear();
-            _filteringSectionBuffer.Clear();
 
             return descriptors;
         }
@@ -265,16 +363,17 @@ namespace Better_Work_Tab.PawnOrganizer
         public IReadOnlyList<WorkTabLayoutRow> Rows => _rows;
         public IReadOnlyList<WorkTabLayoutColumn> Columns => _columns;
         public float ContentHeight => _contentHeight;
-        public float HeaderHeight => SubWorkDrilldownHeaderGeometry.GetEffectiveHeaderHeight(_table);
+        public float HeaderHeight => _headerHeight > 0f ? _headerHeight : SubWorkDrilldownHeaderGeometry.GetEffectiveHeaderHeight(_table);
         public Vector2 TableOrigin => _origin;
         public PawnTable Table => _table;
+        public int LayoutRevision => _layoutRevision;
 
         public void Rebuild(PawnTable table, IPawnOrganizerSnapshot snapshot, Vector2 origin)
         {
             lock (_stateLock)
             {
                 // SKIP REBUILD IF NOTHING CHANGED
-                if (!ShouldRebuild(table, snapshot))
+                if (!ShouldRebuild(table, snapshot, origin))
                 {
                     return; // All cached data is still valid
                 }
@@ -318,12 +417,14 @@ namespace Better_Work_Tab.PawnOrganizer
                     }
 
                     EnsureTableFresh();
-                    _rowWidth = Mathf.Max(0f, _table.Size.x - 16f);
+                    _rowWidth = Mathf.Max(0f, _table.cachedSize.x - 16f);
+                    _headerHeight = SubWorkDrilldownHeaderGeometry.GetEffectiveHeaderHeight(_table);
 
                     BuildColumns();
                     BuildRows();
 
                     _rowDescriptorsDirty = true;
+                    _layoutRevision++;
                 }
                 catch (Exception ex)
                 {
@@ -332,7 +433,7 @@ namespace Better_Work_Tab.PawnOrganizer
                     _columns.Clear();
                     _contentHeight = 0f;
                 }
-                CacheState(table, snapshot);
+                CacheState(table, snapshot, origin);
             }
         }
 
@@ -647,6 +748,7 @@ namespace Better_Work_Tab.PawnOrganizer
         {
             var allColumns = _table.Columns;
             var hiddenWorktypes = BetterWorkTabMod.Settings?.hiddenWorktypes;
+            float headerHeight = HeaderHeight;
 
             var visibleColumns = new List<(PawnColumnDef def, int originalIndex)>();
             for (int i = 0; i < allColumns.Count; i++)
@@ -735,7 +837,7 @@ namespace Better_Work_Tab.PawnOrganizer
                     width = Mathf.Max(0f, (_origin.x + _rowWidth) - currentX);
                 }
 
-                var headerRect = new Rect(currentX, _origin.y, width, HeaderHeight);
+                var headerRect = new Rect(currentX, _origin.y, width, headerHeight);
                 _columns.Add(new WorkTabLayoutColumn(columnDef, headerRect, currentX - _origin.x, width));
 
                 currentX += width;

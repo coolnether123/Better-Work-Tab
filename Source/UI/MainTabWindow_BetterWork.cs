@@ -43,6 +43,7 @@ namespace Better_Work_Tab.UI
         public static void NotifyAngledHeadersChanged()
         {
             HeaderDrawingCoordinator.NotifyAngledHeadersChanged(); 
+            PawnOrganizerSystem.Instance?.Layout?.InvalidateRowDescriptors();
             
             if (Find.MainTabsRoot?.OpenTab?.TabWindow is MainTabWindow_BetterWork workTab)
             {
