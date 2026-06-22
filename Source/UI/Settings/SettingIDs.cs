@@ -7,6 +7,7 @@ namespace Better_Work_Tab.UI.Settings
         public const string AdvancedDebugLogging = "advanced.debugLogging";
         public const string AdvancedHeader = "advanced.header";
         public const string AdvancedHideAutoAssignBtn = "advanced.hideAutoAssignBtn";
+        public const string AdvancedHideSettingResetIcons = "advanced.hideSettingResetIcons";
         public const string AdvancedLogToFile = "advanced.logToFile";
         public const string AdvancedProfiler = "advanced.profiler";
         public const string AdvancedRestoreDefaults = "advanced.restoreDefaults";
