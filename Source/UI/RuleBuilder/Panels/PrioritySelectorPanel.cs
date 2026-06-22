@@ -249,9 +249,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
                 return RuleBuilderConstants.DisabledColor;
             }
 
-            return RuleBuilderConstants.PriorityColors[
-                Mathf.Min(priority, RuleBuilderConstants.PriorityColors.Length - 1)
-            ];
+            return WorkPrioritySystem.GetPriorityColor(priority);
         }
 
         private string GetPriorityLabel(int priority)

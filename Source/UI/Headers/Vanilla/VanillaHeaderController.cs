@@ -1,6 +1,7 @@
 using UnityEngine;
 using Verse;
 using RimWorld;
+using Better_Work_Tab.UI.WorkGiverReassignments;
 
 namespace Better_Work_Tab.UI.Headers.Vanilla
 {
@@ -10,7 +11,6 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
     /// </summary>
     public static class VanillaHeaderController
     {
-        private const float StemLineGap = 2f;
         private const float StemLineXOffset = 5f;
         private const float StemLineDetectWidth = 10f;
 
@@ -23,10 +23,6 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
             // Height calculation is always managed by BWT to ensure the content area size matches our requirements.
 
             // For vanilla mode, calculate height based on number of levels
-            GameFont oldFont = Text.Font;
-            Text.Font = GameFont.Small;
-            float rowHeight = Text.LineHeight + StemLineGap;
-
             // Get the solver and check if it has a valid solution
             var solver = HeaderDrawingCoordinator.GetVanillaSolver();
             
@@ -35,7 +31,6 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
             // This prevents premature header expansion that would shrink the content area.
             if (solver == null || !solver.HasValidSolution())
             {
-                Text.Font = oldFont;
                 return;
             }
 
@@ -45,19 +40,16 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
             if (maxLevel <= 1)
             {
                 // Vanilla height is sufficient, don't modify
-                Text.Font = oldFont;
                 return;
             }
 
             // We need more than vanilla height
-            int minRequired = Mathf.CeilToInt(rowHeight * (maxLevel + 1.2f)); 
+            int minRequired = VanillaHeaderMetrics.GetRequiredHeaderHeight(maxLevel);
 
             if (__result < minRequired)
             {
                 __result = minRequired;
             }
-
-            Text.Font = oldFont;
         }
 
         /// <summary>
@@ -91,20 +83,24 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
 
             bool shouldDraw = evt.type == EventType.Repaint;
 
+            var vanillaSolver = HeaderDrawingCoordinator.GetVanillaSolver();
+
             // Determine Hover
             bool isMouseOver = DetermineMouseOver(rect, worker.def);
             if (isMouseOver)
             {
-                HeaderInputController.SetHoveredWorkType(worker.def.workType);
+                HeaderInputController.SetHoveredWorkType(worker.def.workType, vanillaSolver?.GetBounds(worker.def));
             }
 
             // Get Render/Layout Objects
-            var solver = HeaderDrawingCoordinator.GetVanillaSolver();
-            Rect interactionBounds = solver.GetBounds(worker.def);
+            Rect interactionBounds = vanillaSolver.GetBounds(worker.def);
             bool isMoved = MainTabWindow_BetterWork.ShouldShowColumnMarker(worker.def.workType);
             
             // Text Layout construction
-            string label = HeaderUtility.GetHeaderText(worker.def.workType, isMoved);
+            string label = HeaderUtility.GetHeaderText(
+                worker.def.workType,
+                isMoved,
+                WorkGiverHeaderLabelStyle.VanillaStaggered);
             
             var interactionLayout = new Angled.AngledLabelDrawer.AngledLabelLayout(
                 label,

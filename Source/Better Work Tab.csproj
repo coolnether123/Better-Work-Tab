@@ -86,6 +86,9 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="API\IMaxPriorityProvider.cs" />
+    <Compile Include="API\PriorityApi.cs" />
+    <Compile Include="API\PriorityProviderCapabilities.cs" />
     <Compile Include="BetterWorkTab.cs" />
     <Compile Include="BetterWorkTabLocalState.cs" />
     <Compile Include="Infrastructure\Compatibility.cs" />
@@ -100,6 +103,11 @@
     <Compile Include="Features\HighlightState.cs" />
     <Compile Include="Features\Caching\BedCountCache.cs" />
     <Compile Include="Features\Patches\MaxPriorityPatches.cs" />
+    <Compile Include="Features\RaisedPriorityMaximum\PriorityAuthorityBroker.cs" />
+    <Compile Include="Features\RaisedPriorityMaximum\PriorityConstants.cs" />
+    <Compile Include="Features\RaisedPriorityMaximum\PriorityProviderSnapshot.cs" />
+    <Compile Include="Features\RaisedPriorityMaximum\PriorityProviders.cs" />
+    <Compile Include="Features\RaisedPriorityMaximum\WorkPrioritySystem.cs" />
     <Compile Include="Features\Patches\Patch_PawnTable_RecacheIfDirty.cs" />
     <Compile Include="Features\Patches\Patch_Pawn_WorkSettings_SetPriority.cs" />
     <Compile Include="Features\Patches\Patch_WorkPriority_DoCell_Unified.cs" />
@@ -116,8 +124,14 @@
     <Compile Include="Features\Rules\RuleParameterRegistry.cs" />
     <Compile Include="Features\ColumnBaselineManager.cs" />
     <Compile Include="Features\WorkExecutionOrder.cs" />
+    <Compile Include="Features\WorkGiverReassignments\WorkGiverReassignmentData.cs" />
+    <Compile Include="Features\WorkGiverReassignments\WorkGiverReassignmentManager.cs" />
+    <Compile Include="Features\WorkGiverReassignments\WorkGiverReassignmentPatches.cs" />
+    <Compile Include="Features\WorkGiverReassignments\SubWorkDrilldownInput.cs" />
+    <Compile Include="Features\WorkGiverReassignments\SubWorkDrilldownState.cs" />
     <Compile Include="Features\Workloads\GameComponent_BWTWorldSettings.cs" />
     <Compile Include="Features\Testing\GameComponent_BWTModernQuickTestDriver.cs" />
+    <Compile Include="Features\Testing\WorkTabGeometryDiagnostics.cs" />
     <Compile Include="Features\Workloads\Worklist.cs" />
     <Compile Include="Features\Workloads\WorkloadNamers.cs" />
     <Compile Include="Features\Workloads\PawnWorkload.cs" />
@@ -125,7 +139,6 @@
     <Compile Include="Features\Patches\WorkTabSortPatches.cs" />
     <Compile Include="Features\Patches\CustomWorkBoxDrawer.cs" />
     <Compile Include="Features\Patches\ShiftHelper.cs" />
-    <Compile Include="Features\RaisedPriorityMaximum\WorkPrioritySystem.cs" />
     <Compile Include="DragDrop\RowDragHandler.cs" />
     <Compile Include="Features\ColumnWidthPersistence.cs" />
     <Compile Include="PawnOrganizer\API\IPawnOrganizerSnapshot.cs" />
@@ -192,7 +205,16 @@
     <Compile Include="Spine\UI\SettingsFramework\SettingWidgets.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingsListDrawer.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingsUIHelpers.cs" />
+    <Compile Include="UI\WorkGiverReassignments\Window_WorkGiverSubMenu.cs" />
+    <Compile Include="UI\WorkGiverReassignments\SubWorkDrilldownBarRenderer.cs" />
+    <Compile Include="UI\WorkGiverReassignments\SubWorkDrilldownHeaderGeometry.cs" />
+    <Compile Include="UI\WorkGiverReassignments\WorkGiverDisplayNameService.cs" />
+    <Compile Include="UI\WorkGiverReassignments\WorkGiverBaselineTracker.cs" />
+    <Compile Include="UI\WorkGiverReassignments\WorkGiverDragHandler.cs" />
+    <Compile Include="UI\WorkGiverReassignments\WorkGiverPriorityBoxRenderer.cs" />
     <Compile Include="Spine\UI\WidgetExtensions\RimworldSettingsWidgets.cs" />
+    <Compile Include="UI\Input\GuiMousePosition.cs" />
+    <Compile Include="UI\Input\NativeCursorPosition.cs" />
     <Compile Include="UI\RulesetListDragUI.cs" />
     <Compile Include="UI\MainTabWindow_BetterWork.cs" />
     <Compile Include="Features\WorkColumnOrderManager.cs" />
@@ -219,6 +241,7 @@
     <Compile Include="UI\Headers\IHeaderRenderer.cs" />
     <Compile Include="UI\Headers\HeaderPositioningManager.cs" />
     <Compile Include="UI\Headers\HeaderDrawingCoordinator.cs" />
+    <Compile Include="UI\Headers\Vanilla\VanillaHeaderMetrics.cs" />
     <Compile Include="UI\Headers\Vanilla\VanillaHeaderRenderer.cs" />
     <Compile Include="UI\Headers\Vanilla\VanillaHeaderLayoutSolver.cs" />
     <Compile Include="UI\Headers\Angled\AngledHeaderRenderer.cs" />
