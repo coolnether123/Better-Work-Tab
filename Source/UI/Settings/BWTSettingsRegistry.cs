@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Better_Work_Tab;
 using Better_Work_Tab.Features;
+using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.Patches;
 using Better_Work_Tab.UI;
@@ -196,28 +197,260 @@ namespace Better_Work_Tab.UI.Settings
 
             Register(new SettingDefinition
             {
+                Id = FeaturesSubWorkJobs,
+                FieldName = "enableSubWorkDrilldown",
+                Label = "Sub-work Jobs",
+                Tooltip = "Open a work type into its individual jobs. Use the configured shortcut on a work header or cell. Use it again, or press Escape, to return.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.enableSubWorkDrilldown,
+                ControlsChildVisibility = true,
+                ShowInSimpleView = true,
+                SortOrder = -43,
+                EmphasizeAsHeader = true,
+                HeaderColor = new Color(0.55f, 0.75f, 0.9f)
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = SubWorkOpenModifier,
+                ParentId = FeaturesSubWorkJobs,
+                FieldName = "subWorkDrilldownModifier",
+                Label = "Open modifier",
+                Tooltip = "Modifier key required to open or leave a sub-work job view.",
+                Type = SettingType.Enum,
+                EnumType = typeof(BetterWorkTabSettings.SubWorkDrilldownModifier),
+                DefaultValue = DefaultSettings.subWorkDrilldownModifier,
+                ShowInSimpleView = true,
+                SortOrder = 1
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = SubWorkOpenButton,
+                ParentId = FeaturesSubWorkJobs,
+                FieldName = "subWorkDrilldownButton",
+                Label = "Open mouse button",
+                Tooltip = "Mouse button used with the modifier key to open or leave a sub-work job view.",
+                Type = SettingType.Enum,
+                EnumType = typeof(BetterWorkTabSettings.SubWorkDrilldownButton),
+                DefaultValue = DefaultSettings.subWorkDrilldownButton,
+                ShowInSimpleView = true,
+                SortOrder = 2
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = SubWorkGlobalVanillaPriorityBoxes,
+                ParentId = FeaturesSubWorkJobs,
+                FieldName = "useVanillaSubWorkGlobalPriorityBoxes",
+                Label = "Vanilla global priority boxes",
+                Tooltip = "Render the global sub-work priority row with vanilla-style work priority boxes. Off keeps BWT's custom global row render.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.useVanillaSubWorkGlobalPriorityBoxes,
+                ShowInSimpleView = true,
+                SortOrder = 3
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = SubWorkRestoreCursor,
+                ParentId = FeaturesSubWorkJobs,
+                FieldName = "restoreCursorOnSubWorkExit",
+                Label = "Restore cursor from headers",
+                Tooltip = "When leaving from a sub-work header, move the cursor back to the work type header used to enter the sub-work job view.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.restoreCursorOnSubWorkExit,
+                ShowInSimpleView = true,
+                SortOrder = 4
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = SubWorkRestoreCursorFromPawnCells,
+                ParentId = FeaturesSubWorkJobs,
+                FieldName = "restoreCursorOnSubWorkPawnCellExit",
+                Label = "Restore cursor from pawn cells",
+                Tooltip = "When leaving from a pawn priority cell, move the cursor back to the work type header used to enter the sub-work job view. Off keeps the cursor where you clicked.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.restoreCursorOnSubWorkPawnCellExit,
+                ShowInSimpleView = true,
+                SortOrder = 5
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = SubWorkAutoExpandColumns,
+                ParentId = FeaturesSubWorkJobs,
+                FieldName = "subWorkAutoExpandColumns",
+                Label = "Auto width expansion",
+                Tooltip = "Allow sub-work priority columns to use empty table width so long labels have room and the pawn name column stays unchanged.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.subWorkAutoExpandColumns,
+                ControlsChildVisibility = true,
+                OnChanged = _ => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 6
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = SubWorkEvenlyExpandColumns,
+                ParentId = SubWorkAutoExpandColumns,
+                FieldName = "subWorkEvenlyExpandColumns",
+                Label = "Even width expansion",
+                Tooltip = "Spread expanded sub-work priority columns evenly. Turn this off to widen only the columns that need more label room.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.subWorkEvenlyExpandColumns,
+                OnChanged = _ => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 1
+            });
+
+            Register(new SettingDefinition
+            {
                 Id = FeaturesUiElements,
                 Label = "UI Display",
                 Type = SettingType.Header,
                 Tooltip = "Work tab UI display elements.",
                 HeaderColor = new Color(0.8f, 0.8f, 0.6f),
                 ShowInSimpleView = true,
-                SortOrder = -43
+                SortOrder = -42
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = PriorityHeader,
+                ParentId = FeaturesUiElements,
+                Label = "Priority Range",
+                Tooltip = "Controls which mod owns the manual priority range.",
+                Type = SettingType.Header,
+                HeaderColor = new Color(0.8f, 0.7f, 0.45f),
+                ShowInSimpleView = true,
+                SortOrder = 42,
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = PriorityModeSetting,
+                ParentId = PriorityHeader,
+                FieldName = "priorityMode",
+                Label = "Priority mode",
+                Tooltip = "Auto keeps vanilla priorities unless a compatible max-priority mod or existing high priorities are detected. BetterWorkTab makes BWT own the expanded range.",
+                Type = SettingType.Enum,
+                EnumType = typeof(PriorityMode),
+                DefaultValue = DefaultSettings.priorityMode,
+                ShowInSimpleView = true,
+                SortOrder = 0,
+                OnChanged = settingsObj =>
+                {
+                    if (settingsObj is BetterWorkTabSettings settings)
+                    {
+                        settings.NormalizePrioritySettings();
+                    }
+
+                    PriorityAuthorityBroker.InvalidateCaches();
+                    Patch_WorkPriority_DoCell_Unified.ClearColorCache();
+                }
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = UiAutoMaxPriority,
+                ParentId = PriorityHeader,
+                FieldName = "autoMaxPriorityInt",
+                Label = "Auto max priority",
+                Tooltip = "Maximum priority Auto mode is allowed to expose while following compatible external providers or preserving already-expanded priorities.",
+                Type = SettingType.Int,
+                DefaultValue = DefaultSettings.autoMaxPriority,
+                MinValue = PriorityConstants.VanillaMax,
+                MaxValue = BetterWorkTabSettings.MAX_PRIORITY_HARD_LIMIT,
+                VisibleWhen = s => ((BetterWorkTabSettings)s).priorityMode == PriorityMode.Auto,
+                ShowInSimpleView = true,
+                ShowInAdvancedView = true,
+                SortOrder = 1,
+                OnChanged = settingsObj =>
+                {
+                    if (settingsObj is BetterWorkTabSettings settings)
+                    {
+                        settings.NormalizePrioritySettings();
+                    }
+
+                    PriorityAuthorityBroker.InvalidateCaches();
+                }
             });
 
             Register(new SettingDefinition
             {
                 Id = UiMaxPriority,
-                ParentId = FeaturesUiElements,
+                ParentId = PriorityHeader,
                 FieldName = "maxPriorityInt",
-                Label = "Max priority",
-                Tooltip = "The maximum integer value pawns can be assigned in the work tab.",
+                Label = "BWT max priority",
+                Tooltip = "Maximum priority when Better Work Tab is selected as the priority owner.",
                 Type = SettingType.Int,
-                DefaultValue = DefaultSettings.GetInitialMaxPriority(),
+                DefaultValue = DefaultSettings.maxPriority,
                 MinValue = BetterWorkTabSettings.MAX_PRIORITY_MINIMUM,
                 MaxValue = BetterWorkTabSettings.MAX_PRIORITY_HARD_LIMIT,
+                VisibleWhen = s => ((BetterWorkTabSettings)s).priorityMode == PriorityMode.BetterWorkTab,
                 ShowInSimpleView = true,
-                SortOrder = 42,
+                ShowInAdvancedView = true,
+                SortOrder = 2,
+                OnChanged = settingsObj =>
+                {
+                    if (settingsObj is BetterWorkTabSettings settings)
+                    {
+                        settings.NormalizePrioritySettings();
+                    }
+
+                    PriorityAuthorityBroker.InvalidateCaches();
+                    Patch_WorkPriority_DoCell_Unified.ClearColorCache();
+                }
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = UiAutoDisabledPriorityMode,
+                ParentId = PriorityHeader,
+                FieldName = "autoDisabledPriorityMode",
+                Label = "Disabled work click",
+                Tooltip = "Priority Auto mode assigns when disabled work is turned back on.",
+                Type = SettingType.Enum,
+                EnumType = typeof(BetterWorkTabSettings.AutoDisabledPriorityMode),
+                DefaultValue = DefaultSettings.autoDisabledPriorityMode,
+                VisibleWhen = s => ((BetterWorkTabSettings)s).priorityMode == PriorityMode.Auto,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 3,
+                OnChanged = settingsObj =>
+                {
+                    if (settingsObj is BetterWorkTabSettings settings)
+                    {
+                        settings.NormalizePrioritySettings();
+                    }
+                }
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = UiAutoDisabledPriorityFixedValue,
+                ParentId = PriorityHeader,
+                FieldName = "autoDisabledPriorityFixedValue",
+                Label = "Fixed click priority",
+                Tooltip = "Priority assigned when Auto disabled-work click behavior is fixed priority.",
+                Type = SettingType.Int,
+                DefaultValue = DefaultSettings.autoDisabledPriorityFixedValue,
+                MinValue = 1,
+                MaxValue = BetterWorkTabSettings.MAX_PRIORITY_HARD_LIMIT,
+                VisibleWhen = s =>
+                {
+                    var settings = (BetterWorkTabSettings)s;
+                    return settings.priorityMode == PriorityMode.Auto &&
+                           settings.autoDisabledPriorityMode == BetterWorkTabSettings.AutoDisabledPriorityMode.FixedPriority;
+                },
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 4,
             });
 
             Register(new SettingDefinition
