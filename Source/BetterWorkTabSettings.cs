@@ -1,5 +1,7 @@
-using Better_Work_Tab.Features;
+﻿using Better_Work_Tab.Features;
+using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.Rules;
+using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.Workloads;
 using RimWorld;
 using System;
@@ -26,6 +28,14 @@ namespace Better_Work_Tab
         AngledHeaders
     }
 
+    public enum PriorityMode
+    {
+        Vanilla,
+        Auto,
+        ExternalProvider,
+        BetterWorkTab
+    }
+
     [StaticConstructorOnStartup]
     static class DefaultSettings
     {
@@ -45,6 +55,14 @@ namespace Better_Work_Tab
         public static bool enableDragDropReordering = true;
         public static bool enableDividers = true;
         public static bool enableWorkloads = true;
+        public static bool enableSubWorkDrilldown = false;
+        public static BetterWorkTabSettings.SubWorkDrilldownModifier subWorkDrilldownModifier = BetterWorkTabSettings.SubWorkDrilldownModifier.Ctrl;
+        public static BetterWorkTabSettings.SubWorkDrilldownButton subWorkDrilldownButton = BetterWorkTabSettings.SubWorkDrilldownButton.Left;
+        public static bool useVanillaSubWorkGlobalPriorityBoxes = false;
+        public static bool restoreCursorOnSubWorkExit = true;
+        public static bool restoreCursorOnSubWorkPawnCellExit = false;
+        public static bool subWorkAutoExpandColumns = true;
+        public static bool subWorkEvenlyExpandColumns = true;
         public static bool enableColumnOrderSaving = true;
         public static bool enableUIElements = true;
         public static bool enablePerformanceOptimizations = true;
@@ -172,6 +190,14 @@ namespace Better_Work_Tab
         public static bool useVerticalStackingForCJK = true;
         public static float cjkVerticalKerning = 0.75f;
         public static bool autoEnableManualPriorities = false;
+        public static PriorityMode priorityMode = PriorityMode.Auto;
+        public static bool enableExtendedPriorities = false;
+        public static bool delegateToExternalPriorityMods = true;
+        public static string selectedPriorityProviderId = PriorityConstants.AutoProviderId;
+        public static int autoMaxPriority = PriorityConstants.ExtendedHardMax;
+        public static BetterWorkTabSettings.AutoDisabledPriorityMode autoDisabledPriorityMode =
+            BetterWorkTabSettings.AutoDisabledPriorityMode.EveryMultipleOfFour;
+        public static int autoDisabledPriorityFixedValue = PriorityConstants.VanillaMax;
 
         // Pawn/worktype highlight visibility settings
         public static bool ShowPawnAndWorktypeHighlights = true;
@@ -243,35 +269,10 @@ namespace Better_Work_Tab
         public static BetterWorkTabSettings.ShowUIMode ShowUIMode_ShowSmallSkillNumbers = BetterWorkTabSettings.ShowUIMode.Unshifted;
         public static BetterWorkTabSettings.ShowUIMode ShowUIMode_ShowPawnForSkillSquare = BetterWorkTabSettings.ShowUIMode.Shifted;
 
-        public static int maxPriority = 4;
-        public static int maxPriorityWhenExternalPriorityModIsActive = 9;
+        public static int maxPriority = PriorityConstants.ExtendedHardMax;
         public static int priorityColorPercentage_Green = 10;
         public static int priorityColorPercentage_Yellow = 50;
         public static int priorityColorPercentage_Tan = 75;
-
-        private static readonly string[] ExternalPriorityModPackageIds =
-        {
-            "Lauriichan.PriorityMaster"
-        };
-
-        public static int GetInitialMaxPriority()
-        {
-            return ShouldUseExternalPriorityDefault()
-                ? maxPriorityWhenExternalPriorityModIsActive
-                : maxPriority;
-        }
-
-        private static bool ShouldUseExternalPriorityDefault()
-        {
-            try
-            {
-                return ExternalPriorityModPackageIds.Any(id => ModListerCompat.GetActiveModWithIdentifier(id) != null);
-            }
-            catch
-            {
-                return false;
-            }
-        }
     }
 
     // Contains all configurable settings for Better Work Tab mod
@@ -301,6 +302,14 @@ namespace Better_Work_Tab
         public bool enableDragDropReordering = DefaultSettings.enableDragDropReordering;
         public bool enableDividers = DefaultSettings.enableDividers;
         public bool enableWorkloads = DefaultSettings.enableWorkloads;
+        public bool enableSubWorkDrilldown = DefaultSettings.enableSubWorkDrilldown;
+        public SubWorkDrilldownModifier subWorkDrilldownModifier = DefaultSettings.subWorkDrilldownModifier;
+        public SubWorkDrilldownButton subWorkDrilldownButton = DefaultSettings.subWorkDrilldownButton;
+        public bool useVanillaSubWorkGlobalPriorityBoxes = DefaultSettings.useVanillaSubWorkGlobalPriorityBoxes;
+        public bool restoreCursorOnSubWorkExit = DefaultSettings.restoreCursorOnSubWorkExit;
+        public bool restoreCursorOnSubWorkPawnCellExit = DefaultSettings.restoreCursorOnSubWorkPawnCellExit;
+        public bool subWorkAutoExpandColumns = DefaultSettings.subWorkAutoExpandColumns;
+        public bool subWorkEvenlyExpandColumns = DefaultSettings.subWorkEvenlyExpandColumns;
         public bool enableColumnOrderSaving = DefaultSettings.enableColumnOrderSaving;
         public bool enableUIElements = DefaultSettings.enableUIElements;
         public bool enablePerformanceOptimizations = DefaultSettings.enablePerformanceOptimizations;
@@ -356,6 +365,7 @@ namespace Better_Work_Tab
         };
         public List<string> workColumnOrderDefNames = new List<string>();
         public Dictionary<string, float> storedColumnWidths = new Dictionary<string, float>();
+        public WorkGiverReassignmentData LegacyWorkGiverReassignments;
         
         public bool debugPrintLayout = false; // Added to fix CS1061
 
@@ -458,12 +468,19 @@ namespace Better_Work_Tab
         public const int MAX_PRIORITY_HARD_LIMIT = 99;
         public const int MAX_PRIORITY_MINIMUM = 4;
 
-        public int maxPriorityInt = DefaultSettings.GetInitialMaxPriority();
+        public PriorityMode priorityMode = DefaultSettings.priorityMode;
+        public bool enableExtendedPriorities = DefaultSettings.enableExtendedPriorities;
+        public bool delegateToExternalPriorityMods = DefaultSettings.delegateToExternalPriorityMods;
+        public string selectedPriorityProviderId = DefaultSettings.selectedPriorityProviderId;
+        public int autoMaxPriorityInt = DefaultSettings.autoMaxPriority;
+        public int maxPriorityInt = DefaultSettings.maxPriority;
+        public AutoDisabledPriorityMode autoDisabledPriorityMode = DefaultSettings.autoDisabledPriorityMode;
+        public int autoDisabledPriorityFixedValue = DefaultSettings.autoDisabledPriorityFixedValue;
         public int priorityColorPercentage_Green = 10;
         public int priorityColorPercentage_Yellow = 50;
         public int priorityColorPercentage_Tan = 75;
 
-        public int EffectiveMaxPriority => NormalizeMaxPriority(maxPriorityInt);
+        public int EffectiveMaxPriority => WorkPrioritySystem.GetMaxPriority();
 
         public static int NormalizeMaxPriority(int value)
         {
@@ -491,6 +508,13 @@ namespace Better_Work_Tab
 
         // UI mode settings
         public enum ShowUIMode { Always, Never, Shifted, Unshifted }
+        public enum SubWorkDrilldownModifier { Ctrl, Shift }
+        public enum SubWorkDrilldownButton { Left, Right }
+        public enum AutoDisabledPriorityMode
+        {
+            EveryMultipleOfFour,
+            FixedPriority
+        }
         public enum SkillViewHoverMode
         {
             Standard,      // Vanilla: interactive priority box with small skill number
@@ -650,6 +674,110 @@ namespace Better_Work_Tab
             }
         }
 
+        public void SetPriorityMode(PriorityMode mode)
+        {
+            priorityMode = mode;
+            SyncProviderSelectionFieldsFromMode();
+        }
+
+        public void SetExternalPriorityProvider(string providerId)
+        {
+            priorityMode = PriorityMode.ExternalProvider;
+            selectedPriorityProviderId = string.IsNullOrEmpty(providerId)
+                ? DefaultSettings.selectedPriorityProviderId
+                : providerId.Trim();
+            SyncProviderSelectionFieldsFromMode();
+        }
+
+        public void NormalizePrioritySettings()
+        {
+            if (!Enum.IsDefined(typeof(PriorityMode), priorityMode))
+            {
+                priorityMode = InferPriorityModeFromProviderSelectionFields();
+            }
+
+            if (string.IsNullOrEmpty(selectedPriorityProviderId))
+            {
+                selectedPriorityProviderId = DefaultSettings.selectedPriorityProviderId;
+            }
+
+            autoMaxPriorityInt = Math.Min(
+                Math.Max(autoMaxPriorityInt, PriorityConstants.VanillaMax),
+                MAX_PRIORITY_HARD_LIMIT);
+            maxPriorityInt = NormalizeMaxPriority(maxPriorityInt);
+
+            if (!Enum.IsDefined(typeof(AutoDisabledPriorityMode), autoDisabledPriorityMode))
+            {
+                autoDisabledPriorityMode = DefaultSettings.autoDisabledPriorityMode;
+            }
+
+            autoDisabledPriorityFixedValue = Math.Min(
+                Math.Max(autoDisabledPriorityFixedValue, 1),
+                MAX_PRIORITY_HARD_LIMIT);
+
+            SyncProviderSelectionFieldsFromMode();
+        }
+
+        private PriorityMode InferPriorityModeFromProviderSelectionFields()
+        {
+            if (enableExtendedPriorities ||
+                IsPriorityProviderId(selectedPriorityProviderId, PriorityConstants.BwtProviderId))
+            {
+                return PriorityMode.BetterWorkTab;
+            }
+
+            if (!delegateToExternalPriorityMods ||
+                IsPriorityProviderId(selectedPriorityProviderId, PriorityConstants.VanillaProviderId))
+            {
+                return PriorityMode.Vanilla;
+            }
+
+            if (string.IsNullOrEmpty(selectedPriorityProviderId) ||
+                IsPriorityProviderId(selectedPriorityProviderId, PriorityConstants.AutoProviderId))
+            {
+                return PriorityMode.Auto;
+            }
+
+            return PriorityMode.ExternalProvider;
+        }
+
+        private void SyncProviderSelectionFieldsFromMode()
+        {
+            switch (priorityMode)
+            {
+                case PriorityMode.Vanilla:
+                    enableExtendedPriorities = false;
+                    delegateToExternalPriorityMods = false;
+                    selectedPriorityProviderId = PriorityConstants.VanillaProviderId;
+                    break;
+                case PriorityMode.Auto:
+                    enableExtendedPriorities = false;
+                    delegateToExternalPriorityMods = true;
+                    selectedPriorityProviderId = PriorityConstants.AutoProviderId;
+                    break;
+                case PriorityMode.ExternalProvider:
+                    enableExtendedPriorities = false;
+                    delegateToExternalPriorityMods = true;
+                    selectedPriorityProviderId = string.IsNullOrEmpty(selectedPriorityProviderId)
+                        ? DefaultSettings.selectedPriorityProviderId
+                        : selectedPriorityProviderId.Trim();
+                    break;
+                case PriorityMode.BetterWorkTab:
+                    enableExtendedPriorities = true;
+                    delegateToExternalPriorityMods = true;
+                    selectedPriorityProviderId = PriorityConstants.BwtProviderId;
+                    break;
+            }
+        }
+
+        private static bool IsPriorityProviderId(string providerId, string expectedProviderId)
+        {
+            return string.Equals(
+                providerId?.Trim(),
+                expectedProviderId,
+                StringComparison.OrdinalIgnoreCase);
+        }
+
         public override void ExposeData()
         {
             Better_Work_Tab.ScribeCompat.LookValue(ref workTabMaxHeight, "workTabMaxHeight", DefaultSettings.workTabMaxHeight);
@@ -662,6 +790,14 @@ namespace Better_Work_Tab
             Better_Work_Tab.ScribeCompat.LookValue(ref enableDragDropReordering, "enableDragDropReordering", DefaultSettings.enableDragDropReordering);
             Better_Work_Tab.ScribeCompat.LookValue(ref enableDividers, "enableDividers", DefaultSettings.enableDividers);
             Better_Work_Tab.ScribeCompat.LookValue(ref enableWorkloads, "enableWorkloads", DefaultSettings.enableWorkloads);
+            Better_Work_Tab.ScribeCompat.LookValue(ref enableSubWorkDrilldown, "enableSubWorkDrilldown", DefaultSettings.enableSubWorkDrilldown);
+            Better_Work_Tab.ScribeCompat.LookValue(ref subWorkDrilldownModifier, "subWorkDrilldownModifier", DefaultSettings.subWorkDrilldownModifier);
+            Better_Work_Tab.ScribeCompat.LookValue(ref subWorkDrilldownButton, "subWorkDrilldownButton", DefaultSettings.subWorkDrilldownButton);
+            Better_Work_Tab.ScribeCompat.LookValue(ref useVanillaSubWorkGlobalPriorityBoxes, "useVanillaSubWorkGlobalPriorityBoxes", DefaultSettings.useVanillaSubWorkGlobalPriorityBoxes);
+            Better_Work_Tab.ScribeCompat.LookValue(ref restoreCursorOnSubWorkExit, "restoreCursorOnSubWorkExit", DefaultSettings.restoreCursorOnSubWorkExit);
+            Better_Work_Tab.ScribeCompat.LookValue(ref restoreCursorOnSubWorkPawnCellExit, "restoreCursorOnSubWorkPawnCellExit", DefaultSettings.restoreCursorOnSubWorkPawnCellExit);
+            Better_Work_Tab.ScribeCompat.LookValue(ref subWorkAutoExpandColumns, "subWorkAutoExpandColumns", DefaultSettings.subWorkAutoExpandColumns);
+            Better_Work_Tab.ScribeCompat.LookValue(ref subWorkEvenlyExpandColumns, "subWorkEvenlyExpandColumns", DefaultSettings.subWorkEvenlyExpandColumns);
             Better_Work_Tab.ScribeCompat.LookValue(ref enableColumnOrderSaving, "enableColumnOrderSaving", DefaultSettings.enableColumnOrderSaving);
             Better_Work_Tab.ScribeCompat.LookValue(ref enableUIElements, "enableUIElements", DefaultSettings.enableUIElements);
             Better_Work_Tab.ScribeCompat.LookValue(ref enablePerformanceOptimizations, "enablePerformanceOptimizations", DefaultSettings.enablePerformanceOptimizations);
@@ -732,10 +868,19 @@ namespace Better_Work_Tab
             Better_Work_Tab.ScribeCompat.LookValue(ref cjkVerticalKerning, "cjkVerticalKerning", 0.75f);
             Better_Work_Tab.ScribeCompat.LookValue(ref angledHeaderColor, "angledHeaderColor", DefaultSettings.Color_AngledHeaderText);
             Better_Work_Tab.ScribeCompat.LookValue(ref autoEnableManualPriorities, "autoEnableManualPriorities", DefaultSettings.autoEnableManualPriorities);
-            Better_Work_Tab.ScribeCompat.LookValue(ref maxPriorityInt, "maxPriorityInt", DefaultSettings.GetInitialMaxPriority());
+            Better_Work_Tab.ScribeCompat.LookValue(ref enableExtendedPriorities, "enableExtendedPriorities", DefaultSettings.enableExtendedPriorities);
+            Better_Work_Tab.ScribeCompat.LookValue(ref delegateToExternalPriorityMods, "delegateToExternalPriorityMods", DefaultSettings.delegateToExternalPriorityMods);
+            Better_Work_Tab.ScribeCompat.LookValue(ref selectedPriorityProviderId, "selectedPriorityProviderId", DefaultSettings.selectedPriorityProviderId);
+            PriorityMode inferredPriorityMode = InferPriorityModeFromProviderSelectionFields();
+            Better_Work_Tab.ScribeCompat.LookValue(ref priorityMode, "priorityMode", inferredPriorityMode);
+            Better_Work_Tab.ScribeCompat.LookValue(ref autoMaxPriorityInt, "autoMaxPriorityInt", DefaultSettings.autoMaxPriority);
+            Better_Work_Tab.ScribeCompat.LookValue(ref maxPriorityInt, "maxPriorityInt", DefaultSettings.maxPriority);
+            Better_Work_Tab.ScribeCompat.LookValue(ref autoDisabledPriorityMode, "autoDisabledPriorityMode", DefaultSettings.autoDisabledPriorityMode);
+            Better_Work_Tab.ScribeCompat.LookValue(ref autoDisabledPriorityFixedValue, "autoDisabledPriorityFixedValue", DefaultSettings.autoDisabledPriorityFixedValue);
             Better_Work_Tab.ScribeCompat.LookValue(ref priorityColorPercentage_Green, "priorityColorPercentage_Green", DefaultSettings.priorityColorPercentage_Green);
             Better_Work_Tab.ScribeCompat.LookValue(ref priorityColorPercentage_Yellow , "priorityColorPercentage_Yellow", DefaultSettings.priorityColorPercentage_Yellow );
             Better_Work_Tab.ScribeCompat.LookValue(ref priorityColorPercentage_Tan , "priorityColorPercentage_Tan", DefaultSettings.priorityColorPercentage_Tan );
+            NormalizePrioritySettings();
 
             if (hiddenWorktypes == null) hiddenWorktypes = new List<string>();
 
@@ -806,6 +951,11 @@ namespace Better_Work_Tab
             // Reinitialize rulesets after load (restores defaults if missing)
             //InitializeRulesets();
 
+            if (Scribe.mode != LoadSaveMode.Saving)
+            {
+                Better_Work_Tab.ScribeCompat.LookDeep(ref LegacyWorkGiverReassignments, "workGiverReassignments");
+            }
+
             // Column order and widths persistence
             Better_Work_Tab.ScribeCompat.LookCollection(ref workColumnOrderDefNames, "workColumnOrderDefNames", LookMode.Value);
             ScribeCompat.LookStringDictionary(ref storedColumnWidths, "storedColumnWidths", LookMode.Value);
@@ -813,6 +963,11 @@ namespace Better_Work_Tab
 
             // Save/load the list of columns the player has directly dragged
             Better_Work_Tab.ScribeCompat.LookCollection(ref playerDraggedColumns, "playerDraggedColumns", LookMode.Value);
+
+            if (Scribe.mode == LoadSaveMode.PostLoadInit)
+            {
+                WorkGiverReassignmentManager.OnSettingsLoaded();
+            }
 
             if (storedColumnWidths == null)
             {
@@ -824,7 +979,7 @@ namespace Better_Work_Tab
                 playerDraggedColumns = new List<string>();
             }
 
-            maxPriorityInt = NormalizeMaxPriority(maxPriorityInt);
+            NormalizePrioritySettings();
 
             EnsureDebugFeatureTogglesInitialized();
         }
@@ -840,6 +995,7 @@ namespace Better_Work_Tab
             settingsViewMode = SettingsViewMode.Simple;
             workColumnOrderDefNames.Clear();
             storedColumnWidths.Clear();
+            NormalizePrioritySettings();
 
             EnsureDebugFeatureTogglesInitialized();
             foreach (var feature in debugFeatureToggles.Keys.ToList())
@@ -900,14 +1056,10 @@ namespace Better_Work_Tab
             {
                 foreach (var template in defaultRules)
                 {
-                    int existingIndex = SavedRulesets.FindIndex(rs =>
+                    bool alreadyExists = SavedRulesets.Any(rs =>
                         string.Equals(rs.Name, template.Name, StringComparison.OrdinalIgnoreCase));
 
-                    if (existingIndex >= 0)
-                    {
-                        SavedRulesets[existingIndex] = template;
-                    }
-                    else
+                    if (!alreadyExists)
                     {
                         SavedRulesets.Add(template);
                     }
@@ -916,7 +1068,6 @@ namespace Better_Work_Tab
 
             SyncWorktypeReferences(SavedRulesets);
 
-            // Re-select by name if the old reference was replaced by a fresh template.
             if (CurrentRuleset != null && !SavedRulesets.Contains(CurrentRuleset))
             {
                 SetCurrentRuleset(
