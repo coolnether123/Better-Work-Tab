@@ -13,6 +13,9 @@ namespace Spine.UI.SettingsFramework
     /// </summary>
     public class SettingsListDrawer
     {
+        private const float ResetIconSlotWidth = 26f;
+        private const float ResetButtonSize = 20f;
+
         private readonly SettingsHierarchy _hierarchy;
         private Vector2 _scrollPosition;
         private string _searchQuery = string.Empty;
@@ -66,6 +69,16 @@ namespace Spine.UI.SettingsFramework
         /// Label for the color edit button.
         /// </summary>
         public string EditColorLabel { get; set; } = "Edit";
+
+        /// <summary>
+        /// When true, changed field-backed settings show a small per-row reset button.
+        /// </summary>
+        public bool ShowResetIcons { get; set; } = true;
+
+        /// <summary>
+        /// Tooltip for per-setting reset buttons.
+        /// </summary>
+        public string ResetToDefaultLabel { get; set; } = "Reset to default";
 
         /// <summary>
         /// Creates a new drawer for a hierarchy.
@@ -143,20 +156,8 @@ namespace Spine.UI.SettingsFramework
             SettingsViewMode viewMode,
             Action onSettingsChanged)
         {
-            IEnumerable<SettingDefinition> source = string.IsNullOrEmpty(_searchQuery) || _searchQuery.Trim().Length == 0
-                ? _hierarchy.GetFlattenedForView(viewMode, settingsObject)
-                : _hierarchy.Search(_searchQuery, viewMode);
-
-            var visibleSettings = new List<SettingDefinition>();
-            foreach (var setting in source)
-            {
-                if (settingsObject != null && setting.VisibleWhen != null && !setting.VisibleWhen(settingsObject))
-                {
-                    continue;
-                }
-
-                visibleSettings.Add(setting);
-            }
+            bool isSearching = !(string.IsNullOrEmpty(_searchQuery) || _searchQuery.Trim().Length == 0);
+            var visibleSettings = BuildVisibleSettings(settingsObject, viewMode, isSearching);
 
             if (visibleSettings.Count == 0)
             {
@@ -165,14 +166,10 @@ namespace Spine.UI.SettingsFramework
                 // If we're in Simple view and nothing matches, hint that Advanced may have results.
                 if (viewMode == SettingsViewMode.Simple && !(string.IsNullOrEmpty(_searchQuery) || _searchQuery.Trim().Length == 0))
                 {
-                    var advancedMatches = _hierarchy.Search(_searchQuery, SettingsViewMode.Advanced);
-                    if (advancedMatches != null)
+                    var advancedMatches = BuildVisibleSettings(settingsObject, SettingsViewMode.Advanced, useSearch: true);
+                    if (advancedMatches.Count > 0)
                     {
-                        foreach (var _ in advancedMatches)
-                        {
-                            emptyLabel = "Switch to advanced mode for more settings";
-                            break;
-                        }
+                        emptyLabel = "Switch to advanced mode for more settings";
                     }
                 }
 
@@ -192,6 +189,11 @@ namespace Spine.UI.SettingsFramework
                 bool disabledByAncestor = _hierarchy.IsDisabledByAncestor(def, settingsObject);
 
                 Rect rowRect = new Rect(0f, curY, viewRect.width, RowHeight);
+                if (isSearching)
+                {
+                    TryHandleSearchResultDoubleClick(rowRect, def, settingsObject, viewMode, rect.height);
+                }
+
                 DrawSettingRow(rowRect, def, settingsObject, disabledByAncestor, depth, onSettingsChanged);
                 curY += RowHeight;
             }
@@ -227,6 +229,31 @@ namespace Spine.UI.SettingsFramework
             {
                 field = settingsObject.GetType().GetField(def.FieldName,
                     BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            }
+
+            bool reserveResetSlot = ShowResetIcons && IsResettable(def, field);
+            if (reserveResetSlot)
+            {
+                Rect resetRect = new Rect(
+                    contentRect.x,
+                    contentRect.y + ((contentRect.height - ResetButtonSize) / 2f),
+                    ResetButtonSize,
+                    ResetButtonSize);
+
+                contentRect.x += ResetIconSlotWidth;
+                contentRect.width = Mathf.Max(0f, contentRect.width - ResetIconSlotWidth);
+
+                if (HasNonDefaultValue(field, settingsObject, def))
+                {
+                    DrawResetButton(resetRect, disabled, () =>
+                    {
+                        if (ResetSettingToDefault(field, settingsObject, def))
+                        {
+                            def.OnChanged?.Invoke(settingsObject);
+                            onSettingsChanged?.Invoke();
+                        }
+                    });
+                }
             }
 
             switch (def.Type)
@@ -378,6 +405,213 @@ namespace Spine.UI.SettingsFramework
             }
 
             return tooltip;
+        }
+
+        private List<SettingDefinition> BuildVisibleSettings(
+            object settingsObject,
+            SettingsViewMode viewMode,
+            bool useSearch)
+        {
+            IEnumerable<SettingDefinition> source = useSearch
+                ? _hierarchy.Search(_searchQuery, viewMode)
+                : _hierarchy.GetFlattenedForView(viewMode, settingsObject);
+
+            var visibleSettings = new List<SettingDefinition>();
+            foreach (var setting in source)
+            {
+                if (settingsObject != null && setting.VisibleWhen != null && !setting.VisibleWhen(settingsObject))
+                {
+                    continue;
+                }
+
+                visibleSettings.Add(setting);
+            }
+
+            return visibleSettings;
+        }
+
+        private bool TryHandleSearchResultDoubleClick(
+            Rect rowRect,
+            SettingDefinition target,
+            object settingsObject,
+            SettingsViewMode viewMode,
+            float listHeight)
+        {
+            Event evt = Event.current;
+            if (evt == null ||
+                evt.type != EventType.MouseDown ||
+                evt.clickCount < 2 ||
+                !rowRect.Contains(evt.mousePosition))
+            {
+                return false;
+            }
+
+            CenterOnSetting(target, settingsObject, viewMode, listHeight);
+            _searchWidget.Reset();
+            _searchWidget.Unfocus();
+            _searchQuery = string.Empty;
+            evt.Use();
+            return true;
+        }
+
+        private void CenterOnSetting(
+            SettingDefinition target,
+            object settingsObject,
+            SettingsViewMode viewMode,
+            float listHeight)
+        {
+            if (target == null)
+            {
+                return;
+            }
+
+            var fullList = BuildVisibleSettings(settingsObject, viewMode, useSearch: false);
+            int index = fullList.FindIndex(def => ReferenceEquals(def, target) || def.Id == target.Id);
+            if (index < 0)
+            {
+                return;
+            }
+
+            float viewHeight = fullList.Count * RowHeight;
+            float maxScrollY = Mathf.Max(0f, viewHeight - listHeight);
+            float targetY = index * RowHeight;
+            _scrollPosition.y = Mathf.Clamp(targetY - ((listHeight - RowHeight) * 0.5f), 0f, maxScrollY);
+            _scrollPosition.x = 0f;
+        }
+
+        private bool IsResettable(SettingDefinition def, FieldInfo field)
+        {
+            if (def == null || field == null || def.DefaultValue == null)
+            {
+                return false;
+            }
+
+            switch (def.Type)
+            {
+                case SettingType.Bool:
+                case SettingType.Int:
+                case SettingType.NumericInt:
+                case SettingType.Float:
+                case SettingType.Color:
+                case SettingType.Enum:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        private bool HasNonDefaultValue(FieldInfo field, object settingsObject, SettingDefinition def)
+        {
+            if (field == null || settingsObject == null || def == null)
+            {
+                return false;
+            }
+
+            if (!TryGetDefaultValueForField(field, def.DefaultValue, out var defaultValue))
+            {
+                return false;
+            }
+
+            object currentValue = field.GetValue(settingsObject);
+            return !ValuesEqual(currentValue, defaultValue);
+        }
+
+        private void DrawResetButton(Rect rect, bool disabled, Action resetAction)
+        {
+            bool oldEnabled = GUI.enabled;
+            Color oldColor = GUI.color;
+            if (disabled)
+            {
+                GUI.enabled = false;
+                GUI.color = Color.gray;
+            }
+
+            bool clicked = Widgets.ButtonText(rect, "R");
+
+            GUI.enabled = oldEnabled;
+            GUI.color = oldColor;
+
+            TooltipHandler.TipRegion(rect, ResetToDefaultLabel);
+            if (!disabled && clicked)
+            {
+                resetAction?.Invoke();
+                Event.current?.Use();
+            }
+        }
+
+        private bool ResetSettingToDefault(FieldInfo field, object settingsObject, SettingDefinition def)
+        {
+            if (field == null || settingsObject == null || def == null)
+            {
+                return false;
+            }
+
+            if (!TryGetDefaultValueForField(field, def.DefaultValue, out var defaultValue))
+            {
+                return false;
+            }
+
+            field.SetValue(settingsObject, defaultValue);
+            return true;
+        }
+
+        private static bool TryGetDefaultValueForField(FieldInfo field, object configuredDefault, out object value)
+        {
+            value = null;
+            if (field == null || configuredDefault == null)
+            {
+                return false;
+            }
+
+            Type fieldType = Nullable.GetUnderlyingType(field.FieldType) ?? field.FieldType;
+            Type defaultType = configuredDefault.GetType();
+
+            try
+            {
+                if (fieldType.IsAssignableFrom(defaultType))
+                {
+                    value = configuredDefault;
+                    return true;
+                }
+
+                if (fieldType.IsEnum)
+                {
+                    value = configuredDefault is string text
+                        ? Enum.Parse(fieldType, text)
+                        : Enum.ToObject(fieldType, configuredDefault);
+                    return true;
+                }
+
+                value = Convert.ChangeType(configuredDefault, fieldType);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static bool ValuesEqual(object a, object b)
+        {
+            if (a is float af && b is float bf)
+            {
+                return Mathf.Approximately(af, bf);
+            }
+
+            if (a is double ad && b is double bd)
+            {
+                return Math.Abs(ad - bd) < 0.0001d;
+            }
+
+            if (a is Color ac && b is Color bc)
+            {
+                return Mathf.Approximately(ac.r, bc.r) &&
+                       Mathf.Approximately(ac.g, bc.g) &&
+                       Mathf.Approximately(ac.b, bc.b) &&
+                       Mathf.Approximately(ac.a, bc.a);
+            }
+
+            return Equals(a, b);
         }
     }
 }
