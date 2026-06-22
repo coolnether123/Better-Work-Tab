@@ -929,14 +929,10 @@ namespace Better_Work_Tab
             {
                 foreach (var template in defaultRules)
                 {
-                    int existingIndex = SavedRulesets.FindIndex(rs =>
+                    bool alreadyExists = SavedRulesets.Any(rs =>
                         string.Equals(rs.Name, template.Name, StringComparison.OrdinalIgnoreCase));
 
-                    if (existingIndex >= 0)
-                    {
-                        SavedRulesets[existingIndex] = template;
-                    }
-                    else
+                    if (!alreadyExists)
                     {
                         SavedRulesets.Add(template);
                     }
@@ -945,7 +941,6 @@ namespace Better_Work_Tab
 
             SyncWorktypeReferences(SavedRulesets);
 
-            // Re-select by name if the old reference was replaced by a fresh template.
             if (CurrentRuleset != null && !SavedRulesets.Contains(CurrentRuleset))
             {
                 SetCurrentRuleset(
