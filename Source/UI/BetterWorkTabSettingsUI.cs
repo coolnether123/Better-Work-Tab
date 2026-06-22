@@ -25,6 +25,7 @@ namespace Better_Work_Tab.UI
                 ? SettingsViewMode.Simple
                 : SettingsViewMode.Advanced;
 
+            _drawer.ShowResetIcons = !settings.hideSettingResetIcons;
             _drawer.Draw(inRect, settings, ref _viewMode, () => settings.Write());
 
             settings.settingsViewMode = _viewMode == SettingsViewMode.Simple
