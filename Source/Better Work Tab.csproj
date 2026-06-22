@@ -105,6 +105,7 @@
     <Compile Include="PawnOrganizer\Patches\Patch_PawnColumnWorker_Label_DoCell.cs" />
     <Compile Include="PawnOrganizer\PawnOrganizerSystem.cs" />
     <Compile Include="Mod Support\IModSupportModule.cs" />
+    <Compile Include="Mod Support\CompatibilityDiagnostics.cs" />
     <Compile Include="Mod Support\ModSupportManager.cs" />
     <Compile Include="Mod Support\ModSupportModuleBase.cs" />
     <Compile Include="Mod Support\Mods\Useful Marks\UsefulMarksSupport.cs" />
