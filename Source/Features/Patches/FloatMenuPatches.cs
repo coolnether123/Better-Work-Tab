@@ -132,9 +132,9 @@ namespace Better_Work_Tab.Patches
 
             if (BetterWorkTabMod.Settings?.enableSubWorkDrilldown ?? false)
             {
-                HighlightState.SetSubWorkGiverToHighlight(pawn, targetWorkType, workGiver);
-                Find.MainTabsRoot.SetCurrentTab(MainButtonDefOf.Work);
                 SubWorkDrilldownState.Enter(targetWorkType);
+                Find.MainTabsRoot.SetCurrentTab(MainButtonDefOf.Work);
+                HighlightState.SetSubWorkGiverToHighlight(pawn, targetWorkType, workGiver);
                 HeaderDrawingCoordinator.NotifyAngledHeadersChanged();
                 MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
                 return;
