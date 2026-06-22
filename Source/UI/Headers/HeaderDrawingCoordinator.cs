@@ -48,6 +48,11 @@ namespace Better_Work_Tab.UI.Headers
             return _vanillaSolver;
         }
 
+        public static int GetVanillaLayoutVersion()
+        {
+            return _vanillaSolver?.LayoutVersion ?? 0;
+        }
+
         /// <summary>
         /// Returns the active renderer based on current mod settings.
         /// </summary>

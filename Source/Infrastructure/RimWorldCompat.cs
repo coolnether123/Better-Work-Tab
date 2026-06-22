@@ -317,11 +317,25 @@ namespace Better_Work_Tab
             get
             {
 #if v0_15
-                return Find.Map?.mapPawns?.AllPawnsSpawned ?? Enumerable.Empty<Pawn>();
+                return PawnUtility.AllPawnsMapOrWorldAlive;
 #elif (v0_17 || v0_16)
                 return PawnsFinder.AllMapsAndWorld_Alive;
 #else
                 return PawnsFinder.AllMapsWorldAndTemporary_Alive;
+#endif
+            }
+        }
+
+        public static IEnumerable<Pawn> AllMapsWorldAndTemporaryAliveOrDead
+        {
+            get
+            {
+#if v0_15
+                return PawnUtility.AllPawnsMapOrWorldAliveOrDead;
+#elif (v0_17 || v0_16)
+                return PawnsFinder.AllMapsAndWorld_AliveOrDead;
+#else
+                return PawnsFinder.AllMapsWorldAndTemporary_AliveOrDead;
 #endif
             }
         }

@@ -450,8 +450,8 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
         {
             var rule = state.SelectedRule;
             bool isDefault = state.SelectedRuleset?.IsDefault ?? false;
-            int maxPriority = WorkPrioritySystem.GetMaxPriority();
-            int currentPriority = Mathf.Clamp(rule.Parameters.Priority, 0, maxPriority);
+            int maxPriority = WorkPrioritySystem.GetRequestableMaxPriority();
+            int currentPriority = WorkPrioritySystem.ClampPriority(rule.Parameters.Priority);
 
             if (_editingRule != rule)
             {
@@ -488,14 +488,14 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             {
                 if (Better_Work_Tab.WidgetsCompat.ButtonText(minusRect, "-"))
                 {
-                    newPriority = Mathf.Max(0, currentPriority - 1);
+                    newPriority = WorkPrioritySystem.OffsetPriorityNumber(currentPriority, -1);
                 }
 
                 Better_Work_Tab.WidgetsCompat.TextFieldNumeric(fieldRect, ref newPriority, ref _priorityBuffer, 0, maxPriority);
 
                 if (Better_Work_Tab.WidgetsCompat.ButtonText(plusRect, "+"))
                 {
-                    newPriority = Mathf.Min(maxPriority, newPriority + 1);
+                    newPriority = WorkPrioritySystem.OffsetPriorityNumber(newPriority, 1);
                 }
 
                 Event evt = Event.current;
@@ -504,11 +504,12 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
                     (Mouse.IsOver(fieldRect) || Mouse.IsOver(minusRect) || Mouse.IsOver(plusRect)))
                 {
                     int delta = evt.delta.y > 0f ? 1 : -1;
-                    newPriority = Mathf.Clamp(newPriority + delta, 0, maxPriority);
+                    newPriority = WorkPrioritySystem.OffsetPriorityNumber(newPriority, delta);
                     _priorityBuffer = newPriority.ToString();
                     evt.Use();
                 }
 
+                newPriority = WorkPrioritySystem.ClampPriority(newPriority);
                 if (newPriority != currentPriority)
                 {
                     rule.Parameters.Priority = newPriority;
@@ -620,7 +621,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             var newRule = new WorkAssignmentRule(
                 new WorkAssignmentParameters(
                     $"{"BWT_NewRule".Translate()} {state.RulesForSelectedWorkType.Count + 1}",
-                    3,
+                    WorkPrioritySystem.GetDefaultEnabledPriority(),
                     state.SelectedWorkType));
 
             state.SelectedRuleset.Rules.Add(newRule);
