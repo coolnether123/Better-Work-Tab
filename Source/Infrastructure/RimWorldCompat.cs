@@ -137,6 +137,18 @@ namespace Better_Work_Tab
 #endif
             }
         }
+
+        public static IEnumerable<Pawn> AllMapsWorldAndTemporaryAliveOrDead
+        {
+            get
+            {
+#if (v0_17 || v0_16)
+                return PawnsFinder.AllMapsAndWorld_AliveOrDead;
+#else
+                return PawnsFinder.AllMapsWorldAndTemporary_AliveOrDead;
+#endif
+            }
+        }
     }
 
     public static class MessageCompat

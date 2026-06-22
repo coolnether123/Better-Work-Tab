@@ -2,6 +2,7 @@
 using RimWorld;
 using Verse;
 using System.Collections.Generic;
+using Better_Work_Tab.Features.WorkGiverReassignments;
 
 namespace Better_Work_Tab.UI.Headers.Angled
 {
@@ -48,7 +49,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
         /// <summary>
         /// Computes a signature for the given parameters to detect changes that should invalidate the cache.
         /// </summary>
-        private static int ComputeParamSignature(float cos, float sin, float horizontalOffset)
+        private static int ComputeParamSignature(float cos, float sin, float horizontalOffset, float drawWidthOverride)
         {
             // Simple hash combine
             unchecked
@@ -57,6 +58,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 hash = hash * 23 + cos.GetHashCode();
                 hash = hash * 23 + sin.GetHashCode();
                 hash = hash * 23 + horizontalOffset.GetHashCode();
+                hash = hash * 23 + drawWidthOverride.GetHashCode();
                 return hash;
             }
         }
@@ -65,11 +67,11 @@ namespace Better_Work_Tab.UI.Headers.Angled
         /// Attempts to retrieve a cached layout for an angled header, or calculates it if missing.
         /// </summary>
         /// <returns>True if the layout is valid and available.</returns>
-        public static bool TryGetLayout(Rect rect, WorkTypeDef workType, float cos, float sin, float stemGap, float horizontalOffset, out CachedHeaderData cached)
+        public static bool TryGetLayout(Rect rect, WorkTypeDef workType, float cos, float sin, float stemGap, float horizontalOffset, out CachedHeaderData cached, float drawWidthOverride = -1f)
         {
             EnsureFrameCache();
 
-            int currentSig = ComputeParamSignature(cos, sin, horizontalOffset);
+            int currentSig = ComputeParamSignature(cos, sin, horizontalOffset, drawWidthOverride);
 
             if (_cache.TryGetValue(workType, out cached))
             {
@@ -84,27 +86,33 @@ namespace Better_Work_Tab.UI.Headers.Angled
             bool isMoved = MainTabWindow_BetterWork.ShouldShowColumnMarker(workType);
             string label = HeaderUtility.GetHeaderText(workType, isMoved);
             
-            bool isCJK = HeaderUtility.IsCJK(label);
-            bool isCJKVertical = isCJK && BetterWorkTabMod.Settings.useVerticalStackingForCJK && Mathf.Abs(AngledLabelDrawer.CurrentRotation + 90f) < 5f;
+            bool isCJKVertical = HeaderUtility.ShouldUseCJKVerticalLabel(label);
 
             GameFont oldFont = Text.Font;
+            bool oldWordWrap = Text.WordWrap;
             Text.Font = GameFont.Small;
+            Text.WordWrap = false;
             Vector2 size = Text.CalcSize(label);
-            
+
             if (isCJKVertical)
             {
                 // In vertical stacking, the 'width' becomes the character width, 
                 // and the 'height' becomes the cumulative stack of characters.
                 float charH = Text.LineHeight * BetterWorkTabMod.Settings.cjkVerticalKerning;
-                size = new Vector2(size.y, label.Length * charH); 
+                size = new Vector2(size.y, label.Length * charH);
             }
             Text.Font = oldFont;
+            Text.WordWrap = oldWordWrap;
 
             // Layout Anchor Logic:
             // For standard angled headers, we use vertical centering relative to the header area.
             // For CJK Vertical headers, we push the text down to the bottom (anchored near the pawn rows) 
             // for maximum space efficiency and a more traditional vertical label aesthetic.
-            float drawWidth = isCJKVertical ? size.x : rect.height;
+            float drawWidth = isCJKVertical
+                ? size.x
+                : drawWidthOverride > 0f
+                    ? drawWidthOverride
+                    : rect.height;
             Rect drawRect;
             if (isCJKVertical)
             {
@@ -115,6 +123,11 @@ namespace Better_Work_Tab.UI.Headers.Angled
             {
                 drawRect = new Rect(0f, 0f, drawWidth, size.y) { center = rect.center };
                 drawRect.x += horizontalOffset;
+
+                if (SubWorkDrilldownState.IsActive)
+                {
+                    drawRect = AnchorSubWorkUnderlineToPriorityRow(drawRect, rect, cos, sin, stemGap, horizontalOffset);
+                }
             }
             Vector2 pivot = drawRect.center;
 
@@ -126,7 +139,11 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
             cached = new CachedHeaderData
             {
-                Layout = new AngledLabelDrawer.AngledLabelLayout(label, size, pivot, isMoved, isCJKVertical),
+                Layout = isCJKVertical
+                    ? new AngledLabelDrawer.AngledLabelLayout(label, size, pivot, isMoved, isCJKVertical, drawRect)
+                    : SubWorkDrilldownState.IsActive
+                        ? new AngledLabelDrawer.AngledLabelLayout(label, size, pivot, isMoved, isCJKVertical, drawRect)
+                        : new AngledLabelDrawer.AngledLabelLayout(label, size, pivot, isMoved, isCJKVertical),
                 Quad = quad,
                 Bounds = rect, // Approximate screen bounds for early clipping
                 ParamSignature = currentSig
@@ -134,6 +151,30 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
             _cache[workType] = cached;
             return true;
+        }
+
+        private static Rect AnchorSubWorkUnderlineToPriorityRow(Rect drawRect, Rect headerRect, float cos, float sin, float stemGap, float horizontalOffset)
+        {
+            Vector2 currentLocalUnderlineStart = new Vector2(-drawRect.width / 2f, drawRect.height / 2f);
+            Vector2 currentRotatedLocal = RotatePoint(currentLocalUnderlineStart, cos, sin);
+
+            float baselineWidth = SubWorkDrilldownState.BaseHeaderDrawWidth > 0f
+                ? SubWorkDrilldownState.BaseHeaderDrawWidth
+                : drawRect.width;
+            Vector2 baselineRotatedLocal = RotatePoint(new Vector2(-baselineWidth / 2f, drawRect.height / 2f), cos, sin);
+
+            float globalBoxTop = headerRect.yMax +
+                ((SubWorkDrilldownState.GlobalRowHeight - SubWorkDrilldownState.GlobalPriorityBoxSize) / 2f);
+            Vector2 targetUnderlineStart = new Vector2(
+                headerRect.center.x + horizontalOffset + baselineRotatedLocal.x,
+                globalBoxTop - stemGap);
+
+            Vector2 pivot = targetUnderlineStart - currentRotatedLocal;
+            return new Rect(
+                pivot.x - drawRect.width / 2f,
+                pivot.y - drawRect.height / 2f,
+                drawRect.width,
+                drawRect.height);
         }
 
         private static Vector2[] CalculateRotatedQuad(Vector2 pivot, float labelWidth, float textHeight, float cos, float sin)
