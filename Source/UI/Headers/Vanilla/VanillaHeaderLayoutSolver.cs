@@ -38,6 +38,8 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
         private const float QuantizationStep = 0.25f;
         private const int SignatureSeed = 17;
         private const int SignatureMultiplier = 397;
+        private const int MaxExactSolveNodes = 10;
+        private const int MaxExactSolveSteps = 50000;
 
         private struct Cost
         {
@@ -329,12 +331,17 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
                                       .ThenByDescending(i => (localNodes[i].XMax - localNodes[i].XMin))
                                       .ToArray();
 
-                // Solve the coloring problem for this component
-                var problem = new ColoringProblem(localNodes, order, GetMaxLevel());
-                int[] bestAssign = problem.Solve();
+                // Exact coloring is useful for normal vanilla-sized groups, but large work-type
+                // mods can create dense components where exhaustive backtracking is exponential.
+                int[] bestAssign = null;
+                if (localNodes.Length <= MaxExactSolveNodes)
+                {
+                    var problem = new ColoringProblem(localNodes, order, GetMaxLevel(), MaxExactSolveSteps);
+                    bestAssign = problem.Solve();
+                }
 
-                // This condition is generally not expected to manifest under normal operations; 
-                // however, a greedy first-fit coloring is provided as a contingency.
+                // Greedy first-fit is the bounded path for dense modded work tabs and the fallback
+                // if the exact solver exhausts its search budget.
                 if (bestAssign == null)
                 {
                     bestAssign = GreedyColoring(localNodes, order, GetMaxLevel());
@@ -445,14 +452,17 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
             private readonly int[] _order;
             private readonly int[] _assignment;
             private readonly int _maxLevel;
+            private readonly int _maxSteps;
             private int[] _bestAssign;
             private Cost _bestCost;
+            private int _steps;
 
-            public ColoringProblem(Node[] nodes, int[] order, int maxLevel)
+            public ColoringProblem(Node[] nodes, int[] order, int maxLevel, int maxSteps)
             {
                 _nodes = nodes;
                 _order = order;
                 _maxLevel = maxLevel;
+                _maxSteps = maxSteps;
                 _assignment = new int[nodes.Length];
                 System.Array.Fill(_assignment, -1);
                 _bestCost = Cost.MaxValue;
@@ -466,6 +476,11 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
 
             private void Dfs(int pos, Cost costSoFar)
             {
+                if (_steps++ > _maxSteps)
+                {
+                    return;
+                }
+
                 // Base case: All nodes in this component assigned a level
                 if (pos == _order.Length)
                 {

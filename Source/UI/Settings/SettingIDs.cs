@@ -67,6 +67,7 @@ namespace Better_Work_Tab.UI.Settings
         public const string LayoutDragColumnLineInset = "layout.dragColumnLineInset";
         public const string LayoutDragThreshold = "layout.dragThreshold";
         public const string LayoutDragHoverDelay = "layout.dragHoverDelay";
+        public const string LayoutWorkTabMaxHeight = "layout.workTabMaxHeight";
         public const string LayoutPawnCount = "layout.pawnCount";
         public const string LayoutResetColumns = "layout.resetColumns";
         public const string MpConflictMode = "mp.conflictMode";
