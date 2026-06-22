@@ -1,5 +1,6 @@
 ﻿using RimWorld;
 using Better_Work_Tab.Features.Rules;
+using Better_Work_Tab.ModSupport;
 using System.Collections.Generic;
 using System.Linq;
 using Verse;
@@ -36,7 +37,7 @@ namespace Better_Work_Tab.Features.Rules.Validators
                 if (skills == null)
                     return false;
 
-                if (skills.MaxPassionOfRelevantSkillsFor(wt) != (Passion)p.PassionLevel)
+                if (!VanillaSkillsExpandedSupport.PassionMatches(skills, wt, p.PassionLevel))
                     return false;
             }
 
