@@ -56,6 +56,8 @@ namespace Better_Work_Tab
         public static bool useVanillaSubWorkGlobalPriorityBoxes = false;
         public static bool restoreCursorOnSubWorkExit = true;
         public static bool restoreCursorOnSubWorkPawnCellExit = false;
+        public static bool subWorkAutoExpandColumns = true;
+        public static bool subWorkEvenlyExpandColumns = true;
         public static bool enableColumnOrderSaving = true;
         public static bool enableUIElements = true;
         public static bool enablePerformanceOptimizations = true;
@@ -311,6 +313,8 @@ namespace Better_Work_Tab
         public bool useVanillaSubWorkGlobalPriorityBoxes = DefaultSettings.useVanillaSubWorkGlobalPriorityBoxes;
         public bool restoreCursorOnSubWorkExit = DefaultSettings.restoreCursorOnSubWorkExit;
         public bool restoreCursorOnSubWorkPawnCellExit = DefaultSettings.restoreCursorOnSubWorkPawnCellExit;
+        public bool subWorkAutoExpandColumns = DefaultSettings.subWorkAutoExpandColumns;
+        public bool subWorkEvenlyExpandColumns = DefaultSettings.subWorkEvenlyExpandColumns;
         public bool enableColumnOrderSaving = DefaultSettings.enableColumnOrderSaving;
         public bool enableUIElements = DefaultSettings.enableUIElements;
         public bool enablePerformanceOptimizations = DefaultSettings.enablePerformanceOptimizations;
@@ -363,7 +367,7 @@ namespace Better_Work_Tab
         };
         public List<string> workColumnOrderDefNames = new List<string>();
         public Dictionary<string, float> storedColumnWidths = new Dictionary<string, float>();
-        public WorkGiverReassignmentData WorkGiverReassignments = new WorkGiverReassignmentData();
+        public WorkGiverReassignmentData LegacyWorkGiverReassignments;
         
         public bool debugPrintLayout = false; // Added to fix CS1061
 
@@ -678,6 +682,8 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref useVanillaSubWorkGlobalPriorityBoxes, "useVanillaSubWorkGlobalPriorityBoxes", DefaultSettings.useVanillaSubWorkGlobalPriorityBoxes);
             Scribe_Values.Look(ref restoreCursorOnSubWorkExit, "restoreCursorOnSubWorkExit", DefaultSettings.restoreCursorOnSubWorkExit);
             Scribe_Values.Look(ref restoreCursorOnSubWorkPawnCellExit, "restoreCursorOnSubWorkPawnCellExit", DefaultSettings.restoreCursorOnSubWorkPawnCellExit);
+            Scribe_Values.Look(ref subWorkAutoExpandColumns, "subWorkAutoExpandColumns", DefaultSettings.subWorkAutoExpandColumns);
+            Scribe_Values.Look(ref subWorkEvenlyExpandColumns, "subWorkEvenlyExpandColumns", DefaultSettings.subWorkEvenlyExpandColumns);
             Scribe_Values.Look(ref enableColumnOrderSaving, "enableColumnOrderSaving", DefaultSettings.enableColumnOrderSaving);
             Scribe_Values.Look(ref enableUIElements, "enableUIElements", DefaultSettings.enableUIElements);
             Scribe_Values.Look(ref enablePerformanceOptimizations, "enablePerformanceOptimizations", DefaultSettings.enablePerformanceOptimizations);
@@ -819,7 +825,10 @@ namespace Better_Work_Tab
             // Reinitialize rulesets after load (restores defaults if missing)
             //InitializeRulesets();
 
-            Scribe_Deep.Look(ref WorkGiverReassignments, "workGiverReassignments");
+            if (Scribe.mode != LoadSaveMode.Saving)
+            {
+                Scribe_Deep.Look(ref LegacyWorkGiverReassignments, "workGiverReassignments");
+            }
 
             // Column order and widths persistence
             Scribe_Collections.Look(ref workColumnOrderDefNames, "workColumnOrderDefNames", LookMode.Value);
@@ -828,11 +837,6 @@ namespace Better_Work_Tab
 
             // Save/load the list of columns the player has directly dragged
             Scribe_Collections.Look(ref playerDraggedColumns, "playerDraggedColumns", LookMode.Value);
-
-            if (WorkGiverReassignments == null)
-            {
-                WorkGiverReassignments = new WorkGiverReassignmentData();
-            }
 
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {

@@ -72,6 +72,7 @@ namespace Better_Work_Tab.PawnOrganizer
         private int _lastColumnSignature;
         private int _lastHiddenWorktypesSignature;
         private int _lastSubWorkSignature;
+        private int _lastSubWorkLayoutSettingsSignature;
         private int _lastHeaderLayoutVersion;
         private Dictionary<int, int> _lastDisplayOrders = new Dictionary<int, int>(); // pawn ID -> displayOrder
 
@@ -108,6 +109,9 @@ namespace Better_Work_Tab.PawnOrganizer
                 return true;
 
             if (SubWorkDrilldownState.LayoutSignature != _lastSubWorkSignature)
+                return true;
+
+            if (ComputeSubWorkLayoutSettingsSignature() != _lastSubWorkLayoutSettingsSignature)
                 return true;
 
             if (HeaderDrawingCoordinator.GetVanillaLayoutVersion() != _lastHeaderLayoutVersion)
@@ -166,6 +170,7 @@ namespace Better_Work_Tab.PawnOrganizer
             _lastColumnSignature = ComputeColumnSignature(table);
             _lastHiddenWorktypesSignature = ComputeHiddenWorktypesSignature();
             _lastSubWorkSignature = SubWorkDrilldownState.LayoutSignature;
+            _lastSubWorkLayoutSettingsSignature = ComputeSubWorkLayoutSettingsSignature();
             _lastHeaderLayoutVersion = HeaderDrawingCoordinator.GetVanillaLayoutVersion();
 
             _lastDisplayOrders.Clear();
@@ -247,6 +252,19 @@ namespace Better_Work_Tab.PawnOrganizer
                     hash = hash * 31 + StringComparer.Ordinal.GetHashCode(hidden[i] ?? string.Empty);
                 }
 
+                return hash;
+            }
+        }
+
+        private static int ComputeSubWorkLayoutSettingsSignature()
+        {
+            unchecked
+            {
+                var settings = BetterWorkTabMod.Settings;
+                int hash = 17;
+                hash = hash * 31 + ((settings?.subWorkAutoExpandColumns ?? DefaultSettings.subWorkAutoExpandColumns) ? 1 : 0);
+                hash = hash * 31 + ((settings?.subWorkEvenlyExpandColumns ?? DefaultSettings.subWorkEvenlyExpandColumns) ? 1 : 0);
+                hash = hash * 31 + ((settings?.enableAngledHeaders ?? DefaultSettings.enableAngledHeaders) ? 1 : 0);
                 return hash;
             }
         }
@@ -885,7 +903,7 @@ namespace Better_Work_Tab.PawnOrganizer
             }
 
             var settings = BetterWorkTabMod.Settings;
-            if (settings != null && settings.enableAngledHeaders)
+            if (!(settings?.subWorkAutoExpandColumns ?? DefaultSettings.subWorkAutoExpandColumns))
             {
                 return;
             }
@@ -902,6 +920,17 @@ namespace Better_Work_Tab.PawnOrganizer
             }
 
             if (workColumnIndexes.Count < 2)
+            {
+                return;
+            }
+
+            if (settings?.subWorkEvenlyExpandColumns ?? DefaultSettings.subWorkEvenlyExpandColumns)
+            {
+                ApplyEvenSubWorkExpansion(widths, surplus, workColumnIndexes);
+                return;
+            }
+
+            if (settings != null && settings.enableAngledHeaders)
             {
                 return;
             }
@@ -948,6 +977,46 @@ namespace Better_Work_Tab.PawnOrganizer
             for (int i = 0; i < workColumnIndexes.Count; i++)
             {
                 widths[workColumnIndexes[i]] += extra;
+            }
+        }
+
+        private static void ApplyEvenSubWorkExpansion(
+            float[] widths,
+            float surplus,
+            List<int> workColumnIndexes)
+        {
+            if (widths == null || workColumnIndexes == null || workColumnIndexes.Count == 0 || surplus <= 0.5f)
+            {
+                return;
+            }
+
+            float currentTotal = 0f;
+            float widestCurrent = 0f;
+            for (int i = 0; i < workColumnIndexes.Count; i++)
+            {
+                int index = workColumnIndexes[i];
+                currentTotal += widths[index];
+                widestCurrent = Mathf.Max(widestCurrent, widths[index]);
+            }
+
+            float targetWidth = (currentTotal + surplus) / workColumnIndexes.Count;
+            if (targetWidth < widestCurrent)
+            {
+                float evenExtra = surplus / workColumnIndexes.Count;
+                for (int i = 0; i < workColumnIndexes.Count; i++)
+                {
+                    int index = workColumnIndexes[i];
+                    widths[index] = Mathf.Min(SubWorkMaxPriorityColumnWidth, widths[index] + evenExtra);
+                }
+
+                return;
+            }
+
+            targetWidth = Mathf.Min(targetWidth, SubWorkMaxPriorityColumnWidth);
+
+            for (int i = 0; i < workColumnIndexes.Count; i++)
+            {
+                widths[workColumnIndexes[i]] = targetWidth;
             }
         }
 

@@ -1,4 +1,5 @@
 using Better_Work_Tab.Features;
+using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Mod_Support.LocalProfiles;
 using Better_Work_Tab.Mod_Support.Multiplayer;
 using Better_Work_Tab.Patches;
@@ -19,6 +20,7 @@ namespace Better_Work_Tab.Features.Workloads
         public List<string> ColumnCurrentOrder = new List<string>();
         public List<string> ColumnBaselineOrder = new List<string>();
         public List<PawnDivider> ActiveDividers = new List<PawnDivider>();
+        public WorkGiverReassignmentData WorkGiverReassignments = new WorkGiverReassignmentData();
 
         public GameComponent_BWTWorldSettings(Game game) : base()
         {
@@ -38,6 +40,8 @@ namespace Better_Work_Tab.Features.Workloads
 
             DisplayElementPool.Clear();
             EnsureCurrentWorklist();
+            EnsureWorkGiverReassignmentData();
+            WorkGiverReassignmentManager.MigrateLegacySettingsDataIfNeeded(this);
             ColumnBaselineManager.EnsureBaseline(this);
 
             SpineTiming.Enabled = BetterWorkTabMod.Settings?.enableProfiler ?? false;
@@ -61,6 +65,7 @@ namespace Better_Work_Tab.Features.Workloads
             Scribe_Values.Look(ref currentWorklistName, "currentWorklistName");
             Scribe_Collections.Look(ref ColumnBaselineOrder, "columnBaselineOrder", LookMode.Value);
             Scribe_Collections.Look(ref ColumnCurrentOrder, "columnCurrentOrder", LookMode.Value);
+            Scribe_Deep.Look(ref WorkGiverReassignments, "workGiverReassignments");
 
             if (!MultiplayerBridge.Active)
             {
@@ -143,7 +148,21 @@ namespace Better_Work_Tab.Features.Workloads
                 {
                     ActiveDividers = new List<PawnDivider>();
                 }
+
+                EnsureWorkGiverReassignmentData();
+                WorkGiverReassignmentManager.MigrateLegacySettingsDataIfNeeded(this);
             }
+        }
+
+        public WorkGiverReassignmentData EnsureWorkGiverReassignmentData()
+        {
+            if (WorkGiverReassignments == null)
+            {
+                WorkGiverReassignments = new WorkGiverReassignmentData();
+            }
+
+            WorkGiverReassignments.EnsureCollections();
+            return WorkGiverReassignments;
         }
 
         private int _profileSaveTimer = 0;

@@ -16,6 +16,60 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         public Dictionary<int, Dictionary<string, List<string>>> PawnWorkGiverOrdering = new Dictionary<int, Dictionary<string, List<string>>>();
         public int SyncVersion = 0;
 
+        public bool HasAnyData()
+        {
+            return HasEntries(WorkGiverToWorkTypeMap) ||
+                   HasEntries(WorkTypeWorkGiverOrder) ||
+                   HasNestedEntries(PawnWorkGiverPriorityOverrides) ||
+                   HasNestedEntries(PawnWorkGiverOrdering);
+        }
+
+        public WorkGiverReassignmentData Clone()
+        {
+            EnsureCollections();
+
+            return new WorkGiverReassignmentData
+            {
+                WorkGiverToWorkTypeMap = new Dictionary<string, string>(WorkGiverToWorkTypeMap, StringComparer.Ordinal),
+                WorkTypeWorkGiverOrder = WorkTypeWorkGiverOrder.ToDictionary(
+                    kv => kv.Key,
+                    kv => kv.Value != null ? new List<string>(kv.Value) : new List<string>(),
+                    StringComparer.Ordinal),
+                PawnWorkGiverPriorityOverrides = PawnWorkGiverPriorityOverrides.ToDictionary(
+                    kv => kv.Key,
+                    kv => kv.Value != null
+                        ? new Dictionary<string, int>(kv.Value, StringComparer.Ordinal)
+                        : new Dictionary<string, int>(StringComparer.Ordinal)),
+                PawnWorkGiverOrdering = PawnWorkGiverOrdering.ToDictionary(
+                    kv => kv.Key,
+                    kv => kv.Value != null
+                        ? kv.Value.ToDictionary(
+                            inner => inner.Key,
+                            inner => inner.Value != null ? new List<string>(inner.Value) : new List<string>(),
+                            StringComparer.Ordinal)
+                        : new Dictionary<string, List<string>>(StringComparer.Ordinal)),
+                SyncVersion = SyncVersion
+            };
+        }
+
+        public void Clear()
+        {
+            EnsureCollections();
+            WorkGiverToWorkTypeMap.Clear();
+            WorkTypeWorkGiverOrder.Clear();
+            PawnWorkGiverPriorityOverrides.Clear();
+            PawnWorkGiverOrdering.Clear();
+            SyncVersion++;
+        }
+
+        public void EnsureCollections()
+        {
+            WorkGiverToWorkTypeMap ??= new Dictionary<string, string>(StringComparer.Ordinal);
+            WorkTypeWorkGiverOrder ??= new Dictionary<string, List<string>>(StringComparer.Ordinal);
+            PawnWorkGiverPriorityOverrides ??= new Dictionary<int, Dictionary<string, int>>();
+            PawnWorkGiverOrdering ??= new Dictionary<int, Dictionary<string, List<string>>>();
+        }
+
         public void ExposeData()
         {
             Scribe_Collections.Look(ref WorkGiverToWorkTypeMap, "workGiverToWorkTypeMap", LookMode.Value, LookMode.Value);
@@ -82,11 +136,35 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                     r => r.PawnId,
                     r => r.Orders ?? new Dictionary<string, List<string>>(StringComparer.Ordinal)) ?? new Dictionary<int, Dictionary<string, List<string>>>();
 
-                WorkGiverToWorkTypeMap ??= new Dictionary<string, string>(StringComparer.Ordinal);
+                EnsureCollections();
             }
         }
 
-        private class WorkTypeOrderRecord : IExposable
+        private static bool HasEntries<TKey, TValue>(Dictionary<TKey, TValue> dictionary)
+        {
+            return dictionary != null && dictionary.Count > 0;
+        }
+
+        private static bool HasNestedEntries<TKey, TNestedKey, TNestedValue>(
+            Dictionary<TKey, Dictionary<TNestedKey, TNestedValue>> dictionary)
+        {
+            if (dictionary == null)
+            {
+                return false;
+            }
+
+            foreach (var value in dictionary.Values)
+            {
+                if (value != null && value.Count > 0)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        public class WorkTypeOrderRecord : IExposable
         {
             public string WorkTypeDefName;
             public List<string> OrderedWorkGivers = new List<string>();
@@ -99,7 +177,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             }
         }
 
-        private class PawnWorkGiverPriorityRecord : IExposable
+        public class PawnWorkGiverPriorityRecord : IExposable
         {
             public int PawnId;
             public Dictionary<string, int> Priorities = new Dictionary<string, int>(StringComparer.Ordinal);
@@ -112,7 +190,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             }
         }
 
-        private class PawnWorkGiverOrderRecord : IExposable
+        public class PawnWorkGiverOrderRecord : IExposable
         {
             public int PawnId;
             public Dictionary<string, List<string>> Orders = new Dictionary<string, List<string>>(StringComparer.Ordinal);

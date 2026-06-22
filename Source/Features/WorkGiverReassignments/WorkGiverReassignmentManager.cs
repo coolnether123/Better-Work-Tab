@@ -2,6 +2,7 @@ using Better_Work_Tab;
 using Better_Work_Tab.Mod_Support.Multiplayer;
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
+using Better_Work_Tab.Features.Workloads;
 using Multiplayer.API;
 using RimWorld;
 using System;
@@ -27,17 +28,18 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         {
             get
             {
+                var component = Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
+                if (component != null)
+                {
+                    return component.EnsureWorkGiverReassignmentData();
+                }
+
                 if (Settings == null)
                 {
                     return null;
                 }
 
-                if (Settings.WorkGiverReassignments == null)
-                {
-                    Settings.WorkGiverReassignments = new WorkGiverReassignmentData();
-                }
-
-                return Settings.WorkGiverReassignments;
+                return Settings.LegacyWorkGiverReassignments;
             }
         }
 
@@ -54,6 +56,53 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         }
 
         internal static void OnSettingsLoaded()
+        {
+            InvalidateCaches();
+            _cachedSyncVersion = Data?.SyncVersion ?? 0;
+        }
+
+        internal static void MigrateLegacySettingsDataIfNeeded(GameComponent_BWTWorldSettings component)
+        {
+            if (component == null)
+            {
+                OnSettingsLoaded();
+                return;
+            }
+
+            component.EnsureWorkGiverReassignmentData();
+
+            var settings = Settings;
+            var legacy = settings?.LegacyWorkGiverReassignments;
+            if (legacy != null && legacy.HasAnyData())
+            {
+                if (!component.WorkGiverReassignments.HasAnyData())
+                {
+                    component.WorkGiverReassignments = legacy.Clone();
+                    BetterWorkTabMod.DebugLog("Migrated legacy global sub-work reassignment settings into this save.", DebugFeature.General);
+                }
+                else
+                {
+                    BetterWorkTabMod.DebugLog("Ignored legacy global sub-work reassignment settings because this save already has sub-work data.", DebugFeature.General);
+                }
+
+                ClearLegacySettingsAfterLoad(settings);
+            }
+
+            OnWorldDataLoaded();
+        }
+
+        private static void ClearLegacySettingsAfterLoad(BetterWorkTabSettings settings)
+        {
+            if (settings == null)
+            {
+                return;
+            }
+
+            settings.LegacyWorkGiverReassignments = null;
+            LongEventHandler.ExecuteWhenFinished(settings.Write);
+        }
+
+        internal static void OnWorldDataLoaded()
         {
             InvalidateCaches();
             _cachedSyncVersion = Data?.SyncVersion ?? 0;
@@ -541,7 +590,14 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             newIndex = Math.Max(0, Math.Min(newIndex, currentOrder.Count));
             currentOrder.Insert(newIndex, workGiverDefName);
 
-            SetPawnWorkGiverOrder(pawn?.thingIDNumber ?? -1, workTypeDefName, currentOrder);
+            int pawnId = pawn?.thingIDNumber ?? -1;
+            if (MultiplayerBridge.Active)
+            {
+                SyncSetPawnWorkGiverOrder(pawnId, workTypeDefName, currentOrder);
+                return;
+            }
+
+            SetPawnWorkGiverOrder(pawnId, workTypeDefName, currentOrder);
         }
 
         [SyncMethod]

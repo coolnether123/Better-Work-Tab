@@ -276,6 +276,37 @@ namespace Better_Work_Tab.UI.Settings
 
             Register(new SettingDefinition
             {
+                Id = SubWorkAutoExpandColumns,
+                ParentId = FeaturesSubWorkJobs,
+                FieldName = "subWorkAutoExpandColumns",
+                Label = "Auto width expansion",
+                Tooltip = "Allow sub-work priority columns to use empty table width so long labels have room and the pawn name column stays unchanged.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.subWorkAutoExpandColumns,
+                ControlsChildVisibility = true,
+                OnChanged = _ => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 6
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = SubWorkEvenlyExpandColumns,
+                ParentId = SubWorkAutoExpandColumns,
+                FieldName = "subWorkEvenlyExpandColumns",
+                Label = "Even width expansion",
+                Tooltip = "Spread expanded sub-work priority columns evenly. Turn this off to widen only the columns that need more label room.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.subWorkEvenlyExpandColumns,
+                OnChanged = _ => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 1
+            });
+
+            Register(new SettingDefinition
+            {
                 Id = FeaturesUiElements,
                 Label = "UI Display",
                 Type = SettingType.Header,

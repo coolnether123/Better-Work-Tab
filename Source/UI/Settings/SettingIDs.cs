@@ -90,6 +90,8 @@ namespace Better_Work_Tab.UI.Settings
         public const string PerfUseElementPooling = "perf.useElementPooling";
         public const string PerfViewportCulling = "perf.viewportCulling";
         public const string SubWorkGlobalVanillaPriorityBoxes = "subWorkJobs.globalVanillaPriorityBoxes";
+        public const string SubWorkAutoExpandColumns = "subWorkJobs.autoExpandColumns";
+        public const string SubWorkEvenlyExpandColumns = "subWorkJobs.evenlyExpandColumns";
         public const string SubWorkOpenButton = "subWorkJobs.openButton";
         public const string SubWorkOpenModifier = "subWorkJobs.openModifier";
         public const string SubWorkRestoreCursor = "subWorkJobs.restoreCursor";
