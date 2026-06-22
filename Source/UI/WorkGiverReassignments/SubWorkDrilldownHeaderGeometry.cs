@@ -13,6 +13,12 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
     /// </summary>
     internal static class SubWorkDrilldownHeaderGeometry
     {
+        internal static float GetBaseHeaderDrawWidth(PawnTable table, float fallback)
+        {
+            float baseHeight = table?.cachedHeaderHeight ?? 0f;
+            return baseHeight > 0f ? baseHeight : fallback;
+        }
+
         internal static float GetEffectiveHeaderHeight(PawnTable table)
         {
             float baseHeight = table?.cachedHeaderHeight ?? 0f;

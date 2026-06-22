@@ -403,6 +403,14 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             SetPawnOverride(pawn, workGiver, priority);
         }
 
+        [SyncMethod]
+        public static void SyncClearPawnOverridesForWorkType(int pawnId, string workTypeDefName)
+        {
+            var pawn = PawnsFinder.All_AliveOrDead.FirstOrDefault(p => p.thingIDNumber == pawnId);
+            var workType = DefDatabase<WorkTypeDef>.GetNamedSilentFail(workTypeDefName);
+            ClearPawnOverridesForWorkType(pawn, workType);
+        }
+
         private static void SetPawnOverride(Pawn pawn, WorkGiverDef workGiver, int priority)
         {
             var data = Data;
@@ -416,6 +424,47 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             }
 
             dict[workGiver.defName] = WorkPrioritySystem.ClampPriority(priority);
+
+            data.SyncVersion++;
+            InvalidateCaches();
+            WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
+        }
+
+        private static void ClearPawnOverridesForWorkType(Pawn pawn, WorkTypeDef workType)
+        {
+            var data = Data;
+            if (data == null || pawn == null || workType == null)
+            {
+                return;
+            }
+
+            if (!data.PawnWorkGiverPriorityOverrides.TryGetValue(pawn.thingIDNumber, out var dict) ||
+                dict == null ||
+                dict.Count == 0)
+            {
+                return;
+            }
+
+            bool changed = false;
+            var workGivers = GetDisplayWorkGiversForWorkType(workType);
+            for (int i = 0; i < workGivers.Count; i++)
+            {
+                string defName = workGivers[i]?.def?.defName;
+                if (!defName.NullOrEmpty() && dict.Remove(defName))
+                {
+                    changed = true;
+                }
+            }
+
+            if (!changed)
+            {
+                return;
+            }
+
+            if (dict.Count == 0)
+            {
+                data.PawnWorkGiverPriorityOverrides.Remove(pawn.thingIDNumber);
+            }
 
             data.SyncVersion++;
             InvalidateCaches();

@@ -71,7 +71,9 @@ namespace Better_Work_Tab.UI.Headers.Angled
             float absSin = Mathf.Abs(Mathf.Sin(rotation * Mathf.Deg2Rad));
             float absCos = Mathf.Abs(Mathf.Cos(rotation * Mathf.Deg2Rad));
             GameFont oldFont = Text.Font;
+            bool oldWordWrap = Text.WordWrap;
             Text.Font = GameFont.Small;
+            Text.WordWrap = false;
             float lineHeightCJK = Text.LineHeight * BetterWorkTabMod.Settings.cjkVerticalKerning;
 
             foreach (var col in columns)
@@ -99,6 +101,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
             }
 
             Text.Font = oldFont;
+            Text.WordWrap = oldWordWrap;
             return maxH + STEM_BOTTOM_GAP;
         }
 

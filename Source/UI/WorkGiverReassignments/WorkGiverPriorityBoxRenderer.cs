@@ -21,6 +21,15 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
             int defaultPriority = WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, workType);
 
+            if (pawn != null &&
+                !pawn.WorkTypeIsDisabled(workType) &&
+                defaultPriority <= WorkPrioritySystem.DisabledPriority)
+            {
+                DrawInheritedDisabledPriorityBox(workType, pawn, boxRect);
+                TooltipHandler.TipRegion(boxRect, wg.def.LabelCap);
+                return;
+            }
+
             int workGiverPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, wg.def, defaultPriority);
             
             if (pawn != null)
@@ -67,6 +76,8 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             Color oldColor = GUI.color;
             TextAnchor oldAnchor = Text.Anchor;
             GameFont oldFont = Text.Font;
+            bool oldWordWrap = Text.WordWrap;
+            Text.WordWrap = false;
 
             GUI.DrawTexture(boxRect, bgTex);
 
@@ -88,6 +99,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             GUI.color = oldColor;
             Text.Anchor = oldAnchor;
             Text.Font = oldFont;
+            Text.WordWrap = oldWordWrap;
 
             if (Mouse.IsOver(boxRect))
             {
@@ -103,6 +115,11 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 : WidgetsWork.WorkBoxBGTex_Mid;
 
             Color oldColor = GUI.color;
+            TextAnchor oldAnchor = Text.Anchor;
+            GameFont oldFont = Text.Font;
+            bool oldWordWrap = Text.WordWrap;
+            Text.WordWrap = false;
+
             if (incapable)
             {
                 GUI.color = new Color(1f, 0.3f, 0.3f);
@@ -113,13 +130,16 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
             if (priority > 0)
             {
-                var oldAnchor = Text.Anchor;
+                Text.Font = GameFont.Medium;
                 Text.Anchor = TextAnchor.MiddleCenter;
                 GUI.color = WorkPrioritySystem.GetPriorityColor(priority);
                 Widgets.Label(boxRect.ContractedBy(-3f), priority.ToString());
-                GUI.color = oldColor;
-                Text.Anchor = oldAnchor;
             }
+
+            GUI.color = oldColor;
+            Text.Anchor = oldAnchor;
+            Text.Font = oldFont;
+            Text.WordWrap = oldWordWrap;
 
             if (Mouse.IsOver(boxRect))
             {
@@ -160,6 +180,8 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             Color oldColor = GUI.color;
             TextAnchor oldAnchor = Text.Anchor;
             GameFont oldFont = Text.Font;
+            bool oldWordWrap = Text.WordWrap;
+            Text.WordWrap = false;
 
             if (incapable)
             {
@@ -187,6 +209,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             GUI.color = oldColor;
             Text.Anchor = oldAnchor;
             Text.Font = oldFont;
+            Text.WordWrap = oldWordWrap;
 
             if (Mouse.IsOver(boxRect))
             {
@@ -194,6 +217,54 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             }
 
             return true;
+        }
+
+        private static void DrawInheritedDisabledPriorityBox(WorkTypeDef workType, Pawn pawn, Rect boxRect)
+        {
+            Color oldColor = GUI.color;
+            TextAnchor oldAnchor = Text.Anchor;
+            GameFont oldFont = Text.Font;
+            bool oldWordWrap = Text.WordWrap;
+
+            GUI.color = new Color(0.52f, 0.52f, 0.52f, 0.82f);
+            GUI.DrawTexture(boxRect, WidgetsWork.WorkBoxBGTex_Bad);
+            GUI.color = new Color(0.18f, 0.18f, 0.18f, 0.42f);
+            GUI.DrawTexture(boxRect, BaseContent.WhiteTex);
+
+            GUI.color = oldColor;
+            Text.Anchor = oldAnchor;
+            Text.Font = oldFont;
+            Text.WordWrap = oldWordWrap;
+
+            if (Mouse.IsOver(boxRect))
+            {
+                Widgets.DrawHighlight(boxRect);
+            }
+
+            HandleInheritedDisabledClick(pawn, workType, boxRect);
+        }
+
+        private static void HandleInheritedDisabledClick(Pawn pawn, WorkTypeDef workType, Rect boxRect)
+        {
+            Event evt = Event.current;
+            if (evt == null ||
+                evt.type != EventType.MouseDown ||
+                !Mouse.IsOver(boxRect) ||
+                BetterWorkTabLocalState.IsHeaderDragging ||
+                SubWorkDrilldownInput.MatchesGesture(evt))
+            {
+                return;
+            }
+
+            if (evt.button != 0 && evt.button != 1)
+            {
+                return;
+            }
+
+            WorkPrioritySystem.SetPriority(pawn.workSettings, workType, WorkPrioritySystem.GetDefaultEnabledPriority());
+            WorkGiverReassignmentManager.SyncClearPawnOverridesForWorkType(pawn.thingIDNumber, workType.defName);
+            SoundDefOf.Checkbox_TurnedOn.PlayOneShotOnCamera();
+            evt.Use();
         }
 
         private static void HandlePriorityClick(int pawnId, WorkGiverDef workGiverDef, Rect boxRect, int currentPriority)

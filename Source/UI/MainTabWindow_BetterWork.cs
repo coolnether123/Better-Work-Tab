@@ -3,6 +3,9 @@ using Better_Work_Tab.Mod_Support.Multiplayer;
 using Better_Work_Tab.Mod_Support.Multiplayer.Features.Layouts;
 using Better_Work_Tab.Features.Caching;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
+#if DEBUG
+using Better_Work_Tab.Features.Testing;
+#endif
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.PawnOrganizer;
@@ -533,6 +536,9 @@ namespace Better_Work_Tab.UI
             {
                 SubWorkDrilldownBarRenderer.Draw(layout);
             }
+#if DEBUG
+            WorkTabGeometryDiagnostics.DumpHeaderLayoutIfRequested(layout);
+#endif
             DrawRows(table, layout, outRect, viewRect);
         }
 
@@ -649,7 +655,10 @@ namespace Better_Work_Tab.UI
                 return false;
             }
 
-            SubWorkDrilldownState.Enter(openType, storedReturnPosition);
+            SubWorkDrilldownState.Enter(
+                openType,
+                storedReturnPosition,
+                SubWorkDrilldownHeaderGeometry.GetBaseHeaderDrawWidth(layout.Table, layout.HeaderHeight));
             HeaderDrawingCoordinator.NotifyAngledHeadersChanged();
             SoundDefOf.Tick_High.PlayOneShotOnCamera();
             evt.Use();

@@ -209,9 +209,15 @@ namespace Better_Work_Tab.UI.Headers
         /// <param name="descending">Whether sorting is descending.</param>
         public static void DrawSortIndicator(Rect headerRect, bool descending)
         {
+            Color oldColor = GUI.color;
+            TextAnchor oldAnchor = Text.Anchor;
+            GameFont oldFont = Text.Font;
+            bool oldWordWrap = Text.WordWrap;
+
             GUI.color = Colors.SortIndicatorColor;
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.MiddleCenter;
+            Text.WordWrap = false;
 
             // Position to match angled headers (9px from bottom, centered)
             const float indicatorSize = 12f;
@@ -224,9 +230,11 @@ namespace Better_Work_Tab.UI.Headers
                 indicatorSize
             );
 
-            Widgets.Label(sortRect, descending ? "▼" : "▲");
-            GUI.color = Color.white;
-            Text.Anchor = TextAnchor.UpperLeft; // Reset anchor
+            Widgets.Label(sortRect, descending ? "\u25BC" : "\u25B2");
+            GUI.color = oldColor;
+            Text.Anchor = oldAnchor;
+            Text.Font = oldFont;
+            Text.WordWrap = oldWordWrap;
         }
 
         /// <summary>

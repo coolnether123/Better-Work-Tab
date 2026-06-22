@@ -14,18 +14,22 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
     {
         private const float TransitionSeconds = 0.18f;
         internal const float GlobalRowHeight = 30f;
+        internal const float GlobalPriorityBoxSize = 25f;
 
         private static readonly List<WorkGiver> ActiveWorkGiversBuffer = new List<WorkGiver>();
         private static WorkTypeDef _activeWorkType;
         private static string _cachedWorkTypeDefName;
         private static int _cachedSyncVersion = -1;
         private static float _enteredAt;
+        private static float _baseHeaderDrawWidth;
         private static bool _layoutRefreshPending;
         private static Vector2? _returnMousePosition;
 
         internal static bool IsActive => _activeWorkType != null;
 
         internal static WorkTypeDef ActiveWorkType => _activeWorkType;
+
+        internal static float BaseHeaderDrawWidth => _baseHeaderDrawWidth;
 
         internal static IReadOnlyList<WorkGiver> ActiveWorkGivers
         {
@@ -61,7 +65,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             return false;
         }
 
-        internal static void Enter(WorkTypeDef workType, Vector2? returnMousePosition = null)
+        internal static void Enter(WorkTypeDef workType, Vector2? returnMousePosition = null, float baseHeaderDrawWidth = -1f)
         {
             if (workType == null)
             {
@@ -73,6 +77,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             _cachedWorkTypeDefName = null;
             _cachedSyncVersion = -1;
             _enteredAt = Time.realtimeSinceStartup;
+            _baseHeaderDrawWidth = baseHeaderDrawWidth > 0f ? baseHeaderDrawWidth : 0f;
             _returnMousePosition = returnMousePosition;
             _layoutRefreshPending = true;
             RefreshIfNeeded();
@@ -83,6 +88,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             _activeWorkType = null;
             _cachedWorkTypeDefName = null;
             _cachedSyncVersion = -1;
+            _baseHeaderDrawWidth = 0f;
             _returnMousePosition = null;
             ActiveWorkGiversBuffer.Clear();
             _layoutRefreshPending = true;

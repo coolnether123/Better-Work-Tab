@@ -38,7 +38,9 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
             string displayText = layout.Text;
 
             GameFont oldFont = Text.Font;
+            bool oldWordWrap = Text.WordWrap;
             Text.Font = GameFont.Small;
+            Text.WordWrap = false;
             Vector2 textSize = Text.CalcSize(displayText);
 
             // === POSITIONING MATH ===
@@ -94,6 +96,7 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
             finally
             {
                 Text.Font = oldFont;
+                Text.WordWrap = oldWordWrap;
                 Text.Anchor = oldAnchor;
                 GUI.color = oldColor;
             }

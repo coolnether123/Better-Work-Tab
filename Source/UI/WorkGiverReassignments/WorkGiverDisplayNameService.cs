@@ -66,6 +66,18 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         {
             switch (defName)
             {
+                case "PatientGoToBedEmergencyTreatment":
+                    return "Urgent treatment";
+                case "PatientGoToBedTreatment":
+                    return "Treatment rest";
+                case "PatientGoToBedRecuperate":
+                    return "Bed rest";
+                case "DoctorTendEmergency":
+                    return "Urgent tend";
+                case "DoctorTendToSelfEmergency":
+                    return "Urgent self-tend";
+                case "DoctorTendToSelf":
+                    return "Self-tend";
                 case "ConstructFinishFrames":
                     return "Build frames";
                 case "ConstructDeliverResourcesToFrames":
