@@ -2,7 +2,26 @@
 <LanguageData>
 <BWTNotAssignedDoOnce>Not assigned to {0}. Do once</BWTNotAssignedDoOnce>
 <BWTNotAssignedAssignWork>Not assigned to {0}. Open work tab</BWTNotAssignedAssignWork>
+<BWTManageWorkGivers>Open {0} sub-work jobs</BWTManageWorkGivers>
 <BWT_PriorityOneDoneFirstExtended>Priority 1 is done first.&#10;Priority {0} is done last.</BWT_PriorityOneDoneFirstExtended>
+
+<BWT_SubWork_FixBrokenDownBuilding>Fix breakdowns</BWT_SubWork_FixBrokenDownBuilding>
+<BWT_SubWork_PatientGoToBedEmergencyTreatment>Urgent treatment</BWT_SubWork_PatientGoToBedEmergencyTreatment>
+<BWT_SubWork_PatientGoToBedEmergencyTreatment_Vanilla>Urgent rest</BWT_SubWork_PatientGoToBedEmergencyTreatment_Vanilla>
+<BWT_SubWork_PatientGoToBedTreatment>Treatment rest</BWT_SubWork_PatientGoToBedTreatment>
+<BWT_SubWork_PatientGoToBedRecuperate>Bed rest</BWT_SubWork_PatientGoToBedRecuperate>
+<BWT_SubWork_DoctorTendEmergency>Urgent tend</BWT_SubWork_DoctorTendEmergency>
+<BWT_SubWork_DoctorTendToSelfEmergency>Urgent self-tend</BWT_SubWork_DoctorTendToSelfEmergency>
+<BWT_SubWork_DoctorTendToSelf>Self-tend</BWT_SubWork_DoctorTendToSelf>
+<BWT_SubWork_ConstructFinishFrames>Build frames</BWT_SubWork_ConstructFinishFrames>
+<BWT_SubWork_ConstructDeliverResourcesToFrames>Deliver frames</BWT_SubWork_ConstructDeliverResourcesToFrames>
+<BWT_SubWork_DeliverResourcesToBlueprints>Deliver blueprints</BWT_SubWork_DeliverResourcesToBlueprints>
+<BWT_SubWork_DeliverResourcesToBlueprints_Vanilla>Deliver plans</BWT_SubWork_DeliverResourcesToBlueprints_Vanilla>
+<BWT_SubWork_DeconstructForBlueprint>Decon. blueprints</BWT_SubWork_DeconstructForBlueprint>
+<BWT_SubWork_DeconstructForBlueprint_Vanilla>Clear for plan</BWT_SubWork_DeconstructForBlueprint_Vanilla>
+<BWT_SubWork_Deconstruct>Deconstruct</BWT_SubWork_Deconstruct>
+<BWT_SubWork_Repair>Repair</BWT_SubWork_Repair>
+<BWT_SubWork_FillIn>Fill in</BWT_SubWork_FillIn>
 
 
 <BWT_RuleName>Rule Name</BWT_RuleName>

@@ -1122,24 +1122,26 @@ namespace Better_Work_Tab.UI
             try
             {
                 // Get the row descriptors (single source of truth for what rows exist and their heights)
-                var rowDescriptors = layout.GetRowDescriptors();
-                if (rowDescriptors == null || rowDescriptors.Count == 0)
+                var rowDescriptors = layout.GetRowDescriptors()?.ToList();
+                var columns = layout.Columns?.ToList();
+                if (rowDescriptors == null || rowDescriptors.Count == 0 ||
+                    columns == null || columns.Count == 0)
                 {
                     return;
                 }
 
-                var nameColumn = FindNameColumn(layout.Columns);
+                var nameColumn = FindNameColumn(columns);
 
                 // Calculate dimensions once for all highlight operations
-                float totalWidth = CalculateTotalColumnWidth(layout.Columns);
+                float totalWidth = CalculateTotalColumnWidth(columns);
                 float totalHeight = layout.ContentHeight; // Already accounts for all descriptor heights
 
                 if (SpineTiming.Enabled)
                 {
-                    SpineTiming.Time("WorkTab.Rows.DrawAllHighlights", () => DrawAllHighlights(rowDescriptors, layout.Columns, totalWidth, totalHeight));
+                    SpineTiming.Time("WorkTab.Rows.DrawAllHighlights", () => DrawAllHighlights(rowDescriptors, columns, totalWidth, totalHeight));
                     SpineTiming.Time("WorkTab.Rows.DrawAllRowContent", () => DrawAllRowContent(table,
                         rowDescriptors,
-                        layout.Columns,
+                        columns,
                         viewRect.width,
                         nameColumn,
                         outRect,
@@ -1149,12 +1151,12 @@ namespace Better_Work_Tab.UI
                 else
                 {
                     // Phase 1: Draw all highlights (selected, hovered, float menu, similar worktypes)
-                    DrawAllHighlights(rowDescriptors, layout.Columns, totalWidth, totalHeight);
+                    DrawAllHighlights(rowDescriptors, columns, totalWidth, totalHeight);
 
                     // Phase 2: Draw actual row content (pawn data, divider labels, backgrounds)
                     DrawAllRowContent(table,
                         rowDescriptors,
-                        layout.Columns,
+                        columns,
                         viewRect.width,
                         nameColumn,
                         outRect,

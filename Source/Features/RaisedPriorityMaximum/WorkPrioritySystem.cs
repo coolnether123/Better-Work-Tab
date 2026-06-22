@@ -88,17 +88,30 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
         internal static int GetPriorityAfterBoundedStep(int currentPriority, int direction)
         {
+            int maxPriority = GetMaxPriority();
+            int normalized = ClampPriority(currentPriority, maxPriority);
+
             if (direction > 0)
             {
-                return CycleTowardHigherPriority(currentPriority);
+                if (normalized == DisabledPriority)
+                {
+                    return maxPriority;
+                }
+
+                return normalized > 1 ? normalized - 1 : normalized;
             }
 
             if (direction < 0)
             {
-                return CycleTowardLowerPriority(currentPriority);
+                if (normalized == maxPriority)
+                {
+                    return DisabledPriority;
+                }
+
+                return normalized > DisabledPriority ? normalized + 1 : normalized;
             }
 
-            return ClampPriority(currentPriority);
+            return normalized;
         }
 
         internal static int MapPriorityToVanillaDisplay(int priority)
