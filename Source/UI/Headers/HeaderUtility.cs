@@ -2,6 +2,8 @@ using RimWorld;
 using System.Collections.Generic;
 using UnityEngine;
 using Verse;
+using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.UI.WorkGiverReassignments;
 
 namespace Better_Work_Tab.UI.Headers
 {
@@ -43,9 +45,17 @@ namespace Better_Work_Tab.UI.Headers
         /// <param name="workType">The work type to get the label for.</param>
         /// <param name="isMoved">Whether to append the moved marker (*).</param>
         /// <returns>A formatted and capitalized header label.</returns>
-        public static string GetHeaderText(WorkTypeDef workType, bool isMoved = false)
+        public static string GetHeaderText(
+            WorkTypeDef workType,
+            bool isMoved = false,
+            WorkGiverHeaderLabelStyle subWorkLabelStyle = WorkGiverHeaderLabelStyle.Standard)
         {
             if (workType == null) return DefaultHeaderText;
+
+            if (SubWorkDrilldownState.IsActive && TryGetSubWorkHeaderText(workType, isMoved, subWorkLabelStyle, out var subWorkText))
+            {
+                return subWorkText;
+            }
 
             // Use the shortest available valid label
             string baseText = workType.labelShort;
@@ -61,6 +71,51 @@ namespace Better_Work_Tab.UI.Headers
             }
 
             return label;
+        }
+
+        private static bool TryGetSubWorkHeaderText(
+            WorkTypeDef workType,
+            bool isMoved,
+            WorkGiverHeaderLabelStyle labelStyle,
+            out string label)
+        {
+            label = string.Empty;
+            if (workType == null)
+            {
+                return false;
+            }
+
+            var tableDef = PawnTableDefOf.Work;
+            if (tableDef?.columns == null)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < tableDef.columns.Count; i++)
+            {
+                var column = tableDef.columns[i];
+                if (column?.workType != workType || !(column.Worker is PawnColumnWorker_WorkPriority))
+                {
+                    continue;
+                }
+
+                if (!SubWorkDrilldownState.TryGetWorkGiverForColumn(column, out var workGiver, out _))
+                {
+                    label = string.Empty;
+                    return true;
+                }
+
+                label = WorkGiverDisplayNameService.HeaderLabel(workGiver.def, labelStyle);
+                var settings = BetterWorkTabMod.Settings;
+                if (isMoved && settings != null && settings.showColumnMovedMarker && !label.EndsWith(MovedMarker))
+                {
+                    label += MovedMarker;
+                }
+
+                return true;
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -83,10 +138,15 @@ namespace Better_Work_Tab.UI.Headers
             return false;
         }
 
+        public static bool ShouldUseCJKVerticalLabel(string text)
+        {
+            var settings = BetterWorkTabMod.Settings;
+            return settings != null && settings.useVerticalStackingForCJK && IsCJK(text);
+        }
+
         /// <summary>
         /// Determines if any column in the provided table is eligible for specialized CJK vertical stacking.
-        /// This depends on the 'useVerticalStackingForCJK' setting, the current header rotation (must be near -90 degrees),
-        /// and the presence of CJK characters in the column labels.
+        /// This depends on the 'useVerticalStackingForCJK' setting and the presence of CJK characters in the column labels.
         /// </summary>
         /// <param name="table">The pawn table to inspect.</param>
         /// <returns>True if specialized vertical stacking logic should be applied to the header area.</returns>
@@ -97,13 +157,10 @@ namespace Better_Work_Tab.UI.Headers
             if (settings == null || !settings.useVerticalStackingForCJK || columns == null)
                 return false;
 
-            // Only relevant at -90 rotation
-            if (Mathf.Abs(settings.angledHeaderRotation + 90f) > 5f)
-                return false;
-
             foreach (var col in columns)
             {
-                if (col.workType != null && IsCJK(GetHeaderText(col.workType, false)))
+                string headerText = col.workType != null ? GetHeaderText(col.workType, false) : null;
+                if (!headerText.NullOrEmpty() && ShouldUseCJKVerticalLabel(headerText))
                     return true;
             }
 
@@ -171,9 +228,15 @@ namespace Better_Work_Tab.UI.Headers
         /// <param name="descending">Whether sorting is descending.</param>
         public static void DrawSortIndicator(Rect headerRect, bool descending)
         {
+            Color oldColor = GUI.color;
+            TextAnchor oldAnchor = Text.Anchor;
+            GameFont oldFont = Text.Font;
+            bool oldWordWrap = Text.WordWrap;
+
             GUI.color = Colors.SortIndicatorColor;
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.MiddleCenter;
+            Text.WordWrap = false;
 
             // Position to match angled headers (9px from bottom, centered)
             const float indicatorSize = 12f;
@@ -187,8 +250,10 @@ namespace Better_Work_Tab.UI.Headers
             );
 
             Widgets.Label(sortRect, descending ? "\u25BC" : "\u25B2");
-            GUI.color = Color.white;
-            Text.Anchor = TextAnchor.UpperLeft; // Reset anchor
+            GUI.color = oldColor;
+            Text.Anchor = oldAnchor;
+            Text.Font = oldFont;
+            Text.WordWrap = oldWordWrap;
         }
 
         /// <summary>

@@ -137,7 +137,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.State
         /// </summary>
         public int MaxPriority { get; set; } = 4;
 
-        public int RequestableMaxPriority => WorkPrioritySystem.GetMaxPriority();
+        public int RequestableMaxPriority => WorkPrioritySystem.GetRequestableMaxPriority();
 
         public bool CanRequestCustomPriority => RequestableMaxPriority > 4;
 
@@ -274,7 +274,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.State
             EnsurePriorityOrder();
 
             var ordered = new List<int>();
-            int maxPriority = WorkPrioritySystem.GetMaxPriority();
+            int maxPriority = WorkPrioritySystem.GetRequestableMaxPriority();
 
             for (int priority = 1; priority <= maxPriority; priority++)
             {
@@ -507,7 +507,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.State
         /// </summary>
         public void EnsurePriorityOrder()
         {
-            MaxPriority = WorkPrioritySystem.GetMaxPriority();
+            MaxPriority = WorkPrioritySystem.GetRequestableMaxPriority();
 
             if (SelectedRuleset != null)
             {

@@ -53,6 +53,7 @@ namespace Better_Work_Tab
         {
             var settings = GetSettings<BetterWorkTabSettings>();
             Settings = settings;
+            Settings.NormalizePrioritySettings();
 
             try
             {
@@ -114,6 +115,13 @@ namespace Better_Work_Tab
             //Widgets.Label(inRect, "This is the widget.");
             //Widgets.Label(new Rect(inRect.center, new Vector2(50, 50)), "Yep it's in the middle.");
             UI.BetterWorkTabSettingsUI.DoSettingsWindowContents(inRect, Settings);
+        }
+
+        public override void WriteSettings()
+        {
+            base.WriteSettings();
+            Settings.NormalizePrioritySettings();
+            Features.RaisedPriorityMaximum.PriorityAuthorityBroker.InvalidateCaches();
         }
 
         /// <summary>
