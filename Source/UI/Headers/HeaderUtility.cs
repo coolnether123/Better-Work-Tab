@@ -34,11 +34,14 @@ namespace Better_Work_Tab.UI.Headers
         /// <param name="workType">The work type to get the label for.</param>
         /// <param name="isMoved">Whether to append the moved marker (*).</param>
         /// <returns>A formatted and capitalized header label.</returns>
-        public static string GetHeaderText(WorkTypeDef workType, bool isMoved = false)
+        public static string GetHeaderText(
+            WorkTypeDef workType,
+            bool isMoved = false,
+            WorkGiverHeaderLabelStyle subWorkLabelStyle = WorkGiverHeaderLabelStyle.Standard)
         {
             if (workType == null) return DefaultHeaderText;
 
-            if (SubWorkDrilldownState.IsActive && TryGetSubWorkHeaderText(workType, isMoved, out var subWorkText))
+            if (SubWorkDrilldownState.IsActive && TryGetSubWorkHeaderText(workType, isMoved, subWorkLabelStyle, out var subWorkText))
             {
                 return subWorkText;
             }
@@ -59,7 +62,11 @@ namespace Better_Work_Tab.UI.Headers
             return label;
         }
 
-        private static bool TryGetSubWorkHeaderText(WorkTypeDef workType, bool isMoved, out string label)
+        private static bool TryGetSubWorkHeaderText(
+            WorkTypeDef workType,
+            bool isMoved,
+            WorkGiverHeaderLabelStyle labelStyle,
+            out string label)
         {
             label = string.Empty;
             if (workType == null)
@@ -87,7 +94,7 @@ namespace Better_Work_Tab.UI.Headers
                     return true;
                 }
 
-                label = WorkGiverDisplayNameService.HeaderLabel(workGiver.def);
+                label = WorkGiverDisplayNameService.HeaderLabel(workGiver.def, labelStyle);
                 var settings = BetterWorkTabMod.Settings;
                 if (isMoved && settings != null && settings.showColumnMovedMarker && !label.EndsWith(MovedMarker))
                 {

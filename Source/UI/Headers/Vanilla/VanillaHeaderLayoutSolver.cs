@@ -3,6 +3,8 @@ using RimWorld;
 using Verse;
 using System.Collections.Generic;
 using System.Linq;
+using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.UI.WorkGiverReassignments;
 
 namespace Better_Work_Tab.UI.Headers.Vanilla
 {
@@ -17,6 +19,7 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
         private Dictionary<PawnColumnDef, float> _frameOffsets = new Dictionary<PawnColumnDef, float>();
         private Dictionary<PawnColumnDef, int> _levels = new Dictionary<PawnColumnDef, int>();
         private int _lastMaxLevel = 1;
+        private int _layoutVersion;
 
         // Auto-invalidation Signature
         private int _currentSignature;
@@ -25,15 +28,9 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
         // Collection: gather actual header rects during Layout event
         private readonly Dictionary<PawnColumnDef, ColumnLayoutInfo> _collected = new Dictionary<PawnColumnDef, ColumnLayoutInfo>();
 
-        // Height of one "step" in the stagger - exact vanilla spacing
-        private const float LevelStepHeight = 20f;
-        
-        // Base offset for level 0 - distance from header bottom to TEXT MIDDLE
-        // Adjusted to 19px to establish a 2nd-pixel gap between text bottom and stem line
-        private const float Level0Offset = 19f; 
-
-        // Max level for header placement
-        private const int MaxLevel = 3;
+        // Vanilla work types generally fit in four rows. Dense sub-work groups need more headroom.
+        private const int StandardMaxLevel = 3;
+        private const int SubWorkMaxLevel = 7;
 
         private List<ColumnLayoutInfo> _columns = new List<ColumnLayoutInfo>();
 
@@ -139,6 +136,8 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
             return _solutionValid;
         }
 
+        public int LayoutVersion => _layoutVersion;
+
         private static int Quant(float v) => Mathf.RoundToInt(v / QuantizationStep);
 
         private void BeginCollectSignature()
@@ -193,7 +192,10 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
                 Text.Font = GameFont.Small;
                 Text.WordWrap = false;
 
-                string text = HeaderUtility.GetHeaderText(workType, isMoved);
+                string text = HeaderUtility.GetHeaderText(
+                    workType,
+                    isMoved,
+                    WorkGiverHeaderLabelStyle.VanillaStaggered);
                 Vector2 textSize = Text.CalcSize(text);
 
                 // Vanilla stagger flag lives on the PawnColumnDef.
@@ -328,14 +330,14 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
                                       .ToArray();
 
                 // Solve the coloring problem for this component
-                var problem = new ColoringProblem(localNodes, order);
+                var problem = new ColoringProblem(localNodes, order, GetMaxLevel());
                 int[] bestAssign = problem.Solve();
 
                 // This condition is generally not expected to manifest under normal operations; 
                 // however, a greedy first-fit coloring is provided as a contingency.
                 if (bestAssign == null)
                 {
-                    bestAssign = GreedyColoring(localNodes, order);
+                    bestAssign = GreedyColoring(localNodes, order, GetMaxLevel());
                 }
 
                 int localMax = 0;
@@ -347,7 +349,7 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
                     int level = bestAssign[i];
 
                     _levels[info.ColumnDef] = level;
-                    float yOffset = Level0Offset + (level * LevelStepHeight);
+                    float yOffset = VanillaHeaderMetrics.GetYOffset(level);
                     _frameOffsets[info.ColumnDef] = yOffset;
                     
                     if (level > localMax) localMax = level;
@@ -368,6 +370,11 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
             if (BetterWorkTabMod.Settings.debugPrintLayout)
             {
                 Log.Message(debugLog.ToString());
+            }
+
+            if (_lastMaxLevel != globalMaxLevel)
+            {
+                _layoutVersion++;
             }
 
             _lastMaxLevel = globalMaxLevel;
@@ -427,18 +434,25 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
         /// Dedicated solver for the header coloring (staggering) problem using backtracking DFS.
         /// Extracts the algorithm from the main controller to manage state cleanly.
         /// </summary>
+        private static int GetMaxLevel()
+        {
+            return SubWorkDrilldownState.IsActive ? SubWorkMaxLevel : StandardMaxLevel;
+        }
+
         private class ColoringProblem
         {
             private readonly Node[] _nodes;
             private readonly int[] _order;
             private readonly int[] _assignment;
+            private readonly int _maxLevel;
             private int[] _bestAssign;
             private Cost _bestCost;
 
-            public ColoringProblem(Node[] nodes, int[] order)
+            public ColoringProblem(Node[] nodes, int[] order, int maxLevel)
             {
                 _nodes = nodes;
                 _order = order;
+                _maxLevel = maxLevel;
                 _assignment = new int[nodes.Length];
                 System.Array.Fill(_assignment, -1);
                 _bestCost = Cost.MaxValue;
@@ -467,7 +481,7 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
                 Node node = _nodes[v]; // Copy into local for fast neighbor access
 
                 // Optimization: Try levels in a stable order
-                for (int level = 0; level <= MaxLevel; level++)
+                for (int level = 0; level <= _maxLevel; level++)
                 {
                     // Check for vertical collisions with already-assigned neighbors
                     bool ok = true;
@@ -499,12 +513,12 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
         /// Emergency backup coloring using a greedy first-fit approach.
         /// Called only if the DFS fails to find any solution (though a failure is not mathematically anticipated for this constraint set).
         /// </summary>
-        private static int[] GreedyColoring(Node[] nodes, int[] order)
+        private static int[] GreedyColoring(Node[] nodes, int[] order, int maxLevel)
         {
             int[] assignment = Enumerable.Repeat(-1, nodes.Length).ToArray();
             foreach (int v in order)
             {
-                for (int level = 0; level <= MaxLevel; level++)
+                for (int level = 0; level <= maxLevel; level++)
                 {
                     bool ok = true;
                     foreach (int nb in nodes[v].Neighbors)
@@ -522,10 +536,10 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
                     }
                 }
                 
-                // Absolute fallback: just cap at MaxLevel
+                // Absolute fallback: just cap at maxLevel
                 if (assignment[v] == -1)
                 {
-                    assignment[v] = MaxLevel;
+                    assignment[v] = maxLevel;
                 }
             }
             return assignment;

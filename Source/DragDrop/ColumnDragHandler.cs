@@ -27,6 +27,7 @@ namespace Better_Work_Tab.DragDrop
         private readonly bool _subWorkDrilldownDrag;
         private readonly WorkTypeDef _subWorkType;
         private readonly WorkGiverDef _subWorkGiver;
+        private readonly int _subWorkOriginalIndex = -1;
         private Rect _originRect;
         public PawnColumnDef ColumnDef => _primaryColumn;
 
@@ -41,11 +42,12 @@ namespace Better_Work_Tab.DragDrop
                 .ToList();
 
             if (SubWorkDrilldownState.IsActive &&
-                SubWorkDrilldownState.TryGetWorkGiverForColumn(_primaryColumn, out var workGiver, out _))
+                SubWorkDrilldownState.TryGetWorkGiverForColumn(_primaryColumn, out var workGiver, out var slotIndex))
             {
                 _subWorkDrilldownDrag = true;
                 _subWorkType = SubWorkDrilldownState.ActiveWorkType;
                 _subWorkGiver = workGiver.def;
+                _subWorkOriginalIndex = slotIndex;
                 _draggedColumns.Add(_primaryColumn);
                 ColumnSelectionManager.Clear();
                 BetterWorkTabMod.DebugLog($"[BWT] Dragging sub-work job: {_subWorkGiver.defName}", DebugFeature.DragDrop);
@@ -78,16 +80,17 @@ namespace Better_Work_Tab.DragDrop
         /// </summary>
         public override void OnDragUpdate(Vector2 mousePos)
         {
-            int index = _workColumns.Count;
-            for (int i = 0; i < _workColumns.Count; i++)
+            var targetColumns = GetVisualTargetColumns();
+            int index = targetColumns.Count;
+            for (int i = 0; i < targetColumns.Count; i++)
             {
-                if (mousePos.x < _workColumns[i].HeaderRect.center.x)
+                if (mousePos.x < targetColumns[i].HeaderRect.center.x)
                 {
                     index = i;
                     break;
                 }
             }
-            TargetIndex = Mathf.Clamp(index, 0, _workColumns.Count);
+            TargetIndex = Mathf.Clamp(index, 0, targetColumns.Count);
         }
 
         /// <summary>
@@ -117,10 +120,11 @@ namespace Better_Work_Tab.DragDrop
 
             if (TargetIndex >= 0 && showLine)
             {
+                var targetColumns = GetVisualTargetColumns();
                 float lineX;
-                if (_workColumns.Count == 0) lineX = _originRect.x;
-                else if (TargetIndex >= _workColumns.Count) lineX = _workColumns.Last().HeaderRect.xMax;
-                else lineX = _workColumns[TargetIndex].HeaderRect.xMin;
+                if (targetColumns.Count == 0) lineX = _originRect.x;
+                else if (TargetIndex >= targetColumns.Count) lineX = targetColumns.Last().HeaderRect.xMax;
+                else lineX = targetColumns[TargetIndex].HeaderRect.xMin;
 
                 int insetSetting = BetterWorkTabMod.Settings?.columnInsertionLineInset ?? DefaultSettings.columnInsertionLineInset;
                 int inset = Mathf.Clamp(insetSetting, 0, Mathf.RoundToInt(Layout.HeaderHeight));
@@ -469,6 +473,18 @@ namespace Better_Work_Tab.DragDrop
             }
         }
 
+        private List<WorkTabLayoutColumn> GetVisualTargetColumns()
+        {
+            if (!_subWorkDrilldownDrag)
+            {
+                return _workColumns;
+            }
+
+            return _workColumns
+                .Where(c => SubWorkDrilldownState.TryGetWorkGiverForColumn(c.Column, out _, out _))
+                .ToList();
+        }
+
         private void CommitSubWorkReorder()
         {
             try
@@ -481,6 +497,10 @@ namespace Better_Work_Tab.DragDrop
                 var current = SubWorkDrilldownState.ActiveWorkGivers;
                 int maxIndex = current?.Count ?? 0;
                 int insertIndex = Mathf.Clamp(TargetIndex, 0, maxIndex);
+                if (_subWorkOriginalIndex >= 0 && _subWorkOriginalIndex < insertIndex)
+                {
+                    insertIndex--;
+                }
 
                 // TODO: Support dragging a sub-work job into another sub-work job view once
                 // there is a clear UX for choosing the target work type and inheritance rules.

@@ -11,8 +11,6 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
     /// </summary>
     public class VanillaHeaderRenderer : IHeaderRenderer
     {
-        private const float Level0Baseline = 19f;
-        private const float LevelStepSize = 20f;
         private const float StemBaseHeight = 11f;
         private const float StemWidth = 2f;
         private const float StemYAdjustment = -3f; // font compensation + gap
@@ -114,11 +112,11 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
             // Calculate which level this is based on distance from headerBottom
             float textMiddle = textRect.center.y;
             float distanceFromBottom = headerBottom - textMiddle;
-            int level = Mathf.RoundToInt((distanceFromBottom - Level0Baseline) / LevelStepSize);
+            int level = Mathf.RoundToInt((distanceFromBottom - VanillaHeaderMetrics.Level0Offset) / VanillaHeaderMetrics.LevelStepHeight);
             level = Mathf.Max(0, level); // Ensure non-negative
             
             // Fixed stem heights: 11px for level 0, 31px for level 1, etc.
-            float stemHeight = StemBaseHeight + (level * LevelStepSize);
+            float stemHeight = StemBaseHeight + (level * VanillaHeaderMetrics.LevelStepHeight);
 
             float centerX = textRect.center.x;
             float stemTop = textRect.center.y + (textRect.height / 2f) + StemYAdjustment;

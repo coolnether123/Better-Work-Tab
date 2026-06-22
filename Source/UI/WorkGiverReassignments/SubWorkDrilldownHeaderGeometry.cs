@@ -1,6 +1,7 @@
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.Headers.Angled;
+using Better_Work_Tab.UI.Headers.Vanilla;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -41,7 +42,14 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             var settings = BetterWorkTabMod.Settings;
             if (settings == null || !settings.enableAngledHeaders)
             {
-                return table.cachedHeaderHeight;
+                var solver = HeaderDrawingCoordinator.GetVanillaSolver();
+                int maxLevel = solver?.GetMaxLevelUsed() ?? 1;
+                if (maxLevel <= 1)
+                {
+                    return table.cachedHeaderHeight;
+                }
+
+                return Mathf.Max(table.cachedHeaderHeight, VanillaHeaderMetrics.GetRequiredHeaderHeight(maxLevel));
             }
 
             float needed = AngledLabelDrawer.GetNeededHeight(table);

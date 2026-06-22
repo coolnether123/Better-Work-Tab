@@ -8,6 +8,8 @@ using Better_Work_Tab.Mod_Support.LocalProfiles;
 using Better_Work_Tab.Mod_Support.Multiplayer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.PawnOrganizer.Data;
+using Better_Work_Tab.UI.Headers;
+using Better_Work_Tab.UI.Headers.Vanilla;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using HarmonyLib;
 using RimWorld;
@@ -25,6 +27,9 @@ namespace Better_Work_Tab.PawnOrganizer
             AccessTools.Method(typeof(PawnTable), "RecacheIfDirty");
 
         private const float DefaultDividerHeight = 18f;
+        private const int SubWorkDesiredVanillaMaxLevel = 2;
+        private const float SubWorkMaxPriorityColumnWidth = 86f;
+        private const float SubWorkHeaderWidthFactor = 0.68f;
 
         private List<RowDescriptor> _cachedRowDescriptors;
         private bool _rowDescriptorsDirty = true;
@@ -67,6 +72,7 @@ namespace Better_Work_Tab.PawnOrganizer
         private int _lastColumnSignature;
         private int _lastHiddenWorktypesSignature;
         private int _lastSubWorkSignature;
+        private int _lastHeaderLayoutVersion;
         private Dictionary<int, int> _lastDisplayOrders = new Dictionary<int, int>(); // pawn ID -> displayOrder
 
         private List<bool> _lastCollapsedStates = new List<bool>(); // Track divider collapse states
@@ -102,6 +108,9 @@ namespace Better_Work_Tab.PawnOrganizer
                 return true;
 
             if (SubWorkDrilldownState.LayoutSignature != _lastSubWorkSignature)
+                return true;
+
+            if (HeaderDrawingCoordinator.GetVanillaLayoutVersion() != _lastHeaderLayoutVersion)
                 return true;
 
             // Check pawn count change
@@ -157,6 +166,7 @@ namespace Better_Work_Tab.PawnOrganizer
             _lastColumnSignature = ComputeColumnSignature(table);
             _lastHiddenWorktypesSignature = ComputeHiddenWorktypesSignature();
             _lastSubWorkSignature = SubWorkDrilldownState.LayoutSignature;
+            _lastHeaderLayoutVersion = HeaderDrawingCoordinator.GetVanillaLayoutVersion();
 
             _lastDisplayOrders.Clear();
             if (snapshot?.Pawns != null)
@@ -758,6 +768,15 @@ namespace Better_Work_Tab.PawnOrganizer
                 {
                     continue;
                 }
+
+                if (SubWorkDrilldownState.IsActive &&
+                    def?.Worker is PawnColumnWorker_WorkPriority &&
+                    SubWorkDrilldownState.GetVisibleWorkColumnSlot(def) >= 0 &&
+                    !SubWorkDrilldownState.TryGetWorkGiverForColumn(def, out _, out _))
+                {
+                    continue;
+                }
+
                 visibleColumns.Add((def, i));
             }
 
@@ -820,9 +839,16 @@ namespace Better_Work_Tab.PawnOrganizer
                 if (i < visibleColumns.Count - 1) totalNaturalWidth += spacing;
             }
 
-            // Distribute any remainder to our designated filler.
-            float surplus = _rowWidth - totalNaturalWidth;
-            widths[fillerIndex] = Mathf.Max(widths[fillerIndex] + surplus, 10f);
+            if (SubWorkDrilldownState.IsActive)
+            {
+                ApplySubWorkPriorityWidthRelief(visibleColumns, widths, _rowWidth - totalNaturalWidth);
+            }
+            else
+            {
+                // Distribute any remainder to our designated filler.
+                float surplus = _rowWidth - totalNaturalWidth;
+                widths[fillerIndex] = Mathf.Max(widths[fillerIndex] + surplus, 10f);
+            }
 
             // 3. Build the final column layouts.
             float currentX = _origin.x;
@@ -832,7 +858,7 @@ namespace Better_Work_Tab.PawnOrganizer
                 float width = widths[i];
 
                 // Ensure the absolute last column hits the edge perfectly to avoid rounding gaps.
-                if (i == visibleColumns.Count - 1)
+                if (!SubWorkDrilldownState.IsActive && i == visibleColumns.Count - 1)
                 {
                     width = Mathf.Max(0f, (_origin.x + _rowWidth) - currentX);
                 }
@@ -846,6 +872,220 @@ namespace Better_Work_Tab.PawnOrganizer
                     currentX += spacing;
                 }
             }
+        }
+
+        private void ApplySubWorkPriorityWidthRelief(
+            List<(PawnColumnDef def, int originalIndex)> visibleColumns,
+            float[] widths,
+            float surplus)
+        {
+            if (visibleColumns == null || widths == null || surplus <= 1f)
+            {
+                return;
+            }
+
+            var settings = BetterWorkTabMod.Settings;
+            if (settings != null && settings.enableAngledHeaders)
+            {
+                return;
+            }
+
+            var workColumnIndexes = new List<int>();
+            bool[] isWorkColumn = new bool[visibleColumns.Count];
+            for (int i = 0; i < visibleColumns.Count; i++)
+            {
+                if (SubWorkDrilldownState.TryGetWorkGiverForColumn(visibleColumns[i].def, out _, out _))
+                {
+                    workColumnIndexes.Add(i);
+                    isWorkColumn[i] = true;
+                }
+            }
+
+            if (workColumnIndexes.Count < 2)
+            {
+                return;
+            }
+
+            surplus = ApplySubWorkLabelWidthTargets(visibleColumns, widths, surplus, workColumnIndexes);
+            int startingLevel = EstimateSubWorkVanillaMaxLevel(visibleColumns, widths, 0f, isWorkColumn);
+            if (startingLevel <= SubWorkDesiredVanillaMaxLevel || surplus <= 0.5f)
+            {
+                return;
+            }
+
+            float maxEvenExtra = surplus / workColumnIndexes.Count;
+            for (int i = 0; i < workColumnIndexes.Count; i++)
+            {
+                int index = workColumnIndexes[i];
+                maxEvenExtra = Mathf.Min(maxEvenExtra, Mathf.Max(0f, SubWorkMaxPriorityColumnWidth - widths[index]));
+            }
+
+            if (maxEvenExtra <= 0.5f)
+            {
+                return;
+            }
+
+            float low = 0f;
+            float high = maxEvenExtra;
+            for (int i = 0; i < 8; i++)
+            {
+                float mid = (low + high) * 0.5f;
+                int level = EstimateSubWorkVanillaMaxLevel(visibleColumns, widths, mid, isWorkColumn);
+                if (level <= SubWorkDesiredVanillaMaxLevel)
+                {
+                    high = mid;
+                }
+                else
+                {
+                    low = mid;
+                }
+            }
+
+            float extra = EstimateSubWorkVanillaMaxLevel(visibleColumns, widths, high, isWorkColumn) <= SubWorkDesiredVanillaMaxLevel
+                ? high
+                : maxEvenExtra;
+
+            for (int i = 0; i < workColumnIndexes.Count; i++)
+            {
+                widths[workColumnIndexes[i]] += extra;
+            }
+        }
+
+        private static float ApplySubWorkLabelWidthTargets(
+            List<(PawnColumnDef def, int originalIndex)> visibleColumns,
+            float[] widths,
+            float surplus,
+            List<int> workColumnIndexes)
+        {
+            if (surplus <= 0.5f)
+            {
+                return surplus;
+            }
+
+            float[] desiredWidths = new float[widths.Length];
+            GameFont oldFont = Text.Font;
+            bool oldWordWrap = Text.WordWrap;
+            try
+            {
+                Text.Font = GameFont.Small;
+                Text.WordWrap = false;
+
+                for (int i = 0; i < workColumnIndexes.Count; i++)
+                {
+                    int index = workColumnIndexes[i];
+                    if (!SubWorkDrilldownState.TryGetWorkGiverForColumn(visibleColumns[index].def, out var workGiver, out _))
+                    {
+                        desiredWidths[index] = widths[index];
+                        continue;
+                    }
+
+                    string text = WorkGiverDisplayNameService.HeaderLabel(
+                        workGiver.def,
+                        WorkGiverHeaderLabelStyle.VanillaStaggered);
+                    float textBasedWidth = Text.CalcSize(text).x * SubWorkHeaderWidthFactor;
+                    desiredWidths[index] = Mathf.Clamp(
+                        Mathf.Max(widths[index], textBasedWidth),
+                        widths[index],
+                        SubWorkMaxPriorityColumnWidth);
+                }
+            }
+            finally
+            {
+                Text.Font = oldFont;
+                Text.WordWrap = oldWordWrap;
+            }
+
+            float totalNeeded = 0f;
+            for (int i = 0; i < workColumnIndexes.Count; i++)
+            {
+                int index = workColumnIndexes[i];
+                totalNeeded += Mathf.Max(0f, desiredWidths[index] - widths[index]);
+            }
+
+            if (totalNeeded <= 0.5f)
+            {
+                return surplus;
+            }
+
+            float scale = Mathf.Min(1f, surplus / totalNeeded);
+            for (int i = 0; i < workColumnIndexes.Count; i++)
+            {
+                int index = workColumnIndexes[i];
+                float added = Mathf.Max(0f, desiredWidths[index] - widths[index]) * scale;
+                widths[index] += added;
+                surplus -= added;
+            }
+
+            return Mathf.Max(0f, surplus);
+        }
+
+        private static int EstimateSubWorkVanillaMaxLevel(
+            List<(PawnColumnDef def, int originalIndex)> visibleColumns,
+            float[] widths,
+            float extraPerSubWorkColumn,
+            bool[] isWorkColumn)
+        {
+            if (visibleColumns == null || widths == null || isWorkColumn == null || isWorkColumn.Length == 0)
+            {
+                return 0;
+            }
+
+            GameFont oldFont = Text.Font;
+            bool oldWordWrap = Text.WordWrap;
+            var events = new List<(float x, int delta)>(isWorkColumn.Length * 2);
+            try
+            {
+                Text.Font = GameFont.Small;
+                Text.WordWrap = false;
+
+                float x = 0f;
+                for (int i = 0; i < visibleColumns.Count; i++)
+                {
+                    bool isSubWorkColumn = i < isWorkColumn.Length && isWorkColumn[i];
+                    float width = widths[i] + (isSubWorkColumn ? extraPerSubWorkColumn : 0f);
+                    if (SubWorkDrilldownState.TryGetWorkGiverForColumn(visibleColumns[i].def, out var workGiver, out _))
+                    {
+                        string text = WorkGiverDisplayNameService.HeaderLabel(
+                            workGiver.def,
+                            WorkGiverHeaderLabelStyle.VanillaStaggered);
+                        float halfWidth = (Text.CalcSize(text).x * 0.5f) + HeaderUtility.CollisionPadding;
+                        float center = x + (width * 0.5f);
+                        events.Add((center - halfWidth, 1));
+                        events.Add((center + halfWidth, -1));
+                    }
+
+                    x += width;
+                }
+            }
+            finally
+            {
+                Text.Font = oldFont;
+                Text.WordWrap = oldWordWrap;
+            }
+
+            events.Sort((a, b) =>
+            {
+                int byX = a.x.CompareTo(b.x);
+                if (byX != 0)
+                {
+                    return byX;
+                }
+
+                return a.delta.CompareTo(b.delta);
+            });
+
+            int active = 0;
+            int maxActive = 0;
+            for (int i = 0; i < events.Count; i++)
+            {
+                active += events[i].delta;
+                if (active > maxActive)
+                {
+                    maxActive = active;
+                }
+            }
+
+            return Mathf.Max(0, maxActive - 1);
         }
 
         private void BuildRows()

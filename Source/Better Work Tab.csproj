@@ -183,6 +183,7 @@
     <Compile Include="UI\Headers\IHeaderRenderer.cs" />
     <Compile Include="UI\Headers\HeaderPositioningManager.cs" />
     <Compile Include="UI\Headers\HeaderDrawingCoordinator.cs" />
+    <Compile Include="UI\Headers\Vanilla\VanillaHeaderMetrics.cs" />
     <Compile Include="UI\Headers\Vanilla\VanillaHeaderRenderer.cs" />
     <Compile Include="UI\Headers\Vanilla\VanillaHeaderLayoutSolver.cs" />
     <Compile Include="UI\Headers\Angled\AngledHeaderRenderer.cs" />
