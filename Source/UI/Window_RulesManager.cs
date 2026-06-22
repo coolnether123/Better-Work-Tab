@@ -303,7 +303,7 @@ namespace Better_Work_Tab.UI
                     ref editBuffer,
                     disabled: uneditable,
                     minValue: field.Name == nameof(WorkAssignmentParameters.Priority) ? 0 : -1,
-                    maxValue: WorkPrioritySystem.GetMaxPriority());
+                    maxValue: WorkPrioritySystem.GetRequestableMaxPriority());
             }
             else
             {

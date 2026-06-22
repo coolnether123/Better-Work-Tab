@@ -11,7 +11,6 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
     internal static class WorkPrioritySystem
     {
         internal const int DisabledPriority = 0;
-        private const int VanillaDefaultEnabledPriority = 3;
         private static readonly Color ExtendedPriorityGreen = new Color(0.2f, 0.8f, 0.2f);
         private static readonly Color ExtendedPriorityYellow = new Color(0.9f, 0.82f, 0.42f);
         private static readonly Color ExtendedPriorityTan = new Color(0.74f, 0.62f, 0.43f);
@@ -19,18 +18,22 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
         internal static int NormalizeMaxPriority(int value)
         {
-            return BetterWorkTabSettings.NormalizeMaxPriority(value);
+            return PriorityAuthorityBroker.ClampMaxPriority(value);
         }
 
         internal static int GetMaxPriority()
         {
-            return BetterWorkTabMod.Settings?.EffectiveMaxPriority
-                ?? NormalizeMaxPriority(DefaultSettings.GetInitialMaxPriority());
+            return PriorityAuthorityBroker.GetEffectiveMaxPriority();
+        }
+
+        internal static int GetRequestableMaxPriority()
+        {
+            return PriorityAuthorityBroker.GetRequestableMaxPriority();
         }
 
         internal static int ClampPriority(int priority)
         {
-            return ClampPriority(priority, GetMaxPriority());
+            return PriorityAuthorityBroker.ClampPriorityForRequest(priority);
         }
 
         internal static int ClampPriority(int priority, int maxPriority)
@@ -38,9 +41,24 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             return Mathf.Clamp(priority, DisabledPriority, NormalizeMaxPriority(maxPriority));
         }
 
+        internal static int OffsetPriorityNumber(int priority, int amount)
+        {
+            return ClampPriority(priority + amount);
+        }
+
         internal static int GetDefaultEnabledPriority()
         {
-            return Mathf.Clamp(VanillaDefaultEnabledPriority, 1, GetMaxPriority());
+            return PriorityAuthorityBroker.GetDefaultEnabledPriority();
+        }
+
+        internal static int GetPriorityForPawnWorkType(Pawn pawn, WorkTypeDef workType)
+        {
+            if (pawn?.workSettings == null || workType == null)
+            {
+                return GetDefaultEnabledPriority();
+            }
+
+            return ClampPriority(pawn.workSettings.GetPriority(workType));
         }
 
         internal static int GetPriority(Pawn_WorkSettings workSettings, WorkTypeDef workType)
@@ -88,6 +106,34 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             }
 
             return ClampPriority(currentPriority);
+        }
+
+        internal static int GetPriorityAfterBoundedStep(int currentPriority, int direction)
+        {
+            int maxPriority = GetMaxPriority();
+            int normalized = ClampPriority(currentPriority, maxPriority);
+
+            if (direction > 0)
+            {
+                if (normalized == DisabledPriority)
+                {
+                    return maxPriority;
+                }
+
+                return normalized > 1 ? normalized - 1 : normalized;
+            }
+
+            if (direction < 0)
+            {
+                if (normalized == maxPriority)
+                {
+                    return DisabledPriority;
+                }
+
+                return normalized > DisabledPriority ? normalized + 1 : normalized;
+            }
+
+            return normalized;
         }
 
         internal static int MapPriorityToVanillaDisplay(int priority)
@@ -173,26 +219,12 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
         private static int CycleTowardHigherPriority(int currentPriority)
         {
-            int maxPriority = GetMaxPriority();
-            int priority = ClampPriority(currentPriority, maxPriority) - 1;
-            if (priority < DisabledPriority)
-            {
-                return maxPriority;
-            }
-
-            return priority;
+            return PriorityAuthorityBroker.GetNextManualPriority(currentPriority, 1);
         }
 
         private static int CycleTowardLowerPriority(int currentPriority)
         {
-            int maxPriority = GetMaxPriority();
-            int priority = ClampPriority(currentPriority, maxPriority) + 1;
-            if (priority > maxPriority)
-            {
-                return DisabledPriority;
-            }
-
-            return priority;
+            return PriorityAuthorityBroker.GetNextManualPriority(currentPriority, -1);
         }
     }
 }
