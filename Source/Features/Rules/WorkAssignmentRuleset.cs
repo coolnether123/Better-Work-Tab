@@ -201,7 +201,7 @@ namespace Better_Work_Tab.Features
         public void EnsurePriorityOrder(int maxPriority = 0)
         {
             maxPriority = maxPriority <= 0
-                ? WorkPrioritySystem.GetMaxPriority()
+                ? WorkPrioritySystem.GetRequestableMaxPriority()
                 : WorkPrioritySystem.NormalizeMaxPriority(maxPriority);
 
             if (PriorityOrder == null || PriorityOrder.Count == 0)

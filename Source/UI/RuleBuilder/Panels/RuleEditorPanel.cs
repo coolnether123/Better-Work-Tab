@@ -445,7 +445,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
         {
             var rule = state.SelectedRule;
             bool isDefault = state.SelectedRuleset?.IsDefault ?? false;
-            int maxPriority = WorkPrioritySystem.GetMaxPriority();
+            int maxPriority = WorkPrioritySystem.GetRequestableMaxPriority();
             int currentPriority = WorkPrioritySystem.ClampPriority(rule.Parameters.Priority);
 
             if (_editingRule != rule)

@@ -89,6 +89,11 @@ namespace Better_Work_Tab.UI.Settings
         public const string PerfCacheSkillLevels = "perf.cacheSkillLevels";
         public const string PerfUseElementPooling = "perf.useElementPooling";
         public const string PerfViewportCulling = "perf.viewportCulling";
+        public const string PriorityHeader = "priority.header";
+        public const string PriorityModeSetting = "priority.mode";
+        public const string UiAutoMaxPriority = "ui.autoMaxPriority";
+        public const string UiAutoDisabledPriorityMode = "ui.autoDisabledPriorityMode";
+        public const string UiAutoDisabledPriorityFixedValue = "ui.autoDisabledPriorityFixedValue";
         public const string SubWorkGlobalVanillaPriorityBoxes = "subWorkJobs.globalVanillaPriorityBoxes";
         public const string SubWorkAutoExpandColumns = "subWorkJobs.autoExpandColumns";
         public const string SubWorkEvenlyExpandColumns = "subWorkJobs.evenlyExpandColumns";

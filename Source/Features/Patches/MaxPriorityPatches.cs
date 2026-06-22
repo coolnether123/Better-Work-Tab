@@ -28,6 +28,15 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         internal static readonly MethodInfo GetMaxPriority = AccessTools.Method(
             typeof(WorkPrioritySystem),
             nameof(WorkPrioritySystem.GetMaxPriority));
+
+        internal static readonly MethodInfo GetDefaultEnabledPriority = AccessTools.Method(
+            typeof(WorkPrioritySystem),
+            nameof(WorkPrioritySystem.GetDefaultEnabledPriority));
+
+        internal static readonly MethodInfo SetPriority = AccessTools.Method(
+            typeof(Pawn_WorkSettings),
+            nameof(Pawn_WorkSettings.SetPriority),
+            new[] { typeof(WorkTypeDef), typeof(int) });
     }
 
     /// <summary>
@@ -54,7 +63,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                              IsLoadLocal(list[i + 4]) &&
                              list[i + 5].LoadsConstant(0) &&
                              IsBranch(list[i + 6], OpCodes.Bge, OpCodes.Bge_S) &&
-                             list[i + 7].LoadsConstant(4),
+                             IsMaxPriorityCeilingInstruction(list[i + 7]),
                 i => i + 7);
 
             if (index >= 0)
@@ -70,7 +79,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                              IsLoadLocal(list[i - 3]) &&
                              list[i - 2].LoadsConstant(0) &&
                              IsBranch(list[i - 1], OpCodes.Bge, OpCodes.Bge_S) &&
-                             list[i].LoadsConstant(4) &&
+                             IsMaxPriorityCeilingInstruction(list[i]) &&
                              IsStoreLocal(list[i + 1]),
                 i => i);
         }
@@ -92,7 +101,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                              list[i + 2].opcode == OpCodes.Add &&
                              IsStoreLocal(list[i + 3]) &&
                              IsLoadLocal(list[i + 4]) &&
-                             list[i + 5].LoadsConstant(4) &&
+                             IsMaxPriorityCeilingInstruction(list[i + 5]) &&
                              IsBranch(list[i + 6], OpCodes.Ble, OpCodes.Ble_S) &&
                              list[i + 7].LoadsConstant(0),
                 i => i + 5);
@@ -108,7 +117,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 (list, i) => i >= 1 &&
                              i + 1 < list.Count &&
                              IsLoadLocal(list[i - 1]) &&
-                             list[i].LoadsConstant(4) &&
+                             IsMaxPriorityCeilingInstruction(list[i]) &&
                              IsBranch(list[i + 1], OpCodes.Ble, OpCodes.Ble_S),
                 i => i);
         }
@@ -126,7 +135,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                              list[i + 1].LoadsConstant(0) &&
                              IsBranch(list[i + 2], OpCodes.Blt, OpCodes.Blt_S) &&
                              IsLoadArgument(list[i + 3], 2) &&
-                             list[i + 4].LoadsConstant(4) &&
+                             IsMaxPriorityCeilingInstruction(list[i + 4]) &&
                              IsBranch(list[i + 5], OpCodes.Ble, OpCodes.Ble_S),
                 i => i + 4);
         }
@@ -136,7 +145,30 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         /// </summary>
         internal static void ReplaceWithMaxPriorityCall(List<CodeInstruction> codes, int index)
         {
-            codes[index] = new CodeInstruction(OpCodes.Call, PriorityIl.GetMaxPriority);
+            CodeInstruction source = codes[index];
+            var replacement = new CodeInstruction(OpCodes.Call, PriorityIl.GetMaxPriority);
+            replacement.labels.AddRange(source.labels);
+            replacement.blocks.AddRange(source.blocks);
+            codes[index] = replacement;
+        }
+
+        internal static void ReplaceWorkBoxDefaultEnabledPriority(List<CodeInstruction> codes)
+        {
+            for (int i = 1; i < codes.Count; i++)
+            {
+                if (!Calls(codes[i], PriorityIl.SetPriority) ||
+                    !codes[i - 1].LoadsConstant(PriorityConstants.VanillaDefaultEnabled))
+                {
+                    continue;
+                }
+
+                CodeInstruction source = codes[i - 1];
+                var replacement = new CodeInstruction(OpCodes.Call, PriorityIl.GetDefaultEnabledPriority);
+                replacement.labels.AddRange(source.labels);
+                replacement.blocks.AddRange(source.blocks);
+                codes[i - 1] = replacement;
+                return;
+            }
         }
 
         private static int FindPattern(List<CodeInstruction> codes, int startIndex, Func<List<CodeInstruction>, int, bool> predicate, Func<int, int> resultSelector)
@@ -155,6 +187,36 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         private static bool IsBranch(CodeInstruction instruction, OpCode longForm, OpCode shortForm)
         {
             return instruction.opcode == longForm || instruction.opcode == shortForm;
+        }
+
+        private static bool Calls(CodeInstruction instruction, MethodInfo method)
+        {
+            return instruction != null &&
+                   method != null &&
+                   (instruction.opcode == OpCodes.Call || instruction.opcode == OpCodes.Callvirt) &&
+                   (instruction.operand as MethodInfo) == method;
+        }
+
+        private static bool IsMaxPriorityCeilingInstruction(CodeInstruction instruction)
+        {
+            return instruction != null &&
+                   (instruction.LoadsConstant(PriorityConstants.VanillaMax) ||
+                    CallsCompatibleExternalMaxPriorityProvider(instruction));
+        }
+
+        private static bool CallsCompatibleExternalMaxPriorityProvider(CodeInstruction instruction)
+        {
+            var method = instruction?.operand as MethodInfo;
+            if (method == null ||
+                (instruction.opcode != OpCodes.Call && instruction.opcode != OpCodes.Callvirt))
+            {
+                return false;
+            }
+
+            string declaringType = method.DeclaringType?.FullName;
+            return string.Equals(declaringType, "PriorityMod.Tools.PatchHook", StringComparison.Ordinal) &&
+                   (string.Equals(method.Name, "GetMaximumPriority", StringComparison.Ordinal) ||
+                    string.Equals(method.Name, "GetMaxPriority", StringComparison.Ordinal));
         }
 
         private static bool IsLoadLocal(CodeInstruction instruction)
@@ -235,6 +297,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
             PriorityTranspilerPatterns.ReplaceWithMaxPriorityCall(codes, leftWrapIndex);
             PriorityTranspilerPatterns.ReplaceWithMaxPriorityCall(codes, rightWrapIndex);
+            PriorityTranspilerPatterns.ReplaceWorkBoxDefaultEnabledPriority(codes);
             return codes;
         }
     }

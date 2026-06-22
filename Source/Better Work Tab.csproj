@@ -40,6 +40,9 @@
     <Reference Include="System.Net.Http" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="API\IMaxPriorityProvider.cs" />
+    <Compile Include="API\PriorityApi.cs" />
+    <Compile Include="API\PriorityProviderCapabilities.cs" />
     <Compile Include="BetterWorkTab.cs" />
     <Compile Include="BetterWorkTabLocalState.cs" />
     <Compile Include="DragDrop\DragHandler.cs" />
@@ -50,6 +53,10 @@
     <Compile Include="Features\HighlightState.cs" />
     <Compile Include="Features\Caching\BedCountCache.cs" />
     <Compile Include="Features\Patches\MaxPriorityPatches.cs" />
+    <Compile Include="Features\RaisedPriorityMaximum\PriorityAuthorityBroker.cs" />
+    <Compile Include="Features\RaisedPriorityMaximum\PriorityConstants.cs" />
+    <Compile Include="Features\RaisedPriorityMaximum\PriorityProviderSnapshot.cs" />
+    <Compile Include="Features\RaisedPriorityMaximum\PriorityProviders.cs" />
     <Compile Include="Features\RaisedPriorityMaximum\WorkPrioritySystem.cs" />
     <Compile Include="Features\Patches\Patch_PawnTable_RecacheIfDirty.cs" />
     <Compile Include="Features\Patches\Patch_Pawn_WorkSettings_SetPriority.cs" />

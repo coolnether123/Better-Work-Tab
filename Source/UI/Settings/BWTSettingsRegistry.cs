@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Better_Work_Tab;
 using Better_Work_Tab.Features;
+using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.Patches;
 using Better_Work_Tab.UI;
@@ -318,17 +319,136 @@ namespace Better_Work_Tab.UI.Settings
 
             Register(new SettingDefinition
             {
-                Id = UiMaxPriority,
+                Id = PriorityHeader,
                 ParentId = FeaturesUiElements,
-                FieldName = "maxPriorityInt",
-                Label = "Max priority",
-                Tooltip = "The maximum integer value pawns can be assigned in the work tab.",
-                Type = SettingType.Int,
-                DefaultValue = DefaultSettings.GetInitialMaxPriority(),
-                MinValue = BetterWorkTabSettings.MAX_PRIORITY_MINIMUM,
-                MaxValue = BetterWorkTabSettings.MAX_PRIORITY_HARD_LIMIT,
+                Label = "Priority Range",
+                Tooltip = "Controls which mod owns the manual priority range.",
+                Type = SettingType.Header,
+                HeaderColor = new Color(0.8f, 0.7f, 0.45f),
                 ShowInSimpleView = true,
                 SortOrder = 42,
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = PriorityModeSetting,
+                ParentId = PriorityHeader,
+                FieldName = "priorityMode",
+                Label = "Priority mode",
+                Tooltip = "Auto keeps vanilla priorities unless a compatible max-priority mod or existing high priorities are detected. BetterWorkTab makes BWT own the expanded range.",
+                Type = SettingType.Enum,
+                EnumType = typeof(PriorityMode),
+                DefaultValue = DefaultSettings.priorityMode,
+                ShowInSimpleView = true,
+                SortOrder = 0,
+                OnChanged = settingsObj =>
+                {
+                    if (settingsObj is BetterWorkTabSettings settings)
+                    {
+                        settings.NormalizePrioritySettings();
+                    }
+
+                    PriorityAuthorityBroker.InvalidateCaches();
+                    Patch_WorkPriority_DoCell_Unified.ClearColorCache();
+                }
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = UiAutoMaxPriority,
+                ParentId = PriorityHeader,
+                FieldName = "autoMaxPriorityInt",
+                Label = "Auto max priority",
+                Tooltip = "Maximum priority Auto mode is allowed to expose while following compatible external providers or preserving already-expanded priorities.",
+                Type = SettingType.Int,
+                DefaultValue = DefaultSettings.autoMaxPriority,
+                MinValue = PriorityConstants.VanillaMax,
+                MaxValue = BetterWorkTabSettings.MAX_PRIORITY_HARD_LIMIT,
+                VisibleWhen = s => ((BetterWorkTabSettings)s).priorityMode == PriorityMode.Auto,
+                ShowInSimpleView = true,
+                ShowInAdvancedView = true,
+                SortOrder = 1,
+                OnChanged = settingsObj =>
+                {
+                    if (settingsObj is BetterWorkTabSettings settings)
+                    {
+                        settings.NormalizePrioritySettings();
+                    }
+
+                    PriorityAuthorityBroker.InvalidateCaches();
+                }
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = UiMaxPriority,
+                ParentId = PriorityHeader,
+                FieldName = "maxPriorityInt",
+                Label = "BWT max priority",
+                Tooltip = "Maximum priority when Better Work Tab is selected as the priority owner.",
+                Type = SettingType.Int,
+                DefaultValue = DefaultSettings.maxPriority,
+                MinValue = BetterWorkTabSettings.MAX_PRIORITY_MINIMUM,
+                MaxValue = BetterWorkTabSettings.MAX_PRIORITY_HARD_LIMIT,
+                VisibleWhen = s => ((BetterWorkTabSettings)s).priorityMode == PriorityMode.BetterWorkTab,
+                ShowInSimpleView = true,
+                ShowInAdvancedView = true,
+                SortOrder = 2,
+                OnChanged = settingsObj =>
+                {
+                    if (settingsObj is BetterWorkTabSettings settings)
+                    {
+                        settings.NormalizePrioritySettings();
+                    }
+
+                    PriorityAuthorityBroker.InvalidateCaches();
+                    Patch_WorkPriority_DoCell_Unified.ClearColorCache();
+                }
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = UiAutoDisabledPriorityMode,
+                ParentId = PriorityHeader,
+                FieldName = "autoDisabledPriorityMode",
+                Label = "Disabled work click",
+                Tooltip = "Priority Auto mode assigns when disabled work is turned back on.",
+                Type = SettingType.Enum,
+                EnumType = typeof(BetterWorkTabSettings.AutoDisabledPriorityMode),
+                DefaultValue = DefaultSettings.autoDisabledPriorityMode,
+                VisibleWhen = s => ((BetterWorkTabSettings)s).priorityMode == PriorityMode.Auto,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 3,
+                OnChanged = settingsObj =>
+                {
+                    if (settingsObj is BetterWorkTabSettings settings)
+                    {
+                        settings.NormalizePrioritySettings();
+                    }
+                }
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = UiAutoDisabledPriorityFixedValue,
+                ParentId = PriorityHeader,
+                FieldName = "autoDisabledPriorityFixedValue",
+                Label = "Fixed click priority",
+                Tooltip = "Priority assigned when Auto disabled-work click behavior is fixed priority.",
+                Type = SettingType.Int,
+                DefaultValue = DefaultSettings.autoDisabledPriorityFixedValue,
+                MinValue = 1,
+                MaxValue = BetterWorkTabSettings.MAX_PRIORITY_HARD_LIMIT,
+                VisibleWhen = s =>
+                {
+                    var settings = (BetterWorkTabSettings)s;
+                    return settings.priorityMode == PriorityMode.Auto &&
+                           settings.autoDisabledPriorityMode == BetterWorkTabSettings.AutoDisabledPriorityMode.FixedPriority;
+                },
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 4,
             });
 
             Register(new SettingDefinition
