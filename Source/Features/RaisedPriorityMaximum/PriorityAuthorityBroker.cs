@@ -131,7 +131,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                         : maxPriority;
                 }
 
-                return normalized > 1 ? normalized - 1 : normalized;
+                return normalized > PriorityConstants.Disabled ? normalized - 1 : normalized;
             }
 
             if (direction < 0)

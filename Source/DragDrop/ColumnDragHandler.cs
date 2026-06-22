@@ -80,7 +80,7 @@ namespace Better_Work_Tab.DragDrop
         /// </summary>
         public override void OnDragUpdate(Vector2 mousePos)
         {
-            var targetColumns = GetVisualTargetColumns();
+            var targetColumns = GetInsertionTargetColumns();
             int index = targetColumns.Count;
             for (int i = 0; i < targetColumns.Count; i++)
             {
@@ -120,11 +120,8 @@ namespace Better_Work_Tab.DragDrop
 
             if (TargetIndex >= 0 && showLine)
             {
-                var targetColumns = GetVisualTargetColumns();
-                float lineX;
-                if (targetColumns.Count == 0) lineX = _originRect.x;
-                else if (TargetIndex >= targetColumns.Count) lineX = targetColumns.Last().HeaderRect.xMax;
-                else lineX = targetColumns[TargetIndex].HeaderRect.xMin;
+                var targetColumns = GetInsertionTargetColumns();
+                float lineX = GetInsertionLineX(targetColumns, TargetIndex, _originRect.x);
 
                 int insetSetting = BetterWorkTabMod.Settings?.columnInsertionLineInset ?? DefaultSettings.columnInsertionLineInset;
                 int inset = Mathf.Clamp(insetSetting, 0, Mathf.RoundToInt(Layout.HeaderHeight));
@@ -138,6 +135,7 @@ namespace Better_Work_Tab.DragDrop
         {
             if (_subWorkDrilldownDrag)
             {
+                DrawSubWorkBaselineLine();
                 return;
             }
 
@@ -250,6 +248,30 @@ namespace Better_Work_Tab.DragDrop
 
             var baselineColor = new Color(1f, 0.85f, 0.2f, 1f);
             Widgets.DrawBoxSolid(lineRect, baselineColor);
+        }
+
+        private void DrawSubWorkBaselineLine()
+        {
+            if (_subWorkGiver == null || _subWorkType == null)
+            {
+                return;
+            }
+
+            int baselineIndex = WorkGiverReassignmentManager.CalculateBaselineTargetIndex(_subWorkType, _subWorkGiver);
+            int targetIndex = baselineIndex >= 0 ? baselineIndex : _subWorkOriginalIndex;
+            if (targetIndex < 0)
+            {
+                return;
+            }
+
+            var targetColumns = GetInsertionTargetColumns();
+            float lineX = GetInsertionLineX(targetColumns, targetIndex, _originRect.x);
+
+            int insetSetting = BetterWorkTabMod.Settings?.columnInsertionLineInset ?? DefaultSettings.columnInsertionLineInset;
+            int inset = Mathf.Clamp(insetSetting, 0, Mathf.RoundToInt(Layout.HeaderHeight));
+            Rect lineRect = GetColumnGuideRect(lineX, inset);
+
+            Widgets.DrawBoxSolid(lineRect, HeaderUtility.Colors.MovedMarkerColor);
         }
 
         private Rect GetColumnGuideRect(float lineX, int headerInset)
@@ -485,6 +507,39 @@ namespace Better_Work_Tab.DragDrop
                 .ToList();
         }
 
+        private List<WorkTabLayoutColumn> GetInsertionTargetColumns()
+        {
+            var columns = GetVisualTargetColumns();
+            if (!_subWorkDrilldownDrag)
+            {
+                return columns;
+            }
+
+            return columns
+                .Where(c => c.Column != _primaryColumn)
+                .ToList();
+        }
+
+        private static float GetInsertionLineX(List<WorkTabLayoutColumn> targetColumns, int targetIndex, float fallbackX)
+        {
+            if (targetColumns == null || targetColumns.Count == 0)
+            {
+                return fallbackX;
+            }
+
+            if (targetIndex >= targetColumns.Count)
+            {
+                return targetColumns[targetColumns.Count - 1].HeaderRect.xMax;
+            }
+
+            if (targetIndex <= 0)
+            {
+                return targetColumns[0].HeaderRect.xMin;
+            }
+
+            return targetColumns[targetIndex].HeaderRect.xMin;
+        }
+
         private void CommitSubWorkReorder()
         {
             try
@@ -495,16 +550,12 @@ namespace Better_Work_Tab.DragDrop
                 }
 
                 var current = SubWorkDrilldownState.ActiveWorkGivers;
-                int maxIndex = current?.Count ?? 0;
+                int maxIndex = Mathf.Max(0, (current?.Count ?? 0) - 1);
                 int insertIndex = Mathf.Clamp(TargetIndex, 0, maxIndex);
-                if (_subWorkOriginalIndex >= 0 && _subWorkOriginalIndex < insertIndex)
-                {
-                    insertIndex--;
-                }
 
                 // TODO: Support dragging a sub-work job into another sub-work job view once
                 // there is a clear UX for choosing the target work type and inheritance rules.
-                WorkGiverReassignmentManager.MoveWithinWorkType(
+                WorkGiverReassignmentManager.MoveWithinWorkTypeSynced(
                     _subWorkType.defName,
                     _subWorkGiver.defName,
                     insertIndex);

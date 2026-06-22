@@ -82,24 +82,6 @@ namespace Better_Work_Tab.UI
 
         private static Color CurrentRowTextColor = Color.white;
 
-        /// <summary>
-        /// Multiplayer registration for column reordering sync.
-        /// Uses nested class pattern to keep MP setup organized.
-        /// </summary>
-        [StaticConstructorOnStartup]
-        private static class MPRegistration
-        {
-            static MPRegistration()
-            {
-                if (!MP.enabled)
-                    return;
-
-                MP.RegisterSyncMethod(typeof(MainTabWindow_BetterWork),
-                                      nameof(MarkColumnMoved));
-            }
-        }
-
-
         public override void PreOpen()
         {
             base.PreOpen();
@@ -324,6 +306,7 @@ namespace Better_Work_Tab.UI
             {
                 DrawInfoButton(infoRect);
             }
+            DrawSubWorkExitButton(inRect);
             DrawBottomCounters(inRect, table);
             NativeCursorPosition.ProcessPendingMove();
         }
@@ -1259,6 +1242,7 @@ namespace Better_Work_Tab.UI
             // Get persistent float menu state
             Pawn highlightedPawn = HighlightState.GetHighlightedPawn();
             WorkTypeDef highlightedWorkType = HighlightState.GetHighlightedWorkType();
+            WorkGiverDef highlightedWorkGiver = HighlightState.GetHighlightedWorkGiver();
 
             // 2. Draw Horizontal Highlights (Rows)
             float currentY = 0f;
@@ -1267,15 +1251,21 @@ namespace Better_Work_Tab.UI
                 var descriptor = rowDescriptors[i];
                 Rect rowRect = new Rect(0f, currentY, totalWidth, descriptor.Height);
 
+                bool isFloatMenuPawn = descriptor.IsPawn &&
+                    highlightedPawn != null &&
+                    descriptor.Pawn == highlightedPawn &&
+                    settings.ShowFloatMenuPawnAndWorktypeHighlight;
+
                 if (descriptor.IsPawn && highlightedPawn != null && descriptor.Pawn == highlightedPawn && settings.ShowFloatMenuPawnAndWorktypeHighlight)
                 {
                     HighlightDrawer.DrawHighlight(rowRect, HighlightDrawer.GetFloatMenuColor());
                 }
-                else if (settings.ShowCursorPawnAndWorktypeHighlight && Mouse.IsOver(rowRect))
+
+                if (settings.ShowCursorPawnAndWorktypeHighlight && Mouse.IsOver(rowRect))
                 {
                     HighlightDrawer.DrawHighlight(rowRect, HighlightDrawer.GetRowHoverColor());
                 }
-                else if (descriptor.IsPawn && Find.Selector.IsSelected(descriptor.Pawn) && settings.DoSelectedPawnHighlight)
+                else if (!isFloatMenuPawn && descriptor.IsPawn && Find.Selector.IsSelected(descriptor.Pawn) && settings.DoSelectedPawnHighlight)
                 {
                     HighlightDrawer.DrawHighlight(rowRect, HighlightDrawer.GetSelectedPawnColor());
                 }
@@ -1308,22 +1298,44 @@ namespace Better_Work_Tab.UI
                 var column = columns[i];
                 Rect columnRect = new Rect(startingX, 0f, column.Width, totalHeight);
                 bool isWorkColumn = column.Column?.Worker is PawnColumnWorker_WorkPriority;
+                bool isFloatMenuColumn = isWorkColumn &&
+                    IsColumnHighlightedByFloatMenu(column, highlightedWorkType, highlightedWorkGiver);
 
-                if (isWorkColumn && highlightedWorkType != null && column.Column.workType == highlightedWorkType && settings.ShowFloatMenuPawnAndWorktypeHighlight)
+                if (isFloatMenuColumn && settings.ShowFloatMenuPawnAndWorktypeHighlight)
                 {
                     HighlightDrawer.DrawHighlight(columnRect, HighlightDrawer.GetFloatMenuColor());
                 }
-                else if (isWorkColumn && settings.ShowCursorPawnAndWorktypeHighlight && hoveredWorkType != null && hoveredWorkType == column.Column.workType)
+
+                if (isWorkColumn && settings.ShowCursorPawnAndWorktypeHighlight && hoveredWorkType != null && hoveredWorkType == column.Column.workType)
                 {
                     HighlightDrawer.DrawHighlight(columnRect, HighlightDrawer.GetColumnHoverColor());
                 }
-                else if (isWorkColumn && settings.ShowSimilarWorktypeHighlight && cachedSimilarWorktypes != null && cachedSimilarWorktypes.Contains(column.Column.workType))
+                else if (!isFloatMenuColumn && isWorkColumn && settings.ShowSimilarWorktypeHighlight && cachedSimilarWorktypes != null && cachedSimilarWorktypes.Contains(column.Column.workType))
                 {
                     HighlightDrawer.DrawHighlight(columnRect, HighlightDrawer.GetSimilarWorktypeColor());
                 }
 
                 startingX += column.Width;
             }
+        }
+
+        private static bool IsColumnHighlightedByFloatMenu(
+            WorkTabLayoutColumn column,
+            WorkTypeDef highlightedWorkType,
+            WorkGiverDef highlightedWorkGiver)
+        {
+            if (column.Column?.workType == null || highlightedWorkType == null)
+            {
+                return false;
+            }
+
+            if (SubWorkDrilldownState.IsActive && highlightedWorkGiver != null)
+            {
+                return SubWorkDrilldownState.TryGetWorkGiverForColumn(column.Column, out var workGiver, out _) &&
+                       workGiver?.def == highlightedWorkGiver;
+            }
+
+            return column.Column.workType == highlightedWorkType;
         }
 
         /// <summary>
@@ -1905,6 +1917,28 @@ namespace Better_Work_Tab.UI
                 }
 #endif
             }
+        }
+
+        private void DrawSubWorkExitButton(Rect inRect)
+        {
+            if (!SubWorkDrilldownState.IsActive)
+            {
+                return;
+            }
+
+            const float buttonSize = 24f;
+            Rect exitRect = new Rect(
+                inRect.xMax - buttonSize - RightEdgeMargin,
+                inRect.y + 8f,
+                buttonSize,
+                buttonSize);
+
+            if (Widgets.ButtonImage(exitRect, TexButton.CloseXSmall, Color.white, GenUI.MouseoverColor))
+            {
+                SubWorkDrilldownBarRenderer.ExitDrilldown();
+            }
+
+            TooltipHandler.TipRegion(exitRect, "Back to work types. " + SubWorkDrilldownInput.GestureLabel() + " or press Escape to return.");
         }
 
         private static Rect GetInfoIconRect(Rect inRect)

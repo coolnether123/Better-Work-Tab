@@ -12,6 +12,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
     {
         public Dictionary<string, string> WorkGiverToWorkTypeMap = new Dictionary<string, string>(StringComparer.Ordinal);
         public Dictionary<string, List<string>> WorkTypeWorkGiverOrder = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        public Dictionary<string, List<string>> PlayerMovedWorkGiversByWorkType = new Dictionary<string, List<string>>(StringComparer.Ordinal);
         public Dictionary<int, Dictionary<string, int>> PawnWorkGiverPriorityOverrides = new Dictionary<int, Dictionary<string, int>>();
         public Dictionary<int, Dictionary<string, List<string>>> PawnWorkGiverOrdering = new Dictionary<int, Dictionary<string, List<string>>>();
         public int SyncVersion = 0;
@@ -20,6 +21,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         {
             return HasEntries(WorkGiverToWorkTypeMap) ||
                    HasEntries(WorkTypeWorkGiverOrder) ||
+                   HasEntries(PlayerMovedWorkGiversByWorkType) ||
                    HasNestedEntries(PawnWorkGiverPriorityOverrides) ||
                    HasNestedEntries(PawnWorkGiverOrdering);
         }
@@ -32,6 +34,10 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             {
                 WorkGiverToWorkTypeMap = new Dictionary<string, string>(WorkGiverToWorkTypeMap, StringComparer.Ordinal),
                 WorkTypeWorkGiverOrder = WorkTypeWorkGiverOrder.ToDictionary(
+                    kv => kv.Key,
+                    kv => kv.Value != null ? new List<string>(kv.Value) : new List<string>(),
+                    StringComparer.Ordinal),
+                PlayerMovedWorkGiversByWorkType = PlayerMovedWorkGiversByWorkType.ToDictionary(
                     kv => kv.Key,
                     kv => kv.Value != null ? new List<string>(kv.Value) : new List<string>(),
                     StringComparer.Ordinal),
@@ -57,6 +63,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             EnsureCollections();
             WorkGiverToWorkTypeMap.Clear();
             WorkTypeWorkGiverOrder.Clear();
+            PlayerMovedWorkGiversByWorkType.Clear();
             PawnWorkGiverPriorityOverrides.Clear();
             PawnWorkGiverOrdering.Clear();
             SyncVersion++;
@@ -66,6 +73,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         {
             WorkGiverToWorkTypeMap ??= new Dictionary<string, string>(StringComparer.Ordinal);
             WorkTypeWorkGiverOrder ??= new Dictionary<string, List<string>>(StringComparer.Ordinal);
+            PlayerMovedWorkGiversByWorkType ??= new Dictionary<string, List<string>>(StringComparer.Ordinal);
             PawnWorkGiverPriorityOverrides ??= new Dictionary<int, Dictionary<string, int>>();
             PawnWorkGiverOrdering ??= new Dictionary<int, Dictionary<string, List<string>>>();
         }
@@ -91,6 +99,28 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
                 WorkTypeWorkGiverOrder = orderRecords?.ToDictionary(
+                    r => r.WorkTypeDefName,
+                    r => r.OrderedWorkGivers ?? new List<string>(),
+                    StringComparer.Ordinal) ?? new Dictionary<string, List<string>>(StringComparer.Ordinal);
+            }
+
+            List<WorkTypeOrderRecord> movedWorkGiverRecords = null;
+            if (Scribe.mode == LoadSaveMode.Saving && PlayerMovedWorkGiversByWorkType != null)
+            {
+                movedWorkGiverRecords = PlayerMovedWorkGiversByWorkType
+                    .Select(kv => new WorkTypeOrderRecord
+                    {
+                        WorkTypeDefName = kv.Key,
+                        OrderedWorkGivers = kv.Value ?? new List<string>()
+                    })
+                    .ToList();
+            }
+
+            Scribe_Collections.Look(ref movedWorkGiverRecords, "playerMovedWorkGiversByWorkType", LookMode.Deep);
+
+            if (Scribe.mode == LoadSaveMode.PostLoadInit)
+            {
+                PlayerMovedWorkGiversByWorkType = movedWorkGiverRecords?.ToDictionary(
                     r => r.WorkTypeDefName,
                     r => r.OrderedWorkGivers ?? new List<string>(),
                     StringComparer.Ordinal) ?? new Dictionary<string, List<string>>(StringComparer.Ordinal);

@@ -1,6 +1,8 @@
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.UI.Headers;
+using Better_Work_Tab.UI.WorkGiverReassignments;
 using HarmonyLib;
 using RimWorld;
 using System;
@@ -63,7 +65,7 @@ namespace Better_Work_Tab.Patches
                     int enabledPriority = parentPriority > WorkPrioritySystem.DisabledPriority
                         ? parentPriority
                         : WorkPrioritySystem.GetDefaultEnabledPriority();
-                    WorkGiverReassignmentManager.SyncSetPawnOverride(pawn.thingIDNumber, giver.defName, enabledPriority);
+                    WorkGiverReassignmentManager.SetPawnOverrideSynced(pawn.thingIDNumber, giver.defName, enabledPriority);
                 }
 
                 if (pawn.jobs.TryTakeOrderedJobPrioritizedWork(localJob, localScanner, context.ClickedCell))
@@ -97,11 +99,7 @@ namespace Better_Work_Tab.Patches
                             "BWTManageWorkGivers".Translate(targetWorkType.labelShort),
                             () =>
                             {
-                                var screenPos = new UnityEngine.Vector2(Verse.UI.screenWidth / 2f, Verse.UI.screenHeight / 2f);
-                                bool hasOverride = WorkGiverReassignmentManager.HasAnyPawnOverride(targetWorkType, pawn) ||
-                                                   WorkGiverReassignmentManager.HasPawnOrdering(pawn, targetWorkType);
-                                Pawn windowPawn = hasOverride ? pawn : null;
-                                Find.WindowStack.Add(new UI.WorkGiverReassignments.Window_WorkGiverSubMenu(targetWorkType, screenPos, windowPawn));
+                                OpenWorkGiverManagement(pawn, targetWorkType, workGiver);
                             },
                             orderInPriority: (int)MenuOptionPriority.VeryLow));
                 }
@@ -123,6 +121,30 @@ namespace Better_Work_Tab.Patches
                 new FloatMenuOption(text, AssignOnce, orderInPriority: -1),
                 pawn,
                 target);
+        }
+
+        private static void OpenWorkGiverManagement(Pawn pawn, WorkTypeDef targetWorkType, WorkGiverDef workGiver)
+        {
+            if (targetWorkType == null)
+            {
+                return;
+            }
+
+            if (BetterWorkTabMod.Settings?.enableSubWorkDrilldown ?? false)
+            {
+                HighlightState.SetSubWorkGiverToHighlight(pawn, targetWorkType, workGiver);
+                Find.MainTabsRoot.SetCurrentTab(MainButtonDefOf.Work);
+                SubWorkDrilldownState.Enter(targetWorkType);
+                HeaderDrawingCoordinator.NotifyAngledHeadersChanged();
+                MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+                return;
+            }
+
+            var screenPos = new UnityEngine.Vector2(Verse.UI.screenWidth / 2f, Verse.UI.screenHeight / 2f);
+            bool hasOverride = WorkGiverReassignmentManager.HasAnyPawnOverride(targetWorkType, pawn) ||
+                               WorkGiverReassignmentManager.HasPawnOrdering(pawn, targetWorkType);
+            Pawn windowPawn = hasOverride ? pawn : null;
+            Find.WindowStack.Add(new Window_WorkGiverSubMenu(targetWorkType, screenPos, windowPawn));
         }
     }
 
