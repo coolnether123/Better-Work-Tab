@@ -8,6 +8,12 @@
 
 Features are toggleable in settings.
 
+Compatibility:
+- Compatible with most work-type mods
+- [FSF] Complex Jobs column ordering is supported
+- Vanilla Skills Expanded passion types are supported in rule conditions when the mod is active
+- Fluffy WorkTab and CompactWorkTab overlap this UI and should not be used together
+
 Version support:
 - 0.17 -> v1.1 - Multiplayer does not work
 

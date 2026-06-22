@@ -1470,6 +1470,25 @@ namespace Better_Work_Tab.UI.Settings
                 SortOrder = 400
             });
 
+            Register(new SettingDefinition
+            {
+                Id = LayoutWorkTabMaxHeight,
+                ParentId = AdvancedHeader,
+                FieldName = "workTabMaxHeight",
+                Label = "Work Tab Max Height",
+                Tooltip = "Caps the Work tab window height in pixels and scrolls extra rows. -1 keeps RimWorld's default full-screen-height behavior.",
+                Type = SettingType.Float,
+                DefaultValue = DefaultSettings.workTabMaxHeight,
+                MinValue = -1f,
+                MaxValue = 1200f,
+                MinLabel = "Default",
+                MaxLabel = "1200px",
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 401,
+                OnChanged = _ => MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged()
+            });
+
             // Auto-assign settings
             Register(new SettingDefinition
             {
