@@ -1,5 +1,6 @@
 using Better_Work_Tab;
 using Better_Work_Tab.Features;
+using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.DragDrop;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.PawnOrganizer.Data;
@@ -277,6 +278,11 @@ namespace Better_Work_Tab.PawnOrganizer
             {
                 if (column.Column?.Worker is PawnColumnWorker_WorkPriority)
                 {
+                    if (SubWorkDrilldownState.IsActive && !SubWorkDrilldownState.TryGetWorkGiverForColumn(column.Column, out _, out _))
+                    {
+                        return;
+                    }
+
                     _hasPendingDrag = true;
                     _pendingStartMouse = mousePos;
                     _pendingColumn = column.Column;
