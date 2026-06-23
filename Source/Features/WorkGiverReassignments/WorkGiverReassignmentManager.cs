@@ -56,6 +56,17 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             ApplyPawnOverride(pawnId, workGiverDefName, priority);
         }
 
+        internal static void ClearPawnOverrideSynced(int pawnId, string workGiverDefName)
+        {
+            if (MultiplayerBridge.Active)
+            {
+                SyncClearPawnOverride(pawnId, workGiverDefName);
+                return;
+            }
+
+            ApplyClearPawnOverride(pawnId, workGiverDefName);
+        }
+
         internal static void SetPawnOverridesBatchSynced(string workGiverDefName, List<int> pawnIds, List<int> priorities)
         {
             if (MultiplayerBridge.Active)
@@ -76,6 +87,17 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             }
 
             ApplyClearPawnOverridesForWorkType(pawnId, workTypeDefName);
+        }
+
+        internal static void EnableParentWorkTypeSynced(int pawnId, string workTypeDefName)
+        {
+            if (MultiplayerBridge.Active)
+            {
+                SyncEnableParentWorkType(pawnId, workTypeDefName);
+                return;
+            }
+
+            ApplyEnableParentWorkType(pawnId, workTypeDefName);
         }
 
         internal static void EnableParentAndClearSubOverridesSynced(int pawnId, string workTypeDefName)
@@ -567,6 +589,61 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             return WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, targetWorkType) > 0;
         }
 
+        internal static bool TryGetPawnWorkGiverOverride(Pawn pawn, WorkGiverDef workGiver, out int priority)
+        {
+            priority = WorkPrioritySystem.DisabledPriority;
+            var data = Data;
+            if (data?.PawnWorkGiverPriorityOverrides == null || pawn == null || workGiver?.defName == null)
+            {
+                return false;
+            }
+
+            if (!data.PawnWorkGiverPriorityOverrides.TryGetValue(pawn.thingIDNumber, out var pawnDict) ||
+                pawnDict == null ||
+                !pawnDict.TryGetValue(workGiver.defName, out priority))
+            {
+                return false;
+            }
+
+            priority = WorkPrioritySystem.ClampPriority(priority);
+            return true;
+        }
+
+        internal static bool HasPawnWorkGiverOverride(Pawn pawn, WorkGiverDef workGiver)
+        {
+            return TryGetPawnWorkGiverOverride(pawn, workGiver, out _);
+        }
+
+        internal static bool HasEnabledPawnOverrideForWorkType(Pawn pawn, WorkTypeDef workType)
+        {
+            if (pawn == null || workType == null)
+            {
+                return false;
+            }
+
+            var workGivers = GetDisplayWorkGiversForWorkType(workType);
+            for (int i = 0; i < workGivers.Count; i++)
+            {
+                WorkGiverDef def = workGivers[i]?.def;
+                if (TryGetPawnWorkGiverOverride(pawn, def, out int priority) &&
+                    priority > WorkPrioritySystem.DisabledPriority)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        internal static bool LockedPawnOverrideCanRunWhenParentDisabled(Pawn pawn, WorkGiverDef workGiver, WorkTypeDef workType)
+        {
+            return BetterWorkTabMod.Settings?.subWorkDisabledParentMode == BetterWorkTabSettings.SubWorkDisabledParentMode.LockedSubWorkOverridesParent &&
+                   TryGetPawnWorkGiverOverride(pawn, workGiver, out int priority) &&
+                   priority > WorkPrioritySystem.DisabledPriority &&
+                   workType != null &&
+                   GetTargetWorkType(workGiver) == workType;
+        }
+
         internal static int GetWorkGiverPriority(Pawn pawn, WorkGiverDef workGiver, int defaultPriority)
         {
             if (workGiver == null)
@@ -604,6 +681,12 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         }
 
         [SyncMethod]
+        public static void SyncClearPawnOverride(int pawnId, string workGiverDefName)
+        {
+            ApplyClearPawnOverride(pawnId, workGiverDefName);
+        }
+
+        [SyncMethod]
         public static void SyncSetPawnOverridesBatch(string workGiverDefName, List<int> pawnIds, List<int> priorities)
         {
             ApplyPawnOverridesBatch(workGiverDefName, pawnIds, priorities);
@@ -613,6 +696,12 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         public static void SyncClearPawnOverridesForWorkType(int pawnId, string workTypeDefName)
         {
             ApplyClearPawnOverridesForWorkType(pawnId, workTypeDefName);
+        }
+
+        [SyncMethod]
+        public static void SyncEnableParentWorkType(int pawnId, string workTypeDefName)
+        {
+            ApplyEnableParentWorkType(pawnId, workTypeDefName);
         }
 
         [SyncMethod]
@@ -636,6 +725,17 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             }
 
             SetPawnOverride(pawnId, workGiver, priority, notify: true);
+        }
+
+        private static void ApplyClearPawnOverride(int pawnId, string workGiverDefName)
+        {
+            var workGiver = DefDatabase<WorkGiverDef>.GetNamedSilentFail(workGiverDefName);
+            if (workGiver == null)
+            {
+                return;
+            }
+
+            ClearPawnOverride(pawnId, workGiver, notify: true);
         }
 
         private static void ApplyPawnOverridesBatch(string workGiverDefName, List<int> pawnIds, List<int> priorities)
@@ -697,10 +797,59 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             return true;
         }
 
+        private static bool ClearPawnOverride(int pawnId, WorkGiverDef workGiver, bool notify)
+        {
+            var data = Data;
+            if (data == null || workGiver?.defName == null)
+            {
+                return false;
+            }
+
+            data.EnsureCollections();
+            if (!data.PawnWorkGiverPriorityOverrides.TryGetValue(pawnId, out var dict) ||
+                dict == null ||
+                !dict.Remove(workGiver.defName))
+            {
+                return false;
+            }
+
+            if (dict.Count == 0)
+            {
+                data.PawnWorkGiverPriorityOverrides.Remove(pawnId);
+            }
+
+            data.SyncVersion++;
+            if (notify)
+            {
+                NotifySubWorkDataChanged();
+            }
+
+            return true;
+        }
+
         private static void ApplyClearPawnOverridesForWorkType(int pawnId, string workTypeDefName)
         {
             var workType = DefDatabase<WorkTypeDef>.GetNamedSilentFail(workTypeDefName);
             ClearPawnOverridesForWorkType(pawnId, workType, notify: true);
+        }
+
+        private static void ApplyEnableParentWorkType(int pawnId, string workTypeDefName)
+        {
+            var pawn = PawnsFinder.All_AliveOrDead.FirstOrDefault(p => p.thingIDNumber == pawnId);
+            var workType = DefDatabase<WorkTypeDef>.GetNamedSilentFail(workTypeDefName);
+            if (pawn?.workSettings == null || workType == null || pawn.WorkTypeIsDisabled(workType))
+            {
+                return;
+            }
+
+            int parentPriority = WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, workType);
+            if (parentPriority > WorkPrioritySystem.DisabledPriority)
+            {
+                return;
+            }
+
+            WorkPrioritySystem.SetPriority(pawn.workSettings, workType, WorkPrioritySystem.GetDefaultEnabledPriority());
+            NotifySubWorkDataChanged();
         }
 
         private static void ApplyEnableParentAndClearSubOverrides(int pawnId, string workTypeDefName)

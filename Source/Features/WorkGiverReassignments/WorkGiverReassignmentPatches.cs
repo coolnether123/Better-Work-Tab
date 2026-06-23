@@ -26,12 +26,15 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
             int workTypePriority = WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, mappedWorkType);
             int wgPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, giver.def, workTypePriority);
+            bool parentWorkActive = workTypePriority > WorkPrioritySystem.DisabledPriority;
+            bool lockedSubWorkCanRun = !parentWorkActive &&
+                                       WorkGiverReassignmentManager.LockedPawnOverrideCanRunWhenParentDisabled(pawn, giver.def, mappedWorkType);
 
             __result =
                 (giver.def.nonColonistsCanDo || pawn.IsColonist || pawn.IsColonyMech || pawn.IsColonySubhuman) &&
                 !pawn.WorkTagIsDisabled(giver.def.workTags) &&
                 !pawn.WorkTypeIsDisabled(mappedWorkType) &&
-                workTypePriority > 0 &&
+                (parentWorkActive || lockedSubWorkCanRun) &&
                 wgPriority > 0 &&
                 !giver.ShouldSkip(pawn) &&
                 giver.MissingRequiredCapacity(pawn) == null &&
@@ -120,8 +123,11 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
             int wtPriority = WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, mappedWorkType);
             int wgPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, scanner.def, wtPriority);
+            bool parentWorkActive = wtPriority > WorkPrioritySystem.DisabledPriority;
+            bool lockedSubWorkCanRun = !parentWorkActive &&
+                                       WorkGiverReassignmentManager.LockedPawnOverrideCanRunWhenParentDisabled(pawn, scanner.def, mappedWorkType);
 
-            return wtPriority > 0 && wgPriority > 0;
+            return (parentWorkActive || lockedSubWorkCanRun) && wgPriority > 0;
         }
     }
 }

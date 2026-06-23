@@ -65,6 +65,9 @@ namespace Better_Work_Tab
         public static bool useVanillaSubWorkGlobalPriorityBoxes = false;
         public static bool restoreCursorOnSubWorkExit = true;
         public static bool restoreCursorOnSubWorkPawnCellExit = false;
+        public static bool enableSubWorkOverrideBreakAnimation = true;
+        public static BetterWorkTabSettings.SubWorkDisabledParentMode subWorkDisabledParentMode =
+            BetterWorkTabSettings.SubWorkDisabledParentMode.ParentWorkDisablesSubWork;
         public static bool subWorkAutoExpandColumns = true;
         public static bool subWorkEvenlyExpandColumns = true;
         public static bool enableColumnOrderSaving = true;
@@ -306,6 +309,8 @@ namespace Better_Work_Tab
         public bool useVanillaSubWorkGlobalPriorityBoxes = DefaultSettings.useVanillaSubWorkGlobalPriorityBoxes;
         public bool restoreCursorOnSubWorkExit = DefaultSettings.restoreCursorOnSubWorkExit;
         public bool restoreCursorOnSubWorkPawnCellExit = DefaultSettings.restoreCursorOnSubWorkPawnCellExit;
+        public bool enableSubWorkOverrideBreakAnimation = DefaultSettings.enableSubWorkOverrideBreakAnimation;
+        public SubWorkDisabledParentMode subWorkDisabledParentMode = DefaultSettings.subWorkDisabledParentMode;
         public bool subWorkAutoExpandColumns = DefaultSettings.subWorkAutoExpandColumns;
         public bool subWorkEvenlyExpandColumns = DefaultSettings.subWorkEvenlyExpandColumns;
         public bool enableColumnOrderSaving = DefaultSettings.enableColumnOrderSaving;
@@ -506,6 +511,11 @@ namespace Better_Work_Tab
         public enum ShowUIMode { Always, Never, Shifted, Unshifted }
         public enum SubWorkDrilldownModifier { Ctrl, Shift }
         public enum SubWorkDrilldownButton { Left, Right }
+        public enum SubWorkDisabledParentMode
+        {
+            ParentWorkDisablesSubWork,
+            LockedSubWorkOverridesParent
+        }
         public enum AutoDisabledPriorityMode
         {
             EveryMultipleOfFour,
@@ -792,6 +802,8 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref useVanillaSubWorkGlobalPriorityBoxes, "useVanillaSubWorkGlobalPriorityBoxes", DefaultSettings.useVanillaSubWorkGlobalPriorityBoxes);
             Scribe_Values.Look(ref restoreCursorOnSubWorkExit, "restoreCursorOnSubWorkExit", DefaultSettings.restoreCursorOnSubWorkExit);
             Scribe_Values.Look(ref restoreCursorOnSubWorkPawnCellExit, "restoreCursorOnSubWorkPawnCellExit", DefaultSettings.restoreCursorOnSubWorkPawnCellExit);
+            Scribe_Values.Look(ref enableSubWorkOverrideBreakAnimation, "enableSubWorkOverrideBreakAnimation", DefaultSettings.enableSubWorkOverrideBreakAnimation);
+            Scribe_Values.Look(ref subWorkDisabledParentMode, "subWorkDisabledParentMode", DefaultSettings.subWorkDisabledParentMode);
             Scribe_Values.Look(ref subWorkAutoExpandColumns, "subWorkAutoExpandColumns", DefaultSettings.subWorkAutoExpandColumns);
             Scribe_Values.Look(ref subWorkEvenlyExpandColumns, "subWorkEvenlyExpandColumns", DefaultSettings.subWorkEvenlyExpandColumns);
             Scribe_Values.Look(ref enableColumnOrderSaving, "enableColumnOrderSaving", DefaultSettings.enableColumnOrderSaving);

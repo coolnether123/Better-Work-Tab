@@ -277,6 +277,35 @@ namespace Better_Work_Tab.UI.Settings
 
             Register(new SettingDefinition
             {
+                Id = SubWorkOverrideBreakAnimation,
+                ParentId = FeaturesSubWorkJobs,
+                FieldName = "enableSubWorkOverrideBreakAnimation",
+                Label = "Override reset animation",
+                Tooltip = "Show a short break/fade effect when clicking a sub-work override ring to return that pawn cell to the global sub-work priority.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.enableSubWorkOverrideBreakAnimation,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 6
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = SubWorkDisabledParentMode,
+                ParentId = FeaturesSubWorkJobs,
+                FieldName = "subWorkDisabledParentMode",
+                Label = "Disabled parent behavior",
+                Tooltip = "Controls what happens when a pawn has locked sub-work priorities but the parent work type is turned off. Parent Work Disables Sub-work keeps vanilla behavior; Locked Sub-work Overrides Parent lets locked sub-work jobs still run.",
+                Type = SettingType.Enum,
+                EnumType = typeof(BetterWorkTabSettings.SubWorkDisabledParentMode),
+                DefaultValue = DefaultSettings.subWorkDisabledParentMode,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 7
+            });
+
+            Register(new SettingDefinition
+            {
                 Id = SubWorkAutoExpandColumns,
                 ParentId = FeaturesSubWorkJobs,
                 FieldName = "subWorkAutoExpandColumns",
@@ -288,7 +317,7 @@ namespace Better_Work_Tab.UI.Settings
                 OnChanged = _ => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
-                SortOrder = 6
+                SortOrder = 8
             });
 
             Register(new SettingDefinition
