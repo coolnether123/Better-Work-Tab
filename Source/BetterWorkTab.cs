@@ -1,5 +1,6 @@
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.Workloads;
+using Better_Work_Tab.ModSupport;
 using Better_Work_Tab.PawnOrganizer;
 using HarmonyLib;
 using System;
@@ -83,6 +84,7 @@ namespace Better_Work_Tab
             var settings = GetSettings<BetterWorkTabSettings>();
             Settings = settings;
             Settings.NormalizePrioritySettings();
+            CompatibilityDiagnostics.ReportStartup(content);
 
             try
             {
