@@ -88,7 +88,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
         internal static int GetPriorityAfterBoundedStep(int currentPriority, int direction)
         {
-            int maxPriority = GetMaxPriority();
+            int maxPriority = PriorityAuthorityBroker.GetSnapshotForPriority(currentPriority).MaxPriority;
             int normalized = ClampPriority(currentPriority, maxPriority);
 
             if (direction > 0)
