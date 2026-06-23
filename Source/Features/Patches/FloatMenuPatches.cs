@@ -132,7 +132,9 @@ namespace Better_Work_Tab.Patches
 
             if (BetterWorkTabMod.Settings?.enableSubWorkDrilldown ?? false)
             {
-                SubWorkDrilldownState.Enter(targetWorkType);
+                SubWorkDrilldownState.Enter(
+                    targetWorkType,
+                    baseHeaderDrawWidth: SubWorkDrilldownHeaderGeometry.GetBaseHeaderDrawWidth(null, -1f));
                 Find.MainTabsRoot.SetCurrentTab(MainButtonDefOf.Work);
                 HighlightState.SetSubWorkGiverToHighlight(pawn, targetWorkType, workGiver);
                 HeaderDrawingCoordinator.NotifyAngledHeadersChanged();

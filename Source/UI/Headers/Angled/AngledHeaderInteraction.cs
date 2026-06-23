@@ -416,7 +416,10 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 return;
             }
 
-            SubWorkDrilldownState.Enter(workType, returnMousePosition);
+            SubWorkDrilldownState.Enter(
+                workType,
+                returnMousePosition,
+                SubWorkDrilldownHeaderGeometry.GetBaseHeaderDrawWidth(null, -1f));
             HeaderDrawingCoordinator.NotifyAngledHeadersChanged();
             SoundDefOf.Tick_High.PlayOneShotOnCamera();
         }
