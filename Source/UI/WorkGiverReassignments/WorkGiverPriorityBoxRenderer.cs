@@ -25,7 +25,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 !pawn.WorkTypeIsDisabled(workType) &&
                 defaultPriority <= WorkPrioritySystem.DisabledPriority)
             {
-                DrawInheritedDisabledPriorityBox(workType, pawn, boxRect);
+                DrawInheritedDisabledPriorityBox(wg, workType, pawn, boxRect);
                 TooltipHandler.TipRegion(boxRect, wg.def.LabelCap);
                 return;
             }
@@ -219,7 +219,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             return true;
         }
 
-        private static void DrawInheritedDisabledPriorityBox(WorkTypeDef workType, Pawn pawn, Rect boxRect)
+        private static void DrawInheritedDisabledPriorityBox(WorkGiver wg, WorkTypeDef workType, Pawn pawn, Rect boxRect)
         {
             Color oldColor = GUI.color;
             TextAnchor oldAnchor = Text.Anchor;
@@ -241,13 +241,14 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 Widgets.DrawHighlight(boxRect);
             }
 
-            HandleInheritedDisabledClick(pawn, workType, boxRect);
+            HandleInheritedDisabledClick(wg, pawn, workType, boxRect);
         }
 
-        private static void HandleInheritedDisabledClick(Pawn pawn, WorkTypeDef workType, Rect boxRect)
+        private static void HandleInheritedDisabledClick(WorkGiver wg, Pawn pawn, WorkTypeDef workType, Rect boxRect)
         {
             Event evt = Event.current;
             if (evt == null ||
+                wg?.def == null ||
                 (evt.type != EventType.MouseDown && evt.type != EventType.ScrollWheel) ||
                 !Mouse.IsOver(boxRect) ||
                 BetterWorkTabLocalState.IsHeaderDragging ||
@@ -266,8 +267,29 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 return;
             }
 
-            WorkGiverReassignmentManager.EnableParentAndClearSubOverridesSynced(pawn.thingIDNumber, workType.defName);
-            SoundDefOf.Checkbox_TurnedOn.PlayOneShotOnCamera();
+            int newPriority;
+            if (evt.type == EventType.ScrollWheel)
+            {
+                int direction = evt.delta.y > 0f ? -1 : 1;
+                newPriority = Find.PlaySettings.useWorkPriorities
+                    ? WorkPrioritySystem.GetPriorityAfterBoundedStep(WorkPrioritySystem.DisabledPriority, direction)
+                    : ToggleNonManualPriority(WorkPrioritySystem.DisabledPriority);
+            }
+            else
+            {
+                newPriority = GetNextPriority(WorkPrioritySystem.DisabledPriority, evt.button);
+            }
+
+            if (newPriority > WorkPrioritySystem.DisabledPriority)
+            {
+                WorkGiverReassignmentManager.EnableParentAndSetOnlySubOverrideSynced(
+                    pawn.thingIDNumber,
+                    workType.defName,
+                    wg.def.defName,
+                    newPriority);
+                SoundDefOf.Checkbox_TurnedOn.PlayOneShotOnCamera();
+            }
+
             evt.Use();
         }
 
