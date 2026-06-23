@@ -1,6 +1,8 @@
 using UnityEngine;
 using Verse;
 using RimWorld;
+using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.UI.WorkGiverReassignments;
 
 namespace Better_Work_Tab.UI.Headers.Angled
 {
@@ -39,6 +41,11 @@ namespace Better_Work_Tab.UI.Headers.Angled
         {
             var evt = Event.current;
             if (!HeaderUtility.ShouldHandleHeader(evt.type)) return false;
+
+            if (!SubWorkDrilldownState.IsActive)
+            {
+                SubWorkDrilldownHeaderGeometry.RecordNormalHeaderHeight(table, rect.height);
+            }
 
             bool shouldDraw = evt.type == EventType.Repaint;
 

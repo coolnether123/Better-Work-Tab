@@ -355,6 +355,8 @@ namespace Better_Work_Tab.UI.Headers.Angled
             var workType = SubWorkDrilldownState.ActiveWorkType;
             List<Pawn> pawns = table.PawnsListForReading;
             bool useWorkPriorities = Find.PlaySettings.useWorkPriorities;
+            var pawnIds = new List<int>();
+            var priorities = new List<int>();
 
             bool changed = false;
             for (int i = 0; i < pawns.Count; i++)
@@ -389,12 +391,15 @@ namespace Better_Work_Tab.UI.Headers.Angled
                     continue;
                 }
 
-                WorkGiverReassignmentManager.SyncSetPawnOverride(pawn.thingIDNumber, workGiverDef.defName, nextPriority);
+                pawnIds.Add(pawn.thingIDNumber);
+                priorities.Add(nextPriority);
                 changed = true;
             }
 
             if (changed)
             {
+                WorkGiverReassignmentManager.SetPawnOverridesBatchSynced(workGiverDef.defName, pawnIds, priorities);
+
                 if (useWorkPriorities)
                 {
                     UISoundCompat.DragSlider.PlayOneShotOnCamera();
@@ -431,7 +436,10 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 return;
             }
 
-            SubWorkDrilldownState.Enter(workType, returnMousePosition);
+            SubWorkDrilldownState.Enter(
+                workType,
+                returnMousePosition,
+                SubWorkDrilldownHeaderGeometry.GetBaseHeaderDrawWidth(null, -1f));
             HeaderDrawingCoordinator.NotifyAngledHeadersChanged();
             UISoundCompat.TickHigh.PlayOneShotOnCamera();
         }

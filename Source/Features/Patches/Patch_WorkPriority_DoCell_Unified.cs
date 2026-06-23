@@ -194,7 +194,9 @@ namespace Better_Work_Tab.Patches
             UpdateFrameCache();
 
             // Handle Scroll Wheel Priority Adjustment
-            if (BetterWorkTabMod.Settings.enableScrollWheelPriority && Event.current.type == EventType.ScrollWheel && Mouse.IsOver(rect))
+            if ((BetterWorkTabMod.Settings?.enableScrollWheelPriority ?? false) &&
+                Event.current.type == EventType.ScrollWheel &&
+                Mouse.IsOver(rect))
             {
             int currentPriority = Better_Work_Tab.PawnCompat.WorkSettings(pawn).GetPriority(workType);
                 int direction = Event.current.delta.y > 0 ? -1 : 1;

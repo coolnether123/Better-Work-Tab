@@ -111,9 +111,9 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             }
 
             Rect labelRect = new Rect(
-                canDrawButton ? buttonRect.xMax + 6f : rect.x + 5f,
+                rect.x + 8f,
                 rect.y,
-                Mathf.Max(0f, rect.xMax - (canDrawButton ? buttonRect.xMax + 10f : rect.x + 10f)),
+                Mathf.Max(0f, rect.width - 16f),
                 RowHeight);
 
             Text.Anchor = TextAnchor.MiddleLeft;

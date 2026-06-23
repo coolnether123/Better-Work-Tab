@@ -75,10 +75,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
         internal static int GetAutoConfiguredMaxPriority()
         {
-            return Clamp(
-                BetterWorkTabMod.Settings?.autoMaxPriorityInt ?? DefaultSettings.autoMaxPriority,
-                PriorityConstants.VanillaMax,
-                PriorityConstants.ExtendedHardMax);
+            return GetBetterWorkTabConfiguredMaxPriority();
         }
 
         internal static int ClampMaxPriority(int value)
@@ -133,7 +130,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                         : maxPriority;
                 }
 
-                return normalized > 1 ? normalized - 1 : normalized;
+                return normalized > PriorityConstants.Disabled ? normalized - 1 : normalized;
             }
 
             if (direction < 0)
@@ -172,33 +169,26 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             BetterWorkTabSettings settings,
             int requestedPriority)
         {
-            if (settings == null || !settings.delegateToExternalPriorityMods)
-            {
-                return CreateVanillaSnapshot(false);
-            }
-
             int autoMaxPriority = GetAutoConfiguredMaxPriority();
             int requiredPriority = ClampMaxPriority(Math.Max(
                 PriorityConstants.VanillaMax,
                 Math.Max(requestedPriority, GetHighestLivePriority())));
 
-            PriorityProviderSnapshot external = FindBestExternalProvider(requiredPriority, autoMaxPriority);
-            if (external != null)
+            if (settings != null && settings.delegateToExternalPriorityMods)
             {
-                return external;
+                PriorityProviderSnapshot external = FindBestExternalProvider(requiredPriority, autoMaxPriority);
+                if (external != null)
+                {
+                    return external;
+                }
+
+                if (GetHighestLivePriority() > PriorityConstants.VanillaMax)
+                {
+                    return CreateObservedExternalSnapshot(Math.Min(GetHighestLivePriority(), autoMaxPriority));
+                }
             }
 
-            if (GetHighestLivePriority() > PriorityConstants.VanillaMax)
-            {
-                return CreateObservedExternalSnapshot(Math.Min(GetHighestLivePriority(), autoMaxPriority));
-            }
-
-            if (requestedPriority > PriorityConstants.VanillaMax)
-            {
-                return CreateBetterWorkTabSnapshot(true, Math.Min(requestedPriority, autoMaxPriority));
-            }
-
-            return CreateVanillaSnapshot(false);
+            return CreateBetterWorkTabSnapshot(true, autoMaxPriority);
         }
 
         private static PriorityProviderSnapshot ResolveSelectedExternalProvider(
