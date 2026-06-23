@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <LanguageData>
-<BWTNotAssignedDoOnce>Not assigned to {0}. Do once</BWTNotAssignedDoOnce>
-<BWTNotAssignedAssignWork>Not assigned to {0}. Open work tab</BWTNotAssignedAssignWork>
-<BWTManageWorkGivers>Not assigned to {0}. Open {0} sub-work jobs</BWTManageWorkGivers>
+<BWTNotAssignedDoOnce>{0} Once</BWTNotAssignedDoOnce>
+<BWTNotAssignedAssignWork>Open {0} in Work tab</BWTNotAssignedAssignWork>
+<BWTManageWorkGivers>Open {0} sub-work ({1})</BWTManageWorkGivers>
 <BWT_PriorityOneDoneFirstExtended>Priority 1 is done first.&#10;Priority {0} is done last.</BWT_PriorityOneDoneFirstExtended>
 
 <BWT_SubWork_FixBrokenDownBuilding>Fix breakdowns</BWT_SubWork_FixBrokenDownBuilding>
