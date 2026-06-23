@@ -161,11 +161,14 @@ namespace Better_Work_Tab.UI
                     Time.deltaTime
                 );
 
-                if (evt.type == EventType.MouseUp)
+                if (ShouldEndLeftDrag(evt))
                 {
                     _clickGate.ClearIfTracking(session?.DraggedItem);
                     FinalizeDrop();
-                    evt.Use();
+                    if (evt.type == EventType.MouseUp)
+                    {
+                        evt.Use();
+                    }
                 }
 
                 return;
@@ -233,6 +236,18 @@ namespace Better_Work_Tab.UI
                     _pendingDragItem = null;
                     break;
             }
+        }
+
+        private static bool ShouldEndLeftDrag(Event evt)
+        {
+            if (evt == null)
+            {
+                return false;
+            }
+
+            return evt.type == EventType.MouseUp ||
+                   evt.rawType == EventType.MouseUp ||
+                   !UnityEngine.Input.GetMouseButton(0);
         }
 
         private void DrawDragOverlay()
