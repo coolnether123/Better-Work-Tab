@@ -14,65 +14,45 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
     {
         public static bool Prefix(Pawn pawn, WorkGiver giver, ref bool __result)
         {
-            if (giver?.def == null)
+            if (WorkGiverAvailability.ShouldForceAllowBeforeVanilla(pawn, giver, out bool canUse))
             {
-                return true;
+                __result = canUse;
+                return false;
             }
 
-            var mappedWorkType = WorkGiverReassignmentManager.GetTargetWorkType(giver.def);
-            if (mappedWorkType == null)
+            return true;
+        }
+
+        public static void Postfix(Pawn pawn, WorkGiver giver, ref bool __result)
+        {
+            if (__result && !WorkGiverAvailability.ShouldAllowForPawn(giver?.def, pawn))
             {
-                return true;
+                __result = false;
             }
-
-            int workTypePriority = WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, mappedWorkType);
-            int wgPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, giver.def, workTypePriority);
-            wgPriority = TimePriorityService.GetEffectiveWorkGiverPriority(pawn, mappedWorkType, giver.def, wgPriority);
-            bool parentWorkActive = workTypePriority > WorkPrioritySystem.DisabledPriority;
-            bool lockedSubWorkCanRun = !parentWorkActive &&
-                                       WorkGiverReassignmentManager.LockedPawnOverrideCanRunWhenParentDisabled(pawn, giver.def, mappedWorkType);
-
-            __result =
-                (giver.def.nonColonistsCanDo || pawn.IsColonist || pawn.IsColonyMech || pawn.IsColonySubhuman) &&
-                !pawn.WorkTagIsDisabled(giver.def.workTags) &&
-                !pawn.WorkTypeIsDisabled(mappedWorkType) &&
-                (parentWorkActive || lockedSubWorkCanRun) &&
-                wgPriority > 0 &&
-                !giver.ShouldSkip(pawn) &&
-                giver.MissingRequiredCapacity(pawn) == null &&
-                (!pawn.RaceProps.IsMechanoid || giver.def.canBeDoneByMechs);
-
-            return false;
         }
     }
 
     [HarmonyPatch(typeof(WorkGiver_Scanner), nameof(WorkGiver_Scanner.HasJobOnThing))]
     internal static class Patch_WorkGiver_Scanner_HasJobOnThing
     {
-        public static bool Prefix(WorkGiver_Scanner __instance, Pawn pawn, Thing t, bool forced, ref bool __result)
+        public static void Postfix(WorkGiver_Scanner __instance, Pawn pawn, Thing t, bool forced, ref bool __result)
         {
-            if (!WorkGiverScannerExtensions.ShouldAllowForPawn(__instance, pawn, forced))
+            if (__result && !WorkGiverScannerExtensions.ShouldAllowForPawn(__instance, pawn, forced))
             {
                 __result = false;
-                return false;
             }
-
-            return true;
         }
     }
 
     [HarmonyPatch(typeof(WorkGiver_Scanner), nameof(WorkGiver_Scanner.HasJobOnCell))]
     internal static class Patch_WorkGiver_Scanner_HasJobOnCell
     {
-        public static bool Prefix(WorkGiver_Scanner __instance, Pawn pawn, IntVec3 c, bool forced, ref bool __result)
+        public static void Postfix(WorkGiver_Scanner __instance, Pawn pawn, IntVec3 c, bool forced, ref bool __result)
         {
-            if (!WorkGiverScannerExtensions.ShouldAllowForPawn(__instance, pawn, forced))
+            if (__result && !WorkGiverScannerExtensions.ShouldAllowForPawn(__instance, pawn, forced))
             {
                 __result = false;
-                return false;
             }
-
-            return true;
         }
     }
 
@@ -100,14 +80,49 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
     {
         internal static bool ShouldAllowForPawn(WorkGiver_Scanner scanner, Pawn pawn, bool forced = false)
         {
+            return WorkGiverAvailability.ShouldAllowForPawn(scanner?.def, pawn, forced);
+        }
+    }
+
+    internal static class WorkGiverAvailability
+    {
+        internal static bool ShouldForceAllowBeforeVanilla(Pawn pawn, WorkGiver giver, out bool canUse)
+        {
+            canUse = false;
+            if (giver?.def == null || pawn?.workSettings == null)
+            {
+                return false;
+            }
+
+            WorkTypeDef mappedWorkType = WorkGiverReassignmentManager.GetTargetWorkType(giver.def);
+            if (mappedWorkType == null)
+            {
+                return false;
+            }
+
+            bool reassigned = WorkGiverReassignmentManager.IsReassigned(giver.def);
+            bool lockedDisabledParent =
+                WorkGiverReassignmentManager.LockedPawnOverrideCanRunWhenParentDisabled(pawn, giver.def, mappedWorkType);
+            if (!reassigned && !lockedDisabledParent)
+            {
+                return false;
+            }
+
+            canUse = PassesVanillaStaticEligibilityForMappedWorkType(pawn, giver, mappedWorkType) &&
+                     ShouldAllowForPawn(giver.def, pawn);
+            return canUse;
+        }
+
+        internal static bool ShouldAllowForPawn(WorkGiverDef workGiver, Pawn pawn, bool forced = false)
+        {
             if (forced) return true;
 
-            if (scanner?.def == null)
+            if (workGiver == null)
             {
                 return true;
             }
 
-            var mappedWorkType = WorkGiverReassignmentManager.GetTargetWorkType(scanner.def);
+            WorkTypeDef mappedWorkType = WorkGiverReassignmentManager.GetTargetWorkType(workGiver);
             if (mappedWorkType == null)
             {
                 return true;
@@ -124,13 +139,49 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             }
 
             int wtPriority = WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, mappedWorkType);
-            int wgPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, scanner.def, wtPriority);
-            wgPriority = TimePriorityService.GetEffectiveWorkGiverPriority(pawn, mappedWorkType, scanner.def, wgPriority);
+            int wgPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, workGiver, wtPriority);
+            wgPriority = TimePriorityService.GetEffectiveWorkGiverPriority(pawn, mappedWorkType, workGiver, wgPriority);
             bool parentWorkActive = wtPriority > WorkPrioritySystem.DisabledPriority;
             bool lockedSubWorkCanRun = !parentWorkActive &&
-                                       WorkGiverReassignmentManager.LockedPawnOverrideCanRunWhenParentDisabled(pawn, scanner.def, mappedWorkType);
+                                       WorkGiverReassignmentManager.LockedPawnOverrideCanRunWhenParentDisabled(pawn, workGiver, mappedWorkType);
 
             return (parentWorkActive || lockedSubWorkCanRun) && wgPriority > 0;
+        }
+
+        private static bool PassesVanillaStaticEligibilityForMappedWorkType(Pawn pawn, WorkGiver giver, WorkTypeDef mappedWorkType)
+        {
+            WorkGiverDef def = giver?.def;
+            if (pawn == null || def == null)
+            {
+                return false;
+            }
+
+            if (!def.nonColonistsCanDo && !pawn.IsColonist && !pawn.IsColonyMech && !pawn.IsColonySubhuman)
+            {
+                return false;
+            }
+
+            if (pawn.WorkTagIsDisabled(def.workTags))
+            {
+                return false;
+            }
+
+            if (mappedWorkType != null && pawn.WorkTypeIsDisabled(mappedWorkType))
+            {
+                return false;
+            }
+
+            if (giver.ShouldSkip(pawn))
+            {
+                return false;
+            }
+
+            if (giver.MissingRequiredCapacity(pawn) != null)
+            {
+                return false;
+            }
+
+            return !pawn.RaceProps.IsMechanoid || def.canBeDoneByMechs;
         }
     }
 }
