@@ -224,7 +224,9 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
             if (!IsDragging) return;
 
             // If mouse is released outside drop zone, cancel drag
-            if (Event.current != null && Event.current.rawType == EventType.MouseUp)
+            Event evt = Event.current;
+            if ((evt != null && (evt.rawType == EventType.MouseUp || evt.type == EventType.MouseUp)) ||
+                !UnityEngine.Input.GetMouseButton(0))
             {
                 EndDrag();
             }
