@@ -20,8 +20,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         private static readonly Dictionary<PawnColumnDef, int> VisibleColumnSlots = new Dictionary<PawnColumnDef, int>();
         private static readonly Dictionary<WorkTypeDef, int> VisibleWorkTypeSlots = new Dictionary<WorkTypeDef, int>();
         private static readonly HashSet<WorkGiverDef> MovedFromBaseline = new HashSet<WorkGiverDef>();
-        private static readonly Dictionary<WorkGiverDef, int> BaselineIndexByDef = new Dictionary<WorkGiverDef, int>();
-        private static readonly List<WorkGiverDef> BaselineWorkGivers = new List<WorkGiverDef>();
         private static WorkTypeDef _activeWorkType;
         private static string _cachedWorkTypeDefName;
         private static int _cachedSyncVersion = -1;
@@ -334,34 +332,16 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         private static void RebuildMovedBaselineCache()
         {
             MovedFromBaseline.Clear();
-            BaselineIndexByDef.Clear();
-            BaselineWorkGivers.Clear();
 
             if (_activeWorkType == null)
             {
                 return;
             }
 
-            var allDefs = DefDatabase<WorkGiverDef>.AllDefsListForReading;
-            for (int i = 0; i < allDefs.Count; i++)
-            {
-                var def = allDefs[i];
-                if (WorkGiverReassignmentManager.GetTargetWorkType(def) == _activeWorkType)
-                {
-                    BaselineWorkGivers.Add(def);
-                }
-            }
-
-            BaselineWorkGivers.Sort((a, b) => b.priorityInType.CompareTo(a.priorityInType));
-            for (int i = 0; i < BaselineWorkGivers.Count; i++)
-            {
-                BaselineIndexByDef[BaselineWorkGivers[i]] = i;
-            }
-
             for (int i = 0; i < ActiveWorkGiversBuffer.Count; i++)
             {
                 var def = ActiveWorkGiversBuffer[i]?.def;
-                if (def != null && BaselineIndexByDef.TryGetValue(def, out int baselineIndex) && baselineIndex != i)
+                if (def != null && WorkGiverReassignmentManager.ShouldShowMovedWorkGiverMarker(_activeWorkType, def))
                 {
                     MovedFromBaseline.Add(def);
                 }
