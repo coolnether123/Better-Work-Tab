@@ -46,6 +46,12 @@ namespace Better_Work_Tab.Features.Dividers
                 return;
             }
 
+            if (!AnimationsEnabled)
+            {
+                Active.Remove(divider);
+                return;
+            }
+
             Active[divider] = new Animation(revealUp, Time.realtimeSinceStartup);
             _version++;
         }
@@ -55,6 +61,13 @@ namespace Better_Work_Tab.Features.Dividers
             if (Active.Count == 0)
             {
                 return false;
+            }
+
+            if (!AnimationsEnabled)
+            {
+                Active.Clear();
+                _version++;
+                return true;
             }
 
             bool removed = false;
@@ -78,7 +91,9 @@ namespace Better_Work_Tab.Features.Dividers
                 _version++;
             }
 
-            return removed;
+            // Newly inserted dividers reveal over several frames. Keep row
+            // descriptors and PawnTable cached size synchronized during the reveal.
+            return true;
         }
 
         internal static bool TryGetHeightMultiplier(PawnDivider divider, out float multiplier)
@@ -109,6 +124,9 @@ namespace Better_Work_Tab.Features.Dividers
         {
             return Mathf.Clamp01((Time.realtimeSinceStartup - animation.StartedAt) / AnimationSeconds);
         }
+
+        private static bool AnimationsEnabled =>
+            BetterWorkTabMod.Settings?.enableDividerAnimations ?? DefaultSettings.enableDividerAnimations;
 
         private readonly struct Animation
         {

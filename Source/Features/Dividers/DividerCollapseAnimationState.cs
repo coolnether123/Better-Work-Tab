@@ -46,6 +46,12 @@ namespace Better_Work_Tab.Features.Dividers
                 return;
             }
 
+            if (!AnimationsEnabled)
+            {
+                Active.Remove(divider);
+                return;
+            }
+
             Active[divider] = new Animation(collapsing, Time.realtimeSinceStartup);
             _version++;
         }
@@ -55,6 +61,13 @@ namespace Better_Work_Tab.Features.Dividers
             if (Active.Count == 0)
             {
                 return false;
+            }
+
+            if (!AnimationsEnabled)
+            {
+                Active.Clear();
+                _version++;
+                return true;
             }
 
             bool removed = false;
@@ -78,7 +91,10 @@ namespace Better_Work_Tab.Features.Dividers
                 _version++;
             }
 
-            return removed;
+            // Active collapse/expand animations change row heights every repaint.
+            // The layout and PawnTable cached size must follow those frames instead
+            // of waiting until the animation expires, or the Work tab jumps/flickers.
+            return true;
         }
 
         internal static bool ShouldRenderCollapsedSection(PawnDivider divider)
@@ -108,6 +124,9 @@ namespace Better_Work_Tab.Features.Dividers
         {
             return Mathf.Clamp01((Time.realtimeSinceStartup - animation.StartedAt) / AnimationSeconds);
         }
+
+        private static bool AnimationsEnabled =>
+            BetterWorkTabMod.Settings?.enableDividerAnimations ?? DefaultSettings.enableDividerAnimations;
 
         private readonly struct Animation
         {

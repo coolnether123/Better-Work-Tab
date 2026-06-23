@@ -364,6 +364,17 @@ namespace Better_Work_Tab.UI.Settings
 
             Register(new SettingDefinition
             {
+                Id = FeaturesClicks,
+                Label = "Clicks & Shortcuts",
+                Type = SettingType.Header,
+                Tooltip = "Mouse and shortcut behavior for the Work tab.",
+                HeaderColor = new Color(0.7f, 0.75f, 0.9f),
+                ShowInSimpleView = true,
+                SortOrder = -41
+            });
+
+            Register(new SettingDefinition
+            {
                 Id = PriorityHeader,
                 ParentId = FeaturesUiElements,
                 Label = "Priority Range",
@@ -1191,12 +1202,27 @@ namespace Better_Work_Tab.UI.Settings
 
             Register(new SettingDefinition
             {
+                Id = DividersAnimations,
+                FieldName = "enableDividerAnimations",
+                Label = "Animate Divider Changes",
+                Tooltip = "Smoothly grows and collapses divider sections and newly inserted dividers. Disable this if another mod causes table resize flicker.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.enableDividerAnimations,
+                OnChanged = _ => MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged(),
+                ShowInSimpleView = true,
+                ShowInAdvancedView = true,
+                SortOrder = 113,
+                ParentId = FeaturesDividers
+            });
+
+            Register(new SettingDefinition
+            {
                 Id = "dividers.resetHeight",
                 Label = "Reset All Dividers Height",
                 Tooltip = "Reset the height of all dividers to the default value.",
                 Type = SettingType.Button,
                 ShowInSimpleView = true,
-                SortOrder = 113,
+                SortOrder = 114,
                 ParentId = FeaturesDividers,
                 OnChanged = settingsObj =>
                 {
@@ -1549,6 +1575,25 @@ namespace Better_Work_Tab.UI.Settings
 
             Register(new SettingDefinition
             {
+                Id = LayoutWorkTabTopSpace,
+                ParentId = AdvancedHeader,
+                FieldName = "workTabTopSpace",
+                Label = "Work Tab Top Space",
+                Tooltip = "Controls the empty vertical space above the work headers, between the priority direction hint and the top of the header labels. 40px matches RimWorld's default.",
+                Type = SettingType.Float,
+                DefaultValue = DefaultSettings.workTabTopSpace,
+                MinValue = 0f,
+                MaxValue = 80f,
+                MinLabel = "Tight",
+                MaxLabel = "Tall",
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 402,
+                OnChanged = _ => MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged()
+            });
+
+            Register(new SettingDefinition
+            {
                 Id = AdvancedHideSettingResetIcons,
                 ParentId = AdvancedHeader,
                 FieldName = nameof(BetterWorkTabSettings.hideSettingResetIcons),
@@ -1558,7 +1603,7 @@ namespace Better_Work_Tab.UI.Settings
                 DefaultValue = DefaultSettings.hideSettingResetIcons,
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
-                SortOrder = 402
+                SortOrder = 403
             });
 
             // Auto-assign settings
@@ -1748,15 +1793,15 @@ namespace Better_Work_Tab.UI.Settings
             Register(new SettingDefinition
             {
                 Id = AdvancedScrollWheelPriority,
-                ParentId = AdvancedHeader,
+                ParentId = FeaturesClicks,
                 FieldName = "enableScrollWheelPriority",
-                Label = "Enable Scroll Wheel Priority",
-                Tooltip = "Allows you to change a pawn's work priority by scrolling the mouse wheel while hovering over a work cell.",
+                Label = "Scroll Wheel Priority",
+                Tooltip = "Change priorities by hovering a work priority cell and scrolling. Applies to normal work cells, sub-work cells, and time-priority cells.",
                 Type = SettingType.Bool,
-                DefaultValue = false,
-                ShowInSimpleView = false,
+                DefaultValue = DefaultSettings.enableScrollWheelPriority,
+                ShowInSimpleView = true,
                 ShowInAdvancedView = true,
-                SortOrder = 490
+                SortOrder = 25
             });
 
             // Master toggle for debug logging. When false, no BWT debug messages (except errors) will fire.

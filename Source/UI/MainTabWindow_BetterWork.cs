@@ -70,6 +70,12 @@ namespace Better_Work_Tab.UI
         private const float InfoIconSize = 24f;
         private const float MinWorkTabHeight = 200f;
 
+        protected override float ExtraTopSpace =>
+            Mathf.Clamp(
+                BetterWorkTabMod.Settings?.workTabTopSpace ?? DefaultSettings.workTabTopSpace,
+                0f,
+                80f);
+
         private PawnColumnDef _lastSortColumn;
         private bool _lastSortDescending;
         private bool _pendingSubWorkGesture;

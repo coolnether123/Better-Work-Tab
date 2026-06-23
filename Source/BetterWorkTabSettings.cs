@@ -53,6 +53,7 @@ namespace Better_Work_Tab
         }
 
         public static float workTabMaxHeight = -1f; // -1 = use vanilla default (fill screen)
+        public static float workTabTopSpace = 40f; // Vanilla MainTabWindow_Work.ExtraTopSpace
 
         public static bool enableSkillOverlayFeature = true;
         public static bool enableAutoAssignFeature = true;
@@ -112,6 +113,7 @@ namespace Better_Work_Tab
         public static bool allowCustomDividerColors = true;
         public static bool showDividerLabels = true;
         public static bool allowDividerCollapse = true;
+        public static bool enableDividerAnimations = true;
         public static bool enableRowColumnHighlights = true;
         public static float dividerMinAlpha = 0.35f;
         public static bool showHoverCellOverlay = true;
@@ -345,6 +347,7 @@ namespace Better_Work_Tab
         public bool allowCustomDividerColors = DefaultSettings.allowCustomDividerColors;
         public bool showDividerLabels = DefaultSettings.showDividerLabels;
         public bool allowDividerCollapse = DefaultSettings.allowDividerCollapse;
+        public bool enableDividerAnimations = DefaultSettings.enableDividerAnimations;
         public bool hideWorkloadButton = DefaultSettings.hideWorkloadButton;
         public bool hideAutoAssignButton = DefaultSettings.hideAutoAssignButton;
         public bool persistColumnOrder = DefaultSettings.persistColumnOrder;
@@ -557,6 +560,7 @@ namespace Better_Work_Tab
 
 
         public float workTabMaxHeight = DefaultSettings.workTabMaxHeight;
+        public float workTabTopSpace = DefaultSettings.workTabTopSpace;
 
         public enum RulesetViewMode
         {
@@ -791,6 +795,7 @@ namespace Better_Work_Tab
         public override void ExposeData()
         {
             Scribe_Values.Look(ref workTabMaxHeight, "workTabMaxHeight", DefaultSettings.workTabMaxHeight);
+            Scribe_Values.Look(ref workTabTopSpace, "workTabTopSpace", DefaultSettings.workTabTopSpace);
 
 
             // Core feature toggles
@@ -847,6 +852,7 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref allowCustomDividerColors, "allowCustomDividerColors", DefaultSettings.allowCustomDividerColors);
             Scribe_Values.Look(ref showDividerLabels, "showDividerLabels", DefaultSettings.showDividerLabels);
             Scribe_Values.Look(ref allowDividerCollapse, "allowDividerCollapse", DefaultSettings.allowDividerCollapse);
+            Scribe_Values.Look(ref enableDividerAnimations, "enableDividerAnimations", DefaultSettings.enableDividerAnimations);
             Scribe_Values.Look(ref showOnlyLineDragIndicatorRows, "showOnlyLineDragIndicatorRows", true);
             Scribe_Values.Look(ref showOnlyLineDragIndicatorColumns, "showOnlyLineDragIndicatorColumns", true);
             Scribe_Values.Look(ref showGhostDragIndicator, "showGhostDragIndicator", false);
@@ -872,7 +878,7 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref warnOnApplyRuleset, "warnOnApplyRuleset", true);
             Scribe_Values.Look(ref warnOnApplyWorkload, "warnOnApplyWorkload", true);
             Scribe_Values.Look(ref removeHeaderUnderline, "removeHeaderUnderline", false);
-            Scribe_Values.Look(ref enableScrollWheelPriority, "enableScrollWheelPriority", false);
+            Scribe_Values.Look(ref enableScrollWheelPriority, "enableScrollWheelPriority", DefaultSettings.enableScrollWheelPriority);
             Scribe_Values.Look(ref enableAngledHeaders, "enableAngledHeaders", DefaultSettings.enableAngledHeaders);
             Scribe_Values.Look(ref angledHeaderRotation, "angledHeaderRotation", (int)DefaultSettings.angledHeaderRotation);
             Scribe_Values.Look(ref angledHeaderHorizontalOffset, "angledHeaderHorizontalOffset", DefaultSettings.angledHeaderHorizontalOffset);
@@ -1004,6 +1010,7 @@ namespace Better_Work_Tab
             ApplyRegisteredDefaults();
 
             workTabMaxHeight = DefaultSettings.workTabMaxHeight;
+            workTabTopSpace = DefaultSettings.workTabTopSpace;
             settingsViewMode = SettingsViewMode.Simple;
             workColumnOrderDefNames.Clear();
             storedColumnWidths.Clear();

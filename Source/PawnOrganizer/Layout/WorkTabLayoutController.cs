@@ -390,8 +390,7 @@ namespace Better_Work_Tab.PawnOrganizer
                 var row = _rows[i];
                 if (row.Divider != null)
                 {
-                    float height = Mathf.Clamp(row.Divider.Height, 10f, 80f);
-                    descriptors.Add(new RowDescriptor(row.Divider, height));
+                    descriptors.Add(new RowDescriptor(row.Divider, Mathf.Max(0f, row.Height)));
                 }
                 else if (row.Pawn != null)
                 {
@@ -1305,7 +1304,7 @@ namespace Better_Work_Tab.PawnOrganizer
 
                 if (element is PawnElement pawnElement)
                 {
-                    height = PawnRowHeight * currentSectionMultiplier;
+                    height = GetCachedPawnRowHeight(pawnElement.Pawn, pawnHeights) * currentSectionMultiplier;
                 }
                 else if (element is DividerElement dividerElement)
                 {
@@ -1331,6 +1330,19 @@ namespace Better_Work_Tab.PawnOrganizer
                 _rows.Add(new WorkTabLayoutRow(element, _contentHeight, height, i));
                 _contentHeight += height;
             }
+        }
+
+        private static float GetCachedPawnRowHeight(Pawn pawn, Dictionary<Pawn, float> pawnHeights)
+        {
+            if (pawn != null &&
+                pawnHeights != null &&
+                pawnHeights.TryGetValue(pawn, out float cachedHeight) &&
+                cachedHeight > 0f)
+            {
+                return cachedHeight;
+            }
+
+            return PawnRowHeight;
         }
 
         private Dictionary<Pawn, float> CachePawnRowHeights()

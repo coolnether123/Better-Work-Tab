@@ -26,6 +26,7 @@ namespace Better_Work_Tab.UI.Settings
         public const string ColumnsShowBaselineLine = "columns.showBaselineLine";
         public const string DividersCollapse = "dividers.collapse";
         public const string DividersCustomColors = "dividers.customColors";
+        public const string DividersAnimations = "dividers.animations";
         public const string DividersLabels = "dividers.labels";
         public const string DividersShow = "dividers.show";
         public const string DragdropVisualHeader = "dragdrop.visual.header";
@@ -69,6 +70,7 @@ namespace Better_Work_Tab.UI.Settings
         public const string LayoutDragThreshold = "layout.dragThreshold";
         public const string LayoutDragHoverDelay = "layout.dragHoverDelay";
         public const string LayoutWorkTabMaxHeight = "layout.workTabMaxHeight";
+        public const string LayoutWorkTabTopSpace = "layout.workTabTopSpace";
         public const string LayoutPawnCount = "layout.pawnCount";
         public const string LayoutResetColumns = "layout.resetColumns";
         public const string MpConflictMode = "mp.conflictMode";
