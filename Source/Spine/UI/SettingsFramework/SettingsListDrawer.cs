@@ -14,11 +14,15 @@ namespace Spine.UI.SettingsFramework
     {
         private const float ResetIconSlotWidth = 26f;
         private const float ResetButtonSize = 20f;
+        private const float FooterHeight = 34f;
+        private const float ToolbarGap = 8f;
 
         private readonly SettingsHierarchy _hierarchy;
         private Vector2 _scrollPosition;
         private string _searchQuery = string.Empty;
         private readonly QuickSearchWidget _searchWidget = new QuickSearchWidget();
+        private SettingsFilterDefinition _activeFilter;
+        private TransferMode _transferMode = TransferMode.None;
 
         /// <summary>
         /// Gets or sets the current scroll position. Used for preserving scroll state across drawer recreations.
@@ -80,6 +84,26 @@ namespace Spine.UI.SettingsFramework
         public string ResetToDefaultLabel { get; set; } = "Reset to default";
 
         /// <summary>
+        /// Optional filters shown by the toolbar filter button.
+        /// </summary>
+        public IReadOnlyList<SettingsFilterDefinition> Filters { get; set; } = Array.Empty<SettingsFilterDefinition>();
+
+        /// <summary>
+        /// Toolbar label shown when no filter is active.
+        /// </summary>
+        public string FilterLabel { get; set; } = "Filter";
+
+        /// <summary>
+        /// Menu label that clears the active filter.
+        /// </summary>
+        public string AllSettingsFilterLabel { get; set; } = "All settings";
+
+        /// <summary>
+        /// Optional import/export footer actions.
+        /// </summary>
+        public SettingsImportExportActions ImportExportActions { get; set; }
+
+        /// <summary>
         /// Creates a new drawer for a hierarchy.
         /// </summary>
         public SettingsListDrawer(SettingsHierarchy hierarchy)
@@ -106,19 +130,69 @@ namespace Spine.UI.SettingsFramework
             DrawHeader(headerRect, ref viewMode);
 
             float listStartY = headerRect.yMax + 10f;
-            Rect listRect = new Rect(rect.x, listStartY, rect.width, rect.height - (listStartY - rect.y));
+            bool drawFooter = ImportExportActions?.HasAnyAction ?? false;
+            float footerSpace = drawFooter ? FooterHeight + 8f : 0f;
+            Rect listRect = new Rect(rect.x, listStartY, rect.width, rect.height - (listStartY - rect.y) - footerSpace);
             DrawSettingsList(listRect, settingsObject, viewMode, onSettingsChanged);
+
+            if (drawFooter)
+            {
+                Rect footerRect = new Rect(rect.x, rect.yMax - FooterHeight, rect.width, FooterHeight);
+                DrawImportExportFooter(footerRect);
+            }
         }
 
         private void DrawHeader(Rect rect, ref SettingsViewMode viewMode)
         {
-            Rect searchRect = new Rect(rect.x, rect.y, rect.width * 0.55f, rect.height);
+            bool hasFilters = Filters != null && Filters.Count > 0;
+            float toggleWidth = 200f;
+            float filterWidth = hasFilters ? 150f : 0f;
+            float searchWidth = Mathf.Max(120f, rect.width - toggleWidth - filterWidth - (hasFilters ? ToolbarGap * 2f : ToolbarGap));
+            Rect searchRect = new Rect(rect.x, rect.y, searchWidth, rect.height);
+            Rect filterRect = new Rect(searchRect.xMax + ToolbarGap, rect.y, filterWidth, rect.height);
             Rect toggleRect = new Rect(rect.xMax - 200f, rect.y, 200f, rect.height);
 
             _searchWidget.OnGUI(searchRect, () => { });
             _searchQuery = _searchWidget.filter.Text ?? string.Empty;
 
+            if (hasFilters)
+            {
+                DrawFilterButton(filterRect);
+            }
+
             DrawViewToggle(toggleRect, ref viewMode);
+        }
+
+        private void DrawFilterButton(Rect rect)
+        {
+            string label = _activeFilter != null ? _activeFilter.Label : FilterLabel;
+            if (!Widgets.ButtonText(rect, label))
+            {
+                if (_activeFilter != null && !string.IsNullOrEmpty(_activeFilter.Tooltip))
+                {
+                    TooltipHandler.TipRegion(rect, _activeFilter.Tooltip);
+                }
+
+                return;
+            }
+
+            var options = new List<FloatMenuOption>
+            {
+                new FloatMenuOption(AllSettingsFilterLabel, () => _activeFilter = null)
+            };
+
+            foreach (var filter in Filters)
+            {
+                if (filter == null)
+                {
+                    continue;
+                }
+
+                var localFilter = filter;
+                options.Add(new FloatMenuOption(localFilter.Label ?? localFilter.Id, () => _activeFilter = localFilter));
+            }
+
+            Find.WindowStack.Add(new FloatMenu(options));
         }
 
         /// <summary>
@@ -423,10 +497,114 @@ namespace Spine.UI.SettingsFramework
                     continue;
                 }
 
+                if (!MatchesActiveFilter(setting, settingsObject))
+                {
+                    continue;
+                }
+
                 visibleSettings.Add(setting);
             }
 
             return visibleSettings;
+        }
+
+        private bool MatchesActiveFilter(SettingDefinition setting, object settingsObject)
+        {
+            if (_activeFilter == null)
+            {
+                return true;
+            }
+
+            if (_activeFilter.Matches(setting, settingsObject))
+            {
+                return true;
+            }
+
+            if (!_activeFilter.IncludeChildrenOfMatches)
+            {
+                return false;
+            }
+
+            var parent = _hierarchy.GetParent(setting);
+            while (parent != null)
+            {
+                if (_activeFilter.Matches(parent, settingsObject))
+                {
+                    return true;
+                }
+
+                parent = _hierarchy.GetParent(parent);
+            }
+
+            return false;
+        }
+
+        private void DrawImportExportFooter(Rect rect)
+        {
+            Widgets.DrawLineHorizontal(rect.x, rect.y, rect.width);
+            Rect contentRect = rect.ContractedBy(2f);
+            contentRect.y += 4f;
+            contentRect.height -= 4f;
+
+            if (_transferMode == TransferMode.None)
+            {
+                float buttonWidth = 110f;
+                Rect exportRect = new Rect(contentRect.x, contentRect.y, buttonWidth, contentRect.height);
+                Rect importRect = new Rect(exportRect.xMax + 6f, contentRect.y, buttonWidth, contentRect.height);
+
+                if (ImportExportActions.ExportToFile != null || ImportExportActions.ExportToClipboard != null)
+                {
+                    if (Widgets.ButtonText(exportRect, ImportExportActions.ExportLabel))
+                    {
+                        _transferMode = TransferMode.Export;
+                    }
+                }
+
+                if (ImportExportActions.ImportFromFile != null || ImportExportActions.ImportFromClipboard != null)
+                {
+                    if (Widgets.ButtonText(importRect, ImportExportActions.ImportLabel))
+                    {
+                        _transferMode = TransferMode.Import;
+                    }
+                }
+
+                return;
+            }
+
+            string prefix = _transferMode == TransferMode.Export
+                ? ImportExportActions.ExportLabel
+                : ImportExportActions.ImportLabel;
+            Rect labelRect = new Rect(contentRect.x, contentRect.y + 5f, 80f, contentRect.height);
+            Widgets.Label(labelRect, prefix + ":");
+
+            float optionWidth = 110f;
+            Rect fileRect = new Rect(labelRect.xMax + 4f, contentRect.y, optionWidth, contentRect.height);
+            Rect clipboardRect = new Rect(fileRect.xMax + 6f, contentRect.y, optionWidth, contentRect.height);
+            Rect cancelRect = new Rect(clipboardRect.xMax + 6f, contentRect.y, optionWidth, contentRect.height);
+
+            Action fileAction = _transferMode == TransferMode.Export
+                ? ImportExportActions.ExportToFile
+                : ImportExportActions.ImportFromFile;
+            Action clipboardAction = _transferMode == TransferMode.Export
+                ? ImportExportActions.ExportToClipboard
+                : ImportExportActions.ImportFromClipboard;
+
+            if (fileAction != null && Widgets.ButtonText(fileRect, ImportExportActions.FileLabel))
+            {
+                _transferMode = TransferMode.None;
+                fileAction();
+            }
+
+            if (clipboardAction != null && Widgets.ButtonText(clipboardRect, ImportExportActions.ClipboardLabel))
+            {
+                _transferMode = TransferMode.None;
+                clipboardAction();
+            }
+
+            if (Widgets.ButtonText(cancelRect, ImportExportActions.CancelLabel))
+            {
+                _transferMode = TransferMode.None;
+            }
         }
 
         private bool TryHandleSearchResultDoubleClick(
@@ -611,6 +789,13 @@ namespace Spine.UI.SettingsFramework
             }
 
             return Equals(a, b);
+        }
+
+        private enum TransferMode
+        {
+            None,
+            Export,
+            Import
         }
     }
 }

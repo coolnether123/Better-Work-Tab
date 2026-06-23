@@ -116,6 +116,7 @@
     <Compile Include="Mod Support\CompatibilityDiagnostics.cs" />
     <Compile Include="Mod Support\ModSupportManager.cs" />
     <Compile Include="Mod Support\ModSupportModuleBase.cs" />
+    <Compile Include="Mod Support\Mods\Chronos Pointer\ChronosPointerSupport.cs" />
     <Compile Include="Mod Support\Mods\Do Once\DoOnceSupport.cs" />
     <Compile Include="Mod Support\Mods\Useful Marks\UsefulMarksSupport.cs" />
     <Compile Include="Mod Support\Mods\Vanilla Skills Expanded\VanillaSkillsExpandedSupport.cs" />
@@ -162,6 +163,8 @@
     <Compile Include="Spine\UI\SettingsFramework\SettingDefinition.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingType.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingsHierarchy.cs" />
+    <Compile Include="Spine\UI\SettingsFramework\SettingsFilterDefinition.cs" />
+    <Compile Include="Spine\UI\SettingsFramework\SettingsImportExportActions.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingWidgets.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingsListDrawer.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingsUIHelpers.cs" />
@@ -187,6 +190,10 @@
     <Compile Include="Spine\UI\Widgets\SpineWidgets.cs" />
     <Compile Include="UI\Dialog_EditDivider.cs" />
     <Compile Include="UI\BetterWorkTabSettingsUI.cs" />
+    <Compile Include="UI\Settings\BWTSettingsFilters.cs" />
+    <Compile Include="UI\Settings\BWTSettingsImportExportActions.cs" />
+    <Compile Include="UI\Settings\BWTSettingsJsonService.cs" />
+    <Compile Include="UI\Settings\Dialog_BWTSettingsJsonPath.cs" />
     <Compile Include="UI\Settings\BWTSettingsRegistry.cs" />
     <Compile Include="UI\Settings\BWTSettingsTranslation.cs" />
     <Compile Include="UI\Settings\SettingIDs.cs" />

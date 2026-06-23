@@ -499,9 +499,53 @@ namespace Better_Work_Tab.UI.Settings
                 Tooltip = "Enable the experimental ctrl-click priority timeline for testing time-based priority editing on work cells.",
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.enableTimePriorityPlannerPrototype,
+                ControlsChildVisibility = true,
                 ShowInSimpleView = true,
                 ShowInAdvancedView = true,
                 SortOrder = 8
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = UiTimePriorityHourDivider,
+                ParentId = UiTimePriorityPlannerPrototype,
+                FieldName = "showTimePriorityHourDivider",
+                Label = "Show time-number divider",
+                Tooltip = "Draw a thin divider line above the hour numbers in the Work tab time-priority editor.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.showTimePriorityHourDivider,
+                ShowInSimpleView = true,
+                ShowInAdvancedView = true,
+                SortOrder = 1
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = UiChronosPointerTimePriority,
+                ParentId = UiTimePriorityPlannerPrototype,
+                FieldName = "enableChronosPointerTimePriorityIntegration",
+                Label = "Chronos Pointer time bar",
+                Tooltip = "When Chronos Pointer is loaded, draw its daylight/current-time bar above the Work tab time-priority hour numbers.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.enableChronosPointerTimePriorityIntegration,
+                ControlsChildVisibility = true,
+                ShowInSimpleView = true,
+                ShowInAdvancedView = true,
+                SortOrder = 2
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = UiChronosPointerTimePriorityIncidents,
+                ParentId = UiChronosPointerTimePriority,
+                FieldName = "chronosPointerTimePriorityIncidentOverlay",
+                Label = "Chronos incident overlay",
+                Tooltip = "Allow Chronos Pointer to draw its incident colors, such as eclipses and auroras, on the Work tab time bar.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.chronosPointerTimePriorityIncidentOverlay,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 1
             });
 
             Register(new SettingDefinition

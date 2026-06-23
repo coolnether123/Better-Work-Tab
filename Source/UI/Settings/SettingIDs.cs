@@ -111,6 +111,9 @@ namespace Better_Work_Tab.UI.Settings
         public const string UiDragInstructions = "ui.dragInstructions";
         public const string UiManualPriorities = "ui.manualPriorities";
         public const string UiTimePriorityPlannerPrototype = "ui.timePriorityPlannerPrototype";
+        public const string UiChronosPointerTimePriority = "ui.chronosPointerTimePriority";
+        public const string UiTimePriorityHourDivider = "ui.timePriorityHourDivider";
+        public const string UiChronosPointerTimePriorityIncidents = "ui.chronosPointerTimePriorityIncidents";
         public const string UiPriorityLegend = "ui.priorityLegend";
         public const string UiMaxPriority = "ui.maxPriority";
         public const string UiPriorityColorPercentageGreen = "ui.priorityColorPercentageGreen";

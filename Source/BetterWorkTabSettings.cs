@@ -109,6 +109,9 @@ namespace Better_Work_Tab
         public static bool showDragInstructions = true;
         public static bool showManualPrioritiesCheckbox = true;
         public static bool enableTimePriorityPlannerPrototype = true;
+        public static bool enableChronosPointerTimePriorityIntegration = true;
+        public static bool showTimePriorityHourDivider = true;
+        public static bool chronosPointerTimePriorityIncidentOverlay = true;
         public static bool showDividers = true;
         public static bool allowCustomDividerColors = true;
         public static bool showDividerLabels = true;
@@ -343,6 +346,9 @@ namespace Better_Work_Tab
         public bool showDragInstructions = DefaultSettings.showDragInstructions;
         public bool showManualPrioritiesCheckbox = DefaultSettings.showManualPrioritiesCheckbox;
         public bool enableTimePriorityPlannerPrototype = DefaultSettings.enableTimePriorityPlannerPrototype;
+        public bool enableChronosPointerTimePriorityIntegration = DefaultSettings.enableChronosPointerTimePriorityIntegration;
+        public bool showTimePriorityHourDivider = DefaultSettings.showTimePriorityHourDivider;
+        public bool chronosPointerTimePriorityIncidentOverlay = DefaultSettings.chronosPointerTimePriorityIncidentOverlay;
         public bool showDividers = DefaultSettings.showDividers;
         public bool allowCustomDividerColors = DefaultSettings.allowCustomDividerColors;
         public bool showDividerLabels = DefaultSettings.showDividerLabels;
@@ -819,6 +825,9 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref enableColumnOrderSaving, "enableColumnOrderSaving", DefaultSettings.enableColumnOrderSaving);
             Scribe_Values.Look(ref enableUIElements, "enableUIElements", DefaultSettings.enableUIElements);
             Scribe_Values.Look(ref enableTimePriorityPlannerPrototype, "enableTimePriorityPlannerPrototype", DefaultSettings.enableTimePriorityPlannerPrototype);
+            Scribe_Values.Look(ref enableChronosPointerTimePriorityIntegration, "enableChronosPointerTimePriorityIntegration", DefaultSettings.enableChronosPointerTimePriorityIntegration);
+            Scribe_Values.Look(ref showTimePriorityHourDivider, "showTimePriorityHourDivider", DefaultSettings.showTimePriorityHourDivider);
+            Scribe_Values.Look(ref chronosPointerTimePriorityIncidentOverlay, "chronosPointerTimePriorityIncidentOverlay", DefaultSettings.chronosPointerTimePriorityIncidentOverlay);
             Scribe_Values.Look(ref enablePerformanceOptimizations, "enablePerformanceOptimizations", DefaultSettings.enablePerformanceOptimizations);
             Scribe_Values.Look(ref enableMultiplayerSync, "enableMultiplayerSync", DefaultSettings.enableMultiplayerSync);
             Scribe_Values.Look(ref hideSettingResetIcons, "hideSettingResetIcons", DefaultSettings.hideSettingResetIcons);

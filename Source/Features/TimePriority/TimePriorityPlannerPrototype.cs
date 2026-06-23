@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.ModSupport;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.PawnOrganizer.Data;
@@ -817,6 +818,19 @@ namespace Better_Work_Tab.Features.TimePriority
             Widgets.DrawBoxSolid(visibleTimelineRect, GUI.color);
             GUI.color = new Color(1f, 1f, 1f, 0.18f * progress);
             Widgets.DrawLineHorizontal(visibleTimelineRect.xMin, visibleTimelineRect.yMax - 1f, visibleTimelineRect.width);
+
+            if (BetterWorkTabMod.Settings?.showTimePriorityHourDivider ??
+                DefaultSettings.showTimePriorityHourDivider)
+            {
+                GUI.color = new Color(0.95f, 0.85f, 0.55f, 0.38f * progress);
+                Widgets.DrawLineHorizontal(visibleTimelineRect.xMin, visibleTimelineRect.yMin + 1f, visibleTimelineRect.width);
+            }
+
+            ChronosPointerSupport.TryDrawTimePriorityTimeline(
+                timelineRect,
+                progress,
+                BetterWorkTabMod.Settings?.chronosPointerTimePriorityIncidentOverlay ??
+                DefaultSettings.chronosPointerTimePriorityIncidentOverlay);
 
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.MiddleCenter;

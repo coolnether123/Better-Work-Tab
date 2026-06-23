@@ -26,6 +26,7 @@ namespace Better_Work_Tab.UI
                 : SettingsViewMode.Advanced;
 
             _drawer.ShowResetIcons = !settings.hideSettingResetIcons;
+            _drawer.ImportExportActions = BWTSettingsImportExportActions.Create(settings, NotifySettingsChanged);
             _drawer.Draw(inRect, settings, ref _viewMode, () => settings.Write());
 
             settings.settingsViewMode = _viewMode == SettingsViewMode.Simple
@@ -62,6 +63,9 @@ namespace Better_Work_Tab.UI
                 AdvancedLabel = BWTSettingsTranslation.Advanced,
                 NoResultsLabel = BWTSettingsTranslation.NoResults,
                 EditColorLabel = BWTSettingsTranslation.Edit,
+                Filters = BWTSettingsFilters.Create(),
+                FilterLabel = "Filter",
+                AllSettingsFilterLabel = "All Settings",
                 IndentPerLevel = 20f,
                 RowHeight = 32f,
                 ScrollPosition = _preservedScrollPosition // Restore scroll position
