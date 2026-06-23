@@ -43,6 +43,8 @@
     <Compile Include="API\IMaxPriorityProvider.cs" />
     <Compile Include="API\PriorityApi.cs" />
     <Compile Include="API\PriorityProviderCapabilities.cs" />
+    <Compile Include="API\TimePriorityApi.cs" />
+    <Compile Include="API\WorkGiverApi.cs" />
     <Compile Include="BetterWorkTab.cs" />
     <Compile Include="BetterWorkTabLocalState.cs" />
     <Compile Include="DragDrop\DragHandler.cs" />
@@ -85,6 +87,7 @@
     <Compile Include="Features\Workloads\GameComponent_BWTWorldSettings.cs" />
     <Compile Include="Features\Testing\GameComponent_BWTModernQuickTestDriver.cs" />
     <Compile Include="Features\Testing\WorkTabGeometryDiagnostics.cs" />
+    <Compile Include="Features\TimePriority\TimePriorityEvaluation.cs" />
     <Compile Include="Features\TimePriority\TimePriorityPlannerPrototype.cs" />
     <Compile Include="Features\TimePriority\TimePriorityScheduleData.cs" />
     <Compile Include="Features\TimePriority\TimePriorityService.cs" />

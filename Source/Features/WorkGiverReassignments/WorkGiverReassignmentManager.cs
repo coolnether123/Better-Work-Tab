@@ -370,7 +370,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 var sortingPawn = pawn;
                 int defaultPrio = pawn == null
                     ? WorkPrioritySystem.GetDefaultEnabledPriority()
-                    : WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, workType);
+                    : WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType);
 
                 var indexed = result.Select((g, idx) => new { g, idx }).ToList();
                 indexed.Sort((a, b) =>
@@ -592,7 +592,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 return false;
             }
 
-            return WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, targetWorkType) > 0;
+            return WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, targetWorkType) > 0;
         }
 
         internal static bool TryGetPawnWorkGiverOverride(Pawn pawn, WorkGiverDef workGiver, out int priority)
@@ -650,6 +650,11 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         internal static int GetExecutionPriorityForWorkType(Pawn pawn, WorkTypeDef workType, int parentPriority)
         {
             parentPriority = WorkPrioritySystem.ClampPriority(parentPriority);
+            if (TimePriorityService.IsWorkTypeDisabledBySchedule(pawn, workType))
+            {
+                return WorkPrioritySystem.DisabledPriority;
+            }
+
             if (parentPriority > WorkPrioritySystem.DisabledPriority ||
                 !LockedSubWorkOverridesDisabledParent() ||
                 !TryGetHighestEnabledPawnOverridePriorityForWorkType(pawn, workType, out int lockedPriority))
@@ -663,6 +668,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         internal static bool LockedPawnOverrideCanRunWhenParentDisabled(Pawn pawn, WorkGiverDef workGiver, WorkTypeDef workType)
         {
             return LockedSubWorkOverridesDisabledParent() &&
+                   !TimePriorityService.IsWorkTypeDisabledBySchedule(pawn, workType) &&
                    TryGetPawnWorkGiverOverride(pawn, workGiver, out int priority) &&
                    priority > WorkPrioritySystem.DisabledPriority &&
                    workType != null &&
@@ -729,7 +735,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         internal static int GetInheritedWorkGiverPriority(Pawn pawn, WorkTypeDef workType, WorkGiverDef workGiver)
         {
-            int defaultPriority = WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, workType);
+            int defaultPriority = WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType);
             if (workGiver == null)
             {
                 return WorkPrioritySystem.ClampPriority(defaultPriority);
@@ -741,7 +747,11 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 globalDict != null &&
                 globalDict.TryGetValue(workGiver.defName, out int globalPriority))
             {
-                return WorkPrioritySystem.ClampPriority(globalPriority);
+                return TimePriorityService.GetEffectiveWorkGiverPriority(
+                    null,
+                    workType,
+                    workGiver,
+                    globalPriority);
             }
 
             return WorkPrioritySystem.ClampPriority(defaultPriority);

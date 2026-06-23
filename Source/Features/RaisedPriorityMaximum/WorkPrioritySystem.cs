@@ -1,4 +1,5 @@
 using System;
+using Better_Work_Tab.Features.TimePriority;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -59,6 +60,12 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             }
 
             return ClampPriority(pawn.workSettings.GetPriority(workType));
+        }
+
+        internal static int GetCurrentPriorityForPawnWorkType(Pawn pawn, WorkTypeDef workType)
+        {
+            int basePriority = GetPriorityForPawnWorkType(pawn, workType);
+            return TimePriorityService.GetEffectiveWorkTypePriority(pawn, workType, basePriority);
         }
 
         internal static void SetPriority(Pawn_WorkSettings workSettings, WorkTypeDef workType, int priority)

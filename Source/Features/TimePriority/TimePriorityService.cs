@@ -70,6 +70,31 @@ namespace Better_Work_Tab.Features.TimePriority
             SetPriorityAtHour(target, hour, priority, fallbackPriority);
         }
 
+        internal static void ClearSchedule(TimePriorityTarget target)
+        {
+            var schedules = GetSchedules(create: false);
+            if (schedules == null)
+            {
+                return;
+            }
+
+            bool changed = false;
+            for (int i = schedules.Count - 1; i >= 0; i--)
+            {
+                TimePriorityScheduleData schedule = schedules[i];
+                if (schedule == null || schedule.Key == target.Key)
+                {
+                    schedules.RemoveAt(i);
+                    changed = true;
+                }
+            }
+
+            if (changed)
+            {
+                NotifyChanged();
+            }
+        }
+
         [SyncMethod]
         public static void SyncSetPriorityAtHour(
             int pawnId,
@@ -107,6 +132,10 @@ namespace Better_Work_Tab.Features.TimePriority
             NotifyChanged();
         }
 
+        internal static bool IsRuntimeEnabled =>
+            BetterWorkTabMod.Settings?.enableTimePriorityPlannerPrototype ??
+            DefaultSettings.enableTimePriorityPlannerPrototype;
+
         internal static bool TryGetDisabledByTime(
             Pawn pawn,
             WorkTypeDef workType,
@@ -116,43 +145,32 @@ namespace Better_Work_Tab.Features.TimePriority
         {
             reason = null;
             disabledTarget = default;
-            if (!IsRuntimeEnabled() || pawn == null || workType == null)
+            if (!IsRuntimeEnabled || pawn == null || workType == null)
             {
                 return false;
             }
 
-            int hour = GetCurrentHour(pawn);
             int baseWorkTypePriority = WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, workType);
-            var workTypeTarget = TimePriorityTarget.ForWorkType(pawn, workType);
-            if (TryGetSchedule(workTypeTarget, out var workTypeSchedule) &&
-                WorkPrioritySystem.ClampPriority(workTypeSchedule.HourlyPriorities[hour]) <= WorkPrioritySystem.DisabledPriority &&
-                baseWorkTypePriority > WorkPrioritySystem.DisabledPriority)
+            TimePriorityEvaluation workTypeEvaluation = EvaluateWorkTypePriority(pawn, workType, baseWorkTypePriority);
+            if (workTypeEvaluation.DisabledBySchedule)
             {
-                disabledTarget = workTypeTarget;
-                reason = "disabled by time priority for " + FormatHour(hour);
+                disabledTarget = workTypeEvaluation.Target;
+                reason = workTypeEvaluation.DisabledReason;
                 return true;
             }
 
             if (workGiver != null)
             {
-                int baseWorkGiverPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, workGiver, baseWorkTypePriority);
-                var pawnTarget = TimePriorityTarget.ForWorkGiver(pawn, workType, workGiver);
-                if (TryGetSchedule(pawnTarget, out var pawnSchedule) &&
-                    WorkPrioritySystem.ClampPriority(pawnSchedule.HourlyPriorities[hour]) <= WorkPrioritySystem.DisabledPriority &&
-                    baseWorkGiverPriority > WorkPrioritySystem.DisabledPriority)
+                int baseWorkGiverPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(
+                    pawn,
+                    workGiver,
+                    workTypeEvaluation.EffectivePriority);
+                TimePriorityEvaluation workGiverEvaluation =
+                    EvaluateWorkGiverPriority(pawn, workType, workGiver, baseWorkGiverPriority);
+                if (workGiverEvaluation.DisabledBySchedule)
                 {
-                    disabledTarget = pawnTarget;
-                    reason = "disabled by time priority for " + FormatHour(hour);
-                    return true;
-                }
-
-                var globalTarget = TimePriorityTarget.ForWorkGiver(null, workType, workGiver);
-                if (TryGetSchedule(globalTarget, out var globalSchedule) &&
-                    WorkPrioritySystem.ClampPriority(globalSchedule.HourlyPriorities[hour]) <= WorkPrioritySystem.DisabledPriority &&
-                    baseWorkGiverPriority > WorkPrioritySystem.DisabledPriority)
-                {
-                    disabledTarget = globalTarget;
-                    reason = "disabled by global time priority for " + FormatHour(hour);
+                    disabledTarget = workGiverEvaluation.Target;
+                    reason = workGiverEvaluation.DisabledReason;
                     return true;
                 }
             }
@@ -160,21 +178,123 @@ namespace Better_Work_Tab.Features.TimePriority
             return false;
         }
 
-        internal static int GetEffectiveWorkTypePriority(Pawn pawn, WorkTypeDef workType, int basePriority)
+        internal static TimePriorityEvaluation EvaluateWorkTypePriority(Pawn pawn, WorkTypeDef workType, int basePriority)
         {
             basePriority = WorkPrioritySystem.ClampPriority(basePriority);
-            if (!IsRuntimeEnabled() || pawn == null || workType == null)
+            TimePriorityTarget target = TimePriorityTarget.ForWorkType(pawn, workType);
+            int hour = GetCurrentHour(pawn);
+            if (!IsRuntimeEnabled || pawn == null || workType == null)
             {
-                return basePriority;
+                return new TimePriorityEvaluation(
+                    target,
+                    hour,
+                    basePriority,
+                    basePriority,
+                    false,
+                    basePriority,
+                    TimePriorityScheduleScopes.None);
             }
 
             if (basePriority <= WorkPrioritySystem.DisabledPriority)
             {
-                return basePriority;
+                bool hasDisabledBaseSchedule = TryGetScheduledPriority(target, hour, out int disabledBaseScheduledPriority);
+                return new TimePriorityEvaluation(
+                    target,
+                    hour,
+                    basePriority,
+                    basePriority,
+                    hasDisabledBaseSchedule,
+                    disabledBaseScheduledPriority,
+                    hasDisabledBaseSchedule ? TimePriorityScheduleScopes.Pawn : TimePriorityScheduleScopes.None);
             }
 
-            var target = TimePriorityTarget.ForWorkType(pawn, workType);
-            return GetPriorityAtCurrentHourIfScheduled(pawn, target, basePriority);
+            if (TryGetScheduledPriority(target, hour, out int scheduledPriority))
+            {
+                return new TimePriorityEvaluation(
+                    target,
+                    hour,
+                    basePriority,
+                    scheduledPriority,
+                    true,
+                    scheduledPriority,
+                    TimePriorityScheduleScopes.Pawn);
+            }
+
+            return new TimePriorityEvaluation(
+                target,
+                hour,
+                basePriority,
+                basePriority,
+                false,
+                basePriority,
+                TimePriorityScheduleScopes.None);
+        }
+
+        internal static int GetEffectiveWorkTypePriority(Pawn pawn, WorkTypeDef workType, int basePriority)
+        {
+            return EvaluateWorkTypePriority(pawn, workType, basePriority).EffectivePriority;
+        }
+
+        internal static bool IsWorkTypeDisabledBySchedule(Pawn pawn, WorkTypeDef workType)
+        {
+            int basePriority = WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, workType);
+            return EvaluateWorkTypePriority(pawn, workType, basePriority).DisabledBySchedule;
+        }
+
+        internal static TimePriorityEvaluation EvaluateWorkGiverPriority(
+            Pawn pawn,
+            WorkTypeDef workType,
+            WorkGiverDef workGiver,
+            int basePriority)
+        {
+            basePriority = WorkPrioritySystem.ClampPriority(basePriority);
+            TimePriorityTarget pawnTarget = TimePriorityTarget.ForWorkGiver(pawn, workType, workGiver);
+            int hour = GetCurrentHour(pawn);
+            if (!IsRuntimeEnabled || workGiver == null)
+            {
+                return new TimePriorityEvaluation(
+                    pawnTarget,
+                    hour,
+                    basePriority,
+                    basePriority,
+                    false,
+                    basePriority,
+                    TimePriorityScheduleScopes.None);
+            }
+
+            if (pawn != null && TryGetScheduledPriority(pawnTarget, hour, out int pawnScheduledPriority))
+            {
+                return new TimePriorityEvaluation(
+                    pawnTarget,
+                    hour,
+                    basePriority,
+                    basePriority > WorkPrioritySystem.DisabledPriority ? pawnScheduledPriority : basePriority,
+                    true,
+                    pawnScheduledPriority,
+                    TimePriorityScheduleScopes.Pawn);
+            }
+
+            TimePriorityTarget globalTarget = TimePriorityTarget.ForWorkGiver(null, workType, workGiver);
+            if (TryGetScheduledPriority(globalTarget, hour, out int globalScheduledPriority))
+            {
+                return new TimePriorityEvaluation(
+                    globalTarget,
+                    hour,
+                    basePriority,
+                    basePriority > WorkPrioritySystem.DisabledPriority ? globalScheduledPriority : basePriority,
+                    true,
+                    globalScheduledPriority,
+                    TimePriorityScheduleScopes.Global);
+            }
+
+            return new TimePriorityEvaluation(
+                pawnTarget,
+                hour,
+                basePriority,
+                basePriority,
+                false,
+                basePriority,
+                TimePriorityScheduleScopes.None);
         }
 
         internal static int GetEffectiveWorkGiverPriority(
@@ -183,28 +303,7 @@ namespace Better_Work_Tab.Features.TimePriority
             WorkGiverDef workGiver,
             int basePriority)
         {
-            basePriority = WorkPrioritySystem.ClampPriority(basePriority);
-            if (!IsRuntimeEnabled() || workGiver == null)
-            {
-                return basePriority;
-            }
-
-            if (basePriority <= WorkPrioritySystem.DisabledPriority)
-            {
-                return basePriority;
-            }
-
-            if (pawn != null)
-            {
-                var pawnTarget = TimePriorityTarget.ForWorkGiver(pawn, workType, workGiver);
-                if (TryGetSchedule(pawnTarget, out _))
-                {
-                    return GetPriorityAtCurrentHourIfScheduled(pawn, pawnTarget, basePriority);
-                }
-            }
-
-            var globalTarget = TimePriorityTarget.ForWorkGiver(null, workType, workGiver);
-            return GetPriorityAtCurrentHourIfScheduled(pawn, globalTarget, basePriority);
+            return EvaluateWorkGiverPriority(pawn, workType, workGiver, basePriority).EffectivePriority;
         }
 
         internal static int GetCurrentHour(Pawn pawn)
@@ -248,15 +347,17 @@ namespace Better_Work_Tab.Features.TimePriority
             CurrentVersion++;
         }
 
-        private static int GetPriorityAtCurrentHourIfScheduled(Pawn pawn, TimePriorityTarget target, int fallbackPriority)
+        internal static bool TryGetScheduledPriority(TimePriorityTarget target, int hour, out int priority)
         {
+            priority = WorkPrioritySystem.DisabledPriority;
             if (!TryGetSchedule(target, out var schedule))
             {
-                return WorkPrioritySystem.ClampPriority(fallbackPriority);
+                return false;
             }
 
-            int hour = GetCurrentHour(pawn);
-            return WorkPrioritySystem.ClampPriority(schedule.HourlyPriorities[hour]);
+            hour = Mathf.Clamp(hour, 0, HoursPerDay - 1);
+            priority = WorkPrioritySystem.ClampPriority(schedule.HourlyPriorities[hour]);
+            return true;
         }
 
         private static TimePriorityScheduleData GetOrCreateSchedule(TimePriorityTarget target, int fallbackPriority)
@@ -357,10 +458,5 @@ namespace Better_Work_Tab.Features.TimePriority
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
         }
 
-        private static bool IsRuntimeEnabled()
-        {
-            return BetterWorkTabMod.Settings?.enableTimePriorityPlannerPrototype ??
-                   DefaultSettings.enableTimePriorityPlannerPrototype;
-        }
     }
 }

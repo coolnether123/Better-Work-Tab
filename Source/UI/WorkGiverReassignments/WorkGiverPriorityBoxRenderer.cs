@@ -1,4 +1,5 @@
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
+using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.UI.Headers.Angled;
 using RimWorld;
@@ -26,10 +27,15 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 return;
             }
 
-            int defaultPriority = WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, workType);
+            int defaultPriority = WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType);
             bool hasPawnOverride = pawn != null &&
                                    WorkGiverReassignmentManager.HasPawnWorkGiverOverride(pawn, wg.def);
-            int workGiverPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, wg.def, defaultPriority);
+            int baseWorkGiverPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, wg.def, defaultPriority);
+            int workGiverPriority = TimePriorityService.GetEffectiveWorkGiverPriority(
+                pawn,
+                workType,
+                wg.def,
+                baseWorkGiverPriority);
 
             if (pawn != null &&
                 !pawn.WorkTypeIsDisabled(workType) &&

@@ -441,8 +441,13 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 return -1f;
             }
 
-            int defaultPriority = Better_Work_Tab.Features.RaisedPriorityMaximum.WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, _activeWorkType);
+            int defaultPriority = Better_Work_Tab.Features.RaisedPriorityMaximum.WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, _activeWorkType);
             int priority = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, workGiverDef, defaultPriority);
+            priority = Better_Work_Tab.Features.TimePriority.TimePriorityService.GetEffectiveWorkGiverPriority(
+                pawn,
+                _activeWorkType,
+                workGiverDef,
+                priority);
             if (priority <= Better_Work_Tab.Features.RaisedPriorityMaximum.WorkPrioritySystem.DisabledPriority)
             {
                 return -1f;

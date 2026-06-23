@@ -87,7 +87,7 @@ namespace Better_Work_Tab.Patches
             }
 
             // Check if work TYPE is disabled (vanilla)
-            if (WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, workType) != WorkPrioritySystem.DisabledPriority ||
+            if (WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType) != WorkPrioritySystem.DisabledPriority ||
                 pawn.WorkTypeIsDisabled(workType))
             {
                 return value;
@@ -151,8 +151,13 @@ namespace Better_Work_Tab.Patches
             var targetWorkType = WorkGiverReassignmentManager.GetTargetWorkType(workGiver);
             if (targetWorkType != null)
             {
-                int parentPriority = WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, targetWorkType);
-                int wgPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, workGiver, parentPriority);
+                int parentPriority = WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, targetWorkType);
+                int baseWorkGiverPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, workGiver, parentPriority);
+                int wgPriority = TimePriorityService.GetEffectiveWorkGiverPriority(
+                    pawn,
+                    targetWorkType,
+                    workGiver,
+                    baseWorkGiverPriority);
                 
                 // If this specific work giver is disabled in BWT, add "Go to Work Giver Sub-Menu" option
                 if (wgPriority == WorkPrioritySystem.DisabledPriority)
