@@ -83,6 +83,17 @@ namespace Better_Work_Tab.Patches
             }
 
             var text = "BWTNotAssignedDoOnce".Translate(workType.gerundLabel);
+            
+            
+            Patch_FloatMenuOptionProvider_WorkGivers_GetWorkGiverOptionFor.AdditionalOptions.Add(
+                       new FloatMenuOption(
+                           "BWTNotAssignedAssignWork".Translate(workType.gerundLabel),
+                           () =>
+                           {
+                               HighlightState.SetWorktypeToHighlight(pawn, workType);
+                               Find.MainTabsRoot.SetCurrentTab(MainButtonDefOf.Work);
+                           },
+                           orderInPriority: -1));
 
             // BWT: Check if specific work giver is disabled (not just the whole work type)
             var targetWorkType = WorkGiverReassignmentManager.GetTargetWorkType(workGiver);
@@ -101,19 +112,11 @@ namespace Better_Work_Tab.Patches
                             {
                                 OpenWorkGiverManagement(pawn, targetWorkType, workGiver);
                             },
-                            orderInPriority: (int)MenuOptionPriority.VeryLow));
+                            orderInPriority: -1));
                 }
             }
 
-            Patch_FloatMenuOptionProvider_WorkGivers_GetWorkGiverOptionFor.AdditionalOptions.Add(
-                new FloatMenuOption(
-                    "BWTNotAssignedAssignWork".Translate(workType.gerundLabel),
-                    () =>
-                    {
-                        HighlightState.SetWorktypeToHighlight(pawn, workType);
-                        Find.MainTabsRoot.SetCurrentTab(MainButtonDefOf.Work);
-                    },
-                    orderInPriority: (int)MenuOptionPriority.VeryLow));
+       
 
             Patch_FloatMenuOptionProvider_WorkGivers_GetWorkGiverOptionFor.AdditionalOptions.Add(value);
 
