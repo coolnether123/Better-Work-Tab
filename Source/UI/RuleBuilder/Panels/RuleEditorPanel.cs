@@ -446,7 +446,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             var rule = state.SelectedRule;
             bool isDefault = state.SelectedRuleset?.IsDefault ?? false;
             int maxPriority = WorkPrioritySystem.GetRequestableMaxPriority();
-            int currentPriority = WorkPrioritySystem.ClampPriority(rule.Parameters.Priority);
+            int currentPriority = WorkPrioritySystem.ClampPriority(rule.Parameters.Priority, maxPriority);
 
             if (_editingRule != rule)
             {
@@ -483,14 +483,15 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             {
                 if (Verse.Widgets.ButtonText(minusRect, "-"))
                 {
-                    newPriority = WorkPrioritySystem.OffsetPriorityNumber(currentPriority, -1);
+                    newPriority = WorkPrioritySystem.ClampPriority(currentPriority - 1, maxPriority);
                 }
 
                 Verse.Widgets.TextFieldNumeric(fieldRect, ref newPriority, ref _priorityBuffer, 0, maxPriority);
+                newPriority = WorkPrioritySystem.ClampPriority(newPriority, maxPriority);
 
                 if (Verse.Widgets.ButtonText(plusRect, "+"))
                 {
-                    newPriority = WorkPrioritySystem.OffsetPriorityNumber(newPriority, 1);
+                    newPriority = WorkPrioritySystem.ClampPriority(newPriority + 1, maxPriority);
                 }
 
                 Event evt = Event.current;
@@ -499,12 +500,12 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
                     (Mouse.IsOver(fieldRect) || Mouse.IsOver(minusRect) || Mouse.IsOver(plusRect)))
                 {
                     int delta = evt.delta.y > 0f ? 1 : -1;
-                    newPriority = WorkPrioritySystem.OffsetPriorityNumber(newPriority, delta);
+                    newPriority = WorkPrioritySystem.ClampPriority(newPriority + delta, maxPriority);
                     _priorityBuffer = newPriority.ToString();
                     evt.Use();
                 }
 
-                newPriority = WorkPrioritySystem.ClampPriority(newPriority);
+                newPriority = WorkPrioritySystem.ClampPriority(newPriority, maxPriority);
                 if (newPriority != currentPriority)
                 {
                     rule.Parameters.Priority = newPriority;
