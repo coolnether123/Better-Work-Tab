@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using Verse;
 
 namespace Better_Work_Tab.ModSupport
@@ -56,10 +57,11 @@ namespace Better_Work_Tab.ModSupport
                     continue;
                 }
 
-                if (ContainsIgnoreCase(mod.Name, "work tab") || ContainsIgnoreCase(mod.PackageId, "worktab"))
+                string modPackageId = GetPackageId(mod);
+                if (ContainsIgnoreCase(mod.Name, "work tab") || ContainsIgnoreCase(modPackageId, "worktab"))
                 {
                     WarningOnce(
-                        $"[Better Work Tab] Possible Work tab UI mod also active: {mod.Name} ({mod.PackageId}). " +
+                        $"[Better Work Tab] Possible Work tab UI mod also active: {mod.Name} ({modPackageId}). " +
                         "If it changes the vanilla Work tab, run only one Work tab replacement at a time.",
                         74239200 + i);
                 }
@@ -82,7 +84,8 @@ namespace Better_Work_Tab.ModSupport
             for (int i = 0; i < mods.Count; i++)
             {
                 ModContentPack mod = mods[i];
-                if (ContainsIgnoreCase(mod.Name, "rimhammer") || ContainsIgnoreCase(mod.PackageId, "rimhammer"))
+                string modPackageId = GetPackageId(mod);
+                if (ContainsIgnoreCase(mod.Name, "rimhammer") || ContainsIgnoreCase(modPackageId, "rimhammer"))
                 {
                     lastRimhammerIndex = i;
                     lastRimhammer = mod;
@@ -95,7 +98,7 @@ namespace Better_Work_Tab.ModSupport
             }
 
             WarningOnce(
-                $"[Better Work Tab] Multiplayer + HugsLib + Rimhammer detected, with BWT loading before {lastRimhammer.Name} ({lastRimhammer.PackageId}). " +
+                $"[Better Work Tab] Multiplayer + HugsLib + Rimhammer detected, with BWT loading before {lastRimhammer.Name} ({GetPackageId(lastRimhammer)}). " +
                 "There is a historical report of this stack locking the host map render during new-colony startup. Put Better Work Tab after the Rimhammer mods and include Player.log if it still reproduces.",
                 74239300);
         }
@@ -106,7 +109,7 @@ namespace Better_Work_Tab.ModSupport
             for (int i = 0; i < mods.Count; i++)
             {
                 ModContentPack mod = mods[i];
-                string activePackageId = mod?.PackageId;
+                string activePackageId = GetPackageId(mod);
                 if (EqualsIgnoreCase(activePackageId, packageId) ||
                     StartsWithIgnoreCase(activePackageId, packageId + "_"))
                 {
@@ -131,7 +134,7 @@ namespace Better_Work_Tab.ModSupport
         {
             for (int i = 0; i < HardConflicts.Length; i++)
             {
-                if (EqualsIgnoreCase(mod.PackageId, HardConflicts[i].PackageId))
+                if (EqualsIgnoreCase(GetPackageId(mod), HardConflicts[i].PackageId))
                 {
                     return true;
                 }
@@ -142,7 +145,38 @@ namespace Better_Work_Tab.ModSupport
 
         private static bool IsBetterWorkTab(ModContentPack mod, ModContentPack betterWorkTab)
         {
-            return ReferenceEquals(mod, betterWorkTab) || EqualsIgnoreCase(mod.PackageId, "coolnether123.betterworktab");
+            return ReferenceEquals(mod, betterWorkTab) || EqualsIgnoreCase(GetPackageId(mod), "coolnether123.betterworktab");
+        }
+
+        private static string GetPackageId(ModContentPack mod)
+        {
+            if (mod == null)
+            {
+                return string.Empty;
+            }
+
+            Type type = mod.GetType();
+            PropertyInfo property = type.GetProperty("PackageId", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (property != null)
+            {
+                object value = property.GetValue(mod, null);
+                if (value is string packageId && !string.IsNullOrEmpty(packageId))
+                {
+                    return packageId;
+                }
+            }
+
+            FieldInfo field = type.GetField("packageId", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (field != null)
+            {
+                object value = field.GetValue(mod);
+                if (value is string packageId && !string.IsNullOrEmpty(packageId))
+                {
+                    return packageId;
+                }
+            }
+
+            return mod.Name ?? string.Empty;
         }
 
         private static int IndexOf(List<ModContentPack> mods, ModContentPack target)
