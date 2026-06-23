@@ -64,7 +64,7 @@ namespace Better_Work_Tab.Features.Patches
 
             float headerHeight = layout.HeaderHeight;
             float pinnedRowsHeight = TimePriorityPlannerPrototype.HeaderPinnedRowsHeight +
-                (SubWorkDrilldownState.IsActive ? SubWorkDrilldownState.GlobalRowHeight : 0f);
+                SubWorkDrilldownState.GlobalRowVisibleHeight;
             float contentHeight = layout.ContentHeight;
             float totalHeight = headerHeight + pinnedRowsHeight + contentHeight;
             float width = __instance.cachedSize.x;

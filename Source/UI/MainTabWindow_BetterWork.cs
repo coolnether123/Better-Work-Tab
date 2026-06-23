@@ -69,6 +69,7 @@ namespace Better_Work_Tab.UI
         private const float RightEdgeMargin = 10f;
         private const float InfoIconSize = 24f;
         private const float MinWorkTabHeight = 200f;
+        private const float MinimumPawnRenderHeight = 30f;
 
         protected override float ExtraTopSpace =>
             Mathf.Clamp(
@@ -245,7 +246,6 @@ namespace Better_Work_Tab.UI
             if (dividerAnimationChanged)
             {
                 PawnOrganizerSystem.Instance?.Layout?.InvalidateRowDescriptors();
-                SetDirty();
             }
 
             SubWorkDrilldownState.TickTransition();
@@ -344,7 +344,7 @@ namespace Better_Work_Tab.UI
 
         private void AnchorWindowBottomForAnimatedPinnedRows()
         {
-            float pinnedRowsHeight = TimePriorityPlannerPrototype.HeaderPinnedRowsHeight;
+            float pinnedRowsHeight = GetPinnedRowsHeight();
             bool shouldAnchor = pinnedRowsHeight > 0.01f || _lastAnimatedPinnedRowsHeight > 0.01f;
             _lastAnimatedPinnedRowsHeight = pinnedRowsHeight;
             if (!shouldAnchor)
@@ -1594,6 +1594,37 @@ namespace Better_Work_Tab.UI
         }
 
         private void DrawPawnRowContent(
+            PawnTable table,
+            RowDescriptor descriptor,
+            IReadOnlyList<WorkTabLayoutColumn> columns,
+            Rect rowRect,
+            int rowIndex)
+        {
+            if (rowRect.height <= 0.5f)
+            {
+                return;
+            }
+
+            if (rowRect.height < MinimumPawnRenderHeight - 0.5f)
+            {
+                GUI.BeginGroup(rowRect);
+                try
+                {
+                    Rect clippedRowRect = new Rect(0f, 0f, rowRect.width, MinimumPawnRenderHeight);
+                    DrawPawnRowContentUnclipped(table, descriptor, columns, clippedRowRect, rowIndex);
+                }
+                finally
+                {
+                    GUI.EndGroup();
+                }
+
+                return;
+            }
+
+            DrawPawnRowContentUnclipped(table, descriptor, columns, rowRect, rowIndex);
+        }
+
+        private void DrawPawnRowContentUnclipped(
             PawnTable table,
             RowDescriptor descriptor,
             IReadOnlyList<WorkTabLayoutColumn> columns,

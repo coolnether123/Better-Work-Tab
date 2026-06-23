@@ -17,7 +17,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
     /// </summary>
     internal static class SubWorkDrilldownBarRenderer
     {
-        internal const float RowHeight = SubWorkDrilldownState.GlobalRowHeight;
+        internal static float RowHeight => SubWorkDrilldownState.GlobalRowVisibleHeight;
 
         internal static void Draw(IWorkTabLayoutController layout)
         {
@@ -26,11 +26,17 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 return;
             }
 
+            float rowHeight = RowHeight;
+            if (rowHeight <= 0.5f)
+            {
+                return;
+            }
+
             Rect rowRect = new Rect(
                 layout.TableOrigin.x,
                 layout.TableOrigin.y + layout.HeaderHeight + TimePriorityPlannerPrototype.HeaderPinnedRowsHeight,
                 Mathf.Max(layout.Table != null ? layout.Table.Size.x - 16f : 0f, 1f),
-                RowHeight);
+                rowHeight);
 
             float alpha = Mathf.Lerp(0.45f, 0.72f, SubWorkDrilldownState.TransitionAlpha);
             Widgets.DrawBoxSolid(rowRect, new Color(0.08f, 0.1f, 0.11f, alpha));
@@ -40,7 +46,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             {
                 var column = layout.Columns[i];
                 float animatedOffset = ColumnReorderAnimationState.GetHeaderOffset(column);
-                Rect cellRect = new Rect(column.HeaderRect.x + animatedOffset, rowRect.y, column.Width, RowHeight);
+                Rect cellRect = new Rect(column.HeaderRect.x + animatedOffset, rowRect.y, column.Width, rowHeight);
 
                 if (column.Column?.Worker is PawnColumnWorker_Label)
                 {
@@ -102,7 +108,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 rect.x + 8f,
                 rect.y,
                 Mathf.Max(0f, rect.width - 16f),
-                RowHeight);
+                rect.height);
 
             Text.Anchor = TextAnchor.MiddleLeft;
             Text.Font = GameFont.Small;
@@ -121,7 +127,12 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
         private static void DrawGlobalPriorityCell(WorkGiver workGiver, Rect cellRect)
         {
-            const float boxSize = 25f;
+            float boxSize = Mathf.Min(SubWorkDrilldownState.GlobalPriorityBoxSize, Mathf.Max(0f, cellRect.height - 4f));
+            if (boxSize <= 6f)
+            {
+                return;
+            }
+
             float x = cellRect.x + (cellRect.width - boxSize) / 2f;
             float y = cellRect.y + (cellRect.height - boxSize) / 2f;
             Rect boxRect = new Rect(x, y, boxSize, boxSize);

@@ -467,6 +467,7 @@ namespace Better_Work_Tab.PawnOrganizer
 
                     _rowDescriptorsDirty = true;
                     _layoutRevision++;
+                    EnsureTableFresh();
                 }
                 catch (Exception ex)
                 {
@@ -794,7 +795,7 @@ namespace Better_Work_Tab.PawnOrganizer
             float height = TimePriorityPlannerPrototype.HeaderPinnedRowsHeight;
             if (SubWorkDrilldownState.IsActive)
             {
-                height += SubWorkDrilldownState.GlobalRowHeight;
+                height += SubWorkDrilldownState.GlobalRowVisibleHeight;
             }
 
             return height;
@@ -1354,11 +1355,12 @@ namespace Better_Work_Tab.PawnOrganizer
             }
 
             var cachedHeights = _table.cachedRowHeights;
+            bool vanillaPawnHeightCache = cachedHeights != null && cachedHeights.Count == _table.cachedPawns.Count;
             for (int i = 0; i < _table.cachedPawns.Count; i++)
             {
-                float height = (cachedHeights != null && i < cachedHeights.Count)
-                    ? cachedHeights[i]
-                    : 30f;
+                float height = vanillaPawnHeightCache
+                    ? Mathf.Max(PawnRowHeight, cachedHeights[i])
+                    : PawnRowHeight;
                 dict[_table.cachedPawns[i]] = height;
             }
 

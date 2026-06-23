@@ -141,6 +141,24 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         private static float HeaderVisibleProgress => _isExiting ? 1f - TransitionEase : TransitionEase;
 
+        internal static float GlobalRowVisibleHeight
+        {
+            get
+            {
+                if (!IsActive)
+                {
+                    return 0f;
+                }
+
+                if (!UseTransitionAnimation || !IsTransitioning)
+                {
+                    return GlobalRowHeight;
+                }
+
+                return GlobalRowHeight * Mathf.Clamp01(HeaderVisibleProgress);
+            }
+        }
+
         internal static bool TryGetHeaderTransitionOffset(PawnColumnDef column, float columnWidth, out float offsetX)
         {
             offsetX = 0f;
@@ -163,7 +181,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         internal static float GetBlankColumnFlashAlpha(PawnColumnDef column)
         {
-            if (!IsTransitioning || column == null || !IsBlankWorkColumnInternal(column))
+            if (!IsTransitioning || column == null)
             {
                 return 0f;
             }

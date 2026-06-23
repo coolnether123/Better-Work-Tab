@@ -496,7 +496,7 @@ namespace Better_Work_Tab.Features.TimePriority
                 layout.TableOrigin.x,
                 layout.TableOrigin.y + layout.HeaderHeight + HeaderPinnedRowsHeight,
                 Mathf.Max(layout.Table.Size.x - 16f, 1f),
-                SubWorkDrilldownState.GlobalRowHeight);
+                SubWorkDrilldownState.GlobalRowVisibleHeight);
             if (!globalRowRect.Contains(mousePosition))
             {
                 return false;
@@ -621,7 +621,7 @@ namespace Better_Work_Tab.Features.TimePriority
                     layout.TableOrigin.x,
                     layout.TableOrigin.y + layout.HeaderHeight + HeaderPinnedRowsHeight,
                     Mathf.Max(layout.Table?.Size.x ?? 1f, 1f),
-                    SubWorkDrilldownState.GlobalRowHeight);
+                    SubWorkDrilldownState.GlobalRowVisibleHeight);
                 rows.Add(new RowDrawInfo(null, globalRowRect));
             }
 
@@ -1153,8 +1153,8 @@ namespace Better_Work_Tab.Features.TimePriority
             Text.WordWrap = false;
 
             Rect labelRect = Text.Font == GameFont.Medium
-                ? rect.ContractedBy(-3f)
-                : new Rect(rect.x, rect.y + 2f, rect.width, rect.height);
+                ? new Rect(rect.x - 3f, rect.y + 3f, rect.width + 6f, rect.height + 3f)
+                : new Rect(rect.x, rect.y + 4f, rect.width, rect.height);
             GUI.color = new Color(0f, 0f, 0f, 0.7f * progress);
             Widgets.Label(new Rect(labelRect.x + 1f, labelRect.y + 1f, labelRect.width, labelRect.height), label);
 
@@ -1186,7 +1186,7 @@ namespace Better_Work_Tab.Features.TimePriority
             float tableTop = layout.TableOrigin.y +
                 layout.HeaderHeight +
                 HeaderPinnedRowsHeight +
-                (SubWorkDrilldownState.IsActive ? SubWorkDrilldownState.GlobalRowHeight : 0f);
+                SubWorkDrilldownState.GlobalRowVisibleHeight;
             float y = _session.SourceBoxRect.yMax + 6f;
             if (y + height > tableBottom)
             {
