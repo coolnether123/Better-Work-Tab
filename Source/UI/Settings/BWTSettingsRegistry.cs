@@ -295,10 +295,11 @@ namespace Better_Work_Tab.UI.Settings
                 ParentId = FeaturesSubWorkJobs,
                 FieldName = "subWorkDisabledParentMode",
                 Label = "Disabled parent behavior",
-                Tooltip = "Controls what happens when a pawn has locked sub-work priorities but the parent work type is turned off. Parent Work Disables Sub-work keeps vanilla behavior; Locked Sub-work Overrides Parent lets locked sub-work jobs still run.",
+                Tooltip = "Controls what happens when a pawn has locked sub-work priorities but the parent work type is turned off. Parent Work Disables Sub-work keeps vanilla behavior; Locked Sub-work Overrides Parent lets locked sub-work jobs still run in singleplayer. Multiplayer always uses Parent Work Disables Sub-work to keep simulation deterministic.",
                 Type = SettingType.Enum,
                 EnumType = typeof(BetterWorkTabSettings.SubWorkDisabledParentMode),
                 DefaultValue = DefaultSettings.subWorkDisabledParentMode,
+                OnChanged = _ => WorkExecutionOrder.MarkAllPawnsWorkGiversDirty(),
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
                 SortOrder = 7

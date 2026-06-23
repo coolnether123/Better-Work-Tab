@@ -163,6 +163,7 @@
     <Compile Include="UI\WorkGiverReassignments\WorkGiverDisplayNameService.cs" />
     <Compile Include="UI\WorkGiverReassignments\WorkGiverBaselineTracker.cs" />
     <Compile Include="UI\WorkGiverReassignments\WorkGiverDragHandler.cs" />
+    <Compile Include="UI\WorkGiverReassignments\PriorityOverrideRing.cs" />
     <Compile Include="UI\WorkGiverReassignments\WorkGiverPriorityBoxRenderer.cs" />
     <Compile Include="Spine\UI\WidgetExtensions\RimworldSettingsWidgets.cs" />
     <Compile Include="UI\Input\GuiMousePosition.cs" />

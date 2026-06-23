@@ -14,10 +14,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
     /// </summary>
     internal static class WorkGiverPriorityBoxRenderer
     {
-        private const float OverrideRingInset = -2f;
-        private const float OverrideInnerInset = 5f;
         private const float OverrideResetAnimationSeconds = 0.35f;
-        private static readonly Color OverrideRingColor = new Color(1f, 0.78f, 0.18f, 1f);
         private static readonly Dictionary<string, float> ResetAnimations = new Dictionary<string, float>(StringComparer.Ordinal);
 
         public static void DrawPriorityBox(WorkGiver wg, WorkTypeDef workType, Pawn pawn, Rect boxRect)
@@ -37,7 +34,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 defaultPriority <= WorkPrioritySystem.DisabledPriority)
             {
                 if (hasPawnOverride &&
-                    BetterWorkTabMod.Settings?.subWorkDisabledParentMode != BetterWorkTabSettings.SubWorkDisabledParentMode.LockedSubWorkOverridesParent)
+                    !WorkGiverReassignmentManager.LockedSubWorkOverridesDisabledParent())
                 {
                     DrawParentDisabledOverrideBox(wg, workType, pawn, boxRect, workGiverPriority);
                     return;
@@ -290,7 +287,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             if (evt == null ||
                 wg?.def == null ||
                 evt.type != EventType.MouseDown ||
-                !Mouse.IsOver(boxRect) ||
+                !Mouse.IsOver(PriorityOverrideRing.RingRect(boxRect)) ||
                 BetterWorkTabLocalState.IsHeaderDragging ||
                 SubWorkDrilldownInput.MatchesGesture(evt))
             {
@@ -303,14 +300,14 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 return;
             }
 
-            if (Mouse.IsOver(GetOverrideRingRect(boxRect)) && !Mouse.IsOver(GetOverrideInnerRect(boxRect)))
+            if (PriorityOverrideRing.MouseOverVisibleRing(boxRect))
             {
                 ClearPawnOverrideWithFeedback(pawn.thingIDNumber, wg.def, boxRect);
                 evt.Use();
                 return;
             }
 
-            if (Mouse.IsOver(GetOverrideInnerRect(boxRect)))
+            if (Mouse.IsOver(PriorityOverrideRing.InnerRect(boxRect)))
             {
                 WorkGiverReassignmentManager.EnableParentWorkTypeSynced(pawn.thingIDNumber, workType.defName);
                 SoundDefOf.Checkbox_TurnedOn.PlayOneShotOnCamera();
@@ -379,7 +376,10 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 return;
             }
 
-            if (!Mouse.IsOver(boxRect))
+            Rect interactiveRect = hasPawnOverride
+                ? PriorityOverrideRing.RingRect(boxRect)
+                : boxRect;
+            if (!Mouse.IsOver(interactiveRect))
             {
                 return;
             }
@@ -394,8 +394,8 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             {
                 if (hasPawnOverride)
                 {
-                    Rect innerRect = GetOverrideInnerRect(boxRect);
-                    if (evt.button == 0 && Mouse.IsOver(GetOverrideRingRect(boxRect)) && !Mouse.IsOver(innerRect))
+                    Rect innerRect = PriorityOverrideRing.InnerRect(boxRect);
+                    if (evt.button == 0 && PriorityOverrideRing.MouseOverVisibleRing(boxRect))
                     {
                         ClearPawnOverrideWithFeedback(pawnId, workGiverDef, boxRect);
                         evt.Use();
@@ -423,7 +423,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
             if ((BetterWorkTabMod.Settings?.enableScrollWheelPriority ?? false) && evt.type == EventType.ScrollWheel)
             {
-                if (hasPawnOverride && !Mouse.IsOver(GetOverrideInnerRect(boxRect)))
+                if (hasPawnOverride && !Mouse.IsOver(PriorityOverrideRing.InnerRect(boxRect)))
                 {
                     evt.Use();
                     return;
@@ -468,25 +468,9 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 : WorkPrioritySystem.GetDefaultEnabledPriority();
         }
 
-        private static Rect GetOverrideRingRect(Rect boxRect)
-        {
-            return boxRect.ContractedBy(OverrideRingInset);
-        }
-
-        private static Rect GetOverrideInnerRect(Rect boxRect)
-        {
-            return boxRect.ContractedBy(OverrideInnerInset);
-        }
-
         private static void DrawOverrideRing(Rect boxRect)
         {
-            Rect ringRect = GetOverrideRingRect(boxRect);
-            Rect innerRect = GetOverrideInnerRect(boxRect);
-            bool ringHovered = Mouse.IsOver(ringRect) && !Mouse.IsOver(innerRect);
-            Color oldColor = GUI.color;
-            GUI.color = ringHovered ? Color.white : OverrideRingColor;
-            Widgets.DrawBox(ringRect, ringHovered ? 3 : 2);
-            GUI.color = oldColor;
+            PriorityOverrideRing.Draw(boxRect);
         }
 
         private static void ClearPawnOverrideWithFeedback(int pawnId, WorkGiverDef workGiverDef, Rect boxRect)
@@ -521,7 +505,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             }
 
             float t = Mathf.Clamp01(age / OverrideResetAnimationSeconds);
-            Rect rect = GetOverrideRingRect(boxRect).ExpandedBy(5f * t);
+            Rect rect = PriorityOverrideRing.RingRect(boxRect).ExpandedBy(5f * t);
             Color oldColor = GUI.color;
             GUI.color = new Color(1f, 1f, 1f, 1f - t);
             Widgets.DrawBox(rect, 2);

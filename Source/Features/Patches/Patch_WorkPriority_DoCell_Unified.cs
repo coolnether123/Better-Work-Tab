@@ -114,9 +114,6 @@ namespace Better_Work_Tab.Patches
         private const float SmallCornerLabelWidth = 18f;
         private const float SmallCornerLabelHeight = 16f;
         private const float SkillBoxOutlinePadding = 2f;
-        private const float SubWorkParentOverrideRingInset = -2f;
-        private const float SubWorkParentOverrideInnerInset = 5f;
-        private static readonly Color SubWorkParentOverrideRingColor = new Color(1f, 0.78f, 0.18f, 1f);
 
         private static void UpdateFrameCache()
         {
@@ -325,16 +322,24 @@ namespace Better_Work_Tab.Patches
             // Draw best pawn outline - this uses the ShowUIMode setting to determine when to show
             // (can be Always, Shifted, Unshifted, or Never)
             DrawBestPawnOutlineIfNeeded(__instance, rect, pawn, table, workType);
-            DrawParentSubWorkOverrideIndicatorIfNeeded(rect, pawn, workType);
 
             if (!_cachedFeatureEnabled || !_cachedShiftHeld)
+            {
+                DrawParentSubWorkOverrideIndicatorIfNeeded(rect, pawn, workType);
                 return;
+            }
 
             if (Patch_WorkPriority_DoHeader_HoverTracker.HoveredHeaderWorkType == workType)
+            {
+                DrawParentSubWorkOverrideIndicatorIfNeeded(rect, pawn, workType);
                 return;
+            }
 
             if (workType.relevantSkills == null || workType.relevantSkills.Count == 0)
+            {
+                DrawParentSubWorkOverrideIndicatorIfNeeded(rect, pawn, workType);
                 return;
+            }
 
             int priority = pawn.workSettings.GetPriority(workType);
             int skillLevel = GetSkillLevel(pawn, workType);
@@ -391,6 +396,8 @@ namespace Better_Work_Tab.Patches
             {
                 DrawSmallPriorityNumber(rect, priority);
             }
+
+            DrawParentSubWorkOverrideIndicatorIfNeeded(rect, pawn, workType);
         }
 
         // Caching helpers
@@ -709,7 +716,7 @@ namespace Better_Work_Tab.Patches
 
         private static bool ShouldShowParentSubWorkOverrideIndicator(Pawn pawn, WorkTypeDef workType)
         {
-            return BetterWorkTabMod.Settings?.subWorkDisabledParentMode == BetterWorkTabSettings.SubWorkDisabledParentMode.LockedSubWorkOverridesParent &&
+            return WorkGiverReassignmentManager.LockedSubWorkOverridesDisabledParent() &&
                    pawn?.workSettings != null &&
                    workType != null &&
                    !pawn.WorkTypeIsDisabled(workType) &&
@@ -725,13 +732,7 @@ namespace Better_Work_Tab.Patches
             }
 
             Rect boxRect = GetWorkBoxRect(cellRect);
-            Rect ringRect = GetParentSubWorkOverrideRingRect(boxRect);
-            Rect innerRect = GetParentSubWorkOverrideInnerRect(boxRect);
-            bool ringHovered = Mouse.IsOver(ringRect) && !Mouse.IsOver(innerRect);
-            Color oldColor = GUI.color;
-            GUI.color = ringHovered ? Color.white : SubWorkParentOverrideRingColor;
-            Widgets.DrawBox(ringRect, ringHovered ? 3 : 2);
-            GUI.color = oldColor;
+            PriorityOverrideRing.Draw(boxRect);
         }
 
         private static bool TryHandleParentSubWorkOverrideInput(Rect cellRect, Pawn pawn, WorkTypeDef workType)
@@ -748,9 +749,7 @@ namespace Better_Work_Tab.Patches
             }
 
             Rect boxRect = GetWorkBoxRect(cellRect);
-            Rect ringRect = GetParentSubWorkOverrideRingRect(boxRect);
-            Rect innerRect = GetParentSubWorkOverrideInnerRect(boxRect);
-            if (!Mouse.IsOver(ringRect) || Mouse.IsOver(innerRect))
+            if (!PriorityOverrideRing.MouseOverVisibleRing(boxRect))
             {
                 return false;
             }
@@ -759,16 +758,6 @@ namespace Better_Work_Tab.Patches
             SoundDefOf.Tick_Low.PlayOneShotOnCamera();
             evt.Use();
             return true;
-        }
-
-        private static Rect GetParentSubWorkOverrideRingRect(Rect boxRect)
-        {
-            return boxRect.ContractedBy(SubWorkParentOverrideRingInset);
-        }
-
-        private static Rect GetParentSubWorkOverrideInnerRect(Rect boxRect)
-        {
-            return boxRect.ContractedBy(SubWorkParentOverrideInnerInset);
         }
 
         private static bool TryHandleWorkPriorityInput(Rect cellRect, Pawn pawn, WorkTypeDef workType)

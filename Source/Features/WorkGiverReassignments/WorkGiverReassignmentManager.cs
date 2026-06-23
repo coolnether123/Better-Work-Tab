@@ -635,13 +635,60 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             return false;
         }
 
+        internal static bool LockedSubWorkOverridesDisabledParent()
+        {
+            return !MultiplayerBridge.Active &&
+                   BetterWorkTabMod.Settings?.subWorkDisabledParentMode == BetterWorkTabSettings.SubWorkDisabledParentMode.LockedSubWorkOverridesParent;
+        }
+
+        internal static int GetExecutionPriorityForWorkType(Pawn pawn, WorkTypeDef workType, int parentPriority)
+        {
+            parentPriority = WorkPrioritySystem.ClampPriority(parentPriority);
+            if (parentPriority > WorkPrioritySystem.DisabledPriority ||
+                !LockedSubWorkOverridesDisabledParent() ||
+                !TryGetHighestEnabledPawnOverridePriorityForWorkType(pawn, workType, out int lockedPriority))
+            {
+                return parentPriority;
+            }
+
+            return lockedPriority;
+        }
+
         internal static bool LockedPawnOverrideCanRunWhenParentDisabled(Pawn pawn, WorkGiverDef workGiver, WorkTypeDef workType)
         {
-            return BetterWorkTabMod.Settings?.subWorkDisabledParentMode == BetterWorkTabSettings.SubWorkDisabledParentMode.LockedSubWorkOverridesParent &&
+            return LockedSubWorkOverridesDisabledParent() &&
                    TryGetPawnWorkGiverOverride(pawn, workGiver, out int priority) &&
                    priority > WorkPrioritySystem.DisabledPriority &&
                    workType != null &&
                    GetTargetWorkType(workGiver) == workType;
+        }
+
+        private static bool TryGetHighestEnabledPawnOverridePriorityForWorkType(Pawn pawn, WorkTypeDef workType, out int priority)
+        {
+            priority = WorkPrioritySystem.DisabledPriority;
+            if (pawn == null || workType == null)
+            {
+                return false;
+            }
+
+            bool found = false;
+            var workGivers = GetDisplayWorkGiversForWorkType(workType);
+            for (int i = 0; i < workGivers.Count; i++)
+            {
+                WorkGiverDef def = workGivers[i]?.def;
+                if (!TryGetPawnWorkGiverOverride(pawn, def, out int overridePriority) ||
+                    overridePriority <= WorkPrioritySystem.DisabledPriority)
+                {
+                    continue;
+                }
+
+                priority = found
+                    ? Math.Min(priority, overridePriority)
+                    : overridePriority;
+                found = true;
+            }
+
+            return found;
         }
 
         internal static int GetWorkGiverPriority(Pawn pawn, WorkGiverDef workGiver, int defaultPriority)

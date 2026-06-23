@@ -57,7 +57,7 @@ namespace Better_Work_Tab.Features
             for (int i = 0; i < allWorkTypes.Count; i++)
             {
                 var w = allWorkTypes[i];
-                int prio = GetPriority(ws, w);
+                int prio = GetExecutionPriority(ws, pawn, w);
                 if (prio > 0)
                 {
                     if (prio < minNonEmerg && WorkGiverReassignmentManager.HasNonEmergencyWorkGiver(w))
@@ -79,8 +79,8 @@ namespace Better_Work_Tab.Features
             // 3) Sort active work types: manual priority asc, saved order asc, naturalPriority desc
             activeWTs.Sort((a, b) =>
             {
-                int pa = GetPriority(ws, a);
-                int pb = GetPriority(ws, b);
+                int pa = GetExecutionPriority(ws, pawn, a);
+                int pb = GetExecutionPriority(ws, pawn, b);
                 int c = pa.CompareTo(pb);
                 if (c != 0) return c;
                 int ia = indexMap.TryGetValue(a.defName, out int iax) ? iax : int.MaxValue;
@@ -106,7 +106,7 @@ namespace Better_Work_Tab.Features
                         continue;
                     }
 
-                    if (worker.def.emergency && GetPriority(ws, wt) <= minNonEmerg)
+                    if (worker.def.emergency && GetExecutionPriority(ws, pawn, wt) <= minNonEmerg)
                         emerg.Add(worker);
                 }
             }
@@ -122,7 +122,7 @@ namespace Better_Work_Tab.Features
                         continue;
                     }
 
-                    if (!worker.def.emergency || GetPriority(ws, wt) > minNonEmerg)
+                    if (!worker.def.emergency || GetExecutionPriority(ws, pawn, wt) > minNonEmerg)
                         normal.Add(worker);
                 }
             }
@@ -136,6 +136,12 @@ namespace Better_Work_Tab.Features
         private static int GetPriority(Pawn_WorkSettings workSettings, WorkTypeDef workType)
         {
             return WorkPrioritySystem.ClampPriority(workSettings.GetPriority(workType));
+        }
+
+        private static int GetExecutionPriority(Pawn_WorkSettings workSettings, Pawn pawn, WorkTypeDef workType)
+        {
+            int parentPriority = GetPriority(workSettings, workType);
+            return WorkGiverReassignmentManager.GetExecutionPriorityForWorkType(pawn, workType, parentPriority);
         }
 
         /// <summary>
