@@ -449,6 +449,7 @@ namespace Better_Work_Tab.PawnOrganizer
                     EnsureTableFresh();
                     _rowWidth = Mathf.Max(0f, _table.cachedSize.x - 16f);
                     _headerHeight = SubWorkDrilldownHeaderGeometry.GetEffectiveHeaderHeight(_table);
+                    SubWorkDrilldownHeaderGeometry.RecordNormalHeaderHeight(_table, _headerHeight);
 
                     BuildColumns();
                     BuildRows();

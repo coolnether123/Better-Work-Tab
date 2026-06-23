@@ -14,10 +14,47 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
     /// </summary>
     internal static class SubWorkDrilldownHeaderGeometry
     {
+        private static float _lastNormalHeaderHeight;
+
+        internal static void RecordNormalHeaderHeight(PawnTable table, float currentHeaderHeight)
+        {
+            if (SubWorkDrilldownState.IsActive)
+            {
+                return;
+            }
+
+            float candidate = currentHeaderHeight > 0f
+                ? currentHeaderHeight
+                : table?.cachedHeaderHeight ?? 0f;
+            if (candidate > 0f)
+            {
+                _lastNormalHeaderHeight = candidate;
+            }
+        }
+
         internal static float GetBaseHeaderDrawWidth(PawnTable table, float fallback)
         {
-            float baseHeight = table?.cachedHeaderHeight ?? 0f;
-            return baseHeight > 0f ? baseHeight : fallback;
+            if (SubWorkDrilldownState.IsActive && SubWorkDrilldownState.BaseHeaderDrawWidth > 0f)
+            {
+                return SubWorkDrilldownState.BaseHeaderDrawWidth;
+            }
+
+            if (!SubWorkDrilldownState.IsActive && fallback > 0f)
+            {
+                return fallback;
+            }
+
+            if (_lastNormalHeaderHeight > 0f)
+            {
+                return _lastNormalHeaderHeight;
+            }
+
+            if (fallback > 0f)
+            {
+                return fallback;
+            }
+
+            return table?.cachedHeaderHeight ?? 0f;
         }
 
         internal static float GetEffectiveHeaderHeight(PawnTable table)
