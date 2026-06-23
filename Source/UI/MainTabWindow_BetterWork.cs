@@ -274,6 +274,7 @@ namespace Better_Work_Tab.UI
             }
 
             AnchorWindowBottomForAnimatedPinnedRows();
+            TimePriorityPlannerPrototype.TryOpenAgentRequestedSession(organizer?.Layout);
 
             Event evt = Event.current;
             if (evt.type != EventType.Repaint && evt.type != EventType.Layout)

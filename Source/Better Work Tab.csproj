@@ -87,7 +87,9 @@
     <Compile Include="Features\Workloads\GameComponent_BWTWorldSettings.cs" />
     <Compile Include="Features\Testing\GameComponent_BWTModernQuickTestDriver.cs" />
     <Compile Include="Features\Testing\WorkTabGeometryDiagnostics.cs" />
+    <Compile Include="Features\TimePriority\Patch_CopyPasteWorkPriorities_TimePriority.cs" />
     <Compile Include="Features\TimePriority\TimePriorityEvaluation.cs" />
+    <Compile Include="Features\TimePriority\TimePriorityScheduleClipboard.cs" />
     <Compile Include="Features\TimePriority\TimePriorityPlannerPrototype.cs" />
     <Compile Include="Features\TimePriority\TimePriorityScheduleData.cs" />
     <Compile Include="Features\TimePriority\TimePriorityService.cs" />

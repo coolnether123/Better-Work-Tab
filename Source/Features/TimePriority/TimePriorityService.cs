@@ -70,6 +70,24 @@ namespace Better_Work_Tab.Features.TimePriority
             SetPriorityAtHour(target, hour, priority, fallbackPriority);
         }
 
+        internal static void SetPrioritiesSynced(TimePriorityTarget target, int[] priorities, int fallbackPriority)
+        {
+            int[] normalizedPriorities = NormalizePriorities(priorities, fallbackPriority);
+            if (MultiplayerBridge.Active)
+            {
+                SyncSetPriorities(
+                    target.PawnId,
+                    (int)target.Kind,
+                    target.WorkTypeDefName,
+                    target.TargetDefName,
+                    normalizedPriorities,
+                    fallbackPriority);
+                return;
+            }
+
+            SetPriorities(target, normalizedPriorities, fallbackPriority);
+        }
+
         internal static void ClearSchedule(TimePriorityTarget target)
         {
             var schedules = GetSchedules(create: false);
@@ -112,6 +130,22 @@ namespace Better_Work_Tab.Features.TimePriority
             SetPriorityAtHour(target, hour, priority, fallbackPriority);
         }
 
+        [SyncMethod]
+        public static void SyncSetPriorities(
+            int pawnId,
+            int kindValue,
+            string workTypeDefName,
+            string targetDefName,
+            int[] priorities,
+            int fallbackPriority)
+        {
+            TimePriorityTargetKind kind = Enum.IsDefined(typeof(TimePriorityTargetKind), kindValue)
+                ? (TimePriorityTargetKind)kindValue
+                : TimePriorityTargetKind.WorkType;
+            var target = TimePriorityTarget.FromRaw(pawnId, kind, workTypeDefName, targetDefName);
+            SetPriorities(target, priorities, fallbackPriority);
+        }
+
         private static void SetPriorityAtHour(TimePriorityTarget target, int hour, int priority, int fallbackPriority)
         {
             priority = WorkPrioritySystem.ClampPriority(priority);
@@ -130,6 +164,45 @@ namespace Better_Work_Tab.Features.TimePriority
 
             schedule.HourlyPriorities[hour] = priority;
             NotifyChanged();
+        }
+
+        private static void SetPriorities(TimePriorityTarget target, int[] priorities, int fallbackPriority)
+        {
+            fallbackPriority = WorkPrioritySystem.ClampPriority(fallbackPriority);
+            int[] normalizedPriorities = NormalizePriorities(priorities, fallbackPriority);
+            bool allFallback = true;
+            for (int i = 0; i < normalizedPriorities.Length; i++)
+            {
+                if (normalizedPriorities[i] != fallbackPriority)
+                {
+                    allFallback = false;
+                    break;
+                }
+            }
+
+            if (allFallback)
+            {
+                ClearSchedule(target);
+                return;
+            }
+
+            var schedule = GetOrCreateSchedule(target, fallbackPriority);
+            bool changed = false;
+            for (int i = 0; i < HoursPerDay; i++)
+            {
+                if (schedule.HourlyPriorities[i] == normalizedPriorities[i])
+                {
+                    continue;
+                }
+
+                schedule.HourlyPriorities[i] = normalizedPriorities[i];
+                changed = true;
+            }
+
+            if (changed)
+            {
+                NotifyChanged();
+            }
         }
 
         internal static bool IsRuntimeEnabled =>
@@ -404,6 +477,21 @@ namespace Better_Work_Tab.Features.TimePriority
             }
 
             return priorities;
+        }
+
+        private static int[] NormalizePriorities(int[] priorities, int fallbackPriority)
+        {
+            fallbackPriority = WorkPrioritySystem.ClampPriority(fallbackPriority);
+            var normalized = new int[HoursPerDay];
+            for (int i = 0; i < HoursPerDay; i++)
+            {
+                normalized[i] = WorkPrioritySystem.ClampPriority(
+                    priorities != null && i < priorities.Length
+                        ? priorities[i]
+                        : fallbackPriority);
+            }
+
+            return normalized;
         }
 
         private static void EnsureCache()
