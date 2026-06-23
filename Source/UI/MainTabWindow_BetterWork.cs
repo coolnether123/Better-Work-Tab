@@ -6,9 +6,7 @@ using Better_Work_Tab.Mod_Support.Multiplayer.Features.Layouts;
 #endif
 using Better_Work_Tab.Features.Caching;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
-#if DEBUG
 using Better_Work_Tab.Features.Testing;
-#endif
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.PawnOrganizer;
@@ -358,6 +356,7 @@ namespace Better_Work_Tab.UI
             {
                 DrawInfoButton(infoRect);
             }
+            DrawSubWorkExitButton(inRect);
             DrawBottomCounters(inRect, table);
             NativeCursorPosition.ProcessPendingMove();
         }
@@ -703,9 +702,7 @@ namespace Better_Work_Tab.UI
                     SubWorkDrilldownBarRenderer.Draw(layout);
                 }
             }
-#if DEBUG
             WorkTabGeometryDiagnostics.DumpHeaderLayoutIfRequested(layout);
-#endif
             if (SpineTiming.Enabled)
             {
                 SpineTiming.Time("WorkTab.DrawRows", () => DrawRows(table, layout, outRect, viewRect));
@@ -1243,24 +1240,26 @@ namespace Better_Work_Tab.UI
             try
             {
                 // Get the row descriptors (single source of truth for what rows exist and their heights)
-                var rowDescriptors = layout.GetRowDescriptors();
-                if (rowDescriptors == null || rowDescriptors.Count == 0)
+                var rowDescriptors = layout.GetRowDescriptors()?.ToList();
+                var columns = layout.Columns?.ToList();
+                if (rowDescriptors == null || rowDescriptors.Count == 0 ||
+                    columns == null || columns.Count == 0)
                 {
                     return;
                 }
 
-                var nameColumn = FindNameColumn(layout.Columns);
+                var nameColumn = FindNameColumn(columns);
 
                 // Calculate dimensions once for all highlight operations
-                float totalWidth = CalculateTotalColumnWidth(layout.Columns);
+                float totalWidth = CalculateTotalColumnWidth(columns);
                 float totalHeight = layout.ContentHeight; // Already accounts for all descriptor heights
 
                 if (SpineTiming.Enabled)
                 {
-                    SpineTiming.Time("WorkTab.Rows.DrawAllHighlights", () => DrawAllHighlights(rowDescriptors, layout.Columns, totalWidth, totalHeight));
+                    SpineTiming.Time("WorkTab.Rows.DrawAllHighlights", () => DrawAllHighlights(rowDescriptors, columns, totalWidth, totalHeight));
                     SpineTiming.Time("WorkTab.Rows.DrawAllRowContent", () => DrawAllRowContent(table,
                         rowDescriptors,
-                        layout.Columns,
+                        columns,
                         viewRect.width,
                         nameColumn,
                         outRect,
@@ -1270,12 +1269,12 @@ namespace Better_Work_Tab.UI
                 else
                 {
                     // Phase 1: Draw all highlights (selected, hovered, float menu, similar worktypes)
-                    DrawAllHighlights(rowDescriptors, layout.Columns, totalWidth, totalHeight);
+                    DrawAllHighlights(rowDescriptors, columns, totalWidth, totalHeight);
 
                     // Phase 2: Draw actual row content (pawn data, divider labels, backgrounds)
                     DrawAllRowContent(table,
                         rowDescriptors,
-                        layout.Columns,
+                        columns,
                         viewRect.width,
                         nameColumn,
                         outRect,
@@ -1363,6 +1362,7 @@ namespace Better_Work_Tab.UI
             // Get persistent float menu state
             Pawn highlightedPawn = HighlightState.GetHighlightedPawn();
             WorkTypeDef highlightedWorkType = HighlightState.GetHighlightedWorkType();
+            WorkGiverDef highlightedWorkGiver = HighlightState.GetHighlightedWorkGiver();
 
             // 2. Draw Horizontal Highlights (Rows)
             float currentY = 0f;
@@ -1371,15 +1371,21 @@ namespace Better_Work_Tab.UI
                 var descriptor = rowDescriptors[i];
                 Rect rowRect = new Rect(0f, currentY, totalWidth, descriptor.Height);
 
+                bool isFloatMenuPawn = descriptor.IsPawn &&
+                    highlightedPawn != null &&
+                    descriptor.Pawn == highlightedPawn &&
+                    settings.ShowFloatMenuPawnAndWorktypeHighlight;
+
                 if (descriptor.IsPawn && highlightedPawn != null && descriptor.Pawn == highlightedPawn && settings.ShowFloatMenuPawnAndWorktypeHighlight)
                 {
                     HighlightDrawer.DrawHighlight(rowRect, HighlightDrawer.GetFloatMenuColor());
                 }
-                else if (settings.ShowCursorPawnAndWorktypeHighlight && Mouse.IsOver(rowRect))
+
+                if (settings.ShowCursorPawnAndWorktypeHighlight && Mouse.IsOver(rowRect))
                 {
                     HighlightDrawer.DrawHighlight(rowRect, HighlightDrawer.GetRowHoverColor());
                 }
-                else if (descriptor.IsPawn && Find.Selector.IsSelected(descriptor.Pawn) && settings.DoSelectedPawnHighlight)
+                else if (!isFloatMenuPawn && descriptor.IsPawn && Find.Selector.IsSelected(descriptor.Pawn) && settings.DoSelectedPawnHighlight)
                 {
                     HighlightDrawer.DrawHighlight(rowRect, HighlightDrawer.GetSelectedPawnColor());
                 }
@@ -1412,22 +1418,44 @@ namespace Better_Work_Tab.UI
                 var column = columns[i];
                 Rect columnRect = new Rect(startingX, 0f, column.Width, totalHeight);
                 bool isWorkColumn = column.Column?.Worker is PawnColumnWorker_WorkPriority;
+                bool isFloatMenuColumn = isWorkColumn &&
+                    IsColumnHighlightedByFloatMenu(column, highlightedWorkType, highlightedWorkGiver);
 
-                if (isWorkColumn && highlightedWorkType != null && column.Column.workType == highlightedWorkType && settings.ShowFloatMenuPawnAndWorktypeHighlight)
+                if (isFloatMenuColumn && settings.ShowFloatMenuPawnAndWorktypeHighlight)
                 {
                     HighlightDrawer.DrawHighlight(columnRect, HighlightDrawer.GetFloatMenuColor());
                 }
-                else if (isWorkColumn && settings.ShowCursorPawnAndWorktypeHighlight && hoveredWorkType != null && hoveredWorkType == column.Column.workType)
+
+                if (isWorkColumn && settings.ShowCursorPawnAndWorktypeHighlight && hoveredWorkType != null && hoveredWorkType == column.Column.workType)
                 {
                     HighlightDrawer.DrawHighlight(columnRect, HighlightDrawer.GetColumnHoverColor());
                 }
-                else if (isWorkColumn && settings.ShowSimilarWorktypeHighlight && cachedSimilarWorktypes != null && cachedSimilarWorktypes.Contains(column.Column.workType))
+                else if (!isFloatMenuColumn && isWorkColumn && settings.ShowSimilarWorktypeHighlight && cachedSimilarWorktypes != null && cachedSimilarWorktypes.Contains(column.Column.workType))
                 {
                     HighlightDrawer.DrawHighlight(columnRect, HighlightDrawer.GetSimilarWorktypeColor());
                 }
 
                 startingX += column.Width;
             }
+        }
+
+        private static bool IsColumnHighlightedByFloatMenu(
+            WorkTabLayoutColumn column,
+            WorkTypeDef highlightedWorkType,
+            WorkGiverDef highlightedWorkGiver)
+        {
+            if (column.Column?.workType == null || highlightedWorkType == null)
+            {
+                return false;
+            }
+
+            if (SubWorkDrilldownState.IsActive && highlightedWorkGiver != null)
+            {
+                return SubWorkDrilldownState.TryGetWorkGiverForColumn(column.Column, out var workGiver, out _) &&
+                       workGiver?.def == highlightedWorkGiver;
+            }
+
+            return column.Column.workType == highlightedWorkType;
         }
 
         /// <summary>
@@ -2021,6 +2049,28 @@ namespace Better_Work_Tab.UI
                 }
 #endif
             }
+        }
+
+        private void DrawSubWorkExitButton(Rect inRect)
+        {
+            if (!SubWorkDrilldownState.IsActive)
+            {
+                return;
+            }
+
+            const float buttonSize = 24f;
+            Rect exitRect = new Rect(
+                inRect.xMax - buttonSize - RightEdgeMargin,
+                inRect.y + 8f,
+                buttonSize,
+                buttonSize);
+
+            if (Widgets.ButtonImage(exitRect, TexButton.CloseXSmall, Color.white, GenUI.MouseoverColor))
+            {
+                SubWorkDrilldownBarRenderer.ExitDrilldown();
+            }
+
+            TooltipHandler.TipRegion(exitRect, "Back to work types. " + SubWorkDrilldownInput.GestureLabel() + " or press Escape to return.");
         }
 
         private static Rect GetInfoIconRect(Rect inRect)

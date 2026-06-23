@@ -129,7 +129,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             int insertIndex = Mathf.Clamp(_targetIndex, 0, workGivers.Count);
             workGivers.Insert(insertIndex, draggedWg);
 
-            WorkGiverReassignmentManager.SyncSetPawnWorkGiverOrder(
+            WorkGiverReassignmentManager.SetPawnWorkGiverOrderSynced(
                 _window.Pawn?.thingIDNumber ?? -1, 
                 _window.WorkType.defName, 
                 workGivers.Select(wg => wg.def.defName).ToList()
