@@ -89,30 +89,16 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             var oldFont = Text.Font;
             var oldColor = GUI.color;
 
-            Rect buttonRect = new Rect(rect.x + 6f, rect.y + 5f, Mathf.Min(20f, rect.width - 8f), RowHeight - 10f);
-            bool canDrawButton = buttonRect.width >= 18f;
-            if (canDrawButton)
-            {
-                if (Widgets.ButtonImage(buttonRect, TexButton.CloseXSmall, Color.white, GenUI.MouseoverColor))
-                {
-                    ExitDrilldown();
-                    return;
-                }
-            }
-
-            Rect clickRect = canDrawButton
-                ? new Rect(buttonRect.xMax, rect.y, Mathf.Max(0f, rect.xMax - buttonRect.xMax), rect.height)
-                : rect;
-            if (Widgets.ButtonInvisible(clickRect))
+            if (Widgets.ButtonInvisible(rect))
             {
                 ExitDrilldown();
                 return;
             }
 
             Rect labelRect = new Rect(
-                canDrawButton ? buttonRect.xMax + 6f : rect.x + 5f,
+                rect.x + 8f,
                 rect.y,
-                Mathf.Max(0f, rect.xMax - (canDrawButton ? buttonRect.xMax + 10f : rect.x + 10f)),
+                Mathf.Max(0f, rect.width - 16f),
                 RowHeight);
 
             Text.Anchor = TextAnchor.MiddleLeft;

@@ -80,7 +80,7 @@ namespace Better_Work_Tab.DragDrop
         /// </summary>
         public override void OnDragUpdate(Vector2 mousePos)
         {
-            var targetColumns = GetVisualTargetColumns();
+            var targetColumns = GetInsertionTargetColumns();
             int index = targetColumns.Count;
             for (int i = 0; i < targetColumns.Count; i++)
             {
@@ -120,11 +120,8 @@ namespace Better_Work_Tab.DragDrop
 
             if (TargetIndex >= 0 && showLine)
             {
-                var targetColumns = GetVisualTargetColumns();
-                float lineX;
-                if (targetColumns.Count == 0) lineX = _originRect.x;
-                else if (TargetIndex >= targetColumns.Count) lineX = targetColumns.Last().HeaderRect.xMax;
-                else lineX = targetColumns[TargetIndex].HeaderRect.xMin;
+                var targetColumns = GetInsertionTargetColumns();
+                float lineX = GetInsertionLineX(targetColumns, TargetIndex, _originRect.x);
 
                 int insetSetting = BetterWorkTabMod.Settings?.columnInsertionLineInset ?? DefaultSettings.columnInsertionLineInset;
                 int inset = Mathf.Clamp(insetSetting, 0, Mathf.RoundToInt(Layout.HeaderHeight));
@@ -138,6 +135,7 @@ namespace Better_Work_Tab.DragDrop
         {
             if (_subWorkDrilldownDrag)
             {
+                DrawSubWorkBaselineLine();
                 return;
             }
 
@@ -252,6 +250,30 @@ namespace Better_Work_Tab.DragDrop
             Widgets.DrawBoxSolid(lineRect, baselineColor);
         }
 
+        private void DrawSubWorkBaselineLine()
+        {
+            if (_subWorkGiver == null || _subWorkType == null)
+            {
+                return;
+            }
+
+            int baselineIndex = WorkGiverReassignmentManager.CalculateBaselineTargetIndex(_subWorkType, _subWorkGiver);
+            int targetIndex = baselineIndex >= 0 ? baselineIndex : _subWorkOriginalIndex;
+            if (targetIndex < 0)
+            {
+                return;
+            }
+
+            var targetColumns = GetInsertionTargetColumns();
+            float lineX = GetInsertionLineX(targetColumns, targetIndex, _originRect.x);
+
+            int insetSetting = BetterWorkTabMod.Settings?.columnInsertionLineInset ?? DefaultSettings.columnInsertionLineInset;
+            int inset = Mathf.Clamp(insetSetting, 0, Mathf.RoundToInt(Layout.HeaderHeight));
+            Rect lineRect = GetColumnGuideRect(lineX, inset);
+
+            Widgets.DrawBoxSolid(lineRect, HeaderUtility.Colors.MovedMarkerColor);
+        }
+
         private Rect GetColumnGuideRect(float lineX, int headerInset)
         {
             float headerBottom = Layout.TableOrigin.y + Layout.HeaderHeight;
@@ -355,8 +377,7 @@ namespace Better_Work_Tab.DragDrop
                     }
                 }
 
-                // Record original index of the group (usually the first one) to detect no-ops later.
-                int firstOriginalIndex = workCols.IndexOf(toRemove[0]);
+                var originalWorkCols = workCols.ToList();
 
                 // Remove all dragged columns from the temporary list.
                 foreach (var col in toRemove)
@@ -377,12 +398,20 @@ namespace Better_Work_Tab.DragDrop
                     insertIndex = workCols.Count; // Dropped after the last non-dragged column
                 }
 
-                BetterWorkTabMod.DebugLog($"[BWT] Reorder Group Map: firstIndex={firstOriginalIndex}, target={TargetIndex}, insertIndex={insertIndex}", DebugFeature.DragDrop);
+                insertIndex = Mathf.Clamp(insertIndex, 0, workCols.Count);
 
-                // Re-check for no-op.
-                // If the start position (before removals) matches the end position (after removals), it's a no-op.
-                // This handles cases where the user drops the group back exactly where it came from.
-                if (insertIndex == firstOriginalIndex)
+                // Build the final order once and use it for both local and multiplayer paths.
+                // Multiplayer sync must receive the same post-drop order the local path applies.
+                var reorderedWorkCols = workCols.ToList();
+                for (int i = 0; i < toRemove.Count; i++)
+                {
+                    reorderedWorkCols.Insert(insertIndex + i, toRemove[i]);
+                }
+
+                BetterWorkTabMod.DebugLog($"[BWT] Reorder Group Map: target={TargetIndex}, insertIndex={insertIndex}", DebugFeature.DragDrop);
+
+                // Re-check for no-op against the final order rather than the insertion index.
+                if (originalWorkCols.SequenceEqual(reorderedWorkCols))
                 {
                     BetterWorkTabMod.DebugLog("[BWT] Reorder Group No-Op detected. Original position maintained.", DebugFeature.DragDrop);
                     return;
@@ -391,24 +420,18 @@ namespace Better_Work_Tab.DragDrop
                 if (MultiplayerBridge.Active)
                 {
                     // Sync the entire resulting order for multiplayer consistency
-                    var finalOrder = workCols
+                    var finalOrder = reorderedWorkCols
                         .Where(c => c.workType != null)
                         .Select(c => c.workType.defName)
                         .ToList();
 
-                    var movedNames = _draggedColumns
+                    var movedNames = toRemove
                         .Where(c => c.workType != null)
                         .Select(c => c.workType.defName)
                         .ToList();
 
                     WorkColumnOrderSync.ApplyWorkColumnOrder(finalOrder, movedNames);
                     return;
-                }
-
-                // Actually move all dragged columns
-                for (int i = 0; i < _draggedColumns.Count; i++)
-                {
-                    workCols.Insert(insertIndex + i, _draggedColumns[i]);
                 }
 
                 // Reconstruct table def columns
@@ -427,7 +450,7 @@ namespace Better_Work_Tab.DragDrop
 
                 def.columns.Clear();
                 def.columns.AddRange(pre);
-                def.columns.AddRange(workCols);
+                def.columns.AddRange(reorderedWorkCols);
                 def.columns.AddRange(post);
 
                 WorkColumnOrderManager.CaptureCurrent(def);
@@ -485,6 +508,39 @@ namespace Better_Work_Tab.DragDrop
                 .ToList();
         }
 
+        private List<WorkTabLayoutColumn> GetInsertionTargetColumns()
+        {
+            var columns = GetVisualTargetColumns();
+            if (!_subWorkDrilldownDrag)
+            {
+                return columns;
+            }
+
+            return columns
+                .Where(c => c.Column != _primaryColumn)
+                .ToList();
+        }
+
+        private static float GetInsertionLineX(List<WorkTabLayoutColumn> targetColumns, int targetIndex, float fallbackX)
+        {
+            if (targetColumns == null || targetColumns.Count == 0)
+            {
+                return fallbackX;
+            }
+
+            if (targetIndex >= targetColumns.Count)
+            {
+                return targetColumns[targetColumns.Count - 1].HeaderRect.xMax;
+            }
+
+            if (targetIndex <= 0)
+            {
+                return targetColumns[0].HeaderRect.xMin;
+            }
+
+            return targetColumns[targetIndex].HeaderRect.xMin;
+        }
+
         private void CommitSubWorkReorder()
         {
             try
@@ -495,16 +551,12 @@ namespace Better_Work_Tab.DragDrop
                 }
 
                 var current = SubWorkDrilldownState.ActiveWorkGivers;
-                int maxIndex = current?.Count ?? 0;
+                int maxIndex = Mathf.Max(0, (current?.Count ?? 0) - 1);
                 int insertIndex = Mathf.Clamp(TargetIndex, 0, maxIndex);
-                if (_subWorkOriginalIndex >= 0 && _subWorkOriginalIndex < insertIndex)
-                {
-                    insertIndex--;
-                }
 
                 // TODO: Support dragging a sub-work job into another sub-work job view once
                 // there is a clear UX for choosing the target work type and inheritance rules.
-                WorkGiverReassignmentManager.MoveWithinWorkType(
+                WorkGiverReassignmentManager.MoveWithinWorkTypeSynced(
                     _subWorkType.defName,
                     _subWorkGiver.defName,
                     insertIndex);
