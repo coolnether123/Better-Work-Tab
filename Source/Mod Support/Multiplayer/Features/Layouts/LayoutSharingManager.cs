@@ -21,9 +21,6 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Layouts
              {
                  MP.RegisterSyncWorker<PawnDivider>(SyncPawnDivider);
                  MP.RegisterSyncWorker<LayoutSnapshot>(SyncLayoutSnapshot);
-                 
-                 MP.RegisterSyncMethod(typeof(LayoutSharingManager), nameof(ReceiveSnapshot));
-                 MP.RegisterSyncMethod(typeof(LayoutSharingManager), nameof(ReceiveLayoutRequest));
              }
          }
 

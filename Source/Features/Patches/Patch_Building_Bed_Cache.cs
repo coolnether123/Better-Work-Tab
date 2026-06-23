@@ -13,15 +13,15 @@ namespace Better_Work_Tab.Patches
     ///
     /// This ensures the cache stays fresh  
     /// </summary>
-    [HarmonyPatch(typeof(Thing), nameof(Thing.SpawnSetup))]
+    [HarmonyPatch(typeof(Building_Bed), nameof(Building_Bed.SpawnSetup))]
     public static class Patch_Building_Bed_SpawnSetup
     {
         /// <summary>
         /// Called after a Thing is spawned. If it's a bed, invalidate the cache.
         /// </summary>
-        public static void Postfix(Thing __instance, Map map)
+        public static void Postfix(Building_Bed __instance, Map map)
         {
-            if (__instance is Building_Bed)
+            if (__instance != null)
             {
                 // New bed spawned on this map; drop cache entry so next lookup recalculates
                 BedCountCache.InvalidateForMap(map);
@@ -29,16 +29,16 @@ namespace Better_Work_Tab.Patches
         }
     }
 
-    [HarmonyPatch(typeof(Thing), nameof(Thing.DeSpawn))]
+    [HarmonyPatch(typeof(Building_Bed), nameof(Building_Bed.DeSpawn))]
     public static class Patch_Building_Bed_DeSpawn
     {
         /// <summary>
         /// Called when a Thing is despawned (destroyed, moved, etc).
         /// If it's a bed, invalidate the cache.
         /// </summary>
-        public static void Postfix(Thing __instance)
+        public static void Postfix(Building_Bed __instance)
         {
-            if (__instance is Building_Bed)
+            if (__instance != null)
             {
                 // The map property may be null after DeSpawn; therefore, all maps are invalidated.
                 // (This event is infrequent, maintaining acceptable computational efficiency)
@@ -64,10 +64,10 @@ namespace Better_Work_Tab.Patches
     /// <summary>
     /// Handle faction changes (if bed ownership changes to/from player).
     /// </summary>
-    [HarmonyPatch(typeof(Thing), nameof(Thing.SetFaction))]
-    public static class Patch_Thing_SetFaction
+    [HarmonyPatch(typeof(Building), nameof(Building.SetFaction))]
+    public static class Patch_Building_SetFaction
     {
-        public static void Postfix(Thing __instance)
+        public static void Postfix(Building __instance)
         {
             if (__instance is Building_Bed bed)
             {

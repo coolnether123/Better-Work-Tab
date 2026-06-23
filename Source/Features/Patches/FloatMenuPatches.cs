@@ -1,6 +1,8 @@
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.UI.Headers;
+using Better_Work_Tab.UI.WorkGiverReassignments;
 using HarmonyLib;
 using RimWorld;
 using System.Collections.Generic;
@@ -123,9 +125,11 @@ namespace Better_Work_Tab.Patches
                 return;
             }
 
-            string doOnceLabel = "BWTNotAssignedDoOnce".Translate(workType.gerundLabel);
-            string openTabLabel = "BWTNotAssignedAssignWork".Translate(workType.gerundLabel);
-            string manageWorkGiversLabel = "BWTManageWorkGivers".Translate(workType.labelShort);
+            string doOnceLabel = "BWTNotAssignedDoOnce".Translate(WorkGiverActionLabel(workGiver, workType));
+            string openTabLabel = "BWTNotAssignedAssignWork".Translate(WorkTypeMenuLabel(workType));
+            string manageWorkGiversLabel = "BWTManageWorkGivers".Translate(
+                WorkTypeMenuLabel(workType),
+                WorkGiverDisplayNameService.HeaderLabel(workGiver));
             int parentPriority = WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, workType);
             int workGiverPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, workGiver, parentPriority);
 
@@ -134,15 +138,8 @@ namespace Better_Work_Tab.Patches
             {
                 opts.Add(new FloatMenuOption(
                     manageWorkGiversLabel,
-                    () =>
-                    {
-                        var screenPos = new Vector2(Verse.UI.screenWidth / 2f, Verse.UI.screenHeight / 2f);
-                        bool hasOverride = WorkGiverReassignmentManager.HasAnyPawnOverride(workType, pawn) ||
-                                           WorkGiverReassignmentManager.HasPawnOrdering(pawn, workType);
-                        Pawn windowPawn = hasOverride ? pawn : null;
-                        Find.WindowStack.Add(new UI.WorkGiverReassignments.Window_WorkGiverSubMenu(workType, screenPos, windowPawn));
-                    },
-                    orderInPriority: (int)MenuOptionPriority.VeryLow));
+                    () => OpenWorkGiverManagement(pawn, workType, workGiver),
+                    orderInPriority: -1));
             }
 
             if (!opts.Any(o => o.Label == openTabLabel))
@@ -154,7 +151,7 @@ namespace Better_Work_Tab.Patches
                         HighlightState.SetWorktypeToHighlight(pawn, workType);
                         Find.MainTabsRoot.SetCurrentTab(MainButtonDefOf.Work);
                     },
-                    orderInPriority: (int)MenuOptionPriority.VeryLow));
+                    orderInPriority: -1));
             }
 
             if (opts.Any(o => o.Label == doOnceLabel))
@@ -202,6 +199,53 @@ namespace Better_Work_Tab.Patches
 #endif
 
             opts.Add(option);
+        }
+
+        private static string WorkTypeMenuLabel(WorkTypeDef workType)
+        {
+            string label = workType?.gerundLabel;
+            if (label.NullOrEmpty())
+            {
+                label = workType?.labelShort ?? workType?.label;
+            }
+
+            return label.NullOrEmpty() ? "Work" : label.CapitalizeFirst();
+        }
+
+        private static string WorkGiverActionLabel(WorkGiverDef workGiver, WorkTypeDef fallbackWorkType)
+        {
+            string label = workGiver?.verb;
+            if (label.NullOrEmpty())
+            {
+                label = fallbackWorkType?.labelShort ?? fallbackWorkType?.label;
+            }
+
+            return label.NullOrEmpty() ? "Work" : label.CapitalizeFirst();
+        }
+
+        private static void OpenWorkGiverManagement(Pawn pawn, WorkTypeDef targetWorkType, WorkGiverDef workGiver)
+        {
+            if (targetWorkType == null)
+            {
+                return;
+            }
+
+            if (BetterWorkTabMod.Settings?.enableSubWorkDrilldown ?? false)
+            {
+                SubWorkDrilldownState.Enter(
+                    targetWorkType,
+                    baseHeaderDrawWidth: SubWorkDrilldownHeaderGeometry.GetBaseHeaderDrawWidth(null, -1f));
+                Find.MainTabsRoot.SetCurrentTab(MainButtonDefOf.Work);
+                HighlightState.SetSubWorkGiverToHighlight(pawn, targetWorkType, workGiver);
+                HeaderDrawingCoordinator.NotifyAngledHeadersChanged();
+                return;
+            }
+
+            var screenPos = new Vector2(Verse.UI.screenWidth / 2f, Verse.UI.screenHeight / 2f);
+            bool hasOverride = WorkGiverReassignmentManager.HasAnyPawnOverride(targetWorkType, pawn) ||
+                               WorkGiverReassignmentManager.HasPawnOrdering(pawn, targetWorkType);
+            Pawn windowPawn = hasOverride ? pawn : null;
+            Find.WindowStack.Add(new Window_WorkGiverSubMenu(targetWorkType, screenPos, windowPawn));
         }
     }
 
