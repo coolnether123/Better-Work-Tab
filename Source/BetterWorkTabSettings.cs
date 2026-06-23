@@ -59,7 +59,7 @@ namespace Better_Work_Tab
         public static bool enableDragDropReordering = true;
         public static bool enableDividers = true;
         public static bool enableWorkloads = true;
-        public static bool enableSubWorkDrilldown = false;
+        public static bool enableSubWorkDrilldown = true;
         public static BetterWorkTabSettings.SubWorkDrilldownModifier subWorkDrilldownModifier = BetterWorkTabSettings.SubWorkDrilldownModifier.Ctrl;
         public static BetterWorkTabSettings.SubWorkDrilldownButton subWorkDrilldownButton = BetterWorkTabSettings.SubWorkDrilldownButton.Left;
         public static bool useVanillaSubWorkGlobalPriorityBoxes = false;

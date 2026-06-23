@@ -95,7 +95,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             {
                 if (normalized == DisabledPriority)
                 {
-                    return maxPriority;
+                    return PriorityAuthorityBroker.GetNextManualPriority(DisabledPriority, 1);
                 }
 
                 return normalized > 1 ? normalized - 1 : normalized;
