@@ -361,14 +361,14 @@ namespace Better_Work_Tab.UI.Settings
                 ParentId = PriorityHeader,
                 FieldName = "autoMaxPriorityInt",
                 Label = "Auto max priority",
-                Tooltip = "Maximum priority Auto mode is allowed to expose while following compatible external providers or preserving already-expanded priorities.",
+                Tooltip = "Legacy compatibility value. Auto mode now uses the BWT max priority setting as its ceiling.",
                 Type = SettingType.Int,
                 DefaultValue = DefaultSettings.autoMaxPriority,
                 MinValue = PriorityConstants.VanillaMax,
                 MaxValue = BetterWorkTabSettings.MAX_PRIORITY_HARD_LIMIT,
-                VisibleWhen = s => ((BetterWorkTabSettings)s).priorityMode == PriorityMode.Auto,
-                ShowInSimpleView = true,
-                ShowInAdvancedView = true,
+                VisibleWhen = s => false,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = false,
                 SortOrder = 1,
                 OnChanged = settingsObj =>
                 {
@@ -387,12 +387,17 @@ namespace Better_Work_Tab.UI.Settings
                 ParentId = PriorityHeader,
                 FieldName = "maxPriorityInt",
                 Label = "BWT max priority",
-                Tooltip = "Maximum priority when Better Work Tab is selected as the priority owner.",
+                Tooltip = "Maximum priority Better Work Tab may expose in Better Work Tab or Auto priority mode.",
                 Type = SettingType.Int,
                 DefaultValue = DefaultSettings.maxPriority,
                 MinValue = BetterWorkTabSettings.MAX_PRIORITY_MINIMUM,
                 MaxValue = BetterWorkTabSettings.MAX_PRIORITY_HARD_LIMIT,
-                VisibleWhen = s => ((BetterWorkTabSettings)s).priorityMode == PriorityMode.BetterWorkTab,
+                VisibleWhen = s =>
+                {
+                    var settings = (BetterWorkTabSettings)s;
+                    return settings.priorityMode == PriorityMode.BetterWorkTab ||
+                           settings.priorityMode == PriorityMode.Auto;
+                },
                 ShowInSimpleView = true,
                 ShowInAdvancedView = true,
                 SortOrder = 2,

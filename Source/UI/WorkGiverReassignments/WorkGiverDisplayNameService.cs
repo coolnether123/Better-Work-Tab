@@ -83,37 +83,49 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             switch (defName)
             {
                 case "FixBrokenDownBuilding":
-                    return "Fix breakdowns";
+                    return SubWorkLabel("FixBrokenDownBuilding", "Fix breakdowns");
                 case "PatientGoToBedEmergencyTreatment":
-                    return style == WorkGiverHeaderLabelStyle.VanillaStaggered ? "Urgent rest" : "Urgent treatment";
+                    return style == WorkGiverHeaderLabelStyle.VanillaStaggered
+                        ? SubWorkLabel("PatientGoToBedEmergencyTreatment_Vanilla", "Urgent rest")
+                        : SubWorkLabel("PatientGoToBedEmergencyTreatment", "Urgent treatment");
                 case "PatientGoToBedTreatment":
-                    return "Treatment rest";
+                    return SubWorkLabel("PatientGoToBedTreatment", "Treatment rest");
                 case "PatientGoToBedRecuperate":
-                    return "Bed rest";
+                    return SubWorkLabel("PatientGoToBedRecuperate", "Bed rest");
                 case "DoctorTendEmergency":
-                    return "Urgent tend";
+                    return SubWorkLabel("DoctorTendEmergency", "Urgent tend");
                 case "DoctorTendToSelfEmergency":
-                    return "Urgent self-tend";
+                    return SubWorkLabel("DoctorTendToSelfEmergency", "Urgent self-tend");
                 case "DoctorTendToSelf":
-                    return "Self-tend";
+                    return SubWorkLabel("DoctorTendToSelf", "Self-tend");
                 case "ConstructFinishFrames":
-                    return "Build frames";
+                    return SubWorkLabel("ConstructFinishFrames", "Build frames");
                 case "ConstructDeliverResourcesToFrames":
-                    return "Deliver frames";
+                    return SubWorkLabel("ConstructDeliverResourcesToFrames", "Deliver frames");
                 case "ConstructDeliverResourcesToBlueprints":
                 case "DeliverResourcesToBlueprints":
-                    return style == WorkGiverHeaderLabelStyle.VanillaStaggered ? "Deliver plans" : "Deliver blueprints";
+                    return style == WorkGiverHeaderLabelStyle.VanillaStaggered
+                        ? SubWorkLabel("DeliverResourcesToBlueprints_Vanilla", "Deliver plans")
+                        : SubWorkLabel("DeliverResourcesToBlueprints", "Deliver blueprints");
                 case "DeconstructForBlueprint":
-                    return style == WorkGiverHeaderLabelStyle.VanillaStaggered ? "Clear for plan" : "Decon. blueprints";
+                    return style == WorkGiverHeaderLabelStyle.VanillaStaggered
+                        ? SubWorkLabel("DeconstructForBlueprint_Vanilla", "Clear for plan")
+                        : SubWorkLabel("DeconstructForBlueprint", "Decon. blueprints");
                 case "Deconstruct":
-                    return "Deconstruct";
+                    return SubWorkLabel("Deconstruct", "Deconstruct");
                 case "Repair":
-                    return "Repair";
+                    return SubWorkLabel("Repair", "Repair");
                 case "FillIn":
-                    return "Fill in";
+                    return SubWorkLabel("FillIn", "Fill in");
                 default:
                     return null;
             }
+        }
+
+        private static string SubWorkLabel(string keySuffix, string fallback)
+        {
+            string key = "BWT_SubWork_" + keySuffix;
+            return key.CanTranslate() ? key.Translate().ToString() : fallback;
         }
 
         private static string CompactCommonPhrase(string label, WorkGiverHeaderLabelStyle style)

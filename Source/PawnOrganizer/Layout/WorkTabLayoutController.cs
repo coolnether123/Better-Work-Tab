@@ -450,6 +450,7 @@ namespace Better_Work_Tab.PawnOrganizer
                     }
 
                     _headerHeight = SubWorkDrilldownHeaderGeometry.GetEffectiveHeaderHeight(_table);
+                    SubWorkDrilldownHeaderGeometry.RecordNormalHeaderHeight(_table, _headerHeight);
 
                     BuildColumns();
                     BuildRows();
