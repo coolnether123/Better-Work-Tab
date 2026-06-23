@@ -41,13 +41,32 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Sync
                 if (!result.Contains(col)) result.Add(col);
             }
 
-            var nonWork = tableDef.columns
-                .Where(c => !(c.Worker is PawnColumnWorker_WorkPriority))
-                .ToList();
+            var original = tableDef.columns.ToList();
+            var preWork = new List<PawnColumnDef>();
+            var postWork = new List<PawnColumnDef>();
+            bool passedFirstWork = false;
+
+            foreach (var col in original)
+            {
+                bool isWork = col.Worker is PawnColumnWorker_WorkPriority && col.workType != null;
+                if (isWork)
+                {
+                    passedFirstWork = true;
+                }
+                else if (!passedFirstWork)
+                {
+                    preWork.Add(col);
+                }
+                else
+                {
+                    postWork.Add(col);
+                }
+            }
 
             tableDef.columns.Clear();
-            tableDef.columns.AddRange(nonWork);
+            tableDef.columns.AddRange(preWork);
             tableDef.columns.AddRange(result);
+            tableDef.columns.AddRange(postWork);
 
             var game = Current.Game;
             if (game != null)
@@ -76,6 +95,7 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Sync
 
             WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+            Better_Work_Tab.UI.Headers.HeaderDrawingCoordinator.InvalidateSolution();
         }
 
         [SyncMethod]
