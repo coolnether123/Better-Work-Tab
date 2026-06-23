@@ -1,6 +1,7 @@
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.ModSupport;
 using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using HarmonyLib;
@@ -17,6 +18,8 @@ namespace Better_Work_Tab.Patches
     {
         public static FloatMenuOption Postfix(FloatMenuOption value, Pawn pawn, WorkGiverDef workGiver, LocalTargetInfo target, FloatMenuContext context)
         {
+            DoOnceSupport.EnsureBwtOwnsUnassignedWorkMenu();
+
             if (value == null)
             {
                 return value;
@@ -182,6 +185,8 @@ namespace Better_Work_Tab.Patches
 
         public static IEnumerable<FloatMenuOption> Postfix(IEnumerable<FloatMenuOption> value, Pawn pawn, LocalTargetInfo target, FloatMenuContext context)
         {
+            DoOnceSupport.EnsureBwtOwnsUnassignedWorkMenu();
+
             foreach (var option in value)
             {
                 yield return option;
