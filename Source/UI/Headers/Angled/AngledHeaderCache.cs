@@ -158,16 +158,10 @@ namespace Better_Work_Tab.UI.Headers.Angled
             Vector2 currentLocalUnderlineStart = new Vector2(-drawRect.width / 2f, drawRect.height / 2f);
             Vector2 currentRotatedLocal = RotatePoint(currentLocalUnderlineStart, cos, sin);
 
-            float baselineWidth = SubWorkDrilldownState.BaseHeaderDrawWidth > 0f
-                ? SubWorkDrilldownState.BaseHeaderDrawWidth
-                : drawRect.width;
-            Vector2 baselineRotatedLocal = RotatePoint(new Vector2(-baselineWidth / 2f, drawRect.height / 2f), cos, sin);
-
             float globalBoxTop = headerRect.yMax +
                 ((SubWorkDrilldownState.GlobalRowHeight - SubWorkDrilldownState.GlobalPriorityBoxSize) / 2f);
-            Vector2 targetUnderlineStart = new Vector2(
-                headerRect.center.x + horizontalOffset + baselineRotatedLocal.x,
-                globalBoxTop - stemGap);
+            Vector2 currentUnderlineStart = drawRect.center + currentRotatedLocal;
+            Vector2 targetUnderlineStart = new Vector2(currentUnderlineStart.x, globalBoxTop - stemGap);
 
             Vector2 pivot = targetUnderlineStart - currentRotatedLocal;
             return new Rect(
