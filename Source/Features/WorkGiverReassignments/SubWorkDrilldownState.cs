@@ -12,7 +12,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
     /// </summary>
     internal static class SubWorkDrilldownState
     {
-        private const float TransitionSeconds = 0.18f;
+        private const float TransitionSeconds = 0.32f;
         internal const float GlobalRowHeight = 30f;
         internal const float GlobalPriorityBoxSize = 25f;
 
@@ -25,11 +25,19 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         private static int _cachedSyncVersion = -1;
         private static int _cachedSlotSignature = int.MinValue;
         private static float _enteredAt;
+        private static float _exitingAt;
         private static float _baseHeaderDrawWidth;
+        private static int _entryWorkColumnSlot = -1;
+        private static int _exitWorkColumnSlot = -1;
+        private static float _exitWaveSlotPosition = -1f;
+        private static bool _isExiting;
         private static bool _layoutRefreshPending;
         private static Vector2? _returnMousePosition;
+        private static Vector2? _returnMouseLocalPosition;
 
         internal static bool IsActive => _activeWorkType != null;
+
+        internal static bool IsExiting => _isExiting;
 
         internal static WorkTypeDef ActiveWorkType => _activeWorkType;
 
@@ -46,6 +54,11 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                     hash = hash * 31 + (_activeWorkType?.shortHash ?? 0);
                     hash = hash * 31 + WorkGiverReassignmentManager.CurrentSyncVersion;
                     hash = hash * 31 + _cachedSlotSignature;
+                    hash = hash * 31 + _entryWorkColumnSlot;
+                    hash = hash * 31 + _exitWorkColumnSlot;
+                    hash = hash * 31 + Mathf.RoundToInt(_exitWaveSlotPosition * 100f);
+                    hash = hash * 31 + (_isExiting ? 1 : 0);
+                    hash = hash * 31 + TransitionLayoutFrame;
                     return hash;
                 }
             }
@@ -69,8 +82,131 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                     return 0f;
                 }
 
+                if (!UseTransitionAnimation)
+                {
+                    return 1f;
+                }
+
+                if (_isExiting)
+                {
+                    return 1f - Mathf.Clamp01((Time.realtimeSinceStartup - _exitingAt) / TransitionSeconds);
+                }
+
                 return Mathf.Clamp01((Time.realtimeSinceStartup - _enteredAt) / TransitionSeconds);
             }
+        }
+
+        internal static bool UseTransitionAnimation =>
+            BetterWorkTabMod.Settings?.enableSubWorkTransitionAnimation ??
+            DefaultSettings.enableSubWorkTransitionAnimation;
+
+        internal static bool IsTransitioning => IsActive && UseTransitionAnimation && (_isExiting || TransitionAlpha < 0.999f);
+
+        internal static bool ShouldSuppressCursorRestoreForRapidExit =>
+            IsActive &&
+            UseTransitionAnimation &&
+            !_isExiting &&
+            Time.realtimeSinceStartup - _enteredAt < TransitionSeconds + 0.08f;
+
+        internal static int TransitionLayoutFrame
+        {
+            get
+            {
+                if (!IsTransitioning)
+                {
+                    return 0;
+                }
+
+                return Mathf.Clamp(Mathf.RoundToInt(TransitionAlpha * 24f), 0, 24);
+            }
+        }
+
+        internal static float TransitionEase => Mathf.SmoothStep(0f, 1f, TransitionAlpha);
+
+        internal static float HeaderFlipScale
+        {
+            get
+            {
+                if (!IsTransitioning)
+                {
+                    return 1f;
+                }
+
+                float visibleProgress = HeaderVisibleProgress;
+                return Mathf.Lerp(0.08f, 1f, Mathf.Sin(visibleProgress * Mathf.PI * 0.5f));
+            }
+        }
+
+        internal static float HeaderFlipAlpha => IsTransitioning ? HeaderVisibleProgress : 1f;
+
+        private static float HeaderVisibleProgress => _isExiting ? 1f - TransitionEase : TransitionEase;
+
+        internal static bool TryGetHeaderTransitionOffset(PawnColumnDef column, float columnWidth, out float offsetX)
+        {
+            offsetX = 0f;
+            float pivotSlot = GetTransitionPivotSlot();
+            if (!IsTransitioning || column == null || pivotSlot < 0)
+            {
+                return false;
+            }
+
+            int slot = GetVisibleWorkColumnSlot(column);
+            if (slot < 0 || slot == pivotSlot)
+            {
+                return false;
+            }
+
+            float progress = HeaderVisibleProgress;
+            offsetX = (pivotSlot - slot) * Mathf.Max(1f, columnWidth) * (1f - progress);
+            return Mathf.Abs(offsetX) > 0.01f;
+        }
+
+        internal static float GetBlankColumnFlashAlpha(PawnColumnDef column)
+        {
+            if (!IsTransitioning || column == null || !IsBlankWorkColumnInternal(column))
+            {
+                return 0f;
+            }
+
+            int slot = GetVisibleWorkColumnSlot(column);
+            if (slot < 0)
+            {
+                return 0f;
+            }
+
+            float pivotSlot = GetTransitionPivotSlot();
+            if (pivotSlot < 0)
+            {
+                return 0f;
+            }
+
+            int totalSlots = Mathf.Max(1, VisibleWorkTypeSlots.Count);
+            float distance = Mathf.Abs(slot - pivotSlot);
+            float waveCenter = (_isExiting ? 1f - TransitionAlpha : TransitionAlpha) * (totalSlots + 1);
+            float wave = 1f - Mathf.Abs(distance - waveCenter) / 1.25f;
+            wave = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(wave));
+            float fadeOut = Mathf.SmoothStep(1f, 0f, Mathf.Clamp01((TransitionAlpha - 0.72f) / 0.28f));
+            if (_isExiting)
+            {
+                fadeOut = Mathf.SmoothStep(1f, 0f, Mathf.Clamp01((1f - TransitionAlpha - 0.72f) / 0.28f));
+            }
+
+            return 0.26f * wave * fadeOut;
+        }
+
+        private static float GetTransitionPivotSlot()
+        {
+            if (_isExiting)
+            {
+                if (_exitWaveSlotPosition >= 0f)
+                {
+                    return _exitWaveSlotPosition;
+                }
+
+                return _exitWorkColumnSlot >= 0 ? _exitWorkColumnSlot : _entryWorkColumnSlot;
+            }
+
+            return _entryWorkColumnSlot;
         }
 
         internal static bool TryGetReturnMousePosition(out Vector2 position)
@@ -85,31 +221,89 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             return false;
         }
 
-        internal static void Enter(WorkTypeDef workType, Vector2? returnMousePosition = null, float baseHeaderDrawWidth = -1f)
+        internal static bool TryGetReturnMouseLocalPosition(out Vector2 position)
+        {
+            if (_returnMouseLocalPosition.HasValue)
+            {
+                position = _returnMouseLocalPosition.Value;
+                return true;
+            }
+
+            position = Vector2.zero;
+            return false;
+        }
+
+        internal static void Enter(
+            WorkTypeDef workType,
+            Vector2? returnMousePosition = null,
+            float baseHeaderDrawWidth = -1f,
+            Vector2? returnMouseLocalPosition = null)
         {
             if (workType == null)
             {
-                Exit();
+                ExitImmediate();
                 return;
             }
 
             _activeWorkType = workType;
+            _isExiting = false;
             _cachedWorkTypeDefName = null;
             _cachedSyncVersion = -1;
             _enteredAt = Time.realtimeSinceStartup;
+            _exitingAt = 0f;
             _baseHeaderDrawWidth = baseHeaderDrawWidth > 0f ? baseHeaderDrawWidth : 0f;
             _returnMousePosition = returnMousePosition;
+            _returnMouseLocalPosition = returnMouseLocalPosition;
+            EnsureSlotCache();
+            _entryWorkColumnSlot = VisibleWorkTypeSlots.TryGetValue(workType, out int slot) ? slot : -1;
+            _exitWorkColumnSlot = -1;
+            _exitWaveSlotPosition = -1f;
             _layoutRefreshPending = true;
             RefreshIfNeeded();
         }
 
-        internal static void Exit()
+        internal static void Exit(int exitWorkColumnSlot = -1, float exitWaveSlotPosition = -1f)
+        {
+            if (!IsActive)
+            {
+                return;
+            }
+
+            if (!UseTransitionAnimation)
+            {
+                ExitImmediate();
+                return;
+            }
+
+            _isExiting = true;
+            _exitingAt = Time.realtimeSinceStartup;
+            _exitWorkColumnSlot = exitWorkColumnSlot >= 0 ? exitWorkColumnSlot : _entryWorkColumnSlot;
+            _exitWaveSlotPosition = exitWaveSlotPosition >= 0f ? exitWaveSlotPosition : _exitWorkColumnSlot;
+            _layoutRefreshPending = true;
+        }
+
+        internal static void TickTransition()
+        {
+            if (_isExiting && Time.realtimeSinceStartup - _exitingAt >= TransitionSeconds)
+            {
+                ExitImmediate();
+            }
+        }
+
+        internal static void ExitImmediate()
         {
             _activeWorkType = null;
             _cachedWorkTypeDefName = null;
             _cachedSyncVersion = -1;
+            _isExiting = false;
+            _enteredAt = 0f;
+            _exitingAt = 0f;
             _baseHeaderDrawWidth = 0f;
+            _entryWorkColumnSlot = -1;
+            _exitWorkColumnSlot = -1;
+            _exitWaveSlotPosition = -1f;
             _returnMousePosition = null;
+            _returnMouseLocalPosition = null;
             ActiveWorkGiversBuffer.Clear();
             MovedFromBaseline.Clear();
             _layoutRefreshPending = true;
@@ -180,6 +374,11 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         }
 
         internal static bool IsBlankWorkColumn(PawnColumnDef column)
+        {
+            return !_isExiting && IsBlankWorkColumnInternal(column);
+        }
+
+        private static bool IsBlankWorkColumnInternal(PawnColumnDef column)
         {
             return IsActive && GetVisibleWorkColumnSlot(column) >= 0 && !TryGetWorkGiverForColumn(column, out _, out _);
         }

@@ -2,6 +2,7 @@ using Better_Work_Tab;
 using Better_Work_Tab.Mod_Support.Multiplayer;
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
+using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.Workloads;
 using Multiplayer.API;
 using RimWorld;
@@ -376,6 +377,11 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 {
                     int pa = GetWorkGiverPriority(sortingPawn, a.g.def, defaultPrio);
                     int pb = GetWorkGiverPriority(sortingPawn, b.g.def, defaultPrio);
+                    if (sortingPawn != null)
+                    {
+                        pa = TimePriorityService.GetEffectiveWorkGiverPriority(sortingPawn, workType, a.g.def, pa);
+                        pb = TimePriorityService.GetEffectiveWorkGiverPriority(sortingPawn, workType, b.g.def, pb);
+                    }
 
                     // Treat 0 as disabled (lowest priority)
                     int valA = (pa == 0) ? 999 : pa;
@@ -712,6 +718,26 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             
             // 2. Global override (Pawn ID -1)
             if (data.PawnWorkGiverPriorityOverrides.TryGetValue(-1, out var globalDict) &&
+                globalDict != null &&
+                globalDict.TryGetValue(workGiver.defName, out int globalPriority))
+            {
+                return WorkPrioritySystem.ClampPriority(globalPriority);
+            }
+
+            return WorkPrioritySystem.ClampPriority(defaultPriority);
+        }
+
+        internal static int GetInheritedWorkGiverPriority(Pawn pawn, WorkTypeDef workType, WorkGiverDef workGiver)
+        {
+            int defaultPriority = WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, workType);
+            if (workGiver == null)
+            {
+                return WorkPrioritySystem.ClampPriority(defaultPriority);
+            }
+
+            var data = Data;
+            if (data?.PawnWorkGiverPriorityOverrides != null &&
+                data.PawnWorkGiverPriorityOverrides.TryGetValue(-1, out var globalDict) &&
                 globalDict != null &&
                 globalDict.TryGetValue(workGiver.defName, out int globalPriority))
             {

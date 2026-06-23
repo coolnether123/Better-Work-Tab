@@ -35,6 +35,18 @@ namespace Better_Work_Tab.UI.Headers.Angled
             _cache.Clear();
         }
 
+        public static bool TryGetBounds(WorkTypeDef workType, out Rect bounds)
+        {
+            if (workType != null && _cache.TryGetValue(workType, out var cached))
+            {
+                bounds = cached.Bounds;
+                return true;
+            }
+
+            bounds = Rect.zero;
+            return false;
+        }
+
         /// <summary>
         /// Clears the cache if it hasn't been cleared this frame.
         /// </summary>
@@ -146,7 +158,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
                         ? new AngledLabelDrawer.AngledLabelLayout(label, size, pivot, isMoved, isCJKVertical, drawRect)
                         : new AngledLabelDrawer.AngledLabelLayout(label, size, pivot, isMoved, isCJKVertical),
                 Quad = quad,
-                Bounds = rect, // Approximate screen bounds for early clipping
+                Bounds = CalculateBounds(quad),
                 ParamSignature = currentSig
             };
 
@@ -195,6 +207,28 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 RotatePoint(p3, cos, sin) + pivot,
                 RotatePoint(p4, cos, sin) + pivot
             };
+        }
+
+        private static Rect CalculateBounds(Vector2[] quad)
+        {
+            if (quad == null || quad.Length == 0)
+            {
+                return Rect.zero;
+            }
+
+            float minX = quad[0].x;
+            float maxX = quad[0].x;
+            float minY = quad[0].y;
+            float maxY = quad[0].y;
+            for (int i = 1; i < quad.Length; i++)
+            {
+                minX = Mathf.Min(minX, quad[i].x);
+                maxX = Mathf.Max(maxX, quad[i].x);
+                minY = Mathf.Min(minY, quad[i].y);
+                maxY = Mathf.Max(maxY, quad[i].y);
+            }
+
+            return Rect.MinMaxRect(minX, minY, maxX, maxY);
         }
 
         private static Vector2 RotatePoint(Vector2 p, float cos, float sin)

@@ -1,6 +1,7 @@
 using System;
 using HarmonyLib;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
+using Better_Work_Tab.Features.TimePriority;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -25,7 +26,9 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             }
 
             int workTypePriority = WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, mappedWorkType);
+            workTypePriority = TimePriorityService.GetEffectiveWorkTypePriority(pawn, mappedWorkType, workTypePriority);
             int wgPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, giver.def, workTypePriority);
+            wgPriority = TimePriorityService.GetEffectiveWorkGiverPriority(pawn, mappedWorkType, giver.def, wgPriority);
             bool parentWorkActive = workTypePriority > WorkPrioritySystem.DisabledPriority;
             bool lockedSubWorkCanRun = !parentWorkActive &&
                                        WorkGiverReassignmentManager.LockedPawnOverrideCanRunWhenParentDisabled(pawn, giver.def, mappedWorkType);
@@ -122,7 +125,9 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             }
 
             int wtPriority = WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, mappedWorkType);
+            wtPriority = TimePriorityService.GetEffectiveWorkTypePriority(pawn, mappedWorkType, wtPriority);
             int wgPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, scanner.def, wtPriority);
+            wgPriority = TimePriorityService.GetEffectiveWorkGiverPriority(pawn, mappedWorkType, scanner.def, wgPriority);
             bool parentWorkActive = wtPriority > WorkPrioritySystem.DisabledPriority;
             bool lockedSubWorkCanRun = !parentWorkActive &&
                                        WorkGiverReassignmentManager.LockedPawnOverrideCanRunWhenParentDisabled(pawn, scanner.def, mappedWorkType);

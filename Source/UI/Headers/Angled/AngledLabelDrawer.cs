@@ -2,6 +2,7 @@ using RimWorld;
 using UnityEngine;
 using Verse;
 using Better_Work_Tab.DragDrop;
+using Better_Work_Tab.Features.WorkGiverReassignments;
 
 namespace Better_Work_Tab.UI.Headers.Angled
 {
@@ -172,11 +173,18 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 drawRect.x += horizontalOffset;
             }
 
+            if (SubWorkDrilldownState.TryGetHeaderTransitionOffset(column, headerRect.width, out float transitionOffsetX))
+            {
+                drawRect.x += transitionOffsetX;
+            }
+
             Matrix4x4 originalMatrix = GUI.matrix;
             TextAnchor savedAnchor = Text.Anchor;
             GameFont savedFont = Text.Font;
             Color savedColor = GUI.color;
             bool savedWordWrap = Text.WordWrap;
+            float flipScale = SubWorkDrilldownState.HeaderFlipScale;
+            float flipAlpha = SubWorkDrilldownState.HeaderFlipAlpha;
 
             try
             {
@@ -188,6 +196,10 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 Matrix4x4 transformationMatrix = originalMatrix;
                 transformationMatrix *= Matrix4x4.TRS(pivotPoint, Quaternion.identity, Vector3.one);
                 transformationMatrix *= Matrix4x4.TRS(Vector3.zero, Quaternion.Euler(0f, 0f, rotation), Vector3.one);
+                if (flipScale < 0.999f)
+                {
+                    transformationMatrix *= Matrix4x4.TRS(Vector3.zero, Quaternion.identity, new Vector3(1f, flipScale, 1f));
+                }
                 transformationMatrix *= Matrix4x4.TRS(-pivotPoint, Quaternion.identity, Vector3.one);
 
                 GUI.matrix = transformationMatrix;
@@ -213,6 +225,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 GUI.color = (layout.ShowMarker && BetterWorkTabMod.Settings.showMovedColumnColorTint) 
                     ? HeaderUtility.Colors.MovedMarkerColor 
                     : BetterWorkTabMod.Settings.angledHeaderColor;
+                GUI.color = new Color(GUI.color.r, GUI.color.g, GUI.color.b, GUI.color.a * flipAlpha);
 
                 if (isCJKVertical)
                 {

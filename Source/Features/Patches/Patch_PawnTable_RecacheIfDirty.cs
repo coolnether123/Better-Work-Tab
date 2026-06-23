@@ -1,4 +1,6 @@
 ﻿using Better_Work_Tab.PawnOrganizer;
+using Better_Work_Tab.Features.TimePriority;
+using Better_Work_Tab.Features.WorkGiverReassignments;
 using HarmonyLib;
 using RimWorld;
 using System.Collections.Generic;
@@ -61,9 +63,8 @@ namespace Better_Work_Tab.Features.Patches
                 return;
 
             float headerHeight = layout.HeaderHeight;
-            float pinnedRowsHeight = Better_Work_Tab.Features.WorkGiverReassignments.SubWorkDrilldownState.IsActive
-                ? Better_Work_Tab.Features.WorkGiverReassignments.SubWorkDrilldownState.GlobalRowHeight
-                : 0f;
+            float pinnedRowsHeight = TimePriorityPlannerPrototype.HeaderPinnedRowsHeight +
+                (SubWorkDrilldownState.IsActive ? SubWorkDrilldownState.GlobalRowHeight : 0f);
             float contentHeight = layout.ContentHeight;
             float totalHeight = headerHeight + pinnedRowsHeight + contentHeight;
             float width = __instance.cachedSize.x;

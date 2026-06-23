@@ -104,9 +104,11 @@ namespace Better_Work_Tab.UI.Settings
         public const string SubWorkRestoreCursor = "subWorkJobs.restoreCursor";
         public const string SubWorkRestoreCursorFromPawnCells = "subWorkJobs.restoreCursorFromPawnCells";
         public const string SubWorkOverrideBreakAnimation = "subWorkJobs.overrideBreakAnimation";
+        public const string SubWorkTransitionAnimation = "subWorkJobs.transitionAnimation";
         public const string SubWorkDisabledParentMode = "subWorkJobs.disabledParentMode";
         public const string UiDragInstructions = "ui.dragInstructions";
         public const string UiManualPriorities = "ui.manualPriorities";
+        public const string UiTimePriorityPlannerPrototype = "ui.timePriorityPlannerPrototype";
         public const string UiPriorityLegend = "ui.priorityLegend";
         public const string UiMaxPriority = "ui.maxPriority";
         public const string UiPriorityColorPercentageGreen = "ui.priorityColorPercentageGreen";

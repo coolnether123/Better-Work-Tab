@@ -1,4 +1,6 @@
 using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.DragDrop;
+using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI.Headers;
@@ -26,7 +28,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
             Rect rowRect = new Rect(
                 layout.TableOrigin.x,
-                layout.TableOrigin.y + layout.HeaderHeight,
+                layout.TableOrigin.y + layout.HeaderHeight + TimePriorityPlannerPrototype.HeaderPinnedRowsHeight,
                 Mathf.Max(layout.Table != null ? layout.Table.Size.x - 16f : 0f, 1f),
                 RowHeight);
 
@@ -37,7 +39,8 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             for (int i = 0; i < layout.Columns.Count; i++)
             {
                 var column = layout.Columns[i];
-                Rect cellRect = new Rect(column.HeaderRect.x, rowRect.y, column.Width, RowHeight);
+                float animatedOffset = ColumnReorderAnimationState.GetHeaderOffset(column);
+                Rect cellRect = new Rect(column.HeaderRect.x + animatedOffset, rowRect.y, column.Width, RowHeight);
 
                 if (column.Column?.Worker is PawnColumnWorker_Label)
                 {
@@ -125,13 +128,17 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             WorkGiverPriorityBoxRenderer.DrawPriorityBox(workGiver, SubWorkDrilldownState.ActiveWorkType, null, boxRect);
         }
 
-        internal static void ExitDrilldown(bool restoreMousePosition = false)
+        internal static void ExitDrilldown(
+            bool restoreMousePosition = false,
+            int exitWorkColumnSlot = -1,
+            float exitWaveSlotPosition = -1f)
         {
             Vector2 returnMousePosition = Vector2.zero;
             bool shouldRestoreMouse = restoreMousePosition &&
+                !SubWorkDrilldownState.ShouldSuppressCursorRestoreForRapidExit &&
                 SubWorkDrilldownState.TryGetReturnMousePosition(out returnMousePosition);
 
-            SubWorkDrilldownState.Exit();
+            SubWorkDrilldownState.Exit(exitWorkColumnSlot, exitWaveSlotPosition);
             HeaderDrawingCoordinator.NotifyAngledHeadersChanged();
 
             if (shouldRestoreMouse && (BetterWorkTabMod.Settings?.restoreCursorOnSubWorkExit ?? true))

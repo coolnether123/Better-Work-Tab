@@ -1,6 +1,7 @@
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
+using Better_Work_Tab.Features.TimePriority;
 using HarmonyLib;
 using RimWorld;
 using System;
@@ -141,6 +142,7 @@ namespace Better_Work_Tab.Features
         private static int GetExecutionPriority(Pawn_WorkSettings workSettings, Pawn pawn, WorkTypeDef workType)
         {
             int parentPriority = GetPriority(workSettings, workType);
+            parentPriority = TimePriorityService.GetEffectiveWorkTypePriority(pawn, workType, parentPriority);
             return WorkGiverReassignmentManager.GetExecutionPriorityForWorkType(pawn, workType, parentPriority);
         }
 

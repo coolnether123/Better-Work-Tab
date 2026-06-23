@@ -291,6 +291,21 @@ namespace Better_Work_Tab.UI.Settings
 
             Register(new SettingDefinition
             {
+                Id = SubWorkTransitionAnimation,
+                ParentId = FeaturesSubWorkJobs,
+                FieldName = "enableSubWorkTransitionAnimation",
+                Label = "Sub-work flip animation",
+                Tooltip = "Animate the work columns when entering a sub-work job view, including the header flip and smooth width adjustment.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.enableSubWorkTransitionAnimation,
+                OnChanged = _ => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 7
+            });
+
+            Register(new SettingDefinition
+            {
                 Id = SubWorkDisabledParentMode,
                 ParentId = FeaturesSubWorkJobs,
                 FieldName = "subWorkDisabledParentMode",
@@ -302,7 +317,7 @@ namespace Better_Work_Tab.UI.Settings
                 OnChanged = _ => WorkExecutionOrder.MarkAllPawnsWorkGiversDirty(),
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
-                SortOrder = 7
+                SortOrder = 8
             });
 
             Register(new SettingDefinition
@@ -318,7 +333,7 @@ namespace Better_Work_Tab.UI.Settings
                 OnChanged = _ => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
-                SortOrder = 8
+                SortOrder = 9
             });
 
             Register(new SettingDefinition
@@ -462,6 +477,20 @@ namespace Better_Work_Tab.UI.Settings
                         settings.NormalizePrioritySettings();
                     }
                 }
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = UiTimePriorityPlannerPrototype,
+                ParentId = PriorityHeader,
+                FieldName = "enableTimePriorityPlannerPrototype",
+                Label = "Time priority planner prototype",
+                Tooltip = "Enable the experimental ctrl-click priority timeline for testing time-based priority editing on work cells.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.enableTimePriorityPlannerPrototype,
+                ShowInSimpleView = true,
+                ShowInAdvancedView = true,
+                SortOrder = 8
             });
 
             Register(new SettingDefinition

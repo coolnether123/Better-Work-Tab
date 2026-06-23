@@ -1,5 +1,6 @@
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
+using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.ModSupport;
 using Better_Work_Tab.UI.Headers;
@@ -35,6 +36,54 @@ namespace Better_Work_Tab.Patches
             if (workType == null || pawn == null || context == null)
             {
                 return value;
+            }
+
+            if (TimePriorityService.TryGetDisabledByTime(pawn, workType, workGiver, out string timeReason, out _))
+            {
+                Job timeBlockedJob = target.HasThing
+                    ? (workGiverScanner.HasJobOnThing(pawn, target.Thing, true) ? workGiverScanner.JobOnThing(pawn, target.Thing, true) : null)
+                    : (workGiverScanner.HasJobOnCell(pawn, target.Cell, true) ? workGiverScanner.JobOnCell(pawn, target.Cell, true) : null);
+
+                Patch_FloatMenuOptionProvider_WorkGivers_GetWorkGiverOptionFor.AdditionalOptions.Add(
+                    new FloatMenuOption(
+                        "Open " + WorkTypeMenuLabel(workType) + " priority schedule",
+                        () => TimePriorityPlannerPrototype.OpenForFloatMenu(pawn, workType, workGiver),
+                        orderInPriority: -1));
+
+                if (timeBlockedJob != null)
+                {
+                    timeBlockedJob.workGiverDef = workGiverScanner.def;
+                    Job forcedTimeJob = timeBlockedJob;
+                    WorkGiver_Scanner forcedTimeScanner = workGiverScanner;
+                    WorkGiverDef forcedTimeGiver = workGiver;
+                    Patch_FloatMenuOptionProvider_WorkGivers_GetWorkGiverOptionFor.AdditionalOptions.Add(
+                        FloatMenuUtility.DecoratePrioritizedTask(
+                            new FloatMenuOption(
+                                WorkGiverActionLabel(forcedTimeGiver, workType) + " Once",
+                                () =>
+                                {
+                                    if (!pawn.jobs.TryTakeOrderedJobPrioritizedWork(forcedTimeJob, forcedTimeScanner, context.ClickedCell))
+                                    {
+                                        return;
+                                    }
+
+                                    if (forcedTimeGiver.forceMote != null)
+                                    {
+                                        MoteMaker.MakeStaticMote(context.ClickedCell, pawn.Map, forcedTimeGiver.forceMote);
+                                    }
+
+                                    if (forcedTimeGiver.forceFleck != null)
+                                    {
+                                        FleckMaker.Static(context.ClickedCell, pawn.Map, forcedTimeGiver.forceFleck);
+                                    }
+                                },
+                                orderInPriority: -1),
+                            pawn,
+                            target));
+                }
+
+                string disabledLabel = value.Label + ": " + timeReason.CapitalizeFirst();
+                return new FloatMenuOption(disabledLabel, null);
             }
 
             // Check if work TYPE is disabled (vanilla)

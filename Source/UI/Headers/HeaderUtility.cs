@@ -41,7 +41,9 @@ namespace Better_Work_Tab.UI.Headers
         {
             if (workType == null) return DefaultHeaderText;
 
-            if (SubWorkDrilldownState.IsActive && TryGetSubWorkHeaderText(workType, isMoved, subWorkLabelStyle, out var subWorkText))
+            if (SubWorkDrilldownState.IsActive &&
+                !SubWorkDrilldownState.IsExiting &&
+                TryGetSubWorkHeaderText(workType, isMoved, subWorkLabelStyle, out var subWorkText))
             {
                 return subWorkText;
             }
@@ -221,7 +223,9 @@ namespace Better_Work_Tab.UI.Headers
             GameFont oldFont = Text.Font;
             bool oldWordWrap = Text.WordWrap;
 
-            GUI.color = Colors.SortIndicatorColor;
+            Color color = Colors.SortIndicatorColor;
+            color.a *= SubWorkDrilldownState.HeaderFlipAlpha;
+            GUI.color = color;
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.MiddleCenter;
             Text.WordWrap = false;

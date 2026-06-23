@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Better_Work_Tab.Features;
+using Better_Work_Tab.Features.Dividers;
+using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Mod_Support.LocalProfiles;
 using Better_Work_Tab.Mod_Support.Multiplayer;
@@ -74,6 +76,8 @@ namespace Better_Work_Tab.PawnOrganizer
         private int _lastColumnSignature;
         private int _lastHiddenWorktypesSignature;
         private int _lastSubWorkSignature;
+        private int _lastTimePrioritySignature;
+        private int _lastDividerAnimationSignature;
         private int _lastSubWorkLayoutSettingsSignature;
         private int _lastHeaderLayoutVersion;
         private Dictionary<int, int> _lastDisplayOrders = new Dictionary<int, int>(); // pawn ID -> displayOrder
@@ -111,6 +115,12 @@ namespace Better_Work_Tab.PawnOrganizer
                 return true;
 
             if (SubWorkDrilldownState.LayoutSignature != _lastSubWorkSignature)
+                return true;
+
+            if (TimePriorityPlannerPrototype.LayoutSignature != _lastTimePrioritySignature)
+                return true;
+
+            if (ComputeDividerAnimationSignature() != _lastDividerAnimationSignature)
                 return true;
 
             if (ComputeSubWorkLayoutSettingsSignature() != _lastSubWorkLayoutSettingsSignature)
@@ -172,6 +182,8 @@ namespace Better_Work_Tab.PawnOrganizer
             _lastColumnSignature = ComputeColumnSignature(table);
             _lastHiddenWorktypesSignature = ComputeHiddenWorktypesSignature();
             _lastSubWorkSignature = SubWorkDrilldownState.LayoutSignature;
+            _lastTimePrioritySignature = TimePriorityPlannerPrototype.LayoutSignature;
+            _lastDividerAnimationSignature = ComputeDividerAnimationSignature();
             _lastSubWorkLayoutSettingsSignature = ComputeSubWorkLayoutSettingsSignature();
             _lastHeaderLayoutVersion = HeaderDrawingCoordinator.GetVanillaLayoutVersion();
 
@@ -383,7 +395,7 @@ namespace Better_Work_Tab.PawnOrganizer
                 }
                 else if (row.Pawn != null)
                 {
-                    descriptors.Add(new RowDescriptor(row.Pawn, PawnRowHeight));
+                    descriptors.Add(new RowDescriptor(row.Pawn, Mathf.Max(0f, row.Height)));
                 }
             }
 
@@ -474,14 +486,15 @@ namespace Better_Work_Tab.PawnOrganizer
 
             // Check if mouse is in the row content area (below header)
             float headerBottom = TableOrigin.y + HeaderHeight;
-            if (SubWorkDrilldownState.IsActive)
+            float pinnedRowsHeight = GetPinnedRowsHeight();
+            if (pinnedRowsHeight > 0f)
             {
-                if (mousePosition.y < headerBottom + SubWorkDrilldownState.GlobalRowHeight)
+                if (mousePosition.y < headerBottom + pinnedRowsHeight)
                 {
                     return false;
                 }
 
-                headerBottom += SubWorkDrilldownState.GlobalRowHeight;
+                headerBottom += pinnedRowsHeight;
             }
 
             if (mousePosition.y < headerBottom)
@@ -524,14 +537,15 @@ namespace Better_Work_Tab.PawnOrganizer
             row = default;
 
             float headerBottom = TableOrigin.y + HeaderHeight;
-            if (SubWorkDrilldownState.IsActive)
+            float pinnedRowsHeight = GetPinnedRowsHeight();
+            if (pinnedRowsHeight > 0f)
             {
-                if (mousePosition.y < headerBottom + SubWorkDrilldownState.GlobalRowHeight)
+                if (mousePosition.y < headerBottom + pinnedRowsHeight)
                 {
                     return false;
                 }
 
-                headerBottom += SubWorkDrilldownState.GlobalRowHeight;
+                headerBottom += pinnedRowsHeight;
             }
 
             if (mousePosition.y < headerBottom)
@@ -600,7 +614,9 @@ namespace Better_Work_Tab.PawnOrganizer
             int baseOrder = RowOrderUtility.GetPawnRowOrder(pawn);
             int targetOrder = baseOrder + 1;
             ShiftDisplayOrdersFrom(targetOrder);
-            return CreateDivider(label, color, targetOrder);
+            var divider = CreateDivider(label, color, targetOrder);
+            DividerInsertionAnimationState.Start(divider, revealUp: false);
+            return divider;
         }
 
         public PawnDivider AddDividerBeforePawn(Pawn pawn, string label, Color color)
@@ -617,7 +633,9 @@ namespace Better_Work_Tab.PawnOrganizer
 
             int targetOrder = RowOrderUtility.GetPawnRowOrder(pawn);
             ShiftDisplayOrdersFrom(targetOrder);
-            return CreateDivider(label, color, targetOrder);
+            var divider = CreateDivider(label, color, targetOrder);
+            DividerInsertionAnimationState.Start(divider, revealUp: true);
+            return divider;
         }
 
         private PawnDivider AddDividerAfterPawnWhileSorting(Pawn pawn, string label, Color color)
@@ -663,6 +681,7 @@ namespace Better_Work_Tab.PawnOrganizer
             int newDisplayOrder = RowOrderUtility.GetPawnRowOrder(pawn) + 1;
             ShiftDisplayOrdersFrom(newDisplayOrder);
             var divider = CreateDivider(label, color, newDisplayOrder);
+            DividerInsertionAnimationState.Start(divider, revealUp: false);
 
             //Log.Message($"[AddDividerAfterPawnWhileSorting] Created divider with displayOrder {newDisplayOrder}");
 
@@ -709,6 +728,7 @@ namespace Better_Work_Tab.PawnOrganizer
             int newDisplayOrder = RowOrderUtility.GetPawnRowOrder(pawn);
             ShiftDisplayOrdersFrom(newDisplayOrder);
             var divider = CreateDivider(label, color, newDisplayOrder);
+            DividerInsertionAnimationState.Start(divider, revealUp: true);
 
             //Log.Message($"[AddDividerBeforePawnWhileSorting] Created divider with displayOrder {newDisplayOrder}");
 
@@ -765,9 +785,29 @@ namespace Better_Work_Tab.PawnOrganizer
                 return Rect.zero;
             }
 
-            float pinnedRowsHeight = SubWorkDrilldownState.IsActive ? SubWorkDrilldownState.GlobalRowHeight : 0f;
+            float pinnedRowsHeight = GetPinnedRowsHeight();
             float screenY = _origin.y + HeaderHeight + pinnedRowsHeight + row.OffsetY - _table.scrollPosition.y;
             return new Rect(_origin.x, screenY, _rowWidth, row.Height);
+        }
+
+        private static float GetPinnedRowsHeight()
+        {
+            float height = TimePriorityPlannerPrototype.HeaderPinnedRowsHeight;
+            if (SubWorkDrilldownState.IsActive)
+            {
+                height += SubWorkDrilldownState.GlobalRowHeight;
+            }
+
+            return height;
+        }
+
+        private static int ComputeDividerAnimationSignature()
+        {
+            unchecked
+            {
+                return DividerCollapseAnimationState.LayoutSignature ^
+                    (DividerInsertionAnimationState.LayoutSignature * 397);
+            }
         }
 
         private void EnsureTableFresh()
@@ -793,6 +833,7 @@ namespace Better_Work_Tab.PawnOrganizer
                 if (SubWorkDrilldownState.IsActive &&
                     def?.Worker is PawnColumnWorker_WorkPriority &&
                     SubWorkDrilldownState.GetVisibleWorkColumnSlot(def) >= 0 &&
+                    !SubWorkDrilldownState.IsTransitioning &&
                     !SubWorkDrilldownState.TryGetWorkGiverForColumn(def, out _, out _))
                 {
                     continue;
@@ -862,9 +903,11 @@ namespace Better_Work_Tab.PawnOrganizer
 
             if (SubWorkDrilldownState.IsActive)
             {
+                float[] transitionStartWidths = (float[])widths.Clone();
                 float surplus = _rowWidth - totalNaturalWidth;
                 surplus = ReserveSubWorkPawnLabelWidth(visibleColumns, widths, surplus, fillerIndex);
                 ApplySubWorkPriorityWidthRelief(visibleColumns, widths, surplus);
+                ApplySubWorkTransitionWidths(widths, transitionStartWidths);
             }
             else
             {
@@ -956,6 +999,23 @@ namespace Better_Work_Tab.PawnOrganizer
             }
 
             return Mathf.Clamp(desired, SubWorkMinPawnLabelColumnWidth, SubWorkMaxPawnLabelColumnWidth);
+        }
+
+        private static void ApplySubWorkTransitionWidths(float[] widths, float[] startWidths)
+        {
+            if (widths == null ||
+                startWidths == null ||
+                widths.Length != startWidths.Length ||
+                !SubWorkDrilldownState.IsTransitioning)
+            {
+                return;
+            }
+
+            float progress = SubWorkDrilldownState.TransitionEase;
+            for (int i = 0; i < widths.Length; i++)
+            {
+                widths[i] = Mathf.Lerp(startWidths[i], widths[i], progress);
+            }
         }
 
         private void ApplySubWorkPriorityWidthRelief(
@@ -1235,6 +1295,8 @@ namespace Better_Work_Tab.PawnOrganizer
             _contentHeight = 0f;
             var pawnHeights = CachePawnRowHeights();
             var ordered = BuildOrderedElements();
+            PawnDivider currentSectionDivider = null;
+            float currentSectionMultiplier = 1f;
 
             for (int i = 0; i < ordered.Count; i++)
             {
@@ -1243,13 +1305,23 @@ namespace Better_Work_Tab.PawnOrganizer
 
                 if (element is PawnElement pawnElement)
                 {
-                    height = PawnRowHeight;
+                    height = PawnRowHeight * currentSectionMultiplier;
                 }
                 else if (element is DividerElement dividerElement)
                 {
                     var divider = dividerElement.Divider;
                     float requestedHeight = divider?.Height ?? _dividerHeight;
                     height = Mathf.Clamp(requestedHeight, 10f, 80f);
+                    if (DividerInsertionAnimationState.TryGetHeightMultiplier(divider, out float insertionMultiplier))
+                    {
+                        height *= insertionMultiplier;
+                    }
+                    currentSectionDivider = divider;
+                    currentSectionMultiplier = DividerCollapseAnimationState.TryGetSectionHeightMultiplier(
+                        currentSectionDivider,
+                        out float multiplier)
+                        ? multiplier
+                        : 1f;
                 }
                 else
                 {
@@ -1378,7 +1450,7 @@ namespace Better_Work_Tab.PawnOrganizer
 
             if (!hasCollapsedDividers)
             {
-                return ordered;
+                return InsertTransientTimePriorityDivider(ordered);
             }
 
             // Partition by dividers and filter pawns based on preceding divider state
@@ -1397,7 +1469,9 @@ namespace Better_Work_Tab.PawnOrganizer
                     var divider = (element as DividerElement)?.Divider;
 
                     // Only add previous section if the divider wasn't collapsed
-                    if (lastDivider == null || !lastDivider.IsCollapsed)
+                    if (lastDivider == null ||
+                        !lastDivider.IsCollapsed ||
+                        DividerCollapseAnimationState.ShouldRenderCollapsedSection(lastDivider))
                     {
                         filtered.AddRange(filteringSection);
                     }
@@ -1415,12 +1489,37 @@ namespace Better_Work_Tab.PawnOrganizer
             }
 
             // Handle final section: add if last divider wasn't collapsed (or no dividers exist)
-            if (lastDivider == null || !lastDivider.IsCollapsed)
+            if (lastDivider == null ||
+                !lastDivider.IsCollapsed ||
+                DividerCollapseAnimationState.ShouldRenderCollapsedSection(lastDivider))
             {
                 filtered.AddRange(filteringSection);
             }
 
-            return filtered;
+            return InsertTransientTimePriorityDivider(filtered);
+        }
+
+        private List<DisplayElement> InsertTransientTimePriorityDivider(List<DisplayElement> ordered)
+        {
+            if (ordered == null ||
+                !TimePriorityPlannerPrototype.TryGetTransientDivider(out int pawnId, out PawnDivider divider) ||
+                divider == null)
+            {
+                return ordered;
+            }
+
+            for (int i = 0; i < ordered.Count; i++)
+            {
+                if (ordered[i] is PawnElement pawnElement &&
+                    pawnElement.Pawn != null &&
+                    pawnElement.Pawn.thingIDNumber == pawnId)
+                {
+                    ordered.Insert(i, DisplayElementPool.GetDividerElement(divider));
+                    break;
+                }
+            }
+
+            return ordered;
         }
 
         private PawnDivider CreateDivider(string label, Color color, int displayOrder)

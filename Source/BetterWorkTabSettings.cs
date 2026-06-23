@@ -66,6 +66,7 @@ namespace Better_Work_Tab
         public static bool restoreCursorOnSubWorkExit = true;
         public static bool restoreCursorOnSubWorkPawnCellExit = false;
         public static bool enableSubWorkOverrideBreakAnimation = true;
+        public static bool enableSubWorkTransitionAnimation = true;
         public static BetterWorkTabSettings.SubWorkDisabledParentMode subWorkDisabledParentMode =
             BetterWorkTabSettings.SubWorkDisabledParentMode.ParentWorkDisablesSubWork;
         public static bool subWorkAutoExpandColumns = true;
@@ -106,6 +107,7 @@ namespace Better_Work_Tab
         public static bool showPriorityLegend = true;
         public static bool showDragInstructions = true;
         public static bool showManualPrioritiesCheckbox = true;
+        public static bool enableTimePriorityPlannerPrototype = true;
         public static bool showDividers = true;
         public static bool allowCustomDividerColors = true;
         public static bool showDividerLabels = true;
@@ -310,6 +312,7 @@ namespace Better_Work_Tab
         public bool restoreCursorOnSubWorkExit = DefaultSettings.restoreCursorOnSubWorkExit;
         public bool restoreCursorOnSubWorkPawnCellExit = DefaultSettings.restoreCursorOnSubWorkPawnCellExit;
         public bool enableSubWorkOverrideBreakAnimation = DefaultSettings.enableSubWorkOverrideBreakAnimation;
+        public bool enableSubWorkTransitionAnimation = DefaultSettings.enableSubWorkTransitionAnimation;
         public SubWorkDisabledParentMode subWorkDisabledParentMode = DefaultSettings.subWorkDisabledParentMode;
         public bool subWorkAutoExpandColumns = DefaultSettings.subWorkAutoExpandColumns;
         public bool subWorkEvenlyExpandColumns = DefaultSettings.subWorkEvenlyExpandColumns;
@@ -337,6 +340,7 @@ namespace Better_Work_Tab
         public bool showPriorityLegend = DefaultSettings.showPriorityLegend;
         public bool showDragInstructions = DefaultSettings.showDragInstructions;
         public bool showManualPrioritiesCheckbox = DefaultSettings.showManualPrioritiesCheckbox;
+        public bool enableTimePriorityPlannerPrototype = DefaultSettings.enableTimePriorityPlannerPrototype;
         public bool showDividers = DefaultSettings.showDividers;
         public bool allowCustomDividerColors = DefaultSettings.allowCustomDividerColors;
         public bool showDividerLabels = DefaultSettings.showDividerLabels;
@@ -803,11 +807,13 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref restoreCursorOnSubWorkExit, "restoreCursorOnSubWorkExit", DefaultSettings.restoreCursorOnSubWorkExit);
             Scribe_Values.Look(ref restoreCursorOnSubWorkPawnCellExit, "restoreCursorOnSubWorkPawnCellExit", DefaultSettings.restoreCursorOnSubWorkPawnCellExit);
             Scribe_Values.Look(ref enableSubWorkOverrideBreakAnimation, "enableSubWorkOverrideBreakAnimation", DefaultSettings.enableSubWorkOverrideBreakAnimation);
+            Scribe_Values.Look(ref enableSubWorkTransitionAnimation, "enableSubWorkTransitionAnimation", DefaultSettings.enableSubWorkTransitionAnimation);
             Scribe_Values.Look(ref subWorkDisabledParentMode, "subWorkDisabledParentMode", DefaultSettings.subWorkDisabledParentMode);
             Scribe_Values.Look(ref subWorkAutoExpandColumns, "subWorkAutoExpandColumns", DefaultSettings.subWorkAutoExpandColumns);
             Scribe_Values.Look(ref subWorkEvenlyExpandColumns, "subWorkEvenlyExpandColumns", DefaultSettings.subWorkEvenlyExpandColumns);
             Scribe_Values.Look(ref enableColumnOrderSaving, "enableColumnOrderSaving", DefaultSettings.enableColumnOrderSaving);
             Scribe_Values.Look(ref enableUIElements, "enableUIElements", DefaultSettings.enableUIElements);
+            Scribe_Values.Look(ref enableTimePriorityPlannerPrototype, "enableTimePriorityPlannerPrototype", DefaultSettings.enableTimePriorityPlannerPrototype);
             Scribe_Values.Look(ref enablePerformanceOptimizations, "enablePerformanceOptimizations", DefaultSettings.enablePerformanceOptimizations);
             Scribe_Values.Look(ref enableMultiplayerSync, "enableMultiplayerSync", DefaultSettings.enableMultiplayerSync);
             Scribe_Values.Look(ref hideSettingResetIcons, "hideSettingResetIcons", DefaultSettings.hideSettingResetIcons);

@@ -48,6 +48,7 @@
     <Compile Include="DragDrop\DragHandler.cs" />
     <Compile Include="DragDrop\DragSession.cs" />
     <Compile Include="DragDrop\ColumnDragHandler.cs" />
+    <Compile Include="DragDrop\ColumnReorderAnimationState.cs" />
     <Compile Include="DragDrop\ColumnSelectionManager.cs" />
     <Compile Include="Features\HighlightDrawer.cs" />
     <Compile Include="Features\HighlightState.cs" />
@@ -73,6 +74,8 @@
     <Compile Include="Features\Rules\WorkAssignmentParameters.cs" />
     <Compile Include="Features\Rules\RuleParameterRegistry.cs" />
     <Compile Include="Features\ColumnBaselineManager.cs" />
+    <Compile Include="Features\Dividers\DividerCollapseAnimationState.cs" />
+    <Compile Include="Features\Dividers\DividerInsertionAnimationState.cs" />
     <Compile Include="Features\WorkExecutionOrder.cs" />
     <Compile Include="Features\WorkGiverReassignments\WorkGiverReassignmentData.cs" />
     <Compile Include="Features\WorkGiverReassignments\WorkGiverReassignmentManager.cs" />
@@ -82,6 +85,11 @@
     <Compile Include="Features\Workloads\GameComponent_BWTWorldSettings.cs" />
     <Compile Include="Features\Testing\GameComponent_BWTModernQuickTestDriver.cs" />
     <Compile Include="Features\Testing\WorkTabGeometryDiagnostics.cs" />
+    <Compile Include="Features\TimePriority\TimePriorityPlannerPrototype.cs" />
+    <Compile Include="Features\TimePriority\TimePriorityScheduleData.cs" />
+    <Compile Include="Features\TimePriority\TimePriorityService.cs" />
+    <Compile Include="Features\TimePriority\TimePriorityTarget.cs" />
+    <Compile Include="Features\TimePriority\TimePriorityTargetKind.cs" />
     <Compile Include="Features\Workloads\Worklist.cs" />
     <Compile Include="Features\Workloads\WorkloadNamers.cs" />
     <Compile Include="Features\Workloads\PawnWorkload.cs" />

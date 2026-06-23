@@ -2,6 +2,8 @@ using UnityEngine;
 using RimWorld;
 using Verse;
 using Better_Work_Tab.DragDrop;
+using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.UI.Headers.Angled;
 
 namespace Better_Work_Tab.UI.Headers.Vanilla
 {
@@ -52,12 +54,28 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
                 textSize.x,
                 textSize.y
             );
+            if (SubWorkDrilldownState.TryGetHeaderTransitionOffset(column, headerRect.width, out float transitionOffsetX))
+            {
+                textRect.x += transitionOffsetX;
+            }
 
             TextAnchor oldAnchor = Text.Anchor;
             Color oldColor = GUI.color;
+            Matrix4x4 oldMatrix = GUI.matrix;
+            float flipScale = SubWorkDrilldownState.HeaderFlipScale;
+            float flipAlpha = SubWorkDrilldownState.HeaderFlipAlpha;
 
             try
             {
+                if (flipScale < 0.999f)
+                {
+                    Vector2 pivot = GUIClipUtility.Unclip(textRect.center);
+                    GUI.matrix = oldMatrix *
+                        Matrix4x4.TRS(pivot, Quaternion.identity, Vector3.one) *
+                        Matrix4x4.TRS(Vector3.zero, Quaternion.identity, new Vector3(1f, flipScale, 1f)) *
+                        Matrix4x4.TRS(-pivot, Quaternion.identity, Vector3.one);
+                }
+
                 Text.Anchor = TextAnchor.MiddleCenter;
 
                 // Highlights
@@ -79,6 +97,7 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
                 GUI.color = (showMarker && BetterWorkTabMod.Settings.showMovedColumnColorTint)
                     ? HeaderUtility.Colors.MovedMarkerColor 
                     : BetterWorkTabMod.Settings.angledHeaderColor;
+                GUI.color = new Color(GUI.color.r, GUI.color.g, GUI.color.b, GUI.color.a * flipAlpha);
 
                 Widgets.Label(textRect, displayText);
 
@@ -97,6 +116,7 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
                 Text.WordWrap = oldWordWrap;
                 Text.Anchor = oldAnchor;
                 GUI.color = oldColor;
+                GUI.matrix = oldMatrix;
             }
         }
 
