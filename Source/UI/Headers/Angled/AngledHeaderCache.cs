@@ -3,6 +3,7 @@ using RimWorld;
 using Verse;
 using System.Collections.Generic;
 using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.UI.WorkGiverReassignments;
 
 namespace Better_Work_Tab.UI.Headers.Angled
 {
@@ -158,9 +159,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
             Vector2 currentLocalUnderlineStart = new Vector2(-drawRect.width / 2f, drawRect.height / 2f);
             Vector2 currentRotatedLocal = RotatePoint(currentLocalUnderlineStart, cos, sin);
 
-            float baselineWidth = SubWorkDrilldownState.BaseHeaderDrawWidth > 0f
-                ? SubWorkDrilldownState.BaseHeaderDrawWidth
-                : drawRect.width;
+            float baselineWidth = SubWorkDrilldownHeaderGeometry.GetBaseHeaderDrawWidth(null, drawRect.width);
             Vector2 baselineRotatedLocal = RotatePoint(new Vector2(-baselineWidth / 2f, drawRect.height / 2f), cos, sin);
 
             float globalBoxTop = headerRect.yMax +

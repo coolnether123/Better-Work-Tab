@@ -249,7 +249,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         {
             Event evt = Event.current;
             if (evt == null ||
-                evt.type != EventType.MouseDown ||
+                (evt.type != EventType.MouseDown && evt.type != EventType.ScrollWheel) ||
                 !Mouse.IsOver(boxRect) ||
                 BetterWorkTabLocalState.IsHeaderDragging ||
                 SubWorkDrilldownInput.MatchesGesture(evt))
@@ -257,13 +257,17 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 return;
             }
 
-            if (evt.button != 0 && evt.button != 1)
+            if (evt.type == EventType.MouseDown && evt.button != 0 && evt.button != 1)
             {
                 return;
             }
 
-            WorkPrioritySystem.SetPriority(pawn.workSettings, workType, WorkPrioritySystem.GetDefaultEnabledPriority());
-            WorkGiverReassignmentManager.SyncClearPawnOverridesForWorkType(pawn.thingIDNumber, workType.defName);
+            if (evt.type == EventType.ScrollWheel && !(BetterWorkTabMod.Settings?.enableScrollWheelPriority ?? false))
+            {
+                return;
+            }
+
+            WorkGiverReassignmentManager.EnableParentAndClearSubOverridesSynced(pawn.thingIDNumber, workType.defName);
             UISoundCompat.CheckboxTurnedOn.PlayOneShotOnCamera();
             evt.Use();
         }
@@ -280,17 +284,45 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 return;
             }
 
-            if (Mouse.IsOver(boxRect) && Event.current.type == EventType.MouseDown)
+            if (!Mouse.IsOver(boxRect))
             {
-                int newPriority = GetNextPriority(currentPriority, Event.current.button);
+                return;
+            }
+
+            Event evt = Event.current;
+            if (evt == null)
+            {
+                return;
+            }
+
+            if (evt.type == EventType.MouseDown)
+            {
+                int newPriority = GetNextPriority(currentPriority, evt.button);
                 
                 if (newPriority != currentPriority)
                 {
-                    WorkGiverReassignmentManager.SyncSetPawnOverride(pawnId, workGiverDef.defName, newPriority);
+                    WorkGiverReassignmentManager.SetPawnOverrideSynced(pawnId, workGiverDef.defName, newPriority);
                     SoundDefOf.DragSlider.PlayOneShotOnCamera();
                 }
                 
-                Event.current.Use();
+                evt.Use();
+                return;
+            }
+
+            if ((BetterWorkTabMod.Settings?.enableScrollWheelPriority ?? false) && evt.type == EventType.ScrollWheel)
+            {
+                int direction = evt.delta.y > 0f ? -1 : 1;
+                int newPriority = Find.PlaySettings.useWorkPriorities
+                    ? WorkPrioritySystem.GetPriorityAfterBoundedStep(currentPriority, direction)
+                    : ToggleNonManualPriority(currentPriority);
+
+                if (newPriority != currentPriority)
+                {
+                    WorkGiverReassignmentManager.SetPawnOverrideSynced(pawnId, workGiverDef.defName, newPriority);
+                    SoundDefOf.DragSlider.PlayOneShotOnCamera();
+                }
+
+                evt.Use();
             }
         }
 
@@ -306,6 +338,13 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 return WorkPrioritySystem.ClampPriority(currentPriority);
             }
 
+            return currentPriority > WorkPrioritySystem.DisabledPriority
+                ? WorkPrioritySystem.DisabledPriority
+                : WorkPrioritySystem.GetDefaultEnabledPriority();
+        }
+
+        private static int ToggleNonManualPriority(int currentPriority)
+        {
             return currentPriority > WorkPrioritySystem.DisabledPriority
                 ? WorkPrioritySystem.DisabledPriority
                 : WorkPrioritySystem.GetDefaultEnabledPriority();
