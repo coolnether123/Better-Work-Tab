@@ -35,10 +35,11 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         private static bool _layoutRefreshPending;
         private static Vector2? _returnMousePosition;
         private static Vector2? _returnMouseLocalPosition;
-        private static Vector2? _entryCursorPosition;
+        private static Vector2? _entryNativeCursorPosition;
         private static bool _cursorMovedSinceEnter;
 
-        private const float CursorMoveSuppressThreshold = 4f;
+        private const float CursorMoveSuppressThreshold = 12f;
+        private const float CursorMoveSuppressGraceSeconds = 0.15f;
 
         internal static bool IsActive => _activeWorkType != null;
 
@@ -486,11 +487,9 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             _baseHeaderDrawWidth = baseHeaderDrawWidth > 0f ? baseHeaderDrawWidth : 0f;
             _returnMousePosition = returnMousePosition;
             _returnMouseLocalPosition = returnMouseLocalPosition;
-            _entryCursorPosition = returnMousePosition;
-            if (!_entryCursorPosition.HasValue && NativeCursorPosition.TryGetClientPosition(out Vector2 currentCursorPosition))
-            {
-                _entryCursorPosition = currentCursorPosition;
-            }
+            _entryNativeCursorPosition = NativeCursorPosition.TryGetClientPosition(out Vector2 currentCursorPosition)
+                ? currentCursorPosition
+                : (Vector2?)null;
             _cursorMovedSinceEnter = false;
             EnsureSlotCache();
             _entryWorkColumnSlot = VisibleWorkTypeSlots.TryGetValue(workType, out int slot) ? slot : -1;
@@ -557,7 +556,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             _exitWaveSlotPosition = -1f;
             _returnMousePosition = null;
             _returnMouseLocalPosition = null;
-            _entryCursorPosition = null;
+            _entryNativeCursorPosition = null;
             _cursorMovedSinceEnter = false;
             ActiveWorkGiversBuffer.Clear();
             MovedFromBaseline.Clear();
@@ -580,13 +579,18 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             if (!IsActive ||
                 _isExiting ||
                 _cursorMovedSinceEnter ||
-                !_entryCursorPosition.HasValue ||
+                !_entryNativeCursorPosition.HasValue ||
                 !NativeCursorPosition.TryGetClientPosition(out Vector2 currentPosition))
             {
                 return;
             }
 
-            float distance = Vector2.Distance(currentPosition, _entryCursorPosition.Value);
+            if (Time.realtimeSinceStartup - _enteredAt < CursorMoveSuppressGraceSeconds)
+            {
+                return;
+            }
+
+            float distance = Vector2.Distance(currentPosition, _entryNativeCursorPosition.Value);
             if (distance < CursorMoveSuppressThreshold)
             {
                 return;
@@ -594,7 +598,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
             _cursorMovedSinceEnter = true;
             LogSubWork(
-                $"Cursor moved after entering sub-work. distance={distance:0.##}, entry={_entryCursorPosition.Value}, current={currentPosition}");
+                $"Cursor moved after entering sub-work. distance={distance:0.##}, entry={_entryNativeCursorPosition.Value}, current={currentPosition}");
         }
 
         private static void LogSubWork(string message)
