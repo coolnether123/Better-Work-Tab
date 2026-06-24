@@ -20,7 +20,12 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 return false;
             }
 
-            return MatchesModifier(evt) && MatchesButton(evt);
+            return MatchesShortcut(evt);
+        }
+
+        internal static bool MatchesShortcut(Event evt)
+        {
+            return IsEnabled && evt != null && MatchesModifier(evt) && MatchesButton(evt);
         }
 
         private static bool MatchesModifier(Event evt)

@@ -85,7 +85,7 @@ namespace Better_Work_Tab
 #if (v0_18 || v0_17 || v0_16)
                 return Find.VisibleMap ?? Find.Maps?.FirstOrDefault();
 #else
-                return MapCompat.CurrentMap;
+                return Find.CurrentMap;
 #endif
             }
         }
