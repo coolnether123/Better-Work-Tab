@@ -16,6 +16,7 @@ namespace Better_Work_Tab.ModSupport
         {
             new UsefulMarksSupport(),
             new VanillaSkillsExpandedSupport(),
+            new DoOnceSupport(),
         };
 
         static ModSupportManager()

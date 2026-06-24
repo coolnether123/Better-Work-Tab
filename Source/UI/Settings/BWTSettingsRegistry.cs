@@ -277,6 +277,67 @@ namespace Better_Work_Tab.UI.Settings
 
             Register(new SettingDefinition
             {
+                Id = SubWorkOverrideBreakAnimation,
+                ParentId = FeaturesSubWorkJobs,
+                FieldName = "enableSubWorkOverrideBreakAnimation",
+                Label = "Override reset animation",
+                Tooltip = "Show a short break/fade effect when clicking a sub-work override ring to return that pawn cell to the global sub-work priority.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.enableSubWorkOverrideBreakAnimation,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 6
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = SubWorkTransitionAnimation,
+                ParentId = FeaturesSubWorkJobs,
+                FieldName = "enableSubWorkTransitionAnimation",
+                Label = "Sub-work transition animation",
+                Tooltip = "Animate the work columns when entering or leaving a sub-work job view.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.enableSubWorkTransitionAnimation,
+                OnChanged = _ => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 7
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = SubWorkTransitionStyle,
+                ParentId = SubWorkTransitionAnimation,
+                FieldName = "subWorkTransitionStyle",
+                Label = "Transition style",
+                Tooltip = "Classic glide is the original sub-work transition. Pixel wave reveal keeps columns in place and fades them as the grey wave passes.",
+                Type = SettingType.Enum,
+                EnumType = typeof(BetterWorkTabSettings.SubWorkTransitionStyle),
+                DefaultValue = DefaultSettings.subWorkTransitionStyle,
+                OnChanged = _ => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 1
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = SubWorkDisabledParentMode,
+                ParentId = FeaturesSubWorkJobs,
+                FieldName = "subWorkDisabledParentMode",
+                Label = "Disabled parent behavior",
+                Tooltip = "Controls what happens when a pawn has locked sub-work priorities but the parent work type is turned off. Parent Work Disables Sub-work keeps vanilla behavior; Locked Sub-work Overrides Parent lets locked sub-work jobs still run in singleplayer. Multiplayer always uses Parent Work Disables Sub-work to keep simulation deterministic.",
+                Type = SettingType.Enum,
+                EnumType = typeof(BetterWorkTabSettings.SubWorkDisabledParentMode),
+                DefaultValue = DefaultSettings.subWorkDisabledParentMode,
+                OnChanged = _ => WorkExecutionOrder.MarkAllPawnsWorkGiversDirty(),
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 9
+            });
+
+            Register(new SettingDefinition
+            {
                 Id = SubWorkAutoExpandColumns,
                 ParentId = FeaturesSubWorkJobs,
                 FieldName = "subWorkAutoExpandColumns",
@@ -288,7 +349,7 @@ namespace Better_Work_Tab.UI.Settings
                 OnChanged = _ => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
-                SortOrder = 6
+                SortOrder = 10
             });
 
             Register(new SettingDefinition
@@ -315,6 +376,17 @@ namespace Better_Work_Tab.UI.Settings
                 HeaderColor = new Color(0.8f, 0.8f, 0.6f),
                 ShowInSimpleView = true,
                 SortOrder = -42
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = FeaturesClicks,
+                Label = "Clicks & Shortcuts",
+                Type = SettingType.Header,
+                Tooltip = "Mouse and shortcut behavior for the Work tab.",
+                HeaderColor = new Color(0.7f, 0.75f, 0.9f),
+                ShowInSimpleView = true,
+                SortOrder = -41
             });
 
             Register(new SettingDefinition
@@ -432,6 +504,92 @@ namespace Better_Work_Tab.UI.Settings
                         settings.NormalizePrioritySettings();
                     }
                 }
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = UiTimePriorityPlannerPrototype,
+                ParentId = PriorityHeader,
+                FieldName = "enableTimePriorityPlannerPrototype",
+                Label = "Time priority planner prototype",
+                Tooltip = "Enable the experimental ctrl-click priority timeline for testing time-based priority editing on work cells.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.enableTimePriorityPlannerPrototype,
+                ControlsChildVisibility = true,
+                ShowInSimpleView = true,
+                ShowInAdvancedView = true,
+                SortOrder = 8
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = UiTimePriorityHourDivider,
+                ParentId = UiTimePriorityPlannerPrototype,
+                FieldName = "showTimePriorityHourDivider",
+                Label = "Show time-number divider",
+                Tooltip = "Draw a thin divider line above the hour numbers in the Work tab time-priority editor.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.showTimePriorityHourDivider,
+                ShowInSimpleView = true,
+                ShowInAdvancedView = true,
+                SortOrder = 1
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = UiTimePriorityCopyPasteButtons,
+                ParentId = UiTimePriorityPlannerPrototype,
+                FieldName = "showTimePriorityCopyPasteButtons",
+                Label = "Show Schedule Copy/Paste Buttons",
+                Tooltip = "Show copy and paste controls for Work tab time-priority schedules. These controls use the same copy/paste column as vanilla while a schedule row is open.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.showTimePriorityCopyPasteButtons,
+                ShowInSimpleView = true,
+                ShowInAdvancedView = true,
+                SortOrder = 2
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = UiTimePrioritySourceColumnHighlight,
+                ParentId = UiTimePriorityPlannerPrototype,
+                FieldName = "keepTimePrioritySourceColumnHighlighted",
+                Label = "Keep source column highlighted",
+                Tooltip = "While a time-priority schedule is open, keep the work column it edits highlighted and prevent the schedule strip from highlighting columns behind it.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.keepTimePrioritySourceColumnHighlighted,
+                ShowInSimpleView = true,
+                ShowInAdvancedView = true,
+                SortOrder = 3
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = UiChronosPointerTimePriority,
+                ParentId = UiTimePriorityPlannerPrototype,
+                FieldName = "enableChronosPointerTimePriorityIntegration",
+                Label = "Chronos Pointer time bar",
+                Tooltip = "When Chronos Pointer is loaded, draw its daylight/current-time bar above the Work tab time-priority hour numbers.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.enableChronosPointerTimePriorityIntegration,
+                ControlsChildVisibility = true,
+                ShowInSimpleView = true,
+                ShowInAdvancedView = true,
+                SortOrder = 4
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = UiChronosPointerTimePriorityIncidents,
+                ParentId = UiChronosPointerTimePriority,
+                FieldName = "chronosPointerTimePriorityIncidentOverlay",
+                Label = "Chronos incident overlay",
+                Tooltip = "Allow Chronos Pointer to draw its incident colors, such as eclipses and auroras, on the Work tab time bar.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.chronosPointerTimePriorityIncidentOverlay,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 1
             });
 
             Register(new SettingDefinition
@@ -1008,6 +1166,19 @@ namespace Better_Work_Tab.UI.Settings
 
             Register(new SettingDefinition
             {
+                Id = UiContextSettingsHint,
+                FieldName = "showContextSettingsHint",
+                Label = "Show Alt-Click Settings Hint",
+                Tooltip = "Show the top-right hint that Alt-clicking the Work tab opens related settings. This turns off automatically after the first successful Alt-click.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.showContextSettingsHint,
+                ShowInSimpleView = true,
+                SortOrder = 1043,
+                ParentId = FeaturesUiElements
+            });
+
+            Register(new SettingDefinition
+            {
                 Id = UiManualPriorities,
                 FieldName = "showManualPrioritiesCheckbox",
                 Label = "Show Manual Priorities Checkbox",
@@ -1015,7 +1186,7 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.showManualPrioritiesCheckbox,
                 ShowInSimpleView = true,
-                SortOrder = 1043,
+                SortOrder = 1044,
                 ParentId = FeaturesUiElements
             });
 
@@ -1028,7 +1199,7 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Bool,
                 DefaultValue = false,
                 ShowInSimpleView = true,
-                SortOrder = 1044,
+                SortOrder = 1045,
                 ParentId = FeaturesUiElements
             });
 
@@ -1132,12 +1303,27 @@ namespace Better_Work_Tab.UI.Settings
 
             Register(new SettingDefinition
             {
+                Id = DividersAnimations,
+                FieldName = "enableDividerAnimations",
+                Label = "Animate Divider Changes",
+                Tooltip = "Smoothly grows and collapses divider sections and newly inserted dividers. Disable this if another mod causes table resize flicker.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.enableDividerAnimations,
+                OnChanged = _ => MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged(),
+                ShowInSimpleView = true,
+                ShowInAdvancedView = true,
+                SortOrder = 113,
+                ParentId = FeaturesDividers
+            });
+
+            Register(new SettingDefinition
+            {
                 Id = "dividers.resetHeight",
                 Label = "Reset All Dividers Height",
                 Tooltip = "Reset the height of all dividers to the default value.",
                 Type = SettingType.Button,
                 ShowInSimpleView = true,
-                SortOrder = 113,
+                SortOrder = 114,
                 ParentId = FeaturesDividers,
                 OnChanged = settingsObj =>
                 {
@@ -1490,6 +1676,25 @@ namespace Better_Work_Tab.UI.Settings
 
             Register(new SettingDefinition
             {
+                Id = LayoutWorkTabTopSpace,
+                ParentId = AdvancedHeader,
+                FieldName = "workTabTopSpace",
+                Label = "Work Tab Top Space",
+                Tooltip = "Controls the empty vertical space above the work headers, between the priority direction hint and the top of the header labels. 40px matches RimWorld's default.",
+                Type = SettingType.Float,
+                DefaultValue = DefaultSettings.workTabTopSpace,
+                MinValue = 0f,
+                MaxValue = 80f,
+                MinLabel = "Tight",
+                MaxLabel = "Tall",
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 402,
+                OnChanged = _ => MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged()
+            });
+
+            Register(new SettingDefinition
+            {
                 Id = AdvancedHideSettingResetIcons,
                 ParentId = AdvancedHeader,
                 FieldName = nameof(BetterWorkTabSettings.hideSettingResetIcons),
@@ -1499,7 +1704,21 @@ namespace Better_Work_Tab.UI.Settings
                 DefaultValue = DefaultSettings.hideSettingResetIcons,
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
-                SortOrder = 402
+                SortOrder = 403
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = AdvancedSettingFocusHighlightColor,
+                ParentId = AdvancedHeader,
+                FieldName = nameof(BetterWorkTabSettings.Color_SettingFocusHighlight),
+                Label = "Setting focus highlight",
+                Tooltip = "Color used to pulse a setting row after Alt-clicking the Work tab or double-clicking a search result.",
+                Type = SettingType.Color,
+                DefaultValue = DefaultSettings.Color_SettingFocusHighlight,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 404
             });
 
             // Auto-assign settings
@@ -1689,15 +1908,15 @@ namespace Better_Work_Tab.UI.Settings
             Register(new SettingDefinition
             {
                 Id = AdvancedScrollWheelPriority,
-                ParentId = AdvancedHeader,
+                ParentId = FeaturesClicks,
                 FieldName = "enableScrollWheelPriority",
-                Label = "Enable Scroll Wheel Priority",
-                Tooltip = "Allows you to change a pawn's work priority by scrolling the mouse wheel while hovering over a work cell.",
+                Label = "Scroll Wheel Priority",
+                Tooltip = "Change priorities by hovering a work priority cell and scrolling. Applies to normal work cells, sub-work cells, and time-priority cells.",
                 Type = SettingType.Bool,
-                DefaultValue = false,
-                ShowInSimpleView = false,
+                DefaultValue = DefaultSettings.enableScrollWheelPriority,
+                ShowInSimpleView = true,
                 ShowInAdvancedView = true,
-                SortOrder = 490
+                SortOrder = 25
             });
 
             // Master toggle for debug logging. When false, no BWT debug messages (except errors) will fire.
