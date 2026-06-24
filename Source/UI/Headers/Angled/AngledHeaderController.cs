@@ -1,6 +1,7 @@
 using UnityEngine;
 using Verse;
 using RimWorld;
+using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 
@@ -65,7 +66,8 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 return false;
             }
 
-            bool isMouseOver = DetermineMouseOver(rect, cached);
+            bool isMouseOver = !TimePriorityPlannerPrototype.OwnsCurrentMousePosition &&
+                DetermineMouseOver(rect, cached);
             
             if (isMouseOver)
             {

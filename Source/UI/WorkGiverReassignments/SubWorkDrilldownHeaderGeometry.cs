@@ -59,7 +59,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
         internal static float GetEffectiveHeaderHeight(PawnTable table)
         {
-            float baseHeight = PawnTableCompat.GetCachedHeaderHeight(table);
+            float baseHeight = GetNormalHeaderHeight(table);
             return baseHeight + GetHeaderHeightExpansion(table);
         }
 
@@ -71,7 +71,18 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             }
 
             float required = GetRequiredHeaderHeight(table);
-            return Mathf.Max(0f, Mathf.Ceil(required - PawnTableCompat.GetCachedHeaderHeight(table)));
+            float fullExpansion = Mathf.Max(0f, Mathf.Ceil(required - GetNormalHeaderHeight(table)));
+            return fullExpansion * Mathf.Clamp01(SubWorkDrilldownState.ModeVisualProgress);
+        }
+
+        private static float GetNormalHeaderHeight(PawnTable table)
+        {
+            if (_lastNormalHeaderHeight > 0f)
+            {
+                return _lastNormalHeaderHeight;
+            }
+
+            return PawnTableCompat.GetCachedHeaderHeight(table);
         }
 
         private static float GetRequiredHeaderHeight(PawnTable table)
