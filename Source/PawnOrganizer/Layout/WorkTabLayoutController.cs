@@ -1012,6 +1012,11 @@ namespace Better_Work_Tab.PawnOrganizer
                 return;
             }
 
+            if (SubWorkDrilldownState.UsePixelWaveTransition && SubWorkDrilldownState.IsExiting)
+            {
+                return;
+            }
+
             float progress = SubWorkDrilldownState.TransitionEase;
             for (int i = 0; i < widths.Length; i++)
             {

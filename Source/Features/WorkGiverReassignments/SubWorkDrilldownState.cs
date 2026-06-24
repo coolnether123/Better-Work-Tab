@@ -262,7 +262,9 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             float easedPass = SmoothStep01(passProgress);
             subWorkAlpha = _isExiting ? 1f - easedPass : easedPass;
             parentAlpha = 1f - subWorkAlpha;
-            flipScale = Mathf.Lerp(1f, 0.38f, Mathf.Sin(Mathf.Clamp01(passProgress) * Mathf.PI));
+            flipScale = _isExiting
+                ? 1f
+                : Mathf.Lerp(1f, 0.38f, Mathf.Sin(Mathf.Clamp01(passProgress) * Mathf.PI));
             return true;
         }
 
@@ -300,7 +302,9 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             float passProgress = GetWavePassProgressForSlot(slot);
             float easedPass = SmoothStep01(passProgress);
             alpha = _isExiting ? 1f - easedPass : easedPass;
-            scale = Mathf.Lerp(1f, 0.48f, Mathf.Sin(Mathf.Clamp01(passProgress) * Mathf.PI));
+            scale = _isExiting
+                ? 1f
+                : Mathf.Lerp(1f, 0.48f, Mathf.Sin(Mathf.Clamp01(passProgress) * Mathf.PI));
             return true;
         }
 
