@@ -1,6 +1,7 @@
 using System;
 using System.Runtime.InteropServices;
 using UnityEngine;
+using Verse;
 
 namespace Better_Work_Tab.UI.Input
 {
@@ -9,8 +10,15 @@ namespace Better_Work_Tab.UI.Input
     /// </summary>
     internal static class NativeCursorPosition
     {
+        private const int MoveDelayFrames = 2;
+        private const float MoveDurationSeconds = 0.22f;
+
         private static Vector2? _pendingUiPosition;
         private static int _pendingFrame;
+        private static Vector2 _moveStartUiPosition;
+        private static Vector2 _moveTargetUiPosition;
+        private static float _moveStartedAt;
+        private static bool _isAnimatingMove;
 
         [DllImport("user32.dll")]
         private static extern IntPtr GetForegroundWindow();
@@ -33,12 +41,26 @@ namespace Better_Work_Tab.UI.Input
         internal static void ScheduleMoveToUiPosition(Vector2 uiPosition)
         {
             _pendingUiPosition = uiPosition;
-            _pendingFrame = Time.frameCount + 4;
+            _pendingFrame = Time.frameCount + MoveDelayFrames;
+            _moveTargetUiPosition = uiPosition;
+            _moveStartUiPosition = TryGetClientPosition(out var currentPosition)
+                ? currentPosition
+                : uiPosition;
+            _moveStartedAt = 0f;
+            _isAnimatingMove = true;
+        }
+
+        internal static void CancelPendingMove()
+        {
+            _pendingUiPosition = null;
+            _pendingFrame = 0;
+            _moveStartedAt = 0f;
+            _isAnimatingMove = false;
         }
 
         internal static void ProcessPendingMove()
         {
-            if (!_pendingUiPosition.HasValue || Time.frameCount < _pendingFrame)
+            if (!_pendingUiPosition.HasValue || !_isAnimatingMove || Time.frameCount < _pendingFrame)
             {
                 return;
             }
@@ -49,8 +71,36 @@ namespace Better_Work_Tab.UI.Input
                 return;
             }
 
-            TryMoveToUiPosition(_pendingUiPosition.Value);
-            _pendingUiPosition = null;
+            if (_moveStartedAt <= 0f)
+            {
+                _moveStartedAt = Time.realtimeSinceStartup;
+            }
+
+            float rawProgress = Mathf.Clamp01((Time.realtimeSinceStartup - _moveStartedAt) / MoveDurationSeconds);
+            float eased = Mathf.SmoothStep(0f, 1f, rawProgress);
+            Vector2 current = Vector2.Lerp(_moveStartUiPosition, _moveTargetUiPosition, eased);
+            TryMoveToUiPosition(current);
+
+            if (rawProgress >= 1f)
+            {
+                _pendingUiPosition = null;
+                _isAnimatingMove = false;
+            }
+        }
+
+        internal static void DrawPendingMoveCue()
+        {
+            if (!_isAnimatingMove || !_pendingUiPosition.HasValue || Event.current.type != EventType.Repaint)
+            {
+                return;
+            }
+
+            Vector2 current = TryGetClientPosition(out var clientPosition)
+                ? clientPosition
+                : _moveStartUiPosition;
+            Color color = new Color(1f, 0.78f, 0.18f, 0.68f);
+            Widgets.DrawLine(current, _moveTargetUiPosition, color, 2f);
+            Widgets.DrawBoxSolid(new Rect(_moveTargetUiPosition.x - 3f, _moveTargetUiPosition.y - 3f, 6f, 6f), color);
         }
 
         private static bool AnyMouseButtonDown()
