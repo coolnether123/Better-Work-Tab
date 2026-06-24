@@ -25,6 +25,7 @@ namespace Better_Work_Tab.UI.Settings
                 BuildSystemFilter("system.ui", "System: UI Display", FeaturesUiElements),
                 BuildSystemFilter("system.clicks", "System: Clicks & Shortcuts", FeaturesClicks),
                 BuildVersionFilter("version.1.1", "BWT Version: v1.1", IsV11Setting),
+                BuildVersionFilter("version.1.0.5", "BWT Version: v1.0.5", IsV105Setting),
                 BuildVersionFilter("version.1.0", "BWT Version: v1.0", IsV10Setting),
                 new SettingsFilterDefinition
                 {
@@ -123,6 +124,25 @@ namespace Better_Work_Tab.UI.Settings
                 string.Equals(def.Id, FeaturesClicks, StringComparison.OrdinalIgnoreCase);
         }
 
+        private static bool IsV105Setting(SettingDefinition def)
+        {
+            // V1.0.5 was the last public 1.0.x release in this repo. There is no v1.0.0 tag,
+            // so this tracks settings touched from the practical public baseline V1.0.1
+            // through V1.0.5, plus the v1.0.4 -> V1.0.5 tooltip touch on the baseline line.
+            return HasAnyId(def,
+                    ColumnsShowBaselineLine,
+                    "columns.showMovedColorTint",
+                    "columns.movedMarkerColor",
+                    HeadersHeader,
+                    HeadersAngled,
+                    DragdropRemoveHeaderUnderline,
+                    HeadersAngleRotation,
+                    HeadersUseVerticalStackingForCJK,
+                    "headers.cjkVerticalKerning",
+                    "headers.angledColor",
+                    "headers.horizontalOffset");
+        }
+
         private static bool IsV10Setting(SettingDefinition def)
         {
             return HasAnyPrefix(def,
@@ -140,6 +160,24 @@ namespace Better_Work_Tab.UI.Settings
                 string.Equals(def.Id, FeaturesHighlights, StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(def.Id, FeaturesDragdrop, StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(def.Id, FeaturesWorkloads, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool HasAnyId(SettingDefinition def, params string[] ids)
+        {
+            if (def == null || string.IsNullOrEmpty(def.Id))
+            {
+                return false;
+            }
+
+            foreach (string id in ids)
+            {
+                if (string.Equals(def.Id, id, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static bool HasAnyPrefix(SettingDefinition def, params string[] prefixes)
