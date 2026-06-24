@@ -34,10 +34,13 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             }
 
             float reservedHeight = Mathf.Max(0f, ReservedRowHeight);
+            float anchorOffset = SubWorkDrilldownState.IsExiting
+                ? Mathf.Max(0f, reservedHeight - rowHeight)
+                : 0f;
             float rowTop = layout.TableOrigin.y +
                 layout.HeaderHeight +
                 TimePriorityPlannerPrototype.HeaderPinnedRowsHeight +
-                Mathf.Max(0f, reservedHeight - rowHeight);
+                anchorOffset;
             Rect rowRect = new Rect(
                 layout.TableOrigin.x,
                 rowTop,
