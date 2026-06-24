@@ -110,6 +110,7 @@ namespace Better_Work_Tab
         public static bool showBedCountAtBottom = true;
         public static bool showPriorityLegend = true;
         public static bool showDragInstructions = true;
+        public static bool showContextSettingsHint = true;
         public static bool showManualPrioritiesCheckbox = true;
         public static bool enableTimePriorityPlannerPrototype = true;
         public static bool enableChronosPointerTimePriorityIntegration = true;
@@ -348,6 +349,7 @@ namespace Better_Work_Tab
         public bool showBedCountAtBottom = DefaultSettings.showBedCountAtBottom;
         public bool showPriorityLegend = DefaultSettings.showPriorityLegend;
         public bool showDragInstructions = DefaultSettings.showDragInstructions;
+        public bool showContextSettingsHint = DefaultSettings.showContextSettingsHint;
         public bool showManualPrioritiesCheckbox = DefaultSettings.showManualPrioritiesCheckbox;
         public bool enableTimePriorityPlannerPrototype = DefaultSettings.enableTimePriorityPlannerPrototype;
         public bool enableChronosPointerTimePriorityIntegration = DefaultSettings.enableChronosPointerTimePriorityIntegration;
@@ -867,6 +869,7 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref requireCtrlForDrag, "requireCtrlForDrag", DefaultSettings.requireCtrlForDrag);
             Scribe_Values.Look(ref showPriorityLegend, "showPriorityLegend", DefaultSettings.showPriorityLegend);
             Scribe_Values.Look(ref showDragInstructions, "showDragInstructions", DefaultSettings.showDragInstructions);
+            Scribe_Values.Look(ref showContextSettingsHint, "showContextSettingsHint", DefaultSettings.showContextSettingsHint);
             Scribe_Values.Look(ref showManualPrioritiesCheckbox, "showManualPrioritiesCheckbox", DefaultSettings.showManualPrioritiesCheckbox);
             Scribe_Values.Look(ref showDividers, "showDividers", DefaultSettings.showDividers);
             Scribe_Values.Look(ref allowCustomDividerColors, "allowCustomDividerColors", DefaultSettings.allowCustomDividerColors);

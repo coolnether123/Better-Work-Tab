@@ -90,7 +90,6 @@ namespace Better_Work_Tab.UI
         private int _pendingSubWorkExitColumnSlot = -1;
         private float _pendingSubWorkExitWaveSlotPosition = -1f;
         private int _suppressSubWorkPriorityMouseDownFrame = -1;
-        private float _lastAnimatedPinnedRowsHeight;
 
         private static Color CurrentRowTextColor = Color.white;
 
@@ -274,7 +273,7 @@ namespace Better_Work_Tab.UI
                 }
             }
 
-            AnchorWindowBottomForAnimatedPinnedRows();
+            ResizeWindowBottomAnchoredIfRequestedSizeChanged();
             TimePriorityPlannerPrototype.TryOpenAgentRequestedSession(organizer?.Layout);
 
             Event evt = Event.current;
@@ -348,24 +347,24 @@ namespace Better_Work_Tab.UI
             NativeCursorPosition.DrawPendingMoveCue();
         }
 
-        private void AnchorWindowBottomForAnimatedPinnedRows()
+        private void ResizeWindowBottomAnchoredIfRequestedSizeChanged(bool force = false)
         {
-            float pinnedRowsHeight = GetPinnedRowsHeight();
-            bool shouldAnchor = pinnedRowsHeight > 0.01f || _lastAnimatedPinnedRowsHeight > 0.01f;
-            _lastAnimatedPinnedRowsHeight = pinnedRowsHeight;
-            if (!shouldAnchor)
-            {
-                return;
-            }
-
             Vector2 requestedSize = RequestedTabSize;
-            if (requestedSize.y <= 0f)
+            if (requestedSize.x <= 0f || requestedSize.y <= 0f)
             {
                 return;
             }
 
             Rect rect = windowRect;
+            if (!force &&
+                Mathf.Abs(rect.width - requestedSize.x) < 0.5f &&
+                Mathf.Abs(rect.height - requestedSize.y) < 0.5f)
+            {
+                return;
+            }
+
             float screenBottom = Verse.UI.screenHeight - 35f;
+            rect.width = requestedSize.x;
             rect.height = requestedSize.y;
             rect.y = Mathf.Max(0f, screenBottom - rect.height);
             windowRect = rect;
@@ -402,6 +401,10 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
+            if (rightMouseDown)
+            {
+                PawnOrganizerSystem.Instance?.CancelActiveDrag();
+            }
 
             if (!layout.TryGetRowAt(evt.mousePosition, out var row))
             {
@@ -487,11 +490,7 @@ namespace Better_Work_Tab.UI
                 new FloatMenuOption("Delete", () =>
                 {
                     PawnOrganizerSystem.Instance?.Layout.RemoveDivider(divider);
-
-                    MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
-                    
-                    if (MultiplayerBridge.Active)
-                        LayoutSharingManager.NotifyLayoutChanged();
+                    NotifyDividerLayoutChanged();
                 })
             };
             
@@ -520,11 +519,10 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
-            layout.AddDividerBeforePawn(pawn, "New Divider", Color.gray);
-            MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
-            
-            if (MultiplayerBridge.Active)
-                LayoutSharingManager.NotifyLayoutChanged();
+            if (layout.AddDividerBeforePawn(pawn, "New Divider", Color.gray) != null)
+            {
+                NotifyDividerLayoutChanged();
+            }
         }
 
 
@@ -592,11 +590,35 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
-            layout.AddDividerAfterPawn(pawn, "New Divider", Color.gray);
+            if (layout.AddDividerAfterPawn(pawn, "New Divider", Color.gray) != null)
+            {
+                NotifyDividerLayoutChanged();
+            }
+        }
+
+        private void NotifyDividerLayoutChanged()
+        {
+            PawnOrganizerSystem.Instance?.CancelActiveDrag();
+            PawnOrganizerSystem.Instance?.Layout?.InvalidateRowDescriptors();
+            SetDirty();
+            RefreshOrganizerLayoutForCurrentTable();
+            ResizeWindowBottomAnchoredIfRequestedSizeChanged(force: true);
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
 
             if (MultiplayerBridge.Active)
                 LayoutSharingManager.NotifyLayoutChanged();
+        }
+
+        private void RefreshOrganizerLayoutForCurrentTable()
+        {
+            var organizer = PawnOrganizerSystem.Instance;
+            var table = GetPawnTable();
+            if (organizer == null || table == null || organizer.IsDragging)
+            {
+                return;
+            }
+
+            organizer.Update(table, new Vector2(0f, ExtraTopSpace), BuildSnapshotForOrganizer(table));
         }
 
         private void ShowBackgroundColorPicker(Pawn pawn)
@@ -886,8 +908,12 @@ namespace Better_Work_Tab.UI
             }
 
             BWTSettingsContextFocus.Request(request);
-            OpenBetterWorkTabSettings(toggleExisting: false);
-            SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+            bool opened = OpenBetterWorkTabSettings(toggleExisting: false);
+            if (opened)
+            {
+                HideContextSettingsHintAfterFirstUse();
+                SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+            }
             evt.Use();
             return true;
         }
@@ -2301,7 +2327,7 @@ namespace Better_Work_Tab.UI
         private void DrawContextSettingsHint(Rect inRect)
         {
             var settings = BetterWorkTabMod.Settings;
-            if (!(settings?.enableUIElements ?? true))
+            if (!(settings?.enableUIElements ?? true) || !(settings?.showContextSettingsHint ?? true))
             {
                 return;
             }
@@ -2359,15 +2385,16 @@ namespace Better_Work_Tab.UI
             }
         }
 
-        private void OpenBetterWorkTabSettings(bool toggleExisting = true)
+        private bool OpenBetterWorkTabSettings(bool toggleExisting = true)
         {
-            if (Find.WindowStack != null && Find.WindowStack.TryRemove(typeof(Dialog_ModSettings)) && toggleExisting)
+            if (toggleExisting && Find.WindowStack != null && Find.WindowStack.TryRemove(typeof(Dialog_ModSettings)))
             {
-                return;
+                return false;
             }
 
 #if v0_16
             Find.WindowStack.Add(new Dialog_ModSettings());
+            return true;
 #else
             var mod = LoadedModManager.GetMod<BetterWorkTabMod>();
             if (mod != null)
@@ -2379,8 +2406,23 @@ namespace Better_Work_Tab.UI
 #else
                 Find.WindowStack.Add(new Dialog_ModSettings(mod));
 #endif
+                return true;
             }
 #endif
+
+            return false;
+        }
+
+        private static void HideContextSettingsHintAfterFirstUse()
+        {
+            var settings = BetterWorkTabMod.Settings;
+            if (!(settings?.showContextSettingsHint ?? false))
+            {
+                return;
+            }
+
+            settings.showContextSettingsHint = false;
+            settings.Write();
         }
 
         private void DrawSubWorkExitButton(Rect inRect)

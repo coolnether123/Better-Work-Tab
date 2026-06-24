@@ -3,6 +3,7 @@ using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
+using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using RimWorld;
 using UnityEngine;
@@ -274,6 +275,7 @@ namespace Better_Work_Tab.UI.Settings
                     false,
                     FeaturesUiElements,
                     UiDragInstructions,
+                    UiContextSettingsHint,
                     FeaturesOverlay,
                     FeaturesDragdrop,
                     LayoutCtrlDrag,
@@ -322,6 +324,7 @@ namespace Better_Work_Tab.UI.Settings
                     FeaturesUiElements,
                     false,
                     FeaturesUiElements,
+                    UiContextSettingsHint,
                     AdvancedHideSettingResetIcons,
                     AdvancedRestoreDefaults);
             }
@@ -353,6 +356,7 @@ namespace Better_Work_Tab.UI.Settings
                 FeaturesAutoassign,
                 FeaturesSubWorkJobs,
                 PriorityHeader,
+                UiContextSettingsHint,
                 LayoutWorkTabMaxHeight,
                 LayoutWorkTabTopSpace);
         }
@@ -500,22 +504,14 @@ namespace Better_Work_Tab.UI.Settings
             isWorkloadButton = false;
             isRulesetButton = false;
 
-            Rect gearRect = GetInfoIconRect(inRect);
-            float y = inRect.yMax - 28f - 10f;
-            float xRight = gearRect.x - 6f;
-
-            Rect rulesDot = new Rect(xRight - 28f, y, 28f, 28f);
-            Rect rulesMain = new Rect(rulesDot.x - 150f, y, 150f, 28f);
-            if (rulesDot.Contains(mousePosition) || rulesMain.Contains(mousePosition))
+            HeaderButtons.BottomButtonRects rects = HeaderButtons.GetBottomButtonRects(inRect, GetInfoIconRect(inRect));
+            if (rects.ContainsRuleset(mousePosition))
             {
                 isRulesetButton = true;
                 return true;
             }
 
-            xRight = rulesMain.x - 4f;
-            Rect workloadDot = new Rect(xRight - 28f, y, 28f, 28f);
-            Rect workloadMain = new Rect(workloadDot.x - 150f, y, 150f, 28f);
-            if (workloadDot.Contains(mousePosition) || workloadMain.Contains(mousePosition))
+            if (rects.ContainsWorkload(mousePosition))
             {
                 isWorkloadButton = true;
                 return true;

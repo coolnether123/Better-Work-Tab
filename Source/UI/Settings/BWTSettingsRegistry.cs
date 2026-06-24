@@ -1138,6 +1138,19 @@ namespace Better_Work_Tab.UI.Settings
 
             Register(new SettingDefinition
             {
+                Id = UiContextSettingsHint,
+                FieldName = "showContextSettingsHint",
+                Label = "Show Alt-Click Settings Hint",
+                Tooltip = "Show the top-right hint that Alt-clicking the Work tab opens related settings. This turns off automatically after the first successful Alt-click.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.showContextSettingsHint,
+                ShowInSimpleView = true,
+                SortOrder = 1043,
+                ParentId = FeaturesUiElements
+            });
+
+            Register(new SettingDefinition
+            {
                 Id = UiManualPriorities,
                 FieldName = "showManualPrioritiesCheckbox",
                 Label = "Show Manual Priorities Checkbox",
@@ -1145,7 +1158,7 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.showManualPrioritiesCheckbox,
                 ShowInSimpleView = true,
-                SortOrder = 1043,
+                SortOrder = 1044,
                 ParentId = FeaturesUiElements
             });
 
@@ -1158,7 +1171,7 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Bool,
                 DefaultValue = false,
                 ShowInSimpleView = true,
-                SortOrder = 1044,
+                SortOrder = 1045,
                 ParentId = FeaturesUiElements
             });
 

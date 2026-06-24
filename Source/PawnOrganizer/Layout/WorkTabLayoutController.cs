@@ -773,6 +773,8 @@ namespace Better_Work_Tab.PawnOrganizer
                 if (ReferenceEquals(_snapshotDividers[i], divider))
                 {
                     _snapshotDividers.RemoveAt(i);
+                    SyncDividersToProfile();
+                    InvalidateRowDescriptors();
                     break;
                 }
             }

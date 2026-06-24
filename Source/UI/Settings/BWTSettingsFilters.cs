@@ -237,6 +237,7 @@ namespace Better_Work_Tab.UI.Settings
                     UiManualPriorities,
                     UiPriorityLegend,
                     UiDragInstructions,
+                    UiContextSettingsHint,
                     UiPriorityColorPercentageGreen,
                     UiPriorityColorPercentageYellow,
                     UiPriorityColorPercentageTan,
