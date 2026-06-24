@@ -12,7 +12,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
     /// </summary>
     internal static class SubWorkDrilldownState
     {
-        private const float TransitionSeconds = 0.32f;
+        private const float TransitionSeconds = 0.48f;
         internal const float GlobalRowHeight = 30f;
         internal const float GlobalPriorityBoxSize = 25f;
 
@@ -58,7 +58,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                     hash = hash * 31 + _exitWorkColumnSlot;
                     hash = hash * 31 + Mathf.RoundToInt(_exitWaveSlotPosition * 100f);
                     hash = hash * 31 + (_isExiting ? 1 : 0);
-                    hash = hash * 31 + TransitionLayoutFrame;
                     return hash;
                 }
             }
@@ -121,7 +120,49 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             }
         }
 
-        internal static float TransitionEase => Mathf.SmoothStep(0f, 1f, TransitionAlpha);
+        internal static float TransitionEase
+        {
+            get
+            {
+                float t = Mathf.Clamp01(TransitionAlpha);
+                return t * t * t * (t * (t * 6f - 15f) + 10f);
+            }
+        }
+
+        internal static float ModeVisualProgress
+        {
+            get
+            {
+                if (!IsActive)
+                {
+                    return 0f;
+                }
+
+                if (!UseTransitionAnimation || !IsTransitioning)
+                {
+                    return 1f;
+                }
+
+                return TransitionEase;
+            }
+        }
+
+        internal static float SubWorkContentAlpha => ModeVisualProgress;
+
+        internal static float ParentWorkContentAlpha => IsTransitioning ? 1f - ModeVisualProgress : 0f;
+
+        internal static float SubWorkContentScale
+        {
+            get
+            {
+                if (!IsTransitioning)
+                {
+                    return 1f;
+                }
+
+                return Mathf.Lerp(0.78f, 1f, Mathf.Sin(SubWorkContentAlpha * Mathf.PI * 0.5f));
+            }
+        }
 
         internal static float HeaderFlipScale
         {
@@ -133,13 +174,13 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 }
 
                 float visibleProgress = HeaderVisibleProgress;
-                return Mathf.Lerp(0.08f, 1f, Mathf.Sin(visibleProgress * Mathf.PI * 0.5f));
+                return Mathf.Lerp(0.62f, 1f, Mathf.Sin(visibleProgress * Mathf.PI * 0.5f));
             }
         }
 
         internal static float HeaderFlipAlpha => IsTransitioning ? HeaderVisibleProgress : 1f;
 
-        private static float HeaderVisibleProgress => TransitionEase;
+        private static float HeaderVisibleProgress => ModeVisualProgress;
 
         internal static float GlobalRowVisibleHeight
         {
@@ -155,7 +196,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                     return GlobalRowHeight;
                 }
 
-                return GlobalRowHeight * Mathf.Clamp01(HeaderVisibleProgress);
+                return GlobalRowHeight * Mathf.Clamp01(ModeVisualProgress);
             }
         }
 
@@ -200,16 +241,13 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
             int totalSlots = Mathf.Max(1, VisibleWorkTypeSlots.Count);
             float distance = Mathf.Abs(slot - pivotSlot);
-            float waveCenter = (_isExiting ? 1f - TransitionAlpha : TransitionAlpha) * (totalSlots + 1);
+            float phase = _isExiting ? 1f - TransitionAlpha : TransitionAlpha;
+            float waveCenter = phase * (totalSlots + 1);
             float wave = 1f - Mathf.Abs(distance - waveCenter) / 1.25f;
             wave = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(wave));
-            float fadeOut = Mathf.SmoothStep(1f, 0f, Mathf.Clamp01((TransitionAlpha - 0.72f) / 0.28f));
-            if (_isExiting)
-            {
-                fadeOut = Mathf.SmoothStep(1f, 0f, Mathf.Clamp01((1f - TransitionAlpha - 0.72f) / 0.28f));
-            }
+            float fadeOut = Mathf.SmoothStep(1f, 0f, Mathf.Clamp01((phase - 0.48f) / 0.34f));
 
-            return 0.26f * wave * fadeOut;
+            return 0.18f * wave * fadeOut;
         }
 
         private static float GetTransitionPivotSlot()

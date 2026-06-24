@@ -166,16 +166,18 @@ namespace Better_Work_Tab.Patches
 
             if (SubWorkDrilldownState.IsActive)
             {
-                if (!SubWorkDrilldownState.TryGetWorkGiverForColumn(__instance.def, out var workGiver, out _))
-                {
-                    return false;
-                }
-
                 if (pawn == null || pawn.Dead || pawn.workSettings == null || !pawn.workSettings.EverWork)
                 {
                     return false;
                 }
 
+                if (!SubWorkDrilldownState.TryGetWorkGiverForColumn(__instance.def, out var workGiver, out _))
+                {
+                    DrawParentPriorityCellVisual(rect, pawn, workType, SubWorkDrilldownState.ParentWorkContentAlpha);
+                    return false;
+                }
+
+                DrawParentPriorityCellVisual(rect, pawn, workType, SubWorkDrilldownState.ParentWorkContentAlpha);
                 DrawSubWorkPriorityCell(rect, pawn, workGiver);
                 return false;
             }
@@ -412,7 +414,58 @@ namespace Better_Work_Tab.Patches
                 workGiver,
                 SubWorkDrilldownState.ActiveWorkType,
                 pawn,
-                boxRect);
+                boxRect,
+                SubWorkDrilldownState.SubWorkContentAlpha,
+                SubWorkDrilldownState.SubWorkContentScale);
+        }
+
+        private static void DrawParentPriorityCellVisual(Rect rect, Pawn pawn, WorkTypeDef workType, float alpha)
+        {
+            if (alpha <= 0.001f || pawn == null || workType == null || pawn.workSettings == null)
+            {
+                return;
+            }
+
+            Rect boxRect = GetWorkBoxRect(rect);
+            int priority = WorkPrioritySystem.ClampPriority(pawn.workSettings.GetPriority(workType));
+
+            Color oldColor = GUI.color;
+            TextAnchor oldAnchor = Text.Anchor;
+            GameFont oldFont = Text.Font;
+            bool oldWordWrap = Text.WordWrap;
+
+            try
+            {
+                Text.WordWrap = false;
+
+                GUI.color = new Color(oldColor.r, oldColor.g, oldColor.b, oldColor.a * alpha);
+                WidgetsWork.DrawWorkBoxBackground(boxRect, pawn, workType);
+
+                if (Find.PlaySettings.useWorkPriorities)
+                {
+                    if (priority > WorkPrioritySystem.DisabledPriority)
+                    {
+                        Text.Font = GameFont.Medium;
+                        Text.Anchor = TextAnchor.MiddleCenter;
+                        Color priorityColor = WorkPrioritySystem.GetPriorityColor(priority);
+                        priorityColor.a *= alpha;
+                        GUI.color = priorityColor;
+                        Widgets.Label(boxRect.ContractedBy(-3f), priority.ToString());
+                    }
+                }
+                else if (priority > WorkPrioritySystem.DisabledPriority)
+                {
+                    GUI.color = new Color(1f, 1f, 1f, alpha);
+                    GUI.DrawTexture(boxRect, WidgetsWork.WorkBoxCheckTex);
+                }
+            }
+            finally
+            {
+                GUI.color = oldColor;
+                Text.Anchor = oldAnchor;
+                Text.Font = oldFont;
+                Text.WordWrap = oldWordWrap;
+            }
         }
 
         private static bool GetIsIncapable(Pawn p, WorkTypeDef work)

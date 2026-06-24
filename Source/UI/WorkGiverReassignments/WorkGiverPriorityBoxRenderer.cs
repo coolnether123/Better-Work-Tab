@@ -19,14 +19,27 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         private const float OverrideResetAnimationSeconds = 0.42f;
         private static readonly Dictionary<string, ResetAnimationState> ResetAnimations = new Dictionary<string, ResetAnimationState>(StringComparer.Ordinal);
         private static readonly Dictionary<string, Vector2> GlobalPriorityTargets = new Dictionary<string, Vector2>(StringComparer.Ordinal);
+        private static float _visualAlpha = 1f;
 
-        public static void DrawPriorityBox(WorkGiver wg, WorkTypeDef workType, Pawn pawn, Rect boxRect)
+        public static void DrawPriorityBox(WorkGiver wg, WorkTypeDef workType, Pawn pawn, Rect boxRect, float visualAlpha = 1f, float visualScale = 1f)
         {
             if (wg?.def == null)
             {
                 return;
             }
 
+            float oldVisualAlpha = _visualAlpha;
+            _visualAlpha = Mathf.Clamp01(_visualAlpha * visualAlpha);
+            if (_visualAlpha <= 0.001f)
+            {
+                _visualAlpha = oldVisualAlpha;
+                return;
+            }
+
+            boxRect = ScaleRect(boxRect, visualScale);
+
+            try
+            {
             int defaultPriority = WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType);
             bool hasPawnOverride = pawn != null &&
                                    WorkGiverReassignmentManager.HasPawnWorkGiverOverride(pawn, wg.def);
@@ -64,7 +77,35 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             }
             
             TooltipHandler.TipRegion(boxRect, wg.def.LabelCap);
+            }
+            finally
+            {
+                _visualAlpha = oldVisualAlpha;
+            }
         }
+
+        private static Rect ScaleRect(Rect rect, float scale)
+        {
+            scale = Mathf.Clamp(scale, 0.01f, 1.25f);
+            if (Mathf.Abs(scale - 1f) < 0.001f)
+            {
+                return rect;
+            }
+
+            Vector2 center = rect.center;
+            rect.width *= scale;
+            rect.height *= scale;
+            rect.center = center;
+            return rect;
+        }
+
+        private static Color WithVisualAlpha(Color color)
+        {
+            color.a *= _visualAlpha;
+            return color;
+        }
+
+        private static bool ShouldHandleInput => _visualAlpha > 0.999f && !SubWorkDrilldownState.IsTransitioning;
 
         private static void DrawPawnPriorityBox(WorkGiver wg, WorkTypeDef workType, Pawn pawn, Rect boxRect, int workGiverPriority, bool hasPawnOverride)
         {
@@ -73,11 +114,14 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 DrawOverrideResetAnimation(pawn.thingIDNumber, wg.def, boxRect);
                 if (hasPawnOverride)
                 {
-                    DrawOverrideRing(boxRect);
+                    DrawOverrideRingIfVisible(boxRect);
                 }
 
                 int inheritedPriority = WorkGiverReassignmentManager.GetInheritedWorkGiverPriority(pawn, workType, wg.def);
-                HandlePriorityClick(pawn.thingIDNumber, wg.def, boxRect, workGiverPriority, hasPawnOverride, inheritedPriority);
+                if (ShouldHandleInput)
+                {
+                    HandlePriorityClick(pawn.thingIDNumber, wg.def, boxRect, workGiverPriority, hasPawnOverride, inheritedPriority);
+                }
             }
         }
 
@@ -94,7 +138,10 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 DrawPriorityBoxContents(boxRect, workGiverPriority, false);
             }
 
-            HandlePriorityClick(-1, wg.def, boxRect, workGiverPriority);
+            if (ShouldHandleInput)
+            {
+                HandlePriorityClick(-1, wg.def, boxRect, workGiverPriority);
+            }
         }
 
         private static void DrawVanillaGlobalPriorityBoxContents(Rect boxRect, int priority)
@@ -110,6 +157,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             bool oldWordWrap = Text.WordWrap;
             Text.WordWrap = false;
 
+            GUI.color = WithVisualAlpha(oldColor);
             GUI.DrawTexture(boxRect, bgTex);
 
             if (Find.PlaySettings.useWorkPriorities)
@@ -118,12 +166,13 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 {
                     Text.Font = GameFont.Medium;
                     Text.Anchor = TextAnchor.MiddleCenter;
-                    GUI.color = WorkPrioritySystem.GetPriorityColor(priority);
+                    GUI.color = WithVisualAlpha(WorkPrioritySystem.GetPriorityColor(priority));
                     Widgets.Label(boxRect.ContractedBy(-3f), priority.ToString());
                 }
             }
             else if (priority > WorkPrioritySystem.DisabledPriority)
             {
+                GUI.color = WithVisualAlpha(oldColor);
                 GUI.DrawTexture(boxRect, WidgetsWork.WorkBoxCheckTex);
             }
 
@@ -153,7 +202,11 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
             if (incapable)
             {
-                GUI.color = new Color(1f, 0.3f, 0.3f);
+                GUI.color = WithVisualAlpha(new Color(1f, 0.3f, 0.3f));
+            }
+            else
+            {
+                GUI.color = WithVisualAlpha(oldColor);
             }
 
             GUI.DrawTexture(boxRect, bgTex);
@@ -163,7 +216,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             {
                 Text.Font = GameFont.Medium;
                 Text.Anchor = TextAnchor.MiddleCenter;
-                GUI.color = WorkPrioritySystem.GetPriorityColor(priority);
+                GUI.color = WithVisualAlpha(WorkPrioritySystem.GetPriorityColor(priority));
                 Widgets.Label(boxRect.ContractedBy(-3f), priority.ToString());
             }
 
@@ -186,6 +239,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             }
 
             priority = WorkPrioritySystem.ClampPriority(priority);
+            Color oldColor = GUI.color;
             if (pawn.WorkTypeIsDisabled(workType))
             {
                 int minAgeRequired;
@@ -202,13 +256,14 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                         Event.current.Use();
                     }
 
+                    GUI.color = WithVisualAlpha(oldColor);
                     GUI.DrawTexture(boxRect, WidgetsWork.WorkBoxBGTex_AgeDisabled);
+                    GUI.color = oldColor;
                 }
 
                 return false;
             }
 
-            Color oldColor = GUI.color;
             TextAnchor oldAnchor = Text.Anchor;
             GameFont oldFont = Text.Font;
             bool oldWordWrap = Text.WordWrap;
@@ -216,7 +271,11 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
             if (incapable)
             {
-                GUI.color = new Color(1f, 0.3f, 0.3f);
+                GUI.color = WithVisualAlpha(new Color(1f, 0.3f, 0.3f));
+            }
+            else
+            {
+                GUI.color = WithVisualAlpha(oldColor);
             }
 
             WidgetsWork.DrawWorkBoxBackground(boxRect, pawn, workType);
@@ -228,12 +287,13 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 {
                     Text.Font = GameFont.Medium;
                     Text.Anchor = TextAnchor.MiddleCenter;
-                    GUI.color = WorkPrioritySystem.GetPriorityColor(priority);
+                    GUI.color = WithVisualAlpha(WorkPrioritySystem.GetPriorityColor(priority));
                     Widgets.Label(boxRect.ContractedBy(-3f), priority.ToString());
                 }
             }
             else if (priority > WorkPrioritySystem.DisabledPriority)
             {
+                GUI.color = WithVisualAlpha(oldColor);
                 GUI.DrawTexture(boxRect, WidgetsWork.WorkBoxCheckTex);
             }
 
@@ -257,9 +317,9 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             GameFont oldFont = Text.Font;
             bool oldWordWrap = Text.WordWrap;
 
-            GUI.color = new Color(0.52f, 0.52f, 0.52f, 0.82f);
+            GUI.color = WithVisualAlpha(new Color(0.52f, 0.52f, 0.52f, 0.82f));
             GUI.DrawTexture(boxRect, WidgetsWork.WorkBoxBGTex_Bad);
-            GUI.color = new Color(0.18f, 0.18f, 0.18f, 0.42f);
+            GUI.color = WithVisualAlpha(new Color(0.18f, 0.18f, 0.18f, 0.42f));
             GUI.DrawTexture(boxRect, BaseContent.WhiteTex);
 
             GUI.color = oldColor;
@@ -272,7 +332,10 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 Widgets.DrawHighlight(boxRect);
             }
 
-            HandleInheritedDisabledClick(wg, pawn, workType, boxRect);
+            if (ShouldHandleInput)
+            {
+                HandleInheritedDisabledClick(wg, pawn, workType, boxRect);
+            }
         }
 
         private static void DrawParentDisabledOverrideBox(WorkGiver wg, WorkTypeDef workType, Pawn pawn, Rect boxRect, int workGiverPriority)
@@ -283,14 +346,17 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             }
 
             Color oldColor = GUI.color;
-            GUI.color = new Color(0.08f, 0.08f, 0.08f, 0.45f);
+            GUI.color = WithVisualAlpha(new Color(0.08f, 0.08f, 0.08f, 0.45f));
             GUI.DrawTexture(boxRect, BaseContent.WhiteTex);
             GUI.color = oldColor;
 
-            DrawOverrideRing(boxRect);
+            DrawOverrideRingIfVisible(boxRect);
             DrawOverrideResetAnimation(pawn.thingIDNumber, wg.def, boxRect);
             TooltipHandler.TipRegion(boxRect, "Parent work is disabled. Click the priority box to enable the parent work type; click the gold ring to follow the global sub-work priority again.");
-            HandleParentDisabledOverrideClick(wg, pawn, workType, boxRect, workGiverPriority);
+            if (ShouldHandleInput)
+            {
+                HandleParentDisabledOverrideClick(wg, pawn, workType, boxRect, workGiverPriority);
+            }
         }
 
         private static void HandleParentDisabledOverrideClick(WorkGiver wg, Pawn pawn, WorkTypeDef workType, Rect boxRect, int currentPriority)
@@ -487,8 +553,13 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 : WorkPrioritySystem.GetDefaultEnabledPriority();
         }
 
-        private static void DrawOverrideRing(Rect boxRect)
+        private static void DrawOverrideRingIfVisible(Rect boxRect)
         {
+            if (_visualAlpha < 0.999f)
+            {
+                return;
+            }
+
             PriorityOverrideRing.Draw(boxRect);
         }
 

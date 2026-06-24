@@ -186,6 +186,8 @@ namespace Better_Work_Tab.UI.Headers.Angled
             float flipScale = SubWorkDrilldownState.HeaderFlipScale;
             float flipAlpha = SubWorkDrilldownState.HeaderFlipAlpha;
 
+            DrawParentHeaderGhost(layout, headerRect, column, rotation, horizontalOffset, originalMatrix);
+
             try
             {
                 // Reset to identity matrix and unclip the pivot for screen-space rendering
@@ -252,7 +254,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
                     float textWidth = labelSize.x;
                     Vector2 underlineStart = new Vector2(drawRect.xMin, drawRect.yMax);
                     Vector2 underlineEnd = new Vector2(drawRect.xMin + textWidth, drawRect.yMax);
-                    Widgets.DrawLine(underlineStart, underlineEnd, Color.white, 1f);
+                    Widgets.DrawLine(underlineStart, underlineEnd, new Color(1f, 1f, 1f, flipAlpha), 1f);
                 }
             }
             finally
@@ -267,6 +269,109 @@ namespace Better_Work_Tab.UI.Headers.Angled
             if (isSorted && headerRect != default)
             {
                 HeaderUtility.DrawSortIndicator(headerRect, sortDescending);
+            }
+        }
+
+        private static void DrawParentHeaderGhost(
+            AngledLabelLayout currentLayout,
+            Rect headerRect,
+            PawnColumnDef column,
+            float currentRotation,
+            float horizontalOffset,
+            Matrix4x4 originalMatrix)
+        {
+            float alpha = SubWorkDrilldownState.ParentWorkContentAlpha;
+            if (alpha <= 0.001f ||
+                headerRect.width <= 0f ||
+                headerRect.height <= 0f ||
+                column?.workType == null)
+            {
+                return;
+            }
+
+            string parentText = HeaderUtility.GetParentHeaderText(column.workType, currentLayout.ShowMarker);
+            if (parentText.NullOrEmpty() || parentText == currentLayout.Text)
+            {
+                return;
+            }
+
+            TextAnchor oldAnchor = Text.Anchor;
+            GameFont oldFont = Text.Font;
+            Color oldColor = GUI.color;
+            bool oldWordWrap = Text.WordWrap;
+            Matrix4x4 oldMatrix = GUI.matrix;
+
+            try
+            {
+                Text.Font = GameFont.Small;
+                Text.WordWrap = false;
+
+                bool isCJKVertical = HeaderUtility.ShouldUseCJKVerticalLabel(parentText);
+                float rotation = isCJKVertical ? 0f : currentRotation;
+                Vector2 size = Text.CalcSize(parentText);
+                if (isCJKVertical)
+                {
+                    float charH = Text.LineHeight * BetterWorkTabMod.Settings.cjkVerticalKerning;
+                    size = new Vector2(size.y, parentText.Length * charH);
+                }
+
+                Rect drawRect;
+                if (isCJKVertical)
+                {
+                    drawRect = new Rect(0f, 0f, size.x, size.y);
+                    drawRect.x = headerRect.center.x - drawRect.width / 2f + horizontalOffset;
+                    drawRect.y = headerRect.yMax - size.y - STEM_BOTTOM_GAP;
+                }
+                else
+                {
+                    drawRect = new Rect(0f, 0f, headerRect.height, size.y) { center = headerRect.center };
+                    drawRect.x += horizontalOffset;
+                }
+
+                GUI.matrix = Matrix4x4.identity;
+                Vector2 pivotPoint = GUIClipUtility.Unclip(drawRect.center);
+                Matrix4x4 transformationMatrix = originalMatrix;
+                transformationMatrix *= Matrix4x4.TRS(pivotPoint, Quaternion.identity, Vector3.one);
+                transformationMatrix *= Matrix4x4.TRS(Vector3.zero, Quaternion.Euler(0f, 0f, rotation), Vector3.one);
+                transformationMatrix *= Matrix4x4.TRS(-pivotPoint, Quaternion.identity, Vector3.one);
+                GUI.matrix = transformationMatrix;
+
+                Text.Anchor = isCJKVertical ? TextAnchor.UpperCenter : TextAnchor.MiddleLeft;
+                GUI.color = (currentLayout.ShowMarker && BetterWorkTabMod.Settings.showMovedColumnColorTint)
+                    ? HeaderUtility.Colors.MovedMarkerColor
+                    : BetterWorkTabMod.Settings.angledHeaderColor;
+                GUI.color = new Color(GUI.color.r, GUI.color.g, GUI.color.b, GUI.color.a * alpha);
+
+                if (isCJKVertical)
+                {
+                    float curY = drawRect.y;
+                    float charH = Text.LineHeight * BetterWorkTabMod.Settings.cjkVerticalKerning;
+                    for (int i = 0; i < parentText.Length; i++)
+                    {
+                        Rect charRect = new Rect(drawRect.x, curY, drawRect.width, charH + 2f);
+                        Widgets.Label(charRect, parentText[i].ToString());
+                        curY += charH;
+                    }
+                }
+                else
+                {
+                    Widgets.Label(drawRect, parentText);
+                }
+
+                if (!BetterWorkTabMod.Settings.removeHeaderUnderline && !isCJKVertical)
+                {
+                    Vector2 underlineStart = new Vector2(drawRect.xMin, drawRect.yMax);
+                    Vector2 underlineEnd = new Vector2(drawRect.xMin + size.x, drawRect.yMax);
+                    Widgets.DrawLine(underlineStart, underlineEnd, new Color(1f, 1f, 1f, alpha), 1f);
+                }
+            }
+            finally
+            {
+                Text.Anchor = oldAnchor;
+                Text.Font = oldFont;
+                GUI.color = oldColor;
+                Text.WordWrap = oldWordWrap;
+                GUI.matrix = oldMatrix;
             }
         }
     }
