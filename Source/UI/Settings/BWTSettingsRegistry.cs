@@ -310,7 +310,7 @@ namespace Better_Work_Tab.UI.Settings
                 ParentId = SubWorkTransitionAnimation,
                 FieldName = "subWorkTransitionStyle",
                 Label = "Transition style",
-                Tooltip = "Classic glide is the original sub-work transition. Pixel wave flip uses the newer grey wave and per-column header flip.",
+                Tooltip = "Classic glide is the original sub-work transition. Pixel wave reveal keeps columns in place and fades them as the grey wave passes.",
                 Type = SettingType.Enum,
                 EnumType = typeof(BetterWorkTabSettings.SubWorkTransitionStyle),
                 DefaultValue = DefaultSettings.subWorkTransitionStyle,

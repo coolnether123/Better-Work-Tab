@@ -1012,7 +1012,7 @@ namespace Better_Work_Tab.PawnOrganizer
                 return;
             }
 
-            if (SubWorkDrilldownState.UsePixelWaveTransition && SubWorkDrilldownState.IsExiting)
+            if (SubWorkDrilldownState.UsePixelWaveTransition)
             {
                 return;
             }
