@@ -1,4 +1,5 @@
 using System;
+using Better_Work_Tab.Features.TimePriority;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -61,6 +62,12 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             return ClampPriority(pawn.workSettings.GetPriority(workType));
         }
 
+        internal static int GetCurrentPriorityForPawnWorkType(Pawn pawn, WorkTypeDef workType)
+        {
+            int basePriority = GetPriorityForPawnWorkType(pawn, workType);
+            return TimePriorityService.GetEffectiveWorkTypePriority(pawn, workType, basePriority);
+        }
+
         internal static void SetPriority(Pawn_WorkSettings workSettings, WorkTypeDef workType, int priority)
         {
             if (workSettings == null || workType == null)
@@ -75,12 +82,12 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         {
             if (button == 0)
             {
-                return CycleTowardHigherPriority(currentPriority);
+                return PriorityAuthorityBroker.GetPriorityAfterClick(currentPriority, -1);
             }
 
             if (button == 1)
             {
-                return CycleTowardLowerPriority(currentPriority);
+                return PriorityAuthorityBroker.GetPriorityAfterClick(currentPriority, 1);
             }
 
             return ClampPriority(currentPriority);
@@ -193,16 +200,6 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 default:
                     return Color.grey;
             }
-        }
-
-        private static int CycleTowardHigherPriority(int currentPriority)
-        {
-            return PriorityAuthorityBroker.GetNextManualPriority(currentPriority, 1);
-        }
-
-        private static int CycleTowardLowerPriority(int currentPriority)
-        {
-            return PriorityAuthorityBroker.GetNextManualPriority(currentPriority, -1);
         }
     }
 }
