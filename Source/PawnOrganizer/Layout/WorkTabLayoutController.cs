@@ -951,7 +951,8 @@ namespace Better_Work_Tab.PawnOrganizer
                 fillerIndex < 0 ||
                 fillerIndex >= visibleColumns.Count ||
                 surplus <= 0.5f ||
-                !(visibleColumns[fillerIndex].def.Worker is PawnColumnWorker_Label))
+                !(visibleColumns[fillerIndex].def.Worker is PawnColumnWorker_Label) ||
+                (BetterWorkTabMod.Settings?.enableAngledHeaders ?? DefaultSettings.enableAngledHeaders))
             {
                 return surplus;
             }

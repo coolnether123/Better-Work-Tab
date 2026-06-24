@@ -70,10 +70,6 @@ namespace Better_Work_Tab.UI
         private const float InfoIconSize = 24f;
         private const float MinWorkTabHeight = 200f;
         private const float MinimumPawnRenderHeight = 30f;
-        private const float SubWorkExtraBottomSpace = 13f;
-
-        protected override float ExtraBottomSpace =>
-            Mathf.Lerp(base.ExtraBottomSpace, SubWorkExtraBottomSpace, SubWorkDrilldownState.ModeVisualProgress);
 
         protected override float ExtraTopSpace =>
             Mathf.Clamp(
