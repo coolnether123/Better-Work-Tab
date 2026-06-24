@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using UnityEngine;
@@ -118,6 +119,23 @@ namespace Verse
 
             return LanguageDatabase.defaultLanguage != null &&
                    LanguageDatabase.defaultLanguage.TryGetTextFromKey(text, out translated);
+        }
+    }
+}
+#endif
+
+#if (v0_17 || v0_16)
+namespace UnityEngine
+{
+    public static class RectCompatExtensions
+    {
+        public static Rect ExpandedBy(this Rect rect, float margin)
+        {
+            return new Rect(
+                rect.x - margin,
+                rect.y - margin,
+                rect.width + margin * 2f,
+                rect.height + margin * 2f);
         }
     }
 }
@@ -434,6 +452,37 @@ namespace Better_Work_Tab
         public static Rect RightHalf(Rect rect)
         {
             return RightPart(rect, 0.5f);
+        }
+    }
+
+    public static class WindowCompat
+    {
+        public static Rect GetWindowRect(Window window)
+        {
+            if (window == null)
+            {
+                return RectCompat.Zero;
+            }
+
+            Type type = window.GetType();
+            while (type != null)
+            {
+                FieldInfo field = type.GetField("windowRect", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                if (field != null && field.GetValue(window) is Rect fieldRect)
+                {
+                    return fieldRect;
+                }
+
+                PropertyInfo property = type.GetProperty("windowRect", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                if (property != null && property.GetValue(window, null) is Rect propertyRect)
+                {
+                    return propertyRect;
+                }
+
+                type = type.BaseType;
+            }
+
+            return RectCompat.Zero;
         }
     }
 

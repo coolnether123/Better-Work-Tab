@@ -1,4 +1,5 @@
 using Better_Work_Tab.Features;
+using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Mod_Support.LocalProfiles;
 using Better_Work_Tab.Mod_Support.Multiplayer;
@@ -23,6 +24,8 @@ namespace Better_Work_Tab.Features.Workloads
         public List<string> ColumnBaselineOrder = new List<string>();
         public List<PawnDivider> ActiveDividers = new List<PawnDivider>();
         public WorkGiverReassignmentData WorkGiverReassignments = new WorkGiverReassignmentData();
+        public List<TimePriorityScheduleData> TimePrioritySchedules = new List<TimePriorityScheduleData>();
+        private int _lastTimePriorityHour = -1;
 
 #if v0_13 || vAlpha4
         public GameComponent_BWTWorldSettings() : base()
@@ -49,6 +52,7 @@ namespace Better_Work_Tab.Features.Workloads
             EnsureWorkGiverReassignmentData();
             WorkGiverReassignmentManager.MigrateLegacySettingsDataIfNeeded(this);
             ColumnBaselineManager.EnsureBaseline(this);
+            TimePriorityService.NotifyLoaded();
 
             SpineTiming.Enabled = BetterWorkTabMod.Settings?.enableProfiler ?? false;
         }
@@ -72,6 +76,7 @@ namespace Better_Work_Tab.Features.Workloads
             Better_Work_Tab.ScribeCompat.LookCollection(ref ColumnBaselineOrder, "columnBaselineOrder", LookMode.Value);
             Better_Work_Tab.ScribeCompat.LookCollection(ref ColumnCurrentOrder, "columnCurrentOrder", LookMode.Value);
             Better_Work_Tab.ScribeCompat.LookDeep(ref WorkGiverReassignments, "workGiverReassignments");
+            Better_Work_Tab.ScribeCompat.LookCollection(ref TimePrioritySchedules, "timePrioritySchedules", LookMode.Deep);
 
             if (!MultiplayerBridge.Active)
             {
@@ -157,6 +162,23 @@ namespace Better_Work_Tab.Features.Workloads
 
                 EnsureWorkGiverReassignmentData();
                 WorkGiverReassignmentManager.MigrateLegacySettingsDataIfNeeded(this);
+                if (TimePrioritySchedules == null)
+                {
+                    TimePrioritySchedules = new List<TimePriorityScheduleData>();
+                }
+
+                for (int i = TimePrioritySchedules.Count - 1; i >= 0; i--)
+                {
+                    if (TimePrioritySchedules[i] == null)
+                    {
+                        TimePrioritySchedules.RemoveAt(i);
+                        continue;
+                    }
+
+                    TimePrioritySchedules[i].EnsureValid();
+                }
+
+                TimePriorityService.NotifyLoaded();
             }
         }
 
@@ -182,6 +204,13 @@ namespace Better_Work_Tab.Features.Workloads
             // Save profile every 300 ticks (~5 seconds) if dirty
             // This avoids Scribe nesting issues when called from ExposeData
             _profileSaveTimer++;
+            int currentHour = TimePriorityService.GetCurrentHour(null);
+            if (currentHour != _lastTimePriorityHour)
+            {
+                _lastTimePriorityHour = currentHour;
+                TimePriorityService.NotifyHourBoundaryIfNeeded();
+            }
+
             if (_profileSaveTimer > 300)
             {
                 _profileSaveTimer = 0;

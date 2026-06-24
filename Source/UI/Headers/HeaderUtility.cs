@@ -52,10 +52,18 @@ namespace Better_Work_Tab.UI.Headers
         {
             if (workType == null) return DefaultHeaderText;
 
-            if (SubWorkDrilldownState.IsActive && TryGetSubWorkHeaderText(workType, isMoved, subWorkLabelStyle, out var subWorkText))
+            if (SubWorkDrilldownState.IsActive &&
+                TryGetSubWorkHeaderText(workType, isMoved, subWorkLabelStyle, out var subWorkText))
             {
                 return subWorkText;
             }
+
+            return GetParentHeaderText(workType, isMoved);
+        }
+
+        public static string GetParentHeaderText(WorkTypeDef workType, bool isMoved = false)
+        {
+            if (workType == null) return DefaultHeaderText;
 
             // Use the shortest available valid label
             string baseText = Better_Work_Tab.WorkTypeCompat.LabelShort(workType);
@@ -233,7 +241,12 @@ namespace Better_Work_Tab.UI.Headers
             GameFont oldFont = Text.Font;
             bool oldWordWrap = Text.WordWrap;
 
-            GUI.color = Colors.SortIndicatorColor;
+            Color color = Colors.SortIndicatorColor;
+            float transitionAlpha = SubWorkDrilldownState.IsTransitioning
+                ? Mathf.Max(SubWorkDrilldownState.HeaderFlipAlpha, SubWorkDrilldownState.ParentWorkContentAlpha)
+                : 1f;
+            color.a *= transitionAlpha;
+            GUI.color = color;
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.MiddleCenter;
             Text.WordWrap = false;

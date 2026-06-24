@@ -111,8 +111,45 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 return Clamp(settings.autoDisabledPriorityFixedValue, 1, autoMaxPriority);
             }
 
-            int priority = RoundUpToPriorityBand(Math.Max(PriorityConstants.VanillaMax, GetHighestLivePriority()));
+            int priorityFloor = Math.Max(PriorityConstants.VanillaMax, GetHighestLivePriority());
+            PriorityProviderSnapshot snapshot = GetSnapshot();
+            if (snapshot != null && snapshot.MaxPriority > PriorityConstants.VanillaMax)
+            {
+                priorityFloor = Math.Max(priorityFloor, snapshot.MaxPriority);
+            }
+
+            int priority = RoundUpToPriorityBand(priorityFloor);
             return Clamp(priority, PriorityConstants.VanillaMax, autoMaxPriority);
+        }
+
+        public static int GetPriorityAfterClick(int currentPriority, int delta)
+        {
+            PriorityProviderSnapshot currentSnapshot = GetSnapshotForPriority(currentPriority);
+            int currentMax = currentSnapshot.MaxPriority;
+            int normalized = Clamp(currentPriority, PriorityConstants.Disabled, currentMax);
+
+            if (normalized == PriorityConstants.Disabled)
+            {
+                if (delta < 0)
+                {
+                    return AutoProviderSelectionEnabled()
+                        ? GetDefaultManualPriorityForDisabledWork()
+                        : currentMax;
+                }
+
+                return 1;
+            }
+
+            int requested = normalized + delta;
+            if (requested <= PriorityConstants.Disabled)
+            {
+                return PriorityConstants.Disabled;
+            }
+
+            PriorityProviderSnapshot requestedSnapshot = GetSnapshotForPriority(requested);
+            return requested <= requestedSnapshot.MaxPriority
+                ? requested
+                : PriorityConstants.Disabled;
         }
 
         public static int GetNextManualPriority(int currentPriority, int direction)
@@ -170,9 +207,10 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             int requestedPriority)
         {
             int autoMaxPriority = GetAutoConfiguredMaxPriority();
+            int highestLivePriority = GetHighestLivePriority();
             int requiredPriority = ClampMaxPriority(Math.Max(
                 PriorityConstants.VanillaMax,
-                Math.Max(requestedPriority, GetHighestLivePriority())));
+                Math.Max(requestedPriority, highestLivePriority)));
 
             if (settings != null && settings.delegateToExternalPriorityMods)
             {
@@ -182,10 +220,16 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                     return external;
                 }
 
-                if (GetHighestLivePriority() > PriorityConstants.VanillaMax)
+                if (highestLivePriority > PriorityConstants.VanillaMax &&
+                    highestLivePriority >= requestedPriority)
                 {
-                    return CreateObservedExternalSnapshot(Math.Min(GetHighestLivePriority(), autoMaxPriority));
+                    return CreateObservedExternalSnapshot(Math.Min(highestLivePriority, autoMaxPriority));
                 }
+            }
+
+            if (requiredPriority <= PriorityConstants.VanillaMax)
+            {
+                return CreateVanillaSnapshot(false);
             }
 
             return CreateBetterWorkTabSnapshot(true, autoMaxPriority);
@@ -373,7 +417,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             cachedFrame = frame;
             cachedHighestLivePriority = ScanHighestLivePriority();
 #else
-            Game game = Current.Game;
+            Game game = Verse.Current.Game;
             int frame = Time.frameCount;
             if (cachedFrame == frame && ReferenceEquals(cachedGame, game))
             {

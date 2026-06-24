@@ -1,6 +1,7 @@
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
+using Better_Work_Tab.Features.TimePriority;
 using HarmonyLib;
 using RimWorld;
 using System;
@@ -68,7 +69,7 @@ namespace Better_Work_Tab.Features
             for (int i = 0; i < allWorkTypes.Count; i++)
             {
                 var w = allWorkTypes[i];
-                int prio = GetPriority(ws, w);
+                int prio = GetExecutionPriority(ws, pawn, w);
                 if (prio > 0)
                 {
                     if (prio < minNonEmerg && WorkGiverReassignmentManager.HasNonEmergencyWorkGiver(w))
@@ -90,8 +91,8 @@ namespace Better_Work_Tab.Features
             // 3) Sort active work types: manual priority asc, saved order asc, naturalPriority desc
             activeWTs.Sort((a, b) =>
             {
-                int pa = GetPriority(ws, a);
-                int pb = GetPriority(ws, b);
+                int pa = GetExecutionPriority(ws, pawn, a);
+                int pb = GetExecutionPriority(ws, pawn, b);
                 int c = pa.CompareTo(pb);
                 if (c != 0) return c;
                 int ia = indexMap.TryGetValue(a.defName, out int iax) ? iax : int.MaxValue;
@@ -108,6 +109,7 @@ namespace Better_Work_Tab.Features
             for (int i = 0; i < activeWTs.Count; i++)
             {
                 var wt = activeWTs[i];
+                int wtPriority = GetPriority(ws, pawn, wt);
                 var list = WorkGiverReassignmentManager.GetOrderedWorkGiversForWorkType(wt, pawn);
                 for (int j = 0; j < list.Count; j++)
                 {
@@ -117,13 +119,19 @@ namespace Better_Work_Tab.Features
                         continue;
                     }
 
-                    if (worker.def.emergency && GetPriority(ws, wt) <= minNonEmerg)
+                    if (!CanUseWorkGiverNow(pawn, wt, worker.def, wtPriority))
+                    {
+                        continue;
+                    }
+
+                    if (worker.def.emergency && GetExecutionPriority(ws, pawn, wt) <= minNonEmerg)
                         emerg.Add(worker);
                 }
             }
             for (int i = 0; i < activeWTs.Count; i++)
             {
                 var wt = activeWTs[i];
+                int wtPriority = GetPriority(ws, pawn, wt);
                 var list = WorkGiverReassignmentManager.GetOrderedWorkGiversForWorkType(wt, pawn);
                 for (int j = 0; j < list.Count; j++)
                 {
@@ -133,7 +141,12 @@ namespace Better_Work_Tab.Features
                         continue;
                     }
 
-                    if (!worker.def.emergency || GetPriority(ws, wt) > minNonEmerg)
+                    if (!CanUseWorkGiverNow(pawn, wt, worker.def, wtPriority))
+                    {
+                        continue;
+                    }
+
+                    if (!worker.def.emergency || GetExecutionPriority(ws, pawn, wt) > minNonEmerg)
                         normal.Add(worker);
                 }
             }
@@ -161,9 +174,23 @@ namespace Better_Work_Tab.Features
             }
         }
 #else
-        private static int GetPriority(Pawn_WorkSettings workSettings, WorkTypeDef workType)
+        private static int GetPriority(Pawn_WorkSettings workSettings, Pawn pawn, WorkTypeDef workType)
         {
-            return WorkPrioritySystem.ClampPriority(workSettings.GetPriority(workType));
+            int basePriority = WorkPrioritySystem.ClampPriority(workSettings.GetPriority(workType));
+            return TimePriorityService.GetEffectiveWorkTypePriority(pawn, workType, basePriority);
+        }
+
+        private static int GetExecutionPriority(Pawn_WorkSettings workSettings, Pawn pawn, WorkTypeDef workType)
+        {
+            int parentPriority = GetPriority(workSettings, pawn, workType);
+            return WorkGiverReassignmentManager.GetExecutionPriorityForWorkType(pawn, workType, parentPriority);
+        }
+
+        private static bool CanUseWorkGiverNow(Pawn pawn, WorkTypeDef workType, WorkGiverDef workGiver, int parentPriority)
+        {
+            int workGiverPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, workGiver, parentPriority);
+            workGiverPriority = TimePriorityService.GetEffectiveWorkGiverPriority(pawn, workType, workGiver, workGiverPriority);
+            return workGiverPriority > WorkPrioritySystem.DisabledPriority;
         }
 #endif
 
