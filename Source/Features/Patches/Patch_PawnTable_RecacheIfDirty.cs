@@ -1,4 +1,6 @@
 ﻿using Better_Work_Tab.PawnOrganizer;
+using Better_Work_Tab.Features.TimePriority;
+using Better_Work_Tab.Features.WorkGiverReassignments;
 using HarmonyLib;
 using RimWorld;
 using System.Collections.Generic;
@@ -61,11 +63,10 @@ namespace Better_Work_Tab.Features.Patches
                 return;
 
             float headerHeight = layout.HeaderHeight;
-            float pinnedRowsHeight = Better_Work_Tab.Features.WorkGiverReassignments.SubWorkDrilldownState.IsActive
-                ? Better_Work_Tab.Features.WorkGiverReassignments.SubWorkDrilldownState.GlobalRowHeight
-                : 0f;
+            float pinnedRowsHeight = TimePriorityPlannerPrototype.HeaderPinnedRowsHeight +
+                SubWorkDrilldownState.GlobalRowVisibleHeight;
             float contentHeight = layout.ContentHeight;
-            float totalHeight = headerHeight + pinnedRowsHeight + contentHeight;
+            float totalHeight = headerHeight + contentHeight;
             float width = __instance.cachedSize.x;
             int layoutRevision = layout is WorkTabLayoutController workLayout ? workLayout.LayoutRevision : -1;
 
@@ -102,9 +103,10 @@ namespace Better_Work_Tab.Features.Patches
             // ═══════════════════════════════════════════════════════════════════════════
             // Sync back to vanilla's fields
             // We do NOT clamp to maxTableHeight here; we let the window's RequestedTabSize
-            // handle clamping to screen bounds. This prevents the PawnTable size from 
-            // being smaller than its content, which would trigger unnecessary scrollbars
-            // even when the window has room to grow.
+            // handle clamping to screen bounds. Pinned BWT rows are deliberately excluded
+            // from PawnTable.cachedSize because they are drawn outside the vanilla scroll body.
+            // Including them here makes the table body one pinned row taller than its content,
+            // which presents as a blank row at the bottom when sub-work is opened.
             // ═══════════════════════════════════════════════════════════════════════════
             CachedRowHeightsField.SetValue(__instance, state.RowHeights);
             CachedSizeField.SetValue(__instance, new Vector2(width, totalHeight));
