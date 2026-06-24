@@ -139,7 +139,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         internal static float HeaderFlipAlpha => IsTransitioning ? HeaderVisibleProgress : 1f;
 
-        private static float HeaderVisibleProgress => _isExiting ? 1f - TransitionEase : TransitionEase;
+        private static float HeaderVisibleProgress => TransitionEase;
 
         internal static float GlobalRowVisibleHeight
         {

@@ -1088,9 +1088,21 @@ namespace Better_Work_Tab.UI
         private Rect GetColumnBodyBounds(IWorkTabLayoutController layout, WorkTabLayoutColumn column)
         {
             float yMin = layout.TableOrigin.y + layout.HeaderHeight + GetPinnedRowsHeight();
-
-            float yMax = layout.TableOrigin.y + layout.Table.Size.y;
+            float yMax = GetVisualTableBottom(layout);
             return new Rect(column.HeaderRect.x, yMin, column.Width, Mathf.Max(0f, yMax - yMin));
+        }
+
+        private static float GetVisualTableBottom(IWorkTabLayoutController layout)
+        {
+            if (layout == null)
+            {
+                return 0f;
+            }
+
+            return layout.TableOrigin.y +
+                layout.HeaderHeight +
+                GetPinnedRowsHeight() +
+                layout.ContentHeight;
         }
 
         private void BeginPendingSubWorkGesture(
@@ -1766,7 +1778,7 @@ namespace Better_Work_Tab.UI
             }
 
             float headerTop = layout.TableOrigin.y + layout.HeaderHeight + GetPinnedRowsHeight();
-            float bodyBottom = layout.TableOrigin.y + layout.Table.Size.y;
+            float bodyBottom = GetVisualTableBottom(layout);
             if (mousePosition.y < headerTop || mousePosition.y > bodyBottom)
             {
                 return false;

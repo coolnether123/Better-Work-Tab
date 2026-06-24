@@ -946,7 +946,7 @@ namespace Better_Work_Tab.Features.TimePriority
                 layout.TableOrigin.x,
                 layout.TableOrigin.y,
                 Mathf.Max(layout.Table?.Size.x ?? layout.Table?.cachedSize.x ?? 0f, 1f),
-                Mathf.Max(layout.Table?.Size.y ?? layout.Table?.cachedSize.y ?? 0f, 1f));
+                Mathf.Max(GetVisualTableHeight(layout), 1f));
             tableRect.width = Mathf.Max(1f, tableRect.width - 16f);
 
             Rect firstRow = rows[0].RowRect;
@@ -1571,7 +1571,7 @@ namespace Better_Work_Tab.Features.TimePriority
 
             float x = Mathf.Clamp(_session.SourceBoxRect.xMin - 42f, tableLeft, tableRight - width);
             float height = HeaderHeight + Mathf.Max(1, _session.PawnIds.Count) * TimelineRowHeight + PanelPadding;
-            float tableBottom = layout.TableOrigin.y + Mathf.Max(layout.Table?.Size.y ?? 0f, 1f) - 8f;
+            float tableBottom = layout.TableOrigin.y + Mathf.Max(GetVisualTableHeight(layout), 1f) - 8f;
             float tableTop = layout.TableOrigin.y +
                 layout.HeaderHeight +
                 HeaderPinnedRowsHeight +
@@ -1584,6 +1584,19 @@ namespace Better_Work_Tab.Features.TimePriority
 
             y = Mathf.Clamp(y, tableTop + 2f, Mathf.Max(tableTop + 2f, tableBottom - height));
             return new Rect(x, y, width, height);
+        }
+
+        private static float GetVisualTableHeight(IWorkTabLayoutController layout)
+        {
+            if (layout == null)
+            {
+                return 0f;
+            }
+
+            return layout.HeaderHeight +
+                HeaderPinnedRowsHeight +
+                SubWorkDrilldownState.GlobalRowVisibleHeight +
+                layout.ContentHeight;
         }
 
         private static Rect GetTimelineRect(Rect panelRect)

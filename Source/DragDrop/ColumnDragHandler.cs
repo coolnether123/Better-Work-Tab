@@ -294,7 +294,10 @@ namespace Better_Work_Tab.DragDrop
 
             if (Layout.Table != null)
             {
-                float viewportBottom = Layout.TableOrigin.y + Layout.Table.Size.y;
+                float viewportBottom = Layout.TableOrigin.y +
+                    Layout.HeaderHeight +
+                    pinnedRowsHeight +
+                    Layout.ContentHeight;
                 if (viewportBottom > headerBottom)
                 {
                     bottom = Mathf.Min(bottom, viewportBottom);
