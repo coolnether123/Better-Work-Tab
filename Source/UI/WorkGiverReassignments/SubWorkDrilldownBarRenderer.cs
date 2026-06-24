@@ -18,6 +18,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
     internal static class SubWorkDrilldownBarRenderer
     {
         internal static float RowHeight => SubWorkDrilldownState.GlobalRowVisibleHeight;
+        internal static float ReservedRowHeight => SubWorkDrilldownState.GlobalRowReservedHeight;
 
         internal static void Draw(IWorkTabLayoutController layout)
         {
@@ -32,9 +33,14 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 return;
             }
 
+            float reservedHeight = Mathf.Max(0f, ReservedRowHeight);
+            float rowTop = layout.TableOrigin.y +
+                layout.HeaderHeight +
+                TimePriorityPlannerPrototype.HeaderPinnedRowsHeight +
+                Mathf.Max(0f, reservedHeight - rowHeight);
             Rect rowRect = new Rect(
                 layout.TableOrigin.x,
-                layout.TableOrigin.y + layout.HeaderHeight + TimePriorityPlannerPrototype.HeaderPinnedRowsHeight,
+                rowTop,
                 Mathf.Max(layout.Table != null ? layout.Table.Size.x - 16f : 0f, 1f),
                 rowHeight);
 

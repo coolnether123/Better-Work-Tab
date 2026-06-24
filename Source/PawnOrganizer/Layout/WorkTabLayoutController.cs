@@ -795,7 +795,7 @@ namespace Better_Work_Tab.PawnOrganizer
             float height = TimePriorityPlannerPrototype.HeaderPinnedRowsHeight;
             if (SubWorkDrilldownState.IsActive)
             {
-                height += SubWorkDrilldownState.GlobalRowVisibleHeight;
+                height += SubWorkDrilldownState.GlobalRowReservedHeight;
             }
 
             return height;

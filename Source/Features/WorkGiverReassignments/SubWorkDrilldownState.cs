@@ -200,6 +200,8 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             }
         }
 
+        internal static float GlobalRowReservedHeight => IsActive ? GlobalRowHeight : 0f;
+
         internal static bool TryGetHeaderTransitionOffset(PawnColumnDef column, float columnWidth, out float offsetX)
         {
             offsetX = 0f;

@@ -717,7 +717,7 @@ namespace Better_Work_Tab.UI
             float height = TimePriorityPlannerPrototype.HeaderPinnedRowsHeight;
             if (SubWorkDrilldownState.IsActive)
             {
-                height += SubWorkDrilldownBarRenderer.RowHeight;
+                height += SubWorkDrilldownBarRenderer.ReservedRowHeight;
             }
 
             return height;

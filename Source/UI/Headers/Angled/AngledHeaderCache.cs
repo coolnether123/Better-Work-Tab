@@ -174,8 +174,11 @@ namespace Better_Work_Tab.UI.Headers.Angled
             float baselineWidth = SubWorkDrilldownHeaderGeometry.GetBaseHeaderDrawWidth(null, drawRect.width);
             Vector2 baselineRotatedLocal = RotatePoint(new Vector2(-baselineWidth / 2f, drawRect.height / 2f), cos, sin);
 
+            float visibleRowHeight = SubWorkDrilldownState.GlobalRowVisibleHeight;
+            float reservedRowHeight = SubWorkDrilldownState.GlobalRowReservedHeight;
             float globalBoxTop = headerRect.yMax +
-                ((SubWorkDrilldownState.GlobalRowVisibleHeight - SubWorkDrilldownState.GlobalPriorityBoxSize) / 2f);
+                Mathf.Max(0f, reservedRowHeight - visibleRowHeight) +
+                ((visibleRowHeight - SubWorkDrilldownState.GlobalPriorityBoxSize) / 2f);
             Vector2 targetUnderlineStart = new Vector2(
                 headerRect.center.x + horizontalOffset + baselineRotatedLocal.x,
                 globalBoxTop - stemGap);
