@@ -22,6 +22,55 @@ namespace Better_Work_Tab.UI
         private const float WorkloadButtonHeight = 28f;
         private const float InterControlGap = 6f;
 
+        public struct BottomButtonRects
+        {
+            public Rect RulesetMain;
+            public Rect RulesetMenu;
+            public Rect WorkloadMain;
+            public Rect WorkloadMenu;
+            public bool HasRuleset;
+            public bool HasWorkload;
+
+            public bool ContainsRuleset(Vector2 position)
+            {
+                return HasRuleset && (RulesetMain.Contains(position) || RulesetMenu.Contains(position));
+            }
+
+            public bool ContainsWorkload(Vector2 position)
+            {
+                return HasWorkload && (WorkloadMain.Contains(position) || WorkloadMenu.Contains(position));
+            }
+        }
+
+        public static BottomButtonRects GetBottomButtonRects(Rect inRect, Rect gearRect)
+        {
+            BottomButtonRects rects = new BottomButtonRects();
+            float y = inRect.yMax - AutoAssignButtonHeight - 10f;
+            float xRight = gearRect.x - InterControlGap;
+
+            var settings = BetterWorkTabMod.Settings;
+            if (settings?.enableAutoAssignFeature ?? true)
+            {
+                rects.RulesetMenu = new Rect(xRight - AutoAssignButtonHeight, y, AutoAssignButtonHeight, AutoAssignButtonHeight);
+                rects.RulesetMain = new Rect(rects.RulesetMenu.x - AutoAssignButtonWidth, y, AutoAssignButtonWidth, AutoAssignButtonHeight);
+                rects.HasRuleset = true;
+                xRight = rects.RulesetMain.x - 4f;
+            }
+
+            if (settings?.enableWorkloads ?? true)
+            {
+                var workloadSaver = Verse.Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
+                if (workloadSaver != null)
+                {
+                    rects.WorkloadMenu = new Rect(xRight - WorkloadButtonHeight, y, WorkloadButtonHeight, WorkloadButtonHeight);
+                    rects.WorkloadMain = new Rect(rects.WorkloadMenu.x - WorkloadButtonWidth, y, WorkloadButtonWidth, WorkloadButtonHeight);
+                    rects.HasWorkload = true;
+                }
+            }
+
+            return rects;
+        }
+
         // Public entry point called by the window.
         public static void DrawBottomRightGrouped(Rect inRect, Rect gearRect)
         {

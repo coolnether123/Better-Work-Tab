@@ -1,5 +1,6 @@
+﻿using Better_Work_Tab.PawnOrganizer;
+using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
-using Better_Work_Tab.PawnOrganizer;
 using HarmonyLib;
 using RimWorld;
 using System.Collections.Generic;
@@ -54,15 +55,15 @@ namespace Better_Work_Tab.Features.Patches
             }
 
             float headerHeight = layout.HeaderHeight;
-            float pinnedRowsHeight = SubWorkDrilldownState.IsActive ? SubWorkDrilldownState.GlobalRowHeight : 0f;
+            float pinnedRowsHeight = TimePriorityPlannerPrototype.HeaderPinnedRowsHeight +
+                SubWorkDrilldownState.GlobalRowVisibleHeight;
             float contentHeight = layout.ContentHeight;
-            float totalHeight = headerHeight + pinnedRowsHeight + contentHeight;
+            float totalHeight = headerHeight + contentHeight;
             float width = PawnTableCompat.GetCachedSize(__instance).x;
             if (width <= 0f)
             {
                 width = PawnTableCompat.GetSize(__instance).x;
             }
-
             int layoutRevision = layout is WorkTabLayoutController workLayout ? workLayout.LayoutRevision : -1;
 
             if (!SyncStates.TryGetValue(__instance, out var state))
@@ -97,6 +98,8 @@ namespace Better_Work_Tab.Features.Patches
             state.ContentHeight = contentHeight;
             state.Width = width;
 
+            // Pinned BWT rows draw outside the vanilla scroll body. Keep them out of
+            // PawnTable cached height so old tables do not show a blank bottom row.
             PawnTableCompat.TrySetCachedRowHeights(__instance, state.RowHeights);
             PawnTableCompat.TrySetCachedSize(__instance, new Vector2(width, totalHeight));
         }

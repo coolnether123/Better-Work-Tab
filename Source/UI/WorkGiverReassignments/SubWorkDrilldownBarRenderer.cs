@@ -1,4 +1,6 @@
 using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.DragDrop;
+using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI.Headers;
@@ -15,7 +17,8 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
     /// </summary>
     internal static class SubWorkDrilldownBarRenderer
     {
-        internal const float RowHeight = SubWorkDrilldownState.GlobalRowHeight;
+        internal static float RowHeight => SubWorkDrilldownState.GlobalRowVisibleHeight;
+        internal static float ReservedRowHeight => SubWorkDrilldownState.GlobalRowReservedHeight;
 
         internal static void Draw(IWorkTabLayoutController layout)
         {
@@ -24,11 +27,25 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 return;
             }
 
+            float rowHeight = RowHeight;
+            if (rowHeight <= 0.5f)
+            {
+                return;
+            }
+
+            float reservedHeight = Mathf.Max(0f, ReservedRowHeight);
+            float anchorOffset = SubWorkDrilldownState.IsExiting
+                ? Mathf.Max(0f, reservedHeight - rowHeight)
+                : 0f;
+            float rowTop = layout.TableOrigin.y +
+                layout.HeaderHeight +
+                TimePriorityPlannerPrototype.HeaderPinnedRowsHeight +
+                anchorOffset;
             Rect rowRect = new Rect(
                 layout.TableOrigin.x,
-                layout.TableOrigin.y + layout.HeaderHeight,
+                rowTop,
                 Mathf.Max(layout.Table != null ? layout.Table.Size.x - 16f : 0f, 1f),
-                RowHeight);
+                rowHeight);
 
             float alpha = Mathf.Lerp(0.45f, 0.72f, SubWorkDrilldownState.TransitionAlpha);
             WidgetsCompat.DrawBoxSolid(rowRect, new Color(0.08f, 0.1f, 0.11f, alpha));
@@ -37,7 +54,8 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             for (int i = 0; i < layout.Columns.Count; i++)
             {
                 var column = layout.Columns[i];
-                Rect cellRect = new Rect(column.HeaderRect.x, rowRect.y, column.Width, RowHeight);
+                float animatedOffset = ColumnReorderAnimationState.GetHeaderOffset(column);
+                Rect cellRect = new Rect(column.HeaderRect.x + animatedOffset, rowRect.y, column.Width, rowHeight);
 
                 if (column.Column?.Worker is PawnColumnWorker_Label)
                 {
@@ -68,7 +86,8 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             if (settings == null ||
                 !settings.ShowPawnAndWorktypeHighlights ||
                 !settings.enableRowColumnHighlights ||
-                !settings.ShowCursorPawnAndWorktypeHighlight)
+                !settings.ShowCursorPawnAndWorktypeHighlight ||
+                TimePriorityPlannerPrototype.OwnsCurrentMousePosition)
             {
                 return false;
             }
@@ -113,7 +132,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 rect.x + 8f,
                 rect.y,
                 Mathf.Max(0f, rect.width - 16f),
-                RowHeight);
+                rect.height);
 
             Text.Anchor = TextAnchor.MiddleLeft;
             Text.Font = GameFont.Small;
@@ -132,23 +151,42 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
         private static void DrawGlobalPriorityCell(WorkGiver workGiver, Rect cellRect)
         {
-            const float boxSize = 25f;
-            float x = cellRect.x + (cellRect.width - boxSize) / 2f;
-            float y = cellRect.y + (cellRect.height - boxSize) / 2f;
-            Rect boxRect = new Rect(x, y, boxSize, boxSize);
+            float boxSize = Mathf.Min(SubWorkDrilldownState.GlobalPriorityBoxSize, Mathf.Max(0f, cellRect.height - 4f));
+            if (boxSize <= 6f)
+            {
+                return;
+            }
+
+            Rect boxRect = WorkPriorityCellGeometry.GetCenteredBoxRect(cellRect, boxSize);
             WorkGiverPriorityBoxRenderer.DrawPriorityBox(workGiver, SubWorkDrilldownState.ActiveWorkType, null, boxRect);
         }
 
-        internal static void ExitDrilldown(bool restoreMousePosition = false)
+        internal static void ExitDrilldown(
+            bool restoreMousePosition = false,
+            int exitWorkColumnSlot = -1,
+            float exitWaveSlotPosition = -1f)
         {
+            TimePriorityPlannerPrototype.CloseForWorkModeTransition();
             Vector2 returnMousePosition = Vector2.zero;
+            string cursorRestoreSuppression = null;
+            bool settingAllowsRestore = BetterWorkTabMod.Settings?.restoreCursorOnSubWorkExit ?? true;
             bool shouldRestoreMouse = restoreMousePosition &&
-                SubWorkDrilldownState.TryGetReturnMousePosition(out returnMousePosition);
+                settingAllowsRestore &&
+                SubWorkDrilldownState.TryGetCursorRestorePosition(out returnMousePosition, out cursorRestoreSuppression);
 
-            SubWorkDrilldownState.Exit();
+            if (restoreMousePosition)
+            {
+                BetterWorkTabMod.DebugLog(
+                    shouldRestoreMouse
+                        ? $"[SubWorkDrilldown] Cursor restore scheduled to {returnMousePosition}."
+                        : $"[SubWorkDrilldown] Cursor restore suppressed: {(settingAllowsRestore ? cursorRestoreSuppression : "setting disabled")}.",
+                    DebugFeature.SubWork);
+            }
+
+            SubWorkDrilldownState.Exit(exitWorkColumnSlot, exitWaveSlotPosition);
             HeaderDrawingCoordinator.NotifyAngledHeadersChanged();
 
-            if (shouldRestoreMouse && (BetterWorkTabMod.Settings?.restoreCursorOnSubWorkExit ?? true))
+            if (shouldRestoreMouse)
             {
                 NativeCursorPosition.ScheduleMoveToUiPosition(returnMousePosition);
             }

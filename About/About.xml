@@ -12,7 +12,11 @@ Compatibility:
 - Compatible with most work-type mods
 - [FSF] Complex Jobs column ordering is supported
 - Vanilla Skills Expanded passion types are supported in rule conditions when the mod is active
-- Fluffy WorkTab and CompactWorkTab overlap this UI and should not be used together
+- Do Once - Noncommittal Work is compatible; BWT suppresses its duplicate borrowed menu patches and uses BWT's sub-work-aware version
+- Useful Marks markers appear on pawn icons when available
+- Grouped Pawns List is overridden inside this Work tab
+- CompactWorkTab overlaps this UI and should not be used together
+- Fluffy WorkTab and forks are hard conflicts
 
 Version support:
 - 0.13 -> v1.1 - Multiplayer does not work
