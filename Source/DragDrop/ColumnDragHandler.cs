@@ -5,6 +5,7 @@ using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.Headers;
+using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using RimWorld;
 using Spine.DragDropApi.Util;
@@ -287,12 +288,16 @@ namespace Better_Work_Tab.DragDrop
         {
             float rowStackHeight = GetVisibleRowStackHeight();
             float scrollY = Layout.Table?.scrollPosition.y ?? 0f;
-            float pinnedRowsHeight = SubWorkDrilldownState.IsActive ? SubWorkDrilldownState.GlobalRowHeight : 0f;
+            float pinnedRowsHeight = TimePriorityPlannerPrototype.HeaderPinnedRowsHeight +
+                SubWorkDrilldownState.GlobalRowVisibleHeight;
             float bottom = headerBottom + pinnedRowsHeight + Mathf.Max(0f, rowStackHeight - scrollY);
 
             if (Layout.Table != null)
             {
-                float viewportBottom = Layout.TableOrigin.y + Layout.Table.Size.y;
+                float viewportBottom = Layout.TableOrigin.y +
+                    Layout.HeaderHeight +
+                    pinnedRowsHeight +
+                    Layout.ContentHeight;
                 if (viewportBottom > headerBottom)
                 {
                     bottom = Mathf.Min(bottom, viewportBottom);
@@ -416,6 +421,8 @@ namespace Better_Work_Tab.DragDrop
                     BetterWorkTabMod.DebugLog("[BWT] Reorder Group No-Op detected. Original position maintained.", DebugFeature.DragDrop);
                     return;
                 }
+
+                ColumnReorderAnimationState.Start(Layout.Columns);
 
                 if (MultiplayerBridge.Active)
                 {
@@ -556,6 +563,7 @@ namespace Better_Work_Tab.DragDrop
 
                 // TODO: Support dragging a sub-work job into another sub-work job view once
                 // there is a clear UX for choosing the target work type and inheritance rules.
+                ColumnReorderAnimationState.Start(Layout.Columns);
                 WorkGiverReassignmentManager.MoveWithinWorkTypeSynced(
                     _subWorkType.defName,
                     _subWorkGiver.defName,

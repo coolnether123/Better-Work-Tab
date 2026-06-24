@@ -1,6 +1,7 @@
 using UnityEngine;
 using Verse;
 using RimWorld;
+using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 
 namespace Better_Work_Tab.UI.Headers.Vanilla
@@ -86,7 +87,8 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
             var vanillaSolver = HeaderDrawingCoordinator.GetVanillaSolver();
 
             // Determine Hover
-            bool isMouseOver = DetermineMouseOver(rect, worker.def);
+            bool isMouseOver = !TimePriorityPlannerPrototype.OwnsCurrentMousePosition &&
+                DetermineMouseOver(rect, worker.def);
             if (isMouseOver)
             {
                 HeaderInputController.SetHoveredWorkType(worker.def.workType, vanillaSolver?.GetBounds(worker.def));

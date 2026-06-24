@@ -26,6 +26,15 @@ namespace Better_Work_Tab.UI
                 : SettingsViewMode.Advanced;
 
             _drawer.ShowResetIcons = !settings.hideSettingResetIcons;
+            _drawer.FocusHighlightColor = settings.Color_SettingFocusHighlight;
+            _drawer.ImportExportActions = BWTSettingsImportExportActions.Create(settings, NotifySettingsChanged);
+            if (BWTSettingsContextFocus.TryConsume(out BWTSettingsFocusRequest focusRequest))
+            {
+                _drawer.ApplyContextFilter(
+                    BWTSettingsContextFocus.CreateFilter(focusRequest),
+                    focusRequest.TargetSettingId);
+            }
+
             _drawer.Draw(inRect, settings, ref _viewMode, () => settings.Write());
 
             settings.settingsViewMode = _viewMode == SettingsViewMode.Simple
@@ -62,10 +71,27 @@ namespace Better_Work_Tab.UI
                 AdvancedLabel = BWTSettingsTranslation.Advanced,
                 NoResultsLabel = BWTSettingsTranslation.NoResults,
                 EditColorLabel = BWTSettingsTranslation.Edit,
+                Filters = BWTSettingsFilters.Create(),
+                FilterLabel = "Filter",
+                AllSettingsFilterLabel = "All Settings",
                 IndentPerLevel = 20f,
                 RowHeight = 32f,
-                ScrollPosition = _preservedScrollPosition // Restore scroll position
+                ScrollPosition = _preservedScrollPosition, // Restore scroll position
+                OnSettingTooltipViewed = MarkSettingViewed
             };
+        }
+
+        private static void MarkSettingViewed(SettingDefinition def, object settingsObject)
+        {
+            if (def == null || !(settingsObject is BetterWorkTabSettings settings))
+            {
+                return;
+            }
+
+            if (settings.RecordViewedSetting(def.Id))
+            {
+                settings.Write();
+            }
         }
     }
 }
