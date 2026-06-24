@@ -86,7 +86,8 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             if (settings == null ||
                 !settings.ShowPawnAndWorktypeHighlights ||
                 !settings.enableRowColumnHighlights ||
-                !settings.ShowCursorPawnAndWorktypeHighlight)
+                !settings.ShowCursorPawnAndWorktypeHighlight ||
+                TimePriorityPlannerPrototype.OwnsCurrentMousePosition)
             {
                 return false;
             }
@@ -151,6 +152,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             int exitWorkColumnSlot = -1,
             float exitWaveSlotPosition = -1f)
         {
+            TimePriorityPlannerPrototype.CloseForWorkModeTransition();
             Vector2 returnMousePosition = Vector2.zero;
             string cursorRestoreSuppression = null;
             bool settingAllowsRestore = BetterWorkTabMod.Settings?.restoreCursorOnSubWorkExit ?? true;

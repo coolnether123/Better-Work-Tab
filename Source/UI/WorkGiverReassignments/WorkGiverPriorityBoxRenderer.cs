@@ -111,6 +111,11 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
         private static bool ShouldHandleInput => _visualAlpha > 0.999f && !SubWorkDrilldownState.IsTransitioning;
 
+        private static bool MouseOverPriorityBox(Rect rect)
+        {
+            return !TimePriorityPlannerPrototype.OwnsCurrentMousePosition && Mouse.IsOver(rect);
+        }
+
         private static void DrawPawnPriorityBox(
             WorkGiver wg,
             WorkTypeDef workType,
@@ -224,7 +229,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             Text.Font = oldFont;
             Text.WordWrap = oldWordWrap;
 
-            if (Mouse.IsOver(boxRect))
+            if (MouseOverPriorityBox(boxRect))
             {
                 Widgets.DrawHighlight(boxRect);
             }
@@ -268,7 +273,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             Text.Font = oldFont;
             Text.WordWrap = oldWordWrap;
 
-            if (Mouse.IsOver(boxRect))
+            if (MouseOverPriorityBox(boxRect))
             {
                 Widgets.DrawHighlight(boxRect);
             }
@@ -288,7 +293,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 int minAgeRequired;
                 if (pawn.IsWorkTypeDisabledByAge(workType, out minAgeRequired))
                 {
-                    if (Event.current.type == EventType.MouseDown && Mouse.IsOver(boxRect))
+                    if (Event.current.type == EventType.MouseDown && MouseOverPriorityBox(boxRect))
                     {
                         Messages.Message(
                             "MessageWorkTypeDisabledAge".Translate(pawn, pawn.ageTracker.AgeBiologicalYears, workType.labelShort, minAgeRequired),
@@ -345,7 +350,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             Text.Font = oldFont;
             Text.WordWrap = oldWordWrap;
 
-            if (Mouse.IsOver(boxRect))
+            if (MouseOverPriorityBox(boxRect))
             {
                 Widgets.DrawHighlight(boxRect);
             }
@@ -370,7 +375,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             Text.Font = oldFont;
             Text.WordWrap = oldWordWrap;
 
-            if (Mouse.IsOver(boxRect))
+            if (MouseOverPriorityBox(boxRect))
             {
                 Widgets.DrawHighlight(boxRect);
             }
@@ -406,6 +411,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         {
             Event evt = Event.current;
             if (evt == null ||
+                TimePriorityPlannerPrototype.OwnsCurrentMousePosition ||
                 wg?.def == null ||
                 evt.type != EventType.MouseDown ||
                 !PriorityOverrideRing.RingRect(boxRect).Contains(evt.mousePosition) ||
@@ -441,9 +447,10 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         {
             Event evt = Event.current;
             if (evt == null ||
+                TimePriorityPlannerPrototype.OwnsCurrentMousePosition ||
                 wg?.def == null ||
                 (evt.type != EventType.MouseDown && evt.type != EventType.ScrollWheel) ||
-                !Mouse.IsOver(boxRect) ||
+                !MouseOverPriorityBox(boxRect) ||
                 BetterWorkTabLocalState.IsHeaderDragging ||
                 SubWorkDrilldownInput.MatchesGesture(evt))
             {
@@ -516,6 +523,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
             Event evt = Event.current;
             if (evt == null ||
+                TimePriorityPlannerPrototype.OwnsCurrentMousePosition ||
                 BetterWorkTabLocalState.IsHeaderDragging ||
                 SubWorkDrilldownInput.MatchesGesture(evt))
             {
@@ -570,7 +578,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             Rect interactiveRect = hasPawnOverride
                 ? PriorityOverrideRing.RingRect(boxRect)
                 : boxRect;
-            if (!Mouse.IsOver(interactiveRect))
+            if (TimePriorityPlannerPrototype.OwnsCurrentMousePosition || !Mouse.IsOver(interactiveRect))
             {
                 return;
             }

@@ -24,9 +24,11 @@ namespace Better_Work_Tab.UI.Settings
                 BuildVersionFilter("version.1.0.5", "BWT v1.0.5", IsV105Setting),
                 BuildVersionFilter("version.1.0", "BWT v1.0", IsV10Setting),
                 BuildSystemFilter("system.subwork", "Sub-work Jobs", FeaturesSubWorkJobs),
+                BuildSystemFilter("system.headers", "Headers", HeadersHeader),
                 BuildSystemFilter("system.dividers", "Dividers", FeaturesDividers),
                 BuildSystemFilter("system.dragdrop", "Drag & Drop", FeaturesDragdrop),
                 BuildSystemFilter("system.priorities", "Priorities", PriorityHeader),
+                BuildSystemFilter("system.timePriority", "Time Priority Schedule", UiTimePriorityPlannerPrototype),
                 BuildSystemFilter("system.workloads", "Workloads", FeaturesWorkloads),
                 BuildSystemFilter("system.rules", "Rulesets", FeaturesAutoassign),
                 BuildSystemFilter("system.highlights", "Highlights", FeaturesHighlights),
@@ -84,6 +86,16 @@ namespace Better_Work_Tab.UI.Settings
                 },
                 new SettingsFilterDefinition
                 {
+                    Id = "state.notViewed",
+                    Label = "Not Yet Viewed",
+                    Category = StatesCategory,
+                    CategoryLabel = "States",
+                    Tooltip = "Settings whose tooltip has not been opened yet.",
+                    Predicate = IsNotYetViewed,
+                    IncludeChildrenOfMatches = false
+                },
+                new SettingsFilterDefinition
+                {
                     Id = "system.animations",
                     Label = "Animations",
                     Category = SystemsCategory,
@@ -134,8 +146,10 @@ namespace Better_Work_Tab.UI.Settings
                     "layout.workTab",
                     "ui.timePriority",
                     "ui.chronosPointer",
+                    "advanced.settingFocusHighlightColor",
                     "advanced.scrollWheelPriority",
                     "dividers.animations") ||
+                ContainsAny(def, "animation", "animate", "cursor") ||
                 string.Equals(def.Id, FeaturesSubWorkJobs, StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(def.Id, FeaturesClicks, StringComparison.OrdinalIgnoreCase);
         }
@@ -355,6 +369,22 @@ namespace Better_Work_Tab.UI.Settings
 
             object current = field.GetValue(settingsObject);
             return !Equals(current, def.DefaultValue);
+        }
+
+        private static bool IsNotYetViewed(SettingDefinition def, object settingsObject)
+        {
+            if (def == null || string.IsNullOrEmpty(def.Id))
+            {
+                return false;
+            }
+
+            if (def.Type == SettingType.Header || def.Type == SettingType.Spacer)
+            {
+                return false;
+            }
+
+            return !(settingsObject is BetterWorkTabSettings settings) ||
+                !settings.HasViewedSetting(def.Id);
         }
     }
 }

@@ -51,10 +51,11 @@ namespace Better_Work_Tab.UI.Settings
                         SubWorkTransitionAnimation,
                         SubWorkTransitionStyle,
                         SubWorkDisabledParentMode,
-                        UiTimePriorityPlannerPrototype,
-                        UiChronosPointerTimePriority,
-                        AdvancedScrollWheelPriority,
-                        LayoutCtrlDrag);
+                    UiTimePriorityPlannerPrototype,
+                    UiChronosPointerTimePriority,
+                    UiTimePrioritySourceColumnHighlight,
+                    AdvancedScrollWheelPriority,
+                    LayoutCtrlDrag);
                 }
 
                 if (skillOnly)
@@ -102,6 +103,7 @@ namespace Better_Work_Tab.UI.Settings
                     UiTimePriorityPlannerPrototype,
                     UiChronosPointerTimePriority,
                     UiTimePriorityHourDivider,
+                    UiTimePrioritySourceColumnHighlight,
                     FeaturesSubWorkJobs,
                     SubWorkGlobalVanillaPriorityBoxes,
                     SubWorkDisabledParentMode,
@@ -186,19 +188,23 @@ namespace Better_Work_Tab.UI.Settings
                     SubWorkAutoExpandColumns,
                     SubWorkEvenlyExpandColumns,
                     UiTimePriorityPlannerPrototype,
+                    UiTimePrioritySourceColumnHighlight,
                     UiChronosPointerTimePriority);
             }
 
-            if (layout != null && TryGetTimePriorityContext(layout, mousePosition))
+            if (layout != null && TryGetTimePriorityContext(layout, mousePosition, out bool isChronosRegion))
             {
                 return CreateContextRequest(
-                    "Time Priority",
-                    "Settings related to time priority rows and Chronos Pointer integration.",
-                    UiTimePriorityPlannerPrototype,
+                    isChronosRegion ? "Chronos Pointer Time Bar" : "Time Priority",
+                    isChronosRegion
+                        ? "Settings related to Chronos Pointer integration in the Work tab time-priority schedule."
+                        : "Settings related to time priority rows and Chronos Pointer integration.",
+                    isChronosRegion ? UiChronosPointerTimePriority : UiTimePriorityPlannerPrototype,
                     true,
                     UiTimePriorityPlannerPrototype,
                     UiChronosPointerTimePriority,
                     UiTimePriorityHourDivider,
+                    UiTimePrioritySourceColumnHighlight,
                     UiChronosPointerTimePriorityIncidents,
                     FeaturesSubWorkJobs,
                     PriorityHeader);
@@ -254,12 +260,15 @@ namespace Better_Work_Tab.UI.Settings
                     PriorityHeader);
             }
 
-            if (TryGetBottomCountersContext(inRect, mousePosition))
+            if (TryGetBottomCountersContext(inRect, mousePosition, out bool isBedCounter))
             {
+                string targetSettingId = isBedCounter ? LayoutBedCount : LayoutPawnCount;
                 return CreateContextRequest(
-                    "Bottom Counters",
-                    "Settings related to the bottom-left pawn and bed counters.",
-                    LayoutPawnCount,
+                    isBedCounter ? "Bed Counter" : "Pawn Counter",
+                    isBedCounter
+                        ? "Settings related to the bottom-left bed counter."
+                        : "Settings related to the bottom-left colonist counter.",
+                    targetSettingId,
                     false,
                     FeaturesUiElements,
                     LayoutPawnCount,
@@ -460,8 +469,12 @@ namespace Better_Work_Tab.UI.Settings
             return rect.Contains(mousePosition);
         }
 
-        private static bool TryGetTimePriorityContext(IWorkTabLayoutController layout, Vector2 mousePosition)
+        private static bool TryGetTimePriorityContext(
+            IWorkTabLayoutController layout,
+            Vector2 mousePosition,
+            out bool isChronosRegion)
         {
+            isChronosRegion = false;
             if (layout == null || TimePriorityPlannerPrototype.HeaderPinnedRowsHeight <= 0.5f)
             {
                 return false;
@@ -472,7 +485,13 @@ namespace Better_Work_Tab.UI.Settings
                 layout.TableOrigin.y + layout.HeaderHeight,
                 Mathf.Max(layout.Table != null ? layout.Table.Size.x - 16f : 0f, 1f),
                 TimePriorityPlannerPrototype.HeaderPinnedRowsHeight);
-            return rect.Contains(mousePosition);
+            if (!rect.Contains(mousePosition))
+            {
+                return false;
+            }
+
+            isChronosRegion = mousePosition.y <= rect.y + 14f;
+            return true;
         }
 
         private static bool TryGetManualPrioritiesContext(Vector2 mousePosition)
@@ -485,9 +504,20 @@ namespace Better_Work_Tab.UI.Settings
             return new Rect(350f, inRect.y + 2f, 470f, 36f).Contains(mousePosition);
         }
 
-        private static bool TryGetBottomCountersContext(Rect inRect, Vector2 mousePosition)
+        private static bool TryGetBottomCountersContext(
+            Rect inRect,
+            Vector2 mousePosition,
+            out bool isBedCounter)
         {
-            return new Rect(inRect.x + 6f, inRect.yMax - 48f, inRect.width * 0.5f, 24f).Contains(mousePosition);
+            isBedCounter = false;
+            Rect rect = new Rect(inRect.x + 6f, inRect.yMax - 48f, inRect.width * 0.5f, 24f);
+            if (!rect.Contains(mousePosition))
+            {
+                return false;
+            }
+
+            isBedCounter = mousePosition.x > rect.x + 72f;
+            return true;
         }
 
         private static bool TryGetBottomInstructionsContext(Rect inRect, Vector2 mousePosition)

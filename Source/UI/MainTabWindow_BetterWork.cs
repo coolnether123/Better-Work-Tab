@@ -712,8 +712,12 @@ namespace Better_Work_Tab.UI
                 bool isWorkColumn = column.Column?.Worker is PawnColumnWorker_WorkPriority;
                 var workType = column.Column?.workType;
                 Rect headerRect = GetAnimatedHeaderRect(column);
+                bool timePriorityOwnsMouse = TimePriorityPlannerPrototype.OwnsCurrentMousePosition;
+                bool timePrioritySourceColumn = isWorkColumn && TimePriorityPlannerPrototype.ShouldHighlightSourceColumn(column);
 
-                if (BetterWorkTabMod.Settings.ShowCursorPawnAndWorktypeHighlight && isWorkColumn && Mouse.IsOver(headerRect))
+                if (BetterWorkTabMod.Settings.ShowCursorPawnAndWorktypeHighlight &&
+                    isWorkColumn &&
+                    (timePrioritySourceColumn || (!timePriorityOwnsMouse && Mouse.IsOver(headerRect))))
                 {
                     Color useColor = BetterWorkTabMod.Settings.Color_MouseHoverHighlight;
                     Rect columnRect = new Rect(headerRect.x, layout.TableOrigin.y + layout.HeaderHeight, column.Width, totalHeight);
@@ -991,6 +995,7 @@ namespace Better_Work_Tab.UI
                 return false;
             }
 
+            TimePriorityPlannerPrototype.CloseForWorkModeTransition();
             SubWorkDrilldownState.Enter(
                 openType,
                 storedReturnPosition,
@@ -1635,9 +1640,10 @@ namespace Better_Work_Tab.UI
 
             WorkTabLayoutColumn? hoveredColumn = null;
             WorkTypeDef hoveredWorkType = null;
+            bool timePriorityOwnsMouse = TimePriorityPlannerPrototype.OwnsCurrentMousePosition;
 
             // 1. Detect Hovered Column
-            if (settings.ShowCursorPawnAndWorktypeHighlight)
+            if (settings.ShowCursorPawnAndWorktypeHighlight && !timePriorityOwnsMouse)
             {
                 float currentX = 0f;
                 for (int i = 0; i < columns.Count; i++)
@@ -1656,7 +1662,7 @@ namespace Better_Work_Tab.UI
                 }
             }
 
-            if (hoveredWorkType == null)
+            if (hoveredWorkType == null && !timePriorityOwnsMouse)
             {
                 hoveredWorkType = PawnColumnWorker_WorkPriority_DoHeader_Patch.HoveredWorkType;
             }
@@ -1689,7 +1695,7 @@ namespace Better_Work_Tab.UI
                     HighlightDrawer.DrawHighlight(rowRect, HighlightDrawer.GetFloatMenuColor());
                 }
 
-                if (settings.ShowCursorPawnAndWorktypeHighlight && Mouse.IsOver(rowRect))
+                if (settings.ShowCursorPawnAndWorktypeHighlight && !timePriorityOwnsMouse && Mouse.IsOver(rowRect))
                 {
                     HighlightDrawer.DrawHighlight(rowRect, HighlightDrawer.GetRowHoverColor());
                 }
@@ -1710,7 +1716,7 @@ namespace Better_Work_Tab.UI
                     var descriptor = rowDescriptors[i];
                     Rect rowRect = new Rect(0f, currentY, totalWidth, descriptor.Height);
 
-                    if (descriptor.IsDivider && Mouse.IsOver(rowRect))
+                    if (descriptor.IsDivider && !timePriorityOwnsMouse && Mouse.IsOver(rowRect))
                     {
                         HighlightDrawer.DrawHighlight(rowRect, HighlightDrawer.GetRowHoverColor());
                     }
@@ -1729,13 +1735,22 @@ namespace Better_Work_Tab.UI
                 bool isWorkColumn = column.Column?.Worker is PawnColumnWorker_WorkPriority;
                 bool isFloatMenuColumn = isWorkColumn &&
                     IsColumnHighlightedByFloatMenu(column, highlightedWorkType, highlightedWorkGiver);
+                bool isTimePrioritySourceColumn = isWorkColumn && TimePriorityPlannerPrototype.ShouldHighlightSourceColumn(column);
 
                 if (isFloatMenuColumn && settings.ShowFloatMenuPawnAndWorktypeHighlight)
                 {
                     HighlightDrawer.DrawHighlight(columnRect, HighlightDrawer.GetFloatMenuColor());
                 }
 
-                if (isWorkColumn && settings.ShowCursorPawnAndWorktypeHighlight && hoveredWorkType != null && hoveredWorkType == column.Column.workType)
+                if (isTimePrioritySourceColumn)
+                {
+                    HighlightDrawer.DrawHighlight(columnRect, HighlightDrawer.GetColumnHoverColor());
+                }
+                else if (isWorkColumn &&
+                         settings.ShowCursorPawnAndWorktypeHighlight &&
+                         !timePriorityOwnsMouse &&
+                         hoveredWorkType != null &&
+                         hoveredWorkType == column.Column.workType)
                 {
                     HighlightDrawer.DrawHighlight(columnRect, HighlightDrawer.GetColumnHoverColor());
                 }

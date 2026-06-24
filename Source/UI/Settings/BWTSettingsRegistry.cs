@@ -537,6 +537,20 @@ namespace Better_Work_Tab.UI.Settings
 
             Register(new SettingDefinition
             {
+                Id = UiTimePrioritySourceColumnHighlight,
+                ParentId = UiTimePriorityPlannerPrototype,
+                FieldName = "keepTimePrioritySourceColumnHighlighted",
+                Label = "Keep source column highlighted",
+                Tooltip = "While a time-priority schedule is open, keep the work column it edits highlighted and prevent the schedule strip from highlighting columns behind it.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.keepTimePrioritySourceColumnHighlighted,
+                ShowInSimpleView = true,
+                ShowInAdvancedView = true,
+                SortOrder = 2
+            });
+
+            Register(new SettingDefinition
+            {
                 Id = UiChronosPointerTimePriority,
                 ParentId = UiTimePriorityPlannerPrototype,
                 FieldName = "enableChronosPointerTimePriorityIntegration",
@@ -547,7 +561,7 @@ namespace Better_Work_Tab.UI.Settings
                 ControlsChildVisibility = true,
                 ShowInSimpleView = true,
                 ShowInAdvancedView = true,
-                SortOrder = 2
+                SortOrder = 3
             });
 
             Register(new SettingDefinition
@@ -1677,6 +1691,20 @@ namespace Better_Work_Tab.UI.Settings
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
                 SortOrder = 403
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = AdvancedSettingFocusHighlightColor,
+                ParentId = AdvancedHeader,
+                FieldName = nameof(BetterWorkTabSettings.Color_SettingFocusHighlight),
+                Label = "Setting focus highlight",
+                Tooltip = "Color used to pulse a setting row after Alt-clicking the Work tab or double-clicking a search result.",
+                Type = SettingType.Color,
+                DefaultValue = DefaultSettings.Color_SettingFocusHighlight,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 404
             });
 
             // Auto-assign settings

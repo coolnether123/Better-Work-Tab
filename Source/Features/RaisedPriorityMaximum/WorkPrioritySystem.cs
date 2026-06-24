@@ -82,12 +82,12 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         {
             if (button == 0)
             {
-                return CycleTowardHigherPriority(currentPriority);
+                return PriorityAuthorityBroker.GetPriorityAfterClick(currentPriority, -1);
             }
 
             if (button == 1)
             {
-                return CycleTowardLowerPriority(currentPriority);
+                return PriorityAuthorityBroker.GetPriorityAfterClick(currentPriority, 1);
             }
 
             return ClampPriority(currentPriority);
@@ -200,16 +200,6 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 default:
                     return Color.grey;
             }
-        }
-
-        private static int CycleTowardHigherPriority(int currentPriority)
-        {
-            return PriorityAuthorityBroker.GetNextManualPriority(currentPriority, 1);
-        }
-
-        private static int CycleTowardLowerPriority(int currentPriority)
-        {
-            return PriorityAuthorityBroker.GetNextManualPriority(currentPriority, -1);
         }
     }
 }

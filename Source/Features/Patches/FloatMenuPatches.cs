@@ -214,6 +214,7 @@ namespace Better_Work_Tab.Patches
 
             if (BetterWorkTabMod.Settings?.enableSubWorkDrilldown ?? false)
             {
+                TimePriorityPlannerPrototype.CloseForWorkModeTransition();
                 SubWorkDrilldownState.Enter(
                     targetWorkType,
                     baseHeaderDrawWidth: SubWorkDrilldownHeaderGeometry.GetBaseHeaderDrawWidth(null, -1f));

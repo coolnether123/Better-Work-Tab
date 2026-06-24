@@ -95,6 +95,57 @@ namespace Better_Work_Tab.Features.TimePriority
             }
         }
 
+        internal static bool OwnsMousePosition(Vector2 mousePosition)
+        {
+            return IsEnabled &&
+                _session != null &&
+                _lastPanelRect.width > 0f &&
+                _lastPanelRect.height > 0f &&
+                _lastPanelRect.Contains(mousePosition);
+        }
+
+        internal static bool OwnsCurrentMousePosition
+        {
+            get
+            {
+                Event evt = Event.current;
+                return evt != null && OwnsMousePosition(evt.mousePosition);
+            }
+        }
+
+        internal static bool ShouldHighlightSourceColumn(WorkTabLayoutColumn column)
+        {
+            if (!IsEnabled ||
+                _session == null ||
+                !(BetterWorkTabMod.Settings?.keepTimePrioritySourceColumnHighlighted ??
+                  DefaultSettings.keepTimePrioritySourceColumnHighlighted) ||
+                !(column.Column?.Worker is PawnColumnWorker_WorkPriority))
+            {
+                return false;
+            }
+
+            if (_session.Kind == TimePriorityTargetKind.WorkType)
+            {
+                return !SubWorkDrilldownState.IsActive &&
+                    string.Equals(column.Column.workType?.defName, _session.WorkTypeDefName, StringComparison.Ordinal);
+            }
+
+            return SubWorkDrilldownState.IsActive &&
+                string.Equals(SubWorkDrilldownState.ActiveWorkType?.defName, _session.WorkTypeDefName, StringComparison.Ordinal) &&
+                SubWorkDrilldownState.TryGetWorkGiverForColumn(column.Column, out WorkGiver workGiver, out _) &&
+                string.Equals(workGiver?.def?.defName, _session.TargetDefName, StringComparison.Ordinal);
+        }
+
+        internal static void CloseForWorkModeTransition()
+        {
+            if (!IsEnabled || _session == null || _isClosing)
+            {
+                return;
+            }
+
+            StartCloseAnimation(GetTimelineAnimationSource());
+        }
+
         internal static bool TryGetTransientDivider(out int pawnId, out PawnDivider divider)
         {
             pawnId = 0;
@@ -489,7 +540,7 @@ namespace Better_Work_Tab.Features.TimePriority
             {
                 if (evt.button == 1)
                 {
-                    return WorkPrioritySystem.GetPriorityAfterBoundedStep(currentPriority, -1);
+                    return WorkPrioritySystem.GetPriorityAfterMouseButton(currentPriority, evt.button);
                 }
 
                 return WorkPrioritySystem.GetPriorityAfterMouseButton(currentPriority, evt.button);
@@ -1134,10 +1185,7 @@ namespace Better_Work_Tab.Features.TimePriority
             Text.Anchor = TextAnchor.MiddleCenter;
             Text.WordWrap = false;
 
-            _lastCloseRect = new Rect(dividerRect.xMax - 24f, dividerRect.y + 1f, 22f, 22f);
-            GUI.color = new Color(1f, 0.35f, 0.28f, progress);
-            Widgets.Label(_lastCloseRect, "X");
-
+            _lastCloseRect = Rect.zero;
             DrawInlineHourLabels(hourLabelRect, visibleTimelineRect, progress);
 
             GUI.color = oldColor;

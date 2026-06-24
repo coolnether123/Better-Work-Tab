@@ -115,6 +115,7 @@ namespace Better_Work_Tab
         public static bool enableTimePriorityPlannerPrototype = true;
         public static bool enableChronosPointerTimePriorityIntegration = true;
         public static bool showTimePriorityHourDivider = true;
+        public static bool keepTimePrioritySourceColumnHighlighted = true;
         public static bool chronosPointerTimePriorityIncidentOverlay = true;
         public static bool showDividers = true;
         public static bool allowCustomDividerColors = true;
@@ -162,6 +163,7 @@ namespace Better_Work_Tab
         public static Color Color_HeaderText = Color.white;
         public static Color Color_DividerText = Color.white;
         public static Color Color_Borders = Color.gray;
+        public static Color Color_SettingFocusHighlight = new Color(1f, 0.78f, 0.18f, 1f);
 
         public static Color Color_AngledHeaderText = Color.white;
 
@@ -354,6 +356,7 @@ namespace Better_Work_Tab
         public bool enableTimePriorityPlannerPrototype = DefaultSettings.enableTimePriorityPlannerPrototype;
         public bool enableChronosPointerTimePriorityIntegration = DefaultSettings.enableChronosPointerTimePriorityIntegration;
         public bool showTimePriorityHourDivider = DefaultSettings.showTimePriorityHourDivider;
+        public bool keepTimePrioritySourceColumnHighlighted = DefaultSettings.keepTimePrioritySourceColumnHighlighted;
         public bool chronosPointerTimePriorityIncidentOverlay = DefaultSettings.chronosPointerTimePriorityIncidentOverlay;
         public bool showDividers = DefaultSettings.showDividers;
         public bool allowCustomDividerColors = DefaultSettings.allowCustomDividerColors;
@@ -387,6 +390,7 @@ namespace Better_Work_Tab
         public List<string> workColumnOrderDefNames = new List<string>();
         public Dictionary<string, float> storedColumnWidths = new Dictionary<string, float>();
         public WorkGiverReassignmentData LegacyWorkGiverReassignments;
+        public List<string> viewedSettingIds = new List<string>();
         
         public bool debugPrintLayout = false; // Added to fix CS1061
 
@@ -421,6 +425,7 @@ namespace Better_Work_Tab
         public Color Color_HeaderText = Color.white;
         public Color Color_DividerText = Color.white;
         public Color Color_Borders = Color.gray;
+        public Color Color_SettingFocusHighlight = DefaultSettings.Color_SettingFocusHighlight;
         public bool ShowSimilarWorktypeHighlight = DefaultSettings.ShowSimilarWorktypeHighlight;
         public float SelectedPawnHighlightOpacity = DefaultSettings.SelectedPawnHighlightOpacity;
         public float SimilarWorktypeHighlightOpacity = DefaultSettings.SimilarWorktypeHighlightOpacity;
@@ -840,6 +845,7 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref enableTimePriorityPlannerPrototype, "enableTimePriorityPlannerPrototype", DefaultSettings.enableTimePriorityPlannerPrototype);
             Scribe_Values.Look(ref enableChronosPointerTimePriorityIntegration, "enableChronosPointerTimePriorityIntegration", DefaultSettings.enableChronosPointerTimePriorityIntegration);
             Scribe_Values.Look(ref showTimePriorityHourDivider, "showTimePriorityHourDivider", DefaultSettings.showTimePriorityHourDivider);
+            Scribe_Values.Look(ref keepTimePrioritySourceColumnHighlighted, "keepTimePrioritySourceColumnHighlighted", DefaultSettings.keepTimePrioritySourceColumnHighlighted);
             Scribe_Values.Look(ref chronosPointerTimePriorityIncidentOverlay, "chronosPointerTimePriorityIncidentOverlay", DefaultSettings.chronosPointerTimePriorityIncidentOverlay);
             Scribe_Values.Look(ref enablePerformanceOptimizations, "enablePerformanceOptimizations", DefaultSettings.enablePerformanceOptimizations);
             Scribe_Values.Look(ref enableMultiplayerSync, "enableMultiplayerSync", DefaultSettings.enableMultiplayerSync);
@@ -942,6 +948,7 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref Color_HeaderText, "Color_HeaderText", DefaultSettings.Color_HeaderText);
             Scribe_Values.Look(ref Color_DividerText, "Color_DividerText", DefaultSettings.Color_DividerText);
             Scribe_Values.Look(ref Color_Borders, "Color_Borders", DefaultSettings.Color_Borders);
+            Scribe_Values.Look(ref Color_SettingFocusHighlight, "Color_SettingFocusHighlight", DefaultSettings.Color_SettingFocusHighlight);
 
             // UI modes
             Scribe_Values.Look(ref ShowUIMode_ShowSmallSkillNumbers, "ShowUIMode_ShowSmallSkillNumbers", DefaultSettings.ShowUIMode_ShowSmallSkillNumbers);
@@ -1001,6 +1008,7 @@ namespace Better_Work_Tab
             Scribe_Collections.Look(ref workColumnOrderDefNames, "workColumnOrderDefNames", LookMode.Value);
             Scribe_Collections.Look(ref storedColumnWidths, "storedColumnWidths", LookMode.Value, LookMode.Value);
             Scribe_Collections.Look(ref debugFeatureToggles, "debugFeatureToggles", LookMode.Value, LookMode.Value);
+            Scribe_Collections.Look(ref viewedSettingIds, "viewedSettingIds", LookMode.Value);
 
             // Save/load the list of columns the player has directly dragged
             Scribe_Collections.Look(ref playerDraggedColumns, "playerDraggedColumns", LookMode.Value);
@@ -1018,6 +1026,11 @@ namespace Better_Work_Tab
             if (playerDraggedColumns == null)
             {
                 playerDraggedColumns = new List<string>();
+            }
+
+            if (viewedSettingIds == null)
+            {
+                viewedSettingIds = new List<string>();
             }
 
             NormalizePrioritySettings();
@@ -1145,6 +1158,34 @@ namespace Better_Work_Tab
         public void ClearPlayerDraggedColumns()
         {
             playerDraggedColumns.Clear();
+        }
+
+        public bool HasViewedSetting(string settingId)
+        {
+            return !string.IsNullOrEmpty(settingId) &&
+                viewedSettingIds != null &&
+                viewedSettingIds.Contains(settingId);
+        }
+
+        public bool RecordViewedSetting(string settingId)
+        {
+            if (string.IsNullOrEmpty(settingId))
+            {
+                return false;
+            }
+
+            if (viewedSettingIds == null)
+            {
+                viewedSettingIds = new List<string>();
+            }
+
+            if (viewedSettingIds.Contains(settingId))
+            {
+                return false;
+            }
+
+            viewedSettingIds.Add(settingId);
+            return true;
         }
 
         /// <summary>

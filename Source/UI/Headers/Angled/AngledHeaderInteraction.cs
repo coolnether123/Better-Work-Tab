@@ -6,6 +6,7 @@ using Verse.Sound;
 using Better_Work_Tab.DragDrop;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
+using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.UI.Input;
 
@@ -423,6 +424,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 return;
             }
 
+            TimePriorityPlannerPrototype.CloseForWorkModeTransition();
             SubWorkDrilldownState.Enter(
                 workType,
                 returnMousePosition,

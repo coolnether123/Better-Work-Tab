@@ -1,5 +1,6 @@
 ﻿using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
+using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.PawnOrganizer.API;
@@ -186,10 +187,12 @@ namespace Better_Work_Tab.Patches
                 return true;
 
             UpdateFrameCache();
+            bool timePriorityOwnsMouse = TimePriorityPlannerPrototype.OwnsCurrentMousePosition;
 
             // Handle Scroll Wheel Priority Adjustment
             if ((BetterWorkTabMod.Settings?.enableScrollWheelPriority ?? false) &&
                 Event.current.type == EventType.ScrollWheel &&
+                !timePriorityOwnsMouse &&
                 Mouse.IsOver(rect))
             {
                 int currentPriority = pawn.workSettings.GetPriority(workType);
@@ -241,7 +244,7 @@ namespace Better_Work_Tab.Patches
                 return true;
 
             // Track column hover state only if hover cell overlay is enabled
-            bool hoveringCell = Mouse.IsOver(rect);
+            bool hoveringCell = !timePriorityOwnsMouse && Mouse.IsOver(rect);
             if (_cachedHoverCellOverlayEnabled && hoveringCell && _cachedHoverScope == BetterWorkTabSettings.HoverEffectScope.ColumnWide)
             {
                 _columnHoveredWorkType = workType;
@@ -345,7 +348,7 @@ namespace Better_Work_Tab.Patches
 
             int priority = pawn.workSettings.GetPriority(workType);
             int skillLevel = GetSkillLevel(pawn, workType);
-            bool hoveringCell = Mouse.IsOver(rect);
+            bool hoveringCell = !TimePriorityPlannerPrototype.OwnsCurrentMousePosition && Mouse.IsOver(rect);
             
             // Only check column hover if hover overlay is enabled
             bool columnHovered = _cachedHoverCellOverlayEnabled &&
@@ -791,6 +794,7 @@ namespace Better_Work_Tab.Patches
         {
             Event evt = Event.current;
             if (evt == null ||
+                TimePriorityPlannerPrototype.OwnsCurrentMousePosition ||
                 evt.type != EventType.MouseDown ||
                 evt.button != 0 ||
                 BetterWorkTabLocalState.IsHeaderDragging ||
@@ -815,7 +819,9 @@ namespace Better_Work_Tab.Patches
         private static bool TryHandleWorkPriorityInput(Rect cellRect, Pawn pawn, WorkTypeDef workType)
         {
             Event evt = Event.current;
-            if (evt == null || evt.type != EventType.MouseDown)
+            if (evt == null ||
+                TimePriorityPlannerPrototype.OwnsCurrentMousePosition ||
+                evt.type != EventType.MouseDown)
             {
                 return false;
             }

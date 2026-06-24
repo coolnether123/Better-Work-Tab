@@ -16,12 +16,16 @@ namespace Spine.UI.SettingsFramework
         private const float ResetButtonSize = 20f;
         private const float FooterHeight = 34f;
         private const float ToolbarGap = 8f;
+        private const float FocusHighlightSeconds = 1.45f;
 
         private readonly SettingsHierarchy _hierarchy;
         private Vector2 _scrollPosition;
         private string _searchQuery = string.Empty;
         private readonly QuickSearchWidget _searchWidget = new QuickSearchWidget();
         private SettingsFilterDefinition _activeFilter;
+        private string _pendingFocusSettingId;
+        private string _highlightedSettingId;
+        private float _highlightStartedAt;
         private TransferMode _transferMode = TransferMode.None;
 
         /// <summary>
@@ -84,6 +88,11 @@ namespace Spine.UI.SettingsFramework
         public string ResetToDefaultLabel { get; set; } = "Reset to default";
 
         /// <summary>
+        /// Pulse color used when a context jump or search double-click focuses a setting row.
+        /// </summary>
+        public Color FocusHighlightColor { get; set; } = new Color(1f, 0.78f, 0.18f, 1f);
+
+        /// <summary>
         /// Optional filters shown by the toolbar filter button.
         /// </summary>
         public IReadOnlyList<SettingsFilterDefinition> Filters { get; set; } = Array.Empty<SettingsFilterDefinition>();
@@ -104,6 +113,11 @@ namespace Spine.UI.SettingsFramework
         public SettingsImportExportActions ImportExportActions { get; set; }
 
         /// <summary>
+        /// Optional callback invoked when a row's tooltip is actually hovered.
+        /// </summary>
+        public Action<SettingDefinition, object> OnSettingTooltipViewed { get; set; }
+
+        /// <summary>
         /// Creates a new drawer for a hierarchy.
         /// </summary>
         public SettingsListDrawer(SettingsHierarchy hierarchy)
@@ -120,6 +134,8 @@ namespace Spine.UI.SettingsFramework
 
             _activeFilter = filter;
             _scrollPosition = Vector2.zero;
+            FocusSetting(targetSettingId);
+            _pendingFocusSettingId = targetSettingId;
             _transferMode = TransferMode.None;
             ClearSearch();
         }
@@ -146,7 +162,7 @@ namespace Spine.UI.SettingsFramework
             bool drawFooter = ImportExportActions?.HasAnyAction ?? false;
             float footerSpace = drawFooter ? FooterHeight + 8f : 0f;
             Rect listRect = new Rect(rect.x, listStartY, rect.width, rect.height - (listStartY - rect.y) - footerSpace);
-            DrawSettingsList(listRect, settingsObject, viewMode, onSettingsChanged);
+            DrawSettingsList(listRect, settingsObject, ref viewMode, onSettingsChanged);
 
             if (drawFooter)
             {
@@ -179,6 +195,18 @@ namespace Spine.UI.SettingsFramework
         private void DrawFilterButton(Rect rect)
         {
             string label = _activeFilter != null ? _activeFilter.Label : FilterLabel;
+            Event evt = Event.current;
+            if (_activeFilter != null &&
+                evt != null &&
+                evt.type == EventType.MouseDown &&
+                evt.button == 1 &&
+                rect.Contains(evt.mousePosition))
+            {
+                ClearActiveFilter();
+                evt.Use();
+                return;
+            }
+
             if (!Widgets.ButtonText(rect, label))
             {
                 if (_activeFilter != null && !string.IsNullOrEmpty(_activeFilter.Tooltip))
@@ -191,7 +219,7 @@ namespace Spine.UI.SettingsFramework
 
             var options = new List<FloatMenuOption>
             {
-                new FloatMenuOption(AllSettingsFilterLabel, () => _activeFilter = null)
+                new FloatMenuOption(AllSettingsFilterLabel, ClearActiveFilter)
             };
 
             if (HasFilterCategories())
@@ -209,7 +237,7 @@ namespace Spine.UI.SettingsFramework
                 }
 
                 var localFilter = filter;
-                options.Add(new FloatMenuOption(localFilter.Label ?? localFilter.Id, () => _activeFilter = localFilter));
+                options.Add(new FloatMenuOption(localFilter.Label ?? localFilter.Id, () => ApplyFilter(localFilter)));
             }
 
             Find.WindowStack.Add(new FloatMenu(options));
@@ -274,7 +302,7 @@ namespace Spine.UI.SettingsFramework
                 }
 
                 var localFilter = filter;
-                options.Add(new FloatMenuOption(localFilter.Label ?? localFilter.Id, () => _activeFilter = localFilter));
+                options.Add(new FloatMenuOption(localFilter.Label ?? localFilter.Id, () => ApplyFilter(localFilter)));
             }
 
             Find.WindowStack.Add(new FloatMenu(options));
@@ -324,7 +352,7 @@ namespace Spine.UI.SettingsFramework
         private void DrawSettingsList(
             Rect rect,
             object settingsObject,
-            SettingsViewMode viewMode,
+            ref SettingsViewMode viewMode,
             Action onSettingsChanged)
         {
             bool isSearching = !string.IsNullOrWhiteSpace(_searchQuery);
@@ -332,23 +360,18 @@ namespace Spine.UI.SettingsFramework
 
             if (visibleSettings.Count == 0)
             {
-                string emptyLabel = NoResultsLabel;
-
-                // If we're in Simple view and nothing matches, hint that Advanced may have results.
-                if (viewMode == SettingsViewMode.Simple && !string.IsNullOrWhiteSpace(_searchQuery))
-                {
-                    var advancedMatches = BuildVisibleSettings(settingsObject, SettingsViewMode.Advanced, useSearch: true);
-                    if (advancedMatches.Count > 0)
-                    {
-                        emptyLabel = "Switch to advanced mode for more settings";
-                    }
-                }
-
-                Widgets.Label(rect, emptyLabel);
+                DrawEmptyState(rect, settingsObject, ref viewMode);
                 return;
             }
 
-            float viewHeight = visibleSettings.Count * RowHeight;
+            if (!string.IsNullOrEmpty(_pendingFocusSettingId))
+            {
+                CenterOnSettingId(_pendingFocusSettingId, visibleSettings, rect.height);
+                _pendingFocusSettingId = null;
+            }
+
+            float clearFilterRowHeight = _activeFilter != null ? RowHeight + 8f : 0f;
+            float viewHeight = (visibleSettings.Count * RowHeight) + clearFilterRowHeight;
             Rect viewRect = new Rect(0f, 0f, rect.width - 16f, viewHeight);
 
             Widgets.BeginScrollView(rect, ref _scrollPosition, viewRect);
@@ -365,8 +388,14 @@ namespace Spine.UI.SettingsFramework
                     TryHandleSearchResultDoubleClick(rowRect, def, settingsObject, viewMode, rect.height);
                 }
 
+                DrawFocusedSettingHighlight(rowRect, def);
                 DrawSettingRow(rowRect, def, settingsObject, disabledByAncestor, depth, onSettingsChanged);
                 curY += RowHeight;
+            }
+
+            if (_activeFilter != null)
+            {
+                DrawClearFilterRow(new Rect(0f, curY + 4f, viewRect.width, RowHeight));
             }
 
             Widgets.EndScrollView();
@@ -539,6 +568,10 @@ namespace Spine.UI.SettingsFramework
             if (!string.IsNullOrEmpty(tooltip))
             {
                 TooltipHandler.TipRegion(rect, tooltip);
+                if (Mouse.IsOver(rect))
+                {
+                    OnSettingTooltipViewed?.Invoke(def, settingsObject);
+                }
             }
         }
 
@@ -583,6 +616,16 @@ namespace Spine.UI.SettingsFramework
             SettingsViewMode viewMode,
             bool useSearch)
         {
+            return BuildVisibleSettings(settingsObject, viewMode, useSearch, _activeFilter, false);
+        }
+
+        private List<SettingDefinition> BuildVisibleSettings(
+            object settingsObject,
+            SettingsViewMode viewMode,
+            bool useSearch,
+            SettingsFilterDefinition filter,
+            bool ignoreFilter)
+        {
             IEnumerable<SettingDefinition> source = useSearch
                 ? _hierarchy.Search(_searchQuery, viewMode)
                 : _hierarchy.GetFlattenedForView(viewMode, settingsObject);
@@ -595,7 +638,12 @@ namespace Spine.UI.SettingsFramework
                     continue;
                 }
 
-                if (!MatchesActiveFilter(setting, settingsObject))
+                if (!ignoreFilter && !MatchesFilter(setting, settingsObject, filter))
+                {
+                    continue;
+                }
+
+                if (!useSearch && _hierarchy.IsDisabledByAncestor(setting, settingsObject))
                 {
                     continue;
                 }
@@ -606,19 +654,19 @@ namespace Spine.UI.SettingsFramework
             return visibleSettings;
         }
 
-        private bool MatchesActiveFilter(SettingDefinition setting, object settingsObject)
+        private bool MatchesFilter(SettingDefinition setting, object settingsObject, SettingsFilterDefinition filter)
         {
-            if (_activeFilter == null)
+            if (filter == null)
             {
                 return true;
             }
 
-            if (_activeFilter.Matches(setting, settingsObject))
+            if (filter.Matches(setting, settingsObject))
             {
                 return true;
             }
 
-            if (!_activeFilter.IncludeChildrenOfMatches)
+            if (!filter.IncludeChildrenOfMatches)
             {
                 return false;
             }
@@ -626,7 +674,7 @@ namespace Spine.UI.SettingsFramework
             var parent = _hierarchy.GetParent(setting);
             while (parent != null)
             {
-                if (_activeFilter.Matches(parent, settingsObject))
+                if (filter.Matches(parent, settingsObject))
                 {
                     return true;
                 }
@@ -635,6 +683,210 @@ namespace Spine.UI.SettingsFramework
             }
 
             return false;
+        }
+
+        private void DrawEmptyState(Rect rect, object settingsObject, ref SettingsViewMode viewMode)
+        {
+            EmptyStateAction action = GetEmptyStateAction(settingsObject, viewMode);
+            if (action != null)
+            {
+                if (DrawClickableEmptyState(rect, action.Label))
+                {
+                    if (action.SwitchToViewMode.HasValue)
+                    {
+                        viewMode = action.SwitchToViewMode.Value;
+                    }
+
+                    action.Action?.Invoke();
+                }
+                return;
+            }
+
+            Widgets.Label(rect, NoResultsLabel);
+        }
+
+        private EmptyStateAction GetEmptyStateAction(object settingsObject, SettingsViewMode viewMode)
+        {
+            bool isSearching = !string.IsNullOrWhiteSpace(_searchQuery);
+            if (!isSearching)
+            {
+                if (_activeFilter != null)
+                {
+                    return new EmptyStateAction("Remove filter for more settings", ClearActiveFilter);
+                }
+
+                return null;
+            }
+
+            SettingsFilterDefinition suggestedFilter = FindSuggestedFilter(settingsObject, viewMode);
+            if (suggestedFilter != null)
+            {
+                return new EmptyStateAction(
+                    $"Change to {suggestedFilter.Label ?? suggestedFilter.Id} filter for those settings",
+                    () => ApplySuggestedFilter(suggestedFilter, settingsObject, viewMode));
+            }
+
+            if (_activeFilter != null)
+            {
+                var unfilteredMatches = BuildVisibleSettings(
+                    settingsObject,
+                    viewMode,
+                    useSearch: true,
+                    filter: null,
+                    ignoreFilter: true);
+                if (unfilteredMatches.Count > 0)
+                {
+                    return new EmptyStateAction("Remove filter for more settings", ClearActiveFilter);
+                }
+            }
+
+            if (viewMode == SettingsViewMode.Simple)
+            {
+                var advancedMatches = BuildVisibleSettings(
+                    settingsObject,
+                    SettingsViewMode.Advanced,
+                    useSearch: true,
+                    filter: _activeFilter,
+                    ignoreFilter: false);
+                if (advancedMatches.Count > 0)
+                {
+                    return EmptyStateAction.SwitchView(
+                        "Switch to advanced mode for more settings",
+                        SettingsViewMode.Advanced);
+                }
+
+                if (_activeFilter != null)
+                {
+                    var advancedUnfilteredMatches = BuildVisibleSettings(
+                        settingsObject,
+                        SettingsViewMode.Advanced,
+                        useSearch: true,
+                        filter: null,
+                        ignoreFilter: true);
+                    if (advancedUnfilteredMatches.Count > 0)
+                    {
+                        return new EmptyStateAction("Remove filter for more settings", ClearActiveFilter);
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        private SettingsFilterDefinition FindSuggestedFilter(object settingsObject, SettingsViewMode viewMode)
+        {
+            if (Filters == null || Filters.Count == 0 || string.IsNullOrWhiteSpace(_searchQuery))
+            {
+                return null;
+            }
+
+            foreach (var filter in Filters)
+            {
+                if (filter == null || ReferenceEquals(filter, _activeFilter))
+                {
+                    continue;
+                }
+
+                if (FilterTextMatchesSearch(filter))
+                {
+                    return filter;
+                }
+            }
+
+            foreach (var filter in Filters)
+            {
+                if (filter == null || ReferenceEquals(filter, _activeFilter))
+                {
+                    continue;
+                }
+
+                var matches = BuildVisibleSettings(
+                    settingsObject,
+                    viewMode,
+                    useSearch: true,
+                    filter: filter,
+                    ignoreFilter: false);
+                if (matches.Count > 0)
+                {
+                    return filter;
+                }
+            }
+
+            return null;
+        }
+
+        private bool FilterTextMatchesSearch(SettingsFilterDefinition filter)
+        {
+            string needle = (_searchQuery ?? string.Empty).Trim().ToLowerInvariant();
+            if (string.IsNullOrEmpty(needle) || filter == null)
+            {
+                return false;
+            }
+
+            string text = $"{filter.Id} {filter.Label} {filter.Tooltip} {filter.Category} {filter.CategoryLabel}".ToLowerInvariant();
+            return text.Contains(needle);
+        }
+
+        private void ApplySuggestedFilter(
+            SettingsFilterDefinition filter,
+            object settingsObject,
+            SettingsViewMode viewMode)
+        {
+            ApplyFilter(filter);
+            var matchesWithSearch = BuildVisibleSettings(
+                settingsObject,
+                viewMode,
+                useSearch: true,
+                filter: filter,
+                ignoreFilter: false);
+            if (matchesWithSearch.Count == 0)
+            {
+                ClearSearch();
+            }
+        }
+
+        private bool DrawClickableEmptyState(Rect rect, string label)
+        {
+            Rect labelRect = new Rect(rect.x, rect.y, rect.width, 28f);
+            Color oldColor = GUI.color;
+            Event evt = Event.current;
+            bool hovered = evt != null && labelRect.Contains(evt.mousePosition);
+            GUI.color = hovered ? Color.white : new Color(0.8f, 0.85f, 1f);
+            Widgets.Label(labelRect, label);
+            Vector2 size = Text.CalcSize(label);
+            float underlineWidth = Mathf.Min(size.x, labelRect.width);
+            Widgets.DrawLineHorizontal(labelRect.x, labelRect.y + size.y + 1f, underlineWidth);
+            GUI.color = oldColor;
+
+            if (Widgets.ButtonInvisible(labelRect))
+            {
+                Event.current?.Use();
+                return true;
+            }
+
+            return false;
+        }
+
+        private void DrawClearFilterRow(Rect rect)
+        {
+            Rect buttonRect = rect.ContractedBy(4f);
+            if (Widgets.ButtonText(buttonRect, "X Clear filter"))
+            {
+                ClearActiveFilter();
+                Event.current?.Use();
+            }
+        }
+
+        private void ApplyFilter(SettingsFilterDefinition filter)
+        {
+            _activeFilter = filter;
+            _scrollPosition = Vector2.zero;
+            _transferMode = TransferMode.None;
+        }
+
+        private void ClearActiveFilter()
+        {
+            ApplyFilter(null);
         }
 
         private void DrawImportExportFooter(Rect rect)
@@ -722,6 +974,7 @@ namespace Spine.UI.SettingsFramework
             }
 
             CenterOnSetting(target, settingsObject, viewMode, listHeight);
+            FocusSetting(target?.Id);
             ClearSearch();
             evt.Use();
             return true;
@@ -732,6 +985,44 @@ namespace Spine.UI.SettingsFramework
             _searchWidget.Reset();
             _searchWidget.Unfocus();
             _searchQuery = string.Empty;
+        }
+
+        private void FocusSetting(string settingId)
+        {
+            if (string.IsNullOrEmpty(settingId))
+            {
+                return;
+            }
+
+            _highlightedSettingId = settingId;
+            _highlightStartedAt = Time.realtimeSinceStartup;
+        }
+
+        private void DrawFocusedSettingHighlight(Rect rowRect, SettingDefinition def)
+        {
+            if (def == null ||
+                string.IsNullOrEmpty(_highlightedSettingId) ||
+                !string.Equals(def.Id, _highlightedSettingId, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            float age = Time.realtimeSinceStartup - _highlightStartedAt;
+            if (age > FocusHighlightSeconds)
+            {
+                _highlightedSettingId = null;
+                return;
+            }
+
+            float fade = 1f - Mathf.Clamp01(age / FocusHighlightSeconds);
+            float pulse = 0.5f + (0.5f * Mathf.Sin(age * 16f));
+            Color focusColor = FocusHighlightColor;
+            Color oldColor = GUI.color;
+            GUI.color = new Color(focusColor.r, focusColor.g, focusColor.b, Mathf.Lerp(0.18f, 0.36f, pulse) * fade);
+            Widgets.DrawBoxSolid(rowRect, GUI.color);
+            GUI.color = new Color(focusColor.r, focusColor.g, focusColor.b, 0.85f * fade);
+            Widgets.DrawBox(rowRect, 2);
+            GUI.color = oldColor;
         }
 
         private void CenterOnSetting(
@@ -753,6 +1044,30 @@ namespace Spine.UI.SettingsFramework
             }
 
             float viewHeight = fullList.Count * RowHeight;
+            float maxScrollY = Mathf.Max(0f, viewHeight - listHeight);
+            float targetY = index * RowHeight;
+            _scrollPosition.y = Mathf.Clamp(targetY - ((listHeight - RowHeight) * 0.5f), 0f, maxScrollY);
+            _scrollPosition.x = 0f;
+        }
+
+        private void CenterOnSettingId(
+            string settingId,
+            List<SettingDefinition> visibleSettings,
+            float listHeight)
+        {
+            if (string.IsNullOrEmpty(settingId) || visibleSettings == null)
+            {
+                return;
+            }
+
+            int index = visibleSettings.FindIndex(def =>
+                string.Equals(def.Id, settingId, StringComparison.OrdinalIgnoreCase));
+            if (index < 0)
+            {
+                return;
+            }
+
+            float viewHeight = visibleSettings.Count * RowHeight;
             float maxScrollY = Mathf.Max(0f, viewHeight - listHeight);
             float targetY = index * RowHeight;
             _scrollPosition.y = Mathf.Clamp(targetY - ((listHeight - RowHeight) * 0.5f), 0f, maxScrollY);
@@ -899,6 +1214,30 @@ namespace Spine.UI.SettingsFramework
             None,
             Export,
             Import
+        }
+
+        private sealed class EmptyStateAction
+        {
+            internal readonly string Label;
+            internal readonly Action Action;
+            internal readonly SettingsViewMode? SwitchToViewMode;
+
+            internal EmptyStateAction(string label, Action action)
+            {
+                Label = label;
+                Action = action;
+            }
+
+            private EmptyStateAction(string label, SettingsViewMode switchToViewMode)
+            {
+                Label = label;
+                SwitchToViewMode = switchToViewMode;
+            }
+
+            internal static EmptyStateAction SwitchView(string label, SettingsViewMode viewMode)
+            {
+                return new EmptyStateAction(label, viewMode);
+            }
         }
     }
 }

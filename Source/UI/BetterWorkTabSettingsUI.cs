@@ -26,6 +26,7 @@ namespace Better_Work_Tab.UI
                 : SettingsViewMode.Advanced;
 
             _drawer.ShowResetIcons = !settings.hideSettingResetIcons;
+            _drawer.FocusHighlightColor = settings.Color_SettingFocusHighlight;
             _drawer.ImportExportActions = BWTSettingsImportExportActions.Create(settings, NotifySettingsChanged);
             if (BWTSettingsContextFocus.TryConsume(out BWTSettingsFocusRequest focusRequest))
             {
@@ -75,8 +76,22 @@ namespace Better_Work_Tab.UI
                 AllSettingsFilterLabel = "All Settings",
                 IndentPerLevel = 20f,
                 RowHeight = 32f,
-                ScrollPosition = _preservedScrollPosition // Restore scroll position
+                ScrollPosition = _preservedScrollPosition, // Restore scroll position
+                OnSettingTooltipViewed = MarkSettingViewed
             };
+        }
+
+        private static void MarkSettingViewed(SettingDefinition def, object settingsObject)
+        {
+            if (def == null || !(settingsObject is BetterWorkTabSettings settings))
+            {
+                return;
+            }
+
+            if (settings.RecordViewedSetting(def.Id))
+            {
+                settings.Write();
+            }
         }
     }
 }
