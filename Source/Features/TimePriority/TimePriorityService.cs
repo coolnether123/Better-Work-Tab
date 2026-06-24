@@ -52,6 +52,79 @@ namespace Better_Work_Tab.Features.TimePriority
             return WorkPrioritySystem.ClampPriority(schedule.HourlyPriorities[hour]);
         }
 
+        internal static bool HasCustomSchedule(TimePriorityTarget target, int fallbackPriority)
+        {
+            if (!TryGetSchedule(target, out var schedule))
+            {
+                return false;
+            }
+
+            fallbackPriority = WorkPrioritySystem.ClampPriority(fallbackPriority);
+            schedule.EnsureValid();
+            for (int hour = 0; hour < HoursPerDay; hour++)
+            {
+                if (WorkPrioritySystem.ClampPriority(schedule.HourlyPriorities[hour]) != fallbackPriority)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        internal static bool IsCustomScheduledHour(TimePriorityTarget target, int hour, int fallbackPriority)
+        {
+            if (!TryGetSchedule(target, out var schedule))
+            {
+                return false;
+            }
+
+            fallbackPriority = WorkPrioritySystem.ClampPriority(fallbackPriority);
+            hour = Mathf.Clamp(hour, 0, HoursPerDay - 1);
+            schedule.EnsureValid();
+            return WorkPrioritySystem.ClampPriority(schedule.HourlyPriorities[hour]) != fallbackPriority;
+        }
+
+        internal static bool TryGetWorkGiverScheduleIndicatorTarget(
+            Pawn pawn,
+            WorkTypeDef workType,
+            WorkGiverDef workGiver,
+            int pawnFallbackPriority,
+            out TimePriorityTarget target,
+            out int fallbackPriority)
+        {
+            target = default;
+            fallbackPriority = WorkPrioritySystem.ClampPriority(pawnFallbackPriority);
+            if (!IsRuntimeEnabled || workType == null || workGiver == null)
+            {
+                return false;
+            }
+
+            if (pawn != null)
+            {
+                TimePriorityTarget pawnTarget = TimePriorityTarget.ForWorkGiver(pawn, workType, workGiver);
+                if (HasCustomSchedule(pawnTarget, fallbackPriority))
+                {
+                    target = pawnTarget;
+                    return true;
+                }
+            }
+
+            TimePriorityTarget globalTarget = TimePriorityTarget.ForWorkGiver(null, workType, workGiver);
+            int globalFallback = WorkGiverReassignmentManager.GetWorkGiverPriority(
+                null,
+                workGiver,
+                WorkPrioritySystem.GetDefaultEnabledPriority());
+            if (!HasCustomSchedule(globalTarget, globalFallback))
+            {
+                return false;
+            }
+
+            target = globalTarget;
+            fallbackPriority = globalFallback;
+            return true;
+        }
+
         internal static void SetPriorityAtHourSynced(TimePriorityTarget target, int hour, int priority, int fallbackPriority)
         {
             if (MultiplayerBridge.Active)

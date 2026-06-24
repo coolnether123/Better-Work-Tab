@@ -47,11 +47,12 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             bool hasPawnOverride = pawn != null &&
                                    WorkGiverReassignmentManager.HasPawnWorkGiverOverride(pawn, wg.def);
             int baseWorkGiverPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, wg.def, defaultPriority);
-            int workGiverPriority = TimePriorityService.GetEffectiveWorkGiverPriority(
+            TimePriorityEvaluation timePriorityEvaluation = TimePriorityService.EvaluateWorkGiverPriority(
                 pawn,
                 workType,
                 wg.def,
                 baseWorkGiverPriority);
+            int workGiverPriority = timePriorityEvaluation.EffectivePriority;
 
             if (pawn != null &&
                 !pawn.WorkTypeIsDisabled(workType) &&
@@ -72,11 +73,11 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
             if (pawn != null)
             {
-                DrawPawnPriorityBox(wg, workType, pawn, boxRect, workGiverPriority, hasPawnOverride);
+                DrawPawnPriorityBox(wg, workType, pawn, boxRect, workGiverPriority, baseWorkGiverPriority, hasPawnOverride);
             }
             else
             {
-                DrawGlobalPriorityBox(wg, boxRect, workGiverPriority);
+                DrawGlobalPriorityBox(wg, workType, boxRect, workGiverPriority, baseWorkGiverPriority);
             }
             
             TooltipHandler.TipRegion(boxRect, wg.def.LabelCap);
@@ -110,12 +111,26 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
         private static bool ShouldHandleInput => _visualAlpha > 0.999f && !SubWorkDrilldownState.IsTransitioning;
 
-        private static void DrawPawnPriorityBox(WorkGiver wg, WorkTypeDef workType, Pawn pawn, Rect boxRect, int workGiverPriority, bool hasPawnOverride)
+        private static void DrawPawnPriorityBox(
+            WorkGiver wg,
+            WorkTypeDef workType,
+            Pawn pawn,
+            Rect boxRect,
+            int workGiverPriority,
+            int baseWorkGiverPriority,
+            bool hasPawnOverride)
         {
             if (DrawPawnWorkBoxContents(boxRect, pawn, workType, workGiverPriority, IsIncapable(pawn, wg)))
             {
                 DrawOverrideResetAnimation(pawn.thingIDNumber, wg.def, boxRect);
-                if (hasPawnOverride)
+                bool hasScheduleIndicator = TryGetScheduleIndicator(
+                    pawn,
+                    workType,
+                    wg.def,
+                    baseWorkGiverPriority,
+                    out TimePriorityTarget scheduleTarget,
+                    out int scheduleFallbackPriority);
+                if (hasPawnOverride || hasScheduleIndicator)
                 {
                     DrawOverrideRingIfVisible(boxRect);
                 }
@@ -123,12 +138,21 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 int inheritedPriority = WorkGiverReassignmentManager.GetInheritedWorkGiverPriority(pawn, workType, wg.def);
                 if (ShouldHandleInput)
                 {
+                    if (TryHandleScheduleIndicatorClick(
+                            hasScheduleIndicator,
+                            scheduleTarget,
+                            scheduleFallbackPriority,
+                            boxRect))
+                    {
+                        return;
+                    }
+
                     HandlePriorityClick(pawn.thingIDNumber, wg.def, boxRect, workGiverPriority, hasPawnOverride, inheritedPriority);
                 }
             }
         }
 
-        private static void DrawGlobalPriorityBox(WorkGiver wg, Rect boxRect, int workGiverPriority)
+        private static void DrawGlobalPriorityBox(WorkGiver wg, WorkTypeDef workType, Rect boxRect, int workGiverPriority, int baseWorkGiverPriority)
         {
             RegisterGlobalPriorityTarget(wg.def, boxRect);
 
@@ -141,8 +165,24 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 DrawPriorityBoxContents(boxRect, workGiverPriority, false);
             }
 
+            TimePriorityTarget target = TimePriorityTarget.ForWorkGiver(null, workType, wg.def);
+            bool hasScheduleIndicator = TimePriorityService.HasCustomSchedule(target, baseWorkGiverPriority);
+            if (hasScheduleIndicator)
+            {
+                DrawOverrideRingIfVisible(boxRect);
+            }
+
             if (ShouldHandleInput)
             {
+                if (TryHandleScheduleIndicatorClick(
+                        hasScheduleIndicator,
+                        target,
+                        baseWorkGiverPriority,
+                        boxRect))
+                {
+                    return;
+                }
+
                 HandlePriorityClick(-1, wg.def, boxRect, workGiverPriority);
             }
         }
@@ -444,6 +484,69 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             }
 
             evt.Use();
+        }
+
+        private static bool TryGetScheduleIndicator(
+            Pawn pawn,
+            WorkTypeDef workType,
+            WorkGiverDef workGiverDef,
+            int fallbackPriority,
+            out TimePriorityTarget target,
+            out int scheduleFallbackPriority)
+        {
+            return TimePriorityService.TryGetWorkGiverScheduleIndicatorTarget(
+                pawn,
+                workType,
+                workGiverDef,
+                fallbackPriority,
+                out target,
+                out scheduleFallbackPriority);
+        }
+
+        private static bool TryHandleScheduleIndicatorClick(
+            bool hasScheduleIndicator,
+            TimePriorityTarget target,
+            int fallbackPriority,
+            Rect boxRect)
+        {
+            if (!hasScheduleIndicator)
+            {
+                return false;
+            }
+
+            Event evt = Event.current;
+            if (evt == null ||
+                BetterWorkTabLocalState.IsHeaderDragging ||
+                SubWorkDrilldownInput.MatchesGesture(evt))
+            {
+                return false;
+            }
+
+            Rect ringRect = PriorityOverrideRing.RingRect(boxRect);
+            if (!ringRect.Contains(evt.mousePosition))
+            {
+                return false;
+            }
+
+            if (evt.type == EventType.ScrollWheel && !PriorityOverrideRing.InnerRect(boxRect).Contains(evt.mousePosition))
+            {
+                evt.Use();
+                return true;
+            }
+
+            if (evt.type != EventType.MouseDown || !PriorityOverrideRing.EventOverVisibleRing(evt, boxRect))
+            {
+                return false;
+            }
+
+            if (evt.button == 0 &&
+                TimePriorityPlannerPrototype.OpenForPriorityBox(target, boxRect, fallbackPriority))
+            {
+                SoundDefOf.Tick_High.PlayOneShotOnCamera();
+            }
+
+            evt.Use();
+            return true;
         }
 
         private static void HandlePriorityClick(

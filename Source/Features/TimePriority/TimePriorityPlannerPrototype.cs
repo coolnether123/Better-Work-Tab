@@ -150,6 +150,37 @@ namespace Better_Work_Tab.Features.TimePriority
             Find.MainTabsRoot.SetCurrentTab(DefDatabase<MainButtonDef>.GetNamedSilentFail("Work"));
         }
 
+        internal static bool OpenForPriorityBox(TimePriorityTarget target, Rect priorityBoxRect, int currentPriority)
+        {
+            if (!IsEnabled || string.IsNullOrEmpty(target.WorkTypeDefName))
+            {
+                return false;
+            }
+
+            _isClosing = false;
+            _closingStartedAt = 0f;
+            _closingSourceRect = Rect.zero;
+
+            var info = new TargetInfo(null, target, priorityBoxRect, currentPriority);
+            if (_session != null && _session.Matches(target))
+            {
+                if (!_session.PawnIds.Contains(target.PawnId))
+                {
+                    _session.PawnIds.Add(target.PawnId);
+                }
+
+                _session.SourceBoxRect = priorityBoxRect;
+                _session.StartedAt = Time.realtimeSinceStartup;
+                TimePriorityService.GetPrioritiesForDisplay(target, currentPriority);
+                NotifyLayoutChanged();
+                return true;
+            }
+
+            _session = new Session(info);
+            NotifyLayoutChanged();
+            return true;
+        }
+
         internal static void TryOpenAgentRequestedSession(IWorkTabLayoutController layout)
         {
             if (!IsEnabled || layout == null || !IsAgentHarnessEnabled())
@@ -1319,7 +1350,8 @@ namespace Better_Work_Tab.Features.TimePriority
                     priority = displayPriority;
                 }
 
-                DrawSchedulePriorityCell(hourRect, target, priority, hour, cellProgress);
+                bool isCustomHour = TimePriorityService.IsCustomScheduledHour(target, hour, currentPriority);
+                DrawSchedulePriorityCell(hourRect, target, priority, hour, cellProgress, isCustomHour);
                 LastCellHits.Add(new CellHit(target, currentPriority, hour, hourRect));
             }
         }
@@ -1331,7 +1363,7 @@ namespace Better_Work_Tab.Features.TimePriority
                 : _session.SourceBoxRect;
         }
 
-        private static void DrawSchedulePriorityCell(Rect rect, TimePriorityTarget target, int priority, int hour, float progress)
+        private static void DrawSchedulePriorityCell(Rect rect, TimePriorityTarget target, int priority, int hour, float progress, bool isCustomHour)
         {
             if (progress <= 0.001f)
             {
@@ -1346,6 +1378,11 @@ namespace Better_Work_Tab.Features.TimePriority
             }
 
             DrawTimePriorityBox(drawRect, priority, progress);
+            if (isCustomHour)
+            {
+                PriorityOverrideRing.DrawGoldBorder(drawRect.ExpandedBy(1f), Mouse.IsOver(drawRect), Mouse.IsOver(drawRect) ? 3 : 2);
+            }
+
             if (Event.current.type == EventType.Repaint)
             {
                 LastScheduleCellDiagnostics.Add(new ScheduleCellDiagnostic(
@@ -1496,14 +1533,20 @@ namespace Better_Work_Tab.Features.TimePriority
                     timelineRect.y,
                 Mathf.Max(1f, hourWidth - 1f),
                 timelineRect.height);
-                DrawHourPriorityCell(hourRect, priorities[hour], progress);
+                bool isCustomHour = TimePriorityService.IsCustomScheduledHour(target, hour, currentPriority);
+                DrawHourPriorityCell(hourRect, priorities[hour], progress, isCustomHour);
                 LastCellHits.Add(new CellHit(target, currentPriority, hour, hourRect));
             }
         }
 
-        private static void DrawHourPriorityCell(Rect rect, int priority, float progress)
+        private static void DrawHourPriorityCell(Rect rect, int priority, float progress, bool isCustomHour)
         {
-            DrawTimePriorityBox(rect.ContractedBy(1f), priority, progress);
+            Rect boxRect = rect.ContractedBy(1f);
+            DrawTimePriorityBox(boxRect, priority, progress);
+            if (isCustomHour)
+            {
+                PriorityOverrideRing.DrawGoldBorder(boxRect.ExpandedBy(1f), Mouse.IsOver(boxRect), Mouse.IsOver(boxRect) ? 3 : 2);
+            }
         }
 
         private static void DrawTimePriorityBox(Rect rect, int priority, float progress)

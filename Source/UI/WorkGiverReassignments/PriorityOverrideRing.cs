@@ -38,9 +38,14 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         {
             Rect ringRect = RingRect(priorityBox);
             bool ringHovered = MouseOverVisibleRing(priorityBox);
+            DrawGoldBorder(ringRect, ringHovered, ringHovered ? 3 : 2);
+        }
+
+        internal static void DrawGoldBorder(Rect rect, bool hovered = false, int thickness = 2)
+        {
             Color oldColor = GUI.color;
-            GUI.color = ringHovered ? Color.white : RingColor;
-            Widgets.DrawBox(ringRect, ringHovered ? 3 : 2);
+            GUI.color = hovered ? Color.white : RingColor;
+            Widgets.DrawBox(rect, thickness);
             GUI.color = oldColor;
         }
     }
