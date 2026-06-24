@@ -2,6 +2,7 @@
 using RimWorld;
 using Verse;
 using System.Collections.Generic;
+using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 
@@ -180,6 +181,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 ? Mathf.Max(0f, reservedRowHeight - visibleRowHeight)
                 : 0f;
             float globalBoxTop = headerRect.yMax +
+                TimePriorityPlannerPrototype.HeaderPinnedRowsHeight +
                 anchorOffset +
                 ((visibleRowHeight - SubWorkDrilldownState.GlobalPriorityBoxSize) / 2f);
             Vector2 targetUnderlineStart = new Vector2(

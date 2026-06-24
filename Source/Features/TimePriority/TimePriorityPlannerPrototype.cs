@@ -32,8 +32,9 @@ namespace Better_Work_Tab.Features.TimePriority
         private const float TimelineRowHeight = 28f;
         private const float MaxPanelWidth = 780f;
         private const float MinPanelWidth = 420f;
-        private const float InlineDividerHeight = 34f;
+        private const float InlineDividerFullHeight = 34f;
         private const float InlineChronosHeight = 10f;
+        private const float InlineDividerBaseHeight = InlineDividerFullHeight - InlineChronosHeight;
         private const float InlineHourLabelHeight = 16f;
         private const float InlineTimelineHeight = 24f;
         private const float InlineTimelineVerticalInset = 3f;
@@ -49,7 +50,7 @@ namespace Better_Work_Tab.Features.TimePriority
             ShowLabel = true,
             LabelFont = GameFont.Small,
             IsCollapsed = false,
-            Height = InlineDividerHeight
+            Height = InlineDividerBaseHeight
         };
         private static Session _session;
         private static Rect _lastPanelRect;
@@ -64,8 +65,12 @@ namespace Better_Work_Tab.Features.TimePriority
 
         internal static float HeaderPinnedRowsHeight =>
             IsEnabled && _session?.IsGlobal == true
-                ? InlineDividerHeight * GetProgress()
+                ? CurrentInlineDividerHeight * GetProgress()
                 : 0f;
+
+        private static float CurrentInlineDividerHeight =>
+            InlineDividerBaseHeight +
+            (ChronosPointerSupport.ShouldReserveTimePriorityTimelineHeight ? InlineChronosHeight : 0f);
 
         internal static int LayoutSignature
         {
@@ -158,7 +163,7 @@ namespace Better_Work_Tab.Features.TimePriority
 
             pawnId = _session.PawnIds[0];
             ActiveDivider.DividerName = _session.TargetLabel + " time priorities";
-            ActiveDivider.Height = InlineDividerHeight;
+            ActiveDivider.Height = CurrentInlineDividerHeight;
             ActiveDivider.IsCollapsed = false;
             divider = ActiveDivider;
             return true;
@@ -1073,9 +1078,9 @@ namespace Better_Work_Tab.Features.TimePriority
             {
                 dividerRect = new Rect(
                     tableRect.x,
-                    Mathf.Max(tableRect.y + 2f, firstRow.yMin - InlineDividerHeight - 2f),
+                    Mathf.Max(tableRect.y + 2f, firstRow.yMin - CurrentInlineDividerHeight - 2f),
                     tableRect.width,
-                    InlineDividerHeight);
+                    CurrentInlineDividerHeight);
             }
 
             Rect timelineHeaderRect = new Rect(
@@ -1189,7 +1194,8 @@ namespace Better_Work_Tab.Features.TimePriority
             GUI.color = new Color(1f, 1f, 1f, 0.18f * progress);
             Widgets.DrawLineHorizontal(visibleTimelineRect.xMin, visibleTimelineRect.yMax - 1f, visibleTimelineRect.width);
 
-            Rect chronosRect = GetInlineChronosRect(timelineRect);
+            bool drawChronos = ChronosPointerSupport.ShouldReserveTimePriorityTimelineHeight;
+            Rect chronosRect = drawChronos ? GetInlineChronosRect(timelineRect) : Rect.zero;
             Rect hourLabelRect = GetInlineHourLabelRect(timelineRect);
             if (BetterWorkTabMod.Settings?.showTimePriorityHourDivider ??
                 DefaultSettings.showTimePriorityHourDivider)
@@ -1198,12 +1204,15 @@ namespace Better_Work_Tab.Features.TimePriority
                 Widgets.DrawLineHorizontal(visibleTimelineRect.xMin, hourLabelRect.yMin - 1f, visibleTimelineRect.width);
             }
 
-            ChronosPointerSupport.TryDrawTimePriorityTimeline(
-                chronosRect,
-                priorityRowsRect,
-                progress,
-                BetterWorkTabMod.Settings?.chronosPointerTimePriorityIncidentOverlay ??
-                DefaultSettings.chronosPointerTimePriorityIncidentOverlay);
+            if (drawChronos)
+            {
+                ChronosPointerSupport.TryDrawTimePriorityTimeline(
+                    chronosRect,
+                    priorityRowsRect,
+                    progress,
+                    BetterWorkTabMod.Settings?.chronosPointerTimePriorityIncidentOverlay ??
+                    DefaultSettings.chronosPointerTimePriorityIncidentOverlay);
+            }
 
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.MiddleCenter;

@@ -70,6 +70,24 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             }
         }
 
+        internal static int MeasurementSignature
+        {
+            get
+            {
+                EnsureSlotCache();
+                unchecked
+                {
+                    int hash = 17;
+                    hash = hash * 31 + (_activeWorkType?.shortHash ?? 0);
+                    hash = hash * 31 + WorkGiverReassignmentManager.CurrentSyncVersion;
+                    hash = hash * 31 + _cachedSlotSignature;
+                    hash = hash * 31 + _entryWorkColumnSlot;
+                    hash = hash * 31 + _exitWorkColumnSlot;
+                    return hash;
+                }
+            }
+        }
+
         internal static IReadOnlyList<WorkGiver> ActiveWorkGivers
         {
             get

@@ -285,8 +285,9 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 return;
             }
 
-            tooltip += "\n" + (SubWorkDrilldownInput.GestureLabel().CapitalizeFirst() +
-                ": Open " + workType.LabelCap + " sub-work jobs").Colorize(ColoredText.SubtleGrayColor);
+            string gesture = (SubWorkDrilldownInput.GestureLabel() ?? string.Empty).Trim().CapitalizeFirst();
+            string workLabel = workType.LabelCap.ToString().Trim();
+            tooltip += "\n" + (gesture + ": Open " + workLabel + " sub-work jobs").Colorize(ColoredText.SubtleGrayColor);
         }
 
         private static void HandleLeftClick(PawnColumnWorker_WorkPriority worker, PawnTable table, Event evt)
