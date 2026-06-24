@@ -197,6 +197,9 @@
     <Compile Include="UI\Dialog_EditDivider.cs" />
     <Compile Include="UI\BetterWorkTabSettingsUI.cs" />
     <Compile Include="UI\Settings\BWTSettingsFilters.cs" />
+    <Compile Include="UI\Settings\BWTSettingsContextFocus.cs" />
+    <Compile Include="UI\Settings\BWTSettingsFocusRequest.cs" />
+    <Compile Include="UI\Settings\BWTWorkTabContextSettingsRouter.cs" />
     <Compile Include="UI\Settings\BWTSettingsImportExportActions.cs" />
     <Compile Include="UI\Settings\BWTSettingsJsonService.cs" />
     <Compile Include="UI\Settings\Dialog_BWTSettingsJsonPath.cs" />

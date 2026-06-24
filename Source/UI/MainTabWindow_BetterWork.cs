@@ -15,6 +15,7 @@ using Better_Work_Tab.PawnOrganizer.Data;
 using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.Headers.Angled;
 using Better_Work_Tab.UI.Input;
+using Better_Work_Tab.UI.Settings;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using Multiplayer.API;
 using RimWorld;
@@ -283,7 +284,8 @@ namespace Better_Work_Tab.UI
                 {
                     SpineTiming.Time("WorkTab.Input", () =>
                     {
-                        bool handledSubWorkGesture = TimePriorityPlannerPrototype.TryHandleInput(organizer?.Layout, evt)
+                        bool handledSubWorkGesture = TryHandleContextSettingsClick(inRect, organizer?.Layout, evt)
+                            || TimePriorityPlannerPrototype.TryHandleInput(organizer?.Layout, evt)
                             || TryHandleSubWorkExitGesture(organizer?.Layout)
                             || TryHandleSubWorkHeaderOpen(organizer?.Layout);
                         if (!handledSubWorkGesture)
@@ -298,7 +300,8 @@ namespace Better_Work_Tab.UI
                 }
                 else
                 {
-                    bool handledSubWorkGesture = TimePriorityPlannerPrototype.TryHandleInput(organizer?.Layout, evt)
+                    bool handledSubWorkGesture = TryHandleContextSettingsClick(inRect, organizer?.Layout, evt)
+                        || TimePriorityPlannerPrototype.TryHandleInput(organizer?.Layout, evt)
                         || TryHandleSubWorkExitGesture(organizer?.Layout)
                         || TryHandleSubWorkHeaderOpen(organizer?.Layout);
                     if (!handledSubWorkGesture)
@@ -322,12 +325,14 @@ namespace Better_Work_Tab.UI
                 SpineTiming.Time("WorkTab.DrawDragOverlays", () => organizer?.DrawDragOverlays());
                 SpineTiming.Time("WorkTab.DrawManualPrioritiesCheckbox", DrawManualPrioritiesCheckbox);
                 SpineTiming.Time("WorkTab.DrawPriorityLegend", () => DrawPriorityLegend(inRect));
+                SpineTiming.Time("WorkTab.DrawContextSettingsHint", () => DrawContextSettingsHint(inRect));
             }
             else
             {
                 organizer?.DrawDragOverlays();
                 DrawManualPrioritiesCheckbox();
                 DrawPriorityLegend(inRect);
+                DrawContextSettingsHint(inRect);
             }
 
             bool mouseInside = Mouse.IsOver(inRect);
@@ -856,6 +861,35 @@ namespace Better_Work_Tab.UI
         {
             value = Mathf.Clamp01(value);
             return value * value * (3f - 2f * value);
+        }
+
+        private bool TryHandleContextSettingsClick(Rect inRect, IWorkTabLayoutController layout, Event evt)
+        {
+            if (evt == null ||
+                evt.type != EventType.MouseDown ||
+                evt.button != 0 ||
+                !evt.alt ||
+                !inRect.Contains(evt.mousePosition))
+            {
+                return false;
+            }
+
+            if (!BWTWorkTabContextSettingsRouter.TryBuildFocusRequest(
+                    inRect,
+                    layout,
+                    evt.mousePosition,
+                    evt.shift,
+                    evt.control,
+                    out BWTSettingsFocusRequest request))
+            {
+                return false;
+            }
+
+            BWTSettingsContextFocus.Request(request);
+            OpenBetterWorkTabSettings(toggleExisting: false);
+            SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+            evt.Use();
+            return true;
         }
 
         private bool TryHandleSubWorkHeaderOpen(IWorkTabLayoutController layout)
@@ -2264,6 +2298,25 @@ namespace Better_Work_Tab.UI
             Text.Anchor = TextAnchor.UpperLeft;
         }
 
+        private void DrawContextSettingsHint(Rect inRect)
+        {
+            var settings = BetterWorkTabMod.Settings;
+            if (!(settings?.enableUIElements ?? true))
+            {
+                return;
+            }
+
+            const float width = 230f;
+            Rect hintRect = new Rect(inRect.xMax - width - 42f, inRect.y + 5f, width, 24f);
+            Text.Font = GameFont.Tiny;
+            Text.Anchor = TextAnchor.UpperRight;
+            GUI.color = new Color(1f, 1f, 1f, 0.42f);
+            Widgets.Label(hintRect, "Alt + click anywhere for settings");
+            GUI.color = Color.white;
+            Text.Anchor = TextAnchor.UpperLeft;
+            Text.Font = GameFont.Small;
+        }
+
         private void DrawBottomRightButtons(Rect inRect, Rect gearRect)
         {
             HeaderButtons.DrawBottomRightGrouped(inRect, gearRect);
@@ -2302,27 +2355,32 @@ namespace Better_Work_Tab.UI
         {
             if (Widgets.ButtonImage(gearRect, TexButton.Info))
             {
-                if (Find.WindowStack != null && Find.WindowStack.TryRemove(typeof(Dialog_ModSettings)))
-                {
-                    return;
-                }
+                OpenBetterWorkTabSettings();
+            }
+        }
+
+        private void OpenBetterWorkTabSettings(bool toggleExisting = true)
+        {
+            if (Find.WindowStack != null && Find.WindowStack.TryRemove(typeof(Dialog_ModSettings)) && toggleExisting)
+            {
+                return;
+            }
 
 #if v0_16
-                Find.WindowStack.Add(new Dialog_ModSettings());
+            Find.WindowStack.Add(new Dialog_ModSettings());
 #else
-                var mod = LoadedModManager.GetMod<BetterWorkTabMod>();
-                if (mod != null)
-                {
+            var mod = LoadedModManager.GetMod<BetterWorkTabMod>();
+            if (mod != null)
+            {
 #if v1_3 || v1_2 || v1_1 || (v1_0 || v0_19)
-                    var dialog = new Dialog_ModSettings();
-                    typeof(Dialog_ModSettings).GetField("selMod", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(dialog, mod);
-                    Find.WindowStack.Add(dialog);
+                var dialog = new Dialog_ModSettings();
+                typeof(Dialog_ModSettings).GetField("selMod", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(dialog, mod);
+                Find.WindowStack.Add(dialog);
 #else
-                    Find.WindowStack.Add(new Dialog_ModSettings(mod));
-#endif
-                }
+                Find.WindowStack.Add(new Dialog_ModSettings(mod));
 #endif
             }
+#endif
         }
 
         private void DrawSubWorkExitButton(Rect inRect)
