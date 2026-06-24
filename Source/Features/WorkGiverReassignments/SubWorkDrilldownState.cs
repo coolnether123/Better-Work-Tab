@@ -58,6 +58,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                     hash = hash * 31 + _exitWorkColumnSlot;
                     hash = hash * 31 + Mathf.RoundToInt(_exitWaveSlotPosition * 100f);
                     hash = hash * 31 + (_isExiting ? 1 : 0);
+                    hash = hash * 31 + TransitionLayoutFrame;
                     return hash;
                 }
             }
@@ -116,7 +117,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                     return 0;
                 }
 
-                return Mathf.Clamp(Mathf.RoundToInt(TransitionAlpha * 24f), 0, 24);
+                return Mathf.Clamp(Mathf.RoundToInt(ModeVisualProgress * 60f), 0, 60);
             }
         }
 
@@ -200,7 +201,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             }
         }
 
-        internal static float GlobalRowReservedHeight => IsActive ? GlobalRowHeight : 0f;
+        internal static float GlobalRowReservedHeight => GlobalRowVisibleHeight;
 
         internal static bool TryGetHeaderTransitionOffset(PawnColumnDef column, float columnWidth, out float offsetX)
         {

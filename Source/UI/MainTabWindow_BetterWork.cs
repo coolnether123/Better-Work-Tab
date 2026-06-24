@@ -546,7 +546,7 @@ namespace Better_Work_Tab.UI
                     if (!organizer.IsDragging)
                     {
                         var snapshot = BuildSnapshotForOrganizer(table);
-                        organizer.Update(table, Vector2.zero, snapshot);
+                        organizer.Update(table, new Vector2(0f, ExtraTopSpace), snapshot);
                     }
 
                     // Use table's current header height (updates dynamically with vanilla staggering)
