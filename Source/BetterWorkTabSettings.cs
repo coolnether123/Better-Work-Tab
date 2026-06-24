@@ -25,6 +25,7 @@ namespace Better_Work_Tab
         Workloads,
         Performance,
         ModSupport,
+        SubWork,
         AngledHeaders
     }
 
@@ -49,18 +50,25 @@ namespace Better_Work_Tab
         }
 
         public static float workTabMaxHeight = -1f; // -1 = use vanilla default (fill screen)
+        public static float workTabTopSpace = 40f; // Vanilla MainTabWindow_Work.ExtraTopSpace
 
         public static bool enableSkillOverlayFeature = true;
         public static bool enableAutoAssignFeature = true;
         public static bool enableDragDropReordering = true;
         public static bool enableDividers = true;
         public static bool enableWorkloads = true;
-        public static bool enableSubWorkDrilldown = false;
+        public static bool enableSubWorkDrilldown = true;
         public static BetterWorkTabSettings.SubWorkDrilldownModifier subWorkDrilldownModifier = BetterWorkTabSettings.SubWorkDrilldownModifier.Ctrl;
         public static BetterWorkTabSettings.SubWorkDrilldownButton subWorkDrilldownButton = BetterWorkTabSettings.SubWorkDrilldownButton.Left;
         public static bool useVanillaSubWorkGlobalPriorityBoxes = false;
         public static bool restoreCursorOnSubWorkExit = true;
         public static bool restoreCursorOnSubWorkPawnCellExit = false;
+        public static bool enableSubWorkOverrideBreakAnimation = true;
+        public static bool enableSubWorkTransitionAnimation = true;
+        public static BetterWorkTabSettings.SubWorkTransitionStyle subWorkTransitionStyle =
+            BetterWorkTabSettings.SubWorkTransitionStyle.ClassicGlideFlash;
+        public static BetterWorkTabSettings.SubWorkDisabledParentMode subWorkDisabledParentMode =
+            BetterWorkTabSettings.SubWorkDisabledParentMode.ParentWorkDisablesSubWork;
         public static bool subWorkAutoExpandColumns = true;
         public static bool subWorkEvenlyExpandColumns = true;
         public static bool enableColumnOrderSaving = true;
@@ -102,11 +110,19 @@ namespace Better_Work_Tab
         public static bool showBedCountAtBottom = true;
         public static bool showPriorityLegend = true;
         public static bool showDragInstructions = true;
+        public static bool showContextSettingsHint = true;
         public static bool showManualPrioritiesCheckbox = true;
+        public static bool enableTimePriorityPlannerPrototype = true;
+        public static bool showTimePriorityCopyPasteButtons = true;
+        public static bool enableChronosPointerTimePriorityIntegration = true;
+        public static bool showTimePriorityHourDivider = true;
+        public static bool keepTimePrioritySourceColumnHighlighted = true;
+        public static bool chronosPointerTimePriorityIncidentOverlay = true;
         public static bool showDividers = true;
         public static bool allowCustomDividerColors = true;
         public static bool showDividerLabels = true;
         public static bool allowDividerCollapse = true;
+        public static bool enableDividerAnimations = true;
         public static bool enableRowColumnHighlights = true;
         public static float dividerMinAlpha = 0.35f;
         public static bool showHoverCellOverlay = true;
@@ -148,6 +164,7 @@ namespace Better_Work_Tab
         public static Color Color_HeaderText = Color.white;
         public static Color Color_DividerText = Color.white;
         public static Color Color_Borders = Color.gray;
+        public static Color Color_SettingFocusHighlight = new Color(1f, 0.78f, 0.18f, 1f);
 
         public static Color Color_AngledHeaderText = Color.white;
 
@@ -306,6 +323,10 @@ namespace Better_Work_Tab
         public bool useVanillaSubWorkGlobalPriorityBoxes = DefaultSettings.useVanillaSubWorkGlobalPriorityBoxes;
         public bool restoreCursorOnSubWorkExit = DefaultSettings.restoreCursorOnSubWorkExit;
         public bool restoreCursorOnSubWorkPawnCellExit = DefaultSettings.restoreCursorOnSubWorkPawnCellExit;
+        public bool enableSubWorkOverrideBreakAnimation = DefaultSettings.enableSubWorkOverrideBreakAnimation;
+        public bool enableSubWorkTransitionAnimation = DefaultSettings.enableSubWorkTransitionAnimation;
+        public SubWorkTransitionStyle subWorkTransitionStyle = DefaultSettings.subWorkTransitionStyle;
+        public SubWorkDisabledParentMode subWorkDisabledParentMode = DefaultSettings.subWorkDisabledParentMode;
         public bool subWorkAutoExpandColumns = DefaultSettings.subWorkAutoExpandColumns;
         public bool subWorkEvenlyExpandColumns = DefaultSettings.subWorkEvenlyExpandColumns;
         public bool enableColumnOrderSaving = DefaultSettings.enableColumnOrderSaving;
@@ -331,11 +352,19 @@ namespace Better_Work_Tab
         public bool showBedCountAtBottom = DefaultSettings.showBedCountAtBottom;
         public bool showPriorityLegend = DefaultSettings.showPriorityLegend;
         public bool showDragInstructions = DefaultSettings.showDragInstructions;
+        public bool showContextSettingsHint = DefaultSettings.showContextSettingsHint;
         public bool showManualPrioritiesCheckbox = DefaultSettings.showManualPrioritiesCheckbox;
+        public bool enableTimePriorityPlannerPrototype = DefaultSettings.enableTimePriorityPlannerPrototype;
+        public bool showTimePriorityCopyPasteButtons = DefaultSettings.showTimePriorityCopyPasteButtons;
+        public bool enableChronosPointerTimePriorityIntegration = DefaultSettings.enableChronosPointerTimePriorityIntegration;
+        public bool showTimePriorityHourDivider = DefaultSettings.showTimePriorityHourDivider;
+        public bool keepTimePrioritySourceColumnHighlighted = DefaultSettings.keepTimePrioritySourceColumnHighlighted;
+        public bool chronosPointerTimePriorityIncidentOverlay = DefaultSettings.chronosPointerTimePriorityIncidentOverlay;
         public bool showDividers = DefaultSettings.showDividers;
         public bool allowCustomDividerColors = DefaultSettings.allowCustomDividerColors;
         public bool showDividerLabels = DefaultSettings.showDividerLabels;
         public bool allowDividerCollapse = DefaultSettings.allowDividerCollapse;
+        public bool enableDividerAnimations = DefaultSettings.enableDividerAnimations;
         public bool hideWorkloadButton = DefaultSettings.hideWorkloadButton;
         public bool hideAutoAssignButton = DefaultSettings.hideAutoAssignButton;
         public bool persistColumnOrder = DefaultSettings.persistColumnOrder;
@@ -357,11 +386,13 @@ namespace Better_Work_Tab
             { DebugFeature.Rules, false },
             { DebugFeature.Workloads, false },
             { DebugFeature.Performance, false },
-            { DebugFeature.ModSupport, false }
+            { DebugFeature.ModSupport, false },
+            { DebugFeature.SubWork, false }
         };
         public List<string> workColumnOrderDefNames = new List<string>();
         public Dictionary<string, float> storedColumnWidths = new Dictionary<string, float>();
         public WorkGiverReassignmentData LegacyWorkGiverReassignments;
+        public List<string> viewedSettingIds = new List<string>();
         
         public bool debugPrintLayout = false; // Added to fix CS1061
 
@@ -396,6 +427,7 @@ namespace Better_Work_Tab
         public Color Color_HeaderText = Color.white;
         public Color Color_DividerText = Color.white;
         public Color Color_Borders = Color.gray;
+        public Color Color_SettingFocusHighlight = DefaultSettings.Color_SettingFocusHighlight;
         public bool ShowSimilarWorktypeHighlight = DefaultSettings.ShowSimilarWorktypeHighlight;
         public float SelectedPawnHighlightOpacity = DefaultSettings.SelectedPawnHighlightOpacity;
         public float SimilarWorktypeHighlightOpacity = DefaultSettings.SimilarWorktypeHighlightOpacity;
@@ -506,6 +538,16 @@ namespace Better_Work_Tab
         public enum ShowUIMode { Always, Never, Shifted, Unshifted }
         public enum SubWorkDrilldownModifier { Ctrl, Shift }
         public enum SubWorkDrilldownButton { Left, Right }
+        public enum SubWorkDisabledParentMode
+        {
+            ParentWorkDisablesSubWork,
+            LockedSubWorkOverridesParent
+        }
+        public enum SubWorkTransitionStyle
+        {
+            ClassicGlideFlash,
+            PixelWaveFlip
+        }
         public enum AutoDisabledPriorityMode
         {
             EveryMultipleOfFour,
@@ -543,6 +585,7 @@ namespace Better_Work_Tab
 
 
         public float workTabMaxHeight = DefaultSettings.workTabMaxHeight;
+        public float workTabTopSpace = DefaultSettings.workTabTopSpace;
 
         public enum RulesetViewMode
         {
@@ -777,6 +820,7 @@ namespace Better_Work_Tab
         public override void ExposeData()
         {
             Scribe_Values.Look(ref workTabMaxHeight, "workTabMaxHeight", DefaultSettings.workTabMaxHeight);
+            Scribe_Values.Look(ref workTabTopSpace, "workTabTopSpace", DefaultSettings.workTabTopSpace);
 
 
             // Core feature toggles
@@ -792,10 +836,20 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref useVanillaSubWorkGlobalPriorityBoxes, "useVanillaSubWorkGlobalPriorityBoxes", DefaultSettings.useVanillaSubWorkGlobalPriorityBoxes);
             Scribe_Values.Look(ref restoreCursorOnSubWorkExit, "restoreCursorOnSubWorkExit", DefaultSettings.restoreCursorOnSubWorkExit);
             Scribe_Values.Look(ref restoreCursorOnSubWorkPawnCellExit, "restoreCursorOnSubWorkPawnCellExit", DefaultSettings.restoreCursorOnSubWorkPawnCellExit);
+            Scribe_Values.Look(ref enableSubWorkOverrideBreakAnimation, "enableSubWorkOverrideBreakAnimation", DefaultSettings.enableSubWorkOverrideBreakAnimation);
+            Scribe_Values.Look(ref enableSubWorkTransitionAnimation, "enableSubWorkTransitionAnimation", DefaultSettings.enableSubWorkTransitionAnimation);
+            Scribe_Values.Look(ref subWorkTransitionStyle, "subWorkTransitionStyle", DefaultSettings.subWorkTransitionStyle);
+            Scribe_Values.Look(ref subWorkDisabledParentMode, "subWorkDisabledParentMode", DefaultSettings.subWorkDisabledParentMode);
             Scribe_Values.Look(ref subWorkAutoExpandColumns, "subWorkAutoExpandColumns", DefaultSettings.subWorkAutoExpandColumns);
             Scribe_Values.Look(ref subWorkEvenlyExpandColumns, "subWorkEvenlyExpandColumns", DefaultSettings.subWorkEvenlyExpandColumns);
             Scribe_Values.Look(ref enableColumnOrderSaving, "enableColumnOrderSaving", DefaultSettings.enableColumnOrderSaving);
             Scribe_Values.Look(ref enableUIElements, "enableUIElements", DefaultSettings.enableUIElements);
+            Scribe_Values.Look(ref enableTimePriorityPlannerPrototype, "enableTimePriorityPlannerPrototype", DefaultSettings.enableTimePriorityPlannerPrototype);
+            Scribe_Values.Look(ref showTimePriorityCopyPasteButtons, "showTimePriorityCopyPasteButtons", DefaultSettings.showTimePriorityCopyPasteButtons);
+            Scribe_Values.Look(ref enableChronosPointerTimePriorityIntegration, "enableChronosPointerTimePriorityIntegration", DefaultSettings.enableChronosPointerTimePriorityIntegration);
+            Scribe_Values.Look(ref showTimePriorityHourDivider, "showTimePriorityHourDivider", DefaultSettings.showTimePriorityHourDivider);
+            Scribe_Values.Look(ref keepTimePrioritySourceColumnHighlighted, "keepTimePrioritySourceColumnHighlighted", DefaultSettings.keepTimePrioritySourceColumnHighlighted);
+            Scribe_Values.Look(ref chronosPointerTimePriorityIncidentOverlay, "chronosPointerTimePriorityIncidentOverlay", DefaultSettings.chronosPointerTimePriorityIncidentOverlay);
             Scribe_Values.Look(ref enablePerformanceOptimizations, "enablePerformanceOptimizations", DefaultSettings.enablePerformanceOptimizations);
             Scribe_Values.Look(ref enableMultiplayerSync, "enableMultiplayerSync", DefaultSettings.enableMultiplayerSync);
             Scribe_Values.Look(ref hideSettingResetIcons, "hideSettingResetIcons", DefaultSettings.hideSettingResetIcons);
@@ -824,11 +878,13 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref requireCtrlForDrag, "requireCtrlForDrag", DefaultSettings.requireCtrlForDrag);
             Scribe_Values.Look(ref showPriorityLegend, "showPriorityLegend", DefaultSettings.showPriorityLegend);
             Scribe_Values.Look(ref showDragInstructions, "showDragInstructions", DefaultSettings.showDragInstructions);
+            Scribe_Values.Look(ref showContextSettingsHint, "showContextSettingsHint", DefaultSettings.showContextSettingsHint);
             Scribe_Values.Look(ref showManualPrioritiesCheckbox, "showManualPrioritiesCheckbox", DefaultSettings.showManualPrioritiesCheckbox);
             Scribe_Values.Look(ref showDividers, "showDividers", DefaultSettings.showDividers);
             Scribe_Values.Look(ref allowCustomDividerColors, "allowCustomDividerColors", DefaultSettings.allowCustomDividerColors);
             Scribe_Values.Look(ref showDividerLabels, "showDividerLabels", DefaultSettings.showDividerLabels);
             Scribe_Values.Look(ref allowDividerCollapse, "allowDividerCollapse", DefaultSettings.allowDividerCollapse);
+            Scribe_Values.Look(ref enableDividerAnimations, "enableDividerAnimations", DefaultSettings.enableDividerAnimations);
             Scribe_Values.Look(ref showOnlyLineDragIndicatorRows, "showOnlyLineDragIndicatorRows", true);
             Scribe_Values.Look(ref showOnlyLineDragIndicatorColumns, "showOnlyLineDragIndicatorColumns", true);
             Scribe_Values.Look(ref showGhostDragIndicator, "showGhostDragIndicator", false);
@@ -854,7 +910,7 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref warnOnApplyRuleset, "warnOnApplyRuleset", true);
             Scribe_Values.Look(ref warnOnApplyWorkload, "warnOnApplyWorkload", true);
             Scribe_Values.Look(ref removeHeaderUnderline, "removeHeaderUnderline", false);
-            Scribe_Values.Look(ref enableScrollWheelPriority, "enableScrollWheelPriority", false);
+            Scribe_Values.Look(ref enableScrollWheelPriority, "enableScrollWheelPriority", DefaultSettings.enableScrollWheelPriority);
             Scribe_Values.Look(ref enableAngledHeaders, "enableAngledHeaders", DefaultSettings.enableAngledHeaders);
             Scribe_Values.Look(ref angledHeaderRotation, "angledHeaderRotation", (int)DefaultSettings.angledHeaderRotation);
             Scribe_Values.Look(ref angledHeaderHorizontalOffset, "angledHeaderHorizontalOffset", DefaultSettings.angledHeaderHorizontalOffset);
@@ -895,6 +951,7 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref Color_HeaderText, "Color_HeaderText", DefaultSettings.Color_HeaderText);
             Scribe_Values.Look(ref Color_DividerText, "Color_DividerText", DefaultSettings.Color_DividerText);
             Scribe_Values.Look(ref Color_Borders, "Color_Borders", DefaultSettings.Color_Borders);
+            Scribe_Values.Look(ref Color_SettingFocusHighlight, "Color_SettingFocusHighlight", DefaultSettings.Color_SettingFocusHighlight);
 
             // UI modes
             Scribe_Values.Look(ref ShowUIMode_ShowSmallSkillNumbers, "ShowUIMode_ShowSmallSkillNumbers", DefaultSettings.ShowUIMode_ShowSmallSkillNumbers);
@@ -954,6 +1011,7 @@ namespace Better_Work_Tab
             Scribe_Collections.Look(ref workColumnOrderDefNames, "workColumnOrderDefNames", LookMode.Value);
             ScribeCompat.LookStringDictionary(ref storedColumnWidths, "storedColumnWidths", LookMode.Value);
             Scribe_Collections.Look(ref debugFeatureToggles, "debugFeatureToggles", LookMode.Value, LookMode.Value);
+            Scribe_Collections.Look(ref viewedSettingIds, "viewedSettingIds", LookMode.Value);
 
             // Save/load the list of columns the player has directly dragged
             Scribe_Collections.Look(ref playerDraggedColumns, "playerDraggedColumns", LookMode.Value);
@@ -973,6 +1031,11 @@ namespace Better_Work_Tab
                 playerDraggedColumns = new List<string>();
             }
 
+            if (viewedSettingIds == null)
+            {
+                viewedSettingIds = new List<string>();
+            }
+
             NormalizePrioritySettings();
 
             EnsureDebugFeatureTogglesInitialized();
@@ -986,6 +1049,7 @@ namespace Better_Work_Tab
             ApplyRegisteredDefaults();
 
             workTabMaxHeight = DefaultSettings.workTabMaxHeight;
+            workTabTopSpace = DefaultSettings.workTabTopSpace;
             settingsViewMode = SettingsViewMode.Simple;
             workColumnOrderDefNames.Clear();
             storedColumnWidths.Clear();
@@ -1097,6 +1161,34 @@ namespace Better_Work_Tab
         public void ClearPlayerDraggedColumns()
         {
             playerDraggedColumns.Clear();
+        }
+
+        public bool HasViewedSetting(string settingId)
+        {
+            return !string.IsNullOrEmpty(settingId) &&
+                viewedSettingIds != null &&
+                viewedSettingIds.Contains(settingId);
+        }
+
+        public bool RecordViewedSetting(string settingId)
+        {
+            if (string.IsNullOrEmpty(settingId))
+            {
+                return false;
+            }
+
+            if (viewedSettingIds == null)
+            {
+                viewedSettingIds = new List<string>();
+            }
+
+            if (viewedSettingIds.Contains(settingId))
+            {
+                return false;
+            }
+
+            viewedSettingIds.Add(settingId);
+            return true;
         }
 
         /// <summary>

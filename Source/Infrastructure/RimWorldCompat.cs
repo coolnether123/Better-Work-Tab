@@ -51,6 +51,23 @@ namespace Verse
 }
 #endif
 
+#if (v0_17 || v0_16)
+namespace UnityEngine
+{
+    public static class RectCompatExtensions
+    {
+        public static Rect ExpandedBy(this Rect rect, float margin)
+        {
+            return new Rect(
+                rect.x - margin,
+                rect.y - margin,
+                rect.width + margin * 2f,
+                rect.height + margin * 2f);
+        }
+    }
+}
+#endif
+
 namespace Better_Work_Tab
 {
     public static class PawnCompat
