@@ -801,7 +801,7 @@ namespace Better_Work_Tab.Patches
             }
 
             Rect boxRect = GetWorkBoxRect(cellRect);
-            if (!PriorityOverrideRing.MouseOverVisibleRing(boxRect))
+            if (!PriorityOverrideRing.EventOverVisibleRing(evt, boxRect))
             {
                 return false;
             }

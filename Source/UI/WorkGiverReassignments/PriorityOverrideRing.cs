@@ -24,6 +24,16 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             return Mouse.IsOver(RingRect(priorityBox)) && !Mouse.IsOver(InnerRect(priorityBox));
         }
 
+        internal static bool EventOverVisibleRing(Event evt, Rect priorityBox)
+        {
+            if (evt == null)
+            {
+                return false;
+            }
+
+            return RingRect(priorityBox).Contains(evt.mousePosition) && !InnerRect(priorityBox).Contains(evt.mousePosition);
+        }
+
         internal static void Draw(Rect priorityBox)
         {
             Rect ringRect = RingRect(priorityBox);
