@@ -35,6 +35,17 @@ namespace Better_Work_Tab.UI.Settings
             bool skillOnly,
             bool ctrlOnly)
         {
+            if (TimePriorityPlannerPrototype.TryGetCopyPasteSettingsContext(mousePosition))
+            {
+                return CreateContextRequest(
+                    "Schedule Copy/Paste Buttons",
+                    "Setting that controls copy and paste buttons for Work tab time-priority schedules.",
+                    UiTimePriorityCopyPasteButtons,
+                    false,
+                    UiTimePriorityPlannerPrototype,
+                    UiTimePriorityCopyPasteButtons);
+            }
+
             if (layout != null && TryGetPriorityCellContext(layout, mousePosition, out bool isSubWorkCell))
             {
                 if (ctrlOnly)
@@ -51,11 +62,12 @@ namespace Better_Work_Tab.UI.Settings
                         SubWorkTransitionAnimation,
                         SubWorkTransitionStyle,
                         SubWorkDisabledParentMode,
-                    UiTimePriorityPlannerPrototype,
-                    UiChronosPointerTimePriority,
-                    UiTimePrioritySourceColumnHighlight,
-                    AdvancedScrollWheelPriority,
-                    LayoutCtrlDrag);
+                        UiTimePriorityPlannerPrototype,
+                        UiTimePriorityCopyPasteButtons,
+                        UiChronosPointerTimePriority,
+                        UiTimePrioritySourceColumnHighlight,
+                        AdvancedScrollWheelPriority,
+                        LayoutCtrlDrag);
                 }
 
                 if (skillOnly)
@@ -101,6 +113,7 @@ namespace Better_Work_Tab.UI.Settings
                     OverlayHoverMode,
                     OverlayHoverScope,
                     UiTimePriorityPlannerPrototype,
+                    UiTimePriorityCopyPasteButtons,
                     UiChronosPointerTimePriority,
                     UiTimePriorityHourDivider,
                     UiTimePrioritySourceColumnHighlight,
@@ -188,6 +201,7 @@ namespace Better_Work_Tab.UI.Settings
                     SubWorkAutoExpandColumns,
                     SubWorkEvenlyExpandColumns,
                     UiTimePriorityPlannerPrototype,
+                    UiTimePriorityCopyPasteButtons,
                     UiTimePrioritySourceColumnHighlight,
                     UiChronosPointerTimePriority);
             }
@@ -202,6 +216,7 @@ namespace Better_Work_Tab.UI.Settings
                     isChronosRegion ? UiChronosPointerTimePriority : UiTimePriorityPlannerPrototype,
                     true,
                     UiTimePriorityPlannerPrototype,
+                    UiTimePriorityCopyPasteButtons,
                     UiChronosPointerTimePriority,
                     UiTimePriorityHourDivider,
                     UiTimePrioritySourceColumnHighlight,
@@ -293,6 +308,17 @@ namespace Better_Work_Tab.UI.Settings
                     AdvancedScrollWheelPriority);
             }
 
+            if (TryGetContextSettingsHintTextContext(inRect, mousePosition))
+            {
+                return CreateContextRequest(
+                    "Alt-Click Settings Hint",
+                    "Setting that controls the top-right Alt-click settings hint.",
+                    UiContextSettingsHint,
+                    false,
+                    FeaturesUiElements,
+                    UiContextSettingsHint);
+            }
+
             if (TryGetBottomButtonContext(inRect, mousePosition, out bool isWorkloadButton, out bool isRulesetButton))
             {
                 if (isWorkloadButton)
@@ -329,8 +355,8 @@ namespace Better_Work_Tab.UI.Settings
             {
                 return CreateContextRequest(
                     "Settings Shortcut",
-                    "Settings related to UI controls and settings management.",
-                    FeaturesUiElements,
+                    "Setting that controls the Alt-click settings shortcut hint.",
+                    UiContextSettingsHint,
                     false,
                     FeaturesUiElements,
                     UiContextSettingsHint,
@@ -475,16 +501,11 @@ namespace Better_Work_Tab.UI.Settings
             out bool isChronosRegion)
         {
             isChronosRegion = false;
-            if (layout == null || TimePriorityPlannerPrototype.HeaderPinnedRowsHeight <= 0.5f)
+            if (layout == null || !TryGetTimePriorityContextRect(layout, out Rect rect))
             {
                 return false;
             }
 
-            Rect rect = new Rect(
-                layout.TableOrigin.x,
-                layout.TableOrigin.y + layout.HeaderHeight,
-                Mathf.Max(layout.Table != null ? layout.Table.Size.x - 16f : 0f, 1f),
-                TimePriorityPlannerPrototype.HeaderPinnedRowsHeight);
             if (!rect.Contains(mousePosition))
             {
                 return false;
@@ -492,6 +513,44 @@ namespace Better_Work_Tab.UI.Settings
 
             isChronosRegion = mousePosition.y <= rect.y + 14f;
             return true;
+        }
+
+        private static bool TryGetTimePriorityContextRect(IWorkTabLayoutController layout, out Rect rect)
+        {
+            rect = Rect.zero;
+            if (layout == null)
+            {
+                return false;
+            }
+
+            if (TimePriorityPlannerPrototype.HeaderPinnedRowsHeight > 0.5f)
+            {
+                rect = new Rect(
+                    layout.TableOrigin.x,
+                    layout.TableOrigin.y + layout.HeaderHeight,
+                    Mathf.Max(layout.Table != null ? layout.Table.Size.x - 16f : 0f, 1f),
+                    TimePriorityPlannerPrototype.HeaderPinnedRowsHeight);
+                return true;
+            }
+
+            if (layout.Rows == null)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < layout.Rows.Count; i++)
+            {
+                WorkTabLayoutRow row = layout.Rows[i];
+                if (row.Divider == null || !TimePriorityPlannerPrototype.IsTransientDivider(row.Divider))
+                {
+                    continue;
+                }
+
+                rect = layout.GetScreenRect(row);
+                return true;
+            }
+
+            return false;
         }
 
         private static bool TryGetManualPrioritiesContext(Vector2 mousePosition)
@@ -523,6 +582,13 @@ namespace Better_Work_Tab.UI.Settings
         private static bool TryGetBottomInstructionsContext(Rect inRect, Vector2 mousePosition)
         {
             return new Rect(inRect.x, inRect.yMax - 30f, inRect.width * 0.55f, 30f).Contains(mousePosition);
+        }
+
+        private static bool TryGetContextSettingsHintTextContext(Rect inRect, Vector2 mousePosition)
+        {
+            const float width = 230f;
+            Rect hintRect = new Rect(inRect.xMax - width - 42f, inRect.y + 5f, width, 24f);
+            return hintRect.Contains(mousePosition);
         }
 
         private static bool TryGetBottomButtonContext(

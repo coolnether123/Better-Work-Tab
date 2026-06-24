@@ -113,6 +113,7 @@ namespace Better_Work_Tab
         public static bool showContextSettingsHint = true;
         public static bool showManualPrioritiesCheckbox = true;
         public static bool enableTimePriorityPlannerPrototype = true;
+        public static bool showTimePriorityCopyPasteButtons = true;
         public static bool enableChronosPointerTimePriorityIntegration = true;
         public static bool showTimePriorityHourDivider = true;
         public static bool keepTimePrioritySourceColumnHighlighted = true;
@@ -354,6 +355,7 @@ namespace Better_Work_Tab
         public bool showContextSettingsHint = DefaultSettings.showContextSettingsHint;
         public bool showManualPrioritiesCheckbox = DefaultSettings.showManualPrioritiesCheckbox;
         public bool enableTimePriorityPlannerPrototype = DefaultSettings.enableTimePriorityPlannerPrototype;
+        public bool showTimePriorityCopyPasteButtons = DefaultSettings.showTimePriorityCopyPasteButtons;
         public bool enableChronosPointerTimePriorityIntegration = DefaultSettings.enableChronosPointerTimePriorityIntegration;
         public bool showTimePriorityHourDivider = DefaultSettings.showTimePriorityHourDivider;
         public bool keepTimePrioritySourceColumnHighlighted = DefaultSettings.keepTimePrioritySourceColumnHighlighted;
@@ -843,6 +845,7 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref enableColumnOrderSaving, "enableColumnOrderSaving", DefaultSettings.enableColumnOrderSaving);
             Scribe_Values.Look(ref enableUIElements, "enableUIElements", DefaultSettings.enableUIElements);
             Scribe_Values.Look(ref enableTimePriorityPlannerPrototype, "enableTimePriorityPlannerPrototype", DefaultSettings.enableTimePriorityPlannerPrototype);
+            Scribe_Values.Look(ref showTimePriorityCopyPasteButtons, "showTimePriorityCopyPasteButtons", DefaultSettings.showTimePriorityCopyPasteButtons);
             Scribe_Values.Look(ref enableChronosPointerTimePriorityIntegration, "enableChronosPointerTimePriorityIntegration", DefaultSettings.enableChronosPointerTimePriorityIntegration);
             Scribe_Values.Look(ref showTimePriorityHourDivider, "showTimePriorityHourDivider", DefaultSettings.showTimePriorityHourDivider);
             Scribe_Values.Look(ref keepTimePrioritySourceColumnHighlighted, "keepTimePrioritySourceColumnHighlighted", DefaultSettings.keepTimePrioritySourceColumnHighlighted);

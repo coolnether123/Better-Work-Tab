@@ -537,6 +537,20 @@ namespace Better_Work_Tab.UI.Settings
 
             Register(new SettingDefinition
             {
+                Id = UiTimePriorityCopyPasteButtons,
+                ParentId = UiTimePriorityPlannerPrototype,
+                FieldName = "showTimePriorityCopyPasteButtons",
+                Label = "Show Schedule Copy/Paste Buttons",
+                Tooltip = "Show copy and paste controls for Work tab time-priority schedules. These controls use the same copy/paste column as vanilla while a schedule row is open.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.showTimePriorityCopyPasteButtons,
+                ShowInSimpleView = true,
+                ShowInAdvancedView = true,
+                SortOrder = 2
+            });
+
+            Register(new SettingDefinition
+            {
                 Id = UiTimePrioritySourceColumnHighlight,
                 ParentId = UiTimePriorityPlannerPrototype,
                 FieldName = "keepTimePrioritySourceColumnHighlighted",
@@ -546,7 +560,7 @@ namespace Better_Work_Tab.UI.Settings
                 DefaultValue = DefaultSettings.keepTimePrioritySourceColumnHighlighted,
                 ShowInSimpleView = true,
                 ShowInAdvancedView = true,
-                SortOrder = 2
+                SortOrder = 3
             });
 
             Register(new SettingDefinition
@@ -561,7 +575,7 @@ namespace Better_Work_Tab.UI.Settings
                 ControlsChildVisibility = true,
                 ShowInSimpleView = true,
                 ShowInAdvancedView = true,
-                SortOrder = 3
+                SortOrder = 4
             });
 
             Register(new SettingDefinition

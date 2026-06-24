@@ -460,7 +460,7 @@ namespace Better_Work_Tab.Features.TimePriority
 
         private static bool TryHandleCopyPasteInput(Event evt)
         {
-            if (evt.type != EventType.MouseDown || evt.button != 0)
+            if (evt.type != EventType.MouseDown || evt.button != 0 || !ShowCopyPasteButtons)
             {
                 return false;
             }
@@ -642,6 +642,11 @@ namespace Better_Work_Tab.Features.TimePriority
                 return false;
             }
 
+            if (!ShowCopyPasteButtons)
+            {
+                return true;
+            }
+
             int currentPriority = GetFallbackPriority(pawn);
             TimePriorityTarget target = _session.GetTargetForPawn(pawn);
             var hit = new CopyPasteHit(
@@ -653,6 +658,25 @@ namespace Better_Work_Tab.Features.TimePriority
             LastCopyPasteHits.Add(hit);
             DrawScheduleCopyPasteButtons(hit, GetProgress());
             return true;
+        }
+
+        internal static bool TryGetCopyPasteSettingsContext(Vector2 mousePosition)
+        {
+            if (!IsEnabled || !ShowCopyPasteButtons)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < LastCopyPasteHits.Count; i++)
+            {
+                CopyPasteHit hit = LastCopyPasteHits[i];
+                if (hit.CopyRect.Contains(mousePosition) || hit.PasteRect.Contains(mousePosition))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         internal static void AppendScheduleGeometryDiagnostics(System.Text.StringBuilder builder)
@@ -1303,6 +1327,11 @@ namespace Better_Work_Tab.Features.TimePriority
             string label,
             float progress)
         {
+            if (!ShowCopyPasteButtons)
+            {
+                return;
+            }
+
             Rect controlsRect = new Rect(
                 Mathf.Max(rowRect.xMin + 2f, timelineX - CopyPasteUI.CopyPasteColumnWidth),
                 rowRect.y + (rowRect.height - 30f) / 2f,
@@ -1326,6 +1355,10 @@ namespace Better_Work_Tab.Features.TimePriority
                     : null);
             GUI.color = oldColor;
         }
+
+        private static bool ShowCopyPasteButtons =>
+            BetterWorkTabMod.Settings?.showTimePriorityCopyPasteButtons ??
+            DefaultSettings.showTimePriorityCopyPasteButtons;
 
         private static Rect GetAccordionRect(Rect fullRect, float progress)
         {

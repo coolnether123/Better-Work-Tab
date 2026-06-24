@@ -114,6 +114,7 @@ namespace Better_Work_Tab.UI.Settings
         public const string UiContextSettingsHint = "ui.contextSettingsHint";
         public const string UiManualPriorities = "ui.manualPriorities";
         public const string UiTimePriorityPlannerPrototype = "ui.timePriorityPlannerPrototype";
+        public const string UiTimePriorityCopyPasteButtons = "ui.timePriorityCopyPasteButtons";
         public const string UiChronosPointerTimePriority = "ui.chronosPointerTimePriority";
         public const string UiTimePriorityHourDivider = "ui.timePriorityHourDivider";
         public const string UiTimePrioritySourceColumnHighlight = "ui.timePrioritySourceColumnHighlight";
