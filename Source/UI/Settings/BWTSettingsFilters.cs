@@ -38,22 +38,19 @@ namespace Better_Work_Tab.UI.Settings
                     Label = "Fluffy-like Settings",
                     Category = PresetsCategory,
                     CategoryLabel = "Presets",
-                    Tooltip = "Settings that map to common Work Tab/Fluffy-style behavior: compact headers, priorities, dividers, dragging, overlays, and time planning.",
-                    Predicate = (def, _) => HasAnyPrefix(def,
-                        "headers.",
-                        "priority.",
-                        "ui.maxPriority",
-                        "ui.auto",
-                        "subWorkJobs.",
-                        "dividers.",
-                        "dragdrop.",
-                        "columns.",
-                        "overlay.",
-                        "ui.timePriority",
-                        "ui.chronosPointer",
-                        "layout.workTab",
-                        "advanced.scrollWheelPriority"),
-                    IncludeChildrenOfMatches = true
+                    Tooltip = "Settings that map to common Work Tab/Fluffy-style behavior: compact headers, priorities, sub-work priorities, dividers, dragging, skill overlays, workload presets, and time planning.",
+                    Predicate = (def, _) => IsFluffyLikeSetting(def),
+                    IncludeChildrenOfMatches = false
+                },
+                new SettingsFilterDefinition
+                {
+                    Id = "vanilla.plus",
+                    Label = "Vanilla+",
+                    Category = PresetsCategory,
+                    CategoryLabel = "Presets",
+                    Tooltip = "Low-disruption settings that keep the Work tab close to vanilla while adding polish: headers, drag/reorder, highlights, overlays, counts, priority display, and layout spacing.",
+                    Predicate = (def, _) => IsVanillaPlusSetting(def),
+                    IncludeChildrenOfMatches = false
                 },
                 new SettingsFilterDefinition
                 {
@@ -179,6 +176,95 @@ namespace Better_Work_Tab.UI.Settings
                 string.Equals(def.Id, FeaturesHighlights, StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(def.Id, FeaturesDragdrop, StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(def.Id, FeaturesWorkloads, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsFluffyLikeSetting(SettingDefinition def)
+        {
+            return HasAnyId(def,
+                    FeaturesOverlay,
+                    FeaturesDragdrop,
+                    FeaturesDividers,
+                    FeaturesWorkloads,
+                    FeaturesSubWorkJobs,
+                    HeadersHeader,
+                    HeadersAngled,
+                    PriorityHeader,
+                    LayoutCtrlDrag,
+                    LayoutDragRows,
+                    LayoutDragColumns,
+                    LayoutDragThreshold,
+                    LayoutDragColumnLineInset,
+                    LayoutResetColumns,
+                    LayoutWorkTabMaxHeight,
+                    LayoutWorkTabTopSpace,
+                    UiManualPriorities,
+                    UiPriorityLegend,
+                    AdvancedScrollWheelPriority,
+                    WorkloadsWarnOnApply,
+                    WorkloadsPersistDividers) ||
+                HasAnyPrefix(def,
+                    "headers.",
+                    "priority.",
+                    "ui.maxPriority",
+                    "ui.priorityColor",
+                    "ui.timePriority",
+                    "subWorkJobs.",
+                    "dividers.",
+                    "layout.divider",
+                    "dragdrop.",
+                    "layout.drag",
+                    "columns.",
+                    "overlay.",
+                    "colors.",
+                    "workloads.",
+                    "layout.workTab");
+        }
+
+        private static bool IsVanillaPlusSetting(SettingDefinition def)
+        {
+            return HasAnyId(def,
+                    FeaturesUiElements,
+                    FeaturesClicks,
+                    FeaturesOverlay,
+                    FeaturesHighlights,
+                    FeaturesDragdrop,
+                    FeaturesDividers,
+                    HeadersHeader,
+                    HeadersAngled,
+                    PriorityHeader,
+                    PriorityModeSetting,
+                    UiMaxPriority,
+                    UiManualPriorities,
+                    UiPriorityLegend,
+                    UiDragInstructions,
+                    UiPriorityColorPercentageGreen,
+                    UiPriorityColorPercentageYellow,
+                    UiPriorityColorPercentageTan,
+                    "ui.autoEnableManualPriorities",
+                    LayoutPawnCount,
+                    LayoutBedCount,
+                    LayoutContextMenu,
+                    LayoutClickClose,
+                    LayoutCloseOnMapClick,
+                    LayoutCtrlDrag,
+                    LayoutDragRows,
+                    LayoutDragColumns,
+                    LayoutDragThreshold,
+                    LayoutDragColumnLineInset,
+                    LayoutResetColumns,
+                    LayoutWorkTabMaxHeight,
+                    LayoutWorkTabTopSpace,
+                    AdvancedScrollWheelPriority) ||
+                HasAnyPrefix(def,
+                    "headers.",
+                    "dragdrop.",
+                    "layout.drag",
+                    "columns.",
+                    "overlay.",
+                    "colors.",
+                    "highlights.",
+                    "dividers.",
+                    "layout.divider");
         }
 
         private static bool HasAnyId(SettingDefinition def, params string[] ids)
