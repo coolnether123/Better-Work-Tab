@@ -62,9 +62,15 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
             TextAnchor oldAnchor = Text.Anchor;
             Color oldColor = GUI.color;
             Matrix4x4 oldMatrix = GUI.matrix;
-            float flipScale = SubWorkDrilldownState.HeaderFlipScale;
-            float flipAlpha = SubWorkDrilldownState.HeaderFlipAlpha;
+            float flipScale = 1f;
+            float flipAlpha = 1f;
             float parentAlpha = SubWorkDrilldownState.ParentWorkContentAlpha;
+            if (SubWorkDrilldownState.TryGetHeaderTransitionVisuals(column, out float transitionFlipScale, out float transitionSubAlpha, out float transitionParentAlpha))
+            {
+                flipScale = transitionFlipScale;
+                flipAlpha = transitionSubAlpha;
+                parentAlpha = transitionParentAlpha;
+            }
             string parentText = null;
             Rect parentTextRect = Rect.zero;
             if (parentAlpha > 0.001f && column?.workType != null)
@@ -116,7 +122,7 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
                     Vector2 pivot = GUIClipUtility.Unclip(textRect.center);
                     GUI.matrix = oldMatrix *
                         Matrix4x4.TRS(pivot, Quaternion.identity, Vector3.one) *
-                        Matrix4x4.TRS(Vector3.zero, Quaternion.identity, new Vector3(1f, flipScale, 1f)) *
+                        Matrix4x4.TRS(Vector3.zero, Quaternion.identity, new Vector3(flipScale, 1f, 1f)) *
                         Matrix4x4.TRS(-pivot, Quaternion.identity, Vector3.one);
                 }
 

@@ -148,40 +148,11 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             }
         }
 
-        internal static float SubWorkContentAlpha => ModeVisualProgress;
-
         internal static float ParentWorkContentAlpha => IsTransitioning ? 1f - ModeVisualProgress : 0f;
 
-        internal static float SubWorkContentScale
-        {
-            get
-            {
-                if (!IsTransitioning)
-                {
-                    return 1f;
-                }
+        internal static float HeaderFlipScale => 1f;
 
-                return Mathf.Lerp(0.78f, 1f, Mathf.Sin(SubWorkContentAlpha * Mathf.PI * 0.5f));
-            }
-        }
-
-        internal static float HeaderFlipScale
-        {
-            get
-            {
-                if (!IsTransitioning)
-                {
-                    return 1f;
-                }
-
-                float visibleProgress = HeaderVisibleProgress;
-                return Mathf.Lerp(0.62f, 1f, Mathf.Sin(visibleProgress * Mathf.PI * 0.5f));
-            }
-        }
-
-        internal static float HeaderFlipAlpha => IsTransitioning ? HeaderVisibleProgress : 1f;
-
-        private static float HeaderVisibleProgress => ModeVisualProgress;
+        internal static float HeaderFlipAlpha => 1f;
 
         internal static float GlobalRowVisibleHeight
         {
@@ -206,51 +177,136 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         internal static bool TryGetHeaderTransitionOffset(PawnColumnDef column, float columnWidth, out float offsetX)
         {
             offsetX = 0f;
-            float pivotSlot = GetTransitionPivotSlot();
-            if (!IsTransitioning || column == null || pivotSlot < 0)
-            {
-                return false;
-            }
-
-            int slot = GetVisibleWorkColumnSlot(column);
-            if (slot < 0 || slot == pivotSlot)
-            {
-                return false;
-            }
-
-            float progress = HeaderVisibleProgress;
-            offsetX = (pivotSlot - slot) * Mathf.Max(1f, columnWidth) * (1f - progress);
-            return Mathf.Abs(offsetX) > 0.01f;
+            return false;
         }
 
-        internal static float GetBlankColumnFlashAlpha(PawnColumnDef column)
+        internal static bool TryGetHeaderTransitionVisuals(
+            PawnColumnDef column,
+            out float flipScale,
+            out float subWorkAlpha,
+            out float parentAlpha)
         {
-            if (!IsTransitioning || column == null)
+            flipScale = 1f;
+            subWorkAlpha = 1f;
+            parentAlpha = 0f;
+
+            if (!IsActive || column == null)
             {
-                return 0f;
+                return false;
             }
 
             int slot = GetVisibleWorkColumnSlot(column);
             if (slot < 0)
             {
-                return 0f;
+                return false;
             }
 
-            float pivotSlot = GetTransitionPivotSlot();
+            if (!UseTransitionAnimation || !IsTransitioning)
+            {
+                return true;
+            }
+
+            float passProgress = GetWavePassProgressForSlot(slot);
+            float easedPass = SmoothStep01(passProgress);
+            subWorkAlpha = _isExiting ? 1f - easedPass : easedPass;
+            parentAlpha = 1f - subWorkAlpha;
+            flipScale = Mathf.Lerp(1f, 0.38f, Mathf.Sin(Mathf.Clamp01(passProgress) * Mathf.PI));
+            return true;
+        }
+
+        internal static bool TryGetSubWorkContentTransitionVisuals(
+            WorkGiver workGiver,
+            out float alpha,
+            out float scale)
+        {
+            alpha = 1f;
+            scale = 1f;
+
+            if (!IsActive || workGiver?.def == null)
+            {
+                return false;
+            }
+
+            int slot = GetActiveWorkGiverSlot(workGiver.def);
+            if (slot < 0)
+            {
+                return false;
+            }
+
+            if (!UseTransitionAnimation || !IsTransitioning)
+            {
+                return true;
+            }
+
+            float passProgress = GetWavePassProgressForSlot(slot);
+            float easedPass = SmoothStep01(passProgress);
+            alpha = _isExiting ? 1f - easedPass : easedPass;
+            scale = Mathf.Lerp(1f, 0.48f, Mathf.Sin(Mathf.Clamp01(passProgress) * Mathf.PI));
+            return true;
+        }
+
+        internal static bool TryGetTransitionWave(out float pivotSlot, out float phase)
+        {
+            pivotSlot = -1f;
+            phase = 0f;
+
+            if (!IsTransitioning)
+            {
+                return false;
+            }
+
+            pivotSlot = GetTransitionPivotSlot();
             if (pivotSlot < 0)
             {
-                return 0f;
+                return false;
+            }
+
+            EnsureSlotCache();
+            if (VisibleWorkTypeSlots.Count <= 0)
+            {
+                return false;
+            }
+
+            phase = _isExiting ? 1f - TransitionAlpha : TransitionAlpha;
+            return true;
+        }
+
+        private static float GetWavePassProgressForSlot(float slot)
+        {
+            if (!TryGetTransitionWave(out float pivotSlot, out float phase))
+            {
+                return 1f;
             }
 
             int totalSlots = Mathf.Max(1, VisibleWorkTypeSlots.Count);
             float distance = Mathf.Abs(slot - pivotSlot);
-            float phase = _isExiting ? 1f - TransitionAlpha : TransitionAlpha;
-            float waveCenter = phase * (totalSlots + 1);
-            float wave = 1f - Mathf.Abs(distance - waveCenter) / 1.25f;
-            wave = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(wave));
-            float fadeOut = Mathf.SmoothStep(1f, 0f, Mathf.Clamp01((phase - 0.48f) / 0.34f));
+            float waveCenter = phase * (totalSlots + 1f);
+            return Mathf.Clamp01((waveCenter - distance + 0.34f) / 0.72f);
+        }
 
-            return 0.18f * wave * fadeOut;
+        private static float SmoothStep01(float value)
+        {
+            value = Mathf.Clamp01(value);
+            return value * value * (3f - 2f * value);
+        }
+
+        private static int GetActiveWorkGiverSlot(WorkGiverDef workGiverDef)
+        {
+            if (workGiverDef == null)
+            {
+                return -1;
+            }
+
+            RefreshIfNeeded();
+            for (int i = 0; i < ActiveWorkGiversBuffer.Count; i++)
+            {
+                if (ActiveWorkGiversBuffer[i]?.def == workGiverDef)
+                {
+                    return i;
+                }
+            }
+
+            return -1;
         }
 
         private static float GetTransitionPivotSlot()

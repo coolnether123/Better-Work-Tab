@@ -410,13 +410,16 @@ namespace Better_Work_Tab.Patches
             float x = rect.x + (rect.width - boxSize) / 2f;
             float y = rect.y + SkillBoxVerticalPadding;
             Rect boxRect = new Rect(x, y, boxSize, boxSize);
+            float visualAlpha = 1f;
+            float visualScale = 1f;
+            SubWorkDrilldownState.TryGetSubWorkContentTransitionVisuals(workGiver, out visualAlpha, out visualScale);
             Better_Work_Tab.UI.WorkGiverReassignments.WorkGiverPriorityBoxRenderer.DrawPriorityBox(
                 workGiver,
                 SubWorkDrilldownState.ActiveWorkType,
                 pawn,
                 boxRect,
-                SubWorkDrilldownState.SubWorkContentAlpha,
-                SubWorkDrilldownState.SubWorkContentScale);
+                visualAlpha,
+                visualScale);
         }
 
         private static void DrawParentPriorityCellVisual(Rect rect, Pawn pawn, WorkTypeDef workType, float alpha)
