@@ -294,14 +294,30 @@ namespace Better_Work_Tab.UI.Settings
                 Id = SubWorkTransitionAnimation,
                 ParentId = FeaturesSubWorkJobs,
                 FieldName = "enableSubWorkTransitionAnimation",
-                Label = "Sub-work flip animation",
-                Tooltip = "Animate the work columns when entering a sub-work job view, including the header flip and smooth width adjustment.",
+                Label = "Sub-work transition animation",
+                Tooltip = "Animate the work columns when entering or leaving a sub-work job view.",
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.enableSubWorkTransitionAnimation,
                 OnChanged = _ => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
                 SortOrder = 7
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = SubWorkTransitionStyle,
+                ParentId = SubWorkTransitionAnimation,
+                FieldName = "subWorkTransitionStyle",
+                Label = "Transition style",
+                Tooltip = "Classic glide is the original sub-work transition. Pixel wave flip uses the newer grey wave and per-column header flip.",
+                Type = SettingType.Enum,
+                EnumType = typeof(BetterWorkTabSettings.SubWorkTransitionStyle),
+                DefaultValue = DefaultSettings.subWorkTransitionStyle,
+                OnChanged = _ => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 1
             });
 
             Register(new SettingDefinition
@@ -317,7 +333,7 @@ namespace Better_Work_Tab.UI.Settings
                 OnChanged = _ => WorkExecutionOrder.MarkAllPawnsWorkGiversDirty(),
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
-                SortOrder = 8
+                SortOrder = 9
             });
 
             Register(new SettingDefinition
@@ -333,7 +349,7 @@ namespace Better_Work_Tab.UI.Settings
                 OnChanged = _ => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
-                SortOrder = 9
+                SortOrder = 10
             });
 
             Register(new SettingDefinition

@@ -181,6 +181,13 @@ namespace Spine.UI.SettingsFramework
                 new FloatMenuOption(AllSettingsFilterLabel, () => _activeFilter = null)
             };
 
+            if (HasFilterCategories())
+            {
+                AddFilterCategoryOptions(options);
+                Find.WindowStack.Add(new FloatMenu(options));
+                return;
+            }
+
             foreach (var filter in Filters)
             {
                 if (filter == null)
@@ -193,6 +200,84 @@ namespace Spine.UI.SettingsFramework
             }
 
             Find.WindowStack.Add(new FloatMenu(options));
+        }
+
+        private bool HasFilterCategories()
+        {
+            foreach (var filter in Filters)
+            {
+                if (!string.IsNullOrEmpty(filter?.Category) || !string.IsNullOrEmpty(filter?.CategoryLabel))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private void AddFilterCategoryOptions(List<FloatMenuOption> options)
+        {
+            var categories = new List<FilterCategory>();
+            foreach (var filter in Filters)
+            {
+                if (filter == null)
+                {
+                    continue;
+                }
+
+                string id = string.IsNullOrEmpty(filter.Category) ? "other" : filter.Category;
+                string label = string.IsNullOrEmpty(filter.CategoryLabel) ? id : filter.CategoryLabel;
+                FilterCategory category = categories.Find(item => string.Equals(item.Id, id, StringComparison.OrdinalIgnoreCase));
+                if (category == null)
+                {
+                    category = new FilterCategory(id, label);
+                    categories.Add(category);
+                }
+
+                category.Filters.Add(filter);
+            }
+
+            foreach (var category in categories)
+            {
+                var localCategory = category;
+                options.Add(new FloatMenuOption(localCategory.Label, () => OpenFilterCategoryMenu(localCategory)));
+            }
+        }
+
+        private void OpenFilterCategoryMenu(FilterCategory category)
+        {
+            if (category == null)
+            {
+                return;
+            }
+
+            var options = new List<FloatMenuOption>();
+
+            foreach (var filter in category.Filters)
+            {
+                if (filter == null)
+                {
+                    continue;
+                }
+
+                var localFilter = filter;
+                options.Add(new FloatMenuOption(localFilter.Label ?? localFilter.Id, () => _activeFilter = localFilter));
+            }
+
+            Find.WindowStack.Add(new FloatMenu(options));
+        }
+
+        private sealed class FilterCategory
+        {
+            internal readonly string Id;
+            internal readonly string Label;
+            internal readonly List<SettingsFilterDefinition> Filters = new List<SettingsFilterDefinition>();
+
+            internal FilterCategory(string id, string label)
+            {
+                Id = id;
+                Label = label;
+            }
         }
 
         /// <summary>

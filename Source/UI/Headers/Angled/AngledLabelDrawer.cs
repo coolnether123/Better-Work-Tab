@@ -183,8 +183,8 @@ namespace Better_Work_Tab.UI.Headers.Angled
             GameFont savedFont = Text.Font;
             Color savedColor = GUI.color;
             bool savedWordWrap = Text.WordWrap;
-            float flipScale = 1f;
-            float flipAlpha = 1f;
+            float flipScale = SubWorkDrilldownState.HeaderFlipScale;
+            float flipAlpha = SubWorkDrilldownState.HeaderFlipAlpha;
             float parentAlpha = SubWorkDrilldownState.ParentWorkContentAlpha;
             if (SubWorkDrilldownState.TryGetHeaderTransitionVisuals(column, out float transitionFlipScale, out float transitionSubAlpha, out float transitionParentAlpha))
             {
@@ -207,7 +207,10 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 transformationMatrix *= Matrix4x4.TRS(Vector3.zero, Quaternion.Euler(0f, 0f, rotation), Vector3.one);
                 if (flipScale < 0.999f)
                 {
-                    transformationMatrix *= Matrix4x4.TRS(Vector3.zero, Quaternion.identity, new Vector3(flipScale, 1f, 1f));
+                    Vector3 scale = SubWorkDrilldownState.UsePixelWaveTransition
+                        ? new Vector3(flipScale, 1f, 1f)
+                        : new Vector3(1f, flipScale, 1f);
+                    transformationMatrix *= Matrix4x4.TRS(Vector3.zero, Quaternion.identity, scale);
                 }
                 transformationMatrix *= Matrix4x4.TRS(-pivotPoint, Quaternion.identity, Vector3.one);
 

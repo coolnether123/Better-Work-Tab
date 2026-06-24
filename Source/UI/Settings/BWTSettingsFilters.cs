@@ -11,26 +11,33 @@ namespace Better_Work_Tab.UI.Settings
     /// </summary>
     public static class BWTSettingsFilters
     {
+        private const string SystemsCategory = "systems";
+        private const string VersionsCategory = "versions";
+        private const string StatesCategory = "states";
+        private const string PresetsCategory = "presets";
+
         public static IReadOnlyList<SettingsFilterDefinition> Create()
         {
             return new List<SettingsFilterDefinition>
             {
-                BuildSystemFilter("system.subwork", "System: Sub-work Jobs", FeaturesSubWorkJobs),
-                BuildSystemFilter("system.dividers", "System: Dividers", FeaturesDividers),
-                BuildSystemFilter("system.dragdrop", "System: Drag & Drop", FeaturesDragdrop),
-                BuildSystemFilter("system.priorities", "System: Priorities", PriorityHeader),
-                BuildSystemFilter("system.workloads", "System: Workloads", FeaturesWorkloads),
-                BuildSystemFilter("system.rules", "System: Rulesets", FeaturesAutoassign),
-                BuildSystemFilter("system.highlights", "System: Highlights", FeaturesHighlights),
-                BuildSystemFilter("system.ui", "System: UI Display", FeaturesUiElements),
-                BuildSystemFilter("system.clicks", "System: Clicks & Shortcuts", FeaturesClicks),
-                BuildVersionFilter("version.1.1", "BWT Version: v1.1", IsV11Setting),
-                BuildVersionFilter("version.1.0.5", "BWT Version: v1.0.5", IsV105Setting),
-                BuildVersionFilter("version.1.0", "BWT Version: v1.0", IsV10Setting),
+                BuildVersionFilter("version.1.1", "BWT v1.1", IsV11Setting),
+                BuildVersionFilter("version.1.0.5", "BWT v1.0.5", IsV105Setting),
+                BuildVersionFilter("version.1.0", "BWT v1.0", IsV10Setting),
+                BuildSystemFilter("system.subwork", "Sub-work Jobs", FeaturesSubWorkJobs),
+                BuildSystemFilter("system.dividers", "Dividers", FeaturesDividers),
+                BuildSystemFilter("system.dragdrop", "Drag & Drop", FeaturesDragdrop),
+                BuildSystemFilter("system.priorities", "Priorities", PriorityHeader),
+                BuildSystemFilter("system.workloads", "Workloads", FeaturesWorkloads),
+                BuildSystemFilter("system.rules", "Rulesets", FeaturesAutoassign),
+                BuildSystemFilter("system.highlights", "Highlights", FeaturesHighlights),
+                BuildSystemFilter("system.ui", "UI Display", FeaturesUiElements),
+                BuildSystemFilter("system.clicks", "Clicks & Shortcuts", FeaturesClicks),
                 new SettingsFilterDefinition
                 {
                     Id = "fluffy.like",
                     Label = "Fluffy-like Settings",
+                    Category = PresetsCategory,
+                    CategoryLabel = "Presets",
                     Tooltip = "Settings that map to common Work Tab/Fluffy-style behavior: compact headers, priorities, dividers, dragging, overlays, and time planning.",
                     Predicate = (def, _) => HasAnyPrefix(def,
                         "headers.",
@@ -52,6 +59,8 @@ namespace Better_Work_Tab.UI.Settings
                 {
                     Id = "state.enabled",
                     Label = "Enabled Settings",
+                    Category = StatesCategory,
+                    CategoryLabel = "States",
                     Tooltip = "Only boolean settings that are currently enabled.",
                     Predicate = (def, settings) => TryReadBool(def, settings, out bool value) && value,
                     IncludeChildrenOfMatches = false
@@ -60,6 +69,8 @@ namespace Better_Work_Tab.UI.Settings
                 {
                     Id = "state.disabled",
                     Label = "Disabled Settings",
+                    Category = StatesCategory,
+                    CategoryLabel = "States",
                     Tooltip = "Only boolean settings that are currently disabled.",
                     Predicate = (def, settings) => TryReadBool(def, settings, out bool value) && !value,
                     IncludeChildrenOfMatches = false
@@ -68,6 +79,8 @@ namespace Better_Work_Tab.UI.Settings
                 {
                     Id = "state.changed",
                     Label = "Changed From Default",
+                    Category = StatesCategory,
+                    CategoryLabel = "States",
                     Tooltip = "Only settings whose current value differs from the registered default.",
                     Predicate = IsChangedFromDefault,
                     IncludeChildrenOfMatches = false
@@ -76,6 +89,8 @@ namespace Better_Work_Tab.UI.Settings
                 {
                     Id = "system.animations",
                     Label = "Animations",
+                    Category = SystemsCategory,
+                    CategoryLabel = "Systems",
                     Tooltip = "Animation and cursor movement settings.",
                     Predicate = (def, _) => ContainsAny(def, "animation", "animate", "cursor"),
                     IncludeChildrenOfMatches = true
@@ -89,7 +104,9 @@ namespace Better_Work_Tab.UI.Settings
             {
                 Id = id,
                 Label = label,
-                Tooltip = $"Show settings under {label.Replace("System: ", string.Empty)}.",
+                Category = SystemsCategory,
+                CategoryLabel = "Systems",
+                Tooltip = $"Show settings under {label}.",
                 Predicate = (def, _) => string.Equals(def.Id, rootId, StringComparison.OrdinalIgnoreCase),
                 IncludeChildrenOfMatches = true
             };
@@ -104,6 +121,8 @@ namespace Better_Work_Tab.UI.Settings
             {
                 Id = id,
                 Label = label,
+                Category = VersionsCategory,
+                CategoryLabel = "Versions",
                 Tooltip = "Show settings added or materially changed in this BWT version.",
                 Predicate = (def, _) => predicate(def),
                 IncludeChildrenOfMatches = true

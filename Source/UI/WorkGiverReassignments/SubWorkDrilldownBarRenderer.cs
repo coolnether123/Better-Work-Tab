@@ -152,14 +152,25 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             float exitWaveSlotPosition = -1f)
         {
             Vector2 returnMousePosition = Vector2.zero;
+            string cursorRestoreSuppression = null;
+            bool settingAllowsRestore = BetterWorkTabMod.Settings?.restoreCursorOnSubWorkExit ?? true;
             bool shouldRestoreMouse = restoreMousePosition &&
-                !SubWorkDrilldownState.ShouldSuppressCursorRestoreForRapidExit &&
-                SubWorkDrilldownState.TryGetReturnMousePosition(out returnMousePosition);
+                settingAllowsRestore &&
+                SubWorkDrilldownState.TryGetCursorRestorePosition(out returnMousePosition, out cursorRestoreSuppression);
+
+            if (restoreMousePosition)
+            {
+                BetterWorkTabMod.DebugLog(
+                    shouldRestoreMouse
+                        ? $"[SubWorkDrilldown] Cursor restore scheduled to {returnMousePosition}."
+                        : $"[SubWorkDrilldown] Cursor restore suppressed: {(settingAllowsRestore ? cursorRestoreSuppression : "setting disabled")}.",
+                    DebugFeature.SubWork);
+            }
 
             SubWorkDrilldownState.Exit(exitWorkColumnSlot, exitWaveSlotPosition);
             HeaderDrawingCoordinator.NotifyAngledHeadersChanged();
 
-            if (shouldRestoreMouse && (BetterWorkTabMod.Settings?.restoreCursorOnSubWorkExit ?? true))
+            if (shouldRestoreMouse)
             {
                 NativeCursorPosition.ScheduleMoveToUiPosition(returnMousePosition);
             }

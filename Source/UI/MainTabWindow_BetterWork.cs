@@ -693,6 +693,11 @@ namespace Better_Work_Tab.UI
                     Widgets.DrawBoxSolid(columnRect, useColor);
                 }
 
+                if (isWorkColumn)
+                {
+                    DrawSubWorkBlankTransitionFlash(layout, column, headerRect, totalHeight);
+                }
+
                 column.Column.Worker.DoHeader(headerRect, table);
             }
         }
@@ -714,6 +719,25 @@ namespace Better_Work_Tab.UI
             }
 
             return height;
+        }
+
+        private static void DrawSubWorkBlankTransitionFlash(IWorkTabLayoutController layout, WorkTabLayoutColumn column, Rect headerRect, float totalHeight)
+        {
+            float alpha = SubWorkDrilldownState.GetBlankColumnFlashAlpha(column.Column);
+            if (alpha <= 0.001f)
+            {
+                return;
+            }
+
+            Rect rect = new Rect(
+                headerRect.x,
+                layout.TableOrigin.y,
+                column.Width,
+                layout.HeaderHeight + totalHeight);
+            Widgets.DrawBoxSolid(rect, new Color(1f, 1f, 1f, alpha));
+            Widgets.DrawBoxSolid(
+                new Rect(rect.center.x - 0.5f, rect.yMin, 1f, rect.height),
+                new Color(1f, 1f, 1f, alpha * 0.65f));
         }
 
         private static void DrawSubWorkTransitionPixelWave(IWorkTabLayoutController layout)

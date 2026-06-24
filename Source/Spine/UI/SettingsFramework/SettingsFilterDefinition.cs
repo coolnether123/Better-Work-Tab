@@ -10,6 +10,8 @@ namespace Spine.UI.SettingsFramework
         public string Id;
         public string Label;
         public string Tooltip;
+        public string Category;
+        public string CategoryLabel;
         public Func<SettingDefinition, object, bool> Predicate;
         public bool IncludeChildrenOfMatches = true;
 
