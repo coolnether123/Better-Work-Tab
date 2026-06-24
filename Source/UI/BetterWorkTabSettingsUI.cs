@@ -29,11 +29,6 @@ namespace Better_Work_Tab.UI
             _drawer.ImportExportActions = BWTSettingsImportExportActions.Create(settings, NotifySettingsChanged);
             if (BWTSettingsContextFocus.TryConsume(out BWTSettingsFocusRequest focusRequest))
             {
-                if (focusRequest.PreferAdvancedView)
-                {
-                    _viewMode = SettingsViewMode.Advanced;
-                }
-
                 _drawer.ApplyContextFilter(
                     BWTSettingsContextFocus.CreateFilter(focusRequest),
                     focusRequest.TargetSettingId);
