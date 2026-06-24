@@ -5,6 +5,9 @@
 <BWTManageWorkGivers>Open {0} sub-work ({1})</BWTManageWorkGivers>
 <BWT_PriorityOneDoneFirstExtended>Priority 1 is done first.&#10;Priority {0} is done last.</BWT_PriorityOneDoneFirstExtended>
 
+<BWT_Enum_SubWorkTransitionStyle_ClassicGlideFlash>Classic glide</BWT_Enum_SubWorkTransitionStyle_ClassicGlideFlash>
+<BWT_Enum_SubWorkTransitionStyle_PixelWaveFlip>Pixel wave reveal</BWT_Enum_SubWorkTransitionStyle_PixelWaveFlip>
+
 <BWT_SubWork_FixBrokenDownBuilding>Fix breakdowns</BWT_SubWork_FixBrokenDownBuilding>
 <BWT_SubWork_PatientGoToBedEmergencyTreatment>Urgent treatment</BWT_SubWork_PatientGoToBedEmergencyTreatment>
 <BWT_SubWork_PatientGoToBedEmergencyTreatment_Vanilla>Urgent rest</BWT_SubWork_PatientGoToBedEmergencyTreatment_Vanilla>

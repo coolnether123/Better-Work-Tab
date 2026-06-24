@@ -12,6 +12,7 @@ namespace Better_Work_Tab.UI.Settings
         public const string AdvancedProfiler = "advanced.profiler";
         public const string AdvancedRestoreDefaults = "advanced.restoreDefaults";
         public const string AdvancedAlwaysShowConditionEditors = "advanced.alwaysShowConditionEditors";
+        public const string AdvancedSettingFocusHighlightColor = "advanced.settingFocusHighlightColor";
         public const string AutoassignConfirm = "autoassign.confirm";
         public const string AutoassignResetBefore = "autoassign.resetBefore";
         public const string AutoassignViewMode = "autoassign.viewMode";
@@ -26,6 +27,7 @@ namespace Better_Work_Tab.UI.Settings
         public const string ColumnsShowBaselineLine = "columns.showBaselineLine";
         public const string DividersCollapse = "dividers.collapse";
         public const string DividersCustomColors = "dividers.customColors";
+        public const string DividersAnimations = "dividers.animations";
         public const string DividersLabels = "dividers.labels";
         public const string DividersShow = "dividers.show";
         public const string DragdropVisualHeader = "dragdrop.visual.header";
@@ -69,6 +71,7 @@ namespace Better_Work_Tab.UI.Settings
         public const string LayoutDragThreshold = "layout.dragThreshold";
         public const string LayoutDragHoverDelay = "layout.dragHoverDelay";
         public const string LayoutWorkTabMaxHeight = "layout.workTabMaxHeight";
+        public const string LayoutWorkTabTopSpace = "layout.workTabTopSpace";
         public const string LayoutPawnCount = "layout.pawnCount";
         public const string LayoutResetColumns = "layout.resetColumns";
         public const string MpConflictMode = "mp.conflictMode";
@@ -103,9 +106,20 @@ namespace Better_Work_Tab.UI.Settings
         public const string SubWorkOpenModifier = "subWorkJobs.openModifier";
         public const string SubWorkRestoreCursor = "subWorkJobs.restoreCursor";
         public const string SubWorkRestoreCursorFromPawnCells = "subWorkJobs.restoreCursorFromPawnCells";
+        public const string SubWorkOverrideBreakAnimation = "subWorkJobs.overrideBreakAnimation";
+        public const string SubWorkTransitionAnimation = "subWorkJobs.transitionAnimation";
+        public const string SubWorkTransitionStyle = "subWorkJobs.transitionStyle";
+        public const string SubWorkDisabledParentMode = "subWorkJobs.disabledParentMode";
         public const string UiDragInstructions = "ui.dragInstructions";
+        public const string UiContextSettingsHint = "ui.contextSettingsHint";
         public const string UiManualPriorities = "ui.manualPriorities";
         public const string UiModernLegacyPriorityCells = "ui.modernLegacyPriorityCells";
+        public const string UiTimePriorityPlannerPrototype = "ui.timePriorityPlannerPrototype";
+        public const string UiTimePriorityCopyPasteButtons = "ui.timePriorityCopyPasteButtons";
+        public const string UiChronosPointerTimePriority = "ui.chronosPointerTimePriority";
+        public const string UiTimePriorityHourDivider = "ui.timePriorityHourDivider";
+        public const string UiTimePrioritySourceColumnHighlight = "ui.timePrioritySourceColumnHighlight";
+        public const string UiChronosPointerTimePriorityIncidents = "ui.chronosPointerTimePriorityIncidents";
         public const string UiPriorityLegend = "ui.priorityLegend";
         public const string UiMaxPriority = "ui.maxPriority";
         public const string UiPriorityColorPercentageGreen = "ui.priorityColorPercentageGreen";

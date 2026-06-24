@@ -283,14 +283,24 @@ namespace Better_Work_Tab.UI.RuleBuilder
                 return;
             }
 
-            if (evt.keyCode == KeyCode.LeftArrow || evt.keyCode == KeyCode.DownArrow)
+            if (evt.keyCode == KeyCode.LeftArrow)
             {
                 SelectPriority(_selectedPriority - 1);
                 evt.Use();
             }
-            else if (evt.keyCode == KeyCode.RightArrow || evt.keyCode == KeyCode.UpArrow)
+            else if (evt.keyCode == KeyCode.RightArrow)
             {
                 SelectPriority(_selectedPriority + 1);
+                evt.Use();
+            }
+            else if (evt.keyCode == KeyCode.DownArrow)
+            {
+                SelectPriority(_selectedPriority - 5);
+                evt.Use();
+            }
+            else if (evt.keyCode == KeyCode.UpArrow)
+            {
+                SelectPriority(_selectedPriority + 5);
                 evt.Use();
             }
             else if (evt.keyCode == KeyCode.Return || evt.keyCode == KeyCode.KeypadEnter)
