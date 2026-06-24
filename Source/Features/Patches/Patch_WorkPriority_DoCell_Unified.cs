@@ -108,8 +108,8 @@ namespace Better_Work_Tab.Patches
         private const int SkillCacheFrameValidity = 60;
         private const int IncapableCacheFrameValidity = 120;
         private const int BestPawnCacheFrameValidity = 60;
-        private const float SkillBoxSize = 25f;
-        private const float SkillBoxVerticalPadding = 2.5f;
+        private const float SkillBoxSize = WorkPriorityCellGeometry.BoxSize;
+        private const float SkillBoxVerticalPadding = WorkPriorityCellGeometry.BoxTopPadding;
         private const float SmallSkillOffsetY = -2f;
         private const float SmallCornerLabelWidth = 18f;
         private const float SmallCornerLabelHeight = 16f;
@@ -750,11 +750,7 @@ namespace Better_Work_Tab.Patches
 
         private static Rect GetWorkBoxRect(Rect cellRect)
         {
-            return new Rect(
-                cellRect.x + (cellRect.width - SkillBoxSize) / 2f,
-                cellRect.y + SkillBoxVerticalPadding,
-                SkillBoxSize,
-                SkillBoxSize);
+            return WorkPriorityCellGeometry.GetPriorityBoxRect(cellRect);
         }
 
         private static Rect GetTopRightOverlayRect(Rect cellRect)

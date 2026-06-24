@@ -142,9 +142,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 return;
             }
 
-            float x = cellRect.x + (cellRect.width - boxSize) / 2f;
-            float y = cellRect.y + (cellRect.height - boxSize) / 2f;
-            Rect boxRect = new Rect(x, y, boxSize, boxSize);
+            Rect boxRect = WorkPriorityCellGeometry.GetCenteredBoxRect(cellRect, boxSize);
             WorkGiverPriorityBoxRenderer.DrawPriorityBox(workGiver, SubWorkDrilldownState.ActiveWorkType, null, boxRect);
         }
 

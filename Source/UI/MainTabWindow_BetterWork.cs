@@ -937,9 +937,10 @@ namespace Better_Work_Tab.UI
             WorkTabLayoutRow bodyRow;
             WorkTabLayoutColumn bodyColumn;
             if (layout.TryGetRowAt(mousePosition, out bodyRow) &&
-                TryGetBodyColumnAt(layout, mousePosition, out bodyColumn))
+                TryGetBodyColumnAt(layout, mousePosition, out bodyColumn) &&
+                TryGetPriorityBoxHit(layout, bodyRow, bodyColumn, mousePosition, out Rect priorityBoxRect))
             {
-                return TryGetOpenTargetFromColumn(bodyColumn, GetColumnBodyBounds(layout, bodyColumn), false, out workType, out bounds, out fromHeader);
+                return TryGetOpenTargetFromColumn(bodyColumn, priorityBoxRect, false, out workType, out bounds, out fromHeader);
             }
 
             return false;
@@ -1007,11 +1008,12 @@ namespace Better_Work_Tab.UI
                 layout.Table.Size.x,
                 SubWorkDrilldownBarRenderer.RowHeight);
 
-            if (globalRowArea.Contains(mousePosition))
+            if (globalRowArea.Contains(mousePosition) &&
+                TryGetGlobalPriorityBoxHit(layout, globalRowArea, mousePosition, out var globalColumn, out Rect globalPriorityBoxRect))
             {
-                bounds = globalRowArea;
+                bounds = globalPriorityBoxRect;
                 restoreCursor = false;
-                exitColumnSlot = GetSubWorkColumnSlotAt(layout, mousePosition);
+                exitColumnSlot = SubWorkDrilldownState.GetVisibleWorkColumnSlot(globalColumn.Column);
                 exitWaveSlotPosition = GetSubWorkColumnWavePositionAt(layout, mousePosition, exitColumnSlot);
                 return true;
             }
@@ -1020,9 +1022,9 @@ namespace Better_Work_Tab.UI
             WorkTabLayoutColumn column;
             if (layout.TryGetRowAt(mousePosition, out bodyRow) &&
                 TryGetBodyColumnAt(layout, mousePosition, out column) &&
-                column.Column?.Worker is PawnColumnWorker_WorkPriority)
+                TryGetPriorityBoxHit(layout, bodyRow, column, mousePosition, out Rect bodyPriorityBoxRect))
             {
-                bounds = GetColumnBodyBounds(layout, column);
+                bounds = bodyPriorityBoxRect;
                 restoreCursor = BetterWorkTabMod.Settings?.restoreCursorOnSubWorkPawnCellExit ?? false;
                 exitColumnSlot = SubWorkDrilldownState.GetVisibleWorkColumnSlot(column.Column);
                 exitWaveSlotPosition = GetSubWorkColumnWavePositionAt(layout, mousePosition, exitColumnSlot);
@@ -1085,11 +1087,69 @@ namespace Better_Work_Tab.UI
             return fallbackSlot;
         }
 
-        private Rect GetColumnBodyBounds(IWorkTabLayoutController layout, WorkTabLayoutColumn column)
+        private bool TryGetPriorityBoxHit(
+            IWorkTabLayoutController layout,
+            WorkTabLayoutRow row,
+            WorkTabLayoutColumn column,
+            Vector2 mousePosition,
+            out Rect priorityBoxRect)
         {
-            float yMin = layout.TableOrigin.y + layout.HeaderHeight + GetPinnedRowsHeight();
-            float yMax = GetVisualTableBottom(layout);
-            return new Rect(column.HeaderRect.x, yMin, column.Width, Mathf.Max(0f, yMax - yMin));
+            priorityBoxRect = default;
+            if (layout == null ||
+                row.Pawn == null ||
+                !(column.Column?.Worker is PawnColumnWorker_WorkPriority))
+            {
+                return false;
+            }
+
+            Rect rowRect = layout.GetScreenRect(row);
+            Rect cellRect = new Rect(column.HeaderRect.x, rowRect.y, column.Width, rowRect.height);
+            priorityBoxRect = WorkPriorityCellGeometry.GetPriorityBoxRect(cellRect);
+            return priorityBoxRect.Contains(mousePosition);
+        }
+
+        private bool TryGetGlobalPriorityBoxHit(
+            IWorkTabLayoutController layout,
+            Rect globalRowRect,
+            Vector2 mousePosition,
+            out WorkTabLayoutColumn column,
+            out Rect priorityBoxRect)
+        {
+            column = default;
+            priorityBoxRect = default;
+            if (layout?.Columns == null)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < layout.Columns.Count; i++)
+            {
+                var candidate = layout.Columns[i];
+                if (!(candidate.Column?.Worker is PawnColumnWorker_WorkPriority) ||
+                    !SubWorkDrilldownState.TryGetWorkGiverForColumn(candidate.Column, out _, out _))
+                {
+                    continue;
+                }
+
+                Rect cellRect = new Rect(candidate.HeaderRect.x, globalRowRect.y, candidate.Width, globalRowRect.height);
+                float boxSize = Mathf.Min(SubWorkDrilldownState.GlobalPriorityBoxSize, Mathf.Max(0f, cellRect.height - 4f));
+                if (boxSize <= 6f)
+                {
+                    continue;
+                }
+
+                Rect boxRect = WorkPriorityCellGeometry.GetCenteredBoxRect(cellRect, boxSize);
+                if (!boxRect.Contains(mousePosition))
+                {
+                    continue;
+                }
+
+                column = candidate;
+                priorityBoxRect = boxRect;
+                return true;
+            }
+
+            return false;
         }
 
         private static float GetVisualTableBottom(IWorkTabLayoutController layout)

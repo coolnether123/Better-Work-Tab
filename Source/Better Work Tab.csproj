@@ -186,6 +186,7 @@
     <Compile Include="UI\Input\NativeCursorPosition.cs" />
     <Compile Include="UI\RulesetListDragUI.cs" />
     <Compile Include="UI\MainTabWindow_BetterWork.cs" />
+    <Compile Include="UI\WorkPriorityCellGeometry.cs" />
     <Compile Include="Features\WorkColumnOrderManager.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="BetterWorkTabSettings.cs" />

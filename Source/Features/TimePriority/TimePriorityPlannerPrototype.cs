@@ -8,6 +8,7 @@ using Better_Work_Tab.ModSupport;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.PawnOrganizer.Data;
+using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.Headers.Angled;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using RimWorld;
@@ -25,8 +26,6 @@ namespace Better_Work_Tab.Features.TimePriority
     {
         private const int HoursPerDay = 24;
         private const float AnimationSeconds = 0.22f;
-        private const float PriorityBoxSize = 25f;
-        private const float PriorityBoxTopPadding = 2.5f;
         private const float PanelPadding = 8f;
         private const float PawnLabelWidth = 112f;
         private const float HeaderHeight = 37f;
@@ -1610,11 +1609,7 @@ namespace Better_Work_Tab.Features.TimePriority
 
         private static Rect GetPriorityBoxRect(Rect cellRect)
         {
-            return new Rect(
-                cellRect.x + (cellRect.width - PriorityBoxSize) / 2f,
-                cellRect.y + PriorityBoxTopPadding,
-                PriorityBoxSize,
-                PriorityBoxSize);
+            return WorkPriorityCellGeometry.GetPriorityBoxRect(cellRect);
         }
 
         private static int GetFallbackPriority(Pawn pawn)

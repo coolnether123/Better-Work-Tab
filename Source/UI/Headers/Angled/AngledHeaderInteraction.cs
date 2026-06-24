@@ -81,6 +81,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
             {
                 if (SubWorkDrilldownInput.MatchesGesture(evt))
                 {
+                    ClearPendingHeaderClick(ctx.Worker.def);
                     return;
                 }
 
@@ -108,6 +109,12 @@ namespace Better_Work_Tab.UI.Headers.Angled
             }
             else if (evt.type == EventType.MouseUp)
             {
+                if (SubWorkDrilldownInput.MatchesShortcut(evt))
+                {
+                    ClearPendingHeaderClick(ctx.Worker.def);
+                    return;
+                }
+
                 // Only trigger if we released on the same column we pressed down on
                 if (_pendingClickColumn != ctx.Worker.def)
                 {
@@ -437,9 +444,14 @@ namespace Better_Work_Tab.UI.Headers.Angled
         /// </summary>
         public static void ClearPendingHeaderClick(PawnColumnDef column)
         {
-            if (_columnSuppressingClicks == column)
+            if (column == null || _columnSuppressingClicks == column)
             {
                 _columnSuppressingClicks = null;
+            }
+
+            if (column == null || _pendingClickColumn == column)
+            {
+                _pendingClickColumn = null;
             }
         }
     }
