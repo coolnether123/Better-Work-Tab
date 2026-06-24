@@ -23,7 +23,6 @@ namespace Spine.UI.SettingsFramework
         private readonly QuickSearchWidget _searchWidget = new QuickSearchWidget();
         private SettingsFilterDefinition _activeFilter;
         private TransferMode _transferMode = TransferMode.None;
-        private string _pendingFocusTargetId;
 
         /// <summary>
         /// Gets or sets the current scroll position. Used for preserving scroll state across drawer recreations.
@@ -120,7 +119,7 @@ namespace Spine.UI.SettingsFramework
             }
 
             _activeFilter = filter;
-            _pendingFocusTargetId = targetSettingId;
+            _scrollPosition = Vector2.zero;
             _transferMode = TransferMode.None;
             ClearSearch();
         }
@@ -351,8 +350,6 @@ namespace Spine.UI.SettingsFramework
 
             float viewHeight = visibleSettings.Count * RowHeight;
             Rect viewRect = new Rect(0f, 0f, rect.width - 16f, viewHeight);
-
-            ApplyPendingFocusIfNeeded(visibleSettings, rect.height);
 
             Widgets.BeginScrollView(rect, ref _scrollPosition, viewRect);
 
@@ -728,27 +725,6 @@ namespace Spine.UI.SettingsFramework
             ClearSearch();
             evt.Use();
             return true;
-        }
-
-        private void ApplyPendingFocusIfNeeded(List<SettingDefinition> visibleSettings, float listHeight)
-        {
-            if (string.IsNullOrEmpty(_pendingFocusTargetId) || visibleSettings == null || visibleSettings.Count == 0)
-            {
-                return;
-            }
-
-            int index = visibleSettings.FindIndex(def => string.Equals(def.Id, _pendingFocusTargetId, StringComparison.OrdinalIgnoreCase));
-            if (index < 0)
-            {
-                index = 0;
-            }
-
-            float viewHeight = visibleSettings.Count * RowHeight;
-            float maxScrollY = Mathf.Max(0f, viewHeight - listHeight);
-            float targetY = index * RowHeight;
-            _scrollPosition.y = Mathf.Clamp(targetY - ((listHeight - RowHeight) * 0.5f), 0f, maxScrollY);
-            _scrollPosition.x = 0f;
-            _pendingFocusTargetId = null;
         }
 
         private void ClearSearch()
