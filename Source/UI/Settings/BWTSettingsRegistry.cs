@@ -1179,6 +1179,26 @@ namespace Better_Work_Tab.UI.Settings
 
             Register(new SettingDefinition
             {
+                Id = UiBetaTutorial,
+                FieldName = "showBetaTutorial",
+                Label = "Show BWT 2.0 Tutorial",
+                Tooltip = "Show the guided Better Work Tab 2.0 beta walkthrough when opening the Work tab. The walkthrough can also be deactivated from the tutorial overlay.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.showBetaTutorial,
+                ShowInSimpleView = true,
+                SortOrder = 10435,
+                ParentId = FeaturesUiElements,
+                OnChanged = settingsObj =>
+                {
+                    if (settingsObj is BetterWorkTabSettings settings && settings.showBetaTutorial)
+                    {
+                        settings.betaTutorialStep = 0;
+                    }
+                }
+            });
+
+            Register(new SettingDefinition
+            {
                 Id = UiManualPriorities,
                 FieldName = "showManualPrioritiesCheckbox",
                 Label = "Show Manual Priorities Checkbox",

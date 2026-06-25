@@ -107,6 +107,7 @@ namespace Better_Work_Tab
         public static bool showPriorityLegend = true;
         public static bool showDragInstructions = true;
         public static bool showContextSettingsHint = true;
+        public static bool showBetaTutorial = true;
         public static bool showManualPrioritiesCheckbox = true;
         public static bool enableTimePriorityPlannerPrototype = true;
         public static bool showTimePriorityCopyPasteButtons = true;
@@ -194,7 +195,7 @@ namespace Better_Work_Tab
         public static bool warnOnApplyRuleset = true;
         public static bool warnOnApplyWorkload = true;
         public static bool removeHeaderUnderline = false;
-        public static bool enableScrollWheelPriority = false;
+        public static bool enableScrollWheelPriority = true;
         public static bool enableAngledHeaders = true;
         public static int angledHeaderRotation = -60;
         public static int angledHeaderHorizontalOffset = 10;
@@ -205,7 +206,7 @@ namespace Better_Work_Tab
         public static bool enableExtendedPriorities = false;
         public static bool delegateToExternalPriorityMods = true;
         public static string selectedPriorityProviderId = PriorityConstants.AutoProviderId;
-        public static int autoMaxPriority = PriorityConstants.ExtendedHardMax;
+        public static int autoMaxPriority = 9;
         public static BetterWorkTabSettings.AutoDisabledPriorityMode autoDisabledPriorityMode =
             BetterWorkTabSettings.AutoDisabledPriorityMode.EveryMultipleOfFour;
         public static int autoDisabledPriorityFixedValue = PriorityConstants.VanillaMax;
@@ -280,7 +281,7 @@ namespace Better_Work_Tab
         public static BetterWorkTabSettings.ShowUIMode ShowUIMode_ShowSmallSkillNumbers = BetterWorkTabSettings.ShowUIMode.Unshifted;
         public static BetterWorkTabSettings.ShowUIMode ShowUIMode_ShowPawnForSkillSquare = BetterWorkTabSettings.ShowUIMode.Shifted;
 
-        public static int maxPriority = PriorityConstants.ExtendedHardMax;
+        public static int maxPriority = 9;
         public static int priorityColorPercentage_Green = 10;
         public static int priorityColorPercentage_Yellow = 50;
         public static int priorityColorPercentage_Tan = 75;
@@ -349,6 +350,8 @@ namespace Better_Work_Tab
         public bool showPriorityLegend = DefaultSettings.showPriorityLegend;
         public bool showDragInstructions = DefaultSettings.showDragInstructions;
         public bool showContextSettingsHint = DefaultSettings.showContextSettingsHint;
+        public bool showBetaTutorial = DefaultSettings.showBetaTutorial;
+        public int betaTutorialStep = 0;
         public bool showManualPrioritiesCheckbox = DefaultSettings.showManualPrioritiesCheckbox;
         public bool enableTimePriorityPlannerPrototype = DefaultSettings.enableTimePriorityPlannerPrototype;
         public bool showTimePriorityCopyPasteButtons = DefaultSettings.showTimePriorityCopyPasteButtons;
@@ -875,6 +878,8 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref showPriorityLegend, "showPriorityLegend", DefaultSettings.showPriorityLegend);
             Scribe_Values.Look(ref showDragInstructions, "showDragInstructions", DefaultSettings.showDragInstructions);
             Scribe_Values.Look(ref showContextSettingsHint, "showContextSettingsHint", DefaultSettings.showContextSettingsHint);
+            Scribe_Values.Look(ref showBetaTutorial, "showBetaTutorial", DefaultSettings.showBetaTutorial);
+            Scribe_Values.Look(ref betaTutorialStep, "betaTutorialStep", 0);
             Scribe_Values.Look(ref showManualPrioritiesCheckbox, "showManualPrioritiesCheckbox", DefaultSettings.showManualPrioritiesCheckbox);
             Scribe_Values.Look(ref showDividers, "showDividers", DefaultSettings.showDividers);
             Scribe_Values.Look(ref allowCustomDividerColors, "allowCustomDividerColors", DefaultSettings.allowCustomDividerColors);
