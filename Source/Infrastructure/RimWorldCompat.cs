@@ -928,7 +928,7 @@ namespace Better_Work_Tab
                 Directory.CreateDirectory(path);
                 return path;
 #else
-                return GenFilePaths.ConfigFolderPath;
+                return Better_Work_Tab.GenFilePathsCompat.ConfigFolderPath;
 #endif
             }
         }
@@ -1008,7 +1008,7 @@ namespace Better_Work_Tab
 #if v0_16
             Scribe_Values.LookValue(ref value, label, defaultValue, forceSave);
 #else
-            Scribe_Values.Look(ref value, label, defaultValue, forceSave);
+            Better_Work_Tab.ScribeCompat.LookValue(ref value, label, defaultValue, forceSave);
 #endif
         }
 
@@ -1021,7 +1021,7 @@ namespace Better_Work_Tab
 #if v0_16
             Scribe_Collections.LookList(ref list, label, lookMode, ctorArgs);
 #else
-            Scribe_Collections.Look(ref list, label, lookMode, ctorArgs);
+            Better_Work_Tab.ScribeCompat.LookCollection(ref list, label, lookMode, ctorArgs);
 #endif
         }
 
@@ -1071,7 +1071,7 @@ namespace Better_Work_Tab
                 }
             }
 #else
-            Scribe_Collections.Look(ref dictionary, label, keyLookMode, valueLookMode);
+            Better_Work_Tab.ScribeCompat.LookCollection(ref dictionary, label, keyLookMode, valueLookMode);
 #endif
         }
 
@@ -1089,7 +1089,7 @@ namespace Better_Work_Tab
 #if v0_16
             Scribe_Deep.LookDeep(ref target, label, ctorArgs);
 #else
-            Scribe_Deep.Look(ref target, label, ctorArgs);
+            Better_Work_Tab.ScribeCompat.LookDeep(ref target, label, ctorArgs);
 #endif
         }
 
