@@ -288,16 +288,45 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
         private static void AppendSubWorkOpenTip(ref TaggedString tooltip, WorkTypeDef workType)
         {
-            if (!SubWorkDrilldownInput.IsEnabled ||
-                workType == null ||
-                WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(workType).Count == 0)
+            try
             {
-                return;
-            }
+                var workGivers = workType == null
+                    ? null
+                    : WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(workType);
+                if (!SubWorkDrilldownInput.IsEnabled ||
+                    workType == null ||
+                    workGivers == null ||
+                    workGivers.Count == 0)
+                {
+                    return;
+                }
 
-            string openTip = SubWorkDrilldownInput.GestureLabel().CapitalizeFirst() +
-                ": Open " + workType.LabelCap.Resolve() + " sub-work jobs";
-            tooltip += "\n" + openTip.Colorize(TooltipSubtleColor);
+                string gesture = SubWorkDrilldownInput.GestureLabel();
+                if (gesture.NullOrEmpty())
+                {
+                    return;
+                }
+
+                gesture = gesture.Trim();
+                if (gesture.NullOrEmpty())
+                {
+                    return;
+                }
+
+                gesture = gesture.CapitalizeFirst();
+                string workLabel = workType.LabelCap.Resolve();
+                if (workLabel.NullOrEmpty())
+                {
+                    workLabel = workType.defName ?? "work";
+                }
+
+                tooltip += "\n" + (gesture + ": Open " + workLabel + " sub-work jobs").Colorize(TooltipSubtleColor);
+            }
+            catch
+            {
+                // Header tooltips are best-effort; interaction should keep working if a
+                // compatibility layer has incomplete work-giver data for this work type.
+            }
         }
 
         private static void HandleLeftClick(PawnColumnWorker_WorkPriority worker, PawnTable table, Event evt)
