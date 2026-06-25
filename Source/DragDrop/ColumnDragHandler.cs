@@ -490,8 +490,8 @@ namespace Better_Work_Tab.DragDrop
                     Better_Work_Tab.Mod_Support.Multiplayer.Features.Layouts.LayoutSharingManager.NotifyLayoutChanged();
                 }
 
-                // Clear selection after successful drop unless Ctrl is still held
-                if (!Event.current.control || !BetterWorkTabMod.Settings.enableColumnGrouping)
+                // Clear selection after successful drop unless Shift is still held
+                if (!Event.current.shift || !BetterWorkTabMod.Settings.enableColumnGrouping)
                 {
                     ColumnSelectionManager.Clear();
                 }

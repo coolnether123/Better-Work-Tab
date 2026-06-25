@@ -310,7 +310,7 @@ namespace Better_Work_Tab.Features.Tutorial
                 case BWTBetaTutorialStep.SubWorkPrompt:
                     return new TutorialContent(
                         "Sub-work jobs",
-                        "Sub-jobs are now part of Better Work Tab. Hold Control and click any work header to open that work type's sub-work jobs.",
+                        "Sub-jobs are now part of Better Work Tab. Ctrl-click used to group headers; that is now Shift-click. Hold Control and click any work header to open that work type's sub-work jobs.",
                         null);
 
                 case BWTBetaTutorialStep.SubWorkHeaders:

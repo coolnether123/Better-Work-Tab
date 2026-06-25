@@ -144,5 +144,6 @@ namespace Better_Work_Tab.UI.Settings
         public const string HeadersYOffset = "headers.yOffset";
         public const string HeadersDebugLog = "headers.debugLog";
         public const string HeadersUseVerticalStackingForCJK = "headers.useVerticalStackingForCJK";
+        public const string HeadersUnderlineColor = "headers.underlineColor";
     }
 }

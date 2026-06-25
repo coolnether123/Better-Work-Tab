@@ -23,7 +23,9 @@ namespace Better_Work_Tab.ModSupport
         private static MethodInfo _createGeometry;
         private static MethodInfo _drawTimeline;
         private static MethodInfo _drawEmbeddedTimeline;
+        private static MethodInfo _tryDrawEmbeddedTimeline;
         private static MethodInfo _tryGetTimelineSnapshot;
+        private static MethodInfo _getLatestTimelineSnapshot;
         private static MethodInfo _getCurrentHoursBarCursorColor;
         private static MethodInfo _geometryXAtLocalHour;
         private static PropertyInfo _isReady;
@@ -107,14 +109,10 @@ namespace Better_Work_Tab.ModSupport
                     return false;
                 }
 
-                object[] timelineArgs = { Find.CurrentMap, null };
-                if (!(bool)_tryGetTimelineSnapshot.Invoke(null, timelineArgs) || timelineArgs[1] == null)
+                if (!TryDrawTimeline(geometry, drawIncidentOverlay, out object timeline) || timeline == null)
                 {
                     return false;
                 }
-
-                object timeline = timelineArgs[1];
-                DrawTimeline(timeline, geometry, drawIncidentOverlay);
 
                 PrepareScheduleCursor(chronosRect, priorityRowsRect, geometry, timeline, hourBoxWidth);
                 return true;
@@ -199,7 +197,9 @@ namespace Better_Work_Tab.ModSupport
                     });
                 _drawTimeline = AccessTools.Method(_apiType, "DrawTimeline", new[] { timelineType, geometryType, typeof(bool), typeof(bool) });
                 _drawEmbeddedTimeline = AccessTools.Method(_apiType, "DrawEmbeddedTimeline", new[] { timelineType, geometryType, typeof(bool) });
+                _tryDrawEmbeddedTimeline = AccessTools.Method(_apiType, "TryDrawEmbeddedTimeline", new[] { typeof(Map), geometryType, typeof(bool) });
                 _tryGetTimelineSnapshot = AccessTools.Method(_apiType, "TryGetTimelineSnapshot");
+                _getLatestTimelineSnapshot = AccessTools.Method(_apiType, "GetLatestTimelineSnapshot");
                 _geometryXAtLocalHour = AccessTools.Method(geometryType, "XAtLocalHour", new[] { typeof(float) });
             }
 
@@ -223,8 +223,7 @@ namespace Better_Work_Tab.ModSupport
             }
             if (_supports == null ||
                 _createGeometry == null ||
-                _drawTimeline == null ||
-                _tryGetTimelineSnapshot == null ||
+                !HasTimelineDrawPath() ||
                 _geometryXAtLocalHour == null ||
                 _isReady == null ||
                 _timelineLocalHour == null ||
@@ -241,6 +240,15 @@ namespace Better_Work_Tab.ModSupport
             return true;
         }
 
+        private static bool HasTimelineDrawPath()
+        {
+            bool hasPublicEmbeddedDraw = _tryDrawEmbeddedTimeline != null &&
+                _getLatestTimelineSnapshot != null;
+            bool hasManualDraw = (_drawEmbeddedTimeline != null || _drawTimeline != null) &&
+                _tryGetTimelineSnapshot != null;
+            return hasPublicEmbeddedDraw || hasManualDraw;
+        }
+
         private static bool SupportsContract()
         {
             try
@@ -253,7 +261,41 @@ namespace Better_Work_Tab.ModSupport
             }
         }
 
-        private static void DrawTimeline(object timeline, object geometry, bool drawIncidentOverlay)
+        private static bool TryDrawTimeline(object geometry, bool drawIncidentOverlay, out object timeline)
+        {
+            timeline = null;
+
+            if (_tryDrawEmbeddedTimeline != null && _getLatestTimelineSnapshot != null)
+            {
+                bool drawn = (bool)_tryDrawEmbeddedTimeline.Invoke(null, new object[]
+                {
+                    Find.CurrentMap,
+                    geometry,
+                    drawIncidentOverlay
+                });
+                if (!drawn)
+                {
+                    return false;
+                }
+
+                timeline = _getLatestTimelineSnapshot.Invoke(null, null);
+                return timeline != null;
+            }
+
+            object[] timelineArgs = { Find.CurrentMap, null };
+            if (_tryGetTimelineSnapshot == null ||
+                !(bool)_tryGetTimelineSnapshot.Invoke(null, timelineArgs) ||
+                timelineArgs[1] == null)
+            {
+                return false;
+            }
+
+            timeline = timelineArgs[1];
+            DrawTimelineManually(timeline, geometry, drawIncidentOverlay);
+            return true;
+        }
+
+        private static void DrawTimelineManually(object timeline, object geometry, bool drawIncidentOverlay)
         {
             if (_drawEmbeddedTimeline != null)
             {

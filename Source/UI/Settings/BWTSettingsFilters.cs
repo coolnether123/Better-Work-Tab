@@ -191,6 +191,7 @@ namespace Better_Work_Tab.UI.Settings
                     HeadersUseVerticalStackingForCJK,
                     "headers.cjkVerticalKerning",
                     "headers.angledColor",
+                    HeadersUnderlineColor,
                     "headers.horizontalOffset");
         }
 

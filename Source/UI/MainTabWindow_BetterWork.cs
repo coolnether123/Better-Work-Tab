@@ -72,6 +72,8 @@ namespace Better_Work_Tab.UI
         private const float InfoIconSize = 24f;
         private const float MinWorkTabHeight = 200f;
         private const float MinimumPawnRenderHeight = 30f;
+        private const float DefaultPawnRowHeight = 30f;
+        private const float WindowHeightAnimationResponseSeconds = 0.08f;
 
         protected override float ExtraTopSpace =>
             Mathf.Clamp(
@@ -91,6 +93,9 @@ namespace Better_Work_Tab.UI
         private int _pendingSubWorkExitColumnSlot = -1;
         private float _pendingSubWorkExitWaveSlotPosition = -1f;
         private int _suppressSubWorkPriorityMouseDownFrame = -1;
+        private float _animatedWindowHeight = -1f;
+        private float _lastWindowHeightAnimationTime = -1f;
+        private bool _windowHeightAnimationActive;
 
         private static Color CurrentRowTextColor = Color.white;
 
@@ -105,6 +110,9 @@ namespace Better_Work_Tab.UI
 
             _lastSortColumn = null;
             _lastSortDescending = false;
+            _animatedWindowHeight = windowRect.height;
+            _lastWindowHeightAnimationTime = Time.realtimeSinceStartup;
+            _windowHeightAnimationActive = false;
 
             if (PawnOrganizerSystem.Instance == null)
             {
@@ -382,16 +390,53 @@ namespace Better_Work_Tab.UI
             }
 
             Rect rect = windowRect;
+            float targetHeight = requestedSize.y;
+            float nextHeight = targetHeight;
+            bool animateHeight = !force &&
+                (Mathf.Abs(rect.height - targetHeight) >= 0.5f || _windowHeightAnimationActive);
+
+            if (force || _animatedWindowHeight <= 0f)
+            {
+                _animatedWindowHeight = rect.height > 0f ? rect.height : targetHeight;
+                _lastWindowHeightAnimationTime = Time.realtimeSinceStartup;
+                _windowHeightAnimationActive = false;
+            }
+
+            if (animateHeight)
+            {
+                _windowHeightAnimationActive = true;
+                float now = Time.realtimeSinceStartup;
+                float delta = _lastWindowHeightAnimationTime > 0f
+                    ? Mathf.Clamp(now - _lastWindowHeightAnimationTime, 0f, 0.05f)
+                    : 0.016f;
+                _lastWindowHeightAnimationTime = now;
+                float t = delta <= 0f ? 0f : 1f - Mathf.Exp(-delta / WindowHeightAnimationResponseSeconds);
+                _animatedWindowHeight = Mathf.Lerp(_animatedWindowHeight, targetHeight, t);
+                if (Mathf.Abs(_animatedWindowHeight - targetHeight) < 0.5f)
+                {
+                    _animatedWindowHeight = targetHeight;
+                    _windowHeightAnimationActive = false;
+                }
+
+                nextHeight = _animatedWindowHeight;
+            }
+            else
+            {
+                _animatedWindowHeight = targetHeight;
+                _lastWindowHeightAnimationTime = Time.realtimeSinceStartup;
+                _windowHeightAnimationActive = false;
+            }
+
             if (!force &&
                 Mathf.Abs(rect.width - requestedSize.x) < 0.5f &&
-                Mathf.Abs(rect.height - requestedSize.y) < 0.5f)
+                Mathf.Abs(rect.height - nextHeight) < 0.5f)
             {
                 return;
             }
 
             float screenBottom = Verse.UI.screenHeight - 35f;
             rect.width = requestedSize.x;
-            rect.height = requestedSize.y;
+            rect.height = nextHeight;
             rect.y = Mathf.Max(0f, screenBottom - rect.height);
             windowRect = rect;
         }
@@ -589,16 +634,52 @@ namespace Better_Work_Tab.UI
                     finalWidth = table.Size.x + Margin * 2f + 25f; // Same as above
                 }
 
-                // Determine max height: use setting if configured, otherwise vanilla default (fill screen)
-                float configuredMaxHeight = BetterWorkTabMod.Settings.workTabMaxHeight;
-                float targetMaxHeight = configuredMaxHeight > 0f
-                    ? Mathf.Max(configuredMaxHeight, MinWorkTabHeight)
-                    : Mathf.Max(Verse.UI.screenHeight - 35f, MinWorkTabHeight);  // Vanilla default: screen height minus top bar
-
-                finalHeight = Mathf.Min(finalHeight, targetMaxHeight);
+                finalHeight = Mathf.Min(finalHeight, GetConfiguredMaxWindowHeight(organizer?.Layout, table));
 
                 return new Vector2(finalWidth, finalHeight);
             }
+        }
+
+        private float GetConfiguredMaxWindowHeight(IWorkTabLayoutController layout, PawnTable table)
+        {
+            float screenMaxHeight = Mathf.Max(Verse.UI.screenHeight - 35f, MinWorkTabHeight);
+            int maxVisiblePawns = BetterWorkTabMod.Settings?.workTabMaxVisiblePawns ??
+                DefaultSettings.workTabMaxVisiblePawns;
+            if (maxVisiblePawns <= 0)
+            {
+                return screenMaxHeight;
+            }
+
+            float headerHeight = layout?.HeaderHeight ?? table?.cachedHeaderHeight ?? 0f;
+            float pinnedRowsHeight = layout != null ? GetPinnedRowsHeight() : 0f;
+            float pawnRowHeight = GetNominalPawnRowHeight(layout);
+            float visibleContentHeight = Mathf.Max(1, maxVisiblePawns) * pawnRowHeight;
+            float configuredHeight =
+                ExtraTopSpace +
+                headerHeight +
+                pinnedRowsHeight +
+                visibleContentHeight +
+                ExtraBottomSpace +
+                Margin * 2f;
+
+            return Mathf.Min(screenMaxHeight, Mathf.Max(configuredHeight, MinWorkTabHeight));
+        }
+
+        private static float GetNominalPawnRowHeight(IWorkTabLayoutController layout)
+        {
+            var descriptors = layout?.GetRowDescriptors();
+            if (descriptors != null)
+            {
+                for (int i = 0; i < descriptors.Count; i++)
+                {
+                    if (descriptors[i]?.Pawn != null && descriptors[i].Height > 0f)
+                    {
+                        return Mathf.Max(DefaultPawnRowHeight, descriptors[i].Height);
+                    }
+                }
+            }
+
+            return DefaultPawnRowHeight;
         }
 
 
@@ -628,7 +709,7 @@ namespace Better_Work_Tab.UI
             PawnOrganizerSystem.Instance?.Layout?.InvalidateRowDescriptors();
             SetDirty();
             RefreshOrganizerLayoutForCurrentTable();
-            ResizeWindowBottomAnchoredIfRequestedSizeChanged(force: true);
+            ResizeWindowBottomAnchoredIfRequestedSizeChanged();
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
 
             if (MultiplayerBridge.Active)
@@ -1574,18 +1655,18 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
+            var rowDescriptors = layout.GetRowDescriptors()?.ToList();
+            var columns = layout.Columns?.ToList();
+            if (rowDescriptors == null || rowDescriptors.Count == 0 ||
+                columns == null || columns.Count == 0)
+            {
+                table.scrollPosition = Vector2.zero;
+                return;
+            }
+
             Widgets.BeginScrollView(outRect, ref table.scrollPosition, viewRect);
             try
             {
-                // Get the row descriptors (single source of truth for what rows exist and their heights)
-                var rowDescriptors = layout.GetRowDescriptors()?.ToList();
-                var columns = layout.Columns?.ToList();
-                if (rowDescriptors == null || rowDescriptors.Count == 0 ||
-                    columns == null || columns.Count == 0)
-                {
-                    return;
-                }
-
                 var nameColumn = FindNameColumn(columns);
 
                 // Calculate dimensions once for all highlight operations
@@ -1794,7 +1875,7 @@ namespace Better_Work_Tab.UI
             WorkTypeDef highlightedWorkType,
             WorkGiverDef highlightedWorkGiver)
         {
-            if (column.Column?.workType == null || highlightedWorkType == null)
+            if (highlightedWorkType == null || !(column.Column?.Worker is PawnColumnWorker_WorkPriority))
             {
                 return false;
             }
@@ -1803,6 +1884,11 @@ namespace Better_Work_Tab.UI
             {
                 return SubWorkDrilldownState.TryGetWorkGiverForColumn(column.Column, out var workGiver, out _) &&
                        workGiver?.def == highlightedWorkGiver;
+            }
+
+            if (column.Column?.workType == null)
+            {
+                return false;
             }
 
             return column.Column.workType == highlightedWorkType;

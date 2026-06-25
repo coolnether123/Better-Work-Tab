@@ -43,6 +43,13 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
         public static int GetEffectiveMaxPriority()
         {
+            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
+            settings?.NormalizePrioritySettings();
+            if ((settings?.priorityMode ?? DefaultSettings.priorityMode) == PriorityMode.Auto)
+            {
+                return GetAutoConfiguredMaxPriority();
+            }
+
             return GetSnapshot().MaxPriority;
         }
 

@@ -53,7 +53,8 @@ namespace Better_Work_Tab
             //DefOfHelper.EnsureInitializedInCtor(typeof(WorkTypeDefOf));
         }
 
-        public static float workTabMaxHeight = -1f; // -1 = use vanilla default (fill screen)
+        public static float workTabMaxHeight = -1f; // Legacy pixel cap; replaced by workTabMaxVisiblePawns.
+        public static int workTabMaxVisiblePawns = -1; // -1 = use vanilla default (fill screen)
         public static float workTabTopSpace = 40f; // Vanilla MainTabWindow_Work.ExtraTopSpace
 
         public static bool enableSkillOverlayFeature = true;
@@ -163,6 +164,7 @@ namespace Better_Work_Tab
         public static Color Color_CustomCategory1 = new Color(0.5f, 0.7f, 0.9f);
         public static Color Color_CustomCategory2 = new Color(0.9f, 0.7f, 0.5f);
         public static Color Color_HeaderText = Color.white;
+        public static Color Color_HeaderUnderline = Color.white;
         public static Color Color_DividerText = Color.white;
         public static Color Color_Borders = Color.gray;
         public static Color Color_SettingFocusHighlight = new Color(1f, 0.78f, 0.18f, 1f);
@@ -584,10 +586,12 @@ namespace Better_Work_Tab
         public bool useVerticalStackingForCJK = DefaultSettings.useVerticalStackingForCJK;
         public float cjkVerticalKerning = DefaultSettings.cjkVerticalKerning;
         public Color angledHeaderColor = DefaultSettings.Color_AngledHeaderText;
+        public Color headerUnderlineColor = DefaultSettings.Color_HeaderUnderline;
         public bool autoEnableManualPriorities = DefaultSettings.autoEnableManualPriorities;
 
 
         public float workTabMaxHeight = DefaultSettings.workTabMaxHeight;
+        public int workTabMaxVisiblePawns = DefaultSettings.workTabMaxVisiblePawns;
         public float workTabTopSpace = DefaultSettings.workTabTopSpace;
 
         public enum RulesetViewMode
@@ -823,6 +827,7 @@ namespace Better_Work_Tab
         public override void ExposeData()
         {
             Scribe_Values.Look(ref workTabMaxHeight, "workTabMaxHeight", DefaultSettings.workTabMaxHeight);
+            Scribe_Values.Look(ref workTabMaxVisiblePawns, "workTabMaxVisiblePawns", DefaultSettings.workTabMaxVisiblePawns);
             Scribe_Values.Look(ref workTabTopSpace, "workTabTopSpace", DefaultSettings.workTabTopSpace);
 
 
@@ -922,6 +927,7 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref useVerticalStackingForCJK, "useVerticalStackingForCJK", true);
             Scribe_Values.Look(ref cjkVerticalKerning, "cjkVerticalKerning", 0.75f);
             Scribe_Values.Look(ref angledHeaderColor, "angledHeaderColor", DefaultSettings.Color_AngledHeaderText);
+            Scribe_Values.Look(ref headerUnderlineColor, "headerUnderlineColor", DefaultSettings.Color_HeaderUnderline);
             Scribe_Values.Look(ref autoEnableManualPriorities, "autoEnableManualPriorities", DefaultSettings.autoEnableManualPriorities);
             Scribe_Values.Look(ref enableExtendedPriorities, "enableExtendedPriorities", DefaultSettings.enableExtendedPriorities);
             Scribe_Values.Look(ref delegateToExternalPriorityMods, "delegateToExternalPriorityMods", DefaultSettings.delegateToExternalPriorityMods);
@@ -1042,6 +1048,7 @@ namespace Better_Work_Tab
             }
 
             NormalizePrioritySettings();
+            NormalizeWorkTabHeightSettings();
 
             EnsureDebugFeatureTogglesInitialized();
         }
@@ -1054,6 +1061,7 @@ namespace Better_Work_Tab
             ApplyRegisteredDefaults();
 
             workTabMaxHeight = DefaultSettings.workTabMaxHeight;
+            workTabMaxVisiblePawns = DefaultSettings.workTabMaxVisiblePawns;
             workTabTopSpace = DefaultSettings.workTabTopSpace;
             settingsViewMode = SettingsViewMode.Simple;
             workColumnOrderDefNames.Clear();
@@ -1065,6 +1073,24 @@ namespace Better_Work_Tab
             {
                 debugFeatureToggles[feature] = false;
             }
+        }
+
+        private void NormalizeWorkTabHeightSettings()
+        {
+            if (workTabMaxVisiblePawns == 0 || workTabMaxVisiblePawns < -1)
+            {
+                workTabMaxVisiblePawns = DefaultSettings.workTabMaxVisiblePawns;
+            }
+
+            if (workTabMaxVisiblePawns < 0 && workTabMaxHeight > 0f)
+            {
+                workTabMaxVisiblePawns = Mathf.Clamp(
+                    Mathf.RoundToInt(workTabMaxHeight / 30f),
+                    1,
+                    200);
+            }
+
+            workTabMaxHeight = DefaultSettings.workTabMaxHeight;
         }
 
         /// <summary>

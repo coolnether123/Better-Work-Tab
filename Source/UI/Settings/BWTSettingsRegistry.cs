@@ -989,8 +989,8 @@ namespace Better_Work_Tab.UI.Settings
                 Id = DragdropEnableGrouping,
                 ParentId = FeaturesDragdrop,
                 FieldName = "enableColumnGrouping",
-                Label = "Enable Column Grouping (Ctrl+Click)",
-                Tooltip = "Allows selecting multiple columns with Ctrl+Click to drag them together.",
+                Label = "Enable Column Grouping (Shift+Click)",
+                Tooltip = "Allows selecting multiple columns with Shift+Click on headers to drag them together.",
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.enableColumnGrouping,
                 ShowInSimpleView = false,
@@ -1679,15 +1679,13 @@ namespace Better_Work_Tab.UI.Settings
             {
                 Id = LayoutWorkTabMaxHeight,
                 ParentId = AdvancedHeader,
-                FieldName = "workTabMaxHeight",
-                Label = "Work Tab Max Height",
-                Tooltip = "Caps the Work tab window height in pixels and scrolls extra rows. -1 keeps RimWorld's default full-screen-height behavior.",
-                Type = SettingType.Float,
-                DefaultValue = DefaultSettings.workTabMaxHeight,
+                FieldName = nameof(BetterWorkTabSettings.workTabMaxVisiblePawns),
+                Label = "Visible pawn rows",
+                Tooltip = "Caps the Work tab height by how many normal pawn rows are visible before scrolling. -1 keeps RimWorld's default full-screen-height behavior.",
+                Type = SettingType.NumericInt,
+                DefaultValue = DefaultSettings.workTabMaxVisiblePawns,
                 MinValue = -1f,
-                MaxValue = 1200f,
-                MinLabel = "Default",
-                MaxLabel = "1200px",
+                MaxValue = 200f,
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
                 SortOrder = 401,
@@ -2271,6 +2269,21 @@ namespace Better_Work_Tab.UI.Settings
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
                 SortOrder = 5071
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = HeadersUnderlineColor,
+                ParentId = HeadersAngled,
+                FieldName = nameof(BetterWorkTabSettings.headerUnderlineColor),
+                Label = "Header underline color",
+                Tooltip = "Custom color for the line under angled work headers and the stem line used by vanilla-style work headers.",
+                Type = SettingType.Color,
+                DefaultValue = DefaultSettings.Color_HeaderUnderline,
+                OnChanged = s => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 50715
             });
 
             Register(new SettingDefinition
