@@ -28,6 +28,7 @@ namespace Spine.UI.Tutorial
             List<Rect> focusRects,
             Event evt,
             Action onPrimary,
+            Action onSecondary,
             Action onDismiss)
         {
             if (evt == null)
@@ -70,6 +71,10 @@ namespace Spine.UI.Tutorial
                     {
                         onDismiss?.Invoke();
                     }
+                    else if (releasedButton == TutorialOverlayButton.Secondary)
+                    {
+                        onSecondary?.Invoke();
+                    }
                     else if (releasedButton == TutorialOverlayButton.Primary)
                     {
                         onPrimary?.Invoke();
@@ -96,6 +101,7 @@ namespace Spine.UI.Tutorial
             List<Rect> focusRects,
             List<TutorialOverlayShortcutHint> shortcutHints,
             Action onPrimary,
+            Action onSecondary,
             Action onDismiss)
         {
             TutorialOverlayLayout visualLayout = GetAnimatedLayout(bounds, focusRects, content.Body);
@@ -107,7 +113,7 @@ namespace Spine.UI.Tutorial
                 DrawConnector(visualLayout.CardRect, visualLayout.FocusBounds);
             }
 
-            DrawCard(visualLayout.CardRect, content, onPrimary, onDismiss);
+            DrawCard(visualLayout.CardRect, content, onPrimary, onSecondary, onDismiss);
         }
 
         public void ResetAnimation()
@@ -281,7 +287,7 @@ namespace Spine.UI.Tutorial
             float bodyHeight = Text.CalcHeight(body ?? string.Empty, width - style.CardPadding * 2f);
             Text.Font = oldFont;
 
-            float height = Mathf.Clamp(122f + bodyHeight, 180f, 340f);
+            float height = Mathf.Clamp(160f + bodyHeight, 220f, 360f);
             return new Vector2(width, height);
         }
 
@@ -451,6 +457,7 @@ namespace Spine.UI.Tutorial
             Rect rect,
             TutorialOverlayContent content,
             Action onPrimary,
+            Action onSecondary,
             Action onDismiss)
         {
             Color oldColor = GUI.color;
@@ -470,10 +477,19 @@ namespace Spine.UI.Tutorial
             Text.Font = GameFont.Small;
             GUI.color = Color.white;
             float bodyY = inner.y + 34f;
-            float bodyHeight = Mathf.Max(64f, inner.height - 92f);
+            float bodyHeight = Mathf.Max(64f, inner.height - (content.HasSecondaryButton ? 128f : 92f));
             Widgets.Label(new Rect(inner.x, bodyY, inner.width, bodyHeight), content.Body);
 
             GUI.color = Color.white;
+            if (content.HasSecondaryButton)
+            {
+                Rect settingsRect = GetSecondaryButtonRect(rect);
+                if (Widgets.ButtonText(settingsRect, content.SecondaryButton))
+                {
+                    onSecondary?.Invoke();
+                }
+            }
+
             Rect dismissRect = GetDismissButtonRect(rect);
             if (Widgets.ButtonText(dismissRect, content.DismissButton))
             {
@@ -508,6 +524,12 @@ namespace Spine.UI.Tutorial
             return new Rect(inner.xMax - 150f, inner.yMax - 34f, 150f, 32f);
         }
 
+        private Rect GetSecondaryButtonRect(Rect cardRect)
+        {
+            Rect inner = cardRect.ContractedBy(style.CardPadding);
+            return new Rect(inner.x, inner.yMax - 70f, inner.width, 28f);
+        }
+
         private bool TryGetButtonAt(
             Rect cardRect,
             TutorialOverlayContent content,
@@ -524,6 +546,13 @@ namespace Spine.UI.Tutorial
                 GetPrimaryButtonRect(cardRect).Contains(mousePosition))
             {
                 button = TutorialOverlayButton.Primary;
+                return true;
+            }
+
+            if (content.HasSecondaryButton &&
+                GetSecondaryButtonRect(cardRect).Contains(mousePosition))
+            {
+                button = TutorialOverlayButton.Secondary;
                 return true;
             }
 
@@ -560,6 +589,7 @@ namespace Spine.UI.Tutorial
         {
             None,
             Dismiss,
+            Secondary,
             Primary
         }
     }

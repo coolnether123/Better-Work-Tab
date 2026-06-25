@@ -304,7 +304,13 @@ namespace Better_Work_Tab.UI
                 {
                     SpineTiming.Time("WorkTab.Input", () =>
                     {
-                        bool handledSubWorkGesture = BWTWorkTabTutorial.TryHandleInput(inRect, organizer?.Layout, evt)
+                        bool handledTutorial = BWTWorkTabTutorial.TryHandleInput(inRect, organizer?.Layout, evt);
+                        if (!handledTutorial)
+                        {
+                            ReportTutorialInteraction(inRect, organizer?.Layout, evt);
+                        }
+
+                        bool handledSubWorkGesture = handledTutorial
                             || TryHandleContextSettingsClick(inRect, organizer?.Layout, evt)
                             || TimePriorityPlannerPrototype.TryHandleInput(organizer?.Layout, evt)
                             || TryHandleSubWorkExitGesture(organizer?.Layout)
@@ -321,7 +327,13 @@ namespace Better_Work_Tab.UI
                 }
                 else
                 {
-                    bool handledSubWorkGesture = BWTWorkTabTutorial.TryHandleInput(inRect, organizer?.Layout, evt)
+                    bool handledTutorial = BWTWorkTabTutorial.TryHandleInput(inRect, organizer?.Layout, evt);
+                    if (!handledTutorial)
+                    {
+                        ReportTutorialInteraction(inRect, organizer?.Layout, evt);
+                    }
+
+                    bool handledSubWorkGesture = handledTutorial
                         || TryHandleContextSettingsClick(inRect, organizer?.Layout, evt)
                         || TimePriorityPlannerPrototype.TryHandleInput(organizer?.Layout, evt)
                         || TryHandleSubWorkExitGesture(organizer?.Layout)
@@ -1028,6 +1040,115 @@ namespace Better_Work_Tab.UI
             }
             evt.Use();
             return true;
+        }
+
+        private void ReportTutorialInteraction(Rect inRect, IWorkTabLayoutController layout, Event evt)
+        {
+            if (evt == null || evt.type != EventType.MouseDown)
+            {
+                return;
+            }
+
+            BWTTutorialInteractionKind kind = ClassifyTutorialInteraction(inRect, layout, evt.mousePosition);
+            if (kind == BWTTutorialInteractionKind.None)
+            {
+                return;
+            }
+
+            BWTWorkTabTutorial.ObserveInteraction(new BWTTutorialInteraction(
+                kind,
+                evt.mousePosition,
+                evt.button,
+                evt.control,
+                evt.shift,
+                evt.alt));
+        }
+
+        private BWTTutorialInteractionKind ClassifyTutorialInteraction(
+            Rect inRect,
+            IWorkTabLayoutController layout,
+            Vector2 mousePosition)
+        {
+            if (!inRect.Contains(mousePosition))
+            {
+                return BWTTutorialInteractionKind.OutsideWorkTab;
+            }
+
+            if (GetInfoIconRect(inRect).Contains(mousePosition))
+            {
+                return BWTTutorialInteractionKind.InfoButton;
+            }
+
+            Rect infoRect = GetInfoIconRect(inRect);
+            HeaderButtons.BottomButtonRects buttons = HeaderButtons.GetBottomButtonRects(inRect, infoRect);
+            if (buttons.ContainsWorkload(mousePosition))
+            {
+                return BWTTutorialInteractionKind.WorkloadButton;
+            }
+
+            if (buttons.ContainsRuleset(mousePosition))
+            {
+                return BWTTutorialInteractionKind.RulesetButton;
+            }
+
+            if (new Rect(5f, 5f, 220f, 62f).ExpandedBy(4f).Contains(mousePosition))
+            {
+                return BWTTutorialInteractionKind.ManualPriorities;
+            }
+
+            if (new Rect(inRect.xMax - 300f, inRect.y + 2f, 260f, 28f).Contains(mousePosition))
+            {
+                return BWTTutorialInteractionKind.ContextSettingsHint;
+            }
+
+            if (TimePriorityPlannerPrototype.OwnsMousePosition(mousePosition))
+            {
+                return BWTTutorialInteractionKind.TimePriorityCell;
+            }
+
+            if (layout?.Rows != null && layout.TryGetRowAt(mousePosition, out var row))
+            {
+                if (row.Divider != null)
+                {
+                    return BWTTutorialInteractionKind.Divider;
+                }
+
+                if (row.Pawn != null && TryGetBodyColumnAt(layout, mousePosition, out var bodyColumn))
+                {
+                    if (bodyColumn.Column?.Worker is PawnColumnWorker_WorkPriority)
+                    {
+                        return BWTTutorialInteractionKind.PriorityCell;
+                    }
+                }
+
+                if (row.Pawn != null)
+                {
+                    return BWTTutorialInteractionKind.PawnRow;
+                }
+            }
+
+            if (layout?.Columns != null)
+            {
+                for (int i = 0; i < layout.Columns.Count; i++)
+                {
+                    WorkTabLayoutColumn column = layout.Columns[i];
+                    if (!GetAnimatedHeaderRect(column).Contains(mousePosition))
+                    {
+                        continue;
+                    }
+
+                    if (!(column.Column?.Worker is PawnColumnWorker_WorkPriority))
+                    {
+                        return BWTTutorialInteractionKind.None;
+                    }
+
+                    return SubWorkDrilldownState.IsActive
+                        ? BWTTutorialInteractionKind.SubWorkHeader
+                        : BWTTutorialInteractionKind.WorkHeader;
+                }
+            }
+
+            return BWTTutorialInteractionKind.None;
         }
 
         private bool TryHandleSubWorkHeaderOpen(IWorkTabLayoutController layout)
@@ -2513,7 +2634,7 @@ namespace Better_Work_Tab.UI
             }
         }
 
-        private bool OpenBetterWorkTabSettings(bool toggleExisting = true)
+        internal static bool OpenBetterWorkTabSettings(bool toggleExisting = true)
         {
             if (toggleExisting && Find.WindowStack != null && Find.WindowStack.TryRemove(typeof(Dialog_ModSettings)))
             {

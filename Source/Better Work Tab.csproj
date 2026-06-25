@@ -98,6 +98,8 @@
     <Compile Include="Features\TimePriority\TimePriorityTargetKind.cs" />
     <Compile Include="Features\Tutorial\BWTBetaTutorial.cs" />
     <Compile Include="Features\Tutorial\BWTGeneralTutorial.cs" />
+    <Compile Include="Features\Tutorial\BWTTutorialInteraction.cs" />
+    <Compile Include="Features\Tutorial\BWTTutorialInteractionKind.cs" />
     <Compile Include="Features\Tutorial\BWTTutorialGeometry.cs" />
     <Compile Include="Features\Tutorial\BWTWorkTabTutorial.cs" />
     <Compile Include="Features\Workloads\Worklist.cs" />

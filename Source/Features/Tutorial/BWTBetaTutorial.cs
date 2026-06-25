@@ -82,6 +82,7 @@ namespace Better_Work_Tab.Features.Tutorial
                 focusRects,
                 evt,
                 () => AdvanceByButton(step),
+                () => BWTWorkTabTutorial.OpenRelatedSettings(inRect, layout, BuildFocusRects(step, inRect, layout)),
                 Deactivate);
         }
 
@@ -131,7 +132,54 @@ namespace Better_Work_Tab.Features.Tutorial
                 focusRects,
                 BuildShortcutHints(step, focusRects.Count),
                 () => AdvanceByButton(step),
+                () => BWTWorkTabTutorial.OpenRelatedSettings(inRect, layout, focusRects),
                 Deactivate);
+        }
+
+        internal static void ObserveWorkTabState()
+        {
+            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
+            if (settings == null || !settings.showBetaTutorial)
+            {
+                return;
+            }
+
+            BWTBetaTutorialStep step = NormalizeStep(settings);
+            if (step == BWTBetaTutorialStep.SubWorkPrompt && SubWorkDrilldownState.IsActive)
+            {
+                SetStep(BWTBetaTutorialStep.SubWorkHeaders);
+            }
+            else if (step == BWTBetaTutorialStep.TimePriorityPrompt && TimePriorityPlannerPrototype.IsVisible)
+            {
+                SetStep(BWTBetaTutorialStep.TimePriorityHours);
+            }
+        }
+
+        internal static bool ObserveInteraction(BWTTutorialInteraction interaction)
+        {
+            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
+            if (settings == null || !settings.showBetaTutorial)
+            {
+                return false;
+            }
+
+            BWTBetaTutorialStep step = NormalizeStep(settings);
+            if (interaction.Kind == BWTTutorialInteractionKind.SubWorkHeader &&
+                step < BWTBetaTutorialStep.SubWorkHeaders)
+            {
+                SetStep(BWTBetaTutorialStep.SubWorkPrompt);
+                return true;
+            }
+            else if (interaction.Kind == BWTTutorialInteractionKind.PriorityCell &&
+                     interaction.Control &&
+                     step < BWTBetaTutorialStep.TimePriorityHours &&
+                     !SubWorkDrilldownState.IsActive)
+            {
+                SetStep(BWTBetaTutorialStep.TimePriorityPrompt);
+                return true;
+            }
+
+            return false;
         }
 
         private static BWTBetaTutorialStep NormalizeStep(BetterWorkTabSettings settings)
