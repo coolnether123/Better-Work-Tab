@@ -200,7 +200,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
         public string IconPath = "";
         public RuleBuilder2TargetSource Source = RuleBuilder2TargetSource.BuilderList;
 
-        public bool HasTarget => !string.IsNullOrEmpty(WorkTypeDefName);
+        public bool HasTarget => !string.IsNullOrEmpty(WorkTypeDefName) || !string.IsNullOrEmpty(WorkGiverDefName);
         public bool IsSubWorkTarget => !string.IsNullOrEmpty(WorkGiverDefName);
 
         public void ExposeData()
@@ -214,9 +214,12 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
 
         public WorkTypeDef ResolveWorkType()
         {
-            return string.IsNullOrEmpty(WorkTypeDefName)
-                ? null
-                : DefDatabase<WorkTypeDef>.GetNamedSilentFail(WorkTypeDefName);
+            if (!string.IsNullOrEmpty(WorkTypeDefName))
+            {
+                return DefDatabase<WorkTypeDef>.GetNamedSilentFail(WorkTypeDefName);
+            }
+
+            return ResolveWorkGiver()?.workType;
         }
 
         public WorkGiverDef ResolveWorkGiver()

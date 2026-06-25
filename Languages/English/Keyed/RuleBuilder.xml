@@ -116,6 +116,15 @@
   <BWT_RuleBuilder2_RunPreview>Run preview</BWT_RuleBuilder2_RunPreview>
   <BWT_RuleBuilder2_PreviewHint>Preview before confirming to see affected pawns and warnings.</BWT_RuleBuilder2_PreviewHint>
   <BWT_RuleBuilder2_ConfirmCard>Confirm card and add next</BWT_RuleBuilder2_ConfirmCard>
+  <BWT_RuleBuilder2_NextConditions>Next: conditions</BWT_RuleBuilder2_NextConditions>
+  <BWT_RuleBuilder2_NextAction>Next: action</BWT_RuleBuilder2_NextAction>
+  <BWT_RuleBuilder2_NextPreview>Next: preview</BWT_RuleBuilder2_NextPreview>
+  <BWT_RuleBuilder2_NoTargetSummary>No target selected</BWT_RuleBuilder2_NoTargetSummary>
+  <BWT_RuleBuilder2_NoConditionsSummary>No conditions yet</BWT_RuleBuilder2_NoConditionsSummary>
+  <BWT_RuleBuilder2_ConditionsSummary>{0} conditions, starting with {1}</BWT_RuleBuilder2_ConditionsSummary>
+  <BWT_RuleBuilder2_NoActionSummary>No action selected</BWT_RuleBuilder2_NoActionSummary>
+  <BWT_RuleBuilder2_PreviewNotRunSummary>Preview has not been run</BWT_RuleBuilder2_PreviewNotRunSummary>
+  <BWT_RuleBuilder2_PreviewSummary>{0} of {1} preview rows match</BWT_RuleBuilder2_PreviewSummary>
   <BWT_RuleBuilder2_NewRule>New rule</BWT_RuleBuilder2_NewRule>
   <BWT_RuleBuilder2_TargetSummary>Target: {0}</BWT_RuleBuilder2_TargetSummary>
   <BWT_RuleBuilder2_PawnFallback>Pawn</BWT_RuleBuilder2_PawnFallback>
