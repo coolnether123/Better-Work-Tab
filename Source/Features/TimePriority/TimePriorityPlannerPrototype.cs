@@ -63,6 +63,16 @@ namespace Better_Work_Tab.Features.TimePriority
             BetterWorkTabMod.Settings?.enableTimePriorityPlannerPrototype ??
             DefaultSettings.enableTimePriorityPlannerPrototype;
 
+        internal static bool IsOpen => IsEnabled && _session != null && !_isClosing;
+
+        internal static bool IsVisible => IsEnabled && _session != null;
+
+        internal static bool TryGetLastPanelRect(out Rect rect)
+        {
+            rect = _lastPanelRect;
+            return IsVisible && rect.width > 1f && rect.height > 1f;
+        }
+
         internal static float HeaderPinnedRowsHeight =>
             IsEnabled && _session?.IsGlobal == true
                 ? CurrentInlineDividerHeight * GetProgress()
@@ -391,6 +401,17 @@ namespace Better_Work_Tab.Features.TimePriority
 
             if (TryHandleCopyPasteInput(evt))
             {
+                return true;
+            }
+
+            if (evt.type == EventType.MouseDown &&
+                evt.button == 0 &&
+                IsControlHeld(evt) &&
+                _lastPanelRect.Contains(evt.mousePosition))
+            {
+                StartCloseAnimation(GetPointRect(evt.mousePosition));
+                SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                evt.Use();
                 return true;
             }
 
@@ -1470,7 +1491,7 @@ namespace Better_Work_Tab.Features.TimePriority
             DrawTimePriorityBox(drawRect, priority, progress);
             if (isCustomHour)
             {
-                PriorityOverrideRing.DrawGoldBorder(drawRect.ExpandedBy(1f), Mouse.IsOver(drawRect), Mouse.IsOver(drawRect) ? 3 : 2);
+                PriorityOverrideRing.DrawGoldBorder(drawRect.ExpandedBy(1f));
             }
 
             if (Event.current.type == EventType.Repaint)
@@ -1494,7 +1515,11 @@ namespace Better_Work_Tab.Features.TimePriority
 
             if (Mouse.IsOver(drawRect))
             {
-                Widgets.DrawBox(drawRect, 2);
+                if (!isCustomHour)
+                {
+                    Widgets.DrawBox(drawRect, 2);
+                }
+
                 TooltipHandler.TipRegion(
                     drawRect,
                     "Hour " + hour + ": priority " +
@@ -1635,7 +1660,7 @@ namespace Better_Work_Tab.Features.TimePriority
             DrawTimePriorityBox(boxRect, priority, progress);
             if (isCustomHour)
             {
-                PriorityOverrideRing.DrawGoldBorder(boxRect.ExpandedBy(1f), Mouse.IsOver(boxRect), Mouse.IsOver(boxRect) ? 3 : 2);
+                PriorityOverrideRing.DrawGoldBorder(boxRect.ExpandedBy(1f));
             }
         }
 
