@@ -125,17 +125,18 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             int baseWorkGiverPriority,
             bool hasPawnOverride)
         {
-            if (DrawPawnWorkBoxContents(boxRect, pawn, workType, workGiverPriority, IsIncapable(pawn, wg)))
+            bool hasScheduleIndicator = TryGetScheduleIndicator(
+                pawn,
+                workType,
+                wg.def,
+                baseWorkGiverPriority,
+                out TimePriorityTarget scheduleTarget,
+                out int scheduleFallbackPriority);
+            bool hasGoldRing = hasPawnOverride || hasScheduleIndicator;
+            if (DrawPawnWorkBoxContents(boxRect, pawn, workType, workGiverPriority, IsIncapable(pawn, wg), hasGoldRing))
             {
                 DrawOverrideResetAnimation(pawn.thingIDNumber, wg.def, boxRect);
-                bool hasScheduleIndicator = TryGetScheduleIndicator(
-                    pawn,
-                    workType,
-                    wg.def,
-                    baseWorkGiverPriority,
-                    out TimePriorityTarget scheduleTarget,
-                    out int scheduleFallbackPriority);
-                if (hasPawnOverride || hasScheduleIndicator)
+                if (hasGoldRing)
                 {
                     DrawOverrideRingIfVisible(boxRect);
                 }
@@ -160,18 +161,18 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         private static void DrawGlobalPriorityBox(WorkGiver wg, WorkTypeDef workType, Rect boxRect, int workGiverPriority, int baseWorkGiverPriority)
         {
             RegisterGlobalPriorityTarget(wg.def, boxRect);
+            TimePriorityTarget target = TimePriorityTarget.ForWorkGiver(null, workType, wg.def);
+            bool hasScheduleIndicator = TimePriorityService.HasCustomSchedule(target, baseWorkGiverPriority);
 
             if (BetterWorkTabMod.Settings?.useVanillaSubWorkGlobalPriorityBoxes == true)
             {
-                DrawVanillaGlobalPriorityBoxContents(boxRect, workGiverPriority);
+                DrawVanillaGlobalPriorityBoxContents(boxRect, workGiverPriority, hasScheduleIndicator);
             }
             else
             {
-                DrawPriorityBoxContents(boxRect, workGiverPriority, false);
+                DrawPriorityBoxContents(boxRect, workGiverPriority, false, hasScheduleIndicator);
             }
 
-            TimePriorityTarget target = TimePriorityTarget.ForWorkGiver(null, workType, wg.def);
-            bool hasScheduleIndicator = TimePriorityService.HasCustomSchedule(target, baseWorkGiverPriority);
             if (hasScheduleIndicator)
             {
                 DrawOverrideRingIfVisible(boxRect);
@@ -192,7 +193,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             }
         }
 
-        private static void DrawVanillaGlobalPriorityBoxContents(Rect boxRect, int priority)
+        private static void DrawVanillaGlobalPriorityBoxContents(Rect boxRect, int priority, bool suppressHover = false)
         {
             priority = WorkPrioritySystem.ClampPriority(priority);
             Texture2D bgTex = priority == WorkPrioritySystem.DisabledPriority
@@ -229,13 +230,13 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             Text.Font = oldFont;
             Text.WordWrap = oldWordWrap;
 
-            if (MouseOverPriorityBox(boxRect))
+            if (!suppressHover && MouseOverPriorityBox(boxRect))
             {
                 Widgets.DrawHighlight(boxRect);
             }
         }
 
-        private static void DrawPriorityBoxContents(Rect boxRect, int priority, bool incapable)
+        private static void DrawPriorityBoxContents(Rect boxRect, int priority, bool incapable, bool suppressHover = false)
         {
             priority = WorkPrioritySystem.ClampPriority(priority);
             Texture2D bgTex = priority == WorkPrioritySystem.DisabledPriority
@@ -273,13 +274,13 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             Text.Font = oldFont;
             Text.WordWrap = oldWordWrap;
 
-            if (MouseOverPriorityBox(boxRect))
+            if (!suppressHover && MouseOverPriorityBox(boxRect))
             {
                 Widgets.DrawHighlight(boxRect);
             }
         }
 
-        private static bool DrawPawnWorkBoxContents(Rect boxRect, Pawn pawn, WorkTypeDef workType, int priority, bool incapable)
+        private static bool DrawPawnWorkBoxContents(Rect boxRect, Pawn pawn, WorkTypeDef workType, int priority, bool incapable, bool suppressHover = false)
         {
             if (pawn == null || workType == null)
             {
@@ -350,7 +351,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             Text.Font = oldFont;
             Text.WordWrap = oldWordWrap;
 
-            if (MouseOverPriorityBox(boxRect))
+            if (!suppressHover && MouseOverPriorityBox(boxRect))
             {
                 Widgets.DrawHighlight(boxRect);
             }
@@ -388,7 +389,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
         private static void DrawParentDisabledOverrideBox(WorkGiver wg, WorkTypeDef workType, Pawn pawn, Rect boxRect, int workGiverPriority)
         {
-            if (!DrawPawnWorkBoxContents(boxRect, pawn, workType, workGiverPriority, IsIncapable(pawn, wg)))
+            if (!DrawPawnWorkBoxContents(boxRect, pawn, workType, workGiverPriority, IsIncapable(pawn, wg), suppressHover: true))
             {
                 return;
             }
