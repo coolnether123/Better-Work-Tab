@@ -70,6 +70,24 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             }
         }
 
+        internal static int MeasurementSignature
+        {
+            get
+            {
+                EnsureSlotCache();
+                unchecked
+                {
+                    int hash = 17;
+                    hash = hash * 31 + (_activeWorkType?.shortHash ?? 0);
+                    hash = hash * 31 + WorkGiverReassignmentManager.CurrentSyncVersion;
+                    hash = hash * 31 + _cachedSlotSignature;
+                    hash = hash * 31 + _entryWorkColumnSlot;
+                    hash = hash * 31 + _exitWorkColumnSlot;
+                    return hash;
+                }
+            }
+        }
+
         internal static IReadOnlyList<WorkGiver> ActiveWorkGivers
         {
             get
@@ -524,11 +542,13 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
             _isExiting = true;
             _exitingAt = Time.realtimeSinceStartup;
-            _exitWorkColumnSlot = exitWorkColumnSlot >= 0 ? exitWorkColumnSlot : _entryWorkColumnSlot;
-            _exitWaveSlotPosition = exitWaveSlotPosition >= 0f ? exitWaveSlotPosition : _exitWorkColumnSlot;
+
+            int parentSlot = _entryWorkColumnSlot >= 0 ? _entryWorkColumnSlot : exitWorkColumnSlot;
+            _exitWorkColumnSlot = parentSlot;
+            _exitWaveSlotPosition = parentSlot >= 0 ? parentSlot : exitWaveSlotPosition;
             _layoutRefreshPending = true;
             LogSubWork(
-                $"Exit requested workType={_activeWorkType.defName}, slot={_exitWorkColumnSlot}, waveSlot={_exitWaveSlotPosition:0.###}, style={TransitionStyle}, cursorMoved={_cursorMovedSinceEnter}");
+                $"Exit requested workType={_activeWorkType.defName}, triggerSlot={exitWorkColumnSlot}, triggerWaveSlot={exitWaveSlotPosition:0.###}, parentSlot={_exitWorkColumnSlot}, waveSlot={_exitWaveSlotPosition:0.###}, style={TransitionStyle}, cursorMoved={_cursorMovedSinceEnter}");
         }
 
         internal static void TickTransition()

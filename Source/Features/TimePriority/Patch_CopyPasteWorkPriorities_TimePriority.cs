@@ -18,13 +18,21 @@ namespace Better_Work_Tab.Features.TimePriority
 
         private static MethodBase TargetMethod()
         {
-            return AccessTools.Method(TargetType, "DoCell", new[] { typeof(Rect), typeof(Pawn), AccessTools.TypeByName("RimWorld.PawnTable") });
+            Type pawnTableType = AccessTools.TypeByName("RimWorld.PawnTable");
+            return TargetType == null || pawnTableType == null
+                ? null
+                : AccessTools.Method(TargetType, "DoCell", new[] { typeof(Rect), typeof(Pawn), pawnTableType });
         }
 
         [HarmonyPrefix]
         private static bool Prefix(Rect rect, Pawn pawn)
         {
-            return !TimePriorityPlannerPrototype.TryDrawScheduleCopyPasteWorkPrioritiesCell(rect, pawn);
+            if (TimePriorityPlannerPrototype.TryDrawScheduleCopyPasteWorkPrioritiesCell(rect, pawn))
+            {
+                return false;
+            }
+
+            return true;
         }
     }
 }
