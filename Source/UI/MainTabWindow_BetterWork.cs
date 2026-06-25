@@ -929,9 +929,11 @@ namespace Better_Work_Tab.UI
             {
                 float startX = Mathf.Floor(waveRect.xMin);
                 float endX = Mathf.Ceil(waveRect.xMax);
-                for (float x = startX; x < endX; x += 1f)
+                const float stripWidth = 4f;
+                for (float x = startX; x < endX; x += stripWidth)
                 {
-                    float sampleX = x + 0.5f;
+                    float width = Mathf.Min(stripWidth, endX - x);
+                    float sampleX = x + width / 2f;
                     float distance = Mathf.Abs(sampleX - pivotX);
                     float leading = SmoothStep01(1f - Mathf.Abs(distance - waveCenter) / leadingWidth);
 
@@ -948,7 +950,7 @@ namespace Better_Work_Tab.UI
 
                     float grey = Mathf.Lerp(0.52f, 0.82f, leading);
                     Widgets.DrawBoxSolid(
-                        new Rect(x, waveRect.yMin, 1f, waveRect.height),
+                        new Rect(x, waveRect.yMin, width, waveRect.height),
                         new Color(grey, grey, grey, alpha));
                 }
             }
