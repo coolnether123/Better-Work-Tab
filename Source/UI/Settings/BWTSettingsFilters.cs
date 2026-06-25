@@ -20,6 +20,7 @@ namespace Better_Work_Tab.UI.Settings
         {
             return new List<SettingsFilterDefinition>
             {
+                BuildVersionFilter("version.2.0", "BWT v2.0", IsV20Setting),
                 BuildVersionFilter("version.1.1", "BWT v1.1", IsV11Setting),
                 BuildVersionFilter("version.1.0.5", "BWT v1.0.5", IsV105Setting),
                 BuildVersionFilter("version.1.0", "BWT v1.0", IsV10Setting),
@@ -152,6 +153,26 @@ namespace Better_Work_Tab.UI.Settings
                 ContainsAny(def, "animation", "animate", "cursor") ||
                 string.Equals(def.Id, FeaturesSubWorkJobs, StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(def.Id, FeaturesClicks, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsV20Setting(SettingDefinition def)
+        {
+            return HasAnyId(def,
+                    UiBetaTutorial,
+                    UiTimePriorityPlannerPrototype,
+                    UiTimePriorityCopyPasteButtons,
+                    UiTimePriorityHourDivider,
+                    UiChronosPointerTimePriority,
+                    UiTimePrioritySourceColumnHighlight,
+                    UiMaxPriority,
+                    UiAutoMaxPriority,
+                    FeaturesSubWorkJobs) ||
+                HasAnyPrefix(def,
+                    "subWorkJobs.",
+                    "ui.timePriority",
+                    "ui.chronosPointer",
+                    "ui.maxPriority",
+                    "priority.");
         }
 
         private static bool IsV105Setting(SettingDefinition def)

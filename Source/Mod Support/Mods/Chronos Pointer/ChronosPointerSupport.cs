@@ -22,6 +22,7 @@ namespace Better_Work_Tab.ModSupport
         private static MethodInfo _supports;
         private static MethodInfo _createGeometry;
         private static MethodInfo _drawTimeline;
+        private static MethodInfo _drawEmbeddedTimeline;
         private static MethodInfo _tryGetTimelineSnapshot;
         private static MethodInfo _getCurrentHoursBarCursorColor;
         private static MethodInfo _geometryXAtLocalHour;
@@ -40,6 +41,20 @@ namespace Better_Work_Tab.ModSupport
         private static float _lastLocalHour;
         private static float _lastHourBoxWidth;
 
+        internal static bool ShouldReserveTimePriorityTimelineHeight
+        {
+            get
+            {
+                if (!(BetterWorkTabMod.Settings?.enableChronosPointerTimePriorityIntegration ??
+                      DefaultSettings.enableChronosPointerTimePriorityIntegration))
+                {
+                    return false;
+                }
+
+                return EnsureResolved() && IsReady() && SupportsContract();
+            }
+        }
+
         internal static bool TryDrawTimePriorityTimeline(
             Rect chronosRect,
             Rect priorityRowsRect,
@@ -54,8 +69,7 @@ namespace Better_Work_Tab.ModSupport
             _lastLocalHour = 0f;
             _lastHourBoxWidth = 0f;
 
-            if (!(BetterWorkTabMod.Settings?.enableChronosPointerTimePriorityIntegration ??
-                  DefaultSettings.enableChronosPointerTimePriorityIntegration) ||
+            if (!ShouldReserveTimePriorityTimelineHeight ||
                 progress < 0.98f ||
                 MapCompat.CurrentMap == null ||
                 chronosRect.width <= 1f ||
@@ -100,13 +114,7 @@ namespace Better_Work_Tab.ModSupport
                 }
 
                 object timeline = timelineArgs[1];
-                _drawTimeline.Invoke(null, new object[]
-                {
-                    timeline,
-                    geometry,
-                    true,
-                    drawIncidentOverlay
-                });
+                DrawTimeline(timeline, geometry, drawIncidentOverlay);
 
                 PrepareScheduleCursor(chronosRect, priorityRowsRect, geometry, timeline, hourBoxWidth);
                 return true;
@@ -190,6 +198,7 @@ namespace Better_Work_Tab.ModSupport
                         typeof(float)
                     });
                 _drawTimeline = AccessTools.Method(_apiType, "DrawTimeline", new[] { timelineType, geometryType, typeof(bool), typeof(bool) });
+                _drawEmbeddedTimeline = AccessTools.Method(_apiType, "DrawEmbeddedTimeline", new[] { timelineType, geometryType, typeof(bool) });
                 _tryGetTimelineSnapshot = AccessTools.Method(_apiType, "TryGetTimelineSnapshot");
                 _geometryXAtLocalHour = AccessTools.Method(geometryType, "XAtLocalHour", new[] { typeof(float) });
             }
@@ -242,6 +251,28 @@ namespace Better_Work_Tab.ModSupport
             {
                 return false;
             }
+        }
+
+        private static void DrawTimeline(object timeline, object geometry, bool drawIncidentOverlay)
+        {
+            if (_drawEmbeddedTimeline != null)
+            {
+                _drawEmbeddedTimeline.Invoke(null, new object[]
+                {
+                    timeline,
+                    geometry,
+                    drawIncidentOverlay
+                });
+                return;
+            }
+
+            _drawTimeline.Invoke(null, new object[]
+            {
+                timeline,
+                geometry,
+                true,
+                drawIncidentOverlay
+            });
         }
 
         private static bool IsReady()
