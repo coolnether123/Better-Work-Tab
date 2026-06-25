@@ -106,7 +106,7 @@ namespace Better_Work_Tab.UI.RuleBuilder
         /// </summary>
         private void DrawHeader(Rect rect)
         {
-            RWWidgets.DrawBoxSolid(rect, RuleBuilderConstants.CardBackground);
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, RuleBuilderConstants.CardBackground);
             RWWidgets.DrawBox(rect, 1);
 
             // Title
@@ -133,13 +133,13 @@ namespace Better_Work_Tab.UI.RuleBuilder
             if (_state.SelectedRuleset != null && !_state.SelectedRuleset.IsDefault)
             {
                 Rect editButtonRect = new Rect(newButtonRect.x - 70f - 10f, rect.y + 6f, 70f, 28f);
-                if (RWWidgets.ButtonText(editButtonRect, "Edit"))
+                if (Better_Work_Tab.WidgetsCompat.ButtonText(editButtonRect, "Edit"))
                 {
                     OpenRenameDialog(_state.SelectedRuleset);
                 }
             }
 
-            if (RWWidgets.ButtonText(newButtonRect, "+ " + "BWT_New".Translate()))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(newButtonRect, "+ " + "BWT_New".Translate()))
             {
                 CreateNewRuleset();
             }
@@ -159,7 +159,7 @@ namespace Better_Work_Tab.UI.RuleBuilder
             string label = selected?.Name ?? "BWT_SelectRuleset".Translate();
 
             // Draw the button
-            if (RWWidgets.ButtonText(rect, label))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(rect, label))
             {
                 HandleRulesetClick(selected);
             }
@@ -293,3 +293,4 @@ namespace Better_Work_Tab.UI.RuleBuilder
         }
     }
 }
+

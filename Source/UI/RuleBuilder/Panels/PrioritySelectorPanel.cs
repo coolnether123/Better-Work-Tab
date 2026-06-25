@@ -31,7 +31,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
         /// </summary>
         public void Draw(Rect rect, RuleBuilderState state)
         {
-            RWWidgets.DrawBoxSolid(rect, RuleBuilderConstants.PanelBackgroundLight);
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, RuleBuilderConstants.PanelBackgroundLight);
             RWWidgets.DrawBox(rect, 1);
 
             Rect innerRect = rect.ContractedBy(8f);
@@ -64,7 +64,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             RWWidgets.Label(rect, workType.labelShort.CapitalizeFirst());
 
             Rect lineRect = new Rect(rect.x, rect.yMax - 2f, rect.width, 2f);
-            RWWidgets.DrawBoxSolid(lineRect, RuleBuilderConstants.HeaderColor * 0.5f);
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(lineRect, RuleBuilderConstants.HeaderColor * 0.5f);
 
             Text.Font = GameFont.Small;
             Text.Anchor = TextAnchor.UpperLeft;
@@ -165,7 +165,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
                 bgColor = RuleBuilderConstants.CardBackground;
             }
 
-            RWWidgets.DrawBoxSolid(rect, bgColor);
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, bgColor);
             
             // Draw special border when drag hovering
             if (isDragHover)
@@ -185,7 +185,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
                 ? Color.white
                 : priorityColor;
 
-            RWWidgets.DrawBoxSolid(indicatorRect, indicatorColor);
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(indicatorRect, indicatorColor);
             Text.Anchor = TextAnchor.MiddleCenter;
             GUI.color = isSelected ? priorityColor : Color.white;
 
@@ -214,7 +214,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
                     BadgeSize,
                     BadgeSize);
 
-                RWWidgets.DrawBoxSolid(badgeRect, RuleBuilderConstants.SuccessColor);
+                Better_Work_Tab.WidgetsCompat.DrawBoxSolid(badgeRect, RuleBuilderConstants.SuccessColor);
                 Text.Anchor = TextAnchor.MiddleCenter;
                 Text.Font = GameFont.Tiny;
                 GUI.color = Color.white;
@@ -232,7 +232,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             GUI.color = Color.white;
 
             // Click handler
-            if (RWWidgets.ButtonInvisible(rect))
+            if (Better_Work_Tab.WidgetsCompat.ButtonInvisible(rect))
             {
                 state.SelectedPriority = priority;
             }
@@ -343,13 +343,13 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
 
             int priority = ParsePriorityBuffer(maxPriority, fallbackPriority);
 
-            if (RWWidgets.ButtonText(keepRect, "BWT_KeepPriority".Translate()))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(keepRect, "BWT_KeepPriority".Translate()))
             {
                 state.SelectedPriority = priority;
                 _addPriorityBuffer = state.SelectedPriority.ToString();
             }
 
-            if (RWWidgets.ButtonText(pickerRect, "BWT_PickPriority".Translate()))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(pickerRect, "BWT_PickPriority".Translate()))
             {
                 ShowPriorityPicker(state, priority);
             }
@@ -481,3 +481,4 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
         }
     }
 }
+

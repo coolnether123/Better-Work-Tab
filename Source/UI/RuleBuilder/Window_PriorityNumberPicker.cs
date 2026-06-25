@@ -123,7 +123,7 @@ namespace Better_Work_Tab.UI.RuleBuilder
                                 bucket.End == _selectedBucket.End;
 
                 DrawTextButton(buttonRect, bucket.Label, selected);
-                if (RWWidgets.ButtonInvisible(buttonRect))
+                if (Better_Work_Tab.WidgetsCompat.ButtonInvisible(buttonRect))
                 {
                     _selectedBucket = bucket;
                     if (!bucket.Contains(_selectedPriority))
@@ -138,7 +138,7 @@ namespace Better_Work_Tab.UI.RuleBuilder
 
         private void DrawBucketPanel(Rect rect)
         {
-            RWWidgets.DrawBoxSolid(rect, RuleBuilderConstants.PanelBackground);
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, RuleBuilderConstants.PanelBackground);
             RWWidgets.DrawBox(rect, 1);
 
             Text.Font = GameFont.Small;
@@ -186,7 +186,7 @@ namespace Better_Work_Tab.UI.RuleBuilder
 
         private void DrawPickedValuePanel(Rect rect)
         {
-            RWWidgets.DrawBoxSolid(rect, new Color(0.12f, 0.12f, 0.12f, 0.95f));
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, new Color(0.12f, 0.12f, 0.12f, 0.95f));
             RWWidgets.DrawBox(rect, 1);
 
             Text.Anchor = TextAnchor.MiddleCenter;
@@ -216,12 +216,12 @@ namespace Better_Work_Tab.UI.RuleBuilder
             Rect okRect = new Rect(rect.xMax - 50f, rect.y, 50f, rect.height);
             Rect cancelRect = new Rect(okRect.x - 58f, rect.y, 52f, rect.height);
 
-            if (RWWidgets.ButtonText(cancelRect, "BWT_Cancel".Translate()))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(cancelRect, "BWT_Cancel".Translate()))
             {
                 Close();
             }
 
-            if (RWWidgets.ButtonText(okRect, "OK"))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(okRect, "OK"))
             {
                 ConfirmSelection();
             }
@@ -232,7 +232,7 @@ namespace Better_Work_Tab.UI.RuleBuilder
         private void DrawPriorityButton(Rect rect, int priority, bool selected)
         {
             DrawTextButton(rect, priority.ToString(), selected);
-            if (RWWidgets.ButtonInvisible(rect))
+            if (Better_Work_Tab.WidgetsCompat.ButtonInvisible(rect))
             {
                 SelectPriority(priority);
             }
@@ -245,7 +245,7 @@ namespace Better_Work_Tab.UI.RuleBuilder
                 : (Mouse.IsOver(rect) ? RuleBuilderConstants.CardBackgroundHover : RuleBuilderConstants.CardBackground);
             Color border = selected ? RuleBuilderConstants.SuccessColor : new Color(0.32f, 0.32f, 0.32f);
 
-            RWWidgets.DrawBoxSolid(rect, background);
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, background);
             GUI.color = border;
             RWWidgets.DrawBox(rect, selected ? 2 : 1);
 
@@ -418,3 +418,4 @@ namespace Better_Work_Tab.UI.RuleBuilder
         }
     }
 }
+

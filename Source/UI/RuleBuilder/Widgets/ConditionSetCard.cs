@@ -41,7 +41,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
 
             // Minimal frame
             RWWidgets.DrawBox(rect, 1);
-            RWWidgets.DrawBoxSolid(rect, new Color(0, 0, 0, 0.06f));
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, new Color(0, 0, 0, 0.06f));
 
             Rect innerRect = rect.ContractedBy(6f);
 
@@ -76,7 +76,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
             }
 
             // Select card
-            if (RWWidgets.ButtonInvisible(rect))
+            if (Better_Work_Tab.WidgetsCompat.ButtonInvisible(rect))
             {
                 state.SelectedRule = rule;
             }
@@ -159,7 +159,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
             if (!isReadOnly)
             {
                 Rect addRect = new Rect(rect.x, curY + 2f, rect.width, 24f);
-                if (RWWidgets.ButtonText(addRect, "+ " + "BWT_AddCondition".Translate()))
+                if (Better_Work_Tab.WidgetsCompat.ButtonText(addRect, "+ " + "BWT_AddCondition".Translate()))
                 {
                     ConditionPickerMenu.Show(parameters, state);
                 }
@@ -175,7 +175,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
                 ? new Color(0.3f, 0.5f, 0.3f, 0.25f)
                 : (Mouse.IsOver(rect) ? RuleBuilderConstants.CardBackgroundHover : new Color(0, 0, 0, 0.03f));
 
-            RWWidgets.DrawBoxSolid(rect, rowColor);
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, rowColor);
             RWWidgets.DrawLineHorizontal(rect.x, rect.yMax - 1f, rect.width);
 
             Rect labelRect = new Rect(rect.x + 6f, rect.y, rect.width * 0.35f, rect.height);
@@ -197,7 +197,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
                 GUI.color = RuleBuilderConstants.LabelColor;
                 RWWidgets.Label(valueRect, condition.GetValueDisplay());
 
-                if (!isReadOnly && RWWidgets.ButtonInvisible(valueRect))
+                if (!isReadOnly && Better_Work_Tab.WidgetsCompat.ButtonInvisible(valueRect))
                 {
                     _editingConditionKey = condition.Key;
                 }
@@ -262,3 +262,4 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
         }
     }
 }
+
