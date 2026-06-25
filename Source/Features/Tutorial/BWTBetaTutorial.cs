@@ -781,10 +781,10 @@ namespace Better_Work_Tab.Features.Tutorial
         {
             float width = Mathf.Min(CardWidth, Mathf.Max(320f, inRect.width - 32f));
             float bodyHeight;
-            using (new TextBlock(GameFont.Small))
-            {
-                bodyHeight = Text.CalcHeight(body, width - CardPadding * 2f);
-            }
+            GameFont sizeOldFont = Text.Font;
+            Text.Font = GameFont.Small;
+            bodyHeight = Text.CalcHeight(body, width - CardPadding * 2f);
+            Text.Font = sizeOldFont;
 
             float height = Mathf.Clamp(122f + bodyHeight, 180f, 320f);
             return new Vector2(width, height);
@@ -894,10 +894,10 @@ namespace Better_Work_Tab.Features.Tutorial
             const float badgeHeight = 24f;
             const float padding = 8f;
             Vector2 size;
-            using (new TextBlock(GameFont.Small))
-            {
-                size = Text.CalcSize(text);
-            }
+            GameFont sizeOldFont = Text.Font;
+            Text.Font = GameFont.Small;
+            size = Text.CalcSize(text);
+            Text.Font = sizeOldFont;
 
             float width = Mathf.Max(92f, size.x + padding * 2f);
             Rect badgeRect = new Rect(
