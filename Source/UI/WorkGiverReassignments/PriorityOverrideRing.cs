@@ -37,8 +37,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         internal static void Draw(Rect priorityBox)
         {
             Rect ringRect = RingRect(priorityBox);
-            bool ringHovered = MouseOverVisibleRing(priorityBox);
-            DrawGoldBorder(ringRect, ringHovered, ringHovered ? 3 : 2);
+            DrawGoldBorder(ringRect);
         }
 
         internal static void DrawGoldBorder(Rect rect, bool hovered = false, int thickness = 2)
