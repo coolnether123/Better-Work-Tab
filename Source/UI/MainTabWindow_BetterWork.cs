@@ -8,6 +8,7 @@ using Better_Work_Tab.Features.Dividers;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.Testing;
 using Better_Work_Tab.Features.TimePriority;
+using Better_Work_Tab.Features.Tutorial;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.DragDrop;
@@ -124,6 +125,7 @@ namespace Better_Work_Tab.UI
             bool keepOpen = settings?.disableLeftClickClose ?? false;
             bool allowMapClose = settings?.closeOnMapClick ?? true;
             closeOnClickedOutside = !keepOpen && allowMapClose;
+            UpdateTutorialAcceptKeyState();
 
             _lastSortColumn = null;
             _lastSortDescending = false;
@@ -260,8 +262,19 @@ namespace Better_Work_Tab.UI
             DoWindowContentsProfiled(inRect);
         }
 
+        public override void OnAcceptKeyPressed()
+        {
+            if (BWTBetaTutorial.TryHandleAcceptKey())
+            {
+                return;
+            }
+
+            base.OnAcceptKeyPressed();
+        }
+
         private void DoWindowContentsProfiled(Rect inRect)
         {
+            UpdateTutorialAcceptKeyState();
             PawnTable table = GetPawnTable();
             if (table == null) return;
 
@@ -307,7 +320,8 @@ namespace Better_Work_Tab.UI
                 {
                     SpineTiming.Time("WorkTab.Input", () =>
                     {
-                        bool handledSubWorkGesture = TryHandleContextSettingsClick(inRect, organizer?.Layout, evt)
+                        bool handledSubWorkGesture = BWTBetaTutorial.TryHandleInput(inRect, organizer?.Layout, evt)
+                            || TryHandleContextSettingsClick(inRect, organizer?.Layout, evt)
                             || TimePriorityPlannerPrototype.TryHandleInput(organizer?.Layout, evt)
                             || TryHandleSubWorkExitGesture(organizer?.Layout)
                             || TryHandleSubWorkHeaderOpen(organizer?.Layout);
@@ -323,7 +337,8 @@ namespace Better_Work_Tab.UI
                 }
                 else
                 {
-                    bool handledSubWorkGesture = TryHandleContextSettingsClick(inRect, organizer?.Layout, evt)
+                    bool handledSubWorkGesture = BWTBetaTutorial.TryHandleInput(inRect, organizer?.Layout, evt)
+                        || TryHandleContextSettingsClick(inRect, organizer?.Layout, evt)
                         || TimePriorityPlannerPrototype.TryHandleInput(organizer?.Layout, evt)
                         || TryHandleSubWorkExitGesture(organizer?.Layout)
                         || TryHandleSubWorkHeaderOpen(organizer?.Layout);
@@ -341,6 +356,7 @@ namespace Better_Work_Tab.UI
             }
 
             DrawWorkTable(table, organizer?.Layout, inRect);
+
             TimePriorityPlannerPrototype.Draw(organizer?.Layout);
 
             if (SpineTiming.Enabled)
@@ -365,10 +381,20 @@ namespace Better_Work_Tab.UI
             {
                 DrawInfoButton(infoRect);
             }
+
             DrawSubWorkExitButton(inRect);
             DrawBottomCounters(inRect, table);
+            BWTBetaTutorial.TickAndDraw(inRect, organizer?.Layout);
             NativeCursorPosition.ProcessPendingMove();
             NativeCursorPosition.DrawPendingMoveCue();
+        }
+
+        private void UpdateTutorialAcceptKeyState()
+        {
+            // Keep RimWorld's accept-key dispatch enabled. The override above
+            // consumes Enter while the beta tutorial is active and otherwise
+            // falls back to the vanilla main-tab close behavior.
+            closeOnAccept = true;
         }
 
         private void ResizeWindowBottomAnchoredIfRequestedSizeChanged(bool force = false)
