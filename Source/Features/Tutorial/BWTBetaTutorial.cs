@@ -26,9 +26,11 @@ namespace Better_Work_Tab.Features.Tutorial
         SubWorkResetOverride = 60,
         SubWorkResetConfirmed = 70,
         SubWorkExitPrompt = 80,
+        SubWorkLeft = 85,
         TimePriorityPrompt = 90,
         TimePriorityHours = 100,
         TimePriorityClosePrompt = 110,
+        TimePriorityClosed = 115,
         TimePrioritySubWork = 120,
         MaxPriority = 130,
         AltClickSettings = 140,
@@ -47,7 +49,9 @@ namespace Better_Work_Tab.Features.Tutorial
         private static int _observedSyncVersion;
         private static int _observedOverrideCount;
         private static bool _observedSubWorkActive;
-        private static bool _observedTimePriorityOpen;
+        private static bool _hasWorkTabStateSnapshot;
+        private static bool _lastSubWorkActive;
+        private static bool _lastTimePriorityVisible;
 
         internal static bool IsActive
         {
@@ -145,11 +149,40 @@ namespace Better_Work_Tab.Features.Tutorial
             }
 
             BWTBetaTutorialStep step = NormalizeStep(settings);
-            if (step == BWTBetaTutorialStep.SubWorkPrompt && SubWorkDrilldownState.IsActive)
+            bool isSubWorkActive = SubWorkDrilldownState.IsActive;
+            bool isTimePriorityVisible = TimePriorityPlannerPrototype.IsVisible;
+            if (!_hasWorkTabStateSnapshot)
+            {
+                _hasWorkTabStateSnapshot = true;
+                _lastSubWorkActive = isSubWorkActive;
+                _lastTimePriorityVisible = isTimePriorityVisible;
+            }
+
+            bool enteredSubWork = isSubWorkActive && !_lastSubWorkActive;
+            bool leftSubWork = !isSubWorkActive && _lastSubWorkActive;
+            bool openedTimePriority = isTimePriorityVisible && !_lastTimePriorityVisible;
+            bool closedTimePriority = !isTimePriorityVisible && _lastTimePriorityVisible;
+
+            _lastSubWorkActive = isSubWorkActive;
+            _lastTimePriorityVisible = isTimePriorityVisible;
+
+            if (leftSubWork &&
+                step >= BWTBetaTutorialStep.SubWorkHeaders &&
+                step <= BWTBetaTutorialStep.SubWorkExitPrompt)
+            {
+                SetStep(BWTBetaTutorialStep.SubWorkLeft);
+            }
+            else if (closedTimePriority &&
+                     step >= BWTBetaTutorialStep.TimePriorityHours &&
+                     step <= BWTBetaTutorialStep.TimePriorityClosePrompt)
+            {
+                SetStep(BWTBetaTutorialStep.TimePriorityClosed);
+            }
+            else if ((enteredSubWork || isSubWorkActive) && step == BWTBetaTutorialStep.SubWorkPrompt)
             {
                 SetStep(BWTBetaTutorialStep.SubWorkHeaders);
             }
-            else if (step == BWTBetaTutorialStep.TimePriorityPrompt && TimePriorityPlannerPrototype.IsVisible)
+            else if ((openedTimePriority || isTimePriorityVisible) && step == BWTBetaTutorialStep.TimePriorityPrompt)
             {
                 SetStep(BWTBetaTutorialStep.TimePriorityHours);
             }
@@ -206,7 +239,6 @@ namespace Better_Work_Tab.Features.Tutorial
             _observedSyncVersion = WorkGiverReassignmentManager.CurrentSyncVersion;
             _observedOverrideCount = CountActiveSubWorkPawnOverrides();
             _observedSubWorkActive = SubWorkDrilldownState.IsActive;
-            _observedTimePriorityOpen = TimePriorityPlannerPrototype.IsVisible;
         }
 
         private static void AdvanceFromObservedActions(BWTBetaTutorialStep step)
@@ -241,7 +273,7 @@ namespace Better_Work_Tab.Features.Tutorial
                 case BWTBetaTutorialStep.SubWorkExitPrompt:
                     if (_observedSubWorkActive && !SubWorkDrilldownState.IsActive)
                     {
-                        SetStep(BWTBetaTutorialStep.TimePriorityPrompt);
+                        SetStep(BWTBetaTutorialStep.SubWorkLeft);
                     }
                     break;
 
@@ -255,16 +287,14 @@ namespace Better_Work_Tab.Features.Tutorial
                 case BWTBetaTutorialStep.TimePriorityHours:
                     if (!TimePriorityPlannerPrototype.IsVisible)
                     {
-                        SetStep(_observedTimePriorityOpen
-                            ? BWTBetaTutorialStep.TimePrioritySubWork
-                            : BWTBetaTutorialStep.TimePriorityPrompt);
+                        SetStep(BWTBetaTutorialStep.TimePriorityClosed);
                     }
                     break;
 
                 case BWTBetaTutorialStep.TimePriorityClosePrompt:
                     if (!TimePriorityPlannerPrototype.IsVisible)
                     {
-                        SetStep(BWTBetaTutorialStep.TimePrioritySubWork);
+                        SetStep(BWTBetaTutorialStep.TimePriorityClosed);
                     }
                     break;
             }
@@ -337,6 +367,12 @@ namespace Better_Work_Tab.Features.Tutorial
                         "Return to normal work types by clicking the X at the top right or by Control-clicking a header.",
                         null);
 
+                case BWTBetaTutorialStep.SubWorkLeft:
+                    return new TutorialOverlayContent(
+                        "Back to normal work",
+                        "You left the sub-work job view. The normal work columns are active again, and Ctrl-clicking a header will re-open that work type's sub-work jobs.",
+                        "Next");
+
                 case BWTBetaTutorialStep.TimePriorityPrompt:
                     return new TutorialOverlayContent(
                         "Time priority schedules",
@@ -354,6 +390,12 @@ namespace Better_Work_Tab.Features.Tutorial
                         "Close the schedule",
                         "Control-click any time slot in the open schedule to close it. The Work tab returns to the normal priority row.",
                         null);
+
+                case BWTBetaTutorialStep.TimePriorityClosed:
+                    return new TutorialOverlayContent(
+                        "Schedule closed",
+                        "You closed the time-priority schedule. The normal priority row is visible again, and the saved hourly priorities keep applying in the background.",
+                        "Next");
 
                 case BWTBetaTutorialStep.TimePrioritySubWork:
                     return new TutorialOverlayContent(
@@ -424,12 +466,22 @@ namespace Better_Work_Tab.Features.Tutorial
                 case BWTBetaTutorialStep.SubWorkExitPrompt:
                     return BWTTutorialGeometry.SubWorkExit(inRect, layout);
 
+                case BWTBetaTutorialStep.SubWorkLeft:
+                    return BWTTutorialGeometry.WorkHeaders(inRect, layout);
+
                 case BWTBetaTutorialStep.TimePriorityPrompt:
                     return BWTTutorialGeometry.FirstPriorityCell(inRect, layout, requireSubWorkColumn: false);
 
                 case BWTBetaTutorialStep.TimePriorityHours:
                 case BWTBetaTutorialStep.TimePriorityClosePrompt:
                     return BWTTutorialGeometry.TimePriorityEditor(inRect, layout);
+
+                case BWTBetaTutorialStep.TimePriorityClosed:
+                    return BWTTutorialGeometry.FirstPriorityCell(
+                        inRect,
+                        layout,
+                        requireSubWorkColumn: false,
+                        allowDisabledFallback: false);
 
                 case BWTBetaTutorialStep.TimePrioritySubWork:
                     rects.AddRange(BWTTutorialGeometry.WorkHeaders(inRect, layout));
@@ -457,7 +509,9 @@ namespace Better_Work_Tab.Features.Tutorial
             switch (step)
             {
                 case BWTBetaTutorialStep.SubWorkPrompt:
+                case BWTBetaTutorialStep.SubWorkLeft:
                 case BWTBetaTutorialStep.TimePriorityPrompt:
+                case BWTBetaTutorialStep.TimePriorityClosed:
                 case BWTBetaTutorialStep.TimePriorityClosePrompt:
                     return "Ctrl + click";
                 case BWTBetaTutorialStep.SubWorkExitPrompt:
@@ -500,8 +554,14 @@ namespace Better_Work_Tab.Features.Tutorial
                 case BWTBetaTutorialStep.SubWorkResetConfirmed:
                     SetStep(BWTBetaTutorialStep.SubWorkExitPrompt);
                     break;
+                case BWTBetaTutorialStep.SubWorkLeft:
+                    SetStep(BWTBetaTutorialStep.TimePriorityPrompt);
+                    break;
                 case BWTBetaTutorialStep.TimePriorityHours:
                     SetStep(BWTBetaTutorialStep.TimePriorityClosePrompt);
+                    break;
+                case BWTBetaTutorialStep.TimePriorityClosed:
+                    SetStep(BWTBetaTutorialStep.TimePrioritySubWork);
                     break;
                 case BWTBetaTutorialStep.TimePrioritySubWork:
                     SetStep(BWTBetaTutorialStep.MaxPriority);

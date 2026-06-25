@@ -24,7 +24,9 @@ namespace Better_Work_Tab.Features.Tutorial
         ContextSettings = 100,
         SettingsShortcut = 105,
         SubWorkJobs = 110,
+        SubWorkLeft = 115,
         TimePriorities = 120,
+        TimePrioritiesClosed = 125,
         MaxPriorities = 130,
         Complete = 140,
         Completed = 1000
@@ -123,20 +125,35 @@ namespace Better_Work_Tab.Features.Tutorial
 
         internal static void ObserveWorkTabState()
         {
+            BWTGeneralTutorialStep? pivotStep = null;
+
             bool isSubWorkActive = SubWorkDrilldownState.IsActive;
             if (isSubWorkActive && !wasSubWorkActive)
             {
-                SetStep(BWTGeneralTutorialStep.SubWorkJobs);
+                pivotStep = BWTGeneralTutorialStep.SubWorkJobs;
+            }
+            else if (!isSubWorkActive && wasSubWorkActive)
+            {
+                pivotStep = BWTGeneralTutorialStep.SubWorkLeft;
             }
 
             bool isTimePriorityVisible = TimePriorityPlannerPrototype.IsVisible;
             if (isTimePriorityVisible && !wasTimePriorityVisible)
             {
-                SetStep(BWTGeneralTutorialStep.TimePriorities);
+                pivotStep = BWTGeneralTutorialStep.TimePriorities;
+            }
+            else if (!isTimePriorityVisible && wasTimePriorityVisible && !pivotStep.HasValue)
+            {
+                pivotStep = BWTGeneralTutorialStep.TimePrioritiesClosed;
             }
 
             wasSubWorkActive = isSubWorkActive;
             wasTimePriorityVisible = isTimePriorityVisible;
+
+            if (pivotStep.HasValue)
+            {
+                SetStep(pivotStep.Value);
+            }
         }
 
         internal static void ObserveInteraction(BWTTutorialInteraction interaction)
@@ -311,10 +328,22 @@ namespace Better_Work_Tab.Features.Tutorial
                         "Ctrl-click a work header to open sub-work jobs. The headers become the sub-jobs for that work type, with global and pawn-specific priorities.",
                         "Next");
 
+                case BWTGeneralTutorialStep.SubWorkLeft:
+                    return new TutorialOverlayContent(
+                        "Back to work types",
+                        "You left the sub-work job view. The Work tab is back to normal work types, and you can re-enter sub-work jobs with Ctrl-click on a header.",
+                        "Next");
+
                 case BWTGeneralTutorialStep.TimePriorities:
                     return new TutorialOverlayContent(
                         "2.0 time priorities",
                         "Ctrl-click a priority cell to schedule different priorities by hour. Sub-work jobs can also have their own time priority schedules.",
+                        "Next");
+
+                case BWTGeneralTutorialStep.TimePrioritiesClosed:
+                    return new TutorialOverlayContent(
+                        "Schedule closed",
+                        "You closed the time-priority schedule. The row returns to its normal priority cells, and the hourly priorities continue applying in the background.",
                         "Next");
 
                 case BWTGeneralTutorialStep.MaxPriorities:
@@ -362,12 +391,14 @@ namespace Better_Work_Tab.Features.Tutorial
                 case BWTGeneralTutorialStep.DragDrop:
                 case BWTGeneralTutorialStep.GroupDrag:
                 case BWTGeneralTutorialStep.SubWorkJobs:
+                case BWTGeneralTutorialStep.SubWorkLeft:
                     return BWTTutorialGeometry.WorkHeaders(inRect, layout);
                 case BWTGeneralTutorialStep.ContextSettings:
                     return BWTTutorialGeometry.ContextSettingsHint(inRect);
                 case BWTGeneralTutorialStep.SettingsShortcut:
                     return BWTTutorialGeometry.InfoButton(inRect);
                 case BWTGeneralTutorialStep.TimePriorities:
+                case BWTGeneralTutorialStep.TimePrioritiesClosed:
                 case BWTGeneralTutorialStep.MaxPriorities:
                     return BWTTutorialGeometry.FirstPriorityCell(
                         inRect,
@@ -417,6 +448,8 @@ namespace Better_Work_Tab.Features.Tutorial
                     return "Open settings";
                 case BWTGeneralTutorialStep.SubWorkJobs:
                 case BWTGeneralTutorialStep.TimePriorities:
+                case BWTGeneralTutorialStep.SubWorkLeft:
+                case BWTGeneralTutorialStep.TimePrioritiesClosed:
                     return "Ctrl + click";
                 default:
                     return null;
@@ -466,7 +499,13 @@ namespace Better_Work_Tab.Features.Tutorial
                 case BWTGeneralTutorialStep.SubWorkJobs:
                     SetStep(BWTGeneralTutorialStep.TimePriorities);
                     break;
+                case BWTGeneralTutorialStep.SubWorkLeft:
+                    SetStep(BWTGeneralTutorialStep.TimePriorities);
+                    break;
                 case BWTGeneralTutorialStep.TimePriorities:
+                    SetStep(BWTGeneralTutorialStep.MaxPriorities);
+                    break;
+                case BWTGeneralTutorialStep.TimePrioritiesClosed:
                     SetStep(BWTGeneralTutorialStep.MaxPriorities);
                     break;
                 case BWTGeneralTutorialStep.MaxPriorities:
