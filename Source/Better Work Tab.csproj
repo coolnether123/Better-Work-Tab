@@ -76,6 +76,12 @@
     <Compile Include="Features\Rules\WorkAssignmentRule.cs" />
     <Compile Include="Features\Rules\WorkAssignmentParameters.cs" />
     <Compile Include="Features\Rules\RuleParameterRegistry.cs" />
+    <Compile Include="Features\Rules\RuleBuilder2\RuleBuilder2Model.cs" />
+    <Compile Include="Features\Rules\RuleBuilder2\RuleBuilder2ConditionCatalog.cs" />
+    <Compile Include="Features\Rules\RuleBuilder2\RuleBuilder2Evaluator.cs" />
+    <Compile Include="Features\Rules\RuleBuilder2\RuleBuilder2ApplyService.cs" />
+    <Compile Include="Features\Rules\RuleBuilder2\RuleBuilder2MigrationService.cs" />
+    <Compile Include="Features\Rules\RuleBuilder2\RuleBuilder2DraftGenerator.cs" />
     <Compile Include="Features\ColumnBaselineManager.cs" />
     <Compile Include="Features\Dividers\DividerCollapseAnimationState.cs" />
     <Compile Include="Features\Dividers\DividerInsertionAnimationState.cs" />
@@ -271,6 +277,9 @@
     <Compile Include="UI\RuleBuilder\Widgets\ConditionDragController.cs" />
     <Compile Include="UI\RuleBuilder\Widgets\PriorityChainWidget.cs" />
     <Compile Include="UI\RuleBuilder\Widgets\WorkTypeCard.cs" />
+    <Compile Include="UI\RuleBuilderV2\RuleBuilder2WorkTabBridge.cs" />
+    <Compile Include="UI\RuleBuilderV2\RuleBuilder2TutorialController.cs" />
+    <Compile Include="UI\RuleBuilderV2\Window_RuleBuilder2.cs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Krafs.Publicizer">

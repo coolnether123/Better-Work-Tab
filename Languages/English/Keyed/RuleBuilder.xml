@@ -90,4 +90,134 @@
   <BWT_NoRulesInRuleset>No rules in ruleset</BWT_NoRulesInRuleset>
   <BWT_DropHere>Drop here to duplicate</BWT_DropHere>
   <BWT_DragToDuplicate>Drag to duplicate these rules to another work type or priority.</BWT_DragToDuplicate>
+  <BWT_Done>Done</BWT_Done>
+  <BWT_Apply>Apply</BWT_Apply>
+  <BWT_Change>Change</BWT_Change>
+  <BWT_RuleBuilder2_Title>Rule Builder 2.0</BWT_RuleBuilder2_Title>
+  <BWT_RuleBuilder2_OpenClassic>Open classic ruleset builder...</BWT_RuleBuilder2_OpenClassic>
+  <BWT_RuleBuilder2_Dashboard>Ruleset dashboard</BWT_RuleBuilder2_Dashboard>
+  <BWT_RuleBuilder2_Enabled>Enabled</BWT_RuleBuilder2_Enabled>
+  <BWT_RuleBuilder2_CreateBlank>Create blank ruleset</BWT_RuleBuilder2_CreateBlank>
+  <BWT_RuleBuilder2_Duplicate>Duplicate ruleset</BWT_RuleBuilder2_Duplicate>
+  <BWT_RuleBuilder2_CopyDefault>Copy default ruleset</BWT_RuleBuilder2_CopyDefault>
+  <BWT_RuleBuilder2_GenerateDraft>Generate draft from current Work tab</BWT_RuleBuilder2_GenerateDraft>
+  <BWT_RuleBuilder2_ImportClassic>Import or migrate classic rules</BWT_RuleBuilder2_ImportClassic>
+  <BWT_RuleBuilder2_AddRule>Add rule card</BWT_RuleBuilder2_AddRule>
+  <BWT_RuleBuilder2_Preview>Preview</BWT_RuleBuilder2_Preview>
+  <BWT_RuleBuilder2_RuleCard>Rule card</BWT_RuleBuilder2_RuleCard>
+  <BWT_RuleBuilder2_Unconfirmed>Editing. Confirm this card to fold it into the ruleset.</BWT_RuleBuilder2_Unconfirmed>
+  <BWT_RuleBuilder2_StepTarget>1. Choose target</BWT_RuleBuilder2_StepTarget>
+  <BWT_RuleBuilder2_WorkTabHint>Tip: while this builder is open, click a Work tab header or priority box to seed the target and pawn context. Ctrl-click still opens sub-work.</BWT_RuleBuilder2_WorkTabHint>
+  <BWT_RuleBuilder2_StepConditions>2. Choose conditions</BWT_RuleBuilder2_StepConditions>
+  <BWT_RuleBuilder2_NoConditions>No conditions yet. Add one from the catalog.</BWT_RuleBuilder2_NoConditions>
+  <BWT_RuleBuilder2_StepAction>3. Choose action</BWT_RuleBuilder2_StepAction>
+  <BWT_RuleBuilder2_ScheduleHint>Switch the action to a time schedule to edit 24 hour blocks here.</BWT_RuleBuilder2_ScheduleHint>
+  <BWT_RuleBuilder2_StepPreview>4. Preview</BWT_RuleBuilder2_StepPreview>
+  <BWT_RuleBuilder2_RunPreview>Run preview</BWT_RuleBuilder2_RunPreview>
+  <BWT_RuleBuilder2_PreviewHint>Preview before confirming to see affected pawns and warnings.</BWT_RuleBuilder2_PreviewHint>
+  <BWT_RuleBuilder2_ConfirmCard>Confirm card and add next</BWT_RuleBuilder2_ConfirmCard>
+  <BWT_RuleBuilder2_NewRule>New rule</BWT_RuleBuilder2_NewRule>
+  <BWT_RuleBuilder2_TargetSummary>Target: {0}</BWT_RuleBuilder2_TargetSummary>
+  <BWT_RuleBuilder2_PawnFallback>Pawn</BWT_RuleBuilder2_PawnFallback>
+  <BWT_RuleBuilder2_WorkFallback>Work</BWT_RuleBuilder2_WorkFallback>
+  <BWT_RuleBuilder2_SkillFallback>Skill</BWT_RuleBuilder2_SkillFallback>
+  <BWT_RuleBuilder2_TargetFallback>target</BWT_RuleBuilder2_TargetFallback>
+  <BWT_RuleBuilder2_TraitFallback>trait</BWT_RuleBuilder2_TraitFallback>
+  <BWT_RuleBuilder2_CapacityFallback>Capacity</BWT_RuleBuilder2_CapacityFallback>
+  <BWT_RuleBuilder2_XenotypeFallback>Xenotype</BWT_RuleBuilder2_XenotypeFallback>
+  <BWT_RuleBuilder2_RelevantFallback>Relevant</BWT_RuleBuilder2_RelevantFallback>
+  <BWT_RuleBuilder2_AnyGender>Any gender</BWT_RuleBuilder2_AnyGender>
+  <BWT_RuleBuilder2_GenderMale>Male</BWT_RuleBuilder2_GenderMale>
+  <BWT_RuleBuilder2_GenderFemale>Female</BWT_RuleBuilder2_GenderFemale>
+  <BWT_RuleBuilder2_Assigned>Assigned</BWT_RuleBuilder2_Assigned>
+  <BWT_RuleBuilder2_NoCondition>No condition</BWT_RuleBuilder2_NoCondition>
+  <BWT_RuleBuilder2_ReviewCondition>Review condition</BWT_RuleBuilder2_ReviewCondition>
+  <BWT_RuleBuilder2_MatchedConditions>Matched Conditions</BWT_RuleBuilder2_MatchedConditions>
+  <BWT_RuleBuilder2_AppliesNewPriority>Applies. New priority: {0}</BWT_RuleBuilder2_AppliesNewPriority>
+  <BWT_RuleBuilder2_DoesNotApplyFailed>Does not apply. Failed: {0}</BWT_RuleBuilder2_DoesNotApplyFailed>
+  <BWT_RuleBuilder2_Matched>Matched</BWT_RuleBuilder2_Matched>
+  <BWT_RuleBuilder2_NotMatched>Not matched</BWT_RuleBuilder2_NotMatched>
+  <BWT_RuleBuilder2_CurrentToNew>Current {0} -&gt; {1}</BWT_RuleBuilder2_CurrentToNew>
+  <BWT_RuleBuilder2_ApplyStatus>{0} change(s)</BWT_RuleBuilder2_ApplyStatus>
+  <BWT_RuleBuilder2_ApplyStatusWarnings>{0} change(s); {1} warning(s)</BWT_RuleBuilder2_ApplyStatusWarnings>
+  <BWT_RuleBuilder2_ActionSetPriority>Set priority</BWT_RuleBuilder2_ActionSetPriority>
+  <BWT_RuleBuilder2_ActionDisable>Disable target</BWT_RuleBuilder2_ActionDisable>
+  <BWT_RuleBuilder2_ActionFollowGlobal>Follow global/default</BWT_RuleBuilder2_ActionFollowGlobal>
+  <BWT_RuleBuilder2_ActionSetTimeSchedule>Set time schedule</BWT_RuleBuilder2_ActionSetTimeSchedule>
+  <BWT_RuleBuilder2_ActionSetSubWorkSchedule>Set sub-work schedule</BWT_RuleBuilder2_ActionSetSubWorkSchedule>
+  <BWT_RuleBuilder2_ActionText_NoAction>No action</BWT_RuleBuilder2_ActionText_NoAction>
+  <BWT_RuleBuilder2_ActionText_Disable>Disable {0} for matching pawns</BWT_RuleBuilder2_ActionText_Disable>
+  <BWT_RuleBuilder2_ActionText_FollowGlobal>Follow global/default priority for {0}</BWT_RuleBuilder2_ActionText_FollowGlobal>
+  <BWT_RuleBuilder2_ActionText_Schedule>Set {0} to scheduled priorities</BWT_RuleBuilder2_ActionText_Schedule>
+  <BWT_RuleBuilder2_ActionText_SetPriority>Set {0} to priority {1}</BWT_RuleBuilder2_ActionText_SetPriority>
+  <BWT_RuleBuilder2_WarningMissingPawnOrTarget>Missing pawn or target.</BWT_RuleBuilder2_WarningMissingPawnOrTarget>
+  <BWT_RuleBuilder2_ConditionText_SkillMinimum>{0} skill is at least {1}</BWT_RuleBuilder2_ConditionText_SkillMinimum>
+  <BWT_RuleBuilder2_ConditionText_SkillMaximum>{0} skill is at most {1}</BWT_RuleBuilder2_ConditionText_SkillMaximum>
+  <BWT_RuleBuilder2_ConditionText_Passion>Has {0} passion for {1}</BWT_RuleBuilder2_ConditionText_Passion>
+  <BWT_RuleBuilder2_ConditionText_Trait>Has trait {0}</BWT_RuleBuilder2_ConditionText_Trait>
+  <BWT_RuleBuilder2_ConditionText_CapacityMinimum>{0} is at least {1}</BWT_RuleBuilder2_ConditionText_CapacityMinimum>
+  <BWT_RuleBuilder2_ConditionText_Xenotype>Xenotype is {0}</BWT_RuleBuilder2_ConditionText_Xenotype>
+  <BWT_RuleBuilder2_ConditionText_Gender>Gender is {0}</BWT_RuleBuilder2_ConditionText_Gender>
+  <BWT_RuleBuilder2_ConditionText_ExistingPriorityAtLeast>Current priority is at least {0}</BWT_RuleBuilder2_ConditionText_ExistingPriorityAtLeast>
+  <BWT_RuleBuilder2_ConditionText_ExistingPriorityEquals>Current priority is {0}</BWT_RuleBuilder2_ConditionText_ExistingPriorityEquals>
+  <BWT_RuleBuilder2_ConditionText_Assigned>Currently assigned to this work</BWT_RuleBuilder2_ConditionText_Assigned>
+  <BWT_RuleBuilder2_ConditionText_NotAssigned>Currently not assigned to this work</BWT_RuleBuilder2_ConditionText_NotAssigned>
+  <BWT_RuleBuilder2_Tutorial_WelcomeTitle>Rule Builder 2.0</BWT_RuleBuilder2_Tutorial_WelcomeTitle>
+  <BWT_RuleBuilder2_Tutorial_WelcomeBody>Build rules as cards: target, conditions, action, preview, confirm.</BWT_RuleBuilder2_Tutorial_WelcomeBody>
+  <BWT_RuleBuilder2_Tutorial_Start>Start</BWT_RuleBuilder2_Tutorial_Start>
+  <BWT_RuleBuilder2_Tutorial_Skip>Skip tutorial</BWT_RuleBuilder2_Tutorial_Skip>
+  <BWT_RuleBuilder2_Tutorial_CreateTitle>Create or import</BWT_RuleBuilder2_Tutorial_CreateTitle>
+  <BWT_RuleBuilder2_Tutorial_CreateBody>Start blank, duplicate, generate a draft, or migrate classic rules safely.</BWT_RuleBuilder2_Tutorial_CreateBody>
+  <BWT_RuleBuilder2_Tutorial_Next>Next</BWT_RuleBuilder2_Tutorial_Next>
+  <BWT_RuleBuilder2_Tutorial_TargetTitle>Choose target</BWT_RuleBuilder2_Tutorial_TargetTitle>
+  <BWT_RuleBuilder2_Tutorial_TargetBody>Click a work header in the Work tab or pick one here. Ctrl-click headers still opens sub-work.</BWT_RuleBuilder2_Tutorial_TargetBody>
+  <BWT_RuleBuilder2_Tutorial_SubWorkTitle>Sub-work targets</BWT_RuleBuilder2_Tutorial_SubWorkTitle>
+  <BWT_RuleBuilder2_Tutorial_SubWorkBody>In sub-work view, click a sub-work header to target that exact job.</BWT_RuleBuilder2_Tutorial_SubWorkBody>
+  <BWT_RuleBuilder2_Tutorial_SkipSubWork>Skip sub-work step</BWT_RuleBuilder2_Tutorial_SkipSubWork>
+  <BWT_RuleBuilder2_Tutorial_ConditionTitle>Add a condition</BWT_RuleBuilder2_Tutorial_ConditionTitle>
+  <BWT_RuleBuilder2_Tutorial_ConditionBody>Pick a condition card. It opens inline so you can edit it immediately.</BWT_RuleBuilder2_Tutorial_ConditionBody>
+  <BWT_RuleBuilder2_Tutorial_ActionTitle>Choose action</BWT_RuleBuilder2_Tutorial_ActionTitle>
+  <BWT_RuleBuilder2_Tutorial_ActionBody>Set priority, disable work, follow default, or add a time schedule.</BWT_RuleBuilder2_Tutorial_ActionBody>
+  <BWT_RuleBuilder2_Tutorial_ScheduleTitle>Time blocks</BWT_RuleBuilder2_Tutorial_ScheduleTitle>
+  <BWT_RuleBuilder2_Tutorial_ScheduleBody>Use hour blocks when a rule should only apply during part of the day.</BWT_RuleBuilder2_Tutorial_ScheduleBody>
+  <BWT_RuleBuilder2_Tutorial_PreviewTitle>Preview</BWT_RuleBuilder2_Tutorial_PreviewTitle>
+  <BWT_RuleBuilder2_Tutorial_PreviewBody>Preview shows which pawns match, what failed, and what priority would change.</BWT_RuleBuilder2_Tutorial_PreviewBody>
+  <BWT_RuleBuilder2_Tutorial_ConfirmTitle>Confirm card</BWT_RuleBuilder2_Tutorial_ConfirmTitle>
+  <BWT_RuleBuilder2_Tutorial_ConfirmBody>Confirm folds the card into the list and opens the next blank card.</BWT_RuleBuilder2_Tutorial_ConfirmBody>
+  <BWT_RuleBuilder2_Tutorial_MatchedTitle>Matched conditions</BWT_RuleBuilder2_Tutorial_MatchedTitle>
+  <BWT_RuleBuilder2_Tutorial_MatchedBody>Click a priority box while the builder is open to inspect why rules match that pawn and target.</BWT_RuleBuilder2_Tutorial_MatchedBody>
+  <BWT_RuleBuilder2_Tutorial_ReplayTitle>Replay later</BWT_RuleBuilder2_Tutorial_ReplayTitle>
+  <BWT_RuleBuilder2_Tutorial_ReplayBody>You can replay or reset this tutorial from Better Work Tab settings.</BWT_RuleBuilder2_Tutorial_ReplayBody>
+  <BWT_RuleBuilder2_Tutorial_Finish>Finish</BWT_RuleBuilder2_Tutorial_Finish>
+  <BWT_RuleBuilder2_Tutorial_CompleteBody>Tutorial complete.</BWT_RuleBuilder2_Tutorial_CompleteBody>
+  <BWT_RuleBuilder2_Tutorial_ClickHeaderHint>Click a work header</BWT_RuleBuilder2_Tutorial_ClickHeaderHint>
+  <BWT_RuleBuilder2_NewRulesetName>New Rule Builder 2.0 ruleset</BWT_RuleBuilder2_NewRulesetName>
+  <BWT_RuleBuilder2_NewRulesetDescription>Blank card-based ruleset.</BWT_RuleBuilder2_NewRulesetDescription>
+  <BWT_RuleBuilder2_NoClassicRules>No classic rulesets found</BWT_RuleBuilder2_NoClassicRules>
+  <BWT_RuleBuilder2_Category_Skills>Skills</BWT_RuleBuilder2_Category_Skills>
+  <BWT_RuleBuilder2_Category_Passions>Passions</BWT_RuleBuilder2_Category_Passions>
+  <BWT_RuleBuilder2_Category_Traits>Traits</BWT_RuleBuilder2_Category_Traits>
+  <BWT_RuleBuilder2_Category_Health>Health and capacities</BWT_RuleBuilder2_Category_Health>
+  <BWT_RuleBuilder2_Category_Xenotype>Xenotype and genes</BWT_RuleBuilder2_Category_Xenotype>
+  <BWT_RuleBuilder2_Category_AgeGender>Age and gender</BWT_RuleBuilder2_Category_AgeGender>
+  <BWT_RuleBuilder2_Category_ExistingPriority>Existing priority</BWT_RuleBuilder2_Category_ExistingPriority>
+  <BWT_RuleBuilder2_Category_AssignedWork>Assigned work state</BWT_RuleBuilder2_Category_AssignedWork>
+  <BWT_RuleBuilder2_Condition_SkillMinimum>Skill is at least</BWT_RuleBuilder2_Condition_SkillMinimum>
+  <BWT_RuleBuilder2_Condition_SkillMinimum_Tooltip>Match pawns whose selected skill is at least this value.</BWT_RuleBuilder2_Condition_SkillMinimum_Tooltip>
+  <BWT_RuleBuilder2_Condition_SkillMaximum>Skill is at most</BWT_RuleBuilder2_Condition_SkillMaximum>
+  <BWT_RuleBuilder2_Condition_SkillMaximum_Tooltip>Match pawns whose selected skill is at most this value.</BWT_RuleBuilder2_Condition_SkillMaximum_Tooltip>
+  <BWT_RuleBuilder2_Condition_Passion>Has passion</BWT_RuleBuilder2_Condition_Passion>
+  <BWT_RuleBuilder2_Condition_Passion_Tooltip>Match pawns with at least the selected passion level.</BWT_RuleBuilder2_Condition_Passion_Tooltip>
+  <BWT_RuleBuilder2_Condition_Trait>Has trait</BWT_RuleBuilder2_Condition_Trait>
+  <BWT_RuleBuilder2_Condition_Trait_Tooltip>Match pawns with a specific trait.</BWT_RuleBuilder2_Condition_Trait_Tooltip>
+  <BWT_RuleBuilder2_Condition_Capacity>Capacity is at least</BWT_RuleBuilder2_Condition_Capacity>
+  <BWT_RuleBuilder2_Condition_Capacity_Tooltip>Match pawns whose selected capacity is at least this level.</BWT_RuleBuilder2_Condition_Capacity_Tooltip>
+  <BWT_RuleBuilder2_Condition_Xenotype>Has xenotype</BWT_RuleBuilder2_Condition_Xenotype>
+  <BWT_RuleBuilder2_Condition_Xenotype_Tooltip>Match pawns with a specific xenotype when available.</BWT_RuleBuilder2_Condition_Xenotype_Tooltip>
+  <BWT_RuleBuilder2_Condition_Gender>Gender is</BWT_RuleBuilder2_Condition_Gender>
+  <BWT_RuleBuilder2_Condition_Gender_Tooltip>Match pawns by gender.</BWT_RuleBuilder2_Condition_Gender_Tooltip>
+  <BWT_RuleBuilder2_Condition_ExistingPriorityAtLeast>Current priority is at least</BWT_RuleBuilder2_Condition_ExistingPriorityAtLeast>
+  <BWT_RuleBuilder2_Condition_ExistingPriorityAtLeast_Tooltip>Match pawns based on their existing priority for this target.</BWT_RuleBuilder2_Condition_ExistingPriorityAtLeast_Tooltip>
+  <BWT_RuleBuilder2_Condition_CurrentAssigned>Current assigned state</BWT_RuleBuilder2_Condition_CurrentAssigned>
+  <BWT_RuleBuilder2_Condition_CurrentAssigned_Tooltip>Match whether the pawn is currently assigned to this work target.</BWT_RuleBuilder2_Condition_CurrentAssigned_Tooltip>
 </LanguageData>

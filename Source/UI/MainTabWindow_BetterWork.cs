@@ -4,6 +4,7 @@ using Better_Work_Tab.Mod_Support.Multiplayer.Features.Layouts;
 using Better_Work_Tab.Features.Caching;
 using Better_Work_Tab.Features.Dividers;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
+using Better_Work_Tab.Features.Rules.RuleBuilder2;
 using Better_Work_Tab.Features.Testing;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.Tutorial;
@@ -16,6 +17,7 @@ using Better_Work_Tab.PawnOrganizer.Data;
 using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.Headers.Angled;
 using Better_Work_Tab.UI.Input;
+using Better_Work_Tab.UI.RuleBuilderV2;
 using Better_Work_Tab.UI.Settings;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using Multiplayer.API;
@@ -312,6 +314,7 @@ namespace Better_Work_Tab.UI
 
                         bool handledSubWorkGesture = handledTutorial
                             || TryHandleContextSettingsClick(inRect, organizer?.Layout, evt)
+                            || TryHandleRuleBuilder2WorkTabInput(organizer?.Layout, evt)
                             || TimePriorityPlannerPrototype.TryHandleInput(organizer?.Layout, evt)
                             || TryHandleSubWorkExitGesture(organizer?.Layout)
                             || TryHandleSubWorkHeaderOpen(organizer?.Layout);
@@ -335,6 +338,7 @@ namespace Better_Work_Tab.UI
 
                     bool handledSubWorkGesture = handledTutorial
                         || TryHandleContextSettingsClick(inRect, organizer?.Layout, evt)
+                        || TryHandleRuleBuilder2WorkTabInput(organizer?.Layout, evt)
                         || TimePriorityPlannerPrototype.TryHandleInput(organizer?.Layout, evt)
                         || TryHandleSubWorkExitGesture(organizer?.Layout)
                         || TryHandleSubWorkHeaderOpen(organizer?.Layout);
@@ -844,6 +848,13 @@ namespace Better_Work_Tab.UI
                     Widgets.DrawBoxSolid(columnRect, useColor);
                 }
 
+                if (isWorkColumn && RuleBuilder2WorkTabBridge.ShouldHighlight(workType, TryGetRuleBuilder2WorkGiver(column.Column)))
+                {
+                    Rect columnRect = new Rect(headerRect.x, layout.TableOrigin.y, column.Width, layout.HeaderHeight + totalHeight);
+                    Widgets.DrawBoxSolid(columnRect, new Color(1f, 0.82f, 0.18f, 0.12f));
+                    Widgets.DrawBox(columnRect, 2);
+                }
+
                 if (isWorkColumn)
                 {
                     DrawSubWorkBlankTransitionFlash(layout, column, headerRect, totalHeight);
@@ -851,6 +862,17 @@ namespace Better_Work_Tab.UI
 
                 column.Column.Worker.DoHeader(headerRect, table);
             }
+        }
+
+        private static WorkGiverDef TryGetRuleBuilder2WorkGiver(PawnColumnDef column)
+        {
+            if (SubWorkDrilldownState.IsActive &&
+                SubWorkDrilldownState.TryGetWorkGiverForColumn(column, out var workGiver, out _))
+            {
+                return workGiver.def;
+            }
+
+            return null;
         }
 
         private static Rect GetAnimatedHeaderRect(WorkTabLayoutColumn column)
@@ -1151,6 +1173,77 @@ namespace Better_Work_Tab.UI
             }
 
             return BWTTutorialInteractionKind.None;
+        }
+
+        private bool TryHandleRuleBuilder2WorkTabInput(IWorkTabLayoutController layout, Event evt)
+        {
+            if (!RuleBuilder2WorkTabBridge.IsOpen ||
+                layout == null ||
+                evt == null ||
+                evt.type != EventType.MouseDown ||
+                evt.button != 0 ||
+                evt.control)
+            {
+                return false;
+            }
+
+            if (layout.TryGetRowAt(evt.mousePosition, out var row) &&
+                row.Pawn != null &&
+                TryGetBodyColumnAt(layout, evt.mousePosition, out var bodyColumn) &&
+                bodyColumn.Column?.Worker is PawnColumnWorker_WorkPriority &&
+                TryGetPriorityBoxHit(layout, row, bodyColumn, evt.mousePosition, out Rect priorityBoxRect))
+            {
+                WorkTypeDef workType = bodyColumn.Column.workType;
+                WorkGiverDef workGiver = null;
+                int priority = WorkPrioritySystem.GetPriorityForPawnWorkType(row.Pawn, workType);
+                if (SubWorkDrilldownState.IsActive &&
+                    SubWorkDrilldownState.TryGetWorkGiverForColumn(bodyColumn.Column, out var activeWorkGiver, out _))
+                {
+                    workGiver = activeWorkGiver.def;
+                    priority = WorkGiverReassignmentManager.GetWorkGiverPriority(row.Pawn, workGiver, priority);
+                }
+
+                RuleBuilder2WorkTabBridge.SelectTarget(
+                    workType,
+                    workGiver,
+                    row.Pawn,
+                    priority,
+                    priorityBoxRect,
+                    RuleBuilder2TargetSource.PriorityCell);
+                evt.Use();
+                return true;
+            }
+
+            for (int i = 0; i < layout.Columns.Count; i++)
+            {
+                WorkTabLayoutColumn column = layout.Columns[i];
+                Rect headerRect = GetAnimatedHeaderRect(column);
+                if (!headerRect.Contains(evt.mousePosition) ||
+                    !(column.Column?.Worker is PawnColumnWorker_WorkPriority) ||
+                    column.Column.workType == null)
+                {
+                    continue;
+                }
+
+                WorkGiverDef workGiver = null;
+                if (SubWorkDrilldownState.IsActive &&
+                    SubWorkDrilldownState.TryGetWorkGiverForColumn(column.Column, out var activeWorkGiver, out _))
+                {
+                    workGiver = activeWorkGiver.def;
+                }
+
+                RuleBuilder2WorkTabBridge.SelectTarget(
+                    column.Column.workType,
+                    workGiver,
+                    null,
+                    WorkPrioritySystem.GetDefaultEnabledPriority(),
+                    headerRect,
+                    RuleBuilder2TargetSource.WorkTabClick);
+                evt.Use();
+                return true;
+            }
+
+            return false;
         }
 
         private bool TryHandleSubWorkHeaderOpen(IWorkTabLayoutController layout)
@@ -2361,6 +2454,11 @@ namespace Better_Work_Tab.UI
             if (row.Pawn == null)
             {
                 return;
+            }
+
+            if (RuleBuilder2WorkTabBridge.ShouldHighlightPawn(row.Pawn))
+            {
+                HighlightDrawer.DrawHighlight(rowRect, new Color(1f, 0.82f, 0.18f, 0.18f));
             }
 
             if (Find.Selector.IsSelected(row.Pawn) && (settings?.DoSelectedPawnHighlight ?? true))

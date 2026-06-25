@@ -3,6 +3,7 @@ using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.Mod_Support.Multiplayer;
 using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.RuleBuilder;
+using Better_Work_Tab.UI.RuleBuilderV2;
 using RimWorld;
 using System.Collections.Generic;
 using UnityEngine;
@@ -311,6 +312,19 @@ namespace Better_Work_Tab.UI
             if (mode == BetterWorkTabSettings.RulesetViewMode.Regular || mode == BetterWorkTabSettings.RulesetViewMode.Both)
             {
                 options.Add(new FloatMenuOption("BWT_RuleBuilder_OpenBuilder".Translate(), () =>
+                {
+                    if (BetterWorkTabMod.Settings?.useRuleBuilder2 ?? DefaultSettings.useRuleBuilder2)
+                    {
+                        Find.WindowStack.Add(new Window_RuleBuilder2());
+                    }
+                    else
+                    {
+                        Find.WindowStack.Add(new Window_RulesetBuilder());
+                    }
+                    SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                }));
+
+                options.Add(new FloatMenuOption("BWT_RuleBuilder2_OpenClassic".Translate(), () =>
                 {
                     Find.WindowStack.Add(new Window_RulesetBuilder());
                     SoundDefOf.Tick_Low.PlayOneShotOnCamera();
