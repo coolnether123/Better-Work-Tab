@@ -278,16 +278,45 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
         private static void AppendSubWorkOpenTip(ref TaggedString tooltip, WorkTypeDef workType)
         {
-            if (!SubWorkDrilldownInput.IsEnabled ||
-                workType == null ||
-                WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(workType).Count == 0)
+            try
             {
-                return;
-            }
+                var workGivers = workType == null
+                    ? null
+                    : WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(workType);
+                if (!SubWorkDrilldownInput.IsEnabled ||
+                    workType == null ||
+                    workGivers == null ||
+                    workGivers.Count == 0)
+                {
+                    return;
+                }
 
-            string gesture = (SubWorkDrilldownInput.GestureLabel() ?? string.Empty).Trim().CapitalizeFirst();
-            string workLabel = workType.LabelCap.ToString().Trim();
-            tooltip += "\n" + (gesture + ": Open " + workLabel + " sub-work jobs").Colorize(ColoredText.SubtleGrayColor);
+                string gesture = SubWorkDrilldownInput.GestureLabel();
+                if (gesture.NullOrEmpty())
+                {
+                    return;
+                }
+
+                gesture = gesture.Trim();
+                if (gesture.NullOrEmpty())
+                {
+                    return;
+                }
+
+                gesture = gesture.CapitalizeFirst();
+                string workLabel = !workType.labelShort.NullOrEmpty()
+                    ? workType.labelShort.CapitalizeFirst()
+                    : !workType.label.NullOrEmpty()
+                        ? workType.label.CapitalizeFirst()
+                        : workType.defName ?? "work";
+
+                tooltip += "\n" + (gesture + ": Open " + workLabel + " sub-work jobs").Colorize(ColoredText.SubtleGrayColor);
+            }
+            catch
+            {
+                // Header tooltips are best-effort; interaction should keep working if a
+                // compatibility layer has incomplete work-giver data for this work type.
+            }
         }
 
         private static void HandleLeftClick(PawnColumnWorker_WorkPriority worker, PawnTable table, Event evt)
