@@ -112,6 +112,7 @@ namespace Better_Work_Tab.UI.Settings
         public const string SubWorkDisabledParentMode = "subWorkJobs.disabledParentMode";
         public const string UiDragInstructions = "ui.dragInstructions";
         public const string UiContextSettingsHint = "ui.contextSettingsHint";
+        public const string UiGeneralTutorial = "ui.generalTutorial";
         public const string UiBetaTutorial = "ui.betaTutorial";
         public const string UiManualPriorities = "ui.manualPriorities";
         public const string UiTimePriorityPlannerPrototype = "ui.timePriorityPlannerPrototype";

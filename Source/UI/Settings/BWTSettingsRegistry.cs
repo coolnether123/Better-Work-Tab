@@ -1181,7 +1181,7 @@ namespace Better_Work_Tab.UI.Settings
             {
                 Id = UiBetaTutorial,
                 FieldName = "showBetaTutorial",
-                Label = "Show BWT 2.0 Tutorial",
+                Label = "Show BWT 2.0 What's New Tutorial",
                 Tooltip = "Show the guided Better Work Tab 2.0 beta walkthrough when opening the Work tab. The walkthrough can also be deactivated from the tutorial overlay.",
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.showBetaTutorial,
@@ -1193,6 +1193,26 @@ namespace Better_Work_Tab.UI.Settings
                     if (settingsObj is BetterWorkTabSettings settings && settings.showBetaTutorial)
                     {
                         settings.betaTutorialStep = 0;
+                    }
+                }
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = UiGeneralTutorial,
+                FieldName = "showGeneralTutorial",
+                Label = "Show Better Work Tab Tutorial",
+                Tooltip = "Show the full guided Better Work Tab walkthrough when opening the Work tab. It covers core features and the 2.0 beta systems.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.showGeneralTutorial,
+                ShowInSimpleView = true,
+                SortOrder = 10434,
+                ParentId = FeaturesUiElements,
+                OnChanged = settingsObj =>
+                {
+                    if (settingsObj is BetterWorkTabSettings settings && settings.showGeneralTutorial)
+                    {
+                        settings.generalTutorialStep = 0;
                     }
                 }
             });

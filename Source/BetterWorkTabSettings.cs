@@ -112,7 +112,8 @@ namespace Better_Work_Tab
         public static bool showPriorityLegend = true;
         public static bool showDragInstructions = true;
         public static bool showContextSettingsHint = true;
-        public static bool showBetaTutorial = true;
+        public static bool showGeneralTutorial = true;
+        public static bool showBetaTutorial = false;
         public static bool showManualPrioritiesCheckbox = true;
         public static bool enableTimePriorityPlannerPrototype = true;
         public static bool showTimePriorityCopyPasteButtons = true;
@@ -356,6 +357,8 @@ namespace Better_Work_Tab
         public bool showPriorityLegend = DefaultSettings.showPriorityLegend;
         public bool showDragInstructions = DefaultSettings.showDragInstructions;
         public bool showContextSettingsHint = DefaultSettings.showContextSettingsHint;
+        public bool showGeneralTutorial = DefaultSettings.showGeneralTutorial;
+        public int generalTutorialStep = 0;
         public bool showBetaTutorial = DefaultSettings.showBetaTutorial;
         public int betaTutorialStep = 0;
         public bool showManualPrioritiesCheckbox = DefaultSettings.showManualPrioritiesCheckbox;
@@ -901,6 +904,8 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref showPriorityLegend, "showPriorityLegend", DefaultSettings.showPriorityLegend);
             Scribe_Values.Look(ref showDragInstructions, "showDragInstructions", DefaultSettings.showDragInstructions);
             Scribe_Values.Look(ref showContextSettingsHint, "showContextSettingsHint", DefaultSettings.showContextSettingsHint);
+            Scribe_Values.Look(ref showGeneralTutorial, "showGeneralTutorial", DefaultSettings.showGeneralTutorial);
+            Scribe_Values.Look(ref generalTutorialStep, "generalTutorialStep", 0);
             Scribe_Values.Look(ref showBetaTutorial, "showBetaTutorial", DefaultSettings.showBetaTutorial);
             Scribe_Values.Look(ref betaTutorialStep, "betaTutorialStep", 0);
             Scribe_Values.Look(ref showManualPrioritiesCheckbox, "showManualPrioritiesCheckbox", DefaultSettings.showManualPrioritiesCheckbox);

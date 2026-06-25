@@ -248,7 +248,7 @@ namespace Better_Work_Tab.UI
 
         public override void OnAcceptKeyPressed()
         {
-            if (BWTBetaTutorial.TryHandleAcceptKey())
+            if (BWTWorkTabTutorial.TryHandleAcceptKey())
             {
                 return;
             }
@@ -304,7 +304,7 @@ namespace Better_Work_Tab.UI
                 {
                     SpineTiming.Time("WorkTab.Input", () =>
                     {
-                        bool handledSubWorkGesture = BWTBetaTutorial.TryHandleInput(inRect, organizer?.Layout, evt)
+                        bool handledSubWorkGesture = BWTWorkTabTutorial.TryHandleInput(inRect, organizer?.Layout, evt)
                             || TryHandleContextSettingsClick(inRect, organizer?.Layout, evt)
                             || TimePriorityPlannerPrototype.TryHandleInput(organizer?.Layout, evt)
                             || TryHandleSubWorkExitGesture(organizer?.Layout)
@@ -321,7 +321,7 @@ namespace Better_Work_Tab.UI
                 }
                 else
                 {
-                    bool handledSubWorkGesture = BWTBetaTutorial.TryHandleInput(inRect, organizer?.Layout, evt)
+                    bool handledSubWorkGesture = BWTWorkTabTutorial.TryHandleInput(inRect, organizer?.Layout, evt)
                         || TryHandleContextSettingsClick(inRect, organizer?.Layout, evt)
                         || TimePriorityPlannerPrototype.TryHandleInput(organizer?.Layout, evt)
                         || TryHandleSubWorkExitGesture(organizer?.Layout)
@@ -368,7 +368,7 @@ namespace Better_Work_Tab.UI
 
             DrawSubWorkExitButton(inRect);
             DrawBottomCounters(inRect, table);
-            BWTBetaTutorial.TickAndDraw(inRect, organizer?.Layout);
+            BWTWorkTabTutorial.TickAndDraw(inRect, organizer?.Layout);
             NativeCursorPosition.ProcessPendingMove();
             NativeCursorPosition.DrawPendingMoveCue();
         }
@@ -376,7 +376,7 @@ namespace Better_Work_Tab.UI
         private void UpdateTutorialAcceptKeyState()
         {
             // Keep RimWorld's accept-key dispatch enabled. The override above
-            // consumes Enter while the beta tutorial is active and otherwise
+            // consumes Enter while a Work tab tutorial is active and otherwise
             // falls back to the vanilla main-tab close behavior.
             closeOnAccept = true;
         }
@@ -517,9 +517,15 @@ namespace Better_Work_Tab.UI
             {
                 new FloatMenuOption("Insert divider above", () => InsertDividerAbove(pawn)),
                 new FloatMenuOption("Insert divider below", () => InsertDividerBelow(pawn)),
-                new FloatMenuOption("Change title...", () => ShowRenamePawnDialog(pawn)),
                 new FloatMenuOption("Set background color...", () => ShowBackgroundColorPicker(pawn))
             };
+            if (PawnTitleUtility.CanEditTitle(pawn))
+            {
+                options.Insert(2, new FloatMenuOption("Change title...", () =>
+                {
+                    Find.WindowStack.Add(new Dialog_ChangePawnTitle(pawn));
+                }));
+            }
 
             if (PawnOrganizer.API.PawnColorDatabase.TryGetColor(pawn, out _))
             {
@@ -538,11 +544,6 @@ namespace Better_Work_Tab.UI
             }
 
             Find.WindowStack.Add(new FloatMenu(options));
-        }
-
-        private void ShowRenamePawnDialog(Pawn pawn)
-        {
-            Find.WindowStack.Add(pawn.NamePawnDialog());
         }
 
         private void ShowDividerContextMenu(PawnDivider divider)
