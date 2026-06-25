@@ -2,6 +2,7 @@
 using RimWorld;
 using Verse;
 using System.Collections.Generic;
+using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 
@@ -179,6 +180,9 @@ namespace Better_Work_Tab.UI.Headers.Angled
             float anchorOffset = SubWorkDrilldownState.IsExiting
                 ? Mathf.Max(0f, reservedRowHeight - visibleRowHeight)
                 : 0f;
+            // A global time-priority schedule is inserted between the headers and the
+            // sub-work global row. Header labels should stay anchored above that inserted
+            // strip; otherwise long angled labels are pulled down into the schedule.
             float globalBoxTop = headerRect.yMax +
                 anchorOffset +
                 ((visibleRowHeight - SubWorkDrilldownState.GlobalPriorityBoxSize) / 2f);

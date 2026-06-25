@@ -228,6 +228,7 @@
     <Compile Include="Features\TimePriority\TimePriorityService.cs" />
     <Compile Include="Features\TimePriority\TimePriorityTarget.cs" />
     <Compile Include="Features\TimePriority\TimePriorityTargetKind.cs" />
+    <Compile Include="Features\Tutorial\BWTBetaTutorial.cs" />
     <Compile Include="Features\Workloads\Worklist.cs" />
     <Compile Include="Features\Workloads\WorkloadNamers.cs" />
     <Compile Include="Features\Workloads\PawnWorkload.cs" />
