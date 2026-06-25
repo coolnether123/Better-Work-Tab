@@ -75,7 +75,8 @@ namespace Better_Work_Tab.Features.Tutorial
                 focusRects,
                 evt,
                 () => AdvanceByButton(step),
-                () => BWTWorkTabTutorial.OpenRelatedSettings(inRect, layout, BuildFocusRects(step, inRect, layout)),
+                () => HandleSecondaryButton(step, inRect, layout, BuildFocusRects(step, inRect, layout)),
+                () => HandleTertiaryButton(step),
                 Deactivate);
         }
 
@@ -119,12 +120,43 @@ namespace Better_Work_Tab.Features.Tutorial
                 focusRects,
                 BuildShortcutHints(step, focusRects.Count),
                 () => AdvanceByButton(step),
-                () => BWTWorkTabTutorial.OpenRelatedSettings(inRect, layout, focusRects),
+                () => HandleSecondaryButton(step, inRect, layout, focusRects),
+                () => HandleTertiaryButton(step),
                 Deactivate);
         }
 
         internal static void ObserveWorkTabState()
         {
+            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
+            if (settings == null)
+            {
+                return;
+            }
+
+            BWTGeneralTutorialStep currentStep = NormalizeStep(settings);
+            if (currentStep == BWTGeneralTutorialStep.Welcome)
+            {
+                if (BWTTutorialUserContext.HasFluffyWorkTabHistory())
+                {
+                    BWTWorkTabTutorial.Start2TutorialAt(BWTBetaTutorialStep.SubWorkPrompt);
+                    return;
+                }
+
+                if (BWTTutorialUserContext.HasExternalPriorityProvider() &&
+                    BWTTutorialUserContext.PriorityModeIsNotBetterWorkTab())
+                {
+                    SetStep(BWTGeneralTutorialStep.MaxPriorities);
+                    return;
+                }
+            }
+
+            if (currentStep == BWTGeneralTutorialStep.ShiftSkills &&
+                (Event.current?.shift ?? false))
+            {
+                SetStep(BWTGeneralTutorialStep.PawnMenu);
+                return;
+            }
+
             BWTGeneralTutorialStep? pivotStep = null;
 
             bool isSubWorkActive = SubWorkDrilldownState.IsActive;
@@ -158,6 +190,16 @@ namespace Better_Work_Tab.Features.Tutorial
 
         internal static void ObserveInteraction(BWTTutorialInteraction interaction)
         {
+            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
+            if (settings != null)
+            {
+                BWTGeneralTutorialStep currentStep = NormalizeStep(settings);
+                if (TryAdvanceFromExpectedInteraction(currentStep, interaction))
+                {
+                    return;
+                }
+            }
+
             BWTGeneralTutorialStep? step = GetStepForInteraction(interaction);
             if (step.HasValue)
             {
@@ -250,11 +292,12 @@ namespace Better_Work_Tab.Features.Tutorial
             {
                 case BWTGeneralTutorialStep.Welcome:
                     return new TutorialOverlayContent(
-                        "Better Work Tab Tutorial",
-                        "This walkthrough covers the core Better Work Tab systems and the 2.0 beta features. Use Related settings on any lesson to jump to the settings for what the tutorial is explaining.",
-                        "Start tutorial",
-                        null,
-                        "Related settings");
+                        "What do you use the Work tab for?",
+                        "Pick the closest path. Better Work Tab will start with that workflow and then pivot when you click into other parts of the tab.",
+                        "Sub-work and schedules",
+                        "Already know Better Work Tab",
+                        "Pawns and layout",
+                        "Priorities");
 
                 case BWTGeneralTutorialStep.ManualPriorities:
                     return new TutorialOverlayContent(
@@ -266,13 +309,13 @@ namespace Better_Work_Tab.Features.Tutorial
                     return new TutorialOverlayContent(
                         "Skill overlay",
                         "Hold Shift over the Work tab to show skill information in the work cells. This helps you assign work without opening every pawn bio.",
-                        "Next");
+                        null);
 
                 case BWTGeneralTutorialStep.PawnMenu:
                     return new TutorialOverlayContent(
                         "Pawn row menu",
                         "Right-click a pawn row or pawn name to open Better Work Tab's pawn actions. This is where row tools and pawn-specific display options live.",
-                        "Next");
+                        null);
 
                 case BWTGeneralTutorialStep.Dividers:
                     return new TutorialOverlayContent(
@@ -326,7 +369,7 @@ namespace Better_Work_Tab.Features.Tutorial
                     return new TutorialOverlayContent(
                         "2.0 sub-work jobs",
                         "Ctrl-click a work header to open sub-work jobs. The headers become the sub-jobs for that work type, with global and pawn-specific priorities.",
-                        "Next");
+                        null);
 
                 case BWTGeneralTutorialStep.SubWorkLeft:
                     return new TutorialOverlayContent(
@@ -338,7 +381,7 @@ namespace Better_Work_Tab.Features.Tutorial
                     return new TutorialOverlayContent(
                         "2.0 time priorities",
                         "Ctrl-click a priority cell to schedule different priorities by hour. Sub-work jobs can also have their own time priority schedules.",
-                        "Next");
+                        null);
 
                 case BWTGeneralTutorialStep.TimePrioritiesClosed:
                     return new TutorialOverlayContent(
@@ -349,13 +392,15 @@ namespace Better_Work_Tab.Features.Tutorial
                 case BWTGeneralTutorialStep.MaxPriorities:
                     return new TutorialOverlayContent(
                         "More priority levels",
-                        "Better Work Tab can use more than vanilla's 1-4 priorities. The 2.0 beta defaults to 1-9 and can be raised up to 99.",
-                        "Next");
+                        BWTTutorialUserContext.BuildPriorityTutorialBody(),
+                        "Use BWT 1-9",
+                        null,
+                        "Keep current");
 
                 case BWTGeneralTutorialStep.Complete:
                     return new TutorialOverlayContent(
                         "Tutorial complete",
-                        "You can restart this tutorial or the focused 2.0 tutorial from Better Work Tab settings. Please send beta feedback on Discord after testing.",
+                        "You can restart this tutorial or the focused 2.0 tutorial from Better Work Tab settings. Please send feedback on Discord after testing.",
                         "Finish",
                         null,
                         "Related settings");
@@ -461,7 +506,7 @@ namespace Better_Work_Tab.Features.Tutorial
             switch (step)
             {
                 case BWTGeneralTutorialStep.Welcome:
-                    SetStep(BWTGeneralTutorialStep.ManualPriorities);
+                    BWTWorkTabTutorial.Start2TutorialAt(BWTBetaTutorialStep.SubWorkPrompt);
                     break;
                 case BWTGeneralTutorialStep.ManualPriorities:
                     SetStep(BWTGeneralTutorialStep.ShiftSkills);
@@ -509,6 +554,7 @@ namespace Better_Work_Tab.Features.Tutorial
                     SetStep(BWTGeneralTutorialStep.MaxPriorities);
                     break;
                 case BWTGeneralTutorialStep.MaxPriorities:
+                    BWTTutorialUserContext.UseBetterWorkTabPriorityDefaults();
                     SetStep(BWTGeneralTutorialStep.Complete);
                     break;
                 case BWTGeneralTutorialStep.Complete:
@@ -517,6 +563,71 @@ namespace Better_Work_Tab.Features.Tutorial
                 default:
                     Complete();
                     break;
+            }
+        }
+
+        private static bool TryAdvanceFromExpectedInteraction(
+            BWTGeneralTutorialStep currentStep,
+            BWTTutorialInteraction interaction)
+        {
+            switch (currentStep)
+            {
+                case BWTGeneralTutorialStep.PawnMenu:
+                    if (interaction.Kind == BWTTutorialInteractionKind.PawnRow &&
+                        interaction.MouseButton == 1)
+                    {
+                        SetStep(BWTGeneralTutorialStep.Dividers);
+                        return true;
+                    }
+                    break;
+                case BWTGeneralTutorialStep.SubWorkJobs:
+                    if ((interaction.Kind == BWTTutorialInteractionKind.WorkHeader ||
+                         interaction.Kind == BWTTutorialInteractionKind.SubWorkHeader) &&
+                        interaction.Control)
+                    {
+                        BWTWorkTabTutorial.Start2TutorialAt(BWTBetaTutorialStep.SubWorkHeaders);
+                        return true;
+                    }
+                    break;
+                case BWTGeneralTutorialStep.TimePriorities:
+                    if ((interaction.Kind == BWTTutorialInteractionKind.PriorityCell ||
+                         interaction.Kind == BWTTutorialInteractionKind.TimePriorityCell) &&
+                        interaction.Control)
+                    {
+                        BWTWorkTabTutorial.Start2TutorialAt(BWTBetaTutorialStep.TimePriorityHours);
+                        return true;
+                    }
+                    break;
+            }
+
+            return false;
+        }
+
+        private static void HandleSecondaryButton(
+            BWTGeneralTutorialStep step,
+            Rect inRect,
+            IWorkTabLayoutController layout,
+            List<Rect> focusRects)
+        {
+            switch (step)
+            {
+                case BWTGeneralTutorialStep.Welcome:
+                    SetStep(BWTGeneralTutorialStep.PawnMenu);
+                    break;
+                case BWTGeneralTutorialStep.MaxPriorities:
+                    SetStep(BWTGeneralTutorialStep.Complete);
+                    break;
+                default:
+                    BWTWorkTabTutorial.OpenRelatedSettings(inRect, layout, focusRects);
+                    break;
+            }
+        }
+
+        private static void HandleTertiaryButton(BWTGeneralTutorialStep step)
+        {
+            if (step == BWTGeneralTutorialStep.Welcome)
+            {
+                SetStep(BWTGeneralTutorialStep.ManualPriorities);
             }
         }
 

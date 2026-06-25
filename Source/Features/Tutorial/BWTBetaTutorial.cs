@@ -38,7 +38,7 @@ namespace Better_Work_Tab.Features.Tutorial
     }
 
     /// <summary>
-    /// Guided Work tab walkthrough for the 2.0 beta. The tutorial observes existing
+    /// Guided Work tab walkthrough for Better Work Tab 2.0. The tutorial observes existing
     /// Work tab state and never owns sub-work, priority, or schedule behavior.
     /// </summary>
     internal static class BWTBetaTutorial
@@ -86,7 +86,8 @@ namespace Better_Work_Tab.Features.Tutorial
                 focusRects,
                 evt,
                 () => AdvanceByButton(step),
-                () => BWTWorkTabTutorial.OpenRelatedSettings(inRect, layout, BuildFocusRects(step, inRect, layout)),
+                () => HandleSecondaryButton(step, inRect, layout, BuildFocusRects(step, inRect, layout)),
+                null,
                 Deactivate);
         }
 
@@ -136,7 +137,8 @@ namespace Better_Work_Tab.Features.Tutorial
                 focusRects,
                 BuildShortcutHints(step, focusRects.Count),
                 () => AdvanceByButton(step),
-                () => BWTWorkTabTutorial.OpenRelatedSettings(inRect, layout, focusRects),
+                () => HandleSecondaryButton(step, inRect, layout, focusRects),
+                null,
                 Deactivate);
         }
 
@@ -213,6 +215,24 @@ namespace Better_Work_Tab.Features.Tutorial
             }
 
             return false;
+        }
+
+        internal static void StartAt(BWTBetaTutorialStep step)
+        {
+            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
+            if (settings == null)
+            {
+                return;
+            }
+
+            settings.showGeneralTutorial = false;
+            settings.showBetaTutorial = true;
+            settings.betaTutorialStep = (int)step;
+            _lastObservedStep = int.MinValue;
+            _hasWorkTabStateSnapshot = false;
+            Overlay.ResetAnimation();
+            settings.Write();
+            SoundDefOf.Tick_High.PlayOneShotOnCamera();
         }
 
         private static BWTBetaTutorialStep NormalizeStep(BetterWorkTabSettings settings)
@@ -315,7 +335,7 @@ namespace Better_Work_Tab.Features.Tutorial
                 case BWTBetaTutorialStep.Welcome:
                     return new TutorialOverlayContent(
                         "Better Work Tab 2.0 Tutorial",
-                        "This is a beta test for the new 2.0 systems. Follow the tutorial to see what needs testing: sub-work jobs, time priority schedules, and the new priority range.",
+                        "This walkthrough covers the 2.0 systems: sub-work jobs, time priority schedules, and the expanded priority range.",
                         "Continue tutorial",
                         "Already know Better Work Tab");
 
@@ -406,8 +426,10 @@ namespace Better_Work_Tab.Features.Tutorial
                 case BWTBetaTutorialStep.MaxPriority:
                     return new TutorialOverlayContent(
                         "Priorities beyond 4",
-                        "Better Work Tab can now go higher than vanilla 4 priorities. This beta defaults to 1-9, and the setting can go up to 99.",
-                        "Next");
+                        BWTTutorialUserContext.BuildPriorityTutorialBody(),
+                        "Use BWT 1-9",
+                        null,
+                        "Keep current");
 
                 case BWTBetaTutorialStep.AltClickSettings:
                     return new TutorialOverlayContent(
@@ -567,6 +589,7 @@ namespace Better_Work_Tab.Features.Tutorial
                     SetStep(BWTBetaTutorialStep.MaxPriority);
                     break;
                 case BWTBetaTutorialStep.MaxPriority:
+                    BWTTutorialUserContext.UseBetterWorkTabPriorityDefaults();
                     SetStep(BWTBetaTutorialStep.AltClickSettings);
                     break;
                 case BWTBetaTutorialStep.AltClickSettings:
@@ -587,6 +610,21 @@ namespace Better_Work_Tab.Features.Tutorial
             _lastObservedStep = int.MinValue;
             settings.Write();
             SoundDefOf.Tick_High.PlayOneShotOnCamera();
+        }
+
+        private static void HandleSecondaryButton(
+            BWTBetaTutorialStep step,
+            Rect inRect,
+            IWorkTabLayoutController layout,
+            List<Rect> focusRects)
+        {
+            if (step == BWTBetaTutorialStep.MaxPriority)
+            {
+                SetStep(BWTBetaTutorialStep.AltClickSettings);
+                return;
+            }
+
+            BWTWorkTabTutorial.OpenRelatedSettings(inRect, layout, focusRects);
         }
 
         private static void Deactivate()

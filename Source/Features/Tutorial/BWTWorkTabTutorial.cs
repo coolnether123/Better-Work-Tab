@@ -61,6 +61,11 @@ namespace Better_Work_Tab.Features.Tutorial
             }
         }
 
+        internal static void Start2TutorialAt(BWTBetaTutorialStep step)
+        {
+            BWTBetaTutorial.StartAt(step);
+        }
+
         internal static void OpenRelatedSettings(Rect inRect, IWorkTabLayoutController layout, System.Collections.Generic.List<Rect> focusRects)
         {
             Vector2 focusPosition = focusRects != null && focusRects.Count > 0

@@ -29,6 +29,7 @@ namespace Spine.UI.Tutorial
             Event evt,
             Action onPrimary,
             Action onSecondary,
+            Action onTertiary,
             Action onDismiss)
         {
             if (evt == null)
@@ -75,6 +76,10 @@ namespace Spine.UI.Tutorial
                     {
                         onSecondary?.Invoke();
                     }
+                    else if (releasedButton == TutorialOverlayButton.Tertiary)
+                    {
+                        onTertiary?.Invoke();
+                    }
                     else if (releasedButton == TutorialOverlayButton.Primary)
                     {
                         onPrimary?.Invoke();
@@ -102,6 +107,7 @@ namespace Spine.UI.Tutorial
             List<TutorialOverlayShortcutHint> shortcutHints,
             Action onPrimary,
             Action onSecondary,
+            Action onTertiary,
             Action onDismiss)
         {
             TutorialOverlayLayout visualLayout = GetAnimatedLayout(bounds, focusRects, content.Body);
@@ -113,7 +119,7 @@ namespace Spine.UI.Tutorial
                 DrawConnector(visualLayout.CardRect, visualLayout.FocusBounds);
             }
 
-            DrawCard(visualLayout.CardRect, content, onPrimary, onSecondary, onDismiss);
+            DrawCard(visualLayout.CardRect, content, onPrimary, onSecondary, onTertiary, onDismiss);
         }
 
         public void ResetAnimation()
@@ -458,6 +464,7 @@ namespace Spine.UI.Tutorial
             TutorialOverlayContent content,
             Action onPrimary,
             Action onSecondary,
+            Action onTertiary,
             Action onDismiss)
         {
             Color oldColor = GUI.color;
@@ -483,10 +490,19 @@ namespace Spine.UI.Tutorial
             GUI.color = Color.white;
             if (content.HasSecondaryButton)
             {
-                Rect settingsRect = GetSecondaryButtonRect(rect);
+                Rect settingsRect = GetSecondaryButtonRect(rect, content);
                 if (Widgets.ButtonText(settingsRect, content.SecondaryButton))
                 {
                     onSecondary?.Invoke();
+                }
+            }
+
+            if (content.HasTertiaryButton)
+            {
+                Rect tertiaryRect = GetTertiaryButtonRect(rect);
+                if (Widgets.ButtonText(tertiaryRect, content.TertiaryButton))
+                {
+                    onTertiary?.Invoke();
                 }
             }
 
@@ -524,10 +540,25 @@ namespace Spine.UI.Tutorial
             return new Rect(inner.xMax - 150f, inner.yMax - 34f, 150f, 32f);
         }
 
-        private Rect GetSecondaryButtonRect(Rect cardRect)
+        private Rect GetSecondaryButtonRect(Rect cardRect, TutorialOverlayContent content)
         {
             Rect inner = cardRect.ContractedBy(style.CardPadding);
-            return new Rect(inner.x, inner.yMax - 70f, inner.width, 28f);
+            if (!content.HasTertiaryButton)
+            {
+                return new Rect(inner.x, inner.yMax - 70f, inner.width, 28f);
+            }
+
+            float gap = 8f;
+            float width = (inner.width - gap) / 2f;
+            return new Rect(inner.x, inner.yMax - 70f, width, 28f);
+        }
+
+        private Rect GetTertiaryButtonRect(Rect cardRect)
+        {
+            Rect inner = cardRect.ContractedBy(style.CardPadding);
+            float gap = 8f;
+            float width = (inner.width - gap) / 2f;
+            return new Rect(inner.x + width + gap, inner.yMax - 70f, width, 28f);
         }
 
         private bool TryGetButtonAt(
@@ -550,9 +581,16 @@ namespace Spine.UI.Tutorial
             }
 
             if (content.HasSecondaryButton &&
-                GetSecondaryButtonRect(cardRect).Contains(mousePosition))
+                GetSecondaryButtonRect(cardRect, content).Contains(mousePosition))
             {
                 button = TutorialOverlayButton.Secondary;
+                return true;
+            }
+
+            if (content.HasTertiaryButton &&
+                GetTertiaryButtonRect(cardRect).Contains(mousePosition))
+            {
+                button = TutorialOverlayButton.Tertiary;
                 return true;
             }
 
@@ -590,6 +628,7 @@ namespace Spine.UI.Tutorial
             None,
             Dismiss,
             Secondary,
+            Tertiary,
             Primary
         }
     }

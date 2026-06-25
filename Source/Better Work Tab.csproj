@@ -101,6 +101,7 @@
     <Compile Include="Features\Tutorial\BWTTutorialInteraction.cs" />
     <Compile Include="Features\Tutorial\BWTTutorialInteractionKind.cs" />
     <Compile Include="Features\Tutorial\BWTTutorialGeometry.cs" />
+    <Compile Include="Features\Tutorial\BWTTutorialUserContext.cs" />
     <Compile Include="Features\Tutorial\BWTWorkTabTutorial.cs" />
     <Compile Include="Features\Workloads\Worklist.cs" />
     <Compile Include="Features\Workloads\WorkloadNamers.cs" />
