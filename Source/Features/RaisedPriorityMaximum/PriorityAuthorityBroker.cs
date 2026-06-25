@@ -117,12 +117,6 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             }
 
             int priorityFloor = Math.Max(PriorityConstants.VanillaMax, GetHighestLivePriority());
-            PriorityProviderSnapshot snapshot = GetSnapshot();
-            if (snapshot != null && snapshot.MaxPriority > PriorityConstants.VanillaMax)
-            {
-                priorityFloor = Math.Max(priorityFloor, snapshot.MaxPriority);
-            }
-
             int priority = RoundUpToPriorityBand(priorityFloor);
             return Clamp(priority, PriorityConstants.VanillaMax, autoMaxPriority);
         }
@@ -172,7 +166,12 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                         : maxPriority;
                 }
 
-                return normalized > PriorityConstants.Disabled ? normalized - 1 : normalized;
+                if (normalized <= 1)
+                {
+                    return 1;
+                }
+
+                return normalized - 1;
             }
 
             if (direction < 0)

@@ -643,10 +643,15 @@ namespace Better_Work_Tab
         private static WorkAssignmentRuleset CloneRulesetTemplate(WorkAssignmentRuleset template)
         {
             var clonedRules = template.Rules?
-                .Select(rule => new WorkAssignmentRule(
-                    rule.Name,
-                    rule.Parameters?.Copy() ?? new WorkAssignmentParameters(),
-                    rule.CachedWorktype))
+                .Select(rule =>
+                {
+                    var clonedRule = new WorkAssignmentRule(
+                        rule.Name,
+                        rule.Parameters?.Copy() ?? new WorkAssignmentParameters(),
+                        rule.CachedWorktype);
+                    clonedRule.CachedWorktypeString = rule.CachedWorktypeString;
+                    return clonedRule;
+                })
                 .ToList() ?? new List<WorkAssignmentRule>();
 
             return new WorkAssignmentRuleset(
@@ -680,6 +685,15 @@ namespace Better_Work_Tab
                     else if (parameters.Worktype != null && string.IsNullOrEmpty(parameters.WorktypeString))
                     {
                         parameters.WorktypeString = parameters.Worktype.defName;
+                    }
+
+                    if (rule.CachedWorktype == null && !string.IsNullOrEmpty(rule.CachedWorktypeString))
+                    {
+                        rule.CachedWorktype = DefDatabase<WorkTypeDef>.GetNamedSilentFail(rule.CachedWorktypeString);
+                    }
+                    else if (rule.CachedWorktype != null && string.IsNullOrEmpty(rule.CachedWorktypeString))
+                    {
+                        rule.CachedWorktypeString = rule.CachedWorktype.defName;
                     }
                 }
             }

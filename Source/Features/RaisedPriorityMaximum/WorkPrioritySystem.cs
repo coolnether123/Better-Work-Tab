@@ -95,30 +95,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
         internal static int GetPriorityAfterBoundedStep(int currentPriority, int direction)
         {
-            int maxPriority = PriorityAuthorityBroker.GetSnapshotForPriority(currentPriority).MaxPriority;
-            int normalized = ClampPriority(currentPriority, maxPriority);
-
-            if (direction > 0)
-            {
-                if (normalized == DisabledPriority)
-                {
-                    return PriorityAuthorityBroker.GetNextManualPriority(DisabledPriority, 1);
-                }
-
-                return normalized > 1 ? normalized - 1 : normalized;
-            }
-
-            if (direction < 0)
-            {
-                if (normalized == maxPriority)
-                {
-                    return DisabledPriority;
-                }
-
-                return normalized > DisabledPriority ? normalized + 1 : normalized;
-            }
-
-            return normalized;
+            return PriorityAuthorityBroker.GetNextManualPriority(currentPriority, direction);
         }
 
         internal static int MapPriorityToVanillaDisplay(int priority)

@@ -13,6 +13,7 @@ namespace Better_Work_Tab.Features.Rules
     {
         public string Name;
         public WorkTypeDef CachedWorktype;
+        public string CachedWorktypeString = "";
         public WorkAssignmentParameters Parameters;
 
         private static List<WorkTypeDef> _cachedAllWorkTypes = null;
@@ -42,6 +43,7 @@ namespace Better_Work_Tab.Features.Rules
         )
         {
             CachedWorktype = worktype;
+            CachedWorktypeString = worktype?.defName ?? "";
             Parameters = parameters;
             Name = parameters.RuleName;
         }
@@ -53,6 +55,7 @@ namespace Better_Work_Tab.Features.Rules
         )
         {
             CachedWorktype = worktype;
+            CachedWorktypeString = worktype?.defName ?? "";
             Parameters = parameters;
             parameters.RuleName = name;
             Name = name;
@@ -132,6 +135,11 @@ namespace Better_Work_Tab.Features.Rules
                 }
             }
 
+            if (CachedWorktype == null && !string.IsNullOrEmpty(CachedWorktypeString))
+            {
+                CachedWorktype = DefDatabase<WorkTypeDef>.GetNamedSilentFail(CachedWorktypeString);
+            }
+
             WorkTypeDef resolved = Parameters.Worktype ?? CachedWorktype ?? callSiteWorktype;
 
             if (resolved == null && hasExplicitWorktypeString)
@@ -144,23 +152,42 @@ namespace Better_Work_Tab.Features.Rules
                 Parameters.WorktypeString = resolved.defName;
             }
 
+            if (resolved != null && string.IsNullOrEmpty(CachedWorktypeString))
+            {
+                CachedWorktypeString = resolved.defName;
+            }
+
             return resolved;
         }
 
         public WorkAssignmentRule Copy()
         {
-            return new WorkAssignmentRule(
+            var copy = new WorkAssignmentRule(
                 Name + " (Copy)",
                 Parameters.Copy(),
-                CachedWorktype
-            );
+                CachedWorktype);
+            copy.CachedWorktypeString = CachedWorktypeString;
+            return copy;
         }
 
         public void ExposeData()
         {
+            if (Scribe.mode == LoadSaveMode.Saving)
+            {
+                CachedWorktypeString = CachedWorktype?.defName ?? CachedWorktypeString ?? "";
+            }
+
             Scribe_Values.Look(ref Name, "Name");
-            Scribe_Defs.Look(ref CachedWorktype, "Worktype");
+            Scribe_Values.Look(ref CachedWorktypeString, "Worktype");
             Scribe_Deep.Look(ref Parameters, "Parameters");
+
+            if (Scribe.mode == LoadSaveMode.LoadingVars || Scribe.mode == LoadSaveMode.PostLoadInit)
+            {
+                CachedWorktypeString ??= string.Empty;
+                CachedWorktype = string.IsNullOrEmpty(CachedWorktypeString)
+                    ? null
+                    : DefDatabase<WorkTypeDef>.GetNamedSilentFail(CachedWorktypeString);
+            }
         }
     }
 }
