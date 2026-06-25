@@ -4,9 +4,26 @@
   <author>Coolnether123</author>
   <url>https://github.com/coolnether123/Better-Work-Tab</url>
   <targetVersion>0.4.460</targetVersion>
-  <description><![CDATA[Better Work Tab v1.1 port target for RimWorld Alpha 4.
+  <description><![CDATA[Better Work Tab v2.0 beta overhauls RimWorld's Work tab with drag-and-drop, skill overlays, automation rules, sub-work jobs, time priority schedules, extended priorities, and visual customization.
 
 This payload is being prepared for the Alpha 4 compatibility branch.
+
+Features:
+- Drag and drop work column and pawn row reordering
+- Extended max priorities from vanilla 4 up to 99
+- Sub-work job drilldown with global and pawn-specific priorities
+- Time-of-day priority schedules for work and sub-work jobs
+- Skill level overlay (hold SHIFT)
+- Auto-assignment rulesets
+- Workload presets
+- Visual dividers
+- Force pawns to work on unassigned tasks
+- Advanced pawn and column highlighting
+- Angled or vanilla-style column headers
+- Colonist and bed counts
+- Right-click pawn quick actions
+- Modern priority-cell rendering toggle for legacy versions
+- Detailed settings for UI, priorities, rules, workloads, and layout
 
 Compatibility:
 - Compatible with most work-type mods
@@ -19,7 +36,7 @@ Compatibility:
 - Fluffy WorkTab and forks are hard conflicts
 
 Version support:
-- Alpha 4 / 0.4.460 -> v1.1 target - Multiplayer does not work
+- Alpha 4 / 0.4.460 -> v2.0 beta - Multiplayer does not work
 
 Support:
 Discord: https://discord.gg/QYBBaRkKWs

@@ -30,7 +30,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
         /// </summary>
         public void Draw(Rect rect, RuleBuilderState state)
         {
-            RWWidgets.DrawBoxSolid(rect, RuleBuilderConstants.PanelBackgroundLight);
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, RuleBuilderConstants.PanelBackgroundLight);
             RWWidgets.DrawBox(rect, 1);
 
             Rect innerRect = rect.ContractedBy(4f);
@@ -60,7 +60,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             RWWidgets.Label(rect, text);
 
             Rect lineRect = new Rect(rect.x, rect.yMax - 2f, rect.width, 1f);
-            RWWidgets.DrawBoxSolid(lineRect, RuleBuilderConstants.HeaderColor * 0.5f);
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(lineRect, RuleBuilderConstants.HeaderColor * 0.5f);
 
             Text.Anchor = TextAnchor.UpperLeft;
             GUI.color = Color.white;
@@ -130,26 +130,26 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             
             if (isSelected)
             {
-                RWWidgets.DrawBoxSolid(rect, RuleBuilderConstants.CardBackgroundSelected);
+                Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, RuleBuilderConstants.CardBackgroundSelected);
             }
             else if (isDragHover)
             {
                 // Special highlight when dragging over
-                RWWidgets.DrawBoxSolid(rect, new Color(0.3f, 0.5f, 0.7f, 0.4f));
+                Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, new Color(0.3f, 0.5f, 0.7f, 0.4f));
                 GUI.color = new Color(0.5f, 0.7f, 1f, 0.8f);
                 RWWidgets.DrawBox(rect, 2);
                 GUI.color = Color.white;
             }
             else if (Mouse.IsOver(rect))
             {
-                RWWidgets.DrawBoxSolid(rect, RuleBuilderConstants.CardBackgroundHover);
+                Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, RuleBuilderConstants.CardBackgroundHover);
             }
 
             // Configured indicator bar
             if (isConfigured)
             {
                 Rect indicatorRect = new Rect(rect.x, rect.y + 2f, 3f, rect.height - 4f);
-                RWWidgets.DrawBoxSolid(indicatorRect, RuleBuilderConstants.SuccessColor);
+                Better_Work_Tab.WidgetsCompat.DrawBoxSolid(indicatorRect, RuleBuilderConstants.SuccessColor);
             }
 
             // Label
@@ -162,7 +162,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             if (ruleCount > 0)
             {
                 Rect badgeRect = new Rect(rect.xMax - 24f, rect.y + 4f, 20f, rect.height - 8f);
-                RWWidgets.DrawBoxSolid(badgeRect, RuleBuilderConstants.SuccessColor);
+                Better_Work_Tab.WidgetsCompat.DrawBoxSolid(badgeRect, RuleBuilderConstants.SuccessColor);
                 Text.Anchor = TextAnchor.MiddleCenter;
                 Text.Font = GameFont.Tiny;
                 GUI.color = Color.white;
@@ -180,7 +180,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             GUI.color = Color.white;
 
             // Click handler
-            if (RWWidgets.ButtonInvisible(rect))
+            if (Better_Work_Tab.WidgetsCompat.ButtonInvisible(rect))
             {
                 state.SelectedWorkType = workType;
             }
@@ -246,3 +246,4 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
         }
     }
 }
+

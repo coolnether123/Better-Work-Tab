@@ -28,6 +28,8 @@ namespace Spine.UI.SettingsFramework
         private string _highlightedSettingId;
         private float _highlightStartedAt;
         private TransferMode _transferMode = TransferMode.None;
+        private readonly HashSet<string> _forceVisibleDisabledAncestorIds =
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
         /// Gets or sets the current scroll position. Used for preserving scroll state across drawer recreations.
@@ -356,7 +358,12 @@ namespace Spine.UI.SettingsFramework
             ref SettingsViewMode viewMode,
             Action onSettingsChanged)
         {
-            bool isSearching = !(string.IsNullOrEmpty(_searchQuery) || _searchQuery.Trim().Length == 0);
+            bool isSearching = !IsNullOrWhiteSpace(_searchQuery);
+            if (!string.IsNullOrEmpty(_pendingFocusSettingId))
+            {
+                RevealDisabledAncestorChain(_pendingFocusSettingId);
+            }
+
             var visibleSettings = BuildVisibleSettings(settingsObject, viewMode, isSearching);
 
             if (visibleSettings.Count == 0)
@@ -382,6 +389,8 @@ namespace Spine.UI.SettingsFramework
             {
                 int depth = _hierarchy.GetDepth(def);
                 bool disabledByAncestor = _hierarchy.IsDisabledByAncestor(def, settingsObject);
+                bool allowFocusedDisabledInteraction =
+                    disabledByAncestor && IsFocusedForcedVisibleSetting(def);
 
                 Rect rowRect = new Rect(0f, curY, viewRect.width, RowHeight);
                 if (isSearching)
@@ -390,7 +399,7 @@ namespace Spine.UI.SettingsFramework
                 }
 
                 DrawFocusedSettingHighlight(rowRect, def);
-                DrawSettingRow(rowRect, def, settingsObject, disabledByAncestor, depth, onSettingsChanged);
+                DrawSettingRow(rowRect, def, settingsObject, disabledByAncestor && !allowFocusedDisabledInteraction, depth, onSettingsChanged);
                 curY += RowHeight;
             }
 
@@ -450,8 +459,7 @@ namespace Spine.UI.SettingsFramework
                     {
                         if (ResetSettingToDefault(field, settingsObject, def))
                         {
-                            def.OnChanged?.Invoke(settingsObject);
-                            onSettingsChanged?.Invoke();
+                            HandleSettingChanged(def, settingsObject, onSettingsChanged);
                         }
                     });
                 }
@@ -469,8 +477,7 @@ namespace Spine.UI.SettingsFramework
                         if (changed)
                         {
                             field.SetValue(settingsObject, boolValue);
-                            def.OnChanged?.Invoke(settingsObject);
-                            onSettingsChanged?.Invoke();
+                            HandleSettingChanged(def, settingsObject, onSettingsChanged);
                         }
                     }
                     break;
@@ -483,8 +490,7 @@ namespace Spine.UI.SettingsFramework
                         if (SettingWidgets.DrawInt(contentRect, label, ref intValue, min, max, tooltip, disabled))
                         {
                             field.SetValue(settingsObject, intValue);
-                            def.OnChanged?.Invoke(settingsObject);
-                            onSettingsChanged?.Invoke();
+                            HandleSettingChanged(def, settingsObject, onSettingsChanged);
                         }
                     }
                     break;
@@ -497,8 +503,7 @@ namespace Spine.UI.SettingsFramework
                         if (SettingWidgets.DrawNumericInt(contentRect, label, ref intValue, min, max, tooltip, disabled))
                         {
                             field.SetValue(settingsObject, intValue);
-                            def.OnChanged?.Invoke(settingsObject);
-                            onSettingsChanged?.Invoke();
+                            HandleSettingChanged(def, settingsObject, onSettingsChanged);
                         }
                     }
                     break;
@@ -512,8 +517,7 @@ namespace Spine.UI.SettingsFramework
                                 def.MinLabel, def.MaxLabel, tooltip, disabled))
                         {
                             field.SetValue(settingsObject, floatValue);
-                            def.OnChanged?.Invoke(settingsObject);
-                            onSettingsChanged?.Invoke();
+                            HandleSettingChanged(def, settingsObject, onSettingsChanged);
                         }
                     }
                     break;
@@ -527,8 +531,7 @@ namespace Spine.UI.SettingsFramework
                                 var dialog = new Spine.UI.ColourPicker.Dialog_ColourPicker(current, (newColor, _) =>
                                 {
                                     field.SetValue(settingsObject, newColor);
-                                    def.OnChanged?.Invoke(settingsObject);
-                                    onSettingsChanged?.Invoke();
+                                    HandleSettingChanged(def, settingsObject, onSettingsChanged);
                                     onSelected?.Invoke(newColor);
                                 });
 
@@ -543,16 +546,14 @@ namespace Spine.UI.SettingsFramework
                         SettingWidgets.DrawEnum(contentRect, label, current, def.EnumType, tooltip, disabled, selected =>
                         {
                             field.SetValue(settingsObject, selected);
-                            def.OnChanged?.Invoke(settingsObject);
-                            onSettingsChanged?.Invoke();
+                            HandleSettingChanged(def, settingsObject, onSettingsChanged);
                         });
                     }
                     break;
                 case SettingType.Button:
                     if (SettingWidgets.DrawButton(contentRect, label, tooltip, disabled))
                     {
-                        def.OnChanged?.Invoke(settingsObject);
-                        onSettingsChanged?.Invoke();
+                        HandleSettingChanged(def, settingsObject, onSettingsChanged);
                     }
                     break;
                 case SettingType.Header:
@@ -644,7 +645,9 @@ namespace Spine.UI.SettingsFramework
                     continue;
                 }
 
-                if (!useSearch && _hierarchy.IsDisabledByAncestor(setting, settingsObject))
+                if (!useSearch &&
+                    _hierarchy.IsDisabledByAncestor(setting, settingsObject) &&
+                    !IsForcedVisibleThroughDisabledAncestor(setting))
                 {
                     continue;
                 }
@@ -974,6 +977,7 @@ namespace Spine.UI.SettingsFramework
                 return false;
             }
 
+            RevealDisabledAncestorChain(target.Id);
             CenterOnSetting(target, settingsObject, viewMode, listHeight);
             FocusSetting(target?.Id);
             ClearSearch();
@@ -997,6 +1001,99 @@ namespace Spine.UI.SettingsFramework
 
             _highlightedSettingId = settingId;
             _highlightStartedAt = Time.realtimeSinceStartup;
+        }
+
+        private void RevealDisabledAncestorChain(string settingId)
+        {
+            SettingDefinition setting = _hierarchy.GetById(settingId);
+            if (setting == null)
+            {
+                return;
+            }
+
+            foreach (SettingDefinition ancestor in _hierarchy.GetAncestors(setting))
+            {
+                if (!ancestor.ControlsChildVisibility || ancestor.Type != SettingType.Bool)
+                {
+                    continue;
+                }
+
+                _forceVisibleDisabledAncestorIds.Add(ancestor.Id);
+            }
+        }
+
+        private bool IsForcedVisibleThroughDisabledAncestor(SettingDefinition setting)
+        {
+            if (setting == null || _forceVisibleDisabledAncestorIds.Count == 0)
+            {
+                return false;
+            }
+
+            foreach (SettingDefinition ancestor in _hierarchy.GetAncestors(setting))
+            {
+                if (_forceVisibleDisabledAncestorIds.Contains(ancestor.Id))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private bool IsFocusedForcedVisibleSetting(SettingDefinition setting)
+        {
+            return setting != null &&
+                !string.IsNullOrEmpty(_highlightedSettingId) &&
+                string.Equals(setting.Id, _highlightedSettingId, StringComparison.OrdinalIgnoreCase) &&
+                IsForcedVisibleThroughDisabledAncestor(setting);
+        }
+
+        private void HandleSettingChanged(
+            SettingDefinition changedSetting,
+            object settingsObject,
+            Action onSettingsChanged)
+        {
+            bool ancestorsChanged = EnableControllingAncestors(changedSetting, settingsObject);
+            changedSetting?.OnChanged?.Invoke(settingsObject);
+            onSettingsChanged?.Invoke();
+
+            if (ancestorsChanged)
+            {
+                _forceVisibleDisabledAncestorIds.Clear();
+            }
+        }
+
+        private bool EnableControllingAncestors(SettingDefinition setting, object settingsObject)
+        {
+            if (setting == null || settingsObject == null)
+            {
+                return false;
+            }
+
+            bool changed = false;
+            foreach (SettingDefinition ancestor in _hierarchy.GetAncestors(setting))
+            {
+                if (!ancestor.ControlsChildVisibility ||
+                    ancestor.Type != SettingType.Bool ||
+                    string.IsNullOrEmpty(ancestor.FieldName))
+                {
+                    continue;
+                }
+
+                FieldInfo field = settingsObject.GetType().GetField(
+                    ancestor.FieldName,
+                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                if (field == null || field.FieldType != typeof(bool) || (bool)field.GetValue(settingsObject))
+                {
+                    continue;
+                }
+
+                field.SetValue(settingsObject, true);
+                ancestor.OnChanged?.Invoke(settingsObject);
+                changed = true;
+            }
+
+            return changed;
         }
 
         private void DrawFocusedSettingHighlight(Rect rowRect, SettingDefinition def)

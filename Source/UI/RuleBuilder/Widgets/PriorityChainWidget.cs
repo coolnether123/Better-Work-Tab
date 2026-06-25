@@ -100,7 +100,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
                     var moreSize = Text.CalcSize(more) + new Vector2(12f, 4f);
                     Rect moreRect = new Rect(curX, centerY - moreSize.y / 2f, moreSize.x, moreSize.y);
                     DrawBadge(moreRect, more, RuleBuilderConstants.PanelBackgroundLight, Color.white);
-                    if (RWWidgets.ButtonInvisible(moreRect))
+                    if (Better_Work_Tab.WidgetsCompat.ButtonInvisible(moreRect))
                     {
                         expanded = true;
                     }
@@ -115,7 +115,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
                         label,
                         WorkPrioritySystem.GetPriorityColor(item.Priority),
                         item.IsSelected ? Color.white : Color.black);
-                    if (RWWidgets.ButtonInvisible(prRect))
+                    if (Better_Work_Tab.WidgetsCompat.ButtonInvisible(prRect))
                     {
                         state.SelectedPriority = item.Priority;
                         state.SelectedRule = null;
@@ -153,7 +153,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
         private static void DrawBadge(Rect rect, string text, Color bg, Color fg)
         {
             var oldColor = GUI.color;
-            RWWidgets.DrawBoxSolid(rect, bg);
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, bg);
             RWWidgets.DrawBox(rect, 1);
             GUI.color = fg;
             Text.Anchor = TextAnchor.MiddleCenter;
@@ -171,3 +171,4 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
         }
     }
 }
+

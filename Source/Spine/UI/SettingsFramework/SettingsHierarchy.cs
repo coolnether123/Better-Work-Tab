@@ -111,6 +111,28 @@ namespace Spine.UI.SettingsFramework
             return parent;
         }
 
+        public SettingDefinition GetById(string settingId)
+        {
+            if (string.IsNullOrEmpty(settingId))
+            {
+                return null;
+            }
+
+            _byId.TryGetValue(settingId, out var setting);
+            return setting;
+        }
+
+        public IEnumerable<SettingDefinition> GetAncestors(SettingDefinition setting)
+        {
+            var current = setting;
+            while (current != null && !string.IsNullOrEmpty(current.ParentId) &&
+                   _byId.TryGetValue(current.ParentId, out var parent))
+            {
+                yield return parent;
+                current = parent;
+            }
+        }
+
         /// <summary>
         /// Checks if the setting is disabled by any ancestor that controls visibility.
         /// </summary>

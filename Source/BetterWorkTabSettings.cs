@@ -111,6 +111,7 @@ namespace Better_Work_Tab
         public static bool showPriorityLegend = true;
         public static bool showDragInstructions = true;
         public static bool showContextSettingsHint = true;
+        public static bool showBetaTutorial = true;
         public static bool showManualPrioritiesCheckbox = true;
 #if v0_16 || vAlpha4
 #if vAlpha4
@@ -205,7 +206,7 @@ namespace Better_Work_Tab
         public static bool warnOnApplyRuleset = true;
         public static bool warnOnApplyWorkload = true;
         public static bool removeHeaderUnderline = false;
-        public static bool enableScrollWheelPriority = false;
+        public static bool enableScrollWheelPriority = true;
         public static bool enableAngledHeaders = true;
         public static int angledHeaderRotation = -60;
         public static int angledHeaderHorizontalOffset = 10;
@@ -216,7 +217,7 @@ namespace Better_Work_Tab
         public static bool enableExtendedPriorities = false;
         public static bool delegateToExternalPriorityMods = true;
         public static string selectedPriorityProviderId = PriorityConstants.AutoProviderId;
-        public static int autoMaxPriority = PriorityConstants.ExtendedHardMax;
+        public static int autoMaxPriority = 9;
         public static BetterWorkTabSettings.AutoDisabledPriorityMode autoDisabledPriorityMode =
             BetterWorkTabSettings.AutoDisabledPriorityMode.EveryMultipleOfFour;
         public static int autoDisabledPriorityFixedValue = PriorityConstants.VanillaMax;
@@ -291,7 +292,7 @@ namespace Better_Work_Tab
         public static BetterWorkTabSettings.ShowUIMode ShowUIMode_ShowSmallSkillNumbers = BetterWorkTabSettings.ShowUIMode.Unshifted;
         public static BetterWorkTabSettings.ShowUIMode ShowUIMode_ShowPawnForSkillSquare = BetterWorkTabSettings.ShowUIMode.Shifted;
 
-        public static int maxPriority = PriorityConstants.ExtendedHardMax;
+        public static int maxPriority = 9;
         public static int priorityColorPercentage_Green = 10;
         public static int priorityColorPercentage_Yellow = 50;
         public static int priorityColorPercentage_Tan = 75;
@@ -360,6 +361,8 @@ namespace Better_Work_Tab
         public bool showPriorityLegend = DefaultSettings.showPriorityLegend;
         public bool showDragInstructions = DefaultSettings.showDragInstructions;
         public bool showContextSettingsHint = DefaultSettings.showContextSettingsHint;
+        public bool showBetaTutorial = DefaultSettings.showBetaTutorial;
+        public int betaTutorialStep = 0;
         public bool showManualPrioritiesCheckbox = DefaultSettings.showManualPrioritiesCheckbox;
 #if v0_16
         public bool useModernLegacyPriorityCells = DefaultSettings.useModernLegacyPriorityCells;
@@ -889,6 +892,8 @@ namespace Better_Work_Tab
             Better_Work_Tab.ScribeCompat.LookValue(ref showPriorityLegend, "showPriorityLegend", DefaultSettings.showPriorityLegend);
             Better_Work_Tab.ScribeCompat.LookValue(ref showDragInstructions, "showDragInstructions", DefaultSettings.showDragInstructions);
             Better_Work_Tab.ScribeCompat.LookValue(ref showContextSettingsHint, "showContextSettingsHint", DefaultSettings.showContextSettingsHint);
+            Better_Work_Tab.ScribeCompat.LookValue(ref showBetaTutorial, "showBetaTutorial", DefaultSettings.showBetaTutorial);
+            Better_Work_Tab.ScribeCompat.LookValue(ref betaTutorialStep, "betaTutorialStep", 0);
             Better_Work_Tab.ScribeCompat.LookValue(ref showManualPrioritiesCheckbox, "showManualPrioritiesCheckbox", DefaultSettings.showManualPrioritiesCheckbox);
 #if v0_16
             Better_Work_Tab.ScribeCompat.LookValue(ref useModernLegacyPriorityCells, "useModernLegacyPriorityCells", DefaultSettings.useModernLegacyPriorityCells);

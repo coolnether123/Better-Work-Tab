@@ -45,7 +45,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
                 Color highlightColor = isValidDropTarget 
                     ? new Color(0.3f, 0.6f, 0.4f, 0.3f)  // Green tint for valid
                     : new Color(0.6f, 0.3f, 0.3f, 0.2f); // Red tint for invalid
-                RWWidgets.DrawBoxSolid(rect, highlightColor);
+                Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, highlightColor);
                 
                 // Draw prominent border
                 GUI.color = isValidDropTarget 
@@ -56,7 +56,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             }
             else
             {
-                RWWidgets.DrawBoxSolid(rect, RuleBuilderConstants.PanelBackgroundLight);
+                Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, RuleBuilderConstants.PanelBackgroundLight);
                 RWWidgets.DrawBox(rect, 1);
             }
 
@@ -248,7 +248,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
 
         private void DrawNoConditionsState(Rect rect, RuleBuilderState state)
         {
-            RWWidgets.DrawBoxSolid(rect, RuleBuilderConstants.CardBackground * 0.8f);
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, RuleBuilderConstants.CardBackground * 0.8f);
 
             var oldAnchor = Text.Anchor;
             var oldColor = GUI.color;
@@ -275,7 +275,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
         {
             var oldColor = GUI.color;
 
-            if (RWWidgets.ButtonText(rect, "+ " + "BWT_AddConditionSet".Translate()))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(rect, "+ " + "BWT_AddConditionSet".Translate()))
             {
                 CreateNewRule(state);
             }
@@ -337,3 +337,4 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
         }
     }
 }
+
