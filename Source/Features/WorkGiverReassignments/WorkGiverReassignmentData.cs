@@ -114,7 +114,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 }
             }
 #else
-            Scribe_Collections.Look(ref WorkGiverToWorkTypeMap, "workGiverToWorkTypeMap", LookMode.Value, LookMode.Value);
+            Better_Work_Tab.ScribeCompat.LookCollection(ref WorkGiverToWorkTypeMap, "workGiverToWorkTypeMap", LookMode.Value, LookMode.Value);
 #endif
 
             List<WorkTypeOrderRecord> orderRecords = null;
