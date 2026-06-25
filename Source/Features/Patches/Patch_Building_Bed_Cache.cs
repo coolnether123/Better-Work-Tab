@@ -1,6 +1,7 @@
 using Better_Work_Tab.Features.Caching;
 using HarmonyLib;
 using RimWorld;
+using System;
 using Verse;
 
 namespace Better_Work_Tab.Patches
@@ -24,7 +25,7 @@ namespace Better_Work_Tab.Patches
             if (__instance != null)
             {
                 // New bed spawned on this map; drop cache entry so next lookup recalculates
-                BedCountCache.InvalidateForMap(map);
+                BedCachePatchUtility.SafeInvalidateForMap(map, "bed spawned");
             }
         }
     }
@@ -42,7 +43,7 @@ namespace Better_Work_Tab.Patches
             {
                 // The map property may be null after DeSpawn; therefore, all maps are invalidated.
                 // (This event is infrequent, maintaining acceptable computational efficiency)
-                BedCountCache.InvalidateForMap(null);
+                BedCachePatchUtility.SafeInvalidateForMap(null, "bed despawned");
             }
         }
     }
@@ -57,7 +58,7 @@ namespace Better_Work_Tab.Patches
         public static void Postfix(Building_Bed __instance)
         {
             // Switching prisoner flag moves the bed between colonist/prisoner pools
-            BedCountCache.InvalidateForMap(__instance.Map);
+            BedCachePatchUtility.SafeInvalidateForMap(__instance?.Map, "bed prisoner flag changed");
         }
     }
 
@@ -72,7 +73,7 @@ namespace Better_Work_Tab.Patches
             if (__instance is Building_Bed bed)
             {
                 // Beds changing ownership to/from the player alters usable colonist slots
-                BedCountCache.InvalidateForMap(bed.Map);
+                BedCachePatchUtility.SafeInvalidateForMap(bed.Map, "bed faction changed");
             }
         }
     }
@@ -85,7 +86,7 @@ namespace Better_Work_Tab.Patches
     {
         public static void Postfix()
         {
-            BedCountCache.Clear();
+            BedCachePatchUtility.SafeClear("game loaded");
         }
     }
 
@@ -97,7 +98,34 @@ namespace Better_Work_Tab.Patches
     {
         public static void Postfix()
         {
-            BedCountCache.Clear();
+            BedCachePatchUtility.SafeClear("new game initialized");
+        }
+    }
+
+    internal static class BedCachePatchUtility
+    {
+        public static void SafeInvalidateForMap(Map map, string reason)
+        {
+            try
+            {
+                BedCountCache.InvalidateForMap(map);
+            }
+            catch (Exception ex)
+            {
+                Log.Warning($"[BWT] Skipped bed cache invalidation after {reason}: {ex.GetType().Name}: {ex.Message}");
+            }
+        }
+
+        public static void SafeClear(string reason)
+        {
+            try
+            {
+                BedCountCache.Clear();
+            }
+            catch (Exception ex)
+            {
+                Log.Warning($"[BWT] Skipped bed cache clear after {reason}: {ex.GetType().Name}: {ex.Message}");
+            }
         }
     }
 }
