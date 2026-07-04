@@ -10,6 +10,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
     {
         Welcome,
         BlankRuleset,
+        RuleDeck,
         Target,
         SubWorkTarget,
         Condition,
@@ -148,6 +149,11 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                     return new TutorialOverlayContent(
                         T("BWT_RuleBuilder2_Tutorial_CreateTitle"),
                         T("BWT_RuleBuilder2_Tutorial_CreateBody"),
+                        T("BWT_RuleBuilder2_Tutorial_Next"));
+                case RuleBuilder2TutorialStep.RuleDeck:
+                    return new TutorialOverlayContent(
+                        T("BWT_RuleBuilder2_Tutorial_DeckTitle"),
+                        T("BWT_RuleBuilder2_Tutorial_DeckBody"),
                         T("BWT_RuleBuilder2_Tutorial_Next"));
                 case RuleBuilder2TutorialStep.Target:
                     return new TutorialOverlayContent(

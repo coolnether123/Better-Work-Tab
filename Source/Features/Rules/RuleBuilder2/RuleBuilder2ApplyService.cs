@@ -56,8 +56,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 }
             }
 
-            SaveOrReplaceRuleset(ruleset);
-            SaveLegacyCompatibleRuleset(ruleset);
+            BetterWorkTabMod.Settings.SaveOrReplaceRuleBuilder2Ruleset(ruleset, makeCurrent: true, writeSettings: false);
             LoadedModManager.GetMod<BetterWorkTabMod>()?.WriteSettings();
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
             return changed;
@@ -113,46 +112,6 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
             }
 
             return true;
-        }
-
-        private static void SaveOrReplaceRuleset(RuleBuilder2Ruleset ruleset)
-        {
-            BetterWorkTabMod.Settings.SavedRuleBuilder2Rulesets ??= new List<RuleBuilder2Ruleset>();
-            int index = BetterWorkTabMod.Settings.SavedRuleBuilder2Rulesets.FindIndex(existing => existing?.StableId == ruleset.StableId);
-            if (index >= 0)
-            {
-                BetterWorkTabMod.Settings.SavedRuleBuilder2Rulesets[index] = ruleset;
-            }
-            else
-            {
-                BetterWorkTabMod.Settings.SavedRuleBuilder2Rulesets.Add(ruleset);
-            }
-        }
-
-        private static void SaveLegacyCompatibleRuleset(RuleBuilder2Ruleset ruleset)
-        {
-            WorkAssignmentRuleset legacy = RuleBuilder2MigrationService.TryCreateLegacyRuleset(ruleset, out _);
-            if (legacy == null)
-            {
-                return;
-            }
-
-            BetterWorkTabMod.Settings.SavedRulesets ??= new List<WorkAssignmentRuleset>();
-            int existingIndex = BetterWorkTabMod.Settings.SavedRulesets.FindIndex(existing =>
-                existing != null &&
-                !existing.IsDefault &&
-                existing.Name == legacy.Name);
-
-            if (existingIndex >= 0)
-            {
-                BetterWorkTabMod.Settings.SavedRulesets[existingIndex] = legacy;
-            }
-            else
-            {
-                BetterWorkTabMod.Settings.SavedRulesets.Add(legacy);
-            }
-
-            BetterWorkTabMod.Settings.SetCurrentRuleset(legacy, writeSettings: false);
         }
     }
 }

@@ -80,7 +80,9 @@
     <Compile Include="Features\Rules\RuleBuilder2\RuleBuilder2ConditionCatalog.cs" />
     <Compile Include="Features\Rules\RuleBuilder2\RuleBuilder2Evaluator.cs" />
     <Compile Include="Features\Rules\RuleBuilder2\RuleBuilder2ApplyService.cs" />
-    <Compile Include="Features\Rules\RuleBuilder2\RuleBuilder2MigrationService.cs" />
+    <Compile Include="Features\Rules\RuleBuilder2\RuleBuilder2SummaryService.cs" />
+    <Compile Include="Features\Rules\RuleBuilder2\RuleBuilder2ClassicRulesetTranslator.cs" />
+    <Compile Include="Features\Rules\RuleBuilder2\RuleBuilder2ClassicRulesetExportService.cs" />
     <Compile Include="Features\Rules\RuleBuilder2\RuleBuilder2DraftGenerator.cs" />
     <Compile Include="Features\ColumnBaselineManager.cs" />
     <Compile Include="Features\Dividers\DividerCollapseAnimationState.cs" />
@@ -180,6 +182,9 @@
     <Compile Include="Spine\Profiling\SpineTiming.cs" />
     <Compile Include="Spine\Utils\SpineUtils.cs" />
     <Compile Include="Spine\UI\TextColorHelper.cs" />
+    <Compile Include="Spine\UI\Animation\SpineEasing.cs" />
+    <Compile Include="Spine\UI\Layout\SpineLayoutTrack.cs" />
+    <Compile Include="Spine\UI\Layout\SpineRectLayout.cs" />
     <Compile Include="Spine\UI\Tutorial\TutorialOverlayContent.cs" />
     <Compile Include="Spine\UI\Tutorial\TutorialOverlayController.cs" />
     <Compile Include="Spine\UI\Tutorial\TutorialOverlayLayout.cs" />
@@ -278,6 +283,7 @@
     <Compile Include="UI\RuleBuilder\Widgets\PriorityChainWidget.cs" />
     <Compile Include="UI\RuleBuilder\Widgets\WorkTypeCard.cs" />
     <Compile Include="UI\RuleBuilderV2\RuleBuilder2WorkTabBridge.cs" />
+    <Compile Include="UI\RuleBuilderV2\RuleBuilder2Layout.cs" />
     <Compile Include="UI\RuleBuilderV2\RuleBuilder2TutorialController.cs" />
     <Compile Include="UI\RuleBuilderV2\Window_RuleBuilder2.cs" />
   </ItemGroup>

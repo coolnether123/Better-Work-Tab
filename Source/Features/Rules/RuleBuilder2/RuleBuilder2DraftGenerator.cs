@@ -64,7 +64,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
             var card = new RuleBuilder2Card
             {
                 StableId = System.Guid.NewGuid().ToString("N"),
-                Name = workType.LabelCap + " draft",
+                Name = GetWorkTypeLabel(workType) + " draft",
                 SortOrder = ruleset.Cards.Count,
                 Enabled = true,
                 IsConfirmed = false,
@@ -75,7 +75,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 Target = new RuleBuilder2Target
                 {
                     WorkTypeDefName = workType.defName,
-                    DisplayLabel = workType.LabelCap.ToString(),
+                    DisplayLabel = GetWorkTypeLabel(workType),
                     Source = RuleBuilder2TargetSource.Generated
                 },
                 Action = new RuleBuilder2Action
@@ -117,7 +117,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 }
             }
 
-            card.Summary = RuleBuilder2MigrationService.BuildSummary(card);
+            card.Summary = RuleBuilder2SummaryService.BuildSummary(card);
             ruleset.Cards.Add(card);
         }
 
@@ -147,7 +147,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 var card = new RuleBuilder2Card
                 {
                     StableId = System.Guid.NewGuid().ToString("N"),
-                    Name = workGiver.LabelCap + " draft",
+                    Name = GetWorkGiverLabel(workGiver) + " draft",
                     SortOrder = ruleset.Cards.Count,
                     Notes = hasSchedule
                         ? "Medium confidence: sub-work schedule data was detected."
@@ -156,7 +156,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                     {
                         WorkTypeDefName = workType.defName,
                         WorkGiverDefName = workGiver.defName,
-                        DisplayLabel = workType.LabelCap + " -> " + workGiver.LabelCap,
+                        DisplayLabel = GetWorkTypeLabel(workType) + " -> " + GetWorkGiverLabel(workGiver),
                         Source = RuleBuilder2TargetSource.Generated
                     },
                     Action = new RuleBuilder2Action
@@ -178,7 +178,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                     DisplayText = "Review pawns already assigned to this parent work type"
                 });
 
-                card.Summary = RuleBuilder2MigrationService.BuildSummary(card);
+                card.Summary = RuleBuilder2SummaryService.BuildSummary(card);
                 ruleset.Cards.Add(card);
             }
         }
@@ -191,6 +191,18 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
             }
 
             return pawn.skills.AverageOfRelevantSkillsFor(workType);
+        }
+
+        private static string GetWorkTypeLabel(WorkTypeDef workType)
+        {
+            string label = workType?.LabelCap.ToString();
+            return string.IsNullOrEmpty(label) ? workType?.defName ?? "Work" : label;
+        }
+
+        private static string GetWorkGiverLabel(WorkGiverDef workGiver)
+        {
+            string label = workGiver?.LabelCap.ToString();
+            return string.IsNullOrEmpty(label) ? workGiver?.defName ?? "Sub-work" : label;
         }
     }
 }

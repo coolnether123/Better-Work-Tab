@@ -482,8 +482,10 @@ namespace Better_Work_Tab
         // Ruleset management
         public List<WorkAssignmentRuleset> SavedRulesets;
         public List<RuleBuilder2Ruleset> SavedRuleBuilder2Rulesets = new List<RuleBuilder2Ruleset>();
+        public RuleBuilder2Ruleset CurrentRuleBuilder2Ruleset = null;
         public WorkAssignmentRuleset CurrentRuleset = null;
         public string currentRulesetName = "";
+        public string currentRuleBuilder2RulesetStableId = "";
 
         // Auto-assign
         public bool showAutoAssignConfirmation = DefaultSettings.showAutoAssignConfirmation;
@@ -747,6 +749,46 @@ namespace Better_Work_Tab
         {
             CurrentRuleset = ruleset;
             currentRulesetName = ruleset?.Name ?? "";
+
+            if (writeSettings)
+            {
+                Write();
+            }
+        }
+
+        public void SaveOrReplaceRuleBuilder2Ruleset(RuleBuilder2Ruleset ruleset, bool makeCurrent = true, bool writeSettings = true)
+        {
+            if (ruleset == null)
+            {
+                return;
+            }
+
+            EnsureRuleBuilder2Rulesets();
+            int index = SavedRuleBuilder2Rulesets.FindIndex(existing => existing?.StableId == ruleset.StableId);
+            if (index >= 0)
+            {
+                SavedRuleBuilder2Rulesets[index] = ruleset;
+            }
+            else
+            {
+                SavedRuleBuilder2Rulesets.Add(ruleset);
+            }
+
+            if (makeCurrent)
+            {
+                SetCurrentRuleBuilder2Ruleset(ruleset, writeSettings: false);
+            }
+
+            if (writeSettings)
+            {
+                Write();
+            }
+        }
+
+        public void SetCurrentRuleBuilder2Ruleset(RuleBuilder2Ruleset ruleset, bool writeSettings = true)
+        {
+            CurrentRuleBuilder2Ruleset = ruleset;
+            currentRuleBuilder2RulesetStableId = ruleset?.StableId ?? "";
 
             if (writeSettings)
             {
@@ -1025,8 +1067,14 @@ namespace Better_Work_Tab
                 currentRulesetName = CurrentRuleset.Name;
             }
 
+            if (Scribe.mode == LoadSaveMode.Saving && CurrentRuleBuilder2Ruleset != null)
+            {
+                currentRuleBuilder2RulesetStableId = CurrentRuleBuilder2Ruleset.StableId;
+            }
+
             Scribe_Values.Look(ref defaultAutoAssignRuleset, "defaultAutoAssignRuleset", "BWT Default");
             Scribe_Values.Look(ref currentRulesetName, "currentRulesetName", "");
+            Scribe_Values.Look(ref currentRuleBuilder2RulesetStableId, "currentRuleBuilder2RulesetStableId", "");
             Scribe_Values.Look(ref showWorkloadButtonFooter, "showWorkloadButtonFooter", DefaultSettings.showWorkloadButtonFooter);
             Scribe_Values.Look(ref enableWorkloadSaving, "enableWorkloadSaving", DefaultSettings.enableWorkloadSaving);
             Scribe_Values.Look(ref enableWorkloadLoading, "enableWorkloadLoading", DefaultSettings.enableWorkloadLoading);
@@ -1240,6 +1288,28 @@ namespace Better_Work_Tab
                     SavedRuleBuilder2Rulesets[i].Cards[j]?.EnsureStableState(j);
                 }
             }
+
+            RuleBuilder2Ruleset selected = null;
+            if (!string.IsNullOrEmpty(currentRuleBuilder2RulesetStableId))
+            {
+                selected = SavedRuleBuilder2Rulesets.FirstOrDefault(ruleset =>
+                    ruleset != null &&
+                    ruleset.StableId == currentRuleBuilder2RulesetStableId);
+            }
+
+            if (selected == null && CurrentRuleBuilder2Ruleset != null)
+            {
+                selected = SavedRuleBuilder2Rulesets.FirstOrDefault(ruleset =>
+                    ruleset == CurrentRuleBuilder2Ruleset ||
+                    ruleset?.StableId == CurrentRuleBuilder2Ruleset.StableId);
+            }
+
+            if (selected == null && SavedRuleBuilder2Rulesets.Count > 0)
+            {
+                selected = SavedRuleBuilder2Rulesets[0];
+            }
+
+            SetCurrentRuleBuilder2Ruleset(selected, writeSettings: false);
         }
 
         /// <summary>

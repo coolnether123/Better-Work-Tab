@@ -7,24 +7,24 @@ using Verse;
 
 namespace Better_Work_Tab.Features.Rules.RuleBuilder2
 {
-    internal static class RuleBuilder2MigrationService
+    internal static class RuleBuilder2ClassicRulesetTranslator
     {
-        internal static RuleBuilder2Ruleset FromLegacy(WorkAssignmentRuleset legacy)
+        internal static RuleBuilder2Ruleset FromClassic(WorkAssignmentRuleset classicRuleset)
         {
             var result = new RuleBuilder2Ruleset
             {
-                Name = legacy?.Name == null ? "Migrated ruleset" : legacy.Name + " (Rule Builder 2.0)",
+                Name = classicRuleset?.Name == null ? "Migrated ruleset" : classicRuleset.Name + " (Rule Builder 2.0)",
                 Description = "Migrated from the classic Better Work Tab ruleset format. Review generated cards before applying.",
                 Source = RuleBuilder2SourceType.Migrated,
                 Cards = new List<RuleBuilder2Card>()
             };
 
-            if (legacy?.Rules != null)
+            if (classicRuleset?.Rules != null)
             {
-                for (int i = 0; i < legacy.Rules.Count; i++)
+                for (int i = 0; i < classicRuleset.Rules.Count; i++)
                 {
-                    WorkAssignmentRule rule = legacy.Rules[i];
-                    RuleBuilder2Card card = FromLegacyRule(rule, i);
+                    WorkAssignmentRule rule = classicRuleset.Rules[i];
+                    RuleBuilder2Card card = FromClassicRule(rule, i);
                     if (card != null)
                     {
                         result.Cards.Add(card);
@@ -36,7 +36,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
             return result;
         }
 
-        internal static WorkAssignmentRuleset TryCreateLegacyRuleset(RuleBuilder2Ruleset ruleset, out List<string> warnings)
+        internal static WorkAssignmentRuleset TryCreateClassicRuleset(RuleBuilder2Ruleset ruleset, out List<string> warnings)
         {
             warnings = new List<string>();
             if (ruleset?.Cards == null)
@@ -49,10 +49,10 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                          .Where(card => card != null && card.Enabled && card.IsConfirmed)
                          .OrderBy(card => card.SortOrder))
             {
-                WorkAssignmentRule legacy = TryCreateLegacyRule(card, out string warning);
-                if (legacy != null)
+                WorkAssignmentRule classicRule = TryCreateClassicRule(card, out string warning);
+                if (classicRule != null)
                 {
-                    rules.Add(legacy);
+                    rules.Add(classicRule);
                 }
                 else if (!string.IsNullOrEmpty(warning))
                 {
@@ -66,13 +66,13 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
             }
 
             return new WorkAssignmentRuleset(
-                (ruleset.Name ?? "Rule Builder 2.0") + " (Legacy Apply)",
+                (ruleset.Name ?? "Rule Builder 2.0") + " (Classic Export)",
                 rules,
                 BetterWorkTabMod.Settings?.resetWorkBeforeAutoAssign ?? DefaultSettings.resetWorkBeforeAutoAssign,
                 isDefault: false);
         }
 
-        private static RuleBuilder2Card FromLegacyRule(WorkAssignmentRule rule, int sortOrder)
+        private static RuleBuilder2Card FromClassicRule(WorkAssignmentRule rule, int sortOrder)
         {
             if (rule?.Parameters == null)
             {
@@ -107,12 +107,12 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 }
             };
 
-            AddMigratedConditions(card, p);
-            card.Summary = BuildSummary(card);
+            AddClassicConditions(card, p);
+            card.Summary = RuleBuilder2SummaryService.BuildSummary(card);
             return card;
         }
 
-        private static void AddMigratedConditions(RuleBuilder2Card card, WorkAssignmentParameters p)
+        private static void AddClassicConditions(RuleBuilder2Card card, WorkAssignmentParameters p)
         {
             if (p.SkillLevelGreaterThan >= 0)
             {
@@ -181,7 +181,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
             }
         }
 
-        private static WorkAssignmentRule TryCreateLegacyRule(RuleBuilder2Card card, out string warning)
+        private static WorkAssignmentRule TryCreateClassicRule(RuleBuilder2Card card, out string warning)
         {
             warning = "";
             if (card.Target == null || card.Target.IsSubWorkTarget)
@@ -217,7 +217,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                     continue;
                 }
 
-                if (!TryApplyLegacyCondition(condition, parameters, out warning))
+                if (!TryApplyClassicCondition(condition, parameters, out warning))
                 {
                     warning = "Card \"" + card.Name + "\" has a condition that needs Rule Builder 2.0: " + warning;
                     return null;
@@ -227,7 +227,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
             return new WorkAssignmentRule(card.Name, parameters, workType);
         }
 
-        private static bool TryApplyLegacyCondition(RuleBuilder2Condition condition, WorkAssignmentParameters parameters, out string warning)
+        private static bool TryApplyClassicCondition(RuleBuilder2Condition condition, WorkAssignmentParameters parameters, out string warning)
         {
             warning = "";
             switch (condition.Kind)
@@ -284,28 +284,6 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 default:
                     return true;
             }
-        }
-
-        internal static string BuildSummary(RuleBuilder2Card card)
-        {
-            if (card == null)
-            {
-                return "Empty rule";
-            }
-
-            string target = card.Target?.DisplayLabel;
-            if (string.IsNullOrEmpty(target))
-            {
-                target = card.Target?.ResolveWorkGiver()?.LabelCap.ToString()
-                    ?? card.Target?.ResolveWorkType()?.LabelCap.ToString()
-                    ?? "No target";
-            }
-
-            int conditionCount = card.Conditions?.Conditions?.Count(c => c != null && c.Enabled) ?? 0;
-            string action = card.Action?.Kind == RuleBuilder2ActionKind.Disable
-                ? "disable"
-                : "priority " + (card.Action?.Priority ?? 0);
-            return target + " -> " + action + " when " + conditionCount + " condition(s) match";
         }
     }
 }

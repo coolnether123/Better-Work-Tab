@@ -16,8 +16,12 @@ namespace Better_Work_Tab.ModSupport
     {
         private const int RequiredMajor = 1;
         private const int RequiredMinor = 0;
+        private const string ModernPackageId = "CoolNether123.ChronosPointer";
+        private const string LegacyPackageId = "CoolNether123.ChronosPointer.Legacy";
+        private const int FailedResolveRetryFrames = 60;
 
         private static bool _resolved;
+        private static int _nextResolveAttemptFrame;
         private static Type _apiType;
         private static MethodInfo _supports;
         private static MethodInfo _createGeometry;
@@ -165,10 +169,21 @@ namespace Better_Work_Tab.ModSupport
                 return _apiType != null;
             }
 
-            _resolved = true;
+            if (!IsChronosPointerActive())
+            {
+                return false;
+            }
+
+            if (Time.frameCount < _nextResolveAttemptFrame)
+            {
+                return false;
+            }
+
+            ClearResolvedMembers();
             _apiType = AccessTools.TypeByName("ChronosPointer.Api.ChronosPointerApi");
             if (_apiType == null)
             {
+                MarkResolveFailed();
                 return false;
             }
 
@@ -233,11 +248,46 @@ namespace Better_Work_Tab.ModSupport
                 _settingsColorMainCursor == null ||
                 _settingsHoursBarCursorThickness == null)
             {
-                _apiType = null;
+                MarkResolveFailed();
                 return false;
             }
 
+            _resolved = true;
+            _nextResolveAttemptFrame = 0;
             return true;
+        }
+
+        private static bool IsChronosPointerActive()
+        {
+            return ModsConfig.IsActive(ModernPackageId) || ModsConfig.IsActive(LegacyPackageId);
+        }
+
+        private static void MarkResolveFailed()
+        {
+            ClearResolvedMembers();
+            _nextResolveAttemptFrame = Time.frameCount + FailedResolveRetryFrames;
+        }
+
+        private static void ClearResolvedMembers()
+        {
+            _resolved = false;
+            _apiType = null;
+            _supports = null;
+            _createGeometry = null;
+            _drawTimeline = null;
+            _drawEmbeddedTimeline = null;
+            _tryDrawEmbeddedTimeline = null;
+            _tryGetTimelineSnapshot = null;
+            _getLatestTimelineSnapshot = null;
+            _getCurrentHoursBarCursorColor = null;
+            _geometryXAtLocalHour = null;
+            _isReady = null;
+            _timelineLocalHour = null;
+            _timelineSettings = null;
+            _settingsDrawHoursBarCursor = null;
+            _settingsDrawMainCursor = null;
+            _settingsColorMainCursor = null;
+            _settingsHoursBarCursorThickness = null;
         }
 
         private static bool HasTimelineDrawPath()

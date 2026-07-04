@@ -6,6 +6,7 @@ using Better_Work_Tab.Features.Rules;
 using Better_Work_Tab.Features.Rules.RuleBuilder2;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using RimWorld;
+using Spine.UI.Animation;
 using UnityEngine;
 using Verse;
 using Verse.Sound;
@@ -20,11 +21,19 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
         Preview
     }
 
+    internal enum RuleBuilder2Surface
+    {
+        Dashboard,
+        RuleCard
+    }
+
     public sealed class Window_RuleBuilder2 : Window
     {
         private readonly RuleBuilder2Evaluator evaluator = new RuleBuilder2Evaluator();
         private readonly RuleBuilder2ApplyService applyService = new RuleBuilder2ApplyService();
         private readonly RuleBuilder2DraftGenerator draftGenerator = new RuleBuilder2DraftGenerator();
+        private readonly RuleBuilder2ClassicRulesetExportService classicRulesetExportService = new RuleBuilder2ClassicRulesetExportService();
+        private readonly RuleBuilder2Layout layout = new RuleBuilder2Layout();
         private readonly RuleBuilder2TutorialController tutorial = new RuleBuilder2TutorialController();
         private readonly Dictionary<RuleBuilder2TutorialStep, Rect> tutorialRects = new Dictionary<RuleBuilder2TutorialStep, Rect>();
 
@@ -43,6 +52,11 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
         private bool showMatchedPanel;
         private readonly RuleBuilder2Ruleset seededRuleset;
         private readonly bool previewOnOpen;
+        private RuleBuilder2Surface activeSurface = RuleBuilder2Surface.Dashboard;
+        private RuleBuilder2Surface previousSurface = RuleBuilder2Surface.Dashboard;
+        private float surfaceTransition = 1f;
+        private Rect surfaceTransitionOrigin = Rect.zero;
+        private bool hasSurfaceTransitionOrigin;
         private RuleBuilder2EditorSection activeSection = RuleBuilder2EditorSection.Target;
         private readonly Dictionary<RuleBuilder2EditorSection, float> sectionOpenProgress =
             new Dictionary<RuleBuilder2EditorSection, float>
@@ -71,8 +85,8 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
         }
 
         public override Vector2 InitialSize => new Vector2(
-            Mathf.Min(1180f, Verse.UI.screenWidth - 40f),
-            Mathf.Min(760f, Verse.UI.screenHeight - 40f));
+            Mathf.Min(layout.Metrics.PreferredWindowWidth, Verse.UI.screenWidth - layout.Metrics.ScreenMargin),
+            Mathf.Min(layout.Metrics.PreferredWindowHeight, Verse.UI.screenHeight - layout.Metrics.ScreenMargin));
 
         public override void PreOpen()
         {
@@ -81,15 +95,14 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             if (seededRuleset != null)
             {
                 ruleset = seededRuleset;
-                if (!BetterWorkTabMod.Settings.SavedRuleBuilder2Rulesets.Contains(ruleset))
-                {
-                    BetterWorkTabMod.Settings.SavedRuleBuilder2Rulesets.Insert(0, ruleset);
-                }
+                BetterWorkTabMod.Settings.SaveOrReplaceRuleBuilder2Ruleset(ruleset, makeCurrent: true, writeSettings: false);
             }
             else
             {
-                ruleset = BetterWorkTabMod.Settings.SavedRuleBuilder2Rulesets.FirstOrDefault()
+                ruleset = BetterWorkTabMod.Settings.CurrentRuleBuilder2Ruleset
+                          ?? BetterWorkTabMod.Settings.SavedRuleBuilder2Rulesets.FirstOrDefault()
                           ?? CreateAndStoreBlankRuleset();
+                BetterWorkTabMod.Settings.SetCurrentRuleBuilder2Ruleset(ruleset, writeSettings: false);
             }
 
             ruleset.EnsureOpenBlankCard();
@@ -101,6 +114,8 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             tutorial.Reset();
             if (previewOnOpen)
             {
+                activeSurface = RuleBuilder2Surface.RuleCard;
+                previousSurface = RuleBuilder2Surface.RuleCard;
                 showPreview = true;
                 RefreshPreview();
             }
@@ -109,26 +124,28 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
         public override void PostClose()
         {
             RuleBuilder2WorkTabBridge.Unregister(this);
+            if (ruleset != null)
+            {
+                BetterWorkTabMod.Settings.SaveOrReplaceRuleBuilder2Ruleset(ruleset, makeCurrent: true, writeSettings: false);
+            }
+
+            BetterWorkTabMod.Settings.Write();
             base.PostClose();
         }
 
         public override void DoWindowContents(Rect inRect)
         {
             UpdateSectionAnimation();
+            UpdateSurfaceAnimation();
             tutorialRects.Clear();
             if (Event.current.type != EventType.Repaint && tutorial.TryHandleInput(inRect, tutorialRects, Event.current))
             {
                 return;
             }
 
-            DrawHeader(new Rect(inRect.x, inRect.y, inRect.width, 46f));
-
-            Rect body = new Rect(inRect.x, inRect.y + 54f, inRect.width, inRect.height - 54f);
-            Rect dashboard = new Rect(body.x, body.y, 330f, body.height);
-            Rect editor = new Rect(dashboard.xMax + 10f, body.y, body.width - dashboard.width - 10f, body.height);
-
-            DrawDashboard(dashboard);
-            DrawEditor(editor);
+            RuleBuilder2WindowRects windowRects = layout.Window(inRect);
+            DrawHeader(windowRects.Header);
+            DrawSurfaceTransition(windowRects.Body);
             RuleBuilder2WorkTabBridge.DrawRecentSelectionPulse();
             tutorial.Draw(inRect, tutorialRects);
         }
@@ -150,6 +167,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             }
 
             activeCard = card;
+            ShowRuleCardSurface();
             activeSection = RuleBuilder2EditorSection.Conditions;
             RefreshPreview();
             tutorial.ObserveTargetSelected(selection.WorkGiver != null);
@@ -171,34 +189,30 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
         private void DrawHeader(Rect rect)
         {
+            RuleBuilder2HeaderRects header = layout.Header(rect);
             Widgets.DrawMenuSection(rect);
             Text.Font = GameFont.Medium;
             Text.Anchor = TextAnchor.MiddleLeft;
-            Widgets.Label(new Rect(rect.x + 12f, rect.y, 220f, rect.height), T("BWT_RuleBuilder2_Title"));
+            Widgets.Label(header.Title, T("BWT_RuleBuilder2_Title"));
 
             Text.Font = GameFont.Small;
-            Rect nameRect = new Rect(rect.x + 245f, rect.y + 9f, 270f, 28f);
-            ruleset.Name = Widgets.TextField(nameRect, ruleset.Name ?? "");
+            ruleset.Name = Widgets.TextField(header.Name, ruleset.Name ?? "");
+            Widgets.CheckboxLabeled(header.Enabled, T("BWT_RuleBuilder2_Enabled"), ref ruleset.Enabled);
 
-            Rect enabledRect = new Rect(nameRect.xMax + 12f, rect.y + 10f, 110f, 24f);
-            Widgets.CheckboxLabeled(enabledRect, T("BWT_RuleBuilder2_Enabled"), ref ruleset.Enabled);
-
-            Rect doneRect = new Rect(rect.xMax - 90f, rect.y + 8f, 80f, 30f);
-            if (Widgets.ButtonText(doneRect, T("BWT_Done")))
+            if (Widgets.ButtonText(header.Done, T("BWT_Done")))
             {
                 Close();
             }
 
-            Rect applyRect = new Rect(doneRect.x - 92f, doneRect.y, 84f, 30f);
-            if (Widgets.ButtonText(applyRect, T("BWT_Apply")))
+            if (Widgets.ButtonText(header.Apply, T("BWT_Apply")))
             {
                 ApplyRuleset();
             }
 
-            Rect previewRect = new Rect(applyRect.x - 92f, doneRect.y, 84f, 30f);
-            if (Widgets.ButtonText(previewRect, T("BWT_RuleBuilder2_Preview")))
+            if (Widgets.ButtonText(header.Preview, T("BWT_RuleBuilder2_Preview")))
             {
                 showPreview = true;
+                ShowRuleCardSurface(Rect.zero);
                 activeSection = RuleBuilder2EditorSection.Preview;
                 RefreshPreview();
                 tutorial.ObservePreview();
@@ -207,121 +221,403 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             if (!string.IsNullOrEmpty(applyStatus))
             {
                 GUI.color = Color.yellow;
-                Widgets.Label(new Rect(previewRect.x - 280f, rect.y + 12f, 270f, 24f), applyStatus);
+                Widgets.Label(header.Status, applyStatus);
                 GUI.color = Color.white;
             }
 
             Text.Anchor = TextAnchor.UpperLeft;
         }
 
+        private void DrawSurfaceTransition(Rect rect)
+        {
+            float eased = SpineEasing.SmoothStep01(surfaceTransition);
+            if (surfaceTransition < 1f && Event.current.type == EventType.Repaint && previousSurface != activeSurface)
+            {
+                float previousAlpha = (1f - surfaceTransition) * 0.75f;
+                DrawSurface(rect, previousSurface, previousAlpha);
+                DrawSurface(rect, activeSurface, Mathf.Clamp01(eased));
+                DrawSurfaceExpansion(rect, eased);
+                return;
+            }
+
+            DrawSurface(rect, activeSurface, 1f);
+        }
+
+        private void DrawSurface(Rect rect, RuleBuilder2Surface surface, float alpha)
+        {
+            Color previousColor = GUI.color;
+            GUI.color = new Color(previousColor.r, previousColor.g, previousColor.b, previousColor.a * alpha);
+            if (surface == RuleBuilder2Surface.Dashboard)
+            {
+                DrawDashboard(rect);
+            }
+            else
+            {
+                DrawEditor(rect);
+            }
+            GUI.color = previousColor;
+        }
+
+        private void UpdateSurfaceAnimation()
+        {
+            surfaceTransition = SpineEasing.Move01(
+                surfaceTransition,
+                1f,
+                layout.Metrics.SurfaceAnimationSeconds,
+                BetterWorkTabMod.Settings?.ruleBuilder2EnableAnimations ?? true);
+        }
+
+        private void ShowDashboardSurface()
+        {
+            SetSurface(RuleBuilder2Surface.Dashboard);
+        }
+
+        private void ShowRuleCardSurface()
+        {
+            ShowRuleCardSurface(Rect.zero);
+        }
+
+        private void ShowRuleCardSurface(Rect origin)
+        {
+            SetSurface(RuleBuilder2Surface.RuleCard, origin);
+        }
+
+        private void SetSurface(RuleBuilder2Surface surface)
+        {
+            SetSurface(surface, Rect.zero);
+        }
+
+        private void SetSurface(RuleBuilder2Surface surface, Rect origin)
+        {
+            if (activeSurface == surface)
+            {
+                return;
+            }
+
+            previousSurface = activeSurface;
+            activeSurface = surface;
+            surfaceTransition = 0f;
+            hasSurfaceTransitionOrigin = origin.width > 0f && origin.height > 0f;
+            surfaceTransitionOrigin = origin;
+        }
+
+        private void DrawSurfaceExpansion(Rect targetRect, float progress)
+        {
+            if (!hasSurfaceTransitionOrigin)
+            {
+                return;
+            }
+
+            Rect from = surfaceTransitionOrigin;
+            Rect to = targetRect.ContractedBy(10f);
+            Rect current = new Rect(
+                Mathf.Lerp(from.x, to.x, progress),
+                Mathf.Lerp(from.y, to.y, progress),
+                Mathf.Lerp(from.width, to.width, progress),
+                Mathf.Lerp(from.height, to.height, progress));
+
+            Color previous = GUI.color;
+            GUI.color = new Color(0.9f, 0.82f, 0.55f, 0.45f * (1f - progress));
+            Widgets.DrawBox(current, 2);
+            GUI.color = previous;
+        }
+
         private void DrawDashboard(Rect rect)
         {
+            RuleBuilder2DashboardRects dashboard = layout.Dashboard(rect);
             Widgets.DrawMenuSection(rect);
             tutorialRects[RuleBuilder2TutorialStep.BlankRuleset] = rect;
 
-            Rect inner = rect.ContractedBy(10f);
-            float y = inner.y;
-
             Text.Font = GameFont.Medium;
-            Widgets.Label(new Rect(inner.x, y, inner.width, 28f), T("BWT_RuleBuilder2_Dashboard"));
+            Widgets.Label(dashboard.Title, T("BWT_RuleBuilder2_Dashboard"));
             Text.Font = GameFont.Small;
-            y += 34f;
 
-            DrawDashboardButton(ref y, inner, T("BWT_RuleBuilder2_CreateBlank"), () =>
-            {
-                ruleset = CreateAndStoreBlankRuleset();
-                activeCard = ruleset.Cards[0];
-                preview.Clear();
-            });
-            DrawDashboardButton(ref y, inner, T("BWT_RuleBuilder2_Duplicate"), () =>
-            {
-                var copy = ruleset.Copy();
-                BetterWorkTabMod.Settings.SavedRuleBuilder2Rulesets.Add(copy);
-                ruleset = copy;
-                activeCard = ruleset.Cards.FirstOrDefault(card => !card.IsConfirmed) ?? ruleset.Cards.FirstOrDefault();
-            });
-            DrawDashboardButton(ref y, inner, T("BWT_RuleBuilder2_CopyDefault"), () =>
-            {
-                WorkAssignmentRuleset legacyDefault = BetterWorkTabMod.Settings.SavedRulesets?.FirstOrDefault(rs => rs?.IsDefault == true);
-                if (legacyDefault != null)
-                {
-                    ruleset = RuleBuilder2MigrationService.FromLegacy(legacyDefault);
-                    ruleset.Source = RuleBuilder2SourceType.DefaultCopy;
-                    BetterWorkTabMod.Settings.SavedRuleBuilder2Rulesets.Add(ruleset);
-                    activeCard = ruleset.Cards.FirstOrDefault(card => !card.IsConfirmed) ?? ruleset.Cards.FirstOrDefault();
-                }
-            });
-            DrawDashboardButton(ref y, inner, T("BWT_RuleBuilder2_GenerateDraft"), () =>
-            {
-                ruleset = draftGenerator.GenerateFromCurrentWorkTab();
-                BetterWorkTabMod.Settings.SavedRuleBuilder2Rulesets.Add(ruleset);
-                activeCard = ruleset.Cards.FirstOrDefault(card => !card.IsConfirmed) ?? ruleset.Cards.FirstOrDefault();
-            });
-            DrawDashboardButton(ref y, inner, T("BWT_RuleBuilder2_ImportClassic"), ImportClassicRuleset);
-            DrawDashboardButton(ref y, inner, T("BWT_RuleBuilder2_OpenClassic"), () => Find.WindowStack.Add(new Better_Work_Tab.UI.RuleBuilder.Window_RulesetBuilder()));
+            Widgets.DrawMenuSection(dashboard.ActionsCard);
 
-            y += 8f;
-            Rect addRect = new Rect(inner.x, y, inner.width, 30f);
-            if (Widgets.ButtonText(addRect, "+ " + T("BWT_RuleBuilder2_AddRule")))
+            DrawDashboardButton(dashboard.AddRule, "+ " + T("BWT_RuleBuilder2_AddRule"), () =>
             {
                 activeCard = RuleBuilder2Card.CreateBlank(ruleset.Cards.Count);
                 ruleset.Cards.Add(activeCard);
                 activeSection = RuleBuilder2EditorSection.Target;
                 showPreview = false;
-            }
-            y += 38f;
+                ShowRuleCardSurface(dashboard.AddRule);
+            });
 
-            Rect listRect = new Rect(inner.x, y, inner.width, inner.yMax - y);
-            DrawRuleCardList(listRect);
+            DrawDashboardButton(dashboard.GenerateDraft, T("BWT_RuleBuilder2_GenerateDraft"), () =>
+            {
+                ruleset = draftGenerator.GenerateFromCurrentWorkTab();
+                BetterWorkTabMod.Settings.SaveOrReplaceRuleBuilder2Ruleset(ruleset, makeCurrent: true, writeSettings: false);
+                activeCard = GetNextDraftCard() ?? ruleset.Cards.FirstOrDefault();
+                activeSection = RuleBuilder2EditorSection.Target;
+                RefreshPreview();
+                ShowDashboardSurface();
+            });
+
+            DrawDashboardButton(dashboard.Import, T("BWT_RuleBuilder2_ImportShort"), ImportClassicRuleset);
+
+            if (Widgets.ButtonText(dashboard.More, "..."))
+            {
+                ShowDashboardMoreMenu();
+            }
+
+            GUI.color = Color.gray;
+            Widgets.Label(dashboard.Description, ruleset.Description.NullOrEmpty()
+                ? T("BWT_RuleBuilder2_DashboardHint")
+                : ruleset.Description);
+            GUI.color = Color.white;
+
+            tutorialRects[RuleBuilder2TutorialStep.RuleDeck] = dashboard.Content;
+            if (ruleset.Source == RuleBuilder2SourceType.GeneratedDraft && GetNextDraftCard() != null)
+            {
+                DrawDraftReviewQueue(dashboard.Content);
+            }
+            else
+            {
+                DrawRulesTable(dashboard.Content);
+            }
         }
 
-        private void DrawRuleCardList(Rect rect)
+        private void ShowDashboardMoreMenu()
         {
-            float height = Mathf.Max(rect.height, ruleset.Cards.Count * 78f + 12f);
-            Rect viewRect = new Rect(0f, 0f, rect.width - 16f, height);
-            Widgets.BeginScrollView(rect, ref cardListScroll, viewRect);
-            float y = 0f;
-
-            foreach (RuleBuilder2Card card in ruleset.Cards.OrderBy(card => card.SortOrder))
+            var options = new List<FloatMenuOption>
             {
-                Rect cardRect = new Rect(0f, y, viewRect.width, 68f);
-                DrawSummaryCard(cardRect, card);
-                y += 76f;
+                new FloatMenuOption(T("BWT_RuleBuilder2_CreateBlank"), () =>
+                {
+                    ruleset = CreateAndStoreBlankRuleset();
+                    activeCard = ruleset.Cards[0];
+                    activeSection = RuleBuilder2EditorSection.Target;
+                    ShowDashboardSurface();
+                    preview.Clear();
+                }),
+                new FloatMenuOption(T("BWT_RuleBuilder2_Duplicate"), () =>
+                {
+                    var copy = ruleset.Copy();
+                    ruleset = copy;
+                    BetterWorkTabMod.Settings.SaveOrReplaceRuleBuilder2Ruleset(ruleset, makeCurrent: true, writeSettings: false);
+                    activeCard = ruleset.Cards.FirstOrDefault(card => !card.IsConfirmed) ?? ruleset.Cards.FirstOrDefault();
+                    activeSection = activeCard?.Target?.HasTarget == true ? RuleBuilder2EditorSection.Conditions : RuleBuilder2EditorSection.Target;
+                    ShowDashboardSurface();
+                }),
+                new FloatMenuOption(T("BWT_RuleBuilder2_CopyDefault"), () =>
+                {
+                    WorkAssignmentRuleset classicDefault = BetterWorkTabMod.Settings.SavedRulesets?.FirstOrDefault(rs => rs?.IsDefault == true);
+                    if (classicDefault != null)
+                    {
+                        ruleset = RuleBuilder2ClassicRulesetTranslator.FromClassic(classicDefault);
+                        ruleset.Source = RuleBuilder2SourceType.DefaultCopy;
+                        BetterWorkTabMod.Settings.SaveOrReplaceRuleBuilder2Ruleset(ruleset, makeCurrent: true, writeSettings: false);
+                        activeCard = ruleset.Cards.FirstOrDefault(card => !card.IsConfirmed) ?? ruleset.Cards.FirstOrDefault();
+                        activeSection = activeCard?.Target?.HasTarget == true ? RuleBuilder2EditorSection.Conditions : RuleBuilder2EditorSection.Target;
+                        ShowDashboardSurface();
+                    }
+                }),
+                new FloatMenuOption(T("BWT_RuleBuilder2_ExportClassic"), ExportClassicCompatibleRuleset),
+                new FloatMenuOption(T("BWT_RuleBuilder2_OpenClassic"), () => Find.WindowStack.Add(new Better_Work_Tab.UI.RuleBuilder.Window_RulesetBuilder()))
+            };
+            Find.WindowStack.Add(new FloatMenu(options));
+        }
+
+        private void DrawRulesTable(Rect rect)
+        {
+            RuleBuilder2RulesTableRects table = layout.RulesTable(rect);
+            Widgets.DrawMenuSection(rect);
+            DrawRulesTableHeader(table.Header);
+
+            var cards = ruleset.Cards?
+                .Where(card => card != null)
+                .Where(card => card.IsConfirmed || card.Target?.HasTarget == true)
+                .OrderBy(card => card.SortOrder)
+                .ToList() ?? new List<RuleBuilder2Card>();
+
+            Rect view = new Rect(0f, 0f, table.List.width - 16f, Mathf.Max(table.List.height, cards.Count * layout.Metrics.RuleRowStride + 4f));
+            Widgets.BeginScrollView(table.List, ref cardListScroll, view);
+            if (cards.Count == 0)
+            {
+                GUI.color = Color.gray;
+                Widgets.Label(new Rect(8f, 8f, view.width - 16f, 28f), T("BWT_RuleBuilder2_NoRulesTable"));
+                GUI.color = Color.white;
+                Widgets.EndScrollView();
+                return;
             }
 
+            float y = 0f;
+            foreach (RuleBuilder2Card card in cards)
+            {
+                Rect row = new Rect(0f, y, view.width, layout.Metrics.RuleRowHeight);
+                DrawRuleTableRow(row, card);
+                y += layout.Metrics.RuleRowStride;
+            }
             Widgets.EndScrollView();
         }
 
-        private void DrawSummaryCard(Rect rect, RuleBuilder2Card card)
+        private void DrawRulesTableHeader(Rect rect)
         {
-            Color bg = card == activeCard ? new Color(0.24f, 0.28f, 0.22f, 0.98f) : new Color(0.16f, 0.16f, 0.16f, 0.98f);
-            Widgets.DrawBoxSolid(rect, bg);
+            RuleBuilder2RuleTableHeaderRects header = layout.RulesTableHeader(rect);
+            GUI.color = Color.gray;
+            Widgets.Label(header.Enabled, T("BWT_RuleBuilder2_TableOn"));
+            Widgets.Label(header.Target, T("BWT_RuleBuilder2_TableTarget"));
+            Widgets.Label(header.Conditions, T("BWT_RuleBuilder2_TableConditions"));
+            Widgets.Label(header.Action, T("BWT_RuleBuilder2_TableAction"));
+            Widgets.Label(header.Edit, T("BWT_RuleBuilder2_TableEdit"));
+            GUI.color = Color.white;
+        }
+
+        private void DrawRuleTableRow(Rect rect, RuleBuilder2Card card)
+        {
+            RuleBuilder2RuleTableRowRects row = layout.RuleTableRow(rect);
+            bool selected = card == activeCard;
+            Widgets.DrawBoxSolid(rect, selected ? new Color(0.22f, 0.27f, 0.2f, 0.95f) : new Color(0.13f, 0.13f, 0.13f, 0.95f));
             Widgets.DrawBox(rect, 1);
 
-            Rect enabledRect = new Rect(rect.x + 6f, rect.y + 8f, 24f, 24f);
-            Widgets.Checkbox(enabledRect.position, ref card.Enabled);
+            Widgets.Checkbox(row.Enabled.position, ref card.Enabled);
+            DrawFittedLabel(row.Target, BuildTargetSummary(card));
+            DrawFittedLabel(row.Conditions, BuildConditionsSummary(card));
+            DrawFittedLabel(row.Action, BuildActionSummary(card));
 
-            Text.Font = GameFont.Small;
-            Text.Anchor = TextAnchor.UpperLeft;
-            Widgets.Label(new Rect(rect.x + 34f, rect.y + 7f, rect.width - 74f, 22f), card.Name.NullOrEmpty() ? T("BWT_RuleBuilder2_NewRule") : card.Name);
-            GUI.color = Color.gray;
-            Widgets.Label(new Rect(rect.x + 34f, rect.y + 31f, rect.width - 42f, 30f), card.IsConfirmed ? card.Summary : T("BWT_RuleBuilder2_Unconfirmed"));
-            GUI.color = Color.white;
-
-            if (Widgets.ButtonInvisible(rect))
+            if (Widgets.ButtonText(row.Edit, T("BWT_Edit")))
             {
                 activeCard = card;
-                card.IsCollapsed = false;
                 activeSection = card.Target.HasTarget ? RuleBuilder2EditorSection.Conditions : RuleBuilder2EditorSection.Target;
-                showPreview = false;
+                ShowRuleCardSurface(new Rect(rect.x, rect.y, rect.width, rect.height));
+                SoundDefOf.Tick_Low.PlayOneShotOnCamera();
             }
 
-            Rect deleteRect = new Rect(rect.xMax - 30f, rect.y + 8f, 22f, 22f);
-            if (Widgets.ButtonText(deleteRect, "X"))
+            if (Widgets.ButtonText(row.Delete, T("BWT_Delete")))
             {
                 ruleset.Cards.Remove(card);
                 activeCard = ruleset.Cards.FirstOrDefault(c => !c.IsConfirmed) ?? ruleset.Cards.FirstOrDefault();
+                ruleset.EnsureOpenBlankCard();
             }
+
+            if (Widgets.ButtonInvisible(row.Select))
+            {
+                activeCard = card;
+                activeSection = card.Target.HasTarget ? RuleBuilder2EditorSection.Conditions : RuleBuilder2EditorSection.Target;
+                ShowRuleCardSurface(new Rect(rect.x, rect.y, rect.width, rect.height));
+            }
+        }
+
+        private void DrawDraftReviewQueue(Rect rect)
+        {
+            RuleBuilder2DraftQueueRects queue = layout.DraftQueue(rect);
+            Widgets.DrawMenuSection(rect);
+            RuleBuilder2Card card = GetNextDraftCard();
+            if (card == null)
+            {
+                DrawRulesTable(rect);
+                return;
+            }
+
+            int total = ruleset.Cards.Count(c => c != null && c.Target?.HasTarget == true);
+            int remaining = ruleset.Cards.Count(c => c != null && c.Target?.HasTarget == true && !c.IsConfirmed);
+            Text.Font = GameFont.Medium;
+            Widgets.Label(queue.Title, T("BWT_RuleBuilder2_DraftQueueTitle").Formatted(total - remaining + 1, total));
+            Text.Font = GameFont.Small;
+
+            DrawDraftMiniList(queue.Side, card);
+            DrawDraftReviewPanel(queue.Main, card);
+        }
+
+        private void DrawDraftMiniList(Rect rect, RuleBuilder2Card selected)
+        {
+            Widgets.DrawBoxSolid(rect, new Color(0.1f, 0.1f, 0.1f, 0.65f));
+            Widgets.DrawBox(rect, 1);
+            float y = rect.y + 6f;
+            foreach (RuleBuilder2Card card in ruleset.Cards.Where(c => c != null && c.Target?.HasTarget == true).Take(16))
+            {
+                Rect row = new Rect(rect.x + 6f, y, rect.width - 12f, 24f);
+                Widgets.DrawBoxSolid(row, card == selected ? new Color(0.24f, 0.28f, 0.22f, 1f) : new Color(0.15f, 0.15f, 0.15f, 0.85f));
+                DrawFittedLabel(new Rect(row.x + 6f, row.y + 3f, row.width - 12f, 20f), card.Name);
+                if (Widgets.ButtonInvisible(row))
+                {
+                    activeCard = card;
+                }
+                y += 28f;
+                if (y > rect.yMax - 26f)
+                {
+                    break;
+                }
+            }
+        }
+
+        private void DrawDraftReviewPanel(Rect rect, RuleBuilder2Card card)
+        {
+            RuleBuilder2DraftReviewRects review = layout.DraftReview(rect);
+            Widgets.DrawBoxSolid(rect, new Color(0.13f, 0.13f, 0.13f, 0.95f));
+            Widgets.DrawBox(rect, 1);
+
+            Text.Font = GameFont.Medium;
+            DrawFittedLabel(review.Title, card.Name);
+            Text.Font = GameFont.Small;
+
+            GUI.color = Color.gray;
+            Widgets.Label(review.Notes, card.Notes.NullOrEmpty() ? T("BWT_RuleBuilder2_DraftNoReason") : card.Notes);
+            GUI.color = Color.white;
+
+            DrawRuleSentence(review.Sentence, card);
+
+            DrawDraftPreview(review.Preview, card);
+
+            if (Widgets.ButtonText(review.Reject, T("BWT_RuleBuilder2_RejectDraft")))
+            {
+                RejectDraftCard(card);
+            }
+            if (Widgets.ButtonText(review.Edit, T("BWT_RuleBuilder2_ReviewDraft")))
+            {
+                activeCard = card;
+                showPreview = true;
+                activeSection = RuleBuilder2EditorSection.Target;
+                RefreshPreview();
+                ShowRuleCardSurface(rect);
+            }
+            if (Widgets.ButtonText(review.Accept, T("BWT_RuleBuilder2_AcceptDraft")))
+            {
+                AcceptDraftCard(card);
+            }
+        }
+
+        private void DrawDraftPreview(Rect rect, RuleBuilder2Card card)
+        {
+            Widgets.DrawBoxSolid(rect, new Color(0.09f, 0.09f, 0.09f, 0.75f));
+            Widgets.DrawBox(rect, 1);
+            List<RuleBuilder2PreviewResult> results = evaluator.Preview(ruleset, card);
+            int matched = results.Count(result => result.Matched);
+            int changed = results.Count(result => result.Matched && result.CurrentPriority != result.NewPriority);
+            Widgets.Label(new Rect(rect.x + 8f, rect.y + 6f, rect.width - 16f, 24f), T("BWT_RuleBuilder2_DraftImpact").Formatted(matched, changed).ToString());
+            float y = rect.y + 34f;
+            foreach (RuleBuilder2PreviewResult result in results.Take(5))
+            {
+                Rect row = new Rect(rect.x + 8f, y, rect.width - 16f, 26f);
+                Widgets.DrawBoxSolid(row, result.Matched ? new Color(0.12f, 0.22f, 0.12f, 0.95f) : new Color(0.16f, 0.14f, 0.12f, 0.95f));
+                DrawFittedLabel(new Rect(row.x + 6f, row.y + 4f, 150f, 20f), result.PawnLabel);
+                DrawFittedLabel(new Rect(row.x + 164f, row.y + 4f, 120f, 20f), result.Matched ? T("BWT_RuleBuilder2_Matched") : T("BWT_RuleBuilder2_NotMatched"));
+                DrawFittedLabel(new Rect(row.x + 292f, row.y + 4f, row.width - 300f, 20f), result.Matched ? result.ActionText : string.Join(", ", result.ConditionsFailed.Take(2).ToArray()));
+                y += 30f;
+            }
+        }
+
+        private RuleBuilder2Card GetNextDraftCard()
+        {
+            return ruleset.Cards?
+                .Where(card => card != null && card.Target?.HasTarget == true && !card.IsConfirmed)
+                .OrderBy(card => card.SortOrder)
+                .FirstOrDefault();
+        }
+
+        private void AcceptDraftCard(RuleBuilder2Card card)
+        {
+            card.IsConfirmed = true;
+            card.IsCollapsed = true;
+            card.Summary = RuleBuilder2SummaryService.BuildSummary(card);
+            activeCard = GetNextDraftCard() ?? card;
+            SoundDefOf.Tick_High.PlayOneShotOnCamera();
+        }
+
+        private void RejectDraftCard(RuleBuilder2Card card)
+        {
+            ruleset.Cards.Remove(card);
+            activeCard = GetNextDraftCard() ?? ruleset.Cards.FirstOrDefault();
+            SoundDefOf.Tick_Low.PlayOneShotOnCamera();
         }
 
         private void DrawEditor(Rect rect)
@@ -331,52 +627,112 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             RuleBuilder2Card card = GetEditableCard();
             activeCard = card;
 
-            float targetHeight = SectionHeight(RuleBuilder2EditorSection.Target, GetTargetSectionHeight(card));
-            float conditionsHeight = SectionHeight(RuleBuilder2EditorSection.Conditions, 265f);
-            float actionHeight = SectionHeight(RuleBuilder2EditorSection.Action, 210f);
-            float previewHeight = SectionHeight(RuleBuilder2EditorSection.Preview, 260f);
-            float viewHeight = 44f + targetHeight + conditionsHeight + actionHeight + previewHeight + 70f + 54f;
+            float activeHeight = GetActiveEditorPanelHeight(card);
+            float viewHeight = layout.EditorViewHeight(activeHeight);
             Rect view = new Rect(0f, 0f, inner.width - 16f, Mathf.Max(inner.height, viewHeight));
+            RuleBuilder2EditorRects editor = layout.Editor(view, activeHeight);
             Widgets.BeginScrollView(inner, ref editorScroll, view);
-            float y = 0f;
 
-            DrawRuleName(new Rect(0f, y, view.width, 36f), card);
-            y += 44f;
-
-            DrawTargetSection(new Rect(0f, y, view.width, targetHeight), card);
-            y += targetHeight + 8f;
-
-            DrawConditionsSection(new Rect(0f, y, view.width, conditionsHeight), card);
-            y += conditionsHeight + 8f;
-
-            DrawActionSection(new Rect(0f, y, view.width, actionHeight), card);
-            y += actionHeight + 8f;
-
-            DrawPreviewSection(new Rect(0f, y, view.width, previewHeight), card);
-            y += previewHeight + 8f;
-
-            DrawConfirmSection(new Rect(0f, y, view.width, 70f), card);
+            DrawRuleName(editor.Name, card);
+            DrawRuleSentence(editor.Sentence, card);
+            DrawActiveEditorPanel(editor.Panel, card);
+            DrawConfirmSection(editor.Confirm, card);
 
             Widgets.EndScrollView();
         }
 
-        private float SectionHeight(RuleBuilder2EditorSection section, float expandedHeight)
+        private float GetActiveEditorPanelHeight(RuleBuilder2Card card)
         {
-            float progress = GetSectionProgress(section);
-            float eased = progress * progress * (3f - 2f * progress);
-            return Mathf.Lerp(44f, expandedHeight, eased);
+            return layout.AnimatedEditorSectionHeight(
+                activeSection,
+                card?.Target?.HasTarget == true,
+                GetSectionProgress(activeSection));
+        }
+
+        private void DrawActiveEditorPanel(Rect rect, RuleBuilder2Card card)
+        {
+            switch (activeSection)
+            {
+                case RuleBuilder2EditorSection.Target:
+                    DrawTargetSection(rect, card);
+                    return;
+                case RuleBuilder2EditorSection.Conditions:
+                    DrawConditionsSection(rect, card);
+                    return;
+                case RuleBuilder2EditorSection.Action:
+                    DrawActionSection(rect, card);
+                    return;
+                case RuleBuilder2EditorSection.Preview:
+                    DrawPreviewSection(rect, card);
+                    return;
+            }
+        }
+
+        private void DrawRuleSentence(Rect rect, RuleBuilder2Card card)
+        {
+            RuleBuilder2SentenceRects sentence = layout.Sentence(rect);
+            Widgets.DrawBoxSolid(rect, new Color(0.1f, 0.1f, 0.1f, 0.86f));
+            Widgets.DrawBox(rect, 1);
+
+            Text.Anchor = TextAnchor.MiddleLeft;
+            Text.Font = GameFont.Small;
+            GUI.color = Color.gray;
+            Widgets.Label(sentence.SetLabel, T("BWT_RuleBuilder2_SentenceSet"));
+            GUI.color = Color.white;
+
+            DrawSentenceToken(sentence.Target, BuildTargetSummary(card), RuleBuilder2EditorSection.Target, card);
+            GUI.color = Color.gray;
+            Widgets.Label(sentence.WhenLabel, T("BWT_RuleBuilder2_SentenceWhen"));
+            GUI.color = Color.white;
+            DrawSentenceToken(sentence.Conditions, BuildConditionsSummary(card), RuleBuilder2EditorSection.Conditions, card);
+            GUI.color = Color.gray;
+            Widgets.Label(sentence.ThenLabel, T("BWT_RuleBuilder2_SentenceThen"));
+            GUI.color = Color.white;
+            DrawSentenceToken(sentence.Action, BuildActionSummary(card), RuleBuilder2EditorSection.Action, card);
+            DrawSentenceToken(sentence.Preview, T("BWT_RuleBuilder2_Preview"), RuleBuilder2EditorSection.Preview, card);
+
+            Text.Anchor = TextAnchor.UpperLeft;
+        }
+
+        private void DrawSentenceToken(Rect rect, string label, RuleBuilder2EditorSection section, RuleBuilder2Card card)
+        {
+            bool selected = activeSection == section && activeCard == card;
+            Color fill = selected
+                ? new Color(0.24f, 0.28f, 0.22f, 0.95f)
+                : new Color(0.17f, 0.17f, 0.17f, 0.95f);
+            Widgets.DrawBoxSolid(rect, fill);
+            Widgets.DrawBox(rect, selected ? 2 : 1);
+            DrawFittedLabel(new Rect(rect.x + 8f, rect.y + 3f, rect.width - 16f, rect.height - 6f), label);
+
+            if (Widgets.ButtonInvisible(rect))
+            {
+                activeCard = card;
+                activeSection = section;
+                if (section == RuleBuilder2EditorSection.Preview)
+                {
+                    showPreview = true;
+                    RefreshPreview();
+                }
+
+                if (activeSurface != RuleBuilder2Surface.RuleCard)
+                {
+                    ShowRuleCardSurface(rect);
+                }
+
+                SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+            }
         }
 
         private void UpdateSectionAnimation()
         {
-            float step = (BetterWorkTabMod.Settings?.ruleBuilder2EnableAnimations ?? true)
-                ? Mathf.Clamp01(Time.unscaledDeltaTime / 0.18f)
-                : 1f;
-
             foreach (RuleBuilder2EditorSection section in System.Enum.GetValues(typeof(RuleBuilder2EditorSection)))
             {
                 float target = section == activeSection ? 1f : 0f;
-                sectionOpenProgress[section] = Mathf.MoveTowards(GetSectionProgress(section), target, step);
+                sectionOpenProgress[section] = SpineEasing.Move01(
+                    GetSectionProgress(section),
+                    target,
+                    layout.Metrics.SectionAnimationSeconds,
+                    BetterWorkTabMod.Settings?.ruleBuilder2EnableAnimations ?? true);
             }
         }
 
@@ -387,15 +743,17 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
         private void DrawRuleName(Rect rect, RuleBuilder2Card card)
         {
+            RuleBuilder2RuleNameRects name = layout.RuleName(rect);
             Text.Font = GameFont.Medium;
-            Widgets.Label(new Rect(rect.x, rect.y, 160f, rect.height), T("BWT_RuleBuilder2_RuleCard"));
+            Widgets.Label(name.Title, T("BWT_RuleBuilder2_RuleCard"));
             Text.Font = GameFont.Small;
-            card.Name = Widgets.TextField(new Rect(rect.x + 170f, rect.y + 3f, 320f, 28f), card.Name ?? "");
-        }
+            card.Name = Widgets.TextField(name.Name, card.Name ?? "");
 
-        private float GetTargetSectionHeight(RuleBuilder2Card card)
-        {
-            return card.Target.HasTarget ? 118f : 238f;
+            if (Widgets.ButtonText(name.Dashboard, T("BWT_RuleBuilder2_Dashboard")))
+            {
+                ShowDashboardSurface();
+                SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+            }
         }
 
         private void DrawTargetSection(Rect rect, RuleBuilder2Card card)
@@ -409,11 +767,10 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             Rect outerRect = rect;
             GUI.BeginGroup(outerRect);
             rect = new Rect(0f, 0f, outerRect.width, outerRect.height);
+            RuleBuilder2TargetSectionRects target = layout.TargetSection(rect, card.Target.HasTarget);
             DrawSectionChrome(rect, T("BWT_RuleBuilder2_StepTarget"));
             tutorialRects[RuleBuilder2TutorialStep.Target] = outerRect;
 
-            Rect inner = rect.ContractedBy(10f);
-            float y = inner.y + 28f;
             if (card.Target.HasTarget)
             {
                 string label = BuildTargetLabel(card.Target.ResolveWorkType(), card.Target.ResolveWorkGiver());
@@ -421,19 +778,18 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                 {
                     label = card.Target.DisplayLabel;
                 }
-                Widgets.Label(new Rect(inner.x, y, inner.width - 120f, 26f), T("BWT_RuleBuilder2_TargetSummary").Formatted(label).ToString());
-                if (Widgets.ButtonText(new Rect(inner.xMax - 110f, y - 2f, 100f, 28f), T("BWT_Change")))
+                Widgets.Label(target.Summary, T("BWT_RuleBuilder2_TargetSummary").Formatted(label).ToString());
+                if (Widgets.ButtonText(target.Change, T("BWT_Change")))
                 {
                     card.Target.WorkTypeDefName = "";
                     card.Target.WorkGiverDefName = "";
                     activeSection = RuleBuilder2EditorSection.Target;
                 }
 
-                y += 34f;
                 GUI.color = Color.gray;
-                Widgets.Label(new Rect(inner.x, y, inner.width - 150f, 42f), T("BWT_RuleBuilder2_WorkTabHint"));
+                Widgets.Label(target.Hint, T("BWT_RuleBuilder2_WorkTabHint"));
                 GUI.color = Color.white;
-                if (Widgets.ButtonText(new Rect(inner.xMax - 140f, y + 2f, 130f, 28f), T("BWT_RuleBuilder2_NextConditions")))
+                if (Widgets.ButtonText(target.Next, T("BWT_RuleBuilder2_NextConditions")))
                 {
                     activeSection = RuleBuilder2EditorSection.Conditions;
                     SoundDefOf.Tick_Low.PlayOneShotOnCamera();
@@ -442,11 +798,8 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                 return;
             }
 
-            targetSearch = Widgets.TextField(new Rect(inner.x, y, inner.width, 28f), targetSearch ?? "");
-            y += 34f;
-
-            Rect listRect = new Rect(inner.x, y, inner.width, inner.yMax - y);
-            DrawTargetList(listRect, card);
+            targetSearch = Widgets.TextField(target.Search, targetSearch ?? "");
+            DrawTargetList(target.List, card);
             GUI.EndGroup();
         }
 
@@ -460,23 +813,19 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                 .OrderByDescending(workType => workType.naturalPriority)
                 .ToList();
 
-            float x = rect.x;
-            float y = rect.y;
-            float buttonWidth = Mathf.Max(130f, (rect.width - 16f) / 4f);
-            foreach (WorkTypeDef workType in workTypes)
+            for (int i = 0; i < workTypes.Count; i++)
             {
-                Rect button = new Rect(x, y, buttonWidth - 6f, 28f);
+                WorkTypeDef workType = workTypes[i];
+                Rect button = layout.GridCell(rect, i, 130f, layout.Metrics.TextFieldHeight, layout.Metrics.SmallGap);
+                if (button.yMax > rect.yMax)
+                {
+                    break;
+                }
+
                 string label = GetWorkTypeLabel(workType);
                 if (Widgets.ButtonText(button, label))
                 {
                     SelectTarget(card, workType, null, RuleBuilder2TargetSource.BuilderList);
-                }
-
-                x += buttonWidth;
-                if (x + buttonWidth > rect.xMax)
-                {
-                    x = rect.x;
-                    y += 32f;
                 }
             }
         }
@@ -492,24 +841,19 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             Rect outerRect = rect;
             GUI.BeginGroup(outerRect);
             rect = new Rect(0f, 0f, outerRect.width, outerRect.height);
+            RuleBuilder2ConditionsSectionRects conditions = layout.ConditionsSection(rect);
             DrawSectionChrome(rect, T("BWT_RuleBuilder2_StepConditions"));
             tutorialRects[RuleBuilder2TutorialStep.Condition] = outerRect;
 
-            Rect inner = rect.ContractedBy(10f);
-            float y = inner.y + 28f;
-            conditionSearch = Widgets.TextField(new Rect(inner.x, y, inner.width, 28f), conditionSearch ?? "");
-            if (Widgets.ButtonText(new Rect(inner.xMax - 120f, y, 120f, 28f), T("BWT_RuleBuilder2_NextAction")))
+            conditionSearch = Widgets.TextField(conditions.Search, conditionSearch ?? "");
+            if (Widgets.ButtonText(conditions.Next, T("BWT_RuleBuilder2_NextAction")))
             {
                 activeSection = RuleBuilder2EditorSection.Action;
                 SoundDefOf.Tick_Low.PlayOneShotOnCamera();
             }
-            y += 36f;
 
-            Rect activeRect = new Rect(inner.x, y, inner.width * 0.52f - 6f, inner.yMax - y);
-            Rect pickerRect = new Rect(activeRect.xMax + 12f, y, inner.width * 0.48f - 6f, inner.yMax - y);
-
-            DrawActiveConditions(activeRect, card);
-            DrawConditionPicker(pickerRect, card);
+            DrawActiveConditions(conditions.Active, card);
+            DrawConditionPicker(conditions.Picker, card);
             GUI.EndGroup();
         }
 
@@ -531,37 +875,37 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             for (int i = 0; i < conditions.Count; i++)
             {
                 RuleBuilder2Condition condition = conditions[i];
-                Rect row = new Rect(rect.x + 6f, y, rect.width - 12f, 52f);
+                Rect row = new Rect(rect.x + 6f, y, rect.width - 12f, layout.Metrics.ConditionRowHeight);
                 DrawConditionRow(row, card, condition, i);
-                y += 58f;
+                y += layout.Metrics.ConditionRowStride;
             }
         }
 
         private void DrawConditionRow(Rect rect, RuleBuilder2Card card, RuleBuilder2Condition condition, int index)
         {
+            RuleBuilder2ConditionRowRects row = layout.ConditionRow(rect);
             Widgets.DrawBoxSolid(rect, condition.Enabled ? new Color(0.18f, 0.18f, 0.18f, 0.95f) : new Color(0.11f, 0.11f, 0.11f, 0.95f));
             Widgets.DrawBox(rect, 1);
 
-            Rect checkbox = new Rect(rect.x + 6f, rect.y + 7f, 24f, 24f);
-            Widgets.Checkbox(checkbox.position, ref condition.Enabled);
+            Widgets.Checkbox(row.Checkbox.position, ref condition.Enabled);
 
             string text = RuleBuilder2ConditionCatalog.GetConditionText(condition, card.Target.ResolveWorkType());
-            Widgets.Label(new Rect(rect.x + 34f, rect.y + 6f, rect.width - 128f, 22f), text);
-            DrawConditionInlineEditor(new Rect(rect.x + 34f, rect.y + 28f, rect.width - 128f, 20f), card, condition);
+            Widgets.Label(row.Label, text);
+            DrawConditionInlineEditor(row.Editor, card, condition);
 
-            if (Widgets.ButtonText(new Rect(rect.xMax - 86f, rect.y + 6f, 24f, 22f), "^") && index > 0)
+            if (Widgets.ButtonText(row.Up, "^") && index > 0)
             {
                 card.Conditions.Conditions.RemoveAt(index);
                 card.Conditions.Conditions.Insert(index - 1, condition);
             }
 
-            if (Widgets.ButtonText(new Rect(rect.xMax - 58f, rect.y + 6f, 24f, 22f), "v") && index < card.Conditions.Conditions.Count - 1)
+            if (Widgets.ButtonText(row.Down, "v") && index < card.Conditions.Conditions.Count - 1)
             {
                 card.Conditions.Conditions.RemoveAt(index);
                 card.Conditions.Conditions.Insert(index + 1, condition);
             }
 
-            if (Widgets.ButtonText(new Rect(rect.xMax - 30f, rect.y + 6f, 24f, 22f), "X"))
+            if (Widgets.ButtonText(row.Remove, "X"))
             {
                 card.Conditions.Conditions.Remove(condition);
             }
@@ -667,22 +1011,17 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             Rect outerRect = rect;
             GUI.BeginGroup(outerRect);
             rect = new Rect(0f, 0f, outerRect.width, outerRect.height);
+            RuleBuilder2ActionSectionRects action = layout.ActionSection(rect);
             DrawSectionChrome(rect, T("BWT_RuleBuilder2_StepAction"));
             tutorialRects[RuleBuilder2TutorialStep.Action] = outerRect;
 
-            Rect inner = rect.ContractedBy(10f);
-            float y = inner.y + 30f;
-
-            Rect kindRect = new Rect(inner.x, y, 210f, 28f);
-            if (Widgets.ButtonText(kindRect, GetActionKindLabel(card.Action.Kind)))
+            if (Widgets.ButtonText(action.Kind, GetActionKindLabel(card.Action.Kind)))
             {
                 ShowActionKindMenu(card);
             }
 
-            Rect priorityRect = new Rect(kindRect.xMax + 14f, y, 150f, 28f);
-            int max = WorkPrioritySystem.GetRequestableMaxPriority();
-            DrawIntTextEntry(priorityRect, card.Action, 0, max);
-            if (Widgets.ButtonText(new Rect(inner.xMax - 130f, y, 120f, 28f), T("BWT_RuleBuilder2_NextPreview")))
+            DrawIntTextEntry(action.Priority, card.Action, 0, WorkPrioritySystem.GetRequestableMaxPriority());
+            if (Widgets.ButtonText(action.Next, T("BWT_RuleBuilder2_NextPreview")))
             {
                 showPreview = true;
                 activeSection = RuleBuilder2EditorSection.Preview;
@@ -690,19 +1029,18 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                 tutorial.ObservePreview();
                 SoundDefOf.Tick_Low.PlayOneShotOnCamera();
             }
-            y += 38f;
 
             if (card.Action.Kind == RuleBuilder2ActionKind.SetTimeSchedule ||
                 card.Action.Kind == RuleBuilder2ActionKind.SetSubWorkSchedule)
             {
-                tutorialRects[RuleBuilder2TutorialStep.Schedule] = new Rect(inner.x, y, inner.width, 72f);
+                tutorialRects[RuleBuilder2TutorialStep.Schedule] = action.Body;
                 card.Action.EnsureSchedule(card.Action.Priority);
-                DrawSchedule(new Rect(inner.x, y, inner.width, 72f), card.Action);
+                DrawSchedule(action.Body, card.Action);
             }
             else
             {
                 GUI.color = Color.gray;
-                Widgets.Label(new Rect(inner.x, y, inner.width, 44f), T("BWT_RuleBuilder2_ScheduleHint"));
+                Widgets.Label(action.Body, T("BWT_RuleBuilder2_ScheduleHint"));
                 GUI.color = Color.white;
             }
             GUI.EndGroup();
@@ -747,11 +1085,11 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             Rect outerRect = rect;
             GUI.BeginGroup(outerRect);
             rect = new Rect(0f, 0f, outerRect.width, outerRect.height);
+            RuleBuilder2PreviewSectionRects previewRects = layout.PreviewSection(rect, showMatchedPanel && selectedWorkTabContext.HasValue);
             DrawSectionChrome(rect, T("BWT_RuleBuilder2_StepPreview"));
             tutorialRects[RuleBuilder2TutorialStep.Preview] = outerRect;
 
-            Rect inner = rect.ContractedBy(10f);
-            if (Widgets.ButtonText(new Rect(inner.x, inner.y + 28f, 120f, 28f), T("BWT_RuleBuilder2_RunPreview")))
+            if (Widgets.ButtonText(previewRects.Run, T("BWT_RuleBuilder2_RunPreview")))
             {
                 showPreview = true;
                 RefreshPreview();
@@ -760,20 +1098,19 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
             if (showMatchedPanel && selectedWorkTabContext.HasValue)
             {
-                DrawMatchedPanel(new Rect(inner.x + 130f, inner.y + 28f, inner.width - 130f, 72f), selectedWorkTabContext.Value);
+                DrawMatchedPanel(previewRects.Matched, selectedWorkTabContext.Value);
             }
 
             if (!showPreview)
             {
                 GUI.color = Color.gray;
-                Widgets.Label(new Rect(inner.x, inner.y + 66f, inner.width, 40f), T("BWT_RuleBuilder2_PreviewHint"));
+                Widgets.Label(previewRects.Hint, T("BWT_RuleBuilder2_PreviewHint"));
                 GUI.color = Color.white;
                 GUI.EndGroup();
                 return;
             }
 
-            Rect list = new Rect(inner.x, inner.y + 104f, inner.width, inner.height - 108f);
-            DrawPreviewRows(list, card);
+            DrawPreviewRows(previewRects.List, card);
             GUI.EndGroup();
         }
 
@@ -824,16 +1161,15 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
         private void DrawConfirmSection(Rect rect, RuleBuilder2Card card)
         {
+            RuleBuilder2ConfirmRects confirm = layout.Confirm(rect);
             tutorialRects[RuleBuilder2TutorialStep.Confirm] = rect;
             Widgets.DrawBoxSolid(rect, new Color(0.09f, 0.09f, 0.09f, 0.55f));
-            Rect confirmRect = new Rect(rect.x, rect.y + 12f, 190f, 34f);
-            if (Widgets.ButtonText(confirmRect, T("BWT_RuleBuilder2_ConfirmCard")))
+            if (Widgets.ButtonText(confirm.Confirm, T("BWT_RuleBuilder2_ConfirmCard")))
             {
                 ConfirmCard(card);
             }
 
-            Rect doneRect = new Rect(confirmRect.xMax + 10f, confirmRect.y, 110f, 34f);
-            if (Widgets.ButtonText(doneRect, T("BWT_Done")))
+            if (Widgets.ButtonText(confirm.Done, T("BWT_Done")))
             {
                 Close();
             }
@@ -843,7 +1179,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
         {
             card.IsConfirmed = true;
             card.IsCollapsed = true;
-            card.Summary = RuleBuilder2MigrationService.BuildSummary(card);
+            card.Summary = RuleBuilder2SummaryService.BuildSummary(card);
             if (string.IsNullOrEmpty(card.Name) || card.Name == T("BWT_RuleBuilder2_NewRule"))
             {
                 card.Name = card.Target.DisplayLabel.NullOrEmpty() ? T("BWT_RuleBuilder2_RuleCard") : card.Target.DisplayLabel;
@@ -872,6 +1208,30 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             }
         }
 
+        private void ExportClassicCompatibleRuleset()
+        {
+            RuleBuilder2ClassicRulesetExportResult result = classicRulesetExportService.Export(ruleset, BetterWorkTabMod.Settings);
+            if (!result.Exported)
+            {
+                applyStatus = T("BWT_RuleBuilder2_ExportClassicNoRules");
+                if (result.Warnings.Count > 0)
+                {
+                    Log.Warning("[BWT] Rule Builder 2.0 classic export warnings:\n" + string.Join("\n", result.Warnings.ToArray()));
+                }
+
+                return;
+            }
+
+            applyStatus = result.Warnings.Count > 0
+                ? T("BWT_RuleBuilder2_ExportClassicStatusWarnings").Formatted(result.RuleCount, result.Warnings.Count).ToString()
+                : T("BWT_RuleBuilder2_ExportClassicStatus").Formatted(result.RuleCount).ToString();
+
+            if (result.Warnings.Count > 0)
+            {
+                Log.Warning("[BWT] Rule Builder 2.0 classic export warnings:\n" + string.Join("\n", result.Warnings.ToArray()));
+            }
+        }
+
         internal void ConfirmActiveCardForSmokeTest()
         {
             if (activeCard != null && !activeCard.IsConfirmed)
@@ -880,8 +1240,27 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             }
         }
 
+        internal void ShowDashboardForSmokeTest()
+        {
+            ShowDashboardSurface();
+        }
+
+        internal void GenerateDraftForSmokeTest()
+        {
+            ruleset = draftGenerator.GenerateFromCurrentWorkTab();
+            BetterWorkTabMod.Settings.SaveOrReplaceRuleBuilder2Ruleset(ruleset, makeCurrent: true, writeSettings: false);
+            activeCard = ruleset.Cards.FirstOrDefault(card => !card.IsConfirmed) ?? ruleset.Cards.FirstOrDefault();
+            activeSection = activeCard?.Target?.HasTarget == true
+                ? RuleBuilder2EditorSection.Conditions
+                : RuleBuilder2EditorSection.Target;
+            showPreview = false;
+            RefreshPreview();
+            ShowDashboardSurface();
+        }
+
         internal void RefreshPreviewForSmokeTest()
         {
+            ShowRuleCardSurface();
             showPreview = true;
             activeSection = RuleBuilder2EditorSection.Preview;
             RefreshPreview();
@@ -921,21 +1300,23 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                 Source = RuleBuilder2SourceType.Blank
             };
             created.EnsureOpenBlankCard();
-            BetterWorkTabMod.Settings.SavedRuleBuilder2Rulesets.Add(created);
+            BetterWorkTabMod.Settings.SaveOrReplaceRuleBuilder2Ruleset(created, makeCurrent: true, writeSettings: false);
             return created;
         }
 
         private void ImportClassicRuleset()
         {
             var options = new List<FloatMenuOption>();
-            foreach (WorkAssignmentRuleset legacy in BetterWorkTabMod.Settings.SavedRulesets ?? new List<WorkAssignmentRuleset>())
+            foreach (WorkAssignmentRuleset classicRuleset in BetterWorkTabMod.Settings.SavedRulesets ?? new List<WorkAssignmentRuleset>())
             {
-                WorkAssignmentRuleset local = legacy;
+                WorkAssignmentRuleset local = classicRuleset;
                 options.Add(new FloatMenuOption(local.Name, () =>
                 {
-                    ruleset = RuleBuilder2MigrationService.FromLegacy(local);
-                    BetterWorkTabMod.Settings.SavedRuleBuilder2Rulesets.Add(ruleset);
+                    ruleset = RuleBuilder2ClassicRulesetTranslator.FromClassic(local);
+                    BetterWorkTabMod.Settings.SaveOrReplaceRuleBuilder2Ruleset(ruleset, makeCurrent: true, writeSettings: false);
                     activeCard = ruleset.Cards.FirstOrDefault(card => !card.IsConfirmed) ?? ruleset.Cards.FirstOrDefault();
+                    activeSection = activeCard?.Target?.HasTarget == true ? RuleBuilder2EditorSection.Conditions : RuleBuilder2EditorSection.Target;
+                    ShowDashboardSurface();
                 }));
             }
 
@@ -974,15 +1355,33 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             return label.NullOrEmpty() ? workType.defName : label;
         }
 
-        private void DrawDashboardButton(ref float y, Rect inner, string label, System.Action action)
+        private static void DrawFittedLabel(Rect rect, string label)
         {
-            Rect rect = new Rect(inner.x, y, inner.width, 28f);
-            if (Widgets.ButtonText(rect, label))
+            label = label ?? "";
+            string fitted = TruncateToWidth(label, rect.width - 4f);
+            bool previousWordWrap = Text.WordWrap;
+            Text.WordWrap = false;
+            Widgets.Label(rect, fitted);
+            Text.WordWrap = previousWordWrap;
+            if (fitted != label)
+            {
+                TooltipHandler.TipRegion(rect, label);
+            }
+        }
+
+        private void DrawDashboardButton(Rect rect, string label, System.Action action)
+        {
+            string fitted = TruncateToWidth(label, rect.width - 12f);
+            if (Widgets.ButtonText(rect, fitted))
             {
                 action?.Invoke();
                 SoundDefOf.Tick_Low.PlayOneShotOnCamera();
             }
-            y += 32f;
+
+            if (fitted != label)
+            {
+                TooltipHandler.TipRegion(rect, label);
+            }
         }
 
         private static void DrawSectionChrome(Rect rect, string title)
@@ -1179,6 +1578,26 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             card.Action.EnsureSchedule(card.Action.Priority);
             tutorial.ObserveActionEdited();
             RefreshPreview();
+        }
+
+        private static string TruncateToWidth(string text, float width)
+        {
+            if (text.NullOrEmpty() || width <= 12f || Text.CalcSize(text).x <= width)
+            {
+                return text ?? "";
+            }
+
+            const string ellipsis = "...";
+            for (int length = text.Length; length > 0; length--)
+            {
+                string candidate = text.Substring(0, length).TrimEnd() + ellipsis;
+                if (Text.CalcSize(candidate).x <= width)
+                {
+                    return candidate;
+                }
+            }
+
+            return ellipsis;
         }
 
         private static string T(string key)

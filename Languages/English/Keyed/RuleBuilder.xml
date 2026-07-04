@@ -93,6 +93,8 @@
   <BWT_Done>Done</BWT_Done>
   <BWT_Apply>Apply</BWT_Apply>
   <BWT_Change>Change</BWT_Change>
+  <BWT_Edit>Edit</BWT_Edit>
+  <BWT_Delete>Delete</BWT_Delete>
   <BWT_RuleBuilder2_Title>Rule Builder 2.0</BWT_RuleBuilder2_Title>
   <BWT_RuleBuilder2_OpenClassic>Open classic ruleset builder...</BWT_RuleBuilder2_OpenClassic>
   <BWT_RuleBuilder2_Dashboard>Ruleset dashboard</BWT_RuleBuilder2_Dashboard>
@@ -100,9 +102,25 @@
   <BWT_RuleBuilder2_CreateBlank>Create blank ruleset</BWT_RuleBuilder2_CreateBlank>
   <BWT_RuleBuilder2_Duplicate>Duplicate ruleset</BWT_RuleBuilder2_Duplicate>
   <BWT_RuleBuilder2_CopyDefault>Copy default ruleset</BWT_RuleBuilder2_CopyDefault>
+  <BWT_RuleBuilder2_ExportClassic>Export classic-compatible copy</BWT_RuleBuilder2_ExportClassic>
   <BWT_RuleBuilder2_GenerateDraft>Generate draft from current Work tab</BWT_RuleBuilder2_GenerateDraft>
+  <BWT_RuleBuilder2_ImportShort>Import</BWT_RuleBuilder2_ImportShort>
+  <BWT_RuleBuilder2_DashboardHint>Add rules, generate suggestions, or import classic rules. Apply only confirmed rules.</BWT_RuleBuilder2_DashboardHint>
   <BWT_RuleBuilder2_ImportClassic>Import or migrate classic rules</BWT_RuleBuilder2_ImportClassic>
   <BWT_RuleBuilder2_AddRule>Add rule card</BWT_RuleBuilder2_AddRule>
+  <BWT_RuleBuilder2_RuleCards>Rule cards</BWT_RuleBuilder2_RuleCards>
+  <BWT_RuleBuilder2_TableOn>On</BWT_RuleBuilder2_TableOn>
+  <BWT_RuleBuilder2_TableTarget>Target</BWT_RuleBuilder2_TableTarget>
+  <BWT_RuleBuilder2_TableConditions>Conditions</BWT_RuleBuilder2_TableConditions>
+  <BWT_RuleBuilder2_TableAction>Action</BWT_RuleBuilder2_TableAction>
+  <BWT_RuleBuilder2_TableEdit>Edit</BWT_RuleBuilder2_TableEdit>
+  <BWT_RuleBuilder2_NoRulesTable>No saved rules yet. Add a rule or generate a draft from the current Work tab.</BWT_RuleBuilder2_NoRulesTable>
+  <BWT_RuleBuilder2_AcceptDraft>Accept</BWT_RuleBuilder2_AcceptDraft>
+  <BWT_RuleBuilder2_RejectDraft>Reject</BWT_RuleBuilder2_RejectDraft>
+  <BWT_RuleBuilder2_ReviewDraft>Review</BWT_RuleBuilder2_ReviewDraft>
+  <BWT_RuleBuilder2_DraftQueueTitle>Suggestion {0} of {1}</BWT_RuleBuilder2_DraftQueueTitle>
+  <BWT_RuleBuilder2_DraftNoReason>Generated from the current Work tab. Review before accepting.</BWT_RuleBuilder2_DraftNoReason>
+  <BWT_RuleBuilder2_DraftImpact>{0} match, {1} change</BWT_RuleBuilder2_DraftImpact>
   <BWT_RuleBuilder2_Preview>Preview</BWT_RuleBuilder2_Preview>
   <BWT_RuleBuilder2_RuleCard>Rule card</BWT_RuleBuilder2_RuleCard>
   <BWT_RuleBuilder2_Unconfirmed>Editing. Confirm this card to fold it into the ruleset.</BWT_RuleBuilder2_Unconfirmed>
@@ -125,6 +143,9 @@
   <BWT_RuleBuilder2_NoActionSummary>No action selected</BWT_RuleBuilder2_NoActionSummary>
   <BWT_RuleBuilder2_PreviewNotRunSummary>Preview has not been run</BWT_RuleBuilder2_PreviewNotRunSummary>
   <BWT_RuleBuilder2_PreviewSummary>{0} of {1} preview rows match</BWT_RuleBuilder2_PreviewSummary>
+  <BWT_RuleBuilder2_SentenceSet>Set</BWT_RuleBuilder2_SentenceSet>
+  <BWT_RuleBuilder2_SentenceWhen>when</BWT_RuleBuilder2_SentenceWhen>
+  <BWT_RuleBuilder2_SentenceThen>then</BWT_RuleBuilder2_SentenceThen>
   <BWT_RuleBuilder2_NewRule>New rule</BWT_RuleBuilder2_NewRule>
   <BWT_RuleBuilder2_TargetSummary>Target: {0}</BWT_RuleBuilder2_TargetSummary>
   <BWT_RuleBuilder2_PawnFallback>Pawn</BWT_RuleBuilder2_PawnFallback>
@@ -172,14 +193,16 @@
   <BWT_RuleBuilder2_ConditionText_Assigned>Currently assigned to this work</BWT_RuleBuilder2_ConditionText_Assigned>
   <BWT_RuleBuilder2_ConditionText_NotAssigned>Currently not assigned to this work</BWT_RuleBuilder2_ConditionText_NotAssigned>
   <BWT_RuleBuilder2_Tutorial_WelcomeTitle>Rule Builder 2.0</BWT_RuleBuilder2_Tutorial_WelcomeTitle>
-  <BWT_RuleBuilder2_Tutorial_WelcomeBody>Build rules as cards: target, conditions, action, preview, confirm.</BWT_RuleBuilder2_Tutorial_WelcomeBody>
+  <BWT_RuleBuilder2_Tutorial_WelcomeBody>Rule Builder 2.0 starts at a ruleset dashboard, then edits one rule at a time with a sentence-style rule editor.</BWT_RuleBuilder2_Tutorial_WelcomeBody>
   <BWT_RuleBuilder2_Tutorial_Start>Start</BWT_RuleBuilder2_Tutorial_Start>
   <BWT_RuleBuilder2_Tutorial_Skip>Skip tutorial</BWT_RuleBuilder2_Tutorial_Skip>
   <BWT_RuleBuilder2_Tutorial_CreateTitle>Create or import</BWT_RuleBuilder2_Tutorial_CreateTitle>
-  <BWT_RuleBuilder2_Tutorial_CreateBody>Start blank, duplicate, generate a draft, or migrate classic rules safely.</BWT_RuleBuilder2_Tutorial_CreateBody>
+  <BWT_RuleBuilder2_Tutorial_CreateBody>Use this dashboard to start blank, duplicate, generate a draft from the current Work tab, or migrate classic rules safely.</BWT_RuleBuilder2_Tutorial_CreateBody>
+  <BWT_RuleBuilder2_Tutorial_DeckTitle>Rules table</BWT_RuleBuilder2_Tutorial_DeckTitle>
+  <BWT_RuleBuilder2_Tutorial_DeckBody>Rules stay compact here. Use Edit to open one rule, Generate draft to review suggestions one at a time, or Add rule to create another.</BWT_RuleBuilder2_Tutorial_DeckBody>
   <BWT_RuleBuilder2_Tutorial_Next>Next</BWT_RuleBuilder2_Tutorial_Next>
   <BWT_RuleBuilder2_Tutorial_TargetTitle>Choose target</BWT_RuleBuilder2_Tutorial_TargetTitle>
-  <BWT_RuleBuilder2_Tutorial_TargetBody>Click a work header in the Work tab or pick one here. Ctrl-click headers still opens sub-work.</BWT_RuleBuilder2_Tutorial_TargetBody>
+  <BWT_RuleBuilder2_Tutorial_TargetBody>The sentence shows the whole rule. Click the target token here, or click a Work tab header while this builder is open. Ctrl-click headers still opens sub-work.</BWT_RuleBuilder2_Tutorial_TargetBody>
   <BWT_RuleBuilder2_Tutorial_SubWorkTitle>Sub-work targets</BWT_RuleBuilder2_Tutorial_SubWorkTitle>
   <BWT_RuleBuilder2_Tutorial_SubWorkBody>In sub-work view, click a sub-work header to target that exact job.</BWT_RuleBuilder2_Tutorial_SubWorkBody>
   <BWT_RuleBuilder2_Tutorial_SkipSubWork>Skip sub-work step</BWT_RuleBuilder2_Tutorial_SkipSubWork>
@@ -192,7 +215,7 @@
   <BWT_RuleBuilder2_Tutorial_PreviewTitle>Preview</BWT_RuleBuilder2_Tutorial_PreviewTitle>
   <BWT_RuleBuilder2_Tutorial_PreviewBody>Preview shows which pawns match, what failed, and what priority would change.</BWT_RuleBuilder2_Tutorial_PreviewBody>
   <BWT_RuleBuilder2_Tutorial_ConfirmTitle>Confirm card</BWT_RuleBuilder2_Tutorial_ConfirmTitle>
-  <BWT_RuleBuilder2_Tutorial_ConfirmBody>Confirm folds the card into the list and opens the next blank card.</BWT_RuleBuilder2_Tutorial_ConfirmBody>
+  <BWT_RuleBuilder2_Tutorial_ConfirmBody>Confirm saves this card into the rules table and opens the next blank rule so you can keep building.</BWT_RuleBuilder2_Tutorial_ConfirmBody>
   <BWT_RuleBuilder2_Tutorial_MatchedTitle>Matched conditions</BWT_RuleBuilder2_Tutorial_MatchedTitle>
   <BWT_RuleBuilder2_Tutorial_MatchedBody>Click a priority box while the builder is open to inspect why rules match that pawn and target.</BWT_RuleBuilder2_Tutorial_MatchedBody>
   <BWT_RuleBuilder2_Tutorial_ReplayTitle>Replay later</BWT_RuleBuilder2_Tutorial_ReplayTitle>
@@ -203,6 +226,9 @@
   <BWT_RuleBuilder2_NewRulesetName>New Rule Builder 2.0 ruleset</BWT_RuleBuilder2_NewRulesetName>
   <BWT_RuleBuilder2_NewRulesetDescription>Blank card-based ruleset.</BWT_RuleBuilder2_NewRulesetDescription>
   <BWT_RuleBuilder2_NoClassicRules>No classic rulesets found</BWT_RuleBuilder2_NoClassicRules>
+  <BWT_RuleBuilder2_ExportClassicStatus>{0} classic rule(s) exported</BWT_RuleBuilder2_ExportClassicStatus>
+  <BWT_RuleBuilder2_ExportClassicStatusWarnings>{0} classic rule(s) exported; {1} warning(s)</BWT_RuleBuilder2_ExportClassicStatusWarnings>
+  <BWT_RuleBuilder2_ExportClassicNoRules>No confirmed rules could be exported to the classic format</BWT_RuleBuilder2_ExportClassicNoRules>
   <BWT_RuleBuilder2_Category_Skills>Skills</BWT_RuleBuilder2_Category_Skills>
   <BWT_RuleBuilder2_Category_Passions>Passions</BWT_RuleBuilder2_Category_Passions>
   <BWT_RuleBuilder2_Category_Traits>Traits</BWT_RuleBuilder2_Category_Traits>

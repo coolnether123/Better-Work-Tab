@@ -1,4 +1,5 @@
 ﻿using Better_Work_Tab.Features;
+using Better_Work_Tab.Features.Rules.RuleBuilder2;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.Mod_Support.Multiplayer;
 using Better_Work_Tab.UI;
@@ -92,6 +93,10 @@ namespace Better_Work_Tab.UI
             if (!(settings?.enableAutoAssignFeature ?? true))
                 return xRight;
 
+            bool useRuleBuilder2 = settings?.useRuleBuilder2 ?? DefaultSettings.useRuleBuilder2;
+            RuleBuilder2Ruleset currentRuleBuilder2Ruleset = useRuleBuilder2
+                ? settings?.CurrentRuleBuilder2Ruleset
+                : null;
             var curRuleset = BetterWorkTabMod.Settings.CurrentRuleset;
             var dotRect = new Rect(xRight - AutoAssignButtonHeight, y,
                 AutoAssignButtonHeight, AutoAssignButtonHeight);
@@ -100,15 +105,25 @@ namespace Better_Work_Tab.UI
 
             float newRight = mainRect.x - 4f;
 
-            string btnLbl = curRuleset != null ? curRuleset.Name : "BWT_NoRuleset".Translate();
+            string btnLbl = currentRuleBuilder2Ruleset != null
+                ? currentRuleBuilder2Ruleset.Name
+                : !useRuleBuilder2 && curRuleset != null ? curRuleset.Name : "BWT_NoRuleset".Translate();
 
             if (Widgets.ButtonText(mainRect, "  " + btnLbl,
                     overrideTextAnchor: TextAnchor.MiddleLeft))
             {
                 SoundDefOf.Tick_Low.PlayOneShotOnCamera();
-                // Rulesets are now local-only (not synced in multiplayer)
-                if (curRuleset != null)
+                if (currentRuleBuilder2Ruleset != null)
                 {
+                    new RuleBuilder2ApplyService().Apply(currentRuleBuilder2Ruleset, out List<string> warnings);
+                    if (warnings.Count > 0)
+                    {
+                        Log.Warning("[BWT] Rule Builder 2.0 apply warnings from footer button:\n" + string.Join("\n", warnings.ToArray()));
+                    }
+                }
+                else if (!useRuleBuilder2 && curRuleset != null)
+                {
+                    // Rulesets are now local-only (not synced in multiplayer)
                     System.Action applyAction = () =>
                     {
                         if (curRuleset.ResetBeforeApplying)
@@ -136,15 +151,37 @@ namespace Better_Work_Tab.UI
             if (Widgets.ButtonText(dotRect, "..."))
             {
                 var options = new List<FloatMenuOption>();
-                foreach (var ruleset in BetterWorkTabMod.Settings.SavedRulesets)
+                if (useRuleBuilder2)
                 {
-                    var local = ruleset;
-                    options.Add(new FloatMenuOption(local.Name, () =>
+                    settings.EnsureRuleBuilder2Rulesets();
+                    var ruleBuilder2Rulesets = settings.SavedRuleBuilder2Rulesets ?? new List<RuleBuilder2Ruleset>();
+                    if (ruleBuilder2Rulesets.Count == 0)
                     {
-                        // Rulesets are now local-only (not synced in multiplayer)
-                        BetterWorkTabMod.Settings.SetCurrentRuleset(local);
-                        SoundDefOf.Tick_Low.PlayOneShotOnCamera();
-                    }));
+                        options.Add(new FloatMenuOption("BWT_NoRuleset".Translate(), null));
+                    }
+
+                    foreach (var ruleset in ruleBuilder2Rulesets)
+                    {
+                        var local = ruleset;
+                        options.Add(new FloatMenuOption(local.Name, () =>
+                        {
+                            settings.SetCurrentRuleBuilder2Ruleset(local);
+                            SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                        }));
+                    }
+                }
+                else
+                {
+                    foreach (var ruleset in BetterWorkTabMod.Settings.SavedRulesets)
+                    {
+                        var local = ruleset;
+                        options.Add(new FloatMenuOption(local.Name, () =>
+                        {
+                            // Rulesets are now local-only (not synced in multiplayer)
+                            BetterWorkTabMod.Settings.SetCurrentRuleset(local);
+                            SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                        }));
+                    }
                 }
 
                 AddRulesetManagementOptions(options);
