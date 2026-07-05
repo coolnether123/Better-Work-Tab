@@ -59,7 +59,11 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
             if (persistRuleset)
             {
                 RuleBuilder2RulesetStore.SaveOrReplace(BetterWorkTabMod.Settings, ruleset, makeCurrent: true, writeSettings: false);
+#if v0_16
+                BetterWorkTabMod.Settings?.NormalizePrioritySettings();
+#else
                 LoadedModManager.GetMod<BetterWorkTabMod>()?.WriteSettings();
+#endif
             }
 
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();

@@ -258,6 +258,70 @@ namespace Better_Work_Tab
         }
     }
 
+    public static class MainTabCompat
+    {
+        public static bool TryGetOpenBetterWorkTab(out Better_Work_Tab.UI.MainTabWindow_BetterWork workTab)
+        {
+            workTab = null;
+
+            try
+            {
+                object openTab = Find.MainTabsRoot?.OpenTab;
+                if (openTab != null)
+                {
+                    System.Reflection.PropertyInfo tabWindowProperty = openTab.GetType().GetProperty(
+                        "TabWindow",
+                        System.Reflection.BindingFlags.Instance |
+                        System.Reflection.BindingFlags.Public |
+                        System.Reflection.BindingFlags.NonPublic);
+
+                    if (tabWindowProperty?.GetValue(openTab, null) is Better_Work_Tab.UI.MainTabWindow_BetterWork tabWindow)
+                    {
+                        workTab = tabWindow;
+                        return true;
+                    }
+                }
+            }
+            catch
+            {
+            }
+
+            WindowStack windowStack = Find.WindowStack;
+            if (windowStack == null)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < windowStack.Count; i++)
+            {
+                if (windowStack[i] is Better_Work_Tab.UI.MainTabWindow_BetterWork openWorkTab)
+                {
+                    workTab = openWorkTab;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
+    public static class PawnCapacityCompat
+    {
+        public static float GetLevel(Pawn pawn, PawnCapacityDef capacity)
+        {
+            if (pawn?.health?.capacities == null || capacity == null)
+            {
+                return 0f;
+            }
+
+#if v0_16
+            return pawn.health.capacities.GetEfficiency(capacity);
+#else
+            return pawn.health.capacities.GetLevel(capacity);
+#endif
+        }
+    }
+
     public static class RectCompat
     {
         public static Rect Zero

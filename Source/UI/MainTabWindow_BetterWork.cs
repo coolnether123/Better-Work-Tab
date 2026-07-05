@@ -60,7 +60,7 @@ namespace Better_Work_Tab.UI
             HeaderDrawingCoordinator.NotifyAngledHeadersChanged(); 
             PawnOrganizerSystem.Instance?.Layout?.InvalidateRowDescriptors();
             
-            if (Find.MainTabsRoot?.OpenTab?.TabWindow is MainTabWindow_BetterWork workTab)
+            if (MainTabCompat.TryGetOpenBetterWorkTab(out MainTabWindow_BetterWork workTab))
             {
                 var table = workTab.GetPawnTable();
                 if (table != null)

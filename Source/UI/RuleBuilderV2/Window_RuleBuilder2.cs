@@ -91,7 +91,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
         private bool DockToWorkTabIfOpen()
         {
-            if (!(Find.MainTabsRoot?.OpenTab?.TabWindow is Better_Work_Tab.UI.MainTabWindow_BetterWork workTab))
+            if (!MainTabCompat.TryGetOpenBetterWorkTab(out Better_Work_Tab.UI.MainTabWindow_BetterWork workTab))
             {
                 return false;
             }

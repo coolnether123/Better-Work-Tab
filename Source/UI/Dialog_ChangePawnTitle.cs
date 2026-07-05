@@ -57,7 +57,11 @@ namespace Better_Work_Tab.UI
 
             if (!focusedField)
             {
+#if v0_18 || v0_17 || v0_16 || v0_15 || v0_14 || v0_13 || vAlpha4
+                GUI.FocusControl("BWTChangePawnTitle");
+#else
                 Verse.UI.FocusControl("BWTChangePawnTitle", this);
+#endif
                 focusedField = true;
             }
 

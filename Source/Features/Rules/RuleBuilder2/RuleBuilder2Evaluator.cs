@@ -328,7 +328,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
             }
 
             PawnCapacityDef capacity = DefDatabase<PawnCapacityDef>.GetNamedSilentFail(capacityDefName);
-            return capacity == null ? 0f : pawn.health.capacities.GetLevel(capacity);
+            return PawnCapacityCompat.GetLevel(pawn, capacity);
         }
 
         private static string FindConflictWarning(RuleBuilder2Card card, List<RuleBuilder2Card> allCards)

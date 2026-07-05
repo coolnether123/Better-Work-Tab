@@ -114,7 +114,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                 return false;
             }
 
-            if (!(Find.MainTabsRoot?.OpenTab?.TabWindow is Better_Work_Tab.UI.MainTabWindow_BetterWork workTab) ||
+            if (!MainTabCompat.TryGetOpenBetterWorkTab(out Better_Work_Tab.UI.MainTabWindow_BetterWork workTab) ||
                 !workTab.TryGetRuleBuilder2TargetHeaderBounds(workType, workGiver, out Rect bounds))
             {
                 return false;

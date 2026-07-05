@@ -170,7 +170,7 @@ namespace Better_Work_Tab.UI.RuleBuilder
 
         internal static bool IsRuleBuilder2WorkTabOpen()
         {
-            return Find.MainTabsRoot?.OpenTab?.TabWindow is Better_Work_Tab.UI.MainTabWindow_BetterWork;
+            return MainTabCompat.TryGetOpenBetterWorkTab(out _);
         }
 
         internal static bool FlashRuleBuilder2Target(WorkTypeDef workType, WorkGiverDef workGiver)

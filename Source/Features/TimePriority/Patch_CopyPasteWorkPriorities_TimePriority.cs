@@ -29,7 +29,7 @@ namespace Better_Work_Tab.Features.TimePriority
         private static bool Prefix(Rect rect, Pawn pawn, PawnTable table)
         {
             if (!PawnTableCompat.IsWorkTable(table) ||
-                !(Find.MainTabsRoot?.OpenTab?.TabWindow is MainTabWindow_Work))
+                !MainTabCompat.TryGetOpenBetterWorkTab(out _))
             {
                 return true;
             }

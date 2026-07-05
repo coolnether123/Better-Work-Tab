@@ -69,13 +69,13 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
 
         public void ExposeData()
         {
-            Scribe_Values.Look(ref StableId, "stableId", Guid.NewGuid().ToString("N"));
-            Scribe_Values.Look(ref Name, "name", "Rule Builder 2.0 Ruleset");
-            Scribe_Values.Look(ref Description, "description", "");
-            Scribe_Values.Look(ref Enabled, "enabled", true);
-            Scribe_Values.Look(ref Source, "source", RuleBuilder2SourceType.Blank);
-            Scribe_Values.Look(ref DataVersion, "dataVersion", 2);
-            Scribe_Collections.Look(ref Cards, "cards", LookMode.Deep);
+            Better_Work_Tab.ScribeCompat.LookValue(ref StableId, "stableId", Guid.NewGuid().ToString("N"));
+            Better_Work_Tab.ScribeCompat.LookValue(ref Name, "name", "Rule Builder 2.0 Ruleset");
+            Better_Work_Tab.ScribeCompat.LookValue(ref Description, "description", "");
+            Better_Work_Tab.ScribeCompat.LookValue(ref Enabled, "enabled", true);
+            Better_Work_Tab.ScribeCompat.LookValue(ref Source, "source", RuleBuilder2SourceType.Blank);
+            Better_Work_Tab.ScribeCompat.LookValue(ref DataVersion, "dataVersion", 2);
+            Better_Work_Tab.ScribeCompat.LookCollection(ref Cards, "cards", LookMode.Deep);
 
             if (Scribe.mode == LoadSaveMode.PostLoadInit || Scribe.mode == LoadSaveMode.LoadingVars)
             {
@@ -143,18 +143,18 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
 
         public void ExposeData()
         {
-            Scribe_Values.Look(ref StableId, "stableId", Guid.NewGuid().ToString("N"));
-            Scribe_Values.Look(ref Name, "name", "");
-            Scribe_Values.Look(ref Summary, "summary", "");
-            Scribe_Values.Look(ref Enabled, "enabled", true);
-            Scribe_Values.Look(ref IsConfirmed, "confirmed", false);
-            Scribe_Values.Look(ref IsCollapsed, "collapsed", false);
-            Scribe_Values.Look(ref SortOrder, "sortOrder", 0);
-            Scribe_Values.Look(ref Notes, "notes", "");
-            Scribe_Collections.Look(ref Warnings, "warnings", LookMode.Value);
-            Scribe_Deep.Look(ref Target, "target");
-            Scribe_Deep.Look(ref Conditions, "conditions");
-            Scribe_Deep.Look(ref Action, "action");
+            Better_Work_Tab.ScribeCompat.LookValue(ref StableId, "stableId", Guid.NewGuid().ToString("N"));
+            Better_Work_Tab.ScribeCompat.LookValue(ref Name, "name", "");
+            Better_Work_Tab.ScribeCompat.LookValue(ref Summary, "summary", "");
+            Better_Work_Tab.ScribeCompat.LookValue(ref Enabled, "enabled", true);
+            Better_Work_Tab.ScribeCompat.LookValue(ref IsConfirmed, "confirmed", false);
+            Better_Work_Tab.ScribeCompat.LookValue(ref IsCollapsed, "collapsed", false);
+            Better_Work_Tab.ScribeCompat.LookValue(ref SortOrder, "sortOrder", 0);
+            Better_Work_Tab.ScribeCompat.LookValue(ref Notes, "notes", "");
+            Better_Work_Tab.ScribeCompat.LookCollection(ref Warnings, "warnings", LookMode.Value);
+            Better_Work_Tab.ScribeCompat.LookDeep(ref Target, "target");
+            Better_Work_Tab.ScribeCompat.LookDeep(ref Conditions, "conditions");
+            Better_Work_Tab.ScribeCompat.LookDeep(ref Action, "action");
 
             if (Scribe.mode == LoadSaveMode.PostLoadInit || Scribe.mode == LoadSaveMode.LoadingVars)
             {
@@ -215,11 +215,11 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
 
         public void ExposeData()
         {
-            Scribe_Values.Look(ref WorkTypeDefName, "workTypeDefName", "");
-            Scribe_Values.Look(ref WorkGiverDefName, "workGiverDefName", "");
-            Scribe_Values.Look(ref DisplayLabel, "displayLabel", "");
-            Scribe_Values.Look(ref IconPath, "iconPath", "");
-            Scribe_Values.Look(ref Source, "source", RuleBuilder2TargetSource.BuilderList);
+            Better_Work_Tab.ScribeCompat.LookValue(ref WorkTypeDefName, "workTypeDefName", "");
+            Better_Work_Tab.ScribeCompat.LookValue(ref WorkGiverDefName, "workGiverDefName", "");
+            Better_Work_Tab.ScribeCompat.LookValue(ref DisplayLabel, "displayLabel", "");
+            Better_Work_Tab.ScribeCompat.LookValue(ref IconPath, "iconPath", "");
+            Better_Work_Tab.ScribeCompat.LookValue(ref Source, "source", RuleBuilder2TargetSource.BuilderList);
         }
 
         public WorkTypeDef ResolveWorkType()
@@ -259,8 +259,8 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
 
         public void ExposeData()
         {
-            Scribe_Values.Look(ref Mode, "mode", RuleBuilder2ConditionMode.All);
-            Scribe_Collections.Look(ref Conditions, "conditions", LookMode.Deep);
+            Better_Work_Tab.ScribeCompat.LookValue(ref Mode, "mode", RuleBuilder2ConditionMode.All);
+            Better_Work_Tab.ScribeCompat.LookCollection(ref Conditions, "conditions", LookMode.Deep);
             Conditions ??= new List<RuleBuilder2Condition>();
         }
 
@@ -298,15 +298,15 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
 
         public void ExposeData()
         {
-            Scribe_Values.Look(ref StableId, "stableId", Guid.NewGuid().ToString("N"));
-            Scribe_Values.Look(ref Kind, "kind", RuleBuilder2ConditionKind.SkillMinimum);
-            Scribe_Values.Look(ref Enabled, "enabled", true);
-            Scribe_Values.Look(ref DefName, "defName", "");
-            Scribe_Values.Look(ref IntValue, "intValue", 0);
-            Scribe_Values.Look(ref FloatValue, "floatValue", 0f);
-            Scribe_Values.Look(ref BoolValue, "boolValue", false);
-            Scribe_Values.Look(ref TextValue, "textValue", "");
-            Scribe_Values.Look(ref DisplayText, "displayText", "");
+            Better_Work_Tab.ScribeCompat.LookValue(ref StableId, "stableId", Guid.NewGuid().ToString("N"));
+            Better_Work_Tab.ScribeCompat.LookValue(ref Kind, "kind", RuleBuilder2ConditionKind.SkillMinimum);
+            Better_Work_Tab.ScribeCompat.LookValue(ref Enabled, "enabled", true);
+            Better_Work_Tab.ScribeCompat.LookValue(ref DefName, "defName", "");
+            Better_Work_Tab.ScribeCompat.LookValue(ref IntValue, "intValue", 0);
+            Better_Work_Tab.ScribeCompat.LookValue(ref FloatValue, "floatValue", 0f);
+            Better_Work_Tab.ScribeCompat.LookValue(ref BoolValue, "boolValue", false);
+            Better_Work_Tab.ScribeCompat.LookValue(ref TextValue, "textValue", "");
+            Better_Work_Tab.ScribeCompat.LookValue(ref DisplayText, "displayText", "");
 
             if (Scribe.mode == LoadSaveMode.PostLoadInit || Scribe.mode == LoadSaveMode.LoadingVars)
             {
@@ -345,11 +345,11 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
 
         public void ExposeData()
         {
-            Scribe_Values.Look(ref Kind, "kind", RuleBuilder2ActionKind.SetPriority);
-            Scribe_Values.Look(ref Priority, "priority", WorkPrioritySystem.GetDefaultEnabledPriority());
-            Scribe_Collections.Look(ref HourlyPriorities, "hourlyPriorities", LookMode.Value);
-            Scribe_Values.Look(ref HasElseBehavior, "hasElseBehavior", false);
-            Scribe_Values.Look(ref ElsePriority, "elsePriority", 0);
+            Better_Work_Tab.ScribeCompat.LookValue(ref Kind, "kind", RuleBuilder2ActionKind.SetPriority);
+            Better_Work_Tab.ScribeCompat.LookValue(ref Priority, "priority", WorkPrioritySystem.GetDefaultEnabledPriority());
+            Better_Work_Tab.ScribeCompat.LookCollection(ref HourlyPriorities, "hourlyPriorities", LookMode.Value);
+            Better_Work_Tab.ScribeCompat.LookValue(ref HasElseBehavior, "hasElseBehavior", false);
+            Better_Work_Tab.ScribeCompat.LookValue(ref ElsePriority, "elsePriority", 0);
 
             if (Scribe.mode == LoadSaveMode.PostLoadInit || Scribe.mode == LoadSaveMode.LoadingVars)
             {
