@@ -995,8 +995,8 @@ namespace Better_Work_Tab.UI.Settings
                 Id = DragdropEnableGrouping,
                 ParentId = FeaturesDragdrop,
                 FieldName = "enableColumnGrouping",
-                Label = "Enable Column Grouping (Ctrl+Click)",
-                Tooltip = "Allows selecting multiple columns with Ctrl+Click to drag them together.",
+                Label = "Enable Column Grouping (Shift+Click)",
+                Tooltip = "Allows selecting multiple columns with Shift+Click on headers to drag them together.",
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.enableColumnGrouping,
                 ShowInSimpleView = false,
@@ -1188,7 +1188,7 @@ namespace Better_Work_Tab.UI.Settings
                 Id = UiBetaTutorial,
                 FieldName = "showBetaTutorial",
                 Label = "Show BWT 2.0 Tutorial",
-                Tooltip = "Show the guided Better Work Tab 2.0 beta walkthrough when opening the Work tab. The walkthrough can also be deactivated from the tutorial overlay.",
+                Tooltip = "Show the guided Better Work Tab 2.0 walkthrough when opening the Work tab. The walkthrough can also be deactivated from the tutorial overlay.",
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.showBetaTutorial,
                 ShowInSimpleView = true,
@@ -1199,6 +1199,26 @@ namespace Better_Work_Tab.UI.Settings
                     if (settingsObj is BetterWorkTabSettings settings && settings.showBetaTutorial)
                     {
                         settings.betaTutorialStep = 0;
+                    }
+                }
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = UiGeneralTutorial,
+                FieldName = "showGeneralTutorial",
+                Label = "Show Better Work Tab Tutorial",
+                Tooltip = "Show the full guided Better Work Tab walkthrough when opening the Work tab. It covers core features and the 2.0 systems.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.showGeneralTutorial,
+                ShowInSimpleView = true,
+                SortOrder = 10434,
+                ParentId = FeaturesUiElements,
+                OnChanged = settingsObj =>
+                {
+                    if (settingsObj is BetterWorkTabSettings settings && settings.showGeneralTutorial)
+                    {
+                        settings.generalTutorialStep = 0;
                     }
                 }
             });
@@ -1685,15 +1705,13 @@ namespace Better_Work_Tab.UI.Settings
             {
                 Id = LayoutWorkTabMaxHeight,
                 ParentId = AdvancedHeader,
-                FieldName = "workTabMaxHeight",
-                Label = "Work Tab Max Height",
-                Tooltip = "Caps the Work tab window height in pixels and scrolls extra rows. -1 keeps RimWorld's default full-screen-height behavior.",
-                Type = SettingType.Float,
-                DefaultValue = DefaultSettings.workTabMaxHeight,
+                FieldName = nameof(BetterWorkTabSettings.workTabMaxVisiblePawns),
+                Label = "Visible pawn rows",
+                Tooltip = "Caps the Work tab height by how many normal pawn rows are visible before scrolling. -1 keeps RimWorld's default full-screen-height behavior.",
+                Type = SettingType.NumericInt,
+                DefaultValue = DefaultSettings.workTabMaxVisiblePawns,
                 MinValue = -1f,
-                MaxValue = 1200f,
-                MinLabel = "Default",
-                MaxLabel = "1200px",
+                MaxValue = 200f,
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
                 SortOrder = 401,
@@ -1761,6 +1779,131 @@ namespace Better_Work_Tab.UI.Settings
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
                 SortOrder = 405
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = RuleBuilder2Use,
+                ParentId = FeaturesAutoassign,
+                FieldName = nameof(BetterWorkTabSettings.useRuleBuilder2),
+                Label = "Use Rule Builder 2.0",
+                Tooltip = "Open the card-based Rule Builder 2.0 by default while preserving the classic builder as a fallback.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.useRuleBuilder2,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 406
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = RuleBuilder2Tutorial,
+                ParentId = RuleBuilder2Use,
+                FieldName = nameof(BetterWorkTabSettings.showRuleBuilder2Tutorial),
+                Label = "Show Rule Builder tutorial",
+                Tooltip = "Show the guided Rule Builder 2.0 tutorial when the builder opens.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.showRuleBuilder2Tutorial,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 407,
+                OnChanged = settingsObj =>
+                {
+                    if (settingsObj is BetterWorkTabSettings settings && settings.showRuleBuilder2Tutorial)
+                    {
+                        settings.ruleBuilder2TutorialStep = 0;
+                    }
+                }
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = RuleBuilder2TutorialReset,
+                ParentId = RuleBuilder2Use,
+                Label = "Reset Rule Builder tutorial",
+                Tooltip = "Restart the Rule Builder 2.0 tutorial from the first step.",
+                Type = SettingType.Button,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 408,
+                OnChanged = settingsObj =>
+                {
+                    if (settingsObj is BetterWorkTabSettings settings)
+                    {
+                        settings.showRuleBuilder2Tutorial = true;
+                        settings.ruleBuilder2TutorialStep = 0;
+                    }
+                }
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = RuleBuilder2Highlights,
+                ParentId = RuleBuilder2Use,
+                FieldName = nameof(BetterWorkTabSettings.ruleBuilder2ShowWorkTabHighlights),
+                Label = "Rule Builder Work tab highlights",
+                Tooltip = "Highlight the Work tab target while editing or previewing a Rule Builder 2.0 card.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.ruleBuilder2ShowWorkTabHighlights,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 409
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = RuleBuilder2Animations,
+                ParentId = RuleBuilder2Use,
+                FieldName = nameof(BetterWorkTabSettings.ruleBuilder2EnableAnimations),
+                Label = "Rule Builder animations",
+                Tooltip = "Animate Rule Builder 2.0 cards, previews, and tutorial focus movement.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.ruleBuilder2EnableAnimations,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 410
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = RuleBuilder2DraftSuggestions,
+                ParentId = RuleBuilder2Use,
+                FieldName = nameof(BetterWorkTabSettings.ruleBuilder2UseDraftSuggestions),
+                Label = "Generated draft suggestions",
+                Tooltip = "Allow Rule Builder 2.0 to generate review-only draft cards from the current Work tab.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.ruleBuilder2UseDraftSuggestions,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 411
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = RuleBuilder2AdvancedConditions,
+                ParentId = RuleBuilder2Use,
+                FieldName = nameof(BetterWorkTabSettings.ruleBuilder2ShowAdvancedConditions),
+                Label = "Show advanced conditions",
+                Tooltip = "Show advanced Rule Builder 2.0 condition cards such as capacities and assignment state.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.ruleBuilder2ShowAdvancedConditions,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 412
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = RuleBuilder2MatchedPanel,
+                ParentId = RuleBuilder2Use,
+                FieldName = nameof(BetterWorkTabSettings.ruleBuilder2ShowMatchedPanel),
+                Label = "Priority-box match panel",
+                Tooltip = "Show matched conditions when clicking a Work tab priority box while Rule Builder 2.0 is open.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.ruleBuilder2ShowMatchedPanel,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 413
             });
 
             Register(new SettingDefinition
@@ -2294,6 +2437,21 @@ namespace Better_Work_Tab.UI.Settings
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
                 SortOrder = 5071
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = HeadersUnderlineColor,
+                ParentId = HeadersAngled,
+                FieldName = nameof(BetterWorkTabSettings.headerUnderlineColor),
+                Label = "Header underline color",
+                Tooltip = "Custom color for the line under angled work headers and the stem line used by vanilla-style work headers.",
+                Type = SettingType.Color,
+                DefaultValue = DefaultSettings.Color_HeaderUnderline,
+                OnChanged = s => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 50715
             });
 
             Register(new SettingDefinition

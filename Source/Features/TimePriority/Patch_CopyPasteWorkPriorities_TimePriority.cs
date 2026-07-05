@@ -1,6 +1,7 @@
 using System;
 using System.Reflection;
 using HarmonyLib;
+using RimWorld;
 using UnityEngine;
 using Verse;
 
@@ -25,8 +26,14 @@ namespace Better_Work_Tab.Features.TimePriority
         }
 
         [HarmonyPrefix]
-        private static bool Prefix(Rect rect, Pawn pawn)
+        private static bool Prefix(Rect rect, Pawn pawn, PawnTable table)
         {
+            if (!PawnTableCompat.IsWorkTable(table) ||
+                !(Find.MainTabsRoot?.OpenTab?.TabWindow is MainTabWindow_Work))
+            {
+                return true;
+            }
+
             if (TimePriorityPlannerPrototype.TryDrawScheduleCopyPasteWorkPrioritiesCell(rect, pawn))
             {
                 return false;
