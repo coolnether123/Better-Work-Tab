@@ -471,7 +471,7 @@ namespace Better_Work_Tab.Features.TimePriority
                 // Fall back to absolute game ticks when local date APIs are unavailable.
             }
 
-            int ticks = Find.TickManager?.TicksAbs ?? 0;
+            int ticks = GenTicks.TicksAbs;
             return Mathf.Abs(ticks / GenDate.TicksPerHour) % HoursPerDay;
         }
 

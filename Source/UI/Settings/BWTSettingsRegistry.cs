@@ -1777,6 +1777,131 @@ namespace Better_Work_Tab.UI.Settings
 
             Register(new SettingDefinition
             {
+                Id = RuleBuilder2Use,
+                ParentId = FeaturesAutoassign,
+                FieldName = nameof(BetterWorkTabSettings.useRuleBuilder2),
+                Label = "Use Rule Builder 2.0",
+                Tooltip = "Open the card-based Rule Builder 2.0 by default while preserving the classic builder as a fallback.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.useRuleBuilder2,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 406
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = RuleBuilder2Tutorial,
+                ParentId = RuleBuilder2Use,
+                FieldName = nameof(BetterWorkTabSettings.showRuleBuilder2Tutorial),
+                Label = "Show Rule Builder tutorial",
+                Tooltip = "Show the guided Rule Builder 2.0 tutorial when the builder opens.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.showRuleBuilder2Tutorial,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 407,
+                OnChanged = settingsObj =>
+                {
+                    if (settingsObj is BetterWorkTabSettings settings && settings.showRuleBuilder2Tutorial)
+                    {
+                        settings.ruleBuilder2TutorialStep = 0;
+                    }
+                }
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = RuleBuilder2TutorialReset,
+                ParentId = RuleBuilder2Use,
+                Label = "Reset Rule Builder tutorial",
+                Tooltip = "Restart the Rule Builder 2.0 tutorial from the first step.",
+                Type = SettingType.Button,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 408,
+                OnChanged = settingsObj =>
+                {
+                    if (settingsObj is BetterWorkTabSettings settings)
+                    {
+                        settings.showRuleBuilder2Tutorial = true;
+                        settings.ruleBuilder2TutorialStep = 0;
+                    }
+                }
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = RuleBuilder2Highlights,
+                ParentId = RuleBuilder2Use,
+                FieldName = nameof(BetterWorkTabSettings.ruleBuilder2ShowWorkTabHighlights),
+                Label = "Rule Builder Work tab highlights",
+                Tooltip = "Highlight the Work tab target while editing or previewing a Rule Builder 2.0 card.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.ruleBuilder2ShowWorkTabHighlights,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 409
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = RuleBuilder2Animations,
+                ParentId = RuleBuilder2Use,
+                FieldName = nameof(BetterWorkTabSettings.ruleBuilder2EnableAnimations),
+                Label = "Rule Builder animations",
+                Tooltip = "Animate Rule Builder 2.0 cards, previews, and tutorial focus movement.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.ruleBuilder2EnableAnimations,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 410
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = RuleBuilder2DraftSuggestions,
+                ParentId = RuleBuilder2Use,
+                FieldName = nameof(BetterWorkTabSettings.ruleBuilder2UseDraftSuggestions),
+                Label = "Generated draft suggestions",
+                Tooltip = "Allow Rule Builder 2.0 to generate review-only draft cards from the current Work tab.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.ruleBuilder2UseDraftSuggestions,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 411
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = RuleBuilder2AdvancedConditions,
+                ParentId = RuleBuilder2Use,
+                FieldName = nameof(BetterWorkTabSettings.ruleBuilder2ShowAdvancedConditions),
+                Label = "Show advanced conditions",
+                Tooltip = "Show advanced Rule Builder 2.0 condition cards such as capacities and assignment state.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.ruleBuilder2ShowAdvancedConditions,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 412
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = RuleBuilder2MatchedPanel,
+                ParentId = RuleBuilder2Use,
+                FieldName = nameof(BetterWorkTabSettings.ruleBuilder2ShowMatchedPanel),
+                Label = "Priority-box match panel",
+                Tooltip = "Show matched conditions when clicking a Work tab priority box while Rule Builder 2.0 is open.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.ruleBuilder2ShowMatchedPanel,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = true,
+                SortOrder = 413
+            });
+
+            Register(new SettingDefinition
+            {
                 Id = AutoassignConfirm,
                 ParentId = FeaturesAutoassign,
                 FieldName = "showAutoAssignConfirmation",
