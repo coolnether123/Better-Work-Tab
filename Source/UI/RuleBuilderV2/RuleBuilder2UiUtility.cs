@@ -35,7 +35,12 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
         internal static Rect NormalizeLabelRect(Rect rect, GameFont font = GameFont.Small, float verticalPadding = 2f)
         {
-            float minHeight = Text.LineHeightOf(font) + verticalPadding;
+#if v1_2 || v1_1 || v1_0 || v0_19 || v0_18 || v0_17 || v0_16 || v0_15 || v0_14 || v0_13 || vAlpha4
+            float lineHeight = font == GameFont.Tiny ? 18f : font == GameFont.Medium ? 30f : 22f;
+#else
+            float lineHeight = Text.LineHeightOf(font);
+#endif
+            float minHeight = lineHeight + verticalPadding;
             return rect.height >= minHeight
                 ? rect
                 : new Rect(rect.x, rect.y, rect.width, minHeight);

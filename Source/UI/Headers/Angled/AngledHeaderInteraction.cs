@@ -165,7 +165,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
             {
                 if (BetterWorkTabMod.Settings?.enableColumnGrouping ?? true)
                 {
-                    tooltip += "\n" + "Shift + click: Select column for group dragging.".Colorize(ColoredText.SubtleGrayColor);
+                    tooltip += "\n" + "Shift + click: Select column for group dragging.".Colorize(TooltipSubtleColor);
                 }
                 else if (Find.PlaySettings.useWorkPriorities)
                 {
