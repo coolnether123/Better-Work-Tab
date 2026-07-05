@@ -166,6 +166,11 @@ namespace Better_Work_Tab
 #endif
             }
         }
+
+        public static IEnumerable<Pawn> AllAliveOrDead
+        {
+            get { return AllMapsWorldAndTemporaryAliveOrDead; }
+        }
     }
 
     public static class MessageCompat

@@ -4,7 +4,7 @@
   <author>Coolnether123</author>
   <url>https://github.com/coolnether123/Better-Work-Tab</url>
   <targetVersion>0.17.1557</targetVersion>
-  <description><![CDATA[Better Work Tab v2.0 beta overhauls RimWorld's Work tab with drag-and-drop, skill overlays, automation rules, sub-work jobs, time priority schedules, extended priorities, and visual customization.
+  <description><![CDATA[Better Work Tab v2.0 overhauls RimWorld's Work tab with drag-and-drop, skill overlays, automation rules, sub-work jobs, time priority schedules, extended priorities, and visual customization.
 
 Features are toggleable in settings.
 
@@ -12,30 +12,20 @@ Features:
 - Drag and drop work column and pawn row reordering
 - Extended max priorities from vanilla 4 up to 99
 - Sub-work job drilldown with global and pawn-specific priorities
-- Time-of-day priority schedules for work and sub-work jobs
-- Skill level overlay (hold SHIFT)
-- Auto-assignment rulesets
-- Workload presets
-- Visual dividers
-- Force pawns to work on unassigned tasks
-- Advanced pawn and column highlighting
-- Angled or vanilla-style column headers
-- Colonist and bed counts
-- Right-click pawn quick actions
-- Detailed settings for UI, priorities, rules, workloads, and layout
+- Time-based priority schedules by hour
+- Rule Builder 2.0 for work automation
+- Skill and passion overlays
+- Workload snapshots
+- Custom labels, colors, dividers, and filters
+- Compatibility checks for known Work tab conflicts
 
 Compatibility:
-- Compatible with most work-type mods
-- [FSF] Complex Jobs column ordering is supported
-- Vanilla Skills Expanded passion types are supported in rule conditions when the mod is active
-- Do Once - Noncommittal Work is compatible; BWT suppresses its duplicate borrowed menu patches and uses BWT's sub-work-aware version
-- Useful Marks markers appear on pawn icons when available
 - Grouped Pawns List is overridden inside this Work tab
 - CompactWorkTab overlaps this UI and should not be used together
 - Fluffy WorkTab and forks are hard conflicts
 
 Version support:
-- 0.17 -> v2.0 beta - Multiplayer does not work
+- 0.17 -> v2.0 - Multiplayer does not work
 
 Support:
 Discord: https://discord.gg/QYBBaRkKWs
