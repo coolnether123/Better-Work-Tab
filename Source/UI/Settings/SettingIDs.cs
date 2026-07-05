@@ -17,6 +17,14 @@ namespace Better_Work_Tab.UI.Settings
         public const string AutoassignResetBefore = "autoassign.resetBefore";
         public const string AutoassignViewMode = "autoassign.viewMode";
         public const string AutoassignVisual = "autoassign.visual";
+        public const string RuleBuilder2Use = "autoassign.ruleBuilder2.use";
+        public const string RuleBuilder2Tutorial = "autoassign.ruleBuilder2.tutorial";
+        public const string RuleBuilder2TutorialReset = "autoassign.ruleBuilder2.tutorialReset";
+        public const string RuleBuilder2Highlights = "autoassign.ruleBuilder2.highlights";
+        public const string RuleBuilder2Animations = "autoassign.ruleBuilder2.animations";
+        public const string RuleBuilder2DraftSuggestions = "autoassign.ruleBuilder2.draftSuggestions";
+        public const string RuleBuilder2AdvancedConditions = "autoassign.ruleBuilder2.advancedConditions";
+        public const string RuleBuilder2MatchedPanel = "autoassign.ruleBuilder2.matchedPanel";
         public const string ColorsBestPawnOutline = "colors.bestPawnOutline";
         public const string ColorsSkillExcellent = "colors.skillExcellent";
         public const string ColorsSkillGood = "colors.skillGood";
@@ -112,6 +120,7 @@ namespace Better_Work_Tab.UI.Settings
         public const string SubWorkDisabledParentMode = "subWorkJobs.disabledParentMode";
         public const string UiDragInstructions = "ui.dragInstructions";
         public const string UiContextSettingsHint = "ui.contextSettingsHint";
+        public const string UiGeneralTutorial = "ui.generalTutorial";
         public const string UiBetaTutorial = "ui.betaTutorial";
         public const string UiManualPriorities = "ui.manualPriorities";
         public const string UiTimePriorityPlannerPrototype = "ui.timePriorityPlannerPrototype";
@@ -144,5 +153,6 @@ namespace Better_Work_Tab.UI.Settings
         public const string HeadersYOffset = "headers.yOffset";
         public const string HeadersDebugLog = "headers.debugLog";
         public const string HeadersUseVerticalStackingForCJK = "headers.useVerticalStackingForCJK";
+        public const string HeadersUnderlineColor = "headers.underlineColor";
     }
 }

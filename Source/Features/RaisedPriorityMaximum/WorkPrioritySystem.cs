@@ -95,30 +95,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
         internal static int GetPriorityAfterBoundedStep(int currentPriority, int direction)
         {
-            int maxPriority = PriorityAuthorityBroker.GetSnapshotForPriority(currentPriority).MaxPriority;
-            int normalized = ClampPriority(currentPriority, maxPriority);
-
-            if (direction > 0)
-            {
-                if (normalized == DisabledPriority)
-                {
-                    return PriorityAuthorityBroker.GetNextManualPriority(DisabledPriority, 1);
-                }
-
-                return normalized > 1 ? normalized - 1 : normalized;
-            }
-
-            if (direction < 0)
-            {
-                if (normalized == maxPriority)
-                {
-                    return DisabledPriority;
-                }
-
-                return normalized > DisabledPriority ? normalized + 1 : normalized;
-            }
-
-            return normalized;
+            return PriorityAuthorityBroker.GetNextManualPriority(currentPriority, direction);
         }
 
         internal static int MapPriorityToVanillaDisplay(int priority)
@@ -161,28 +138,34 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 return GetVanillaPriorityColor(priority);
             }
 
-            int percentage = (int)(((float)ClampPriority(priority, maxPriority) / maxPriority) * 100f);
+            int clampedPriority = ClampPriority(priority, maxPriority);
 
             int greenThreshold = settings?.priorityColorPercentage_Green ?? DefaultSettings.priorityColorPercentage_Green;
             int yellowThreshold = settings?.priorityColorPercentage_Yellow ?? DefaultSettings.priorityColorPercentage_Yellow;
             int tanThreshold = settings?.priorityColorPercentage_Tan ?? DefaultSettings.priorityColorPercentage_Tan;
 
-            if (percentage < greenThreshold)
+            if (clampedPriority <= GetPriorityColorCutoff(maxPriority, greenThreshold))
             {
                 return ExtendedPriorityGreen;
             }
 
-            if (percentage < yellowThreshold)
+            if (clampedPriority <= GetPriorityColorCutoff(maxPriority, yellowThreshold))
             {
                 return ExtendedPriorityYellow;
             }
 
-            if (percentage < tanThreshold)
+            if (clampedPriority <= GetPriorityColorCutoff(maxPriority, tanThreshold))
             {
                 return ExtendedPriorityTan;
             }
 
             return ExtendedPriorityGrey;
+        }
+
+        private static int GetPriorityColorCutoff(int maxPriority, int percentageThreshold)
+        {
+            int threshold = Mathf.Clamp(percentageThreshold, 1, 100);
+            return Mathf.Clamp(Mathf.CeilToInt(maxPriority * (threshold / 100f)), 1, maxPriority);
         }
 
         private static Color GetVanillaPriorityColor(int priority)

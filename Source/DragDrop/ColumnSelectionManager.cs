@@ -5,7 +5,7 @@ using Verse;
 namespace Better_Work_Tab.DragDrop
 {
     /// <summary>
-    /// Manages multi-column selection for drag operations (Ctrl+Click).
+    /// Manages multi-column selection for drag operations (Shift+Click).
     /// Uses a HashSet to track which work columns are currently part of a selected group.
     /// Selection is primarily used to move blocks of columns together in the work tab.
     /// </summary>
