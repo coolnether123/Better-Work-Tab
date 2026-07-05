@@ -337,6 +337,21 @@ namespace Better_Work_Tab
         }
     }
 
+    public static class UiCompat
+    {
+        public static Vector2 MousePositionOnUIInverted
+        {
+            get
+            {
+#if v0_15 || v0_14 || v0_13 || vAlpha4
+                return new Vector2(Input.mousePosition.x, Verse.UI.screenHeight - Input.mousePosition.y);
+#else
+                return Verse.UI.MousePositionOnUIInverted;
+#endif
+            }
+        }
+    }
+
     public static class RectCompat
     {
         public static Rect Zero

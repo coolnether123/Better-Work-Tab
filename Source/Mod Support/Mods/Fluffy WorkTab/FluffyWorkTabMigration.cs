@@ -134,7 +134,11 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
         private static List<FluffyPawnPriorityRecord> ReadSavedFluffyPriorities()
         {
             var records = new List<FluffyPawnPriorityRecord>();
+#if v0_15 || v0_14 || v0_13 || vAlpha4
+            string saveName = _lastLoadingSaveName ?? Current.Game?.InitData?.mapToLoad;
+#else
             string saveName = _lastLoadingSaveName ?? Current.Game?.InitData?.gameToLoad;
+#endif
             if (saveName.NullOrEmpty())
             {
                 return records;
