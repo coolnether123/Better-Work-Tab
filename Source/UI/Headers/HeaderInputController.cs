@@ -50,9 +50,9 @@ namespace Better_Work_Tab.UI.Headers
                 _cachedHoveredWorkType = null;
                 _cachedHoveredRect = null;
 
-                // If Ctrl is released and we aren't currently dragging a column group, clear the multi-selection.
-                // This ensures selection is only active while the user is actively managing a group with Ctrl.
-                if (evt != null && !evt.control && !BetterWorkTabLocalState.IsHeaderDragging && ColumnSelectionManager.HasSelection)
+                // If Shift is released and we aren't currently dragging a column group, clear the multi-selection.
+                // This ensures selection is only active while the user is actively managing a group with Shift.
+                if (evt != null && !evt.shift && !BetterWorkTabLocalState.IsHeaderDragging && ColumnSelectionManager.HasSelection)
                 {
                     ColumnSelectionManager.Clear();
                 }
