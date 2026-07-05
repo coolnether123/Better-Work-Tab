@@ -1053,6 +1053,7 @@ namespace Spine.UI.SettingsFramework
             object settingsObject,
             Action onSettingsChanged)
         {
+            ClearForcedVisibilityForControlledChildren(changedSetting);
             bool ancestorsChanged = EnableControllingAncestors(changedSetting, settingsObject);
             changedSetting?.OnChanged?.Invoke(settingsObject);
             onSettingsChanged?.Invoke();
@@ -1094,6 +1095,33 @@ namespace Spine.UI.SettingsFramework
             }
 
             return changed;
+        }
+
+        private void ClearForcedVisibilityForControlledChildren(SettingDefinition setting)
+        {
+            if (setting == null || !setting.ControlsChildVisibility || setting.Type != SettingType.Bool)
+            {
+                return;
+            }
+
+            _forceVisibleDisabledAncestorIds.Remove(setting.Id);
+            ClearForcedVisibilityForDescendants(setting.Id);
+        }
+
+        private void ClearForcedVisibilityForDescendants(string parentId)
+        {
+            var children = _hierarchy.GetChildren(parentId);
+            for (int i = 0; i < children.Count; i++)
+            {
+                SettingDefinition child = children[i];
+                if (child == null)
+                {
+                    continue;
+                }
+
+                _forceVisibleDisabledAncestorIds.Remove(child.Id);
+                ClearForcedVisibilityForDescendants(child.Id);
+            }
         }
 
         private void DrawFocusedSettingHighlight(Rect rowRect, SettingDefinition def)

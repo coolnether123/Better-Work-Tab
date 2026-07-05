@@ -3,6 +3,7 @@ using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Mod_Support.LocalProfiles;
 using Better_Work_Tab.Mod_Support.Multiplayer;
+using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.Patches;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.Data;
@@ -25,6 +26,7 @@ namespace Better_Work_Tab.Features.Workloads
         public List<PawnDivider> ActiveDividers = new List<PawnDivider>();
         public WorkGiverReassignmentData WorkGiverReassignments = new WorkGiverReassignmentData();
         public List<TimePriorityScheduleData> TimePrioritySchedules = new List<TimePriorityScheduleData>();
+        public int FluffyWorkTabPriorityMigrationVersion;
         private int _lastTimePriorityHour = -1;
 
 #if v0_13
@@ -53,6 +55,7 @@ namespace Better_Work_Tab.Features.Workloads
             WorkGiverReassignmentManager.MigrateLegacySettingsDataIfNeeded(this);
             ColumnBaselineManager.EnsureBaseline(this);
             TimePriorityService.NotifyLoaded();
+            FluffyWorkTabMigration.MigrateIfNeeded(this);
 
             SpineTiming.Enabled = BetterWorkTabMod.Settings?.enableProfiler ?? false;
         }
@@ -77,6 +80,7 @@ namespace Better_Work_Tab.Features.Workloads
             Better_Work_Tab.ScribeCompat.LookCollection(ref ColumnCurrentOrder, "columnCurrentOrder", LookMode.Value);
             Better_Work_Tab.ScribeCompat.LookDeep(ref WorkGiverReassignments, "workGiverReassignments");
             Better_Work_Tab.ScribeCompat.LookCollection(ref TimePrioritySchedules, "timePrioritySchedules", LookMode.Deep);
+            Better_Work_Tab.ScribeCompat.LookValue(ref FluffyWorkTabPriorityMigrationVersion, "fluffyWorkTabPriorityMigrationVersion", 0);
 
             if (!MultiplayerBridge.Active)
             {
