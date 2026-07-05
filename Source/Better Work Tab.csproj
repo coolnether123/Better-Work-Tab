@@ -235,6 +235,17 @@
     <Compile Include="Features\Rules\WorkAssignmentRule.cs" />
     <Compile Include="Features\Rules\WorkAssignmentParameters.cs" />
     <Compile Include="Features\Rules\RuleParameterRegistry.cs" />
+    <Compile Include="Features\Rules\RuleBuilder2\RuleBuilder2Model.cs" />
+    <Compile Include="Features\Rules\RuleBuilder2\RuleBuilder2ConditionCatalog.cs" />
+    <Compile Include="Features\Rules\RuleBuilder2\RuleBuilder2Evaluator.cs" />
+    <Compile Include="Features\Rules\RuleBuilder2\RuleBuilder2ApplyService.cs" />
+    <Compile Include="Features\Rules\RuleBuilder2\RuleBuilder2RulesetStore.cs" />
+    <Compile Include="Features\Rules\RuleBuilder2\RuleBuilder2TargetCatalog.cs" />
+    <Compile Include="Features\Rules\RuleBuilder2\RuleBuilder2PriorityRange.cs" />
+    <Compile Include="Features\Rules\RuleBuilder2\RuleBuilder2SummaryService.cs" />
+    <Compile Include="Features\Rules\RuleBuilder2\RuleBuilder2ClassicRulesetTranslator.cs" />
+    <Compile Include="Features\Rules\RuleBuilder2\RuleBuilder2ClassicRulesetExportService.cs" />
+    <Compile Include="Features\Rules\RuleBuilder2\RuleBuilder2DraftGenerator.cs" />
     <Compile Include="Features\ColumnBaselineManager.cs" />
     <Compile Include="Features\Dividers\DividerCollapseAnimationState.cs" />
     <Compile Include="Features\Dividers\DividerInsertionAnimationState.cs" />
@@ -256,6 +267,12 @@
     <Compile Include="Features\TimePriority\TimePriorityTarget.cs" />
     <Compile Include="Features\TimePriority\TimePriorityTargetKind.cs" />
     <Compile Include="Features\Tutorial\BWTBetaTutorial.cs" />
+    <Compile Include="Features\Tutorial\BWTGeneralTutorial.cs" />
+    <Compile Include="Features\Tutorial\BWTTutorialInteraction.cs" />
+    <Compile Include="Features\Tutorial\BWTTutorialInteractionKind.cs" />
+    <Compile Include="Features\Tutorial\BWTTutorialGeometry.cs" />
+    <Compile Include="Features\Tutorial\BWTTutorialUserContext.cs" />
+    <Compile Include="Features\Tutorial\BWTWorkTabTutorial.cs" />
     <Compile Include="Features\Workloads\Worklist.cs" />
     <Compile Include="Features\Workloads\WorkloadNamers.cs" />
     <Compile Include="Features\Workloads\PawnWorkload.cs" />
@@ -284,6 +301,7 @@
     <Compile Include="Mod Support\ModSupportModuleBase.cs" />
     <Compile Include="Mod Support\Mods\Chronos Pointer\ChronosPointerSupport.cs" />
     <Compile Include="Mod Support\Mods\Do Once\DoOnceSupport.cs" />
+    <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabMigration.cs" />
     <Compile Include="Mod Support\Mods\Useful Marks\UsefulMarksSupport.cs" />
     <Compile Include="Mod Support\Mods\Vanilla Skills Expanded\VanillaSkillsExpandedSupport.cs" />
     <Compile Include="Mod Support\Multiplayer\LocalProfiles\BWTLocalProfile.cs" />
@@ -327,6 +345,14 @@
     <Compile Include="Spine\Profiling\SpineTiming.cs" />
     <Compile Include="Spine\Utils\SpineUtils.cs" />
     <Compile Include="Spine\UI\TextColorHelper.cs" />
+    <Compile Include="Spine\UI\Animation\SpineEasing.cs" />
+    <Compile Include="Spine\UI\Layout\SpineLayoutTrack.cs" />
+    <Compile Include="Spine\UI\Layout\SpineRectLayout.cs" />
+    <Compile Include="Spine\UI\Tutorial\TutorialOverlayContent.cs" />
+    <Compile Include="Spine\UI\Tutorial\TutorialOverlayController.cs" />
+    <Compile Include="Spine\UI\Tutorial\TutorialOverlayLayout.cs" />
+    <Compile Include="Spine\UI\Tutorial\TutorialOverlayShortcutHint.cs" />
+    <Compile Include="Spine\UI\Tutorial\TutorialOverlayStyle.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingDefinition.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingType.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingsHierarchy.cs" />
@@ -348,6 +374,7 @@
     <Compile Include="UI\Input\NativeCursorPosition.cs" />
     <Compile Include="UI\RulesetListDragUI.cs" />
     <Compile Include="UI\MainTabWindow_BetterWork.cs" />
+    <Compile Include="UI\PawnTitleUtility.cs" />
     <Compile Include="UI\WorkPriorityCellGeometry.cs" />
     <Compile Include="Features\WorkColumnOrderManager.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -357,6 +384,7 @@
     <Compile Include="Spine\UI\ColorPicker\TextField.cs" />
     <Compile Include="Spine\UI\Widgets\SpineWidgets.cs" />
     <Compile Include="UI\Dialog_EditDivider.cs" />
+    <Compile Include="UI\Dialog_ChangePawnTitle.cs" />
     <Compile Include="UI\BetterWorkTabSettingsUI.cs" />
     <Compile Include="UI\Settings\BWTSettingsFilters.cs" />
     <Compile Include="UI\Settings\BWTSettingsContextFocus.cs" />
@@ -393,6 +421,7 @@
     <Compile Include="UI\MouseStateManager.cs" />
     <Compile Include="Features\Patches\Patch_Building_Bed_Cache.cs" />
     <Compile Include="UI\RuleBuilder\RuleBuilderConstants.cs" />
+    <Compile Include="UI\RuleBuilder\RuleBuilderGateway.cs" />
     <Compile Include="UI\RuleBuilder\Window_RulesetBuilder.cs" />
     <Compile Include="UI\RuleBuilder\Window_PriorityNumberPicker.cs" />
     <Compile Include="UI\RuleBuilder\State\RuleBuilderStep.cs" />
@@ -417,6 +446,21 @@
     <Compile Include="UI\RuleBuilder\Widgets\ConditionDragController.cs" />
     <Compile Include="UI\RuleBuilder\Widgets\PriorityChainWidget.cs" />
     <Compile Include="UI\RuleBuilder\Widgets\WorkTypeCard.cs" />
+    <Compile Include="UI\RuleBuilderV2\RuleBuilder2WorkTabBridge.cs" />
+    <Compile Include="UI\RuleBuilderV2\RuleBuilder2Layout.cs" />
+    <Compile Include="UI\RuleBuilderV2\RuleBuilder2TutorialController.cs" />
+    <Compile Include="UI\RuleBuilderV2\RuleBuilder2UiUtility.cs" />
+    <Compile Include="UI\RuleBuilderV2\RuleBuilder2FlowController.cs" />
+    <Compile Include="UI\RuleBuilderV2\RuleBuilder2DashboardView.cs" />
+    <Compile Include="UI\RuleBuilderV2\RuleBuilder2GeneratedDraftView.cs" />
+    <Compile Include="UI\RuleBuilderV2\RuleBuilder2EditorView.cs" />
+    <Compile Include="UI\RuleBuilderV2\RuleBuilder2TargetPickerView.cs" />
+    <Compile Include="UI\RuleBuilderV2\RuleBuilder2ConditionsView.cs" />
+    <Compile Include="UI\RuleBuilderV2\RuleBuilder2ActionScheduleView.cs" />
+    <Compile Include="UI\RuleBuilderV2\RuleBuilder2PreviewView.cs" />
+    <Compile Include="UI\RuleBuilderV2\Dialog_RuleBuilder2SuggestRulesConfirmation.cs" />
+    <Compile Include="UI\RuleBuilderV2\Window_RuleBuilder2RulePicker.cs" />
+    <Compile Include="UI\RuleBuilderV2\Window_RuleBuilder2.cs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Krafs.Publicizer">

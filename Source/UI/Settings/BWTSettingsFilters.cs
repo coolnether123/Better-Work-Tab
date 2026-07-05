@@ -158,6 +158,7 @@ namespace Better_Work_Tab.UI.Settings
         private static bool IsV20Setting(SettingDefinition def)
         {
             return HasAnyId(def,
+                    UiGeneralTutorial,
                     UiBetaTutorial,
                     UiTimePriorityPlannerPrototype,
                     UiTimePriorityCopyPasteButtons,
@@ -191,6 +192,7 @@ namespace Better_Work_Tab.UI.Settings
                     HeadersUseVerticalStackingForCJK,
                     "headers.cjkVerticalKerning",
                     "headers.angledColor",
+                    HeadersUnderlineColor,
                     "headers.horizontalOffset");
         }
 

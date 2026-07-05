@@ -4,7 +4,7 @@
   <author>Coolnether123</author>
   <url>https://github.com/coolnether123/Better-Work-Tab</url>
   <targetVersion>0.13.1137</targetVersion>
-  <description><![CDATA[Better Work Tab v2.0 beta overhauls RimWorld's Work tab with drag-and-drop, skill overlays, automation rules, sub-work jobs, time priority schedules, extended priorities, and visual customization.
+  <description><![CDATA[Better Work Tab v2.0 overhauls RimWorld's Work tab with drag-and-drop, skill overlays, automation rules, sub-work jobs, time priority schedules, extended priorities, and visual customization.
 
 Features are toggleable in settings.
 
@@ -15,6 +15,7 @@ Features:
 - Time-of-day priority schedules for work and sub-work jobs
 - Skill level overlay (hold SHIFT)
 - Auto-assignment rulesets
+- Rule Builder 2.0 for work automation
 - Workload presets
 - Visual dividers
 - Force pawns to work on unassigned tasks
@@ -26,17 +27,12 @@ Features:
 - Detailed settings for UI, priorities, rules, workloads, and layout
 
 Compatibility:
-- Compatible with most work-type mods
-- [FSF] Complex Jobs column ordering is supported
-- Vanilla Skills Expanded passion types are supported in rule conditions when the mod is active
-- Do Once - Noncommittal Work is compatible; BWT suppresses its duplicate borrowed menu patches and uses BWT's sub-work-aware version
-- Useful Marks markers appear on pawn icons when available
 - Grouped Pawns List is overridden inside this Work tab
 - CompactWorkTab overlaps this UI and should not be used together
 - Fluffy WorkTab and forks are hard conflicts
 
 Version support:
-- 0.13 -> v2.0 beta - Multiplayer does not work
+- 0.13 -> v2.0 - Multiplayer does not work
 
 Support:
 Discord: https://discord.gg/QYBBaRkKWs

@@ -1208,6 +1208,7 @@ namespace Better_Work_Tab.Features.TimePriority
             Rect priorityRowsRect,
             float progress)
         {
+            float dividerProgress = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(progress));
             Color oldColor = GUI.color;
             TextAnchor oldAnchor = Text.Anchor;
             GameFont oldFont = Text.Font;
@@ -1219,21 +1220,21 @@ namespace Better_Work_Tab.Features.TimePriority
             Widgets.DrawLineHorizontal(visibleTimelineRect.xMin, visibleTimelineRect.yMax - 1f, visibleTimelineRect.width);
 
             bool drawChronos = ChronosPointerSupport.ShouldReserveTimePriorityTimelineHeight;
-            Rect chronosRect = drawChronos ? GetInlineChronosRect(timelineRect) : RectCompat.Zero;
-            Rect hourLabelRect = GetInlineHourLabelRect(timelineRect);
+            Rect chronosRect = drawChronos ? GetInlineChronosRect(timelineRect, dividerProgress) : RectCompat.Zero;
+            Rect hourLabelRect = GetInlineHourLabelRect(timelineRect, dividerProgress);
             if (BetterWorkTabMod.Settings?.showTimePriorityHourDivider ??
                 DefaultSettings.showTimePriorityHourDivider)
             {
-                GUI.color = new Color(0.95f, 0.85f, 0.55f, 0.38f * progress);
+                GUI.color = new Color(0.95f, 0.85f, 0.55f, 0.38f * progress * dividerProgress);
                 Widgets.DrawLineHorizontal(visibleTimelineRect.xMin, hourLabelRect.yMin - 1f, visibleTimelineRect.width);
             }
 
-            if (drawChronos)
+            if (drawChronos && chronosRect.height > 0.5f)
             {
                 ChronosPointerSupport.TryDrawTimePriorityTimeline(
                     chronosRect,
                     priorityRowsRect,
-                    progress,
+                    progress * dividerProgress,
                     BetterWorkTabMod.Settings?.chronosPointerTimePriorityIncidentOverlay ??
                     DefaultSettings.chronosPointerTimePriorityIncidentOverlay);
             }
@@ -1243,7 +1244,10 @@ namespace Better_Work_Tab.Features.TimePriority
             Text.WordWrap = false;
 
             _lastCloseRect = RectCompat.Zero;
-            DrawInlineHourLabels(hourLabelRect, visibleTimelineRect, progress);
+            if (hourLabelRect.height > 0.5f)
+            {
+                DrawInlineHourLabels(hourLabelRect, visibleTimelineRect, progress * dividerProgress);
+            }
 
             GUI.color = oldColor;
             Text.Anchor = oldAnchor;
@@ -1266,22 +1270,24 @@ namespace Better_Work_Tab.Features.TimePriority
             }
         }
 
-        private static Rect GetInlineChronosRect(Rect timelineRect)
+        private static Rect GetInlineChronosRect(Rect timelineRect, float progress)
         {
+            float height = InlineChronosHeight * Mathf.Clamp01(progress);
             return new Rect(
                 timelineRect.x,
-                timelineRect.y + 2f,
+                timelineRect.y + 2f + InlineChronosHeight - height,
                 timelineRect.width,
-                InlineChronosHeight);
+                height);
         }
 
-        private static Rect GetInlineHourLabelRect(Rect timelineRect)
+        private static Rect GetInlineHourLabelRect(Rect timelineRect, float progress)
         {
+            float height = InlineHourLabelHeight * Mathf.Clamp01(progress);
             return new Rect(
                 timelineRect.x,
-                timelineRect.yMax - InlineHourLabelHeight - 2f,
+                timelineRect.yMax - height - 2f,
                 timelineRect.width,
-                InlineHourLabelHeight);
+                height);
         }
 
         private static void DrawInlineHourLabels(Rect hourLabelRect, Rect visibleTimelineRect, float progress)
