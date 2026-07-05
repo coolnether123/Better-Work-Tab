@@ -68,12 +68,12 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
         internal static void DrawIntStepper(Rect rect, ref int value, int min, int max)
         {
-            if (Widgets.ButtonText(new Rect(rect.x, rect.y, 24f, rect.height), "-"))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(new Rect(rect.x, rect.y, 24f, rect.height), "-"))
             {
                 value = Mathf.Clamp(value - 1, min, max);
             }
             DrawFittedLabel(new Rect(rect.x + 28f, rect.y, 42f, rect.height), value.ToString());
-            if (Widgets.ButtonText(new Rect(rect.x + 72f, rect.y, 24f, rect.height), "+"))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(new Rect(rect.x + 72f, rect.y, 24f, rect.height), "+"))
             {
                 value = Mathf.Clamp(value + 1, min, max);
             }
@@ -81,12 +81,12 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
         internal static void DrawFloatStepper(Rect rect, ref float value, float min, float max)
         {
-            if (Widgets.ButtonText(new Rect(rect.x, rect.y, 24f, rect.height), "-"))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(new Rect(rect.x, rect.y, 24f, rect.height), "-"))
             {
                 value = Mathf.Clamp(value - 0.05f, min, max);
             }
             DrawFittedLabel(new Rect(rect.x + 28f, rect.y, 48f, rect.height), value.ToString("0.##"));
-            if (Widgets.ButtonText(new Rect(rect.x + 80f, rect.y, 24f, rect.height), "+"))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(new Rect(rect.x + 80f, rect.y, 24f, rect.height), "+"))
             {
                 value = Mathf.Clamp(value + 0.05f, min, max);
             }
@@ -98,7 +98,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                 ? action.Priority.ToString()
                 : action.PriorityBuffer;
             int priority = action.Priority;
-            Widgets.TextFieldNumeric(rect, ref priority, ref action.PriorityBuffer, min, max);
+            Better_Work_Tab.WidgetsCompat.TextFieldNumeric(rect, ref priority, ref action.PriorityBuffer, min, max);
             action.Priority = RuleBuilder2PriorityRange.Clamp(priority);
             if (priority != action.Priority)
             {
@@ -108,7 +108,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
         internal static void DrawSectionChrome(Rect rect, string title)
         {
-            Widgets.DrawBoxSolid(rect, new Color(0.13f, 0.13f, 0.13f, 0.96f));
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, new Color(0.13f, 0.13f, 0.13f, 0.96f));
             Widgets.DrawBox(rect, 1);
             Text.Font = GameFont.Medium;
             GUI.color = new Color(0.9f, 0.82f, 0.55f);

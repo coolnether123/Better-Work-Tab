@@ -55,7 +55,7 @@ namespace Better_Work_Tab.Features.Tutorial
             var rects = new List<Rect>();
             if (layout?.Rows != null && layout.Columns != null)
             {
-                Rect union = Rect.zero;
+                Rect union = Better_Work_Tab.RectCompat.Zero;
                 bool hasAny = false;
                 for (int i = 0; i < layout.Rows.Count; i++)
                 {
@@ -103,7 +103,7 @@ namespace Better_Work_Tab.Features.Tutorial
 
                 if (hasNameColumn)
                 {
-                    Rect union = Rect.zero;
+                    Rect union = Better_Work_Tab.RectCompat.Zero;
                     bool hasAny = false;
                     for (int i = 0; i < layout.Rows.Count; i++)
                     {
@@ -237,7 +237,7 @@ namespace Better_Work_Tab.Features.Tutorial
                 return;
             }
 
-            Rect union = Rect.zero;
+            Rect union = Better_Work_Tab.RectCompat.Zero;
             bool hasAny = false;
             for (int i = 0; i < layout.Columns.Count; i++)
             {
@@ -283,7 +283,7 @@ namespace Better_Work_Tab.Features.Tutorial
                 return;
             }
 
-            Rect fallbackRect = Rect.zero;
+            Rect fallbackRect = Better_Work_Tab.RectCompat.Zero;
             bool hasFallback = false;
             for (int r = 0; r < layout.Rows.Count; r++)
             {

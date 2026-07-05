@@ -21,7 +21,11 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             preventCameraMotion = false;
         }
 
+#if v0_13 || vAlpha4
+        public override Vector2 InitialWindowSize => new Vector2(460f, 178f);
+#else
         public override Vector2 InitialSize => new Vector2(460f, 178f);
+#endif
 
         public override void DoWindowContents(Rect inRect)
         {
@@ -35,12 +39,12 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
             Rect cancel = new Rect(inRect.xMax - 188f, inRect.yMax - 34f, 86f, 30f);
             Rect suggest = new Rect(cancel.xMax + 8f, cancel.y, 94f, 30f);
-            if (Widgets.ButtonText(cancel, T("BWT_Cancel")))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(cancel, T("BWT_Cancel")))
             {
                 Close();
             }
 
-            if (Widgets.ButtonText(suggest, T("BWT_RuleBuilder2_SuggestConfirmButton")))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(suggest, T("BWT_RuleBuilder2_SuggestConfirmButton")))
             {
                 HasConfirmedThisSession = true;
                 Close();

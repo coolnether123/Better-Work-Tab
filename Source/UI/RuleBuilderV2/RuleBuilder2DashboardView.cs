@@ -53,7 +53,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             RuleBuilder2LeftPaneRects pane = layout.LeftPane(rect);
 
             string suggestLabel = GetGenerateDraftButtonLabel(pane.GenerateDraft);
-            if (Widgets.ButtonText(pane.GenerateDraft, suggestLabel))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(pane.GenerateDraft, suggestLabel))
             {
                 RequestGenerateDraft();
             }
@@ -63,7 +63,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
             if (flow.DraftQueue != null && flow.DraftQueue.Count > 0)
             {
-                if (Widgets.ButtonText(pane.Review, T("BWT_RuleBuilder2_ResumeDrafts").Formatted(flow.DraftQueue.Count).ToString()))
+                if (Better_Work_Tab.WidgetsCompat.ButtonText(pane.Review, T("BWT_RuleBuilder2_ResumeDrafts").Formatted(flow.DraftQueue.Count).ToString()))
                 {
                     flow.ActiveCard = flow.GetNextGeneratedSuggestion();
                     window.ShowGeneratedReviewSurface();
@@ -78,13 +78,13 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
         {
             Rect primary = new Rect(rect.x, rect.y, Mathf.Max(1f, rect.width - 34f), rect.height);
             Rect menu = new Rect(primary.xMax + 4f, rect.y, 30f, rect.height);
-            if (Widgets.ButtonText(primary, "+ " + T("BWT_RuleBuilder2_AddRule")))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(primary, "+ " + T("BWT_RuleBuilder2_AddRule")))
             {
                 AddBlankRule();
             }
             TooltipHandler.TipRegion(primary, T("BWT_RuleBuilder2_AddRule_Tooltip"));
 
-            if (Widgets.ButtonText(menu, "v"))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(menu, "v"))
             {
                 ShowAddRuleMenu();
             }
@@ -194,10 +194,10 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             RuleBuilder2RuleListRowRects row = layout.RuleListRow(rect);
             bool selected = card == flow.ActiveCard;
             bool dragging = ruleDragController.IsActive && ruleDragController.CurrentSession?.DraggedItem == card;
-            Widgets.DrawBoxSolid(rect, selected ? new Color(0.22f, 0.27f, 0.2f, 0.95f) : new Color(0.13f, 0.13f, 0.13f, 0.95f));
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, selected ? new Color(0.22f, 0.27f, 0.2f, 0.95f) : new Color(0.13f, 0.13f, 0.13f, 0.95f));
             if (dragging)
             {
-                Widgets.DrawBoxSolid(rect.ContractedBy(1f), new Color(0f, 0f, 0f, 0.28f));
+                Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect.ContractedBy(1f), new Color(0f, 0f, 0f, 0.28f));
             }
             if (Mouse.IsOver(rect))
             {
@@ -383,7 +383,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
         private static float DrawBadge(Rect rect, string label)
         {
-            Widgets.DrawBoxSolid(rect, new Color(0.18f, 0.18f, 0.18f, 0.92f));
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, new Color(0.18f, 0.18f, 0.18f, 0.92f));
             Widgets.DrawBox(rect, 1);
             GUI.color = Color.gray;
             Text.Anchor = TextAnchor.MiddleCenter;

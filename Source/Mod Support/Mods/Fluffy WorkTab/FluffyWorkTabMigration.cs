@@ -134,8 +134,10 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
         private static List<FluffyPawnPriorityRecord> ReadSavedFluffyPriorities()
         {
             var records = new List<FluffyPawnPriorityRecord>();
-#if v0_15 || v0_14 || v0_13 || vAlpha4
-            string saveName = _lastLoadingSaveName ?? Current.Game?.InitData?.mapToLoad;
+#if v0_13 || vAlpha4
+            string saveName = _lastLoadingSaveName;
+#elif v0_15 || v0_14
+            string saveName = _lastLoadingSaveName ?? Verse.Current.Game?.InitData?.mapToLoad;
 #else
             string saveName = _lastLoadingSaveName ?? Current.Game?.InitData?.gameToLoad;
 #endif
@@ -527,7 +529,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                 RecordLoadingSave(saveFileName);
             }
         }
-#else
+#elif !v0_13 && !vAlpha4
         [HarmonyPatch(typeof(SavedGameLoader), nameof(SavedGameLoader.LoadGameFromSaveFile), new[] { typeof(string) })]
         private static class Patch_SavedGameLoader_LoadGameFromSaveFile_RecordFluffyWorkTabSave
         {

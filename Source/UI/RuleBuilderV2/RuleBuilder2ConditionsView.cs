@@ -38,7 +38,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             rect = new Rect(0f, 0f, outerRect.width, outerRect.height);
             DrawSectionChrome(rect, T("BWT_RuleBuilder2_ConditionsBlockTitle"));
             Rect add = new Rect(rect.xMax - 142f, rect.y + 6f, 132f, 26f);
-            if (Widgets.ButtonText(add, "+ " + T("BWT_RuleBuilder2_AddCondition")))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(add, "+ " + T("BWT_RuleBuilder2_AddCondition")))
             {
                 ShowAddConditionMenu(card);
                 UISoundCompat.TickLow.PlayOneShotOnCamera();
@@ -52,7 +52,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
         internal void DrawActiveConditions(Rect rect, RuleBuilder2Card card)
         {
-            Widgets.DrawBoxSolid(rect, new Color(0.12f, 0.12f, 0.12f, 0.45f));
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, new Color(0.12f, 0.12f, 0.12f, 0.45f));
             var conditions = card.Conditions.Conditions;
 
             if (conditions.Count == 0)
@@ -80,7 +80,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
         internal void DrawConditionRow(Rect rect, RuleBuilder2Card card, RuleBuilder2Condition condition, int index)
         {
             RuleBuilder2ConditionRowRects row = layout.ConditionRow(rect);
-            Widgets.DrawBoxSolid(rect, condition.Enabled ? new Color(0.18f, 0.18f, 0.18f, 0.95f) : new Color(0.11f, 0.11f, 0.11f, 0.95f));
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, condition.Enabled ? new Color(0.18f, 0.18f, 0.18f, 0.95f) : new Color(0.11f, 0.11f, 0.11f, 0.95f));
             Widgets.DrawBox(rect, 1);
 
             Widgets.Checkbox(row.Checkbox.position, ref condition.Enabled);
@@ -89,21 +89,21 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             DrawFittedLabel(row.Label, text);
             DrawConditionInlineEditor(row.Editor, card, condition);
 
-            if (Widgets.ButtonText(row.Up, "^") && index > 0)
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(row.Up, "^") && index > 0)
             {
                 card.Conditions.Conditions.RemoveAt(index);
                 card.Conditions.Conditions.Insert(index - 1, condition);
                 flow.RefreshPreview();
             }
 
-            if (Widgets.ButtonText(row.Down, "v") && index < card.Conditions.Conditions.Count - 1)
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(row.Down, "v") && index < card.Conditions.Conditions.Count - 1)
             {
                 card.Conditions.Conditions.RemoveAt(index);
                 card.Conditions.Conditions.Insert(index + 1, condition);
                 flow.RefreshPreview();
             }
 
-            if (Widgets.ButtonText(row.Remove, "X"))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(row.Remove, "X"))
             {
                 card.Conditions.Conditions.Remove(condition);
                 flow.RefreshPreview();
@@ -140,21 +140,21 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                 case RuleBuilder2ConditionKind.SkillMinimum:
                 case RuleBuilder2ConditionKind.SkillMaximum:
                 case RuleBuilder2ConditionKind.PassionAtLeast:
-                    if (Widgets.ButtonText(new Rect(rect.x, rect.y, 110f, rect.height), GetSkillButtonLabel(condition, card.Target.ResolveWorkType())))
+                    if (Better_Work_Tab.WidgetsCompat.ButtonText(new Rect(rect.x, rect.y, 110f, rect.height), GetSkillButtonLabel(condition, card.Target.ResolveWorkType())))
                     {
                         ShowSkillMenu(condition, card.Target.ResolveWorkType());
                     }
                     DrawIntStepper(new Rect(rect.x + 118f, rect.y, 98f, rect.height), ref condition.IntValue, 0, 99);
                     break;
                 case RuleBuilder2ConditionKind.Trait:
-                    if (Widgets.ButtonText(new Rect(rect.x, rect.y, 180f, rect.height), GetDefButtonLabel<TraitDef>(condition, T("BWT_SelectTrait"))))
+                    if (Better_Work_Tab.WidgetsCompat.ButtonText(new Rect(rect.x, rect.y, 180f, rect.height), GetDefButtonLabel<TraitDef>(condition, T("BWT_SelectTrait"))))
                     {
                         ShowDefMenu<TraitDef>(condition);
                     }
                     break;
                 case RuleBuilder2ConditionKind.Xenotype:
 #if !v1_3 && !v1_2 && !v1_1 && !v1_0 && !v0_19 && !v0_18 && !v0_17 && !v0_16 && !v0_15 && !v0_14 && !v0_13 && !vAlpha4
-                    if (Widgets.ButtonText(new Rect(rect.x, rect.y, 180f, rect.height), GetDefButtonLabel<XenotypeDef>(condition, T("BWT_RuleBuilder2_XenotypeFallback"))))
+                    if (Better_Work_Tab.WidgetsCompat.ButtonText(new Rect(rect.x, rect.y, 180f, rect.height), GetDefButtonLabel<XenotypeDef>(condition, T("BWT_RuleBuilder2_XenotypeFallback"))))
                     {
                         ShowDefMenu<XenotypeDef>(condition, int.MaxValue);
                     }
@@ -163,14 +163,14 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 #endif
                     break;
                 case RuleBuilder2ConditionKind.CapacityMinimum:
-                    if (Widgets.ButtonText(new Rect(rect.x, rect.y, 150f, rect.height), GetDefButtonLabel<PawnCapacityDef>(condition, T("BWT_RuleBuilder2_CapacityFallback"))))
+                    if (Better_Work_Tab.WidgetsCompat.ButtonText(new Rect(rect.x, rect.y, 150f, rect.height), GetDefButtonLabel<PawnCapacityDef>(condition, T("BWT_RuleBuilder2_CapacityFallback"))))
                     {
                         ShowDefMenu<PawnCapacityDef>(condition);
                     }
                     DrawFloatStepper(new Rect(rect.x + 158f, rect.y, 110f, rect.height), ref condition.FloatValue, 0f, 2f);
                     break;
                 case RuleBuilder2ConditionKind.Gender:
-                    if (Widgets.ButtonText(new Rect(rect.x, rect.y, 110f, rect.height), condition.TextValue.NullOrEmpty() ? T("BWT_RuleBuilder2_AnyGender") : condition.TextValue))
+                    if (Better_Work_Tab.WidgetsCompat.ButtonText(new Rect(rect.x, rect.y, 110f, rect.height), condition.TextValue.NullOrEmpty() ? T("BWT_RuleBuilder2_AnyGender") : condition.TextValue))
                     {
                         Find.WindowStack.Add(new FloatMenu(new List<FloatMenuOption>
                         {
@@ -180,7 +180,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                     }
                     break;
                 case RuleBuilder2ConditionKind.CurrentAssignedWork:
-                    Widgets.CheckboxLabeled(new Rect(rect.x, rect.y, 170f, rect.height), T("BWT_RuleBuilder2_Assigned"), ref condition.BoolValue);
+                    Better_Work_Tab.WidgetsCompat.CheckboxLabeled(new Rect(rect.x, rect.y, 170f, rect.height), T("BWT_RuleBuilder2_Assigned"), ref condition.BoolValue);
                     break;
                 default:
                     DrawIntStepper(new Rect(rect.x, rect.y, 98f, rect.height), ref condition.IntValue, 0, RuleBuilder2PriorityRange.Max);
@@ -191,7 +191,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
         internal void DrawConditionPicker(Rect rect, RuleBuilder2Card card)
         {
-            Widgets.DrawBoxSolid(rect, new Color(0.12f, 0.12f, 0.12f, 0.45f));
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, new Color(0.12f, 0.12f, 0.12f, 0.45f));
             Widgets.DrawBox(rect, 1);
 
             float y = rect.y + 6f;
@@ -206,7 +206,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                 foreach (var def in group)
                 {
                     Rect button = new Rect(rect.x + 8f, y, rect.width - 16f, 26f);
-                    if (Widgets.ButtonText(button, def.Label))
+                    if (Better_Work_Tab.WidgetsCompat.ButtonText(button, def.Label))
                     {
                         RuleBuilder2Condition condition = def.Create();
                         card.Conditions.Conditions.Add(condition);

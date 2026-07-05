@@ -39,7 +39,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
             if (card.Target.HasTarget)
             {
-                Widgets.DrawBoxSolid(rect, new Color(0.13f, 0.13f, 0.13f, 0.96f));
+                Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, new Color(0.13f, 0.13f, 0.13f, 0.96f));
                 Rect title = new Rect(target.Inner.x, target.Inner.y + 4f, Mathf.Max(1f, target.Summary.x - target.Inner.x - 6f), 24f);
                 GUI.color = new Color(0.9f, 0.82f, 0.55f);
                 DrawFittedLabel(title, T("BWT_RuleBuilder2_TargetBlockTitle"));
@@ -57,7 +57,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                     Widgets.DrawHighlight(labelRect);
                 }
                 DrawFittedLabel(labelRect, label);
-                if (Widgets.ButtonInvisible(labelRect))
+                if (Better_Work_Tab.WidgetsCompat.ButtonInvisible(labelRect))
                 {
                     if (RuleBuilderGateway.FlashRuleBuilder2Target(card.Target.ResolveWorkType(), card.Target.ResolveWorkGiver()))
                     {
@@ -72,7 +72,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                 GUI.color = card.Target.IsSubWorkTarget ? new Color(0.72f, 0.86f, 1f, 1f) : Color.gray;
                 DrawFittedLabel(scope, card.Target.IsSubWorkTarget ? T("BWT_RuleBuilder2_TargetSpecificJob") : T("BWT_RuleBuilder2_TargetWholeWork"));
                 GUI.color = Color.white;
-                if (Widgets.ButtonText(target.Change, T("BWT_Change")))
+                if (Better_Work_Tab.WidgetsCompat.ButtonText(target.Change, T("BWT_Change")))
                 {
                     card.Target.WorkTypeDefName = "";
                     card.Target.WorkGiverDefName = "";
@@ -140,7 +140,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                     ? new Color(0.12f, 0.12f, 0.12f, 0.82f)
                     : new Color(0.16f, 0.15f, 0.13f, 0.9f);
 
-            Widgets.DrawBoxSolid(rect, fill);
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, fill);
             if (Mouse.IsOver(rect))
             {
                 Widgets.DrawHighlight(rect);
@@ -154,7 +154,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
             if (!entry.IsSubWork && entry.HasSubWork)
             {
-                if (Widgets.ButtonText(expandRect, expanded ? "-" : "+"))
+                if (Better_Work_Tab.WidgetsCompat.ButtonText(expandRect, expanded ? "-" : "+"))
                 {
                     ToggleTargetExpanded(entry.WorkTypeKey);
                     UISoundCompat.TickTiny.PlayOneShotOnCamera();
@@ -172,7 +172,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             DrawFittedLabel(scopeRect, entry.IsSubWork ? T("BWT_RuleBuilder2_TargetSpecificJob") : T("BWT_RuleBuilder2_TargetWholeWork"));
             GUI.color = Color.white;
 
-            if (Widgets.ButtonInvisible(new Rect(labelRect.x - 4f, rect.y, scopeRect.xMax - labelRect.x + 4f, rect.height)))
+            if (Better_Work_Tab.WidgetsCompat.ButtonInvisible(new Rect(labelRect.x - 4f, rect.y, scopeRect.xMax - labelRect.x + 4f, rect.height)))
             {
                 flow.SelectTarget(card, entry.WorkTypeDef, entry.WorkGiverDef, RuleBuilder2TargetSource.BuilderList);
                 ExpandTargetParentIfSpecificJob(card.Target);

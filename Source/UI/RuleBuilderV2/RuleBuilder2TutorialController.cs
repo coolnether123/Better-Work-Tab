@@ -224,10 +224,10 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             Color previous = GUI.color;
             Color dim = new Color(0f, 0f, 0f, 0.42f);
             GUI.color = dim;
-            Widgets.DrawBoxSolid(new Rect(bounds.xMin, bounds.yMin, bounds.width, Mathf.Max(0f, card.yMin - bounds.yMin)), dim);
-            Widgets.DrawBoxSolid(new Rect(bounds.xMin, card.yMax, bounds.width, Mathf.Max(0f, bounds.yMax - card.yMax)), dim);
-            Widgets.DrawBoxSolid(new Rect(bounds.xMin, card.yMin, Mathf.Max(0f, card.xMin - bounds.xMin), card.height), dim);
-            Widgets.DrawBoxSolid(new Rect(card.xMax, card.yMin, Mathf.Max(0f, bounds.xMax - card.xMax), card.height), dim);
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(new Rect(bounds.xMin, bounds.yMin, bounds.width, Mathf.Max(0f, card.yMin - bounds.yMin)), dim);
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(new Rect(bounds.xMin, card.yMax, bounds.width, Mathf.Max(0f, bounds.yMax - card.yMax)), dim);
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(new Rect(bounds.xMin, card.yMin, Mathf.Max(0f, card.xMin - bounds.xMin), card.height), dim);
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(new Rect(card.xMax, card.yMin, Mathf.Max(0f, bounds.xMax - card.xMax), card.height), dim);
             GUI.color = previous;
         }
 
@@ -237,7 +237,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             TextAnchor previousAnchor = Text.Anchor;
             GameFont previousFont = Text.Font;
 
-            Widgets.DrawBoxSolid(rect, new Color(0.08f, 0.08f, 0.08f, 0.98f));
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, new Color(0.08f, 0.08f, 0.08f, 0.98f));
             GUI.color = new Color(0.9f, 0.82f, 0.55f);
             Widgets.DrawBox(rect, 1);
 
@@ -252,7 +252,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             Widgets.Label(body, GetBody(hint));
 
             Rect dismiss = GetDismissButtonRect(rect, hint);
-            if (Widgets.ButtonText(dismiss, T("BWT_RuleBuilder2_Tutorial_GotIt")))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(dismiss, T("BWT_RuleBuilder2_Tutorial_GotIt")))
             {
                 // Input is handled in TryHandleInput; this supports keyboard-driven repaint safety.
             }
@@ -260,7 +260,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             if (hint == HintKind.FirstOpen)
             {
                 Rect settings = GetSettingsButtonRect(rect);
-                if (Widgets.ButtonText(settings, T("BWT_RuleBuilder2_Tutorial_Settings")))
+                if (Better_Work_Tab.WidgetsCompat.ButtonText(settings, T("BWT_RuleBuilder2_Tutorial_Settings")))
                 {
                     // Input is handled in TryHandleInput; this supports keyboard-driven repaint safety.
                 }

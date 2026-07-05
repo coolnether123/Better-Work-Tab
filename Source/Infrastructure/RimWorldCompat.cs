@@ -424,6 +424,34 @@ namespace Better_Work_Tab
 
             return RectCompat.Zero;
         }
+
+        public static void SetWindowRect(Window window, Rect rect)
+        {
+            if (window == null)
+            {
+                return;
+            }
+
+            Type type = window.GetType();
+            while (type != null)
+            {
+                FieldInfo field = type.GetField("windowRect", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                if (field != null && field.FieldType == typeof(Rect))
+                {
+                    field.SetValue(window, rect);
+                    return;
+                }
+
+                PropertyInfo property = type.GetProperty("windowRect", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                if (property != null && property.PropertyType == typeof(Rect) && property.GetSetMethod(true) != null)
+                {
+                    property.SetValue(window, rect, null);
+                    return;
+                }
+
+                type = type.BaseType;
+            }
+        }
     }
 
     public static class EventCompat

@@ -50,7 +50,11 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             preventCameraMotion = true;
         }
 
+#if v0_13 || vAlpha4
+        public override Vector2 InitialWindowSize => new Vector2(690f, 520f);
+#else
         public override Vector2 InitialSize => new Vector2(690f, 520f);
+#endif
 
         public override void DoWindowContents(Rect inRect)
         {
@@ -78,13 +82,13 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                 DrawRuleList(list, sources[sourceIndex]);
             }
 
-            if (Widgets.ButtonText(cancel, T("BWT_Cancel")))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(cancel, T("BWT_Cancel")))
             {
                 Close();
             }
 
             bool hasSelection = selectedIds.Count > 0;
-            if (Widgets.ButtonText(add, T("BWT_RuleBuilder2_RulePickerAddSelected"), active: hasSelection))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(add, T("BWT_RuleBuilder2_RulePickerAddSelected"), active: hasSelection))
             {
                 RuleBuilder2RulePickerSource source = sources[sourceIndex];
                 List<RuleBuilder2Card> selected = source.Cards
@@ -98,7 +102,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
         private void DrawSourceDropdown(Rect rect)
         {
             RuleBuilder2RulePickerSource source = sources[sourceIndex];
-            if (Widgets.ButtonText(rect, TruncateToWidth(source.Name + " v", rect.width - 8f)))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(rect, TruncateToWidth(source.Name + " v", rect.width - 8f)))
             {
                 var options = new List<FloatMenuOption>();
                 for (int i = 0; i < sources.Count; i++)
@@ -144,7 +148,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
         private void DrawRuleRow(Rect rect, RuleBuilder2Card card)
         {
-            Widgets.DrawBoxSolid(rect, selectedIds.Contains(card.StableId)
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, selectedIds.Contains(card.StableId)
                 ? new Color(0.22f, 0.27f, 0.2f, 0.95f)
                 : new Color(0.13f, 0.13f, 0.13f, 0.95f));
             if (Mouse.IsOver(rect))
@@ -165,7 +169,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             DrawFittedLabel(summary, BuildConditionsSummary(card) + " - " + BuildActionSummary(card));
             GUI.color = Color.white;
 
-            if (!Mouse.IsOver(check) && Widgets.ButtonInvisible(new Rect(target.x, rect.y, rect.xMax - target.x, rect.height)))
+            if (!Mouse.IsOver(check) && Better_Work_Tab.WidgetsCompat.ButtonInvisible(new Rect(target.x, rect.y, rect.xMax - target.x, rect.height)))
             {
                 selected = !selectedIds.Contains(card.StableId);
                 SetSelected(card, selected);

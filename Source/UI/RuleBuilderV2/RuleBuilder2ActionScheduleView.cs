@@ -50,7 +50,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
             Rect priority = new Rect(action.Priority.x + 58f, action.Priority.y, action.Priority.width - 58f, action.Priority.height);
             Rect chip = new Rect(action.Priority.x, action.Priority.y + 2f, 42f, 24f);
-            Widgets.DrawBoxSolid(chip, WorkPrioritySystem.GetPriorityColor(card.Action.Priority));
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(chip, WorkPrioritySystem.GetPriorityColor(card.Action.Priority));
             Widgets.DrawBox(chip, 1);
             Text.Anchor = TextAnchor.MiddleCenter;
             DrawFittedLabel(chip, card.Action.Priority <= 0 ? "X" : card.Action.Priority.ToString());
@@ -97,11 +97,11 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             Color previous = GUI.color;
             if (selected)
             {
-                Widgets.DrawBoxSolid(rect, new Color(0.24f, 0.3f, 0.22f, 0.95f));
+                Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, new Color(0.24f, 0.3f, 0.22f, 0.95f));
             }
             else
             {
-                Widgets.DrawBoxSolid(rect, new Color(0.15f, 0.15f, 0.15f, 0.92f));
+                Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, new Color(0.15f, 0.15f, 0.15f, 0.92f));
             }
 
             Widgets.DrawBox(rect, selected ? 2 : 1);
@@ -113,7 +113,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             DrawFittedLabel(new Rect(rect.x + 6f, rect.y + 5f, rect.width - 12f, rect.height - 10f), label);
             TooltipHandler.TipRegion(rect, GetActionModeTooltip(kind));
 
-            if (Widgets.ButtonInvisible(rect))
+            if (Better_Work_Tab.WidgetsCompat.ButtonInvisible(rect))
             {
                 flow.SetActionKind(card, kind);
                 if (card.Action.Kind != RuleBuilder2ActionKind.SetTimeSchedule &&
@@ -158,12 +158,12 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                 : T("BWT_RuleBuilder2_ScheduleWorkHint"));
             GUI.color = Color.white;
 
-            if (Widgets.ButtonText(fillAll, T("BWT_RuleBuilder2_ScheduleFillAll")))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(fillAll, T("BWT_RuleBuilder2_ScheduleFillAll")))
             {
                 FillSchedule(action, action.Priority);
             }
 
-            if (Widgets.ButtonText(workday, T("BWT_RuleBuilder2_ScheduleWorkday")))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(workday, T("BWT_RuleBuilder2_ScheduleWorkday")))
             {
                 FillWorkdaySchedule(action);
             }
@@ -185,7 +185,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                 Rect cell = new Rect(label.x + 1f, rect.y + 22f, cellWidth - 2f, 34f);
                 Text.Font = previousFont;
                 int priority = action.HourlyPriorities[hour];
-                Widgets.DrawBoxSolid(cell, WorkPrioritySystem.GetPriorityColor(priority));
+                Better_Work_Tab.WidgetsCompat.DrawBoxSolid(cell, WorkPrioritySystem.GetPriorityColor(priority));
                 Widgets.DrawBox(cell, 1);
                 GUI.color = Color.white;
                 Widgets.Label(cell, priority <= 0 ? "X" : priority.ToString());

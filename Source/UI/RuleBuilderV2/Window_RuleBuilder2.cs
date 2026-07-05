@@ -39,7 +39,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
         private RuleBuilder2Surface activeSurface = RuleBuilder2Surface.Main;
         private RuleBuilder2Surface previousSurface = RuleBuilder2Surface.Main;
         private float surfaceTransition = 1f;
-        private Rect surfaceTransitionOrigin = Rect.zero;
+        private Rect surfaceTransitionOrigin = Better_Work_Tab.RectCompat.Zero;
         private bool hasSurfaceTransitionOrigin;
         private bool renamingRuleset;
         private string renameBuffer = "";
@@ -50,6 +50,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
         internal Dictionary<RuleBuilder2TutorialStep, Rect> TutorialRects => tutorialRects;
         internal RuleBuilder2Surface ActiveSurface => activeSurface;
         internal RuleBuilder2EditorView EditorView => editorView;
+        internal Rect RuleBuilderWindowRect => WindowCompat.GetWindowRect(this);
 
         public Window_RuleBuilder2()
         {
@@ -74,17 +75,40 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             this.persistRuleset = persistRuleset;
         }
 
-        public override Vector2 InitialSize => new Vector2(
-            Mathf.Min(layout.Metrics.PreferredWindowWidth, Verse.UI.screenWidth - layout.Metrics.ScreenMargin),
-            Mathf.Min(layout.Metrics.PreferredWindowHeight, Verse.UI.screenHeight - layout.Metrics.ScreenMargin));
+        private Vector2 InitialRuleBuilderSize
+        {
+            get
+            {
+                return new Vector2(
+                    Mathf.Min(layout.Metrics.PreferredWindowWidth, Verse.UI.screenWidth - layout.Metrics.ScreenMargin),
+                    Mathf.Min(layout.Metrics.PreferredWindowHeight, Verse.UI.screenHeight - layout.Metrics.ScreenMargin));
+            }
+        }
+
+#if v0_13 || vAlpha4
+        public override Vector2 InitialWindowSize => InitialRuleBuilderSize;
+
+        public override void PostOpen()
+        {
+            base.PostOpen();
+            InitializeWindowPlacement();
+        }
+#else
+        public override Vector2 InitialSize => InitialRuleBuilderSize;
 
         protected override void SetInitialSizeAndPosition()
         {
             base.SetInitialSizeAndPosition();
+            InitializeWindowPlacement();
+        }
+#endif
+
+        private void InitializeWindowPlacement()
+        {
             workTabDockPending = !DockToWorkTabIfOpen();
             if (workTabDockPending)
             {
-                SetWorkTabDockReferenceRect(windowRect);
+                SetWorkTabDockReferenceRect(RuleBuilderWindowRect);
             }
             windowOpenProgress = 0f;
         }
@@ -108,7 +132,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                 return;
             }
 
-            if (hasWorkTabDockReferenceRect && PositionChangedMeaningfully(windowRect, workTabDockReferenceRect))
+            if (hasWorkTabDockReferenceRect && PositionChangedMeaningfully(RuleBuilderWindowRect, workTabDockReferenceRect))
             {
                 workTabDockPending = false;
                 return;
@@ -123,13 +147,14 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             const float gap = 6f;
 
             Rect usableRect = GetUsableScreenRect(margin);
-            Rect workRect = workTab.windowRect;
+            Rect workRect = WindowCompat.GetWindowRect(workTab);
             float maxWidth = Mathf.Max(1f, Mathf.Min(usableRect.width, Verse.UI.screenWidth - layout.Metrics.ScreenMargin));
             float maxHeight = Mathf.Max(1f, Mathf.Min(usableRect.height, Verse.UI.screenHeight - layout.Metrics.ScreenMargin));
             float minWidth = Mathf.Min(layout.Metrics.MinimumWindowWidth, maxWidth);
             float minHeight = Mathf.Min(layout.Metrics.MinimumWindowHeight, maxHeight);
-            float preferredWidth = Mathf.Clamp(windowRect.width, minWidth, maxWidth);
-            float preferredHeight = Mathf.Clamp(windowRect.height, minHeight, maxHeight);
+            Rect currentRect = RuleBuilderWindowRect;
+            float preferredWidth = Mathf.Clamp(currentRect.width, minWidth, maxWidth);
+            float preferredHeight = Mathf.Clamp(currentRect.height, minHeight, maxHeight);
 
             float availableAbove = Mathf.Max(0f, workRect.yMin - gap - usableRect.yMin);
             if (availableAbove >= minHeight)
@@ -170,7 +195,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                 width,
                 height);
 
-            windowRect = clamped;
+            WindowCompat.SetWindowRect(this, clamped);
             SetWorkTabDockReferenceRect(clamped);
         }
 
@@ -282,16 +307,17 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             float minWidth = Mathf.Min(layout.Metrics.MinimumWindowWidth, maxWidth);
             float minHeight = Mathf.Min(layout.Metrics.MinimumWindowHeight, maxHeight);
 
-            float width = Mathf.Clamp(windowRect.width, minWidth, maxWidth);
-            float height = Mathf.Clamp(windowRect.height, minHeight, maxHeight);
-            float x = Mathf.Clamp(windowRect.x, 0f, Mathf.Max(0f, Verse.UI.screenWidth - width));
-            float y = Mathf.Clamp(windowRect.y, 0f, Mathf.Max(0f, Verse.UI.screenHeight - height));
-            if (Mathf.Abs(width - windowRect.width) > 0.01f ||
-                Mathf.Abs(height - windowRect.height) > 0.01f ||
-                Mathf.Abs(x - windowRect.x) > 0.01f ||
-                Mathf.Abs(y - windowRect.y) > 0.01f)
+            Rect currentRect = RuleBuilderWindowRect;
+            float width = Mathf.Clamp(currentRect.width, minWidth, maxWidth);
+            float height = Mathf.Clamp(currentRect.height, minHeight, maxHeight);
+            float x = Mathf.Clamp(currentRect.x, 0f, Mathf.Max(0f, Verse.UI.screenWidth - width));
+            float y = Mathf.Clamp(currentRect.y, 0f, Mathf.Max(0f, Verse.UI.screenHeight - height));
+            if (Mathf.Abs(width - currentRect.width) > 0.01f ||
+                Mathf.Abs(height - currentRect.height) > 0.01f ||
+                Mathf.Abs(x - currentRect.x) > 0.01f ||
+                Mathf.Abs(y - currentRect.y) > 0.01f)
             {
-                windowRect = new Rect(x, y, width, height);
+                WindowCompat.SetWindowRect(this, new Rect(x, y, width, height));
             }
         }
 
@@ -337,14 +363,14 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
             Text.Font = GameFont.Small;
             DrawRulesetControl(header.Name, header.Tools);
-            Widgets.CheckboxLabeled(header.Enabled, T("BWT_RuleBuilder2_Enabled"), ref flowController.Ruleset.Enabled);
+            Better_Work_Tab.WidgetsCompat.CheckboxLabeled(header.Enabled, T("BWT_RuleBuilder2_Enabled"), ref flowController.Ruleset.Enabled);
 
-            if (Widgets.ButtonText(header.Done, T("BWT_Done")))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(header.Done, T("BWT_Done")))
             {
                 Close();
             }
 
-            if (Widgets.ButtonText(header.Apply, T("BWT_Apply")))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(header.Apply, T("BWT_Apply")))
             {
                 flowController.ApplyRuleset();
             }
@@ -382,13 +408,13 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             string label = (flowController.Ruleset?.Name).NullOrEmpty()
                 ? T("BWT_RuleBuilder2_NewRulesetName")
                 : flowController.Ruleset.Name;
-            if (Widgets.ButtonText(rect, TruncateToWidth(label + " \u25BE", rect.width - 8f)))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(rect, TruncateToWidth(label + " \u25BE", rect.width - 8f)))
             {
                 ShowRulesetMenu();
             }
             TooltipHandler.TipRegion(rect, T("BWT_RuleBuilder2_RulesetMenu_Tooltip"));
 
-            if (Widgets.ButtonText(tools, "..."))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(tools, "..."))
             {
                 ShowRulesetToolsMenu();
             }
@@ -562,7 +588,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
         private void SetSurface(RuleBuilder2Surface surface)
         {
-            SetSurface(surface, Rect.zero);
+            SetSurface(surface, Better_Work_Tab.RectCompat.Zero);
         }
 
         private void SetSurface(RuleBuilder2Surface surface, Rect origin)

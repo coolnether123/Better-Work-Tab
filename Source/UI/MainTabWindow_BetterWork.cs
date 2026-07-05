@@ -83,6 +83,9 @@ namespace Better_Work_Tab.UI
 
         private const float RightEdgeMargin = 10f;
         private const float InfoIconSize = 24f;
+#if v0_13 || vAlpha4
+        private const float Margin = 6f;
+#endif
 #if v0_16
         private const float Legacy016InfoIconEdgeMargin = 2f;
         private const float Legacy016InfoIconBottomMargin = 8f;
@@ -164,7 +167,7 @@ namespace Better_Work_Tab.UI
 
             _lastSortColumn = null;
             _lastSortDescending = false;
-            _animatedWindowHeight = windowRect.height;
+            _animatedWindowHeight = WindowCompat.GetWindowRect(this).height;
             _lastWindowHeightAnimationTime = Time.realtimeSinceStartup;
             _windowHeightAnimationActive = false;
 
@@ -473,7 +476,7 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
-            Rect rect = windowRect;
+            Rect rect = WindowCompat.GetWindowRect(this);
             float targetHeight = requestedSize.y;
             float nextHeight = targetHeight;
             bool animateHeight = !force &&
@@ -522,7 +525,7 @@ namespace Better_Work_Tab.UI
             rect.width = requestedSize.x;
             rect.height = nextHeight;
             rect.y = Mathf.Max(0f, screenBottom - rect.height);
-            windowRect = rect;
+            WindowCompat.SetWindowRect(this, rect);
         }
 #endif
 
@@ -810,7 +813,7 @@ namespace Better_Work_Tab.UI
 
         internal bool TryGetRuleBuilder2HeaderBand(out Rect screenRect)
         {
-            screenRect = Rect.zero;
+            screenRect = Better_Work_Tab.RectCompat.Zero;
             var layout = PawnOrganizerSystem.Instance?.Layout;
             if (layout == null || layout.HeaderHeight <= 0f)
             {
@@ -825,8 +828,8 @@ namespace Better_Work_Tab.UI
             }
 
             screenRect = new Rect(
-                windowRect.x + layout.TableOrigin.x,
-                windowRect.y + layout.TableOrigin.y,
+                WindowCompat.GetWindowRect(this).x + layout.TableOrigin.x,
+                WindowCompat.GetWindowRect(this).y + layout.TableOrigin.y,
                 Mathf.Max(1f, width),
                 layout.HeaderHeight);
             return true;
@@ -834,7 +837,7 @@ namespace Better_Work_Tab.UI
 
         internal bool TryGetRuleBuilder2TargetHeaderBounds(WorkTypeDef workType, WorkGiverDef workGiver, out Rect bounds)
         {
-            bounds = Rect.zero;
+            bounds = Better_Work_Tab.RectCompat.Zero;
             var layout = PawnOrganizerSystem.Instance?.Layout;
             if (layout?.Columns == null || workType == null)
             {
@@ -1116,7 +1119,7 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
-            Widgets.DrawBoxSolid(rect, new Color(1f, 0.82f, 0.18f, 0.12f));
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, new Color(1f, 0.82f, 0.18f, 0.12f));
             Color previousColor = GUI.color;
             GUI.color = new Color(1f, 0.82f, 0.18f, 0.55f);
             Widgets.DrawBox(rect, 2);
@@ -1155,7 +1158,7 @@ namespace Better_Work_Tab.UI
             }
 
             HeaderDrawingCoordinator.EnsureLayoutSolved(table);
-            Rect vanillaBounds = HeaderDrawingCoordinator.GetVanillaSolver()?.GetBounds(columnDef) ?? Rect.zero;
+            Rect vanillaBounds = HeaderDrawingCoordinator.GetVanillaSolver()?.GetBounds(columnDef) ?? Better_Work_Tab.RectCompat.Zero;
             return IsUsableRect(vanillaBounds) ? UnionRects(bounds, vanillaBounds) : bounds;
         }
 

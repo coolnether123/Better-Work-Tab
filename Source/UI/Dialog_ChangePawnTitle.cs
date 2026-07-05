@@ -12,7 +12,11 @@ namespace Better_Work_Tab.UI
         private string titleBuffer;
         private bool focusedField;
 
+#if v0_13 || vAlpha4
+        public override Vector2 InitialWindowSize => new Vector2(360f, 205f);
+#else
         public override Vector2 InitialSize => new Vector2(360f, 205f);
+#endif
 
         public Dialog_ChangePawnTitle(Pawn pawn)
         {
@@ -73,7 +77,7 @@ namespace Better_Work_Tab.UI
             Rect cancelRect = new Rect(inRect.width - 226f, inRect.height - 35f, 108f, 32f);
             Rect okRect = new Rect(inRect.width - 110f, inRect.height - 35f, 110f, 32f);
 
-            if (Widgets.ButtonText(resetRect, "Use default"))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(resetRect, "Use default"))
             {
                 titleBuffer = string.Empty;
                 ApplyTitle();
@@ -81,13 +85,13 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
-            if (Widgets.ButtonText(cancelRect, "Cancel"))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(cancelRect, "Cancel"))
             {
                 Close();
                 return;
             }
 
-            if (Widgets.ButtonText(okRect, "OK") || accept)
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(okRect, "OK") || accept)
             {
                 if ((titleBuffer ?? string.Empty).Trim() == currentTitle)
                 {

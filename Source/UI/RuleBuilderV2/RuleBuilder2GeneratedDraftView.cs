@@ -55,7 +55,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             GUI.color = Color.gray;
             DrawFittedLabel(queue.Subtitle, T("BWT_RuleBuilder2_DraftQueueSubtitle"));
             GUI.color = Color.white;
-            if (Widgets.ButtonText(back, T("BWT_RuleBuilder2_BackToRules")))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(back, T("BWT_RuleBuilder2_BackToRules")))
             {
                 window.ShowMainSurface();
             }
@@ -67,12 +67,12 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
         internal void DrawDraftMiniList(Rect rect, RuleBuilder2Card selected)
         {
-            Widgets.DrawBoxSolid(rect, new Color(0.1f, 0.1f, 0.1f, 0.65f));
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, new Color(0.1f, 0.1f, 0.1f, 0.65f));
             float y = rect.y + 6f;
             foreach (RuleBuilder2Card card in flow.DraftQueue.Where(c => c != null && c.Target?.HasTarget == true).Take(16))
             {
                 Rect row = new Rect(rect.x + 6f, y, rect.width - 12f, 26f);
-                Widgets.DrawBoxSolid(row, card == selected ? new Color(0.24f, 0.28f, 0.22f, 1f) : new Color(0.15f, 0.15f, 0.15f, 0.55f));
+                Better_Work_Tab.WidgetsCompat.DrawBoxSolid(row, card == selected ? new Color(0.24f, 0.28f, 0.22f, 1f) : new Color(0.15f, 0.15f, 0.15f, 0.55f));
                 if (card == selected)
                 {
                     Widgets.DrawBox(row, 1);
@@ -82,7 +82,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                     Widgets.DrawHighlight(row);
                 }
                 DrawFittedLabel(new Rect(row.x + 6f, row.y + 2f, row.width - 12f, 24f), card.Name);
-                if (Widgets.ButtonInvisible(row))
+                if (Better_Work_Tab.WidgetsCompat.ButtonInvisible(row))
                 {
                     flow.ActiveCard = card;
                 }
@@ -98,7 +98,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
         internal void DrawGeneratedDraftPanel(Rect rect, RuleBuilder2Card card)
         {
             RuleBuilder2GeneratedDraftPanelRects panel = layout.GeneratedDraftPanel(rect);
-            Widgets.DrawBoxSolid(rect, new Color(0.13f, 0.13f, 0.13f, 0.95f));
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, new Color(0.13f, 0.13f, 0.13f, 0.95f));
             Widgets.DrawBox(rect, 1);
 
             Text.Font = GameFont.Medium;
@@ -112,18 +112,18 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             DrawReadOnlyRuleSentence(panel.Sentence, card);
             DrawDraftRuleDetails(panel.Preview, card);
 
-            if (Widgets.ButtonText(panel.Reject, T("BWT_RuleBuilder2_RejectDraft")))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(panel.Reject, T("BWT_RuleBuilder2_RejectDraft")))
             {
                 flow.DiscardGeneratedSuggestion(card);
                 ReturnToDashboardIfDraftQueueEmpty();
             }
-            if (Widgets.ButtonText(panel.Edit, T("BWT_RuleBuilder2_EditDraft")))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(panel.Edit, T("BWT_RuleBuilder2_EditDraft")))
             {
                 flow.EditGeneratedSuggestion(card);
                 editorView.ResetEditorScroll();
                 window.ShowMainSurface();
             }
-            if (Widgets.ButtonText(panel.Accept, T("BWT_RuleBuilder2_AcceptDraft")))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(panel.Accept, T("BWT_RuleBuilder2_AcceptDraft")))
             {
                 flow.KeepGeneratedSuggestion(card);
                 ReturnToDashboardIfDraftQueueEmpty();
@@ -132,7 +132,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
         internal void DrawDraftRuleDetails(Rect rect, RuleBuilder2Card card)
         {
-            Widgets.DrawBoxSolid(rect, new Color(0.09f, 0.09f, 0.09f, 0.5f));
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, new Color(0.09f, 0.09f, 0.09f, 0.5f));
 
             float y = rect.y + 8f;
             float rowWidth = Mathf.Max(1f, rect.width - 16f);
@@ -144,7 +144,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
             float previewWidth = Mathf.Min(118f, Mathf.Max(1f, rect.width - 16f));
             Rect previewButton = new Rect(rect.xMax - previewWidth - 8f, rect.yMax - 36f, previewWidth, 28f);
-            if (Widgets.ButtonText(previewButton, T("BWT_RuleBuilder2_RunPreview")))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(previewButton, T("BWT_RuleBuilder2_RunPreview")))
             {
                 flow.EditGeneratedSuggestion(card);
                 flow.ShowPreview = true;
@@ -165,7 +165,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
         private void DrawReadOnlyRuleSentence(Rect rect, RuleBuilder2Card card)
         {
-            Widgets.DrawBoxSolid(rect, new Color(0.1f, 0.1f, 0.1f, 0.55f));
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, new Color(0.1f, 0.1f, 0.1f, 0.55f));
             GUI.color = Color.gray;
             DrawFittedLabel(new Rect(rect.x + 8f, rect.y + 3f, rect.width - 16f, 24f), BuildRuleSentenceSummary(flow, window.ActiveSurface, card));
             GUI.color = Color.white;
@@ -173,7 +173,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
         internal static void DrawDraftDetailRow(Rect rect, string label, string value, bool alternate)
         {
-            Widgets.DrawBoxSolid(rect, alternate ? new Color(0.14f, 0.14f, 0.14f, 0.55f) : new Color(0.11f, 0.11f, 0.11f, 0.35f));
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, alternate ? new Color(0.14f, 0.14f, 0.14f, 0.55f) : new Color(0.11f, 0.11f, 0.11f, 0.35f));
             float labelWidth = Mathf.Min(110f, Mathf.Max(64f, rect.width * 0.32f));
             GUI.color = Color.gray;
             DrawFittedLabel(new Rect(rect.x + 6f, rect.y + 3f, labelWidth, 24f), label);

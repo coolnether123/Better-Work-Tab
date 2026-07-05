@@ -121,7 +121,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             Text.Anchor = TextAnchor.UpperLeft;
 
             Rect add = new Rect(rect.center.x - 70f, rect.center.y + 4f, 140f, layout.Metrics.ButtonHeight);
-            if (Widgets.ButtonText(add, "+ " + T("BWT_RuleBuilder2_AddRule")))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(add, "+ " + T("BWT_RuleBuilder2_AddRule")))
             {
                 flow.AddRule();
                 ResetEditorScroll();
@@ -142,7 +142,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
         private void DrawMapCheck(Rect rect, RuleBuilder2Card card)
         {
-            Widgets.DrawBoxSolid(rect, new Color(0.13f, 0.13f, 0.13f, 0.96f));
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, new Color(0.13f, 0.13f, 0.13f, 0.96f));
             Widgets.DrawBox(rect, 1);
 
             Rect title = new Rect(rect.x + 10f, rect.y + 6f, Mathf.Max(1f, rect.width - 146f), 26f);
@@ -153,7 +153,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             GUI.color = Color.white;
 
             Rect button = new Rect(rect.xMax - 126f, rect.y + 6f, 116f, 26f);
-            if (Widgets.ButtonText(button, T("BWT_RuleBuilder2_RunPreview")))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(button, T("BWT_RuleBuilder2_RunPreview")))
             {
                 MapCheckExpanded = true;
                 flow.ShowPreview = true;
@@ -164,7 +164,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
             if (!MapCheckExpanded)
             {
-                if (Widgets.ButtonInvisible(new Rect(rect.x, rect.y, Mathf.Max(0f, button.x - rect.x), rect.height)))
+                if (Better_Work_Tab.WidgetsCompat.ButtonInvisible(new Rect(rect.x, rect.y, Mathf.Max(0f, button.x - rect.x), rect.height)))
                 {
                     MapCheckExpanded = true;
                     flow.ShowPreview = true;
@@ -185,14 +185,14 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             if (!card.IsConfirmed)
             {
                 Rect save = new Rect(rect.x, rect.y + 6f, 130f, 32f);
-                if (Widgets.ButtonText(save, T("BWT_RuleBuilder2_SaveRule")))
+                if (Better_Work_Tab.WidgetsCompat.ButtonText(save, T("BWT_RuleBuilder2_SaveRule")))
                 {
                     flow.ConfirmCard(card);
                     UISoundCompat.TickHigh.PlayOneShotOnCamera();
                 }
             }
 
-            if (Widgets.ButtonText(delete, T("BWT_RuleBuilder2_DeleteRule")))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(delete, T("BWT_RuleBuilder2_DeleteRule")))
             {
                 flow.DeleteCard(card);
                 ResetEditorScroll();

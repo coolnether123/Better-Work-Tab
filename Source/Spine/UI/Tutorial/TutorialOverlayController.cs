@@ -340,7 +340,7 @@ namespace Spine.UI.Tutorial
             for (int i = 0; i < focusRects.Count; i++)
             {
                 Rect rect = ClampRectToBounds(focusRects[i], bounds);
-                Widgets.DrawBoxSolid(rect, style.FocusFillColor);
+                Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, style.FocusFillColor);
                 GUI.color = style.FocusColor;
                 Widgets.DrawBox(rect, 2);
             }
@@ -414,7 +414,7 @@ namespace Spine.UI.Tutorial
             TextAnchor oldAnchor = Text.Anchor;
             oldFont = Text.Font;
 
-            Widgets.DrawBoxSolid(badgeRect, new Color(0.05f, 0.05f, 0.05f, 0.95f));
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(badgeRect, new Color(0.05f, 0.05f, 0.05f, 0.95f));
             GUI.color = style.FocusColor;
             Widgets.DrawBox(badgeRect, 1);
             Text.Anchor = TextAnchor.MiddleCenter;
@@ -434,7 +434,7 @@ namespace Spine.UI.Tutorial
                 return;
             }
 
-            Widgets.DrawBoxSolid(rect, style.DimColor);
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, style.DimColor);
         }
 
         private static Rect ClampRectToBounds(Rect rect, Rect bounds)
@@ -472,7 +472,7 @@ namespace Spine.UI.Tutorial
             TextAnchor oldAnchor = Text.Anchor;
             GameFont oldFont = Text.Font;
 
-            Widgets.DrawBoxSolid(rect, style.CardColor);
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, style.CardColor);
             GUI.color = style.BorderColor;
             Widgets.DrawBox(rect, 1);
 
@@ -492,7 +492,7 @@ namespace Spine.UI.Tutorial
             if (content.HasSecondaryButton)
             {
                 Rect settingsRect = GetSecondaryButtonRect(rect, content);
-                if (Widgets.ButtonText(settingsRect, content.SecondaryButton))
+                if (Better_Work_Tab.WidgetsCompat.ButtonText(settingsRect, content.SecondaryButton))
                 {
                     onSecondary?.Invoke();
                 }
@@ -501,14 +501,14 @@ namespace Spine.UI.Tutorial
             if (content.HasTertiaryButton)
             {
                 Rect tertiaryRect = GetTertiaryButtonRect(rect);
-                if (Widgets.ButtonText(tertiaryRect, content.TertiaryButton))
+                if (Better_Work_Tab.WidgetsCompat.ButtonText(tertiaryRect, content.TertiaryButton))
                 {
                     onTertiary?.Invoke();
                 }
             }
 
             Rect dismissRect = GetDismissButtonRect(rect);
-            if (Widgets.ButtonText(dismissRect, content.DismissButton))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(dismissRect, content.DismissButton))
             {
                 onDismiss?.Invoke();
             }
@@ -516,7 +516,7 @@ namespace Spine.UI.Tutorial
             if (content.HasPrimaryButton)
             {
                 Rect nextRect = GetPrimaryButtonRect(rect);
-                if (Widgets.ButtonText(nextRect, content.PrimaryButton))
+                if (Better_Work_Tab.WidgetsCompat.ButtonText(nextRect, content.PrimaryButton))
                 {
                     onPrimary?.Invoke();
                 }

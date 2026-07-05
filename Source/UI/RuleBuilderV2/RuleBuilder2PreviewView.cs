@@ -30,7 +30,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             rect = new Rect(0f, 0f, outerRect.width, outerRect.height);
             Rect matched = flow.ShowMatchedPanel && flow.SelectedWorkTabContext.HasValue
                 ? new Rect(rect.x, rect.y, rect.width, 72f)
-                : Rect.zero;
+                : Better_Work_Tab.RectCompat.Zero;
             Rect list = matched.height > 0f
                 ? new Rect(rect.x, matched.yMax + 8f, rect.width, Mathf.Max(0f, rect.height - matched.height - 8f))
                 : rect;
@@ -56,7 +56,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
         internal void DrawMatchedPanel(Rect rect, RuleBuilder2WorkTabSelection selection)
         {
-            Widgets.DrawBoxSolid(rect, new Color(0.1f, 0.16f, 0.18f, 0.95f));
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, new Color(0.1f, 0.16f, 0.18f, 0.95f));
             Widgets.DrawBox(rect, 1);
             string label = PawnCompat.LabelShortCap(selection.Pawn) ?? T("BWT_RuleBuilder2_PawnFallback");
             string target = BuildTargetLabel(selection.WorkType, selection.WorkGiver);
@@ -85,7 +85,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             foreach (RuleBuilder2PreviewResult result in rows)
             {
                 Rect row = new Rect(0f, y, view.width, 34f);
-                Widgets.DrawBoxSolid(row, result.Matched ? new Color(0.12f, 0.22f, 0.12f, 0.95f) : new Color(0.16f, 0.14f, 0.12f, 0.95f));
+                Better_Work_Tab.WidgetsCompat.DrawBoxSolid(row, result.Matched ? new Color(0.12f, 0.22f, 0.12f, 0.95f) : new Color(0.16f, 0.14f, 0.12f, 0.95f));
                 Widgets.DrawBox(row, 1);
                 DrawFittedLabel(new Rect(row.x + 8f, row.y + 5f, 150f, 24f), result.PawnLabel);
                 DrawFittedLabel(new Rect(row.x + 164f, row.y + 5f, 110f, 24f), result.Matched ? T("BWT_RuleBuilder2_Matched") : T("BWT_RuleBuilder2_NotMatched"));
