@@ -142,8 +142,7 @@ namespace Better_Work_Tab.UI.Settings
                         FeaturesDragdrop,
                         LayoutDragColumns,
                         LayoutDragThreshold,
-                        LayoutDragHoverDelay,
-                        DragdropEnableGrouping);
+                        LayoutDragHoverDelay);
                 }
 
                 return CreateContextRequest(
@@ -158,6 +157,7 @@ namespace Better_Work_Tab.UI.Settings
                     HeadersUseVerticalStackingForCJK,
                     "headers.cjkVerticalKerning",
                     "headers.angledColor",
+                    HeadersUnderlineColor,
                     "headers.horizontalOffset",
                     FeaturesDragdrop,
                     LayoutDragColumns,

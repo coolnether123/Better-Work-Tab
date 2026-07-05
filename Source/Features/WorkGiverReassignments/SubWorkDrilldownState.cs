@@ -19,6 +19,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         internal const float GlobalPriorityBoxSize = 25f;
 
         private static readonly List<WorkGiver> ActiveWorkGiversBuffer = new List<WorkGiver>();
+        private static readonly Dictionary<WorkGiverDef, int> ActiveWorkGiverSlots = new Dictionary<WorkGiverDef, int>();
         private static readonly Dictionary<PawnColumnDef, int> VisibleColumnSlots = new Dictionary<PawnColumnDef, int>();
         private static readonly Dictionary<WorkTypeDef, int> VisibleWorkTypeSlots = new Dictionary<WorkTypeDef, int>();
         private static readonly HashSet<WorkGiverDef> MovedFromBaseline = new HashSet<WorkGiverDef>();
@@ -65,7 +66,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                     hash = hash * 31 + _exitWorkColumnSlot;
                     hash = hash * 31 + Mathf.RoundToInt(_exitWaveSlotPosition * 100f);
                     hash = hash * 31 + (_isExiting ? 1 : 0);
-                    hash = hash * 31 + TransitionLayoutFrame;
                     return hash;
                 }
             }
@@ -407,12 +407,9 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             }
 
             RefreshIfNeeded();
-            for (int i = 0; i < ActiveWorkGiversBuffer.Count; i++)
+            if (ActiveWorkGiverSlots.TryGetValue(workGiverDef, out int slot))
             {
-                if (ActiveWorkGiversBuffer[i]?.def == workGiverDef)
-                {
-                    return i;
-                }
+                return slot;
             }
 
             return -1;
@@ -580,6 +577,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             _entryNativeCursorPosition = null;
             _cursorMovedSinceEnter = false;
             ActiveWorkGiversBuffer.Clear();
+            ActiveWorkGiverSlots.Clear();
             MovedFromBaseline.Clear();
             _layoutRefreshPending = true;
             if (!previous.NullOrEmpty())
@@ -754,6 +752,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             if (_activeWorkType == null)
             {
                 ActiveWorkGiversBuffer.Clear();
+                ActiveWorkGiverSlots.Clear();
                 return;
             }
 
@@ -765,6 +764,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
             ActiveWorkGiversBuffer.Clear();
             ActiveWorkGiversBuffer.AddRange(WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(_activeWorkType));
+            RebuildActiveWorkGiverSlotCache();
             RebuildMovedBaselineCache();
             _cachedWorkTypeDefName = _activeWorkType.defName;
             _cachedSyncVersion = syncVersion;
@@ -859,6 +859,19 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 if (def != null && WorkGiverReassignmentManager.ShouldShowMovedWorkGiverMarker(_activeWorkType, def))
                 {
                     MovedFromBaseline.Add(def);
+                }
+            }
+        }
+
+        private static void RebuildActiveWorkGiverSlotCache()
+        {
+            ActiveWorkGiverSlots.Clear();
+            for (int i = 0; i < ActiveWorkGiversBuffer.Count; i++)
+            {
+                WorkGiverDef def = ActiveWorkGiversBuffer[i]?.def;
+                if (def != null && !ActiveWorkGiverSlots.ContainsKey(def))
+                {
+                    ActiveWorkGiverSlots.Add(def, i);
                 }
             }
         }

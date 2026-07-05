@@ -403,6 +403,20 @@ namespace Better_Work_Tab
 #endif
         }
 
+        public static IEnumerable<Pawn> FreeColonists(Map map)
+        {
+            if (map == null)
+            {
+                return Enumerable.Empty<Pawn>();
+            }
+
+#if vAlpha4
+            return Find.ListerPawns?.FreeColonists ?? Enumerable.Empty<Pawn>();
+#else
+            return map.mapPawns?.FreeColonists ?? Enumerable.Empty<Pawn>();
+#endif
+        }
+
         public static int MapId(Map map)
         {
 #if v0_15 || vAlpha4
@@ -410,6 +424,106 @@ namespace Better_Work_Tab
 #else
             return map?.uniqueID ?? -1;
 #endif
+        }
+    }
+
+    public static class MainTabCompat
+    {
+        public static bool TryGetOpenBetterWorkTab(out Better_Work_Tab.UI.MainTabWindow_BetterWork workTab)
+        {
+            workTab = null;
+
+#if vAlpha4
+            return false;
+#else
+            try
+            {
+                object openTab = Find.MainTabsRoot?.OpenTab;
+                if (openTab != null)
+                {
+                    System.Reflection.PropertyInfo tabWindowProperty = openTab.GetType().GetProperty(
+                        "TabWindow",
+                        System.Reflection.BindingFlags.Instance |
+                        System.Reflection.BindingFlags.Public |
+                        System.Reflection.BindingFlags.NonPublic);
+
+                    if (tabWindowProperty?.GetValue(openTab, null) is Better_Work_Tab.UI.MainTabWindow_BetterWork tabWindow)
+                    {
+                        workTab = tabWindow;
+                        return true;
+                    }
+                }
+            }
+            catch
+            {
+            }
+
+            WindowStack windowStack = Find.WindowStack;
+            if (windowStack == null)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < windowStack.Count; i++)
+            {
+                if (windowStack[i] is Better_Work_Tab.UI.MainTabWindow_BetterWork openWorkTab)
+                {
+                    workTab = openWorkTab;
+                    return true;
+                }
+            }
+
+            return false;
+#endif
+        }
+    }
+
+    public static class TimeCompat
+    {
+        public static float UnscaledDeltaTime
+        {
+            get
+            {
+#if vAlpha4
+                return Time.deltaTime;
+#else
+                return Time.unscaledDeltaTime;
+#endif
+            }
+        }
+    }
+
+#if !vAlpha4
+    public static class PawnCapacityCompat
+    {
+        public static float GetLevel(Pawn pawn, PawnCapacityDef capacity)
+        {
+            if (pawn?.health?.capacities == null || capacity == null)
+            {
+                return 0f;
+            }
+
+#if v0_16
+            return pawn.health.capacities.GetEfficiency(capacity);
+#else
+            return pawn.health.capacities.GetLevel(capacity);
+#endif
+        }
+    }
+#endif
+
+    public static class UiCompat
+    {
+        public static Vector2 MousePositionOnUIInverted
+        {
+            get
+            {
+#if v0_15 || v0_14 || v0_13 || vAlpha4
+                return new Vector2(Input.mousePosition.x, Verse.UI.screenHeight - Input.mousePosition.y);
+#else
+                return Verse.UI.MousePositionOnUIInverted;
+#endif
+            }
         }
     }
 
@@ -484,6 +598,34 @@ namespace Better_Work_Tab
 
             return RectCompat.Zero;
         }
+
+        public static void SetWindowRect(Window window, Rect rect)
+        {
+            if (window == null)
+            {
+                return;
+            }
+
+            Type type = window.GetType();
+            while (type != null)
+            {
+                FieldInfo field = type.GetField("windowRect", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                if (field != null && field.FieldType == typeof(Rect))
+                {
+                    field.SetValue(window, rect);
+                    return;
+                }
+
+                PropertyInfo property = type.GetProperty("windowRect", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                if (property != null && property.PropertyType == typeof(Rect) && property.GetSetMethod(true) != null)
+                {
+                    property.SetValue(window, rect, null);
+                    return;
+                }
+
+                type = type.BaseType;
+            }
+        }
     }
 
     public static class EventCompat
@@ -530,6 +672,11 @@ namespace Better_Work_Tab
                 return PawnsFinder.AllMapsWorldAndTemporary_AliveOrDead;
 #endif
             }
+        }
+
+        public static IEnumerable<Pawn> AllAliveOrDead
+        {
+            get { return AllMapsWorldAndTemporaryAliveOrDead; }
         }
     }
 
@@ -1048,6 +1195,27 @@ namespace Better_Work_Tab
         public static void DrawLineHorizontal(float x, float y, float length)
         {
             DrawLineHorizontal(x, y, length, Color.white);
+        }
+
+        public static void DrawLine(Vector2 start, Vector2 end, Color color, float width = 1f)
+        {
+#if vAlpha4
+            Matrix4x4 oldMatrix = GUI.matrix;
+            Color oldColor = GUI.color;
+            Vector2 delta = end - start;
+            float length = delta.magnitude;
+            if (length > 0.01f)
+            {
+                GUI.color = color;
+                float angle = Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg;
+                GUIUtility.RotateAroundPivot(angle, start);
+                DrawBoxSolid(new Rect(start.x, start.y - (width / 2f), length, width), color);
+            }
+            GUI.matrix = oldMatrix;
+            GUI.color = oldColor;
+#else
+            Widgets.DrawLine(start, end, color, width);
+#endif
         }
 
         public static void DrawLightHighlight(Rect rect)

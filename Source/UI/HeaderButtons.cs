@@ -92,7 +92,6 @@ namespace Better_Work_Tab.UI
             if (!(settings?.enableAutoAssignFeature ?? true))
                 return xRight;
 
-            var curRuleset = BetterWorkTabMod.Settings.CurrentRuleset;
             var dotRect = new Rect(xRight - AutoAssignButtonHeight, y,
                 AutoAssignButtonHeight, AutoAssignButtonHeight);
             var mainRect = new Rect(dotRect.x - AutoAssignButtonWidth, y,
@@ -100,7 +99,7 @@ namespace Better_Work_Tab.UI
 
             float newRight = mainRect.x - 4f;
 
-            string btnLbl = curRuleset != null ? curRuleset.Name : "BWT_NoRuleset".Translate();
+            string btnLbl = RuleBuilderGateway.CurrentRulesetLabel();
 
 #if v1_3
             if (Better_Work_Tab.WidgetsCompat.ButtonText(mainRect, "  " + btnLbl))
@@ -112,50 +111,12 @@ namespace Better_Work_Tab.UI
 #endif
             {
                 UISoundCompat.TickLow.PlayOneShotOnCamera();
-                // Rulesets are now local-only (not synced in multiplayer)
-                if (curRuleset != null)
-                {
-                    System.Action applyAction = () =>
-                    {
-                        if (curRuleset.ResetBeforeApplying)
-                        {
-                            WorkAssignmentRuleset.SetAllToZero();
-                        }
-                        curRuleset.ApplyAutoAssignments();
-                    };
-
-                    if (settings.warnOnApplyRuleset)
-                    {
-                        ConfirmApplyWithResetWarning("Apply ruleset?", applyAction, (val) =>
-                        {
-                            settings.warnOnApplyRuleset = !val;
-                            settings.Write();
-                        });
-                    }
-                    else
-                    {
-                        applyAction();
-                    }
-                }
+                RuleBuilderGateway.ApplyCurrentRuleset();
             }
 
             if (Better_Work_Tab.WidgetsCompat.ButtonText(dotRect, "..."))
             {
-                var options = new List<FloatMenuOption>();
-                foreach (var ruleset in BetterWorkTabMod.Settings.SavedRulesets)
-                {
-                    var local = ruleset;
-                    options.Add(new FloatMenuOption(local.Name, () =>
-                    {
-                        // Rulesets are now local-only (not synced in multiplayer)
-                        BetterWorkTabMod.Settings.SetCurrentRuleset(local);
-                        UISoundCompat.TickLow.PlayOneShotOnCamera();
-                    }));
-                }
-
-                AddRulesetManagementOptions(options);
-
-                BWTFloatMenuPlacement.AddBottomRightAnchored(options, dotRect);
+                Find.WindowStack.Add(new FloatMenu(RuleBuilderGateway.BuildRulesetMenuOptions()));
             }
 
             return newRight;
@@ -309,41 +270,6 @@ namespace Better_Work_Tab.UI
             // immediately prompt for a nicer name
             Find.WindowStack.Add(new Dialog_RenameWorkload(wl));
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
-        }
-
-
-        /// <summary>
-        /// Adds the standard ruleset management options to the provided menu.
-        /// Keeps labels and behaviors consistent across entry points.
-        /// </summary>
-        private static void AddRulesetManagementOptions(List<FloatMenuOption> options)
-        {
-            var mode = BetterWorkTabMod.Settings.rulesetViewMode;
-
-            // Regular (Visual Builder)
-            if (mode == BetterWorkTabSettings.RulesetViewMode.Regular || mode == BetterWorkTabSettings.RulesetViewMode.Both)
-            {
-                options.Add(new FloatMenuOption("BWT_RuleBuilder_OpenBuilder".Translate(), () =>
-                {
-                    Find.WindowStack.Add(new Window_RulesetBuilder());
-                    UISoundCompat.TickLow.PlayOneShotOnCamera();
-                }));
-            }
-
-            // Raw (Classic/Manager)
-            if (mode == BetterWorkTabSettings.RulesetViewMode.Raw || mode == BetterWorkTabSettings.RulesetViewMode.Both)
-            {
-                // In Both mode, we differentiate with "(Raw)".
-                string label = mode == BetterWorkTabSettings.RulesetViewMode.Raw 
-                    ? "BWT_RuleBuilder_ManageRulesets".Translate() 
-                    : "BWT_RuleBuilder_ManageRulesets".Translate() + " (Raw)";
-
-                options.Add(new FloatMenuOption(label, () =>
-                {
-                    Find.WindowStack.Add(new Window_RulesManager());
-                    UISoundCompat.TickLow.PlayOneShotOnCamera();
-                }));
-            }
         }
 
         private static void ConfirmApplyWithResetWarning(string title, System.Action onConfirm, System.Action<bool> setDoNotShowAgain)

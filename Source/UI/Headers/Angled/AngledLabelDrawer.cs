@@ -262,7 +262,9 @@ namespace Better_Work_Tab.UI.Headers.Angled
                     float textWidth = labelSize.x;
                     Vector2 underlineStart = new Vector2(drawRect.xMin, drawRect.yMax);
                     Vector2 underlineEnd = new Vector2(drawRect.xMin + textWidth, drawRect.yMax);
-                    Widgets.DrawLine(underlineStart, underlineEnd, new Color(1f, 1f, 1f, flipAlpha), 1f);
+                    Color underlineColor = HeaderUtility.Colors.HeaderUnderlineColor;
+                    underlineColor.a *= flipAlpha;
+                    Widgets.DrawLine(underlineStart, underlineEnd, underlineColor, 1f);
                 }
             }
             finally
@@ -370,7 +372,9 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 {
                     Vector2 underlineStart = new Vector2(drawRect.xMin, drawRect.yMax);
                     Vector2 underlineEnd = new Vector2(drawRect.xMin + size.x, drawRect.yMax);
-                    Widgets.DrawLine(underlineStart, underlineEnd, new Color(1f, 1f, 1f, alpha), 1f);
+                    Color underlineColor = HeaderUtility.Colors.HeaderUnderlineColor;
+                    underlineColor.a *= alpha;
+                    Widgets.DrawLine(underlineStart, underlineEnd, underlineColor, 1f);
                 }
             }
             finally
