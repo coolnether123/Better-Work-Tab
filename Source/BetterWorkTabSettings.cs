@@ -1,6 +1,7 @@
 ﻿using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.Rules;
+using Better_Work_Tab.Features.Rules.RuleBuilder2;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.Workloads;
 using RimWorld;
@@ -53,7 +54,8 @@ namespace Better_Work_Tab
             //DefOfHelper.EnsureInitializedInCtor(typeof(WorkTypeDefOf));
         }
 
-        public static float workTabMaxHeight = -1f; // -1 = use vanilla default (fill screen)
+        public static float workTabMaxHeight = -1f; // Legacy pixel cap; replaced by workTabMaxVisiblePawns.
+        public static int workTabMaxVisiblePawns = -1; // -1 = use vanilla default (fill screen)
         public static float workTabTopSpace = 40f; // Vanilla MainTabWindow_Work.ExtraTopSpace
 
         public static bool enableSkillOverlayFeature = true;
@@ -111,7 +113,15 @@ namespace Better_Work_Tab
         public static bool showPriorityLegend = true;
         public static bool showDragInstructions = true;
         public static bool showContextSettingsHint = true;
-        public static bool showBetaTutorial = true;
+        public static bool showGeneralTutorial = true;
+        public static bool showBetaTutorial = false;
+        public static bool useRuleBuilder2 = true;
+        public static bool showRuleBuilder2Tutorial = true;
+        public static bool ruleBuilder2ShowWorkTabHighlights = true;
+        public static bool ruleBuilder2EnableAnimations = true;
+        public static bool ruleBuilder2UseDraftSuggestions = true;
+        public static bool ruleBuilder2ShowAdvancedConditions = false;
+        public static bool ruleBuilder2ShowMatchedPanel = true;
         public static bool showManualPrioritiesCheckbox = true;
         public static bool enableTimePriorityPlannerPrototype = true;
         public static bool showTimePriorityCopyPasteButtons = true;
@@ -163,6 +173,7 @@ namespace Better_Work_Tab
         public static Color Color_CustomCategory1 = new Color(0.5f, 0.7f, 0.9f);
         public static Color Color_CustomCategory2 = new Color(0.9f, 0.7f, 0.5f);
         public static Color Color_HeaderText = Color.white;
+        public static Color Color_HeaderUnderline = Color.white;
         public static Color Color_DividerText = Color.white;
         public static Color Color_Borders = Color.gray;
         public static Color Color_SettingFocusHighlight = new Color(1f, 0.78f, 0.18f, 1f);
@@ -354,8 +365,18 @@ namespace Better_Work_Tab
         public bool showPriorityLegend = DefaultSettings.showPriorityLegend;
         public bool showDragInstructions = DefaultSettings.showDragInstructions;
         public bool showContextSettingsHint = DefaultSettings.showContextSettingsHint;
+        public bool showGeneralTutorial = DefaultSettings.showGeneralTutorial;
+        public int generalTutorialStep = 0;
         public bool showBetaTutorial = DefaultSettings.showBetaTutorial;
         public int betaTutorialStep = 0;
+        public bool useRuleBuilder2 = DefaultSettings.useRuleBuilder2;
+        public bool showRuleBuilder2Tutorial = DefaultSettings.showRuleBuilder2Tutorial;
+        public int ruleBuilder2TutorialStep = 0;
+        public bool ruleBuilder2ShowWorkTabHighlights = DefaultSettings.ruleBuilder2ShowWorkTabHighlights;
+        public bool ruleBuilder2EnableAnimations = DefaultSettings.ruleBuilder2EnableAnimations;
+        public bool ruleBuilder2UseDraftSuggestions = DefaultSettings.ruleBuilder2UseDraftSuggestions;
+        public bool ruleBuilder2ShowAdvancedConditions = DefaultSettings.ruleBuilder2ShowAdvancedConditions;
+        public bool ruleBuilder2ShowMatchedPanel = DefaultSettings.ruleBuilder2ShowMatchedPanel;
         public bool showManualPrioritiesCheckbox = DefaultSettings.showManualPrioritiesCheckbox;
         public bool enableTimePriorityPlannerPrototype = DefaultSettings.enableTimePriorityPlannerPrototype;
         public bool showTimePriorityCopyPasteButtons = DefaultSettings.showTimePriorityCopyPasteButtons;
@@ -460,8 +481,11 @@ namespace Better_Work_Tab
 
         // Ruleset management
         public List<WorkAssignmentRuleset> SavedRulesets;
+        public List<RuleBuilder2Ruleset> SavedRuleBuilder2Rulesets = new List<RuleBuilder2Ruleset>();
+        public RuleBuilder2Ruleset CurrentRuleBuilder2Ruleset = null;
         public WorkAssignmentRuleset CurrentRuleset = null;
         public string currentRulesetName = "";
+        public string currentRuleBuilder2RulesetStableId = "";
 
         // Auto-assign
         public bool showAutoAssignConfirmation = DefaultSettings.showAutoAssignConfirmation;
@@ -584,10 +608,12 @@ namespace Better_Work_Tab
         public bool useVerticalStackingForCJK = DefaultSettings.useVerticalStackingForCJK;
         public float cjkVerticalKerning = DefaultSettings.cjkVerticalKerning;
         public Color angledHeaderColor = DefaultSettings.Color_AngledHeaderText;
+        public Color headerUnderlineColor = DefaultSettings.Color_HeaderUnderline;
         public bool autoEnableManualPriorities = DefaultSettings.autoEnableManualPriorities;
 
 
         public float workTabMaxHeight = DefaultSettings.workTabMaxHeight;
+        public int workTabMaxVisiblePawns = DefaultSettings.workTabMaxVisiblePawns;
         public float workTabTopSpace = DefaultSettings.workTabTopSpace;
 
         public enum RulesetViewMode
@@ -639,10 +665,15 @@ namespace Better_Work_Tab
         private static WorkAssignmentRuleset CloneRulesetTemplate(WorkAssignmentRuleset template)
         {
             var clonedRules = template.Rules?
-                .Select(rule => new WorkAssignmentRule(
-                    rule.Name,
-                    rule.Parameters?.Copy() ?? new WorkAssignmentParameters(),
-                    rule.CachedWorktype))
+                .Select(rule =>
+                {
+                    var clonedRule = new WorkAssignmentRule(
+                        rule.Name,
+                        rule.Parameters?.Copy() ?? new WorkAssignmentParameters(),
+                        rule.CachedWorktype);
+                    clonedRule.CachedWorktypeString = rule.CachedWorktypeString;
+                    return clonedRule;
+                })
                 .ToList() ?? new List<WorkAssignmentRule>();
 
             return new WorkAssignmentRuleset(
@@ -676,6 +707,15 @@ namespace Better_Work_Tab
                     else if (parameters.Worktype != null && string.IsNullOrEmpty(parameters.WorktypeString))
                     {
                         parameters.WorktypeString = parameters.Worktype.defName;
+                    }
+
+                    if (rule.CachedWorktype == null && !string.IsNullOrEmpty(rule.CachedWorktypeString))
+                    {
+                        rule.CachedWorktype = DefDatabase<WorkTypeDef>.GetNamedSilentFail(rule.CachedWorktypeString);
+                    }
+                    else if (rule.CachedWorktype != null && string.IsNullOrEmpty(rule.CachedWorktypeString))
+                    {
+                        rule.CachedWorktypeString = rule.CachedWorktype.defName;
                     }
                 }
             }
@@ -714,6 +754,16 @@ namespace Better_Work_Tab
             {
                 Write();
             }
+        }
+
+        public void SaveOrReplaceRuleBuilder2Ruleset(RuleBuilder2Ruleset ruleset, bool makeCurrent = true, bool writeSettings = true)
+        {
+            RuleBuilder2RulesetStore.SaveOrReplace(this, ruleset, makeCurrent, writeSettings);
+        }
+
+        public void SetCurrentRuleBuilder2Ruleset(RuleBuilder2Ruleset ruleset, bool writeSettings = true)
+        {
+            RuleBuilder2RulesetStore.SetCurrent(this, ruleset, writeSettings);
         }
 
         public void SetPriorityMode(PriorityMode mode)
@@ -823,6 +873,7 @@ namespace Better_Work_Tab
         public override void ExposeData()
         {
             Scribe_Values.Look(ref workTabMaxHeight, "workTabMaxHeight", DefaultSettings.workTabMaxHeight);
+            Scribe_Values.Look(ref workTabMaxVisiblePawns, "workTabMaxVisiblePawns", DefaultSettings.workTabMaxVisiblePawns);
             Scribe_Values.Look(ref workTabTopSpace, "workTabTopSpace", DefaultSettings.workTabTopSpace);
 
 
@@ -882,8 +933,18 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref showPriorityLegend, "showPriorityLegend", DefaultSettings.showPriorityLegend);
             Scribe_Values.Look(ref showDragInstructions, "showDragInstructions", DefaultSettings.showDragInstructions);
             Scribe_Values.Look(ref showContextSettingsHint, "showContextSettingsHint", DefaultSettings.showContextSettingsHint);
+            Scribe_Values.Look(ref showGeneralTutorial, "showGeneralTutorial", DefaultSettings.showGeneralTutorial);
+            Scribe_Values.Look(ref generalTutorialStep, "generalTutorialStep", 0);
             Scribe_Values.Look(ref showBetaTutorial, "showBetaTutorial", DefaultSettings.showBetaTutorial);
             Scribe_Values.Look(ref betaTutorialStep, "betaTutorialStep", 0);
+            Scribe_Values.Look(ref useRuleBuilder2, "useRuleBuilder2", DefaultSettings.useRuleBuilder2);
+            Scribe_Values.Look(ref showRuleBuilder2Tutorial, "showRuleBuilder2Tutorial", DefaultSettings.showRuleBuilder2Tutorial);
+            Scribe_Values.Look(ref ruleBuilder2TutorialStep, "ruleBuilder2TutorialStep", 0);
+            Scribe_Values.Look(ref ruleBuilder2ShowWorkTabHighlights, "ruleBuilder2ShowWorkTabHighlights", DefaultSettings.ruleBuilder2ShowWorkTabHighlights);
+            Scribe_Values.Look(ref ruleBuilder2EnableAnimations, "ruleBuilder2EnableAnimations", DefaultSettings.ruleBuilder2EnableAnimations);
+            Scribe_Values.Look(ref ruleBuilder2UseDraftSuggestions, "ruleBuilder2UseDraftSuggestions", DefaultSettings.ruleBuilder2UseDraftSuggestions);
+            Scribe_Values.Look(ref ruleBuilder2ShowAdvancedConditions, "ruleBuilder2ShowAdvancedConditions", DefaultSettings.ruleBuilder2ShowAdvancedConditions);
+            Scribe_Values.Look(ref ruleBuilder2ShowMatchedPanel, "ruleBuilder2ShowMatchedPanel", DefaultSettings.ruleBuilder2ShowMatchedPanel);
             Scribe_Values.Look(ref showManualPrioritiesCheckbox, "showManualPrioritiesCheckbox", DefaultSettings.showManualPrioritiesCheckbox);
             Scribe_Values.Look(ref showDividers, "showDividers", DefaultSettings.showDividers);
             Scribe_Values.Look(ref allowCustomDividerColors, "allowCustomDividerColors", DefaultSettings.allowCustomDividerColors);
@@ -922,6 +983,7 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref useVerticalStackingForCJK, "useVerticalStackingForCJK", true);
             Scribe_Values.Look(ref cjkVerticalKerning, "cjkVerticalKerning", 0.75f);
             Scribe_Values.Look(ref angledHeaderColor, "angledHeaderColor", DefaultSettings.Color_AngledHeaderText);
+            Scribe_Values.Look(ref headerUnderlineColor, "headerUnderlineColor", DefaultSettings.Color_HeaderUnderline);
             Scribe_Values.Look(ref autoEnableManualPriorities, "autoEnableManualPriorities", DefaultSettings.autoEnableManualPriorities);
             Scribe_Values.Look(ref enableExtendedPriorities, "enableExtendedPriorities", DefaultSettings.enableExtendedPriorities);
             Scribe_Values.Look(ref delegateToExternalPriorityMods, "delegateToExternalPriorityMods", DefaultSettings.delegateToExternalPriorityMods);
@@ -975,8 +1037,14 @@ namespace Better_Work_Tab
                 currentRulesetName = CurrentRuleset.Name;
             }
 
+            if (Scribe.mode == LoadSaveMode.Saving && CurrentRuleBuilder2Ruleset != null)
+            {
+                currentRuleBuilder2RulesetStableId = CurrentRuleBuilder2Ruleset.StableId;
+            }
+
             Scribe_Values.Look(ref defaultAutoAssignRuleset, "defaultAutoAssignRuleset", "BWT Default");
             Scribe_Values.Look(ref currentRulesetName, "currentRulesetName", "");
+            Scribe_Values.Look(ref currentRuleBuilder2RulesetStableId, "currentRuleBuilder2RulesetStableId", "");
             Scribe_Values.Look(ref showWorkloadButtonFooter, "showWorkloadButtonFooter", DefaultSettings.showWorkloadButtonFooter);
             Scribe_Values.Look(ref enableWorkloadSaving, "enableWorkloadSaving", DefaultSettings.enableWorkloadSaving);
             Scribe_Values.Look(ref enableWorkloadLoading, "enableWorkloadLoading", DefaultSettings.enableWorkloadLoading);
@@ -1003,6 +1071,7 @@ namespace Better_Work_Tab
 
             // Load rulesets from save file
             Scribe_Collections.Look(ref SavedRulesets, "SavedRulesets", LookMode.Deep);
+            Scribe_Collections.Look(ref SavedRuleBuilder2Rulesets, "SavedRuleBuilder2Rulesets", LookMode.Deep);
 
             // Reinitialize rulesets after load (restores defaults if missing)
             //InitializeRulesets();
@@ -1041,7 +1110,9 @@ namespace Better_Work_Tab
                 viewedSettingIds = new List<string>();
             }
 
+            EnsureRuleBuilder2Rulesets();
             NormalizePrioritySettings();
+            NormalizeWorkTabHeightSettings();
 
             EnsureDebugFeatureTogglesInitialized();
         }
@@ -1054,6 +1125,7 @@ namespace Better_Work_Tab
             ApplyRegisteredDefaults();
 
             workTabMaxHeight = DefaultSettings.workTabMaxHeight;
+            workTabMaxVisiblePawns = DefaultSettings.workTabMaxVisiblePawns;
             workTabTopSpace = DefaultSettings.workTabTopSpace;
             settingsViewMode = SettingsViewMode.Simple;
             workColumnOrderDefNames.Clear();
@@ -1065,6 +1137,24 @@ namespace Better_Work_Tab
             {
                 debugFeatureToggles[feature] = false;
             }
+        }
+
+        private void NormalizeWorkTabHeightSettings()
+        {
+            if (workTabMaxVisiblePawns == 0 || workTabMaxVisiblePawns < -1)
+            {
+                workTabMaxVisiblePawns = DefaultSettings.workTabMaxVisiblePawns;
+            }
+
+            if (workTabMaxVisiblePawns < 0 && workTabMaxHeight > 0f)
+            {
+                workTabMaxVisiblePawns = Mathf.Clamp(
+                    Mathf.RoundToInt(workTabMaxHeight / 30f),
+                    1,
+                    200);
+            }
+
+            workTabMaxHeight = DefaultSettings.workTabMaxHeight;
         }
 
         /// <summary>
@@ -1143,6 +1233,13 @@ namespace Better_Work_Tab
             {
                 SetCurrentRuleset(SelectPreferredRuleset(), writeSettings: false);
             }
+
+            EnsureRuleBuilder2Rulesets();
+        }
+
+        public void EnsureRuleBuilder2Rulesets()
+        {
+            RuleBuilder2RulesetStore.Ensure(this);
         }
 
         /// <summary>

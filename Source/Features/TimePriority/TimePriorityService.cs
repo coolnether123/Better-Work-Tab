@@ -394,12 +394,16 @@ namespace Better_Work_Tab.Features.TimePriority
             int basePriority)
         {
             basePriority = WorkPrioritySystem.ClampPriority(basePriority);
-            TimePriorityTarget pawnTarget = TimePriorityTarget.ForWorkGiver(pawn, workType, workGiver);
             int hour = GetCurrentHour(pawn);
             if (!IsRuntimeEnabled || workGiver == null)
             {
                 return new TimePriorityEvaluation(
-                    pawnTarget,
+                    TimePriorityTarget.FromRaw(
+                        pawn?.thingIDNumber ?? TimePriorityTarget.GlobalPawnId,
+                        TimePriorityTargetKind.WorkGiver,
+                        workType?.defName,
+                        workGiver?.defName,
+                        workType?.labelShort?.CapitalizeFirst() ?? "Sub-work"),
                     hour,
                     basePriority,
                     basePriority,
@@ -408,6 +412,7 @@ namespace Better_Work_Tab.Features.TimePriority
                     TimePriorityScheduleScopes.None);
             }
 
+            TimePriorityTarget pawnTarget = TimePriorityTarget.ForWorkGiver(pawn, workType, workGiver);
             if (pawn != null && TryGetScheduledPriority(pawnTarget, hour, out int pawnScheduledPriority))
             {
                 return new TimePriorityEvaluation(
@@ -466,7 +471,7 @@ namespace Better_Work_Tab.Features.TimePriority
                 // Fall back to absolute game ticks when local date APIs are unavailable.
             }
 
-            int ticks = Find.TickManager?.TicksAbs ?? 0;
+            int ticks = GenTicks.TicksAbs;
             return Mathf.Abs(ticks / GenDate.TicksPerHour) % HoursPerDay;
         }
 
