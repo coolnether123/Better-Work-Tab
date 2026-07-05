@@ -177,7 +177,7 @@
   <BWT_RuleBuilder2_ActionModeDisable>Disable</BWT_RuleBuilder2_ActionModeDisable>
   <BWT_RuleBuilder2_ActionModeDisable_Tooltip>Set the selected target to disabled when this rule applies.</BWT_RuleBuilder2_ActionModeDisable_Tooltip>
   <BWT_RuleBuilder2_ActionModeFollow>Follow default</BWT_RuleBuilder2_ActionModeFollow>
-  <BWT_RuleBuilder2_ActionModeFollow_Tooltip>Leave the target following its inherited/default priority.</BWT_RuleBuilder2_ActionModeFollow_Tooltip>
+  <BWT_RuleBuilder2_ActionModeFollow_Tooltip>Preview-only for saved legacy cards. New rules should set a priority, schedule, or disable the target.</BWT_RuleBuilder2_ActionModeFollow_Tooltip>
   <BWT_RuleBuilder2_ActionScopeWholeWork>Whole Work</BWT_RuleBuilder2_ActionScopeWholeWork>
   <BWT_RuleBuilder2_ActionScopeSpecificJob>Specific job</BWT_RuleBuilder2_ActionScopeSpecificJob>
   <BWT_RuleBuilder2_ScheduleWorkHint>Drag hours to paint</BWT_RuleBuilder2_ScheduleWorkHint>

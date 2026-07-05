@@ -25,6 +25,11 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
             List<Pawn> pawns = RuleBuilder2Evaluator.GetCurrentPawns();
             int changed = 0;
 
+            if (ruleset.ResetBeforeApplying)
+            {
+                WorkAssignmentRuleset.SetAllToZero();
+            }
+
             foreach (RuleBuilder2Card card in ruleset.Cards
                          .Where(card => card != null && card.Enabled && card.IsConfirmed)
                          .OrderBy(card => card.SortOrder))

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -106,8 +107,55 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 }
             }
 
+            SeedFromPreferredClassicRulesetIfNeeded(settings);
+
             RuleBuilder2Ruleset selected = ResolveSelected(settings);
             SetCurrent(settings, selected, writeSettings: false);
+        }
+
+        private static void SeedFromPreferredClassicRulesetIfNeeded(BetterWorkTabSettings settings)
+        {
+            bool useRuleBuilder2 = settings.useRuleBuilder2;
+            if (!useRuleBuilder2 || settings.SavedRuleBuilder2Rulesets.Count > 0)
+            {
+                return;
+            }
+
+            WorkAssignmentRuleset classicRuleset = ResolveClassicSeedSource(settings);
+            if (classicRuleset == null)
+            {
+                return;
+            }
+
+            RuleBuilder2Ruleset seeded = RuleBuilder2ClassicRulesetTranslator.FromClassic(classicRuleset);
+            seeded.Source = RuleBuilder2SourceType.DefaultCopy;
+            settings.SavedRuleBuilder2Rulesets.Add(seeded);
+        }
+
+        private static WorkAssignmentRuleset ResolveClassicSeedSource(BetterWorkTabSettings settings)
+        {
+            if (settings?.CurrentRuleset != null)
+            {
+                return settings.CurrentRuleset;
+            }
+
+            if (settings?.SavedRulesets == null || settings.SavedRulesets.Count == 0)
+            {
+                return null;
+            }
+
+            if (!string.IsNullOrEmpty(settings.defaultAutoAssignRuleset))
+            {
+                WorkAssignmentRuleset namedDefault = settings.SavedRulesets.FirstOrDefault(ruleset =>
+                    string.Equals(ruleset?.Name, settings.defaultAutoAssignRuleset, StringComparison.OrdinalIgnoreCase));
+                if (namedDefault != null)
+                {
+                    return namedDefault;
+                }
+            }
+
+            return settings.SavedRulesets.FirstOrDefault(ruleset => ruleset?.IsDefault == true)
+                   ?? settings.SavedRulesets.FirstOrDefault(ruleset => ruleset != null);
         }
 
         private static RuleBuilder2Ruleset ResolveSelected(BetterWorkTabSettings settings)

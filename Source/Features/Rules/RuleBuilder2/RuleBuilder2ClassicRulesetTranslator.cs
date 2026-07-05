@@ -15,6 +15,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
             {
                 Name = classicRuleset?.Name == null ? "Migrated ruleset" : classicRuleset.Name + " (Rule Builder 2.0)",
                 Description = "Migrated from the classic Better Work Tab ruleset format.",
+                ResetBeforeApplying = classicRuleset?.ResetBeforeApplying ?? true,
                 Source = RuleBuilder2SourceType.Migrated,
                 Cards = new List<RuleBuilder2Card>()
             };
@@ -68,7 +69,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
             return new WorkAssignmentRuleset(
                 (ruleset.Name ?? "Rule Builder 2.0") + " (Classic Export)",
                 rules,
-                BetterWorkTabMod.Settings?.resetWorkBeforeAutoAssign ?? DefaultSettings.resetWorkBeforeAutoAssign,
+                ruleset.ResetBeforeApplying,
                 isDefault: false);
         }
 

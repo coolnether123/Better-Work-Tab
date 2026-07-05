@@ -63,6 +63,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
         public string Name = "Rule Builder 2.0 Ruleset";
         public string Description = "";
         public bool Enabled = true;
+        public bool ResetBeforeApplying = true;
         public RuleBuilder2SourceType Source = RuleBuilder2SourceType.Blank;
         public int DataVersion = 2;
         public List<RuleBuilder2Card> Cards = new List<RuleBuilder2Card>();
@@ -73,6 +74,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
             Scribe_Values.Look(ref Name, "name", "Rule Builder 2.0 Ruleset");
             Scribe_Values.Look(ref Description, "description", "");
             Scribe_Values.Look(ref Enabled, "enabled", true);
+            Scribe_Values.Look(ref ResetBeforeApplying, "resetBeforeApplying", true);
             Scribe_Values.Look(ref Source, "source", RuleBuilder2SourceType.Blank);
             Scribe_Values.Look(ref DataVersion, "dataVersion", 2);
             Scribe_Collections.Look(ref Cards, "cards", LookMode.Deep);
@@ -100,6 +102,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 Name = (Name ?? "Ruleset") + suffix,
                 Description = Description,
                 Enabled = Enabled,
+                ResetBeforeApplying = ResetBeforeApplying,
                 Source = RuleBuilder2SourceType.Duplicated,
                 DataVersion = DataVersion,
                 Cards = Cards?.Select(card => card?.Copy()).Where(card => card != null).ToList() ?? new List<RuleBuilder2Card>()

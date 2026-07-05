@@ -751,8 +751,12 @@ namespace Better_Work_Tab.UI
                     continue;
                 }
 
-                bounds = GetRuleBuilder2HeaderBounds(column, GetAnimatedHeaderRect(column), layout.Table);
-                return IsUsableRect(bounds);
+                return TryGetRuleBuilder2HeaderHighlight(
+                    column,
+                    GetAnimatedHeaderRect(column),
+                    layout.Table,
+                    out var headerHighlight) &&
+                    IsUsableRect(bounds = headerHighlight.Bounds);
             }
 
             return false;
@@ -962,9 +966,68 @@ namespace Better_Work_Tab.UI
             PawnTable table)
         {
             Rect bodyRect = GetRuleBuilder2ColumnBodyHighlightRect(layout, column, headerRect, totalHeight);
-            Rect headerBounds = GetRuleBuilder2HeaderBounds(column, headerRect, table);
+            bool hasHeaderHighlight = TryGetRuleBuilder2HeaderHighlight(column, headerRect, table, out var headerHighlight);
+            if (hasHeaderHighlight && headerHighlight.IsAngled)
+            {
+                Vector2[] quad = headerHighlight.VisibleQuad ?? headerHighlight.Quad;
+                if (quad != null && quad.Length >= 4)
+                {
+                    if (IsUsableRect(bodyRect))
+                    {
+                        Widgets.DrawBoxSolid(bodyRect, new Color(1f, 0.82f, 0.18f, 0.12f));
+                    }
+
+                    Color outline = new Color(1f, 0.82f, 0.18f, 0.62f);
+                    Vector2 bodyBottomLeft = new Vector2(bodyRect.xMin, bodyRect.yMax);
+                    Vector2 bodyTopLeft = new Vector2(bodyRect.xMin, bodyRect.yMin);
+                    Vector2 bodyTopRight = new Vector2(bodyRect.xMax, bodyRect.yMin);
+                    Vector2 bodyBottomRight = new Vector2(bodyRect.xMax, bodyRect.yMax);
+                    Vector2 columnJoinLeft = bodyTopLeft;
+                    Vector2 columnJoinRight = bodyTopRight;
+                    float leftCapY = (quad[0].y + quad[3].y) / 2f;
+                    float rightCapY = (quad[1].y + quad[2].y) / 2f;
+                    Vector2 headerTopLeft = leftCapY <= rightCapY ? quad[0] : quad[1];
+                    Vector2 headerTopRight = leftCapY <= rightCapY ? quad[3] : quad[2];
+                    if (headerTopRight.x < headerTopLeft.x)
+                    {
+                        Vector2 swap = headerTopLeft;
+                        headerTopLeft = headerTopRight;
+                        headerTopRight = swap;
+                    }
+
+                    Vector2 headerRun = quad[1] - quad[0];
+                    if (headerRun.x < 0f)
+                    {
+                        headerRun *= -1f;
+                    }
+
+                    if (Mathf.Abs(headerRun.x) > 0.001f)
+                    {
+                        float leftT = (bodyRect.xMin - headerTopLeft.x) / headerRun.x;
+                        float rightT = (bodyRect.xMax - headerTopRight.x) / headerRun.x;
+                        columnJoinLeft = new Vector2(
+                            bodyRect.xMin,
+                            Mathf.Min(bodyRect.yMin, headerTopLeft.y + (headerRun.y * leftT)));
+                        columnJoinRight = new Vector2(
+                            bodyRect.xMax,
+                            Mathf.Min(bodyRect.yMin, headerTopRight.y + (headerRun.y * rightT)));
+                    }
+
+                    Widgets.DrawLine(bodyBottomLeft, columnJoinLeft, outline, 2f);
+                    Widgets.DrawLine(columnJoinLeft, headerTopLeft, outline, 2f);
+                    Widgets.DrawLine(headerTopLeft, headerTopRight, outline, 2f);
+                    Widgets.DrawLine(headerTopRight, columnJoinRight, outline, 2f);
+                    Widgets.DrawLine(columnJoinRight, bodyBottomRight, outline, 2f);
+                    Widgets.DrawLine(bodyBottomRight, bodyBottomLeft, outline, 2f);
+                    return;
+                }
+            }
+
             DrawRuleBuilder2HighlightRect(bodyRect);
-            DrawRuleBuilder2HighlightRect(headerBounds);
+            if (hasHeaderHighlight)
+            {
+                DrawRuleBuilder2HighlightRect(headerHighlight.Bounds);
+            }
         }
 
         private static Rect GetRuleBuilder2ColumnBodyHighlightRect(
@@ -994,13 +1057,17 @@ namespace Better_Work_Tab.UI
             GUI.color = previousColor;
         }
 
-        private static Rect GetRuleBuilder2HeaderBounds(WorkTabLayoutColumn column, Rect headerRect, PawnTable table)
+        private static bool TryGetRuleBuilder2HeaderHighlight(
+            WorkTabLayoutColumn column,
+            Rect headerRect,
+            PawnTable table,
+            out RuleBuilder2HeaderHighlight headerHighlight)
         {
-            Rect bounds = headerRect;
+            headerHighlight = default;
             PawnColumnDef columnDef = column.Column;
             if (columnDef?.workType == null)
             {
-                return bounds;
+                return false;
             }
 
             var settings = BetterWorkTabMod.Settings;
@@ -1019,34 +1086,95 @@ namespace Better_Work_Tab.UI
                         out var cached) &&
                     IsUsableRect(cached.Bounds))
                 {
-                    bounds = UnionRects(bounds, cached.Bounds);
+                    headerHighlight = RuleBuilder2HeaderHighlight.Angled(
+                        cached.Bounds,
+                        cached.Quad,
+                        BuildRuleBuilder2VisibleAngledHeaderQuad(headerRect, cached, cos, sin));
+                    return true;
                 }
 
-                return bounds;
+                return false;
             }
 
             HeaderDrawingCoordinator.EnsureLayoutSolved(table);
             Rect vanillaBounds = HeaderDrawingCoordinator.GetVanillaSolver()?.GetBounds(columnDef) ?? Rect.zero;
-            return IsUsableRect(vanillaBounds) ? UnionRects(bounds, vanillaBounds) : bounds;
+            if (!IsUsableRect(vanillaBounds))
+            {
+                return false;
+            }
+
+            headerHighlight = RuleBuilder2HeaderHighlight.Rectangular(vanillaBounds);
+            return true;
         }
 
-        private static Rect UnionRects(Rect a, Rect b)
+        private static Vector2[] BuildRuleBuilder2VisibleAngledHeaderQuad(
+            Rect headerRect,
+            AngledHeaderCache.CachedHeaderData cached,
+            float cos,
+            float sin)
         {
-            if (!IsUsableRect(a))
+            AngledLabelDrawer.AngledLabelLayout layout = cached.Layout;
+            Rect drawRect = layout.HasCustomDrawRect
+                ? layout.CustomDrawRect
+                : new Rect(0f, 0f, headerRect.height, layout.Size.y)
+                {
+                    center = layout.Pivot
+                };
+            Rect visibleRect = layout.IsCJKVertical
+                ? drawRect
+                : new Rect(drawRect.xMin, drawRect.yMin, Mathf.Max(1f, layout.Size.x), drawRect.height);
+            float effectiveCos = layout.IsCJKVertical ? 1f : cos;
+            float effectiveSin = layout.IsCJKVertical ? 0f : sin;
+            Vector2 pivot = layout.Pivot;
+
+            Vector2 Rotate(Vector2 point)
             {
-                return b;
+                Vector2 local = point - pivot;
+                return new Vector2(
+                    (local.x * effectiveCos) - (local.y * effectiveSin),
+                    (local.x * effectiveSin) + (local.y * effectiveCos)) + pivot;
             }
 
-            if (!IsUsableRect(b))
+            return new[]
             {
-                return a;
+                Rotate(new Vector2(visibleRect.xMin, visibleRect.yMin)),
+                Rotate(new Vector2(visibleRect.xMax, visibleRect.yMin)),
+                Rotate(new Vector2(visibleRect.xMax, visibleRect.yMax)),
+                Rotate(new Vector2(visibleRect.xMin, visibleRect.yMax))
+            };
+        }
+
+        private readonly struct RuleBuilder2HeaderHighlight
+        {
+            private RuleBuilder2HeaderHighlight(Rect bounds, Vector2[] quad, Vector2[] visibleQuad, bool isAngled)
+            {
+                Bounds = bounds;
+                Quad = quad;
+                VisibleQuad = visibleQuad;
+                IsAngled = isAngled;
             }
 
-            return Rect.MinMaxRect(
-                Mathf.Min(a.xMin, b.xMin),
-                Mathf.Min(a.yMin, b.yMin),
-                Mathf.Max(a.xMax, b.xMax),
-                Mathf.Max(a.yMax, b.yMax));
+            internal Rect Bounds { get; }
+            internal Vector2[] Quad { get; }
+            internal Vector2[] VisibleQuad { get; }
+            internal bool IsAngled { get; }
+
+            internal static RuleBuilder2HeaderHighlight Angled(Rect bounds, Vector2[] quad, Vector2[] visibleQuad)
+            {
+                return new RuleBuilder2HeaderHighlight(bounds, quad, visibleQuad, true);
+            }
+
+            internal static RuleBuilder2HeaderHighlight Rectangular(Rect bounds)
+            {
+                return new RuleBuilder2HeaderHighlight(bounds, null, null, false);
+            }
+
+            internal bool Contains(Vector2 point)
+            {
+                return IsAngled && Quad != null
+                    ? AngledHeaderCache.IsMouseOver(Quad, point)
+                    : Bounds.Contains(point);
+            }
         }
 
         private static bool IsUsableRect(Rect rect)
@@ -1387,8 +1515,8 @@ namespace Better_Work_Tab.UI
             {
                 WorkTabLayoutColumn column = layout.Columns[i];
                 Rect headerRect = GetAnimatedHeaderRect(column);
-                Rect headerBounds = GetRuleBuilder2HeaderBounds(column, headerRect, layout.Table);
-                if (!headerBounds.Contains(evt.mousePosition) ||
+                if (!TryGetRuleBuilder2HeaderHighlight(column, headerRect, layout.Table, out var headerHighlight) ||
+                    !headerHighlight.Contains(evt.mousePosition) ||
                     !(column.Column?.Worker is PawnColumnWorker_WorkPriority) ||
                     column.Column.workType == null)
                 {
@@ -1403,7 +1531,7 @@ namespace Better_Work_Tab.UI
                     workGiver = activeWorkGiver.def;
                 }
 
-                RuleBuilderGateway.SelectHeaderForRuleBuilder2(workType, workGiver, headerBounds);
+                RuleBuilderGateway.SelectHeaderForRuleBuilder2(workType, workGiver, headerHighlight.Bounds);
                 evt.Use();
                 return true;
             }
@@ -1448,8 +1576,8 @@ namespace Better_Work_Tab.UI
             {
                 WorkTabLayoutColumn column = layout.Columns[i];
                 Rect headerRect = GetAnimatedHeaderRect(column);
-                Rect headerBounds = GetRuleBuilder2HeaderBounds(column, headerRect, layout.Table);
-                if (!headerBounds.Contains(mousePosition) ||
+                if (!TryGetRuleBuilder2HeaderHighlight(column, headerRect, layout.Table, out var headerHighlight) ||
+                    !headerHighlight.Contains(mousePosition) ||
                     !(column.Column?.Worker is PawnColumnWorker_WorkPriority) ||
                     column.Column.workType == null)
                 {
@@ -1464,7 +1592,7 @@ namespace Better_Work_Tab.UI
                     workGiver = activeWorkGiver.def;
                 }
 
-                RuleBuilderGateway.PreviewHeaderForRuleBuilder2(workType, workGiver, headerBounds);
+                RuleBuilderGateway.PreviewHeaderForRuleBuilder2(workType, workGiver, headerHighlight.Bounds);
                 return;
             }
 
