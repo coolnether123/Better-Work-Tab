@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using RimWorld;
-using Spine.UI.Tutorial;
 using UnityEngine;
 using Verse;
 
@@ -25,13 +24,150 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
     internal sealed class RuleBuilder2TutorialController
     {
-        private readonly TutorialOverlayController overlay = new TutorialOverlayController();
+        private const string SuggestionsHintSettingId = "bwt.ruleBuilder2.suggestionsHint.v1";
+        private bool suggestionsHintRequested;
 
-        internal bool IsActive =>
-            BetterWorkTabMod.Settings?.showRuleBuilder2Tutorial == true &&
-            CurrentStep != RuleBuilder2TutorialStep.Complete;
+        private enum HintKind
+        {
+            None,
+            FirstOpen,
+            Suggestions
+        }
 
-        private RuleBuilder2TutorialStep CurrentStep
+        internal bool IsActive => GetActiveHint() != HintKind.None;
+
+        internal RuleBuilder2TutorialStep ActiveStep =>
+            GetActiveHint() == HintKind.Suggestions
+                ? RuleBuilder2TutorialStep.RuleDeck
+                : GetFirstOpenActive()
+                    ? RuleBuilder2TutorialStep.Welcome
+                    : RuleBuilder2TutorialStep.Complete;
+
+        internal void RequestSuggestionsHint()
+        {
+            if (!HasSeenSuggestionsHint())
+            {
+                suggestionsHintRequested = true;
+            }
+        }
+
+        internal bool TryHandleInput(Rect bounds, Dictionary<RuleBuilder2TutorialStep, Rect> focusRects, Event evt)
+        {
+            HintKind hint = GetActiveHint();
+            if (hint == HintKind.None || evt == null)
+            {
+                return false;
+            }
+
+            Rect card = GetCardRect(bounds, focusRects, hint);
+            bool overCard = card.Contains(evt.mousePosition);
+            if (evt.type == EventType.KeyDown &&
+                (evt.keyCode == KeyCode.Return || evt.keyCode == KeyCode.KeypadEnter))
+            {
+                Dismiss(hint);
+                evt.Use();
+                return true;
+            }
+
+            if (!overCard)
+            {
+                return false;
+            }
+
+            if (evt.type == EventType.MouseDown && evt.button == 0)
+            {
+                evt.Use();
+                return true;
+            }
+
+            if (evt.type == EventType.MouseUp && evt.button == 0)
+            {
+                if (TryGetButtonAt(card, hint, evt.mousePosition, out TutorialButton button))
+                {
+                    if (button == TutorialButton.Settings)
+                    {
+                        OpenSettings();
+                    }
+                    else
+                    {
+                        Dismiss(hint);
+                    }
+                }
+
+                evt.Use();
+                return true;
+            }
+
+            return evt.type == EventType.MouseDrag || evt.type == EventType.ScrollWheel;
+        }
+
+        internal void Draw(Rect bounds, Dictionary<RuleBuilder2TutorialStep, Rect> focusRects)
+        {
+            HintKind hint = GetActiveHint();
+            if (hint == HintKind.None)
+            {
+                return;
+            }
+
+            Rect card = GetCardRect(bounds, focusRects, hint);
+            DrawDimOutside(card, bounds);
+            DrawCard(card, hint);
+        }
+
+        internal void ObserveTargetSelected(bool subWork)
+        {
+        }
+
+        internal void ObserveConditionAdded()
+        {
+        }
+
+        internal void ObserveActionEdited()
+        {
+        }
+
+        internal void ObservePreview()
+        {
+        }
+
+        internal void ObserveConfirmed()
+        {
+        }
+
+        internal void Reset()
+        {
+            if (BetterWorkTabMod.Settings == null)
+            {
+                return;
+            }
+
+            BetterWorkTabMod.Settings.showRuleBuilder2Tutorial = true;
+            SetStep(RuleBuilder2TutorialStep.Welcome);
+        }
+
+        internal void ResetOverlayAnimation()
+        {
+        }
+
+        private HintKind GetActiveHint()
+        {
+            if (GetFirstOpenActive())
+            {
+                return HintKind.FirstOpen;
+            }
+
+            return suggestionsHintRequested && !HasSeenSuggestionsHint()
+                ? HintKind.Suggestions
+                : HintKind.None;
+        }
+
+        private static bool GetFirstOpenActive()
+        {
+            return BetterWorkTabMod.Settings?.showRuleBuilder2Tutorial == true &&
+                   CurrentStep != RuleBuilder2TutorialStep.Complete;
+        }
+
+        private static RuleBuilder2TutorialStep CurrentStep
         {
             get
             {
@@ -42,226 +178,165 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             }
         }
 
-        internal bool TryHandleInput(Rect bounds, Dictionary<RuleBuilder2TutorialStep, Rect> focusRects, Event evt)
+        private static Rect GetCardRect(Rect bounds, Dictionary<RuleBuilder2TutorialStep, Rect> focusRects, HintKind hint)
         {
-            if (!IsActive)
+            RuleBuilder2TutorialStep key = hint == HintKind.Suggestions
+                ? RuleBuilder2TutorialStep.RuleDeck
+                : RuleBuilder2TutorialStep.Welcome;
+            if (focusRects != null &&
+                focusRects.TryGetValue(key, out Rect card) &&
+                card.width > 0f &&
+                card.height > 0f)
             {
-                return false;
+                card.height = CalculateCardHeight(card.width, hint);
+                return ClampCard(card, bounds.ContractedBy(12f));
             }
 
-            RuleBuilder2TutorialStep step = CurrentStep;
-            return overlay.TryHandleInput(
-                bounds,
-                BuildContent(step),
-                BuildFocusList(step, focusRects),
-                evt,
-                () => Advance(step),
-                OpenSettings,
-                null,
-                Skip);
+            float width = 430f;
+            float height = CalculateCardHeight(width, hint);
+            Rect fallback = new Rect(
+                bounds.center.x - width / 2f,
+                bounds.center.y - height / 2f,
+                width,
+                height);
+            return ClampCard(fallback, bounds.ContractedBy(12f));
         }
 
-        internal void Draw(Rect bounds, Dictionary<RuleBuilder2TutorialStep, Rect> focusRects)
+        private static float CalculateCardHeight(float width, HintKind hint)
         {
-            if (!IsActive)
-            {
-                return;
-            }
-
-            RuleBuilder2TutorialStep step = CurrentStep;
-            overlay.Draw(
-                bounds,
-                BuildContent(step),
-                BuildFocusList(step, focusRects),
-                BuildHints(step),
-                () => Advance(step),
-                OpenSettings,
-                null,
-                Skip);
+            GameFont previousFont = Text.Font;
+            Text.Font = GameFont.Small;
+            float innerWidth = Mathf.Max(1f, width - 36f);
+            float bodyHeight = Mathf.Ceil(Text.CalcHeight(GetBody(hint), innerWidth));
+            Text.Font = previousFont;
+            return 128f + Mathf.Max(40f, bodyHeight);
         }
 
-        internal void ObserveTargetSelected(bool subWork)
+        private static Rect ClampCard(Rect card, Rect bounds)
         {
-            if (!IsActive)
-            {
-                return;
-            }
-
-            if (CurrentStep == RuleBuilder2TutorialStep.Target)
-            {
-                SetStep(subWork ? RuleBuilder2TutorialStep.Condition : RuleBuilder2TutorialStep.SubWorkTarget);
-            }
-            else if (CurrentStep == RuleBuilder2TutorialStep.SubWorkTarget && subWork)
-            {
-                SetStep(RuleBuilder2TutorialStep.Condition);
-            }
+            float x = Mathf.Clamp(card.x, bounds.xMin, Mathf.Max(bounds.xMin, bounds.xMax - card.width));
+            float y = Mathf.Clamp(card.y, bounds.yMin, Mathf.Max(bounds.yMin, bounds.yMax - card.height));
+            return new Rect(x, y, card.width, card.height);
         }
 
-        internal void ObserveConditionAdded()
+        private static void DrawDimOutside(Rect card, Rect bounds)
         {
-            if (IsActive && CurrentStep == RuleBuilder2TutorialStep.Condition)
-            {
-                SetStep(RuleBuilder2TutorialStep.Action);
-            }
+            Color previous = GUI.color;
+            Color dim = new Color(0f, 0f, 0f, 0.42f);
+            GUI.color = dim;
+            Widgets.DrawBoxSolid(new Rect(bounds.xMin, bounds.yMin, bounds.width, Mathf.Max(0f, card.yMin - bounds.yMin)), dim);
+            Widgets.DrawBoxSolid(new Rect(bounds.xMin, card.yMax, bounds.width, Mathf.Max(0f, bounds.yMax - card.yMax)), dim);
+            Widgets.DrawBoxSolid(new Rect(bounds.xMin, card.yMin, Mathf.Max(0f, card.xMin - bounds.xMin), card.height), dim);
+            Widgets.DrawBoxSolid(new Rect(card.xMax, card.yMin, Mathf.Max(0f, bounds.xMax - card.xMax), card.height), dim);
+            GUI.color = previous;
         }
 
-        internal void ObserveActionEdited()
+        private static void DrawCard(Rect rect, HintKind hint)
         {
-            if (IsActive && CurrentStep == RuleBuilder2TutorialStep.Action)
-            {
-                SetStep(RuleBuilder2TutorialStep.Schedule);
-            }
-        }
+            Color previousColor = GUI.color;
+            TextAnchor previousAnchor = Text.Anchor;
+            GameFont previousFont = Text.Font;
 
-        internal void ObservePreview()
-        {
-            if (IsActive && CurrentStep == RuleBuilder2TutorialStep.Preview)
-            {
-                SetStep(RuleBuilder2TutorialStep.Confirm);
-            }
-        }
+            Widgets.DrawBoxSolid(rect, new Color(0.08f, 0.08f, 0.08f, 0.98f));
+            GUI.color = new Color(0.9f, 0.82f, 0.55f);
+            Widgets.DrawBox(rect, 1);
 
-        internal void ObserveConfirmed()
-        {
-            if (IsActive && CurrentStep == RuleBuilder2TutorialStep.Confirm)
-            {
-                SetStep(RuleBuilder2TutorialStep.MatchedConditions);
-            }
-        }
+            Rect inner = rect.ContractedBy(18f);
+            Text.Font = GameFont.Medium;
+            Text.Anchor = TextAnchor.UpperLeft;
+            Widgets.Label(new Rect(inner.x, inner.y, inner.width, 30f), GetTitle(hint));
 
-        internal void Reset()
-        {
-            SetStep(RuleBuilder2TutorialStep.Welcome);
-            overlay.ResetAnimation();
-        }
+            Text.Font = GameFont.Small;
+            GUI.color = Color.white;
+            Rect body = new Rect(inner.x, inner.y + 38f, inner.width, Mathf.Max(40f, inner.height - 92f));
+            Widgets.Label(body, GetBody(hint));
 
-        private static TutorialOverlayContent BuildContent(RuleBuilder2TutorialStep step)
-        {
-            switch (step)
+            Rect dismiss = GetDismissButtonRect(rect, hint);
+            if (Widgets.ButtonText(dismiss, T("BWT_RuleBuilder2_Tutorial_GotIt")))
             {
-                case RuleBuilder2TutorialStep.Welcome:
-                    return new TutorialOverlayContent(
-                        T("BWT_RuleBuilder2_Tutorial_WelcomeTitle"),
-                        T("BWT_RuleBuilder2_Tutorial_WelcomeBody"),
-                        T("BWT_RuleBuilder2_Tutorial_Start"),
-                        T("BWT_RuleBuilder2_Tutorial_Skip"));
-                case RuleBuilder2TutorialStep.BlankRuleset:
-                    return new TutorialOverlayContent(
-                        T("BWT_RuleBuilder2_Tutorial_CreateTitle"),
-                        T("BWT_RuleBuilder2_Tutorial_CreateBody"),
-                        T("BWT_RuleBuilder2_Tutorial_Next"));
-                case RuleBuilder2TutorialStep.RuleDeck:
-                    return new TutorialOverlayContent(
-                        T("BWT_RuleBuilder2_Tutorial_DeckTitle"),
-                        T("BWT_RuleBuilder2_Tutorial_DeckBody"),
-                        T("BWT_RuleBuilder2_Tutorial_Next"));
-                case RuleBuilder2TutorialStep.Target:
-                    return new TutorialOverlayContent(
-                        T("BWT_RuleBuilder2_Tutorial_TargetTitle"),
-                        T("BWT_RuleBuilder2_Tutorial_TargetBody"),
-                        null);
-                case RuleBuilder2TutorialStep.SubWorkTarget:
-                    return new TutorialOverlayContent(
-                        T("BWT_RuleBuilder2_Tutorial_SubWorkTitle"),
-                        T("BWT_RuleBuilder2_Tutorial_SubWorkBody"),
-                        T("BWT_RuleBuilder2_Tutorial_SkipSubWork"));
-                case RuleBuilder2TutorialStep.Condition:
-                    return new TutorialOverlayContent(
-                        T("BWT_RuleBuilder2_Tutorial_ConditionTitle"),
-                        T("BWT_RuleBuilder2_Tutorial_ConditionBody"),
-                        null);
-                case RuleBuilder2TutorialStep.Action:
-                    return new TutorialOverlayContent(
-                        T("BWT_RuleBuilder2_Tutorial_ActionTitle"),
-                        T("BWT_RuleBuilder2_Tutorial_ActionBody"),
-                        null);
-                case RuleBuilder2TutorialStep.Schedule:
-                    return new TutorialOverlayContent(
-                        T("BWT_RuleBuilder2_Tutorial_ScheduleTitle"),
-                        T("BWT_RuleBuilder2_Tutorial_ScheduleBody"),
-                        T("BWT_RuleBuilder2_Tutorial_Next"));
-                case RuleBuilder2TutorialStep.Preview:
-                    return new TutorialOverlayContent(
-                        T("BWT_RuleBuilder2_Tutorial_PreviewTitle"),
-                        T("BWT_RuleBuilder2_Tutorial_PreviewBody"),
-                        null);
-                case RuleBuilder2TutorialStep.Confirm:
-                    return new TutorialOverlayContent(
-                        T("BWT_RuleBuilder2_Tutorial_ConfirmTitle"),
-                        T("BWT_RuleBuilder2_Tutorial_ConfirmBody"),
-                        null);
-                case RuleBuilder2TutorialStep.MatchedConditions:
-                    return new TutorialOverlayContent(
-                        T("BWT_RuleBuilder2_Tutorial_MatchedTitle"),
-                        T("BWT_RuleBuilder2_Tutorial_MatchedBody"),
-                        T("BWT_RuleBuilder2_Tutorial_Next"));
-                case RuleBuilder2TutorialStep.ReplaySettings:
-                    return new TutorialOverlayContent(
-                        T("BWT_RuleBuilder2_Tutorial_ReplayTitle"),
-                        T("BWT_RuleBuilder2_Tutorial_ReplayBody"),
-                        T("BWT_RuleBuilder2_Tutorial_Finish"));
-                default:
-                    return new TutorialOverlayContent(
-                        T("BWT_RuleBuilder2_Tutorial_WelcomeTitle"),
-                        T("BWT_RuleBuilder2_Tutorial_CompleteBody"),
-                        T("BWT_RuleBuilder2_Tutorial_Finish"));
-            }
-        }
-
-        private static List<Rect> BuildFocusList(RuleBuilder2TutorialStep step, Dictionary<RuleBuilder2TutorialStep, Rect> focusRects)
-        {
-            if (focusRects != null && focusRects.TryGetValue(step, out Rect rect) && rect.width > 0f && rect.height > 0f)
-            {
-                return new List<Rect> { rect };
+                // Input is handled in TryHandleInput; this supports keyboard-driven repaint safety.
             }
 
-            return new List<Rect>();
-        }
-
-        private static List<TutorialOverlayShortcutHint> BuildHints(RuleBuilder2TutorialStep step)
-        {
-            if (step == RuleBuilder2TutorialStep.Target)
+            if (hint == HintKind.FirstOpen)
             {
-                return new List<TutorialOverlayShortcutHint>
+                Rect settings = GetSettingsButtonRect(rect);
+                if (Widgets.ButtonText(settings, T("BWT_RuleBuilder2_Tutorial_Settings")))
                 {
-                    new TutorialOverlayShortcutHint(T("BWT_RuleBuilder2_Tutorial_ClickHeaderHint"), 0)
-                };
+                    // Input is handled in TryHandleInput; this supports keyboard-driven repaint safety.
+                }
             }
 
-            return new List<TutorialOverlayShortcutHint>();
+            GUI.color = previousColor;
+            Text.Anchor = previousAnchor;
+            Text.Font = previousFont;
         }
 
-        private void Advance(RuleBuilder2TutorialStep step)
+        private static bool TryGetButtonAt(Rect card, HintKind hint, Vector2 mousePosition, out TutorialButton button)
         {
-            switch (step)
+            if (GetDismissButtonRect(card, hint).Contains(mousePosition))
             {
-                case RuleBuilder2TutorialStep.Target:
-                case RuleBuilder2TutorialStep.Condition:
-                case RuleBuilder2TutorialStep.Action:
-                case RuleBuilder2TutorialStep.Preview:
-                case RuleBuilder2TutorialStep.Confirm:
-                    return;
-                case RuleBuilder2TutorialStep.SubWorkTarget:
-                    SetStep(RuleBuilder2TutorialStep.Condition);
-                    return;
-                case RuleBuilder2TutorialStep.ReplaySettings:
-                case RuleBuilder2TutorialStep.Complete:
-                    SetStep(RuleBuilder2TutorialStep.Complete);
-                    BetterWorkTabMod.Settings.showRuleBuilder2Tutorial = false;
-                    return;
-                default:
-                    SetStep(step + 1);
-                    return;
+                button = TutorialButton.Dismiss;
+                return true;
             }
+
+            if (hint == HintKind.FirstOpen && GetSettingsButtonRect(card).Contains(mousePosition))
+            {
+                button = TutorialButton.Settings;
+                return true;
+            }
+
+            button = TutorialButton.None;
+            return false;
         }
 
-        private void Skip()
+        private static Rect GetDismissButtonRect(Rect card, HintKind hint)
         {
+            Rect inner = card.ContractedBy(18f);
+            float width = hint == HintKind.FirstOpen ? 130f : 110f;
+            return new Rect(inner.xMax - width, inner.yMax - 32f, width, 32f);
+        }
+
+        private static Rect GetSettingsButtonRect(Rect card)
+        {
+            Rect inner = card.ContractedBy(18f);
+            return new Rect(inner.x, inner.yMax - 32f, 150f, 32f);
+        }
+
+        private static string GetTitle(HintKind hint)
+        {
+            return hint == HintKind.Suggestions
+                ? T("BWT_RuleBuilder2_Tutorial_SuggestionsTitle")
+                : T("BWT_RuleBuilder2_Tutorial_WelcomeTitle");
+        }
+
+        private static string GetBody(HintKind hint)
+        {
+            return hint == HintKind.Suggestions
+                ? T("BWT_RuleBuilder2_Tutorial_SuggestionsBody")
+                : T("BWT_RuleBuilder2_Tutorial_WelcomeBody");
+        }
+
+        private void Dismiss(HintKind hint)
+        {
+            if (hint == HintKind.Suggestions)
+            {
+                BetterWorkTabMod.Settings?.RecordViewedSetting(SuggestionsHintSettingId);
+                suggestionsHintRequested = false;
+                BetterWorkTabMod.Settings?.Write();
+                return;
+            }
+
             SetStep(RuleBuilder2TutorialStep.Complete);
             if (BetterWorkTabMod.Settings != null)
             {
                 BetterWorkTabMod.Settings.showRuleBuilder2Tutorial = false;
+                BetterWorkTabMod.Settings.Write();
             }
+        }
+
+        private static bool HasSeenSuggestionsHint()
+        {
+            return BetterWorkTabMod.Settings?.HasViewedSetting(SuggestionsHintSettingId) == true;
         }
 
         private static void OpenSettings()
@@ -286,6 +361,13 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
         private static string T(string key)
         {
             return key.CanTranslate() ? key.Translate().ToString() : key;
+        }
+
+        private enum TutorialButton
+        {
+            None,
+            Dismiss,
+            Settings
         }
     }
 }

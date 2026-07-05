@@ -1,10 +1,8 @@
 ﻿using Better_Work_Tab.Features;
-using Better_Work_Tab.Features.Rules.RuleBuilder2;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.Mod_Support.Multiplayer;
 using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.RuleBuilder;
-using Better_Work_Tab.UI.RuleBuilderV2;
 using RimWorld;
 using System.Collections.Generic;
 using UnityEngine;
@@ -93,11 +91,6 @@ namespace Better_Work_Tab.UI
             if (!(settings?.enableAutoAssignFeature ?? true))
                 return xRight;
 
-            bool useRuleBuilder2 = settings?.useRuleBuilder2 ?? DefaultSettings.useRuleBuilder2;
-            RuleBuilder2Ruleset currentRuleBuilder2Ruleset = useRuleBuilder2
-                ? settings?.CurrentRuleBuilder2Ruleset
-                : null;
-            var curRuleset = BetterWorkTabMod.Settings.CurrentRuleset;
             var dotRect = new Rect(xRight - AutoAssignButtonHeight, y,
                 AutoAssignButtonHeight, AutoAssignButtonHeight);
             var mainRect = new Rect(dotRect.x - AutoAssignButtonWidth, y,
@@ -105,88 +98,18 @@ namespace Better_Work_Tab.UI
 
             float newRight = mainRect.x - 4f;
 
-            string btnLbl = currentRuleBuilder2Ruleset != null
-                ? currentRuleBuilder2Ruleset.Name
-                : !useRuleBuilder2 && curRuleset != null ? curRuleset.Name : "BWT_NoRuleset".Translate();
+            string btnLbl = RuleBuilderGateway.CurrentRulesetLabel();
 
             if (Widgets.ButtonText(mainRect, "  " + btnLbl,
                     overrideTextAnchor: TextAnchor.MiddleLeft))
             {
                 SoundDefOf.Tick_Low.PlayOneShotOnCamera();
-                if (currentRuleBuilder2Ruleset != null)
-                {
-                    new RuleBuilder2ApplyService().Apply(currentRuleBuilder2Ruleset, out List<string> warnings);
-                    if (warnings.Count > 0)
-                    {
-                        Log.Warning("[BWT] Rule Builder 2.0 apply warnings from footer button:\n" + string.Join("\n", warnings.ToArray()));
-                    }
-                }
-                else if (!useRuleBuilder2 && curRuleset != null)
-                {
-                    // Rulesets are now local-only (not synced in multiplayer)
-                    System.Action applyAction = () =>
-                    {
-                        if (curRuleset.ResetBeforeApplying)
-                        {
-                            WorkAssignmentRuleset.SetAllToZero();
-                        }
-                        curRuleset.ApplyAutoAssignments();
-                    };
-
-                    if (settings.warnOnApplyRuleset)
-                    {
-                        ConfirmApplyWithResetWarning("Apply ruleset?", applyAction, (val) =>
-                        {
-                            settings.warnOnApplyRuleset = !val;
-                            settings.Write();
-                        });
-                    }
-                    else
-                    {
-                        applyAction();
-                    }
-                }
+                RuleBuilderGateway.ApplyCurrentRuleset();
             }
 
             if (Widgets.ButtonText(dotRect, "..."))
             {
-                var options = new List<FloatMenuOption>();
-                if (useRuleBuilder2)
-                {
-                    settings.EnsureRuleBuilder2Rulesets();
-                    var ruleBuilder2Rulesets = settings.SavedRuleBuilder2Rulesets ?? new List<RuleBuilder2Ruleset>();
-                    if (ruleBuilder2Rulesets.Count == 0)
-                    {
-                        options.Add(new FloatMenuOption("BWT_NoRuleset".Translate(), null));
-                    }
-
-                    foreach (var ruleset in ruleBuilder2Rulesets)
-                    {
-                        var local = ruleset;
-                        options.Add(new FloatMenuOption(local.Name, () =>
-                        {
-                            settings.SetCurrentRuleBuilder2Ruleset(local);
-                            SoundDefOf.Tick_Low.PlayOneShotOnCamera();
-                        }));
-                    }
-                }
-                else
-                {
-                    foreach (var ruleset in BetterWorkTabMod.Settings.SavedRulesets)
-                    {
-                        var local = ruleset;
-                        options.Add(new FloatMenuOption(local.Name, () =>
-                        {
-                            // Rulesets are now local-only (not synced in multiplayer)
-                            BetterWorkTabMod.Settings.SetCurrentRuleset(local);
-                            SoundDefOf.Tick_Low.PlayOneShotOnCamera();
-                        }));
-                    }
-                }
-
-                AddRulesetManagementOptions(options);
-
-                Find.WindowStack.Add(new FloatMenu(options));
+                Find.WindowStack.Add(new FloatMenu(RuleBuilderGateway.BuildRulesetMenuOptions()));
             }
 
             return newRight;
@@ -336,53 +259,6 @@ namespace Better_Work_Tab.UI
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
         }
 
-
-        /// <summary>
-        /// Adds the standard ruleset management options to the provided menu.
-        /// Keeps labels and behaviors consistent across entry points.
-        /// </summary>
-        private static void AddRulesetManagementOptions(List<FloatMenuOption> options)
-        {
-            var mode = BetterWorkTabMod.Settings.rulesetViewMode;
-
-            // Regular (Visual Builder)
-            if (mode == BetterWorkTabSettings.RulesetViewMode.Regular || mode == BetterWorkTabSettings.RulesetViewMode.Both)
-            {
-                options.Add(new FloatMenuOption("BWT_RuleBuilder_OpenBuilder".Translate(), () =>
-                {
-                    if (BetterWorkTabMod.Settings?.useRuleBuilder2 ?? DefaultSettings.useRuleBuilder2)
-                    {
-                        Find.WindowStack.Add(new Window_RuleBuilder2());
-                    }
-                    else
-                    {
-                        Find.WindowStack.Add(new Window_RulesetBuilder());
-                    }
-                    SoundDefOf.Tick_Low.PlayOneShotOnCamera();
-                }));
-
-                options.Add(new FloatMenuOption("BWT_RuleBuilder2_OpenClassic".Translate(), () =>
-                {
-                    Find.WindowStack.Add(new Window_RulesetBuilder());
-                    SoundDefOf.Tick_Low.PlayOneShotOnCamera();
-                }));
-            }
-
-            // Raw (Classic/Manager)
-            if (mode == BetterWorkTabSettings.RulesetViewMode.Raw || mode == BetterWorkTabSettings.RulesetViewMode.Both)
-            {
-                // In Both mode, we differentiate with "(Raw)".
-                string label = mode == BetterWorkTabSettings.RulesetViewMode.Raw 
-                    ? "BWT_RuleBuilder_ManageRulesets".Translate() 
-                    : "BWT_RuleBuilder_ManageRulesets".Translate() + " (Raw)";
-
-                options.Add(new FloatMenuOption(label, () =>
-                {
-                    Find.WindowStack.Add(new Window_RulesManager());
-                    SoundDefOf.Tick_Low.PlayOneShotOnCamera();
-                }));
-            }
-        }
 
         private static void ConfirmApplyWithResetWarning(string title, System.Action onConfirm, System.Action<bool> setDoNotShowAgain)
         {
