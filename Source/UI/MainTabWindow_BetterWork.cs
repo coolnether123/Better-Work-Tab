@@ -707,7 +707,7 @@ namespace Better_Work_Tab.UI
                 return screenMaxHeight;
             }
 
-            float headerHeight = layout?.HeaderHeight ?? table?.cachedHeaderHeight ?? 0f;
+            float headerHeight = layout?.HeaderHeight ?? PawnTableCompat.GetCachedHeaderHeight(table);
             float pinnedRowsHeight = layout != null ? GetPinnedRowsHeight() : 0f;
             float pawnRowHeight = GetNominalPawnRowHeight(layout);
             float visibleContentHeight = Mathf.Max(1, maxVisiblePawns) * pawnRowHeight;
