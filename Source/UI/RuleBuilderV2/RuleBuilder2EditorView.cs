@@ -125,7 +125,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             {
                 flow.AddRule();
                 ResetEditorScroll();
-                SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                UISoundCompat.TickLow.PlayOneShotOnCamera();
             }
             TooltipHandler.TipRegion(add, T("BWT_RuleBuilder2_AddRule_Tooltip"));
         }
@@ -158,7 +158,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                 MapCheckExpanded = true;
                 flow.ShowPreview = true;
                 flow.RefreshPreview();
-                SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                UISoundCompat.TickLow.PlayOneShotOnCamera();
             }
             TooltipHandler.TipRegion(button, T("BWT_RuleBuilder2_RunPreview_Tooltip"));
 
@@ -169,7 +169,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                     MapCheckExpanded = true;
                     flow.ShowPreview = true;
                     flow.RefreshPreview();
-                    SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                    UISoundCompat.TickLow.PlayOneShotOnCamera();
                 }
 
                 return;
@@ -188,7 +188,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                 if (Widgets.ButtonText(save, T("BWT_RuleBuilder2_SaveRule")))
                 {
                     flow.ConfirmCard(card);
-                    SoundDefOf.Tick_High.PlayOneShotOnCamera();
+                    UISoundCompat.TickHigh.PlayOneShotOnCamera();
                 }
             }
 
@@ -196,7 +196,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             {
                 flow.DeleteCard(card);
                 ResetEditorScroll();
-                SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                UISoundCompat.TickLow.PlayOneShotOnCamera();
             }
         }
 

@@ -223,10 +223,10 @@ namespace Better_Work_Tab.UI.RuleBuilder
 
         private static List<Pawn> GetCurrentMapFreeColonistsInWorkTabOrder()
         {
-            return Find.CurrentMap?.mapPawns?.FreeColonists?
+            return MapCompat.CurrentMap?.mapPawns?.FreeColonists?
                 .Where(pawn => pawn != null && !pawn.Dead)
                 .OrderBy(RowOrderUtility.GetPawnRowOrder)
-                .ThenBy(pawn => pawn.LabelShortCap)
+                .ThenBy(pawn => PawnCompat.LabelShortCap(pawn))
                 .Distinct()
                 .ToList() ?? new List<Pawn>();
         }
@@ -246,7 +246,7 @@ namespace Better_Work_Tab.UI.RuleBuilder
                 options.Add(new FloatMenuOption(local.Name, () =>
                 {
                     RuleBuilder2RulesetStore.SetCurrent(settings, local);
-                    SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                    UISoundCompat.TickLow.PlayOneShotOnCamera();
                 }));
             }
         }
@@ -259,7 +259,7 @@ namespace Better_Work_Tab.UI.RuleBuilder
                 options.Add(new FloatMenuOption(local.Name, () =>
                 {
                     settings.SetCurrentRuleset(local);
-                    SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                    UISoundCompat.TickLow.PlayOneShotOnCamera();
                 }));
             }
         }
@@ -284,7 +284,7 @@ namespace Better_Work_Tab.UI.RuleBuilder
                 options.Add(new FloatMenuOption(label, () =>
                 {
                     Find.WindowStack.Add(new Window_RulesManager());
-                    SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                    UISoundCompat.TickLow.PlayOneShotOnCamera();
                 }));
             }
         }
@@ -300,13 +300,13 @@ namespace Better_Work_Tab.UI.RuleBuilder
                 Find.WindowStack.Add(new Window_RulesetBuilder());
             }
 
-            SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+            UISoundCompat.TickLow.PlayOneShotOnCamera();
         }
 
         private static void OpenClassicBuilder()
         {
             Find.WindowStack.Add(new Window_RulesetBuilder());
-            SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+            UISoundCompat.TickLow.PlayOneShotOnCamera();
         }
 
         private static void ApplyRuleBuilder2Ruleset(RuleBuilder2Ruleset ruleset)

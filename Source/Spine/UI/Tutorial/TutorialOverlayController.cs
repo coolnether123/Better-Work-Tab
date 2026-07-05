@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Better_Work_Tab;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -136,7 +137,7 @@ namespace Spine.UI.Tutorial
             }
             else
             {
-                SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                UISoundCompat.TickLow.PlayOneShotOnCamera();
             }
         }
 

@@ -58,7 +58,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
         {
             Widgets.DrawBoxSolid(rect, new Color(0.1f, 0.16f, 0.18f, 0.95f));
             Widgets.DrawBox(rect, 1);
-            string label = selection.Pawn?.LabelShortCap ?? T("BWT_RuleBuilder2_PawnFallback");
+            string label = PawnCompat.LabelShortCap(selection.Pawn) ?? T("BWT_RuleBuilder2_PawnFallback");
             string target = BuildTargetLabel(selection.WorkType, selection.WorkGiver);
             DrawFittedLabel(new Rect(rect.x + 8f, rect.y + 6f, rect.width - 16f, 24f), T("BWT_RuleBuilder2_MatchedConditions") + ": " + label + " / " + target);
 

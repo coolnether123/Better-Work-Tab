@@ -232,7 +232,7 @@ namespace Better_Work_Tab.Features.Tutorial
             _hasWorkTabStateSnapshot = false;
             Overlay.ResetAnimation();
             settings.Write();
-            SoundDefOf.Tick_High.PlayOneShotOnCamera();
+            UISoundCompat.TickHigh.PlayOneShotOnCamera();
         }
 
         private static BWTBetaTutorialStep NormalizeStep(BetterWorkTabSettings settings)

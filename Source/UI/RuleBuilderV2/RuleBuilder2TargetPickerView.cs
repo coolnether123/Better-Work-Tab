@@ -61,7 +61,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                 {
                     if (RuleBuilderGateway.FlashRuleBuilder2Target(card.Target.ResolveWorkType(), card.Target.ResolveWorkGiver()))
                     {
-                        SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
+                        UISoundCompat.TickTiny.PlayOneShotOnCamera();
                     }
                 }
                 TooltipHandler.TipRegion(
@@ -157,7 +157,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                 if (Widgets.ButtonText(expandRect, expanded ? "-" : "+"))
                 {
                     ToggleTargetExpanded(entry.WorkTypeKey);
-                    SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
+                    UISoundCompat.TickTiny.PlayOneShotOnCamera();
                 }
             }
             else
@@ -176,7 +176,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             {
                 flow.SelectTarget(card, entry.WorkTypeDef, entry.WorkGiverDef, RuleBuilder2TargetSource.BuilderList);
                 ExpandTargetParentIfSpecificJob(card.Target);
-                SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                UISoundCompat.TickLow.PlayOneShotOnCamera();
             }
 
             if (entry.IsSubWork)

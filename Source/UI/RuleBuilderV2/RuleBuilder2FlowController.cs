@@ -177,7 +177,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             ActiveCard = card;
             ShowPreview = false;
             tutorial.ObserveConfirmed();
-            SoundDefOf.Tick_High.PlayOneShotOnCamera();
+            UISoundCompat.TickHigh.PlayOneShotOnCamera();
         }
 
         internal void DeleteCard(RuleBuilder2Card card)
@@ -288,7 +288,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             Ruleset.Cards.Add(card);
             SaveRulesetIfPersistent(Ruleset);
             ActiveCard = GetNextGeneratedSuggestion() ?? card;
-            SoundDefOf.Tick_High.PlayOneShotOnCamera();
+            UISoundCompat.TickHigh.PlayOneShotOnCamera();
         }
 
         internal void DiscardGeneratedSuggestion(RuleBuilder2Card card)
@@ -300,7 +300,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
             DraftQueue.Remove(card);
             ActiveCard = GetNextGeneratedSuggestion() ?? Ruleset.Cards?.FirstOrDefault();
-            SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+            UISoundCompat.TickLow.PlayOneShotOnCamera();
         }
 
         internal void EditGeneratedSuggestion(RuleBuilder2Card card)
@@ -320,7 +320,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             ActiveCard = card;
             ShowPreview = false;
             RefreshPreview();
-            SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+            UISoundCompat.TickLow.PlayOneShotOnCamera();
         }
 
         internal void GenerateDraftFromCurrentWorkTab()

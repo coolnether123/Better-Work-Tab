@@ -448,7 +448,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
         private static Dictionary<string, Pawn> BuildPawnLoadIdMap()
         {
             var map = new Dictionary<string, Pawn>(StringComparer.Ordinal);
-            foreach (Pawn pawn in PawnsFinder.All_AliveOrDead)
+            foreach (Pawn pawn in PawnsFinderCompat.AllAliveOrDead)
             {
                 if (pawn == null)
                 {
@@ -514,6 +514,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             internal int[] Priorities { get; }
         }
 
+#if (v1_0 || v0_19) && !v0_18 && !v0_17 && !v0_16 && !v0_15 && !v0_14 && !v0_13 && !vAlpha4
         [HarmonyPatch(typeof(GameDataSaveLoader), nameof(GameDataSaveLoader.LoadGame), new[] { typeof(string) })]
         private static class Patch_GameDataSaveLoader_LoadGame_RecordFluffyWorkTabSave
         {
@@ -522,5 +523,15 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                 RecordLoadingSave(saveFileName);
             }
         }
+#else
+        [HarmonyPatch(typeof(SavedGameLoader), nameof(SavedGameLoader.LoadGameFromSaveFile), new[] { typeof(string) })]
+        private static class Patch_SavedGameLoader_LoadGameFromSaveFile_RecordFluffyWorkTabSave
+        {
+            private static void Prefix(string fileName)
+            {
+                RecordLoadingSave(fileName);
+            }
+        }
+#endif
     }
 }

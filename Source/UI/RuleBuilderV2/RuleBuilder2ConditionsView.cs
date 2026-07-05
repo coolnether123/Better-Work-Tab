@@ -41,7 +41,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             if (Widgets.ButtonText(add, "+ " + T("BWT_RuleBuilder2_AddCondition")))
             {
                 ShowAddConditionMenu(card);
-                SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                UISoundCompat.TickLow.PlayOneShotOnCamera();
             }
             TooltipHandler.TipRegion(add, T("BWT_RuleBuilder2_AddCondition_Tooltip"));
 

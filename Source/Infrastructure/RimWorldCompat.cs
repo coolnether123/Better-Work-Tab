@@ -91,6 +91,21 @@ namespace Better_Work_Tab
         }
     }
 
+    public static class PawnsFinderCompat
+    {
+        public static IEnumerable<Pawn> AllAliveOrDead
+        {
+            get
+            {
+#if (v0_18 || v0_17 || v0_16 || v0_15 || v0_14 || v0_13 || vAlpha4)
+                return PawnsFinder.AllMapsWorldAndTemporary_AliveOrDead;
+#else
+                return PawnsFinder.All_AliveOrDead;
+#endif
+            }
+        }
+    }
+
     public static class MessageCompat
     {
         public static void Message(string text, MessageTypeDef type, bool historical = false)

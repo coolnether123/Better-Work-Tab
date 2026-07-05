@@ -416,6 +416,6 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
         public string ActionText = "";
         public string Warning = "";
 
-        public string PawnLabel => Pawn?.LabelShortCap ?? "Unknown pawn";
+        public string PawnLabel => PawnCompat.LabelShortCap(Pawn) ?? "Unknown pawn";
     }
 }

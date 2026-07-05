@@ -23,7 +23,9 @@ namespace Better_Work_Tab.UI
             doCloseX = true;
             closeOnClickedOutside = true;
             absorbInputAroundWindow = true;
+#if !v0_18 && !v0_17 && !v0_16 && !v0_15 && !v0_14 && !v0_13 && !vAlpha4
             closeOnAccept = false;
+#endif
         }
 
         public override void DoWindowContents(Rect inRect)

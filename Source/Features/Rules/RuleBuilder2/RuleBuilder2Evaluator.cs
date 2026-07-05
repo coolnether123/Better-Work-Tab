@@ -5,6 +5,7 @@ using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.ModSupport;
+using Better_Work_Tab.PawnOrganizer;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -179,10 +180,10 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
 
         private static List<Pawn> GetFallbackCurrentPawns()
         {
-            return Find.CurrentMap?.mapPawns?.FreeColonists?
+            return MapCompat.CurrentMap?.mapPawns?.FreeColonists?
                 .Where(pawn => pawn != null && !pawn.Dead)
-                .OrderBy(pawn => pawn.playerSettings?.displayOrder ?? 0)
-                .ThenBy(pawn => pawn.LabelShortCap)
+                .OrderBy(RowOrderUtility.GetPawnRowOrder)
+                .ThenBy(pawn => PawnCompat.LabelShortCap(pawn))
                 .ToList() ?? new List<Pawn>();
         }
 

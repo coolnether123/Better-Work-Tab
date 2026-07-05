@@ -121,7 +121,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                 {
                     schedulePaintActive = false;
                 }
-                SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                UISoundCompat.TickLow.PlayOneShotOnCamera();
             }
 
             GUI.color = previous;
@@ -205,7 +205,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                     schedulePaintActive = true;
                     action.HourlyPriorities[hour] = schedulePaintPriority;
                     Event.current.Use();
-                    SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
+                    UISoundCompat.TickTiny.PlayOneShotOnCamera();
                 }
 
                 if (schedulePaintActive && overCell && Event.current.type == EventType.MouseDrag)

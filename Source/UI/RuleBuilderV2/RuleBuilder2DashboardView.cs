@@ -67,7 +67,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                 {
                     flow.ActiveCard = flow.GetNextGeneratedSuggestion();
                     window.ShowGeneratedReviewSurface();
-                    SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                    UISoundCompat.TickLow.PlayOneShotOnCamera();
                 }
             }
 
@@ -123,14 +123,14 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
             editorView.ResetEditorScroll();
             window.ShowMainSurface();
-            SoundDefOf.Tick_High.PlayOneShotOnCamera();
+            UISoundCompat.TickHigh.PlayOneShotOnCamera();
         }
 
         private void AddBlankRule()
         {
             flow.AddRule();
             editorView.ResetEditorScroll();
-            SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+            UISoundCompat.TickLow.PlayOneShotOnCamera();
         }
 
         private void RequestGenerateDraft()
@@ -149,7 +149,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             flow.GenerateDraftFromCurrentWorkTab();
             editorView.ResetEditorScroll();
             window.ShowGeneratedReviewSurface();
-            SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+            UISoundCompat.TickLow.PlayOneShotOnCamera();
         }
 
         private static string GetGenerateDraftButtonLabel(Rect rect)
@@ -301,7 +301,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                     {
                         flow.ActiveCard = pendingRuleDrag;
                         editorView.ResetEditorScroll();
-                        SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                        UISoundCompat.TickLow.PlayOneShotOnCamera();
                         evt.Use();
                     }
 
@@ -358,7 +358,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             }
 
             flow.ReorderVisibleCards(cards);
-            SoundDefOf.Tick_High.PlayOneShotOnCamera();
+            UISoundCompat.TickHigh.PlayOneShotOnCamera();
         }
 
         private static void DrawBadges(Rect rect, RuleBuilder2Card card)

@@ -320,7 +320,7 @@ namespace Better_Work_Tab.ModSupport
             {
                 bool drawn = (bool)_tryDrawEmbeddedTimeline.Invoke(null, new object[]
                 {
-                    Find.CurrentMap,
+                    MapCompat.CurrentMap,
                     geometry,
                     drawIncidentOverlay
                 });
@@ -333,7 +333,7 @@ namespace Better_Work_Tab.ModSupport
                 return timeline != null;
             }
 
-            object[] timelineArgs = { Find.CurrentMap, null };
+            object[] timelineArgs = { MapCompat.CurrentMap, null };
             if (_tryGetTimelineSnapshot == null ||
                 !(bool)_tryGetTimelineSnapshot.Invoke(null, timelineArgs) ||
                 timelineArgs[1] == null)
