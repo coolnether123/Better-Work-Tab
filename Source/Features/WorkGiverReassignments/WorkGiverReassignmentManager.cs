@@ -1481,7 +1481,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 #if v0_18 || v0_17 || v0_16 || v0_15 || v0_14 || v0_13 || vAlpha4
             return PawnsFinderCompat.AllMapsWorldAndTemporaryAliveOrDead;
 #else
-            return PawnsFinder.All_AliveOrDead;
+            return PawnsFinderCompat.AllAliveOrDead;
 #endif
         }
     }
