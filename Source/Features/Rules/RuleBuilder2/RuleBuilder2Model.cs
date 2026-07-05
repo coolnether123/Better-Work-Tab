@@ -340,7 +340,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
         public bool HasElseBehavior;
         public int ElsePriority;
 
-        [Unsaved(false)]
+        [Unsaved]
         public string PriorityBuffer = "";
 
         public void ExposeData()

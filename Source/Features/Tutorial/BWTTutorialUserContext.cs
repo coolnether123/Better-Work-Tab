@@ -76,7 +76,7 @@ namespace Better_Work_Tab.Features.Tutorial
 
         private static bool IsExternalProvider(IMaxPriorityProvider provider)
         {
-            if (provider == null || string.IsNullOrWhiteSpace(provider.ProviderId))
+            if (provider == null || string.IsNullOrEmpty((provider.ProviderId ?? string.Empty).Trim()))
             {
                 return false;
             }

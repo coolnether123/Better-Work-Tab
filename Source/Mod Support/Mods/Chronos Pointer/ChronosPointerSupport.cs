@@ -259,7 +259,8 @@ namespace Better_Work_Tab.ModSupport
 
         private static bool IsChronosPointerActive()
         {
-            return ModsConfig.IsActive(ModernPackageId) || ModsConfig.IsActive(LegacyPackageId);
+            return ModListerCompat.GetActiveModWithIdentifier(ModernPackageId) != null ||
+                   ModListerCompat.GetActiveModWithIdentifier(LegacyPackageId) != null;
         }
 
         private static void MarkResolveFailed()

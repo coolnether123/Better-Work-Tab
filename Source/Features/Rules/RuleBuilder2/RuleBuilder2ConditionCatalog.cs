@@ -43,7 +43,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
     {
         private static List<RuleBuilder2ConditionDefinition> _definitions;
 
-        internal static IReadOnlyList<RuleBuilder2ConditionDefinition> Definitions
+        internal static List<RuleBuilder2ConditionDefinition> Definitions
         {
             get
             {
@@ -135,7 +135,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
             return targetWorkType?.LabelCap.ToString() ?? Tr("BWT_RuleBuilder2_RelevantFallback");
         }
 
-        private static string ResolveLabel<T>(string defName, string fallback) where T : Def
+        private static string ResolveLabel<T>(string defName, string fallback) where T : Def, new()
         {
             if (string.IsNullOrEmpty(defName))
             {
@@ -153,10 +153,10 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 return key;
             }
 
-            TaggedString translated = key.Translate();
+            string translated = key.Translate().ToString();
             return args != null && args.Length > 0
-                ? string.Format(translated.ToString(), args)
-                : translated.ToString();
+                ? string.Format(translated, args)
+                : translated;
         }
 
         private static List<RuleBuilder2ConditionDefinition> BuildDefinitions()
