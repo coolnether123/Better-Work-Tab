@@ -88,19 +88,18 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
                 if (evt.button == 0 || evt.button == 1)
                 {
-                    // Handle Shift+Click immediately on MouseDown to prevent it from reaching sorting (on MouseUp) or dragging.
                     if (evt.shift || (evt.modifiers & EventModifiers.Shift) != 0)
                     {
-                        HandleShiftClick(ctx.Worker, ctx.Table, evt.button);
-                        evt.Use();
-                        return;
-                    }
+                        if (evt.button == 0 && BetterWorkTabMod.Settings.enableColumnGrouping)
+                        {
+                            Better_Work_Tab.DragDrop.ColumnSelectionManager.ToggleSelection(ctx.Worker.def);
+                            SoundDefOf.Tick_High.PlayOneShotOnCamera();
+                            evt.Use();
+                            return;
+                        }
 
-                    // Handle Multi-Selection (Ctrl+Click) immediately on MouseDown if dragging isn't starting
-                    if (evt.control && BetterWorkTabMod.Settings.enableColumnGrouping)
-                    {
-                        Better_Work_Tab.DragDrop.ColumnSelectionManager.ToggleSelection(ctx.Worker.def);
-                        SoundDefOf.Tick_High.PlayOneShotOnCamera();
+                        // Preserve the vanilla-style shift header action when grouping is disabled or right-click is used.
+                        HandleShiftClick(ctx.Worker, ctx.Table, evt.button);
                         evt.Use();
                         return;
                     }
@@ -164,7 +163,11 @@ namespace Better_Work_Tab.UI.Headers.Angled
             
             if (ShouldShowKeyboardTooltips)
             {
-                if (Find.PlaySettings.useWorkPriorities)
+                if (BetterWorkTabMod.Settings?.enableColumnGrouping ?? true)
+                {
+                    tooltip += "\n" + "Shift + click: Select column for group dragging.".Colorize(ColoredText.SubtleGrayColor);
+                }
+                else if (Find.PlaySettings.useWorkPriorities)
                 {
                     tooltip += "\n" + "WorkPriorityShiftClickTip".Translate().Resolve().Colorize(TooltipSubtleColor);
                 }
@@ -218,13 +221,20 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 tooltip.Append("\n\n").Append("ClickToSortByThisColumn".Translate().Resolve().Colorize(TooltipSubtleColor));
             }
 
-            if (ShouldShowKeyboardTooltips && Find.PlaySettings.useWorkPriorities)
+            if (ShouldShowKeyboardTooltips)
             {
-                tooltip.Append("\n").Append("WorkPriorityShiftClickTip".Translate().Resolve().Colorize(TooltipSubtleColor));
-            }
-            else if (ShouldShowKeyboardTooltips)
-            {
-                tooltip.Append("\n").Append("WorkPriorityShiftClickEnableDisableTip".Translate().Resolve().Colorize(TooltipSubtleColor));
+                if (BetterWorkTabMod.Settings?.enableColumnGrouping ?? true)
+                {
+                    tooltip.Append("\n").Append("Shift + click: Select column for group dragging.".Colorize(TooltipSubtleColor));
+                }
+                else if (Find.PlaySettings.useWorkPriorities)
+                {
+                    tooltip.Append("\n").Append("WorkPriorityShiftClickTip".Translate().Resolve().Colorize(TooltipSubtleColor));
+                }
+                else
+                {
+                    tooltip.Append("\n").Append("WorkPriorityShiftClickEnableDisableTip".Translate().Resolve().Colorize(TooltipSubtleColor));
+                }
             }
 
             if (SubWorkDrilldownInput.IsEnabled)
