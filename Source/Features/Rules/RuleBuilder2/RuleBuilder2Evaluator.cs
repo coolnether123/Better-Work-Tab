@@ -120,7 +120,11 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 case RuleBuilder2ConditionKind.CapacityMinimum:
                     return GetCapacityLevel(pawn, condition.DefName) >= condition.FloatValue;
                 case RuleBuilder2ConditionKind.Xenotype:
+#if !v1_3 && !v1_2 && !v1_1 && !v1_0 && !v0_19 && !v0_18 && !v0_17 && !v0_16 && !v0_15 && !v0_14 && !v0_13 && !vAlpha4
                     return pawn.genes?.Xenotype?.defName == condition.DefName;
+#else
+                    return false;
+#endif
                 case RuleBuilder2ConditionKind.Gender:
                     return string.Equals(pawn.gender.ToString(), condition.TextValue, System.StringComparison.OrdinalIgnoreCase);
                 case RuleBuilder2ConditionKind.ExistingPriorityAtLeast:

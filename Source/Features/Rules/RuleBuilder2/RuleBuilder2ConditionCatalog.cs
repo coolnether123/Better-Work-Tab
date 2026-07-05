@@ -84,7 +84,11 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 case RuleBuilder2ConditionKind.CapacityMinimum:
                     return Tr("BWT_RuleBuilder2_ConditionText_CapacityMinimum", ResolveLabel<PawnCapacityDef>(condition.DefName, Tr("BWT_RuleBuilder2_CapacityFallback")), condition.FloatValue.ToString("0.##"));
                 case RuleBuilder2ConditionKind.Xenotype:
+#if !v1_3 && !v1_2 && !v1_1 && !v1_0 && !v0_19 && !v0_18 && !v0_17 && !v0_16 && !v0_15 && !v0_14 && !v0_13 && !vAlpha4
                     return Tr("BWT_RuleBuilder2_ConditionText_Xenotype", ResolveLabel<XenotypeDef>(condition.DefName, Tr("BWT_RuleBuilder2_XenotypeFallback")));
+#else
+                    return Tr("BWT_RuleBuilder2_ConditionText_Xenotype", string.IsNullOrEmpty(condition.DefName) ? Tr("BWT_RuleBuilder2_XenotypeFallback") : condition.DefName);
+#endif
                 case RuleBuilder2ConditionKind.Gender:
                     return Tr("BWT_RuleBuilder2_ConditionText_Gender", condition.TextValue);
                 case RuleBuilder2ConditionKind.ExistingPriorityAtLeast:
@@ -200,6 +204,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                     DefaultFloat = 0.8f,
                     Advanced = true
                 },
+#if !v1_3 && !v1_2 && !v1_1 && !v1_0 && !v0_19 && !v0_18 && !v0_17 && !v0_16 && !v0_15 && !v0_14 && !v0_13 && !vAlpha4
                 new RuleBuilder2ConditionDefinition
                 {
                     Kind = RuleBuilder2ConditionKind.Xenotype,
@@ -207,6 +212,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                     LabelKey = "BWT_RuleBuilder2_Condition_Xenotype",
                     TooltipKey = "BWT_RuleBuilder2_Condition_Xenotype_Tooltip"
                 },
+#endif
                 new RuleBuilder2ConditionDefinition
                 {
                     Kind = RuleBuilder2ConditionKind.Gender,
