@@ -758,42 +758,12 @@ namespace Better_Work_Tab
 
         public void SaveOrReplaceRuleBuilder2Ruleset(RuleBuilder2Ruleset ruleset, bool makeCurrent = true, bool writeSettings = true)
         {
-            if (ruleset == null)
-            {
-                return;
-            }
-
-            EnsureRuleBuilder2Rulesets();
-            int index = SavedRuleBuilder2Rulesets.FindIndex(existing => existing?.StableId == ruleset.StableId);
-            if (index >= 0)
-            {
-                SavedRuleBuilder2Rulesets[index] = ruleset;
-            }
-            else
-            {
-                SavedRuleBuilder2Rulesets.Add(ruleset);
-            }
-
-            if (makeCurrent)
-            {
-                SetCurrentRuleBuilder2Ruleset(ruleset, writeSettings: false);
-            }
-
-            if (writeSettings)
-            {
-                Write();
-            }
+            RuleBuilder2RulesetStore.SaveOrReplace(this, ruleset, makeCurrent, writeSettings);
         }
 
         public void SetCurrentRuleBuilder2Ruleset(RuleBuilder2Ruleset ruleset, bool writeSettings = true)
         {
-            CurrentRuleBuilder2Ruleset = ruleset;
-            currentRuleBuilder2RulesetStableId = ruleset?.StableId ?? "";
-
-            if (writeSettings)
-            {
-                Write();
-            }
+            RuleBuilder2RulesetStore.SetCurrent(this, ruleset, writeSettings);
         }
 
         public void SetPriorityMode(PriorityMode mode)
@@ -1269,47 +1239,7 @@ namespace Better_Work_Tab
 
         public void EnsureRuleBuilder2Rulesets()
         {
-            if (SavedRuleBuilder2Rulesets == null)
-            {
-                SavedRuleBuilder2Rulesets = new List<RuleBuilder2Ruleset>();
-            }
-
-            for (int i = SavedRuleBuilder2Rulesets.Count - 1; i >= 0; i--)
-            {
-                if (SavedRuleBuilder2Rulesets[i] == null)
-                {
-                    SavedRuleBuilder2Rulesets.RemoveAt(i);
-                    continue;
-                }
-
-                SavedRuleBuilder2Rulesets[i].Cards ??= new List<RuleBuilder2Card>();
-                for (int j = 0; j < SavedRuleBuilder2Rulesets[i].Cards.Count; j++)
-                {
-                    SavedRuleBuilder2Rulesets[i].Cards[j]?.EnsureStableState(j);
-                }
-            }
-
-            RuleBuilder2Ruleset selected = null;
-            if (!string.IsNullOrEmpty(currentRuleBuilder2RulesetStableId))
-            {
-                selected = SavedRuleBuilder2Rulesets.FirstOrDefault(ruleset =>
-                    ruleset != null &&
-                    ruleset.StableId == currentRuleBuilder2RulesetStableId);
-            }
-
-            if (selected == null && CurrentRuleBuilder2Ruleset != null)
-            {
-                selected = SavedRuleBuilder2Rulesets.FirstOrDefault(ruleset =>
-                    ruleset == CurrentRuleBuilder2Ruleset ||
-                    ruleset?.StableId == CurrentRuleBuilder2Ruleset.StableId);
-            }
-
-            if (selected == null && SavedRuleBuilder2Rulesets.Count > 0)
-            {
-                selected = SavedRuleBuilder2Rulesets[0];
-            }
-
-            SetCurrentRuleBuilder2Ruleset(selected, writeSettings: false);
+            RuleBuilder2RulesetStore.Ensure(this);
         }
 
         /// <summary>

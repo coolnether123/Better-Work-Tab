@@ -14,7 +14,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
             var result = new RuleBuilder2Ruleset
             {
                 Name = classicRuleset?.Name == null ? "Migrated ruleset" : classicRuleset.Name + " (Rule Builder 2.0)",
-                Description = "Migrated from the classic Better Work Tab ruleset format. Review generated cards before applying.",
+                Description = "Migrated from the classic Better Work Tab ruleset format.",
                 Source = RuleBuilder2SourceType.Migrated,
                 Cards = new List<RuleBuilder2Card>()
             };
@@ -103,11 +103,12 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 Action = new RuleBuilder2Action
                 {
                     Kind = p.Priority <= 0 ? RuleBuilder2ActionKind.Disable : RuleBuilder2ActionKind.SetPriority,
-                    Priority = WorkPrioritySystem.ClampPriority(p.Priority)
+                    Priority = RuleBuilder2PriorityRange.Clamp(p.Priority)
                 }
             };
 
             AddClassicConditions(card, p);
+            card.EnsureStableState(sortOrder);
             card.Summary = RuleBuilder2SummaryService.BuildSummary(card);
             return card;
         }
@@ -175,9 +176,9 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                     Kind = RuleBuilder2ConditionKind.ExistingPriorityEquals,
                     IntValue = p.SkipIfPriorityForThisWorktypeAreadyAssigned,
                     Enabled = false,
-                    DisplayText = "Classic skip-if-priority condition migrated disabled for review."
+                    DisplayText = "Classic skip-if-priority condition migrated disabled."
                 });
-                card.Warnings.Add("Review migrated skip-if-priority behavior.");
+                card.Warnings.Add("Check migrated skip-if-priority behavior.");
             }
         }
 

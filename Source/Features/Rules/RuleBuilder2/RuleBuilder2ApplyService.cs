@@ -12,7 +12,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
     {
         private readonly RuleBuilder2Evaluator evaluator = new RuleBuilder2Evaluator();
 
-        public int Apply(RuleBuilder2Ruleset ruleset, out List<string> warnings)
+        public int Apply(RuleBuilder2Ruleset ruleset, out List<string> warnings, bool persistRuleset = true)
         {
             warnings = new List<string>();
             if (ruleset?.Cards == null)
@@ -56,8 +56,12 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 }
             }
 
-            BetterWorkTabMod.Settings.SaveOrReplaceRuleBuilder2Ruleset(ruleset, makeCurrent: true, writeSettings: false);
-            LoadedModManager.GetMod<BetterWorkTabMod>()?.WriteSettings();
+            if (persistRuleset)
+            {
+                RuleBuilder2RulesetStore.SaveOrReplace(BetterWorkTabMod.Settings, ruleset, makeCurrent: true, writeSettings: false);
+                LoadedModManager.GetMod<BetterWorkTabMod>()?.WriteSettings();
+            }
+
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
             return changed;
         }

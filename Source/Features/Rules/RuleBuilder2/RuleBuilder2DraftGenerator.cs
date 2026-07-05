@@ -17,7 +17,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
             var ruleset = new RuleBuilder2Ruleset
             {
                 Name = "Draft from current Work tab",
-                Description = "Generated draft. Review each card before applying.",
+                Description = "Generated from the current Work tab. Keep, edit, or skip suggestions before they become saved rules.",
                 Source = RuleBuilder2SourceType.GeneratedDraft,
                 Cards = new List<RuleBuilder2Card>()
             };
@@ -60,6 +60,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                                    workType.relevantSkills.Count > 0 &&
                                    minSkill >= 4f &&
                                    assigned.Count < pawns.Count;
+            bool hasXenotypePattern = TryBuildXenotypePatternCondition(assigned, pawns, out RuleBuilder2Condition xenotypeCondition);
 
             var card = new RuleBuilder2Card
             {
@@ -71,7 +72,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 IsCollapsed = false,
                 Notes = hasSkillPattern
                     ? "High confidence: assigned pawns share a skill floor."
-                    : "Needs review: priorities exist but no clear skill pattern was found.",
+                    : "Low confidence: priorities exist but no clear skill pattern was found.",
                 Target = new RuleBuilder2Target
                 {
                     WorkTypeDefName = workType.defName,
@@ -95,13 +96,20 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                     IntValue = Mathf.Clamp(Mathf.FloorToInt(minSkill), 0, 20)
                 });
             }
-            else
+
+            if (hasXenotypePattern)
+            {
+                card.Conditions.Conditions.Add(xenotypeCondition);
+                card.Notes += " Assigned pawns also share a xenotype pattern.";
+            }
+
+            if (!hasSkillPattern && !hasXenotypePattern)
             {
                 card.Conditions.Conditions.Add(new RuleBuilder2Condition
                 {
                     Kind = RuleBuilder2ConditionKind.CurrentAssignedWork,
                     BoolValue = true,
-                    DisplayText = "Review currently assigned pawns"
+                    DisplayText = "Currently assigned pawns"
                 });
             }
 
@@ -117,6 +125,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 }
             }
 
+            card.EnsureStableState(card.SortOrder);
             card.Summary = RuleBuilder2SummaryService.BuildSummary(card);
             ruleset.Cards.Add(card);
         }
@@ -138,6 +147,9 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 bool hasSchedule = TimePriorityService.HasCustomSchedule(globalTarget, globalPriority);
                 bool hasOverrides = pawns.Any(pawn =>
                     WorkGiverReassignmentManager.HasPawnWorkGiverOverride(pawn, workGiver));
+                var overridePawns = hasOverrides
+                    ? pawns.Where(pawn => WorkGiverReassignmentManager.HasPawnWorkGiverOverride(pawn, workGiver)).ToList()
+                    : new List<Pawn>();
 
                 if (!hasSchedule && !hasOverrides && globalPriority == fallback)
                 {
@@ -151,7 +163,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                     SortOrder = ruleset.Cards.Count,
                     Notes = hasSchedule
                         ? "Medium confidence: sub-work schedule data was detected."
-                        : "Needs review: sub-work priority differs from the inherited priority.",
+                        : "Low confidence: sub-work priority differs from the inherited priority.",
                     Target = new RuleBuilder2Target
                     {
                         WorkTypeDefName = workType.defName,
@@ -171,16 +183,73 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                     card.Action.HourlyPriorities = TimePriorityService.GetPrioritiesForDisplay(globalTarget, globalPriority).ToList();
                 }
 
-                card.Conditions.Conditions.Add(new RuleBuilder2Condition
+                if (TryBuildXenotypePatternCondition(overridePawns, pawns, out RuleBuilder2Condition xenotypeCondition))
                 {
-                    Kind = RuleBuilder2ConditionKind.CurrentAssignedWork,
-                    BoolValue = true,
-                    DisplayText = "Review pawns already assigned to this parent work type"
-                });
+                    card.Conditions.Conditions.Add(xenotypeCondition);
+                    card.Notes += " Pawn-specific overrides share a xenotype pattern.";
+                }
+                else
+                {
+                    card.Conditions.Conditions.Add(new RuleBuilder2Condition
+                    {
+                        Kind = RuleBuilder2ConditionKind.CurrentAssignedWork,
+                        BoolValue = true,
+                        DisplayText = "Pawns already assigned to this parent work type"
+                    });
+                }
 
+                card.EnsureStableState(card.SortOrder);
                 card.Summary = RuleBuilder2SummaryService.BuildSummary(card);
                 ruleset.Cards.Add(card);
             }
+        }
+
+        private static bool TryBuildXenotypePatternCondition(
+            List<Pawn> assignedPawns,
+            List<Pawn> allPawns,
+            out RuleBuilder2Condition condition)
+        {
+            condition = null;
+            if (assignedPawns == null || assignedPawns.Count == 0 || allPawns == null || assignedPawns.Count >= allPawns.Count)
+            {
+                return false;
+            }
+
+            var assignedXenotypes = assignedPawns
+                .Select(GetPawnXenotype)
+                .Where(xenotype => xenotype != null)
+                .ToList();
+
+            if (assignedXenotypes.Count != assignedPawns.Count)
+            {
+                return false;
+            }
+
+            var sharedGroups = assignedXenotypes
+                .GroupBy(xenotype => xenotype.defName)
+                .ToList();
+
+            if (sharedGroups.Count != 1)
+            {
+                return false;
+            }
+
+            var shared = sharedGroups[0];
+            string sharedDefName = shared.Key;
+            int matchingPawns = allPawns.Count(pawn => GetPawnXenotype(pawn)?.defName == sharedDefName);
+            if (matchingPawns != assignedPawns.Count)
+            {
+                return false;
+            }
+
+            XenotypeDef xenotype = shared.First();
+            condition = new RuleBuilder2Condition
+            {
+                Kind = RuleBuilder2ConditionKind.Xenotype,
+                DefName = sharedDefName,
+                DisplayText = "Has xenotype " + xenotype.LabelCap
+            };
+            return true;
         }
 
         private static float GetAverageSkill(Pawn pawn, WorkTypeDef workType)
@@ -191,6 +260,11 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
             }
 
             return pawn.skills.AverageOfRelevantSkillsFor(workType);
+        }
+
+        private static XenotypeDef GetPawnXenotype(Pawn pawn)
+        {
+            return pawn?.genes?.Xenotype;
         }
 
         private static string GetWorkTypeLabel(WorkTypeDef workType)

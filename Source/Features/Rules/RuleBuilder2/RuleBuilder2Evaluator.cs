@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
@@ -12,6 +13,13 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
 {
     internal sealed class RuleBuilder2Evaluator
     {
+        private static Func<List<Pawn>> currentPawnOrderProvider;
+
+        internal static void RegisterCurrentPawnOrderProvider(Func<List<Pawn>> provider)
+        {
+            currentPawnOrderProvider = provider;
+        }
+
         public List<RuleBuilder2PreviewResult> Preview(RuleBuilder2Ruleset ruleset, RuleBuilder2Card focusCard = null)
         {
             var pawns = GetCurrentPawns();
@@ -128,9 +136,49 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
 
         internal static List<Pawn> GetCurrentPawns()
         {
+            List<Pawn> fallback = GetFallbackCurrentPawns();
+            List<Pawn> provided = null;
+            try
+            {
+                provided = currentPawnOrderProvider?.Invoke();
+            }
+            catch (Exception ex)
+            {
+                Log.Warning("[BWT] Rule Builder 2.0 pawn order provider failed; using default pawn order.\n" + ex);
+            }
+
+            if (provided == null || provided.Count == 0)
+            {
+                return fallback;
+            }
+
+            var seen = new HashSet<Pawn>();
+            var ordered = new List<Pawn>(provided.Count + fallback.Count);
+            foreach (Pawn pawn in provided)
+            {
+                if (pawn != null && !pawn.Dead && seen.Add(pawn))
+                {
+                    ordered.Add(pawn);
+                }
+            }
+
+            foreach (Pawn pawn in fallback)
+            {
+                if (pawn != null && seen.Add(pawn))
+                {
+                    ordered.Add(pawn);
+                }
+            }
+
+            return ordered.Count > 0 ? ordered : fallback;
+        }
+
+        private static List<Pawn> GetFallbackCurrentPawns()
+        {
             return Find.CurrentMap?.mapPawns?.FreeColonists?
                 .Where(pawn => pawn != null && !pawn.Dead)
-                .OrderBy(pawn => pawn.LabelShortCap)
+                .OrderBy(pawn => pawn.playerSettings?.displayOrder ?? 0)
+                .ThenBy(pawn => pawn.LabelShortCap)
                 .ToList() ?? new List<Pawn>();
         }
 

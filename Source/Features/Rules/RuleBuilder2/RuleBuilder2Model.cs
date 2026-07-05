@@ -169,7 +169,17 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
             Target ??= new RuleBuilder2Target();
             Conditions ??= new RuleBuilder2ConditionGroup();
             Action ??= new RuleBuilder2Action();
+            NormalizeActionForTarget();
+            Conditions.NormalizePrioritiesForCurrentSettings();
             SortOrder = SortOrder < 0 ? fallbackSortOrder : SortOrder;
+        }
+
+        public void NormalizeActionForTarget()
+        {
+            Target ??= new RuleBuilder2Target();
+            Action ??= new RuleBuilder2Action();
+            Action.NormalizeKindForTarget(Target);
+            RuleBuilder2PriorityRange.NormalizeAction(Action);
         }
 
         public RuleBuilder2Card Copy()
@@ -263,6 +273,15 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                     ?? new List<RuleBuilder2Condition>()
             };
         }
+
+        public void NormalizePrioritiesForCurrentSettings()
+        {
+            Conditions ??= new List<RuleBuilder2Condition>();
+            foreach (RuleBuilder2Condition condition in Conditions)
+            {
+                RuleBuilder2PriorityRange.NormalizeCondition(condition);
+            }
+        }
     }
 
     public sealed class RuleBuilder2Condition : IExposable
@@ -292,6 +311,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
             if (Scribe.mode == LoadSaveMode.PostLoadInit || Scribe.mode == LoadSaveMode.LoadingVars)
             {
                 StableId = string.IsNullOrEmpty(StableId) ? Guid.NewGuid().ToString("N") : StableId;
+                RuleBuilder2PriorityRange.NormalizeCondition(this);
             }
         }
 
@@ -333,16 +353,14 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
 
             if (Scribe.mode == LoadSaveMode.PostLoadInit || Scribe.mode == LoadSaveMode.LoadingVars)
             {
-                Priority = WorkPrioritySystem.ClampPriority(Priority);
-                ElsePriority = WorkPrioritySystem.ClampPriority(ElsePriority);
-                EnsureSchedule(Priority);
+                RuleBuilder2PriorityRange.NormalizeAction(this);
             }
         }
 
         public void EnsureSchedule(int fallbackPriority)
         {
             HourlyPriorities ??= new List<int>();
-            fallbackPriority = WorkPrioritySystem.ClampPriority(fallbackPriority);
+            fallbackPriority = RuleBuilder2PriorityRange.Clamp(fallbackPriority);
 
             while (HourlyPriorities.Count < 24)
             {
@@ -356,7 +374,20 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
 
             for (int i = 0; i < HourlyPriorities.Count; i++)
             {
-                HourlyPriorities[i] = WorkPrioritySystem.ClampPriority(HourlyPriorities[i]);
+                HourlyPriorities[i] = RuleBuilder2PriorityRange.Clamp(HourlyPriorities[i]);
+            }
+        }
+
+        public void NormalizeKindForTarget(RuleBuilder2Target target)
+        {
+            bool isSubWorkTarget = target?.IsSubWorkTarget == true;
+            if (isSubWorkTarget && Kind == RuleBuilder2ActionKind.SetTimeSchedule)
+            {
+                Kind = RuleBuilder2ActionKind.SetSubWorkSchedule;
+            }
+            else if (!isSubWorkTarget && Kind == RuleBuilder2ActionKind.SetSubWorkSchedule)
+            {
+                Kind = RuleBuilder2ActionKind.SetTimeSchedule;
             }
         }
 
