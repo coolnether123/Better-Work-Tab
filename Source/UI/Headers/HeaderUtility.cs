@@ -224,9 +224,41 @@ namespace Better_Work_Tab.UI.Headers
             public static readonly Color SortIndicatorColor = new Color(0.6f, 0.6f, 0.6f, 0.8f);
 
             /// <summary>
-            /// Color of the stem line in vanilla staggering (#5b6064).
+            /// Default color of the stem line in vanilla staggering (#5b6064).
             /// </summary>
-            public static readonly Color VanillaStemColor = new Color(91f / 255f, 96f / 255f, 100f / 255f, 1f);
+            public static readonly Color DefaultVanillaStemColor = new Color(91f / 255f, 96f / 255f, 100f / 255f, 1f);
+
+            /// <summary>
+            /// User-configurable underline color for angled headers.
+            /// </summary>
+            public static Color HeaderUnderlineColor =>
+                BetterWorkTabMod.Settings?.headerUnderlineColor ?? DefaultSettings.Color_HeaderUnderline;
+
+            /// <summary>
+            /// User-configurable stem color for vanilla-style headers. The default preserves RimWorld's grey.
+            /// </summary>
+            public static Color VanillaStemColor
+            {
+                get
+                {
+                    var settings = BetterWorkTabMod.Settings;
+                    if (settings == null ||
+                        Approximately(settings.headerUnderlineColor, DefaultSettings.Color_HeaderUnderline))
+                    {
+                        return DefaultVanillaStemColor;
+                    }
+
+                    return settings.headerUnderlineColor;
+                }
+            }
+
+            private static bool Approximately(Color a, Color b)
+            {
+                return Mathf.Approximately(a.r, b.r) &&
+                       Mathf.Approximately(a.g, b.g) &&
+                       Mathf.Approximately(a.b, b.b) &&
+                       Mathf.Approximately(a.a, b.a);
+            }
         }
 
         /// <summary>

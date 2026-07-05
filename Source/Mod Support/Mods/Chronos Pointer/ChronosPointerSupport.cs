@@ -16,14 +16,20 @@ namespace Better_Work_Tab.ModSupport
     {
         private const int RequiredMajor = 1;
         private const int RequiredMinor = 0;
+        private const string ModernPackageId = "CoolNether123.ChronosPointer";
+        private const string LegacyPackageId = "CoolNether123.ChronosPointer.Legacy";
+        private const int FailedResolveRetryFrames = 60;
 
         private static bool _resolved;
+        private static int _nextResolveAttemptFrame;
         private static Type _apiType;
         private static MethodInfo _supports;
         private static MethodInfo _createGeometry;
         private static MethodInfo _drawTimeline;
         private static MethodInfo _drawEmbeddedTimeline;
+        private static MethodInfo _tryDrawEmbeddedTimeline;
         private static MethodInfo _tryGetTimelineSnapshot;
+        private static MethodInfo _getLatestTimelineSnapshot;
         private static MethodInfo _getCurrentHoursBarCursorColor;
         private static MethodInfo _geometryXAtLocalHour;
         private static PropertyInfo _isReady;
@@ -107,14 +113,10 @@ namespace Better_Work_Tab.ModSupport
                     return false;
                 }
 
-                object[] timelineArgs = { MapCompat.CurrentMap, null };
-                if (!(bool)_tryGetTimelineSnapshot.Invoke(null, timelineArgs) || timelineArgs[1] == null)
+                if (!TryDrawTimeline(geometry, drawIncidentOverlay, out object timeline) || timeline == null)
                 {
                     return false;
                 }
-
-                object timeline = timelineArgs[1];
-                DrawTimeline(timeline, geometry, drawIncidentOverlay);
 
                 PrepareScheduleCursor(chronosRect, priorityRowsRect, geometry, timeline, hourBoxWidth);
                 return true;
@@ -167,10 +169,21 @@ namespace Better_Work_Tab.ModSupport
                 return _apiType != null;
             }
 
-            _resolved = true;
+            if (!IsChronosPointerActive())
+            {
+                return false;
+            }
+
+            if (Time.frameCount < _nextResolveAttemptFrame)
+            {
+                return false;
+            }
+
+            ClearResolvedMembers();
             _apiType = AccessTools.TypeByName("ChronosPointer.Api.ChronosPointerApi");
             if (_apiType == null)
             {
+                MarkResolveFailed();
                 return false;
             }
 
@@ -199,7 +212,9 @@ namespace Better_Work_Tab.ModSupport
                     });
                 _drawTimeline = AccessTools.Method(_apiType, "DrawTimeline", new[] { timelineType, geometryType, typeof(bool), typeof(bool) });
                 _drawEmbeddedTimeline = AccessTools.Method(_apiType, "DrawEmbeddedTimeline", new[] { timelineType, geometryType, typeof(bool) });
+                _tryDrawEmbeddedTimeline = AccessTools.Method(_apiType, "TryDrawEmbeddedTimeline", new[] { typeof(Map), geometryType, typeof(bool) });
                 _tryGetTimelineSnapshot = AccessTools.Method(_apiType, "TryGetTimelineSnapshot");
+                _getLatestTimelineSnapshot = AccessTools.Method(_apiType, "GetLatestTimelineSnapshot");
                 _geometryXAtLocalHour = AccessTools.Method(geometryType, "XAtLocalHour", new[] { typeof(float) });
             }
 
@@ -223,8 +238,7 @@ namespace Better_Work_Tab.ModSupport
             }
             if (_supports == null ||
                 _createGeometry == null ||
-                _drawTimeline == null ||
-                _tryGetTimelineSnapshot == null ||
+                !HasTimelineDrawPath() ||
                 _geometryXAtLocalHour == null ||
                 _isReady == null ||
                 _timelineLocalHour == null ||
@@ -234,11 +248,56 @@ namespace Better_Work_Tab.ModSupport
                 _settingsColorMainCursor == null ||
                 _settingsHoursBarCursorThickness == null)
             {
-                _apiType = null;
+                MarkResolveFailed();
                 return false;
             }
 
+            _resolved = true;
+            _nextResolveAttemptFrame = 0;
             return true;
+        }
+
+        private static bool IsChronosPointerActive()
+        {
+            return ModListerCompat.GetActiveModWithIdentifier(ModernPackageId) != null ||
+                   ModListerCompat.GetActiveModWithIdentifier(LegacyPackageId) != null;
+        }
+
+        private static void MarkResolveFailed()
+        {
+            ClearResolvedMembers();
+            _nextResolveAttemptFrame = Time.frameCount + FailedResolveRetryFrames;
+        }
+
+        private static void ClearResolvedMembers()
+        {
+            _resolved = false;
+            _apiType = null;
+            _supports = null;
+            _createGeometry = null;
+            _drawTimeline = null;
+            _drawEmbeddedTimeline = null;
+            _tryDrawEmbeddedTimeline = null;
+            _tryGetTimelineSnapshot = null;
+            _getLatestTimelineSnapshot = null;
+            _getCurrentHoursBarCursorColor = null;
+            _geometryXAtLocalHour = null;
+            _isReady = null;
+            _timelineLocalHour = null;
+            _timelineSettings = null;
+            _settingsDrawHoursBarCursor = null;
+            _settingsDrawMainCursor = null;
+            _settingsColorMainCursor = null;
+            _settingsHoursBarCursorThickness = null;
+        }
+
+        private static bool HasTimelineDrawPath()
+        {
+            bool hasPublicEmbeddedDraw = _tryDrawEmbeddedTimeline != null &&
+                _getLatestTimelineSnapshot != null;
+            bool hasManualDraw = (_drawEmbeddedTimeline != null || _drawTimeline != null) &&
+                _tryGetTimelineSnapshot != null;
+            return hasPublicEmbeddedDraw || hasManualDraw;
         }
 
         private static bool SupportsContract()
@@ -253,7 +312,41 @@ namespace Better_Work_Tab.ModSupport
             }
         }
 
-        private static void DrawTimeline(object timeline, object geometry, bool drawIncidentOverlay)
+        private static bool TryDrawTimeline(object geometry, bool drawIncidentOverlay, out object timeline)
+        {
+            timeline = null;
+
+            if (_tryDrawEmbeddedTimeline != null && _getLatestTimelineSnapshot != null)
+            {
+                bool drawn = (bool)_tryDrawEmbeddedTimeline.Invoke(null, new object[]
+                {
+                    Find.CurrentMap,
+                    geometry,
+                    drawIncidentOverlay
+                });
+                if (!drawn)
+                {
+                    return false;
+                }
+
+                timeline = _getLatestTimelineSnapshot.Invoke(null, null);
+                return timeline != null;
+            }
+
+            object[] timelineArgs = { Find.CurrentMap, null };
+            if (_tryGetTimelineSnapshot == null ||
+                !(bool)_tryGetTimelineSnapshot.Invoke(null, timelineArgs) ||
+                timelineArgs[1] == null)
+            {
+                return false;
+            }
+
+            timeline = timelineArgs[1];
+            DrawTimelineManually(timeline, geometry, drawIncidentOverlay);
+            return true;
+        }
+
+        private static void DrawTimelineManually(object timeline, object geometry, bool drawIncidentOverlay)
         {
             if (_drawEmbeddedTimeline != null)
             {
