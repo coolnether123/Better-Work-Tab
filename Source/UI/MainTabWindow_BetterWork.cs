@@ -38,9 +38,11 @@ namespace Better_Work_Tab.UI
     /// <summary>
     /// Main work tab window that coordinates PawnOrganizer layout with vanilla rendering.
     /// </summary>
+    [StaticConstructorOnStartup]
     public class MainTabWindow_BetterWork : MainTabWindow_Work
     {
         private static PawnColumnDef _lastDraggedColumn;
+        private static Material _ruleBuilder2OutlineMaterial;
         
         /// <summary>
         /// Global notification that header settings (like rotation) have changed.
@@ -299,6 +301,7 @@ namespace Better_Work_Tab.UI
 
             ResizeWindowBottomAnchoredIfRequestedSizeChanged();
             TimePriorityPlannerPrototype.TryOpenAgentRequestedSession(organizer?.Layout);
+            RuleBuilder2AgentHarness.ProcessSelectionRequest(organizer?.Layout);
 
             Event evt = Event.current;
             if (evt.type != EventType.Repaint && evt.type != EventType.Layout)
@@ -904,6 +907,10 @@ namespace Better_Work_Tab.UI
                 WorkGiverDef workGiver = ResolveRuleBuilder2WorkGiver(column.Column);
                 bool timePriorityOwnsMouse = TimePriorityPlannerPrototype.OwnsCurrentMousePosition;
                 bool timePrioritySourceColumn = isWorkColumn && TimePriorityPlannerPrototype.ShouldHighlightSourceColumn(column);
+                bool shouldHighlightRuleBuilderTarget =
+                    isWorkColumn && RuleBuilderGateway.ShouldHighlightRuleBuilder2Target(workType, workGiver);
+                bool drawRuleBuilderHighlightAfterHeader =
+                    shouldHighlightRuleBuilderTarget && AreAngledHeadersEnabled();
 
                 if (BetterWorkTabMod.Settings.ShowCursorPawnAndWorktypeHighlight &&
                     isWorkColumn &&
@@ -914,7 +921,7 @@ namespace Better_Work_Tab.UI
                     Widgets.DrawBoxSolid(columnRect, useColor);
                 }
 
-                if (isWorkColumn && RuleBuilderGateway.ShouldHighlightRuleBuilder2Target(workType, workGiver))
+                if (shouldHighlightRuleBuilderTarget && !drawRuleBuilderHighlightAfterHeader)
                 {
                     DrawRuleBuilder2ColumnHighlight(layout, column, headerRect, totalHeight, table);
                 }
@@ -925,6 +932,11 @@ namespace Better_Work_Tab.UI
                 }
 
                 column.Column.Worker.DoHeader(headerRect, table);
+
+                if (drawRuleBuilderHighlightAfterHeader)
+                {
+                    DrawRuleBuilder2ColumnHighlight(layout, column, headerRect, totalHeight, table);
+                }
             }
         }
 
@@ -948,6 +960,11 @@ namespace Better_Work_Tab.UI
             }
 
             return null;
+        }
+
+        private static bool AreAngledHeadersEnabled()
+        {
+            return BetterWorkTabMod.Settings?.enableAngledHeaders ?? DefaultSettings.enableAngledHeaders;
         }
 
         private static Rect GetAnimatedHeaderRect(WorkTabLayoutColumn column)
@@ -1013,12 +1030,49 @@ namespace Better_Work_Tab.UI
                             Mathf.Min(bodyRect.yMin, headerTopRight.y + (headerRun.y * rightT)));
                     }
 
-                    Widgets.DrawLine(bodyBottomLeft, columnJoinLeft, outline, 2f);
-                    Widgets.DrawLine(columnJoinLeft, headerTopLeft, outline, 2f);
-                    Widgets.DrawLine(headerTopLeft, headerTopRight, outline, 2f);
-                    Widgets.DrawLine(headerTopRight, columnJoinRight, outline, 2f);
-                    Widgets.DrawLine(columnJoinRight, bodyBottomRight, outline, 2f);
-                    Widgets.DrawLine(bodyBottomRight, bodyBottomLeft, outline, 2f);
+                    const float rightConnectorDrop = 4f;
+                    Vector2 topEdge = headerTopRight - headerTopLeft;
+                    Vector2 connectorDirection = headerRun;
+                    if ((bodyRect.xMax - headerTopRight.x) * connectorDirection.x < 0f)
+                    {
+                        connectorDirection *= -1f;
+                    }
+
+                    float intersectionDenominator = (topEdge.x * connectorDirection.y) - (topEdge.y * connectorDirection.x);
+                    if (Mathf.Abs(intersectionDenominator) > 0.001f &&
+                        Mathf.Abs(connectorDirection.x) > 0.001f)
+                    {
+                        Vector2 shiftedConnectorOrigin = headerTopRight + new Vector2(0f, rightConnectorDrop);
+                        Vector2 originDelta = shiftedConnectorOrigin - headerTopLeft;
+                        float topEdgeT = ((originDelta.x * connectorDirection.y) - (originDelta.y * connectorDirection.x)) /
+                            intersectionDenominator;
+                        if (topEdgeT >= 1f && topEdgeT <= 1.5f)
+                        {
+                            headerTopRight = headerTopLeft + (topEdge * topEdgeT);
+                            float connectorT = (bodyRect.xMax - headerTopRight.x) / connectorDirection.x;
+                            if (connectorT > 0f)
+                            {
+                                Vector2 loweredColumnJoinRight = headerTopRight + (connectorDirection * connectorT);
+                                if (loweredColumnJoinRight.y > bodyRect.yMin && loweredColumnJoinRight.y < bodyRect.yMax)
+                                {
+                                    columnJoinRight = loweredColumnJoinRight;
+                                }
+                            }
+                        }
+                    }
+
+                    DrawRuleBuilder2ClosedOutline(
+                        new[]
+                        {
+                            bodyBottomLeft,
+                            columnJoinLeft,
+                            headerTopLeft,
+                            headerTopRight,
+                            columnJoinRight,
+                            bodyBottomRight
+                        },
+                        outline,
+                        2f);
                     return;
                 }
             }
@@ -1057,6 +1111,113 @@ namespace Better_Work_Tab.UI
             GUI.color = previousColor;
         }
 
+        private static Material RuleBuilder2OutlineMaterial
+        {
+            get
+            {
+                if (_ruleBuilder2OutlineMaterial == null)
+                {
+                    Shader shader = Shader.Find("Hidden/Internal-Colored") ?? ShaderDatabase.Transparent;
+                    _ruleBuilder2OutlineMaterial = new Material(shader)
+                    {
+                        hideFlags = HideFlags.HideAndDontSave
+                    };
+                    _ruleBuilder2OutlineMaterial.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+                    _ruleBuilder2OutlineMaterial.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                    _ruleBuilder2OutlineMaterial.SetInt("_Cull", (int)UnityEngine.Rendering.CullMode.Off);
+                    _ruleBuilder2OutlineMaterial.SetInt("_ZWrite", 0);
+                }
+
+                return _ruleBuilder2OutlineMaterial;
+            }
+        }
+
+        private static void DrawRuleBuilder2ClosedOutline(Vector2[] points, Color color, float width)
+        {
+            if (Event.current.type != EventType.Repaint || points == null || points.Length < 3 || width <= 0f)
+            {
+                return;
+            }
+
+            float halfWidth = width * 0.5f;
+            int count = points.Length;
+            var leftOffsets = new Vector2[count];
+            var rightOffsets = new Vector2[count];
+
+            for (int i = 0; i < count; i++)
+            {
+                Vector2 current = points[i];
+                Vector2 previous = points[(i - 1 + count) % count];
+                Vector2 next = points[(i + 1) % count];
+                Vector2 incoming = current - previous;
+                Vector2 outgoing = next - current;
+
+                if (incoming.sqrMagnitude <= 0.001f || outgoing.sqrMagnitude <= 0.001f)
+                {
+                    Vector2 fallback = outgoing.sqrMagnitude > 0.001f ? outgoing : incoming;
+                    Vector2 normal = fallback.sqrMagnitude > 0.001f
+                        ? new Vector2(-fallback.y, fallback.x).normalized
+                        : Vector2.up;
+                    leftOffsets[i] = current + (normal * halfWidth);
+                    rightOffsets[i] = current - (normal * halfWidth);
+                    continue;
+                }
+
+                incoming.Normalize();
+                outgoing.Normalize();
+                Vector2 incomingNormal = new Vector2(-incoming.y, incoming.x);
+                Vector2 outgoingNormal = new Vector2(-outgoing.y, outgoing.x);
+                Vector2 miter = incomingNormal + outgoingNormal;
+                if (miter.sqrMagnitude <= 0.001f)
+                {
+                    miter = outgoingNormal;
+                }
+                else
+                {
+                    miter.Normalize();
+                }
+
+                float denominator = Vector2.Dot(miter, outgoingNormal);
+                float miterLength = Mathf.Abs(denominator) > 0.15f
+                    ? halfWidth / denominator
+                    : halfWidth;
+                miterLength = Mathf.Clamp(miterLength, -halfWidth * 4f, halfWidth * 4f);
+                leftOffsets[i] = current + (miter * miterLength);
+                rightOffsets[i] = current - (miter * miterLength);
+            }
+
+            Material material = RuleBuilder2OutlineMaterial;
+            if (material == null || !material.SetPass(0))
+            {
+                return;
+            }
+
+            GL.PushMatrix();
+            try
+            {
+                GL.MultMatrix(GUI.matrix);
+                GL.Begin(GL.TRIANGLES);
+                GL.Color(color);
+                for (int i = 0; i < count; i++)
+                {
+                    int next = (i + 1) % count;
+                    GL.Vertex3(leftOffsets[i].x, leftOffsets[i].y, 0f);
+                    GL.Vertex3(leftOffsets[next].x, leftOffsets[next].y, 0f);
+                    GL.Vertex3(rightOffsets[next].x, rightOffsets[next].y, 0f);
+
+                    GL.Vertex3(leftOffsets[i].x, leftOffsets[i].y, 0f);
+                    GL.Vertex3(rightOffsets[next].x, rightOffsets[next].y, 0f);
+                    GL.Vertex3(rightOffsets[i].x, rightOffsets[i].y, 0f);
+                }
+
+                GL.End();
+            }
+            finally
+            {
+                GL.PopMatrix();
+            }
+        }
+
         private static bool TryGetRuleBuilder2HeaderHighlight(
             WorkTabLayoutColumn column,
             Rect headerRect,
@@ -1070,8 +1231,7 @@ namespace Better_Work_Tab.UI
                 return false;
             }
 
-            var settings = BetterWorkTabMod.Settings;
-            if (settings?.enableAngledHeaders ?? DefaultSettings.enableAngledHeaders)
+            if (AreAngledHeadersEnabled())
             {
                 float rotation = AngledLabelDrawer.CurrentRotation;
                 float cos = Mathf.Cos(rotation * Mathf.Deg2Rad);
@@ -1089,7 +1249,7 @@ namespace Better_Work_Tab.UI
                     headerHighlight = RuleBuilder2HeaderHighlight.Angled(
                         cached.Bounds,
                         cached.Quad,
-                        BuildRuleBuilder2VisibleAngledHeaderQuad(headerRect, cached, cos, sin));
+                        cached.Quad);
                     return true;
                 }
 
@@ -1105,43 +1265,6 @@ namespace Better_Work_Tab.UI
 
             headerHighlight = RuleBuilder2HeaderHighlight.Rectangular(vanillaBounds);
             return true;
-        }
-
-        private static Vector2[] BuildRuleBuilder2VisibleAngledHeaderQuad(
-            Rect headerRect,
-            AngledHeaderCache.CachedHeaderData cached,
-            float cos,
-            float sin)
-        {
-            AngledLabelDrawer.AngledLabelLayout layout = cached.Layout;
-            Rect drawRect = layout.HasCustomDrawRect
-                ? layout.CustomDrawRect
-                : new Rect(0f, 0f, headerRect.height, layout.Size.y)
-                {
-                    center = layout.Pivot
-                };
-            Rect visibleRect = layout.IsCJKVertical
-                ? drawRect
-                : new Rect(drawRect.xMin, drawRect.yMin, Mathf.Max(1f, layout.Size.x), drawRect.height);
-            float effectiveCos = layout.IsCJKVertical ? 1f : cos;
-            float effectiveSin = layout.IsCJKVertical ? 0f : sin;
-            Vector2 pivot = layout.Pivot;
-
-            Vector2 Rotate(Vector2 point)
-            {
-                Vector2 local = point - pivot;
-                return new Vector2(
-                    (local.x * effectiveCos) - (local.y * effectiveSin),
-                    (local.x * effectiveSin) + (local.y * effectiveCos)) + pivot;
-            }
-
-            return new[]
-            {
-                Rotate(new Vector2(visibleRect.xMin, visibleRect.yMin)),
-                Rotate(new Vector2(visibleRect.xMax, visibleRect.yMin)),
-                Rotate(new Vector2(visibleRect.xMax, visibleRect.yMax)),
-                Rotate(new Vector2(visibleRect.xMin, visibleRect.yMax))
-            };
         }
 
         private readonly struct RuleBuilder2HeaderHighlight
