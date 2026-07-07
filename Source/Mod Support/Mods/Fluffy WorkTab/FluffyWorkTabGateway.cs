@@ -19,16 +19,18 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
     /// </summary>
     internal static class FluffyWorkTabGateway
     {
-        private const float ChooserPanelWidth = 230f;
-        private const float ChooserPanelHeight = 190f;
-        private const float ChooserGap = 18f;
         private const float ChooserButtonHeight = 30f;
+        private const float ChooserButtonWidth = 156f;
         private static bool _chooserActive;
         private static WorkTypeDef _chooserWorkType;
         private static Rect _chooserSourceRect;
+        private static Rect _focusChoiceRegionRect;
+        private static Rect _expandChoiceRegionRect;
         private static Rect _focusChoiceButtonRect;
         private static Rect _expandChoiceButtonRect;
         internal static bool DebugForceSubWorkStyleChooserAvailable;
+        internal static BetterWorkTabSettings.SubWorkDrilldownStyle DebugForcedSubWorkStyleChooserHover =
+            BetterWorkTabSettings.SubWorkDrilldownStyle.NotChosen;
 
         internal static bool IsPresent => FluffyWorkTabCoexistence.IsFluffyWorkTabPresent;
 
@@ -45,6 +47,10 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
         internal static bool HasScheduleStrip => IsPresent;
 
         internal static bool HasIconSet => IsPresent;
+
+        internal static bool IsSubWorkStyleChooserActive => _chooserActive && _chooserWorkType != null;
+
+        internal static WorkTypeDef SubWorkStyleChooserWorkType => _chooserWorkType;
 
         internal static string ColumnVisibilitySettingLabel => "Show Fluffy Work Tab columns";
 
@@ -145,6 +151,24 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             return workType != null;
         }
 
+        internal static void DebugCancelSubWorkDrilldownStyleChooser()
+        {
+            ClearSubWorkDrilldownStyleChooser();
+        }
+
+        internal static void RegisterSubWorkStyleChooserRegions(Rect focusRegion, Rect expandRegion)
+        {
+            _focusChoiceRegionRect = focusRegion;
+            _expandChoiceRegionRect = expandRegion;
+
+            _focusChoiceButtonRect = BuildChoiceButtonRect(
+                focusRegion,
+                anchorRight: false);
+            _expandChoiceButtonRect = BuildChoiceButtonRect(
+                expandRegion,
+                anchorRight: true);
+        }
+
         internal static bool TryHandleSubWorkDrilldownStyleChooserInput(
             IWorkTabLayoutController layout,
             Event evt,
@@ -180,7 +204,8 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             }
             else
             {
-                return false;
+                evt.Use();
+                return true;
             }
 
             workType = _chooserWorkType;
@@ -201,32 +226,47 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
 
             CenterChooserSourceColumn(layout, instant: false);
 
-            Rect sourceRect = ResolveCurrentSourceRect(layout);
-            Rect focusRect = new Rect(
-                Mathf.Max(inRect.xMin + 8f, sourceRect.xMin - ChooserGap - ChooserPanelWidth),
-                Mathf.Max(inRect.yMin + 34f, sourceRect.yMin + 10f),
-                ChooserPanelWidth,
-                ChooserPanelHeight);
-            Rect expandRect = new Rect(
-                Mathf.Min(inRect.xMax - ChooserPanelWidth - 8f, sourceRect.xMax + ChooserGap),
-                focusRect.y,
-                ChooserPanelWidth,
-                ChooserPanelHeight);
+            DrawChoiceButton(
+                _focusChoiceButtonRect,
+                "Focused view - Better Work Tab",
+                DebugForcedSubWorkStyleChooserHover == BetterWorkTabSettings.SubWorkDrilldownStyle.FocusView);
+            DrawChoiceButton(
+                _expandChoiceButtonRect,
+                "Expand beside - like Work Tab (Fluffy's)",
+                DebugForcedSubWorkStyleChooserHover == BetterWorkTabSettings.SubWorkDrilldownStyle.ExpandBeside);
+            DrawSubWorkStyleChooserNote(inRect);
+        }
 
-            DrawChooserPanel(focusRect, "Focused view", "Better Work Tab", BetterWorkTabSettings.SubWorkDrilldownStyle.FocusView);
-            DrawChooserPanel(expandRect, "Expand beside", "Like Work Tab (Fluffy's)", BetterWorkTabSettings.SubWorkDrilldownStyle.ExpandBeside);
+        private static void DrawChoiceButton(Rect rect, string caption, bool forceHover)
+        {
+            if (rect.width <= 1f || rect.height <= 1f)
+            {
+                return;
+            }
 
-            _focusChoiceButtonRect = new Rect(focusRect.x + 12f, focusRect.yMax - ChooserButtonHeight - 12f, focusRect.width - 24f, ChooserButtonHeight);
-            _expandChoiceButtonRect = new Rect(expandRect.x + 12f, expandRect.yMax - ChooserButtonHeight - 12f, expandRect.width - 24f, ChooserButtonHeight);
+            Rect captionRect = new Rect(rect.x, rect.y - 19f, rect.width, 18f);
+            Text.Font = GameFont.Tiny;
+            Text.Anchor = TextAnchor.MiddleCenter;
+            GUI.color = new Color(1f, 1f, 1f, 0.78f);
+            Widgets.Label(captionRect, caption);
+            GUI.color = Color.white;
+            Text.Font = GameFont.Small;
+            if (forceHover)
+            {
+                Widgets.DrawHighlight(rect);
+            }
 
-            Widgets.ButtonText(_focusChoiceButtonRect, "Use this view");
-            Widgets.ButtonText(_expandChoiceButtonRect, "Use this view");
+            Widgets.ButtonText(rect, "Use this view");
+            Text.Anchor = TextAnchor.UpperLeft;
+        }
 
+        private static void DrawSubWorkStyleChooserNote(Rect inRect)
+        {
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.UpperCenter;
             GUI.color = new Color(1f, 1f, 1f, 0.7f);
             Widgets.Label(
-                new Rect(focusRect.xMin, Mathf.Max(focusRect.yMax, expandRect.yMax) + 4f, expandRect.xMax - focusRect.xMin, 24f),
+                new Rect(inRect.xMin + 80f, inRect.yMax - 44f, Mathf.Max(1f, inRect.width - 160f), 24f),
                 "You can change this any time in Better Work Tab's settings.");
             GUI.color = Color.white;
             Text.Anchor = TextAnchor.UpperLeft;
@@ -238,11 +278,14 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             _chooserActive = false;
             _chooserWorkType = null;
             _chooserSourceRect = Rect.zero;
+            _focusChoiceRegionRect = Rect.zero;
+            _expandChoiceRegionRect = Rect.zero;
             _focusChoiceButtonRect = Rect.zero;
             _expandChoiceButtonRect = Rect.zero;
+            DebugForcedSubWorkStyleChooserHover = BetterWorkTabSettings.SubWorkDrilldownStyle.NotChosen;
         }
 
-        private static Rect ResolveCurrentSourceRect(IWorkTabLayoutController layout)
+        internal static Rect ResolveSubWorkStyleChooserSourceRect(IWorkTabLayoutController layout)
         {
             if (layout?.Columns != null && _chooserWorkType != null)
             {
@@ -268,7 +311,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                 return;
             }
 
-            Rect sourceRect = ResolveCurrentSourceRect(layout);
+            Rect sourceRect = ResolveSubWorkStyleChooserSourceRect(layout);
             float localCenter = table.scrollPosition.x + (sourceRect.center.x - layout.TableOrigin.x);
             float targetX = Mathf.Max(0f, localCenter - (table.Size.x * 0.5f));
             Vector2 scroll = table.scrollPosition;
@@ -276,69 +319,20 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             table.scrollPosition = scroll;
         }
 
-        private static void DrawChooserPanel(
-            Rect rect,
-            string title,
-            string subtitle,
-            BetterWorkTabSettings.SubWorkDrilldownStyle style)
+        private static Rect BuildChoiceButtonRect(Rect region, bool anchorRight)
         {
-            Widgets.DrawBoxSolid(rect, new Color(0.07f, 0.08f, 0.09f, 0.92f));
-            Widgets.DrawBox(rect);
-
-            Text.Font = GameFont.Small;
-            Text.Anchor = TextAnchor.UpperCenter;
-            GUI.color = Color.white;
-            Widgets.Label(new Rect(rect.x + 8f, rect.y + 8f, rect.width - 16f, 24f), title);
-            Text.Font = GameFont.Tiny;
-            GUI.color = new Color(1f, 1f, 1f, 0.72f);
-            Widgets.Label(new Rect(rect.x + 8f, rect.y + 30f, rect.width - 16f, 22f), subtitle);
-
-            DrawChooserPreview(new Rect(rect.x + 12f, rect.y + 58f, rect.width - 24f, 76f), style);
-
-            GUI.color = Color.white;
-            Text.Anchor = TextAnchor.UpperLeft;
-            Text.Font = GameFont.Small;
-        }
-
-        private static void DrawChooserPreview(Rect rect, BetterWorkTabSettings.SubWorkDrilldownStyle style)
-        {
-            Widgets.DrawBoxSolid(rect, new Color(0.14f, 0.16f, 0.18f, 0.85f));
-            Widgets.DrawBox(rect);
-
-            IReadOnlyList<WorkGiver> givers = WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(_chooserWorkType);
-            int count = Mathf.Min(givers.Count, style == BetterWorkTabSettings.SubWorkDrilldownStyle.FocusView ? 4 : 3);
-            float columnWidth = Mathf.Max(28f, rect.width / Mathf.Max(1, count + (style == BetterWorkTabSettings.SubWorkDrilldownStyle.ExpandBeside ? 1 : 0)));
-            float x = rect.x + 4f;
-
-            if (style == BetterWorkTabSettings.SubWorkDrilldownStyle.ExpandBeside)
+            if (region.width <= 1f || region.height <= 1f)
             {
-                DrawPreviewColumn(new Rect(x, rect.y + 5f, columnWidth, rect.height - 10f), WorkTypeDisplayNameService.HeaderLabel(_chooserWorkType), false);
-                x += columnWidth;
+                return Rect.zero;
             }
 
-            for (int i = 0; i < count; i++)
-            {
-                WorkGiverDef def = givers[i]?.def;
-                DrawPreviewColumn(
-                    new Rect(x, rect.y + 5f, columnWidth, rect.height - 10f),
-                    WorkGiverDisplayNameService.HeaderLabel(def),
-                    true);
-                x += columnWidth;
-            }
-        }
-
-        private static void DrawPreviewColumn(Rect rect, string label, bool child)
-        {
-            Widgets.DrawBoxSolid(rect.ContractedBy(1f), child ? new Color(0.2f, 0.24f, 0.28f, 0.95f) : new Color(0.16f, 0.18f, 0.2f, 0.95f));
-            Text.Font = GameFont.Tiny;
-            Text.Anchor = TextAnchor.UpperCenter;
-            GUI.color = child ? new Color(0.86f, 0.92f, 1f, 0.95f) : new Color(1f, 1f, 1f, 0.9f);
-            Widgets.Label(new Rect(rect.x + 2f, rect.y + 2f, rect.width - 4f, 28f), label);
-            Rect boxRect = new Rect(rect.center.x - 10f, rect.yMax - 26f, 20f, 20f);
-            Widgets.DrawBoxSolid(boxRect, new Color(0.1f, 0.12f, 0.13f, 1f));
-            Widgets.DrawBox(boxRect);
-            GUI.color = Color.white;
-            Text.Anchor = TextAnchor.UpperLeft;
+            float width = Mathf.Min(ChooserButtonWidth, Mathf.Max(80f, region.width - 8f));
+            float x = anchorRight ? region.xMax - width : region.xMin;
+            return new Rect(
+                Mathf.Clamp(x, region.xMin, Mathf.Max(region.xMin, region.xMax - width)),
+                region.yMin + 6f,
+                width,
+                ChooserButtonHeight);
         }
     }
 }

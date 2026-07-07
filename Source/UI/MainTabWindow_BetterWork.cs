@@ -369,6 +369,7 @@ namespace Better_Work_Tab.UI
             DrawWorkTable(table, organizer?.Layout, inRect);
 
             TimePriorityPlannerPrototype.Draw(organizer?.Layout);
+            DrawSubWorkStyleChooserComparison(organizer?.Layout, inRect);
             FluffyWorkTabGateway.DrawSubWorkDrilldownStyleChooser(organizer?.Layout, inRect);
 
             if (SpineTiming.Enabled)
@@ -919,6 +920,448 @@ namespace Better_Work_Tab.UI
 
             WorkTabGeometryDiagnostics.DumpHeaderLayoutIfRequested(layout);
             RuleBuilderGateway.DrawRuleBuilder2SelectionPulse();
+        }
+
+        private void DrawSubWorkStyleChooserComparison(IWorkTabLayoutController layout, Rect inRect)
+        {
+            if (!FluffyWorkTabGateway.IsSubWorkStyleChooserActive ||
+                layout?.Table == null ||
+                layout.Columns == null)
+            {
+                return;
+            }
+
+            WorkTypeDef workType = FluffyWorkTabGateway.SubWorkStyleChooserWorkType;
+            WorkTabLayoutColumn? sourceColumn = FindChooserSourceColumn(layout, workType);
+            if (!sourceColumn.HasValue)
+            {
+                return;
+            }
+
+            IReadOnlyList<WorkGiver> workGivers = WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(workType);
+            if (workGivers == null || workGivers.Count == 0)
+            {
+                return;
+            }
+
+            CalculateScrollRects(layout, inRect, out Rect outRect, out _);
+            Rect sourceRect = FluffyWorkTabGateway.ResolveSubWorkStyleChooserSourceRect(layout);
+            if (!IsUsableRect(sourceRect))
+            {
+                sourceRect = sourceColumn.Value.HeaderRect;
+            }
+
+            ChooserComparisonGeometry geometry = BuildChooserComparisonGeometry(
+                inRect,
+                outRect,
+                sourceRect,
+                sourceColumn.Value.Width,
+                workGivers.Count);
+
+            FluffyWorkTabGateway.RegisterSubWorkStyleChooserRegions(
+                geometry.FocusRegion,
+                geometry.ExpandRegion);
+
+            if (Event.current.type != EventType.Repaint)
+            {
+                return;
+            }
+
+            Color oldColor = GUI.color;
+            TextAnchor oldAnchor = Text.Anchor;
+            GameFont oldFont = Text.Font;
+            bool oldWordWrap = Text.WordWrap;
+            try
+            {
+                Rect dimRect = new Rect(
+                    inRect.xMin,
+                    layout.TableOrigin.y,
+                    inRect.width,
+                    Mathf.Max(0f, outRect.yMax - layout.TableOrigin.y));
+                Widgets.DrawBoxSolid(dimRect, new Color(0.02f, 0.025f, 0.03f, 0.62f));
+
+                List<WorkTabLayoutColumn> focusColumns = BuildChooserPreviewColumns(
+                    sourceColumn.Value.Column,
+                    workType,
+                    workGivers,
+                    0f,
+                    geometry.FocusChildWidth,
+                    includeParent: false);
+                List<WorkTabLayoutColumn> expandColumns = BuildChooserPreviewColumns(
+                    sourceColumn.Value.Column,
+                    workType,
+                    workGivers,
+                    0f,
+                    geometry.ExpandChildWidth,
+                    includeParent: true,
+                    parentWidth: geometry.ParentWidth);
+
+                DrawChooserPreviewRegion(
+                    layout,
+                    geometry.FocusRegion,
+                    focusColumns,
+                    workType,
+                    workGivers,
+                    includeGlobalRow: true);
+                DrawChooserPreviewRegion(
+                    layout,
+                    geometry.ExpandRegion,
+                    expandColumns,
+                    workType,
+                    workGivers,
+                    includeGlobalRow: false);
+            }
+            finally
+            {
+                GUI.color = oldColor;
+                Text.Anchor = oldAnchor;
+                Text.Font = oldFont;
+                Text.WordWrap = oldWordWrap;
+            }
+        }
+
+        private static WorkTabLayoutColumn? FindChooserSourceColumn(IWorkTabLayoutController layout, WorkTypeDef workType)
+        {
+            if (layout?.Columns == null || workType == null)
+            {
+                return null;
+            }
+
+            for (int i = 0; i < layout.Columns.Count; i++)
+            {
+                WorkTabLayoutColumn column = layout.Columns[i];
+                if (!column.IsExpandBesideChild && column.Column?.workType == workType)
+                {
+                    return column;
+                }
+            }
+
+            return null;
+        }
+
+        private ChooserComparisonGeometry BuildChooserComparisonGeometry(
+            Rect inRect,
+            Rect outRect,
+            Rect sourceRect,
+            float sourceWidth,
+            int childCount)
+        {
+            const float edgePadding = 8f;
+            const float sideGap = 10f;
+            const float minChildWidth = 20f;
+            const float maxChildWidth = 52f;
+
+            childCount = Mathf.Max(1, childCount);
+            float parentWidth = Mathf.Clamp(Mathf.Max(sourceWidth, sourceRect.width), minChildWidth, maxChildWidth);
+            float preferredChildWidth = Mathf.Clamp(sourceRect.width, minChildWidth, maxChildWidth);
+            float regionTop = inRect.yMin + ExtraTopSpace;
+            float regionBottom = Mathf.Max(regionTop + layoutMinimumHeight, outRect.yMax);
+            float regionHeight = Mathf.Max(1f, regionBottom - regionTop);
+
+            float focusAvailable = Mathf.Max(minChildWidth, sourceRect.xMin - inRect.xMin - edgePadding - sideGap);
+            float focusChildWidth = Mathf.Clamp(Mathf.Min(preferredChildWidth, focusAvailable / childCount), minChildWidth, preferredChildWidth);
+            float focusWidth = focusChildWidth * childCount;
+            float focusX = Mathf.Max(inRect.xMin + edgePadding, sourceRect.xMin - sideGap - focusWidth);
+
+            float expandAvailable = Mathf.Max(parentWidth + minChildWidth, inRect.xMax - edgePadding - sourceRect.xMin);
+            float expandChildAvailable = Mathf.Max(minChildWidth, (expandAvailable - parentWidth) / childCount);
+            float expandChildWidth = Mathf.Clamp(Mathf.Min(preferredChildWidth, expandChildAvailable), minChildWidth, preferredChildWidth);
+            float expandWidth = parentWidth + (expandChildWidth * childCount);
+            if (sourceRect.xMin + expandWidth > inRect.xMax - edgePadding)
+            {
+                expandWidth = Mathf.Max(parentWidth, inRect.xMax - edgePadding - sourceRect.xMin);
+                expandChildWidth = childCount > 0
+                    ? Mathf.Max(minChildWidth, (expandWidth - parentWidth) / childCount)
+                    : minChildWidth;
+            }
+
+            Rect focusRegion = new Rect(focusX, regionTop, focusWidth, regionHeight);
+            Rect expandRegion = new Rect(sourceRect.xMin, regionTop, expandWidth, regionHeight);
+            return new ChooserComparisonGeometry(
+                focusRegion,
+                expandRegion,
+                parentWidth,
+                focusChildWidth,
+                expandChildWidth);
+        }
+
+        private const float layoutMinimumHeight = 160f;
+
+        private static List<WorkTabLayoutColumn> BuildChooserPreviewColumns(
+            PawnColumnDef sourceColumnDef,
+            WorkTypeDef workType,
+            IReadOnlyList<WorkGiver> workGivers,
+            float startX,
+            float childWidth,
+            bool includeParent,
+            float parentWidth = 0f)
+        {
+            var columns = new List<WorkTabLayoutColumn>();
+            float x = startX;
+            if (includeParent)
+            {
+                columns.Add(new WorkTabLayoutColumn(
+                    sourceColumnDef,
+                    new Rect(x, 0f, parentWidth, 1f),
+                    x,
+                    parentWidth));
+                x += parentWidth;
+            }
+
+            for (int i = 0; i < workGivers.Count; i++)
+            {
+                WorkGiverDef workGiverDef = workGivers[i]?.def;
+                if (workGiverDef == null)
+                {
+                    continue;
+                }
+
+                columns.Add(new WorkTabLayoutColumn(
+                    sourceColumnDef,
+                    new Rect(x, 0f, childWidth, 1f),
+                    x,
+                    childWidth,
+                    workType,
+                    workGiverDef,
+                    i,
+                    isExpandBesideChild: true));
+                x += childWidth;
+            }
+
+            return columns;
+        }
+
+        private void DrawChooserPreviewRegion(
+            IWorkTabLayoutController layout,
+            Rect region,
+            IReadOnlyList<WorkTabLayoutColumn> columns,
+            WorkTypeDef workType,
+            IReadOnlyList<WorkGiver> workGivers,
+            bool includeGlobalRow)
+        {
+            if (!IsUsableRect(region) || columns == null || columns.Count == 0)
+            {
+                return;
+            }
+
+            Widgets.DrawBoxSolid(region, new Color(0.03f, 0.04f, 0.045f, 0.22f));
+            Widgets.DrawBoxSolid(new Rect(region.xMin, region.yMin, region.width, 2f), new Color(1f, 0.82f, 0.22f, 0.65f));
+            Widgets.DrawBoxSolid(new Rect(region.xMin, region.yMax - 2f, region.width, 2f), new Color(1f, 0.82f, 0.22f, 0.38f));
+
+            GUI.BeginGroup(region);
+            try
+            {
+                DrawChooserPreviewHeaders(layout, columns);
+                float bodyTop = layout.HeaderHeight;
+                if (includeGlobalRow)
+                {
+                    DrawChooserPreviewGlobalRow(columns, workType, workGivers, bodyTop);
+                    bodyTop += SubWorkDrilldownState.GlobalRowHeight;
+                }
+
+                DrawChooserPreviewRows(layout, columns, bodyTop, region.height - bodyTop);
+            }
+            finally
+            {
+                GUI.EndGroup();
+            }
+        }
+
+        private static void DrawChooserPreviewHeaders(
+            IWorkTabLayoutController layout,
+            IReadOnlyList<WorkTabLayoutColumn> columns)
+        {
+            PawnTable table = layout?.Table;
+            if (table == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < columns.Count; i++)
+            {
+                WorkTabLayoutColumn column = columns[i];
+                Rect headerRect = new Rect(column.OffsetX, 0f, column.Width, layout.HeaderHeight);
+                WorkTabLayoutColumn drawingColumn = new WorkTabLayoutColumn(
+                    column.Column,
+                    headerRect,
+                    column.OffsetX,
+                    column.Width,
+                    column.SubWorkParent,
+                    column.SubWorkGiver,
+                    column.SubWorkSlot,
+                    column.IsExpandBesideChild);
+                try
+                {
+                    SubWorkDrilldownState.SetDrawingColumn(drawingColumn);
+                    column.Column.Worker.DoHeader(headerRect, table);
+                }
+                finally
+                {
+                    SubWorkDrilldownState.ClearDrawingColumn();
+                }
+            }
+        }
+
+        private static void DrawChooserPreviewGlobalRow(
+            IReadOnlyList<WorkTabLayoutColumn> columns,
+            WorkTypeDef workType,
+            IReadOnlyList<WorkGiver> workGivers,
+            float y)
+        {
+            Rect rowRect = new Rect(0f, y, TotalPreviewWidth(columns), SubWorkDrilldownState.GlobalRowHeight);
+            Widgets.DrawBoxSolid(rowRect, new Color(0.08f, 0.1f, 0.11f, 0.72f));
+            Widgets.DrawLineHorizontal(rowRect.xMin, rowRect.yMax - 1f, rowRect.width);
+
+            for (int i = 0; i < columns.Count; i++)
+            {
+                WorkTabLayoutColumn column = columns[i];
+                if (!column.IsExpandBesideChild)
+                {
+                    continue;
+                }
+
+                WorkGiver workGiver = FindPreviewWorkGiver(workGivers, column.SubWorkGiver);
+                if (workGiver == null)
+                {
+                    continue;
+                }
+
+                Rect cellRect = new Rect(column.OffsetX, y, column.Width, SubWorkDrilldownState.GlobalRowHeight);
+                float boxSize = Mathf.Min(SubWorkDrilldownState.GlobalPriorityBoxSize, Mathf.Max(0f, cellRect.height - 4f));
+                Rect boxRect = WorkPriorityCellGeometry.GetCenteredBoxRect(cellRect, boxSize);
+                WorkGiverPriorityBoxRenderer.DrawPriorityBox(workGiver, workType, null, boxRect, 1f);
+            }
+        }
+
+        private void DrawChooserPreviewRows(
+            IWorkTabLayoutController layout,
+            IReadOnlyList<WorkTabLayoutColumn> columns,
+            float bodyTop,
+            float bodyHeight)
+        {
+            if (bodyHeight <= 1f)
+            {
+                return;
+            }
+
+            PawnTable table = layout.Table;
+            List<RowDescriptor> rowDescriptors = layout.GetRowDescriptors();
+            if (table == null || rowDescriptors == null)
+            {
+                return;
+            }
+
+            GUI.BeginGroup(new Rect(0f, bodyTop, TotalPreviewWidth(columns), bodyHeight));
+            try
+            {
+                float currentY = -table.scrollPosition.y;
+                for (int i = 0; i < rowDescriptors.Count; i++)
+                {
+                    RowDescriptor descriptor = rowDescriptors[i];
+                    float rowHeight = descriptor.Height;
+                    if (currentY + rowHeight >= -1f && currentY <= bodyHeight + 1f)
+                    {
+                        if (descriptor.IsPawn)
+                        {
+                            DrawChooserPreviewPawnRow(table, descriptor.Pawn, columns, currentY, rowHeight);
+                        }
+                        else
+                        {
+                            Widgets.DrawBoxSolid(
+                                new Rect(0f, currentY, TotalPreviewWidth(columns), rowHeight),
+                                new Color(1f, 1f, 1f, 0.035f));
+                        }
+
+                        Widgets.DrawLineHorizontal(0f, currentY + rowHeight - 1f, TotalPreviewWidth(columns));
+                    }
+
+                    currentY += rowHeight;
+                }
+            }
+            finally
+            {
+                GUI.EndGroup();
+            }
+        }
+
+        private static void DrawChooserPreviewPawnRow(
+            PawnTable table,
+            Pawn pawn,
+            IReadOnlyList<WorkTabLayoutColumn> columns,
+            float y,
+            float height)
+        {
+            if (pawn == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < columns.Count; i++)
+            {
+                WorkTabLayoutColumn column = columns[i];
+                Rect cellRect = new Rect(column.OffsetX, y, column.Width, height);
+                try
+                {
+                    SubWorkDrilldownState.SetDrawingColumn(column);
+                    column.Column.Worker.DoCell(cellRect, pawn, table);
+                }
+                finally
+                {
+                    SubWorkDrilldownState.ClearDrawingColumn();
+                }
+            }
+        }
+
+        private static WorkGiver FindPreviewWorkGiver(IReadOnlyList<WorkGiver> workGivers, WorkGiverDef def)
+        {
+            if (workGivers == null || def == null)
+            {
+                return null;
+            }
+
+            for (int i = 0; i < workGivers.Count; i++)
+            {
+                if (workGivers[i]?.def == def)
+                {
+                    return workGivers[i];
+                }
+            }
+
+            return null;
+        }
+
+        private static float TotalPreviewWidth(IReadOnlyList<WorkTabLayoutColumn> columns)
+        {
+            if (columns == null || columns.Count == 0)
+            {
+                return 0f;
+            }
+
+            WorkTabLayoutColumn last = columns[columns.Count - 1];
+            return last.OffsetX + last.Width;
+        }
+
+        private readonly struct ChooserComparisonGeometry
+        {
+            internal ChooserComparisonGeometry(
+                Rect focusRegion,
+                Rect expandRegion,
+                float parentWidth,
+                float focusChildWidth,
+                float expandChildWidth)
+            {
+                FocusRegion = focusRegion;
+                ExpandRegion = expandRegion;
+                ParentWidth = parentWidth;
+                FocusChildWidth = focusChildWidth;
+                ExpandChildWidth = expandChildWidth;
+            }
+
+            internal Rect FocusRegion { get; }
+            internal Rect ExpandRegion { get; }
+            internal float ParentWidth { get; }
+            internal float FocusChildWidth { get; }
+            internal float ExpandChildWidth { get; }
         }
 
         private void UpdateSortState(PawnTable table)
