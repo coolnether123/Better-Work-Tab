@@ -33,6 +33,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             return SubWorkDrilldownInput.IsEnabled &&
                    (BetterWorkTabMod.Settings?.showSubWorkHeaderBadge ?? true) &&
                    !SubWorkDrilldownState.IsActive &&
+                   !SubWorkDrilldownState.IsDrawingExpandBesideChild &&
                    column?.workType != null &&
                    column.Worker is PawnColumnWorker_WorkPriority &&
                    GetDisplayWorkGiverCount(column.workType) > 1;
@@ -105,6 +106,11 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             for (int i = 0; i < layout.Columns.Count; i++)
             {
                 var column = layout.Columns[i];
+                if (column.IsExpandBesideChild)
+                {
+                    continue;
+                }
+
                 var def = column.Column;
                 if (!ShouldDrawOpenBadge(def))
                 {

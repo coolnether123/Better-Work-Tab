@@ -22,6 +22,11 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         private static readonly Dictionary<PawnColumnDef, int> VisibleColumnSlots = new Dictionary<PawnColumnDef, int>();
         private static readonly Dictionary<WorkTypeDef, int> VisibleWorkTypeSlots = new Dictionary<WorkTypeDef, int>();
         private static readonly HashSet<WorkGiverDef> MovedFromBaseline = new HashSet<WorkGiverDef>();
+        private static readonly Dictionary<string, ExpandBesideEntry> ExpandBesideEntries =
+            new Dictionary<string, ExpandBesideEntry>(StringComparer.Ordinal);
+        private static WorkTypeDef _drawingSubWorkParent;
+        private static WorkGiverDef _drawingSubWorkGiver;
+        private static int _drawingSubWorkSlot = -1;
         private static WorkTypeDef _activeWorkType;
         private static string _cachedWorkTypeDefName;
         private static int _cachedSyncVersion = -1;
@@ -46,6 +51,12 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         internal static bool IsExiting => _isExiting;
 
+        internal static bool IsExpandBesideActive => ExpandBesideEntries.Count > 0;
+
+        internal static bool HasAnyDrilldown => IsActive || IsExpandBesideActive;
+
+        internal static bool IsDrawingExpandBesideChild => _drawingSubWorkGiver != null && _drawingSubWorkParent != null;
+
         internal static WorkTypeDef ActiveWorkType => _activeWorkType;
 
         internal static float BaseHeaderDrawWidth => _baseHeaderDrawWidth;
@@ -65,6 +76,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                     hash = hash * 31 + _exitWorkColumnSlot;
                     hash = hash * 31 + Mathf.RoundToInt(_exitWaveSlotPosition * 100f);
                     hash = hash * 31 + (_isExiting ? 1 : 0);
+                    hash = hash * 31 + ComputeExpandBesideSignature();
                     return hash;
                 }
             }
@@ -83,6 +95,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                     hash = hash * 31 + _cachedSlotSignature;
                     hash = hash * 31 + _entryWorkColumnSlot;
                     hash = hash * 31 + _exitWorkColumnSlot;
+                    hash = hash * 31 + ComputeExpandBesideSignature(includeProgress: false);
                     return hash;
                 }
             }
@@ -140,6 +153,27 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             TransitionStyle == BetterWorkTabSettings.SubWorkTransitionStyle.PixelWaveFlip;
 
         internal static bool IsTransitioning => IsActive && UseTransitionAnimation && (_isExiting || TransitionAlpha < 0.999f);
+
+        internal static bool IsExpandBesideTransitioning
+        {
+            get
+            {
+                if (!UseTransitionAnimation)
+                {
+                    return false;
+                }
+
+                foreach (var entry in ExpandBesideEntries.Values)
+                {
+                    if (entry.IsTransitioning)
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+        }
 
         internal static int TransitionLayoutFrame
         {
@@ -615,6 +649,11 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             {
                 ExitImmediate();
             }
+
+            if (TickExpandBesideTransitions())
+            {
+                _layoutRefreshPending = true;
+            }
         }
 
         internal static void ExitImmediate()
@@ -637,11 +676,173 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             ActiveWorkGiversBuffer.Clear();
             ActiveWorkGiverSlots.Clear();
             MovedFromBaseline.Clear();
+            ClearDrawingColumn();
             _layoutRefreshPending = true;
             if (!previous.NullOrEmpty())
             {
                 LogSubWork($"Exited sub-work immediately. previous={previous}");
             }
+        }
+
+        internal static BetterWorkTabSettings.SubWorkDrilldownStyle EffectiveDrilldownStyle()
+        {
+            var style = BetterWorkTabMod.Settings?.subWorkDrilldownStyle ?? DefaultSettings.subWorkDrilldownStyle;
+            return style == BetterWorkTabSettings.SubWorkDrilldownStyle.NotChosen
+                ? BetterWorkTabSettings.SubWorkDrilldownStyle.FocusView
+                : style;
+        }
+
+        internal static bool IsExpandBesideExpanded(WorkTypeDef workType)
+        {
+            return workType?.defName != null &&
+                   ExpandBesideEntries.TryGetValue(workType.defName, out var entry) &&
+                   !entry.IsCollapsing;
+        }
+
+        internal static void ToggleExpandBeside(WorkTypeDef workType)
+        {
+            if (workType?.defName == null)
+            {
+                return;
+            }
+
+            if (IsActive)
+            {
+                ExitImmediate();
+            }
+
+            if (ExpandBesideEntries.TryGetValue(workType.defName, out var existing) && !existing.IsCollapsing)
+            {
+                existing.Collapse();
+                _layoutRefreshPending = true;
+                LogSubWork($"Expand-beside collapse requested. workType={workType.defName}");
+                return;
+            }
+
+            ExpandBesideEntries[workType.defName] = new ExpandBesideEntry(workType);
+            _layoutRefreshPending = true;
+            RefreshIfNeeded();
+            LogSubWork($"Expand-beside expand requested. workType={workType.defName}");
+        }
+
+        internal static void CollapseAllExpandBeside()
+        {
+            if (ExpandBesideEntries.Count == 0)
+            {
+                return;
+            }
+
+            if (!UseTransitionAnimation)
+            {
+                ExpandBesideEntries.Clear();
+                _layoutRefreshPending = true;
+                return;
+            }
+
+            foreach (var entry in ExpandBesideEntries.Values)
+            {
+                entry.Collapse();
+            }
+
+            _layoutRefreshPending = true;
+        }
+
+        internal static IReadOnlyList<WorkGiver> GetExpandBesideWorkGivers(WorkTypeDef workType)
+        {
+            if (workType?.defName == null ||
+                !ExpandBesideEntries.TryGetValue(workType.defName, out var entry))
+            {
+                return Array.Empty<WorkGiver>();
+            }
+
+            return entry.WorkGivers;
+        }
+
+        internal static float GetExpandBesideWidthProgress(WorkTypeDef workType)
+        {
+            if (workType?.defName == null ||
+                !ExpandBesideEntries.TryGetValue(workType.defName, out var entry))
+            {
+                return 0f;
+            }
+
+            return entry.VisualProgress;
+        }
+
+        internal static void SetDrawingColumn(Better_Work_Tab.PawnOrganizer.WorkTabLayoutColumn column)
+        {
+            if (column.IsExpandBesideChild && column.SubWorkParent != null && column.SubWorkGiver != null)
+            {
+                _drawingSubWorkParent = column.SubWorkParent;
+                _drawingSubWorkGiver = column.SubWorkGiver;
+                _drawingSubWorkSlot = column.SubWorkSlot;
+                return;
+            }
+
+            ClearDrawingColumn();
+        }
+
+        internal static void ClearDrawingColumn()
+        {
+            _drawingSubWorkParent = null;
+            _drawingSubWorkGiver = null;
+            _drawingSubWorkSlot = -1;
+        }
+
+        internal static bool TryGetWorkGiverForColumn(
+            Better_Work_Tab.PawnOrganizer.WorkTabLayoutColumn column,
+            out WorkGiver workGiver,
+            out WorkTypeDef parentWorkType,
+            out int slotIndex)
+        {
+            workGiver = null;
+            parentWorkType = null;
+            slotIndex = -1;
+
+            if (column.IsExpandBesideChild && column.SubWorkGiver != null && column.SubWorkParent != null)
+            {
+                parentWorkType = column.SubWorkParent;
+                slotIndex = column.SubWorkSlot;
+                workGiver = ResolveWorkGiver(column.SubWorkParent, column.SubWorkGiver);
+                return workGiver != null;
+            }
+
+            if (TryGetWorkGiverForColumn(column.Column, out workGiver, out slotIndex))
+            {
+                parentWorkType = _activeWorkType;
+                return true;
+            }
+
+            return false;
+        }
+
+        internal static bool TryGetCurrentDrawingWorkGiver(
+            PawnColumnDef column,
+            out WorkGiver workGiver,
+            out WorkTypeDef parentWorkType,
+            out int slotIndex)
+        {
+            workGiver = null;
+            parentWorkType = null;
+            slotIndex = -1;
+
+            if (_drawingSubWorkGiver != null &&
+                _drawingSubWorkParent != null &&
+                (column == null || column.workType == _drawingSubWorkParent))
+            {
+                workGiver = ResolveWorkGiver(_drawingSubWorkParent, _drawingSubWorkGiver);
+                parentWorkType = _drawingSubWorkParent;
+                slotIndex = _drawingSubWorkSlot;
+                return workGiver != null;
+            }
+
+            if (TryGetWorkGiverForColumn(column, out workGiver, out slotIndex))
+            {
+                parentWorkType = _activeWorkType;
+                return true;
+            }
+
+            return false;
         }
 
         internal static bool ConsumeLayoutRefresh()
@@ -681,6 +882,80 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         private static void LogSubWork(string message)
         {
             BetterWorkTabMod.DebugLog("[SubWorkDrilldown] " + message, DebugFeature.SubWork);
+        }
+
+        private static bool TickExpandBesideTransitions()
+        {
+            if (ExpandBesideEntries.Count == 0)
+            {
+                return false;
+            }
+
+            bool changed = false;
+            var remove = new List<string>();
+            foreach (var pair in ExpandBesideEntries)
+            {
+                var entry = pair.Value;
+                entry.RefreshWorkGiversIfNeeded();
+                if (entry.IsTransitioning)
+                {
+                    changed = true;
+                }
+
+                if (entry.ShouldRemove)
+                {
+                    remove.Add(pair.Key);
+                }
+            }
+
+            for (int i = 0; i < remove.Count; i++)
+            {
+                ExpandBesideEntries.Remove(remove[i]);
+                changed = true;
+            }
+
+            return changed;
+        }
+
+        private static int ComputeExpandBesideSignature(bool includeProgress = true)
+        {
+            unchecked
+            {
+                int hash = 17;
+                hash = hash * 31 + ExpandBesideEntries.Count;
+                foreach (var pair in ExpandBesideEntries)
+                {
+                    var entry = pair.Value;
+                    hash = hash * 31 + StringComparer.Ordinal.GetHashCode(pair.Key ?? string.Empty);
+                    hash = hash * 31 + (entry.IsCollapsing ? 1 : 0);
+                    hash = hash * 31 + WorkGiverReassignmentManager.CurrentSyncVersion;
+                    if (includeProgress)
+                    {
+                        hash = hash * 31 + Mathf.RoundToInt(entry.VisualProgress * 60f);
+                    }
+                }
+
+                return hash;
+            }
+        }
+
+        private static WorkGiver ResolveWorkGiver(WorkTypeDef parentWorkType, WorkGiverDef workGiverDef)
+        {
+            if (workGiverDef == null)
+            {
+                return null;
+            }
+
+            var givers = WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(parentWorkType);
+            for (int i = 0; i < givers.Count; i++)
+            {
+                if (givers[i]?.def == workGiverDef)
+                {
+                    return givers[i];
+                }
+            }
+
+            return null;
         }
 
         internal static bool TryGetWorkGiverForColumn(PawnColumnDef column, out WorkGiver workGiver, out int slotIndex)
@@ -931,6 +1206,75 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 {
                     ActiveWorkGiverSlots.Add(def, i);
                 }
+            }
+        }
+
+        private sealed class ExpandBesideEntry
+        {
+            private readonly List<WorkGiver> _workGivers = new List<WorkGiver>();
+            private int _syncVersion = -1;
+            private readonly float _openedAt;
+            private float _collapsedAt;
+
+            internal ExpandBesideEntry(WorkTypeDef workType)
+            {
+                WorkType = workType;
+                _openedAt = Time.realtimeSinceStartup;
+                RefreshWorkGiversIfNeeded();
+            }
+
+            internal WorkTypeDef WorkType { get; }
+
+            internal IReadOnlyList<WorkGiver> WorkGivers
+            {
+                get
+                {
+                    RefreshWorkGiversIfNeeded();
+                    return _workGivers;
+                }
+            }
+
+            internal bool IsCollapsing => _collapsedAt > 0f;
+
+            internal bool IsTransitioning => UseTransitionAnimation && (IsCollapsing || VisualProgress < 0.999f);
+
+            internal bool ShouldRemove => IsCollapsing && (!UseTransitionAnimation || Time.realtimeSinceStartup - _collapsedAt >= TransitionSeconds);
+
+            internal float VisualProgress
+            {
+                get
+                {
+                    if (!UseTransitionAnimation)
+                    {
+                        return IsCollapsing ? 0f : 1f;
+                    }
+
+                    float start = IsCollapsing ? _collapsedAt : _openedAt;
+                    float raw = Mathf.Clamp01((Time.realtimeSinceStartup - start) / TransitionSeconds);
+                    float eased = raw * raw * (3f - (2f * raw));
+                    return IsCollapsing ? 1f - eased : eased;
+                }
+            }
+
+            internal void Collapse()
+            {
+                if (_collapsedAt <= 0f)
+                {
+                    _collapsedAt = Time.realtimeSinceStartup;
+                }
+            }
+
+            internal void RefreshWorkGiversIfNeeded()
+            {
+                int syncVersion = WorkGiverReassignmentManager.CurrentSyncVersion;
+                if (_syncVersion == syncVersion)
+                {
+                    return;
+                }
+
+                _workGivers.Clear();
+                _workGivers.AddRange(WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(WorkType));
+                _syncVersion = syncVersion;
             }
         }
     }

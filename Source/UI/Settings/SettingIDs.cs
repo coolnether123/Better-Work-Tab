@@ -115,6 +115,7 @@ namespace Better_Work_Tab.UI.Settings
         public const string SubWorkEvenlyExpandColumns = "subWorkJobs.evenlyExpandColumns";
         public const string SubWorkOpenButton = "subWorkJobs.openButton";
         public const string SubWorkOpenModifier = "subWorkJobs.openModifier";
+        public const string SubWorkDrilldownStyle = "subWorkJobs.drilldownStyle";
         public const string SubWorkRestoreCursor = "subWorkJobs.restoreCursor";
         public const string SubWorkRestoreCursorFromPawnCells = "subWorkJobs.restoreCursorFromPawnCells";
         public const string SubWorkOverrideBreakAnimation = "subWorkJobs.overrideBreakAnimation";

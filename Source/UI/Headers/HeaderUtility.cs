@@ -55,6 +55,20 @@ namespace Better_Work_Tab.UI.Headers
             {
                 label = DefaultHeaderText;
             }
+            else if (SubWorkDrilldownState.TryGetCurrentDrawingWorkGiver(
+                         null,
+                         out var drawingWorkGiver,
+                         out _,
+                         out _) &&
+                     drawingWorkGiver?.def != null)
+            {
+                label = WorkGiverDisplayNameService.HeaderLabel(drawingWorkGiver.def, subWorkLabelStyle);
+                if (isMoved && BetterWorkTabMod.Settings != null && BetterWorkTabMod.Settings.showColumnMovedMarker && !label.EndsWith(MovedMarker))
+                {
+                    label += MovedMarker;
+                }
+                return label;
+            }
             else if (SubWorkDrilldownState.IsActive &&
                 TryGetSubWorkHeaderText(workType, isMoved, subWorkLabelStyle, out var subWorkText))
             {

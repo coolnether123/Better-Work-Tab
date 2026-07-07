@@ -154,6 +154,15 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
         private static string GetTooltip(PawnColumnWorker_WorkPriority worker, PawnTable table)
         {
+            if (SubWorkDrilldownState.TryGetCurrentDrawingWorkGiver(
+                    worker.def,
+                    out _,
+                    out _,
+                    out _))
+            {
+                return GetSubWorkTooltip(worker, table);
+            }
+
             if (SubWorkDrilldownState.IsActive)
             {
                 return GetSubWorkTooltip(worker, table);
@@ -195,13 +204,16 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
         private static string GetSubWorkTooltip(PawnColumnWorker_WorkPriority worker, PawnTable table)
         {
-            if (!SubWorkDrilldownState.TryGetWorkGiverForColumn(worker.def, out var workGiver, out _))
+            if (!SubWorkDrilldownState.TryGetCurrentDrawingWorkGiver(
+                    worker.def,
+                    out var workGiver,
+                    out var activeWorkType,
+                    out _))
             {
                 return string.Empty;
             }
 
             var def = workGiver.def;
-            var activeWorkType = SubWorkDrilldownState.ActiveWorkType;
             System.Text.StringBuilder tooltip = new System.Text.StringBuilder(160);
 
             tooltip.Append(WorkGiverDisplayNameService.FullLabel(def).Colorize(ColoredText.TipSectionTitleColor));
@@ -373,15 +385,29 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 return;
             }
 
+            if (SubWorkDrilldownState.TryGetCurrentDrawingWorkGiver(
+                    worker.def,
+                    out var drawingWorkGiver,
+                    out _,
+                    out _) &&
+                drawingWorkGiver?.def != null)
+            {
+                HeaderContextMenu.ShowForWorkGiver(worker, table, drawingWorkGiver.def);
+                return;
+            }
+
             HeaderContextMenu.ShowForWorkType(worker, table);
         }
 
         private static void HandleShiftClick(PawnColumnWorker_WorkPriority worker, PawnTable table, int button)
         {
-            if (SubWorkDrilldownState.IsActive &&
-                SubWorkDrilldownState.TryGetWorkGiverForColumn(worker.def, out var workGiver, out _))
+            if (SubWorkDrilldownState.TryGetCurrentDrawingWorkGiver(
+                    worker.def,
+                    out var workGiver,
+                    out var parentWorkType,
+                    out _))
             {
-                HandleSubWorkShiftClick(workGiver.def, table, button);
+                HandleSubWorkShiftClick(parentWorkType, workGiver.def, table, button);
                 return;
             }
 
@@ -432,9 +458,8 @@ namespace Better_Work_Tab.UI.Headers.Angled
             }
         }
 
-        private static void HandleSubWorkShiftClick(WorkGiverDef workGiverDef, PawnTable table, int button)
+        private static void HandleSubWorkShiftClick(WorkTypeDef workType, WorkGiverDef workGiverDef, PawnTable table, int button)
         {
-            var workType = SubWorkDrilldownState.ActiveWorkType;
             List<Pawn> pawns = table.PawnsListForReading;
             bool useWorkPriorities = Find.PlaySettings.useWorkPriorities;
             var pawnIds = new List<int>();

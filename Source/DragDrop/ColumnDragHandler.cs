@@ -48,11 +48,14 @@ namespace Better_Work_Tab.DragDrop
                 .Where(c => c.Column.Worker is PawnColumnWorker_WorkPriority)
                 .ToList();
 
-            if (SubWorkDrilldownState.IsActive &&
-                SubWorkDrilldownState.TryGetWorkGiverForColumn(_primaryColumn, out var workGiver, out var slotIndex))
+            if (SubWorkDrilldownState.TryGetWorkGiverForColumn(
+                    col,
+                    out var workGiver,
+                    out var parentWorkType,
+                    out var slotIndex))
             {
                 _subWorkDrilldownDrag = true;
-                _subWorkType = SubWorkDrilldownState.ActiveWorkType;
+                _subWorkType = parentWorkType;
                 _subWorkGiver = workGiver.def;
                 _subWorkOriginalIndex = slotIndex;
                 _draggedColumns.Add(_primaryColumn);
@@ -76,7 +79,9 @@ namespace Better_Work_Tab.DragDrop
 
             // TargetIndex is relative to _workColumns (excluding columns being dragged if we use the same logic as rows, 
             // but column dragging currently uses a simple insertion line based on visual overlaps).
-            TargetIndex = _workColumns.FindIndex(c => c.Column == _primaryColumn);
+            TargetIndex = _subWorkDrilldownDrag
+                ? _subWorkOriginalIndex
+                : _workColumns.FindIndex(c => c.Column == _primaryColumn);
             
             // Set local flag to prevent priority edits during drag
             BetterWorkTabLocalState.IsHeaderDragging = true;
@@ -526,7 +531,7 @@ namespace Better_Work_Tab.DragDrop
             }
 
             return _workColumns
-                .Where(c => SubWorkDrilldownState.TryGetWorkGiverForColumn(c.Column, out _, out _))
+                .Where(c => SubWorkDrilldownState.TryGetWorkGiverForColumn(c, out _, out _, out _))
                 .ToList();
         }
 
@@ -539,8 +544,24 @@ namespace Better_Work_Tab.DragDrop
             }
 
             return columns
-                .Where(c => c.Column != _primaryColumn)
+                .Where(c => !IsDraggedSubWorkColumn(c))
                 .ToList();
+        }
+
+        private bool IsDraggedSubWorkColumn(WorkTabLayoutColumn column)
+        {
+            if (!_subWorkDrilldownDrag || _subWorkGiver == null)
+            {
+                return column.Column == _primaryColumn;
+            }
+
+            return SubWorkDrilldownState.TryGetWorkGiverForColumn(
+                       column,
+                       out var workGiver,
+                       out var parentWorkType,
+                       out _) &&
+                   workGiver?.def == _subWorkGiver &&
+                   parentWorkType == _subWorkType;
         }
 
         private static float GetInsertionLineX(List<WorkTabLayoutColumn> targetColumns, int targetIndex, float fallbackX)

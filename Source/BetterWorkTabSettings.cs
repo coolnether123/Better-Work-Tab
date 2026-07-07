@@ -70,6 +70,7 @@ namespace Better_Work_Tab
         public static bool enableCustomWorkLabels = true;
         public static BetterWorkTabSettings.SubWorkDrilldownModifier subWorkDrilldownModifier = BetterWorkTabSettings.SubWorkDrilldownModifier.Ctrl;
         public static BetterWorkTabSettings.SubWorkDrilldownButton subWorkDrilldownButton = BetterWorkTabSettings.SubWorkDrilldownButton.Left;
+        public static BetterWorkTabSettings.SubWorkDrilldownStyle subWorkDrilldownStyle = BetterWorkTabSettings.SubWorkDrilldownStyle.NotChosen;
         public static bool useVanillaSubWorkGlobalPriorityBoxes = false;
         public static bool restoreCursorOnSubWorkExit = true;
         public static bool restoreCursorOnSubWorkPawnCellExit = false;
@@ -344,6 +345,7 @@ namespace Better_Work_Tab
         public bool enableCustomWorkLabels = DefaultSettings.enableCustomWorkLabels;
         public SubWorkDrilldownModifier subWorkDrilldownModifier = DefaultSettings.subWorkDrilldownModifier;
         public SubWorkDrilldownButton subWorkDrilldownButton = DefaultSettings.subWorkDrilldownButton;
+        public SubWorkDrilldownStyle subWorkDrilldownStyle = DefaultSettings.subWorkDrilldownStyle;
         public bool useVanillaSubWorkGlobalPriorityBoxes = DefaultSettings.useVanillaSubWorkGlobalPriorityBoxes;
         public bool restoreCursorOnSubWorkExit = DefaultSettings.restoreCursorOnSubWorkExit;
         public bool restoreCursorOnSubWorkPawnCellExit = DefaultSettings.restoreCursorOnSubWorkPawnCellExit;
@@ -578,6 +580,12 @@ namespace Better_Work_Tab
         public enum ShowUIMode { Always, Never, Shifted, Unshifted }
         public enum SubWorkDrilldownModifier { Ctrl, Shift }
         public enum SubWorkDrilldownButton { Left, Right }
+        public enum SubWorkDrilldownStyle
+        {
+            NotChosen,
+            FocusView,
+            ExpandBeside
+        }
         public enum SubWorkDisabledParentMode
         {
             ParentWorkDisablesSubWork,
@@ -903,6 +911,7 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref enableCustomWorkLabels, "enableCustomWorkLabels", DefaultSettings.enableCustomWorkLabels);
             Scribe_Values.Look(ref subWorkDrilldownModifier, "subWorkDrilldownModifier", DefaultSettings.subWorkDrilldownModifier);
             Scribe_Values.Look(ref subWorkDrilldownButton, "subWorkDrilldownButton", DefaultSettings.subWorkDrilldownButton);
+            Scribe_Values.Look(ref subWorkDrilldownStyle, "subWorkDrilldownStyle", DefaultSettings.subWorkDrilldownStyle);
             Scribe_Values.Look(ref useVanillaSubWorkGlobalPriorityBoxes, "useVanillaSubWorkGlobalPriorityBoxes", DefaultSettings.useVanillaSubWorkGlobalPriorityBoxes);
             Scribe_Values.Look(ref restoreCursorOnSubWorkExit, "restoreCursorOnSubWorkExit", DefaultSettings.restoreCursorOnSubWorkExit);
             Scribe_Values.Look(ref restoreCursorOnSubWorkPawnCellExit, "restoreCursorOnSubWorkPawnCellExit", DefaultSettings.restoreCursorOnSubWorkPawnCellExit);
@@ -1149,6 +1158,7 @@ namespace Better_Work_Tab
             workTabTopSpace = DefaultSettings.workTabTopSpace;
             settingsViewMode = SettingsViewMode.Simple;
             enableSubWorkTransitionAnimation = DefaultSettings.enableSubWorkTransitionAnimation;
+            subWorkDrilldownStyle = DefaultSettings.subWorkDrilldownStyle;
             subWorkTransitionStyle = DefaultSettings.subWorkTransitionStyle;
             subWorkTransitionSeconds = DefaultSettings.subWorkTransitionSeconds;
             preferredWorkTabOwner = DefaultSettings.preferredWorkTabOwner;

@@ -48,6 +48,11 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 SubWorkDrilldownHeaderGeometry.RecordNormalHeaderHeight(table, rect.height);
             }
 
+            if (SubWorkDrilldownState.IsDrawingExpandBesideChild)
+            {
+                return DoExpandBesideChildHeader(worker, rect, table, evt);
+            }
+
             bool shouldDraw = evt.type == EventType.Repaint;
 
             float rot = AngledLabelDrawer.CurrentRotation;
@@ -93,6 +98,50 @@ namespace Better_Work_Tab.UI.Headers.Angled
             AngledHeaderInteraction.HandleInteractions(ctx);
 
             return false; // Skip vanilla
+        }
+
+        private static bool DoExpandBesideChildHeader(
+            PawnColumnWorker_WorkPriority worker,
+            Rect rect,
+            PawnTable table,
+            Event evt)
+        {
+            bool shouldDraw = evt.type == EventType.Repaint;
+            string label = HeaderUtility.GetHeaderText(worker.def.workType);
+            Vector2 size = Text.CalcSize(label);
+            Rect drawRect = new Rect(rect.x, rect.y, Mathf.Max(rect.width, rect.height), size.y)
+            {
+                center = rect.center
+            };
+
+            var layout = new AngledLabelDrawer.AngledLabelLayout(
+                label,
+                size,
+                rect.center,
+                showMarker: false,
+                isCJKVertical: false,
+                customDrawRect: drawRect);
+            bool isMouseOver = !TimePriorityPlannerPrototype.OwnsCurrentMousePosition && rect.Contains(HeaderInputController.MousePosition);
+            if (isMouseOver)
+            {
+                HeaderInputController.SetHoveredWorkType(worker.def.workType, rect);
+            }
+
+            var ctx = new HeaderInteractionContext
+            {
+                Worker = worker,
+                Table = table,
+                Layout = layout,
+                Bounds = rect,
+                Quad = null,
+                IsMouseOver = isMouseOver,
+                ShouldDraw = shouldDraw,
+                HeaderRect = rect,
+                Renderer = HeaderDrawingCoordinator.GetActiveRenderer()
+            };
+
+            AngledHeaderInteraction.HandleInteractions(ctx);
+            return false;
         }
 
         private static bool DetermineMouseOver(Rect rect, AngledHeaderCache.CachedHeaderData cached)

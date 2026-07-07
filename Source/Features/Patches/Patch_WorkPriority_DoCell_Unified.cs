@@ -165,6 +165,22 @@ namespace Better_Work_Tab.Patches
             if (workType == null)
                 return true;
 
+            if (SubWorkDrilldownState.TryGetCurrentDrawingWorkGiver(
+                    __instance.def,
+                    out var drawingWorkGiver,
+                    out var drawingParentWorkType,
+                    out _) &&
+                !SubWorkDrilldownState.IsActive)
+            {
+                if (pawn == null || pawn.Dead || pawn.workSettings == null || !pawn.workSettings.EverWork)
+                {
+                    return false;
+                }
+
+                DrawSubWorkPriorityCell(rect, pawn, drawingParentWorkType, drawingWorkGiver);
+                return false;
+            }
+
             if (SubWorkDrilldownState.IsActive)
             {
                 if (pawn == null || pawn.Dead || pawn.workSettings == null || !pawn.workSettings.EverWork)
@@ -179,7 +195,7 @@ namespace Better_Work_Tab.Patches
                 }
 
                 DrawParentPriorityCellVisual(rect, pawn, workType, SubWorkDrilldownState.ParentWorkContentAlpha);
-                DrawSubWorkPriorityCell(rect, pawn, workGiver);
+                DrawSubWorkPriorityCell(rect, pawn, SubWorkDrilldownState.ActiveWorkType, workGiver);
                 return false;
             }
 
@@ -407,7 +423,7 @@ namespace Better_Work_Tab.Patches
 
         // Caching helpers
 
-        private static void DrawSubWorkPriorityCell(Rect rect, Pawn pawn, WorkGiver workGiver)
+        private static void DrawSubWorkPriorityCell(Rect rect, Pawn pawn, WorkTypeDef parentWorkType, WorkGiver workGiver)
         {
             const float boxSize = 25f;
             float x = rect.x + (rect.width - boxSize) / 2f;
@@ -415,10 +431,13 @@ namespace Better_Work_Tab.Patches
             Rect boxRect = new Rect(x, y, boxSize, boxSize);
             float visualAlpha = 1f;
             float visualScale = 1f;
-            SubWorkDrilldownState.TryGetSubWorkContentTransitionVisuals(workGiver, out visualAlpha, out visualScale);
+            if (SubWorkDrilldownState.IsActive)
+            {
+                SubWorkDrilldownState.TryGetSubWorkContentTransitionVisuals(workGiver, out visualAlpha, out visualScale);
+            }
             Better_Work_Tab.UI.WorkGiverReassignments.WorkGiverPriorityBoxRenderer.DrawPriorityBox(
                 workGiver,
-                SubWorkDrilldownState.ActiveWorkType,
+                parentWorkType,
                 pawn,
                 boxRect,
                 visualAlpha,

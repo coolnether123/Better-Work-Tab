@@ -320,6 +320,7 @@ namespace Better_Work_Tab.UI
                         bool handledSubWorkGesture = handledTutorial
                             || TryHandleContextSettingsClick(inRect, organizer?.Layout, evt)
                             || TryHandleRuleBuilder2WorkTabInput(organizer?.Layout, evt)
+                            || TryHandleSubWorkStyleChooser(organizer?.Layout, evt)
                             || TimePriorityPlannerPrototype.TryHandleInput(organizer?.Layout, evt)
                             || TryHandleSubWorkBadgeClick(organizer?.Layout)
                             || TryHandleSubWorkExitGesture(organizer?.Layout)
@@ -345,6 +346,7 @@ namespace Better_Work_Tab.UI
                     bool handledSubWorkGesture = handledTutorial
                         || TryHandleContextSettingsClick(inRect, organizer?.Layout, evt)
                         || TryHandleRuleBuilder2WorkTabInput(organizer?.Layout, evt)
+                        || TryHandleSubWorkStyleChooser(organizer?.Layout, evt)
                         || TimePriorityPlannerPrototype.TryHandleInput(organizer?.Layout, evt)
                         || TryHandleSubWorkBadgeClick(organizer?.Layout)
                         || TryHandleSubWorkExitGesture(organizer?.Layout)
@@ -367,6 +369,7 @@ namespace Better_Work_Tab.UI
             DrawWorkTable(table, organizer?.Layout, inRect);
 
             TimePriorityPlannerPrototype.Draw(organizer?.Layout);
+            FluffyWorkTabGateway.DrawSubWorkDrilldownStyleChooser(organizer?.Layout, inRect);
 
             if (SpineTiming.Enabled)
             {
@@ -752,8 +755,8 @@ namespace Better_Work_Tab.UI
                     continue;
                 }
 
-                WorkTypeDef columnWorkType = ResolveRuleBuilder2WorkType(column.Column);
-                WorkGiverDef columnWorkGiver = ResolveRuleBuilder2WorkGiver(column.Column);
+                WorkTypeDef columnWorkType = ResolveRuleBuilder2WorkType(column);
+                WorkGiverDef columnWorkGiver = ResolveRuleBuilder2WorkGiver(column);
                 if (columnWorkType != workType ||
                     (columnWorkGiver?.defName ?? "") != (workGiver?.defName ?? ""))
                 {
@@ -769,6 +772,43 @@ namespace Better_Work_Tab.UI
             }
 
             return false;
+        }
+
+        private bool TryHandleSubWorkStyleChooser(IWorkTabLayoutController layout, Event evt)
+        {
+            if (!FluffyWorkTabGateway.TryHandleSubWorkDrilldownStyleChooserInput(
+                    layout,
+                    evt,
+                    out var workType,
+                    out var style))
+            {
+                return false;
+            }
+
+            if (workType == null || style == BetterWorkTabSettings.SubWorkDrilldownStyle.NotChosen)
+            {
+                return true;
+            }
+
+            TimePriorityPlannerPrototype.CloseForWorkModeTransition();
+            if (style == BetterWorkTabSettings.SubWorkDrilldownStyle.ExpandBeside)
+            {
+                if (layout != null)
+                {
+                    ColumnReorderAnimationState.Start(layout.Columns);
+                }
+                SubWorkDrilldownState.ToggleExpandBeside(workType);
+            }
+            else
+            {
+                SubWorkDrilldownState.Enter(
+                    workType,
+                    null,
+                    SubWorkDrilldownHeaderGeometry.GetBaseHeaderDrawWidth(layout?.Table, layout?.HeaderHeight ?? -1f));
+            }
+
+            HeaderDrawingCoordinator.InvalidateSolution();
+            return true;
         }
 
 
@@ -909,8 +949,8 @@ namespace Better_Work_Tab.UI
             {
                 bool isWorkColumn = column.Column?.Worker is PawnColumnWorker_WorkPriority;
                 Rect headerRect = GetAnimatedHeaderRect(column);
-                WorkTypeDef workType = ResolveRuleBuilder2WorkType(column.Column);
-                WorkGiverDef workGiver = ResolveRuleBuilder2WorkGiver(column.Column);
+                WorkTypeDef workType = ResolveRuleBuilder2WorkType(column);
+                WorkGiverDef workGiver = ResolveRuleBuilder2WorkGiver(column);
                 bool timePriorityOwnsMouse = TimePriorityPlannerPrototype.OwnsCurrentMousePosition;
                 bool timePrioritySourceColumn = isWorkColumn && TimePriorityPlannerPrototype.ShouldHighlightSourceColumn(column);
                 bool shouldHighlightRuleBuilderTarget =
@@ -937,7 +977,15 @@ namespace Better_Work_Tab.UI
                     DrawSubWorkBlankTransitionFlash(layout, column, headerRect, totalHeight);
                 }
 
-                column.Column.Worker.DoHeader(headerRect, table);
+                try
+                {
+                    SubWorkDrilldownState.SetDrawingColumn(column);
+                    column.Column.Worker.DoHeader(headerRect, table);
+                }
+                finally
+                {
+                    SubWorkDrilldownState.ClearDrawingColumn();
+                }
 
                 if (drawRuleBuilderHighlightAfterHeader)
                 {
@@ -946,21 +994,23 @@ namespace Better_Work_Tab.UI
             }
         }
 
-        private static WorkTypeDef ResolveRuleBuilder2WorkType(PawnColumnDef column)
+        private static WorkTypeDef ResolveRuleBuilder2WorkType(WorkTabLayoutColumn column)
         {
-            if (SubWorkDrilldownState.IsActive &&
-                SubWorkDrilldownState.TryGetWorkGiverForColumn(column, out var workGiver, out _))
+            if (SubWorkDrilldownState.TryGetWorkGiverForColumn(
+                    column,
+                    out var workGiver,
+                    out var parentWorkType,
+                    out _))
             {
-                return workGiver.def?.workType ?? SubWorkDrilldownState.ActiveWorkType;
+                return workGiver.def?.workType ?? parentWorkType;
             }
 
-            return column?.workType;
+            return column.Column?.workType;
         }
 
-        private static WorkGiverDef ResolveRuleBuilder2WorkGiver(PawnColumnDef column)
+        private static WorkGiverDef ResolveRuleBuilder2WorkGiver(WorkTabLayoutColumn column)
         {
-            if (SubWorkDrilldownState.IsActive &&
-                SubWorkDrilldownState.TryGetWorkGiverForColumn(column, out var workGiver, out _))
+            if (SubWorkDrilldownState.TryGetWorkGiverForColumn(column, out var workGiver, out _, out _))
             {
                 return workGiver.def;
             }
@@ -1625,11 +1675,10 @@ namespace Better_Work_Tab.UI
                 bodyColumn.Column?.Worker is PawnColumnWorker_WorkPriority &&
                 TryGetPriorityBoxHit(layout, row, bodyColumn, evt.mousePosition, out Rect priorityBoxRect))
             {
-                WorkTypeDef workType = ResolveRuleBuilder2WorkType(bodyColumn.Column);
+                WorkTypeDef workType = ResolveRuleBuilder2WorkType(bodyColumn);
                 WorkGiverDef workGiver = null;
                 int priority = WorkPrioritySystem.GetPriorityForPawnWorkType(row.Pawn, workType);
-                if (SubWorkDrilldownState.IsActive &&
-                    SubWorkDrilldownState.TryGetWorkGiverForColumn(bodyColumn.Column, out var activeWorkGiver, out _))
+                if (SubWorkDrilldownState.TryGetWorkGiverForColumn(bodyColumn, out var activeWorkGiver, out _, out _))
                 {
                     workGiver = activeWorkGiver.def;
                     priority = WorkGiverReassignmentManager.GetWorkGiverPriority(row.Pawn, workGiver, priority);
@@ -1652,10 +1701,9 @@ namespace Better_Work_Tab.UI
                     continue;
                 }
 
-                WorkTypeDef workType = ResolveRuleBuilder2WorkType(column.Column);
+                WorkTypeDef workType = ResolveRuleBuilder2WorkType(column);
                 WorkGiverDef workGiver = null;
-                if (SubWorkDrilldownState.IsActive &&
-                    SubWorkDrilldownState.TryGetWorkGiverForColumn(column.Column, out var activeWorkGiver, out _))
+                if (SubWorkDrilldownState.TryGetWorkGiverForColumn(column, out var activeWorkGiver, out _, out _))
                 {
                     workGiver = activeWorkGiver.def;
                 }
@@ -1687,11 +1735,10 @@ namespace Better_Work_Tab.UI
                 bodyColumn.Column?.Worker is PawnColumnWorker_WorkPriority &&
                 TryGetPriorityBoxHit(layout, row, bodyColumn, mousePosition, out Rect priorityBoxRect))
             {
-                WorkTypeDef workType = ResolveRuleBuilder2WorkType(bodyColumn.Column);
+                WorkTypeDef workType = ResolveRuleBuilder2WorkType(bodyColumn);
                 WorkGiverDef workGiver = null;
                 int priority = WorkPrioritySystem.GetPriorityForPawnWorkType(row.Pawn, workType);
-                if (SubWorkDrilldownState.IsActive &&
-                    SubWorkDrilldownState.TryGetWorkGiverForColumn(bodyColumn.Column, out var activeWorkGiver, out _))
+                if (SubWorkDrilldownState.TryGetWorkGiverForColumn(bodyColumn, out var activeWorkGiver, out _, out _))
                 {
                     workGiver = activeWorkGiver.def;
                     priority = WorkGiverReassignmentManager.GetWorkGiverPriority(row.Pawn, workGiver, priority);
@@ -1713,10 +1760,9 @@ namespace Better_Work_Tab.UI
                     continue;
                 }
 
-                WorkTypeDef workType = ResolveRuleBuilder2WorkType(column.Column);
+                WorkTypeDef workType = ResolveRuleBuilder2WorkType(column);
                 WorkGiverDef workGiver = null;
-                if (SubWorkDrilldownState.IsActive &&
-                    SubWorkDrilldownState.TryGetWorkGiverForColumn(column.Column, out var activeWorkGiver, out _))
+                if (SubWorkDrilldownState.TryGetWorkGiverForColumn(column, out var activeWorkGiver, out _, out _))
                 {
                     workGiver = activeWorkGiver.def;
                 }
@@ -1794,6 +1840,7 @@ namespace Better_Work_Tab.UI
                 ? GuiMousePosition.ToRootUiPosition(_pendingSubWorkStart)
                 : (Vector2?)null;
             WorkTypeDef openType = _pendingSubWorkOpenType;
+            Rect openBounds = _pendingSubWorkBounds;
             ClearPendingSubWorkGesture();
 
             if (!shouldOpen)
@@ -1801,11 +1848,25 @@ namespace Better_Work_Tab.UI
                 return false;
             }
 
+            if (FluffyWorkTabGateway.TryStartSubWorkDrilldownStyleChooser(layout, openType, openBounds))
+            {
+                evt.Use();
+                return true;
+            }
+
             TimePriorityPlannerPrototype.CloseForWorkModeTransition();
-            SubWorkDrilldownState.Enter(
-                openType,
-                storedReturnPosition,
-                SubWorkDrilldownHeaderGeometry.GetBaseHeaderDrawWidth(layout.Table, layout.HeaderHeight));
+            if (SubWorkDrilldownState.EffectiveDrilldownStyle() == BetterWorkTabSettings.SubWorkDrilldownStyle.ExpandBeside)
+            {
+                ColumnReorderAnimationState.Start(layout.Columns);
+                SubWorkDrilldownState.ToggleExpandBeside(openType);
+            }
+            else
+            {
+                SubWorkDrilldownState.Enter(
+                    openType,
+                    storedReturnPosition,
+                    SubWorkDrilldownHeaderGeometry.GetBaseHeaderDrawWidth(layout.Table, layout.HeaderHeight));
+            }
             HeaderDrawingCoordinator.InvalidateSolution();
             SoundDefOf.Tick_High.PlayOneShotOnCamera();
             evt.Use();
@@ -1838,16 +1899,30 @@ namespace Better_Work_Tab.UI
                 return true;
             }
 
-            if (!SubWorkHeaderAffordance.TryGetOpenBadgeTarget(layout, evt.mousePosition, out var workType, out _))
+            if (!SubWorkHeaderAffordance.TryGetOpenBadgeTarget(layout, evt.mousePosition, out var workType, out var badgeRect))
             {
                 return false;
             }
 
+            if (FluffyWorkTabGateway.TryStartSubWorkDrilldownStyleChooser(layout, workType, badgeRect))
+            {
+                evt.Use();
+                return true;
+            }
+
             TimePriorityPlannerPrototype.CloseForWorkModeTransition();
-            SubWorkDrilldownState.Enter(
-                workType,
-                GuiMousePosition.ToRootUiPosition(evt.mousePosition),
-                SubWorkDrilldownHeaderGeometry.GetBaseHeaderDrawWidth(layout.Table, layout.HeaderHeight));
+            if (SubWorkDrilldownState.EffectiveDrilldownStyle() == BetterWorkTabSettings.SubWorkDrilldownStyle.ExpandBeside)
+            {
+                ColumnReorderAnimationState.Start(layout.Columns);
+                SubWorkDrilldownState.ToggleExpandBeside(workType);
+            }
+            else
+            {
+                SubWorkDrilldownState.Enter(
+                    workType,
+                    GuiMousePosition.ToRootUiPosition(evt.mousePosition),
+                    SubWorkDrilldownHeaderGeometry.GetBaseHeaderDrawWidth(layout.Table, layout.HeaderHeight));
+            }
             HeaderDrawingCoordinator.InvalidateSolution();
             SoundDefOf.Tick_High.PlayOneShotOnCamera();
             evt.Use();
@@ -1856,7 +1931,7 @@ namespace Better_Work_Tab.UI
 
         private bool TryHandleSubWorkExitGesture(IWorkTabLayoutController layout)
         {
-            if (!SubWorkDrilldownState.IsActive)
+            if (!SubWorkDrilldownState.HasAnyDrilldown)
             {
                 return false;
             }
@@ -1869,9 +1944,26 @@ namespace Better_Work_Tab.UI
 
             if (evt.type == EventType.KeyDown && evt.keyCode == KeyCode.Escape)
             {
-                SubWorkDrilldownBarRenderer.ExitDrilldown();
+                if (SubWorkDrilldownState.IsActive)
+                {
+                    SubWorkDrilldownBarRenderer.ExitDrilldown();
+                }
+                else
+                {
+                    if (layout != null)
+                    {
+                        ColumnReorderAnimationState.Start(layout.Columns);
+                    }
+                    SubWorkDrilldownState.CollapseAllExpandBeside();
+                    HeaderDrawingCoordinator.InvalidateSolution();
+                }
                 evt.Use();
                 return true;
+            }
+
+            if (!SubWorkDrilldownState.IsActive)
+            {
+                return false;
             }
 
             if (layout == null)
@@ -2234,7 +2326,7 @@ namespace Better_Work_Tab.UI
             {
                 var candidate = layout.Columns[i];
                 if (!(candidate.Column?.Worker is PawnColumnWorker_WorkPriority) ||
-                    !SubWorkDrilldownState.TryGetWorkGiverForColumn(candidate.Column, out _, out _))
+                    !SubWorkDrilldownState.TryGetWorkGiverForColumn(candidate, out _, out _, out _))
                 {
                     continue;
                 }
@@ -2696,9 +2788,9 @@ namespace Better_Work_Tab.UI
                 return false;
             }
 
-            if (SubWorkDrilldownState.IsActive && highlightedWorkGiver != null)
+            if (highlightedWorkGiver != null)
             {
-                return SubWorkDrilldownState.TryGetWorkGiverForColumn(column.Column, out var workGiver, out _) &&
+                return SubWorkDrilldownState.TryGetWorkGiverForColumn(column, out var workGiver, out _, out _) &&
                        workGiver?.def == highlightedWorkGiver;
             }
 
@@ -3043,7 +3135,15 @@ namespace Better_Work_Tab.UI
             {
                 float animatedOffset = ColumnReorderAnimationState.GetCellOffset(column);
                 Rect cellRect = new Rect(column.OffsetX + animatedOffset, rowRect.y, column.Width, rowRect.height);
-                column.Column.Worker.DoCell(cellRect, row.Pawn, table);
+                try
+                {
+                    SubWorkDrilldownState.SetDrawingColumn(column);
+                    column.Column.Worker.DoCell(cellRect, row.Pawn, table);
+                }
+                finally
+                {
+                    SubWorkDrilldownState.ClearDrawingColumn();
+                }
             }
         }
 

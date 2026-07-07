@@ -351,6 +351,21 @@ namespace Better_Work_Tab.UI.Settings
 
             Register(new SettingDefinition
             {
+                Id = SubWorkDrilldownStyle,
+                ParentId = FeaturesSubWorkJobs,
+                FieldName = "subWorkDrilldownStyle",
+                Label = "Specific-job view",
+                Tooltip = "Choose whether opening specific jobs replaces the Work columns with a focused view or expands them beside the parent Work column. Ask first time is used only when Fluffy's Work Tab is installed.",
+                Type = SettingType.Enum,
+                EnumType = typeof(BetterWorkTabSettings.SubWorkDrilldownStyle),
+                DefaultValue = DefaultSettings.subWorkDrilldownStyle,
+                OnChanged = _ => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
+                ShowInSimpleView = true,
+                SortOrder = 4
+            });
+
+            Register(new SettingDefinition
+            {
                 Id = SubWorkCrossWorkDragDrop,
                 ParentId = FeaturesSubWorkJobs,
                 FieldName = "enableSubWorkCrossWorkDragDrop",
@@ -359,7 +374,7 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.enableSubWorkCrossWorkDragDrop,
                 ShowInSimpleView = true,
-                SortOrder = 4
+                SortOrder = 5
             });
 
             Register(new SettingDefinition
@@ -372,7 +387,7 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.useVanillaSubWorkGlobalPriorityBoxes,
                 ShowInSimpleView = true,
-                SortOrder = 5
+                SortOrder = 6
             });
 
             Register(new SettingDefinition
@@ -385,7 +400,7 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.restoreCursorOnSubWorkExit,
                 ShowInSimpleView = true,
-                SortOrder = 6
+                SortOrder = 7
             });
 
             Register(new SettingDefinition
@@ -398,7 +413,7 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.restoreCursorOnSubWorkPawnCellExit,
                 ShowInSimpleView = true,
-                SortOrder = 7
+                SortOrder = 8
             });
 
             Register(new SettingDefinition
@@ -412,7 +427,7 @@ namespace Better_Work_Tab.UI.Settings
                 DefaultValue = DefaultSettings.enableSubWorkOverrideBreakAnimation,
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
-                SortOrder = 8
+                SortOrder = 9
             });
 
             Register(new SettingDefinition
@@ -427,7 +442,7 @@ namespace Better_Work_Tab.UI.Settings
                 OnChanged = _ => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
                 ShowInSimpleView = false,
                 ShowInAdvancedView = false,
-                SortOrder = 9
+                SortOrder = 10
             });
 
             Register(new SettingDefinition
@@ -443,7 +458,7 @@ namespace Better_Work_Tab.UI.Settings
                 OnChanged = _ => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
-                SortOrder = 9
+                SortOrder = 10
             });
 
             Register(new SettingDefinition
@@ -459,7 +474,7 @@ namespace Better_Work_Tab.UI.Settings
                 OnChanged = _ => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
                 ShowInSimpleView = false,
                 ShowInAdvancedView = false,
-                SortOrder = 10
+                SortOrder = 11
             });
 
             Register(new SettingDefinition
@@ -489,7 +504,7 @@ namespace Better_Work_Tab.UI.Settings
                 VisibleWhen = s => (s as BetterWorkTabSettings)?.enableSubWorkTransitionAnimation ?? true,
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
-                SortOrder = 10
+                SortOrder = 11
             });
 
             Register(new SettingDefinition
@@ -505,7 +520,7 @@ namespace Better_Work_Tab.UI.Settings
                 OnChanged = _ => WorkExecutionOrder.MarkAllPawnsWorkGiversDirty(),
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
-                SortOrder = 11
+                SortOrder = 12
             });
 
             Register(new SettingDefinition

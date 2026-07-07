@@ -3,6 +3,7 @@ using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.PawnOrganizer;
 using RimWorld;
 using UnityEngine;
+using Verse;
 
 namespace Better_Work_Tab.DragDrop
 {
@@ -98,11 +99,14 @@ namespace Better_Work_Tab.DragDrop
                 return null;
             }
 
-            if (SubWorkDrilldownState.IsActive &&
-                SubWorkDrilldownState.TryGetWorkGiverForColumn(column.Column, out WorkGiver workGiver, out _) &&
+            if (SubWorkDrilldownState.TryGetWorkGiverForColumn(
+                    column,
+                    out WorkGiver workGiver,
+                    out WorkTypeDef parentWorkType,
+                    out _) &&
                 workGiver?.def != null)
             {
-                return "sub:" + workGiver.def.defName;
+                return "sub:" + (parentWorkType?.defName ?? "") + ":" + workGiver.def.defName;
             }
 
             return "column:" + column.Column.defName;

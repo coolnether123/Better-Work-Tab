@@ -1,6 +1,7 @@
 using UnityEngine;
 using Verse;
 using RimWorld;
+using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 
@@ -82,6 +83,11 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
             var evt = Event.current;
             if (!HeaderUtility.ShouldHandleHeader(evt.type)) return false;
 
+            if (SubWorkDrilldownState.IsDrawingExpandBesideChild)
+            {
+                return HandleExpandBesideChildDrawAndInput(worker, rect, table, evt);
+            }
+
             bool shouldDraw = evt.type == EventType.Repaint;
 
             var vanillaSolver = HeaderDrawingCoordinator.GetVanillaSolver();
@@ -132,6 +138,55 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
             Angled.AngledHeaderInteraction.HandleInteractions(ctx);
 
             return false; // Skip vanilla execution
+        }
+
+        private static bool HandleExpandBesideChildDrawAndInput(
+            PawnColumnWorker_WorkPriority worker,
+            Rect rect,
+            PawnTable table,
+            Event evt)
+        {
+            bool shouldDraw = evt.type == EventType.Repaint;
+            string label = HeaderUtility.GetHeaderText(
+                worker.def.workType,
+                false,
+                WorkGiverHeaderLabelStyle.VanillaStaggered);
+            Vector2 size = Text.CalcSize(label);
+            Rect bounds = new Rect(
+                rect.x + 1f,
+                rect.yMax - Mathf.Min(rect.height, size.y + 4f),
+                Mathf.Max(1f, rect.width - 2f),
+                Mathf.Min(rect.height, size.y + 4f));
+
+            var layout = new Angled.AngledLabelDrawer.AngledLabelLayout(
+                label,
+                bounds.size,
+                bounds.center,
+                showMarker: false,
+                isCJKVertical: false);
+
+            bool isMouseOver = !TimePriorityPlannerPrototype.OwnsCurrentMousePosition && bounds.Contains(HeaderInputController.MousePosition);
+            if (isMouseOver)
+            {
+                HeaderInputController.SetHoveredWorkType(worker.def.workType, bounds);
+            }
+
+            var ctx = new Angled.HeaderInteractionContext
+            {
+                Worker = worker,
+                Table = table,
+                Layout = layout,
+                Bounds = bounds,
+                Quad = null,
+                IsMouseOver = isMouseOver,
+                ShouldDraw = shouldDraw,
+                HeaderRect = rect,
+                Renderer = HeaderDrawingCoordinator.GetActiveRenderer(),
+                IsVanillaStaggered = true
+            };
+
+            Angled.AngledHeaderInteraction.HandleInteractions(ctx);
+            return false;
         }
 
         private static bool DetermineMouseOver(Rect rect, PawnColumnDef columnDef)
