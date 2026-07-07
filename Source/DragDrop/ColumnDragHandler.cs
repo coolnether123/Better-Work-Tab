@@ -13,6 +13,8 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using Verse;
+using Verse.Sound;
+using Better_Work_Tab.UI.WorkGiverReassignments;
 
 namespace Better_Work_Tab.DragDrop
 {
@@ -30,6 +32,10 @@ namespace Better_Work_Tab.DragDrop
         private readonly WorkGiverDef _subWorkGiver;
         private readonly int _subWorkOriginalIndex = -1;
         private Rect _originRect;
+        private Vector2 _lastMousePos;
+        private WorkTypeDef _crossWorkDropTarget;
+        private Rect _crossWorkDropTargetRect;
+        private bool _crossWorkDropTargetValid;
         public PawnColumnDef ColumnDef => _primaryColumn;
 
         public ColumnDragHandler(IWorkTabLayoutController layout, WorkTabLayoutColumn col)
@@ -81,6 +87,7 @@ namespace Better_Work_Tab.DragDrop
         /// </summary>
         public override void OnDragUpdate(Vector2 mousePos)
         {
+            _lastMousePos = mousePos;
             var targetColumns = GetInsertionTargetColumns();
             int index = targetColumns.Count;
             for (int i = 0; i < targetColumns.Count; i++)
@@ -92,6 +99,7 @@ namespace Better_Work_Tab.DragDrop
                 }
             }
             TargetIndex = Mathf.Clamp(index, 0, targetColumns.Count);
+            UpdateCrossWorkDropTarget(mousePos);
         }
 
         /// <summary>
@@ -105,6 +113,8 @@ namespace Better_Work_Tab.DragDrop
             bool showGhost = false; // default to line-only for columns
             bool showLine = true;
             bool lineOnly = true;
+            bool pointerBeyondSubWorkStrip = _subWorkDrilldownDrag &&
+                SubWorkCrossWorkDropTargetRenderer.IsPointerBeyondSubWorkStrip(Layout, _lastMousePos);
 
             if (!lineOnly && showGhost)
             {
@@ -117,9 +127,21 @@ namespace Better_Work_Tab.DragDrop
                 ListDragVisuals.DrawGhost(ghost, _primaryColumn.defName);
             }
 
-            DrawBaselineLineIfNeeded();
+            if (_subWorkDrilldownDrag)
+            {
+                SubWorkCrossWorkDropTargetRenderer.DrawTargets(
+                    Layout,
+                    _subWorkType,
+                    _crossWorkDropTarget,
+                    _crossWorkDropTargetValid);
+            }
 
-            if (TargetIndex >= 0 && showLine)
+            if (!pointerBeyondSubWorkStrip)
+            {
+                DrawBaselineLineIfNeeded();
+            }
+
+            if (TargetIndex >= 0 && showLine && !pointerBeyondSubWorkStrip)
             {
                 var targetColumns = GetInsertionTargetColumns();
                 float lineX = GetInsertionLineX(targetColumns, TargetIndex, _originRect.x);
@@ -336,6 +358,7 @@ namespace Better_Work_Tab.DragDrop
         public override void OnCancel()
         {
             BetterWorkTabLocalState.IsHeaderDragging = false;
+            ClearCrossWorkDropTarget();
             base.OnCancel();
         }
 
@@ -557,12 +580,15 @@ namespace Better_Work_Tab.DragDrop
                     return;
                 }
 
+                if (TryCommitCrossWorkReassignment())
+                {
+                    return;
+                }
+
                 var current = SubWorkDrilldownState.ActiveWorkGivers;
                 int maxIndex = Mathf.Max(0, (current?.Count ?? 0) - 1);
                 int insertIndex = Mathf.Clamp(TargetIndex, 0, maxIndex);
 
-                // TODO: Support dragging a sub-work job into another sub-work job view once
-                // there is a clear UX for choosing the target work type and inheritance rules.
                 ColumnReorderAnimationState.Start(Layout.Columns);
                 WorkGiverReassignmentManager.MoveWithinWorkTypeSynced(
                     _subWorkType.defName,
@@ -577,6 +603,80 @@ namespace Better_Work_Tab.DragDrop
             {
                 BetterWorkTabLocalState.IsHeaderDragging = false;
             }
+        }
+
+        private void UpdateCrossWorkDropTarget(Vector2 mousePos)
+        {
+            ClearCrossWorkDropTarget();
+            if (!_subWorkDrilldownDrag || _subWorkType == null)
+            {
+                return;
+            }
+
+            if (SubWorkCrossWorkDropTargetRenderer.TryGetDropTargetAt(
+                Layout,
+                mousePos,
+                _subWorkType,
+                out WorkTypeDef targetWorkType,
+                out Rect targetRect,
+                out bool valid))
+            {
+                _crossWorkDropTarget = targetWorkType;
+                _crossWorkDropTargetRect = targetRect;
+                _crossWorkDropTargetValid = valid;
+            }
+        }
+
+        private void ClearCrossWorkDropTarget()
+        {
+            _crossWorkDropTarget = null;
+            _crossWorkDropTargetRect = Rect.zero;
+            _crossWorkDropTargetValid = false;
+        }
+
+        private bool TryCommitCrossWorkReassignment()
+        {
+            if (_crossWorkDropTarget == null)
+            {
+                return false;
+            }
+
+            if (!_crossWorkDropTargetValid)
+            {
+                return true;
+            }
+
+            if (!WorkGiverReassignmentManager.TryReassignWorkGiver(
+                _subWorkGiver.defName,
+                _crossWorkDropTarget.defName,
+                null,
+                out string errorMsg))
+            {
+                string message = errorMsg.NullOrEmpty()
+                    ? TranslateOrFallback("BWT_SubWork_MoveSpecificJobFailedNoReason", "Could not move specific job.")
+                    : TranslateOrFallback("BWT_SubWork_MoveSpecificJobFailed", "Could not move specific job: {0}", errorMsg);
+                Messages.Message(message, MessageTypeDefOf.RejectInput, false);
+                return true;
+            }
+
+            ColumnReorderAnimationState.Start(Layout.Columns);
+            SubWorkCrossWorkDropTargetRenderer.StartSettleAnimation(
+                _subWorkGiver,
+                _crossWorkDropTarget,
+                _originRect,
+                _crossWorkDropTargetRect);
+            SoundDefOf.Tick_High.PlayOneShotOnCamera();
+            Better_Work_Tab.UI.Headers.HeaderDrawingCoordinator.InvalidateSolution();
+            WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
+            MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+            return true;
+        }
+
+        private static string TranslateOrFallback(string key, string fallback, params object[] args)
+        {
+            return key.CanTranslate()
+                ? string.Format(key.Translate().ToString(), args)
+                : string.Format(fallback, args);
         }
     }
 }

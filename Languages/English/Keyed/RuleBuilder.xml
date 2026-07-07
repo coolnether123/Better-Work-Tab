@@ -95,6 +95,10 @@
   <BWT_Change>Change</BWT_Change>
   <BWT_Edit>Edit</BWT_Edit>
   <BWT_Delete>Delete</BWT_Delete>
+  <BWT_SubWork_MoveSpecificJobToWork>Move specific job to {0}</BWT_SubWork_MoveSpecificJobToWork>
+  <BWT_SubWork_MoveSpecificJobSameWork>Already in this Work</BWT_SubWork_MoveSpecificJobSameWork>
+  <BWT_SubWork_MoveSpecificJobFailed>Could not move specific job: {0}</BWT_SubWork_MoveSpecificJobFailed>
+  <BWT_SubWork_MoveSpecificJobFailedNoReason>Could not move specific job.</BWT_SubWork_MoveSpecificJobFailedNoReason>
   <BWT_RuleBuilder2_Title>Rule Builder 2.0</BWT_RuleBuilder2_Title>
   <BWT_RuleBuilder2_OpenClassic>Open classic ruleset builder...</BWT_RuleBuilder2_OpenClassic>
   <BWT_RuleBuilder2_Dashboard>Rules</BWT_RuleBuilder2_Dashboard>

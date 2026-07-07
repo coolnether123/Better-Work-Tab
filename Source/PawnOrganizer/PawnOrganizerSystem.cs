@@ -204,6 +204,14 @@ namespace Better_Work_Tab.PawnOrganizer
                     evt.Use();
                     break;
 
+                case EventType.MouseDown when evt.button == 1:
+                    var rightClickCancelledDrag = _activeColumnDrag;
+                    rightClickCancelledDrag?.OnCancel();
+                    _activeColumnDrag = null;
+                    AngledHeaderInteraction.ClearPendingHeaderClick(rightClickCancelledDrag?.ColumnDef);
+                    evt.Use();
+                    break;
+
                 case EventType.KeyDown when evt.keyCode == KeyCode.Escape:
                     var cancelledDrag = _activeColumnDrag;
                     cancelledDrag?.OnCancel();

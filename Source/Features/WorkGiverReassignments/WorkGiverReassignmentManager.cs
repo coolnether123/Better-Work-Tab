@@ -526,7 +526,8 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         internal static bool ShouldShowMovedWorkGiverMarker(WorkTypeDef workType, WorkGiverDef workGiverDef)
         {
-            return WasWorkGiverDraggedByPlayer(workType, workGiverDef) &&
+            return (GetTargetWorkType(workGiverDef) == workType && IsReassigned(workGiverDef)) ||
+                   WasWorkGiverDraggedByPlayer(workType, workGiverDef) &&
                    IsWorkGiverOutOfBaselinePosition(workType, workGiverDef);
         }
 
@@ -1250,6 +1251,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 return;
             }
 
+            data.EnsureCollections();
             data.WorkGiverToWorkTypeMap[workGiverDef.defName] = targetWorkTypeDef.defName;
 
             if (data.WorkTypeWorkGiverOrder != null)
@@ -1272,6 +1274,8 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
             int index = insertIndex.HasValue ? Math.Max(0, Math.Min(insertIndex.Value, targetList.Count)) : targetList.Count;
             targetList.Insert(index, workGiverDef.defName);
+            RecordPlayerMovedWorkGiver(targetWorkTypeDef, workGiverDef);
+            PruneBaselineAlignedMovedWorkGivers(targetWorkTypeDef);
             RemoveWorkGiverFromPawnOrders(data, workGiverDef.defName);
 
             data.SyncVersion++;

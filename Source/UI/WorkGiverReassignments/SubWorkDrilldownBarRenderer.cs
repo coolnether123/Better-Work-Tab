@@ -80,6 +80,9 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                     DrawGlobalPriorityCell(workGiver, cellRect, visualAlpha);
                 }
             }
+
+            SubWorkCrossWorkDropTargetRenderer.DrawDebugTargetsIfNeeded(layout);
+            SubWorkCrossWorkDropTargetRenderer.DrawSettleAnimation(layout);
         }
 
         private static bool ShouldHighlightGlobalCell(WorkTabLayoutColumn column, Rect cellRect)

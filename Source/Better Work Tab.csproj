@@ -207,6 +207,7 @@
     <Compile Include="Spine\UI\SettingsFramework\SettingsUIHelpers.cs" />
     <Compile Include="UI\WorkGiverReassignments\Window_WorkGiverSubMenu.cs" />
     <Compile Include="UI\WorkGiverReassignments\SubWorkDrilldownBarRenderer.cs" />
+    <Compile Include="UI\WorkGiverReassignments\SubWorkCrossWorkDropTargetRenderer.cs" />
     <Compile Include="UI\WorkGiverReassignments\SubWorkDrilldownHeaderGeometry.cs" />
     <Compile Include="UI\WorkGiverReassignments\SubWorkHeaderAffordance.cs" />
     <Compile Include="UI\WorkGiverReassignments\WorkGiverDisplayNameService.cs" />
