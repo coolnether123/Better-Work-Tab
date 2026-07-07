@@ -1,10 +1,14 @@
+using System;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.PawnOrganizer.API;
+using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.DragDrop;
 using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using System.Collections.Generic;
+using System.Reflection;
+using HarmonyLib;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -28,6 +32,18 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
         private static Rect _expandChoiceRegionRect;
         private static Rect _focusChoiceButtonRect;
         private static Rect _expandChoiceButtonRect;
+        private static Type _fluffyWorkTypeWorkerType;
+        private static Type _fluffyWorkGiverWorkerType;
+        private static Type _fluffyWorkGiverColumnDefType;
+        private static FieldInfo _fluffyWorkGiverField;
+        private static FieldInfo _fluffyWorkTypeExpandedField;
+        private static FieldInfo _fluffyMainTabTableField;
+        private static object _fluffyHostedWindowInstance;
+        private static bool _fluffyColumnTypesResolved;
+        private static readonly Dictionary<string, PawnColumnDef> HostedWorkTypeColumns =
+            new Dictionary<string, PawnColumnDef>(StringComparer.Ordinal);
+        private static readonly Dictionary<string, PawnColumnDef> HostedWorkGiverColumns =
+            new Dictionary<string, PawnColumnDef>(StringComparer.Ordinal);
         internal static bool DebugForceSubWorkStyleChooserAvailable;
         internal static BetterWorkTabSettings.SubWorkDrilldownStyle DebugForcedSubWorkStyleChooserHover =
             BetterWorkTabSettings.SubWorkDrilldownStyle.NotChosen;
@@ -43,6 +59,8 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
         internal static bool ShouldRunBetterWorkTabFeatures => FluffyWorkTabCoexistence.ShouldRunBetterWorkTabFeatures;
 
         internal static bool HasRightExpandingDrilldown => IsPresent;
+
+        internal static bool CanHostFluffySubWorkColumns => IsPresent && EnsureFluffyColumnTypes();
 
         internal static bool HasScheduleStrip => IsPresent;
 
@@ -117,7 +135,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             WorkTypeDef workType,
             Rect sourceRect)
         {
-            if ((!IsPresent && !DebugForceSubWorkStyleChooserAvailable) ||
+            if (((!CanHostFluffySubWorkColumns && !DebugForceSubWorkStyleChooserAvailable)) ||
                 workType == null ||
                 BetterWorkTabMod.Settings == null ||
                 BetterWorkTabMod.Settings.subWorkDrilldownStyle != BetterWorkTabSettings.SubWorkDrilldownStyle.NotChosen)
@@ -232,9 +250,187 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                 DebugForcedSubWorkStyleChooserHover == BetterWorkTabSettings.SubWorkDrilldownStyle.FocusView);
             DrawChoiceButton(
                 _expandChoiceButtonRect,
-                "Expand beside - like Work Tab (Fluffy's)",
+                "Fluffy Work Tab expansion",
                 DebugForcedSubWorkStyleChooserHover == BetterWorkTabSettings.SubWorkDrilldownStyle.ExpandBeside);
             DrawSubWorkStyleChooserNote(inRect);
+        }
+
+        internal static bool TryBuildHostedColumnSpecs(
+            PawnColumnDef sourceWorkColumn,
+            WorkTypeDef workType,
+            out PawnColumnDef hostedWorkTypeColumn,
+            out List<PawnColumnDef> hostedWorkGiverColumns)
+        {
+            hostedWorkTypeColumn = null;
+            hostedWorkGiverColumns = null;
+            if (!CanHostFluffySubWorkColumns || workType == null)
+            {
+                return false;
+            }
+
+            hostedWorkTypeColumn = GetOrCreateHostedWorkTypeColumn(sourceWorkColumn, workType);
+            if (hostedWorkTypeColumn == null)
+            {
+                return false;
+            }
+
+            hostedWorkGiverColumns = new List<PawnColumnDef>();
+            List<WorkGiverDef> workGivers = GetFluffyOrderedWorkGivers(workType);
+            for (int i = 0; i < workGivers.Count; i++)
+            {
+                PawnColumnDef child = GetOrCreateHostedWorkGiverColumn(workGivers[i]);
+                if (child != null)
+                {
+                    hostedWorkGiverColumns.Add(child);
+                }
+            }
+
+            return hostedWorkGiverColumns.Count > 0;
+        }
+
+        internal static bool TryBuildHostedPreviewColumns(
+            PawnColumnDef sourceWorkColumn,
+            WorkTypeDef workType,
+            float startX,
+            float parentWidth,
+            float childWidth,
+            out List<WorkTabLayoutColumn> columns)
+        {
+            columns = null;
+            if (!TryBuildHostedColumnSpecs(
+                    sourceWorkColumn,
+                    workType,
+                    out PawnColumnDef parentColumn,
+                    out List<PawnColumnDef> childColumns))
+            {
+                return false;
+            }
+
+            columns = new List<WorkTabLayoutColumn>();
+            float x = startX;
+            columns.Add(new WorkTabLayoutColumn(
+                parentColumn,
+                new Rect(x, 0f, parentWidth, 1f),
+                x,
+                parentWidth));
+            x += parentWidth;
+
+            for (int i = 0; i < childColumns.Count; i++)
+            {
+                WorkGiverDef workGiverDef = TryGetHostedWorkGiver(childColumns[i]);
+                if (workGiverDef == null)
+                {
+                    continue;
+                }
+
+                columns.Add(new WorkTabLayoutColumn(
+                    childColumns[i],
+                    new Rect(x, 0f, childWidth, 1f),
+                    x,
+                    childWidth,
+                    workType,
+                    workGiverDef,
+                    i,
+                    isExpandBesideChild: true));
+                x += childWidth;
+            }
+
+            return columns.Count > 1;
+        }
+
+        internal static WorkGiverDef TryGetHostedWorkGiver(PawnColumnDef column)
+        {
+            if (column == null || !EnsureFluffyColumnTypes() || !_fluffyWorkGiverColumnDefType.IsInstanceOfType(column))
+            {
+                return null;
+            }
+
+            return _fluffyWorkGiverField?.GetValue(column) as WorkGiverDef;
+        }
+
+        internal static void PrepareHostedDraw(PawnTable table)
+        {
+            if (table == null ||
+                !CanHostFluffySubWorkColumns ||
+                !FluffyWorkTabCoexistence.TryGetFluffyWorkTabWindowType(out Type windowType))
+            {
+                return;
+            }
+
+            if (_fluffyMainTabTableField == null)
+            {
+                _fluffyMainTabTableField = AccessTools.Field(typeof(MainTabWindow_PawnTable), "table");
+            }
+
+            if (_fluffyHostedWindowInstance == null ||
+                !windowType.IsInstanceOfType(_fluffyHostedWindowInstance))
+            {
+                _fluffyHostedWindowInstance = Activator.CreateInstance(windowType);
+            }
+
+            _fluffyMainTabTableField?.SetValue(_fluffyHostedWindowInstance, table);
+        }
+
+        internal static bool WasHostedWorkTypeCollapsed(PawnColumnDef column)
+        {
+            if (!IsHostedFluffyWorkTypeColumn(column))
+            {
+                return false;
+            }
+
+            object worker = column.Worker;
+            if (worker == null || _fluffyWorkTypeExpandedField == null)
+            {
+                return false;
+            }
+
+            if (_fluffyWorkTypeExpandedField.GetValue(worker) is bool expanded && !expanded)
+            {
+                _fluffyWorkTypeExpandedField.SetValue(worker, true);
+                return true;
+            }
+
+            return false;
+        }
+
+        internal static bool IsHostedFluffyColumn(PawnColumnDef column)
+        {
+            if (column == null || !EnsureFluffyColumnTypes())
+            {
+                return false;
+            }
+
+            Type workerType = column.Worker?.GetType();
+            return workerType == _fluffyWorkTypeWorkerType ||
+                   workerType == _fluffyWorkGiverWorkerType;
+        }
+
+        internal static bool IsHostedFluffyWorkTypeColumn(PawnColumnDef column)
+        {
+            return column != null &&
+                   EnsureFluffyColumnTypes() &&
+                   column.Worker?.GetType() == _fluffyWorkTypeWorkerType &&
+                   HostedWorkTypeColumns.ContainsValue(column);
+        }
+
+        internal static float GetHostedColumnWidth(PawnColumnDef column, PawnTable table, float fallback)
+        {
+            if (!IsHostedFluffyColumn(column))
+            {
+                return fallback;
+            }
+
+            try
+            {
+                return Mathf.Max(1f, column.Worker.GetMinWidth(table));
+            }
+            catch (Exception ex)
+            {
+                BetterWorkTabMod.DebugLog(
+                    "[FluffyWorkTab] Failed to query hosted column width for " + column.defName + ": " + ex.Message,
+                    DebugFeature.SubWork);
+                return fallback;
+            }
         }
 
         private static void DrawChoiceButton(Rect rect, string caption, bool forceHover)
@@ -333,6 +529,115 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                 region.yMin + 6f,
                 width,
                 ChooserButtonHeight);
+        }
+
+        private static bool EnsureFluffyColumnTypes()
+        {
+            if (_fluffyColumnTypesResolved)
+            {
+                return _fluffyWorkTypeWorkerType != null &&
+                       _fluffyWorkGiverWorkerType != null &&
+                       _fluffyWorkGiverColumnDefType != null &&
+                       _fluffyWorkGiverField != null &&
+                       _fluffyWorkTypeExpandedField != null;
+            }
+
+            _fluffyColumnTypesResolved = true;
+            _fluffyWorkTypeWorkerType = AccessTools.TypeByName("WorkTab.PawnColumnWorker_WorkType");
+            _fluffyWorkGiverWorkerType = AccessTools.TypeByName("WorkTab.PawnColumnWorker_WorkGiver");
+            _fluffyWorkGiverColumnDefType = AccessTools.TypeByName("WorkTab.PawnColumnDef_WorkGiver");
+            _fluffyWorkGiverField = _fluffyWorkGiverColumnDefType?.GetField(
+                "workgiver",
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            _fluffyWorkTypeExpandedField = _fluffyWorkTypeWorkerType?.GetField(
+                "_expanded",
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+            return _fluffyWorkTypeWorkerType != null &&
+                   _fluffyWorkGiverWorkerType != null &&
+                   _fluffyWorkGiverColumnDefType != null &&
+                   _fluffyWorkGiverField != null &&
+                   _fluffyWorkTypeExpandedField != null;
+        }
+
+        private static PawnColumnDef GetOrCreateHostedWorkTypeColumn(PawnColumnDef sourceWorkColumn, WorkTypeDef workType)
+        {
+            string key = workType.defName ?? string.Empty;
+            if (HostedWorkTypeColumns.TryGetValue(key, out PawnColumnDef existing))
+            {
+                return existing;
+            }
+
+            var column = new PawnColumnDef
+            {
+                defName = "BWT_FluffyHosted_WorkType_" + key,
+                workerClass = _fluffyWorkTypeWorkerType,
+                workType = workType,
+                sortable = sourceWorkColumn?.sortable ?? true,
+                moveWorkTypeLabelDown = sourceWorkColumn?.moveWorkTypeLabelDown ?? false
+            };
+            column.PostLoad();
+            ForceHostedWorkTypeExpanded(column, expanded: true);
+            HostedWorkTypeColumns[key] = column;
+            return column;
+        }
+
+        private static void ForceHostedWorkTypeExpanded(PawnColumnDef column, bool expanded)
+        {
+            if (column?.Worker == null || _fluffyWorkTypeExpandedField == null)
+            {
+                return;
+            }
+
+            _fluffyWorkTypeExpandedField.SetValue(column.Worker, expanded);
+        }
+
+        private static PawnColumnDef GetOrCreateHostedWorkGiverColumn(WorkGiverDef workGiver)
+        {
+            if (workGiver?.defName == null || !EnsureFluffyColumnTypes())
+            {
+                return null;
+            }
+
+            string key = workGiver.defName;
+            if (HostedWorkGiverColumns.TryGetValue(key, out PawnColumnDef existing))
+            {
+                return existing;
+            }
+
+            PawnColumnDef databaseColumn = DefDatabase<PawnColumnDef>.GetNamedSilentFail("WorkGiver_" + key);
+            if (databaseColumn != null && _fluffyWorkGiverColumnDefType.IsInstanceOfType(databaseColumn))
+            {
+                HostedWorkGiverColumns[key] = databaseColumn;
+                return databaseColumn;
+            }
+
+            var column = Activator.CreateInstance(_fluffyWorkGiverColumnDefType) as PawnColumnDef;
+            if (column == null)
+            {
+                return null;
+            }
+
+            column.defName = "BWT_FluffyHosted_WorkGiver_" + key;
+            column.workerClass = _fluffyWorkGiverWorkerType;
+            column.sortable = true;
+            _fluffyWorkGiverField.SetValue(column, workGiver);
+            column.PostLoad();
+            HostedWorkGiverColumns[key] = column;
+            return column;
+        }
+
+        private static List<WorkGiverDef> GetFluffyOrderedWorkGivers(WorkTypeDef workType)
+        {
+            var result = new List<WorkGiverDef>();
+            if (workType?.workGiversByPriority == null)
+            {
+                return result;
+            }
+
+            result.AddRange(workType.workGiversByPriority);
+            result.Sort((a, b) => (b?.priorityInType ?? 0f).CompareTo(a?.priorityInType ?? 0f));
+            return result;
         }
     }
 }

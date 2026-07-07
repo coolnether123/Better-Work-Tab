@@ -6,6 +6,7 @@ using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.Dividers;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.Mod_Support.LocalProfiles;
 using Better_Work_Tab.Mod_Support.Multiplayer;
 using Better_Work_Tab.PawnOrganizer.API;
@@ -880,31 +881,43 @@ namespace Better_Work_Tab.PawnOrganizer
                     continue;
                 }
 
-                visibleColumns.Add(new VisibleColumnSpec(def, i));
+                bool isSourceWorkColumn = def?.Worker is PawnColumnWorker_WorkPriority ||
+                    (def?.workType != null && FluffyWorkTabGateway.IsHostedFluffyColumn(def));
 
-                if (def?.Worker is PawnColumnWorker_WorkPriority &&
+                if (isSourceWorkColumn &&
                     def.workType != null &&
                     !SubWorkDrilldownState.IsActive &&
                     SubWorkDrilldownState.GetExpandBesideWidthProgress(def.workType) > 0.001f)
                 {
-                    var workGivers = SubWorkDrilldownState.GetExpandBesideWorkGivers(def.workType);
-                    for (int slot = 0; slot < workGivers.Count; slot++)
+                    if (FluffyWorkTabGateway.TryBuildHostedColumnSpecs(
+                            def,
+                            def.workType,
+                            out PawnColumnDef hostedParent,
+                            out List<PawnColumnDef> hostedChildren))
                     {
-                        WorkGiverDef workGiverDef = workGivers[slot]?.def;
-                        if (workGiverDef == null)
+                        visibleColumns.Add(new VisibleColumnSpec(hostedParent, i));
+                        for (int slot = 0; slot < hostedChildren.Count; slot++)
                         {
-                            continue;
+                            WorkGiverDef workGiverDef = FluffyWorkTabGateway.TryGetHostedWorkGiver(hostedChildren[slot]);
+                            if (workGiverDef == null)
+                            {
+                                continue;
+                            }
+
+                            visibleColumns.Add(new VisibleColumnSpec(
+                                hostedChildren[slot],
+                                i,
+                                def.workType,
+                                workGiverDef,
+                                slot,
+                                isExpandBesideChild: true));
                         }
 
-                        visibleColumns.Add(new VisibleColumnSpec(
-                            def,
-                            i,
-                            def.workType,
-                            workGiverDef,
-                            slot,
-                            isExpandBesideChild: true));
+                        continue;
                     }
                 }
+
+                visibleColumns.Add(new VisibleColumnSpec(def, i));
             }
 
             if (visibleColumns.Count == 0)
@@ -961,6 +974,8 @@ namespace Better_Work_Tab.PawnOrganizer
                         ? _table.cachedColumnWidths[originalIndex] 
                         : 30f;
                 }
+
+                w = FluffyWorkTabGateway.GetHostedColumnWidth(columnDef, _table, w);
                 
                 if (visibleColumns[i].IsExpandBesideChild)
                 {

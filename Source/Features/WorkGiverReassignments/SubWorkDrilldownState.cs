@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.UI.Input;
 using RimWorld;
 using UnityEngine;
@@ -687,6 +688,12 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         internal static BetterWorkTabSettings.SubWorkDrilldownStyle EffectiveDrilldownStyle()
         {
             var style = BetterWorkTabMod.Settings?.subWorkDrilldownStyle ?? DefaultSettings.subWorkDrilldownStyle;
+            if (style == BetterWorkTabSettings.SubWorkDrilldownStyle.ExpandBeside &&
+                !FluffyWorkTabGateway.CanHostFluffySubWorkColumns)
+            {
+                return BetterWorkTabSettings.SubWorkDrilldownStyle.FocusView;
+            }
+
             return style == BetterWorkTabSettings.SubWorkDrilldownStyle.NotChosen
                 ? BetterWorkTabSettings.SubWorkDrilldownStyle.FocusView
                 : style;
@@ -703,6 +710,12 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         {
             if (workType?.defName == null)
             {
+                return;
+            }
+
+            if (!FluffyWorkTabGateway.CanHostFluffySubWorkColumns)
+            {
+                Enter(workType);
                 return;
             }
 
@@ -745,17 +758,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             }
 
             _layoutRefreshPending = true;
-        }
-
-        internal static IReadOnlyList<WorkGiver> GetExpandBesideWorkGivers(WorkTypeDef workType)
-        {
-            if (workType?.defName == null ||
-                !ExpandBesideEntries.TryGetValue(workType.defName, out var entry))
-            {
-                return Array.Empty<WorkGiver>();
-            }
-
-            return entry.WorkGivers;
         }
 
         internal static float GetExpandBesideWidthProgress(WorkTypeDef workType)
@@ -896,7 +898,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             foreach (var pair in ExpandBesideEntries)
             {
                 var entry = pair.Value;
-                entry.RefreshWorkGiversIfNeeded();
                 if (entry.IsTransitioning)
                 {
                     changed = true;
@@ -928,7 +929,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                     var entry = pair.Value;
                     hash = hash * 31 + StringComparer.Ordinal.GetHashCode(pair.Key ?? string.Empty);
                     hash = hash * 31 + (entry.IsCollapsing ? 1 : 0);
-                    hash = hash * 31 + WorkGiverReassignmentManager.CurrentSyncVersion;
                     if (includeProgress)
                     {
                         hash = hash * 31 + Mathf.RoundToInt(entry.VisualProgress * 60f);
@@ -1211,8 +1211,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         private sealed class ExpandBesideEntry
         {
-            private readonly List<WorkGiver> _workGivers = new List<WorkGiver>();
-            private int _syncVersion = -1;
             private readonly float _openedAt;
             private float _collapsedAt;
 
@@ -1220,19 +1218,9 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             {
                 WorkType = workType;
                 _openedAt = Time.realtimeSinceStartup;
-                RefreshWorkGiversIfNeeded();
             }
 
             internal WorkTypeDef WorkType { get; }
-
-            internal IReadOnlyList<WorkGiver> WorkGivers
-            {
-                get
-                {
-                    RefreshWorkGiversIfNeeded();
-                    return _workGivers;
-                }
-            }
 
             internal bool IsCollapsing => _collapsedAt > 0f;
 
@@ -1262,19 +1250,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 {
                     _collapsedAt = Time.realtimeSinceStartup;
                 }
-            }
-
-            internal void RefreshWorkGiversIfNeeded()
-            {
-                int syncVersion = WorkGiverReassignmentManager.CurrentSyncVersion;
-                if (_syncVersion == syncVersion)
-                {
-                    return;
-                }
-
-                _workGivers.Clear();
-                _workGivers.AddRange(WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(WorkType));
-                _syncVersion = syncVersion;
             }
         }
     }

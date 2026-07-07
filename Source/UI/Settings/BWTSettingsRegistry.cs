@@ -355,11 +355,12 @@ namespace Better_Work_Tab.UI.Settings
                 ParentId = FeaturesSubWorkJobs,
                 FieldName = "subWorkDrilldownStyle",
                 Label = "Specific-job view",
-                Tooltip = "Choose whether opening specific jobs replaces the Work columns with a focused view or expands them beside the parent Work column. Ask first time is used only when Fluffy's Work Tab is installed.",
+                Tooltip = "Choose whether opening specific jobs uses Better Work Tab's focused view or Fluffy Work Tab's real right-expanding columns.",
                 Type = SettingType.Enum,
                 EnumType = typeof(BetterWorkTabSettings.SubWorkDrilldownStyle),
                 DefaultValue = DefaultSettings.subWorkDrilldownStyle,
                 OnChanged = _ => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
+                VisibleWhen = _ => FluffyWorkTabGateway.IsPresent,
                 ShowInSimpleView = true,
                 SortOrder = 4
             });

@@ -794,11 +794,7 @@ namespace Better_Work_Tab.UI
             TimePriorityPlannerPrototype.CloseForWorkModeTransition();
             if (style == BetterWorkTabSettings.SubWorkDrilldownStyle.ExpandBeside)
             {
-                if (layout != null)
-                {
-                    ColumnReorderAnimationState.Start(layout.Columns);
-                }
-                SubWorkDrilldownState.ToggleExpandBeside(workType);
+                EnterFluffyHostedSubWork(layout, workType);
             }
             else
             {
@@ -944,6 +940,15 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
+            if (!FluffyWorkTabGateway.TryBuildHostedColumnSpecs(
+                    sourceColumn.Value.Column,
+                    workType,
+                    out _,
+                    out List<PawnColumnDef> hostedChildren))
+            {
+                return;
+            }
+
             CalculateScrollRects(layout, inRect, out Rect outRect, out _);
             Rect sourceRect = FluffyWorkTabGateway.ResolveSubWorkStyleChooserSourceRect(layout);
             if (!IsUsableRect(sourceRect))
@@ -956,7 +961,7 @@ namespace Better_Work_Tab.UI
                 outRect,
                 sourceRect,
                 sourceColumn.Value.Width,
-                workGivers.Count);
+                hostedChildren.Count);
 
             FluffyWorkTabGateway.RegisterSubWorkStyleChooserRegions(
                 geometry.FocusRegion,
@@ -987,14 +992,16 @@ namespace Better_Work_Tab.UI
                     0f,
                     geometry.FocusChildWidth,
                     includeParent: false);
-                List<WorkTabLayoutColumn> expandColumns = BuildChooserPreviewColumns(
+                if (!FluffyWorkTabGateway.TryBuildHostedPreviewColumns(
                     sourceColumn.Value.Column,
                     workType,
-                    workGivers,
                     0f,
+                    geometry.ParentWidth,
                     geometry.ExpandChildWidth,
-                    includeParent: true,
-                    parentWidth: geometry.ParentWidth);
+                    out List<WorkTabLayoutColumn> expandColumns))
+                {
+                    return;
+                }
 
                 DrawChooserPreviewRegion(
                     layout,
@@ -1177,6 +1184,7 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
+            FluffyWorkTabGateway.PrepareHostedDraw(table);
             for (int i = 0; i < columns.Count; i++)
             {
                 WorkTabLayoutColumn column = columns[i];
@@ -1296,6 +1304,7 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
+            FluffyWorkTabGateway.PrepareHostedDraw(table);
             for (int i = 0; i < columns.Count; i++)
             {
                 WorkTabLayoutColumn column = columns[i];
@@ -1387,6 +1396,7 @@ namespace Better_Work_Tab.UI
         {
             float pinnedRowsHeight = GetPinnedRowsHeight();
             float totalHeight = pinnedRowsHeight + layout.ContentHeight;
+            FluffyWorkTabGateway.PrepareHostedDraw(table);
 
             foreach (var column in layout.Columns)
             {
@@ -1428,6 +1438,13 @@ namespace Better_Work_Tab.UI
                 finally
                 {
                     SubWorkDrilldownState.ClearDrawingColumn();
+                }
+
+                if (FluffyWorkTabGateway.WasHostedWorkTypeCollapsed(column.Column))
+                {
+                    ColumnReorderAnimationState.Start(layout.Columns);
+                    SubWorkDrilldownState.CollapseAllExpandBeside();
+                    HeaderDrawingCoordinator.InvalidateSolution();
                 }
 
                 if (drawRuleBuilderHighlightAfterHeader)
@@ -2300,8 +2317,7 @@ namespace Better_Work_Tab.UI
             TimePriorityPlannerPrototype.CloseForWorkModeTransition();
             if (SubWorkDrilldownState.EffectiveDrilldownStyle() == BetterWorkTabSettings.SubWorkDrilldownStyle.ExpandBeside)
             {
-                ColumnReorderAnimationState.Start(layout.Columns);
-                SubWorkDrilldownState.ToggleExpandBeside(openType);
+                EnterFluffyHostedSubWork(layout, openType);
             }
             else
             {
@@ -2356,8 +2372,7 @@ namespace Better_Work_Tab.UI
             TimePriorityPlannerPrototype.CloseForWorkModeTransition();
             if (SubWorkDrilldownState.EffectiveDrilldownStyle() == BetterWorkTabSettings.SubWorkDrilldownStyle.ExpandBeside)
             {
-                ColumnReorderAnimationState.Start(layout.Columns);
-                SubWorkDrilldownState.ToggleExpandBeside(workType);
+                EnterFluffyHostedSubWork(layout, workType);
             }
             else
             {
@@ -2370,6 +2385,16 @@ namespace Better_Work_Tab.UI
             SoundDefOf.Tick_High.PlayOneShotOnCamera();
             evt.Use();
             return true;
+        }
+
+        private static void EnterFluffyHostedSubWork(IWorkTabLayoutController layout, WorkTypeDef workType)
+        {
+            if (layout != null)
+            {
+                ColumnReorderAnimationState.Start(layout.Columns);
+            }
+
+            SubWorkDrilldownState.ToggleExpandBeside(workType);
         }
 
         private bool TryHandleSubWorkExitGesture(IWorkTabLayoutController layout)
@@ -3574,6 +3599,7 @@ namespace Better_Work_Tab.UI
 
         private void DrawPawnRow(PawnTable table, WorkTabLayoutRow row, Rect rowRect, IReadOnlyList<WorkTabLayoutColumn> columns)
         {
+            FluffyWorkTabGateway.PrepareHostedDraw(table);
             foreach (var column in columns)
             {
                 float animatedOffset = ColumnReorderAnimationState.GetCellOffset(column);
