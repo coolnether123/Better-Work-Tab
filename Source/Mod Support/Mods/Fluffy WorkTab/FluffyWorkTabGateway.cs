@@ -28,6 +28,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
         private static Rect _chooserSourceRect;
         private static Rect _focusChoiceButtonRect;
         private static Rect _expandChoiceButtonRect;
+        internal static bool DebugForceSubWorkStyleChooserAvailable;
 
         internal static bool IsPresent => FluffyWorkTabCoexistence.IsFluffyWorkTabPresent;
 
@@ -110,7 +111,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             WorkTypeDef workType,
             Rect sourceRect)
         {
-            if (!IsPresent ||
+            if ((!IsPresent && !DebugForceSubWorkStyleChooserAvailable) ||
                 workType == null ||
                 BetterWorkTabMod.Settings == null ||
                 BetterWorkTabMod.Settings.subWorkDrilldownStyle != BetterWorkTabSettings.SubWorkDrilldownStyle.NotChosen)
@@ -123,6 +124,25 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             _chooserSourceRect = sourceRect;
             CenterChooserSourceColumn(layout, instant: false);
             return true;
+        }
+
+        internal static bool DebugChooseSubWorkDrilldownStyle(
+            BetterWorkTabSettings.SubWorkDrilldownStyle style,
+            out WorkTypeDef workType)
+        {
+            workType = null;
+            if (!_chooserActive ||
+                style == BetterWorkTabSettings.SubWorkDrilldownStyle.NotChosen ||
+                BetterWorkTabMod.Settings == null)
+            {
+                return false;
+            }
+
+            workType = _chooserWorkType;
+            BetterWorkTabMod.Settings.subWorkDrilldownStyle = style;
+            BetterWorkTabMod.Settings.Write();
+            ClearSubWorkDrilldownStyleChooser();
+            return workType != null;
         }
 
         internal static bool TryHandleSubWorkDrilldownStyleChooserInput(
