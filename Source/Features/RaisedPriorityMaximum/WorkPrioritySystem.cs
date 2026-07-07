@@ -1,7 +1,8 @@
 using System;
-using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.Features.TimePriority;
+using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using RimWorld;
+using System.Reflection;
 using UnityEngine;
 using Verse;
 
@@ -17,6 +18,8 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         private static readonly Color ExtendedPriorityYellow = new Color(0.9f, 0.82f, 0.42f);
         private static readonly Color ExtendedPriorityTan = new Color(0.74f, 0.62f, 0.43f);
         private static readonly Color ExtendedPriorityGrey = new Color(0.74f, 0.74f, 0.74f);
+        private static readonly FieldInfo PawnField =
+            typeof(Pawn_WorkSettings).GetField("pawn", BindingFlags.Instance | BindingFlags.NonPublic);
 
         internal static int NormalizeMaxPriority(int value)
         {
@@ -25,7 +28,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
         internal static int GetMaxPriority()
         {
-            if (!FluffyWorkTabGateway.ShouldRunBetterWorkTabFeatures)
+            if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabPriorityFeatures)
             {
                 return PriorityConstants.VanillaMax;
             }
@@ -40,7 +43,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
         internal static int ClampPriority(int priority)
         {
-            if (!FluffyWorkTabGateway.ShouldRunBetterWorkTabFeatures)
+            if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabPriorityFeatures)
             {
                 return Mathf.Clamp(priority, DisabledPriority, PriorityConstants.VanillaMax);
             }
@@ -60,7 +63,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
         internal static int GetDefaultEnabledPriority()
         {
-            if (!FluffyWorkTabGateway.ShouldRunBetterWorkTabFeatures)
+            if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabPriorityFeatures)
             {
                 return PriorityConstants.VanillaDefaultEnabled;
             }
@@ -75,11 +78,16 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 return GetDefaultEnabledPriority();
             }
 
-            return ClampPriority(pawn.workSettings.GetPriority(workType));
+            return PriorityAuthorityBroker.GetEffectivePriority(pawn, workType);
         }
 
         internal static int GetCurrentPriorityForPawnWorkType(Pawn pawn, WorkTypeDef workType)
         {
+            if (PriorityAuthorityBroker.FluffyWorkTabHasPriorityAuthority)
+            {
+                return GetPriorityForPawnWorkType(pawn, workType);
+            }
+
             int basePriority = GetPriorityForPawnWorkType(pawn, workType);
             return TimePriorityService.GetEffectiveWorkTypePriority(pawn, workType, basePriority);
         }
@@ -87,6 +95,15 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         internal static void SetPriority(Pawn_WorkSettings workSettings, WorkTypeDef workType, int priority)
         {
             if (workSettings == null || workType == null)
+            {
+                return;
+            }
+
+            if (PriorityAuthorityBroker.FluffyWorkTabHasPriorityAuthority &&
+                FluffyWorkTabGateway.TrySetWorkTypePriorities(
+                    GetPawn(workSettings),
+                    workType,
+                    CreateUniformPriorities(priority)))
             {
                 return;
             }
@@ -137,7 +154,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 return DisabledPriority;
             }
 
-            if (!FluffyWorkTabGateway.ShouldRunBetterWorkTabFeatures)
+            if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabPriorityFeatures)
             {
                 return workSettings.GetPriority(workType);
             }
@@ -204,6 +221,23 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 default:
                     return Color.grey;
             }
+        }
+
+        private static int[] CreateUniformPriorities(int priority)
+        {
+            priority = Mathf.Clamp(priority, DisabledPriority, PriorityConstants.ExtendedHardMax);
+            var priorities = new int[TimePriorityService.HoursPerDay];
+            for (int i = 0; i < priorities.Length; i++)
+            {
+                priorities[i] = priority;
+            }
+
+            return priorities;
+        }
+
+        private static Pawn GetPawn(Pawn_WorkSettings workSettings)
+        {
+            return PawnField?.GetValue(workSettings) as Pawn;
         }
     }
 }

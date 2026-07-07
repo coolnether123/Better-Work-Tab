@@ -20,7 +20,7 @@ namespace Better_Work_Tab.Patches
     {
         public static FloatMenuOption Postfix(FloatMenuOption value, Pawn pawn, WorkGiverDef workGiver, LocalTargetInfo target, FloatMenuContext context)
         {
-            if (!FluffyWorkTabGateway.ShouldRunBetterWorkTabFeatures)
+            if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabPriorityFeatures)
             {
                 return value;
             }
@@ -346,7 +346,7 @@ namespace Better_Work_Tab.Patches
 
         public static IEnumerable<FloatMenuOption> Postfix(IEnumerable<FloatMenuOption> value, Pawn pawn, LocalTargetInfo target, FloatMenuContext context)
         {
-            if (!FluffyWorkTabGateway.ShouldRunBetterWorkTabFeatures)
+            if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabPriorityFeatures)
             {
                 foreach (var option in value)
                 {

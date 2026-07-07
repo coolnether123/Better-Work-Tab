@@ -8,6 +8,8 @@ using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using System.Collections.Generic;
 using System.Reflection;
+using Better_Work_Tab.Features.RaisedPriorityMaximum;
+using Better_Work_Tab.Features.TimePriority;
 using HarmonyLib;
 using RimWorld;
 using UnityEngine;
@@ -35,11 +37,20 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
         private static Type _fluffyWorkTypeWorkerType;
         private static Type _fluffyWorkGiverWorkerType;
         private static Type _fluffyWorkGiverColumnDefType;
+        private static Type _fluffyPriorityManagerType;
+        private static Type _fluffyPriorityTrackerType;
         private static FieldInfo _fluffyWorkGiverField;
         private static FieldInfo _fluffyWorkTypeExpandedField;
         private static FieldInfo _fluffyMainTabTableField;
+        private static PropertyInfo _fluffyPriorityManagerGetProperty;
+        private static PropertyInfo _fluffyPriorityManagerIndexer;
+        private static MethodInfo _fluffyGetWorkTypePriorityMethod;
+        private static MethodInfo _fluffyGetWorkGiverPriorityMethod;
+        private static MethodInfo _fluffySetWorkTypePriorityAtHourMethod;
+        private static MethodInfo _fluffySetWorkGiverPriorityAtHourMethod;
         private static object _fluffyHostedWindowInstance;
         private static bool _fluffyColumnTypesResolved;
+        private static bool _fluffyPriorityTypesResolved;
         private static readonly Dictionary<string, PawnColumnDef> HostedWorkTypeColumns =
             new Dictionary<string, PawnColumnDef>(StringComparer.Ordinal);
         private static readonly Dictionary<string, PawnColumnDef> HostedWorkGiverColumns =
@@ -115,6 +126,107 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             FluffyWorkTabMigration.ExposeMigrationVersion(ref version);
         }
 
+        internal static bool TryGetWorkTypePriority(Pawn pawn, WorkTypeDef workType, out int priority)
+        {
+            return TryGetWorkTypePriority(pawn, workType, TimePriorityService.GetCurrentHour(pawn), out priority);
+        }
+
+        internal static bool TryGetWorkTypePriority(Pawn pawn, WorkTypeDef workType, int hour, out int priority)
+        {
+            priority = 0;
+            if (!TryGetPriorityTracker(pawn, out object tracker) || workType == null)
+            {
+                return false;
+            }
+
+            try
+            {
+                hour = Mathf.Clamp(hour, 0, TimePriorityService.HoursPerDay - 1);
+                priority = (int)_fluffyGetWorkTypePriorityMethod.Invoke(tracker, new object[] { workType, hour });
+                return true;
+            }
+            catch (Exception ex)
+            {
+                BetterWorkTabMod.DebugLog("[FluffyWorkTab] Failed to read work type priority: " + ex.Message, DebugFeature.ModSupport);
+                return false;
+            }
+        }
+
+        internal static bool TryGetWorkGiverPriority(Pawn pawn, WorkGiverDef workGiver, int hour, out int priority)
+        {
+            priority = 0;
+            if (!TryGetPriorityTracker(pawn, out object tracker) || workGiver == null)
+            {
+                return false;
+            }
+
+            try
+            {
+                hour = Mathf.Clamp(hour, 0, TimePriorityService.HoursPerDay - 1);
+                priority = (int)_fluffyGetWorkGiverPriorityMethod.Invoke(tracker, new object[] { workGiver, hour });
+                return true;
+            }
+            catch (Exception ex)
+            {
+                BetterWorkTabMod.DebugLog("[FluffyWorkTab] Failed to read work giver priority: " + ex.Message, DebugFeature.ModSupport);
+                return false;
+            }
+        }
+
+        internal static bool TrySetWorkTypePriorities(Pawn pawn, WorkTypeDef workType, int[] priorities)
+        {
+            if (!TryGetPriorityTracker(pawn, out object tracker) || workType == null)
+            {
+                return false;
+            }
+
+            try
+            {
+                int[] normalized = NormalizeFluffyPriorities(priorities);
+                for (int hour = 0; hour < normalized.Length; hour++)
+                {
+                    bool recache = hour == normalized.Length - 1;
+                    _fluffySetWorkTypePriorityAtHourMethod.Invoke(
+                        tracker,
+                        new object[] { workType, normalized[hour], hour, recache });
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                BetterWorkTabMod.DebugLog("[FluffyWorkTab] Failed to write work type priorities: " + ex.Message, DebugFeature.ModSupport);
+                return false;
+            }
+        }
+
+        internal static bool TrySetWorkGiverPriorities(Pawn pawn, WorkGiverDef workGiver, int[] priorities)
+        {
+            if (!TryGetPriorityTracker(pawn, out object tracker) || workGiver == null)
+            {
+                return false;
+            }
+
+            try
+            {
+                int[] normalized = NormalizeFluffyPriorities(priorities);
+                for (int hour = 0; hour < normalized.Length; hour++)
+                {
+                    bool recache = hour == normalized.Length - 1;
+                    _fluffySetWorkGiverPriorityAtHourMethod.Invoke(
+                        tracker,
+                        new object[] { workGiver, normalized[hour], hour, recache });
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                BetterWorkTabMod.DebugLog("[FluffyWorkTab] Failed to write work giver priorities: " + ex.Message, DebugFeature.ModSupport);
+                return false;
+            }
+        }
+
         internal static bool TryGetManualPriorityToggleIcon(out Texture2D texture)
         {
             return FluffyWorkTabAssets.TryGetManualPriorityToggleIcon(out texture);
@@ -165,6 +277,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             workType = _chooserWorkType;
             BetterWorkTabMod.Settings.subWorkDrilldownStyle = style;
             BetterWorkTabMod.Settings.Write();
+            PriorityAuthorityBroker.NotifyPotentialAuthorityChanged();
             ClearSubWorkDrilldownStyleChooser();
             return workType != null;
         }
@@ -229,6 +342,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             workType = _chooserWorkType;
             BetterWorkTabMod.Settings.subWorkDrilldownStyle = style;
             BetterWorkTabMod.Settings.Write();
+            PriorityAuthorityBroker.NotifyPotentialAuthorityChanged();
             ClearSubWorkDrilldownStyleChooser();
             evt.Use();
             SoundDefOf.Tick_High.PlayOneShotOnCamera();
@@ -558,6 +672,80 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                    _fluffyWorkGiverColumnDefType != null &&
                    _fluffyWorkGiverField != null &&
                    _fluffyWorkTypeExpandedField != null;
+        }
+
+        private static bool TryGetPriorityTracker(Pawn pawn, out object tracker)
+        {
+            tracker = null;
+            if (pawn == null || !EnsureFluffyPriorityTypes())
+            {
+                return false;
+            }
+
+            object manager = _fluffyPriorityManagerGetProperty?.GetValue(null, null);
+            tracker = _fluffyPriorityManagerIndexer?.GetValue(manager, new object[] { pawn });
+            return tracker != null;
+        }
+
+        private static bool EnsureFluffyPriorityTypes()
+        {
+            if (_fluffyPriorityTypesResolved)
+            {
+                return HasFluffyPriorityAccess();
+            }
+
+            _fluffyPriorityTypesResolved = true;
+            _fluffyPriorityManagerType = AccessTools.TypeByName("WorkTab.PriorityManager");
+            _fluffyPriorityTrackerType = AccessTools.TypeByName("WorkTab.PriorityTracker");
+            if (_fluffyPriorityManagerType == null || _fluffyPriorityTrackerType == null)
+            {
+                return false;
+            }
+
+            _fluffyPriorityManagerGetProperty = AccessTools.Property(_fluffyPriorityManagerType, "Get");
+            _fluffyPriorityManagerIndexer = AccessTools.Property(_fluffyPriorityManagerType, "Item");
+            _fluffyGetWorkTypePriorityMethod = AccessTools.Method(
+                _fluffyPriorityTrackerType,
+                "GetPriority",
+                new[] { typeof(WorkTypeDef), typeof(int) });
+            _fluffyGetWorkGiverPriorityMethod = AccessTools.Method(
+                _fluffyPriorityTrackerType,
+                "GetPriority",
+                new[] { typeof(WorkGiverDef), typeof(int) });
+            _fluffySetWorkTypePriorityAtHourMethod = AccessTools.Method(
+                _fluffyPriorityTrackerType,
+                "SetPriority",
+                new[] { typeof(WorkTypeDef), typeof(int), typeof(int), typeof(bool) });
+            _fluffySetWorkGiverPriorityAtHourMethod = AccessTools.Method(
+                _fluffyPriorityTrackerType,
+                "SetPriority",
+                new[] { typeof(WorkGiverDef), typeof(int), typeof(int), typeof(bool) });
+
+            return HasFluffyPriorityAccess();
+        }
+
+        private static bool HasFluffyPriorityAccess()
+        {
+            return _fluffyPriorityManagerType != null &&
+                   _fluffyPriorityTrackerType != null &&
+                   _fluffyPriorityManagerGetProperty != null &&
+                   _fluffyPriorityManagerIndexer != null &&
+                   _fluffyGetWorkTypePriorityMethod != null &&
+                   _fluffyGetWorkGiverPriorityMethod != null &&
+                   _fluffySetWorkTypePriorityAtHourMethod != null &&
+                   _fluffySetWorkGiverPriorityAtHourMethod != null;
+        }
+
+        private static int[] NormalizeFluffyPriorities(int[] priorities)
+        {
+            var normalized = new int[TimePriorityService.HoursPerDay];
+            for (int hour = 0; hour < normalized.Length; hour++)
+            {
+                int priority = priorities != null && hour < priorities.Length ? priorities[hour] : 0;
+                normalized[hour] = Mathf.Clamp(priority, 0, 9);
+            }
+
+            return normalized;
         }
 
         private static PawnColumnDef GetOrCreateHostedWorkTypeColumn(PawnColumnDef sourceWorkColumn, WorkTypeDef workType)

@@ -6,6 +6,7 @@ using UnityEngine;
 using Verse;
 using Better_Work_Tab.UI.Headers.Vanilla;
 using Better_Work_Tab.UI.Headers.Angled;
+using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Spine.Profiling;
@@ -31,7 +32,7 @@ namespace Better_Work_Tab.UI.Headers
         public static bool IsWorkTab()
         {
             if (BetterWorkTabMod.Settings == null) return false;
-            if (!FluffyWorkTabGateway.ShouldRunBetterWorkTabFeatures) return false;
+            if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabPriorityFeatures) return false;
             var windowStack = Find.WindowStack;
             if (windowStack == null) return false;
             

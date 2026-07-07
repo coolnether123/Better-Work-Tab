@@ -58,6 +58,7 @@
     <Compile Include="Features\Caching\BedCountCache.cs" />
     <Compile Include="Features\Patches\MaxPriorityPatches.cs" />
     <Compile Include="Features\RaisedPriorityMaximum\PriorityAuthorityBroker.cs" />
+    <Compile Include="Features\RaisedPriorityMaximum\PriorityAuthorityPatches.cs" />
     <Compile Include="Features\RaisedPriorityMaximum\PriorityConstants.cs" />
     <Compile Include="Features\RaisedPriorityMaximum\PriorityProviderSnapshot.cs" />
     <Compile Include="Features\RaisedPriorityMaximum\PriorityProviders.cs" />

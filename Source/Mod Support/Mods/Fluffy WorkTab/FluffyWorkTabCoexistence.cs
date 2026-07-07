@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.UI;
 using HarmonyLib;
 using RimWorld;
@@ -139,6 +140,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
 
             settings.preferredWorkTabOwner = WorkTabOwnerPreference.BetterWorkTab;
             settings.Write();
+            PriorityAuthorityBroker.NotifyPotentialAuthorityChanged();
             ApplyDesiredOwner(reopenIfOpen: true);
         }
 
@@ -152,6 +154,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
 
             settings.preferredWorkTabOwner = WorkTabOwnerPreference.FluffyWorkTab;
             settings.Write();
+            PriorityAuthorityBroker.NotifyPotentialAuthorityChanged();
             ApplyDesiredOwner(reopenIfOpen: true);
         }
 

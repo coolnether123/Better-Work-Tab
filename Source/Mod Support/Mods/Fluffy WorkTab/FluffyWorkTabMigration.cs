@@ -66,6 +66,31 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             }
         }
 
+        internal static int ImportLivePriorities()
+        {
+            var component = Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
+            if (component == null)
+            {
+                return 0;
+            }
+
+            List<FluffyPawnPriorityRecord> records = ReadLiveFluffyPriorities();
+            if (records.Count == 0)
+            {
+                return 0;
+            }
+
+            component.EnsureWorkGiverReassignmentData();
+            int changed = Apply(component, records);
+            if (changed > 0)
+            {
+                TimePriorityService.NotifyLoaded();
+                WorkGiverReassignmentManager.InvalidateCaches();
+            }
+
+            return changed;
+        }
+
         internal static bool HasMigrationHistory(GameComponent_BWTWorldSettings component)
         {
             try
@@ -433,16 +458,23 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
         private static int[] NormalizePriorities(int[] priorities, int fallbackPriority)
         {
             var normalized = new int[TimePriorityService.HoursPerDay];
-            fallbackPriority = WorkPrioritySystem.ClampPriority(fallbackPriority);
+            fallbackPriority = ClampImportedPriority(fallbackPriority);
             for (int i = 0; i < normalized.Length; i++)
             {
-                normalized[i] = WorkPrioritySystem.ClampPriority(
+                normalized[i] = ClampImportedPriority(
                     priorities != null && i < priorities.Length
                         ? priorities[i]
                         : fallbackPriority);
             }
 
             return normalized;
+        }
+
+        private static int ClampImportedPriority(int priority)
+        {
+            return Math.Max(
+                WorkPrioritySystem.DisabledPriority,
+                Math.Min(PriorityConstants.ExtendedHardMax, priority));
         }
 
         private static bool ArraysEqual(int[] left, int[] right)

@@ -2,7 +2,6 @@ using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
-using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using HarmonyLib;
 using RimWorld;
 using System;
@@ -191,9 +190,11 @@ namespace Better_Work_Tab.Features
     [HarmonyPatch(typeof(Pawn_WorkSettings), nameof(Pawn_WorkSettings.CacheWorkGiversInOrder))]
     internal static class Patch_WorkExecutionOrder_ReplaceCache
     {
+        [HarmonyBefore(new[] { "fluffy.worktab" })]
+        [HarmonyPriority(Priority.First)]
         public static bool Prefix(Pawn_WorkSettings __instance)
         {
-            if (!FluffyWorkTabGateway.ShouldRunBetterWorkTabFeatures)
+            if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabOrdering)
             {
                 return true;
             }

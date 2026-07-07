@@ -2,17 +2,119 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Better_Work_Tab.API;
+using Better_Work_Tab.Features;
+using Better_Work_Tab.Features.TimePriority;
+using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using RimWorld;
 using UnityEngine;
 using Verse;
 
 namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 {
+    public enum PriorityAuthorityOwner
+    {
+        BetterWorkTab,
+        FluffyWorkTab
+    }
+
     public static class PriorityAuthorityBroker
     {
         private static int cachedFrame = -1;
         private static Game cachedGame;
         private static int cachedHighestLivePriority;
+        private static bool authorityInitialized;
+        private static PriorityAuthorityOwner lastAuthority;
+        private static bool handoffInProgress;
+        private static PriorityAuthorityOwner? handoffAuthorityOverride;
+
+        public static PriorityAuthorityOwner CurrentAuthority
+        {
+            get
+            {
+                if (handoffInProgress && handoffAuthorityOverride.HasValue)
+                {
+                    return handoffAuthorityOverride.Value;
+                }
+
+                PriorityAuthorityOwner authority = ComputeAuthority();
+                EnsureTransitionApplied(authority);
+                return authority;
+            }
+        }
+
+        public static bool BetterWorkTabHasPriorityAuthority => CurrentAuthority == PriorityAuthorityOwner.BetterWorkTab;
+
+        public static bool FluffyWorkTabHasPriorityAuthority => CurrentAuthority == PriorityAuthorityOwner.FluffyWorkTab;
+
+        internal static bool ShouldRunBetterWorkTabPriorityFeatures => BetterWorkTabHasPriorityAuthority;
+
+        internal static bool ShouldRunBetterWorkTabOrdering => BetterWorkTabHasPriorityAuthority;
+
+        internal static void NotifyPotentialAuthorityChanged()
+        {
+            EnsureTransitionApplied(ComputeAuthority());
+        }
+
+        internal static int GetEffectivePriority(Pawn pawn, WorkTypeDef workType)
+        {
+            if (pawn?.workSettings == null || workType == null)
+            {
+                return GetDefaultEnabledPriority();
+            }
+
+            if (CurrentAuthority == PriorityAuthorityOwner.FluffyWorkTab &&
+                FluffyWorkTabGateway.TryGetWorkTypePriority(pawn, workType, out int fluffyPriority))
+            {
+                return ClampRuntimePriority(fluffyPriority);
+            }
+
+            return ClampPriorityForRequest(GetBetterWorkTabStoredPriority(pawn.workSettings, workType));
+        }
+
+        internal static int GetEffectivePriorityAtHour(Pawn pawn, WorkTypeDef workType, int hour)
+        {
+            if (pawn?.workSettings == null || workType == null)
+            {
+                return GetDefaultEnabledPriority();
+            }
+
+            if (CurrentAuthority == PriorityAuthorityOwner.FluffyWorkTab &&
+                FluffyWorkTabGateway.TryGetWorkTypePriority(pawn, workType, hour, out int fluffyPriority))
+            {
+                return ClampRuntimePriority(fluffyPriority);
+            }
+
+            int basePriority = GetBetterWorkTabStoredPriority(pawn.workSettings, workType);
+            return TimePriorityService.GetPriorityAtHour(
+                TimePriorityTarget.ForWorkType(pawn, workType),
+                basePriority,
+                hour);
+        }
+
+        internal static int GetBetterWorkTabStoredPriority(Pawn_WorkSettings workSettings, WorkTypeDef workType)
+        {
+            if (workSettings?.priorities == null || workType == null)
+            {
+                return GetDefaultEnabledPriority();
+            }
+
+            return ClampPriorityForRequest(workSettings.priorities[workType]);
+        }
+
+        internal static int GetBetterWorkTabEffectiveWorkGiverPriorityAtHour(
+            Pawn pawn,
+            WorkTypeDef workType,
+            WorkGiverDef workGiver,
+            int hour)
+        {
+            int parentPriority = GetEffectivePriorityAtHour(pawn, workType, hour);
+            int fallback = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, workGiver, parentPriority);
+            return TimePriorityService.GetPriorityAtHour(
+                TimePriorityTarget.ForWorkGiver(pawn, workType, workGiver),
+                fallback,
+                hour);
+        }
 
         public static PriorityProviderSnapshot GetSnapshot()
         {
@@ -202,6 +304,166 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         {
             cachedFrame = -1;
             cachedGame = null;
+            NotifyPotentialAuthorityChanged();
+        }
+
+        private static PriorityAuthorityOwner ComputeAuthority()
+        {
+            if (!FluffyWorkTabGateway.IsPresent)
+            {
+                return PriorityAuthorityOwner.BetterWorkTab;
+            }
+
+            if (FluffyWorkTabGateway.ExternalWorkTabOwnsWorkTab)
+            {
+                return PriorityAuthorityOwner.FluffyWorkTab;
+            }
+
+            BetterWorkTabSettings.SubWorkDrilldownStyle style =
+                BetterWorkTabMod.Settings?.subWorkDrilldownStyle ??
+                DefaultSettings.subWorkDrilldownStyle;
+            return style == BetterWorkTabSettings.SubWorkDrilldownStyle.ExpandBeside
+                ? PriorityAuthorityOwner.FluffyWorkTab
+                : PriorityAuthorityOwner.BetterWorkTab;
+        }
+
+        private static void EnsureTransitionApplied(PriorityAuthorityOwner authority)
+        {
+            if (!authorityInitialized)
+            {
+                authorityInitialized = true;
+                lastAuthority = authority;
+                return;
+            }
+
+            if (lastAuthority == authority || handoffInProgress)
+            {
+                return;
+            }
+
+            PriorityAuthorityOwner previous = lastAuthority;
+            if (!CanRunHandoffNow())
+            {
+                lastAuthority = authority;
+                return;
+            }
+
+            lastAuthority = authority;
+            RunHandoff(previous, authority);
+        }
+
+        private static bool CanRunHandoffNow()
+        {
+            return Current.Game != null && Current.ProgramState == ProgramState.Playing;
+        }
+
+        private static void RunHandoff(PriorityAuthorityOwner previous, PriorityAuthorityOwner next)
+        {
+            if (!FluffyWorkTabGateway.IsPresent)
+            {
+                return;
+            }
+
+            handoffInProgress = true;
+            handoffAuthorityOverride = PriorityAuthorityOwner.BetterWorkTab;
+            try
+            {
+                int changed = next == PriorityAuthorityOwner.FluffyWorkTab
+                    ? SyncBetterWorkTabToFluffy()
+                    : FluffyWorkTabMigration.ImportLivePriorities();
+
+                WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
+                MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+                BetterWorkTabMod.DebugLog(
+                    "Priority authority changed " + previous + " -> " + next + "; synced entries=" + changed + ".",
+                    DebugFeature.ModSupport);
+            }
+            finally
+            {
+                handoffAuthorityOverride = null;
+                handoffInProgress = false;
+            }
+        }
+
+        private static int SyncBetterWorkTabToFluffy()
+        {
+            int changed = 0;
+            foreach (Pawn pawn in PawnsFinder.All_AliveOrDead)
+            {
+                if (pawn?.workSettings == null)
+                {
+                    continue;
+                }
+
+                foreach (WorkTypeDef workType in DefDatabase<WorkTypeDef>.AllDefsListForReading)
+                {
+                    if (workType == null || pawn.WorkTypeIsDisabled(workType))
+                    {
+                        continue;
+                    }
+
+                    int parentPriority = GetBetterWorkTabStoredPriority(pawn.workSettings, workType);
+                    int[] parentSchedule = BuildBetterWorkTabWorkTypeSchedule(pawn, workType, parentPriority);
+                    if (FluffyWorkTabGateway.TrySetWorkTypePriorities(pawn, workType, parentSchedule))
+                    {
+                        changed++;
+                    }
+
+                    IReadOnlyList<WorkGiver> workGivers = WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(workType);
+                    for (int i = 0; i < workGivers.Count; i++)
+                    {
+                        WorkGiverDef workGiver = workGivers[i]?.def;
+                        if (workGiver == null)
+                        {
+                            continue;
+                        }
+
+                        int[] workGiverSchedule = BuildBetterWorkTabWorkGiverSchedule(
+                            pawn,
+                            workType,
+                            workGiver,
+                            parentSchedule);
+                        if (FluffyWorkTabGateway.TrySetWorkGiverPriorities(pawn, workGiver, workGiverSchedule))
+                        {
+                            changed++;
+                        }
+                    }
+                }
+            }
+
+            return changed;
+        }
+
+        private static int[] BuildBetterWorkTabWorkTypeSchedule(Pawn pawn, WorkTypeDef workType, int fallbackPriority)
+        {
+            var priorities = new int[TimePriorityService.HoursPerDay];
+            TimePriorityTarget target = TimePriorityTarget.ForWorkType(pawn, workType);
+            for (int hour = 0; hour < priorities.Length; hour++)
+            {
+                priorities[hour] = TimePriorityService.GetPriorityAtHour(target, fallbackPriority, hour);
+            }
+
+            return priorities;
+        }
+
+        private static int[] BuildBetterWorkTabWorkGiverSchedule(
+            Pawn pawn,
+            WorkTypeDef workType,
+            WorkGiverDef workGiver,
+            int[] parentSchedule)
+        {
+            var priorities = new int[TimePriorityService.HoursPerDay];
+            TimePriorityTarget target = TimePriorityTarget.ForWorkGiver(pawn, workType, workGiver);
+            for (int hour = 0; hour < priorities.Length; hour++)
+            {
+                int parentPriority = parentSchedule != null && hour < parentSchedule.Length
+                    ? parentSchedule[hour]
+                    : GetBetterWorkTabStoredPriority(pawn?.workSettings, workType);
+                int fallback = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, workGiver, parentPriority);
+                priorities[hour] = TimePriorityService.GetPriorityAtHour(target, fallback, hour);
+            }
+
+            return priorities;
         }
 
         private static PriorityProviderSnapshot ResolveAutomaticProvider(
@@ -535,6 +797,11 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             }
 
             return value > max ? max : value;
+        }
+
+        private static int ClampRuntimePriority(int priority)
+        {
+            return Clamp(priority, PriorityConstants.Disabled, PriorityConstants.ExtendedHardMax);
         }
     }
 }

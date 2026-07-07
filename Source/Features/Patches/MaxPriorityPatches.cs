@@ -4,7 +4,6 @@ using System.Reflection;
 using System.Reflection.Emit;
 using HarmonyLib;
 using ModAPI.Harmony;
-using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -262,7 +261,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         [HarmonyPostfix]
         private static void Postfix(ref Color __result, int prio)
         {
-            if (!FluffyWorkTabGateway.ShouldRunBetterWorkTabFeatures)
+            if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabPriorityFeatures)
             {
                 return;
             }
