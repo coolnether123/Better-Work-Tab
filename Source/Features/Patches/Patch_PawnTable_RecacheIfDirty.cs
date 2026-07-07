@@ -1,5 +1,6 @@
 ﻿using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.Features.Testing;
+using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using HarmonyLib;
@@ -49,7 +50,8 @@ namespace Better_Work_Tab.Features.Patches
         public static void Postfix(PawnTable __instance)
         {
             // Only process the Work tab
-            if (__instance.def != PawnTableDefOf.Work)
+            if (__instance.def != PawnTableDefOf.Work ||
+                !FluffyWorkTabCoexistence.ShouldRunBetterWorkTabFeatures)
                 return;
 
             SubWorkTransitionPerfDiagnostics.CountPawnTableRecachePostfix();

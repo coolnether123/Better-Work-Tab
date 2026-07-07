@@ -146,6 +146,7 @@
     <Compile Include="Mod Support\ModSupportModuleBase.cs" />
     <Compile Include="Mod Support\Mods\Chronos Pointer\ChronosPointerSupport.cs" />
     <Compile Include="Mod Support\Mods\Do Once\DoOnceSupport.cs" />
+    <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabCoexistence.cs" />
     <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabMigration.cs" />
     <Compile Include="Mod Support\Mods\Useful Marks\UsefulMarksSupport.cs" />
     <Compile Include="Mod Support\Mods\Vanilla Skills Expanded\VanillaSkillsExpandedSupport.cs" />
@@ -233,6 +234,7 @@
     <Compile Include="UI\Dialog_EditDivider.cs" />
     <Compile Include="UI\Dialog_ChangePawnTitle.cs" />
     <Compile Include="UI\BetterWorkTabSettingsUI.cs" />
+    <Compile Include="UI\FluffyWorkTabCoexistenceUI.cs" />
     <Compile Include="UI\Settings\BWTSettingsFilters.cs" />
     <Compile Include="UI\Settings\BWTSettingsContextFocus.cs" />
     <Compile Include="UI\Settings\BWTSettingsFocusRequest.cs" />

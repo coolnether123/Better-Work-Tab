@@ -6,6 +6,13 @@
     <BWT_Settings_UI_Edit>Edit</BWT_Settings_UI_Edit>
     <BWT_Settings_UI_Close>Close</BWT_Settings_UI_Close>
     <BWT_Settings_UI_NoResults>No settings match your search.</BWT_Settings_UI_NoResults>
+    <BWT_UseFluffyWorkTab_Button>Use Work Tab (Fluffy's)</BWT_UseFluffyWorkTab_Button>
+    <BWT_UseFluffyWorkTab_Title>Switch Work tab</BWT_UseFluffyWorkTab_Title>
+    <BWT_UseFluffyWorkTab_Confirm>Switching hands the Work tab to Fluffy's Work Tab. You can switch back any time in Better Work Tab's mod settings.</BWT_UseFluffyWorkTab_Confirm>
+    <BWT_UseFluffyWorkTab_Tooltip>Run Fluffy's Work Tab instead of Better Work Tab.</BWT_UseFluffyWorkTab_Tooltip>
+    <BWT_FluffyActive_SettingsBanner>Fluffy's Work Tab is currently running the Work tab.</BWT_FluffyActive_SettingsBanner>
+    <BWT_SwitchBackToBetterWorkTab_Button>Switch back to Better Work Tab</BWT_SwitchBackToBetterWorkTab_Button>
+    <BWT_SwitchBackToBetterWorkTab_Tooltip>Run Better Work Tab as the Work tab again.</BWT_SwitchBackToBetterWorkTab_Tooltip>
     <BWT_Settings_UI_PinnedSettings>★ Pinned Settings</BWT_Settings_UI_PinnedSettings>
     
     <!-- Categories -->

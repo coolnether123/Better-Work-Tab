@@ -370,6 +370,7 @@ namespace Better_Work_Tab.UI
             if (SpineTiming.Enabled)
             {
                 SpineTiming.Time("WorkTab.DrawDragOverlays", () => organizer?.DrawDragOverlays());
+                SpineTiming.Time("WorkTab.DrawFluffyWorkTabSwitch", () => FluffyWorkTabCoexistenceUI.DrawWorkTabSwitchButton(inRect));
                 SpineTiming.Time("WorkTab.DrawManualPrioritiesCheckbox", DrawManualPrioritiesCheckbox);
                 SpineTiming.Time("WorkTab.DrawPriorityLegend", () => DrawPriorityLegend(inRect));
                 SpineTiming.Time("WorkTab.DrawContextSettingsHint", () => DrawContextSettingsHint(inRect));
@@ -377,6 +378,7 @@ namespace Better_Work_Tab.UI
             else
             {
                 organizer?.DrawDragOverlays();
+                FluffyWorkTabCoexistenceUI.DrawWorkTabSwitchButton(inRect);
                 DrawManualPrioritiesCheckbox();
                 DrawPriorityLegend(inRect);
                 DrawContextSettingsHint(inRect);

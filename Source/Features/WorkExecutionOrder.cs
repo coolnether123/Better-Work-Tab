@@ -2,6 +2,7 @@ using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
+using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using HarmonyLib;
 using RimWorld;
 using System;
@@ -192,6 +193,11 @@ namespace Better_Work_Tab.Features
     {
         public static bool Prefix(Pawn_WorkSettings __instance)
         {
+            if (!FluffyWorkTabCoexistence.ShouldRunBetterWorkTabFeatures)
+            {
+                return true;
+            }
+
             try
             {
                 WorkExecutionOrder.RebuildUsingSavedColumnOrder(__instance);

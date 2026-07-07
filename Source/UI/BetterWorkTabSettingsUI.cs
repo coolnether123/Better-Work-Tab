@@ -20,6 +20,7 @@ namespace Better_Work_Tab.UI
         public static void DoSettingsWindowContents(Rect inRect, BetterWorkTabSettings settings)
         {
             EnsureDrawerInitialized();
+            FluffyWorkTabCoexistenceUI.DrawSettingsBannerIfNeeded(ref inRect);
 
             _viewMode = settings.settingsViewMode == BetterWorkTabSettings.SettingsViewMode.Simple
                 ? SettingsViewMode.Simple

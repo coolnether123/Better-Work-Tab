@@ -1,4 +1,5 @@
 using HarmonyLib;
+using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using RimWorld;
 
 namespace Better_Work_Tab.Features.Patches
@@ -13,6 +14,11 @@ namespace Better_Work_Tab.Features.Patches
         [HarmonyPrefix]
         public static bool Prefix()
         {
+            if (!FluffyWorkTabCoexistence.ShouldRunBetterWorkTabFeatures)
+            {
+                return true;
+            }
+
             if (BetterWorkTabLocalState.IsHeaderDragging)
             {
                 return false;

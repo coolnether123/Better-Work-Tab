@@ -16,6 +16,7 @@ using Verse;
 using LudeonTK;
 using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.Settings;
+using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Spine.UI.SettingsFramework;
 
 namespace Better_Work_Tab
@@ -221,6 +222,7 @@ namespace Better_Work_Tab
         public static bool useVerticalStackingForCJK = true;
         public static float cjkVerticalKerning = 0.75f;
         public static bool autoEnableManualPriorities = false;
+        public static WorkTabOwnerPreference preferredWorkTabOwner = WorkTabOwnerPreference.BetterWorkTab;
         public static PriorityMode priorityMode = PriorityMode.Auto;
         public static bool enableExtendedPriorities = false;
         public static bool delegateToExternalPriorityMods = true;
@@ -324,6 +326,7 @@ namespace Better_Work_Tab
         public SettingsViewMode settingsViewMode = SettingsViewMode.Simple;
         public bool useOutlineHighlights = false;
         public bool enableScrollWheelPriority = DefaultSettings.enableScrollWheelPriority;
+        public WorkTabOwnerPreference preferredWorkTabOwner = DefaultSettings.preferredWorkTabOwner;
 
         public bool firstTimeSetupDone = DefaultSettings.firstTimeSetupDone;
 
@@ -998,6 +1001,7 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref angledHeaderColor, "angledHeaderColor", DefaultSettings.Color_AngledHeaderText);
             Scribe_Values.Look(ref headerUnderlineColor, "headerUnderlineColor", DefaultSettings.Color_HeaderUnderline);
             Scribe_Values.Look(ref autoEnableManualPriorities, "autoEnableManualPriorities", DefaultSettings.autoEnableManualPriorities);
+            Scribe_Values.Look(ref preferredWorkTabOwner, "preferredWorkTabOwner", DefaultSettings.preferredWorkTabOwner);
             Scribe_Values.Look(ref enableExtendedPriorities, "enableExtendedPriorities", DefaultSettings.enableExtendedPriorities);
             Scribe_Values.Look(ref delegateToExternalPriorityMods, "delegateToExternalPriorityMods", DefaultSettings.delegateToExternalPriorityMods);
             Scribe_Values.Look(ref selectedPriorityProviderId, "selectedPriorityProviderId", DefaultSettings.selectedPriorityProviderId);
@@ -1144,6 +1148,7 @@ namespace Better_Work_Tab
             enableSubWorkTransitionAnimation = DefaultSettings.enableSubWorkTransitionAnimation;
             subWorkTransitionStyle = DefaultSettings.subWorkTransitionStyle;
             subWorkTransitionSeconds = DefaultSettings.subWorkTransitionSeconds;
+            preferredWorkTabOwner = DefaultSettings.preferredWorkTabOwner;
             workColumnOrderDefNames.Clear();
             storedColumnWidths.Clear();
             NormalizePrioritySettings();

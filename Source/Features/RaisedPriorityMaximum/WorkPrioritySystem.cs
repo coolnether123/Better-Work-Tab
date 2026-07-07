@@ -1,4 +1,5 @@
 using System;
+using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.Features.TimePriority;
 using RimWorld;
 using UnityEngine;
@@ -24,6 +25,11 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
         internal static int GetMaxPriority()
         {
+            if (!FluffyWorkTabCoexistence.ShouldRunBetterWorkTabFeatures)
+            {
+                return PriorityConstants.VanillaMax;
+            }
+
             return PriorityAuthorityBroker.GetEffectiveMaxPriority();
         }
 
@@ -34,6 +40,11 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
         internal static int ClampPriority(int priority)
         {
+            if (!FluffyWorkTabCoexistence.ShouldRunBetterWorkTabFeatures)
+            {
+                return Mathf.Clamp(priority, DisabledPriority, PriorityConstants.VanillaMax);
+            }
+
             return PriorityAuthorityBroker.ClampPriorityForRequest(priority);
         }
 
@@ -49,6 +60,11 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
         internal static int GetDefaultEnabledPriority()
         {
+            if (!FluffyWorkTabCoexistence.ShouldRunBetterWorkTabFeatures)
+            {
+                return PriorityConstants.VanillaDefaultEnabled;
+            }
+
             return PriorityAuthorityBroker.GetDefaultEnabledPriority();
         }
 
@@ -119,6 +135,11 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             if (workSettings == null || workType == null)
             {
                 return DisabledPriority;
+            }
+
+            if (!FluffyWorkTabCoexistence.ShouldRunBetterWorkTabFeatures)
+            {
+                return workSettings.GetPriority(workType);
             }
 
             return MapPriorityToVanillaDisplay(workSettings.GetPriority(workType));
