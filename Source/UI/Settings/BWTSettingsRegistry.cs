@@ -336,6 +336,33 @@ namespace Better_Work_Tab.UI.Settings
 
             Register(new SettingDefinition
             {
+                Id = SubWorkHeaderBadge,
+                ParentId = FeaturesSubWorkJobs,
+                FieldName = "showSubWorkHeaderBadge",
+                Label = "Show job-view badge",
+                Tooltip = "Show the small badge on Work headers that can open specific jobs.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.showSubWorkHeaderBadge,
+                OnChanged = _ => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
+                ShowInSimpleView = true,
+                SortOrder = 3
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = SubWorkCrossWorkDragDrop,
+                ParentId = FeaturesSubWorkJobs,
+                FieldName = "enableSubWorkCrossWorkDragDrop",
+                Label = "Move jobs between Work columns",
+                Tooltip = "Drag a specific job onto another Work column to move it there. Off keeps dragging inside the current job view only.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.enableSubWorkCrossWorkDragDrop,
+                ShowInSimpleView = true,
+                SortOrder = 4
+            });
+
+            Register(new SettingDefinition
+            {
                 Id = SubWorkGlobalVanillaPriorityBoxes,
                 ParentId = FeaturesSubWorkJobs,
                 FieldName = "useVanillaSubWorkGlobalPriorityBoxes",
@@ -344,7 +371,7 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.useVanillaSubWorkGlobalPriorityBoxes,
                 ShowInSimpleView = true,
-                SortOrder = 3
+                SortOrder = 5
             });
 
             Register(new SettingDefinition
@@ -357,7 +384,7 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.restoreCursorOnSubWorkExit,
                 ShowInSimpleView = true,
-                SortOrder = 4
+                SortOrder = 6
             });
 
             Register(new SettingDefinition
@@ -370,7 +397,7 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.restoreCursorOnSubWorkPawnCellExit,
                 ShowInSimpleView = true,
-                SortOrder = 5
+                SortOrder = 7
             });
 
             Register(new SettingDefinition
@@ -384,7 +411,7 @@ namespace Better_Work_Tab.UI.Settings
                 DefaultValue = DefaultSettings.enableSubWorkOverrideBreakAnimation,
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
-                SortOrder = 6
+                SortOrder = 8
             });
 
             Register(new SettingDefinition
@@ -399,7 +426,7 @@ namespace Better_Work_Tab.UI.Settings
                 OnChanged = _ => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
                 ShowInSimpleView = false,
                 ShowInAdvancedView = false,
-                SortOrder = 7
+                SortOrder = 9
             });
 
             Register(new SettingDefinition
@@ -415,7 +442,7 @@ namespace Better_Work_Tab.UI.Settings
                 OnChanged = _ => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
-                SortOrder = 7
+                SortOrder = 9
             });
 
             Register(new SettingDefinition
@@ -431,7 +458,7 @@ namespace Better_Work_Tab.UI.Settings
                 OnChanged = _ => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
                 ShowInSimpleView = false,
                 ShowInAdvancedView = false,
-                SortOrder = 8
+                SortOrder = 10
             });
 
             Register(new SettingDefinition
@@ -461,7 +488,7 @@ namespace Better_Work_Tab.UI.Settings
                 VisibleWhen = s => (s as BetterWorkTabSettings)?.enableSubWorkTransitionAnimation ?? true,
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
-                SortOrder = 8
+                SortOrder = 10
             });
 
             Register(new SettingDefinition
@@ -477,7 +504,7 @@ namespace Better_Work_Tab.UI.Settings
                 OnChanged = _ => WorkExecutionOrder.MarkAllPawnsWorkGiversDirty(),
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
-                SortOrder = 9
+                SortOrder = 11
             });
 
             Register(new SettingDefinition
@@ -493,7 +520,7 @@ namespace Better_Work_Tab.UI.Settings
                 OnChanged = _ => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
-                SortOrder = 10
+                SortOrder = 12
             });
 
             Register(new SettingDefinition
@@ -2459,6 +2486,26 @@ namespace Better_Work_Tab.UI.Settings
                 ShowInSimpleView = true,
                 ShowInAdvancedView = true,
                 SortOrder = 350
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = HeadersCustomWorkLabels,
+                ParentId = HeadersHeader,
+                FieldName = "enableCustomWorkLabels",
+                Label = "Custom Work names",
+                Tooltip = "Allow renamed Work columns and specific jobs to appear in the Work tab. Off keeps saved names but shows default names.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.enableCustomWorkLabels,
+                OnChanged = _ =>
+                {
+                    Better_Work_Tab.UI.Headers.Angled.AngledHeaderCache.ClearCache();
+                    Better_Work_Tab.UI.Headers.HeaderDrawingCoordinator.InvalidateSolution();
+                    MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+                },
+                ShowInSimpleView = true,
+                ShowInAdvancedView = true,
+                SortOrder = 505
             });
 
             Register(new SettingDefinition

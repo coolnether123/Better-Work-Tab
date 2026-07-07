@@ -19,9 +19,17 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         private static GameComponent_BWTWorldSettings Data =>
             Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
 
+        internal static bool CustomLabelsEnabled =>
+            BetterWorkTabMod.Settings?.enableCustomWorkLabels ?? DefaultSettings.enableCustomWorkLabels;
+
         internal static bool TryGetWorkTypeLabel(WorkTypeDef def, out string label)
         {
             label = null;
+            if (!CustomLabelsEnabled)
+            {
+                return false;
+            }
+
             var map = Data?.CustomWorkTypeLabels;
             return def != null && map != null && map.TryGetValue(def.defName, out label) && !label.NullOrEmpty();
         }
@@ -29,6 +37,11 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         internal static bool TryGetWorkGiverLabel(WorkGiverDef def, out string label)
         {
             label = null;
+            if (!CustomLabelsEnabled)
+            {
+                return false;
+            }
+
             var map = Data?.CustomWorkGiverLabels;
             return def != null && map != null && map.TryGetValue(def.defName, out label) && !label.NullOrEmpty();
         }

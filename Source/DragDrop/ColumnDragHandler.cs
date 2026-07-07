@@ -114,6 +114,7 @@ namespace Better_Work_Tab.DragDrop
             bool showLine = true;
             bool lineOnly = true;
             bool pointerBeyondSubWorkStrip = _subWorkDrilldownDrag &&
+                SubWorkCrossWorkDropTargetRenderer.IsEnabled &&
                 SubWorkCrossWorkDropTargetRenderer.IsPointerBeyondSubWorkStrip(Layout, _lastMousePos);
 
             if (!lineOnly && showGhost)
@@ -125,15 +126,6 @@ namespace Better_Work_Tab.DragDrop
                     fullHeight);
 
                 ListDragVisuals.DrawGhost(ghost, _primaryColumn.defName);
-            }
-
-            if (_subWorkDrilldownDrag)
-            {
-                SubWorkCrossWorkDropTargetRenderer.DrawTargets(
-                    Layout,
-                    _subWorkType,
-                    _crossWorkDropTarget,
-                    _crossWorkDropTargetValid);
             }
 
             if (!pointerBeyondSubWorkStrip)
@@ -608,23 +600,30 @@ namespace Better_Work_Tab.DragDrop
         private void UpdateCrossWorkDropTarget(Vector2 mousePos)
         {
             ClearCrossWorkDropTarget();
-            if (!_subWorkDrilldownDrag || _subWorkType == null)
+            if (!_subWorkDrilldownDrag ||
+                _subWorkType == null ||
+                !SubWorkCrossWorkDropTargetRenderer.IsEnabled ||
+                !SubWorkCrossWorkDropTargetRenderer.IsPointerBeyondSubWorkStrip(Layout, mousePos))
             {
                 return;
             }
 
+            WorkTypeDef targetWorkType = null;
+            bool valid = false;
             if (SubWorkCrossWorkDropTargetRenderer.TryGetDropTargetAt(
                 Layout,
                 mousePos,
                 _subWorkType,
-                out WorkTypeDef targetWorkType,
+                out targetWorkType,
                 out Rect targetRect,
-                out bool valid))
+                out valid))
             {
                 _crossWorkDropTarget = targetWorkType;
                 _crossWorkDropTargetRect = targetRect;
                 _crossWorkDropTargetValid = valid;
             }
+
+            SubWorkCrossWorkDropTargetRenderer.SetLiveTargets(_subWorkType, targetWorkType, valid);
         }
 
         private void ClearCrossWorkDropTarget()
@@ -632,10 +631,16 @@ namespace Better_Work_Tab.DragDrop
             _crossWorkDropTarget = null;
             _crossWorkDropTargetRect = Rect.zero;
             _crossWorkDropTargetValid = false;
+            SubWorkCrossWorkDropTargetRenderer.ClearLiveTargets();
         }
 
         private bool TryCommitCrossWorkReassignment()
         {
+            if (!SubWorkCrossWorkDropTargetRenderer.IsEnabled)
+            {
+                return false;
+            }
+
             if (_crossWorkDropTarget == null)
             {
                 return false;

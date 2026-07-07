@@ -20,11 +20,15 @@ namespace Better_Work_Tab.UI.Headers
 
             var options = new List<FloatMenuOption>
             {
-                new FloatMenuOption("BWT_HeaderMenu_SortDescending".Translate(), () => SortDescending(worker, table)),
-                new FloatMenuOption("BWT_HeaderMenu_Rename".Translate(), () => OpenRenameDialog(workType))
+                new FloatMenuOption("BWT_HeaderMenu_SortDescending".Translate(), () => SortDescending(worker, table))
             };
 
-            if (CustomLabelStore.HasCustomLabel(workType))
+            if (CustomLabelStore.CustomLabelsEnabled)
+            {
+                options.Add(new FloatMenuOption("BWT_HeaderMenu_Rename".Translate(), () => OpenRenameDialog(workType)));
+            }
+
+            if (CustomLabelStore.CustomLabelsEnabled && CustomLabelStore.HasCustomLabel(workType))
             {
                 options.Add(new FloatMenuOption("BWT_HeaderMenu_ResetName".Translate(), () =>
                 {
@@ -45,11 +49,15 @@ namespace Better_Work_Tab.UI.Headers
 
             var options = new List<FloatMenuOption>
             {
-                new FloatMenuOption("BWT_HeaderMenu_SortDescending".Translate(), () => SortDescending(worker, table)),
-                new FloatMenuOption("BWT_HeaderMenu_Rename".Translate(), () => OpenRenameDialog(workGiver))
+                new FloatMenuOption("BWT_HeaderMenu_SortDescending".Translate(), () => SortDescending(worker, table))
             };
 
-            if (CustomLabelStore.HasCustomLabel(workGiver))
+            if (CustomLabelStore.CustomLabelsEnabled)
+            {
+                options.Add(new FloatMenuOption("BWT_HeaderMenu_Rename".Translate(), () => OpenRenameDialog(workGiver)));
+            }
+
+            if (CustomLabelStore.CustomLabelsEnabled && CustomLabelStore.HasCustomLabel(workGiver))
             {
                 options.Add(new FloatMenuOption("BWT_HeaderMenu_ResetName".Translate(), () =>
                 {

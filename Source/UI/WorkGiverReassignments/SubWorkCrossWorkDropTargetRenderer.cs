@@ -17,10 +17,17 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         private static Rect _settleSourceRect;
         private static Rect _settleTargetRect;
         private static float _settleStartedAt;
+        private static WorkTypeDef _liveActiveWorkType;
+        private static WorkTypeDef _liveHoveredWorkType;
+        private static bool _liveHoveredTargetValid;
         internal static bool DebugForceDrawTargets;
         internal static WorkTypeDef DebugForcedActiveWorkType;
         internal static WorkTypeDef DebugForcedHoveredWorkType;
         internal static bool DebugForcedHoveredTargetValid;
+
+        internal static bool IsEnabled =>
+            BetterWorkTabMod.Settings?.enableSubWorkCrossWorkDragDrop ??
+            DefaultSettings.enableSubWorkCrossWorkDragDrop;
 
         internal static bool IsPointerBeyondSubWorkStrip(IWorkTabLayoutController layout, Vector2 mousePosition)
         {
@@ -44,7 +51,10 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             targetRect = Rect.zero;
             valid = false;
 
-            if (layout?.Columns == null || activeWorkType == null || !IsPointerBeyondSubWorkStrip(layout, mousePosition))
+            if (!IsEnabled ||
+                layout?.Columns == null ||
+                activeWorkType == null ||
+                !IsPointerBeyondSubWorkStrip(layout, mousePosition))
             {
                 return false;
             }
@@ -79,7 +89,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             out Rect targetRect)
         {
             targetRect = Rect.zero;
-            if (layout?.Columns == null || targetWorkType == null)
+            if (!IsEnabled || layout?.Columns == null || targetWorkType == null)
             {
                 return false;
             }
@@ -104,7 +114,10 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             WorkTypeDef hoveredWorkType,
             bool hoveredTargetValid)
         {
-            if (layout?.Columns == null || activeWorkType == null || !TryGetDropRowRect(layout, out _))
+            if (!IsEnabled ||
+                layout?.Columns == null ||
+                activeWorkType == null ||
+                !TryGetDropRowRect(layout, out _))
             {
                 return;
             }
@@ -164,18 +177,49 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             GUI.color = oldColor;
         }
 
+        internal static void SetLiveTargets(
+            WorkTypeDef activeWorkType,
+            WorkTypeDef hoveredWorkType,
+            bool hoveredTargetValid)
+        {
+            _liveActiveWorkType = activeWorkType;
+            _liveHoveredWorkType = hoveredWorkType;
+            _liveHoveredTargetValid = hoveredTargetValid;
+        }
+
+        internal static void ClearLiveTargets()
+        {
+            _liveActiveWorkType = null;
+            _liveHoveredWorkType = null;
+            _liveHoveredTargetValid = false;
+        }
+
         internal static void DrawDebugTargetsIfNeeded(IWorkTabLayoutController layout)
         {
-            if (!DebugForceDrawTargets)
+            if (!IsEnabled)
             {
+                ClearLiveTargets();
                 return;
             }
 
-            DrawTargets(
-                layout,
-                DebugForcedActiveWorkType ?? SubWorkDrilldownState.ActiveWorkType,
-                DebugForcedHoveredWorkType,
-                DebugForcedHoveredTargetValid);
+            if (DebugForceDrawTargets)
+            {
+                DrawTargets(
+                    layout,
+                    DebugForcedActiveWorkType ?? SubWorkDrilldownState.ActiveWorkType,
+                    DebugForcedHoveredWorkType,
+                    DebugForcedHoveredTargetValid);
+                return;
+            }
+
+            if (_liveActiveWorkType != null)
+            {
+                DrawTargets(
+                    layout,
+                    _liveActiveWorkType,
+                    _liveHoveredWorkType,
+                    _liveHoveredTargetValid);
+            }
         }
 
         internal static void ClearDebugForcedTargets()
@@ -203,6 +247,13 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         {
             if (_settleWorkGiver == null)
             {
+                return;
+            }
+
+            if (!IsEnabled)
+            {
+                _settleWorkGiver = null;
+                _settleTargetWorkType = null;
                 return;
             }
 

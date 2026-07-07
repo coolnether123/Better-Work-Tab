@@ -108,6 +108,8 @@ namespace Better_Work_Tab.UI.Settings
         public const string UiAutoDisabledPriorityMode = "ui.autoDisabledPriorityMode";
         public const string UiAutoDisabledPriorityFixedValue = "ui.autoDisabledPriorityFixedValue";
         public const string SubWorkGlobalVanillaPriorityBoxes = "subWorkJobs.globalVanillaPriorityBoxes";
+        public const string SubWorkHeaderBadge = "subWorkJobs.headerBadge";
+        public const string SubWorkCrossWorkDragDrop = "subWorkJobs.crossWorkDragDrop";
         public const string SubWorkAutoExpandColumns = "subWorkJobs.autoExpandColumns";
         public const string SubWorkEvenlyExpandColumns = "subWorkJobs.evenlyExpandColumns";
         public const string SubWorkOpenButton = "subWorkJobs.openButton";
@@ -147,6 +149,7 @@ namespace Better_Work_Tab.UI.Settings
         public const string AdvancedScrollWheelPriority = "advanced.scrollWheelPriority";
         public const string HeadersHeader = "headers.header";
         public const string HeadersAngled = "headers.angled";
+        public const string HeadersCustomWorkLabels = "headers.customWorkLabels";
         public const string HeadersAngleRotation = "headers.angleRotation";
         public const string HeadersScaleFixMode = "headers.scaleFixMode";
         public const string HeadersRedCenterLine = "headers.redCenterLine";
