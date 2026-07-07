@@ -26,6 +26,10 @@
 <BWT_SubWork_Repair>Repair</BWT_SubWork_Repair>
 <BWT_SubWork_FillIn>Fill in</BWT_SubWork_FillIn>
 
+<BWT_HeaderMenu_SortDescending>Sort descending</BWT_HeaderMenu_SortDescending>
+<BWT_HeaderMenu_Rename>Rename...</BWT_HeaderMenu_Rename>
+<BWT_HeaderMenu_ResetName>Reset name</BWT_HeaderMenu_ResetName>
+
 
 <BWT_RuleName>Rule Name</BWT_RuleName>
 <BWT_Priority>Priority</BWT_Priority>

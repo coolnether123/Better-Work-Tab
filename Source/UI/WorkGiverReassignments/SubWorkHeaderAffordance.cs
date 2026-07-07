@@ -31,6 +31,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         internal static bool ShouldDrawOpenBadge(PawnColumnDef column)
         {
             return SubWorkDrilldownInput.IsEnabled &&
+                   (BetterWorkTabMod.Settings?.showSubWorkHeaderBadge ?? true) &&
                    !SubWorkDrilldownState.IsActive &&
                    column?.workType != null &&
                    column.Worker is PawnColumnWorker_WorkPriority &&

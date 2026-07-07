@@ -64,6 +64,7 @@ namespace Better_Work_Tab
         public static bool enableDividers = true;
         public static bool enableWorkloads = true;
         public static bool enableSubWorkDrilldown = true;
+        public static bool showSubWorkHeaderBadge = true;
         public static BetterWorkTabSettings.SubWorkDrilldownModifier subWorkDrilldownModifier = BetterWorkTabSettings.SubWorkDrilldownModifier.Ctrl;
         public static BetterWorkTabSettings.SubWorkDrilldownButton subWorkDrilldownButton = BetterWorkTabSettings.SubWorkDrilldownButton.Left;
         public static bool useVanillaSubWorkGlobalPriorityBoxes = false;
@@ -331,6 +332,7 @@ namespace Better_Work_Tab
         public bool enableDividers = DefaultSettings.enableDividers;
         public bool enableWorkloads = DefaultSettings.enableWorkloads;
         public bool enableSubWorkDrilldown = DefaultSettings.enableSubWorkDrilldown;
+        public bool showSubWorkHeaderBadge = DefaultSettings.showSubWorkHeaderBadge;
         public SubWorkDrilldownModifier subWorkDrilldownModifier = DefaultSettings.subWorkDrilldownModifier;
         public SubWorkDrilldownButton subWorkDrilldownButton = DefaultSettings.subWorkDrilldownButton;
         public bool useVanillaSubWorkGlobalPriorityBoxes = DefaultSettings.useVanillaSubWorkGlobalPriorityBoxes;
@@ -887,6 +889,7 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref enableDividers, "enableDividers", DefaultSettings.enableDividers);
             Scribe_Values.Look(ref enableWorkloads, "enableWorkloads", DefaultSettings.enableWorkloads);
             Scribe_Values.Look(ref enableSubWorkDrilldown, "enableSubWorkDrilldown", DefaultSettings.enableSubWorkDrilldown);
+            Scribe_Values.Look(ref showSubWorkHeaderBadge, "showSubWorkHeaderBadge", DefaultSettings.showSubWorkHeaderBadge);
             Scribe_Values.Look(ref subWorkDrilldownModifier, "subWorkDrilldownModifier", DefaultSettings.subWorkDrilldownModifier);
             Scribe_Values.Look(ref subWorkDrilldownButton, "subWorkDrilldownButton", DefaultSettings.subWorkDrilldownButton);
             Scribe_Values.Look(ref useVanillaSubWorkGlobalPriorityBoxes, "useVanillaSubWorkGlobalPriorityBoxes", DefaultSettings.useVanillaSubWorkGlobalPriorityBoxes);

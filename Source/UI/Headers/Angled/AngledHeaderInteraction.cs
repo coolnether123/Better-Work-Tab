@@ -162,7 +162,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
             // Replicate vanilla GetHeaderTip from PawnColumnWorker_WorkPriority
             var workType = worker.def.workType;
             
-            TaggedString tooltip = workType.gerundLabel.CapitalizeFirst().Colorize(ColoredText.TipSectionTitleColor) 
+            TaggedString tooltip = WorkTypeDisplayNameService.GerundLabel(workType).Colorize(ColoredText.TipSectionTitleColor)
                 + "\n\n" + workType.description 
                 + "\n\n" + SpecificWorkListString(workType) 
                 + "\n";
@@ -206,7 +206,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
             tooltip.Append(WorkGiverDisplayNameService.FullLabel(def).Colorize(ColoredText.TipSectionTitleColor));
 
-            string workTypeLabel = activeWorkType?.LabelCap.ToString();
+            string workTypeLabel = WorkTypeDisplayNameService.FullLabel(activeWorkType);
             if (!workTypeLabel.NullOrEmpty())
             {
                 tooltip.Append("\n").Append("WorkType".Translate()).Append(": ").Append(workTypeLabel);
@@ -278,7 +278,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
         private static string GetSpecificWorkTooltipLabel(WorkTypeDef workType, WorkGiverDef workGiverDef)
         {
-            string label = workGiverDef.LabelCap.ToString();
+            string label = WorkGiverDisplayNameService.FullLabel(workGiverDef);
             bool isMoved = WorkGiverReassignmentManager.ShouldShowMovedWorkGiverMarker(workType, workGiverDef);
             var settings = BetterWorkTabMod.Settings;
             if (isMoved && settings != null && settings.showColumnMovedMarker && !label.EndsWith(HeaderUtility.MovedMarker))
@@ -322,11 +322,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 }
 
                 gesture = gesture.CapitalizeFirst();
-                string workLabel = !workType.labelShort.NullOrEmpty()
-                    ? workType.labelShort.CapitalizeFirst()
-                    : !workType.label.NullOrEmpty()
-                        ? workType.label.CapitalizeFirst()
-                        : workType.defName ?? "work";
+                string workLabel = WorkTypeDisplayNameService.HeaderLabel(workType);
 
                 tooltip += "\n" + (gesture + ": Open " + workLabel + " sub-work jobs").Colorize(ColoredText.SubtleGrayColor);
             }
@@ -370,10 +366,14 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
         private static void HandleRightClick(PawnColumnWorker_WorkPriority worker, PawnTable table, Event evt)
         {
-            // Vanilla behavior: Right-click sorts descending immediately
-            table.SortBy(worker.def, true);
-            table.SetDirty();
-            SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+            if (SubWorkDrilldownState.IsActive &&
+                SubWorkDrilldownState.TryGetWorkGiverForColumn(worker.def, out var workGiver, out _))
+            {
+                HeaderContextMenu.ShowForWorkGiver(worker, table, workGiver.def);
+                return;
+            }
+
+            HeaderContextMenu.ShowForWorkType(worker, table);
         }
 
         private static void HandleShiftClick(PawnColumnWorker_WorkPriority worker, PawnTable table, int button)

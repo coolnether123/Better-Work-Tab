@@ -1,4 +1,5 @@
 using System;
+using Better_Work_Tab.Features.WorkGiverReassignments;
 using RimWorld;
 using Verse;
 
@@ -27,11 +28,9 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
             int maxChars = MaxCharsFor(style);
 
-            if (Better_Work_Tab.Features.WorkGiverReassignments.CustomLabelStore.TryGetWorkGiverLabel(def, out string customLabel))
+            if (CustomLabelStore.TryGetWorkGiverLabel(def, out string customLabel))
             {
-                return customLabel.Length <= maxChars
-                    ? customLabel
-                    : customLabel.Substring(0, maxChars).TrimEnd();
+                return ShortenLabel(customLabel, style);
             }
 
             string specific = SpecificHeaderLabel(def.defName, style);
@@ -74,8 +73,20 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 return "Work";
             }
 
+            if (CustomLabelStore.TryGetWorkGiverLabel(def, out string customLabel))
+            {
+                return customLabel;
+            }
+
             string label = CleanLabel(def.label);
             return label.NullOrEmpty() ? def.defName : label.CapitalizeFirst();
+        }
+
+        public static string RenameDialogLabel(WorkGiverDef def)
+        {
+            return CustomLabelStore.TryGetWorkGiverLabel(def, out string customLabel)
+                ? customLabel
+                : FullLabel(def);
         }
 
         private static int MaxCharsFor(WorkGiverHeaderLabelStyle style)

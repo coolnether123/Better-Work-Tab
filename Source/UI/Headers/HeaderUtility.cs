@@ -87,12 +87,7 @@ namespace Better_Work_Tab.UI.Headers
         {
             if (workType == null) return DefaultHeaderText;
 
-            // Use the shortest available valid label
-            string baseText = workType.labelShort;
-            if (baseText.NullOrEmpty()) baseText = workType.label;
-            if (baseText.NullOrEmpty()) baseText = workType.defName;
-
-            string label = (baseText.NullOrEmpty() ? DefaultHeaderText : baseText).CapitalizeFirst();
+            string label = WorkTypeDisplayNameService.HeaderLabel(workType);
 
             var settings = BetterWorkTabMod.Settings;
             if (isMoved && settings != null && settings.showColumnMovedMarker && !label.EndsWith(MovedMarker))
@@ -116,6 +111,7 @@ namespace Better_Work_Tab.UI.Headers
                 hash = hash * 23 + (isMoved ? 1 : 0);
                 hash = hash * 23 + (int)labelStyle;
                 hash = hash * 23 + (parentOnly ? 1 : 0);
+                hash = hash * 23 + CustomLabelStore.Version;
                 hash = hash * 23 + (BetterWorkTabMod.Settings?.showColumnMovedMarker ?? true ? 1 : 0);
                 if (!parentOnly && SubWorkDrilldownState.IsActive)
                 {

@@ -24,8 +24,8 @@ namespace Better_Work_Tab.Features.Workloads
         public List<PawnDivider> ActiveDividers = new List<PawnDivider>();
         public WorkGiverReassignmentData WorkGiverReassignments = new WorkGiverReassignmentData();
         public List<TimePriorityScheduleData> TimePrioritySchedules = new List<TimePriorityScheduleData>();
-        public Dictionary<string, string> CustomWorkTypeLabels = new Dictionary<string, string>();
-        public Dictionary<string, string> CustomWorkGiverLabels = new Dictionary<string, string>();
+        public Dictionary<string, string> CustomWorkTypeLabels = new Dictionary<string, string>(System.StringComparer.Ordinal);
+        public Dictionary<string, string> CustomWorkGiverLabels = new Dictionary<string, string>(System.StringComparer.Ordinal);
         public int FluffyWorkTabPriorityMigrationVersion;
         private int _lastTimePriorityHour = -1;
 
@@ -82,8 +82,8 @@ namespace Better_Work_Tab.Features.Workloads
 
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
-                if (CustomWorkTypeLabels == null) CustomWorkTypeLabels = new Dictionary<string, string>();
-                if (CustomWorkGiverLabels == null) CustomWorkGiverLabels = new Dictionary<string, string>();
+                CustomWorkTypeLabels = NormalizeLabelDictionary(CustomWorkTypeLabels);
+                CustomWorkGiverLabels = NormalizeLabelDictionary(CustomWorkGiverLabels);
             }
 
             if (!MultiplayerBridge.Active)
@@ -199,6 +199,25 @@ namespace Better_Work_Tab.Features.Workloads
 
             WorkGiverReassignments.EnsureCollections();
             return WorkGiverReassignments;
+        }
+
+        private static Dictionary<string, string> NormalizeLabelDictionary(Dictionary<string, string> labels)
+        {
+            var normalized = new Dictionary<string, string>(System.StringComparer.Ordinal);
+            if (labels == null)
+            {
+                return normalized;
+            }
+
+            foreach (var entry in labels)
+            {
+                if (!entry.Key.NullOrEmpty() && !entry.Value.NullOrEmpty())
+                {
+                    normalized[entry.Key] = entry.Value.Trim();
+                }
+            }
+
+            return normalized;
         }
 
         private int _profileSaveTimer = 0;
