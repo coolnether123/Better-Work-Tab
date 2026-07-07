@@ -3,6 +3,7 @@ using Verse;
 
 namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
 {
+    [StaticConstructorOnStartup]
     internal static class FluffyWorkTabAssets
     {
         private const string ManualPriorityToggleIconPath = "UI/Icons/numbers";
