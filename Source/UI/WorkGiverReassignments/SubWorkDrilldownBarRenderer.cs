@@ -147,9 +147,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             Text.Font = GameFont.Small;
             GUI.color = hovered ? Color.white : new Color(1f, 1f, 1f, 0.96f);
 
-            string label = SubWorkDrilldownState.ActiveWorkType?.labelShort?.CapitalizeFirst()
-                ?? SubWorkDrilldownState.ActiveWorkType?.LabelCap.ToString()
-                ?? "Sub-work";
+            string label = WorkTypeDisplayNameService.HeaderLabel(SubWorkDrilldownState.ActiveWorkType);
             Widgets.Label(labelRect, label + " global");
 
             GUI.color = oldColor;

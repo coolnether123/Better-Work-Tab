@@ -210,6 +210,7 @@
     <Compile Include="UI\WorkGiverReassignments\SubWorkDrilldownHeaderGeometry.cs" />
     <Compile Include="UI\WorkGiverReassignments\SubWorkHeaderAffordance.cs" />
     <Compile Include="UI\WorkGiverReassignments\WorkGiverDisplayNameService.cs" />
+    <Compile Include="UI\WorkGiverReassignments\WorkTypeDisplayNameService.cs" />
     <Compile Include="UI\WorkGiverReassignments\WorkGiverBaselineTracker.cs" />
     <Compile Include="UI\WorkGiverReassignments\WorkGiverDragHandler.cs" />
     <Compile Include="UI\WorkGiverReassignments\PriorityOverrideRing.cs" />
@@ -260,6 +261,7 @@
     <Compile Include="UI\Headers\Vanilla\VanillaHeaderController.cs" />
     <Compile Include="UI\Headers\Angled\AngledHeaderController.cs" />
     <Compile Include="UI\Headers\HeaderInputController.cs" />
+    <Compile Include="UI\Headers\HeaderContextMenu.cs" />
     <Compile Include="UI\Headers\HeaderUtility.cs" />
     <Compile Include="UI\HeaderButtons.cs" />
     <Compile Include="UI\Dialog_WarningWithCheckbox.cs" />
