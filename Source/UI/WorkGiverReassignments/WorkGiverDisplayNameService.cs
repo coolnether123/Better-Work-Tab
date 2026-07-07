@@ -27,6 +27,13 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
             int maxChars = MaxCharsFor(style);
 
+            if (Better_Work_Tab.Features.WorkGiverReassignments.CustomLabelStore.TryGetWorkGiverLabel(def, out string customLabel))
+            {
+                return customLabel.Length <= maxChars
+                    ? customLabel
+                    : customLabel.Substring(0, maxChars).TrimEnd();
+            }
+
             string specific = SpecificHeaderLabel(def.defName, style);
             if (!specific.NullOrEmpty())
             {
