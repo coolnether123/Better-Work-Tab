@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Better_Work_Tab.UI;
 using HarmonyLib;
 using RimWorld;
 using Verse;
@@ -64,6 +65,11 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             return !packageId.NullOrEmpty() && KnownPackageIds.Contains(packageId);
         }
 
+        internal static void ApplyColumnVisibility()
+        {
+            FluffyWorkTabColumnVisibility.Apply();
+        }
+
         internal static void ApplyDesiredOwner(bool reopenIfOpen = false)
         {
             MainButtonDef work = BwtMainButtonDefOf.Work;
@@ -82,23 +88,45 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
 
             MainTabsRoot mainTabsRoot = null;
             bool workTabOpen = false;
+            MainTabWindow openWorkTabWindow = null;
             if (reopenIfOpen)
             {
                 mainTabsRoot = TryGetMainTabsRoot();
-                workTabOpen = mainTabsRoot?.OpenTab == work;
+                var windowStack = Find.WindowStack;
+                var windows = windowStack?.Windows;
+                for (int i = 0; windows != null && i < windows.Count; i++)
+                {
+                    if (windows[i] is MainTabWindow mainTabWindow && mainTabWindow.def == work)
+                    {
+                        openWorkTabWindow = mainTabWindow;
+                        workTabOpen = true;
+                        break;
+                    }
+                }
             }
 
-            if (work.tabWindowClass != desired)
+            bool classChanged = work.tabWindowClass != desired;
+            bool openWindowMismatch = workTabOpen &&
+                openWorkTabWindow != null &&
+                openWorkTabWindow.GetType() != desired;
+
+            if (classChanged || openWindowMismatch)
             {
+                if (workTabOpen && openWorkTabWindow != null)
+                {
+                    Find.WindowStack.TryRemove(openWorkTabWindow, doCloseSound: false);
+                }
+
                 work.tabWindowClass = desired;
                 work.Notify_ClearingAllMapsMemory();
+
+                if (workTabOpen && mainTabsRoot != null)
+                {
+                    Find.WindowStack.Add(work.TabWindow);
+                }
             }
 
-            if (workTabOpen && mainTabsRoot != null)
-            {
-                mainTabsRoot.SetCurrentTab(null, false);
-                mainTabsRoot.SetCurrentTab(work, false);
-            }
+            ApplyColumnVisibility();
         }
 
         internal static void SwitchToBetterWorkTab()
@@ -198,6 +226,133 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             {
                 ApplyDesiredOwner();
             }
+        }
+    }
+
+    internal static class FluffyWorkTabColumnVisibility
+    {
+        private static readonly HashSet<string> FluffyWidgetColumnDefNames =
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "Mood",
+                "Job",
+                "CopyPasteDetailedWorkPriorities",
+                "Favourite"
+            };
+
+        private static readonly List<ColumnSnapshot> CapturedColumns = new List<ColumnSnapshot>();
+
+        internal static void Apply()
+        {
+            PawnTableDef workTable = PawnTableDefOf.Work;
+            if (workTable?.columns == null)
+            {
+                return;
+            }
+
+            CaptureColumns(workTable);
+
+            bool changed = ShouldShowColumns()
+                ? RestoreColumns(workTable)
+                : HideColumns(workTable);
+
+            if (changed)
+            {
+                MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+            }
+        }
+
+        private static bool ShouldShowColumns()
+        {
+            if (!FluffyWorkTabCoexistence.IsFluffyWorkTabPresent ||
+                !FluffyWorkTabCoexistence.BetterWorkTabOwnsWorkTab)
+            {
+                return true;
+            }
+
+            return BetterWorkTabMod.Settings?.showFluffyWorkTabColumns ??
+                DefaultSettings.showFluffyWorkTabColumns;
+        }
+
+        private static void CaptureColumns(PawnTableDef workTable)
+        {
+            for (int i = 0; i < workTable.columns.Count; i++)
+            {
+                PawnColumnDef column = workTable.columns[i];
+                if (!IsFluffyWidgetColumn(column) || IsCaptured(column))
+                {
+                    continue;
+                }
+
+                CapturedColumns.Add(new ColumnSnapshot(column, i));
+            }
+        }
+
+        private static bool HideColumns(PawnTableDef workTable)
+        {
+            bool changed = false;
+            for (int i = workTable.columns.Count - 1; i >= 0; i--)
+            {
+                if (IsFluffyWidgetColumn(workTable.columns[i]))
+                {
+                    workTable.columns.RemoveAt(i);
+                    changed = true;
+                }
+            }
+
+            return changed;
+        }
+
+        private static bool RestoreColumns(PawnTableDef workTable)
+        {
+            bool changed = false;
+            for (int i = 0; i < CapturedColumns.Count; i++)
+            {
+                ColumnSnapshot snapshot = CapturedColumns[i];
+                if (workTable.columns.Contains(snapshot.Column))
+                {
+                    continue;
+                }
+
+                int index = Math.Min(snapshot.Index, workTable.columns.Count);
+                workTable.columns.Insert(index, snapshot.Column);
+                changed = true;
+            }
+
+            return changed;
+        }
+
+        private static bool IsFluffyWidgetColumn(PawnColumnDef column)
+        {
+            return column?.defName != null &&
+                column.workType == null &&
+                FluffyWidgetColumnDefNames.Contains(column.defName) &&
+                column.Worker?.GetType().FullName?.StartsWith("WorkTab.PawnColumnWorker_", StringComparison.Ordinal) == true;
+        }
+
+        private static bool IsCaptured(PawnColumnDef column)
+        {
+            for (int i = 0; i < CapturedColumns.Count; i++)
+            {
+                if (CapturedColumns[i].Column == column)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private sealed class ColumnSnapshot
+        {
+            internal ColumnSnapshot(PawnColumnDef column, int index)
+            {
+                Column = column;
+                Index = index;
+            }
+
+            internal PawnColumnDef Column { get; }
+            internal int Index { get; }
         }
     }
 }

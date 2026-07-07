@@ -172,6 +172,13 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             }
         }
 
+        internal static void WarnPatternMiss(MethodBase original, string patternDescription)
+        {
+            Log.Warning("[Better Work Tab] Skipping max-priority patch for " +
+                $"{original?.DeclaringType?.Name}.{original?.Name}: unable to locate {patternDescription}. " +
+                "The Work tab will keep vanilla priority wrap behavior for that method.");
+        }
+
         private static int FindPattern(List<CodeInstruction> codes, int startIndex, Func<List<CodeInstruction>, int, bool> predicate, Func<int, int> resultSelector)
         {
             for (int i = Math.Max(0, startIndex); i < codes.Count; i++)
@@ -298,7 +305,8 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
             if (leftWrapIndex < 0 || rightWrapIndex < 0)
             {
-                throw new InvalidOperationException($"Unable to locate work-box priority wrap checks in {original?.DeclaringType?.Name}.{original?.Name}.");
+                PriorityTranspilerPatterns.WarnPatternMiss(original, "work-box priority wrap checks");
+                return codes;
             }
 
             PriorityTranspilerPatterns.ReplaceWithMaxPriorityCall(codes, leftWrapIndex);
@@ -323,7 +331,8 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
             if (leftWrapIndex < 0 || rightWrapIndex < 0)
             {
-                throw new InvalidOperationException($"Unable to locate header priority wrap checks in {original?.DeclaringType?.Name}.{original?.Name}.");
+                PriorityTranspilerPatterns.WarnPatternMiss(original, "header priority wrap checks");
+                return codes;
             }
 
             PriorityTranspilerPatterns.ReplaceWithMaxPriorityCall(codes, leftWrapIndex);
@@ -346,7 +355,8 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
             if (upperBoundIndex < 0)
             {
-                throw new InvalidOperationException($"Unable to locate the SetPriority upper-bound check in {original?.DeclaringType?.Name}.{original?.Name}.");
+                PriorityTranspilerPatterns.WarnPatternMiss(original, "SetPriority upper-bound check");
+                return codes;
             }
 
             PriorityTranspilerPatterns.ReplaceWithMaxPriorityCall(codes, upperBoundIndex);

@@ -5,6 +5,7 @@ using Better_Work_Tab;
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.Workloads;
+using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.Patches;
 using Better_Work_Tab.UI;
 using Multiplayer.API;
@@ -570,6 +571,22 @@ namespace Better_Work_Tab.UI.Settings
                 HeaderColor = new Color(0.8f, 0.7f, 0.45f),
                 ShowInSimpleView = true,
                 SortOrder = 42,
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = CompatFluffyColumns,
+                ParentId = FeaturesUiElements,
+                FieldName = "showFluffyWorkTabColumns",
+                Label = "Show Fluffy Work Tab columns",
+                Tooltip = "When Fluffy Work Tab is loaded and Better Work Tab owns the Work tab, keep Fluffy's Mood, Job, Detailed Copy/Paste, and Favourite columns visible.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.showFluffyWorkTabColumns,
+                VisibleWhen = _ => FluffyWorkTabCoexistence.IsFluffyWorkTabPresent,
+                ShowInSimpleView = true,
+                ShowInAdvancedView = true,
+                SortOrder = 41,
+                OnChanged = _ => FluffyWorkTabCoexistence.ApplyColumnVisibility()
             });
 
             Register(new SettingDefinition
