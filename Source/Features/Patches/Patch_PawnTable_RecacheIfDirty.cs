@@ -1,4 +1,4 @@
-﻿using Better_Work_Tab.PawnOrganizer;
+using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.Features.Testing;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.Features.TimePriority;
@@ -51,7 +51,7 @@ namespace Better_Work_Tab.Features.Patches
         {
             // Only process the Work tab
             if (__instance.def != PawnTableDefOf.Work ||
-                !FluffyWorkTabCoexistence.ShouldRunBetterWorkTabFeatures)
+                !FluffyWorkTabGateway.ShouldRunBetterWorkTabFeatures)
                 return;
 
             SubWorkTransitionPerfDiagnostics.CountPawnTableRecachePostfix();
@@ -105,14 +105,14 @@ namespace Better_Work_Tab.Features.Patches
             state.ContentHeight = contentHeight;
             state.Width = width;
 
-            // ═══════════════════════════════════════════════════════════════════════════
+            // ---------------------------------------------------------------------------
             // Sync back to vanilla's fields
             // We do NOT clamp to maxTableHeight here; we let the window's RequestedTabSize
             // handle clamping to screen bounds. Pinned BWT rows are deliberately excluded
             // from PawnTable.cachedSize because they are drawn outside the vanilla scroll body.
             // Including them here makes the table body one pinned row taller than its content,
             // which presents as a blank row at the bottom when sub-work is opened.
-            // ═══════════════════════════════════════════════════════════════════════════
+            // ---------------------------------------------------------------------------
             SubWorkTransitionPerfDiagnostics.CountPawnTableSyncWrite();
             CachedRowHeightsField.SetValue(__instance, state.RowHeights);
             CachedSizeField.SetValue(__instance, new Vector2(width, totalHeight));

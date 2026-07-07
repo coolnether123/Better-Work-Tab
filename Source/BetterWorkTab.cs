@@ -61,7 +61,7 @@ namespace Better_Work_Tab
             try
             {
                 new Harmony("Coolnether123.betterworktab").PatchAll();
-                FluffyWorkTabCoexistence.ApplyDesiredOwner();
+                FluffyWorkTabGateway.ApplyDesiredOwner();
                 DebugLog("Harmony patched successfully.");
             }
             catch (Exception ex)

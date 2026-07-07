@@ -52,7 +52,7 @@ namespace Better_Work_Tab.ModSupport
                 ModContentPack mod = mods[i];
                 if (IsBetterWorkTab(mod, betterWorkTab) ||
                     IsKnownHardConflict(mod) ||
-                    FluffyWorkTabCoexistence.IsKnownFluffyPackageId(mod.PackageId))
+                    FluffyWorkTabGateway.IsKnownPackageId(mod.PackageId))
                 {
                     continue;
                 }

@@ -31,7 +31,7 @@ namespace Better_Work_Tab.UI.Headers
         public static bool IsWorkTab()
         {
             if (BetterWorkTabMod.Settings == null) return false;
-            if (!FluffyWorkTabCoexistence.ShouldRunBetterWorkTabFeatures) return false;
+            if (!FluffyWorkTabGateway.ShouldRunBetterWorkTabFeatures) return false;
             var windowStack = Find.WindowStack;
             if (windowStack == null) return false;
             

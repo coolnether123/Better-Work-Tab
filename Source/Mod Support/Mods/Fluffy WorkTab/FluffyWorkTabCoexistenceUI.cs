@@ -1,9 +1,8 @@
-using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using RimWorld;
 using UnityEngine;
 using Verse;
 
-namespace Better_Work_Tab.UI
+namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
 {
     internal static class FluffyWorkTabCoexistenceUI
     {
@@ -14,8 +13,8 @@ namespace Better_Work_Tab.UI
 
         internal static void DrawWorkTabSwitchButton(Rect inRect)
         {
-            if (!FluffyWorkTabCoexistence.IsFluffyWorkTabPresent ||
-                !FluffyWorkTabCoexistence.BetterWorkTabOwnsWorkTab)
+            if (!FluffyWorkTabGateway.IsPresent ||
+                !FluffyWorkTabGateway.BetterWorkTabOwnsWorkTab)
             {
                 return;
             }
@@ -25,7 +24,7 @@ namespace Better_Work_Tab.UI
             {
                 Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
                     "BWT_UseFluffyWorkTab_Confirm".Translate(),
-                    FluffyWorkTabCoexistence.SwitchToFluffyWorkTab,
+                    FluffyWorkTabGateway.SwitchToExternalWorkTab,
                     destructive: false,
                     title: "BWT_UseFluffyWorkTab_Title".Translate()));
             }
@@ -35,8 +34,8 @@ namespace Better_Work_Tab.UI
 
         internal static void DrawSettingsBannerIfNeeded(ref Rect inRect)
         {
-            if (!FluffyWorkTabCoexistence.IsFluffyWorkTabPresent ||
-                !FluffyWorkTabCoexistence.FluffyOwnsWorkTab)
+            if (!FluffyWorkTabGateway.IsPresent ||
+                !FluffyWorkTabGateway.ExternalWorkTabOwnsWorkTab)
             {
                 return;
             }
@@ -56,7 +55,7 @@ namespace Better_Work_Tab.UI
 
             if (Widgets.ButtonText(buttonRect, "BWT_SwitchBackToBetterWorkTab_Button".Translate()))
             {
-                FluffyWorkTabCoexistence.SwitchToBetterWorkTab();
+                FluffyWorkTabGateway.SwitchToBetterWorkTab();
             }
 
             TooltipHandler.TipRegion(buttonRect, "BWT_SwitchBackToBetterWorkTab_Tooltip".Translate());

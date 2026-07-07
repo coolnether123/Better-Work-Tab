@@ -1,4 +1,4 @@
-﻿using Better_Work_Tab.Features;
+using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.Rules;
 using Better_Work_Tab.Features.Rules.RuleBuilder2;
@@ -223,7 +223,7 @@ namespace Better_Work_Tab
         public static float cjkVerticalKerning = 0.75f;
         public static bool autoEnableManualPriorities = false;
         public static WorkTabOwnerPreference preferredWorkTabOwner = WorkTabOwnerPreference.BetterWorkTab;
-        public static bool showFluffyWorkTabColumns = true;
+        public static bool showExternalWorkTabColumns = true;
         public static PriorityMode priorityMode = PriorityMode.Auto;
         public static bool enableExtendedPriorities = false;
         public static bool delegateToExternalPriorityMods = true;
@@ -328,7 +328,7 @@ namespace Better_Work_Tab
         public bool useOutlineHighlights = false;
         public bool enableScrollWheelPriority = DefaultSettings.enableScrollWheelPriority;
         public WorkTabOwnerPreference preferredWorkTabOwner = DefaultSettings.preferredWorkTabOwner;
-        public bool showFluffyWorkTabColumns = DefaultSettings.showFluffyWorkTabColumns;
+        public bool showExternalWorkTabColumns = DefaultSettings.showExternalWorkTabColumns;
 
         public bool firstTimeSetupDone = DefaultSettings.firstTimeSetupDone;
 
@@ -1004,7 +1004,7 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref headerUnderlineColor, "headerUnderlineColor", DefaultSettings.Color_HeaderUnderline);
             Scribe_Values.Look(ref autoEnableManualPriorities, "autoEnableManualPriorities", DefaultSettings.autoEnableManualPriorities);
             Scribe_Values.Look(ref preferredWorkTabOwner, "preferredWorkTabOwner", DefaultSettings.preferredWorkTabOwner);
-            Scribe_Values.Look(ref showFluffyWorkTabColumns, "showFluffyWorkTabColumns", DefaultSettings.showFluffyWorkTabColumns);
+            Scribe_Values.Look(ref showExternalWorkTabColumns, "showFluffyWorkTabColumns", DefaultSettings.showExternalWorkTabColumns);
             Scribe_Values.Look(ref enableExtendedPriorities, "enableExtendedPriorities", DefaultSettings.enableExtendedPriorities);
             Scribe_Values.Look(ref delegateToExternalPriorityMods, "delegateToExternalPriorityMods", DefaultSettings.delegateToExternalPriorityMods);
             Scribe_Values.Look(ref selectedPriorityProviderId, "selectedPriorityProviderId", DefaultSettings.selectedPriorityProviderId);
@@ -1152,7 +1152,7 @@ namespace Better_Work_Tab
             subWorkTransitionStyle = DefaultSettings.subWorkTransitionStyle;
             subWorkTransitionSeconds = DefaultSettings.subWorkTransitionSeconds;
             preferredWorkTabOwner = DefaultSettings.preferredWorkTabOwner;
-            showFluffyWorkTabColumns = DefaultSettings.showFluffyWorkTabColumns;
+            showExternalWorkTabColumns = DefaultSettings.showExternalWorkTabColumns;
             workColumnOrderDefNames.Clear();
             storedColumnWidths.Clear();
             NormalizePrioritySettings();

@@ -575,18 +575,18 @@ namespace Better_Work_Tab.UI.Settings
 
             Register(new SettingDefinition
             {
-                Id = CompatFluffyColumns,
+                Id = CompatExternalWorkTabColumns,
                 ParentId = FeaturesUiElements,
-                FieldName = "showFluffyWorkTabColumns",
-                Label = "Show Fluffy Work Tab columns",
-                Tooltip = "When Fluffy Work Tab is loaded and Better Work Tab owns the Work tab, keep Fluffy's Mood, Job, Detailed Copy/Paste, and Favourite columns visible.",
+                FieldName = "showExternalWorkTabColumns",
+                Label = FluffyWorkTabGateway.ColumnVisibilitySettingLabel,
+                Tooltip = FluffyWorkTabGateway.ColumnVisibilitySettingTooltip,
                 Type = SettingType.Bool,
-                DefaultValue = DefaultSettings.showFluffyWorkTabColumns,
-                VisibleWhen = _ => FluffyWorkTabCoexistence.IsFluffyWorkTabPresent,
+                DefaultValue = DefaultSettings.showExternalWorkTabColumns,
+                VisibleWhen = _ => FluffyWorkTabGateway.IsPresent,
                 ShowInSimpleView = true,
                 ShowInAdvancedView = true,
                 SortOrder = 41,
-                OnChanged = _ => FluffyWorkTabCoexistence.ApplyColumnVisibility()
+                OnChanged = _ => FluffyWorkTabGateway.ApplyColumnVisibility()
             });
 
             Register(new SettingDefinition

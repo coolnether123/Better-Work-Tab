@@ -10,6 +10,7 @@ using Better_Work_Tab.Features.Tutorial;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.DragDrop;
+using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.PawnOrganizer.Data;
@@ -370,7 +371,7 @@ namespace Better_Work_Tab.UI
             if (SpineTiming.Enabled)
             {
                 SpineTiming.Time("WorkTab.DrawDragOverlays", () => organizer?.DrawDragOverlays());
-                SpineTiming.Time("WorkTab.DrawFluffyWorkTabSwitch", () => FluffyWorkTabCoexistenceUI.DrawWorkTabSwitchButton(inRect));
+                SpineTiming.Time("WorkTab.DrawExternalWorkTabSwitch", () => FluffyWorkTabGateway.DrawWorkTabSwitchButton(inRect));
                 SpineTiming.Time("WorkTab.DrawManualPrioritiesCheckbox", DrawManualPrioritiesCheckbox);
                 SpineTiming.Time("WorkTab.DrawPriorityLegend", () => DrawPriorityLegend(inRect));
                 SpineTiming.Time("WorkTab.DrawContextSettingsHint", () => DrawContextSettingsHint(inRect));
@@ -378,7 +379,7 @@ namespace Better_Work_Tab.UI
             else
             {
                 organizer?.DrawDragOverlays();
-                FluffyWorkTabCoexistenceUI.DrawWorkTabSwitchButton(inRect);
+                FluffyWorkTabGateway.DrawWorkTabSwitchButton(inRect);
                 DrawManualPrioritiesCheckbox();
                 DrawPriorityLegend(inRect);
                 DrawContextSettingsHint(inRect);

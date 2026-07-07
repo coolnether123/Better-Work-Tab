@@ -24,7 +24,7 @@ namespace Better_Work_Tab.Patches
             if (__instance?.def != PawnTableDefOf.Work)
                 return;
 
-            if (!FluffyWorkTabCoexistence.ShouldRunBetterWorkTabFeatures)
+            if (!FluffyWorkTabGateway.ShouldRunBetterWorkTabFeatures)
                 return;
 
             // If the user clicked a column to sort, respect that and do not override.

@@ -36,7 +36,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
 
         internal static void MigrateIfNeeded(GameComponent_BWTWorldSettings component)
         {
-            if (component == null || component.FluffyWorkTabPriorityMigrationVersion >= MigrationVersion)
+            if (component == null || component.ExternalWorkTabPriorityMigrationVersion >= MigrationVersion)
             {
                 return;
             }
@@ -54,7 +54,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
 
             component.EnsureWorkGiverReassignmentData();
             int changed = Apply(component, records);
-            component.FluffyWorkTabPriorityMigrationVersion = MigrationVersion;
+            component.ExternalWorkTabPriorityMigrationVersion = MigrationVersion;
 
             if (changed > 0)
             {
@@ -64,6 +64,24 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                 MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
                 Log.Message("[Better Work Tab] Imported " + changed + " Fluffy Work Tab priority entries.");
             }
+        }
+
+        internal static bool HasMigrationHistory(GameComponent_BWTWorldSettings component)
+        {
+            try
+            {
+                return component?.ExternalWorkTabPriorityMigrationVersion > 0 ||
+                    AccessTools.TypeByName(FluffyPriorityManagerClass) != null;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        internal static void ExposeMigrationVersion(ref int version)
+        {
+            Scribe_Values.Look(ref version, "fluffyWorkTabPriorityMigrationVersion", 0);
         }
 
         private static List<FluffyPawnPriorityRecord> ReadLiveFluffyPriorities()

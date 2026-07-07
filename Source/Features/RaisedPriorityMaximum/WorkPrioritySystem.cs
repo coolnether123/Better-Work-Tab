@@ -25,7 +25,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
         internal static int GetMaxPriority()
         {
-            if (!FluffyWorkTabCoexistence.ShouldRunBetterWorkTabFeatures)
+            if (!FluffyWorkTabGateway.ShouldRunBetterWorkTabFeatures)
             {
                 return PriorityConstants.VanillaMax;
             }
@@ -40,7 +40,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
         internal static int ClampPriority(int priority)
         {
-            if (!FluffyWorkTabCoexistence.ShouldRunBetterWorkTabFeatures)
+            if (!FluffyWorkTabGateway.ShouldRunBetterWorkTabFeatures)
             {
                 return Mathf.Clamp(priority, DisabledPriority, PriorityConstants.VanillaMax);
             }
@@ -60,7 +60,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
         internal static int GetDefaultEnabledPriority()
         {
-            if (!FluffyWorkTabCoexistence.ShouldRunBetterWorkTabFeatures)
+            if (!FluffyWorkTabGateway.ShouldRunBetterWorkTabFeatures)
             {
                 return PriorityConstants.VanillaDefaultEnabled;
             }
@@ -137,7 +137,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 return DisabledPriority;
             }
 
-            if (!FluffyWorkTabCoexistence.ShouldRunBetterWorkTabFeatures)
+            if (!FluffyWorkTabGateway.ShouldRunBetterWorkTabFeatures)
             {
                 return workSettings.GetPriority(workType);
             }

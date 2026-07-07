@@ -264,14 +264,14 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
 
         private static bool ShouldShowColumns()
         {
-            if (!FluffyWorkTabCoexistence.IsFluffyWorkTabPresent ||
-                !FluffyWorkTabCoexistence.BetterWorkTabOwnsWorkTab)
+            if (!FluffyWorkTabGateway.IsPresent ||
+                !FluffyWorkTabGateway.BetterWorkTabOwnsWorkTab)
             {
                 return true;
             }
 
-            return BetterWorkTabMod.Settings?.showFluffyWorkTabColumns ??
-                DefaultSettings.showFluffyWorkTabColumns;
+            return BetterWorkTabMod.Settings?.showExternalWorkTabColumns ??
+                DefaultSettings.showExternalWorkTabColumns;
         }
 
         private static void CaptureColumns(PawnTableDef workTable)

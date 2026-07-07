@@ -193,7 +193,7 @@ namespace Better_Work_Tab.Features
     {
         public static bool Prefix(Pawn_WorkSettings __instance)
         {
-            if (!FluffyWorkTabCoexistence.ShouldRunBetterWorkTabFeatures)
+            if (!FluffyWorkTabGateway.ShouldRunBetterWorkTabFeatures)
             {
                 return true;
             }

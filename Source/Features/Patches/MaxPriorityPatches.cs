@@ -262,7 +262,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         [HarmonyPostfix]
         private static void Postfix(ref Color __result, int prio)
         {
-            if (!FluffyWorkTabCoexistence.ShouldRunBetterWorkTabFeatures)
+            if (!FluffyWorkTabGateway.ShouldRunBetterWorkTabFeatures)
             {
                 return;
             }

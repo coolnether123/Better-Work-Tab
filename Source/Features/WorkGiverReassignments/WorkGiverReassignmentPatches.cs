@@ -15,7 +15,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
     {
         public static bool Prefix(Pawn pawn, WorkGiver giver, ref bool __result)
         {
-            if (!FluffyWorkTabCoexistence.ShouldRunBetterWorkTabFeatures)
+            if (!FluffyWorkTabGateway.ShouldRunBetterWorkTabFeatures)
             {
                 return true;
             }
@@ -31,7 +31,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         public static void Postfix(Pawn pawn, WorkGiver giver, ref bool __result)
         {
-            if (!FluffyWorkTabCoexistence.ShouldRunBetterWorkTabFeatures)
+            if (!FluffyWorkTabGateway.ShouldRunBetterWorkTabFeatures)
             {
                 return;
             }
@@ -48,7 +48,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
     {
         public static void Postfix(WorkGiver_Scanner __instance, Pawn pawn, Thing t, bool forced, ref bool __result)
         {
-            if (!FluffyWorkTabCoexistence.ShouldRunBetterWorkTabFeatures)
+            if (!FluffyWorkTabGateway.ShouldRunBetterWorkTabFeatures)
             {
                 return;
             }
@@ -65,7 +65,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
     {
         public static void Postfix(WorkGiver_Scanner __instance, Pawn pawn, IntVec3 c, bool forced, ref bool __result)
         {
-            if (!FluffyWorkTabCoexistence.ShouldRunBetterWorkTabFeatures)
+            if (!FluffyWorkTabGateway.ShouldRunBetterWorkTabFeatures)
             {
                 return;
             }
@@ -82,7 +82,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
     {
         public static bool Prefix(PawnColumnWorker_WorkPriority __instance, Pawn a, Pawn b, ref int __result)
         {
-            if (!FluffyWorkTabCoexistence.ShouldRunBetterWorkTabFeatures)
+            if (!FluffyWorkTabGateway.ShouldRunBetterWorkTabFeatures)
             {
                 return true;
             }

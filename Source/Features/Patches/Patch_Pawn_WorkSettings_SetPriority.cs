@@ -14,7 +14,7 @@ namespace Better_Work_Tab.Features.Patches
         [HarmonyPrefix]
         public static bool Prefix()
         {
-            if (!FluffyWorkTabCoexistence.ShouldRunBetterWorkTabFeatures)
+            if (!FluffyWorkTabGateway.ShouldRunBetterWorkTabFeatures)
             {
                 return true;
             }

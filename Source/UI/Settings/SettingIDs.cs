@@ -13,7 +13,7 @@ namespace Better_Work_Tab.UI.Settings
         public const string AdvancedRestoreDefaults = "advanced.restoreDefaults";
         public const string AdvancedAlwaysShowConditionEditors = "advanced.alwaysShowConditionEditors";
         public const string AdvancedSettingFocusHighlightColor = "advanced.settingFocusHighlightColor";
-        public const string CompatFluffyColumns = "compat.fluffy.columns";
+        public const string CompatExternalWorkTabColumns = "compat.externalWorkTab.columns";
         public const string AutoassignConfirm = "autoassign.confirm";
         public const string AutoassignResetBefore = "autoassign.resetBefore";
         public const string AutoassignViewMode = "autoassign.viewMode";

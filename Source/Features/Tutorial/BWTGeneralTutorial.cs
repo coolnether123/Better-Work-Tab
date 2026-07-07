@@ -136,7 +136,7 @@ namespace Better_Work_Tab.Features.Tutorial
             BWTGeneralTutorialStep currentStep = NormalizeStep(settings);
             if (currentStep == BWTGeneralTutorialStep.Welcome)
             {
-                if (BWTTutorialUserContext.HasFluffyWorkTabHistory())
+                if (BWTTutorialUserContext.HasExternalWorkTabPriorityHistory())
                 {
                     BWTWorkTabTutorial.Start2TutorialAt(BWTBetaTutorialStep.SubWorkPrompt);
                     return;

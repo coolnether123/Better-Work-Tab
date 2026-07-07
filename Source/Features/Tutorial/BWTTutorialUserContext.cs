@@ -3,30 +3,18 @@ using System.Linq;
 using Better_Work_Tab.API;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.Workloads;
-using HarmonyLib;
+using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Verse;
 
 namespace Better_Work_Tab.Features.Tutorial
 {
     internal static class BWTTutorialUserContext
     {
-        internal static bool HasFluffyWorkTabHistory()
+        internal static bool HasExternalWorkTabPriorityHistory()
         {
-            try
-            {
-                GameComponent_BWTWorldSettings component =
-                    Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
-                if (component != null && component.FluffyWorkTabPriorityMigrationVersion > 0)
-                {
-                    return true;
-                }
-
-                return AccessTools.TypeByName("WorkTab.PriorityManager") != null;
-            }
-            catch
-            {
-                return false;
-            }
+            GameComponent_BWTWorldSettings component =
+                Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
+            return FluffyWorkTabGateway.HasPriorityMigrationHistory(component);
         }
 
         internal static bool HasExternalPriorityProvider()
