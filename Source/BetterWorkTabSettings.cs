@@ -73,6 +73,7 @@ namespace Better_Work_Tab
         public static bool enableSubWorkTransitionAnimation = true;
         public static BetterWorkTabSettings.SubWorkTransitionStyle subWorkTransitionStyle =
             BetterWorkTabSettings.SubWorkTransitionStyle.ClassicGlideFlash;
+        public static float subWorkTransitionSeconds = 0.48f;
         public static BetterWorkTabSettings.SubWorkDisabledParentMode subWorkDisabledParentMode =
             BetterWorkTabSettings.SubWorkDisabledParentMode.ParentWorkDisablesSubWork;
         public static bool subWorkAutoExpandColumns = true;
@@ -338,6 +339,7 @@ namespace Better_Work_Tab
         public bool enableSubWorkOverrideBreakAnimation = DefaultSettings.enableSubWorkOverrideBreakAnimation;
         public bool enableSubWorkTransitionAnimation = DefaultSettings.enableSubWorkTransitionAnimation;
         public SubWorkTransitionStyle subWorkTransitionStyle = DefaultSettings.subWorkTransitionStyle;
+        public float subWorkTransitionSeconds = DefaultSettings.subWorkTransitionSeconds;
         public SubWorkDisabledParentMode subWorkDisabledParentMode = DefaultSettings.subWorkDisabledParentMode;
         public bool subWorkAutoExpandColumns = DefaultSettings.subWorkAutoExpandColumns;
         public bool subWorkEvenlyExpandColumns = DefaultSettings.subWorkEvenlyExpandColumns;
@@ -893,6 +895,8 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref enableSubWorkOverrideBreakAnimation, "enableSubWorkOverrideBreakAnimation", DefaultSettings.enableSubWorkOverrideBreakAnimation);
             Scribe_Values.Look(ref enableSubWorkTransitionAnimation, "enableSubWorkTransitionAnimation", DefaultSettings.enableSubWorkTransitionAnimation);
             Scribe_Values.Look(ref subWorkTransitionStyle, "subWorkTransitionStyle", DefaultSettings.subWorkTransitionStyle);
+            Scribe_Values.Look(ref subWorkTransitionSeconds, "subWorkTransitionSeconds", DefaultSettings.subWorkTransitionSeconds);
+            subWorkTransitionSeconds = ClampSubWorkTransitionSeconds(subWorkTransitionSeconds);
             Scribe_Values.Look(ref subWorkDisabledParentMode, "subWorkDisabledParentMode", DefaultSettings.subWorkDisabledParentMode);
             Scribe_Values.Look(ref subWorkAutoExpandColumns, "subWorkAutoExpandColumns", DefaultSettings.subWorkAutoExpandColumns);
             Scribe_Values.Look(ref subWorkEvenlyExpandColumns, "subWorkEvenlyExpandColumns", DefaultSettings.subWorkEvenlyExpandColumns);
@@ -1128,6 +1132,9 @@ namespace Better_Work_Tab
             workTabMaxVisiblePawns = DefaultSettings.workTabMaxVisiblePawns;
             workTabTopSpace = DefaultSettings.workTabTopSpace;
             settingsViewMode = SettingsViewMode.Simple;
+            enableSubWorkTransitionAnimation = DefaultSettings.enableSubWorkTransitionAnimation;
+            subWorkTransitionStyle = DefaultSettings.subWorkTransitionStyle;
+            subWorkTransitionSeconds = DefaultSettings.subWorkTransitionSeconds;
             workColumnOrderDefNames.Clear();
             storedColumnWidths.Clear();
             NormalizePrioritySettings();
@@ -1155,6 +1162,11 @@ namespace Better_Work_Tab
             }
 
             workTabMaxHeight = DefaultSettings.workTabMaxHeight;
+        }
+
+        public static float ClampSubWorkTransitionSeconds(float value)
+        {
+            return Mathf.Clamp(value, 0.2f, 0.9f);
         }
 
         /// <summary>

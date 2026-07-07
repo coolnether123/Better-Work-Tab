@@ -513,7 +513,7 @@ namespace Spine.UI.SettingsFramework
                         float min = def.MinValue ?? 0f;
                         float max = def.MaxValue ?? 1f;
                         if (SettingWidgets.DrawFloat(contentRect, label, ref floatValue, min, max,
-                                def.MinLabel, def.MaxLabel, tooltip, disabled))
+                                def.MinLabel, def.MaxLabel, def.ValueFormat, tooltip, disabled))
                         {
                             field.SetValue(settingsObject, floatValue);
                             HandleSettingChanged(def, settingsObject, onSettingsChanged);
@@ -563,6 +563,13 @@ namespace Spine.UI.SettingsFramework
                     break;
                 case SettingType.DropdownListAdder:
                     SettingWidgets.DrawDropdownListAdder(contentRect, label, def.DropdownOptionsProvider, def.OnOptionAdded, tooltip, disabled);
+                    break;
+                case SettingType.Custom:
+                    if (def.CustomDrawer != null &&
+                        def.CustomDrawer(contentRect, label, tooltip, settingsObject, disabled))
+                    {
+                        HandleSettingChanged(def, settingsObject, onSettingsChanged);
+                    }
                     break;
             }
 
@@ -1201,7 +1208,17 @@ namespace Spine.UI.SettingsFramework
 
         private bool IsResettable(SettingDefinition def, FieldInfo field)
         {
-            if (def == null || field == null || def.DefaultValue == null)
+            if (def == null)
+            {
+                return false;
+            }
+
+            if (def.Type == SettingType.Custom)
+            {
+                return def.CustomReset != null && def.CustomHasNonDefaultValue != null;
+            }
+
+            if (field == null || def.DefaultValue == null)
             {
                 return false;
             }
@@ -1222,7 +1239,17 @@ namespace Spine.UI.SettingsFramework
 
         private bool HasNonDefaultValue(FieldInfo field, object settingsObject, SettingDefinition def)
         {
-            if (field == null || settingsObject == null || def == null)
+            if (settingsObject == null || def == null)
+            {
+                return false;
+            }
+
+            if (def.Type == SettingType.Custom)
+            {
+                return def.CustomHasNonDefaultValue?.Invoke(settingsObject) ?? false;
+            }
+
+            if (field == null)
             {
                 return false;
             }
@@ -1261,7 +1288,23 @@ namespace Spine.UI.SettingsFramework
 
         private bool ResetSettingToDefault(FieldInfo field, object settingsObject, SettingDefinition def)
         {
-            if (field == null || settingsObject == null || def == null)
+            if (settingsObject == null || def == null)
+            {
+                return false;
+            }
+
+            if (def.Type == SettingType.Custom)
+            {
+                if (def.CustomReset == null)
+                {
+                    return false;
+                }
+
+                def.CustomReset(settingsObject);
+                return true;
+            }
+
+            if (field == null)
             {
                 return false;
             }

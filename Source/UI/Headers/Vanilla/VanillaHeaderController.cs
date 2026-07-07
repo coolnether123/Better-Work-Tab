@@ -125,7 +125,8 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
                 IsMouseOver = isMouseOver,
                 ShouldDraw = shouldDraw,
                 HeaderRect = rect,
-                Renderer = renderer
+                Renderer = renderer,
+                IsVanillaStaggered = true
             };
 
             Angled.AngledHeaderInteraction.HandleInteractions(ctx);

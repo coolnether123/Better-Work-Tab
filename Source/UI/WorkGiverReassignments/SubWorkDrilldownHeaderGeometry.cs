@@ -15,6 +15,8 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
     internal static class SubWorkDrilldownHeaderGeometry
     {
         private static float _lastNormalHeaderHeight;
+        private static string _cachedExpansionWorkTypeDefName;
+        private static float _cachedFullExpansion = -1f;
 
         internal static void RecordNormalHeaderHeight(PawnTable table, float currentHeaderHeight)
         {
@@ -67,12 +69,34 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         {
             if (!SubWorkDrilldownState.IsActive || table == null)
             {
+                _cachedExpansionWorkTypeDefName = null;
+                _cachedFullExpansion = -1f;
                 return 0f;
             }
 
-            float required = GetRequiredHeaderHeight(table);
-            float fullExpansion = Mathf.Max(0f, Mathf.Ceil(required - GetNormalHeaderHeight(table)));
-            return fullExpansion * Mathf.Clamp01(SubWorkDrilldownState.ModeVisualProgress);
+            if (SubWorkDrilldownState.UseClassicTransition)
+            {
+                _cachedExpansionWorkTypeDefName = null;
+                _cachedFullExpansion = -1f;
+                return 0f;
+            }
+
+            string activeDefName = SubWorkDrilldownState.ActiveWorkType?.defName ?? string.Empty;
+            if (_cachedExpansionWorkTypeDefName != activeDefName || _cachedFullExpansion < 0f)
+            {
+                if (SubWorkDrilldownState.IsExiting)
+                {
+                    _cachedFullExpansion = 0f;
+                    _cachedExpansionWorkTypeDefName = activeDefName;
+                    return 0f;
+                }
+
+                float required = GetRequiredHeaderHeight(table);
+                _cachedFullExpansion = Mathf.Max(0f, Mathf.Ceil(required - GetNormalHeaderHeight(table)));
+                _cachedExpansionWorkTypeDefName = activeDefName;
+            }
+
+            return _cachedFullExpansion * Mathf.Clamp01(SubWorkDrilldownState.ModeVisualProgress);
         }
 
         private static float GetNormalHeaderHeight(PawnTable table)

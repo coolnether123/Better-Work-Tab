@@ -3,6 +3,7 @@ using UnityEngine;
 using Verse;
 using Better_Work_Tab.DragDrop;
 using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.UI.WorkGiverReassignments;
 
 namespace Better_Work_Tab.UI.Headers.Angled
 {
@@ -71,38 +72,29 @@ namespace Better_Work_Tab.UI.Headers.Angled
             float rotation = CurrentRotation;
             float absSin = Mathf.Abs(Mathf.Sin(rotation * Mathf.Deg2Rad));
             float absCos = Mathf.Abs(Mathf.Cos(rotation * Mathf.Deg2Rad));
-            GameFont oldFont = Text.Font;
-            bool oldWordWrap = Text.WordWrap;
-            Text.Font = GameFont.Small;
-            Text.WordWrap = false;
-            float lineHeightCJK = Text.LineHeight * BetterWorkTabMod.Settings.cjkVerticalKerning;
 
             foreach (var col in columns)
             {
                 if (col.Worker is PawnColumnWorker_WorkPriority && col.workType != null)
                 {
                     // For height calculation, the moved indicator is incorporated to maintain layout stability.
-                    string labelText = HeaderUtility.GetHeaderText(col.workType, true);
+                    AngledHeaderCache.CachedTextMetrics metrics = AngledHeaderCache.GetHeaderTextMetrics(col.workType, true);
 
                     float h;
-                    if (HeaderUtility.ShouldUseCJKVerticalLabel(labelText))
+                    if (metrics.IsCJKVertical)
                     {
-                        // Stacked Vertical height: characters * line height
-                        h = labelText.Length * lineHeightCJK;
+                        h = metrics.Size.y;
                     }
                     else
                     {
-                        Vector2 size = Text.CalcSize(labelText);
                         // Height of a rotated rectangle: width*sin(theta) + height*cos(theta)
-                        h = (size.x * absSin) + (size.y * absCos);
+                        h = (metrics.Size.x * absSin) + (metrics.Size.y * absCos);
                     }
 
                     if (h > maxH) maxH = h;
                 }
             }
 
-            Text.Font = oldFont;
-            Text.WordWrap = oldWordWrap;
             return maxH + STEM_BOTTOM_GAP;
         }
 
@@ -115,6 +107,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
             public readonly Vector2 Size;
             public readonly Vector2 Pivot;
             public readonly bool ShowMarker;
+            public readonly float UnderlineWidth;
             public readonly bool HasCustomDrawRect;
             public readonly Rect CustomDrawRect;
             /// <summary>
@@ -124,21 +117,27 @@ namespace Better_Work_Tab.UI.Headers.Angled
             public readonly bool IsCJKVertical;
 
             public AngledLabelLayout(string text, Vector2 size, Vector2 pivot, bool showMarker, bool isCJKVertical = false)
-                : this(text, size, pivot, showMarker, isCJKVertical, false, default)
+                : this(text, size, pivot, showMarker, size.x, isCJKVertical, false, default)
             {
             }
 
             public AngledLabelLayout(string text, Vector2 size, Vector2 pivot, bool showMarker, bool isCJKVertical, Rect customDrawRect)
-                : this(text, size, pivot, showMarker, isCJKVertical, true, customDrawRect)
+                : this(text, size, pivot, showMarker, size.x, isCJKVertical, true, customDrawRect)
             {
             }
 
-            private AngledLabelLayout(string text, Vector2 size, Vector2 pivot, bool showMarker, bool isCJKVertical, bool hasCustomDrawRect, Rect customDrawRect)
+            public AngledLabelLayout(string text, Vector2 size, Vector2 pivot, bool showMarker, bool isCJKVertical, Rect customDrawRect, float underlineWidth)
+                : this(text, size, pivot, showMarker, underlineWidth, isCJKVertical, true, customDrawRect)
+            {
+            }
+
+            private AngledLabelLayout(string text, Vector2 size, Vector2 pivot, bool showMarker, float underlineWidth, bool isCJKVertical, bool hasCustomDrawRect, Rect customDrawRect)
             {
                 Text = text;
                 Size = size;
                 Pivot = pivot;
                 ShowMarker = showMarker;
+                UnderlineWidth = underlineWidth;
                 IsCJKVertical = isCJKVertical;
                 HasCustomDrawRect = hasCustomDrawRect;
                 CustomDrawRect = customDrawRect;
@@ -176,6 +175,11 @@ namespace Better_Work_Tab.UI.Headers.Angled
             if (SubWorkDrilldownState.TryGetHeaderTransitionOffset(column, headerRect.width, out float transitionOffsetX))
             {
                 drawRect.x += transitionOffsetX;
+            }
+
+            if (SubWorkDrilldownState.IsActive && !isCJKVertical)
+            {
+                drawRect.y += SubWorkDrilldownState.HeaderAnchorVisualOffsetY;
             }
 
             Matrix4x4 originalMatrix = GUI.matrix;
@@ -261,7 +265,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 // Underline: Traditionally vertical CJK text does not use work-tab-style underlines as they conflict with legibility.
                 if (!BetterWorkTabMod.Settings.removeHeaderUnderline && !isCJKVertical)
                 {
-                    float textWidth = labelSize.x;
+                    float textWidth = Mathf.Min(layout.UnderlineWidth, drawRect.width);
                     Vector2 underlineStart = new Vector2(drawRect.xMin, drawRect.yMax);
                     Vector2 underlineEnd = new Vector2(drawRect.xMin + textWidth, drawRect.yMax);
                     Color underlineColor = HeaderUtility.Colors.HeaderUnderlineColor;
@@ -282,6 +286,11 @@ namespace Better_Work_Tab.UI.Headers.Angled
             {
                 HeaderUtility.DrawSortIndicator(headerRect, sortDescending);
             }
+
+            if (headerRect != default)
+            {
+                SubWorkHeaderAffordance.DrawOpenBadge(headerRect, column, clearVanillaStem: false);
+            }
         }
 
         private static void DrawParentHeaderGhost(
@@ -301,7 +310,9 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 return;
             }
 
-            string parentText = HeaderUtility.GetParentHeaderText(column.workType, currentLayout.ShowMarker);
+            AngledHeaderCache.CachedTextMetrics parentMetrics =
+                AngledHeaderCache.GetParentTextMetrics(column.workType, currentLayout.ShowMarker);
+            string parentText = parentMetrics.Label;
             if (parentText.NullOrEmpty() || parentText == currentLayout.Text)
             {
                 return;
@@ -318,14 +329,9 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 Text.Font = GameFont.Small;
                 Text.WordWrap = false;
 
-                bool isCJKVertical = HeaderUtility.ShouldUseCJKVerticalLabel(parentText);
+                bool isCJKVertical = parentMetrics.IsCJKVertical;
                 float rotation = isCJKVertical ? 0f : currentRotation;
-                Vector2 size = Text.CalcSize(parentText);
-                if (isCJKVertical)
-                {
-                    float charH = Text.LineHeight * BetterWorkTabMod.Settings.cjkVerticalKerning;
-                    size = new Vector2(size.y, parentText.Length * charH);
-                }
+                Vector2 size = parentMetrics.Size;
 
                 Rect drawRect;
                 if (isCJKVertical)
@@ -338,6 +344,10 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 {
                     drawRect = new Rect(0f, 0f, headerRect.height, size.y) { center = headerRect.center };
                     drawRect.x += horizontalOffset;
+                    if (SubWorkDrilldownState.IsActive)
+                    {
+                        drawRect.y += SubWorkDrilldownState.HeaderAnchorVisualOffsetY;
+                    }
                 }
 
                 GUI.matrix = Matrix4x4.identity;
@@ -372,8 +382,9 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
                 if (!BetterWorkTabMod.Settings.removeHeaderUnderline && !isCJKVertical)
                 {
+                    float underlineWidth = Mathf.Min(size.x, drawRect.width);
                     Vector2 underlineStart = new Vector2(drawRect.xMin, drawRect.yMax);
-                    Vector2 underlineEnd = new Vector2(drawRect.xMin + size.x, drawRect.yMax);
+                    Vector2 underlineEnd = new Vector2(drawRect.xMin + underlineWidth, drawRect.yMax);
                     Color underlineColor = HeaderUtility.Colors.HeaderUnderlineColor;
                     underlineColor.a *= alpha;
                     Widgets.DrawLine(underlineStart, underlineEnd, underlineColor, 1f);

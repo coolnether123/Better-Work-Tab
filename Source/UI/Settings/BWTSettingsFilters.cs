@@ -379,7 +379,8 @@ namespace Better_Work_Tab.UI.Settings
         {
             if (def == null || settingsObject == null || string.IsNullOrEmpty(def.FieldName) || def.DefaultValue == null)
             {
-                return false;
+                return def?.Type == SettingType.Custom &&
+                       (def.CustomHasNonDefaultValue?.Invoke(settingsObject) ?? false);
             }
 
             FieldInfo field = settingsObject.GetType().GetField(

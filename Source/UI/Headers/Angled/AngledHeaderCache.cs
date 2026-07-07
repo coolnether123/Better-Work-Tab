@@ -2,6 +2,7 @@
 using RimWorld;
 using Verse;
 using System.Collections.Generic;
+using Better_Work_Tab.Features.Testing;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.UI.WorkGiverReassignments;
@@ -14,8 +15,11 @@ namespace Better_Work_Tab.UI.Headers.Angled
     /// </summary>
     public static class AngledHeaderCache
     {
-        private static int _lastFrame = -1;
-        private static readonly Dictionary<WorkTypeDef, CachedHeaderData> _cache = new Dictionary<WorkTypeDef, CachedHeaderData>();
+        private static readonly Dictionary<WorkTypeDef, Dictionary<int, CachedHeaderData>> _cache =
+            new Dictionary<WorkTypeDef, Dictionary<int, CachedHeaderData>>();
+        private static readonly Dictionary<WorkTypeDef, CachedHeaderData> _latestCache =
+            new Dictionary<WorkTypeDef, CachedHeaderData>();
+        private static readonly Dictionary<int, CachedTextMetrics> TextMetricsCache = new Dictionary<int, CachedTextMetrics>();
 
         /// <summary>
         /// Contains all geometric data needed to render and detect mouse-over for an angled header.
@@ -28,17 +32,26 @@ namespace Better_Work_Tab.UI.Headers.Angled
             public int ParamSignature; // Hash of cosine, sine, and offset used to detect parameter changes
         }
 
+        internal struct CachedTextMetrics
+        {
+            internal string Label;
+            internal Vector2 Size;
+            internal bool IsCJKVertical;
+        }
+
         /// <summary>
         /// Manually clears the entire layout cache.
         /// </summary>
         public static void ClearCache()
         {
             _cache.Clear();
+            _latestCache.Clear();
+            TextMetricsCache.Clear();
         }
 
         public static bool TryGetBounds(WorkTypeDef workType, out Rect bounds)
         {
-            if (workType != null && _cache.TryGetValue(workType, out var cached))
+            if (workType != null && _latestCache.TryGetValue(workType, out var cached))
             {
                 bounds = cached.Bounds;
                 return true;
@@ -49,30 +62,27 @@ namespace Better_Work_Tab.UI.Headers.Angled
         }
 
         /// <summary>
-        /// Clears the cache if it hasn't been cleared this frame.
-        /// </summary>
-        private static void EnsureFrameCache()
-        {
-            if (Time.frameCount != _lastFrame)
-            {
-                _cache.Clear();
-                _lastFrame = Time.frameCount;
-            }
-        }
-
-        /// <summary>
         /// Computes a signature for the given parameters to detect changes that should invalidate the cache.
         /// </summary>
-        private static int ComputeParamSignature(float cos, float sin, float horizontalOffset, float drawWidthOverride)
+        private static int ComputeParamSignature(Rect rect, float cos, float sin, float stemGap, float horizontalOffset, float drawWidthOverride)
         {
-            // Simple hash combine
             unchecked
             {
                 int hash = 17;
-                hash = hash * 23 + cos.GetHashCode();
-                hash = hash * 23 + sin.GetHashCode();
-                hash = hash * 23 + horizontalOffset.GetHashCode();
-                hash = hash * 23 + drawWidthOverride.GetHashCode();
+                hash = hash * 23 + Quantize(rect.x);
+                hash = hash * 23 + Quantize(rect.y);
+                hash = hash * 23 + Quantize(rect.width);
+                hash = hash * 23 + Quantize(rect.height);
+                hash = hash * 23 + Quantize(cos);
+                hash = hash * 23 + Quantize(sin);
+                hash = hash * 23 + Quantize(stemGap);
+                hash = hash * 23 + Quantize(horizontalOffset);
+                hash = hash * 23 + Quantize(drawWidthOverride);
+                if (SubWorkDrilldownState.IsActive)
+                {
+                    hash = hash * 23 + SubWorkDrilldownState.LayoutSignature;
+                }
+
                 return hash;
             }
         }
@@ -83,40 +93,34 @@ namespace Better_Work_Tab.UI.Headers.Angled
         /// <returns>True if the layout is valid and available.</returns>
         public static bool TryGetLayout(Rect rect, WorkTypeDef workType, float cos, float sin, float stemGap, float horizontalOffset, out CachedHeaderData cached, float drawWidthOverride = -1f)
         {
-            EnsureFrameCache();
+            int currentSig = ComputeParamSignature(rect, cos, sin, stemGap, horizontalOffset, drawWidthOverride);
 
-            int currentSig = ComputeParamSignature(cos, sin, horizontalOffset, drawWidthOverride);
-
-            if (_cache.TryGetValue(workType, out cached))
+            if (workType != null && _cache.TryGetValue(workType, out var workTypeCache))
             {
-                if (cached.ParamSignature == currentSig)
+                if (workTypeCache.TryGetValue(currentSig, out cached))
                 {
+                    _latestCache[workType] = cached;
                     return true;
                 }
-                _cache.Remove(workType);
+
+                SubWorkTransitionPerfDiagnostics.CountAngledHeaderCacheKeyChange();
+            }
+            else
+            {
+                workTypeCache = new Dictionary<int, CachedHeaderData>();
+                if (workType != null)
+                {
+                    _cache[workType] = workTypeCache;
+                }
             }
 
             // Calculation
+            SubWorkTransitionPerfDiagnostics.CountAngledHeaderCacheRebuild();
             bool isMoved = MainTabWindow_BetterWork.ShouldShowColumnMarker(workType);
-            string label = HeaderUtility.GetHeaderText(workType, isMoved);
-            
-            bool isCJKVertical = HeaderUtility.ShouldUseCJKVerticalLabel(label);
-
-            GameFont oldFont = Text.Font;
-            bool oldWordWrap = Text.WordWrap;
-            Text.Font = GameFont.Small;
-            Text.WordWrap = false;
-            Vector2 size = Text.CalcSize(label);
-
-            if (isCJKVertical)
-            {
-                // In vertical stacking, the 'width' becomes the character width, 
-                // and the 'height' becomes the cumulative stack of characters.
-                float charH = Text.LineHeight * BetterWorkTabMod.Settings.cjkVerticalKerning;
-                size = new Vector2(size.y, label.Length * charH);
-            }
-            Text.Font = oldFont;
-            Text.WordWrap = oldWordWrap;
+            CachedTextMetrics textMetrics = GetHeaderTextMetrics(workType, isMoved);
+            string label = textMetrics.Label;
+            bool isCJKVertical = textMetrics.IsCJKVertical;
+            Vector2 size = textMetrics.Size;
 
             // Layout Anchor Logic:
             // For standard angled headers, we use vertical centering relative to the header area.
@@ -163,8 +167,96 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 ParamSignature = currentSig
             };
 
-            _cache[workType] = cached;
+            if (workType != null)
+            {
+                workTypeCache[currentSig] = cached;
+                _latestCache[workType] = cached;
+            }
+
             return true;
+        }
+
+        internal static CachedTextMetrics GetHeaderTextMetrics(
+            WorkTypeDef workType,
+            bool isMoved,
+            WorkGiverHeaderLabelStyle labelStyle = WorkGiverHeaderLabelStyle.Standard)
+        {
+            return GetTextMetrics(
+                ComputeTextMetricsKey(workType, isMoved, labelStyle, parentOnly: false),
+                () => HeaderUtility.GetHeaderText(workType, isMoved, labelStyle));
+        }
+
+        internal static CachedTextMetrics GetParentTextMetrics(WorkTypeDef workType, bool isMoved)
+        {
+            return GetTextMetrics(
+                ComputeTextMetricsKey(workType, isMoved, WorkGiverHeaderLabelStyle.Standard, parentOnly: true),
+                () => HeaderUtility.GetParentHeaderText(workType, isMoved));
+        }
+
+        private static CachedTextMetrics GetTextMetrics(int key, System.Func<string> labelFactory)
+        {
+            if (TextMetricsCache.TryGetValue(key, out CachedTextMetrics metrics))
+            {
+                return metrics;
+            }
+
+            string label = labelFactory();
+            bool isCJKVertical = HeaderUtility.ShouldUseCJKVerticalLabel(label);
+
+            GameFont oldFont = Text.Font;
+            bool oldWordWrap = Text.WordWrap;
+            Text.Font = GameFont.Small;
+            Text.WordWrap = false;
+            SubWorkTransitionPerfDiagnostics.CountHeaderCalcSize();
+            Vector2 size = Text.CalcSize(label);
+
+            if (isCJKVertical)
+            {
+                float charH = Text.LineHeight * BetterWorkTabMod.Settings.cjkVerticalKerning;
+                size = new Vector2(size.y, label.Length * charH);
+            }
+
+            Text.Font = oldFont;
+            Text.WordWrap = oldWordWrap;
+
+            metrics = new CachedTextMetrics
+            {
+                Label = label,
+                Size = size,
+                IsCJKVertical = isCJKVertical
+            };
+            TextMetricsCache[key] = metrics;
+            return metrics;
+        }
+
+        private static int ComputeTextMetricsKey(
+            WorkTypeDef workType,
+            bool isMoved,
+            WorkGiverHeaderLabelStyle labelStyle,
+            bool parentOnly)
+        {
+            unchecked
+            {
+                int hash = 17;
+                hash = hash * 23 + (workType?.shortHash ?? 0);
+                hash = hash * 23 + (isMoved ? 1 : 0);
+                hash = hash * 23 + (int)labelStyle;
+                hash = hash * 23 + (parentOnly ? 1 : 0);
+                hash = hash * 23 + (BetterWorkTabMod.Settings?.showColumnMovedMarker ?? true ? 1 : 0);
+                hash = hash * 23 + (BetterWorkTabMod.Settings?.useVerticalStackingForCJK ?? true ? 1 : 0);
+                hash = hash * 23 + Quantize(BetterWorkTabMod.Settings?.cjkVerticalKerning ?? 1f);
+                if (!parentOnly && SubWorkDrilldownState.IsActive)
+                {
+                    hash = hash * 23 + SubWorkDrilldownState.MeasurementSignature;
+                }
+
+                return hash;
+            }
+        }
+
+        private static int Quantize(float value)
+        {
+            return Mathf.RoundToInt(value * 100f);
         }
 
         private static Rect AnchorSubWorkUnderlineToPriorityRow(Rect drawRect, Rect headerRect, float cos, float sin, float stemGap, float horizontalOffset)
@@ -175,17 +267,11 @@ namespace Better_Work_Tab.UI.Headers.Angled
             float baselineWidth = SubWorkDrilldownHeaderGeometry.GetBaseHeaderDrawWidth(null, drawRect.width);
             Vector2 baselineRotatedLocal = RotatePoint(new Vector2(-baselineWidth / 2f, drawRect.height / 2f), cos, sin);
 
-            float visibleRowHeight = SubWorkDrilldownState.GlobalRowVisibleHeight;
-            float reservedRowHeight = SubWorkDrilldownState.GlobalRowReservedHeight;
-            float anchorOffset = SubWorkDrilldownState.IsExiting
-                ? Mathf.Max(0f, reservedRowHeight - visibleRowHeight)
-                : 0f;
             // A global time-priority schedule is inserted between the headers and the
             // sub-work global row. Header labels should stay anchored above that inserted
             // strip; otherwise long angled labels are pulled down into the schedule.
             float globalBoxTop = headerRect.yMax +
-                anchorOffset +
-                ((visibleRowHeight - SubWorkDrilldownState.GlobalPriorityBoxSize) / 2f);
+                ((SubWorkDrilldownState.GlobalRowHeight - SubWorkDrilldownState.GlobalPriorityBoxSize) / 2f);
             Vector2 targetUnderlineStart = new Vector2(
                 headerRect.center.x + horizontalOffset + baselineRotatedLocal.x,
                 globalBoxTop - stemGap);

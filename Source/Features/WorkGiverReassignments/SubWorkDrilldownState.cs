@@ -13,9 +13,9 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
     /// </summary>
     internal static class SubWorkDrilldownState
     {
-        private const float TransitionSeconds = 0.48f;
         internal const float GlobalRowHeight = 30f;
         internal const float GlobalPriorityBoxSize = 25f;
+        private const float WaveFeatherSlots = 1.05f;
 
         private static readonly List<WorkGiver> ActiveWorkGiversBuffer = new List<WorkGiver>();
         private static readonly Dictionary<WorkGiverDef, int> ActiveWorkGiverSlots = new Dictionary<WorkGiverDef, int>();
@@ -119,6 +119,11 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 return Mathf.Clamp01((Time.realtimeSinceStartup - _enteredAt) / TransitionSeconds);
             }
         }
+
+        internal static float TransitionSeconds =>
+            BetterWorkTabSettings.ClampSubWorkTransitionSeconds(
+                BetterWorkTabMod.Settings?.subWorkTransitionSeconds ??
+                DefaultSettings.subWorkTransitionSeconds);
 
         internal static bool UseTransitionAnimation =>
             BetterWorkTabMod.Settings?.enableSubWorkTransitionAnimation ??
@@ -229,7 +234,39 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             }
         }
 
-        internal static float GlobalRowReservedHeight => GlobalRowVisibleHeight;
+        internal static float GlobalRowReservedHeight => IsActive ? GlobalRowHeight : 0f;
+
+        internal static float GlobalRowVisualAlpha
+        {
+            get
+            {
+                if (!IsActive)
+                {
+                    return 0f;
+                }
+
+                if (!UseTransitionAnimation || !IsTransitioning)
+                {
+                    return 1f;
+                }
+
+                return Mathf.Clamp01(ModeVisualProgress);
+            }
+        }
+
+        internal static float HeaderAnchorVisualOffsetY
+        {
+            get
+            {
+                if (!IsActive || !UseTransitionAnimation || !IsTransitioning)
+                {
+                    return 0f;
+                }
+
+                float hiddenHeight = Mathf.Max(0f, GlobalRowReservedHeight - GlobalRowVisibleHeight);
+                return (_isExiting ? 1f : -1f) * hiddenHeight * 0.5f;
+            }
+        }
 
         internal static bool TryGetHeaderTransitionOffset(PawnColumnDef column, float columnWidth, out float offsetX)
         {
@@ -345,7 +382,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 return false;
             }
 
-            phase = _isExiting ? 1f - TransitionAlpha : TransitionAlpha;
+            phase = GetTransitionPhase();
             return true;
         }
 
@@ -368,10 +405,12 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 return 0f;
             }
 
-            int totalSlots = Mathf.Max(1, VisibleWorkTypeSlots.Count);
             float distance = Mathf.Abs(slot - pivotSlot);
-            float phase = _isExiting ? 1f - TransitionAlpha : TransitionAlpha;
-            float waveCenter = phase * (totalSlots + 1);
+            float phase = GetTransitionPhase();
+            float waveCenter = Mathf.Lerp(
+                -WaveFeatherSlots,
+                GetMaxWaveDistanceFromPivot(pivotSlot) + WaveFeatherSlots,
+                phase);
             float wave = 1f - Mathf.Abs(distance - waveCenter) / 1.25f;
             wave = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(wave));
             float fadeOut = Mathf.SmoothStep(1f, 0f, Mathf.Clamp01((phase - 0.48f) / 0.34f));
@@ -386,10 +425,29 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 return 1f;
             }
 
-            int totalSlots = Mathf.Max(1, VisibleWorkTypeSlots.Count);
             float distance = Mathf.Abs(slot - pivotSlot);
-            float waveCenter = phase * (totalSlots + 1f);
-            return Mathf.Clamp01((waveCenter - distance + 0.34f) / 0.72f);
+            float maxDistance = GetMaxWaveDistanceFromPivot(pivotSlot);
+            float waveCenter = Mathf.Lerp(-WaveFeatherSlots, maxDistance + WaveFeatherSlots, phase);
+            return Mathf.Clamp01((waveCenter - distance + WaveFeatherSlots) / WaveFeatherSlots);
+        }
+
+        private static float GetTransitionPhase()
+        {
+            float progress = UsePixelWaveTransition
+                ? Mathf.Clamp01(TransitionAlpha)
+                : TransitionEase;
+            return _isExiting ? 1f - progress : progress;
+        }
+
+        private static float GetMaxWaveDistanceFromPivot(float pivotSlot)
+        {
+            EnsureSlotCache();
+            if (VisibleWorkTypeSlots.Count <= 1 || pivotSlot < 0f)
+            {
+                return 0f;
+            }
+
+            return Mathf.Max(pivotSlot, Mathf.Abs((VisibleWorkTypeSlots.Count - 1) - pivotSlot));
         }
 
         private static float SmoothStep01(float value)
@@ -540,12 +598,13 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             _isExiting = true;
             _exitingAt = Time.realtimeSinceStartup;
 
-            int parentSlot = _entryWorkColumnSlot >= 0 ? _entryWorkColumnSlot : exitWorkColumnSlot;
-            _exitWorkColumnSlot = parentSlot;
-            _exitWaveSlotPosition = parentSlot >= 0 ? parentSlot : exitWaveSlotPosition;
+            _exitWorkColumnSlot = exitWorkColumnSlot >= 0 ? exitWorkColumnSlot : _entryWorkColumnSlot;
+            _exitWaveSlotPosition = exitWaveSlotPosition >= 0f
+                ? exitWaveSlotPosition
+                : _exitWorkColumnSlot;
             _layoutRefreshPending = true;
             LogSubWork(
-                $"Exit requested workType={_activeWorkType.defName}, triggerSlot={exitWorkColumnSlot}, triggerWaveSlot={exitWaveSlotPosition:0.###}, parentSlot={_exitWorkColumnSlot}, waveSlot={_exitWaveSlotPosition:0.###}, style={TransitionStyle}, cursorMoved={_cursorMovedSinceEnter}");
+                $"Exit requested workType={_activeWorkType.defName}, triggerSlot={exitWorkColumnSlot}, triggerWaveSlot={exitWaveSlotPosition:0.###}, exitSlot={_exitWorkColumnSlot}, waveSlot={_exitWaveSlotPosition:0.###}, style={TransitionStyle}, cursorMoved={_cursorMovedSinceEnter}");
         }
 
         internal static void TickTransition()

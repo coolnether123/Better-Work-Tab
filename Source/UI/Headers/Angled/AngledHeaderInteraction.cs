@@ -30,6 +30,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
         public bool ShouldDraw;
         public Rect HeaderRect;
         public IHeaderRenderer Renderer;
+        public bool IsVanillaStaggered;
     }
 
     public static class AngledHeaderInteraction
@@ -80,6 +81,16 @@ namespace Better_Work_Tab.UI.Headers.Angled
             // If a drag commences, the drag handler consumes the MouseUp event, preventing sorting.
             if (evt.type == EventType.MouseDown)
             {
+                if (evt.button == 0 &&
+                    SubWorkHeaderAffordance.ShouldDrawOpenBadge(ctx.Worker.def) &&
+                    SubWorkHeaderAffordance.TryGetOpenBadgeRect(ctx.Worker.def, ctx.HeaderRect, ctx.IsVanillaStaggered, out Rect badgeRect) &&
+                    badgeRect.Contains(evt.mousePosition))
+                {
+                    ClearPendingHeaderClick(ctx.Worker.def);
+                    evt.Use();
+                    return;
+                }
+
                 if (SubWorkDrilldownInput.MatchesGesture(evt))
                 {
                     ClearPendingHeaderClick(ctx.Worker.def);
@@ -509,7 +520,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 workType,
                 returnMousePosition,
                 SubWorkDrilldownHeaderGeometry.GetBaseHeaderDrawWidth(null, -1f));
-            HeaderDrawingCoordinator.NotifyAngledHeadersChanged();
+            HeaderDrawingCoordinator.InvalidateSolution();
             SoundDefOf.Tick_High.PlayOneShotOnCamera();
         }
 

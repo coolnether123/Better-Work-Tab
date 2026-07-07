@@ -116,7 +116,9 @@ namespace Better_Work_Tab.UI.Settings
         public const string SubWorkRestoreCursorFromPawnCells = "subWorkJobs.restoreCursorFromPawnCells";
         public const string SubWorkOverrideBreakAnimation = "subWorkJobs.overrideBreakAnimation";
         public const string SubWorkTransitionAnimation = "subWorkJobs.transitionAnimation";
+        public const string SubWorkTransitionMode = "subWorkJobs.transitionMode";
         public const string SubWorkTransitionStyle = "subWorkJobs.transitionStyle";
+        public const string SubWorkTransitionSpeed = "subWorkJobs.transitionSpeed";
         public const string SubWorkDisabledParentMode = "subWorkJobs.disabledParentMode";
         public const string UiDragInstructions = "ui.dragInstructions";
         public const string UiContextSettingsHint = "ui.contextSettingsHint";

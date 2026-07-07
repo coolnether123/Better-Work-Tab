@@ -4,6 +4,7 @@ using Verse;
 using Better_Work_Tab.DragDrop;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.UI.Headers.Angled;
+using Better_Work_Tab.UI.WorkGiverReassignments;
 
 namespace Better_Work_Tab.UI.Headers.Vanilla
 {
@@ -140,6 +141,8 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
                 {
                     HeaderUtility.DrawSortIndicator(headerRect, sortDescending);
                 }
+
+                SubWorkHeaderAffordance.DrawOpenBadge(headerRect, textRect, column);
             }
             finally
             {

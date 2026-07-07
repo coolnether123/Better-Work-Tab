@@ -1,4 +1,5 @@
 ﻿using Better_Work_Tab.PawnOrganizer;
+using Better_Work_Tab.Features.Testing;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using HarmonyLib;
@@ -51,6 +52,8 @@ namespace Better_Work_Tab.Features.Patches
             if (__instance.def != PawnTableDefOf.Work)
                 return;
 
+            SubWorkTransitionPerfDiagnostics.CountPawnTableRecachePostfix();
+
             if (CachedRowHeightsField == null || CachedSizeField == null)
                 return;
 
@@ -64,7 +67,7 @@ namespace Better_Work_Tab.Features.Patches
 
             float headerHeight = layout.HeaderHeight;
             float pinnedRowsHeight = TimePriorityPlannerPrototype.HeaderPinnedRowsHeight +
-                SubWorkDrilldownState.GlobalRowVisibleHeight;
+                SubWorkDrilldownState.GlobalRowReservedHeight;
             float contentHeight = layout.ContentHeight;
             float totalHeight = headerHeight + contentHeight;
             float width = __instance.cachedSize.x;
@@ -108,6 +111,7 @@ namespace Better_Work_Tab.Features.Patches
             // Including them here makes the table body one pinned row taller than its content,
             // which presents as a blank row at the bottom when sub-work is opened.
             // ═══════════════════════════════════════════════════════════════════════════
+            SubWorkTransitionPerfDiagnostics.CountPawnTableSyncWrite();
             CachedRowHeightsField.SetValue(__instance, state.RowHeights);
             CachedSizeField.SetValue(__instance, new Vector2(width, totalHeight));
         }

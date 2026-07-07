@@ -59,8 +59,8 @@ namespace Better_Work_Tab.UI.Settings
                         SubWorkOpenModifier,
                         SubWorkOpenButton,
                         SubWorkRestoreCursorFromPawnCells,
-                        SubWorkTransitionAnimation,
-                        SubWorkTransitionStyle,
+                        SubWorkTransitionMode,
+                        SubWorkTransitionSpeed,
                         SubWorkDisabledParentMode,
                         UiTimePriorityPlannerPrototype,
                         UiTimePriorityCopyPasteButtons,
@@ -136,8 +136,8 @@ namespace Better_Work_Tab.UI.Settings
                         SubWorkOpenModifier,
                         SubWorkOpenButton,
                         SubWorkRestoreCursor,
-                        SubWorkTransitionAnimation,
-                        SubWorkTransitionStyle,
+                        SubWorkTransitionMode,
+                        SubWorkTransitionSpeed,
                         LayoutCtrlDrag,
                         FeaturesDragdrop,
                         LayoutDragColumns,
@@ -180,8 +180,8 @@ namespace Better_Work_Tab.UI.Settings
                     FeaturesSubWorkJobs,
                     SubWorkOpenModifier,
                     SubWorkOpenButton,
-                    SubWorkTransitionAnimation,
-                    SubWorkTransitionStyle,
+                    SubWorkTransitionMode,
+                    SubWorkTransitionSpeed,
                     SubWorkAutoExpandColumns,
                     SubWorkEvenlyExpandColumns,
                     isWorkHeader ? PriorityHeader : null);
@@ -196,8 +196,8 @@ namespace Better_Work_Tab.UI.Settings
                     true,
                     FeaturesSubWorkJobs,
                     SubWorkGlobalVanillaPriorityBoxes,
-                    SubWorkTransitionAnimation,
-                    SubWorkTransitionStyle,
+                    SubWorkTransitionMode,
+                    SubWorkTransitionSpeed,
                     SubWorkAutoExpandColumns,
                     SubWorkEvenlyExpandColumns,
                     UiTimePriorityPlannerPrototype,
@@ -374,8 +374,8 @@ namespace Better_Work_Tab.UI.Settings
                     FeaturesSubWorkJobs,
                     SubWorkRestoreCursor,
                     SubWorkRestoreCursorFromPawnCells,
-                    SubWorkTransitionAnimation,
-                    SubWorkTransitionStyle);
+                    SubWorkTransitionMode,
+                    SubWorkTransitionSpeed);
             }
 
             return CreateContextRequest(

@@ -76,6 +76,11 @@ namespace Spine.UI.SettingsFramework
         public string MaxLabel;
 
         /// <summary>
+        /// Optional numeric value display format. Uses string.Format with the value as argument 0.
+        /// </summary>
+        public string ValueFormat;
+
+        /// <summary>
         /// Enum type for enum-based settings.
         /// </summary>
         public Type EnumType;
@@ -124,5 +129,20 @@ namespace Spine.UI.SettingsFramework
         /// Callback invoked when an option is selected from a DropdownListAdder.
         /// </summary>
         public Action<string> OnOptionAdded;
+
+        /// <summary>
+        /// Draws a custom row. Return true when the row changed settings.
+        /// </summary>
+        public Func<Rect, string, string, object, bool, bool> CustomDrawer;
+
+        /// <summary>
+        /// Returns true when a custom row differs from its default state.
+        /// </summary>
+        public Func<object, bool> CustomHasNonDefaultValue;
+
+        /// <summary>
+        /// Restores a custom row to its default state.
+        /// </summary>
+        public Action<object> CustomReset;
     }
 }

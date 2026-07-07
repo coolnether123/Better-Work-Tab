@@ -89,6 +89,7 @@ namespace Spine.UI.SettingsFramework
             float max,
             string minLabel = null,
             string maxLabel = null,
+            string valueFormat = null,
             string tooltip = null,
             bool disabled = false)
         {
@@ -97,7 +98,10 @@ namespace Spine.UI.SettingsFramework
             var labelRect = rect.LeftPart(0.5f);
             var sliderRect = rect.RightPart(0.48f);
 
-            Widgets.Label(labelRect, $"{label}: {value:F1}");
+            string valueText = string.IsNullOrEmpty(valueFormat)
+                ? value.ToString("F1")
+                : string.Format(valueFormat, value);
+            Widgets.Label(labelRect, $"{label}: {valueText}");
 
             bool prevEnabled = GUI.enabled;
             if (disabled)

@@ -70,6 +70,104 @@ namespace Better_Work_Tab.UI.Settings
             _settings.Add(def);
         }
 
+        private static bool DrawSubWorkTransitionMode(
+            Rect rect,
+            string label,
+            string tooltip,
+            object settingsObject,
+            bool disabled)
+        {
+            if (!(settingsObject is BetterWorkTabSettings settings))
+            {
+                return false;
+            }
+
+            Rect labelRect = rect.LeftPart(0.5f);
+            Rect buttonRect = rect.RightPart(0.48f);
+            Widgets.Label(labelRect, label);
+
+            bool previousEnabled = GUI.enabled;
+            Color previousColor = GUI.color;
+            if (disabled)
+            {
+                GUI.enabled = false;
+                GUI.color = Color.gray;
+            }
+
+            if (Widgets.ButtonText(buttonRect, GetSubWorkTransitionModeLabel(settings)))
+            {
+                var options = new List<FloatMenuOption>
+                {
+                    new FloatMenuOption("Off (instant)", () =>
+                    {
+                        settings.enableSubWorkTransitionAnimation = false;
+                        MainTabWindow_BetterWork.NotifyAngledHeadersChanged();
+                        settings.Write();
+                    }),
+                    new FloatMenuOption(GetSubWorkTransitionStyleLabel(BetterWorkTabSettings.SubWorkTransitionStyle.ClassicGlideFlash), () =>
+                    {
+                        settings.enableSubWorkTransitionAnimation = true;
+                        settings.subWorkTransitionStyle = BetterWorkTabSettings.SubWorkTransitionStyle.ClassicGlideFlash;
+                        MainTabWindow_BetterWork.NotifyAngledHeadersChanged();
+                        settings.Write();
+                    }),
+                    new FloatMenuOption(GetSubWorkTransitionStyleLabel(BetterWorkTabSettings.SubWorkTransitionStyle.PixelWaveFlip), () =>
+                    {
+                        settings.enableSubWorkTransitionAnimation = true;
+                        settings.subWorkTransitionStyle = BetterWorkTabSettings.SubWorkTransitionStyle.PixelWaveFlip;
+                        MainTabWindow_BetterWork.NotifyAngledHeadersChanged();
+                        settings.Write();
+                    })
+                };
+
+                Find.WindowStack.Add(new FloatMenu(options));
+            }
+
+            GUI.enabled = previousEnabled;
+            GUI.color = previousColor;
+
+            if (!string.IsNullOrEmpty(tooltip))
+            {
+                TooltipHandler.TipRegion(rect, tooltip);
+            }
+
+            return false;
+        }
+
+        private static string GetSubWorkTransitionModeLabel(BetterWorkTabSettings settings)
+        {
+            if (settings == null || !settings.enableSubWorkTransitionAnimation)
+            {
+                return "Off (instant)";
+            }
+
+            return GetSubWorkTransitionStyleLabel(settings.subWorkTransitionStyle);
+        }
+
+        private static string GetSubWorkTransitionStyleLabel(BetterWorkTabSettings.SubWorkTransitionStyle style)
+        {
+            string key = $"BWT_Enum_SubWorkTransitionStyle_{style}";
+            return key.CanTranslate() ? key.Translate() : style.ToString();
+        }
+
+        private static bool IsSubWorkTransitionModeNonDefault(object settingsObject)
+        {
+            return settingsObject is BetterWorkTabSettings settings &&
+                (settings.enableSubWorkTransitionAnimation != DefaultSettings.enableSubWorkTransitionAnimation ||
+                 settings.subWorkTransitionStyle != DefaultSettings.subWorkTransitionStyle);
+        }
+
+        private static void ResetSubWorkTransitionMode(object settingsObject)
+        {
+            if (!(settingsObject is BetterWorkTabSettings settings))
+            {
+                return;
+            }
+
+            settings.enableSubWorkTransitionAnimation = DefaultSettings.enableSubWorkTransitionAnimation;
+            settings.subWorkTransitionStyle = DefaultSettings.subWorkTransitionStyle;
+        }
+
         /// <summary>
         /// Adds all setting definitions with hierarchy relationships.
         /// </summary>
@@ -300,6 +398,22 @@ namespace Better_Work_Tab.UI.Settings
                 DefaultValue = DefaultSettings.enableSubWorkTransitionAnimation,
                 OnChanged = _ => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
                 ShowInSimpleView = false,
+                ShowInAdvancedView = false,
+                SortOrder = 7
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = SubWorkTransitionMode,
+                ParentId = FeaturesSubWorkJobs,
+                Label = "Animation style",
+                Tooltip = "Choose how the Work tab opens specific jobs. Off changes instantly with no transition.",
+                Type = SettingType.Custom,
+                CustomDrawer = DrawSubWorkTransitionMode,
+                CustomHasNonDefaultValue = IsSubWorkTransitionModeNonDefault,
+                CustomReset = ResetSubWorkTransitionMode,
+                OnChanged = _ => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
+                ShowInSimpleView = false,
                 ShowInAdvancedView = true,
                 SortOrder = 7
             });
@@ -307,7 +421,7 @@ namespace Better_Work_Tab.UI.Settings
             Register(new SettingDefinition
             {
                 Id = SubWorkTransitionStyle,
-                ParentId = SubWorkTransitionAnimation,
+                ParentId = FeaturesSubWorkJobs,
                 FieldName = "subWorkTransitionStyle",
                 Label = "Transition style",
                 Tooltip = "Classic glide is the original sub-work transition. Pixel wave reveal keeps columns in place and fades them as the grey wave passes.",
@@ -316,8 +430,38 @@ namespace Better_Work_Tab.UI.Settings
                 DefaultValue = DefaultSettings.subWorkTransitionStyle,
                 OnChanged = _ => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
                 ShowInSimpleView = false,
+                ShowInAdvancedView = false,
+                SortOrder = 8
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = SubWorkTransitionSpeed,
+                ParentId = FeaturesSubWorkJobs,
+                FieldName = "subWorkTransitionSeconds",
+                Label = "Animation speed",
+                Tooltip = "Controls how quickly the Work tab opens or leaves specific jobs.",
+                Type = SettingType.Float,
+                MinValue = 0.2f,
+                MaxValue = 0.9f,
+                MinLabel = "Fast",
+                MaxLabel = "Slow",
+                ValueFormat = "{0:0.00}s",
+                DefaultValue = DefaultSettings.subWorkTransitionSeconds,
+                OnChanged = settingsObj =>
+                {
+                    if (settingsObj is BetterWorkTabSettings settings)
+                    {
+                        settings.subWorkTransitionSeconds =
+                            BetterWorkTabSettings.ClampSubWorkTransitionSeconds(settings.subWorkTransitionSeconds);
+                    }
+
+                    MainTabWindow_BetterWork.NotifyAngledHeadersChanged();
+                },
+                VisibleWhen = s => (s as BetterWorkTabSettings)?.enableSubWorkTransitionAnimation ?? true,
+                ShowInSimpleView = false,
                 ShowInAdvancedView = true,
-                SortOrder = 1
+                SortOrder = 8
             });
 
             Register(new SettingDefinition
