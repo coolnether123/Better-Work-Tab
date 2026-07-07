@@ -94,6 +94,7 @@
     <Compile Include="Features\WorkGiverReassignments\WorkGiverReassignmentData.cs" />
     <Compile Include="Features\WorkGiverReassignments\WorkGiverReassignmentManager.cs" />
     <Compile Include="Features\WorkGiverReassignments\WorkGiverReassignmentPatches.cs" />
+    <Compile Include="Features\WorkGiverReassignments\CustomLabelStore.cs" />
     <Compile Include="Features\WorkGiverReassignments\SubWorkDrilldownInput.cs" />
     <Compile Include="Features\WorkGiverReassignments\SubWorkDrilldownState.cs" />
     <Compile Include="Features\Workloads\GameComponent_BWTWorldSettings.cs" />

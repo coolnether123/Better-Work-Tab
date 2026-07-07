@@ -24,6 +24,8 @@ namespace Better_Work_Tab.Features.Workloads
         public List<PawnDivider> ActiveDividers = new List<PawnDivider>();
         public WorkGiverReassignmentData WorkGiverReassignments = new WorkGiverReassignmentData();
         public List<TimePriorityScheduleData> TimePrioritySchedules = new List<TimePriorityScheduleData>();
+        public Dictionary<string, string> CustomWorkTypeLabels = new Dictionary<string, string>();
+        public Dictionary<string, string> CustomWorkGiverLabels = new Dictionary<string, string>();
         public int FluffyWorkTabPriorityMigrationVersion;
         private int _lastTimePriorityHour = -1;
 
@@ -75,6 +77,14 @@ namespace Better_Work_Tab.Features.Workloads
             Scribe_Deep.Look(ref WorkGiverReassignments, "workGiverReassignments");
             Scribe_Collections.Look(ref TimePrioritySchedules, "timePrioritySchedules", LookMode.Deep);
             Scribe_Values.Look(ref FluffyWorkTabPriorityMigrationVersion, "fluffyWorkTabPriorityMigrationVersion", 0);
+            Scribe_Collections.Look(ref CustomWorkTypeLabels, "customWorkTypeLabels", LookMode.Value, LookMode.Value);
+            Scribe_Collections.Look(ref CustomWorkGiverLabels, "customWorkGiverLabels", LookMode.Value, LookMode.Value);
+
+            if (Scribe.mode == LoadSaveMode.PostLoadInit)
+            {
+                if (CustomWorkTypeLabels == null) CustomWorkTypeLabels = new Dictionary<string, string>();
+                if (CustomWorkGiverLabels == null) CustomWorkGiverLabels = new Dictionary<string, string>();
+            }
 
             if (!MultiplayerBridge.Active)
             {
