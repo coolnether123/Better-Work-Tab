@@ -48,6 +48,7 @@ namespace Better_Work_Tab.PawnOrganizer
         /// Pending column (for column drags). Columns are looked up fresh when needed.
         /// </summary>
         private PawnColumnDef _pendingColumn;
+        private WorkTabLayoutColumn? _pendingLayoutColumn;
 
         /// <summary>
         /// Minimum mouse movement before a drag starts.
@@ -204,6 +205,14 @@ namespace Better_Work_Tab.PawnOrganizer
                     evt.Use();
                     break;
 
+                case EventType.MouseDown when evt.button == 1:
+                    var rightClickCancelledDrag = _activeColumnDrag;
+                    rightClickCancelledDrag?.OnCancel();
+                    _activeColumnDrag = null;
+                    AngledHeaderInteraction.ClearPendingHeaderClick(rightClickCancelledDrag?.ColumnDef);
+                    evt.Use();
+                    break;
+
                 case EventType.KeyDown when evt.keyCode == KeyCode.Escape:
                     var cancelledDrag = _activeColumnDrag;
                     cancelledDrag?.OnCancel();
@@ -286,6 +295,7 @@ namespace Better_Work_Tab.PawnOrganizer
                     _hasPendingDrag = true;
                     _pendingStartMouse = mousePos;
                     _pendingColumn = column.Column;
+                    _pendingLayoutColumn = column;
                     _pendingPawn = null;
                     _pendingDivider = null;
                 }
@@ -298,6 +308,7 @@ namespace Better_Work_Tab.PawnOrganizer
                 _hasPendingDrag = true;
                 _pendingStartMouse = mousePos;
                 _pendingColumn = null;
+                _pendingLayoutColumn = null;
                 
                 // Store STABLE references, not the row wrapper
                 _pendingPawn = row.Pawn;
@@ -411,6 +422,23 @@ namespace Better_Work_Tab.PawnOrganizer
             var columns = _layoutController?.Columns;
             if (columns == null || columnDef == null) return false;
 
+            if (_pendingLayoutColumn.HasValue)
+            {
+                var pending = _pendingLayoutColumn.Value;
+                for (int i = 0; i < columns.Count; i++)
+                {
+                    if (columns[i].Column == pending.Column &&
+                        columns[i].SubWorkParent == pending.SubWorkParent &&
+                        columns[i].SubWorkGiver == pending.SubWorkGiver &&
+                        columns[i].SubWorkSlot == pending.SubWorkSlot &&
+                        columns[i].IsExpandBesideChild == pending.IsExpandBesideChild)
+                    {
+                        column = columns[i];
+                        return true;
+                    }
+                }
+            }
+
             for (int i = 0; i < columns.Count; i++)
             {
                 if (columns[i].Column == columnDef)
@@ -429,6 +457,7 @@ namespace Better_Work_Tab.PawnOrganizer
             _pendingPawn = null;
             _pendingDivider = null;
             _pendingColumn = null;
+            _pendingLayoutColumn = null;
         }
 
         public void CancelActiveDrag()

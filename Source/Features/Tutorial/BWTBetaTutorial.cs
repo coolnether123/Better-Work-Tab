@@ -334,8 +334,8 @@ namespace Better_Work_Tab.Features.Tutorial
             {
                 case BWTBetaTutorialStep.Welcome:
                     return new TutorialOverlayContent(
-                        "Better Work Tab 2.0 Tutorial",
-                        "This walkthrough covers the 2.0 systems: sub-work jobs, time priority schedules, and the expanded priority range.",
+                        "Better Work Tab 2.0",
+                        "A short walkthrough for sub-work jobs, time priority schedules, and expanded priority ranges. It follows the Work tab as you try each feature.",
                         "Continue tutorial",
                         "Already know Better Work Tab");
 
@@ -465,6 +465,9 @@ namespace Better_Work_Tab.Features.Tutorial
             var rects = new List<Rect>();
             switch (step)
             {
+                case BWTBetaTutorialStep.Welcome:
+                    return rects;
+
                 case BWTBetaTutorialStep.SubWorkPrompt:
                 case BWTBetaTutorialStep.SubWorkHeaders:
                     return BWTTutorialGeometry.WorkHeaders(inRect, layout);

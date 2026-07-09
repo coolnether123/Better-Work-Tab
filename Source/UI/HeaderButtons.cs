@@ -1,7 +1,12 @@
 ﻿using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.Workloads;
+using Better_Work_Tab.Features.TimePriority;
+using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Mod_Support.Multiplayer;
+using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
+using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI;
+using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.RuleBuilder;
 using RimWorld;
 using System.Collections.Generic;
@@ -20,6 +25,8 @@ namespace Better_Work_Tab.UI
         private const float WorkloadButtonWidth = 150f;
         private const float WorkloadButtonHeight = 28f;
         private const float InterControlGap = 6f;
+        private const float FluffyTopButtonSize = 30f;
+        private const float FluffyTopButtonGap = 4f;
 
         public struct BottomButtonRects
         {
@@ -39,6 +46,13 @@ namespace Better_Work_Tab.UI
             {
                 return HasWorkload && (WorkloadMain.Contains(position) || WorkloadMenu.Contains(position));
             }
+        }
+
+        private struct TopButtonRects
+        {
+            public Rect Priority;
+            public Rect Scheduler;
+            public Rect Expand;
         }
 
         public static BottomButtonRects GetBottomButtonRects(Rect inRect, Rect gearRect)
@@ -68,6 +82,124 @@ namespace Better_Work_Tab.UI
             }
 
             return rects;
+        }
+
+        public static bool TryHandleTopRightFluffyStyleInput(
+            IWorkTabLayoutController layout,
+            Rect inRect,
+            Event evt)
+        {
+            if (!ShouldShowTopRightFluffyStyle() ||
+                evt == null ||
+                evt.type != EventType.MouseDown ||
+                evt.button != 0)
+            {
+                return false;
+            }
+
+            TopButtonRects rects = GetTopButtonRects(inRect);
+            if (rects.Priority.Contains(evt.mousePosition))
+            {
+                ToggleManualPriorities(!Find.PlaySettings.useWorkPriorities);
+                evt.Use();
+                return true;
+            }
+
+            if (rects.Scheduler.Contains(evt.mousePosition))
+            {
+                if (!TimePriorityPlannerPrototype.ToggleFirstVisiblePrioritySchedule(layout))
+                {
+                    SoundDefOf.ClickReject.PlayOneShotOnCamera();
+                }
+
+                evt.Use();
+                return true;
+            }
+
+            if (rects.Expand.Contains(evt.mousePosition))
+            {
+                ToggleAllVisibleSubWork(layout);
+                evt.Use();
+                return true;
+            }
+
+            return false;
+        }
+
+        public static void DrawTopRightFluffyStyle(IWorkTabLayoutController layout, Rect inRect)
+        {
+            if (!ShouldShowTopRightFluffyStyle())
+            {
+                return;
+            }
+
+            TopButtonRects rects = GetTopButtonRects(inRect);
+            bool prioritiesEnabled = Find.PlaySettings.useWorkPriorities;
+            if (DrawFluffyTopButton(
+                    rects.Priority,
+                    prioritiesEnabled ? FluffyWorkTabIcon.PrioritiesDetailed : FluffyWorkTabIcon.PrioritiesSimple,
+                    prioritiesEnabled ? "Manual priorities" : "Simple priorities",
+                    prioritiesEnabled ? "1" : "Y"))
+            {
+                ToggleManualPriorities(!prioritiesEnabled);
+            }
+
+            bool plannerVisible = TimePriorityPlannerPrototype.IsVisible;
+            if (DrawFluffyTopButton(
+                    rects.Scheduler,
+                    plannerVisible ? FluffyWorkTabIcon.PrioritiesTimed : FluffyWorkTabIcon.PrioritiesWholeDay,
+                    plannerVisible ? "Close time priorities" : "Open time priorities",
+                    plannerVisible ? "T" : "D"))
+            {
+                if (!TimePriorityPlannerPrototype.ToggleFirstVisiblePrioritySchedule(layout))
+                {
+                    SoundDefOf.ClickReject.PlayOneShotOnCamera();
+                }
+            }
+
+            bool anyExpanded = SubWorkDrilldownState.IsExpandBesideActive;
+            if (DrawFluffyTopButton(
+                    rects.Expand,
+                    anyExpanded ? FluffyWorkTabIcon.Collapse : FluffyWorkTabIcon.Expand,
+                    anyExpanded ? "Collapse all specific jobs" : "Expand all specific jobs",
+                    anyExpanded ? "-" : "+"))
+            {
+                ToggleAllVisibleSubWork(layout);
+            }
+        }
+
+        public static float GetTopRightReservedWidth()
+        {
+            return ShouldShowTopRightFluffyStyle()
+                ? (FluffyTopButtonSize * 3f) + (FluffyTopButtonGap * 2f) + InterControlGap
+                : 0f;
+        }
+
+        private static bool ShouldShowTopRightFluffyStyle()
+        {
+            return FluffyWorkTabGateway.IsPresent && FluffyWorkTabGateway.BetterWorkTabOwnsWorkTab;
+        }
+
+        private static TopButtonRects GetTopButtonRects(Rect inRect)
+        {
+            Rect priority = new Rect(
+                inRect.xMax - FluffyTopButtonSize,
+                inRect.yMin,
+                FluffyTopButtonSize,
+                FluffyTopButtonSize);
+
+            Rect scheduler = priority;
+            scheduler.x -= FluffyTopButtonSize + FluffyTopButtonGap;
+
+            Rect expand = scheduler;
+            expand.x -= FluffyTopButtonSize + FluffyTopButtonGap;
+
+            return new TopButtonRects
+            {
+                Priority = priority,
+                Scheduler = scheduler,
+                Expand = expand
+            };
         }
 
         // Public entry point called by the window.
@@ -170,6 +302,93 @@ namespace Better_Work_Tab.UI
                 ShowWorkloadMenu(workloadSaver);
 
             return newRight;
+        }
+
+        private static bool DrawFluffyTopButton(
+            Rect rect,
+            FluffyWorkTabIcon icon,
+            string tooltip,
+            string fallbackLabel)
+        {
+            bool clicked;
+            if (FluffyWorkTabGateway.TryGetIcon(icon, out Texture2D texture))
+            {
+                clicked = Widgets.ButtonImage(rect, texture, Color.white, GenUI.MouseoverColor);
+            }
+            else
+            {
+                TextAnchor previousAnchor = Text.Anchor;
+                Text.Anchor = TextAnchor.MiddleCenter;
+                clicked = Widgets.ButtonText(rect, fallbackLabel);
+                Text.Anchor = previousAnchor;
+            }
+
+            TooltipHandler.TipRegion(rect, tooltip);
+            MouseoverSounds.DoRegion(rect);
+            return clicked;
+        }
+
+        private static void ToggleManualPriorities(bool enabled)
+        {
+            if (Find.PlaySettings.useWorkPriorities == enabled)
+            {
+                return;
+            }
+
+            Find.PlaySettings.useWorkPriorities = enabled;
+            foreach (Pawn pawn in PawnsFinder.AllMapsWorldAndTemporary_Alive)
+            {
+                if (pawn.Faction == Faction.OfPlayer && pawn.workSettings != null)
+                {
+                    pawn.workSettings.Notify_UseWorkPrioritiesChanged();
+                }
+            }
+
+            MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+            SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+        }
+
+        private static void ToggleAllVisibleSubWork(IWorkTabLayoutController layout)
+        {
+            if (SubWorkDrilldownState.IsExpandBesideActive)
+            {
+                SubWorkDrilldownState.CollapseAllExpandBeside();
+                HeaderDrawingCoordinator.InvalidateSolution();
+                SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                return;
+            }
+
+            if (layout?.Columns == null)
+            {
+                SoundDefOf.ClickReject.PlayOneShotOnCamera();
+                return;
+            }
+
+            bool expandedAny = false;
+            HashSet<string> seenWorkTypes = new HashSet<string>();
+            for (int i = 0; i < layout.Columns.Count; i++)
+            {
+                WorkTypeDef workType = layout.Columns[i].Column?.workType;
+                string defName = workType?.defName;
+                if (defName.NullOrEmpty() ||
+                    !seenWorkTypes.Add(defName) ||
+                    WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(workType).Count == 0)
+                {
+                    continue;
+                }
+
+                SubWorkDrilldownState.ToggleExpandBeside(workType);
+                expandedAny = true;
+            }
+
+            if (!expandedAny)
+            {
+                SoundDefOf.ClickReject.PlayOneShotOnCamera();
+                return;
+            }
+
+            HeaderDrawingCoordinator.InvalidateSolution();
+            SoundDefOf.Tick_High.PlayOneShotOnCamera();
         }
 
         private static void ShowWorkloadMenu(GameComponent_BWTWorldSettings workloadSaver)

@@ -1,4 +1,5 @@
 using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.Features.Testing;
 using Better_Work_Tab.DragDrop;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.PawnOrganizer;
@@ -22,40 +23,42 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
         internal static void Draw(IWorkTabLayoutController layout)
         {
-            if (!SubWorkDrilldownState.IsActive || layout == null)
-            {
-                return;
-            }
-
-            float rowHeight = RowHeight;
-            if (rowHeight <= 0.5f)
+            if (!SubWorkDrilldownState.HasAnyDrilldown || layout == null)
             {
                 return;
             }
 
             float reservedHeight = Mathf.Max(0f, ReservedRowHeight);
-            float anchorOffset = SubWorkDrilldownState.IsExiting
-                ? Mathf.Max(0f, reservedHeight - rowHeight)
-                : 0f;
+            if (reservedHeight <= 0.5f)
+            {
+                SubWorkCrossWorkDropTargetRenderer.DrawSettleAnimation(layout);
+                return;
+            }
+
             float rowTop = layout.TableOrigin.y +
                 layout.HeaderHeight +
-                TimePriorityPlannerPrototype.HeaderPinnedRowsHeight +
-                anchorOffset;
+                TimePriorityPlannerPrototype.HeaderPinnedRowsHeight;
             Rect rowRect = new Rect(
                 layout.TableOrigin.x,
                 rowTop,
                 Mathf.Max(layout.Table != null ? layout.Table.Size.x - 16f : 0f, 1f),
-                rowHeight);
+                reservedHeight);
 
-            float alpha = Mathf.Lerp(0.45f, 0.72f, SubWorkDrilldownState.TransitionAlpha);
+            float visualAlpha = SubWorkDrilldownState.GlobalRowVisualAlpha;
+            float alpha = 0.72f * visualAlpha;
             Widgets.DrawBoxSolid(rowRect, new Color(0.08f, 0.1f, 0.11f, alpha));
-            Widgets.DrawLineHorizontal(rowRect.xMin, rowRect.yMax - 1f, rowRect.width);
+            Rect separatorRect = new Rect(rowRect.xMin, rowRect.yMax - 3f, rowRect.width, 1f);
+            WorkTabGeometryDiagnostics.RecordSubWorkSeparator(separatorRect);
+            Color oldColor = GUI.color;
+            GUI.color = new Color(1f, 1f, 1f, 0.28f * visualAlpha);
+            Widgets.DrawLineHorizontal(separatorRect.xMin, separatorRect.yMin, separatorRect.width);
+            GUI.color = oldColor;
 
             for (int i = 0; i < layout.Columns.Count; i++)
             {
                 var column = layout.Columns[i];
                 float animatedOffset = ColumnReorderAnimationState.GetHeaderOffset(column);
-                Rect cellRect = new Rect(column.HeaderRect.x + animatedOffset, rowRect.y, column.Width, rowHeight);
+                Rect cellRect = new Rect(column.HeaderRect.x + animatedOffset, rowRect.y, column.Width, reservedHeight);
 
                 if (column.Column?.Worker is PawnColumnWorker_Label)
                 {
@@ -73,11 +76,17 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                     HighlightDrawer.DrawHighlight(cellRect, HighlightDrawer.GetColumnHoverColor());
                 }
 
-                if (SubWorkDrilldownState.TryGetWorkGiverForColumn(column.Column, out var workGiver, out _))
+                if (SubWorkDrilldownState.TryGetWorkGiverForColumn(
+                        column,
+                        out var workGiver,
+                        out WorkTypeDef parentWorkType,
+                        out _))
                 {
-                    DrawGlobalPriorityCell(workGiver, cellRect);
+                    DrawGlobalPriorityCell(workGiver, parentWorkType, cellRect, visualAlpha);
                 }
             }
+
+            SubWorkCrossWorkDropTargetRenderer.DrawSettleAnimation(layout);
         }
 
         private static bool ShouldHighlightGlobalCell(WorkTabLayoutColumn column, Rect cellRect)
@@ -92,7 +101,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 return false;
             }
 
-            var workType = column.Column?.workType;
+            WorkTypeDef workType = column.SubWorkParent ?? column.Column?.workType;
             if (workType == null)
             {
                 return false;
@@ -108,35 +117,64 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             var oldFont = Text.Font;
             var oldColor = GUI.color;
 
-            if (Widgets.ButtonInvisible(rect))
+            bool hovered = SubWorkHeaderAffordance.IsBackButtonHovered(rect);
+            Rect buttonRect = rect.ContractedBy(1f);
+            Color frameColor = hovered
+                ? new Color(1f, 1f, 1f, 0.88f)
+                : new Color(1f, 1f, 1f, 0.48f);
+            Color innerFrameColor = hovered
+                ? new Color(1f, 1f, 1f, 0.24f)
+                : new Color(1f, 1f, 1f, 0.13f);
+            Color fillColor = hovered
+                ? new Color(1f, 1f, 1f, 0.18f)
+                : new Color(1f, 1f, 1f, 0.09f);
+            Widgets.DrawBoxSolid(buttonRect, fillColor);
+            GUI.color = frameColor;
+            Widgets.DrawBox(buttonRect);
+            GUI.color = innerFrameColor;
+            Widgets.DrawBox(buttonRect.ContractedBy(1f));
+            GUI.color = oldColor;
+
+            if (hovered)
             {
-                ExitDrilldown();
-                return;
+                Widgets.DrawHighlight(rect);
             }
 
+            SubWorkHeaderAffordance.DrawBackBadge(rect);
+            TooltipHandler.TipRegion(rect, "Back to work types. Escape also works.");
+            MouseoverSounds.DoRegion(rect);
+
             Rect labelRect = new Rect(
-                rect.x + 8f,
+                rect.x + 30f,
                 rect.y,
-                Mathf.Max(0f, rect.width - 16f),
+                Mathf.Max(0f, rect.width - 38f),
                 rect.height);
 
             Text.Anchor = TextAnchor.MiddleLeft;
             Text.Font = GameFont.Small;
-            GUI.color = new Color(1f, 1f, 1f, 0.82f);
+            GUI.color = hovered ? Color.white : new Color(1f, 1f, 1f, 0.96f);
 
-            string label = SubWorkDrilldownState.ActiveWorkType?.labelShort?.CapitalizeFirst()
-                ?? SubWorkDrilldownState.ActiveWorkType?.LabelCap.ToString()
-                ?? "Sub-work";
-            Widgets.Label(labelRect, label + " global");
+            string label = SubWorkDrilldownState.ActiveWorkType != null
+                ? WorkTypeDisplayNameService.HeaderLabel(SubWorkDrilldownState.ActiveWorkType) + " global"
+                : "Specific jobs";
+            Widgets.Label(labelRect, label);
 
             GUI.color = oldColor;
             Text.Anchor = oldAnchor;
             Text.Font = oldFont;
-            TooltipHandler.TipRegion(rect, "Back to work types. " + SubWorkDrilldownInput.GestureLabel() + " or press Escape to return.");
         }
 
-        private static void DrawGlobalPriorityCell(WorkGiver workGiver, Rect cellRect)
+        private static void DrawGlobalPriorityCell(
+            WorkGiver workGiver,
+            WorkTypeDef parentWorkType,
+            Rect cellRect,
+            float visualAlpha)
         {
+            if (parentWorkType == null)
+            {
+                return;
+            }
+
             float boxSize = Mathf.Min(SubWorkDrilldownState.GlobalPriorityBoxSize, Mathf.Max(0f, cellRect.height - 4f));
             if (boxSize <= 6f)
             {
@@ -144,7 +182,12 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             }
 
             Rect boxRect = WorkPriorityCellGeometry.GetCenteredBoxRect(cellRect, boxSize);
-            WorkGiverPriorityBoxRenderer.DrawPriorityBox(workGiver, SubWorkDrilldownState.ActiveWorkType, null, boxRect);
+            WorkGiverPriorityBoxRenderer.DrawPriorityBox(
+                workGiver,
+                parentWorkType,
+                null,
+                boxRect,
+                visualAlpha);
         }
 
         internal static void ExitDrilldown(
@@ -170,7 +213,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             }
 
             SubWorkDrilldownState.Exit(exitWorkColumnSlot, exitWaveSlotPosition);
-            HeaderDrawingCoordinator.NotifyAngledHeadersChanged();
+            HeaderDrawingCoordinator.InvalidateSolution();
 
             if (shouldRestoreMouse)
             {

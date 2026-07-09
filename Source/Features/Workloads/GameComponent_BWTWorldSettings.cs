@@ -24,7 +24,9 @@ namespace Better_Work_Tab.Features.Workloads
         public List<PawnDivider> ActiveDividers = new List<PawnDivider>();
         public WorkGiverReassignmentData WorkGiverReassignments = new WorkGiverReassignmentData();
         public List<TimePriorityScheduleData> TimePrioritySchedules = new List<TimePriorityScheduleData>();
-        public int FluffyWorkTabPriorityMigrationVersion;
+        public Dictionary<string, string> CustomWorkTypeLabels = new Dictionary<string, string>(System.StringComparer.Ordinal);
+        public Dictionary<string, string> CustomWorkGiverLabels = new Dictionary<string, string>(System.StringComparer.Ordinal);
+        public int ExternalWorkTabPriorityMigrationVersion;
         private int _lastTimePriorityHour = -1;
 
         public GameComponent_BWTWorldSettings(Game game) : base()
@@ -49,7 +51,7 @@ namespace Better_Work_Tab.Features.Workloads
             WorkGiverReassignmentManager.MigrateLegacySettingsDataIfNeeded(this);
             ColumnBaselineManager.EnsureBaseline(this);
             TimePriorityService.NotifyLoaded();
-            FluffyWorkTabMigration.MigrateIfNeeded(this);
+            FluffyWorkTabGateway.MigratePriorityDataIfNeeded(this);
 
             SpineTiming.Enabled = BetterWorkTabMod.Settings?.enableProfiler ?? false;
         }
@@ -74,7 +76,15 @@ namespace Better_Work_Tab.Features.Workloads
             Scribe_Collections.Look(ref ColumnCurrentOrder, "columnCurrentOrder", LookMode.Value);
             Scribe_Deep.Look(ref WorkGiverReassignments, "workGiverReassignments");
             Scribe_Collections.Look(ref TimePrioritySchedules, "timePrioritySchedules", LookMode.Deep);
-            Scribe_Values.Look(ref FluffyWorkTabPriorityMigrationVersion, "fluffyWorkTabPriorityMigrationVersion", 0);
+            FluffyWorkTabGateway.ExposePriorityMigrationVersion(ref ExternalWorkTabPriorityMigrationVersion);
+            Scribe_Collections.Look(ref CustomWorkTypeLabels, "customWorkTypeLabels", LookMode.Value, LookMode.Value);
+            Scribe_Collections.Look(ref CustomWorkGiverLabels, "customWorkGiverLabels", LookMode.Value, LookMode.Value);
+
+            if (Scribe.mode == LoadSaveMode.PostLoadInit)
+            {
+                CustomWorkTypeLabels = NormalizeLabelDictionary(CustomWorkTypeLabels);
+                CustomWorkGiverLabels = NormalizeLabelDictionary(CustomWorkGiverLabels);
+            }
 
             if (!MultiplayerBridge.Active)
             {
@@ -189,6 +199,25 @@ namespace Better_Work_Tab.Features.Workloads
 
             WorkGiverReassignments.EnsureCollections();
             return WorkGiverReassignments;
+        }
+
+        private static Dictionary<string, string> NormalizeLabelDictionary(Dictionary<string, string> labels)
+        {
+            var normalized = new Dictionary<string, string>(System.StringComparer.Ordinal);
+            if (labels == null)
+            {
+                return normalized;
+            }
+
+            foreach (var entry in labels)
+            {
+                if (!entry.Key.NullOrEmpty() && !entry.Value.NullOrEmpty())
+                {
+                    normalized[entry.Key] = entry.Value.Trim();
+                }
+            }
+
+            return normalized;
         }
 
         private int _profileSaveTimer = 0;

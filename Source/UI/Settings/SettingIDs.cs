@@ -13,6 +13,7 @@ namespace Better_Work_Tab.UI.Settings
         public const string AdvancedRestoreDefaults = "advanced.restoreDefaults";
         public const string AdvancedAlwaysShowConditionEditors = "advanced.alwaysShowConditionEditors";
         public const string AdvancedSettingFocusHighlightColor = "advanced.settingFocusHighlightColor";
+        public const string CompatExternalWorkTabColumns = "compat.externalWorkTab.columns";
         public const string AutoassignConfirm = "autoassign.confirm";
         public const string AutoassignResetBefore = "autoassign.resetBefore";
         public const string AutoassignViewMode = "autoassign.viewMode";
@@ -90,6 +91,12 @@ namespace Better_Work_Tab.UI.Settings
         public const string MpAllowOthersToRequestLayout = "mp.allowOthersToRequestLayout";
         public const string MpAllowPresenceBroadcast = "mp.allowPresenceBroadcast";
         public const string MpShowLinkedIndicator = "mp.showLinkedIndicator";
+        public const string ModCompatHeader = "modcompat.header";
+        public const string CompatFluffyWorkTabHeader = "compat.fluffyWorkTab.header";
+        public const string CompatFluffyWorkTabOwnership = "compat.fluffyWorkTab.ownership";
+        public const string CompatFluffyWorkTabSpecificJobs = "compat.fluffyWorkTab.specificJobs";
+        public const string CompatFluffyWorkTabOwner = "compat.fluffyWorkTab.owner";
+        public const string CompatChronosPointerHeader = "compat.chronosPointer.header";
         public const string OverlayBestPawnMode = "overlay.bestPawnMode";
         public const string OverlayHeader = "overlay.header";
         public const string OverlayHoverCellOverlay = "overlay.hoverCellOverlay";
@@ -108,15 +115,20 @@ namespace Better_Work_Tab.UI.Settings
         public const string UiAutoDisabledPriorityMode = "ui.autoDisabledPriorityMode";
         public const string UiAutoDisabledPriorityFixedValue = "ui.autoDisabledPriorityFixedValue";
         public const string SubWorkGlobalVanillaPriorityBoxes = "subWorkJobs.globalVanillaPriorityBoxes";
+        public const string SubWorkHeaderBadge = "subWorkJobs.headerBadge";
+        public const string SubWorkCrossWorkDragDrop = "subWorkJobs.crossWorkDragDrop";
         public const string SubWorkAutoExpandColumns = "subWorkJobs.autoExpandColumns";
         public const string SubWorkEvenlyExpandColumns = "subWorkJobs.evenlyExpandColumns";
         public const string SubWorkOpenButton = "subWorkJobs.openButton";
         public const string SubWorkOpenModifier = "subWorkJobs.openModifier";
+        public const string SubWorkDrilldownStyle = "subWorkJobs.drilldownStyle";
         public const string SubWorkRestoreCursor = "subWorkJobs.restoreCursor";
         public const string SubWorkRestoreCursorFromPawnCells = "subWorkJobs.restoreCursorFromPawnCells";
         public const string SubWorkOverrideBreakAnimation = "subWorkJobs.overrideBreakAnimation";
         public const string SubWorkTransitionAnimation = "subWorkJobs.transitionAnimation";
+        public const string SubWorkTransitionMode = "subWorkJobs.transitionMode";
         public const string SubWorkTransitionStyle = "subWorkJobs.transitionStyle";
+        public const string SubWorkTransitionSpeed = "subWorkJobs.transitionSpeed";
         public const string SubWorkDisabledParentMode = "subWorkJobs.disabledParentMode";
         public const string UiDragInstructions = "ui.dragInstructions";
         public const string UiContextSettingsHint = "ui.contextSettingsHint";
@@ -128,6 +140,7 @@ namespace Better_Work_Tab.UI.Settings
         public const string UiChronosPointerTimePriority = "ui.chronosPointerTimePriority";
         public const string UiTimePriorityHourDivider = "ui.timePriorityHourDivider";
         public const string UiTimePrioritySourceColumnHighlight = "ui.timePrioritySourceColumnHighlight";
+        public const string UiFluffyTimePriorityMirroring = "ui.fluffyTimePriorityMirroring";
         public const string UiChronosPointerTimePriorityIncidents = "ui.chronosPointerTimePriorityIncidents";
         public const string UiPriorityLegend = "ui.priorityLegend";
         public const string UiMaxPriority = "ui.maxPriority";
@@ -145,6 +158,7 @@ namespace Better_Work_Tab.UI.Settings
         public const string AdvancedScrollWheelPriority = "advanced.scrollWheelPriority";
         public const string HeadersHeader = "headers.header";
         public const string HeadersAngled = "headers.angled";
+        public const string HeadersCustomWorkLabels = "headers.customWorkLabels";
         public const string HeadersAngleRotation = "headers.angleRotation";
         public const string HeadersScaleFixMode = "headers.scaleFixMode";
         public const string HeadersRedCenterLine = "headers.redCenterLine";

@@ -2,9 +2,12 @@ using System;
 using System.Globalization;
 using System.Reflection;
 using System.Text;
+using Better_Work_Tab.UI.Settings;
 using HarmonyLib;
+using Spine.UI.SettingsFramework;
 using UnityEngine;
 using Verse;
+using static Better_Work_Tab.UI.Settings.SettingIDs;
 
 namespace Better_Work_Tab.ModSupport
 {
@@ -46,6 +49,7 @@ namespace Better_Work_Tab.ModSupport
         private static Color _lastCursorColor = Color.white;
         private static float _lastLocalHour;
         private static float _lastHourBoxWidth;
+        private static readonly IModSettingsContributor SettingsContributor = new ChronosPointerSettingsContributor();
 
         internal static bool ShouldReserveTimePriorityTimelineHeight
         {
@@ -59,6 +63,11 @@ namespace Better_Work_Tab.ModSupport
 
                 return EnsureResolved() && IsReady() && SupportsContract();
             }
+        }
+
+        internal static void RegisterSettings()
+        {
+            BWTModSettingsApi.RegisterContributor(SettingsContributor);
         }
 
         internal static bool TryDrawTimePriorityTimeline(
@@ -260,6 +269,54 @@ namespace Better_Work_Tab.ModSupport
         private static bool IsChronosPointerActive()
         {
             return ModsConfig.IsActive(ModernPackageId) || ModsConfig.IsActive(LegacyPackageId);
+        }
+
+        private sealed class ChronosPointerSettingsContributor : IModSettingsContributor
+        {
+            public BWTModSettingsSection CreateSettingsSection()
+            {
+                return new BWTModSettingsSection
+                {
+                    Header = new SettingDefinition
+                    {
+                        Id = CompatChronosPointerHeader,
+                        Label = "Chronos Pointer",
+                        Type = SettingType.Header,
+                        VisibleWhen = _ => ChronosPointerSupport.IsChronosPointerActive(),
+                        ShowInSimpleView = true,
+                        SortOrder = 0
+                    },
+                    Children = new[]
+                    {
+                        new SettingDefinition
+                        {
+                            Id = UiChronosPointerTimePriority,
+                            FieldName = "enableChronosPointerTimePriorityIntegration",
+                            Label = "Chronos Pointer time bar",
+                            Tooltip = "When Chronos Pointer is loaded, draw its daylight/current-time bar above the Work tab time-priority hour numbers.",
+                            Type = SettingType.Bool,
+                            DefaultValue = DefaultSettings.enableChronosPointerTimePriorityIntegration,
+                            VisibleWhen = _ => ChronosPointerSupport.IsChronosPointerActive(),
+                            ControlsChildVisibility = true,
+                            ShowInSimpleView = true,
+                            SortOrder = 1
+                        },
+                        new SettingDefinition
+                        {
+                            Id = UiChronosPointerTimePriorityIncidents,
+                            ParentId = UiChronosPointerTimePriority,
+                            FieldName = "chronosPointerTimePriorityIncidentOverlay",
+                            Label = "Chronos incident overlay",
+                            Tooltip = "Allow Chronos Pointer to draw its incident colors, such as eclipses and auroras, on the Work tab time bar.",
+                            Type = SettingType.Bool,
+                            DefaultValue = DefaultSettings.chronosPointerTimePriorityIncidentOverlay,
+                            VisibleWhen = _ => ChronosPointerSupport.IsChronosPointerActive(),
+                            ShowInSimpleView = false,
+                            SortOrder = 2
+                        }
+                    }
+                };
+            }
         }
 
         private static void MarkResolveFailed()

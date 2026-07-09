@@ -257,6 +257,17 @@ namespace Spine.UI.Tutorial
                 return new Rect(boundsSource.x, boundsSource.y, size.x, size.y);
             }
 
+            if (focusRects == null || focusRects.Count == 0)
+            {
+                return ClampCardToBounds(
+                    new Rect(
+                        bounds.xMin + 24f,
+                        bounds.yMin + Mathf.Min(42f, Mathf.Max(12f, bounds.height * 0.16f)),
+                        size.x,
+                        size.y),
+                    bounds);
+            }
+
             var candidates = new List<Rect>
             {
                 ClampCardToBounds(new Rect(focusBounds.center.x - size.x / 2f, focusBounds.yMin - size.y - style.CardGap, size.x, size.y), bounds),
@@ -293,7 +304,7 @@ namespace Spine.UI.Tutorial
             float bodyHeight = Text.CalcHeight(body ?? string.Empty, width - style.CardPadding * 2f);
             Text.Font = oldFont;
 
-            float height = Mathf.Clamp(160f + bodyHeight, 220f, 360f);
+            float height = Mathf.Clamp(148f + bodyHeight, 210f, 340f);
             return new Vector2(width, height);
         }
 
@@ -329,6 +340,12 @@ namespace Spine.UI.Tutorial
 
         private void DrawSpotlight(Rect bounds, Rect focusBounds, List<Rect> focusRects)
         {
+            if (focusRects == null || focusRects.Count == 0)
+            {
+                DrawDimRect(bounds);
+                return;
+            }
+
             Rect focus = ClampRectToBounds(focusBounds.ExpandedBy(8f), bounds);
             DrawDimRect(new Rect(bounds.xMin, bounds.yMin, bounds.width, Mathf.Max(0f, focus.yMin - bounds.yMin)));
             DrawDimRect(new Rect(bounds.xMin, focus.yMax, bounds.width, Mathf.Max(0f, bounds.yMax - focus.yMax)));
@@ -474,17 +491,18 @@ namespace Spine.UI.Tutorial
             Widgets.DrawBoxSolid(rect, style.CardColor);
             GUI.color = style.BorderColor;
             Widgets.DrawBox(rect, 1);
+            Widgets.DrawBoxSolid(new Rect(rect.x + 1f, rect.y + 1f, rect.width - 2f, 3f), style.AccentColor);
 
             Rect inner = rect.ContractedBy(style.CardPadding);
             Text.Font = GameFont.Medium;
             Text.Anchor = TextAnchor.UpperLeft;
             GUI.color = style.TitleColor;
-            Widgets.Label(new Rect(inner.x, inner.y, inner.width, 30f), content.Title);
+            Widgets.Label(new Rect(inner.x, inner.y + 2f, inner.width, 30f), content.Title);
 
             Text.Font = GameFont.Small;
-            GUI.color = Color.white;
-            float bodyY = inner.y + 34f;
-            float bodyHeight = Mathf.Max(64f, inner.height - (content.HasSecondaryButton ? 128f : 92f));
+            GUI.color = new Color(0.9f, 0.91f, 0.9f, 1f);
+            float bodyY = inner.y + 40f;
+            float bodyHeight = Mathf.Max(64f, inner.height - (content.HasSecondaryButton ? 132f : 96f));
             Widgets.Label(new Rect(inner.x, bodyY, inner.width, bodyHeight), content.Body);
 
             GUI.color = Color.white;

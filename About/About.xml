@@ -49,7 +49,7 @@ All features are toggleable in settings with extensive customization options.
 - Useful Marks markers appear on pawn icons when available
 - Grouped Pawns List is overridden inside this Work tab
 - CompactWorkTab overlaps this UI and should not be used together
-- Fluffy WorkTab and forks are hard conflicts
+- Fluffy Work Tab and forks can coexist, with one Work tab active at a time
 
 <b>Version Support</b>
 - 1.6 -> v2.0
@@ -80,6 +80,9 @@ Join the Discord: <color=#99CCFF>https://discord.gg/QYBBaRkKWs</color>
     <li>CoolNether123.ChronosPointer</li>
     <li>CoolNether123.ChronosPointer.Legacy</li>
     <li>TreadTheDawnGames.DoOnce</li>
+    <li>Fluffy.WorkTab</li>
+    <li>fluffy.worktab.continued</li>
+    <li>arof.fluffy.worktab.continued</li>
   </loadAfter>
   <modDependencies>
     <li>
@@ -90,7 +93,6 @@ Join the Discord: <color=#99CCFF>https://discord.gg/QYBBaRkKWs</color>
     </li>
   </modDependencies>
   <incompatibleWith>
-    <li>Fluffy.WorkTab</li>
     <li>Mlie.CompactWorkTab</li>
   </incompatibleWith>
 </ModMetaData>

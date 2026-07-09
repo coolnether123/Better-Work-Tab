@@ -7,6 +7,20 @@
 
 <BWT_Enum_SubWorkTransitionStyle_ClassicGlideFlash>Classic glide</BWT_Enum_SubWorkTransitionStyle_ClassicGlideFlash>
 <BWT_Enum_SubWorkTransitionStyle_PixelWaveFlip>Pixel wave reveal</BWT_Enum_SubWorkTransitionStyle_PixelWaveFlip>
+<BWT_Enum_SubWorkDrilldownStyle_NotChosen>Ask first time</BWT_Enum_SubWorkDrilldownStyle_NotChosen>
+<BWT_Enum_SubWorkDrilldownStyle_FocusView>Focus view</BWT_Enum_SubWorkDrilldownStyle_FocusView>
+<BWT_Enum_SubWorkDrilldownStyle_ExpandBeside>Fluffy Work Tab expansion</BWT_Enum_SubWorkDrilldownStyle_ExpandBeside>
+<BWT_SubWork_OpenSpecificJobs>Open specific jobs</BWT_SubWork_OpenSpecificJobs>
+<BWT_SubWork_Chooser_FocusTitle>Better Work Tab focused view</BWT_SubWork_Chooser_FocusTitle>
+<BWT_SubWork_Chooser_FocusDescription>Replace Work columns with this Work's specific jobs.</BWT_SubWork_Chooser_FocusDescription>
+<BWT_SubWork_Chooser_ExpandTitle>Fluffy Work Tab expansion</BWT_SubWork_Chooser_ExpandTitle>
+<BWT_SubWork_Chooser_ExpandDescription>Keep Work columns visible and expand specific jobs beside this Work.</BWT_SubWork_Chooser_ExpandDescription>
+<BWT_SubWork_Chooser_UseThisView>Use this view</BWT_SubWork_Chooser_UseThisView>
+<BWT_SubWork_Chooser_SettingsNote>You can change this any time in Better Work Tab's settings.</BWT_SubWork_Chooser_SettingsNote>
+<BWT_SubWork_CtrlClickNotice_Title>Specific jobs shortcut</BWT_SubWork_CtrlClickNotice_Title>
+<BWT_SubWork_CtrlClickNotice_Text>You Ctrl-clicked a Work header to open specific jobs. Should Ctrl-click be your default way to open and leave specific jobs?</BWT_SubWork_CtrlClickNotice_Text>
+<BWT_SubWork_CtrlClickNotice_UseCtrl>Use Ctrl-click</BWT_SubWork_CtrlClickNotice_UseCtrl>
+<BWT_SubWork_CtrlClickNotice_Never>Never show again</BWT_SubWork_CtrlClickNotice_Never>
 
 <BWT_SubWork_FixBrokenDownBuilding>Fix breakdowns</BWT_SubWork_FixBrokenDownBuilding>
 <BWT_SubWork_PatientGoToBedEmergencyTreatment>Urgent treatment</BWT_SubWork_PatientGoToBedEmergencyTreatment>
@@ -25,6 +39,10 @@
 <BWT_SubWork_Deconstruct>Deconstruct</BWT_SubWork_Deconstruct>
 <BWT_SubWork_Repair>Repair</BWT_SubWork_Repair>
 <BWT_SubWork_FillIn>Fill in</BWT_SubWork_FillIn>
+
+<BWT_HeaderMenu_SortDescending>Sort descending</BWT_HeaderMenu_SortDescending>
+<BWT_HeaderMenu_Rename>Rename...</BWT_HeaderMenu_Rename>
+<BWT_HeaderMenu_ResetName>Reset name</BWT_HeaderMenu_ResetName>
 
 
 <BWT_RuleName>Rule Name</BWT_RuleName>

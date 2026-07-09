@@ -6,8 +6,31 @@
     <BWT_Settings_UI_Edit>Edit</BWT_Settings_UI_Edit>
     <BWT_Settings_UI_Close>Close</BWT_Settings_UI_Close>
     <BWT_Settings_UI_NoResults>No settings match your search.</BWT_Settings_UI_NoResults>
+    <BWT_UseFluffyWorkTab_Button>Use Work Tab (Fluffy's)</BWT_UseFluffyWorkTab_Button>
+    <BWT_UseFluffyWorkTab_Title>Switch Work tab</BWT_UseFluffyWorkTab_Title>
+    <BWT_UseFluffyWorkTab_Confirm>Switching hands the Work tab to Fluffy's Work Tab. You can switch back any time in Better Work Tab's mod settings.</BWT_UseFluffyWorkTab_Confirm>
+    <BWT_UseFluffyWorkTab_Tooltip>Run Fluffy's Work Tab instead of Better Work Tab.</BWT_UseFluffyWorkTab_Tooltip>
+    <BWT_FluffyActive_SettingsBanner>Fluffy's Work Tab is currently running the Work tab.</BWT_FluffyActive_SettingsBanner>
+    <BWT_SwitchBackToBetterWorkTab_Button>Switch back to Better Work Tab</BWT_SwitchBackToBetterWorkTab_Button>
+    <BWT_SwitchBackToBetterWorkTab_Tooltip>Run Better Work Tab as the Work tab again.</BWT_SwitchBackToBetterWorkTab_Tooltip>
     <BWT_Settings_UI_PinnedSettings>★ Pinned Settings</BWT_Settings_UI_PinnedSettings>
     
+    <!-- Mod Compatibility -->
+    <BWT_Settings_modcompat.header>Mod Compatibility</BWT_Settings_modcompat.header>
+    <BWT_Settings_modcompat.header_Tooltip>Settings for loaded mod integrations.</BWT_Settings_modcompat.header_Tooltip>
+    <BWT_Settings_compat.fluffyWorkTab.header>Fluffy Work Tab</BWT_Settings_compat.fluffyWorkTab.header>
+    <BWT_Settings_compat.fluffyWorkTab.header_Tooltip>Compatibility settings for Fluffy Work Tab.</BWT_Settings_compat.fluffyWorkTab.header_Tooltip>
+    <BWT_Settings_compat.fluffyWorkTab.ownership>Work tab handoff</BWT_Settings_compat.fluffyWorkTab.ownership>
+    <BWT_Settings_compat.fluffyWorkTab.ownership_Tooltip>Choose which mod runs the Work tab and which Fluffy columns Better Work Tab keeps visible.</BWT_Settings_compat.fluffyWorkTab.ownership_Tooltip>
+    <BWT_Settings_compat.fluffyWorkTab.owner>Work tab owner</BWT_Settings_compat.fluffyWorkTab.owner>
+    <BWT_Settings_compat.fluffyWorkTab.owner_Tooltip>Choose whether Better Work Tab or Fluffy Work Tab runs the Work tab.</BWT_Settings_compat.fluffyWorkTab.owner_Tooltip>
+    <BWT_Settings_compat.externalWorkTab.columns>Show Fluffy Work Tab columns</BWT_Settings_compat.externalWorkTab.columns>
+    <BWT_Settings_compat.externalWorkTab.columns_Tooltip>When Fluffy Work Tab is loaded and Better Work Tab owns the Work tab, keep Fluffy's Mood, Job, Detailed Copy/Paste, and Favorite columns visible.</BWT_Settings_compat.externalWorkTab.columns_Tooltip>
+    <BWT_Settings_compat.fluffyWorkTab.specificJobs>Specific jobs</BWT_Settings_compat.fluffyWorkTab.specificJobs>
+    <BWT_Settings_compat.fluffyWorkTab.specificJobs_Tooltip>Settings for opening a Work column into specific jobs when Fluffy Work Tab is loaded.</BWT_Settings_compat.fluffyWorkTab.specificJobs_Tooltip>
+    <BWT_Settings_subWorkJobs.drilldownStyle>Specific-job view</BWT_Settings_subWorkJobs.drilldownStyle>
+    <BWT_Settings_subWorkJobs.drilldownStyle_Tooltip>Choose whether opening specific jobs uses Better Work Tab's focused view or Fluffy Work Tab's real right-expanding columns.</BWT_Settings_subWorkJobs.drilldownStyle_Tooltip>
+
     <!-- Categories -->
     <BWT_Settings_highlights>Highlights</BWT_Settings_highlights>
     <BWT_Settings_highlights_Desc>Row and column highlighting behavior</BWT_Settings_highlights_Desc>

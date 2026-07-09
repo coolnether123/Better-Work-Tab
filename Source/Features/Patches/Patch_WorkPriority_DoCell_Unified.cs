@@ -3,6 +3,7 @@ using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.Headers;
@@ -39,6 +40,10 @@ namespace Better_Work_Tab.Patches
         {
             // Only apply BWT patches to the Work tab (vanilla or BWT), not other tabs like MechTab
             if (!UI.Headers.PawnColumnWorker_WorkPriority_DoHeader_Patch.IsWorkTab())
+                return;
+
+            // A hovered Fluffy work-giver column is not a hovered work type.
+            if (FluffyWorkTabGateway.IsFluffyWorkGiverColumn(__instance.def))
                 return;
 
             if (!Event.current.shift)
@@ -165,6 +170,27 @@ namespace Better_Work_Tab.Patches
             if (workType == null)
                 return true;
 
+            // Fluffy work-giver columns inherit this method but represent a single work giver, not the
+            // work type their def points at. Let Fluffy draw its own sub-work boxes.
+            if (FluffyWorkTabGateway.IsFluffyWorkGiverColumn(__instance.def))
+                return true;
+
+            if (SubWorkDrilldownState.TryGetCurrentDrawingWorkGiver(
+                    __instance.def,
+                    out var drawingWorkGiver,
+                    out var drawingParentWorkType,
+                    out _) &&
+                !SubWorkDrilldownState.IsActive)
+            {
+                if (pawn == null || pawn.Dead || pawn.workSettings == null || !pawn.workSettings.EverWork)
+                {
+                    return false;
+                }
+
+                DrawSubWorkPriorityCell(rect, pawn, drawingParentWorkType, drawingWorkGiver);
+                return false;
+            }
+
             if (SubWorkDrilldownState.IsActive)
             {
                 if (pawn == null || pawn.Dead || pawn.workSettings == null || !pawn.workSettings.EverWork)
@@ -179,7 +205,7 @@ namespace Better_Work_Tab.Patches
                 }
 
                 DrawParentPriorityCellVisual(rect, pawn, workType, SubWorkDrilldownState.ParentWorkContentAlpha);
-                DrawSubWorkPriorityCell(rect, pawn, workGiver);
+                DrawSubWorkPriorityCell(rect, pawn, SubWorkDrilldownState.ActiveWorkType, workGiver);
                 return false;
             }
 
@@ -318,6 +344,9 @@ namespace Better_Work_Tab.Patches
             if (pawn == null || pawn.Dead || workType == null)
                 return;
 
+            if (FluffyWorkTabGateway.IsFluffyWorkGiverColumn(__instance.def))
+                return;
+
             if (pawn.WorkTypeIsDisabled(workType))
                 return;
 
@@ -407,7 +436,7 @@ namespace Better_Work_Tab.Patches
 
         // Caching helpers
 
-        private static void DrawSubWorkPriorityCell(Rect rect, Pawn pawn, WorkGiver workGiver)
+        private static void DrawSubWorkPriorityCell(Rect rect, Pawn pawn, WorkTypeDef parentWorkType, WorkGiver workGiver)
         {
             const float boxSize = 25f;
             float x = rect.x + (rect.width - boxSize) / 2f;
@@ -415,10 +444,13 @@ namespace Better_Work_Tab.Patches
             Rect boxRect = new Rect(x, y, boxSize, boxSize);
             float visualAlpha = 1f;
             float visualScale = 1f;
-            SubWorkDrilldownState.TryGetSubWorkContentTransitionVisuals(workGiver, out visualAlpha, out visualScale);
+            if (SubWorkDrilldownState.IsActive)
+            {
+                SubWorkDrilldownState.TryGetSubWorkContentTransitionVisuals(workGiver, out visualAlpha, out visualScale);
+            }
             Better_Work_Tab.UI.WorkGiverReassignments.WorkGiverPriorityBoxRenderer.DrawPriorityBox(
                 workGiver,
-                SubWorkDrilldownState.ActiveWorkType,
+                parentWorkType,
                 pawn,
                 boxRect,
                 visualAlpha,

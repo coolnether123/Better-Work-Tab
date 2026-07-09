@@ -4,6 +4,7 @@ using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.Workloads;
+using Better_Work_Tab.ModSupport;
 using Multiplayer.API;
 using RimWorld;
 using System;
@@ -526,7 +527,8 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         internal static bool ShouldShowMovedWorkGiverMarker(WorkTypeDef workType, WorkGiverDef workGiverDef)
         {
-            return WasWorkGiverDraggedByPlayer(workType, workGiverDef) &&
+            return (GetTargetWorkType(workGiverDef) == workType && IsReassigned(workGiverDef)) ||
+                   WasWorkGiverDraggedByPlayer(workType, workGiverDef) &&
                    IsWorkGiverOutOfBaselinePosition(workType, workGiverDef);
         }
 
@@ -904,6 +906,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             dict[workGiver.defName] = priority;
 
             data.SyncVersion++;
+            MirrorWorkGiverToExternalWorkTab(pawnId, workGiver);
             if (notify)
             {
                 NotifySubWorkDataChanged();
@@ -934,12 +937,31 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             }
 
             data.SyncVersion++;
+            MirrorWorkGiverToExternalWorkTab(pawnId, workGiver);
             if (notify)
             {
                 NotifySubWorkDataChanged();
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// Republishes one pawn's work-giver priority to any external work-tab mod backing the numbers.
+        /// Work-giver overrides live only in Better Work Tab, so nothing else propagates them.
+        /// </summary>
+        private static void MirrorWorkGiverToExternalWorkTab(int pawnId, WorkGiverDef workGiver)
+        {
+            if (ExternalPriorityMirror.IsSuspended || workGiver == null || pawnId < 0)
+            {
+                return;
+            }
+
+            Pawn pawn = PawnsFinder.All_AliveOrDead.FirstOrDefault(p => p.thingIDNumber == pawnId);
+            if (pawn != null)
+            {
+                ExternalPriorityMirror.NotifyWorkGiverChanged(pawn, workGiver);
+            }
         }
 
         private static void ApplyClearPawnOverridesForWorkType(int pawnId, string workTypeDefName)
@@ -1080,12 +1102,30 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             }
 
             data.SyncVersion++;
+            MirrorWorkTypeToExternalWorkTab(pawnId, workType);
             if (notify)
             {
                 NotifySubWorkDataChanged();
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// Republishes a whole work type for one pawn, used when its overrides were cleared en masse.
+        /// </summary>
+        private static void MirrorWorkTypeToExternalWorkTab(int pawnId, WorkTypeDef workType)
+        {
+            if (ExternalPriorityMirror.IsSuspended || workType == null || pawnId < 0)
+            {
+                return;
+            }
+
+            Pawn pawn = PawnsFinder.All_AliveOrDead.FirstOrDefault(p => p.thingIDNumber == pawnId);
+            if (pawn != null)
+            {
+                ExternalPriorityMirror.NotifyWorkTypeChanged(pawn, workType);
+            }
         }
 
         internal static bool TryReassignWorkGiver(string workGiverDefName, string targetWorkTypeDefName, int? insertIndex, out string errorMsg)
@@ -1250,6 +1290,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 return;
             }
 
+            data.EnsureCollections();
             data.WorkGiverToWorkTypeMap[workGiverDef.defName] = targetWorkTypeDef.defName;
 
             if (data.WorkTypeWorkGiverOrder != null)
@@ -1272,6 +1313,8 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
             int index = insertIndex.HasValue ? Math.Max(0, Math.Min(insertIndex.Value, targetList.Count)) : targetList.Count;
             targetList.Insert(index, workGiverDef.defName);
+            RecordPlayerMovedWorkGiver(targetWorkTypeDef, workGiverDef);
+            PruneBaselineAlignedMovedWorkGivers(targetWorkTypeDef);
             RemoveWorkGiverFromPawnOrders(data, workGiverDef.defName);
 
             data.SyncVersion++;

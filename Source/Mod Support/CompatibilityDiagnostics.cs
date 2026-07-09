@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Verse;
 
 namespace Better_Work_Tab.ModSupport
@@ -8,7 +9,6 @@ namespace Better_Work_Tab.ModSupport
     {
         private static readonly KnownConflict[] HardConflicts =
         {
-            new KnownConflict("Fluffy Work Tab", "fluffy.worktab"),
             new KnownConflict("Compact Work Tab", "mlie.compactworktab"),
         };
 
@@ -50,7 +50,9 @@ namespace Better_Work_Tab.ModSupport
             for (int i = 0; i < mods.Count; i++)
             {
                 ModContentPack mod = mods[i];
-                if (IsBetterWorkTab(mod, betterWorkTab) || IsKnownHardConflict(mod))
+                if (IsBetterWorkTab(mod, betterWorkTab) ||
+                    IsKnownHardConflict(mod) ||
+                    FluffyWorkTabGateway.IsKnownPackageId(mod.PackageId))
                 {
                     continue;
                 }

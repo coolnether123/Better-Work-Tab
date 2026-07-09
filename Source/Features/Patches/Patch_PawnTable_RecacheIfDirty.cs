@@ -1,4 +1,6 @@
-﻿using Better_Work_Tab.PawnOrganizer;
+using Better_Work_Tab.PawnOrganizer;
+using Better_Work_Tab.Features.Testing;
+using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using HarmonyLib;
@@ -48,8 +50,11 @@ namespace Better_Work_Tab.Features.Patches
         public static void Postfix(PawnTable __instance)
         {
             // Only process the Work tab
-            if (__instance.def != PawnTableDefOf.Work)
+            if (__instance.def != PawnTableDefOf.Work ||
+                !FluffyWorkTabGateway.ShouldRunBetterWorkTabFeatures)
                 return;
+
+            SubWorkTransitionPerfDiagnostics.CountPawnTableRecachePostfix();
 
             if (CachedRowHeightsField == null || CachedSizeField == null)
                 return;
@@ -64,7 +69,7 @@ namespace Better_Work_Tab.Features.Patches
 
             float headerHeight = layout.HeaderHeight;
             float pinnedRowsHeight = TimePriorityPlannerPrototype.HeaderPinnedRowsHeight +
-                SubWorkDrilldownState.GlobalRowVisibleHeight;
+                SubWorkDrilldownState.GlobalRowReservedHeight;
             float contentHeight = layout.ContentHeight;
             float totalHeight = headerHeight + contentHeight;
             float width = __instance.cachedSize.x;
@@ -100,14 +105,15 @@ namespace Better_Work_Tab.Features.Patches
             state.ContentHeight = contentHeight;
             state.Width = width;
 
-            // ═══════════════════════════════════════════════════════════════════════════
+            // ---------------------------------------------------------------------------
             // Sync back to vanilla's fields
             // We do NOT clamp to maxTableHeight here; we let the window's RequestedTabSize
             // handle clamping to screen bounds. Pinned BWT rows are deliberately excluded
             // from PawnTable.cachedSize because they are drawn outside the vanilla scroll body.
             // Including them here makes the table body one pinned row taller than its content,
             // which presents as a blank row at the bottom when sub-work is opened.
-            // ═══════════════════════════════════════════════════════════════════════════
+            // ---------------------------------------------------------------------------
+            SubWorkTransitionPerfDiagnostics.CountPawnTableSyncWrite();
             CachedRowHeightsField.SetValue(__instance, state.RowHeights);
             CachedSizeField.SetValue(__instance, new Vector2(width, totalHeight));
         }

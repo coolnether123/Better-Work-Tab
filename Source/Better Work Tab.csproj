@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -42,6 +42,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="API\IMaxPriorityProvider.cs" />
+    <Compile Include="API\ExternalWorkTabApi.cs" />
     <Compile Include="API\PriorityApi.cs" />
     <Compile Include="API\PriorityProviderCapabilities.cs" />
     <Compile Include="API\TimePriorityApi.cs" />
@@ -58,6 +59,7 @@
     <Compile Include="Features\Caching\BedCountCache.cs" />
     <Compile Include="Features\Patches\MaxPriorityPatches.cs" />
     <Compile Include="Features\RaisedPriorityMaximum\PriorityAuthorityBroker.cs" />
+    <Compile Include="Features\RaisedPriorityMaximum\PriorityAuthorityPatches.cs" />
     <Compile Include="Features\RaisedPriorityMaximum\PriorityConstants.cs" />
     <Compile Include="Features\RaisedPriorityMaximum\PriorityProviderSnapshot.cs" />
     <Compile Include="Features\RaisedPriorityMaximum\PriorityProviders.cs" />
@@ -94,12 +96,15 @@
     <Compile Include="Features\WorkGiverReassignments\WorkGiverReassignmentData.cs" />
     <Compile Include="Features\WorkGiverReassignments\WorkGiverReassignmentManager.cs" />
     <Compile Include="Features\WorkGiverReassignments\WorkGiverReassignmentPatches.cs" />
+    <Compile Include="Features\WorkGiverReassignments\CustomLabelStore.cs" />
     <Compile Include="Features\WorkGiverReassignments\SubWorkDrilldownInput.cs" />
     <Compile Include="Features\WorkGiverReassignments\SubWorkDrilldownState.cs" />
     <Compile Include="Features\Workloads\GameComponent_BWTWorldSettings.cs" />
+    <Compile Include="Features\Testing\AgentFloatMenuHighlightTestDriver.cs" />
     <Compile Include="Features\Testing\GameComponent_BWTModernQuickTestDriver.cs" />
     <Compile Include="Features\Testing\AgentHarnessUtility.cs" />
     <Compile Include="Features\Testing\RuleBuilder2AgentHarness.cs" />
+    <Compile Include="Features\Testing\SubWorkTransitionPerfDiagnostics.cs" />
     <Compile Include="Features\Testing\WorkTabGeometryDiagnostics.cs" />
     <Compile Include="Features\TimePriority\Patch_CopyPasteWorkPriorities_TimePriority.cs" />
     <Compile Include="Features\TimePriority\TimePriorityEvaluation.cs" />
@@ -139,12 +144,25 @@
     <Compile Include="PawnOrganizer\Patches\Patch_PawnColumnWorker_Label_DoCell.cs" />
     <Compile Include="PawnOrganizer\PawnOrganizerSystem.cs" />
     <Compile Include="Mod Support\IModSupportModule.cs" />
+    <Compile Include="Mod Support\IModSettingsContributor.cs" />
+    <Compile Include="Mod Support\BWTModSettingsApi.cs" />
+    <Compile Include="Mod Support\BWTModSettingsSection.cs" />
+    <Compile Include="Mod Support\ExternalPriorityMirror.cs" />
+    <Compile Include="Mod Support\ExternalWorkTabPriorityImportService.cs" />
+    <Compile Include="Mod Support\ExternalWorkTabRegistry.cs" />
     <Compile Include="Mod Support\CompatibilityDiagnostics.cs" />
     <Compile Include="Mod Support\ModSupportManager.cs" />
     <Compile Include="Mod Support\ModSupportModuleBase.cs" />
     <Compile Include="Mod Support\Mods\Chronos Pointer\ChronosPointerSupport.cs" />
     <Compile Include="Mod Support\Mods\Do Once\DoOnceSupport.cs" />
+    <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabAssets.cs" />
+    <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabCoexistence.cs" />
+    <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabCoexistenceUI.cs" />
+    <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabGateway.cs" />
+    <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabExternalStore.cs" />
     <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabMigration.cs" />
+    <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabPriorityProvider.cs" />
+    <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabSync.cs" />
     <Compile Include="Mod Support\Mods\Useful Marks\UsefulMarksSupport.cs" />
     <Compile Include="Mod Support\Mods\Vanilla Skills Expanded\VanillaSkillsExpandedSupport.cs" />
     <Compile Include="Mod Support\Multiplayer\LocalProfiles\BWTLocalProfile.cs" />
@@ -196,6 +214,8 @@
     <Compile Include="Spine\UI\Tutorial\TutorialOverlayShortcutHint.cs" />
     <Compile Include="Spine\UI\Tutorial\TutorialOverlayStyle.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingDefinition.cs" />
+    <Compile Include="Spine\UI\SettingsFramework\SettingSuppression.cs" />
+    <Compile Include="Spine\UI\SettingsFramework\SettingsScribe.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingType.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingsHierarchy.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingsFilterDefinition.cs" />
@@ -205,8 +225,11 @@
     <Compile Include="Spine\UI\SettingsFramework\SettingsUIHelpers.cs" />
     <Compile Include="UI\WorkGiverReassignments\Window_WorkGiverSubMenu.cs" />
     <Compile Include="UI\WorkGiverReassignments\SubWorkDrilldownBarRenderer.cs" />
+    <Compile Include="UI\WorkGiverReassignments\SubWorkCrossWorkDropTargetRenderer.cs" />
     <Compile Include="UI\WorkGiverReassignments\SubWorkDrilldownHeaderGeometry.cs" />
+    <Compile Include="UI\WorkGiverReassignments\SubWorkHeaderAffordance.cs" />
     <Compile Include="UI\WorkGiverReassignments\WorkGiverDisplayNameService.cs" />
+    <Compile Include="UI\WorkGiverReassignments\WorkTypeDisplayNameService.cs" />
     <Compile Include="UI\WorkGiverReassignments\WorkGiverBaselineTracker.cs" />
     <Compile Include="UI\WorkGiverReassignments\WorkGiverDragHandler.cs" />
     <Compile Include="UI\WorkGiverReassignments\PriorityOverrideRing.cs" />
@@ -215,6 +238,7 @@
     <Compile Include="UI\Input\GuiMousePosition.cs" />
     <Compile Include="UI\Input\NativeCursorPosition.cs" />
     <Compile Include="UI\RulesetListDragUI.cs" />
+    <Compile Include="UI\WorkTabColumnHighlightUtility.cs" />
     <Compile Include="UI\MainTabWindow_BetterWork.cs" />
     <Compile Include="UI\PawnTitleUtility.cs" />
     <Compile Include="UI\WorkPriorityCellGeometry.cs" />
@@ -257,6 +281,7 @@
     <Compile Include="UI\Headers\Vanilla\VanillaHeaderController.cs" />
     <Compile Include="UI\Headers\Angled\AngledHeaderController.cs" />
     <Compile Include="UI\Headers\HeaderInputController.cs" />
+    <Compile Include="UI\Headers\HeaderContextMenu.cs" />
     <Compile Include="UI\Headers\HeaderUtility.cs" />
     <Compile Include="UI\HeaderButtons.cs" />
     <Compile Include="UI\Dialog_WarningWithCheckbox.cs" />

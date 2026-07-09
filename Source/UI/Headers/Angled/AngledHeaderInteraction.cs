@@ -30,6 +30,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
         public bool ShouldDraw;
         public Rect HeaderRect;
         public IHeaderRenderer Renderer;
+        public bool IsVanillaStaggered;
     }
 
     public static class AngledHeaderInteraction
@@ -80,6 +81,16 @@ namespace Better_Work_Tab.UI.Headers.Angled
             // If a drag commences, the drag handler consumes the MouseUp event, preventing sorting.
             if (evt.type == EventType.MouseDown)
             {
+                if (evt.button == 0 &&
+                    SubWorkHeaderAffordance.ShouldDrawOpenBadge(ctx.Worker.def) &&
+                    SubWorkHeaderAffordance.TryGetOpenBadgeRect(ctx.Worker.def, ctx.HeaderRect, ctx.IsVanillaStaggered, out Rect badgeRect) &&
+                    badgeRect.Contains(evt.mousePosition))
+                {
+                    ClearPendingHeaderClick(ctx.Worker.def);
+                    evt.Use();
+                    return;
+                }
+
                 if (SubWorkDrilldownInput.MatchesGesture(evt))
                 {
                     ClearPendingHeaderClick(ctx.Worker.def);
@@ -143,6 +154,15 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
         private static string GetTooltip(PawnColumnWorker_WorkPriority worker, PawnTable table)
         {
+            if (SubWorkDrilldownState.TryGetCurrentDrawingWorkGiver(
+                    worker.def,
+                    out _,
+                    out _,
+                    out _))
+            {
+                return GetSubWorkTooltip(worker, table);
+            }
+
             if (SubWorkDrilldownState.IsActive)
             {
                 return GetSubWorkTooltip(worker, table);
@@ -151,7 +171,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
             // Replicate vanilla GetHeaderTip from PawnColumnWorker_WorkPriority
             var workType = worker.def.workType;
             
-            TaggedString tooltip = workType.gerundLabel.CapitalizeFirst().Colorize(ColoredText.TipSectionTitleColor) 
+            TaggedString tooltip = WorkTypeDisplayNameService.GerundLabel(workType).Colorize(ColoredText.TipSectionTitleColor)
                 + "\n\n" + workType.description 
                 + "\n\n" + SpecificWorkListString(workType) 
                 + "\n";
@@ -184,18 +204,21 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
         private static string GetSubWorkTooltip(PawnColumnWorker_WorkPriority worker, PawnTable table)
         {
-            if (!SubWorkDrilldownState.TryGetWorkGiverForColumn(worker.def, out var workGiver, out _))
+            if (!SubWorkDrilldownState.TryGetCurrentDrawingWorkGiver(
+                    worker.def,
+                    out var workGiver,
+                    out var activeWorkType,
+                    out _))
             {
                 return string.Empty;
             }
 
             var def = workGiver.def;
-            var activeWorkType = SubWorkDrilldownState.ActiveWorkType;
             System.Text.StringBuilder tooltip = new System.Text.StringBuilder(160);
 
             tooltip.Append(WorkGiverDisplayNameService.FullLabel(def).Colorize(ColoredText.TipSectionTitleColor));
 
-            string workTypeLabel = activeWorkType?.LabelCap.ToString();
+            string workTypeLabel = WorkTypeDisplayNameService.FullLabel(activeWorkType);
             if (!workTypeLabel.NullOrEmpty())
             {
                 tooltip.Append("\n").Append("WorkType".Translate()).Append(": ").Append(workTypeLabel);
@@ -267,7 +290,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
         private static string GetSpecificWorkTooltipLabel(WorkTypeDef workType, WorkGiverDef workGiverDef)
         {
-            string label = workGiverDef.LabelCap.ToString();
+            string label = WorkGiverDisplayNameService.FullLabel(workGiverDef);
             bool isMoved = WorkGiverReassignmentManager.ShouldShowMovedWorkGiverMarker(workType, workGiverDef);
             var settings = BetterWorkTabMod.Settings;
             if (isMoved && settings != null && settings.showColumnMovedMarker && !label.EndsWith(HeaderUtility.MovedMarker))
@@ -311,11 +334,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 }
 
                 gesture = gesture.CapitalizeFirst();
-                string workLabel = !workType.labelShort.NullOrEmpty()
-                    ? workType.labelShort.CapitalizeFirst()
-                    : !workType.label.NullOrEmpty()
-                        ? workType.label.CapitalizeFirst()
-                        : workType.defName ?? "work";
+                string workLabel = WorkTypeDisplayNameService.HeaderLabel(workType);
 
                 tooltip += "\n" + (gesture + ": Open " + workLabel + " sub-work jobs").Colorize(ColoredText.SubtleGrayColor);
             }
@@ -359,18 +378,36 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
         private static void HandleRightClick(PawnColumnWorker_WorkPriority worker, PawnTable table, Event evt)
         {
-            // Vanilla behavior: Right-click sorts descending immediately
-            table.SortBy(worker.def, true);
-            table.SetDirty();
-            SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+            if (SubWorkDrilldownState.IsActive &&
+                SubWorkDrilldownState.TryGetWorkGiverForColumn(worker.def, out var workGiver, out _))
+            {
+                HeaderContextMenu.ShowForWorkGiver(worker, table, workGiver.def);
+                return;
+            }
+
+            if (SubWorkDrilldownState.TryGetCurrentDrawingWorkGiver(
+                    worker.def,
+                    out var drawingWorkGiver,
+                    out _,
+                    out _) &&
+                drawingWorkGiver?.def != null)
+            {
+                HeaderContextMenu.ShowForWorkGiver(worker, table, drawingWorkGiver.def);
+                return;
+            }
+
+            HeaderContextMenu.ShowForWorkType(worker, table);
         }
 
         private static void HandleShiftClick(PawnColumnWorker_WorkPriority worker, PawnTable table, int button)
         {
-            if (SubWorkDrilldownState.IsActive &&
-                SubWorkDrilldownState.TryGetWorkGiverForColumn(worker.def, out var workGiver, out _))
+            if (SubWorkDrilldownState.TryGetCurrentDrawingWorkGiver(
+                    worker.def,
+                    out var workGiver,
+                    out var parentWorkType,
+                    out _))
             {
-                HandleSubWorkShiftClick(workGiver.def, table, button);
+                HandleSubWorkShiftClick(parentWorkType, workGiver.def, table, button);
                 return;
             }
 
@@ -421,9 +458,8 @@ namespace Better_Work_Tab.UI.Headers.Angled
             }
         }
 
-        private static void HandleSubWorkShiftClick(WorkGiverDef workGiverDef, PawnTable table, int button)
+        private static void HandleSubWorkShiftClick(WorkTypeDef workType, WorkGiverDef workGiverDef, PawnTable table, int button)
         {
-            var workType = SubWorkDrilldownState.ActiveWorkType;
             List<Pawn> pawns = table.PawnsListForReading;
             bool useWorkPriorities = Find.PlaySettings.useWorkPriorities;
             var pawnIds = new List<int>();
@@ -509,7 +545,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 workType,
                 returnMousePosition,
                 SubWorkDrilldownHeaderGeometry.GetBaseHeaderDrawWidth(null, -1f));
-            HeaderDrawingCoordinator.NotifyAngledHeadersChanged();
+            HeaderDrawingCoordinator.InvalidateSolution();
             SoundDefOf.Tick_High.PlayOneShotOnCamera();
         }
 

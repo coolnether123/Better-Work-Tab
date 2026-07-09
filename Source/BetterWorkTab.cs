@@ -1,6 +1,7 @@
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.ModSupport;
+using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.PawnOrganizer;
 using HarmonyLib;
 using System;
@@ -60,6 +61,7 @@ namespace Better_Work_Tab
             try
             {
                 new Harmony("Coolnether123.betterworktab").PatchAll();
+                FluffyWorkTabGateway.ApplyDesiredOwner();
                 DebugLog("Harmony patched successfully.");
             }
             catch (Exception ex)

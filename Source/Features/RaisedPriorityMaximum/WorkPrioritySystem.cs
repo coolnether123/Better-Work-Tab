@@ -1,6 +1,8 @@
 using System;
 using Better_Work_Tab.Features.TimePriority;
+using Better_Work_Tab.ModSupport;
 using RimWorld;
+using System.Reflection;
 using UnityEngine;
 using Verse;
 
@@ -16,6 +18,8 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         private static readonly Color ExtendedPriorityYellow = new Color(0.9f, 0.82f, 0.42f);
         private static readonly Color ExtendedPriorityTan = new Color(0.74f, 0.62f, 0.43f);
         private static readonly Color ExtendedPriorityGrey = new Color(0.74f, 0.74f, 0.74f);
+        private static readonly FieldInfo PawnField =
+            typeof(Pawn_WorkSettings).GetField("pawn", BindingFlags.Instance | BindingFlags.NonPublic);
 
         internal static int NormalizeMaxPriority(int value)
         {
@@ -24,6 +28,11 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
         internal static int GetMaxPriority()
         {
+            if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabPriorityFeatures)
+            {
+                return PriorityConstants.VanillaMax;
+            }
+
             return PriorityAuthorityBroker.GetEffectiveMaxPriority();
         }
 
@@ -34,6 +43,11 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
         internal static int ClampPriority(int priority)
         {
+            if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabPriorityFeatures)
+            {
+                return Mathf.Clamp(priority, DisabledPriority, PriorityConstants.VanillaMax);
+            }
+
             return PriorityAuthorityBroker.ClampPriorityForRequest(priority);
         }
 
@@ -49,6 +63,11 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
         internal static int GetDefaultEnabledPriority()
         {
+            if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabPriorityFeatures)
+            {
+                return PriorityConstants.VanillaDefaultEnabled;
+            }
+
             return PriorityAuthorityBroker.GetDefaultEnabledPriority();
         }
 
@@ -59,15 +78,30 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 return GetDefaultEnabledPriority();
             }
 
-            return ClampPriority(pawn.workSettings.GetPriority(workType));
+            return PriorityAuthorityBroker.GetEffectivePriority(pawn, workType);
         }
 
         internal static int GetCurrentPriorityForPawnWorkType(Pawn pawn, WorkTypeDef workType)
         {
+            if (PriorityAuthorityBroker.FluffyWorkTabHasPriorityAuthority)
+            {
+                return GetPriorityForPawnWorkType(pawn, workType);
+            }
+
             int basePriority = GetPriorityForPawnWorkType(pawn, workType);
             return TimePriorityService.GetEffectiveWorkTypePriority(pawn, workType, basePriority);
         }
 
+        /// <summary>
+        /// Writes a work-type priority to Better Work Tab's store, then mirrors it to any external
+        /// work-tab mod.
+        /// </summary>
+        /// <remarks>
+        /// Better Work Tab's store is always written, even when an external mod holds authority, so the
+        /// extended priority survives whatever narrower range that mod supports. The mirror afterwards
+        /// re-states the value within the external mod's limits and repairs any work-giver detail its
+        /// own work-type handling flattened.
+        /// </remarks>
         internal static void SetPriority(Pawn_WorkSettings workSettings, WorkTypeDef workType, int priority)
         {
             if (workSettings == null || workType == null)
@@ -75,7 +109,62 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 return;
             }
 
+            Pawn pawn = GetPawn(workSettings);
+            if (pawn?.Dead == true || !workSettings.EverWork)
+            {
+                return;
+            }
+
+            workSettings.EnableAndInitializeIfNotAlreadyInitialized();
+            if (workSettings.priorities == null)
+            {
+                return;
+            }
+
             workSettings.SetPriority(workType, ClampPriority(priority));
+            ExternalPriorityMirror.NotifyWorkTypeChanged(pawn, workType);
+        }
+
+        /// <summary>
+        /// Writes a work-type priority straight into Better Work Tab's store, bypassing both
+        /// <see cref="Pawn_WorkSettings.SetPriority"/> and the Fluffy mirror.
+        /// </summary>
+        /// <remarks>
+        /// Only for importing <em>out of</em> another work-tab mod. Going through the vanilla setter can
+        /// run that mod's own prefix, which may cascade the value over every work giver of the work type
+        /// and so destroy the very data the import is reading. Pair it with
+        /// <see cref="ModSupport.ExternalPriorityMirror.Suspend"/>.
+        /// </remarks>
+        internal static void SetStoredPriorityWithoutMirroring(
+            Pawn_WorkSettings workSettings,
+            WorkTypeDef workType,
+            int priority)
+        {
+            if (workSettings == null || workType == null)
+            {
+                return;
+            }
+
+            Pawn pawn = GetPawn(workSettings);
+            if (pawn?.Dead == true || !workSettings.EverWork)
+            {
+                return;
+            }
+
+            workSettings.EnableAndInitializeIfNotAlreadyInitialized();
+            if (workSettings.priorities == null)
+            {
+                return;
+            }
+
+            int clamped = PriorityAuthorityBroker.ClampPriorityForRequest(priority);
+            if (clamped != 0 && pawn != null && pawn.WorkTypeIsDisabled(workType))
+            {
+                return;
+            }
+
+            workSettings.priorities[workType] = clamped;
+            workSettings.Notify_UseWorkPrioritiesChanged();
         }
 
         internal static int GetPriorityAfterMouseButton(int currentPriority, int button)
@@ -119,6 +208,11 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             if (workSettings == null || workType == null)
             {
                 return DisabledPriority;
+            }
+
+            if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabPriorityFeatures)
+            {
+                return workSettings.GetPriority(workType);
             }
 
             return MapPriorityToVanillaDisplay(workSettings.GetPriority(workType));
@@ -183,6 +277,12 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 default:
                     return Color.grey;
             }
+        }
+
+
+        private static Pawn GetPawn(Pawn_WorkSettings workSettings)
+        {
+            return PawnField?.GetValue(workSettings) as Pawn;
         }
     }
 }

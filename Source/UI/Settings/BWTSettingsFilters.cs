@@ -37,12 +37,12 @@ namespace Better_Work_Tab.UI.Settings
                 BuildSystemFilter("system.clicks", "Clicks & Shortcuts", FeaturesClicks),
                 new SettingsFilterDefinition
                 {
-                    Id = "fluffy.like",
-                    Label = "Fluffy-like Settings",
+                    Id = "worktab.style",
+                    Label = "Work Tab-style",
                     Category = PresetsCategory,
                     CategoryLabel = "Presets",
-                    Tooltip = "Settings that map to common Work Tab/Fluffy-style behavior: compact headers, priorities, sub-work priorities, dividers, dragging, skill overlays, workload presets, and time planning.",
-                    Predicate = (def, _) => IsFluffyLikeSetting(def),
+                    Tooltip = "Settings that map to common expanded Work tab behavior: compact headers, priorities, sub-work priorities, dividers, dragging, skill overlays, workload presets, and time planning.",
+                    Predicate = (def, _) => IsWorkTabStyleSetting(def),
                     IncludeChildrenOfMatches = false
                 },
                 new SettingsFilterDefinition
@@ -165,6 +165,7 @@ namespace Better_Work_Tab.UI.Settings
                     UiTimePriorityHourDivider,
                     UiChronosPointerTimePriority,
                     UiTimePrioritySourceColumnHighlight,
+                    UiFluffyTimePriorityMirroring,
                     UiMaxPriority,
                     UiAutoMaxPriority,
                     FeaturesSubWorkJobs) ||
@@ -215,7 +216,7 @@ namespace Better_Work_Tab.UI.Settings
                 string.Equals(def.Id, FeaturesWorkloads, StringComparison.OrdinalIgnoreCase);
         }
 
-        private static bool IsFluffyLikeSetting(SettingDefinition def)
+        private static bool IsWorkTabStyleSetting(SettingDefinition def)
         {
             return HasAnyId(def,
                     FeaturesOverlay,
@@ -379,7 +380,8 @@ namespace Better_Work_Tab.UI.Settings
         {
             if (def == null || settingsObject == null || string.IsNullOrEmpty(def.FieldName) || def.DefaultValue == null)
             {
-                return false;
+                return def?.Type == SettingType.Custom &&
+                       (def.CustomHasNonDefaultValue?.Invoke(settingsObject) ?? false);
             }
 
             FieldInfo field = settingsObject.GetType().GetField(

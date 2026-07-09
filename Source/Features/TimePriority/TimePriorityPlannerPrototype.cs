@@ -134,23 +134,25 @@ namespace Better_Work_Tab.Features.TimePriority
                 _session == null ||
                 !(BetterWorkTabMod.Settings?.keepTimePrioritySourceColumnHighlighted ??
                   DefaultSettings.keepTimePrioritySourceColumnHighlighted) ||
-                !(column.Column?.Worker is PawnColumnWorker_WorkPriority))
+                !WorkTabColumnHighlightUtility.IsHighlightableWorkColumn(column))
             {
                 return false;
             }
 
             if (_session.Kind == TimePriorityTargetKind.WorkType)
             {
-                return !SubWorkDrilldownState.IsActive &&
-                    string.Equals(column.Column.workType?.defName, _session.WorkTypeDefName, StringComparison.Ordinal);
+                return !SubWorkDrilldownState.HasAnyDrilldown &&
+                    string.Equals(column.Column?.workType?.defName, _session.WorkTypeDefName, StringComparison.Ordinal);
             }
 
-            return SubWorkDrilldownState.IsActive &&
-                string.Equals(SubWorkDrilldownState.ActiveWorkType?.defName, _session.WorkTypeDefName, StringComparison.Ordinal) &&
-                SubWorkDrilldownState.TryGetWorkGiverForColumn(column.Column, out WorkGiver workGiver, out _) &&
+            return SubWorkDrilldownState.TryGetWorkGiverForColumn(
+                    column,
+                    out WorkGiver workGiver,
+                    out WorkTypeDef parentWorkType,
+                    out _) &&
+                string.Equals(parentWorkType?.defName, _session.WorkTypeDefName, StringComparison.Ordinal) &&
                 string.Equals(workGiver?.def?.defName, _session.TargetDefName, StringComparison.Ordinal);
         }
-
         internal static void CloseForWorkModeTransition()
         {
             if (!IsEnabled || _session == null || _isClosing)
@@ -280,6 +282,29 @@ namespace Better_Work_Tab.Features.TimePriority
             _session = new Session(target);
             TimePriorityService.GetPrioritiesForDisplay(target.TimeTarget, target.CurrentPriority);
             NotifyLayoutChanged();
+        }
+
+        internal static bool ToggleFirstVisiblePrioritySchedule(IWorkTabLayoutController layout)
+        {
+            if (!IsEnabled || layout == null)
+            {
+                return false;
+            }
+
+            if (_session != null)
+            {
+                Close();
+                SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                return true;
+            }
+
+            if (!TryFindAgentWorkTypeTarget(layout, string.Empty, out TargetInfo target))
+            {
+                return false;
+            }
+
+            ToggleTarget(target);
+            return true;
         }
 
         internal static bool TryHandleInput(IWorkTabLayoutController layout, Event evt)
@@ -764,20 +789,22 @@ namespace Better_Work_Tab.Features.TimePriority
             Rect cellRect = new Rect(column.HeaderRect.x, rowRect.y, column.Width, rowRect.height);
             Rect priorityBoxRect = GetPriorityBoxRect(cellRect);
 
-            if (SubWorkDrilldownState.IsActive)
+            if (SubWorkDrilldownState.TryGetWorkGiverForColumn(
+                    column,
+                    out WorkGiver workGiver,
+                    out WorkTypeDef parentWorkType,
+                    out _))
             {
-                if (!SubWorkDrilldownState.TryGetWorkGiverForColumn(column.Column, out WorkGiver workGiver, out _) ||
-                    workGiver?.def == null ||
-                    SubWorkDrilldownState.ActiveWorkType == null)
+                if (workGiver?.def == null || parentWorkType == null)
                 {
                     return false;
                 }
 
-                int fallback = WorkPrioritySystem.GetPriorityForPawnWorkType(row.Pawn, SubWorkDrilldownState.ActiveWorkType);
+                int fallback = WorkPrioritySystem.GetPriorityForPawnWorkType(row.Pawn, parentWorkType);
                 int currentPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(row.Pawn, workGiver.def, fallback);
                 target = TargetInfo.ForWorkGiver(
                     row.Pawn,
-                    SubWorkDrilldownState.ActiveWorkType,
+                    parentWorkType,
                     workGiver.def,
                     WorkGiverDisplayNameService.HeaderLabel(workGiver.def, WorkGiverHeaderLabelStyle.Standard),
                     priorityBoxRect,

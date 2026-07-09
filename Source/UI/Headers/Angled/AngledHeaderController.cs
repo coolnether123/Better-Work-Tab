@@ -48,6 +48,11 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 SubWorkDrilldownHeaderGeometry.RecordNormalHeaderHeight(table, rect.height);
             }
 
+            if (SubWorkDrilldownState.IsDrawingExpandBesideChild)
+            {
+                return DoExpandBesideChildHeader(worker, rect, table, evt);
+            }
+
             bool shouldDraw = evt.type == EventType.Repaint;
 
             float rot = AngledLabelDrawer.CurrentRotation;
@@ -71,7 +76,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
             
             if (isMouseOver)
             {
-                HeaderInputController.SetHoveredWorkType(worker.def.workType, cached.Bounds);
+                HeaderInputController.SetHoveredWorkType(worker.def.workType, GetVisualBounds(cached));
             }
 
             var renderer = HeaderDrawingCoordinator.GetActiveRenderer();
@@ -82,8 +87,8 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 Worker = worker,
                 Table = table,
                 Layout = cached.Layout,
-                Bounds = cached.Bounds,
-                Quad = cached.Quad,
+                Bounds = GetVisualBounds(cached),
+                Quad = GetVisualQuad(cached),
                 IsMouseOver = isMouseOver,
                 ShouldDraw = shouldDraw,
                 HeaderRect = rect,
@@ -95,10 +100,91 @@ namespace Better_Work_Tab.UI.Headers.Angled
             return false; // Skip vanilla
         }
 
+        private static bool DoExpandBesideChildHeader(
+            PawnColumnWorker_WorkPriority worker,
+            Rect rect,
+            PawnTable table,
+            Event evt)
+        {
+            bool shouldDraw = evt.type == EventType.Repaint;
+            string label = HeaderUtility.GetHeaderText(worker.def.workType);
+            Vector2 size = Text.CalcSize(label);
+            Rect drawRect = new Rect(rect.x, rect.y, Mathf.Max(rect.width, rect.height), size.y)
+            {
+                center = rect.center
+            };
+
+            var layout = new AngledLabelDrawer.AngledLabelLayout(
+                label,
+                size,
+                rect.center,
+                showMarker: false,
+                isCJKVertical: false,
+                customDrawRect: drawRect);
+            bool isMouseOver = !TimePriorityPlannerPrototype.OwnsCurrentMousePosition && rect.Contains(HeaderInputController.MousePosition);
+            if (isMouseOver)
+            {
+                HeaderInputController.SetHoveredWorkType(worker.def.workType, rect);
+            }
+
+            var ctx = new HeaderInteractionContext
+            {
+                Worker = worker,
+                Table = table,
+                Layout = layout,
+                Bounds = rect,
+                Quad = null,
+                IsMouseOver = isMouseOver,
+                ShouldDraw = shouldDraw,
+                HeaderRect = rect,
+                Renderer = HeaderDrawingCoordinator.GetActiveRenderer()
+            };
+
+            AngledHeaderInteraction.HandleInteractions(ctx);
+            return false;
+        }
+
         private static bool DetermineMouseOver(Rect rect, AngledHeaderCache.CachedHeaderData cached)
         {
             Vector2 mousePos = HeaderInputController.MousePosition;
-            return AngledHeaderCache.IsMouseOver(cached.Quad, mousePos);
+            return AngledHeaderCache.IsMouseOver(GetVisualQuad(cached), mousePos);
+        }
+
+        private static Rect GetVisualBounds(AngledHeaderCache.CachedHeaderData cached)
+        {
+            float offsetY = GetVisualOffsetY(cached);
+            if (Mathf.Abs(offsetY) <= 0.001f)
+            {
+                return cached.Bounds;
+            }
+
+            Rect bounds = cached.Bounds;
+            bounds.y += offsetY;
+            return bounds;
+        }
+
+        private static Vector2[] GetVisualQuad(AngledHeaderCache.CachedHeaderData cached)
+        {
+            float offsetY = GetVisualOffsetY(cached);
+            if (Mathf.Abs(offsetY) <= 0.001f || cached.Quad == null)
+            {
+                return cached.Quad;
+            }
+
+            Vector2[] quad = new Vector2[cached.Quad.Length];
+            for (int i = 0; i < cached.Quad.Length; i++)
+            {
+                quad[i] = new Vector2(cached.Quad[i].x, cached.Quad[i].y + offsetY);
+            }
+
+            return quad;
+        }
+
+        private static float GetVisualOffsetY(AngledHeaderCache.CachedHeaderData cached)
+        {
+            return SubWorkDrilldownState.IsActive && !cached.Layout.IsCJKVertical
+                ? SubWorkDrilldownState.HeaderAnchorVisualOffsetY
+                : 0f;
         }
     }
 }
