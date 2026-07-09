@@ -80,6 +80,7 @@ namespace Better_Work_Tab.UI.Settings
         public const string LayoutDragThreshold = "layout.dragThreshold";
         public const string LayoutDragHoverDelay = "layout.dragHoverDelay";
         public const string LayoutWorkTabMaxHeight = "layout.workTabMaxHeight";
+        public const string LayoutWorkTabMinimumWidth = "layout.workTabMinimumWidth";
         public const string LayoutWorkTabTopSpace = "layout.workTabTopSpace";
         public const string LayoutPawnCount = "layout.pawnCount";
         public const string LayoutResetColumns = "layout.resetColumns";
@@ -96,6 +97,9 @@ namespace Better_Work_Tab.UI.Settings
         public const string CompatFluffyWorkTabOwnership = "compat.fluffyWorkTab.ownership";
         public const string CompatFluffyWorkTabSpecificJobs = "compat.fluffyWorkTab.specificJobs";
         public const string CompatFluffyWorkTabOwner = "compat.fluffyWorkTab.owner";
+        public const string FluffyStyleFeatures = "fluffyStyle.features";
+        public const string FluffyStyleTopButtons = "fluffyStyle.topButtons";
+        public const string FluffyStyleStandaloneTopButtons = "fluffyStyle.standaloneTopButtons";
         public const string CompatChronosPointerHeader = "compat.chronosPointer.header";
         public const string OverlayBestPawnMode = "overlay.bestPawnMode";
         public const string OverlayHeader = "overlay.header";

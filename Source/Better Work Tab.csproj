@@ -159,6 +159,7 @@
     <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabCoexistence.cs" />
     <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabCoexistenceUI.cs" />
     <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabGateway.cs" />
+    <Compile Include="Mod Support\Mods\Fluffy WorkTab\PawnColumnWorker_BwtSubWorkPriority.cs" />
     <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabExternalStore.cs" />
     <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabMigration.cs" />
     <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabPriorityProvider.cs" />

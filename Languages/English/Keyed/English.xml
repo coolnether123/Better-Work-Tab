@@ -9,11 +9,11 @@
 <BWT_Enum_SubWorkTransitionStyle_PixelWaveFlip>Pixel wave reveal</BWT_Enum_SubWorkTransitionStyle_PixelWaveFlip>
 <BWT_Enum_SubWorkDrilldownStyle_NotChosen>Ask first time</BWT_Enum_SubWorkDrilldownStyle_NotChosen>
 <BWT_Enum_SubWorkDrilldownStyle_FocusView>Focus view</BWT_Enum_SubWorkDrilldownStyle_FocusView>
-<BWT_Enum_SubWorkDrilldownStyle_ExpandBeside>Fluffy Work Tab expansion</BWT_Enum_SubWorkDrilldownStyle_ExpandBeside>
+<BWT_Enum_SubWorkDrilldownStyle_ExpandBeside>Fluffy-style expansion</BWT_Enum_SubWorkDrilldownStyle_ExpandBeside>
 <BWT_SubWork_OpenSpecificJobs>Open specific jobs</BWT_SubWork_OpenSpecificJobs>
 <BWT_SubWork_Chooser_FocusTitle>Better Work Tab focused view</BWT_SubWork_Chooser_FocusTitle>
 <BWT_SubWork_Chooser_FocusDescription>Replace Work columns with this Work's specific jobs.</BWT_SubWork_Chooser_FocusDescription>
-<BWT_SubWork_Chooser_ExpandTitle>Fluffy Work Tab expansion</BWT_SubWork_Chooser_ExpandTitle>
+<BWT_SubWork_Chooser_ExpandTitle>Fluffy-style expansion</BWT_SubWork_Chooser_ExpandTitle>
 <BWT_SubWork_Chooser_ExpandDescription>Keep Work columns visible and expand specific jobs beside this Work.</BWT_SubWork_Chooser_ExpandDescription>
 <BWT_SubWork_Chooser_UseThisView>Use this view</BWT_SubWork_Chooser_UseThisView>
 <BWT_SubWork_Chooser_SettingsNote>You can change this any time in Better Work Tab's settings.</BWT_SubWork_Chooser_SettingsNote>

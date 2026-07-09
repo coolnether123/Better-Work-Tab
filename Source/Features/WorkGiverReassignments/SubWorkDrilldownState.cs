@@ -174,6 +174,11 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 BetterWorkTabMod.Settings?.subWorkTransitionSeconds ??
                 DefaultSettings.subWorkTransitionSeconds);
 
+        // Expand-beside changes are lighter than the full focused-view transition and should
+        // feel closer to Fluffy's quick column reveal. Keep the shared speed setting as the
+        // user's control while shortening only this presentation.
+        private static float ExpandBesideTransitionSeconds => Mathf.Max(0.12f, TransitionSeconds * 0.6f);
+
         internal static bool UseTransitionAnimation =>
             BetterWorkTabMod.Settings?.enableSubWorkTransitionAnimation ??
             DefaultSettings.enableSubWorkTransitionAnimation;
@@ -1307,7 +1312,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                     }
 
                     float startedAt = IsCollapsing ? _collapsingAt : _startedAt;
-                    float progress = Mathf.Clamp01((Time.realtimeSinceStartup - startedAt) / TransitionSeconds);
+                    float progress = Mathf.Clamp01((Time.realtimeSinceStartup - startedAt) / ExpandBesideTransitionSeconds);
                     return IsCollapsing ? 1f - progress : progress;
                 }
             }

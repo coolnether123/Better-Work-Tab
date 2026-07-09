@@ -177,7 +177,16 @@ namespace Better_Work_Tab.UI
 
         private static bool ShouldShowTopRightFluffyStyle()
         {
-            return FluffyWorkTabGateway.IsPresent && FluffyWorkTabGateway.BetterWorkTabOwnsWorkTab;
+            if (!FluffyWorkTabGateway.FluffyStyleFeaturesEnabled ||
+                !FluffyWorkTabGateway.BetterWorkTabOwnsWorkTab)
+            {
+                return false;
+            }
+
+            return FluffyWorkTabGateway.IsPresent
+                ? BetterWorkTabMod.Settings?.showFluffyStyleTopButtons ?? DefaultSettings.showFluffyStyleTopButtons
+                : BetterWorkTabMod.Settings?.showStandaloneFluffyStyleTopButtons ??
+                  DefaultSettings.showStandaloneFluffyStyleTopButtons;
         }
 
         private static TopButtonRects GetTopButtonRects(Rect inRect)

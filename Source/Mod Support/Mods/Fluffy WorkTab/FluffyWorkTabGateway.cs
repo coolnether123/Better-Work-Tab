@@ -67,10 +67,13 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
         private static bool _fluffyColumnTypesResolved;
         private static bool _fluffyPriorityTypesResolved;
         private static bool _fluffyHostedColumnsDisabled;
+        private static bool _externalFluffyColumnsUnavailable;
         private static readonly Dictionary<string, PawnColumnDef> HostedWorkTypeColumns =
             new Dictionary<string, PawnColumnDef>(StringComparer.Ordinal);
         private static readonly Dictionary<string, PawnColumnDef> HostedWorkGiverColumns =
             new Dictionary<string, PawnColumnDef>(StringComparer.Ordinal);
+        private static readonly Dictionary<PawnColumnDef, WorkGiverDef> NativeHostedWorkGivers =
+            new Dictionary<PawnColumnDef, WorkGiverDef>();
         internal static bool DebugForceSubWorkStyleChooserAvailable;
         internal static BetterWorkTabSettings.SubWorkDrilldownStyle DebugForcedSubWorkStyleChooserHover =
             BetterWorkTabSettings.SubWorkDrilldownStyle.NotChosen;
@@ -96,17 +99,20 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
 
         internal static bool ShouldRunBetterWorkTabFeatures => FluffyWorkTabCoexistence.ShouldRunBetterWorkTabFeatures;
 
-        internal static bool HasRightExpandingDrilldown => IsPresent;
+        internal static bool FluffyStyleFeaturesEnabled =>
+            BetterWorkTabMod.Settings?.enableFluffyStyleFeatures ?? DefaultSettings.enableFluffyStyleFeatures;
 
-        internal static bool CanHostFluffySubWorkColumns => IsPresent &&
-            !_fluffyHostedColumnsDisabled &&
-            EnsureFluffyColumnTypes();
+        internal static bool HasRightExpandingDrilldown => FluffyStyleFeaturesEnabled;
+
+        internal static bool CanHostFluffySubWorkColumns =>
+            FluffyStyleFeaturesEnabled && !_fluffyHostedColumnsDisabled;
 
         internal static bool HasScheduleStrip => IsPresent;
 
         internal static bool HasIconSet => IsPresent;
 
-        internal static bool ShouldPreservePawnNameColumnWidth => IsPresent && BetterWorkTabOwnsWorkTab;
+        internal static bool ShouldPreservePawnNameColumnWidth =>
+            FluffyStyleFeaturesEnabled && BetterWorkTabOwnsWorkTab;
 
         internal static bool IsSubWorkStyleChooserActive => _chooserActive && _chooserWorkType != null;
 
@@ -552,7 +558,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             }
 
             hostedWorkGiverColumns = new List<PawnColumnDef>();
-            List<WorkGiverDef> workGivers = GetFluffyOrderedWorkGivers(workType);
+            List<WorkGiverDef> workGivers = GetBwtDisplayWorkGivers(workType);
             for (int i = 0; i < workGivers.Count; i++)
             {
                 PawnColumnDef child = GetOrCreateHostedWorkGiverColumn(workGivers[i]);
@@ -622,7 +628,17 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
 
         internal static WorkGiverDef TryGetFluffyWorkGiver(PawnColumnDef column)
         {
-            if (column == null || !EnsureFluffyColumnTypes() || !_fluffyWorkGiverColumnDefType.IsInstanceOfType(column))
+            if (column == null)
+            {
+                return null;
+            }
+
+            if (NativeHostedWorkGivers.TryGetValue(column, out WorkGiverDef nativeWorkGiver))
+            {
+                return nativeWorkGiver;
+            }
+
+            if (!IsPresent || !EnsureFluffyColumnTypes() || !_fluffyWorkGiverColumnDefType.IsInstanceOfType(column))
             {
                 return null;
             }
@@ -633,7 +649,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             }
             catch (Exception ex)
             {
-                DisableHostedColumns("reading hosted work-giver field", ex);
+                DisableExternalFluffyColumns("reading hosted work-giver field", ex);
                 return null;
             }
         }
@@ -641,7 +657,9 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
         internal static void PrepareHostedDraw(PawnTable table)
         {
             if (table == null ||
-                !CanHostFluffySubWorkColumns ||
+                !IsPresent ||
+                _externalFluffyColumnsUnavailable ||
+                !EnsureFluffyColumnTypes() ||
                 !FluffyWorkTabCoexistence.TryGetFluffyWorkTabWindowType(out Type windowType))
             {
                 return;
@@ -654,7 +672,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                     _fluffyMainTabTableField = AccessTools.Field(typeof(MainTabWindow_PawnTable), "table");
                     if (_fluffyMainTabTableField == null)
                     {
-                        DisableHostedColumns("resolving hosted table field", null);
+                        DisableExternalFluffyColumns("resolving hosted table field", null);
                         return;
                     }
                 }
@@ -669,7 +687,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             }
             catch (Exception ex)
             {
-                DisableHostedColumns("preparing hosted Fluffy draw", ex);
+                DisableExternalFluffyColumns("preparing hosted Fluffy draw", ex);
             }
         }
 
@@ -681,7 +699,10 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             }
 
             object worker = column.Worker;
-            if (worker == null || _fluffyWorkTypeExpandedField == null)
+            if (worker == null ||
+                _fluffyWorkTypeWorkerType == null ||
+                worker.GetType() != _fluffyWorkTypeWorkerType ||
+                _fluffyWorkTypeExpandedField == null)
             {
                 return false;
             }
@@ -696,7 +717,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             }
             catch (Exception ex)
             {
-                DisableHostedColumns("checking hosted work-type collapse state", ex);
+                DisableExternalFluffyColumns("checking hosted work-type collapse state", ex);
             }
 
             return false;
@@ -709,7 +730,17 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
 
         internal static bool IsFluffyColumn(PawnColumnDef column)
         {
-            if (column == null || !EnsureFluffyColumnTypes())
+            if (column == null)
+            {
+                return false;
+            }
+
+            if (HostedWorkTypeColumns.ContainsValue(column) || HostedWorkGiverColumns.ContainsValue(column))
+            {
+                return true;
+            }
+
+            if (!IsPresent || !EnsureFluffyColumnTypes())
             {
                 return false;
             }
@@ -720,29 +751,27 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
         }
 
         /// <summary>
-        /// True for Fluffy work-giver columns, whether generated by Fluffy or hosted by Better Work Tab.
-        /// These render through Fluffy's own worker and transpiler, so Better Work Tab must not draw
-        /// their headers or cells even though they derive from <see cref="PawnColumnWorker_WorkPriority"/>.
+        /// True only for external Fluffy work-giver columns. BWT-native hosted columns are deliberately
+        /// excluded so their BWT worker and header pipeline remain independent from Fluffy's assembly.
         /// </summary>
         internal static bool IsFluffyWorkGiverColumn(PawnColumnDef column)
         {
             return column != null &&
+                   IsPresent &&
                    EnsureFluffyColumnTypes() &&
                    column.Worker?.GetType() == _fluffyWorkGiverWorkerType;
         }
 
         internal static bool IsHostedFluffyWorkGiverColumn(PawnColumnDef column)
         {
-            return IsFluffyWorkGiverColumn(column) &&
-                   HostedWorkGiverColumns.ContainsValue(column);
+            return column != null &&
+                (NativeHostedWorkGivers.ContainsKey(column) ||
+                 (IsFluffyWorkGiverColumn(column) && HostedWorkGiverColumns.ContainsValue(column)));
         }
 
         internal static bool IsHostedFluffyWorkTypeColumn(PawnColumnDef column)
         {
-            return column != null &&
-                   EnsureFluffyColumnTypes() &&
-                   column.Worker?.GetType() == _fluffyWorkTypeWorkerType &&
-                   HostedWorkTypeColumns.ContainsValue(column);
+            return column != null && HostedWorkTypeColumns.ContainsValue(column);
         }
 
         internal static float GetHostedColumnWidth(PawnColumnDef column, PawnTable table, float fallback)
@@ -960,7 +989,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
 
         private static bool EnsureFluffyColumnTypes()
         {
-            if (_fluffyHostedColumnsDisabled)
+            if (_externalFluffyColumnsUnavailable)
             {
                 return false;
             }
@@ -992,7 +1021,10 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                 _fluffyWorkTypeExpandedField != null;
             if (!resolved)
             {
-                DisableHostedColumns("resolving Fluffy hosted column API", null);
+                _externalFluffyColumnsUnavailable = true;
+                BetterWorkTabMod.DebugLog(
+                    "[FluffyWorkTab] External column API is unavailable; using BWT-native Fluffy-style columns.",
+                    DebugFeature.ModSupport);
             }
 
             return resolved;
@@ -1136,6 +1168,22 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                 DebugFeature.ModSupport);
         }
 
+        private static void DisableExternalFluffyColumns(string operation, Exception ex)
+        {
+            if (_externalFluffyColumnsUnavailable)
+            {
+                return;
+            }
+
+            _externalFluffyColumnsUnavailable = true;
+            _fluffyHostedWindowInstance = null;
+            string detail = ex == null ? string.Empty : ": " + ex.Message;
+            BetterWorkTabMod.DebugLog(
+                "[FluffyWorkTab] External column compatibility is unavailable after " + operation +
+                detail + "; BWT-native Fluffy-style columns remain enabled.",
+                DebugFeature.ModSupport);
+        }
+
         /// <summary>
         /// Clamps a Better Work Tab schedule into Fluffy Work Tab's accepted range.
         /// </summary>
@@ -1172,16 +1220,64 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                     Header = new SettingDefinition
                     {
                         Id = CompatFluffyWorkTabHeader,
-                        Label = "Fluffy Work Tab",
-                        Tooltip = "Compatibility settings for Fluffy Work Tab.",
+                        Label = "Fluffy-style Work Tab",
+                        Tooltip = "BWT-native options inspired by Fluffy's Work Tab, plus compatibility controls when Fluffy Work Tab or a fork is installed.",
                         SearchKeywords = FluffySearchKeywords,
                         Type = SettingType.Header,
-                        VisibleWhen = _ => FluffyWorkTabGateway.IsPresent,
                         ShowInSimpleView = true,
                         SortOrder = 0
                     },
                     Children = new[]
                     {
+                        new SettingDefinition
+                        {
+                            Id = FluffyStyleFeatures,
+                            FieldName = nameof(BetterWorkTabSettings.enableFluffyStyleFeatures),
+                            Label = "Enable Fluffy-style features",
+                            Tooltip = "Use BWT's Fluffy-inspired Work tab controls and right-expanding specific-job columns. BWT owns the UI and priority data; Fluffy Work Tab is not required.",
+                            SearchKeywords = FluffySearchKeywords,
+                            Type = SettingType.Bool,
+                            DefaultValue = DefaultSettings.enableFluffyStyleFeatures,
+                            ControlsChildVisibility = true,
+                            OnChanged = _ =>
+                            {
+                                SubWorkDrilldownState.CollapseAllExpandBeside();
+                                MainTabWindow_BetterWork.NotifyAngledHeadersChanged();
+                            },
+                            ShowInSimpleView = true,
+                            ShowInAdvancedView = true,
+                            SortOrder = 0
+                        },
+                        new SettingDefinition
+                        {
+                            Id = FluffyStyleTopButtons,
+                            ParentId = FluffyStyleFeatures,
+                            FieldName = nameof(BetterWorkTabSettings.showFluffyStyleTopButtons),
+                            Label = "Show Fluffy top controls",
+                            Tooltip = "When Fluffy Work Tab is installed, show its familiar icon controls for manual priorities, time schedules, and expanding or collapsing specific jobs.",
+                            SearchKeywords = FluffySearchKeywords,
+                            Type = SettingType.Bool,
+                            DefaultValue = DefaultSettings.showFluffyStyleTopButtons,
+                            VisibleWhen = _ => FluffyWorkTabGateway.IsPresent,
+                            ShowInSimpleView = true,
+                            ShowInAdvancedView = true,
+                            SortOrder = 1
+                        },
+                        new SettingDefinition
+                        {
+                            Id = FluffyStyleStandaloneTopButtons,
+                            ParentId = FluffyStyleFeatures,
+                            FieldName = nameof(BetterWorkTabSettings.showStandaloneFluffyStyleTopButtons),
+                            Label = "Show BWT substitute top controls",
+                            Tooltip = "Without Fluffy Work Tab, optionally show BWT-drawn text substitutes for the three top controls. Off by default because Fluffy's icon assets are unavailable.",
+                            SearchKeywords = FluffySearchKeywords,
+                            Type = SettingType.Bool,
+                            DefaultValue = DefaultSettings.showStandaloneFluffyStyleTopButtons,
+                            VisibleWhen = _ => !FluffyWorkTabGateway.IsPresent,
+                            ShowInSimpleView = true,
+                            ShowInAdvancedView = true,
+                            SortOrder = 2
+                        },
                         new SettingDefinition
                         {
                             Id = CompatFluffyWorkTabOwnership,
@@ -1191,7 +1287,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                             Type = SettingType.Header,
                             VisibleWhen = _ => FluffyWorkTabGateway.IsPresent,
                             ShowInSimpleView = true,
-                            SortOrder = 0
+                            SortOrder = 20
                         },
                         new SettingDefinition
                         {
@@ -1211,7 +1307,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                                 FluffyWorkTabCoexistence.ApplyDesiredOwner(reopenIfOpen: true);
                             },
                             ShowInSimpleView = true,
-                            SortOrder = 1
+                            SortOrder = 21
                         },
                         new SettingDefinition
                         {
@@ -1230,16 +1326,16 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                             },
                             OnChanged = _ => FluffyWorkTabGateway.ApplyColumnVisibility(),
                             ShowInSimpleView = true,
-                            SortOrder = 2
+                            SortOrder = 22
                         },
                         new SettingDefinition
                         {
                             Id = CompatFluffyWorkTabSpecificJobs,
+                            ParentId = FluffyStyleFeatures,
                             Label = "Specific jobs",
-                            Tooltip = "Settings for opening a Work column into specific jobs when Fluffy Work Tab is loaded.",
+                            Tooltip = "Choose how BWT opens a Work column into its individual jobs.",
                             SearchKeywords = FluffySearchKeywords,
                             Type = SettingType.Header,
-                            VisibleWhen = _ => FluffyWorkTabGateway.IsPresent,
                             ShowInSimpleView = true,
                             SortOrder = 10
                         },
@@ -1249,12 +1345,11 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                             ParentId = CompatFluffyWorkTabSpecificJobs,
                             FieldName = "subWorkDrilldownStyle",
                             Label = "Specific-job view",
-                            Tooltip = "Choose whether opening specific jobs uses Better Work Tab's focused view or Fluffy Work Tab's real right-expanding columns.",
+                            Tooltip = "Choose BWT's focused full-tab view or Fluffy-inspired right-expanding columns. Both modes are implemented by BWT and work without Fluffy Work Tab installed.",
                             SearchKeywords = FluffySearchKeywords,
                             Type = SettingType.Enum,
                             EnumType = typeof(BetterWorkTabSettings.SubWorkDrilldownStyle),
                             DefaultValue = DefaultSettings.subWorkDrilldownStyle,
-                            VisibleWhen = _ => FluffyWorkTabGateway.IsPresent,
                             Suppressions = new List<SettingSuppression>
                             {
                                 CreateWorkTabOwnedByFluffySuppression(WorkTabOwnedByFluffyReason)
@@ -1280,14 +1375,13 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             {
                 var column = new PawnColumnDef
                 {
-                    defName = "BWT_FluffyHosted_WorkType_" + key,
-                    workerClass = _fluffyWorkTypeWorkerType,
+                    defName = "BWT_FluffyStyle_WorkType_" + key,
+                    workerClass = typeof(PawnColumnWorker_BwtSubWorkPriority),
                     workType = workType,
                     sortable = sourceWorkColumn?.sortable ?? true,
                     moveWorkTypeLabelDown = sourceWorkColumn?.moveWorkTypeLabelDown ?? false
                 };
                 column.PostLoad();
-                ForceHostedWorkTypeExpanded(column, expanded: true);
                 HostedWorkTypeColumns[key] = column;
                 return column;
             }
@@ -1298,28 +1392,11 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             }
         }
 
-        private static void ForceHostedWorkTypeExpanded(PawnColumnDef column, bool expanded)
-        {
-            if (column?.Worker == null || _fluffyWorkTypeExpandedField == null)
-            {
-                return;
-            }
-
-            try
-            {
-                _fluffyWorkTypeExpandedField.SetValue(column.Worker, expanded);
-            }
-            catch (Exception ex)
-            {
-                DisableHostedColumns("setting hosted work-type expansion state", ex);
-            }
-        }
-
         private static PawnColumnDef GetOrCreateHostedWorkGiverColumn(WorkGiverDef workGiver)
         {
-            // Fluffy only generates work-giver columns for work givers that have a work type, because
-            // PawnColumnWorker_WorkPriority.DoHeader dereferences def.workType unconditionally.
-            if (workGiver?.defName == null || workGiver.workType == null || !EnsureFluffyColumnTypes())
+            // The work-giver column carries its parent work type because the vanilla work-priority
+            // worker expects one. BWT's layout metadata supplies the individual work giver.
+            if (workGiver?.defName == null || workGiver.workType == null || !CanHostFluffySubWorkColumns)
             {
                 return null;
             }
@@ -1330,33 +1407,26 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                 return existing;
             }
 
-            PawnColumnDef databaseColumn = DefDatabase<PawnColumnDef>.GetNamedSilentFail("WorkGiver_" + key);
-            if (databaseColumn != null && _fluffyWorkGiverColumnDefType.IsInstanceOfType(databaseColumn))
-            {
-                HostedWorkGiverColumns[key] = databaseColumn;
-                return databaseColumn;
-            }
-
             try
             {
-                var column = Activator.CreateInstance(_fluffyWorkGiverColumnDefType) as PawnColumnDef;
+                var column = new PawnColumnDef();
                 if (column == null)
                 {
-                    DisableHostedColumns("creating hosted work-giver column instance", null);
+                    DisableHostedColumns("creating Fluffy-style work-giver column instance", null);
                     return null;
                 }
 
-                column.defName = "BWT_FluffyHosted_WorkGiver_" + key;
-                column.workerClass = _fluffyWorkGiverWorkerType;
+                column.defName = "BWT_FluffyStyle_WorkGiver_" + key;
+                column.workerClass = typeof(PawnColumnWorker_BwtSubWorkPriority);
                 column.description = workGiver.description;
 
                 // Mirrors WorkTab.DefGenerator_GenerateImpliedDefs_PreResolve: the work-giver column carries
                 // its parent work type. Vanilla's DoHeader reads def.workType.labelShort before Fluffy's
                 // transpiler swaps in the work-giver label, so leaving this null throws a NullReferenceException
                 // the moment the hosted column is drawn.
-                column.workType = workGiver.workType;
+                column.workType = WorkGiverReassignmentManager.GetTargetWorkType(workGiver) ?? workGiver.workType;
                 column.sortable = true;
-                _fluffyWorkGiverField.SetValue(column, workGiver);
+                NativeHostedWorkGivers[column] = workGiver;
                 column.PostLoad();
                 HostedWorkGiverColumns[key] = column;
                 return column;
@@ -1368,16 +1438,25 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             }
         }
 
-        private static List<WorkGiverDef> GetFluffyOrderedWorkGivers(WorkTypeDef workType)
+        private static List<WorkGiverDef> GetBwtDisplayWorkGivers(WorkTypeDef workType)
         {
             var result = new List<WorkGiverDef>();
-            if (workType?.workGiversByPriority == null)
+            if (workType == null)
             {
                 return result;
             }
 
-            result.AddRange(workType.workGiversByPriority);
-            result.Sort((a, b) => (b?.priorityInType ?? 0f).CompareTo(a?.priorityInType ?? 0f));
+            IReadOnlyList<WorkGiver> workGivers =
+                WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(workType);
+            for (int i = 0; workGivers != null && i < workGivers.Count; i++)
+            {
+                WorkGiverDef def = workGivers[i]?.def;
+                if (def != null)
+                {
+                    result.Add(def);
+                }
+            }
+
             return result;
         }
     }

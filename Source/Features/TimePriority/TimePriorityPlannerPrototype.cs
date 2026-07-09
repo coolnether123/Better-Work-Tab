@@ -298,7 +298,7 @@ namespace Better_Work_Tab.Features.TimePriority
                 return true;
             }
 
-            if (!TryFindAgentWorkTypeTarget(layout, string.Empty, out TargetInfo target))
+            if (!TryFindFirstVisiblePriorityTarget(layout, out TargetInfo target))
             {
                 return false;
             }
@@ -864,6 +864,55 @@ namespace Better_Work_Tab.Features.TimePriority
                 return false;
             }
 
+            return TryBuildTargetForColumn(layout, selectedColumn, out target);
+        }
+
+        private static bool TryFindFirstVisiblePriorityTarget(IWorkTabLayoutController layout, out TargetInfo target)
+        {
+            target = default;
+            if (layout?.Columns == null || layout.Rows == null)
+            {
+                return false;
+            }
+
+            // When Fluffy-style columns are open, the schedule shortcut should demonstrate and
+            // edit an individual job instead of silently falling back to its parent Work type.
+            if (SubWorkDrilldownState.IsExpandBesideActive)
+            {
+                for (int i = 0; i < layout.Columns.Count; i++)
+                {
+                    WorkTabLayoutColumn candidate = layout.Columns[i];
+                    if (candidate.IsExpandBesideChild && TryBuildTargetForColumn(layout, candidate, out target))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            for (int i = 0; i < layout.Columns.Count; i++)
+            {
+                WorkTabLayoutColumn candidate = layout.Columns[i];
+                if (candidate.Column?.Worker is PawnColumnWorker_WorkPriority &&
+                    TryBuildTargetForColumn(layout, candidate, out target))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool TryBuildTargetForColumn(
+            IWorkTabLayoutController layout,
+            WorkTabLayoutColumn column,
+            out TargetInfo target)
+        {
+            target = default;
+            if (layout?.Rows == null || !(column.Column?.Worker is PawnColumnWorker_WorkPriority))
+            {
+                return false;
+            }
+
             for (int i = 0; i < layout.Rows.Count; i++)
             {
                 WorkTabLayoutRow row = layout.Rows[i];
@@ -876,9 +925,38 @@ namespace Better_Work_Tab.Features.TimePriority
                 }
 
                 Rect rowRect = layout.GetScreenRect(row);
-                Rect cellRect = new Rect(selectedColumn.HeaderRect.x, rowRect.y, selectedColumn.Width, rowRect.height);
+                Rect cellRect = new Rect(column.HeaderRect.x, rowRect.y, column.Width, rowRect.height);
                 Rect priorityBoxRect = GetPriorityBoxRect(cellRect);
-                WorkTypeDef workType = selectedColumn.Column.workType;
+
+                if (SubWorkDrilldownState.TryGetWorkGiverForColumn(
+                        column,
+                        out WorkGiver workGiver,
+                        out WorkTypeDef parentWorkType,
+                        out _) &&
+                    workGiver?.def != null &&
+                    parentWorkType != null)
+                {
+                    int parentPriority = WorkPrioritySystem.GetPriorityForPawnWorkType(row.Pawn, parentWorkType);
+                    int workGiverPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(
+                        row.Pawn,
+                        workGiver.def,
+                        parentPriority);
+                    target = TargetInfo.ForWorkGiver(
+                        row.Pawn,
+                        parentWorkType,
+                        workGiver.def,
+                        WorkGiverDisplayNameService.HeaderLabel(workGiver.def, WorkGiverHeaderLabelStyle.Standard),
+                        priorityBoxRect,
+                        workGiverPriority);
+                    return true;
+                }
+
+                WorkTypeDef workType = column.Column.workType;
+                if (workType == null)
+                {
+                    return false;
+                }
+
                 int priority = WorkPrioritySystem.GetPriorityForPawnWorkType(row.Pawn, workType);
                 target = TargetInfo.ForWorkType(
                     row.Pawn,
@@ -997,9 +1075,13 @@ namespace Better_Work_Tab.Features.TimePriority
                         break;
                     }
                 }
-                else if (SubWorkDrilldownState.IsActive &&
-                         SubWorkDrilldownState.ActiveWorkType?.defName == _session.WorkTypeDefName &&
-                         SubWorkDrilldownState.TryGetWorkGiverForColumn(candidate.Column, out WorkGiver workGiver, out _) &&
+                else if (SubWorkDrilldownState.HasAnyDrilldown &&
+                         SubWorkDrilldownState.TryGetWorkGiverForColumn(
+                             candidate,
+                             out WorkGiver workGiver,
+                             out WorkTypeDef parentWorkType,
+                             out _) &&
+                         parentWorkType?.defName == _session.WorkTypeDefName &&
                          workGiver?.def?.defName == _session.TargetDefName)
                 {
                     column = candidate;
@@ -1211,13 +1293,22 @@ namespace Better_Work_Tab.Features.TimePriority
                 return false;
             }
 
-            if (SubWorkDrilldownState.IsActive && layout.Table != null)
+            if (layout.Table != null)
             {
-                float tableRight = layout.TableOrigin.x + Mathf.Max(layout.Table.Size.x, layout.Table.cachedSize.x) - 16f;
-                if (tableRight > min)
+                float tableLeft = layout.TableOrigin.x;
+                float tableRight = tableLeft + Mathf.Max(layout.Table.Size.x, layout.Table.cachedSize.x) - 16f;
+                min = Mathf.Max(min, tableLeft);
+                max = Mathf.Min(max, tableRight);
+
+                if (SubWorkDrilldownState.IsActive && tableRight > min)
                 {
                     max = Mathf.Max(max, tableRight);
                 }
+            }
+
+            if (max <= min)
+            {
+                return false;
             }
 
             x = min;

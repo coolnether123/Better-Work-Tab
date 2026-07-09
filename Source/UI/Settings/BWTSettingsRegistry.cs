@@ -737,8 +737,15 @@ namespace Better_Work_Tab.UI.Settings
                 {
                     new SettingSuppression
                     {
-                        When = _ => FluffyWorkTabGateway.IsPresent && UsesExpandBesideDrilldown(),
-                        Reason = _ => "Expand beside uses Fluffy Work Tab's own columns.",
+                        When = settingsObj => !((BetterWorkTabSettings)settingsObj).keepVanillaWorkTabMinimumWidth,
+                        Reason = _ => "Compact window width keeps focused columns at their natural widths.",
+                        SuppressorSettingId = LayoutWorkTabMinimumWidth,
+                        LinkLabel = "Keep vanilla minimum width"
+                    },
+                    new SettingSuppression
+                    {
+                        When = _ => FluffyWorkTabGateway.CanHostFluffySubWorkColumns && UsesExpandBesideDrilldown(),
+                        Reason = _ => "Expand beside uses BWT's dedicated child columns.",
                         SuppressorSettingId = SubWorkDrilldownStyle,
                         LinkLabel = "Specific-job view"
                     },
@@ -774,9 +781,9 @@ namespace Better_Work_Tab.UI.Settings
             Register(new SettingDefinition
             {
                 Id = FeaturesUiElements,
-                Label = "UI Display",
+                Label = "Work Tab",
                 Type = SettingType.Header,
-                Tooltip = "Work tab UI display elements.",
+                Tooltip = "General Work tab size, spacing, controls, and display options.",
                 HeaderColor = new Color(0.8f, 0.8f, 0.6f),
                 ShowInSimpleView = true,
                 SortOrder = -42
@@ -1506,6 +1513,22 @@ namespace Better_Work_Tab.UI.Settings
 
             Register(new SettingDefinition
             {
+                Id = LayoutWorkTabMinimumWidth,
+                ParentId = FeaturesUiElements,
+                FieldName = nameof(BetterWorkTabSettings.keepVanillaWorkTabMinimumWidth),
+                Label = "Keep vanilla minimum width",
+                Tooltip = "Keep the Work tab at least as wide as RimWorld's normal Work tab to reduce distracting motion. Wider content may still expand the tab to the right. Turn this off to let compact layouts shrink the window.",
+                SearchKeywords = new[] { "window width", "resize", "shrink", "collapse", "compact" },
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.keepVanillaWorkTabMinimumWidth,
+                ShowInSimpleView = true,
+                ShowInAdvancedView = true,
+                SortOrder = 90,
+                OnChanged = _ => MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged()
+            });
+
+            Register(new SettingDefinition
+            {
                 Id = LayoutPawnCount,
                 FieldName = "showPawnCountAtBottom",
                 Label = "Show Colonist Count",
@@ -2090,7 +2113,7 @@ namespace Better_Work_Tab.UI.Settings
             Register(new SettingDefinition
             {
                 Id = LayoutWorkTabMaxHeight,
-                ParentId = AdvancedHeader,
+                ParentId = FeaturesUiElements,
                 FieldName = nameof(BetterWorkTabSettings.workTabMaxVisiblePawns),
                 Label = "Visible pawn rows",
                 Tooltip = "Caps the Work tab height by how many normal pawn rows are visible before scrolling. -1 keeps RimWorld's default full-screen-height behavior.",
@@ -2100,14 +2123,14 @@ namespace Better_Work_Tab.UI.Settings
                 MaxValue = 200f,
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
-                SortOrder = 401,
+                SortOrder = 91,
                 OnChanged = _ => MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged()
             });
 
             Register(new SettingDefinition
             {
                 Id = LayoutWorkTabTopSpace,
-                ParentId = AdvancedHeader,
+                ParentId = FeaturesUiElements,
                 FieldName = "workTabTopSpace",
                 Label = "Work Tab Top Space",
                 Tooltip = "Controls the empty vertical space above the work headers, between the priority direction hint and the top of the header labels. 40px matches RimWorld's default.",
@@ -2119,7 +2142,7 @@ namespace Better_Work_Tab.UI.Settings
                 MaxLabel = "Tall",
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
-                SortOrder = 402,
+                SortOrder = 92,
                 OnChanged = _ => MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged()
             });
 

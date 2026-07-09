@@ -42,7 +42,7 @@ namespace Better_Work_Tab.DragDrop
                     continue;
                 }
 
-                FromPositions[key] = new PositionSnapshot(column.HeaderRect.x, column.OffsetX);
+                FromPositions[key] = new PositionSnapshot(column.HeaderContentRect.x, column.OffsetX);
             }
 
             _startedAt = Time.realtimeSinceStartup;
@@ -90,7 +90,7 @@ namespace Better_Work_Tab.DragDrop
                 return 0f;
             }
 
-            float current = header ? column.HeaderRect.x : column.OffsetX;
+            float current = header ? column.HeaderContentRect.x : column.OffsetX;
             float previous = header ? from.HeaderX : from.CellOffsetX;
             float rawProgress = Mathf.Clamp01((Time.realtimeSinceStartup - _startedAt) / DurationSeconds);
             float eased = Mathf.SmoothStep(0f, 1f, rawProgress);

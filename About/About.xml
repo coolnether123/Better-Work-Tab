@@ -40,6 +40,7 @@ All features are toggleable in settings with extensive customization options.
 - Right-click pawn quick actions
 - Multiplayer support for supported versions with Zetrith Multiplayer
 - Detailed settings for UI, priorities, rules, workloads, and layout
+- Optional Fluffy-style layout with right-expanding specific jobs; installed Fluffy icons are used for its top controls, with an off-by-default BWT substitute available standalone
 
 <b>Compatibility</b>
 - Compatible with most work-type mods
@@ -50,6 +51,11 @@ All features are toggleable in settings with extensive customization options.
 - Grouped Pawns List is overridden inside this Work tab
 - CompactWorkTab overlaps this UI and should not be used together
 - Fluffy Work Tab and forks can coexist, with one Work tab active at a time
+
+<b>Credits and licensing</b>
+- Fluffy's Work Tab by Fluffy inspired the Fluffy-style layout and remains supported as an optional compatibility target
+- Fluffy Work Tab software/documentation is MIT licensed; its art and sounds are not bundled with BWT
+- Full notices: https://github.com/coolnether123/Better-Work-Tab/blob/Dev/THIRD_PARTY_NOTICES.md
 
 <b>Version Support</b>
 - 1.6 -> v2.0

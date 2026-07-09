@@ -57,6 +57,7 @@ namespace Better_Work_Tab
 
         public static float workTabMaxHeight = -1f; // Legacy pixel cap; replaced by workTabMaxVisiblePawns.
         public static int workTabMaxVisiblePawns = -1; // -1 = use vanilla default (fill screen)
+        public static bool keepVanillaWorkTabMinimumWidth = true;
         public static float workTabTopSpace = 40f; // Vanilla MainTabWindow_Work.ExtraTopSpace
 
         public static bool enableSkillOverlayFeature = true;
@@ -65,6 +66,9 @@ namespace Better_Work_Tab
         public static bool enableDividers = true;
         public static bool enableWorkloads = true;
         public static bool enableSubWorkDrilldown = true;
+        public static bool enableFluffyStyleFeatures = true;
+        public static bool showFluffyStyleTopButtons = true;
+        public static bool showStandaloneFluffyStyleTopButtons = false;
         public static bool showSubWorkHeaderBadge = true;
         public static bool enableSubWorkCrossWorkDragDrop = true;
         public static bool enableCustomWorkLabels = true;
@@ -348,6 +352,9 @@ namespace Better_Work_Tab
         public bool enableDividers = DefaultSettings.enableDividers;
         public bool enableWorkloads = DefaultSettings.enableWorkloads;
         public bool enableSubWorkDrilldown = DefaultSettings.enableSubWorkDrilldown;
+        public bool enableFluffyStyleFeatures = DefaultSettings.enableFluffyStyleFeatures;
+        public bool showFluffyStyleTopButtons = DefaultSettings.showFluffyStyleTopButtons;
+        public bool showStandaloneFluffyStyleTopButtons = DefaultSettings.showStandaloneFluffyStyleTopButtons;
         public bool showSubWorkHeaderBadge = DefaultSettings.showSubWorkHeaderBadge;
         public bool enableSubWorkCrossWorkDragDrop = DefaultSettings.enableSubWorkCrossWorkDragDrop;
         public bool enableCustomWorkLabels = DefaultSettings.enableCustomWorkLabels;
@@ -631,6 +638,7 @@ namespace Better_Work_Tab
 
         public float workTabMaxHeight = DefaultSettings.workTabMaxHeight;
         public int workTabMaxVisiblePawns = DefaultSettings.workTabMaxVisiblePawns;
+        public bool keepVanillaWorkTabMinimumWidth = DefaultSettings.keepVanillaWorkTabMinimumWidth;
         public float workTabTopSpace = DefaultSettings.workTabTopSpace;
 
         public enum RulesetViewMode

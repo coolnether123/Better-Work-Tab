@@ -9,6 +9,9 @@ namespace Better_Work_Tab.PawnOrganizer
     /// </summary>
     public readonly struct WorkTabLayoutColumn
     {
+        private readonly Rect _headerContentRect;
+        private readonly PawnTable _table;
+
         public WorkTabLayoutColumn(PawnColumnDef column, Rect headerRect, float offsetX, float width)
             : this(column, headerRect, offsetX, width, null, null, -1, false)
         {
@@ -22,10 +25,12 @@ namespace Better_Work_Tab.PawnOrganizer
             WorkTypeDef subWorkParent,
             WorkGiverDef subWorkGiver,
             int subWorkSlot,
-            bool isExpandBesideChild)
+            bool isExpandBesideChild,
+            PawnTable table = null)
         {
             Column = column;
-            HeaderRect = headerRect;
+            _headerContentRect = headerRect;
+            _table = table;
             OffsetX = offsetX;
             Width = width;
             SubWorkParent = subWorkParent;
@@ -35,7 +40,26 @@ namespace Better_Work_Tab.PawnOrganizer
         }
 
         public PawnColumnDef Column { get; }
-        public Rect HeaderRect { get; }
+        /// <summary>
+        /// Header position in the current window coordinate space. Headers are drawn outside
+        /// PawnTable's scroll group, so they must explicitly follow its horizontal offset.
+        /// </summary>
+        public Rect HeaderRect
+        {
+            get
+            {
+                Rect rect = _headerContentRect;
+                if (_table != null)
+                {
+                    rect.x -= _table.scrollPosition.x;
+                }
+
+                return rect;
+            }
+        }
+
+        /// <summary>Stable unscrolled header position used by reorder animation snapshots.</summary>
+        internal Rect HeaderContentRect => _headerContentRect;
         public float OffsetX { get; }
         public float Width { get; }
         public WorkTypeDef SubWorkParent { get; }

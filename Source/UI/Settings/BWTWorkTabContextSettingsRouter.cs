@@ -208,6 +208,10 @@ namespace Better_Work_Tab.UI.Settings
                     SubWorkOpenButton,
                     SubWorkTransitionMode,
                     SubWorkTransitionSpeed,
+                    CompatFluffyWorkTabHeader,
+                    FluffyStyleFeatures,
+                    FluffyStyleTopButtons,
+                    FluffyStyleStandaloneTopButtons,
                     SubWorkAutoExpandColumns,
                     SubWorkEvenlyExpandColumns,
                     isWorkHeader ? PriorityHeader : null);
@@ -417,9 +421,14 @@ namespace Better_Work_Tab.UI.Settings
                 FeaturesWorkloads,
                 FeaturesAutoassign,
                 FeaturesSubWorkJobs,
+                CompatFluffyWorkTabHeader,
+                FluffyStyleFeatures,
+                FluffyStyleTopButtons,
+                FluffyStyleStandaloneTopButtons,
                 HeadersCustomWorkLabels,
                 PriorityHeader,
                 UiContextSettingsHint,
+                LayoutWorkTabMinimumWidth,
                 LayoutWorkTabMaxHeight,
                 LayoutWorkTabTopSpace);
         }

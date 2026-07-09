@@ -80,6 +80,7 @@ namespace Better_Work_Tab.UI
         private const float MinimumPawnRenderHeight = 30f;
         private const float DefaultPawnRowHeight = 30f;
         private const float ScrollViewFitAllowance = 4f;
+        private const float HorizontalScrollbarHeight = 16f;
         private const float HostedFirstSubWorkAngledHeaderOffsetX = 5f;
         private const float ChooserPanelHeight = 118f;
         private const float ChooserWindowHeight = ChooserPanelHeight + 26f;
@@ -469,6 +470,7 @@ namespace Better_Work_Tab.UI
             float screenBottom = Verse.UI.screenHeight - 35f;
             rect.width = requestedSize.x;
             rect.height = requestedSize.y;
+            rect.x = Mathf.Clamp(rect.x, 0f, Mathf.Max(0f, Verse.UI.screenWidth - rect.width));
             rect.y = Mathf.Max(0f, screenBottom - rect.height);
             windowRect = rect;
         }
@@ -658,7 +660,16 @@ namespace Better_Work_Tab.UI
                     float pinnedRowsHeight = GetPinnedRowsHeight();
                     float layoutHeight = organizer.Layout.HeaderHeight + pinnedRowsHeight + organizer.Layout.ContentHeight;
                     finalHeight = layoutHeight + ExtraBottomSpace + ExtraTopSpace + Margin * 2f + ScrollViewFitAllowance;
-                    finalWidth = GetVisualTableScrollWidth(organizer.Layout, table) + Margin * 2f + 25f; // Added 20f to stop headers from clipping edge
+                    float tableScrollWidth = GetVisualTableScrollWidth(organizer.Layout, table);
+                    if (BetterWorkTabMod.Settings?.keepVanillaWorkTabMinimumWidth ??
+                        DefaultSettings.keepVanillaWorkTabMinimumWidth)
+                    {
+                        // PawnTable.Size.x is the width vanilla MainTabWindow_PawnTable requests.
+                        // Preserve it as a floor while still allowing wider rendered content to grow right.
+                        tableScrollWidth = Mathf.Max(tableScrollWidth, table.Size.x);
+                    }
+
+                    finalWidth = tableScrollWidth + Margin * 2f + 25f; // Added 20f to stop headers from clipping edge
                 }
                 else
                 {
@@ -667,7 +678,14 @@ namespace Better_Work_Tab.UI
                     finalWidth = table.Size.x + Margin * 2f + 25f; // Same as above
                 }
 
+                float maxWindowWidth = Mathf.Max(1f, Verse.UI.screenWidth - 2f);
+                if (finalWidth > maxWindowWidth + 0.5f)
+                {
+                    finalHeight += HorizontalScrollbarHeight;
+                }
+
                 finalHeight = Mathf.Min(finalHeight, GetConfiguredMaxWindowHeight(organizer?.Layout, table));
+                finalWidth = Mathf.Min(finalWidth, maxWindowWidth);
 
                 return new Vector2(finalWidth, finalHeight);
             }
@@ -1132,14 +1150,24 @@ namespace Better_Work_Tab.UI
             float pinnedRowsHeight = GetPinnedRowsHeight();
             float totalHeight = pinnedRowsHeight + layout.ContentHeight;
             FluffyWorkTabGateway.PrepareHostedDraw(table);
+            float viewportLeft = layout.TableOrigin.x;
+            float viewportRight = viewportLeft + GetTableViewportWidth(layout);
+            const float HorizontalCullBuffer = 64f;
 
             foreach (var column in layout.Columns)
             {
+                Rect animatedHeaderRect = GetAnimatedHeaderRect(column);
+                if (animatedHeaderRect.xMax < viewportLeft - HorizontalCullBuffer ||
+                    animatedHeaderRect.xMin > viewportRight + HorizontalCullBuffer)
+                {
+                    continue;
+                }
+
                 bool isWorkColumn = WorkTabColumnHighlightUtility.IsHighlightableWorkColumn(column);
                 Rect headerRect = FluffyWorkTabGateway.GetHostedHeaderLaneRect(
                     column.Column,
                     table,
-                    GetAnimatedHeaderRect(column));
+                    animatedHeaderRect);
                 WorkTypeDef workType = ResolveRuleBuilder2WorkType(column);
                 WorkGiverDef workGiver = ResolveRuleBuilder2WorkGiver(column);
                 bool timePriorityOwnsMouse = TimePriorityPlannerPrototype.OwnsCurrentMousePosition;
@@ -1793,6 +1821,17 @@ namespace Better_Work_Tab.UI
             }
 
             return Mathf.Ceil(visualColumnWidth + 16f);
+        }
+
+        private static float GetTableViewportWidth(IWorkTabLayoutController layout)
+        {
+            if (layout?.Table == null)
+            {
+                return 0f;
+            }
+
+            float available = Mathf.Max(1f, Verse.UI.screenWidth - layout.TableOrigin.x - 2f);
+            return Mathf.Min(GetVisualTableScrollWidth(layout, layout.Table), available);
         }
 
         private static float GetVisualColumnWidth(IWorkTabLayoutController layout)
@@ -3082,6 +3121,19 @@ namespace Better_Work_Tab.UI
             try
             {
                 var nameColumn = FindNameColumn(columns);
+                IReadOnlyList<WorkTabLayoutColumn> renderColumns = columns;
+                var settings = BetterWorkTabMod.Settings;
+                if ((settings?.enablePerformanceOptimizations ?? true) &&
+                    (settings?.viewportCulling ?? true) &&
+                    viewRect.width > outRect.width + 0.5f)
+                {
+                    const float HorizontalCullBuffer = 64f;
+                    float visibleLeft = table.scrollPosition.x - HorizontalCullBuffer;
+                    float visibleRight = table.scrollPosition.x + outRect.width + HorizontalCullBuffer;
+                    renderColumns = columns
+                        .Where(column => column.OffsetX + column.Width >= visibleLeft && column.OffsetX <= visibleRight)
+                        .ToList();
+                }
 
                 // Calculate dimensions once for all highlight operations
                 float totalWidth = CalculateTotalColumnWidth(columns);
@@ -3092,7 +3144,7 @@ namespace Better_Work_Tab.UI
                     SpineTiming.Time("WorkTab.Rows.DrawAllHighlights", () => DrawAllHighlights(rowDescriptors, columns, totalWidth, totalHeight));
                     SpineTiming.Time("WorkTab.Rows.DrawAllRowContent", () => DrawAllRowContent(table,
                         rowDescriptors,
-                        columns,
+                        renderColumns,
                         viewRect.width,
                         nameColumn,
                         outRect,
@@ -3107,7 +3159,7 @@ namespace Better_Work_Tab.UI
                     // Phase 2: Draw actual row content (pawn data, divider labels, backgrounds)
                     DrawAllRowContent(table,
                         rowDescriptors,
-                        columns,
+                        renderColumns,
                         viewRect.width,
                         nameColumn,
                         outRect,
@@ -3518,11 +3570,13 @@ namespace Better_Work_Tab.UI
                 (layout.TableOrigin.y + headerHeight));
 
             float tableScrollWidth = GetVisualTableScrollWidth(layout, layout.Table);
+            float availableWidth = Mathf.Max(1f, inRect.xMax - layout.TableOrigin.x);
+            float viewportWidth = Mathf.Min(tableScrollWidth, availableWidth);
 
             outRect = new Rect( 
                 layout.TableOrigin.x,
                 layout.TableOrigin.y + headerHeight,
-                tableScrollWidth,
+                viewportWidth,
                 scrollAreaHeight);
 
             float pinnedRowsHeight = GetPinnedRowsHeight();
@@ -3532,15 +3586,19 @@ namespace Better_Work_Tab.UI
                 outRect.height = Mathf.Max(0f, outRect.height - pinnedRowsHeight);
             }
 
-            float widthWithoutScrollbar = tableScrollWidth - 16f;
+            float widthWithoutScrollbar = viewportWidth - 16f;
             float totalColumnWidth = layout.Columns.Count > 0
                 ? layout.Columns[layout.Columns.Count - 1].OffsetX + layout.Columns[layout.Columns.Count - 1].Width
                 : widthWithoutScrollbar;
             float viewWidth = Mathf.Max(widthWithoutScrollbar, totalColumnWidth);
             float contentHeight = Mathf.Max(layout.ContentHeight, 1f);
-            if (contentHeight <= outRect.height + 0.5f)
+            bool needsHorizontalScrollbar = totalColumnWidth > outRect.width + 0.5f;
+            float fittedViewportHeight = Mathf.Max(
+                1f,
+                outRect.height - (needsHorizontalScrollbar ? HorizontalScrollbarHeight : 0f));
+            if (contentHeight <= fittedViewportHeight + 0.5f)
             {
-                contentHeight = outRect.height;
+                contentHeight = fittedViewportHeight;
             }
             viewRect = new Rect(0f, 0f, viewWidth, contentHeight);
 
@@ -3575,7 +3633,7 @@ namespace Better_Work_Tab.UI
                 return false;
             }
 
-            float localX = mousePosition.x - layout.TableOrigin.x;
+            float localX = mousePosition.x - layout.TableOrigin.x + layout.Table.scrollPosition.x;
             if (localX < 0f)
             {
                 return false;

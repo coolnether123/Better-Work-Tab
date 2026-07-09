@@ -865,9 +865,6 @@ namespace Better_Work_Tab.PawnOrganizer
             }
 
             var visibleColumns = new List<VisibleColumnSpec>();
-            bool focusedHostedColumnsResolved = false;
-            List<PawnColumnDef> focusedHostedColumns = null;
-            int focusedSourceSlot = 0;
             for (int i = 0; i < allColumns.Count; i++)
             {
                 var def = allColumns[i];
@@ -880,53 +877,6 @@ namespace Better_Work_Tab.PawnOrganizer
                     (def?.workType != null &&
                      FluffyWorkTabGateway.IsFluffyColumn(def) &&
                      !FluffyWorkTabGateway.IsFluffyWorkGiverColumn(def));
-
-                if (SubWorkDrilldownState.IsActive &&
-                    isSourceWorkColumn &&
-                    FluffyWorkTabGateway.CanHostFluffySubWorkColumns)
-                {
-                    if (!focusedHostedColumnsResolved)
-                    {
-                        focusedHostedColumnsResolved = true;
-                        FluffyWorkTabGateway.TryBuildHostedColumnSpecs(
-                            def,
-                            SubWorkDrilldownState.ActiveWorkType,
-                            out _,
-                            out focusedHostedColumns);
-                    }
-
-                    IReadOnlyList<WorkGiver> activeWorkGivers = SubWorkDrilldownState.ActiveWorkGivers;
-                    WorkGiverDef focusedWorkGiver = focusedSourceSlot < activeWorkGivers.Count
-                        ? activeWorkGivers[focusedSourceSlot]?.def
-                        : null;
-                    PawnColumnDef focusedColumn = null;
-                    if (focusedWorkGiver != null && focusedHostedColumns != null)
-                    {
-                        for (int hostedIndex = 0; hostedIndex < focusedHostedColumns.Count; hostedIndex++)
-                        {
-                            PawnColumnDef candidate = focusedHostedColumns[hostedIndex];
-                            if (FluffyWorkTabGateway.TryGetHostedWorkGiver(candidate) == focusedWorkGiver)
-                            {
-                                focusedColumn = candidate;
-                                break;
-                            }
-                        }
-                    }
-
-                    if (focusedColumn != null)
-                    {
-                        visibleColumns.Add(new VisibleColumnSpec(
-                            focusedColumn,
-                            i,
-                            SubWorkDrilldownState.ActiveWorkType,
-                            focusedWorkGiver,
-                            focusedSourceSlot,
-                            isExpandBesideChild: true));
-                    }
-
-                    focusedSourceSlot++;
-                    continue;
-                }
 
                 if (SubWorkDrilldownState.IsActive &&
                     isSourceWorkColumn &&
@@ -1085,7 +1035,8 @@ namespace Better_Work_Tab.PawnOrganizer
                     spec.SubWorkParent,
                     spec.SubWorkGiver,
                     spec.SubWorkSlot,
-                    spec.IsExpandBesideChild));
+                    spec.IsExpandBesideChild,
+                    _table));
                 currentX += width;
                 if (i < visibleColumns.Count - 1)
                 {
@@ -1301,6 +1252,13 @@ namespace Better_Work_Tab.PawnOrganizer
         private static bool ShouldExpandSubWorkPriorityColumns(BetterWorkTabSettings settings)
         {
             if (!(settings?.subWorkAutoExpandColumns ?? DefaultSettings.subWorkAutoExpandColumns))
+            {
+                return false;
+            }
+
+            // Compact window mode must retain the natural focused-column span. Filling the
+            // vanilla table surplus here would silently prevent the window from shrinking.
+            if (!(settings?.keepVanillaWorkTabMinimumWidth ?? DefaultSettings.keepVanillaWorkTabMinimumWidth))
             {
                 return false;
             }
