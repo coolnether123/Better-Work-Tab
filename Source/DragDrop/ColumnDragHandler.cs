@@ -120,7 +120,10 @@ namespace Better_Work_Tab.DragDrop
             bool lineOnly = true;
             bool pointerBeyondSubWorkStrip = _subWorkDrilldownDrag &&
                 SubWorkCrossWorkDropTargetRenderer.IsEnabled &&
-                SubWorkCrossWorkDropTargetRenderer.IsPointerBeyondSubWorkStrip(Layout, _lastMousePos);
+                SubWorkCrossWorkDropTargetRenderer.IsPointerBeyondSubWorkStrip(
+                    Layout,
+                    _lastMousePos,
+                    _subWorkType);
 
             if (!lineOnly && showGhost)
             {
@@ -531,7 +534,13 @@ namespace Better_Work_Tab.DragDrop
             }
 
             return _workColumns
-                .Where(c => SubWorkDrilldownState.TryGetWorkGiverForColumn(c, out _, out _, out _))
+                .Where(c =>
+                    SubWorkDrilldownState.TryGetWorkGiverForColumn(
+                        c,
+                        out _,
+                        out var parentWorkType,
+                        out _) &&
+                    parentWorkType == _subWorkType)
                 .ToList();
         }
 
@@ -598,7 +607,7 @@ namespace Better_Work_Tab.DragDrop
                     return;
                 }
 
-                var current = SubWorkDrilldownState.ActiveWorkGivers;
+                var current = WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(_subWorkType);
                 int maxIndex = Mathf.Max(0, (current?.Count ?? 0) - 1);
                 int insertIndex = Mathf.Clamp(TargetIndex, 0, maxIndex);
 
@@ -615,6 +624,7 @@ namespace Better_Work_Tab.DragDrop
             finally
             {
                 BetterWorkTabLocalState.IsHeaderDragging = false;
+                ClearCrossWorkDropTarget();
             }
         }
 
@@ -624,7 +634,10 @@ namespace Better_Work_Tab.DragDrop
             if (!_subWorkDrilldownDrag ||
                 _subWorkType == null ||
                 !SubWorkCrossWorkDropTargetRenderer.IsEnabled ||
-                !SubWorkCrossWorkDropTargetRenderer.IsPointerBeyondSubWorkStrip(Layout, mousePos))
+                !SubWorkCrossWorkDropTargetRenderer.IsPointerBeyondSubWorkStrip(
+                    Layout,
+                    mousePos,
+                    _subWorkType))
             {
                 return;
             }
@@ -644,7 +657,6 @@ namespace Better_Work_Tab.DragDrop
                 _crossWorkDropTargetValid = valid;
             }
 
-            SubWorkCrossWorkDropTargetRenderer.SetLiveTargets(_subWorkType, targetWorkType, valid);
         }
 
         private void ClearCrossWorkDropTarget()
@@ -652,7 +664,6 @@ namespace Better_Work_Tab.DragDrop
             _crossWorkDropTarget = null;
             _crossWorkDropTargetRect = Rect.zero;
             _crossWorkDropTargetValid = false;
-            SubWorkCrossWorkDropTargetRenderer.ClearLiveTargets();
         }
 
         private bool TryCommitCrossWorkReassignment()

@@ -61,6 +61,20 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         internal static WorkTypeDef ActiveWorkType => _activeWorkType;
 
+        internal static IEnumerable<WorkTypeDef> ExpandBesideWorkTypes
+        {
+            get
+            {
+                foreach (ExpandBesideEntry entry in ExpandBesideEntries.Values)
+                {
+                    if (entry?.WorkType != null)
+                    {
+                        yield return entry.WorkType;
+                    }
+                }
+            }
+        }
+
         internal static int CurrentDrawingHeaderSignature
         {
             get
@@ -176,7 +190,56 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         internal static bool IsTransitioning => IsActive && UseTransitionAnimation && (_isExiting || TransitionAlpha < 0.999f);
 
-        internal static bool IsExpandBesideTransitioning => false;
+        internal static bool IsExpandBesideTransitioning
+        {
+            get
+            {
+                if (!IsExpandBesideActive || !UseTransitionAnimation)
+                {
+                    return false;
+                }
+
+                foreach (ExpandBesideEntry entry in ExpandBesideEntries.Values)
+                {
+                    if (entry.IsCollapsing || entry.VisualProgress < 0.999f)
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+        }
+
+        internal static float ExpandBesideHeaderExpansionProgress
+        {
+            get
+            {
+                if (!IsExpandBesideActive)
+                {
+                    return 0f;
+                }
+
+                float progress = 0f;
+                foreach (ExpandBesideEntry entry in ExpandBesideEntries.Values)
+                {
+                    progress = Mathf.Max(progress, entry.VisualProgress);
+                }
+
+                return Mathf.Clamp01(progress);
+            }
+        }
+
+        internal static float GetExpandBesideHeaderAlpha(WorkTypeDef workType)
+        {
+            if (workType?.defName == null ||
+                !ExpandBesideEntries.TryGetValue(workType.defName, out var entry))
+            {
+                return 1f;
+            }
+
+            return Mathf.Clamp01(entry.VisualProgress);
+        }
 
         internal static int TransitionLayoutFrame
         {

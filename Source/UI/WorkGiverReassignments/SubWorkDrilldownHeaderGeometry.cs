@@ -20,7 +20,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
         internal static void RecordNormalHeaderHeight(PawnTable table, float currentHeaderHeight)
         {
-            if (SubWorkDrilldownState.IsActive)
+            if (SubWorkDrilldownState.HasAnyDrilldown)
             {
                 return;
             }
@@ -67,24 +67,26 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
         internal static float GetHeaderHeightExpansion(PawnTable table)
         {
-            if (!SubWorkDrilldownState.IsActive || table == null)
+            if (!SubWorkDrilldownState.HasAnyDrilldown || table == null)
             {
                 _cachedExpansionWorkTypeDefName = null;
                 _cachedFullExpansion = -1f;
                 return 0f;
             }
 
-            if (SubWorkDrilldownState.UseClassicTransition)
+            if (SubWorkDrilldownState.IsActive && SubWorkDrilldownState.UseClassicTransition)
             {
                 _cachedExpansionWorkTypeDefName = null;
                 _cachedFullExpansion = -1f;
                 return 0f;
             }
 
-            string activeDefName = SubWorkDrilldownState.ActiveWorkType?.defName ?? string.Empty;
+            string activeDefName = SubWorkDrilldownState.IsActive
+                ? SubWorkDrilldownState.ActiveWorkType?.defName ?? string.Empty
+                : "expand-beside:" + SubWorkDrilldownState.MeasurementSignature;
             if (_cachedExpansionWorkTypeDefName != activeDefName || _cachedFullExpansion < 0f)
             {
-                if (SubWorkDrilldownState.IsExiting)
+                if (SubWorkDrilldownState.IsActive && SubWorkDrilldownState.IsExiting)
                 {
                     _cachedFullExpansion = 0f;
                     _cachedExpansionWorkTypeDefName = activeDefName;
@@ -96,7 +98,10 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 _cachedExpansionWorkTypeDefName = activeDefName;
             }
 
-            return _cachedFullExpansion * Mathf.Clamp01(SubWorkDrilldownState.ModeVisualProgress);
+            float progress = SubWorkDrilldownState.IsActive
+                ? SubWorkDrilldownState.ModeVisualProgress
+                : SubWorkDrilldownState.ExpandBesideHeaderExpansionProgress;
+            return _cachedFullExpansion * Mathf.Clamp01(progress);
         }
 
         private static float GetNormalHeaderHeight(PawnTable table)
@@ -125,8 +130,60 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             }
 
             float needed = AngledLabelDrawer.GetNeededHeight(table);
+            if (SubWorkDrilldownState.IsExpandBesideActive)
+            {
+                needed = Mathf.Max(needed, GetExpandBesideAngledHeaderNeededHeight());
+            }
+
             int padding = HeaderUtility.IsAnyCJKVertical(table) ? 2 : 10;
             return Mathf.Ceil(needed + padding);
+        }
+
+        private static float GetExpandBesideAngledHeaderNeededHeight()
+        {
+            float maxHeight = 0f;
+            float rotation = AngledLabelDrawer.CurrentRotation;
+            float absSin = Mathf.Abs(Mathf.Sin(rotation * Mathf.Deg2Rad));
+            float absCos = Mathf.Abs(Mathf.Cos(rotation * Mathf.Deg2Rad));
+
+            GameFont oldFont = Text.Font;
+            bool oldWordWrap = Text.WordWrap;
+            try
+            {
+                Text.Font = GameFont.Small;
+                Text.WordWrap = false;
+                foreach (WorkTypeDef workType in SubWorkDrilldownState.ExpandBesideWorkTypes)
+                {
+                    var workGivers = WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(workType);
+                    for (int i = 0; i < workGivers.Count; i++)
+                    {
+                        WorkGiverDef workGiverDef = workGivers[i]?.def;
+                        if (workGiverDef == null)
+                        {
+                            continue;
+                        }
+
+                        string label = WorkGiverDisplayNameService.HeaderLabel(
+                            workGiverDef,
+                            WorkGiverHeaderLabelStyle.Standard);
+                        if (label.NullOrEmpty())
+                        {
+                            continue;
+                        }
+
+                        Vector2 size = Text.CalcSize(label);
+                        float height = (size.x * absSin) + (size.y * absCos);
+                        maxHeight = Mathf.Max(maxHeight, height);
+                    }
+                }
+            }
+            finally
+            {
+                Text.Font = oldFont;
+                Text.WordWrap = oldWordWrap;
+            }
+
+            return maxHeight + AngledLabelDrawer.STEM_BOTTOM_GAP;
         }
     }
 }

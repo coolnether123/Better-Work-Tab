@@ -31,6 +31,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             float reservedHeight = Mathf.Max(0f, ReservedRowHeight);
             if (reservedHeight <= 0.5f)
             {
+                SubWorkCrossWorkDropTargetRenderer.DrawSettleAnimation(layout);
                 return;
             }
 
@@ -85,7 +86,6 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 }
             }
 
-            SubWorkCrossWorkDropTargetRenderer.DrawDebugTargetsIfNeeded(layout);
             SubWorkCrossWorkDropTargetRenderer.DrawSettleAnimation(layout);
         }
 

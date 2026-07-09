@@ -79,8 +79,12 @@ namespace Better_Work_Tab.UI
         private const float MinWorkTabHeight = 200f;
         private const float MinimumPawnRenderHeight = 30f;
         private const float DefaultPawnRowHeight = 30f;
-        private const float WindowHeightAnimationResponseSeconds = 0.16f;
+        private const float ScrollViewFitAllowance = 4f;
         private const float HostedFirstSubWorkAngledHeaderOffsetX = 5f;
+        private const float ChooserPanelHeight = 118f;
+        private const float ChooserWindowHeight = ChooserPanelHeight + 26f;
+        private const float ChooserWindowGap = 6f;
+        private const int ChooserImmediateWindowId = 984361;
 
         protected override float ExtraTopSpace =>
             Mathf.Clamp(
@@ -100,10 +104,6 @@ namespace Better_Work_Tab.UI
         private int _pendingSubWorkExitColumnSlot = -1;
         private float _pendingSubWorkExitWaveSlotPosition = -1f;
         private int _suppressSubWorkPriorityMouseDownFrame = -1;
-        private float _animatedWindowHeight = -1f;
-        private float _lastWindowHeightAnimationTime = -1f;
-        private bool _windowHeightAnimationActive;
-
         private static Color CurrentRowTextColor = Color.white;
 
         public override void PreOpen()
@@ -117,10 +117,6 @@ namespace Better_Work_Tab.UI
 
             _lastSortColumn = null;
             _lastSortDescending = false;
-            _animatedWindowHeight = windowRect.height;
-            _lastWindowHeightAnimationTime = Time.realtimeSinceStartup;
-            _windowHeightAnimationActive = false;
-
             if (PawnOrganizerSystem.Instance == null)
             {
                 var widthStore = new ColumnWidthPersistence();
@@ -277,7 +273,16 @@ namespace Better_Work_Tab.UI
             }
 
             var organizer = PawnOrganizerSystem.Instance;
-            Vector2 tableOrigin = new Vector2(inRect.x, inRect.y + ExtraTopSpace);
+            float effectiveHeaderHeight = SubWorkDrilldownHeaderGeometry.GetEffectiveHeaderHeight(table);
+            float previousContentHeight = organizer?.Layout?.ContentHeight ??
+                Mathf.Max(0f, table.Size.y - effectiveHeaderHeight);
+            float tableOriginY = inRect.yMax -
+                ExtraBottomSpace -
+                ScrollViewFitAllowance -
+                effectiveHeaderHeight -
+                GetPinnedRowsHeight() -
+                previousContentHeight;
+            Vector2 tableOrigin = new Vector2(inRect.x, tableOriginY);
             var snapshot = BuildSnapshotForOrganizer(table);
 
             SubWorkDrilldownState.TickTransition();
@@ -292,6 +297,18 @@ namespace Better_Work_Tab.UI
                 }
                 else
                 {
+                    organizer.Update(table, tableOrigin, snapshot);
+                }
+
+                float anchoredOriginY = inRect.yMax -
+                    ExtraBottomSpace -
+                    ScrollViewFitAllowance -
+                    organizer.Layout.HeaderHeight -
+                    GetPinnedRowsHeight() -
+                    organizer.Layout.ContentHeight;
+                if (Mathf.Abs(anchoredOriginY - tableOrigin.y) > 0.01f)
+                {
+                    tableOrigin.y = anchoredOriginY;
                     organizer.Update(table, tableOrigin, snapshot);
                 }
             }
@@ -317,7 +334,6 @@ namespace Better_Work_Tab.UI
                             || HeaderButtons.TryHandleTopRightFluffyStyleInput(organizer?.Layout, inRect, evt)
                             || TryHandleContextSettingsClick(inRect, organizer?.Layout, evt)
                             || TryHandleRuleBuilder2WorkTabInput(organizer?.Layout, evt)
-                            || TryHandleSubWorkStyleChooser(organizer?.Layout, evt)
                             || TimePriorityPlannerPrototype.TryHandleInput(organizer?.Layout, evt)
                             || TryHandleSubWorkBadgeClick(organizer?.Layout)
                             || TryHandleSubWorkExitGesture(organizer?.Layout)
@@ -344,7 +360,6 @@ namespace Better_Work_Tab.UI
                         || HeaderButtons.TryHandleTopRightFluffyStyleInput(organizer?.Layout, inRect, evt)
                         || TryHandleContextSettingsClick(inRect, organizer?.Layout, evt)
                         || TryHandleRuleBuilder2WorkTabInput(organizer?.Layout, evt)
-                        || TryHandleSubWorkStyleChooser(organizer?.Layout, evt)
                         || TimePriorityPlannerPrototype.TryHandleInput(organizer?.Layout, evt)
                         || TryHandleSubWorkBadgeClick(organizer?.Layout)
                         || TryHandleSubWorkExitGesture(organizer?.Layout)
@@ -361,16 +376,15 @@ namespace Better_Work_Tab.UI
 
                 SuppressSubWorkPriorityMouseDownIfNeeded(evt);
                 RefreshSubWorkLayoutIfNeeded(organizer, table, tableOrigin, snapshot);
+                ResizeWindowBottomAnchoredIfRequestedSizeChanged();
             }
 
             UpdateRuleBuilder2WorkTabHover(organizer?.Layout, inRect);
-            PrepareSubWorkStyleChooserPreview(organizer, table, tableOrigin, snapshot, inRect);
 
             DrawWorkTable(table, organizer?.Layout, inRect);
 
             TimePriorityPlannerPrototype.Draw(organizer?.Layout);
-            DrawSubWorkStyleChooserComparison(organizer?.Layout, inRect);
-            FluffyWorkTabGateway.DrawSubWorkDrilldownStyleChooser(organizer?.Layout, inRect);
+            DrawSubWorkStyleChooserComparison(organizer?.Layout);
 
             if (SpineTiming.Enabled)
             {
@@ -428,28 +442,6 @@ namespace Better_Work_Tab.UI
             }
         }
 
-        private void PrepareSubWorkStyleChooserPreview(
-            PawnOrganizerSystem organizer,
-            PawnTable table,
-            Vector2 tableOrigin,
-            IPawnOrganizerSnapshot snapshot,
-            Rect inRect)
-        {
-            IWorkTabLayoutController layout = organizer?.Layout;
-            if (!TryBuildChooserComparisonGeometry(layout, inRect, out ChooserComparisonGeometry geometry))
-            {
-                FluffyWorkTabGateway.UpdateSubWorkDrilldownStyleChooserPreview(layout);
-                RefreshSubWorkLayoutIfNeeded(organizer, table, tableOrigin, snapshot);
-                return;
-            }
-
-            FluffyWorkTabGateway.RegisterSubWorkStyleChooserRegions(
-                geometry.FocusRegion,
-                geometry.ExpandRegion);
-            FluffyWorkTabGateway.UpdateSubWorkDrilldownStyleChooserPreview(layout);
-            RefreshSubWorkLayoutIfNeeded(organizer, table, tableOrigin, snapshot);
-        }
-
         private void UpdateTutorialAcceptKeyState()
         {
             // Keep RimWorld's accept-key dispatch enabled. The override above
@@ -467,61 +459,16 @@ namespace Better_Work_Tab.UI
             }
 
             Rect rect = windowRect;
-            float targetHeight = requestedSize.y;
-            float nextHeight = targetHeight;
-            bool growing = targetHeight > rect.height + 0.5f;
-            bool animateHeight = !force &&
-                !growing &&
-                (Mathf.Abs(rect.height - targetHeight) >= 0.5f || _windowHeightAnimationActive);
-
-            if (force || _animatedWindowHeight <= 0f)
-            {
-                _animatedWindowHeight = rect.height > 0f ? rect.height : targetHeight;
-                _lastWindowHeightAnimationTime = Time.realtimeSinceStartup;
-                _windowHeightAnimationActive = false;
-            }
-
-            if (animateHeight)
-            {
-                _windowHeightAnimationActive = true;
-                float now = Time.realtimeSinceStartup;
-                float delta = _lastWindowHeightAnimationTime > 0f
-                    ? Mathf.Clamp(now - _lastWindowHeightAnimationTime, 0f, 0.05f)
-                    : 0.016f;
-                _lastWindowHeightAnimationTime = now;
-                float t = delta <= 0f ? 0f : 1f - Mathf.Exp(-delta / WindowHeightAnimationResponseSeconds);
-                _animatedWindowHeight = Mathf.Lerp(_animatedWindowHeight, targetHeight, t);
-                if (Mathf.Abs(_animatedWindowHeight - targetHeight) < 0.5f)
-                {
-                    _animatedWindowHeight = targetHeight;
-                    _windowHeightAnimationActive = false;
-                }
-
-                nextHeight = _animatedWindowHeight;
-            }
-            else if (growing)
-            {
-                _animatedWindowHeight = targetHeight;
-                _lastWindowHeightAnimationTime = Time.realtimeSinceStartup;
-                _windowHeightAnimationActive = false;
-            }
-            else
-            {
-                _animatedWindowHeight = targetHeight;
-                _lastWindowHeightAnimationTime = Time.realtimeSinceStartup;
-                _windowHeightAnimationActive = false;
-            }
-
             if (!force &&
                 Mathf.Abs(rect.width - requestedSize.x) < 0.5f &&
-                Mathf.Abs(rect.height - nextHeight) < 0.5f)
+                Mathf.Abs(rect.height - requestedSize.y) < 0.5f)
             {
                 return;
             }
 
             float screenBottom = Verse.UI.screenHeight - 35f;
             rect.width = requestedSize.x;
-            rect.height = nextHeight;
+            rect.height = requestedSize.y;
             rect.y = Mathf.Max(0f, screenBottom - rect.height);
             windowRect = rect;
         }
@@ -710,13 +657,13 @@ namespace Better_Work_Tab.UI
                     // This is consistent during drag, preventing scrollbar flickers
                     float pinnedRowsHeight = GetPinnedRowsHeight();
                     float layoutHeight = organizer.Layout.HeaderHeight + pinnedRowsHeight + organizer.Layout.ContentHeight;
-                    finalHeight = layoutHeight + ExtraBottomSpace + ExtraTopSpace + Margin * 2f;
+                    finalHeight = layoutHeight + ExtraBottomSpace + ExtraTopSpace + Margin * 2f + ScrollViewFitAllowance;
                     finalWidth = GetVisualTableScrollWidth(organizer.Layout, table) + Margin * 2f + 25f; // Added 20f to stop headers from clipping edge
                 }
                 else
                 {
                     // Fallback to vanilla size if organizer not ready
-                    finalHeight = table.Size.y + ExtraBottomSpace + ExtraTopSpace + Margin * 2f;
+                    finalHeight = table.Size.y + ExtraBottomSpace + ExtraTopSpace + Margin * 2f + ScrollViewFitAllowance;
                     finalWidth = table.Size.x + Margin * 2f + 25f; // Same as above
                 }
 
@@ -972,14 +919,47 @@ namespace Better_Work_Tab.UI
             RuleBuilderGateway.DrawRuleBuilder2SelectionPulse();
         }
 
-        private void DrawSubWorkStyleChooserComparison(IWorkTabLayoutController layout, Rect inRect)
+        private void DrawSubWorkStyleChooserComparison(IWorkTabLayoutController layout)
         {
-            if (!TryBuildChooserComparisonGeometry(layout, inRect, out ChooserComparisonGeometry geometry))
+            if (!CanShowChooserComparison(layout))
             {
                 return;
             }
 
-            if (Event.current.type != EventType.Repaint)
+            Rect chooserWindowRect = GetChooserWindowRect();
+            Find.WindowStack.ImmediateWindow(
+                ChooserImmediateWindowId,
+                chooserWindowRect,
+                WindowLayer.Super,
+                () => DrawSubWorkStyleChooserImmediateWindow(layout, chooserWindowRect.AtZero()),
+                doBackground: false,
+                absorbInputAroundWindow: false,
+                shadowAlpha: 0.35f);
+        }
+
+        private void DrawSubWorkStyleChooserImmediateWindow(
+            IWorkTabLayoutController layout,
+            Rect inRect)
+        {
+            ChooserComparisonGeometry geometry = BuildChooserComparisonGeometry(inRect);
+            FluffyWorkTabGateway.RegisterSubWorkStyleChooserRegions(
+                geometry.FocusRegion,
+                geometry.ExpandRegion);
+
+            Event evt = Event.current;
+            if (evt.type != EventType.Repaint && evt.type != EventType.Layout)
+            {
+                TryHandleSubWorkStyleChooser(layout, evt);
+            }
+
+            if (!FluffyWorkTabGateway.IsSubWorkStyleChooserActive)
+            {
+                return;
+            }
+
+            FluffyWorkTabGateway.UpdateSubWorkDrilldownStyleChooserPreview(layout);
+
+            if (evt.type != EventType.Repaint)
             {
                 return;
             }
@@ -1006,14 +986,12 @@ namespace Better_Work_Tab.UI
                 Text.Font = oldFont;
                 Text.WordWrap = oldWordWrap;
             }
+
+            FluffyWorkTabGateway.DrawSubWorkDrilldownStyleChooser(layout, inRect);
         }
 
-        private bool TryBuildChooserComparisonGeometry(
-            IWorkTabLayoutController layout,
-            Rect inRect,
-            out ChooserComparisonGeometry geometry)
+        private static bool CanShowChooserComparison(IWorkTabLayoutController layout)
         {
-            geometry = default;
             if (!FluffyWorkTabGateway.IsSubWorkStyleChooserActive ||
                 layout?.Table == null ||
                 layout.Columns == null)
@@ -1043,16 +1021,23 @@ namespace Better_Work_Tab.UI
                 return false;
             }
 
-            Rect sourceRect = FluffyWorkTabGateway.ResolveSubWorkStyleChooserSourceRect(layout);
-            if (!IsUsableRect(sourceRect))
-            {
-                sourceRect = sourceColumn.Value.HeaderRect;
-            }
-
-            geometry = BuildChooserComparisonGeometry(
-                inRect,
-                sourceRect);
             return true;
+        }
+
+        private Rect GetChooserWindowRect()
+        {
+            const float screenMargin = 8f;
+            float availableWidth = Mathf.Max(360f, windowRect.width - 80f);
+            float width = Mathf.Min(860f, availableWidth);
+            width = Mathf.Min(width, Mathf.Max(1f, Verse.UI.screenWidth - (screenMargin * 2f)));
+            float x = Mathf.Clamp(
+                windowRect.xMax - width - 18f,
+                screenMargin,
+                Mathf.Max(screenMargin, Verse.UI.screenWidth - width - screenMargin));
+            float y = Mathf.Max(
+                screenMargin,
+                windowRect.yMin - ChooserWindowGap - ChooserWindowHeight);
+            return new Rect(x, y, width, ChooserWindowHeight);
         }
 
         private static WorkTabLayoutColumn? FindChooserSourceColumn(IWorkTabLayoutController layout, WorkTypeDef workType)
@@ -1074,26 +1059,10 @@ namespace Better_Work_Tab.UI
             return null;
         }
 
-        private ChooserComparisonGeometry BuildChooserComparisonGeometry(
-            Rect inRect,
-            Rect sourceRect)
+        private static ChooserComparisonGeometry BuildChooserComparisonGeometry(Rect inRect)
         {
-            const float edgePadding = 40f;
             const float panelGap = 14f;
-            const float panelHeight = 118f;
-
-            float availableWidth = Mathf.Max(360f, inRect.width - (edgePadding * 2f));
-            float panelWidth = Mathf.Min(860f, availableWidth);
-            float availableAboveTable = Mathf.Max(0f, sourceRect.yMin - inRect.yMin - 14f);
-            float panelX = Mathf.Clamp(
-                inRect.center.x - (panelWidth * 0.5f),
-                inRect.xMin + 8f,
-                Mathf.Max(inRect.xMin + 8f, inRect.xMax - panelWidth - 8f));
-            float panelY = availableAboveTable >= 230f
-                ? sourceRect.yMin - panelHeight - 10f
-                : inRect.yMin + 8f;
-
-            Rect panelRect = new Rect(panelX, panelY, panelWidth, panelHeight);
+            Rect panelRect = new Rect(inRect.x, inRect.y, inRect.width, ChooserPanelHeight);
             float choiceWidth = Mathf.Max(160f, (panelRect.width - panelGap) * 0.5f);
             Rect focusRegion = new Rect(panelRect.xMin, panelRect.yMin, choiceWidth, panelRect.height);
             Rect expandRegion = new Rect(focusRegion.xMax + panelGap, panelRect.yMin, choiceWidth, panelRect.height);
@@ -1364,7 +1333,8 @@ namespace Better_Work_Tab.UI
                 drawRect.center,
                 MainTabWindow_BetterWork.ShouldShowColumnMarker(parentWorkType),
                 isCJKVertical,
-                drawRect);
+                drawRect)
+                .WithAlpha(GetHostedSubWorkHeaderAlpha(column));
 
             bool isSorted = table != null && table.SortingBy == column.Column;
             bool sortDescending = table != null && table.SortingDescending;
@@ -1410,7 +1380,8 @@ namespace Better_Work_Tab.UI
                 label,
                 bounds.size,
                 bounds.center,
-                isMoved);
+                isMoved)
+                .WithAlpha(GetHostedSubWorkHeaderAlpha(column));
 
             bool isSorted = table != null && table.SortingBy == column.Column;
             bool sortDescending = table != null && table.SortingDescending;
@@ -1422,6 +1393,16 @@ namespace Better_Work_Tab.UI
                 headerRect,
                 column.Column,
                 labelLayout.ShowMarker);
+        }
+
+        private static float GetHostedSubWorkHeaderAlpha(WorkTabLayoutColumn column)
+        {
+            if (!column.IsExpandBesideChild)
+            {
+                return 1f;
+            }
+
+            return SubWorkDrilldownState.GetExpandBesideHeaderAlpha(column.SubWorkParent);
         }
 
         private static WorkTypeDef ResolveRuleBuilder2WorkType(WorkTabLayoutColumn column)
@@ -3531,7 +3512,10 @@ namespace Better_Work_Tab.UI
         {
             float headerHeight = layout.HeaderHeight;
             float scrollAreaHeight = Mathf.Max(0f,
-        inRect.height - ExtraTopSpace - headerHeight - ExtraBottomSpace);
+                inRect.yMax -
+                ExtraBottomSpace -
+                ScrollViewFitAllowance -
+                (layout.TableOrigin.y + headerHeight));
 
             float tableScrollWidth = GetVisualTableScrollWidth(layout, layout.Table);
 
@@ -3554,6 +3538,10 @@ namespace Better_Work_Tab.UI
                 : widthWithoutScrollbar;
             float viewWidth = Mathf.Max(widthWithoutScrollbar, totalColumnWidth);
             float contentHeight = Mathf.Max(layout.ContentHeight, 1f);
+            if (contentHeight <= outRect.height + 0.5f)
+            {
+                contentHeight = outRect.height;
+            }
             viewRect = new Rect(0f, 0f, viewWidth, contentHeight);
 
         }

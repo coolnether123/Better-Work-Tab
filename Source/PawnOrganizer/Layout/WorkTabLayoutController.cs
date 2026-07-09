@@ -865,6 +865,9 @@ namespace Better_Work_Tab.PawnOrganizer
             }
 
             var visibleColumns = new List<VisibleColumnSpec>();
+            bool focusedHostedColumnsResolved = false;
+            List<PawnColumnDef> focusedHostedColumns = null;
+            int focusedSourceSlot = 0;
             for (int i = 0; i < allColumns.Count; i++)
             {
                 var def = allColumns[i];
@@ -873,19 +876,66 @@ namespace Better_Work_Tab.PawnOrganizer
                     continue;
                 }
 
+                bool isSourceWorkColumn = def?.Worker is PawnColumnWorker_WorkPriority ||
+                    (def?.workType != null &&
+                     FluffyWorkTabGateway.IsFluffyColumn(def) &&
+                     !FluffyWorkTabGateway.IsFluffyWorkGiverColumn(def));
+
                 if (SubWorkDrilldownState.IsActive &&
-                    def?.Worker is PawnColumnWorker_WorkPriority &&
+                    isSourceWorkColumn &&
+                    FluffyWorkTabGateway.CanHostFluffySubWorkColumns)
+                {
+                    if (!focusedHostedColumnsResolved)
+                    {
+                        focusedHostedColumnsResolved = true;
+                        FluffyWorkTabGateway.TryBuildHostedColumnSpecs(
+                            def,
+                            SubWorkDrilldownState.ActiveWorkType,
+                            out _,
+                            out focusedHostedColumns);
+                    }
+
+                    IReadOnlyList<WorkGiver> activeWorkGivers = SubWorkDrilldownState.ActiveWorkGivers;
+                    WorkGiverDef focusedWorkGiver = focusedSourceSlot < activeWorkGivers.Count
+                        ? activeWorkGivers[focusedSourceSlot]?.def
+                        : null;
+                    PawnColumnDef focusedColumn = null;
+                    if (focusedWorkGiver != null && focusedHostedColumns != null)
+                    {
+                        for (int hostedIndex = 0; hostedIndex < focusedHostedColumns.Count; hostedIndex++)
+                        {
+                            PawnColumnDef candidate = focusedHostedColumns[hostedIndex];
+                            if (FluffyWorkTabGateway.TryGetHostedWorkGiver(candidate) == focusedWorkGiver)
+                            {
+                                focusedColumn = candidate;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (focusedColumn != null)
+                    {
+                        visibleColumns.Add(new VisibleColumnSpec(
+                            focusedColumn,
+                            i,
+                            SubWorkDrilldownState.ActiveWorkType,
+                            focusedWorkGiver,
+                            focusedSourceSlot,
+                            isExpandBesideChild: true));
+                    }
+
+                    focusedSourceSlot++;
+                    continue;
+                }
+
+                if (SubWorkDrilldownState.IsActive &&
+                    isSourceWorkColumn &&
                     SubWorkDrilldownState.GetVisibleWorkColumnSlot(def) >= 0 &&
                     !SubWorkDrilldownState.IsTransitioning &&
                     !SubWorkDrilldownState.TryGetWorkGiverForColumn(def, out _, out _))
                 {
                     continue;
                 }
-
-                bool isSourceWorkColumn = def?.Worker is PawnColumnWorker_WorkPriority ||
-                    (def?.workType != null &&
-                     FluffyWorkTabGateway.IsFluffyColumn(def) &&
-                     !FluffyWorkTabGateway.IsFluffyWorkGiverColumn(def));
 
                 visibleColumns.Add(new VisibleColumnSpec(def, i));
 
@@ -978,7 +1028,10 @@ namespace Better_Work_Tab.PawnOrganizer
                 if (visibleColumns[i].IsExpandBesideChild)
                 {
                     w += HostedSubWorkChildColumnPadding;
-                    w *= SubWorkDrilldownState.GetExpandBesideWidthProgress(visibleColumns[i].SubWorkParent);
+                    if (!SubWorkDrilldownState.IsActive)
+                    {
+                        w *= SubWorkDrilldownState.GetExpandBesideWidthProgress(visibleColumns[i].SubWorkParent);
+                    }
                 }
 
                 widths[i] = w;

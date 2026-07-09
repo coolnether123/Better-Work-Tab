@@ -173,9 +173,10 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
         internal static void WarnPatternMiss(MethodBase original, string patternDescription)
         {
-            Log.Warning("[Better Work Tab] Skipping max-priority patch for " +
+            BetterWorkTabMod.DebugLog("Skipping max-priority patch for " +
                 $"{original?.DeclaringType?.Name}.{original?.Name}: unable to locate {patternDescription}. " +
-                "The Work tab will keep vanilla priority wrap behavior for that method.");
+                "The Work tab will keep vanilla priority wrap behavior for that method.",
+                DebugFeature.General);
         }
 
         private static int FindPattern(List<CodeInstruction> codes, int startIndex, Func<List<CodeInstruction>, int, bool> predicate, Func<int, int> resultSelector)

@@ -130,10 +130,11 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
                         Matrix4x4.TRS(-pivot, Quaternion.identity, Vector3.one);
                 }
 
-                DrawLabel(textRect, displayText, showMarker, flipAlpha);
+                float visibleAlpha = flipAlpha * Mathf.Clamp01(layout.Alpha);
+                DrawLabel(textRect, displayText, showMarker, visibleAlpha);
 
                 // Stem Line
-                DrawStemLine(textRect, headerBottom, flipAlpha);
+                DrawStemLine(textRect, headerBottom, visibleAlpha);
                 GUI.matrix = oldMatrix;
 
                 // Sort Indicator

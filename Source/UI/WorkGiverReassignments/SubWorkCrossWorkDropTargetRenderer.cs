@@ -1,11 +1,11 @@
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.TimePriority;
+using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using RimWorld;
 using UnityEngine;
 using Verse;
-using Verse.Sound;
 
 namespace Better_Work_Tab.UI.WorkGiverReassignments
 {
@@ -17,21 +17,17 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         private static Rect _settleSourceRect;
         private static Rect _settleTargetRect;
         private static float _settleStartedAt;
-        private static WorkTypeDef _liveActiveWorkType;
-        private static WorkTypeDef _liveHoveredWorkType;
-        private static bool _liveHoveredTargetValid;
-        internal static bool DebugForceDrawTargets;
-        internal static WorkTypeDef DebugForcedActiveWorkType;
-        internal static WorkTypeDef DebugForcedHoveredWorkType;
-        internal static bool DebugForcedHoveredTargetValid;
 
         internal static bool IsEnabled =>
             BetterWorkTabMod.Settings?.enableSubWorkCrossWorkDragDrop ??
             DefaultSettings.enableSubWorkCrossWorkDragDrop;
 
-        internal static bool IsPointerBeyondSubWorkStrip(IWorkTabLayoutController layout, Vector2 mousePosition)
+        internal static bool IsPointerBeyondSubWorkStrip(
+            IWorkTabLayoutController layout,
+            Vector2 mousePosition,
+            WorkTypeDef sourceWorkType)
         {
-            if (!TryGetSubWorkStripRect(layout, out Rect stripRect))
+            if (!TryGetSubWorkStripRect(layout, sourceWorkType, out Rect stripRect))
             {
                 return false;
             }
@@ -54,7 +50,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             if (!IsEnabled ||
                 layout?.Columns == null ||
                 activeWorkType == null ||
-                !IsPointerBeyondSubWorkStrip(layout, mousePosition))
+                !IsPointerBeyondSubWorkStrip(layout, mousePosition, activeWorkType))
             {
                 return false;
             }
@@ -62,14 +58,13 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             for (int i = 0; i < layout.Columns.Count; i++)
             {
                 var column = layout.Columns[i];
-                WorkTypeDef workType = column.Column?.workType;
-                if (workType == null || !(column.Column?.Worker is PawnColumnWorker_WorkPriority))
+                if (!TryGetDropWorkType(column, out WorkTypeDef workType))
                 {
                     continue;
                 }
 
                 Rect candidateRect = GetTargetRect(layout, column);
-                if (!candidateRect.Contains(mousePosition))
+                if (!GetTargetHitRect(layout, column, candidateRect).Contains(mousePosition))
                 {
                     continue;
                 }
@@ -97,8 +92,8 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             for (int i = 0; i < layout.Columns.Count; i++)
             {
                 var column = layout.Columns[i];
-                if (column.Column?.workType == targetWorkType &&
-                    column.Column.Worker is PawnColumnWorker_WorkPriority)
+                if (TryGetDropWorkType(column, out WorkTypeDef workType) &&
+                    workType == targetWorkType)
                 {
                     targetRect = GetTargetRect(layout, column);
                     return targetRect.width > 1f && targetRect.height > 1f;
@@ -106,128 +101,6 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             }
 
             return false;
-        }
-
-        internal static void DrawTargets(
-            IWorkTabLayoutController layout,
-            WorkTypeDef activeWorkType,
-            WorkTypeDef hoveredWorkType,
-            bool hoveredTargetValid)
-        {
-            if (!IsEnabled ||
-                layout?.Columns == null ||
-                activeWorkType == null ||
-                !TryGetDropRowRect(layout, out _))
-            {
-                return;
-            }
-
-            Color oldColor = GUI.color;
-            TextAnchor oldAnchor = Text.Anchor;
-            GameFont oldFont = Text.Font;
-
-            Text.Anchor = TextAnchor.MiddleCenter;
-            Text.Font = GameFont.Tiny;
-
-            for (int i = 0; i < layout.Columns.Count; i++)
-            {
-                var column = layout.Columns[i];
-                WorkTypeDef workType = column.Column?.workType;
-                if (workType == null || !(column.Column?.Worker is PawnColumnWorker_WorkPriority))
-                {
-                    continue;
-                }
-
-                Rect rect = GetTargetRect(layout, column);
-                bool sameWork = workType == activeWorkType;
-                bool hovered = workType == hoveredWorkType;
-                Color fill = sameWork
-                    ? new Color(0.25f, 0.25f, 0.25f, 0.34f)
-                    : new Color(0.16f, 0.22f, 0.27f, 0.72f);
-                Color outline = sameWork
-                    ? new Color(1f, 1f, 1f, 0.18f)
-                    : new Color(0.72f, 0.86f, 1f, 0.58f);
-
-                if (hovered)
-                {
-                    fill = hoveredTargetValid
-                        ? new Color(0.22f, 0.36f, 0.43f, 0.92f)
-                        : new Color(0.34f, 0.24f, 0.2f, 0.68f);
-                    outline = hoveredTargetValid
-                        ? new Color(0.9f, 0.98f, 1f, 0.95f)
-                        : new Color(1f, 0.62f, 0.45f, 0.72f);
-                }
-
-                Widgets.DrawBoxSolidWithOutline(rect, fill, outline);
-                GUI.color = sameWork
-                    ? new Color(1f, 1f, 1f, 0.42f)
-                    : new Color(1f, 1f, 1f, 0.94f);
-                Widgets.Label(rect.ContractedBy(2f), workType.labelShort?.CapitalizeFirst() ?? workType.LabelCap.ToString());
-                GUI.color = oldColor;
-
-                string tooltip = sameWork
-                    ? TranslateOrFallback("BWT_SubWork_MoveSpecificJobSameWork", "Already in this Work")
-                    : TranslateOrFallback("BWT_SubWork_MoveSpecificJobToWork", "Move specific job to {0}", workType.LabelCap.ToString());
-                TooltipHandler.TipRegion(rect, tooltip);
-                MouseoverSounds.DoRegion(rect);
-            }
-
-            Text.Anchor = oldAnchor;
-            Text.Font = oldFont;
-            GUI.color = oldColor;
-        }
-
-        internal static void SetLiveTargets(
-            WorkTypeDef activeWorkType,
-            WorkTypeDef hoveredWorkType,
-            bool hoveredTargetValid)
-        {
-            _liveActiveWorkType = activeWorkType;
-            _liveHoveredWorkType = hoveredWorkType;
-            _liveHoveredTargetValid = hoveredTargetValid;
-        }
-
-        internal static void ClearLiveTargets()
-        {
-            _liveActiveWorkType = null;
-            _liveHoveredWorkType = null;
-            _liveHoveredTargetValid = false;
-        }
-
-        internal static void DrawDebugTargetsIfNeeded(IWorkTabLayoutController layout)
-        {
-            if (!IsEnabled)
-            {
-                ClearLiveTargets();
-                return;
-            }
-
-            if (DebugForceDrawTargets)
-            {
-                DrawTargets(
-                    layout,
-                    DebugForcedActiveWorkType ?? SubWorkDrilldownState.ActiveWorkType,
-                    DebugForcedHoveredWorkType,
-                    DebugForcedHoveredTargetValid);
-                return;
-            }
-
-            if (_liveActiveWorkType != null)
-            {
-                DrawTargets(
-                    layout,
-                    _liveActiveWorkType,
-                    _liveHoveredWorkType,
-                    _liveHoveredTargetValid);
-            }
-        }
-
-        internal static void ClearDebugForcedTargets()
-        {
-            DebugForceDrawTargets = false;
-            DebugForcedActiveWorkType = null;
-            DebugForcedHoveredWorkType = null;
-            DebugForcedHoveredTargetValid = false;
         }
 
         internal static void StartSettleAnimation(
@@ -290,10 +163,13 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             }
         }
 
-        private static bool TryGetSubWorkStripRect(IWorkTabLayoutController layout, out Rect stripRect)
+        private static bool TryGetSubWorkStripRect(
+            IWorkTabLayoutController layout,
+            WorkTypeDef sourceWorkType,
+            out Rect stripRect)
         {
             stripRect = Rect.zero;
-            if (!SubWorkDrilldownState.IsActive || layout?.Columns == null)
+            if (sourceWorkType == null || layout?.Columns == null)
             {
                 return false;
             }
@@ -302,7 +178,12 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             for (int i = 0; i < layout.Columns.Count; i++)
             {
                 var column = layout.Columns[i];
-                if (!SubWorkDrilldownState.TryGetWorkGiverForColumn(column.Column, out _, out _))
+                if (!SubWorkDrilldownState.TryGetWorkGiverForColumn(
+                        column,
+                        out _,
+                        out WorkTypeDef parentWorkType,
+                        out _) ||
+                    parentWorkType != sourceWorkType)
                 {
                     continue;
                 }
@@ -312,6 +193,25 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             }
 
             return found;
+        }
+
+        private static bool TryGetDropWorkType(
+            WorkTabLayoutColumn column,
+            out WorkTypeDef workType)
+        {
+            workType = column.Column?.workType;
+            if (workType == null || column.IsExpandBesideChild)
+            {
+                return false;
+            }
+
+            if (column.Column.Worker is PawnColumnWorker_WorkPriority)
+            {
+                return true;
+            }
+
+            return FluffyWorkTabGateway.IsFluffyColumn(column.Column) &&
+                !FluffyWorkTabGateway.IsFluffyWorkGiverColumn(column.Column);
         }
 
         private static bool TryGetDropRowRect(IWorkTabLayoutController layout, out Rect rowRect)
@@ -343,7 +243,13 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         {
             if (!TryGetDropRowRect(layout, out Rect rowRect))
             {
-                return Rect.zero;
+                const float headerTargetHeight = 24f;
+                Rect headerRect = column.HeaderRect;
+                return new Rect(
+                    headerRect.xMin + 2f,
+                    Mathf.Max(headerRect.yMin, headerRect.yMax - headerTargetHeight),
+                    Mathf.Max(1f, column.Width - 4f),
+                    Mathf.Min(headerTargetHeight - 3f, headerRect.height));
             }
 
             return new Rect(
@@ -351,6 +257,25 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 rowRect.yMin + 3f,
                 Mathf.Max(1f, column.Width - 4f),
                 Mathf.Max(1f, rowRect.height - 6f));
+        }
+
+        private static Rect GetTargetHitRect(
+            IWorkTabLayoutController layout,
+            WorkTabLayoutColumn column,
+            Rect visualTargetRect)
+        {
+            Rect headerRect = column.HeaderRect;
+            float xMin = Mathf.Min(headerRect.xMin, visualTargetRect.xMin) - 2f;
+            float xMax = Mathf.Max(headerRect.xMax, visualTargetRect.xMax) + 2f;
+            float yMin = headerRect.yMin;
+            float yMax = Mathf.Max(headerRect.yMax, visualTargetRect.yMax);
+
+            if (layout?.TableOrigin.y > yMin)
+            {
+                yMin = layout.TableOrigin.y;
+            }
+
+            return Rect.MinMaxRect(xMin, yMin, xMax, yMax);
         }
 
         private static Rect Union(Rect a, Rect b)
@@ -371,11 +296,5 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 Mathf.Lerp(from.height, to.height, t));
         }
 
-        private static string TranslateOrFallback(string key, string fallback, params object[] args)
-        {
-            return key.CanTranslate()
-                ? string.Format(key.Translate().ToString(), args)
-                : string.Format(fallback, args);
-        }
     }
 }

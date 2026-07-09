@@ -110,6 +110,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
             public readonly float UnderlineWidth;
             public readonly bool HasCustomDrawRect;
             public readonly Rect CustomDrawRect;
+            public readonly float Alpha;
             /// <summary>
             /// Indicates if this label should be drawn using character-by-character vertical stacking 
             /// instead of standard matrix rotation.
@@ -117,21 +118,30 @@ namespace Better_Work_Tab.UI.Headers.Angled
             public readonly bool IsCJKVertical;
 
             public AngledLabelLayout(string text, Vector2 size, Vector2 pivot, bool showMarker, bool isCJKVertical = false)
-                : this(text, size, pivot, showMarker, size.x, isCJKVertical, false, default)
+                : this(text, size, pivot, showMarker, size.x, isCJKVertical, false, default, 1f)
             {
             }
 
             public AngledLabelLayout(string text, Vector2 size, Vector2 pivot, bool showMarker, bool isCJKVertical, Rect customDrawRect)
-                : this(text, size, pivot, showMarker, size.x, isCJKVertical, true, customDrawRect)
+                : this(text, size, pivot, showMarker, size.x, isCJKVertical, true, customDrawRect, 1f)
             {
             }
 
             public AngledLabelLayout(string text, Vector2 size, Vector2 pivot, bool showMarker, bool isCJKVertical, Rect customDrawRect, float underlineWidth)
-                : this(text, size, pivot, showMarker, underlineWidth, isCJKVertical, true, customDrawRect)
+                : this(text, size, pivot, showMarker, underlineWidth, isCJKVertical, true, customDrawRect, 1f)
             {
             }
 
-            private AngledLabelLayout(string text, Vector2 size, Vector2 pivot, bool showMarker, float underlineWidth, bool isCJKVertical, bool hasCustomDrawRect, Rect customDrawRect)
+            private AngledLabelLayout(
+                string text,
+                Vector2 size,
+                Vector2 pivot,
+                bool showMarker,
+                float underlineWidth,
+                bool isCJKVertical,
+                bool hasCustomDrawRect,
+                Rect customDrawRect,
+                float alpha)
             {
                 Text = text;
                 Size = size;
@@ -141,6 +151,21 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 IsCJKVertical = isCJKVertical;
                 HasCustomDrawRect = hasCustomDrawRect;
                 CustomDrawRect = customDrawRect;
+                Alpha = Mathf.Clamp01(alpha);
+            }
+
+            public AngledLabelLayout WithAlpha(float alpha)
+            {
+                return new AngledLabelLayout(
+                    Text,
+                    Size,
+                    Pivot,
+                    ShowMarker,
+                    UnderlineWidth,
+                    IsCJKVertical,
+                    HasCustomDrawRect,
+                    CustomDrawRect,
+                    alpha);
             }
         }
 
@@ -197,7 +222,8 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 parentAlpha = transitionParentAlpha;
             }
 
-            DrawParentHeaderGhost(layout, headerRect, column, rotation, horizontalOffset, originalMatrix, parentAlpha);
+            float labelAlpha = Mathf.Clamp01(layout.Alpha);
+            DrawParentHeaderGhost(layout, headerRect, column, rotation, horizontalOffset, originalMatrix, parentAlpha * labelAlpha);
 
             try
             {
@@ -241,7 +267,8 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 GUI.color = (layout.ShowMarker && BetterWorkTabMod.Settings.showMovedColumnColorTint) 
                     ? HeaderUtility.Colors.MovedMarkerColor 
                     : BetterWorkTabMod.Settings.angledHeaderColor;
-                GUI.color = new Color(GUI.color.r, GUI.color.g, GUI.color.b, GUI.color.a * flipAlpha);
+                float visibleAlpha = flipAlpha * labelAlpha;
+                GUI.color = new Color(GUI.color.r, GUI.color.g, GUI.color.b, GUI.color.a * visibleAlpha);
 
                 if (isCJKVertical)
                 {
@@ -269,7 +296,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
                     Vector2 underlineStart = new Vector2(drawRect.xMin, drawRect.yMax);
                     Vector2 underlineEnd = new Vector2(drawRect.xMin + textWidth, drawRect.yMax);
                     Color underlineColor = HeaderUtility.Colors.HeaderUnderlineColor;
-                    underlineColor.a *= flipAlpha;
+                    underlineColor.a *= visibleAlpha;
                     Widgets.DrawLine(underlineStart, underlineEnd, underlineColor, 1f);
                 }
             }
