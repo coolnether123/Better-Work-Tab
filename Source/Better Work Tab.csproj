@@ -42,6 +42,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="API\IMaxPriorityProvider.cs" />
+    <Compile Include="API\ExternalWorkTabApi.cs" />
     <Compile Include="API\PriorityApi.cs" />
     <Compile Include="API\PriorityProviderCapabilities.cs" />
     <Compile Include="API\TimePriorityApi.cs" />
@@ -99,6 +100,7 @@
     <Compile Include="Features\WorkGiverReassignments\SubWorkDrilldownInput.cs" />
     <Compile Include="Features\WorkGiverReassignments\SubWorkDrilldownState.cs" />
     <Compile Include="Features\Workloads\GameComponent_BWTWorldSettings.cs" />
+    <Compile Include="Features\Testing\AgentFloatMenuHighlightTestDriver.cs" />
     <Compile Include="Features\Testing\GameComponent_BWTModernQuickTestDriver.cs" />
     <Compile Include="Features\Testing\AgentHarnessUtility.cs" />
     <Compile Include="Features\Testing\RuleBuilder2AgentHarness.cs" />
@@ -142,6 +144,12 @@
     <Compile Include="PawnOrganizer\Patches\Patch_PawnColumnWorker_Label_DoCell.cs" />
     <Compile Include="PawnOrganizer\PawnOrganizerSystem.cs" />
     <Compile Include="Mod Support\IModSupportModule.cs" />
+    <Compile Include="Mod Support\IModSettingsContributor.cs" />
+    <Compile Include="Mod Support\BWTModSettingsApi.cs" />
+    <Compile Include="Mod Support\BWTModSettingsSection.cs" />
+    <Compile Include="Mod Support\ExternalPriorityMirror.cs" />
+    <Compile Include="Mod Support\ExternalWorkTabPriorityImportService.cs" />
+    <Compile Include="Mod Support\ExternalWorkTabRegistry.cs" />
     <Compile Include="Mod Support\CompatibilityDiagnostics.cs" />
     <Compile Include="Mod Support\ModSupportManager.cs" />
     <Compile Include="Mod Support\ModSupportModuleBase.cs" />
@@ -151,7 +159,10 @@
     <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabCoexistence.cs" />
     <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabCoexistenceUI.cs" />
     <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabGateway.cs" />
+    <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabExternalStore.cs" />
     <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabMigration.cs" />
+    <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabPriorityProvider.cs" />
+    <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabSync.cs" />
     <Compile Include="Mod Support\Mods\Useful Marks\UsefulMarksSupport.cs" />
     <Compile Include="Mod Support\Mods\Vanilla Skills Expanded\VanillaSkillsExpandedSupport.cs" />
     <Compile Include="Mod Support\Multiplayer\LocalProfiles\BWTLocalProfile.cs" />
@@ -203,6 +214,8 @@
     <Compile Include="Spine\UI\Tutorial\TutorialOverlayShortcutHint.cs" />
     <Compile Include="Spine\UI\Tutorial\TutorialOverlayStyle.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingDefinition.cs" />
+    <Compile Include="Spine\UI\SettingsFramework\SettingSuppression.cs" />
+    <Compile Include="Spine\UI\SettingsFramework\SettingsScribe.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingType.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingsHierarchy.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingsFilterDefinition.cs" />
@@ -225,6 +238,7 @@
     <Compile Include="UI\Input\GuiMousePosition.cs" />
     <Compile Include="UI\Input\NativeCursorPosition.cs" />
     <Compile Include="UI\RulesetListDragUI.cs" />
+    <Compile Include="UI\WorkTabColumnHighlightUtility.cs" />
     <Compile Include="UI\MainTabWindow_BetterWork.cs" />
     <Compile Include="UI\PawnTitleUtility.cs" />
     <Compile Include="UI\WorkPriorityCellGeometry.cs" />
