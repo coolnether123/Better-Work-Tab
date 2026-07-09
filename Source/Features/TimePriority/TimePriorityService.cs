@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.Workloads;
+using Better_Work_Tab.ModSupport;
 using Better_Work_Tab.Mod_Support.Multiplayer;
 using Multiplayer.API;
 using RimWorld;
@@ -182,6 +183,7 @@ namespace Better_Work_Tab.Features.TimePriority
 
             if (changed)
             {
+                MirrorTargetToExternalWorkTab(target);
                 NotifyChanged();
             }
         }
@@ -236,6 +238,7 @@ namespace Better_Work_Tab.Features.TimePriority
             }
 
             schedule.HourlyPriorities[hour] = priority;
+            MirrorTargetToExternalWorkTab(target);
             NotifyChanged();
         }
 
@@ -274,8 +277,80 @@ namespace Better_Work_Tab.Features.TimePriority
 
             if (changed)
             {
+                MirrorTargetToExternalWorkTab(target);
                 NotifyChanged();
             }
+        }
+
+        /// <summary>
+        /// Republishes an hourly schedule to any external work-tab mod backing the priority numbers.
+        /// Hourly schedules live only in Better Work Tab, so nothing else propagates them.
+        /// </summary>
+        private static void MirrorTargetToExternalWorkTab(TimePriorityTarget target)
+        {
+            if (ExternalPriorityMirror.IsSuspended)
+            {
+                return;
+            }
+
+            if (!ExternalPriorityMirror.ShouldMirrorTimePrioritySchedules)
+            {
+                return;
+            }
+
+            if (target.Kind == TimePriorityTargetKind.WorkGiver)
+            {
+                WorkGiverDef workGiver = DefDatabase<WorkGiverDef>.GetNamedSilentFail(target.TargetDefName);
+                if (workGiver == null)
+                {
+                    return;
+                }
+
+                if (target.IsGlobal)
+                {
+                    ExternalPriorityMirror.NotifyWorkGiverChangedForAllPawns(workGiver);
+                    return;
+                }
+
+                Pawn workGiverPawn = FindPawn(target.PawnId);
+                if (workGiverPawn != null)
+                {
+                    ExternalPriorityMirror.NotifyWorkGiverChanged(workGiverPawn, workGiver);
+                }
+
+                return;
+            }
+
+            WorkTypeDef workType = DefDatabase<WorkTypeDef>.GetNamedSilentFail(target.WorkTypeDefName);
+            if (workType == null)
+            {
+                return;
+            }
+
+            if (target.IsGlobal)
+            {
+                ExternalPriorityMirror.NotifyWorkTypeChangedForAllPawns(workType);
+                return;
+            }
+
+            Pawn pawn = FindPawn(target.PawnId);
+            if (pawn != null)
+            {
+                ExternalPriorityMirror.NotifyWorkTypeChanged(pawn, workType);
+            }
+        }
+
+        private static Pawn FindPawn(int pawnId)
+        {
+            foreach (Pawn pawn in PawnsFinder.All_AliveOrDead)
+            {
+                if (pawn != null && pawn.thingIDNumber == pawnId)
+                {
+                    return pawn;
+                }
+            }
+
+            return null;
         }
 
         internal static bool IsRuntimeEnabled =>

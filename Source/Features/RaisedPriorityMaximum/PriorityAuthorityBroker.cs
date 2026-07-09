@@ -5,6 +5,7 @@ using Better_Work_Tab.API;
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.ModSupport;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using RimWorld;
 using UnityEngine;
@@ -15,7 +16,8 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
     public enum PriorityAuthorityOwner
     {
         BetterWorkTab,
-        FluffyWorkTab
+        FluffyWorkTab,
+        ExternalWorkTab = FluffyWorkTab
     }
 
     public static class PriorityAuthorityBroker
@@ -47,8 +49,25 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
         public static bool FluffyWorkTabHasPriorityAuthority => CurrentAuthority == PriorityAuthorityOwner.FluffyWorkTab;
 
-        internal static bool ShouldRunBetterWorkTabPriorityFeatures => BetterWorkTabHasPriorityAuthority;
+        public static bool ExternalWorkTabHasPriorityAuthority => CurrentAuthority != PriorityAuthorityOwner.BetterWorkTab;
 
+        /// <summary>
+        /// True while Better Work Tab draws the Work tab, i.e. any time another Work tab mod has not
+        /// taken the window over. Independent of who stores the priority numbers.
+        /// </summary>
+        public static bool BetterWorkTabRendersWorkTab => !FluffyWorkTabGateway.ExternalWorkTabOwnsWorkTab;
+
+        /// <summary>
+        /// Gates presentation: headers, cells, priority colors, tooltips, float menus and the usable
+        /// priority range. These belong to whoever draws the tab, not to whoever owns the data, so a
+        /// Fluffy-backed priority store must not switch them off.
+        /// </summary>
+        internal static bool ShouldRunBetterWorkTabPriorityFeatures => BetterWorkTabRendersWorkTab;
+
+        /// <summary>
+        /// Gates behavior: work-giver overrides and work execution order. These must yield when Fluffy
+        /// owns the priority data, because Fluffy then drives work-giver order through its own patches.
+        /// </summary>
         internal static bool ShouldRunBetterWorkTabOrdering => BetterWorkTabHasPriorityAuthority;
 
         internal static void NotifyPotentialAuthorityChanged()
@@ -63,10 +82,14 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 return GetDefaultEnabledPriority();
             }
 
-            if (CurrentAuthority == PriorityAuthorityOwner.FluffyWorkTab &&
-                FluffyWorkTabGateway.TryGetWorkTypePriority(pawn, workType, out int fluffyPriority))
+            if (ExternalWorkTabHasPriorityAuthority &&
+                ExternalWorkTabRegistry.TryGetWorkTypePriority(
+                    pawn,
+                    workType,
+                    TimePriorityService.GetCurrentHour(pawn),
+                    out int externalPriority))
             {
-                return ClampRuntimePriority(fluffyPriority);
+                return ClampRuntimePriority(externalPriority);
             }
 
             return ClampPriorityForRequest(GetBetterWorkTabStoredPriority(pawn.workSettings, workType));
@@ -79,10 +102,10 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 return GetDefaultEnabledPriority();
             }
 
-            if (CurrentAuthority == PriorityAuthorityOwner.FluffyWorkTab &&
-                FluffyWorkTabGateway.TryGetWorkTypePriority(pawn, workType, hour, out int fluffyPriority))
+            if (ExternalWorkTabHasPriorityAuthority &&
+                ExternalWorkTabRegistry.TryGetWorkTypePriority(pawn, workType, hour, out int externalPriority))
             {
-                return ClampRuntimePriority(fluffyPriority);
+                return ClampRuntimePriority(externalPriority);
             }
 
             int basePriority = GetBetterWorkTabStoredPriority(pawn.workSettings, workType);
@@ -307,24 +330,29 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             NotifyPotentialAuthorityChanged();
         }
 
+        /// <summary>
+        /// Decides who <em>stores</em> work priorities. This is a data question only.
+        /// </summary>
+        /// <remarks>
+        /// Registered external work-tab stores can claim data authority through
+        /// <see cref="IExternalWorkTabStore.PriorityAuthority"/>. The handoff in
+        /// <see cref="RunHandoff"/> keeps the stores in step when that claim changes.
+        /// <para>
+        /// It does <em>not</em> follow that the external store should draw the tab. Use
+        /// <see cref="BetterWorkTabRendersWorkTab"/> for that. Conflating the two is what silently
+        /// disables Better Work Tab's headers, cells and priority colors while an external store owns
+        /// data.
+        /// </para>
+        /// </remarks>
         private static PriorityAuthorityOwner ComputeAuthority()
         {
-            if (!FluffyWorkTabGateway.IsPresent)
-            {
-                return PriorityAuthorityOwner.BetterWorkTab;
-            }
-
-            if (FluffyWorkTabGateway.ExternalWorkTabOwnsWorkTab)
+            PriorityProviderRegistry.EnsureInitialized();
+            if (ExternalWorkTabRegistry.GetAuthoritativeStore() != null)
             {
                 return PriorityAuthorityOwner.FluffyWorkTab;
             }
 
-            BetterWorkTabSettings.SubWorkDrilldownStyle style =
-                BetterWorkTabMod.Settings?.subWorkDrilldownStyle ??
-                DefaultSettings.subWorkDrilldownStyle;
-            return style == BetterWorkTabSettings.SubWorkDrilldownStyle.ExpandBeside
-                ? PriorityAuthorityOwner.FluffyWorkTab
-                : PriorityAuthorityOwner.BetterWorkTab;
+            return PriorityAuthorityOwner.BetterWorkTab;
         }
 
         private static void EnsureTransitionApplied(PriorityAuthorityOwner authority)
@@ -359,18 +387,13 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
         private static void RunHandoff(PriorityAuthorityOwner previous, PriorityAuthorityOwner next)
         {
-            if (!FluffyWorkTabGateway.IsPresent)
-            {
-                return;
-            }
-
             handoffInProgress = true;
             handoffAuthorityOverride = PriorityAuthorityOwner.BetterWorkTab;
             try
             {
                 int changed = next == PriorityAuthorityOwner.FluffyWorkTab
-                    ? SyncBetterWorkTabToFluffy()
-                    : FluffyWorkTabMigration.ImportLivePriorities();
+                    ? SyncBetterWorkTabToExternalStore()
+                    : ExternalWorkTabRegistry.ImportFromAvailableImporter();
 
                 WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
                 MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
@@ -385,85 +408,12 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             }
         }
 
-        private static int SyncBetterWorkTabToFluffy()
+        /// <summary>
+        /// Rebuilds the external work-tab mod's priority store from Better Work Tab's stores.
+        /// </summary>
+        private static int SyncBetterWorkTabToExternalStore()
         {
-            int changed = 0;
-            foreach (Pawn pawn in PawnsFinder.All_AliveOrDead)
-            {
-                if (pawn?.workSettings == null)
-                {
-                    continue;
-                }
-
-                foreach (WorkTypeDef workType in DefDatabase<WorkTypeDef>.AllDefsListForReading)
-                {
-                    if (workType == null || pawn.WorkTypeIsDisabled(workType))
-                    {
-                        continue;
-                    }
-
-                    int parentPriority = GetBetterWorkTabStoredPriority(pawn.workSettings, workType);
-                    int[] parentSchedule = BuildBetterWorkTabWorkTypeSchedule(pawn, workType, parentPriority);
-                    if (FluffyWorkTabGateway.TrySetWorkTypePriorities(pawn, workType, parentSchedule))
-                    {
-                        changed++;
-                    }
-
-                    IReadOnlyList<WorkGiver> workGivers = WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(workType);
-                    for (int i = 0; i < workGivers.Count; i++)
-                    {
-                        WorkGiverDef workGiver = workGivers[i]?.def;
-                        if (workGiver == null)
-                        {
-                            continue;
-                        }
-
-                        int[] workGiverSchedule = BuildBetterWorkTabWorkGiverSchedule(
-                            pawn,
-                            workType,
-                            workGiver,
-                            parentSchedule);
-                        if (FluffyWorkTabGateway.TrySetWorkGiverPriorities(pawn, workGiver, workGiverSchedule))
-                        {
-                            changed++;
-                        }
-                    }
-                }
-            }
-
-            return changed;
-        }
-
-        private static int[] BuildBetterWorkTabWorkTypeSchedule(Pawn pawn, WorkTypeDef workType, int fallbackPriority)
-        {
-            var priorities = new int[TimePriorityService.HoursPerDay];
-            TimePriorityTarget target = TimePriorityTarget.ForWorkType(pawn, workType);
-            for (int hour = 0; hour < priorities.Length; hour++)
-            {
-                priorities[hour] = TimePriorityService.GetPriorityAtHour(target, fallbackPriority, hour);
-            }
-
-            return priorities;
-        }
-
-        private static int[] BuildBetterWorkTabWorkGiverSchedule(
-            Pawn pawn,
-            WorkTypeDef workType,
-            WorkGiverDef workGiver,
-            int[] parentSchedule)
-        {
-            var priorities = new int[TimePriorityService.HoursPerDay];
-            TimePriorityTarget target = TimePriorityTarget.ForWorkGiver(pawn, workType, workGiver);
-            for (int hour = 0; hour < priorities.Length; hour++)
-            {
-                int parentPriority = parentSchedule != null && hour < parentSchedule.Length
-                    ? parentSchedule[hour]
-                    : GetBetterWorkTabStoredPriority(pawn?.workSettings, workType);
-                int fallback = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, workGiver, parentPriority);
-                priorities[hour] = TimePriorityService.GetPriorityAtHour(target, fallback, hour);
-            }
-
-            return priorities;
+            return ExternalPriorityMirror.NotifyAllChanged();
         }
 
         private static PriorityProviderSnapshot ResolveAutomaticProvider(

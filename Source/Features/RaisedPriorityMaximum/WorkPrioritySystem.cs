@@ -1,6 +1,6 @@
 using System;
 using Better_Work_Tab.Features.TimePriority;
-using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
+using Better_Work_Tab.ModSupport;
 using RimWorld;
 using System.Reflection;
 using UnityEngine;
@@ -92,6 +92,16 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             return TimePriorityService.GetEffectiveWorkTypePriority(pawn, workType, basePriority);
         }
 
+        /// <summary>
+        /// Writes a work-type priority to Better Work Tab's store, then mirrors it to any external
+        /// work-tab mod.
+        /// </summary>
+        /// <remarks>
+        /// Better Work Tab's store is always written, even when an external mod holds authority, so the
+        /// extended priority survives whatever narrower range that mod supports. The mirror afterwards
+        /// re-states the value within the external mod's limits and repairs any work-giver detail its
+        /// own work-type handling flattened.
+        /// </remarks>
         internal static void SetPriority(Pawn_WorkSettings workSettings, WorkTypeDef workType, int priority)
         {
             if (workSettings == null || workType == null)
@@ -99,16 +109,62 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 return;
             }
 
-            if (PriorityAuthorityBroker.FluffyWorkTabHasPriorityAuthority &&
-                FluffyWorkTabGateway.TrySetWorkTypePriorities(
-                    GetPawn(workSettings),
-                    workType,
-                    CreateUniformPriorities(priority)))
+            Pawn pawn = GetPawn(workSettings);
+            if (pawn?.Dead == true || !workSettings.EverWork)
+            {
+                return;
+            }
+
+            workSettings.EnableAndInitializeIfNotAlreadyInitialized();
+            if (workSettings.priorities == null)
             {
                 return;
             }
 
             workSettings.SetPriority(workType, ClampPriority(priority));
+            ExternalPriorityMirror.NotifyWorkTypeChanged(pawn, workType);
+        }
+
+        /// <summary>
+        /// Writes a work-type priority straight into Better Work Tab's store, bypassing both
+        /// <see cref="Pawn_WorkSettings.SetPriority"/> and the Fluffy mirror.
+        /// </summary>
+        /// <remarks>
+        /// Only for importing <em>out of</em> another work-tab mod. Going through the vanilla setter can
+        /// run that mod's own prefix, which may cascade the value over every work giver of the work type
+        /// and so destroy the very data the import is reading. Pair it with
+        /// <see cref="ModSupport.ExternalPriorityMirror.Suspend"/>.
+        /// </remarks>
+        internal static void SetStoredPriorityWithoutMirroring(
+            Pawn_WorkSettings workSettings,
+            WorkTypeDef workType,
+            int priority)
+        {
+            if (workSettings == null || workType == null)
+            {
+                return;
+            }
+
+            Pawn pawn = GetPawn(workSettings);
+            if (pawn?.Dead == true || !workSettings.EverWork)
+            {
+                return;
+            }
+
+            workSettings.EnableAndInitializeIfNotAlreadyInitialized();
+            if (workSettings.priorities == null)
+            {
+                return;
+            }
+
+            int clamped = PriorityAuthorityBroker.ClampPriorityForRequest(priority);
+            if (clamped != 0 && pawn != null && pawn.WorkTypeIsDisabled(workType))
+            {
+                return;
+            }
+
+            workSettings.priorities[workType] = clamped;
+            workSettings.Notify_UseWorkPrioritiesChanged();
         }
 
         internal static int GetPriorityAfterMouseButton(int currentPriority, int button)
@@ -223,17 +279,6 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             }
         }
 
-        private static int[] CreateUniformPriorities(int priority)
-        {
-            priority = Mathf.Clamp(priority, DisabledPriority, PriorityConstants.ExtendedHardMax);
-            var priorities = new int[TimePriorityService.HoursPerDay];
-            for (int i = 0; i < priorities.Length; i++)
-            {
-                priorities[i] = priority;
-            }
-
-            return priorities;
-        }
 
         private static Pawn GetPawn(Pawn_WorkSettings workSettings)
         {

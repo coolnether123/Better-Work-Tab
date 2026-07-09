@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using HarmonyLib;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
@@ -14,7 +14,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
     {
         public static bool Prefix(Pawn pawn, WorkGiver giver, ref bool __result)
         {
-            if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabPriorityFeatures)
+            if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabOrdering)
             {
                 return true;
             }
@@ -30,7 +30,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         public static void Postfix(Pawn pawn, WorkGiver giver, ref bool __result)
         {
-            if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabPriorityFeatures)
+            if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabOrdering)
             {
                 return;
             }
@@ -47,7 +47,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
     {
         public static void Postfix(WorkGiver_Scanner __instance, Pawn pawn, Thing t, bool forced, ref bool __result)
         {
-            if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabPriorityFeatures)
+            if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabOrdering)
             {
                 return;
             }
@@ -64,7 +64,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
     {
         public static void Postfix(WorkGiver_Scanner __instance, Pawn pawn, IntVec3 c, bool forced, ref bool __result)
         {
-            if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabPriorityFeatures)
+            if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabOrdering)
             {
                 return;
             }

@@ -1,32 +1,64 @@
+using System.Collections.Generic;
 using UnityEngine;
 using Verse;
 
 namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
 {
+    internal enum FluffyWorkTabIcon
+    {
+        ManualPriorityToggle,
+        PrioritiesDetailed,
+        PrioritiesSimple,
+        PrioritiesTimed,
+        PrioritiesWholeDay,
+        Expand,
+        Collapse
+    }
+
     [StaticConstructorOnStartup]
     internal static class FluffyWorkTabAssets
     {
-        private const string ManualPriorityToggleIconPath = "UI/Icons/numbers";
+        private static readonly Dictionary<FluffyWorkTabIcon, string> IconPaths =
+            new Dictionary<FluffyWorkTabIcon, string>
+            {
+                { FluffyWorkTabIcon.ManualPriorityToggle, "UI/Icons/numbers" },
+                { FluffyWorkTabIcon.PrioritiesDetailed, "UI/Icons/numbers" },
+                { FluffyWorkTabIcon.PrioritiesSimple, "UI/Icons/checks" },
+                { FluffyWorkTabIcon.PrioritiesTimed, "UI/Icons/clock-scheduler" },
+                { FluffyWorkTabIcon.PrioritiesWholeDay, "UI/Icons/whole-day" },
+                { FluffyWorkTabIcon.Expand, "UI/Icons/expand" },
+                { FluffyWorkTabIcon.Collapse, "UI/Icons/collapse" }
+            };
 
-        private static Texture2D _manualPriorityToggleIcon;
-        private static bool _manualPriorityToggleIconResolved;
+        private static readonly Dictionary<FluffyWorkTabIcon, Texture2D> ResolvedIcons =
+            new Dictionary<FluffyWorkTabIcon, Texture2D>();
+        private static readonly HashSet<FluffyWorkTabIcon> ResolvedKeys =
+            new HashSet<FluffyWorkTabIcon>();
 
         internal static bool TryGetManualPriorityToggleIcon(out Texture2D texture)
         {
-            if (!FluffyWorkTabGateway.IsPresent)
+            return TryGetIcon(FluffyWorkTabIcon.ManualPriorityToggle, out texture);
+        }
+
+        internal static bool TryGetIcon(FluffyWorkTabIcon icon, out Texture2D texture)
+        {
+            texture = null;
+            if (!FluffyWorkTabGateway.IsPresent || !IconPaths.TryGetValue(icon, out string path))
             {
-                texture = null;
                 return false;
             }
 
-            if (!_manualPriorityToggleIconResolved)
+            if (!ResolvedKeys.Contains(icon))
             {
-                _manualPriorityToggleIconResolved = true;
-                _manualPriorityToggleIcon = ContentFinder<Texture2D>.Get(ManualPriorityToggleIconPath, reportFailure: false);
+                ResolvedKeys.Add(icon);
+                Texture2D resolved = ContentFinder<Texture2D>.Get(path, reportFailure: false);
+                if (resolved != null)
+                {
+                    ResolvedIcons[icon] = resolved;
+                }
             }
 
-            texture = _manualPriorityToggleIcon;
-            return texture != null;
+            return ResolvedIcons.TryGetValue(icon, out texture) && texture != null;
         }
     }
 }

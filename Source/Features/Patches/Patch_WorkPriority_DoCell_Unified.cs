@@ -3,6 +3,7 @@ using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.Headers;
@@ -39,6 +40,10 @@ namespace Better_Work_Tab.Patches
         {
             // Only apply BWT patches to the Work tab (vanilla or BWT), not other tabs like MechTab
             if (!UI.Headers.PawnColumnWorker_WorkPriority_DoHeader_Patch.IsWorkTab())
+                return;
+
+            // A hovered Fluffy work-giver column is not a hovered work type.
+            if (FluffyWorkTabGateway.IsFluffyWorkGiverColumn(__instance.def))
                 return;
 
             if (!Event.current.shift)
@@ -163,6 +168,11 @@ namespace Better_Work_Tab.Patches
 
             WorkTypeDef workType = __instance.def.workType;
             if (workType == null)
+                return true;
+
+            // Fluffy work-giver columns inherit this method but represent a single work giver, not the
+            // work type their def points at. Let Fluffy draw its own sub-work boxes.
+            if (FluffyWorkTabGateway.IsFluffyWorkGiverColumn(__instance.def))
                 return true;
 
             if (SubWorkDrilldownState.TryGetCurrentDrawingWorkGiver(
@@ -332,6 +342,9 @@ namespace Better_Work_Tab.Patches
 
             WorkTypeDef workType = __instance.def.workType;
             if (pawn == null || pawn.Dead || workType == null)
+                return;
+
+            if (FluffyWorkTabGateway.IsFluffyWorkGiverColumn(__instance.def))
                 return;
 
             if (pawn.WorkTypeIsDisabled(workType))
