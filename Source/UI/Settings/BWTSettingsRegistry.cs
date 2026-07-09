@@ -5,6 +5,7 @@ using Better_Work_Tab;
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.Workloads;
+using Better_Work_Tab.ModSupport;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.Patches;
 using Better_Work_Tab.UI;
@@ -18,6 +19,15 @@ using static Better_Work_Tab.UI.Settings.SettingIDs;
 
 namespace Better_Work_Tab.UI.Settings
 {
+    // HOW TO ADD A SETTING
+    // 1. Add the canonical default to DefaultSettings.
+    // 2. Add the BetterWorkTabSettings instance field initialized from DefaultSettings.
+    // 3. Add one SettingDefinition here: Id from SettingIDs, FieldName, DefaultValue =
+    //    DefaultSettings.x, widget Type, parent/sort metadata, search keywords, and translation keys
+    //    in Languages/English/Keyed/BWT_Settings.xml.
+    // 4. Nothing else is needed for normal preferences. Registry scribing, reset, and the
+    //    dev-mode validator pick it up automatically and warn about drift.
+
     /// <summary>
     /// Registers Better Work Tab settings and builds the hierarchy used by the UI.
     /// </summary>
@@ -26,6 +36,11 @@ namespace Better_Work_Tab.UI.Settings
         private static List<SettingDefinition> _settings;
         private static SettingsHierarchy _hierarchy;
         private static bool _initialized;
+
+        static BWTSettingsRegistry()
+        {
+            BWTModSettingsApi.ContributorsChanged += Invalidate;
+        }
 
         /// <summary>
         /// Gets the built hierarchy for all settings.
@@ -61,14 +76,185 @@ namespace Better_Work_Tab.UI.Settings
                 return;
             }
 
+            ModSupportManager.EnsureInitialized();
+            FluffyWorkTabGateway.RegisterSettings();
+            ChronosPointerSupport.RegisterSettings();
             RegisterAllSettings();
             _hierarchy = new SettingsHierarchy(_settings);
             _initialized = true;
+            SettingsConsistencyValidator.ValidateAtStartup();
+        }
+
+        public static void Invalidate()
+        {
+            if (!_initialized)
+            {
+                return;
+            }
+
+            _initialized = false;
+            _settings = null;
+            _hierarchy = null;
+            BetterWorkTabSettingsUI.NotifySettingsChanged();
         }
 
         private static void Register(SettingDefinition def)
         {
+            ApplyScribeMetadata(def);
             _settings.Add(def);
+        }
+
+        private static void ApplyScribeMetadata(SettingDefinition def)
+        {
+            if (def == null)
+            {
+                return;
+            }
+
+            switch (def.FieldName)
+            {
+                case nameof(BetterWorkTabSettings.showExternalWorkTabColumns):
+                    def.ScribeKey = "showFluffyWorkTabColumns";
+                    break;
+                case nameof(BetterWorkTabSettings.enableColumnGrouping):
+                    def.ScribeDefaultOverride = false; // BWT 1.0.5 absent-key default.
+                    break;
+                case nameof(BetterWorkTabSettings.enableScrollWheelPriority):
+                    def.ScribeDefaultOverride = false; // BWT 1.0.5 absent-key default.
+                    break;
+                case nameof(BetterWorkTabSettings.priorityMode):
+                    def.DisableAutoScribe = true; // Legacy absent-key default is inferred from older priority fields.
+                    break;
+                case nameof(BetterWorkTabSettings.enableExtendedPriorities):
+                case nameof(BetterWorkTabSettings.delegateToExternalPriorityMods):
+                case nameof(BetterWorkTabSettings.selectedPriorityProviderId):
+                    def.DisableAutoScribe = true; // Manually scribed before priorityMode for legacy inference.
+                    break;
+            }
+        }
+
+        private static void RegisterHiddenPreference(
+            string id,
+            string fieldName,
+            SettingType type,
+            object defaultValue,
+            Type enumType = null)
+        {
+            Register(new SettingDefinition
+            {
+                Id = id,
+                FieldName = fieldName,
+                Label = fieldName,
+                Tooltip = "Hidden compatibility preference.",
+                Type = type,
+                EnumType = enumType,
+                DefaultValue = defaultValue,
+                ShowInSimpleView = false,
+                ShowInAdvancedView = false,
+                SortOrder = int.MaxValue
+            });
+        }
+
+        /// <summary>
+        /// True when specific jobs open as Fluffy Work Tab's right-expanding columns rather than
+        /// Better Work Tab's focused view. The focused view's layout settings are inert in that mode.
+        /// </summary>
+        private static bool UsesExpandBesideDrilldown()
+        {
+            BetterWorkTabSettings.SubWorkDrilldownStyle style =
+                BetterWorkTabMod.Settings?.subWorkDrilldownStyle ?? DefaultSettings.subWorkDrilldownStyle;
+            return style == BetterWorkTabSettings.SubWorkDrilldownStyle.ExpandBeside;
+        }
+
+        private static void RegisterModCompatibilitySettings()
+        {
+            IReadOnlyList<IModSettingsContributor> contributors = BWTModSettingsApi.GetContributors();
+            if (contributors == null || contributors.Count == 0)
+            {
+                return;
+            }
+
+            var sections = new List<BWTModSettingsSection>();
+            foreach (IModSettingsContributor contributor in contributors)
+            {
+                if (contributor == null)
+                {
+                    continue;
+                }
+
+                BWTModSettingsSection section = contributor.CreateSettingsSection();
+                if (section?.Header == null || string.IsNullOrEmpty(section.Header.Id))
+                {
+                    continue;
+                }
+
+                sections.Add(section);
+            }
+
+            if (sections.Count == 0)
+            {
+                return;
+            }
+
+            Register(new SettingDefinition
+            {
+                Id = ModCompatHeader,
+                Label = "Mod Compatibility",
+                Tooltip = "Settings for loaded mod integrations.",
+                Type = SettingType.Header,
+                HeaderColor = new Color(0.7f, 0.75f, 0.9f),
+                ShowInSimpleView = true,
+                ShowInAdvancedView = true,
+                SortOrder = -40,
+                VisibleWhen = settingsObject => HasVisibleModCompatibilitySection(sections, settingsObject)
+            });
+
+            foreach (BWTModSettingsSection section in sections)
+            {
+                section.Header.ParentId = ModCompatHeader;
+                Register(section.Header);
+
+                if (section.Children == null)
+                {
+                    continue;
+                }
+
+                foreach (SettingDefinition child in section.Children)
+                {
+                    if (child == null || string.IsNullOrEmpty(child.Id))
+                    {
+                        continue;
+                    }
+
+                    if (string.IsNullOrEmpty(child.ParentId))
+                    {
+                        child.ParentId = section.Header.Id;
+                    }
+
+                    Register(child);
+                }
+            }
+        }
+
+        private static bool HasVisibleModCompatibilitySection(
+            List<BWTModSettingsSection> sections,
+            object settingsObject)
+        {
+            foreach (BWTModSettingsSection section in sections)
+            {
+                SettingDefinition header = section?.Header;
+                if (header == null)
+                {
+                    continue;
+                }
+
+                if (header.VisibleWhen == null || header.VisibleWhen(settingsObject))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static bool DrawSubWorkTransitionMode(
@@ -176,6 +362,33 @@ namespace Better_Work_Tab.UI.Settings
         {
             _settings = new List<SettingDefinition>();
 
+            RegisterHiddenPreference("compat.workTabMaxHeight", nameof(BetterWorkTabSettings.workTabMaxHeight), SettingType.Float, DefaultSettings.workTabMaxHeight);
+            RegisterHiddenPreference("compat.settingsViewMode", nameof(BetterWorkTabSettings.settingsViewMode), SettingType.Enum, DefaultSettings.settingsViewMode, typeof(BetterWorkTabSettings.SettingsViewMode));
+            RegisterHiddenPreference("compat.enableColumnOrderSaving", nameof(BetterWorkTabSettings.enableColumnOrderSaving), SettingType.Bool, DefaultSettings.enableColumnOrderSaving);
+            RegisterHiddenPreference("compat.enableRowColumnHighlights", nameof(BetterWorkTabSettings.enableRowColumnHighlights), SettingType.Bool, DefaultSettings.enableRowColumnHighlights);
+            RegisterHiddenPreference("compat.enableUIElements", nameof(BetterWorkTabSettings.enableUIElements), SettingType.Bool, DefaultSettings.enableUIElements);
+            RegisterHiddenPreference("compat.hideWorkloadButton", nameof(BetterWorkTabSettings.hideWorkloadButton), SettingType.Bool, DefaultSettings.hideWorkloadButton);
+            RegisterHiddenPreference("compat.persistColumnOrder", nameof(BetterWorkTabSettings.persistColumnOrder), SettingType.Bool, DefaultSettings.persistColumnOrder);
+            RegisterHiddenPreference("compat.persistColumnWidths", nameof(BetterWorkTabSettings.persistColumnWidths), SettingType.Bool, DefaultSettings.persistColumnWidths);
+            RegisterHiddenPreference("compat.showOnlyLineDragIndicatorRows", nameof(BetterWorkTabSettings.showOnlyLineDragIndicatorRows), SettingType.Bool, DefaultSettings.showOnlyLineDragIndicatorRows);
+            RegisterHiddenPreference("compat.showOnlyLineDragIndicatorColumns", nameof(BetterWorkTabSettings.showOnlyLineDragIndicatorColumns), SettingType.Bool, DefaultSettings.showOnlyLineDragIndicatorColumns);
+            RegisterHiddenPreference("compat.showGhostDragIndicator", nameof(BetterWorkTabSettings.showGhostDragIndicator), SettingType.Bool, DefaultSettings.showGhostDragIndicator);
+            RegisterHiddenPreference("compat.showInsertionLineIndicator", nameof(BetterWorkTabSettings.showInsertionLineIndicator), SettingType.Bool, DefaultSettings.showInsertionLineIndicator);
+            RegisterHiddenPreference("compat.useColumnHoverOverride", nameof(BetterWorkTabSettings.useColumnHoverOverride), SettingType.Bool, DefaultSettings.useColumnHoverOverride);
+            RegisterHiddenPreference("compat.UseCustomMouseHoverHighlight", nameof(BetterWorkTabSettings.UseCustomMouseHoverHighlight), SettingType.Bool, DefaultSettings.UseCustomMouseHoverHighlight);
+            RegisterHiddenPreference("compat.useRowHoverOverride", nameof(BetterWorkTabSettings.useRowHoverOverride), SettingType.Bool, DefaultSettings.useRowHoverOverride);
+            RegisterHiddenPreference("compat.Color_CustomMouseHighlight", nameof(BetterWorkTabSettings.Color_CustomMouseHighlight), SettingType.Color, DefaultSettings.Color_CustomMouseHighlight);
+            RegisterHiddenPreference("compat.Color_IncapableBecauseOfCapacities", nameof(BetterWorkTabSettings.Color_IncapableBecauseOfCapacities), SettingType.Color, DefaultSettings.Color_IncapableBecauseOfCapacities);
+            RegisterHiddenPreference("compat.Color_HeaderText", nameof(BetterWorkTabSettings.Color_HeaderText), SettingType.Color, DefaultSettings.Color_HeaderText);
+            RegisterHiddenPreference("compat.Color_DividerText", nameof(BetterWorkTabSettings.Color_DividerText), SettingType.Color, DefaultSettings.Color_DividerText);
+            RegisterHiddenPreference("compat.Color_Borders", nameof(BetterWorkTabSettings.Color_Borders), SettingType.Color, DefaultSettings.Color_Borders);
+            RegisterHiddenPreference("compat.enableWorkloadSaving", nameof(BetterWorkTabSettings.enableWorkloadSaving), SettingType.Bool, DefaultSettings.enableWorkloadSaving);
+            RegisterHiddenPreference("compat.enableWorkloadLoading", nameof(BetterWorkTabSettings.enableWorkloadLoading), SettingType.Bool, DefaultSettings.enableWorkloadLoading);
+            RegisterHiddenPreference("compat.showWorkloadButtonFooter", nameof(BetterWorkTabSettings.showWorkloadButtonFooter), SettingType.Bool, DefaultSettings.showWorkloadButtonFooter);
+            RegisterHiddenPreference("compat.enableExtendedPriorities", nameof(BetterWorkTabSettings.enableExtendedPriorities), SettingType.Bool, DefaultSettings.enableExtendedPriorities);
+            RegisterHiddenPreference("compat.delegateToExternalPriorityMods", nameof(BetterWorkTabSettings.delegateToExternalPriorityMods), SettingType.Bool, DefaultSettings.delegateToExternalPriorityMods);
+            RegisterHiddenPreference("compat.selectedPriorityProviderId", nameof(BetterWorkTabSettings.selectedPriorityProviderId), SettingType.Custom, DefaultSettings.selectedPriorityProviderId);
+
             Register(new SettingDefinition
             {
                 Id = FeaturesOverlay,
@@ -259,7 +472,7 @@ namespace Better_Work_Tab.UI.Settings
                 Label = "Warn before applying Ruleset",
                 Tooltip = "Show a confirmation warning before applying a ruleset to all colonists.",
                 Type = SettingType.Bool,
-                DefaultValue = true,
+                DefaultValue = DefaultSettings.warnOnApplyRuleset,
                 ShowInSimpleView = true,
                 SortOrder = 1
             });
@@ -287,7 +500,7 @@ namespace Better_Work_Tab.UI.Settings
                 Label = "Warn before applying Workload",
                 Tooltip = "Show a confirmation warning before applying a workload to all colonists.",
                 Type = SettingType.Bool,
-                DefaultValue = true,
+                DefaultValue = DefaultSettings.warnOnApplyWorkload,
                 ShowInSimpleView = true,
                 SortOrder = 1
             });
@@ -347,22 +560,6 @@ namespace Better_Work_Tab.UI.Settings
                 OnChanged = _ => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
                 ShowInSimpleView = true,
                 SortOrder = 3
-            });
-
-            Register(new SettingDefinition
-            {
-                Id = SubWorkDrilldownStyle,
-                ParentId = FeaturesSubWorkJobs,
-                FieldName = "subWorkDrilldownStyle",
-                Label = "Specific-job view",
-                Tooltip = "Choose whether opening specific jobs uses Better Work Tab's focused view or Fluffy Work Tab's real right-expanding columns.",
-                Type = SettingType.Enum,
-                EnumType = typeof(BetterWorkTabSettings.SubWorkDrilldownStyle),
-                DefaultValue = DefaultSettings.subWorkDrilldownStyle,
-                OnChanged = _ => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
-                VisibleWhen = _ => FluffyWorkTabGateway.IsPresent,
-                ShowInSimpleView = true,
-                SortOrder = 4
             });
 
             Register(new SettingDefinition
@@ -534,6 +731,25 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.subWorkAutoExpandColumns,
                 ControlsChildVisibility = true,
+                // Width relief only runs for the focused specific-job view, and only when angled
+                // headers are not already keeping labels from colliding.
+                Suppressions = new List<SettingSuppression>
+                {
+                    new SettingSuppression
+                    {
+                        When = _ => FluffyWorkTabGateway.IsPresent && UsesExpandBesideDrilldown(),
+                        Reason = _ => "Expand beside uses Fluffy Work Tab's own columns.",
+                        SuppressorSettingId = SubWorkDrilldownStyle,
+                        LinkLabel = "Specific-job view"
+                    },
+                    new SettingSuppression
+                    {
+                        When = _ => BetterWorkTabMod.Settings?.enableAngledHeaders ?? DefaultSettings.enableAngledHeaders,
+                        Reason = _ => "Angled headers already keep labels from colliding.",
+                        SuppressorSettingId = HeadersAngled,
+                        LinkLabel = "Angled headers"
+                    }
+                },
                 OnChanged = _ => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
@@ -577,6 +793,8 @@ namespace Better_Work_Tab.UI.Settings
                 SortOrder = -41
             });
 
+            RegisterModCompatibilitySettings();
+
             Register(new SettingDefinition
             {
                 Id = PriorityHeader,
@@ -587,22 +805,6 @@ namespace Better_Work_Tab.UI.Settings
                 HeaderColor = new Color(0.8f, 0.7f, 0.45f),
                 ShowInSimpleView = true,
                 SortOrder = 42,
-            });
-
-            Register(new SettingDefinition
-            {
-                Id = CompatExternalWorkTabColumns,
-                ParentId = FeaturesUiElements,
-                FieldName = "showExternalWorkTabColumns",
-                Label = FluffyWorkTabGateway.ColumnVisibilitySettingLabel,
-                Tooltip = FluffyWorkTabGateway.ColumnVisibilitySettingTooltip,
-                Type = SettingType.Bool,
-                DefaultValue = DefaultSettings.showExternalWorkTabColumns,
-                VisibleWhen = _ => FluffyWorkTabGateway.IsPresent,
-                ShowInSimpleView = true,
-                ShowInAdvancedView = true,
-                SortOrder = 41,
-                OnChanged = _ => FluffyWorkTabGateway.ApplyColumnVisibility()
             });
 
             Register(new SettingDefinition
@@ -769,31 +971,17 @@ namespace Better_Work_Tab.UI.Settings
 
             Register(new SettingDefinition
             {
-                Id = UiChronosPointerTimePriority,
+                Id = UiFluffyTimePriorityMirroring,
                 ParentId = UiTimePriorityPlannerPrototype,
-                FieldName = "enableChronosPointerTimePriorityIntegration",
-                Label = "Chronos Pointer time bar",
-                Tooltip = "When Chronos Pointer is loaded, draw its daylight/current-time bar above the Work tab time-priority hour numbers.",
+                FieldName = "enableFluffyTimePriorityMirroring",
+                Label = "Mirror schedules to Fluffy",
+                Tooltip = "When Fluffy Work Tab is loaded, push BWT time-priority schedules into Fluffy's own per-hour priority tracker.",
                 Type = SettingType.Bool,
-                DefaultValue = DefaultSettings.enableChronosPointerTimePriorityIntegration,
-                ControlsChildVisibility = true,
+                DefaultValue = DefaultSettings.enableFluffyTimePriorityMirroring,
                 ShowInSimpleView = true,
                 ShowInAdvancedView = true,
+                VisibleWhen = _ => FluffyWorkTabGateway.IsPresent,
                 SortOrder = 4
-            });
-
-            Register(new SettingDefinition
-            {
-                Id = UiChronosPointerTimePriorityIncidents,
-                ParentId = UiChronosPointerTimePriority,
-                FieldName = "chronosPointerTimePriorityIncidentOverlay",
-                Label = "Chronos incident overlay",
-                Tooltip = "Allow Chronos Pointer to draw its incident colors, such as eclipses and auroras, on the Work tab time bar.",
-                Type = SettingType.Bool,
-                DefaultValue = DefaultSettings.chronosPointerTimePriorityIncidentOverlay,
-                ShowInSimpleView = false,
-                ShowInAdvancedView = true,
-                SortOrder = 1
             });
 
             Register(new SettingDefinition
@@ -1097,7 +1285,7 @@ namespace Better_Work_Tab.UI.Settings
                 Label = "Use Outline Highlights",
                 Tooltip = "Draw highlights as outlines instead of solid boxes.",
                 Type = SettingType.Bool,
-                DefaultValue = false,
+                DefaultValue = DefaultSettings.useOutlineHighlights,
                 ShowInSimpleView = true,
                 SortOrder = 4 // Placed after colors in HighlightHover
             });
@@ -1110,7 +1298,7 @@ namespace Better_Work_Tab.UI.Settings
                 Label = "Disable Best Pawn Highlight",
                 Tooltip = "Disable the green highlight for the best pawn in a work type.",
                 Type = SettingType.Bool,
-                DefaultValue = false,
+                DefaultValue = DefaultSettings.disableBestPawnHighlight,
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
                 SortOrder = 41
@@ -1124,7 +1312,7 @@ namespace Better_Work_Tab.UI.Settings
                 Label = "Best Pawn Outline Thickness",
                 Tooltip = "Adjust the thickness of the green outline for the best pawn in a work type.",
                 Type = SettingType.Int,
-                DefaultValue = 1,
+                DefaultValue = DefaultSettings.bestPawnHighlightThickness,
                 MinValue = 1f,
                 MaxValue = 4f,
                 ShowInSimpleView = false,
@@ -1441,7 +1629,7 @@ namespace Better_Work_Tab.UI.Settings
                 Label = "Auto-Enable Manual Priorities",
                 Tooltip = "Automatically check the Manual Priorities checkbox when opening the Work tab.",
                 Type = SettingType.Bool,
-                DefaultValue = false,
+                DefaultValue = DefaultSettings.autoEnableManualPriorities,
                 ShowInSimpleView = true,
                 SortOrder = 1045,
                 ParentId = FeaturesUiElements
@@ -1513,7 +1701,7 @@ namespace Better_Work_Tab.UI.Settings
                 Label = "Highlight on Hover",
                 Tooltip = "Highlight dividers when hovering over them using the hover highlight color.",
                 Type = SettingType.Bool,
-                DefaultValue = true,
+                DefaultValue = DefaultSettings.highlightDividersOnHover,
                 ShowInSimpleView = false,
                 SortOrder = 109
             });
@@ -1757,7 +1945,7 @@ namespace Better_Work_Tab.UI.Settings
                 Tooltip = "When to show the small skill numbers in cells.",
                 Type = SettingType.Enum,
                 EnumType = typeof(BetterWorkTabSettings.ShowUIMode),
-                DefaultValue = BetterWorkTabSettings.ShowUIMode.Unshifted,
+                DefaultValue = DefaultSettings.ShowUIMode_ShowSmallSkillNumbers,
                 ShowInSimpleView = false,
                 ShowInAdvancedView = false,
                 SortOrder = 0
@@ -1772,7 +1960,7 @@ namespace Better_Work_Tab.UI.Settings
                 Tooltip = "When to highlight the pawn with highest skill.",
                 Type = SettingType.Enum,
                 EnumType = typeof(BetterWorkTabSettings.ShowUIMode),
-                DefaultValue = BetterWorkTabSettings.ShowUIMode.Shifted,
+                DefaultValue = DefaultSettings.ShowUIMode_ShowPawnForSkillSquare,
                 ShowInSimpleView = true,
                 SortOrder = 1
             });
@@ -1972,7 +2160,7 @@ namespace Better_Work_Tab.UI.Settings
                 Label = "Ruleset Interface Mode",
                 Tooltip = "Choose between the new visual builder (Regular), the classic list (Raw), or show both options.",
                 Type = SettingType.Enum,
-                DefaultValue = BetterWorkTabSettings.RulesetViewMode.Regular,
+                DefaultValue = DefaultSettings.rulesetViewMode,
                 EnumType = typeof(BetterWorkTabSettings.RulesetViewMode),
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
@@ -2196,7 +2384,7 @@ namespace Better_Work_Tab.UI.Settings
                 Label = "Cache Bed Counts",
                 Tooltip = "Cache bed counts to reduce stutter.",
                 Type = SettingType.Bool,
-                DefaultValue = true,
+                DefaultValue = DefaultSettings.cacheBedCounts,
                 ShowInSimpleView = false,
                 ShowInAdvancedView = false,
                 SortOrder = 405
@@ -2210,7 +2398,7 @@ namespace Better_Work_Tab.UI.Settings
                 Label = "Cache Skill Levels",
                 Tooltip = "Cache skill calculations to reduce redundant work.",
                 Type = SettingType.Bool,
-                DefaultValue = true,
+                DefaultValue = DefaultSettings.cacheSkillLevels,
                 ShowInSimpleView = false,
                 ShowInAdvancedView = false,
                 SortOrder = 406
@@ -2224,7 +2412,7 @@ namespace Better_Work_Tab.UI.Settings
                 Label = "Cache Row Descriptors",
                 Tooltip = "Cache row descriptor calculations for layout.",
                 Type = SettingType.Bool,
-                DefaultValue = true,
+                DefaultValue = DefaultSettings.cacheRowDescriptors,
                 ShowInSimpleView = false,
                 ShowInAdvancedView = false,
                 SortOrder = 407
@@ -2238,7 +2426,7 @@ namespace Better_Work_Tab.UI.Settings
                 Label = "Cache Incapability Checks",
                 Tooltip = "Cache incapability checks for work types.",
                 Type = SettingType.Bool,
-                DefaultValue = true,
+                DefaultValue = DefaultSettings.cacheIncapabilityChecks,
                 ShowInSimpleView = false,
                 ShowInAdvancedView = false,
                 SortOrder = 408
@@ -2252,7 +2440,7 @@ namespace Better_Work_Tab.UI.Settings
                 Label = "Use Element Pooling",
                 Tooltip = "Reuse UI elements instead of allocating each frame.",
                 Type = SettingType.Bool,
-                DefaultValue = true,
+                DefaultValue = DefaultSettings.useElementPooling,
                 ShowInSimpleView = false,
                 ShowInAdvancedView = false,
                 SortOrder = 409
@@ -2266,7 +2454,7 @@ namespace Better_Work_Tab.UI.Settings
                 Label = "Viewport Culling",
                 Tooltip = "Only render visible rows in the scroll area.",
                 Type = SettingType.Bool,
-                DefaultValue = true,
+                DefaultValue = DefaultSettings.viewportCulling,
                 ShowInSimpleView = false,
                 ShowInAdvancedView = false,
                 SortOrder = 410
@@ -2295,7 +2483,7 @@ namespace Better_Work_Tab.UI.Settings
                 Label = "Enable Debug Logging",
                 Tooltip = "Output detailed debug messages to the log.",
                 Type = SettingType.Bool,
-                DefaultValue = false,
+                DefaultValue = DefaultSettings.enableDebugLogging,
                 ShowInSimpleView = false,
                 ShowInAdvancedView = false,
                 ControlsChildVisibility = true,
@@ -2370,7 +2558,7 @@ namespace Better_Work_Tab.UI.Settings
                 Label = "Enable Profiler",
                 Tooltip = "Enable in-game profiler (1 to report, Shift+1 to clear).",
                 Type = SettingType.Bool,
-                DefaultValue = false,
+                DefaultValue = DefaultSettings.enableProfiler,
                 ShowInSimpleView = false,
                 ShowInAdvancedView = false,
                 SortOrder = 503
@@ -2385,7 +2573,7 @@ namespace Better_Work_Tab.UI.Settings
                 Label = "Log to File",
                 Tooltip = "Write debug logs to file in addition to console.",
                 Type = SettingType.Bool,
-                DefaultValue = false,
+                DefaultValue = DefaultSettings.logDebugToFile,
                 ShowInSimpleView = false,
                 ShowInAdvancedView = false,
                 SortOrder = 504
@@ -2400,7 +2588,7 @@ namespace Better_Work_Tab.UI.Settings
                 Label = "Sync Column Order",
                 Tooltip = "Synchronize column order across multiplayer.",
                 Type = SettingType.Bool,
-                DefaultValue = true,
+                DefaultValue = DefaultSettings.mpSyncColumnOrder,
                 ShowInSimpleView = false,
                 ShowInAdvancedView = false,
                 SortOrder = 411
@@ -2414,7 +2602,7 @@ namespace Better_Work_Tab.UI.Settings
                 Label = "Sync Workloads",
                 Tooltip = "Synchronize workload save/load.",
                 Type = SettingType.Bool,
-                DefaultValue = true,
+                DefaultValue = DefaultSettings.mpSyncWorkloads,
                 ShowInSimpleView = false,
                 ShowInAdvancedView = false,
                 SortOrder = 412
@@ -2428,7 +2616,7 @@ namespace Better_Work_Tab.UI.Settings
                 Label = "Sync Rulesets",
                 Tooltip = "Synchronize ruleset applications.",
                 Type = SettingType.Bool,
-                DefaultValue = true,
+                DefaultValue = DefaultSettings.mpSyncRulesets,
                 ShowInSimpleView = false,
                 ShowInAdvancedView = false,
                 SortOrder = 413
@@ -2443,7 +2631,7 @@ namespace Better_Work_Tab.UI.Settings
                 Tooltip = "How to resolve multiplayer conflicts.",
                 Type = SettingType.Enum,
                 EnumType = typeof(BetterWorkTabSettings.MpConflictMode),
-                DefaultValue = BetterWorkTabSettings.MpConflictMode.PlayerPriority,
+                DefaultValue = DefaultSettings.mpConflictMode,
                 ShowInSimpleView = false,
                 ShowInAdvancedView = false,
                 SortOrder = 414
@@ -2549,8 +2737,13 @@ namespace Better_Work_Tab.UI.Settings
                 Label = "Angled headers",
                 Tooltip = "Toggle angled column headers. Disabling allows vanilla headers to work. Note: Vanilla headers will not look right with drag and drop. The yellow indicator for out-of-place columns won't work with vanilla headers.",
                 Type = SettingType.Bool,
-                DefaultValue = true,
+                DefaultValue = DefaultSettings.enableAngledHeaders,
                 ControlsChildVisibility = true,
+                Suppressions = new List<SettingSuppression>
+                {
+                    FluffyWorkTabGateway.CreateWorkTabOwnedByFluffySuppression(
+                        "Fluffy Work Tab is drawing the Work tab headers.")
+                },
                 OnChanged = s => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
                 ShowInSimpleView = true,
                 ShowInAdvancedView = true,
@@ -2565,7 +2758,7 @@ namespace Better_Work_Tab.UI.Settings
                 Label = "Hide Header Underline",
                 Tooltip = "Remove the underline from work tab header labels.",
                 Type = SettingType.Bool,
-                DefaultValue = false,
+                DefaultValue = DefaultSettings.removeHeaderUnderline,
                 ShowInSimpleView = true,
                 ShowInAdvancedView = true,
                 SortOrder = 5061 // Immediately after HeadersAngled
@@ -2579,7 +2772,7 @@ namespace Better_Work_Tab.UI.Settings
                 Label = "Angle rotation",
                 Tooltip = "Rotate the angled headers (-90 to 90 degrees). Snaps to 5-degree increments.",
                 Type = SettingType.Int,
-                DefaultValue = -60,
+                DefaultValue = DefaultSettings.angledHeaderRotation,
                 MinValue = -90f,
                 MaxValue = 90f,
                 OnChanged = s => 
@@ -2601,7 +2794,7 @@ namespace Better_Work_Tab.UI.Settings
                 Label = "Vertical stacking for CJK",
                 Tooltip = "Draw East Asian characters (Korean, Chinese, Japanese) vertically when angled headers are enabled. This is much more legible than rotated text.",
                 Type = SettingType.Bool,
-                DefaultValue = true,
+                DefaultValue = DefaultSettings.useVerticalStackingForCJK,
                 OnChanged = s => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
                 ShowInSimpleView = true,
                 ShowInAdvancedView = true,
@@ -2616,7 +2809,7 @@ namespace Better_Work_Tab.UI.Settings
                 Label = "CJK vertical kerning",
                 Tooltip = "Adjust the vertical spacing between characters in Asian vertical stacking. Lower values mean tighter spacing.",
                 Type = SettingType.Float,
-                DefaultValue = 0.75f,
+                DefaultValue = DefaultSettings.cjkVerticalKerning,
                 MinValue = 0.5f,
                 MaxValue = 1.5f,
                 OnChanged = s => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
@@ -2633,7 +2826,7 @@ namespace Better_Work_Tab.UI.Settings
                 Label = "Header text color",
                 Tooltip = "Custom color for the angled header text.",
                 Type = SettingType.Color,
-                DefaultValue = Color.white,
+                DefaultValue = DefaultSettings.Color_AngledHeaderText,
                 OnChanged = s => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
@@ -2663,7 +2856,7 @@ namespace Better_Work_Tab.UI.Settings
                 Label = "Horizontal offset",
                 Tooltip = "Adjust the horizontal position of the angled headers. 0 = centered, 10 = Default. (Automatically forced to 0 at -90° for perfect alignment).",
                 Type = SettingType.NumericInt,
-                DefaultValue = 10,
+                DefaultValue = DefaultSettings.angledHeaderHorizontalOffset,
                 MinValue = -100f,
                 MaxValue = 100f,
                 OnChanged = s => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),

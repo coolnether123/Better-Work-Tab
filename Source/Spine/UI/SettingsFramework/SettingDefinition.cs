@@ -4,6 +4,12 @@ using UnityEngine;
 
 namespace Spine.UI.SettingsFramework
 {
+    public enum SettingClassification
+    {
+        Preference,
+        State
+    }
+
     /// <summary>
     /// Defines a single configurable setting with optional parent-child relationships.
     /// </summary>
@@ -21,6 +27,27 @@ namespace Spine.UI.SettingsFramework
         public string FieldName;
 
         /// <summary>
+        /// XML key used for settings scribing. Null means use FieldName.
+        /// </summary>
+        public string ScribeKey;
+
+        /// <summary>
+        /// Optional legacy default used only when an XML key is absent.
+        /// </summary>
+        public object ScribeDefaultOverride;
+
+        /// <summary>
+        /// True when a setting needs a hand-written Scribe call because its absent-key default
+        /// depends on other migrated values.
+        /// </summary>
+        public bool DisableAutoScribe;
+
+        /// <summary>
+        /// Preferences are scribed and reset by the registry. State is not reset.
+        /// </summary>
+        public SettingClassification Classification = SettingClassification.Preference;
+
+        /// <summary>
         /// Parent setting identifier. Null indicates a root item.
         /// </summary>
         public string ParentId;
@@ -34,6 +61,12 @@ namespace Spine.UI.SettingsFramework
         /// Tooltip text shown on hover (fallback if no translation is found).
         /// </summary>
         public string Tooltip;
+
+        /// <summary>
+        /// Optional non-displayed aliases that make this setting easier to find in search.
+        /// Use for mod names, common synonyms, or legacy terms that should not clutter the label.
+        /// </summary>
+        public string[] SearchKeywords;
 
         /// <summary>
         /// Controls draw order within a hierarchy level. Lower values appear first.
@@ -99,6 +132,35 @@ namespace Spine.UI.SettingsFramework
         /// Optional predicate that determines runtime visibility.
         /// </summary>
         public Func<object, bool> VisibleWhen;
+
+        /// <summary>
+        /// Optional rules that disable this setting at runtime without hiding it. The first active
+        /// rule explains itself under the row and, when it names a suppressing setting, links to it.
+        /// Suppression cascades: children of a suppressed setting are disabled too.
+        /// </summary>
+        public List<SettingSuppression> Suppressions;
+
+        /// <summary>
+        /// Returns the first suppression currently in force, or null when the setting is live.
+        /// </summary>
+        public SettingSuppression GetActiveSuppression(object settingsObject)
+        {
+            if (Suppressions == null)
+            {
+                return null;
+            }
+
+            for (int i = 0; i < Suppressions.Count; i++)
+            {
+                SettingSuppression suppression = Suppressions[i];
+                if (suppression != null && suppression.IsActive(settingsObject))
+                {
+                    return suppression;
+                }
+            }
+
+            return null;
+        }
 
         /// <summary>
         /// When true and this is a boolean parent, children are disabled when the parent is unchecked.

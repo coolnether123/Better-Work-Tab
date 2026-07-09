@@ -7,6 +7,7 @@ using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using RimWorld;
 using UnityEngine;
+using Verse;
 using static Better_Work_Tab.UI.Settings.SettingIDs;
 
 namespace Better_Work_Tab.UI.Settings
@@ -44,6 +45,25 @@ namespace Better_Work_Tab.UI.Settings
                     false,
                     UiTimePriorityPlannerPrototype,
                     UiTimePriorityCopyPasteButtons);
+            }
+
+            if (layout != null &&
+                SubWorkHeaderAffordance.TryGetOpenBadgeTarget(
+                    layout,
+                    mousePosition,
+                    out WorkTypeDef _,
+                    out Rect _))
+            {
+                return CreateContextRequest(
+                    "Sub-work Header Button",
+                    "Setting that controls the two-line sub-work button under work headers.",
+                    SubWorkHeaderBadge,
+                    true,
+                    FeaturesSubWorkJobs,
+                    SubWorkHeaderBadge,
+                    SubWorkOpenButton,
+                    SubWorkOpenModifier,
+                    SubWorkDrilldownStyle);
             }
 
             if (layout != null && TryGetPriorityCellContext(layout, mousePosition, out bool isSubWorkCell))
@@ -627,8 +647,9 @@ namespace Better_Work_Tab.UI.Settings
         private static bool TryGetSubWorkExitButtonContext(Rect inRect, Vector2 mousePosition)
         {
             const float buttonSize = 24f;
+            float topRightReservedWidth = HeaderButtons.GetTopRightReservedWidth();
             Rect exitRect = new Rect(
-                inRect.xMax - buttonSize - RightEdgeMargin,
+                inRect.xMax - buttonSize - RightEdgeMargin - topRightReservedWidth,
                 inRect.y + 8f,
                 buttonSize,
                 buttonSize);

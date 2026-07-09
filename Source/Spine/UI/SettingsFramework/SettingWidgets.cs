@@ -295,6 +295,17 @@ namespace Spine.UI.SettingsFramework
                 }
             }
 
+            if (enumType.Name == "WorkTabOwnerPreference")
+            {
+                switch (value.ToString())
+                {
+                    case "BetterWorkTab":
+                        return "Better Work Tab";
+                    case "FluffyWorkTab":
+                        return "Fluffy Work Tab";
+                }
+            }
+
             return value.ToString();
         }
 

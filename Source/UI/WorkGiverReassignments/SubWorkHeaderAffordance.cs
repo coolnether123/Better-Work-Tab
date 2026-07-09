@@ -15,9 +15,10 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
     /// </summary>
     internal static class SubWorkHeaderAffordance
     {
-        private const float BadgeWidth = 16f;
-        private const float BadgeHeight = 16f;
-        private const float VanillaLabelGap = 5f;
+        private const float AffordanceMinWidth = 16f;
+        private const float AffordanceHeight = 11f;
+        private const float AffordanceInset = 3f;
+        private const float AngledAffordanceRightOffset = 9f;
         private const float BackBadgeSize = 18f;
 
         private static readonly Dictionary<string, int> WorkGiverCountCache = new Dictionary<string, int>();
@@ -41,13 +42,16 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
         internal static Rect GetOpenBadgeRect(Rect headerRect, bool clearVanillaStem)
         {
-            float x = headerRect.xMax - BadgeWidth - 1f;
+            float width = Mathf.Max(AffordanceMinWidth, headerRect.width - (AffordanceInset * 2f));
+            float xOffset = (BetterWorkTabMod.Settings?.enableAngledHeaders ?? DefaultSettings.enableAngledHeaders)
+                ? AngledAffordanceRightOffset
+                : 0f;
 
             return new Rect(
-                Mathf.Round(x),
-                Mathf.Round(headerRect.yMax - BadgeHeight - 2f),
-                BadgeWidth,
-                BadgeHeight);
+                Mathf.Round(headerRect.center.x - (width / 2f) + xOffset),
+                Mathf.Round(headerRect.yMax - AffordanceHeight - 2f),
+                width,
+                AffordanceHeight);
         }
 
         internal static void DrawOpenBadge(Rect headerRect, PawnColumnDef column, bool clearVanillaStem)
@@ -58,8 +62,8 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             }
 
             Rect badgeRect = GetOpenBadgeRect(headerRect, clearVanillaStem);
-            DrawOpenEllipsisBadge(badgeRect, IsOpenBadgeHovered(badgeRect, column));
-            TooltipHandler.TipRegion(badgeRect, "Show specific jobs".Colorize(ColoredText.SubtleGrayColor));
+            DrawAngledOpenAffordance(badgeRect, IsOpenBadgeHovered(badgeRect, column));
+            TooltipHandler.TipRegion(badgeRect, "BWT_SubWork_OpenSpecificJobs".Translate().Colorize(ColoredText.SubtleGrayColor));
             MouseoverSounds.DoRegion(badgeRect);
         }
 
@@ -72,8 +76,8 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
             Rect badgeRect = GetVanillaOpenBadgeRect(headerRect, textRect);
             RememberVanillaOpenBadgeRect(column, badgeRect);
-            DrawOpenEllipsisBadge(badgeRect, IsOpenBadgeHovered(badgeRect, column));
-            TooltipHandler.TipRegion(badgeRect, "Show specific jobs".Colorize(ColoredText.SubtleGrayColor));
+            DrawVanillaOpenAffordance(badgeRect, IsOpenBadgeHovered(badgeRect, column));
+            TooltipHandler.TipRegion(badgeRect, "BWT_SubWork_OpenSpecificJobs".Translate().Colorize(ColoredText.SubtleGrayColor));
             MouseoverSounds.DoRegion(badgeRect);
         }
 
@@ -156,17 +160,12 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
         private static Rect GetVanillaOpenBadgeRect(Rect headerRect, Rect textRect)
         {
-            float x = textRect.xMax + VanillaLabelGap;
-            bool hasRightLabelSpace = x <= headerRect.xMax - BadgeWidth - 1f;
-            if (!hasRightLabelSpace)
-            {
-                return GetOpenBadgeRect(headerRect, clearVanillaStem: false);
-            }
-
-            float y = textRect.center.y - (BadgeHeight / 2f);
-            y = Mathf.Clamp(y, headerRect.yMin + 1f, headerRect.yMax - BadgeHeight - 1f);
-
-            return new Rect(Mathf.Round(x), Mathf.Round(y), BadgeWidth, BadgeHeight);
+            float width = Mathf.Max(AffordanceMinWidth, headerRect.width - (AffordanceInset * 2f));
+            return new Rect(
+                Mathf.Round(headerRect.center.x - (width / 2f)),
+                Mathf.Round(headerRect.yMax - AffordanceHeight - 2f),
+                width,
+                AffordanceHeight);
         }
 
         private static void RememberVanillaOpenBadgeRect(PawnColumnDef column, Rect badgeRect)
@@ -285,38 +284,62 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             return count;
         }
 
-        private static void DrawOpenEllipsisBadge(Rect rect, bool hovered)
+        private static void DrawAngledOpenAffordance(Rect rect, bool hovered)
         {
             Color oldColor = GUI.color;
             Matrix4x4 oldMatrix = GUI.matrix;
-            GameFont oldFont = Text.Font;
-            TextAnchor oldAnchor = Text.Anchor;
-            bool oldWordWrap = Text.WordWrap;
             try
             {
                 if (hovered)
                 {
-                    GUI.color = new Color(1f, 1f, 1f, 0.18f);
-                    GUI.DrawTexture(rect.ExpandedBy(3f), TexUI.HighlightTex);
+                    GUI.color = new Color(1f, 1f, 1f, 0.16f);
+                    GUI.DrawTexture(rect.ExpandedBy(2f), TexUI.HighlightTex);
                 }
 
                 GUI.color = hovered
                     ? Color.white
-                    : new Color(0.72f, 0.74f, 0.72f, 0.72f);
+                    : new Color(0.82f, 0.84f, 0.82f, 0.82f);
 
-                Text.Font = GameFont.Small;
-                Text.Anchor = TextAnchor.MiddleCenter;
-                Text.WordWrap = false;
-                Widgets.Label(new Rect(rect.x - 6f, rect.y - 12f, rect.width + 12f, rect.height + 24f), "...");
+                float rotation = BetterWorkTabMod.Settings?.angledHeaderRotation ?? -60f;
+                Vector2 pivot = rect.center;
+                GUIUtility.RotateAroundPivot(rotation, pivot);
+                DrawAffordanceRails(rect);
             }
             finally
             {
-                Text.WordWrap = oldWordWrap;
-                Text.Anchor = oldAnchor;
-                Text.Font = oldFont;
                 GUI.matrix = oldMatrix;
                 GUI.color = oldColor;
             }
+        }
+
+        private static void DrawVanillaOpenAffordance(Rect rect, bool hovered)
+        {
+            Color oldColor = GUI.color;
+            try
+            {
+                if (hovered)
+                {
+                    GUI.color = new Color(1f, 1f, 1f, 0.14f);
+                    GUI.DrawTexture(rect.ExpandedBy(2f), TexUI.HighlightTex);
+                }
+
+                GUI.color = hovered
+                    ? Color.white
+                    : new Color(0.82f, 0.84f, 0.82f, 0.82f);
+                DrawAffordanceRails(rect);
+            }
+            finally
+            {
+                GUI.color = oldColor;
+            }
+        }
+
+        private static void DrawAffordanceRails(Rect rect)
+        {
+            float railWidth = Mathf.Max(10f, rect.width - 4f);
+            float railX = rect.center.x - (railWidth / 2f);
+            Widgets.DrawBoxSolid(new Rect(railX, rect.y + 2f, railWidth, 2f), GUI.color);
+            Widgets.DrawBoxSolid(new Rect(railX + (railWidth * 0.24f), rect.y + 7f, railWidth * 0.52f, 2f), GUI.color);
         }
 
         private static void DrawBackArrowBadge(Rect rect, bool hovered)

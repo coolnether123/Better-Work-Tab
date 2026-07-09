@@ -23,7 +23,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
         internal static void Draw(IWorkTabLayoutController layout)
         {
-            if (!SubWorkDrilldownState.IsActive || layout == null)
+            if (!SubWorkDrilldownState.HasAnyDrilldown || layout == null)
             {
                 return;
             }
@@ -44,12 +44,12 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 reservedHeight);
 
             float visualAlpha = SubWorkDrilldownState.GlobalRowVisualAlpha;
-            float alpha = Mathf.Lerp(0.18f, 0.72f, visualAlpha);
+            float alpha = 0.72f * visualAlpha;
             Widgets.DrawBoxSolid(rowRect, new Color(0.08f, 0.1f, 0.11f, alpha));
             Rect separatorRect = new Rect(rowRect.xMin, rowRect.yMax - 3f, rowRect.width, 1f);
             WorkTabGeometryDiagnostics.RecordSubWorkSeparator(separatorRect);
             Color oldColor = GUI.color;
-            GUI.color = new Color(1f, 1f, 1f, 0.28f);
+            GUI.color = new Color(1f, 1f, 1f, 0.28f * visualAlpha);
             Widgets.DrawLineHorizontal(separatorRect.xMin, separatorRect.yMin, separatorRect.width);
             GUI.color = oldColor;
 
@@ -75,9 +75,13 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                     HighlightDrawer.DrawHighlight(cellRect, HighlightDrawer.GetColumnHoverColor());
                 }
 
-                if (SubWorkDrilldownState.TryGetWorkGiverForColumn(column.Column, out var workGiver, out _))
+                if (SubWorkDrilldownState.TryGetWorkGiverForColumn(
+                        column,
+                        out var workGiver,
+                        out WorkTypeDef parentWorkType,
+                        out _))
                 {
-                    DrawGlobalPriorityCell(workGiver, cellRect, visualAlpha);
+                    DrawGlobalPriorityCell(workGiver, parentWorkType, cellRect, visualAlpha);
                 }
             }
 
@@ -97,7 +101,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 return false;
             }
 
-            var workType = column.Column?.workType;
+            WorkTypeDef workType = column.SubWorkParent ?? column.Column?.workType;
             if (workType == null)
             {
                 return false;
@@ -150,16 +154,27 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             Text.Font = GameFont.Small;
             GUI.color = hovered ? Color.white : new Color(1f, 1f, 1f, 0.96f);
 
-            string label = WorkTypeDisplayNameService.HeaderLabel(SubWorkDrilldownState.ActiveWorkType);
-            Widgets.Label(labelRect, label + " global");
+            string label = SubWorkDrilldownState.ActiveWorkType != null
+                ? WorkTypeDisplayNameService.HeaderLabel(SubWorkDrilldownState.ActiveWorkType) + " global"
+                : "Specific jobs";
+            Widgets.Label(labelRect, label);
 
             GUI.color = oldColor;
             Text.Anchor = oldAnchor;
             Text.Font = oldFont;
         }
 
-        private static void DrawGlobalPriorityCell(WorkGiver workGiver, Rect cellRect, float visualAlpha)
+        private static void DrawGlobalPriorityCell(
+            WorkGiver workGiver,
+            WorkTypeDef parentWorkType,
+            Rect cellRect,
+            float visualAlpha)
         {
+            if (parentWorkType == null)
+            {
+                return;
+            }
+
             float boxSize = Mathf.Min(SubWorkDrilldownState.GlobalPriorityBoxSize, Mathf.Max(0f, cellRect.height - 4f));
             if (boxSize <= 6f)
             {
@@ -169,7 +184,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             Rect boxRect = WorkPriorityCellGeometry.GetCenteredBoxRect(cellRect, boxSize);
             WorkGiverPriorityBoxRenderer.DrawPriorityBox(
                 workGiver,
-                SubWorkDrilldownState.ActiveWorkType,
+                parentWorkType,
                 null,
                 boxRect,
                 visualAlpha);

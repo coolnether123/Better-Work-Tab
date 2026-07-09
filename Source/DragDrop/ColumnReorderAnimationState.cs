@@ -48,6 +48,11 @@ namespace Better_Work_Tab.DragDrop
             _startedAt = Time.realtimeSinceStartup;
         }
 
+        internal static void Clear()
+        {
+            FromPositions.Clear();
+        }
+
         internal static float GetHeaderOffset(WorkTabLayoutColumn column)
         {
             return GetOffset(column, header: true);

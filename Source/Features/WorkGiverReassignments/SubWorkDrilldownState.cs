@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Better_Work_Tab.DragDrop;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.UI.Input;
 using RimWorld;
@@ -59,6 +60,26 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         internal static bool IsDrawingExpandBesideChild => _drawingSubWorkGiver != null && _drawingSubWorkParent != null;
 
         internal static WorkTypeDef ActiveWorkType => _activeWorkType;
+
+        internal static int CurrentDrawingHeaderSignature
+        {
+            get
+            {
+                if (_drawingSubWorkGiver == null || _drawingSubWorkParent == null)
+                {
+                    return 0;
+                }
+
+                unchecked
+                {
+                    int hash = 17;
+                    hash = hash * 31 + _drawingSubWorkParent.shortHash;
+                    hash = hash * 31 + _drawingSubWorkGiver.shortHash;
+                    hash = hash * 31 + _drawingSubWorkSlot;
+                    return hash;
+                }
+            }
+        }
 
         internal static float BaseHeaderDrawWidth => _baseHeaderDrawWidth;
 
@@ -155,26 +176,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         internal static bool IsTransitioning => IsActive && UseTransitionAnimation && (_isExiting || TransitionAlpha < 0.999f);
 
-        internal static bool IsExpandBesideTransitioning
-        {
-            get
-            {
-                if (!UseTransitionAnimation)
-                {
-                    return false;
-                }
-
-                foreach (var entry in ExpandBesideEntries.Values)
-                {
-                    if (entry.IsTransitioning)
-                    {
-                        return true;
-                    }
-                }
-
-                return false;
-            }
-        }
+        internal static bool IsExpandBesideTransitioning => false;
 
         internal static int TransitionLayoutFrame
         {
@@ -260,12 +262,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                     return 0f;
                 }
 
-                if (!UseTransitionAnimation || !IsTransitioning)
-                {
-                    return GlobalRowHeight;
-                }
-
-                return GlobalRowHeight * Mathf.Clamp01(ModeVisualProgress);
+                return GlobalRowHeight;
             }
         }
 
@@ -724,9 +721,11 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 ExitImmediate();
             }
 
+            ColumnReorderAnimationState.Clear();
+
             if (ExpandBesideEntries.TryGetValue(workType.defName, out var existing) && !existing.IsCollapsing)
             {
-                existing.Collapse();
+                existing.BeginCollapse();
                 _layoutRefreshPending = true;
                 LogSubWork($"Expand-beside collapse requested. workType={workType.defName}");
                 return;
@@ -745,18 +744,23 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 return;
             }
 
-            if (!UseTransitionAnimation)
+            ColumnReorderAnimationState.Clear();
+            foreach (ExpandBesideEntry entry in ExpandBesideEntries.Values)
             {
-                ExpandBesideEntries.Clear();
-                _layoutRefreshPending = true;
+                entry.BeginCollapse();
+            }
+            _layoutRefreshPending = true;
+        }
+
+        internal static void CollapseAllExpandBesideImmediate()
+        {
+            if (ExpandBesideEntries.Count == 0)
+            {
                 return;
             }
 
-            foreach (var entry in ExpandBesideEntries.Values)
-            {
-                entry.Collapse();
-            }
-
+            ColumnReorderAnimationState.Clear();
+            ExpandBesideEntries.Clear();
             _layoutRefreshPending = true;
         }
 
@@ -809,6 +813,11 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 return workGiver != null;
             }
 
+            if (IsExpandBesideActive)
+            {
+                return false;
+            }
+
             if (TryGetWorkGiverForColumn(column.Column, out workGiver, out slotIndex))
             {
                 parentWorkType = _activeWorkType;
@@ -836,6 +845,11 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 parentWorkType = _drawingSubWorkParent;
                 slotIndex = _drawingSubWorkSlot;
                 return workGiver != null;
+            }
+
+            if (IsExpandBesideActive)
+            {
+                return false;
             }
 
             if (TryGetWorkGiverForColumn(column, out workGiver, out slotIndex))
@@ -888,31 +902,27 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         private static bool TickExpandBesideTransitions()
         {
-            if (ExpandBesideEntries.Count == 0)
-            {
-                return false;
-            }
-
             bool changed = false;
-            var remove = new List<string>();
+            var removeKeys = new List<string>();
             foreach (var pair in ExpandBesideEntries)
             {
-                var entry = pair.Value;
-                if (entry.IsTransitioning)
+                ExpandBesideEntry entry = pair.Value;
+                if (entry.IsCollapsing && entry.VisualProgress <= 0.001f)
+                {
+                    removeKeys.Add(pair.Key);
+                    changed = true;
+                    continue;
+                }
+
+                if (entry.VisualProgress < 0.999f)
                 {
                     changed = true;
                 }
-
-                if (entry.ShouldRemove)
-                {
-                    remove.Add(pair.Key);
-                }
             }
 
-            for (int i = 0; i < remove.Count; i++)
+            for (int i = 0; i < removeKeys.Count; i++)
             {
-                ExpandBesideEntries.Remove(remove[i]);
-                changed = true;
+                ExpandBesideEntries.Remove(removeKeys[i]);
             }
 
             return changed;
@@ -962,7 +972,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         {
             workGiver = null;
             slotIndex = GetVisibleWorkColumnSlot(column);
-            if (!IsActive || slotIndex < 0)
+            if (!IsActive || IsExpandBesideActive || slotIndex < 0)
             {
                 return false;
             }
@@ -1211,22 +1221,18 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         private sealed class ExpandBesideEntry
         {
-            private readonly float _openedAt;
-            private float _collapsedAt;
-
             internal ExpandBesideEntry(WorkTypeDef workType)
             {
                 WorkType = workType;
-                _openedAt = Time.realtimeSinceStartup;
+                _startedAt = Time.realtimeSinceStartup;
             }
+
+            private readonly float _startedAt;
+            private float _collapsingAt;
 
             internal WorkTypeDef WorkType { get; }
 
-            internal bool IsCollapsing => _collapsedAt > 0f;
-
-            internal bool IsTransitioning => UseTransitionAnimation && (IsCollapsing || VisualProgress < 0.999f);
-
-            internal bool ShouldRemove => IsCollapsing && (!UseTransitionAnimation || Time.realtimeSinceStartup - _collapsedAt >= TransitionSeconds);
+            internal bool IsCollapsing { get; private set; }
 
             internal float VisualProgress
             {
@@ -1237,19 +1243,21 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                         return IsCollapsing ? 0f : 1f;
                     }
 
-                    float start = IsCollapsing ? _collapsedAt : _openedAt;
-                    float raw = Mathf.Clamp01((Time.realtimeSinceStartup - start) / TransitionSeconds);
-                    float eased = raw * raw * (3f - (2f * raw));
-                    return IsCollapsing ? 1f - eased : eased;
+                    float startedAt = IsCollapsing ? _collapsingAt : _startedAt;
+                    float progress = Mathf.Clamp01((Time.realtimeSinceStartup - startedAt) / TransitionSeconds);
+                    return IsCollapsing ? 1f - progress : progress;
                 }
             }
 
-            internal void Collapse()
+            internal void BeginCollapse()
             {
-                if (_collapsedAt <= 0f)
+                if (IsCollapsing)
                 {
-                    _collapsedAt = Time.realtimeSinceStartup;
+                    return;
                 }
+
+                IsCollapsing = true;
+                _collapsingAt = Time.realtimeSinceStartup;
             }
         }
     }

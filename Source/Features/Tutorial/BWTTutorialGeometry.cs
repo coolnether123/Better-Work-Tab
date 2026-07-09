@@ -343,7 +343,12 @@ namespace Better_Work_Tab.Features.Tutorial
         private static Rect GetSubWorkExitRect(Rect inRect)
         {
             const float buttonSize = 24f;
-            return new Rect(inRect.xMax - buttonSize - RightEdgeMargin, inRect.y + 8f, buttonSize, buttonSize)
+            float topRightReservedWidth = HeaderButtons.GetTopRightReservedWidth();
+            return new Rect(
+                    inRect.xMax - buttonSize - RightEdgeMargin - topRightReservedWidth,
+                    inRect.y + 8f,
+                    buttonSize,
+                    buttonSize)
                 .ExpandedBy(5f);
         }
 

@@ -29,10 +29,16 @@ namespace Better_Work_Tab.UI.Headers
         /// Checks if the currently open tab is a Work tab (vanilla or BWT).
         /// Returns false for other tabs like MechTab to avoid interference.
         /// </summary>
+        /// <remarks>
+        /// This is a rendering question, not a priority-data question. When Fluffy Work Tab owns the
+        /// Work tab it swaps in its own <c>WorkTab.MainTabWindow_WorkTab</c>, which does not derive
+        /// from <see cref="MainTabWindow_Work"/>, so the window scan below already excludes it.
+        /// Gating this on priority authority would silently disable Better Work Tab's headers
+        /// whenever Fluffy happened to be backing the numbers.
+        /// </remarks>
         public static bool IsWorkTab()
         {
             if (BetterWorkTabMod.Settings == null) return false;
-            if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabPriorityFeatures) return false;
             var windowStack = Find.WindowStack;
             if (windowStack == null) return false;
             
@@ -80,6 +86,15 @@ namespace Better_Work_Tab.UI.Headers
                 var workType = __instance?.def?.workType;
                 if (workType == null) return false;
 
+                // Fluffy work-giver columns derive from PawnColumnWorker_WorkPriority but carry their
+                // parent's workType. Drawing a Better Work Tab header here would label every sub-work
+                // column with the work type. Let Fluffy's own worker and transpiler render them.
+                if (FluffyWorkTabGateway.IsFluffyWorkGiverColumn(__instance.def) &&
+                    !FluffyWorkTabGateway.IsHostedFluffyWorkGiverColumn(__instance.def))
+                {
+                    return true;
+                }
+
                 if (SubWorkDrilldownState.IsBlankWorkColumn(__instance.def))
                 {
                     return false;
@@ -114,7 +129,6 @@ namespace Better_Work_Tab.UI.Headers
             // Logic handled in Prefix
         }
     }
-
     /// <summary>
     /// Patches the header height calculation to accommodate staggered or angled labels.
     /// </summary>
@@ -129,6 +143,11 @@ namespace Better_Work_Tab.UI.Headers
         {
             // Only apply to the Work tab (vanilla or BWT), not other tabs like MechTab
             if (!PawnColumnWorker_WorkPriority_DoHeader_Patch.IsWorkTab())
+                return;
+
+            // Fluffy sizes its own work-giver column headers.
+            if (FluffyWorkTabGateway.IsFluffyWorkGiverColumn(__instance?.def) &&
+                !FluffyWorkTabGateway.IsHostedFluffyWorkGiverColumn(__instance?.def))
                 return;
 
             var settings = BetterWorkTabMod.Settings;

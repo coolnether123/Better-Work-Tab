@@ -165,6 +165,7 @@ namespace Better_Work_Tab.UI.Settings
                     UiTimePriorityHourDivider,
                     UiChronosPointerTimePriority,
                     UiTimePrioritySourceColumnHighlight,
+                    UiFluffyTimePriorityMirroring,
                     UiMaxPriority,
                     UiAutoMaxPriority,
                     FeaturesSubWorkJobs) ||

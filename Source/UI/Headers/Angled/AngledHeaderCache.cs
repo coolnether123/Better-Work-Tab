@@ -243,6 +243,10 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 hash = hash * 23 + (isMoved ? 1 : 0);
                 hash = hash * 23 + (int)labelStyle;
                 hash = hash * 23 + (parentOnly ? 1 : 0);
+                if (!parentOnly)
+                {
+                    hash = hash * 23 + SubWorkDrilldownState.CurrentDrawingHeaderSignature;
+                }
                 hash = hash * 23 + CustomLabelStore.Version;
                 hash = hash * 23 + (BetterWorkTabMod.Settings?.showColumnMovedMarker ?? true ? 1 : 0);
                 hash = hash * 23 + (BetterWorkTabMod.Settings?.useVerticalStackingForCJK ?? true ? 1 : 0);

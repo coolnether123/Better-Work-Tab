@@ -91,6 +91,12 @@ namespace Better_Work_Tab.UI.Settings
         public const string MpAllowOthersToRequestLayout = "mp.allowOthersToRequestLayout";
         public const string MpAllowPresenceBroadcast = "mp.allowPresenceBroadcast";
         public const string MpShowLinkedIndicator = "mp.showLinkedIndicator";
+        public const string ModCompatHeader = "modcompat.header";
+        public const string CompatFluffyWorkTabHeader = "compat.fluffyWorkTab.header";
+        public const string CompatFluffyWorkTabOwnership = "compat.fluffyWorkTab.ownership";
+        public const string CompatFluffyWorkTabSpecificJobs = "compat.fluffyWorkTab.specificJobs";
+        public const string CompatFluffyWorkTabOwner = "compat.fluffyWorkTab.owner";
+        public const string CompatChronosPointerHeader = "compat.chronosPointer.header";
         public const string OverlayBestPawnMode = "overlay.bestPawnMode";
         public const string OverlayHeader = "overlay.header";
         public const string OverlayHoverCellOverlay = "overlay.hoverCellOverlay";
@@ -134,6 +140,7 @@ namespace Better_Work_Tab.UI.Settings
         public const string UiChronosPointerTimePriority = "ui.chronosPointerTimePriority";
         public const string UiTimePriorityHourDivider = "ui.timePriorityHourDivider";
         public const string UiTimePrioritySourceColumnHighlight = "ui.timePrioritySourceColumnHighlight";
+        public const string UiFluffyTimePriorityMirroring = "ui.fluffyTimePriorityMirroring";
         public const string UiChronosPointerTimePriorityIncidents = "ui.chronosPointerTimePriorityIncidents";
         public const string UiPriorityLegend = "ui.priorityLegend";
         public const string UiMaxPriority = "ui.maxPriority";
