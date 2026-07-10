@@ -41,12 +41,10 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 return SubWorkDrilldownState.BaseHeaderDrawWidth;
             }
 
-            if (!SubWorkDrilldownState.IsActive && fallback > 0f)
-            {
-                return fallback;
-            }
-
-            if (_lastNormalHeaderHeight > 0f)
+            // Expand-beside may increase the header ceiling for longer child labels. The
+            // angled label's horizontal draw width must remain at its pre-expansion value,
+            // otherwise half of every height increase shifts the label start to the left.
+            if (SubWorkDrilldownState.HasAnyDrilldown && _lastNormalHeaderHeight > 0f)
             {
                 return _lastNormalHeaderHeight;
             }
@@ -54,6 +52,11 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             if (fallback > 0f)
             {
                 return fallback;
+            }
+
+            if (_lastNormalHeaderHeight > 0f)
+            {
+                return _lastNormalHeaderHeight;
             }
 
             return table?.cachedHeaderHeight ?? 0f;

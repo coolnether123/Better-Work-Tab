@@ -160,7 +160,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
             {
                 Layout = isCJKVertical
                     ? new AngledLabelDrawer.AngledLabelLayout(label, size, pivot, isMoved, isCJKVertical, drawRect)
-                    : SubWorkDrilldownState.IsActive
+                    : SubWorkDrilldownState.HasAnyDrilldown || drawWidthOverride > 0f
                         ? new AngledLabelDrawer.AngledLabelLayout(label, size, pivot, isMoved, isCJKVertical, drawRect)
                         : new AngledLabelDrawer.AngledLabelLayout(label, size, pivot, isMoved, isCJKVertical),
                 Quad = quad,

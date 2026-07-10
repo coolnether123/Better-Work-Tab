@@ -58,6 +58,9 @@ namespace Better_Work_Tab.UI.Headers.Angled
             float rot = AngledLabelDrawer.CurrentRotation;
             float rotCos = Mathf.Cos(rot * Mathf.Deg2Rad);
             float rotSin = Mathf.Sin(rot * Mathf.Deg2Rad);
+            float stableDrawWidth = SubWorkDrilldownState.HasAnyDrilldown
+                ? SubWorkDrilldownHeaderGeometry.GetBaseHeaderDrawWidth(table, rect.height)
+                : -1f;
 
             if (!AngledHeaderCache.TryGetLayout(
                     rect,
@@ -66,7 +69,8 @@ namespace Better_Work_Tab.UI.Headers.Angled
                     rotSin,
                     AngledLabelDrawer.STEM_BOTTOM_GAP,
                     AngledLabelDrawer.EffectiveHorizontalOffset,
-                    out var cached))
+                    out var cached,
+                    stableDrawWidth))
             {
                 return false;
             }
@@ -109,10 +113,12 @@ namespace Better_Work_Tab.UI.Headers.Angled
             bool shouldDraw = evt.type == EventType.Repaint;
             string label = HeaderUtility.GetHeaderText(worker.def.workType);
             Vector2 size = Text.CalcSize(label);
-            Rect drawRect = new Rect(rect.x, rect.y, Mathf.Max(rect.width, rect.height), size.y)
+            float stableDrawWidth = SubWorkDrilldownHeaderGeometry.GetBaseHeaderDrawWidth(table, rect.height);
+            Rect drawRect = new Rect(rect.x, rect.y, Mathf.Max(rect.width, stableDrawWidth), size.y)
             {
                 center = rect.center
             };
+            drawRect.x += AngledLabelDrawer.EffectiveHorizontalOffset;
 
             var layout = new AngledLabelDrawer.AngledLabelLayout(
                 label,

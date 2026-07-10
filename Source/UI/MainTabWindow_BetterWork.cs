@@ -105,7 +105,14 @@ namespace Better_Work_Tab.UI
         private int _pendingSubWorkExitColumnSlot = -1;
         private float _pendingSubWorkExitWaveSlotPosition = -1f;
         private int _suppressSubWorkPriorityMouseDownFrame = -1;
+        private bool _stableHorizontalScrollbarVisible;
+        private bool _lastRawHorizontalOverflow;
+        private bool _lastHorizontalScrollbarVisible;
+        private int _holdHorizontalScrollbarUntilFrame = -1;
         private static Color CurrentRowTextColor = Color.white;
+
+        internal bool LastRawHorizontalOverflow => _lastRawHorizontalOverflow;
+        internal bool LastHorizontalScrollbarVisible => _lastHorizontalScrollbarVisible;
 
         public override void PreOpen()
         {
@@ -1331,28 +1338,7 @@ namespace Better_Work_Tab.UI
             Text.Font = oldFont;
             Text.WordWrap = oldWordWrap;
 
-            Rect drawRect;
-            if (isCJKVertical)
-            {
-                drawRect = new Rect(
-                    headerRect.center.x - (size.x / 2f) + AngledLabelDrawer.EffectiveHorizontalOffset,
-                    headerRect.yMax - size.y - AngledLabelDrawer.STEM_BOTTOM_GAP,
-                    size.x,
-                    size.y);
-            }
-            else
-            {
-                drawRect = new Rect(0f, 0f, Mathf.Max(headerRect.height, size.x), size.y)
-                {
-                    center = headerRect.center
-                };
-                drawRect.x += AngledLabelDrawer.EffectiveHorizontalOffset;
-            }
-
-            if (column.IsExpandBesideChild && column.SubWorkSlot == 0)
-            {
-                drawRect.x += HostedFirstSubWorkAngledHeaderOffsetX;
-            }
+            Rect drawRect = GetHostedAngledHeaderDrawRect(column, headerRect, size, isCJKVertical, table);
 
             var labelLayout = new AngledLabelDrawer.AngledLabelLayout(
                 label,
@@ -1373,6 +1359,42 @@ namespace Better_Work_Tab.UI
                 headerRect,
                 column.Column,
                 labelLayout.ShowMarker);
+        }
+
+        internal static Rect GetHostedAngledHeaderDrawRect(
+            WorkTabLayoutColumn column,
+            Rect headerRect,
+            Vector2 labelSize,
+            bool isCJKVertical,
+            PawnTable table)
+        {
+            Rect drawRect;
+            if (isCJKVertical)
+            {
+                drawRect = new Rect(
+                    headerRect.center.x - (labelSize.x / 2f) + AngledLabelDrawer.EffectiveHorizontalOffset,
+                    headerRect.yMax - labelSize.y - AngledLabelDrawer.STEM_BOTTOM_GAP,
+                    labelSize.x,
+                    labelSize.y);
+            }
+            else
+            {
+                float stableDrawWidth = SubWorkDrilldownState.HasAnyDrilldown
+                    ? SubWorkDrilldownHeaderGeometry.GetBaseHeaderDrawWidth(table, headerRect.height)
+                    : headerRect.height;
+                drawRect = new Rect(0f, 0f, Mathf.Max(stableDrawWidth, labelSize.x), labelSize.y)
+                {
+                    center = headerRect.center
+                };
+                drawRect.x += AngledLabelDrawer.EffectiveHorizontalOffset;
+            }
+
+            if (column.IsExpandBesideChild && column.SubWorkSlot == 0)
+            {
+                drawRect.x += HostedFirstSubWorkAngledHeaderOffsetX;
+            }
+
+            return drawRect;
         }
 
         private static void DrawHostedVanillaHeader(
@@ -3601,9 +3623,33 @@ namespace Better_Work_Tab.UI
             float totalColumnWidth = layout.Columns.Count > 0
                 ? layout.Columns[layout.Columns.Count - 1].OffsetX + layout.Columns[layout.Columns.Count - 1].Width
                 : widthWithoutScrollbar;
-            float viewWidth = Mathf.Max(widthWithoutScrollbar, totalColumnWidth);
             float contentHeight = Mathf.Max(layout.ContentHeight, 1f);
-            bool needsHorizontalScrollbar = totalColumnWidth > outRect.width + 0.5f;
+            bool rawHorizontalOverflow = totalColumnWidth > outRect.width + 0.5f;
+            if (SubWorkDrilldownState.IsExpandBesideTransitioning)
+            {
+                // The layout advances before Unity supplies the resized window contents for
+                // this GUI pass. Hold the last settled scrollbar state until the window has
+                // caught up, preventing a one-frame overflow bar during width animation.
+                _holdHorizontalScrollbarUntilFrame = Time.frameCount + 2;
+            }
+
+            bool needsHorizontalScrollbar;
+            if (Time.frameCount <= _holdHorizontalScrollbarUntilFrame)
+            {
+                needsHorizontalScrollbar = _stableHorizontalScrollbarVisible;
+            }
+            else
+            {
+                needsHorizontalScrollbar = rawHorizontalOverflow;
+                _stableHorizontalScrollbarVisible = needsHorizontalScrollbar;
+            }
+
+            float naturalViewWidth = Mathf.Max(widthWithoutScrollbar, totalColumnWidth);
+            float viewWidth = needsHorizontalScrollbar
+                ? naturalViewWidth
+                : Mathf.Min(naturalViewWidth, outRect.width);
+            _lastRawHorizontalOverflow = rawHorizontalOverflow;
+            _lastHorizontalScrollbarVisible = needsHorizontalScrollbar;
             float fittedViewportHeight = Mathf.Max(
                 1f,
                 outRect.height - (needsHorizontalScrollbar ? HorizontalScrollbarHeight : 0f));
