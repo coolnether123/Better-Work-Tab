@@ -54,6 +54,7 @@ namespace Better_Work_Tab.Features.TimePriority
         };
         private static Session _session;
         private static Rect _lastPanelRect;
+        private static Rect _lastTimelineRect;
         private static Rect _lastCloseRect;
         private static bool _isClosing;
         private static float _closingStartedAt;
@@ -273,7 +274,10 @@ namespace Better_Work_Tab.Features.TimePriority
                 Log.Warning("[BWT] Could not consume time-priority agent request: " + ex.Message);
             }
 
-            if (!TryFindAgentWorkTypeTarget(layout, requestedWorkType, out TargetInfo target))
+            bool foundTarget = string.Equals(requestedWorkType, "first-visible", StringComparison.OrdinalIgnoreCase)
+                ? TryFindFirstVisiblePriorityTarget(layout, out TargetInfo target)
+                : TryFindAgentWorkTypeTarget(layout, requestedWorkType, out target);
+            if (!foundTarget)
             {
                 Log.Warning("[BWT] Time-priority agent request could not find a target for work type: " + requestedWorkType);
                 return;
@@ -677,6 +681,7 @@ namespace Better_Work_Tab.Features.TimePriority
             LastCopyPasteHits.Clear();
             LastScheduleCellDiagnostics.Clear();
             _lastPanelRect = Rect.zero;
+            _lastTimelineRect = Rect.zero;
             _lastCloseRect = Rect.zero;
             NotifyLayoutChanged();
         }
@@ -738,6 +743,8 @@ namespace Better_Work_Tab.Features.TimePriority
             }
 
             builder.AppendLine("timePriorityActive=" + (_session != null));
+            builder.AppendLine("timePrioritySourceRect=" + FormatRect(_session?.SourceBoxRect ?? Rect.zero));
+            builder.AppendLine("timePriorityTimelineRect=" + FormatRect(_lastTimelineRect));
             builder.AppendLine("timePriorityCells=" + LastScheduleCellDiagnostics.Count);
             for (int i = 0; i < LastScheduleCellDiagnostics.Count; i++)
             {
@@ -1218,6 +1225,7 @@ namespace Better_Work_Tab.Features.TimePriority
                 dividerRect.y,
                 timelineWidth,
                 dividerRect.height);
+            _lastTimelineRect = timelineHeaderRect;
             Rect timelineHeaderVisibleRect = GetAccordionRect(timelineHeaderRect, progress);
 
             Rect combined = dividerRect;
@@ -1311,8 +1319,23 @@ namespace Better_Work_Tab.Features.TimePriority
                 return false;
             }
 
-            x = min;
             width = max - min;
+            if (SubWorkDrilldownState.IsExpandBesideActive &&
+                _session?.Kind == TimePriorityTargetKind.WorkGiver &&
+                width > MaxPanelWidth)
+            {
+                // Expanding Fluffy-style sub-work columns can make the Work tab much wider
+                // than its vanilla presentation. Keep the schedule at the familiar BWT size
+                // and center it on the priority box that opened it.
+                width = MaxPanelWidth;
+                x = Mathf.Clamp(
+                    _session.SourceBoxRect.center.x - width / 2f,
+                    min,
+                    max - width);
+                return true;
+            }
+
+            x = min;
             return true;
         }
 
