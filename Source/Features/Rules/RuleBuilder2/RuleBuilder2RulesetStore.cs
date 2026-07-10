@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Better_Work_Tab.Features.Rules;
 
 namespace Better_Work_Tab.Features.Rules.RuleBuilder2
 {
@@ -101,16 +102,55 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 // the collection is loaded so UI/apply code can rely on stable IDs,
                 // sort order, action buffers, and a valid open-card shape.
                 ruleset.Cards ??= new List<RuleBuilder2Card>();
+                bool upgradeClassicDefaults = ruleset.DataVersion < 3;
                 for (int j = 0; j < ruleset.Cards.Count; j++)
                 {
-                    ruleset.Cards[j]?.EnsureStableState(j);
+                    RuleBuilder2Card card = ruleset.Cards[j];
+                    card?.EnsureStableState(j);
+                    RestoreClassicTargetSemantics(settings, card, upgradeClassicDefaults);
                 }
+
+                ruleset.DataVersion = 3;
             }
 
             SeedFromPreferredClassicRulesetIfNeeded(settings);
 
             RuleBuilder2Ruleset selected = ResolveSelected(settings);
             SetCurrent(settings, selected, writeSettings: false);
+        }
+
+        private static void RestoreClassicTargetSemantics(
+            BetterWorkTabSettings settings,
+            RuleBuilder2Card card,
+            bool refreshFromClassic)
+        {
+            if (card?.Target == null || card.Notes?.Contains("Migrated from classic ruleset data.") != true)
+            {
+                return;
+            }
+
+            if (!card.Target.HasTarget)
+            {
+                card.Target.AllWorkTypes = true;
+                card.Target.DisplayLabel = "All work types";
+            }
+
+            string targetDefName = card.Target.WorkTypeDefName ?? "";
+            WorkAssignmentRule classicRule = settings.SavedRulesets?
+                .Where(ruleset => ruleset?.Rules != null)
+                .SelectMany(ruleset => ruleset.Rules)
+                .FirstOrDefault(rule =>
+                    string.Equals(rule?.Name, card.Name, StringComparison.Ordinal) &&
+                    string.Equals(
+                        rule?.Parameters?.WorktypeString ?? rule?.CachedWorktypeString ?? "",
+                        targetDefName,
+                        StringComparison.Ordinal));
+            if (refreshFromClassic && classicRule != null)
+            {
+                RuleBuilder2ClassicRulesetTranslator.RefreshMigratedCard(card, classicRule);
+            }
+
+            card.Target.IgnoreIfMissing = classicRule?.Parameters?.IgnoreIfWorktypeNonexistent == true;
         }
 
         private static void SeedFromPreferredClassicRulesetIfNeeded(BetterWorkTabSettings settings)

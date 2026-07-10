@@ -34,29 +34,40 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                          .Where(card => card != null && card.Enabled && card.IsConfirmed)
                          .OrderBy(card => card.SortOrder))
             {
-                WorkTypeDef workType = card.Target.ResolveWorkType();
-                WorkGiverDef workGiver = card.Target.ResolveWorkGiver();
-                if (workType == null)
+                WorkGiverDef explicitWorkGiver = card.Target.ResolveWorkGiver();
+                WorkTypeDef explicitWorkType = card.Target.ResolveWorkType();
+                if (!card.Target.AllWorkTypes && explicitWorkType == null)
                 {
-                    warnings.Add("Skipped unresolved target on card: " + (card.Name ?? card.StableId));
+                    if (!card.Target.IgnoreIfMissing)
+                    {
+                        warnings.Add("Skipped unresolved target on card: " + (card.Name ?? card.StableId));
+                    }
+
                     continue;
                 }
 
-                foreach (Pawn pawn in pawns)
+                IEnumerable<WorkTypeDef> workTypes = card.Target.AllWorkTypes
+                    ? DefDatabase<WorkTypeDef>.AllDefsListForReading
+                    : new[] { explicitWorkType };
+                foreach (WorkTypeDef workType in workTypes.Where(candidate => candidate != null))
                 {
-                    int currentPriority = RuleBuilder2Evaluator.GetCurrentPriority(pawn, workType, workGiver);
-                    bool matched = (card.Conditions?.Conditions ?? new List<RuleBuilder2Condition>())
-                        .Where(condition => condition != null && condition.Enabled)
-                        .All(condition => evaluator.EvaluateCondition(condition, pawn, workType, workGiver, currentPriority));
-
-                    if (!matched)
+                    WorkGiverDef workGiver = card.Target.AllWorkTypes ? null : explicitWorkGiver;
+                    foreach (Pawn pawn in pawns)
                     {
-                        continue;
-                    }
+                        if (pawn?.workSettings == null || pawn.WorkTypeIsDisabled(workType))
+                        {
+                            continue;
+                        }
 
-                    if (ApplyCardToPawn(card, pawn, workType, workGiver, currentPriority, warnings))
-                    {
-                        changed++;
+                        int currentPriority = RuleBuilder2Evaluator.GetCurrentPriority(pawn, workType, workGiver);
+                        bool matched = (card.Conditions?.Conditions ?? new List<RuleBuilder2Condition>())
+                            .Where(condition => condition != null && condition.Enabled)
+                            .All(condition => evaluator.EvaluateCondition(condition, pawn, workType, workGiver, currentPriority));
+
+                        if (matched && ApplyCardToPawn(card, pawn, workType, workGiver, currentPriority, warnings))
+                        {
+                            changed++;
+                        }
                     }
                 }
             }

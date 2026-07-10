@@ -669,13 +669,13 @@ namespace Better_Work_Tab.UI
                         tableScrollWidth = Mathf.Max(tableScrollWidth, table.Size.x);
                     }
 
-                    finalWidth = tableScrollWidth + Margin * 2f + 25f; // Added 20f to stop headers from clipping edge
+                    finalWidth = tableScrollWidth + Margin * 2f;
                 }
                 else
                 {
                     // Fallback to vanilla size if organizer not ready
                     finalHeight = table.Size.y + ExtraBottomSpace + ExtraTopSpace + Margin * 2f + ScrollViewFitAllowance;
-                    finalWidth = table.Size.x + Margin * 2f + 25f; // Same as above
+                    finalWidth = table.Size.x + Margin * 2f;
                 }
 
                 float maxWindowWidth = Mathf.Max(1f, Verse.UI.screenWidth - 2f);
@@ -934,7 +934,6 @@ namespace Better_Work_Tab.UI
             }
 
             WorkTabGeometryDiagnostics.DumpHeaderLayoutIfRequested(layout);
-            RuleBuilderGateway.DrawRuleBuilder2SelectionPulse();
         }
 
         private void DrawSubWorkStyleChooserComparison(IWorkTabLayoutController layout)
@@ -1477,6 +1476,16 @@ namespace Better_Work_Tab.UI
             float totalHeight,
             PawnTable table)
         {
+            WorkTypeDef workType = ResolveRuleBuilder2WorkType(column);
+            WorkGiverDef workGiver = ResolveRuleBuilder2WorkGiver(column);
+            if (RuleBuilderGateway.TryGetRuleBuilder2SelectionTransitionOffset(
+                    workType,
+                    workGiver,
+                    out Vector2 transitionOffset))
+            {
+                headerRect.position += transitionOffset;
+            }
+
             Rect bodyRect = GetRuleBuilder2ColumnBodyHighlightRect(layout, column, headerRect, totalHeight);
             bool hasHeaderHighlight = TryGetRuleBuilder2HeaderHighlight(column, headerRect, table, out var headerHighlight);
             if (hasHeaderHighlight && headerHighlight.IsAngled)
@@ -1757,6 +1766,8 @@ namespace Better_Work_Tab.UI
             {
                 return false;
             }
+
+            vanillaBounds.x += headerRect.x - column.HeaderRect.x;
 
             headerHighlight = RuleBuilder2HeaderHighlight.Rectangular(vanillaBounds);
             return true;
