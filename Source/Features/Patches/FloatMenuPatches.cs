@@ -285,7 +285,7 @@ namespace Better_Work_Tab.Patches
             Patch_FloatMenuOptionProvider_WorkGivers_GetWorkGiverOptionFor.AdditionalOptions.Add(
                 new FloatMenuOption(
                     "Open " + WorkTypeMenuLabel(workType) + " priority schedule",
-                    () => TimePriorityPlannerPrototype.OpenForFloatMenu(pawn, workType, workGiver),
+                    () => TimePriorityScheduleEditor.OpenForFloatMenu(pawn, workType, workGiver),
                     orderInPriority: -1));
         }
 
@@ -320,7 +320,7 @@ namespace Better_Work_Tab.Patches
 
             if (BetterWorkTabMod.Settings?.enableSubWorkDrilldown ?? false)
             {
-                TimePriorityPlannerPrototype.CloseForWorkModeTransition();
+                TimePriorityScheduleEditor.CloseForWorkModeTransition();
                 SubWorkDrilldownState.Enter(
                     targetWorkType,
                     baseHeaderDrawWidth: SubWorkDrilldownHeaderGeometry.GetBaseHeaderDrawWidth(null, -1f));

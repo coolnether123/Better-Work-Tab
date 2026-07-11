@@ -63,6 +63,14 @@ namespace Spine.Profiling
         private static bool _enabled;
         private static int _startFrame;            // Frame index when profiling started
         private static double _startRealtime;      // realtimeSinceStartup when profiling started
+        private static long _startManagedBytes;
+        private static long _peakManagedBytes;
+        private static long _startPrivateBytes;
+        private static long _peakPrivateBytes;
+        private static long _startWorkingSetBytes;
+        private static long _peakWorkingSetBytes;
+        private static readonly int[] _startCollectionCounts = new int[3];
+        private static int _nextMemorySampleFrame;
 
         // Work tab visibility tracking
         private static bool _workTabOpen;
@@ -85,6 +93,7 @@ namespace Spine.Profiling
                     _startRealtime = UTime.realtimeSinceStartup;
                     _workTabOpenSeconds = 0;
                     _data.Clear();
+                    ResetMemoryBaseline();
                 }
 
                 _enabled = value;
@@ -167,6 +176,12 @@ namespace Spine.Profiling
         {
             if (!Enabled) return;
 
+            if (UTime.frameCount >= _nextMemorySampleFrame)
+            {
+                SampleMemory();
+                _nextMemorySampleFrame = UTime.frameCount + 30;
+            }
+
             foreach (var entry in _data.Values)
             {
                 entry.CallsThisFrame = 0;
@@ -224,6 +239,7 @@ namespace Spine.Profiling
             _startFrame = UTime.frameCount;
             _startRealtime = UTime.realtimeSinceStartup;
             _workTabOpenSeconds = 0;
+            ResetMemoryBaseline();
 
             BetterWorkTabMod.DebugLog("[SpineTiming] Data cleared.", DebugFeature.Performance);
         }
@@ -256,6 +272,38 @@ namespace Spine.Profiling
             sb.AppendLine($"Elapsed real time: {elapsedSeconds:F1} s");
             sb.AppendLine($"Approx frames recorded: {frames}");
             sb.AppendLine($"Work tab open: {_workTabOpenSeconds:F1} s");
+            long managedNow = GC.GetTotalMemory(false);
+            long privateNow;
+            long workingSetNow;
+            ReadProcessMemory(out privateNow, out workingSetNow);
+            sb.AppendLine(
+                $"Managed memory: start {FormatBytes(_startManagedBytes)} | now {FormatBytes(managedNow)} | " +
+                $"delta {FormatSignedBytes(managedNow - _startManagedBytes)} | sampled peak {FormatBytes(Math.Max(_peakManagedBytes, managedNow))}");
+            if (_startPrivateBytes > 0 || privateNow > 0)
+            {
+                sb.AppendLine(
+                    $"Process private: start {FormatBytes(_startPrivateBytes)} | now {FormatBytes(privateNow)} | " +
+                    $"delta {FormatSignedBytes(privateNow - _startPrivateBytes)} | sampled peak {FormatBytes(Math.Max(_peakPrivateBytes, privateNow))}");
+            }
+            else
+            {
+                sb.AppendLine("Process private: unavailable from this Mono runtime; sample it from the external harness.");
+            }
+
+            if (_startWorkingSetBytes > 0 || workingSetNow > 0)
+            {
+                sb.AppendLine(
+                    $"Working set: start {FormatBytes(_startWorkingSetBytes)} | now {FormatBytes(workingSetNow)} | " +
+                    $"delta {FormatSignedBytes(workingSetNow - _startWorkingSetBytes)} | sampled peak {FormatBytes(Math.Max(_peakWorkingSetBytes, workingSetNow))}");
+            }
+            else
+            {
+                sb.AppendLine("Working set: unavailable from this Mono runtime; sample it from the external harness.");
+            }
+            sb.AppendLine(
+                $"GC collections: gen0 {GC.CollectionCount(0) - _startCollectionCounts[0]} | " +
+                $"gen1 {GC.CollectionCount(1) - _startCollectionCounts[1]} | " +
+                $"gen2 {GC.CollectionCount(2) - _startCollectionCounts[2]}");
             sb.AppendLine("Sorted by highest total cost over time.");
             sb.AppendLine();
 
@@ -292,6 +340,49 @@ namespace Spine.Profiling
             }
 
             return sb.ToString();
+        }
+
+        private static void ResetMemoryBaseline()
+        {
+            _startManagedBytes = GC.GetTotalMemory(false);
+            _peakManagedBytes = _startManagedBytes;
+            ReadProcessMemory(out _startPrivateBytes, out _startWorkingSetBytes);
+            _peakPrivateBytes = _startPrivateBytes;
+            _peakWorkingSetBytes = _startWorkingSetBytes;
+            for (int generation = 0; generation < _startCollectionCounts.Length; generation++)
+            {
+                _startCollectionCounts[generation] = GC.CollectionCount(generation);
+            }
+
+            _nextMemorySampleFrame = UTime.frameCount;
+        }
+
+        private static void SampleMemory()
+        {
+            _peakManagedBytes = Math.Max(_peakManagedBytes, GC.GetTotalMemory(false));
+            ReadProcessMemory(out long privateBytes, out long workingSetBytes);
+            _peakPrivateBytes = Math.Max(_peakPrivateBytes, privateBytes);
+            _peakWorkingSetBytes = Math.Max(_peakWorkingSetBytes, workingSetBytes);
+        }
+
+        private static void ReadProcessMemory(out long privateBytes, out long workingSetBytes)
+        {
+            using (Process process = Process.GetCurrentProcess())
+            {
+                privateBytes = process.PrivateMemorySize64;
+                workingSetBytes = process.WorkingSet64;
+            }
+        }
+
+        private static string FormatBytes(long bytes)
+        {
+            return (bytes / (1024d * 1024d)).ToString("F2") + " MiB";
+        }
+
+        private static string FormatSignedBytes(long bytes)
+        {
+            string sign = bytes >= 0 ? "+" : "-";
+            return sign + FormatBytes(Math.Abs(bytes));
         }
     }
 }

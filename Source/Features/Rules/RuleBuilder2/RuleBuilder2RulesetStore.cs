@@ -23,8 +23,34 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
 
         internal static RuleBuilder2Ruleset Current(BetterWorkTabSettings settings)
         {
-            Ensure(settings);
-            return settings?.CurrentRuleBuilder2Ruleset;
+            if (settings == null)
+            {
+                return null;
+            }
+
+            // Reading the footer label and applying the selected ruleset are hot-path
+            // operations. Store repair/migration belongs at startup and mutation
+            // boundaries, not on every IMGUI repaint.
+            if (settings.CurrentRuleBuilder2Ruleset != null)
+            {
+                return settings.CurrentRuleBuilder2Ruleset;
+            }
+
+            // Defensive recovery for settings loaded by an older build. This branch
+            // runs only while the current reference is absent and does not normalize
+            // every card merely to retrieve the selected object.
+            if (settings.SavedRuleBuilder2Rulesets == null || settings.SavedRuleBuilder2Rulesets.Count == 0)
+            {
+                return null;
+            }
+
+            RuleBuilder2Ruleset selected = ResolveSelected(settings);
+            if (selected != null)
+            {
+                SetCurrent(settings, selected, writeSettings: false);
+            }
+
+            return selected;
         }
 
         internal static void SaveOrReplace(

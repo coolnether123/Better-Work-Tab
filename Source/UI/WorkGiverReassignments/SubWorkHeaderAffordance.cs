@@ -242,7 +242,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
             float rowTop = layout.TableOrigin.y +
                 layout.HeaderHeight +
-                TimePriorityPlannerPrototype.HeaderPinnedRowsHeight;
+                TimePriorityScheduleEditor.HeaderPinnedRowsHeight;
 
             for (int i = 0; i < layout.Columns.Count; i++)
             {

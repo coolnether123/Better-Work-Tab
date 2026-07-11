@@ -125,10 +125,15 @@ namespace Better_Work_Tab.Features
 
         public static List<WorkTypeDef> GetSimilarWorktypes(WorkTypeDef workType)
         {
-            if (_similarWorktypeMap == null || workType == null)
+            if (workType == null)
             {
                 return EmptySimilarWorktypeList;
             }
+
+            // This relationship is only consumed by the optional similar-work-type
+            // hover interaction. Avoid paying its O(work types squared) construction
+            // cost during every game load when that interaction may never be used.
+            InitializeSimilarWorktypeMap();
 
             return _similarWorktypeMap.TryGetValue(workType, out var list)
                 ? list

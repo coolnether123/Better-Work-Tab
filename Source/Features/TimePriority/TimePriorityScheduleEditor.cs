@@ -19,10 +19,10 @@ using Verse.Sound;
 namespace Better_Work_Tab.Features.TimePriority
 {
     /// <summary>
-    /// Visual prototype for per-hour work priorities. This intentionally stores local UI-only
-    /// values until the UX is validated and the execution/save model is designed.
+    /// Presents and coordinates per-hour priority schedule editing from Work tab cells.
+    /// Schedule persistence and evaluation are delegated to <see cref="TimePriorityService"/>.
     /// </summary>
-    internal static class TimePriorityPlannerPrototype
+    internal static class TimePriorityScheduleEditor
     {
         private const int HoursPerDay = 24;
         private const float AnimationSeconds = 0.22f;
@@ -61,8 +61,8 @@ namespace Better_Work_Tab.Features.TimePriority
         private static Rect _closingSourceRect;
 
         internal static bool IsEnabled =>
-            BetterWorkTabMod.Settings?.enableTimePriorityPlannerPrototype ??
-            DefaultSettings.enableTimePriorityPlannerPrototype;
+            BetterWorkTabMod.Settings?.enableTimePrioritySchedules ??
+            DefaultSettings.enableTimePrioritySchedules;
 
         internal static bool IsOpen => IsEnabled && _session != null && !_isClosing;
 
@@ -405,6 +405,26 @@ namespace Better_Work_Tab.Features.TimePriority
 
             float progress = GetProgress();
             Color oldColor = GUI.color;
+
+            if (!_isClosing && rows.Count > 0)
+            {
+                int sourcePawnId = _session.PawnIds[_session.PawnIds.Count - 1];
+                for (int i = 0; i < rows.Count; i++)
+                {
+                    if ((rows[i].Pawn?.thingIDNumber ?? TimePriorityTarget.GlobalPawnId) != sourcePawnId)
+                    {
+                        continue;
+                    }
+
+                    Rect currentCellRect = new Rect(
+                        column.HeaderRect.x,
+                        rows[i].RowRect.y,
+                        column.Width,
+                        rows[i].RowRect.height);
+                    _session.SourceBoxRect = GetPriorityBoxRect(currentCellRect);
+                    break;
+                }
+            }
 
             DrawInlineEditor(layout, column, rows, progress);
 
@@ -1082,18 +1102,32 @@ namespace Better_Work_Tab.Features.TimePriority
                         break;
                     }
                 }
-                else if (SubWorkDrilldownState.HasAnyDrilldown &&
-                         SubWorkDrilldownState.TryGetWorkGiverForColumn(
-                             candidate,
-                             out WorkGiver workGiver,
-                             out WorkTypeDef parentWorkType,
-                             out _) &&
-                         parentWorkType?.defName == _session.WorkTypeDefName &&
-                         workGiver?.def?.defName == _session.TargetDefName)
+                else if (SubWorkDrilldownState.HasAnyDrilldown)
                 {
-                    column = candidate;
-                    foundColumn = true;
-                    break;
+                    WorkGiverDef candidateWorkGiver = candidate.IsExpandBesideChild
+                        ? candidate.SubWorkGiver
+                        : null;
+                    WorkTypeDef candidateParent = candidate.IsExpandBesideChild
+                        ? candidate.SubWorkParent
+                        : null;
+                    if (candidateWorkGiver == null &&
+                        SubWorkDrilldownState.TryGetWorkGiverForColumn(
+                            candidate,
+                            out WorkGiver workGiver,
+                            out WorkTypeDef parentWorkType,
+                            out _))
+                    {
+                        candidateWorkGiver = workGiver?.def;
+                        candidateParent = parentWorkType;
+                    }
+
+                    if (candidateParent?.defName == _session.WorkTypeDefName &&
+                        candidateWorkGiver?.defName == _session.TargetDefName)
+                    {
+                        column = candidate;
+                        foundColumn = true;
+                        break;
+                    }
                 }
             }
 

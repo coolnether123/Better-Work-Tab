@@ -69,6 +69,7 @@ namespace Better_Work_Tab
         public static bool enableFluffyStyleFeatures = true;
         public static bool showFluffyStyleTopButtons = true;
         public static bool showStandaloneFluffyStyleTopButtons = false;
+        public static bool enableFluffyScheduleAssigner = true;
         public static bool showSubWorkHeaderBadge = true;
         public static bool enableSubWorkCrossWorkDragDrop = true;
         public static bool enableCustomWorkLabels = true;
@@ -134,7 +135,7 @@ namespace Better_Work_Tab
         public static bool ruleBuilder2ShowAdvancedConditions = false;
         public static bool ruleBuilder2ShowMatchedPanel = true;
         public static bool showManualPrioritiesCheckbox = true;
-        public static bool enableTimePriorityPlannerPrototype = true;
+        public static bool enableTimePrioritySchedules = true;
         public static bool showTimePriorityCopyPasteButtons = true;
         public static bool enableChronosPointerTimePriorityIntegration = true;
         public static bool showTimePriorityHourDivider = true;
@@ -355,6 +356,7 @@ namespace Better_Work_Tab
         public bool enableFluffyStyleFeatures = DefaultSettings.enableFluffyStyleFeatures;
         public bool showFluffyStyleTopButtons = DefaultSettings.showFluffyStyleTopButtons;
         public bool showStandaloneFluffyStyleTopButtons = DefaultSettings.showStandaloneFluffyStyleTopButtons;
+        public bool enableFluffyScheduleAssigner = DefaultSettings.enableFluffyScheduleAssigner;
         public bool showSubWorkHeaderBadge = DefaultSettings.showSubWorkHeaderBadge;
         public bool enableSubWorkCrossWorkDragDrop = DefaultSettings.enableSubWorkCrossWorkDragDrop;
         public bool enableCustomWorkLabels = DefaultSettings.enableCustomWorkLabels;
@@ -409,7 +411,7 @@ namespace Better_Work_Tab
         public bool ruleBuilder2ShowAdvancedConditions = DefaultSettings.ruleBuilder2ShowAdvancedConditions;
         public bool ruleBuilder2ShowMatchedPanel = DefaultSettings.ruleBuilder2ShowMatchedPanel;
         public bool showManualPrioritiesCheckbox = DefaultSettings.showManualPrioritiesCheckbox;
-        public bool enableTimePriorityPlannerPrototype = DefaultSettings.enableTimePriorityPlannerPrototype;
+        public bool enableTimePrioritySchedules = DefaultSettings.enableTimePrioritySchedules;
         public bool showTimePriorityCopyPasteButtons = DefaultSettings.showTimePriorityCopyPasteButtons;
         public bool enableChronosPointerTimePriorityIntegration = DefaultSettings.enableChronosPointerTimePriorityIntegration;
         public bool showTimePriorityHourDivider = DefaultSettings.showTimePriorityHourDivider;

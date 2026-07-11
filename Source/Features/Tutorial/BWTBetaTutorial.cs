@@ -152,7 +152,7 @@ namespace Better_Work_Tab.Features.Tutorial
 
             BWTBetaTutorialStep step = NormalizeStep(settings);
             bool isSubWorkActive = SubWorkDrilldownState.IsActive;
-            bool isTimePriorityVisible = TimePriorityPlannerPrototype.IsVisible;
+            bool isTimePriorityVisible = TimePriorityScheduleEditor.IsVisible;
             if (!_hasWorkTabStateSnapshot)
             {
                 _hasWorkTabStateSnapshot = true;
@@ -298,21 +298,21 @@ namespace Better_Work_Tab.Features.Tutorial
                     break;
 
                 case BWTBetaTutorialStep.TimePriorityPrompt:
-                    if (TimePriorityPlannerPrototype.IsVisible)
+                    if (TimePriorityScheduleEditor.IsVisible)
                     {
                         SetStep(BWTBetaTutorialStep.TimePriorityHours);
                     }
                     break;
 
                 case BWTBetaTutorialStep.TimePriorityHours:
-                    if (!TimePriorityPlannerPrototype.IsVisible)
+                    if (!TimePriorityScheduleEditor.IsVisible)
                     {
                         SetStep(BWTBetaTutorialStep.TimePriorityClosed);
                     }
                     break;
 
                 case BWTBetaTutorialStep.TimePriorityClosePrompt:
-                    if (!TimePriorityPlannerPrototype.IsVisible)
+                    if (!TimePriorityScheduleEditor.IsVisible)
                     {
                         SetStep(BWTBetaTutorialStep.TimePriorityClosed);
                     }

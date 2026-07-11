@@ -100,6 +100,7 @@ namespace Better_Work_Tab.UI.Settings
         public const string FluffyStyleFeatures = "fluffyStyle.features";
         public const string FluffyStyleTopButtons = "fluffyStyle.topButtons";
         public const string FluffyStyleStandaloneTopButtons = "fluffyStyle.standaloneTopButtons";
+        public const string FluffyStyleScheduleAssigner = "fluffyStyle.scheduleAssigner";
         public const string CompatChronosPointerHeader = "compat.chronosPointer.header";
         public const string OverlayBestPawnMode = "overlay.bestPawnMode";
         public const string OverlayHeader = "overlay.header";
@@ -139,7 +140,7 @@ namespace Better_Work_Tab.UI.Settings
         public const string UiGeneralTutorial = "ui.generalTutorial";
         public const string UiBetaTutorial = "ui.betaTutorial";
         public const string UiManualPriorities = "ui.manualPriorities";
-        public const string UiTimePriorityPlannerPrototype = "ui.timePriorityPlannerPrototype";
+        public const string UiTimePrioritySchedules = "ui.timePrioritySchedules";
         public const string UiTimePriorityCopyPasteButtons = "ui.timePriorityCopyPasteButtons";
         public const string UiChronosPointerTimePriority = "ui.chronosPointerTimePriority";
         public const string UiTimePriorityHourDivider = "ui.timePriorityHourDivider";

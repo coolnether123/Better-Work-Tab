@@ -169,7 +169,7 @@ namespace Better_Work_Tab.Features.Tutorial
                 pivotStep = BWTGeneralTutorialStep.SubWorkLeft;
             }
 
-            bool isTimePriorityVisible = TimePriorityPlannerPrototype.IsVisible;
+            bool isTimePriorityVisible = TimePriorityScheduleEditor.IsVisible;
             if (isTimePriorityVisible && !wasTimePriorityVisible)
             {
                 pivotStep = BWTGeneralTutorialStep.TimePriorities;

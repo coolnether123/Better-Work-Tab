@@ -310,7 +310,7 @@ namespace Better_Work_Tab.DragDrop
         {
             float rowStackHeight = GetVisibleRowStackHeight();
             float scrollY = Layout.Table?.scrollPosition.y ?? 0f;
-            float pinnedRowsHeight = TimePriorityPlannerPrototype.HeaderPinnedRowsHeight +
+            float pinnedRowsHeight = TimePriorityScheduleEditor.HeaderPinnedRowsHeight +
                 SubWorkDrilldownState.GlobalRowVisibleHeight;
             float bottom = headerBottom + pinnedRowsHeight + Mathf.Max(0f, rowStackHeight - scrollY);
 

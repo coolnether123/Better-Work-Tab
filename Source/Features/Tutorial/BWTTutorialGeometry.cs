@@ -157,7 +157,7 @@ namespace Better_Work_Tab.Features.Tutorial
         internal static List<Rect> TimePriorityEditor(Rect inRect, IWorkTabLayoutController layout)
         {
             var rects = new List<Rect>();
-            if (TimePriorityPlannerPrototype.TryGetLastPanelRect(out Rect rect))
+            if (TimePriorityScheduleEditor.TryGetLastPanelRect(out Rect rect))
             {
                 rects.Add(rect.ExpandedBy(5f));
             }
@@ -266,7 +266,7 @@ namespace Better_Work_Tab.Features.Tutorial
 
             Rect rect = new Rect(
                 layout.TableOrigin.x,
-                layout.TableOrigin.y + layout.HeaderHeight + TimePriorityPlannerPrototype.HeaderPinnedRowsHeight,
+                layout.TableOrigin.y + layout.HeaderHeight + TimePriorityScheduleEditor.HeaderPinnedRowsHeight,
                 Mathf.Max(layout.Table.Size.x - 16f, 1f),
                 Mathf.Max(SubWorkDrilldownState.GlobalRowVisibleHeight, SubWorkDrilldownState.GlobalRowHeight));
             rects.Add(rect.ExpandedBy(4f));

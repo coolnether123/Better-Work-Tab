@@ -540,7 +540,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 return;
             }
 
-            TimePriorityPlannerPrototype.CloseForWorkModeTransition();
+            TimePriorityScheduleEditor.CloseForWorkModeTransition();
             SubWorkDrilldownState.Enter(
                 workType,
                 returnMousePosition,

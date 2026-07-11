@@ -22,6 +22,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         private static readonly Dictionary<int, WorkTypeDef> WorkGiverTargetCache = new Dictionary<int, WorkTypeDef>();
         private static readonly Dictionary<int, bool> ReassignedCache = new Dictionary<int, bool>();
         private static readonly Dictionary<string, List<WorkGiver>> OrderedWorkGiverCache = new Dictionary<string, List<WorkGiver>>(StringComparer.Ordinal);
+        private static readonly Dictionary<string, List<WorkGiver>> DisplayWorkGiverCache = new Dictionary<string, List<WorkGiver>>(StringComparer.Ordinal);
 
         private static int _cachedSyncVersion = -1;
         private static BetterWorkTabSettings Settings => BetterWorkTabMod.Settings;
@@ -155,6 +156,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             WorkGiverTargetCache.Clear();
             ReassignedCache.Clear();
             OrderedWorkGiverCache.Clear();
+            DisplayWorkGiverCache.Clear();
         }
 
         internal static void OnSettingsLoaded()
@@ -300,6 +302,11 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 return cached;
             }
 
+            if (!applyPrioritySort && pawn == null && DisplayWorkGiverCache.TryGetValue(workType.defName, out cached))
+            {
+                return cached;
+            }
+
             var result = new List<WorkGiver>();
             var data = Data;
 
@@ -400,9 +407,16 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 result = indexed.Select(x => x.g).ToList();
             }
 
-            if (applyPrioritySort && pawn == null)
+            if (pawn == null)
             {
-                OrderedWorkGiverCache[workType.defName] = result;
+                if (applyPrioritySort)
+                {
+                    OrderedWorkGiverCache[workType.defName] = result;
+                }
+                else
+                {
+                    DisplayWorkGiverCache[workType.defName] = result;
+                }
             }
 
             return result;

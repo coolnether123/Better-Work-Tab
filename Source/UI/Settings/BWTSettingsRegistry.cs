@@ -921,13 +921,13 @@ namespace Better_Work_Tab.UI.Settings
 
             Register(new SettingDefinition
             {
-                Id = UiTimePriorityPlannerPrototype,
+                Id = UiTimePrioritySchedules,
                 ParentId = PriorityHeader,
-                FieldName = "enableTimePriorityPlannerPrototype",
-                Label = "Time priority planner prototype",
-                Tooltip = "Enable the experimental ctrl-click priority timeline for testing time-based priority editing on work cells.",
+                FieldName = "enableTimePrioritySchedules",
+                Label = "Time priority schedules",
+                Tooltip = "Ctrl-click a work priority cell to edit its time-of-day priority schedule.",
                 Type = SettingType.Bool,
-                DefaultValue = DefaultSettings.enableTimePriorityPlannerPrototype,
+                DefaultValue = DefaultSettings.enableTimePrioritySchedules,
                 ControlsChildVisibility = true,
                 ShowInSimpleView = true,
                 ShowInAdvancedView = true,
@@ -937,7 +937,7 @@ namespace Better_Work_Tab.UI.Settings
             Register(new SettingDefinition
             {
                 Id = UiTimePriorityHourDivider,
-                ParentId = UiTimePriorityPlannerPrototype,
+                ParentId = UiTimePrioritySchedules,
                 FieldName = "showTimePriorityHourDivider",
                 Label = "Show time-number divider",
                 Tooltip = "Draw a thin divider line above the hour numbers in the Work tab time-priority editor.",
@@ -951,7 +951,7 @@ namespace Better_Work_Tab.UI.Settings
             Register(new SettingDefinition
             {
                 Id = UiTimePriorityCopyPasteButtons,
-                ParentId = UiTimePriorityPlannerPrototype,
+                ParentId = UiTimePrioritySchedules,
                 FieldName = "showTimePriorityCopyPasteButtons",
                 Label = "Show Schedule Copy/Paste Buttons",
                 Tooltip = "Show copy and paste controls for Work tab time-priority schedules. These controls use the same copy/paste column as vanilla while a schedule row is open.",
@@ -965,7 +965,7 @@ namespace Better_Work_Tab.UI.Settings
             Register(new SettingDefinition
             {
                 Id = UiTimePrioritySourceColumnHighlight,
-                ParentId = UiTimePriorityPlannerPrototype,
+                ParentId = UiTimePrioritySchedules,
                 FieldName = "keepTimePrioritySourceColumnHighlighted",
                 Label = "Keep source column highlighted",
                 Tooltip = "While a time-priority schedule is open, keep the work column it edits highlighted and prevent the schedule strip from highlighting columns behind it.",
@@ -979,7 +979,7 @@ namespace Better_Work_Tab.UI.Settings
             Register(new SettingDefinition
             {
                 Id = UiFluffyTimePriorityMirroring,
-                ParentId = UiTimePriorityPlannerPrototype,
+                ParentId = UiTimePrioritySchedules,
                 FieldName = "enableFluffyTimePriorityMirroring",
                 Label = "Mirror schedules to Fluffy",
                 Tooltip = "When Fluffy Work Tab is loaded, push BWT time-priority schedules into Fluffy's own per-hour priority tracker.",

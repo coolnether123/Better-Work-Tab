@@ -11,6 +11,9 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
         PrioritiesSimple,
         PrioritiesTimed,
         PrioritiesWholeDay,
+        Now,
+        PinEye,
+        PinClock,
         Expand,
         Collapse
     }
@@ -26,6 +29,9 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                 { FluffyWorkTabIcon.PrioritiesSimple, "UI/Icons/checks" },
                 { FluffyWorkTabIcon.PrioritiesTimed, "UI/Icons/clock-scheduler" },
                 { FluffyWorkTabIcon.PrioritiesWholeDay, "UI/Icons/whole-day" },
+                { FluffyWorkTabIcon.Now, "UI/Icons/now" },
+                { FluffyWorkTabIcon.PinEye, "UI/Icons/pin-eye" },
+                { FluffyWorkTabIcon.PinClock, "UI/Icons/pin-clock" },
                 { FluffyWorkTabIcon.Expand, "UI/Icons/expand" },
                 { FluffyWorkTabIcon.Collapse, "UI/Icons/collapse" }
             };

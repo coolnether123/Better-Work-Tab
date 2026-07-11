@@ -109,7 +109,8 @@
     <Compile Include="Features\TimePriority\Patch_CopyPasteWorkPriorities_TimePriority.cs" />
     <Compile Include="Features\TimePriority\TimePriorityEvaluation.cs" />
     <Compile Include="Features\TimePriority\TimePriorityScheduleClipboard.cs" />
-    <Compile Include="Features\TimePriority\TimePriorityPlannerPrototype.cs" />
+    <Compile Include="Features\TimePriority\TimePriorityScheduleEditor.cs" />
+    <Compile Include="Features\TimePriority\FluffyTimeScheduleAssigner.cs" />
     <Compile Include="Features\TimePriority\TimePriorityScheduleData.cs" />
     <Compile Include="Features\TimePriority\TimePriorityService.cs" />
     <Compile Include="Features\TimePriority\TimePriorityTarget.cs" />
@@ -235,6 +236,7 @@
     <Compile Include="UI\WorkGiverReassignments\WorkGiverDragHandler.cs" />
     <Compile Include="UI\WorkGiverReassignments\PriorityOverrideRing.cs" />
     <Compile Include="UI\WorkGiverReassignments\WorkGiverPriorityBoxRenderer.cs" />
+    <Compile Include="UI\WorkGiverReassignments\WorkGiverCellPresentationCache.cs" />
     <Compile Include="Spine\UI\WidgetExtensions\RimworldSettingsWidgets.cs" />
     <Compile Include="UI\Input\GuiMousePosition.cs" />
     <Compile Include="UI\Input\NativeCursorPosition.cs" />

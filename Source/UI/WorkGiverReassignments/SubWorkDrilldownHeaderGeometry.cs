@@ -62,6 +62,36 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             return table?.cachedHeaderHeight ?? 0f;
         }
 
+        internal static Vector2 GetExpandBesideAngledAnchorOffset(
+            PawnTable table,
+            float headerHeight,
+            float drawWidth,
+            float textHeight,
+            float rotationDegrees)
+        {
+            if (!SubWorkDrilldownState.IsExpandBesideActive)
+            {
+                return Vector2.zero;
+            }
+
+            float baseHeight = GetBaseHeaderDrawWidth(table, headerHeight);
+            float radians = rotationDegrees * Mathf.Deg2Rad;
+            float cos = Mathf.Cos(radians);
+            float sin = Mathf.Sin(radians);
+            Vector2 currentStart = Rotate(new Vector2(-drawWidth * 0.5f, textHeight * 0.5f), cos, sin);
+            Vector2 baselineStart = Rotate(new Vector2(-baseHeight * 0.5f, textHeight * 0.5f), cos, sin);
+            Vector2 widthCorrection = baselineStart - currentStart;
+            widthCorrection.y += Mathf.Max(0f, (headerHeight - baseHeight) * 0.5f);
+            return widthCorrection;
+        }
+
+        private static Vector2 Rotate(Vector2 point, float cos, float sin)
+        {
+            return new Vector2(
+                point.x * cos - point.y * sin,
+                point.x * sin + point.y * cos);
+        }
+
         internal static float GetEffectiveHeaderHeight(PawnTable table)
         {
             float baseHeight = GetNormalHeaderHeight(table);

@@ -1280,6 +1280,21 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                         },
                         new SettingDefinition
                         {
+                            Id = FluffyStyleScheduleAssigner,
+                            ParentId = FluffyStyleFeatures,
+                            FieldName = nameof(BetterWorkTabSettings.enableFluffyScheduleAssigner),
+                            Label = "Use Fluffy hour-selection scheduler",
+                            Tooltip = "Use Fluffy's original bottom hour selector: choose hours, then click normal priority boxes to assign those hours. This option requires Fluffy Work Tab because it uses Fluffy's scheduler assets.",
+                            SearchKeywords = FluffySearchKeywords,
+                            Type = SettingType.Bool,
+                            DefaultValue = DefaultSettings.enableFluffyScheduleAssigner,
+                            VisibleWhen = _ => FluffyWorkTabGateway.IsPresent,
+                            ShowInSimpleView = true,
+                            ShowInAdvancedView = true,
+                            SortOrder = 3
+                        },
+                        new SettingDefinition
+                        {
                             Id = CompatFluffyWorkTabOwnership,
                             Label = "Work tab handoff",
                             Tooltip = "Choose which mod runs the Work tab and which Fluffy columns Better Work Tab keeps visible.",

@@ -76,7 +76,6 @@ namespace Better_Work_Tab
             // Ensure game component exists and check for worklist
             LongEventHandler.ExecuteWhenFinished(() =>
             {
-                WorkColumnOrderManager.InitializeSimilarWorktypeMap();
                 WorkColumnOrderManager.InitializeOnGameLoad();
                 if (Current.Game != null)
                 {

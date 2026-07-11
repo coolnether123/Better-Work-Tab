@@ -54,6 +54,12 @@ namespace Better_Work_Tab.PawnOrganizer.API
         PawnTable Table { get; }
 
         /// <summary>
+        /// Monotonically increases whenever row or column geometry is rebuilt.
+        /// Consumers can retain derived geometry until this value changes.
+        /// </summary>
+        int LayoutRevision { get; }
+
+        /// <summary>
         /// Rebuild row + column snapshots for the provided PawnTable snapshot combination.
         /// </summary>
         void Rebuild(PawnTable table, IPawnOrganizerSnapshot snapshot, Vector2 origin);

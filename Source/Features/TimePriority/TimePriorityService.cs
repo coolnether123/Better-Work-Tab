@@ -354,8 +354,8 @@ namespace Better_Work_Tab.Features.TimePriority
         }
 
         internal static bool IsRuntimeEnabled =>
-            BetterWorkTabMod.Settings?.enableTimePriorityPlannerPrototype ??
-            DefaultSettings.enableTimePriorityPlannerPrototype;
+            BetterWorkTabMod.Settings?.enableTimePrioritySchedules ??
+            DefaultSettings.enableTimePrioritySchedules;
 
         internal static bool TryGetDisabledByTime(
             Pawn pawn,

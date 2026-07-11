@@ -1,4 +1,4 @@
-﻿using Better_Work_Tab.Features;
+using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.PawnOrganizer;
@@ -212,41 +212,15 @@ namespace Better_Work_Tab.Patches
             if (pawn == null || pawn.Dead || pawn.workSettings == null || !pawn.workSettings.EverWork)
                 return true;
 
-            UpdateFrameCache();
-            bool timePriorityOwnsMouse = TimePriorityPlannerPrototype.OwnsCurrentMousePosition;
-
-            // Handle Scroll Wheel Priority Adjustment
-            if ((BetterWorkTabMod.Settings?.enableScrollWheelPriority ?? false) &&
-                Event.current.type == EventType.ScrollWheel &&
-                !timePriorityOwnsMouse &&
-                Mouse.IsOver(rect))
+            if (FluffyTimeScheduleAssigner.TryDrawWorkTypeCell(rect, pawn, workType))
             {
-                int currentPriority = pawn.workSettings.GetPriority(workType);
-                int direction = Event.current.delta.y > 0 ? -1 : 1;
-                if (Find.PlaySettings.useWorkPriorities)
-                {
-                    int nextPriority = WorkPrioritySystem.GetPriorityAfterBoundedStep(currentPriority, direction);
-
-                    if (nextPriority != currentPriority)
-                    {
-                        WorkPrioritySystem.SetPriority(pawn.workSettings, workType, nextPriority);
-                        SoundDefOf.DragSlider.PlayOneShotOnCamera();
-                    }
-                }
-                else
-                {
-                    int nextPriority = currentPriority > 0
-                        ? WorkPrioritySystem.DisabledPriority
-                        : WorkPrioritySystem.GetDefaultEnabledPriority();
-                    if (nextPriority != currentPriority)
-                    {
-                        WorkPrioritySystem.SetPriority(pawn.workSettings, workType, nextPriority);
-                        SoundDefOf.DragSlider.PlayOneShotOnCamera();
-
-                    }
-                }
-                Event.current.Use();
+                return false;
             }
+
+            UpdateFrameCache();
+            bool timePriorityOwnsMouse = TimePriorityScheduleEditor.OwnsCurrentMousePosition;
+
+            TryHandleWorkPriorityScroll(rect, pawn, workType);
 
             if (TryHandleParentSubWorkOverrideInput(rect, pawn, workType))
             {
@@ -344,6 +318,9 @@ namespace Better_Work_Tab.Patches
             if (pawn == null || pawn.Dead || workType == null)
                 return;
 
+            if (FluffyTimeScheduleAssigner.IsOpen)
+                return;
+
             if (FluffyWorkTabGateway.IsFluffyWorkGiverColumn(__instance.def))
                 return;
 
@@ -377,7 +354,7 @@ namespace Better_Work_Tab.Patches
 
             int priority = pawn.workSettings.GetPriority(workType);
             int skillLevel = GetSkillLevel(pawn, workType);
-            bool hoveringCell = !TimePriorityPlannerPrototype.OwnsCurrentMousePosition && Mouse.IsOver(rect);
+            bool hoveringCell = !TimePriorityScheduleEditor.OwnsCurrentMousePosition && Mouse.IsOver(rect);
             
             // Only check column hover if hover overlay is enabled
             bool columnHovered = _cachedHoverCellOverlayEnabled &&
@@ -826,7 +803,7 @@ namespace Better_Work_Tab.Patches
         {
             Event evt = Event.current;
             if (evt == null ||
-                TimePriorityPlannerPrototype.OwnsCurrentMousePosition ||
+                TimePriorityScheduleEditor.OwnsCurrentMousePosition ||
                 evt.type != EventType.MouseDown ||
                 evt.button != 0 ||
                 BetterWorkTabLocalState.IsHeaderDragging ||
@@ -848,11 +825,55 @@ namespace Better_Work_Tab.Patches
             return true;
         }
 
-        private static bool TryHandleWorkPriorityInput(Rect cellRect, Pawn pawn, WorkTypeDef workType)
+        internal static bool TryHandleRootPriorityInput(Rect rootCellRect, Pawn pawn, WorkTypeDef workType)
+        {
+            return TryHandleParentSubWorkOverrideInput(rootCellRect, pawn, workType) ||
+                TryHandleWorkPriorityScroll(rootCellRect, pawn, workType, trustHit: true) ||
+                TryHandleWorkPriorityInput(rootCellRect, pawn, workType, trustHit: true);
+        }
+
+        private static bool TryHandleWorkPriorityScroll(
+            Rect cellRect,
+            Pawn pawn,
+            WorkTypeDef workType,
+            bool trustHit = false)
         {
             Event evt = Event.current;
             if (evt == null ||
-                TimePriorityPlannerPrototype.OwnsCurrentMousePosition ||
+                !(BetterWorkTabMod.Settings?.enableScrollWheelPriority ?? false) ||
+                evt.type != EventType.ScrollWheel ||
+                TimePriorityScheduleEditor.OwnsCurrentMousePosition ||
+                (!trustHit && !Mouse.IsOver(cellRect)))
+            {
+                return false;
+            }
+
+            int currentPriority = pawn.workSettings.GetPriority(workType);
+            int direction = evt.delta.y > 0 ? -1 : 1;
+            int nextPriority = Find.PlaySettings.useWorkPriorities
+                ? WorkPrioritySystem.GetPriorityAfterBoundedStep(currentPriority, direction)
+                : currentPriority > WorkPrioritySystem.DisabledPriority
+                    ? WorkPrioritySystem.DisabledPriority
+                    : WorkPrioritySystem.GetDefaultEnabledPriority();
+            if (nextPriority != currentPriority)
+            {
+                WorkPrioritySystem.SetPriority(pawn.workSettings, workType, nextPriority);
+                SoundDefOf.DragSlider.PlayOneShotOnCamera();
+            }
+
+            evt.Use();
+            return true;
+        }
+
+        private static bool TryHandleWorkPriorityInput(
+            Rect cellRect,
+            Pawn pawn,
+            WorkTypeDef workType,
+            bool trustHit = false)
+        {
+            Event evt = Event.current;
+            if (evt == null ||
+                TimePriorityScheduleEditor.OwnsCurrentMousePosition ||
                 evt.type != EventType.MouseDown)
             {
                 return false;
@@ -863,7 +884,7 @@ namespace Better_Work_Tab.Patches
                 return false;
             }
 
-            if (!Mouse.IsOver(GetWorkBoxRect(cellRect)))
+            if (!trustHit && !Mouse.IsOver(GetWorkBoxRect(cellRect)))
             {
                 return false;
             }

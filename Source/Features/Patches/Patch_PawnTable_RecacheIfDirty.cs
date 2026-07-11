@@ -13,6 +13,41 @@ using Verse;
 namespace Better_Work_Tab.Features.Patches
 {
     /// <summary>
+    /// Narrow guard used while vanilla MainTabWindow_PawnTable.PostOpen runs for a
+    /// cache-valid BWT table. Vanilla always dirties the table on every reopen; BWT
+    /// can retain it when the authoritative table/layout identity is unchanged.
+    /// </summary>
+    internal static class WarmOpenPawnTableCache
+    {
+        [System.ThreadStatic]
+        private static PawnTable _guardedTable;
+
+        internal static void Begin(PawnTable table)
+        {
+            _guardedTable = table;
+        }
+
+        internal static void End()
+        {
+            _guardedTable = null;
+        }
+
+        internal static bool ShouldSuppressDirty(PawnTable table)
+        {
+            return table != null && ReferenceEquals(table, _guardedTable);
+        }
+    }
+
+    [HarmonyPatch(typeof(PawnTable), nameof(PawnTable.SetDirty))]
+    public static class Patch_PawnTable_SetDirty_WarmOpenCache
+    {
+        public static bool Prefix(PawnTable __instance)
+        {
+            return !WarmOpenPawnTableCache.ShouldSuppressDirty(__instance);
+        }
+    }
+
+    /// <summary>
     /// Synchronizes our custom layout system (with dividers and collapsed sections)
     /// to vanilla's PawnTable cached data.
     /// 
@@ -68,7 +103,7 @@ namespace Better_Work_Tab.Features.Patches
                 return;
 
             float headerHeight = layout.HeaderHeight;
-            float pinnedRowsHeight = TimePriorityPlannerPrototype.HeaderPinnedRowsHeight +
+            float pinnedRowsHeight = TimePriorityScheduleEditor.HeaderPinnedRowsHeight +
                 SubWorkDrilldownState.GlobalRowReservedHeight;
             float contentHeight = layout.ContentHeight;
             float totalHeight = headerHeight + contentHeight;

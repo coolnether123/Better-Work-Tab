@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -123,7 +123,7 @@ namespace Better_Work_Tab.PawnOrganizer
             if (SubWorkDrilldownState.LayoutSignature != _lastSubWorkSignature)
                 return true;
 
-            if (TimePriorityPlannerPrototype.LayoutSignature != _lastTimePrioritySignature)
+            if (TimePriorityScheduleEditor.LayoutSignature != _lastTimePrioritySignature)
                 return true;
 
             if (ComputeDividerAnimationSignature() != _lastDividerAnimationSignature)
@@ -188,7 +188,7 @@ namespace Better_Work_Tab.PawnOrganizer
             _lastColumnSignature = ComputeColumnSignature(table);
             _lastHiddenWorktypesSignature = ComputeHiddenWorktypesSignature();
             _lastSubWorkSignature = SubWorkDrilldownState.LayoutSignature;
-            _lastTimePrioritySignature = TimePriorityPlannerPrototype.LayoutSignature;
+            _lastTimePrioritySignature = TimePriorityScheduleEditor.LayoutSignature;
             _lastDividerAnimationSignature = ComputeDividerAnimationSignature();
             _lastSubWorkLayoutSettingsSignature = ComputeSubWorkLayoutSettingsSignature();
             _lastHeaderLayoutVersion = HeaderDrawingCoordinator.GetVanillaLayoutVersion();
@@ -831,7 +831,7 @@ namespace Better_Work_Tab.PawnOrganizer
 
         private static float GetPinnedRowsHeight()
         {
-            float height = TimePriorityPlannerPrototype.HeaderPinnedRowsHeight;
+            float height = TimePriorityScheduleEditor.HeaderPinnedRowsHeight;
             if (SubWorkDrilldownState.HasAnyDrilldown)
             {
                 height += SubWorkDrilldownState.GlobalRowReservedHeight;
@@ -1732,7 +1732,7 @@ namespace Better_Work_Tab.PawnOrganizer
         private List<DisplayElement> InsertTransientTimePriorityDivider(List<DisplayElement> ordered)
         {
             if (ordered == null ||
-                !TimePriorityPlannerPrototype.TryGetTransientDivider(out int pawnId, out PawnDivider divider) ||
+                !TimePriorityScheduleEditor.TryGetTransientDivider(out int pawnId, out PawnDivider divider) ||
                 divider == null)
             {
                 return ordered;

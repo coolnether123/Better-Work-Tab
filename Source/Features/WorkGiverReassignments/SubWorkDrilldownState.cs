@@ -724,6 +724,11 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         internal static void ExitImmediate()
         {
+            bool hadFocusedState = _activeWorkType != null ||
+                _isExiting ||
+                ActiveWorkGiversBuffer.Count > 0 ||
+                ActiveWorkGiverSlots.Count > 0 ||
+                MovedFromBaseline.Count > 0;
             string previous = _activeWorkType?.defName;
             _activeWorkType = null;
             _cachedWorkTypeDefName = null;
@@ -743,7 +748,10 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             ActiveWorkGiverSlots.Clear();
             MovedFromBaseline.Clear();
             ClearDrawingColumn();
-            _layoutRefreshPending = true;
+            if (hadFocusedState)
+            {
+                _layoutRefreshPending = true;
+            }
             if (!previous.NullOrEmpty())
             {
                 LogSubWork($"Exited sub-work immediately. previous={previous}");

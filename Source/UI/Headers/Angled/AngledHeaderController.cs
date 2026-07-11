@@ -75,7 +75,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 return false;
             }
 
-            bool isMouseOver = !TimePriorityPlannerPrototype.OwnsCurrentMousePosition &&
+            bool isMouseOver = !TimePriorityScheduleEditor.OwnsCurrentMousePosition &&
                 DetermineMouseOver(rect, cached);
             
             if (isMouseOver)
@@ -119,15 +119,21 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 center = rect.center
             };
             drawRect.x += AngledLabelDrawer.EffectiveHorizontalOffset;
+            drawRect.position += SubWorkDrilldownHeaderGeometry.GetExpandBesideAngledAnchorOffset(
+                table,
+                rect.height,
+                drawRect.width,
+                drawRect.height,
+                AngledLabelDrawer.CurrentRotation);
 
             var layout = new AngledLabelDrawer.AngledLabelLayout(
                 label,
                 size,
-                rect.center,
+                drawRect.center,
                 showMarker: false,
                 isCJKVertical: false,
                 customDrawRect: drawRect);
-            bool isMouseOver = !TimePriorityPlannerPrototype.OwnsCurrentMousePosition && rect.Contains(HeaderInputController.MousePosition);
+            bool isMouseOver = !TimePriorityScheduleEditor.OwnsCurrentMousePosition && rect.Contains(HeaderInputController.MousePosition);
             if (isMouseOver)
             {
                 HeaderInputController.SetHoveredWorkType(worker.def.workType, rect);

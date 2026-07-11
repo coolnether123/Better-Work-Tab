@@ -36,14 +36,14 @@ namespace Better_Work_Tab.UI.Settings
             bool skillOnly,
             bool ctrlOnly)
         {
-            if (TimePriorityPlannerPrototype.TryGetCopyPasteSettingsContext(mousePosition))
+            if (TimePriorityScheduleEditor.TryGetCopyPasteSettingsContext(mousePosition))
             {
                 return CreateContextRequest(
                     "Schedule Copy/Paste Buttons",
                     "Setting that controls copy and paste buttons for Work tab time-priority schedules.",
                     UiTimePriorityCopyPasteButtons,
                     false,
-                    UiTimePriorityPlannerPrototype,
+                    UiTimePrioritySchedules,
                     UiTimePriorityCopyPasteButtons);
             }
 
@@ -83,7 +83,7 @@ namespace Better_Work_Tab.UI.Settings
                         SubWorkTransitionMode,
                         SubWorkTransitionSpeed,
                         SubWorkDisabledParentMode,
-                        UiTimePriorityPlannerPrototype,
+                        UiTimePrioritySchedules,
                         UiTimePriorityCopyPasteButtons,
                         UiChronosPointerTimePriority,
                         UiTimePrioritySourceColumnHighlight,
@@ -133,7 +133,7 @@ namespace Better_Work_Tab.UI.Settings
                     OverlayHoverCellOverlay,
                     OverlayHoverMode,
                     OverlayHoverScope,
-                    UiTimePriorityPlannerPrototype,
+                    UiTimePrioritySchedules,
                     UiTimePriorityCopyPasteButtons,
                     UiChronosPointerTimePriority,
                     UiTimePriorityHourDivider,
@@ -231,7 +231,7 @@ namespace Better_Work_Tab.UI.Settings
                     SubWorkTransitionSpeed,
                     SubWorkAutoExpandColumns,
                     SubWorkEvenlyExpandColumns,
-                    UiTimePriorityPlannerPrototype,
+                    UiTimePrioritySchedules,
                     UiTimePriorityCopyPasteButtons,
                     UiTimePrioritySourceColumnHighlight,
                     UiChronosPointerTimePriority);
@@ -244,9 +244,9 @@ namespace Better_Work_Tab.UI.Settings
                     isChronosRegion
                         ? "Settings related to Chronos Pointer integration in the Work tab time-priority schedule."
                         : "Settings related to time priority rows and Chronos Pointer integration.",
-                    isChronosRegion ? UiChronosPointerTimePriority : UiTimePriorityPlannerPrototype,
+                    isChronosRegion ? UiChronosPointerTimePriority : UiTimePrioritySchedules,
                     true,
-                    UiTimePriorityPlannerPrototype,
+                    UiTimePrioritySchedules,
                     UiTimePriorityCopyPasteButtons,
                     UiChronosPointerTimePriority,
                     UiTimePriorityHourDivider,
@@ -523,7 +523,7 @@ namespace Better_Work_Tab.UI.Settings
                 return false;
             }
 
-            float y = layout.TableOrigin.y + layout.HeaderHeight + TimePriorityPlannerPrototype.HeaderPinnedRowsHeight;
+            float y = layout.TableOrigin.y + layout.HeaderHeight + TimePriorityScheduleEditor.HeaderPinnedRowsHeight;
             Rect rect = new Rect(
                 layout.TableOrigin.x,
                 y,
@@ -560,13 +560,13 @@ namespace Better_Work_Tab.UI.Settings
                 return false;
             }
 
-            if (TimePriorityPlannerPrototype.HeaderPinnedRowsHeight > 0.5f)
+            if (TimePriorityScheduleEditor.HeaderPinnedRowsHeight > 0.5f)
             {
                 rect = new Rect(
                     layout.TableOrigin.x,
                     layout.TableOrigin.y + layout.HeaderHeight,
                     Mathf.Max(layout.Table != null ? layout.Table.Size.x - 16f : 0f, 1f),
-                    TimePriorityPlannerPrototype.HeaderPinnedRowsHeight);
+                    TimePriorityScheduleEditor.HeaderPinnedRowsHeight);
                 return true;
             }
 
@@ -578,7 +578,7 @@ namespace Better_Work_Tab.UI.Settings
             for (int i = 0; i < layout.Rows.Count; i++)
             {
                 WorkTabLayoutRow row = layout.Rows[i];
-                if (row.Divider == null || !TimePriorityPlannerPrototype.IsTransientDivider(row.Divider))
+                if (row.Divider == null || !TimePriorityScheduleEditor.IsTransientDivider(row.Divider))
                 {
                     continue;
                 }

@@ -1,4 +1,4 @@
-﻿using Better_Work_Tab.Features;
+using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
@@ -107,7 +107,7 @@ namespace Better_Work_Tab.UI
 
             if (rects.Scheduler.Contains(evt.mousePosition))
             {
-                if (!TimePriorityPlannerPrototype.ToggleFirstVisiblePrioritySchedule(layout))
+                if (!ToggleScheduler(layout))
                 {
                     SoundDefOf.ClickReject.PlayOneShotOnCamera();
                 }
@@ -144,14 +144,14 @@ namespace Better_Work_Tab.UI
                 ToggleManualPriorities(!prioritiesEnabled);
             }
 
-            bool plannerVisible = TimePriorityPlannerPrototype.IsVisible;
+            bool plannerVisible = FluffyTimeScheduleAssigner.IsOpen || TimePriorityScheduleEditor.IsVisible;
             if (DrawFluffyTopButton(
                     rects.Scheduler,
                     plannerVisible ? FluffyWorkTabIcon.PrioritiesTimed : FluffyWorkTabIcon.PrioritiesWholeDay,
                     plannerVisible ? "Close time priorities" : "Open time priorities",
                     plannerVisible ? "T" : "D"))
             {
-                if (!TimePriorityPlannerPrototype.ToggleFirstVisiblePrioritySchedule(layout))
+                if (!ToggleScheduler(layout))
                 {
                     SoundDefOf.ClickReject.PlayOneShotOnCamera();
                 }
@@ -166,6 +166,13 @@ namespace Better_Work_Tab.UI
             {
                 ToggleAllVisibleSubWork(layout);
             }
+        }
+
+        private static bool ToggleScheduler(IWorkTabLayoutController layout)
+        {
+            return FluffyTimeScheduleAssigner.IsEnabled
+                ? FluffyTimeScheduleAssigner.Toggle()
+                : TimePriorityScheduleEditor.ToggleFirstVisiblePrioritySchedule(layout);
         }
 
         public static float GetTopRightReservedWidth()

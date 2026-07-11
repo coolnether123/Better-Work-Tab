@@ -143,6 +143,16 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 drawRect = new Rect(0f, 0f, drawWidth, size.y) { center = rect.center };
                 drawRect.x += horizontalOffset;
 
+                if (SubWorkDrilldownState.IsExpandBesideActive)
+                {
+                    drawRect.position += SubWorkDrilldownHeaderGeometry.GetExpandBesideAngledAnchorOffset(
+                        null,
+                        rect.height,
+                        drawRect.width,
+                        drawRect.height,
+                        AngledLabelDrawer.CurrentRotation);
+                }
+
                 if (SubWorkDrilldownState.IsActive)
                 {
                     drawRect = AnchorSubWorkUnderlineToPriorityRow(drawRect, rect, cos, sin, stemGap, horizontalOffset);

@@ -93,7 +93,7 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
             var vanillaSolver = HeaderDrawingCoordinator.GetVanillaSolver();
 
             // Determine Hover
-            bool isMouseOver = !TimePriorityPlannerPrototype.OwnsCurrentMousePosition &&
+            bool isMouseOver = !TimePriorityScheduleEditor.OwnsCurrentMousePosition &&
                 DetermineMouseOver(rect, worker.def);
             if (isMouseOver)
             {
@@ -165,7 +165,7 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
                 showMarker: false,
                 isCJKVertical: false);
 
-            bool isMouseOver = !TimePriorityPlannerPrototype.OwnsCurrentMousePosition && bounds.Contains(HeaderInputController.MousePosition);
+            bool isMouseOver = !TimePriorityScheduleEditor.OwnsCurrentMousePosition && bounds.Contains(HeaderInputController.MousePosition);
             if (isMouseOver)
             {
                 HeaderInputController.SetHoveredWorkType(worker.def.workType, bounds);
