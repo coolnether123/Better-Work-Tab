@@ -347,6 +347,20 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
         private static void HandleLeftClick(PawnColumnWorker_WorkPriority worker, PawnTable table, Event evt)
         {
+            if (SubWorkDrilldownState.TryGetCurrentDrawingWorkGiver(
+                    worker.def,
+                    out var movedWorkGiver,
+                    out var parentWorkType,
+                    out _) &&
+                movedWorkGiver?.def != null &&
+                WorkGiverReassignmentManager.ShouldShowMovedWorkGiverMarker(parentWorkType, movedWorkGiver.def) &&
+                WorkGiverReassignmentManager.TryRestoreWorkGiverToBaseline(movedWorkGiver.def.defName, out _))
+            {
+                SoundDefOf.Tick_High.PlayOneShotOnCamera();
+                table.SetDirty();
+                return;
+            }
+
             // Normal Left Click: Clear selection and handle sorting
             if (Better_Work_Tab.DragDrop.ColumnSelectionManager.HasSelection)
             {
@@ -545,7 +559,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 workType,
                 returnMousePosition,
                 SubWorkDrilldownHeaderGeometry.GetBaseHeaderDrawWidth(null, -1f));
-            HeaderDrawingCoordinator.InvalidateSolution();
+            Spine.RimWorld.WorkTab.Rendering.WorkTabInvalidationHub.Invalidate(Spine.RimWorld.WorkTab.Rendering.WorkTabDirtyFlags.Columns | Spine.RimWorld.WorkTab.Rendering.WorkTabDirtyFlags.HeaderGeometry);
             SoundDefOf.Tick_High.PlayOneShotOnCamera();
         }
 

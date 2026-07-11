@@ -37,6 +37,8 @@ namespace Better_Work_Tab.Features.Workloads
         {
             base.FinalizeInit();
 
+            TimePriorityScheduleEditor.ResetForGameTransition();
+
             if (MultiplayerBridge.Active)
                 BWTLocalProfileStore.LoadOrCreateForCurrentSession();
 

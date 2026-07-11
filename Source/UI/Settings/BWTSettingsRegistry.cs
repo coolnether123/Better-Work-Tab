@@ -2743,8 +2743,7 @@ namespace Better_Work_Tab.UI.Settings
                 DefaultValue = DefaultSettings.enableCustomWorkLabels,
                 OnChanged = _ =>
                 {
-                    Better_Work_Tab.UI.Headers.Angled.AngledHeaderCache.ClearCache();
-                    Better_Work_Tab.UI.Headers.HeaderDrawingCoordinator.InvalidateSolution();
+                    Spine.RimWorld.WorkTab.Rendering.WorkTabInvalidationHub.Invalidate(Spine.RimWorld.WorkTab.Rendering.WorkTabDirtyFlags.HeaderText | Spine.RimWorld.WorkTab.Rendering.WorkTabDirtyFlags.HeaderGeometry | Spine.RimWorld.WorkTab.Rendering.WorkTabDirtyFlags.RenderResources);
                     MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
                 },
                 ShowInSimpleView = true,

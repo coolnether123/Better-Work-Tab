@@ -369,7 +369,7 @@ namespace Better_Work_Tab.UI
             if (SubWorkDrilldownState.IsExpandBesideActive)
             {
                 SubWorkDrilldownState.CollapseAllExpandBeside();
-                HeaderDrawingCoordinator.InvalidateSolution();
+                Spine.RimWorld.WorkTab.Rendering.WorkTabInvalidationHub.Invalidate(Spine.RimWorld.WorkTab.Rendering.WorkTabDirtyFlags.Columns | Spine.RimWorld.WorkTab.Rendering.WorkTabDirtyFlags.HeaderGeometry);
                 SoundDefOf.Tick_Low.PlayOneShotOnCamera();
                 return;
             }
@@ -403,7 +403,7 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
-            HeaderDrawingCoordinator.InvalidateSolution();
+            Spine.RimWorld.WorkTab.Rendering.WorkTabInvalidationHub.Invalidate(Spine.RimWorld.WorkTab.Rendering.WorkTabDirtyFlags.Columns | Spine.RimWorld.WorkTab.Rendering.WorkTabDirtyFlags.HeaderGeometry);
             SoundDefOf.Tick_High.PlayOneShotOnCamera();
         }
 

@@ -498,7 +498,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                     SubWorkDrilldownHeaderGeometry.GetBaseHeaderDrawWidth(layout?.Table, layout?.HeaderHeight ?? -1f));
                 _chooserPreviewStyle = hoverStyle;
                 _chooserPreviewWorkType = _chooserWorkType;
-                HeaderDrawingCoordinator.InvalidateSolution();
+                Spine.RimWorld.WorkTab.Rendering.WorkTabInvalidationHub.Invalidate(Spine.RimWorld.WorkTab.Rendering.WorkTabDirtyFlags.Columns | Spine.RimWorld.WorkTab.Rendering.WorkTabDirtyFlags.HeaderGeometry);
                 return;
             }
 
@@ -513,7 +513,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                 SubWorkDrilldownState.ToggleExpandBeside(_chooserWorkType);
                 _chooserPreviewStyle = hoverStyle;
                 _chooserPreviewWorkType = _chooserWorkType;
-                HeaderDrawingCoordinator.InvalidateSolution();
+                Spine.RimWorld.WorkTab.Rendering.WorkTabInvalidationHub.Invalidate(Spine.RimWorld.WorkTab.Rendering.WorkTabDirtyFlags.Columns | Spine.RimWorld.WorkTab.Rendering.WorkTabDirtyFlags.HeaderGeometry);
             }
         }
 

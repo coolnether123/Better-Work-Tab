@@ -44,9 +44,17 @@ namespace Better_Work_Tab.UI.Headers.Angled
         /// </summary>
         public static void ClearCache()
         {
+            ClearGeometryCache();
+            TextMetricsCache.Clear();
+        }
+
+        /// <summary>
+        /// Clears geometry that changes while columns animate without discarding reusable label measurements.
+        /// </summary>
+        internal static void ClearGeometryCache()
+        {
             _cache.Clear();
             _latestCache.Clear();
-            TextMetricsCache.Clear();
         }
 
         public static bool TryGetBounds(WorkTypeDef workType, out Rect bounds)

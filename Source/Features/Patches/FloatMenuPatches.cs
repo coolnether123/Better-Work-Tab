@@ -326,7 +326,10 @@ namespace Better_Work_Tab.Patches
                     baseHeaderDrawWidth: SubWorkDrilldownHeaderGeometry.GetBaseHeaderDrawWidth(null, -1f));
                 Find.MainTabsRoot.SetCurrentTab(MainButtonDefOf.Work);
                 HighlightState.SetSubWorkGiverToHighlight(pawn, targetWorkType, workGiver);
-                HeaderDrawingCoordinator.NotifyAngledHeadersChanged();
+                Spine.RimWorld.WorkTab.Rendering.WorkTabInvalidationHub.Invalidate(
+                    Spine.RimWorld.WorkTab.Rendering.WorkTabDirtyFlags.HeaderText |
+                    Spine.RimWorld.WorkTab.Rendering.WorkTabDirtyFlags.HeaderGeometry |
+                    Spine.RimWorld.WorkTab.Rendering.WorkTabDirtyFlags.RenderResources);
                 MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
                 return;
             }

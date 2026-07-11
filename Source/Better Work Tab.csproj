@@ -95,6 +95,7 @@
     <Compile Include="Features\WorkExecutionOrder.cs" />
     <Compile Include="Features\WorkGiverReassignments\WorkGiverReassignmentData.cs" />
     <Compile Include="Features\WorkGiverReassignments\WorkGiverReassignmentManager.cs" />
+    <Compile Include="Features\WorkGiverReassignments\WorkGiverLayoutHistory.cs" />
     <Compile Include="Features\WorkGiverReassignments\WorkGiverReassignmentPatches.cs" />
     <Compile Include="Features\WorkGiverReassignments\CustomLabelStore.cs" />
     <Compile Include="Features\WorkGiverReassignments\SubWorkDrilldownInput.cs" />
@@ -127,6 +128,7 @@
     <Compile Include="Features\Workloads\PawnWorkload.cs" />
     <Compile Include="Features\Patches\FloatMenuPatches.cs" />
     <Compile Include="Features\Patches\WorkTabSortPatches.cs" />
+    <Compile Include="Features\Patches\WorkGiverPresentationInvalidationPatches.cs" />
     <Compile Include="Features\Patches\CustomWorkBoxDrawer.cs" />
     <Compile Include="Features\Patches\ShiftHelper.cs" />
     <Compile Include="DragDrop\RowDragHandler.cs" />
@@ -178,6 +180,10 @@
     <Compile Include="PawnOrganizer\RowOrderUtility.cs" />
     <Compile Include="Spine\DragDrop\DragDropController.cs" />
     <Compile Include="Spine\DragDrop\DragDropManager.cs" />
+    <Compile Include="Spine\RimWorld\WorkTab\Rendering\WorkTabRenderContracts.cs" />
+    <Compile Include="Spine\RimWorld\WorkTab\Rendering\WorkTabInvalidationHub.cs" />
+    <Compile Include="Spine\RimWorld\WorkTab\Rendering\WorkTabRenderModuleRegistry.cs" />
+    <Compile Include="Spine\RimWorld\WorkTab\Rendering\WorkTabRenderModuleRouter.cs" />
     <Compile Include="Spine\DragDrop\DragEndReason.cs" />
     <Compile Include="Spine\DragDrop\Util\HeightCache.cs" />
     <Compile Include="Spine\DragDrop\Util\ClickOrDragGate.cs" />
@@ -237,6 +243,8 @@
     <Compile Include="UI\WorkGiverReassignments\PriorityOverrideRing.cs" />
     <Compile Include="UI\WorkGiverReassignments\WorkGiverPriorityBoxRenderer.cs" />
     <Compile Include="UI\WorkGiverReassignments\WorkGiverCellPresentationCache.cs" />
+    <Compile Include="UI\WorkGiverReassignments\WorkGiverPresentationInvalidation.cs" />
+    <Compile Include="UI\Rendering\NativeImGuiWorkTabRenderModule.cs" />
     <Compile Include="Spine\UI\WidgetExtensions\RimworldSettingsWidgets.cs" />
     <Compile Include="UI\Input\GuiMousePosition.cs" />
     <Compile Include="UI\Input\NativeCursorPosition.cs" />

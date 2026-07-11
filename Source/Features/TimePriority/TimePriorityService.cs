@@ -563,6 +563,8 @@ namespace Better_Work_Tab.Features.TimePriority
                 return;
             }
 
+            Spine.RimWorld.WorkTab.Rendering.WorkTabInvalidationHub.Invalidate(
+                Spine.RimWorld.WorkTab.Rendering.WorkTabDirtyFlags.Presentation);
             WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
         }
 
@@ -695,6 +697,8 @@ namespace Better_Work_Tab.Features.TimePriority
         {
             CurrentVersion++;
             _cachedVersion = -1;
+            Spine.RimWorld.WorkTab.Rendering.WorkTabInvalidationHub.Invalidate(
+                Spine.RimWorld.WorkTab.Rendering.WorkTabDirtyFlags.Presentation);
             WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
         }

@@ -17,7 +17,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
     /// <summary>
     /// Central coordinator for workgiver reassignment lookups, caching, and mutation.
     /// </summary>
-    internal static class WorkGiverReassignmentManager
+    internal static partial class WorkGiverReassignmentManager
     {
         private static readonly Dictionary<int, WorkTypeDef> WorkGiverTargetCache = new Dictionary<int, WorkTypeDef>();
         private static readonly Dictionary<int, bool> ReassignedCache = new Dictionary<int, bool>();
@@ -139,6 +139,12 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         internal static void MoveWithinWorkTypeSynced(string workTypeDefName, string workGiverDefName, int newIndex, Pawn pawn = null)
         {
             int pawnId = pawn?.thingIDNumber ?? -1;
+            if (pawnId == -1)
+            {
+                TryMoveWorkGiverLayout(workGiverDefName, workTypeDefName, newIndex, out _);
+                return;
+            }
+
             if (MultiplayerBridge.Active)
             {
                 SyncMoveWithinWorkType(workTypeDefName, workGiverDefName, newIndex, pawnId);
@@ -162,6 +168,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         internal static void OnSettingsLoaded()
         {
             InvalidateCaches();
+            WorkGiverLayoutHistory.Clear();
             _cachedSyncVersion = Data?.SyncVersion ?? 0;
         }
 
@@ -1159,15 +1166,11 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 return false;
             }
 
-            if (MultiplayerBridge.Active)
-            {
-                SyncReassignWorkGiver(workGiverDef.defName, targetWorkTypeDef.defName, insertIndex ?? GetOrderedWorkGiversForWorkType(targetWorkTypeDef).Count);
-                return true;
-            }
-
-            ApplyReassignment(workGiverDef, targetWorkTypeDef, insertIndex);
-            BetterWorkTabMod.DebugLog($"Reassigned {workGiverDef.defName} -> {targetWorkTypeDef.defName}", DebugFeature.General);
-            return true;
+            return TryMoveWorkGiverLayout(
+                workGiverDef.defName,
+                targetWorkTypeDef.defName,
+                insertIndex ?? GetOrderedWorkGiversForWorkType(targetWorkTypeDef).Count,
+                out errorMsg);
         }
 
         [SyncMethod]
@@ -1461,6 +1464,10 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         private static void NotifySubWorkDataChanged()
         {
             InvalidateCaches();
+            Spine.RimWorld.WorkTab.Rendering.WorkTabInvalidationHub.Invalidate(
+                Spine.RimWorld.WorkTab.Rendering.WorkTabDirtyFlags.Presentation |
+                Spine.RimWorld.WorkTab.Rendering.WorkTabDirtyFlags.Columns |
+                Spine.RimWorld.WorkTab.Rendering.WorkTabDirtyFlags.HeaderGeometry);
             WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
         }

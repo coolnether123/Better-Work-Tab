@@ -79,6 +79,11 @@ namespace Better_Work_Tab.Features.TimePriority
                 ? CurrentInlineDividerHeight * GetProgress()
                 : 0f;
 
+        internal static float TransientDividerVisualHeight =>
+            IsEnabled && _session != null && !_session.IsGlobal
+                ? CurrentInlineDividerHeight * GetProgress()
+                : 0f;
+
         private static float CurrentInlineDividerHeight =>
             InlineDividerBaseHeight +
             (ChronosPointerSupport.ShouldReserveTimePriorityTimelineHeight ? InlineChronosHeight : 0f);
@@ -105,7 +110,10 @@ namespace Better_Work_Tab.Features.TimePriority
                     }
 
                     hash = hash * 31 + (_isClosing ? 1 : 0);
-                    hash = hash * 31 + Mathf.RoundToInt(HeaderPinnedRowsHeight * 2f);
+                    float animatedRowHeight = _session.IsGlobal
+                        ? HeaderPinnedRowsHeight
+                        : TransientDividerVisualHeight;
+                    hash = hash * 31 + Mathf.RoundToInt(animatedRowHeight * 2f);
                     return hash;
                 }
             }
@@ -164,6 +172,13 @@ namespace Better_Work_Tab.Features.TimePriority
             StartCloseAnimation(GetTimelineAnimationSource());
         }
 
+        internal static void ResetForGameTransition()
+        {
+            // Static UI state can outlive Current.Game while loading a save. Never retain
+            // pawn references or input ownership from the previous game instance.
+            FinishClose();
+        }
+
         internal static bool TryGetTransientDivider(out int pawnId, out PawnDivider divider)
         {
             pawnId = 0;
@@ -176,7 +191,7 @@ namespace Better_Work_Tab.Features.TimePriority
 
             pawnId = _session.PawnIds[0];
             ActiveDivider.DividerName = _session.TargetLabel + " time priorities";
-            ActiveDivider.Height = CurrentInlineDividerHeight;
+            ActiveDivider.Height = TransientDividerVisualHeight;
             ActiveDivider.IsCollapsed = false;
             divider = ActiveDivider;
             return true;

@@ -130,7 +130,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 label,
                 size,
                 drawRect.center,
-                showMarker: false,
+                showMarker: MainTabWindow_BetterWork.ShouldShowColumnMarker(worker.def.workType),
                 isCJKVertical: false,
                 customDrawRect: drawRect);
             bool isMouseOver = !TimePriorityScheduleEditor.OwnsCurrentMousePosition && rect.Contains(HeaderInputController.MousePosition);

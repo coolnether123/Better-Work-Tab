@@ -1527,7 +1527,9 @@ namespace Better_Work_Tab.PawnOrganizer
                 {
                     var divider = dividerElement.Divider;
                     float requestedHeight = divider?.Height ?? _dividerHeight;
-                    height = Mathf.Clamp(requestedHeight, 10f, 80f);
+                    height = TimePriorityScheduleEditor.IsTransientDivider(divider)
+                        ? Mathf.Clamp(requestedHeight, 0f, 80f)
+                        : Mathf.Clamp(requestedHeight, 10f, 80f);
                     if (DividerInsertionAnimationState.TryGetHeightMultiplier(divider, out float insertionMultiplier))
                     {
                         height *= insertionMultiplier;

@@ -16,7 +16,6 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
     /// </summary>
     internal static class WorkGiverCellPresentationCache
     {
-        private const int DynamicStateRefreshFrames = 120;
         private const int MaximumEntries = 32768;
         private static readonly Dictionary<CellKey, CellPresentation> Entries =
             new Dictionary<CellKey, CellPresentation>(2048);
@@ -46,6 +45,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             int hour = GetHour(pawn, pawnId);
             bool lockedOverrides = WorkGiverReassignmentManager.LockedSubWorkOverridesDisabledParent();
             var key = new CellKey(pawnId, workType?.shortHash ?? 0, workGiver?.def?.shortHash ?? 0);
+            int dynamicStateVersion = WorkGiverPresentationInvalidation.GetPawnDynamicVersion(pawn);
 
             if (Entries.TryGetValue(key, out CellPresentation cached) &&
                 cached.SubWorkVersion == _subWorkVersion &&
@@ -53,7 +53,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 cached.ParentPriority == parentPriority &&
                 cached.Hour == hour &&
                 cached.LockedOverrides == lockedOverrides &&
-                (pawn == null || Time.frameCount - cached.DynamicStateFrame < DynamicStateRefreshFrames))
+                cached.DynamicStateVersion == dynamicStateVersion)
             {
                 return cached;
             }
@@ -101,20 +101,6 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 workGiverDef,
                 basePriority);
 
-            bool workTypeDisabled = pawn != null && pawn.WorkTypeIsDisabled(workType);
-            bool disabledByAge = false;
-            int minimumAge = 0;
-            bool incapable = false;
-            if (pawn != null)
-            {
-                if (workTypeDisabled)
-                {
-                    disabledByAge = pawn.IsWorkTypeDisabledByAge(workType, out minimumAge);
-                }
-
-                incapable = IsIncapable(pawn, workGiver);
-            }
-
             TimePriorityTarget scheduleTarget = default(TimePriorityTarget);
             int scheduleFallbackPriority = basePriority;
             bool hasScheduleIndicator;
@@ -148,16 +134,36 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             presentation.BasePriority = basePriority;
             presentation.EffectivePriority = evaluation.EffectivePriority;
             presentation.HasPawnOverride = hasPawnOverride;
-            presentation.WorkTypeDisabled = workTypeDisabled;
-            presentation.DisabledByAge = disabledByAge;
-            presentation.MinimumAge = minimumAge;
-            presentation.Incapable = incapable;
             presentation.HasScheduleIndicator = hasScheduleIndicator;
             presentation.ScheduleTarget = scheduleTarget;
             presentation.ScheduleFallbackPriority = scheduleFallbackPriority;
             presentation.InheritedPriority = inheritedPriority;
-            presentation.DynamicStateFrame = Time.frameCount;
+            RefreshDynamicState(presentation, pawn, workType, workGiver);
             return presentation;
+        }
+
+        private static void RefreshDynamicState(
+            CellPresentation presentation,
+            Pawn pawn,
+            WorkTypeDef workType,
+            WorkGiver workGiver)
+        {
+            bool workTypeDisabled = pawn != null && pawn.WorkTypeIsDisabled(workType);
+            bool disabledByAge = false;
+            int minimumAge = 0;
+            if (workTypeDisabled)
+            {
+                disabledByAge = pawn.IsWorkTypeDisabledByAge(workType, out minimumAge);
+            }
+
+            presentation.WorkTypeDisabled = workTypeDisabled;
+            presentation.DisabledByAge = disabledByAge;
+            presentation.MinimumAge = minimumAge;
+            presentation.Incapable = pawn != null && IsIncapable(pawn, workGiver);
+            // Capacity evaluation can initialize RimWorld's own capacity cache and emit
+            // a dirty notification. Stamp after evaluation so this presentation records
+            // the exact version of the state it just computed.
+            presentation.DynamicStateVersion = WorkGiverPresentationInvalidation.GetPawnDynamicVersion(pawn);
         }
 
         private static void RefreshFrameState()
@@ -316,7 +322,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             internal TimePriorityTarget ScheduleTarget;
             internal int ScheduleFallbackPriority;
             internal int InheritedPriority;
-            internal int DynamicStateFrame;
+            internal int DynamicStateVersion;
         }
     }
 }

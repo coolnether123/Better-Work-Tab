@@ -36,10 +36,17 @@ namespace Better_Work_Tab.Features.Patches
         [HarmonyPriority(Priority.Last)]
         public static void Postfix(Pawn_WorkSettings __instance, WorkTypeDef w, int __state)
         {
-            if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabPriorityFeatures ||
-                __instance?.priorities == null ||
+            if (__instance?.priorities == null ||
                 w == null ||
                 __state == int.MinValue)
+            {
+                return;
+            }
+
+            Spine.RimWorld.WorkTab.Rendering.WorkTabInvalidationHub.Invalidate(
+                Spine.RimWorld.WorkTab.Rendering.WorkTabDirtyFlags.Presentation);
+
+            if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabPriorityFeatures)
             {
                 return;
             }

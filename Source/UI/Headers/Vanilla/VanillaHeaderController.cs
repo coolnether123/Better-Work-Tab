@@ -162,7 +162,7 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
                 label,
                 bounds.size,
                 bounds.center,
-                showMarker: false,
+                showMarker: MainTabWindow_BetterWork.ShouldShowColumnMarker(worker.def.workType),
                 isCJKVertical: false);
 
             bool isMouseOver = !TimePriorityScheduleEditor.OwnsCurrentMousePosition && bounds.Contains(HeaderInputController.MousePosition);

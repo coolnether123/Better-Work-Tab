@@ -496,7 +496,7 @@ namespace Better_Work_Tab.DragDrop
 
                 // Invalidate the solver solution to force recalculation with new column order
                 // (preserves max level to prevent header height jumps)
-                Better_Work_Tab.UI.Headers.HeaderDrawingCoordinator.InvalidateSolution();
+                Spine.RimWorld.WorkTab.Rendering.WorkTabInvalidationHub.Invalidate(Spine.RimWorld.WorkTab.Rendering.WorkTabDirtyFlags.Columns | Spine.RimWorld.WorkTab.Rendering.WorkTabDirtyFlags.HeaderGeometry);
 
                 // Force layout to rebuild with new column order
                 var layout = PawnOrganizerSystem.Instance?.Layout;
@@ -617,7 +617,7 @@ namespace Better_Work_Tab.DragDrop
                     _subWorkGiver.defName,
                     insertIndex);
 
-                Better_Work_Tab.UI.Headers.HeaderDrawingCoordinator.InvalidateSolution();
+                Spine.RimWorld.WorkTab.Rendering.WorkTabInvalidationHub.Invalidate(Spine.RimWorld.WorkTab.Rendering.WorkTabDirtyFlags.Columns | Spine.RimWorld.WorkTab.Rendering.WorkTabDirtyFlags.HeaderGeometry);
                 WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
                 MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
             }
@@ -703,7 +703,7 @@ namespace Better_Work_Tab.DragDrop
                 _originRect,
                 _crossWorkDropTargetRect);
             SoundDefOf.Tick_High.PlayOneShotOnCamera();
-            Better_Work_Tab.UI.Headers.HeaderDrawingCoordinator.InvalidateSolution();
+            Spine.RimWorld.WorkTab.Rendering.WorkTabInvalidationHub.Invalidate(Spine.RimWorld.WorkTab.Rendering.WorkTabDirtyFlags.Columns | Spine.RimWorld.WorkTab.Rendering.WorkTabDirtyFlags.HeaderGeometry);
             WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
             return true;

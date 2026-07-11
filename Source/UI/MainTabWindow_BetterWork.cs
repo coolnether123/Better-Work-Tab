@@ -22,11 +22,13 @@ using Better_Work_Tab.UI.Headers.Vanilla;
 using Better_Work_Tab.UI.Input;
 using Better_Work_Tab.UI.RuleBuilder;
 using Better_Work_Tab.UI.RuleBuilderV2;
+using Better_Work_Tab.UI.Rendering;
 using Better_Work_Tab.UI.Settings;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using Multiplayer.API;
 using RimWorld;
 using Spine.Profiling;
+using Spine.RimWorld.WorkTab.Rendering;
 using Spine.UI.ColourPicker;
 using System;
 using System.Collections.Generic;
@@ -44,10 +46,18 @@ namespace Better_Work_Tab.UI
     [StaticConstructorOnStartup]
     public class MainTabWindow_BetterWork : MainTabWindow_Work
     {
+        private readonly WorkTabRenderModuleRouter _renderModuleRouter;
+        private readonly NativeImGuiWorkTabRenderModule _nativeRenderModule;
         private static readonly FieldInfo PawnTableField =
             typeof(MainTabWindow_PawnTable).GetField("table", BindingFlags.NonPublic | BindingFlags.Instance);
         private static PawnColumnDef _lastDraggedColumn;
         private static Material _ruleBuilder2OutlineMaterial;
+
+        public MainTabWindow_BetterWork()
+        {
+            _nativeRenderModule = new NativeImGuiWorkTabRenderModule(this);
+            _renderModuleRouter = new WorkTabRenderModuleRouter(_nativeRenderModule);
+        }
         
         /// <summary>
         /// Global notification that header settings (like rotation) have changed.
@@ -55,7 +65,11 @@ namespace Better_Work_Tab.UI
         /// </summary>
         public static void NotifyAngledHeadersChanged()
         {
-            HeaderDrawingCoordinator.NotifyAngledHeadersChanged(); 
+            WorkTabInvalidationHub.Invalidate(
+                WorkTabDirtyFlags.HeaderText |
+                WorkTabDirtyFlags.HeaderGeometry |
+                WorkTabDirtyFlags.RenderResources |
+                WorkTabDirtyFlags.WindowSize);
             PawnOrganizerSystem.Instance?.Layout?.InvalidateRowDescriptors();
             
             if (Find.MainTabsRoot?.OpenTab?.TabWindow is MainTabWindow_BetterWork workTab)
@@ -117,6 +131,12 @@ namespace Better_Work_Tab.UI
         private bool _lastRawHorizontalOverflow;
         private bool _lastHorizontalScrollbarVisible;
         private int _holdHorizontalScrollbarUntilFrame = -1;
+        private bool _horizontalScrollbarTransitionActive;
+        private bool _horizontalScrollbarTransitionVisible;
+        private bool _horizontalScrollbarDragCaptured;
+        private float _horizontalScrollbarDragMouseX;
+        private float _horizontalScrollbarDragScrollX;
+        private float _horizontalScrollbarDragPixelsToContent = 1f;
         private static Color CurrentRowTextColor = Color.white;
         private readonly List<WorkTabLayoutColumn> _visibleRenderColumns = new List<WorkTabLayoutColumn>(64);
         private WorkTabSnapshot _organizerSnapshot;
@@ -364,6 +384,7 @@ namespace Better_Work_Tab.UI
             UpdateTutorialAcceptKeyState();
             PawnTable table = GetPawnTable();
             if (table == null) return;
+            _nativeRenderModule.PrepareFrame(WorkTabInvalidationHub.Current);
 
             bool dividerAnimationChanged = DividerCollapseAnimationState.Tick();
             dividerAnimationChanged |= DividerInsertionAnimationState.Tick();
@@ -429,59 +450,11 @@ namespace Better_Work_Tab.UI
 
                 if (SpineTiming.Enabled)
                 {
-                    SpineTiming.Time("WorkTab.Input", () =>
-                    {
-                        bool handledTutorial = BWTWorkTabTutorial.TryHandleInput(inRect, organizer?.Layout, evt);
-                        if (!handledTutorial)
-                        {
-                            ReportTutorialInteraction(inRect, organizer?.Layout, evt);
-                        }
-
-                        bool handledSubWorkGesture = handledTutorial
-                            || TryHandlePriorityCellInput(organizer?.Layout, evt)
-                            || HeaderButtons.TryHandleTopRightFluffyStyleInput(organizer?.Layout, inRect, evt)
-                            || FluffyTimeScheduleAssigner.TryHandleInput(evt)
-                            || TryHandleContextSettingsClick(inRect, organizer?.Layout, evt)
-                            || TryHandleRuleBuilder2WorkTabInput(organizer?.Layout, evt)
-                            || TimePriorityScheduleEditor.TryHandleInput(organizer?.Layout, evt)
-                            || TryHandleSubWorkBadgeClick(organizer?.Layout)
-                            || TryHandleSubWorkExitGesture(organizer?.Layout)
-                            || TryHandleSubWorkHeaderOpen(organizer?.Layout);
-                        if (!handledSubWorkGesture)
-                        {
-                            ProcessRightClicks(organizer?.Layout);
-                            if (evt.type != EventType.Used)
-                            {
-                                organizer?.HandleInput(evt);
-                            }
-                        }
-                    });
+                    SpineTiming.Time("WorkTab.Input", () => RouteWorkTabInput(inRect, organizer, evt));
                 }
                 else
                 {
-                    bool handledTutorial = BWTWorkTabTutorial.TryHandleInput(inRect, organizer?.Layout, evt);
-                    if (!handledTutorial)
-                    {
-                        ReportTutorialInteraction(inRect, organizer?.Layout, evt);
-                    }
-
-                    bool handledSubWorkGesture = handledTutorial
-                        || TryHandlePriorityCellInput(organizer?.Layout, evt)
-                        || HeaderButtons.TryHandleTopRightFluffyStyleInput(organizer?.Layout, inRect, evt)
-                        || TryHandleContextSettingsClick(inRect, organizer?.Layout, evt)
-                        || TryHandleRuleBuilder2WorkTabInput(organizer?.Layout, evt)
-                        || TimePriorityScheduleEditor.TryHandleInput(organizer?.Layout, evt)
-                        || TryHandleSubWorkBadgeClick(organizer?.Layout)
-                        || TryHandleSubWorkExitGesture(organizer?.Layout)
-                        || TryHandleSubWorkHeaderOpen(organizer?.Layout);
-                    if (!handledSubWorkGesture)
-                    {
-                        ProcessRightClicks(organizer?.Layout);
-                        if (evt.type != EventType.Used)
-                        {
-                            organizer?.HandleInput(evt);
-                        }
-                    }
+                    RouteWorkTabInput(inRect, organizer, evt);
                 }
 
                 SuppressSubWorkPriorityMouseDownIfNeeded(evt);
@@ -494,7 +467,14 @@ namespace Better_Work_Tab.UI
                 UpdateRuleBuilder2WorkTabHover(organizer?.Layout, inRect);
             }
 
-            DrawWorkTable(table, organizer?.Layout, inRect);
+            var renderContext = new WorkTabFrameContext(
+                inRect,
+                table,
+                organizer?.Layout,
+                evt.type,
+                Time.frameCount,
+                WorkTabInvalidationHub.Current);
+            _renderModuleRouter.Render(in renderContext);
 
             // Begin/EndScrollView must participate in Layout so Unity keeps the same
             // scroll control state across Layout, input, and Repaint. DrawWorkTable's
@@ -543,6 +523,54 @@ namespace Better_Work_Tab.UI
             Better_Work_Tab.Features.Testing.SubWorkTransitionPerfDiagnostics.RecordWorkTabRepaint();
         }
 
+        private void RouteWorkTabInput(Rect inRect, PawnOrganizerSystem organizer, Event evt)
+        {
+            if (evt.type == EventType.KeyDown &&
+                evt.control &&
+                GUIUtility.keyboardControl == 0 &&
+                !BetterWorkTabLocalState.IsHeaderDragging)
+            {
+                bool redo = evt.keyCode == KeyCode.Y || (evt.keyCode == KeyCode.Z && evt.shift);
+                bool undo = evt.keyCode == KeyCode.Z && !evt.shift;
+                bool changed = redo
+                    ? WorkGiverReassignmentManager.TryRedoWorkGiverLayout()
+                    : undo && WorkGiverReassignmentManager.TryUndoWorkGiverLayout();
+                if (changed)
+                {
+                    SoundDefOf.Tick_High.PlayOneShotOnCamera();
+                    evt.Use();
+                    return;
+                }
+            }
+
+            bool handledTutorial = BWTWorkTabTutorial.TryHandleInput(inRect, organizer?.Layout, evt);
+            if (!handledTutorial)
+            {
+                ReportTutorialInteraction(inRect, organizer?.Layout, evt);
+            }
+
+            bool handled = handledTutorial
+                || TryHandlePriorityCellInput(organizer?.Layout, evt)
+                || HeaderButtons.TryHandleTopRightFluffyStyleInput(organizer?.Layout, inRect, evt)
+                || FluffyTimeScheduleAssigner.TryHandleInput(evt)
+                || TryHandleContextSettingsClick(inRect, organizer?.Layout, evt)
+                || TryHandleRuleBuilder2WorkTabInput(organizer?.Layout, evt)
+                || TimePriorityScheduleEditor.TryHandleInput(organizer?.Layout, evt)
+                || TryHandleSubWorkBadgeClick(organizer?.Layout)
+                || TryHandleSubWorkExitGesture(organizer?.Layout)
+                || TryHandleSubWorkHeaderOpen(organizer?.Layout);
+            if (handled)
+            {
+                return;
+            }
+
+            ProcessRightClicks(organizer?.Layout);
+            if (evt.type != EventType.Used)
+            {
+                organizer?.HandleInput(evt);
+            }
+        }
+
         private void RefreshSubWorkLayoutIfNeeded(
             PawnOrganizerSystem organizer,
             PawnTable table,
@@ -554,7 +582,13 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
-            HeaderDrawingCoordinator.InvalidateCaches();
+            WorkTabInvalidationHub.Invalidate(
+                WorkTabDirtyFlags.Rows |
+                WorkTabDirtyFlags.Columns |
+                WorkTabDirtyFlags.HeaderGeometry |
+                WorkTabDirtyFlags.Viewport |
+                WorkTabDirtyFlags.WindowSize);
+            _nativeRenderModule.PrepareFrame(WorkTabInvalidationHub.Current);
             organizer?.Layout?.InvalidateRowDescriptors();
             _requestedTabSizeCacheSignature = int.MinValue;
             SetDirty();
@@ -1006,7 +1040,7 @@ namespace Better_Work_Tab.UI
                 }
             }
 
-            HeaderDrawingCoordinator.InvalidateSolution();
+            WorkTabInvalidationHub.Invalidate(WorkTabDirtyFlags.Columns | WorkTabDirtyFlags.HeaderGeometry);
             return true;
         }
 
@@ -1065,7 +1099,7 @@ namespace Better_Work_Tab.UI
             }));
         }
 
-        private void DrawWorkTable(PawnTable table, IWorkTabLayoutController layout, Rect inRect)
+        internal void DrawNativeWorkTable(PawnTable table, IWorkTabLayoutController layout, Rect inRect)
         {
             if (layout == null || table == null)
             {
@@ -1404,7 +1438,7 @@ namespace Better_Work_Tab.UI
                 if (FluffyWorkTabGateway.WasHostedWorkTypeCollapsed(column.Column))
                 {
                     SubWorkDrilldownState.CollapseAllExpandBeside();
-                    HeaderDrawingCoordinator.InvalidateSolution();
+                    WorkTabInvalidationHub.Invalidate(WorkTabDirtyFlags.Columns | WorkTabDirtyFlags.HeaderGeometry);
                 }
 
                 if (drawRuleBuilderHighlightAfterHeader)
@@ -2674,7 +2708,7 @@ namespace Better_Work_Tab.UI
                     storedReturnPosition,
                     SubWorkDrilldownHeaderGeometry.GetBaseHeaderDrawWidth(layout.Table, layout.HeaderHeight));
             }
-            HeaderDrawingCoordinator.InvalidateSolution();
+            WorkTabInvalidationHub.Invalidate(WorkTabDirtyFlags.Columns | WorkTabDirtyFlags.HeaderGeometry);
             ShowCtrlClickDefaultNoticeIfNeeded(storedReturnPosition.HasValue, evt);
             SoundDefOf.Tick_High.PlayOneShotOnCamera();
             evt.Use();
@@ -2731,7 +2765,7 @@ namespace Better_Work_Tab.UI
                     GuiMousePosition.ToRootUiPosition(evt.mousePosition),
                     SubWorkDrilldownHeaderGeometry.GetBaseHeaderDrawWidth(layout.Table, layout.HeaderHeight));
             }
-            HeaderDrawingCoordinator.InvalidateSolution();
+            WorkTabInvalidationHub.Invalidate(WorkTabDirtyFlags.Columns | WorkTabDirtyFlags.HeaderGeometry);
             SoundDefOf.Tick_High.PlayOneShotOnCamera();
             evt.Use();
             return true;
@@ -2819,7 +2853,7 @@ namespace Better_Work_Tab.UI
                 else
                 {
                     SubWorkDrilldownState.CollapseAllExpandBeside();
-                    HeaderDrawingCoordinator.InvalidateSolution();
+                    WorkTabInvalidationHub.Invalidate(WorkTabDirtyFlags.Columns | WorkTabDirtyFlags.HeaderGeometry);
                 }
                 evt.Use();
                 return true;
@@ -3603,9 +3637,57 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
+            bool horizontalOverflow = viewRect.width > outRect.width + 0.5f;
+            Rect horizontalScrollbarRect = new Rect(
+                outRect.x,
+                outRect.yMax - HorizontalScrollbarHeight,
+                outRect.width,
+                HorizontalScrollbarHeight);
+            Event evt = Event.current;
+            float rootMouseX = evt.mousePosition.x;
+            bool captureOnMouseDown = horizontalOverflow &&
+                evt.type == EventType.MouseDown &&
+                evt.button == 0 &&
+                horizontalScrollbarRect.Contains(evt.mousePosition);
+
+            bool applyCapturedScroll = false;
+            float capturedScrollX = table.scrollPosition.x;
+            if (_horizontalScrollbarDragCaptured)
+            {
+                bool released = evt.rawType == EventType.MouseUp || !UnityEngine.Input.GetMouseButton(0);
+                if (released || !horizontalOverflow)
+                {
+                    _horizontalScrollbarDragCaptured = false;
+                }
+                else if (evt.type != EventType.Layout)
+                {
+                    float maxScrollX = Mathf.Max(0f, viewRect.width - outRect.width);
+                    capturedScrollX = Mathf.Clamp(
+                        _horizontalScrollbarDragScrollX +
+                        (rootMouseX - _horizontalScrollbarDragMouseX) * _horizontalScrollbarDragPixelsToContent,
+                        0f,
+                        maxScrollX);
+                    applyCapturedScroll = true;
+                }
+            }
+
             Widgets.BeginScrollView(outRect, ref table.scrollPosition, viewRect);
             try
             {
+                if (applyCapturedScroll)
+                {
+                    table.scrollPosition.x = capturedScrollX;
+                }
+
+                if (captureOnMouseDown && GUIUtility.hotControl != 0)
+                {
+                    _horizontalScrollbarDragCaptured = true;
+                    _horizontalScrollbarDragMouseX = rootMouseX;
+                    _horizontalScrollbarDragScrollX = table.scrollPosition.x;
+                    _horizontalScrollbarDragPixelsToContent =
+                        viewRect.width / Mathf.Max(1f, horizontalScrollbarRect.width);
+                }
+
                 if (Event.current.type == EventType.Layout)
                 {
                     return;
@@ -4086,21 +4168,30 @@ namespace Better_Work_Tab.UI
                 : widthWithoutScrollbar;
             float contentHeight = Mathf.Max(layout.ContentHeight, 1f);
             bool rawHorizontalOverflow = totalColumnWidth > outRect.width + 0.5f;
-            if (SubWorkDrilldownState.IsExpandBesideTransitioning)
+            bool expandBesideTransitioning = SubWorkDrilldownState.IsExpandBesideTransitioning;
+            if (expandBesideTransitioning)
             {
-                // The layout advances before Unity supplies the resized window contents for
-                // this GUI pass. Hold the last settled scrollbar state until the window has
-                // caught up, preventing a one-frame overflow bar during width animation.
+                if (!_horizontalScrollbarTransitionActive)
+                {
+                    _horizontalScrollbarTransitionActive = true;
+                    _horizontalScrollbarTransitionVisible = _stableHorizontalScrollbarVisible;
+                }
+
+                // Layout advances before Unity supplies the resized window contents for this
+                // GUI pass. Keep the last settled state through the transition and two catch-up
+                // frames, then commit the final overflow state once.
                 _holdHorizontalScrollbarUntilFrame = Time.frameCount + 2;
             }
 
             bool needsHorizontalScrollbar;
-            if (Time.frameCount <= _holdHorizontalScrollbarUntilFrame)
+            if (_horizontalScrollbarTransitionActive &&
+                (expandBesideTransitioning || Time.frameCount <= _holdHorizontalScrollbarUntilFrame))
             {
-                needsHorizontalScrollbar = _stableHorizontalScrollbarVisible;
+                needsHorizontalScrollbar = _horizontalScrollbarTransitionVisible;
             }
             else
             {
+                _horizontalScrollbarTransitionActive = false;
                 needsHorizontalScrollbar = rawHorizontalOverflow;
                 _stableHorizontalScrollbarVisible = needsHorizontalScrollbar;
             }
