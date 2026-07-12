@@ -1464,12 +1464,50 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         private static void NotifySubWorkDataChanged()
         {
             InvalidateCaches();
-            Spine.RimWorld.WorkTab.Rendering.WorkTabInvalidationHub.Invalidate(
-                Spine.RimWorld.WorkTab.Rendering.WorkTabDirtyFlags.Presentation |
-                Spine.RimWorld.WorkTab.Rendering.WorkTabDirtyFlags.Columns |
-                Spine.RimWorld.WorkTab.Rendering.WorkTabDirtyFlags.HeaderGeometry);
+            UI.WorkGrid.Invalidation.WorkTabInvalidationHub.Invalidate(
+                UI.WorkGrid.Contracts.WorkTabDirtyFlags.SubWorkOverride |
+                UI.WorkGrid.Contracts.WorkTabDirtyFlags.Columns |
+                UI.WorkGrid.Contracts.WorkTabDirtyFlags.HeaderGeometry);
             WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+        }
+
+        internal static int ComputePresentationAuditSignature()
+        {
+            unchecked
+            {
+                int hash = 17;
+                WorkGiverReassignmentData data = Data;
+                if (data == null)
+                {
+                    return hash;
+                }
+
+                if (data.WorkGiverToWorkTypeMap != null)
+                {
+                    foreach (var entry in data.WorkGiverToWorkTypeMap)
+                    {
+                        hash = (hash * 397) ^ StringComparer.Ordinal.GetHashCode(entry.Key ?? string.Empty);
+                        hash = (hash * 397) ^ StringComparer.Ordinal.GetHashCode(entry.Value ?? string.Empty);
+                    }
+                }
+
+                if (data.PawnWorkGiverPriorityOverrides != null)
+                {
+                    foreach (var pawnEntry in data.PawnWorkGiverPriorityOverrides)
+                    {
+                        hash = (hash * 397) ^ pawnEntry.Key;
+                        if (pawnEntry.Value == null) continue;
+                        foreach (var priorityEntry in pawnEntry.Value)
+                        {
+                            hash = (hash * 397) ^ StringComparer.Ordinal.GetHashCode(priorityEntry.Key ?? string.Empty);
+                            hash = (hash * 397) ^ priorityEntry.Value;
+                        }
+                    }
+                }
+
+                return hash;
+            }
         }
 
         internal static void CleanupOrphanedReassignments()

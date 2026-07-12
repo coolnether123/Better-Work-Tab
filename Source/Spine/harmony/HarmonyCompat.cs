@@ -6,6 +6,31 @@ using Verse;
 
 namespace ModAPI.Core
 {
+    public static class HarmonyPreferenceSource
+    {
+        private static Func<bool> _debugEnabled = () => false;
+
+        public static void Configure(Func<bool> debugEnabled)
+        {
+            _debugEnabled = debugEnabled ?? (() => false);
+        }
+
+        public static bool DebugEnabled
+        {
+            get
+            {
+                try
+                {
+                    return _debugEnabled();
+                }
+                catch
+                {
+                    return false;
+                }
+            }
+        }
+    }
+
     /// <summary>
     /// RimWorld-backed logging shim for the imported Harmony utilities.
     /// Preserves the old MMLog surface so the port stays localized.
@@ -71,14 +96,7 @@ namespace ModAPI.Core
                 return true;
             }
 
-            try
-            {
-                return Better_Work_Tab.BetterWorkTabMod.Settings?.enableDebugLogging ?? false;
-            }
-            catch
-            {
-                return false;
-            }
+            return HarmonyPreferenceSource.DebugEnabled;
         }
     }
 
@@ -88,7 +106,7 @@ namespace ModAPI.Core
     /// </summary>
     public static class ModPrefs
     {
-        public static bool DebugTranspilers => Prefs.DevMode || TryGetBwtDebug();
+        public static bool DebugTranspilers => Prefs.DevMode || HarmonyPreferenceSource.DebugEnabled;
         public static bool TranspilerSafeMode => true;
         public static bool TranspilerForcePreserveInstructionCount => false;
         public static bool TranspilerFailFastCritical => false;
@@ -98,28 +116,6 @@ namespace ModAPI.Core
         public static bool TranspilerWarnOnVirtualCallMismatch => false;
         public static bool TranspilerWarnOnExceptionHandlerMethods => false;
 
-        private static bool TryGetBwtDebug()
-        {
-            return TryGetBwtSetting(s => s.enableDebugLogging, false);
-        }
-
-        private static T TryGetBwtSetting<T>(Func<Better_Work_Tab.BetterWorkTabSettings, T> selector, T fallback)
-        {
-            if (selector == null)
-            {
-                return fallback;
-            }
-
-            try
-            {
-                var settings = Better_Work_Tab.BetterWorkTabMod.Settings;
-                return settings != null ? selector(settings) : fallback;
-            }
-            catch
-            {
-                return fallback;
-            }
-        }
     }
 }
 

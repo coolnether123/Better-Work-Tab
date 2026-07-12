@@ -3,6 +3,9 @@ using HarmonyLib;
 using RimWorld;
 using System;
 using Verse;
+using Better_Work_Tab.UI.WorkGrid.Invalidation;
+using Better_Work_Tab.UI.WorkGrid.Snapshots;
+using Better_Work_Tab.PawnOrganizer;
 
 namespace Better_Work_Tab.Patches
 {
@@ -87,6 +90,10 @@ namespace Better_Work_Tab.Patches
         public static void Postfix()
         {
             BedCachePatchUtility.SafeClear("game loaded");
+            WorkGridSnapshotProvider.ClearActive();
+            PawnOrganizerSystem.Instance?.Layout?.ClearGeometrySnapshot();
+            WorkGridInvalidationAudit.Reset();
+            WorkTabInvalidationHub.ResetForGameTeardown();
         }
     }
 
@@ -99,6 +106,10 @@ namespace Better_Work_Tab.Patches
         public static void Postfix()
         {
             BedCachePatchUtility.SafeClear("new game initialized");
+            WorkGridSnapshotProvider.ClearActive();
+            PawnOrganizerSystem.Instance?.Layout?.ClearGeometrySnapshot();
+            WorkGridInvalidationAudit.Reset();
+            WorkTabInvalidationHub.ResetForGameTeardown();
         }
     }
 

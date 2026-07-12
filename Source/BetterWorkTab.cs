@@ -4,6 +4,8 @@ using Better_Work_Tab.ModSupport;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.PawnOrganizer;
 using HarmonyLib;
+using ModAPI.Core;
+using Spine.UI.ColourPicker;
 using System;
 using UnityEngine;
 using Verse;
@@ -56,6 +58,8 @@ namespace Better_Work_Tab
             var settings = GetSettings<BetterWorkTabSettings>();
             Settings = settings;
             Settings.NormalizePrioritySettings();
+            HarmonyPreferenceSource.Configure(() => Settings?.enableDebugLogging ?? false);
+            Dialog_ColourPicker.ConfigureDebugLogger(message => DebugLog(message, DebugFeature.Layout));
             CompatibilityDiagnostics.ReportStartup(content);
 
             try

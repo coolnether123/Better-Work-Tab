@@ -22,13 +22,18 @@ using Better_Work_Tab.UI.Headers.Vanilla;
 using Better_Work_Tab.UI.Input;
 using Better_Work_Tab.UI.RuleBuilder;
 using Better_Work_Tab.UI.RuleBuilderV2;
-using Better_Work_Tab.UI.Rendering;
 using Better_Work_Tab.UI.Settings;
+using Better_Work_Tab.UI.WorkGrid.Contracts;
+using Better_Work_Tab.UI.WorkGrid.Commands;
+using Better_Work_Tab.UI.WorkGrid.Invalidation;
+using Better_Work_Tab.UI.WorkGrid.Interaction;
+using Better_Work_Tab.UI.WorkGrid.Rendering;
+using Better_Work_Tab.UI.WorkGrid.Snapshots;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using Multiplayer.API;
 using RimWorld;
 using Spine.Profiling;
-using Spine.RimWorld.WorkTab.Rendering;
+using Spine.RimWorld.Rendering;
 using Spine.UI.ColourPicker;
 using System;
 using System.Collections.Generic;
@@ -44,10 +49,11 @@ namespace Better_Work_Tab.UI
     /// Main work tab window that coordinates PawnOrganizer layout with vanilla rendering.
     /// </summary>
     [StaticConstructorOnStartup]
-    public class MainTabWindow_BetterWork : MainTabWindow_Work
+    public class MainTabWindow_BetterWork : MainTabWindow_Work, IWorkGridInteractionHost
     {
-        private readonly WorkTabRenderModuleRouter _renderModuleRouter;
-        private readonly NativeImGuiWorkTabRenderModule _nativeRenderModule;
+        private readonly WorkGridRendererFacade _workGridRenderer;
+        private readonly WorkGridInteractionRouter _workGridInteractionRouter;
+        private readonly WorkGridSnapshotProvider _workGridSnapshots = new WorkGridSnapshotProvider();
         private static readonly FieldInfo PawnTableField =
             typeof(MainTabWindow_PawnTable).GetField("table", BindingFlags.NonPublic | BindingFlags.Instance);
         private static PawnColumnDef _lastDraggedColumn;
@@ -55,8 +61,9 @@ namespace Better_Work_Tab.UI
 
         public MainTabWindow_BetterWork()
         {
-            _nativeRenderModule = new NativeImGuiWorkTabRenderModule(this);
-            _renderModuleRouter = new WorkTabRenderModuleRouter(_nativeRenderModule);
+            _workGridInteractionRouter = new WorkGridInteractionRouter(this);
+            _workGridRenderer = new WorkGridRendererFacade(this);
+            _workGridRenderer.Register(new OptimizedWorkGridRenderer(this));
         }
         
         /// <summary>
@@ -384,13 +391,14 @@ namespace Better_Work_Tab.UI
             UpdateTutorialAcceptKeyState();
             PawnTable table = GetPawnTable();
             if (table == null) return;
-            _nativeRenderModule.PrepareFrame(WorkTabInvalidationHub.Current);
+            _workGridRenderer.PrepareFrame(WorkTabInvalidationHub.Current);
 
             bool dividerAnimationChanged = DividerCollapseAnimationState.Tick();
             dividerAnimationChanged |= DividerInsertionAnimationState.Tick();
             if (dividerAnimationChanged)
             {
                 PawnOrganizerSystem.Instance?.Layout?.InvalidateRowDescriptors();
+                WorkTabInvalidationHub.Invalidate(WorkTabDirtyFlags.Animation);
             }
 
             var organizer = PawnOrganizerSystem.Instance;
@@ -467,14 +475,44 @@ namespace Better_Work_Tab.UI
                 UpdateRuleBuilder2WorkTabHover(organizer?.Layout, inRect);
             }
 
-            var renderContext = new WorkTabFrameContext(
-                inRect,
-                table,
-                organizer?.Layout,
+            WorkGridFeatureFlags renderFeatures = WorkGridFeatureFlags.None;
+            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
+            if (settings?.enableSkillOverlayFeature ?? DefaultSettings.enableSkillOverlayFeature)
+                renderFeatures |= WorkGridFeatureFlags.SkillOverlay;
+            if (settings?.enableDividers ?? DefaultSettings.enableDividers)
+                renderFeatures |= WorkGridFeatureFlags.Dividers;
+            if (settings?.enableSubWorkDrilldown ?? DefaultSettings.enableSubWorkDrilldown)
+                renderFeatures |= WorkGridFeatureFlags.SubWork;
+
+            WorkGridSnapshot presentationSnapshot = null;
+            try
+            {
+                WorkGridInvalidationAudit.Poll(table, organizer?.Layout);
+                presentationSnapshot = _workGridSnapshots.Prepare(
+                    organizer?.Layout,
+                    table,
+                    WorkTabInvalidationHub.Current);
+            }
+            catch (Exception exception)
+            {
+                _workGridSnapshots.Clear();
+                Log.ErrorOnce(
+                    "[BWT] Work-grid snapshot construction failed; legacy rendering remains active.\n" + exception,
+                    0x42575453);
+            }
+
+            var renderContext = new WorkGridRenderContext(
+                ImGuiEventPhases.Classify(evt.type),
                 evt.type,
+                organizer?.Layout,
+                new WorkGridPresentationAccess(table, presentationSnapshot, organizer?.Layout?.GeometrySnapshot),
+                inRect,
+                inRect,
                 Time.frameCount,
-                WorkTabInvalidationHub.Current);
-            _renderModuleRouter.Render(in renderContext);
+                WorkTabInvalidationHub.Current,
+                new WorkGridRenderConfiguration(renderFeatures, WorkGridLayerFlags.All),
+                WorkGridSelectionScope.Window);
+            _workGridRenderer.Render(in renderContext);
 
             // Begin/EndScrollView must participate in Layout so Unity keeps the same
             // scroll control state across Layout, input, and Repaint. DrawWorkTable's
@@ -525,51 +563,60 @@ namespace Better_Work_Tab.UI
 
         private void RouteWorkTabInput(Rect inRect, PawnOrganizerSystem organizer, Event evt)
         {
-            if (evt.type == EventType.KeyDown &&
-                evt.control &&
-                GUIUtility.keyboardControl == 0 &&
-                !BetterWorkTabLocalState.IsHeaderDragging)
-            {
-                bool redo = evt.keyCode == KeyCode.Y || (evt.keyCode == KeyCode.Z && evt.shift);
-                bool undo = evt.keyCode == KeyCode.Z && !evt.shift;
-                bool changed = redo
-                    ? WorkGiverReassignmentManager.TryRedoWorkGiverLayout()
-                    : undo && WorkGiverReassignmentManager.TryUndoWorkGiverLayout();
-                if (changed)
-                {
-                    SoundDefOf.Tick_High.PlayOneShotOnCamera();
-                    evt.Use();
-                    return;
-                }
-            }
-
-            bool handledTutorial = BWTWorkTabTutorial.TryHandleInput(inRect, organizer?.Layout, evt);
-            if (!handledTutorial)
-            {
-                ReportTutorialInteraction(inRect, organizer?.Layout, evt);
-            }
-
-            bool handled = handledTutorial
-                || TryHandlePriorityCellInput(organizer?.Layout, evt)
-                || HeaderButtons.TryHandleTopRightFluffyStyleInput(organizer?.Layout, inRect, evt)
-                || FluffyTimeScheduleAssigner.TryHandleInput(evt)
-                || TryHandleContextSettingsClick(inRect, organizer?.Layout, evt)
-                || TryHandleRuleBuilder2WorkTabInput(organizer?.Layout, evt)
-                || TimePriorityScheduleEditor.TryHandleInput(organizer?.Layout, evt)
-                || TryHandleSubWorkBadgeClick(organizer?.Layout)
-                || TryHandleSubWorkExitGesture(organizer?.Layout)
-                || TryHandleSubWorkHeaderOpen(organizer?.Layout);
-            if (handled)
-            {
-                return;
-            }
-
-            ProcessRightClicks(organizer?.Layout);
-            if (evt.type != EventType.Used)
-            {
-                organizer?.HandleInput(evt);
-            }
+            _workGridInteractionRouter.Route(inRect, organizer, evt);
         }
+
+        private static bool TryHandleWorkGiverHistoryShortcut(Event evt)
+        {
+            if (evt.type != EventType.KeyDown ||
+                !evt.control ||
+                GUIUtility.keyboardControl != 0 ||
+                BetterWorkTabLocalState.IsHeaderDragging)
+            {
+                return false;
+            }
+
+            bool redo = evt.keyCode == KeyCode.Y || (evt.keyCode == KeyCode.Z && evt.shift);
+            bool undo = evt.keyCode == KeyCode.Z && !evt.shift;
+            bool changed = redo
+                ? WorkGiverReassignmentManager.TryRedoWorkGiverLayout()
+                : undo && WorkGiverReassignmentManager.TryUndoWorkGiverLayout();
+            if (!changed)
+            {
+                return false;
+            }
+
+            SoundDefOf.Tick_High.PlayOneShotOnCamera();
+            evt.Use();
+            return true;
+        }
+
+        bool IWorkGridInteractionHost.TryHandleHistoryShortcut(Event evt) =>
+            TryHandleWorkGiverHistoryShortcut(evt);
+        bool IWorkGridInteractionHost.TryHandleTutorial(Rect inRect, IWorkTabLayoutController layout, Event evt) =>
+            BWTWorkTabTutorial.TryHandleInput(inRect, layout, evt);
+        void IWorkGridInteractionHost.ReportTutorial(Rect inRect, IWorkTabLayoutController layout, Event evt) =>
+            ReportTutorialInteraction(inRect, layout, evt);
+        bool IWorkGridInteractionHost.TryHandlePriorityCell(IWorkTabLayoutController layout, Event evt) =>
+            TryHandlePriorityCellInput(layout, evt);
+        bool IWorkGridInteractionHost.TryHandleTopButtons(IWorkTabLayoutController layout, Rect inRect, Event evt) =>
+            HeaderButtons.TryHandleTopRightFluffyStyleInput(layout, inRect, evt);
+        bool IWorkGridInteractionHost.TryHandleFluffySchedule(Event evt) =>
+            FluffyTimeScheduleAssigner.TryHandleInput(evt);
+        bool IWorkGridInteractionHost.TryHandleContextSettings(Rect inRect, IWorkTabLayoutController layout, Event evt) =>
+            TryHandleContextSettingsClick(inRect, layout, evt);
+        bool IWorkGridInteractionHost.TryHandleRuleTarget(IWorkTabLayoutController layout, Event evt) =>
+            TryHandleRuleBuilder2WorkTabInput(layout, evt);
+        bool IWorkGridInteractionHost.TryHandleSchedule(IWorkTabLayoutController layout, Event evt) =>
+            TimePriorityScheduleEditor.TryHandleInput(layout, evt);
+        bool IWorkGridInteractionHost.TryHandleSubWorkBadge(IWorkTabLayoutController layout) =>
+            TryHandleSubWorkBadgeClick(layout);
+        bool IWorkGridInteractionHost.TryHandleSubWorkExit(IWorkTabLayoutController layout) =>
+            TryHandleSubWorkExitGesture(layout);
+        bool IWorkGridInteractionHost.TryHandleSubWorkOpen(IWorkTabLayoutController layout) =>
+            TryHandleSubWorkHeaderOpen(layout);
+        void IWorkGridInteractionHost.ProcessRightClicks(IWorkTabLayoutController layout) => ProcessRightClicks(layout);
+        void IWorkGridInteractionHost.HandleOrganizerInput(PawnOrganizerSystem organizer, Event evt) => organizer?.HandleInput(evt);
 
         private void RefreshSubWorkLayoutIfNeeded(
             PawnOrganizerSystem organizer,
@@ -588,7 +635,7 @@ namespace Better_Work_Tab.UI
                 WorkTabDirtyFlags.HeaderGeometry |
                 WorkTabDirtyFlags.Viewport |
                 WorkTabDirtyFlags.WindowSize);
-            _nativeRenderModule.PrepareFrame(WorkTabInvalidationHub.Current);
+            _workGridRenderer.PrepareFrame(WorkTabInvalidationHub.Current);
             organizer?.Layout?.InvalidateRowDescriptors();
             _requestedTabSizeCacheSignature = int.MinValue;
             SetDirty();
@@ -680,7 +727,7 @@ namespace Better_Work_Tab.UI
                 PawnOrganizerSystem.Instance?.CancelActiveDrag();
             }
 
-            if (!layout.TryGetRowAt(evt.mousePosition, out var row))
+            if (!TryGetRowAt(layout, evt.mousePosition, out var row))
             {
                 return;
             }
@@ -1101,6 +1148,26 @@ namespace Better_Work_Tab.UI
 
         internal void DrawNativeWorkTable(PawnTable table, IWorkTabLayoutController layout, Rect inRect)
         {
+            DrawWorkTable(table, layout, inRect, null);
+        }
+
+        internal void DrawSnapshotWorkTable(
+            in WorkGridRenderContext context,
+            IWorkGridSnapshotLayer snapshotLayer)
+        {
+            DrawWorkTable(
+                context.Presentation.Table,
+                context.Layout,
+                context.WindowRect,
+                snapshotLayer);
+        }
+
+        private void DrawWorkTable(
+            PawnTable table,
+            IWorkTabLayoutController layout,
+            Rect inRect,
+            IWorkGridSnapshotLayer snapshotLayer)
+        {
             if (layout == null || table == null)
             {
                 return;
@@ -1142,7 +1209,7 @@ namespace Better_Work_Tab.UI
             }
             if (SpineTiming.Enabled)
             {
-                SpineTiming.Time("WorkTab.DrawRows", () => DrawRows(table, layout, outRect, viewRect));
+                SpineTiming.Time("WorkTab.DrawRows", () => DrawRows(table, layout, outRect, viewRect, snapshotLayer));
                 if (!layoutEvent)
                 {
                     SpineTiming.Time("WorkTab.DrawSubWorkTransitionWave", () => DrawSubWorkTransitionPixelWave(layout));
@@ -1150,7 +1217,7 @@ namespace Better_Work_Tab.UI
             }
             else
             {
-                DrawRows(table, layout, outRect, viewRect);
+                DrawRows(table, layout, outRect, viewRect, snapshotLayer);
                 if (!layoutEvent)
                 {
                     DrawSubWorkTransitionPixelWave(layout);
@@ -2444,7 +2511,7 @@ namespace Better_Work_Tab.UI
                 return BWTTutorialInteractionKind.TimePriorityCell;
             }
 
-            if (layout?.Rows != null && layout.TryGetRowAt(mousePosition, out var row))
+            if (layout?.Rows != null && TryGetRowAt(layout, mousePosition, out var row))
             {
                 if (row.Divider != null)
                 {
@@ -2505,7 +2572,7 @@ namespace Better_Work_Tab.UI
                 return false;
             }
 
-            if (layout.TryGetRowAt(evt.mousePosition, out var row) &&
+            if (TryGetRowAt(layout, evt.mousePosition, out var row) &&
                 row.Pawn != null &&
                 TryGetBodyColumnAt(layout, evt.mousePosition, out var bodyColumn) &&
                 bodyColumn.Column?.Worker is PawnColumnWorker_WorkPriority &&
@@ -2520,7 +2587,13 @@ namespace Better_Work_Tab.UI
                     priority = WorkGiverReassignmentManager.GetWorkGiverPriority(row.Pawn, workGiver, priority);
                 }
 
-                RuleBuilderGateway.SelectPriorityCellForRuleBuilder2(workType, workGiver, row.Pawn, priority, priorityBoxRect);
+                WorkPriorityCommandGateway.Execute(new SelectRuleTargetCommand(
+                    workType,
+                    workGiver,
+                    row.Pawn,
+                    priority,
+                    priorityBoxRect,
+                    header: false));
                 evt.Use();
                 return true;
             }
@@ -2547,7 +2620,13 @@ namespace Better_Work_Tab.UI
                     workGiver = activeWorkGiver.def;
                 }
 
-                RuleBuilderGateway.SelectHeaderForRuleBuilder2(workType, workGiver, headerHighlight.Bounds);
+                WorkPriorityCommandGateway.Execute(new SelectRuleTargetCommand(
+                    workType,
+                    workGiver,
+                    pawn: null,
+                    priority: WorkPrioritySystem.DisabledPriority,
+                    headerHighlight.Bounds,
+                    header: true));
                 evt.Use();
                 return true;
             }
@@ -2568,7 +2647,7 @@ namespace Better_Work_Tab.UI
             }
 
             Vector2 mousePosition = Event.current.mousePosition;
-            if (layout.TryGetRowAt(mousePosition, out var row) &&
+            if (TryGetRowAt(layout, mousePosition, out var row) &&
                 row.Pawn != null &&
                 TryGetBodyColumnAt(layout, mousePosition, out var bodyColumn) &&
                 bodyColumn.Column?.Worker is PawnColumnWorker_WorkPriority &&
@@ -2959,7 +3038,7 @@ namespace Better_Work_Tab.UI
 
             WorkTabLayoutRow bodyRow;
             WorkTabLayoutColumn bodyColumn;
-            if (layout.TryGetRowAt(mousePosition, out bodyRow) &&
+            if (TryGetRowAt(layout, mousePosition, out bodyRow) &&
                 TryGetBodyColumnAt(layout, mousePosition, out bodyColumn) &&
                 TryGetPriorityBoxHit(layout, bodyRow, bodyColumn, mousePosition, out Rect priorityBoxRect))
             {
@@ -3047,7 +3126,7 @@ namespace Better_Work_Tab.UI
 
             WorkTabLayoutRow bodyRow;
             WorkTabLayoutColumn column;
-            if (layout.TryGetRowAt(mousePosition, out bodyRow) &&
+            if (TryGetRowAt(layout, mousePosition, out bodyRow) &&
                 TryGetBodyColumnAt(layout, mousePosition, out column) &&
                 TryGetPriorityBoxHit(layout, bodyRow, column, mousePosition, out Rect bodyPriorityBoxRect))
             {
@@ -3242,7 +3321,7 @@ namespace Better_Work_Tab.UI
                 return false;
             }
 
-            if (!layout.TryGetRowAt(evt.mousePosition, out WorkTabLayoutRow row))
+            if (!TryGetRowAt(layout, evt.mousePosition, out WorkTabLayoutRow row))
             {
                 WorkTabGeometryDiagnostics.RecordPriorityInputTrace("row miss", evt);
                 return false;
@@ -3488,18 +3567,58 @@ namespace Better_Work_Tab.UI
             var def = PawnTableDefOf.Work;
             if (def?.columns == null) return true;
 
-            var currentOrder = def.columns
-                .Where(c => c.Worker is PawnColumnWorker_WorkPriority && c.workType != null)
-                .Select(c => c.workType.defName)
-                .ToList();
+            // Compare relative positions without rebuilding three LINQ lists for every header.
+            // The baseline remains filtered to work types that are present in the live table,
+            // matching the previous behavior when another mod adds or removes a column.
+            int currentPos = -1;
+            int currentWorkIndex = 0;
+            for (int i = 0; i < def.columns.Count; i++)
+            {
+                PawnColumnDef column = def.columns[i];
+                if (!(column?.Worker is PawnColumnWorker_WorkPriority) || column.workType?.defName == null)
+                {
+                    continue;
+                }
 
-            // FILTERED BASELINE: Only compare against columns that are actually present.
-            // This prevents columns from being marked 'moved' just because a mod added/removed 
-            // a different column that shifted our absolute index.
-            var filteredBaseline = baselineOrder.Where(b => currentOrder.Contains(b)).ToList();
+                if (column.workType.defName == workType.defName)
+                {
+                    currentPos = currentWorkIndex;
+                    break;
+                }
 
-            int relVanillaPos = filteredBaseline.IndexOf(workType.defName);
-            int currentPos = currentOrder.IndexOf(workType.defName);
+                currentWorkIndex++;
+            }
+
+            int relVanillaPos = -1;
+            int filteredBaselineIndex = 0;
+            for (int baselineIndex = 0; baselineIndex < baselineOrder.Count; baselineIndex++)
+            {
+                string baselineDefName = baselineOrder[baselineIndex];
+                bool present = false;
+                for (int columnIndex = 0; columnIndex < def.columns.Count; columnIndex++)
+                {
+                    PawnColumnDef column = def.columns[columnIndex];
+                    if (column?.Worker is PawnColumnWorker_WorkPriority &&
+                        column.workType?.defName == baselineDefName)
+                    {
+                        present = true;
+                        break;
+                    }
+                }
+
+                if (!present)
+                {
+                    continue;
+                }
+
+                if (baselineDefName == workType.defName)
+                {
+                    relVanillaPos = filteredBaselineIndex;
+                    break;
+                }
+
+                filteredBaselineIndex++;
+            }
 
             if (relVanillaPos < 0 || currentPos < 0) return true;
 
@@ -3573,7 +3692,7 @@ namespace Better_Work_Tab.UI
             }
 
             CaptureWarmOpenTableState(GetPawnTable());
-            SpineTiming.NotifyWorkTabOpen(true);
+            WorkTabProfilingState.NotifyOpen(true);
         }
 
         private bool CanReuseWarmOpenTable(PawnTable table)
@@ -3621,7 +3740,12 @@ namespace Better_Work_Tab.UI
             base.WindowOnGUI();
         }
 
-        private void DrawRows(PawnTable table, IWorkTabLayoutController layout, Rect outRect, Rect viewRect)
+        private void DrawRows(
+            PawnTable table,
+            IWorkTabLayoutController layout,
+            Rect outRect,
+            Rect viewRect,
+            IWorkGridSnapshotLayer snapshotLayer)
         {
             if (layout == null)
             {
@@ -3696,7 +3820,8 @@ namespace Better_Work_Tab.UI
                 var nameColumn = FindNameColumn(columns);
                 IReadOnlyList<WorkTabLayoutColumn> renderColumns = columns;
                 var settings = BetterWorkTabMod.Settings;
-                if ((settings?.enablePerformanceOptimizations ?? true) &&
+                if (snapshotLayer == null &&
+                    (settings?.enablePerformanceOptimizations ?? true) &&
                     (settings?.viewportCulling ?? true) &&
                     viewRect.width > outRect.width + 0.5f)
                 {
@@ -3729,7 +3854,8 @@ namespace Better_Work_Tab.UI
                         viewRect.width,
                         nameColumn,
                         outRect,
-                        table.scrollPosition));
+                        table.scrollPosition,
+                        snapshotLayer));
                     SpineTiming.Time("WorkTab.Rows.DrawRowSeparators", () => DrawRowSeparators(rowDescriptors, viewRect.width));
                 }
                 else
@@ -3744,7 +3870,8 @@ namespace Better_Work_Tab.UI
                         viewRect.width,
                         nameColumn,
                         outRect,
-                        table.scrollPosition);
+                        table.scrollPosition,
+                        snapshotLayer);
 
                     // Phase 3: Draw separator lines between rows
                     DrawRowSeparators(rowDescriptors, viewRect.width);
@@ -3958,7 +4085,8 @@ namespace Better_Work_Tab.UI
             float viewWidth,
             WorkTabLayoutColumn? nameColumn,
             Rect viewportRect,
-            Vector2 scrollOffset)
+            Vector2 scrollOffset,
+            IWorkGridSnapshotLayer snapshotLayer)
         {
             var settings = BetterWorkTabMod.Settings;
             bool useCulling = (settings?.enablePerformanceOptimizations ?? true) && (settings?.viewportCulling ?? true);
@@ -3980,7 +4108,7 @@ namespace Better_Work_Tab.UI
                 if (isVisible)
                 {
                     Rect rowRect = new Rect(0f, currentY, viewWidth, descriptor.Height);
-                    DrawSingleRowContent(table, descriptor, columns, rowRect, nameColumn, i);
+                    DrawSingleRowContent(table, descriptor, columns, rowRect, nameColumn, i, snapshotLayer);
                 }
 
                 currentY += descriptor.Height;
@@ -3993,7 +4121,8 @@ namespace Better_Work_Tab.UI
             IReadOnlyList<WorkTabLayoutColumn> columns,
             Rect rowRect,
             WorkTabLayoutColumn? nameColumn,
-            int rowIndex)
+            int rowIndex,
+            IWorkGridSnapshotLayer snapshotLayer)
         {
             // Create temporary wrapper objects to maintain compatibility with existing draw methods.
             // These are small allocations; only optimize with pooling if profiling shows it's necessary.
@@ -4001,22 +4130,22 @@ namespace Better_Work_Tab.UI
             {
                 if (SpineTiming.Enabled)
                 {
-                    SpineTiming.Time("WorkTab.Rows.DrawPawnRowContent", () => DrawPawnRowContent(table, descriptor, columns, rowRect, rowIndex));
+                    SpineTiming.Time("WorkTab.Rows.DrawPawnRowContent", () => DrawPawnRowContent(table, descriptor, columns, rowRect, rowIndex, snapshotLayer));
                 }
                 else
                 {
-                    DrawPawnRowContent(table, descriptor, columns, rowRect, rowIndex);
+                    DrawPawnRowContent(table, descriptor, columns, rowRect, rowIndex, snapshotLayer);
                 }
             }
             else if (descriptor.IsDivider)
             {
                 if (SpineTiming.Enabled)
                 {
-                    SpineTiming.Time("WorkTab.Rows.DrawDividerRowContent", () => DrawDividerRowContent(descriptor, rowRect, nameColumn, rowIndex));
+                    SpineTiming.Time("WorkTab.Rows.DrawDividerRowContent", () => DrawDividerRowContent(descriptor, rowRect, nameColumn, rowIndex, snapshotLayer));
                 }
                 else
                 {
-                    DrawDividerRowContent(descriptor, rowRect, nameColumn, rowIndex);
+                    DrawDividerRowContent(descriptor, rowRect, nameColumn, rowIndex, snapshotLayer);
                 }
             }
         }
@@ -4026,7 +4155,8 @@ namespace Better_Work_Tab.UI
             RowDescriptor descriptor,
             IReadOnlyList<WorkTabLayoutColumn> columns,
             Rect rowRect,
-            int rowIndex)
+            int rowIndex,
+            IWorkGridSnapshotLayer snapshotLayer)
         {
             if (rowRect.height <= 0.5f)
             {
@@ -4039,7 +4169,7 @@ namespace Better_Work_Tab.UI
                 try
                 {
                     Rect clippedRowRect = new Rect(0f, 0f, rowRect.width, MinimumPawnRenderHeight);
-                    DrawPawnRowContentUnclipped(table, descriptor, columns, clippedRowRect, rowIndex);
+                    DrawPawnRowContentUnclipped(table, descriptor, columns, clippedRowRect, rowIndex, snapshotLayer);
                 }
                 finally
                 {
@@ -4049,7 +4179,7 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
-            DrawPawnRowContentUnclipped(table, descriptor, columns, rowRect, rowIndex);
+            DrawPawnRowContentUnclipped(table, descriptor, columns, rowRect, rowIndex, snapshotLayer);
         }
 
         private void DrawPawnRowContentUnclipped(
@@ -4057,13 +4187,23 @@ namespace Better_Work_Tab.UI
             RowDescriptor descriptor,
             IReadOnlyList<WorkTabLayoutColumn> columns,
             Rect rowRect,
-            int rowIndex)
+            int rowIndex,
+            IWorkGridSnapshotLayer snapshotLayer)
         {
             // 1. Draw row background (custom pawn color if set)
-            DrawRowBackground(descriptor.Pawn, null, rowRect);
+            Color snapshotTextColor;
+            if (snapshotLayer == null ||
+                !snapshotLayer.TryDrawRowBackground(rowIndex, rowRect, out snapshotTextColor))
+            {
+                DrawRowBackground(descriptor.Pawn, null, rowRect);
+            }
+            else
+            {
+                CurrentRowTextColor = snapshotTextColor;
+            }
 
             // 2. Draw all column cells for this pawn (work priorities, name, etc)
-            DrawPawnRow(table, descriptor.Pawn, rowRect, columns);
+            DrawPawnRow(table, descriptor.Pawn, rowRect, columns, rowIndex, snapshotLayer);
 
             // 3. Draw overlays (selection glow, hover, downed strike-through)
             DrawPawnRowOverlay(descriptor.Pawn, rowRect);
@@ -4073,10 +4213,16 @@ namespace Better_Work_Tab.UI
             RowDescriptor descriptor,
             Rect rowRect,
             WorkTabLayoutColumn? nameColumn,
-            int rowIndex)
+            int rowIndex,
+            IWorkGridSnapshotLayer snapshotLayer)
         {
             // 1. Draw divider background (uses divider color, dimmed if collapsed)
-            DrawRowBackground(null, descriptor.Divider, rowRect);
+            Color ignoredTextColor;
+            if (snapshotLayer == null ||
+                !snapshotLayer.TryDrawRowBackground(rowIndex, rowRect, out ignoredTextColor))
+            {
+                DrawRowBackground(null, descriptor.Divider, rowRect);
+            }
 
             // 2. Draw divider label and collapse arrow (only in name column)
             if (nameColumn.HasValue)
@@ -4229,36 +4375,12 @@ namespace Better_Work_Tab.UI
 
         private bool TryGetBodyColumnAt(IWorkTabLayoutController layout, Vector2 mousePosition, out WorkTabLayoutColumn column)
         {
-            column = default;
-            if (layout?.Table == null)
-            {
-                return false;
-            }
+            return _workGridInteractionRouter.TryGetBodyColumnAt(layout, mousePosition, out column);
+        }
 
-            float headerTop = layout.TableOrigin.y + layout.HeaderHeight + GetPinnedRowsHeight();
-            float bodyBottom = GetVisualTableBottom(layout);
-            if (mousePosition.y < headerTop || mousePosition.y > bodyBottom)
-            {
-                return false;
-            }
-
-            float localX = mousePosition.x - layout.TableOrigin.x + layout.Table.scrollPosition.x;
-            if (localX < 0f)
-            {
-                return false;
-            }
-
-            for (int i = 0; i < layout.Columns.Count; i++)
-            {
-                var candidate = layout.Columns[i];
-                if (localX >= candidate.OffsetX && localX <= candidate.OffsetX + candidate.Width)
-                {
-                    column = candidate;
-                    return true;
-                }
-            }
-
-            return false;
+        private bool TryGetRowAt(IWorkTabLayoutController layout, Vector2 mousePosition, out WorkTabLayoutRow row)
+        {
+            return _workGridInteractionRouter.TryGetRowAt(layout, mousePosition, out row);
         }
 
         private void DrawDividerRow(PawnDivider divider, Rect rowRect, WorkTabLayoutColumn nameColumn)
@@ -4312,15 +4434,32 @@ namespace Better_Work_Tab.UI
             SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
         }
 
-        private void DrawPawnRow(PawnTable table, Pawn pawn, Rect rowRect, IReadOnlyList<WorkTabLayoutColumn> columns)
+        private void DrawPawnRow(
+            PawnTable table,
+            Pawn pawn,
+            Rect rowRect,
+            IReadOnlyList<WorkTabLayoutColumn> columns,
+            int rowIndex,
+            IWorkGridSnapshotLayer snapshotLayer)
         {
             bool scheduleOpen = FluffyTimeScheduleAssigner.IsOpen;
             WorkTypeDef expandedParentPriorityWorkType = null;
             int expandedParentPriority = WorkPrioritySystem.DisabledPriority;
-            foreach (var column in columns)
+            for (int columnIndex = 0; columnIndex < columns.Count; columnIndex++)
             {
+                WorkTabLayoutColumn column = columns[columnIndex];
+                if (snapshotLayer != null && !snapshotLayer.ShouldVisitCell(rowIndex, columnIndex))
+                {
+                    continue;
+                }
+
                 float animatedOffset = ColumnReorderAnimationState.GetCellOffset(column);
                 Rect cellRect = new Rect(column.OffsetX + animatedOffset, rowRect.y, column.Width, rowRect.height);
+
+                if (snapshotLayer != null && snapshotLayer.TryDrawCell(rowIndex, columnIndex, cellRect))
+                {
+                    continue;
+                }
 
                 // Expand-beside children are owned by BWT. Sending them through the
                 // vanilla WorkPriority worker only for Harmony to intercept and route
@@ -4550,6 +4689,9 @@ namespace Better_Work_Tab.UI
                         pawn.workSettings.Notify_UseWorkPrioritiesChanged();
                     }
                 }
+
+                WorkTabInvalidationHub.Invalidate(
+                    WorkTabDirtyFlags.Priority | WorkTabDirtyFlags.Presentation);
             }
             if (Current.Game.playSettings.useWorkPriorities)
             {
@@ -4799,10 +4941,11 @@ namespace Better_Work_Tab.UI
         public override void PreClose()
         {
             base.PreClose();
+            _workGridSnapshots.Clear();
             HighlightManager.ClearHighlight();
             _lastSortColumn = null;
             _lastSortDescending = false;
-            SpineTiming.NotifyWorkTabOpen(false);
+            WorkTabProfilingState.NotifyOpen(false);
             
             // === PRESENCE FEATURE DISABLED ===
             /*
@@ -4822,6 +4965,7 @@ namespace Better_Work_Tab.UI
             MouseStateManager.ClearHover();
             SubWorkDrilldownState.ExitImmediate();
             FluffyTimeScheduleAssigner.Close();
+            _workGridInteractionRouter.ResetSessions();
 
             // Cancel any active drag operations to ensure priority editing is re-enabled
             PawnOrganizerSystem.Instance?.CancelActiveDrag();

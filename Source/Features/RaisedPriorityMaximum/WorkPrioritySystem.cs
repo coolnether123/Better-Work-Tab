@@ -280,7 +280,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         }
 
 
-        private static Pawn GetPawn(Pawn_WorkSettings workSettings)
+        internal static Pawn GetPawn(Pawn_WorkSettings workSettings)
         {
             return PawnField?.GetValue(workSettings) as Pawn;
         }

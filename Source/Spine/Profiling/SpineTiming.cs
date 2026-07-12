@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
-using Better_Work_Tab;
 using UnityEngine;
 using Verse;
 
@@ -28,9 +27,7 @@ namespace Spine.Profiling
     ///        - Call SpineTiming.OnFrameStart() in GameComponentUpdate().
     ///        - Call SpineTiming.HandleInput() in GameComponentOnGUI().
     ///
-    ///   4) Wire Work tab open/close:
-    ///        - Call SpineTiming.NotifyWorkTabOpen(true) in PostOpen().
-    ///        - Call SpineTiming.NotifyWorkTabOpen(false) in PreClose().
+    ///   4) Optionally configure a log delegate and generic activity-seconds provider.
     ///
     ///   5) In-game:
     ///        - Press 1 to print a report.
@@ -72,9 +69,21 @@ namespace Spine.Profiling
         private static readonly int[] _startCollectionCounts = new int[3];
         private static int _nextMemorySampleFrame;
 
-        // Work tab visibility tracking
-        private static bool _workTabOpen;
-        private static double _workTabOpenSeconds; // Sum of time Work tab has been open
+        private static Action<string> _log = _ => { };
+        private static Func<double> _activitySecondsProvider;
+        private static string _activityLabel;
+        private static double _activitySecondsBaseline;
+
+        public static void Configure(
+            Action<string> log,
+            Func<double> activitySecondsProvider = null,
+            string activityLabel = null)
+        {
+            _log = log ?? (_ => { });
+            _activitySecondsProvider = activitySecondsProvider;
+            _activityLabel = activityLabel;
+            _activitySecondsBaseline = ReadActivitySeconds();
+        }
 
         /// <summary>
         /// Global toggle for profiling.
@@ -91,7 +100,7 @@ namespace Spine.Profiling
                     // Turning profiling on: reset baseline
                     _startFrame = UTime.frameCount;
                     _startRealtime = UTime.realtimeSinceStartup;
-                    _workTabOpenSeconds = 0;
+                    _activitySecondsBaseline = ReadActivitySeconds();
                     _data.Clear();
                     ResetMemoryBaseline();
                 }
@@ -168,7 +177,7 @@ namespace Spine.Profiling
 
         /// <summary>
         /// Called once per frame.
-        /// Resets per-frame call counters and accumulates "work tab open" time.
+        /// Resets per-frame call counters.
         ///
         /// Hook this from GameComponentUpdate().
         /// </summary>
@@ -187,11 +196,6 @@ namespace Spine.Profiling
                 entry.CallsThisFrame = 0;
             }
 
-            // Track how long the Work tab has been open
-            if (_workTabOpen)
-            {
-                _workTabOpenSeconds += UTime.deltaTime;
-            }
         }
 
         /// <summary>
@@ -222,15 +226,6 @@ namespace Spine.Profiling
         }
 
         /// <summary>
-        /// Called by Better Work Tab when its window opens or closes.
-        /// Lets the profiler know when to count "Work tab open" time.
-        /// </summary>
-        public static void NotifyWorkTabOpen(bool open)
-        {
-            _workTabOpen = open;
-        }
-
-        /// <summary>
         /// Clear all timing data and reset the reference frame/time.
         /// </summary>
         public static void Clear()
@@ -238,10 +233,10 @@ namespace Spine.Profiling
             _data.Clear();
             _startFrame = UTime.frameCount;
             _startRealtime = UTime.realtimeSinceStartup;
-            _workTabOpenSeconds = 0;
+            _activitySecondsBaseline = ReadActivitySeconds();
             ResetMemoryBaseline();
 
-            BetterWorkTabMod.DebugLog("[SpineTiming] Data cleared.", DebugFeature.Performance);
+            _log("[SpineTiming] Data cleared.");
         }
 
         /// <summary>
@@ -254,7 +249,7 @@ namespace Spine.Profiling
         /// </summary>
         public static void LogResults()
         {
-            BetterWorkTabMod.DebugLog(GetReport(), DebugFeature.Performance);
+            _log(GetReport());
         }
 
         public static string GetReport()
@@ -271,7 +266,11 @@ namespace Spine.Profiling
             sb.AppendLine("[SpineTiming] ======== PERFORMANCE REPORT ========");
             sb.AppendLine($"Elapsed real time: {elapsedSeconds:F1} s");
             sb.AppendLine($"Approx frames recorded: {frames}");
-            sb.AppendLine($"Work tab open: {_workTabOpenSeconds:F1} s");
+            if (_activitySecondsProvider != null && !string.IsNullOrEmpty(_activityLabel))
+            {
+                double activitySeconds = Math.Max(0.0, ReadActivitySeconds() - _activitySecondsBaseline);
+                sb.AppendLine($"{_activityLabel}: {activitySeconds:F1} s");
+            }
             long managedNow = GC.GetTotalMemory(false);
             long privateNow;
             long workingSetNow;
@@ -383,6 +382,23 @@ namespace Spine.Profiling
         {
             string sign = bytes >= 0 ? "+" : "-";
             return sign + FormatBytes(Math.Abs(bytes));
+        }
+
+        private static double ReadActivitySeconds()
+        {
+            if (_activitySecondsProvider == null)
+            {
+                return 0.0;
+            }
+
+            try
+            {
+                return _activitySecondsProvider();
+            }
+            catch
+            {
+                return 0.0;
+            }
         }
     }
 }

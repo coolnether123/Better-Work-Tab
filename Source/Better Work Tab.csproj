@@ -47,6 +47,14 @@
     <Compile Include="API\PriorityProviderCapabilities.cs" />
     <Compile Include="API\TimePriorityApi.cs" />
     <Compile Include="API\WorkGiverApi.cs" />
+    <Compile Include="Spine\Core\Revisions\RevisionSource.cs" />
+    <Compile Include="Spine\Core\DirtyTracking\SparseDirtySets.cs" />
+    <Compile Include="Spine\Core\Caching\BoundedLruCache.cs" />
+    <Compile Include="Spine\Core\Collections\ContiguousBuffer.cs" />
+    <Compile Include="Spine\Core\Collections\ImmutableSnapshot.cs" />
+    <Compile Include="Spine\Core\Diagnostics\RenderDiagnostics.cs" />
+    <Compile Include="Spine\Core\Diagnostics\ApiDescriptors.cs" />
+    <Compile Include="Spine\Core\Rendering\RenderPipeline.cs" />
     <Compile Include="BetterWorkTab.cs" />
     <Compile Include="BetterWorkTabLocalState.cs" />
     <Compile Include="DragDrop\DragHandler.cs" />
@@ -107,6 +115,8 @@
     <Compile Include="Features\Testing\RuleBuilder2AgentHarness.cs" />
     <Compile Include="Features\Testing\SubWorkTransitionPerfDiagnostics.cs" />
     <Compile Include="Features\Testing\WorkTabGeometryDiagnostics.cs" />
+    <Compile Include="Features\Testing\WorkTabProfilingState.cs" />
+    <Compile Include="Features\Testing\WorkGridRendererExceptionProbe.cs" />
     <Compile Include="Features\TimePriority\Patch_CopyPasteWorkPriorities_TimePriority.cs" />
     <Compile Include="Features\TimePriority\TimePriorityEvaluation.cs" />
     <Compile Include="Features\TimePriority\TimePriorityScheduleClipboard.cs" />
@@ -180,10 +190,12 @@
     <Compile Include="PawnOrganizer\RowOrderUtility.cs" />
     <Compile Include="Spine\DragDrop\DragDropController.cs" />
     <Compile Include="Spine\DragDrop\DragDropManager.cs" />
-    <Compile Include="Spine\RimWorld\WorkTab\Rendering\WorkTabRenderContracts.cs" />
-    <Compile Include="Spine\RimWorld\WorkTab\Rendering\WorkTabInvalidationHub.cs" />
-    <Compile Include="Spine\RimWorld\WorkTab\Rendering\WorkTabRenderModuleRegistry.cs" />
-    <Compile Include="Spine\RimWorld\WorkTab\Rendering\WorkTabRenderModuleRouter.cs" />
+    <Compile Include="Spine\RimWorld\Rendering\Viewports\ViewportContracts.cs" />
+    <Compile Include="Spine\RimWorld\Rendering\ImGuiEventPhases.cs" />
+    <Compile Include="Spine\RimWorld\Rendering\GuiState\GuiStateScope.cs" />
+    <Compile Include="Spine\RimWorld\Rendering\Atlases\RenderAtlasContracts.cs" />
+    <Compile Include="Spine\RimWorld\Lifecycle\RenderLifecycleContracts.cs" />
+    <Compile Include="Spine\RimWorld\Compatibility\RimWorldRenderCompatibilityContracts.cs" />
     <Compile Include="Spine\DragDrop\DragEndReason.cs" />
     <Compile Include="Spine\DragDrop\Util\HeightCache.cs" />
     <Compile Include="Spine\DragDrop\Util\ClickOrDragGate.cs" />
@@ -244,7 +256,23 @@
     <Compile Include="UI\WorkGiverReassignments\WorkGiverPriorityBoxRenderer.cs" />
     <Compile Include="UI\WorkGiverReassignments\WorkGiverCellPresentationCache.cs" />
     <Compile Include="UI\WorkGiverReassignments\WorkGiverPresentationInvalidation.cs" />
-    <Compile Include="UI\Rendering\NativeImGuiWorkTabRenderModule.cs" />
+    <Compile Include="UI\WorkGrid\Contracts\WorkGridRenderContracts.cs" />
+    <Compile Include="UI\WorkGrid\Commands\WorkGridCommandMath.cs" />
+    <Compile Include="UI\WorkGrid\Commands\WorkGridCommands.cs" />
+    <Compile Include="UI\WorkGrid\Commands\WorkPriorityCommandGateway.cs" />
+    <Compile Include="UI\WorkGrid\Interaction\WorkGridInteractionRouter.cs" />
+    <Compile Include="UI\WorkGrid\Snapshots\WorkGridGeometrySnapshot.cs" />
+    <Compile Include="UI\WorkGrid\Snapshots\WorkGridSnapshot.cs" />
+    <Compile Include="UI\WorkGrid\Snapshots\WorkGridSnapshotProvider.cs" />
+    <Compile Include="UI\WorkGrid\Invalidation\WorkGridInvalidationLedger.cs" />
+    <Compile Include="UI\WorkGrid\Invalidation\WorkGridInvalidationAudit.cs" />
+    <Compile Include="UI\WorkGrid\Invalidation\WorkTabInvalidationHub.cs" />
+    <Compile Include="UI\WorkGrid\Rendering\WorkGridRendererFacade.cs" />
+    <Compile Include="UI\WorkGrid\Rendering\WorkGridRendererSelector.cs" />
+    <Compile Include="UI\WorkGrid\Rendering\LegacyWorkGridRenderer.cs" />
+    <Compile Include="UI\WorkGrid\Rendering\OptimizedWorkGridRenderer.cs" />
+    <Compile Include="UI\WorkGrid\Rendering\WorkGridRenderPrimitives.cs" />
+    <Compile Include="UI\WorkGrid\Diagnostics\WorkGridRendererDiagnostics.cs" />
     <Compile Include="Spine\UI\WidgetExtensions\RimworldSettingsWidgets.cs" />
     <Compile Include="UI\Input\GuiMousePosition.cs" />
     <Compile Include="UI\Input\NativeCursorPosition.cs" />
@@ -273,6 +301,7 @@
     <Compile Include="UI\Settings\BWTSettingsRegistry.cs" />
     <Compile Include="UI\Settings\BWTSettingsTranslation.cs" />
     <Compile Include="UI\Settings\SettingIDs.cs" />
+    <Compile Include="UI\Settings\SettingsConsistencyValidator.cs" />
     <Compile Include="UI\Window_RulesManager.cs" />
     <Compile Include="UI\Dialog_RenameGeneric.cs" />
     <Compile Include="UI\Dialog_RenameWorkload.cs" />
@@ -357,6 +386,14 @@
     </PackageReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <Target Name="RejectStandaloneSpinePayload" AfterTargets="Build">
+    <ItemGroup>
+      <ForbiddenSpinePayload Include="$(MSBuildProjectDirectory)\..\*\Assemblies\Spine*.dll" />
+    </ItemGroup>
+    <Error
+      Condition="'@(ForbiddenSpinePayload)' != ''"
+      Text="BWT payload must contain only Better Work Tab.dll. Remove forbidden Spine assembly: @(ForbiddenSpinePayload)" />
+  </Target>
   <ItemGroup>
     <Publicize Include="Assembly-CSharp:RimWorld.WidgetsWork.WorkBoxBGTex_AgeDisabled" />
     <Publicize Include="Assembly-CSharp:RimWorld.WidgetsWork.DrawWorkBoxBackground" />

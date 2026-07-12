@@ -1,7 +1,8 @@
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using RimWorld;
-using Spine.RimWorld.WorkTab.Rendering;
+using Better_Work_Tab.UI.WorkGrid.Contracts;
+using Better_Work_Tab.UI.WorkGrid.Invalidation;
 using Verse;
 
 namespace Better_Work_Tab.UI.WorkGiverReassignments
@@ -70,7 +71,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             PawnDynamicVersions[pawnId] = PawnDynamicVersions.TryGetValue(pawnId, out int version)
                 ? unchecked(version + 1)
                 : 1;
-            WorkTabInvalidationHub.Invalidate(WorkTabDirtyFlags.Presentation);
+            WorkTabInvalidationHub.Invalidate(WorkTabDirtyFlags.CapabilitySkill);
         }
 
         private static void EnsureCurrentGame()

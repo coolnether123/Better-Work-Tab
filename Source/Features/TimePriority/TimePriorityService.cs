@@ -563,8 +563,8 @@ namespace Better_Work_Tab.Features.TimePriority
                 return;
             }
 
-            Spine.RimWorld.WorkTab.Rendering.WorkTabInvalidationHub.Invalidate(
-                Spine.RimWorld.WorkTab.Rendering.WorkTabDirtyFlags.Presentation);
+            UI.WorkGrid.Invalidation.WorkTabInvalidationHub.Invalidate(
+                UI.WorkGrid.Contracts.WorkTabDirtyFlags.ScheduleHour);
             WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
         }
 
@@ -697,10 +697,39 @@ namespace Better_Work_Tab.Features.TimePriority
         {
             CurrentVersion++;
             _cachedVersion = -1;
-            Spine.RimWorld.WorkTab.Rendering.WorkTabInvalidationHub.Invalidate(
-                Spine.RimWorld.WorkTab.Rendering.WorkTabDirtyFlags.Presentation);
+            UI.WorkGrid.Invalidation.WorkTabInvalidationHub.Invalidate(
+                UI.WorkGrid.Contracts.WorkTabDirtyFlags.ScheduleHour);
             WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+        }
+
+        internal static int ComputePresentationAuditSignature()
+        {
+            unchecked
+            {
+                int hash = 17;
+                var schedules = GetSchedules(create: false);
+                if (schedules == null)
+                {
+                    return hash;
+                }
+
+                for (int i = 0; i < schedules.Count; i++)
+                {
+                    TimePriorityScheduleData schedule = schedules[i];
+                    if (schedule == null) continue;
+                    hash = (hash * 397) ^ schedule.PawnId;
+                    hash = (hash * 397) ^ (int)schedule.Kind;
+                    hash = (hash * 397) ^ StringComparer.Ordinal.GetHashCode(schedule.WorkTypeDefName ?? string.Empty);
+                    hash = (hash * 397) ^ StringComparer.Ordinal.GetHashCode(schedule.TargetDefName ?? string.Empty);
+                    if (schedule.HourlyPriorities == null) continue;
+                    for (int hour = 0; hour < schedule.HourlyPriorities.Count; hour++)
+                    {
+                        hash = (hash * 397) ^ schedule.HourlyPriorities[hour];
+                    }
+                }
+                return hash;
+            }
         }
 
     }

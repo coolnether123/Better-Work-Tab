@@ -105,7 +105,7 @@ namespace Better_Work_Tab.UI.Headers
 
         private static void NotifyLabelsChanged()
         {
-            Spine.RimWorld.WorkTab.Rendering.WorkTabInvalidationHub.Invalidate(Spine.RimWorld.WorkTab.Rendering.WorkTabDirtyFlags.HeaderText | Spine.RimWorld.WorkTab.Rendering.WorkTabDirtyFlags.HeaderGeometry | Spine.RimWorld.WorkTab.Rendering.WorkTabDirtyFlags.RenderResources);
+            WorkGrid.Invalidation.WorkTabInvalidationHub.Invalidate(WorkGrid.Contracts.WorkTabDirtyFlags.HeaderText | WorkGrid.Contracts.WorkTabDirtyFlags.HeaderGeometry | WorkGrid.Contracts.WorkTabDirtyFlags.RenderResources);
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
         }
     }

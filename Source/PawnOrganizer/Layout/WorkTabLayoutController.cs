@@ -18,6 +18,8 @@ using HarmonyLib;
 using RimWorld;
 using UnityEngine;
 using Verse;
+using Better_Work_Tab.UI.WorkGrid.Snapshots;
+using Spine.Collections;
 
 namespace Better_Work_Tab.PawnOrganizer
 {
@@ -65,6 +67,11 @@ namespace Better_Work_Tab.PawnOrganizer
         private float _headerHeight;
         private float _dividerHeight = DefaultDividerHeight;
         private int _layoutRevision;
+        private readonly ContiguousBuffer<WorkGridRowGeometry> _geometryRows =
+            new ContiguousBuffer<WorkGridRowGeometry>(64);
+        private readonly ContiguousBuffer<WorkGridColumnGeometry> _geometryColumns =
+            new ContiguousBuffer<WorkGridColumnGeometry>(32);
+        private WorkGridGeometrySnapshot _geometrySnapshot;
 
         // === DIRTY STATE TRACKING ===
         private bool _isDirty = true;
@@ -462,6 +469,7 @@ namespace Better_Work_Tab.PawnOrganizer
                     _rows.Clear();
                     _columns.Clear();
                     _contentHeight = 0f;
+                    _geometrySnapshot = null;
                     return;
                 }
 
@@ -473,6 +481,7 @@ namespace Better_Work_Tab.PawnOrganizer
                     _rows.Clear();
                     _columns.Clear();
                     _contentHeight = 0f;
+                    _geometrySnapshot = null;
                     _rowWidth = 0f;
                     _dividerHeight = BetterWorkTabMod.Settings?.dividerHeight ?? DefaultDividerHeight;
 
@@ -504,6 +513,7 @@ namespace Better_Work_Tab.PawnOrganizer
 
                     _rowDescriptorsDirty = true;
                     _layoutRevision++;
+                    PublishGeometrySnapshot();
                     EnsureTableFresh();
                 }
                 catch (Exception ex)
@@ -520,49 +530,15 @@ namespace Better_Work_Tab.PawnOrganizer
         public bool TryGetRowAt(Vector2 mousePosition, out WorkTabLayoutRow row)
         {
             row = default;
-
-            // Check if mouse is in the row content area (below header)
-            float headerBottom = TableOrigin.y + HeaderHeight;
-            float pinnedRowsHeight = GetPinnedRowsHeight();
-            if (pinnedRowsHeight > 0f)
+            if (_table == null || _geometrySnapshot == null ||
+                !_geometrySnapshot.TryGetRowIndex(mousePosition, _table.scrollPosition.y, out int index) ||
+                index >= _rows.Count)
             {
-                if (mousePosition.y < headerBottom + pinnedRowsHeight)
-                {
-                    return false;
-                }
-
-                headerBottom += pinnedRowsHeight;
-            }
-
-            if (mousePosition.y < headerBottom)
                 return false;
-
-            // Convert to local Y within scrolled content
-            float localY = mousePosition.y - headerBottom + Table.scrollPosition.y;
-
-            // Use the VISIBLE row descriptors (respects collapsed dividers)
-            var descriptors = GetRowDescriptors();
-            float cumulativeY = 0f;
-
-            for (int i = 0; i < descriptors.Count; i++)
-            {
-                float rowBottom = cumulativeY + descriptors[i].Height;
-
-                if (localY < rowBottom)
-                {
-                    // Found the row - return the corresponding WorkTabLayoutRow from Rows
-                    if (i < Rows.Count)
-                    {
-                        row = Rows[i];
-                        return true;
-                    }
-                    return false;
-                }
-
-                cumulativeY = rowBottom;
             }
 
-            return false;
+            row = _rows[index];
+            return true;
         }
 
         /// <summary>
@@ -571,46 +547,7 @@ namespace Better_Work_Tab.PawnOrganizer
         /// </summary>
         public bool TryGetVisibleRowAt(Vector2 mousePosition, out WorkTabLayoutRow row)
         {
-            row = default;
-
-            float headerBottom = TableOrigin.y + HeaderHeight;
-            float pinnedRowsHeight = GetPinnedRowsHeight();
-            if (pinnedRowsHeight > 0f)
-            {
-                if (mousePosition.y < headerBottom + pinnedRowsHeight)
-                {
-                    return false;
-                }
-
-                headerBottom += pinnedRowsHeight;
-            }
-
-            if (mousePosition.y < headerBottom)
-                return false;
-
-            float localY = mousePosition.y - headerBottom + Table.scrollPosition.y;
-            var descriptors = GetRowDescriptors(); // ONLY visible rows
-
-            float cumulativeY = 0f;
-            for (int i = 0; i < descriptors.Count; i++)
-            {
-                float rowBottom = cumulativeY + descriptors[i].Height;
-
-                if (localY < rowBottom)
-                {
-                    // Map descriptor index to actual Rows index
-                    if (i < Rows.Count)
-                    {
-                        row = Rows[i];
-                        return true;
-                    }
-                    return false;
-                }
-
-                cumulativeY = rowBottom;
-            }
-
-            return false;
+            return TryGetRowAt(mousePosition, out row);
         }
 
         public bool TryGetColumnAt(Vector2 mousePosition, out WorkTabLayoutColumn column)
@@ -618,21 +555,38 @@ namespace Better_Work_Tab.PawnOrganizer
             column = default;
             lock (_stateLock)
             {
-                if (_columns.Count == 0)
+                if (_geometrySnapshot == null || _table == null ||
+                    !_geometrySnapshot.TryGetHeaderColumnIndex(
+                        mousePosition,
+                        _table.scrollPosition.x,
+                        out int index) ||
+                    index >= _columns.Count)
                 {
                     return false;
                 }
 
-                for (int i = 0; i < _columns.Count; i++)
+                column = _columns[index];
+                return true;
+            }
+        }
+
+        public bool TryGetBodyColumnAt(Vector2 mousePosition, out WorkTabLayoutColumn column)
+        {
+            column = default;
+            lock (_stateLock)
+            {
+                if (_geometrySnapshot == null || _table == null ||
+                    !_geometrySnapshot.TryGetBodyColumnIndex(
+                        mousePosition,
+                        _table.scrollPosition,
+                        out int index) ||
+                    index >= _columns.Count)
                 {
-                    if (_columns[i].HeaderRect.Contains(mousePosition))
-                    {
-                        column = _columns[i];
-                        return true;
-                    }
+                    return false;
                 }
 
-                return false;
+                column = _columns[index];
+                return true;
             }
         }
 
@@ -824,12 +778,15 @@ namespace Better_Work_Tab.PawnOrganizer
                 return Rect.zero;
             }
 
-            float pinnedRowsHeight = GetPinnedRowsHeight();
-            float screenY = _origin.y + HeaderHeight + pinnedRowsHeight + row.OffsetY - _table.scrollPosition.y;
-            return new Rect(_origin.x, screenY, _rowWidth, row.Height);
+            if (_geometrySnapshot == null || row.VisualIndex < 0 || row.VisualIndex >= _geometrySnapshot.Rows.Count)
+            {
+                return Rect.zero;
+            }
+
+            return _geometrySnapshot.GetRowScreenRect(row.VisualIndex, _table.scrollPosition);
         }
 
-        private static float GetPinnedRowsHeight()
+        public float GetPinnedRowsHeight()
         {
             float height = TimePriorityScheduleEditor.HeaderPinnedRowsHeight;
             if (SubWorkDrilldownState.HasAnyDrilldown)
@@ -838,6 +795,56 @@ namespace Better_Work_Tab.PawnOrganizer
             }
 
             return height;
+        }
+
+        public WorkGridGeometrySnapshot GeometrySnapshot => _geometrySnapshot;
+
+        public void ClearGeometrySnapshot()
+        {
+            lock (_stateLock)
+            {
+                _geometrySnapshot = null;
+                _geometryRows.Clear();
+                _geometryColumns.Clear();
+                _isDirty = true;
+            }
+        }
+
+        private void PublishGeometrySnapshot()
+        {
+            _geometryRows.Clear();
+            for (int i = 0; i < _rows.Count; i++)
+            {
+                WorkTabLayoutRow row = _rows[i];
+                _geometryRows.Add(new WorkGridRowGeometry(row.OffsetY, row.Height));
+            }
+
+            _geometryColumns.Clear();
+            for (int i = 0; i < _columns.Count; i++)
+            {
+                WorkTabLayoutColumn column = _columns[i];
+                _geometryColumns.Add(new WorkGridColumnGeometry(
+                    column.HeaderContentRect,
+                    column.OffsetX,
+                    column.Width));
+            }
+
+            float schedulePinnedHeight = TimePriorityScheduleEditor.HeaderPinnedRowsHeight;
+            float subWorkPinnedHeight = SubWorkDrilldownState.HasAnyDrilldown
+                ? SubWorkDrilldownState.GlobalRowReservedHeight
+                : 0f;
+            int retainedBytes = (_geometryRows.Capacity * 8) + (_geometryColumns.Capacity * 24);
+            _geometrySnapshot = new WorkGridGeometrySnapshot(
+                _layoutRevision,
+                _origin,
+                _headerHeight,
+                schedulePinnedHeight,
+                subWorkPinnedHeight,
+                _contentHeight,
+                _rowWidth,
+                _geometryRows.ToSnapshot(),
+                _geometryColumns.ToSnapshot(),
+                retainedBytes);
         }
 
         private static int ComputeDividerAnimationSignature()

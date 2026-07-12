@@ -49,4 +49,39 @@ namespace Better_Work_Tab.Features.Patches
             WorkGiverPresentationInvalidation.NotifyIdeologyChanged(__instance);
         }
     }
+
+    [HarmonyPatch(
+        typeof(SkillRecord),
+        nameof(SkillRecord.Learn),
+        new[] { typeof(float), typeof(bool), typeof(bool) })]
+    internal static class Patch_SkillRecord_Learn_Presentation
+    {
+        private readonly struct DisplayedSkillState
+        {
+            internal DisplayedSkillState(int level, Passion passion)
+            {
+                Level = level;
+                Passion = passion;
+            }
+
+            internal int Level { get; }
+            internal Passion Passion { get; }
+        }
+
+        private static void Prefix(SkillRecord __instance, out DisplayedSkillState __state)
+        {
+            __state = new DisplayedSkillState(__instance.levelInt, __instance.passion);
+        }
+
+        private static void Postfix(SkillRecord __instance, DisplayedSkillState __state)
+        {
+            if (__instance.levelInt == __state.Level && __instance.passion == __state.Passion)
+            {
+                return;
+            }
+
+            UI.WorkGrid.Invalidation.WorkTabInvalidationHub.InvalidateCategory(
+                UI.WorkGrid.Invalidation.WorkGridInvalidationCategory.CapabilitySkill);
+        }
+    }
 }

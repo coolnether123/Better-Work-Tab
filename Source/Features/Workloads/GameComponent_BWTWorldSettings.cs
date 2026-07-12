@@ -1,5 +1,6 @@
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.TimePriority;
+using Better_Work_Tab.Features.Testing;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Mod_Support.LocalProfiles;
 using Better_Work_Tab.Mod_Support.Multiplayer;
@@ -55,6 +56,10 @@ namespace Better_Work_Tab.Features.Workloads
             TimePriorityService.NotifyLoaded();
             FluffyWorkTabGateway.MigratePriorityDataIfNeeded(this);
 
+            SpineTiming.Configure(
+                message => BetterWorkTabMod.DebugLog(message, DebugFeature.Performance),
+                () => WorkTabProfilingState.OpenSeconds,
+                "Work tab open");
             SpineTiming.Enabled = BetterWorkTabMod.Settings?.enableProfiler ?? false;
         }
 

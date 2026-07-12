@@ -9,6 +9,7 @@ using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.Input;
 using Better_Work_Tab.UI.WorkGiverReassignments;
+using Better_Work_Tab.UI.WorkGrid.Commands;
 using HarmonyLib;
 using RimWorld;
 using Spine.Profiling;
@@ -857,7 +858,7 @@ namespace Better_Work_Tab.Patches
                     : WorkPrioritySystem.GetDefaultEnabledPriority();
             if (nextPriority != currentPriority)
             {
-                WorkPrioritySystem.SetPriority(pawn.workSettings, workType, nextPriority);
+                WorkPriorityCommandGateway.Execute(new SetPriorityCommand(pawn, workType, nextPriority));
                 SoundDefOf.DragSlider.PlayOneShotOnCamera();
             }
 
@@ -902,7 +903,7 @@ namespace Better_Work_Tab.Patches
 
                 if (nextPriority != currentPriority)
                 {
-                    WorkPrioritySystem.SetPriority(pawn.workSettings, workType, nextPriority);
+                    WorkPriorityCommandGateway.Execute(new SetPriorityCommand(pawn, workType, nextPriority));
                     SoundDefOf.DragSlider.PlayOneShotOnCamera();
                 }
 
@@ -921,12 +922,18 @@ namespace Better_Work_Tab.Patches
             bool wasEnabled = pawn.workSettings.WorkIsActive(workType);
             if (pawn.workSettings.GetPriority(workType) > 0)
             {
-                WorkPrioritySystem.SetPriority(pawn.workSettings, workType, WorkPrioritySystem.DisabledPriority);
+                WorkPriorityCommandGateway.Execute(new SetPriorityCommand(
+                    pawn,
+                    workType,
+                    WorkPrioritySystem.DisabledPriority));
                 SoundDefOf.Checkbox_TurnedOff.PlayOneShotOnCamera();
             }
             else
             {
-                WorkPrioritySystem.SetPriority(pawn.workSettings, workType, WorkPrioritySystem.GetDefaultEnabledPriority());
+                WorkPriorityCommandGateway.Execute(new SetPriorityCommand(
+                    pawn,
+                    workType,
+                    WorkPrioritySystem.GetDefaultEnabledPriority()));
                 SoundDefOf.Checkbox_TurnedOn.PlayOneShotOnCamera();
             }
 

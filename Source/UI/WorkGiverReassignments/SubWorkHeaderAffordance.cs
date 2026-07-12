@@ -25,6 +25,8 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         private static readonly Dictionary<PawnColumnDef, Rect> VanillaOpenBadgeRects = new Dictionary<PawnColumnDef, Rect>();
         private static int _cachedSyncVersion = -1;
         private static int _vanillaBadgeRectsFrame = -1;
+        private static string _openBadgeTooltip;
+        private static string _openBadgeTooltipLanguage;
 
         internal static string DebugForcedHoveredWorkTypeDefName;
         internal static bool DebugForceBackButtonHover;
@@ -63,7 +65,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
             Rect badgeRect = GetOpenBadgeRect(headerRect, clearVanillaStem);
             DrawAngledOpenAffordance(badgeRect, IsOpenBadgeHovered(badgeRect, column));
-            TooltipHandler.TipRegion(badgeRect, "BWT_SubWork_OpenSpecificJobs".Translate().Colorize(ColoredText.SubtleGrayColor));
+            TooltipHandler.TipRegion(badgeRect, GetOpenBadgeTooltip());
             MouseoverSounds.DoRegion(badgeRect);
         }
 
@@ -77,8 +79,21 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             Rect badgeRect = GetVanillaOpenBadgeRect(headerRect, textRect);
             RememberVanillaOpenBadgeRect(column, badgeRect);
             DrawVanillaOpenAffordance(badgeRect, IsOpenBadgeHovered(badgeRect, column));
-            TooltipHandler.TipRegion(badgeRect, "BWT_SubWork_OpenSpecificJobs".Translate().Colorize(ColoredText.SubtleGrayColor));
+            TooltipHandler.TipRegion(badgeRect, GetOpenBadgeTooltip());
             MouseoverSounds.DoRegion(badgeRect);
+        }
+
+        private static string GetOpenBadgeTooltip()
+        {
+            string language = LanguageDatabase.activeLanguage?.folderName ?? string.Empty;
+            if (_openBadgeTooltip == null || _openBadgeTooltipLanguage != language)
+            {
+                _openBadgeTooltip = "BWT_SubWork_OpenSpecificJobs".Translate()
+                    .Colorize(ColoredText.SubtleGrayColor);
+                _openBadgeTooltipLanguage = language;
+            }
+
+            return _openBadgeTooltip;
         }
 
         internal static bool TryGetOpenBadgeRect(PawnColumnDef column, Rect headerRect, bool isVanillaStaggered, out Rect badgeRect)

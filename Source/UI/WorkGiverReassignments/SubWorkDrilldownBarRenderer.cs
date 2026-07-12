@@ -213,7 +213,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             }
 
             SubWorkDrilldownState.Exit(exitWorkColumnSlot, exitWaveSlotPosition);
-            Spine.RimWorld.WorkTab.Rendering.WorkTabInvalidationHub.Invalidate(Spine.RimWorld.WorkTab.Rendering.WorkTabDirtyFlags.Columns | Spine.RimWorld.WorkTab.Rendering.WorkTabDirtyFlags.HeaderGeometry);
+            WorkGrid.Invalidation.WorkTabInvalidationHub.Invalidate(WorkGrid.Contracts.WorkTabDirtyFlags.Columns | WorkGrid.Contracts.WorkTabDirtyFlags.HeaderGeometry);
 
             if (shouldRestoreMouse)
             {

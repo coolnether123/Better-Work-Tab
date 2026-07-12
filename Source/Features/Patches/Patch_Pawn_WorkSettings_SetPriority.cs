@@ -43,8 +43,18 @@ namespace Better_Work_Tab.Features.Patches
                 return;
             }
 
-            Spine.RimWorld.WorkTab.Rendering.WorkTabInvalidationHub.Invalidate(
-                Spine.RimWorld.WorkTab.Rendering.WorkTabDirtyFlags.Presentation);
+            Pawn pawn = WorkPrioritySystem.GetPawn(__instance);
+            if (pawn != null)
+            {
+                UI.WorkGrid.Invalidation.WorkTabInvalidationHub.InvalidatePriority(
+                    pawn.thingIDNumber,
+                    w.shortHash);
+            }
+            else
+            {
+                UI.WorkGrid.Invalidation.WorkTabInvalidationHub.InvalidateCategory(
+                    UI.WorkGrid.Invalidation.WorkGridInvalidationCategory.Priority);
+            }
 
             if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabPriorityFeatures)
             {

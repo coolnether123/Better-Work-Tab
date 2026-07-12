@@ -1,6 +1,7 @@
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.UI.WorkGrid.Commands;
 using Better_Work_Tab.UI.Headers.Angled;
 using RimWorld;
 using System;
@@ -597,7 +598,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             }
 
             if (evt.button == 0 &&
-                TimePriorityScheduleEditor.OpenForPriorityBox(target, boxRect, fallbackPriority))
+                WorkPriorityCommandGateway.Execute(new OpenScheduleCommand(target, boxRect, fallbackPriority)))
             {
                 SoundDefOf.Tick_High.PlayOneShotOnCamera();
             }
@@ -663,7 +664,10 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 {
                     if (!FluffyTimeScheduleAssigner.ApplyWorkGiverPriority(pawnId, workGiverDef, newPriority))
                     {
-                        WorkGiverReassignmentManager.SetPawnOverrideSynced(pawnId, workGiverDef.defName, newPriority);
+                        WorkPriorityCommandGateway.Execute(new SetWorkGiverPriorityCommand(
+                            pawnId,
+                            workGiverDef,
+                            newPriority));
                     }
                     SoundDefOf.DragSlider.PlayOneShotOnCamera();
                 }
@@ -689,7 +693,10 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 {
                     if (!FluffyTimeScheduleAssigner.ApplyWorkGiverPriority(pawnId, workGiverDef, newPriority))
                     {
-                        WorkGiverReassignmentManager.SetPawnOverrideSynced(pawnId, workGiverDef.defName, newPriority);
+                        WorkPriorityCommandGateway.Execute(new SetWorkGiverPriorityCommand(
+                            pawnId,
+                            workGiverDef,
+                            newPriority));
                     }
                     SoundDefOf.DragSlider.PlayOneShotOnCamera();
                 }

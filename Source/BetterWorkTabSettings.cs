@@ -16,6 +16,7 @@ using Verse;
 using LudeonTK;
 using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.Settings;
+using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Spine.UI.SettingsFramework;
 

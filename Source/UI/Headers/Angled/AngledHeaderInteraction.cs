@@ -559,7 +559,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 workType,
                 returnMousePosition,
                 SubWorkDrilldownHeaderGeometry.GetBaseHeaderDrawWidth(null, -1f));
-            Spine.RimWorld.WorkTab.Rendering.WorkTabInvalidationHub.Invalidate(Spine.RimWorld.WorkTab.Rendering.WorkTabDirtyFlags.Columns | Spine.RimWorld.WorkTab.Rendering.WorkTabDirtyFlags.HeaderGeometry);
+            WorkGrid.Invalidation.WorkTabInvalidationHub.Invalidate(WorkGrid.Contracts.WorkTabDirtyFlags.Columns | WorkGrid.Contracts.WorkTabDirtyFlags.HeaderGeometry);
             SoundDefOf.Tick_High.PlayOneShotOnCamera();
         }
 

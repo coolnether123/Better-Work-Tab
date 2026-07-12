@@ -9,6 +9,7 @@ using Better_Work_Tab.ModSupport;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.Patches;
 using Better_Work_Tab.UI;
+using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Multiplayer.API;
 using RimWorld;
 using Spine.UI.ColourPicker;
@@ -101,6 +102,16 @@ namespace Better_Work_Tab.UI.Settings
         private static void Register(SettingDefinition def)
         {
             ApplyScribeMetadata(def);
+            Action<object> existingOnChanged = def?.OnChanged;
+            if (def != null)
+            {
+                def.OnChanged = settingsObject =>
+                {
+                    existingOnChanged?.Invoke(settingsObject);
+                    WorkGrid.Invalidation.WorkTabInvalidationHub.Invalidate(
+                        WorkTabDirtyFlags.SettingsThemeLanguageScale);
+                };
+            }
             _settings.Add(def);
         }
 
@@ -2743,7 +2754,7 @@ namespace Better_Work_Tab.UI.Settings
                 DefaultValue = DefaultSettings.enableCustomWorkLabels,
                 OnChanged = _ =>
                 {
-                    Spine.RimWorld.WorkTab.Rendering.WorkTabInvalidationHub.Invalidate(Spine.RimWorld.WorkTab.Rendering.WorkTabDirtyFlags.HeaderText | Spine.RimWorld.WorkTab.Rendering.WorkTabDirtyFlags.HeaderGeometry | Spine.RimWorld.WorkTab.Rendering.WorkTabDirtyFlags.RenderResources);
+                    WorkGrid.Invalidation.WorkTabInvalidationHub.Invalidate(WorkGrid.Contracts.WorkTabDirtyFlags.HeaderText | WorkGrid.Contracts.WorkTabDirtyFlags.HeaderGeometry | WorkGrid.Contracts.WorkTabDirtyFlags.RenderResources);
                     MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
                 },
                 ShowInSimpleView = true,

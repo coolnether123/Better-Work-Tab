@@ -183,6 +183,9 @@ namespace Better_Work_Tab.Features.Patches
             if (__instance == null || __instance.GetType().Name != "MainTabWindow_BetterWork")
                 return;
 
+            UI.WorkGrid.Invalidation.WorkTabInvalidationHub.Invalidate(
+                UI.WorkGrid.Contracts.WorkTabDirtyFlags.PawnListOrder);
+
             LongEventHandler.ExecuteWhenFinished(() =>
             {
                 if (__instance == null)
