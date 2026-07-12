@@ -148,6 +148,9 @@ namespace Better_Work_Tab.UI
         private int _holdHorizontalScrollbarUntilFrame = -1;
         private bool _horizontalScrollbarTransitionActive;
         private bool _horizontalScrollbarTransitionVisible;
+        private int _horizontalOverflowBeganFrame = -1;
+        private float _lastScrollWindowWidth = -1f;
+        private float _lastScrollTotalColumnWidth = -1f;
         private bool _horizontalScrollbarDragCaptured;
         private float _horizontalScrollbarDragMouseX;
         private float _horizontalScrollbarDragScrollX;
@@ -4288,12 +4291,13 @@ namespace Better_Work_Tab.UI
             float currentY = 0f;
 
             GUI.color = new Color(1f, 1f, 1f, 0.12f);
-            for (int i = 0; i < rowDescriptors.Count; i++)
+            for (int i = 0; i < rowDescriptors.Count - 1; i++)
             {
                 var descriptor = rowDescriptors[i];
                 currentY += descriptor.Height;
 
-                // Draw horizontal line at the bottom of this row
+                // Draw only between rows. A trailing line at the content boundary is
+                // clipped inconsistently while the expand-beside window resizes.
                 Widgets.DrawLineHorizontal(0f, currentY - 1f, viewWidth);
             }
             GUI.color = Color.white;
@@ -4361,39 +4365,74 @@ namespace Better_Work_Tab.UI
                 ? layout.Columns[layout.Columns.Count - 1].OffsetX + layout.Columns[layout.Columns.Count - 1].Width
                 : widthWithoutScrollbar;
             float contentHeight = Mathf.Max(layout.ContentHeight, 1f);
-            bool rawHorizontalOverflow = totalColumnWidth > outRect.width + 0.5f;
+            bool rawHorizontalOverflow = totalColumnWidth > widthWithoutScrollbar + 0.5f;
             bool expandBesideTransitioning = SubWorkDrilldownState.IsExpandBesideTransitioning;
-            if (expandBesideTransitioning)
+            bool layoutWidthChanged = _lastScrollTotalColumnWidth >= 0f &&
+                Mathf.Abs(totalColumnWidth - _lastScrollTotalColumnWidth) > 0.5f;
+            bool windowWidthChanged = _lastScrollWindowWidth >= 0f &&
+                Mathf.Abs(windowRect.width - _lastScrollWindowWidth) > 0.5f;
+            _lastScrollTotalColumnWidth = totalColumnWidth;
+            _lastScrollWindowWidth = windowRect.width;
+            bool resizingOverflow = rawHorizontalOverflow &&
+                (layoutWidthChanged || windowWidthChanged);
+            if (expandBesideTransitioning || resizingOverflow)
             {
                 if (!_horizontalScrollbarTransitionActive)
                 {
                     _horizontalScrollbarTransitionActive = true;
-                    _horizontalScrollbarTransitionVisible = _stableHorizontalScrollbarVisible;
+                    // Expand-beside changes column width before the bottom-anchored window
+                    // receives its resized rect. A scrollbar in that catch-up interval is
+                    // transient and immediately disappears, so never preserve stale visibility.
+                    _horizontalScrollbarTransitionVisible = false;
                 }
 
                 // Layout advances before Unity supplies the resized window contents for this
-                // GUI pass. Keep the last settled state through the transition and two catch-up
+                // GUI pass. Suppress transient overflow through the transition and two catch-up
                 // frames, then commit the final overflow state once.
                 _holdHorizontalScrollbarUntilFrame = Time.frameCount + 2;
             }
 
             bool needsHorizontalScrollbar;
             if (_horizontalScrollbarTransitionActive &&
-                (expandBesideTransitioning || Time.frameCount <= _holdHorizontalScrollbarUntilFrame))
+                (expandBesideTransitioning || resizingOverflow ||
+                 Time.frameCount <= _holdHorizontalScrollbarUntilFrame))
             {
                 needsHorizontalScrollbar = _horizontalScrollbarTransitionVisible;
+                _horizontalOverflowBeganFrame = -1;
             }
             else
             {
                 _horizontalScrollbarTransitionActive = false;
-                needsHorizontalScrollbar = rawHorizontalOverflow;
+                if (!rawHorizontalOverflow)
+                {
+                    _horizontalOverflowBeganFrame = -1;
+                    needsHorizontalScrollbar = false;
+                }
+                else if (_stableHorizontalScrollbarVisible)
+                {
+                    needsHorizontalScrollbar = true;
+                }
+                else
+                {
+                    if (_horizontalOverflowBeganFrame < 0)
+                    {
+                        _horizontalOverflowBeganFrame = Time.frameCount;
+                    }
+
+                    // A drill-down can update its column width one GUI pass before its
+                    // transition flag and resized window arrive. Require new overflow to
+                    // persist before exposing a scrollbar, while still hiding it immediately.
+                    needsHorizontalScrollbar =
+                        Time.frameCount - _horizontalOverflowBeganFrame > 2;
+                }
+
                 _stableHorizontalScrollbarVisible = needsHorizontalScrollbar;
             }
 
             float naturalViewWidth = Mathf.Max(widthWithoutScrollbar, totalColumnWidth);
             float viewWidth = needsHorizontalScrollbar
                 ? naturalViewWidth
-                : Mathf.Min(naturalViewWidth, outRect.width);
+                : widthWithoutScrollbar;
             _lastRawHorizontalOverflow = rawHorizontalOverflow;
             _lastHorizontalScrollbarVisible = needsHorizontalScrollbar;
             float fittedViewportHeight = Mathf.Max(
@@ -4493,60 +4532,68 @@ namespace Better_Work_Tab.UI
             bool scheduleOpen = FluffyTimeScheduleAssigner.IsOpen;
             WorkTypeDef expandedParentPriorityWorkType = null;
             int expandedParentPriority = WorkPrioritySystem.DisabledPriority;
-            for (int columnIndex = 0; columnIndex < columns.Count; columnIndex++)
+            snapshotLayer?.BeginRow();
+            try
             {
-                WorkTabLayoutColumn column = columns[columnIndex];
-                if (snapshotLayer != null && !snapshotLayer.ShouldVisitCell(rowIndex, columnIndex))
+                for (int columnIndex = 0; columnIndex < columns.Count; columnIndex++)
                 {
-                    continue;
-                }
-
-                float animatedOffset = ColumnReorderAnimationState.GetCellOffset(column);
-                Rect cellRect = new Rect(column.OffsetX + animatedOffset, rowRect.y, column.Width, rowRect.height);
-
-                if (snapshotLayer != null && snapshotLayer.TryDrawCell(rowIndex, columnIndex, cellRect))
-                {
-                    continue;
-                }
-
-                // Expand-beside children are owned by BWT. Sending them through the
-                // vanilla WorkPriority worker only for Harmony to intercept and route
-                // them back here adds a prefix, global drawing scope, and virtual call
-                // per cell. Focus-view columns still use the worker because their
-                // parent/sub-work crossfade is implemented by that patch.
-                if (column.IsExpandBesideChild &&
-                    SubWorkDrilldownState.TryGetWorkGiverForColumn(
-                        column,
-                        out WorkGiver expandedWorkGiver,
-                        out WorkTypeDef expandedParentWorkType,
-                        out _))
-                {
-                    if (expandedParentPriorityWorkType != expandedParentWorkType)
+                    WorkTabLayoutColumn column = columns[columnIndex];
+                    if (snapshotLayer != null && !snapshotLayer.ShouldVisitCell(rowIndex, columnIndex))
                     {
-                        expandedParentPriorityWorkType = expandedParentWorkType;
-                        expandedParentPriority = WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(
-                            pawn,
-                            expandedParentWorkType);
+                        continue;
                     }
 
-                    WorkGiverPriorityBoxRenderer.DrawPriorityBox(
-                        expandedWorkGiver,
-                        expandedParentWorkType,
-                        pawn,
-                        WorkPriorityCellGeometry.GetPriorityBoxRect(cellRect),
-                        knownParentPriority: expandedParentPriority);
-                    continue;
-                }
+                    float animatedOffset = ColumnReorderAnimationState.GetCellOffset(column);
+                    Rect cellRect = new Rect(column.OffsetX + animatedOffset, rowRect.y, column.Width, rowRect.height);
 
-                if (scheduleOpen &&
-                    !FluffyWorkTabGateway.IsFluffyWorkGiverColumn(column.Column) &&
-                    column.Column?.workType != null &&
-                    FluffyTimeScheduleAssigner.TryDrawWorkTypeCell(cellRect, pawn, column.Column.workType))
-                {
-                    continue;
-                }
+                    if (snapshotLayer != null && snapshotLayer.TryDrawCell(rowIndex, columnIndex, cellRect))
+                    {
+                        continue;
+                    }
 
-                column.Column.Worker.DoCell(cellRect, pawn, table);
+                    // Expand-beside children are owned by BWT. Sending them through the
+                    // vanilla WorkPriority worker only for Harmony to intercept and route
+                    // them back here adds a prefix, global drawing scope, and virtual call
+                    // per cell. Focus-view columns still use the worker because their
+                    // parent/sub-work crossfade is implemented by that patch.
+                    if (column.IsExpandBesideChild &&
+                        SubWorkDrilldownState.TryGetWorkGiverForColumn(
+                            column,
+                            out WorkGiver expandedWorkGiver,
+                            out WorkTypeDef expandedParentWorkType,
+                            out _))
+                    {
+                        if (expandedParentPriorityWorkType != expandedParentWorkType)
+                        {
+                            expandedParentPriorityWorkType = expandedParentWorkType;
+                            expandedParentPriority = WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(
+                                pawn,
+                                expandedParentWorkType);
+                        }
+
+                        WorkGiverPriorityBoxRenderer.DrawPriorityBox(
+                            expandedWorkGiver,
+                            expandedParentWorkType,
+                            pawn,
+                            WorkPriorityCellGeometry.GetPriorityBoxRect(cellRect),
+                            knownParentPriority: expandedParentPriority);
+                        continue;
+                    }
+
+                    if (scheduleOpen &&
+                        !FluffyWorkTabGateway.IsFluffyWorkGiverColumn(column.Column) &&
+                        column.Column?.workType != null &&
+                        FluffyTimeScheduleAssigner.TryDrawWorkTypeCell(cellRect, pawn, column.Column.workType))
+                    {
+                        continue;
+                    }
+
+                    column.Column.Worker.DoCell(cellRect, pawn, table);
+                }
+            }
+            finally
+            {
+                snapshotLayer?.EndRow();
             }
         }
 

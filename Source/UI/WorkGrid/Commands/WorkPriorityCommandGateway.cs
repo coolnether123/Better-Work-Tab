@@ -182,6 +182,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Commands
         private static bool ExecutePriorityMutation(Pawn pawn, WorkTypeDef workType, int priority)
         {
             if (pawn?.workSettings == null || workType == null || pawn.Dead ||
+                !pawn.workSettings.EverWork || pawn.WorkTypeIsDisabled(workType) ||
                 !WorkGridCommandMath.IsValidPriority(priority, WorkPrioritySystem.GetRequestableMaxPriority()))
             {
                 return false;

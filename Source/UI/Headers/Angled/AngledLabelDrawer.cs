@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -13,6 +15,10 @@ namespace Better_Work_Tab.UI.Headers.Angled
     /// </summary>
     public static class AngledLabelDrawer
     {
+        private const int TransformCacheLimit = 256;
+        private static readonly Dictionary<HeaderTransformKey, Matrix4x4> TransformCache =
+            new Dictionary<HeaderTransformKey, Matrix4x4>();
+
         /// <summary>
         /// Default rotation angle if the mod setting is somehow invalid.
         /// </summary>
@@ -231,20 +237,12 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 GUI.matrix = Matrix4x4.identity;
                 Vector2 pivotPoint = GUIClipUtility.Unclip(drawRect.center);
 
-                // Build transformation matrix: Translate to pivot -> Rotate -> Translate back
-                Matrix4x4 transformationMatrix = originalMatrix;
-                transformationMatrix *= Matrix4x4.TRS(pivotPoint, Quaternion.identity, Vector3.one);
-                transformationMatrix *= Matrix4x4.TRS(Vector3.zero, Quaternion.Euler(0f, 0f, rotation), Vector3.one);
-                if (flipScale < 0.999f)
-                {
-                    Vector3 scale = SubWorkDrilldownState.UsePixelWaveTransition
-                        ? new Vector3(flipScale, 1f, 1f)
-                        : new Vector3(1f, flipScale, 1f);
-                    transformationMatrix *= Matrix4x4.TRS(Vector3.zero, Quaternion.identity, scale);
-                }
-                transformationMatrix *= Matrix4x4.TRS(-pivotPoint, Quaternion.identity, Vector3.one);
-
-                GUI.matrix = transformationMatrix;
+                Vector2 scale = flipScale < 0.999f
+                    ? SubWorkDrilldownState.UsePixelWaveTransition
+                        ? new Vector2(flipScale, 1f)
+                        : new Vector2(1f, flipScale)
+                    : Vector2.one;
+                GUI.matrix = GetTransformMatrix(originalMatrix, pivotPoint, rotation, scale);
 
                 Text.Anchor = isCJKVertical ? TextAnchor.UpperCenter : TextAnchor.MiddleLeft;
                 Text.Font = GameFont.Small;
@@ -293,11 +291,9 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 if (!BetterWorkTabMod.Settings.removeHeaderUnderline && !isCJKVertical)
                 {
                     float textWidth = Mathf.Min(layout.UnderlineWidth, drawRect.width);
-                    Vector2 underlineStart = new Vector2(drawRect.xMin, drawRect.yMax);
-                    Vector2 underlineEnd = new Vector2(drawRect.xMin + textWidth, drawRect.yMax);
                     Color underlineColor = HeaderUtility.Colors.HeaderUnderlineColor;
                     underlineColor.a *= visibleAlpha;
-                    Widgets.DrawLine(underlineStart, underlineEnd, underlineColor, 1f);
+                    DrawHorizontalUnderline(drawRect.xMin, drawRect.yMax, textWidth, underlineColor);
                 }
             }
             finally
@@ -379,11 +375,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
                 GUI.matrix = Matrix4x4.identity;
                 Vector2 pivotPoint = GUIClipUtility.Unclip(drawRect.center);
-                Matrix4x4 transformationMatrix = originalMatrix;
-                transformationMatrix *= Matrix4x4.TRS(pivotPoint, Quaternion.identity, Vector3.one);
-                transformationMatrix *= Matrix4x4.TRS(Vector3.zero, Quaternion.Euler(0f, 0f, rotation), Vector3.one);
-                transformationMatrix *= Matrix4x4.TRS(-pivotPoint, Quaternion.identity, Vector3.one);
-                GUI.matrix = transformationMatrix;
+                GUI.matrix = GetTransformMatrix(originalMatrix, pivotPoint, rotation, Vector2.one);
 
                 Text.Anchor = isCJKVertical ? TextAnchor.UpperCenter : TextAnchor.MiddleLeft;
                 GUI.color = (currentLayout.ShowMarker && BetterWorkTabMod.Settings.showMovedColumnColorTint)
@@ -410,11 +402,9 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 if (!BetterWorkTabMod.Settings.removeHeaderUnderline && !isCJKVertical)
                 {
                     float underlineWidth = Mathf.Min(size.x, drawRect.width);
-                    Vector2 underlineStart = new Vector2(drawRect.xMin, drawRect.yMax);
-                    Vector2 underlineEnd = new Vector2(drawRect.xMin + underlineWidth, drawRect.yMax);
                     Color underlineColor = HeaderUtility.Colors.HeaderUnderlineColor;
                     underlineColor.a *= alpha;
-                    Widgets.DrawLine(underlineStart, underlineEnd, underlineColor, 1f);
+                    DrawHorizontalUnderline(drawRect.xMin, drawRect.yMax, underlineWidth, underlineColor);
                 }
             }
             finally
@@ -424,6 +414,102 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 GUI.color = oldColor;
                 Text.WordWrap = oldWordWrap;
                 GUI.matrix = oldMatrix;
+            }
+        }
+
+        private static Matrix4x4 GetTransformMatrix(
+            Matrix4x4 originalMatrix,
+            Vector2 pivot,
+            float rotation,
+            Vector2 scale)
+        {
+            var key = new HeaderTransformKey(originalMatrix, pivot, rotation, scale);
+            if (TransformCache.TryGetValue(key, out Matrix4x4 cached))
+            {
+                return cached;
+            }
+
+            Matrix4x4 result = originalMatrix;
+            result *= Matrix4x4.TRS(pivot, Quaternion.identity, Vector3.one);
+            result *= Matrix4x4.TRS(Vector3.zero, Quaternion.Euler(0f, 0f, rotation), Vector3.one);
+            if (scale != Vector2.one)
+            {
+                result *= Matrix4x4.TRS(
+                    Vector3.zero,
+                    Quaternion.identity,
+                    new Vector3(scale.x, scale.y, 1f));
+            }
+            result *= Matrix4x4.TRS(-pivot, Quaternion.identity, Vector3.one);
+
+            if (TransformCache.Count >= TransformCacheLimit)
+            {
+                TransformCache.Clear();
+            }
+            TransformCache[key] = result;
+            return result;
+        }
+
+        private static void DrawHorizontalUnderline(float x, float y, float width, Color color)
+        {
+            if (width < 0.01f)
+            {
+                return;
+            }
+
+            // Equivalent to Widgets.DrawLine for a horizontal one-pixel request: that helper
+            // expands to this three-pixel AA texture but also computes a general line rotation.
+            GUI.DrawTexture(
+                new Rect(x, y - 1.5f, width, 3f),
+                Widgets.LineTexAA,
+                ScaleMode.StretchToFill,
+                true,
+                0f,
+                color,
+                0f,
+                0f);
+        }
+
+        private readonly struct HeaderTransformKey : IEquatable<HeaderTransformKey>
+        {
+            private readonly Matrix4x4 _originalMatrix;
+            private readonly Vector2 _pivot;
+            private readonly float _rotation;
+            private readonly Vector2 _scale;
+
+            internal HeaderTransformKey(
+                Matrix4x4 originalMatrix,
+                Vector2 pivot,
+                float rotation,
+                Vector2 scale)
+            {
+                _originalMatrix = originalMatrix;
+                _pivot = pivot;
+                _rotation = rotation;
+                _scale = scale;
+            }
+
+            public bool Equals(HeaderTransformKey other)
+            {
+                return _originalMatrix.Equals(other._originalMatrix) &&
+                       _pivot.Equals(other._pivot) &&
+                       _rotation.Equals(other._rotation) &&
+                       _scale.Equals(other._scale);
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is HeaderTransformKey other && Equals(other);
+            }
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    int hash = _originalMatrix.GetHashCode();
+                    hash = (hash * 397) ^ _pivot.GetHashCode();
+                    hash = (hash * 397) ^ _rotation.GetHashCode();
+                    return (hash * 397) ^ _scale.GetHashCode();
+                }
             }
         }
     }

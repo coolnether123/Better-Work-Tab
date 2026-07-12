@@ -14,6 +14,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Compatibility
     {
         private static readonly Assembly BetterWorkTabAssembly = typeof(BetterWorkTabMod).Assembly;
         private const string FluffyHarmonyOwner = "fluffy.worktab";
+        private const string DubsProfilerHarmonyOwner = "Dubwise.DubsProfiler";
         private static readonly MethodBase[] ReplacedVanillaHooks =
         {
             AccessTools.Method(typeof(PawnColumnWorker_WorkPriority), nameof(PawnColumnWorker_WorkPriority.DoCell)),
@@ -73,7 +74,13 @@ namespace Better_Work_Tab.UI.WorkGrid.Compatibility
                     string.Equals(patch?.owner, FluffyHarmonyOwner, System.StringComparison.OrdinalIgnoreCase) &&
                     FluffyWorkTabGateway.IsPresent &&
                     FluffyWorkTabGateway.BetterWorkTabOwnsWorkTab;
-                if (!knownFluffyAdapterPatch && patchAssembly != BetterWorkTabAssembly)
+                bool observationalProfilerPatch = string.Equals(
+                    patch?.owner,
+                    DubsProfilerHarmonyOwner,
+                    System.StringComparison.OrdinalIgnoreCase);
+                if (!knownFluffyAdapterPatch &&
+                    !observationalProfilerPatch &&
+                    patchAssembly != BetterWorkTabAssembly)
                 {
                     return true;
                 }

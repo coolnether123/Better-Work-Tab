@@ -353,8 +353,10 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         {
             float railWidth = Mathf.Max(10f, rect.width - 4f);
             float railX = rect.center.x - (railWidth / 2f);
-            Widgets.DrawBoxSolid(new Rect(railX, rect.y + 2f, railWidth, 2f), GUI.color);
-            Widgets.DrawBoxSolid(new Rect(railX + (railWidth * 0.24f), rect.y + 7f, railWidth * 0.52f, 2f), GUI.color);
+            GUI.DrawTexture(new Rect(railX, rect.y + 2f, railWidth, 2f), BaseContent.WhiteTex);
+            GUI.DrawTexture(
+                new Rect(railX + (railWidth * 0.24f), rect.y + 7f, railWidth * 0.52f, 2f),
+                BaseContent.WhiteTex);
         }
 
         private static void DrawBackArrowBadge(Rect rect, bool hovered)

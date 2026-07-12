@@ -110,7 +110,8 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             }
 
             Pawn pawn = GetPawn(workSettings);
-            if (pawn?.Dead == true || !workSettings.EverWork)
+            if (pawn?.Dead == true || !workSettings.EverWork ||
+                (pawn != null && pawn.WorkTypeIsDisabled(workType)))
             {
                 return;
             }

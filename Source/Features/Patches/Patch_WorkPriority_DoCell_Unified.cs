@@ -218,6 +218,13 @@ namespace Better_Work_Tab.Patches
                 return false;
             }
 
+            // Vanilla disabled/incapable cells are display-only. Apply the same guard before
+            // BWT's wheel handler so it cannot reach Pawn_WorkSettings.SetPriority first.
+            if (GetIsIncapable(pawn, workType) || pawn.WorkTypeIsDisabled(workType))
+            {
+                return true;
+            }
+
             UpdateFrameCache();
             bool timePriorityOwnsMouse = TimePriorityScheduleEditor.OwnsCurrentMousePosition;
 
@@ -233,12 +240,6 @@ namespace Better_Work_Tab.Patches
                 return true;
 
             if (Patch_WorkPriority_DoHeader_HoverTracker.HoveredHeaderWorkType == workType)
-                return true;
-
-            if (GetIsIncapable(pawn, workType))
-                return true;
-
-            if (pawn.WorkTypeIsDisabled(workType))
                 return true;
 
             if (workType.relevantSkills == null || workType.relevantSkills.Count == 0)

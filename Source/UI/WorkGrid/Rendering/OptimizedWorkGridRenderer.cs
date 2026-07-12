@@ -21,6 +21,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 {
     internal interface IWorkGridSnapshotLayer
     {
+        void BeginRow();
+        void EndRow();
         bool TryDrawRowBackground(int rowIndex, Rect rowRect, out Color textColor);
         bool ShouldVisitCell(int rowIndex, int columnIndex);
         bool TryDrawCell(int rowIndex, int columnIndex, Rect cellRect);
@@ -109,6 +111,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         private WorkGridIndexRange _visibleColumns;
         private bool _delegateFeatureCells;
         private int _atlasRevision = int.MinValue;
+        private GuiStateScope _cellBatchState;
+        private bool _cellBatchActive;
 
         internal OptimizedWorkGridRenderer(MainTabWindow_BetterWork host)
         {
@@ -207,6 +211,16 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             return true;
         }
 
+        public void BeginRow()
+        {
+            EndCellBatch();
+        }
+
+        public void EndRow()
+        {
+            EndCellBatch();
+        }
+
         public bool TryDrawCell(int rowIndex, int columnIndex, Rect cellRect)
         {
             if (_snapshot == null ||
@@ -215,26 +229,31 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 rowIndex >= _snapshot.Rows.Count || columnIndex >= _snapshot.Columns.Count ||
                 _snapshot.Columns[columnIndex].WorkerKind != WorkGridColumnWorkerKind.WorkPriority)
             {
+                EndCellBatch();
                 return false;
             }
 
             int lookupIndex = (rowIndex * _snapshot.Columns.Count) + columnIndex;
             if (lookupIndex < 0 || lookupIndex >= _cellLookup.Length)
             {
+                EndCellBatch();
                 return false;
             }
 
             int cellIndex = _cellLookup[lookupIndex];
             if (cellIndex < 0)
             {
+                EndCellBatch();
                 return false;
             }
 
             WorkCellVisualState cell = _snapshot.Cells[cellIndex];
-            using (GuiStateScope.Capture())
+            if (!_cellBatchActive)
             {
-                DrawCell(cellRect, cell);
+                _cellBatchState = GuiStateScope.Capture();
+                _cellBatchActive = true;
             }
+            DrawCell(cellRect, cell);
             return true;
         }
 
@@ -246,9 +265,21 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
         public void Dispose()
         {
+            EndCellBatch();
             _atlas.Dispose();
             _snapshot = null;
             _cellLookup = Array.Empty<int>();
+        }
+
+        private void EndCellBatch()
+        {
+            if (!_cellBatchActive)
+            {
+                return;
+            }
+
+            _cellBatchState.Dispose();
+            _cellBatchActive = false;
         }
 
         private void BuildCellLookup(WorkGridSnapshot snapshot)
