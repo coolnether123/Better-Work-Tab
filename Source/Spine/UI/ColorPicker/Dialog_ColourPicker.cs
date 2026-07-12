@@ -19,6 +19,7 @@ namespace Spine.UI.ColourPicker {
                       _alphaBGColorB = new Color(.85f, .85f, .85f);
 
         private readonly Action<Color, bool> _callback;
+        private readonly Action<Color> _previewCallback;
         private readonly Action<string> _debugLogger;
 
         private Texture2D _colourPickerBG,
@@ -94,11 +95,13 @@ namespace Spine.UI.ColourPicker {
             Color color,
             Action<Color, bool> callback = null,
             Vector2? position = null,
-            Action<string> debugLogger = null) {
+            Action<string> debugLogger = null,
+            Action<Color> previewCallback = null) {
             absorbInputAroundWindow = true;
             closeOnClickedOutside = true;
 
             _callback = callback;
+            _previewCallback = previewCallback;
             _debugLogger = debugLogger ?? _defaultDebugLogger;
             _initialPosition = position;
 
@@ -304,6 +307,7 @@ namespace Spine.UI.ColourPicker {
             get => _tempColour;
             set {
                 _tempColour = value;
+                _previewCallback?.Invoke(value);
                 if (autoApply || minimalistic) {
                     SetColor(false);
                 }

@@ -300,6 +300,8 @@
     <Compile Include="UI\Settings\BWTSettingsJsonService.cs" />
     <Compile Include="UI\Settings\Dialog_BWTSettingsJsonPath.cs" />
     <Compile Include="UI\Settings\BWTSettingsRegistry.cs" />
+    <Compile Include="UI\Settings\WorkTabColorPreviewController.cs" />
+    <Compile Include="UI\Settings\WorkTabColorPreviewRenderer.cs" />
     <Compile Include="UI\Settings\BWTSettingsTranslation.cs" />
     <Compile Include="UI\Settings\SettingIDs.cs" />
     <Compile Include="UI\Settings\SettingsConsistencyValidator.cs" />

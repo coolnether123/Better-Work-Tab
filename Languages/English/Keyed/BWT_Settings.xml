@@ -52,7 +52,7 @@
     <BWT_Settings_skillView>Skill View</BWT_Settings_skillView>
     <BWT_Settings_skillView_Desc>Shift behavior and skill display</BWT_Settings_skillView_Desc>
     
-    <BWT_Settings_advanced>Advanced &amp; Maintenance</BWT_Settings_advanced>
+    <BWT_Settings_advanced>Maintenance</BWT_Settings_advanced>
     <BWT_Settings_advanced_Desc>Debug, reset, experimental options</BWT_Settings_advanced_Desc>
     
     <!-- Highlights Settings -->

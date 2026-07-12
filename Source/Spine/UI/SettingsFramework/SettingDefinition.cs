@@ -4,6 +4,18 @@ using UnityEngine;
 
 namespace Spine.UI.SettingsFramework
 {
+    /// <summary>
+    /// Receives semantic color-preview activity from the reusable settings drawer.
+    /// The host decides where and how that preview is rendered.
+    /// </summary>
+    public interface ISettingColorPreviewSink
+    {
+        void PreviewHover(SettingDefinition definition, Color color);
+        void BeginPicker(SettingDefinition definition, Color color);
+        void PreviewPicker(SettingDefinition definition, Color color);
+        void EndPicker(SettingDefinition definition);
+    }
+
     public enum SettingClassification
     {
         Preference,

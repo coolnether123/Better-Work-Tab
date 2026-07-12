@@ -570,6 +570,8 @@ namespace Better_Work_Tab.UI
                 DrawContextSettingsHint(inRect);
             }
 
+            WorkTabColorPreviewRenderer.Draw(organizer?.Layout, inRect);
+
             bool mouseInside = Mouse.IsOver(inRect);
             Rect infoRect = GetInfoIconRect(inRect);
             DrawBottomRightButtons(inRect, infoRect);

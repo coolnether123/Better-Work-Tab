@@ -87,6 +87,16 @@ namespace Spine.UI.SettingsFramework
         public string EditColorLabel { get; set; } = "Edit";
 
         /// <summary>
+        /// Additional guidance appended to color-setting tooltips when live preview is available.
+        /// </summary>
+        public string ColorPreviewTooltip { get; set; }
+
+        /// <summary>
+        /// Optional host-owned target for semantic color previews.
+        /// </summary>
+        public ISettingColorPreviewSink ColorPreviewSink { get; set; }
+
+        /// <summary>
         /// When true, changed field-backed settings show a small per-row reset button.
         /// </summary>
         public bool ShowResetIcons { get; set; } = true;
@@ -474,6 +484,10 @@ namespace Spine.UI.SettingsFramework
             bool disabled = isDisabledByParent || suppression != null;
             string label = GetLabel?.Invoke(def) ?? def.Label ?? def.Id;
             string tooltip = BuildTooltip(def, suppressionReason);
+            if (def.Type == SettingType.Color)
+            {
+                tooltip = AppendTooltip(tooltip, ColorPreviewTooltip);
+            }
 
             FieldInfo field = null;
             if (!string.IsNullOrEmpty(def.FieldName))
@@ -566,15 +580,34 @@ namespace Spine.UI.SettingsFramework
                     if (field != null && field.FieldType == typeof(Color))
                     {
                         Color colorValue = (Color)field.GetValue(settingsObject);
+                        if (!disabled && Mouse.IsOver(controlRow))
+                        {
+                            ColorPreviewSink?.PreviewHover(def, colorValue);
+                        }
+
                         SettingWidgets.DrawColor(contentRect, label, ref colorValue, tooltip, disabled,
                             (current, onSelected) =>
                             {
+                                ColorPreviewSink?.BeginPicker(def, current);
+                                bool previewEnded = false;
+                                Action endPreview = () =>
+                                {
+                                    if (previewEnded)
+                                    {
+                                        return;
+                                    }
+
+                                    previewEnded = true;
+                                    ColorPreviewSink?.EndPicker(def);
+                                };
                                 var dialog = new Spine.UI.ColourPicker.Dialog_ColourPicker(current, (newColor, _) =>
                                 {
                                     field.SetValue(settingsObject, newColor);
                                     HandleSettingChanged(def, settingsObject, onSettingsChanged);
                                     onSelected?.Invoke(newColor);
-                                });
+                                }, previewCallback: newColor => ColorPreviewSink?.PreviewPicker(def, newColor));
+                                dialog.onCancel = endPreview;
+                                dialog.onPostClose = endPreview;
 
                                 Find.WindowStack.Add(dialog);
                             }, EditColorLabel);
@@ -640,6 +673,18 @@ namespace Spine.UI.SettingsFramework
                     OnSettingTooltipViewed?.Invoke(def, settingsObject);
                 }
             }
+        }
+
+        private static string AppendTooltip(string tooltip, string addition)
+        {
+            if (string.IsNullOrEmpty(addition))
+            {
+                return tooltip;
+            }
+
+            return string.IsNullOrEmpty(tooltip)
+                ? addition
+                : tooltip + "\n\n" + addition;
         }
 
         /// <summary>
