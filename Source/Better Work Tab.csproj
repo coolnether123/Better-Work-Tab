@@ -260,6 +260,7 @@
     <Compile Include="UI\WorkGrid\Commands\WorkGridCommandMath.cs" />
     <Compile Include="UI\WorkGrid\Commands\WorkGridCommands.cs" />
     <Compile Include="UI\WorkGrid\Commands\WorkPriorityCommandGateway.cs" />
+    <Compile Include="UI\WorkGrid\Compatibility\WorkGridVanillaCompatibilityPolicy.cs" />
     <Compile Include="UI\WorkGrid\Interaction\WorkGridInteractionRouter.cs" />
     <Compile Include="UI\WorkGrid\Snapshots\WorkGridGeometrySnapshot.cs" />
     <Compile Include="UI\WorkGrid\Snapshots\WorkGridSnapshot.cs" />

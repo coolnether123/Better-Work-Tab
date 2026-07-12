@@ -58,6 +58,14 @@ namespace Better_Work_Tab.UI
             typeof(MainTabWindow_PawnTable).GetField("table", BindingFlags.NonPublic | BindingFlags.Instance);
         private static PawnColumnDef _lastDraggedColumn;
         private static Material _ruleBuilder2OutlineMaterial;
+        private static readonly Dictionary<WorkTypeDef, bool> ColumnMarkerCache =
+            new Dictionary<WorkTypeDef, bool>();
+        private static BetterWorkTabSettings _columnMarkerCacheSettings;
+        private static Game _columnMarkerCacheGame;
+        private static int _columnMarkerCacheColumnsRevision = -1;
+        private static int _columnMarkerCacheDraggedCount = -1;
+        private static bool _columnMarkerCacheEnabled;
+        private static int _columnMarkerCacheValidationFrame = -1;
 
         public MainTabWindow_BetterWork()
         {
@@ -1039,8 +1047,7 @@ namespace Better_Work_Tab.UI
                     continue;
                 }
 
-                WorkTypeDef columnWorkType = ResolveRuleBuilder2WorkType(column);
-                WorkGiverDef columnWorkGiver = ResolveRuleBuilder2WorkGiver(column);
+                ResolveRuleBuilder2Target(column, out WorkTypeDef columnWorkType, out WorkGiverDef columnWorkGiver);
                 if (columnWorkType != workType ||
                     (columnWorkGiver?.defName ?? "") != (workGiver?.defName ?? ""))
                 {
@@ -1467,8 +1474,7 @@ namespace Better_Work_Tab.UI
                     column.Column,
                     table,
                     animatedHeaderRect);
-                WorkTypeDef workType = ResolveRuleBuilder2WorkType(column);
-                WorkGiverDef workGiver = ResolveRuleBuilder2WorkGiver(column);
+                ResolveRuleBuilder2Target(column, out WorkTypeDef workType, out WorkGiverDef workGiver);
                 bool timePriorityOwnsMouse = TimePriorityScheduleEditor.OwnsCurrentMousePosition;
                 bool timePrioritySourceColumn = isWorkColumn && TimePriorityScheduleEditor.ShouldHighlightSourceColumn(column);
                 bool shouldHighlightRuleBuilderTarget =
@@ -1799,36 +1805,35 @@ namespace Better_Work_Tab.UI
 
         private static WorkTypeDef ResolveRuleBuilder2WorkType(WorkTabLayoutColumn column)
         {
-            if (column.IsExpandBesideChild && column.SubWorkGiver != null)
+            ResolveRuleBuilder2Target(column, out WorkTypeDef workType, out _);
+            return workType;
+        }
+
+        private static void ResolveRuleBuilder2Target(
+            WorkTabLayoutColumn column,
+            out WorkTypeDef workType,
+            out WorkGiverDef workGiver)
+        {
+            if (column.IsExpandBesideChild)
             {
-                return column.SubWorkGiver.workType ?? column.SubWorkParent;
+                workGiver = column.SubWorkGiver;
+                workType = workGiver?.workType ?? column.SubWorkParent ?? column.Column?.workType;
+                return;
             }
 
             if (SubWorkDrilldownState.TryGetWorkGiverForColumn(
                     column,
-                    out var workGiver,
+                    out var resolvedWorkGiver,
                     out var parentWorkType,
                     out _))
             {
-                return workGiver.def?.workType ?? parentWorkType;
+                workGiver = resolvedWorkGiver.def;
+                workType = workGiver?.workType ?? parentWorkType;
+                return;
             }
 
-            return column.Column?.workType;
-        }
-
-        private static WorkGiverDef ResolveRuleBuilder2WorkGiver(WorkTabLayoutColumn column)
-        {
-            if (column.IsExpandBesideChild)
-            {
-                return column.SubWorkGiver;
-            }
-
-            if (SubWorkDrilldownState.TryGetWorkGiverForColumn(column, out var workGiver, out _, out _))
-            {
-                return workGiver.def;
-            }
-
-            return null;
+            workType = column.Column?.workType;
+            workGiver = null;
         }
 
         private static bool AreAngledHeadersEnabled()
@@ -1851,8 +1856,7 @@ namespace Better_Work_Tab.UI
             float totalHeight,
             PawnTable table)
         {
-            WorkTypeDef workType = ResolveRuleBuilder2WorkType(column);
-            WorkGiverDef workGiver = ResolveRuleBuilder2WorkGiver(column);
+            ResolveRuleBuilder2Target(column, out WorkTypeDef workType, out WorkGiverDef workGiver);
             if (RuleBuilderGateway.TryGetRuleBuilder2SelectionTransitionOffset(
                     workType,
                     workGiver,
@@ -3551,12 +3555,48 @@ namespace Better_Work_Tab.UI
                        SubWorkDrilldownState.IsWorkGiverMovedFromBaseline(workGiver.def);
             }
 
+            if (_columnMarkerCacheValidationFrame != Time.frameCount)
+            {
+                WorkTabInvalidationVersion invalidation = WorkTabInvalidationHub.Current;
+                int draggedCount = settings.playerDraggedColumns?.Count ?? 0;
+                if (!ReferenceEquals(_columnMarkerCacheSettings, settings) ||
+                    !ReferenceEquals(_columnMarkerCacheGame, Current.Game) ||
+                    _columnMarkerCacheColumnsRevision != invalidation.Columns ||
+                    _columnMarkerCacheDraggedCount != draggedCount ||
+                    _columnMarkerCacheEnabled != settings.showColumnMovedMarker)
+                {
+                    ClearColumnMarkerCache();
+                    _columnMarkerCacheSettings = settings;
+                    _columnMarkerCacheGame = Current.Game;
+                    _columnMarkerCacheColumnsRevision = invalidation.Columns;
+                    _columnMarkerCacheDraggedCount = draggedCount;
+                    _columnMarkerCacheEnabled = settings.showColumnMovedMarker;
+                }
+                _columnMarkerCacheValidationFrame = Time.frameCount;
+            }
+
+            if (ColumnMarkerCache.TryGetValue(workType, out bool cachedResult))
+            {
+                return cachedResult;
+            }
+
             // First check: was this column directly dragged by the player?
             if (!settings.WasColumnDraggedByPlayer(workType.defName))
+            {
+                ColumnMarkerCache[workType] = false;
                 return false;
+            }
 
             // Second check: is it currently out of baseline position?
-            return IsColumnOutOfBaselinePosition(workType);
+            bool result = IsColumnOutOfBaselinePosition(workType);
+            ColumnMarkerCache[workType] = result;
+            return result;
+        }
+
+        private static void ClearColumnMarkerCache()
+        {
+            ColumnMarkerCache.Clear();
+            _columnMarkerCacheValidationFrame = -1;
         }
 
         /// <summary>
@@ -3664,6 +3704,7 @@ namespace Better_Work_Tab.UI
             }
 
             settings.Write();
+            ClearColumnMarkerCache();
         }
 
         /// <summary>
@@ -3674,6 +3715,7 @@ namespace Better_Work_Tab.UI
             var settings = BetterWorkTabMod.Settings;
             settings?.ClearPlayerDraggedColumns();
             settings?.Write();
+            ClearColumnMarkerCache();
         }
 
         public override void PostOpen()

@@ -10,6 +10,7 @@ using Better_Work_Tab.UI.WorkGiverReassignments;
 using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Better_Work_Tab.UI.WorkGrid.Diagnostics;
 using Better_Work_Tab.UI.WorkGrid.Invalidation;
+using Better_Work_Tab.UI.WorkGrid.Compatibility;
 using RimWorld;
 using Spine.Api;
 using Spine.Collections;
@@ -155,6 +156,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             }
 
             IReadOnlyList<WorkTabLayoutColumn> layoutColumns = layout.Columns;
+            bool canSnapshotVanillaPriorityCells =
+                      WorkGridVanillaCompatibilityPolicy.CanSnapshotVanillaPriorityCells();
             var bestPawnIds = new Dictionary<ushort, int>();
             for (int i = 0; i < layoutColumns.Count; i++)
             {
@@ -166,7 +169,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                 bool externalFluffyWorkGiver = FluffyWorkTabGateway.IsFluffyWorkGiverColumn(def);
                 WorkGridColumnWorkerKind workerKind = workGiver != null
                     ? WorkGridColumnWorkerKind.SubWorkPriority
-                    : worker is PawnColumnWorker_WorkPriority && !externalFluffyWorkGiver
+                    : canSnapshotVanillaPriorityCells &&
+                      WorkGridVanillaCompatibilityPolicy.CanSnapshotPriorityColumn(def) &&
+                      !externalFluffyWorkGiver
                         ? WorkGridColumnWorkerKind.WorkPriority
                         : worker is PawnColumnWorker_Label
                             ? WorkGridColumnWorkerKind.PawnLabel
@@ -182,6 +187,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                 if (workGiver == null &&
                     !externalFluffyWorkGiver &&
                     workType != null &&
+                    canSnapshotVanillaPriorityCells &&
+                    WorkGridVanillaCompatibilityPolicy.CanSnapshotPriorityColumn(def) &&
                     worker is PawnColumnWorker_WorkPriority priorityWorker &&
                     !bestPawnIds.ContainsKey(workType.shortHash))
                 {
@@ -204,7 +211,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                     WorkTypeDef workType = column.SubWorkParent ?? column.Column?.workType;
                     if (workType == null ||
                         FluffyWorkTabGateway.IsFluffyWorkGiverColumn(column.Column) ||
-                        (!(column.Column?.Worker is PawnColumnWorker_WorkPriority) && column.SubWorkGiver == null))
+                        (column.SubWorkGiver == null &&
+                         (!canSnapshotVanillaPriorityCells ||
+                          !WorkGridVanillaCompatibilityPolicy.CanSnapshotPriorityColumn(column.Column))))
                     {
                         continue;
                     }
