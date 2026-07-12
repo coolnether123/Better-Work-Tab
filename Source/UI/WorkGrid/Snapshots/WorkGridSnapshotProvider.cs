@@ -26,7 +26,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
         private readonly ContiguousBuffer<WorkGridColumnEntry> _columns = new ContiguousBuffer<WorkGridColumnEntry>(32);
         private readonly ContiguousBuffer<WorkCellVisualState> _cells = new ContiguousBuffer<WorkCellVisualState>(512);
         private readonly SnapshotSlot<WorkGridSnapshot> _slot = new SnapshotSlot<WorkGridSnapshot>();
-        private int _layoutRevision = -1;
+        private int _layoutSignature;
+        private bool _hasLayoutSignature;
         private WorkGridRevisionSet _revisions;
         private long _snapshotRevision;
 
@@ -53,15 +54,17 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             }
 
             WorkGridRevisionSet current = versions.CategoryRevisions;
+            int layoutSignature = ComputeLayoutSignature(layout);
             if (_slot.Current != null &&
-                _layoutRevision == layout.LayoutRevision &&
+                _hasLayoutSignature &&
+                _layoutSignature == layoutSignature &&
                 EqualConsumedRevisions(_revisions, current))
             {
                 return _slot.Current;
             }
 
             var timer = Stopwatch.StartNew();
-            Build(layout, table, current);
+            Build(layout, table, current, layoutSignature);
             timer.Stop();
             WorkTabInvalidationHub.ClearConsumedPriorityKeys();
             WorkGridSnapshot snapshot = _slot.Current;
@@ -80,12 +83,17 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             _rows.Clear();
             _columns.Clear();
             _cells.Clear();
-            _layoutRevision = -1;
+            _layoutSignature = 0;
+            _hasLayoutSignature = false;
             _revisions = default;
             WorkGridRendererDiagnostics.RecordSnapshotCleared();
         }
 
-        private void Build(IWorkTabLayoutController layout, PawnTable table, WorkGridRevisionSet revisions)
+        private void Build(
+            IWorkTabLayoutController layout,
+            PawnTable table,
+            WorkGridRevisionSet revisions,
+            int layoutSignature)
         {
             _rows.Clear();
             _columns.Clear();
@@ -214,7 +222,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                 }
             }
 
-            _layoutRevision = layout.LayoutRevision;
+            _layoutSignature = layoutSignature;
+            _hasLayoutSignature = true;
             _revisions = revisions;
             _snapshotRevision++;
             int retainedBytes = (_rows.Capacity * 40) + (_columns.Capacity * 40) + (_cells.Capacity * 28);
@@ -222,7 +231,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             int presentationRevision = unchecked((int)revisions.SettingsThemeLanguageScale);
             _slot.Publish(new WorkGridSnapshot(
                 _snapshotRevision,
-                _layoutRevision,
+                layout.LayoutRevision,
                 revisions,
                 _rows.ToSnapshot(),
                 _columns.ToSnapshot(),
@@ -233,6 +242,37 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                 Mathf.RoundToInt(Prefs.UIScale * 1000f),
                 presentationRevision,
                 unchecked((presentationRevision * 397) ^ maxPriority)));
+        }
+
+        private static int ComputeLayoutSignature(IWorkTabLayoutController layout)
+        {
+            unchecked
+            {
+                int hash = 17;
+                IReadOnlyList<WorkTabLayoutRow> rows = layout.Rows;
+                hash = (hash * 31) + rows.Count;
+                for (int i = 0; i < rows.Count; i++)
+                {
+                    WorkTabLayoutRow row = rows[i];
+                    hash = (hash * 31) + (row.Pawn?.thingIDNumber ?? 0);
+                    hash = (hash * 31) + (row.Divider?.DisplayOrder ?? 0);
+                    hash = (hash * 31) + ((row.Divider?.IsCollapsed ?? false) ? 1 : 0);
+                    hash = (hash * 31) + StringComparer.Ordinal.GetHashCode(row.Divider?.DividerName ?? string.Empty);
+                    hash = (hash * 31) + unchecked((int)PackColor(row.Divider?.DividerColor ?? Color.clear));
+                }
+
+                IReadOnlyList<WorkTabLayoutColumn> columns = layout.Columns;
+                hash = (hash * 31) + columns.Count;
+                for (int i = 0; i < columns.Count; i++)
+                {
+                    WorkTabLayoutColumn column = columns[i];
+                    hash = (hash * 31) + (column.Column?.shortHash ?? 0);
+                    hash = (hash * 31) + (column.SubWorkParent?.shortHash ?? 0);
+                    hash = (hash * 31) + (column.SubWorkGiver?.shortHash ?? 0);
+                }
+
+                return hash;
+            }
         }
 
         private static WorkCellVisualState BuildCell(
@@ -369,8 +409,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
         private static bool EqualConsumedRevisions(WorkGridRevisionSet left, WorkGridRevisionSet right)
         {
             return left.GameState == right.GameState &&
-                   left.PawnListOrder == right.PawnListOrder &&
-                   left.ColumnLayout == right.ColumnLayout &&
                    left.Priority == right.Priority &&
                    left.CapabilitySkill == right.CapabilitySkill &&
                    left.ScheduleHour == right.ScheduleHour &&

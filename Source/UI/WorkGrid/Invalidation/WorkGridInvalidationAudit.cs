@@ -1,6 +1,6 @@
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
-using Better_Work_Tab.PawnOrganizer.API;
+using Better_Work_Tab.UI.WorkGrid.Contracts;
 using RimWorld;
 using Verse;
 
@@ -11,10 +11,29 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
     {
         private const int AuditIntervalTicks = 60;
         private static int _nextAuditTick;
+        private static int _nextRosterAuditTick;
         private static int _lastSignature;
         private static bool _hasSignature;
 
-        internal static void Poll(PawnTable table, IWorkTabLayoutController layout)
+        internal static void PollRoster(PawnTable table)
+        {
+            int ticks = Find.TickManager?.TicksGame ?? 0;
+            if (ticks < _nextRosterAuditTick)
+            {
+                return;
+            }
+
+            _nextRosterAuditTick = ticks + AuditIntervalTicks;
+            if (RosterSignature(PawnsFinder.AllMaps_FreeColonists) == RosterSignature(table?.cachedPawns))
+            {
+                return;
+            }
+
+            MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+            WorkTabInvalidationHub.Invalidate(WorkTabDirtyFlags.PawnListOrder);
+        }
+
+        internal static void Poll(PawnTable table)
         {
             int ticks = Find.TickManager?.TicksGame ?? 0;
             if (ticks < _nextAuditTick)
@@ -23,7 +42,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
             }
 
             _nextAuditTick = ticks + AuditIntervalTicks;
-            int signature = ComputeSignature(table, layout);
+            int signature = ComputeSignature(table);
             if (_hasSignature && signature != _lastSignature)
             {
                 WorkTabInvalidationHub.InvalidateCategory(WorkGridInvalidationCategory.All);
@@ -35,15 +54,38 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
         internal static void Reset()
         {
             _nextAuditTick = 0;
+            _nextRosterAuditTick = 0;
             _lastSignature = 0;
             _hasSignature = false;
         }
 
-        private static int ComputeSignature(PawnTable table, IWorkTabLayoutController layout)
+        private static int RosterSignature(System.Collections.Generic.IEnumerable<Pawn> pawns)
         {
             unchecked
             {
-                int hash = layout?.LayoutRevision ?? 0;
+                int count = 0;
+                int sum = 0;
+                int xor = 0;
+                if (pawns != null)
+                {
+                    foreach (Pawn pawn in pawns)
+                    {
+                        int id = pawn?.thingIDNumber ?? 0;
+                        count++;
+                        sum += id;
+                        xor ^= id;
+                    }
+                }
+
+                return ((count * 397) ^ sum) * 397 ^ xor;
+            }
+        }
+
+        private static int ComputeSignature(PawnTable table)
+        {
+            unchecked
+            {
+                int hash = 17;
                 hash = (hash * 397) ^ Prefs.UIScale.GetHashCode();
                 hash = (hash * 397) ^
                     (LanguageDatabase.activeLanguage?.folderName?.GetHashCode() ?? 0);

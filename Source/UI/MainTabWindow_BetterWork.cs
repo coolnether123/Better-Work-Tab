@@ -413,6 +413,7 @@ namespace Better_Work_Tab.UI
                 GetHeaderAnchoredPinnedRowsHeight() -
                 previousContentHeight;
             Vector2 tableOrigin = new Vector2(inRect.x, tableOriginY);
+            WorkGridInvalidationAudit.PollRoster(table);
             var snapshot = BuildSnapshotForOrganizer(table);
 
             SubWorkDrilldownState.TickTransition();
@@ -441,6 +442,11 @@ namespace Better_Work_Tab.UI
                     tableOrigin.y = anchoredOriginY;
                     organizer.Update(table, tableOrigin, snapshot);
                 }
+            }
+
+            if (Event.current.type == EventType.Repaint)
+            {
+                CaptureWarmOpenTableState(table);
             }
 
             ResizeWindowBottomAnchoredIfRequestedSizeChanged();
@@ -487,7 +493,7 @@ namespace Better_Work_Tab.UI
             WorkGridSnapshot presentationSnapshot = null;
             try
             {
-                WorkGridInvalidationAudit.Poll(table, organizer?.Layout);
+                WorkGridInvalidationAudit.Poll(table);
                 presentationSnapshot = _workGridSnapshots.Prepare(
                     organizer?.Layout,
                     table,
@@ -4941,7 +4947,6 @@ namespace Better_Work_Tab.UI
         public override void PreClose()
         {
             base.PreClose();
-            _workGridSnapshots.Clear();
             HighlightManager.ClearHighlight();
             _lastSortColumn = null;
             _lastSortDescending = false;
