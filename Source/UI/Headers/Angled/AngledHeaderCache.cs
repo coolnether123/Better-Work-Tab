@@ -20,6 +20,8 @@ namespace Better_Work_Tab.UI.Headers.Angled
         private static readonly Dictionary<WorkTypeDef, CachedHeaderData> _latestCache =
             new Dictionary<WorkTypeDef, CachedHeaderData>();
         private static readonly Dictionary<int, CachedTextMetrics> TextMetricsCache = new Dictionary<int, CachedTextMetrics>();
+        private static readonly Dictionary<LabelTextMetricsKey, CachedTextMetrics> LabelTextMetricsCache =
+            new Dictionary<LabelTextMetricsKey, CachedTextMetrics>();
 
         /// <summary>
         /// Contains all geometric data needed to render and detect mouse-over for an angled header.
@@ -46,6 +48,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
         {
             ClearGeometryCache();
             TextMetricsCache.Clear();
+            LabelTextMetricsCache.Clear();
         }
 
         /// <summary>
@@ -212,6 +215,22 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 () => HeaderUtility.GetParentHeaderText(workType, isMoved));
         }
 
+        internal static CachedTextMetrics GetLabelTextMetrics(string label)
+        {
+            var key = new LabelTextMetricsKey(
+                label ?? string.Empty,
+                BetterWorkTabMod.Settings?.useVerticalStackingForCJK ?? true,
+                Quantize(BetterWorkTabMod.Settings?.cjkVerticalKerning ?? 1f));
+            if (LabelTextMetricsCache.TryGetValue(key, out CachedTextMetrics metrics))
+            {
+                return metrics;
+            }
+
+            metrics = MeasureTextMetrics(key.Label);
+            LabelTextMetricsCache[key] = metrics;
+            return metrics;
+        }
+
         private static CachedTextMetrics GetTextMetrics(int key, System.Func<string> labelFactory)
         {
             if (TextMetricsCache.TryGetValue(key, out CachedTextMetrics metrics))
@@ -220,6 +239,13 @@ namespace Better_Work_Tab.UI.Headers.Angled
             }
 
             string label = labelFactory();
+            metrics = MeasureTextMetrics(label);
+            TextMetricsCache[key] = metrics;
+            return metrics;
+        }
+
+        private static CachedTextMetrics MeasureTextMetrics(string label)
+        {
             bool isCJKVertical = HeaderUtility.ShouldUseCJKVerticalLabel(label);
 
             GameFont oldFont = Text.Font;
@@ -238,14 +264,48 @@ namespace Better_Work_Tab.UI.Headers.Angled
             Text.Font = oldFont;
             Text.WordWrap = oldWordWrap;
 
-            metrics = new CachedTextMetrics
+            return new CachedTextMetrics
             {
                 Label = label,
                 Size = size,
                 IsCJKVertical = isCJKVertical
             };
-            TextMetricsCache[key] = metrics;
-            return metrics;
+        }
+
+        private readonly struct LabelTextMetricsKey : System.IEquatable<LabelTextMetricsKey>
+        {
+            internal LabelTextMetricsKey(string label, bool verticalCjk, int cjkKerning)
+            {
+                Label = label;
+                VerticalCjk = verticalCjk;
+                CjkKerning = cjkKerning;
+            }
+
+            internal string Label { get; }
+            private bool VerticalCjk { get; }
+            private int CjkKerning { get; }
+
+            public bool Equals(LabelTextMetricsKey other)
+            {
+                return string.Equals(Label, other.Label, System.StringComparison.Ordinal) &&
+                       VerticalCjk == other.VerticalCjk &&
+                       CjkKerning == other.CjkKerning;
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is LabelTextMetricsKey other && Equals(other);
+            }
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    int hash = Label != null ? System.StringComparer.Ordinal.GetHashCode(Label) : 0;
+                    hash = (hash * 397) ^ (VerticalCjk ? 1 : 0);
+                    return (hash * 397) ^ CjkKerning;
+                }
+            }
         }
 
         private static int ComputeTextMetricsKey(

@@ -3,6 +3,7 @@ using Better_Work_Tab.DragDrop;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.PawnOrganizer.API;
+using Better_Work_Tab.UI.Headers.Angled;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -64,9 +65,9 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             }
 
             Rect badgeRect = GetOpenBadgeRect(headerRect, clearVanillaStem);
-            DrawAngledOpenAffordance(badgeRect, IsOpenBadgeHovered(badgeRect, column));
-            TooltipHandler.TipRegion(badgeRect, GetOpenBadgeTooltip());
-            MouseoverSounds.DoRegion(badgeRect);
+            bool hovered = IsOpenBadgeHovered(badgeRect, column);
+            DrawAngledOpenAffordance(badgeRect, hovered);
+            RegisterHoveredBadgeInteraction(badgeRect, hovered);
         }
 
         internal static void DrawOpenBadge(Rect headerRect, Rect textRect, PawnColumnDef column)
@@ -78,7 +79,18 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
             Rect badgeRect = GetVanillaOpenBadgeRect(headerRect, textRect);
             RememberVanillaOpenBadgeRect(column, badgeRect);
-            DrawVanillaOpenAffordance(badgeRect, IsOpenBadgeHovered(badgeRect, column));
+            bool hovered = IsOpenBadgeHovered(badgeRect, column);
+            DrawVanillaOpenAffordance(badgeRect, hovered);
+            RegisterHoveredBadgeInteraction(badgeRect, hovered);
+        }
+
+        private static void RegisterHoveredBadgeInteraction(Rect badgeRect, bool hovered)
+        {
+            if (!hovered)
+            {
+                return;
+            }
+
             TooltipHandler.TipRegion(badgeRect, GetOpenBadgeTooltip());
             MouseoverSounds.DoRegion(badgeRect);
         }
@@ -316,8 +328,11 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                     : new Color(0.82f, 0.84f, 0.82f, 0.82f);
 
                 float rotation = BetterWorkTabMod.Settings?.angledHeaderRotation ?? -60f;
-                Vector2 pivot = rect.center;
-                GUIUtility.RotateAroundPivot(rotation, pivot);
+                GUI.matrix = AngledLabelDrawer.GetTransformMatrix(
+                    oldMatrix,
+                    rect.center,
+                    rotation,
+                    Vector2.one);
                 DrawAffordanceRails(rect);
             }
             finally

@@ -417,7 +417,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
             }
         }
 
-        private static Matrix4x4 GetTransformMatrix(
+        internal static Matrix4x4 GetTransformMatrix(
             Matrix4x4 originalMatrix,
             Vector2 pivot,
             float rotation,

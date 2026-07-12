@@ -174,6 +174,14 @@ namespace Better_Work_Tab.UI
         private int _warmOpenColumnCount = -1;
         private bool _warmOpenStateValid;
         private int _draggedColumnsSyncSignature = int.MinValue;
+        private PawnTable _cachedPawnTable;
+        private Game _cachedPawnTableGame;
+        private static string _cachedUiTextLanguage;
+        private static int _cachedUiTextMaxPriority = -1;
+        private static string _manualPrioritiesText;
+        private static string _priorityHelpText;
+        private static string _higherPriorityText;
+        private static string _lowerPriorityText;
 
         internal bool LastRawHorizontalOverflow => _lastRawHorizontalOverflow;
         internal bool LastHorizontalScrollbarVisible => _lastHorizontalScrollbarVisible;
@@ -1462,6 +1470,10 @@ namespace Better_Work_Tab.UI
             float viewportLeft = layout.TableOrigin.x;
             float viewportRight = viewportLeft + GetTableViewportWidth(layout);
             const float HorizontalCullBuffer = 64f;
+            bool ruleBuilderListening = RuleBuilderGateway.IsRuleBuilder2ListeningToWorkTab;
+            bool timePriorityOwnsMouse = TimePriorityScheduleEditor.OwnsCurrentMousePosition;
+            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
+            bool showCursorHighlight = settings.ShowCursorPawnAndWorktypeHighlight;
 
             foreach (var column in layout.Columns)
             {
@@ -1477,19 +1489,22 @@ namespace Better_Work_Tab.UI
                     column.Column,
                     table,
                     animatedHeaderRect);
-                ResolveRuleBuilder2Target(column, out WorkTypeDef workType, out WorkGiverDef workGiver);
-                bool timePriorityOwnsMouse = TimePriorityScheduleEditor.OwnsCurrentMousePosition;
                 bool timePrioritySourceColumn = isWorkColumn && TimePriorityScheduleEditor.ShouldHighlightSourceColumn(column);
-                bool shouldHighlightRuleBuilderTarget =
-                    isWorkColumn && RuleBuilderGateway.ShouldHighlightRuleBuilder2Target(workType, workGiver);
+                bool shouldHighlightRuleBuilderTarget = false;
+                if (ruleBuilderListening && isWorkColumn)
+                {
+                    ResolveRuleBuilder2Target(column, out WorkTypeDef workType, out WorkGiverDef workGiver);
+                    shouldHighlightRuleBuilderTarget =
+                        RuleBuilderGateway.ShouldHighlightRuleBuilder2Target(workType, workGiver);
+                }
                 bool drawRuleBuilderHighlightAfterHeader =
                     shouldHighlightRuleBuilderTarget && AreAngledHeadersEnabled();
 
-                if (BetterWorkTabMod.Settings.ShowCursorPawnAndWorktypeHighlight &&
+                if (showCursorHighlight &&
                     isWorkColumn &&
                     (timePrioritySourceColumn || (!timePriorityOwnsMouse && Mouse.IsOver(headerRect))))
                 {
-                    Color useColor = BetterWorkTabMod.Settings.Color_MouseHoverHighlight;
+                    Color useColor = settings.Color_MouseHoverHighlight;
                     Rect columnRect = new Rect(headerRect.x, layout.TableOrigin.y + layout.HeaderHeight, column.Width, totalHeight);
                     Widgets.DrawBoxSolid(columnRect, useColor);
                 }
@@ -1604,7 +1619,10 @@ namespace Better_Work_Tab.UI
             if (FluffyWorkTabGateway.IsHostedFluffyColumn(column.Column) &&
                 ShouldSuppressHostedChildLabel(parentWorkType, workGiver, label, labelStyle))
             {
-                TooltipHandler.TipRegion(headerRect, WorkGiverDisplayNameService.FullLabel(workGiver));
+                if (headerRect.Contains(HeaderInputController.MousePosition))
+                {
+                    TooltipHandler.TipRegion(headerRect, WorkGiverDisplayNameService.FullLabel(workGiver));
+                }
                 return true;
             }
 
@@ -1623,10 +1641,13 @@ namespace Better_Work_Tab.UI
                 DrawHostedVanillaHeader(column, headerRect, parentWorkType, label, isMouseOver, table);
             }
 
-            string tip = isChild
-                ? WorkGiverDisplayNameService.FullLabel(workGiver)
-                : WorkTypeDisplayNameService.FullLabel(parentWorkType);
-            TooltipHandler.TipRegion(headerRect, tip);
+            if (isMouseOver)
+            {
+                string tip = isChild
+                    ? WorkGiverDisplayNameService.FullLabel(workGiver)
+                    : WorkTypeDisplayNameService.FullLabel(parentWorkType);
+                TooltipHandler.TipRegion(headerRect, tip);
+            }
             return true;
         }
 
@@ -1668,21 +1689,10 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
-            GameFont oldFont = Text.Font;
-            bool oldWordWrap = Text.WordWrap;
-            Text.Font = GameFont.Small;
-            Text.WordWrap = false;
-
-            bool isCJKVertical = HeaderUtility.ShouldUseCJKVerticalLabel(label);
-            Vector2 size = Text.CalcSize(label);
-            if (isCJKVertical)
-            {
-                float charH = Text.LineHeight * (BetterWorkTabMod.Settings?.cjkVerticalKerning ?? 1f);
-                size = new Vector2(size.y, label.Length * charH);
-            }
-
-            Text.Font = oldFont;
-            Text.WordWrap = oldWordWrap;
+            AngledHeaderCache.CachedTextMetrics textMetrics =
+                AngledHeaderCache.GetLabelTextMetrics(label);
+            bool isCJKVertical = textMetrics.IsCJKVertical;
+            Vector2 size = textMetrics.Size;
 
             Rect drawRect = GetHostedAngledHeaderDrawRect(column, headerRect, size, isCJKVertical, table);
 
@@ -4772,8 +4782,10 @@ namespace Better_Work_Tab.UI
             GUI.color = Color.white;
             Text.Anchor = TextAnchor.UpperLeft;
             Rect rect = new Rect(5f, 5f, 140f, 30f);
+            int maxPriority = WorkPrioritySystem.GetMaxPriority();
+            EnsureUiTextCache(maxPriority);
             bool wasEnabled = Current.Game.playSettings.useWorkPriorities;
-            Widgets.CheckboxLabeled(rect, "ManualPriorities".Translate(), ref Current.Game.playSettings.useWorkPriorities);
+            Widgets.CheckboxLabeled(rect, _manualPrioritiesText, ref Current.Game.playSettings.useWorkPriorities);
             bool isEnabled = Current.Game.playSettings.useWorkPriorities;
             if (wasEnabled != isEnabled)
             {
@@ -4792,13 +4804,8 @@ namespace Better_Work_Tab.UI
             {
                 using (new TextBlock(new Color(1f, 1f, 1f, 0.5f)))
                 {
-                    int maxPriority = WorkPrioritySystem.GetMaxPriority();
-                    TaggedString priorityHelp = maxPriority > 4
-                        ? "BWT_PriorityOneDoneFirstExtended".Translate(maxPriority)
-                        : "PriorityOneDoneFirst".Translate();
-
                     float helpWidth = maxPriority > 4 ? 220f : rect.width;
-                    Widgets.Label(new Rect(rect.x, rect.yMax - 6f, helpWidth, 60f), priorityHelp);
+                    Widgets.Label(new Rect(rect.x, rect.yMax - 6f, helpWidth, 60f), _priorityHelpText);
                 }
             }
             else
@@ -4818,11 +4825,30 @@ namespace Better_Work_Tab.UI
             GUI.color = new Color(1f, 1f, 1f, 0.5f);
             Text.Anchor = TextAnchor.UpperCenter;
             Text.Font = GameFont.Tiny;
-            Widgets.Label(new Rect(370f, rect.y + 5f, 160f, 30f), "<= " + "HigherPriority".Translate());
-            Widgets.Label(new Rect(630f, rect.y + 5f, 160f, 30f), "LowerPriority".Translate() + " =>");
+            EnsureUiTextCache(WorkPrioritySystem.GetMaxPriority());
+            Widgets.Label(new Rect(370f, rect.y + 5f, 160f, 30f), _higherPriorityText);
+            Widgets.Label(new Rect(630f, rect.y + 5f, 160f, 30f), _lowerPriorityText);
             GUI.color = Color.white;
             Text.Font = GameFont.Small;
             Text.Anchor = TextAnchor.UpperLeft;
+        }
+
+        private static void EnsureUiTextCache(int maxPriority)
+        {
+            string language = LanguageDatabase.activeLanguage?.folderName ?? string.Empty;
+            if (_cachedUiTextLanguage == language && _cachedUiTextMaxPriority == maxPriority)
+            {
+                return;
+            }
+
+            _cachedUiTextLanguage = language;
+            _cachedUiTextMaxPriority = maxPriority;
+            _manualPrioritiesText = "ManualPriorities".Translate();
+            _priorityHelpText = maxPriority > 4
+                ? "BWT_PriorityOneDoneFirstExtended".Translate(maxPriority)
+                : "PriorityOneDoneFirst".Translate();
+            _higherPriorityText = "<= " + "HigherPriority".Translate();
+            _lowerPriorityText = "LowerPriority".Translate() + " =>";
         }
 
         private void DrawContextSettingsHint(Rect inRect)
@@ -5030,7 +5056,14 @@ namespace Better_Work_Tab.UI
 
         private PawnTable GetPawnTable()
         {
-            return (PawnTable)PawnTableField?.GetValue(this);
+            Game game = Current.Game;
+            if (_cachedPawnTable == null || !ReferenceEquals(_cachedPawnTableGame, game))
+            {
+                _cachedPawnTable = (PawnTable)PawnTableField?.GetValue(this);
+                _cachedPawnTableGame = game;
+            }
+
+            return _cachedPawnTable;
         }
 
         public override void PreClose()

@@ -46,7 +46,13 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
     {
         internal const long DefaultBudgetBytes = 4L * 1024L * 1024L;
         private const long EntryBytes = 128L;
+        private const int VariantCount = 6;
+        private const int HotEntryCount = 256 * VariantCount;
         private readonly BoundedLruCache<WorkGridAtlasKey, WorkGridAtlasEntry> _entries;
+        private readonly WorkGridAtlasKey[] _hotKeys = new WorkGridAtlasKey[HotEntryCount];
+        private readonly WorkGridAtlasEntry[] _hotEntries = new WorkGridAtlasEntry[HotEntryCount];
+        private readonly bool[] _hotValid = new bool[HotEntryCount];
+        private long _hotHits;
 
         internal WorkGridCellAtlas(long budgetBytes = DefaultBudgetBytes)
         {
@@ -56,15 +62,32 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         public int EntryCount => _entries.EntryCount;
         public long BudgetBytes => _entries.BudgetBytes;
         public long UsedBytes => _entries.UsedBytes;
-        public long Hits => _entries.Hits;
+        public long Hits => _entries.Hits + _hotHits;
         public long Misses => _entries.Misses;
         public long Evictions => _entries.Evictions;
 
-        public bool TryGet(WorkGridAtlasKey key, out WorkGridAtlasEntry entry) => _entries.TryGet(key, out entry);
+        public bool TryGet(WorkGridAtlasKey key, out WorkGridAtlasEntry entry)
+        {
+            int hotIndex = GetHotIndex(key);
+            if (_hotValid[hotIndex] && _hotKeys[hotIndex].Equals(key))
+            {
+                _hotHits++;
+                entry = _hotEntries[hotIndex];
+                return true;
+            }
+
+            if (!_entries.TryGet(key, out entry))
+            {
+                return false;
+            }
+
+            StoreHot(hotIndex, key, entry);
+            return true;
+        }
 
         internal WorkGridAtlasEntry GetOrCreate(WorkGridAtlasKey key)
         {
-            if (_entries.TryGet(key, out WorkGridAtlasEntry entry))
+            if (TryGet(key, out WorkGridAtlasEntry entry))
             {
                 return entry;
             }
@@ -92,12 +115,39 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
             string priorityText = key.Priority == 0 ? string.Empty : key.Priority.ToString();
             entry = new WorkGridAtlasEntry(baseTexture, blendTexture, priorityText);
+            long evictions = _entries.Evictions;
             _entries.AddOrUpdate(key, entry, EntryBytes);
+            if (_entries.Evictions != evictions)
+            {
+                Array.Clear(_hotValid, 0, _hotValid.Length);
+            }
+            if (_entries.TryGet(key, out WorkGridAtlasEntry retainedEntry))
+            {
+                entry = retainedEntry;
+                StoreHot(GetHotIndex(key), key, entry);
+            }
             return entry;
         }
 
-        public void Reset() => _entries.Reset();
+        public void Reset()
+        {
+            _entries.Reset();
+            Array.Clear(_hotValid, 0, _hotValid.Length);
+            _hotHits = 0;
+        }
         public void Dispose() => Reset();
+
+        private static int GetHotIndex(WorkGridAtlasKey key)
+        {
+            return (key.Priority * VariantCount) + (int)key.Variant;
+        }
+
+        private void StoreHot(int index, WorkGridAtlasKey key, WorkGridAtlasEntry entry)
+        {
+            _hotKeys[index] = key;
+            _hotEntries[index] = entry;
+            _hotValid[index] = true;
+        }
     }
 
     internal sealed class OptimizedWorkGridRenderer : IWorkGridRenderer, IWorkGridSnapshotLayer, IDisposable
@@ -252,6 +302,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             {
                 _cellBatchState = GuiStateScope.Capture();
                 _cellBatchActive = true;
+                Text.Font = GameFont.Medium;
+                Text.Anchor = TextAnchor.MiddleCenter;
             }
             DrawCell(cellRect, cell);
             return true;
@@ -375,8 +427,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 if (cell.Priority > WorkPrioritySystem.DisabledPriority)
                 {
                     WorkGridAtlasEntry glyph = GetEntry(cell, WorkGridAtlasVisualVariant.Priority);
-                    Text.Font = GameFont.Medium;
-                    Text.Anchor = TextAnchor.MiddleCenter;
                     GUI.color = UnpackColor(cell.PriorityColor);
                     Widgets.Label(boxRect.ContractedBy(-3f), glyph.PriorityText);
                 }

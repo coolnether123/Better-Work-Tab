@@ -27,6 +27,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
         private readonly ContiguousBuffer<WorkGridColumnEntry> _columns = new ContiguousBuffer<WorkGridColumnEntry>(32);
         private readonly ContiguousBuffer<WorkCellVisualState> _cells = new ContiguousBuffer<WorkCellVisualState>(512);
         private readonly SnapshotSlot<WorkGridSnapshot> _slot = new SnapshotSlot<WorkGridSnapshot>();
+        private IWorkTabLayoutController _layout;
         private int _layoutSignature;
         private bool _hasLayoutSignature;
         private WorkGridRevisionSet _revisions;
@@ -55,6 +56,14 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             }
 
             WorkGridRevisionSet current = versions.CategoryRevisions;
+            if (_slot.Current != null &&
+                ReferenceEquals(_layout, layout) &&
+                _slot.Current.LayoutRevision == layout.LayoutRevision &&
+                EqualConsumedRevisions(_revisions, current))
+            {
+                return _slot.Current;
+            }
+
             int layoutSignature = ComputeLayoutSignature(layout);
             if (_slot.Current != null &&
                 _hasLayoutSignature &&
@@ -84,6 +93,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             _rows.Clear();
             _columns.Clear();
             _cells.Clear();
+            _layout = null;
             _layoutSignature = 0;
             _hasLayoutSignature = false;
             _revisions = default;
@@ -232,6 +242,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             }
 
             _layoutSignature = layoutSignature;
+            _layout = layout;
             _hasLayoutSignature = true;
             _revisions = revisions;
             _snapshotRevision++;
