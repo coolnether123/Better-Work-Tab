@@ -61,11 +61,14 @@ namespace Spine.UI.SettingsFramework
             }
         }
 
-        public static void ApplyPreferenceDefaults(object settings, IEnumerable<SettingDefinition> definitions)
+        public static IReadOnlyCollection<string> ApplyPreferenceDefaults(
+            object settings,
+            IEnumerable<SettingDefinition> definitions)
         {
+            var changedFields = new HashSet<string>();
             if (settings == null || definitions == null)
             {
-                return;
+                return changedFields;
             }
 
             Type settingsType = settings.GetType();
@@ -85,7 +88,51 @@ namespace Spine.UI.SettingsFramework
                     continue;
                 }
 
+                if (Equals(field.GetValue(settings), def.DefaultValue))
+                {
+                    continue;
+                }
+
                 field.SetValue(settings, def.DefaultValue);
+                changedFields.Add(def.FieldName);
+            }
+
+            return changedFields;
+        }
+
+        /// <summary>
+        /// Runs the registered runtime reactions for preference fields after a bulk update.
+        /// Every matching definition is notified because duplicate field registrations can
+        /// contribute distinct integration or cache-invalidation behavior.
+        /// </summary>
+        public static void NotifyPreferenceChanges(
+            object settings,
+            IEnumerable<SettingDefinition> definitions,
+            IEnumerable<string> changedFields = null)
+        {
+            if (settings == null || definitions == null)
+            {
+                return;
+            }
+
+            HashSet<string> changedFieldSet = changedFields == null
+                ? null
+                : new HashSet<string>(changedFields);
+            if (changedFieldSet != null && changedFieldSet.Count == 0)
+            {
+                return;
+            }
+
+            foreach (SettingDefinition def in definitions)
+            {
+                if (def == null ||
+                    string.IsNullOrEmpty(def.FieldName) ||
+                    changedFieldSet != null && !changedFieldSet.Contains(def.FieldName))
+                {
+                    continue;
+                }
+
+                def.OnChanged?.Invoke(settings);
             }
         }
 

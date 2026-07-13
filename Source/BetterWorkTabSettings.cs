@@ -79,6 +79,7 @@ namespace Better_Work_Tab
         public static BetterWorkTabSettings.SubWorkDrilldownStyle subWorkDrilldownStyle = BetterWorkTabSettings.SubWorkDrilldownStyle.NotChosen;
         public static bool subWorkCtrlClickNoticeDismissed = false;
         public static bool useVanillaSubWorkGlobalPriorityBoxes = false;
+        public static bool useCompactSubWorkPriorityBoxes = true;
         public static bool restoreCursorOnSubWorkExit = true;
         public static bool restoreCursorOnSubWorkPawnCellExit = false;
         public static bool enableSubWorkOverrideBreakAnimation = true;
@@ -366,6 +367,7 @@ namespace Better_Work_Tab
         public SubWorkDrilldownStyle subWorkDrilldownStyle = DefaultSettings.subWorkDrilldownStyle;
         public bool subWorkCtrlClickNoticeDismissed = DefaultSettings.subWorkCtrlClickNoticeDismissed;
         public bool useVanillaSubWorkGlobalPriorityBoxes = DefaultSettings.useVanillaSubWorkGlobalPriorityBoxes;
+        public bool useCompactSubWorkPriorityBoxes = DefaultSettings.useCompactSubWorkPriorityBoxes;
         public bool restoreCursorOnSubWorkExit = DefaultSettings.restoreCursorOnSubWorkExit;
         public bool restoreCursorOnSubWorkPawnCellExit = DefaultSettings.restoreCursorOnSubWorkPawnCellExit;
         public bool enableSubWorkOverrideBreakAnimation = DefaultSettings.enableSubWorkOverrideBreakAnimation;
@@ -961,10 +963,7 @@ namespace Better_Work_Tab
                 WorkGiverReassignmentManager.OnSettingsLoaded();
             }
 
-            if (storedColumnWidths == null)
-            {
-                storedColumnWidths = new Dictionary<string, float>();
-            }
+            EnsureLayoutPersistenceStateInitialized();
 
             if (playerDraggedColumns == null)
             {
@@ -988,7 +987,7 @@ namespace Better_Work_Tab
         /// </summary>
         public void RestoreDefaults()
         {
-            ApplyRegisteredDefaults();
+            IReadOnlyCollection<string> changedPreferenceFields = ApplyRegisteredDefaults();
 
             workTabMaxHeight = DefaultSettings.workTabMaxHeight;
             workTabMaxVisiblePawns = DefaultSettings.workTabMaxVisiblePawns;
@@ -1003,8 +1002,16 @@ namespace Better_Work_Tab
             showExternalWorkTabColumns = DefaultSettings.showExternalWorkTabColumns;
 
             // STATE RESET: preserve RestoreDefaults' historical behavior for layout caches.
+            EnsureLayoutPersistenceStateInitialized();
+            playerDraggedColumns ??= new List<string>();
             workColumnOrderDefNames.Clear();
             storedColumnWidths.Clear();
+            playerDraggedColumns.Clear();
+
+            // COLLECTION PREFERENCE RESET: hidden Work types are stored separately because
+            // registry auto-scribing intentionally handles scalar preferences only.
+            hiddenWorktypes ??= new List<string>();
+            hiddenWorktypes.Clear();
             NormalizePrioritySettings();
 
             // STATE RESET: debug feature toggles are runtime state, not user preferences.
@@ -1013,6 +1020,12 @@ namespace Better_Work_Tab
             {
                 debugFeatureToggles[feature] = false;
             }
+
+            SettingsScribe.NotifyPreferenceChanges(
+                this,
+                BWTSettingsRegistry.Definitions,
+                changedPreferenceFields);
+            BetterWorkTabSettingsUI.NotifySettingsChanged();
         }
 
         private void NormalizeWorkTabHeightSettings()
@@ -1041,10 +1054,16 @@ namespace Better_Work_Tab
         /// <summary>
         /// Applies default values declared in the settings registry to matching fields.
         /// </summary>
-        private void ApplyRegisteredDefaults()
+        private IReadOnlyCollection<string> ApplyRegisteredDefaults()
         {
             BWTSettingsRegistry.EnsureInitialized();
-            SettingsScribe.ApplyPreferenceDefaults(this, BWTSettingsRegistry.Definitions);
+            return SettingsScribe.ApplyPreferenceDefaults(this, BWTSettingsRegistry.Definitions);
+        }
+
+        private void EnsureLayoutPersistenceStateInitialized()
+        {
+            workColumnOrderDefNames ??= new List<string>();
+            storedColumnWidths ??= new Dictionary<string, float>();
         }
 
         /// <summary>

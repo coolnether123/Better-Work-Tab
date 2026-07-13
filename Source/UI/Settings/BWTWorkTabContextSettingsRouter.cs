@@ -140,6 +140,7 @@ namespace Better_Work_Tab.UI.Settings
                     UiTimePrioritySourceColumnHighlight,
                     FeaturesSubWorkJobs,
                     SubWorkHeaderBadge,
+                    SubWorkCompactPriorityBoxes,
                     SubWorkGlobalVanillaPriorityBoxes,
                     SubWorkDisabledParentMode,
                     SubWorkRestoreCursorFromPawnCells);
@@ -226,6 +227,7 @@ namespace Better_Work_Tab.UI.Settings
                     true,
                     FeaturesSubWorkJobs,
                     SubWorkCrossWorkDragDrop,
+                    SubWorkCompactPriorityBoxes,
                     SubWorkGlobalVanillaPriorityBoxes,
                     SubWorkTransitionMode,
                     SubWorkTransitionSpeed,

@@ -1054,8 +1054,12 @@ namespace Better_Work_Tab.PawnOrganizer
 
         private static bool ShouldPreservePawnLabelWidth(List<VisibleColumnSpec> visibleColumns, int fillerIndex)
         {
-            return FluffyWorkTabGateway.ShouldPreservePawnNameColumnWidth &&
-                visibleColumns != null &&
+            // INVARIANT: the pawn-name column keeps the width calculated by RimWorld's
+            // PawnTable. It must never absorb unused BWT window width. Doing so makes the
+            // Name column hundreds of pixels wider than vanilla whenever minimum-window,
+            // sub-work, or schedule geometry leaves horizontal surplus. Extra space stays
+            // outside the rendered column span; sub-work has its own bounded reservation.
+            return visibleColumns != null &&
                 fillerIndex >= 0 &&
                 fillerIndex < visibleColumns.Count &&
                 visibleColumns[fillerIndex].Def?.Worker is PawnColumnWorker_Label;

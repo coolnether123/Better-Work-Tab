@@ -61,6 +61,10 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         internal static WorkTypeDef ActiveWorkType => _activeWorkType;
 
+        // Test-only read seam for the transition invariant. Production rendering still
+        // obtains the pivot through GetTransitionPivotSlot and cannot override this value.
+        internal static int TransitionSourceWorkColumnSlot => _entryWorkColumnSlot;
+
         internal static IEnumerable<WorkTypeDef> ExpandBesideWorkTypes
         {
             get
@@ -638,6 +642,36 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             float baseHeaderDrawWidth = -1f,
             Vector2? returnMouseLocalPosition = null)
         {
+            EnterCore(
+                workType,
+                returnMousePosition,
+                baseHeaderDrawWidth,
+                returnMouseLocalPosition,
+                sourceWorkColumnSlot: -1);
+        }
+
+        internal static void EnterFromSourceSlot(
+            WorkTypeDef workType,
+            Vector2? returnMousePosition,
+            float baseHeaderDrawWidth,
+            Vector2? returnMouseLocalPosition,
+            int sourceWorkColumnSlot)
+        {
+            EnterCore(
+                workType,
+                returnMousePosition,
+                baseHeaderDrawWidth,
+                returnMouseLocalPosition,
+                sourceWorkColumnSlot);
+        }
+
+        private static void EnterCore(
+            WorkTypeDef workType,
+            Vector2? returnMousePosition,
+            float baseHeaderDrawWidth,
+            Vector2? returnMouseLocalPosition,
+            int sourceWorkColumnSlot)
+        {
             if (workType == null)
             {
                 LogSubWork("Enter requested with null work type; exiting immediately.");
@@ -665,7 +699,12 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 : (Vector2?)null;
             _cursorMovedSinceEnter = false;
             EnsureSlotCache();
-            _entryWorkColumnSlot = VisibleWorkTypeSlots.TryGetValue(workType, out int slot) ? slot : -1;
+            // A chooser preview can rebuild the visible columns before the committed Enter call.
+            // Preserve the pre-animation parent-header slot when supplied so both directions pivot
+            // on the header the player actually opened, never a fallback edge of the rebuilt grid.
+            _entryWorkColumnSlot = sourceWorkColumnSlot >= 0
+                ? sourceWorkColumnSlot
+                : (VisibleWorkTypeSlots.TryGetValue(workType, out int slot) ? slot : -1);
             _exitWorkColumnSlot = -1;
             _exitWaveSlotPosition = -1f;
             _layoutRefreshPending = true;
@@ -674,7 +713,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 $"Enter workType={workType.defName}, slot={_entryWorkColumnSlot}, style={TransitionStyle}, animation={UseTransitionAnimation}, returnCursor={_returnMousePosition.HasValue}");
         }
 
-        internal static void Exit(int exitWorkColumnSlot = -1, float exitWaveSlotPosition = -1f)
+        internal static void Exit()
         {
             if (!IsActive)
             {
@@ -692,19 +731,19 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             if (_isExiting)
             {
                 LogSubWork(
-                    $"Exit requested while already exiting. workType={_activeWorkType.defName}, previousSlot={_exitWorkColumnSlot}, newSlot={exitWorkColumnSlot}");
+                    $"Exit requested while already exiting. workType={_activeWorkType.defName}, previousSlot={_exitWorkColumnSlot}");
             }
 
             _isExiting = true;
             _exitingAt = Time.realtimeSinceStartup;
 
-            _exitWorkColumnSlot = exitWorkColumnSlot >= 0 ? exitWorkColumnSlot : _entryWorkColumnSlot;
-            _exitWaveSlotPosition = exitWaveSlotPosition >= 0f
-                ? exitWaveSlotPosition
-                : _exitWorkColumnSlot;
+            // Closing is the inverse of opening: collapse into the original parent header,
+            // independent of which child cell, back label, or X button requested the exit.
+            _exitWorkColumnSlot = _entryWorkColumnSlot;
+            _exitWaveSlotPosition = _entryWorkColumnSlot;
             _layoutRefreshPending = true;
             LogSubWork(
-                $"Exit requested workType={_activeWorkType.defName}, triggerSlot={exitWorkColumnSlot}, triggerWaveSlot={exitWaveSlotPosition:0.###}, exitSlot={_exitWorkColumnSlot}, waveSlot={_exitWaveSlotPosition:0.###}, style={TransitionStyle}, cursorMoved={_cursorMovedSinceEnter}");
+                $"Exit requested workType={_activeWorkType.defName}, sourceSlot={_entryWorkColumnSlot}, exitSlot={_exitWorkColumnSlot}, waveSlot={_exitWaveSlotPosition:0.###}, style={TransitionStyle}, cursorMoved={_cursorMovedSinceEnter}");
         }
 
         internal static void TickTransition()

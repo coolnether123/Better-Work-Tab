@@ -190,10 +190,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 visualAlpha);
         }
 
-        internal static void ExitDrilldown(
-            bool restoreMousePosition = false,
-            int exitWorkColumnSlot = -1,
-            float exitWaveSlotPosition = -1f)
+        internal static void ExitDrilldown(bool restoreMousePosition = false)
         {
             TimePriorityScheduleEditor.CloseForWorkModeTransition();
             Vector2 returnMousePosition = Vector2.zero;
@@ -212,7 +209,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                     DebugFeature.SubWork);
             }
 
-            SubWorkDrilldownState.Exit(exitWorkColumnSlot, exitWaveSlotPosition);
+            SubWorkDrilldownState.Exit();
             WorkGrid.Invalidation.WorkTabInvalidationHub.Invalidate(WorkGrid.Contracts.WorkTabDirtyFlags.Columns | WorkGrid.Contracts.WorkTabDirtyFlags.HeaderGeometry);
 
             if (shouldRestoreMouse)

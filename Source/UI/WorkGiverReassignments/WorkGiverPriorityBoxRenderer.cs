@@ -270,7 +270,9 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             {
                 if (priority > WorkPrioritySystem.DisabledPriority)
                 {
-                    Text.Font = GameFont.Medium;
+                    Text.Font = boxRect.width <= WorkPriorityCellGeometry.CompactSubWorkBoxSize + 0.01f
+                        ? GameFont.Tiny
+                        : GameFont.Medium;
                     Text.Anchor = TextAnchor.MiddleCenter;
                     GUI.color = WithVisualAlpha(WorkPrioritySystem.GetPriorityColor(priority));
                     Widgets.Label(boxRect.ContractedBy(-3f), GetPriorityLabel(priority));
@@ -320,7 +322,9 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
             if (priority > 0)
             {
-                Text.Font = GameFont.Medium;
+                Text.Font = boxRect.width <= WorkPriorityCellGeometry.CompactSubWorkBoxSize + 0.01f
+                    ? GameFont.Tiny
+                    : GameFont.Medium;
                 Text.Anchor = TextAnchor.MiddleCenter;
                 GUI.color = WithVisualAlpha(WorkPrioritySystem.GetPriorityColor(priority));
                 Widgets.Label(boxRect.ContractedBy(-3f), GetPriorityLabel(priority));
@@ -400,7 +404,9 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             {
                 if (priority > WorkPrioritySystem.DisabledPriority)
                 {
-                    Text.Font = GameFont.Medium;
+                    Text.Font = boxRect.width <= WorkPriorityCellGeometry.CompactSubWorkBoxSize + 0.01f
+                        ? GameFont.Tiny
+                        : GameFont.Medium;
                     Text.Anchor = TextAnchor.MiddleCenter;
                     GUI.color = WithVisualAlpha(WorkPrioritySystem.GetPriorityColor(priority));
                     Widgets.Label(boxRect.ContractedBy(-3f), GetPriorityLabel(priority));

@@ -588,6 +588,19 @@ namespace Better_Work_Tab.UI.Settings
 
             Register(new SettingDefinition
             {
+                Id = SubWorkCompactPriorityBoxes,
+                ParentId = FeaturesSubWorkJobs,
+                FieldName = "useCompactSubWorkPriorityBoxes",
+                Label = "Compact Fluffy-style priority boxes",
+                Tooltip = "Use Fluffy's smaller 20-pixel boxes when specific jobs are expanded beside their Work type. BWT Focus View always keeps normal Work-priority sizing and appearance.",
+                Type = SettingType.Bool,
+                DefaultValue = DefaultSettings.useCompactSubWorkPriorityBoxes,
+                ShowInSimpleView = true,
+                SortOrder = 6
+            });
+
+            Register(new SettingDefinition
+            {
                 Id = SubWorkGlobalVanillaPriorityBoxes,
                 ParentId = FeaturesSubWorkJobs,
                 FieldName = "useVanillaSubWorkGlobalPriorityBoxes",
@@ -596,7 +609,7 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.useVanillaSubWorkGlobalPriorityBoxes,
                 ShowInSimpleView = true,
-                SortOrder = 6
+                SortOrder = 7
             });
 
             Register(new SettingDefinition
@@ -2913,6 +2926,7 @@ namespace Better_Work_Tab.UI.Settings
                         Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation("Are you sure you want to restore factory defaults? current settings will be lost.", () =>
                         {
                             settings.RestoreDefaults();
+                            WorkColumnOrderManager.ResetToVanilla();
                             settings.Write();
                             Messages.Message("Factory defaults restored.", MessageTypeDefOf.PositiveEvent, false);
                         }, true, "Confirm Restore"));

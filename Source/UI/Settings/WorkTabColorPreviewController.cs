@@ -12,6 +12,7 @@ namespace Better_Work_Tab.UI.Settings
         Column,
         RowAndColumn,
         Header,
+        HeaderText,
         Divider,
         LegendOnly
     }
@@ -123,8 +124,11 @@ namespace Better_Work_Tab.UI.Settings
                 case "angledHeaderColor":
                 case "Color_HeaderText":
                 case "headerUnderlineColor":
-                case "movedMarkerColor":
                     return WorkTabColorPreviewTarget.Header;
+                case "movedMarkerColor":
+                    // Moved-marker color changes the header glyphs themselves in both
+                    // angled and vanilla header renderers; preview that exact semantic.
+                    return WorkTabColorPreviewTarget.HeaderText;
                 case "Color_DividerText":
                 case "Color_Borders":
                     return WorkTabColorPreviewTarget.Divider;

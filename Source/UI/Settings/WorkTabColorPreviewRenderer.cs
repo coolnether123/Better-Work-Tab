@@ -1,5 +1,6 @@
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
+using RimWorld;
 using UnityEngine;
 using Verse;
 
@@ -17,7 +18,7 @@ namespace Better_Work_Tab.UI.Settings
                 layout?.Columns == null ||
                 layout.Rows == null ||
                 !WorkTabColorPreviewController.Instance.TryGetPreview(out WorkTabColorPreview preview) ||
-                !TryGetPreviewGeometry(layout, windowRect, out Rect rowRect, out Rect columnRect, out Rect cellRect, out Rect headerRect, out Rect dividerRect))
+                !TryGetPreviewGeometry(layout, windowRect, out Rect rowRect, out Rect columnRect, out Rect cellRect, out Rect headerRect, out Rect dividerRect, out string headerLabel, out string cellText))
             {
                 return;
             }
@@ -37,11 +38,14 @@ namespace Better_Work_Tab.UI.Settings
                 case WorkTabColorPreviewTarget.Header:
                     DrawHighlight(headerRect, preview.Color);
                     break;
+                case WorkTabColorPreviewTarget.HeaderText:
+                    DrawHeaderTextPreview(headerRect, headerLabel, preview.Color);
+                    break;
                 case WorkTabColorPreviewTarget.Divider:
                     DrawHighlight(dividerRect, preview.Color);
                     break;
                 case WorkTabColorPreviewTarget.CellText:
-                    DrawCellTextPreview(cellRect, preview.Color);
+                    DrawCellTextPreview(cellRect, cellText, preview.Color);
                     break;
                 case WorkTabColorPreviewTarget.CellIndicator:
                     DrawCellIndicatorPreview(cellRect, preview.Color);
@@ -63,13 +67,17 @@ namespace Better_Work_Tab.UI.Settings
             out Rect columnRect,
             out Rect cellRect,
             out Rect headerRect,
-            out Rect dividerRect)
+            out Rect dividerRect,
+            out string headerLabel,
+            out string cellText)
         {
             rowRect = default;
             columnRect = default;
             cellRect = default;
             headerRect = default;
             dividerRect = default;
+            headerLabel = string.Empty;
+            cellText = string.Empty;
 
             WorkTabLayoutColumn? workColumn = null;
             float gridXMin = float.MaxValue;
@@ -131,6 +139,8 @@ namespace Better_Work_Tab.UI.Settings
             }
 
             headerRect = workColumn.Value.HeaderRect;
+            headerLabel = workColumn.Value.Column?.LabelCap ?? "Work";
+            cellText = GetRepresentativeSkillLevel(pawnRow.Value, workColumn.Value);
             Rect pawnScreenRect = layout.GetScreenRect(pawnRow.Value);
             rowRect = Rect.MinMaxRect(gridXMin, pawnScreenRect.y, gridXMax, pawnScreenRect.yMax);
             columnRect = new Rect(
@@ -173,19 +183,54 @@ namespace Better_Work_Tab.UI.Settings
             DrawBorder(rect, color, 2f);
         }
 
-        private static void DrawCellTextPreview(Rect rect, Color color)
+        private static void DrawCellTextPreview(Rect rect, string text, Color color)
         {
-            Widgets.DrawBoxSolid(rect, new Color(0.035f, 0.04f, 0.045f, 0.92f));
+            // Skill-color settings recolor the number drawn over a real priority cell.
+            // Keep the live cell background and use this pawn's actual skill level so
+            // the preview cannot be mistaken for a fabricated priority value.
             GameFont oldFont = Text.Font;
             TextAnchor oldAnchor = Text.Anchor;
             Color oldColor = GUI.color;
             Text.Font = GameFont.Medium;
             Text.Anchor = TextAnchor.MiddleCenter;
             GUI.color = color;
-            Widgets.Label(rect, "12");
+            Widgets.Label(rect, text);
             GUI.color = oldColor;
             Text.Font = oldFont;
             Text.Anchor = oldAnchor;
+        }
+
+        private static string GetRepresentativeSkillLevel(
+            WorkTabLayoutRow row,
+            WorkTabLayoutColumn column)
+        {
+            WorkTypeDef workType = column.SubWorkParent ?? column.Column?.workType;
+            if (row.Pawn?.skills == null || workType?.relevantSkills == null || workType.relevantSkills.Count == 0)
+            {
+                return "—";
+            }
+
+            SkillRecord skill = row.Pawn.skills.GetSkill(workType.relevantSkills[0]);
+            return skill?.Level.ToString() ?? "—";
+        }
+
+        private static void DrawHeaderTextPreview(Rect rect, string label, Color color)
+        {
+            // This deliberately draws no fill or border: movedMarkerColor is a text
+            // color in the real header renderers, not a header-background highlight.
+            GameFont oldFont = Text.Font;
+            TextAnchor oldAnchor = Text.Anchor;
+            bool oldWordWrap = Text.WordWrap;
+            Color oldColor = GUI.color;
+            Text.Font = GameFont.Small;
+            Text.Anchor = TextAnchor.LowerCenter;
+            Text.WordWrap = false;
+            GUI.color = color;
+            Widgets.Label(rect, label);
+            GUI.color = oldColor;
+            Text.Font = oldFont;
+            Text.Anchor = oldAnchor;
+            Text.WordWrap = oldWordWrap;
         }
 
         private static void DrawCellIndicatorPreview(Rect rect, Color color)

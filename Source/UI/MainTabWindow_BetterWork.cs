@@ -117,7 +117,9 @@ namespace Better_Work_Tab.UI
         private const float InlineScheduleFooterReclaim = 18f;
         private const float HostedFirstSubWorkAngledHeaderOffsetX = 5f;
         private const float ChooserPanelHeight = 118f;
-        private const float ChooserWindowHeight = ChooserPanelHeight + 26f;
+        private const float ChooserRememberRowHeight = 24f;
+        private const float ChooserNoteHeight = 22f;
+        private const float ChooserWindowHeight = ChooserPanelHeight + ChooserRememberRowHeight + ChooserNoteHeight + 8f;
         private const float ChooserWindowGap = 6f;
         private const int ChooserImmediateWindowId = 984361;
 
@@ -139,9 +141,8 @@ namespace Better_Work_Tab.UI
         private int _pendingSubWorkButton;
         private bool _pendingSubWorkExit;
         private bool _pendingSubWorkRestoreCursor;
-        private int _pendingSubWorkExitColumnSlot = -1;
-        private float _pendingSubWorkExitWaveSlotPosition = -1f;
         private int _suppressSubWorkPriorityMouseDownFrame = -1;
+        private Rect _stableSubWorkChooserWindowRect;
         private bool _stableHorizontalScrollbarVisible;
         private bool _lastRawHorizontalOverflow;
         private bool _lastHorizontalScrollbarVisible;
@@ -1084,7 +1085,8 @@ namespace Better_Work_Tab.UI
                     layout,
                     evt,
                     out var workType,
-                    out var style))
+                    out var style,
+                    out int sourceWorkColumnSlot))
             {
                 return false;
             }
@@ -1106,10 +1108,12 @@ namespace Better_Work_Tab.UI
             {
                 if (!SubWorkDrilldownState.IsActive || SubWorkDrilldownState.ActiveWorkType != workType)
                 {
-                    SubWorkDrilldownState.Enter(
+                    SubWorkDrilldownState.EnterFromSourceSlot(
                         workType,
                         null,
-                        SubWorkDrilldownHeaderGeometry.GetBaseHeaderDrawWidth(layout?.Table, layout?.HeaderHeight ?? -1f));
+                        SubWorkDrilldownHeaderGeometry.GetBaseHeaderDrawWidth(layout?.Table, layout?.HeaderHeight ?? -1f),
+                        null,
+                        sourceWorkColumnSlot);
                 }
             }
 
@@ -1258,12 +1262,27 @@ namespace Better_Work_Tab.UI
 
         private void DrawSubWorkStyleChooserComparison(IWorkTabLayoutController layout)
         {
+            if (!FluffyWorkTabGateway.IsSubWorkStyleChooserActive)
+            {
+                _stableSubWorkChooserWindowRect = Rect.zero;
+                return;
+            }
+
             if (!CanShowChooserComparison(layout))
             {
                 return;
             }
 
-            Rect chooserWindowRect = GetChooserWindowRect();
+            // Hover previews deliberately animate the Work window and its columns. The
+            // chooser is an input surface, so its screen-space hitboxes must remain fixed
+            // from open until selection; otherwise the cursor can fall off a moving choice
+            // and repeatedly reverse the preview animation.
+            if (_stableSubWorkChooserWindowRect.width <= 1f || _stableSubWorkChooserWindowRect.height <= 1f)
+            {
+                _stableSubWorkChooserWindowRect = GetChooserWindowRect();
+            }
+
+            Rect chooserWindowRect = _stableSubWorkChooserWindowRect;
             Find.WindowStack.ImmediateWindow(
                 ChooserImmediateWindowId,
                 chooserWindowRect,
@@ -1272,6 +1291,11 @@ namespace Better_Work_Tab.UI
                 doBackground: false,
                 absorbInputAroundWindow: false,
                 shadowAlpha: 0.35f);
+
+            if (!FluffyWorkTabGateway.IsSubWorkStyleChooserActive)
+            {
+                _stableSubWorkChooserWindowRect = Rect.zero;
+            }
         }
 
         private void DrawSubWorkStyleChooserImmediateWindow(
@@ -1281,7 +1305,8 @@ namespace Better_Work_Tab.UI
             ChooserComparisonGeometry geometry = BuildChooserComparisonGeometry(inRect);
             FluffyWorkTabGateway.RegisterSubWorkStyleChooserRegions(
                 geometry.FocusRegion,
-                geometry.ExpandRegion);
+                geometry.ExpandRegion,
+                geometry.RememberRegion);
 
             Event evt = Event.current;
             if (evt.type != EventType.Repaint && evt.type != EventType.Layout)
@@ -1403,10 +1428,16 @@ namespace Better_Work_Tab.UI
             float choiceWidth = Mathf.Max(160f, (panelRect.width - panelGap) * 0.5f);
             Rect focusRegion = new Rect(panelRect.xMin, panelRect.yMin, choiceWidth, panelRect.height);
             Rect expandRegion = new Rect(focusRegion.xMax + panelGap, panelRect.yMin, choiceWidth, panelRect.height);
+            Rect rememberRegion = new Rect(
+                panelRect.xMin + 12f,
+                panelRect.yMax + 4f,
+                Mathf.Max(1f, panelRect.width - 24f),
+                ChooserRememberRowHeight);
 
             return new ChooserComparisonGeometry(
                 focusRegion,
-                expandRegion);
+                expandRegion,
+                rememberRegion);
         }
 
         private static void DrawChooserChoiceFrame(Rect region, string title, string description)
@@ -1435,14 +1466,17 @@ namespace Better_Work_Tab.UI
         {
             internal ChooserComparisonGeometry(
                 Rect focusRegion,
-                Rect expandRegion)
+                Rect expandRegion,
+                Rect rememberRegion)
             {
                 FocusRegion = focusRegion;
                 ExpandRegion = expandRegion;
+                RememberRegion = rememberRegion;
             }
 
             internal Rect FocusRegion { get; }
             internal Rect ExpandRegion { get; }
+            internal Rect RememberRegion { get; }
         }
 
         private void UpdateSortState(PawnTable table)
@@ -2727,6 +2761,15 @@ namespace Better_Work_Tab.UI
                 return false;
             }
 
+            // Ctrl is shared by header reordering and sub-work gestures. Once a real column
+            // drag has crossed its threshold it owns the gesture, even if the pointer later
+            // returns inside the original header before MouseUp.
+            if (PawnOrganizerSystem.Instance?.IsDraggingColumn == true)
+            {
+                ClearPendingSubWorkGesture();
+                return false;
+            }
+
             Event evt = Event.current;
             if (evt == null)
             {
@@ -2840,7 +2883,7 @@ namespace Better_Work_Tab.UI
                     return false;
                 }
 
-                ExitSubWorkDrilldownFromLayout(layout, evt.mousePosition, restoreMousePosition: false);
+                ExitSubWorkDrilldown(restoreMousePosition: false);
                 evt.Use();
                 return true;
             }
@@ -2948,6 +2991,14 @@ namespace Better_Work_Tab.UI
                 return false;
             }
 
+            // A Ctrl-drag of a BWT sub-work header must reorder the child column. It must
+            // never be reinterpreted as the Ctrl-click exit gesture on the final MouseUp.
+            if (PawnOrganizerSystem.Instance?.IsDraggingColumn == true)
+            {
+                ClearPendingSubWorkGesture();
+                return false;
+            }
+
             if (evt.type == EventType.KeyDown && evt.keyCode == KeyCode.Escape)
             {
                 if (SubWorkDrilldownState.IsActive)
@@ -2985,9 +3036,7 @@ namespace Better_Work_Tab.UI
                         layout,
                         evt.mousePosition,
                         out var bounds,
-                        out bool shouldRestoreCursor,
-                        out int detectedExitColumnSlot,
-                        out float detectedExitWaveSlotPosition))
+                        out bool shouldRestoreCursor))
                 {
                     ClearPendingSubWorkGesture();
                     return false;
@@ -3000,8 +3049,6 @@ namespace Better_Work_Tab.UI
                     openType: null,
                     exit: true,
                     restoreCursor: shouldRestoreCursor);
-                _pendingSubWorkExitColumnSlot = detectedExitColumnSlot;
-                _pendingSubWorkExitWaveSlotPosition = detectedExitWaveSlotPosition;
                 MarkSubWorkPriorityMouseDownForSuppression();
                 return false;
             }
@@ -3024,8 +3071,6 @@ namespace Better_Work_Tab.UI
 
             bool shouldExit = IsPendingSubWorkClick(evt.mousePosition);
             bool pendingRestoreCursor = _pendingSubWorkRestoreCursor;
-            int pendingExitColumnSlot = _pendingSubWorkExitColumnSlot;
-            float pendingExitWaveSlotPosition = _pendingSubWorkExitWaveSlotPosition;
             ClearPendingSubWorkGesture();
 
             if (!shouldExit)
@@ -3033,10 +3078,7 @@ namespace Better_Work_Tab.UI
                 return false;
             }
 
-            SubWorkDrilldownBarRenderer.ExitDrilldown(
-                restoreMousePosition: pendingRestoreCursor,
-                exitWorkColumnSlot: pendingExitColumnSlot,
-                exitWaveSlotPosition: pendingExitWaveSlotPosition);
+            SubWorkDrilldownBarRenderer.ExitDrilldown(restoreMousePosition: pendingRestoreCursor);
             evt.Use();
             return true;
         }
@@ -3109,14 +3151,10 @@ namespace Better_Work_Tab.UI
             IWorkTabLayoutController layout,
             Vector2 mousePosition,
             out Rect bounds,
-            out bool restoreCursor,
-            out int exitColumnSlot,
-            out float exitWaveSlotPosition)
+            out bool restoreCursor)
         {
             bounds = default;
             restoreCursor = false;
-            exitColumnSlot = -1;
-            exitWaveSlotPosition = -1f;
 
             Rect headerArea = new Rect(
                 layout.TableOrigin.x,
@@ -3128,8 +3166,6 @@ namespace Better_Work_Tab.UI
             {
                 bounds = headerArea;
                 restoreCursor = BetterWorkTabMod.Settings?.restoreCursorOnSubWorkExit ?? true;
-                exitColumnSlot = GetSubWorkColumnSlotAt(layout, mousePosition);
-                exitWaveSlotPosition = GetSubWorkColumnWavePositionAt(layout, mousePosition, exitColumnSlot);
                 return true;
             }
 
@@ -3144,8 +3180,6 @@ namespace Better_Work_Tab.UI
             {
                 bounds = globalPriorityBoxRect;
                 restoreCursor = false;
-                exitColumnSlot = SubWorkDrilldownState.GetVisibleWorkColumnSlot(globalColumn.Column);
-                exitWaveSlotPosition = GetSubWorkColumnWavePositionAt(layout, mousePosition, exitColumnSlot);
                 return true;
             }
 
@@ -3157,140 +3191,15 @@ namespace Better_Work_Tab.UI
             {
                 bounds = bodyPriorityBoxRect;
                 restoreCursor = BetterWorkTabMod.Settings?.restoreCursorOnSubWorkPawnCellExit ?? false;
-                exitColumnSlot = SubWorkDrilldownState.GetVisibleWorkColumnSlot(column.Column);
-                exitWaveSlotPosition = GetSubWorkColumnWavePositionAt(layout, mousePosition, exitColumnSlot);
                 return true;
             }
 
             return false;
         }
 
-        private int GetSubWorkColumnSlotAt(IWorkTabLayoutController layout, Vector2 mousePosition)
+        internal void ExitSubWorkDrilldown(bool restoreMousePosition)
         {
-            if (layout?.Columns == null)
-            {
-                return -1;
-            }
-
-            for (int i = 0; i < layout.Columns.Count; i++)
-            {
-                var column = layout.Columns[i];
-                if (mousePosition.x >= column.HeaderRect.xMin &&
-                    mousePosition.x <= column.HeaderRect.xMax &&
-                    column.Column?.Worker is PawnColumnWorker_WorkPriority)
-                {
-                    return SubWorkDrilldownState.GetVisibleWorkColumnSlot(column.Column);
-                }
-            }
-
-            return -1;
-        }
-
-        private float GetSubWorkColumnWavePositionAt(IWorkTabLayoutController layout, Vector2 mousePosition, int fallbackSlot)
-        {
-            if (layout?.Columns == null)
-            {
-                return fallbackSlot;
-            }
-
-            for (int i = 0; i < layout.Columns.Count; i++)
-            {
-                var column = layout.Columns[i];
-                if (!(column.Column?.Worker is PawnColumnWorker_WorkPriority))
-                {
-                    continue;
-                }
-
-                int slot = SubWorkDrilldownState.GetVisibleWorkColumnSlot(column.Column);
-                if (slot < 0)
-                {
-                    continue;
-                }
-
-                if (mousePosition.x >= column.HeaderRect.xMin &&
-                    mousePosition.x <= column.HeaderRect.xMax)
-                {
-                    float local = Mathf.Clamp01((mousePosition.x - column.HeaderRect.xMin) / Mathf.Max(1f, column.HeaderRect.width));
-                    return slot + local - 0.5f;
-                }
-            }
-
-            return fallbackSlot;
-        }
-
-        internal void ExitSubWorkDrilldownFromLayout(
-            IWorkTabLayoutController layout,
-            Vector2 triggerPosition,
-            bool restoreMousePosition)
-        {
-            int exitColumnSlot = -1;
-            float exitWaveSlotPosition = -1f;
-
-            if (layout != null)
-            {
-                Vector2 headerPosition = new Vector2(
-                    triggerPosition.x,
-                    layout.TableOrigin.y + (layout.HeaderHeight * 0.5f));
-                exitColumnSlot = GetSubWorkColumnSlotAt(layout, headerPosition);
-                exitWaveSlotPosition = GetSubWorkColumnWavePositionAt(layout, headerPosition, exitColumnSlot);
-
-                if (exitColumnSlot < 0 &&
-                    TryGetNearestSubWorkColumnWavePosition(layout, triggerPosition.x, out int nearestSlot, out float nearestWavePosition))
-                {
-                    exitColumnSlot = nearestSlot;
-                    exitWaveSlotPosition = nearestWavePosition;
-                }
-            }
-
-            SubWorkDrilldownBarRenderer.ExitDrilldown(
-                restoreMousePosition: restoreMousePosition,
-                exitWorkColumnSlot: exitColumnSlot,
-                exitWaveSlotPosition: exitWaveSlotPosition);
-        }
-
-        private static bool TryGetNearestSubWorkColumnWavePosition(
-            IWorkTabLayoutController layout,
-            float x,
-            out int slot,
-            out float waveSlotPosition)
-        {
-            slot = -1;
-            waveSlotPosition = -1f;
-            if (layout?.Columns == null)
-            {
-                return false;
-            }
-
-            float bestDistance = float.MaxValue;
-            for (int i = 0; i < layout.Columns.Count; i++)
-            {
-                var column = layout.Columns[i];
-                if (!(column.Column?.Worker is PawnColumnWorker_WorkPriority))
-                {
-                    continue;
-                }
-
-                int candidateSlot = SubWorkDrilldownState.GetVisibleWorkColumnSlot(column.Column);
-                if (candidateSlot < 0)
-                {
-                    continue;
-                }
-
-                Rect rect = column.HeaderRect;
-                float clampedX = Mathf.Clamp(x, rect.xMin, rect.xMax);
-                float distance = Mathf.Abs(x - clampedX);
-                if (distance >= bestDistance)
-                {
-                    continue;
-                }
-
-                float local = Mathf.Clamp01((clampedX - rect.xMin) / Mathf.Max(1f, rect.width));
-                bestDistance = distance;
-                slot = candidateSlot;
-                waveSlotPosition = candidateSlot + local - 0.5f;
-            }
-
-            return slot >= 0;
+            SubWorkDrilldownBarRenderer.ExitDrilldown(restoreMousePosition: restoreMousePosition);
         }
 
         private bool TryGetPriorityBoxHit(
@@ -3523,8 +3432,6 @@ namespace Better_Work_Tab.UI
             _pendingSubWorkButton = -1;
             _pendingSubWorkExit = false;
             _pendingSubWorkRestoreCursor = false;
-            _pendingSubWorkExitColumnSlot = -1;
-            _pendingSubWorkExitWaveSlotPosition = -1f;
         }
 
         private void MarkSubWorkPriorityMouseDownForSuppression()
@@ -4587,7 +4494,7 @@ namespace Better_Work_Tab.UI
                             expandedWorkGiver,
                             expandedParentWorkType,
                             pawn,
-                            WorkPriorityCellGeometry.GetPriorityBoxRect(cellRect),
+                            WorkPriorityCellGeometry.GetFluffyStyleSubWorkPriorityBoxRect(cellRect),
                             knownParentPriority: expandedParentPriority);
                         continue;
                     }
@@ -4970,16 +4877,9 @@ namespace Better_Work_Tab.UI
                 buttonSize,
                 buttonSize);
 
-            Vector2 triggerPosition = Event.current != null && exitRect.Contains(Event.current.mousePosition)
-                ? Event.current.mousePosition
-                : exitRect.center;
-
             if (Widgets.ButtonImage(exitRect, TexButton.CloseXSmall, Color.white, GenUI.MouseoverColor))
             {
-                ExitSubWorkDrilldownFromLayout(
-                    PawnOrganizerSystem.Instance?.Layout,
-                    triggerPosition,
-                    restoreMousePosition: false);
+                ExitSubWorkDrilldown(restoreMousePosition: false);
             }
 
             TooltipHandler.TipRegion(exitRect, "Back to work types. " + SubWorkDrilldownInput.GestureLabel() + " or press Escape to return.");

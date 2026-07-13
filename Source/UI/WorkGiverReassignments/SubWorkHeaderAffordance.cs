@@ -17,7 +17,8 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
     internal static class SubWorkHeaderAffordance
     {
         private const float AffordanceMinWidth = 16f;
-        private const float AffordanceHeight = 11f;
+        internal const float AffordanceHeight = 11f;
+        internal const float AffordanceBottomInset = 2f;
         private const float AffordanceInset = 3f;
         private const float AngledAffordanceRightOffset = 9f;
         private const float BackBadgeSize = 18f;
@@ -52,7 +53,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
             return new Rect(
                 Mathf.Round(headerRect.center.x - (width / 2f) + xOffset),
-                Mathf.Round(headerRect.yMax - AffordanceHeight - 2f),
+                Mathf.Round(headerRect.yMax - AffordanceHeight - AffordanceBottomInset),
                 width,
                 AffordanceHeight);
         }
@@ -190,7 +191,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             float width = Mathf.Max(AffordanceMinWidth, headerRect.width - (AffordanceInset * 2f));
             return new Rect(
                 Mathf.Round(headerRect.center.x - (width / 2f)),
-                Mathf.Round(headerRect.yMax - AffordanceHeight - 2f),
+                Mathf.Round(headerRect.yMax - AffordanceHeight - AffordanceBottomInset),
                 width,
                 AffordanceHeight);
         }
@@ -328,9 +329,14 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                     : new Color(0.82f, 0.84f, 0.82f, 0.82f);
 
                 float rotation = BetterWorkTabMod.Settings?.angledHeaderRotation ?? -60f;
+                // Header rectangles are local to the Work-window GUI group, while GUI.matrix
+                // rotates in root GUI space. Using rect.center directly rotates around a point
+                // hundreds of pixels above the actual header and sends the affordance onto the
+                // map. Match AngledLabelDrawer by converting the pivot to root coordinates.
+                Vector2 rootPivot = GUIClipUtility.Unclip(rect.center);
                 GUI.matrix = AngledLabelDrawer.GetTransformMatrix(
                     oldMatrix,
-                    rect.center,
+                    rootPivot,
                     rotation,
                     Vector2.one);
                 DrawAffordanceRails(rect);

@@ -417,10 +417,9 @@ namespace Better_Work_Tab.Patches
 
         private static void DrawSubWorkPriorityCell(Rect rect, Pawn pawn, WorkTypeDef parentWorkType, WorkGiver workGiver)
         {
-            const float boxSize = 25f;
-            float x = rect.x + (rect.width - boxSize) / 2f;
-            float y = rect.y + SkillBoxVerticalPadding;
-            Rect boxRect = new Rect(x, y, boxSize, boxSize);
+            // BWT Focus View deliberately retains BWT/vanilla-sized Work boxes.
+            // Compact 20 px boxes belong only to the Fluffy-style expand-beside path.
+            Rect boxRect = WorkPriorityCellGeometry.GetPriorityBoxRect(rect);
             float visualAlpha = 1f;
             float visualScale = 1f;
             if (SubWorkDrilldownState.IsActive)

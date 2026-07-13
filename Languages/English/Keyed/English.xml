@@ -16,7 +16,9 @@
 <BWT_SubWork_Chooser_ExpandTitle>Fluffy-style expansion</BWT_SubWork_Chooser_ExpandTitle>
 <BWT_SubWork_Chooser_ExpandDescription>Keep Work columns visible and expand specific jobs beside this Work.</BWT_SubWork_Chooser_ExpandDescription>
 <BWT_SubWork_Chooser_UseThisView>Use this view</BWT_SubWork_Chooser_UseThisView>
+<BWT_SubWork_Chooser_RememberChoice>Remember my choice</BWT_SubWork_Chooser_RememberChoice>
 <BWT_SubWork_Chooser_SettingsNote>You can change this any time in Better Work Tab's settings.</BWT_SubWork_Chooser_SettingsNote>
+<BWT_SubWork_Chooser_AskAgainNote>You will be asked again next time.</BWT_SubWork_Chooser_AskAgainNote>
 <BWT_SubWork_CtrlClickNotice_Title>Specific jobs shortcut</BWT_SubWork_CtrlClickNotice_Title>
 <BWT_SubWork_CtrlClickNotice_Text>You Ctrl-clicked a Work header to open specific jobs. Should Ctrl-click be your default way to open and leave specific jobs?</BWT_SubWork_CtrlClickNotice_Text>
 <BWT_SubWork_CtrlClickNotice_UseCtrl>Use Ctrl-click</BWT_SubWork_CtrlClickNotice_UseCtrl>

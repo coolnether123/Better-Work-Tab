@@ -37,10 +37,13 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
         private static bool _chooserActive;
         private static WorkTypeDef _chooserWorkType;
         private static Rect _chooserSourceRect;
+        private static int _chooserSourceWorkColumnSlot = -1;
         private static Rect _focusChoiceRegionRect;
         private static Rect _expandChoiceRegionRect;
         private static Rect _focusChoiceButtonRect;
         private static Rect _expandChoiceButtonRect;
+        private static Rect _rememberChoiceRect;
+        private static bool _chooserRememberChoice = true;
         private static BetterWorkTabSettings.SubWorkDrilldownStyle _chooserPreviewStyle =
             BetterWorkTabSettings.SubWorkDrilldownStyle.NotChosen;
         private static WorkTypeDef _chooserPreviewWorkType;
@@ -377,6 +380,20 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             _chooserActive = true;
             _chooserWorkType = workType;
             _chooserSourceRect = sourceRect;
+            _chooserSourceWorkColumnSlot = -1;
+            if (layout?.Columns != null)
+            {
+                for (int i = 0; i < layout.Columns.Count; i++)
+                {
+                    WorkTabLayoutColumn column = layout.Columns[i];
+                    if (!column.IsExpandBesideChild && column.Column?.workType == workType)
+                    {
+                        _chooserSourceWorkColumnSlot = SubWorkDrilldownState.GetVisibleWorkColumnSlot(column.Column);
+                        break;
+                    }
+                }
+            }
+            _chooserRememberChoice = true;
             CenterChooserSourceColumn(layout, instant: false);
             return true;
         }
@@ -407,10 +424,14 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             ClearSubWorkDrilldownStyleChooser();
         }
 
-        internal static void RegisterSubWorkStyleChooserRegions(Rect focusRegion, Rect expandRegion)
+        internal static void RegisterSubWorkStyleChooserRegions(
+            Rect focusRegion,
+            Rect expandRegion,
+            Rect rememberRegion)
         {
             _focusChoiceRegionRect = focusRegion;
             _expandChoiceRegionRect = expandRegion;
+            _rememberChoiceRect = rememberRegion;
 
             _focusChoiceButtonRect = BuildChoiceButtonRect(
                 focusRegion,
@@ -424,10 +445,12 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             IWorkTabLayoutController layout,
             Event evt,
             out WorkTypeDef workType,
-            out BetterWorkTabSettings.SubWorkDrilldownStyle style)
+            out BetterWorkTabSettings.SubWorkDrilldownStyle style,
+            out int sourceWorkColumnSlot)
         {
             workType = null;
             style = BetterWorkTabSettings.SubWorkDrilldownStyle.NotChosen;
+            sourceWorkColumnSlot = -1;
             if (!_chooserActive || evt == null)
             {
                 return false;
@@ -445,6 +468,14 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                 return false;
             }
 
+            if (_rememberChoiceRect.Contains(evt.mousePosition))
+            {
+                _chooserRememberChoice = !_chooserRememberChoice;
+                evt.Use();
+                SoundDefOf.Checkbox_TurnedOn.PlayOneShotOnCamera();
+                return true;
+            }
+
             if (_focusChoiceButtonRect.Contains(evt.mousePosition))
             {
                 style = BetterWorkTabSettings.SubWorkDrilldownStyle.FocusView;
@@ -460,10 +491,14 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             }
 
             workType = _chooserWorkType;
-            BetterWorkTabMod.Settings.subWorkDrilldownStyle = style;
-            BetterWorkTabMod.Settings.subWorkCtrlClickNoticeDismissed = true;
-            BetterWorkTabMod.Settings.Write();
-            PriorityAuthorityBroker.NotifyPotentialAuthorityChanged();
+            sourceWorkColumnSlot = _chooserSourceWorkColumnSlot;
+            if (_chooserRememberChoice)
+            {
+                BetterWorkTabMod.Settings.subWorkDrilldownStyle = style;
+                BetterWorkTabMod.Settings.subWorkCtrlClickNoticeDismissed = true;
+                BetterWorkTabMod.Settings.Write();
+                PriorityAuthorityBroker.NotifyPotentialAuthorityChanged();
+            }
             ClearSubWorkDrilldownStyleChooser(clearPreview: false);
             evt.Use();
             SoundDefOf.Tick_High.PlayOneShotOnCamera();
@@ -492,10 +527,12 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             if (hoverStyle == BetterWorkTabSettings.SubWorkDrilldownStyle.FocusView)
             {
                 SubWorkDrilldownState.CollapseAllExpandBeside();
-                SubWorkDrilldownState.Enter(
+                SubWorkDrilldownState.EnterFromSourceSlot(
                     _chooserWorkType,
                     null,
-                    SubWorkDrilldownHeaderGeometry.GetBaseHeaderDrawWidth(layout?.Table, layout?.HeaderHeight ?? -1f));
+                    SubWorkDrilldownHeaderGeometry.GetBaseHeaderDrawWidth(layout?.Table, layout?.HeaderHeight ?? -1f),
+                    null,
+                    _chooserSourceWorkColumnSlot);
                 _chooserPreviewStyle = hoverStyle;
                 _chooserPreviewWorkType = _chooserWorkType;
                 UI.WorkGrid.Invalidation.WorkTabInvalidationHub.Invalidate(UI.WorkGrid.Contracts.WorkTabDirtyFlags.Columns | UI.WorkGrid.Contracts.WorkTabDirtyFlags.HeaderGeometry);
@@ -535,6 +572,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                 _expandChoiceButtonRect,
                 "BWT_SubWork_Chooser_ExpandTitle".Translate(),
                 hoverStyle == BetterWorkTabSettings.SubWorkDrilldownStyle.ExpandBeside);
+            DrawRememberChoice();
             DrawSubWorkStyleChooserNote(inRect);
         }
 
@@ -844,12 +882,13 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
         private static void DrawSubWorkStyleChooserNote(Rect inRect)
         {
             Rect noteRect;
-            if (_focusChoiceRegionRect.width > 1f && _expandChoiceRegionRect.width > 1f)
+            if (_rememberChoiceRect.width > 1f)
             {
-                float xMin = Mathf.Min(_focusChoiceRegionRect.xMin, _expandChoiceRegionRect.xMin);
-                float xMax = Mathf.Max(_focusChoiceRegionRect.xMax, _expandChoiceRegionRect.xMax);
-                float yMax = Mathf.Max(_focusChoiceRegionRect.yMax, _expandChoiceRegionRect.yMax);
-                noteRect = new Rect(xMin, yMax + 4f, Mathf.Max(1f, xMax - xMin), 22f);
+                noteRect = new Rect(
+                    _rememberChoiceRect.xMin,
+                    _rememberChoiceRect.yMax,
+                    _rememberChoiceRect.width,
+                    22f);
             }
             else
             {
@@ -859,10 +898,49 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.UpperCenter;
             GUI.color = new Color(1f, 1f, 1f, 0.7f);
-            Widgets.Label(noteRect, "BWT_SubWork_Chooser_SettingsNote".Translate());
+            Widgets.Label(
+                noteRect,
+                (_chooserRememberChoice
+                    ? "BWT_SubWork_Chooser_SettingsNote"
+                    : "BWT_SubWork_Chooser_AskAgainNote").Translate());
             GUI.color = Color.white;
             Text.Anchor = TextAnchor.UpperLeft;
             Text.Font = GameFont.Small;
+        }
+
+        private static void DrawRememberChoice()
+        {
+            if (_rememberChoiceRect.width <= 1f || _rememberChoiceRect.height <= 1f)
+            {
+                return;
+            }
+
+            if (Mouse.IsOver(_rememberChoiceRect))
+            {
+                Widgets.DrawHighlight(_rememberChoiceRect);
+            }
+
+            const float checkboxSize = 20f;
+            Rect checkboxRect = new Rect(
+                _rememberChoiceRect.xMin + 4f,
+                _rememberChoiceRect.center.y - (checkboxSize * 0.5f),
+                checkboxSize,
+                checkboxSize);
+            GUI.color = Color.white;
+            GUI.DrawTexture(
+                checkboxRect,
+                _chooserRememberChoice ? Widgets.CheckboxOnTex : Widgets.CheckboxOffTex);
+
+            Text.Font = GameFont.Small;
+            Text.Anchor = TextAnchor.MiddleLeft;
+            Widgets.Label(
+                new Rect(
+                    checkboxRect.xMax + 7f,
+                    _rememberChoiceRect.y,
+                    Mathf.Max(1f, _rememberChoiceRect.xMax - checkboxRect.xMax - 11f),
+                    _rememberChoiceRect.height),
+                "BWT_SubWork_Chooser_RememberChoice".Translate());
+            Text.Anchor = TextAnchor.UpperLeft;
         }
 
         private static void ClearSubWorkDrilldownStyleChooser(bool clearPreview = true)
@@ -880,10 +958,13 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             _chooserActive = false;
             _chooserWorkType = null;
             _chooserSourceRect = Rect.zero;
+            _chooserSourceWorkColumnSlot = -1;
             _focusChoiceRegionRect = Rect.zero;
             _expandChoiceRegionRect = Rect.zero;
             _focusChoiceButtonRect = Rect.zero;
             _expandChoiceButtonRect = Rect.zero;
+            _rememberChoiceRect = Rect.zero;
+            _chooserRememberChoice = true;
             DebugForcedSubWorkStyleChooserHover = BetterWorkTabSettings.SubWorkDrilldownStyle.NotChosen;
         }
 

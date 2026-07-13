@@ -41,7 +41,14 @@ namespace Better_Work_Tab.Features.Workloads
             TimePriorityScheduleEditor.ResetForGameTransition();
 
             if (MultiplayerBridge.Active)
+            {
+                // Local profiles use a standalone Scribe document. Game.FinalizeInit runs only
+                // after the save game's ScribeLoader.FinalizeLoading has completed, so this is
+                // the safe lifecycle boundary for profile I/O. Never move this call into
+                // ExposeData: doing so nests the global Scribe loader and invalidates RimWorld's
+                // PostLoadIniter enumeration during Multiplayer save/reload.
                 BWTLocalProfileStore.LoadOrCreateForCurrentSession();
+            }
 
             WorkColumnOrderManager.InitializeOnGameLoad();
 
@@ -101,15 +108,11 @@ namespace Better_Work_Tab.Features.Workloads
             }
             else
             {
-                if (Scribe.mode == LoadSaveMode.PostLoadInit)
-                {
-                    BWTLocalProfileStore.LoadOrCreateForCurrentSession();
-                }
-
                 if (Scribe.mode == LoadSaveMode.Saving)
                 {
-                    // Don't call SaveIfDirty() here - it would nest Scribe operations!
-                    // Just mark dirty; the timer in GameComponentUpdate() will save it
+                    // Local profiles are separate per-player documents. Mark the profile dirty
+                    // here, then let GameComponentUpdate save it after the enclosing game save
+                    // has released the global Scribe state.
                     BWTLocalProfileStore.MarkDirty();
                 }
             }

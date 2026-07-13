@@ -12,6 +12,9 @@ namespace Better_Work_Tab.Features.Tutorial
     internal enum BWTGeneralTutorialStep
     {
         Welcome = 0,
+        ChooseInterest = 5,
+        // Retained so existing saves deserialize safely. NormalizeStep migrates
+        // this old vanilla-oriented lesson to BWT's priority-range lesson.
         ManualPriorities = 10,
         ShiftSkills = 20,
         PawnMenu = 30,
@@ -134,22 +137,6 @@ namespace Better_Work_Tab.Features.Tutorial
             }
 
             BWTGeneralTutorialStep currentStep = NormalizeStep(settings);
-            if (currentStep == BWTGeneralTutorialStep.Welcome)
-            {
-                if (BWTTutorialUserContext.HasExternalWorkTabPriorityHistory())
-                {
-                    BWTWorkTabTutorial.Start2TutorialAt(BWTBetaTutorialStep.SubWorkPrompt);
-                    return;
-                }
-
-                if (BWTTutorialUserContext.HasExternalPriorityProvider() &&
-                    BWTTutorialUserContext.PriorityModeIsNotBetterWorkTab())
-                {
-                    SetStep(BWTGeneralTutorialStep.MaxPriorities);
-                    return;
-                }
-            }
-
             if (currentStep == BWTGeneralTutorialStep.ShiftSkills &&
                 (Event.current?.shift ?? false))
             {
@@ -233,7 +220,7 @@ namespace Better_Work_Tab.Features.Tutorial
             {
                 case BWTTutorialInteractionKind.ManualPriorities:
                 case BWTTutorialInteractionKind.PriorityLegend:
-                    return BWTGeneralTutorialStep.ManualPriorities;
+                    return BWTGeneralTutorialStep.MaxPriorities;
                 case BWTTutorialInteractionKind.PriorityCell:
                     if (interaction.Control)
                     {
@@ -283,6 +270,12 @@ namespace Better_Work_Tab.Features.Tutorial
                 settings.generalTutorialStep = rawStep;
             }
 
+            if (rawStep == (int)BWTGeneralTutorialStep.ManualPriorities)
+            {
+                rawStep = (int)BWTGeneralTutorialStep.MaxPriorities;
+                settings.generalTutorialStep = rawStep;
+            }
+
             return (BWTGeneralTutorialStep)rawStep;
         }
 
@@ -292,18 +285,20 @@ namespace Better_Work_Tab.Features.Tutorial
             {
                 case BWTGeneralTutorialStep.Welcome:
                     return new TutorialOverlayContent(
-                        "What do you use the Work tab for?",
-                        "Pick the closest path. Better Work Tab will start with that workflow and then pivot when you click into other parts of the tab.",
+                        "Better Work Tab",
+                        "This walkthrough covers Better Work Tab features and shortcuts. It skips ordinary vanilla Work tab behavior.",
+                        "Continue",
+                        "Already know Better Work Tab",
+                        null);
+
+                case BWTGeneralTutorialStep.ChooseInterest:
+                    return new TutorialOverlayContent(
+                        "What interests you first?",
+                        "Choose a Better Work Tab workflow. The tutorial starts there, and you can explore the other features afterward.",
                         "Sub-work and schedules",
                         "Already know Better Work Tab",
                         "Pawns and layout",
-                        "Priorities");
-
-                case BWTGeneralTutorialStep.ManualPriorities:
-                    return new TutorialOverlayContent(
-                        "Manual priorities",
-                        "Manual priorities switch the Work tab from simple checkmarks to numbered priorities. Lower numbers run first, and disabled work stays off.",
-                        "Next");
+                        "Automation and priorities");
 
                 case BWTGeneralTutorialStep.ShiftSkills:
                     return new TutorialOverlayContent(
@@ -506,10 +501,10 @@ namespace Better_Work_Tab.Features.Tutorial
             switch (step)
             {
                 case BWTGeneralTutorialStep.Welcome:
-                    BWTWorkTabTutorial.Start2TutorialAt(BWTBetaTutorialStep.SubWorkPrompt);
+                    SetStep(BWTGeneralTutorialStep.ChooseInterest);
                     break;
-                case BWTGeneralTutorialStep.ManualPriorities:
-                    SetStep(BWTGeneralTutorialStep.ShiftSkills);
+                case BWTGeneralTutorialStep.ChooseInterest:
+                    BWTWorkTabTutorial.Start2TutorialAt(BWTBetaTutorialStep.SubWorkPrompt);
                     break;
                 case BWTGeneralTutorialStep.ShiftSkills:
                     SetStep(BWTGeneralTutorialStep.PawnMenu);
@@ -611,7 +606,7 @@ namespace Better_Work_Tab.Features.Tutorial
         {
             switch (step)
             {
-                case BWTGeneralTutorialStep.Welcome:
+                case BWTGeneralTutorialStep.ChooseInterest:
                     SetStep(BWTGeneralTutorialStep.PawnMenu);
                     break;
                 case BWTGeneralTutorialStep.MaxPriorities:
@@ -625,9 +620,9 @@ namespace Better_Work_Tab.Features.Tutorial
 
         private static void HandleTertiaryButton(BWTGeneralTutorialStep step)
         {
-            if (step == BWTGeneralTutorialStep.Welcome)
+            if (step == BWTGeneralTutorialStep.ChooseInterest)
             {
-                SetStep(BWTGeneralTutorialStep.ManualPriorities);
+                SetStep(BWTGeneralTutorialStep.Workloads);
             }
         }
 

@@ -336,8 +336,9 @@ namespace Better_Work_Tab.Features.Tutorial
                     return new TutorialOverlayContent(
                         "Better Work Tab 2.0",
                         "A short walkthrough for sub-work jobs, time priority schedules, and expanded priority ranges. It follows the Work tab as you try each feature.",
-                        "Continue tutorial",
-                        "Already know Better Work Tab");
+                        "Continue",
+                        "Already know Better Work Tab",
+                        null);
 
                 case BWTBetaTutorialStep.SubWorkPrompt:
                     return new TutorialOverlayContent(

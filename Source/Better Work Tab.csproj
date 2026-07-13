@@ -33,6 +33,9 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == '1.6|AnyCPU'">
     <OutputPath>..\1.6\Assemblies\</OutputPath>
+    <Optimize>true</Optimize>
+    <DebugType>pdbonly</DebugType>
+    <DefineConstants>TRACE</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System.Core" />
@@ -114,6 +117,7 @@
     <Compile Include="Features\Testing\AgentHarnessUtility.cs" />
     <Compile Include="Features\Testing\RuleBuilder2AgentHarness.cs" />
     <Compile Include="Features\Testing\SubWorkTransitionPerfDiagnostics.cs" />
+    <Compile Include="Features\Testing\WorkTabGeometryContractValidator.cs" />
     <Compile Include="Features\Testing\WorkTabGeometryDiagnostics.cs" />
     <Compile Include="Features\Testing\WorkTabProfilingState.cs" />
     <Compile Include="Features\Testing\WorkGridRendererExceptionProbe.cs" />
@@ -195,6 +199,7 @@
     <Compile Include="Spine\RimWorld\Rendering\GuiState\GuiStateScope.cs" />
     <Compile Include="Spine\RimWorld\Rendering\Atlases\RenderAtlasContracts.cs" />
     <Compile Include="Spine\RimWorld\Lifecycle\RenderLifecycleContracts.cs" />
+    <Compile Include="Spine\RimWorld\Serialization\ScribeIsolationGuard.cs" />
     <Compile Include="Spine\RimWorld\Compatibility\RimWorldRenderCompatibilityContracts.cs" />
     <Compile Include="Spine\DragDrop\DragEndReason.cs" />
     <Compile Include="Spine\DragDrop\Util\HeightCache.cs" />
@@ -298,6 +303,7 @@
     <Compile Include="UI\Settings\BWTWorkTabContextSettingsRouter.cs" />
     <Compile Include="UI\Settings\BWTSettingsImportExportActions.cs" />
     <Compile Include="UI\Settings\BWTSettingsJsonService.cs" />
+    <Compile Include="UI\Settings\LegacySettingsJsonImporter.cs" />
     <Compile Include="UI\Settings\Dialog_BWTSettingsJsonPath.cs" />
     <Compile Include="UI\Settings\BWTSettingsRegistry.cs" />
     <Compile Include="UI\Settings\WorkTabColorPreviewController.cs" />

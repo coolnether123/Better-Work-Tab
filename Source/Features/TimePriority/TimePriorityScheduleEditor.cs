@@ -68,6 +68,10 @@ namespace Better_Work_Tab.Features.TimePriority
 
         internal static bool IsVisible => IsEnabled && _session != null;
 
+        // Geometry automation must sample the settled 24-hour cells. Exposing the
+        // transition state here keeps the test seam aligned with the animation owner.
+        internal static bool IsTransitioning => IsVisible && GetProgress() < 0.999f;
+
         internal static bool TryGetLastPanelRect(out Rect rect)
         {
             rect = _lastPanelRect;
@@ -796,6 +800,31 @@ namespace Better_Work_Tab.Features.TimePriority
                     + "," + Format(diagnostic.LabelRect.center.y - diagnostic.BoxRect.center.y) + ")");
             }
         }
+
+        // Read-only test seam: callers can verify the exact rectangles rendered on the
+        // last Repaint without duplicating the schedule editor's private draw model.
+        internal static bool TryGetScheduleCellGeometry(
+            int index,
+            out Rect cellRect,
+            out Rect boxRect,
+            out Rect labelRect)
+        {
+            if (index < 0 || index >= LastScheduleCellDiagnostics.Count)
+            {
+                cellRect = Rect.zero;
+                boxRect = Rect.zero;
+                labelRect = Rect.zero;
+                return false;
+            }
+
+            ScheduleCellDiagnostic diagnostic = LastScheduleCellDiagnostics[index];
+            cellRect = diagnostic.CellRect;
+            boxRect = diagnostic.BoxRect;
+            labelRect = diagnostic.LabelRect;
+            return true;
+        }
+
+        internal static int ScheduleCellGeometryCount => LastScheduleCellDiagnostics.Count;
 
         private static void FinishCloseIfComplete()
         {
@@ -1604,7 +1633,9 @@ namespace Better_Work_Tab.Features.TimePriority
 
         private static Rect GetInlineTimelineRect(Rect rowRect, float timelineX, float timelineWidth)
         {
-            float height = Mathf.Max(1f, rowRect.height - InlineTimelineVerticalInset);
+            float height = Mathf.Min(
+                InlineTimelineHeight,
+                Mathf.Max(1f, rowRect.height - InlineTimelineVerticalInset));
             return new Rect(
                 timelineX,
                 rowRect.yMin + (rowRect.height - height) / 2f,
