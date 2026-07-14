@@ -849,7 +849,7 @@ namespace Better_Work_Tab.Patches
                 return false;
             }
 
-            int currentPriority = pawn.workSettings.GetPriority(workType);
+            int currentPriority = WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType);
             int direction = evt.delta.y > 0 ? -1 : 1;
             int nextPriority = Find.PlaySettings.useWorkPriorities
                 ? WorkPrioritySystem.GetPriorityAfterBoundedStep(currentPriority, direction)
@@ -898,7 +898,7 @@ namespace Better_Work_Tab.Patches
                 }
 
                 bool wasActive = pawn.workSettings.WorkIsActive(workType);
-                int currentPriority = pawn.workSettings.GetPriority(workType);
+                int currentPriority = WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType);
                 int nextPriority = WorkPrioritySystem.GetPriorityAfterMouseButton(currentPriority, evt.button);
 
                 if (nextPriority != currentPriority)

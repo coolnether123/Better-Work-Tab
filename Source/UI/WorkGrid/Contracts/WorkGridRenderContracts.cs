@@ -8,6 +8,13 @@ using UnityEngine;
 
 namespace Better_Work_Tab.UI.WorkGrid.Contracts
 {
+    public enum WorkGridRendererMode
+    {
+        Auto,
+        Optimized,
+        Legacy
+    }
+
     [Flags]
     public enum WorkTabDirtyFlags
     {

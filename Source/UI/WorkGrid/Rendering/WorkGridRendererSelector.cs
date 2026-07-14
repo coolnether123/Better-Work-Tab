@@ -17,6 +17,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
     public enum WorkGridFallbackReasonCode
     {
         None,
+        UserSelectedLegacy,
         ForcedLegacy,
         OptimizedUnavailable,
         ForcedOptimizedUnavailable,
@@ -189,12 +190,19 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
         internal WorkGridRendererSelection Select(
             IWorkGridRenderer legacy,
+            WorkGridRendererMode userMode,
             WorkGridForcedRendererMode forcedMode,
             in WorkGridRenderContext context)
         {
             if (forcedMode == WorkGridForcedRendererMode.ForceLegacy)
             {
                 return Legacy(legacy, WorkGridFallbackReasonCode.ForcedLegacy);
+            }
+
+            if (userMode == WorkGridRendererMode.Legacy &&
+                forcedMode == WorkGridForcedRendererMode.None)
+            {
+                return Legacy(legacy, WorkGridFallbackReasonCode.UserSelectedLegacy);
             }
 
             if (forcedMode == WorkGridForcedRendererMode.ForceOptimizedUnavailable)

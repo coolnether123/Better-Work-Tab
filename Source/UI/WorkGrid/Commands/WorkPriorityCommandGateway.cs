@@ -188,6 +188,21 @@ namespace Better_Work_Tab.UI.WorkGrid.Commands
                 return false;
             }
 
+            int basePriority = WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, workType);
+            TimePriorityEvaluation presentation =
+                TimePriorityService.EvaluateWorkTypePriority(pawn, workType, basePriority);
+            if (presentation.HasSchedule && basePriority > WorkPrioritySystem.DisabledPriority)
+            {
+                // A scheduled cell displays the current hour's effective priority. Mutate that
+                // same value so a click cannot appear to revert by changing only the hidden base.
+                TimePriorityService.SetPriorityAtHourSynced(
+                    presentation.Target,
+                    presentation.Hour,
+                    priority,
+                    basePriority);
+                return true;
+            }
+
             WorkPrioritySystem.SetPriority(pawn.workSettings, workType, priority);
             return true;
         }

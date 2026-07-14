@@ -54,6 +54,9 @@
     
     <BWT_Settings_advanced>Maintenance</BWT_Settings_advanced>
     <BWT_Settings_advanced_Desc>Debug, reset, experimental options</BWT_Settings_advanced_Desc>
+    <BWT_Enum_WorkGridRendererMode_Auto>Auto</BWT_Enum_WorkGridRendererMode_Auto>
+    <BWT_Enum_WorkGridRendererMode_Optimized>Optimized</BWT_Enum_WorkGridRendererMode_Optimized>
+    <BWT_Enum_WorkGridRendererMode_Legacy>Vanilla</BWT_Enum_WorkGridRendererMode_Legacy>
     
     <!-- Highlights Settings -->
     <BWT_Settings_highlights.masterToggle>Enable All Highlights</BWT_Settings_highlights.masterToggle>

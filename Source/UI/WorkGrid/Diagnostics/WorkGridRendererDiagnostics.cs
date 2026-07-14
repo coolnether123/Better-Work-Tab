@@ -40,17 +40,20 @@ namespace Better_Work_Tab.UI.WorkGrid.Diagnostics
     {
         internal WorkGridRendererDiagnosticSnapshot(
             string activeRendererId,
+            WorkGridRendererMode selectionMode,
             WorkGridForcedRendererMode forcedMode,
             WorkGridFallbackReason[] fallbackReasons,
             bool quarantined)
         {
             ActiveRendererId = activeRendererId ?? string.Empty;
+            SelectionMode = selectionMode;
             ForcedMode = forcedMode;
             _fallbackReasons = fallbackReasons ?? Array.Empty<WorkGridFallbackReason>();
             IsQuarantined = quarantined;
         }
 
         public string ActiveRendererId { get; }
+        public WorkGridRendererMode SelectionMode { get; }
         public WorkGridForcedRendererMode ForcedMode { get; }
         private readonly WorkGridFallbackReason[] _fallbackReasons;
         public IReadOnlyList<WorkGridFallbackReason> FallbackReasons => _fallbackReasons;
@@ -62,6 +65,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Diagnostics
         private static WorkGridRendererDiagnosticSnapshot _current =
             new WorkGridRendererDiagnosticSnapshot(
                 LegacyWorkGridRenderer.RendererId,
+                WorkGridRendererMode.Auto,
                 WorkGridForcedRendererMode.None,
                 new[] { new WorkGridFallbackReason(WorkGridFallbackReasonCode.OptimizedUnavailable) },
                 false);
@@ -112,6 +116,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Diagnostics
                       : " (" + snapshot.FallbackReasons[0].Detail + ")");
             Log.Message(
                 "[BWT] Work-grid renderer: active=" + snapshot.ActiveRendererId +
+                ", setting=" + snapshot.SelectionMode +
                 ", forced=" + snapshot.ForcedMode +
                 ", fallback=" + fallback +
                 ", quarantined=" + snapshot.IsQuarantined + ".");
@@ -119,6 +124,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Diagnostics
 
         internal static bool Publish(
             string activeRendererId,
+            WorkGridRendererMode selectionMode,
             WorkGridForcedRendererMode forcedMode,
             WorkGridFallbackReason fallback,
             bool quarantined)
@@ -128,6 +134,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Diagnostics
                 ? default
                 : current.FallbackReasons[0];
             if (string.Equals(current.ActiveRendererId, activeRendererId, StringComparison.Ordinal) &&
+                current.SelectionMode == selectionMode &&
                 current.ForcedMode == forcedMode &&
                 current.IsQuarantined == quarantined &&
                 currentFallback.Code == fallback.Code &&
@@ -141,6 +148,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Diagnostics
                 : new[] { fallback };
             Volatile.Write(ref _current, new WorkGridRendererDiagnosticSnapshot(
                 activeRendererId,
+                selectionMode,
                 forcedMode,
                 reasons,
                 quarantined));

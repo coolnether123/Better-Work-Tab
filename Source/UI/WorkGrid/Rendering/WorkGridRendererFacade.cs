@@ -15,6 +15,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
     {
         private readonly LegacyWorkGridRenderer _legacy;
         private readonly WorkGridRendererSelector _selector;
+        private readonly Func<WorkGridRendererMode> _selectionMode;
         private readonly IRenderDiagnosticsSink _diagnostics;
         private IWorkGridRenderer _active;
         private string _activeId;
@@ -22,11 +23,13 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
         public WorkGridRendererFacade(
             MainTabWindow_BetterWork host,
+            Func<WorkGridRendererMode> selectionMode,
             IWorkGridRendererCapabilityCheck capabilityCheck = null,
             IRenderDiagnosticsSink diagnostics = null)
         {
             if (host == null) throw new ArgumentNullException(nameof(host));
 
+            _selectionMode = selectionMode ?? throw new ArgumentNullException(nameof(selectionMode));
             _diagnostics = diagnostics ?? BwtWorkGridDiagnosticsSink.Instance;
             _legacy = new LegacyWorkGridRenderer(host);
             _selector = new WorkGridRendererSelector(capabilityCheck, _diagnostics);
@@ -43,16 +46,17 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
         public void Render(in WorkGridRenderContext context)
         {
+            WorkGridRendererMode userMode = _selectionMode();
             WorkGridForcedRendererMode forcedMode = WorkGridRendererDiagnostics.ForcedMode;
 
             if (context.EventPhase == ImGuiEventPhase.Layout)
             {
                 _fallbackPending = false;
                 WorkGridRendererSelection selection =
-                    _selector.Select(_legacy, forcedMode, in context);
+                    _selector.Select(_legacy, userMode, forcedMode, in context);
                 _active = selection.Renderer;
                 _activeId = selection.RendererId;
-                PublishSelection(forcedMode, selection.Fallback, context.Scope);
+                PublishSelection(userMode, forcedMode, selection.Fallback, context.Scope);
             }
             else if (_fallbackPending)
             {
@@ -91,7 +95,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     WorkGridFallbackReasonCode.RendererQuarantined,
                     "Renderer '" + failedRendererId + "' failed during " + context.EventPhase +
                     " at frame " + context.FrameNumber + " for " + context.Scope + ".");
-                PublishSelection(forcedMode, fallback, context.Scope);
+                PublishSelection(userMode, forcedMode, fallback, context.Scope);
                 Log.ErrorOnce(
                     "[BWT] Work-grid renderer '" + failedRendererId + "' failed during " + context.EventPhase +
                     " at frame " + context.FrameNumber + " for scope " + context.Scope +
@@ -111,6 +115,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         }
 
         private void PublishSelection(
+            WorkGridRendererMode userMode,
             WorkGridForcedRendererMode forcedMode,
             WorkGridFallbackReason fallback,
             WorkGridSelectionScope scope)
@@ -124,6 +129,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
             bool changed = WorkGridRendererDiagnostics.Publish(
                 _activeId,
+                userMode,
                 forcedMode,
                 fallback,
                 quarantined);
@@ -136,7 +142,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 _diagnostics.Record(new RenderDiagnostic(
                     RenderDiagnosticSeverity.Information,
                     "work-grid-facade",
-                    "Active=" + _activeId + ", forced=" + forcedMode + ", fallback=" + fallbackText +
+                    "Active=" + _activeId + ", setting=" + userMode +
+                    ", forced=" + forcedMode + ", fallback=" + fallbackText +
                     ", quarantined=" + quarantined + "."));
             }
         }

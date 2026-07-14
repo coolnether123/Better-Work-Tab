@@ -70,7 +70,9 @@ namespace Better_Work_Tab.UI
         public MainTabWindow_BetterWork()
         {
             _workGridInteractionRouter = new WorkGridInteractionRouter(this);
-            _workGridRenderer = new WorkGridRendererFacade(this);
+            _workGridRenderer = new WorkGridRendererFacade(
+                this,
+                () => BetterWorkTabMod.Settings?.workGridRendererMode ?? DefaultSettings.workGridRendererMode);
             _workGridRenderer.Register(new OptimizedWorkGridRenderer(this));
         }
         
@@ -4795,7 +4797,11 @@ namespace Better_Work_Tab.UI
                     bool overlayEnabled = settings.enableSkillOverlayFeature;
                     bool dragEnabled = settings.enableDragDropReordering && (settings.rowDraggingEnabled || settings.columnDraggingEnabled);
 
-                    string overlayText = overlayEnabled ? "Shift toggles overlay" : string.Empty;
+                    string overlayText = overlayEnabled
+                        ? (ShiftHelper.State == BetterWorkTabSettings.ShowUIMode.Shifted
+                            ? "Numbers: skill level | Background: skill aptitude"
+                            : "Numbers: priority | Background: skill aptitude | Shift: skill numbers")
+                        : "Numbers: priority | Background: skill aptitude";
                     string dragInstruction = dragEnabled
                         ? (settings.requireCtrlForDrag ? "Ctrl + drag to reorder" : "Drag to reorder")
                         : string.Empty;

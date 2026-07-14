@@ -94,6 +94,7 @@ namespace Better_Work_Tab
         public static bool enableColumnOrderSaving = true;
         public static bool enableUIElements = true;
         public static bool enablePerformanceOptimizations = true;
+        public static WorkGridRendererMode workGridRendererMode = WorkGridRendererMode.Auto;
         public static bool enableMultiplayerSync = true;
         public static bool hideSettingResetIcons = false;
         public static bool mpShowOtherPlayersHover = false;
@@ -380,6 +381,7 @@ namespace Better_Work_Tab
         public bool enableColumnOrderSaving = DefaultSettings.enableColumnOrderSaving;
         public bool enableUIElements = DefaultSettings.enableUIElements;
         public bool enablePerformanceOptimizations = DefaultSettings.enablePerformanceOptimizations;
+        public WorkGridRendererMode workGridRendererMode = DefaultSettings.workGridRendererMode;
         public bool enableMultiplayerSync = DefaultSettings.enableMultiplayerSync;
         public bool hideSettingResetIcons = DefaultSettings.hideSettingResetIcons;
         public float dividerHeight = DefaultSettings.dividerHeight;
