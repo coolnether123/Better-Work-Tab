@@ -37,6 +37,7 @@ namespace Better_Work_Tab.Features.Tutorial
                     rowRect.y,
                     nameColumn.Value.Width,
                     rowRect.height).ContractedBy(2f);
+                nameRect.xMax += 6f;
                 anchors.Add(new BWTTutorialAnchor(
                     TutorialHubAnchor.PawnName,
                     nameRect,
@@ -47,23 +48,23 @@ namespace Better_Work_Tab.Features.Tutorial
             {
                 WorkTabLayoutColumn column = workColumn.Value;
                 Rect headerAnchorRect = column.HeaderRect.ContractedBy(2f);
-                Vector2[] headerOutline = null;
                 if ((BetterWorkTabMod.Settings?.enableAngledHeaders ?? false) &&
                     AngledHeaderController.TryGetVisualGeometry(
                         column.Column?.workType,
                         out Rect angledBounds,
                         out Vector2[] angledQuad))
                 {
-                    headerAnchorRect = angledBounds;
-                    headerOutline = angledQuad;
+                    // Tutorial selection uses the complete visual header bounds,
+                    // matching the Rule Builder target treatment without selecting
+                    // the work column itself.
+                    headerAnchorRect = angledBounds.ExpandedBy(2f);
                 }
 
                 anchors.Add(new BWTTutorialAnchor(
                     TutorialHubAnchor.WorkHeader,
                     headerAnchorRect,
                     workType: column.Column?.workType,
-                    workGiver: column.SubWorkGiver,
-                    outlinePoints: headerOutline));
+                    workGiver: column.SubWorkGiver));
             }
 
             if (pawnRow.HasValue && workColumn.HasValue)
@@ -123,6 +124,82 @@ namespace Better_Work_Tab.Features.Tutorial
             return minX <= maxX && minY <= maxY
                 ? Rect.MinMaxRect(minX, minY, maxX, maxY)
                 : inRect;
+        }
+
+        internal static bool TryResolveAnchorAt(
+            Rect inRect,
+            IWorkTabLayoutController layout,
+            Vector2 pointer,
+            out BWTTutorialAnchor anchor)
+        {
+            anchor = default(BWTTutorialAnchor);
+            if (layout?.Rows == null || layout.Columns == null || !inRect.Contains(pointer))
+            {
+                return false;
+            }
+
+            if (layout.TryGetRowAt(pointer, out WorkTabLayoutRow row) && row.Pawn != null)
+            {
+                if (layout.TryGetBodyColumnAt(pointer, out WorkTabLayoutColumn bodyColumn) &&
+                    bodyColumn.Column?.Worker is PawnColumnWorker_WorkPriority)
+                {
+                    Rect rowRect = layout.GetScreenRect(row);
+                    Rect cell = new Rect(bodyColumn.HeaderRect.x, rowRect.y, bodyColumn.Width, rowRect.height);
+                    Rect priority = WorkPriorityCellGeometry.GetPriorityBoxRect(cell).ExpandedBy(4f);
+                    if (priority.Contains(pointer))
+                    {
+                        anchor = new BWTTutorialAnchor(
+                            TutorialHubAnchor.PriorityCell,
+                            priority,
+                            row.Pawn,
+                            bodyColumn.Column?.workType,
+                            bodyColumn.SubWorkGiver);
+                        return true;
+                    }
+                }
+
+                WorkTabLayoutColumn? nameColumn = FindNameColumn(layout);
+                if (nameColumn.HasValue)
+                {
+                    Rect rowRect = layout.GetScreenRect(row);
+                    Rect name = new Rect(nameColumn.Value.HeaderRect.x, rowRect.y,
+                        nameColumn.Value.Width + 6f, rowRect.height).ContractedBy(2f);
+                    if (name.Contains(pointer))
+                    {
+                        anchor = new BWTTutorialAnchor(TutorialHubAnchor.PawnName, name, row.Pawn);
+                        return true;
+                    }
+                }
+            }
+
+            for (int i = 0; i < layout.Columns.Count; i++)
+            {
+                WorkTabLayoutColumn column = layout.Columns[i];
+                if (!(column.Column?.Worker is PawnColumnWorker_WorkPriority))
+                {
+                    continue;
+                }
+
+                Rect header = column.HeaderRect.ExpandedBy(2f);
+                if ((BetterWorkTabMod.Settings?.enableAngledHeaders ?? false) &&
+                    AngledHeaderController.TryGetVisualGeometry(column.Column?.workType, out Rect angledBounds, out _))
+                {
+                    header = angledBounds.ExpandedBy(2f);
+                }
+                if (!header.Contains(pointer))
+                {
+                    continue;
+                }
+
+                anchor = new BWTTutorialAnchor(
+                    TutorialHubAnchor.WorkHeader,
+                    header,
+                    workType: column.Column?.workType,
+                    workGiver: column.SubWorkGiver);
+                return true;
+            }
+
+            return false;
         }
 
         private static void TryImprovePriorityPair(

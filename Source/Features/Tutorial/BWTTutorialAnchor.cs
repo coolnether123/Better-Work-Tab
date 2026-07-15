@@ -63,11 +63,43 @@ namespace Better_Work_Tab.Features.Tutorial
 
             return inside;
         }
+
+        internal BWTTutorialAnchor OffsetBy(Vector2 offset)
+        {
+            IReadOnlyList<Vector2> shiftedOutline = null;
+            if (HasCustomOutline)
+            {
+                var points = new Vector2[OutlinePoints.Count];
+                for (int i = 0; i < OutlinePoints.Count; i++)
+                {
+                    points[i] = OutlinePoints[i] + offset;
+                }
+                shiftedOutline = points;
+            }
+
+            return new BWTTutorialAnchor(
+                Kind,
+                new Rect(Rect.position + offset, Rect.size),
+                Pawn,
+                WorkType,
+                WorkGiver,
+                shiftedOutline);
+        }
     }
 
     /// <summary>Draws rectangular and rotated tutorial anchors through one shared path.</summary>
     internal static class BWTTutorialAnchorRenderer
     {
+        internal static void DrawFill(BWTTutorialAnchor anchor, Color color)
+        {
+            if (!anchor.IsValid)
+            {
+                return;
+            }
+
+            Widgets.DrawBoxSolid(anchor.Rect, color);
+        }
+
         internal static void DrawOutline(BWTTutorialAnchor anchor, Color color, float thickness)
         {
             if (!anchor.IsValid)

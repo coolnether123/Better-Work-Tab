@@ -9,6 +9,7 @@ using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.Patches;
 using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.Settings;
+using Better_Work_Tab.UI.Headers.Angled;
 using RimWorld;
 using Spine.UI.Tutorial;
 using UnityEngine;
@@ -64,6 +65,7 @@ namespace Better_Work_Tab.Features.Tutorial
         private static string observedLessonId = string.Empty;
         private static Vector2 lessonScrollPosition;
         private static bool ownsCurrentPointer;
+        private const int FloatingSelectorWindowId = 0x42575451;
 
         internal static bool OwnsCurrentPointer => ownsCurrentPointer;
 
@@ -191,6 +193,15 @@ namespace Better_Work_Tab.Features.Tutorial
             }
 
             IReadOnlyDictionary<TutorialHubAnchor, BWTTutorialHubDefinition> hubs = BuildHubDefinitions();
+            if (presentation == TutorialPresentation.Selector)
+            {
+                if (evt.type == EventType.MouseDown && evt.button == 0 &&
+                    BWTTutorialGeometry.TryResolveAnchorAt(inRect, layout, evt.mousePosition, out BWTTutorialAnchor selected))
+                {
+                    return Selector.TryHandleAnchorInput(new[] { selected }, evt);
+                }
+                return Selector.TryHandleAnchorInput(anchors, evt);
+            }
             bool handled = Selector.TryHandleInput(
                 inRect,
                 workBounds,
@@ -200,10 +211,15 @@ namespace Better_Work_Tab.Features.Tutorial
                 evt,
                 T("BWT_Tutorial_Recommended"),
                 T("BWT_Tutorial_SkipForNow"),
+                T("BWT_Tutorial_LeaveTutorial"),
                 out BWTTutorialSelectorAction action);
             if (action.Exit)
             {
                 Pause();
+            }
+            else if (action.Leave)
+            {
+                LeaveTutorial();
             }
             else if (action.HasLesson)
             {
@@ -329,15 +345,7 @@ namespace Better_Work_Tab.Features.Tutorial
             Rect workBounds = BWTTutorialGeometry.GetVisibleWorkTabBounds(inRect, layout);
             if (presentation == TutorialPresentation.Selector)
             {
-                Selector.Draw(
-                    inRect,
-                    workBounds,
-                    anchors,
-                    BuildHubDefinitions(),
-                    settings.completedTutorialLessonIds,
-                    T("BWT_Tutorial_DefaultContextHeading"),
-                    T("BWT_Tutorial_Recommended"),
-                    T("BWT_Tutorial_SkipForNow"));
+                DrawFloatingSelector(inRect, workBounds, anchors, layout, settings);
                 return;
             }
 
@@ -392,8 +400,15 @@ namespace Better_Work_Tab.Features.Tutorial
 
         private static IReadOnlyDictionary<TutorialHubAnchor, BWTTutorialHubDefinition> BuildHubDefinitions()
         {
+            bool shift = Event.current?.shift ?? false;
+            bool subWork = SubWorkDrilldownState.HasAnyDrilldown;
             return new Dictionary<TutorialHubAnchor, BWTTutorialHubDefinition>
             {
+                [TutorialHubAnchor.None] = new BWTTutorialHubDefinition(
+                    TutorialHubAnchor.None,
+                    T("BWT_Tutorial_Selector_Title"),
+                    T("BWT_Tutorial_Selector_DefaultBody"),
+                    Array.Empty<BWTTutorialOptionDefinition>()),
                 [TutorialHubAnchor.PawnName] = new BWTTutorialHubDefinition(
                     TutorialHubAnchor.PawnName,
                     T("BWT_Tutorial_PawnHub_Title"),
@@ -407,7 +422,7 @@ namespace Better_Work_Tab.Features.Tutorial
                 [TutorialHubAnchor.WorkHeader] = new BWTTutorialHubDefinition(
                     TutorialHubAnchor.WorkHeader,
                     T("BWT_Tutorial_HeaderHub_Title"),
-                    T("BWT_Tutorial_HeaderHub_Body"),
+                    T(subWork ? "BWT_Tutorial_HeaderHub_SubWorkBody" : "BWT_Tutorial_HeaderHub_Body"),
                     new[]
                     {
                         Option(HeaderReorderLesson, "BWT_Tutorial_HeaderReorder_Label", "BWT_Tutorial_HeaderReorder_Title", "BWT_Tutorial_HeaderReorder_Preview", true),
@@ -417,7 +432,7 @@ namespace Better_Work_Tab.Features.Tutorial
                 [TutorialHubAnchor.PriorityCell] = new BWTTutorialHubDefinition(
                     TutorialHubAnchor.PriorityCell,
                     T("BWT_Tutorial_PriorityHub_Title"),
-                    T("BWT_Tutorial_PriorityHub_Body"),
+                    T(shift ? "BWT_Tutorial_PriorityHub_ShiftBody" : "BWT_Tutorial_PriorityHub_Body"),
                     new[]
                     {
                         Option(PriorityChangeLesson, "BWT_Tutorial_PriorityChange_Label", "BWT_Tutorial_PriorityChange_Title", "BWT_Tutorial_PriorityChange_Preview", true),
@@ -426,6 +441,76 @@ namespace Better_Work_Tab.Features.Tutorial
                         Option(PriorityRangeLesson, "BWT_Tutorial_PriorityRange_Label", "BWT_Tutorial_PriorityRange_Title", "BWT_Tutorial_PriorityRange_Preview")
                     })
             };
+        }
+
+        private static void DrawFloatingSelector(
+            Rect inRect,
+            Rect workBounds,
+            IReadOnlyList<BWTTutorialAnchor> localAnchors,
+            IWorkTabLayoutController layout,
+            BetterWorkTabSettings settings)
+        {
+            Vector2 rootOffset = GUIClipUtility.Unclip(Vector2.zero);
+            var rootAnchors = new List<BWTTutorialAnchor>(localAnchors.Count);
+            for (int i = 0; i < localAnchors.Count; i++)
+            {
+                rootAnchors.Add(localAnchors[i].OffsetBy(rootOffset));
+            }
+
+            Rect rootWorkBounds = new Rect(workBounds.position + rootOffset, workBounds.size);
+            Rect screenBounds = new Rect(0f, 0f, Verse.UI.screenWidth, Verse.UI.screenHeight);
+            IReadOnlyDictionary<TutorialHubAnchor, BWTTutorialHubDefinition> hubs = BuildHubDefinitions();
+            Find.WindowStack.ImmediateWindow(
+                FloatingSelectorWindowId,
+                screenBounds,
+                WindowLayer.Super,
+                () =>
+                {
+                    Event evt = Event.current;
+                    if (evt != null && evt.type != EventType.Layout && evt.type != EventType.Repaint)
+                    {
+                        bool handled = Selector.TryHandleInput(
+                            screenBounds,
+                            rootWorkBounds,
+                            rootAnchors,
+                            hubs,
+                            settings.completedTutorialLessonIds,
+                            evt,
+                            T("BWT_Tutorial_Recommended"),
+                            T("BWT_Tutorial_SkipForNow"),
+                            T("BWT_Tutorial_LeaveTutorial"),
+                            out BWTTutorialSelectorAction action);
+                        if (handled && action.Exit)
+                        {
+                            Pause();
+                        }
+                        else if (handled && action.Leave)
+                        {
+                            LeaveTutorial();
+                        }
+                        else if (handled && action.HasLesson)
+                        {
+                            SelectLesson(action.LessonId, localAnchors, layout);
+                        }
+                    }
+
+                    if (Event.current.type == EventType.Repaint)
+                    {
+                        Selector.Draw(
+                            screenBounds,
+                            rootWorkBounds,
+                            rootAnchors,
+                            hubs,
+                            settings.completedTutorialLessonIds,
+                            T("BWT_Tutorial_DefaultContextHeading"),
+                            T("BWT_Tutorial_Recommended"),
+                            T("BWT_Tutorial_SkipForNow"),
+                            T("BWT_Tutorial_LeaveTutorial"));
+                    }
+                },
+                doBackground: false,
+                absorbInputAroundWindow: false,
+                shadowAlpha: 0f);
         }
 
         private static BWTTutorialOptionDefinition Option(
@@ -996,6 +1081,15 @@ namespace Better_Work_Tab.Features.Tutorial
             lessonScrollPosition = Vector2.zero;
             Selector.Reset();
             SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+        }
+
+        private static void LeaveTutorial()
+        {
+            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
+            TutorialProgressTransitions.ReturnToSelection(
+                ref settings.activeTutorialLessonId,
+                ref settings.tutorialLessonPhase);
+            Pause();
         }
 
         private static TutorialOverlayContent BuildWelcomeContent()

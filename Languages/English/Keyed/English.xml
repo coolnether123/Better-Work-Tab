@@ -167,8 +167,11 @@
 <BWT_Tutorial_Welcome_Continue>Continue with walkthrough</BWT_Tutorial_Welcome_Continue>
 <BWT_Tutorial_Welcome_KnowBWT>I know Better Work Tab</BWT_Tutorial_Welcome_KnowBWT>
 <BWT_Tutorial_DefaultContextHeading>Hover an option to learn more.</BWT_Tutorial_DefaultContextHeading>
+<BWT_Tutorial_Selector_Title>Explore Better Work Tab</BWT_Tutorial_Selector_Title>
+<BWT_Tutorial_Selector_DefaultBody>Select something that interests you in the Work Tab. The highlighted pawn name, work header, and priority cell are examples; click one to keep it selected and see its available controls.</BWT_Tutorial_Selector_DefaultBody>
 <BWT_Tutorial_Recommended>Recommended</BWT_Tutorial_Recommended>
 <BWT_Tutorial_SkipForNow>Skip for now</BWT_Tutorial_SkipForNow>
+<BWT_Tutorial_LeaveTutorial>Leave tutorial</BWT_Tutorial_LeaveTutorial>
 <BWT_Tutorial_BackToMap>Back to tutorial map</BWT_Tutorial_BackToMap>
 
 <BWT_Tutorial_PawnHub_Title>Pawn names</BWT_Tutorial_PawnHub_Title>
@@ -203,6 +206,8 @@
 
 <BWT_Tutorial_PriorityHub_Title>Priority cells</BWT_Tutorial_PriorityHub_Title>
 <BWT_Tutorial_PriorityHub_Body>Priority cells control whether a pawn performs this work and how urgently they choose it. Select an option to learn about the controls available here.</BWT_Tutorial_PriorityHub_Body>
+<BWT_Tutorial_PriorityHub_ShiftBody>While Shift is held, priority cells show the pawn's skill number for that work. Release Shift to return to priority controls, or choose “View skill number” for a guided explanation.</BWT_Tutorial_PriorityHub_ShiftBody>
+<BWT_Tutorial_HeaderHub_SubWorkBody>This is a sub-work header for a specific job inside its parent work type. Its priority cells affect that job directly; use the normal sub-work controls to return to the parent work types.</BWT_Tutorial_HeaderHub_SubWorkBody>
 <BWT_Tutorial_PriorityChange_Label>Change priorities</BWT_Tutorial_PriorityChange_Label>
 <BWT_Tutorial_PriorityChange_Title>Change priorities</BWT_Tutorial_PriorityChange_Title>
 <BWT_Tutorial_PriorityChange_Preview>Click the real cell to change whether this pawn performs the work and the priority they use.</BWT_Tutorial_PriorityChange_Preview>

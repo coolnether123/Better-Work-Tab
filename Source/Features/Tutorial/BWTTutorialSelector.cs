@@ -51,14 +51,16 @@ namespace Better_Work_Tab.Features.Tutorial
 
     internal readonly struct BWTTutorialSelectorAction
     {
-        internal BWTTutorialSelectorAction(string lessonId, bool exit)
+        internal BWTTutorialSelectorAction(string lessonId, bool exit, bool leave = false)
         {
             LessonId = lessonId;
             Exit = exit;
+            Leave = leave;
         }
 
         internal string LessonId { get; }
         internal bool Exit { get; }
+        internal bool Leave { get; }
         internal bool HasLesson => !string.IsNullOrEmpty(LessonId);
     }
 
@@ -78,6 +80,7 @@ namespace Better_Work_Tab.Features.Tutorial
 
         private readonly TutorialHoverGraceState hover = new TutorialHoverGraceState();
         private TutorialHubAnchor pinnedAnchor = TutorialHubAnchor.None;
+        private BWTTutorialAnchor pinnedGeometry;
         private string hoveredLessonId;
         private float hoveredLessonLastConnectedAt = -1f;
         private Rect lastOptionsRect;
@@ -87,7 +90,7 @@ namespace Better_Work_Tab.Features.Tutorial
         private float lastContextContentHeight;
         private string contextContentKey;
 
-        internal float PreferredReserveWidth => PreferredPanelWidth + PanelGap;
+        internal float PreferredReserveWidth => 0f;
         // The selector may reserve room beside the grid, but it must never
         // make the Work Tab taller.
         internal float PreferredReserveHeight => 0f;
@@ -96,6 +99,7 @@ namespace Better_Work_Tab.Features.Tutorial
         {
             hover.Clear();
             pinnedAnchor = TutorialHubAnchor.None;
+            pinnedGeometry = default(BWTTutorialAnchor);
             hoveredLessonId = null;
             hoveredLessonLastConnectedAt = -1f;
             lastOptionsRect = Rect.zero;
@@ -104,6 +108,33 @@ namespace Better_Work_Tab.Features.Tutorial
             contextScrollPosition = Vector2.zero;
             lastContextContentHeight = 0f;
             contextContentKey = null;
+        }
+
+        internal bool TryHandleAnchorInput(IReadOnlyList<BWTTutorialAnchor> anchors, Event evt)
+        {
+            if (anchors == null || evt == null || evt.type != EventType.MouseDown || evt.button != 0)
+            {
+                return false;
+            }
+
+            TutorialHubAnchor anchor = GetAnchorAt(anchors, evt.mousePosition);
+            if (anchor == TutorialHubAnchor.None)
+            {
+                return false;
+            }
+
+            pinnedAnchor = anchor;
+            for (int i = 0; i < anchors.Count; i++)
+            {
+                if (anchors[i].Kind == anchor && anchors[i].Contains(evt.mousePosition))
+                {
+                    pinnedGeometry = anchors[i];
+                    break;
+                }
+            }
+            hover.Pin(anchor, Time.realtimeSinceStartup);
+            evt.Use();
+            return true;
         }
 
         internal bool TryHandleInput(
@@ -115,6 +146,7 @@ namespace Better_Work_Tab.Features.Tutorial
             Event evt,
             string recommendedLabel,
             string exitLabel,
+            string leaveLabel,
             out BWTTutorialSelectorAction action)
         {
             action = default(BWTTutorialSelectorAction);
@@ -152,22 +184,12 @@ namespace Better_Work_Tab.Features.Tutorial
 
             if (evt.type == EventType.ScrollWheel && layout.OptionsRect.Contains(evt.mousePosition))
             {
-                float maximumScroll = Mathf.Max(0f, layout.OptionViewRect.height - layout.OptionsRect.height);
-                optionScrollPosition.y = Mathf.Clamp(
-                    optionScrollPosition.y + evt.delta.y * 22f,
-                    0f,
-                    maximumScroll);
                 evt.Use();
                 return true;
             }
 
             if (evt.type == EventType.ScrollWheel && layout.ContextRect.Contains(evt.mousePosition))
             {
-                float maximumScroll = Mathf.Max(0f, lastContextContentHeight - layout.ContextRect.height + 26f);
-                contextScrollPosition.y = Mathf.Clamp(
-                    contextScrollPosition.y + evt.delta.y * 22f,
-                    0f,
-                    maximumScroll);
                 evt.Use();
                 return true;
             }
@@ -177,6 +199,12 @@ namespace Better_Work_Tab.Features.Tutorial
                 if (layout.ExitRect.Contains(evt.mousePosition))
                 {
                     action = new BWTTutorialSelectorAction(null, exit: true);
+                    evt.Use();
+                    return true;
+                }
+                if (layout.LeaveRect.Contains(evt.mousePosition))
+                {
+                    action = new BWTTutorialSelectorAction(null, exit: false, leave: true);
                     evt.Use();
                     return true;
                 }
@@ -241,7 +269,8 @@ namespace Better_Work_Tab.Features.Tutorial
             ICollection<string> completedLessonIds,
             string defaultHeading,
             string recommendedLabel,
-            string exitLabel)
+            string exitLabel,
+            string leaveLabel)
         {
             if (anchors == null || anchors.Count == 0)
             {
@@ -258,13 +287,12 @@ namespace Better_Work_Tab.Features.Tutorial
                 overOptions,
                 overContext);
             TutorialHubAnchor active = pinnedAnchor != TutorialHubAnchor.None ? pinnedAnchor : hoverAnchor;
-            if (active == TutorialHubAnchor.None)
+            if (active != TutorialHubAnchor.None)
             {
-                active = TutorialHubAnchor.PriorityCell;
+                DrawFocusDim(workBounds, FindAnchorRect(anchors, active));
             }
-
             DrawAnchorOutlines(anchors, active, pointerAnchor);
-            if (active == TutorialHubAnchor.None || !hubs.TryGetValue(active, out BWTTutorialHubDefinition hub))
+            if (!hubs.TryGetValue(active, out BWTTutorialHubDefinition hub))
             {
                 lastOptionsRect = Rect.zero;
                 lastContextRect = Rect.zero;
@@ -280,8 +308,8 @@ namespace Better_Work_Tab.Features.Tutorial
                 recommendedLabel);
             lastOptionsRect = layout.OptionsRect;
             lastContextRect = layout.ContextRect;
-            float maximumScroll = Mathf.Max(0f, layout.OptionViewRect.height - layout.OptionsRect.height);
-            optionScrollPosition.y = Mathf.Clamp(optionScrollPosition.y, 0f, maximumScroll);
+            optionScrollPosition = Vector2.zero;
+            contextScrollPosition = Vector2.zero;
             string currentHoveredLesson = GetHoveredLesson(
                 hub,
                 layout,
@@ -313,10 +341,11 @@ namespace Better_Work_Tab.Features.Tutorial
                 completedLessonIds,
                 defaultHeading,
                 recommendedLabel,
-                exitLabel);
+                exitLabel,
+                leaveLabel);
         }
 
-        private static void DrawAnchorOutlines(
+        private void DrawAnchorOutlines(
             IReadOnlyList<BWTTutorialAnchor> anchors,
             TutorialHubAnchor active,
             TutorialHubAnchor pointerAnchor)
@@ -325,12 +354,34 @@ namespace Better_Work_Tab.Features.Tutorial
             for (int i = 0; i < anchors.Count; i++)
             {
                 BWTTutorialAnchor anchor = anchors[i];
-                bool emphasized = anchor.Kind == active || anchor.Kind == pointerAnchor;
+                bool selected = anchor.Kind == active && active != TutorialHubAnchor.None &&
+                    (!pinnedGeometry.IsValid || ApproximatelySame(anchor.Rect, pinnedGeometry.Rect));
+                bool emphasized = selected || anchor.Kind == pointerAnchor;
                 float alpha = emphasized ? 1f : Mathf.Lerp(0.46f, 0.78f, pulse);
+                if (anchor.Kind == TutorialHubAnchor.WorkHeader)
+                {
+                    BWTTutorialAnchorRenderer.DrawFill(
+                        anchor,
+                        new Color(1f, 0.76f, 0.16f, emphasized ? 0.20f : 0.10f));
+                }
+                if (selected)
+                {
+                    BWTTutorialAnchorRenderer.DrawOutline(anchor, Color.white, 5f);
+                }
                 BWTTutorialAnchorRenderer.DrawOutline(
                     anchor,
                     new Color(1f, 0.78f, 0.22f, alpha),
                     emphasized ? 3f : 2f);
+            }
+
+            if (pinnedGeometry.IsValid && !ContainsRect(anchors, pinnedGeometry.Rect))
+            {
+                if (pinnedGeometry.Kind == TutorialHubAnchor.WorkHeader)
+                {
+                    BWTTutorialAnchorRenderer.DrawFill(pinnedGeometry, new Color(1f, 0.76f, 0.16f, 0.20f));
+                }
+                BWTTutorialAnchorRenderer.DrawOutline(pinnedGeometry, Color.white, 5f);
+                BWTTutorialAnchorRenderer.DrawOutline(pinnedGeometry, new Color(1f, 0.78f, 0.22f, 1f), 3f);
             }
         }
 
@@ -341,7 +392,8 @@ namespace Better_Work_Tab.Features.Tutorial
             ICollection<string> completed,
             string defaultHeading,
             string recommendedLabel,
-            string exitLabel)
+            string exitLabel,
+            string leaveLabel)
         {
             Color oldColor = GUI.color;
             TextAnchor oldAnchor = Text.Anchor;
@@ -359,11 +411,10 @@ namespace Better_Work_Tab.Features.Tutorial
 
             Text.Font = GameFont.Small;
             Text.WordWrap = true;
-            Widgets.BeginScrollView(layout.OptionsRect, ref optionScrollPosition, layout.OptionViewRect);
             for (int i = 0; i < hub.Options.Count && i < layout.OptionRects.Count; i++)
             {
                 BWTTutorialOptionDefinition option = hub.Options[i];
-                Rect rect = layout.OptionRects[i];
+                Rect rect = GetScreenOptionRect(layout, layout.OptionRects[i], 0f);
                 bool isHovered = string.Equals(option.LessonId, hovered?.LessonId, StringComparison.Ordinal);
                 bool isComplete = TutorialProgressTransitions.IsCompleted(completed, option.LessonId);
                 Widgets.DrawBoxSolid(rect, isHovered
@@ -379,7 +430,6 @@ namespace Better_Work_Tab.Features.Tutorial
                 Text.Anchor = TextAnchor.MiddleLeft;
                 Widgets.Label(labelRect, prefix + GetOptionDisplayLabel(option, recommendedLabel));
             }
-            Widgets.EndScrollView();
             Text.Anchor = TextAnchor.UpperLeft;
 
             Widgets.DrawBoxSolid(layout.ContextRect, new Color(0.075f, 0.082f, 0.09f, 0.98f));
@@ -389,19 +439,18 @@ namespace Better_Work_Tab.Features.Tutorial
             Text.Font = GameFont.Small;
             string heading = hovered?.Heading ?? defaultHeading;
             string body = hovered?.Body ?? hub.Body;
-            float contentWidth = Mathf.Max(80f, contextInner.width - 16f);
+            float contentWidth = Mathf.Max(80f, contextInner.width);
             float headingHeight = Mathf.Max(28f, Text.CalcHeight(heading, contentWidth));
             float bodyHeight = Mathf.Max(28f, Text.CalcHeight(body, contentWidth));
             lastContextContentHeight = headingHeight + 10f + bodyHeight;
-            Rect contextView = new Rect(0f, 0f, contentWidth, Mathf.Max(contextInner.height, lastContextContentHeight));
-            float contextMaxScroll = Mathf.Max(0f, contextView.height - contextInner.height);
-            contextScrollPosition.y = Mathf.Clamp(contextScrollPosition.y, 0f, contextMaxScroll);
-            Widgets.BeginScrollView(contextInner, ref contextScrollPosition, contextView);
             GUI.color = new Color(1f, 0.86f, 0.42f, 1f);
-            Widgets.Label(new Rect(0f, 0f, contentWidth, headingHeight), heading);
+            Widgets.Label(new Rect(contextInner.x, contextInner.y, contentWidth, headingHeight), heading);
             GUI.color = new Color(0.9f, 0.91f, 0.9f, 1f);
-            Widgets.Label(new Rect(0f, headingHeight + 10f, contentWidth, bodyHeight), body);
-            Widgets.EndScrollView();
+            Widgets.Label(new Rect(
+                contextInner.x,
+                contextInner.y + headingHeight + 10f,
+                contentWidth,
+                Mathf.Min(bodyHeight, contextInner.height - headingHeight - 10f)), body);
 
             bool exitHovered = layout.ExitRect.Contains(Event.current?.mousePosition ?? Vector2.zero);
             Widgets.DrawBoxSolid(layout.ExitRect, exitHovered
@@ -412,6 +461,16 @@ namespace Better_Work_Tab.Features.Tutorial
             TextAnchor exitAnchor = Text.Anchor;
             Text.Anchor = TextAnchor.MiddleCenter;
             Widgets.Label(layout.ExitRect, exitLabel);
+            Text.Anchor = exitAnchor;
+
+            bool leaveHovered = layout.LeaveRect.Contains(Event.current?.mousePosition ?? Vector2.zero);
+            Widgets.DrawBoxSolid(layout.LeaveRect, leaveHovered
+                ? new Color(0.20f, 0.18f, 0.11f, 1f)
+                : new Color(0.10f, 0.11f, 0.12f, 1f));
+            GUI.color = leaveHovered ? new Color(1f, 0.83f, 0.32f, 1f) : Color.white;
+            Widgets.DrawBox(layout.LeaveRect, 1);
+            Text.Anchor = TextAnchor.MiddleCenter;
+            Widgets.Label(layout.LeaveRect, leaveLabel);
             Text.Anchor = exitAnchor;
 
             GUI.color = oldColor;
@@ -432,7 +491,7 @@ namespace Better_Work_Tab.Features.Tutorial
             float width = useRight
                 ? Mathf.Min(PreferredPanelWidth, availableRight)
                 : Mathf.Min(Mathf.Max(MinimumPanelWidth, bounds.width * 0.76f), bounds.width - 20f);
-            float height = Mathf.Min(340f, bounds.height - 20f);
+            float height = Mathf.Min(440f, bounds.height - 20f);
             float x = useRight
                 ? workBounds.xMax + PanelGap
                 : Mathf.Clamp(workBounds.center.x - width / 2f, bounds.xMin + 10f, bounds.xMax - width - 10f);
@@ -495,9 +554,11 @@ namespace Better_Work_Tab.Features.Tutorial
             Text.WordWrap = oldWordWrap;
             Text.Font = oldFont;
 
-            Rect exit = new Rect(inner.x, inner.yMax - 34f, Mathf.Min(170f, inner.width), 34f);
+            float footerButtonWidth = Mathf.Min(170f, (inner.width - 8f) / 2f);
+            Rect exit = new Rect(inner.x, inner.yMax - 34f, footerButtonWidth, 34f);
+            Rect leave = new Rect(exit.xMax + 8f, exit.y, footerButtonWidth, 34f);
             Rect optionView = new Rect(0f, 0f, optionContentWidth, Mathf.Max(options.height, contentHeight));
-            return new SelectorLayout(panel, title, options, optionView, context, exit, optionRects);
+            return new SelectorLayout(panel, title, options, optionView, context, exit, leave, optionRects);
         }
 
         private static TutorialHubAnchor GetAnchorAt(IReadOnlyList<BWTTutorialAnchor> anchors, Vector2 point)
@@ -513,10 +574,33 @@ namespace Better_Work_Tab.Features.Tutorial
             return TutorialHubAnchor.None;
         }
 
-        private static Rect FindAnchorRect(
+        private static void DrawFocusDim(Rect workBounds, Rect focusRect)
+        {
+            if (focusRect.width <= 0f || focusRect.height <= 0f)
+            {
+                return;
+            }
+
+            Rect focus = focusRect.ExpandedBy(6f);
+            Color dim = new Color(0f, 0f, 0f, 0.24f);
+            Widgets.DrawBoxSolid(new Rect(workBounds.xMin, workBounds.yMin, workBounds.width,
+                Mathf.Max(0f, focus.yMin - workBounds.yMin)), dim);
+            Widgets.DrawBoxSolid(new Rect(workBounds.xMin, focus.yMax, workBounds.width,
+                Mathf.Max(0f, workBounds.yMax - focus.yMax)), dim);
+            Widgets.DrawBoxSolid(new Rect(workBounds.xMin, focus.yMin,
+                Mathf.Max(0f, focus.xMin - workBounds.xMin), focus.height), dim);
+            Widgets.DrawBoxSolid(new Rect(focus.xMax, focus.yMin,
+                Mathf.Max(0f, workBounds.xMax - focus.xMax), focus.height), dim);
+        }
+
+        private Rect FindAnchorRect(
             IReadOnlyList<BWTTutorialAnchor> anchors,
             TutorialHubAnchor kind)
         {
+            if (pinnedGeometry.IsValid && pinnedGeometry.Kind == kind)
+            {
+                return pinnedGeometry.Rect;
+            }
             if (anchors != null)
             {
                 for (int i = 0; i < anchors.Count; i++)
@@ -531,6 +615,26 @@ namespace Better_Work_Tab.Features.Tutorial
             return Rect.zero;
         }
 
+        private static bool ContainsRect(IReadOnlyList<BWTTutorialAnchor> anchors, Rect rect)
+        {
+            for (int i = 0; i < anchors.Count; i++)
+            {
+                if (ApproximatelySame(anchors[i].Rect, rect))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private static bool ApproximatelySame(Rect a, Rect b)
+        {
+            return Mathf.Abs(a.x - b.x) < 0.5f &&
+                   Mathf.Abs(a.y - b.y) < 0.5f &&
+                   Mathf.Abs(a.width - b.width) < 0.5f &&
+                   Mathf.Abs(a.height - b.height) < 0.5f;
+        }
+
         private TutorialHubAnchor ResolveActiveAnchor(TutorialHubAnchor anchorAtPointer)
         {
             if (anchorAtPointer != TutorialHubAnchor.None)
@@ -541,7 +645,7 @@ namespace Better_Work_Tab.Features.Tutorial
             TutorialHubAnchor active = pinnedAnchor != TutorialHubAnchor.None
                 ? pinnedAnchor
                 : hover.ActiveAnchor;
-            return active == TutorialHubAnchor.None ? TutorialHubAnchor.PriorityCell : active;
+            return active;
         }
 
         private static bool IsPointerEvent(EventType type)
@@ -619,6 +723,7 @@ namespace Better_Work_Tab.Features.Tutorial
                 Rect optionViewRect,
                 Rect contextRect,
                 Rect exitRect,
+                Rect leaveRect,
                 IReadOnlyList<Rect> optionRects)
             {
                 PanelRect = panelRect;
@@ -627,6 +732,7 @@ namespace Better_Work_Tab.Features.Tutorial
                 OptionViewRect = optionViewRect;
                 ContextRect = contextRect;
                 ExitRect = exitRect;
+                LeaveRect = leaveRect;
                 OptionRects = optionRects;
             }
 
@@ -636,6 +742,7 @@ namespace Better_Work_Tab.Features.Tutorial
             internal Rect OptionViewRect { get; }
             internal Rect ContextRect { get; }
             internal Rect ExitRect { get; }
+            internal Rect LeaveRect { get; }
             internal IReadOnlyList<Rect> OptionRects { get; }
         }
     }
