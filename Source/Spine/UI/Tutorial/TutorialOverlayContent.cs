@@ -18,7 +18,7 @@ namespace Spine.UI.Tutorial
             SecondaryButton = secondaryButton;
             TertiaryButton = tertiaryButton;
             DismissButton = string.IsNullOrEmpty(dismissButton)
-                ? "Already know Better Work Tab"
+                ? "Skip for now"
                 : dismissButton;
         }
 

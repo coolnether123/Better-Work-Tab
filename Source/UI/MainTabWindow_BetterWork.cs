@@ -154,6 +154,9 @@ namespace Better_Work_Tab.UI
         private int _horizontalOverflowBeganFrame = -1;
         private float _lastScrollWindowWidth = -1f;
         private float _lastScrollTotalColumnWidth = -1f;
+        private float _lastScrollContentHeight = -1f;
+        private bool _hasStableVerticalScrollbarState;
+        private bool _stableVerticalScrollbarVisible;
         private bool _horizontalScrollbarDragCaptured;
         private float _horizontalScrollbarDragMouseX;
         private float _horizontalScrollbarDragScrollX;
@@ -933,6 +936,21 @@ namespace Better_Work_Tab.UI
                 }
 
                 float maxWindowWidth = Mathf.Max(1f, Verse.UI.screenWidth - 2f);
+                float tutorialReserveWidth = BWTWorkTabTutorial.PreferredReserveWidth;
+                if (tutorialReserveWidth > 0f)
+                {
+                    if (finalWidth + tutorialReserveWidth <= maxWindowWidth)
+                    {
+                        finalWidth += tutorialReserveWidth;
+                        finalHeight = Mathf.Max(finalHeight, BWTWorkTabTutorial.PreferredReserveHeight);
+                    }
+                    else
+                    {
+                        // At 1024-wide/high-scale layouts the selector moves into
+                        // a top band instead of covering the highlighted grid.
+                        finalHeight += BWTWorkTabTutorial.PreferredReserveHeight;
+                    }
+                }
                 bool needsHorizontalScrollbar = finalWidth > maxWindowWidth + 0.5f;
                 if (needsHorizontalScrollbar)
                 {
@@ -942,6 +960,12 @@ namespace Better_Work_Tab.UI
                 finalHeight = Mathf.Min(
                     finalHeight,
                     GetConfiguredMaxWindowHeight(organizer?.Layout, table, needsHorizontalScrollbar));
+                if (tutorialReserveWidth > 0f)
+                {
+                    finalHeight = Mathf.Min(
+                        Verse.UI.screenHeight - 35f,
+                        Mathf.Max(finalHeight, BWTWorkTabTutorial.PreferredReserveHeight));
+                }
                 finalWidth = Mathf.Min(finalWidth, maxWindowWidth);
 
                 _requestedTabSizeCacheSignature = ComputeRequestedTabSizeSignature(table, organizer?.Layout);
@@ -976,6 +1000,8 @@ namespace Better_Work_Tab.UI
                 hash = (hash * 31) + (settings?.workTabMaxVisiblePawns ?? DefaultSettings.workTabMaxVisiblePawns);
                 hash = (hash * 31) + ((settings?.keepVanillaWorkTabMinimumWidth ??
                                        DefaultSettings.keepVanillaWorkTabMinimumWidth) ? 1 : 0);
+                hash = (hash * 31) + ((settings?.showGeneralTutorial ?? false) ? 1 : 0);
+                hash = (hash * 31) + ((settings?.tutorialWelcomeCompleted ?? false) ? 1 : 0);
                 return hash;
             }
         }
@@ -4313,10 +4339,11 @@ namespace Better_Work_Tab.UI
                 _holdHorizontalScrollbarUntilFrame = Time.frameCount + 2;
             }
 
-            bool needsHorizontalScrollbar;
-            if (_horizontalScrollbarTransitionActive &&
+            bool preserveScrollbarVisibility = _horizontalScrollbarTransitionActive &&
                 (expandBesideTransitioning || resizingOverflow ||
-                 Time.frameCount <= _holdHorizontalScrollbarUntilFrame))
+                 Time.frameCount <= _holdHorizontalScrollbarUntilFrame);
+            bool needsHorizontalScrollbar;
+            if (preserveScrollbarVisibility)
             {
                 needsHorizontalScrollbar = _horizontalScrollbarTransitionVisible;
                 _horizontalOverflowBeganFrame = -1;
@@ -4359,10 +4386,26 @@ namespace Better_Work_Tab.UI
             float fittedViewportHeight = Mathf.Max(
                 1f,
                 outRect.height - (needsHorizontalScrollbar ? HorizontalScrollbarHeight : 0f));
-            if (contentHeight <= fittedViewportHeight + 0.5f)
+
+            bool contentHeightChanged = _lastScrollContentHeight >= 0f &&
+                Mathf.Abs(contentHeight - _lastScrollContentHeight) > 0.5f;
+            _lastScrollContentHeight = contentHeight;
+            bool rawVerticalOverflow = contentHeight > fittedViewportHeight + 0.5f;
+            if (!_hasStableVerticalScrollbarState ||
+                !preserveScrollbarVisibility ||
+                contentHeightChanged)
             {
-                contentHeight = fittedViewportHeight;
+                _stableVerticalScrollbarVisible = rawVerticalOverflow;
+                _hasStableVerticalScrollbarState = true;
             }
+
+            // Expand-beside only changes columns. While the bottom-anchored window catches up,
+            // keep the vertical scrollbar in its pre-transition state unless row content really
+            // changed. Otherwise Unity briefly measures the same pawn grid against the stale
+            // viewport height and flashes a vertical scrollbar during open/close.
+            contentHeight = _stableVerticalScrollbarVisible
+                ? Mathf.Max(contentHeight, fittedViewportHeight + 1f)
+                : fittedViewportHeight;
             viewRect = new Rect(0f, 0f, viewWidth, contentHeight);
 
         }

@@ -1632,42 +1632,15 @@ namespace Better_Work_Tab.UI.Settings
 
             Register(new SettingDefinition
             {
-                Id = UiBetaTutorial,
-                FieldName = "showBetaTutorial",
-                Label = "Show BWT 2.0 Tutorial",
-                Tooltip = "Show the guided Better Work Tab 2.0 walkthrough when opening the Work tab. The walkthrough can also be deactivated from the tutorial overlay.",
-                Type = SettingType.Bool,
-                DefaultValue = DefaultSettings.showBetaTutorial,
-                ShowInSimpleView = true,
-                SortOrder = 10435,
-                ParentId = FeaturesUiElements,
-                OnChanged = settingsObj =>
-                {
-                    if (settingsObj is BetterWorkTabSettings settings && settings.showBetaTutorial)
-                    {
-                        settings.betaTutorialStep = 0;
-                    }
-                }
-            });
-
-            Register(new SettingDefinition
-            {
                 Id = UiGeneralTutorial,
                 FieldName = "showGeneralTutorial",
                 Label = "Show Better Work Tab Tutorial",
-                Tooltip = "Show the full guided Better Work Tab walkthrough when opening the Work tab. It covers core features and the 2.0 systems.",
+                Tooltip = "Show or resume the interactive Better Work Tab tutorial. Turning this off pauses the tutorial without clearing completed lessons or the current lesson.",
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.showGeneralTutorial,
                 ShowInSimpleView = true,
                 SortOrder = 10434,
-                ParentId = FeaturesUiElements,
-                OnChanged = settingsObj =>
-                {
-                    if (settingsObj is BetterWorkTabSettings settings && settings.showGeneralTutorial)
-                    {
-                        settings.generalTutorialStep = 0;
-                    }
-                }
+                ParentId = FeaturesUiElements
             });
 
             Register(new SettingDefinition

@@ -207,4 +207,7 @@
 
     <BWT_Settings_ux.hideWorktypes>Hidden Work Types</BWT_Settings_ux.hideWorktypes>
     <BWT_Settings_ux.hideWorktypes_Tooltip>Select work types to hide from the work tab.</BWT_Settings_ux.hideWorktypes_Tooltip>
+
+    <BWT_Settings_ui.generalTutorial>Show Better Work Tab Tutorial</BWT_Settings_ui.generalTutorial>
+    <BWT_Settings_ui.generalTutorial_Tooltip>Show or resume the interactive Better Work Tab tutorial. Turning this off pauses it without clearing completed lessons or the current lesson.</BWT_Settings_ui.generalTutorial_Tooltip>
 </LanguageData>

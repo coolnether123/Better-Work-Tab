@@ -192,6 +192,27 @@ namespace Better_Work_Tab.UI.Headers.Angled
             return quad;
         }
 
+        /// <summary>
+        /// Supplies the exact rendered polygon to consumers that must follow an
+        /// angled label instead of treating its column header as an axis-aligned box.
+        /// </summary>
+        internal static bool TryGetVisualGeometry(
+            WorkTypeDef workType,
+            out Rect bounds,
+            out Vector2[] quad)
+        {
+            if (AngledHeaderCache.TryGetLatest(workType, out AngledHeaderCache.CachedHeaderData cached))
+            {
+                bounds = GetVisualBounds(cached);
+                quad = GetVisualQuad(cached);
+                return bounds.width > 0f && bounds.height > 0f && quad != null && quad.Length >= 3;
+            }
+
+            bounds = Rect.zero;
+            quad = null;
+            return false;
+        }
+
         private static float GetVisualOffsetY(AngledHeaderCache.CachedHeaderData cached)
         {
             return SubWorkDrilldownState.IsActive && !cached.Layout.IsCJKVertical

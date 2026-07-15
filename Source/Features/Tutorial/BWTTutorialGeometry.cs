@@ -1,381 +1,305 @@
 using System.Collections.Generic;
-using Better_Work_Tab.Features.TimePriority;
-using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI;
+using Better_Work_Tab.UI.Headers.Angled;
 using RimWorld;
+using Spine.UI.Tutorial;
 using UnityEngine;
 using Verse;
 
 namespace Better_Work_Tab.Features.Tutorial
 {
+    /// <summary>Resolves the three physical tutorial anchors from live Work-tab geometry.</summary>
     internal static class BWTTutorialGeometry
     {
-        private const float InfoIconSize = 24f;
-        private const float RightEdgeMargin = 10f;
-
-        internal static List<Rect> WholeTab(Rect inRect)
+        internal static List<BWTTutorialAnchor> BuildInitialAnchors(
+            Rect inRect,
+            IWorkTabLayoutController layout)
         {
-            return new List<Rect> { inRect.ContractedBy(12f) };
-        }
-
-        internal static List<Rect> WorkHeaders(Rect inRect, IWorkTabLayoutController layout)
-        {
-            var rects = new List<Rect>();
-            AddWorkHeaderArea(rects, layout);
-            AddWholeTabFallback(rects, inRect);
-            return rects;
-        }
-
-        internal static List<Rect> ManualPriorities(Rect inRect)
-        {
-            return new List<Rect> { new Rect(5f, 5f, 220f, 62f).ExpandedBy(4f) };
-        }
-
-        internal static List<Rect> PriorityLegend(Rect inRect)
-        {
-            return new List<Rect>
+            var anchors = new List<BWTTutorialAnchor>(3);
+            if (layout?.Rows == null || layout.Columns == null)
             {
-                new Rect(370f, inRect.y + 5f, 420f, 30f).ExpandedBy(4f)
-            };
-        }
-
-        internal static List<Rect> ContextSettingsHint(Rect inRect)
-        {
-            const float width = 230f;
-            return new List<Rect>
-            {
-                new Rect(inRect.xMax - width - 42f, inRect.y + 5f, width, 24f).ExpandedBy(4f)
-            };
-        }
-
-        internal static List<Rect> PawnRows(Rect inRect, IWorkTabLayoutController layout)
-        {
-            var rects = new List<Rect>();
-            if (layout?.Rows != null && layout.Columns != null)
-            {
-                Rect union = Rect.zero;
-                bool hasAny = false;
-                for (int i = 0; i < layout.Rows.Count; i++)
-                {
-                    WorkTabLayoutRow row = layout.Rows[i];
-                    if (row.Pawn == null)
-                    {
-                        continue;
-                    }
-
-                    Rect rowRect = layout.GetScreenRect(row);
-                    union = hasAny ? Union(union, rowRect) : rowRect;
-                    hasAny = true;
-                    if (i >= 2)
-                    {
-                        break;
-                    }
-                }
-
-                if (hasAny)
-                {
-                    rects.Add(union.ExpandedBy(4f));
-                }
+                return anchors;
             }
 
-            AddWholeTabFallback(rects, inRect);
-            return rects;
-        }
+            WorkTabLayoutRow? pawnRow = FindMiddleVisiblePawnRow(inRect, layout);
+            WorkTabLayoutColumn? nameColumn = FindNameColumn(layout);
+            WorkTabLayoutColumn? workColumn = FindMiddleVisibleWorkColumn(inRect, layout, requireSkills: true) ??
+                                                    FindMiddleVisibleWorkColumn(inRect, layout, requireSkills: false);
+            TryImprovePriorityPair(inRect, layout, ref pawnRow, ref workColumn);
 
-        internal static List<Rect> PawnNameColumn(Rect inRect, IWorkTabLayoutController layout)
-        {
-            var rects = new List<Rect>();
-            if (layout?.Rows != null && layout.Columns != null)
+            if (pawnRow.HasValue && nameColumn.HasValue)
             {
-                WorkTabLayoutColumn nameColumn = default(WorkTabLayoutColumn);
-                bool hasNameColumn = false;
-                for (int i = 0; i < layout.Columns.Count; i++)
-                {
-                    if (!(layout.Columns[i].Column?.Worker is PawnColumnWorker_WorkPriority))
-                    {
-                        nameColumn = layout.Columns[i];
-                        hasNameColumn = true;
-                        break;
-                    }
-                }
-
-                if (hasNameColumn)
-                {
-                    Rect union = Rect.zero;
-                    bool hasAny = false;
-                    for (int i = 0; i < layout.Rows.Count; i++)
-                    {
-                        WorkTabLayoutRow row = layout.Rows[i];
-                        if (row.Pawn == null)
-                        {
-                            continue;
-                        }
-
-                        Rect rowRect = layout.GetScreenRect(row);
-                        Rect cellRect = new Rect(nameColumn.HeaderRect.x, rowRect.y, nameColumn.Width, rowRect.height);
-                        union = hasAny ? Union(union, cellRect) : cellRect;
-                        hasAny = true;
-                        if (i >= 2)
-                        {
-                            break;
-                        }
-                    }
-
-                    if (hasAny)
-                    {
-                        rects.Add(union.ExpandedBy(4f));
-                    }
-                }
+                Rect rowRect = layout.GetScreenRect(pawnRow.Value);
+                Rect nameRect = new Rect(
+                    nameColumn.Value.HeaderRect.x,
+                    rowRect.y,
+                    nameColumn.Value.Width,
+                    rowRect.height).ContractedBy(2f);
+                anchors.Add(new BWTTutorialAnchor(
+                    TutorialHubAnchor.PawnName,
+                    nameRect,
+                    pawnRow.Value.Pawn));
             }
 
-            AddWholeTabFallback(rects, inRect);
-            return rects;
+            if (workColumn.HasValue)
+            {
+                WorkTabLayoutColumn column = workColumn.Value;
+                Rect headerAnchorRect = column.HeaderRect.ContractedBy(2f);
+                Vector2[] headerOutline = null;
+                if ((BetterWorkTabMod.Settings?.enableAngledHeaders ?? false) &&
+                    AngledHeaderController.TryGetVisualGeometry(
+                        column.Column?.workType,
+                        out Rect angledBounds,
+                        out Vector2[] angledQuad))
+                {
+                    headerAnchorRect = angledBounds;
+                    headerOutline = angledQuad;
+                }
+
+                anchors.Add(new BWTTutorialAnchor(
+                    TutorialHubAnchor.WorkHeader,
+                    headerAnchorRect,
+                    workType: column.Column?.workType,
+                    workGiver: column.SubWorkGiver,
+                    outlinePoints: headerOutline));
+            }
+
+            if (pawnRow.HasValue && workColumn.HasValue)
+            {
+                WorkTabLayoutRow row = pawnRow.Value;
+                WorkTabLayoutColumn column = workColumn.Value;
+                Rect rowRect = layout.GetScreenRect(row);
+                Rect cellRect = new Rect(column.HeaderRect.x, rowRect.y, column.Width, rowRect.height);
+                anchors.Add(new BWTTutorialAnchor(
+                    TutorialHubAnchor.PriorityCell,
+                    WorkPriorityCellGeometry.GetPriorityBoxRect(cellRect).ExpandedBy(4f),
+                    row.Pawn,
+                    column.Column?.workType,
+                    column.SubWorkGiver));
+            }
+
+            return anchors;
         }
 
-        internal static List<Rect> FirstPriorityCell(
+        internal static Rect GetVisibleWorkTabBounds(Rect inRect, IWorkTabLayoutController layout)
+        {
+            if (layout?.Columns == null || layout.Columns.Count == 0)
+            {
+                return inRect;
+            }
+
+            float minX = float.MaxValue;
+            float maxX = float.MinValue;
+            float minY = float.MaxValue;
+            float maxY = float.MinValue;
+            for (int i = 0; i < layout.Columns.Count; i++)
+            {
+                Rect header = layout.Columns[i].HeaderRect;
+                if (!IntersectsHorizontally(header, inRect))
+                {
+                    continue;
+                }
+
+                minX = Mathf.Min(minX, header.xMin);
+                maxX = Mathf.Max(maxX, header.xMax);
+                minY = Mathf.Min(minY, header.yMin);
+                maxY = Mathf.Max(maxY, header.yMax);
+            }
+
+            for (int i = 0; i < layout.Rows.Count; i++)
+            {
+                Rect row = layout.GetScreenRect(layout.Rows[i]);
+                if (!IntersectsVertically(row, inRect))
+                {
+                    continue;
+                }
+
+                minY = Mathf.Min(minY, row.yMin);
+                maxY = Mathf.Max(maxY, row.yMax);
+            }
+
+            return minX <= maxX && minY <= maxY
+                ? Rect.MinMaxRect(minX, minY, maxX, maxY)
+                : inRect;
+        }
+
+        private static void TryImprovePriorityPair(
             Rect inRect,
             IWorkTabLayoutController layout,
-            bool requireSubWorkColumn,
-            bool allowDisabledFallback = true)
+            ref WorkTabLayoutRow? pawnRow,
+            ref WorkTabLayoutColumn? workColumn)
         {
-            var rects = new List<Rect>();
-            AddFirstPriorityCell(rects, layout, requireSubWorkColumn, allowDisabledFallback);
-            AddWholeTabFallback(rects, inRect);
-            return rects;
-        }
-
-        internal static List<Rect> GlobalSubWorkPriorityRow(Rect inRect, IWorkTabLayoutController layout)
-        {
-            var rects = new List<Rect>();
-            AddGlobalPriorityRow(rects, layout);
-            AddWholeTabFallback(rects, inRect);
-            return rects;
-        }
-
-        internal static List<Rect> TimePriorityEditor(Rect inRect, IWorkTabLayoutController layout)
-        {
-            var rects = new List<Rect>();
-            if (TimePriorityScheduleEditor.TryGetLastPanelRect(out Rect rect))
+            float rowTarget = pawnRow.HasValue
+                ? layout.GetScreenRect(pawnRow.Value).center.y
+                : inRect.center.y;
+            float columnTarget = workColumn.HasValue
+                ? workColumn.Value.HeaderRect.center.x
+                : inRect.center.x;
+            WorkTabLayoutRow? bestRow = null;
+            WorkTabLayoutColumn? bestColumn = null;
+            float bestScore = float.MaxValue;
+            for (int c = 0; c < layout.Columns.Count; c++)
             {
-                rects.Add(rect.ExpandedBy(5f));
-            }
-            else
-            {
-                AddFirstPriorityCell(rects, layout, requireSubWorkColumn: false, allowDisabledFallback: true);
-            }
-
-            AddWholeTabFallback(rects, inRect);
-            return rects;
-        }
-
-        internal static List<Rect> SubWorkExit(Rect inRect, IWorkTabLayoutController layout)
-        {
-            var rects = WorkHeaders(inRect, layout);
-            rects.Add(GetSubWorkExitRect(inRect));
-            return rects;
-        }
-
-        internal static List<Rect> Workloads(Rect inRect)
-        {
-            Rect infoRect = GetInfoIconRect(inRect);
-            HeaderButtons.BottomButtonRects rects = HeaderButtons.GetBottomButtonRects(inRect, infoRect);
-            return rects.HasWorkload
-                ? new List<Rect> { Union(rects.WorkloadMain, rects.WorkloadMenu).ExpandedBy(4f) }
-                : WholeTab(inRect);
-        }
-
-        internal static List<Rect> Rulesets(Rect inRect)
-        {
-            Rect infoRect = GetInfoIconRect(inRect);
-            HeaderButtons.BottomButtonRects rects = HeaderButtons.GetBottomButtonRects(inRect, infoRect);
-            return rects.HasRuleset
-                ? new List<Rect> { Union(rects.RulesetMain, rects.RulesetMenu).ExpandedBy(4f) }
-                : WholeTab(inRect);
-        }
-
-        internal static List<Rect> BottomInstructions(Rect inRect)
-        {
-            return new List<Rect>
-            {
-                new Rect(inRect.x, inRect.yMax - 44f, Mathf.Min(520f, inRect.width), 36f).ExpandedBy(4f)
-            };
-        }
-
-        internal static List<Rect> InfoButton(Rect inRect)
-        {
-            return new List<Rect> { GetInfoIconRect(inRect).ExpandedBy(5f) };
-        }
-
-        internal static List<Rect> FirstDivider(Rect inRect, IWorkTabLayoutController layout)
-        {
-            var rects = new List<Rect>();
-            if (layout?.Rows != null)
-            {
-                for (int i = 0; i < layout.Rows.Count; i++)
+                WorkTabLayoutColumn column = layout.Columns[c];
+                WorkTypeDef workType = column.Column?.workType;
+                Rect header = column.HeaderRect;
+                if (!(column.Column?.Worker is PawnColumnWorker_WorkPriority) ||
+                    workType == null ||
+                    !IntersectsHorizontally(header, inRect))
                 {
-                    WorkTabLayoutRow row = layout.Rows[i];
-                    if (row.Divider == null)
+                    continue;
+                }
+
+                float skillPenalty = workType.relevantSkills != null && workType.relevantSkills.Count > 0 ? 0f : 10000f;
+                for (int r = 0; r < layout.Rows.Count; r++)
+                {
+                    WorkTabLayoutRow row = layout.Rows[r];
+                    Rect rowRect = layout.GetScreenRect(row);
+                    if (row.Pawn == null ||
+                        !IntersectsVertically(rowRect, inRect) ||
+                        !CanUsePriorityExample(row.Pawn, workType))
                     {
                         continue;
                     }
 
-                    rects.Add(layout.GetScreenRect(row).ExpandedBy(4f));
-                    break;
+                    float score = skillPenalty +
+                                  Mathf.Abs(rowRect.center.y - rowTarget) +
+                                  Mathf.Abs(header.center.x - columnTarget);
+                    if (score < bestScore)
+                    {
+                        bestScore = score;
+                        bestRow = row;
+                        bestColumn = column;
+                    }
                 }
             }
 
-            AddWholeTabFallback(rects, inRect);
-            return rects;
+            if (bestRow.HasValue && bestColumn.HasValue)
+            {
+                pawnRow = bestRow;
+                workColumn = bestColumn;
+            }
         }
 
-        private static void AddWorkHeaderArea(List<Rect> rects, IWorkTabLayoutController layout)
+        private static WorkTabLayoutRow? FindMiddleVisiblePawnRow(
+            Rect inRect,
+            IWorkTabLayoutController layout)
         {
-            if (layout?.Columns == null)
+            float minY = float.MaxValue;
+            float maxY = float.MinValue;
+            for (int i = 0; i < layout.Rows.Count; i++)
             {
-                return;
+                WorkTabLayoutRow row = layout.Rows[i];
+                Rect rect = layout.GetScreenRect(row);
+                if (row.Pawn != null && IntersectsVertically(rect, inRect))
+                {
+                    minY = Mathf.Min(minY, rect.yMin);
+                    maxY = Mathf.Max(maxY, rect.yMax);
+                }
             }
 
-            Rect union = Rect.zero;
-            bool hasAny = false;
+            float targetY = minY <= maxY ? (minY + maxY) * 0.5f : inRect.center.y;
+            WorkTabLayoutRow? best = null;
+            float bestDistance = float.MaxValue;
+            for (int i = 0; i < layout.Rows.Count; i++)
+            {
+                WorkTabLayoutRow row = layout.Rows[i];
+                Rect rect = layout.GetScreenRect(row);
+                if (row.Pawn == null || !IntersectsVertically(rect, inRect))
+                {
+                    continue;
+                }
+
+                float distance = Mathf.Abs(rect.center.y - targetY);
+                if (distance < bestDistance)
+                {
+                    best = row;
+                    bestDistance = distance;
+                }
+            }
+
+            return best;
+        }
+
+        private static WorkTabLayoutColumn? FindNameColumn(IWorkTabLayoutController layout)
+        {
             for (int i = 0; i < layout.Columns.Count; i++)
             {
                 WorkTabLayoutColumn column = layout.Columns[i];
                 if (!(column.Column?.Worker is PawnColumnWorker_WorkPriority))
                 {
-                    continue;
+                    return column;
                 }
-
-                union = hasAny ? Union(union, column.HeaderRect) : column.HeaderRect;
-                hasAny = true;
             }
 
-            if (hasAny)
-            {
-                rects.Add(union.ExpandedBy(6f));
-            }
+            return null;
         }
 
-        private static void AddGlobalPriorityRow(List<Rect> rects, IWorkTabLayoutController layout)
-        {
-            if (layout?.Table == null || !SubWorkDrilldownState.IsActive)
-            {
-                return;
-            }
-
-            Rect rect = new Rect(
-                layout.TableOrigin.x,
-                layout.TableOrigin.y + layout.HeaderHeight + TimePriorityScheduleEditor.HeaderPinnedRowsHeight,
-                Mathf.Max(layout.Table.Size.x - 16f, 1f),
-                Mathf.Max(SubWorkDrilldownState.GlobalRowVisibleHeight, SubWorkDrilldownState.GlobalRowHeight));
-            rects.Add(rect.ExpandedBy(4f));
-        }
-
-        private static void AddFirstPriorityCell(
-            List<Rect> rects,
+        private static WorkTabLayoutColumn? FindMiddleVisibleWorkColumn(
+            Rect inRect,
             IWorkTabLayoutController layout,
-            bool requireSubWorkColumn,
-            bool allowDisabledFallback)
+            bool requireSkills)
         {
-            if (layout?.Rows == null || layout.Columns == null)
+            float minX = float.MaxValue;
+            float maxX = float.MinValue;
+            for (int i = 0; i < layout.Columns.Count; i++)
             {
-                return;
+                WorkTabLayoutColumn column = layout.Columns[i];
+                Rect rect = column.HeaderRect;
+                if (column.Column?.Worker is PawnColumnWorker_WorkPriority && IntersectsHorizontally(rect, inRect))
+                {
+                    minX = Mathf.Min(minX, rect.xMin);
+                    maxX = Mathf.Max(maxX, rect.xMax);
+                }
             }
 
-            Rect fallbackRect = Rect.zero;
-            bool hasFallback = false;
-            for (int r = 0; r < layout.Rows.Count; r++)
+            float targetX = minX <= maxX ? (minX + maxX) * 0.5f : inRect.center.x;
+            WorkTabLayoutColumn? best = null;
+            float bestDistance = float.MaxValue;
+            for (int i = 0; i < layout.Columns.Count; i++)
             {
-                WorkTabLayoutRow row = layout.Rows[r];
-                if (row.Pawn == null)
+                WorkTabLayoutColumn column = layout.Columns[i];
+                WorkTypeDef workType = column.Column?.workType;
+                Rect rect = column.HeaderRect;
+                if (!(column.Column?.Worker is PawnColumnWorker_WorkPriority) ||
+                    workType == null ||
+                    !IntersectsHorizontally(rect, inRect) ||
+                    (requireSkills && (workType.relevantSkills == null || workType.relevantSkills.Count == 0)))
                 {
                     continue;
                 }
 
-                Rect rowRect = layout.GetScreenRect(row);
-                for (int c = 0; c < layout.Columns.Count; c++)
+                float distance = Mathf.Abs(rect.center.x - targetX);
+                if (distance < bestDistance)
                 {
-                    WorkTabLayoutColumn column = layout.Columns[c];
-                    if (!(column.Column?.Worker is PawnColumnWorker_WorkPriority))
-                    {
-                        continue;
-                    }
-
-                    if (requireSubWorkColumn &&
-                        !SubWorkDrilldownState.TryGetWorkGiverForColumn(column.Column, out _, out _))
-                    {
-                        continue;
-                    }
-
-                    Rect cellRect = new Rect(column.HeaderRect.x, rowRect.y, column.Width, rowRect.height);
-                    Rect priorityBoxRect = WorkPriorityCellGeometry.GetPriorityBoxRect(cellRect).ExpandedBy(5f);
-                    if (!hasFallback)
-                    {
-                        fallbackRect = priorityBoxRect;
-                        hasFallback = true;
-                    }
-
-                    if (CanUsePriorityExample(row.Pawn, column.Column.workType))
-                    {
-                        rects.Add(priorityBoxRect);
-                        return;
-                    }
+                    best = column;
+                    bestDistance = distance;
                 }
             }
 
-            if (allowDisabledFallback && hasFallback)
-            {
-                rects.Add(fallbackRect);
-            }
+            return best;
         }
 
         private static bool CanUsePriorityExample(Pawn pawn, WorkTypeDef workType)
         {
             return pawn != null &&
-                !pawn.Dead &&
-                pawn.workSettings != null &&
-                pawn.workSettings.EverWork &&
-                workType != null &&
-                !pawn.WorkTypeIsDisabled(workType);
+                   !pawn.Dead &&
+                   pawn.workSettings != null &&
+                   pawn.workSettings.EverWork &&
+                   workType != null &&
+                   !pawn.WorkTypeIsDisabled(workType);
         }
 
-        private static Rect GetSubWorkExitRect(Rect inRect)
+        private static bool IntersectsHorizontally(Rect a, Rect b)
         {
-            const float buttonSize = 24f;
-            float topRightReservedWidth = HeaderButtons.GetTopRightReservedWidth();
-            return new Rect(
-                    inRect.xMax - buttonSize - RightEdgeMargin - topRightReservedWidth,
-                    inRect.y + 8f,
-                    buttonSize,
-                    buttonSize)
-                .ExpandedBy(5f);
+            return a.xMax > b.xMin && a.xMin < b.xMax;
         }
 
-        private static Rect GetInfoIconRect(Rect inRect)
+        private static bool IntersectsVertically(Rect a, Rect b)
         {
-            return new Rect(
-                inRect.xMax - InfoIconSize - RightEdgeMargin,
-                inRect.yMax - InfoIconSize - 10f,
-                InfoIconSize,
-                InfoIconSize);
-        }
-
-        private static void AddWholeTabFallback(List<Rect> rects, Rect inRect)
-        {
-            if (rects.Count == 0)
-            {
-                rects.Add(inRect.ContractedBy(12f));
-            }
-        }
-
-        private static Rect Union(Rect a, Rect b)
-        {
-            float xMin = Mathf.Min(a.xMin, b.xMin);
-            float yMin = Mathf.Min(a.yMin, b.yMin);
-            float xMax = Mathf.Max(a.xMax, b.xMax);
-            float yMax = Mathf.Max(a.yMax, b.yMax);
-            return Rect.MinMaxRect(xMin, yMin, xMax, yMax);
+            return a.yMax > b.yMin && a.yMin < b.yMax;
         }
     }
 }

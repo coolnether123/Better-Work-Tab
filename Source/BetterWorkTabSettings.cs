@@ -4,6 +4,7 @@ using Better_Work_Tab.Features.Rules;
 using Better_Work_Tab.Features.Rules.RuleBuilder2;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.Workloads;
+using Better_Work_Tab.Features.Tutorial;
 using RimWorld;
 using System;
 using System.Collections.Generic;
@@ -19,6 +20,7 @@ using Better_Work_Tab.UI.Settings;
 using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Spine.UI.SettingsFramework;
+using Spine.UI.Tutorial;
 
 namespace Better_Work_Tab
 {
@@ -129,7 +131,6 @@ namespace Better_Work_Tab
         public static bool showDragInstructions = true;
         public static bool showContextSettingsHint = true;
         public static bool showGeneralTutorial = true;
-        public static bool showBetaTutorial = false;
         public static bool useRuleBuilder2 = true;
         public static bool showRuleBuilder2Tutorial = true;
         public static bool ruleBuilder2ShowWorkTabHighlights = true;
@@ -303,8 +304,6 @@ namespace Better_Work_Tab
         public static int priorityColorPercentage_Tan = 75;
         public static BetterWorkTabSettings.SettingsViewMode settingsViewMode = BetterWorkTabSettings.SettingsViewMode.Simple;
         public static bool useOutlineHighlights = false;
-        public static int generalTutorialStep = 0;
-        public static int betaTutorialStep = 0;
         public static int ruleBuilder2TutorialStep = 0;
         public static bool enableDebugLogging = false;
         public static bool debugPrintLayout = false;
@@ -404,9 +403,11 @@ namespace Better_Work_Tab
         public bool showDragInstructions = DefaultSettings.showDragInstructions;
         public bool showContextSettingsHint = DefaultSettings.showContextSettingsHint;
         public bool showGeneralTutorial = DefaultSettings.showGeneralTutorial;
-        public int generalTutorialStep = DefaultSettings.generalTutorialStep;
-        public bool showBetaTutorial = DefaultSettings.showBetaTutorial;
-        public int betaTutorialStep = DefaultSettings.betaTutorialStep;
+        public int tutorialFlowVersion;
+        public bool tutorialWelcomeCompleted;
+        public string activeTutorialLessonId = string.Empty;
+        public int tutorialLessonPhase;
+        public List<string> completedTutorialLessonIds = new List<string>();
         public bool useRuleBuilder2 = DefaultSettings.useRuleBuilder2;
         public bool showRuleBuilder2Tutorial = DefaultSettings.showRuleBuilder2Tutorial;
         public int ruleBuilder2TutorialStep = DefaultSettings.ruleBuilder2TutorialStep;
@@ -929,8 +930,36 @@ namespace Better_Work_Tab
             // STATE AND COMPLEX DATA: intentionally not reset by registry defaults.
             Scribe_Values.Look(ref firstTimeSetupDone, "firstTimeSetupDone", DefaultSettings.firstTimeSetupDone);
             Scribe_Values.Look(ref subWorkCtrlClickNoticeDismissed, "subWorkCtrlClickNoticeDismissed", DefaultSettings.subWorkCtrlClickNoticeDismissed);
-            Scribe_Values.Look(ref generalTutorialStep, "generalTutorialStep", DefaultSettings.generalTutorialStep);
-            Scribe_Values.Look(ref betaTutorialStep, "betaTutorialStep", DefaultSettings.betaTutorialStep);
+            Scribe_Values.Look(ref tutorialFlowVersion, "tutorialFlowVersion", 0);
+            Scribe_Values.Look(ref tutorialWelcomeCompleted, "tutorialWelcomeCompleted", false);
+            Scribe_Values.Look(ref activeTutorialLessonId, "activeTutorialLessonId", string.Empty);
+            Scribe_Values.Look(ref tutorialLessonPhase, "tutorialLessonPhase", 0);
+            Scribe_Collections.Look(ref completedTutorialLessonIds, "completedTutorialLessonIds", LookMode.Value);
+            if (completedTutorialLessonIds == null)
+            {
+                completedTutorialLessonIds = new List<string>();
+            }
+
+            if (Scribe.mode == LoadSaveMode.LoadingVars)
+            {
+                int legacyGeneralStep = 0;
+                bool legacyShowBetaTutorial = false;
+                int legacyBetaStep = 0;
+                Scribe_Values.Look(ref legacyGeneralStep, "generalTutorialStep", 0);
+                Scribe_Values.Look(ref legacyShowBetaTutorial, "showBetaTutorial", false);
+                Scribe_Values.Look(ref legacyBetaStep, "betaTutorialStep", 0);
+                MigrateLegacyTutorialState(legacyGeneralStep, legacyShowBetaTutorial, legacyBetaStep);
+                if (tutorialFlowVersion < BWTGeneralTutorial.CurrentFlowVersion)
+                {
+                    // Present the corrected welcome once for saves created by an
+                    // earlier tutorial flow. Preserve completed lessons, but return
+                    // transient lesson ownership to the map after the welcome.
+                    tutorialFlowVersion = BWTGeneralTutorial.CurrentFlowVersion;
+                    tutorialWelcomeCompleted = false;
+                    activeTutorialLessonId = string.Empty;
+                    tutorialLessonPhase = 0;
+                }
+            }
             Scribe_Values.Look(ref ruleBuilder2TutorialStep, "ruleBuilder2TutorialStep", DefaultSettings.ruleBuilder2TutorialStep);
 
             if (Scribe.mode == LoadSaveMode.Saving && CurrentRuleset != null)
@@ -1060,6 +1089,68 @@ namespace Better_Work_Tab
         {
             BWTSettingsRegistry.EnsureInitialized();
             return SettingsScribe.ApplyPreferenceDefaults(this, BWTSettingsRegistry.Definitions);
+        }
+
+        private void MigrateLegacyTutorialState(
+            int legacyGeneralStep,
+            bool legacyShowBetaTutorial,
+            int legacyBetaStep)
+        {
+            if (!string.IsNullOrEmpty(activeTutorialLessonId) || completedTutorialLessonIds.Count > 0)
+            {
+                return;
+            }
+
+            if (legacyShowBetaTutorial)
+            {
+                showGeneralTutorial = true;
+                if (legacyBetaStep >= 85)
+                {
+                    TutorialProgressTransitions.Complete(
+                        completedTutorialLessonIds,
+                        BWTGeneralTutorial.HeaderSubWorkLesson);
+                }
+                if (legacyBetaStep >= 115)
+                {
+                    TutorialProgressTransitions.Complete(
+                        completedTutorialLessonIds,
+                        BWTGeneralTutorial.PriorityScheduleLesson);
+                }
+
+                activeTutorialLessonId = legacyBetaStep < 90
+                    ? BWTGeneralTutorial.HeaderSubWorkLesson
+                    : legacyBetaStep < 130
+                        ? BWTGeneralTutorial.PriorityScheduleLesson
+                        : string.Empty;
+                tutorialLessonPhase = 0;
+                return;
+            }
+
+            if (!showGeneralTutorial || legacyGeneralStep <= 5)
+            {
+                return;
+            }
+
+            if (legacyGeneralStep <= 20)
+                activeTutorialLessonId = BWTGeneralTutorial.PrioritySkillLesson;
+            else if (legacyGeneralStep <= 30)
+                activeTutorialLessonId = BWTGeneralTutorial.PawnMenuLesson;
+            else if (legacyGeneralStep <= 40)
+                activeTutorialLessonId = BWTGeneralTutorial.PawnDividerLesson;
+            else if (legacyGeneralStep <= 50)
+                activeTutorialLessonId = BWTGeneralTutorial.PawnAppearanceLesson;
+            else if (legacyGeneralStep <= 80)
+                activeTutorialLessonId = BWTGeneralTutorial.HeaderReorderLesson;
+            else if (legacyGeneralStep <= 90)
+                activeTutorialLessonId = BWTGeneralTutorial.HeaderGroupLesson;
+            else if (legacyGeneralStep <= 115)
+                activeTutorialLessonId = BWTGeneralTutorial.HeaderSubWorkLesson;
+            else if (legacyGeneralStep <= 125)
+                activeTutorialLessonId = BWTGeneralTutorial.PriorityScheduleLesson;
+            else
+                activeTutorialLessonId = string.Empty;
+
+            tutorialLessonPhase = 0;
         }
 
         private void EnsureLayoutPersistenceStateInitialized()

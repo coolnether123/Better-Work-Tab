@@ -160,7 +160,6 @@ namespace Better_Work_Tab.UI.Settings
         {
             return HasAnyId(def,
                     UiGeneralTutorial,
-                    UiBetaTutorial,
                     UiTimePrioritySchedules,
                     UiTimePriorityCopyPasteButtons,
                     UiTimePriorityHourDivider,

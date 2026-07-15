@@ -9,6 +9,7 @@ using RimWorld;
 using UnityEngine;
 using Verse;
 using static Better_Work_Tab.UI.Settings.SettingIDs;
+using Spine.UI.Tutorial;
 
 namespace Better_Work_Tab.UI.Settings
 {
@@ -27,6 +28,29 @@ namespace Better_Work_Tab.UI.Settings
         {
             request = BuildContextSettingsRequest(inRect, layout, mousePosition, skillOnly, ctrlOnly);
             return request != null;
+        }
+
+        internal static BWTSettingsFocusRequest BuildPriorityRangeFocusRequest(PriorityMode mode)
+        {
+            string target = TutorialSettingsRouting.ResolvePriorityTarget(
+                mode == PriorityMode.BetterWorkTab
+                    ? TutorialPriorityRoutingMode.BetterWorkTab
+                    : mode == PriorityMode.Auto
+                        ? TutorialPriorityRoutingMode.Auto
+                        : mode == PriorityMode.ExternalProvider
+                            ? TutorialPriorityRoutingMode.ExternalProvider
+                            : TutorialPriorityRoutingMode.Vanilla);
+            return CreateContextRequest(
+                "BWT_Tutorial_PriorityRange_Filter".Translate(),
+                "BWT_Tutorial_PriorityRange_FilterTooltip".Translate(),
+                target,
+                true,
+                PriorityHeader,
+                PriorityModeSetting,
+                UiMaxPriority,
+                UiAutoMaxPriority,
+                UiAutoDisabledPriorityMode,
+                UiAutoDisabledPriorityFixedValue);
         }
 
         private static BWTSettingsFocusRequest BuildContextSettingsRequest(

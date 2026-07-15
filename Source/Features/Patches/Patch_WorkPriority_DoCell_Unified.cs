@@ -101,6 +101,8 @@ namespace Better_Work_Tab.Patches
         private static BetterWorkTabSettings.HoverEffectScope _cachedHoverScope = BetterWorkTabSettings.HoverEffectScope.CellOnly;
         private static WorkTypeDef _columnHoveredWorkType;
         private static int _columnHoveredFrame = -1;
+        private static readonly HashSet<long> SkillNumbersDrawnThisFrame = new HashSet<long>();
+        private static int _skillNumbersDrawnFrame = -1;
 
         // Cached per-frame and per-worktype values
         private static readonly Dictionary<int, int> _skillCache = new Dictionary<int, int>(1024);
@@ -140,6 +142,14 @@ namespace Better_Work_Tab.Patches
         public static void ClearColorCache()
         {
             _colorCache.Clear();
+        }
+
+        internal static bool WasSkillNumberDrawnRecently(Pawn pawn, WorkTypeDef workType)
+        {
+            return pawn != null &&
+                   workType != null &&
+                   Time.frameCount == _skillNumbersDrawnFrame &&
+                   SkillNumbersDrawnThisFrame.Contains(GetSkillDrawKey(pawn, workType));
         }
 
         [HarmonyPrefix]
@@ -398,11 +408,13 @@ namespace Better_Work_Tab.Patches
             {
                 CustomWorkBoxDrawer.DrawWorkBoxForSkillOverlay(boxXSkill, boxYSkill, pawn, workType, false);
                 DrawBigSkillNumber(boxRect, skillLevel);
+                RecordSkillNumberDrawn(pawn, workType);
             }
 
             if (drawSmallSkill)
             {
                 DrawSmallSkillNumbers(rect, skillLevel);
+                RecordSkillNumberDrawn(pawn, workType);
             }
 
             if (drawSmallPriority && priority > 0)
@@ -411,6 +423,25 @@ namespace Better_Work_Tab.Patches
             }
 
             DrawParentSubWorkOverrideIndicatorIfNeeded(rect, pawn, workType);
+        }
+
+        private static void RecordSkillNumberDrawn(Pawn pawn, WorkTypeDef workType)
+        {
+            if (_skillNumbersDrawnFrame != Time.frameCount)
+            {
+                SkillNumbersDrawnThisFrame.Clear();
+                _skillNumbersDrawnFrame = Time.frameCount;
+            }
+
+            if (pawn != null && workType != null)
+            {
+                SkillNumbersDrawnThisFrame.Add(GetSkillDrawKey(pawn, workType));
+            }
+        }
+
+        private static long GetSkillDrawKey(Pawn pawn, WorkTypeDef workType)
+        {
+            return ((long)pawn.thingIDNumber << 32) | workType.shortHash;
         }
 
         // Caching helpers

@@ -43,6 +43,7 @@ namespace Better_Work_Tab.Features.TimePriority
         private static readonly List<CellHit> LastCellHits = new List<CellHit>(HoursPerDay * 4);
         private static readonly List<CopyPasteHit> LastCopyPasteHits = new List<CopyPasteHit>(8);
         private static readonly List<ScheduleCellDiagnostic> LastScheduleCellDiagnostics = new List<ScheduleCellDiagnostic>(HoursPerDay * 4);
+        private static int _tutorialEditRevision;
         private const string AgentOpenRequestFileName = "BWTTimePriorityOpen.request";
         private static readonly PawnDivider ActiveDivider = new PawnDivider
         {
@@ -71,6 +72,15 @@ namespace Better_Work_Tab.Features.TimePriority
         // Geometry automation must sample the settled 24-hour cells. Exposing the
         // transition state here keeps the test seam aligned with the animation owner.
         internal static bool IsTransitioning => IsVisible && GetProgress() < 0.999f;
+        internal static int TutorialEditRevision => _tutorialEditRevision;
+
+        internal static void CloseForTutorial()
+        {
+            if (_session != null)
+            {
+                Close();
+            }
+        }
 
         internal static bool TryGetLastPanelRect(out Rect rect)
         {
@@ -544,6 +554,7 @@ namespace Better_Work_Tab.Features.TimePriority
                 int current = TimePriorityService.GetPriorityAtHour(hit.Target, hit.FallbackPriority, hit.Hour);
                 int next = GetNextPriorityForInput(current, evt);
                 TimePriorityService.SetPriorityAtHourSynced(hit.Target, hit.Hour, next, hit.FallbackPriority);
+                _tutorialEditRevision++;
                 SoundDefOf.DragSlider.PlayOneShotOnCamera();
                 evt.Use();
                 return true;

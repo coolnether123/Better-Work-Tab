@@ -130,7 +130,8 @@
     <Compile Include="Features\TimePriority\TimePriorityService.cs" />
     <Compile Include="Features\TimePriority\TimePriorityTarget.cs" />
     <Compile Include="Features\TimePriority\TimePriorityTargetKind.cs" />
-    <Compile Include="Features\Tutorial\BWTBetaTutorial.cs" />
+    <Compile Include="Features\Tutorial\BWTTutorialAnchor.cs" />
+    <Compile Include="Features\Tutorial\BWTTutorialSelector.cs" />
     <Compile Include="Features\Tutorial\BWTGeneralTutorial.cs" />
     <Compile Include="Features\Tutorial\BWTTutorialInteraction.cs" />
     <Compile Include="Features\Tutorial\BWTTutorialInteractionKind.cs" />
@@ -239,6 +240,7 @@
     <Compile Include="Spine\UI\Tutorial\TutorialOverlayLayout.cs" />
     <Compile Include="Spine\UI\Tutorial\TutorialOverlayShortcutHint.cs" />
     <Compile Include="Spine\UI\Tutorial\TutorialOverlayStyle.cs" />
+    <Compile Include="Spine\UI\Tutorial\TutorialHubState.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingDefinition.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingSuppression.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingsScribe.cs" />

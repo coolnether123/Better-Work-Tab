@@ -72,6 +72,17 @@ namespace Better_Work_Tab.UI.Headers.Angled
             return false;
         }
 
+        internal static bool TryGetLatest(WorkTypeDef workType, out CachedHeaderData cached)
+        {
+            if (workType != null && _latestCache.TryGetValue(workType, out cached))
+            {
+                return true;
+            }
+
+            cached = default(CachedHeaderData);
+            return false;
+        }
+
         /// <summary>
         /// Computes a signature for the given parameters to detect changes that should invalidate the cache.
         /// </summary>
