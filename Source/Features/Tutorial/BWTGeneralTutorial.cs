@@ -63,6 +63,9 @@ namespace Better_Work_Tab.Features.Tutorial
         private static bool initialSubWorkActive;
         private static string observedLessonId = string.Empty;
         private static Vector2 lessonScrollPosition;
+        private static bool ownsCurrentPointer;
+
+        internal static bool OwnsCurrentPointer => ownsCurrentPointer;
 
         internal static bool IsActive
         {
@@ -178,7 +181,13 @@ namespace Better_Work_Tab.Features.Tutorial
                     return true;
                 }
 
-                return evt.type == EventType.ScrollWheel || evt.type == EventType.MouseDrag;
+                if (IsPointerEvent(evt.type))
+                {
+                    evt.Use();
+                    return true;
+                }
+
+                return false;
             }
 
             IReadOnlyDictionary<TutorialHubAnchor, BWTTutorialHubDefinition> hubs = BuildHubDefinitions();
@@ -202,6 +211,73 @@ namespace Better_Work_Tab.Features.Tutorial
             }
 
             return handled;
+        }
+
+        internal static void UpdatePointerOwnership(
+            Rect inRect,
+            IWorkTabLayoutController layout,
+            Vector2 pointer)
+        {
+            ownsCurrentPointer = IsActive && OwnsPointer(inRect, layout, pointer);
+        }
+
+        private static bool OwnsPointer(Rect inRect, IWorkTabLayoutController layout, Vector2 pointer)
+        {
+            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
+            if (settings == null)
+            {
+                return false;
+            }
+
+            EnsureState(settings);
+            TutorialPresentation presentation = Presentation;
+            bool overSurface;
+            if (presentation == TutorialPresentation.Welcome)
+            {
+                overSurface = WelcomeOverlay.ContainsPointer(
+                    inRect,
+                    BuildWelcomeContent(),
+                    NoWelcomeFocusRects,
+                    pointer);
+            }
+            else
+            {
+                List<BWTTutorialAnchor> anchors = BWTTutorialGeometry.BuildInitialAnchors(inRect, layout);
+                Rect workBounds = BWTTutorialGeometry.GetVisibleWorkTabBounds(inRect, layout);
+                if (presentation == TutorialPresentation.Lesson)
+                {
+                    BWTTutorialAnchor activeAnchor = lessonAnchor.IsValid
+                        ? lessonAnchor
+                        : FindLessonAnchor(anchors, GetAnchorForLesson(settings.activeTutorialLessonId));
+                    overSurface = BuildLessonLayout(
+                        inRect,
+                        workBounds,
+                        activeAnchor,
+                        GetLessonBody(settings.activeTutorialLessonId, settings.tutorialLessonPhase))
+                        .CardRect.Contains(pointer);
+                }
+                else
+                {
+                    overSurface = Selector.ContainsPointer(
+                        inRect,
+                        workBounds,
+                        anchors,
+                        BuildHubDefinitions(),
+                        pointer,
+                        T("BWT_Tutorial_Recommended"));
+                }
+            }
+
+            return TutorialPointerOwnershipPolicy.BlocksUnderlyingPointer(presentation, overSurface);
+        }
+
+        private static bool IsPointerEvent(EventType type)
+        {
+            return type == EventType.MouseDown ||
+                   type == EventType.MouseUp ||
+                   type == EventType.MouseMove ||
+                   type == EventType.MouseDrag ||
+                   type == EventType.ScrollWheel;
         }
 
         internal static bool TryHandleAcceptKey()

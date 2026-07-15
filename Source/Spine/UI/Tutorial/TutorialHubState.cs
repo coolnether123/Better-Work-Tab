@@ -59,6 +59,20 @@ namespace Spine.UI.Tutorial
     }
 
     /// <summary>
+    /// Pure policy for deciding whether a visible tutorial surface owns the
+    /// pointer instead of the interface drawn beneath it.
+    /// </summary>
+    public static class TutorialPointerOwnershipPolicy
+    {
+        public static bool BlocksUnderlyingPointer(
+            TutorialPresentation presentation,
+            bool overTutorialSurface)
+        {
+            return presentation != TutorialPresentation.Hidden && overTutorialSurface;
+        }
+    }
+
+    /// <summary>
     /// Pure hover ownership model shared by tutorial hubs. Connected option and
     /// description regions retain the originating anchor, and a short grace
     /// interval covers ordinary pointer travel between those regions.

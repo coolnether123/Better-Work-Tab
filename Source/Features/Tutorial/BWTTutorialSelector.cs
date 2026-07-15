@@ -122,17 +122,7 @@ namespace Better_Work_Tab.Features.Tutorial
             }
 
             TutorialHubAnchor anchorAtPointer = GetAnchorAt(anchors, evt.mousePosition);
-            TutorialHubAnchor active = pinnedAnchor != TutorialHubAnchor.None
-                ? pinnedAnchor
-                : hover.ActiveAnchor;
-            if (anchorAtPointer != TutorialHubAnchor.None)
-            {
-                active = anchorAtPointer;
-            }
-            if (active == TutorialHubAnchor.None)
-            {
-                active = TutorialHubAnchor.PriorityCell;
-            }
+            TutorialHubAnchor active = ResolveActiveAnchor(anchorAtPointer);
 
             if (evt.type == EventType.MouseDown && evt.button == 0 && anchorAtPointer != TutorialHubAnchor.None)
             {
@@ -204,7 +194,31 @@ namespace Better_Work_Tab.Features.Tutorial
                 return true;
             }
 
-            return evt.type == EventType.ScrollWheel || evt.type == EventType.MouseDrag;
+            if (IsPointerEvent(evt.type))
+            {
+                evt.Use();
+                return true;
+            }
+
+            return false;
+        }
+
+        internal bool ContainsPointer(
+            Rect bounds,
+            Rect workBounds,
+            IReadOnlyList<BWTTutorialAnchor> anchors,
+            IReadOnlyDictionary<TutorialHubAnchor, BWTTutorialHubDefinition> hubs,
+            Vector2 pointer,
+            string recommendedLabel)
+        {
+            if (anchors == null || anchors.Count == 0 || hubs == null)
+            {
+                return false;
+            }
+
+            TutorialHubAnchor active = ResolveActiveAnchor(GetAnchorAt(anchors, pointer));
+            return hubs.TryGetValue(active, out BWTTutorialHubDefinition hub) &&
+                   BuildLayout(bounds, workBounds, hub, recommendedLabel).PanelRect.Contains(pointer);
         }
 
         internal void Draw(
@@ -473,6 +487,28 @@ namespace Better_Work_Tab.Features.Tutorial
             }
 
             return TutorialHubAnchor.None;
+        }
+
+        private TutorialHubAnchor ResolveActiveAnchor(TutorialHubAnchor anchorAtPointer)
+        {
+            if (anchorAtPointer != TutorialHubAnchor.None)
+            {
+                return anchorAtPointer;
+            }
+
+            TutorialHubAnchor active = pinnedAnchor != TutorialHubAnchor.None
+                ? pinnedAnchor
+                : hover.ActiveAnchor;
+            return active == TutorialHubAnchor.None ? TutorialHubAnchor.PriorityCell : active;
+        }
+
+        private static bool IsPointerEvent(EventType type)
+        {
+            return type == EventType.MouseDown ||
+                   type == EventType.MouseUp ||
+                   type == EventType.MouseMove ||
+                   type == EventType.MouseDrag ||
+                   type == EventType.ScrollWheel;
         }
 
         private static string GetHoveredLesson(

@@ -480,6 +480,7 @@ namespace Better_Work_Tab.UI
             RuleBuilder2AgentHarness.ProcessSelectionRequest(organizer?.Layout);
 
             Event evt = Event.current;
+            BWTWorkTabTutorial.UpdatePointerOwnership(inRect, organizer?.Layout, evt.mousePosition);
             if (evt.type != EventType.Repaint && evt.type != EventType.Layout)
             {
                 if (evt.type == EventType.MouseDown || evt.type == EventType.ScrollWheel)
@@ -578,7 +579,7 @@ namespace Better_Work_Tab.UI
 
             WorkTabColorPreviewRenderer.Draw(organizer?.Layout, inRect);
 
-            bool mouseInside = Mouse.IsOver(inRect);
+            bool mouseInside = !BWTWorkTabTutorial.OwnsCurrentPointer && Mouse.IsOver(inRect);
             Rect infoRect = GetInfoIconRect(inRect);
             DrawBottomRightButtons(inRect, infoRect);
             if (mouseInside)
@@ -1566,7 +1567,10 @@ namespace Better_Work_Tab.UI
 
                 if (showCursorHighlight &&
                     isWorkColumn &&
-                    (timePrioritySourceColumn || (!timePriorityOwnsMouse && Mouse.IsOver(headerRect))))
+                    (timePrioritySourceColumn ||
+                     (!timePriorityOwnsMouse &&
+                      !BWTWorkTabTutorial.OwnsCurrentPointer &&
+                      Mouse.IsOver(headerRect))))
                 {
                     Color useColor = settings.Color_MouseHoverHighlight;
                     Rect columnRect = new Rect(headerRect.x, layout.TableOrigin.y + layout.HeaderHeight, column.Width, totalHeight);
@@ -2727,6 +2731,7 @@ namespace Better_Work_Tab.UI
                 layout == null ||
                 TimePriorityScheduleEditor.OwnsCurrentMousePosition ||
                 !Mouse.IsOver(inRect) ||
+                BWTWorkTabTutorial.OwnsCurrentPointer ||
                 RuleBuilderGateway.RuleBuilder2BlocksWorkTabHover())
             {
                 RuleBuilderGateway.ClearRuleBuilder2WorkTabPreview();
@@ -3919,7 +3924,8 @@ namespace Better_Work_Tab.UI
 
             WorkTabLayoutColumn? hoveredColumn = null;
             WorkTypeDef hoveredWorkType = null;
-            bool timePriorityOwnsMouse = TimePriorityScheduleEditor.OwnsCurrentMousePosition;
+            bool timePriorityOwnsMouse = TimePriorityScheduleEditor.OwnsCurrentMousePosition ||
+                                         BWTWorkTabTutorial.OwnsCurrentPointer;
 
             // 1. Detect Hovered Column
             if (settings.ShowCursorPawnAndWorktypeHighlight && !timePriorityOwnsMouse)
@@ -4579,7 +4585,9 @@ namespace Better_Work_Tab.UI
                 HighlightDrawer.DrawHighlight(rowRect, HighlightDrawer.GetSelectedPawnColor());
             }
 
-            if ((settings?.enableRowColumnHighlights ?? true) && Mouse.IsOver(rowRect))
+            if ((settings?.enableRowColumnHighlights ?? true) &&
+                !BWTWorkTabTutorial.OwnsCurrentPointer &&
+                Mouse.IsOver(rowRect))
             {
                // Custom row highlight is drawn in DrawAllHighlights (Phase 1).
                // We don't draw vanilla highlight here to avoid yellow overlay.

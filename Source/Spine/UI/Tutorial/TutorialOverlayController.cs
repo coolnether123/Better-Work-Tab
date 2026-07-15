@@ -90,7 +90,22 @@ namespace Spine.UI.Tutorial
                 return true;
             }
 
-            return evt.type == EventType.MouseDrag || evt.type == EventType.ScrollWheel;
+            if (IsPointerEvent(evt.type))
+            {
+                evt.Use();
+                return true;
+            }
+
+            return false;
+        }
+
+        public bool ContainsPointer(
+            Rect bounds,
+            TutorialOverlayContent content,
+            List<Rect> focusRects,
+            Vector2 pointer)
+        {
+            return GetAnimatedLayout(bounds, focusRects, content).CardRect.Contains(pointer);
         }
 
         public bool TryHandleAcceptKey(TutorialOverlayContent content, Action onPrimary)
@@ -319,6 +334,15 @@ namespace Spine.UI.Tutorial
             float minimumHeight = Mathf.Min(210f, maximumHeight);
             float height = Mathf.Clamp(desiredHeight, minimumHeight, maximumHeight);
             return new Vector2(width, height);
+        }
+
+        private static bool IsPointerEvent(EventType type)
+        {
+            return type == EventType.MouseDown ||
+                   type == EventType.MouseUp ||
+                   type == EventType.MouseMove ||
+                   type == EventType.MouseDrag ||
+                   type == EventType.ScrollWheel;
         }
 
         private static Rect ClampCardToBounds(Rect rect, Rect bounds)

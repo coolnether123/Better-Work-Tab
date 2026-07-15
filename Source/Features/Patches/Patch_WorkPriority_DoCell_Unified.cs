@@ -1,6 +1,7 @@
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
+using Better_Work_Tab.Features.Tutorial;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
@@ -63,7 +64,7 @@ namespace Better_Work_Tab.Patches
             if (!isHovered)
             {
                 Rect labelRect = GetLabelRect(__instance, rect);
-                isHovered = Mouse.IsOver(labelRect);
+                isHovered = !BWTWorkTabTutorial.OwnsCurrentPointer && Mouse.IsOver(labelRect);
             }
 
             if (isHovered)
@@ -256,7 +257,9 @@ namespace Better_Work_Tab.Patches
                 return true;
 
             // Track column hover state only if hover cell overlay is enabled
-            bool hoveringCell = !timePriorityOwnsMouse && Mouse.IsOver(rect);
+            bool hoveringCell = !timePriorityOwnsMouse &&
+                                !BWTWorkTabTutorial.OwnsCurrentPointer &&
+                                Mouse.IsOver(rect);
             if (_cachedHoverCellOverlayEnabled && hoveringCell && _cachedHoverScope == BetterWorkTabSettings.HoverEffectScope.ColumnWide)
             {
                 _columnHoveredWorkType = workType;
@@ -366,7 +369,9 @@ namespace Better_Work_Tab.Patches
 
             int priority = pawn.workSettings.GetPriority(workType);
             int skillLevel = GetSkillLevel(pawn, workType);
-            bool hoveringCell = !TimePriorityScheduleEditor.OwnsCurrentMousePosition && Mouse.IsOver(rect);
+            bool hoveringCell = !TimePriorityScheduleEditor.OwnsCurrentMousePosition &&
+                                !BWTWorkTabTutorial.OwnsCurrentPointer &&
+                                Mouse.IsOver(rect);
             
             // Only check column hover if hover overlay is enabled
             bool columnHovered = _cachedHoverCellOverlayEnabled &&
@@ -875,7 +880,8 @@ namespace Better_Work_Tab.Patches
                 !(BetterWorkTabMod.Settings?.enableScrollWheelPriority ?? false) ||
                 evt.type != EventType.ScrollWheel ||
                 TimePriorityScheduleEditor.OwnsCurrentMousePosition ||
-                (!trustHit && !Mouse.IsOver(cellRect)))
+                (!trustHit &&
+                 (BWTWorkTabTutorial.OwnsCurrentPointer || !Mouse.IsOver(cellRect))))
             {
                 return false;
             }
@@ -916,7 +922,8 @@ namespace Better_Work_Tab.Patches
                 return false;
             }
 
-            if (!trustHit && !Mouse.IsOver(GetWorkBoxRect(cellRect)))
+            if (!trustHit &&
+                (BWTWorkTabTutorial.OwnsCurrentPointer || !Mouse.IsOver(GetWorkBoxRect(cellRect))))
             {
                 return false;
             }

@@ -20,6 +20,16 @@ namespace Better_Work_Tab.Features.Tutorial
             return BWTGeneralTutorial.TryHandleAcceptKey();
         }
 
+        internal static bool OwnsCurrentPointer => BWTGeneralTutorial.OwnsCurrentPointer;
+
+        internal static void UpdatePointerOwnership(
+            Rect inRect,
+            IWorkTabLayoutController layout,
+            Vector2 pointer)
+        {
+            BWTGeneralTutorial.UpdatePointerOwnership(inRect, layout, pointer);
+        }
+
         internal static void TickAndDraw(Rect inRect, IWorkTabLayoutController layout)
         {
             BWTGeneralTutorial.TickAndDraw(inRect, layout);
