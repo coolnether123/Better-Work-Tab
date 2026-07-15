@@ -221,7 +221,10 @@ namespace Spine.UI.Tutorial
                 case TutorialPriorityRoutingMode.BetterWorkTab:
                     return "ui.maxPriority";
                 case TutorialPriorityRoutingMode.Auto:
-                    return "ui.autoMaxPriority";
+                    // Auto uses the visible maximum-priority ceiling. The
+                    // auto-specific value is retained only for old saves and
+                    // is intentionally hidden from the settings UI.
+                    return "ui.maxPriority";
                 default:
                     return "priority.mode";
             }

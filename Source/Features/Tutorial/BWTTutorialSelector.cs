@@ -88,7 +88,9 @@ namespace Better_Work_Tab.Features.Tutorial
         private string contextContentKey;
 
         internal float PreferredReserveWidth => PreferredPanelWidth + PanelGap;
-        internal float PreferredReserveHeight => 350f;
+        // The selector may reserve room beside the grid, but it must never
+        // make the Work Tab taller.
+        internal float PreferredReserveHeight => 0f;
 
         internal void Reset()
         {
@@ -137,7 +139,12 @@ namespace Better_Work_Tab.Features.Tutorial
                 return false;
             }
 
-            SelectorLayout layout = BuildLayout(bounds, workBounds, hub, recommendedLabel);
+            SelectorLayout layout = BuildLayout(
+                bounds,
+                workBounds,
+                FindAnchorRect(anchors, active),
+                hub,
+                recommendedLabel);
             if (!layout.PanelRect.Contains(evt.mousePosition))
             {
                 return false;
@@ -218,7 +225,12 @@ namespace Better_Work_Tab.Features.Tutorial
 
             TutorialHubAnchor active = ResolveActiveAnchor(GetAnchorAt(anchors, pointer));
             return hubs.TryGetValue(active, out BWTTutorialHubDefinition hub) &&
-                   BuildLayout(bounds, workBounds, hub, recommendedLabel).PanelRect.Contains(pointer);
+                   BuildLayout(
+                       bounds,
+                       workBounds,
+                       FindAnchorRect(anchors, active),
+                       hub,
+                       recommendedLabel).PanelRect.Contains(pointer);
         }
 
         internal void Draw(
@@ -260,7 +272,12 @@ namespace Better_Work_Tab.Features.Tutorial
                 return;
             }
 
-            SelectorLayout layout = BuildLayout(bounds, workBounds, hub, recommendedLabel);
+            SelectorLayout layout = BuildLayout(
+                bounds,
+                workBounds,
+                FindAnchorRect(anchors, active),
+                hub,
+                recommendedLabel);
             lastOptionsRect = layout.OptionsRect;
             lastContextRect = layout.ContextRect;
             float maximumScroll = Mathf.Max(0f, layout.OptionViewRect.height - layout.OptionsRect.height);
@@ -406,6 +423,7 @@ namespace Better_Work_Tab.Features.Tutorial
         private static SelectorLayout BuildLayout(
             Rect bounds,
             Rect workBounds,
+            Rect anchorRect,
             BWTTutorialHubDefinition hub,
             string recommendedLabel)
         {
@@ -418,9 +436,15 @@ namespace Better_Work_Tab.Features.Tutorial
             float x = useRight
                 ? workBounds.xMax + PanelGap
                 : Mathf.Clamp(workBounds.center.x - width / 2f, bounds.xMin + 10f, bounds.xMax - width - 10f);
+            Vector2 anchorCenter = anchorRect.width > 0f && anchorRect.height > 0f
+                ? anchorRect.center
+                : workBounds.center;
             float y = useRight
-                ? Mathf.Clamp(workBounds.center.y - height / 2f, bounds.yMin + 10f, bounds.yMax - height - 10f)
-                : Mathf.Max(bounds.yMin + 10f, workBounds.yMin - height - PanelGap);
+                ? Mathf.Clamp(anchorCenter.y - height / 2f, bounds.yMin + 10f, bounds.yMax - height - 10f)
+                : Mathf.Clamp(
+                    anchorRect.yMin - height - PanelGap,
+                    bounds.yMin + 10f,
+                    bounds.yMax - height - 10f);
             Rect panel = new Rect(x, y, width, height);
 
             Rect inner = panel.ContractedBy(CardPadding);
@@ -487,6 +511,24 @@ namespace Better_Work_Tab.Features.Tutorial
             }
 
             return TutorialHubAnchor.None;
+        }
+
+        private static Rect FindAnchorRect(
+            IReadOnlyList<BWTTutorialAnchor> anchors,
+            TutorialHubAnchor kind)
+        {
+            if (anchors != null)
+            {
+                for (int i = 0; i < anchors.Count; i++)
+                {
+                    if (anchors[i].Kind == kind)
+                    {
+                        return anchors[i].Rect;
+                    }
+                }
+            }
+
+            return Rect.zero;
         }
 
         private TutorialHubAnchor ResolveActiveAnchor(TutorialHubAnchor anchorAtPointer)
