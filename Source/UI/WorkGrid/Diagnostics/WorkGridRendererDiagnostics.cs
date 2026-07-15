@@ -64,7 +64,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Diagnostics
     {
         private static WorkGridRendererDiagnosticSnapshot _current =
             new WorkGridRendererDiagnosticSnapshot(
-                LegacyWorkGridRenderer.RendererId,
+                VanillaWorkGridRenderer.RendererId,
                 WorkGridRendererMode.Auto,
                 WorkGridForcedRendererMode.None,
                 new[] { new WorkGridFallbackReason(WorkGridFallbackReasonCode.OptimizedUnavailable) },

@@ -5,9 +5,9 @@ using System.Reflection;
 using System.Reflection.Emit;
 using System.Text;
 using HarmonyLib;
-using ModAPI.Core;
+using Spine.Harmony.Infrastructure;
 
-namespace ModAPI.Harmony
+namespace Spine.Harmony
 {
     internal class BasicBlock
     {

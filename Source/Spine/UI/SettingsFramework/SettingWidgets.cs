@@ -248,14 +248,31 @@ namespace Spine.UI.SettingsFramework
             if (Widgets.ButtonText(buttonRect, currentLabel) && enumType != null)
             {
                 var options = new List<FloatMenuOption>();
+                var optionDescriptions = new Dictionary<FloatMenuOption, string>();
+                var seenValues = new HashSet<long>();
+                FloatMenuOption selectedOption = null;
+                long currentNumericValue = Convert.ToInt64(currentValue);
                 foreach (var enumValue in Enum.GetValues(enumType))
                 {
+                    // Enum aliases are useful for serialized-setting migrations, but should not
+                    // create duplicate choices in the player-facing dropdown.
+                    if (!seenValues.Add(Convert.ToInt64(enumValue)))
+                    {
+                        continue;
+                    }
+
                     var local = enumValue;
                     string optionLabel = ResolveEnumLabel(enumType, local);
-                    options.Add(new FloatMenuOption(optionLabel, () => onSelected?.Invoke(local)));
+                    var option = new FloatMenuOption(optionLabel, () => onSelected?.Invoke(local));
+                    options.Add(option);
+                    optionDescriptions[option] = ResolveEnumDescription(enumType, local, label, tooltip);
+                    if (Convert.ToInt64(local) == currentNumericValue)
+                    {
+                        selectedOption = option;
+                    }
                 }
 
-                Find.WindowStack.Add(new FloatMenu(options));
+                Find.WindowStack.Add(new DescribedFloatMenu(options, selectedOption, label, tooltip, optionDescriptions));
             }
 
             if (disabled)
@@ -264,9 +281,11 @@ namespace Spine.UI.SettingsFramework
                 GUI.color = Color.white;
             }
 
-            if (!string.IsNullOrEmpty(tooltip))
+            if (!string.IsNullOrEmpty(tooltip) && !DescribedFloatMenu.AnyOpen)
             {
-                TooltipHandler.TipRegion(rect, tooltip);
+                // Keep the value button free of tooltip ownership. Otherwise a tooltip that was
+                // opened over the button can remain above the enum menu and obscure its choices.
+                TooltipHandler.TipRegion(labelRect, tooltip);
             }
         }
 
@@ -296,6 +315,30 @@ namespace Spine.UI.SettingsFramework
             }
 
             return value.ToString();
+        }
+
+        private static string ResolveEnumDescription(
+            Type enumType,
+            object value,
+            string settingLabel,
+            string settingDescription)
+        {
+            if (enumType == null || value == null)
+            {
+                return settingDescription ?? string.Empty;
+            }
+
+            string key = $"BWT_Enum_{enumType.Name}_{value}_Description";
+            if (key.CanTranslate())
+            {
+                return key.Translate();
+            }
+
+            string optionLabel = ResolveEnumLabel(enumType, value);
+            string action = $"Selecting {optionLabel} sets {settingLabel} to {optionLabel}.";
+            return string.IsNullOrEmpty(settingDescription)
+                ? action
+                : action + "\n\n" + settingDescription;
         }
 
         /// <summary>
@@ -378,13 +421,17 @@ namespace Spine.UI.SettingsFramework
             if (!disabled && Widgets.ButtonText(buttonRect, "BWT_AddOption".Translate()))
             {
                 var options = new List<FloatMenuOption>();
+                var optionDescriptions = new Dictionary<FloatMenuOption, string>();
                 var available = optionsProvider?.Invoke();
                 if (available != null)
                 {
                     foreach (var opt in available)
                     {
                         var local = opt;
-                        options.Add(new FloatMenuOption(local, () => onAdded?.Invoke(local)));
+                        var option = new FloatMenuOption(local, () => onAdded?.Invoke(local));
+                        options.Add(option);
+                        optionDescriptions[option] = $"Select {local} to add it to {label}." +
+                            (string.IsNullOrEmpty(tooltip) ? string.Empty : "\n\n" + tooltip);
                     }
                 }
 
@@ -393,12 +440,12 @@ namespace Spine.UI.SettingsFramework
                     options.Add(new FloatMenuOption("BWT_NoOptionsAvailable".Translate(), null));
                 }
 
-                Find.WindowStack.Add(new FloatMenu(options));
+                Find.WindowStack.Add(new DescribedFloatMenu(options, null, label, tooltip, optionDescriptions));
             }
 
-            if (!string.IsNullOrEmpty(tooltip))
+            if (!string.IsNullOrEmpty(tooltip) && !DescribedFloatMenu.AnyOpen)
             {
-                TooltipHandler.TipRegion(rect, tooltip);
+                TooltipHandler.TipRegion(labelRect, tooltip);
             }
         }
 

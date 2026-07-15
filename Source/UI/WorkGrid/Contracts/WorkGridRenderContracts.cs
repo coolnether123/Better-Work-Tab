@@ -12,7 +12,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Contracts
     {
         Auto,
         Optimized,
-        Legacy
+        Vanilla,
+
+        // Serialized 2.0 preview settings may still contain "Legacy". Keep the alias so those
+        // saves load as Vanilla while all current UI and diagnostics use the player-facing name.
+        [Obsolete("Use Vanilla. This alias exists only for saved-setting compatibility.")]
+        Legacy = Vanilla
     }
 
     [Flags]

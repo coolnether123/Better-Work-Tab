@@ -387,39 +387,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 GUI.color = new Color(1f, 0.3f, 0.3f);
             }
 
-            WorkGridAtlasVisualVariant skillVariant = cell.SkillBand == 0
-                ? WorkGridAtlasVisualVariant.SkillAwfulBad
-                : cell.SkillBand == 1
-                    ? WorkGridAtlasVisualVariant.SkillBadMid
-                    : WorkGridAtlasVisualVariant.SkillMidExcellent;
-            WorkGridAtlasEntry background = GetEntry(cell, skillVariant);
-            GUI.DrawTexture(boxRect, background.BaseTexture);
-            Color tint = GUI.color;
-            GUI.color = new Color(tint.r, tint.g, tint.b, cell.SkillBlend);
-            GUI.DrawTexture(boxRect, background.BlendTexture);
-
-            if ((cell.Flags & WorkCellVisualFlags.IdeologyWarning) != 0)
-            {
-                GUI.color = Color.white;
-                GUI.DrawTexture(boxRect, WidgetsWork.WorkBoxOverlay_PreceptWarning);
-            }
-            if ((cell.Flags & WorkCellVisualFlags.LowSkillWarning) != 0)
-            {
-                GUI.color = Color.white;
-                GUI.DrawTexture(boxRect.ContractedBy(-2f), WidgetsWork.WorkBoxOverlay_Warning);
-            }
-            if ((cell.Flags & WorkCellVisualFlags.HasPassion) != 0)
-            {
-                GUI.color = new Color(1f, 1f, 1f, 0.4f);
-                Rect passionRect = boxRect;
-                passionRect.xMin = boxRect.center.x;
-                passionRect.yMin = boxRect.center.y;
-                GUI.DrawTexture(
-                    passionRect,
-                    cell.Passion == (byte)Passion.Minor
-                        ? WidgetsWork.PassionWorkboxMinorIcon
-                        : WidgetsWork.PassionWorkboxMajorIcon);
-            }
+            // Background ownership stays with RimWorld. This deliberately calls the same
+            // method as PawnColumnWorker_WorkPriority instead of maintaining a BWT copy of
+            // its skill texture blending, ideology warning, low-skill warning, and passion
+            // rendering rules.
+            WidgetsWork.DrawWorkBoxBackground(boxRect, cell.Pawn, cell.WorkType);
 
             GUI.color = Color.white;
             if (_snapshot.ManualPriorities)

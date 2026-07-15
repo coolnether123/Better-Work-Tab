@@ -208,25 +208,26 @@
     <Compile Include="Spine\DragDrop\Util\ListDragHelpers.cs" />
     <Compile Include="Spine\DragDrop\ListDragSession.cs" />
     <Compile Include="Spine\DragDrop\Util\ListDragVisuals.cs" />
-    <Compile Include="Spine\harmony\HarmonyBootstrap.cs" />
     <Compile Include="Spine\harmony\HarmonyCompat.cs" />
-    <Compile Include="Spine\harmony\HarmonyHelper.cs" />
-    <Compile Include="Spine\harmony\HarmonyUtil.cs" />
-    <Compile Include="Spine\harmony\PatchRegistry.cs" />
-    <Compile Include="Spine\harmony\Transpilers\AdvancedExtensions.cs" />
     <Compile Include="Spine\harmony\Transpilers\CartographerExtensions.cs" />
-    <Compile Include="Spine\harmony\Transpilers\ControlFlowExtensions.cs" />
-    <Compile Include="Spine\harmony\Transpilers\CooperativePatcher.cs" />
     <Compile Include="Spine\harmony\Transpilers\FluentTranspiler.cs" />
+    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerCallRecipes.cs" />
+    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerClampRecipes.cs" />
+    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerCompatibilityExtensions.cs" />
+    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerExecution.cs" />
+    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerFieldRecipes.cs" />
+    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerFormatting.cs" />
+    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerGuardRecipes.cs" />
     <Compile Include="Spine\harmony\Transpilers\FluentTranspilerPatterns.cs" />
+    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerRangeCheckRecipes.cs" />
+    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerRecipeValidation.cs" />
+    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerReturnRecipes.cs" />
+    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerWrapRecipes.cs" />
     <Compile Include="Spine\harmony\Transpilers\FluentTranspiler_Features.cs" />
     <Compile Include="Spine\harmony\Transpilers\IntentAPI.cs" />
-    <Compile Include="Spine\harmony\Transpilers\ShelteredPatterns.cs" />
     <Compile Include="Spine\harmony\Transpilers\StackSentinel.cs" />
     <Compile Include="Spine\harmony\Transpilers\TranspilerDebugger.cs" />
     <Compile Include="Spine\harmony\Transpilers\TranspilerSafetyPolicy.cs" />
-    <Compile Include="Spine\harmony\Transpilers\TranspilerTestHarness.cs" />
-    <Compile Include="Spine\harmony\Transpilers\UnityPatterns.cs" />
     <Compile Include="Spine\Profiling\SpineTiming.cs" />
     <Compile Include="Spine\Utils\SpineUtils.cs" />
     <Compile Include="Spine\UI\TextColorHelper.cs" />
@@ -245,6 +246,7 @@
     <Compile Include="Spine\UI\SettingsFramework\SettingsHierarchy.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingsFilterDefinition.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingsImportExportActions.cs" />
+    <Compile Include="Spine\UI\SettingsFramework\DescribedFloatMenu.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingWidgets.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingsListDrawer.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingsUIHelpers.cs" />
@@ -275,7 +277,7 @@
     <Compile Include="UI\WorkGrid\Invalidation\WorkTabInvalidationHub.cs" />
     <Compile Include="UI\WorkGrid\Rendering\WorkGridRendererFacade.cs" />
     <Compile Include="UI\WorkGrid\Rendering\WorkGridRendererSelector.cs" />
-    <Compile Include="UI\WorkGrid\Rendering\LegacyWorkGridRenderer.cs" />
+    <Compile Include="UI\WorkGrid\Rendering\VanillaWorkGridRenderer.cs" />
     <Compile Include="UI\WorkGrid\Rendering\OptimizedWorkGridRenderer.cs" />
     <Compile Include="UI\WorkGrid\Rendering\WorkGridRenderPrimitives.cs" />
     <Compile Include="UI\WorkGrid\Diagnostics\WorkGridRendererDiagnostics.cs" />
@@ -377,6 +379,22 @@
     <Compile Include="UI\RuleBuilderV2\Dialog_RuleBuilder2SuggestRulesConfirmation.cs" />
     <Compile Include="UI\RuleBuilderV2\Window_RuleBuilder2RulePicker.cs" />
     <Compile Include="UI\RuleBuilderV2\Window_RuleBuilder2.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Optional Spine Harmony modules. Keep these visible for future opt-in use without shipping dormant code. -->
+    <None Include="Spine\harmony\DeferredPatchCoordinator.cs" />
+    <None Include="Spine\harmony\HarmonyBootstrap.cs" />
+    <None Include="Spine\harmony\HarmonyHelper.cs" />
+    <None Include="Spine\harmony\HarmonyUtil.cs" />
+    <None Include="Spine\harmony\PatchRegistry.cs" />
+    <None Include="Spine\harmony\VisualTranspilerBuilder.cs" />
+    <None Include="Spine\harmony\Transpilers\AdvancedExtensions.cs" />
+    <None Include="Spine\harmony\Transpilers\ControlFlowExtensions.cs" />
+    <None Include="Spine\harmony\Transpilers\CooperativePatcher.cs" />
+    <None Include="Spine\harmony\Transpilers\README.md" />
+    <None Include="Spine\harmony\Transpilers\ShelteredPatterns.cs" />
+    <None Include="Spine\harmony\Transpilers\TranspilerTestHarness.cs" />
+    <None Include="Spine\harmony\Transpilers\UnityPatterns.cs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Krafs.Publicizer">

@@ -4,7 +4,7 @@ using System.Reflection;
 using UnityEngine;
 using Verse;
 
-namespace ModAPI.Core
+namespace Spine.Harmony.Infrastructure
 {
     public static class HarmonyPreferenceSource
     {
@@ -70,6 +70,22 @@ namespace ModAPI.Core
             Log.Message(Prefix + "[Debug] " + (message ?? string.Empty));
         }
 
+        public static void WriteDebugBlock(string heading, IEnumerable<string> lines)
+        {
+            if (!ShouldLogDebug())
+            {
+                return;
+            }
+
+            var block = new List<string> { heading ?? string.Empty };
+            if (lines != null)
+            {
+                block.AddRange(lines);
+            }
+
+            Log.Message(Prefix + "[Debug] " + string.Join(Environment.NewLine, block));
+        }
+
         public static void WarnOnce(string key, string message)
         {
             if (string.IsNullOrEmpty(key))
@@ -119,7 +135,7 @@ namespace ModAPI.Core
     }
 }
 
-namespace ModAPI.Reflection
+namespace Spine.Harmony.Infrastructure
 {
     /// <summary>
     /// Minimal reflection helper shim used by HarmonyHelper.SafeInvoke.
@@ -168,7 +184,7 @@ namespace ModAPI.Reflection
     }
 }
 
-namespace ModAPI.Spine
+namespace Spine.Harmony.Infrastructure
 {
     public interface IPluginSettings
     {

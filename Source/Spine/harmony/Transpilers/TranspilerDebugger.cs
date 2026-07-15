@@ -6,9 +6,9 @@ using System.Reflection.Emit;
 using HarmonyLib;
 using System.IO;
 using System.Text;
-using ModAPI.Core;
+using Spine.Harmony.Infrastructure;
 
-namespace ModAPI.Harmony
+namespace Spine.Harmony
 {
     public static class TranspilerDebugger
     {

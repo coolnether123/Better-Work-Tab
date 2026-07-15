@@ -4,7 +4,7 @@ using Better_Work_Tab.ModSupport;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.PawnOrganizer;
 using HarmonyLib;
-using ModAPI.Core;
+using Spine.Harmony.Infrastructure;
 using Spine.UI.ColourPicker;
 using System;
 using UnityEngine;

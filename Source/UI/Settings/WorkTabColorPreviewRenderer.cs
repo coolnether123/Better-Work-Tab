@@ -97,7 +97,11 @@ namespace Better_Work_Tab.UI.Settings
 
                 if (WorkTabColumnHighlightUtility.IsHighlightableWorkColumn(candidate))
                 {
-                    if (!workColumn.HasValue)
+                    // Firefight is normally the first Work column, but it has no relevant
+                    // skill. Choosing it made skill-color previews render an em dash that
+                    // looked like a stray line. Prefer the first real skill-bearing column.
+                    if (!workColumn.HasValue ||
+                        (!HasRelevantSkill(workColumn.Value) && HasRelevantSkill(candidate)))
                     {
                         workColumn = candidate;
                     }
@@ -159,6 +163,12 @@ namespace Better_Work_Tab.UI.Settings
             headerRect = ClipToWindow(headerRect, windowRect);
             dividerRect = ClipToWindow(dividerRect, windowRect);
             return true;
+        }
+
+        private static bool HasRelevantSkill(WorkTabLayoutColumn column)
+        {
+            WorkTypeDef workType = column.SubWorkParent ?? column.Column?.workType;
+            return workType?.relevantSkills != null && workType.relevantSkills.Count > 0;
         }
 
         private static Rect ClipToWindow(Rect rect, Rect windowRect)

@@ -3,14 +3,17 @@ using Better_Work_Tab.UI.WorkGrid.Contracts;
 
 namespace Better_Work_Tab.UI.WorkGrid.Rendering
 {
-    internal sealed class LegacyWorkGridRenderer : IWorkGridRenderer
+    /// <summary>
+    /// Permanent correctness floor that delegates Work-grid drawing to RimWorld's native IMGUI path.
+    /// </summary>
+    internal sealed class VanillaWorkGridRenderer : IWorkGridRenderer
     {
         internal const string RendererId = "bwt.native-imgui";
 
         private readonly MainTabWindow_BetterWork _host;
         private WorkTabInvalidationVersion _lastVersions;
 
-        internal LegacyWorkGridRenderer(MainTabWindow_BetterWork host)
+        internal VanillaWorkGridRenderer(MainTabWindow_BetterWork host)
         {
             _host = host;
         }

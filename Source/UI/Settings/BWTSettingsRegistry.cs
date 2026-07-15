@@ -294,39 +294,53 @@ namespace Better_Work_Tab.UI.Settings
 
             if (Widgets.ButtonText(buttonRect, GetSubWorkTransitionModeLabel(settings)))
             {
-                var options = new List<FloatMenuOption>
-                {
-                    new FloatMenuOption("Off (instant)", () =>
+                var offOption = new FloatMenuOption("Off (instant)", () =>
                     {
                         settings.enableSubWorkTransitionAnimation = false;
                         MainTabWindow_BetterWork.NotifyAngledHeadersChanged();
                         settings.Write();
-                    }),
-                    new FloatMenuOption(GetSubWorkTransitionStyleLabel(BetterWorkTabSettings.SubWorkTransitionStyle.ClassicGlideFlash), () =>
+                    });
+                var classicOption = new FloatMenuOption(GetSubWorkTransitionStyleLabel(BetterWorkTabSettings.SubWorkTransitionStyle.ClassicGlideFlash), () =>
                     {
                         settings.enableSubWorkTransitionAnimation = true;
                         settings.subWorkTransitionStyle = BetterWorkTabSettings.SubWorkTransitionStyle.ClassicGlideFlash;
                         MainTabWindow_BetterWork.NotifyAngledHeadersChanged();
                         settings.Write();
-                    }),
-                    new FloatMenuOption(GetSubWorkTransitionStyleLabel(BetterWorkTabSettings.SubWorkTransitionStyle.PixelWaveFlip), () =>
+                    });
+                var pixelOption = new FloatMenuOption(GetSubWorkTransitionStyleLabel(BetterWorkTabSettings.SubWorkTransitionStyle.PixelWaveFlip), () =>
                     {
                         settings.enableSubWorkTransitionAnimation = true;
                         settings.subWorkTransitionStyle = BetterWorkTabSettings.SubWorkTransitionStyle.PixelWaveFlip;
                         MainTabWindow_BetterWork.NotifyAngledHeadersChanged();
                         settings.Write();
-                    })
+                    });
+                var options = new List<FloatMenuOption>
+                {
+                    offOption,
+                    classicOption,
+                    pixelOption
                 };
 
-                Find.WindowStack.Add(new FloatMenu(options));
+                FloatMenuOption selectedOption = !settings.enableSubWorkTransitionAnimation
+                    ? offOption
+                    : settings.subWorkTransitionStyle == BetterWorkTabSettings.SubWorkTransitionStyle.PixelWaveFlip
+                        ? pixelOption
+                        : classicOption;
+                var optionDescriptions = new Dictionary<FloatMenuOption, string>
+                {
+                    [offOption] = "Turns the specific-job transition animation off. Columns change immediately when entering or leaving the specific-job view.",
+                    [classicOption] = "Uses BWT's original transition: columns glide into position with a brief flash while entering or leaving the specific-job view.",
+                    [pixelOption] = "Keeps the columns in place while a grey pixel wave passes across them, progressively revealing or hiding the specific-job view."
+                };
+                Find.WindowStack.Add(new DescribedFloatMenu(options, selectedOption, label, tooltip, optionDescriptions));
             }
 
             GUI.enabled = previousEnabled;
             GUI.color = previousColor;
 
-            if (!string.IsNullOrEmpty(tooltip))
+            if (!string.IsNullOrEmpty(tooltip) && !DescribedFloatMenu.AnyOpen)
             {
-                TooltipHandler.TipRegion(rect, tooltip);
+                TooltipHandler.TipRegion(labelRect, tooltip);
             }
 
             return false;

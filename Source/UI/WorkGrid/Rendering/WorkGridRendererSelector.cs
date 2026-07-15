@@ -9,7 +9,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
     public enum WorkGridForcedRendererMode
     {
         None,
-        ForceLegacy,
+        ForceVanilla,
         ForceOptimized,
         ForceOptimizedUnavailable
     }
@@ -17,8 +17,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
     public enum WorkGridFallbackReasonCode
     {
         None,
-        UserSelectedLegacy,
-        ForcedLegacy,
+        UserSelectedVanilla,
+        ForcedVanilla,
         OptimizedUnavailable,
         ForcedOptimizedUnavailable,
         CapabilityUnavailable,
@@ -61,7 +61,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
     /// <summary>
     /// Owns optimized-renderer registration, capability selection, and per-scope session quarantine.
-    /// The permanent legacy renderer is supplied by the facade and is never registered here.
+    /// The permanent vanilla renderer is supplied by the facade and is never registered here.
     /// </summary>
     public sealed class WorkGridRendererSelector
     {
@@ -159,9 +159,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 return RegistrationResult.Reject("The Work-grid renderer must declare a non-empty stable ID.");
             }
 
-            if (string.Equals(id, LegacyWorkGridRenderer.RendererId, StringComparison.Ordinal))
+            if (string.Equals(id, VanillaWorkGridRenderer.RendererId, StringComparison.Ordinal))
             {
-                return RegistrationResult.Reject("The permanent legacy renderer ID is reserved.");
+                return RegistrationResult.Reject("The permanent vanilla renderer ID is reserved.");
             }
 
             lock (_sync)
@@ -189,25 +189,25 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         }
 
         internal WorkGridRendererSelection Select(
-            IWorkGridRenderer legacy,
+            IWorkGridRenderer vanilla,
             WorkGridRendererMode userMode,
             WorkGridForcedRendererMode forcedMode,
             in WorkGridRenderContext context)
         {
-            if (forcedMode == WorkGridForcedRendererMode.ForceLegacy)
+            if (forcedMode == WorkGridForcedRendererMode.ForceVanilla)
             {
-                return Legacy(legacy, WorkGridFallbackReasonCode.ForcedLegacy);
+                return Vanilla(vanilla, WorkGridFallbackReasonCode.ForcedVanilla);
             }
 
-            if (userMode == WorkGridRendererMode.Legacy &&
+            if (userMode == WorkGridRendererMode.Vanilla &&
                 forcedMode == WorkGridForcedRendererMode.None)
             {
-                return Legacy(legacy, WorkGridFallbackReasonCode.UserSelectedLegacy);
+                return Vanilla(vanilla, WorkGridFallbackReasonCode.UserSelectedVanilla);
             }
 
             if (forcedMode == WorkGridForcedRendererMode.ForceOptimizedUnavailable)
             {
-                return Legacy(legacy, WorkGridFallbackReasonCode.ForcedOptimizedUnavailable,
+                return Vanilla(vanilla, WorkGridFallbackReasonCode.ForcedOptimizedUnavailable,
                     "Diagnostic mode intentionally made optimized rendering unavailable.");
             }
 
@@ -275,7 +275,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 }
             }
 
-            return new WorkGridRendererSelection(legacy, LegacyWorkGridRenderer.RendererId, lastFallback);
+            return new WorkGridRendererSelection(vanilla, VanillaWorkGridRenderer.RendererId, lastFallback);
         }
 
         internal void Quarantine(WorkGridSelectionScope scope, string rendererId)
@@ -301,14 +301,14 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             }
         }
 
-        private static WorkGridRendererSelection Legacy(
-            IWorkGridRenderer legacy,
+        private static WorkGridRendererSelection Vanilla(
+            IWorkGridRenderer vanilla,
             WorkGridFallbackReasonCode reason,
             string detail = null)
         {
             return new WorkGridRendererSelection(
-                legacy,
-                LegacyWorkGridRenderer.RendererId,
+                vanilla,
+                VanillaWorkGridRenderer.RendererId,
                 new WorkGridFallbackReason(reason, detail));
         }
 

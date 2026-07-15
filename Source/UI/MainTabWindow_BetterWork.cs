@@ -525,7 +525,7 @@ namespace Better_Work_Tab.UI
             {
                 _workGridSnapshots.Clear();
                 Log.ErrorOnce(
-                    "[BWT] Work-grid snapshot construction failed; legacy rendering remains active.\n" + exception,
+                    "[BWT] Work-grid snapshot construction failed; vanilla rendering remains active.\n" + exception,
                     0x42575453);
             }
 

@@ -360,6 +360,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                 flags |= WorkCellVisualFlags.LowSkillWarning;
 
             return new WorkCellVisualState(
+                pawn,
+                workType,
                 pawn.thingIDNumber,
                 columnIndex,
                 (byte)Mathf.Clamp(priority, 0, byte.MaxValue),

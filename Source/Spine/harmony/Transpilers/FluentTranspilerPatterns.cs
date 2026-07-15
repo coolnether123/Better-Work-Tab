@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Reflection;
 using System.Reflection.Emit;
 using HarmonyLib;
-using ModAPI.Core;
+using Spine.Harmony.Infrastructure;
 
-namespace ModAPI.Harmony
+namespace Spine.Harmony
 {
     /// <summary>
     /// Extension methods for FluentTranspiler to support general IL pattern matching.
@@ -17,11 +17,16 @@ namespace ModAPI.Harmony
 
         /// <summary>Check if instruction loads a constant float.</summary>
         public static bool IsLdcR4(this CodeInstruction instr, float value)
-            => instr.opcode == OpCodes.Ldc_R4 && instr.operand is float f && Math.Abs(f - value) < 0.0001f;
+            => instr != null && instr.opcode == OpCodes.Ldc_R4 && instr.operand is float f && Math.Abs(f - value) < 0.0001f;
 
         /// <summary>Check if instruction loads a constant int (handles all short forms).</summary>
         public static bool IsLdcI4(this CodeInstruction instr, int value)
         {
+            if (instr == null)
+            {
+                return false;
+            }
+
             if (instr.opcode == OpCodes.Ldc_I4) 
                 return (int)instr.operand == value;
             if (instr.opcode == OpCodes.Ldc_I4_S) 
@@ -41,13 +46,123 @@ namespace ModAPI.Harmony
 
         /// <summary>Check if instruction is a newobj for a specific type.</summary>
         public static bool IsNewobj(this CodeInstruction instr, Type type)
-            => instr.opcode == OpCodes.Newobj && instr.operand is ConstructorInfo ci && ci.DeclaringType == type;
+            => instr != null && instr.opcode == OpCodes.Newobj && instr.operand is ConstructorInfo ci && ci.DeclaringType == type;
 
         /// <summary>Check if instruction calls a specific method (handles Call and Callvirt).</summary>
         public static bool IsCall(this CodeInstruction instr, Type type, string methodName)
         {
+            if (instr == null)
+            {
+                return false;
+            }
+
             if (instr.opcode != OpCodes.Call && instr.opcode != OpCodes.Callvirt) return false;
             return instr.operand is MethodInfo method && method.DeclaringType == type && method.Name == methodName;
+        }
+
+        /// <summary>Check if instruction is one of the supplied branch opcodes.</summary>
+        public static bool IsBranch(this CodeInstruction instr, params OpCode[] opcodes)
+        {
+            if (instr == null || opcodes == null)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < opcodes.Length; i++)
+            {
+                if (instr.opcode == opcodes[i])
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>Check if instruction loads a local variable, including short and indexed forms.</summary>
+        public static bool IsLoadLocal(this CodeInstruction instr)
+        {
+            return instr != null &&
+                   (instr.opcode == OpCodes.Ldloc ||
+                    instr.opcode == OpCodes.Ldloc_S ||
+                    instr.opcode == OpCodes.Ldloc_0 ||
+                    instr.opcode == OpCodes.Ldloc_1 ||
+                    instr.opcode == OpCodes.Ldloc_2 ||
+                    instr.opcode == OpCodes.Ldloc_3);
+        }
+
+        /// <summary>Check if instruction stores a local variable, including short and indexed forms.</summary>
+        public static bool IsStoreLocal(this CodeInstruction instr)
+        {
+            return instr != null &&
+                   (instr.opcode == OpCodes.Stloc ||
+                    instr.opcode == OpCodes.Stloc_S ||
+                    instr.opcode == OpCodes.Stloc_0 ||
+                    instr.opcode == OpCodes.Stloc_1 ||
+                    instr.opcode == OpCodes.Stloc_2 ||
+                    instr.opcode == OpCodes.Stloc_3);
+        }
+
+        /// <summary>Check if instruction loads the requested method argument index.</summary>
+        public static bool IsLoadArgument(this CodeInstruction instr, int argumentIndex)
+        {
+            if (instr == null)
+            {
+                return false;
+            }
+
+            switch (argumentIndex)
+            {
+                case 0:
+                    return instr.opcode == OpCodes.Ldarg_0 ||
+                           IsIndexedOperand(instr, OpCodes.Ldarg, OpCodes.Ldarg_S, 0);
+                case 1:
+                    return instr.opcode == OpCodes.Ldarg_1 ||
+                           IsIndexedOperand(instr, OpCodes.Ldarg, OpCodes.Ldarg_S, 1);
+                case 2:
+                    return instr.opcode == OpCodes.Ldarg_2 ||
+                           IsIndexedOperand(instr, OpCodes.Ldarg, OpCodes.Ldarg_S, 2);
+                case 3:
+                    return instr.opcode == OpCodes.Ldarg_3 ||
+                           IsIndexedOperand(instr, OpCodes.Ldarg, OpCodes.Ldarg_S, 3);
+                default:
+                    return IsIndexedOperand(instr, OpCodes.Ldarg, OpCodes.Ldarg_S, argumentIndex);
+            }
+        }
+
+        private static bool IsIndexedOperand(CodeInstruction instr, OpCode longForm, OpCode shortForm, int expectedIndex)
+        {
+            if (instr.opcode != longForm && instr.opcode != shortForm)
+            {
+                return false;
+            }
+
+            if (instr.operand is int intIndex)
+            {
+                return intIndex == expectedIndex;
+            }
+
+            if (instr.operand is byte byteIndex)
+            {
+                return byteIndex == expectedIndex;
+            }
+
+            if (instr.operand is sbyte signedByteIndex)
+            {
+                return signedByteIndex == expectedIndex;
+            }
+
+            if (instr.operand is short shortIndex)
+            {
+                return shortIndex == expectedIndex;
+            }
+
+            if (instr.operand is ushort ushortIndex)
+            {
+                return ushortIndex == expectedIndex;
+            }
+
+            return false;
         }
 
         #endregion
@@ -107,9 +222,6 @@ namespace ModAPI.Harmony
 
         #region Safer Removal Operations
 
-        /// <summary>
-        /// Remove the current instruction plus N previous instructions.
-        /// </summary>
         /// <summary>
         /// Remove the current instruction plus N previous instructions.
         /// Preserves labels by moving them to the next instruction after the gap.

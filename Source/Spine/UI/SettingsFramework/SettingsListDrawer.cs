@@ -665,7 +665,7 @@ namespace Spine.UI.SettingsFramework
                 DrawSuppressionNotice(noticeRect, suppression, suppressionReason, settingsObject);
             }
 
-            if (!string.IsNullOrEmpty(tooltip))
+            if (!string.IsNullOrEmpty(tooltip) && !DescribedFloatMenu.AnyOpen)
             {
                 TooltipHandler.TipRegion(controlRow, tooltip);
                 if (Mouse.IsOver(controlRow))

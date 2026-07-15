@@ -9,11 +9,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 {
     /// <summary>
     /// Sole Work-grid renderer entry point. Selection and exception containment end here;
-    /// the permanent legacy renderer remains an independent correctness floor.
+    /// the permanent vanilla renderer remains an independent correctness floor.
     /// </summary>
     public sealed class WorkGridRendererFacade
     {
-        private readonly LegacyWorkGridRenderer _legacy;
+        private readonly VanillaWorkGridRenderer _vanilla;
         private readonly WorkGridRendererSelector _selector;
         private readonly Func<WorkGridRendererMode> _selectionMode;
         private readonly IRenderDiagnosticsSink _diagnostics;
@@ -31,17 +31,17 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
             _selectionMode = selectionMode ?? throw new ArgumentNullException(nameof(selectionMode));
             _diagnostics = diagnostics ?? BwtWorkGridDiagnosticsSink.Instance;
-            _legacy = new LegacyWorkGridRenderer(host);
+            _vanilla = new VanillaWorkGridRenderer(host);
             _selector = new WorkGridRendererSelector(capabilityCheck, _diagnostics);
-            _active = _legacy;
-            _activeId = LegacyWorkGridRenderer.RendererId;
+            _active = _vanilla;
+            _activeId = VanillaWorkGridRenderer.RendererId;
         }
 
         public RegistrationResult Register(IWorkGridRenderer renderer) => _selector.Register(renderer);
 
         public void PrepareFrame(WorkTabInvalidationVersion invalidationVersions)
         {
-            _legacy.PrepareInvalidation(invalidationVersions);
+            _vanilla.PrepareInvalidation(invalidationVersions);
         }
 
         public void Render(in WorkGridRenderContext context)
@@ -53,7 +53,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             {
                 _fallbackPending = false;
                 WorkGridRendererSelection selection =
-                    _selector.Select(_legacy, userMode, forcedMode, in context);
+                    _selector.Select(_vanilla, userMode, forcedMode, in context);
                 _active = selection.Renderer;
                 _activeId = selection.RendererId;
                 PublishSelection(userMode, forcedMode, selection.Fallback, context.Scope);
@@ -81,15 +81,15 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             }
             catch (Exception exception)
             {
-                if (ReferenceEquals(renderer, _legacy))
+                if (ReferenceEquals(renderer, _vanilla))
                 {
                     throw;
                 }
 
                 string failedRendererId = _activeId;
                 _selector.Quarantine(context.Scope, failedRendererId);
-                _active = _legacy;
-                _activeId = LegacyWorkGridRenderer.RendererId;
+                _active = _vanilla;
+                _activeId = VanillaWorkGridRenderer.RendererId;
                 _fallbackPending = true;
                 var fallback = new WorkGridFallbackReason(
                     WorkGridFallbackReasonCode.RendererQuarantined,
@@ -99,7 +99,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 Log.ErrorOnce(
                     "[BWT] Work-grid renderer '" + failedRendererId + "' failed during " + context.EventPhase +
                     " at frame " + context.FrameNumber + " for scope " + context.Scope +
-                    ". It was quarantined for the session; legacy rendering resumes at the next Layout event.\n" +
+                    ". It was quarantined for the session; vanilla rendering resumes at the next Layout event.\n" +
                     exception,
                     StringComparer.Ordinal.GetHashCode("work-grid:" + context.Scope + ":" + failedRendererId));
 
@@ -120,7 +120,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             WorkGridFallbackReason fallback,
             WorkGridSelectionScope scope)
         {
-            bool quarantined = !ReferenceEquals(_active, _legacy) &&
+            bool quarantined = !ReferenceEquals(_active, _vanilla) &&
                                _selector.IsQuarantined(scope, _activeId);
             if (fallback.Code == WorkGridFallbackReasonCode.RendererQuarantined)
             {

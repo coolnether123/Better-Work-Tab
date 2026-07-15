@@ -1,6 +1,8 @@
 using System;
+using RimWorld;
 using Spine.Collections;
 using Better_Work_Tab.UI.WorkGrid.Invalidation;
+using Verse;
 
 namespace Better_Work_Tab.UI.WorkGrid.Snapshots
 {
@@ -103,6 +105,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
     public readonly struct WorkCellVisualState
     {
         public WorkCellVisualState(
+            Pawn pawn,
+            WorkTypeDef workType,
             int pawnId,
             ushort columnIndex,
             byte priority,
@@ -113,6 +117,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             WorkCellVisualFlags flags,
             uint revision)
         {
+            Pawn = pawn;
+            WorkType = workType;
             PawnId = pawnId;
             ColumnIndex = columnIndex;
             Priority = priority;
@@ -124,6 +130,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             Revision = revision;
         }
 
+        public Pawn Pawn { get; }
+        public WorkTypeDef WorkType { get; }
         public int PawnId { get; }
         public ushort ColumnIndex { get; }
         public byte Priority { get; }
