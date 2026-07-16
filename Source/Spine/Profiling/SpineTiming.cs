@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
-using Better_Work_Tab;
 using UnityEngine;
 using Verse;
 
@@ -28,9 +27,7 @@ namespace Spine.Profiling
     ///        - Call SpineTiming.OnFrameStart() in GameComponentUpdate().
     ///        - Call SpineTiming.HandleInput() in GameComponentOnGUI().
     ///
-    ///   4) Wire Work tab open/close:
-    ///        - Call SpineTiming.NotifyWorkTabOpen(true) in PostOpen().
-    ///        - Call SpineTiming.NotifyWorkTabOpen(false) in PreClose().
+    ///   4) Optionally configure a log delegate and generic activity-seconds provider.
     ///
     ///   5) In-game:
     ///        - Press 1 to print a report.
@@ -63,10 +60,30 @@ namespace Spine.Profiling
         private static bool _enabled;
         private static int _startFrame;            // Frame index when profiling started
         private static double _startRealtime;      // realtimeSinceStartup when profiling started
+        private static long _startManagedBytes;
+        private static long _peakManagedBytes;
+        private static long _startPrivateBytes;
+        private static long _peakPrivateBytes;
+        private static long _startWorkingSetBytes;
+        private static long _peakWorkingSetBytes;
+        private static readonly int[] _startCollectionCounts = new int[3];
+        private static int _nextMemorySampleFrame;
 
-        // Work tab visibility tracking
-        private static bool _workTabOpen;
-        private static double _workTabOpenSeconds; // Sum of time Work tab has been open
+        private static Action<string> _log = _ => { };
+        private static Func<double> _activitySecondsProvider;
+        private static string _activityLabel;
+        private static double _activitySecondsBaseline;
+
+        public static void Configure(
+            Action<string> log,
+            Func<double> activitySecondsProvider = null,
+            string activityLabel = null)
+        {
+            _log = log ?? (_ => { });
+            _activitySecondsProvider = activitySecondsProvider;
+            _activityLabel = activityLabel;
+            _activitySecondsBaseline = ReadActivitySeconds();
+        }
 
         /// <summary>
         /// Global toggle for profiling.
@@ -83,8 +100,9 @@ namespace Spine.Profiling
                     // Turning profiling on: reset baseline
                     _startFrame = UTime.frameCount;
                     _startRealtime = UTime.realtimeSinceStartup;
-                    _workTabOpenSeconds = 0;
+                    _activitySecondsBaseline = ReadActivitySeconds();
                     _data.Clear();
+                    ResetMemoryBaseline();
                 }
 
                 _enabled = value;
@@ -159,7 +177,7 @@ namespace Spine.Profiling
 
         /// <summary>
         /// Called once per frame.
-        /// Resets per-frame call counters and accumulates "work tab open" time.
+        /// Resets per-frame call counters.
         ///
         /// Hook this from GameComponentUpdate().
         /// </summary>
@@ -167,16 +185,17 @@ namespace Spine.Profiling
         {
             if (!Enabled) return;
 
+            if (UTime.frameCount >= _nextMemorySampleFrame)
+            {
+                SampleMemory();
+                _nextMemorySampleFrame = UTime.frameCount + 30;
+            }
+
             foreach (var entry in _data.Values)
             {
                 entry.CallsThisFrame = 0;
             }
 
-            // Track how long the Work tab has been open
-            if (_workTabOpen)
-            {
-                _workTabOpenSeconds += UTime.deltaTime;
-            }
         }
 
         /// <summary>
@@ -207,15 +226,6 @@ namespace Spine.Profiling
         }
 
         /// <summary>
-        /// Called by Better Work Tab when its window opens or closes.
-        /// Lets the profiler know when to count "Work tab open" time.
-        /// </summary>
-        public static void NotifyWorkTabOpen(bool open)
-        {
-            _workTabOpen = open;
-        }
-
-        /// <summary>
         /// Clear all timing data and reset the reference frame/time.
         /// </summary>
         public static void Clear()
@@ -223,9 +233,10 @@ namespace Spine.Profiling
             _data.Clear();
             _startFrame = UTime.frameCount;
             _startRealtime = UTime.realtimeSinceStartup;
-            _workTabOpenSeconds = 0;
+            _activitySecondsBaseline = ReadActivitySeconds();
+            ResetMemoryBaseline();
 
-            BetterWorkTabMod.DebugLog("[SpineTiming] Data cleared.", DebugFeature.Performance);
+            _log("[SpineTiming] Data cleared.");
         }
 
         /// <summary>
@@ -238,7 +249,7 @@ namespace Spine.Profiling
         /// </summary>
         public static void LogResults()
         {
-            BetterWorkTabMod.DebugLog(GetReport(), DebugFeature.Performance);
+            _log(GetReport());
         }
 
         public static string GetReport()
@@ -255,7 +266,43 @@ namespace Spine.Profiling
             sb.AppendLine("[SpineTiming] ======== PERFORMANCE REPORT ========");
             sb.AppendLine($"Elapsed real time: {elapsedSeconds:F1} s");
             sb.AppendLine($"Approx frames recorded: {frames}");
-            sb.AppendLine($"Work tab open: {_workTabOpenSeconds:F1} s");
+            if (_activitySecondsProvider != null && !string.IsNullOrEmpty(_activityLabel))
+            {
+                double activitySeconds = Math.Max(0.0, ReadActivitySeconds() - _activitySecondsBaseline);
+                sb.AppendLine($"{_activityLabel}: {activitySeconds:F1} s");
+            }
+            long managedNow = GC.GetTotalMemory(false);
+            long privateNow;
+            long workingSetNow;
+            ReadProcessMemory(out privateNow, out workingSetNow);
+            sb.AppendLine(
+                $"Managed memory: start {FormatBytes(_startManagedBytes)} | now {FormatBytes(managedNow)} | " +
+                $"delta {FormatSignedBytes(managedNow - _startManagedBytes)} | sampled peak {FormatBytes(Math.Max(_peakManagedBytes, managedNow))}");
+            if (_startPrivateBytes > 0 || privateNow > 0)
+            {
+                sb.AppendLine(
+                    $"Process private: start {FormatBytes(_startPrivateBytes)} | now {FormatBytes(privateNow)} | " +
+                    $"delta {FormatSignedBytes(privateNow - _startPrivateBytes)} | sampled peak {FormatBytes(Math.Max(_peakPrivateBytes, privateNow))}");
+            }
+            else
+            {
+                sb.AppendLine("Process private: unavailable from this Mono runtime; sample it from the external harness.");
+            }
+
+            if (_startWorkingSetBytes > 0 || workingSetNow > 0)
+            {
+                sb.AppendLine(
+                    $"Working set: start {FormatBytes(_startWorkingSetBytes)} | now {FormatBytes(workingSetNow)} | " +
+                    $"delta {FormatSignedBytes(workingSetNow - _startWorkingSetBytes)} | sampled peak {FormatBytes(Math.Max(_peakWorkingSetBytes, workingSetNow))}");
+            }
+            else
+            {
+                sb.AppendLine("Working set: unavailable from this Mono runtime; sample it from the external harness.");
+            }
+            sb.AppendLine(
+                $"GC collections: gen0 {GC.CollectionCount(0) - _startCollectionCounts[0]} | " +
+                $"gen1 {GC.CollectionCount(1) - _startCollectionCounts[1]} | " +
+                $"gen2 {GC.CollectionCount(2) - _startCollectionCounts[2]}");
             sb.AppendLine("Sorted by highest total cost over time.");
             sb.AppendLine();
 
@@ -292,6 +339,66 @@ namespace Spine.Profiling
             }
 
             return sb.ToString();
+        }
+
+        private static void ResetMemoryBaseline()
+        {
+            _startManagedBytes = GC.GetTotalMemory(false);
+            _peakManagedBytes = _startManagedBytes;
+            ReadProcessMemory(out _startPrivateBytes, out _startWorkingSetBytes);
+            _peakPrivateBytes = _startPrivateBytes;
+            _peakWorkingSetBytes = _startWorkingSetBytes;
+            for (int generation = 0; generation < _startCollectionCounts.Length; generation++)
+            {
+                _startCollectionCounts[generation] = GC.CollectionCount(generation);
+            }
+
+            _nextMemorySampleFrame = UTime.frameCount;
+        }
+
+        private static void SampleMemory()
+        {
+            _peakManagedBytes = Math.Max(_peakManagedBytes, GC.GetTotalMemory(false));
+            ReadProcessMemory(out long privateBytes, out long workingSetBytes);
+            _peakPrivateBytes = Math.Max(_peakPrivateBytes, privateBytes);
+            _peakWorkingSetBytes = Math.Max(_peakWorkingSetBytes, workingSetBytes);
+        }
+
+        private static void ReadProcessMemory(out long privateBytes, out long workingSetBytes)
+        {
+            using (Process process = Process.GetCurrentProcess())
+            {
+                privateBytes = process.PrivateMemorySize64;
+                workingSetBytes = process.WorkingSet64;
+            }
+        }
+
+        private static string FormatBytes(long bytes)
+        {
+            return (bytes / (1024d * 1024d)).ToString("F2") + " MiB";
+        }
+
+        private static string FormatSignedBytes(long bytes)
+        {
+            string sign = bytes >= 0 ? "+" : "-";
+            return sign + FormatBytes(Math.Abs(bytes));
+        }
+
+        private static double ReadActivitySeconds()
+        {
+            if (_activitySecondsProvider == null)
+            {
+                return 0.0;
+            }
+
+            try
+            {
+                return _activitySecondsProvider();
+            }
+            catch
+            {
+                return 0.0;
+            }
         }
     }
 }

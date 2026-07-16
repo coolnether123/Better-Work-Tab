@@ -275,6 +275,30 @@ namespace Better_Work_Tab
 
     public static class MainTabCompat
     {
+        public static Window OpenTabWindow
+        {
+            get
+            {
+                object openTab = Find.MainTabsRoot?.OpenTab;
+                if (openTab == null)
+                    return null;
+
+                try
+                {
+                    System.Reflection.PropertyInfo tabWindowProperty = openTab.GetType().GetProperty(
+                        "TabWindow",
+                        System.Reflection.BindingFlags.Instance |
+                        System.Reflection.BindingFlags.Public |
+                        System.Reflection.BindingFlags.NonPublic);
+                    return tabWindowProperty?.GetValue(openTab, null) as Window;
+                }
+                catch
+                {
+                    return null;
+                }
+            }
+        }
+
         public static bool TryGetOpenBetterWorkTab(out Better_Work_Tab.UI.MainTabWindow_BetterWork workTab)
         {
             workTab = null;
@@ -440,6 +464,22 @@ namespace Better_Work_Tab
         {
             get { return AllMapsWorldAndTemporaryAliveOrDead; }
         }
+
+        public static IEnumerable<Pawn> AllAlive
+        {
+            get
+            {
+#if v0_15
+                return PawnUtility.AllPawnsMapOrWorldAlive;
+#elif (v0_17 || v0_16 || v0_14 || v0_13 || vAlpha4)
+                return PawnsFinder.AllMapsAndWorld_Alive;
+#elif v0_18
+                return PawnsFinder.AllMapsWorldAndTemporary_Alive;
+#else
+                return PawnsFinder.AllMapsWorldAndTemporary_Alive;
+#endif
+            }
+        }
     }
 
     public static class ColonistBarCompat
@@ -519,7 +559,7 @@ namespace Better_Work_Tab
         {
             get
             {
-#if (v0_18 || v0_17 || v0_16)
+#if (v0_18 || v0_17 || v0_16 || v0_15)
                 return SoundDefOf.TickHigh;
 #else
                 return UISoundCompat.TickHigh;
@@ -593,22 +633,58 @@ namespace Better_Work_Tab
         {
             get
             {
-#if v0_16
+#if v0_15
+                return TickLow;
+#elif v0_16
                 return TickLow;
 #else
                 return SoundDefOf.Crunch;
 #endif
             }
         }
+
+    }
+
+    public static class TimeCompat
+    {
+        public static int HourOfDay(object context)
+        {
+#if v0_15
+            return GenDate.HourOfDay;
+#else
+            return context is Pawn pawn ? GenLocalDate.HourOfDay(pawn) : GenLocalDate.HourOfDay(context as Map);
+#endif
+        }
+
+        public static float DayPercent(Map map)
+        {
+#if v0_15
+            return GenDate.CurrentDayPercent;
+#else
+            return GenLocalDate.DayPercent(map);
+#endif
+        }
     }
 
     public static class UICompat
     {
+        public static float UIScale
+        {
+            get
+            {
+#if v0_15
+                return 1f;
+#else
+                return Prefs.UIScale;
+#endif
+            }
+        }
+
         public static Vector2 MousePosUIInvertedUseEventIfCan
         {
             get
             {
-#if (v0_18 || v0_17 || v0_16)
+#if (v0_18 || v0_17 || v0_16 || v0_15)
                 Event evt = Event.current;
                 return evt != null ? evt.mousePosition : Vector2.zero;
 #else
@@ -681,6 +757,22 @@ namespace Better_Work_Tab
             {
                 MoteMaker.MakeStaticMote(clickedCell, map, workGiver.forceMote);
             }
+#endif
+        }
+    }
+
+    public static class WorkSettingsCompat
+    {
+        public static void EnsureInitialized(Pawn_WorkSettings workSettings)
+        {
+            if (workSettings == null)
+                return;
+
+#if (v0_18 || v0_17 || v0_16 || v0_15 || v0_14 || v0_13 || vAlpha4)
+            if (!workSettings.EverWork)
+                workSettings.EnableAndInitialize();
+#else
+            workSettings.EnableAndInitializeIfNotAlreadyInitialized();
 #endif
         }
     }
@@ -990,7 +1082,7 @@ namespace Better_Work_Tab
         {
             get
             {
-#if v0_16
+#if v0_15 || v0_16
                 string path = Path.Combine(GenFilePaths.SaveDataFolderPath, "Config");
                 Directory.CreateDirectory(path);
                 return path;
@@ -1042,6 +1134,28 @@ namespace Better_Work_Tab
             }
 #else
             Scribe.saver.FinalizeSaving();
+#endif
+        }
+
+        public static void ForceStopSaving()
+        {
+#if v0_15
+            return;
+#elif v0_16
+            Scribe.ForceStop();
+#else
+            Scribe.saver.ForceStop();
+#endif
+        }
+
+        public static void ForceStopLoading()
+        {
+#if v0_15
+            return;
+#elif v0_16
+            Scribe.ForceStop();
+#else
+            Scribe.loader.ForceStop();
 #endif
         }
     }
@@ -1242,6 +1356,19 @@ namespace Better_Work_Tab
 
     public static class ModListerCompat
     {
+        public static string GetPackageId(ModContentPack mod)
+        {
+#if (v1_0 || v0_19)
+            if (mod == null)
+                return null;
+
+            var property = mod.GetType().GetProperty("PackageId");
+            return property == null ? mod.Name : property.GetValue(mod, null) as string ?? mod.Name;
+#else
+            return mod?.PackageId;
+#endif
+        }
+
         public static ModMetaData GetActiveModWithIdentifier(string packageId)
         {
 #if v0_13
@@ -1302,6 +1429,11 @@ namespace Better_Work_Tab
 
     public static class ArrayCompat
     {
+        public static T[] Empty<T>()
+        {
+            return new T[0];
+        }
+
         public static void Fill<T>(T[] array, T value)
         {
             if (array == null)

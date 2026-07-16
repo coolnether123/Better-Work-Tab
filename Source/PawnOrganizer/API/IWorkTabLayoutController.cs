@@ -3,6 +3,7 @@ using Better_Work_Tab.PawnOrganizer.Data;
 using RimWorld;
 using UnityEngine;
 using Verse;
+using Better_Work_Tab.UI.WorkGrid.Snapshots;
 
 namespace Better_Work_Tab.PawnOrganizer.API
 {
@@ -54,6 +55,14 @@ namespace Better_Work_Tab.PawnOrganizer.API
         PawnTable Table { get; }
 
         /// <summary>
+        /// Monotonically increases whenever row or column geometry is rebuilt.
+        /// Consumers can retain derived geometry until this value changes.
+        /// </summary>
+        int LayoutRevision { get; }
+
+        WorkGridGeometrySnapshot GeometrySnapshot { get; }
+
+        /// <summary>
         /// Rebuild row + column snapshots for the provided PawnTable snapshot combination.
         /// </summary>
         void Rebuild(PawnTable table, IPawnOrganizerSnapshot snapshot, Vector2 origin);
@@ -63,10 +72,18 @@ namespace Better_Work_Tab.PawnOrganizer.API
         /// </summary>
         bool TryGetRowAt(Vector2 mousePosition, out WorkTabLayoutRow row);
 
+        bool TryGetVisibleRowAt(Vector2 mousePosition, out WorkTabLayoutRow row);
+
         /// <summary>
         /// Hit test helper for columns in screen space (header area only).
         /// </summary>
         bool TryGetColumnAt(Vector2 mousePosition, out WorkTabLayoutColumn column);
+
+        bool TryGetBodyColumnAt(Vector2 mousePosition, out WorkTabLayoutColumn column);
+
+        float GetPinnedRowsHeight();
+
+        void ClearGeometrySnapshot();
 
         /// <summary>
         /// Insert a new divider below the provided pawn inside the cached snapshot.

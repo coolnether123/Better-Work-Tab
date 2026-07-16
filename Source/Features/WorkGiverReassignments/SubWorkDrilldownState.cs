@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using Better_Work_Tab.DragDrop;
+using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.UI.Input;
 using RimWorld;
 using UnityEngine;
@@ -13,15 +15,20 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
     /// </summary>
     internal static class SubWorkDrilldownState
     {
-        private const float TransitionSeconds = 0.48f;
         internal const float GlobalRowHeight = 30f;
         internal const float GlobalPriorityBoxSize = 25f;
+        private const float WaveFeatherSlots = 1.05f;
 
         private static readonly List<WorkGiver> ActiveWorkGiversBuffer = new List<WorkGiver>();
         private static readonly Dictionary<WorkGiverDef, int> ActiveWorkGiverSlots = new Dictionary<WorkGiverDef, int>();
         private static readonly Dictionary<PawnColumnDef, int> VisibleColumnSlots = new Dictionary<PawnColumnDef, int>();
         private static readonly Dictionary<WorkTypeDef, int> VisibleWorkTypeSlots = new Dictionary<WorkTypeDef, int>();
         private static readonly HashSet<WorkGiverDef> MovedFromBaseline = new HashSet<WorkGiverDef>();
+        private static readonly Dictionary<string, ExpandBesideEntry> ExpandBesideEntries =
+            new Dictionary<string, ExpandBesideEntry>(StringComparer.Ordinal);
+        private static WorkTypeDef _drawingSubWorkParent;
+        private static WorkGiverDef _drawingSubWorkGiver;
+        private static int _drawingSubWorkSlot = -1;
         private static WorkTypeDef _activeWorkType;
         private static string _cachedWorkTypeDefName;
         private static int _cachedSyncVersion = -1;
@@ -46,7 +53,51 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         internal static bool IsExiting => _isExiting;
 
+        internal static bool IsExpandBesideActive => ExpandBesideEntries.Count > 0;
+
+        internal static bool HasAnyDrilldown => IsActive || IsExpandBesideActive;
+
+        internal static bool IsDrawingExpandBesideChild => _drawingSubWorkGiver != null && _drawingSubWorkParent != null;
+
         internal static WorkTypeDef ActiveWorkType => _activeWorkType;
+
+        // Test-only read seam for the transition invariant. Production rendering still
+        // obtains the pivot through GetTransitionPivotSlot and cannot override this value.
+        internal static int TransitionSourceWorkColumnSlot => _entryWorkColumnSlot;
+
+        internal static IEnumerable<WorkTypeDef> ExpandBesideWorkTypes
+        {
+            get
+            {
+                foreach (ExpandBesideEntry entry in ExpandBesideEntries.Values)
+                {
+                    if (entry?.WorkType != null)
+                    {
+                        yield return entry.WorkType;
+                    }
+                }
+            }
+        }
+
+        internal static int CurrentDrawingHeaderSignature
+        {
+            get
+            {
+                if (_drawingSubWorkGiver == null || _drawingSubWorkParent == null)
+                {
+                    return 0;
+                }
+
+                unchecked
+                {
+                    int hash = 17;
+                    hash = hash * 31 + _drawingSubWorkParent.shortHash;
+                    hash = hash * 31 + _drawingSubWorkGiver.shortHash;
+                    hash = hash * 31 + _drawingSubWorkSlot;
+                    return hash;
+                }
+            }
+        }
 
         internal static float BaseHeaderDrawWidth => _baseHeaderDrawWidth;
 
@@ -65,6 +116,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                     hash = hash * 31 + _exitWorkColumnSlot;
                     hash = hash * 31 + Mathf.RoundToInt(_exitWaveSlotPosition * 100f);
                     hash = hash * 31 + (_isExiting ? 1 : 0);
+                    hash = hash * 31 + ComputeExpandBesideSignature();
                     return hash;
                 }
             }
@@ -83,6 +135,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                     hash = hash * 31 + _cachedSlotSignature;
                     hash = hash * 31 + _entryWorkColumnSlot;
                     hash = hash * 31 + _exitWorkColumnSlot;
+                    hash = hash * 31 + ComputeExpandBesideSignature(includeProgress: false);
                     return hash;
                 }
             }
@@ -120,6 +173,16 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             }
         }
 
+        internal static float TransitionSeconds =>
+            BetterWorkTabSettings.ClampSubWorkTransitionSeconds(
+                BetterWorkTabMod.Settings?.subWorkTransitionSeconds ??
+                DefaultSettings.subWorkTransitionSeconds);
+
+        // Expand-beside changes are lighter than the full focused-view transition and should
+        // feel closer to Fluffy's quick column reveal. Keep the shared speed setting as the
+        // user's control while shortening only this presentation.
+        private static float ExpandBesideTransitionSeconds => Mathf.Max(0.12f, TransitionSeconds * 0.6f);
+
         internal static bool UseTransitionAnimation =>
             BetterWorkTabMod.Settings?.enableSubWorkTransitionAnimation ??
             DefaultSettings.enableSubWorkTransitionAnimation;
@@ -135,6 +198,57 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             TransitionStyle == BetterWorkTabSettings.SubWorkTransitionStyle.PixelWaveFlip;
 
         internal static bool IsTransitioning => IsActive && UseTransitionAnimation && (_isExiting || TransitionAlpha < 0.999f);
+
+        internal static bool IsExpandBesideTransitioning
+        {
+            get
+            {
+                if (!IsExpandBesideActive || !UseTransitionAnimation)
+                {
+                    return false;
+                }
+
+                foreach (ExpandBesideEntry entry in ExpandBesideEntries.Values)
+                {
+                    if (entry.IsCollapsing || entry.VisualProgress < 0.999f)
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+        }
+
+        internal static float ExpandBesideHeaderExpansionProgress
+        {
+            get
+            {
+                if (!IsExpandBesideActive)
+                {
+                    return 0f;
+                }
+
+                float progress = 0f;
+                foreach (ExpandBesideEntry entry in ExpandBesideEntries.Values)
+                {
+                    progress = Mathf.Max(progress, entry.VisualProgress);
+                }
+
+                return Mathf.Clamp01(progress);
+            }
+        }
+
+        internal static float GetExpandBesideHeaderAlpha(WorkTypeDef workType)
+        {
+            if (workType?.defName == null ||
+                !ExpandBesideEntries.TryGetValue(workType.defName, out var entry))
+            {
+                return 1f;
+            }
+
+            return Mathf.Clamp01(entry.VisualProgress);
+        }
 
         internal static int TransitionLayoutFrame
         {
@@ -220,16 +334,43 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                     return 0f;
                 }
 
-                if (!UseTransitionAnimation || !IsTransitioning)
-                {
-                    return GlobalRowHeight;
-                }
-
-                return GlobalRowHeight * Mathf.Clamp01(ModeVisualProgress);
+                return GlobalRowHeight;
             }
         }
 
-        internal static float GlobalRowReservedHeight => GlobalRowVisibleHeight;
+        internal static float GlobalRowReservedHeight => IsActive ? GlobalRowHeight : 0f;
+
+        internal static float GlobalRowVisualAlpha
+        {
+            get
+            {
+                if (!IsActive)
+                {
+                    return 0f;
+                }
+
+                if (!UseTransitionAnimation || !IsTransitioning)
+                {
+                    return 1f;
+                }
+
+                return Mathf.Clamp01(ModeVisualProgress);
+            }
+        }
+
+        internal static float HeaderAnchorVisualOffsetY
+        {
+            get
+            {
+                if (!IsActive || !UseTransitionAnimation || !IsTransitioning)
+                {
+                    return 0f;
+                }
+
+                float hiddenHeight = Mathf.Max(0f, GlobalRowReservedHeight - GlobalRowVisibleHeight);
+                return (_isExiting ? 1f : -1f) * hiddenHeight * 0.5f;
+            }
+        }
 
         internal static bool TryGetHeaderTransitionOffset(PawnColumnDef column, float columnWidth, out float offsetX)
         {
@@ -345,7 +486,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 return false;
             }
 
-            phase = _isExiting ? 1f - TransitionAlpha : TransitionAlpha;
+            phase = GetTransitionPhase();
             return true;
         }
 
@@ -368,10 +509,12 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 return 0f;
             }
 
-            int totalSlots = Mathf.Max(1, VisibleWorkTypeSlots.Count);
             float distance = Mathf.Abs(slot - pivotSlot);
-            float phase = _isExiting ? 1f - TransitionAlpha : TransitionAlpha;
-            float waveCenter = phase * (totalSlots + 1);
+            float phase = GetTransitionPhase();
+            float waveCenter = Mathf.Lerp(
+                -WaveFeatherSlots,
+                GetMaxWaveDistanceFromPivot(pivotSlot) + WaveFeatherSlots,
+                phase);
             float wave = 1f - Mathf.Abs(distance - waveCenter) / 1.25f;
             wave = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(wave));
             float fadeOut = Mathf.SmoothStep(1f, 0f, Mathf.Clamp01((phase - 0.48f) / 0.34f));
@@ -386,10 +529,29 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 return 1f;
             }
 
-            int totalSlots = Mathf.Max(1, VisibleWorkTypeSlots.Count);
             float distance = Mathf.Abs(slot - pivotSlot);
-            float waveCenter = phase * (totalSlots + 1f);
-            return Mathf.Clamp01((waveCenter - distance + 0.34f) / 0.72f);
+            float maxDistance = GetMaxWaveDistanceFromPivot(pivotSlot);
+            float waveCenter = Mathf.Lerp(-WaveFeatherSlots, maxDistance + WaveFeatherSlots, phase);
+            return Mathf.Clamp01((waveCenter - distance + WaveFeatherSlots) / WaveFeatherSlots);
+        }
+
+        private static float GetTransitionPhase()
+        {
+            float progress = UsePixelWaveTransition
+                ? Mathf.Clamp01(TransitionAlpha)
+                : TransitionEase;
+            return _isExiting ? 1f - progress : progress;
+        }
+
+        private static float GetMaxWaveDistanceFromPivot(float pivotSlot)
+        {
+            EnsureSlotCache();
+            if (VisibleWorkTypeSlots.Count <= 1 || pivotSlot < 0f)
+            {
+                return 0f;
+            }
+
+            return Mathf.Max(pivotSlot, Mathf.Abs((VisibleWorkTypeSlots.Count - 1) - pivotSlot));
         }
 
         private static float SmoothStep01(float value)
@@ -480,6 +642,36 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             float baseHeaderDrawWidth = -1f,
             Vector2? returnMouseLocalPosition = null)
         {
+            EnterCore(
+                workType,
+                returnMousePosition,
+                baseHeaderDrawWidth,
+                returnMouseLocalPosition,
+                sourceWorkColumnSlot: -1);
+        }
+
+        internal static void EnterFromSourceSlot(
+            WorkTypeDef workType,
+            Vector2? returnMousePosition,
+            float baseHeaderDrawWidth,
+            Vector2? returnMouseLocalPosition,
+            int sourceWorkColumnSlot)
+        {
+            EnterCore(
+                workType,
+                returnMousePosition,
+                baseHeaderDrawWidth,
+                returnMouseLocalPosition,
+                sourceWorkColumnSlot);
+        }
+
+        private static void EnterCore(
+            WorkTypeDef workType,
+            Vector2? returnMousePosition,
+            float baseHeaderDrawWidth,
+            Vector2? returnMouseLocalPosition,
+            int sourceWorkColumnSlot)
+        {
             if (workType == null)
             {
                 LogSubWork("Enter requested with null work type; exiting immediately.");
@@ -507,7 +699,12 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 : (Vector2?)null;
             _cursorMovedSinceEnter = false;
             EnsureSlotCache();
-            _entryWorkColumnSlot = VisibleWorkTypeSlots.TryGetValue(workType, out int slot) ? slot : -1;
+            // A chooser preview can rebuild the visible columns before the committed Enter call.
+            // Preserve the pre-animation parent-header slot when supplied so both directions pivot
+            // on the header the player actually opened, never a fallback edge of the rebuilt grid.
+            _entryWorkColumnSlot = sourceWorkColumnSlot >= 0
+                ? sourceWorkColumnSlot
+                : (VisibleWorkTypeSlots.TryGetValue(workType, out int slot) ? slot : -1);
             _exitWorkColumnSlot = -1;
             _exitWaveSlotPosition = -1f;
             _layoutRefreshPending = true;
@@ -516,7 +713,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 $"Enter workType={workType.defName}, slot={_entryWorkColumnSlot}, style={TransitionStyle}, animation={UseTransitionAnimation}, returnCursor={_returnMousePosition.HasValue}");
         }
 
-        internal static void Exit(int exitWorkColumnSlot = -1, float exitWaveSlotPosition = -1f)
+        internal static void Exit()
         {
             if (!IsActive)
             {
@@ -534,18 +731,19 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             if (_isExiting)
             {
                 LogSubWork(
-                    $"Exit requested while already exiting. workType={_activeWorkType.defName}, previousSlot={_exitWorkColumnSlot}, newSlot={exitWorkColumnSlot}");
+                    $"Exit requested while already exiting. workType={_activeWorkType.defName}, previousSlot={_exitWorkColumnSlot}");
             }
 
             _isExiting = true;
             _exitingAt = Time.realtimeSinceStartup;
 
-            int parentSlot = _entryWorkColumnSlot >= 0 ? _entryWorkColumnSlot : exitWorkColumnSlot;
-            _exitWorkColumnSlot = parentSlot;
-            _exitWaveSlotPosition = parentSlot >= 0 ? parentSlot : exitWaveSlotPosition;
+            // Closing is the inverse of opening: collapse into the original parent header,
+            // independent of which child cell, back label, or X button requested the exit.
+            _exitWorkColumnSlot = _entryWorkColumnSlot;
+            _exitWaveSlotPosition = _entryWorkColumnSlot;
             _layoutRefreshPending = true;
             LogSubWork(
-                $"Exit requested workType={_activeWorkType.defName}, triggerSlot={exitWorkColumnSlot}, triggerWaveSlot={exitWaveSlotPosition:0.###}, parentSlot={_exitWorkColumnSlot}, waveSlot={_exitWaveSlotPosition:0.###}, style={TransitionStyle}, cursorMoved={_cursorMovedSinceEnter}");
+                $"Exit requested workType={_activeWorkType.defName}, sourceSlot={_entryWorkColumnSlot}, exitSlot={_exitWorkColumnSlot}, waveSlot={_exitWaveSlotPosition:0.###}, style={TransitionStyle}, cursorMoved={_cursorMovedSinceEnter}");
         }
 
         internal static void TickTransition()
@@ -556,10 +754,20 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             {
                 ExitImmediate();
             }
+
+            if (TickExpandBesideTransitions())
+            {
+                _layoutRefreshPending = true;
+            }
         }
 
         internal static void ExitImmediate()
         {
+            bool hadFocusedState = _activeWorkType != null ||
+                _isExiting ||
+                ActiveWorkGiversBuffer.Count > 0 ||
+                ActiveWorkGiverSlots.Count > 0 ||
+                MovedFromBaseline.Count > 0;
             string previous = _activeWorkType?.defName;
             _activeWorkType = null;
             _cachedWorkTypeDefName = null;
@@ -578,11 +786,194 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             ActiveWorkGiversBuffer.Clear();
             ActiveWorkGiverSlots.Clear();
             MovedFromBaseline.Clear();
-            _layoutRefreshPending = true;
+            ClearDrawingColumn();
+            if (hadFocusedState)
+            {
+                _layoutRefreshPending = true;
+            }
             if (!previous.NullOrEmpty())
             {
                 LogSubWork($"Exited sub-work immediately. previous={previous}");
             }
+        }
+
+        internal static BetterWorkTabSettings.SubWorkDrilldownStyle EffectiveDrilldownStyle()
+        {
+            var style = BetterWorkTabMod.Settings?.subWorkDrilldownStyle ?? DefaultSettings.subWorkDrilldownStyle;
+            if (style == BetterWorkTabSettings.SubWorkDrilldownStyle.ExpandBeside &&
+                !FluffyWorkTabGateway.CanHostFluffySubWorkColumns)
+            {
+                return BetterWorkTabSettings.SubWorkDrilldownStyle.FocusView;
+            }
+
+            return style == BetterWorkTabSettings.SubWorkDrilldownStyle.NotChosen
+                ? BetterWorkTabSettings.SubWorkDrilldownStyle.FocusView
+                : style;
+        }
+
+        internal static bool IsExpandBesideExpanded(WorkTypeDef workType)
+        {
+            return workType?.defName != null &&
+                   ExpandBesideEntries.TryGetValue(workType.defName, out var entry) &&
+                   !entry.IsCollapsing;
+        }
+
+        internal static void ToggleExpandBeside(WorkTypeDef workType)
+        {
+            if (workType?.defName == null)
+            {
+                return;
+            }
+
+            if (!FluffyWorkTabGateway.CanHostFluffySubWorkColumns)
+            {
+                Enter(workType);
+                return;
+            }
+
+            if (IsActive)
+            {
+                ExitImmediate();
+            }
+
+            ColumnReorderAnimationState.Clear();
+
+            if (ExpandBesideEntries.TryGetValue(workType.defName, out var existing) && !existing.IsCollapsing)
+            {
+                existing.BeginCollapse();
+                _layoutRefreshPending = true;
+                LogSubWork($"Expand-beside collapse requested. workType={workType.defName}");
+                return;
+            }
+
+            ExpandBesideEntries[workType.defName] = new ExpandBesideEntry(workType);
+            _layoutRefreshPending = true;
+            RefreshIfNeeded();
+            LogSubWork($"Expand-beside expand requested. workType={workType.defName}");
+        }
+
+        internal static void CollapseAllExpandBeside()
+        {
+            if (ExpandBesideEntries.Count == 0)
+            {
+                return;
+            }
+
+            ColumnReorderAnimationState.Clear();
+            foreach (ExpandBesideEntry entry in ExpandBesideEntries.Values)
+            {
+                entry.BeginCollapse();
+            }
+            _layoutRefreshPending = true;
+        }
+
+        internal static void CollapseAllExpandBesideImmediate()
+        {
+            if (ExpandBesideEntries.Count == 0)
+            {
+                return;
+            }
+
+            ColumnReorderAnimationState.Clear();
+            ExpandBesideEntries.Clear();
+            _layoutRefreshPending = true;
+        }
+
+        internal static float GetExpandBesideWidthProgress(WorkTypeDef workType)
+        {
+            if (workType?.defName == null ||
+                !ExpandBesideEntries.TryGetValue(workType.defName, out var entry))
+            {
+                return 0f;
+            }
+
+            return entry.VisualProgress;
+        }
+
+        internal static void SetDrawingColumn(Better_Work_Tab.PawnOrganizer.WorkTabLayoutColumn column)
+        {
+            if (column.IsExpandBesideChild && column.SubWorkParent != null && column.SubWorkGiver != null)
+            {
+                _drawingSubWorkParent = column.SubWorkParent;
+                _drawingSubWorkGiver = column.SubWorkGiver;
+                _drawingSubWorkSlot = column.SubWorkSlot;
+                return;
+            }
+
+            ClearDrawingColumn();
+        }
+
+        internal static void ClearDrawingColumn()
+        {
+            _drawingSubWorkParent = null;
+            _drawingSubWorkGiver = null;
+            _drawingSubWorkSlot = -1;
+        }
+
+        internal static bool TryGetWorkGiverForColumn(
+            Better_Work_Tab.PawnOrganizer.WorkTabLayoutColumn column,
+            out WorkGiver workGiver,
+            out WorkTypeDef parentWorkType,
+            out int slotIndex)
+        {
+            workGiver = null;
+            parentWorkType = null;
+            slotIndex = -1;
+
+            if (column.IsExpandBesideChild && column.SubWorkGiver != null && column.SubWorkParent != null)
+            {
+                parentWorkType = column.SubWorkParent;
+                slotIndex = column.SubWorkSlot;
+                workGiver = ResolveWorkGiver(column.SubWorkParent, column.SubWorkGiver);
+                return workGiver != null;
+            }
+
+            if (IsExpandBesideActive)
+            {
+                return false;
+            }
+
+            if (TryGetWorkGiverForColumn(column.Column, out workGiver, out slotIndex))
+            {
+                parentWorkType = _activeWorkType;
+                return true;
+            }
+
+            return false;
+        }
+
+        internal static bool TryGetCurrentDrawingWorkGiver(
+            PawnColumnDef column,
+            out WorkGiver workGiver,
+            out WorkTypeDef parentWorkType,
+            out int slotIndex)
+        {
+            workGiver = null;
+            parentWorkType = null;
+            slotIndex = -1;
+
+            if (_drawingSubWorkGiver != null &&
+                _drawingSubWorkParent != null &&
+                (column == null || column.workType == _drawingSubWorkParent))
+            {
+                workGiver = ResolveWorkGiver(_drawingSubWorkParent, _drawingSubWorkGiver);
+                parentWorkType = _drawingSubWorkParent;
+                slotIndex = _drawingSubWorkSlot;
+                return workGiver != null;
+            }
+
+            if (IsExpandBesideActive)
+            {
+                return false;
+            }
+
+            if (TryGetWorkGiverForColumn(column, out workGiver, out slotIndex))
+            {
+                parentWorkType = _activeWorkType;
+                return true;
+            }
+
+            return false;
         }
 
         internal static bool ConsumeLayoutRefresh()
@@ -624,11 +1015,79 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             BetterWorkTabMod.DebugLog("[SubWorkDrilldown] " + message, DebugFeature.SubWork);
         }
 
+        private static bool TickExpandBesideTransitions()
+        {
+            bool changed = false;
+            var removeKeys = new List<string>();
+            foreach (var pair in ExpandBesideEntries)
+            {
+                ExpandBesideEntry entry = pair.Value;
+                if (entry.IsCollapsing && entry.VisualProgress <= 0.001f)
+                {
+                    removeKeys.Add(pair.Key);
+                    changed = true;
+                    continue;
+                }
+
+                if (entry.VisualProgress < 0.999f)
+                {
+                    changed = true;
+                }
+            }
+
+            for (int i = 0; i < removeKeys.Count; i++)
+            {
+                ExpandBesideEntries.Remove(removeKeys[i]);
+            }
+
+            return changed;
+        }
+
+        private static int ComputeExpandBesideSignature(bool includeProgress = true)
+        {
+            unchecked
+            {
+                int hash = 17;
+                hash = hash * 31 + ExpandBesideEntries.Count;
+                foreach (var pair in ExpandBesideEntries)
+                {
+                    var entry = pair.Value;
+                    hash = hash * 31 + StringComparer.Ordinal.GetHashCode(pair.Key ?? string.Empty);
+                    hash = hash * 31 + (entry.IsCollapsing ? 1 : 0);
+                    if (includeProgress)
+                    {
+                        hash = hash * 31 + Mathf.RoundToInt(entry.VisualProgress * 60f);
+                    }
+                }
+
+                return hash;
+            }
+        }
+
+        private static WorkGiver ResolveWorkGiver(WorkTypeDef parentWorkType, WorkGiverDef workGiverDef)
+        {
+            if (workGiverDef == null)
+            {
+                return null;
+            }
+
+            var givers = WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(parentWorkType);
+            for (int i = 0; i < givers.Count; i++)
+            {
+                if (givers[i]?.def == workGiverDef)
+                {
+                    return givers[i];
+                }
+            }
+
+            return null;
+        }
+
         internal static bool TryGetWorkGiverForColumn(PawnColumnDef column, out WorkGiver workGiver, out int slotIndex)
         {
             workGiver = null;
             slotIndex = GetVisibleWorkColumnSlot(column);
-            if (!IsActive || slotIndex < 0)
+            if (!IsActive || IsExpandBesideActive || slotIndex < 0)
             {
                 return false;
             }
@@ -872,6 +1331,48 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 {
                     ActiveWorkGiverSlots.Add(def, i);
                 }
+            }
+        }
+
+        private sealed class ExpandBesideEntry
+        {
+            internal ExpandBesideEntry(WorkTypeDef workType)
+            {
+                WorkType = workType;
+                _startedAt = Time.realtimeSinceStartup;
+            }
+
+            private readonly float _startedAt;
+            private float _collapsingAt;
+
+            internal WorkTypeDef WorkType { get; }
+
+            internal bool IsCollapsing { get; private set; }
+
+            internal float VisualProgress
+            {
+                get
+                {
+                    if (!UseTransitionAnimation)
+                    {
+                        return IsCollapsing ? 0f : 1f;
+                    }
+
+                    float startedAt = IsCollapsing ? _collapsingAt : _startedAt;
+                    float progress = Mathf.Clamp01((Time.realtimeSinceStartup - startedAt) / ExpandBesideTransitionSeconds);
+                    return IsCollapsing ? 1f - progress : progress;
+                }
+            }
+
+            internal void BeginCollapse()
+            {
+                if (IsCollapsing)
+                {
+                    return;
+                }
+
+                IsCollapsing = true;
+                _collapsingAt = Time.realtimeSinceStartup;
             }
         }
     }
