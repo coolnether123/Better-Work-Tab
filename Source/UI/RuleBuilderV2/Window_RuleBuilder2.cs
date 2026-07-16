@@ -353,6 +353,13 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             return flowController.IsTargetSelected(workType, workGiver);
         }
 
+        internal bool TryGetActiveTarget(out WorkTypeDef workType, out WorkGiverDef workGiver)
+        {
+            workType = flowController.ActiveCard?.Target?.ResolveWorkType();
+            workGiver = flowController.ActiveCard?.Target?.ResolveWorkGiver();
+            return workType != null;
+        }
+
         private void DrawHeader(Rect rect)
         {
             RuleBuilder2HeaderRects header = layout.Header(rect);

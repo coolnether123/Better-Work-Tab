@@ -1,6 +1,7 @@
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.UI.WorkGrid.Commands;
 using Better_Work_Tab.UI.Headers.Angled;
 using RimWorld;
 using System;
@@ -21,11 +22,22 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         private const float OverrideResetPulseTravelSeconds = 0.66f;
         private const float OverrideResetPulseDelay = 0.11f;
         private const int OverrideResetPulseCount = 3;
-        private static readonly Dictionary<string, ResetAnimationState> ResetAnimations = new Dictionary<string, ResetAnimationState>(StringComparer.Ordinal);
+        private const int MaximumResetAnimations = 512;
+        private static readonly Dictionary<AnimationKey, ResetAnimationState> ResetAnimations =
+            new Dictionary<AnimationKey, ResetAnimationState>(64);
         private static readonly Dictionary<string, Rect> GlobalPriorityTargets = new Dictionary<string, Rect>(StringComparer.Ordinal);
+        private static readonly string[] PriorityLabels = new string[PriorityConstants.ExtendedHardMax + 1];
         private static float _visualAlpha = 1f;
+        private static bool _trustedRootInputHit;
 
-        public static void DrawPriorityBox(WorkGiver wg, WorkTypeDef workType, Pawn pawn, Rect boxRect, float visualAlpha = 1f, float visualScale = 1f)
+        public static void DrawPriorityBox(
+            WorkGiver wg,
+            WorkTypeDef workType,
+            Pawn pawn,
+            Rect boxRect,
+            float visualAlpha = 1f,
+            float visualScale = 1f,
+            int knownParentPriority = int.MinValue)
         {
             if (wg?.def == null)
             {
@@ -44,25 +56,22 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
             try
             {
-            int defaultPriority = WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType);
-            bool hasPawnOverride = pawn != null &&
-                                   WorkGiverReassignmentManager.HasPawnWorkGiverOverride(pawn, wg.def);
-            int baseWorkGiverPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, wg.def, defaultPriority);
-            TimePriorityEvaluation timePriorityEvaluation = TimePriorityService.EvaluateWorkGiverPriority(
-                pawn,
-                workType,
-                wg.def,
-                baseWorkGiverPriority);
-            int workGiverPriority = timePriorityEvaluation.EffectivePriority;
+            WorkGiverCellPresentationCache.CellPresentation presentation =
+                WorkGiverCellPresentationCache.Resolve(wg, workType, pawn, knownParentPriority);
+            int workGiverPriority = FluffyTimeScheduleAssigner.IsOpen
+                ? FluffyTimeScheduleAssigner.GetDisplayPriority(
+                    TimePriorityTarget.ForWorkGiver(pawn, workType, wg.def),
+                    presentation.BasePriority,
+                    pawn)
+                : presentation.EffectivePriority;
 
             if (pawn != null &&
-                !pawn.WorkTypeIsDisabled(workType) &&
-                defaultPriority <= WorkPrioritySystem.DisabledPriority)
+                !presentation.WorkTypeDisabled &&
+                presentation.ParentPriority <= WorkPrioritySystem.DisabledPriority)
             {
-                if (hasPawnOverride &&
-                    !WorkGiverReassignmentManager.LockedSubWorkOverridesDisabledParent())
+                if (presentation.HasPawnOverride && !presentation.LockedOverrides)
                 {
-                    DrawParentDisabledOverrideBox(wg, workType, pawn, boxRect, workGiverPriority);
+                    DrawParentDisabledOverrideBox(wg, workType, pawn, boxRect, workGiverPriority, presentation);
                     return;
                 }
 
@@ -74,11 +83,11 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
             if (pawn != null)
             {
-                DrawPawnPriorityBox(wg, workType, pawn, boxRect, workGiverPriority, baseWorkGiverPriority, hasPawnOverride);
+                DrawPawnPriorityBox(wg, workType, pawn, boxRect, workGiverPriority, presentation);
             }
             else
             {
-                DrawGlobalPriorityBox(wg, workType, boxRect, workGiverPriority, baseWorkGiverPriority);
+                DrawGlobalPriorityBox(wg, boxRect, workGiverPriority, presentation);
             }
             
             TooltipHandler.TipRegion(boxRect, wg.def.LabelCap);
@@ -86,6 +95,44 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             finally
             {
                 _visualAlpha = oldVisualAlpha;
+            }
+        }
+
+        /// <summary>
+        /// Handles a priority-box event whose hit was already resolved in the work
+        /// tab's root coordinate space. Scroll views maintain their own mouse-over
+        /// stack, so root-routed input must not be rejected by the nested stack.
+        /// </summary>
+        internal static bool TryHandleRootInput(
+            WorkGiver workGiver,
+            WorkTypeDef workType,
+            Pawn pawn,
+            Rect rootBoxRect,
+            int knownParentPriority = int.MinValue)
+        {
+            Event evt = Event.current;
+            if (evt == null ||
+                (evt.type != EventType.MouseDown && evt.type != EventType.ScrollWheel) ||
+                !rootBoxRect.Contains(evt.mousePosition))
+            {
+                return false;
+            }
+
+            bool oldTrustedRootInputHit = _trustedRootInputHit;
+            _trustedRootInputHit = true;
+            try
+            {
+                DrawPriorityBox(
+                    workGiver,
+                    workType,
+                    pawn,
+                    rootBoxRect,
+                    knownParentPriority: knownParentPriority);
+                return evt.type == EventType.Used;
+            }
+            finally
+            {
+                _trustedRootInputHit = oldTrustedRootInputHit;
             }
         }
 
@@ -110,11 +157,22 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             return color;
         }
 
-        private static bool ShouldHandleInput => _visualAlpha > 0.999f && !SubWorkDrilldownState.IsTransitioning;
+        private static bool ShouldHandleInput
+        {
+            get
+            {
+                Event evt = Event.current;
+                return _visualAlpha > 0.999f &&
+                    !SubWorkDrilldownState.IsTransitioning &&
+                    evt != null &&
+                    (evt.type == EventType.MouseDown || evt.type == EventType.ScrollWheel);
+            }
+        }
 
         private static bool MouseOverPriorityBox(Rect rect)
         {
-            return !TimePriorityPlannerPrototype.OwnsCurrentMousePosition && Mouse.IsOver(rect);
+            return !TimePriorityScheduleEditor.OwnsCurrentMousePosition &&
+                (_trustedRootInputHit || Mouse.IsOver(rect));
         }
 
         private static void DrawPawnPriorityBox(
@@ -123,18 +181,10 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             Pawn pawn,
             Rect boxRect,
             int workGiverPriority,
-            int baseWorkGiverPriority,
-            bool hasPawnOverride)
+            WorkGiverCellPresentationCache.CellPresentation presentation)
         {
-            bool hasScheduleIndicator = TryGetScheduleIndicator(
-                pawn,
-                workType,
-                wg.def,
-                baseWorkGiverPriority,
-                out TimePriorityTarget scheduleTarget,
-                out int scheduleFallbackPriority);
-            bool hasGoldRing = hasPawnOverride || hasScheduleIndicator;
-            if (DrawPawnWorkBoxContents(boxRect, pawn, workType, workGiverPriority, IsIncapable(pawn, wg), hasGoldRing))
+            bool hasGoldRing = presentation.HasPawnOverride || presentation.HasScheduleIndicator;
+            if (DrawPawnWorkBoxContents(boxRect, pawn, workType, workGiverPriority, presentation, hasGoldRing))
             {
                 DrawOverrideResetAnimation(pawn.thingIDNumber, wg.def, boxRect);
                 if (hasGoldRing)
@@ -142,39 +192,46 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                     DrawOverrideRingIfVisible(boxRect);
                 }
 
-                int inheritedPriority = WorkGiverReassignmentManager.GetInheritedWorkGiverPriority(pawn, workType, wg.def);
                 if (ShouldHandleInput)
                 {
                     if (TryHandleScheduleIndicatorClick(
-                            hasScheduleIndicator,
-                            scheduleTarget,
-                            scheduleFallbackPriority,
+                            presentation.HasScheduleIndicator,
+                            presentation.ScheduleTarget,
+                            presentation.ScheduleFallbackPriority,
                             boxRect))
                     {
                         return;
                     }
 
-                    HandlePriorityClick(pawn.thingIDNumber, wg.def, boxRect, workGiverPriority, hasPawnOverride, inheritedPriority);
+                    HandlePriorityClick(
+                        pawn.thingIDNumber,
+                        wg.def,
+                        boxRect,
+                        workGiverPriority,
+                        presentation.HasPawnOverride,
+                        presentation.InheritedPriority);
                 }
             }
         }
 
-        private static void DrawGlobalPriorityBox(WorkGiver wg, WorkTypeDef workType, Rect boxRect, int workGiverPriority, int baseWorkGiverPriority)
+        private static void DrawGlobalPriorityBox(
+            WorkGiver wg,
+            Rect boxRect,
+            int workGiverPriority,
+            WorkGiverCellPresentationCache.CellPresentation presentation)
         {
             RegisterGlobalPriorityTarget(wg.def, boxRect);
-            TimePriorityTarget target = TimePriorityTarget.ForWorkGiver(null, workType, wg.def);
-            bool hasScheduleIndicator = TimePriorityService.HasCustomSchedule(target, baseWorkGiverPriority);
 
             if (BetterWorkTabMod.Settings?.useVanillaSubWorkGlobalPriorityBoxes == true)
             {
-                DrawVanillaGlobalPriorityBoxContents(boxRect, workGiverPriority, hasScheduleIndicator);
+                DrawVanillaGlobalPriorityBoxContents(boxRect, workGiverPriority, presentation.HasScheduleIndicator);
             }
             else
             {
-                DrawPriorityBoxContents(boxRect, workGiverPriority, false, hasScheduleIndicator);
+                DrawPriorityBoxContents(boxRect, workGiverPriority, false, presentation.HasScheduleIndicator);
             }
 
-            if (hasScheduleIndicator)
+            if (presentation.HasScheduleIndicator)
             {
                 DrawOverrideRingIfVisible(boxRect);
             }
@@ -182,9 +239,9 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             if (ShouldHandleInput)
             {
                 if (TryHandleScheduleIndicatorClick(
-                        hasScheduleIndicator,
-                        target,
-                        baseWorkGiverPriority,
+                        presentation.HasScheduleIndicator,
+                        presentation.ScheduleTarget,
+                        presentation.ScheduleFallbackPriority,
                         boxRect))
                 {
                     return;
@@ -214,10 +271,12 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             {
                 if (priority > WorkPrioritySystem.DisabledPriority)
                 {
-                    Text.Font = GameFont.Medium;
+                    Text.Font = boxRect.width <= WorkPriorityCellGeometry.CompactSubWorkBoxSize + 0.01f
+                        ? GameFont.Tiny
+                        : GameFont.Medium;
                     Text.Anchor = TextAnchor.MiddleCenter;
                     GUI.color = WithVisualAlpha(WorkPrioritySystem.GetPriorityColor(priority));
-                    Widgets.Label(boxRect.ContractedBy(-3f), priority.ToString());
+                    Widgets.Label(boxRect.ContractedBy(-3f), GetPriorityLabel(priority));
                 }
             }
             else if (priority > WorkPrioritySystem.DisabledPriority)
@@ -264,10 +323,12 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
             if (priority > 0)
             {
-                Text.Font = GameFont.Medium;
+                Text.Font = boxRect.width <= WorkPriorityCellGeometry.CompactSubWorkBoxSize + 0.01f
+                    ? GameFont.Tiny
+                    : GameFont.Medium;
                 Text.Anchor = TextAnchor.MiddleCenter;
                 GUI.color = WithVisualAlpha(WorkPrioritySystem.GetPriorityColor(priority));
-                Widgets.Label(boxRect.ContractedBy(-3f), priority.ToString());
+                Widgets.Label(boxRect.ContractedBy(-3f), GetPriorityLabel(priority));
             }
 
             GUI.color = oldColor;
@@ -281,7 +342,13 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             }
         }
 
-        private static bool DrawPawnWorkBoxContents(Rect boxRect, Pawn pawn, WorkTypeDef workType, int priority, bool incapable, bool suppressHover = false)
+        private static bool DrawPawnWorkBoxContents(
+            Rect boxRect,
+            Pawn pawn,
+            WorkTypeDef workType,
+            int priority,
+            WorkGiverCellPresentationCache.CellPresentation presentation,
+            bool suppressHover = false)
         {
             if (pawn == null || workType == null)
             {
@@ -290,15 +357,18 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
             priority = WorkPrioritySystem.ClampPriority(priority);
             Color oldColor = GUI.color;
-            if (pawn.WorkTypeIsDisabled(workType))
+            if (presentation.WorkTypeDisabled)
             {
-                int minAgeRequired;
-                if (WorkGiverPriorityBoxCompatibility.IsWorkTypeDisabledByAge(pawn, workType, out minAgeRequired))
+                if (presentation.DisabledByAge)
                 {
                     if (Event.current.type == EventType.MouseDown && MouseOverPriorityBox(boxRect))
                     {
                         MessageCompat.Message(
-                            "MessageWorkTypeDisabledAge".Translate(pawn, pawn.ageTracker.AgeBiologicalYears, workType.labelShort, minAgeRequired),
+                            "MessageWorkTypeDisabledAge".Translate(
+                                pawn,
+                                pawn.ageTracker.AgeBiologicalYears,
+                                workType.labelShort,
+                                presentation.MinimumAge),
                             pawn,
                             MessageTypeDefOf.RejectInput,
                             false);
@@ -306,7 +376,9 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                         Event.current.Use();
                     }
 
+                    GUI.color = WithVisualAlpha(oldColor);
                     GUI.DrawTexture(boxRect, WorkGiverPriorityBoxCompatibility.WorkBoxBGTexAgeDisabled);
+                    GUI.color = oldColor;
                 }
 
                 return false;
@@ -317,7 +389,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             bool oldWordWrap = Text.WordWrap;
             Text.WordWrap = false;
 
-            if (incapable)
+            if (presentation.Incapable)
             {
                 GUI.color = WithVisualAlpha(new Color(1f, 0.3f, 0.3f));
             }
@@ -333,10 +405,12 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             {
                 if (priority > WorkPrioritySystem.DisabledPriority)
                 {
-                    Text.Font = GameFont.Medium;
+                    Text.Font = boxRect.width <= WorkPriorityCellGeometry.CompactSubWorkBoxSize + 0.01f
+                        ? GameFont.Tiny
+                        : GameFont.Medium;
                     Text.Anchor = TextAnchor.MiddleCenter;
                     GUI.color = WithVisualAlpha(WorkPrioritySystem.GetPriorityColor(priority));
-                    Widgets.Label(boxRect.ContractedBy(-3f), priority.ToString());
+                    Widgets.Label(boxRect.ContractedBy(-3f), GetPriorityLabel(priority));
                 }
             }
             else if (priority > WorkPrioritySystem.DisabledPriority)
@@ -361,9 +435,6 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         private static void DrawInheritedDisabledPriorityBox(WorkGiver wg, WorkTypeDef workType, Pawn pawn, Rect boxRect)
         {
             Color oldColor = GUI.color;
-            TextAnchor oldAnchor = Text.Anchor;
-            GameFont oldFont = Text.Font;
-            bool oldWordWrap = Text.WordWrap;
 
             GUI.color = WithVisualAlpha(new Color(0.52f, 0.52f, 0.52f, 0.82f));
             GUI.DrawTexture(boxRect, WidgetsWork.WorkBoxBGTex_Bad);
@@ -371,9 +442,6 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             GUI.DrawTexture(boxRect, BaseContent.WhiteTex);
 
             GUI.color = oldColor;
-            Text.Anchor = oldAnchor;
-            Text.Font = oldFont;
-            Text.WordWrap = oldWordWrap;
 
             if (MouseOverPriorityBox(boxRect))
             {
@@ -386,9 +454,15 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             }
         }
 
-        private static void DrawParentDisabledOverrideBox(WorkGiver wg, WorkTypeDef workType, Pawn pawn, Rect boxRect, int workGiverPriority)
+        private static void DrawParentDisabledOverrideBox(
+            WorkGiver wg,
+            WorkTypeDef workType,
+            Pawn pawn,
+            Rect boxRect,
+            int workGiverPriority,
+            WorkGiverCellPresentationCache.CellPresentation presentation)
         {
-            if (!DrawPawnWorkBoxContents(boxRect, pawn, workType, workGiverPriority, IsIncapable(pawn, wg), suppressHover: true))
+            if (!DrawPawnWorkBoxContents(boxRect, pawn, workType, workGiverPriority, presentation, suppressHover: true))
             {
                 return;
             }
@@ -411,7 +485,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         {
             Event evt = Event.current;
             if (evt == null ||
-                TimePriorityPlannerPrototype.OwnsCurrentMousePosition ||
+                TimePriorityScheduleEditor.OwnsCurrentMousePosition ||
                 wg?.def == null ||
                 evt.type != EventType.MouseDown ||
                 !PriorityOverrideRing.RingRect(boxRect).Contains(evt.mousePosition) ||
@@ -447,7 +521,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         {
             Event evt = Event.current;
             if (evt == null ||
-                TimePriorityPlannerPrototype.OwnsCurrentMousePosition ||
+                TimePriorityScheduleEditor.OwnsCurrentMousePosition ||
                 wg?.def == null ||
                 (evt.type != EventType.MouseDown && evt.type != EventType.ScrollWheel) ||
                 !MouseOverPriorityBox(boxRect) ||
@@ -493,23 +567,6 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             evt.Use();
         }
 
-        private static bool TryGetScheduleIndicator(
-            Pawn pawn,
-            WorkTypeDef workType,
-            WorkGiverDef workGiverDef,
-            int fallbackPriority,
-            out TimePriorityTarget target,
-            out int scheduleFallbackPriority)
-        {
-            return TimePriorityService.TryGetWorkGiverScheduleIndicatorTarget(
-                pawn,
-                workType,
-                workGiverDef,
-                fallbackPriority,
-                out target,
-                out scheduleFallbackPriority);
-        }
-
         private static bool TryHandleScheduleIndicatorClick(
             bool hasScheduleIndicator,
             TimePriorityTarget target,
@@ -523,7 +580,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
             Event evt = Event.current;
             if (evt == null ||
-                TimePriorityPlannerPrototype.OwnsCurrentMousePosition ||
+                TimePriorityScheduleEditor.OwnsCurrentMousePosition ||
                 BetterWorkTabLocalState.IsHeaderDragging ||
                 SubWorkDrilldownInput.MatchesGesture(evt))
             {
@@ -548,7 +605,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             }
 
             if (evt.button == 0 &&
-                TimePriorityPlannerPrototype.OpenForPriorityBox(target, boxRect, fallbackPriority))
+                WorkPriorityCommandGateway.Execute(new OpenScheduleCommand(target, boxRect, fallbackPriority)))
             {
                 UISoundCompat.TickHigh.PlayOneShotOnCamera();
             }
@@ -578,7 +635,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             Rect interactiveRect = hasPawnOverride
                 ? PriorityOverrideRing.RingRect(boxRect)
                 : boxRect;
-            if (TimePriorityPlannerPrototype.OwnsCurrentMousePosition || !Mouse.IsOver(interactiveRect))
+            if (!MouseOverPriorityBox(interactiveRect))
             {
                 return;
             }
@@ -612,7 +669,13 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 
                 if (newPriority != currentPriority)
                 {
-                    WorkGiverReassignmentManager.SetPawnOverrideSynced(pawnId, workGiverDef.defName, newPriority);
+                    if (!FluffyTimeScheduleAssigner.ApplyWorkGiverPriority(pawnId, workGiverDef, newPriority))
+                    {
+                        WorkPriorityCommandGateway.Execute(new SetWorkGiverPriorityCommand(
+                            pawnId,
+                            workGiverDef,
+                            newPriority));
+                    }
                     UISoundCompat.DragSlider.PlayOneShotOnCamera();
                 }
                 
@@ -635,7 +698,13 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
                 if (newPriority != currentPriority)
                 {
-                    WorkGiverReassignmentManager.SetPawnOverrideSynced(pawnId, workGiverDef.defName, newPriority);
+                    if (!FluffyTimeScheduleAssigner.ApplyWorkGiverPriority(pawnId, workGiverDef, newPriority))
+                    {
+                        WorkPriorityCommandGateway.Execute(new SetWorkGiverPriorityCommand(
+                            pawnId,
+                            workGiverDef,
+                            newPriority));
+                    }
                     UISoundCompat.DragSlider.PlayOneShotOnCamera();
                 }
 
@@ -696,6 +765,11 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         {
             if (BetterWorkTabMod.Settings?.enableSubWorkOverrideBreakAnimation ?? DefaultSettings.enableSubWorkOverrideBreakAnimation)
             {
+                if (ResetAnimations.Count >= MaximumResetAnimations)
+                {
+                    ResetAnimations.Clear();
+                }
+
                 ResetAnimations[BuildAnimationKey(pawnId, workGiverDef)] = new ResetAnimationState
                 {
                     StartedAt = Time.realtimeSinceStartup,
@@ -716,7 +790,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 return;
             }
 
-            string key = BuildAnimationKey(pawnId, workGiverDef);
+            AnimationKey key = BuildAnimationKey(pawnId, workGiverDef);
             if (!ResetAnimations.TryGetValue(key, out ResetAnimationState animation))
             {
                 return;
@@ -880,7 +954,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             Text.Anchor = TextAnchor.MiddleCenter;
             GUI.color = WorkPrioritySystem.GetPriorityColor(displayPriority);
             GUI.color = new Color(GUI.color.r, GUI.color.g, GUI.color.b, Mathf.Clamp01(alpha));
-            Widgets.Label(boxRect.ContractedBy(-3f), displayPriority.ToString());
+            Widgets.Label(boxRect.ContractedBy(-3f), GetPriorityLabel(displayPriority));
 
             GUI.color = oldColor;
             Text.Anchor = oldAnchor;
@@ -888,9 +962,49 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             Text.WordWrap = oldWordWrap;
         }
 
-        private static string BuildAnimationKey(int pawnId, WorkGiverDef workGiverDef)
+        private static AnimationKey BuildAnimationKey(int pawnId, WorkGiverDef workGiverDef)
         {
-            return pawnId + ":" + (workGiverDef?.defName ?? string.Empty);
+            return new AnimationKey(pawnId, workGiverDef);
+        }
+
+        private static string GetPriorityLabel(int priority)
+        {
+            if (priority < 0 || priority >= PriorityLabels.Length)
+            {
+                return priority.ToString();
+            }
+
+            return PriorityLabels[priority] ?? (PriorityLabels[priority] = priority.ToString());
+        }
+
+        private readonly struct AnimationKey : IEquatable<AnimationKey>
+        {
+            private readonly int _pawnId;
+            private readonly WorkGiverDef _workGiverDef;
+
+            internal AnimationKey(int pawnId, WorkGiverDef workGiverDef)
+            {
+                _pawnId = pawnId;
+                _workGiverDef = workGiverDef;
+            }
+
+            public bool Equals(AnimationKey other)
+            {
+                return _pawnId == other._pawnId && ReferenceEquals(_workGiverDef, other._workGiverDef);
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is AnimationKey other && Equals(other);
+            }
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    return (_pawnId * 397) ^ (_workGiverDef?.shortHash ?? 0);
+                }
+            }
         }
 
         private sealed class ResetAnimationState
@@ -899,21 +1013,6 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             public int FromPriority;
             public int ToPriority;
             public Rect? TargetBoxScreen;
-        }
-
-        private static bool IsIncapable(Pawn pawn, WorkGiver wg)
-        {
-            if (wg.def.requiredCapacities == null) return false;
-            
-            foreach (var cap in wg.def.requiredCapacities)
-            {
-                if (!pawn.health.capacities.CapableOf(cap))
-                {
-                    return true;
-                }
-            }
-            
-            return false;
         }
 
     }
@@ -938,14 +1037,9 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         {
             get
             {
-                if (WorkBoxBGTexAgeDisabledField == null)
-                {
-                    return WidgetsWork.WorkBoxBGTex_Bad;
-                }
-
                 try
                 {
-                    return WorkBoxBGTexAgeDisabledField.GetValue(null) as Texture2D ?? WidgetsWork.WorkBoxBGTex_Bad;
+                    return WorkBoxBGTexAgeDisabledField?.GetValue(null) as Texture2D ?? WidgetsWork.WorkBoxBGTex_Bad;
                 }
                 catch
                 {
@@ -954,9 +1048,9 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             }
         }
 
-        internal static bool IsWorkTypeDisabledByAge(Pawn pawn, WorkTypeDef workType, out int minAgeRequired)
+        internal static bool IsWorkTypeDisabledByAge(Pawn pawn, WorkTypeDef workType, out int minimumAge)
         {
-            minAgeRequired = 0;
+            minimumAge = 0;
             if (pawn == null || workType == null || IsWorkTypeDisabledByAgeMethod == null)
             {
                 return false;
@@ -964,10 +1058,10 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
             try
             {
-                object[] args = { workType, minAgeRequired };
-                bool result = (bool)IsWorkTypeDisabledByAgeMethod.Invoke(pawn, args);
-                minAgeRequired = args[1] is int value ? value : 0;
-                return result;
+                object[] arguments = { workType, minimumAge };
+                bool disabled = (bool)IsWorkTypeDisabledByAgeMethod.Invoke(pawn, arguments);
+                minimumAge = arguments[1] is int value ? value : 0;
+                return disabled;
             }
             catch
             {

@@ -7,7 +7,9 @@ using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using RimWorld;
 using UnityEngine;
+using Verse;
 using static Better_Work_Tab.UI.Settings.SettingIDs;
+using Spine.UI.Tutorial;
 
 namespace Better_Work_Tab.UI.Settings
 {
@@ -28,6 +30,29 @@ namespace Better_Work_Tab.UI.Settings
             return request != null;
         }
 
+        internal static BWTSettingsFocusRequest BuildPriorityRangeFocusRequest(PriorityMode mode)
+        {
+            string target = TutorialSettingsRouting.ResolvePriorityTarget(
+                mode == PriorityMode.BetterWorkTab
+                    ? TutorialPriorityRoutingMode.BetterWorkTab
+                    : mode == PriorityMode.Auto
+                        ? TutorialPriorityRoutingMode.Auto
+                        : mode == PriorityMode.ExternalProvider
+                            ? TutorialPriorityRoutingMode.ExternalProvider
+                            : TutorialPriorityRoutingMode.Vanilla);
+            return CreateContextRequest(
+                "BWT_Tutorial_PriorityRange_Filter".Translate(),
+                "BWT_Tutorial_PriorityRange_FilterTooltip".Translate(),
+                target,
+                true,
+                PriorityHeader,
+                PriorityModeSetting,
+                UiMaxPriority,
+                UiAutoMaxPriority,
+                UiAutoDisabledPriorityMode,
+                UiAutoDisabledPriorityFixedValue);
+        }
+
         private static BWTSettingsFocusRequest BuildContextSettingsRequest(
             Rect inRect,
             IWorkTabLayoutController layout,
@@ -35,15 +60,34 @@ namespace Better_Work_Tab.UI.Settings
             bool skillOnly,
             bool ctrlOnly)
         {
-            if (TimePriorityPlannerPrototype.TryGetCopyPasteSettingsContext(mousePosition))
+            if (TimePriorityScheduleEditor.TryGetCopyPasteSettingsContext(mousePosition))
             {
                 return CreateContextRequest(
                     "Schedule Copy/Paste Buttons",
                     "Setting that controls copy and paste buttons for Work tab time-priority schedules.",
                     UiTimePriorityCopyPasteButtons,
                     false,
-                    UiTimePriorityPlannerPrototype,
+                    UiTimePrioritySchedules,
                     UiTimePriorityCopyPasteButtons);
+            }
+
+            if (layout != null &&
+                SubWorkHeaderAffordance.TryGetOpenBadgeTarget(
+                    layout,
+                    mousePosition,
+                    out WorkTypeDef _,
+                    out Rect _))
+            {
+                return CreateContextRequest(
+                    "Sub-work Header Button",
+                    "Setting that controls the two-line sub-work button under work headers.",
+                    SubWorkHeaderBadge,
+                    true,
+                    FeaturesSubWorkJobs,
+                    SubWorkHeaderBadge,
+                    SubWorkOpenButton,
+                    SubWorkOpenModifier,
+                    SubWorkDrilldownStyle);
             }
 
             if (layout != null && TryGetPriorityCellContext(layout, mousePosition, out bool isSubWorkCell))
@@ -58,11 +102,12 @@ namespace Better_Work_Tab.UI.Settings
                         FeaturesSubWorkJobs,
                         SubWorkOpenModifier,
                         SubWorkOpenButton,
+                        SubWorkHeaderBadge,
                         SubWorkRestoreCursorFromPawnCells,
-                        SubWorkTransitionAnimation,
-                        SubWorkTransitionStyle,
+                        SubWorkTransitionMode,
+                        SubWorkTransitionSpeed,
                         SubWorkDisabledParentMode,
-                        UiTimePriorityPlannerPrototype,
+                        UiTimePrioritySchedules,
                         UiTimePriorityCopyPasteButtons,
                         UiChronosPointerTimePriority,
                         UiTimePrioritySourceColumnHighlight,
@@ -112,12 +157,14 @@ namespace Better_Work_Tab.UI.Settings
                     OverlayHoverCellOverlay,
                     OverlayHoverMode,
                     OverlayHoverScope,
-                    UiTimePriorityPlannerPrototype,
+                    UiTimePrioritySchedules,
                     UiTimePriorityCopyPasteButtons,
                     UiChronosPointerTimePriority,
                     UiTimePriorityHourDivider,
                     UiTimePrioritySourceColumnHighlight,
                     FeaturesSubWorkJobs,
+                    SubWorkHeaderBadge,
+                    SubWorkCompactPriorityBoxes,
                     SubWorkGlobalVanillaPriorityBoxes,
                     SubWorkDisabledParentMode,
                     SubWorkRestoreCursorFromPawnCells);
@@ -135,9 +182,10 @@ namespace Better_Work_Tab.UI.Settings
                         FeaturesSubWorkJobs,
                         SubWorkOpenModifier,
                         SubWorkOpenButton,
+                        SubWorkHeaderBadge,
                         SubWorkRestoreCursor,
-                        SubWorkTransitionAnimation,
-                        SubWorkTransitionStyle,
+                        SubWorkTransitionMode,
+                        SubWorkTransitionSpeed,
                         LayoutCtrlDrag,
                         FeaturesDragdrop,
                         LayoutDragColumns,
@@ -151,6 +199,7 @@ namespace Better_Work_Tab.UI.Settings
                     HeadersHeader,
                     true,
                     HeadersHeader,
+                    HeadersCustomWorkLabels,
                     HeadersAngled,
                     DragdropRemoveHeaderUnderline,
                     HeadersAngleRotation,
@@ -178,10 +227,16 @@ namespace Better_Work_Tab.UI.Settings
                     AutoassignViewMode,
                     AutoassignWarnOnApply,
                     FeaturesSubWorkJobs,
+                    SubWorkHeaderBadge,
+                    SubWorkCrossWorkDragDrop,
                     SubWorkOpenModifier,
                     SubWorkOpenButton,
-                    SubWorkTransitionAnimation,
-                    SubWorkTransitionStyle,
+                    SubWorkTransitionMode,
+                    SubWorkTransitionSpeed,
+                    CompatFluffyWorkTabHeader,
+                    FluffyStyleFeatures,
+                    FluffyStyleTopButtons,
+                    FluffyStyleStandaloneTopButtons,
                     SubWorkAutoExpandColumns,
                     SubWorkEvenlyExpandColumns,
                     isWorkHeader ? PriorityHeader : null);
@@ -195,12 +250,14 @@ namespace Better_Work_Tab.UI.Settings
                     FeaturesSubWorkJobs,
                     true,
                     FeaturesSubWorkJobs,
+                    SubWorkCrossWorkDragDrop,
+                    SubWorkCompactPriorityBoxes,
                     SubWorkGlobalVanillaPriorityBoxes,
-                    SubWorkTransitionAnimation,
-                    SubWorkTransitionStyle,
+                    SubWorkTransitionMode,
+                    SubWorkTransitionSpeed,
                     SubWorkAutoExpandColumns,
                     SubWorkEvenlyExpandColumns,
-                    UiTimePriorityPlannerPrototype,
+                    UiTimePrioritySchedules,
                     UiTimePriorityCopyPasteButtons,
                     UiTimePrioritySourceColumnHighlight,
                     UiChronosPointerTimePriority);
@@ -213,9 +270,9 @@ namespace Better_Work_Tab.UI.Settings
                     isChronosRegion
                         ? "Settings related to Chronos Pointer integration in the Work tab time-priority schedule."
                         : "Settings related to time priority rows and Chronos Pointer integration.",
-                    isChronosRegion ? UiChronosPointerTimePriority : UiTimePriorityPlannerPrototype,
+                    isChronosRegion ? UiChronosPointerTimePriority : UiTimePrioritySchedules,
                     true,
-                    UiTimePriorityPlannerPrototype,
+                    UiTimePrioritySchedules,
                     UiTimePriorityCopyPasteButtons,
                     UiChronosPointerTimePriority,
                     UiTimePriorityHourDivider,
@@ -374,8 +431,8 @@ namespace Better_Work_Tab.UI.Settings
                     FeaturesSubWorkJobs,
                     SubWorkRestoreCursor,
                     SubWorkRestoreCursorFromPawnCells,
-                    SubWorkTransitionAnimation,
-                    SubWorkTransitionStyle);
+                    SubWorkTransitionMode,
+                    SubWorkTransitionSpeed);
             }
 
             return CreateContextRequest(
@@ -390,8 +447,14 @@ namespace Better_Work_Tab.UI.Settings
                 FeaturesWorkloads,
                 FeaturesAutoassign,
                 FeaturesSubWorkJobs,
+                CompatFluffyWorkTabHeader,
+                FluffyStyleFeatures,
+                FluffyStyleTopButtons,
+                FluffyStyleStandaloneTopButtons,
+                HeadersCustomWorkLabels,
                 PriorityHeader,
                 UiContextSettingsHint,
+                LayoutWorkTabMinimumWidth,
                 LayoutWorkTabMaxHeight,
                 LayoutWorkTabTopSpace);
         }
@@ -486,7 +549,7 @@ namespace Better_Work_Tab.UI.Settings
                 return false;
             }
 
-            float y = layout.TableOrigin.y + layout.HeaderHeight + TimePriorityPlannerPrototype.HeaderPinnedRowsHeight;
+            float y = layout.TableOrigin.y + layout.HeaderHeight + TimePriorityScheduleEditor.HeaderPinnedRowsHeight;
             Rect rect = new Rect(
                 layout.TableOrigin.x,
                 y,
@@ -523,13 +586,13 @@ namespace Better_Work_Tab.UI.Settings
                 return false;
             }
 
-            if (TimePriorityPlannerPrototype.HeaderPinnedRowsHeight > 0.5f)
+            if (TimePriorityScheduleEditor.HeaderPinnedRowsHeight > 0.5f)
             {
                 rect = new Rect(
                     layout.TableOrigin.x,
                     layout.TableOrigin.y + layout.HeaderHeight,
                     Mathf.Max(layout.Table != null ? layout.Table.Size.x - 16f : 0f, 1f),
-                    TimePriorityPlannerPrototype.HeaderPinnedRowsHeight);
+                    TimePriorityScheduleEditor.HeaderPinnedRowsHeight);
                 return true;
             }
 
@@ -541,7 +604,7 @@ namespace Better_Work_Tab.UI.Settings
             for (int i = 0; i < layout.Rows.Count; i++)
             {
                 WorkTabLayoutRow row = layout.Rows[i];
-                if (row.Divider == null || !TimePriorityPlannerPrototype.IsTransientDivider(row.Divider))
+                if (row.Divider == null || !TimePriorityScheduleEditor.IsTransientDivider(row.Divider))
                 {
                     continue;
                 }
@@ -619,8 +682,9 @@ namespace Better_Work_Tab.UI.Settings
         private static bool TryGetSubWorkExitButtonContext(Rect inRect, Vector2 mousePosition)
         {
             const float buttonSize = 24f;
+            float topRightReservedWidth = HeaderButtons.GetTopRightReservedWidth();
             Rect exitRect = new Rect(
-                inRect.xMax - buttonSize - RightEdgeMargin,
+                inRect.xMax - buttonSize - RightEdgeMargin - topRightReservedWidth,
                 inRect.y + 8f,
                 buttonSize,
                 buttonSize);

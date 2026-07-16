@@ -4,9 +4,9 @@ using System.Reflection;
 using System.Reflection.Emit;
 using HarmonyLib;
 using UnityEngine;
-using ModAPI.Core;
+using Spine.Harmony.Infrastructure;
 
-namespace ModAPI.Harmony
+namespace Spine.Harmony
 {
     /// <summary>
     /// Specialized transpiler helpers for Sheltered-specific patterns.

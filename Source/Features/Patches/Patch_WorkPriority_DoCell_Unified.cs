@@ -1,14 +1,16 @@
-using Better_Work_Tab;
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
+using Better_Work_Tab.Features.Tutorial;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.Input;
 using Better_Work_Tab.UI.WorkGiverReassignments;
+using Better_Work_Tab.UI.WorkGrid.Commands;
 using HarmonyLib;
 using RimWorld;
 using Spine.Profiling;
@@ -42,7 +44,11 @@ namespace Better_Work_Tab.Patches
             if (!UI.Headers.PawnColumnWorker_WorkPriority_DoHeader_Patch.IsWorkTab())
                 return;
 
-            if (ShiftHelper.State != BetterWorkTabSettings.ShowUIMode.Shifted)
+            // A hovered Fluffy work-giver column is not a hovered work type.
+            if (FluffyWorkTabGateway.IsFluffyWorkGiverColumn(__instance.def))
+                return;
+
+            if (!Event.current.shift)
                 return;
 
             if (!(BetterWorkTabMod.Settings?.enableSkillOverlayFeature ?? false))
@@ -58,7 +64,7 @@ namespace Better_Work_Tab.Patches
             if (!isHovered)
             {
                 Rect labelRect = GetLabelRect(__instance, rect);
-                isHovered = Mouse.IsOver(labelRect);
+                isHovered = !BWTWorkTabTutorial.OwnsCurrentPointer && Mouse.IsOver(labelRect);
             }
 
             if (isHovered)
@@ -96,6 +102,8 @@ namespace Better_Work_Tab.Patches
         private static BetterWorkTabSettings.HoverEffectScope _cachedHoverScope = BetterWorkTabSettings.HoverEffectScope.CellOnly;
         private static WorkTypeDef _columnHoveredWorkType;
         private static int _columnHoveredFrame = -1;
+        private static readonly HashSet<long> SkillNumbersDrawnThisFrame = new HashSet<long>();
+        private static int _skillNumbersDrawnFrame = -1;
 
         // Cached per-frame and per-worktype values
         private static readonly Dictionary<int, int> _skillCache = new Dictionary<int, int>(1024);
@@ -137,6 +145,14 @@ namespace Better_Work_Tab.Patches
             _colorCache.Clear();
         }
 
+        internal static bool WasSkillNumberDrawnRecently(Pawn pawn, WorkTypeDef workType)
+        {
+            return pawn != null &&
+                   workType != null &&
+                   Time.frameCount == _skillNumbersDrawnFrame &&
+                   SkillNumbersDrawnThisFrame.Contains(GetSkillDrawKey(pawn, workType));
+        }
+
         [HarmonyPrefix]
         public static bool Prefix(
             PawnColumnWorker_WorkPriority __instance,
@@ -166,6 +182,27 @@ namespace Better_Work_Tab.Patches
             if (workType == null)
                 return true;
 
+            // Fluffy work-giver columns inherit this method but represent a single work giver, not the
+            // work type their def points at. Let Fluffy draw its own sub-work boxes.
+            if (FluffyWorkTabGateway.IsFluffyWorkGiverColumn(__instance.def))
+                return true;
+
+            if (SubWorkDrilldownState.TryGetCurrentDrawingWorkGiver(
+                    __instance.def,
+                    out var drawingWorkGiver,
+                    out var drawingParentWorkType,
+                    out _) &&
+                !SubWorkDrilldownState.IsActive)
+            {
+                if (pawn == null || pawn.Dead || pawn.workSettings == null || !pawn.workSettings.EverWork)
+                {
+                    return false;
+                }
+
+                DrawSubWorkPriorityCell(rect, pawn, drawingParentWorkType, drawingWorkGiver);
+                return false;
+            }
+
             if (SubWorkDrilldownState.IsActive)
             {
                 if (pawn == null || pawn.Dead || pawn.workSettings == null || !pawn.workSettings.EverWork)
@@ -180,48 +217,29 @@ namespace Better_Work_Tab.Patches
                 }
 
                 DrawParentPriorityCellVisual(rect, pawn, workType, SubWorkDrilldownState.ParentWorkContentAlpha);
-                DrawSubWorkPriorityCell(rect, pawn, workGiver);
+                DrawSubWorkPriorityCell(rect, pawn, SubWorkDrilldownState.ActiveWorkType, workGiver);
                 return false;
             }
 
             if (pawn == null || pawn.Dead || pawn.workSettings == null || !pawn.workSettings.EverWork)
                 return true;
 
-            UpdateFrameCache();
-            bool timePriorityOwnsMouse = TimePriorityPlannerPrototype.OwnsCurrentMousePosition;
-
-            // Handle Scroll Wheel Priority Adjustment
-            if ((BetterWorkTabMod.Settings?.enableScrollWheelPriority ?? false) &&
-                Event.current.type == EventType.ScrollWheel &&
-                !timePriorityOwnsMouse &&
-                Mouse.IsOver(rect))
+            if (FluffyTimeScheduleAssigner.TryDrawWorkTypeCell(rect, pawn, workType))
             {
-                int currentPriority = pawn.workSettings.GetPriority(workType);
-                int direction = Event.current.delta.y > 0 ? -1 : 1;
-                if (Find.PlaySettings.useWorkPriorities)
-                {
-                    int nextPriority = WorkPrioritySystem.GetPriorityAfterBoundedStep(currentPriority, direction);
-
-                    if (nextPriority != currentPriority)
-                    {
-                        WorkPrioritySystem.SetPriority(pawn.workSettings, workType, nextPriority);
-                        UISoundCompat.DragSlider.PlayOneShotOnCamera();
-                    }
-                }
-                else
-                {
-                    int nextPriority = currentPriority > 0
-                        ? WorkPrioritySystem.DisabledPriority
-                        : WorkPrioritySystem.GetDefaultEnabledPriority();
-                    if (nextPriority != currentPriority)
-                    {
-                        WorkPrioritySystem.SetPriority(pawn.workSettings, workType, nextPriority);
-                        UISoundCompat.DragSlider.PlayOneShotOnCamera();
-
-                    }
-                }
-                Event.current.Use();
+                return false;
             }
+
+            // Vanilla disabled/incapable cells are display-only. Apply the same guard before
+            // BWT's wheel handler so it cannot reach Pawn_WorkSettings.SetPriority first.
+            if (GetIsIncapable(pawn, workType) || pawn.WorkTypeIsDisabled(workType))
+            {
+                return true;
+            }
+
+            UpdateFrameCache();
+            bool timePriorityOwnsMouse = TimePriorityScheduleEditor.OwnsCurrentMousePosition;
+
+            TryHandleWorkPriorityScroll(rect, pawn, workType);
 
             if (TryHandleParentSubWorkOverrideInput(rect, pawn, workType))
             {
@@ -235,17 +253,13 @@ namespace Better_Work_Tab.Patches
             if (Patch_WorkPriority_DoHeader_HoverTracker.HoveredHeaderWorkType == workType)
                 return true;
 
-            if (GetIsIncapable(pawn, workType))
-                return true;
-
-            if (pawn.WorkTypeIsDisabled(workType))
-                return true;
-
             if (workType.relevantSkills == null || workType.relevantSkills.Count == 0)
                 return true;
 
             // Track column hover state only if hover cell overlay is enabled
-            bool hoveringCell = !timePriorityOwnsMouse && Mouse.IsOver(rect);
+            bool hoveringCell = !timePriorityOwnsMouse &&
+                                !BWTWorkTabTutorial.OwnsCurrentPointer &&
+                                Mouse.IsOver(rect);
             if (_cachedHoverCellOverlayEnabled && hoveringCell && _cachedHoverScope == BetterWorkTabSettings.HoverEffectScope.ColumnWide)
             {
                 _columnHoveredWorkType = workType;
@@ -319,6 +333,12 @@ namespace Better_Work_Tab.Patches
             if (pawn == null || pawn.Dead || workType == null)
                 return;
 
+            if (FluffyTimeScheduleAssigner.IsOpen)
+                return;
+
+            if (FluffyWorkTabGateway.IsFluffyWorkGiverColumn(__instance.def))
+                return;
+
             if (pawn.WorkTypeIsDisabled(workType))
                 return;
 
@@ -349,7 +369,9 @@ namespace Better_Work_Tab.Patches
 
             int priority = pawn.workSettings.GetPriority(workType);
             int skillLevel = GetSkillLevel(pawn, workType);
-            bool hoveringCell = !TimePriorityPlannerPrototype.OwnsCurrentMousePosition && Mouse.IsOver(rect);
+            bool hoveringCell = !TimePriorityScheduleEditor.OwnsCurrentMousePosition &&
+                                !BWTWorkTabTutorial.OwnsCurrentPointer &&
+                                Mouse.IsOver(rect);
             
             // Only check column hover if hover overlay is enabled
             bool columnHovered = _cachedHoverCellOverlayEnabled &&
@@ -391,11 +413,13 @@ namespace Better_Work_Tab.Patches
             {
                 CustomWorkBoxDrawer.DrawWorkBoxForSkillOverlay(boxXSkill, boxYSkill, pawn, workType, false);
                 DrawBigSkillNumber(boxRect, skillLevel);
+                RecordSkillNumberDrawn(pawn, workType);
             }
 
             if (drawSmallSkill)
             {
                 DrawSmallSkillNumbers(rect, skillLevel);
+                RecordSkillNumberDrawn(pawn, workType);
             }
 
             if (drawSmallPriority && priority > 0)
@@ -406,20 +430,41 @@ namespace Better_Work_Tab.Patches
             DrawParentSubWorkOverrideIndicatorIfNeeded(rect, pawn, workType);
         }
 
+        private static void RecordSkillNumberDrawn(Pawn pawn, WorkTypeDef workType)
+        {
+            if (_skillNumbersDrawnFrame != Time.frameCount)
+            {
+                SkillNumbersDrawnThisFrame.Clear();
+                _skillNumbersDrawnFrame = Time.frameCount;
+            }
+
+            if (pawn != null && workType != null)
+            {
+                SkillNumbersDrawnThisFrame.Add(GetSkillDrawKey(pawn, workType));
+            }
+        }
+
+        private static long GetSkillDrawKey(Pawn pawn, WorkTypeDef workType)
+        {
+            return ((long)pawn.thingIDNumber << 32) | workType.shortHash;
+        }
+
         // Caching helpers
 
-        private static void DrawSubWorkPriorityCell(Rect rect, Pawn pawn, WorkGiver workGiver)
+        private static void DrawSubWorkPriorityCell(Rect rect, Pawn pawn, WorkTypeDef parentWorkType, WorkGiver workGiver)
         {
-            const float boxSize = 25f;
-            float x = rect.x + (rect.width - boxSize) / 2f;
-            float y = rect.y + SkillBoxVerticalPadding;
-            Rect boxRect = new Rect(x, y, boxSize, boxSize);
+            // BWT Focus View deliberately retains BWT/vanilla-sized Work boxes.
+            // Compact 20 px boxes belong only to the Fluffy-style expand-beside path.
+            Rect boxRect = WorkPriorityCellGeometry.GetPriorityBoxRect(rect);
             float visualAlpha = 1f;
             float visualScale = 1f;
-            SubWorkDrilldownState.TryGetSubWorkContentTransitionVisuals(workGiver, out visualAlpha, out visualScale);
+            if (SubWorkDrilldownState.IsActive)
+            {
+                SubWorkDrilldownState.TryGetSubWorkContentTransitionVisuals(workGiver, out visualAlpha, out visualScale);
+            }
             Better_Work_Tab.UI.WorkGiverReassignments.WorkGiverPriorityBoxRenderer.DrawPriorityBox(
                 workGiver,
-                SubWorkDrilldownState.ActiveWorkType,
+                parentWorkType,
                 pawn,
                 boxRect,
                 visualAlpha,
@@ -709,7 +754,7 @@ namespace Better_Work_Tab.Patches
             Verse.Widgets.DrawBox(outlineRect, (uint)BetterWorkTabMod.Settings.bestPawnHighlightThickness > 0 ? (int)BetterWorkTabMod.Settings.bestPawnHighlightThickness : 1);
             GUI.color = oldCol;
 #else
-            Better_Work_Tab.WidgetsCompat.DrawBoxSolidWithOutline(
+            Widgets.DrawBoxSolidWithOutline(
                 outlineRect,
                 Color.clear,
                 BetterWorkTabMod.Settings.Color_BestPawnForSkillSquare,
@@ -804,7 +849,7 @@ namespace Better_Work_Tab.Patches
         {
             Event evt = Event.current;
             if (evt == null ||
-                TimePriorityPlannerPrototype.OwnsCurrentMousePosition ||
+                TimePriorityScheduleEditor.OwnsCurrentMousePosition ||
                 evt.type != EventType.MouseDown ||
                 evt.button != 0 ||
                 BetterWorkTabLocalState.IsHeaderDragging ||
@@ -826,11 +871,56 @@ namespace Better_Work_Tab.Patches
             return true;
         }
 
-        private static bool TryHandleWorkPriorityInput(Rect cellRect, Pawn pawn, WorkTypeDef workType)
+        internal static bool TryHandleRootPriorityInput(Rect rootCellRect, Pawn pawn, WorkTypeDef workType)
+        {
+            return TryHandleParentSubWorkOverrideInput(rootCellRect, pawn, workType) ||
+                TryHandleWorkPriorityScroll(rootCellRect, pawn, workType, trustHit: true) ||
+                TryHandleWorkPriorityInput(rootCellRect, pawn, workType, trustHit: true);
+        }
+
+        private static bool TryHandleWorkPriorityScroll(
+            Rect cellRect,
+            Pawn pawn,
+            WorkTypeDef workType,
+            bool trustHit = false)
         {
             Event evt = Event.current;
             if (evt == null ||
-                TimePriorityPlannerPrototype.OwnsCurrentMousePosition ||
+                !(BetterWorkTabMod.Settings?.enableScrollWheelPriority ?? false) ||
+                evt.type != EventType.ScrollWheel ||
+                TimePriorityScheduleEditor.OwnsCurrentMousePosition ||
+                (!trustHit &&
+                 (BWTWorkTabTutorial.OwnsCurrentPointer || !Mouse.IsOver(cellRect))))
+            {
+                return false;
+            }
+
+            int currentPriority = WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType);
+            int direction = evt.delta.y > 0 ? -1 : 1;
+            int nextPriority = Find.PlaySettings.useWorkPriorities
+                ? WorkPrioritySystem.GetPriorityAfterBoundedStep(currentPriority, direction)
+                : currentPriority > WorkPrioritySystem.DisabledPriority
+                    ? WorkPrioritySystem.DisabledPriority
+                    : WorkPrioritySystem.GetDefaultEnabledPriority();
+            if (nextPriority != currentPriority)
+            {
+                WorkPriorityCommandGateway.Execute(new SetPriorityCommand(pawn, workType, nextPriority));
+                UISoundCompat.DragSlider.PlayOneShotOnCamera();
+            }
+
+            evt.Use();
+            return true;
+        }
+
+        private static bool TryHandleWorkPriorityInput(
+            Rect cellRect,
+            Pawn pawn,
+            WorkTypeDef workType,
+            bool trustHit = false)
+        {
+            Event evt = Event.current;
+            if (evt == null ||
+                TimePriorityScheduleEditor.OwnsCurrentMousePosition ||
                 evt.type != EventType.MouseDown)
             {
                 return false;
@@ -841,7 +931,8 @@ namespace Better_Work_Tab.Patches
                 return false;
             }
 
-            if (!Mouse.IsOver(GetWorkBoxRect(cellRect)))
+            if (!trustHit &&
+                (BWTWorkTabTutorial.OwnsCurrentPointer || !Mouse.IsOver(GetWorkBoxRect(cellRect))))
             {
                 return false;
             }
@@ -854,19 +945,21 @@ namespace Better_Work_Tab.Patches
                 }
 
                 bool wasActive = pawn.workSettings.WorkIsActive(workType);
-                int currentPriority = pawn.workSettings.GetPriority(workType);
+                int currentPriority = WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType);
                 int nextPriority = WorkPrioritySystem.GetPriorityAfterMouseButton(currentPriority, evt.button);
 
                 if (nextPriority != currentPriority)
                 {
-                    WorkPrioritySystem.SetPriority(pawn.workSettings, workType, nextPriority);
+                    WorkPriorityCommandGateway.Execute(new SetPriorityCommand(pawn, workType, nextPriority));
                     UISoundCompat.DragSlider.PlayOneShotOnCamera();
                 }
 
                 NotifyWorkActivatedIfNeeded(pawn, workType, wasActive);
                 evt.Use();
-                PlayerKnowledgeCompat.DemonstrateWorkTab();
-                PlayerKnowledgeCompat.DemonstrateManualWorkPriorities();
+#if !v0_14
+                PlayerKnowledgeDatabase.KnowledgeDemonstrated(ConceptDefOf.WorkTab, KnowledgeAmount.SpecificInteraction);
+                PlayerKnowledgeDatabase.KnowledgeDemonstrated(ConceptDefOf.ManualWorkPriorities, KnowledgeAmount.SmallInteraction);
+#endif
                 return true;
             }
 
@@ -878,18 +971,26 @@ namespace Better_Work_Tab.Patches
             bool wasEnabled = pawn.workSettings.WorkIsActive(workType);
             if (pawn.workSettings.GetPriority(workType) > 0)
             {
-                WorkPrioritySystem.SetPriority(pawn.workSettings, workType, WorkPrioritySystem.DisabledPriority);
+                WorkPriorityCommandGateway.Execute(new SetPriorityCommand(
+                    pawn,
+                    workType,
+                    WorkPrioritySystem.DisabledPriority));
                 UISoundCompat.CheckboxTurnedOff.PlayOneShotOnCamera();
             }
             else
             {
-                WorkPrioritySystem.SetPriority(pawn.workSettings, workType, WorkPrioritySystem.GetDefaultEnabledPriority());
+                WorkPriorityCommandGateway.Execute(new SetPriorityCommand(
+                    pawn,
+                    workType,
+                    WorkPrioritySystem.GetDefaultEnabledPriority()));
                 UISoundCompat.CheckboxTurnedOn.PlayOneShotOnCamera();
             }
 
             NotifyWorkActivatedIfNeeded(pawn, workType, wasEnabled);
             evt.Use();
-            PlayerKnowledgeCompat.DemonstrateWorkTab();
+#if !v0_14
+            PlayerKnowledgeDatabase.KnowledgeDemonstrated(ConceptDefOf.WorkTab, KnowledgeAmount.SpecificInteraction);
+#endif
             return true;
         }
 
@@ -910,7 +1011,7 @@ namespace Better_Work_Tab.Patches
 #if !v1_2 && !v1_1 && !(v1_0 || v0_19)
             if (pawn.Ideo != null && pawn.Ideo.IsWorkTypeConsideredDangerous(workType))
             {
-                Messages.Message(
+                MessageCompat.Message(
                     "MessageIdeoOpposedWorkTypeSelected".Translate(pawn, workType.gerundLabel),
                     pawn,
                     MessageTypeDefOf.CautionInput,

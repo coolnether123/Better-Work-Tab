@@ -38,7 +38,7 @@ namespace Spine.UI.Tutorial
                 return false;
             }
 
-            TutorialOverlayLayout visualLayout = GetAnimatedLayout(bounds, focusRects, content.Body);
+            TutorialOverlayLayout visualLayout = GetAnimatedLayout(bounds, focusRects, content);
             Rect cardRect = visualLayout.CardRect;
 
             if (evt.type == EventType.KeyDown &&
@@ -91,7 +91,22 @@ namespace Spine.UI.Tutorial
                 return true;
             }
 
-            return evt.type == EventType.MouseDrag || evt.type == EventType.ScrollWheel;
+            if (IsPointerEvent(evt.type))
+            {
+                evt.Use();
+                return true;
+            }
+
+            return false;
+        }
+
+        public bool ContainsPointer(
+            Rect bounds,
+            TutorialOverlayContent content,
+            List<Rect> focusRects,
+            Vector2 pointer)
+        {
+            return GetAnimatedLayout(bounds, focusRects, content).CardRect.Contains(pointer);
         }
 
         public bool TryHandleAcceptKey(TutorialOverlayContent content, Action onPrimary)
@@ -111,7 +126,7 @@ namespace Spine.UI.Tutorial
             Action onTertiary,
             Action onDismiss)
         {
-            TutorialOverlayLayout visualLayout = GetAnimatedLayout(bounds, focusRects, content.Body);
+            TutorialOverlayLayout visualLayout = GetAnimatedLayout(bounds, focusRects, content);
 
             DrawSpotlight(bounds, visualLayout.FocusBounds, visualLayout.FocusRects);
             DrawShortcutHints(bounds, visualLayout.FocusRects, shortcutHints);
@@ -144,9 +159,9 @@ namespace Spine.UI.Tutorial
         private TutorialOverlayLayout GetAnimatedLayout(
             Rect bounds,
             List<Rect> focusRects,
-            string body)
+            TutorialOverlayContent content)
         {
-            TutorialOverlayLayout target = BuildTargetLayout(bounds, focusRects, body);
+            TutorialOverlayLayout target = BuildTargetLayout(bounds, focusRects, content);
             if (!hasAnimatedLayout)
             {
                 animationStartLayout = target;
@@ -172,11 +187,14 @@ namespace Spine.UI.Tutorial
             return animatedLayout;
         }
 
-        private TutorialOverlayLayout BuildTargetLayout(Rect bounds, List<Rect> focusRects, string body)
+        private TutorialOverlayLayout BuildTargetLayout(
+            Rect bounds,
+            List<Rect> focusRects,
+            TutorialOverlayContent content)
         {
             var safeFocusRects = focusRects ?? new List<Rect>();
             Rect focusBounds = UnionFocusRects(safeFocusRects, bounds);
-            Rect cardRect = GetCardRect(bounds, focusBounds, safeFocusRects, body);
+            Rect cardRect = GetCardRect(bounds, focusBounds, safeFocusRects, content);
             return new TutorialOverlayLayout(cardRect, focusBounds, safeFocusRects);
         }
 
@@ -249,13 +267,28 @@ namespace Spine.UI.Tutorial
             return value * value * (3f - 2f * value);
         }
 
-        private Rect GetCardRect(Rect boundsSource, Rect focusBounds, List<Rect> focusRects, string body)
+        private Rect GetCardRect(
+            Rect boundsSource,
+            Rect focusBounds,
+            List<Rect> focusRects,
+            TutorialOverlayContent content)
         {
-            Vector2 size = GetCardSize(boundsSource, body);
+            Vector2 size = GetCardSize(boundsSource, content);
             Rect bounds = boundsSource.ContractedBy(style.WindowMargin);
             if (bounds.width <= 0f || bounds.height <= 0f)
             {
                 return new Rect(boundsSource.x, boundsSource.y, size.x, size.y);
+            }
+
+            if (focusRects == null || focusRects.Count == 0)
+            {
+                return ClampCardToBounds(
+                    new Rect(
+                        bounds.xMin + 24f,
+                        bounds.yMin + Mathf.Min(42f, Mathf.Max(12f, bounds.height * 0.16f)),
+                        size.x,
+                        size.y),
+                    bounds);
             }
 
             var candidates = new List<Rect>
@@ -286,16 +319,31 @@ namespace Spine.UI.Tutorial
             return best;
         }
 
-        private Vector2 GetCardSize(Rect bounds, string body)
+        private Vector2 GetCardSize(Rect bounds, TutorialOverlayContent content)
         {
-            float width = Mathf.Min(style.CardWidth, Mathf.Max(320f, bounds.width - 32f));
+            float availableWidth = Mathf.Max(220f, bounds.width - style.WindowMargin * 2f);
+            float width = Mathf.Min(style.CardWidth, availableWidth);
+            float innerWidth = Mathf.Max(1f, width - style.CardPadding * 2f);
             GameFont oldFont = Text.Font;
             Text.Font = GameFont.Small;
-            float bodyHeight = Text.CalcHeight(body ?? string.Empty, width - style.CardPadding * 2f);
+            float bodyHeight = Text.CalcHeight(content.Body, innerWidth);
             Text.Font = oldFont;
 
-            float height = Mathf.Clamp(160f + bodyHeight, 220f, 360f);
+            TutorialOverlayButtonLayout buttons = CreateButtonLayout(innerWidth, content);
+            float desiredHeight = style.CardPadding * 2f + 40f + Mathf.Max(64f, bodyHeight) + 12f + buttons.Height;
+            float maximumHeight = Mathf.Max(180f, Mathf.Min(420f, bounds.height - style.WindowMargin * 2f));
+            float minimumHeight = Mathf.Min(210f, maximumHeight);
+            float height = Mathf.Clamp(desiredHeight, minimumHeight, maximumHeight);
             return new Vector2(width, height);
+        }
+
+        private static bool IsPointerEvent(EventType type)
+        {
+            return type == EventType.MouseDown ||
+                   type == EventType.MouseUp ||
+                   type == EventType.MouseMove ||
+                   type == EventType.MouseDrag ||
+                   type == EventType.ScrollWheel;
         }
 
         private static Rect ClampCardToBounds(Rect rect, Rect bounds)
@@ -330,6 +378,12 @@ namespace Spine.UI.Tutorial
 
         private void DrawSpotlight(Rect bounds, Rect focusBounds, List<Rect> focusRects)
         {
+            if (focusRects == null || focusRects.Count == 0)
+            {
+                DrawDimRect(bounds);
+                return;
+            }
+
             Rect focus = ClampRectToBounds(focusBounds.ExpandedBy(8f), bounds);
             DrawDimRect(new Rect(bounds.xMin, bounds.yMin, bounds.width, Mathf.Max(0f, focus.yMin - bounds.yMin)));
             DrawDimRect(new Rect(bounds.xMin, focus.yMax, bounds.width, Mathf.Max(0f, bounds.yMax - focus.yMax)));
@@ -475,23 +529,26 @@ namespace Spine.UI.Tutorial
             Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, style.CardColor);
             GUI.color = style.BorderColor;
             Widgets.DrawBox(rect, 1);
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(new Rect(rect.x + 1f, rect.y + 1f, rect.width - 2f, 3f), style.AccentColor);
 
             Rect inner = rect.ContractedBy(style.CardPadding);
             Text.Font = GameFont.Medium;
             Text.Anchor = TextAnchor.UpperLeft;
             GUI.color = style.TitleColor;
-            Widgets.Label(new Rect(inner.x, inner.y, inner.width, 30f), content.Title);
+            Widgets.Label(new Rect(inner.x, inner.y + 2f, inner.width, 30f), content.Title);
 
             Text.Font = GameFont.Small;
-            GUI.color = Color.white;
-            float bodyY = inner.y + 34f;
-            float bodyHeight = Mathf.Max(64f, inner.height - (content.HasSecondaryButton ? 128f : 92f));
+            GUI.color = new Color(0.9f, 0.91f, 0.9f, 1f);
+            float bodyY = inner.y + 40f;
+            TutorialOverlayButtonLayout buttons = CreateButtonLayout(inner.width, content);
+            float buttonTop = inner.yMax - buttons.Height;
+            float bodyHeight = Mathf.Max(0f, buttonTop - bodyY - 12f);
             Widgets.Label(new Rect(inner.x, bodyY, inner.width, bodyHeight), content.Body);
 
             GUI.color = Color.white;
             if (content.HasSecondaryButton)
             {
-                Rect settingsRect = GetSecondaryButtonRect(rect, content);
+                Rect settingsRect = OffsetButtonRect(buttons.Secondary, inner, buttonTop);
                 if (Better_Work_Tab.WidgetsCompat.ButtonText(settingsRect, content.SecondaryButton))
                 {
                     onSecondary?.Invoke();
@@ -500,14 +557,14 @@ namespace Spine.UI.Tutorial
 
             if (content.HasTertiaryButton)
             {
-                Rect tertiaryRect = GetTertiaryButtonRect(rect);
+                Rect tertiaryRect = OffsetButtonRect(buttons.Tertiary, inner, buttonTop);
                 if (Better_Work_Tab.WidgetsCompat.ButtonText(tertiaryRect, content.TertiaryButton))
                 {
                     onTertiary?.Invoke();
                 }
             }
 
-            Rect dismissRect = GetDismissButtonRect(rect);
+            Rect dismissRect = OffsetButtonRect(buttons.Dismiss, inner, buttonTop);
             if (Better_Work_Tab.WidgetsCompat.ButtonText(dismissRect, content.DismissButton))
             {
                 onDismiss?.Invoke();
@@ -515,7 +572,7 @@ namespace Spine.UI.Tutorial
 
             if (content.HasPrimaryButton)
             {
-                Rect nextRect = GetPrimaryButtonRect(rect);
+                Rect nextRect = OffsetButtonRect(buttons.Primary, inner, buttonTop);
                 if (Better_Work_Tab.WidgetsCompat.ButtonText(nextRect, content.PrimaryButton))
                 {
                     onPrimary?.Invoke();
@@ -527,39 +584,90 @@ namespace Spine.UI.Tutorial
             Text.Font = oldFont;
         }
 
-        private Rect GetDismissButtonRect(Rect cardRect)
+        private TutorialOverlayButtonLayout CreateButtonLayout(
+            float width,
+            TutorialOverlayContent content)
         {
-            Rect inner = cardRect.ContractedBy(style.CardPadding);
-            float reservedPrimaryWidth = 160f;
-            float width = Mathf.Min(198f, Mathf.Max(130f, inner.width - reservedPrimaryWidth));
-            return new Rect(inner.x, inner.yMax - 34f, width, 32f);
-        }
+            const float buttonHeight = 36f;
+            const float gap = 8f;
+            float y = 0f;
+            Rect secondary = default(Rect);
+            Rect tertiary = default(Rect);
 
-        private Rect GetPrimaryButtonRect(Rect cardRect)
-        {
-            Rect inner = cardRect.ContractedBy(style.CardPadding);
-            return new Rect(inner.xMax - 150f, inner.yMax - 34f, 150f, 32f);
-        }
-
-        private Rect GetSecondaryButtonRect(Rect cardRect, TutorialOverlayContent content)
-        {
-            Rect inner = cardRect.ContractedBy(style.CardPadding);
-            if (!content.HasTertiaryButton)
+            if (content.HasSecondaryButton && content.HasTertiaryButton)
             {
-                return new Rect(inner.x, inner.yMax - 70f, inner.width, 28f);
+                float secondaryWidth = MeasureButtonWidth(content.SecondaryButton, 120f);
+                float tertiaryWidth = MeasureButtonWidth(content.TertiaryButton, 120f);
+                if (secondaryWidth + gap + tertiaryWidth <= width)
+                {
+                    secondary = new Rect(0f, y, secondaryWidth, buttonHeight);
+                    tertiary = new Rect(width - tertiaryWidth, y, tertiaryWidth, buttonHeight);
+                    y += buttonHeight;
+                }
+                else
+                {
+                    secondary = new Rect(0f, y, width, buttonHeight);
+                    y += buttonHeight + gap;
+                    tertiary = new Rect(0f, y, width, buttonHeight);
+                    y += buttonHeight;
+                }
+            }
+            else if (content.HasSecondaryButton)
+            {
+                secondary = new Rect(0f, y, width, buttonHeight);
+                y += buttonHeight;
             }
 
-            float gap = 8f;
-            float width = (inner.width - gap) / 2f;
-            return new Rect(inner.x, inner.yMax - 70f, width, 28f);
+            if (content.HasSecondaryButton)
+            {
+                y += gap;
+            }
+
+            float dismissWidth = MeasureButtonWidth(content.DismissButton, 130f);
+            Rect dismiss;
+            Rect primary = default(Rect);
+            if (content.HasPrimaryButton)
+            {
+                float primaryWidth = MeasureButtonWidth(content.PrimaryButton, 100f);
+                if (dismissWidth + gap + primaryWidth <= width)
+                {
+                    dismiss = new Rect(0f, y, dismissWidth, buttonHeight);
+                    primary = new Rect(width - primaryWidth, y, primaryWidth, buttonHeight);
+                    y += buttonHeight;
+                }
+                else
+                {
+                    dismiss = new Rect(0f, y, width, buttonHeight);
+                    y += buttonHeight + gap;
+                    primary = new Rect(0f, y, width, buttonHeight);
+                    y += buttonHeight;
+                }
+            }
+            else
+            {
+                dismiss = new Rect(0f, y, width, buttonHeight);
+                y += buttonHeight;
+            }
+
+            return new TutorialOverlayButtonLayout(dismiss, primary, secondary, tertiary, y);
         }
 
-        private Rect GetTertiaryButtonRect(Rect cardRect)
+        private static float MeasureButtonWidth(string label, float minimumWidth)
         {
-            Rect inner = cardRect.ContractedBy(style.CardPadding);
-            float gap = 8f;
-            float width = (inner.width - gap) / 2f;
-            return new Rect(inner.x + width + gap, inner.yMax - 70f, width, 28f);
+            GameFont oldFont = Text.Font;
+            Text.Font = GameFont.Small;
+            float measuredWidth = Text.CalcSize(label ?? string.Empty).x;
+            Text.Font = oldFont;
+            return Mathf.Max(minimumWidth, measuredWidth + 28f);
+        }
+
+        private static Rect OffsetButtonRect(Rect relativeRect, Rect inner, float buttonTop)
+        {
+            return new Rect(
+                inner.x + relativeRect.x,
+                buttonTop + relativeRect.y,
+                relativeRect.width,
+                relativeRect.height);
         }
 
         private bool TryGetButtonAt(
@@ -568,28 +676,32 @@ namespace Spine.UI.Tutorial
             Vector2 mousePosition,
             out TutorialOverlayButton button)
         {
-            if (GetDismissButtonRect(cardRect).Contains(mousePosition))
+            Rect inner = cardRect.ContractedBy(style.CardPadding);
+            TutorialOverlayButtonLayout buttons = CreateButtonLayout(inner.width, content);
+            float buttonTop = inner.yMax - buttons.Height;
+
+            if (OffsetButtonRect(buttons.Dismiss, inner, buttonTop).Contains(mousePosition))
             {
                 button = TutorialOverlayButton.Dismiss;
                 return true;
             }
 
             if (content.HasPrimaryButton &&
-                GetPrimaryButtonRect(cardRect).Contains(mousePosition))
+                OffsetButtonRect(buttons.Primary, inner, buttonTop).Contains(mousePosition))
             {
                 button = TutorialOverlayButton.Primary;
                 return true;
             }
 
             if (content.HasSecondaryButton &&
-                GetSecondaryButtonRect(cardRect, content).Contains(mousePosition))
+                OffsetButtonRect(buttons.Secondary, inner, buttonTop).Contains(mousePosition))
             {
                 button = TutorialOverlayButton.Secondary;
                 return true;
             }
 
             if (content.HasTertiaryButton &&
-                GetTertiaryButtonRect(cardRect).Contains(mousePosition))
+                OffsetButtonRect(buttons.Tertiary, inner, buttonTop).Contains(mousePosition))
             {
                 button = TutorialOverlayButton.Tertiary;
                 return true;
@@ -631,6 +743,29 @@ namespace Spine.UI.Tutorial
             Secondary,
             Tertiary,
             Primary
+        }
+
+        private readonly struct TutorialOverlayButtonLayout
+        {
+            public TutorialOverlayButtonLayout(
+                Rect dismiss,
+                Rect primary,
+                Rect secondary,
+                Rect tertiary,
+                float height)
+            {
+                Dismiss = dismiss;
+                Primary = primary;
+                Secondary = secondary;
+                Tertiary = tertiary;
+                Height = height;
+            }
+
+            public Rect Dismiss { get; }
+            public Rect Primary { get; }
+            public Rect Secondary { get; }
+            public Rect Tertiary { get; }
+            public float Height { get; }
         }
     }
 }

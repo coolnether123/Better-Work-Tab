@@ -1,8 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Reflection;
 using System.Text;
+using Spine.RimWorld.Serialization;
+using Spine.UI.ColourPicker;
 using Spine.UI.SettingsFramework;
 using UnityEngine;
 using Verse;
@@ -10,53 +13,34 @@ using Verse;
 namespace Better_Work_Tab.UI.Settings
 {
     /// <summary>
-    /// Serializes registry-backed Better Work Tab settings to a small JSON payload.
-    /// Runtime data such as rulesets, workloads, dividers, and layouts stay in their
-    /// existing save/config systems.
+    /// Serializes all Better Work Tab preferences and config-backed state using
+    /// RimWorld's serializer inside a small JSON envelope.
     /// </summary>
     public static class BWTSettingsJsonService
     {
         private const string FormatName = "BetterWorkTabSettings";
+        private const int FormatVersion = 2;
+        private const string CompleteDataProperty = "data";
+        private const int SettingsExportBlockedWarningKey = 154927303;
+        private const int SettingsImportBlockedWarningKey = 154927304;
 
         public static string Export(BetterWorkTabSettings settings)
         {
-            BWTSettingsRegistry.EnsureInitialized();
+            if (settings == null)
+            {
+                throw new ArgumentNullException(nameof(settings));
+            }
 
-            var emittedFields = new HashSet<string>();
             var builder = new StringBuilder();
             builder.AppendLine("{");
-            AppendProperty(builder, "format", FormatName, trailingComma: true, indent: 2);
-            AppendProperty(builder, "formatVersion", 1, trailingComma: true, indent: 2);
-            AppendProperty(builder, "exportedAtUtc", DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture), trailingComma: true, indent: 2);
-            builder.AppendLine("  \"settings\": {");
-
-            bool wroteAny = false;
-            foreach (var def in BWTSettingsRegistry.Definitions)
-            {
-                if (!TryGetSupportedField(settings, def, out FieldInfo field) ||
-                    !emittedFields.Add(def.FieldName))
-                {
-                    continue;
-                }
-
-                if (wroteAny)
-                {
-                    builder.AppendLine(",");
-                }
-
-                builder.Append("    ");
-                AppendJsonString(builder, def.Id);
-                builder.Append(": ");
-                AppendValue(builder, field.GetValue(settings), field.FieldType);
-                wroteAny = true;
-            }
-
-            if (wroteAny)
-            {
-                builder.AppendLine();
-            }
-
-            builder.AppendLine("  }");
+            AppendProperty(builder, "format", FormatName, trailingComma: true);
+            AppendProperty(builder, "formatVersion", FormatVersion, trailingComma: true);
+            AppendProperty(
+                builder,
+                "exportedAtUtc",
+                DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture),
+                trailingComma: true);
+            AppendProperty(builder, CompleteDataProperty, ExportCompleteData(settings), trailingComma: false);
             builder.AppendLine("}");
             return builder.ToString();
         }
@@ -79,86 +63,153 @@ namespace Better_Work_Tab.UI.Settings
                 return false;
             }
 
-            if (!MiniJson.TryReadSettingsObject(json, out var values, out string error))
+            if (!TryReadStringProperty(json, CompleteDataProperty, out string encodedData))
             {
-                report = error;
+                // Version 1 exports contained registry-backed scalar preferences under a
+                // "settings" object. Keep them importable after version 2 expanded the payload
+                // to all config-backed state.
+                return LegacySettingsJsonImporter.TryImport(settings, json, out report);
+            }
+
+            return TryImportCompleteData(settings, encodedData, out report);
+        }
+
+        private static string ExportCompleteData(BetterWorkTabSettings settings)
+        {
+            if (!ScribeIsolationGuard.CanStart(
+                "BWT",
+                "settings export",
+                SettingsExportBlockedWarningKey))
+            {
+                throw new InvalidOperationException(
+                    "Settings cannot be exported while RimWorld or Multiplayer is serializing.");
+            }
+
+            string path = TemporaryExportPath("Export");
+            bool ownsSaver = false;
+            try
+            {
+                var data = new CompleteSettingsData
+                {
+                    Settings = settings,
+                    RecentColors = RecentColours.CopyRecentColors(),
+                    PinnedColors = RecentColours.CopyPinnedColors()
+                };
+
+                ScribeFileCompat.InitSaving(path, "BetterWorkTabExport");
+                ownsSaver = true;
+                ScribeCompat.LookDeep(ref data, "Data");
+                ScribeFileCompat.FinalizeSaving();
+                ownsSaver = false;
+                return Convert.ToBase64String(File.ReadAllBytes(path));
+            }
+            finally
+            {
+                // FinalizeSaving is not cleanup. Abort only an operation this method started;
+                // never finalize or stop serialization owned by the game or another mod.
+                if (ownsSaver && Scribe.mode == LoadSaveMode.Saving)
+                {
+                    ScribeFileCompat.ForceStopSaving();
+                }
+
+                TryDelete(path);
+            }
+        }
+
+        private static bool TryImportCompleteData(
+            BetterWorkTabSettings destination,
+            string encodedData,
+            out string report)
+        {
+            if (!ScribeIsolationGuard.CanStart(
+                "BWT",
+                "settings import",
+                SettingsImportBlockedWarningKey))
+            {
+                report = "Settings cannot be imported while RimWorld or Multiplayer is serializing.";
                 return false;
             }
 
-            BWTSettingsRegistry.EnsureInitialized();
-            var definitionsById = new Dictionary<string, SettingDefinition>();
-            foreach (var def in BWTSettingsRegistry.Definitions)
+            string path = TemporaryExportPath("Import");
+            bool ownsLoader = false;
+            try
             {
-                if (def != null && !string.IsNullOrEmpty(def.Id) && !definitionsById.ContainsKey(def.Id))
+                File.WriteAllBytes(path, Convert.FromBase64String(encodedData));
+                CompleteSettingsData data = null;
+                ScribeFileCompat.InitLoading(path);
+                ownsLoader = true;
+                ScribeCompat.LookDeep(ref data, "Data");
+                ScribeFileCompat.FinalizeLoading();
+                ownsLoader = false;
+
+                if (data?.Settings == null)
                 {
-                    definitionsById.Add(def.Id, def);
+                    report = "The settings export is empty.";
+                    return false;
                 }
+
+                CopyPublicSettingsFields(data.Settings, destination);
+                RecentColours.ReplaceAll(data.RecentColors, data.PinnedColors);
+                SettingsScribe.NotifyPreferenceChanges(destination, BWTSettingsRegistry.Definitions);
+                destination.NormalizePrioritySettings();
+                destination.Write();
+                report = "Imported all settings data, including settings history, rulesets, layout state, and recent colors.";
+                return true;
             }
-
-            int imported = 0;
-            int skipped = 0;
-            foreach (var pair in values)
+            catch (Exception ex)
             {
-                if (!definitionsById.TryGetValue(pair.Key, out var def) ||
-                    !TryGetSupportedField(settings, def, out FieldInfo field))
-                {
-                    skipped++;
-                    continue;
-                }
-
-                if (!TryConvertValue(pair.Value, field.FieldType, out object converted))
-                {
-                    skipped++;
-                    continue;
-                }
-
-                field.SetValue(settings, converted);
-                def.OnChanged?.Invoke(settings);
-                imported++;
-            }
-
-            settings.NormalizePrioritySettings();
-            settings.Write();
-            report = skipped > 0
-                ? $"Imported {imported} settings. Skipped {skipped} unsupported or invalid entries."
-                : $"Imported {imported} settings.";
-            return imported > 0;
-        }
-
-        private static bool TryGetSupportedField(
-            BetterWorkTabSettings settings,
-            SettingDefinition def,
-            out FieldInfo field)
-        {
-            field = null;
-            if (settings == null || def == null || string.IsNullOrEmpty(def.FieldName))
-            {
+                report = "The settings export could not be imported: " + ex.Message;
                 return false;
             }
+            finally
+            {
+                // FinalizeLoading runs callbacks and is not a recovery API. Force-stop only the
+                // standalone loader this method successfully started and still owns.
+                if (ownsLoader &&
+                    (Scribe.mode == LoadSaveMode.LoadingVars ||
+                     Scribe.mode == LoadSaveMode.ResolvingCrossRefs ||
+                     Scribe.mode == LoadSaveMode.PostLoadInit))
+                {
+                    ScribeFileCompat.ForceStopLoading();
+                }
 
-            field = settings.GetType().GetField(
-                def.FieldName,
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            return field != null && IsSupportedType(field.FieldType);
+                TryDelete(path);
+            }
         }
 
-        private static bool IsSupportedType(Type type)
+        private static void CopyPublicSettingsFields(BetterWorkTabSettings source, BetterWorkTabSettings destination)
         {
-            return type == typeof(bool) ||
-                type == typeof(int) ||
-                type == typeof(float) ||
-                type == typeof(double) ||
-                type == typeof(string) ||
-                type == typeof(Color) ||
-                type.IsEnum;
+            foreach (FieldInfo field in typeof(BetterWorkTabSettings).GetFields(BindingFlags.Instance | BindingFlags.Public))
+            {
+                if (!field.IsInitOnly && !field.IsLiteral)
+                {
+                    field.SetValue(destination, field.GetValue(source));
+                }
+            }
         }
 
-        private static void AppendProperty(StringBuilder builder, string name, object value, bool trailingComma, int indent)
+        private static string TemporaryExportPath(string operation)
         {
-            builder.Append(' ', indent);
+            return Path.Combine(
+                Path.GetTempPath(),
+                "BetterWorkTab" + operation + "_" + Guid.NewGuid().ToString("N") + ".xml");
+        }
+
+        private static void AppendProperty(StringBuilder builder, string name, object value, bool trailingComma)
+        {
+            builder.Append("  ");
             AppendJsonString(builder, name);
             builder.Append(": ");
-            AppendValue(builder, value, value?.GetType() ?? typeof(string));
+
+            if (value is int integer)
+            {
+                builder.Append(integer.ToString(CultureInfo.InvariantCulture));
+            }
+            else
+            {
+                AppendJsonString(builder, value?.ToString() ?? string.Empty);
+            }
+
             if (trailingComma)
             {
                 builder.Append(',');
@@ -167,53 +218,12 @@ namespace Better_Work_Tab.UI.Settings
             builder.AppendLine();
         }
 
-        private static void AppendValue(StringBuilder builder, object value, Type type)
-        {
-            if (value == null)
-            {
-                builder.Append("null");
-                return;
-            }
-
-            if (type == typeof(bool))
-            {
-                builder.Append((bool)value ? "true" : "false");
-                return;
-            }
-
-            if (type == typeof(int))
-            {
-                builder.Append(((int)value).ToString(CultureInfo.InvariantCulture));
-                return;
-            }
-
-            if (type == typeof(float))
-            {
-                builder.Append(((float)value).ToString("0.###", CultureInfo.InvariantCulture));
-                return;
-            }
-
-            if (type == typeof(double))
-            {
-                builder.Append(((double)value).ToString("0.###", CultureInfo.InvariantCulture));
-                return;
-            }
-
-            if (type == typeof(Color))
-            {
-                AppendJsonString(builder, ColorToHex((Color)value));
-                return;
-            }
-
-            AppendJsonString(builder, value.ToString());
-        }
-
         private static void AppendJsonString(StringBuilder builder, string value)
         {
             builder.Append('"');
-            foreach (char c in value ?? string.Empty)
+            foreach (char character in value ?? string.Empty)
             {
-                switch (c)
+                switch (character)
                 {
                     case '\\':
                         builder.Append("\\\\");
@@ -231,7 +241,7 @@ namespace Better_Work_Tab.UI.Settings
                         builder.Append("\\t");
                         break;
                     default:
-                        builder.Append(c);
+                        builder.Append(character);
                         break;
                 }
             }
@@ -239,289 +249,107 @@ namespace Better_Work_Tab.UI.Settings
             builder.Append('"');
         }
 
-        private static bool TryConvertValue(object raw, Type targetType, out object value)
+        private static bool TryReadStringProperty(string json, string propertyName, out string value)
         {
             value = null;
-            try
-            {
-                if (targetType == typeof(bool))
-                {
-                    if (raw is bool boolValue)
-                    {
-                        value = boolValue;
-                        return true;
-                    }
-
-                    if (raw is string boolText && bool.TryParse(boolText, out bool parsedBool))
-                    {
-                        value = parsedBool;
-                        return true;
-                    }
-
-                    return false;
-                }
-
-                if (targetType == typeof(int))
-                {
-                    value = raw is double d
-                        ? Mathf.RoundToInt((float)d)
-                        : int.Parse(raw.ToString(), CultureInfo.InvariantCulture);
-                    return true;
-                }
-
-                if (targetType == typeof(float))
-                {
-                    value = raw is double d ? (float)d : float.Parse(raw.ToString(), CultureInfo.InvariantCulture);
-                    return true;
-                }
-
-                if (targetType == typeof(double))
-                {
-                    value = raw is double d ? d : double.Parse(raw.ToString(), CultureInfo.InvariantCulture);
-                    return true;
-                }
-
-                if (targetType == typeof(string))
-                {
-                    value = raw?.ToString() ?? string.Empty;
-                    return true;
-                }
-
-                if (targetType == typeof(Color))
-                {
-                    return raw is string colorText && ColorUtility.TryParseHtmlString(colorText, out var color)
-                        ? SetConverted(color, out value)
-                        : false;
-                }
-
-                if (targetType.IsEnum)
-                {
-                    value = raw is double enumNumber
-                        ? Enum.ToObject(targetType, Convert.ToInt32(enumNumber))
-                        : Enum.Parse(targetType, raw.ToString(), ignoreCase: true);
-                    return true;
-                }
-            }
-            catch
+            string token = "\"" + propertyName + "\"";
+            int propertyIndex = json.IndexOf(token, StringComparison.Ordinal);
+            if (propertyIndex < 0)
             {
                 return false;
+            }
+
+            int colonIndex = json.IndexOf(':', propertyIndex + token.Length);
+            if (colonIndex < 0)
+            {
+                return false;
+            }
+
+            int index = colonIndex + 1;
+            while (index < json.Length && char.IsWhiteSpace(json[index]))
+            {
+                index++;
+            }
+
+            if (index >= json.Length || json[index] != '"')
+            {
+                return false;
+            }
+
+            index++;
+            var builder = new StringBuilder();
+            while (index < json.Length)
+            {
+                char character = json[index++];
+                if (character == '"')
+                {
+                    value = builder.ToString();
+                    return true;
+                }
+
+                if (character == '\\' && index < json.Length)
+                {
+                    char escaped = json[index++];
+                    switch (escaped)
+                    {
+                        case 'n':
+                            builder.Append('\n');
+                            break;
+                        case 'r':
+                            builder.Append('\r');
+                            break;
+                        case 't':
+                            builder.Append('\t');
+                            break;
+                        default:
+                            builder.Append(escaped);
+                            break;
+                    }
+                }
+                else
+                {
+                    builder.Append(character);
+                }
             }
 
             return false;
         }
 
-        private static bool SetConverted<T>(T converted, out object value)
+        private static void TryDelete(string path)
         {
-            value = converted;
-            return true;
+            try
+            {
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+            }
+            catch
+            {
+            }
         }
 
-        private static string ColorToHex(Color color)
+        public sealed class CompleteSettingsData : IExposable
         {
-            int r = Mathf.Clamp(Mathf.RoundToInt(color.r * 255f), 0, 255);
-            int g = Mathf.Clamp(Mathf.RoundToInt(color.g * 255f), 0, 255);
-            int b = Mathf.Clamp(Mathf.RoundToInt(color.b * 255f), 0, 255);
-            int a = Mathf.Clamp(Mathf.RoundToInt(color.a * 255f), 0, 255);
-            return $"#{r:X2}{g:X2}{b:X2}{a:X2}";
-        }
+            public BetterWorkTabSettings Settings;
+            public List<Color> RecentColors = new List<Color>();
+            public List<Color> PinnedColors = new List<Color>();
 
-        private static class MiniJson
-        {
-            public static bool TryReadSettingsObject(
-                string json,
-                out Dictionary<string, object> values,
-                out string error)
+            public void ExposeData()
             {
-                values = new Dictionary<string, object>();
-                error = string.Empty;
-                int settingsIndex = json.IndexOf("\"settings\"", StringComparison.OrdinalIgnoreCase);
-                if (settingsIndex < 0)
+                ScribeCompat.LookDeep(ref Settings, "Settings");
+                ScribeCompat.LookCollection(ref RecentColors, "RecentColors", LookMode.Value);
+                ScribeCompat.LookCollection(ref PinnedColors, "PinnedColors", LookMode.Value);
+
+                if (RecentColors == null)
                 {
-                    error = "The JSON does not contain a settings object.";
-                    return false;
+                    RecentColors = new List<Color>();
                 }
 
-                int objectStart = json.IndexOf('{', settingsIndex);
-                if (objectStart < 0)
+                if (PinnedColors == null)
                 {
-                    error = "The settings object is malformed.";
-                    return false;
+                    PinnedColors = new List<Color>();
                 }
-
-                int i = objectStart + 1;
-                while (i < json.Length)
-                {
-                    SkipWhitespace(json, ref i);
-                    if (i < json.Length && json[i] == '}')
-                    {
-                        return true;
-                    }
-
-                    if (!TryReadString(json, ref i, out string key, out error))
-                    {
-                        return false;
-                    }
-
-                    SkipWhitespace(json, ref i);
-                    if (i >= json.Length || json[i] != ':')
-                    {
-                        error = $"Expected ':' after setting '{key}'.";
-                        return false;
-                    }
-
-                    i++;
-                    SkipWhitespace(json, ref i);
-                    if (!TryReadValue(json, ref i, out object value, out error))
-                    {
-                        return false;
-                    }
-
-                    values[key] = value;
-                    SkipWhitespace(json, ref i);
-                    if (i < json.Length && json[i] == ',')
-                    {
-                        i++;
-                        continue;
-                    }
-
-                    if (i < json.Length && json[i] == '}')
-                    {
-                        return true;
-                    }
-                }
-
-                error = "The settings object was not closed.";
-                return false;
-            }
-
-            private static bool TryReadValue(string json, ref int i, out object value, out string error)
-            {
-                value = null;
-                error = string.Empty;
-                if (i >= json.Length)
-                {
-                    error = "Unexpected end of JSON.";
-                    return false;
-                }
-
-                if (json[i] == '"')
-                {
-                    return TryReadString(json, ref i, out string text, out error)
-                        ? SetConverted(text, out value)
-                        : false;
-                }
-
-                if (StartsWith(json, i, "true"))
-                {
-                    i += 4;
-                    value = true;
-                    return true;
-                }
-
-                if (StartsWith(json, i, "false"))
-                {
-                    i += 5;
-                    value = false;
-                    return true;
-                }
-
-                if (StartsWith(json, i, "null"))
-                {
-                    i += 4;
-                    value = null;
-                    return true;
-                }
-
-                int start = i;
-                while (i < json.Length && "-+0123456789.eE".IndexOf(json[i]) >= 0)
-                {
-                    i++;
-                }
-
-                if (start == i ||
-                    !double.TryParse(json.Substring(start, i - start), NumberStyles.Float, CultureInfo.InvariantCulture, out double number))
-                {
-                    error = "Unsupported JSON value in settings object.";
-                    return false;
-                }
-
-                value = number;
-                return true;
-            }
-
-            private static bool TryReadString(string json, ref int i, out string value, out string error)
-            {
-                value = string.Empty;
-                error = string.Empty;
-                if (i >= json.Length || json[i] != '"')
-                {
-                    error = "Expected a JSON string.";
-                    return false;
-                }
-
-                i++;
-                var builder = new StringBuilder();
-                while (i < json.Length)
-                {
-                    char c = json[i++];
-                    if (c == '"')
-                    {
-                        value = builder.ToString();
-                        return true;
-                    }
-
-                    if (c == '\\')
-                    {
-                        if (i >= json.Length)
-                        {
-                            error = "Invalid JSON string escape.";
-                            return false;
-                        }
-
-                        char escaped = json[i++];
-                        switch (escaped)
-                        {
-                            case '"':
-                            case '\\':
-                            case '/':
-                                builder.Append(escaped);
-                                break;
-                            case 'n':
-                                builder.Append('\n');
-                                break;
-                            case 'r':
-                                builder.Append('\r');
-                                break;
-                            case 't':
-                                builder.Append('\t');
-                                break;
-                            default:
-                                builder.Append(escaped);
-                                break;
-                        }
-
-                        continue;
-                    }
-
-                    builder.Append(c);
-                }
-
-                error = "Unclosed JSON string.";
-                return false;
-            }
-
-            private static void SkipWhitespace(string json, ref int i)
-            {
-                while (i < json.Length && char.IsWhiteSpace(json[i]))
-                {
-                    i++;
-                }
-            }
-
-            private static bool StartsWith(string text, int index, string value)
-            {
-                return index + value.Length <= text.Length &&
-                    string.Compare(text, index, value, 0, value.Length, StringComparison.OrdinalIgnoreCase) == 0;
             }
         }
 

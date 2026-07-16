@@ -2,19 +2,150 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Better_Work_Tab.API;
+using Better_Work_Tab.Features;
+using Better_Work_Tab.Features.TimePriority;
+using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.ModSupport;
+using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using RimWorld;
 using UnityEngine;
 using Verse;
+using Current = Verse.Current;
 
 namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 {
+    public enum PriorityAuthorityOwner
+    {
+        BetterWorkTab,
+        FluffyWorkTab,
+        ExternalWorkTab = FluffyWorkTab
+    }
+
     public static class PriorityAuthorityBroker
     {
         private static int cachedFrame = -1;
-#if !(v0_13 || vAlpha4)
+#if v0_13
+        // RimWorld 0.13 exposes the active game through the compatibility facade,
+        // rather than the later instance-based Verse.Game type.  This value is only
+        // used as an identity key for the scan cache.
+        private static object cachedGame;
+#else
         private static Game cachedGame;
 #endif
         private static int cachedHighestLivePriority;
+        private static bool authorityInitialized;
+        private static PriorityAuthorityOwner lastAuthority;
+        private static bool handoffInProgress;
+        private static PriorityAuthorityOwner? handoffAuthorityOverride;
+
+        public static PriorityAuthorityOwner CurrentAuthority
+        {
+            get
+            {
+                if (handoffInProgress && handoffAuthorityOverride.HasValue)
+                {
+                    return handoffAuthorityOverride.Value;
+                }
+
+                PriorityAuthorityOwner authority = ComputeAuthority();
+                EnsureTransitionApplied(authority);
+                return authority;
+            }
+        }
+
+        public static bool BetterWorkTabHasPriorityAuthority => CurrentAuthority == PriorityAuthorityOwner.BetterWorkTab;
+
+        public static bool FluffyWorkTabHasPriorityAuthority => CurrentAuthority == PriorityAuthorityOwner.FluffyWorkTab;
+
+        public static bool ExternalWorkTabHasPriorityAuthority => CurrentAuthority != PriorityAuthorityOwner.BetterWorkTab;
+
+        /// <summary>
+        /// True while Better Work Tab draws the Work tab, i.e. any time another Work tab mod has not
+        /// taken the window over. Independent of who stores the priority numbers.
+        /// </summary>
+        public static bool BetterWorkTabRendersWorkTab => !FluffyWorkTabGateway.ExternalWorkTabOwnsWorkTab;
+
+        /// <summary>
+        /// Gates presentation: headers, cells, priority colors, tooltips, float menus and the usable
+        /// priority range. These belong to whoever draws the tab, not to whoever owns the data, so a
+        /// Fluffy-backed priority store must not switch them off.
+        /// </summary>
+        internal static bool ShouldRunBetterWorkTabPriorityFeatures => BetterWorkTabRendersWorkTab;
+
+        /// <summary>
+        /// Gates behavior: work-giver overrides and work execution order. These must yield when Fluffy
+        /// owns the priority data, because Fluffy then drives work-giver order through its own patches.
+        /// </summary>
+        internal static bool ShouldRunBetterWorkTabOrdering => BetterWorkTabHasPriorityAuthority;
+
+        internal static void NotifyPotentialAuthorityChanged()
+        {
+            EnsureTransitionApplied(ComputeAuthority());
+        }
+
+        internal static int GetEffectivePriority(Pawn pawn, WorkTypeDef workType)
+        {
+            if (pawn?.workSettings == null || workType == null)
+            {
+                return GetDefaultEnabledPriority();
+            }
+
+            if (ExternalWorkTabHasPriorityAuthority &&
+                ExternalWorkTabRegistry.TryGetWorkTypePriority(
+                    pawn,
+                    workType,
+                    TimePriorityService.GetCurrentHour(pawn),
+                    out int externalPriority))
+            {
+                return ClampRuntimePriority(externalPriority);
+            }
+
+            return ClampPriorityForRequest(GetBetterWorkTabStoredPriority(pawn.workSettings, workType));
+        }
+
+        internal static int GetEffectivePriorityAtHour(Pawn pawn, WorkTypeDef workType, int hour)
+        {
+            if (pawn?.workSettings == null || workType == null)
+            {
+                return GetDefaultEnabledPriority();
+            }
+
+            if (ExternalWorkTabHasPriorityAuthority &&
+                ExternalWorkTabRegistry.TryGetWorkTypePriority(pawn, workType, hour, out int externalPriority))
+            {
+                return ClampRuntimePriority(externalPriority);
+            }
+
+            int basePriority = GetBetterWorkTabStoredPriority(pawn.workSettings, workType);
+            return TimePriorityService.GetPriorityAtHour(
+                TimePriorityTarget.ForWorkType(pawn, workType),
+                basePriority,
+                hour);
+        }
+
+        internal static int GetBetterWorkTabStoredPriority(Pawn_WorkSettings workSettings, WorkTypeDef workType)
+        {
+            if (workSettings == null || workType == null)
+            {
+                return GetDefaultEnabledPriority();
+            }
+
+            return ClampPriorityForRequest(workSettings.GetPriority(workType));
+        }
+
+        internal static int GetBetterWorkTabEffectiveWorkGiverPriorityAtHour(
+            Pawn pawn,
+            WorkTypeDef workType,
+            WorkGiverDef workGiver,
+            int hour)
+        {
+            int parentPriority = GetEffectivePriorityAtHour(pawn, workType, hour);
+            int fallback = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, workGiver, parentPriority);
+            return TimePriorityService.GetPriorityAtHour(
+                TimePriorityTarget.ForWorkGiver(pawn, workType, workGiver),
+                fallback,
+                hour);
+        }
 
         public static PriorityProviderSnapshot GetSnapshot()
         {
@@ -203,9 +334,94 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         internal static void InvalidateCaches()
         {
             cachedFrame = -1;
-#if !(v0_13 || vAlpha4)
             cachedGame = null;
-#endif
+            NotifyPotentialAuthorityChanged();
+        }
+
+        /// <summary>
+        /// Decides who <em>stores</em> work priorities. This is a data question only.
+        /// </summary>
+        /// <remarks>
+        /// Registered external work-tab stores can claim data authority through
+        /// <see cref="IExternalWorkTabStore.PriorityAuthority"/>. The handoff in
+        /// <see cref="RunHandoff"/> keeps the stores in step when that claim changes.
+        /// <para>
+        /// It does <em>not</em> follow that the external store should draw the tab. Use
+        /// <see cref="BetterWorkTabRendersWorkTab"/> for that. Conflating the two is what silently
+        /// disables Better Work Tab's headers, cells and priority colors while an external store owns
+        /// data.
+        /// </para>
+        /// </remarks>
+        private static PriorityAuthorityOwner ComputeAuthority()
+        {
+            PriorityProviderRegistry.EnsureInitialized();
+            if (ExternalWorkTabRegistry.GetAuthoritativeStore() != null)
+            {
+                return PriorityAuthorityOwner.FluffyWorkTab;
+            }
+
+            return PriorityAuthorityOwner.BetterWorkTab;
+        }
+
+        private static void EnsureTransitionApplied(PriorityAuthorityOwner authority)
+        {
+            if (!authorityInitialized)
+            {
+                authorityInitialized = true;
+                lastAuthority = authority;
+                return;
+            }
+
+            if (lastAuthority == authority || handoffInProgress)
+            {
+                return;
+            }
+
+            PriorityAuthorityOwner previous = lastAuthority;
+            if (!CanRunHandoffNow())
+            {
+                lastAuthority = authority;
+                return;
+            }
+
+            lastAuthority = authority;
+            RunHandoff(previous, authority);
+        }
+
+        private static bool CanRunHandoffNow()
+        {
+            return Current.Game != null && ProgramStateCompat.IsPlaying;
+        }
+
+        private static void RunHandoff(PriorityAuthorityOwner previous, PriorityAuthorityOwner next)
+        {
+            handoffInProgress = true;
+            handoffAuthorityOverride = PriorityAuthorityOwner.BetterWorkTab;
+            try
+            {
+                int changed = next == PriorityAuthorityOwner.FluffyWorkTab
+                    ? SyncBetterWorkTabToExternalStore()
+                    : ExternalWorkTabRegistry.ImportFromAvailableImporter();
+
+                WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
+                MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+                BetterWorkTabMod.DebugLog(
+                    "Priority authority changed " + previous + " -> " + next + "; synced entries=" + changed + ".",
+                    DebugFeature.ModSupport);
+            }
+            finally
+            {
+                handoffAuthorityOverride = null;
+                handoffInProgress = false;
+            }
+        }
+
+        /// <summary>
+        /// Rebuilds the external work-tab mod's priority store from Better Work Tab's stores.
+        /// </summary>
+        private static int SyncBetterWorkTabToExternalStore()
+        {
+            return ExternalPriorityMirror.NotifyAllChanged();
         }
 
         private static PriorityProviderSnapshot ResolveAutomaticProvider(
@@ -413,17 +629,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
         private static void EnsureCachedPriorityScan()
         {
-#if v0_13 || vAlpha4
-            int frame = Time.frameCount;
-            if (cachedFrame == frame)
-            {
-                return;
-            }
-
-            cachedFrame = frame;
-            cachedHighestLivePriority = ScanHighestLivePriority();
-#else
-            Game game = Verse.Current.Game;
+            object game = Current.Game;
             int frame = Time.frameCount;
             if (cachedFrame == frame && ReferenceEquals(cachedGame, game))
             {
@@ -433,22 +639,15 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             cachedGame = game;
             cachedFrame = frame;
             cachedHighestLivePriority = ScanHighestLivePriority(game);
-#endif
         }
 
-#if v0_13 || vAlpha4
-        private static int ScanHighestLivePriority()
-#else
-        private static int ScanHighestLivePriority(Game game)
-#endif
+        private static int ScanHighestLivePriority(object game)
         {
             int maxPriority = 0;
-#if !(v0_13 || vAlpha4)
             if (game == null)
             {
                 return maxPriority;
             }
-#endif
 
             try
             {
@@ -562,6 +761,11 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             }
 
             return value > max ? max : value;
+        }
+
+        private static int ClampRuntimePriority(int priority)
+        {
+            return Clamp(priority, PriorityConstants.Disabled, PriorityConstants.ExtendedHardMax);
         }
     }
 }

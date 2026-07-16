@@ -48,11 +48,19 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 SubWorkDrilldownHeaderGeometry.RecordNormalHeaderHeight(table, rect.height);
             }
 
+            if (SubWorkDrilldownState.IsDrawingExpandBesideChild)
+            {
+                return DoExpandBesideChildHeader(worker, rect, table, evt);
+            }
+
             bool shouldDraw = evt.type == EventType.Repaint;
 
             float rot = AngledLabelDrawer.CurrentRotation;
             float rotCos = Mathf.Cos(rot * Mathf.Deg2Rad);
             float rotSin = Mathf.Sin(rot * Mathf.Deg2Rad);
+            float stableDrawWidth = SubWorkDrilldownState.HasAnyDrilldown
+                ? SubWorkDrilldownHeaderGeometry.GetBaseHeaderDrawWidth(table, rect.height)
+                : -1f;
 
             if (!AngledHeaderCache.TryGetLayout(
                     rect,
@@ -61,17 +69,18 @@ namespace Better_Work_Tab.UI.Headers.Angled
                     rotSin,
                     AngledLabelDrawer.STEM_BOTTOM_GAP,
                     AngledLabelDrawer.EffectiveHorizontalOffset,
-                    out var cached))
+                    out var cached,
+                    stableDrawWidth))
             {
                 return false;
             }
 
-            bool isMouseOver = !TimePriorityPlannerPrototype.OwnsCurrentMousePosition &&
+            bool isMouseOver = !TimePriorityScheduleEditor.OwnsCurrentMousePosition &&
                 DetermineMouseOver(rect, cached);
             
             if (isMouseOver)
             {
-                HeaderInputController.SetHoveredWorkType(worker.def.workType, cached.Bounds);
+                HeaderInputController.SetHoveredWorkType(worker.def.workType, GetVisualBounds(cached));
             }
 
             var renderer = HeaderDrawingCoordinator.GetActiveRenderer();
@@ -82,8 +91,8 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 Worker = worker,
                 Table = table,
                 Layout = cached.Layout,
-                Bounds = cached.Bounds,
-                Quad = cached.Quad,
+                Bounds = GetVisualBounds(cached),
+                Quad = GetVisualQuad(cached),
                 IsMouseOver = isMouseOver,
                 ShouldDraw = shouldDraw,
                 HeaderRect = rect,
@@ -95,10 +104,120 @@ namespace Better_Work_Tab.UI.Headers.Angled
             return false; // Skip vanilla
         }
 
+        private static bool DoExpandBesideChildHeader(
+            PawnColumnWorker_WorkPriority worker,
+            Rect rect,
+            PawnTable table,
+            Event evt)
+        {
+            bool shouldDraw = evt.type == EventType.Repaint;
+            string label = HeaderUtility.GetHeaderText(worker.def.workType);
+            Vector2 size = Text.CalcSize(label);
+            float stableDrawWidth = SubWorkDrilldownHeaderGeometry.GetBaseHeaderDrawWidth(table, rect.height);
+            Rect drawRect = new Rect(rect.x, rect.y, Mathf.Max(rect.width, stableDrawWidth), size.y)
+            {
+                center = rect.center
+            };
+            drawRect.x += AngledLabelDrawer.EffectiveHorizontalOffset;
+            drawRect.position += SubWorkDrilldownHeaderGeometry.GetExpandBesideAngledAnchorOffset(
+                table,
+                rect.height,
+                drawRect.width,
+                drawRect.height,
+                AngledLabelDrawer.CurrentRotation);
+
+            var layout = new AngledLabelDrawer.AngledLabelLayout(
+                label,
+                size,
+                drawRect.center,
+                showMarker: MainTabWindow_BetterWork.ShouldShowColumnMarker(worker.def.workType),
+                isCJKVertical: false,
+                customDrawRect: drawRect);
+            bool isMouseOver = !TimePriorityScheduleEditor.OwnsCurrentMousePosition && rect.Contains(HeaderInputController.MousePosition);
+            if (isMouseOver)
+            {
+                HeaderInputController.SetHoveredWorkType(worker.def.workType, rect);
+            }
+
+            var ctx = new HeaderInteractionContext
+            {
+                Worker = worker,
+                Table = table,
+                Layout = layout,
+                Bounds = rect,
+                Quad = null,
+                IsMouseOver = isMouseOver,
+                ShouldDraw = shouldDraw,
+                HeaderRect = rect,
+                Renderer = HeaderDrawingCoordinator.GetActiveRenderer()
+            };
+
+            AngledHeaderInteraction.HandleInteractions(ctx);
+            return false;
+        }
+
         private static bool DetermineMouseOver(Rect rect, AngledHeaderCache.CachedHeaderData cached)
         {
             Vector2 mousePos = HeaderInputController.MousePosition;
-            return AngledHeaderCache.IsMouseOver(cached.Quad, mousePos);
+            return AngledHeaderCache.IsMouseOver(GetVisualQuad(cached), mousePos);
+        }
+
+        private static Rect GetVisualBounds(AngledHeaderCache.CachedHeaderData cached)
+        {
+            float offsetY = GetVisualOffsetY(cached);
+            if (Mathf.Abs(offsetY) <= 0.001f)
+            {
+                return cached.Bounds;
+            }
+
+            Rect bounds = cached.Bounds;
+            bounds.y += offsetY;
+            return bounds;
+        }
+
+        private static Vector2[] GetVisualQuad(AngledHeaderCache.CachedHeaderData cached)
+        {
+            float offsetY = GetVisualOffsetY(cached);
+            if (Mathf.Abs(offsetY) <= 0.001f || cached.Quad == null)
+            {
+                return cached.Quad;
+            }
+
+            Vector2[] quad = new Vector2[cached.Quad.Length];
+            for (int i = 0; i < cached.Quad.Length; i++)
+            {
+                quad[i] = new Vector2(cached.Quad[i].x, cached.Quad[i].y + offsetY);
+            }
+
+            return quad;
+        }
+
+        /// <summary>
+        /// Supplies the exact rendered polygon to consumers that must follow an
+        /// angled label instead of treating its column header as an axis-aligned box.
+        /// </summary>
+        internal static bool TryGetVisualGeometry(
+            WorkTypeDef workType,
+            out Rect bounds,
+            out Vector2[] quad)
+        {
+            if (AngledHeaderCache.TryGetLatest(workType, out AngledHeaderCache.CachedHeaderData cached))
+            {
+                bounds = GetVisualBounds(cached);
+                quad = GetVisualQuad(cached);
+                return bounds.width > 0f && bounds.height > 0f && quad != null && quad.Length >= 3;
+            }
+
+            bounds = Better_Work_Tab.RectCompat.Zero;
+            quad = null;
+            return false;
+        }
+
+        private static float GetVisualOffsetY(AngledHeaderCache.CachedHeaderData cached)
+        {
+            return SubWorkDrilldownState.IsActive && !cached.Layout.IsCJKVertical
+                ? SubWorkDrilldownState.HeaderAnchorVisualOffsetY
+                : 0f;
         }
     }
 }

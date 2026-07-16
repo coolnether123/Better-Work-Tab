@@ -48,7 +48,7 @@ namespace Better_Work_Tab.UI
                 Event.current.Use();
             }
             
-            Rect topPart = new Rect(inRect);
+            Rect topPart = Better_Work_Tab.RectCompat.Copy(inRect);
             topPart.height = 35f;
             
             Widgets.Label(topPart, "Rename".Translate());

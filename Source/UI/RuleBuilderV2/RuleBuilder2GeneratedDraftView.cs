@@ -14,6 +14,8 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
         private readonly RuleBuilder2FlowController flow;
         private readonly RuleBuilder2Layout layout;
         private readonly RuleBuilder2EditorView editorView;
+        private const int ReadOnlySentenceMaxLines = 3;
+        private const float ReadOnlySentenceVerticalPadding = 6f;
 
         internal RuleBuilder2GeneratedDraftView(
             Window_RuleBuilder2 window,
@@ -97,7 +99,9 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
         internal void DrawGeneratedDraftPanel(Rect rect, RuleBuilder2Card card)
         {
-            RuleBuilder2GeneratedDraftPanelRects panel = layout.GeneratedDraftPanel(rect);
+            string sentenceText = BuildRuleSentenceSummary(flow, window.ActiveSurface, card);
+            float sentenceHeight = GetReadOnlySentenceBoxHeight(sentenceText, rect.ContractedBy(12f).width - 16f);
+            RuleBuilder2GeneratedDraftPanelRects panel = layout.GeneratedDraftPanel(rect, sentenceHeight);
             Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, new Color(0.13f, 0.13f, 0.13f, 0.95f));
             Widgets.DrawBox(rect, 1);
 
@@ -109,7 +113,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             DrawFittedLabel(panel.Notes, card.Notes.NullOrEmpty() ? T("BWT_RuleBuilder2_DraftNoReason") : card.Notes);
             GUI.color = Color.white;
 
-            DrawReadOnlyRuleSentence(panel.Sentence, card);
+            DrawReadOnlyRuleSentence(panel.Sentence, sentenceText);
             DrawDraftRuleDetails(panel.Preview, card);
 
             if (Better_Work_Tab.WidgetsCompat.ButtonText(panel.Reject, T("BWT_RuleBuilder2_RejectDraft")))
@@ -163,12 +167,30 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             }
         }
 
-        private void DrawReadOnlyRuleSentence(Rect rect, RuleBuilder2Card card)
+        private void DrawReadOnlyRuleSentence(Rect rect, string sentenceText)
         {
             Better_Work_Tab.WidgetsCompat.DrawBoxSolid(rect, new Color(0.1f, 0.1f, 0.1f, 0.55f));
             GUI.color = Color.gray;
-            DrawFittedLabel(new Rect(rect.x + 8f, rect.y + 3f, rect.width - 16f, 24f), BuildRuleSentenceSummary(flow, window.ActiveSurface, card));
+            bool sentenceClamped;
+            float sentenceHeight = GetReadOnlySentenceTextHeight(sentenceText, rect.width - 16f, out sentenceClamped);
+            Rect label = new Rect(rect.x + 8f, rect.y + 3f, rect.width - 16f, sentenceHeight);
+            DrawWrappedLabel(label, sentenceText);
             GUI.color = Color.white;
+            if (sentenceClamped)
+            {
+                TooltipHandler.TipRegion(rect, sentenceText);
+            }
+        }
+
+        private static float GetReadOnlySentenceBoxHeight(string sentenceText, float width)
+        {
+            bool unused;
+            return GetReadOnlySentenceTextHeight(sentenceText, width, out unused) + ReadOnlySentenceVerticalPadding;
+        }
+
+        private static float GetReadOnlySentenceTextHeight(string sentenceText, float width, out bool clamped)
+        {
+            return ClampWrappedHeight(sentenceText, Mathf.Max(1f, width), ReadOnlySentenceMaxLines, out clamped);
         }
 
         internal static void DrawDraftDetailRow(Rect rect, string label, string value, bool alternate)

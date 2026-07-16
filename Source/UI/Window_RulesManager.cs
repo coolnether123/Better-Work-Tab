@@ -102,9 +102,7 @@ namespace Better_Work_Tab.UI
             );
         }
 
-#if v0_13
-        public override Vector2 InitialWindowSize => new Vector2(800f, 600f);
-#else
+#if !v0_13
         public override Vector2 InitialSize => new Vector2(800f, 600f);
 #endif
 
@@ -432,7 +430,7 @@ namespace Better_Work_Tab.UI
             var oldColor = GUI.color;
             if (uneditable) GUI.color = Color.gray;
 
-            bool clicked = Better_Work_Tab.WidgetsCompat.ButtonImageWithBG(valueRect, value?.Icon ?? TexButton.CloseXSmall, XenotypeIconSize);
+            bool clicked = Widgets.ButtonImageWithBG(valueRect, value?.Icon ?? TexButton.CloseXSmall, XenotypeIconSize);
             if (!uneditable && clicked)
             {
                 List<FloatMenuOption> defOptions = new List<FloatMenuOption>()
@@ -574,7 +572,7 @@ namespace Better_Work_Tab.UI
             }
             else
             {
-                //Better_Work_Tab.WidgetsCompat.TextFieldNumeric(midRect, ref value, ref editBuffer);
+                //Widgets.TextFieldNumeric(midRect, ref value, ref editBuffer);
             }
             value = Mathf.Clamp(value, minValue, maxValue);
             GUI.color = oldColor;
@@ -871,13 +869,13 @@ namespace Better_Work_Tab.UI
         /// </summary>
         private void DoDeleteButton_Rules(ref WorkAssignmentRule ruleToRemove, ref Rect rect4, WorkAssignmentRule currentRule, WorkAssignmentRuleset selectedRuleset)
         {
-            Rect rect6 = new Rect(rect4);
+            Rect rect6 = Better_Work_Tab.RectCompat.Copy(rect4);
             rect6.width = 24f;
             rect6.height = 24f;
             rect6.x = rect4.xMax - rect6.width - (selectedRuleset.Rules.Count >= 13 ? 20f : 0);
             rect6.y = rect4.y + (rect4.height - rect6.height) / 2f;
 
-            if (Better_Work_Tab.WidgetsCompat.ButtonImage(rect6, TexButton.DeleteX))
+            if (Better_Work_Tab.WidgetsCompat.ButtonImage(rect6, RimWorld.TexButton.DeleteX))
             {
                 ruleToRemove = currentRule;
                 SelectedRule = null;

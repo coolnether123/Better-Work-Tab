@@ -33,37 +33,36 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         private List<WorkGiver> _workGivers;
         private WorkGiverBaselineTracker _baselineTracker;
         private WorkGiverDragHandler _dragHandler;
-        
+
         private bool _needsRefresh = false;
         private float _dynamicHeaderHeight = 120f;
         private bool _useAngledHeaders = true;
         private List<int> _vanillaHeaderLevels = null;
         private float _columnWidth = ColumnWidth;
-        
+
         private const float ColumnWidth = 35f;
         private const float PriorityRowHeight = 45f;
         private const float FooterHeight = 50f;
-        private const float ContentPadding = 12f;
-        private const float WindowOuterMargin = 18f;
+        private const float WindowPadding = 12f;
         private const float HeaderTop = 30f;
         private const float VanillaMaxColumnWidth = 70f;
 
-        private float DesiredContentWidth => _workGivers.Count * _columnWidth + ContentPadding * 2f;
+        private float DesiredContentWidth => _workGivers.Count * _columnWidth + WindowPadding * 2f;
 
-        private float DesiredContentHeight => _dynamicHeaderHeight + PriorityRowHeight + FooterHeight + ContentPadding * 2f;
+        private float DesiredContentHeight => _dynamicHeaderHeight + PriorityRowHeight + FooterHeight + WindowPadding * 2f;
 
         public Window_WorkGiverSubMenu(WorkTypeDef workType, Vector2 triggerPos, Pawn pawn = null)
         {
             _workType = workType;
             _pawn = pawn;
             _triggerPos = triggerPos;
-            
+
             RefreshWorkGivers();
-            
+
             doCloseX = false;
             doCloseButton = false;
             closeOnClickedOutside = true;
-            absorbInputAroundWindow = true; 
+            absorbInputAroundWindow = true;
             preventCameraMotion = true;
             shadowAlpha = 0.6f;
         }
@@ -95,7 +94,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             {
                 _dragHandler = new WorkGiverDragHandler(this, _workType);
             }
-            
+
             CalculateHeaderHeight();
             _needsRefresh = false;
         }
@@ -148,53 +147,33 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             _dynamicHeaderHeight = HeaderTop + clampedHeight;
         }
 
-        private Vector2 InitialSubMenuSize
+#if !v0_13
+        public override Vector2 InitialSize
         {
             get
             {
-                float desiredWidth = DesiredContentWidth + WindowOuterMargin * 2f;
+                float desiredWidth = DesiredContentWidth + Margin * 2f;
                 float maxAllowedWidth = Verse.UI.screenWidth - 40f; // Leave 20px margin on each side
                 float width = Mathf.Max(250f, Mathf.Min(desiredWidth, maxAllowedWidth));
-                
-                float height = DesiredContentHeight + WindowOuterMargin * 2f;
+
+                float height = DesiredContentHeight + Margin * 2f;
                 return new Vector2(width, height);
             }
         }
-
-#if v0_13 || vAlpha4
-        public override Vector2 InitialWindowSize => InitialSubMenuSize;
-
-        protected override WindowInitialPosition InitialPosition => WindowInitialPosition.Center;
-
-        public override void PostOpen()
-        {
-            base.PostOpen();
-
-            Rect rect = currentWindowRect;
-            PositionWindowNearTrigger(ref rect);
-            currentWindowRect = rect;
-        }
-#else
-        public override Vector2 InitialSize => InitialSubMenuSize;
 
         protected override void SetInitialSizeAndPosition()
         {
             base.SetInitialSizeAndPosition();
 
-            PositionWindowNearTrigger(ref windowRect);
+            windowRect.x = _triggerPos.x - (windowRect.width / 2f);
+            windowRect.y = _triggerPos.y - windowRect.height - 5f;
+
+            if (windowRect.x < 10f) windowRect.x = 10f;
+            if (windowRect.xMax > Verse.UI.screenWidth - 10f) windowRect.x = Verse.UI.screenWidth - windowRect.width - 10f;
+            if (windowRect.y < 10f) windowRect.y = _triggerPos.y + 5f;
+            if (windowRect.yMax > Verse.UI.screenHeight - 10f) windowRect.y = Verse.UI.screenHeight - windowRect.height - 10f;
         }
 #endif
-
-        private void PositionWindowNearTrigger(ref Rect rect)
-        {
-            rect.x = _triggerPos.x - (rect.width / 2f);
-            rect.y = _triggerPos.y - rect.height - 5f;
-
-            if (rect.x < 10f) rect.x = 10f;
-            if (rect.xMax > Verse.UI.screenWidth - 10f) rect.x = Verse.UI.screenWidth - rect.width - 10f;
-            if (rect.y < 10f) rect.y = _triggerPos.y + 5f;
-            if (rect.yMax > Verse.UI.screenHeight - 10f) rect.y = Verse.UI.screenHeight - rect.height - 10f;
-        }
 
         public override void DoWindowContents(Rect inRect)
         {
@@ -222,38 +201,39 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             }
 
             DrawTitle(inRect);
-            
+
             float headerY = HeaderTop;
             float boxY = _dynamicHeaderHeight;
-            
-            _dragHandler.UpdateDrag(Event.current.mousePosition, _workGivers, ContentPadding, _columnWidth);
-            
+
+            _dragHandler.UpdateDrag(Event.current.mousePosition, _workGivers, WindowPadding, _columnWidth);
+
             DrawWorkGiverColumns(headerY, boxY);
             DrawDragOverlay(headerY, boxY);
             DrawFooter(boxY, inRect.width);
-            
+
             HandleEscapeKey();
         }
 
         private void DrawTitle(Rect inRect)
         {
             Text.Font = GameFont.Small;
-            string titleText = _pawn == null 
-                ? $"Global: {_workType.labelShort.CapitalizeFirst()}" 
-                : $"{PawnCompat.LabelShortCap(_pawn)}: {_workType.labelShort.CapitalizeFirst()}";
+            string workTypeLabel = WorkTypeDisplayNameService.HeaderLabel(_workType);
+            string titleText = _pawn == null
+                ? $"Global: {workTypeLabel}"
+                : $"{PawnCompat.LabelShortCap(_pawn)}: {workTypeLabel}";
             Widgets.Label(new Rect(0, 0, inRect.width, 24f), titleText.Colorize(Color.gray));
         }
 
         private void DrawWorkGiverColumns(float headerY, float boxY)
         {
-            float curX = ContentPadding;
-            
+            float curX = WindowPadding;
+
             for (int i = 0; i < _workGivers.Count; i++)
             {
                 var wg = _workGivers[i];
                 Rect headerRect = new Rect(curX, headerY, _columnWidth, _dynamicHeaderHeight - headerY);
                 Rect cellRect = new Rect(curX, boxY, _columnWidth, PriorityRowHeight);
-                
+
                 bool isMovedFromBaseline = _baselineTracker.IsMovedFromBaseline(wg.def.defName);
                 string label = BuildHeaderLabel(wg, isMovedFromBaseline);
 
@@ -266,14 +246,14 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
                 HandleHeaderDrag(i, isHovered);
                 DrawPriorityBox(wg, cellRect);
-                
+
                 // Draw standard column divider line (1px grey) to match main work tab
                 if (i < _workGivers.Count - 1)
                 {
                     float dividerX = curX + _columnWidth;
                     // Draw divider from bottom of header area through priority row
                     Rect dividerRect = new Rect(dividerX, boxY, 1f, PriorityRowHeight);
-                    WidgetsCompat.DrawBoxSolid(dividerRect, new Color(1f, 1f, 1f, 0.1f)); // Match vanilla/BWT subtle divider
+                    Better_Work_Tab.WidgetsCompat.DrawBoxSolid(dividerRect, new Color(1f, 1f, 1f, 0.1f)); // Match vanilla/BWT subtle divider
                 }
 
                 curX += _columnWidth;
@@ -355,7 +335,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
             string title = WorkGiverDisplayNameService.FullLabel(wg.def);
             string desc = wg.def.description;
-            string workType = wg.def.workType?.LabelCap ?? _workType?.labelShort?.CapitalizeFirst();
+            string workType = WorkTypeDisplayNameService.FullLabel(wg.def.workType ?? _workType);
 
             System.Text.StringBuilder sb = new System.Text.StringBuilder(128);
             sb.Append(title.Colorize(TooltipTitleColor));
@@ -507,7 +487,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
         private Rect GetBoundingRectFromQuad(Vector2[] quad)
         {
-            if (quad == null || quad.Length == 0) return new Rect(0f, 0f, 0f, 0f);
+            if (quad == null || quad.Length == 0) return Better_Work_Tab.RectCompat.Zero;
             float minX = quad[0].x;
             float maxX = quad[0].x;
             float minY = quad[0].y;
@@ -537,7 +517,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             Rect stemRect = new Rect(textRect.center.x, stemTop, StemWidth, StemBaseHeight);
 
             GUI.color = HeaderUtility.Colors.VanillaStemColor;
-            WidgetsCompat.DrawBoxSolid(stemRect, GUI.color);
+            Better_Work_Tab.WidgetsCompat.DrawBoxSolid(stemRect, GUI.color);
         }
 
         private void HandleHeaderDrag(int index, bool isHovered)
@@ -580,25 +560,25 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         private void DrawDragOverlay(float headerY, float boxY)
         {
             float totalHeight = (boxY - headerY) + PriorityRowHeight;
-            _dragHandler.DrawDragOverlay(ContentPadding, _columnWidth, headerY, totalHeight, _workGivers, _baselineTracker);
+            _dragHandler.DrawDragOverlay(WindowPadding, _columnWidth, headerY, totalHeight, _workGivers, _baselineTracker);
         }
 
         private void DrawFooter(float boxY, float contentWidth)
         {
             // Only show footer in global window, not pawn-specific windows
             if (_pawn != null) return;
-            
+
             Rect footerRect = new Rect(0, boxY + PriorityRowHeight + 5f, contentWidth, FooterHeight);
             Widgets.DrawLineHorizontal(footerRect.x, footerRect.y, footerRect.width);
-            
+
             List<Pawn> overrides = WorkGiverReassignmentManager.GetPawnsWithOverrides(_workType);
             int count = overrides.Count;
-            
+
             Rect textRect = new Rect(footerRect.x + 5f, footerRect.y + 8f, footerRect.width - 40f, 24f);
             Widgets.Label(textRect, $"Pawns with overrides: {count}");
-            
+
             Rect btnRect = new Rect(footerRect.xMax - 30f, footerRect.y + 8f, 24f, 24f);
-            if (WidgetsCompat.ButtonText(btnRect, "▼"))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(btnRect, "â–¼"))
             {
                 ShowPawnDropdown(overrides);
             }

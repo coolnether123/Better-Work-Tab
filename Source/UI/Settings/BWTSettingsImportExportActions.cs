@@ -13,7 +13,6 @@ namespace Better_Work_Tab.UI.Settings
     public static class BWTSettingsImportExportActions
     {
         private const string DefaultFileName = "BetterWorkTabSettings.json";
-        private static string _legacyClipboardBuffer = string.Empty;
 
         public static SettingsImportExportActions Create(BetterWorkTabSettings settings, Action afterImport)
         {
@@ -33,14 +32,22 @@ namespace Better_Work_Tab.UI.Settings
 
         private static void ExportToClipboard(BetterWorkTabSettings settings)
         {
-            SetClipboard(BWTSettingsJsonService.Export(settings));
-            MessageCompat.Message("Better Work Tab settings copied to clipboard.", MessageTypeDefOf.PositiveEvent, false);
+            try
+            {
+                Better_Work_Tab.ClipboardCompat.SystemCopyBuffer = BWTSettingsJsonService.Export(settings);
+                MessageCompat.Message("All Better Work Tab settings data copied to clipboard.", MessageTypeDefOf.PositiveEvent, false);
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"[Better Work Tab] Failed to export settings to the clipboard: {ex}");
+                MessageCompat.Message("Failed to export Better Work Tab settings. Check the log for details.", MessageTypeDefOf.RejectInput, false);
+            }
         }
 
         private static void ShowExportPathDialog(BetterWorkTabSettings settings)
         {
             Find.WindowStack.Add(new Dialog_BWTSettingsJsonPath(
-                "Export Better Work Tab Settings",
+                "Export All Better Work Tab Settings Data",
                 DefaultPath,
                 "Export",
                 path =>
@@ -54,7 +61,7 @@ namespace Better_Work_Tab.UI.Settings
                         }
 
                         File.WriteAllText(path, BWTSettingsJsonService.Export(settings));
-                        MessageCompat.Message($"Better Work Tab settings exported to {path}.", MessageTypeDefOf.PositiveEvent, false);
+                        MessageCompat.Message($"All Better Work Tab settings data exported to {path}.", MessageTypeDefOf.PositiveEvent, false);
                     }
                     catch (Exception ex)
                     {
@@ -66,25 +73,7 @@ namespace Better_Work_Tab.UI.Settings
 
         private static void ImportFromClipboard(BetterWorkTabSettings settings, Action afterImport)
         {
-            TryImport(settings, GetClipboard(), afterImport);
-        }
-
-        private static void SetClipboard(string value)
-        {
-#if v0_13 || vAlpha4
-            _legacyClipboardBuffer = value ?? string.Empty;
-#else
-            GUIUtility.systemCopyBuffer = value ?? string.Empty;
-#endif
-        }
-
-        private static string GetClipboard()
-        {
-#if v0_13 || vAlpha4
-            return _legacyClipboardBuffer ?? string.Empty;
-#else
-            return GUIUtility.systemCopyBuffer ?? string.Empty;
-#endif
+            TryImport(settings, Better_Work_Tab.ClipboardCompat.SystemCopyBuffer, afterImport);
         }
 
         private static void ShowImportPathDialog(BetterWorkTabSettings settings, Action afterImport)
@@ -128,7 +117,7 @@ namespace Better_Work_Tab.UI.Settings
         private static void ConfirmImport(Action action)
         {
             Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
-                "Importing Better Work Tab settings will overwrite current configurable settings. Continue?",
+                "Importing will overwrite all Better Work Tab settings data, including rulesets, layout state, viewed-setting history, and recent colors. Continue?",
                 action,
                 destructive: true,
                 title: "Import Better Work Tab Settings"));
