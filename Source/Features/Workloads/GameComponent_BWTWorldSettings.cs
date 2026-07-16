@@ -1,5 +1,6 @@
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.TimePriority;
+using Better_Work_Tab.Features.Testing;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Mod_Support.LocalProfiles;
 using Better_Work_Tab.Mod_Support.Multiplayer;
@@ -26,7 +27,9 @@ namespace Better_Work_Tab.Features.Workloads
         public List<PawnDivider> ActiveDividers = new List<PawnDivider>();
         public WorkGiverReassignmentData WorkGiverReassignments = new WorkGiverReassignmentData();
         public List<TimePriorityScheduleData> TimePrioritySchedules = new List<TimePriorityScheduleData>();
-        public int FluffyWorkTabPriorityMigrationVersion;
+        public Dictionary<string, string> CustomWorkTypeLabels = new Dictionary<string, string>(System.StringComparer.Ordinal);
+        public Dictionary<string, string> CustomWorkGiverLabels = new Dictionary<string, string>(System.StringComparer.Ordinal);
+        public int ExternalWorkTabPriorityMigrationVersion;
         private int _lastTimePriorityHour = -1;
 
         public GameComponent_BWTWorldSettings(Game game) : base()
@@ -37,8 +40,17 @@ namespace Better_Work_Tab.Features.Workloads
         {
             base.FinalizeInit();
 
+            TimePriorityScheduleEditor.ResetForGameTransition();
+
             if (MultiplayerBridge.Active)
+            {
+                // Local profiles use a standalone Scribe document. Game.FinalizeInit runs only
+                // after the save game's ScribeLoader.FinalizeLoading has completed, so this is
+                // the safe lifecycle boundary for profile I/O. Never move this call into
+                // ExposeData: doing so nests the global Scribe loader and invalidates RimWorld's
+                // PostLoadIniter enumeration during Multiplayer save/reload.
                 BWTLocalProfileStore.LoadOrCreateForCurrentSession();
+            }
 
             WorkColumnOrderManager.InitializeOnGameLoad();
 
@@ -51,8 +63,12 @@ namespace Better_Work_Tab.Features.Workloads
             WorkGiverReassignmentManager.MigrateLegacySettingsDataIfNeeded(this);
             ColumnBaselineManager.EnsureBaseline(this);
             TimePriorityService.NotifyLoaded();
-            FluffyWorkTabMigration.MigrateIfNeeded(this);
+            FluffyWorkTabGateway.MigratePriorityDataIfNeeded(this);
 
+            SpineTiming.Configure(
+                message => BetterWorkTabMod.DebugLog(message, DebugFeature.Performance),
+                () => WorkTabProfilingState.OpenSeconds,
+                "Work tab open");
             SpineTiming.Enabled = BetterWorkTabMod.Settings?.enableProfiler ?? false;
         }
 
@@ -71,30 +87,34 @@ namespace Better_Work_Tab.Features.Workloads
                 currentWorklistName = CurrentWorklist.RenamableLabel;
             }
 
-            Better_Work_Tab.ScribeCompat.LookValue(ref currentWorklistName, "currentWorklistName");
-            Better_Work_Tab.ScribeCompat.LookCollection(ref ColumnBaselineOrder, "columnBaselineOrder", LookMode.Value);
-            Better_Work_Tab.ScribeCompat.LookCollection(ref ColumnCurrentOrder, "columnCurrentOrder", LookMode.Value);
-            Better_Work_Tab.ScribeCompat.LookDeep(ref WorkGiverReassignments, "workGiverReassignments");
-            Better_Work_Tab.ScribeCompat.LookCollection(ref TimePrioritySchedules, "timePrioritySchedules", LookMode.Deep);
-            Better_Work_Tab.ScribeCompat.LookValue(ref FluffyWorkTabPriorityMigrationVersion, "fluffyWorkTabPriorityMigrationVersion", 0);
+            ScribeCompat.LookValue(ref currentWorklistName, "currentWorklistName");
+            ScribeCompat.LookCollection(ref ColumnBaselineOrder, "columnBaselineOrder", LookMode.Value);
+            ScribeCompat.LookCollection(ref ColumnCurrentOrder, "columnCurrentOrder", LookMode.Value);
+            ScribeCompat.LookDeep(ref WorkGiverReassignments, "workGiverReassignments");
+            ScribeCompat.LookCollection(ref TimePrioritySchedules, "timePrioritySchedules", LookMode.Deep);
+            FluffyWorkTabGateway.ExposePriorityMigrationVersion(ref ExternalWorkTabPriorityMigrationVersion);
+            ScribeCompat.LookStringDictionary(ref CustomWorkTypeLabels, "customWorkTypeLabels");
+            ScribeCompat.LookStringDictionary(ref CustomWorkGiverLabels, "customWorkGiverLabels");
+
+            if (Scribe.mode == LoadSaveMode.PostLoadInit)
+            {
+                CustomWorkTypeLabels = NormalizeLabelDictionary(CustomWorkTypeLabels);
+                CustomWorkGiverLabels = NormalizeLabelDictionary(CustomWorkGiverLabels);
+            }
 
             if (!MultiplayerBridge.Active)
             {
-                Better_Work_Tab.ScribeCompat.LookCollection(ref SavedWorklists, "SavedWorklists", LookMode.Deep, new object[0]);
-                Better_Work_Tab.ScribeCompat.LookDeep(ref CurrentWorklist, "CurrentWorklist");
-                Better_Work_Tab.ScribeCompat.LookCollection(ref ActiveDividers, "ActiveDividers", LookMode.Deep);
+                ScribeCompat.LookCollection(ref SavedWorklists, "SavedWorklists", LookMode.Deep, new object[0]);
+                ScribeCompat.LookDeep(ref CurrentWorklist, "CurrentWorklist");
+                ScribeCompat.LookCollection(ref ActiveDividers, "ActiveDividers", LookMode.Deep);
             }
             else
             {
-                if (Scribe.mode == LoadSaveMode.PostLoadInit)
-                {
-                    BWTLocalProfileStore.LoadOrCreateForCurrentSession();
-                }
-
                 if (Scribe.mode == LoadSaveMode.Saving)
                 {
-                    // Don't call SaveIfDirty() here - it would nest Scribe operations!
-                    // Just mark dirty; the timer in GameComponentUpdate() will save it
+                    // Local profiles are separate per-player documents. Mark the profile dirty
+                    // here, then let GameComponentUpdate save it after the enclosing game save
+                    // has released the global Scribe state.
                     BWTLocalProfileStore.MarkDirty();
                 }
             }
@@ -191,6 +211,25 @@ namespace Better_Work_Tab.Features.Workloads
 
             WorkGiverReassignments.EnsureCollections();
             return WorkGiverReassignments;
+        }
+
+        private static Dictionary<string, string> NormalizeLabelDictionary(Dictionary<string, string> labels)
+        {
+            var normalized = new Dictionary<string, string>(System.StringComparer.Ordinal);
+            if (labels == null)
+            {
+                return normalized;
+            }
+
+            foreach (var entry in labels)
+            {
+                if (!entry.Key.NullOrEmpty() && !entry.Value.NullOrEmpty())
+                {
+                    normalized[entry.Key] = entry.Value.Trim();
+                }
+            }
+
+            return normalized;
         }
 
         private int _profileSaveTimer = 0;

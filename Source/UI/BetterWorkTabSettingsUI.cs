@@ -1,4 +1,5 @@
 using Better_Work_Tab;
+using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.UI.Settings;
 using Spine.UI.SettingsFramework;
 using UnityEngine;
@@ -20,6 +21,7 @@ namespace Better_Work_Tab.UI
         public static void DoSettingsWindowContents(Rect inRect, BetterWorkTabSettings settings)
         {
             EnsureDrawerInitialized();
+            FluffyWorkTabGateway.DrawSettingsBannerIfNeeded(ref inRect);
 
             _viewMode = settings.settingsViewMode == BetterWorkTabSettings.SettingsViewMode.Simple
                 ? SettingsViewMode.Simple
@@ -71,6 +73,8 @@ namespace Better_Work_Tab.UI
                 AdvancedLabel = BWTSettingsTranslation.Advanced,
                 NoResultsLabel = BWTSettingsTranslation.NoResults,
                 EditColorLabel = BWTSettingsTranslation.Edit,
+                ColorPreviewTooltip = "Hover here or adjust the picker to preview this color live on the Work tab.",
+                ColorPreviewSink = WorkTabColorPreviewController.Instance,
                 Filters = BWTSettingsFilters.Create(),
                 FilterLabel = "Filter",
                 AllSettingsFilterLabel = "All Settings",

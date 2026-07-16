@@ -20,6 +20,10 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
         private readonly RuleBuilder2PreviewView previewView;
         private Vector2 editorScroll;
         private Vector2 editorWindowOffset;
+        private const float RuleHeaderNameHeight = 28f;
+        private const float RuleHeaderSentenceGap = 6f;
+        private const float RuleHeaderBottomPadding = 4f;
+        private const int RuleHeaderMaxSentenceLines = 3;
 
         internal RuleBuilder2EditorView(
             Window_RuleBuilder2 window,
@@ -68,8 +72,9 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             Widgets.BeginScrollView(inner, ref editorScroll, view);
 
             float y = 0f;
-            DrawRuleHeader(new Rect(0f, y, view.width, 58f), card);
-            y += 66f;
+            float headerHeight = GetRuleHeaderHeight(inner, card, view.width);
+            DrawRuleHeader(new Rect(0f, y, view.width, headerHeight), card);
+            y += headerHeight + layout.Metrics.Gap;
 
             float targetHeight = card.Target.HasTarget ? layout.Metrics.TargetSelectedHeight : Mathf.Max(260f, inner.height - 120f);
             targetPickerView.DrawTargetSection(new Rect(0f, y, view.width, targetHeight), card);
@@ -132,12 +137,19 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
         private void DrawRuleHeader(Rect rect, RuleBuilder2Card card)
         {
-            Rect name = new Rect(rect.x, rect.y, Mathf.Min(360f, rect.width * 0.48f), 28f);
-            Rect sentence = new Rect(rect.x, name.yMax + 6f, rect.width, 24f);
+            Rect name = new Rect(rect.x, rect.y, Mathf.Min(360f, rect.width * 0.48f), RuleHeaderNameHeight);
+            string sentenceText = BuildRuleSentenceSummary(flow, window.ActiveSurface, card);
+            bool sentenceClamped;
+            float sentenceHeight = GetRuleSentenceHeight(sentenceText, rect.width, out sentenceClamped);
+            Rect sentence = new Rect(rect.x, name.yMax + RuleHeaderSentenceGap, rect.width, sentenceHeight);
             card.Name = Widgets.TextField(name, card.Name ?? "");
             GUI.color = Color.gray;
-            DrawFittedLabel(sentence, BuildRuleSentenceSummary(flow, window.ActiveSurface, card));
+            DrawWrappedLabel(sentence, sentenceText);
             GUI.color = Color.white;
+            if (sentenceClamped)
+            {
+                TooltipHandler.TipRegion(sentence, sentenceText);
+            }
         }
 
         private void DrawMapCheck(Rect rect, RuleBuilder2Card card)
@@ -202,7 +214,8 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
         private float GetEditorContentHeight(Rect inner, RuleBuilder2Card card)
         {
-            float height = 66f;
+            float width = Mathf.Max(1f, inner.width - 16f);
+            float height = GetRuleHeaderHeight(inner, card, width) + layout.Metrics.Gap;
             height += (card.Target.HasTarget ? layout.Metrics.TargetSelectedHeight : Mathf.Max(260f, inner.height - 120f)) + layout.Metrics.Gap;
             if (card.Target.HasTarget)
             {
@@ -212,6 +225,22 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             }
 
             return height + 56f;
+        }
+
+        private float GetRuleHeaderHeight(Rect inner, RuleBuilder2Card card, float width)
+        {
+            string sentence = BuildRuleSentenceSummary(flow, window.ActiveSurface, card);
+            bool unused;
+            float measuredWidth = Mathf.Max(1f, Mathf.Min(width, inner.width - 16f));
+            return RuleHeaderNameHeight +
+                   RuleHeaderSentenceGap +
+                   GetRuleSentenceHeight(sentence, measuredWidth, out unused) +
+                   RuleHeaderBottomPadding;
+        }
+
+        private static float GetRuleSentenceHeight(string sentence, float width, out bool clamped)
+        {
+            return ClampWrappedHeight(sentence, width, RuleHeaderMaxSentenceLines, out clamped);
         }
 
         private float GetConditionsHeight(RuleBuilder2Card card)
