@@ -102,11 +102,7 @@ namespace Better_Work_Tab.UI
             );
         }
 
-#if v0_13
-        public override Vector2 InitialWindowSize => new Vector2(800f, 600f);
-#else
         public override Vector2 InitialSize => new Vector2(800f, 600f);
-#endif
 
         private BetterWorkTabSettings Settings => BetterWorkTabMod.Settings;
         private readonly QuickSearchWidget quickSearch = new QuickSearchWidget();
@@ -283,7 +279,7 @@ namespace Better_Work_Tab.UI
             var oldColor = GUI.color;
             if (uneditable) GUI.color = Color.gray;
 
-            Better_Work_Tab.WidgetsCompat.CheckboxLabeled(rowRect, label, ref value, disabled: uneditable);
+            Widgets.CheckboxLabeled(rowRect, label, ref value, disabled: uneditable);
             field.SetValue(SelectedRule.Parameters, value);
 
             GUI.color = oldColor;
@@ -347,7 +343,7 @@ namespace Better_Work_Tab.UI
             if (uneditable) GUI.color = Color.gray;
 
             Gender? value = (Gender?)field.GetValue(SelectedRule.Parameters);
-            if (Better_Work_Tab.WidgetsCompat.ButtonText(valueRect, value?.ToString() ?? "Unassigned", active: !uneditable))
+            if (Widgets.ButtonText(valueRect, value?.ToString() ?? "Unassigned", active: !uneditable))
             {
                 List<FloatMenuOption> enums = new List<FloatMenuOption>()
                 {
@@ -395,7 +391,7 @@ namespace Better_Work_Tab.UI
             var oldColor = GUI.color;
             if (uneditable) GUI.color = Color.gray;
 
-            if (Better_Work_Tab.WidgetsCompat.ButtonText(valueRect, buttonLabel, active: !uneditable))
+            if (Widgets.ButtonText(valueRect, buttonLabel, active: !uneditable))
             {
                 List<FloatMenuOption> defOptions = new List<FloatMenuOption>()
                 {
@@ -432,7 +428,7 @@ namespace Better_Work_Tab.UI
             var oldColor = GUI.color;
             if (uneditable) GUI.color = Color.gray;
 
-            bool clicked = Better_Work_Tab.WidgetsCompat.ButtonImageWithBG(valueRect, value?.Icon ?? TexButton.CloseXSmall, XenotypeIconSize);
+            bool clicked = Widgets.ButtonImageWithBG(valueRect, value?.Icon ?? TexButton.CloseXSmall, XenotypeIconSize);
             if (!uneditable && clicked)
             {
                 List<FloatMenuOption> defOptions = new List<FloatMenuOption>()
@@ -486,7 +482,7 @@ namespace Better_Work_Tab.UI
                 buttonRect.x = rowRect.xMax - buttonRect.width;
             }
 
-            if (Better_Work_Tab.WidgetsCompat.ButtonText(buttonRect, buttonLabel, active: !uneditable))
+            if (Widgets.ButtonText(buttonRect, buttonLabel, active: !uneditable))
             {
                 List<FloatMenuOption> list = new List<FloatMenuOption>()
                 {
@@ -553,13 +549,13 @@ namespace Better_Work_Tab.UI
             Rect rightRect = rect.RightPart(0.33f);
             //Rect midRect = rect.MiddlePart(0.33f, 1f);
 
-            if (Better_Work_Tab.WidgetsCompat.ButtonText(leftRect, "-1", active: !disabled))
+            if (Widgets.ButtonText(leftRect, "-1", active: !disabled))
             {
                 value -= 1 * multiplier;
                 UISoundCompat.TickTiny.PlayOneShotOnCamera();
                 editBuffer = value.ToString();
             }
-            if (Better_Work_Tab.WidgetsCompat.ButtonText(rightRect, "+1", active: !disabled))
+            if (Widgets.ButtonText(rightRect, "+1", active: !disabled))
             {
                 value += 1 * multiplier;
                 UISoundCompat.TickTiny.PlayOneShotOnCamera();
@@ -574,7 +570,7 @@ namespace Better_Work_Tab.UI
             }
             else
             {
-                //Better_Work_Tab.WidgetsCompat.TextFieldNumeric(midRect, ref value, ref editBuffer);
+                //Widgets.TextFieldNumeric(midRect, ref value, ref editBuffer);
             }
             value = Mathf.Clamp(value, minValue, maxValue);
             GUI.color = oldColor;
@@ -630,14 +626,14 @@ namespace Better_Work_Tab.UI
             rect3.SplitHorizontally(rect3.height * 0.5f, out Rect topRect, out Rect bottomRect);
 
             if (uneditable) GUI.color = Color.gray;
-            if (Better_Work_Tab.WidgetsCompat.ButtonText(topRect, "BWT_NewRule".Translate(), active: !uneditable))
+            if (Widgets.ButtonText(topRect, "BWT_NewRule".Translate(), active: !uneditable))
             {
                 string ruleName = $"{ "BWT_NewRule".Translate() } {selectedRuleset.Rules.Count + 1}";
                 WorkAssignmentRule newRule = new WorkAssignmentRule(new WorkAssignmentParameters(ruleName, 0));
                 selectedRuleset.Rules.Add(newRule);
                 SelectedRule = newRule;
             }
-            if (Better_Work_Tab.WidgetsCompat.ButtonText(bottomRect, "BWT_DuplicateRule".Translate(), active: !uneditable))
+            if (Widgets.ButtonText(bottomRect, "BWT_DuplicateRule".Translate(), active: !uneditable))
             {
                 if (SelectedRule != null)
                 {
@@ -877,7 +873,7 @@ namespace Better_Work_Tab.UI
             rect6.x = rect4.xMax - rect6.width - (selectedRuleset.Rules.Count >= 13 ? 20f : 0);
             rect6.y = rect4.y + (rect4.height - rect6.height) / 2f;
 
-            if (Better_Work_Tab.WidgetsCompat.ButtonImage(rect6, TexButton.DeleteX))
+            if (Widgets.ButtonImage(rect6, RimWorld.TexButton.DeleteX))
             {
                 ruleToRemove = currentRule;
                 SelectedRule = null;

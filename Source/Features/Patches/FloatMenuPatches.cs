@@ -15,40 +15,18 @@ using Verse.AI;
 
 namespace Better_Work_Tab.Patches
 {
+#if !v0_15
     /// <summary>
-    /// Backport of the 1.6 "do once / open work tab" float-menu options.
-    /// Older APIs build options in different FloatMenuMakerMap methods, so we
+    /// Backport of the 1.6 "do once / open work tab" float-menu options to 1.5.
+    /// The 1.5 API builds options in FloatMenuMakerMap.AddJobGiverWorkOrders, so we
     /// add our extras in a postfix while keeping vanilla options intact.
     /// </summary>
-#if !v0_15
-#if v0_18 || v0_17 || v0_16
-    [HarmonyPatch(typeof(FloatMenuMakerMap), "ChoicesAtFor")]
-#else
     [HarmonyPatch(typeof(FloatMenuMakerMap), "AddJobGiverWorkOrders")]
-#endif
     public static class Patch_FloatMenuMakerMap_AddJobGiverWorkOrders
     {
-#if v0_18 || v0_17 || v0_16
-        public static void Postfix(Vector3 clickPos, Pawn pawn, List<FloatMenuOption> __result)
-        {
-            AddNotAssignedWorkOptions(IntVec3.FromVector3(clickPos), pawn, __result, pawn?.Drafted ?? false);
-        }
-#elif v1_3 || v1_2 || v1_1 || (v1_0 || v0_19)
+#if v1_3 || v1_2 || v1_1 || (v1_0 || v0_19)
         public static void Postfix(IntVec3 clickCell, Pawn pawn, List<FloatMenuOption> opts, bool drafted)
         {
-            AddNotAssignedWorkOptions(clickCell, pawn, opts, drafted);
-        }
-#else
-        public static void Postfix(Vector3 clickPos, Pawn pawn, List<FloatMenuOption> opts, bool drafted)
-        {
-            AddNotAssignedWorkOptions(IntVec3.FromVector3(clickPos), pawn, opts, drafted);
-        }
-#endif
-
-        private static void AddNotAssignedWorkOptions(IntVec3 clickCell, Pawn pawn, List<FloatMenuOption> opts, bool drafted)
-        {
-            DoOnceSupport.EnsureBwtOwnsUnassignedWorkMenu();
-
             // Only relevant if work settings exist.
             if (pawn?.workSettings == null)
             {
@@ -59,6 +37,27 @@ namespace Better_Work_Tab.Patches
             {
                 return;
             }
+#else
+        public static void Postfix(Vector3 clickPos, Pawn pawn, List<FloatMenuOption> opts, bool drafted)
+        {
+            if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabPriorityFeatures)
+            {
+                return;
+            }
+
+            DoOnceSupport.EnsureBwtOwnsUnassignedWorkMenu();
+
+            if (pawn?.workSettings == null)
+            {
+                return;
+            }
+
+            IntVec3 clickCell = IntVec3.FromVector3(clickPos);
+            if (pawn.Map == null || !clickCell.InBounds(pawn.Map))
+            {
+                return;
+            }
+#endif
 
             foreach (WorkTypeDef workType in DefDatabase<WorkTypeDef>.AllDefsListForReading)
             {
@@ -176,7 +175,11 @@ namespace Better_Work_Tab.Patches
             WorkGiverDef workGiver,
             WorkGiver_Scanner scanner,
             List<FloatMenuOption> opts,
+#if v0_15
+            TargetInfo target,
+#else
             LocalTargetInfo target,
+#endif
             IntVec3 clickedCell,
             Job job,
             string timeReason)
@@ -219,12 +222,12 @@ namespace Better_Work_Tab.Patches
 #if v1_2 || v1_1 || v1_0 || v0_19 || v0_18 || v0_17 || v0_16 || v0_15 || v0_14 || v0_13 || vAlpha4
                     opts.Add(new FloatMenuOption(
                         openScheduleLabel,
-                        () => TimePriorityPlannerPrototype.OpenForFloatMenu(pawn, workType, workGiver),
+                        () => TimePriorityScheduleEditor.OpenForFloatMenu(pawn, workType, workGiver),
                         priority: MenuOptionPriority.VeryLow));
 #else
                     opts.Add(new FloatMenuOption(
                         openScheduleLabel,
-                        () => TimePriorityPlannerPrototype.OpenForFloatMenu(pawn, workType, workGiver),
+                        () => TimePriorityScheduleEditor.OpenForFloatMenu(pawn, workType, workGiver),
                         orderInPriority: -1));
 #endif
                 }
@@ -248,22 +251,17 @@ namespace Better_Work_Tab.Patches
 
             if (!opts.Any(o => o.Label == openTabLabel))
             {
-#if v0_16 || v0_15 || v0_14 || v0_13 || vAlpha4
+#if v1_2 || v1_1 || v1_0 || v0_19 || v0_18 || v0_17 || v0_16 || v0_15 || v0_14 || v0_13 || vAlpha4
                 opts.Add(new FloatMenuOption(
                     openTabLabel,
                     () =>
                     {
                         HighlightState.SetWorktypeToHighlight(pawn, workType);
+#if v0_16
                         Find.MainTabsRoot.SetCurrentTab(DefDatabase<MainTabDef>.GetNamed("Work", false));
-                    },
-                    MenuOptionPriority.Low));
-#elif v1_2 || v1_1 || (v1_0 || v0_19)
-                opts.Add(new FloatMenuOption(
-                    openTabLabel,
-                    () =>
-                    {
-                        HighlightState.SetWorktypeToHighlight(pawn, workType);
+#else
                         Find.MainTabsRoot.SetCurrentTab(MainButtonDefOf.Work);
+#endif
                     },
                     priority: MenuOptionPriority.VeryLow));
 #else
@@ -308,8 +306,8 @@ namespace Better_Work_Tab.Patches
                 }
             }
 
-#if v0_15 || v0_16
-            var option = new FloatMenuOption(doOnceLabel, AssignOnce, MenuOptionPriority.Low);
+#if v0_16
+            var option = new FloatMenuOption(doOnceLabel, AssignOnce, MenuOptionPriority.VeryLow);
 #elif v1_2 || v1_1 || (v1_0 || v0_19)
             var option = FloatMenuUtility.DecoratePrioritizedTask(
                 new FloatMenuOption(doOnceLabel, AssignOnce),
@@ -362,7 +360,7 @@ namespace Better_Work_Tab.Patches
 
             if (BetterWorkTabMod.Settings?.enableSubWorkDrilldown ?? false)
             {
-                TimePriorityPlannerPrototype.CloseForWorkModeTransition();
+                TimePriorityScheduleEditor.CloseForWorkModeTransition();
                 SubWorkDrilldownState.Enter(
                     targetWorkType,
                     baseHeaderDrawWidth: SubWorkDrilldownHeaderGeometry.GetBaseHeaderDrawWidth(null, -1f));
@@ -383,11 +381,9 @@ namespace Better_Work_Tab.Patches
 #endif
 
 
-#if !v0_16
     [DefOf]
     public static class MainButtonDefOf
     {
         public static MainButtonDef Work;
     }
-#endif
 }

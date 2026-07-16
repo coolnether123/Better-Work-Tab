@@ -1,12 +1,11 @@
 using System;
 using System.Reflection;
 using HarmonyLib;
-using ModAPI.Core;
-using ModAPI.Reflection;
+using Spine.Harmony.Infrastructure;
 using System.Linq;
 using System.Collections.Generic;
 
-namespace ModAPI.Harmony
+namespace Spine.Harmony
 {
     /// <summary>
     /// Provides safe, high-level utilities for Harmony patching and reflection.
@@ -80,7 +79,7 @@ namespace ModAPI.Harmony
 
         /// <summary>
         /// Safely invokes a method via reflection, returning the result or default(T) on failure.
-        /// Wraps ModAPI.Reflection.Safe.TryCall.
+        /// Wraps the Spine compatibility reflection helper.
         /// </summary>
         public static T SafeInvoke<T>(object instance, string methodName, params object[] args)
         {

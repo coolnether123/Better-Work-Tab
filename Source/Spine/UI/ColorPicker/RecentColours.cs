@@ -25,6 +25,38 @@ namespace Spine.UI.ColourPicker {
         public IList<Color> PinnedColors => _pinnedColors;
         public int PinnedCount => _pinnedColors.Count;
 
+        public static List<Color> CopyRecentColors()
+        {
+            return new List<Color>(_colors ?? new List<Color>());
+        }
+
+        public static List<Color> CopyPinnedColors()
+        {
+            return new List<Color>(_pinnedColors ?? new List<Color>());
+        }
+
+        public static void ReplaceAll(IEnumerable<Color> recentColors, IEnumerable<Color> pinnedColors)
+        {
+            _colors = recentColors == null
+                ? new List<Color>()
+                : new List<Color>(recentColors);
+            _pinnedColors = pinnedColors == null
+                ? new List<Color>()
+                : new List<Color>(pinnedColors);
+
+            if (_colors.Count > max)
+            {
+                _colors.RemoveRange(max, _colors.Count - max);
+            }
+
+            if (_pinnedColors.Count > maxPinned)
+            {
+                _pinnedColors.RemoveRange(maxPinned, _pinnedColors.Count - maxPinned);
+            }
+
+            Write();
+        }
+
         public void Add(Color color) {
             _colors.RemoveAll(c => ColorsEqual(c, color));
             _colors.Insert(0, color);

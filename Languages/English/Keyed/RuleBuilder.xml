@@ -94,6 +94,10 @@
   <BWT_Change>Change</BWT_Change>
   <BWT_Edit>Edit</BWT_Edit>
   <BWT_Delete>Delete</BWT_Delete>
+  <BWT_SubWork_MoveSpecificJobToWork>Move specific job to {0}</BWT_SubWork_MoveSpecificJobToWork>
+  <BWT_SubWork_MoveSpecificJobSameWork>Already in this Work</BWT_SubWork_MoveSpecificJobSameWork>
+  <BWT_SubWork_MoveSpecificJobFailed>Could not move specific job: {0}</BWT_SubWork_MoveSpecificJobFailed>
+  <BWT_SubWork_MoveSpecificJobFailedNoReason>Could not move specific job.</BWT_SubWork_MoveSpecificJobFailedNoReason>
   <BWT_RuleBuilder2_Title>Rule Builder 2.0</BWT_RuleBuilder2_Title>
   <BWT_RuleBuilder2_OpenClassic>Open classic ruleset builder...</BWT_RuleBuilder2_OpenClassic>
   <BWT_RuleBuilder2_Dashboard>Rules</BWT_RuleBuilder2_Dashboard>
@@ -124,13 +128,13 @@
   <BWT_RuleBuilder2_StatConfirmed>saved</BWT_RuleBuilder2_StatConfirmed>
   <BWT_RuleBuilder2_StatConfirmed_Tooltip>Saved rules are part of the active ruleset and can be applied.</BWT_RuleBuilder2_StatConfirmed_Tooltip>
   <BWT_RuleBuilder2_StatReview>draft</BWT_RuleBuilder2_StatReview>
-  <BWT_RuleBuilder2_StatReview_Tooltip>Draft rules still need target, condition, or action details before saving.</BWT_RuleBuilder2_StatReview_Tooltip>
+  <BWT_RuleBuilder2_StatReview_Tooltip>Draft rules still need Work type, conditions, or action details before saving.</BWT_RuleBuilder2_StatReview_Tooltip>
   <BWT_RuleBuilder2_StatSubWork>jobs</BWT_RuleBuilder2_StatSubWork>
   <BWT_RuleBuilder2_StatSubWork_Tooltip>Rules targeting one specific job instead of a whole Work type.</BWT_RuleBuilder2_StatSubWork_Tooltip>
   <BWT_RuleBuilder2_StatSchedules>schedules</BWT_RuleBuilder2_StatSchedules>
   <BWT_RuleBuilder2_StatSchedules_Tooltip>Rules that change priority by hour instead of using one all-day priority.</BWT_RuleBuilder2_StatSchedules_Tooltip>
   <BWT_RuleBuilder2_TableOn>On</BWT_RuleBuilder2_TableOn>
-  <BWT_RuleBuilder2_TableTarget>Target</BWT_RuleBuilder2_TableTarget>
+  <BWT_RuleBuilder2_TableTarget>What</BWT_RuleBuilder2_TableTarget>
   <BWT_RuleBuilder2_TableConditions>Conditions</BWT_RuleBuilder2_TableConditions>
   <BWT_RuleBuilder2_TableAction>Action</BWT_RuleBuilder2_TableAction>
   <BWT_RuleBuilder2_TableEdit>Edit</BWT_RuleBuilder2_TableEdit>
@@ -149,12 +153,12 @@
   <BWT_RuleBuilder2_RuleCard>Rule</BWT_RuleBuilder2_RuleCard>
   <BWT_RuleBuilder2_Unconfirmed>Editing. Save this rule to include it in the ruleset.</BWT_RuleBuilder2_Unconfirmed>
   <BWT_RuleBuilder2_EmptyEditorHint>Add a rule or click a Work tab header to start.</BWT_RuleBuilder2_EmptyEditorHint>
-  <BWT_RuleBuilder2_ReadOnlySentence>Set {0} when {1} then {2}</BWT_RuleBuilder2_ReadOnlySentence>
+  <BWT_RuleBuilder2_ReadOnlySentence>For {0}, {1}: {2}</BWT_RuleBuilder2_ReadOnlySentence>
   <BWT_RuleBuilder2_SaveRule>Save rule</BWT_RuleBuilder2_SaveRule>
   <BWT_RuleBuilder2_DeleteRule>Delete rule</BWT_RuleBuilder2_DeleteRule>
-  <BWT_RuleBuilder2_TargetBlockTitle>Target</BWT_RuleBuilder2_TargetBlockTitle>
+  <BWT_RuleBuilder2_TargetBlockTitle>What to set</BWT_RuleBuilder2_TargetBlockTitle>
   <BWT_RuleBuilder2_StepTarget>1. Choose Work</BWT_RuleBuilder2_StepTarget>
-  <BWT_RuleBuilder2_WorkTabHint>Hover the Work tab to preview a target. Click a header or priority box to use it. The drilldown shortcut still opens specific jobs.</BWT_RuleBuilder2_WorkTabHint>
+  <BWT_RuleBuilder2_WorkTabHint>Hover the Work tab to preview a Work type. Click a header or priority box to use it. The drilldown shortcut still opens specific jobs.</BWT_RuleBuilder2_WorkTabHint>
   <BWT_RuleBuilder2_TargetNoMatches>No matching work found.</BWT_RuleBuilder2_TargetNoMatches>
   <BWT_RuleBuilder2_TargetWholeWork>whole Work</BWT_RuleBuilder2_TargetWholeWork>
   <BWT_RuleBuilder2_TargetSpecificJob>specific job</BWT_RuleBuilder2_TargetSpecificJob>
@@ -174,9 +178,9 @@
   <BWT_RuleBuilder2_ActionModeDailyPlan>Daily plan</BWT_RuleBuilder2_ActionModeDailyPlan>
   <BWT_RuleBuilder2_ActionModeDailyPlan_Tooltip>Set priorities by hour for the selected Work or specific job.</BWT_RuleBuilder2_ActionModeDailyPlan_Tooltip>
   <BWT_RuleBuilder2_ActionModeDisable>Disable</BWT_RuleBuilder2_ActionModeDisable>
-  <BWT_RuleBuilder2_ActionModeDisable_Tooltip>Set the selected target to disabled when this rule applies.</BWT_RuleBuilder2_ActionModeDisable_Tooltip>
+  <BWT_RuleBuilder2_ActionModeDisable_Tooltip>Set the selected Work or specific job to disabled when this rule applies.</BWT_RuleBuilder2_ActionModeDisable_Tooltip>
   <BWT_RuleBuilder2_ActionModeFollow>Follow default</BWT_RuleBuilder2_ActionModeFollow>
-  <BWT_RuleBuilder2_ActionModeFollow_Tooltip>Leave the target following its inherited/default priority.</BWT_RuleBuilder2_ActionModeFollow_Tooltip>
+  <BWT_RuleBuilder2_ActionModeFollow_Tooltip>Preview-only for saved legacy cards. New rules should set a priority, daily plan, or disable the selected Work or specific job.</BWT_RuleBuilder2_ActionModeFollow_Tooltip>
   <BWT_RuleBuilder2_ActionScopeWholeWork>Whole Work</BWT_RuleBuilder2_ActionScopeWholeWork>
   <BWT_RuleBuilder2_ActionScopeSpecificJob>Specific job</BWT_RuleBuilder2_ActionScopeSpecificJob>
   <BWT_RuleBuilder2_ScheduleWorkHint>Drag hours to paint</BWT_RuleBuilder2_ScheduleWorkHint>
@@ -196,8 +200,11 @@
   <BWT_RuleBuilder2_NextAction>Next: action</BWT_RuleBuilder2_NextAction>
   <BWT_RuleBuilder2_NextPreview>Map check</BWT_RuleBuilder2_NextPreview>
   <BWT_RuleBuilder2_NextPreview_Tooltip>Optionally run a Map check before saving this rule.</BWT_RuleBuilder2_NextPreview_Tooltip>
-  <BWT_RuleBuilder2_NoTargetSummary>No target selected</BWT_RuleBuilder2_NoTargetSummary>
+  <BWT_RuleBuilder2_NoTargetSummary>Nothing selected yet</BWT_RuleBuilder2_NoTargetSummary>
   <BWT_RuleBuilder2_NoConditionsSummary>No conditions yet</BWT_RuleBuilder2_NoConditionsSummary>
+  <BWT_RuleBuilder2_RuleSentenceNoTarget>Pick what to set, then choose conditions and an action.</BWT_RuleBuilder2_RuleSentenceNoTarget>
+  <BWT_RuleBuilder2_RuleSentenceEveryPawn>every pawn</BWT_RuleBuilder2_RuleSentenceEveryPawn>
+  <BWT_RuleBuilder2_RuleSentenceWhen>when {0}</BWT_RuleBuilder2_RuleSentenceWhen>
   <BWT_RuleBuilder2_ConditionsSummary>{0} conditions, starting with {1}</BWT_RuleBuilder2_ConditionsSummary>
   <BWT_RuleBuilder2_NoActionSummary>No action selected</BWT_RuleBuilder2_NoActionSummary>
   <BWT_RuleBuilder2_PreviewNotRunSummary>Map not checked</BWT_RuleBuilder2_PreviewNotRunSummary>
@@ -206,11 +213,11 @@
   <BWT_RuleBuilder2_SentenceWhen>when</BWT_RuleBuilder2_SentenceWhen>
   <BWT_RuleBuilder2_SentenceThen>then</BWT_RuleBuilder2_SentenceThen>
   <BWT_RuleBuilder2_NewRule>New rule</BWT_RuleBuilder2_NewRule>
-  <BWT_RuleBuilder2_TargetSummary>Target: {0}</BWT_RuleBuilder2_TargetSummary>
+  <BWT_RuleBuilder2_TargetSummary>What: {0}</BWT_RuleBuilder2_TargetSummary>
   <BWT_RuleBuilder2_HoverTargetSummary>Hover: {0}</BWT_RuleBuilder2_HoverTargetSummary>
   <BWT_RuleBuilder2_TargetChange_Tooltip>Clear the target and choose another Work or specific job.</BWT_RuleBuilder2_TargetChange_Tooltip>
-  <BWT_RuleBuilder2_TargetFlash_Tooltip>This rule targets {0}. Click to flash it on the Work tab.</BWT_RuleBuilder2_TargetFlash_Tooltip>
-  <BWT_RuleBuilder2_TargetFlashClosed_Tooltip>Open the Work tab to flash this target.</BWT_RuleBuilder2_TargetFlashClosed_Tooltip>
+  <BWT_RuleBuilder2_TargetFlash_Tooltip>This rule controls {0}. Click to flash it on the Work tab.</BWT_RuleBuilder2_TargetFlash_Tooltip>
+  <BWT_RuleBuilder2_TargetFlashClosed_Tooltip>Open the Work tab to flash this Work or specific job.</BWT_RuleBuilder2_TargetFlashClosed_Tooltip>
   <BWT_RuleBuilder2_RowEnabled_Tooltip>Toggle whether this saved rule is active.</BWT_RuleBuilder2_RowEnabled_Tooltip>
   <BWT_RuleBuilder2_RowEdit_Tooltip>Open this rule for editing.</BWT_RuleBuilder2_RowEdit_Tooltip>
   <BWT_RuleBuilder2_RowDelete_Tooltip>Remove this rule from the ruleset.</BWT_RuleBuilder2_RowDelete_Tooltip>
@@ -223,7 +230,7 @@
   <BWT_RuleBuilder2_PawnFallback>Pawn</BWT_RuleBuilder2_PawnFallback>
   <BWT_RuleBuilder2_WorkFallback>Work</BWT_RuleBuilder2_WorkFallback>
   <BWT_RuleBuilder2_SkillFallback>Skill</BWT_RuleBuilder2_SkillFallback>
-  <BWT_RuleBuilder2_TargetFallback>target</BWT_RuleBuilder2_TargetFallback>
+  <BWT_RuleBuilder2_TargetFallback>Work type</BWT_RuleBuilder2_TargetFallback>
   <BWT_RuleBuilder2_TraitFallback>trait</BWT_RuleBuilder2_TraitFallback>
   <BWT_RuleBuilder2_CapacityFallback>Capacity</BWT_RuleBuilder2_CapacityFallback>
   <BWT_RuleBuilder2_XenotypeFallback>Xenotype</BWT_RuleBuilder2_XenotypeFallback>
@@ -243,7 +250,7 @@
   <BWT_RuleBuilder2_ApplyStatus>{0} change(s)</BWT_RuleBuilder2_ApplyStatus>
   <BWT_RuleBuilder2_ApplyStatusWarnings>{0} change(s); {1} warning(s)</BWT_RuleBuilder2_ApplyStatusWarnings>
   <BWT_RuleBuilder2_ActionSetPriority>Set priority</BWT_RuleBuilder2_ActionSetPriority>
-  <BWT_RuleBuilder2_ActionDisable>Disable target</BWT_RuleBuilder2_ActionDisable>
+  <BWT_RuleBuilder2_ActionDisable>Disable Work</BWT_RuleBuilder2_ActionDisable>
   <BWT_RuleBuilder2_ActionFollowGlobal>Follow global/default</BWT_RuleBuilder2_ActionFollowGlobal>
   <BWT_RuleBuilder2_ActionSetTimeSchedule>Set time schedule</BWT_RuleBuilder2_ActionSetTimeSchedule>
   <BWT_RuleBuilder2_ActionSetSubWorkSchedule>Set specific job schedule</BWT_RuleBuilder2_ActionSetSubWorkSchedule>
@@ -252,7 +259,12 @@
   <BWT_RuleBuilder2_ActionText_FollowGlobal>Follow global/default priority for {0}</BWT_RuleBuilder2_ActionText_FollowGlobal>
   <BWT_RuleBuilder2_ActionText_Schedule>Set {0} to scheduled priorities</BWT_RuleBuilder2_ActionText_Schedule>
   <BWT_RuleBuilder2_ActionText_SetPriority>Set {0} to priority {1}</BWT_RuleBuilder2_ActionText_SetPriority>
-  <BWT_RuleBuilder2_WarningMissingPawnOrTarget>Missing pawn or target.</BWT_RuleBuilder2_WarningMissingPawnOrTarget>
+  <BWT_RuleBuilder2_ActionText_NoActionShort>choose an action</BWT_RuleBuilder2_ActionText_NoActionShort>
+  <BWT_RuleBuilder2_ActionText_DisableShort>disable it</BWT_RuleBuilder2_ActionText_DisableShort>
+  <BWT_RuleBuilder2_ActionText_FollowGlobalShort>follow the default priority</BWT_RuleBuilder2_ActionText_FollowGlobalShort>
+  <BWT_RuleBuilder2_ActionText_ScheduleShort>use the daily plan</BWT_RuleBuilder2_ActionText_ScheduleShort>
+  <BWT_RuleBuilder2_ActionText_SetPriorityShort>set to priority {0}</BWT_RuleBuilder2_ActionText_SetPriorityShort>
+  <BWT_RuleBuilder2_WarningMissingPawnOrTarget>Missing pawn or Work type.</BWT_RuleBuilder2_WarningMissingPawnOrTarget>
   <BWT_RuleBuilder2_ConditionText_SkillMinimum>{0} skill is at least {1}</BWT_RuleBuilder2_ConditionText_SkillMinimum>
   <BWT_RuleBuilder2_ConditionText_SkillMaximum>{0} skill is at most {1}</BWT_RuleBuilder2_ConditionText_SkillMaximum>
   <BWT_RuleBuilder2_ConditionText_Passion>Has {0} passion for {1}</BWT_RuleBuilder2_ConditionText_Passion>
@@ -264,6 +276,10 @@
   <BWT_RuleBuilder2_ConditionText_ExistingPriorityEquals>Current priority is {0}</BWT_RuleBuilder2_ConditionText_ExistingPriorityEquals>
   <BWT_RuleBuilder2_ConditionText_Assigned>Assigned to this work</BWT_RuleBuilder2_ConditionText_Assigned>
   <BWT_RuleBuilder2_ConditionText_NotAssigned>Not assigned to this work</BWT_RuleBuilder2_ConditionText_NotAssigned>
+  <BWT_RuleBuilder2_ConditionText_HighestSkill>Has the highest relevant skill among colonists</BWT_RuleBuilder2_ConditionText_HighestSkill>
+  <BWT_RuleBuilder2_ConditionText_TopWorkTypes>This is among the pawn's top {0} skilled Work types</BWT_RuleBuilder2_ConditionText_TopWorkTypes>
+  <BWT_RuleBuilder2_ConditionText_NaturalAlways>This Work type is naturally always active</BWT_RuleBuilder2_ConditionText_NaturalAlways>
+  <BWT_RuleBuilder2_ConditionText_HasChild>Has a child on the current map</BWT_RuleBuilder2_ConditionText_HasChild>
   <BWT_RuleBuilder2_Tutorial_WelcomeTitle>Rule Builder 2.0</BWT_RuleBuilder2_Tutorial_WelcomeTitle>
   <BWT_RuleBuilder2_Tutorial_WelcomeBody>Rules on the left, the selected rule on the right. A rule sets a priority for a Work type or specific job, for any pawn that matches its conditions - now or in the future. Apply pushes the ruleset to the Work tab.</BWT_RuleBuilder2_Tutorial_WelcomeBody>
   <BWT_RuleBuilder2_Tutorial_GotIt>Got it</BWT_RuleBuilder2_Tutorial_GotIt>
@@ -277,10 +293,10 @@
   <BWT_RuleBuilder2_Tutorial_DeckTitle>Rules table</BWT_RuleBuilder2_Tutorial_DeckTitle>
   <BWT_RuleBuilder2_Tutorial_DeckBody>Rules stay compact here. Click a row to edit it, Build from Work tab to create suggestions, or Add rule to create one manually.</BWT_RuleBuilder2_Tutorial_DeckBody>
   <BWT_RuleBuilder2_Tutorial_Next>Next</BWT_RuleBuilder2_Tutorial_Next>
-  <BWT_RuleBuilder2_Tutorial_TargetTitle>Choose target</BWT_RuleBuilder2_Tutorial_TargetTitle>
-  <BWT_RuleBuilder2_Tutorial_TargetBody>Choose a Work target here, or click a Work tab header while this builder is open. Ctrl-click opens specific jobs.</BWT_RuleBuilder2_Tutorial_TargetBody>
+  <BWT_RuleBuilder2_Tutorial_TargetTitle>Choose Work type</BWT_RuleBuilder2_Tutorial_TargetTitle>
+  <BWT_RuleBuilder2_Tutorial_TargetBody>Choose a Work type here, or click a Work tab header while this builder is open. Ctrl-click opens specific jobs.</BWT_RuleBuilder2_Tutorial_TargetBody>
   <BWT_RuleBuilder2_Tutorial_SubWorkTitle>Specific jobs</BWT_RuleBuilder2_Tutorial_SubWorkTitle>
-  <BWT_RuleBuilder2_Tutorial_SubWorkBody>In the specific job view, click a job header to target that job.</BWT_RuleBuilder2_Tutorial_SubWorkBody>
+  <BWT_RuleBuilder2_Tutorial_SubWorkBody>In the specific job view, click a job header to choose that job.</BWT_RuleBuilder2_Tutorial_SubWorkBody>
   <BWT_RuleBuilder2_Tutorial_SkipSubWork>Skip jobs step</BWT_RuleBuilder2_Tutorial_SkipSubWork>
   <BWT_RuleBuilder2_Tutorial_ConditionTitle>Add a condition</BWT_RuleBuilder2_Tutorial_ConditionTitle>
   <BWT_RuleBuilder2_Tutorial_ConditionBody>Pick a condition. It opens inline so you can edit it immediately.</BWT_RuleBuilder2_Tutorial_ConditionBody>
@@ -293,7 +309,7 @@
   <BWT_RuleBuilder2_Tutorial_ConfirmTitle>Save rule</BWT_RuleBuilder2_Tutorial_ConfirmTitle>
   <BWT_RuleBuilder2_Tutorial_ConfirmBody>Save puts this rule into the ruleset. Confirmed rules edit live after that.</BWT_RuleBuilder2_Tutorial_ConfirmBody>
   <BWT_RuleBuilder2_Tutorial_MatchedTitle>Matched conditions</BWT_RuleBuilder2_Tutorial_MatchedTitle>
-  <BWT_RuleBuilder2_Tutorial_MatchedBody>Click a priority box while the builder is open to inspect why rules match that pawn and target.</BWT_RuleBuilder2_Tutorial_MatchedBody>
+  <BWT_RuleBuilder2_Tutorial_MatchedBody>Click a priority box while the builder is open to inspect why rules match that pawn and Work type.</BWT_RuleBuilder2_Tutorial_MatchedBody>
   <BWT_RuleBuilder2_Tutorial_ReplayTitle>Replay later</BWT_RuleBuilder2_Tutorial_ReplayTitle>
   <BWT_RuleBuilder2_Tutorial_ReplayBody>You can replay or reset this tutorial from Better Work Tab settings.</BWT_RuleBuilder2_Tutorial_ReplayBody>
   <BWT_RuleBuilder2_Tutorial_Finish>Finish</BWT_RuleBuilder2_Tutorial_Finish>
@@ -331,7 +347,15 @@
   <BWT_RuleBuilder2_Condition_Gender>Gender is</BWT_RuleBuilder2_Condition_Gender>
   <BWT_RuleBuilder2_Condition_Gender_Tooltip>Match pawns by gender.</BWT_RuleBuilder2_Condition_Gender_Tooltip>
   <BWT_RuleBuilder2_Condition_ExistingPriorityAtLeast>Current priority is at least</BWT_RuleBuilder2_Condition_ExistingPriorityAtLeast>
-  <BWT_RuleBuilder2_Condition_ExistingPriorityAtLeast_Tooltip>Match pawns based on their existing priority for this target.</BWT_RuleBuilder2_Condition_ExistingPriorityAtLeast_Tooltip>
+  <BWT_RuleBuilder2_Condition_ExistingPriorityAtLeast_Tooltip>Match pawns based on their existing priority for this Work or specific job.</BWT_RuleBuilder2_Condition_ExistingPriorityAtLeast_Tooltip>
   <BWT_RuleBuilder2_Condition_CurrentAssigned>Assigned to this work</BWT_RuleBuilder2_Condition_CurrentAssigned>
   <BWT_RuleBuilder2_Condition_CurrentAssigned_Tooltip>Match whether the pawn is assigned to this Work or specific job.</BWT_RuleBuilder2_Condition_CurrentAssigned_Tooltip>
+  <BWT_RuleBuilder2_Condition_HighestSkill>Highest relevant skill</BWT_RuleBuilder2_Condition_HighestSkill>
+  <BWT_RuleBuilder2_Condition_HighestSkill_Tooltip>Match pawns tied for the highest relevant skill for this Work type.</BWT_RuleBuilder2_Condition_HighestSkill_Tooltip>
+  <BWT_RuleBuilder2_Condition_TopWorkTypes>Among top skilled Work types</BWT_RuleBuilder2_Condition_TopWorkTypes>
+  <BWT_RuleBuilder2_Condition_TopWorkTypes_Tooltip>Match when this Work type is among the pawn's top ranked skills.</BWT_RuleBuilder2_Condition_TopWorkTypes_Tooltip>
+  <BWT_RuleBuilder2_Condition_NaturalAlways>Naturally always active Work</BWT_RuleBuilder2_Condition_NaturalAlways>
+  <BWT_RuleBuilder2_Condition_NaturalAlways_Tooltip>Match vanilla Work types that begin enabled for every capable pawn.</BWT_RuleBuilder2_Condition_NaturalAlways_Tooltip>
+  <BWT_RuleBuilder2_Condition_HasChild>Has child on map</BWT_RuleBuilder2_Condition_HasChild>
+  <BWT_RuleBuilder2_Condition_HasChild_Tooltip>Match colonists who have a non-adult child on the current map.</BWT_RuleBuilder2_Condition_HasChild_Tooltip>
 </LanguageData>

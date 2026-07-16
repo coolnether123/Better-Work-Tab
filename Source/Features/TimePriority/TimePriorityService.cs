@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.Workloads;
+using Better_Work_Tab.ModSupport;
 using Better_Work_Tab.Mod_Support.Multiplayer;
 #if !v1_2 && !v1_1 && !v1_0 && !v0_19
 using Multiplayer.API;
@@ -184,6 +185,7 @@ namespace Better_Work_Tab.Features.TimePriority
 
             if (changed)
             {
+                MirrorTargetToExternalWorkTab(target);
                 NotifyChanged();
             }
         }
@@ -242,6 +244,7 @@ namespace Better_Work_Tab.Features.TimePriority
             }
 
             schedule.HourlyPriorities[hour] = priority;
+            MirrorTargetToExternalWorkTab(target);
             NotifyChanged();
         }
 
@@ -280,13 +283,85 @@ namespace Better_Work_Tab.Features.TimePriority
 
             if (changed)
             {
+                MirrorTargetToExternalWorkTab(target);
                 NotifyChanged();
             }
         }
 
+        /// <summary>
+        /// Republishes an hourly schedule to any external work-tab mod backing the priority numbers.
+        /// Hourly schedules live only in Better Work Tab, so nothing else propagates them.
+        /// </summary>
+        private static void MirrorTargetToExternalWorkTab(TimePriorityTarget target)
+        {
+            if (ExternalPriorityMirror.IsSuspended)
+            {
+                return;
+            }
+
+            if (!ExternalPriorityMirror.ShouldMirrorTimePrioritySchedules)
+            {
+                return;
+            }
+
+            if (target.Kind == TimePriorityTargetKind.WorkGiver)
+            {
+                WorkGiverDef workGiver = DefDatabase<WorkGiverDef>.GetNamedSilentFail(target.TargetDefName);
+                if (workGiver == null)
+                {
+                    return;
+                }
+
+                if (target.IsGlobal)
+                {
+                    ExternalPriorityMirror.NotifyWorkGiverChangedForAllPawns(workGiver);
+                    return;
+                }
+
+                Pawn workGiverPawn = FindPawn(target.PawnId);
+                if (workGiverPawn != null)
+                {
+                    ExternalPriorityMirror.NotifyWorkGiverChanged(workGiverPawn, workGiver);
+                }
+
+                return;
+            }
+
+            WorkTypeDef workType = DefDatabase<WorkTypeDef>.GetNamedSilentFail(target.WorkTypeDefName);
+            if (workType == null)
+            {
+                return;
+            }
+
+            if (target.IsGlobal)
+            {
+                ExternalPriorityMirror.NotifyWorkTypeChangedForAllPawns(workType);
+                return;
+            }
+
+            Pawn pawn = FindPawn(target.PawnId);
+            if (pawn != null)
+            {
+                ExternalPriorityMirror.NotifyWorkTypeChanged(pawn, workType);
+            }
+        }
+
+        private static Pawn FindPawn(int pawnId)
+        {
+            foreach (Pawn pawn in PawnsFinderCompat.AllAliveOrDead)
+            {
+                if (pawn != null && pawn.thingIDNumber == pawnId)
+                {
+                    return pawn;
+                }
+            }
+
+            return null;
+        }
+
         internal static bool IsRuntimeEnabled =>
-            BetterWorkTabMod.Settings?.enableTimePriorityPlannerPrototype ??
-            DefaultSettings.enableTimePriorityPlannerPrototype;
+            BetterWorkTabMod.Settings?.enableTimePrioritySchedules ??
+            DefaultSettings.enableTimePrioritySchedules;
 
         internal static bool TryGetDisabledByTime(
             Pawn pawn,
@@ -470,7 +545,7 @@ namespace Better_Work_Tab.Features.TimePriority
             {
                 if (pawn != null)
                 {
-                    return Mathf.Clamp(GenLocalDate.HourOfDay(pawn), 0, HoursPerDay - 1);
+                    return Mathf.Clamp(TimeCompat.HourOfDay(pawn), 0, HoursPerDay - 1);
                 }
             }
             catch
@@ -496,6 +571,8 @@ namespace Better_Work_Tab.Features.TimePriority
                 return;
             }
 
+            UI.WorkGrid.Invalidation.WorkTabInvalidationHub.Invalidate(
+                UI.WorkGrid.Contracts.WorkTabDirtyFlags.ScheduleHour);
             WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
         }
 
@@ -628,8 +705,39 @@ namespace Better_Work_Tab.Features.TimePriority
         {
             CurrentVersion++;
             _cachedVersion = -1;
+            UI.WorkGrid.Invalidation.WorkTabInvalidationHub.Invalidate(
+                UI.WorkGrid.Contracts.WorkTabDirtyFlags.ScheduleHour);
             WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+        }
+
+        internal static int ComputePresentationAuditSignature()
+        {
+            unchecked
+            {
+                int hash = 17;
+                var schedules = GetSchedules(create: false);
+                if (schedules == null)
+                {
+                    return hash;
+                }
+
+                for (int i = 0; i < schedules.Count; i++)
+                {
+                    TimePriorityScheduleData schedule = schedules[i];
+                    if (schedule == null) continue;
+                    hash = (hash * 397) ^ schedule.PawnId;
+                    hash = (hash * 397) ^ (int)schedule.Kind;
+                    hash = (hash * 397) ^ StringComparer.Ordinal.GetHashCode(schedule.WorkTypeDefName ?? string.Empty);
+                    hash = (hash * 397) ^ StringComparer.Ordinal.GetHashCode(schedule.TargetDefName ?? string.Empty);
+                    if (schedule.HourlyPriorities == null) continue;
+                    for (int hour = 0; hour < schedule.HourlyPriorities.Count; hour++)
+                    {
+                        hash = (hash * 397) ^ schedule.HourlyPriorities[hour];
+                    }
+                }
+                return hash;
+            }
         }
 
     }

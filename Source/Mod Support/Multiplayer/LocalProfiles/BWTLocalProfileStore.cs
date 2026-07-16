@@ -2,13 +2,16 @@ using System;
 using System.IO;
 using UnityEngine;
 using Verse;
-using Better_Work_Tab;
 using Better_Work_Tab.Mod_Support.Multiplayer;
+using Spine.RimWorld.Serialization;
 
 namespace Better_Work_Tab.Mod_Support.LocalProfiles
 {
     internal static class BWTLocalProfileStore
     {
+        private const int ProfileLoadDeferredWarningKey = 154927301;
+        private const int ProfileSaveDeferredWarningKey = 154927302;
+
         private static BWTLocalProfile _current;
         private static bool _dirty;
         private static bool _suspendSaving; // Prevents saves while following
@@ -21,6 +24,18 @@ namespace Better_Work_Tab.Mod_Support.LocalProfiles
         public static void LoadOrCreateForCurrentSession()
         {
             if (!MultiplayerBridge.Active)
+            {
+                _current = null;
+                _dirty = false;
+                return;
+            }
+
+            // Scribe is a process-wide singleton. Starting this private document while a game,
+            // replay, or another mod is using Scribe can clear their cross-reference and
+            // PostLoadIniter state. FinalizeInit is the expected caller and normally reaches
+            // this method with Scribe inactive; the guard is the invariant that protects future
+            // callers and lifecycle refactors.
+            if (!ScribeIsolationGuard.CanStart("BWT", "local profile load", ProfileLoadDeferredWarningKey))
             {
                 _current = null;
                 _dirty = false;
@@ -46,20 +61,28 @@ namespace Better_Work_Tab.Mod_Support.LocalProfiles
             if (!MultiplayerBridge.Active || _current == null || !_dirty || _suspendSaving)
                 return;
 
+            // Keep the dirty flag set when Scribe is busy. The component timer will retry after
+            // the enclosing save/load operation finishes, without disturbing its global state.
+            if (!ScribeIsolationGuard.CanStart("BWT", "local profile save", ProfileSaveDeferredWarningKey))
+                return;
+
             var path = GetProfilePath(_current.SaveKey, _current.PlayerKey);
 
             try
             {
                 ScribeFileCompat.InitSaving(path, "BWTLocalProfile");
                 var tmp = _current;
-                Better_Work_Tab.ScribeCompat.LookDeep(ref tmp, "Profile");
+                ScribeCompat.LookDeep(ref tmp, "Profile");
                 ScribeFileCompat.FinalizeSaving();
                 _dirty = false;
             }
             catch (Exception e)
             {
                 Log.Error($"[BWT] Local profile save failed: {e}");
-                try { ScribeFileCompat.FinalizeSaving(); } catch { /* ignore */ }
+                // FinalizeSaving is not a recovery API and may itself continue a damaged write.
+                // This operation started only after verifying Scribe was inactive, so stopping
+                // the saver here cannot interrupt another owner.
+                try { ScribeFileCompat.ForceStopSaving(); } catch { /* preserve the original failure */ }
             }
         }
 
@@ -72,14 +95,16 @@ namespace Better_Work_Tab.Mod_Support.LocalProfiles
             {
                 ScribeFileCompat.InitLoading(path);
                 BWTLocalProfile loaded = null;
-                Better_Work_Tab.ScribeCompat.LookDeep(ref loaded, "Profile");
+                ScribeCompat.LookDeep(ref loaded, "Profile");
                 ScribeFileCompat.FinalizeLoading();
                 return loaded;
             }
             catch (Exception e)
             {
                 Log.Warning($"[BWT] Local profile load failed, starting fresh. {e}");
-                try { ScribeFileCompat.FinalizeLoading(); } catch { /* ignore */ }
+                // FinalizeLoading can run cross-reference and post-load callbacks. It must not be
+                // used as cleanup after a partial profile read; discard only this failed loader.
+                try { ScribeFileCompat.ForceStopLoading(); } catch { /* preserve the original failure */ }
                 return null;
             }
         }

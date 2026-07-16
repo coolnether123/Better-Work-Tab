@@ -1,4 +1,4 @@
-#if v0_16
+#if v0_16 || v0_15
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -617,6 +617,10 @@ namespace Better_Work_Tab.UI
 
     internal static class CopyPasteUI
     {
+        public const float CopyPasteColumnWidth = 48f;
+        public const float CopyPasteIconWidth = 20f;
+        public const float CopyPasteIconHeight = 20f;
+
         public static void DoCopyPasteButtons(Rect rect, Action copyAction, Action pasteAction)
         {
             float buttonWidth = Mathf.Max(16f, rect.width / 2f - 1f);

@@ -4,6 +4,7 @@ using Verse;
 using Better_Work_Tab.DragDrop;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.UI.Headers.Angled;
+using Better_Work_Tab.UI.WorkGiverReassignments;
 
 namespace Better_Work_Tab.UI.Headers.Vanilla
 {
@@ -129,10 +130,11 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
                         Matrix4x4.TRS(-pivot, Quaternion.identity, Vector3.one);
                 }
 
-                DrawLabel(textRect, displayText, showMarker, flipAlpha);
+                float visibleAlpha = flipAlpha * Mathf.Clamp01(layout.Alpha);
+                DrawLabel(textRect, displayText, showMarker, visibleAlpha);
 
                 // Stem Line
-                DrawStemLine(textRect, headerBottom, flipAlpha);
+                DrawStemLine(textRect, headerBottom, visibleAlpha);
                 GUI.matrix = oldMatrix;
 
                 // Sort Indicator
@@ -140,6 +142,8 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
                 {
                     HeaderUtility.DrawSortIndicator(headerRect, sortDescending);
                 }
+
+                SubWorkHeaderAffordance.DrawOpenBadge(headerRect, textRect, column);
             }
             finally
             {

@@ -4,8 +4,33 @@ using System.Reflection;
 using UnityEngine;
 using Verse;
 
-namespace ModAPI.Core
+namespace Spine.Harmony.Infrastructure
 {
+    public static class HarmonyPreferenceSource
+    {
+        private static Func<bool> _debugEnabled = () => false;
+
+        public static void Configure(Func<bool> debugEnabled)
+        {
+            _debugEnabled = debugEnabled ?? (() => false);
+        }
+
+        public static bool DebugEnabled
+        {
+            get
+            {
+                try
+                {
+                    return _debugEnabled();
+                }
+                catch
+                {
+                    return false;
+                }
+            }
+        }
+    }
+
     /// <summary>
     /// RimWorld-backed logging shim for the imported Harmony utilities.
     /// Preserves the old MMLog surface so the port stays localized.
@@ -45,6 +70,22 @@ namespace ModAPI.Core
             Log.Message(Prefix + "[Debug] " + (message ?? string.Empty));
         }
 
+        public static void WriteDebugBlock(string heading, IEnumerable<string> lines)
+        {
+            if (!ShouldLogDebug())
+            {
+                return;
+            }
+
+            var block = new List<string> { heading ?? string.Empty };
+            if (lines != null)
+            {
+                block.AddRange(lines);
+            }
+
+            Log.Message(Prefix + "[Debug] " + string.Join(Environment.NewLine, block.ToArray()));
+        }
+
         public static void WarnOnce(string key, string message)
         {
             if (string.IsNullOrEmpty(key))
@@ -71,14 +112,7 @@ namespace ModAPI.Core
                 return true;
             }
 
-            try
-            {
-                return Better_Work_Tab.BetterWorkTabMod.Settings?.enableDebugLogging ?? false;
-            }
-            catch
-            {
-                return false;
-            }
+            return HarmonyPreferenceSource.DebugEnabled;
         }
     }
 
@@ -88,7 +122,7 @@ namespace ModAPI.Core
     /// </summary>
     public static class ModPrefs
     {
-        public static bool DebugTranspilers => Prefs.DevMode || TryGetBwtDebug();
+        public static bool DebugTranspilers => Prefs.DevMode || HarmonyPreferenceSource.DebugEnabled;
         public static bool TranspilerSafeMode => true;
         public static bool TranspilerForcePreserveInstructionCount => false;
         public static bool TranspilerFailFastCritical => false;
@@ -98,32 +132,10 @@ namespace ModAPI.Core
         public static bool TranspilerWarnOnVirtualCallMismatch => false;
         public static bool TranspilerWarnOnExceptionHandlerMethods => false;
 
-        private static bool TryGetBwtDebug()
-        {
-            return TryGetBwtSetting(s => s.enableDebugLogging, false);
-        }
-
-        private static T TryGetBwtSetting<T>(Func<Better_Work_Tab.BetterWorkTabSettings, T> selector, T fallback)
-        {
-            if (selector == null)
-            {
-                return fallback;
-            }
-
-            try
-            {
-                var settings = Better_Work_Tab.BetterWorkTabMod.Settings;
-                return settings != null ? selector(settings) : fallback;
-            }
-            catch
-            {
-                return fallback;
-            }
-        }
     }
 }
 
-namespace ModAPI.Reflection
+namespace Spine.Harmony.Infrastructure
 {
     /// <summary>
     /// Minimal reflection helper shim used by HarmonyHelper.SafeInvoke.
@@ -172,7 +184,7 @@ namespace ModAPI.Reflection
     }
 }
 
-namespace ModAPI.Spine
+namespace Spine.Harmony.Infrastructure
 {
     public interface IPluginSettings
     {
