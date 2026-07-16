@@ -175,13 +175,13 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             return new RuleBuilder2DraftQueueRects(inner, title, subtitle, side, main);
         }
 
-        internal RuleBuilder2GeneratedDraftPanelRects GeneratedDraftPanel(Rect rect)
+        internal RuleBuilder2GeneratedDraftPanelRects GeneratedDraftPanel(Rect rect, float sentenceHeight)
         {
             Rect inner = rect.ContractedBy(12f);
             Rect title = new Rect(inner.x, inner.y, inner.width, 30f);
             Rect notes = new Rect(inner.x, inner.y + 34f, inner.width, 44f);
-            Rect sentence = new Rect(inner.x, inner.y + 84f, inner.width, 30f);
-            Rect preview = new Rect(inner.x, sentence.yMax + 10f, inner.width, Mathf.Max(0f, inner.height - 166f));
+            Rect sentence = new Rect(inner.x, inner.y + 84f, inner.width, Mathf.Max(30f, sentenceHeight));
+            Rect preview = new Rect(inner.x, sentence.yMax + 10f, inner.width, Mathf.Max(0f, inner.yMax - 44f - sentence.yMax - 10f));
             float buttonWidth = Mathf.Min(86f, Mathf.Max(64f, (inner.width - metrics.Gap * 2f) / 3f));
             float buttonRowWidth = buttonWidth * 3f + metrics.Gap * 2f;
             float buttonX = Mathf.Max(inner.x, inner.xMax - buttonRowWidth);

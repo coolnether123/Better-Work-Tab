@@ -451,6 +451,11 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
         internal void SetActionKind(RuleBuilder2Card card, RuleBuilder2ActionKind kind)
         {
+            if (card?.Action == null || kind == RuleBuilder2ActionKind.FollowGlobal)
+            {
+                return;
+            }
+
             card.Action.Kind = kind;
             card.NormalizeActionForTarget();
             card.Action.EnsureSchedule(card.Action.Priority);

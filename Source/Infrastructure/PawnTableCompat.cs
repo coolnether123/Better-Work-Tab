@@ -88,6 +88,21 @@ namespace Better_Work_Tab
 #endif
         }
 
+        public static int GetColumnCount(PawnTable table)
+        {
+            return GetColumnsListForReading(table)?.Count ?? 0;
+        }
+
+        public static bool IsDirty(PawnTable table)
+        {
+#if v1_1
+            // 1.1 does not expose the cache-dirty flag. Conservatively force a refresh.
+            return true;
+#else
+            return table == null || table.dirty;
+#endif
+        }
+
         public static int GetPawnCount(PawnTable table)
         {
             return GetCachedPawns(table).Count;

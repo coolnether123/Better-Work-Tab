@@ -32,6 +32,11 @@ namespace Better_Work_Tab.ModSupport
                         BetterWorkTabMod.DebugLog($"[ModSupport] Detected active mod: {module.DisplayName} ({module.PackageId}). Initializing module.", DebugFeature.ModSupport);
                         module.OnModsDetected(); // Perform one-time setup
                         _activeModules.Add(module);
+                        if (module is IModSettingsContributor settingsContributor)
+                        {
+                            BWTModSettingsApi.RegisterContributor(settingsContributor);
+                        }
+
                         BetterWorkTabMod.DebugLog($"[ModSupport] Registered module: {module.DisplayName}.", DebugFeature.ModSupport);
                     }
                     catch (System.Exception ex)
@@ -44,6 +49,10 @@ namespace Better_Work_Tab.ModSupport
         }
 
         // --- Public methods for your core BWT mod to call (the "one-liners") ---
+
+        public static void EnsureInitialized()
+        {
+        }
 
         public static void OnPawnTableRefresh(PawnTable table)
         {

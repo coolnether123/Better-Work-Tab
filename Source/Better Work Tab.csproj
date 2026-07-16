@@ -33,9 +33,13 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == '1.6|AnyCPU'">
     <OutputPath>..\1.6\Assemblies\</OutputPath>
+    <Optimize>true</Optimize>
+    <DebugType>pdbonly</DebugType>
+    <DefineConstants>TRACE</DefineConstants>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == '1.5|AnyCPU'">
     <OutputPath>..\1.5\Assemblies\</OutputPath>
+    <DefineConstants>HAS_LUDEON_TK</DefineConstants>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == '1.4|AnyCPU'">
     <OutputPath>..\1.4\Assemblies\</OutputPath>
@@ -61,10 +65,19 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="API\IMaxPriorityProvider.cs" />
+    <Compile Include="API\ExternalWorkTabApi.cs" />
     <Compile Include="API\PriorityApi.cs" />
     <Compile Include="API\PriorityProviderCapabilities.cs" />
     <Compile Include="API\TimePriorityApi.cs" />
     <Compile Include="API\WorkGiverApi.cs" />
+    <Compile Include="Spine\Core\Revisions\RevisionSource.cs" />
+    <Compile Include="Spine\Core\DirtyTracking\SparseDirtySets.cs" />
+    <Compile Include="Spine\Core\Caching\BoundedLruCache.cs" />
+    <Compile Include="Spine\Core\Collections\ContiguousBuffer.cs" />
+    <Compile Include="Spine\Core\Collections\ImmutableSnapshot.cs" />
+    <Compile Include="Spine\Core\Diagnostics\RenderDiagnostics.cs" />
+    <Compile Include="Spine\Core\Diagnostics\ApiDescriptors.cs" />
+    <Compile Include="Spine\Core\Rendering\RenderPipeline.cs" />
     <Compile Include="BetterWorkTab.cs" />
     <Compile Include="BetterWorkTabLocalState.cs" />
     <Compile Include="Infrastructure\Compatibility.cs" />
@@ -79,6 +92,7 @@
     <Compile Include="Features\Caching\BedCountCache.cs" />
     <Compile Include="Features\Patches\MaxPriorityPatches.cs" />
     <Compile Include="Features\RaisedPriorityMaximum\PriorityAuthorityBroker.cs" />
+    <Compile Include="Features\RaisedPriorityMaximum\PriorityAuthorityPatches.cs" />
     <Compile Include="Features\RaisedPriorityMaximum\PriorityConstants.cs" />
     <Compile Include="Features\RaisedPriorityMaximum\PriorityProviderSnapshot.cs" />
     <Compile Include="Features\RaisedPriorityMaximum\PriorityProviders.cs" />
@@ -114,21 +128,32 @@
     <Compile Include="Features\WorkExecutionOrder.cs" />
     <Compile Include="Features\WorkGiverReassignments\WorkGiverReassignmentData.cs" />
     <Compile Include="Features\WorkGiverReassignments\WorkGiverReassignmentManager.cs" />
+    <Compile Include="Features\WorkGiverReassignments\WorkGiverLayoutHistory.cs" />
     <Compile Include="Features\WorkGiverReassignments\WorkGiverReassignmentPatches.cs" />
+    <Compile Include="Features\WorkGiverReassignments\CustomLabelStore.cs" />
     <Compile Include="Features\WorkGiverReassignments\SubWorkDrilldownInput.cs" />
     <Compile Include="Features\WorkGiverReassignments\SubWorkDrilldownState.cs" />
     <Compile Include="Features\Workloads\GameComponent_BWTWorldSettings.cs" />
+    <Compile Include="Features\Testing\AgentFloatMenuHighlightTestDriver.cs" />
     <Compile Include="Features\Testing\GameComponent_BWTModernQuickTestDriver.cs" />
+    <Compile Include="Features\Testing\AgentHarnessUtility.cs" />
+    <Compile Include="Features\Testing\RuleBuilder2AgentHarness.cs" />
+    <Compile Include="Features\Testing\SubWorkTransitionPerfDiagnostics.cs" />
+    <Compile Include="Features\Testing\WorkTabGeometryContractValidator.cs" />
     <Compile Include="Features\Testing\WorkTabGeometryDiagnostics.cs" />
+    <Compile Include="Features\Testing\WorkTabProfilingState.cs" />
+    <Compile Include="Features\Testing\WorkGridRendererExceptionProbe.cs" />
     <Compile Include="Features\TimePriority\Patch_CopyPasteWorkPriorities_TimePriority.cs" />
     <Compile Include="Features\TimePriority\TimePriorityEvaluation.cs" />
     <Compile Include="Features\TimePriority\TimePriorityScheduleClipboard.cs" />
-    <Compile Include="Features\TimePriority\TimePriorityPlannerPrototype.cs" />
+    <Compile Include="Features\TimePriority\TimePriorityScheduleEditor.cs" />
+    <Compile Include="Features\TimePriority\FluffyTimeScheduleAssigner.cs" />
     <Compile Include="Features\TimePriority\TimePriorityScheduleData.cs" />
     <Compile Include="Features\TimePriority\TimePriorityService.cs" />
     <Compile Include="Features\TimePriority\TimePriorityTarget.cs" />
     <Compile Include="Features\TimePriority\TimePriorityTargetKind.cs" />
-    <Compile Include="Features\Tutorial\BWTBetaTutorial.cs" />
+    <Compile Include="Features\Tutorial\BWTTutorialAnchor.cs" />
+    <Compile Include="Features\Tutorial\BWTTutorialSelector.cs" />
     <Compile Include="Features\Tutorial\BWTGeneralTutorial.cs" />
     <Compile Include="Features\Tutorial\BWTTutorialInteraction.cs" />
     <Compile Include="Features\Tutorial\BWTTutorialInteractionKind.cs" />
@@ -140,6 +165,7 @@
     <Compile Include="Features\Workloads\PawnWorkload.cs" />
     <Compile Include="Features\Patches\FloatMenuPatches.cs" />
     <Compile Include="Features\Patches\WorkTabSortPatches.cs" />
+    <Compile Include="Features\Patches\WorkGiverPresentationInvalidationPatches.cs" />
     <Compile Include="Features\Patches\CustomWorkBoxDrawer.cs" />
     <Compile Include="Features\Patches\ShiftHelper.cs" />
     <Compile Include="DragDrop\RowDragHandler.cs" />
@@ -158,12 +184,26 @@
     <Compile Include="PawnOrganizer\Patches\Patch_PawnColumnWorker_Label_DoCell.cs" />
     <Compile Include="PawnOrganizer\PawnOrganizerSystem.cs" />
     <Compile Include="Mod Support\IModSupportModule.cs" />
+    <Compile Include="Mod Support\IModSettingsContributor.cs" />
+    <Compile Include="Mod Support\BWTModSettingsApi.cs" />
+    <Compile Include="Mod Support\BWTModSettingsSection.cs" />
+    <Compile Include="Mod Support\ExternalPriorityMirror.cs" />
+    <Compile Include="Mod Support\ExternalWorkTabPriorityImportService.cs" />
+    <Compile Include="Mod Support\ExternalWorkTabRegistry.cs" />
     <Compile Include="Mod Support\CompatibilityDiagnostics.cs" />
     <Compile Include="Mod Support\ModSupportManager.cs" />
     <Compile Include="Mod Support\ModSupportModuleBase.cs" />
     <Compile Include="Mod Support\Mods\Chronos Pointer\ChronosPointerSupport.cs" />
     <Compile Include="Mod Support\Mods\Do Once\DoOnceSupport.cs" />
+    <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabAssets.cs" />
+    <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabCoexistence.cs" />
+    <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabCoexistenceUI.cs" />
+    <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabGateway.cs" />
+    <Compile Include="Mod Support\Mods\Fluffy WorkTab\PawnColumnWorker_BwtSubWorkPriority.cs" />
+    <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabExternalStore.cs" />
     <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabMigration.cs" />
+    <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabPriorityProvider.cs" />
+    <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabSync.cs" />
     <Compile Include="Mod Support\Mods\Useful Marks\UsefulMarksSupport.cs" />
     <Compile Include="Mod Support\Mods\Vanilla Skills Expanded\VanillaSkillsExpandedSupport.cs" />
     <Compile Include="Mod Support\Multiplayer\LocalProfiles\BWTLocalProfile.cs" />
@@ -177,6 +217,13 @@
     <Compile Include="PawnOrganizer\RowOrderUtility.cs" />
     <Compile Include="Spine\DragDrop\DragDropController.cs" />
     <Compile Include="Spine\DragDrop\DragDropManager.cs" />
+    <Compile Include="Spine\RimWorld\Rendering\Viewports\ViewportContracts.cs" />
+    <Compile Include="Spine\RimWorld\Rendering\ImGuiEventPhases.cs" />
+    <Compile Include="Spine\RimWorld\Rendering\GuiState\GuiStateScope.cs" />
+    <Compile Include="Spine\RimWorld\Rendering\Atlases\RenderAtlasContracts.cs" />
+    <Compile Include="Spine\RimWorld\Lifecycle\RenderLifecycleContracts.cs" />
+    <Compile Include="Spine\RimWorld\Serialization\ScribeIsolationGuard.cs" />
+    <Compile Include="Spine\RimWorld\Compatibility\RimWorldRenderCompatibilityContracts.cs" />
     <Compile Include="Spine\DragDrop\DragEndReason.cs" />
     <Compile Include="Spine\DragDrop\Util\HeightCache.cs" />
     <Compile Include="Spine\DragDrop\Util\ClickOrDragGate.cs" />
@@ -184,26 +231,27 @@
     <Compile Include="Spine\DragDrop\Util\ListDragHelpers.cs" />
     <Compile Include="Spine\DragDrop\ListDragSession.cs" />
     <Compile Include="Spine\DragDrop\Util\ListDragVisuals.cs" />
-    <Compile Include="Spine\harmony\HarmonyBootstrap.cs" />
     <Compile Include="Spine\harmony\HarmonyCompat.cs" />
-    <Compile Include="Spine\harmony\HarmonyHelper.cs" />
-    <Compile Include="Spine\harmony\HarmonyUtil.cs" />
-    <Compile Include="Spine\harmony\PatchRegistry.cs" />
-    <Compile Include="Spine\harmony\Transpilers\AdvancedExtensions.cs" />
     <Compile Include="Spine\harmony\Transpilers\CartographerExtensions.cs" />
-    <Compile Include="Spine\harmony\Transpilers\ControlFlowExtensions.cs" />
-    <Compile Include="Spine\harmony\Transpilers\CooperativePatcher.cs" />
     <Compile Include="Spine\harmony\Transpilers\FluentTranspiler.cs" />
-    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerPatterns.cs" />
-    <Compile Include="Spine\harmony\Transpilers\FluentTranspiler_Features.cs" />
     <Compile Include="Spine\harmony\Transpilers\HarmonyInstructionCompat.cs" />
+    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerCallRecipes.cs" />
+    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerClampRecipes.cs" />
+    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerCompatibilityExtensions.cs" />
+    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerExecution.cs" />
+    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerFieldRecipes.cs" />
+    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerFormatting.cs" />
+    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerGuardRecipes.cs" />
+    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerPatterns.cs" />
+    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerRangeCheckRecipes.cs" />
+    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerRecipeValidation.cs" />
+    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerReturnRecipes.cs" />
+    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerWrapRecipes.cs" />
+    <Compile Include="Spine\harmony\Transpilers\FluentTranspiler_Features.cs" />
     <Compile Include="Spine\harmony\Transpilers\IntentAPI.cs" />
-    <Compile Include="Spine\harmony\Transpilers\ShelteredPatterns.cs" />
     <Compile Include="Spine\harmony\Transpilers\StackSentinel.cs" />
     <Compile Include="Spine\harmony\Transpilers\TranspilerDebugger.cs" />
     <Compile Include="Spine\harmony\Transpilers\TranspilerSafetyPolicy.cs" />
-    <Compile Include="Spine\harmony\Transpilers\TranspilerTestHarness.cs" />
-    <Compile Include="Spine\harmony\Transpilers\UnityPatterns.cs" />
     <Compile Include="Spine\Profiling\SpineTiming.cs" />
     <Compile Include="Spine\Utils\SpineUtils.cs" />
     <Compile Include="Spine\UI\TextColorHelper.cs" />
@@ -215,26 +263,54 @@
     <Compile Include="Spine\UI\Tutorial\TutorialOverlayLayout.cs" />
     <Compile Include="Spine\UI\Tutorial\TutorialOverlayShortcutHint.cs" />
     <Compile Include="Spine\UI\Tutorial\TutorialOverlayStyle.cs" />
+    <Compile Include="Spine\UI\Tutorial\TutorialHubState.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingDefinition.cs" />
+    <Compile Include="Spine\UI\SettingsFramework\SettingSuppression.cs" />
+    <Compile Include="Spine\UI\SettingsFramework\SettingsScribe.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingType.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingsHierarchy.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingsFilterDefinition.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingsImportExportActions.cs" />
+    <Compile Include="Spine\UI\SettingsFramework\DescribedFloatMenu.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingWidgets.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingsListDrawer.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingsUIHelpers.cs" />
     <Compile Include="UI\WorkGiverReassignments\Window_WorkGiverSubMenu.cs" />
     <Compile Include="UI\WorkGiverReassignments\SubWorkDrilldownBarRenderer.cs" />
+    <Compile Include="UI\WorkGiverReassignments\SubWorkCrossWorkDropTargetRenderer.cs" />
     <Compile Include="UI\WorkGiverReassignments\SubWorkDrilldownHeaderGeometry.cs" />
+    <Compile Include="UI\WorkGiverReassignments\SubWorkHeaderAffordance.cs" />
     <Compile Include="UI\WorkGiverReassignments\WorkGiverDisplayNameService.cs" />
+    <Compile Include="UI\WorkGiverReassignments\WorkTypeDisplayNameService.cs" />
     <Compile Include="UI\WorkGiverReassignments\WorkGiverBaselineTracker.cs" />
     <Compile Include="UI\WorkGiverReassignments\WorkGiverDragHandler.cs" />
     <Compile Include="UI\WorkGiverReassignments\PriorityOverrideRing.cs" />
     <Compile Include="UI\WorkGiverReassignments\WorkGiverPriorityBoxRenderer.cs" />
+    <Compile Include="UI\WorkGiverReassignments\WorkGiverCellPresentationCache.cs" />
+    <Compile Include="UI\WorkGiverReassignments\WorkGiverPresentationInvalidation.cs" />
+    <Compile Include="UI\WorkGrid\Contracts\WorkGridRenderContracts.cs" />
+    <Compile Include="UI\WorkGrid\Commands\WorkGridCommandMath.cs" />
+    <Compile Include="UI\WorkGrid\Commands\WorkGridCommands.cs" />
+    <Compile Include="UI\WorkGrid\Commands\WorkPriorityCommandGateway.cs" />
+    <Compile Include="UI\WorkGrid\Compatibility\WorkGridVanillaCompatibilityPolicy.cs" />
+    <Compile Include="UI\WorkGrid\Interaction\WorkGridInteractionRouter.cs" />
+    <Compile Include="UI\WorkGrid\Snapshots\WorkGridGeometrySnapshot.cs" />
+    <Compile Include="UI\WorkGrid\Snapshots\WorkGridSnapshot.cs" />
+    <Compile Include="UI\WorkGrid\Snapshots\WorkGridSnapshotProvider.cs" />
+    <Compile Include="UI\WorkGrid\Invalidation\WorkGridInvalidationLedger.cs" />
+    <Compile Include="UI\WorkGrid\Invalidation\WorkGridInvalidationAudit.cs" />
+    <Compile Include="UI\WorkGrid\Invalidation\WorkTabInvalidationHub.cs" />
+    <Compile Include="UI\WorkGrid\Rendering\WorkGridRendererFacade.cs" />
+    <Compile Include="UI\WorkGrid\Rendering\WorkGridRendererSelector.cs" />
+    <Compile Include="UI\WorkGrid\Rendering\VanillaWorkGridRenderer.cs" />
+    <Compile Include="UI\WorkGrid\Rendering\OptimizedWorkGridRenderer.cs" />
+    <Compile Include="UI\WorkGrid\Rendering\WorkGridRenderPrimitives.cs" />
+    <Compile Include="UI\WorkGrid\Diagnostics\WorkGridRendererDiagnostics.cs" />
     <Compile Include="Spine\UI\WidgetExtensions\RimworldSettingsWidgets.cs" />
     <Compile Include="UI\Input\GuiMousePosition.cs" />
     <Compile Include="UI\Input\NativeCursorPosition.cs" />
     <Compile Include="UI\RulesetListDragUI.cs" />
+    <Compile Include="UI\WorkTabColumnHighlightUtility.cs" />
     <Compile Include="UI\MainTabWindow_BetterWork.cs" />
     <Compile Include="UI\PawnTitleUtility.cs" />
     <Compile Include="UI\WorkPriorityCellGeometry.cs" />
@@ -254,10 +330,14 @@
     <Compile Include="UI\Settings\BWTWorkTabContextSettingsRouter.cs" />
     <Compile Include="UI\Settings\BWTSettingsImportExportActions.cs" />
     <Compile Include="UI\Settings\BWTSettingsJsonService.cs" />
+    <Compile Include="UI\Settings\LegacySettingsJsonImporter.cs" />
     <Compile Include="UI\Settings\Dialog_BWTSettingsJsonPath.cs" />
     <Compile Include="UI\Settings\BWTSettingsRegistry.cs" />
+    <Compile Include="UI\Settings\WorkTabColorPreviewController.cs" />
+    <Compile Include="UI\Settings\WorkTabColorPreviewRenderer.cs" />
     <Compile Include="UI\Settings\BWTSettingsTranslation.cs" />
     <Compile Include="UI\Settings\SettingIDs.cs" />
+    <Compile Include="UI\Settings\SettingsConsistencyValidator.cs" />
     <Compile Include="UI\Window_RulesManager.cs" />
     <Compile Include="UI\Dialog_RenameGeneric.cs" />
     <Compile Include="UI\Dialog_RenameWorkload.cs" />
@@ -277,6 +357,7 @@
     <Compile Include="UI\Headers\Vanilla\VanillaHeaderController.cs" />
     <Compile Include="UI\Headers\Angled\AngledHeaderController.cs" />
     <Compile Include="UI\Headers\HeaderInputController.cs" />
+    <Compile Include="UI\Headers\HeaderContextMenu.cs" />
     <Compile Include="UI\Headers\HeaderUtility.cs" />
     <Compile Include="UI\HeaderButtons.cs" />
     <Compile Include="UI\Dialog_WarningWithCheckbox.cs" />
@@ -325,6 +406,22 @@
     <Compile Include="UI\RuleBuilderV2\Window_RuleBuilder2.cs" />
   </ItemGroup>
   <ItemGroup>
+    <!-- Optional Spine Harmony modules. Keep these visible for future opt-in use without shipping dormant code. -->
+    <None Include="Spine\harmony\DeferredPatchCoordinator.cs" />
+    <None Include="Spine\harmony\HarmonyBootstrap.cs" />
+    <None Include="Spine\harmony\HarmonyHelper.cs" />
+    <None Include="Spine\harmony\HarmonyUtil.cs" />
+    <None Include="Spine\harmony\PatchRegistry.cs" />
+    <None Include="Spine\harmony\VisualTranspilerBuilder.cs" />
+    <None Include="Spine\harmony\Transpilers\AdvancedExtensions.cs" />
+    <None Include="Spine\harmony\Transpilers\ControlFlowExtensions.cs" />
+    <None Include="Spine\harmony\Transpilers\CooperativePatcher.cs" />
+    <None Include="Spine\harmony\Transpilers\README.md" />
+    <None Include="Spine\harmony\Transpilers\ShelteredPatterns.cs" />
+    <None Include="Spine\harmony\Transpilers\TranspilerTestHarness.cs" />
+    <None Include="Spine\harmony\Transpilers\UnityPatterns.cs" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="Krafs.Publicizer">
       <Version>2.3.0</Version>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -338,9 +435,18 @@
     </PackageReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <Target Name="RejectStandaloneSpinePayload" AfterTargets="Build">
+    <ItemGroup>
+      <ForbiddenSpinePayload Include="$(MSBuildProjectDirectory)\..\*\Assemblies\Spine*.dll" />
+    </ItemGroup>
+    <Error
+      Condition="'@(ForbiddenSpinePayload)' != ''"
+      Text="BWT payload must contain only Better Work Tab.dll. Remove forbidden Spine assembly: @(ForbiddenSpinePayload)" />
+  </Target>
   <ItemGroup>
     <Publicize Include="Assembly-CSharp:RimWorld.WidgetsWork.WorkBoxBGTex_AgeDisabled" />
     <Publicize Include="Assembly-CSharp:RimWorld.WidgetsWork.DrawWorkBoxBackground" />
+    <Publicize Include="Assembly-CSharp:Verse.Widgets.LineTexAA" />
     <Publicize Include="Assembly-CSharp:RimWorld.Pawn_WorkSettings.priorities" />
     <Publicize Include="Assembly-CSharp" MemberPattern="^RimWorld\.FloatMenuOptionProvider_WorkGivers\..*|RimWorld\.PawnTable\..*" />
     <Publicize Include="Assembly-CSharp:RimWorld.Pawn_WorkSettings.CacheWorkGiversInOrder" />

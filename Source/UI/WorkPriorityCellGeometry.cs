@@ -5,6 +5,7 @@ namespace Better_Work_Tab.UI
     internal static class WorkPriorityCellGeometry
     {
         internal const float BoxSize = 25f;
+        internal const float CompactSubWorkBoxSize = 20f;
         internal const float BoxTopPadding = 2.5f;
 
         internal static Rect GetPriorityBoxRect(Rect cellRect)
@@ -23,6 +24,13 @@ namespace Better_Work_Tab.UI
                 cellRect.y + (cellRect.height - boxSize) / 2f,
                 boxSize,
                 boxSize);
+        }
+
+        internal static Rect GetFluffyStyleSubWorkPriorityBoxRect(Rect cellRect)
+        {
+            bool compact = BetterWorkTabMod.Settings?.useCompactSubWorkPriorityBoxes ??
+                DefaultSettings.useCompactSubWorkPriorityBoxes;
+            return GetCenteredBoxRect(cellRect, compact ? CompactSubWorkBoxSize : BoxSize);
         }
     }
 }

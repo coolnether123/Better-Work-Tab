@@ -1,8 +1,11 @@
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.ModSupport;
+using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.PawnOrganizer;
 using HarmonyLib;
+using Spine.Harmony.Infrastructure;
+using Spine.UI.ColourPicker;
 using System;
 using UnityEngine;
 using Verse;
@@ -55,11 +58,14 @@ namespace Better_Work_Tab
             var settings = GetSettings<BetterWorkTabSettings>();
             Settings = settings;
             Settings.NormalizePrioritySettings();
+            HarmonyPreferenceSource.Configure(() => Settings?.enableDebugLogging ?? false);
+            Dialog_ColourPicker.ConfigureDebugLogger(message => DebugLog(message, DebugFeature.Layout));
             CompatibilityDiagnostics.ReportStartup(content);
 
             try
             {
                 new Harmony("Coolnether123.betterworktab").PatchAll();
+                FluffyWorkTabGateway.ApplyDesiredOwner();
                 DebugLog("Harmony patched successfully.");
             }
             catch (Exception ex)
@@ -74,7 +80,6 @@ namespace Better_Work_Tab
             // Ensure game component exists and check for worklist
             LongEventHandler.ExecuteWhenFinished(() =>
             {
-                WorkColumnOrderManager.InitializeSimilarWorktypeMap();
                 WorkColumnOrderManager.InitializeOnGameLoad();
                 if (Current.Game != null)
                 {

@@ -3,6 +3,7 @@ using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.PawnOrganizer;
 using RimWorld;
 using UnityEngine;
+using Verse;
 
 namespace Better_Work_Tab.DragDrop
 {
@@ -41,10 +42,15 @@ namespace Better_Work_Tab.DragDrop
                     continue;
                 }
 
-                FromPositions[key] = new PositionSnapshot(column.HeaderRect.x, column.OffsetX);
+                FromPositions[key] = new PositionSnapshot(column.HeaderContentRect.x, column.OffsetX);
             }
 
             _startedAt = Time.realtimeSinceStartup;
+        }
+
+        internal static void Clear()
+        {
+            FromPositions.Clear();
         }
 
         internal static float GetHeaderOffset(WorkTabLayoutColumn column)
@@ -84,7 +90,7 @@ namespace Better_Work_Tab.DragDrop
                 return 0f;
             }
 
-            float current = header ? column.HeaderRect.x : column.OffsetX;
+            float current = header ? column.HeaderContentRect.x : column.OffsetX;
             float previous = header ? from.HeaderX : from.CellOffsetX;
             float rawProgress = Mathf.Clamp01((Time.realtimeSinceStartup - _startedAt) / DurationSeconds);
             float eased = Mathf.SmoothStep(0f, 1f, rawProgress);
@@ -98,11 +104,14 @@ namespace Better_Work_Tab.DragDrop
                 return null;
             }
 
-            if (SubWorkDrilldownState.IsActive &&
-                SubWorkDrilldownState.TryGetWorkGiverForColumn(column.Column, out WorkGiver workGiver, out _) &&
+            if (SubWorkDrilldownState.TryGetWorkGiverForColumn(
+                    column,
+                    out WorkGiver workGiver,
+                    out WorkTypeDef parentWorkType,
+                    out _) &&
                 workGiver?.def != null)
             {
-                return "sub:" + workGiver.def.defName;
+                return "sub:" + (parentWorkType?.defName ?? "") + ":" + workGiver.def.defName;
             }
 
             return "column:" + column.Column.defName;

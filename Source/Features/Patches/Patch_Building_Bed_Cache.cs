@@ -3,6 +3,9 @@ using HarmonyLib;
 using RimWorld;
 using System;
 using Verse;
+using Better_Work_Tab.UI.WorkGrid.Invalidation;
+using Better_Work_Tab.UI.WorkGrid.Snapshots;
+using Better_Work_Tab.PawnOrganizer;
 
 namespace Better_Work_Tab.Patches
 {
@@ -86,7 +89,7 @@ namespace Better_Work_Tab.Patches
     {
         public static void Postfix()
         {
-            BedCachePatchUtility.SafeClear("game loaded");
+            GameCacheResetUtility.Reset("game loaded");
         }
     }
 
@@ -98,7 +101,31 @@ namespace Better_Work_Tab.Patches
     {
         public static void Postfix()
         {
-            BedCachePatchUtility.SafeClear("new game initialized");
+            GameCacheResetUtility.Reset("new game initialized");
+        }
+    }
+
+    internal static class GameCacheResetUtility
+    {
+        public static void Reset(string reason)
+        {
+            BedCachePatchUtility.SafeClear(reason);
+            SafeReset(reason, "work-grid snapshot", WorkGridSnapshotProvider.ClearActive);
+            SafeReset(reason, "layout geometry", () => PawnOrganizerSystem.Instance?.Layout?.ClearGeometrySnapshot());
+            SafeReset(reason, "invalidation audit", WorkGridInvalidationAudit.Reset);
+            SafeReset(reason, "invalidation hub", WorkTabInvalidationHub.ResetForGameTeardown);
+        }
+
+        private static void SafeReset(string reason, string component, Action reset)
+        {
+            try
+            {
+                reset();
+            }
+            catch (Exception ex)
+            {
+                Log.Warning($"[BWT] Skipped {component} reset after {reason}: {ex.GetType().Name}: {ex.Message}");
+            }
         }
     }
 

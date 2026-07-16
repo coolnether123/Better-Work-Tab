@@ -1,0 +1,145 @@
+using System;
+using Better_Work_Tab.UI.WorkGrid.Invalidation;
+
+namespace Better_Work_Tab.UI.WorkGrid.Rendering
+{
+    internal enum WorkGridAtlasVisualVariant : byte
+    {
+        Priority,
+        Checkbox,
+        AgeDisabled,
+        SkillAwfulBad,
+        SkillBadMid,
+        SkillMidExcellent
+    }
+
+    internal readonly struct WorkGridAtlasKey : IEquatable<WorkGridAtlasKey>
+    {
+        internal WorkGridAtlasKey(
+            int uiScaleRevision,
+            int fontThemeRevision,
+            int priorityRangeRevision,
+            byte priority,
+            WorkGridAtlasVisualVariant variant)
+        {
+            UiScaleRevision = uiScaleRevision;
+            FontThemeRevision = fontThemeRevision;
+            PriorityRangeRevision = priorityRangeRevision;
+            Priority = priority;
+            Variant = variant;
+        }
+
+        internal int UiScaleRevision { get; }
+        internal int FontThemeRevision { get; }
+        internal int PriorityRangeRevision { get; }
+        internal byte Priority { get; }
+        internal WorkGridAtlasVisualVariant Variant { get; }
+
+        public bool Equals(WorkGridAtlasKey other)
+        {
+            return UiScaleRevision == other.UiScaleRevision &&
+                   FontThemeRevision == other.FontThemeRevision &&
+                   PriorityRangeRevision == other.PriorityRangeRevision &&
+                   Priority == other.Priority &&
+                   Variant == other.Variant;
+        }
+
+        public override bool Equals(object obj) => obj is WorkGridAtlasKey other && Equals(other);
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                int hash = UiScaleRevision;
+                hash = (hash * 397) ^ FontThemeRevision;
+                hash = (hash * 397) ^ PriorityRangeRevision;
+                hash = (hash * 397) ^ Priority;
+                return (hash * 397) ^ (int)Variant;
+            }
+        }
+    }
+
+    internal enum WorkGridRenderLayer : byte
+    {
+        RowBackground,
+        BasePriority,
+        SkillBackground,
+        PassionWarningOverlay,
+        FeatureOverlay
+    }
+
+    internal static class WorkGridLayerDependencies
+    {
+        internal static WorkGridInvalidationCategory GetDependencies(WorkGridRenderLayer layer)
+        {
+            switch (layer)
+            {
+                case WorkGridRenderLayer.RowBackground:
+                    return WorkGridInvalidationCategory.PawnListOrder |
+                           WorkGridInvalidationCategory.SettingsThemeLanguageScale;
+                case WorkGridRenderLayer.BasePriority:
+                    return WorkGridInvalidationCategory.Priority |
+                           WorkGridInvalidationCategory.CapabilitySkill |
+                           WorkGridInvalidationCategory.SettingsThemeLanguageScale;
+                case WorkGridRenderLayer.SkillBackground:
+                case WorkGridRenderLayer.PassionWarningOverlay:
+                    return WorkGridInvalidationCategory.CapabilitySkill |
+                           WorkGridInvalidationCategory.SettingsThemeLanguageScale;
+                case WorkGridRenderLayer.FeatureOverlay:
+                    return WorkGridInvalidationCategory.Priority |
+                           WorkGridInvalidationCategory.CapabilitySkill |
+                           WorkGridInvalidationCategory.SubWorkOverride |
+                           WorkGridInvalidationCategory.HoverInteraction |
+                           WorkGridInvalidationCategory.Animation;
+                default:
+                    return 0;
+            }
+        }
+    }
+
+    internal static class WorkGridCullingMath
+    {
+        internal static void ResolveVisibleRange(
+            float[] starts,
+            float[] extents,
+            float viewportStart,
+            float viewportExtent,
+            float scroll,
+            out int start,
+            out int count)
+        {
+            start = 0;
+            count = 0;
+            if (starts == null || extents == null || starts.Length == 0 || starts.Length != extents.Length)
+            {
+                return;
+            }
+
+            float visibleStart = viewportStart + scroll;
+            float visibleEnd = visibleStart + Math.Max(0f, viewportExtent);
+            int first = -1;
+            int last = -1;
+            for (int index = 0; index < starts.Length; index++)
+            {
+                float itemStart = starts[index];
+                float itemEnd = itemStart + Math.Max(0f, extents[index]);
+                if (itemEnd < visibleStart || itemStart > visibleEnd)
+                {
+                    continue;
+                }
+
+                if (first < 0)
+                {
+                    first = index;
+                }
+                last = index;
+            }
+
+            if (first >= 0)
+            {
+                start = first;
+                count = last - first + 1;
+            }
+        }
+    }
+}
