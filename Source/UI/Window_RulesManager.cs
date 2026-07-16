@@ -209,8 +209,8 @@ namespace Better_Work_Tab.UI
             Rect rect3 = rect2;
             rect3.xMin += ParameterRowIndent;
             rect3.xMax -= ParameterRowIndent;
-            rect3.y = rect2.yMax - Window.CloseButSize.y - 10f;
-            rect3.height = Window.CloseButSize.y;
+            rect3.y = rect2.yMax - this.CloseButSize.y - 10f;
+            rect3.height = this.CloseButSize.y;
             Rect outRect = rect2;
             outRect.yMin -= 24f;
             outRect.yMax = rect3.y + 39f;
@@ -610,8 +610,8 @@ namespace Better_Work_Tab.UI
             Rect rect3 = rect2;
             rect3.xMin += 10f;
             rect3.xMax -= 10f;
-            rect3.y = rect2.yMax - Window.CloseButSize.y - 10f;
-            rect3.height = Window.CloseButSize.y;
+            rect3.y = rect2.yMax - this.CloseButSize.y - 10f;
+            rect3.height = this.CloseButSize.y;
             Rect outRect = rect2;
             outRect.yMax = rect3.y - 10f;
             Widgets.DrawMenuSection(rect2);

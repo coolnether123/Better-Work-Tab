@@ -180,14 +180,14 @@ namespace Better_Work_Tab.UI.Headers.Angled
             // Replicate vanilla GetHeaderTip from PawnColumnWorker_WorkPriority
             var workType = worker.def.workType;
             
-            TaggedString tooltip = WorkTypeDisplayNameService.GerundLabel(workType).Colorize(TooltipTitleColor)
+            TaggedString tooltip = WorkTypeDisplayNameService.GerundLabel(workType).ToString().Colorize(TooltipTitleColor)
                 + "\n\n" + workType.description 
                 + "\n\n" + SpecificWorkListString(workType) 
                 + "\n";
             
             if (worker.def.sortable)
             {
-                tooltip += "\n" + "ClickToSortByThisColumn".Translate().Colorize(TooltipSubtleColor);
+                tooltip += "\n" + "ClickToSortByThisColumn".Translate().ToString().Colorize(TooltipSubtleColor);
             }
             
             if (ShouldShowKeyboardTooltips)
@@ -198,11 +198,11 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 }
                 else if (Find.PlaySettings.useWorkPriorities)
                 {
-                    tooltip += "\n" + "WorkPriorityShiftClickTip".Translate().Colorize(TooltipSubtleColor);
+                    tooltip += "\n" + "WorkPriorityShiftClickTip".Translate().ToString().Colorize(TooltipSubtleColor);
                 }
                 else
                 {
-                    tooltip += "\n" + "WorkPriorityShiftClickEnableDisableTip".Translate().Colorize(TooltipSubtleColor);
+                    tooltip += "\n" + "WorkPriorityShiftClickEnableDisableTip".Translate().ToString().Colorize(TooltipSubtleColor);
                 }
             }
 
@@ -225,7 +225,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
             var def = workGiver.def;
             System.Text.StringBuilder tooltip = new System.Text.StringBuilder(160);
 
-            tooltip.Append(WorkGiverDisplayNameService.FullLabel(def).Colorize(TooltipTitleColor));
+            tooltip.Append(WorkGiverDisplayNameService.FullLabel(def).ToString().Colorize(TooltipTitleColor));
 
             string workTypeLabel = WorkTypeDisplayNameService.FullLabel(activeWorkType);
             if (!workTypeLabel.NullOrEmpty())
@@ -240,7 +240,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
             if (worker.def.sortable)
             {
-                tooltip.Append("\n\n").Append("ClickToSortByThisColumn".Translate().Colorize(TooltipSubtleColor));
+                tooltip.Append("\n\n").Append("ClickToSortByThisColumn".Translate().ToString().Colorize(TooltipSubtleColor));
             }
 
             if (BetterWorkTabMod.Settings?.enableColumnGrouping ?? true)
@@ -249,11 +249,11 @@ namespace Better_Work_Tab.UI.Headers.Angled
             }
             else if (Find.PlaySettings.useWorkPriorities)
             {
-                tooltip.Append("\n").Append("WorkPriorityShiftClickTip".Translate().Colorize(TooltipSubtleColor));
+                tooltip.Append("\n").Append("WorkPriorityShiftClickTip".Translate().ToString().Colorize(TooltipSubtleColor));
             }
             else
             {
-                tooltip.Append("\n").Append("WorkPriorityShiftClickEnableDisableTip".Translate().Colorize(TooltipSubtleColor));
+                tooltip.Append("\n").Append("WorkPriorityShiftClickEnableDisableTip".Translate().ToString().Colorize(TooltipSubtleColor));
             }
 
             if (SubWorkDrilldownInput.IsEnabled)
