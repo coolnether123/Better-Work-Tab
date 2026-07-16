@@ -370,19 +370,12 @@ namespace Better_Work_Tab.Features.TimePriority
 
             if (evt.type != EventType.MouseDown ||
                 evt.button != 0 ||
-                !IsControlHeld(evt) ||
-                _isClosing ||
-                BetterWorkTabLocalState.IsHeaderDragging)
+                !IsControlHeld(evt))
             {
                 return false;
             }
 
-            if (!TryGetPriorityTarget(layout, evt.mousePosition, out TargetInfo target))
-            {
-                return false;
-            }
-
-            if (!Mouse.IsOver(target.PriorityBoxRect))
+            if (!TryGetToggleTarget(layout, evt.mousePosition, out TargetInfo target))
             {
                 return false;
             }
@@ -390,6 +383,11 @@ namespace Better_Work_Tab.Features.TimePriority
             ToggleTarget(target);
             evt.Use();
             return true;
+        }
+
+        internal static bool HasToggleTargetAt(IWorkTabLayoutController layout, Vector2 mousePosition)
+        {
+            return TryGetToggleTarget(layout, mousePosition, out _);
         }
 
         private static bool IsAgentHarnessEnabled()
@@ -908,6 +906,20 @@ namespace Better_Work_Tab.Features.TimePriority
                 priorityBoxRect,
                 priority);
             return true;
+        }
+
+        private static bool TryGetToggleTarget(
+            IWorkTabLayoutController layout,
+            Vector2 mousePosition,
+            out TargetInfo target)
+        {
+            target = default;
+            return IsEnabled &&
+                   layout != null &&
+                   !_isClosing &&
+                   !BetterWorkTabLocalState.IsHeaderDragging &&
+                   TryGetPriorityTarget(layout, mousePosition, out target) &&
+                   target.PriorityBoxRect.Contains(mousePosition);
         }
 
         private static bool TryFindAgentWorkTypeTarget(IWorkTabLayoutController layout, string requestedWorkType, out TargetInfo target)

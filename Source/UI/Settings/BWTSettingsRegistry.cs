@@ -1608,8 +1608,8 @@ namespace Better_Work_Tab.UI.Settings
             {
                 Id = UiDragInstructions,
                 FieldName = "showDragInstructions",
-                Label = "Show Drag Instructions",
-                Tooltip = "Show overlay instructions at the bottom of the tab.",
+                Label = "Show Footer Control Hints",
+                Tooltip = "Always show the Shift skill-view hint and show other control hints only when hovering a target that supports them.",
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.showDragInstructions,
                 ShowInSimpleView = true,

@@ -581,7 +581,7 @@ namespace Better_Work_Tab.UI
 
             bool mouseInside = !BWTWorkTabTutorial.OwnsCurrentPointer && Mouse.IsOver(inRect);
             Rect infoRect = GetInfoIconRect(inRect);
-            DrawBottomRightButtons(inRect, infoRect);
+            DrawBottomRightButtons(organizer?.Layout, inRect, infoRect);
             if (mouseInside)
             {
                 DrawInfoButton(infoRect);
@@ -4833,41 +4833,93 @@ namespace Better_Work_Tab.UI
             Text.Font = GameFont.Small;
         }
 
-        private void DrawBottomRightButtons(Rect inRect, Rect gearRect)
+        private void DrawBottomRightButtons(IWorkTabLayoutController layout, Rect inRect, Rect gearRect)
         {
             HeaderButtons.DrawBottomRightGrouped(inRect, gearRect);
-            Text.Font = GameFont.Small;
-            GUI.color = Color.white;
+            Text.Font = GameFont.Tiny;
+            GUI.color = new Color(1f, 1f, 1f, 0.72f);
             Text.Anchor = TextAnchor.LowerLeft;
 
             var settings = BetterWorkTabMod.Settings;
-            if (settings?.enableUIElements ?? true)
+            if ((settings?.enableUIElements ?? true) &&
+                (settings?.showDragInstructions ?? DefaultSettings.showDragInstructions))
             {
-                if (settings.showDragInstructions)
+                var instructions = new List<string>();
+                if (settings?.enableSkillOverlayFeature ?? DefaultSettings.enableSkillOverlayFeature)
                 {
-                    bool overlayEnabled = settings.enableSkillOverlayFeature;
-                    bool dragEnabled = settings.enableDragDropReordering && (settings.rowDraggingEnabled || settings.columnDraggingEnabled);
+                    instructions.Add(
+                        ShiftHelper.State == BetterWorkTabSettings.ShowUIMode.Shifted
+                            ? "BWT_Footer_ReleaseShiftForPriorities".Translate()
+                            : "BWT_Footer_HoldShiftForSkills".Translate());
+                }
 
-                    string overlayText = overlayEnabled
-                        ? (ShiftHelper.State == BetterWorkTabSettings.ShowUIMode.Shifted
-                            ? "Numbers: skill level | Background: skill aptitude"
-                            : "Numbers: priority | Background: skill aptitude | Shift: skill numbers")
-                        : "Numbers: priority | Background: skill aptitude";
-                    string dragInstruction = dragEnabled
-                        ? (settings.requireCtrlForDrag ? "Ctrl + drag to reorder" : "Drag to reorder")
-                        : string.Empty;
-
-                    string combined = string.IsNullOrEmpty(overlayText)
-                        ? dragInstruction
-                        : (string.IsNullOrEmpty(dragInstruction) ? overlayText : $"{overlayText} | {dragInstruction}");
-
-                    if (!string.IsNullOrEmpty(combined))
+                bool pointerAvailable = layout != null &&
+                                        Event.current != null &&
+                                        Mouse.IsOver(inRect) &&
+                                        !BWTWorkTabTutorial.OwnsCurrentPointer &&
+                                        !RuleBuilderGateway.IsRuleBuilder2ListeningToWorkTab &&
+                                        !FluffyTimeScheduleAssigner.IsOpen &&
+                                        !(PawnOrganizerSystem.Instance?.IsDragging ?? false);
+                if (pointerAvailable)
+                {
+                    Vector2 mousePosition = Event.current.mousePosition;
+                    if (TimePriorityScheduleEditor.HasToggleTargetAt(layout, mousePosition))
                     {
-                        Rect textRect = new Rect(inRect.x, inRect.y, inRect.width, inRect.height);
-                        Widgets.Label(textRect, combined);
+                        instructions.Add("BWT_Footer_CtrlClickSchedule".Translate());
+                    }
+                    else if (SubWorkDrilldownInput.IsEnabled)
+                    {
+                        bool hasDrilldownAction;
+                        string action;
+                        if (SubWorkDrilldownState.IsActive)
+                        {
+                            hasDrilldownAction = TryGetSubWorkExitTarget(layout, mousePosition, out _, out _);
+                            action = "BWT_Footer_BackToWorkTypes".Translate();
+                        }
+                        else
+                        {
+                            hasDrilldownAction = TryGetSubWorkOpenTarget(
+                                layout,
+                                mousePosition,
+                                out _,
+                                out _,
+                                out _);
+                            action = "BWT_Footer_OpenSpecificJobs".Translate();
+                        }
+
+                        if (hasDrilldownAction)
+                        {
+                            instructions.Add(
+                                "BWT_Footer_GestureAction".Translate(
+                                    SubWorkDrilldownInput.GestureLabel().CapitalizeFirst(),
+                                    action));
+                        }
                     }
                 }
+
+                if (instructions.Count > 0)
+                {
+                    HeaderButtons.BottomButtonRects buttonRects = HeaderButtons.GetBottomButtonRects(inRect, gearRect);
+                    float textRight = gearRect.x - 8f;
+                    if (buttonRects.HasRuleset)
+                    {
+                        textRight = Mathf.Min(textRight, buttonRects.RulesetMain.x - 8f);
+                    }
+                    if (buttonRects.HasWorkload)
+                    {
+                        textRight = Mathf.Min(textRight, buttonRects.WorkloadMain.x - 8f);
+                    }
+
+                    Rect textRect = new Rect(
+                        inRect.x + 6f,
+                        inRect.y,
+                        Mathf.Max(0f, textRight - inRect.x - 6f),
+                        inRect.height);
+                    Widgets.Label(textRect, string.Join(" | ", instructions));
+                }
             }
+            GUI.color = Color.white;
+            Text.Font = GameFont.Small;
             Text.Anchor = TextAnchor.UpperLeft;
         }
 

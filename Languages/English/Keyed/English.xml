@@ -158,6 +158,12 @@
 <BWT_RulesConfigured>{0} rules configured</BWT_RulesConfigured>
 <BWT_NoRulesConfigured>No rules configured</BWT_NoRulesConfigured>
 <BWT_ClickToEdit>Click to edit</BWT_ClickToEdit>
+<BWT_Footer_HoldShiftForSkills>Hold Shift: view skill levels</BWT_Footer_HoldShiftForSkills>
+<BWT_Footer_ReleaseShiftForPriorities>Release Shift: view priorities</BWT_Footer_ReleaseShiftForPriorities>
+<BWT_Footer_CtrlClickSchedule>Ctrl-click: edit hourly priorities</BWT_Footer_CtrlClickSchedule>
+<BWT_Footer_OpenSpecificJobs>open specific jobs</BWT_Footer_OpenSpecificJobs>
+<BWT_Footer_BackToWorkTypes>back to work types</BWT_Footer_BackToWorkTypes>
+<BWT_Footer_GestureAction>{0}: {1}</BWT_Footer_GestureAction>
 
 <BWT_DoNotShowAgain>Do not show again</BWT_DoNotShowAgain>
 
