@@ -29,7 +29,8 @@ namespace Better_Work_Tab.UI.Settings
                 BuildSystemFilter("system.dividers", "Dividers", FeaturesDividers),
                 BuildSystemFilter("system.dragdrop", "Drag & Drop", FeaturesDragdrop),
                 BuildSystemFilter("system.priorities", "Priorities", PriorityHeader),
-                BuildSystemFilter("system.timePriority", "Time Priority Schedule", UiTimePriorityPlannerPrototype),
+                BuildSystemFilter("system.timePriority", "Time Priority Schedule", UiTimePrioritySchedules),
+                BuildSystemFilter("system.fluffyStyle", "Fluffy-style Work Tab", CompatFluffyWorkTabHeader),
                 BuildSystemFilter("system.workloads", "Workloads", FeaturesWorkloads),
                 BuildSystemFilter("system.rules", "Rulesets", FeaturesAutoassign),
                 BuildSystemFilter("system.highlights", "Highlights", FeaturesHighlights),
@@ -37,12 +38,12 @@ namespace Better_Work_Tab.UI.Settings
                 BuildSystemFilter("system.clicks", "Clicks & Shortcuts", FeaturesClicks),
                 new SettingsFilterDefinition
                 {
-                    Id = "fluffy.like",
-                    Label = "Fluffy-like Settings",
+                    Id = "worktab.style",
+                    Label = "Work Tab-style",
                     Category = PresetsCategory,
                     CategoryLabel = "Presets",
-                    Tooltip = "Settings that map to common Work Tab/Fluffy-style behavior: compact headers, priorities, sub-work priorities, dividers, dragging, skill overlays, workload presets, and time planning.",
-                    Predicate = (def, _) => IsFluffyLikeSetting(def),
+                    Tooltip = "Settings that map to common expanded Work tab behavior: compact headers, priorities, sub-work priorities, dividers, dragging, skill overlays, workload presets, and time planning.",
+                    Predicate = (def, _) => IsWorkTabStyleSetting(def),
                     IncludeChildrenOfMatches = false
                 },
                 new SettingsFilterDefinition
@@ -143,7 +144,7 @@ namespace Better_Work_Tab.UI.Settings
         {
             return HasAnyPrefix(def,
                     "subWorkJobs.",
-                    "ui.timePriorityPlannerPrototype",
+                    "ui.timePrioritySchedules",
                     "layout.workTab",
                     "ui.timePriority",
                     "ui.chronosPointer",
@@ -159,12 +160,16 @@ namespace Better_Work_Tab.UI.Settings
         {
             return HasAnyId(def,
                     UiGeneralTutorial,
-                    UiBetaTutorial,
-                    UiTimePriorityPlannerPrototype,
+                    UiTimePrioritySchedules,
                     UiTimePriorityCopyPasteButtons,
                     UiTimePriorityHourDivider,
                     UiChronosPointerTimePriority,
                     UiTimePrioritySourceColumnHighlight,
+                    UiFluffyTimePriorityMirroring,
+                    CompatFluffyWorkTabHeader,
+                    FluffyStyleFeatures,
+                    FluffyStyleTopButtons,
+                    FluffyStyleStandaloneTopButtons,
                     UiMaxPriority,
                     UiAutoMaxPriority,
                     FeaturesSubWorkJobs) ||
@@ -172,6 +177,7 @@ namespace Better_Work_Tab.UI.Settings
                     "subWorkJobs.",
                     "ui.timePriority",
                     "ui.chronosPointer",
+                    "fluffyStyle.",
                     "ui.maxPriority",
                     "priority.");
         }
@@ -215,7 +221,7 @@ namespace Better_Work_Tab.UI.Settings
                 string.Equals(def.Id, FeaturesWorkloads, StringComparison.OrdinalIgnoreCase);
         }
 
-        private static bool IsFluffyLikeSetting(SettingDefinition def)
+        private static bool IsWorkTabStyleSetting(SettingDefinition def)
         {
             return HasAnyId(def,
                     FeaturesOverlay,
@@ -223,6 +229,10 @@ namespace Better_Work_Tab.UI.Settings
                     FeaturesDividers,
                     FeaturesWorkloads,
                     FeaturesSubWorkJobs,
+                    CompatFluffyWorkTabHeader,
+                    FluffyStyleFeatures,
+                    FluffyStyleTopButtons,
+                    FluffyStyleStandaloneTopButtons,
                     HeadersHeader,
                     HeadersAngled,
                     PriorityHeader,
@@ -245,6 +255,7 @@ namespace Better_Work_Tab.UI.Settings
                     "ui.maxPriority",
                     "ui.priorityColor",
                     "ui.timePriority",
+                    "fluffyStyle.",
                     "subWorkJobs.",
                     "dividers.",
                     "layout.divider",
@@ -379,7 +390,8 @@ namespace Better_Work_Tab.UI.Settings
         {
             if (def == null || settingsObject == null || string.IsNullOrEmpty(def.FieldName) || def.DefaultValue == null)
             {
-                return false;
+                return def?.Type == SettingType.Custom &&
+                       (def.CustomHasNonDefaultValue?.Invoke(settingsObject) ?? false);
             }
 
             FieldInfo field = settingsObject.GetType().GetField(

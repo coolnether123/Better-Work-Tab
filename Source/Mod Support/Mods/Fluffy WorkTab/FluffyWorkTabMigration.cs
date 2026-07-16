@@ -1,10 +1,11 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Xml;
+using Better_Work_Tab.API;
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
@@ -36,12 +37,12 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
 
         internal static void MigrateIfNeeded(GameComponent_BWTWorldSettings component)
         {
-            if (component == null || component.FluffyWorkTabPriorityMigrationVersion >= MigrationVersion)
+            if (component == null || component.ExternalWorkTabPriorityMigrationVersion >= MigrationVersion)
             {
                 return;
             }
 
-            List<FluffyPawnPriorityRecord> records = ReadLiveFluffyPriorities();
+            List<ExternalPawnWorkGiverPriorityRecord> records = ReadLiveFluffyPriorities();
             if (records.Count == 0)
             {
                 records = ReadSavedFluffyPriorities();
@@ -53,22 +54,60 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             }
 
             component.EnsureWorkGiverReassignmentData();
-            int changed = Apply(component, records);
-            component.FluffyWorkTabPriorityMigrationVersion = MigrationVersion;
+            int changed = ExternalWorkTabPriorityImportService.Import(component, records);
+            component.ExternalWorkTabPriorityMigrationVersion = MigrationVersion;
 
             if (changed > 0)
             {
-                TimePriorityService.NotifyLoaded();
-                WorkGiverReassignmentManager.InvalidateCaches();
-                WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
-                MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
                 Log.Message("[Better Work Tab] Imported " + changed + " Fluffy Work Tab priority entries.");
             }
         }
 
-        private static List<FluffyPawnPriorityRecord> ReadLiveFluffyPriorities()
+        internal static int ImportLivePriorities()
         {
-            var records = new List<FluffyPawnPriorityRecord>();
+            var component = Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
+            if (component == null)
+            {
+                return 0;
+            }
+
+            List<ExternalPawnWorkGiverPriorityRecord> records = ReadLiveFluffyPriorities();
+            if (records.Count == 0)
+            {
+                return 0;
+            }
+
+            component.EnsureWorkGiverReassignmentData();
+            return ExternalWorkTabPriorityImportService.Import(component, records);
+        }
+
+        internal static bool HasMigrationHistory(GameComponent_BWTWorldSettings component)
+        {
+            try
+            {
+                return component?.ExternalWorkTabPriorityMigrationVersion > 0 ||
+                    AccessTools.TypeByName(FluffyPriorityManagerClass) != null;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        internal static void ExposeMigrationVersion(ref int version)
+        {
+            Scribe_Values.Look(ref version, "fluffyWorkTabPriorityMigrationVersion", 0);
+        }
+
+        internal static bool TryReadLivePriorityRecords(out IList<ExternalPawnWorkGiverPriorityRecord> records)
+        {
+            records = ReadLiveFluffyPriorities();
+            return records.Count > 0;
+        }
+
+        private static List<ExternalPawnWorkGiverPriorityRecord> ReadLiveFluffyPriorities()
+        {
+            var records = new List<ExternalPawnWorkGiverPriorityRecord>();
             try
             {
                 Type managerType = AccessTools.TypeByName(FluffyPriorityManagerClass);
@@ -98,7 +137,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                         continue;
                     }
 
-                    var workGivers = new List<FluffyWorkGiverPriorityRecord>();
+                    var workGivers = new List<ExternalWorkGiverPriorityRecord>();
                     foreach (object workGiverEntry in workGiverEntries)
                     {
                         if (!TryReadDictionaryEntry(workGiverEntry, out object workGiverKey, out object workPriority) ||
@@ -114,12 +153,12 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                             continue;
                         }
 
-                        workGivers.Add(new FluffyWorkGiverPriorityRecord(workGiver, priorities));
+                        workGivers.Add(new ExternalWorkGiverPriorityRecord(workGiver, priorities));
                     }
 
                     if (workGivers.Count > 0)
                     {
-                        records.Add(new FluffyPawnPriorityRecord(pawn, workGivers));
+                        records.Add(new ExternalPawnWorkGiverPriorityRecord(pawn, workGivers));
                     }
                 }
             }
@@ -131,9 +170,9 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             return records;
         }
 
-        private static List<FluffyPawnPriorityRecord> ReadSavedFluffyPriorities()
+        private static List<ExternalPawnWorkGiverPriorityRecord> ReadSavedFluffyPriorities()
         {
-            var records = new List<FluffyPawnPriorityRecord>();
+            var records = new List<ExternalPawnWorkGiverPriorityRecord>();
             string saveName = _lastLoadingSaveName ?? Current.Game?.InitData?.gameToLoad;
             if (saveName.NullOrEmpty())
             {
@@ -194,7 +233,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                         continue;
                     }
 
-                    var workGivers = new List<FluffyWorkGiverPriorityRecord>();
+                    var workGivers = new List<ExternalWorkGiverPriorityRecord>();
                     foreach (XmlNode priorityNode in priorityNodes)
                     {
                         string workGiverDefName = priorityNode["Workgiver"]?.InnerText;
@@ -208,13 +247,13 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                         WorkGiverDef workGiver = DefDatabase<WorkGiverDef>.GetNamedSilentFail(workGiverDefName.Trim());
                         if (workGiver != null)
                         {
-                            workGivers.Add(new FluffyWorkGiverPriorityRecord(workGiver, priorities));
+                            workGivers.Add(new ExternalWorkGiverPriorityRecord(workGiver, priorities));
                         }
                     }
 
                     if (workGivers.Count > 0)
                     {
-                        records.Add(new FluffyPawnPriorityRecord(pawn, workGivers));
+                        records.Add(new ExternalPawnWorkGiverPriorityRecord(pawn, workGivers));
                     }
                 }
             }
@@ -224,155 +263,6 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             }
 
             return records;
-        }
-
-        private static int Apply(GameComponent_BWTWorldSettings component, List<FluffyPawnPriorityRecord> records)
-        {
-            int changed = 0;
-            int importedMax = records
-                .SelectMany(record => record.WorkGivers)
-                .SelectMany(record => record.Priorities)
-                .DefaultIfEmpty(PriorityConstants.VanillaMax)
-                .Max();
-            EnsurePriorityRangeForImport(importedMax);
-
-            foreach (FluffyPawnPriorityRecord pawnRecord in records)
-            {
-                Pawn pawn = pawnRecord.Pawn;
-                if (pawn?.workSettings == null)
-                {
-                    continue;
-                }
-
-                foreach (IGrouping<WorkTypeDef, FluffyWorkGiverPriorityRecord> group in pawnRecord.WorkGivers
-                             .Where(record => record.WorkGiver?.workType != null)
-                             .GroupBy(record => record.WorkGiver.workType))
-                {
-                    WorkTypeDef workType = group.Key;
-                    if (workType == null || pawn.WorkTypeIsDisabled(workType))
-                    {
-                        continue;
-                    }
-
-                    List<FluffyWorkGiverPriorityRecord> workGiverPriorities = group.ToList();
-                    int[] parentPriorities = BuildWorkTypePriorities(workGiverPriorities);
-                    int parentFallback = ChooseFallbackPriority(parentPriorities);
-
-                    WorkPrioritySystem.SetPriority(pawn.workSettings, workType, parentFallback);
-                    changed++;
-
-                    TimePriorityTarget workTypeTarget = TimePriorityTarget.ForWorkType(pawn, workType);
-                    changed += SetSchedule(component, workTypeTarget, parentPriorities, parentFallback);
-
-                    foreach (FluffyWorkGiverPriorityRecord workGiverPriority in workGiverPriorities)
-                    {
-                        WorkGiverDef workGiver = workGiverPriority.WorkGiver;
-                        if (workGiver == null || ArraysEqual(workGiverPriority.Priorities, parentPriorities))
-                        {
-                            continue;
-                        }
-
-                        int workGiverFallback = ChooseFallbackPriority(workGiverPriority.Priorities);
-                        WorkGiverReassignmentManager.SetPawnOverrideSynced(
-                            pawn.thingIDNumber,
-                            workGiver.defName,
-                            workGiverFallback);
-                        changed++;
-
-                        TimePriorityTarget workGiverTarget = TimePriorityTarget.ForWorkGiver(
-                            pawn,
-                            workType,
-                            workGiver,
-                            WorkGiverDisplayNameService.HeaderLabel(workGiver));
-                        changed += SetSchedule(component, workGiverTarget, workGiverPriority.Priorities, workGiverFallback);
-                    }
-                }
-            }
-
-            return changed;
-        }
-
-        private static void EnsurePriorityRangeForImport(int importedMax)
-        {
-            importedMax = PriorityAuthorityBroker.ClampMaxPriority(importedMax);
-            if (importedMax <= PriorityConstants.VanillaMax)
-            {
-                return;
-            }
-
-            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
-            if (settings == null)
-            {
-                return;
-            }
-
-            if (settings.maxPriorityInt < importedMax)
-            {
-                settings.maxPriorityInt = importedMax;
-            }
-
-            if (settings.priorityMode == PriorityMode.Vanilla)
-            {
-                settings.SetPriorityMode(PriorityMode.Auto);
-            }
-
-            settings.NormalizePrioritySettings();
-            PriorityAuthorityBroker.InvalidateCaches();
-        }
-
-        private static int SetSchedule(
-            GameComponent_BWTWorldSettings component,
-            TimePriorityTarget target,
-            int[] priorities,
-            int fallbackPriority)
-        {
-            int[] normalized = NormalizePriorities(priorities, fallbackPriority);
-            if (normalized.All(priority => priority == WorkPrioritySystem.ClampPriority(fallbackPriority)))
-            {
-                TimePriorityService.ClearSchedule(target);
-                return 0;
-            }
-
-            TimePriorityService.SetPrioritiesSynced(target, normalized, fallbackPriority);
-            return 1;
-        }
-
-        private static int[] BuildWorkTypePriorities(List<FluffyWorkGiverPriorityRecord> workGiverPriorities)
-        {
-            var result = new int[TimePriorityService.HoursPerDay];
-            for (int hour = 0; hour < result.Length; hour++)
-            {
-                int best = 0;
-                for (int i = 0; i < workGiverPriorities.Count; i++)
-                {
-                    int priority = workGiverPriorities[i].Priorities[hour];
-                    if (priority <= WorkPrioritySystem.DisabledPriority)
-                    {
-                        continue;
-                    }
-
-                    if (best == 0 || priority < best)
-                    {
-                        best = priority;
-                    }
-                }
-
-                result[hour] = best;
-            }
-
-            return result;
-        }
-
-        private static int ChooseFallbackPriority(int[] priorities)
-        {
-            return NormalizePriorities(priorities, WorkPrioritySystem.DisabledPriority)
-                .Where(priority => priority > WorkPrioritySystem.DisabledPriority)
-                .GroupBy(priority => priority)
-                .OrderByDescending(group => group.Count())
-                .ThenBy(group => group.Key)
-                .Select(group => group.Key)
-                .DefaultIfEmpty(WorkPrioritySystem.DisabledPriority)
-                .First();
         }
 
         private static int[] ReadPriorityArray(object workPriority)
@@ -415,10 +305,10 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
         private static int[] NormalizePriorities(int[] priorities, int fallbackPriority)
         {
             var normalized = new int[TimePriorityService.HoursPerDay];
-            fallbackPriority = WorkPrioritySystem.ClampPriority(fallbackPriority);
+            fallbackPriority = ClampImportedPriority(fallbackPriority);
             for (int i = 0; i < normalized.Length; i++)
             {
-                normalized[i] = WorkPrioritySystem.ClampPriority(
+                normalized[i] = ClampImportedPriority(
                     priorities != null && i < priorities.Length
                         ? priorities[i]
                         : fallbackPriority);
@@ -427,22 +317,11 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             return normalized;
         }
 
-        private static bool ArraysEqual(int[] left, int[] right)
+        private static int ClampImportedPriority(int priority)
         {
-            if (left == null || right == null || left.Length != right.Length)
-            {
-                return false;
-            }
-
-            for (int i = 0; i < left.Length; i++)
-            {
-                if (left[i] != right[i])
-                {
-                    return false;
-                }
-            }
-
-            return true;
+            return Math.Max(
+                WorkPrioritySystem.DisabledPriority,
+                Math.Min(PriorityConstants.ExtendedHardMax, priority));
         }
 
         private static Dictionary<string, Pawn> BuildPawnLoadIdMap()
@@ -488,30 +367,6 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             key = keyProperty.GetValue(entry, null);
             value = valueProperty.GetValue(entry, null);
             return true;
-        }
-
-        private sealed class FluffyPawnPriorityRecord
-        {
-            internal FluffyPawnPriorityRecord(Pawn pawn, List<FluffyWorkGiverPriorityRecord> workGivers)
-            {
-                Pawn = pawn;
-                WorkGivers = workGivers ?? new List<FluffyWorkGiverPriorityRecord>();
-            }
-
-            internal Pawn Pawn { get; }
-            internal List<FluffyWorkGiverPriorityRecord> WorkGivers { get; }
-        }
-
-        private sealed class FluffyWorkGiverPriorityRecord
-        {
-            internal FluffyWorkGiverPriorityRecord(WorkGiverDef workGiver, int[] priorities)
-            {
-                WorkGiver = workGiver;
-                Priorities = NormalizePriorities(priorities, WorkPrioritySystem.DisabledPriority);
-            }
-
-            internal WorkGiverDef WorkGiver { get; }
-            internal int[] Priorities { get; }
         }
 
         [HarmonyPatch(typeof(GameDataSaveLoader), nameof(GameDataSaveLoader.LoadGame), new[] { typeof(string) })]

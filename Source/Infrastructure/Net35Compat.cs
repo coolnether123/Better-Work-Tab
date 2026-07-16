@@ -5,6 +5,38 @@ using System.Reflection;
 
 namespace System
 {
+    public static class ArrayCompat
+    {
+        public static T[] Empty<T>()
+        {
+            return new T[0];
+        }
+    }
+
+    public static class StringCompat
+    {
+        public static bool IsNullOrWhiteSpace(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+            {
+                return true;
+            }
+
+            for (int i = 0; i < value.Length; i++)
+            {
+                if (!char.IsWhiteSpace(value[i]))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+    }
+
+    public delegate TResult Func<in T1, in T2, in T3, in T4, out TResult>(T1 arg1, T2 arg2, T3 arg3, T4 arg4);
+    public delegate TResult Func<in T1, in T2, in T3, in T4, in T5, out TResult>(T1 arg1, T2 arg2, T3 arg3, T4 arg4, T5 arg5);
+
     public sealed class Lazy<T>
     {
         private readonly Func<T> valueFactory;
@@ -110,6 +142,68 @@ namespace System.Runtime.CompilerServices
         }
 
         public IList TransformNames { get; private set; }
+    }
+
+    public sealed class ConditionalWeakTable<TKey, TValue>
+        where TKey : class
+        where TValue : class
+    {
+        private readonly Dictionary<TKey, TValue> entries = new Dictionary<TKey, TValue>();
+
+        public void Add(TKey key, TValue value)
+        {
+            entries.Add(key, value);
+        }
+
+        public bool TryGetValue(TKey key, out TValue value)
+        {
+            return entries.TryGetValue(key, out value);
+        }
+
+        public bool Remove(TKey key)
+        {
+            return entries.Remove(key);
+        }
+    }
+}
+
+namespace Better_Work_Tab
+{
+    public static class LegacyVolatile
+    {
+        private static readonly object SyncRoot = new object();
+
+        public static int Read(ref int location)
+        {
+            lock (SyncRoot)
+            {
+                return location;
+            }
+        }
+
+        public static T Read<T>(ref T location) where T : class
+        {
+            lock (SyncRoot)
+            {
+                return location;
+            }
+        }
+
+        public static void Write(ref int location, int value)
+        {
+            lock (SyncRoot)
+            {
+                location = value;
+            }
+        }
+
+        public static void Write<T>(ref T location, T value) where T : class
+        {
+            lock (SyncRoot)
+            {
+                location = value;
+            }
+        }
     }
 }
 

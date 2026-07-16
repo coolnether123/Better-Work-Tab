@@ -348,7 +348,7 @@ namespace Better_Work_Tab.UI
             if (!ruleset.IsDefault)
             {
                 Rect delRect = new Rect(rect.xMax - 24f, rect.y + 4f, 24f, 24f);
-                if (Widgets.ButtonImage(delRect, TexButton.DeleteX, Color.white, GenUI.MouseoverColor))
+                if (Widgets.ButtonImage(delRect, RimWorld.TexButton.DeleteX, Color.white, GenUI.MouseoverColor))
                 {
                     Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
                         $"Delete {ruleset.Name}?",

@@ -7,18 +7,18 @@ namespace Spine.UI.Tutorial
             string body,
             string primaryButton = null,
             string dismissButton = null,
-            string secondaryButton = null,
+            string secondaryButton = "Related settings",
             string tertiaryButton = null)
         {
             Title = title ?? string.Empty;
             Body = body ?? string.Empty;
             PrimaryButton = primaryButton;
-            SecondaryButton = string.IsNullOrEmpty(secondaryButton)
-                ? "Related settings"
-                : secondaryButton;
+            // Omitted keeps the common settings shortcut; an explicit null lets
+            // decision screens present only the choices that belong there.
+            SecondaryButton = secondaryButton;
             TertiaryButton = tertiaryButton;
             DismissButton = string.IsNullOrEmpty(dismissButton)
-                ? "Already know Better Work Tab"
+                ? "Skip for now"
                 : dismissButton;
         }
 

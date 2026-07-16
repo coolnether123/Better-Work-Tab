@@ -78,6 +78,19 @@ namespace Better_Work_Tab
 
     public static class ModListerCompat
     {
+        public static string GetPackageId(ModContentPack mod)
+        {
+#if (v1_0 || v0_19)
+            if (mod == null)
+                return null;
+
+            var property = mod.GetType().GetProperty("PackageId");
+            return property == null ? mod.Name : property.GetValue(mod, null) as string ?? mod.Name;
+#else
+            return mod?.PackageId;
+#endif
+        }
+
         public static ModMetaData GetActiveModWithIdentifier(string packageId)
         {
 #if (v1_0 || v0_19)
@@ -136,6 +149,11 @@ namespace Better_Work_Tab
 
     public static class ArrayCompat
     {
+        public static T[] Empty<T>()
+        {
+            return new T[0];
+        }
+
         public static void Fill<T>(T[] array, T value)
         {
             if (array == null)
