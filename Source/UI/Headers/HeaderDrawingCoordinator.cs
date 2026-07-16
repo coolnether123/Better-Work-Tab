@@ -75,6 +75,15 @@ namespace Better_Work_Tab.UI.Headers
         }
 
         /// <summary>
+        /// Invalidates layout geometry while preserving text measurements that remain valid across animation frames.
+        /// </summary>
+        public static void InvalidateAnimatedLayout()
+        {
+            _vanillaSolver?.InvalidateSolution();
+            AngledHeaderCache.ClearGeometryCache();
+        }
+
+        /// <summary>
         /// Invoked upon column reset to vanilla order or when angled header settings are toggled.
         /// Completely recreates all caches and solvers.
         /// </summary>

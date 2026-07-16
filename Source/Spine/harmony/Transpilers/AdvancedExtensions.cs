@@ -3,9 +3,9 @@ using System.Reflection;
 using System.Reflection.Emit;
 using HarmonyLib;
 using UnityEngine;
-using ModAPI.Core;
+using Spine.Harmony.Infrastructure;
 
-namespace ModAPI.Harmony
+namespace Spine.Harmony
 {
     /// <summary>
     /// Advanced and rarely used transpiler tools. 
@@ -29,7 +29,7 @@ namespace ModAPI.Harmony
                 instr.opcode.FlowControl == FlowControl.Cond_Branch));
             
             if (!_matcher.IsValid)
-                _warnings.Add("No branch instruction found");
+                AddSoftFailure("No branch instruction found");
                 
             return this;
         }
@@ -53,7 +53,7 @@ namespace ModAPI.Harmony
             
             if (!_matcher.IsValid)
             {
-                _warnings.Add($"Branch target label not found in method");
+                AddSoftFailure("GoToLabelTarget: no instruction in the method carries the requested branch-target label. Fix: pass a Label that is actually attached to an instruction in this stream (labels created for edits you have not yet inserted will not be found), or search with SearchMode.Start.");
             }
             
             return this;

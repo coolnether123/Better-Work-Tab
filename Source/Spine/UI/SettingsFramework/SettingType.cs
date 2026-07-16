@@ -35,6 +35,9 @@ namespace Spine.UI.SettingsFramework
         DropdownListAdder,
 
         /// <summary>Integer input with +/- buttons and text field.</summary>
-        NumericInt
+        NumericInt,
+
+        /// <summary>Custom immediate-mode row supplied by a setting definition.</summary>
+        Custom
     }
 }

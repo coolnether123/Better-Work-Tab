@@ -1,7 +1,7 @@
 using System.Reflection.Emit;
 using HarmonyLib;
 
-namespace ModAPI.Harmony
+namespace Spine.Harmony
 {
     internal static class HarmonyInstructionCompat
     {

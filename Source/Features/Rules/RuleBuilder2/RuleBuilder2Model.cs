@@ -45,6 +45,10 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
         ExistingPriorityAtLeast,
         ExistingPriorityEquals,
         CurrentAssignedWork,
+        HighestSkillAmongColonists,
+        TopWorkTypesBySkill,
+        NaturalAlwaysActiveWork,
+        ParentHasChildOnMap,
         NoteOnly
     }
 
@@ -63,8 +67,9 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
         public string Name = "Rule Builder 2.0 Ruleset";
         public string Description = "";
         public bool Enabled = true;
+        public bool ResetBeforeApplying = true;
         public RuleBuilder2SourceType Source = RuleBuilder2SourceType.Blank;
-        public int DataVersion = 2;
+        public int DataVersion = 3;
         public List<RuleBuilder2Card> Cards = new List<RuleBuilder2Card>();
 
         public void ExposeData()
@@ -73,6 +78,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
             Scribe_Values.Look(ref Name, "name", "Rule Builder 2.0 Ruleset");
             Scribe_Values.Look(ref Description, "description", "");
             Scribe_Values.Look(ref Enabled, "enabled", true);
+            Scribe_Values.Look(ref ResetBeforeApplying, "resetBeforeApplying", true);
             Scribe_Values.Look(ref Source, "source", RuleBuilder2SourceType.Blank);
             Scribe_Values.Look(ref DataVersion, "dataVersion", 2);
             Scribe_Collections.Look(ref Cards, "cards", LookMode.Deep);
@@ -100,6 +106,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 Name = (Name ?? "Ruleset") + suffix,
                 Description = Description,
                 Enabled = Enabled,
+                ResetBeforeApplying = ResetBeforeApplying,
                 Source = RuleBuilder2SourceType.Duplicated,
                 DataVersion = DataVersion,
                 Cards = Cards?.Select(card => card?.Copy()).Where(card => card != null).ToList() ?? new List<RuleBuilder2Card>()
@@ -209,8 +216,10 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
         public string DisplayLabel = "";
         public string IconPath = "";
         public RuleBuilder2TargetSource Source = RuleBuilder2TargetSource.BuilderList;
+        public bool AllWorkTypes;
+        public bool IgnoreIfMissing;
 
-        public bool HasTarget => !string.IsNullOrEmpty(WorkTypeDefName) || !string.IsNullOrEmpty(WorkGiverDefName);
+        public bool HasTarget => AllWorkTypes || !string.IsNullOrEmpty(WorkTypeDefName) || !string.IsNullOrEmpty(WorkGiverDefName);
         public bool IsSubWorkTarget => !string.IsNullOrEmpty(WorkGiverDefName);
 
         public void ExposeData()
@@ -220,6 +229,8 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
             Scribe_Values.Look(ref DisplayLabel, "displayLabel", "");
             Scribe_Values.Look(ref IconPath, "iconPath", "");
             Scribe_Values.Look(ref Source, "source", RuleBuilder2TargetSource.BuilderList);
+            Scribe_Values.Look(ref AllWorkTypes, "allWorkTypes", false);
+            Scribe_Values.Look(ref IgnoreIfMissing, "ignoreIfMissing", false);
         }
 
         public WorkTypeDef ResolveWorkType()
@@ -247,7 +258,9 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 WorkGiverDefName = WorkGiverDefName,
                 DisplayLabel = DisplayLabel,
                 IconPath = IconPath,
-                Source = Source
+                Source = Source,
+                AllWorkTypes = AllWorkTypes,
+                IgnoreIfMissing = IgnoreIfMissing
             };
         }
     }

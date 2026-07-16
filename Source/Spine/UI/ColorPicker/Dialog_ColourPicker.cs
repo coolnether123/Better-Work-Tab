@@ -4,7 +4,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using Better_Work_Tab;
 using HarmonyLib;
 using UnityEngine;
 using Verse;
@@ -12,12 +11,16 @@ using Object = UnityEngine.Object;
 
 namespace Spine.UI.ColourPicker {
     public class Dialog_ColourPicker : Window {
+        private static Action<string> _defaultDebugLogger;
+
         private controls _activeControl = controls.none;
 
         private Color _alphaBGColorA = Color.white,
                       _alphaBGColorB = new Color(.85f, .85f, .85f);
 
         private readonly Action<Color, bool> _callback;
+        private readonly Action<Color> _previewCallback;
+        private readonly Action<string> _debugLogger;
 
         private Texture2D _colourPickerBG,
                           _huePickerBG,
@@ -88,11 +91,18 @@ namespace Spine.UI.ColourPicker {
         /// <param name="color">The current colour</param>
         /// <param name="callback">Callback to be invoked with the selected colour when 'OK' or 'Apply' are pressed. Color is the selected color. Bool is true when OK is pressed.</param>
         /// <param name="position">Top left position of the colour picker (defaults to screen center)</param>
-        public Dialog_ColourPicker(Color color, Action<Color, bool> callback = null, Vector2? position = null) {
+        public Dialog_ColourPicker(
+            Color color,
+            Action<Color, bool> callback = null,
+            Vector2? position = null,
+            Action<string> debugLogger = null,
+            Action<Color> previewCallback = null) {
             absorbInputAroundWindow = true;
             closeOnClickedOutside = true;
 
             _callback = callback;
+            _previewCallback = previewCallback;
+            _debugLogger = debugLogger ?? _defaultDebugLogger;
             _initialPosition = position;
 
             curColour = color;
@@ -114,6 +124,11 @@ namespace Spine.UI.ColourPicker {
             });
 
             NotifyRGBUpdated();
+        }
+
+        public static void ConfigureDebugLogger(Action<string> debugLogger)
+        {
+            _defaultDebugLogger = debugLogger;
         }
 
         public float A {
@@ -292,6 +307,7 @@ namespace Spine.UI.ColourPicker {
             get => _tempColour;
             set {
                 _tempColour = value;
+                _previewCallback?.Invoke(value);
                 if (autoApply || minimalistic) {
                     SetColor(false);
                 }
@@ -426,12 +442,12 @@ namespace Spine.UI.ColourPicker {
         }
 
         [Conditional("DEBUG")]
-        public static void Debug(string msg) { 
+        private void Debug(string msg) {
             if (Traverse.Create(typeof(Log)).Field("reachedMaxMessagesLimit").GetValue<bool>()) {
                 Log.ResetMessageCount();
             }
 
-            BetterWorkTabMod.DebugLog($"ColourPicker :: {msg}", DebugFeature.Layout);
+            _debugLogger?.Invoke($"ColourPicker :: {msg}");
         }
 
         public override void DoWindowContents(Rect inRect)

@@ -271,6 +271,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                         if (pendingRuleDrag != null && !IsMouseOverRowEnabled(rowRect, evt.mousePosition))
                         {
                             ruleClickGate.Begin(pendingRuleDrag, evt.button, evt.mousePosition);
+                            evt.Use();
                         }
                         else
                         {
@@ -288,10 +289,14 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                             ruleDragController.TryStartDrag(pendingRuleDrag, sourceIndex, cards.Count, evt.mousePosition))
                         {
                             ruleClickGate.MarkDragStarted(pendingRuleDrag);
-                            evt.Use();
                         }
 
+                        evt.Use();
                         pendingRuleDrag = null;
+                    }
+                    else if (pendingRuleDrag != null)
+                    {
+                        evt.Use();
                     }
                     break;
 
@@ -302,6 +307,11 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                         flow.ActiveCard = pendingRuleDrag;
                         editorView.ResetEditorScroll();
                         SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                        evt.Use();
+                    }
+                    else if (pendingRuleDrag != null)
+                    {
+                        ruleClickGate.ClearIfTracking(pendingRuleDrag);
                         evt.Use();
                     }
 
@@ -315,7 +325,9 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             float localY = mousePosition.y - listRect.y + cardListScroll.y;
             int index = Mathf.FloorToInt(localY / layout.Metrics.RuleRowStride);
             rowRect = new Rect(0f, index * layout.Metrics.RuleRowStride, listRect.width - 16f, layout.Metrics.RuleRowHeight);
-            return index >= 0 && index < cards.Count ? cards[index] : null;
+            return index >= 0 && index < cards.Count && rowRect.Contains(new Vector2(mousePosition.x - listRect.x, localY))
+                ? cards[index]
+                : null;
         }
 
         private bool IsMouseOverRowEnabled(Rect rowRect, Vector2 mousePosition)

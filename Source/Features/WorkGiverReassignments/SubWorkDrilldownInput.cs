@@ -69,7 +69,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 : "Ctrl";
             string button = settings.subWorkDrilldownButton == BetterWorkTabSettings.SubWorkDrilldownButton.Right
                 ? "right-click"
-                : "left-click";
+                : "click";
 
             return modifier + "-" + button;
         }

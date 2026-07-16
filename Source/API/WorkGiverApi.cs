@@ -2,6 +2,7 @@ using System.Linq;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.UI.WorkGiverReassignments;
 using RimWorld;
 using Verse;
 using Verse.AI;
@@ -76,7 +77,7 @@ namespace Better_Work_Tab.API
 
     public static class WorkGiverApi
     {
-        public const int ApiVersion = 1;
+        public const int ApiVersion = 2;
         public const string AssemblyName = "Better Work Tab";
         public const string TypeName = "Better_Work_Tab.API.WorkGiverApi";
 
@@ -194,6 +195,21 @@ namespace Better_Work_Tab.API
         public static bool TryGetDisabledReason(Pawn pawn, WorkTypeDef workType, WorkGiverDef workGiver, out string reason)
         {
             return TimePriorityService.TryGetDisabledByTime(pawn, workType, workGiver, out reason, out _);
+        }
+
+        /// <summary>
+        /// Invalidates cached presentation state after an external mod changes a pawn's
+        /// disabled work types or capacity-based WorkGiver eligibility without routing
+        /// through RimWorld's standard notification methods.
+        /// </summary>
+        public static void NotifyPawnPresentationStateChanged(Pawn pawn)
+        {
+            WorkGiverPresentationInvalidation.NotifyPawnDynamicStateChanged(pawn);
+        }
+
+        public static void NotifyPawnPresentationStateChangedByThingId(int pawnThingId)
+        {
+            NotifyPawnPresentationStateChanged(FindPawnByThingId(pawnThingId));
         }
 
         private static Pawn FindPawnByThingId(int pawnThingId)

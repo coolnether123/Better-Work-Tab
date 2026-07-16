@@ -25,6 +25,11 @@ namespace Better_Work_Tab.Patches
     {
         public static void Postfix(Vector3 clickPos, Pawn pawn, List<FloatMenuOption> opts, bool drafted)
         {
+            if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabPriorityFeatures)
+            {
+                return;
+            }
+
             DoOnceSupport.EnsureBwtOwnsUnassignedWorkMenu();
 
             if (pawn?.workSettings == null)
@@ -190,7 +195,7 @@ namespace Better_Work_Tab.Patches
                 {
                     opts.Add(new FloatMenuOption(
                         openScheduleLabel,
-                        () => TimePriorityPlannerPrototype.OpenForFloatMenu(pawn, workType, workGiver),
+                        () => TimePriorityScheduleEditor.OpenForFloatMenu(pawn, workType, workGiver),
                         orderInPriority: -1));
                 }
             }
@@ -287,7 +292,7 @@ namespace Better_Work_Tab.Patches
 
             if (BetterWorkTabMod.Settings?.enableSubWorkDrilldown ?? false)
             {
-                TimePriorityPlannerPrototype.CloseForWorkModeTransition();
+                TimePriorityScheduleEditor.CloseForWorkModeTransition();
                 SubWorkDrilldownState.Enter(
                     targetWorkType,
                     baseHeaderDrawWidth: SubWorkDrilldownHeaderGeometry.GetBaseHeaderDrawWidth(null, -1f));
