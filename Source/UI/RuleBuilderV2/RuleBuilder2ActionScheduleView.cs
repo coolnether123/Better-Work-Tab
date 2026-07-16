@@ -94,6 +94,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
         {
             bool selected = card.Action.Kind == kind ||
                             (kind == RuleBuilder2ActionKind.SetTimeSchedule && card.Action.Kind == RuleBuilder2ActionKind.SetSubWorkSchedule);
+            bool enabled = kind != RuleBuilder2ActionKind.FollowGlobal;
             Color previous = GUI.color;
             if (selected)
             {
@@ -101,19 +102,27 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             }
             else
             {
-                Widgets.DrawBoxSolid(rect, new Color(0.15f, 0.15f, 0.15f, 0.92f));
+                Widgets.DrawBoxSolid(rect, enabled
+                    ? new Color(0.15f, 0.15f, 0.15f, 0.92f)
+                    : new Color(0.1f, 0.1f, 0.1f, 0.7f));
             }
 
             Widgets.DrawBox(rect, selected ? 2 : 1);
-            if (Mouse.IsOver(rect))
+            if (enabled && Mouse.IsOver(rect))
             {
                 Widgets.DrawHighlight(rect);
             }
 
+            if (!enabled && !selected)
+            {
+                GUI.color = Color.gray;
+            }
+
             DrawFittedLabel(new Rect(rect.x + 6f, rect.y + 5f, rect.width - 12f, rect.height - 10f), label);
+            GUI.color = previous;
             TooltipHandler.TipRegion(rect, GetActionModeTooltip(kind));
 
-            if (Widgets.ButtonInvisible(rect))
+            if (enabled && Widgets.ButtonInvisible(rect))
             {
                 flow.SetActionKind(card, kind);
                 if (card.Action.Kind != RuleBuilder2ActionKind.SetTimeSchedule &&

@@ -4,9 +4,9 @@ using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using HarmonyLib;
-using ModAPI.Core;
+using Spine.Harmony.Infrastructure;
 
-namespace ModAPI.Harmony
+namespace Spine.Harmony
 {
     public enum PatchPriority
     {
@@ -42,9 +42,24 @@ namespace ModAPI.Harmony
         private static readonly HashSet<string> _quarantinedOwners = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
-        /// Registers a cooperative transpiler. 
+        /// Registers a cooperative transpiler.
         /// NOTE: This does not apply the patch immediately. You must call Apply() or ensure ModAPI's master patcher is running.
         /// </summary>
+        /// <example>
+        /// <code>
+        /// CooperativePatcher.RegisterTranspiler(
+        ///     target,
+        ///     "MyMod.ReplaceOriginalCall",
+        ///     PatchPriority.High,
+        ///     t =>
+        ///     {
+        ///         t.ForCall(typeof(SomeType), "Original")
+        ///          .ReplaceWith(typeof(MyHooks), "Replacement");
+        ///         return t;
+        ///     },
+        ///     conflictsWith: new[] { "Legacy.RawIlPatch" });
+        /// </code>
+        /// </example>
         public static void RegisterTranspiler(
             MethodBase target,
             string anchorId,
@@ -171,29 +186,28 @@ namespace ModAPI.Harmony
                     // Create transpiler wrapper on the CURRENT instructions
                     // We use valid COPY of the instructions to ensure isolation
                     var t = FluentTranspiler.For(currentInstructions, original, generator);
-                     
+
                     // Run logic
                     t = patch.PatchLogic(t);
                     if (t == null)
                     {
                         throw new InvalidOperationException($"Patch logic returned null for {patch.OwnerMod}:{patch.AnchorId}");
                     }
-                     
+
                     // Build strictness is policy-driven so safer defaults can be enforced globally.
-                    bool strictBuild = TranspilerSafetyPolicy.CooperativeStrictBuild;
-                    var nextInstructions = t.Build(strict: strictBuild, validateStack: true);
-                    if (t.Warnings.Any(TranspilerSafetyPolicy.IsCriticalWarning))
+                    var nextInstructions = t.Build(TranspilerSafetyPolicy.DefaultCooperativeProfile);
+                    if (t.Diagnostics.Any(TranspilerSafetyPolicy.IsCriticalDiagnostic))
                     {
                         throw new InvalidOperationException(
                             $"Critical transpiler warnings for {patch.OwnerMod}:{patch.AnchorId}: " +
-                            string.Join("; ", t.Warnings.Where(TranspilerSafetyPolicy.IsCriticalWarning).ToArray()));
+                            string.Join("; ", BuildDiagnosticLines(t).ToArray()));
                     }
 
-                    if (t.Warnings.Any(w => !w.StartsWith("DeclareLocal"))) // Filter informational
+                    if (t.Warnings.Count > 0)
                     {
                          MMLog.WriteWarning(
                             $"[CooperativePatcher] {patch.OwnerMod}:{patch.AnchorId} resulted in warnings: " +
-                            string.Join("; ", t.Warnings.ToArray()));
+                            string.Join("; ", BuildDiagnosticLines(t).ToArray()));
                     }
                     
                     // If successful, update current instructions and mark anchored
@@ -206,16 +220,20 @@ namespace ModAPI.Harmony
                     var stepName = original != null && original.DeclaringType != null
                         ? original.DeclaringType.FullName + "." + original.Name
                         : (original != null ? original.Name : "UnknownMethod");
-                    TranspilerDebugger.RecordSnapshot(
-                        patch.OwnerMod,
-                        stepName,
-                        beforeInstructions,
-                        currentInstructions,
-                        sw.Elapsed.TotalMilliseconds,
-                        t.Warnings != null ? t.Warnings.Count : 0,
-                        original,
-                        origin);
-                    MMLog.WriteDebug("[CooperativePatcher] Snapshot recorded for patch origin: " + origin);
+                    if (TranspilerSafetyPolicy.ShouldRecordDebugSnapshot(t.Warnings.Count, t.SoftFailures.Count, t.Notes.Count))
+                    {
+                        TranspilerDebugger.RecordSnapshot(
+                            patch.OwnerMod,
+                            stepName,
+                            beforeInstructions,
+                            currentInstructions,
+                            sw.Elapsed.TotalMilliseconds,
+                            t.Warnings.Count,
+                            original,
+                            origin,
+                            warnings: BuildDiagnosticLines(t));
+                        MMLog.WriteDebug("[CooperativePatcher] Snapshot recorded for patch origin: " + origin);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -312,6 +330,19 @@ namespace ModAPI.Harmony
             {
                 return _quarantinedOwners.Contains(ownerMod);
             }
+        }
+
+        private static List<string> BuildDiagnosticLines(FluentTranspiler transpiler)
+        {
+            var lines = new List<string>();
+            if (transpiler == null)
+            {
+                return lines;
+            }
+
+            lines.AddRange(transpiler.PatchDiagnostics.Select(diagnostic => diagnostic.ToSingleLine()));
+            lines.AddRange(transpiler.Diagnostics.Select(diagnostic => diagnostic.ToString()));
+            return lines.Distinct().ToList();
         }
 
         private static void QuarantineOwnerIfEnabled(string ownerMod, string anchorId)

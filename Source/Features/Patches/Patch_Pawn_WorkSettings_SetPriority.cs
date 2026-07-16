@@ -1,5 +1,7 @@
 using HarmonyLib;
+using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using RimWorld;
+using Verse;
 
 namespace Better_Work_Tab.Features.Patches
 {
@@ -11,13 +13,61 @@ namespace Better_Work_Tab.Features.Patches
     public static class Patch_Pawn_WorkSettings_SetPriority
     {
         [HarmonyPrefix]
-        public static bool Prefix()
+        [HarmonyBefore(new[] { "fluffy.worktab" })]
+        [HarmonyPriority(Priority.First)]
+        public static bool Prefix(int priority, ref int __state)
         {
+            __state = priority;
+            if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabPriorityFeatures)
+            {
+                return true;
+            }
+
             if (BetterWorkTabLocalState.IsHeaderDragging)
             {
+                __state = int.MinValue;
                 return false;
             }
             return true;
+        }
+
+        [HarmonyPostfix]
+        [HarmonyAfter(new[] { "fluffy.worktab" })]
+        [HarmonyPriority(Priority.Last)]
+        public static void Postfix(Pawn_WorkSettings __instance, WorkTypeDef w, int __state)
+        {
+            if (__instance == null || w == null ||
+                __state == int.MinValue)
+            {
+                return;
+            }
+
+            Pawn pawn = WorkPrioritySystem.GetPawn(__instance);
+            if (pawn != null)
+            {
+                UI.WorkGrid.Invalidation.WorkTabInvalidationHub.InvalidatePriority(
+                    pawn.thingIDNumber,
+                    w.shortHash);
+            }
+            else
+            {
+                UI.WorkGrid.Invalidation.WorkTabInvalidationHub.InvalidateCategory(
+                    UI.WorkGrid.Invalidation.WorkGridInvalidationCategory.Priority);
+            }
+
+            if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabPriorityFeatures)
+            {
+                return;
+            }
+
+            int priority = PriorityAuthorityBroker.ClampPriorityForRequest(__state);
+            if (__instance.GetPriority(w) == priority)
+            {
+                return;
+            }
+
+            __instance.SetPriority(w, priority);
+            __instance.Notify_UseWorkPrioritiesChanged();
         }
     }
 }

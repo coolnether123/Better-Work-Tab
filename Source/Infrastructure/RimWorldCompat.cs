@@ -255,6 +255,22 @@ namespace Better_Work_Tab
         }
     }
 
+    public static class WorkSettingsCompat
+    {
+        public static void EnsureInitialized(Pawn_WorkSettings workSettings)
+        {
+            if (workSettings == null)
+                return;
+
+#if (v0_18 || v0_17 || v0_16 || v0_15 || v0_14 || v0_13 || vAlpha4)
+            if (!workSettings.EverWork)
+                workSettings.EnableAndInitialize();
+#else
+            workSettings.EnableAndInitializeIfNotAlreadyInitialized();
+#endif
+        }
+    }
+
     public static class ListCompat
     {
         public static void SortStableCompat<T>(this List<T> list, Comparison<T> comparison)
@@ -375,6 +391,19 @@ namespace Better_Work_Tab
 
     public static class ModListerCompat
     {
+        public static string GetPackageId(ModContentPack mod)
+        {
+#if (v1_0 || v0_19)
+            if (mod == null)
+                return null;
+
+            var property = mod.GetType().GetProperty("PackageId");
+            return property == null ? mod.Name : property.GetValue(mod, null) as string ?? mod.Name;
+#else
+            return mod?.PackageId;
+#endif
+        }
+
         public static ModMetaData GetActiveModWithIdentifier(string packageId)
         {
 #if (v1_0 || v0_19)
@@ -433,6 +462,11 @@ namespace Better_Work_Tab
 
     public static class ArrayCompat
     {
+        public static T[] Empty<T>()
+        {
+            return new T[0];
+        }
+
         public static void Fill<T>(T[] array, T value)
         {
             if (array == null)

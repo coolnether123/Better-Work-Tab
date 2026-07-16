@@ -215,9 +215,10 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         private void DrawTitle(Rect inRect)
         {
             Text.Font = GameFont.Small;
+            string workTypeLabel = WorkTypeDisplayNameService.HeaderLabel(_workType);
             string titleText = _pawn == null 
-                ? $"Global: {_workType.labelShort.CapitalizeFirst()}" 
-                : $"{PawnCompat.LabelShortCap(_pawn)}: {_workType.labelShort.CapitalizeFirst()}";
+                ? $"Global: {workTypeLabel}"
+                : $"{PawnCompat.LabelShortCap(_pawn)}: {workTypeLabel}";
             Widgets.Label(new Rect(0, 0, inRect.width, 24f), titleText.Colorize(Color.gray));
         }
 
@@ -332,7 +333,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
             string title = WorkGiverDisplayNameService.FullLabel(wg.def);
             string desc = wg.def.description;
-            string workType = wg.def.workType?.LabelCap ?? _workType?.labelShort?.CapitalizeFirst();
+            string workType = WorkTypeDisplayNameService.FullLabel(wg.def.workType ?? _workType);
 
             System.Text.StringBuilder sb = new System.Text.StringBuilder(128);
             sb.Append(title.Colorize(TooltipTitleColor));
@@ -575,7 +576,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             Widgets.Label(textRect, $"Pawns with overrides: {count}");
             
             Rect btnRect = new Rect(footerRect.xMax - 30f, footerRect.y + 8f, 24f, 24f);
-            if (Widgets.ButtonText(btnRect, "▼"))
+            if (Widgets.ButtonText(btnRect, "â–¼"))
             {
                 ShowPawnDropdown(overrides);
             }

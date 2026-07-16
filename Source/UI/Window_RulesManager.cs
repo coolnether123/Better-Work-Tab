@@ -873,7 +873,7 @@ namespace Better_Work_Tab.UI
             rect6.x = rect4.xMax - rect6.width - (selectedRuleset.Rules.Count >= 13 ? 20f : 0);
             rect6.y = rect4.y + (rect4.height - rect6.height) / 2f;
 
-            if (Widgets.ButtonImage(rect6, TexButton.DeleteX))
+            if (Widgets.ButtonImage(rect6, RimWorld.TexButton.DeleteX))
             {
                 ruleToRemove = currentRule;
                 SelectedRule = null;

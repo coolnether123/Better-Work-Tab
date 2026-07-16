@@ -1,21 +1,25 @@
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
 using System.Reflection;
 using UnityEngine;
-using ModAPI.Core;
+using Spine.Harmony.Infrastructure;
 using HarmonyLib;
-using Verse;
 
-namespace ModAPI.Harmony
+namespace Spine.Harmony
 {
     /// <summary>
     /// Responsible for initializing Harmony and applying patches.
     /// Redirects 0Harmony log to MMLog.
     /// </summary>
-    [StaticConstructorOnStartup]
     public static class HarmonyBootstrap
     {
         private static bool _installed = false;
         private static GameObject _runnerGo;
+        private static readonly object ManagerSettingsSync = new object();
+        private static Dictionary<string, string> _managerSettings;
+        private static bool _managerSettingsLoaded;
 
         static HarmonyBootstrap()
         {
@@ -57,9 +61,9 @@ namespace ModAPI.Harmony
             try
             {
                 var asm = Assembly.GetExecutingAssembly();
-                var harmony = new HarmonyLib.Harmony("ShelteredModManager.ModAPI");
+                var harmony = new HarmonyLib.Harmony("ModAPI.Core");
 
-                var opts = new ModAPI.Harmony.HarmonyUtil.PatchOptions
+                var opts = new Spine.Harmony.HarmonyUtil.PatchOptions
                 {
                     AllowDebugPatches = ReadManagerBool("EnableDebugPatches", false),
                     AllowDangerousPatches = ReadManagerBool("AllowDangerousPatches", false),
@@ -79,42 +83,13 @@ namespace ModAPI.Harmony
                     opts,
                     asm.GetName().Name,
                     key => ReadManagerString(key, null));
+                var corePatchTimer = Stopwatch.StartNew();
                 PatchRegistry.ApplyAssembly(harmony, asm, registryOptions);
+                LogStartupTiming("Harmony patch " + asm.GetName().Name, corePatchTimer);
 
-                // Backward compatibility: patch ShelteredAPI too so Sheltered-specific
-                // implementations and adapters are activated alongside core ModAPI hooks.
-                var shelteredAssembly = ResolveShelteredApiAssembly();
-                if (shelteredAssembly != null && shelteredAssembly != asm)
-                {
-                    string location = "<dynamic>";
-                    try { location = shelteredAssembly.Location; } catch { }
-                    MMLog.WriteInfo("HarmonyBootstrap: applying ShelteredAPI patches from "
-                        + shelteredAssembly.GetName().Name + " v" + shelteredAssembly.GetName().Version
-                        + " @" + location);
-                    var shelteredRegistryOptions = PatchRegistry.CreateManagerOptions(
-                        opts,
-                        shelteredAssembly.GetName().Name,
-                        key => ReadManagerString(key, null));
-                    PatchRegistry.ApplyAssembly(harmony, shelteredAssembly, shelteredRegistryOptions);
-                    TryInitializeShelteredApiCore(shelteredAssembly);
-                }
-                else
-                {
-                    MMLog.WriteInfo("HarmonyBootstrap: ShelteredAPI assembly not found for patching (or same as ModAPI).");
-                }
-
-                LogPatchStatus("SettingsPCPanel.OnControlsButtonPressed", "SettingsPCPanel", "OnControlsButtonPressed");
-                LogPatchStatus("SettingsPCPanel.OnControlsButtonPressed_PAD", "SettingsPCPanel", "OnControlsButtonPressed_PAD");
-                LogPatchStatus("UIPanelManager.PushPanel(BasePanel)", "UIPanelManager", "PushPanel", "BasePanel");
-                LogPatchStatus("PlatformInput_PC.GetButtonDown(InputButton)", "PlatformInput_PC", "GetButtonDown", "PlatformInput+InputButton");
-                LogPatchStatus("PlatformInput_PC.GetButtonDown(MenuInputButton)", "PlatformInput_PC", "GetButtonDown", "PlatformInput+MenuInputButton");
-
-                // Explicitly verify UIPatches was discovered and patched
-                var uiPatches = asm.GetType("ModAPI.UI.UIPatches");
-                if (uiPatches != null)
-                {
-                    MMLog.WriteDebug("Discovered UIPatches for verification.");
-                }
+                var runtimePatchTimer = Stopwatch.StartNew();
+                PatchGameRuntimeAssemblies(harmony, asm, opts);
+                LogStartupTiming("Harmony patch game runtime assemblies", runtimePatchTimer);
 
                 _installed = true;
 
@@ -144,26 +119,57 @@ namespace ModAPI.Harmony
 
         public static string ReadManagerString(string key, string fallback)
         {
+            if (string.IsNullOrEmpty(key))
+                return fallback;
+
+            string value;
+            if (GetManagerSettings().TryGetValue(key, out value))
+                return value;
+
+            return fallback;
+        }
+
+        private static Dictionary<string, string> GetManagerSettings()
+        {
+            lock (ManagerSettingsSync)
+            {
+                if (_managerSettingsLoaded && _managerSettings != null)
+                    return _managerSettings;
+
+                _managerSettings = LoadManagerSettings();
+                _managerSettingsLoaded = true;
+                return _managerSettings;
+            }
+        }
+
+        private static Dictionary<string, string> LoadManagerSettings()
+        {
+            var settings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             try
             {
-                string gameRoot = System.IO.Path.GetFullPath(System.IO.Path.Combine(Application.dataPath, ".."));
-                string smmDir = System.IO.Path.Combine(gameRoot, "SMM");
-                string binDir = System.IO.Path.Combine(smmDir, "bin");
-                var ini = System.IO.Path.Combine(binDir, "mod_manager.ini");
-                if (!System.IO.File.Exists(ini)) return fallback;
-                foreach (var raw in System.IO.File.ReadAllLines(ini))
+                string gameRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+                string smmDir = Path.Combine(gameRoot, "SMM");
+                string binDir = Path.Combine(smmDir, "bin");
+                var ini = Path.Combine(binDir, "mod_manager.ini");
+                if (!File.Exists(ini)) return settings;
+
+                string[] lines = File.ReadAllLines(ini);
+                for (int i = 0; i < lines.Length; i++)
                 {
+                    string raw = lines[i];
                     if (string.IsNullOrEmpty(raw)) continue;
                     var line = raw.Trim();
                     if (line.StartsWith("#") || line.StartsWith(";") || line.StartsWith("[")) continue;
-                    var idx = line.IndexOf('='); if (idx <= 0) continue;
+                    var idx = line.IndexOf('=');
+                    if (idx <= 0) continue;
                     var k = line.Substring(0, idx).Trim();
-                    var v = line.Substring(idx + 1).Trim();
-                    if (k.Equals(key, StringComparison.OrdinalIgnoreCase)) return v;
+                    if (string.IsNullOrEmpty(k)) continue;
+                    settings[k] = line.Substring(idx + 1).Trim();
                 }
             }
             catch { }
-            return fallback;
+
+            return settings;
         }
 
         public static int ReadManagerInt(string key, int fallback)
@@ -173,26 +179,9 @@ namespace ModAPI.Harmony
             return fallback;
         }
 
-        private static Assembly ResolveShelteredApiAssembly()
+        public static void ApplyDeferredPatchGroup(PatchStartupTiming timing, string trigger)
         {
-            // Prefer type-based resolve first so we bind to the already-loaded instance.
-            // This avoids duplicate loads and preserves compatibility for mods referencing both APIs.
-            try
-            {
-                var shelteredType = Type.GetType("ShelteredAPI.Core.ShelteredModManagerBase, ShelteredAPI", false);
-                if (shelteredType != null)
-                    return shelteredType.Assembly;
-            }
-            catch { }
-
-            try
-            {
-                return Assembly.Load("ShelteredAPI");
-            }
-            catch
-            {
-                return null;
-            }
+            DeferredPatchCoordinator.Apply(timing, trigger);
         }
 
         private static void StartRetryRunner()
@@ -203,80 +192,96 @@ namespace ModAPI.Harmony
             _runnerGo.AddComponent<HarmonyRetryRunner>();
         }
 
-        private static void TryInitializeShelteredApiCore(Assembly shelteredAssembly)
+        private static void PatchGameRuntimeAssemblies(HarmonyLib.Harmony harmony, Assembly coreAssembly, HarmonyUtil.PatchOptions opts)
         {
-            if (shelteredAssembly == null) return;
-
-            try
+            Assembly[] assemblies = SharedAssemblyResolver.LoadAvailableSharedRuntimeAssemblies();
+            for (int i = 0; i < assemblies.Length; i++)
             {
-                var bootstrapType = shelteredAssembly.GetType("ShelteredAPI.Core.ShelteredApiRuntimeBootstrap", false);
-                if (bootstrapType == null)
-                {
-                    MMLog.WriteInfo("HarmonyBootstrap: ShelteredAPI runtime bootstrap type not found.");
-                    return;
-                }
+                Assembly runtimeAssembly = assemblies[i];
+                if (runtimeAssembly == null || IsSameAssembly(runtimeAssembly, coreAssembly))
+                    continue;
 
-                var init = bootstrapType.GetMethod("Initialize", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
-                if (init == null)
-                {
-                    MMLog.WriteInfo("HarmonyBootstrap: ShelteredAPI runtime bootstrap Initialize method not found.");
-                    return;
-                }
+                if (!ContainsGameRuntimeBootstrap(runtimeAssembly))
+                    continue;
 
-                init.Invoke(null, null);
-                MMLog.WriteInfo("HarmonyBootstrap: ShelteredAPI runtime bootstrap initialized.");
-            }
-            catch (Exception ex)
-            {
-                MMLog.WriteWarning("HarmonyBootstrap: ShelteredAPI runtime bootstrap failed: " + ex.Message);
+                try
+                {
+                    string location = "<dynamic>";
+                    try { location = runtimeAssembly.Location; } catch { }
+
+                    MMLog.WriteInfo("HarmonyBootstrap: applying game runtime patches from "
+                        + runtimeAssembly.GetName().Name + " v" + runtimeAssembly.GetName().Version
+                        + " @" + location);
+
+                    var runtimeOptions = PatchRegistry.CreateManagerOptions(
+                        opts,
+                        runtimeAssembly.GetName().Name,
+                        key => ReadManagerString(key, null));
+                    DeferredPatchCoordinator.RegisterSource(harmony, runtimeAssembly, runtimeOptions);
+
+                    var patchTimer = Stopwatch.StartNew();
+                    PatchRegistry.ApplyAssembly(
+                        harmony,
+                        runtimeAssembly,
+                        PatchRegistry.CreateTimingOptions(runtimeOptions, PatchStartupTiming.BootCritical));
+                    LogStartupTiming("Harmony patch " + runtimeAssembly.GetName().Name, patchTimer);
+                }
+                catch (Exception ex)
+                {
+                    MMLog.WriteWarning("HarmonyBootstrap: game runtime patch scan failed for "
+                        + SafeAssemblyName(runtimeAssembly) + ": " + ex.Message);
+                }
             }
         }
 
-        private static void LogPatchStatus(string label, string typeName, string methodName, string parameterTypeName = null)
+        private static bool ContainsGameRuntimeBootstrap(Assembly assembly)
         {
             try
             {
-                Type targetType = AccessTools.TypeByName(typeName);
-                if (targetType == null)
+                foreach (Type type in HarmonyUtil.SafeTypes(assembly))
                 {
-                    MMLog.WriteInfo("HarmonyBootstrap: patch verify target type missing: " + label);
-                    return;
-                }
-
-                MethodBase target = null;
-                if (string.IsNullOrEmpty(parameterTypeName))
-                {
-                    target = AccessTools.Method(targetType, methodName);
-                }
-                else
-                {
-                    Type parameterType = AccessTools.TypeByName(parameterTypeName);
-                    if (parameterType == null)
+                    if (type != null
+                        && type.IsClass
+                        && !type.IsAbstract
+                        && typeof(IGameRuntimeBootstrap).IsAssignableFrom(type))
                     {
-                        MMLog.WriteInfo("HarmonyBootstrap: patch verify parameter type missing for " + label + ": " + parameterTypeName);
-                        return;
+                        return true;
                     }
-                    target = AccessTools.Method(targetType, methodName, new[] { parameterType });
                 }
-
-                if (target == null)
-                {
-                    MMLog.WriteInfo("HarmonyBootstrap: patch verify target method missing: " + label);
-                    return;
-                }
-
-                var info = HarmonyLib.Harmony.GetPatchInfo(target);
-                bool patched = info != null && (
-                    (info.Prefixes != null && info.Prefixes.Count > 0) ||
-                    (info.Postfixes != null && info.Postfixes.Count > 0) ||
-                    (info.Transpilers != null && info.Transpilers.Count > 0));
-
-                MMLog.WriteInfo("HarmonyBootstrap: patch verify " + label + " => " + (patched ? "patched" : "not patched"));
             }
-            catch (Exception ex)
+            catch
             {
-                MMLog.WriteWarning("HarmonyBootstrap: patch verify failed for " + label + ": " + ex.Message);
             }
+
+            return false;
+        }
+
+        private static bool IsSameAssembly(Assembly left, Assembly right)
+        {
+            if (ReferenceEquals(left, right))
+                return true;
+
+            try { return left != null && right != null && left.FullName == right.FullName; }
+            catch { return false; }
+        }
+
+        private static string SafeAssemblyName(Assembly assembly)
+        {
+            try { return assembly != null ? assembly.GetName().Name : "<null>"; }
+            catch { return "<unknown>"; }
+        }
+
+        private static void LogStartupTiming(string phaseName, Stopwatch timer)
+        {
+            if (timer == null)
+                return;
+
+            timer.Stop();
+            MMLog.WriteWithSource(
+                MMLog.LogLevel.Info,
+                MMLog.LogCategory.General,
+                "StartupTiming",
+                phaseName + " took " + timer.ElapsedMilliseconds + "ms.");
         }
     }
 
