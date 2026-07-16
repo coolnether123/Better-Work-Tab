@@ -5,9 +5,78 @@
     <BWT_Settings_UI_Advanced>Advanced</BWT_Settings_UI_Advanced>
     <BWT_Settings_UI_Edit>Edit</BWT_Settings_UI_Edit>
     <BWT_Settings_UI_Close>Close</BWT_Settings_UI_Close>
+    <BWT_Settings_UI_CurrentSelection>Currently selected</BWT_Settings_UI_CurrentSelection>
+    <BWT_Settings_UI_PreviewingOption>Previewing option</BWT_Settings_UI_PreviewingOption>
+
+    <!-- Dropdown option descriptions -->
+    <BWT_Enum_SubWorkDrilldownModifier_Ctrl_Description>Hold Ctrl with the configured mouse button to enter or leave the specific-job view.</BWT_Enum_SubWorkDrilldownModifier_Ctrl_Description>
+    <BWT_Enum_SubWorkDrilldownModifier_Shift_Description>Hold Shift with the configured mouse button to enter or leave the specific-job view. This can overlap with Shift-based skill displays and grouped-column selection.</BWT_Enum_SubWorkDrilldownModifier_Shift_Description>
+    <BWT_Enum_SubWorkDrilldownButton_Left_Description>Use the left mouse button with the configured modifier to enter or leave the specific-job view.</BWT_Enum_SubWorkDrilldownButton_Left_Description>
+    <BWT_Enum_SubWorkDrilldownButton_Right_Description>Use the right mouse button with the configured modifier to enter or leave the specific-job view.</BWT_Enum_SubWorkDrilldownButton_Right_Description>
+    <BWT_Enum_SubWorkDrilldownStyle_NotChosen_Description>No specific-job presentation has been selected yet. Better Work Tab will ask for a choice before opening that view.</BWT_Enum_SubWorkDrilldownStyle_NotChosen_Description>
+    <BWT_Enum_SubWorkDrilldownStyle_FocusView_Description>Opens the chosen work type in a focused full-tab view containing only its specific jobs.</BWT_Enum_SubWorkDrilldownStyle_FocusView_Description>
+    <BWT_Enum_SubWorkDrilldownStyle_ExpandBeside_Description>Expands the chosen work type's specific-job columns beside the parent column in the main Work table.</BWT_Enum_SubWorkDrilldownStyle_ExpandBeside_Description>
+    <BWT_Enum_SubWorkTransitionStyle_ClassicGlideFlash_Description>Slides specific-job columns into position and uses a brief flash during the transition.</BWT_Enum_SubWorkTransitionStyle_ClassicGlideFlash_Description>
+    <BWT_Enum_SubWorkTransitionStyle_PixelWaveFlip_Description>Keeps columns in position while a grey pixel wave progressively reveals or hides the specific-job view.</BWT_Enum_SubWorkTransitionStyle_PixelWaveFlip_Description>
+    <BWT_Enum_SubWorkDisabledParentMode_ParentWorkDisablesSubWork_Description>Preserves vanilla behavior. Turning off the parent work type prevents all of its specific jobs from running, including jobs with locked sub-work priorities.</BWT_Enum_SubWorkDisabledParentMode_ParentWorkDisablesSubWork_Description>
+    <BWT_Enum_SubWorkDisabledParentMode_LockedSubWorkOverridesParent_Description>In singleplayer, a locked specific-job priority may continue running even when its parent work type is disabled. Multiplayer still uses vanilla parent-disable behavior for deterministic simulation.</BWT_Enum_SubWorkDisabledParentMode_LockedSubWorkOverridesParent_Description>
+    <BWT_Enum_PriorityMode_Vanilla_Description>Uses RimWorld's standard priority range and behavior. Better Work Tab does not own or expand the priority range.</BWT_Enum_PriorityMode_Vanilla_Description>
+    <BWT_Enum_PriorityMode_Auto_Description>Uses vanilla priorities by default, then safely adopts a compatible expanded range when another provider or existing high priorities require it.</BWT_Enum_PriorityMode_Auto_Description>
+    <BWT_Enum_PriorityMode_ExternalProvider_Description>Delegates the priority range to the selected compatible external provider. Better Work Tab presents and edits the values supplied by that provider.</BWT_Enum_PriorityMode_ExternalProvider_Description>
+    <BWT_Enum_PriorityMode_BetterWorkTab_Description>Makes Better Work Tab own the expanded priority range and apply its configured maximum and priority-number colors.</BWT_Enum_PriorityMode_BetterWorkTab_Description>
+    <BWT_Enum_AutoDisabledPriorityMode_EveryMultipleOfFour_Description>When disabled work is re-enabled in Auto priority mode, assign the next priority aligned to a four-step band.</BWT_Enum_AutoDisabledPriorityMode_EveryMultipleOfFour_Description>
+    <BWT_Enum_AutoDisabledPriorityMode_FixedPriority_Description>When disabled work is re-enabled in Auto priority mode, assign the exact fixed priority configured below this setting.</BWT_Enum_AutoDisabledPriorityMode_FixedPriority_Description>
+    <BWT_Enum_ShowUIMode_Always_Description>Always displays this visual indicator, whether or not Shift is held.</BWT_Enum_ShowUIMode_Always_Description>
+    <BWT_Enum_ShowUIMode_Never_Description>Never displays this visual indicator.</BWT_Enum_ShowUIMode_Never_Description>
+    <BWT_Enum_ShowUIMode_Shifted_Description>Displays this visual indicator only while Shift is held.</BWT_Enum_ShowUIMode_Shifted_Description>
+    <BWT_Enum_ShowUIMode_Unshifted_Description>Displays this visual indicator normally, then hides it while Shift is held.</BWT_Enum_ShowUIMode_Unshifted_Description>
+    <BWT_Enum_SkillViewHoverMode_Standard_Description>Keeps priority as the main cell value and shows skill information as the smaller secondary value, matching the priority-focused Work-tab interaction.</BWT_Enum_SkillViewHoverMode_Standard_Description>
+    <BWT_Enum_SkillViewHoverMode_SkillFocused_Description>Makes the skill level the large central value and moves priority to the smaller corner value while the hover effect is active.</BWT_Enum_SkillViewHoverMode_SkillFocused_Description>
+    <BWT_Enum_SkillViewHoverMode_None_Description>Does not change cell contents on hover. The normal priority and configured skill overlays remain as they were.</BWT_Enum_SkillViewHoverMode_None_Description>
+    <BWT_Enum_HoverEffectScope_CellOnly_Description>Applies the configured priority/skill hover presentation only to the single work cell under the pointer.</BWT_Enum_HoverEffectScope_CellOnly_Description>
+    <BWT_Enum_HoverEffectScope_ColumnWide_Description>Applies the configured priority/skill hover presentation to every visible pawn cell in the work column under the pointer.</BWT_Enum_HoverEffectScope_ColumnWide_Description>
+    <BWT_Enum_WorkGridRendererMode_Auto_Description>Uses Better Work Tab's optimized renderer when its compatibility checks pass. If it fails or another mod requires native drawing, only the renderer is quarantined and the Work grid falls back to vanilla.</BWT_Enum_WorkGridRendererMode_Auto_Description>
+    <BWT_Enum_WorkGridRendererMode_Optimized_Description>Requests Better Work Tab's optimized layered Work-grid renderer. Safety checks still contain failures and return the grid to vanilla instead of breaking the Work tab.</BWT_Enum_WorkGridRendererMode_Optimized_Description>
+    <BWT_Enum_WorkGridRendererMode_Vanilla_Description>Always uses RimWorld's native Work-grid renderer. Better Work Tab's other enabled features remain available around that vanilla rendering path.</BWT_Enum_WorkGridRendererMode_Vanilla_Description>
+    <BWT_Enum_RulesetViewMode_Raw_Description>Shows the classic raw ruleset list for direct editing without the visual rule-builder interface.</BWT_Enum_RulesetViewMode_Raw_Description>
+    <BWT_Enum_RulesetViewMode_Regular_Description>Shows the guided visual rule builder as the ruleset interface.</BWT_Enum_RulesetViewMode_Regular_Description>
+    <BWT_Enum_RulesetViewMode_Both_Description>Makes both the visual rule builder and classic raw ruleset list available so the player can choose either workflow.</BWT_Enum_RulesetViewMode_Both_Description>
+    <BWT_Enum_WorkTabOwnerPreference_BetterWorkTab_Description>Keeps Better Work Tab in control of the Work tab and its compatibility infrastructure.</BWT_Enum_WorkTabOwnerPreference_BetterWorkTab_Description>
+    <BWT_Enum_WorkTabOwnerPreference_FluffyWorkTab_Description>Hands the Work tab to Fluffy's Work Tab while Better Work Tab contains its own conflicting presentation features.</BWT_Enum_WorkTabOwnerPreference_FluffyWorkTab_Description>
     <BWT_Settings_UI_NoResults>No settings match your search.</BWT_Settings_UI_NoResults>
+    <BWT_UseFluffyWorkTab_Button>Use Work Tab (Fluffy's)</BWT_UseFluffyWorkTab_Button>
+    <BWT_UseFluffyWorkTab_Title>Switch Work tab</BWT_UseFluffyWorkTab_Title>
+    <BWT_UseFluffyWorkTab_Confirm>Switching hands the Work tab to Fluffy's Work Tab. You can switch back any time in Better Work Tab's mod settings.</BWT_UseFluffyWorkTab_Confirm>
+    <BWT_UseFluffyWorkTab_Tooltip>Run Fluffy's Work Tab instead of Better Work Tab.</BWT_UseFluffyWorkTab_Tooltip>
+    <BWT_FluffyActive_SettingsBanner>Fluffy's Work Tab is currently running the Work tab.</BWT_FluffyActive_SettingsBanner>
+    <BWT_SwitchBackToBetterWorkTab_Button>Switch back to Better Work Tab</BWT_SwitchBackToBetterWorkTab_Button>
+    <BWT_SwitchBackToBetterWorkTab_Tooltip>Run Better Work Tab as the Work tab again.</BWT_SwitchBackToBetterWorkTab_Tooltip>
     <BWT_Settings_UI_PinnedSettings>★ Pinned Settings</BWT_Settings_UI_PinnedSettings>
     
+    <!-- Mod Compatibility -->
+    <BWT_Settings_modcompat.header>Mod Compatibility</BWT_Settings_modcompat.header>
+    <BWT_Settings_modcompat.header_Tooltip>Settings for loaded mod integrations.</BWT_Settings_modcompat.header_Tooltip>
+    <BWT_Settings_compat.fluffyWorkTab.header>Fluffy-style Work Tab</BWT_Settings_compat.fluffyWorkTab.header>
+    <BWT_Settings_compat.fluffyWorkTab.header_Tooltip>BWT-native options inspired by Fluffy's Work Tab, plus compatibility controls when Fluffy Work Tab or a fork is installed.</BWT_Settings_compat.fluffyWorkTab.header_Tooltip>
+    <BWT_Settings_fluffyStyle.features>Enable Fluffy-style features</BWT_Settings_fluffyStyle.features>
+    <BWT_Settings_fluffyStyle.features_Tooltip>Use BWT's Fluffy-inspired Work tab controls and right-expanding specific-job columns. BWT owns the UI and priority data; Fluffy Work Tab is not required.</BWT_Settings_fluffyStyle.features_Tooltip>
+    <BWT_Settings_fluffyStyle.topButtons>Show Fluffy top controls</BWT_Settings_fluffyStyle.topButtons>
+    <BWT_Settings_fluffyStyle.topButtons_Tooltip>When Fluffy Work Tab is installed, show its familiar icon controls for manual priorities, time schedules, and expanding or collapsing specific jobs.</BWT_Settings_fluffyStyle.topButtons_Tooltip>
+    <BWT_Settings_fluffyStyle.standaloneTopButtons>Show BWT substitute top controls</BWT_Settings_fluffyStyle.standaloneTopButtons>
+    <BWT_Settings_fluffyStyle.standaloneTopButtons_Tooltip>Without Fluffy Work Tab, optionally show BWT-drawn text substitutes for the three top controls. Off by default because Fluffy's icon assets are unavailable.</BWT_Settings_fluffyStyle.standaloneTopButtons_Tooltip>
+    <BWT_Settings_compat.fluffyWorkTab.ownership>Work tab handoff</BWT_Settings_compat.fluffyWorkTab.ownership>
+    <BWT_Settings_compat.fluffyWorkTab.ownership_Tooltip>Choose which mod runs the Work tab and which Fluffy columns Better Work Tab keeps visible.</BWT_Settings_compat.fluffyWorkTab.ownership_Tooltip>
+    <BWT_Settings_compat.fluffyWorkTab.owner>Work tab owner</BWT_Settings_compat.fluffyWorkTab.owner>
+    <BWT_Settings_compat.fluffyWorkTab.owner_Tooltip>Choose whether Better Work Tab or Fluffy Work Tab runs the Work tab.</BWT_Settings_compat.fluffyWorkTab.owner_Tooltip>
+    <BWT_Enum_WorkTabOwnerPreference_BetterWorkTab>Better Work Tab</BWT_Enum_WorkTabOwnerPreference_BetterWorkTab>
+    <BWT_Enum_WorkTabOwnerPreference_FluffyWorkTab>Fluffy Work Tab</BWT_Enum_WorkTabOwnerPreference_FluffyWorkTab>
+    <BWT_Settings_compat.externalWorkTab.columns>Show Fluffy Work Tab columns</BWT_Settings_compat.externalWorkTab.columns>
+    <BWT_Settings_compat.externalWorkTab.columns_Tooltip>When Fluffy Work Tab is loaded and Better Work Tab owns the Work tab, keep Fluffy's Mood, Job, Detailed Copy/Paste, and Favorite columns visible.</BWT_Settings_compat.externalWorkTab.columns_Tooltip>
+    <BWT_Settings_compat.fluffyWorkTab.specificJobs>Specific jobs</BWT_Settings_compat.fluffyWorkTab.specificJobs>
+    <BWT_Settings_compat.fluffyWorkTab.specificJobs_Tooltip>Choose how BWT opens a Work column into its individual jobs.</BWT_Settings_compat.fluffyWorkTab.specificJobs_Tooltip>
+    <BWT_Settings_subWorkJobs.drilldownStyle>Specific-job view</BWT_Settings_subWorkJobs.drilldownStyle>
+    <BWT_Settings_subWorkJobs.drilldownStyle_Tooltip>Choose BWT's focused full-tab view or Fluffy-inspired right-expanding columns. Both modes are implemented by BWT and work without Fluffy Work Tab installed.</BWT_Settings_subWorkJobs.drilldownStyle_Tooltip>
+
     <!-- Categories -->
     <BWT_Settings_highlights>Highlights</BWT_Settings_highlights>
     <BWT_Settings_highlights_Desc>Row and column highlighting behavior</BWT_Settings_highlights_Desc>
@@ -21,8 +90,13 @@
     <BWT_Settings_skillView>Skill View</BWT_Settings_skillView>
     <BWT_Settings_skillView_Desc>Shift behavior and skill display</BWT_Settings_skillView_Desc>
     
-    <BWT_Settings_advanced>Advanced &amp; Maintenance</BWT_Settings_advanced>
+    <BWT_Settings_advanced>Maintenance</BWT_Settings_advanced>
     <BWT_Settings_advanced_Desc>Debug, reset, experimental options</BWT_Settings_advanced_Desc>
+    <BWT_Enum_WorkGridRendererMode_Auto>Auto</BWT_Enum_WorkGridRendererMode_Auto>
+    <BWT_Enum_WorkGridRendererMode_Optimized>Optimized</BWT_Enum_WorkGridRendererMode_Optimized>
+    <BWT_Enum_WorkGridRendererMode_Vanilla>Vanilla</BWT_Enum_WorkGridRendererMode_Vanilla>
+    <!-- Compatibility key for settings serialized by 2.0 preview builds. -->
+    <BWT_Enum_WorkGridRendererMode_Legacy>Vanilla</BWT_Enum_WorkGridRendererMode_Legacy>
     
     <!-- Highlights Settings -->
     <BWT_Settings_highlights.masterToggle>Enable All Highlights</BWT_Settings_highlights.masterToggle>
@@ -133,4 +207,7 @@
 
     <BWT_Settings_ux.hideWorktypes>Hidden Work Types</BWT_Settings_ux.hideWorktypes>
     <BWT_Settings_ux.hideWorktypes_Tooltip>Select work types to hide from the work tab.</BWT_Settings_ux.hideWorktypes_Tooltip>
+
+    <BWT_Settings_ui.generalTutorial>Show Better Work Tab Tutorial</BWT_Settings_ui.generalTutorial>
+    <BWT_Settings_ui.generalTutorial_Tooltip>Show or resume the interactive Better Work Tab tutorial. Turning this off pauses it without clearing completed lessons or the current lesson.</BWT_Settings_ui.generalTutorial_Tooltip>
 </LanguageData>

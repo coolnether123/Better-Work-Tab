@@ -61,6 +61,34 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             }
         }
 
+        internal static void DrawWrappedLabel(Rect rect, string label)
+        {
+            bool previousWordWrap = Text.WordWrap;
+            Text.WordWrap = true;
+            Widgets.Label(rect, label ?? "");
+            Text.WordWrap = previousWordWrap;
+        }
+
+        internal static float MeasureWrappedHeight(string label, float width, GameFont font = GameFont.Small)
+        {
+            GameFont previousFont = Text.Font;
+            bool previousWordWrap = Text.WordWrap;
+            Text.Font = font;
+            Text.WordWrap = true;
+            float height = Text.CalcHeight(label ?? "", Mathf.Max(1f, width));
+            Text.WordWrap = previousWordWrap;
+            Text.Font = previousFont;
+            return Mathf.Max(Text.LineHeightOf(font), height);
+        }
+
+        internal static float ClampWrappedHeight(string label, float width, int maxLines, out bool clamped, GameFont font = GameFont.Small)
+        {
+            float measured = MeasureWrappedHeight(label, width, font);
+            float maxHeight = Text.LineHeightOf(font) * Mathf.Max(1, maxLines);
+            clamped = measured > maxHeight + 0.5f;
+            return Mathf.Clamp(measured, Text.LineHeightOf(font), maxHeight);
+        }
+
         internal static void DrawSafeLabel(Rect rect, string label)
         {
             Widgets.Label(NormalizeLabelRect(rect, Text.Font), label ?? "");
@@ -169,25 +197,58 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
         internal static string BuildConditionsSummary(RuleBuilder2Card card)
         {
+            return BuildConditionsSummary(card, false);
+        }
+
+        private static string BuildConditionsSummary(RuleBuilder2Card card, bool sentenceClause)
+        {
             int count = card?.Conditions?.Conditions?.Count(condition => condition != null && condition.Enabled) ?? 0;
             if (count <= 0)
             {
-                return T("BWT_RuleBuilder2_NoConditionsSummary");
+                return sentenceClause
+                    ? T("BWT_RuleBuilder2_RuleSentenceEveryPawn")
+                    : T("BWT_RuleBuilder2_NoConditionsSummary");
             }
 
             string first = RuleBuilder2ConditionCatalog.GetConditionText(
                 card.Conditions.Conditions.FirstOrDefault(condition => condition != null && condition.Enabled),
                 card.Target.ResolveWorkType());
-            return count == 1
+            string summary = count == 1
                 ? first
                 : T("BWT_RuleBuilder2_ConditionsSummary").Formatted(count, first).ToString();
+            return sentenceClause
+                ? T("BWT_RuleBuilder2_RuleSentenceWhen").Formatted(summary).ToString()
+                : summary;
         }
 
         internal static string BuildActionSummary(RuleBuilder2Card card)
         {
+            return BuildActionSummary(card, true);
+        }
+
+        private static string BuildActionSummary(RuleBuilder2Card card, bool includeTarget)
+        {
             if (card?.Action == null)
             {
-                return T("BWT_RuleBuilder2_NoActionSummary");
+                return includeTarget
+                    ? T("BWT_RuleBuilder2_NoActionSummary")
+                    : T("BWT_RuleBuilder2_ActionText_NoActionShort");
+            }
+
+            if (!includeTarget)
+            {
+                switch (card.Action.Kind)
+                {
+                    case RuleBuilder2ActionKind.Disable:
+                        return T("BWT_RuleBuilder2_ActionText_DisableShort");
+                    case RuleBuilder2ActionKind.FollowGlobal:
+                        return T("BWT_RuleBuilder2_ActionText_FollowGlobalShort");
+                    case RuleBuilder2ActionKind.SetTimeSchedule:
+                    case RuleBuilder2ActionKind.SetSubWorkSchedule:
+                        return T("BWT_RuleBuilder2_ActionText_ScheduleShort");
+                    default:
+                        return T("BWT_RuleBuilder2_ActionText_SetPriorityShort").Formatted(card.Action.Priority).ToString();
+                }
             }
 
             return RuleBuilder2Evaluator.GetActionText(card, card.Target.ResolveWorkType(), card.Target.ResolveWorkGiver());
@@ -195,11 +256,16 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
         internal static string BuildRuleSentenceSummary(RuleBuilder2FlowController flow, RuleBuilder2Surface activeSurface, RuleBuilder2Card card)
         {
+            if (card?.Target?.HasTarget != true)
+            {
+                return T("BWT_RuleBuilder2_RuleSentenceNoTarget");
+            }
+
             return T("BWT_RuleBuilder2_ReadOnlySentence")
                 .Formatted(
                     BuildTargetSummary(flow, activeSurface, card),
-                    BuildConditionsSummary(card),
-                    BuildActionSummary(card))
+                    BuildConditionsSummary(card, true),
+                    BuildActionSummary(card, false))
                 .ToString();
         }
 

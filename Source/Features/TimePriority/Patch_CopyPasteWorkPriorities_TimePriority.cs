@@ -34,7 +34,7 @@ namespace Better_Work_Tab.Features.TimePriority
                 return true;
             }
 
-            if (TimePriorityPlannerPrototype.TryDrawScheduleCopyPasteWorkPrioritiesCell(rect, pawn))
+            if (TimePriorityScheduleEditor.TryDrawScheduleCopyPasteWorkPrioritiesCell(rect, pawn))
             {
                 return false;
             }

@@ -15,6 +15,11 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
     {
         public static bool Prefix(Pawn pawn, WorkGiver giver, ref bool __result)
         {
+            if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabOrdering)
+            {
+                return true;
+            }
+
             if (WorkGiverAvailability.ShouldForceAllowBeforeVanilla(pawn, giver, out bool canUse))
             {
                 __result = canUse;
@@ -26,6 +31,11 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         public static void Postfix(Pawn pawn, WorkGiver giver, ref bool __result)
         {
+            if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabOrdering)
+            {
+                return;
+            }
+
             if (__result && !WorkGiverAvailability.ShouldAllowForPawn(giver?.def, pawn))
             {
                 __result = false;
@@ -89,6 +99,11 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
     {
         public static void Postfix(WorkGiver_Scanner __instance, Pawn pawn, Thing t, bool forced, ref bool __result)
         {
+            if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabOrdering)
+            {
+                return;
+            }
+
             if (__result && !WorkGiverScannerExtensions.ShouldAllowForPawn(__instance, pawn, forced))
             {
                 __result = false;
@@ -101,6 +116,11 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
     {
         public static void Postfix(WorkGiver_Scanner __instance, Pawn pawn, IntVec3 c, bool forced, ref bool __result)
         {
+            if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabOrdering)
+            {
+                return;
+            }
+
             if (__result && !WorkGiverScannerExtensions.ShouldAllowForPawn(__instance, pawn, forced))
             {
                 __result = false;
@@ -113,6 +133,11 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
     {
         public static bool Prefix(PawnColumnWorker_WorkPriority __instance, Pawn a, Pawn b, ref int __result)
         {
+            if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabPriorityFeatures)
+            {
+                return true;
+            }
+
             if (!SubWorkDrilldownState.IsActive)
             {
                 return true;

@@ -97,6 +97,14 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                     return Tr("BWT_RuleBuilder2_ConditionText_ExistingPriorityEquals", condition.IntValue);
                 case RuleBuilder2ConditionKind.CurrentAssignedWork:
                     return condition.BoolValue ? Tr("BWT_RuleBuilder2_ConditionText_Assigned") : Tr("BWT_RuleBuilder2_ConditionText_NotAssigned");
+                case RuleBuilder2ConditionKind.HighestSkillAmongColonists:
+                    return Tr("BWT_RuleBuilder2_ConditionText_HighestSkill");
+                case RuleBuilder2ConditionKind.TopWorkTypesBySkill:
+                    return Tr("BWT_RuleBuilder2_ConditionText_TopWorkTypes", condition.IntValue);
+                case RuleBuilder2ConditionKind.NaturalAlwaysActiveWork:
+                    return Tr("BWT_RuleBuilder2_ConditionText_NaturalAlways");
+                case RuleBuilder2ConditionKind.ParentHasChildOnMap:
+                    return Tr("BWT_RuleBuilder2_ConditionText_HasChild");
                 default:
                     return string.IsNullOrEmpty(condition.DisplayText) ? Tr("BWT_RuleBuilder2_ReviewCondition") : condition.DisplayText;
             }
@@ -235,6 +243,35 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                     LabelKey = "BWT_RuleBuilder2_Condition_CurrentAssigned",
                     TooltipKey = "BWT_RuleBuilder2_Condition_CurrentAssigned_Tooltip",
                     Advanced = true
+                },
+                new RuleBuilder2ConditionDefinition
+                {
+                    Kind = RuleBuilder2ConditionKind.HighestSkillAmongColonists,
+                    CategoryKey = "BWT_RuleBuilder2_Category_Skills",
+                    LabelKey = "BWT_RuleBuilder2_Condition_HighestSkill",
+                    TooltipKey = "BWT_RuleBuilder2_Condition_HighestSkill_Tooltip"
+                },
+                new RuleBuilder2ConditionDefinition
+                {
+                    Kind = RuleBuilder2ConditionKind.TopWorkTypesBySkill,
+                    CategoryKey = "BWT_RuleBuilder2_Category_Skills",
+                    LabelKey = "BWT_RuleBuilder2_Condition_TopWorkTypes",
+                    TooltipKey = "BWT_RuleBuilder2_Condition_TopWorkTypes_Tooltip",
+                    DefaultInt = 6
+                },
+                new RuleBuilder2ConditionDefinition
+                {
+                    Kind = RuleBuilder2ConditionKind.NaturalAlwaysActiveWork,
+                    CategoryKey = "BWT_RuleBuilder2_Category_AssignedWork",
+                    LabelKey = "BWT_RuleBuilder2_Condition_NaturalAlways",
+                    TooltipKey = "BWT_RuleBuilder2_Condition_NaturalAlways_Tooltip"
+                },
+                new RuleBuilder2ConditionDefinition
+                {
+                    Kind = RuleBuilder2ConditionKind.ParentHasChildOnMap,
+                    CategoryKey = "BWT_RuleBuilder2_Category_AgeGender",
+                    LabelKey = "BWT_RuleBuilder2_Condition_HasChild",
+                    TooltipKey = "BWT_RuleBuilder2_Condition_HasChild_Tooltip"
                 }
             };
         }

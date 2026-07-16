@@ -20,7 +20,12 @@ namespace Better_Work_Tab.ModSupport
         private const string VanillaSkillsExpandedPackageId = "vanillaexpanded.skills";
 
         private static bool initialized;
-        private static List<PassionOption> passionOptions = BuildVanillaPassions();
+        private static List<PassionOption> passionOptions = new List<PassionOption>
+        {
+            new PassionOption((int)Passion.None, "None", "None", 0.35f, true),
+            new PassionOption((int)Passion.Minor, "Minor", "Minor", 1f, false),
+            new PassionOption((int)Passion.Major, "Major", "Major", 1.5f, false)
+        };
 
         public override string PackageId => VanillaSkillsExpandedPackageId;
         public override string DisplayName => "Vanilla Skills Expanded";
@@ -174,7 +179,14 @@ namespace Better_Work_Tab.ModSupport
 
         private static string TranslateOrFallback(string key, string fallback)
         {
-            return key.CanTranslate() ? key.Translate().ToString() : fallback;
+            try
+            {
+                return key.CanTranslate() ? key.Translate().ToString() : fallback;
+            }
+            catch
+            {
+                return fallback;
+            }
         }
 
         private static string BuildLabel(Def def)

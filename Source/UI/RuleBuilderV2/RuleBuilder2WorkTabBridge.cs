@@ -37,8 +37,10 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
         private static Window_RuleBuilder2 activeWindow;
         private static RuleBuilder2WorkTabSelection? lastSelection;
         private static RuleBuilder2WorkTabSelection? hoverSelection;
-        private static Rect highlightedBounds;
-        private static float highlightedAt;
+        private static Rect selectionTransitionFrom;
+        private static Rect selectionTransitionTo;
+        private static float selectionTransitionStartedAt;
+        private const float SelectionTransitionSeconds = 0.22f;
 
         internal static bool IsOpen => activeWindow != null;
 
@@ -70,10 +72,12 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                 return;
             }
 
+            Rect previousBounds = ResolveCurrentTargetBounds(bounds);
             var selection = new RuleBuilder2WorkTabSelection(workType, workGiver, pawn, priority, bounds, source);
             lastSelection = selection;
-            highlightedBounds = bounds;
-            highlightedAt = Time.realtimeSinceStartup;
+            selectionTransitionFrom = previousBounds;
+            selectionTransitionTo = bounds;
+            selectionTransitionStartedAt = Time.realtimeSinceStartup;
             hoverSelection = null;
             activeWindow.AcceptWorkTabSelection(selection);
         }
@@ -120,8 +124,6 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                 return false;
             }
 
-            highlightedBounds = bounds;
-            highlightedAt = Time.realtimeSinceStartup;
             return true;
         }
 
@@ -212,26 +214,53 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                    (selection.WorkGiver?.defName ?? "") == (workGiver?.defName ?? "");
         }
 
-        internal static void DrawRecentSelectionPulse()
+        internal static bool TryGetSelectionTransitionOffset(
+            WorkTypeDef workType,
+            WorkGiverDef workGiver,
+            out Vector2 offset)
         {
+            offset = Vector2.zero;
             if (activeWindow == null ||
-                highlightedBounds.width <= 0f ||
-                Event.current.type != EventType.Repaint)
+                !lastSelection.HasValue ||
+                !Matches(lastSelection.Value, workType, workGiver) ||
+                !(BetterWorkTabMod.Settings?.ruleBuilder2EnableAnimations ?? true) ||
+                selectionTransitionFrom.width <= 0f ||
+                selectionTransitionTo.width <= 0f)
             {
-                return;
+                return false;
             }
 
-            float age = Time.realtimeSinceStartup - highlightedAt;
-            if (age > 0.55f)
+            float progress = Mathf.Clamp01(
+                (Time.realtimeSinceStartup - selectionTransitionStartedAt) / SelectionTransitionSeconds);
+            if (progress >= 0.999f)
             {
-                return;
+                return false;
             }
 
-            float alpha = Mathf.SmoothStep(0.35f, 0f, age / 0.55f);
-            Color old = GUI.color;
-            GUI.color = new Color(1f, 0.86f, 0.25f, alpha);
-            Widgets.DrawBox(highlightedBounds.ExpandedBy(3f), 2);
-            GUI.color = old;
+            float eased = Mathf.SmoothStep(0f, 1f, progress);
+            offset = Vector2.Lerp(
+                selectionTransitionFrom.center - selectionTransitionTo.center,
+                Vector2.zero,
+                eased);
+            return offset.sqrMagnitude > 0.01f;
+        }
+
+        private static Rect ResolveCurrentTargetBounds(Rect fallback)
+        {
+            if (lastSelection.HasValue && lastSelection.Value.Bounds.width > 0f)
+            {
+                return lastSelection.Value.Bounds;
+            }
+
+            if (activeWindow != null &&
+                activeWindow.TryGetActiveTarget(out WorkTypeDef workType, out WorkGiverDef workGiver) &&
+                Find.MainTabsRoot?.OpenTab?.TabWindow is Better_Work_Tab.UI.MainTabWindow_BetterWork workTab &&
+                workTab.TryGetRuleBuilder2TargetHeaderBounds(workType, workGiver, out Rect bounds))
+            {
+                return bounds;
+            }
+
+            return fallback;
         }
     }
 }

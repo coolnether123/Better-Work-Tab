@@ -3,9 +3,9 @@ using System.Reflection;
 using System.Reflection.Emit;
 using HarmonyLib;
 using UnityEngine;
-using ModAPI.Core;
+using Spine.Harmony.Infrastructure;
 
-namespace ModAPI.Harmony
+namespace Spine.Harmony
 {
     /// <summary>
     /// Common Unity-specific IL patterns and replacements.
@@ -101,10 +101,10 @@ namespace ModAPI.Harmony
             string overrideMethod)
         {
             ValidateStaticMethod(overrideType, overrideMethod, typeof(float));
-            
-            return t.ReplaceAllCalls(
-                typeof(Time), "get_deltaTime",
-                overrideType, overrideMethod);
+
+            t.ForCall(typeof(Time), "get_deltaTime")
+             .ReplaceAllWith(overrideType, overrideMethod);
+            return t;
         }
         
         #endregion
@@ -127,7 +127,7 @@ namespace ModAPI.Harmony
         }
 
         /// <summary>
-        /// Replace generic GetComponent<T> calls with custom factory.
+        /// Replace generic GetComponent&lt;T&gt; calls with custom factory.
         /// </summary>
         public static FluentTranspiler ReplaceGetComponentGeneric<T>(
             this FluentTranspiler t,

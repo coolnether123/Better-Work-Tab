@@ -209,8 +209,8 @@ namespace Better_Work_Tab.UI
             Rect rect3 = rect2;
             rect3.xMin += ParameterRowIndent;
             rect3.xMax -= ParameterRowIndent;
-            rect3.y = rect2.yMax - this.CloseButSize.y - 10f;
-            rect3.height = this.CloseButSize.y;
+            rect3.y = rect2.yMax - Window.CloseButSize.y - 10f;
+            rect3.height = Window.CloseButSize.y;
             Rect outRect = rect2;
             outRect.yMin -= 24f;
             outRect.yMax = rect3.y + 39f;
@@ -610,8 +610,8 @@ namespace Better_Work_Tab.UI
             Rect rect3 = rect2;
             rect3.xMin += 10f;
             rect3.xMax -= 10f;
-            rect3.y = rect2.yMax - this.CloseButSize.y - 10f;
-            rect3.height = this.CloseButSize.y;
+            rect3.y = rect2.yMax - Window.CloseButSize.y - 10f;
+            rect3.height = Window.CloseButSize.y;
             Rect outRect = rect2;
             outRect.yMax = rect3.y - 10f;
             Widgets.DrawMenuSection(rect2);
@@ -866,7 +866,7 @@ namespace Better_Work_Tab.UI
             rect6.x = rect4.xMax - rect6.width - (selectedRuleset.Rules.Count >= 13 ? 20f : 0);
             rect6.y = rect4.y + (rect4.height - rect6.height) / 2f;
 
-            if (Widgets.ButtonImage(rect6, TexButton.DeleteX))
+            if (Widgets.ButtonImage(rect6, RimWorld.TexButton.DeleteX))
             {
                 ruleToRemove = currentRule;
                 SelectedRule = null;
