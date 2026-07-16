@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -6,6 +6,7 @@ using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.Dividers;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.Mod_Support.LocalProfiles;
 using Better_Work_Tab.Mod_Support.Multiplayer;
 using Better_Work_Tab.PawnOrganizer.API;
@@ -17,6 +18,8 @@ using HarmonyLib;
 using RimWorld;
 using UnityEngine;
 using Verse;
+using Better_Work_Tab.UI.WorkGrid.Snapshots;
+using Spine.Collections;
 
 namespace Better_Work_Tab.PawnOrganizer
 {
@@ -34,6 +37,7 @@ namespace Better_Work_Tab.PawnOrganizer
         private const float SubWorkHeaderWidthFactor = 0.68f;
         private const float SubWorkMinPawnLabelColumnWidth = 170f;
         private const float SubWorkMaxPawnLabelColumnWidth = 260f;
+        private const float HostedSubWorkChildColumnPadding = 6f;
 
         private List<RowDescriptor> _cachedRowDescriptors;
         private bool _rowDescriptorsDirty = true;
@@ -53,8 +57,8 @@ namespace Better_Work_Tab.PawnOrganizer
         private readonly Dictionary<string, float> _subWorkHeaderTextWidthCache =
             new Dictionary<string, float>(StringComparer.Ordinal);
 
-        private IList<Pawn> _snapshotPawns = new Pawn[0];
-        private IList<PawnDivider> _snapshotDividers = new PawnDivider[0];
+        private IList<Pawn> _snapshotPawns = ArrayCompat.Empty<Pawn>();
+        private IList<PawnDivider> _snapshotDividers = ArrayCompat.Empty<PawnDivider>();
 
         private PawnTable _table;
         private Vector2 _origin;
@@ -63,6 +67,11 @@ namespace Better_Work_Tab.PawnOrganizer
         private float _headerHeight;
         private float _dividerHeight = DefaultDividerHeight;
         private int _layoutRevision;
+        private readonly ContiguousBuffer<WorkGridRowGeometry> _geometryRows =
+            new ContiguousBuffer<WorkGridRowGeometry>(64);
+        private readonly ContiguousBuffer<WorkGridColumnGeometry> _geometryColumns =
+            new ContiguousBuffer<WorkGridColumnGeometry>(32);
+        private WorkGridGeometrySnapshot _geometrySnapshot;
 
         // === DIRTY STATE TRACKING ===
         private bool _isDirty = true;
@@ -121,7 +130,7 @@ namespace Better_Work_Tab.PawnOrganizer
             if (SubWorkDrilldownState.LayoutSignature != _lastSubWorkSignature)
                 return true;
 
-            if (TimePriorityPlannerPrototype.LayoutSignature != _lastTimePrioritySignature)
+            if (TimePriorityScheduleEditor.LayoutSignature != _lastTimePrioritySignature)
                 return true;
 
             if (ComputeDividerAnimationSignature() != _lastDividerAnimationSignature)
@@ -186,7 +195,7 @@ namespace Better_Work_Tab.PawnOrganizer
             _lastColumnSignature = ComputeColumnSignature(table);
             _lastHiddenWorktypesSignature = ComputeHiddenWorktypesSignature();
             _lastSubWorkSignature = SubWorkDrilldownState.LayoutSignature;
-            _lastTimePrioritySignature = TimePriorityPlannerPrototype.LayoutSignature;
+            _lastTimePrioritySignature = TimePriorityScheduleEditor.LayoutSignature;
             _lastDividerAnimationSignature = ComputeDividerAnimationSignature();
             _lastSubWorkLayoutSettingsSignature = ComputeSubWorkLayoutSettingsSignature();
             _lastHeaderLayoutVersion = HeaderDrawingCoordinator.GetVanillaLayoutVersion();
@@ -409,6 +418,37 @@ namespace Better_Work_Tab.PawnOrganizer
         public PawnTable Table => _table;
         public int LayoutRevision => _layoutRevision;
 
+        private readonly struct VisibleColumnSpec
+        {
+            internal readonly PawnColumnDef Def;
+            internal readonly int OriginalIndex;
+            internal readonly WorkTypeDef SubWorkParent;
+            internal readonly WorkGiverDef SubWorkGiver;
+            internal readonly int SubWorkSlot;
+            internal readonly bool IsExpandBesideChild;
+
+            internal VisibleColumnSpec(PawnColumnDef def, int originalIndex)
+                : this(def, originalIndex, null, null, -1, false)
+            {
+            }
+
+            internal VisibleColumnSpec(
+                PawnColumnDef def,
+                int originalIndex,
+                WorkTypeDef subWorkParent,
+                WorkGiverDef subWorkGiver,
+                int subWorkSlot,
+                bool isExpandBesideChild)
+            {
+                Def = def;
+                OriginalIndex = originalIndex;
+                SubWorkParent = subWorkParent;
+                SubWorkGiver = subWorkGiver;
+                SubWorkSlot = subWorkSlot;
+                IsExpandBesideChild = isExpandBesideChild;
+            }
+        }
+
         public void Rebuild(PawnTable table, IPawnOrganizerSnapshot snapshot, Vector2 origin)
         {
             lock (_stateLock)
@@ -425,6 +465,7 @@ namespace Better_Work_Tab.PawnOrganizer
                     _rows.Clear();
                     _columns.Clear();
                     _contentHeight = 0f;
+                    _geometrySnapshot = null;
                     return;
                 }
 
@@ -436,12 +477,13 @@ namespace Better_Work_Tab.PawnOrganizer
                     _rows.Clear();
                     _columns.Clear();
                     _contentHeight = 0f;
+                    _geometrySnapshot = null;
                     _rowWidth = 0f;
                     _dividerHeight = BetterWorkTabMod.Settings?.dividerHeight ?? DefaultDividerHeight;
 
                     _snapshotPawns = snapshot?.Pawns
-                                     ?? PawnTableCompat.GetPawnsListForReading(table)
-                                     ?? new Pawn[0];
+                                     ?? (IList<Pawn>)table.PawnsListForReading
+                                     ?? ArrayCompat.Empty<Pawn>();
 
                     if (snapshot?.Dividers is IList<PawnDivider> dividerList && !dividerList.IsReadOnly)
                     {
@@ -459,11 +501,6 @@ namespace Better_Work_Tab.PawnOrganizer
 
                     EnsureTableFresh();
                     _rowWidth = Mathf.Max(0f, PawnTableCompat.GetCachedSize(_table).x - 16f);
-                    if (_rowWidth <= 0f)
-                    {
-                        _rowWidth = Mathf.Max(0f, PawnTableCompat.GetSize(_table).x - 16f);
-                    }
-
                     _headerHeight = SubWorkDrilldownHeaderGeometry.GetEffectiveHeaderHeight(_table);
                     SubWorkDrilldownHeaderGeometry.RecordNormalHeaderHeight(_table, _headerHeight);
 
@@ -472,6 +509,7 @@ namespace Better_Work_Tab.PawnOrganizer
 
                     _rowDescriptorsDirty = true;
                     _layoutRevision++;
+                    PublishGeometrySnapshot();
                     EnsureTableFresh();
                 }
                 catch (Exception ex)
@@ -488,49 +526,15 @@ namespace Better_Work_Tab.PawnOrganizer
         public bool TryGetRowAt(Vector2 mousePosition, out WorkTabLayoutRow row)
         {
             row = default;
-
-            // Check if mouse is in the row content area (below header)
-            float headerBottom = TableOrigin.y + HeaderHeight;
-            float pinnedRowsHeight = GetPinnedRowsHeight();
-            if (pinnedRowsHeight > 0f)
+            if (_table == null || _geometrySnapshot == null ||
+                !_geometrySnapshot.TryGetRowIndex(mousePosition, PawnTableCompat.GetScrollPosition(_table).y, out int index) ||
+                index >= _rows.Count)
             {
-                if (mousePosition.y < headerBottom + pinnedRowsHeight)
-                {
-                    return false;
-                }
-
-                headerBottom += pinnedRowsHeight;
-            }
-
-            if (mousePosition.y < headerBottom)
                 return false;
-
-            // Convert to local Y within scrolled content
-            float localY = mousePosition.y - headerBottom + PawnTableCompat.GetScrollPosition(Table).y;
-
-            // Use the VISIBLE row descriptors (respects collapsed dividers)
-            var descriptors = GetRowDescriptors();
-            float cumulativeY = 0f;
-
-            for (int i = 0; i < descriptors.Count; i++)
-            {
-                float rowBottom = cumulativeY + descriptors[i].Height;
-
-                if (localY < rowBottom)
-                {
-                    // Found the row - return the corresponding WorkTabLayoutRow from Rows
-                    if (i < Rows.Count)
-                    {
-                        row = Rows[i];
-                        return true;
-                    }
-                    return false;
-                }
-
-                cumulativeY = rowBottom;
             }
 
-            return false;
+            row = _rows[index];
+            return true;
         }
 
         /// <summary>
@@ -539,46 +543,7 @@ namespace Better_Work_Tab.PawnOrganizer
         /// </summary>
         public bool TryGetVisibleRowAt(Vector2 mousePosition, out WorkTabLayoutRow row)
         {
-            row = default;
-
-            float headerBottom = TableOrigin.y + HeaderHeight;
-            float pinnedRowsHeight = GetPinnedRowsHeight();
-            if (pinnedRowsHeight > 0f)
-            {
-                if (mousePosition.y < headerBottom + pinnedRowsHeight)
-                {
-                    return false;
-                }
-
-                headerBottom += pinnedRowsHeight;
-            }
-
-            if (mousePosition.y < headerBottom)
-                return false;
-
-            float localY = mousePosition.y - headerBottom + PawnTableCompat.GetScrollPosition(Table).y;
-            var descriptors = GetRowDescriptors(); // ONLY visible rows
-
-            float cumulativeY = 0f;
-            for (int i = 0; i < descriptors.Count; i++)
-            {
-                float rowBottom = cumulativeY + descriptors[i].Height;
-
-                if (localY < rowBottom)
-                {
-                    // Map descriptor index to actual Rows index
-                    if (i < Rows.Count)
-                    {
-                        row = Rows[i];
-                        return true;
-                    }
-                    return false;
-                }
-
-                cumulativeY = rowBottom;
-            }
-
-            return false;
+            return TryGetRowAt(mousePosition, out row);
         }
 
         public bool TryGetColumnAt(Vector2 mousePosition, out WorkTabLayoutColumn column)
@@ -586,21 +551,38 @@ namespace Better_Work_Tab.PawnOrganizer
             column = default;
             lock (_stateLock)
             {
-                if (_columns.Count == 0)
+                if (_geometrySnapshot == null || _table == null ||
+                    !_geometrySnapshot.TryGetHeaderColumnIndex(
+                        mousePosition,
+                        PawnTableCompat.GetScrollPosition(_table).x,
+                        out int index) ||
+                    index >= _columns.Count)
                 {
                     return false;
                 }
 
-                for (int i = 0; i < _columns.Count; i++)
+                column = _columns[index];
+                return true;
+            }
+        }
+
+        public bool TryGetBodyColumnAt(Vector2 mousePosition, out WorkTabLayoutColumn column)
+        {
+            column = default;
+            lock (_stateLock)
+            {
+                if (_geometrySnapshot == null || _table == null ||
+                    !_geometrySnapshot.TryGetBodyColumnIndex(
+                        mousePosition,
+                        PawnTableCompat.GetScrollPosition(_table),
+                        out int index) ||
+                    index >= _columns.Count)
                 {
-                    if (_columns[i].HeaderRect.Contains(mousePosition))
-                    {
-                        column = _columns[i];
-                        return true;
-                    }
+                    return false;
                 }
 
-                return false;
+                column = _columns[index];
+                return true;
             }
         }
 
@@ -645,7 +627,7 @@ namespace Better_Work_Tab.PawnOrganizer
 
         private PawnDivider AddDividerAfterPawnWhileSorting(Pawn pawn, string label, Color color)
         {
-            // ✅ Defensive checks
+            // âœ… Defensive checks
             if (_table == null)
             {
                 Log.Error("[AddDividerAfterPawnWhileSorting] _table is null!");
@@ -695,7 +677,7 @@ namespace Better_Work_Tab.PawnOrganizer
 
         private PawnDivider AddDividerBeforePawnWhileSorting(Pawn pawn, string label, Color color)
         {
-            // ✅ Defensive checks
+            // âœ… Defensive checks
             if (_table == null)
             {
                 Log.Error("[AddDividerBeforePawnWhileSorting] _table is null!");
@@ -751,12 +733,12 @@ namespace Better_Work_Tab.PawnOrganizer
                 if (element.Pawn != null && element.Pawn.playerSettings != null)
                 {
                     RowOrderUtility.SetPawnRowOrder(element.Pawn, i);
-                    BetterWorkTabMod.DebugLog($"  Row {i}: {element.Pawn.LabelShort} → displayOrder {i}", DebugFeature.DragDrop);
+                    BetterWorkTabMod.DebugLog($"  Row {i}: {element.Pawn.LabelShort} â†’ displayOrder {i}", DebugFeature.DragDrop);
                 }
                 else if (element.Divider != null)
                 {
                     element.Divider.DisplayOrder = i;
-                    BetterWorkTabMod.DebugLog($"  Row {i}: Divider '{element.Divider.DividerName}' → displayOrder {i}", DebugFeature.DragDrop);
+                    BetterWorkTabMod.DebugLog($"  Row {i}: Divider '{element.Divider.DividerName}' â†’ displayOrder {i}", DebugFeature.DragDrop);
                 }
             }
         }
@@ -792,20 +774,73 @@ namespace Better_Work_Tab.PawnOrganizer
                 return Rect.zero;
             }
 
-            float pinnedRowsHeight = GetPinnedRowsHeight();
-            float screenY = _origin.y + HeaderHeight + pinnedRowsHeight + row.OffsetY - PawnTableCompat.GetScrollPosition(_table).y;
-            return new Rect(_origin.x, screenY, _rowWidth, row.Height);
+            if (_geometrySnapshot == null || row.VisualIndex < 0 || row.VisualIndex >= _geometrySnapshot.Rows.Count)
+            {
+                return Rect.zero;
+            }
+
+            return _geometrySnapshot.GetRowScreenRect(row.VisualIndex, PawnTableCompat.GetScrollPosition(_table));
         }
 
-        private static float GetPinnedRowsHeight()
+        public float GetPinnedRowsHeight()
         {
-            float height = TimePriorityPlannerPrototype.HeaderPinnedRowsHeight;
-            if (SubWorkDrilldownState.IsActive)
+            float height = TimePriorityScheduleEditor.HeaderPinnedRowsHeight;
+            if (SubWorkDrilldownState.HasAnyDrilldown)
             {
                 height += SubWorkDrilldownState.GlobalRowReservedHeight;
             }
 
             return height;
+        }
+
+        public WorkGridGeometrySnapshot GeometrySnapshot => _geometrySnapshot;
+
+        public void ClearGeometrySnapshot()
+        {
+            lock (_stateLock)
+            {
+                _geometrySnapshot = null;
+                _geometryRows.Clear();
+                _geometryColumns.Clear();
+                _isDirty = true;
+            }
+        }
+
+        private void PublishGeometrySnapshot()
+        {
+            _geometryRows.Clear();
+            for (int i = 0; i < _rows.Count; i++)
+            {
+                WorkTabLayoutRow row = _rows[i];
+                _geometryRows.Add(new WorkGridRowGeometry(row.OffsetY, row.Height));
+            }
+
+            _geometryColumns.Clear();
+            for (int i = 0; i < _columns.Count; i++)
+            {
+                WorkTabLayoutColumn column = _columns[i];
+                _geometryColumns.Add(new WorkGridColumnGeometry(
+                    column.HeaderContentRect,
+                    column.OffsetX,
+                    column.Width));
+            }
+
+            float schedulePinnedHeight = TimePriorityScheduleEditor.HeaderPinnedRowsHeight;
+            float subWorkPinnedHeight = SubWorkDrilldownState.HasAnyDrilldown
+                ? SubWorkDrilldownState.GlobalRowReservedHeight
+                : 0f;
+            int retainedBytes = (_geometryRows.Capacity * 8) + (_geometryColumns.Capacity * 24);
+            _geometrySnapshot = new WorkGridGeometrySnapshot(
+                _layoutRevision,
+                _origin,
+                _headerHeight,
+                schedulePinnedHeight,
+                subWorkPinnedHeight,
+                _contentHeight,
+                _rowWidth,
+                _geometryRows.ToSnapshot(),
+                _geometryColumns.ToSnapshot(),
+                retainedBytes);
         }
 
         private static int ComputeDividerAnimationSignature()
@@ -836,7 +871,7 @@ namespace Better_Work_Tab.PawnOrganizer
                 EnsureSubWorkMeasurementCacheFresh();
             }
 
-            var visibleColumns = new List<(PawnColumnDef def, int originalIndex)>();
+            var visibleColumns = new List<VisibleColumnSpec>();
             for (int i = 0; i < allColumns.Count; i++)
             {
                 var def = allColumns[i];
@@ -845,8 +880,13 @@ namespace Better_Work_Tab.PawnOrganizer
                     continue;
                 }
 
+                bool isSourceWorkColumn = def?.Worker is PawnColumnWorker_WorkPriority ||
+                    (def?.workType != null &&
+                     FluffyWorkTabGateway.IsFluffyColumn(def) &&
+                     !FluffyWorkTabGateway.IsFluffyWorkGiverColumn(def));
+
                 if (SubWorkDrilldownState.IsActive &&
-                    def?.Worker is PawnColumnWorker_WorkPriority &&
+                    isSourceWorkColumn &&
                     SubWorkDrilldownState.GetVisibleWorkColumnSlot(def) >= 0 &&
                     !SubWorkDrilldownState.IsTransitioning &&
                     !SubWorkDrilldownState.TryGetWorkGiverForColumn(def, out _, out _))
@@ -854,7 +894,35 @@ namespace Better_Work_Tab.PawnOrganizer
                     continue;
                 }
 
-                visibleColumns.Add((def, i));
+                visibleColumns.Add(new VisibleColumnSpec(def, i));
+
+                if (isSourceWorkColumn &&
+                    def.workType != null &&
+                    !SubWorkDrilldownState.IsActive &&
+                    SubWorkDrilldownState.GetExpandBesideWidthProgress(def.workType) > 0.001f &&
+                    FluffyWorkTabGateway.TryBuildHostedColumnSpecs(
+                        def,
+                        def.workType,
+                        out _,
+                        out List<PawnColumnDef> hostedChildren))
+                {
+                    for (int slot = 0; slot < hostedChildren.Count; slot++)
+                    {
+                        WorkGiverDef workGiverDef = FluffyWorkTabGateway.TryGetHostedWorkGiver(hostedChildren[slot]);
+                        if (workGiverDef == null)
+                        {
+                            continue;
+                        }
+
+                        visibleColumns.Add(new VisibleColumnSpec(
+                            hostedChildren[slot],
+                            i,
+                            def.workType,
+                            workGiverDef,
+                            slot,
+                            isExpandBesideChild: true));
+                    }
+                }
             }
 
             if (visibleColumns.Count == 0)
@@ -868,7 +936,7 @@ namespace Better_Work_Tab.PawnOrganizer
             int fillerIndex = -1;
             for (int i = 0; i < visibleColumns.Count; i++)
             {
-                if (visibleColumns[i].def.Worker is PawnColumnWorker_Label)
+                if (visibleColumns[i].Def.Worker is PawnColumnWorker_Label)
                 {
                     fillerIndex = i;
                     break;
@@ -880,7 +948,7 @@ namespace Better_Work_Tab.PawnOrganizer
             {
                 for (int i = 0; i < visibleColumns.Count; i++)
                 {
-                    if (!(visibleColumns[i].def.Worker is PawnColumnWorker_WorkPriority))
+                    if (!(visibleColumns[i].Def.Worker is PawnColumnWorker_WorkPriority))
                     {
                         fillerIndex = i;
                         break;
@@ -901,18 +969,32 @@ namespace Better_Work_Tab.PawnOrganizer
 
             for (int i = 0; i < visibleColumns.Count; i++)
             {
-                var (columnDef, originalIndex) = visibleColumns[i];
+                PawnColumnDef columnDef = visibleColumns[i].Def;
+                int originalIndex = visibleColumns[i].OriginalIndex;
                 float w = _columnWidthStore?.GetWidth(columnDef, -1f) ?? -1f;
                 
                 if (w < 0f)
                 {
                     w = PawnTableCompat.GetCachedColumnWidth(_table, originalIndex, 30f);
                 }
+
+                w = FluffyWorkTabGateway.GetHostedColumnWidth(columnDef, _table, w);
                 
+                if (visibleColumns[i].IsExpandBesideChild)
+                {
+                    w += HostedSubWorkChildColumnPadding;
+                    if (!SubWorkDrilldownState.IsActive)
+                    {
+                        w *= SubWorkDrilldownState.GetExpandBesideWidthProgress(visibleColumns[i].SubWorkParent);
+                    }
+                }
+
                 widths[i] = w;
                 totalNaturalWidth += w;
                 if (i < visibleColumns.Count - 1) totalNaturalWidth += spacing;
             }
+
+            bool preservePawnLabelWidth = ShouldPreservePawnLabelWidth(visibleColumns, fillerIndex);
 
             if (SubWorkDrilldownState.IsActive)
             {
@@ -922,7 +1004,13 @@ namespace Better_Work_Tab.PawnOrganizer
                 ApplySubWorkPriorityWidthRelief(visibleColumns, widths, surplus);
                 ApplySubWorkTransitionWidths(widths, transitionStartWidths);
             }
-            else
+            else if (preservePawnLabelWidth && SubWorkDrilldownState.IsExpandBesideActive)
+            {
+                // Fluffy's expanded work-giver columns stay at their natural worker widths.
+                // The Work tab window is sized from the rendered column span, so we do not
+                // need to push surplus row width into the hosted child columns.
+            }
+            else if (!preservePawnLabelWidth)
             {
                 // Distribute any remainder to our designated filler.
                 float surplus = _rowWidth - totalNaturalWidth;
@@ -933,18 +1021,27 @@ namespace Better_Work_Tab.PawnOrganizer
             float currentX = _origin.x;
             for (int i = 0; i < visibleColumns.Count; i++)
             {
-                var (columnDef, _) = visibleColumns[i];
+                var spec = visibleColumns[i];
+                PawnColumnDef columnDef = spec.Def;
                 float width = widths[i];
 
                 // Ensure the absolute last column hits the edge perfectly to avoid rounding gaps.
-                if (!SubWorkDrilldownState.IsActive && i == visibleColumns.Count - 1)
+                if (!SubWorkDrilldownState.IsActive && !preservePawnLabelWidth && i == visibleColumns.Count - 1)
                 {
                     width = Mathf.Max(0f, (_origin.x + _rowWidth) - currentX);
                 }
 
                 var headerRect = new Rect(currentX, _origin.y, width, headerHeight);
-                _columns.Add(new WorkTabLayoutColumn(columnDef, headerRect, currentX - _origin.x, width));
-
+                _columns.Add(new WorkTabLayoutColumn(
+                    columnDef,
+                    headerRect,
+                    currentX - _origin.x,
+                    width,
+                    spec.SubWorkParent,
+                    spec.SubWorkGiver,
+                    spec.SubWorkSlot,
+                    spec.IsExpandBesideChild,
+                    _table));
                 currentX += width;
                 if (i < visibleColumns.Count - 1)
                 {
@@ -953,8 +1050,21 @@ namespace Better_Work_Tab.PawnOrganizer
             }
         }
 
+        private static bool ShouldPreservePawnLabelWidth(List<VisibleColumnSpec> visibleColumns, int fillerIndex)
+        {
+            // INVARIANT: the pawn-name column keeps the width calculated by RimWorld's
+            // PawnTable. It must never absorb unused BWT window width. Doing so makes the
+            // Name column hundreds of pixels wider than vanilla whenever minimum-window,
+            // sub-work, or schedule geometry leaves horizontal surplus. Extra space stays
+            // outside the rendered column span; sub-work has its own bounded reservation.
+            return visibleColumns != null &&
+                fillerIndex >= 0 &&
+                fillerIndex < visibleColumns.Count &&
+                visibleColumns[fillerIndex].Def?.Worker is PawnColumnWorker_Label;
+        }
+
         private float ReserveSubWorkPawnLabelWidth(
-            List<(PawnColumnDef def, int originalIndex)> visibleColumns,
+            List<VisibleColumnSpec> visibleColumns,
             float[] widths,
             float surplus,
             int fillerIndex)
@@ -964,7 +1074,7 @@ namespace Better_Work_Tab.PawnOrganizer
                 fillerIndex < 0 ||
                 fillerIndex >= visibleColumns.Count ||
                 surplus <= 0.5f ||
-                !(visibleColumns[fillerIndex].def.Worker is PawnColumnWorker_Label) ||
+                !(visibleColumns[fillerIndex].Def.Worker is PawnColumnWorker_Label) ||
                 (BetterWorkTabMod.Settings?.enableAngledHeaders ?? DefaultSettings.enableAngledHeaders))
             {
                 return surplus;
@@ -1045,7 +1155,7 @@ namespace Better_Work_Tab.PawnOrganizer
         }
 
         private void ApplySubWorkPriorityWidthRelief(
-            List<(PawnColumnDef def, int originalIndex)> visibleColumns,
+            List<VisibleColumnSpec> visibleColumns,
             float[] widths,
             float surplus)
         {
@@ -1064,7 +1174,7 @@ namespace Better_Work_Tab.PawnOrganizer
             bool[] isWorkColumn = new bool[visibleColumns.Count];
             for (int i = 0; i < visibleColumns.Count; i++)
             {
-                if (SubWorkDrilldownState.TryGetWorkGiverForColumn(visibleColumns[i].def, out _, out _))
+                if (TryGetSubWorkGiverForVisibleColumn(visibleColumns[i], out _))
                 {
                     workColumnIndexes.Add(i);
                     isWorkColumn[i] = true;
@@ -1127,9 +1237,37 @@ namespace Better_Work_Tab.PawnOrganizer
             }
         }
 
+        private static bool TryGetSubWorkGiverForVisibleColumn(VisibleColumnSpec column, out WorkGiver workGiver)
+        {
+            workGiver = null;
+            if (column.IsExpandBesideChild && column.SubWorkGiver != null)
+            {
+                var givers = WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(column.SubWorkParent);
+                for (int i = 0; i < givers.Count; i++)
+                {
+                    if (givers[i]?.def == column.SubWorkGiver)
+                    {
+                        workGiver = givers[i];
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            return SubWorkDrilldownState.TryGetWorkGiverForColumn(column.Def, out workGiver, out _);
+        }
+
         private static bool ShouldExpandSubWorkPriorityColumns(BetterWorkTabSettings settings)
         {
             if (!(settings?.subWorkAutoExpandColumns ?? DefaultSettings.subWorkAutoExpandColumns))
+            {
+                return false;
+            }
+
+            // Compact window mode must retain the natural focused-column span. Filling the
+            // vanilla table surplus here would silently prevent the window from shrinking.
+            if (!(settings?.keepVanillaWorkTabMinimumWidth ?? DefaultSettings.keepVanillaWorkTabMinimumWidth))
             {
                 return false;
             }
@@ -1180,7 +1318,7 @@ namespace Better_Work_Tab.PawnOrganizer
         }
 
         private float ApplySubWorkLabelWidthTargets(
-            List<(PawnColumnDef def, int originalIndex)> visibleColumns,
+            List<VisibleColumnSpec> visibleColumns,
             float[] widths,
             float surplus,
             List<int> workColumnIndexes)
@@ -1201,7 +1339,7 @@ namespace Better_Work_Tab.PawnOrganizer
                 for (int i = 0; i < workColumnIndexes.Count; i++)
                 {
                     int index = workColumnIndexes[i];
-                    if (!SubWorkDrilldownState.TryGetWorkGiverForColumn(visibleColumns[index].def, out var workGiver, out _))
+                    if (!TryGetSubWorkGiverForVisibleColumn(visibleColumns[index], out var workGiver))
                     {
                         desiredWidths[index] = widths[index];
                         continue;
@@ -1245,7 +1383,7 @@ namespace Better_Work_Tab.PawnOrganizer
         }
 
         private int EstimateSubWorkVanillaMaxLevel(
-            List<(PawnColumnDef def, int originalIndex)> visibleColumns,
+            List<VisibleColumnSpec> visibleColumns,
             float[] widths,
             float extraPerSubWorkColumn,
             bool[] isWorkColumn)
@@ -1268,7 +1406,7 @@ namespace Better_Work_Tab.PawnOrganizer
                 {
                     bool isSubWorkColumn = i < isWorkColumn.Length && isWorkColumn[i];
                     float width = widths[i] + (isSubWorkColumn ? extraPerSubWorkColumn : 0f);
-                    if (SubWorkDrilldownState.TryGetWorkGiverForColumn(visibleColumns[i].def, out var workGiver, out _))
+                    if (TryGetSubWorkGiverForVisibleColumn(visibleColumns[i], out var workGiver))
                     {
                         float halfWidth = (GetCachedSubWorkHeaderTextWidth(workGiver.def) * 0.5f) + HeaderUtility.CollisionPadding;
                         float center = x + (width * 0.5f);
@@ -1398,7 +1536,9 @@ namespace Better_Work_Tab.PawnOrganizer
                 {
                     var divider = dividerElement.Divider;
                     float requestedHeight = divider?.Height ?? _dividerHeight;
-                    height = Mathf.Clamp(requestedHeight, 10f, 80f);
+                    height = TimePriorityScheduleEditor.IsTransientDivider(divider)
+                        ? Mathf.Clamp(requestedHeight, 0f, 80f)
+                        : Mathf.Clamp(requestedHeight, 10f, 80f);
                     if (DividerInsertionAnimationState.TryGetHeightMultiplier(divider, out float insertionMultiplier))
                     {
                         height *= insertionMultiplier;
@@ -1437,7 +1577,7 @@ namespace Better_Work_Tab.PawnOrganizer
         {
             var dict = new Dictionary<Pawn, float>();
             var cachedPawns = PawnTableCompat.GetCachedPawns(_table);
-            if (cachedPawns.Count == 0)
+            if (cachedPawns == null || cachedPawns.Count == 0)
             {
                 return dict;
             }
@@ -1604,7 +1744,7 @@ namespace Better_Work_Tab.PawnOrganizer
         private List<DisplayElement> InsertTransientTimePriorityDivider(List<DisplayElement> ordered)
         {
             if (ordered == null ||
-                !TimePriorityPlannerPrototype.TryGetTransientDivider(out int pawnId, out PawnDivider divider) ||
+                !TimePriorityScheduleEditor.TryGetTransientDivider(out int pawnId, out PawnDivider divider) ||
                 divider == null)
             {
                 return ordered;
@@ -1633,7 +1773,7 @@ namespace Better_Work_Tab.PawnOrganizer
 
             var divider = new PawnDivider
             {
-                DividerName = string.IsNullOrEmpty(label) || label.Trim().Length == 0 ? "Divider" : label.Trim(),
+                DividerName = System.StringCompat.IsNullOrWhiteSpace(label) ? "Divider" : label.Trim(),
                 DividerColor = color,
                 DisplayOrder = displayOrder,
                 Height = Mathf.Clamp(_dividerHeight, 10f, 80f),

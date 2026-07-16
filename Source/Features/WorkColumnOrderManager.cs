@@ -125,10 +125,15 @@ namespace Better_Work_Tab.Features
 
         public static List<WorkTypeDef> GetSimilarWorktypes(WorkTypeDef workType)
         {
-            if (_similarWorktypeMap == null || workType == null)
+            if (workType == null)
             {
                 return EmptySimilarWorktypeList;
             }
+
+            // This relationship is only consumed by the optional similar-work-type
+            // hover interaction. Avoid paying its O(work types squared) construction
+            // cost during every game load when that interaction may never be used.
+            InitializeSimilarWorktypeMap();
 
             return _similarWorktypeMap.TryGetValue(workType, out var list)
                 ? list
@@ -402,9 +407,23 @@ namespace Better_Work_Tab.Features
 
         private static List<PawnColumnDef> BuildOrderedWorkColumns(List<PawnColumnDef> workCols, List<string> primaryOrder, List<string> secondaryOrder)
         {
-            var colMap = workCols
-                .Where(c => c.workType != null)
-                .ToDictionary(c => c.workType.defName, c => c);
+            var colMap = new Dictionary<string, Queue<PawnColumnDef>>();
+            foreach (var col in workCols)
+            {
+                string defName = col.workType?.defName;
+                if (string.IsNullOrEmpty(defName))
+                {
+                    continue;
+                }
+
+                if (!colMap.TryGetValue(defName, out var queue))
+                {
+                    queue = new Queue<PawnColumnDef>();
+                    colMap[defName] = queue;
+                }
+
+                queue.Enqueue(col);
+            }
 
             var reorderedWork = new List<PawnColumnDef>();
 
@@ -417,10 +436,14 @@ namespace Better_Work_Tab.Features
 
                 foreach (var defName in order)
                 {
-                    if (colMap.TryGetValue(defName, out var col))
+                    if (colMap.TryGetValue(defName, out var columns) && columns.Count > 0)
                     {
+                        var col = columns.Dequeue();
                         reorderedWork.Add(col);
-                        colMap.Remove(defName);
+                        if (columns.Count == 0)
+                        {
+                            colMap.Remove(defName);
+                        }
                     }
                 }
             }

@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Reflection;
+using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Verse;
 
 namespace Better_Work_Tab.ModSupport
@@ -9,7 +9,6 @@ namespace Better_Work_Tab.ModSupport
     {
         private static readonly KnownConflict[] HardConflicts =
         {
-            new KnownConflict("Fluffy Work Tab", "fluffy.worktab"),
             new KnownConflict("Compact Work Tab", "mlie.compactworktab"),
         };
 
@@ -52,16 +51,17 @@ namespace Better_Work_Tab.ModSupport
             for (int i = 0; i < mods.Count; i++)
             {
                 ModContentPack mod = mods[i];
-                if (IsBetterWorkTab(mod, betterWorkTab) || IsKnownHardConflict(mod))
+                if (IsBetterWorkTab(mod, betterWorkTab) ||
+                    IsKnownHardConflict(mod) ||
+                    FluffyWorkTabGateway.IsKnownPackageId(ModListerCompat.GetPackageId(mod)))
                 {
                     continue;
                 }
 
-                string modPackageId = GetPackageId(mod);
-                if (ContainsIgnoreCase(mod.Name, "work tab") || ContainsIgnoreCase(modPackageId, "worktab"))
+                if (ContainsIgnoreCase(mod.Name, "work tab") || ContainsIgnoreCase(ModListerCompat.GetPackageId(mod), "worktab"))
                 {
                     WarningOnce(
-                        $"[Better Work Tab] Possible Work tab UI mod also active: {mod.Name} ({modPackageId}). " +
+                        $"[Better Work Tab] Possible Work tab UI mod also active: {mod.Name} ({ModListerCompat.GetPackageId(mod)}). " +
                         "If it changes the vanilla Work tab, run only one Work tab replacement at a time.",
                         74239200 + i);
                 }
@@ -84,8 +84,7 @@ namespace Better_Work_Tab.ModSupport
             for (int i = 0; i < mods.Count; i++)
             {
                 ModContentPack mod = mods[i];
-                string modPackageId = GetPackageId(mod);
-                if (ContainsIgnoreCase(mod.Name, "rimhammer") || ContainsIgnoreCase(modPackageId, "rimhammer"))
+                if (ContainsIgnoreCase(mod.Name, "rimhammer") || ContainsIgnoreCase(ModListerCompat.GetPackageId(mod), "rimhammer"))
                 {
                     lastRimhammerIndex = i;
                     lastRimhammer = mod;
@@ -98,7 +97,7 @@ namespace Better_Work_Tab.ModSupport
             }
 
             WarningOnce(
-                $"[Better Work Tab] Multiplayer + HugsLib + Rimhammer detected, with BWT loading before {lastRimhammer.Name} ({GetPackageId(lastRimhammer)}). " +
+                $"[Better Work Tab] Multiplayer + HugsLib + Rimhammer detected, with BWT loading before {lastRimhammer.Name} ({ModListerCompat.GetPackageId(lastRimhammer)}). " +
                 "There is a historical report of this stack locking the host map render during new-colony startup. Put Better Work Tab after the Rimhammer mods and include Player.log if it still reproduces.",
                 74239300);
         }
@@ -109,7 +108,7 @@ namespace Better_Work_Tab.ModSupport
             for (int i = 0; i < mods.Count; i++)
             {
                 ModContentPack mod = mods[i];
-                string activePackageId = GetPackageId(mod);
+                string activePackageId = ModListerCompat.GetPackageId(mod);
                 if (EqualsIgnoreCase(activePackageId, packageId) ||
                     StartsWithIgnoreCase(activePackageId, packageId + "_"))
                 {
@@ -134,7 +133,7 @@ namespace Better_Work_Tab.ModSupport
         {
             for (int i = 0; i < HardConflicts.Length; i++)
             {
-                if (EqualsIgnoreCase(GetPackageId(mod), HardConflicts[i].PackageId))
+                if (EqualsIgnoreCase(ModListerCompat.GetPackageId(mod), HardConflicts[i].PackageId))
                 {
                     return true;
                 }
@@ -145,38 +144,7 @@ namespace Better_Work_Tab.ModSupport
 
         private static bool IsBetterWorkTab(ModContentPack mod, ModContentPack betterWorkTab)
         {
-            return ReferenceEquals(mod, betterWorkTab) || EqualsIgnoreCase(GetPackageId(mod), "coolnether123.betterworktab");
-        }
-
-        private static string GetPackageId(ModContentPack mod)
-        {
-            if (mod == null)
-            {
-                return string.Empty;
-            }
-
-            Type type = mod.GetType();
-            PropertyInfo property = type.GetProperty("PackageId", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            if (property != null)
-            {
-                object value = property.GetValue(mod, null);
-                if (value is string packageId && !string.IsNullOrEmpty(packageId))
-                {
-                    return packageId;
-                }
-            }
-
-            FieldInfo field = type.GetField("packageId", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            if (field != null)
-            {
-                object value = field.GetValue(mod);
-                if (value is string packageId && !string.IsNullOrEmpty(packageId))
-                {
-                    return packageId;
-                }
-            }
-
-            return mod.Name ?? string.Empty;
+            return ReferenceEquals(mod, betterWorkTab) || EqualsIgnoreCase(ModListerCompat.GetPackageId(mod), "coolnether123.betterworktab");
         }
 
         private static int IndexOf(List<ModContentPack> mods, ModContentPack target)
