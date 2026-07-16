@@ -1,5 +1,6 @@
 using Better_Work_Tab.PawnOrganizer;
 using UnityEngine;
+using Better_Work_Tab.UI.WorkGrid.Invalidation;
 
 namespace Better_Work_Tab.UI
 {
@@ -21,14 +22,24 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
+            bool changed = !_hoveredColumn.Equals(newHovered);
             _lastUpdatedFrame = currentFrame;
             _hoveredColumn = newHovered;
+            if (changed)
+            {
+                WorkTabInvalidationHub.InvalidateCategory(WorkGridInvalidationCategory.HoverInteraction);
+            }
         }
 
         public static void ClearHover()
         {
+            bool changed = _hoveredColumn.HasValue;
             _hoveredColumn = null;
             _lastUpdatedFrame = -1;
+            if (changed)
+            {
+                WorkTabInvalidationHub.InvalidateCategory(WorkGridInvalidationCategory.HoverInteraction);
+            }
         }
     }
 }

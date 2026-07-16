@@ -4,9 +4,9 @@ using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using HarmonyLib;
-using ModAPI.Core;
+using Spine.Harmony.Infrastructure;
 
-namespace ModAPI.Harmony
+namespace Spine.Harmony
 {
     /// <summary>
     /// High-Level Intent API for FluentTranspiler.
@@ -16,10 +16,15 @@ namespace ModAPI.Harmony
     public static class IntentAPI
     {
         /// <summary>
-        /// "When method X is called, call Y instead."
-        /// Automatically handles instance-to-static conversion, parameter matching validation,
-        /// and OpCode replacement (Call vs Callvirt).
+        /// "When method X is called, call Y instead." Redirects the <b>first</b> matching call.
         /// </summary>
+        /// <remarks>
+        /// Legacy redirect entry point retained for compatibility. The canonical way to redirect a
+        /// single call site is <c>t.ForCall(originalType, originalMethod).ReplaceWith(replacementType,
+        /// replacementMethod)</c>, which reports an ambiguous match instead of silently taking the
+        /// first — see Transpilers/README.md §4.1.
+        /// </remarks>
+        [Obsolete("Use t.ForCall(type, method).ReplaceWith(type, method) — see Transpilers/README.md §4.1.", false)]
         public static FluentTranspiler RedirectCall(
             this FluentTranspiler t,
             Type originalType, string originalMethod,
@@ -32,23 +37,34 @@ namespace ModAPI.Harmony
         }
 
         /// <summary>
-        /// "When method X is called, call Y instead."
-        /// Replaces ALL occurrences of the call in the method body.
+        /// "When method X is called, call Y instead." Replaces ALL occurrences in the method body.
         /// </summary>
+        /// <remarks>
+        /// Legacy redirect entry point retained for compatibility. The canonical way to redirect every
+        /// matching call site is <c>t.ForCall(originalType, originalMethod).ReplaceAllWith(replacementType,
+        /// replacementMethod)</c> — see Transpilers/README.md §4.1. This shim forwards to that single
+        /// implementation so the two paths cannot drift.
+        /// </remarks>
+        [Obsolete("Use t.ForCall(type, method).ReplaceAllWith(type, method) — see Transpilers/README.md §4.1.", false)]
         public static FluentTranspiler RedirectCallAll(
             this FluentTranspiler t,
             Type originalType, string originalMethod,
             Type replacementType, string replacementMethod)
         {
-            return t.ReplaceAllCalls(
-                originalType, originalMethod,
-                replacementType, replacementMethod);
+            t.ForCall(originalType, originalMethod)
+             .ReplaceAllWith(replacementType, replacementMethod);
+            return t;
         }
 
         /// <summary>
         /// "Change this constant value to that value."
         /// Helper for quickly tuning magic numbers.
         /// </summary>
+        /// <example>
+        /// <code>
+        /// t.ChangeConstant(4f, 8f);
+        /// </code>
+        /// </example>
         public static FluentTranspiler ChangeConstant(
             this FluentTranspiler t,
             float oldValue, float newValue,
@@ -76,6 +92,11 @@ namespace ModAPI.Harmony
         /// <summary>
         /// "Change this constant integer to that value."
         /// </summary>
+        /// <example>
+        /// <code>
+        /// t.ChangeConstant(4, 8);
+        /// </code>
+        /// </example>
         public static FluentTranspiler ChangeConstant(
             this FluentTranspiler t,
             int oldValue, int newValue,
@@ -119,6 +140,13 @@ namespace ModAPI.Harmony
             int argCount = mi.GetParameters().Length;
             if (!mi.IsStatic) argCount++; // 'this'
             bool hasReturn = mi.ReturnType != typeof(void);
+            if (!FluentTranspilerRecipeValidation.ValidateNoUnsupportedValueTypeDefault(
+                t,
+                mi.ReturnType,
+                nameof(RemoveCall)))
+            {
+                return t;
+            }
 
             // Build replacement: pop all args, push dummy return if needed
             var replacement = new List<CodeInstruction>();
@@ -127,29 +155,31 @@ namespace ModAPI.Harmony
 
             if (hasReturn)
             {
-                // Push default value for return type
-                if (mi.ReturnType == typeof(int) 
-                    || mi.ReturnType == typeof(bool)
-                    || mi.ReturnType.IsEnum) // Enums are ints generally
-                    replacement.Add(
-                        new CodeInstruction(OpCodes.Ldc_I4_0));
-                else if (mi.ReturnType == typeof(float))
-                    replacement.Add(
-                        new CodeInstruction(OpCodes.Ldc_R4, 0f));
-                else if (mi.ReturnType == typeof(double))
-                    replacement.Add(
-                        new CodeInstruction(OpCodes.Ldc_R8, 0d));
-                else if (mi.ReturnType.IsValueType)
+                CodeInstruction defaultValue = FluentTranspilerRecipeValidation.CreateDefaultValueInstruction(mi.ReturnType);
+                if (defaultValue == null)
                 {
-                    // For structs, need initobj via local or simple null load if treated as object (unsafe)
-                    // For safety in this high-level API, if we can't easily zero-init a complex struct, we warn or default to ldnull (which might crash strict verifiers)
-                    // However, for most simple "RemoveCall" cases, it's void or simple types.
-                     replacement.Add(
-                        new CodeInstruction(OpCodes.Ldnull));
+                    t.AddWarning($"{nameof(RemoveCall)} could not create a safe default for {FluentTranspilerFormatting.FormatMethod(mi)}.");
+                    return t;
                 }
-                else
-                    replacement.Add(
-                        new CodeInstruction(OpCodes.Ldnull));
+
+                replacement.Add(defaultValue);
+            }
+
+            var instructions = t.Instructions().ToList();
+            if (!FluentTranspilerRecipeValidation.ValidateBranchTargetsOutsideReplacementRange(
+                    t,
+                    instructions,
+                    t.CurrentIndex,
+                    1,
+                    nameof(RemoveCall)) ||
+                !FluentTranspilerRecipeValidation.ValidateExceptionBlockSafety(
+                    t,
+                    t.OriginalMethod,
+                    1,
+                    replacement.Count,
+                    nameof(RemoveCall)))
+            {
+                return t;
             }
 
             return t.ReplaceSequence(1, replacement.ToArray());
@@ -169,11 +199,19 @@ namespace ModAPI.Harmony
                 BindingFlags.Static | BindingFlags.Public 
                 | BindingFlags.NonPublic);
             if (hook == null)
-                throw new ArgumentException(
-                    $"{hookType.Name}.{hookMethod} not found");
-            if (!hook.IsStatic)
-                throw new ArgumentException(
-                    $"{hookType.Name}.{hookMethod} must be static");
+            {
+                t.AddWarning($"{nameof(InjectBeforeCall)} hook {hookType?.Name}.{hookMethod} not found.");
+                return t;
+            }
+
+            if (!FluentTranspilerRecipeValidation.ValidateHookCanReceiveOriginalArguments(
+                t,
+                t.OriginalMethod,
+                hook,
+                nameof(InjectBeforeCall)))
+            {
+                return t;
+            }
 
             // Build insertion instructions
             var insertions = new List<CodeInstruction>();
@@ -194,9 +232,23 @@ namespace ModAPI.Harmony
             if (hook.ReturnType != typeof(void))
                 insertions.Add(new CodeInstruction(OpCodes.Pop));
 
-            return t
-                .FindCall(targetType, targetMethod, mode)
-                .InsertBefore(insertions.ToArray());
+            t.FindCall(targetType, targetMethod, mode);
+            if (!t.HasMatch)
+            {
+                return t;
+            }
+
+            if (!FluentTranspilerRecipeValidation.ValidateExceptionBlockSafety(
+                t,
+                t.OriginalMethod,
+                0,
+                insertions.Count,
+                nameof(InjectBeforeCall)))
+            {
+                return t;
+            }
+
+            return t.InsertBefore(insertions.ToArray());
         }
     }
 }

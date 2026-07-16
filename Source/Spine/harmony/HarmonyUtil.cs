@@ -5,13 +5,20 @@ using System.Linq;
 using System.Reflection;
 using HarmonyLib;
 using UnityEngine;
-using ModAPI.Core;
-using ModAPI.Spine;
+using Spine.Harmony.Infrastructure;
 
-namespace ModAPI.Harmony
+namespace Spine.Harmony
 {
+    /// <summary>
+    /// Guarded Harmony patch helpers used by ModAPI and mods.
+    /// Use these wrappers when patch application should respect debug, dangerous, and struct-return safety settings.
+    /// </summary>
     public static class HarmonyUtil
     {
+        /// <summary>
+        /// Marks a Harmony patch class as debug-only.
+        /// The patch is skipped unless debug patches are explicitly enabled.
+        /// </summary>
         [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
         public sealed class DebugPatchAttribute : Attribute
         {
@@ -20,6 +27,10 @@ namespace ModAPI.Harmony
             public DebugPatchAttribute(string key) { Key = key; }
         }
 
+        /// <summary>
+        /// Marks a patch as intentionally high risk.
+        /// Dangerous patches require explicit opt-in before <see cref="PatchAll(HarmonyLib.Harmony, Assembly, PatchOptions)"/> applies them.
+        /// </summary>
         [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, AllowMultiple = false, Inherited = false)]
         public sealed class DangerousAttribute : Attribute
         {
@@ -28,6 +39,9 @@ namespace ModAPI.Harmony
             public DangerousAttribute(string reason) { Reason = reason; }
         }
 
+        /// <summary>
+        /// Safety and ordering options used while applying Harmony patches.
+        /// </summary>
         public sealed class PatchOptions
         {
             public bool AllowDebugPatches;
@@ -39,11 +53,7 @@ namespace ModAPI.Harmony
             public Action<object, string> OnResult;
         }
 
-        private static readonly HashSet<string> SensitiveDeny = new HashSet<string>(StringComparer.Ordinal)
-        {
-            "ExplorationParty.PopState",
-            "FamilyMember.OnDestroy"
-        };
+        private static readonly HashSet<string> SensitiveDeny = new HashSet<string>(StringComparer.Ordinal);
 
         public static void PatchAll(HarmonyLib.Harmony h, Assembly asm, PatchOptions options)
         {
@@ -113,6 +123,70 @@ namespace ModAPI.Harmony
             {
                 options.OnResult?.Invoke((object)type, "error: " + ex.Message);
                 return new MethodBase[0];
+            }
+        }
+
+        internal static IList<MethodBase> PatchKnownType(
+            HarmonyLib.Harmony h,
+            Type type,
+            PatchOptions options,
+            IList<MethodBase> knownTargets)
+        {
+            if (h == null || type == null) return new MethodBase[0];
+            if (options == null) options = new PatchOptions();
+
+            try
+            {
+                if (!options.AllowDebugPatches && HasDebugAttribute(type))
+                {
+                    options.OnResult?.Invoke((object)type, "skipped: DebugPatch not enabled");
+                    return new MethodBase[0];
+                }
+
+                if (!options.AllowDangerousPatches && HasDangerousAttribute(type))
+                {
+                    options.OnResult?.Invoke((object)type, "skipped: Dangerous not enabled");
+                    return new MethodBase[0];
+                }
+
+                if (knownTargets != null)
+                    ValidateTargets(type, knownTargets, options);
+
+                var proc = new PatchClassProcessor(h, type);
+                var patched = proc.Patch();
+
+                if (patched != null && patched.Count > 0)
+                {
+                    foreach (var m in patched)
+                        options.OnResult?.Invoke((object)m, "patched");
+                    return patched.Cast<MethodBase>().ToList();
+                }
+
+                options.OnResult?.Invoke((object)type, "no methods patched");
+                return new MethodBase[0];
+            }
+            catch (Exception ex)
+            {
+                options.OnResult?.Invoke((object)type, "error: " + ex.Message);
+                return new MethodBase[0];
+            }
+        }
+
+        private static void ValidateTargets(Type patchType, IEnumerable<MethodBase> targets, PatchOptions options)
+        {
+            foreach (var m in targets)
+            {
+                var key = TargetKey(m);
+                if (!options.AllowDangerousPatches && SensitiveDeny.Contains(key) && !HasDangerousAttribute(patchType))
+                {
+                    options.OnResult?.Invoke((object)m, "skipped: sensitive target requires [Dangerous]");
+                    throw new InvalidOperationException("Sensitive target requires [Dangerous].");
+                }
+                if (!options.AllowStructReturns && IsStructReturn(m) && !HasDangerousAttribute(patchType))
+                {
+                    options.OnResult?.Invoke((object)m, "skipped: struct-return target not allowed");
+                    throw new InvalidOperationException("Struct-return target not allowed.");
+                }
             }
         }
 
@@ -298,12 +372,9 @@ namespace ModAPI.Harmony
             try
             {
                 var mgr = GetSingletonInstance(typeof(TManager)) as UnityEngine.Object;
-                if (mgr == null) return false;
-                if (SaveManager.instance == null) return false;
-                var saveable = mgr as ISaveable;
-                return saveable != null ? SaveManager.instance.HasBeenLoaded(saveable) : true;
+                return mgr != null;
             }
-            catch (Exception ex) { MMLog.WarnOnce("HarmonyUtil.IsLoaded", "Error checking if manager is loaded: " + ex.Message); return false; }
+            catch (Exception ex) { MMLog.WarnOnce("HarmonyUtil.IsLoaded", "Error checking if Unity singleton is loaded: " + ex.Message); return false; }
         }
 
         public static void PatchWhenLoaded<TManager>(HarmonyLib.Harmony h, Action applyPatches) where TManager : UnityEngine.Object

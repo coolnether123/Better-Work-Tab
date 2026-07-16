@@ -19,7 +19,8 @@
     <li>1.5</li>
     <li>1.6</li>
   </supportedVersions>
-  <packageId>Coolnether123.BetterWorkTab</packageId>
+ <packageId>Coolnether123.BetterWorkTab</packageId>
+ <modVersion>2.0.0</modVersion>
   <description><![CDATA[Better Work Tab v2.0 overhauls RimWorld's Work tab with drag-and-drop, skill overlays, automation rules, sub-work jobs, time priority schedules, extended priorities, and visual customization.
 
 All features are toggleable in settings with extensive customization options.
@@ -40,6 +41,7 @@ All features are toggleable in settings with extensive customization options.
 - Right-click pawn quick actions
 - Multiplayer support for supported versions with Zetrith Multiplayer
 - Detailed settings for UI, priorities, rules, workloads, and layout
+- Optional Fluffy-style layout with right-expanding specific jobs; installed Fluffy icons are used for its top controls, with an off-by-default BWT substitute available standalone
 
 <b>Compatibility</b>
 - Compatible with most work-type mods
@@ -49,7 +51,12 @@ All features are toggleable in settings with extensive customization options.
 - Useful Marks markers appear on pawn icons when available
 - Grouped Pawns List is overridden inside this Work tab
 - CompactWorkTab overlaps this UI and should not be used together
-- Fluffy WorkTab and forks are hard conflicts
+- Fluffy Work Tab and forks can coexist, with one Work tab active at a time
+
+<b>Credits and licensing</b>
+- Fluffy's Work Tab by Fluffy inspired the Fluffy-style layout and remains supported as an optional compatibility target
+- Fluffy Work Tab software/documentation is MIT licensed; its art and sounds are not bundled with BWT
+- Full notices: https://github.com/coolnether123/Better-Work-Tab/blob/Dev/THIRD_PARTY_NOTICES.md
 
 <b>Version Support</b>
 - 1.6 -> v2.0
@@ -80,6 +87,9 @@ Join the Discord: <color=#99CCFF>https://discord.gg/QYBBaRkKWs</color>
     <li>CoolNether123.ChronosPointer</li>
     <li>CoolNether123.ChronosPointer.Legacy</li>
     <li>TreadTheDawnGames.DoOnce</li>
+    <li>Fluffy.WorkTab</li>
+    <li>fluffy.worktab.continued</li>
+    <li>arof.fluffy.worktab.continued</li>
   </loadAfter>
   <modDependencies>
     <li>
@@ -90,7 +100,6 @@ Join the Discord: <color=#99CCFF>https://discord.gg/QYBBaRkKWs</color>
     </li>
   </modDependencies>
   <incompatibleWith>
-    <li>Fluffy.WorkTab</li>
     <li>Mlie.CompactWorkTab</li>
   </incompatibleWith>
 </ModMetaData>

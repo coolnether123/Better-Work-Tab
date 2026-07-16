@@ -190,8 +190,15 @@ namespace Better_Work_Tab.Features
     [HarmonyPatch(typeof(Pawn_WorkSettings), nameof(Pawn_WorkSettings.CacheWorkGiversInOrder))]
     internal static class Patch_WorkExecutionOrder_ReplaceCache
     {
+        [HarmonyBefore(new[] { "fluffy.worktab" })]
+        [HarmonyPriority(Priority.First)]
         public static bool Prefix(Pawn_WorkSettings __instance)
         {
+            if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabOrdering)
+            {
+                return true;
+            }
+
             try
             {
                 WorkExecutionOrder.RebuildUsingSavedColumnOrder(__instance);

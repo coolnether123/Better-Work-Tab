@@ -1,4 +1,5 @@
 using HarmonyLib;
+using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using RimWorld;
 using System.Collections.Generic;
 using System.Linq;
@@ -21,6 +22,9 @@ namespace Better_Work_Tab.Patches
         {
             // Only affect the Work tab (avoid Animals/Mechs/etc.).
             if (__instance?.def != PawnTableDefOf.Work)
+                return;
+
+            if (!FluffyWorkTabGateway.ShouldRunBetterWorkTabFeatures)
                 return;
 
             // If the user clicked a column to sort, respect that and do not override.
