@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Better_Work_Tab.Features.Rules;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
@@ -37,16 +38,23 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
             var results = new List<RuleBuilder2PreviewResult>();
             foreach (var card in cards)
             {
-                WorkTypeDef workType = card.Target.ResolveWorkType();
-                if (workType == null)
+                WorkTypeDef explicitWorkType = card.Target.ResolveWorkType();
+                if (!card.Target.AllWorkTypes && explicitWorkType == null)
                 {
                     continue;
                 }
 
-                WorkGiverDef workGiver = card.Target.ResolveWorkGiver();
-                foreach (Pawn pawn in pawns)
+                WorkGiverDef explicitWorkGiver = card.Target.ResolveWorkGiver();
+                IEnumerable<WorkTypeDef> workTypes = card.Target.AllWorkTypes
+                    ? DefDatabase<WorkTypeDef>.AllDefsListForReading
+                    : new[] { explicitWorkType };
+                foreach (WorkTypeDef workType in workTypes.Where(candidate => candidate != null))
                 {
-                    results.Add(PreviewPawn(card, pawn, workType, workGiver, cards));
+                    WorkGiverDef workGiver = card.Target.AllWorkTypes ? null : explicitWorkGiver;
+                    foreach (Pawn pawn in pawns)
+                    {
+                        results.Add(PreviewPawn(card, pawn, workType, workGiver, cards));
+                    }
                 }
             }
 
@@ -134,6 +142,14 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                     return currentPriority == condition.IntValue;
                 case RuleBuilder2ConditionKind.CurrentAssignedWork:
                     return (currentPriority > 0) == condition.BoolValue;
+                case RuleBuilder2ConditionKind.HighestSkillAmongColonists:
+                    return HasHighestRelevantSkill(pawn, workType);
+                case RuleBuilder2ConditionKind.TopWorkTypesBySkill:
+                    return IsAmongTopWorkTypes(pawn, workType, condition.IntValue);
+                case RuleBuilder2ConditionKind.NaturalAlwaysActiveWork:
+                    return workType?.alwaysStartActive == true;
+                case RuleBuilder2ConditionKind.ParentHasChildOnMap:
+                    return HasChildOnCurrentMap(pawn);
                 default:
                     return true;
             }
@@ -318,6 +334,43 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
 
             TraitDef trait = DefDatabase<TraitDef>.GetNamedSilentFail(traitDefName);
             return trait != null && pawn.story.traits.HasTrait(trait);
+        }
+
+        private static bool HasHighestRelevantSkill(Pawn pawn, WorkTypeDef workType)
+        {
+            if (pawn?.skills == null || workType == null)
+            {
+                return false;
+            }
+
+            float value = pawn.skills.AverageOfRelevantSkillsFor(workType);
+            return GetCurrentPawns().Where(other => other?.skills != null)
+                .All(other => other.skills.AverageOfRelevantSkillsFor(workType) <= value);
+        }
+
+        private static bool IsAmongTopWorkTypes(Pawn pawn, WorkTypeDef workType, int count)
+        {
+            if (pawn?.skills == null || workType == null || count <= 0)
+            {
+                return false;
+            }
+
+            return WorkAssignmentRule.AllWorkTypes
+                .Where(candidate => !candidate.alwaysStartActive && !pawn.WorkTypeIsDisabled(candidate))
+                .OrderByDescending(candidate => pawn.skills.AverageOfRelevantSkillsFor(candidate))
+                .Take(count)
+                .Contains(workType);
+        }
+
+        private static bool HasChildOnCurrentMap(Pawn pawn)
+        {
+#if v1_3 || v1_2 || v1_1 || v1_0 || v0_19 || v0_18 || v0_17 || v0_16 || v0_15 || v0_14 || v0_13 || vAlpha4
+            return false;
+#else
+            return pawn != null && MapCompat.CurrentMap?.mapPawns?.FreeColonists
+                .Where(child => child != pawn && (int)child.DevelopmentalStage < (int)DevelopmentalStage.Adult)
+                .Any(child => child.GetFather() == pawn || child.GetMother() == pawn) == true;
+#endif
         }
 
         private static float GetCapacityLevel(Pawn pawn, string capacityDefName)

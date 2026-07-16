@@ -2,32 +2,104 @@
 <ModMetaData>
   <name>Better Work Tab</name>
   <author>Coolnether123</author>
-  <url>https://github.com/coolnether123/Better-Work-Tab</url>
-  <targetVersion>0.17.1557</targetVersion>
+  <supportedVersions>
+    <li>0.4</li>
+    <li>0.13</li>
+    <li>0.14</li>
+    <li>0.15</li>
+    <li>0.16</li>
+    <li>0.17</li>
+    <li>0.18</li>
+    <li>0.19</li>
+    <li>1.0</li>
+    <li>1.1</li>
+    <li>1.2</li>
+    <li>1.3</li>
+    <li>1.4</li>
+    <li>1.5</li>
+    <li>1.6</li>
+  </supportedVersions>
+ <packageId>Coolnether123.BetterWorkTab</packageId>
+ <modVersion>2.0.0</modVersion>
   <description><![CDATA[Better Work Tab v2.0 overhauls RimWorld's Work tab with drag-and-drop, skill overlays, automation rules, sub-work jobs, time priority schedules, extended priorities, and visual customization.
 
-Features are toggleable in settings.
+All features are toggleable in settings with extensive customization options.
 
-Features:
+<b>Features</b>
 - Drag and drop work column and pawn row reordering
 - Extended max priorities from vanilla 4 up to 99
 - Sub-work job drilldown with global and pawn-specific priorities
-- Time-based priority schedules by hour
-- Rule Builder 2.0 for work automation
-- Skill and passion overlays
-- Workload snapshots
-- Custom labels, colors, dividers, and filters
-- Compatibility checks for known Work tab conflicts
+- Time-of-day priority schedules for work and sub-work jobs
+- Skill level overlay (hold SHIFT)
+- Auto-assignment rulesets
+- Workload presets
+- Visual dividers
+- Force pawns to work on unassigned tasks
+- Advanced pawn and column highlighting
+- Angled or vanilla-style column headers
+- Colonist and bed counts
+- Right-click pawn quick actions
+- Multiplayer support for supported versions with Zetrith Multiplayer
+- Detailed settings for UI, priorities, rules, workloads, and layout
+- Optional Fluffy-style layout with right-expanding specific jobs; installed Fluffy icons are used for its top controls, with an off-by-default BWT substitute available standalone
 
-Compatibility:
+<b>Compatibility</b>
+- Compatible with most work-type mods
+- [FSF] Complex Jobs column ordering is supported
+- Vanilla Skills Expanded passion types are supported in rule conditions when the mod is active
+- Do Once - Noncommittal Work is compatible; BWT suppresses its duplicate borrowed menu patches and uses BWT's sub-work-aware version
+- Useful Marks markers appear on pawn icons when available
 - Grouped Pawns List is overridden inside this Work tab
 - CompactWorkTab overlaps this UI and should not be used together
-- Fluffy WorkTab and forks are hard conflicts
+- Fluffy Work Tab and forks can coexist, with one Work tab active at a time
 
-Version support:
+<b>Credits and licensing</b>
+- Fluffy's Work Tab by Fluffy inspired the Fluffy-style layout and remains supported as an optional compatibility target
+- Fluffy Work Tab software/documentation is MIT licensed; its art and sounds are not bundled with BWT
+- Full notices: https://github.com/coolnether123/Better-Work-Tab/blob/Dev/THIRD_PARTY_NOTICES.md
+
+<b>Version Support</b>
+- 1.6 -> v2.0
+- 1.5 -> v2.0
+- 1.4 -> v2.0
+- 1.3 -> v2.0
+- 1.2 -> v2.0 - Multiplayer does not work
+- 1.1 -> v2.0 - Multiplayer does not work
+- 1.0 -> v2.0 - Multiplayer does not work
+- 0.19 -> v2.0 - Multiplayer does not work
+- 0.18 -> v2.0 - Multiplayer does not work
 - 0.17 -> v2.0 - Multiplayer does not work
+- 0.16 -> v2.0 - Multiplayer does not work
+- 0.15 -> v2.0 - Multiplayer does not work
+- 0.14 -> v2.0 - Multiplayer does not work
+- 0.13 -> v2.0 - Multiplayer does not work
+- Alpha 4 / 0.4 -> v2.0 - Multiplayer does not work
 
-Support:
-Discord: https://discord.gg/QYBBaRkKWs
+<b>Support</b>
+Questions, bug reports, or suggestions?
+Join the Discord: <color=#99CCFF>https://discord.gg/QYBBaRkKWs</color>
 ]]></description>
+
+  <url>https://github.com/coolnether123/Better-Work-Tab</url>
+  <loadAfter>
+    <li>brrainz.harmony</li>
+    <li>Ludeon.RimWorld</li>
+    <li>CoolNether123.ChronosPointer</li>
+    <li>CoolNether123.ChronosPointer.Legacy</li>
+    <li>TreadTheDawnGames.DoOnce</li>
+    <li>Fluffy.WorkTab</li>
+    <li>fluffy.worktab.continued</li>
+    <li>arof.fluffy.worktab.continued</li>
+  </loadAfter>
+  <modDependencies>
+    <li>
+      <packageId>brrainz.harmony</packageId>
+      <displayName>Harmony</displayName>
+      <steamWorkshopUrl>steam://url/CommunityFilePage/2009463077</steamWorkshopUrl>
+      <downloadUrl>https://github.com/pardeike/HarmonyRimWorld/releases/latest</downloadUrl>
+    </li>
+  </modDependencies>
+  <incompatibleWith>
+    <li>Mlie.CompactWorkTab</li>
+  </incompatibleWith>
 </ModMetaData>

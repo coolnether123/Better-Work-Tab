@@ -158,9 +158,12 @@ namespace Better_Work_Tab.UI.RuleBuilder
             return RuleBuilder2WorkTabBridge.BlocksWorkTabHover();
         }
 
-        internal static void DrawRuleBuilder2SelectionPulse()
+        internal static bool TryGetRuleBuilder2SelectionTransitionOffset(
+            WorkTypeDef workType,
+            WorkGiverDef workGiver,
+            out Vector2 offset)
         {
-            RuleBuilder2WorkTabBridge.DrawRecentSelectionPulse();
+            return RuleBuilder2WorkTabBridge.TryGetSelectionTransitionOffset(workType, workGiver, out offset);
         }
 
         internal static void ClearRuleBuilder2WorkTabPreview()
