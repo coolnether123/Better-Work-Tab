@@ -174,11 +174,18 @@ namespace Spine.UI.SettingsFramework
         }
 
         /// <summary>
-        /// Searches settings by label, tooltip, or identifier within the requested view.
+        /// Searches settings by visible text, identifier, or registered aliases within the requested view.
+        /// When a group/header matches, its visible descendants are included so grouped settings can be
+        /// discovered through the group's searchable terms.
         /// </summary>
-        public IEnumerable<SettingDefinition> Search(string query, SettingsViewMode viewMode)
+        public IEnumerable<SettingDefinition> Search(
+            string query,
+            SettingsViewMode viewMode,
+            object settingsObject = null,
+            Func<SettingDefinition, string> getLabel = null,
+            Func<SettingDefinition, string> getTooltip = null)
         {
-            var ordered = _rootSettings.SelectMany(s => EnumerateWithChildren(s, viewMode, null));
+            var ordered = _rootSettings.SelectMany(s => EnumerateWithChildren(s, viewMode, settingsObject));
 
             if (string.IsNullOrWhiteSpace(query))
             {
@@ -188,9 +195,63 @@ namespace Spine.UI.SettingsFramework
             string needle = query.ToLowerInvariant();
             string normalizedNeedle = NormalizeSearchText(query);
             return ordered.Where(def =>
+                SettingMatchesSearch(def, needle, normalizedNeedle, getLabel, getTooltip) ||
+                HasMatchingAncestor(def, needle, normalizedNeedle, getLabel, getTooltip));
+        }
+
+        private bool HasMatchingAncestor(
+            SettingDefinition setting,
+            string needle,
+            string normalizedNeedle,
+            Func<SettingDefinition, string> getLabel,
+            Func<SettingDefinition, string> getTooltip)
+        {
+            foreach (SettingDefinition ancestor in GetAncestors(setting))
+            {
+                if (SettingMatchesSearch(ancestor, needle, normalizedNeedle, getLabel, getTooltip))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool SettingMatchesSearch(
+            SettingDefinition def,
+            string needle,
+            string normalizedNeedle,
+            Func<SettingDefinition, string> getLabel,
+            Func<SettingDefinition, string> getTooltip)
+        {
+            if (def == null)
+            {
+                return false;
+            }
+
+            if (SearchTextMatches(getLabel?.Invoke(def), needle, normalizedNeedle) ||
                 SearchTextMatches(def.Label, needle, normalizedNeedle) ||
+                SearchTextMatches(getTooltip?.Invoke(def), needle, normalizedNeedle) ||
                 SearchTextMatches(def.Tooltip, needle, normalizedNeedle) ||
-                SearchTextMatches(def.Id, needle, normalizedNeedle));
+                SearchTextMatches(def.Id, needle, normalizedNeedle))
+            {
+                return true;
+            }
+
+            if (def.SearchKeywords == null)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < def.SearchKeywords.Length; i++)
+            {
+                if (SearchTextMatches(def.SearchKeywords[i], needle, normalizedNeedle))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static bool SearchTextMatches(string text, string needle, string normalizedNeedle)

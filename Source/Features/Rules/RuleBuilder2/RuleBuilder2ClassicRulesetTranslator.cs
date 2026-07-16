@@ -15,6 +15,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
             {
                 Name = classicRuleset?.Name == null ? "Migrated ruleset" : classicRuleset.Name + " (Rule Builder 2.0)",
                 Description = "Migrated from the classic Better Work Tab ruleset format.",
+                ResetBeforeApplying = classicRuleset?.ResetBeforeApplying ?? true,
                 Source = RuleBuilder2SourceType.Migrated,
                 Cards = new List<RuleBuilder2Card>()
             };
@@ -68,7 +69,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
             return new WorkAssignmentRuleset(
                 (ruleset.Name ?? "Rule Builder 2.0") + " (Classic Export)",
                 rules,
-                BetterWorkTabMod.Settings?.resetWorkBeforeAutoAssign ?? DefaultSettings.resetWorkBeforeAutoAssign,
+                ruleset.ResetBeforeApplying,
                 isDefault: false);
         }
 
@@ -84,6 +85,8 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                                    rule.CachedWorktype ??
                                    DefDatabase<WorkTypeDef>.GetNamedSilentFail(p.WorktypeString) ??
                                    DefDatabase<WorkTypeDef>.GetNamedSilentFail(rule.CachedWorktypeString);
+            string workTypeDefName = workType?.defName ?? p.WorktypeString ?? rule.CachedWorktypeString ?? "";
+            bool allWorkTypes = string.IsNullOrEmpty(workTypeDefName);
 
             var card = new RuleBuilder2Card
             {
@@ -96,9 +99,13 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 Notes = "Migrated from classic ruleset data.",
                 Target = new RuleBuilder2Target
                 {
-                    WorkTypeDefName = workType?.defName ?? p.WorktypeString ?? rule.CachedWorktypeString ?? "",
-                    DisplayLabel = workType?.LabelCap.ToString() ?? p.WorktypeString ?? rule.CachedWorktypeString ?? "Missing work type",
-                    Source = RuleBuilder2TargetSource.Generated
+                    WorkTypeDefName = workTypeDefName,
+                    DisplayLabel = allWorkTypes
+                        ? "All work types"
+                        : workType?.LabelCap.ToString() ?? p.WorktypeString ?? rule.CachedWorktypeString ?? "Missing work type",
+                    Source = RuleBuilder2TargetSource.Generated,
+                    AllWorkTypes = allWorkTypes,
+                    IgnoreIfMissing = p.IgnoreIfWorktypeNonexistent
                 },
                 Action = new RuleBuilder2Action
                 {
@@ -111,6 +118,27 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
             card.EnsureStableState(sortOrder);
             card.Summary = RuleBuilder2SummaryService.BuildSummary(card);
             return card;
+        }
+
+        internal static void RefreshMigratedCard(RuleBuilder2Card card, WorkAssignmentRule classicRule)
+        {
+            if (card == null || classicRule == null)
+            {
+                return;
+            }
+
+            RuleBuilder2Card refreshed = FromClassicRule(classicRule, card.SortOrder);
+            if (refreshed == null)
+            {
+                return;
+            }
+
+            card.Target = refreshed.Target;
+            card.Conditions = refreshed.Conditions;
+            card.Action = refreshed.Action;
+            card.Summary = refreshed.Summary;
+            card.Warnings = refreshed.Warnings;
+            card.NormalizeActionForTarget();
         }
 
         private static void AddClassicConditions(RuleBuilder2Card card, WorkAssignmentParameters p)
@@ -139,6 +167,39 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 {
                     Kind = RuleBuilder2ConditionKind.PassionAtLeast,
                     IntValue = p.PassionLevel
+                });
+            }
+
+            if (p.HasHighestSkill)
+            {
+                card.Conditions.Conditions.Add(new RuleBuilder2Condition
+                {
+                    Kind = RuleBuilder2ConditionKind.HighestSkillAmongColonists
+                });
+            }
+
+            if (p.IsTopXSkill > 0)
+            {
+                card.Conditions.Conditions.Add(new RuleBuilder2Condition
+                {
+                    Kind = RuleBuilder2ConditionKind.TopWorkTypesBySkill,
+                    IntValue = p.IsTopXSkill
+                });
+            }
+
+            if (p.IsNaturalAlwaysAssign)
+            {
+                card.Conditions.Conditions.Add(new RuleBuilder2Condition
+                {
+                    Kind = RuleBuilder2ConditionKind.NaturalAlwaysActiveWork
+                });
+            }
+
+            if (p.HasChildOnMap)
+            {
+                card.Conditions.Conditions.Add(new RuleBuilder2Condition
+                {
+                    Kind = RuleBuilder2ConditionKind.ParentHasChildOnMap
                 });
             }
 
@@ -200,7 +261,10 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
             }
 
             WorkTypeDef workType = card.Target.ResolveWorkType();
-            if (workType == null)
+            bool unresolvedOptionalTarget = workType == null &&
+                                            card.Target.IgnoreIfMissing &&
+                                            !string.IsNullOrEmpty(card.Target.WorkTypeDefName);
+            if (!card.Target.AllWorkTypes && workType == null && !unresolvedOptionalTarget)
             {
                 warning = "Card \"" + card.Name + "\" has an unresolved work type.";
                 return null;
@@ -209,7 +273,9 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
             var parameters = new WorkAssignmentParameters(
                 string.IsNullOrEmpty(card.Name) ? "Rule Builder 2.0 card" : card.Name,
                 card.Action.Kind == RuleBuilder2ActionKind.Disable ? 0 : card.Action.Priority,
-                workType);
+                workType,
+                ignoreIfWorktypeNonexistent: card.Target.IgnoreIfMissing,
+                worktypeString: card.Target.WorkTypeDefName ?? "");
 
             foreach (RuleBuilder2Condition condition in card.Conditions?.Conditions ?? new List<RuleBuilder2Condition>())
             {
@@ -276,6 +342,22 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 case RuleBuilder2ConditionKind.ExistingPriorityEquals:
                     parameters.SkipIfPriorityForThisWorktypeAreadyAssigned = condition.IntValue;
                     parameters.ActiveConditions.Add(nameof(WorkAssignmentParameters.SkipIfPriorityForThisWorktypeAreadyAssigned));
+                    return true;
+                case RuleBuilder2ConditionKind.HighestSkillAmongColonists:
+                    parameters.HasHighestSkill = true;
+                    parameters.ActiveConditions.Add(nameof(WorkAssignmentParameters.HasHighestSkill));
+                    return true;
+                case RuleBuilder2ConditionKind.TopWorkTypesBySkill:
+                    parameters.IsTopXSkill = condition.IntValue;
+                    parameters.ActiveConditions.Add(nameof(WorkAssignmentParameters.IsTopXSkill));
+                    return true;
+                case RuleBuilder2ConditionKind.NaturalAlwaysActiveWork:
+                    parameters.IsNaturalAlwaysAssign = true;
+                    parameters.ActiveConditions.Add(nameof(WorkAssignmentParameters.IsNaturalAlwaysAssign));
+                    return true;
+                case RuleBuilder2ConditionKind.ParentHasChildOnMap:
+                    parameters.HasChildOnMap = true;
+                    parameters.ActiveConditions.Add(nameof(WorkAssignmentParameters.HasChildOnMap));
                     return true;
                 case RuleBuilder2ConditionKind.CurrentAssignedWork:
                 case RuleBuilder2ConditionKind.ExistingPriorityAtLeast:

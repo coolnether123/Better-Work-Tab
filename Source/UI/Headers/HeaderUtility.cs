@@ -1,6 +1,8 @@
 using RimWorld;
 using UnityEngine;
 using Verse;
+using System.Collections.Generic;
+using Better_Work_Tab.Features.Testing;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 
@@ -12,6 +14,8 @@ namespace Better_Work_Tab.UI.Headers
     /// </summary>
     public static class HeaderUtility
     {
+        private static readonly Dictionary<int, string> HeaderTextCache = new Dictionary<int, string>();
+
         /// <summary>
         /// Suffix used to indicate a column has been moved from its baseline position.
         /// </summary>
@@ -39,27 +43,65 @@ namespace Better_Work_Tab.UI.Headers
             bool isMoved = false,
             WorkGiverHeaderLabelStyle subWorkLabelStyle = WorkGiverHeaderLabelStyle.Standard)
         {
-            if (workType == null) return DefaultHeaderText;
-
-            if (SubWorkDrilldownState.IsActive &&
-                TryGetSubWorkHeaderText(workType, isMoved, subWorkLabelStyle, out var subWorkText))
+            int key = ComputeHeaderTextKey(workType, isMoved, subWorkLabelStyle, parentOnly: false);
+            if (HeaderTextCache.TryGetValue(key, out string cached))
             {
-                return subWorkText;
+                return cached;
             }
 
-            return GetParentHeaderText(workType, isMoved);
+            SubWorkTransitionPerfDiagnostics.CountHeaderTextBuild();
+            string label;
+            if (workType == null)
+            {
+                label = DefaultHeaderText;
+            }
+            else if (SubWorkDrilldownState.TryGetCurrentDrawingWorkGiver(
+                         null,
+                         out var drawingWorkGiver,
+                         out _,
+                         out _) &&
+                     drawingWorkGiver?.def != null)
+            {
+                label = WorkGiverDisplayNameService.HeaderLabel(drawingWorkGiver.def, subWorkLabelStyle);
+                if (isMoved && BetterWorkTabMod.Settings != null && BetterWorkTabMod.Settings.showColumnMovedMarker && !label.EndsWith(MovedMarker))
+                {
+                    label += MovedMarker;
+                }
+                return label;
+            }
+            else if (SubWorkDrilldownState.IsActive &&
+                TryGetSubWorkHeaderText(workType, isMoved, subWorkLabelStyle, out var subWorkText))
+            {
+                label = subWorkText;
+            }
+            else
+            {
+                label = BuildParentHeaderText(workType, isMoved);
+            }
+
+            HeaderTextCache[key] = label;
+            return label;
         }
 
         public static string GetParentHeaderText(WorkTypeDef workType, bool isMoved = false)
         {
+            int key = ComputeHeaderTextKey(workType, isMoved, WorkGiverHeaderLabelStyle.Standard, parentOnly: true);
+            if (HeaderTextCache.TryGetValue(key, out string cached))
+            {
+                return cached;
+            }
+
+            SubWorkTransitionPerfDiagnostics.CountHeaderTextBuild();
+            string label = BuildParentHeaderText(workType, isMoved);
+            HeaderTextCache[key] = label;
+            return label;
+        }
+
+        private static string BuildParentHeaderText(WorkTypeDef workType, bool isMoved)
+        {
             if (workType == null) return DefaultHeaderText;
 
-            // Use the shortest available valid label
-            string baseText = workType.labelShort;
-            if (baseText.NullOrEmpty()) baseText = workType.label;
-            if (baseText.NullOrEmpty()) baseText = workType.defName;
-
-            string label = (baseText.NullOrEmpty() ? DefaultHeaderText : baseText).CapitalizeFirst();
+            string label = WorkTypeDisplayNameService.HeaderLabel(workType);
 
             var settings = BetterWorkTabMod.Settings;
             if (isMoved && settings != null && settings.showColumnMovedMarker && !label.EndsWith(MovedMarker))
@@ -68,6 +110,34 @@ namespace Better_Work_Tab.UI.Headers
             }
 
             return label;
+        }
+
+        private static int ComputeHeaderTextKey(
+            WorkTypeDef workType,
+            bool isMoved,
+            WorkGiverHeaderLabelStyle labelStyle,
+            bool parentOnly)
+        {
+            unchecked
+            {
+                int hash = 17;
+                hash = hash * 23 + (workType?.shortHash ?? 0);
+                hash = hash * 23 + (isMoved ? 1 : 0);
+                hash = hash * 23 + (int)labelStyle;
+                hash = hash * 23 + (parentOnly ? 1 : 0);
+                if (!parentOnly)
+                {
+                    hash = hash * 23 + SubWorkDrilldownState.CurrentDrawingHeaderSignature;
+                }
+                hash = hash * 23 + CustomLabelStore.Version;
+                hash = hash * 23 + (BetterWorkTabMod.Settings?.showColumnMovedMarker ?? true ? 1 : 0);
+                if (!parentOnly && SubWorkDrilldownState.IsActive)
+                {
+                    hash = hash * 23 + SubWorkDrilldownState.MeasurementSignature;
+                }
+
+                return hash;
+            }
         }
 
         private static bool TryGetSubWorkHeaderText(

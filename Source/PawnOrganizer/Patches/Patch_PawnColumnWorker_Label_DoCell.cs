@@ -1,4 +1,6 @@
 using System;
+using Better_Work_Tab.Features.Testing;
+using Better_Work_Tab.Features.Tutorial;
 using Better_Work_Tab.PawnOrganizer.API;
 using System.Collections.Generic;
 using HarmonyLib;
@@ -42,6 +44,7 @@ namespace Better_Work_Tab.Patches
                     __instance.def.groupable ? rect.height : __instance.GetMinCellHeight(pawn)));
 
             Rect iconRect = new Rect(rect1.x, rect1.y, rect1.height, rect1.height);
+            WorkTabGeometryDiagnostics.RecordPawnLabelIconRect(pawn, iconRect);
             ModSupportManager.OnPawnRowDrawn(pawn, iconRect);
         }
 
@@ -110,7 +113,7 @@ namespace Better_Work_Tab.Patches
                     doBorder: false);
             }
 
-            if (Mouse.IsOver(rect1))
+            if (!BWTWorkTabTutorial.OwnsCurrentPointer && Mouse.IsOver(rect1))
                 GUI.DrawTexture(rect1, TexUI.HighlightTex);
 
             TaggedString vanillaLabel = GetLabel(worker, pawn);
@@ -155,7 +158,7 @@ namespace Better_Work_Tab.Patches
                     }
                 }
             }
-            else if (Mouse.IsOver(rect1))
+            else if (!BWTWorkTabTutorial.OwnsCurrentPointer && Mouse.IsOver(rect1))
             {
                 TipSignal tooltip = pawn.GetTooltip();
                 tooltip.text = "ClickToJumpTo".Translate() + "\n\n" + tooltip.text;

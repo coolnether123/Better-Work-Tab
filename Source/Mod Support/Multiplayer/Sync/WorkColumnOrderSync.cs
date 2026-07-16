@@ -94,7 +94,7 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Sync
 
             WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
-            Better_Work_Tab.UI.Headers.HeaderDrawingCoordinator.InvalidateSolution();
+            UI.WorkGrid.Invalidation.WorkTabInvalidationHub.Invalidate(UI.WorkGrid.Contracts.WorkTabDirtyFlags.Columns | UI.WorkGrid.Contracts.WorkTabDirtyFlags.HeaderGeometry);
         }
 
         [SyncMethod]

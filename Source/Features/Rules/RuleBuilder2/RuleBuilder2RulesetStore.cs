@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using Better_Work_Tab.Features.Rules;
 
 namespace Better_Work_Tab.Features.Rules.RuleBuilder2
 {
@@ -21,8 +23,34 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
 
         internal static RuleBuilder2Ruleset Current(BetterWorkTabSettings settings)
         {
-            Ensure(settings);
-            return settings?.CurrentRuleBuilder2Ruleset;
+            if (settings == null)
+            {
+                return null;
+            }
+
+            // Reading the footer label and applying the selected ruleset are hot-path
+            // operations. Store repair/migration belongs at startup and mutation
+            // boundaries, not on every IMGUI repaint.
+            if (settings.CurrentRuleBuilder2Ruleset != null)
+            {
+                return settings.CurrentRuleBuilder2Ruleset;
+            }
+
+            // Defensive recovery for settings loaded by an older build. This branch
+            // runs only while the current reference is absent and does not normalize
+            // every card merely to retrieve the selected object.
+            if (settings.SavedRuleBuilder2Rulesets == null || settings.SavedRuleBuilder2Rulesets.Count == 0)
+            {
+                return null;
+            }
+
+            RuleBuilder2Ruleset selected = ResolveSelected(settings);
+            if (selected != null)
+            {
+                SetCurrent(settings, selected, writeSettings: false);
+            }
+
+            return selected;
         }
 
         internal static void SaveOrReplace(
@@ -100,14 +128,100 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 // the collection is loaded so UI/apply code can rely on stable IDs,
                 // sort order, action buffers, and a valid open-card shape.
                 ruleset.Cards ??= new List<RuleBuilder2Card>();
+                bool upgradeClassicDefaults = ruleset.DataVersion < 3;
                 for (int j = 0; j < ruleset.Cards.Count; j++)
                 {
-                    ruleset.Cards[j]?.EnsureStableState(j);
+                    RuleBuilder2Card card = ruleset.Cards[j];
+                    card?.EnsureStableState(j);
+                    RestoreClassicTargetSemantics(settings, card, upgradeClassicDefaults);
                 }
+
+                ruleset.DataVersion = 3;
             }
+
+            SeedFromPreferredClassicRulesetIfNeeded(settings);
 
             RuleBuilder2Ruleset selected = ResolveSelected(settings);
             SetCurrent(settings, selected, writeSettings: false);
+        }
+
+        private static void RestoreClassicTargetSemantics(
+            BetterWorkTabSettings settings,
+            RuleBuilder2Card card,
+            bool refreshFromClassic)
+        {
+            if (card?.Target == null || card.Notes?.Contains("Migrated from classic ruleset data.") != true)
+            {
+                return;
+            }
+
+            if (!card.Target.HasTarget)
+            {
+                card.Target.AllWorkTypes = true;
+                card.Target.DisplayLabel = "All work types";
+            }
+
+            string targetDefName = card.Target.WorkTypeDefName ?? "";
+            WorkAssignmentRule classicRule = settings.SavedRulesets?
+                .Where(ruleset => ruleset?.Rules != null)
+                .SelectMany(ruleset => ruleset.Rules)
+                .FirstOrDefault(rule =>
+                    string.Equals(rule?.Name, card.Name, StringComparison.Ordinal) &&
+                    string.Equals(
+                        rule?.Parameters?.WorktypeString ?? rule?.CachedWorktypeString ?? "",
+                        targetDefName,
+                        StringComparison.Ordinal));
+            if (refreshFromClassic && classicRule != null)
+            {
+                RuleBuilder2ClassicRulesetTranslator.RefreshMigratedCard(card, classicRule);
+            }
+
+            card.Target.IgnoreIfMissing = classicRule?.Parameters?.IgnoreIfWorktypeNonexistent == true;
+        }
+
+        private static void SeedFromPreferredClassicRulesetIfNeeded(BetterWorkTabSettings settings)
+        {
+            bool useRuleBuilder2 = settings.useRuleBuilder2;
+            if (!useRuleBuilder2 || settings.SavedRuleBuilder2Rulesets.Count > 0)
+            {
+                return;
+            }
+
+            WorkAssignmentRuleset classicRuleset = ResolveClassicSeedSource(settings);
+            if (classicRuleset == null)
+            {
+                return;
+            }
+
+            RuleBuilder2Ruleset seeded = RuleBuilder2ClassicRulesetTranslator.FromClassic(classicRuleset);
+            seeded.Source = RuleBuilder2SourceType.DefaultCopy;
+            settings.SavedRuleBuilder2Rulesets.Add(seeded);
+        }
+
+        private static WorkAssignmentRuleset ResolveClassicSeedSource(BetterWorkTabSettings settings)
+        {
+            if (settings?.CurrentRuleset != null)
+            {
+                return settings.CurrentRuleset;
+            }
+
+            if (settings?.SavedRulesets == null || settings.SavedRulesets.Count == 0)
+            {
+                return null;
+            }
+
+            if (!string.IsNullOrEmpty(settings.defaultAutoAssignRuleset))
+            {
+                WorkAssignmentRuleset namedDefault = settings.SavedRulesets.FirstOrDefault(ruleset =>
+                    string.Equals(ruleset?.Name, settings.defaultAutoAssignRuleset, StringComparison.OrdinalIgnoreCase));
+                if (namedDefault != null)
+                {
+                    return namedDefault;
+                }
+            }
+
+            return settings.SavedRulesets.FirstOrDefault(ruleset => ruleset?.IsDefault == true)
+                   ?? settings.SavedRulesets.FirstOrDefault(ruleset => ruleset != null);
         }
 
         private static RuleBuilder2Ruleset ResolveSelected(BetterWorkTabSettings settings)

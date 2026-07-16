@@ -4,9 +4,9 @@ using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using HarmonyLib;
-using ModAPI.Core;
+using Spine.Harmony.Infrastructure;
 
-namespace ModAPI.Harmony
+namespace Spine.Harmony
 {
     public enum LoopType
     {
@@ -41,7 +41,8 @@ namespace ModAPI.Harmony
                 }
             }
 
-            t.AddWarning($"FindLoop: No backward jumps found for loop type {type} starting from {currentPos}.");
+            t.AddSoftFailure(TranspilerDiagnosticCategory.Match,
+                $"FindLoop: No backward jumps found for loop type {type} starting from {currentPos}.");
             return t; 
         }
 
@@ -61,10 +62,9 @@ namespace ModAPI.Harmony
         {
             if (!t.HasMatch) return t;
 
-            // 1. Find the condition instructions
-            t.FindOpCode(OpCodes.Nop, SearchMode.Current); // Placeholder logic
-            
-            // Real logic: Find instructions matching 'condition', then find the following branch
+            // Scan forward from the current cursor for the first instruction that satisfies the
+            // caller's condition, then move to the conditional branch that consumes it (within a
+            // short window). Anchors the cursor on the branch that decides the 'if'.
             var instructions = t.Instructions().ToList();
             for (int i = t.CurrentIndex; i < instructions.Count; i++)
             {
@@ -81,6 +81,10 @@ namespace ModAPI.Harmony
                 }
             }
 
+            t.AddSoftFailure(TranspilerDiagnosticCategory.Match,
+                "FindIfStatement: no conditional branch found within 4 instructions of a condition " +
+                "matching the supplied predicate. Fix: widen or correct the predicate, or anchor the " +
+                "cursor closer to the branch before calling FindIfStatement.");
             return t;
         }
 
@@ -106,7 +110,8 @@ namespace ModAPI.Harmony
                 }
             }
             
-            t.AddWarning("AtThenBlockStart: Current instruction is not a conditional branch.");
+            t.AddSoftFailure(TranspilerDiagnosticCategory.Match,
+                "AtThenBlockStart: Current instruction is not a conditional branch.");
             return t;
         }
 
