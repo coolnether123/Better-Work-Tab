@@ -3,9 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-#if HAS_LUDEON_TK
 using LudeonTK;
-#endif
 using Spine.UI.SettingsFramework;
 using Verse;
 
@@ -59,9 +57,7 @@ namespace Better_Work_Tab.UI.Settings
             Validate(BWTSettingsRegistry.Definitions);
         }
 
-#if HAS_LUDEON_TK
         [DebugAction("Better Work Tab", "Validate settings registry", actionType = DebugActionType.Action)]
-#endif
         public static void ValidateFromDebugAction()
         {
             BWTSettingsRegistry.EnsureInitialized();

@@ -39,10 +39,6 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == '1.5|AnyCPU'">
     <OutputPath>..\1.5\Assemblies\</OutputPath>
-    <DefineConstants>HAS_LUDEON_TK</DefineConstants>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == '1.4|AnyCPU'">
-    <OutputPath>..\1.4\Assemblies\</OutputPath>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System.Core" />
@@ -219,7 +215,6 @@
     <Compile Include="Spine\harmony\HarmonyCompat.cs" />
     <Compile Include="Spine\harmony\Transpilers\CartographerExtensions.cs" />
     <Compile Include="Spine\harmony\Transpilers\FluentTranspiler.cs" />
-    <Compile Include="Spine\harmony\Transpilers\HarmonyInstructionCompat.cs" />
     <Compile Include="Spine\harmony\Transpilers\FluentTranspilerCallRecipes.cs" />
     <Compile Include="Spine\harmony\Transpilers\FluentTranspilerClampRecipes.cs" />
     <Compile Include="Spine\harmony\Transpilers\FluentTranspilerCompatibilityExtensions.cs" />
@@ -413,7 +408,7 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Krafs.Rimworld.Ref">
-      <Version>1.4.3901</Version>
+      <Version>1.5.4409</Version>
     </PackageReference>
     <PackageReference Include="Lib.Harmony">
       <Version>2.4.2</Version>

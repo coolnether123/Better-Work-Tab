@@ -143,6 +143,7 @@ namespace Better_Work_Tab.UI
         private int _pendingSubWorkButton;
         private bool _pendingSubWorkExit;
         private bool _pendingSubWorkRestoreCursor;
+        private bool _pendingSubWorkCtrlClickDiscovery;
         private int _suppressSubWorkPriorityMouseDownFrame = -1;
         private Rect _stableSubWorkChooserWindowRect;
         private bool _stableHorizontalScrollbarVisible;
@@ -937,21 +938,6 @@ namespace Better_Work_Tab.UI
                 }
 
                 float maxWindowWidth = Mathf.Max(1f, Verse.UI.screenWidth - 2f);
-                float tutorialReserveWidth = BWTWorkTabTutorial.PreferredReserveWidth;
-                if (tutorialReserveWidth > 0f)
-                {
-                    if (finalWidth + tutorialReserveWidth <= maxWindowWidth)
-                    {
-                        finalWidth += tutorialReserveWidth;
-                        finalHeight = Mathf.Max(finalHeight, BWTWorkTabTutorial.PreferredReserveHeight);
-                    }
-                    else
-                    {
-                        // At 1024-wide/high-scale layouts the selector moves into
-                        // a top band instead of covering the highlighted grid.
-                        finalHeight += BWTWorkTabTutorial.PreferredReserveHeight;
-                    }
-                }
                 bool needsHorizontalScrollbar = finalWidth > maxWindowWidth + 0.5f;
                 if (needsHorizontalScrollbar)
                 {
@@ -961,12 +947,6 @@ namespace Better_Work_Tab.UI
                 finalHeight = Mathf.Min(
                     finalHeight,
                     GetConfiguredMaxWindowHeight(organizer?.Layout, table, needsHorizontalScrollbar));
-                if (tutorialReserveWidth > 0f)
-                {
-                    finalHeight = Mathf.Min(
-                        Verse.UI.screenHeight - 35f,
-                        Mathf.Max(finalHeight, BWTWorkTabTutorial.PreferredReserveHeight));
-                }
                 finalWidth = Mathf.Min(finalWidth, maxWindowWidth);
 
                 _requestedTabSizeCacheSignature = ComputeRequestedTabSizeSignature(table, organizer?.Layout);
@@ -1001,8 +981,6 @@ namespace Better_Work_Tab.UI
                 hash = (hash * 31) + (settings?.workTabMaxVisiblePawns ?? DefaultSettings.workTabMaxVisiblePawns);
                 hash = (hash * 31) + ((settings?.keepVanillaWorkTabMinimumWidth ??
                                        DefaultSettings.keepVanillaWorkTabMinimumWidth) ? 1 : 0);
-                hash = (hash * 31) + ((settings?.showGeneralTutorial ?? false) ? 1 : 0);
-                hash = (hash * 31) + ((settings?.tutorialWelcomeCompleted ?? false) ? 1 : 0);
                 return hash;
             }
         }
@@ -2811,7 +2789,9 @@ namespace Better_Work_Tab.UI
 
             if (evt.type == EventType.MouseDown)
             {
-                if (!SubWorkDrilldownInput.MatchesGesture(evt))
+                bool matchesConfiguredGesture = SubWorkDrilldownInput.MatchesGesture(evt);
+                bool isCtrlClickDiscovery = SubWorkDrilldownInput.ShouldOfferCtrlLeftDiscovery(evt);
+                if (!matchesConfiguredGesture && !isCtrlClickDiscovery)
                 {
                     ClearPendingSubWorkGesture();
                     return false;
@@ -2822,6 +2802,14 @@ namespace Better_Work_Tab.UI
                     ClearPendingSubWorkGesture();
                     return false;
                 }
+                if (!matchesConfiguredGesture && !fromHeader)
+                {
+                    // Ctrl-left is a one-time discovery path for real Work headers,
+                    // not an unconditional alternate shortcut for every affordance.
+                    ClearPendingSubWorkGesture();
+                    return false;
+                }
+                isCtrlClickDiscovery = isCtrlClickDiscovery && fromHeader;
 
                 Vector2? returnMousePosition = fromHeader
                     ? GuiMousePosition.ToRootUiPosition(evt.mousePosition)
@@ -2833,7 +2821,8 @@ namespace Better_Work_Tab.UI
                     button: evt.button,
                     openType: workType,
                     exit: false,
-                    restoreCursor: returnMousePosition.HasValue);
+                    restoreCursor: returnMousePosition.HasValue,
+                    ctrlClickDiscovery: isCtrlClickDiscovery);
                 MarkSubWorkPriorityMouseDownForSuppression();
                 return false;
             }
@@ -2863,6 +2852,7 @@ namespace Better_Work_Tab.UI
                 : (Vector2?)null;
             WorkTypeDef openType = _pendingSubWorkOpenType;
             Rect openBounds = _pendingSubWorkBounds;
+            bool ctrlClickDiscovery = _pendingSubWorkCtrlClickDiscovery;
             ClearPendingSubWorkGesture();
 
             if (!shouldOpen)
@@ -2889,7 +2879,7 @@ namespace Better_Work_Tab.UI
                     SubWorkDrilldownHeaderGeometry.GetBaseHeaderDrawWidth(layout.Table, layout.HeaderHeight));
             }
             WorkTabInvalidationHub.Invalidate(WorkTabDirtyFlags.Columns | WorkTabDirtyFlags.HeaderGeometry);
-            ShowCtrlClickDefaultNoticeIfNeeded(storedReturnPosition.HasValue, evt);
+            ShowCtrlClickDefaultNoticeIfNeeded(storedReturnPosition.HasValue, ctrlClickDiscovery);
             SoundDefOf.Tick_High.PlayOneShotOnCamera();
             evt.Use();
             return true;
@@ -2951,15 +2941,13 @@ namespace Better_Work_Tab.UI
             return true;
         }
 
-        private static void ShowCtrlClickDefaultNoticeIfNeeded(bool fromHeader, Event evt)
+        private static void ShowCtrlClickDefaultNoticeIfNeeded(bool fromHeader, bool ctrlClickDiscovery)
         {
             var settings = BetterWorkTabMod.Settings;
             if (settings == null ||
                 settings.subWorkCtrlClickNoticeDismissed ||
                 !fromHeader ||
-                evt == null ||
-                evt.button != 0 ||
-                !IsControlClick(evt))
+                !ctrlClickDiscovery)
             {
                 return;
             }
@@ -2983,15 +2971,6 @@ namespace Better_Work_Tab.UI
                     settings.Write();
                 },
                 "BWT_SubWork_CtrlClickNotice_Title".Translate()));
-        }
-
-        private static bool IsControlClick(Event evt)
-        {
-            return evt != null &&
-                (evt.control ||
-                 (evt.modifiers & EventModifiers.Control) != 0 ||
-                 UnityEngine.Input.GetKey(KeyCode.LeftControl) ||
-                 UnityEngine.Input.GetKey(KeyCode.RightControl));
         }
 
         private static void MarkSubWorkCtrlClickNoticeDismissed()
@@ -3418,7 +3397,8 @@ namespace Better_Work_Tab.UI
             int button,
             WorkTypeDef openType,
             bool exit,
-            bool restoreCursor)
+            bool restoreCursor,
+            bool ctrlClickDiscovery = false)
         {
             NativeCursorPosition.CancelPendingMove();
             _pendingSubWorkGesture = true;
@@ -3428,6 +3408,7 @@ namespace Better_Work_Tab.UI
             _pendingSubWorkOpenType = openType;
             _pendingSubWorkExit = exit;
             _pendingSubWorkRestoreCursor = restoreCursor;
+            _pendingSubWorkCtrlClickDiscovery = ctrlClickDiscovery;
         }
 
         private void CancelPendingSubWorkIfDragged(Vector2 mousePosition)
@@ -3465,6 +3446,7 @@ namespace Better_Work_Tab.UI
             _pendingSubWorkButton = -1;
             _pendingSubWorkExit = false;
             _pendingSubWorkRestoreCursor = false;
+            _pendingSubWorkCtrlClickDiscovery = false;
         }
 
         private void MarkSubWorkPriorityMouseDownForSuppression()
@@ -4764,11 +4746,11 @@ namespace Better_Work_Tab.UI
             }
             if (Current.Game.playSettings.useWorkPriorities)
             {
-                Color previousHelpColor = GUI.color;
-                GUI.color = new Color(1f, 1f, 1f, 0.5f);
-                float helpWidth = maxPriority > 4 ? 220f : rect.width;
-                Widgets.Label(new Rect(rect.x, rect.yMax - 6f, helpWidth, 60f), _priorityHelpText);
-                GUI.color = previousHelpColor;
+                using (new TextBlock(new Color(1f, 1f, 1f, 0.5f)))
+                {
+                    float helpWidth = maxPriority > 4 ? 220f : rect.width;
+                    Widgets.Label(new Rect(rect.x, rect.yMax - 6f, helpWidth, 60f), _priorityHelpText);
+                }
             }
             else
             {

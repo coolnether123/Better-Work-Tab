@@ -73,6 +73,37 @@ namespace Spine.UI.Tutorial
     }
 
     /// <summary>
+    /// Pure overflow policy for tutorial surfaces that normally fit without
+    /// scrolling but must remain usable after resolution, UI-scale, or
+    /// localization changes make their content taller than the viewport.
+    /// </summary>
+    public static class TutorialOverflowScrollPolicy
+    {
+        public static float MaximumOffset(float viewportHeight, float contentHeight)
+        {
+            return Math.Max(0f, contentHeight - Math.Max(0f, viewportHeight));
+        }
+
+        public static float ClampOffset(float offset, float viewportHeight, float contentHeight)
+        {
+            return Math.Max(0f, Math.Min(offset, MaximumOffset(viewportHeight, contentHeight)));
+        }
+
+        public static float ApplyWheel(
+            float offset,
+            float wheelDelta,
+            float viewportHeight,
+            float contentHeight,
+            float pixelsPerWheelUnit = 28f)
+        {
+            return ClampOffset(
+                offset + wheelDelta * Math.Max(0f, pixelsPerWheelUnit),
+                viewportHeight,
+                contentHeight);
+        }
+    }
+
+    /// <summary>
     /// Pure hover ownership model shared by tutorial hubs. Connected option and
     /// description regions retain the originating anchor, and a short grace
     /// interval covers ordinary pointer travel between those regions.

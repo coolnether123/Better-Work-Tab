@@ -1,7 +1,9 @@
 using System;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.ModSupport;
+using Multiplayer.API;
 using RimWorld;
+using System.Linq;
 using System.Reflection;
 using UnityEngine;
 using Verse;
@@ -124,6 +126,25 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
             workSettings.SetPriority(workType, ClampPriority(priority));
             ExternalPriorityMirror.NotifyWorkTypeChanged(pawn, workType);
+        }
+
+        [SyncMethod]
+        internal static void SetPrioritySynced(int pawnId, string workTypeDefName, int priority)
+        {
+            if (pawnId < 0 || string.IsNullOrEmpty(workTypeDefName))
+            {
+                return;
+            }
+
+            Pawn pawn = PawnsFinder.All_AliveOrDead.FirstOrDefault(
+                candidate => candidate?.thingIDNumber == pawnId);
+            WorkTypeDef workType = DefDatabase<WorkTypeDef>.GetNamedSilentFail(workTypeDefName);
+            if (pawn?.workSettings == null || workType == null)
+            {
+                return;
+            }
+
+            SetPriority(pawn.workSettings, workType, priority);
         }
 
         /// <summary>
