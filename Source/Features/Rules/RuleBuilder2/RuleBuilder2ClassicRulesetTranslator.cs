@@ -81,12 +81,28 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
             }
 
             WorkAssignmentParameters p = rule.Parameters;
-            WorkTypeDef workType = p.Worktype ??
-                                   rule.CachedWorktype ??
-                                   DefDatabase<WorkTypeDef>.GetNamedSilentFail(p.WorktypeString) ??
-                                   DefDatabase<WorkTypeDef>.GetNamedSilentFail(rule.CachedWorktypeString);
-            string workTypeDefName = workType?.defName ?? p.WorktypeString ?? rule.CachedWorktypeString ?? "";
+            WorkTypeDef workType = p.Worktype ?? rule.CachedWorktype;
+            if (workType == null && !string.IsNullOrEmpty(p.WorktypeString))
+            {
+                workType = DefDatabase<WorkTypeDef>.GetNamedSilentFail(p.WorktypeString);
+            }
+
+            if (workType == null && !string.IsNullOrEmpty(rule.CachedWorktypeString))
+            {
+                workType = DefDatabase<WorkTypeDef>.GetNamedSilentFail(rule.CachedWorktypeString);
+            }
+
+            string workTypeDefName = workType != null
+                ? workType.defName
+                : p.WorktypeString ?? rule.CachedWorktypeString ?? "";
             bool allWorkTypes = string.IsNullOrEmpty(workTypeDefName);
+            string displayLabel = "All work types";
+            if (!allWorkTypes)
+            {
+                displayLabel = workType != null
+                    ? workType.LabelCap.ToString()
+                    : p.WorktypeString ?? rule.CachedWorktypeString ?? "Missing work type";
+            }
 
             var card = new RuleBuilder2Card
             {
@@ -100,9 +116,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 Target = new RuleBuilder2Target
                 {
                     WorkTypeDefName = workTypeDefName,
-                    DisplayLabel = allWorkTypes
-                        ? "All work types"
-                        : workType?.LabelCap.ToString() ?? p.WorktypeString ?? rule.CachedWorktypeString ?? "Missing work type",
+                    DisplayLabel = displayLabel,
                     Source = RuleBuilder2TargetSource.Generated,
                     AllWorkTypes = allWorkTypes,
                     IgnoreIfMissing = p.IgnoreIfWorktypeNonexistent
