@@ -25,7 +25,7 @@ namespace Better_Work_Tab.Features.TimePriority
     internal static class TimePriorityScheduleEditor
     {
         private const int HoursPerDay = 24;
-        private const float AnimationSeconds = 0.22f;
+        private const float AnimationSeconds = 0.20f;
         private const float PanelPadding = 8f;
         private const float PawnLabelWidth = 112f;
         private const float HeaderHeight = 37f;
