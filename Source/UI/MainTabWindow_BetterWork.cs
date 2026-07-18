@@ -58,8 +58,12 @@ namespace Better_Work_Tab.UI
         private readonly WorkGridRendererFacade _workGridRenderer;
         private readonly WorkGridInteractionRouter _workGridInteractionRouter;
         private readonly WorkGridSnapshotProvider _workGridSnapshots = new WorkGridSnapshotProvider();
+#if v0_16
+        private readonly PawnTable _legacyPawnTable = new PawnTable();
+#else
         private static readonly FieldInfo PawnTableField =
             typeof(MainTabWindow_PawnTable).GetField("table", BindingFlags.NonPublic | BindingFlags.Instance);
+#endif
         private static PawnColumnDef _lastDraggedColumn;
         private static Material _ruleBuilder2OutlineMaterial;
         private static readonly Dictionary<WorkTypeDef, bool> ColumnMarkerCache =
@@ -5147,6 +5151,15 @@ namespace Better_Work_Tab.UI
 
         private PawnTable GetPawnTable()
         {
+#if v0_16
+            _legacyPawnTable.cachedPawns.Clear();
+            _legacyPawnTable.cachedPawns.AddRange(pawns);
+            _legacyPawnTable.cachedSize = new Vector2(
+                _legacyPawnTable.cachedSize.x,
+                _legacyPawnTable.cachedHeaderHeight +
+                (_legacyPawnTable.cachedPawns.Count * DefaultPawnRowHeight));
+            return _legacyPawnTable;
+#else
             Game game = Current.Game;
             if (_cachedPawnTable == null || !ReferenceEquals(_cachedPawnTableGame, game))
             {
@@ -5155,6 +5168,7 @@ namespace Better_Work_Tab.UI
             }
 
             return _cachedPawnTable;
+#endif
         }
 
         public override void PreClose()
