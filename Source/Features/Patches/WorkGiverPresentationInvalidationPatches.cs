@@ -57,7 +57,7 @@ namespace Better_Work_Tab.Features.Patches
     [HarmonyPatch(
         typeof(SkillRecord),
         nameof(SkillRecord.Learn),
-        new[] { typeof(float), typeof(bool), typeof(bool) })]
+        new[] { typeof(float), typeof(bool) })]
     internal static class Patch_SkillRecord_Learn_Presentation
     {
         private readonly struct DisplayedSkillState
