@@ -69,7 +69,11 @@ namespace Better_Work_Tab
     }
 #endif
 
+#if vAlpha4
+    public static class BetterWorkTabMod
+#else
     public class BetterWorkTabMod : Mod
+#endif
     {
         /// <summary>
         /// Static reference to the global settings instance for the Better Work Tab mod.
@@ -94,6 +98,7 @@ namespace Better_Work_Tab
             Log.Message($"[BWT-{feature}] {message}");
         }
 
+#if !vAlpha4
         /// <summary>
         /// Mod constructor invoked during game startup when the Better Work Tab mod is loaded.
         /// Applies all Harmony patches to relevant RimWorld classes (e.g., PawnTable_Work for row/column manipulation,
@@ -197,6 +202,7 @@ namespace Better_Work_Tab
                 // For now, cache self-cleans via invalidation, which is sufficient
             }
         }
+#endif
 
     }
 

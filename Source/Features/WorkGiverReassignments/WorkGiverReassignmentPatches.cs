@@ -154,7 +154,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
     [HarmonyPatch(typeof(PawnColumnWorker_WorkPriority), nameof(PawnColumnWorker_WorkPriority.Compare))]
     internal static class Patch_PawnColumnWorker_WorkPriority_Compare_SubWorkDrilldown
     {
-        public static bool Prefix(PawnColumnWorker_WorkPriority __instance, Pawn a, Pawn b, ref int __result)
+        public static bool Prefix(PawnColumnWorker_WorkPriority __instance, Pawn left, Pawn right, ref int __result)
         {
             if (!SubWorkDrilldownState.IsActive)
             {
@@ -166,7 +166,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 return true;
             }
 
-            __result = SubWorkDrilldownState.ComparePawnsForColumn(__instance.def, a, b);
+            __result = SubWorkDrilldownState.ComparePawnsForColumn(__instance.def, left, right);
             return false;
         }
     }

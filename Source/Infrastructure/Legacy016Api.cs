@@ -161,6 +161,7 @@ namespace Verse
         }
     }
 
+#if !vAlpha4
     public class Mod
     {
         protected ModContentPack Content { get; private set; }
@@ -184,6 +185,7 @@ namespace Verse
         {
         }
     }
+#endif
 
     public abstract class GameComponent : IExposable
     {
@@ -531,7 +533,9 @@ namespace RimWorld
         private const float SettingsWindowMinimumHeight = 600f;
         private const float SettingsWindowEdgeMargin = 80f;
 
+#if !vAlpha4
         private readonly Mod mod;
+#endif
 
         public Dialog_ModSettings()
         {
@@ -542,10 +546,12 @@ namespace RimWorld
 #endif
         }
 
+#if !vAlpha4
         public Dialog_ModSettings(Mod mod) : this()
         {
             this.mod = mod;
         }
+#endif
 
 #if v0_13
         public override Vector2 InitialWindowSize => SettingsWindowSize;
@@ -567,11 +573,13 @@ namespace RimWorld
 
         public override void DoWindowContents(Rect inRect)
         {
+#if !vAlpha4
             if (mod != null)
             {
                 mod.DoSettingsWindowContents(inRect);
                 return;
             }
+#endif
 
             DrawBetterWorkTabSettings(inRect);
         }
