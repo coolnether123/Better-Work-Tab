@@ -375,19 +375,18 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
         }
 
 #if v0_13
+        [HarmonyPatch(typeof(MapIniter_LoadFromFile), nameof(MapIniter_LoadFromFile.InitMapFromFile), new[] { typeof(string) })]
 #elif v0_18
         [HarmonyPatch(typeof(SavedGameLoader), nameof(SavedGameLoader.LoadGameFromSaveFile), new[] { typeof(string) })]
 #else
         [HarmonyPatch(typeof(GameDataSaveLoader), nameof(GameDataSaveLoader.LoadGame), new[] { typeof(string) })]
 #endif
-#if !v0_13
         private static class Patch_GameDataSaveLoader_LoadGame_RecordFluffyWorkTabSave
         {
-            private static void Prefix(string saveFileName)
+            private static void Prefix(string fileName)
             {
-                RecordLoadingSave(saveFileName);
+                RecordLoadingSave(fileName);
             }
         }
-#endif
     }
 }
