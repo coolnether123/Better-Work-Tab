@@ -4,7 +4,9 @@ using System.Threading;
 using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Better_Work_Tab.UI.WorkGrid.Rendering;
 using Better_Work_Tab.UI.WorkGrid.Commands;
+#if HAS_LUDEON_TK
 using LudeonTK;
+#endif
 using Spine.Api;
 using Verse;
 
@@ -96,7 +98,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Diagnostics
             set => Volatile.Write(ref _forcedMode, (int)value);
         }
 
+#if HAS_LUDEON_TK
         [DebugAction("Better Work Tab", "Cycle Work-grid renderer diagnostic mode", actionType = DebugActionType.Action)]
+#endif
         public static void CycleForcedMode()
         {
             int next = ((int)ForcedMode + 1) % Enum.GetValues(typeof(WorkGridForcedRendererMode)).Length;
@@ -104,7 +108,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Diagnostics
             Log.Message("[BWT] Work-grid renderer diagnostic mode: " + ForcedMode + ".");
         }
 
+#if HAS_LUDEON_TK
         [DebugAction("Better Work Tab", "Log Work-grid renderer diagnostics", actionType = DebugActionType.Action)]
+#endif
         public static void LogCurrent()
         {
             WorkGridRendererDiagnosticSnapshot snapshot = Current;

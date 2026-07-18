@@ -193,7 +193,10 @@ namespace Spine.UI.SettingsFramework
             Widgets.Label(new Rect(content.x, content.y, content.width, titleHeight), settingLabel);
             float y = content.y + titleHeight + 10f;
 
-            Widgets.DrawLineHorizontal(content.x, y, content.width, SelectionColor);
+            Color previousColor = GUI.color;
+            GUI.color = SelectionColor;
+            Widgets.DrawLineHorizontal(content.x, y, content.width);
+            GUI.color = previousColor;
             y += 13f;
 
             if (focusedOption != null)

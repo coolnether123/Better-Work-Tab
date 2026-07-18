@@ -143,7 +143,6 @@ namespace Better_Work_Tab.UI
         private int _pendingSubWorkButton;
         private bool _pendingSubWorkExit;
         private bool _pendingSubWorkRestoreCursor;
-        private bool _pendingSubWorkCtrlClickDiscovery;
         private int _suppressSubWorkPriorityMouseDownFrame = -1;
         private Rect _stableSubWorkChooserWindowRect;
         private bool _stableHorizontalScrollbarVisible;
@@ -2789,9 +2788,7 @@ namespace Better_Work_Tab.UI
 
             if (evt.type == EventType.MouseDown)
             {
-                bool matchesConfiguredGesture = SubWorkDrilldownInput.MatchesGesture(evt);
-                bool isCtrlClickDiscovery = SubWorkDrilldownInput.ShouldOfferCtrlLeftDiscovery(evt);
-                if (!matchesConfiguredGesture && !isCtrlClickDiscovery)
+                if (!SubWorkDrilldownInput.MatchesGesture(evt))
                 {
                     ClearPendingSubWorkGesture();
                     return false;
@@ -2802,14 +2799,6 @@ namespace Better_Work_Tab.UI
                     ClearPendingSubWorkGesture();
                     return false;
                 }
-                if (!matchesConfiguredGesture && !fromHeader)
-                {
-                    // Ctrl-left is a one-time discovery path for real Work headers,
-                    // not an unconditional alternate shortcut for every affordance.
-                    ClearPendingSubWorkGesture();
-                    return false;
-                }
-                isCtrlClickDiscovery = isCtrlClickDiscovery && fromHeader;
 
                 Vector2? returnMousePosition = fromHeader
                     ? GuiMousePosition.ToRootUiPosition(evt.mousePosition)
@@ -2821,8 +2810,7 @@ namespace Better_Work_Tab.UI
                     button: evt.button,
                     openType: workType,
                     exit: false,
-                    restoreCursor: returnMousePosition.HasValue,
-                    ctrlClickDiscovery: isCtrlClickDiscovery);
+                    restoreCursor: returnMousePosition.HasValue);
                 MarkSubWorkPriorityMouseDownForSuppression();
                 return false;
             }
@@ -2852,7 +2840,6 @@ namespace Better_Work_Tab.UI
                 : (Vector2?)null;
             WorkTypeDef openType = _pendingSubWorkOpenType;
             Rect openBounds = _pendingSubWorkBounds;
-            bool ctrlClickDiscovery = _pendingSubWorkCtrlClickDiscovery;
             ClearPendingSubWorkGesture();
 
             if (!shouldOpen)
@@ -2879,7 +2866,7 @@ namespace Better_Work_Tab.UI
                     SubWorkDrilldownHeaderGeometry.GetBaseHeaderDrawWidth(layout.Table, layout.HeaderHeight));
             }
             WorkTabInvalidationHub.Invalidate(WorkTabDirtyFlags.Columns | WorkTabDirtyFlags.HeaderGeometry);
-            ShowCtrlClickDefaultNoticeIfNeeded(storedReturnPosition.HasValue, ctrlClickDiscovery);
+            ShowCtrlClickDefaultNoticeIfNeeded(storedReturnPosition.HasValue, evt);
             SoundDefOf.Tick_High.PlayOneShotOnCamera();
             evt.Use();
             return true;
@@ -2941,13 +2928,15 @@ namespace Better_Work_Tab.UI
             return true;
         }
 
-        private static void ShowCtrlClickDefaultNoticeIfNeeded(bool fromHeader, bool ctrlClickDiscovery)
+        private static void ShowCtrlClickDefaultNoticeIfNeeded(bool fromHeader, Event evt)
         {
             var settings = BetterWorkTabMod.Settings;
             if (settings == null ||
                 settings.subWorkCtrlClickNoticeDismissed ||
                 !fromHeader ||
-                !ctrlClickDiscovery)
+                evt == null ||
+                evt.button != 0 ||
+                !IsControlClick(evt))
             {
                 return;
             }
@@ -2971,6 +2960,15 @@ namespace Better_Work_Tab.UI
                     settings.Write();
                 },
                 "BWT_SubWork_CtrlClickNotice_Title".Translate()));
+        }
+
+        private static bool IsControlClick(Event evt)
+        {
+            return evt != null &&
+                (evt.control ||
+                 (evt.modifiers & EventModifiers.Control) != 0 ||
+                 UnityEngine.Input.GetKey(KeyCode.LeftControl) ||
+                 UnityEngine.Input.GetKey(KeyCode.RightControl));
         }
 
         private static void MarkSubWorkCtrlClickNoticeDismissed()
@@ -3397,8 +3395,7 @@ namespace Better_Work_Tab.UI
             int button,
             WorkTypeDef openType,
             bool exit,
-            bool restoreCursor,
-            bool ctrlClickDiscovery = false)
+            bool restoreCursor)
         {
             NativeCursorPosition.CancelPendingMove();
             _pendingSubWorkGesture = true;
@@ -3408,7 +3405,6 @@ namespace Better_Work_Tab.UI
             _pendingSubWorkOpenType = openType;
             _pendingSubWorkExit = exit;
             _pendingSubWorkRestoreCursor = restoreCursor;
-            _pendingSubWorkCtrlClickDiscovery = ctrlClickDiscovery;
         }
 
         private void CancelPendingSubWorkIfDragged(Vector2 mousePosition)
@@ -3446,7 +3442,6 @@ namespace Better_Work_Tab.UI
             _pendingSubWorkButton = -1;
             _pendingSubWorkExit = false;
             _pendingSubWorkRestoreCursor = false;
-            _pendingSubWorkCtrlClickDiscovery = false;
         }
 
         private void MarkSubWorkPriorityMouseDownForSuppression()
@@ -4746,11 +4741,11 @@ namespace Better_Work_Tab.UI
             }
             if (Current.Game.playSettings.useWorkPriorities)
             {
-                using (new TextBlock(new Color(1f, 1f, 1f, 0.5f)))
-                {
-                    float helpWidth = maxPriority > 4 ? 220f : rect.width;
-                    Widgets.Label(new Rect(rect.x, rect.yMax - 6f, helpWidth, 60f), _priorityHelpText);
-                }
+                Color previousHelpColor = GUI.color;
+                GUI.color = new Color(1f, 1f, 1f, 0.5f);
+                float helpWidth = maxPriority > 4 ? 220f : rect.width;
+                Widgets.Label(new Rect(rect.x, rect.yMax - 6f, helpWidth, 60f), _priorityHelpText);
+                GUI.color = previousHelpColor;
             }
             else
             {

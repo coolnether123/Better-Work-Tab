@@ -132,8 +132,14 @@ namespace Better_Work_Tab.UI
             contentRect.y += titleHeight;
 
             // Split into three columns: Rulesets | Rules | Parameters
-            contentRect.SplitVerticallyWithMargin(out Rect leftSide, out Rect rightSide, 10f);
-            leftSide.SplitVerticallyWithMargin(out Rect leftRect, out Rect midRect, 10f);
+            const float columnMargin = 10f;
+            float leftWidth = (contentRect.width - columnMargin) * 0.5f;
+            Rect leftSide = new Rect(contentRect.x, contentRect.y, leftWidth, contentRect.height);
+            Rect rightSide = new Rect(leftSide.xMax + columnMargin, contentRect.y, contentRect.width - leftWidth - columnMargin, contentRect.height);
+
+            float innerLeftWidth = (leftSide.width - columnMargin) * 0.5f;
+            Rect leftRect = new Rect(leftSide.x, leftSide.y, innerLeftWidth, leftSide.height);
+            Rect midRect = new Rect(leftRect.xMax + columnMargin, leftSide.y, leftSide.width - innerLeftWidth - columnMargin, leftSide.height);
 
             // LEFT: Rulesets list with drag-drop reordering
             _rulesetListUI.DoListUI(leftRect);
@@ -220,8 +226,7 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
-            Rect viewRect = new Rect(0f, 0f, outRect.width, (parameterCount * ParameterRowHeight));
-            Widgets.AdjustRectsForScrollView(rect2, ref outRect, ref viewRect);
+            Rect viewRect = new Rect(0f, 0f, outRect.width - 16f, (parameterCount * ParameterRowHeight));
             Widgets.BeginScrollView(outRect, ref rightScroll, viewRect);
 
             SelectedRule.Name = SelectedRule.Parameters.RuleName == "" ? "New Rule " + (rule == null ? 0 : SelectedRule.Parameters.Priority) : SelectedRule.Parameters.RuleName;
@@ -622,8 +627,7 @@ namespace Better_Work_Tab.UI
 
             int num = selectedRuleset.Rules.Count;
 
-            Rect viewRect = new Rect(0f, 0f, outRect.width, num * RuleRowHeight);
-            Widgets.AdjustRectsForScrollView(rect2, ref outRect, ref viewRect);
+            Rect viewRect = new Rect(0f, 0f, outRect.width - 16f, num * RuleRowHeight);
 
             // Store the visible list rect for drag calculations
             _rulesListScreenRect = outRect;
@@ -656,10 +660,10 @@ namespace Better_Work_Tab.UI
 
                 rowIndex++;
                 string text = item.Name;
-                using (new TextBlock(TextAnchor.MiddleLeft))
-                {
-                    Widgets.Label(rect5, text);
-                }
+                var oldAnchor = Text.Anchor;
+                Text.Anchor = TextAnchor.MiddleLeft;
+                Widgets.Label(rect5, text);
+                Text.Anchor = oldAnchor;
 
                 if (selectedRuleset != null && !selectedRuleset.IsDefault)
                     DoDeleteButton_Rules(ref ruleToRemove, ref rect4, item, selectedRuleset);
@@ -838,7 +842,7 @@ namespace Better_Work_Tab.UI
             rect6.x = rect4.xMax - rect6.width - (selectedRuleset.Rules.Count >= 13 ? 20f : 0);
             rect6.y = rect4.y + (rect4.height - rect6.height) / 2f;
 
-            if (Widgets.ButtonImage(rect6, TexButton.Delete))
+            if (Widgets.ButtonImage(rect6, TexButton.DeleteX))
             {
                 ruleToRemove = currentRule;
                 SelectedRule = null;
