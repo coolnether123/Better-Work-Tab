@@ -57,7 +57,7 @@ namespace Better_Work_Tab.UI.Settings
             Validate(BWTSettingsRegistry.Definitions);
         }
 
-        [DebugAction("Better Work Tab", "Validate settings registry", false, false, false, false, false, 0, false, actionType = DebugActionType.Action)]
+        [DebugAction("Better Work Tab", "Validate settings registry", actionType = DebugActionType.Action)]
         public static void ValidateFromDebugAction()
         {
             BWTSettingsRegistry.EnsureInitialized();

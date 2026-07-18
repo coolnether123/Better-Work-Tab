@@ -165,12 +165,20 @@ namespace Better_Work_Tab.API
                 return true;
             }
 
+            WorkGiver worker = workGiver?.Worker;
+            if (worker == null)
+            {
+                return false;
+            }
+
             WorkGiverApiSnapshot snapshot = GetSnapshot(pawn, targetWorkType, workGiver, false);
             return snapshot.IsAvailableNow &&
-                   (workGiver?.nonColonistsCanDo == true || pawn.IsColonist || pawn.IsColonyMech || pawn.IsColonySubhuman) &&
+                   (workGiver.nonColonistsCanDo ||
+                    pawn.IsColonist ||
+                    PawnWorkControlCompatibility.IsColonyMech(pawn) ||
+                    PawnWorkControlCompatibility.IsColonySubhuman(pawn)) &&
                    !pawn.WorkTagIsDisabled(workGiver.workTags) &&
                    !pawn.WorkTypeIsDisabled(targetWorkType) &&
-                   workGiver.Worker is WorkGiver worker &&
                    !worker.ShouldSkip(pawn) &&
                    worker.MissingRequiredCapacity(pawn) == null &&
                    (!pawn.RaceProps.IsMechanoid || workGiver.canBeDoneByMechs);
