@@ -144,7 +144,7 @@ namespace Better_Work_Tab.Features.Tutorial
                 return false;
             }
 
-            IReadOnlyDictionary<TutorialHubAnchor, BWTTutorialHubDefinition> hubs = BuildHubDefinitions();
+            IDictionary<TutorialHubAnchor, BWTTutorialHubDefinition> hubs = BuildHubDefinitions();
             if (presentation == TutorialPresentation.Selector)
             {
                 if (evt.type == EventType.MouseDown && evt.button == 0 &&
@@ -357,7 +357,7 @@ namespace Better_Work_Tab.Features.Tutorial
             settings.tutorialLessonPhase = Mathf.Max(0, settings.tutorialLessonPhase);
         }
 
-        private static IReadOnlyDictionary<TutorialHubAnchor, BWTTutorialHubDefinition> BuildHubDefinitions()
+        private static IDictionary<TutorialHubAnchor, BWTTutorialHubDefinition> BuildHubDefinitions()
         {
             bool shift = Event.current?.shift ?? false;
             bool subWork = SubWorkDrilldownState.HasAnyDrilldown;
@@ -367,7 +367,7 @@ namespace Better_Work_Tab.Features.Tutorial
                     TutorialHubAnchor.None,
                     T("BWT_Tutorial_Selector_Title"),
                     T("BWT_Tutorial_Selector_DefaultBody"),
-                    Array.Empty<BWTTutorialOptionDefinition>()),
+                    new BWTTutorialOptionDefinition[0]),
                 [TutorialHubAnchor.PawnName] = new BWTTutorialHubDefinition(
                     TutorialHubAnchor.PawnName,
                     T("BWT_Tutorial_PawnHub_Title"),
@@ -404,7 +404,7 @@ namespace Better_Work_Tab.Features.Tutorial
 
         private static void DrawFloatingLesson(
             Rect workBounds,
-            IReadOnlyList<BWTTutorialAnchor> localAnchors,
+            IList<BWTTutorialAnchor> localAnchors,
             string lessonId,
             int phase)
         {
@@ -471,7 +471,7 @@ namespace Better_Work_Tab.Features.Tutorial
         private static void DrawFloatingSelector(
             Rect inRect,
             Rect workBounds,
-            IReadOnlyList<BWTTutorialAnchor> localAnchors,
+            IList<BWTTutorialAnchor> localAnchors,
             IWorkTabLayoutController layout,
             BetterWorkTabSettings settings)
         {
@@ -484,7 +484,7 @@ namespace Better_Work_Tab.Features.Tutorial
 
             Rect rootWorkBounds = new Rect(workBounds.position + rootOffset, workBounds.size);
             Rect screenBounds = new Rect(0f, 0f, Verse.UI.screenWidth, Verse.UI.screenHeight);
-            IReadOnlyDictionary<TutorialHubAnchor, BWTTutorialHubDefinition> hubs = BuildHubDefinitions();
+            IDictionary<TutorialHubAnchor, BWTTutorialHubDefinition> hubs = BuildHubDefinitions();
             Find.WindowStack.ImmediateWindow(
                 FloatingSelectorWindowId,
                 screenBounds,
@@ -552,7 +552,7 @@ namespace Better_Work_Tab.Features.Tutorial
 
         private static void SelectLesson(
             string lessonId,
-            IReadOnlyList<BWTTutorialAnchor> anchors,
+            IList<BWTTutorialAnchor> anchors,
             IWorkTabLayoutController layout)
         {
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
@@ -579,7 +579,7 @@ namespace Better_Work_Tab.Features.Tutorial
                 {
                     TutorialProgressTransitions.Complete(settings.completedTutorialLessonIds, lessonId);
                     settings.Write();
-                    SoundDefOf.Tick_High.PlayOneShotOnCamera();
+                    PlayTutorialSound("Tick_High");
                 }
                 return;
             }
@@ -589,12 +589,12 @@ namespace Better_Work_Tab.Features.Tutorial
             lessonScrollPosition = Vector2.zero;
             InitializeLessonObservation(lessonId, anchors, layout);
             settings.Write();
-            SoundDefOf.Tick_High.PlayOneShotOnCamera();
+            PlayTutorialSound("Tick_High");
         }
 
         private static void InitializeLessonObservation(
             string lessonId,
-            IReadOnlyList<BWTTutorialAnchor> anchors,
+            IList<BWTTutorialAnchor> anchors,
             IWorkTabLayoutController layout)
         {
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
@@ -759,7 +759,7 @@ namespace Better_Work_Tab.Features.Tutorial
         }
 
         private static BWTTutorialAnchor ResolveLessonDisplayAnchor(
-            IReadOnlyList<BWTTutorialAnchor> anchors,
+            IList<BWTTutorialAnchor> anchors,
             string lessonId,
             int phase)
         {
@@ -905,7 +905,7 @@ namespace Better_Work_Tab.Features.Tutorial
         }
 
         private static BWTTutorialAnchor FindLessonAnchor(
-            IReadOnlyList<BWTTutorialAnchor> anchors,
+            IList<BWTTutorialAnchor> anchors,
             TutorialHubAnchor kind)
         {
             if (anchors != null)
@@ -922,7 +922,7 @@ namespace Better_Work_Tab.Features.Tutorial
             return default(BWTTutorialAnchor);
         }
 
-        private static void RefreshLessonAnchor(IReadOnlyList<BWTTutorialAnchor> anchors)
+        private static void RefreshLessonAnchor(IList<BWTTutorialAnchor> anchors)
         {
             TutorialHubAnchor kind = GetAnchorForLesson(BetterWorkTabMod.Settings.activeTutorialLessonId);
             BWTTutorialAnchor fresh = FindLessonAnchor(anchors, kind);
@@ -1081,7 +1081,7 @@ namespace Better_Work_Tab.Features.Tutorial
             observedLessonId = string.Empty;
             lessonScrollPosition = Vector2.zero;
             Selector.Reset();
-            SoundDefOf.Tick_High.PlayOneShotOnCamera();
+            PlayTutorialSound("Tick_High");
         }
 
         private static void ReturnToSelection()
@@ -1100,7 +1100,7 @@ namespace Better_Work_Tab.Features.Tutorial
             observedLessonId = string.Empty;
             lessonScrollPosition = Vector2.zero;
             Selector.Reset();
-            SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+            PlayTutorialSound("Tick_Low");
         }
 
         private static void Pause()
@@ -1111,7 +1111,7 @@ namespace Better_Work_Tab.Features.Tutorial
             WelcomeOverlay.ResetAnimation();
             lessonScrollPosition = Vector2.zero;
             Selector.Reset();
-            SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+            PlayTutorialSound("Tick_Low");
         }
 
         private static void LeaveTutorial()
@@ -1149,7 +1149,7 @@ namespace Better_Work_Tab.Features.Tutorial
             WelcomeOverlay.ResetAnimation();
             Selector.Reset();
             settings.Write();
-            SoundDefOf.Tick_High.PlayOneShotOnCamera();
+            PlayTutorialSound("Tick_High");
         }
 
         private static void DismissWelcome()
@@ -1168,7 +1168,13 @@ namespace Better_Work_Tab.Features.Tutorial
             WelcomeOverlay.ResetAnimation();
             Selector.Reset();
             settings.Write();
-            SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+            PlayTutorialSound("Tick_Low");
+        }
+
+        private static void PlayTutorialSound(string defName)
+        {
+            SoundDef sound = DefDatabase<SoundDef>.GetNamedSilentFail(defName);
+            sound?.PlayOneShotOnCamera();
         }
 
         private static string T(string key)

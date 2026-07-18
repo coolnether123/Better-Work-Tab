@@ -88,7 +88,7 @@ namespace Better_Work_Tab
         public static bool enableSubWorkTransitionAnimation = true;
         public static BetterWorkTabSettings.SubWorkTransitionStyle subWorkTransitionStyle =
             BetterWorkTabSettings.SubWorkTransitionStyle.ClassicGlideFlash;
-        public static float subWorkTransitionSeconds = 0.48f;
+        public static float subWorkTransitionSeconds = 0.22f;
         public static BetterWorkTabSettings.SubWorkDisabledParentMode subWorkDisabledParentMode =
             BetterWorkTabSettings.SubWorkDisabledParentMode.ParentWorkDisablesSubWork;
         public static bool subWorkAutoExpandColumns = true;

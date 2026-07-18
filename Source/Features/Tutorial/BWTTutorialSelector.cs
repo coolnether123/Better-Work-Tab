@@ -12,18 +12,18 @@ namespace Better_Work_Tab.Features.Tutorial
             TutorialHubAnchor anchor,
             string title,
             string body,
-            IReadOnlyList<BWTTutorialOptionDefinition> options)
+            IList<BWTTutorialOptionDefinition> options)
         {
             Anchor = anchor;
             Title = title ?? string.Empty;
             Body = body ?? string.Empty;
-            Options = options ?? Array.Empty<BWTTutorialOptionDefinition>();
+            Options = options ?? new BWTTutorialOptionDefinition[0];
         }
 
         internal TutorialHubAnchor Anchor { get; }
         internal string Title { get; }
         internal string Body { get; }
-        internal IReadOnlyList<BWTTutorialOptionDefinition> Options { get; }
+        internal IList<BWTTutorialOptionDefinition> Options { get; }
     }
 
     internal sealed class BWTTutorialOptionDefinition
@@ -109,7 +109,7 @@ namespace Better_Work_Tab.Features.Tutorial
             contextContentKey = null;
         }
 
-        internal bool TryHandleAnchorInput(IReadOnlyList<BWTTutorialAnchor> anchors, Event evt)
+        internal bool TryHandleAnchorInput(IList<BWTTutorialAnchor> anchors, Event evt)
         {
             if (anchors == null || evt == null || evt.type != EventType.MouseDown || evt.button != 0)
             {
@@ -139,8 +139,8 @@ namespace Better_Work_Tab.Features.Tutorial
         internal bool TryHandleInput(
             Rect bounds,
             Rect workBounds,
-            IReadOnlyList<BWTTutorialAnchor> anchors,
-            IReadOnlyDictionary<TutorialHubAnchor, BWTTutorialHubDefinition> hubs,
+            IList<BWTTutorialAnchor> anchors,
+            IDictionary<TutorialHubAnchor, BWTTutorialHubDefinition> hubs,
             ICollection<string> completedLessonIds,
             Event evt,
             string recommendedLabel,
@@ -265,8 +265,8 @@ namespace Better_Work_Tab.Features.Tutorial
         internal bool ContainsPointer(
             Rect bounds,
             Rect workBounds,
-            IReadOnlyList<BWTTutorialAnchor> anchors,
-            IReadOnlyDictionary<TutorialHubAnchor, BWTTutorialHubDefinition> hubs,
+            IList<BWTTutorialAnchor> anchors,
+            IDictionary<TutorialHubAnchor, BWTTutorialHubDefinition> hubs,
             Vector2 pointer,
             string recommendedLabel)
         {
@@ -288,8 +288,8 @@ namespace Better_Work_Tab.Features.Tutorial
         internal void Draw(
             Rect bounds,
             Rect workBounds,
-            IReadOnlyList<BWTTutorialAnchor> anchors,
-            IReadOnlyDictionary<TutorialHubAnchor, BWTTutorialHubDefinition> hubs,
+            IList<BWTTutorialAnchor> anchors,
+            IDictionary<TutorialHubAnchor, BWTTutorialHubDefinition> hubs,
             ICollection<string> completedLessonIds,
             string defaultHeading,
             string recommendedLabel,
@@ -378,7 +378,7 @@ namespace Better_Work_Tab.Features.Tutorial
         }
 
         private void DrawAnchorOutlines(
-            IReadOnlyList<BWTTutorialAnchor> anchors,
+            IList<BWTTutorialAnchor> anchors,
             TutorialHubAnchor active,
             TutorialHubAnchor pointerAnchor)
         {
@@ -613,7 +613,7 @@ namespace Better_Work_Tab.Features.Tutorial
             return new SelectorLayout(panel, title, options, optionView, context, exit, leave, optionRects);
         }
 
-        private static TutorialHubAnchor GetAnchorAt(IReadOnlyList<BWTTutorialAnchor> anchors, Vector2 point)
+        private static TutorialHubAnchor GetAnchorAt(IList<BWTTutorialAnchor> anchors, Vector2 point)
         {
             for (int i = 0; i < anchors.Count; i++)
             {
@@ -646,7 +646,7 @@ namespace Better_Work_Tab.Features.Tutorial
         }
 
         private Rect FindAnchorRect(
-            IReadOnlyList<BWTTutorialAnchor> anchors,
+            IList<BWTTutorialAnchor> anchors,
             TutorialHubAnchor kind)
         {
             if (pinnedGeometry.IsValid && pinnedGeometry.Kind == kind)
@@ -667,7 +667,7 @@ namespace Better_Work_Tab.Features.Tutorial
             return Rect.zero;
         }
 
-        private static bool ContainsRect(IReadOnlyList<BWTTutorialAnchor> anchors, Rect rect)
+        private static bool ContainsRect(IList<BWTTutorialAnchor> anchors, Rect rect)
         {
             for (int i = 0; i < anchors.Count; i++)
             {
@@ -776,7 +776,7 @@ namespace Better_Work_Tab.Features.Tutorial
                 Rect contextRect,
                 Rect exitRect,
                 Rect leaveRect,
-                IReadOnlyList<Rect> optionRects)
+                IList<Rect> optionRects)
             {
                 PanelRect = panelRect;
                 TitleRect = titleRect;
@@ -795,7 +795,7 @@ namespace Better_Work_Tab.Features.Tutorial
             internal Rect ContextRect { get; }
             internal Rect ExitRect { get; }
             internal Rect LeaveRect { get; }
-            internal IReadOnlyList<Rect> OptionRects { get; }
+            internal IList<Rect> OptionRects { get; }
         }
     }
 }
