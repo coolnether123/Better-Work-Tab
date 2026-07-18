@@ -3,262 +3,290 @@ using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.ModSupport;
+using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using HarmonyLib;
 using RimWorld;
+using System;
 using System.Collections.Generic;
-using System.Linq;
-using UnityEngine;
 using Verse;
 using Verse.AI;
 
 namespace Better_Work_Tab.Patches
 {
-    /// <summary>
-    /// Backport of the 1.6 "do once / open work tab" float-menu options to 1.5.
-    /// The 1.5 API builds options in FloatMenuMakerMap.AddJobGiverWorkOrders, so we
-    /// add our extras in a postfix while keeping vanilla options intact.
-    /// </summary>
-    [HarmonyPatch(typeof(FloatMenuMakerMap), "AddJobGiverWorkOrders")]
-    public static class Patch_FloatMenuMakerMap_AddJobGiverWorkOrders
+    [HarmonyPatch(typeof(FloatMenuOptionProvider_WorkGivers), nameof(FloatMenuOptionProvider_WorkGivers.GetWorkGiverOption))]
+    public static class Patch_FloatMenuOptionProvider_WorkGivers_GetWorkGiverOption
     {
-        public static void Postfix(Vector3 clickPos, Pawn pawn, List<FloatMenuOption> opts, bool drafted)
+        public static FloatMenuOption Postfix(FloatMenuOption value, Pawn pawn, WorkGiverDef workGiver, LocalTargetInfo target, FloatMenuContext context)
         {
             if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabPriorityFeatures)
             {
-                return;
+                return value;
             }
 
             DoOnceSupport.EnsureBwtOwnsUnassignedWorkMenu();
 
-            if (pawn?.workSettings == null)
+            if (value == null)
             {
-                return;
+                return value;
             }
 
-            IntVec3 clickCell = IntVec3.FromVector3(clickPos);
-            if (pawn.Map == null || !clickCell.InBounds(pawn.Map))
+            if (workGiver.Worker is not WorkGiver_Scanner workGiverScanner)
             {
-                return;
+                return value;
             }
 
-            foreach (WorkTypeDef workType in DefDatabase<WorkTypeDef>.AllDefsListForReading)
+            WorkTypeDef workType = WorkGiverReassignmentManager.GetTargetWorkType(workGiverScanner.def)
+                ?? workGiverScanner.def.workType;
+            if (workType == null || pawn == null || context == null)
             {
-                if (pawn.WorkTypeIsDisabled(workType))
+                return value;
+            }
+
+            if (TimePriorityService.TryGetDisabledByTime(pawn, workType, workGiver, out string timeReason, out _))
+            {
+                Job timeBlockedJob = target.HasThing
+                    ? (workGiverScanner.HasJobOnThing(pawn, target.Thing, true) ? workGiverScanner.JobOnThing(pawn, target.Thing, true) : null)
+                    : (workGiverScanner.HasJobOnCell(pawn, target.Cell, true) ? workGiverScanner.JobOnCell(pawn, target.Cell, true) : null);
+
+                AddOpenPriorityScheduleOption(pawn, workType, workGiver);
+
+                if (timeBlockedJob != null)
                 {
-                    continue;
+                    timeBlockedJob.workGiverDef = workGiverScanner.def;
+                    Job forcedTimeJob = timeBlockedJob;
+                    WorkGiver_Scanner forcedTimeScanner = workGiverScanner;
+                    WorkGiverDef forcedTimeGiver = workGiver;
+                    Patch_FloatMenuOptionProvider_WorkGivers_GetWorkGiverOptionFor.AdditionalOptions.Add(
+                        FloatMenuUtility.DecoratePrioritizedTask(
+                            new FloatMenuOption(
+                                WorkGiverActionLabel(forcedTimeGiver, workType) + " Once",
+                                () => TakePrioritizedJobOnce(pawn, forcedTimeJob, forcedTimeScanner, forcedTimeGiver, context),
+                                orderInPriority: -1),
+                            pawn,
+                            target));
                 }
 
-                int parentPriority = WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, workType);
-                bool parentDisabled = parentPriority == WorkPrioritySystem.DisabledPriority;
-                foreach (WorkGiverDef workGiver in workType.workGiversByPriority)
+                string disabledLabel = value.Label + ": " + timeReason.CapitalizeFirst();
+                return new FloatMenuOption(disabledLabel, null);
+            }
+
+            // Check if work TYPE is disabled (vanilla) or this BWT sub-work giver is not assigned.
+            int parentPriority = WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType);
+            if (parentPriority != WorkPrioritySystem.DisabledPriority)
+            {
+                if (TryGetBwtSubWorkDisabledReason(pawn, workType, workGiver, parentPriority, out string subWorkReason))
                 {
-                    if (drafted && !workGiver.canBeDoneWhileDrafted)
-                    {
-                        continue;
-                    }
-
-                    if (workGiver.Worker is not WorkGiver_Scanner scanner || !scanner.def.directOrderable)
-                    {
-                        continue;
-                    }
-
-                    int baseWorkGiverPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, workGiver, parentPriority);
-                    int effectiveWorkGiverPriority = TimePriorityService.GetEffectiveWorkGiverPriority(
+                    return BuildOnceOnlyWorkOption(
+                        value,
                         pawn,
                         workType,
                         workGiver,
-                        baseWorkGiverPriority);
-                    bool timeDisabled = TimePriorityService.TryGetDisabledByTime(
-                        pawn,
-                        workType,
-                        workGiver,
-                        out string timeReason,
-                        out _);
-
-                    if (!parentDisabled &&
-                        effectiveWorkGiverPriority != WorkPrioritySystem.DisabledPriority &&
-                        !timeDisabled)
-                    {
-                        continue;
-                    }
-
-                    TryAddThingOption(pawn, clickCell, workGiver, scanner, opts, timeReason);
-                    TryAddCellOption(pawn, clickCell, workGiver, scanner, opts, drafted, timeReason);
+                        workGiverScanner,
+                        target,
+                        context,
+                        subWorkReason);
                 }
-            }
-        }
 
-        private static void TryAddThingOption(
-            Pawn pawn,
-            IntVec3 clickCell,
-            WorkGiverDef workGiver,
-            WorkGiver_Scanner scanner,
-            List<FloatMenuOption> opts,
-            string timeReason)
-        {
-            Map map = pawn.Map;
-            foreach (Thing thing in map.thingGrid.ThingsAt(clickCell))
+                return value;
+            }
+
+            if (pawn.WorkTypeIsDisabled(workType))
             {
-                if (!scanner.PotentialWorkThingRequest.Accepts(thing))
-                {
-                    continue;
-                }
-
-                if (scanner.ShouldSkip(pawn, true) || !scanner.HasJobOnThing(pawn, thing, true))
-                {
-                    continue;
-                }
-
-                Job job = scanner.JobOnThing(pawn, thing, true);
-                if (job == null)
-                {
-                    continue;
-                }
-
-                job.workGiverDef = workGiver;
-                AddNotAssignedOptions(pawn, workGiver, scanner, opts, thing, clickCell, job, timeReason);
-            }
-        }
-
-        private static void TryAddCellOption(
-            Pawn pawn,
-            IntVec3 clickCell,
-            WorkGiverDef workGiver,
-            WorkGiver_Scanner scanner,
-            List<FloatMenuOption> opts,
-            bool drafted,
-            string timeReason)
-        {
-            if (drafted && !workGiver.canBeDoneWhileDrafted)
-            {
-                return;
+                return value;
             }
 
-            var potentialCells = scanner.PotentialWorkCellsGlobal(pawn);
-            if (potentialCells == null || !potentialCells.Contains(clickCell) || scanner.ShouldSkip(pawn, true))
-            {
-                return;
-            }
+            Job job = target.HasThing
+                ? (workGiverScanner.HasJobOnThing(pawn, target.Thing, true) ? workGiverScanner.JobOnThing(pawn, target.Thing, true) : null)
+                : (workGiverScanner.HasJobOnCell(pawn, target.Cell, true) ? workGiverScanner.JobOnCell(pawn, target.Cell, true) : null);
 
-            Job job = scanner.HasJobOnCell(pawn, clickCell, true) ? scanner.JobOnCell(pawn, clickCell, true) : null;
             if (job == null)
             {
-                return;
+                return value;
             }
 
-            job.workGiverDef = workGiver;
-            AddNotAssignedOptions(pawn, workGiver, scanner, opts, clickCell, clickCell, job, timeReason);
+            job.workGiverDef = workGiverScanner.def;
+            Job localJob = job;
+            WorkGiver_Scanner localScanner = workGiverScanner;
+            WorkGiverDef giver = workGiver;
+
+            void AssignOnce()
+            {
+                TakePrioritizedJobOnce(pawn, localJob, localScanner, giver, context);
+            }
+
+            string workLabel = WorkTypeMenuLabel(workType);
+            var text = "BWTNotAssignedDoOnce".Translate(WorkGiverActionLabel(giver, workType));
+
+            AddOpenWorkTabOption(pawn, workType, workLabel);
+
+            // BWT: Check if specific work giver is disabled (not just the whole work type)
+            var targetWorkType = WorkGiverReassignmentManager.GetTargetWorkType(workGiver);
+            if (targetWorkType != null)
+            {
+                int targetParentPriority = WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, targetWorkType);
+                int baseWorkGiverPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, workGiver, targetParentPriority);
+                int wgPriority = TimePriorityService.GetEffectiveWorkGiverPriority(
+                    pawn,
+                    targetWorkType,
+                    workGiver,
+                    baseWorkGiverPriority);
+                
+                // If this specific work giver is disabled in BWT, add "Go to Work Giver Sub-Menu" option
+                if (wgPriority == WorkPrioritySystem.DisabledPriority)
+                {
+                    Patch_FloatMenuOptionProvider_WorkGivers_GetWorkGiverOptionFor.AdditionalOptions.Add(
+                        new FloatMenuOption(
+                            "BWTManageWorkGivers".Translate(
+                                WorkTypeMenuLabel(targetWorkType),
+                                WorkGiverDisplayNameService.HeaderLabel(workGiver)),
+                            () =>
+                            {
+                                OpenWorkGiverManagement(pawn, targetWorkType, workGiver);
+                            },
+                            orderInPriority: -1));
+                }
+            }
+
+            Patch_FloatMenuOptionProvider_WorkGivers_GetWorkGiverOptionFor.AdditionalOptions.Add(value);
+
+            return FloatMenuUtility.DecoratePrioritizedTask(
+                new FloatMenuOption(text, AssignOnce, orderInPriority: -1),
+                pawn,
+                target);
         }
 
-        private static void AddNotAssignedOptions(
+        private static FloatMenuOption BuildOnceOnlyWorkOption(
+            FloatMenuOption value,
             Pawn pawn,
+            WorkTypeDef workType,
             WorkGiverDef workGiver,
             WorkGiver_Scanner scanner,
-            List<FloatMenuOption> opts,
             LocalTargetInfo target,
-            IntVec3 clickedCell,
-            Job job,
-            string timeReason)
+            FloatMenuContext context,
+            string disabledReason)
         {
-            WorkTypeDef workType = WorkGiverReassignmentManager.GetTargetWorkType(workGiver)
-                ?? scanner.def.workType;
-            if (workType == null)
+            Job job = target.HasThing
+                ? (scanner.HasJobOnThing(pawn, target.Thing, true) ? scanner.JobOnThing(pawn, target.Thing, true) : null)
+                : (scanner.HasJobOnCell(pawn, target.Cell, true) ? scanner.JobOnCell(pawn, target.Cell, true) : null);
+
+            AddOpenWorkTabOption(pawn, workType, WorkTypeMenuLabel(workType));
+            AddOpenSubWorkOption(pawn, workType, workGiver);
+
+            if (job == null)
             {
-                return;
+                return new FloatMenuOption(value.Label + ": " + disabledReason, null);
             }
 
-            string doOnceLabel = "BWTNotAssignedDoOnce".Translate(WorkGiverActionLabel(workGiver, workType));
-            string openTabLabel = "BWTNotAssignedAssignWork".Translate(WorkTypeMenuLabel(workType));
-            string manageWorkGiversLabel = "BWTManageWorkGivers".Translate(
-                WorkTypeMenuLabel(workType),
-                WorkGiverDisplayNameService.HeaderLabel(workGiver));
-            string openScheduleLabel = "Open " + WorkTypeMenuLabel(workType) + " priority schedule";
-            int parentPriority = WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, workType);
-            int baseWorkGiverPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, workGiver, parentPriority);
-            int effectiveWorkGiverPriority = TimePriorityService.GetEffectiveWorkGiverPriority(
+            job.workGiverDef = scanner.def;
+            Job localJob = job;
+            WorkGiver_Scanner localScanner = scanner;
+            WorkGiverDef localGiver = workGiver;
+            return FloatMenuUtility.DecoratePrioritizedTask(
+                new FloatMenuOption(
+                    "BWTNotAssignedDoOnce".Translate(WorkGiverActionLabel(localGiver, workType)),
+                    () => TakePrioritizedJobOnce(pawn, localJob, localScanner, localGiver, context),
+                    orderInPriority: -1),
+                pawn,
+                target);
+        }
+
+        private static bool TryGetBwtSubWorkDisabledReason(
+            Pawn pawn,
+            WorkTypeDef workType,
+            WorkGiverDef workGiver,
+            int parentPriority,
+            out string disabledReason)
+        {
+            disabledReason = null;
+            if (pawn == null || workType == null || workGiver == null)
+            {
+                return false;
+            }
+
+            WorkTypeDef targetWorkType = WorkGiverReassignmentManager.GetTargetWorkType(workGiver);
+            if (targetWorkType != workType)
+            {
+                return false;
+            }
+
+            int baseWorkGiverPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(
+                pawn,
+                workGiver,
+                parentPriority);
+            int effectivePriority = TimePriorityService.GetEffectiveWorkGiverPriority(
                 pawn,
                 workType,
                 workGiver,
                 baseWorkGiverPriority);
-
-            if (!timeReason.NullOrEmpty())
+            if (effectivePriority > WorkPrioritySystem.DisabledPriority)
             {
-                string disabledLabel = WorkGiverActionLabel(workGiver, workType) + ": " + timeReason.CapitalizeFirst();
-                if (!opts.Any(o => o.Label == disabledLabel))
-                {
-                    opts.Add(new FloatMenuOption(disabledLabel, null, orderInPriority: -1));
-                }
-
-                if (!opts.Any(o => o.Label == openScheduleLabel))
-                {
-                    opts.Add(new FloatMenuOption(
-                        openScheduleLabel,
-                        () => TimePriorityScheduleEditor.OpenForFloatMenu(pawn, workType, workGiver),
-                        orderInPriority: -1));
-                }
+                return false;
             }
 
-            if (effectiveWorkGiverPriority == WorkPrioritySystem.DisabledPriority &&
-                !opts.Any(o => o.Label == manageWorkGiversLabel))
+            disabledReason = "Not assigned to " + WorkGiverDisplayNameService.HeaderLabel(workGiver);
+            return true;
+        }
+
+        private static void TakePrioritizedJobOnce(
+            Pawn pawn,
+            Job job,
+            WorkGiver_Scanner scanner,
+            WorkGiverDef giver,
+            FloatMenuContext context)
+        {
+            if (pawn?.jobs == null ||
+                job == null ||
+                scanner == null ||
+                context == null ||
+                !pawn.jobs.TryTakeOrderedJobPrioritizedWork(job, scanner, context.ClickedCell))
             {
-                opts.Add(new FloatMenuOption(
-                    manageWorkGiversLabel,
-                    () => OpenWorkGiverManagement(pawn, workType, workGiver),
-                    orderInPriority: -1));
+                return;
             }
 
-            if (!opts.Any(o => o.Label == openTabLabel))
+            if (giver?.forceMote != null)
             {
-                opts.Add(new FloatMenuOption(
-                    openTabLabel,
+                MoteMaker.MakeStaticMote(context.ClickedCell, pawn.Map, giver.forceMote);
+            }
+
+            if (giver?.forceFleck != null)
+            {
+                FleckMaker.Static(context.ClickedCell, pawn.Map, giver.forceFleck);
+            }
+        }
+
+        private static void AddOpenWorkTabOption(Pawn pawn, WorkTypeDef workType, string workLabel)
+        {
+            Patch_FloatMenuOptionProvider_WorkGivers_GetWorkGiverOptionFor.AdditionalOptions.Add(
+                new FloatMenuOption(
+                    "BWTNotAssignedAssignWork".Translate(workLabel),
                     () =>
                     {
                         HighlightState.SetWorktypeToHighlight(pawn, workType);
                         Find.MainTabsRoot.SetCurrentTab(MainButtonDefOf.Work);
                     },
                     orderInPriority: -1));
-            }
+        }
 
-            if (opts.Any(o => o.Label == doOnceLabel))
-            {
-                return;
-            }
+        private static void AddOpenSubWorkOption(Pawn pawn, WorkTypeDef workType, WorkGiverDef workGiver)
+        {
+            Patch_FloatMenuOptionProvider_WorkGivers_GetWorkGiverOptionFor.AdditionalOptions.Add(
+                new FloatMenuOption(
+                    "BWTManageWorkGivers".Translate(
+                        WorkTypeMenuLabel(workType),
+                        WorkGiverDisplayNameService.HeaderLabel(workGiver)),
+                    () => OpenWorkGiverManagement(pawn, workType, workGiver),
+                    orderInPriority: -1));
+        }
 
-            void AssignOnce()
-            {
-                int currentParentPriority = WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, workType);
-                int currentWorkGiverPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, workGiver, currentParentPriority);
-                if (currentWorkGiverPriority == WorkPrioritySystem.DisabledPriority)
-                {
-                    int enabledPriority = currentParentPriority > WorkPrioritySystem.DisabledPriority
-                        ? currentParentPriority
-                        : WorkPrioritySystem.GetDefaultEnabledPriority();
-                    WorkGiverReassignmentManager.SetPawnOverrideSynced(pawn.thingIDNumber, workGiver.defName, enabledPriority);
-                }
-
-                if (pawn.jobs.TryTakeOrderedJobPrioritizedWork(job, scanner, clickedCell))
-                {
-                    if (workGiver.forceMote != null)
-                    {
-                        MoteMaker.MakeStaticMote(clickedCell, pawn.Map, workGiver.forceMote);
-                    }
-
-                    if (workGiver.forceFleck != null)
-                    {
-                        FleckMaker.Static(clickedCell, pawn.Map, workGiver.forceFleck);
-                    }
-                }
-            }
-
-            var option = FloatMenuUtility.DecoratePrioritizedTask(
-                new FloatMenuOption(doOnceLabel, AssignOnce, orderInPriority: -1),
-                pawn,
-                target,
-                layer: scanner.GetReservationLayer(pawn, target));
-
-            opts.Add(option);
+        private static void AddOpenPriorityScheduleOption(Pawn pawn, WorkTypeDef workType, WorkGiverDef workGiver)
+        {
+            Patch_FloatMenuOptionProvider_WorkGivers_GetWorkGiverOptionFor.AdditionalOptions.Add(
+                new FloatMenuOption(
+                    "Open " + WorkTypeMenuLabel(workType) + " priority schedule",
+                    () => TimePriorityScheduleEditor.OpenForFloatMenu(pawn, workType, workGiver),
+                    orderInPriority: -1));
         }
 
         private static string WorkTypeMenuLabel(WorkTypeDef workType)
@@ -298,16 +326,53 @@ namespace Better_Work_Tab.Patches
                     baseHeaderDrawWidth: SubWorkDrilldownHeaderGeometry.GetBaseHeaderDrawWidth(null, -1f));
                 Find.MainTabsRoot.SetCurrentTab(MainButtonDefOf.Work);
                 HighlightState.SetSubWorkGiverToHighlight(pawn, targetWorkType, workGiver);
-                HeaderDrawingCoordinator.NotifyAngledHeadersChanged();
+                UI.WorkGrid.Invalidation.WorkTabInvalidationHub.Invalidate(
+                    UI.WorkGrid.Contracts.WorkTabDirtyFlags.HeaderText |
+                    UI.WorkGrid.Contracts.WorkTabDirtyFlags.HeaderGeometry |
+                    UI.WorkGrid.Contracts.WorkTabDirtyFlags.RenderResources);
                 MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
                 return;
             }
 
-            var screenPos = new Vector2(Verse.UI.screenWidth / 2f, Verse.UI.screenHeight / 2f);
+            var screenPos = new UnityEngine.Vector2(Verse.UI.screenWidth / 2f, Verse.UI.screenHeight / 2f);
             bool hasOverride = WorkGiverReassignmentManager.HasAnyPawnOverride(targetWorkType, pawn) ||
                                WorkGiverReassignmentManager.HasPawnOrdering(pawn, targetWorkType);
             Pawn windowPawn = hasOverride ? pawn : null;
             Find.WindowStack.Add(new Window_WorkGiverSubMenu(targetWorkType, screenPos, windowPawn));
+        }
+    }
+
+    [HarmonyPatch(typeof(FloatMenuOptionProvider_WorkGivers), nameof(FloatMenuOptionProvider_WorkGivers.GetWorkGiversOptionsFor))]
+    public static class Patch_FloatMenuOptionProvider_WorkGivers_GetWorkGiverOptionFor
+    {
+        public static readonly List<FloatMenuOption> AdditionalOptions = new List<FloatMenuOption>();
+
+        public static IEnumerable<FloatMenuOption> Postfix(IEnumerable<FloatMenuOption> value, Pawn pawn, LocalTargetInfo target, FloatMenuContext context)
+        {
+            if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabPriorityFeatures)
+            {
+                foreach (var option in value)
+                {
+                    yield return option;
+                }
+
+                AdditionalOptions.Clear();
+                yield break;
+            }
+
+            DoOnceSupport.EnsureBwtOwnsUnassignedWorkMenu();
+
+            foreach (var option in value)
+            {
+                yield return option;
+            }
+
+            foreach (var option in AdditionalOptions)
+            {
+                yield return option;
+            }
+
+            AdditionalOptions.Clear();
         }
     }
 

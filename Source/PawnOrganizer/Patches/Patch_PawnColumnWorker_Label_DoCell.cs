@@ -20,10 +20,7 @@ namespace Better_Work_Tab.Patches
         private static readonly MethodInfo GetLabelMethod =
             AccessTools.Method(typeof(PawnColumnWorker_Label), "GetLabel");
         private static readonly Func<PawnColumnWorker_Label, Pawn, TaggedString> GetLabel =
-            (Func<PawnColumnWorker_Label, Pawn, TaggedString>)Delegate.CreateDelegate(
-                typeof(Func<PawnColumnWorker_Label, Pawn, TaggedString>),
-                null,
-                GetLabelMethod);
+            AccessTools.MethodDelegate<Func<PawnColumnWorker_Label, Pawn, TaggedString>>(GetLabelMethod);
 
         // NOTE: Prefix and Transpiler are mutually exclusive execution paths:
         // - If contrast mode (Prefix returns false): DoCell_Contrast gates close directly.

@@ -1,5 +1,4 @@
-using System;
-using System.Reflection;
+﻿using System;
 using HarmonyLib;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
@@ -39,39 +38,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             if (__result && !WorkGiverAvailability.ShouldAllowForPawn(giver?.def, pawn))
             {
                 __result = false;
-            }
-        }
-    }
-
-    internal static class PawnWorkControlCompatibility
-    {
-        private static readonly MethodInfo IsColonyMechGetter = AccessTools.PropertyGetter(typeof(Pawn), "IsColonyMech");
-        private static readonly MethodInfo IsColonySubhumanGetter = AccessTools.PropertyGetter(typeof(Pawn), "IsColonySubhuman");
-
-        internal static bool IsColonyMech(Pawn pawn)
-        {
-            return GetOptionalPawnBool(pawn, IsColonyMechGetter);
-        }
-
-        internal static bool IsColonySubhuman(Pawn pawn)
-        {
-            return GetOptionalPawnBool(pawn, IsColonySubhumanGetter);
-        }
-
-        private static bool GetOptionalPawnBool(Pawn pawn, MethodInfo getter)
-        {
-            if (pawn == null || getter == null)
-            {
-                return false;
-            }
-
-            try
-            {
-                return (bool)getter.Invoke(pawn, null);
-            }
-            catch
-            {
-                return false;
             }
         }
     }
@@ -215,10 +181,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 return false;
             }
 
-            if (!def.nonColonistsCanDo &&
-                !pawn.IsColonist &&
-                !PawnWorkControlCompatibility.IsColonyMech(pawn) &&
-                !PawnWorkControlCompatibility.IsColonySubhuman(pawn))
+            if (!def.nonColonistsCanDo && !pawn.IsColonist && !pawn.IsColonyMech && !pawn.IsColonySubhuman)
             {
                 return false;
             }

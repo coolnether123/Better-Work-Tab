@@ -59,9 +59,8 @@ namespace Better_Work_Tab.ModSupport
             try
             {
                 int removed = 0;
-                Type workGiverOptionProvider = AccessTools.TypeByName("RimWorld.FloatMenuOptionProvider_WorkGivers");
-                removed += Unpatch(workGiverOptionProvider, "GetWorkGiverOption", HarmonyPatchType.Postfix);
-                removed += Unpatch(workGiverOptionProvider, "GetWorkGiversOptionsFor", HarmonyPatchType.Postfix);
+                removed += Unpatch(typeof(FloatMenuOptionProvider_WorkGivers), nameof(FloatMenuOptionProvider_WorkGivers.GetWorkGiverOption), HarmonyPatchType.Postfix);
+                removed += Unpatch(typeof(FloatMenuOptionProvider_WorkGivers), nameof(FloatMenuOptionProvider_WorkGivers.GetWorkGiversOptionsFor), HarmonyPatchType.Postfix);
                 removed += Unpatch(typeof(PawnTable), nameof(PawnTable.PawnTableOnGUI), HarmonyPatchType.Prefix);
                 removed += Unpatch(typeof(Window), nameof(Window.PreClose), HarmonyPatchType.Postfix);
 
@@ -86,11 +85,6 @@ namespace Better_Work_Tab.ModSupport
 
         private static int Unpatch(Type type, string methodName, HarmonyPatchType patchType)
         {
-            if (type == null)
-            {
-                return 0;
-            }
-
             MethodInfo method = AccessTools.Method(type, methodName);
             if (method == null)
             {
