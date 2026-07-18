@@ -14,7 +14,7 @@ namespace Better_Work_Tab.Features.Tutorial
             Pawn pawn = null,
             WorkTypeDef workType = null,
             WorkGiverDef workGiver = null,
-            IReadOnlyList<Vector2> outlinePoints = null)
+            IList<Vector2> outlinePoints = null)
         {
             Kind = kind;
             Rect = rect;
@@ -29,7 +29,7 @@ namespace Better_Work_Tab.Features.Tutorial
         internal Pawn Pawn { get; }
         internal WorkTypeDef WorkType { get; }
         internal WorkGiverDef WorkGiver { get; }
-        internal IReadOnlyList<Vector2> OutlinePoints { get; }
+        internal IList<Vector2> OutlinePoints { get; }
         internal bool HasCustomOutline => OutlinePoints != null && OutlinePoints.Count >= 3;
         internal bool IsValid => Kind != TutorialHubAnchor.None && Rect.width > 0f && Rect.height > 0f;
 
@@ -66,7 +66,7 @@ namespace Better_Work_Tab.Features.Tutorial
 
         internal BWTTutorialAnchor OffsetBy(Vector2 offset)
         {
-            IReadOnlyList<Vector2> shiftedOutline = null;
+            IList<Vector2> shiftedOutline = null;
             if (HasCustomOutline)
             {
                 var points = new Vector2[OutlinePoints.Count];
