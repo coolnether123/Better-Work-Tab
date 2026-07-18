@@ -3,9 +3,6 @@ using System.Collections.Generic;
 using UnityEngine;
 using Verse;
 using Verse.Sound;
-#if v1_2
-using Better_Work_Tab;
-#endif
 
 namespace Spine.UI.WidgetExtensions
 {
@@ -29,11 +26,7 @@ namespace Spine.UI.WidgetExtensions
             Color bgColor = hovered ? CategoryButtonHoverColor : CategoryButtonColor;
             
             Widgets.DrawBoxSolid(rect, bgColor);
-#if v1_2
-            Widgets12.DrawBox(rect, 1, hovered ? Texture2D.whiteTexture : null);
-#else
             Widgets.DrawBox(rect, 1, hovered ? Texture2D.whiteTexture : null);
-#endif
 
             Rect labelRect = rect.ContractedBy(8f);
             labelRect.height = rect.height * 0.5f;

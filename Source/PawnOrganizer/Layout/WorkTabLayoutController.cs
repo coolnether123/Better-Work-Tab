@@ -863,7 +863,7 @@ namespace Better_Work_Tab.PawnOrganizer
 
         private void BuildColumns()
         {
-#if v1_3 || v1_2
+#if v1_3
             var allColumns = _table.ColumnsListForReading;
 #else
             var allColumns = _table.Columns;

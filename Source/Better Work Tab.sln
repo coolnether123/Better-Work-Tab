@@ -7,8 +7,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Better Work Tab", "Better W
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
-		1.2|Any CPU = 1.2|Any CPU
-		1.3|Any CPU = 1.3|Any CPU
 		1.4|Any CPU = 1.4|Any CPU
 		1.5|Any CPU = 1.5|Any CPU
 		1.6|Any CPU = 1.6|Any CPU
@@ -16,10 +14,6 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{89678DFA-4038-4596-95B3-B21EA97C7BAD}.1.2|Any CPU.ActiveCfg = 1.2|Any CPU
-		{89678DFA-4038-4596-95B3-B21EA97C7BAD}.1.2|Any CPU.Build.0 = 1.2|Any CPU
-		{89678DFA-4038-4596-95B3-B21EA97C7BAD}.1.3|Any CPU.ActiveCfg = 1.3|Any CPU
-		{89678DFA-4038-4596-95B3-B21EA97C7BAD}.1.3|Any CPU.Build.0 = 1.3|Any CPU
 		{89678DFA-4038-4596-95B3-B21EA97C7BAD}.1.4|Any CPU.ActiveCfg = 1.4|Any CPU
 		{89678DFA-4038-4596-95B3-B21EA97C7BAD}.1.4|Any CPU.Build.0 = 1.4|Any CPU
 		{89678DFA-4038-4596-95B3-B21EA97C7BAD}.1.5|Any CPU.ActiveCfg = 1.5|Any CPU

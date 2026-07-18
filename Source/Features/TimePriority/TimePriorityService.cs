@@ -5,9 +5,7 @@ using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.ModSupport;
 using Better_Work_Tab.Mod_Support.Multiplayer;
-#if !v1_2 && !v1_1 && !v1_0 && !v0_19
 using Multiplayer.API;
-#endif
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -190,9 +188,7 @@ namespace Better_Work_Tab.Features.TimePriority
             }
         }
 
-#if !v1_2 && !v1_1 && !v1_0 && !v0_19
         [SyncMethod]
-#endif
         public static void SyncSetPriorityAtHour(
             int pawnId,
             int kindValue,
@@ -209,9 +205,7 @@ namespace Better_Work_Tab.Features.TimePriority
             SetPriorityAtHour(target, hour, priority, fallbackPriority);
         }
 
-#if !v1_2 && !v1_1 && !v1_0 && !v0_19
         [SyncMethod]
-#endif
         public static void SyncSetPriorities(
             int pawnId,
             int kindValue,

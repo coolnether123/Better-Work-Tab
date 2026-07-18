@@ -746,20 +746,11 @@ namespace Better_Work_Tab.Patches
                 SkillBoxSize + 2f,
                 SkillBoxSize + 2f);
 
-#if v1_2
-            Verse.Widgets.DrawBoxSolid(outlineRect, Color.clear);
-            Color outlineCol = BetterWorkTabMod.Settings.Color_BestPawnForSkillSquare;
-            Color oldCol = GUI.color;
-            GUI.color = outlineCol;
-            Verse.Widgets.DrawBox(outlineRect, (uint)BetterWorkTabMod.Settings.bestPawnHighlightThickness > 0 ? (int)BetterWorkTabMod.Settings.bestPawnHighlightThickness : 1);
-            GUI.color = oldCol;
-#else
             Widgets.DrawBoxSolidWithOutline(
                 outlineRect,
                 Color.clear,
                 BetterWorkTabMod.Settings.Color_BestPawnForSkillSquare,
                 BetterWorkTabMod.Settings.bestPawnHighlightThickness);
-#endif
         }
 
         private static void DrawBestPawnBackground(Rect rect)
@@ -1004,7 +995,6 @@ namespace Better_Work_Tab.Patches
                 SoundDefOf.Crunch.PlayOneShotOnCamera();
             }
 
-#if !v1_2 && !v1_1 && !(v1_0 || v0_19)
             if (pawn.Ideo != null && pawn.Ideo.IsWorkTypeConsideredDangerous(workType))
             {
                 Messages.Message(
@@ -1014,7 +1004,6 @@ namespace Better_Work_Tab.Patches
                     false);
                 SoundDefOf.DislikedWorkTypeActivated.PlayOneShotOnCamera();
             }
-#endif
         }
     }
 }

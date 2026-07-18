@@ -429,13 +429,8 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             }
             else
             {
-#if v1_2
-                string newName = Widgets12.TextField(fieldRect, rule.Name,
-                    RuleBuilderConstants.MaxRuleNameLength);
-#else
                 string newName = Verse.Widgets.TextField(fieldRect, rule.Name,
                     RuleBuilderConstants.MaxRuleNameLength);
-#endif
 
                 if (newName != rule.Name)
                 {
@@ -698,7 +693,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             if (parameters.Gender != null)
                 result.Add(new ConditionInfo("Gender", ConditionType.Gender, parameters.Gender));
 
-#if !v1_3 && !v1_2 && !v1_1 && !v1_0 && !v0_19
+#if !v1_3
             if (parameters.Xenotype != null)
                 result.Add(new ConditionInfo("Xenotype", ConditionType.Xenotype, parameters.Xenotype));
 #endif
@@ -758,7 +753,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             if (parameters.Gender == null)
                 AddOption("Gender", "BWT_Add_Gender".Translate(), () => parameters.Gender = Gender.None);
 
-#if !v1_3 && !v1_2 && !v1_1 && !v1_0 && !v0_19
+#if !v1_3
             if (parameters.Xenotype == null)
                 AddOption("Xenotype", "BWT_Add_Xenotype".Translate(), () => { /* placeholder until xenotype picker */ });
 #endif

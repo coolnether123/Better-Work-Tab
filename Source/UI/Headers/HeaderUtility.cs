@@ -35,7 +35,7 @@ namespace Better_Work_Tab.UI.Headers
         public static IList<PawnColumnDef> GetTableColumns(PawnTable table)
         {
             if (table == null) return null;
-#if v1_3 || v1_2
+#if v1_3
             return table.ColumnsListForReading;
 #else
             return table.Columns;

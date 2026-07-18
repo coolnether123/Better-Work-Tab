@@ -58,11 +58,7 @@ namespace Better_Work_Tab.UI
                 FieldHeight);
 
             GUI.SetNextControlName("RulesetNameField");
-#if v1_2
-            _buffer = Widgets12.TextField(fieldRect, _buffer, 64);
-#else
             _buffer = Widgets.TextField(fieldRect, _buffer, 64);
-#endif
 
             // Buttons
             float buttonWidth = (inRect.width - Padding * 3) / 2f;

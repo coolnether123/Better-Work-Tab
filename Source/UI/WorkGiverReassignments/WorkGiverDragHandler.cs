@@ -168,7 +168,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
                 var fill = new Color(1f, 1f, 0f, 0.12f);
                 var outline = new Color(1f, 0.9f, 0.2f, 0.9f);
-                DrawBoxSolidWithOutline(targetBox, fill, outline);
+                Widgets.DrawBoxSolidWithOutline(targetBox, fill, outline);
             }
 
             if (!_isDragging || _targetIndex < 0) return;
@@ -202,15 +202,6 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                     Widgets.DrawBoxSolid(new Rect(baselineX, lineY, 1f, actualLineHeight), baselineColor);
                 }
             }
-        }
-
-        private static void DrawBoxSolidWithOutline(Rect rect, Color fill, Color outline)
-        {
-            Color oldColor = GUI.color;
-            Widgets.DrawBoxSolid(rect, fill);
-            GUI.color = outline;
-            Widgets.DrawBox(rect);
-            GUI.color = oldColor;
         }
     }
 }

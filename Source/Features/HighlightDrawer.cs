@@ -12,15 +12,7 @@ namespace Better_Work_Tab.UI
             if (BetterWorkTabMod.Settings?.useOutlineHighlights ?? false)
             {
                 // Respect configured alpha so transparency adjustments apply to outline mode too.
-#if v1_2
-                Verse.Widgets.DrawBoxSolid(rect, Color.clear);
-                Color old = GUI.color;
-                GUI.color = color;
-                Verse.Widgets.DrawBox(rect, (int)OutlineThickness);
-                GUI.color = old;
-#else
                 Widgets.DrawBoxSolidWithOutline(rect, Color.clear, color, (int)OutlineThickness);
-#endif
             }
             else
             {

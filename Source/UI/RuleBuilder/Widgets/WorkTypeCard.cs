@@ -27,11 +27,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
 
             if (isConfigured)
             {
-#if v1_2
-                Widgets12.DrawBox(rect, (int)BorderWidth, Texture2D.whiteTexture);
-#else
                 Verse.Widgets.DrawBox(rect, (int)BorderWidth, Texture2D.whiteTexture);
-#endif
                 GUI.color = RuleBuilderConstants.CardBorderConfigured;
                 Verse.Widgets.DrawBox(rect, (int)BorderWidth);
                 GUI.color = Color.white;

@@ -5,9 +5,7 @@ using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.ModSupport;
-#if !v1_2 && !v1_1 && !v1_0 && !v0_19
 using Multiplayer.API;
-#endif
 using RimWorld;
 using System;
 using System.Collections.Generic;
@@ -814,57 +812,43 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             return WorkPrioritySystem.ClampPriority(defaultPriority);
         }
 
-#if !v1_2 && !v1_1 && !v1_0 && !v0_19
         [SyncMethod]
-#endif
         public static void SyncSetPawnOverride(int pawnId, string workGiverDefName, int priority)
         {
             ApplyPawnOverride(pawnId, workGiverDefName, priority);
         }
 
-#if !v1_2 && !v1_1 && !v1_0 && !v0_19
         [SyncMethod]
-#endif
         public static void SyncClearPawnOverride(int pawnId, string workGiverDefName)
         {
             ApplyClearPawnOverride(pawnId, workGiverDefName);
         }
 
-#if !v1_2 && !v1_1 && !v1_0 && !v0_19
         [SyncMethod]
-#endif
         public static void SyncSetPawnOverridesBatch(string workGiverDefName, List<int> pawnIds, List<int> priorities)
         {
             ApplyPawnOverridesBatch(workGiverDefName, pawnIds, priorities);
         }
 
-#if !v1_2 && !v1_1 && !v1_0 && !v0_19
         [SyncMethod]
-#endif
         public static void SyncClearPawnOverridesForWorkType(int pawnId, string workTypeDefName)
         {
             ApplyClearPawnOverridesForWorkType(pawnId, workTypeDefName);
         }
 
-#if !v1_2 && !v1_1 && !v1_0 && !v0_19
         [SyncMethod]
-#endif
         public static void SyncEnableParentWorkType(int pawnId, string workTypeDefName)
         {
             ApplyEnableParentWorkType(pawnId, workTypeDefName);
         }
 
-#if !v1_2 && !v1_1 && !v1_0 && !v0_19
         [SyncMethod]
-#endif
         public static void SyncEnableParentAndClearSubOverrides(int pawnId, string workTypeDefName)
         {
             ApplyEnableParentAndClearSubOverrides(pawnId, workTypeDefName);
         }
 
-#if !v1_2 && !v1_1 && !v1_0 && !v0_19
         [SyncMethod]
-#endif
         public static void SyncEnableParentAndSetOnlySubOverride(int pawnId, string workTypeDefName, string workGiverDefName, int priority)
         {
             ApplyEnableParentAndSetOnlySubOverride(pawnId, workTypeDefName, workGiverDefName, priority);
@@ -1189,9 +1173,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 out errorMsg);
         }
 
-#if !v1_2 && !v1_1 && !v1_0 && !v0_19
         [SyncMethod]
-#endif
         public static void SyncSetPawnWorkGiverOrder(int pawnId, string workTypeDefName, List<string> orderedWorkGiverNames)
         {
             SetPawnWorkGiverOrder(pawnId, workTypeDefName, orderedWorkGiverNames);
@@ -1254,9 +1236,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             MoveWithinWorkTypeSynced(workTypeDefName, workGiverDefName, newIndex, pawn);
         }
 
-#if !v1_2 && !v1_1 && !v1_0 && !v0_19
         [SyncMethod]
-#endif
         public static void SyncMoveWithinWorkType(string workTypeDefName, string workGiverDefName, int newIndex, int pawnId)
         {
             ApplyMoveWithinWorkType(workTypeDefName, workGiverDefName, newIndex, pawnId);
@@ -1303,9 +1283,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             NotifySubWorkDataChanged();
         }
 
-#if !v1_2 && !v1_1 && !v1_0 && !v0_19
         [SyncMethod]
-#endif
         internal static void SyncReassignWorkGiver(string workGiverDefName, string targetWorkTypeDefName, int insertIndex)
         {
             var wg = DefDatabase<WorkGiverDef>.GetNamedSilentFail(workGiverDefName);

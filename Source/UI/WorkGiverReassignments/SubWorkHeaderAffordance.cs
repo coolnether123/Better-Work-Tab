@@ -102,8 +102,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             if (_openBadgeTooltip == null || _openBadgeTooltipLanguage != language)
             {
                 _openBadgeTooltip = "BWT_SubWork_OpenSpecificJobs".Translate()
-                    .ToString()
-                    .Colorize(Color.gray);
+                    .Colorize(ColoredText.SubtleGrayColor);
                 _openBadgeTooltipLanguage = language;
             }
 
@@ -391,7 +390,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                     ? Color.white
                     : new Color(1f, 1f, 1f, 0.96f);
                 GUIUtility.RotateAroundPivot(180f, rect.center);
-                GUI.DrawTexture(rect, RimWorld.TexButton.CloseXSmall);
+                GUI.DrawTexture(rect, TexButton.Reveal);
             }
             finally
             {

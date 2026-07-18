@@ -1,8 +1,6 @@
 using Better_Work_Tab.Mod_Support.Multiplayer;
 using Better_Work_Tab.ModSupport;
-#if !v1_2 && !v1_1 && !v1_0 && !v0_19
 using Multiplayer.API;
-#endif
 using RimWorld;
 using System;
 using System.Collections.Generic;
@@ -151,9 +149,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 snapshot.TargetWorkTypeDefName, encoded, historyAction, command);
         }
 
-#if !v1_2 && !v1_1 && !v1_0 && !v0_19
         [SyncMethod]
-#endif
         public static void SyncApplyWorkGiverLayout(long commandId, string workGiverDefName, int expectedVersion,
             string targetWorkTypeDefName, List<string> encodedOrders, int historyAction)
         {

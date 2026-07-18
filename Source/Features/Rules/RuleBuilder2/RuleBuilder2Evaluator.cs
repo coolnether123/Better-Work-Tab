@@ -363,7 +363,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
 
         private static bool HasChildOnCurrentMap(Pawn pawn)
         {
-#if v1_3 || v1_2 || v1_1 || v1_0 || v0_19 || v0_18 || v0_17 || v0_16 || v0_15 || v0_14 || v0_13 || vAlpha4
+#if v1_3
             return false;
 #else
             return pawn != null && Find.CurrentMap?.mapPawns?.FreeColonists

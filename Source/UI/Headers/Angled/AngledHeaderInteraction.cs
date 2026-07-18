@@ -35,15 +35,6 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
     public static class AngledHeaderInteraction
     {
-#if v1_2 || v1_1 || v1_0 || v0_19
-        private static Color TooltipTitleColor => Color.white;
-        private static Color TooltipSubtleColor => Color.gray;
-        private static bool ShouldShowKeyboardTooltips => true;
-#else
-        private static Color TooltipTitleColor => ColoredText.TipSectionTitleColor;
-        private static Color TooltipSubtleColor => ColoredTextCompat.SubtleGrayColor;
-        private static bool ShouldShowKeyboardTooltips => !Verse.Steam.SteamDeck.IsSteamDeckInNonKeyboardMode;
-#endif
         private static PawnColumnDef _columnSuppressingClicks = null;
         private static PawnColumnDef _pendingClickColumn = null;
 
@@ -180,29 +171,29 @@ namespace Better_Work_Tab.UI.Headers.Angled
             // Replicate vanilla GetHeaderTip from PawnColumnWorker_WorkPriority
             var workType = worker.def.workType;
             
-            TaggedString tooltip = WorkTypeDisplayNameService.GerundLabel(workType).ToString().Colorize(TooltipTitleColor)
+            TaggedString tooltip = WorkTypeDisplayNameService.GerundLabel(workType).Colorize(ColoredText.TipSectionTitleColor)
                 + "\n\n" + workType.description 
                 + "\n\n" + SpecificWorkListString(workType) 
                 + "\n";
             
             if (worker.def.sortable)
             {
-                tooltip += "\n" + "ClickToSortByThisColumn".Translate().ToString().Colorize(TooltipSubtleColor);
+                tooltip += "\n" + "ClickToSortByThisColumn".Translate().Colorize(ColoredText.SubtleGrayColor);
             }
             
-            if (ShouldShowKeyboardTooltips)
+            if (!Verse.Steam.SteamDeck.IsSteamDeckInNonKeyboardMode)
             {
                 if (BetterWorkTabMod.Settings?.enableColumnGrouping ?? true)
                 {
-                    tooltip += "\n" + "Shift + click: Select column for group dragging.".Colorize(TooltipSubtleColor);
+                    tooltip += "\n" + "Shift + click: Select column for group dragging.".Colorize(ColoredText.SubtleGrayColor);
                 }
                 else if (Find.PlaySettings.useWorkPriorities)
                 {
-                    tooltip += "\n" + "WorkPriorityShiftClickTip".Translate().ToString().Colorize(TooltipSubtleColor);
+                    tooltip += "\n" + "WorkPriorityShiftClickTip".Translate().Colorize(ColoredText.SubtleGrayColor);
                 }
                 else
                 {
-                    tooltip += "\n" + "WorkPriorityShiftClickEnableDisableTip".Translate().ToString().Colorize(TooltipSubtleColor);
+                    tooltip += "\n" + "WorkPriorityShiftClickEnableDisableTip".Translate().Colorize(ColoredText.SubtleGrayColor);
                 }
             }
 
@@ -225,7 +216,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
             var def = workGiver.def;
             System.Text.StringBuilder tooltip = new System.Text.StringBuilder(160);
 
-            tooltip.Append(WorkGiverDisplayNameService.FullLabel(def).ToString().Colorize(TooltipTitleColor));
+            tooltip.Append(WorkGiverDisplayNameService.FullLabel(def).Colorize(ColoredText.TipSectionTitleColor));
 
             string workTypeLabel = WorkTypeDisplayNameService.FullLabel(activeWorkType);
             if (!workTypeLabel.NullOrEmpty())
@@ -240,27 +231,27 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
             if (worker.def.sortable)
             {
-                tooltip.Append("\n\n").Append("ClickToSortByThisColumn".Translate().ToString().Colorize(TooltipSubtleColor));
+                tooltip.Append("\n\n").Append("ClickToSortByThisColumn".Translate().Colorize(ColoredText.SubtleGrayColor));
             }
 
             if (BetterWorkTabMod.Settings?.enableColumnGrouping ?? true)
             {
-                tooltip.Append("\n").Append("Shift + click: Select column for group dragging.".Colorize(TooltipSubtleColor));
+                tooltip.Append("\n").Append("Shift + click: Select column for group dragging.".Colorize(ColoredText.SubtleGrayColor));
             }
             else if (Find.PlaySettings.useWorkPriorities)
             {
-                tooltip.Append("\n").Append("WorkPriorityShiftClickTip".Translate().ToString().Colorize(TooltipSubtleColor));
+                tooltip.Append("\n").Append("WorkPriorityShiftClickTip".Translate().Colorize(ColoredText.SubtleGrayColor));
             }
             else
             {
-                tooltip.Append("\n").Append("WorkPriorityShiftClickEnableDisableTip".Translate().ToString().Colorize(TooltipSubtleColor));
+                tooltip.Append("\n").Append("WorkPriorityShiftClickEnableDisableTip".Translate().Colorize(ColoredText.SubtleGrayColor));
             }
 
             if (SubWorkDrilldownInput.IsEnabled)
             {
                 tooltip.Append("\n")
                     .Append((SubWorkDrilldownInput.GestureLabel().CapitalizeFirst() + ": Back to work types")
-                    .Colorize(TooltipSubtleColor));
+                    .Colorize(ColoredText.SubtleGrayColor));
             }
 
             return tooltip.ToString();
@@ -345,7 +336,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 gesture = gesture.CapitalizeFirst();
                 string workLabel = WorkTypeDisplayNameService.HeaderLabel(workType);
 
-                tooltip += "\n" + (gesture + ": Open " + workLabel + " sub-work jobs").Colorize(TooltipSubtleColor);
+                tooltip += "\n" + (gesture + ": Open " + workLabel + " sub-work jobs").Colorize(ColoredText.SubtleGrayColor);
             }
             catch
             {

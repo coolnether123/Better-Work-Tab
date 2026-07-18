@@ -203,7 +203,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Commands
                 return true;
             }
 
-            WorkPrioritySystem.SetPriority(pawn.workSettings, workType, priority);
+            WorkPrioritySystem.SetPrioritySynced(
+                pawn.thingIDNumber,
+                workType.defName,
+                priority);
             return true;
         }
     }
