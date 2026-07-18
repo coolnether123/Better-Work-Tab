@@ -122,7 +122,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 return GetDefaultEnabledPriority();
             }
 
-            return ClampPriorityForRequest(workSettings.GetPriority(workType));
+            return ClampPriorityForRequest(workSettings.priorities[workType]);
         }
 
         internal static int GetBetterWorkTabEffectiveWorkGiverPriorityAtHour(

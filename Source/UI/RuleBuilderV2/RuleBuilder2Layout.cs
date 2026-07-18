@@ -72,7 +72,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             Rect enabled = new Rect(tools.xMax + 12f, rect.y + 8f, 110f, 24f);
             Rect done = new Rect(rect.xMax - 88f, rect.y + 5f, 78f, metrics.ButtonHeight);
             Rect apply = new Rect(done.x - 92f, done.y, 84f, metrics.ButtonHeight);
-            Rect preview = Rect.zero;
+            Rect preview = UnityCompat.ZeroRect;
             Rect status = new Rect(enabled.xMax + 10f, rect.y + 8f, Mathf.Max(0f, apply.x - enabled.xMax - 20f), 24f);
             return new RuleBuilder2HeaderRects(title, name, tools, enabled, preview, apply, done, status);
         }
@@ -108,7 +108,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
         internal RuleBuilder2DashboardRects Dashboard(Rect rect)
         {
             Rect inner = rect.ContractedBy(metrics.OuterPadding);
-            Rect title = Rect.zero;
+            Rect title = UnityCompat.ZeroRect;
             Rect actionsCard = new Rect(inner.x, inner.y, inner.width, metrics.DashboardActionsHeight);
             Rect actionsInner = actionsCard.ContractedBy(metrics.InnerPadding);
             Rect[] actions = SpineRectLayout.Horizontal(
@@ -119,7 +119,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                 SpineLayoutTrack.Fixed(110f),
                 SpineLayoutTrack.Flex(1f, 1f));
             Rect more = new Rect(actionsInner.xMax - 70f, actionsInner.y, 70f, metrics.ButtonHeight);
-            Rect overview = Rect.zero;
+            Rect overview = UnityCompat.ZeroRect;
             Rect content = new Rect(inner.x, actionsCard.yMax + 10f, inner.width, Mathf.Max(0f, inner.yMax - actionsCard.yMax - 10f));
 
             return new RuleBuilder2DashboardRects(
@@ -257,13 +257,13 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                 float titleWidth = 58f;
                 Rect change = new Rect(inner.xMax - 100f, inner.y + 1f, 100f, metrics.TextFieldHeight);
                 Rect summary = new Rect(inner.x + titleWidth + metrics.SmallGap, inner.y + 2f, Mathf.Max(0f, change.x - inner.x - titleWidth - metrics.SmallGap * 2f), 26f);
-                Rect hint = Rect.zero;
-                Rect next = Rect.zero;
-                return new RuleBuilder2TargetSectionRects(inner, summary, change, hint, next, Rect.zero, Rect.zero);
+                Rect hint = UnityCompat.ZeroRect;
+                Rect next = UnityCompat.ZeroRect;
+                return new RuleBuilder2TargetSectionRects(inner, summary, change, hint, next, UnityCompat.ZeroRect, UnityCompat.ZeroRect);
             }
 
             Rect list = new Rect(inner.x, searchOrSummary.yMax + metrics.SmallGap, inner.width, Mathf.Max(0f, inner.yMax - searchOrSummary.yMax - metrics.SmallGap));
-            return new RuleBuilder2TargetSectionRects(inner, Rect.zero, Rect.zero, Rect.zero, Rect.zero, searchOrSummary, list);
+            return new RuleBuilder2TargetSectionRects(inner, UnityCompat.ZeroRect, UnityCompat.ZeroRect, UnityCompat.ZeroRect, UnityCompat.ZeroRect, searchOrSummary, list);
         }
 
         internal RuleBuilder2ConditionsSectionRects ConditionsSection(Rect rect)
@@ -305,7 +305,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             Rect run = new Rect(inner.x, inner.y + metrics.SectionTitleHeight, 120f, metrics.TextFieldHeight);
             Rect matched = showMatchedPanel
                 ? new Rect(inner.x + 130f, run.y, Mathf.Max(0f, inner.width - 130f), 72f)
-                : Rect.zero;
+                : UnityCompat.ZeroRect;
             Rect hint = new Rect(inner.x, inner.y + 66f, inner.width, 40f);
             Rect list = new Rect(inner.x, inner.y + 104f, inner.width, Mathf.Max(0f, inner.height - 108f));
             return new RuleBuilder2PreviewSectionRects(inner, run, matched, hint, list);

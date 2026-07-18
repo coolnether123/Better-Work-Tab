@@ -10,8 +10,8 @@ using Verse.AI;
 
 namespace Better_Work_Tab.Features.WorkGiverReassignments
 {
-    [HarmonyPatch(typeof(JobGiver_Work), "PawnCanUseWorkGiver")]
-    internal static class Patch_JobGiver_Work_PawnCanUseWorkGiver
+    [HarmonyPatch(typeof(JobGiver_Work), "GiverCanGiveJobToPawn")]
+    internal static class Patch_JobGiver_Work_GiverCanGiveJobToPawn
     {
         public static bool Prefix(Pawn pawn, WorkGiver giver, ref bool __result)
         {
@@ -136,14 +136,14 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
     [HarmonyPatch(typeof(WorkGiver_Scanner), nameof(WorkGiver_Scanner.HasJobOnThing))]
     internal static class Patch_WorkGiver_Scanner_HasJobOnThing
     {
-        public static void Postfix(WorkGiver_Scanner __instance, Pawn pawn, Thing t, bool forced, ref bool __result)
+        public static void Postfix(WorkGiver_Scanner __instance, Pawn pawn, ref bool __result)
         {
             if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabOrdering)
             {
                 return;
             }
 
-            if (__result && !WorkGiverScannerExtensions.ShouldAllowForPawn(__instance, pawn, forced))
+            if (__result && !WorkGiverScannerExtensions.ShouldAllowForPawn(__instance, pawn))
             {
                 __result = false;
             }
@@ -153,14 +153,14 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
     [HarmonyPatch(typeof(WorkGiver_Scanner), nameof(WorkGiver_Scanner.HasJobOnCell))]
     internal static class Patch_WorkGiver_Scanner_HasJobOnCell
     {
-        public static void Postfix(WorkGiver_Scanner __instance, Pawn pawn, IntVec3 c, bool forced, ref bool __result)
+        public static void Postfix(WorkGiver_Scanner __instance, Pawn pawn, ref bool __result)
         {
             if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabOrdering)
             {
                 return;
             }
 
-            if (__result && !WorkGiverScannerExtensions.ShouldAllowForPawn(__instance, pawn, forced))
+            if (__result && !WorkGiverScannerExtensions.ShouldAllowForPawn(__instance, pawn))
             {
                 __result = false;
             }
@@ -170,7 +170,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
     [HarmonyPatch(typeof(PawnColumnWorker_WorkPriority), nameof(PawnColumnWorker_WorkPriority.Compare))]
     internal static class Patch_PawnColumnWorker_WorkPriority_Compare_SubWorkDrilldown
     {
-        public static bool Prefix(PawnColumnWorker_WorkPriority __instance, Pawn a, Pawn b, ref int __result)
+        public static bool Prefix(PawnColumnWorker_WorkPriority __instance, Pawn left, Pawn right, ref int __result)
         {
             if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabPriorityFeatures)
             {
@@ -187,7 +187,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 return true;
             }
 
-            __result = SubWorkDrilldownState.ComparePawnsForColumn(__instance.def, a, b);
+            __result = SubWorkDrilldownState.ComparePawnsForColumn(__instance.def, left, right);
             return false;
         }
     }

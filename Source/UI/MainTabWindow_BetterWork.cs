@@ -1116,7 +1116,7 @@ namespace Better_Work_Tab.UI
 
         internal bool TryGetRuleBuilder2HeaderBand(out Rect screenRect)
         {
-            screenRect = Rect.zero;
+            screenRect = UnityCompat.ZeroRect;
             var layout = PawnOrganizerSystem.Instance?.Layout;
             if (layout == null || layout.HeaderHeight <= 0f)
             {
@@ -1135,7 +1135,7 @@ namespace Better_Work_Tab.UI
 
         internal bool TryGetRuleBuilder2TargetHeaderBounds(WorkTypeDef workType, WorkGiverDef workGiver, out Rect bounds)
         {
-            bounds = Rect.zero;
+            bounds = UnityCompat.ZeroRect;
             var layout = PawnOrganizerSystem.Instance?.Layout;
             if (layout?.Columns == null || workType == null)
             {
@@ -1355,7 +1355,7 @@ namespace Better_Work_Tab.UI
         {
             if (!FluffyWorkTabGateway.IsSubWorkStyleChooserActive)
             {
-                _stableSubWorkChooserWindowRect = Rect.zero;
+                _stableSubWorkChooserWindowRect = UnityCompat.ZeroRect;
                 return;
             }
 
@@ -1385,7 +1385,7 @@ namespace Better_Work_Tab.UI
 
             if (!FluffyWorkTabGateway.IsSubWorkStyleChooserActive)
             {
-                _stableSubWorkChooserWindowRect = Rect.zero;
+                _stableSubWorkChooserWindowRect = UnityCompat.ZeroRect;
             }
         }
 
@@ -1911,7 +1911,7 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
-            Rect bounds = solver?.GetBounds(column.Column) ?? Rect.zero;
+            Rect bounds = solver?.GetBounds(column.Column) ?? UnityCompat.ZeroRect;
             if (bounds.width <= 0.5f || bounds.height <= 0.5f)
             {
                 bounds = headerRect;
@@ -2283,7 +2283,7 @@ namespace Better_Work_Tab.UI
             }
 
             HeaderDrawingCoordinator.EnsureLayoutSolved(table);
-            Rect vanillaBounds = HeaderDrawingCoordinator.GetVanillaSolver()?.GetBounds(columnDef) ?? Rect.zero;
+            Rect vanillaBounds = HeaderDrawingCoordinator.GetVanillaSolver()?.GetBounds(columnDef) ?? UnityCompat.ZeroRect;
             if (!IsUsableRect(vanillaBounds))
             {
                 return false;
@@ -2522,7 +2522,7 @@ namespace Better_Work_Tab.UI
             out Rect workBounds,
             out float pivotX)
         {
-            workBounds = Rect.zero;
+            workBounds = UnityCompat.ZeroRect;
             pivotX = 0f;
             float minX = float.MaxValue;
             float maxX = float.MinValue;

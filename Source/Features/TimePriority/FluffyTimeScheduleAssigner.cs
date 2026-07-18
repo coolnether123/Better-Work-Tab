@@ -175,7 +175,7 @@ namespace Better_Work_Tab.Features.TimePriority
             }
 
             IsOpen = false;
-            _lastInteractiveRect = Rect.zero;
+            _lastInteractiveRect = UnityCompat.ZeroRect;
             NotifyLayoutChanged();
         }
 

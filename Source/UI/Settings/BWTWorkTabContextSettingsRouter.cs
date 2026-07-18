@@ -580,7 +580,7 @@ namespace Better_Work_Tab.UI.Settings
 
         private static bool TryGetTimePriorityContextRect(IWorkTabLayoutController layout, out Rect rect)
         {
-            rect = Rect.zero;
+            rect = UnityCompat.ZeroRect;
             if (layout == null)
             {
                 return false;

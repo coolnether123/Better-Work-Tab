@@ -102,8 +102,8 @@ namespace Better_Work_Tab.Features.Tutorial
             pinnedGeometry = default(BWTTutorialAnchor);
             hoveredLessonId = null;
             hoveredLessonLastConnectedAt = -1f;
-            lastOptionsRect = Rect.zero;
-            lastContextRect = Rect.zero;
+            lastOptionsRect = UnityCompat.ZeroRect;
+            lastContextRect = UnityCompat.ZeroRect;
             optionScrollPosition = Vector2.zero;
             contextScrollPosition = Vector2.zero;
             lastContextContentHeight = 0f;
@@ -294,8 +294,8 @@ namespace Better_Work_Tab.Features.Tutorial
             DrawAnchorOutlines(anchors, active, pointerAnchor);
             if (!hubs.TryGetValue(active, out BWTTutorialHubDefinition hub))
             {
-                lastOptionsRect = Rect.zero;
-                lastContextRect = Rect.zero;
+                lastOptionsRect = UnityCompat.ZeroRect;
+                lastContextRect = UnityCompat.ZeroRect;
                 hoveredLessonId = null;
                 return;
             }
@@ -612,7 +612,7 @@ namespace Better_Work_Tab.Features.Tutorial
                 }
             }
 
-            return Rect.zero;
+            return UnityCompat.ZeroRect;
         }
 
         private static bool ContainsRect(IList<BWTTutorialAnchor> anchors, Rect rect)

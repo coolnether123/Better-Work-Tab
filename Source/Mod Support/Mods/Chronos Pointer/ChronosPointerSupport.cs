@@ -79,7 +79,7 @@ namespace Better_Work_Tab.ModSupport
             _lastTimePriorityCursorDrawn = false;
             _lastChronosRect = chronosRect;
             _lastPriorityRowsRect = priorityRowsRect;
-            _lastCursorRect = Rect.zero;
+            _lastCursorRect = UnityCompat.ZeroRect;
             _lastCursorColor = Color.white;
             _lastLocalHour = 0f;
             _lastHourBoxWidth = 0f;

@@ -39,7 +39,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
         private RuleBuilder2Surface activeSurface = RuleBuilder2Surface.Main;
         private RuleBuilder2Surface previousSurface = RuleBuilder2Surface.Main;
         private float surfaceTransition = 1f;
-        private Rect surfaceTransitionOrigin = Rect.zero;
+        private Rect surfaceTransitionOrigin = UnityCompat.ZeroRect;
         private bool hasSurfaceTransitionOrigin;
         private bool renamingRuleset;
         private string renameBuffer = "";
@@ -569,7 +569,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
         private void SetSurface(RuleBuilder2Surface surface)
         {
-            SetSurface(surface, Rect.zero);
+            SetSurface(surface, UnityCompat.ZeroRect);
         }
 
         private void SetSurface(RuleBuilder2Surface surface, Rect origin)
