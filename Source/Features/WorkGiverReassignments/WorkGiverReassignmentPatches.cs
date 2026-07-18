@@ -134,14 +134,14 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
     [HarmonyPatch(typeof(WorkGiver_Scanner), nameof(WorkGiver_Scanner.HasJobOnCell))]
     internal static class Patch_WorkGiver_Scanner_HasJobOnCell
     {
-        public static void Postfix(WorkGiver_Scanner __instance, Pawn pawn, IntVec3 c, bool forced, ref bool __result)
+        public static void Postfix(WorkGiver_Scanner __instance, Pawn pawn, IntVec3 c, ref bool __result)
         {
             if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabOrdering)
             {
                 return;
             }
 
-            if (__result && !WorkGiverScannerExtensions.ShouldAllowForPawn(__instance, pawn, forced))
+            if (__result && !WorkGiverScannerExtensions.ShouldAllowForPawn(__instance, pawn))
             {
                 __result = false;
             }

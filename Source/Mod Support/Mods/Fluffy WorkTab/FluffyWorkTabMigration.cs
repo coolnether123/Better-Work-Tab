@@ -376,9 +376,9 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
 #endif
         private static class Patch_GameDataSaveLoader_LoadGame_RecordFluffyWorkTabSave
         {
-            private static void Prefix(string saveFileName)
+            private static void Prefix(string fileName)
             {
-                RecordLoadingSave(saveFileName);
+                RecordLoadingSave(fileName);
             }
         }
     }
