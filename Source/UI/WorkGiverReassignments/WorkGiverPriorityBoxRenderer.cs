@@ -321,7 +321,8 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             GUI.DrawTexture(boxRect, bgTex);
             GUI.color = oldColor;
 
-            if (priority > 0)
+            if (Find.PlaySettings.useWorkPriorities &&
+                priority > WorkPrioritySystem.DisabledPriority)
             {
                 Text.Font = boxRect.width <= WorkPriorityCellGeometry.CompactSubWorkBoxSize + 0.01f
                     ? GameFont.Tiny
@@ -329,6 +330,11 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 Text.Anchor = TextAnchor.MiddleCenter;
                 GUI.color = WithVisualAlpha(WorkPrioritySystem.GetPriorityColor(priority));
                 Widgets.Label(boxRect.ContractedBy(-3f), GetPriorityLabel(priority));
+            }
+            else if (priority > WorkPrioritySystem.DisabledPriority)
+            {
+                GUI.color = WithVisualAlpha(oldColor);
+                GUI.DrawTexture(boxRect, WidgetsWork.WorkBoxCheckTex);
             }
 
             GUI.color = oldColor;
