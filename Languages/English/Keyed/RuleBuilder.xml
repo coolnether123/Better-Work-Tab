@@ -85,6 +85,7 @@
   <BWT_Cancel>Cancel</BWT_Cancel>
   <BWT_DeleteRuleset>Delete Ruleset</BWT_DeleteRuleset>
   <BWT_DeleteRulesetConfirm>Are you sure? Deleting a ruleset is irreversible.</BWT_DeleteRulesetConfirm>
+  <BWT_NewRule>New Rule</BWT_NewRule>
   <BWT_DuplicateRule>Duplicate Rule</BWT_DuplicateRule>
   <BWT_NoRulesInRuleset>No rules in ruleset</BWT_NoRulesInRuleset>
   <BWT_DropHere>Drop here to duplicate</BWT_DropHere>
