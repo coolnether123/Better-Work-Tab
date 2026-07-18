@@ -209,6 +209,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
             List<Pawn> allPawns,
             out RuleBuilder2Condition condition)
         {
+#if !v1_3 && !v1_2 && !v1_1 && !v1_0 && !v0_19 && !v0_18 && !v0_17 && !v0_16 && !v0_15 && !v0_14 && !v0_13 && !vAlpha4
             condition = null;
             if (assignedPawns == null || assignedPawns.Count == 0 || allPawns == null || assignedPawns.Count >= allPawns.Count)
             {
@@ -250,6 +251,10 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 DisplayText = "Has xenotype " + xenotype.LabelCap
             };
             return true;
+#else
+            condition = null;
+            return false;
+#endif
         }
 
         private static float GetAverageSkill(Pawn pawn, WorkTypeDef workType)
@@ -262,10 +267,12 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
             return pawn.skills.AverageOfRelevantSkillsFor(workType);
         }
 
+#if !v1_3 && !v1_2 && !v1_1 && !v1_0 && !v0_19 && !v0_18 && !v0_17 && !v0_16 && !v0_15 && !v0_14 && !v0_13 && !vAlpha4
         private static XenotypeDef GetPawnXenotype(Pawn pawn)
         {
             return pawn?.genes?.Xenotype;
         }
+#endif
 
         private static string GetWorkTypeLabel(WorkTypeDef workType)
         {

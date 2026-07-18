@@ -153,10 +153,14 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                     }
                     break;
                 case RuleBuilder2ConditionKind.Xenotype:
+#if !v1_3 && !v1_2 && !v1_1 && !v1_0 && !v0_19 && !v0_18 && !v0_17 && !v0_16 && !v0_15 && !v0_14 && !v0_13 && !vAlpha4
                     if (Widgets.ButtonText(new Rect(rect.x, rect.y, 180f, rect.height), GetDefButtonLabel<XenotypeDef>(condition, T("BWT_RuleBuilder2_XenotypeFallback"))))
                     {
                         ShowDefMenu<XenotypeDef>(condition, int.MaxValue);
                     }
+#else
+                    DrawFittedLabel(new Rect(rect.x, rect.y, 180f, rect.height), condition.DefName.NullOrEmpty() ? T("BWT_RuleBuilder2_XenotypeFallback") : condition.DefName);
+#endif
                     break;
                 case RuleBuilder2ConditionKind.CapacityMinimum:
                     if (Widgets.ButtonText(new Rect(rect.x, rect.y, 150f, rect.height), GetDefButtonLabel<PawnCapacityDef>(condition, T("BWT_RuleBuilder2_CapacityFallback"))))

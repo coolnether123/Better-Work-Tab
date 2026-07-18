@@ -325,10 +325,15 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                     parameters.ActiveConditions.Add(nameof(WorkAssignmentParameters.RequiredTrait));
                     return true;
                 case RuleBuilder2ConditionKind.Xenotype:
+#if !v1_3 && !v1_2 && !v1_1 && !v1_0 && !v0_19 && !v0_18 && !v0_17 && !v0_16 && !v0_15 && !v0_14 && !v0_13 && !vAlpha4
                     parameters.Xenotype = DefDatabase<XenotypeDef>.GetNamedSilentFail(condition.DefName);
                     parameters.XenotypeString = condition.DefName;
                     parameters.ActiveConditions.Add(nameof(WorkAssignmentParameters.Xenotype));
                     return true;
+#else
+                    warning = condition.Kind.ToString();
+                    return false;
+#endif
                 case RuleBuilder2ConditionKind.Gender:
                     if (Enum.TryParse(condition.TextValue, out Gender gender))
                     {

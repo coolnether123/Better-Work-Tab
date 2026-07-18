@@ -16,10 +16,10 @@ namespace Spine.RimWorld.Serialization
                 return true;
             }
 
-            Log.WarningOnce(
+            Spine.Harmony.Infrastructure.MMLog.WarnOnce(
+                "ScribeIsolationGuard." + warningKey,
                 $"[{owner}] Blocked standalone {operation} because Scribe is currently {Scribe.mode}. " +
-                "Standalone mod serialization must never overlap RimWorld or Multiplayer serialization.",
-                warningKey);
+                "Standalone mod serialization must never overlap RimWorld or Multiplayer serialization.");
             return false;
         }
     }

@@ -72,7 +72,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
             if (table == null) return 0f;
 
             float maxH = 0f;
-            var columns = table.Columns;
+            var columns = HeaderUtility.GetTableColumns(table);
             if (columns == null) return 0f;
 
             float rotation = CurrentRotation;

@@ -47,6 +47,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
     {
         private static readonly MethodInfo IsColonyMechGetter = AccessTools.PropertyGetter(typeof(Pawn), "IsColonyMech");
         private static readonly MethodInfo IsColonySubhumanGetter = AccessTools.PropertyGetter(typeof(Pawn), "IsColonySubhuman");
+        private static readonly FieldInfo CanBeDoneByMechsField = AccessTools.Field(typeof(WorkGiverDef), "canBeDoneByMechs");
 
         internal static bool IsColonyMech(Pawn pawn)
         {
@@ -56,6 +57,23 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         internal static bool IsColonySubhuman(Pawn pawn)
         {
             return GetOptionalPawnBool(pawn, IsColonySubhumanGetter);
+        }
+
+        internal static bool CanBeDoneByMechs(WorkGiverDef def)
+        {
+            if (def == null || CanBeDoneByMechsField == null)
+            {
+                return true;
+            }
+
+            try
+            {
+                return (bool)CanBeDoneByMechsField.GetValue(def);
+            }
+            catch
+            {
+                return true;
+            }
         }
 
         private static bool GetOptionalPawnBool(Pawn pawn, MethodInfo getter)
@@ -243,7 +261,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 return false;
             }
 
-            return !pawn.RaceProps.IsMechanoid || def.canBeDoneByMechs;
+            return !pawn.RaceProps.IsMechanoid || PawnWorkControlCompatibility.CanBeDoneByMechs(def);
         }
     }
 }

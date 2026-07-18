@@ -1,4 +1,5 @@
 using RimWorld;
+using System.Collections.Generic;
 using UnityEngine;
 using Verse;
 using System.Collections.Generic;
@@ -30,6 +31,16 @@ namespace Better_Work_Tab.UI.Headers
         /// Padding used for collision detection in staggered headers.
         /// </summary>
         public const float CollisionPadding = 1f;
+
+        public static IList<PawnColumnDef> GetTableColumns(PawnTable table)
+        {
+            if (table == null) return null;
+#if v1_3
+            return table.ColumnsListForReading;
+#else
+            return table.Columns;
+#endif
+        }
 
         /// <summary>
         /// Formats the header text for a given work type, applying capitalization
@@ -220,10 +231,11 @@ namespace Better_Work_Tab.UI.Headers
         public static bool IsAnyCJKVertical(PawnTable table)
         {
             var settings = BetterWorkTabMod.Settings;
-            if (settings == null || !settings.useVerticalStackingForCJK || table?.Columns == null)
+            var columns = GetTableColumns(table);
+            if (settings == null || !settings.useVerticalStackingForCJK || columns == null)
                 return false;
 
-            foreach (var col in table.Columns)
+            foreach (var col in columns)
             {
                 string headerText = col.workType != null ? GetHeaderText(col.workType, false) : null;
                 if (!headerText.NullOrEmpty() && ShouldUseCJKVerticalLabel(headerText))

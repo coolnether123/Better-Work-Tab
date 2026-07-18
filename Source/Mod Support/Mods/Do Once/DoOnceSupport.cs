@@ -35,7 +35,7 @@ namespace Better_Work_Tab.ModSupport
         {
             get
             {
-                return detected || ModLister.GetActiveModWithIdentifier(DoOncePackageId, ignorePostfix: true) != null;
+                return detected || GetActiveModWithIdentifier(DoOncePackageId) != null;
             }
         }
 
@@ -157,6 +157,29 @@ namespace Better_Work_Tab.ModSupport
             {
                 options.Clear();
             }
+        }
+
+        private static ModContentPack GetActiveModWithIdentifier(string packageId)
+        {
+            var mods = LoadedModManager.RunningModsListForReading;
+            for (int i = 0; i < mods.Count; i++)
+            {
+                string activePackageId = mods[i]?.PackageId;
+                if (string.Equals(activePackageId, packageId, StringComparison.OrdinalIgnoreCase) ||
+                    StartsWithIgnoreCase(activePackageId, packageId + "_"))
+                {
+                    return mods[i];
+                }
+            }
+
+            return null;
+        }
+
+        private static bool StartsWithIgnoreCase(string value, string prefix)
+        {
+            return value != null &&
+                   prefix != null &&
+                   value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
         }
     }
 }

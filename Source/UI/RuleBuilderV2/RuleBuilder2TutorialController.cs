@@ -341,11 +341,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
         private static void OpenSettings()
         {
-            var mod = LoadedModManager.GetMod<BetterWorkTabMod>();
-            if (mod != null)
-            {
-                Find.WindowStack.Add(new Dialog_ModSettings(mod));
-            }
+            MainTabWindow_BetterWork.OpenBetterWorkTabSettings(toggleExisting: false);
         }
 
         private static void SetStep(RuleBuilder2TutorialStep step)
