@@ -579,7 +579,7 @@ namespace Better_Work_Tab.Features.Tutorial
                 {
                     TutorialProgressTransitions.Complete(settings.completedTutorialLessonIds, lessonId);
                     settings.Write();
-                    SoundDefOf.Tick_High.PlayOneShotOnCamera();
+                    PlayTutorialSound("Tick_High");
                 }
                 return;
             }
@@ -589,7 +589,7 @@ namespace Better_Work_Tab.Features.Tutorial
             lessonScrollPosition = Vector2.zero;
             InitializeLessonObservation(lessonId, anchors, layout);
             settings.Write();
-            SoundDefOf.Tick_High.PlayOneShotOnCamera();
+            PlayTutorialSound("Tick_High");
         }
 
         private static void InitializeLessonObservation(
@@ -1081,7 +1081,7 @@ namespace Better_Work_Tab.Features.Tutorial
             observedLessonId = string.Empty;
             lessonScrollPosition = Vector2.zero;
             Selector.Reset();
-            SoundDefOf.Tick_High.PlayOneShotOnCamera();
+            PlayTutorialSound("Tick_High");
         }
 
         private static void ReturnToSelection()
@@ -1100,7 +1100,7 @@ namespace Better_Work_Tab.Features.Tutorial
             observedLessonId = string.Empty;
             lessonScrollPosition = Vector2.zero;
             Selector.Reset();
-            SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+            PlayTutorialSound("Tick_Low");
         }
 
         private static void Pause()
@@ -1111,7 +1111,7 @@ namespace Better_Work_Tab.Features.Tutorial
             WelcomeOverlay.ResetAnimation();
             lessonScrollPosition = Vector2.zero;
             Selector.Reset();
-            SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+            PlayTutorialSound("Tick_Low");
         }
 
         private static void LeaveTutorial()
@@ -1149,7 +1149,7 @@ namespace Better_Work_Tab.Features.Tutorial
             WelcomeOverlay.ResetAnimation();
             Selector.Reset();
             settings.Write();
-            SoundDefOf.Tick_High.PlayOneShotOnCamera();
+            PlayTutorialSound("Tick_High");
         }
 
         private static void DismissWelcome()
@@ -1168,7 +1168,13 @@ namespace Better_Work_Tab.Features.Tutorial
             WelcomeOverlay.ResetAnimation();
             Selector.Reset();
             settings.Write();
-            SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+            PlayTutorialSound("Tick_Low");
+        }
+
+        private static void PlayTutorialSound(string defName)
+        {
+            SoundDef sound = DefDatabase<SoundDef>.GetNamedSilentFail(defName);
+            sound?.PlayOneShotOnCamera();
         }
 
         private static string T(string key)
