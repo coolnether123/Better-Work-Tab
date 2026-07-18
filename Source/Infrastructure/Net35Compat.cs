@@ -1,4 +1,4 @@
-#if v1_0
+#if (v1_0 || v0_19 || v0_18 || v0_17 || v0_16 || v0_15 || v0_14 || v0_13 || vAlpha4)
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
@@ -240,6 +240,19 @@ namespace System.Linq
         public static HashSet<T> ToHashSet<T>(this IEnumerable<T> source, IEqualityComparer<T> comparer)
         {
             return new HashSet<T>(source, comparer);
+        }
+    }
+}
+
+namespace Verse
+{
+    public static class Net35VerseStringExtensions
+    {
+        public static string Formatted(this string text, params object[] args)
+        {
+            return args != null && args.Length > 0
+                ? string.Format(text ?? string.Empty, args)
+                : text ?? string.Empty;
         }
     }
 }

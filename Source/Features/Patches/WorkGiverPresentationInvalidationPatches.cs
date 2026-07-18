@@ -5,7 +5,7 @@ using Verse;
 
 namespace Better_Work_Tab.Features.Patches
 {
-#if !v1_0
+#if !v1_0 && !v0_19
     [HarmonyPatch(typeof(Pawn), nameof(Pawn.Notify_DisabledWorkTypesChanged))]
     internal static class Patch_Pawn_NotifyDisabledWorkTypesChanged_Presentation
     {

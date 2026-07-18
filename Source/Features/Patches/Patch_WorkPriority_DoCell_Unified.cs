@@ -746,7 +746,7 @@ namespace Better_Work_Tab.Patches
                 SkillBoxSize + 2f,
                 SkillBoxSize + 2f);
 
-#if v1_2 || v1_1 || v1_0
+#if v1_2 || v1_1 || (v1_0 || v0_19)
             Verse.Widgets.DrawBoxSolid(outlineRect, Color.clear);
             Color outlineCol = BetterWorkTabMod.Settings.Color_BestPawnForSkillSquare;
             Color oldCol = GUI.color;

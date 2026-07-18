@@ -23,7 +23,7 @@ namespace Better_Work_Tab.Patches
     [HarmonyPatch(typeof(FloatMenuMakerMap), "AddJobGiverWorkOrders")]
     public static class Patch_FloatMenuMakerMap_AddJobGiverWorkOrders
     {
-#if v1_3 || v1_2 || v1_1 || v1_0
+#if v1_3 || v1_2 || v1_1 || (v1_0 || v0_19)
         public static void Postfix(IntVec3 clickCell, Pawn pawn, List<FloatMenuOption> opts, bool drafted)
         {
             // Only relevant if work settings exist.
@@ -289,7 +289,7 @@ namespace Better_Work_Tab.Patches
                         MoteMaker.MakeStaticMote(clickedCell, pawn.Map, workGiver.forceMote);
                     }
 
-#if !v1_2 && !v1_1 && !v1_0 && !v0_19
+#if !v1_2 && !v1_1 && !(v1_0 || v0_19)
                     if (workGiver.forceFleck != null)
                     {
                         FleckMaker.Static(clickedCell, pawn.Map, workGiver.forceFleck);
@@ -298,7 +298,7 @@ namespace Better_Work_Tab.Patches
                 }
             }
 
-#if v1_2 || v1_1 || v1_0
+#if v1_2 || v1_1 || (v1_0 || v0_19)
             var option = FloatMenuUtility.DecoratePrioritizedTask(
                 new FloatMenuOption(doOnceLabel, AssignOnce),
                 pawn,

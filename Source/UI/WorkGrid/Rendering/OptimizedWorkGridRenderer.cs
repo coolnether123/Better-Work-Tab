@@ -391,7 +391,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             // method as PawnColumnWorker_WorkPriority instead of maintaining a BWT copy of
             // its skill texture blending, ideology warning, low-skill warning, and passion
             // rendering rules.
-            #if v1_1 || v1_0
+            #if v1_1 || v1_0 || v0_19
             WidgetsWork.DrawWorkBoxFor(boxRect.x, boxRect.y, cell.Pawn, cell.WorkType, _snapshot.ManualPriorities);
             #else
             WidgetsWork.DrawWorkBoxFor(boxRect, cell.Pawn, cell.WorkType);

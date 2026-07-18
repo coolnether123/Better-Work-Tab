@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using Verse;
 using Verse.Sound;
-#if v1_2 || v1_1 || v1_0
+#if v1_2 || v1_1 || (v1_0 || v0_19)
 using Better_Work_Tab;
 #endif
 
@@ -29,7 +29,7 @@ namespace Spine.UI.WidgetExtensions
             Color bgColor = hovered ? CategoryButtonHoverColor : CategoryButtonColor;
             
             Widgets.DrawBoxSolid(rect, bgColor);
-#if v1_2 || v1_1 || v1_0
+#if v1_2 || v1_1 || (v1_0 || v0_19)
             Widgets12.DrawBox(rect, 1, hovered ? Texture2D.whiteTexture : null);
 #else
             Widgets.DrawBox(rect, 1, hovered ? Texture2D.whiteTexture : null);

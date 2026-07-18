@@ -180,7 +180,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
             // Replicate vanilla GetHeaderTip from PawnColumnWorker_WorkPriority
             var workType = worker.def.workType;
             
-#if v1_0
+#if v1_0 || v0_19
             string tooltip = WorkTypeDisplayNameService.GerundLabel(workType).ToString().Colorize(TooltipTitleColor)
 #else
             TaggedString tooltip = WorkTypeDisplayNameService.GerundLabel(workType).ToString().Colorize(TooltipTitleColor)
@@ -212,7 +212,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
             AppendSubWorkOpenTip(ref tooltip, workType);
 
-#if v1_0
+#if v1_0 || v0_19
             return tooltip;
 #else
             return tooltip.Resolve();
@@ -323,7 +323,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
             return label;
         }
 
-#if v1_0
+#if v1_0 || v0_19
         private static void AppendSubWorkOpenTip(ref string tooltip, WorkTypeDef workType)
 #else
         private static void AppendSubWorkOpenTip(ref TaggedString tooltip, WorkTypeDef workType)
