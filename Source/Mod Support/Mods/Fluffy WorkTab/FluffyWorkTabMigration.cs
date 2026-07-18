@@ -173,11 +173,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
         private static List<ExternalPawnWorkGiverPriorityRecord> ReadSavedFluffyPriorities()
         {
             var records = new List<ExternalPawnWorkGiverPriorityRecord>();
-#if v0_15
-            string saveName = _lastLoadingSaveName;
-#else
             string saveName = _lastLoadingSaveName ?? Current.Game?.InitData?.gameToLoad;
-#endif
             if (saveName.NullOrEmpty())
             {
                 return records;

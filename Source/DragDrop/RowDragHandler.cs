@@ -202,7 +202,7 @@ namespace Better_Work_Tab.DragDrop
 
             // Notify the game to refresh
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
-            ColonistBarCompat.MarkColonistsDirty();
+            Find.ColonistBar?.MarkColonistsDirty();
 
             // Notify multiplayer followers
 #if !v1_2 && !v1_1 && !(v1_0 || v0_19)

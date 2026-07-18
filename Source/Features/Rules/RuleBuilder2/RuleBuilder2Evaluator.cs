@@ -289,12 +289,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
 
             if (skill != null)
             {
-                SkillRecord record = pawn.skills.GetSkill(skill);
-#if v0_15 || v0_14 || v0_13 || vAlpha4
-                return record?.level ?? 0f;
-#else
-                return record?.Level ?? 0f;
-#endif
+                return pawn.skills.GetSkill(skill)?.Level ?? 0f;
             }
 
             return workType == null ? 0f : pawn.skills.AverageOfRelevantSkillsFor(workType);

@@ -25,19 +25,10 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 for (int i = 0; i < classicRuleset.Rules.Count; i++)
                 {
                     WorkAssignmentRule rule = classicRuleset.Rules[i];
-                    try
+                    RuleBuilder2Card card = FromClassicRule(rule, i);
+                    if (card != null)
                     {
-                        RuleBuilder2Card card = FromClassicRule(rule, i);
-                        if (card != null)
-                        {
-                            result.Cards.Add(card);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Log.Warning(
-                            "[Better Work Tab] Skipped incompatible classic rule during Rule Builder 2 migration: " +
-                            ex.Message);
+                        result.Cards.Add(card);
                     }
                 }
             }

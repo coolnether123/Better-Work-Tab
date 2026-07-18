@@ -56,7 +56,7 @@ namespace Spine.UI.SettingsFramework
         protected override void SetInitialSizeAndPosition()
         {
             Vector2 size = InitialSize;
-            Vector2 position = Better_Work_Tab.UICompat.MousePosUIInvertedUseEventIfCan + new Vector2(4f, 0f);
+            Vector2 position = Verse.UI.MousePositionOnUIInverted + new Vector2(4f, 0f);
 
             if (position.x + size.x > Verse.UI.screenWidth)
             {

@@ -961,13 +961,13 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
 
             _chooserActive = false;
             _chooserWorkType = null;
-            _chooserSourceRect = UnityCompat.ZeroRect;
+            _chooserSourceRect = Rect.zero;
             _chooserSourceWorkColumnSlot = -1;
-            _focusChoiceRegionRect = UnityCompat.ZeroRect;
-            _expandChoiceRegionRect = UnityCompat.ZeroRect;
-            _focusChoiceButtonRect = UnityCompat.ZeroRect;
-            _expandChoiceButtonRect = UnityCompat.ZeroRect;
-            _rememberChoiceRect = UnityCompat.ZeroRect;
+            _focusChoiceRegionRect = Rect.zero;
+            _expandChoiceRegionRect = Rect.zero;
+            _focusChoiceButtonRect = Rect.zero;
+            _expandChoiceButtonRect = Rect.zero;
+            _rememberChoiceRect = Rect.zero;
             _chooserRememberChoice = true;
             DebugForcedSubWorkStyleChooserHover = BetterWorkTabSettings.SubWorkDrilldownStyle.NotChosen;
         }
@@ -1060,7 +1060,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
         {
             if (region.width <= 1f || region.height <= 1f)
             {
-                return UnityCompat.ZeroRect;
+                return Rect.zero;
             }
 
             float width = Mathf.Max(120f, region.width - (ChooserButtonHorizontalInset * 2f));

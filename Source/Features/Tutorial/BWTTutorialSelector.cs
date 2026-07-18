@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Spine.UI.Tutorial;
 using UnityEngine;
@@ -17,7 +17,7 @@ namespace Better_Work_Tab.Features.Tutorial
             Anchor = anchor;
             Title = title ?? string.Empty;
             Body = body ?? string.Empty;
-            Options = options ?? ArrayCompat.Empty<BWTTutorialOptionDefinition>();
+            Options = options ?? new BWTTutorialOptionDefinition[0];
         }
 
         internal TutorialHubAnchor Anchor { get; }
@@ -72,6 +72,8 @@ namespace Better_Work_Tab.Features.Tutorial
     {
         private const float PanelGap = 12f;
         private const float CardPadding = 14f;
+        private const float ContextPadding = 13f;
+        private const float ScrollbarWidth = 16f;
         private const float OptionWidth = 220f;
         private const float ContextWidth = 280f;
         private const float FooterHeight = 40f;
@@ -87,13 +89,9 @@ namespace Better_Work_Tab.Features.Tutorial
         private Rect lastContextRect;
         private Vector2 optionScrollPosition;
         private Vector2 contextScrollPosition;
+        private TutorialHubAnchor optionScrollAnchor = TutorialHubAnchor.None;
         private float lastContextContentHeight;
         private string contextContentKey;
-
-        internal float PreferredReserveWidth => 0f;
-        // The selector may reserve room beside the grid, but it must never
-        // make the Work Tab taller.
-        internal float PreferredReserveHeight => 0f;
 
         internal void Reset()
         {
@@ -102,10 +100,11 @@ namespace Better_Work_Tab.Features.Tutorial
             pinnedGeometry = default(BWTTutorialAnchor);
             hoveredLessonId = null;
             hoveredLessonLastConnectedAt = -1f;
-            lastOptionsRect = UnityCompat.ZeroRect;
-            lastContextRect = UnityCompat.ZeroRect;
+            lastOptionsRect = Rect.zero;
+            lastContextRect = Rect.zero;
             optionScrollPosition = Vector2.zero;
             contextScrollPosition = Vector2.zero;
+            optionScrollAnchor = TutorialHubAnchor.None;
             lastContextContentHeight = 0f;
             contextContentKey = null;
         }
@@ -158,14 +157,6 @@ namespace Better_Work_Tab.Features.Tutorial
             TutorialHubAnchor anchorAtPointer = GetAnchorAt(anchors, evt.mousePosition);
             TutorialHubAnchor active = ResolveActiveAnchor(anchorAtPointer);
 
-            if (evt.type == EventType.MouseDown && evt.button == 0 && anchorAtPointer != TutorialHubAnchor.None)
-            {
-                pinnedAnchor = anchorAtPointer;
-                hover.Pin(anchorAtPointer, Time.realtimeSinceStartup);
-                evt.Use();
-                return true;
-            }
-
             if (active == TutorialHubAnchor.None || !hubs.TryGetValue(active, out BWTTutorialHubDefinition hub))
             {
                 return false;
@@ -184,14 +175,47 @@ namespace Better_Work_Tab.Features.Tutorial
 
             if (evt.type == EventType.ScrollWheel && layout.OptionsRect.Contains(evt.mousePosition))
             {
+                optionScrollPosition.y = TutorialOverflowScrollPolicy.ApplyWheel(
+                    optionScrollPosition.y,
+                    evt.delta.y,
+                    layout.OptionsRect.height,
+                    layout.OptionViewRect.height);
                 evt.Use();
                 return true;
             }
 
             if (evt.type == EventType.ScrollWheel && layout.ContextRect.Contains(evt.mousePosition))
             {
+                contextScrollPosition.y = TutorialOverflowScrollPolicy.ApplyWheel(
+                    contextScrollPosition.y,
+                    evt.delta.y,
+                    Mathf.Max(0f, layout.ContextRect.height - ContextPadding * 2f),
+                    lastContextContentHeight);
                 evt.Use();
                 return true;
+            }
+
+            bool overOptionsScrollbar =
+                layout.OptionViewRect.height > layout.OptionsRect.height + 0.5f &&
+                new Rect(
+                    layout.OptionsRect.xMax - ScrollbarWidth,
+                    layout.OptionsRect.y,
+                    ScrollbarWidth,
+                    layout.OptionsRect.height).Contains(evt.mousePosition);
+            Rect contextInner = layout.ContextRect.ContractedBy(ContextPadding);
+            bool overContextScrollbar =
+                lastContextContentHeight > contextInner.height + 0.5f &&
+                new Rect(
+                    contextInner.xMax - ScrollbarWidth,
+                    contextInner.y,
+                    ScrollbarWidth,
+                    contextInner.height).Contains(evt.mousePosition);
+            if ((evt.type == EventType.MouseDown && (overOptionsScrollbar || overContextScrollbar)) ||
+                ((evt.type == EventType.MouseDrag || evt.type == EventType.MouseUp) && GUIUtility.hotControl != 0))
+            {
+                // BeginScrollView owns scrollbar dragging. The Work-grid router
+                // has already honored tutorial pointer ownership beneath this window.
+                return false;
             }
 
             if (evt.type == EventType.MouseDown && evt.button == 0)
@@ -294,9 +318,10 @@ namespace Better_Work_Tab.Features.Tutorial
             DrawAnchorOutlines(anchors, active, pointerAnchor);
             if (!hubs.TryGetValue(active, out BWTTutorialHubDefinition hub))
             {
-                lastOptionsRect = UnityCompat.ZeroRect;
-                lastContextRect = UnityCompat.ZeroRect;
+                lastOptionsRect = Rect.zero;
+                lastContextRect = Rect.zero;
                 hoveredLessonId = null;
+                optionScrollAnchor = TutorialHubAnchor.None;
                 return;
             }
 
@@ -308,8 +333,15 @@ namespace Better_Work_Tab.Features.Tutorial
                 recommendedLabel);
             lastOptionsRect = layout.OptionsRect;
             lastContextRect = layout.ContextRect;
-            optionScrollPosition = Vector2.zero;
-            contextScrollPosition = Vector2.zero;
+            if (optionScrollAnchor != active)
+            {
+                optionScrollAnchor = active;
+                optionScrollPosition = Vector2.zero;
+            }
+            optionScrollPosition.y = TutorialOverflowScrollPolicy.ClampOffset(
+                optionScrollPosition.y,
+                layout.OptionsRect.height,
+                layout.OptionViewRect.height);
             string currentHoveredLesson = GetHoveredLesson(
                 hub,
                 layout,
@@ -411,10 +443,11 @@ namespace Better_Work_Tab.Features.Tutorial
 
             Text.Font = GameFont.Small;
             Text.WordWrap = true;
+            Widgets.BeginScrollView(layout.OptionsRect, ref optionScrollPosition, layout.OptionViewRect);
             for (int i = 0; i < hub.Options.Count && i < layout.OptionRects.Count; i++)
             {
                 BWTTutorialOptionDefinition option = hub.Options[i];
-                Rect rect = GetScreenOptionRect(layout, layout.OptionRects[i], 0f);
+                Rect rect = layout.OptionRects[i];
                 bool isHovered = string.Equals(option.LessonId, hovered?.LessonId, StringComparison.Ordinal);
                 bool isComplete = TutorialProgressTransitions.IsCompleted(completed, option.LessonId);
                 Widgets.DrawBoxSolid(rect, isHovered
@@ -425,17 +458,18 @@ namespace Better_Work_Tab.Features.Tutorial
                     : new Color(0.42f, 0.43f, 0.42f, 1f);
                 Widgets.DrawBox(rect, isHovered ? 2 : 1);
                 GUI.color = Color.white;
-                string prefix = isComplete ? "âœ“  " : string.Empty;
+                string prefix = isComplete ? "✓  " : string.Empty;
                 Rect labelRect = new Rect(rect.x + 9f, rect.y + 4f, rect.width - 18f, rect.height - 8f);
                 Text.Anchor = TextAnchor.MiddleLeft;
                 Widgets.Label(labelRect, prefix + GetOptionDisplayLabel(option, recommendedLabel));
             }
+            Widgets.EndScrollView();
             Text.Anchor = TextAnchor.UpperLeft;
 
             Widgets.DrawBoxSolid(layout.ContextRect, new Color(0.075f, 0.082f, 0.09f, 0.98f));
             GUI.color = new Color(0.32f, 0.34f, 0.35f, 1f);
             Widgets.DrawBox(layout.ContextRect, 1);
-            Rect contextInner = layout.ContextRect.ContractedBy(13f);
+            Rect contextInner = layout.ContextRect.ContractedBy(ContextPadding);
             Text.Font = GameFont.Small;
             string heading = hovered?.Heading ?? defaultHeading;
             string body = hovered?.Body ?? hub.Body;
@@ -443,14 +477,32 @@ namespace Better_Work_Tab.Features.Tutorial
             float headingHeight = Mathf.Max(28f, Text.CalcHeight(heading, contentWidth));
             float bodyHeight = Mathf.Max(28f, Text.CalcHeight(body, contentWidth));
             lastContextContentHeight = headingHeight + 10f + bodyHeight;
+            if (lastContextContentHeight > contextInner.height + 0.5f)
+            {
+                contentWidth = Mathf.Max(80f, contextInner.width - ScrollbarWidth);
+                headingHeight = Mathf.Max(28f, Text.CalcHeight(heading, contentWidth));
+                bodyHeight = Mathf.Max(28f, Text.CalcHeight(body, contentWidth));
+                lastContextContentHeight = headingHeight + 10f + bodyHeight;
+            }
+            contextScrollPosition.y = TutorialOverflowScrollPolicy.ClampOffset(
+                contextScrollPosition.y,
+                contextInner.height,
+                lastContextContentHeight);
+            Rect contextView = new Rect(
+                0f,
+                0f,
+                contentWidth,
+                Mathf.Max(contextInner.height, lastContextContentHeight));
+            Widgets.BeginScrollView(contextInner, ref contextScrollPosition, contextView);
             GUI.color = new Color(1f, 0.86f, 0.42f, 1f);
-            Widgets.Label(new Rect(contextInner.x, contextInner.y, contentWidth, headingHeight), heading);
+            Widgets.Label(new Rect(0f, 0f, contentWidth, headingHeight), heading);
             GUI.color = new Color(0.9f, 0.91f, 0.9f, 1f);
             Widgets.Label(new Rect(
-                contextInner.x,
-                contextInner.y + headingHeight + 10f,
+                0f,
+                headingHeight + 10f,
                 contentWidth,
-                Mathf.Min(bodyHeight, contextInner.height - headingHeight - 10f)), body);
+                bodyHeight), body);
+            Widgets.EndScrollView();
 
             bool exitHovered = layout.ExitRect.Contains(Event.current?.mousePosition ?? Vector2.zero);
             Widgets.DrawBoxSolid(layout.ExitRect, exitHovered
@@ -612,7 +664,7 @@ namespace Better_Work_Tab.Features.Tutorial
                 }
             }
 
-            return UnityCompat.ZeroRect;
+            return Rect.zero;
         }
 
         private static bool ContainsRect(IList<BWTTutorialAnchor> anchors, Rect rect)
@@ -710,7 +762,7 @@ namespace Better_Work_Tab.Features.Tutorial
         private static string GetOptionDisplayLabel(BWTTutorialOptionDefinition option, string recommendedLabel)
         {
             return option.Recommended
-                ? option.Label + "  Â· " + recommendedLabel
+                ? option.Label + "  · " + recommendedLabel
                 : option.Label;
         }
 

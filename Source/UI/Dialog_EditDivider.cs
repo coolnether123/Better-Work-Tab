@@ -91,11 +91,7 @@ namespace Better_Work_Tab.UI
             var heightLabelRect = new Rect(0f, heightBlockTop, inRect.width, 22f);
             Widgets.Label(heightLabelRect, $"Height: {_height:F0}px");
             var heightSliderRect = new Rect(0f, heightLabelRect.yMax + 15f, inRect.width, 27);
-#if v0_15
-            _height = Widgets.HorizontalSlider(heightSliderRect, _height, 10f, 80f, middleAlignment: false);
-#else
             _height = Widgets.HorizontalSlider(heightSliderRect, _height, 10f, 80f, false, null, "Thin", "Tall");
-#endif
 
             float buttonY = inRect.height - 50f;
             Rect okButton = new Rect(inRect.width - 170f, buttonY, 70f, 30f);

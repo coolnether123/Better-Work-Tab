@@ -30,7 +30,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             rect = new Rect(0f, 0f, outerRect.width, outerRect.height);
             Rect matched = flow.ShowMatchedPanel && flow.SelectedWorkTabContext.HasValue
                 ? new Rect(rect.x, rect.y, rect.width, 72f)
-                : UnityCompat.ZeroRect;
+                : Rect.zero;
             Rect list = matched.height > 0f
                 ? new Rect(rect.x, matched.yMax + 8f, rect.width, Mathf.Max(0f, rect.height - matched.height - 8f))
                 : rect;

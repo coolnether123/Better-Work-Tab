@@ -129,7 +129,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
         internal static bool BlocksWorkTabHover()
         {
-            return activeWindow?.windowRect.Contains(UiCompat.MousePositionOnUIInverted) == true;
+            return activeWindow?.windowRect.Contains(Verse.UI.MousePositionOnUIInverted) == true;
         }
 
         internal static bool TryGetSelection(out RuleBuilder2WorkTabSelection selection)

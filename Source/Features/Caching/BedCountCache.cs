@@ -41,7 +41,7 @@ namespace Better_Work_Tab.Features.Caching
                 return CalculateBedCount(map);
             }
 
-            int mapId = MapCompat.MapId(map);
+            int mapId = map.uniqueID;
             float currentTime = Time.realtimeSinceStartup;
 
             // Check if we have a cached entry that's still valid
@@ -80,7 +80,7 @@ namespace Better_Work_Tab.Features.Caching
                 return;
             }
 
-            int mapId = MapCompat.MapId(map);
+            int mapId = map.uniqueID;
 
             // Force recalculation on next GetBedCount call by removing entry
             if (_bedCountCache.TryGetValue(mapId, out _))

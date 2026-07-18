@@ -208,7 +208,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 return bounds.width > 0f && bounds.height > 0f && quad != null && quad.Length >= 3;
             }
 
-            bounds = UnityCompat.ZeroRect;
+            bounds = Rect.zero;
             quad = null;
             return false;
         }

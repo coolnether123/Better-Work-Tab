@@ -1,4 +1,4 @@
-#if v0_16 || v0_15
+#if v0_16
 using System;
 using System.Collections.Generic;
 using UnityEngine;

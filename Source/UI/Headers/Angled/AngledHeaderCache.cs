@@ -68,7 +68,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 return true;
             }
 
-            bounds = UnityCompat.ZeroRect;
+            bounds = Rect.zero;
             return false;
         }
 
@@ -404,7 +404,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
         {
             if (quad == null || quad.Length == 0)
             {
-                return UnityCompat.ZeroRect;
+                return Rect.zero;
             }
 
             float minX = quad[0].x;

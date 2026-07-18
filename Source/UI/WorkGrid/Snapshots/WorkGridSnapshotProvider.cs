@@ -259,7 +259,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                 retainedBytes,
                 Find.PlaySettings?.useWorkPriorities ?? true,
                 maxPriority,
-                Mathf.RoundToInt(UICompat.UIScale * 1000f),
+                Mathf.RoundToInt(Prefs.UIScale * 1000f),
                 presentationRevision,
                 unchecked((presentationRevision * 397) ^ maxPriority)));
         }

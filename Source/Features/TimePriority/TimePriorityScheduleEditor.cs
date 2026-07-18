@@ -25,7 +25,7 @@ namespace Better_Work_Tab.Features.TimePriority
     internal static class TimePriorityScheduleEditor
     {
         private const int HoursPerDay = 24;
-        private const float AnimationSeconds = 0.22f;
+        private const float AnimationSeconds = 0.20f;
         private const float PanelPadding = 8f;
         private const float PawnLabelWidth = 112f;
         private const float HeaderHeight = 37f;
@@ -257,7 +257,7 @@ namespace Better_Work_Tab.Features.TimePriority
 
             _isClosing = false;
             _closingStartedAt = 0f;
-            _closingSourceRect = UnityCompat.ZeroRect;
+            _closingSourceRect = Rect.zero;
 
             var info = new TargetInfo(null, target, priorityBoxRect, currentPriority);
             if (_session != null && _session.Matches(target))
@@ -702,7 +702,7 @@ namespace Better_Work_Tab.Features.TimePriority
 
         private static void Close()
         {
-            StartCloseAnimation(_lastCloseRect != UnityCompat.ZeroRect ? _lastCloseRect : _session?.SourceBoxRect ?? UnityCompat.ZeroRect);
+            StartCloseAnimation(_lastCloseRect != Rect.zero ? _lastCloseRect : _session?.SourceBoxRect ?? Rect.zero);
         }
 
         private static void StartCloseAnimation(Rect sourceRect)
@@ -715,7 +715,7 @@ namespace Better_Work_Tab.Features.TimePriority
 
             _isClosing = true;
             _closingStartedAt = Time.realtimeSinceStartup;
-            _closingSourceRect = sourceRect != UnityCompat.ZeroRect ? sourceRect : _session.SourceBoxRect;
+            _closingSourceRect = sourceRect != Rect.zero ? sourceRect : _session.SourceBoxRect;
             NotifyLayoutChanged();
         }
 
@@ -724,13 +724,13 @@ namespace Better_Work_Tab.Features.TimePriority
             _session = null;
             _isClosing = false;
             _closingStartedAt = 0f;
-            _closingSourceRect = UnityCompat.ZeroRect;
+            _closingSourceRect = Rect.zero;
             LastCellHits.Clear();
             LastCopyPasteHits.Clear();
             LastScheduleCellDiagnostics.Clear();
-            _lastPanelRect = UnityCompat.ZeroRect;
-            _lastTimelineRect = UnityCompat.ZeroRect;
-            _lastCloseRect = UnityCompat.ZeroRect;
+            _lastPanelRect = Rect.zero;
+            _lastTimelineRect = Rect.zero;
+            _lastCloseRect = Rect.zero;
             NotifyLayoutChanged();
         }
 
@@ -791,7 +791,7 @@ namespace Better_Work_Tab.Features.TimePriority
             }
 
             builder.AppendLine("timePriorityActive=" + (_session != null));
-            builder.AppendLine("timePrioritySourceRect=" + FormatRect(_session?.SourceBoxRect ?? UnityCompat.ZeroRect));
+            builder.AppendLine("timePrioritySourceRect=" + FormatRect(_session?.SourceBoxRect ?? Rect.zero));
             builder.AppendLine("timePriorityTimelineRect=" + FormatRect(_lastTimelineRect));
             builder.AppendLine("timePriorityCells=" + LastScheduleCellDiagnostics.Count);
             for (int i = 0; i < LastScheduleCellDiagnostics.Count; i++)
@@ -820,9 +820,9 @@ namespace Better_Work_Tab.Features.TimePriority
         {
             if (index < 0 || index >= LastScheduleCellDiagnostics.Count)
             {
-                cellRect = UnityCompat.ZeroRect;
-                boxRect = UnityCompat.ZeroRect;
-                labelRect = UnityCompat.ZeroRect;
+                cellRect = Rect.zero;
+                boxRect = Rect.zero;
+                labelRect = Rect.zero;
                 return false;
             }
 
@@ -1330,7 +1330,7 @@ namespace Better_Work_Tab.Features.TimePriority
             Rect timelineHeaderVisibleRect = GetAccordionRect(timelineHeaderRect, progress);
 
             Rect combined = dividerRect;
-            Rect priorityRowsRect = UnityCompat.ZeroRect;
+            Rect priorityRowsRect = Rect.zero;
             for (int i = 0; i < rows.Count; i++)
             {
                 Rect rowTimelineRect = GetInlineTimelineRect(rows[i].RowRect, timelineX, timelineWidth);
@@ -1355,7 +1355,7 @@ namespace Better_Work_Tab.Features.TimePriority
 
         private static bool TryGetTransientDividerRect(IWorkTabLayoutController layout, out Rect dividerRect)
         {
-            dividerRect = UnityCompat.ZeroRect;
+            dividerRect = Rect.zero;
             if (layout?.Rows == null)
             {
                 return false;
@@ -1459,7 +1459,7 @@ namespace Better_Work_Tab.Features.TimePriority
             Widgets.DrawLineHorizontal(visibleTimelineRect.xMin, visibleTimelineRect.yMax - 1f, visibleTimelineRect.width);
 
             bool drawChronos = ChronosPointerSupport.ShouldReserveTimePriorityTimelineHeight;
-            Rect chronosRect = drawChronos ? GetInlineChronosRect(timelineRect, dividerProgress) : UnityCompat.ZeroRect;
+            Rect chronosRect = drawChronos ? GetInlineChronosRect(timelineRect, dividerProgress) : Rect.zero;
             Rect hourLabelRect = GetInlineHourLabelRect(timelineRect, dividerProgress);
             if (BetterWorkTabMod.Settings?.showTimePriorityHourDivider ??
                 DefaultSettings.showTimePriorityHourDivider)
@@ -1482,7 +1482,7 @@ namespace Better_Work_Tab.Features.TimePriority
             Text.Anchor = TextAnchor.MiddleCenter;
             Text.WordWrap = false;
 
-            _lastCloseRect = UnityCompat.ZeroRect;
+            _lastCloseRect = Rect.zero;
             if (hourLabelRect.height > 0.5f)
             {
                 DrawInlineHourLabels(hourLabelRect, visibleTimelineRect, progress * dividerProgress);
@@ -1719,7 +1719,7 @@ namespace Better_Work_Tab.Features.TimePriority
 
         private static Rect GetTimelineAnimationSource()
         {
-            return _isClosing && _closingSourceRect != UnityCompat.ZeroRect
+            return _isClosing && _closingSourceRect != Rect.zero
                 ? _closingSourceRect
                 : _session.SourceBoxRect;
         }

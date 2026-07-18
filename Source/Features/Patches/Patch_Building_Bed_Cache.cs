@@ -23,17 +23,10 @@ namespace Better_Work_Tab.Patches
         /// <summary>
         /// Called after a Thing is spawned. If it's a bed, invalidate the cache.
         /// </summary>
-        public static void Postfix(Thing __instance
-#if !v0_15
-            , Map map
-#endif
-        )
+        public static void Postfix(Building_Bed __instance, Map map)
         {
-            if (__instance is Building_Bed)
+            if (__instance != null)
             {
-#if v0_15
-                Map map = MapCompat.ThingMap(__instance);
-#endif
                 // New bed spawned on this map; drop cache entry so next lookup recalculates
                 BedCachePatchUtility.SafeInvalidateForMap(map, "bed spawned");
             }
@@ -68,7 +61,7 @@ namespace Better_Work_Tab.Patches
         public static void Postfix(Building_Bed __instance)
         {
             // Switching prisoner flag moves the bed between colonist/prisoner pools
-            BedCachePatchUtility.SafeInvalidateForMap(MapCompat.ThingMap(__instance), "bed prisoner flag changed");
+            BedCachePatchUtility.SafeInvalidateForMap(__instance?.Map, "bed prisoner flag changed");
         }
     }
 
@@ -83,7 +76,7 @@ namespace Better_Work_Tab.Patches
             if (__instance is Building_Bed bed)
             {
                 // Beds changing ownership to/from the player alters usable colonist slots
-                BedCachePatchUtility.SafeInvalidateForMap(MapCompat.ThingMap(bed), "bed faction changed");
+                BedCachePatchUtility.SafeInvalidateForMap(bed.Map, "bed faction changed");
             }
         }
     }
@@ -91,11 +84,7 @@ namespace Better_Work_Tab.Patches
     /// <summary>
     /// Clear cache on game load to avoid stale data.
     /// </summary>
-#if v0_15
-    [HarmonyPatch(typeof(Game), nameof(Game.LoadData))]
-#else
     [HarmonyPatch(typeof(Game), nameof(Game.LoadGame))]
-#endif
     public static class Patch_Game_LoadGame
     {
         public static void Postfix()
@@ -107,11 +96,7 @@ namespace Better_Work_Tab.Patches
     /// <summary>
     /// Clear cache when game unloads to free memory.
     /// </summary>
-#if v0_15
-    [HarmonyPatch(typeof(MapIniter_NewGame), nameof(MapIniter_NewGame.InitNewGeneratedMap))]
-#else
     [HarmonyPatch(typeof(Game), nameof(Game.InitNewGame))]
-#endif
     public static class Patch_Game_InitNewGame
     {
         public static void Postfix()

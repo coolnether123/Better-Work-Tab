@@ -540,19 +540,17 @@ namespace Better_Work_Tab.Features.TimePriority
 
         internal static int GetCurrentHour(Pawn pawn)
         {
-#if !(v0_15 || v0_14 || v0_13 || vAlpha4)
             try
             {
                 if (pawn != null)
                 {
-                    return Mathf.Clamp(TimeCompat.HourOfDay(pawn), 0, HoursPerDay - 1);
+                    return Mathf.Clamp(GenLocalDate.HourOfDay(pawn), 0, HoursPerDay - 1);
                 }
             }
             catch
             {
                 // Fall back to absolute game ticks when local date APIs are unavailable.
             }
-#endif
 
             int ticks = GenTicks.TicksAbs;
             return Mathf.Abs(ticks / GenDate.TicksPerHour) % HoursPerDay;

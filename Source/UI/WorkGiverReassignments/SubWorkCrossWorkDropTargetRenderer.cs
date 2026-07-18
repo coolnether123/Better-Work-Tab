@@ -44,7 +44,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             out bool valid)
         {
             targetWorkType = null;
-            targetRect = UnityCompat.ZeroRect;
+            targetRect = Rect.zero;
             valid = false;
 
             if (!IsEnabled ||
@@ -83,7 +83,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             WorkTypeDef targetWorkType,
             out Rect targetRect)
         {
-            targetRect = UnityCompat.ZeroRect;
+            targetRect = Rect.zero;
             if (!IsEnabled || layout?.Columns == null || targetWorkType == null)
             {
                 return false;
@@ -168,7 +168,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             WorkTypeDef sourceWorkType,
             out Rect stripRect)
         {
-            stripRect = UnityCompat.ZeroRect;
+            stripRect = Rect.zero;
             if (sourceWorkType == null || layout?.Columns == null)
             {
                 return false;
@@ -216,7 +216,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
         private static bool TryGetDropRowRect(IWorkTabLayoutController layout, out Rect rowRect)
         {
-            rowRect = UnityCompat.ZeroRect;
+            rowRect = Rect.zero;
             if (layout?.Table == null)
             {
                 return false;

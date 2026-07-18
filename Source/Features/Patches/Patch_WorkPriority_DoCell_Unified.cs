@@ -609,7 +609,7 @@ namespace Better_Work_Tab.Patches
                 if (currentFrame - timestamp < BestPawnCacheFrameValidity)
                 {
                     Pawn cached = _bestPawnCache[key];
-                    if (cached != null && !cached.Dead && MapCompat.ThingMap(cached) != null)
+                    if (cached != null && !cached.Dead && cached.Map != null)
                         return cached;
                 }
             }

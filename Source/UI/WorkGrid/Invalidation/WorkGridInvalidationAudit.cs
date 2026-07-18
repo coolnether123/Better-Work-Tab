@@ -26,7 +26,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
             }
 
             _nextRosterAuditTick = ticks + AuditIntervalTicks;
-            if (RosterSignature(PawnsFinderCompat.AllAlive) == RosterSignature(PawnTableCompat.GetCachedPawns(table)))
+            if (RosterSignature(PawnsFinder.AllMaps_FreeColonists) == RosterSignature(PawnTableCompat.GetCachedPawns(table)))
             {
                 return;
             }
@@ -88,7 +88,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
             unchecked
             {
                 int hash = 17;
-                hash = (hash * 397) ^ UICompat.UIScale.GetHashCode();
+                hash = (hash * 397) ^ Prefs.UIScale.GetHashCode();
                 hash = (hash * 397) ^
                     (LanguageDatabase.activeLanguage?.folderName?.GetHashCode() ?? 0);
                 hash = (hash * 397) ^ TimePriorityService.CurrentVersion;

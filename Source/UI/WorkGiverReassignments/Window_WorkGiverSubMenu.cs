@@ -485,7 +485,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
         private Rect GetBoundingRectFromQuad(Vector2[] quad)
         {
-            if (quad == null || quad.Length == 0) return UnityCompat.ZeroRect;
+            if (quad == null || quad.Length == 0) return Rect.zero;
             float minX = quad[0].x;
             float maxX = quad[0].x;
             float minY = quad[0].y;

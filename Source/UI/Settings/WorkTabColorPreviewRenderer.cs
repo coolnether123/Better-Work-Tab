@@ -221,7 +221,7 @@ namespace Better_Work_Tab.UI.Settings
             }
 
             SkillRecord skill = row.Pawn.skills.GetSkill(workType.relevantSkills[0]);
-            return skill == null ? "—" : SkillCompat.Level(skill).ToString();
+            return skill?.Level.ToString() ?? "—";
         }
 
         private static void DrawHeaderTextPreview(Rect rect, string label, Color color)

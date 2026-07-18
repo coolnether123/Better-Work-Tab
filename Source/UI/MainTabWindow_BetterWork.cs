@@ -1001,21 +1001,6 @@ namespace Better_Work_Tab.UI
                 }
 
                 float maxWindowWidth = Mathf.Max(1f, Verse.UI.screenWidth - 2f);
-                float tutorialReserveWidth = BWTWorkTabTutorial.PreferredReserveWidth;
-                if (tutorialReserveWidth > 0f)
-                {
-                    if (finalWidth + tutorialReserveWidth <= maxWindowWidth)
-                    {
-                        finalWidth += tutorialReserveWidth;
-                        finalHeight = Mathf.Max(finalHeight, BWTWorkTabTutorial.PreferredReserveHeight);
-                    }
-                    else
-                    {
-                        // At 1024-wide/high-scale layouts the selector moves into
-                        // a top band instead of covering the highlighted grid.
-                        finalHeight += BWTWorkTabTutorial.PreferredReserveHeight;
-                    }
-                }
                 bool needsHorizontalScrollbar = finalWidth > maxWindowWidth + 0.5f;
                 if (needsHorizontalScrollbar)
                 {
@@ -1025,12 +1010,6 @@ namespace Better_Work_Tab.UI
                 finalHeight = Mathf.Min(
                     finalHeight,
                     GetConfiguredMaxWindowHeight(organizer?.Layout, table, needsHorizontalScrollbar));
-                if (tutorialReserveWidth > 0f)
-                {
-                    finalHeight = Mathf.Min(
-                        Verse.UI.screenHeight - 35f,
-                        Mathf.Max(finalHeight, BWTWorkTabTutorial.PreferredReserveHeight));
-                }
                 finalWidth = Mathf.Min(finalWidth, maxWindowWidth);
 
                 _requestedTabSizeCacheSignature = ComputeRequestedTabSizeSignature(table, organizer?.Layout);
@@ -1120,7 +1099,7 @@ namespace Better_Work_Tab.UI
 
         internal bool TryGetRuleBuilder2HeaderBand(out Rect screenRect)
         {
-            screenRect = UnityCompat.ZeroRect;
+            screenRect = Rect.zero;
             var layout = PawnOrganizerSystem.Instance?.Layout;
             if (layout == null || layout.HeaderHeight <= 0f)
             {
@@ -1139,7 +1118,7 @@ namespace Better_Work_Tab.UI
 
         internal bool TryGetRuleBuilder2TargetHeaderBounds(WorkTypeDef workType, WorkGiverDef workGiver, out Rect bounds)
         {
-            bounds = UnityCompat.ZeroRect;
+            bounds = Rect.zero;
             var layout = PawnOrganizerSystem.Instance?.Layout;
             if (layout?.Columns == null || workType == null)
             {
@@ -1359,7 +1338,7 @@ namespace Better_Work_Tab.UI
         {
             if (!FluffyWorkTabGateway.IsSubWorkStyleChooserActive)
             {
-                _stableSubWorkChooserWindowRect = UnityCompat.ZeroRect;
+                _stableSubWorkChooserWindowRect = Rect.zero;
                 return;
             }
 
@@ -1389,7 +1368,7 @@ namespace Better_Work_Tab.UI
 
             if (!FluffyWorkTabGateway.IsSubWorkStyleChooserActive)
             {
-                _stableSubWorkChooserWindowRect = UnityCompat.ZeroRect;
+                _stableSubWorkChooserWindowRect = Rect.zero;
             }
         }
 
@@ -1915,7 +1894,7 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
-            Rect bounds = solver?.GetBounds(column.Column) ?? UnityCompat.ZeroRect;
+            Rect bounds = solver?.GetBounds(column.Column) ?? Rect.zero;
             if (bounds.width <= 0.5f || bounds.height <= 0.5f)
             {
                 bounds = headerRect;
@@ -2287,7 +2266,7 @@ namespace Better_Work_Tab.UI
             }
 
             HeaderDrawingCoordinator.EnsureLayoutSolved(table);
-            Rect vanillaBounds = HeaderDrawingCoordinator.GetVanillaSolver()?.GetBounds(columnDef) ?? UnityCompat.ZeroRect;
+            Rect vanillaBounds = HeaderDrawingCoordinator.GetVanillaSolver()?.GetBounds(columnDef) ?? Rect.zero;
             if (!IsUsableRect(vanillaBounds))
             {
                 return false;
@@ -2526,7 +2505,7 @@ namespace Better_Work_Tab.UI
             out Rect workBounds,
             out float pivotX)
         {
-            workBounds = UnityCompat.ZeroRect;
+            workBounds = Rect.zero;
             pivotX = 0f;
             float minX = float.MaxValue;
             float maxX = float.MinValue;
@@ -3032,16 +3011,6 @@ namespace Better_Work_Tab.UI
 
             settings.subWorkCtrlClickNoticeDismissed = true;
             settings.Write();
-#if v0_15
-            Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
-                "BWT_SubWork_CtrlClickNotice_Text".Translate(),
-                () =>
-                {
-                    settings.subWorkDrilldownModifier = BetterWorkTabSettings.SubWorkDrilldownModifier.Ctrl;
-                    settings.subWorkDrilldownButton = BetterWorkTabSettings.SubWorkDrilldownButton.Left;
-                    settings.Write();
-                }));
-#else
             Find.WindowStack.Add(new Dialog_MessageBox(
                 "BWT_SubWork_CtrlClickNotice_Text".Translate(),
                 "BWT_SubWork_CtrlClickNotice_UseCtrl".Translate(),
@@ -3059,7 +3028,6 @@ namespace Better_Work_Tab.UI
                     settings.Write();
                 },
                 "BWT_SubWork_CtrlClickNotice_Title".Translate()));
-#endif
         }
 
         private static bool IsControlClick(Event evt)

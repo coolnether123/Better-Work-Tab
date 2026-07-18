@@ -66,7 +66,7 @@ namespace Better_Work_Tab.Features.Workloads
         public void ExposeData()
         {
             Better_Work_Tab.ScribeCompat.LookReference(ref owningPawn, "owningPawn");
-            Better_Work_Tab.ScribeCompat.LookCollection(ref Priorities, "Priorities", Better_Work_Tab.ScribeCompat.DefLookMode, LookMode.Value);
+            Better_Work_Tab.ScribeCompat.LookCollection(ref Priorities, "Priorities", LookMode.Def, LookMode.Value);
         }
     }
 }

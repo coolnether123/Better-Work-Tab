@@ -10,8 +10,8 @@ using Verse.AI;
 
 namespace Better_Work_Tab.Features.WorkGiverReassignments
 {
-    [HarmonyPatch(typeof(JobGiver_Work), "GiverCanGiveJobToPawn")]
-    internal static class Patch_JobGiver_Work_GiverCanGiveJobToPawn
+    [HarmonyPatch(typeof(JobGiver_Work), "PawnCanUseWorkGiver")]
+    internal static class Patch_JobGiver_Work_PawnCanUseWorkGiver
     {
         public static bool Prefix(Pawn pawn, WorkGiver giver, ref bool __result)
         {
@@ -136,7 +136,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
     [HarmonyPatch(typeof(WorkGiver_Scanner), nameof(WorkGiver_Scanner.HasJobOnThing))]
     internal static class Patch_WorkGiver_Scanner_HasJobOnThing
     {
-        public static void Postfix(WorkGiver_Scanner __instance, Pawn pawn, ref bool __result)
+        public static void Postfix(WorkGiver_Scanner __instance, Pawn pawn, Thing t, ref bool __result)
         {
             if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabOrdering)
             {
@@ -153,7 +153,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
     [HarmonyPatch(typeof(WorkGiver_Scanner), nameof(WorkGiver_Scanner.HasJobOnCell))]
     internal static class Patch_WorkGiver_Scanner_HasJobOnCell
     {
-        public static void Postfix(WorkGiver_Scanner __instance, Pawn pawn, ref bool __result)
+        public static void Postfix(WorkGiver_Scanner __instance, Pawn pawn, IntVec3 c, ref bool __result)
         {
             if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabOrdering)
             {

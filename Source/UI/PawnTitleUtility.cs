@@ -14,22 +14,7 @@ namespace Better_Work_Tab.UI
 
         internal static string GetCurrentTitle(Pawn pawn)
         {
-            object story = pawn?.story;
-            if (story == null)
-            {
-                return string.Empty;
-            }
-
-            PropertyInfo titleProperty = story.GetType().GetProperty(
-                "Title",
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            if (titleProperty != null && titleProperty.CanRead)
-            {
-                return titleProperty.GetValue(story, null) as string ?? string.Empty;
-            }
-
-            FieldInfo titleField = GetTitleField(story);
-            return titleField?.GetValue(story) as string ?? string.Empty;
+            return pawn?.story?.Title ?? string.Empty;
         }
 
         internal static string GetDefaultTitle(Pawn pawn)

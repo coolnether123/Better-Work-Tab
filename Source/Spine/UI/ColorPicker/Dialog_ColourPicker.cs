@@ -665,8 +665,8 @@ namespace Spine.UI.ColourPicker {
                 string curControl = GUI.GetNameOfFocusedControl();
                 int curControlIndex = textFieldIds.IndexOf(curControl);
                 GUI.FocusControl(textFieldIds[
-                                     Better_Work_Tab.MathCompat.PositiveMod(curControlIndex + (Event.current.shift ? -1 : 1),
-                                                                            textFieldIds.Count)]);
+                                     GenMath.PositiveMod(curControlIndex + (Event.current.shift ? -1 : 1),
+                                                         textFieldIds.Count)]);
             }
         }
 

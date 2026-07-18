@@ -26,7 +26,6 @@ namespace Better_Work_Tab
         static Legacy016Bootstrap()
         {
             BetterWorkTabMod.Settings = Legacy016ModSettingsStore.Get<BetterWorkTabSettings>();
-            LegacyMainTabPatcher.ReplaceWorkTabWindow();
 
             try
             {
