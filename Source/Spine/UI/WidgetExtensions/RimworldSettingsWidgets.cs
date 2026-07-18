@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using Verse;
 using Verse.Sound;
-#if v1_2
+#if v1_2 || v1_1
 using Better_Work_Tab;
 #endif
 
@@ -29,7 +29,7 @@ namespace Spine.UI.WidgetExtensions
             Color bgColor = hovered ? CategoryButtonHoverColor : CategoryButtonColor;
             
             Widgets.DrawBoxSolid(rect, bgColor);
-#if v1_2
+#if v1_2 || v1_1
             Widgets12.DrawBox(rect, 1, hovered ? Texture2D.whiteTexture : null);
 #else
             Widgets.DrawBox(rect, 1, hovered ? Texture2D.whiteTexture : null);
@@ -63,7 +63,7 @@ namespace Spine.UI.WidgetExtensions
             {
                 Rect arrowRect = new Rect(rect.xMax - 24f, rect.y + (rect.height - 16f) / 2f, 16f, 16f);
                 GUI.color = Color.white;
-                Widgets.Label(arrowRect, "▶");
+                Widgets.Label(arrowRect, "\u25B6");
                 GUI.color = oldColor;
             }
 
@@ -133,7 +133,7 @@ namespace Spine.UI.WidgetExtensions
             Text.Font = GameFont.Small;
 
             Rect buttonRect = new Rect(rect.x, rect.y, 80f, 28f);
-            bool clicked = Widgets.ButtonText(buttonRect, "◀ Back");
+            bool clicked = Widgets.ButtonText(buttonRect, "\u25C0 Back");
 
             Text.Font = oldFont;
             return clicked;

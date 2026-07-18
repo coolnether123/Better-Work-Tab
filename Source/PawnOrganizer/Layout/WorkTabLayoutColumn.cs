@@ -51,7 +51,7 @@ namespace Better_Work_Tab.PawnOrganizer
                 Rect rect = _headerContentRect;
                 if (_table != null)
                 {
-                    rect.x -= _table.scrollPosition.x;
+                    rect.x -= PawnTableCompat.GetScrollPosition(_table).x;
                 }
 
                 return rect;

@@ -240,18 +240,7 @@ namespace Spine.Harmony
             // Argument/Local/Field/Static
             if (opcode == OpCodes.Ldarg || opcode == OpCodes.Ldarg_0 || opcode == OpCodes.Ldarg_1 || opcode == OpCodes.Ldarg_2 || opcode == OpCodes.Ldarg_3 || opcode == OpCodes.Ldarg_S || opcode == OpCodes.Ldarga || opcode == OpCodes.Ldarga_S)
             {
-                int argIndex = -1;
-                try { argIndex = instr.ArgumentIndex(); }
-                catch
-                {
-                    if (opcode == OpCodes.Ldarg_0) argIndex = 0;
-                    else if (opcode == OpCodes.Ldarg_1) argIndex = 1;
-                    else if (opcode == OpCodes.Ldarg_2) argIndex = 2;
-                    else if (opcode == OpCodes.Ldarg_3) argIndex = 3;
-                    else if (instr.operand is int idx) argIndex = idx;
-                    else if (instr.operand is sbyte sb) argIndex = sb;
-                    else if (instr.operand is byte b) argIndex = b;
-                }
+                HarmonyInstructionCompat.TryGetArgumentIndex(instr, out int argIndex);
 
                 if (argIndex != -1 && method != null)
                 {
@@ -455,18 +444,7 @@ namespace Spine.Harmony
 
             if (body == null || body.LocalVariables == null || body.LocalVariables.Count == 0) return false;
 
-            int localIndex = -1;
-            try { localIndex = instr.LocalIndex(); }
-            catch
-            {
-                if (instr.opcode == OpCodes.Ldloc_0) localIndex = 0;
-                else if (instr.opcode == OpCodes.Ldloc_1) localIndex = 1;
-                else if (instr.opcode == OpCodes.Ldloc_2) localIndex = 2;
-                else if (instr.opcode == OpCodes.Ldloc_3) localIndex = 3;
-                else if (instr.operand is int i) localIndex = i;
-                else if (instr.operand is byte b) localIndex = b;
-                else if (instr.operand is sbyte sb) localIndex = sb;
-            }
+            if (!HarmonyInstructionCompat.TryGetLocalIndex(instr, out int localIndex)) return false;
 
             if (localIndex < 0 || localIndex >= body.LocalVariables.Count) return false;
             localType = ResolveStackType(body.LocalVariables[localIndex].LocalType, method);

@@ -171,9 +171,25 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             }
         }
 
+        internal static bool TryReplacePriorityWrapChecks(List<CodeInstruction> codes)
+        {
+            int leftWrapIndex = FindPriorityWrapUnderflowIndex(codes, 0);
+            int rightWrapIndex = FindPriorityWrapOverflowIndex(codes, leftWrapIndex + 1);
+
+            if (leftWrapIndex < 0 || rightWrapIndex < 0)
+            {
+                return false;
+            }
+
+            ReplaceWithMaxPriorityCall(codes, leftWrapIndex);
+            ReplaceWithMaxPriorityCall(codes, rightWrapIndex);
+            return true;
+        }
+
         internal static void WarnPatternMiss(MethodBase original, string patternDescription)
         {
-            BetterWorkTabMod.DebugLog("Skipping max-priority patch for " +
+            BetterWorkTabMod.DebugLog(
+                "Skipping max-priority patch for " +
                 $"{original?.DeclaringType?.Name}.{original?.Name}: unable to locate {patternDescription}. " +
                 "The Work tab will keep vanilla priority wrap behavior for that method.",
                 DebugFeature.General);
@@ -262,11 +278,6 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         [HarmonyPostfix]
         private static void Postfix(ref Color __result, int prio)
         {
-            if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabPriorityFeatures)
-            {
-                return;
-            }
-
             __result = WorkPrioritySystem.GetPriorityColor(prio);
         }
     }
@@ -300,17 +311,13 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         private static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions, MethodBase original)
         {
             var codes = new List<CodeInstruction>(instructions);
-            int leftWrapIndex = PriorityTranspilerPatterns.FindPriorityWrapUnderflowIndex(codes, 0);
-            int rightWrapIndex = PriorityTranspilerPatterns.FindPriorityWrapOverflowIndex(codes, leftWrapIndex + 1);
 
-            if (leftWrapIndex < 0 || rightWrapIndex < 0)
+            if (!PriorityTranspilerPatterns.TryReplacePriorityWrapChecks(codes))
             {
                 PriorityTranspilerPatterns.WarnPatternMiss(original, "work-box priority wrap checks");
                 return codes;
             }
 
-            PriorityTranspilerPatterns.ReplaceWithMaxPriorityCall(codes, leftWrapIndex);
-            PriorityTranspilerPatterns.ReplaceWithMaxPriorityCall(codes, rightWrapIndex);
             PriorityTranspilerPatterns.ReplaceWorkBoxDefaultEnabledPriority(codes);
             return codes;
         }
@@ -326,17 +333,15 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         private static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions, MethodBase original)
         {
             var codes = new List<CodeInstruction>(instructions);
-            int leftWrapIndex = PriorityTranspilerPatterns.FindPriorityWrapUnderflowIndex(codes, 0);
-            int rightWrapIndex = PriorityTranspilerPatterns.FindPriorityWrapOverflowIndex(codes, leftWrapIndex + 1);
 
-            if (leftWrapIndex < 0 || rightWrapIndex < 0)
+            if (!PriorityTranspilerPatterns.TryReplacePriorityWrapChecks(codes))
             {
-                PriorityTranspilerPatterns.WarnPatternMiss(original, "header priority wrap checks");
+                BetterWorkTabMod.DebugLog(
+                    $"Skipped optional header priority wrap patch for {original?.DeclaringType?.Name}.{original?.Name}; RimWorld version does not match the expected vanilla header-click IL.",
+                    DebugFeature.General);
                 return codes;
             }
 
-            PriorityTranspilerPatterns.ReplaceWithMaxPriorityCall(codes, leftWrapIndex);
-            PriorityTranspilerPatterns.ReplaceWithMaxPriorityCall(codes, rightWrapIndex);
             return codes;
         }
     }

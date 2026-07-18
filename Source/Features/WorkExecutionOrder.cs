@@ -187,7 +187,7 @@ namespace Better_Work_Tab.Features
     /// Prefix-patch CacheWorkGiversInOrder to fully replace list composition, using saved
     /// Work column order as the tie-breaker among equal manual priorities.
     /// </summary>
-    [HarmonyPatch(typeof(Pawn_WorkSettings), nameof(Pawn_WorkSettings.CacheWorkGiversInOrder))]
+    [HarmonyPatch(typeof(Pawn_WorkSettings), "CacheWorkGiversInOrder")]
     internal static class Patch_WorkExecutionOrder_ReplaceCache
     {
         [HarmonyBefore(new[] { "fluffy.worktab" })]

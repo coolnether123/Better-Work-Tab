@@ -74,7 +74,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.State
             switch (Type)
             {
                 case ConditionType.Bool:
-                    return (bool)Value ? "✓" : "✗";
+                    return (bool)Value ? "\u2713" : "\u2717";
 
                 case ConditionType.Int:
                 case ConditionType.IntRange:

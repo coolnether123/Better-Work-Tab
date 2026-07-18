@@ -111,10 +111,10 @@ namespace Better_Work_Tab.PawnOrganizer
             if (!Approximately(origin.x, _lastOrigin.x) || !Approximately(origin.y, _lastOrigin.y))
                 return true;
 
-            if (!Approximately(table.cachedSize.x, _lastTableWidth))
+            if (!Approximately(PawnTableCompat.GetCachedSize(table).x, _lastTableWidth))
                 return true;
 
-            if (!Approximately(table.cachedHeaderHeight, _lastCachedHeaderHeight))
+            if (!Approximately(PawnTableCompat.GetCachedHeaderHeight(table), _lastCachedHeaderHeight))
                 return true;
 
             float dividerHeight = BetterWorkTabMod.Settings?.dividerHeight ?? DefaultDividerHeight;
@@ -189,8 +189,8 @@ namespace Better_Work_Tab.PawnOrganizer
             _lastSortingDescending = table?.SortingDescending ?? false;
             _lastTable = table;
             _lastOrigin = origin;
-            _lastTableWidth = table?.cachedSize.x ?? 0f;
-            _lastCachedHeaderHeight = table?.cachedHeaderHeight ?? 0f;
+            _lastTableWidth = PawnTableCompat.GetCachedSize(table).x;
+            _lastCachedHeaderHeight = PawnTableCompat.GetCachedHeaderHeight(table);
             _lastDividerHeight = BetterWorkTabMod.Settings?.dividerHeight ?? DefaultDividerHeight;
             _lastColumnSignature = ComputeColumnSignature(table);
             _lastHiddenWorktypesSignature = ComputeHiddenWorktypesSignature();
@@ -237,7 +237,6 @@ namespace Better_Work_Tab.PawnOrganizer
                 }
 
                 hash = hash * 31 + columns.Count;
-                var cachedWidths = table.cachedColumnWidths;
                 for (int i = 0; i < columns.Count; i++)
                 {
                     var column = columns[i];
@@ -252,10 +251,7 @@ namespace Better_Work_Tab.PawnOrganizer
                         }
                     }
 
-                    if (cachedWidths != null && i < cachedWidths.Count)
-                    {
-                        hash = hash * 31 + Mathf.RoundToInt(cachedWidths[i] * 100f);
-                    }
+                    hash = hash * 31 + Mathf.RoundToInt(PawnTableCompat.GetCachedColumnWidth(table, i, 0f) * 100f);
                 }
 
                 return hash;
@@ -504,7 +500,7 @@ namespace Better_Work_Tab.PawnOrganizer
                     }
 
                     EnsureTableFresh();
-                    _rowWidth = Mathf.Max(0f, _table.cachedSize.x - 16f);
+                    _rowWidth = Mathf.Max(0f, PawnTableCompat.GetCachedSize(_table).x - 16f);
                     _headerHeight = SubWorkDrilldownHeaderGeometry.GetEffectiveHeaderHeight(_table);
                     SubWorkDrilldownHeaderGeometry.RecordNormalHeaderHeight(_table, _headerHeight);
 
@@ -531,7 +527,7 @@ namespace Better_Work_Tab.PawnOrganizer
         {
             row = default;
             if (_table == null || _geometrySnapshot == null ||
-                !_geometrySnapshot.TryGetRowIndex(mousePosition, _table.scrollPosition.y, out int index) ||
+                !_geometrySnapshot.TryGetRowIndex(mousePosition, PawnTableCompat.GetScrollPosition(_table).y, out int index) ||
                 index >= _rows.Count)
             {
                 return false;
@@ -558,7 +554,7 @@ namespace Better_Work_Tab.PawnOrganizer
                 if (_geometrySnapshot == null || _table == null ||
                     !_geometrySnapshot.TryGetHeaderColumnIndex(
                         mousePosition,
-                        _table.scrollPosition.x,
+                        PawnTableCompat.GetScrollPosition(_table).x,
                         out int index) ||
                     index >= _columns.Count)
                 {
@@ -578,7 +574,7 @@ namespace Better_Work_Tab.PawnOrganizer
                 if (_geometrySnapshot == null || _table == null ||
                     !_geometrySnapshot.TryGetBodyColumnIndex(
                         mousePosition,
-                        _table.scrollPosition,
+                        PawnTableCompat.GetScrollPosition(_table),
                         out int index) ||
                     index >= _columns.Count)
                 {
@@ -783,7 +779,7 @@ namespace Better_Work_Tab.PawnOrganizer
                 return Rect.zero;
             }
 
-            return _geometrySnapshot.GetRowScreenRect(row.VisualIndex, _table.scrollPosition);
+            return _geometrySnapshot.GetRowScreenRect(row.VisualIndex, PawnTableCompat.GetScrollPosition(_table));
         }
 
         public float GetPinnedRowsHeight()
@@ -863,7 +859,7 @@ namespace Better_Work_Tab.PawnOrganizer
 
         private void BuildColumns()
         {
-#if v1_3 || v1_2
+#if v1_3 || v1_2 || v1_1
             var allColumns = _table.ColumnsListForReading;
 #else
             var allColumns = _table.Columns;
@@ -979,9 +975,7 @@ namespace Better_Work_Tab.PawnOrganizer
                 
                 if (w < 0f)
                 {
-                    w = (originalIndex < _table.cachedColumnWidths.Count) 
-                        ? _table.cachedColumnWidths[originalIndex] 
-                        : 30f;
+                    w = PawnTableCompat.GetCachedColumnWidth(_table, originalIndex, 30f);
                 }
 
                 w = FluffyWorkTabGateway.GetHostedColumnWidth(columnDef, _table, w);
@@ -1582,19 +1576,20 @@ namespace Better_Work_Tab.PawnOrganizer
         private Dictionary<Pawn, float> CachePawnRowHeights()
         {
             var dict = new Dictionary<Pawn, float>();
-            if (_table?.cachedPawns == null)
+            var cachedPawns = PawnTableCompat.GetCachedPawns(_table);
+            if (cachedPawns == null || cachedPawns.Count == 0)
             {
                 return dict;
             }
 
-            var cachedHeights = _table.cachedRowHeights;
-            bool vanillaPawnHeightCache = cachedHeights != null && cachedHeights.Count == _table.cachedPawns.Count;
-            for (int i = 0; i < _table.cachedPawns.Count; i++)
+            var cachedHeights = PawnTableCompat.GetCachedRowHeights(_table);
+            bool vanillaPawnHeightCache = cachedHeights != null && cachedHeights.Count == cachedPawns.Count;
+            for (int i = 0; i < cachedPawns.Count; i++)
             {
                 float height = vanillaPawnHeightCache
                     ? Mathf.Max(PawnRowHeight, cachedHeights[i])
                     : PawnRowHeight;
-                dict[_table.cachedPawns[i]] = height;
+                dict[cachedPawns[i]] = height;
             }
 
             return dict;

@@ -19,7 +19,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Compatibility
         {
             AccessTools.Method(typeof(PawnColumnWorker_WorkPriority), nameof(PawnColumnWorker_WorkPriority.DoCell)),
             AccessTools.Method(typeof(WidgetsWork), nameof(WidgetsWork.DrawWorkBoxFor)),
-            AccessTools.Method(typeof(WidgetsWork), nameof(WidgetsWork.DrawWorkBoxBackground)),
+            AccessTools.Method(typeof(WidgetsWork), "DrawWorkBoxBackground"),
             AccessTools.Method(typeof(WidgetsWork), nameof(WidgetsWork.ColorOfPriority))
         };
 

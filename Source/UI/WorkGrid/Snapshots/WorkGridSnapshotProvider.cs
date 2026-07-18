@@ -400,15 +400,16 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             WorkTypeDef workType,
             PawnColumnWorker_WorkPriority worker)
         {
-            if (workType == null || worker == null || table?.cachedPawns == null)
+            var cachedPawns = PawnTableCompat.GetCachedPawns(table);
+            if (workType == null || worker == null || cachedPawns == null)
             {
                 return -1;
             }
 
             Pawn bestPawn = null;
-            for (int i = 0; i < table.cachedPawns.Count; i++)
+            for (int i = 0; i < cachedPawns.Count; i++)
             {
-                Pawn candidate = table.cachedPawns[i];
+                Pawn candidate = cachedPawns[i];
                 if (candidate == null || candidate.Dead ||
                     candidate.workSettings == null || !candidate.workSettings.EverWork ||
                     candidate.WorkTypeIsDisabled(workType) || IsIncapable(candidate, workType))

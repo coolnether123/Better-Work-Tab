@@ -213,7 +213,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
             if (context.EventPhase == ImGuiEventPhase.Repaint)
             {
-                Vector2 scroll = context.Presentation.Table.scrollPosition;
+                Vector2 scroll = PawnTableCompat.GetScrollPosition(context.Presentation.Table);
                 _visibleRows = context.Presentation.Geometry.GetVisibleRowRange(context.Viewport, scroll.y);
                 _visibleColumns = context.Presentation.Geometry.GetVisibleColumnRange(context.Viewport, scroll.x);
             }
@@ -391,7 +391,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             // method as PawnColumnWorker_WorkPriority instead of maintaining a BWT copy of
             // its skill texture blending, ideology warning, low-skill warning, and passion
             // rendering rules.
-            WidgetsWork.DrawWorkBoxBackground(boxRect, cell.Pawn, cell.WorkType);
+            #if v1_1
+            WidgetsWork.DrawWorkBoxFor(boxRect.x, boxRect.y, cell.Pawn, cell.WorkType, _snapshot.ManualPriorities);
+            #else
+            WidgetsWork.DrawWorkBoxFor(boxRect, cell.Pawn, cell.WorkType);
+            #endif
 
             GUI.color = Color.white;
             if (_snapshot.ManualPriorities)

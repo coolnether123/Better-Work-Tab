@@ -36,8 +36,7 @@ namespace Better_Work_Tab.Features.Patches
         [HarmonyPriority(Priority.Last)]
         public static void Postfix(Pawn_WorkSettings __instance, WorkTypeDef w, int __state)
         {
-            if (__instance?.priorities == null ||
-                w == null ||
+            if (__instance == null || w == null ||
                 __state == int.MinValue)
             {
                 return;
@@ -62,12 +61,12 @@ namespace Better_Work_Tab.Features.Patches
             }
 
             int priority = PriorityAuthorityBroker.ClampPriorityForRequest(__state);
-            if (__instance.priorities[w] == priority)
+            if (__instance.GetPriority(w) == priority)
             {
                 return;
             }
 
-            __instance.priorities[w] = priority;
+            __instance.SetPriority(w, priority);
             __instance.Notify_UseWorkPrioritiesChanged();
         }
     }

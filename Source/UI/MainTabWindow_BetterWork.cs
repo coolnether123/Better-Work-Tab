@@ -858,7 +858,7 @@ namespace Better_Work_Tab.UI
 
         private void ShowRenamePawnDialog(Pawn pawn)
         {
-#if v1_3 || v1_2
+#if v1_3 || v1_2 || v1_1
             Find.WindowStack.Add(new Dialog_NamePawn(pawn));
 #else
             Find.WindowStack.Add(pawn.NamePawnDialog());
@@ -999,16 +999,16 @@ namespace Better_Work_Tab.UI
             // signature cost up to 15.77 ms on first open. Use already-cached fields
             // plus authoritative dirty/layout revisions; a miss will perform the
             // normal refresh in RequestedTabSize's calculation path.
-            Vector2 tableSize = table?.cachedSize ?? Vector2.zero;
+            Vector2 tableSize = PawnTableCompat.GetCachedSize(table);
             unchecked
             {
                 int hash = 17;
                 hash = (hash * 31) + (layout?.LayoutRevision ?? -1);
-                hash = (hash * 31) + ((table?.dirty ?? true) ? 1 : 0);
-                hash = (hash * 31) + (table?.cachedPawns?.Count ?? 0);
+                hash = (hash * 31) + (PawnTableCompat.IsDirty(table) ? 1 : 0);
+                hash = (hash * 31) + PawnTableCompat.GetPawnCount(table);
                 hash = (hash * 31) + Mathf.RoundToInt(tableSize.x * 10f);
                 hash = (hash * 31) + Mathf.RoundToInt(tableSize.y * 10f);
-                hash = (hash * 31) + Mathf.RoundToInt((table?.cachedHeaderHeight ?? 0f) * 10f);
+                hash = (hash * 31) + Mathf.RoundToInt(PawnTableCompat.GetCachedHeaderHeight(table) * 10f);
                 hash = (hash * 31) + Verse.UI.screenWidth;
                 hash = (hash * 31) + Verse.UI.screenHeight;
                 hash = (hash * 31) + (FluffyTimeScheduleAssigner.IsOpen ? 1 : 0);
@@ -1036,7 +1036,7 @@ namespace Better_Work_Tab.UI
                 return screenMaxHeight;
             }
 
-            float headerHeight = layout?.HeaderHeight ?? table?.cachedHeaderHeight ?? 0f;
+            float headerHeight = layout?.HeaderHeight ?? PawnTableCompat.GetCachedHeaderHeight(table);
             float pinnedRowsHeight = layout != null ? GetHeaderAnchoredPinnedRowsHeight() : 0f;
             float pawnRowHeight = GetNominalPawnRowHeight(layout);
             float visibleContentHeight = Mathf.Max(1, maxVisiblePawns) * pawnRowHeight;
@@ -1653,7 +1653,7 @@ namespace Better_Work_Tab.UI
                 return clippedHeight;
             }
 
-            float scrollTop = layout.Table?.scrollPosition.y ?? 0f;
+            float scrollTop = PawnTableCompat.GetScrollPosition(layout?.Table).y;
             float visibleRowsHeight = Mathf.Max(0f, clippedHeight - pinnedRowsHeight);
             float visibleBottom = scrollTop + visibleRowsHeight;
             float rowBottom = 0f;
@@ -2346,7 +2346,7 @@ namespace Better_Work_Tab.UI
 
         private static float GetVisualTableScrollWidth(IWorkTabLayoutController layout, PawnTable table)
         {
-            float tableWidth = table != null ? Mathf.Max(table.Size.x, table.cachedSize.x) : 0f;
+            float tableWidth = table != null ? Mathf.Max(table.Size.x, PawnTableCompat.GetCachedSize(table).x) : 0f;
             float visualColumnWidth = GetVisualColumnWidth(layout);
             if (visualColumnWidth <= 0f)
             {
@@ -3723,15 +3723,15 @@ namespace Better_Work_Tab.UI
             IWorkTabLayoutController layout = PawnOrganizerSystem.Instance?.Layout;
             return _warmOpenStateValid &&
                 table != null &&
-                !table.dirty &&
+                !PawnTableCompat.IsDirty(table) &&
                 ReferenceEquals(table, _warmOpenTable) &&
                 ReferenceEquals(Current.Game, _warmOpenGame) &&
                 ReferenceEquals(Find.CurrentMap, _warmOpenMap) &&
                 Verse.UI.screenWidth == _warmOpenScreenWidth &&
                 Verse.UI.screenHeight == _warmOpenScreenHeight &&
                 (layout?.LayoutRevision ?? -1) == _warmOpenLayoutRevision &&
-                (table.cachedPawns?.Count ?? 0) == _warmOpenPawnCount &&
-                (table.def?.columns?.Count ?? 0) == _warmOpenColumnCount;
+                PawnTableCompat.GetPawnCount(table) == _warmOpenPawnCount &&
+                PawnTableCompat.GetColumnCount(table) == _warmOpenColumnCount;
         }
 
         private void CaptureWarmOpenTableState(PawnTable table)
@@ -3743,9 +3743,9 @@ namespace Better_Work_Tab.UI
             _warmOpenScreenWidth = Verse.UI.screenWidth;
             _warmOpenScreenHeight = Verse.UI.screenHeight;
             _warmOpenLayoutRevision = layout?.LayoutRevision ?? -1;
-            _warmOpenPawnCount = table?.cachedPawns?.Count ?? 0;
-            _warmOpenColumnCount = table?.def?.columns?.Count ?? 0;
-            _warmOpenStateValid = table != null && !table.dirty;
+            _warmOpenPawnCount = PawnTableCompat.GetPawnCount(table);
+            _warmOpenColumnCount = PawnTableCompat.GetColumnCount(table);
+            _warmOpenStateValid = table != null && !PawnTableCompat.IsDirty(table);
         }
 
         public override void WindowOnGUI()
@@ -3780,9 +3780,11 @@ namespace Better_Work_Tab.UI
             if (rowDescriptors == null || rowDescriptors.Count == 0 ||
                 columns == null || columns.Count == 0)
             {
-                table.scrollPosition = Vector2.zero;
+                PawnTableCompat.SetScrollPosition(table, Vector2.zero);
                 return;
             }
+
+            Vector2 tableScrollPosition = PawnTableCompat.GetScrollPosition(table);
 
             bool horizontalOverflow = viewRect.width > outRect.width + 0.5f;
             Rect horizontalScrollbarRect = new Rect(
@@ -3798,7 +3800,7 @@ namespace Better_Work_Tab.UI
                 horizontalScrollbarRect.Contains(evt.mousePosition);
 
             bool applyCapturedScroll = false;
-            float capturedScrollX = table.scrollPosition.x;
+            float capturedScrollX = tableScrollPosition.x;
             if (_horizontalScrollbarDragCaptured)
             {
                 bool released = evt.rawType == EventType.MouseUp || !UnityEngine.Input.GetMouseButton(0);
@@ -3818,19 +3820,19 @@ namespace Better_Work_Tab.UI
                 }
             }
 
-            Widgets.BeginScrollView(outRect, ref table.scrollPosition, viewRect);
+            Widgets.BeginScrollView(outRect, ref tableScrollPosition, viewRect);
             try
             {
                 if (applyCapturedScroll)
                 {
-                    table.scrollPosition.x = capturedScrollX;
+                    tableScrollPosition.x = capturedScrollX;
                 }
 
                 if (captureOnMouseDown && GUIUtility.hotControl != 0)
                 {
                     _horizontalScrollbarDragCaptured = true;
                     _horizontalScrollbarDragMouseX = rootMouseX;
-                    _horizontalScrollbarDragScrollX = table.scrollPosition.x;
+                    _horizontalScrollbarDragScrollX = tableScrollPosition.x;
                     _horizontalScrollbarDragPixelsToContent =
                         viewRect.width / Mathf.Max(1f, horizontalScrollbarRect.width);
                 }
@@ -3849,8 +3851,8 @@ namespace Better_Work_Tab.UI
                     viewRect.width > outRect.width + 0.5f)
                 {
                     const float HorizontalCullBuffer = 64f;
-                    float visibleLeft = table.scrollPosition.x - HorizontalCullBuffer;
-                    float visibleRight = table.scrollPosition.x + outRect.width + HorizontalCullBuffer;
+                    float visibleLeft = tableScrollPosition.x - HorizontalCullBuffer;
+                    float visibleRight = tableScrollPosition.x + outRect.width + HorizontalCullBuffer;
                     _visibleRenderColumns.Clear();
                     for (int i = 0; i < columns.Count; i++)
                     {
@@ -3877,7 +3879,7 @@ namespace Better_Work_Tab.UI
                         viewRect.width,
                         nameColumn,
                         outRect,
-                        table.scrollPosition,
+                        tableScrollPosition,
                         snapshotLayer));
                     SpineTiming.Time("WorkTab.Rows.DrawRowSeparators", () => DrawRowSeparators(rowDescriptors, viewRect.width));
                 }
@@ -3893,7 +3895,7 @@ namespace Better_Work_Tab.UI
                         viewRect.width,
                         nameColumn,
                         outRect,
-                        table.scrollPosition,
+                        tableScrollPosition,
                         snapshotLayer);
 
                     // Phase 3: Draw separator lines between rows
@@ -3907,6 +3909,7 @@ namespace Better_Work_Tab.UI
             finally
             {
                 Widgets.EndScrollView();
+                PawnTableCompat.SetScrollPosition(table, tableScrollPosition);
             }
         }
 
@@ -5040,7 +5043,7 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
-            int pawnCount = showPawns ? table?.cachedPawns?.Count ?? 0 : 0;
+            int pawnCount = showPawns ? PawnTableCompat.GetPawnCount(table) : 0;
 
             // Use cached bed count instead of calculating every frame
             int bedCount = 0;

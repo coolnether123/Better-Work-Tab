@@ -28,38 +28,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             return IsEnabled && evt != null && MatchesModifier(evt) && MatchesButton(evt);
         }
 
-        internal static bool ShouldOfferCtrlLeftDiscovery(Event evt)
-        {
-            var settings = BetterWorkTabMod.Settings;
-            if (!IsEnabled ||
-                settings == null ||
-                settings.subWorkCtrlClickNoticeDismissed ||
-                evt == null ||
-                evt.type != EventType.MouseDown ||
-                evt.button != 0)
-            {
-                return false;
-            }
-
-            bool alreadyConfigured =
-                settings.subWorkDrilldownModifier == BetterWorkTabSettings.SubWorkDrilldownModifier.Ctrl &&
-                settings.subWorkDrilldownButton == BetterWorkTabSettings.SubWorkDrilldownButton.Left;
-            if (alreadyConfigured)
-            {
-                return false;
-            }
-
-            bool controlHeld = evt.control ||
-                (evt.modifiers & EventModifiers.Control) != 0 ||
-                Input.GetKey(KeyCode.LeftControl) ||
-                Input.GetKey(KeyCode.RightControl);
-            bool shiftHeld = evt.shift ||
-                (evt.modifiers & EventModifiers.Shift) != 0 ||
-                Input.GetKey(KeyCode.LeftShift) ||
-                Input.GetKey(KeyCode.RightShift);
-            return controlHeld && !shiftHeld;
-        }
-
         private static bool MatchesModifier(Event evt)
         {
             var modifier = BetterWorkTabMod.Settings.subWorkDrilldownModifier;

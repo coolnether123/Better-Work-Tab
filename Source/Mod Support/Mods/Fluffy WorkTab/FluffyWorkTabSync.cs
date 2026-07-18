@@ -313,8 +313,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                    pawn != null &&
                    !pawn.Dead &&
                    pawn.workSettings != null &&
-                   pawn.workSettings.EverWork &&
-                   pawn.workSettings.priorities != null;
+                   pawn.workSettings.EverWork;
         }
 
         private static void WarnPushFailed(string what, Exception ex)

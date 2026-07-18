@@ -27,7 +27,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
             float candidate = currentHeaderHeight > 0f
                 ? currentHeaderHeight
-                : table?.cachedHeaderHeight ?? 0f;
+                : PawnTableCompat.GetCachedHeaderHeight(table);
             if (candidate > 0f)
             {
                 _lastNormalHeaderHeight = candidate;
@@ -59,7 +59,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 return _lastNormalHeaderHeight;
             }
 
-            return table?.cachedHeaderHeight ?? 0f;
+            return PawnTableCompat.GetCachedHeaderHeight(table);
         }
 
         internal static Vector2 GetExpandBesideAngledAnchorOffset(
@@ -144,7 +144,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 return _lastNormalHeaderHeight;
             }
 
-            return table?.cachedHeaderHeight ?? 0f;
+            return PawnTableCompat.GetCachedHeaderHeight(table);
         }
 
         private static float GetRequiredHeaderHeight(PawnTable table)
@@ -156,10 +156,10 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 int maxLevel = solver?.GetMaxLevelUsed() ?? 1;
                 if (maxLevel <= 1)
                 {
-                    return table.cachedHeaderHeight;
+                    return PawnTableCompat.GetCachedHeaderHeight(table);
                 }
 
-                return Mathf.Max(table.cachedHeaderHeight, VanillaHeaderMetrics.GetRequiredHeaderHeight(maxLevel));
+                return Mathf.Max(PawnTableCompat.GetCachedHeaderHeight(table), VanillaHeaderMetrics.GetRequiredHeaderHeight(maxLevel));
             }
 
             float needed = AngledLabelDrawer.GetNeededHeight(table);

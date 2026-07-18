@@ -117,12 +117,12 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
         internal static int GetBetterWorkTabStoredPriority(Pawn_WorkSettings workSettings, WorkTypeDef workType)
         {
-            if (workSettings?.priorities == null || workType == null)
+            if (workSettings == null || workType == null)
             {
                 return GetDefaultEnabledPriority();
             }
 
-            return ClampPriorityForRequest(workSettings.priorities[workType]);
+            return ClampPriorityForRequest(workSettings.GetPriority(workType));
         }
 
         internal static int GetBetterWorkTabEffectiveWorkGiverPriorityAtHour(
@@ -645,16 +645,22 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             {
                 foreach (Pawn pawn in PawnsFinder.AllMapsWorldAndTemporary_Alive)
                 {
-                    if (pawn?.workSettings?.priorities == null)
+                    if (pawn?.workSettings == null)
                     {
                         continue;
                     }
 
-                    foreach (KeyValuePair<WorkTypeDef, int> entry in pawn.workSettings.priorities)
+                    foreach (WorkTypeDef workType in DefDatabase<WorkTypeDef>.AllDefsListForReading)
                     {
-                        if (entry.Key != null && entry.Value > maxPriority)
+                        if (workType == null)
                         {
-                            maxPriority = entry.Value;
+                            continue;
+                        }
+
+                        int priority = WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, workType);
+                        if (priority > maxPriority)
+                        {
+                            maxPriority = priority;
                         }
                     }
                 }

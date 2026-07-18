@@ -21,7 +21,7 @@ namespace Better_Work_Tab.Patches
         public static void Postfix(PawnTable __instance, IEnumerable<Pawn> input, ref IEnumerable<Pawn> __result)
         {
             // Only affect the Work tab (avoid Animals/Mechs/etc.).
-            if (__instance?.def != PawnTableDefOf.Work)
+            if (!PawnTableCompat.IsWorkTable(__instance))
                 return;
 
             if (!FluffyWorkTabGateway.ShouldRunBetterWorkTabFeatures)

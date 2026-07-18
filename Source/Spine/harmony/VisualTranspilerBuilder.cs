@@ -11,12 +11,12 @@ namespace Spine.Harmony
     /// Generates starter transpiler code from visual IL patch selections.
     /// This is a developer tool surface; review generated code before shipping a patch.
     /// </summary>
-    public class VisualTranspilerBuilder 
+    public class VisualTranspilerBuilder
     {
         /// <summary>
         /// Operation to generate around the selected IL anchor.
         /// </summary>
-        public enum PatchAction 
+        public enum PatchAction
         {
             InsertBefore,
             InsertAfter,
@@ -25,7 +25,7 @@ namespace Spine.Harmony
             Skip,
             ConditionalWrap
         }
-        
+
         /// <summary>
         /// Inputs captured by the visual transpiler editor for code generation.
         /// </summary>
@@ -42,7 +42,7 @@ namespace Spine.Harmony
             public object NewValue;
             public int TargetILOffset;
         }
-        
+
         // Generates C# code from visual selection
         public static string GeneratePatchCode(MethodBase target, PatchConfiguration config)
         {
@@ -58,14 +58,14 @@ namespace Spine.Harmony
             sb.AppendLine("    {");
             sb.AppendLine("        var t = FluentTranspiler.For(instructions);");
             sb.AppendLine();
-            
+
             switch (config.Action)
             {
                 case PatchAction.InsertBefore:
                     sb.AppendLine($"        t.MatchCall(typeof({config.AnchorType?.Name ?? "TargetType"}), \"{config.AnchorMethod}\")");
                     sb.AppendLine($"         .InsertBefore(OpCodes.Call, AccessTools.Method(typeof({config.InjectionType?.Name ?? "PatchHelpers"}), \"{config.InjectionMethod}\"));");
                     break;
-                    
+
                 case PatchAction.ModifyOperand:
                     sb.AppendLine($"        t.MatchConstInt({config.OriginalValue})");
                     sb.AppendLine($"         .ReplaceOperand(0, {config.NewValue});");
@@ -91,17 +91,17 @@ namespace Spine.Harmony
                     sb.AppendLine($"        t.MatchCall(typeof({config.AnchorType?.Name ?? "TargetType"}), \"{config.AnchorMethod}\")");
                     sb.AppendLine($"         .InsertBefore(CodeInstruction.Call(typeof({config.InjectionType?.Name ?? "PatchHelpers"}), \"ShouldRun\"));");
                     break;
-                    
+
                 // ... other cases
             }
-            
+
             sb.AppendLine("        return t.Build();");
             sb.AppendLine("    }");
             sb.AppendLine("}");
-            
+
             return sb.ToString();
         }
-        
+
         // Shows preview of what the method will look like after patch.
         // Optional displayedSource allows the UI to preview against the current cached text snapshot.
         public static string GenerateCSharpPreview(MethodBase method, PatchConfiguration config, string displayedSource = null)

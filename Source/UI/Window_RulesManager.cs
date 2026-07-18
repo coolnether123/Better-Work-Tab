@@ -1,4 +1,4 @@
-﻿using Better_Work_Tab.Features;
+using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.Rules;
 using Spine.DragDropApi.Util;
 using Better_Work_Tab.Patches;
@@ -327,7 +327,7 @@ namespace Better_Work_Tab.UI
             }
             else
             {
-#if v1_2
+#if v1_2 || v1_1
                 value = Widgets12.TextField(valueRect, value, 24);
 #else
                 value = Widgets.TextField(valueRect, value, 24);
@@ -598,7 +598,7 @@ namespace Better_Work_Tab.UI
                 Text.Anchor = b4;
             }
             else
-#if v1_2
+#if v1_2 || v1_1
                 ruleNameBuffer = Widgets12.TextField(titleRect, ruleNameBuffer, 21);
 #else
                 ruleNameBuffer = Widgets.TextField(titleRect, ruleNameBuffer, 21);

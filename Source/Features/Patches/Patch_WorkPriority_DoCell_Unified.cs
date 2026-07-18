@@ -491,7 +491,7 @@ namespace Better_Work_Tab.Patches
                 Text.WordWrap = false;
 
                 GUI.color = new Color(oldColor.r, oldColor.g, oldColor.b, oldColor.a * alpha);
-                WidgetsWork.DrawWorkBoxBackground(boxRect, pawn, workType);
+                WorkGiverPriorityBoxCompatibility.DrawWorkBoxBackground(boxRect, pawn, workType);
 
                 if (Find.PlaySettings.useWorkPriorities)
                 {
@@ -595,7 +595,8 @@ namespace Better_Work_Tab.Patches
 
         private static Pawn GetBestPawnForWorktype(PawnTable table, WorkTypeDef workType, PawnColumnWorker_WorkPriority worker)
         {
-            if (table == null || table.cachedPawns == null) return null;
+            var pawns = PawnTableCompat.GetCachedPawns(table);
+            if (pawns.Count == 0) return null;
             var settings = BetterWorkTabMod.Settings;
             bool useCache = (settings?.enablePerformanceOptimizations ?? true) &&
                             (settings?.cacheSkillLevels ?? true);
@@ -614,7 +615,6 @@ namespace Better_Work_Tab.Patches
             }
 
             Pawn bestPawn = null;
-            var pawns = table.cachedPawns;
 
             for (int i = 0; i < pawns.Count; i++)
             {
@@ -746,7 +746,7 @@ namespace Better_Work_Tab.Patches
                 SkillBoxSize + 2f,
                 SkillBoxSize + 2f);
 
-#if v1_2
+#if v1_2 || v1_1
             Verse.Widgets.DrawBoxSolid(outlineRect, Color.clear);
             Color outlineCol = BetterWorkTabMod.Settings.Color_BestPawnForSkillSquare;
             Color oldCol = GUI.color;

@@ -217,7 +217,11 @@ namespace Better_Work_Tab.Features.TimePriority
             try
             {
                 Text.WordWrap = false;
-                WidgetsWork.DrawWorkBoxBackground(boxRect, pawn, workType);
+                #if v1_1
+                WidgetsWork.DrawWorkBoxFor(boxRect.x, boxRect.y, pawn, workType, Find.PlaySettings.useWorkPriorities);
+                #else
+                WidgetsWork.DrawWorkBoxFor(boxRect, pawn, workType);
+                #endif
                 if (Find.PlaySettings.useWorkPriorities)
                 {
                     if (displayPriority > WorkPrioritySystem.DisabledPriority)
