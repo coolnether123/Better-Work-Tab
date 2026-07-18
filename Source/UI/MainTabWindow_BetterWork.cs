@@ -1,6 +1,8 @@
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Mod_Support.Multiplayer;
+#if !v1_2 && !v1_1 && !v1_0 && !v0_19
 using Better_Work_Tab.Mod_Support.Multiplayer.Features.Layouts;
+#endif
 using Better_Work_Tab.Features.Caching;
 using Better_Work_Tab.Features.Dividers;
 using Better_Work_Tab.Features.Patches;
@@ -30,7 +32,9 @@ using Better_Work_Tab.UI.WorkGrid.Interaction;
 using Better_Work_Tab.UI.WorkGrid.Rendering;
 using Better_Work_Tab.UI.WorkGrid.Snapshots;
 using Better_Work_Tab.UI.WorkGiverReassignments;
+#if !v1_2 && !v1_1 && !v1_0 && !v0_19
 using Multiplayer.API;
+#endif
 using RimWorld;
 using Spine.Profiling;
 using Spine.RimWorld.Rendering;
@@ -191,6 +195,26 @@ namespace Better_Work_Tab.UI
 
         internal bool LastRawHorizontalOverflow => _lastRawHorizontalOverflow;
         internal bool LastHorizontalScrollbarVisible => _lastHorizontalScrollbarVisible;
+
+#if !v1_2 && !v1_1 && !v1_0 && !v0_19
+        /// <summary>
+        /// Multiplayer registration for column reordering sync.
+        /// Uses nested class pattern to keep MP setup organized.
+        /// </summary>
+        [StaticConstructorOnStartup]
+        private static class MPRegistration
+        {
+            static MPRegistration()
+            {
+                if (!MP.enabled)
+                    return;
+
+                MP.RegisterSyncMethod(typeof(MainTabWindow_BetterWork),
+                                      nameof(MarkColumnMoved));
+            }
+        }
+#endif
+
 
         public override void PreOpen()
         {
@@ -820,14 +844,25 @@ namespace Better_Work_Tab.UI
             }
             
             // Multiplayer follow mode: Copy this pawn row
+#if !v1_2 && !v1_1 && !v1_0 && !v0_19
             if (LayoutSharingManager.IsFollowing)
             {
                 options.Add(new FloatMenuOption(
                     $"Copy {pawn.NameShortColored} row position to my layout (stop following)",
                     () => LayoutSharingManager.CopyPawnRowToLocalAndStop(pawn)));
             }
+#endif
 
             Find.WindowStack.Add(new FloatMenu(options));
+        }
+
+        private void ShowRenamePawnDialog(Pawn pawn)
+        {
+#if v1_3 || v1_2
+            Find.WindowStack.Add(new Dialog_NamePawn(pawn));
+#else
+            Find.WindowStack.Add(pawn.NamePawnDialog());
+#endif
         }
 
         private void ShowDividerContextMenu(PawnDivider divider)
@@ -851,12 +886,14 @@ namespace Better_Work_Tab.UI
             };
             
             // Multiplayer follow mode: Copy this divider
+#if !v1_2 && !v1_1 && !v1_0 && !v0_19
             if (LayoutSharingManager.IsFollowing)
             {
                 options.Add(new FloatMenuOption(
                     "Copy this divider to my layout (stop following)",
                     () => LayoutSharingManager.CopyDividerToLocalAndStop(divider)));
             }
+#endif
 
             Find.WindowStack.Add(new FloatMenu(options));
         }
@@ -980,6 +1017,8 @@ namespace Better_Work_Tab.UI
                 hash = (hash * 31) + (settings?.workTabMaxVisiblePawns ?? DefaultSettings.workTabMaxVisiblePawns);
                 hash = (hash * 31) + ((settings?.keepVanillaWorkTabMinimumWidth ??
                                        DefaultSettings.keepVanillaWorkTabMinimumWidth) ? 1 : 0);
+                hash = (hash * 31) + ((settings?.showGeneralTutorial ?? false) ? 1 : 0);
+                hash = (hash * 31) + ((settings?.tutorialWelcomeCompleted ?? false) ? 1 : 0);
                 return hash;
             }
         }
@@ -1157,8 +1196,10 @@ namespace Better_Work_Tab.UI
             ResizeWindowBottomAnchoredIfRequestedSizeChanged();
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
 
+#if !v1_2 && !v1_1 && !v1_0 && !v0_19
             if (MultiplayerBridge.Active)
                 LayoutSharingManager.NotifyLayoutChanged();
+#endif
         }
 
         private void RefreshOrganizerLayoutForCurrentTable()
@@ -3616,7 +3657,9 @@ namespace Better_Work_Tab.UI
         /// directly dragged by the player, then updates its marking status based on
         /// whether it ended up out of vanilla position.
         /// </summary>
+#if !v1_2 && !v1_1 && !v1_0 && !v0_19
         [SyncMethod]
+#endif
         internal static void MarkColumnMoved(WorkTypeDef workType)
         {
             if (workType?.defName == null)
@@ -4439,8 +4482,10 @@ namespace Better_Work_Tab.UI
             {
                 ToggleDividerCollapsed(divider);
                 
+#if !v1_2 && !v1_1 && !v1_0 && !v0_19
                 if (MultiplayerBridge.Active)
                     LayoutSharingManager.NotifyLayoutChanged();
+#endif
             }
             var originalAnchor = Text.Anchor;
             Text.Anchor = TextAnchor.MiddleCenter;
@@ -4902,7 +4947,7 @@ namespace Better_Work_Tab.UI
 
         private void DrawInfoButton(Rect gearRect)
         {
-            if (Widgets.ButtonImage(gearRect, TexButton.Info))
+            if (Widgets.ButtonImage(gearRect, RimWorld.TexButton.Info))
             {
                 OpenBetterWorkTabSettings();
             }
@@ -4963,7 +5008,7 @@ namespace Better_Work_Tab.UI
                 buttonSize,
                 buttonSize);
 
-            if (Widgets.ButtonImage(exitRect, TexButton.CloseXSmall, Color.white, GenUI.MouseoverColor))
+            if (Widgets.ButtonImage(exitRect, RimWorld.TexButton.CloseXSmall, Color.white, GenUI.MouseoverColor))
             {
                 ExitSubWorkDrilldown(restoreMousePosition: false);
             }

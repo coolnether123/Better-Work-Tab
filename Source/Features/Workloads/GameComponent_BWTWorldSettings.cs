@@ -8,7 +8,9 @@ using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.Patches;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.Data;
+#if !v1_2 && !v1_1 && !v1_0 && !v0_19
 using Multiplayer.API;
+#endif
 using Spine.Profiling;
 using System.Collections.Generic;
 using System.Linq;

@@ -32,7 +32,7 @@ namespace Better_Work_Tab.Features.Rules
         [RuleParameter]
         public int PassionLevel = -1;
 
-#if !v1_3
+#if !v1_3 && !v1_2 && !v1_1 && !v1_0 && !v0_19
         [RuleParameter]
         public XenotypeDef Xenotype;
 #endif
@@ -133,7 +133,7 @@ namespace Better_Work_Tab.Features.Rules
             bool assignToPawnWithFewestWorkPriorities = false, 
             Gender? gender = null, 
             bool isPregnant = false, 
-#if !v1_3
+#if !v1_3 && !v1_2 && !v1_1 && !v1_0 && !v0_19
             XenotypeDef xenotype = null, 
 #endif
             Tuple<TraitDef, int> requiredTrait = null, 
@@ -176,7 +176,7 @@ namespace Better_Work_Tab.Features.Rules
             Gender = gender;
             IsPregnant = isPregnant;
 
-#if !v1_3
+#if !v1_3 && !v1_2 && !v1_1 && !v1_0 && !v0_19
             Xenotype = xenotype;
             if(xenotype != null)
             {
@@ -225,7 +225,7 @@ namespace Better_Work_Tab.Features.Rules
                 Priority = WorkPrioritySystem.ClampPriority(Priority),
                 AllowOverwritingHigherPriority = AllowOverwritingHigherPriority,
                 PassionLevel = PassionLevel,
-#if !v1_3
+#if !v1_3 && !v1_2 && !v1_1 && !v1_0 && !v0_19
                 Xenotype = Xenotype,
 #endif
                 RequiredTrait = RequiredTrait != null
@@ -316,7 +316,7 @@ namespace Better_Work_Tab.Features.Rules
         private void SyncBackingStringsFromDefs()
         {
             WorktypeString = Worktype?.defName ?? WorktypeString ?? "";
-#if !v1_3
+#if !v1_3 && !v1_2 && !v1_1 && !v1_0 && !v0_19
             XenotypeString = Xenotype?.defName ?? XenotypeString ?? "";
 #endif
             TraitString = RequiredTrait?.Item1?.defName ?? TraitString ?? "";
@@ -371,7 +371,7 @@ namespace Better_Work_Tab.Features.Rules
 
         private void ResolveXenotypeFromString()
         {
-#if !v1_3
+#if !v1_3 && !v1_2 && !v1_1 && !v1_0 && !v0_19
             if (Xenotype == null && !string.IsNullOrEmpty(XenotypeString))
             {
                 Xenotype = DefDatabase<XenotypeDef>.GetNamedSilentFail(XenotypeString);

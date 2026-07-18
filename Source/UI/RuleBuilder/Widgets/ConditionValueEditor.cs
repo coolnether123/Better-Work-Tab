@@ -38,7 +38,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
                 ConditionType.Passion => DrawPassionEditor(rect, condition, parameters, state),
                 ConditionType.Gender => DrawGenderEditor(rect, condition, parameters, state),
                 ConditionType.Trait => DrawTraitEditor(rect, condition, parameters, state),
-#if !v1_3
+#if !v1_3 && !v1_2 && !v1_1 && !v1_0 && !v0_19
                 ConditionType.Xenotype => DrawXenotypeEditor(rect, condition, parameters, state),
 #endif
                 _ => false
@@ -395,7 +395,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
             return false;
         }
 
-#if !v1_3
+#if !v1_3 && !v1_2 && !v1_1 && !v1_0 && !v0_19
         private static bool DrawXenotypeEditor(
             Rect rect,
             ConditionInfo condition,

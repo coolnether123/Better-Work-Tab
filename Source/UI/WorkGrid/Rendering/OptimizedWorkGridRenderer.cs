@@ -427,11 +427,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 BetterWorkTabSettings.ShowUIMode mode = settings.ShowUIMode_ShowPawnForSkillSquare;
                 if (mode == BetterWorkTabSettings.ShowUIMode.Always || mode == ShiftHelper.State)
                 {
-                    Widgets.DrawBoxSolidWithOutline(
-                        boxRect.ExpandedBy(1f),
-                        Color.clear,
-                        settings.Color_BestPawnForSkillSquare,
-                        settings.bestPawnHighlightThickness);
+                    Color previousColor = GUI.color;
+                    GUI.color = settings.Color_BestPawnForSkillSquare;
+                    Widgets.DrawBox(boxRect.ExpandedBy(1f), settings.bestPawnHighlightThickness);
+                    GUI.color = previousColor;
                 }
             }
 

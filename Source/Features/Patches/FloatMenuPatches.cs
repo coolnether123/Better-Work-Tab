@@ -23,6 +23,20 @@ namespace Better_Work_Tab.Patches
     [HarmonyPatch(typeof(FloatMenuMakerMap), "AddJobGiverWorkOrders")]
     public static class Patch_FloatMenuMakerMap_AddJobGiverWorkOrders
     {
+#if v1_2 || v1_3
+        public static void Postfix(IntVec3 clickCell, Pawn pawn, List<FloatMenuOption> opts, bool drafted)
+        {
+            // Only relevant if work settings exist.
+            if (pawn?.workSettings == null)
+            {
+                return;
+            }
+
+            if (pawn.Map == null || !clickCell.InBounds(pawn.Map))
+            {
+                return;
+            }
+#else
         public static void Postfix(Vector3 clickPos, Pawn pawn, List<FloatMenuOption> opts, bool drafted)
         {
             if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabPriorityFeatures)
@@ -42,6 +56,7 @@ namespace Better_Work_Tab.Patches
             {
                 return;
             }
+#endif
 
             foreach (WorkTypeDef workType in DefDatabase<WorkTypeDef>.AllDefsListForReading)
             {
@@ -188,29 +203,57 @@ namespace Better_Work_Tab.Patches
                 string disabledLabel = WorkGiverActionLabel(workGiver, workType) + ": " + timeReason.CapitalizeFirst();
                 if (!opts.Any(o => o.Label == disabledLabel))
                 {
+#if v1_2 || v1_1 || v1_0 || v0_19 || v0_18 || v0_17 || v0_16 || v0_15 || v0_14 || v0_13 || vAlpha4
+                    opts.Add(new FloatMenuOption(disabledLabel, null, priority: MenuOptionPriority.VeryLow));
+#else
                     opts.Add(new FloatMenuOption(disabledLabel, null, orderInPriority: -1));
+#endif
                 }
 
                 if (!opts.Any(o => o.Label == openScheduleLabel))
                 {
+#if v1_2 || v1_1 || v1_0 || v0_19 || v0_18 || v0_17 || v0_16 || v0_15 || v0_14 || v0_13 || vAlpha4
+                    opts.Add(new FloatMenuOption(
+                        openScheduleLabel,
+                        () => TimePriorityScheduleEditor.OpenForFloatMenu(pawn, workType, workGiver),
+                        priority: MenuOptionPriority.VeryLow));
+#else
                     opts.Add(new FloatMenuOption(
                         openScheduleLabel,
                         () => TimePriorityScheduleEditor.OpenForFloatMenu(pawn, workType, workGiver),
                         orderInPriority: -1));
+#endif
                 }
             }
 
             if (effectiveWorkGiverPriority == WorkPrioritySystem.DisabledPriority &&
                 !opts.Any(o => o.Label == manageWorkGiversLabel))
             {
+#if v1_2 || v1_1 || v1_0 || v0_19 || v0_18 || v0_17 || v0_16 || v0_15 || v0_14 || v0_13 || vAlpha4
+                opts.Add(new FloatMenuOption(
+                    manageWorkGiversLabel,
+                    () => OpenWorkGiverManagement(pawn, workType, workGiver),
+                    priority: MenuOptionPriority.VeryLow));
+#else
                 opts.Add(new FloatMenuOption(
                     manageWorkGiversLabel,
                     () => OpenWorkGiverManagement(pawn, workType, workGiver),
                     orderInPriority: -1));
+#endif
             }
 
             if (!opts.Any(o => o.Label == openTabLabel))
             {
+#if v1_2 || v1_1 || v1_0 || v0_19 || v0_18 || v0_17 || v0_16 || v0_15 || v0_14 || v0_13 || vAlpha4
+                opts.Add(new FloatMenuOption(
+                    openTabLabel,
+                    () =>
+                    {
+                        HighlightState.SetWorktypeToHighlight(pawn, workType);
+                        Find.MainTabsRoot.SetCurrentTab(MainButtonDefOf.Work);
+                    },
+                    priority: MenuOptionPriority.VeryLow));
+#else
                 opts.Add(new FloatMenuOption(
                     openTabLabel,
                     () =>
@@ -219,6 +262,7 @@ namespace Better_Work_Tab.Patches
                         Find.MainTabsRoot.SetCurrentTab(MainButtonDefOf.Work);
                     },
                     orderInPriority: -1));
+#endif
             }
 
             if (opts.Any(o => o.Label == doOnceLabel))
@@ -245,14 +289,21 @@ namespace Better_Work_Tab.Patches
                         MoteMaker.MakeStaticMote(clickedCell, pawn.Map, workGiver.forceMote);
                     }
 
+#if !v1_2 && !v1_1 && !v1_0 && !v0_19
                     if (workGiver.forceFleck != null)
                     {
                         FleckMaker.Static(clickedCell, pawn.Map, workGiver.forceFleck);
                     }
+#endif
                 }
             }
 
-#if v1_3
+#if v1_2
+            var option = FloatMenuUtility.DecoratePrioritizedTask(
+                new FloatMenuOption(doOnceLabel, AssignOnce),
+                pawn,
+                target);
+#elif v1_3
             var option = FloatMenuUtility.DecoratePrioritizedTask(
                 new FloatMenuOption(doOnceLabel, AssignOnce, orderInPriority: -1),
                 pawn,
@@ -317,6 +368,7 @@ namespace Better_Work_Tab.Patches
             Find.WindowStack.Add(new Window_WorkGiverSubMenu(targetWorkType, screenPos, windowPawn));
         }
     }
+
 
     [DefOf]
     public static class MainButtonDefOf

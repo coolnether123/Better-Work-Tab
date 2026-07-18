@@ -10,7 +10,9 @@ using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.Patches;
 using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.WorkGrid.Contracts;
+#if !v1_2 && !v1_1 && !v1_0 && !v0_19
 using Multiplayer.API;
+#endif
 using RimWorld;
 using Spine.UI.ColourPicker;
 using Spine.UI.SettingsFramework;
@@ -34,6 +36,11 @@ namespace Better_Work_Tab.UI.Settings
     /// </summary>
     public static class BWTSettingsRegistry
     {
+#if v1_2 || v1_1 || v1_0 || v0_19
+        private static bool IsMultiplayerSession => false;
+#else
+        private static bool IsMultiplayerSession => MP.enabled && MP.IsInMultiplayer;
+#endif
         private static List<SettingDefinition> _settings;
         private static SettingsHierarchy _hierarchy;
         private static bool _initialized;
@@ -1127,7 +1134,7 @@ namespace Better_Work_Tab.UI.Settings
                 ControlsChildVisibility = true,
                 ShowInSimpleView = false,
                 ShowInAdvancedView = false,
-                VisibleWhen = _ => MP.enabled && MP.IsInMultiplayer,
+                VisibleWhen = _ => IsMultiplayerSession,
                 SortOrder = -40
             });
 
@@ -2695,7 +2702,7 @@ namespace Better_Work_Tab.UI.Settings
                 Tooltip = "Render hover indicators shared by other players.",
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.mpShowOtherPlayersHover,
-                VisibleWhen = _ => MP.enabled && MP.IsInMultiplayer,
+                VisibleWhen = _ => IsMultiplayerSession,
                 ShowInSimpleView = false,
                 ShowInAdvancedView = false,
                 SortOrder = 415
@@ -2710,7 +2717,7 @@ namespace Better_Work_Tab.UI.Settings
                 Tooltip = "Share the hovered cell you are looking at with your peers.",
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.mpAllowPresenceBroadcast,
-                VisibleWhen = _ => MP.enabled && MP.IsInMultiplayer,
+                VisibleWhen = _ => IsMultiplayerSession,
                 ShowInSimpleView = false,
                 ShowInAdvancedView = false,
                 SortOrder = 416
@@ -2725,7 +2732,7 @@ namespace Better_Work_Tab.UI.Settings
                 Tooltip = "Permit other players to request snapshots of your layout.",
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.mpAllowOthersToRequestLayout,
-                VisibleWhen = _ => MP.enabled && MP.IsInMultiplayer,
+                VisibleWhen = _ => IsMultiplayerSession,
                 ShowInSimpleView = false,
                 ShowInAdvancedView = false,
                 SortOrder = 417
@@ -2740,7 +2747,7 @@ namespace Better_Work_Tab.UI.Settings
                 Tooltip = "Display a linked/peered indicator when viewing another player's layout.",
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.mpShowLinkedIndicator,
-                VisibleWhen = _ => MP.enabled && MP.IsInMultiplayer,
+                VisibleWhen = _ => IsMultiplayerSession,
                 ShowInSimpleView = false,
                 ShowInAdvancedView = false,
                 SortOrder = 418

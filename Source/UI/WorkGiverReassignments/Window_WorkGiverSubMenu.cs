@@ -16,6 +16,12 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
     /// </summary>
     internal class Window_WorkGiverSubMenu : Window
     {
+#if v1_2 || v1_1 || v1_0 || v0_19 || v0_18 || v0_17 || v0_16 || v0_15 || v0_14 || v0_13 || vAlpha4
+        private static Color TooltipTitleColor => Color.white;
+#else
+        private static Color TooltipTitleColor => ColoredText.TipSectionTitleColor;
+#endif
+
         private readonly WorkTypeDef _workType;
         private readonly Pawn _pawn;
         private readonly Vector2 _triggerPos;
@@ -330,7 +336,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             string workType = WorkTypeDisplayNameService.FullLabel(wg.def.workType ?? _workType);
 
             System.Text.StringBuilder sb = new System.Text.StringBuilder(128);
-            sb.Append(title.Colorize(ColoredText.TipSectionTitleColor));
+            sb.Append(title.Colorize(TooltipTitleColor));
             if (!workType.NullOrEmpty())
             {
                 sb.Append("\n").Append("WorkType".Translate() + ": ").Append(workType);

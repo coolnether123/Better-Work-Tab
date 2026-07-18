@@ -205,10 +205,12 @@ namespace Better_Work_Tab.DragDrop
             Find.ColonistBar?.MarkColonistsDirty();
 
             // Notify multiplayer followers
+#if !v1_2 && !v1_1 && !v1_0 && !v0_19
             if (Better_Work_Tab.Mod_Support.Multiplayer.MultiplayerBridge.Active)
             {
                Better_Work_Tab.Mod_Support.Multiplayer.Features.Layouts.LayoutSharingManager.NotifyLayoutChanged();
             }
+#endif
         }
 
         /// <summary>

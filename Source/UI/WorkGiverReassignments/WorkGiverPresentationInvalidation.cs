@@ -16,18 +16,15 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         private static readonly Dictionary<int, int> PawnDynamicVersions = new Dictionary<int, int>(64);
         private static readonly ConditionalWeakTable<PawnCapacitiesHandler, PawnReference> CapacityOwners =
             new ConditionalWeakTable<PawnCapacitiesHandler, PawnReference>();
+#if !v1_2 && !v1_1 && !v1_0 && !v0_19 && !v0_18 && !v0_17 && !v0_16 && !v0_15 && !v0_14 && !v0_13 && !vAlpha4
         private static readonly ConditionalWeakTable<Pawn_IdeoTracker, PawnReference> IdeologyOwners =
             new ConditionalWeakTable<Pawn_IdeoTracker, PawnReference>();
+#endif
         private static Game _currentGame;
 
         internal static void RegisterCapacityOwner(PawnCapacitiesHandler handler, Pawn pawn)
         {
             RegisterOwner(CapacityOwners, handler, pawn);
-        }
-
-        internal static void RegisterIdeologyOwner(Pawn_IdeoTracker tracker, Pawn pawn)
-        {
-            RegisterOwner(IdeologyOwners, tracker, pawn);
         }
 
         internal static void NotifyCapacityStateChanged(PawnCapacitiesHandler handler)
@@ -39,6 +36,12 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 0x42575431);
         }
 
+#if !v1_2 && !v1_1 && !v1_0 && !v0_19 && !v0_18 && !v0_17 && !v0_16 && !v0_15 && !v0_14 && !v0_13 && !vAlpha4
+        internal static void RegisterIdeologyOwner(Pawn_IdeoTracker tracker, Pawn pawn)
+        {
+            RegisterOwner(IdeologyOwners, tracker, pawn);
+        }
+
         internal static void NotifyIdeologyChanged(Pawn_IdeoTracker tracker)
         {
             NotifyRegisteredOwner(
@@ -47,6 +50,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 "ideology tracker",
                 0x42575432);
         }
+#endif
 
         internal static int GetPawnDynamicVersion(Pawn pawn)
         {

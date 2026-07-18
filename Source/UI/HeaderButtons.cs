@@ -250,6 +250,8 @@ namespace Better_Work_Tab.UI
 
 #if v1_3
             if (Widgets.ButtonText(mainRect, "  " + btnLbl))
+#elif v1_2
+            if (Widgets12.ButtonText(mainRect, "  " + btnLbl, true, true, true, TextAnchor.MiddleLeft))
 #else
             if (Widgets.ButtonText(mainRect, "  " + btnLbl,
                     overrideTextAnchor: TextAnchor.MiddleLeft))
@@ -289,6 +291,8 @@ namespace Better_Work_Tab.UI
 
 #if v1_3
             if (Widgets.ButtonText(mainRect, "  " + buttonLabel))
+#elif v1_2
+            if (Widgets12.ButtonText(mainRect, "  " + buttonLabel, true, true, true, TextAnchor.MiddleLeft))
 #else
             if (Widgets.ButtonText(mainRect, "  " + buttonLabel,
                     overrideTextAnchor: TextAnchor.MiddleLeft))

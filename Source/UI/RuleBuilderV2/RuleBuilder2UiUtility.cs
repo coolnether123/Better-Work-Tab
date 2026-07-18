@@ -8,6 +8,15 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 {
     internal static class RuleBuilder2UiUtility
     {
+        private static float LineHeightFor(GameFont font)
+        {
+#if v1_2 || v1_1 || v1_0 || v0_19 || v0_18 || v0_17 || v0_16 || v0_15 || v0_14 || v0_13 || vAlpha4
+            return font == GameFont.Tiny ? 18f : font == GameFont.Medium ? 30f : 22f;
+#else
+            return Text.LineHeightOf(font);
+#endif
+        }
+
         internal static string T(string key)
         {
             return key.CanTranslate() ? key.Translate().ToString() : key;
@@ -35,7 +44,8 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
         internal static Rect NormalizeLabelRect(Rect rect, GameFont font = GameFont.Small, float verticalPadding = 2f)
         {
-            float minHeight = Text.LineHeightOf(font) + verticalPadding;
+            float lineHeight = LineHeightFor(font);
+            float minHeight = lineHeight + verticalPadding;
             return rect.height >= minHeight
                 ? rect
                 : new Rect(rect.x, rect.y, rect.width, minHeight);
@@ -73,15 +83,15 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             float height = Text.CalcHeight(label ?? "", Mathf.Max(1f, width));
             Text.WordWrap = previousWordWrap;
             Text.Font = previousFont;
-            return Mathf.Max(Text.LineHeightOf(font), height);
+            return Mathf.Max(LineHeightFor(font), height);
         }
 
         internal static float ClampWrappedHeight(string label, float width, int maxLines, out bool clamped, GameFont font = GameFont.Small)
         {
             float measured = MeasureWrappedHeight(label, width, font);
-            float maxHeight = Text.LineHeightOf(font) * Mathf.Max(1, maxLines);
+            float maxHeight = LineHeightFor(font) * Mathf.Max(1, maxLines);
             clamped = measured > maxHeight + 0.5f;
-            return Mathf.Clamp(measured, Text.LineHeightOf(font), maxHeight);
+            return Mathf.Clamp(measured, LineHeightFor(font), maxHeight);
         }
 
         internal static void DrawSafeLabel(Rect rect, string label)

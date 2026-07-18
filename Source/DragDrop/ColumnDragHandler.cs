@@ -1,5 +1,7 @@
 using Better_Work_Tab.Features;
+#if !v1_2 && !v1_1 && !v1_0 && !v0_19
 using Better_Work_Tab.Mod_Support.Multiplayer.Sync;
+#endif
 using Better_Work_Tab.Mod_Support.Multiplayer;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
@@ -447,6 +449,7 @@ namespace Better_Work_Tab.DragDrop
 
                 ColumnReorderAnimationState.Start(Layout.Columns);
 
+#if !v1_2 && !v1_1 && !v1_0 && !v0_19
                 if (MultiplayerBridge.Active)
                 {
                     // Sync the entire resulting order for multiplayer consistency
@@ -463,6 +466,7 @@ namespace Better_Work_Tab.DragDrop
                     WorkColumnOrderSync.ApplyWorkColumnOrder(finalOrder, movedNames);
                     return;
                 }
+#endif
 
                 // Reconstruct table def columns
                 var original = def.columns.ToList();
@@ -508,10 +512,12 @@ namespace Better_Work_Tab.DragDrop
                 WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
                 MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
 
+#if !v1_2 && !v1_1 && !v1_0 && !v0_19
                 if (MultiplayerBridge.Active)
                 {
                     Better_Work_Tab.Mod_Support.Multiplayer.Features.Layouts.LayoutSharingManager.NotifyLayoutChanged();
                 }
+#endif
 
                 // Clear selection after successful drop unless Shift is still held
                 if (!Event.current.shift || !BetterWorkTabMod.Settings.enableColumnGrouping)

@@ -73,7 +73,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
                     "IsNaturalAlwaysAssign" => p.IsNaturalAlwaysAssign,
                     "RequiredTrait" => p.RequiredTrait != null,
                     "Gender" => p.Gender != null,
-#if !v1_3
+#if !v1_3 && !v1_2 && !v1_1 && !v1_0 && !v0_19
                     "Xenotype" => p.Xenotype != null,
 #endif
                     "IsCapableOfViolence" => p.IsCapableOfViolence,
@@ -108,7 +108,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
                 "IsNaturalAlwaysAssign" => p.IsNaturalAlwaysAssign,
                 "RequiredTrait" => p.RequiredTrait,
                 "Gender" => p.Gender,
-#if !v1_3
+#if !v1_3 && !v1_2 && !v1_1 && !v1_0 && !v0_19
                 "Xenotype" => p.Xenotype,
 #endif
                 "IsCapableOfViolence" => p.IsCapableOfViolence,
@@ -159,7 +159,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
                 case "Gender":
                     p.Gender = value as Gender?;
                     break;
-#if !v1_3
+#if !v1_3 && !v1_2 && !v1_1 && !v1_0 && !v0_19
                 case "Xenotype":
                     p.Xenotype = value as XenotypeDef;
                     p.XenotypeString = p.Xenotype?.defName ?? "";
@@ -231,7 +231,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
                 case "Gender":
                     p.Gender = null;
                     break;
-#if !v1_3
+#if !v1_3 && !v1_2 && !v1_1 && !v1_0 && !v0_19
                 case "Xenotype":
                     p.Xenotype = null;
                     p.XenotypeString = "";
@@ -423,7 +423,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
                     DefaultValue = true,
                     ShortLabel = "Pregnant"
                 },
-#if !v1_3
+#if !v1_3 && !v1_2 && !v1_1 && !v1_0 && !v0_19
                 new ConditionDefinition
                 {
                     Key = "Xenotype",
