@@ -1015,21 +1015,6 @@ namespace Better_Work_Tab.UI
                 }
 
                 float maxWindowWidth = Mathf.Max(1f, Verse.UI.screenWidth - 2f);
-                float tutorialReserveWidth = BWTWorkTabTutorial.PreferredReserveWidth;
-                if (tutorialReserveWidth > 0f)
-                {
-                    if (finalWidth + tutorialReserveWidth <= maxWindowWidth)
-                    {
-                        finalWidth += tutorialReserveWidth;
-                        finalHeight = Mathf.Max(finalHeight, BWTWorkTabTutorial.PreferredReserveHeight);
-                    }
-                    else
-                    {
-                        // At 1024-wide/high-scale layouts the selector moves into
-                        // a top band instead of covering the highlighted grid.
-                        finalHeight += BWTWorkTabTutorial.PreferredReserveHeight;
-                    }
-                }
                 bool needsHorizontalScrollbar = finalWidth > maxWindowWidth + 0.5f;
                 if (needsHorizontalScrollbar)
                 {
@@ -1039,12 +1024,6 @@ namespace Better_Work_Tab.UI
                 finalHeight = Mathf.Min(
                     finalHeight,
                     GetConfiguredMaxWindowHeight(organizer?.Layout, table, needsHorizontalScrollbar));
-                if (tutorialReserveWidth > 0f)
-                {
-                    finalHeight = Mathf.Min(
-                        Verse.UI.screenHeight - 35f,
-                        Mathf.Max(finalHeight, BWTWorkTabTutorial.PreferredReserveHeight));
-                }
                 finalWidth = Mathf.Min(finalWidth, maxWindowWidth);
 
                 _requestedTabSizeCacheSignature = ComputeRequestedTabSizeSignature(table, organizer?.Layout);
