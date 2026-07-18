@@ -268,12 +268,17 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 priority == WorkPrioritySystem.DisabledPriority);
             GUI.color = oldColor;
 
-            if (priority > 0)
+            if (Find.PlaySettings.useWorkPriorities &&
+                priority > WorkPrioritySystem.DisabledPriority)
             {
                 Text.Font = GameFont.Medium;
                 Text.Anchor = TextAnchor.MiddleCenter;
                 GUI.color = WithVisualAlpha(WorkPrioritySystem.GetPriorityColor(priority));
                 Widgets.Label(boxRect.ContractedBy(-3f), priority.ToString());
+            }
+            else if (priority > WorkPrioritySystem.DisabledPriority)
+            {
+                WorkGiverPriorityBoxCompatibility.DrawCheck(boxRect);
             }
 
             GUI.color = oldColor;
