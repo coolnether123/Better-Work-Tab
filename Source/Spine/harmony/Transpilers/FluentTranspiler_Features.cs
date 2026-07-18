@@ -464,12 +464,39 @@ namespace Spine.Harmony
 
         private static bool TryGetLocalIndex(CodeInstruction instr, out int localIndex)
         {
-            return HarmonyInstructionCompat.TryGetLocalIndex(instr, out localIndex);
+            localIndex = -1;
+            if (instr == null) return false;
+
+            try
+            {
+                // Harmony helper handles ldloc/stloc/ldloca short and long forms.
+                localIndex = instr.LocalIndex();
+                return true;
+            }
+            catch { }
+
+            return false;
         }
 
         private static bool TryGetArgumentIndex(CodeInstruction instr, out int argumentIndex)
         {
-            return HarmonyInstructionCompat.TryGetArgumentIndex(instr, out argumentIndex);
+            argumentIndex = -1;
+            if (instr == null) return false;
+
+            try
+            {
+                // Harmony helper handles ldarg/starg/ldarga short and long forms.
+                argumentIndex = instr.ArgumentIndex();
+                return true;
+            }
+            catch { }
+
+            if (instr.opcode == OpCodes.Ldarg_0) { argumentIndex = 0; return true; }
+            if (instr.opcode == OpCodes.Ldarg_1) { argumentIndex = 1; return true; }
+            if (instr.opcode == OpCodes.Ldarg_2) { argumentIndex = 2; return true; }
+            if (instr.opcode == OpCodes.Ldarg_3) { argumentIndex = 3; return true; }
+
+            return false;
         }
 
         #endregion

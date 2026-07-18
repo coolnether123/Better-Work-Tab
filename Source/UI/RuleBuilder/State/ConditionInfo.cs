@@ -17,9 +17,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.State
         Passion,
         Gender,
         Trait,
-#if !v1_3
         Xenotype
-#endif
     }
 
     /// <summary>
@@ -96,11 +94,9 @@ namespace Better_Work_Tab.UI.RuleBuilder.State
                     }
                     return "None";
 
-#if !v1_3
                 case ConditionType.Xenotype:
                     var xeno = Value as XenotypeDef;
                     return xeno?.LabelCap ?? "None";
-#endif
 
                 default:
                     return Value?.ToString() ?? "-";

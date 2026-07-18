@@ -181,7 +181,7 @@ namespace Better_Work_Tab.API
                    !pawn.WorkTypeIsDisabled(targetWorkType) &&
                    !worker.ShouldSkip(pawn) &&
                    worker.MissingRequiredCapacity(pawn) == null &&
-                   (!pawn.RaceProps.IsMechanoid || PawnWorkControlCompatibility.CanBeDoneByMechs(workGiver));
+                   (!pawn.RaceProps.IsMechanoid || workGiver.canBeDoneByMechs);
         }
 
         public static bool CanPawnUseWorkGiverNowByDefName(int pawnThingId, string workGiverDefName, bool forced = false)

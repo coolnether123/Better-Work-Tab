@@ -64,10 +64,8 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
             }
 
             // Xenotype
-#if !v1_3
             if (p.Xenotype != null)
                 parts.Add(p.Xenotype.LabelCap);
-#endif
 
             // Assignment behavior
             if (p.IsNaturalAlwaysAssign)

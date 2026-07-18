@@ -230,7 +230,7 @@ namespace Better_Work_Tab.PawnOrganizer
             unchecked
             {
                 int hash = 17;
-                var columns = HeaderUtility.GetTableColumns(table);
+                var columns = table?.Columns;
                 if (columns == null)
                 {
                     return hash;
@@ -863,11 +863,7 @@ namespace Better_Work_Tab.PawnOrganizer
 
         private void BuildColumns()
         {
-#if v1_3
-            var allColumns = _table.ColumnsListForReading;
-#else
             var allColumns = _table.Columns;
-#endif
             var hiddenWorktypes = BetterWorkTabMod.Settings?.hiddenWorktypes;
             float headerHeight = HeaderHeight;
             if (SubWorkDrilldownState.IsActive)

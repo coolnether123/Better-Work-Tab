@@ -153,7 +153,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             int minimumAge = 0;
             if (workTypeDisabled)
             {
-                disabledByAge = WorkGiverPriorityBoxCompatibility.IsWorkTypeDisabledByAge(pawn, workType, out minimumAge);
+                disabledByAge = pawn.IsWorkTypeDisabledByAge(workType, out minimumAge);
             }
 
             presentation.WorkTypeDisabled = workTypeDisabled;

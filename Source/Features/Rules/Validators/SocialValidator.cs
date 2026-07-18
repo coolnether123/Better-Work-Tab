@@ -21,7 +21,6 @@ namespace Better_Work_Tab.Features.Rules.Validators
             if (map == null)
                 return false;
 
-#if !v1_3
             foreach (var child in map.mapPawns.FreeColonists
                 .Where(ch => (int)ch.DevelopmentalStage < (int)DevelopmentalStage.Adult))
             {
@@ -31,7 +30,6 @@ namespace Better_Work_Tab.Features.Rules.Validators
                 if (child.GetFather() == pawn || child.GetMother() == pawn)
                     return true; // Found a child!
             }
-#endif
 
             return false; // No children found
         }

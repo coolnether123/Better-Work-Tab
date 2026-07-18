@@ -693,10 +693,8 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             if (parameters.Gender != null)
                 result.Add(new ConditionInfo("Gender", ConditionType.Gender, parameters.Gender));
 
-#if !v1_3
             if (parameters.Xenotype != null)
                 result.Add(new ConditionInfo("Xenotype", ConditionType.Xenotype, parameters.Xenotype));
-#endif
 
             if (parameters.IsCapableOfViolence)
                 result.Add(new ConditionInfo("IsCapableOfViolence", ConditionType.Bool, true));
@@ -753,10 +751,8 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             if (parameters.Gender == null)
                 AddOption("Gender", "BWT_Add_Gender".Translate(), () => parameters.Gender = Gender.None);
 
-#if !v1_3
             if (parameters.Xenotype == null)
                 AddOption("Xenotype", "BWT_Add_Xenotype".Translate(), () => { /* placeholder until xenotype picker */ });
-#endif
 
             if (!parameters.IsCapableOfViolence)
                 AddOption("IsCapableOfViolence", "BWT_Add_IsCapableOfViolence".Translate(), () => parameters.IsCapableOfViolence = true);

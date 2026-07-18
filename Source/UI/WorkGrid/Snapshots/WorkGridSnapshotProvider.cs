@@ -305,7 +305,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
         {
             int priority;
             bool incapable;
-            bool ageDisabled = WorkGiverPriorityBoxCompatibility.IsWorkTypeDisabledByAge(pawn, workType, out _);
+            bool ageDisabled = pawn.IsWorkTypeDisabledByAge(workType, out _);
             bool disabled = pawn.WorkTypeIsDisabled(workType);
             bool overrideRing;
             if (workGiver != null)

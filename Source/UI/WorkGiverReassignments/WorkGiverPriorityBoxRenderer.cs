@@ -6,7 +6,6 @@ using Better_Work_Tab.UI.Headers.Angled;
 using RimWorld;
 using System;
 using System.Collections.Generic;
-using System.Reflection;
 using UnityEngine;
 using Verse;
 using Verse.Sound;
@@ -377,7 +376,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                     }
 
                     GUI.color = WithVisualAlpha(oldColor);
-                    GUI.DrawTexture(boxRect, WorkGiverPriorityBoxCompatibility.WorkBoxBGTexAgeDisabled);
+                    GUI.DrawTexture(boxRect, WidgetsWork.WorkBoxBGTex_AgeDisabled);
                     GUI.color = oldColor;
                 }
 
@@ -1015,55 +1014,5 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             public Rect? TargetBoxScreen;
         }
 
-    }
-
-    internal static class WorkGiverPriorityBoxCompatibility
-    {
-        private static readonly MethodInfo IsWorkTypeDisabledByAgeMethod = typeof(Pawn).GetMethod(
-            "IsWorkTypeDisabledByAge",
-            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
-            null,
-            new[] { typeof(WorkTypeDef), typeof(int).MakeByRefType() },
-            null);
-
-        private static readonly FieldInfo WorkBoxBGTexAgeDisabledField = typeof(WidgetsWork).GetField(
-            "WorkBoxBGTex_AgeDisabled",
-            BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
-
-        internal static Texture2D WorkBoxBGTexAgeDisabled
-        {
-            get
-            {
-                try
-                {
-                    return WorkBoxBGTexAgeDisabledField?.GetValue(null) as Texture2D ?? WidgetsWork.WorkBoxBGTex_Bad;
-                }
-                catch
-                {
-                    return WidgetsWork.WorkBoxBGTex_Bad;
-                }
-            }
-        }
-
-        internal static bool IsWorkTypeDisabledByAge(Pawn pawn, WorkTypeDef workType, out int minimumAge)
-        {
-            minimumAge = 0;
-            if (pawn == null || workType == null || IsWorkTypeDisabledByAgeMethod == null)
-            {
-                return false;
-            }
-
-            try
-            {
-                object[] arguments = { workType, minimumAge };
-                bool disabled = (bool)IsWorkTypeDisabledByAgeMethod.Invoke(pawn, arguments);
-                minimumAge = arguments[1] is int value ? value : 0;
-                return disabled;
-            }
-            catch
-            {
-                return false;
-            }
-        }
     }
 }

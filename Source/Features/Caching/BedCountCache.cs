@@ -1,6 +1,5 @@
 using RimWorld;
 using System.Collections.Generic;
-using System.Reflection;
 using UnityEngine;
 using Verse;
 
@@ -21,8 +20,6 @@ namespace Better_Work_Tab.Features.Caching
         // Configuration
         private const float CacheValiditySeconds = 4f; // Recalculate every 4 seconds max
         private static bool _initialized;
-        private static readonly PropertyInfo ForHumanBabiesProperty =
-            typeof(Building_Bed).GetProperty("ForHumanBabies", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
         /// <summary>
         /// Gets the current colonist bed count for a map.
@@ -129,11 +126,11 @@ namespace Better_Work_Tab.Features.Caching
                         continue;
 
                     // Skip cribs (babies do not appear in the work tab)
-                    if (IsHumanBabyBed(bed))
+                    if (bed.ForHumanBabies)
                         continue;
 
                     // Skip deathrest caskets (Biotech)
-                    if (IsDeathrestCasket(bed))
+                    if (ModsConfig.BiotechActive && bed.def == ThingDefOf.DeathrestCasket)
                         continue;
 
                     // Count the available sleeping slots on valid colonist beds
@@ -142,26 +139,6 @@ namespace Better_Work_Tab.Features.Caching
             }
 
             return totalSlots;
-        }
-
-        private static bool IsHumanBabyBed(Building_Bed bed)
-        {
-            if (bed == null || ForHumanBabiesProperty == null || ForHumanBabiesProperty.PropertyType != typeof(bool))
-                return false;
-
-            try
-            {
-                return (bool)ForHumanBabiesProperty.GetValue(bed, null);
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        private static bool IsDeathrestCasket(Building_Bed bed)
-        {
-            return bed?.def?.defName == "DeathrestCasket";
         }
 
         /// <summary>

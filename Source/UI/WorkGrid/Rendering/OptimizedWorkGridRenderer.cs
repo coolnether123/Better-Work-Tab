@@ -97,7 +97,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             switch (key.Variant)
             {
                 case WorkGridAtlasVisualVariant.AgeDisabled:
-                    baseTexture = WorkGiverPriorityBoxCompatibility.WorkBoxBGTexAgeDisabled;
+                    baseTexture = WidgetsWork.WorkBoxBGTex_AgeDisabled;
                     break;
                 case WorkGridAtlasVisualVariant.SkillAwfulBad:
                     baseTexture = WidgetsWork.WorkBoxBGTex_Awful;

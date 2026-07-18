@@ -1,6 +1,5 @@
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
-using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.WorkGrid.Contracts;
 using RimWorld;
 using Verse;
@@ -94,8 +93,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
                 hash = (hash * 397) ^ WorkGiverReassignmentManager.CurrentSyncVersion;
                 hash = (hash * 397) ^ TimePriorityService.ComputePresentationAuditSignature();
                 hash = (hash * 397) ^ WorkGiverReassignmentManager.ComputePresentationAuditSignature();
-                var columns = HeaderUtility.GetTableColumns(table);
-                if (table?.cachedPawns == null || columns == null)
+                if (table?.cachedPawns == null || table.Columns == null)
                 {
                     return hash;
                 }
@@ -109,9 +107,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
                         continue;
                     }
 
-                    for (int columnIndex = 0; columnIndex < columns.Count; columnIndex++)
+                    for (int columnIndex = 0; columnIndex < table.Columns.Count; columnIndex++)
                     {
-                        WorkTypeDef workType = columns[columnIndex]?.workType;
+                        WorkTypeDef workType = table.Columns[columnIndex]?.workType;
                         if (workType != null)
                         {
                             int priority = pawn.workSettings.priorities[workType];

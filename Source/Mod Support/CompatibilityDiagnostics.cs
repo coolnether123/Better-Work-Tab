@@ -13,7 +13,6 @@ namespace Better_Work_Tab.ModSupport
         };
 
         private static bool reported;
-        private static readonly HashSet<int> ReportedWarnings = new HashSet<int>();
 
         public static void ReportStartup(ModContentPack betterWorkTab)
         {
@@ -33,7 +32,7 @@ namespace Better_Work_Tab.ModSupport
             for (int i = 0; i < HardConflicts.Length; i++)
             {
                 KnownConflict conflict = HardConflicts[i];
-                if (GetActiveModWithIdentifier(conflict.PackageId) == null)
+                if (ModLister.GetActiveModWithIdentifier(conflict.PackageId, ignorePostfix: true) == null)
                 {
                     continue;
                 }
@@ -60,7 +59,7 @@ namespace Better_Work_Tab.ModSupport
 
                 if (ContainsIgnoreCase(mod.Name, "work tab") || ContainsIgnoreCase(mod.PackageId, "worktab"))
                 {
-                    WarningOnce(
+                    Log.WarningOnce(
                         $"[Better Work Tab] Possible Work tab UI mod also active: {mod.Name} ({mod.PackageId}). " +
                         "If it changes the vanilla Work tab, run only one Work tab replacement at a time.",
                         74239200 + i);
@@ -70,8 +69,8 @@ namespace Better_Work_Tab.ModSupport
 
         private static void ReportKnownMultiplayerLoadOrderRisk(ModContentPack betterWorkTab)
         {
-            if (GetActiveModWithIdentifier("rwmt.multiplayer") == null ||
-                GetActiveModWithIdentifier("unlimitedhugs.hugslib") == null)
+            if (ModLister.GetActiveModWithIdentifier("rwmt.multiplayer", ignorePostfix: true) == null ||
+                ModLister.GetActiveModWithIdentifier("unlimitedhugs.hugslib", ignorePostfix: true) == null)
             {
                 return;
             }
@@ -96,37 +95,10 @@ namespace Better_Work_Tab.ModSupport
                 return;
             }
 
-            WarningOnce(
+            Log.WarningOnce(
                 $"[Better Work Tab] Multiplayer + HugsLib + Rimhammer detected, with BWT loading before {lastRimhammer.Name} ({lastRimhammer.PackageId}). " +
                 "There is a historical report of this stack locking the host map render during new-colony startup. Put Better Work Tab after the Rimhammer mods and include Player.log if it still reproduces.",
                 74239300);
-        }
-
-        private static ModContentPack GetActiveModWithIdentifier(string packageId)
-        {
-            List<ModContentPack> mods = LoadedModManager.RunningModsListForReading;
-            for (int i = 0; i < mods.Count; i++)
-            {
-                ModContentPack mod = mods[i];
-                string activePackageId = mod?.PackageId;
-                if (EqualsIgnoreCase(activePackageId, packageId) ||
-                    StartsWithIgnoreCase(activePackageId, packageId + "_"))
-                {
-                    return mod;
-                }
-            }
-
-            return null;
-        }
-
-        private static void WarningOnce(string message, int key)
-        {
-            if (!ReportedWarnings.Add(key))
-            {
-                return;
-            }
-
-            Log.Warning(message);
         }
 
         private static bool IsKnownHardConflict(ModContentPack mod)
@@ -164,12 +136,6 @@ namespace Better_Work_Tab.ModSupport
         {
             return !string.IsNullOrEmpty(value) &&
                    value.IndexOf(fragment, StringComparison.OrdinalIgnoreCase) >= 0;
-        }
-
-        private static bool StartsWithIgnoreCase(string value, string fragment)
-        {
-            return !string.IsNullOrEmpty(value) &&
-                   value.StartsWith(fragment, StringComparison.OrdinalIgnoreCase);
         }
 
         private static bool EqualsIgnoreCase(string left, string right)

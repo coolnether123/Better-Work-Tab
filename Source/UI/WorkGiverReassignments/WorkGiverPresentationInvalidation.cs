@@ -114,10 +114,10 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 return;
             }
 
-            Spine.Harmony.Infrastructure.MMLog.WarnOnce(
-                "WorkGiverPresentationInvalidation." + warningKey,
+            Log.WarningOnce(
                 "[BWT] Could not resolve the pawn for a WorkGiver presentation " + ownerKind +
-                " notification. A compatibility adapter should call WorkGiverApi.NotifyPawnPresentationStateChanged.");
+                " notification. A compatibility adapter should call WorkGiverApi.NotifyPawnPresentationStateChanged.",
+                warningKey);
         }
 
         private sealed class PawnReference
