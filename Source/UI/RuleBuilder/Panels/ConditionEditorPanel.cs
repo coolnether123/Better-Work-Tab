@@ -111,7 +111,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             GUI.color = new Color(0.9f, 1f, 0.9f, 0.9f);
             
             Rect labelRect = new Rect(rect.x, rect.yMax - 40f, rect.width, 30f);
-            string dropText = "BWT_DropHere".CanTranslate() ? "BWT_DropHere".Translate() : "\u2193 Drop here to duplicate \u2193";
+            string dropText = "BWT_DropHere".CanTranslate() ? "BWT_DropHere".Translate() : "↓ Drop here to duplicate ↓";
             Verse.Widgets.Label(labelRect, dropText);
             
             Text.Font = GameFont.Small;

@@ -311,7 +311,7 @@ namespace Better_Work_Tab.DragDrop
         private float GetVisibleRowStackBottom(float headerBottom)
         {
             float rowStackHeight = GetVisibleRowStackHeight();
-            float scrollY = PawnTableCompat.GetScrollPosition(Layout.Table).y;
+            float scrollY = Layout.Table?.scrollPosition.y ?? 0f;
             float pinnedRowsHeight = TimePriorityScheduleEditor.HeaderPinnedRowsHeight +
                 SubWorkDrilldownState.GlobalRowVisibleHeight;
             float bottom = headerBottom + pinnedRowsHeight + Mathf.Max(0f, rowStackHeight - scrollY);

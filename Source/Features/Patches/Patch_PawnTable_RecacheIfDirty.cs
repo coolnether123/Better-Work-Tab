@@ -50,22 +50,16 @@ namespace Better_Work_Tab.Features.Patches
     /// <summary>
     /// Synchronizes our custom layout system (with dividers and collapsed sections)
     /// to vanilla's PawnTable cached data.
-    ///
+    /// 
     /// Responsibility:
     /// - Extract row heights from custom layout descriptors
     /// - Build the cachedRowHeights list that vanilla uses for rendering
     /// - Clamp total height to maxTableHeight to prevent content overflow
     /// - Update cachedSize with clamped dimensions
     /// </summary>
-    [HarmonyPatch]
+    [HarmonyPatch(typeof(PawnTable), nameof(PawnTable.RecacheIfDirty))]
     public static class Patch_PawnTable_RecacheIfDirty
     {
-        private static MethodBase TargetMethod()
-        {
-            return AccessTools.Method(typeof(PawnTable), "RecacheIfDirty")
-                ?? AccessTools.Method(typeof(PawnTable), nameof(PawnTable.PawnTableOnGUI));
-        }
-
         private sealed class SyncState
         {
             public int LayoutRevision = -1;
@@ -91,7 +85,7 @@ namespace Better_Work_Tab.Features.Patches
         public static void Postfix(PawnTable __instance)
         {
             // Only process the Work tab
-            if (!PawnTableCompat.IsWorkTable(__instance) ||
+            if (__instance.def != PawnTableDefOf.Work ||
                 !FluffyWorkTabGateway.ShouldRunBetterWorkTabFeatures)
                 return;
 
@@ -113,7 +107,7 @@ namespace Better_Work_Tab.Features.Patches
                 SubWorkDrilldownState.GlobalRowReservedHeight;
             float contentHeight = layout.ContentHeight;
             float totalHeight = headerHeight + contentHeight;
-            float width = PawnTableCompat.GetCachedSize(__instance).x;
+            float width = __instance.cachedSize.x;
             int layoutRevision = layout is WorkTabLayoutController workLayout ? workLayout.LayoutRevision : -1;
 
             if (!SyncStates.TryGetValue(__instance, out var state))
@@ -167,17 +161,17 @@ namespace Better_Work_Tab.Features.Patches
         private static bool IsAlreadySynced(PawnTable table, SyncState state, float totalHeight)
         {
             return ReferenceEquals(CachedRowHeightsField.GetValue(table), state.RowHeights) &&
-                   Approximately(PawnTableCompat.GetCachedSize(table).y, totalHeight);
+                   Approximately(table.cachedSize.y, totalHeight);
         }
     }
 
     /// <summary>
     /// Enforces bottom-anchoring for the work tab window.
-    ///
+    /// 
     /// When content changes, the window resizes. This patch ensures it grows UPWARD
     /// (by moving its top edge up) rather than growing downward, keeping it pinned
     /// to the bottom of the screen.
-    ///
+    /// 
     /// Runs after vanilla's sizing logic to enforce this invariant:
     /// windowRect.y + windowRect.height = screenHeight - 35
     /// </summary>

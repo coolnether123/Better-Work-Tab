@@ -1,6 +1,5 @@
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
-using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.WorkGrid.Contracts;
 using RimWorld;
@@ -26,7 +25,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
             }
 
             _nextRosterAuditTick = ticks + AuditIntervalTicks;
-            if (RosterSignature(PawnsFinder.AllMaps_FreeColonists) == RosterSignature(PawnTableCompat.GetCachedPawns(table)))
+            if (RosterSignature(PawnsFinder.AllMaps_FreeColonists) == RosterSignature(table?.cachedPawns))
             {
                 return;
             }
@@ -96,17 +95,16 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
                 hash = (hash * 397) ^ TimePriorityService.ComputePresentationAuditSignature();
                 hash = (hash * 397) ^ WorkGiverReassignmentManager.ComputePresentationAuditSignature();
                 var columns = HeaderUtility.GetTableColumns(table);
-                var cachedPawns = PawnTableCompat.GetCachedPawns(table);
-                if (cachedPawns == null || columns == null)
+                if (table?.cachedPawns == null || columns == null)
                 {
                     return hash;
                 }
 
-                for (int pawnIndex = 0; pawnIndex < cachedPawns.Count; pawnIndex++)
+                for (int pawnIndex = 0; pawnIndex < table.cachedPawns.Count; pawnIndex++)
                 {
-                    Pawn pawn = cachedPawns[pawnIndex];
+                    Pawn pawn = table.cachedPawns[pawnIndex];
                     hash = (hash * 397) ^ (pawn?.thingIDNumber ?? 0);
-                    if (pawn?.workSettings == null)
+                    if (pawn?.workSettings?.priorities == null)
                     {
                         continue;
                     }
@@ -116,7 +114,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
                         WorkTypeDef workType = columns[columnIndex]?.workType;
                         if (workType != null)
                         {
-                            int priority = WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, workType);
+                            int priority = pawn.workSettings.priorities[workType];
                             hash = (hash * 397) ^ workType.shortHash;
                             hash = (hash * 397) ^ priority;
                             if (pawn.skills != null)

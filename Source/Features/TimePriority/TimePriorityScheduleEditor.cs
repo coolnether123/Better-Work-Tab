@@ -1293,7 +1293,7 @@ namespace Better_Work_Tab.Features.TimePriority
             Rect tableRect = new Rect(
                 layout.TableOrigin.x,
                 layout.TableOrigin.y,
-                Mathf.Max(layout.Table?.Size.x ?? PawnTableCompat.GetCachedSize(layout.Table).x, 1f),
+                Mathf.Max(layout.Table?.Size.x ?? layout.Table?.cachedSize.x ?? 0f, 1f),
                 Mathf.Max(GetVisualTableHeight(layout), 1f));
             tableRect.width = Mathf.Max(1f, tableRect.width - 16f);
 
@@ -1405,7 +1405,7 @@ namespace Better_Work_Tab.Features.TimePriority
             if (layout.Table != null)
             {
                 float tableLeft = layout.TableOrigin.x;
-                float tableRight = tableLeft + Mathf.Max(layout.Table.Size.x, PawnTableCompat.GetCachedSize(layout.Table).x) - 16f;
+                float tableRight = tableLeft + Mathf.Max(layout.Table.Size.x, layout.Table.cachedSize.x) - 16f;
                 min = Mathf.Max(min, tableLeft);
                 max = Mathf.Min(max, tableRight);
 

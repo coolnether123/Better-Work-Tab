@@ -93,11 +93,7 @@ namespace Better_Work_Tab
         public static bool enableUIElements = true;
         public static bool enablePerformanceOptimizations = true;
         public static WorkGridRendererMode workGridRendererMode = WorkGridRendererMode.Auto;
-#if v1_2 || v1_1 || v1_0 || v0_19
-        public static bool enableMultiplayerSync = false;
-#else
         public static bool enableMultiplayerSync = true;
-#endif
         public static bool hideSettingResetIcons = false;
         public static bool mpShowOtherPlayersHover = false;
         public static bool mpAllowOthersToRequestLayout = true;

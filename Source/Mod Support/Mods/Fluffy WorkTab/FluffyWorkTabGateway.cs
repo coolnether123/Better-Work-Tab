@@ -1045,11 +1045,11 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             }
 
             Rect sourceRect = ResolveSubWorkStyleChooserSourceRect(layout);
-            Vector2 scroll = PawnTableCompat.GetScrollPosition(table);
-            float localCenter = scroll.x + (sourceRect.center.x - layout.TableOrigin.x);
+            float localCenter = table.scrollPosition.x + (sourceRect.center.x - layout.TableOrigin.x);
             float targetX = Mathf.Max(0f, localCenter - (table.Size.x * 0.5f));
+            Vector2 scroll = table.scrollPosition;
             scroll.x = instant ? targetX : Mathf.Lerp(scroll.x, targetX, 0.18f);
-            PawnTableCompat.SetScrollPosition(table, scroll);
+            table.scrollPosition = scroll;
         }
 
         private static Rect BuildChoiceButtonRect(Rect region, bool anchorRight)

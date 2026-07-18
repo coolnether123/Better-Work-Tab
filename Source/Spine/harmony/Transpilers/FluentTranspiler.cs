@@ -666,7 +666,7 @@ namespace Spine.Harmony
 
         public FluentTranspiler MatchCall(MethodInfo method, string name = null)
         {
-            var cm = new CodeMatch(instruction => instruction.Calls(method));
+            var cm = CodeMatch.Calls(method);
             cm.name = name;
             _matcher.MatchStartForward(cm);
             if (!_matcher.IsValid)

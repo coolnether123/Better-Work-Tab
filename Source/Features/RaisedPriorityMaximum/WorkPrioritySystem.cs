@@ -117,6 +117,11 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             }
 
             workSettings.EnableAndInitializeIfNotAlreadyInitialized();
+            if (workSettings.priorities == null)
+            {
+                return;
+            }
+
             workSettings.SetPriority(workType, ClampPriority(priority));
             ExternalPriorityMirror.NotifyWorkTypeChanged(pawn, workType);
         }
@@ -148,13 +153,18 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             }
 
             workSettings.EnableAndInitializeIfNotAlreadyInitialized();
+            if (workSettings.priorities == null)
+            {
+                return;
+            }
+
             int clamped = PriorityAuthorityBroker.ClampPriorityForRequest(priority);
             if (clamped != 0 && pawn != null && pawn.WorkTypeIsDisabled(workType))
             {
                 return;
             }
 
-            workSettings.SetPriority(workType, clamped);
+            workSettings.priorities[workType] = clamped;
             workSettings.Notify_UseWorkPrioritiesChanged();
         }
 

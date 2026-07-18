@@ -28,7 +28,7 @@ namespace Better_Work_Tab.Features.TimePriority
         [HarmonyPrefix]
         private static bool Prefix(Rect rect, Pawn pawn, PawnTable table)
         {
-            if (!PawnTableCompat.IsWorkTable(table) ||
+            if (table?.def != PawnTableDefOf.Work ||
                 !(Find.MainTabsRoot?.OpenTab?.TabWindow is MainTabWindow_Work))
             {
                 return true;

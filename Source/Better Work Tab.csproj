@@ -53,10 +53,6 @@
     <OutputPath>..\1.2\Assemblies\</OutputPath>
     <DefineConstants>v1_2</DefineConstants>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == '1.1|AnyCPU'">
-    <OutputPath>..\1.1\Assemblies\</OutputPath>
-    <DefineConstants>v1_1</DefineConstants>
-  </PropertyGroup>
   <ItemGroup>
     <Reference Include="System.Core" />
     <Reference Include="Microsoft.CSharp" />
@@ -81,7 +77,6 @@
     <Compile Include="BetterWorkTab.cs" />
     <Compile Include="BetterWorkTabLocalState.cs" />
     <Compile Include="Infrastructure\Compatibility.cs" />
-    <Compile Include="Infrastructure\PawnTableCompat.cs" />
     <Compile Include="DragDrop\DragHandler.cs" />
     <Compile Include="DragDrop\DragSession.cs" />
     <Compile Include="DragDrop\ColumnDragHandler.cs" />
@@ -428,7 +423,7 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Krafs.Rimworld.Ref">
-      <Version>1.1.2654</Version>
+      <Version>1.2.3062</Version>
     </PackageReference>
     <PackageReference Include="Lib.Harmony">
       <Version>2.4.2</Version>

@@ -35,7 +35,7 @@ namespace Better_Work_Tab.UI.Headers
         public static IList<PawnColumnDef> GetTableColumns(PawnTable table)
         {
             if (table == null) return null;
-#if v1_3 || v1_2 || v1_1
+#if v1_3 || v1_2
             return table.ColumnsListForReading;
 #else
             return table.Columns;
@@ -253,7 +253,7 @@ namespace Better_Work_Tab.UI.Headers
         /// <returns>True if at least one work column is moved.</returns>
         public static bool CheckIfAnyColumnsAreMoved(PawnTable table)
         {
-            var tableCols = PawnTableCompat.GetColumnsListForReading(table);
+            var tableCols = table?.def?.columns;
             if (tableCols == null) return false;
 
             foreach (var col in tableCols)

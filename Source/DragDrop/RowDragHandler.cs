@@ -71,7 +71,7 @@ namespace Better_Work_Tab.DragDrop
         private int CalculateTargetIndex(Vector2 mousePos)
         {
             float headerBottom = _layout.TableOrigin.y + _layout.HeaderHeight;
-            float contentY = mousePos.y - headerBottom + PawnTableCompat.GetScrollPosition(_layout.Table).y;
+            float contentY = mousePos.y - headerBottom + _layout.Table.scrollPosition.y;
 
             var descriptors = _layout.GetRowDescriptors();
             int newIndex = descriptors.Count;
@@ -122,12 +122,12 @@ namespace Better_Work_Tab.DragDrop
                     _session.TargetIndex,
                     heights,
                     headerBottom,
-                    PawnTableCompat.GetScrollPosition(_layout.Table).y);
+                    _layout.Table.scrollPosition.y);
 
                 ListDragVisuals.DrawInsertionLine(
                     _layout.TableOrigin.x,
                     lineY,
-                    PawnTableCompat.GetSize(_layout.Table).x - 16f);
+                    _layout.Table.Size.x - 16f);
             }
         }
 

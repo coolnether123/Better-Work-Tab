@@ -1,4 +1,4 @@
-using RimWorld;
+﻿using RimWorld;
 using Better_Work_Tab.Features.Rules;
 using System.Linq;
 using Verse;
