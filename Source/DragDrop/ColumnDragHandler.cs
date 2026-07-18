@@ -668,7 +668,7 @@ namespace Better_Work_Tab.DragDrop
         private void ClearCrossWorkDropTarget()
         {
             _crossWorkDropTarget = null;
-            _crossWorkDropTargetRect = Rect.zero;
+            _crossWorkDropTargetRect = UnityCompat.ZeroRect;
             _crossWorkDropTargetValid = false;
         }
 

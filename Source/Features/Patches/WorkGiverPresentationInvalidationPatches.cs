@@ -3,6 +3,7 @@ using HarmonyLib;
 using RimWorld;
 using Verse;
 
+#if !v0_15
 namespace Better_Work_Tab.Features.Patches
 {
 #if !v1_0 && !v0_19
@@ -59,7 +60,7 @@ namespace Better_Work_Tab.Features.Patches
     [HarmonyPatch(
         typeof(SkillRecord),
         nameof(SkillRecord.Learn),
-        new[] { typeof(float), typeof(bool) })]
+        new[] { typeof(float), typeof(bool), typeof(bool) })]
     internal static class Patch_SkillRecord_Learn_Presentation
     {
         private readonly struct DisplayedSkillState
@@ -91,3 +92,4 @@ namespace Better_Work_Tab.Features.Patches
         }
     }
 }
+#endif

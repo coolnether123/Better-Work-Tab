@@ -75,7 +75,7 @@ namespace Better_Work_Tab.Features.TimePriority
 
             if (evt.button == 0 && _lastNowButtonRect.Contains(evt.mousePosition))
             {
-                SelectHour(MapCompat.CurrentMap != null ? GenLocalDate.HourOfDay(MapCompat.CurrentMap) : 0, replace: true);
+                SelectHour(MapCompat.CurrentMap != null ? TimeCompat.HourOfDay(MapCompat.CurrentMap) : 0, replace: true);
                 evt.Use();
                 return true;
             }
@@ -175,7 +175,7 @@ namespace Better_Work_Tab.Features.TimePriority
             }
 
             IsOpen = false;
-            _lastInteractiveRect = Rect.zero;
+            _lastInteractiveRect = UnityCompat.ZeroRect;
             NotifyLayoutChanged();
         }
 
@@ -187,8 +187,8 @@ namespace Better_Work_Tab.Features.TimePriority
             }
 
             return pawn != null
-                ? GenLocalDate.HourOfDay(pawn)
-                : MapCompat.CurrentMap != null ? GenLocalDate.HourOfDay(MapCompat.CurrentMap) : 0;
+                ? TimeCompat.HourOfDay(pawn)
+                : MapCompat.CurrentMap != null ? TimeCompat.HourOfDay(MapCompat.CurrentMap) : 0;
         }
 
         internal static int GetDisplayPriority(TimePriorityTarget target, int fallbackPriority, Pawn pawn)
@@ -412,7 +412,7 @@ namespace Better_Work_Tab.Features.TimePriority
             if (FluffyWorkTabGateway.TryGetIcon(FluffyWorkTabIcon.Now, out Texture2D nowIcon) &&
                 Widgets.ButtonImage(nowButton, nowIcon, Color.white, GenUI.MouseoverColor))
             {
-                SelectHour(MapCompat.CurrentMap != null ? GenLocalDate.HourOfDay(MapCompat.CurrentMap) : 0, replace: true);
+                SelectHour(MapCompat.CurrentMap != null ? TimeCompat.HourOfDay(MapCompat.CurrentMap) : 0, replace: true);
             }
             TooltipHandler.TipRegion(nowButton, "Select the current hour");
         }
@@ -424,7 +424,7 @@ namespace Better_Work_Tab.Features.TimePriority
             float indicatorSize = lowerHeight;
             float lastLabelRight = float.MinValue;
             Rect hourRect = new Rect(bar.xMin, bar.yMax - lowerHeight, hourWidth, lowerHeight);
-            int currentHour = MapCompat.CurrentMap != null ? GenLocalDate.HourOfDay(MapCompat.CurrentMap) : 0;
+            int currentHour = MapCompat.CurrentMap != null ? TimeCompat.HourOfDay(MapCompat.CurrentMap) : 0;
 
             Color oldColor = GUI.color;
             GUI.color = Color.grey;
@@ -483,7 +483,7 @@ namespace Better_Work_Tab.Features.TimePriority
             if (FluffyWorkTabGateway.TryGetIcon(FluffyWorkTabIcon.PinClock, out Texture2D clock))
             {
                 float currentTimeX = MapCompat.CurrentMap != null
-                    ? GenLocalDate.DayPercent(MapCompat.CurrentMap) * bar.width
+                    ? TimeCompat.DayPercent(MapCompat.CurrentMap) * bar.width
                     : 0f;
                 Rect currentTimeRect = new Rect(
                     bar.xMin + currentTimeX - indicatorSize / 2f,

@@ -73,7 +73,7 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
                 parentAlpha = transitionParentAlpha;
             }
             string parentText = null;
-            Rect parentTextRect = Rect.zero;
+            Rect parentTextRect = UnityCompat.ZeroRect;
             if (parentAlpha > 0.001f && column?.workType != null)
             {
                 parentText = HeaderUtility.GetParentHeaderText(column.workType, showMarker);

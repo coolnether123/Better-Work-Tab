@@ -776,7 +776,7 @@ namespace Better_Work_Tab.PawnOrganizer
 
             if (_geometrySnapshot == null || row.VisualIndex < 0 || row.VisualIndex >= _geometrySnapshot.Rows.Count)
             {
-                return Rect.zero;
+                return UnityCompat.ZeroRect;
             }
 
             return _geometrySnapshot.GetRowScreenRect(row.VisualIndex, PawnTableCompat.GetScrollPosition(_table));

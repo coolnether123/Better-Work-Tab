@@ -118,7 +118,11 @@ namespace Better_Work_Tab.Patches
                 Widgets.FillableBar(
                     barRect,
                     pawn.health.summaryHealth.SummaryHealthPercent,
+#if v0_15
+                    GenWorldUI.OverlayHealthTex,
+#else
                     GenMapUI.OverlayHealthTex,
+#endif
                     BaseContent.ClearTex,
                     doBorder: false);
             }
@@ -161,7 +165,13 @@ namespace Better_Work_Tab.Patches
 #else
                 CameraJumper.TryJumpAndSelect(pawn);
 #endif
-                if (Current.ProgramState == ProgramState.Playing && Event.current.button == 0)
+                if (Current.ProgramState ==
+#if v0_15
+                    ProgramState.MapPlaying
+#else
+                    ProgramState.Playing
+#endif
+                    && Event.current.button == 0)
                 {
                     // Keep the Work tab open when the user opts into the setting; otherwise mimic vanilla.
                     if (ShouldCloseWorkTab())

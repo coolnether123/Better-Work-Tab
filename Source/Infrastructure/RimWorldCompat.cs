@@ -196,6 +196,21 @@ namespace Better_Work_Tab
         }
     }
 
+    public static class ProgramStateCompat
+    {
+        public static bool IsPlaying
+        {
+            get
+            {
+#if (v0_15 || v0_14 || v0_13)
+                return Current.ProgramState == ProgramState.MapPlaying;
+#else
+                return Current.ProgramState == ProgramState.Playing;
+#endif
+            }
+        }
+    }
+
     public static class PawnCompat
     {
         public static string NameShortColored(Pawn pawn)
@@ -346,6 +361,21 @@ namespace Better_Work_Tab
         }
     }
 
+    public static class UiCompat
+    {
+        public static Vector2 MousePositionOnUIInverted
+        {
+            get
+            {
+#if v0_15 || v0_14 || v0_13 || vAlpha4
+                return new Vector2(Input.mousePosition.x, Verse.UI.screenHeight - Input.mousePosition.y);
+#else
+                return Verse.UI.MousePositionOnUIInverted;
+#endif
+            }
+        }
+    }
+
     public static class RectCompat
     {
         public static Rect Zero
@@ -407,7 +437,7 @@ namespace Better_Work_Tab
             get
             {
 #if v0_15
-                return Find.Map?.mapPawns?.AllPawnsSpawned ?? Enumerable.Empty<Pawn>();
+                return PawnUtility.AllPawnsMapOrWorldAlive;
 #elif (v0_17 || v0_16)
                 return PawnsFinder.AllMapsAndWorld_Alive;
 #else
@@ -420,7 +450,9 @@ namespace Better_Work_Tab
         {
             get
             {
-#if (v0_17 || v0_16)
+#if v0_15
+                return PawnUtility.AllPawnsMapOrWorldAliveOrDead;
+#elif (v0_17 || v0_16)
                 return PawnsFinder.AllMapsAndWorld_AliveOrDead;
 #else
                 return PawnsFinder.AllMapsWorldAndTemporary_AliveOrDead;
@@ -437,7 +469,9 @@ namespace Better_Work_Tab
         {
             get
             {
-#if (v0_17 || v0_16 || v0_15 || v0_14 || v0_13 || vAlpha4)
+#if v0_15
+                return PawnUtility.AllPawnsMapOrWorldAlive;
+#elif (v0_17 || v0_16 || v0_14 || v0_13 || vAlpha4)
                 return PawnsFinder.AllMapsAndWorld_Alive;
 #elif v0_18
                 return PawnsFinder.AllMapsWorldAndTemporary_Alive;
@@ -525,7 +559,7 @@ namespace Better_Work_Tab
         {
             get
             {
-#if (v0_18 || v0_17 || v0_16)
+#if (v0_18 || v0_17 || v0_16 || v0_15)
                 return SoundDefOf.TickHigh;
 #else
                 return UISoundCompat.TickHigh;
@@ -599,22 +633,58 @@ namespace Better_Work_Tab
         {
             get
             {
-#if v0_16
+#if v0_15
+                return TickLow;
+#elif v0_16
                 return TickLow;
 #else
                 return SoundDefOf.Crunch;
 #endif
             }
         }
+
+    }
+
+    public static class TimeCompat
+    {
+        public static int HourOfDay(object context)
+        {
+#if v0_15
+            return GenDate.HourOfDay;
+#else
+            return context is Pawn pawn ? GenLocalDate.HourOfDay(pawn) : GenLocalDate.HourOfDay(context as Map);
+#endif
+        }
+
+        public static float DayPercent(Map map)
+        {
+#if v0_15
+            return GenDate.CurrentDayPercent;
+#else
+            return GenLocalDate.DayPercent(map);
+#endif
+        }
     }
 
     public static class UICompat
     {
+        public static float UIScale
+        {
+            get
+            {
+#if v0_15
+                return 1f;
+#else
+                return Prefs.UIScale;
+#endif
+            }
+        }
+
         public static Vector2 MousePosUIInvertedUseEventIfCan
         {
             get
             {
-#if (v0_18 || v0_17 || v0_16)
+#if (v0_18 || v0_17 || v0_16 || v0_15)
                 Event evt = Event.current;
                 return evt != null ? evt.mousePosition : Vector2.zero;
 #else
@@ -1012,7 +1082,7 @@ namespace Better_Work_Tab
         {
             get
             {
-#if v0_16
+#if v0_15 || v0_16
                 string path = Path.Combine(GenFilePaths.SaveDataFolderPath, "Config");
                 Directory.CreateDirectory(path);
                 return path;
@@ -1069,7 +1139,9 @@ namespace Better_Work_Tab
 
         public static void ForceStopSaving()
         {
-#if v0_16
+#if v0_15
+            return;
+#elif v0_16
             Scribe.ForceStop();
 #else
             Scribe.saver.ForceStop();
@@ -1078,7 +1150,9 @@ namespace Better_Work_Tab
 
         public static void ForceStopLoading()
         {
-#if v0_16
+#if v0_15
+            return;
+#elif v0_16
             Scribe.ForceStop();
 #else
             Scribe.loader.ForceStop();

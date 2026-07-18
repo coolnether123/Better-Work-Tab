@@ -1111,7 +1111,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 return WidgetsWork.WorkBoxBGTex_Mid;
             }
 
-            int level = skill.Level;
+            int level = SkillCompat.Level(skill);
             if (level <= 3)
             {
                 return WorkBoxBGTexAwful;

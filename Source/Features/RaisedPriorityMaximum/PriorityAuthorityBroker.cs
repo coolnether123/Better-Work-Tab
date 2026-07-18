@@ -122,7 +122,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 return GetDefaultEnabledPriority();
             }
 
-            return ClampPriorityForRequest(workSettings.GetPriority(workType));
+            return ClampPriorityForRequest(workSettings.priorities[workType]);
         }
 
         internal static int GetBetterWorkTabEffectiveWorkGiverPriorityAtHour(
@@ -382,7 +382,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
         private static bool CanRunHandoffNow()
         {
-            return Current.Game != null && Current.ProgramState == ProgramState.Playing;
+            return Current.Game != null && ProgramStateCompat.IsPlaying;
         }
 
         private static void RunHandoff(PriorityAuthorityOwner previous, PriorityAuthorityOwner next)
