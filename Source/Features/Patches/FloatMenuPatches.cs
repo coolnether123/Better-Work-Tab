@@ -17,27 +17,13 @@ namespace Better_Work_Tab.Patches
 {
     /// <summary>
     /// Backport of the 1.6 "do once / open work tab" float-menu options to 1.5.
-    /// The 1.5 API builds options in FloatMenuMakerMap.AddJobGiverWorkOrders, so we
-    /// add our extras in a postfix while keeping vanilla options intact.
+    /// RimWorld 0.18 builds its options in ChoicesAtFor, so add the extras to the
+    /// returned list while keeping vanilla options intact.
     /// </summary>
-    [HarmonyPatch(typeof(FloatMenuMakerMap), "AddJobGiverWorkOrders")]
-    public static class Patch_FloatMenuMakerMap_AddJobGiverWorkOrders
+    [HarmonyPatch(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.ChoicesAtFor))]
+    public static class Patch_FloatMenuMakerMap_ChoicesAtFor
     {
-#if v1_3 || v1_2 || v1_1 || (v1_0 || v0_19)
-        public static void Postfix(IntVec3 clickCell, Pawn pawn, List<FloatMenuOption> opts, bool drafted)
-        {
-            // Only relevant if work settings exist.
-            if (pawn?.workSettings == null)
-            {
-                return;
-            }
-
-            if (pawn.Map == null || !clickCell.InBounds(pawn.Map))
-            {
-                return;
-            }
-#else
-        public static void Postfix(Vector3 clickPos, Pawn pawn, List<FloatMenuOption> opts, bool drafted)
+        public static void Postfix(Vector3 clickPos, Pawn pawn, ref List<FloatMenuOption> __result)
         {
             if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabPriorityFeatures)
             {
@@ -46,17 +32,18 @@ namespace Better_Work_Tab.Patches
 
             DoOnceSupport.EnsureBwtOwnsUnassignedWorkMenu();
 
-            if (pawn?.workSettings == null)
+            List<FloatMenuOption> opts = __result;
+            if (pawn?.workSettings == null || opts == null)
             {
                 return;
             }
 
+            bool drafted = pawn.Drafted;
             IntVec3 clickCell = IntVec3.FromVector3(clickPos);
             if (pawn.Map == null || !clickCell.InBounds(pawn.Map))
             {
                 return;
             }
-#endif
 
             foreach (WorkTypeDef workType in DefDatabase<WorkTypeDef>.AllDefsListForReading)
             {
