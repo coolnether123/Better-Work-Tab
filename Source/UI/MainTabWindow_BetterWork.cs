@@ -1,6 +1,6 @@
 ﻿using Better_Work_Tab.Features;
 using Better_Work_Tab.Mod_Support.Multiplayer;
-#if !v1_2 && !v1_1 && !(v1_0 || v0_19)
+#if !v1_2 && !v1_1 && !v1_0 && !v0_19
 using Better_Work_Tab.Mod_Support.Multiplayer.Features.Layouts;
 #endif
 using Better_Work_Tab.Features.Caching;
@@ -196,7 +196,7 @@ namespace Better_Work_Tab.UI
         internal bool LastRawHorizontalOverflow => _lastRawHorizontalOverflow;
         internal bool LastHorizontalScrollbarVisible => _lastHorizontalScrollbarVisible;
 
-#if !v1_2 && !v1_1 && !(v1_0 || v0_19)
+#if !v1_2 && !v1_1 && !v1_0 && !v0_19
         /// <summary>
         /// Multiplayer registration for column reordering sync.
         /// Uses nested class pattern to keep MP setup organized.
@@ -844,7 +844,7 @@ namespace Better_Work_Tab.UI
             }
             
             // Multiplayer follow mode: Copy this pawn row
-#if !v1_2 && !v1_1 && !(v1_0 || v0_19)
+#if !v1_2 && !v1_1 && !v1_0 && !v0_19
             if (LayoutSharingManager.IsFollowing)
             {
                 options.Add(new FloatMenuOption(
@@ -858,7 +858,7 @@ namespace Better_Work_Tab.UI
 
         private void ShowRenamePawnDialog(Pawn pawn)
         {
-#if v1_3 || v1_2 || v1_1 || (v1_0 || v0_19)
+#if v1_3 || v1_2 || v1_1 || v1_0
             Find.WindowStack.Add(new Dialog_NamePawn(pawn));
 #else
             Find.WindowStack.Add(pawn.NamePawnDialog());
@@ -886,7 +886,7 @@ namespace Better_Work_Tab.UI
             };
             
             // Multiplayer follow mode: Copy this divider
-#if !v1_2 && !v1_1 && !(v1_0 || v0_19)
+#if !v1_2 && !v1_1 && !v1_0 && !v0_19
             if (LayoutSharingManager.IsFollowing)
             {
                 options.Add(new FloatMenuOption(
@@ -974,21 +974,6 @@ namespace Better_Work_Tab.UI
                 }
 
                 float maxWindowWidth = Mathf.Max(1f, Verse.UI.screenWidth - 2f);
-                float tutorialReserveWidth = BWTWorkTabTutorial.PreferredReserveWidth;
-                if (tutorialReserveWidth > 0f)
-                {
-                    if (finalWidth + tutorialReserveWidth <= maxWindowWidth)
-                    {
-                        finalWidth += tutorialReserveWidth;
-                        finalHeight = Mathf.Max(finalHeight, BWTWorkTabTutorial.PreferredReserveHeight);
-                    }
-                    else
-                    {
-                        // At 1024-wide/high-scale layouts the selector moves into
-                        // a top band instead of covering the highlighted grid.
-                        finalHeight += BWTWorkTabTutorial.PreferredReserveHeight;
-                    }
-                }
                 bool needsHorizontalScrollbar = finalWidth > maxWindowWidth + 0.5f;
                 if (needsHorizontalScrollbar)
                 {
@@ -998,12 +983,6 @@ namespace Better_Work_Tab.UI
                 finalHeight = Mathf.Min(
                     finalHeight,
                     GetConfiguredMaxWindowHeight(organizer?.Layout, table, needsHorizontalScrollbar));
-                if (tutorialReserveWidth > 0f)
-                {
-                    finalHeight = Mathf.Min(
-                        Verse.UI.screenHeight - 35f,
-                        Mathf.Max(finalHeight, BWTWorkTabTutorial.PreferredReserveHeight));
-                }
                 finalWidth = Mathf.Min(finalWidth, maxWindowWidth);
 
                 _requestedTabSizeCacheSignature = ComputeRequestedTabSizeSignature(table, organizer?.Layout);
@@ -1217,7 +1196,7 @@ namespace Better_Work_Tab.UI
             ResizeWindowBottomAnchoredIfRequestedSizeChanged();
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
 
-#if !v1_2 && !v1_1 && !(v1_0 || v0_19)
+#if !v1_2 && !v1_1 && !v1_0 && !v0_19
             if (MultiplayerBridge.Active)
                 LayoutSharingManager.NotifyLayoutChanged();
 #endif
@@ -3678,7 +3657,7 @@ namespace Better_Work_Tab.UI
         /// directly dragged by the player, then updates its marking status based on
         /// whether it ended up out of vanilla position.
         /// </summary>
-#if !v1_2 && !v1_1 && !(v1_0 || v0_19)
+#if !v1_2 && !v1_1 && !v1_0 && !v0_19
         [SyncMethod]
 #endif
         internal static void MarkColumnMoved(WorkTypeDef workType)
@@ -4506,7 +4485,7 @@ namespace Better_Work_Tab.UI
             {
                 ToggleDividerCollapsed(divider);
                 
-#if !v1_2 && !v1_1 && !(v1_0 || v0_19)
+#if !v1_2 && !v1_1 && !v1_0 && !v0_19
                 if (MultiplayerBridge.Active)
                     LayoutSharingManager.NotifyLayoutChanged();
 #endif

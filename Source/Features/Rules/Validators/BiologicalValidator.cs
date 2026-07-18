@@ -21,7 +21,7 @@ namespace Better_Work_Tab.Features.Rules.Validators
                 return false;
 
             // Pregnancy requirement
-#if !v1_3 && !v1_2 && !v1_1 && !(v1_0 || v0_19)
+#if !v1_3 && !v1_2 && !v1_1 && !v1_0 && !v0_19
             if (p.IsPregnant)
             {
                 bool pregnant = pawn.health?.hediffSet?.HasHediff(HediffDefOf.PregnantHuman) ?? false;
@@ -31,7 +31,7 @@ namespace Better_Work_Tab.Features.Rules.Validators
 #endif
 
             // Xenotype requirement
-#if !v1_3 && !v1_2 && !v1_1 && !(v1_0 || v0_19)
+#if !v1_3 && !v1_2 && !v1_1 && !v1_0 && !v0_19
             if (p.Xenotype != null && pawn.genes?.Xenotype != p.Xenotype)
             {
                 return false;
@@ -43,7 +43,7 @@ namespace Better_Work_Tab.Features.Rules.Validators
             {
                 var traitDef = p.RequiredTrait.Item1;
                 var degree = p.RequiredTrait.Item2;
-#if v1_2 || v1_1 || (v1_0 || v0_19)
+#if v1_2 || v1_1 || v1_0
                 bool hasTrait = pawn.story?.traits.HasTrait(traitDef) ?? false;
                 if (hasTrait && degree != -1)
                 {

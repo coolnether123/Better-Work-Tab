@@ -14,7 +14,7 @@ namespace Better_Work_Tab
     {
         private static readonly IList<Pawn> EmptyPawns = new List<Pawn>();
 
-#if v1_1 || (v1_0 || v0_19)
+#if v1_1 || v1_0
         private static readonly FieldInfo CachedColumnWidthsField =
             AccessTools.Field(typeof(PawnTable), "cachedColumnWidths");
 
@@ -39,7 +39,7 @@ namespace Better_Work_Tab
             if (table == null)
                 return false;
 
-#if v1_1 || (v1_0 || v0_19)
+#if v1_1 || v1_0
             var columns = GetColumnsListForReading(table);
             if (columns == null)
                 return false;
@@ -61,7 +61,7 @@ namespace Better_Work_Tab
             if (table == null)
                 return null;
 
-#if v1_3 || v1_2 || v1_1 || (v1_0 || v0_19)
+#if v1_3 || v1_2 || v1_1 || v1_0
             return table.ColumnsListForReading;
 #else
             return table.Columns;
@@ -81,7 +81,7 @@ namespace Better_Work_Tab
             if (table == null)
                 return EmptyPawns;
 
-#if v1_1 || (v1_0 || v0_19)
+#if v1_1 || v1_0
             return GetPawnsListForReading(table);
 #else
             return table.cachedPawns ?? GetPawnsListForReading(table);
@@ -113,7 +113,7 @@ namespace Better_Work_Tab
             if (table == null)
                 return 0f;
 
-#if v1_1 || (v1_0 || v0_19)
+#if v1_1 || v1_0
             return table.HeaderHeight;
 #else
             return table.cachedHeaderHeight;
@@ -125,7 +125,7 @@ namespace Better_Work_Tab
             if (table == null)
                 return 0f;
 
-#if v1_1 || (v1_0 || v0_19)
+#if v1_1 || v1_0
             if (CachedHeaderHeightField?.GetValue(table) is float cachedHeaderHeight)
                 return cachedHeaderHeight;
 
@@ -145,7 +145,7 @@ namespace Better_Work_Tab
             if (table == null)
                 return Vector2.zero;
 
-#if v1_1 || (v1_0 || v0_19)
+#if v1_1 || v1_0
             if (CachedSizeField?.GetValue(table) is Vector2 cachedSize)
                 return cachedSize;
 
@@ -160,7 +160,7 @@ namespace Better_Work_Tab
             if (table == null)
                 return null;
 
-#if v1_1 || (v1_0 || v0_19)
+#if v1_1 || v1_0
             return CachedRowHeightsField?.GetValue(table) as List<float>;
 #else
             return table.cachedRowHeights;
@@ -181,7 +181,7 @@ namespace Better_Work_Tab
             if (table == null)
                 return false;
 
-#if v1_1 || (v1_0 || v0_19)
+#if v1_1 || v1_0
             if (CachedRowHeightsField == null)
                 return false;
 
@@ -198,7 +198,7 @@ namespace Better_Work_Tab
             if (table == null)
                 return false;
 
-#if v1_1 || (v1_0 || v0_19)
+#if v1_1 || v1_0
             if (CachedSizeField == null)
                 return false;
 
@@ -215,7 +215,7 @@ namespace Better_Work_Tab
             if (table == null)
                 return Vector2.zero;
 
-#if v1_1 || (v1_0 || v0_19)
+#if v1_1 || v1_0
             if (ScrollPositionField?.GetValue(table) is Vector2 reflected)
                 return reflected;
 
@@ -230,7 +230,7 @@ namespace Better_Work_Tab
             if (table == null)
                 return;
 
-#if v1_1 || (v1_0 || v0_19)
+#if v1_1 || v1_0
             if (ScrollPositionField != null)
             {
                 ScrollPositionField.SetValue(table, scrollPosition);
@@ -255,7 +255,7 @@ namespace Better_Work_Tab
             if (table == null)
                 return null;
 
-#if v1_1 || (v1_0 || v0_19)
+#if v1_1 || v1_0
             return CachedColumnWidthsField?.GetValue(table) as List<float>;
 #else
             return table.cachedColumnWidths;

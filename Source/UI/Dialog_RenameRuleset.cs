@@ -58,7 +58,7 @@ namespace Better_Work_Tab.UI
                 FieldHeight);
 
             GUI.SetNextControlName("RulesetNameField");
-#if v1_2 || v1_1 || (v1_0 || v0_19)
+#if v1_2 || v1_1 || v1_0
             _buffer = Widgets12.TextField(fieldRect, _buffer, 64);
 #else
             _buffer = Widgets.TextField(fieldRect, _buffer, 64);

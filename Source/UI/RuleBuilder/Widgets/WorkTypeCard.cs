@@ -27,7 +27,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
 
             if (isConfigured)
             {
-#if v1_2 || v1_1 || (v1_0 || v0_19)
+#if v1_2 || v1_1 || v1_0
                 Widgets12.DrawBox(rect, (int)BorderWidth, Texture2D.whiteTexture);
 #else
                 Verse.Widgets.DrawBox(rect, (int)BorderWidth, Texture2D.whiteTexture);
