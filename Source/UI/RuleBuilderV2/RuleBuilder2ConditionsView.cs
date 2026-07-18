@@ -243,7 +243,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             Find.WindowStack.Add(new FloatMenu(options));
         }
 
-        internal static string GetDefButtonLabel<T>(RuleBuilder2Condition condition, string fallback) where T : Def, new()
+        internal static string GetDefButtonLabel<T>(RuleBuilder2Condition condition, string fallback) where T : Def
         {
             if (condition.DefName.NullOrEmpty())
             {
@@ -254,7 +254,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             return def?.LabelCap.ToString() ?? condition.DefName;
         }
 
-        internal static void ShowDefMenu<T>(RuleBuilder2Condition condition, int maxOptions = 80) where T : Def, new()
+        internal static void ShowDefMenu<T>(RuleBuilder2Condition condition, int maxOptions = 80) where T : Def
         {
             var options = DefDatabase<T>.AllDefsListForReading
                 .OrderBy(def => def.label)

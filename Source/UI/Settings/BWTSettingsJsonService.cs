@@ -57,7 +57,7 @@ namespace Better_Work_Tab.UI.Settings
                 return false;
             }
 
-            if (IsNullOrWhiteSpace(json))
+            if (string.IsNullOrWhiteSpace(json))
             {
                 report = "The import data is empty.";
                 return false;
@@ -351,11 +351,6 @@ namespace Better_Work_Tab.UI.Settings
                     PinnedColors = new List<Color>();
                 }
             }
-        }
-
-        private static bool IsNullOrWhiteSpace(string value)
-        {
-            return string.IsNullOrEmpty(value) || value.Trim().Length == 0;
         }
     }
 }

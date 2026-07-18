@@ -361,7 +361,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
 
         private string SanitizePriorityBuffer(string edited, int maxPriority)
         {
-            if (string.IsNullOrEmpty(edited) || edited.Trim().Length == 0)
+            if (string.IsNullOrWhiteSpace(edited))
             {
                 return string.Empty;
             }

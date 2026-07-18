@@ -454,7 +454,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             int requestedPriority)
         {
             string providerId = settings?.selectedPriorityProviderId;
-            if (string.IsNullOrEmpty(providerId) ||
+            if (string.IsNullOrWhiteSpace(providerId) ||
                 IsProviderId(providerId, PriorityConstants.AutoProviderId) ||
                 IsProviderId(providerId, PriorityConstants.VanillaProviderId) ||
                 IsProviderId(providerId, PriorityConstants.BwtProviderId))

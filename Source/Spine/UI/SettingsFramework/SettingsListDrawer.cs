@@ -129,7 +129,7 @@ namespace Spine.UI.SettingsFramework
         /// <summary>
         /// Optional filters shown by the toolbar filter button.
         /// </summary>
-        public IList<SettingsFilterDefinition> Filters { get; set; } = new List<SettingsFilterDefinition>();
+        public IReadOnlyList<SettingsFilterDefinition> Filters { get; set; } = Array.Empty<SettingsFilterDefinition>();
 
         /// <summary>
         /// Toolbar label shown when no filter is active.
@@ -389,7 +389,7 @@ namespace Spine.UI.SettingsFramework
             ref SettingsViewMode viewMode,
             Action onSettingsChanged)
         {
-            bool isSearching = !IsNullOrWhiteSpace(_searchQuery);
+            bool isSearching = !string.IsNullOrWhiteSpace(_searchQuery);
             if (!string.IsNullOrEmpty(_pendingFocusSettingId))
             {
                 RevealDisabledAncestorChain(_pendingFocusSettingId);
@@ -839,7 +839,7 @@ namespace Spine.UI.SettingsFramework
 
                     tooltip += parentParts.Count == 1
                         ? $"Parent: {parentParts[0]}"
-                        : $"Parent chain: {string.Join(" › ", parentParts.ToArray())}";
+                        : $"Parent chain: {string.Join(" › ", parentParts)}";
                 }
             }
 
@@ -944,7 +944,7 @@ namespace Spine.UI.SettingsFramework
 
         private EmptyStateAction GetEmptyStateAction(object settingsObject, SettingsViewMode viewMode)
         {
-            bool isSearching = !IsNullOrWhiteSpace(_searchQuery);
+            bool isSearching = !string.IsNullOrWhiteSpace(_searchQuery);
             if (!isSearching)
             {
                 if (_activeFilter != null)
@@ -1012,7 +1012,7 @@ namespace Spine.UI.SettingsFramework
 
         private SettingsFilterDefinition FindSuggestedFilter(object settingsObject, SettingsViewMode viewMode)
         {
-            if (Filters == null || Filters.Count == 0 || IsNullOrWhiteSpace(_searchQuery))
+            if (Filters == null || Filters.Count == 0 || string.IsNullOrWhiteSpace(_searchQuery))
             {
                 return null;
             }
@@ -1646,11 +1646,6 @@ namespace Spine.UI.SettingsFramework
             None,
             Export,
             Import
-        }
-
-        private static bool IsNullOrWhiteSpace(string value)
-        {
-            return string.IsNullOrEmpty(value) || value.Trim().Length == 0;
         }
 
         private sealed class EmptyStateAction

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -16,7 +16,7 @@ namespace Spine.Harmony
     {
         /// <summary>
         /// Creates a FluentTranspiler from raw instructions for testing.
-        /// No ILGenerator, no original method â€” pure instruction manipulation testing.
+        /// No ILGenerator, no original method — pure instruction manipulation testing.
         /// </summary>
         public static FluentTranspiler FromInstructions(params CodeInstruction[] instructions)
         {
@@ -107,7 +107,7 @@ namespace Spine.Harmony
         /// Exercises range-check discovery against compiler-equivalent shapes without needing a running game.
         /// The returned strings are compact pass/fail case summaries for ad hoc debug tooling.
         /// </summary>
-        public static IList<string> RunPatternDiscoveryHarnessCases()
+        public static IReadOnlyList<string> RunPatternDiscoveryHarnessCases()
         {
             MethodInfo replacement = typeof(TranspilerTestHarness).GetMethod(
                 nameof(PatternDiscoveryReplacementProvider),
@@ -135,7 +135,7 @@ namespace Spine.Harmony
         /// RNG manifest: it must push the tag literal and redirect on a matching signature, and refuse
         /// (leaving IL intact) when the replacement signature does not account for the appended argument.
         /// </summary>
-        public static IList<string> RunDomainRedirectHarnessCases()
+        public static IReadOnlyList<string> RunDomainRedirectHarnessCases()
         {
             var results = new List<string>();
             MethodInfo unityRange = AccessTools.Method(typeof(UnityEngine.Random), "Range", new Type[] { typeof(int), typeof(int) });
@@ -197,7 +197,7 @@ namespace Spine.Harmony
         /// transpiler after touching the framework. Pair it with <see cref="AssertAllHarnessCasesPass"/>
         /// to turn the results into a hard failure.
         /// </remarks>
-        public static IList<string> RunAllHarnessCases()
+        public static IReadOnlyList<string> RunAllHarnessCases()
         {
             var results = new List<string>();
             results.AddRange(RunPatternDiscoveryHarnessCases());
@@ -227,7 +227,7 @@ namespace Spine.Harmony
         /// Verifies the Cartographer anchor mapper produces stable, de-duplicated anchor indices.
         /// This guards the O(n) adjacency-scoring path used by MatchIntent/FindNextAnchor.
         /// </summary>
-        public static IList<string> RunAnchorMapHarnessCases()
+        public static IReadOnlyList<string> RunAnchorMapHarnessCases()
         {
             var results = new List<string>();
 
@@ -260,7 +260,7 @@ namespace Spine.Harmony
         /// <summary>
         /// Signature-safety cases for high-level recipes that should fail before mutating unsafe IL.
         /// </summary>
-        public static IList<string> RunRecipeSignatureSafetyHarnessCases()
+        public static IReadOnlyList<string> RunRecipeSignatureSafetyHarnessCases()
         {
             var results = new List<string>();
             MethodInfo intProvider = typeof(SignatureSafetyHooks).GetMethod(nameof(SignatureSafetyHooks.IntProvider));
@@ -285,7 +285,7 @@ namespace Spine.Harmony
         /// <summary>
         /// Exercises the broader recipe expansion surface with representative C# intent shapes.
         /// </summary>
-        public static IList<string> RunRecipeExpansionHarnessCases()
+        public static IReadOnlyList<string> RunRecipeExpansionHarnessCases()
         {
             MethodInfo max = typeof(TranspilerTestHarness).GetMethod(
                 nameof(PatternDiscoveryReplacementProvider),
@@ -359,7 +359,7 @@ namespace Spine.Harmony
         /// <summary>
         /// Intentional failure cases used to verify human-readable FluentPatchDiagnostic output.
         /// </summary>
-        public static IList<string> RunIntentionalFailureDiagnosticCases()
+        public static IReadOnlyList<string> RunIntentionalFailureDiagnosticCases()
         {
             MethodInfo max = typeof(TranspilerTestHarness).GetMethod(
                 nameof(PatternDiscoveryReplacementProvider),

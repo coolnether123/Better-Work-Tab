@@ -61,7 +61,7 @@ namespace Spine.UI.SettingsFramework
         /// <summary>
         /// Returns all root-level settings sorted by sort order.
         /// </summary>
-        public IList<SettingDefinition> GetRootSettings()
+        public IReadOnlyList<SettingDefinition> GetRootSettings()
         {
             return _rootSettings;
         }
@@ -69,11 +69,11 @@ namespace Spine.UI.SettingsFramework
         /// <summary>
         /// Returns direct children for a parent identifier (empty list when none).
         /// </summary>
-        public IList<SettingDefinition> GetChildren(string parentId)
+        public IReadOnlyList<SettingDefinition> GetChildren(string parentId)
         {
             if (string.IsNullOrEmpty(parentId) || !_childrenOf.TryGetValue(parentId, out var list))
             {
-                return new SettingDefinition[0];
+                return Array.Empty<SettingDefinition>();
             }
 
             return list;
@@ -187,7 +187,7 @@ namespace Spine.UI.SettingsFramework
         {
             var ordered = _rootSettings.SelectMany(s => EnumerateWithChildren(s, viewMode, settingsObject));
 
-            if (string.IsNullOrEmpty(query) || query.Trim().Length == 0)
+            if (string.IsNullOrWhiteSpace(query))
             {
                 return ordered;
             }

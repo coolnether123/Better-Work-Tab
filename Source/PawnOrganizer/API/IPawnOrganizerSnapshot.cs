@@ -6,7 +6,7 @@ namespace Better_Work_Tab.PawnOrganizer.API
 {
     public interface IPawnOrganizerSnapshot
     {
-        IList<Pawn> Pawns { get; }
-        IList<PawnDivider> Dividers { get; }
+        IReadOnlyList<Pawn> Pawns { get; }
+        IReadOnlyList<PawnDivider> Dividers { get; }
     }
 }

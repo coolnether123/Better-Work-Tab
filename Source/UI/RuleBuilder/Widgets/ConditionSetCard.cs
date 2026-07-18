@@ -64,7 +64,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
                 float deleteX = listRect.xMax - DeleteButtonSize - 3f;
                 float deleteY = headerRect.y + (NameHeight - DeleteButtonSize) / 2f;
                 Rect deleteRect = new Rect(deleteX, deleteY, DeleteButtonSize, DeleteButtonSize);
-#if v1_2 || v1_1 || v1_0
+#if v1_2 || v1_1
                 if (RWWidgets.ButtonImage(deleteRect, RimWorld.TexButton.DeleteX, Color.white, GenUI.MouseoverColor))
 #else
                 if (RWWidgets.ButtonImage(deleteRect, TexButton.DeleteX, Color.white, GenUI.MouseoverColor))
@@ -206,7 +206,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
             if (!isReadOnly)
             {
                 Rect deleteRect = new Rect(rect.xMax - 22f, rect.y + (rect.height - 18f) / 2f, 18f, 18f);
-#if v1_2 || v1_1 || v1_0
+#if v1_2 || v1_1
                 if (RWWidgets.ButtonImage(deleteRect, RimWorld.TexButton.CloseXSmall, Color.white, GenUI.MouseoverColor))
 #else
                 if (RWWidgets.ButtonImage(deleteRect, TexButton.CloseXSmall, Color.white, GenUI.MouseoverColor))

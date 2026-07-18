@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 namespace Spine.Collections
 {
@@ -16,7 +16,7 @@ namespace Spine.Collections
                 throw new ArgumentOutOfRangeException(nameof(initialCapacity));
             }
 
-            _items = initialCapacity == 0 ? ArrayCompat.Empty<T>() : new T[initialCapacity];
+            _items = initialCapacity == 0 ? Array.Empty<T>() : new T[initialCapacity];
         }
 
         public int Count { get; private set; }
@@ -60,7 +60,7 @@ namespace Spine.Collections
         {
             if (Count == 0)
             {
-                return ArrayCompat.Empty<T>();
+                return Array.Empty<T>();
             }
 
             var snapshot = new T[Count];

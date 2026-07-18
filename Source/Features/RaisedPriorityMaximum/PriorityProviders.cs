@@ -49,7 +49,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         internal static bool TryFindByProviderId(string providerId, out IMaxPriorityProvider provider)
         {
             provider = null;
-            if (string.IsNullOrEmpty(providerId))
+            if (string.IsNullOrWhiteSpace(providerId))
             {
                 return false;
             }
@@ -63,7 +63,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
         public static bool RegisterProvider(IMaxPriorityProvider provider)
         {
-            if (provider == null || string.IsNullOrEmpty(provider.ProviderId))
+            if (provider == null || string.IsNullOrWhiteSpace(provider.ProviderId))
             {
                 return false;
             }
@@ -86,7 +86,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
         public static bool UnregisterProvider(string providerId)
         {
-            if (string.IsNullOrEmpty(providerId) || IsBuiltInProviderId(providerId))
+            if (string.IsNullOrWhiteSpace(providerId) || IsBuiltInProviderId(providerId))
             {
                 return false;
             }
@@ -187,7 +187,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             int sortOrder)
         {
             this.providerId = providerId?.Trim() ?? string.Empty;
-            this.displayName = string.IsNullOrEmpty(displayName) ? this.providerId : displayName.Trim();
+            this.displayName = string.IsNullOrWhiteSpace(displayName) ? this.providerId : displayName.Trim();
             this.maxPriority = maxPriority;
             this.defaultEnabledPriority = defaultEnabledPriority;
             this.sortOrder = sortOrder;

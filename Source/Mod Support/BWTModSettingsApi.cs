@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace Better_Work_Tab.ModSupport
@@ -30,7 +30,7 @@ namespace Better_Work_Tab.ModSupport
             ContributorsChanged?.Invoke();
         }
 
-        public static IList<IModSettingsContributor> GetContributors()
+        public static IReadOnlyList<IModSettingsContributor> GetContributors()
         {
             return Contributors;
         }

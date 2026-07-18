@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -57,8 +57,8 @@ namespace Better_Work_Tab.PawnOrganizer
         private readonly Dictionary<string, float> _subWorkHeaderTextWidthCache =
             new Dictionary<string, float>(StringComparer.Ordinal);
 
-        private IList<Pawn> _snapshotPawns = ArrayCompat.Empty<Pawn>();
-        private IList<PawnDivider> _snapshotDividers = ArrayCompat.Empty<PawnDivider>();
+        private IReadOnlyList<Pawn> _snapshotPawns = Array.Empty<Pawn>();
+        private IList<PawnDivider> _snapshotDividers = Array.Empty<PawnDivider>();
 
         private PawnTable _table;
         private Vector2 _origin;
@@ -410,8 +410,8 @@ namespace Better_Work_Tab.PawnOrganizer
             return descriptors;
         }
 
-        public IList<WorkTabLayoutRow> Rows => _rows;
-        public IList<WorkTabLayoutColumn> Columns => _columns;
+        public IReadOnlyList<WorkTabLayoutRow> Rows => _rows;
+        public IReadOnlyList<WorkTabLayoutColumn> Columns => _columns;
         public float ContentHeight => _contentHeight;
         public float HeaderHeight => _headerHeight > 0f ? _headerHeight : SubWorkDrilldownHeaderGeometry.GetEffectiveHeaderHeight(_table);
         public Vector2 TableOrigin => _origin;
@@ -482,8 +482,8 @@ namespace Better_Work_Tab.PawnOrganizer
                     _dividerHeight = BetterWorkTabMod.Settings?.dividerHeight ?? DefaultDividerHeight;
 
                     _snapshotPawns = snapshot?.Pawns
-                                     ?? (IList<Pawn>)table.PawnsListForReading
-                                     ?? ArrayCompat.Empty<Pawn>();
+                                     ?? (IReadOnlyList<Pawn>)table.PawnsListForReading
+                                     ?? Array.Empty<Pawn>();
 
                     if (snapshot?.Dividers is IList<PawnDivider> dividerList && !dividerList.IsReadOnly)
                     {
@@ -627,7 +627,7 @@ namespace Better_Work_Tab.PawnOrganizer
 
         private PawnDivider AddDividerAfterPawnWhileSorting(Pawn pawn, string label, Color color)
         {
-            // âœ… Defensive checks
+            // ✅ Defensive checks
             if (_table == null)
             {
                 Log.Error("[AddDividerAfterPawnWhileSorting] _table is null!");
@@ -677,7 +677,7 @@ namespace Better_Work_Tab.PawnOrganizer
 
         private PawnDivider AddDividerBeforePawnWhileSorting(Pawn pawn, string label, Color color)
         {
-            // âœ… Defensive checks
+            // ✅ Defensive checks
             if (_table == null)
             {
                 Log.Error("[AddDividerBeforePawnWhileSorting] _table is null!");
@@ -733,12 +733,12 @@ namespace Better_Work_Tab.PawnOrganizer
                 if (element.Pawn != null && element.Pawn.playerSettings != null)
                 {
                     RowOrderUtility.SetPawnRowOrder(element.Pawn, i);
-                    BetterWorkTabMod.DebugLog($"  Row {i}: {element.Pawn.LabelShort} â†’ displayOrder {i}", DebugFeature.DragDrop);
+                    BetterWorkTabMod.DebugLog($"  Row {i}: {element.Pawn.LabelShort} → displayOrder {i}", DebugFeature.DragDrop);
                 }
                 else if (element.Divider != null)
                 {
                     element.Divider.DisplayOrder = i;
-                    BetterWorkTabMod.DebugLog($"  Row {i}: Divider '{element.Divider.DividerName}' â†’ displayOrder {i}", DebugFeature.DragDrop);
+                    BetterWorkTabMod.DebugLog($"  Row {i}: Divider '{element.Divider.DividerName}' → displayOrder {i}", DebugFeature.DragDrop);
                 }
             }
         }
@@ -859,7 +859,7 @@ namespace Better_Work_Tab.PawnOrganizer
 
         private void BuildColumns()
         {
-#if v1_3 || v1_2 || v1_1 || v1_0
+#if v1_3 || v1_2 || v1_1
             var allColumns = _table.ColumnsListForReading;
 #else
             var allColumns = _table.Columns;
@@ -1773,7 +1773,7 @@ namespace Better_Work_Tab.PawnOrganizer
 
             var divider = new PawnDivider
             {
-                DividerName = System.StringCompat.IsNullOrWhiteSpace(label) ? "Divider" : label.Trim(),
+                DividerName = string.IsNullOrWhiteSpace(label) ? "Divider" : label.Trim(),
                 DividerColor = color,
                 DisplayOrder = displayOrder,
                 Height = Mathf.Clamp(_dividerHeight, 10f, 80f),

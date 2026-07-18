@@ -269,10 +269,10 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 return key;
             }
 
-            string translated = key.Translate().ToString();
+            TaggedString translated = key.Translate();
             return args != null && args.Length > 0
-                ? string.Format(translated, args)
-                : translated;
+                ? string.Format(translated.ToString(), args)
+                : translated.ToString();
         }
 
         private static float GetSkillLevel(Pawn pawn, WorkTypeDef workType, string skillDefName)

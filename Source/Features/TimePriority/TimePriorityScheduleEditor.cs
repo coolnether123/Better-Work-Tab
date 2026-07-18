@@ -397,7 +397,7 @@ namespace Better_Work_Tab.Features.TimePriority
                 return true;
             }
 
-            return File.Exists(Path.Combine(Path.Combine(Path.GetTempPath(), "RimWorldAgent"), "enable.txt"));
+            return File.Exists(Path.Combine(Path.GetTempPath(), "RimWorldAgent", "enable.txt"));
         }
 
         internal static void Draw(IWorkTabLayoutController layout)

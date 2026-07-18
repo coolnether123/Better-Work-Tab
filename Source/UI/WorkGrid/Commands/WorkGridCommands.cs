@@ -1,4 +1,4 @@
-﻿using Better_Work_Tab.Features.TimePriority;
+using Better_Work_Tab.Features.TimePriority;
 using System.Collections.Generic;
 using RimWorld;
 using UnityEngine;
@@ -84,14 +84,14 @@ namespace Better_Work_Tab.UI.WorkGrid.Commands
 
     internal readonly struct PaintPriorityRangeCommand : IWorkGridCommand
     {
-        internal PaintPriorityRangeCommand(IList<PriorityPaintTarget> targets, int priority)
+        internal PaintPriorityRangeCommand(IReadOnlyList<PriorityPaintTarget> targets, int priority)
         {
             Targets = targets;
             Priority = priority;
         }
 
         public WorkGridCommandKind Kind => WorkGridCommandKind.PaintPriorityRange;
-        internal IList<PriorityPaintTarget> Targets { get; }
+        internal IReadOnlyList<PriorityPaintTarget> Targets { get; }
         internal int Priority { get; }
     }
 

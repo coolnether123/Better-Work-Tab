@@ -429,7 +429,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             }
             else
             {
-#if v1_2 || v1_1 || v1_0
+#if v1_2 || v1_1
                 string newName = Widgets12.TextField(fieldRect, rule.Name,
                     RuleBuilderConstants.MaxRuleNameLength);
 #else

@@ -1,4 +1,4 @@
-﻿using Better_Work_Tab.Mod_Support.Multiplayer;
+using Better_Work_Tab.Mod_Support.Multiplayer;
 using Better_Work_Tab.ModSupport;
 #if !v1_2 && !v1_1 && !v1_0 && !v0_19
 using Multiplayer.API;
@@ -24,12 +24,12 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             TargetWorkTypeDefName = targetWorkTypeDefName;
             Orders = orders.ToDictionary(
                 pair => pair.Key,
-                pair => (IList<string>)pair.Value.ToList().AsReadOnly(),
+                pair => (IReadOnlyList<string>)pair.Value.ToList().AsReadOnly(),
                 StringComparer.Ordinal);
         }
 
         internal string TargetWorkTypeDefName { get; }
-        internal IDictionary<string, IList<string>> Orders { get; }
+        internal IReadOnlyDictionary<string, IReadOnlyList<string>> Orders { get; }
     }
 
     internal sealed class WorkGiverLayoutCommand
@@ -266,7 +266,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             return index;
         }
 
-        private static List<string> EncodeOrders(IDictionary<string, IList<string>> orders)
+        private static List<string> EncodeOrders(IReadOnlyDictionary<string, IReadOnlyList<string>> orders)
         {
             var result = new List<string>();
             foreach (var pair in orders.OrderBy(p => p.Key, StringComparer.Ordinal))
@@ -291,8 +291,8 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             return result;
         }
 
-        private static bool OrdersEqual(IDictionary<string, IList<string>> a,
-            IDictionary<string, IList<string>> b) =>
+        private static bool OrdersEqual(IReadOnlyDictionary<string, IReadOnlyList<string>> a,
+            IReadOnlyDictionary<string, IReadOnlyList<string>> b) =>
             a.Count == b.Count && a.All(pair => b.TryGetValue(pair.Key, out var value) && pair.Value.SequenceEqual(value));
     }
 }

@@ -192,10 +192,10 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             for (int i = 0; mods != null && i < mods.Count; i++)
             {
                 ModContentPack mod = mods[i];
-                if (mod != null && IsKnownFluffyPackageId(ModListerCompat.GetPackageId(mod)))
+                if (mod != null && IsKnownFluffyPackageId(mod.PackageId))
                 {
                     _detected = true;
-                    _detectedPackageId = ModListerCompat.GetPackageId(mod);
+                    _detectedPackageId = mod.PackageId;
                     break;
                 }
             }

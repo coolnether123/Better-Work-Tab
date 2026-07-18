@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
@@ -156,7 +156,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         private readonly MainTabWindow_BetterWork _host;
         private readonly WorkGridCellAtlas _atlas = new WorkGridCellAtlas();
         private WorkGridSnapshot _snapshot;
-        private int[] _cellLookup = ArrayCompat.Empty<int>();
+        private int[] _cellLookup = Array.Empty<int>();
         private WorkGridIndexRange _visibleRows;
         private WorkGridIndexRange _visibleColumns;
         private bool _delegateFeatureCells;
@@ -320,7 +320,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             EndCellBatch();
             _atlas.Dispose();
             _snapshot = null;
-            _cellLookup = ArrayCompat.Empty<int>();
+            _cellLookup = Array.Empty<int>();
         }
 
         private void EndCellBatch()
@@ -338,7 +338,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         {
             if (snapshot == null || snapshot.Rows.Count == 0 || snapshot.Columns.Count == 0)
             {
-                _cellLookup = ArrayCompat.Empty<int>();
+                _cellLookup = Array.Empty<int>();
                 return;
             }
 
@@ -391,7 +391,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             // method as PawnColumnWorker_WorkPriority instead of maintaining a BWT copy of
             // its skill texture blending, ideology warning, low-skill warning, and passion
             // rendering rules.
-            #if v1_1 || v1_0
+            #if v1_1
             WidgetsWork.DrawWorkBoxFor(boxRect.x, boxRect.y, cell.Pawn, cell.WorkType, _snapshot.ManualPriorities);
             #else
             WidgetsWork.DrawWorkBoxFor(boxRect, cell.Pawn, cell.WorkType);

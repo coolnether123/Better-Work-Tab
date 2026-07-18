@@ -141,7 +141,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             }
         }
 
-        internal static List<WorkGiver> ActiveWorkGivers
+        internal static IReadOnlyList<WorkGiver> ActiveWorkGivers
         {
             get
             {

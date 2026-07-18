@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Spine.Api;
 
 namespace Spine.RimWorld.Api
@@ -18,8 +18,8 @@ namespace Spine.RimWorld.Api
             SemanticVersion rimWorldVersion,
             SpineApiDescriptor spineApi)
         {
-            if (System.StringCompat.IsNullOrWhiteSpace(scopeId)) throw new ArgumentException("A compatibility scope ID is required.", nameof(scopeId));
-            if (System.StringCompat.IsNullOrWhiteSpace(subjectId)) throw new ArgumentException("A compatibility subject ID is required.", nameof(subjectId));
+            if (string.IsNullOrWhiteSpace(scopeId)) throw new ArgumentException("A compatibility scope ID is required.", nameof(scopeId));
+            if (string.IsNullOrWhiteSpace(subjectId)) throw new ArgumentException("A compatibility subject ID is required.", nameof(subjectId));
 
             ScopeId = scopeId;
             SubjectId = subjectId;

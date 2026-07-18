@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Reflection;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using HarmonyLib;
@@ -20,7 +20,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Compatibility
             AccessTools.Method(typeof(PawnColumnWorker_WorkPriority), nameof(PawnColumnWorker_WorkPriority.DoCell)),
             AccessTools.Method(typeof(WidgetsWork), nameof(WidgetsWork.DrawWorkBoxFor)),
             AccessTools.Method(typeof(WidgetsWork), "DrawWorkBoxBackground"),
-            AccessTools.Method(typeof(WidgetsWork), "ColorOfPriority")
+            AccessTools.Method(typeof(WidgetsWork), nameof(WidgetsWork.ColorOfPriority))
         };
 
         internal static bool CanSnapshotVanillaPriorityCells()
@@ -59,7 +59,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Compatibility
                     ContainsExternalPatch(patches.Finalizers));
         }
 
-        private static bool ContainsExternalPatch(ICollection<HarmonyLib.Patch> patches)
+        private static bool ContainsExternalPatch(IReadOnlyCollection<HarmonyLib.Patch> patches)
         {
             if (patches == null)
             {

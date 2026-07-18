@@ -1,4 +1,4 @@
-﻿using System.Threading;
+using System.Threading;
 using Better_Work_Tab.UI.WorkGrid.Contracts;
 
 namespace Better_Work_Tab.UI.WorkGrid.Invalidation
@@ -32,14 +32,14 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
                 }
 
                 return new WorkTabInvalidationVersion(
-                    LegacyVolatile.Read(ref _presentation),
-                    LegacyVolatile.Read(ref _rows),
-                    LegacyVolatile.Read(ref _columns),
-                    LegacyVolatile.Read(ref _headerGeometry),
-                    LegacyVolatile.Read(ref _headerText),
-                    LegacyVolatile.Read(ref _viewport),
-                    LegacyVolatile.Read(ref _windowSize),
-                    LegacyVolatile.Read(ref _renderResources),
+                    Volatile.Read(ref _presentation),
+                    Volatile.Read(ref _rows),
+                    Volatile.Read(ref _columns),
+                    Volatile.Read(ref _headerGeometry),
+                    Volatile.Read(ref _headerText),
+                    Volatile.Read(ref _viewport),
+                    Volatile.Read(ref _windowSize),
+                    Volatile.Read(ref _renderResources),
                     revisions,
                     priorityDirtyCount);
             }

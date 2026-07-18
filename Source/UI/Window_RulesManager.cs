@@ -327,7 +327,7 @@ namespace Better_Work_Tab.UI
             }
             else
             {
-#if v1_2 || v1_1 || v1_0
+#if v1_2 || v1_1
                 value = Widgets12.TextField(valueRect, value, 24);
 #else
                 value = Widgets.TextField(valueRect, value, 24);
@@ -465,7 +465,7 @@ namespace Better_Work_Tab.UI
             string buttonLabel = "Unassigned";
             if (trait?.Item1 != null)
             {
-                buttonLabel = TraitCompat.LabelCap(trait.Item1.DataAtDegree(trait.Item2));
+                buttonLabel = trait.Item1.DataAtDegree(trait.Item2).LabelCap;
             }
             else if (!string.IsNullOrEmpty(parameters.TraitString))
             {
@@ -503,7 +503,7 @@ namespace Better_Work_Tab.UI
                     {
                         TraitDef localDef = item;
                         TraitDegreeData localDeg = degreeData;
-                        list.Add(new FloatMenuOption(TraitCompat.LabelCap(localDeg), delegate
+                        list.Add(new FloatMenuOption(localDeg.LabelCap, delegate
                         {
                             field.SetValue(parameters, new Tuple<TraitDef, int>(localDef, localDeg.degree));
                             parameters.TraitString = localDef.defName;
@@ -598,7 +598,7 @@ namespace Better_Work_Tab.UI
                 Text.Anchor = b4;
             }
             else
-#if v1_2 || v1_1 || v1_0
+#if v1_2 || v1_1
                 ruleNameBuffer = Widgets12.TextField(titleRect, ruleNameBuffer, 21);
 #else
                 ruleNameBuffer = Widgets.TextField(titleRect, ruleNameBuffer, 21);

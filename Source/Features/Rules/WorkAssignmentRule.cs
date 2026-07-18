@@ -147,7 +147,7 @@ namespace Better_Work_Tab.Features.Rules
             if (resolved == null && hasExplicitWorktypeString)
             {
             int key = $"BWTMissingWorktype_{Parameters.WorktypeString}".GetHashCode();
-#if v1_2 || v1_1 || v1_0
+#if v1_2 || v1_1
                 LogCompat.WarningOnce($"[BWT] Unable to resolve worktype \"{Parameters.WorktypeString}\" for rule \"{Name}\".", key);
 #elif v1_3
                 Log.Warning($"[BWT] Unable to resolve worktype \"{Parameters.WorktypeString}\" for rule \"{Name}\".");

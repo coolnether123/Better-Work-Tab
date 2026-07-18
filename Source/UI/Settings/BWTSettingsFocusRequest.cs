@@ -26,6 +26,6 @@ namespace Better_Work_Tab.UI.Settings
         public string Tooltip { get; }
         public string TargetSettingId { get; }
         public bool PreferAdvancedView { get; }
-        public IList<string> SettingIds { get; }
+        public IReadOnlyList<string> SettingIds { get; }
     }
 }

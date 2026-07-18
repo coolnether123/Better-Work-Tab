@@ -1,4 +1,4 @@
-﻿using Better_Work_Tab.Features;
+using Better_Work_Tab.Features;
 using Better_Work_Tab.Mod_Support.Multiplayer;
 #if !v1_2 && !v1_1 && !v1_0 && !v0_19
 using Better_Work_Tab.Mod_Support.Multiplayer.Features.Layouts;
@@ -168,8 +168,8 @@ namespace Better_Work_Tab.UI
         private static Color CurrentRowTextColor = Color.white;
         private readonly List<WorkTabLayoutColumn> _visibleRenderColumns = new List<WorkTabLayoutColumn>(64);
         private WorkTabSnapshot _organizerSnapshot;
-        private IList<Pawn> _organizerSnapshotPawns;
-        private IList<PawnDivider> _organizerSnapshotDividers;
+        private IReadOnlyList<Pawn> _organizerSnapshotPawns;
+        private IReadOnlyList<PawnDivider> _organizerSnapshotDividers;
         private int _requestedTabSizeCacheSignature = int.MinValue;
         private Vector2 _requestedTabSizeCache;
         private Rect _pendingWindowRect;
@@ -360,8 +360,8 @@ namespace Better_Work_Tab.UI
         }
 
         private static int ComputeDraggedColumnsSyncSignature(
-            IList<PawnColumnDef> columns,
-            IList<string> baselineOrder,
+            IReadOnlyList<PawnColumnDef> columns,
+            IReadOnlyList<string> baselineOrder,
             IEnumerable<string> draggedColumns)
         {
             unchecked
@@ -739,13 +739,13 @@ namespace Better_Work_Tab.UI
 
         private IPawnOrganizerSnapshot BuildSnapshotForOrganizer(PawnTable table)
         {
-            IList<Pawn> pawns = table.PawnsListForReading;
+            IReadOnlyList<Pawn> pawns = table.PawnsListForReading;
             var comp = Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
             var settings = BetterWorkTabMod.Settings;
             bool useDividers = (settings?.enableDividers ?? true) && (settings?.showDividers ?? true);
-            IList<PawnDivider> dividers = useDividers
-                ? comp?.ActiveDividers ?? (IList<PawnDivider>)ArrayCompat.Empty<PawnDivider>()
-                : ArrayCompat.Empty<PawnDivider>();
+            IReadOnlyList<PawnDivider> dividers = useDividers
+                ? comp?.ActiveDividers ?? (IReadOnlyList<PawnDivider>)Array.Empty<PawnDivider>()
+                : Array.Empty<PawnDivider>();
 
             if (_organizerSnapshot == null ||
                 !ReferenceEquals(_organizerSnapshotPawns, pawns) ||
@@ -858,7 +858,7 @@ namespace Better_Work_Tab.UI
 
         private void ShowRenamePawnDialog(Pawn pawn)
         {
-#if v1_3 || v1_2 || v1_1 || v1_0
+#if v1_3 || v1_2 || v1_1
             Find.WindowStack.Add(new Dialog_NamePawn(pawn));
 #else
             Find.WindowStack.Add(pawn.NamePawnDialog());
@@ -974,21 +974,6 @@ namespace Better_Work_Tab.UI
                 }
 
                 float maxWindowWidth = Mathf.Max(1f, Verse.UI.screenWidth - 2f);
-                float tutorialReserveWidth = BWTWorkTabTutorial.PreferredReserveWidth;
-                if (tutorialReserveWidth > 0f)
-                {
-                    if (finalWidth + tutorialReserveWidth <= maxWindowWidth)
-                    {
-                        finalWidth += tutorialReserveWidth;
-                        finalHeight = Mathf.Max(finalHeight, BWTWorkTabTutorial.PreferredReserveHeight);
-                    }
-                    else
-                    {
-                        // At 1024-wide/high-scale layouts the selector moves into
-                        // a top band instead of covering the highlighted grid.
-                        finalHeight += BWTWorkTabTutorial.PreferredReserveHeight;
-                    }
-                }
                 bool needsHorizontalScrollbar = finalWidth > maxWindowWidth + 0.5f;
                 if (needsHorizontalScrollbar)
                 {
@@ -998,12 +983,6 @@ namespace Better_Work_Tab.UI
                 finalHeight = Mathf.Min(
                     finalHeight,
                     GetConfiguredMaxWindowHeight(organizer?.Layout, table, needsHorizontalScrollbar));
-                if (tutorialReserveWidth > 0f)
-                {
-                    finalHeight = Mathf.Min(
-                        Verse.UI.screenHeight - 35f,
-                        Mathf.Max(finalHeight, BWTWorkTabTutorial.PreferredReserveHeight));
-                }
                 finalWidth = Mathf.Min(finalWidth, maxWindowWidth);
 
                 _requestedTabSizeCacheSignature = ComputeRequestedTabSizeSignature(table, organizer?.Layout);
@@ -1436,7 +1415,7 @@ namespace Better_Work_Tab.UI
                 return false;
             }
 
-            IList<WorkGiver> workGivers = WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(workType);
+            IReadOnlyList<WorkGiver> workGivers = WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(workType);
             if (workGivers == null || workGivers.Count == 0)
             {
                 return false;
@@ -1668,7 +1647,7 @@ namespace Better_Work_Tab.UI
                 return logicalHeight;
             }
 
-            IList<RowDescriptor> rows = layout.GetRowDescriptors();
+            IReadOnlyList<RowDescriptor> rows = layout.GetRowDescriptors();
             if (rows == null || rows.Count == 0)
             {
                 return clippedHeight;
@@ -2339,7 +2318,7 @@ namespace Better_Work_Tab.UI
 
         private static float GetTransientTimePriorityRowHeight(IWorkTabLayoutController layout)
         {
-            IList<WorkTabLayoutRow> rows = layout?.Rows;
+            IReadOnlyList<WorkTabLayoutRow> rows = layout?.Rows;
             if (rows == null)
             {
                 return 0f;
@@ -3864,7 +3843,7 @@ namespace Better_Work_Tab.UI
                 }
 
                 var nameColumn = FindNameColumn(columns);
-                IList<WorkTabLayoutColumn> renderColumns = columns;
+                IReadOnlyList<WorkTabLayoutColumn> renderColumns = columns;
                 var settings = BetterWorkTabMod.Settings;
                 if (snapshotLayer == null &&
                     (settings?.enablePerformanceOptimizations ?? true) &&
@@ -3938,7 +3917,7 @@ namespace Better_Work_Tab.UI
         /// Calculates the total width of all columns combined.
         /// Called once per frame, not per row.
         /// </summary>
-        private float CalculateTotalColumnWidth(IList<WorkTabLayoutColumn> columns)
+        private float CalculateTotalColumnWidth(IReadOnlyList<WorkTabLayoutColumn> columns)
         {
             float totalWidth = 0f;
             for (int i = 0; i < columns.Count; i++)
@@ -3959,7 +3938,7 @@ namespace Better_Work_Tab.UI
         /// </summary>
         private void DrawAllHighlights(
             List<RowDescriptor> rowDescriptors,
-            IList<WorkTabLayoutColumn> columns,
+            IReadOnlyList<WorkTabLayoutColumn> columns,
             float totalWidth,
             float totalHeight)
         {
@@ -4129,7 +4108,7 @@ namespace Better_Work_Tab.UI
         private void DrawAllRowContent(
             PawnTable table,
             List<RowDescriptor> rowDescriptors,
-            IList<WorkTabLayoutColumn> columns,
+            IReadOnlyList<WorkTabLayoutColumn> columns,
             float viewWidth,
             WorkTabLayoutColumn? nameColumn,
             Rect viewportRect,
@@ -4166,7 +4145,7 @@ namespace Better_Work_Tab.UI
         private void DrawSingleRowContent(
             PawnTable table,
             RowDescriptor descriptor,
-            IList<WorkTabLayoutColumn> columns,
+            IReadOnlyList<WorkTabLayoutColumn> columns,
             Rect rowRect,
             WorkTabLayoutColumn? nameColumn,
             int rowIndex,
@@ -4201,7 +4180,7 @@ namespace Better_Work_Tab.UI
         private void DrawPawnRowContent(
             PawnTable table,
             RowDescriptor descriptor,
-            IList<WorkTabLayoutColumn> columns,
+            IReadOnlyList<WorkTabLayoutColumn> columns,
             Rect rowRect,
             int rowIndex,
             IWorkGridSnapshotLayer snapshotLayer)
@@ -4233,7 +4212,7 @@ namespace Better_Work_Tab.UI
         private void DrawPawnRowContentUnclipped(
             PawnTable table,
             RowDescriptor descriptor,
-            IList<WorkTabLayoutColumn> columns,
+            IReadOnlyList<WorkTabLayoutColumn> columns,
             Rect rowRect,
             int rowIndex,
             IWorkGridSnapshotLayer snapshotLayer)
@@ -4460,7 +4439,7 @@ namespace Better_Work_Tab.UI
 
         }
 
-        private WorkTabLayoutColumn? FindNameColumn(IList<WorkTabLayoutColumn> columns)
+        private WorkTabLayoutColumn? FindNameColumn(IReadOnlyList<WorkTabLayoutColumn> columns)
         {
             for (int i = 0; i < columns.Count; i++)
             {
@@ -4501,7 +4480,7 @@ namespace Better_Work_Tab.UI
             }
 
             Rect arrowRect = new Rect(labelCellRect.xMin + 6f, labelCellRect.y + (labelCellRect.height - 16f) / 2f, 18f, 16f);
-            string arrowChar = divider.IsCollapsed ? "â–¶" : "â–¼";
+            string arrowChar = divider.IsCollapsed ? "▶" : "▼";
             if (Widgets.ButtonInvisible(arrowRect))
             {
                 ToggleDividerCollapsed(divider);
@@ -4541,7 +4520,7 @@ namespace Better_Work_Tab.UI
             PawnTable table,
             Pawn pawn,
             Rect rowRect,
-            IList<WorkTabLayoutColumn> columns,
+            IReadOnlyList<WorkTabLayoutColumn> columns,
             int rowIndex,
             IWorkGridSnapshotLayer snapshotLayer)
         {
@@ -4961,7 +4940,7 @@ namespace Better_Work_Tab.UI
                         inRect.y,
                         Mathf.Max(0f, textRight - inRect.x - 6f),
                         inRect.height);
-                    Widgets.Label(textRect, string.Join(" | ", instructions.ToArray()));
+                    Widgets.Label(textRect, string.Join(" | ", instructions));
                 }
             }
             GUI.color = Color.white;

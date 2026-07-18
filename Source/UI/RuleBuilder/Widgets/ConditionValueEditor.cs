@@ -190,7 +190,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
             RuleBuilderState state)
         {
             int currentValue = (int)ConditionRegistry.GetValue(condition.Key, parameters);
-            IList<VanillaSkillsExpandedSupport.PassionOption> options =
+            IReadOnlyList<VanillaSkillsExpandedSupport.PassionOption> options =
                 VanillaSkillsExpandedSupport.GetPassionOptions();
 
             if (options.Count <= 3)
@@ -233,7 +233,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
             WorkAssignmentParameters parameters,
             RuleBuilderState state,
             int currentValue,
-            IList<VanillaSkillsExpandedSupport.PassionOption> options)
+            IReadOnlyList<VanillaSkillsExpandedSupport.PassionOption> options)
         {
             float buttonWidth = (rect.width - 8f) / Mathf.Max(1, options.Count);
 
@@ -333,7 +333,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
             RuleBuilderState state)
         {
             var currentValue = (Tuple<TraitDef, int>)ConditionRegistry.GetValue(condition.Key, parameters);
-            string label = TraitCompat.LabelCap(currentValue?.Item1?.DataAtDegree(currentValue.Item2))
+            string label = currentValue?.Item1?.DataAtDegree(currentValue.Item2)?.LabelCap
                 ?? "BWT_SelectTrait".Translate();
 
             float buttonWidth = Mathf.Min(150f, rect.width);
@@ -378,7 +378,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
                     foreach (var degreeData in trait.degreeDatas)
                     {
                         var localDegree = degreeData;
-                        options.Add(new FloatMenuOption(TraitCompat.LabelCap(degreeData), () =>
+                        options.Add(new FloatMenuOption(degreeData.LabelCap, () =>
                         {
                             var tuple = new Tuple<TraitDef, int>(localTrait, localDegree.degree);
                             ConditionRegistry.SetValue(condition.Key, parameters, tuple);

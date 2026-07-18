@@ -69,7 +69,7 @@ namespace Better_Work_Tab.UI.Settings
             if (Widgets.ButtonText(acceptRect, _acceptLabel))
             {
                 string resolved = ResolvePath(_path);
-                if (IsNullOrWhiteSpace(resolved))
+                if (string.IsNullOrWhiteSpace(resolved))
                 {
                     Messages.Message("Enter a valid JSON file path.", MessageTypeDefOf.RejectInput, false);
                     return;
@@ -82,7 +82,7 @@ namespace Better_Work_Tab.UI.Settings
 
         private static string ResolvePath(string path)
         {
-            if (IsNullOrWhiteSpace(path))
+            if (string.IsNullOrWhiteSpace(path))
             {
                 return null;
             }
@@ -99,11 +99,6 @@ namespace Better_Work_Tab.UI.Settings
             }
 
             return Path.GetFullPath(path);
-        }
-
-        private static bool IsNullOrWhiteSpace(string value)
-        {
-            return string.IsNullOrEmpty(value) || value.Trim().Length == 0;
         }
     }
 }

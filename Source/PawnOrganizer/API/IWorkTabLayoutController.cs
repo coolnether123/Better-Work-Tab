@@ -26,12 +26,12 @@ namespace Better_Work_Tab.PawnOrganizer.API
         /// <summary>
         /// Latest snapshot of rows (pawns + dividers) in draw order.
         /// </summary>
-        IList<WorkTabLayoutRow> Rows { get; }
+        IReadOnlyList<WorkTabLayoutRow> Rows { get; }
 
         /// <summary>
         /// Latest snapshot of column geometry in draw order.
         /// </summary>
-        IList<WorkTabLayoutColumn> Columns { get; }
+        IReadOnlyList<WorkTabLayoutColumn> Columns { get; }
 
         /// <summary>
         /// Height of the content region (without headers) after layout.

@@ -137,7 +137,7 @@ namespace Better_Work_Tab.Features
                         //reset before reassigning for randomization
                         foreach (var p in pawnsForThisWorktype)
                         {
-                            BetterWorkTabMod.DebugLog($"Resetting {worktype.defName} for {PawnCompat.NameShortColored(p)} before random assignment.", DebugFeature.Rules);
+                            BetterWorkTabMod.DebugLog($"Resetting {worktype.defName} for {p.NameShortColored} before random assignment.", DebugFeature.Rules);
                             //if (p.workSettings.GetPriority(worktype) == rule.Parameters.Priority)
                             p.workSettings.SetPriority(worktype, 0);
                         }

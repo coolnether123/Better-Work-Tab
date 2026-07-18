@@ -24,7 +24,7 @@ namespace Better_Work_Tab.Patches
         // Postfix ensures overlays draw after vanilla rendering when Prefix returns true (e.g., no contrast mode)
         public static void Postfix(PawnColumnWorker_Label __instance, Rect rect, Pawn pawn, PawnTable table)
         {
-#if v1_3 || v1_2 || v1_1 || v1_0
+#if v1_3 || v1_2 || v1_1
             if (pawn == null)
 #else
             if (pawn == null || !__instance.def.showIcon)
@@ -37,7 +37,7 @@ namespace Better_Work_Tab.Patches
                 rect.width,
                 Mathf.Min(
                     rect.height,
-#if v1_3 || v1_2 || v1_1 || v1_0
+#if v1_3 || v1_2 || v1_1
                     __instance.GetMinCellHeight(pawn)));
 #else
                     __instance.def.groupable ? rect.height : __instance.GetMinCellHeight(pawn)));
@@ -83,7 +83,7 @@ namespace Better_Work_Tab.Patches
                 rect.width,
                 Mathf.Min(
                     rect.height,
-#if v1_3 || v1_2 || v1_1 || v1_0
+#if v1_3 || v1_2 || v1_1
                     worker.GetMinCellHeight(pawn)));
 #else
                     worker.def.groupable ? rect.height : worker.GetMinCellHeight(pawn)));
@@ -92,7 +92,7 @@ namespace Better_Work_Tab.Patches
             Rect rect2 = rect1;
             rect2.xMin += 3f;
 
-#if v1_3 || v1_2 || v1_1 || v1_0
+#if v1_3 || v1_2 || v1_1
             if (true) // In 1.3 we always show icon for Label column? Or check worker type.
 #else
             if (worker.def.showIcon)
@@ -214,7 +214,7 @@ namespace Better_Work_Tab.Patches
             string label;
             if (pawn.RaceProps.Humanlike || pawn.RaceProps.Animal || pawn.Name == null || pawn.Name.Numerical)
             {
-#if v1_3 || v1_2 || v1_1 || v1_0
+#if v1_3 || v1_2 || v1_1
                 label = pawn.LabelShortCap;
 #else
                 label = worker.def.useLabelShort ? pawn.LabelShortCap : pawn.LabelNoCount.CapitalizeFirst();
@@ -222,14 +222,14 @@ namespace Better_Work_Tab.Patches
             }
             else
             {
-#if v1_2 || v1_1 || v1_0
+#if v1_2 || v1_1
                 label = pawn.Name.ToStringShort.CapitalizeFirst() + ", " + pawn.KindLabel.Colorize(ColoredTextCompat.SubtleGrayColor);
 #else
                 label = pawn.Name.ToStringShort.CapitalizeFirst() + ", " + pawn.KindLabel.Colorize(ColoredText.SubtleGrayColor);
 #endif
             }
 
-#if v1_2 || v1_1 || v1_0
+#if v1_2 || v1_1
             // IsSlave doesn't exist in 1.2, skip this coloring
             if (false)
 #elif v1_3

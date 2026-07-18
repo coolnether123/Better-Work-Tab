@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 namespace Better_Work_Tab.UI.WorkGrid.Commands
 {
@@ -51,8 +51,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Commands
 
         internal static bool IsValidMove(string workGiverDefName, string workTypeDefName, int insertIndex)
         {
-            return !System.StringCompat.IsNullOrWhiteSpace(workGiverDefName) &&
-                   !System.StringCompat.IsNullOrWhiteSpace(workTypeDefName) &&
+            return !string.IsNullOrWhiteSpace(workGiverDefName) &&
+                   !string.IsNullOrWhiteSpace(workTypeDefName) &&
                    insertIndex >= 0;
         }
     }

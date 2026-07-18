@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 
@@ -7,10 +7,10 @@ namespace Spine.Collections
     /// <summary>
     /// Read-only contiguous snapshot storage. CopyOf prevents later writes through the source array.
     /// </summary>
-    public sealed class ImmutableSnapshotArray<T> : IList<T>
+    public sealed class ImmutableSnapshotArray<T> : IReadOnlyList<T>
     {
         private static readonly ImmutableSnapshotArray<T> EmptyInstance =
-            new ImmutableSnapshotArray<T>(ArrayCompat.Empty<T>());
+            new ImmutableSnapshotArray<T>(Array.Empty<T>());
 
         private readonly T[] _items;
 
@@ -42,29 +42,7 @@ namespace Spine.Collections
 
         public int Count => _items.Length;
 
-        public bool IsReadOnly => true;
-
-        public T this[int index]
-        {
-            get => _items[index];
-            set => throw new NotSupportedException("Immutable snapshots cannot be modified.");
-        }
-
-        public int IndexOf(T item) => Array.IndexOf(_items, item);
-
-        public bool Contains(T item) => IndexOf(item) >= 0;
-
-        public void CopyTo(T[] array, int arrayIndex) => _items.CopyTo(array, arrayIndex);
-
-        public void Add(T item) => throw new NotSupportedException("Immutable snapshots cannot be modified.");
-
-        public void Clear() => throw new NotSupportedException("Immutable snapshots cannot be modified.");
-
-        public void Insert(int index, T item) => throw new NotSupportedException("Immutable snapshots cannot be modified.");
-
-        public bool Remove(T item) => throw new NotSupportedException("Immutable snapshots cannot be modified.");
-
-        public void RemoveAt(int index) => throw new NotSupportedException("Immutable snapshots cannot be modified.");
+        public T this[int index] => _items[index];
 
         public IEnumerator<T> GetEnumerator() => ((IEnumerable<T>)_items).GetEnumerator();
 

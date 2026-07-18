@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using Better_Work_Tab.UI.WorkGrid.Contracts;
@@ -50,7 +50,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Diagnostics
             ActiveRendererId = activeRendererId ?? string.Empty;
             SelectionMode = selectionMode;
             ForcedMode = forcedMode;
-            _fallbackReasons = fallbackReasons ?? ArrayCompat.Empty<WorkGridFallbackReason>();
+            _fallbackReasons = fallbackReasons ?? Array.Empty<WorkGridFallbackReason>();
             IsQuarantined = quarantined;
         }
 
@@ -58,7 +58,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Diagnostics
         public WorkGridRendererMode SelectionMode { get; }
         public WorkGridForcedRendererMode ForcedMode { get; }
         private readonly WorkGridFallbackReason[] _fallbackReasons;
-        public IList<WorkGridFallbackReason> FallbackReasons => _fallbackReasons;
+        public IReadOnlyList<WorkGridFallbackReason> FallbackReasons => _fallbackReasons;
         public bool IsQuarantined { get; }
     }
 
@@ -80,22 +80,22 @@ namespace Better_Work_Tab.UI.WorkGrid.Diagnostics
         private static int _priorityDirtyCount;
         private static ICacheDiagnostics _atlasDiagnostics;
 
-        public static WorkGridRendererDiagnosticSnapshot Current => LegacyVolatile.Read(ref _current);
+        public static WorkGridRendererDiagnosticSnapshot Current => Volatile.Read(ref _current);
 
         public static WorkGridSnapshotDiagnosticStats SnapshotStats => new WorkGridSnapshotDiagnosticStats(
             Interlocked.Read(ref _snapshotRevision),
             Interlocked.Read(ref _snapshotBuildCount),
             Interlocked.Read(ref _snapshotLastBuildTicks),
-            LegacyVolatile.Read(ref _snapshotRetainedBytes),
-            LegacyVolatile.Read(ref _geometryRetainedBytes),
-            LegacyVolatile.Read(ref _priorityDirtyCount));
+            Volatile.Read(ref _snapshotRetainedBytes),
+            Volatile.Read(ref _geometryRetainedBytes),
+            Volatile.Read(ref _priorityDirtyCount));
 
-        public static ICacheDiagnostics AtlasDiagnostics => LegacyVolatile.Read(ref _atlasDiagnostics);
+        public static ICacheDiagnostics AtlasDiagnostics => Volatile.Read(ref _atlasDiagnostics);
 
         public static WorkGridForcedRendererMode ForcedMode
         {
-            get => (WorkGridForcedRendererMode)LegacyVolatile.Read(ref _forcedMode);
-            set => LegacyVolatile.Write(ref _forcedMode, (int)value);
+            get => (WorkGridForcedRendererMode)Volatile.Read(ref _forcedMode);
+            set => Volatile.Write(ref _forcedMode, (int)value);
         }
 
 #if HAS_LUDEON_TK
@@ -150,9 +150,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Diagnostics
             }
 
             WorkGridFallbackReason[] reasons = fallback.Code == WorkGridFallbackReasonCode.None
-                ? ArrayCompat.Empty<WorkGridFallbackReason>()
+                ? Array.Empty<WorkGridFallbackReason>()
                 : new[] { fallback };
-            LegacyVolatile.Write(ref _current, new WorkGridRendererDiagnosticSnapshot(
+            Volatile.Write(ref _current, new WorkGridRendererDiagnosticSnapshot(
                 activeRendererId,
                 selectionMode,
                 forcedMode,
@@ -171,9 +171,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Diagnostics
             Interlocked.Exchange(ref _snapshotRevision, revision);
             Interlocked.Increment(ref _snapshotBuildCount);
             Interlocked.Exchange(ref _snapshotLastBuildTicks, buildTicks);
-            LegacyVolatile.Write(ref _snapshotRetainedBytes, snapshotRetainedBytes);
-            LegacyVolatile.Write(ref _geometryRetainedBytes, geometryRetainedBytes);
-            LegacyVolatile.Write(ref _priorityDirtyCount, priorityDirtyCount);
+            Volatile.Write(ref _snapshotRetainedBytes, snapshotRetainedBytes);
+            Volatile.Write(ref _geometryRetainedBytes, geometryRetainedBytes);
+            Volatile.Write(ref _priorityDirtyCount, priorityDirtyCount);
 
             IRenderDiagnosticsSink sink = BwtWorkGridDiagnosticsSink.Instance;
             if (sink.Enabled)
@@ -193,14 +193,14 @@ namespace Better_Work_Tab.UI.WorkGrid.Diagnostics
         internal static void RecordSnapshotCleared()
         {
             Interlocked.Exchange(ref _snapshotRevision, 0);
-            LegacyVolatile.Write(ref _snapshotRetainedBytes, 0);
-            LegacyVolatile.Write(ref _geometryRetainedBytes, 0);
-            LegacyVolatile.Write(ref _priorityDirtyCount, 0);
+            Volatile.Write(ref _snapshotRetainedBytes, 0);
+            Volatile.Write(ref _geometryRetainedBytes, 0);
+            Volatile.Write(ref _priorityDirtyCount, 0);
         }
 
         internal static void SetAtlasDiagnostics(ICacheDiagnostics diagnostics)
         {
-            LegacyVolatile.Write(ref _atlasDiagnostics, diagnostics);
+            Volatile.Write(ref _atlasDiagnostics, diagnostics);
         }
 
         internal static void RecordCommand(in WorkGridCommandObservation observation)

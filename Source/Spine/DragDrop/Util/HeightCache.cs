@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using UnityEngine;
 
 namespace Spine.DragDropApi.Util
@@ -30,7 +30,7 @@ namespace Spine.DragDropApi.Util
         /// Call this when the list changes (items added/removed or heights changed),
         /// not every frame.
         /// </summary>
-        public static HeightCache Build(System.Collections.Generic.IList<float> heights)
+        public static HeightCache Build(System.Collections.Generic.IReadOnlyList<float> heights)
         {
             if (heights == null)
                 throw new ArgumentNullException(nameof(heights));

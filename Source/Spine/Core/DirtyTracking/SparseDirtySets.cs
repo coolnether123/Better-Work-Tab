@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 
@@ -53,7 +53,7 @@ namespace Spine.Api
     public interface IDirtyRegionSource
     {
         int DirtyRegionCount { get; }
-        IList<DirtyRegion> DirtyRegions { get; }
+        IReadOnlyList<DirtyRegion> DirtyRegions { get; }
     }
 }
 
@@ -75,7 +75,7 @@ namespace Spine.DirtyTracking
         }
 
         public int DirtyRegionCount => _regions.Count;
-        public IList<DirtyRegion> DirtyRegions => _readOnlyRegions;
+        public IReadOnlyList<DirtyRegion> DirtyRegions => _readOnlyRegions;
 
         public void Add(int start, int length)
         {

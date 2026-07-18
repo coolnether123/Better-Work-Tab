@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Better_Work_Tab.API;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
@@ -84,7 +84,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             return FluffyWorkTabGateway.TryGetWorkGiverPriority(pawn, workGiver, hour, out priority);
         }
 
-        public bool TryReadPriorityRecords(out IList<ExternalPawnWorkGiverPriorityRecord> records)
+        public bool TryReadPriorityRecords(out IReadOnlyList<ExternalPawnWorkGiverPriorityRecord> records)
         {
             return FluffyWorkTabMigration.TryReadLivePriorityRecords(out records);
         }

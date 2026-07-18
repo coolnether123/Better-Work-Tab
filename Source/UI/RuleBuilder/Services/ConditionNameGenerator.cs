@@ -58,7 +58,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
             // Trait
             if (p.RequiredTrait != null)
             {
-                string traitName = TraitCompat.LabelCap(p.RequiredTrait.Item1?.DataAtDegree(p.RequiredTrait.Item2))
+                string traitName = p.RequiredTrait.Item1?.DataAtDegree(p.RequiredTrait.Item2)?.LabelCap
                     ?? "Trait";
                 parts.Add(traitName);
             }
@@ -89,11 +89,11 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
 
             if (parts.Count <= 3)
             {
-                return string.Join(" + ", parts.ToArray());
+                return string.Join(" + ", parts);
             }
 
             // Truncate if too many
-            return string.Join(" + ", parts.GetRange(0, 2).ToArray()) + $" (+{parts.Count - 2})";
+            return string.Join(" + ", parts.GetRange(0, 2)) + $" (+{parts.Count - 2})";
         }
 
         /// <summary>

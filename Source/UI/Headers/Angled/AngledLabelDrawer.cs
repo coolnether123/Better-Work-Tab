@@ -458,11 +458,16 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
             // Equivalent to Widgets.DrawLine for a horizontal one-pixel request: that helper
             // expands to this three-pixel AA texture but also computes a general line rotation.
-#if v1_1 || v1_0
-            Color previousColor = GUI.color;
-            GUI.color = color;
-            GUI.DrawTexture(new Rect(x, y, width, 1f), BaseContent.WhiteTex);
-            GUI.color = previousColor;
+#if v1_1
+            GUI.DrawTexture(
+                new Rect(x, y, width, 1f),
+                BaseContent.WhiteTex,
+                ScaleMode.StretchToFill,
+                true,
+                0f,
+                color,
+                0f,
+                0f);
 #else
             GUI.DrawTexture(
                 new Rect(x, y - 1.5f, width, 3f),

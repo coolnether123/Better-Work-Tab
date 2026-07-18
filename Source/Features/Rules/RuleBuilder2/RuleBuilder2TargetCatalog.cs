@@ -71,7 +71,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
         internal static List<RuleBuilder2TargetCatalogEntry> BuildVisible(
             List<RuleBuilder2TargetCatalogEntry> allEntries,
             string search,
-            HashSet<string> expandedWorkTypes)
+            ISet<string> expandedWorkTypes)
         {
             string normalizedSearch = (search ?? "").Trim().ToLowerInvariant();
             bool searching = normalizedSearch.Length > 0;
