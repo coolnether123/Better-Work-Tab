@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
@@ -92,7 +92,7 @@ namespace Better_Work_Tab.API
         }
 
         public Pawn Pawn { get; }
-        public IReadOnlyList<ExternalWorkGiverPriorityRecord> WorkGivers { get; }
+        public IList<ExternalWorkGiverPriorityRecord> WorkGivers { get; }
     }
 
     /// <summary>
@@ -108,7 +108,7 @@ namespace Better_Work_Tab.API
         string StoreId { get; }
         string DisplayName { get; }
         bool IsAvailable { get; }
-        bool TryReadPriorityRecords(out IReadOnlyList<ExternalPawnWorkGiverPriorityRecord> records);
+        bool TryReadPriorityRecords(out IList<ExternalPawnWorkGiverPriorityRecord> records);
     }
 
     /// <summary>

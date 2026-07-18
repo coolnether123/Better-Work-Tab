@@ -525,7 +525,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
 
             if (missing.Count > 0)
             {
-                var joined = string.Join(", ", missing);
+                var joined = string.Join(", ", missing.ToArray());
                 Log.Warning($"[BWT] Ignoring unknown condition definitions: {joined}");
             }
 

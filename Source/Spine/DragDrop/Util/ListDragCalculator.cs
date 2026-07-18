@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace Spine.DragDropApi.Util
@@ -30,7 +30,7 @@ namespace Spine.DragDropApi.Util
         /// return the segment index containing localY.
         /// </summary>
         public static int CalculateInsertionIndex(
-            IReadOnlyList<float> itemHeights,
+            IList<float> itemHeights,
             float mouseY,
             float listScreenY,
             float scrollOffsetY)

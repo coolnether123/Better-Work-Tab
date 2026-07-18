@@ -35,10 +35,10 @@ namespace Better_Work_Tab.ModSupport
             Refresh(force: true);
         }
 
-        public static IReadOnlyList<PassionOption> GetPassionOptions()
+        public static IList<PassionOption> GetPassionOptions()
         {
             EnsureInitialized();
-            return passionOptions;
+            return passionOptions.AsReadOnly();
         }
 
         public static int GetMaxPassionValue()
@@ -100,7 +100,7 @@ namespace Better_Work_Tab.ModSupport
             initialized = true;
             passionOptions = BuildVanillaPassions();
 
-            if (ModLister.GetActiveModWithIdentifier(VanillaSkillsExpandedPackageId) == null)
+            if (ModListerCompat.GetActiveModWithIdentifier(VanillaSkillsExpandedPackageId) == null)
             {
                 return;
             }
@@ -122,7 +122,7 @@ namespace Better_Work_Tab.ModSupport
 
                 Type closedDatabaseType = typeof(DefDatabase<>).MakeGenericType(passionDefType);
                 PropertyInfo allDefsProperty = AccessTools.Property(closedDatabaseType, "AllDefsListForReading");
-                IEnumerable defs = allDefsProperty?.GetValue(null) as IEnumerable;
+                IEnumerable defs = allDefsProperty?.GetValue(null, null) as IEnumerable;
                 if (defs == null)
                 {
                     Log.Warning("[BWT][Vanilla Skills Expanded] Could not read PassionDef database; using vanilla passion options.");

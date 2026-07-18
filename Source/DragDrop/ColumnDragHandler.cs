@@ -69,7 +69,7 @@ namespace Better_Work_Tab.DragDrop
                 // Drag the whole selection
                 var allWorkColDefs = _workColumns.Select(c => c.Column);
                 _draggedColumns.AddRange(ColumnSelectionManager.GetSelectedInOrder(allWorkColDefs));
-                BetterWorkTabMod.DebugLog($"[BWT] Dragging selection: {string.Join(", ", _draggedColumns.Select(d => d.defName))}", DebugFeature.DragDrop);
+                BetterWorkTabMod.DebugLog($"[BWT] Dragging selection: {string.Join(", ", _draggedColumns.Select(d => d.defName).ToArray())}", DebugFeature.DragDrop);
             }
             else
             {

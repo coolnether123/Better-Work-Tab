@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -99,7 +99,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             Scribe_Values.Look(ref version, "fluffyWorkTabPriorityMigrationVersion", 0);
         }
 
-        internal static bool TryReadLivePriorityRecords(out IReadOnlyList<ExternalPawnWorkGiverPriorityRecord> records)
+        internal static bool TryReadLivePriorityRecords(out IList<ExternalPawnWorkGiverPriorityRecord> records)
         {
             records = ReadLiveFluffyPriorities();
             return records.Count > 0;

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -61,7 +61,7 @@ namespace Spine.UI.SettingsFramework
             }
         }
 
-        public static IReadOnlyCollection<string> ApplyPreferenceDefaults(
+        public static ICollection<string> ApplyPreferenceDefaults(
             object settings,
             IEnumerable<SettingDefinition> definitions)
         {

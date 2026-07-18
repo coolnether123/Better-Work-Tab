@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Better_Work_Tab.API;
@@ -17,7 +17,7 @@ namespace Better_Work_Tab.ModSupport
 
         internal static bool RegisterStore(IExternalWorkTabStore store)
         {
-            if (store == null || string.IsNullOrWhiteSpace(store.StoreId))
+            if (store == null || System.StringCompat.IsNullOrWhiteSpace(store.StoreId))
             {
                 return false;
             }
@@ -32,7 +32,7 @@ namespace Better_Work_Tab.ModSupport
 
         internal static bool UnregisterStore(string storeId)
         {
-            if (string.IsNullOrWhiteSpace(storeId))
+            if (System.StringCompat.IsNullOrWhiteSpace(storeId))
             {
                 return false;
             }
@@ -45,7 +45,7 @@ namespace Better_Work_Tab.ModSupport
 
         internal static bool RegisterImporter(IExternalWorkTabPriorityImporter importer)
         {
-            if (importer == null || string.IsNullOrWhiteSpace(importer.StoreId))
+            if (importer == null || System.StringCompat.IsNullOrWhiteSpace(importer.StoreId))
             {
                 return false;
             }
@@ -60,7 +60,7 @@ namespace Better_Work_Tab.ModSupport
 
         internal static bool UnregisterImporter(string storeId)
         {
-            if (string.IsNullOrWhiteSpace(storeId))
+            if (System.StringCompat.IsNullOrWhiteSpace(storeId))
             {
                 return false;
             }
@@ -200,7 +200,7 @@ namespace Better_Work_Tab.ModSupport
             {
                 try
                 {
-                    IReadOnlyList<ExternalPawnWorkGiverPriorityRecord> records;
+                    IList<ExternalPawnWorkGiverPriorityRecord> records;
                     int changed = importer.TryReadPriorityRecords(out records)
                         ? ImportWorkGiverPrioritySchedules(records)
                         : 0;

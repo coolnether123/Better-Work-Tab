@@ -27,7 +27,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
 
             if (isConfigured)
             {
-#if v1_2 || v1_1
+#if v1_2 || v1_1 || v1_0
                 Widgets12.DrawBox(rect, (int)BorderWidth, Texture2D.whiteTexture);
 #else
                 Verse.Widgets.DrawBox(rect, (int)BorderWidth, Texture2D.whiteTexture);
@@ -136,7 +136,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
             {
                 sb.Append("BWT_RelevantSkills".Translate() + ": ");
                 sb.AppendLine(string.Join(", ",
-                    workType.relevantSkills.Select(s => s.LabelCap)));
+                    workType.relevantSkills.Select(s => s.LabelCap).ToArray()));
                 sb.AppendLine();
             }
 

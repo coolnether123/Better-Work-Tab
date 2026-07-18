@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Better_Work_Tab.API;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.Features.WorkGiverReassignments;
@@ -153,7 +153,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
 
         // --- Priority mirroring -------------------------------------------------------------
         // Better Work Tab's stores are the source of truth; Fluffy's tracker is kept in step behind
-        // this façade. Callers outside this module go through ExternalPriorityMirror.
+        // this faÃ§ade. Callers outside this module go through ExternalPriorityMirror.
 
         internal static IDisposable SuspendPriorityMirroring() => FluffyWorkTabSync.Suspend();
 
@@ -1270,7 +1270,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
         /// </summary>
         /// <remarks>
         /// This must clamp, never truncate to zero. WorkTab.PriorityTracker.SetPriority turns any value
-        /// above <c>Settings.maxPriority</c> into 0, which means "disabled" — so handing Fluffy an
+        /// above <c>Settings.maxPriority</c> into 0, which means "disabled" â€” so handing Fluffy an
         /// extended Better Work Tab priority would silently switch the work off instead of capping it.
         /// Better Work Tab allows priorities up to <see cref="PriorityConstants.ExtendedHardMax"/> while
         /// Fluffy allows at most 9, so this narrowing is always possible.
@@ -1542,7 +1542,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                 return result;
             }
 
-            IReadOnlyList<WorkGiver> workGivers =
+            IList<WorkGiver> workGivers =
                 WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(workType);
             for (int i = 0; workGivers != null && i < workGivers.Count; i++)
             {

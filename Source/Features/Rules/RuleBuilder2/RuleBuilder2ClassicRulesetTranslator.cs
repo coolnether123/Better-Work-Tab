@@ -335,7 +335,8 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                     return false;
 #endif
                 case RuleBuilder2ConditionKind.Gender:
-                    if (Enum.TryParse(condition.TextValue, out Gender gender))
+                    Gender gender;
+                    if (TryParseGender(condition.TextValue, out gender))
                     {
                         parameters.Gender = gender;
                         parameters.ActiveConditions.Add(nameof(WorkAssignmentParameters.Gender));
@@ -371,6 +372,25 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                     return false;
                 default:
                     return true;
+            }
+        }
+
+        private static bool TryParseGender(string value, out Gender gender)
+        {
+            gender = Gender.None;
+            if (string.IsNullOrEmpty(value))
+            {
+                return false;
+            }
+
+            try
+            {
+                gender = (Gender)Enum.Parse(typeof(Gender), value, true);
+                return true;
+            }
+            catch
+            {
+                return false;
             }
         }
     }

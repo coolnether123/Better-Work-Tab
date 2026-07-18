@@ -5,6 +5,7 @@ using Verse;
 
 namespace Better_Work_Tab.Features.Patches
 {
+#if !v1_0
     [HarmonyPatch(typeof(Pawn), nameof(Pawn.Notify_DisabledWorkTypesChanged))]
     internal static class Patch_Pawn_NotifyDisabledWorkTypesChanged_Presentation
     {
@@ -13,6 +14,7 @@ namespace Better_Work_Tab.Features.Patches
             WorkGiverPresentationInvalidation.NotifyPawnDynamicStateChanged(__instance);
         }
     }
+#endif
 
     [HarmonyPatch(typeof(PawnCapacitiesHandler), MethodType.Constructor, new[] { typeof(Pawn) })]
     internal static class Patch_PawnCapacitiesHandler_Constructor_Presentation

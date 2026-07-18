@@ -25,7 +25,7 @@ namespace Better_Work_Tab.DragDrop
             BetterWorkTabMod.Settings?.enableSubWorkTransitionAnimation ??
             DefaultSettings.enableSubWorkTransitionAnimation;
 
-        internal static void Start(IReadOnlyList<WorkTabLayoutColumn> columns)
+        internal static void Start(IList<WorkTabLayoutColumn> columns)
         {
             FromPositions.Clear();
             if (!UseAnimation || columns == null)

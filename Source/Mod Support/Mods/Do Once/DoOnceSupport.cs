@@ -140,7 +140,7 @@ namespace Better_Work_Tab.ModSupport
                 case HarmonyPatchType.Finalizer:
                     return patches.Finalizers;
                 default:
-                    return Array.Empty<Patch>();
+                    return new Patch[0];
             }
         }
 
@@ -164,7 +164,7 @@ namespace Better_Work_Tab.ModSupport
             var mods = LoadedModManager.RunningModsListForReading;
             for (int i = 0; i < mods.Count; i++)
             {
-                string activePackageId = mods[i]?.PackageId;
+                string activePackageId = GetPackageId(mods[i]);
                 if (string.Equals(activePackageId, packageId, StringComparison.OrdinalIgnoreCase) ||
                     StartsWithIgnoreCase(activePackageId, packageId + "_"))
                 {
@@ -173,6 +173,37 @@ namespace Better_Work_Tab.ModSupport
             }
 
             return null;
+        }
+
+        private static string GetPackageId(ModContentPack mod)
+        {
+            if (mod == null)
+            {
+                return string.Empty;
+            }
+
+            Type type = mod.GetType();
+            PropertyInfo property = type.GetProperty("PackageId", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (property != null)
+            {
+                object value = property.GetValue(mod, null);
+                if (value is string packageId && !string.IsNullOrEmpty(packageId))
+                {
+                    return packageId;
+                }
+            }
+
+            FieldInfo field = type.GetField("packageId", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (field != null)
+            {
+                object value = field.GetValue(mod);
+                if (value is string packageId && !string.IsNullOrEmpty(packageId))
+                {
+                    return packageId;
+                }
+            }
+
+            return mod.Name ?? string.Empty;
         }
 
         private static bool StartsWithIgnoreCase(string value, string prefix)

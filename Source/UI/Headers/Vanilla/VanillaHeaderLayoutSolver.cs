@@ -464,7 +464,7 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
                 _maxLevel = maxLevel;
                 _maxSteps = maxSteps;
                 _assignment = new int[nodes.Length];
-                System.Array.Fill(_assignment, -1);
+                ArrayCompat.Fill(_assignment, -1);
                 _bestCost = Cost.MaxValue;
             }
 

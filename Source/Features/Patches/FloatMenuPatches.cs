@@ -23,7 +23,7 @@ namespace Better_Work_Tab.Patches
     [HarmonyPatch(typeof(FloatMenuMakerMap), "AddJobGiverWorkOrders")]
     public static class Patch_FloatMenuMakerMap_AddJobGiverWorkOrders
     {
-#if v1_2 || v1_1 || v1_3
+#if v1_3 || v1_2 || v1_1 || v1_0
         public static void Postfix(IntVec3 clickCell, Pawn pawn, List<FloatMenuOption> opts, bool drafted)
         {
             // Only relevant if work settings exist.
@@ -132,7 +132,7 @@ namespace Better_Work_Tab.Patches
                     continue;
                 }
 
-                job.workGiverDef = workGiver;
+                JobCompat.SetWorkGiverDef(job, workGiver);
                 AddNotAssignedOptions(pawn, workGiver, scanner, opts, thing, clickCell, job, timeReason);
             }
         }
@@ -163,7 +163,7 @@ namespace Better_Work_Tab.Patches
                 return;
             }
 
-            job.workGiverDef = workGiver;
+            JobCompat.SetWorkGiverDef(job, workGiver);
             AddNotAssignedOptions(pawn, workGiver, scanner, opts, clickCell, clickCell, job, timeReason);
         }
 
@@ -298,7 +298,7 @@ namespace Better_Work_Tab.Patches
                 }
             }
 
-#if v1_2 || v1_1
+#if v1_2 || v1_1 || v1_0
             var option = FloatMenuUtility.DecoratePrioritizedTask(
                 new FloatMenuOption(doOnceLabel, AssignOnce),
                 pawn,

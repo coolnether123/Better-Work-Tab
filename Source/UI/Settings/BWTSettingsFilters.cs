@@ -16,7 +16,7 @@ namespace Better_Work_Tab.UI.Settings
         private const string StatesCategory = "states";
         private const string PresetsCategory = "presets";
 
-        public static IReadOnlyList<SettingsFilterDefinition> Create()
+        public static IList<SettingsFilterDefinition> Create()
         {
             return new List<SettingsFilterDefinition>
             {

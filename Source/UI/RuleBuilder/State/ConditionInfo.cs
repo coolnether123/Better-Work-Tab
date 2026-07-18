@@ -92,7 +92,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.State
                     var trait = Value as Tuple<TraitDef, int>;
                     if (trait?.Item1 != null)
                     {
-                        return trait.Item1.DataAtDegree(trait.Item2)?.LabelCap ?? trait.Item1.defName;
+                        return TraitCompat.LabelCap(trait.Item1.DataAtDegree(trait.Item2)) ?? trait.Item1.defName;
                     }
                     return "None";
 

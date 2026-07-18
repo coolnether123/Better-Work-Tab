@@ -43,7 +43,7 @@ namespace Better_Work_Tab.Features.Rules.Validators
             {
                 var traitDef = p.RequiredTrait.Item1;
                 var degree = p.RequiredTrait.Item2;
-#if v1_2 || v1_1
+#if v1_2 || v1_1 || v1_0
                 bool hasTrait = pawn.story?.traits.HasTrait(traitDef) ?? false;
                 if (hasTrait && degree != -1)
                 {

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Better_Work_Tab;
@@ -65,7 +65,7 @@ namespace Better_Work_Tab.UI.Settings
         /// <summary>
         /// Gets the raw definitions list.
         /// </summary>
-        public static IReadOnlyList<SettingDefinition> Definitions
+        public static IList<SettingDefinition> Definitions
         {
             get
             {
@@ -186,7 +186,7 @@ namespace Better_Work_Tab.UI.Settings
 
         private static void RegisterModCompatibilitySettings()
         {
-            IReadOnlyList<IModSettingsContributor> contributors = BWTModSettingsApi.GetContributors();
+            IList<IModSettingsContributor> contributors = BWTModSettingsApi.GetContributors();
             if (contributors == null || contributors.Count == 0)
             {
                 return;
@@ -2563,8 +2563,9 @@ namespace Better_Work_Tab.UI.Settings
                         .OrderBy(l => l),
                     OnOptionAdded = (option) =>
                     {
-                        if (Enum.TryParse<DebugFeature>(option, out var feature))
+                        if (Enum.IsDefined(typeof(DebugFeature), option))
                         {
+                            var feature = (DebugFeature)Enum.Parse(typeof(DebugFeature), option);
                             settings.debugFeatureToggles[feature] = true;
                             settings.Write();
                             _initialized = false;
@@ -2909,7 +2910,7 @@ namespace Better_Work_Tab.UI.Settings
                 ParentId = HeadersAngled,
                 FieldName = "angledHeaderHorizontalOffset",
                 Label = "Horizontal offset",
-                Tooltip = "Adjust the horizontal position of the angled headers. 0 = centered, 10 = Default. (Automatically forced to 0 at -90Â° for perfect alignment).",
+                Tooltip = "Adjust the horizontal position of the angled headers. 0 = centered, 10 = Default. (Automatically forced to 0 at -90Ã‚Â° for perfect alignment).",
                 Type = SettingType.NumericInt,
                 DefaultValue = DefaultSettings.angledHeaderHorizontalOffset,
                 MinValue = -100f,

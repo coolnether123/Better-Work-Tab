@@ -133,7 +133,7 @@ namespace Better_Work_Tab.Mod_Support.LocalProfiles
             if (string.IsNullOrEmpty(baseFolder))
                 baseFolder = "SaveData";
 
-            var folder = Path.Combine(baseFolder, "BetterWorkTab", "LocalProfiles");
+            var folder = Path.Combine(Path.Combine(baseFolder, "BetterWorkTab"), "LocalProfiles");
             Directory.CreateDirectory(folder);
 
             var file = $"{Sanitize(saveKey)}__{Sanitize(playerKey)}.xml";

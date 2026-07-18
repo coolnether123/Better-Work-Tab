@@ -157,7 +157,7 @@ namespace Better_Work_Tab.Features
                 return;
             }
 
-            BetterWorkTabMod.DebugLog($"WorkColumnOrderManager.CaptureVanillaOrder: Captured vanilla order: {string.Join(", ", _trueVanillaColumnOrder)}", DebugFeature.DragDrop);
+            BetterWorkTabMod.DebugLog($"WorkColumnOrderManager.CaptureVanillaOrder: Captured vanilla order: {string.Join(", ", _trueVanillaColumnOrder.ToArray())}", DebugFeature.DragDrop);
         }
 
         /// <summary>
@@ -214,7 +214,7 @@ namespace Better_Work_Tab.Features
 
             SetSharedOrder(order);
 
-            BetterWorkTabMod.DebugLog($"WorkColumnOrderManager.CaptureCurrent: Captured order: {string.Join(", ", order)}", DebugFeature.DragDrop);
+            BetterWorkTabMod.DebugLog($"WorkColumnOrderManager.CaptureCurrent: Captured order: {string.Join(", ", order.ToArray())}", DebugFeature.DragDrop);
             return order;
         }
 

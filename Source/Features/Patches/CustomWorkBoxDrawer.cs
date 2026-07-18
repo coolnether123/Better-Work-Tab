@@ -49,7 +49,7 @@ namespace Better_Work_Tab.Patches
                     GUI.color = BetterWorkTabMod.Settings.Color_IncapableBecauseOfCapacities;
 
                 // This draws the work box background including passion flame effects exactly like vanilla does
-#if v1_1
+#if v1_1 || v1_0
                 DrawLegacyWorkBoxBackground(rect, p, wType);
 #else
                 WidgetsWork.DrawWorkBoxBackground(rect, p, wType);
@@ -61,7 +61,7 @@ namespace Better_Work_Tab.Patches
             }
         }
 
-#if v1_1
+#if v1_1 || v1_0
         private static void DrawLegacyWorkBoxBackground(Rect rect, Pawn pawn, WorkTypeDef workType)
         {
             SkillRecord skill = GetFirstRelevantSkill(pawn, workType);

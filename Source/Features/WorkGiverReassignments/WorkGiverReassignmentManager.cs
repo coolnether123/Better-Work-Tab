@@ -287,23 +287,23 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             return reassigned;
         }
 
-        internal static IReadOnlyList<WorkGiver> GetOrderedWorkGiversForWorkType(WorkTypeDef workType, Pawn pawn = null)
+        internal static List<WorkGiver> GetOrderedWorkGiversForWorkType(WorkTypeDef workType, Pawn pawn = null)
         {
             return GetWorkGiversForWorkType(workType, pawn, applyPrioritySort: true);
         }
 
-        internal static IReadOnlyList<WorkGiver> GetDisplayWorkGiversForWorkType(WorkTypeDef workType, Pawn pawn = null)
+        internal static List<WorkGiver> GetDisplayWorkGiversForWorkType(WorkTypeDef workType, Pawn pawn = null)
         {
             return GetWorkGiversForWorkType(workType, pawn, applyPrioritySort: false);
         }
 
-        private static IReadOnlyList<WorkGiver> GetWorkGiversForWorkType(WorkTypeDef workType, Pawn pawn, bool applyPrioritySort)
+        private static List<WorkGiver> GetWorkGiversForWorkType(WorkTypeDef workType, Pawn pawn, bool applyPrioritySort)
         {
             EnsureVersion();
 
             if (workType == null)
             {
-                return Array.Empty<WorkGiver>();
+                return new List<WorkGiver>();
             }
 
             if (applyPrioritySort && pawn == null && OrderedWorkGiverCache.TryGetValue(workType.defName, out var cached))

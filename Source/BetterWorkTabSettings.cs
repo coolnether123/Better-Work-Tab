@@ -1,4 +1,4 @@
-using Better_Work_Tab.Features;
+﻿using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.Rules;
 using Better_Work_Tab.Features.Rules.RuleBuilder2;
@@ -808,7 +808,7 @@ namespace Better_Work_Tab
         public void SetExternalPriorityProvider(string providerId)
         {
             priorityMode = PriorityMode.ExternalProvider;
-            selectedPriorityProviderId = string.IsNullOrWhiteSpace(providerId)
+            selectedPriorityProviderId = string.IsNullOrEmpty(providerId)
                 ? DefaultSettings.selectedPriorityProviderId
                 : providerId.Trim();
             SyncProviderSelectionFieldsFromMode();
@@ -821,7 +821,7 @@ namespace Better_Work_Tab
                 priorityMode = InferPriorityModeFromProviderSelectionFields();
             }
 
-            if (string.IsNullOrWhiteSpace(selectedPriorityProviderId))
+            if (string.IsNullOrEmpty(selectedPriorityProviderId))
             {
                 selectedPriorityProviderId = DefaultSettings.selectedPriorityProviderId;
             }
@@ -857,7 +857,7 @@ namespace Better_Work_Tab
                 return PriorityMode.Vanilla;
             }
 
-            if (string.IsNullOrWhiteSpace(selectedPriorityProviderId) ||
+            if (string.IsNullOrEmpty(selectedPriorityProviderId) ||
                 IsPriorityProviderId(selectedPriorityProviderId, PriorityConstants.AutoProviderId))
             {
                 return PriorityMode.Auto;
@@ -883,7 +883,7 @@ namespace Better_Work_Tab
                 case PriorityMode.ExternalProvider:
                     enableExtendedPriorities = false;
                     delegateToExternalPriorityMods = true;
-                    selectedPriorityProviderId = string.IsNullOrWhiteSpace(selectedPriorityProviderId)
+                    selectedPriorityProviderId = string.IsNullOrEmpty(selectedPriorityProviderId)
                         ? DefaultSettings.selectedPriorityProviderId
                         : selectedPriorityProviderId.Trim();
                     break;
@@ -1018,7 +1018,7 @@ namespace Better_Work_Tab
         /// </summary>
         public void RestoreDefaults()
         {
-            IReadOnlyCollection<string> changedPreferenceFields = ApplyRegisteredDefaults();
+            ICollection<string> changedPreferenceFields = ApplyRegisteredDefaults();
 
             workTabMaxHeight = DefaultSettings.workTabMaxHeight;
             workTabMaxVisiblePawns = DefaultSettings.workTabMaxVisiblePawns;
@@ -1085,7 +1085,7 @@ namespace Better_Work_Tab
         /// <summary>
         /// Applies default values declared in the settings registry to matching fields.
         /// </summary>
-        private IReadOnlyCollection<string> ApplyRegisteredDefaults()
+        private ICollection<string> ApplyRegisteredDefaults()
         {
             BWTSettingsRegistry.EnsureInitialized();
             return SettingsScribe.ApplyPreferenceDefaults(this, BWTSettingsRegistry.Definitions);

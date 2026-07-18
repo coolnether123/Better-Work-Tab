@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Spine.Api;
@@ -120,7 +120,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             new Dictionary<WorkGridSelectionScope, HashSet<string>>();
         private readonly IWorkGridRendererCapabilityCheck _capabilityCheck;
         private readonly IRenderDiagnosticsSink _diagnostics;
-        private volatile RendererEntry[] _snapshot = Array.Empty<RendererEntry>();
+        private volatile RendererEntry[] _snapshot = ArrayCompat.Empty<RendererEntry>();
         private long _nextSequence;
 
         public WorkGridRendererSelector(
@@ -154,7 +154,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 return RegistrationResult.Reject("The Work-grid renderer threw while its metadata was read.");
             }
 
-            if (string.IsNullOrWhiteSpace(id))
+            if (System.StringCompat.IsNullOrWhiteSpace(id))
             {
                 return RegistrationResult.Reject("The Work-grid renderer must declare a non-empty stable ID.");
             }

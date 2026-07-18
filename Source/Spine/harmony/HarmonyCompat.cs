@@ -83,7 +83,7 @@ namespace Spine.Harmony.Infrastructure
                 block.AddRange(lines);
             }
 
-            Log.Message(Prefix + "[Debug] " + string.Join(Environment.NewLine, block));
+            Log.Message(Prefix + "[Debug] " + string.Join(Environment.NewLine, block.ToArray()));
         }
 
         public static void WarnOnce(string key, string message)

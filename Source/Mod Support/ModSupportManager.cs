@@ -24,7 +24,7 @@ namespace Better_Work_Tab.ModSupport
             BetterWorkTabMod.DebugLog("[ModSupport] Initializing ModSupportManager...", DebugFeature.ModSupport);
             foreach (var module in _allModules)
             {
-                var matchedMod = ModLister.GetActiveModWithIdentifier(module.PackageId);
+                var matchedMod = ModListerCompat.GetActiveModWithIdentifier(module.PackageId);
                 if (matchedMod != null)
                 {
                     try

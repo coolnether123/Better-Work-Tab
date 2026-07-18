@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Globalization;
 
 namespace Spine.Api
@@ -14,7 +14,7 @@ namespace Spine.Api
             Major = major;
             Minor = minor;
             Patch = patch;
-            Prerelease = string.IsNullOrWhiteSpace(prerelease) ? null : prerelease;
+            Prerelease = System.StringCompat.IsNullOrWhiteSpace(prerelease) ? null : prerelease;
         }
 
         public int Major { get; }
@@ -36,7 +36,7 @@ namespace Spine.Api
         public static bool TryParse(string value, out SemanticVersion version)
         {
             version = default(SemanticVersion);
-            if (string.IsNullOrWhiteSpace(value))
+            if (System.StringCompat.IsNullOrWhiteSpace(value))
             {
                 return false;
             }
@@ -46,7 +46,7 @@ namespace Spine.Api
             string core = prereleaseSeparator < 0 ? withoutBuild : withoutBuild.Substring(0, prereleaseSeparator);
             string prerelease = prereleaseSeparator < 0 ? null : withoutBuild.Substring(prereleaseSeparator + 1);
             string[] parts = core.Split('.');
-            if (parts.Length != 3 || string.IsNullOrWhiteSpace(prerelease) && prereleaseSeparator >= 0)
+            if (parts.Length != 3 || System.StringCompat.IsNullOrWhiteSpace(prerelease) && prereleaseSeparator >= 0)
             {
                 return false;
             }
@@ -170,7 +170,7 @@ namespace Spine.Api
     {
         public SpineApiDescriptor(string apiId, SemanticVersion version, SpineCapability capabilities)
         {
-            if (string.IsNullOrWhiteSpace(apiId))
+            if (System.StringCompat.IsNullOrWhiteSpace(apiId))
             {
                 throw new ArgumentException("An API identifier is required.", nameof(apiId));
             }

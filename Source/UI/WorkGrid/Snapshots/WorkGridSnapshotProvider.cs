@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
@@ -110,7 +110,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             _columns.Clear();
             _cells.Clear();
 
-            IReadOnlyList<WorkTabLayoutRow> layoutRows = layout.Rows;
+            IList<WorkTabLayoutRow> layoutRows = layout.Rows;
             for (int i = 0; i < layoutRows.Count; i++)
             {
                 WorkTabLayoutRow row = layoutRows[i];
@@ -165,7 +165,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                 }
             }
 
-            IReadOnlyList<WorkTabLayoutColumn> layoutColumns = layout.Columns;
+            IList<WorkTabLayoutColumn> layoutColumns = layout.Columns;
             bool canSnapshotVanillaPriorityCells =
                       WorkGridVanillaCompatibilityPolicy.CanSnapshotVanillaPriorityCells();
             var bestPawnIds = new Dictionary<ushort, int>();
@@ -269,7 +269,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             unchecked
             {
                 int hash = 17;
-                IReadOnlyList<WorkTabLayoutRow> rows = layout.Rows;
+                IList<WorkTabLayoutRow> rows = layout.Rows;
                 hash = (hash * 31) + rows.Count;
                 for (int i = 0; i < rows.Count; i++)
                 {
@@ -281,7 +281,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                     hash = (hash * 31) + unchecked((int)PackColor(row.Divider?.DividerColor ?? Color.clear));
                 }
 
-                IReadOnlyList<WorkTabLayoutColumn> columns = layout.Columns;
+                IList<WorkTabLayoutColumn> columns = layout.Columns;
                 hash = (hash * 31) + columns.Count;
                 for (int i = 0; i < columns.Count; i++)
                 {

@@ -8,13 +8,13 @@ namespace Better_Work_Tab.PawnOrganizer.API
 {
     public class WorkTabSnapshot : IPawnOrganizerSnapshot
     {
-        public IReadOnlyList<Pawn> Pawns { get; }
-        public IReadOnlyList<PawnDivider> Dividers { get; }
+        public IList<Pawn> Pawns { get; }
+        public IList<PawnDivider> Dividers { get; }
 
-        public WorkTabSnapshot(IReadOnlyList<Pawn> pawns, IReadOnlyList<PawnDivider> dividers)
+        public WorkTabSnapshot(IList<Pawn> pawns, IList<PawnDivider> dividers)
         {
-            Pawns = pawns ?? (IReadOnlyList<Pawn>)Array.Empty<Pawn>();
-            Dividers = dividers ?? (IReadOnlyList<PawnDivider>)Array.Empty<PawnDivider>();
+            Pawns = pawns ?? (IList<Pawn>)new Pawn[0];
+            Dividers = dividers ?? (IList<PawnDivider>)new PawnDivider[0];
         }
     }
 }

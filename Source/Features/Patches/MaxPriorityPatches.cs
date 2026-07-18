@@ -269,7 +269,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         }
     }
 
-    [HarmonyPatch(typeof(WidgetsWork), nameof(WidgetsWork.ColorOfPriority))]
+    [HarmonyPatch(typeof(WidgetsWork), "ColorOfPriority")]
     internal static class Patch_WidgetsWork_ColorOfPriority
     {
         /// <summary>
@@ -282,6 +282,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         }
     }
 
+#if !v1_0
     [HarmonyPatch(typeof(WidgetsWork), nameof(WidgetsWork.TipForPawnWorker))]
     internal static class Patch_WidgetsWork_TipForPawnWorker
     {
@@ -300,6 +301,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             });
         }
     }
+#endif
 
     [HarmonyPatch(typeof(WidgetsWork), nameof(WidgetsWork.DrawWorkBoxFor))]
     internal static class Patch_WidgetsWork_DrawWorkBoxFor

@@ -256,7 +256,7 @@ namespace Better_Work_Tab.UI.RuleBuilder
                 return;
             }
 
-            if (string.IsNullOrWhiteSpace(edited))
+            if (string.IsNullOrEmpty(edited) || edited.Trim().Length == 0)
             {
                 _typedPriority = string.Empty;
                 return;

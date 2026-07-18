@@ -21,7 +21,7 @@ namespace Spine.UI.ColourPicker {
         public Color this[int index] => _colors[index];
 
         public int Count => _colors.Count;
-        public IReadOnlyList<Color> PinnedColors => _pinnedColors;
+        public IList<Color> PinnedColors => _pinnedColors;
         public int PinnedCount => _pinnedColors.Count;
 
         public static List<Color> CopyRecentColors()

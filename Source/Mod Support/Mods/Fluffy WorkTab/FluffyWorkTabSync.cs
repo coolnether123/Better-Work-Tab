@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
@@ -291,7 +291,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                 }
             }
 
-            IReadOnlyList<WorkGiver> displayed = WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(workType);
+            IList<WorkGiver> displayed = WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(workType);
             for (int i = 0; displayed != null && i < displayed.Count; i++)
             {
                 WorkGiverDef def = displayed[i]?.def;

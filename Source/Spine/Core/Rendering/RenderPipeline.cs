@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using Spine.Diagnostics;
@@ -42,7 +42,7 @@ namespace Spine.Api
 
         public static RegistrationResult Reject(string reason)
         {
-            if (string.IsNullOrWhiteSpace(reason)) throw new ArgumentException("A rejection reason is required.", nameof(reason));
+            if (System.StringCompat.IsNullOrWhiteSpace(reason)) throw new ArgumentException("A rejection reason is required.", nameof(reason));
             return new RegistrationResult(false, null, reason);
         }
     }
@@ -57,7 +57,7 @@ namespace Spine.Api
 
     public interface IRenderPipeline<TContext> : IDisposable
     {
-        IReadOnlyList<IRenderLayer<TContext>> ActiveLayers { get; }
+        IList<IRenderLayer<TContext>> ActiveLayers { get; }
         RegistrationResult Register(IRenderLayer<TContext> layer);
         void Render(TContext context);
         void Reset();
@@ -127,7 +127,7 @@ namespace Spine.Rendering
             _readOnlyActiveLayers = _activeLayers.AsReadOnly();
         }
 
-        public IReadOnlyList<IRenderLayer<TContext>> ActiveLayers => _readOnlyActiveLayers;
+        public IList<IRenderLayer<TContext>> ActiveLayers => _readOnlyActiveLayers;
 
         public RegistrationResult Register(IRenderLayer<TContext> layer)
         {
@@ -137,7 +137,7 @@ namespace Spine.Rendering
             }
 
             string id = layer.Id;
-            if (string.IsNullOrWhiteSpace(id))
+            if (System.StringCompat.IsNullOrWhiteSpace(id))
             {
                 return RegistrationResult.Reject("The render layer must declare a non-empty stable ID.");
             }

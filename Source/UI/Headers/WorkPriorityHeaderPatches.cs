@@ -183,6 +183,7 @@ namespace Better_Work_Tab.UI.Headers
     ///     Widgets.DrawHighlightIfMouseover(rect);
     ///   skip_highlight:
     /// </summary>
+#if !v1_0
     [HarmonyPatch(typeof(PawnColumnWorker), nameof(PawnColumnWorker.DoHeader))]
     public static class Patch_PawnColumnWorker_DoHeader_DisableHighlight
     {
@@ -238,4 +239,5 @@ namespace Better_Work_Tab.UI.Headers
             return codes;
         }
     }
+#endif
 }
