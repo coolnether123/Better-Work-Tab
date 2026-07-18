@@ -215,7 +215,7 @@ namespace Better_Work_Tab.Features.Tutorial
                 if (presentation == TutorialPresentation.Lesson)
                 {
                     Vector2 rootOffset = GUIClipUtility.Unclip(Vector2.zero);
-                    Rect rootWorkBounds = new Rect(workBounds.position + rootOffset, workBounds.size);
+                    Rect rootWorkBounds = OffsetRect(workBounds, rootOffset);
                     BWTTutorialAnchor activeAnchor = ResolveLessonDisplayAnchor(
                         anchors,
                         settings.activeTutorialLessonId,
@@ -412,7 +412,7 @@ namespace Better_Work_Tab.Features.Tutorial
             DrawLessonAnchor(localAnchor);
 
             Vector2 rootOffset = GUIClipUtility.Unclip(Vector2.zero);
-            Rect rootWorkBounds = new Rect(workBounds.position + rootOffset, workBounds.size);
+            Rect rootWorkBounds = OffsetRect(workBounds, rootOffset);
             Rect screenBounds = new Rect(0f, 0f, Verse.UI.screenWidth, Verse.UI.screenHeight);
             BWTTutorialAnchor rootAnchor = localAnchor.OffsetBy(rootOffset);
             string body = GetLessonBody(lessonId, phase);
@@ -482,7 +482,7 @@ namespace Better_Work_Tab.Features.Tutorial
                 rootAnchors.Add(localAnchors[i].OffsetBy(rootOffset));
             }
 
-            Rect rootWorkBounds = new Rect(workBounds.position + rootOffset, workBounds.size);
+            Rect rootWorkBounds = OffsetRect(workBounds, rootOffset);
             Rect screenBounds = new Rect(0f, 0f, Verse.UI.screenWidth, Verse.UI.screenHeight);
             IDictionary<TutorialHubAnchor, BWTTutorialHubDefinition> hubs = BuildHubDefinitions();
             Find.WindowStack.ImmediateWindow(
@@ -1069,6 +1069,11 @@ namespace Better_Work_Tab.Features.Tutorial
             return new Rect(card.xMax - 166f, card.yMax - 48f, 150f, 32f);
         }
 
+        private static Rect OffsetRect(Rect rect, Vector2 offset)
+        {
+            return new Rect(rect.x + offset.x, rect.y + offset.y, rect.width, rect.height);
+        }
+
         private static void CompleteLesson(string lessonId)
         {
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
@@ -1207,11 +1212,11 @@ namespace Better_Work_Tab.Features.Tutorial
             internal LessonLayout OffsetBy(Vector2 offset)
             {
                 return new LessonLayout(
-                    new Rect(CardRect.position + offset, CardRect.size),
-                    new Rect(BodyRect.position + offset, BodyRect.size),
+                    OffsetRect(CardRect, offset),
+                    OffsetRect(BodyRect, offset),
                     BodyViewRect,
-                    new Rect(BackRect.position + offset, BackRect.size),
-                    new Rect(PauseRect.position + offset, PauseRect.size));
+                    OffsetRect(BackRect, offset),
+                    OffsetRect(PauseRect, offset));
             }
         }
     }
