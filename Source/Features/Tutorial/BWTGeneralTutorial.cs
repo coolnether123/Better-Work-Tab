@@ -66,6 +66,7 @@ namespace Better_Work_Tab.Features.Tutorial
         private static Vector2 lessonScrollPosition;
         private static bool ownsCurrentPointer;
         private const int FloatingSelectorWindowId = 0x42575451;
+        private const int FloatingLessonWindowId = 0x42575452;
 
         internal static bool OwnsCurrentPointer => ownsCurrentPointer;
 
@@ -90,12 +91,6 @@ namespace Better_Work_Tab.Features.Tutorial
                     settings?.activeTutorialLessonId);
             }
         }
-
-        private static bool ShouldReserveSelector =>
-            Presentation == TutorialPresentation.Selector || Presentation == TutorialPresentation.Lesson;
-
-        internal static float PreferredReserveWidth => ShouldReserveSelector ? Selector.PreferredReserveWidth : 0f;
-        internal static float PreferredReserveHeight => ShouldReserveSelector ? Selector.PreferredReserveHeight : 0f;
 
         internal static bool TryHandleInput(Rect inRect, IWorkTabLayoutController layout, Event evt)
         {
@@ -144,51 +139,8 @@ namespace Better_Work_Tab.Features.Tutorial
 
             if (presentation == TutorialPresentation.Lesson)
             {
-                BWTTutorialAnchor activeAnchor = lessonAnchor.IsValid
-                    ? lessonAnchor
-                    : FindLessonAnchor(anchors, GetAnchorForLesson(settings.activeTutorialLessonId));
-                LessonLayout lessonLayout = BuildLessonLayout(
-                    inRect,
-                    workBounds,
-                    activeAnchor,
-                    GetLessonBody(settings.activeTutorialLessonId, settings.tutorialLessonPhase));
-                if (!lessonLayout.CardRect.Contains(evt.mousePosition))
-                {
-                    return false;
-                }
-
-                if (evt.type == EventType.ScrollWheel && lessonLayout.BodyRect.Contains(evt.mousePosition))
-                {
-                    float maximumScroll = Mathf.Max(0f, lessonLayout.BodyViewRect.height - lessonLayout.BodyRect.height);
-                    lessonScrollPosition.y = Mathf.Clamp(
-                        lessonScrollPosition.y + evt.delta.y * 22f,
-                        0f,
-                        maximumScroll);
-                    evt.Use();
-                    return true;
-                }
-
-                if (evt.type == EventType.MouseDown && evt.button == 0)
-                {
-                    if (lessonLayout.BackRect.Contains(evt.mousePosition))
-                    {
-                        ReturnToSelection();
-                    }
-                    else if (lessonLayout.PauseRect.Contains(evt.mousePosition))
-                    {
-                        Pause();
-                    }
-
-                    evt.Use();
-                    return true;
-                }
-
-                if (IsPointerEvent(evt.type))
-                {
-                    evt.Use();
-                    return true;
-                }
-
+                // The screen-level lesson window owns its card input. Work-tab
+                // interactions remain available everywhere outside that card.
                 return false;
             }
 
@@ -262,15 +214,18 @@ namespace Better_Work_Tab.Features.Tutorial
                 Rect workBounds = BWTTutorialGeometry.GetVisibleWorkTabBounds(inRect, layout);
                 if (presentation == TutorialPresentation.Lesson)
                 {
-                    BWTTutorialAnchor activeAnchor = lessonAnchor.IsValid
-                        ? lessonAnchor
-                        : FindLessonAnchor(anchors, GetAnchorForLesson(settings.activeTutorialLessonId));
+                    Vector2 rootOffset = GUIClipUtility.Unclip(Vector2.zero);
+                    Rect rootWorkBounds = new Rect(workBounds.position + rootOffset, workBounds.size);
+                    BWTTutorialAnchor activeAnchor = ResolveLessonDisplayAnchor(
+                        anchors,
+                        settings.activeTutorialLessonId,
+                        settings.tutorialLessonPhase).OffsetBy(rootOffset);
                     overSurface = BuildLessonLayout(
-                        inRect,
-                        workBounds,
+                        new Rect(0f, 0f, Verse.UI.screenWidth, Verse.UI.screenHeight),
+                        rootWorkBounds,
                         activeAnchor,
                         GetLessonBody(settings.activeTutorialLessonId, settings.tutorialLessonPhase))
-                        .CardRect.Contains(pointer);
+                        .CardRect.Contains(pointer + rootOffset);
                 }
                 else
                 {
@@ -360,7 +315,11 @@ namespace Better_Work_Tab.Features.Tutorial
                 return;
             }
 
-            DrawLesson(inRect, workBounds, anchors, settings.activeTutorialLessonId, settings.tutorialLessonPhase);
+            DrawFloatingLesson(
+                workBounds,
+                anchors,
+                settings.activeTutorialLessonId,
+                settings.tutorialLessonPhase);
         }
 
         internal static void ObserveInteraction(BWTTutorialInteraction interaction)
@@ -408,7 +367,7 @@ namespace Better_Work_Tab.Features.Tutorial
                     TutorialHubAnchor.None,
                     T("BWT_Tutorial_Selector_Title"),
                     T("BWT_Tutorial_Selector_DefaultBody"),
-                    ArrayCompat.Empty<BWTTutorialOptionDefinition>()),
+                    new BWTTutorialOptionDefinition[0]),
                 [TutorialHubAnchor.PawnName] = new BWTTutorialHubDefinition(
                     TutorialHubAnchor.PawnName,
                     T("BWT_Tutorial_PawnHub_Title"),
@@ -441,6 +400,72 @@ namespace Better_Work_Tab.Features.Tutorial
                         Option(PriorityRangeLesson, "BWT_Tutorial_PriorityRange_Label", "BWT_Tutorial_PriorityRange_Title", "BWT_Tutorial_PriorityRange_Preview")
                     })
             };
+        }
+
+        private static void DrawFloatingLesson(
+            Rect workBounds,
+            IList<BWTTutorialAnchor> localAnchors,
+            string lessonId,
+            int phase)
+        {
+            BWTTutorialAnchor localAnchor = ResolveLessonDisplayAnchor(localAnchors, lessonId, phase);
+            DrawLessonAnchor(localAnchor);
+
+            Vector2 rootOffset = GUIClipUtility.Unclip(Vector2.zero);
+            Rect rootWorkBounds = new Rect(workBounds.position + rootOffset, workBounds.size);
+            Rect screenBounds = new Rect(0f, 0f, Verse.UI.screenWidth, Verse.UI.screenHeight);
+            BWTTutorialAnchor rootAnchor = localAnchor.OffsetBy(rootOffset);
+            string body = GetLessonBody(lessonId, phase);
+            LessonLayout rootLayout = BuildLessonLayout(screenBounds, rootWorkBounds, rootAnchor, body);
+            LessonLayout localLayout = rootLayout.OffsetBy(-rootLayout.CardRect.position);
+
+            Find.WindowStack.ImmediateWindow(
+                FloatingLessonWindowId,
+                rootLayout.CardRect,
+                WindowLayer.Super,
+                () =>
+                {
+                    Event evt = Event.current;
+                    if (evt != null &&
+                        evt.type != EventType.Layout &&
+                        evt.type != EventType.Repaint &&
+                        localLayout.CardRect.Contains(evt.mousePosition))
+                    {
+                        if (evt.type == EventType.ScrollWheel && localLayout.BodyRect.Contains(evt.mousePosition))
+                        {
+                            float maximumScroll = Mathf.Max(
+                                0f,
+                                localLayout.BodyViewRect.height - localLayout.BodyRect.height);
+                            lessonScrollPosition.y = Mathf.Clamp(
+                                lessonScrollPosition.y + evt.delta.y * 22f,
+                                0f,
+                                maximumScroll);
+                            evt.Use();
+                        }
+                        else if (evt.type == EventType.MouseDown && evt.button == 0)
+                        {
+                            if (localLayout.BackRect.Contains(evt.mousePosition))
+                            {
+                                ReturnToSelection();
+                            }
+                            else if (localLayout.PauseRect.Contains(evt.mousePosition))
+                            {
+                                Pause();
+                            }
+
+                            evt.Use();
+                        }
+                        else if (IsPointerEvent(evt.type))
+                        {
+                            evt.Use();
+                        }
+                    }
+
+                    DrawLessonCard(localLayout, lessonId, body);
+                },
+                doBackground: false,
+                absorbInputAroundWindow: false,
+                shadowAlpha: 0f);
         }
 
         private static void DrawFloatingSelector(
@@ -494,19 +519,16 @@ namespace Better_Work_Tab.Features.Tutorial
                         }
                     }
 
-                    if (Event.current.type == EventType.Repaint)
-                    {
-                        Selector.Draw(
-                            screenBounds,
-                            rootWorkBounds,
-                            rootAnchors,
-                            hubs,
-                            settings.completedTutorialLessonIds,
-                            T("BWT_Tutorial_DefaultContextHeading"),
-                            T("BWT_Tutorial_Recommended"),
-                            T("BWT_Tutorial_SkipForNow"),
-                            T("BWT_Tutorial_LeaveTutorial"));
-                    }
+                    Selector.Draw(
+                        screenBounds,
+                        rootWorkBounds,
+                        rootAnchors,
+                        hubs,
+                        settings.completedTutorialLessonIds,
+                        T("BWT_Tutorial_DefaultContextHeading"),
+                        T("BWT_Tutorial_Recommended"),
+                        T("BWT_Tutorial_SkipForNow"),
+                        T("BWT_Tutorial_LeaveTutorial"));
                 },
                 doBackground: false,
                 absorbInputAroundWindow: false,
@@ -557,7 +579,7 @@ namespace Better_Work_Tab.Features.Tutorial
                 {
                     TutorialProgressTransitions.Complete(settings.completedTutorialLessonIds, lessonId);
                     settings.Write();
-                    UISoundCompat.TickHigh.PlayOneShotOnCamera();
+                    PlayTutorialSound("Tick_High");
                 }
                 return;
             }
@@ -567,7 +589,7 @@ namespace Better_Work_Tab.Features.Tutorial
             lessonScrollPosition = Vector2.zero;
             InitializeLessonObservation(lessonId, anchors, layout);
             settings.Write();
-            UISoundCompat.TickHigh.PlayOneShotOnCamera();
+            PlayTutorialSound("Tick_High");
         }
 
         private static void InitializeLessonObservation(
@@ -586,7 +608,7 @@ namespace Better_Work_Tab.Features.Tutorial
             initialHeaderSelected = IsLessonHeaderSelected(layout);
             initialPawnTitle = PawnTitleUtility.GetCurrentTitle(lessonAnchor.Pawn);
             initialPawnHadColor = PawnColorDatabase.TryGetColor(lessonAnchor.Pawn, out initialPawnColor);
-            initialSubWorkActive = SubWorkDrilldownState.IsActive;
+            initialSubWorkActive = SubWorkDrilldownState.HasAnyDrilldown;
             scheduleOpened = false;
             scheduleEdited = false;
             skillVisibleStartedAt = -1f;
@@ -690,7 +712,9 @@ namespace Better_Work_Tab.Features.Tutorial
                 return;
             }
 
-            if (lesson == HeaderSubWorkLesson && !initialSubWorkActive && SubWorkDrilldownState.IsActive)
+            if (lesson == HeaderSubWorkLesson &&
+                !initialSubWorkActive &&
+                SubWorkDrilldownState.HasAnyDrilldown)
             {
                 CompleteLesson(lesson);
             }
@@ -734,9 +758,7 @@ namespace Better_Work_Tab.Features.Tutorial
             }
         }
 
-        private static void DrawLesson(
-            Rect inRect,
-            Rect workBounds,
+        private static BWTTutorialAnchor ResolveLessonDisplayAnchor(
             IList<BWTTutorialAnchor> anchors,
             string lessonId,
             int phase)
@@ -755,9 +777,15 @@ namespace Better_Work_Tab.Features.Tutorial
                     lessonAnchor.WorkType,
                     lessonAnchor.WorkGiver);
             }
-            DrawLessonAnchor(anchor);
-            string body = GetLessonBody(lessonId, phase);
-            LessonLayout layout = BuildLessonLayout(inRect, workBounds, anchor, body);
+
+            return anchor;
+        }
+
+        private static void DrawLessonCard(
+            LessonLayout layout,
+            string lessonId,
+            string body)
+        {
             Rect card = layout.CardRect;
 
             Widgets.DrawBoxSolid(card, new Color(0.055f, 0.062f, 0.07f, 0.98f));
@@ -1010,10 +1038,13 @@ namespace Better_Work_Tab.Features.Tutorial
             Text.WordWrap = oldWordWrap;
             float height = Mathf.Clamp(measuredBodyHeight + 146f, 244f, Mathf.Min(360f, bounds.height - 20f));
             float rightSpace = bounds.xMax - work.xMax - 12f;
-            float x = rightSpace >= 340f
+            bool placeRight = rightSpace >= cardWidth;
+            float x = placeRight
                 ? work.xMax + 12f
-                : Mathf.Clamp(work.center.x - cardWidth / 2f, bounds.xMin + 10f, bounds.xMax - cardWidth - 10f);
-            float y = rightSpace >= 340f
+                : anchor.Rect.center.x < bounds.center.x
+                    ? bounds.xMax - cardWidth - 10f
+                    : bounds.xMin + 10f;
+            float y = placeRight
                 ? Mathf.Clamp(anchor.Rect.center.y - height / 2f, bounds.yMin + 10f, bounds.yMax - height - 10f)
                 : Mathf.Max(bounds.yMin + 10f, work.yMin - height - 12f);
             Rect card = new Rect(x, y, cardWidth, height);
@@ -1050,7 +1081,7 @@ namespace Better_Work_Tab.Features.Tutorial
             observedLessonId = string.Empty;
             lessonScrollPosition = Vector2.zero;
             Selector.Reset();
-            UISoundCompat.TickHigh.PlayOneShotOnCamera();
+            PlayTutorialSound("Tick_High");
         }
 
         private static void ReturnToSelection()
@@ -1069,7 +1100,7 @@ namespace Better_Work_Tab.Features.Tutorial
             observedLessonId = string.Empty;
             lessonScrollPosition = Vector2.zero;
             Selector.Reset();
-            UISoundCompat.TickLow.PlayOneShotOnCamera();
+            PlayTutorialSound("Tick_Low");
         }
 
         private static void Pause()
@@ -1080,7 +1111,7 @@ namespace Better_Work_Tab.Features.Tutorial
             WelcomeOverlay.ResetAnimation();
             lessonScrollPosition = Vector2.zero;
             Selector.Reset();
-            UISoundCompat.TickLow.PlayOneShotOnCamera();
+            PlayTutorialSound("Tick_Low");
         }
 
         private static void LeaveTutorial()
@@ -1118,7 +1149,7 @@ namespace Better_Work_Tab.Features.Tutorial
             WelcomeOverlay.ResetAnimation();
             Selector.Reset();
             settings.Write();
-            UISoundCompat.TickHigh.PlayOneShotOnCamera();
+            PlayTutorialSound("Tick_High");
         }
 
         private static void DismissWelcome()
@@ -1137,7 +1168,13 @@ namespace Better_Work_Tab.Features.Tutorial
             WelcomeOverlay.ResetAnimation();
             Selector.Reset();
             settings.Write();
-            UISoundCompat.TickLow.PlayOneShotOnCamera();
+            PlayTutorialSound("Tick_Low");
+        }
+
+        private static void PlayTutorialSound(string defName)
+        {
+            SoundDef sound = DefDatabase<SoundDef>.GetNamedSilentFail(defName);
+            sound?.PlayOneShotOnCamera();
         }
 
         private static string T(string key)
@@ -1166,6 +1203,16 @@ namespace Better_Work_Tab.Features.Tutorial
             internal Rect BodyViewRect { get; }
             internal Rect BackRect { get; }
             internal Rect PauseRect { get; }
+
+            internal LessonLayout OffsetBy(Vector2 offset)
+            {
+                return new LessonLayout(
+                    new Rect(CardRect.position + offset, CardRect.size),
+                    new Rect(BodyRect.position + offset, BodyRect.size),
+                    BodyViewRect,
+                    new Rect(BackRect.position + offset, BackRect.size),
+                    new Rect(PauseRect.position + offset, PauseRect.size));
+            }
         }
     }
 }
