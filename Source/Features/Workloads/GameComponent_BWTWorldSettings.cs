@@ -1,4 +1,5 @@
 using Better_Work_Tab.Features;
+using Better_Work_Tab.Features.Migration;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.Testing;
 using Better_Work_Tab.Features.WorkGiverReassignments;
@@ -29,7 +30,9 @@ namespace Better_Work_Tab.Features.Workloads
         public List<TimePriorityScheduleData> TimePrioritySchedules = new List<TimePriorityScheduleData>();
         public Dictionary<string, string> CustomWorkTypeLabels = new Dictionary<string, string>(System.StringComparer.Ordinal);
         public Dictionary<string, string> CustomWorkGiverLabels = new Dictionary<string, string>(System.StringComparer.Ordinal);
+        public int BWTWorldSchemaVersion = BWT20UpgradePolicy.CurrentWorldSchemaVersion;
         public int ExternalWorkTabPriorityMigrationVersion;
+        public int FluffyWorkTabCompatibilityPromptVersion;
         private int _lastTimePriorityHour = -1;
 
         public GameComponent_BWTWorldSettings(Game game) : base()
@@ -92,7 +95,9 @@ namespace Better_Work_Tab.Features.Workloads
             Scribe_Collections.Look(ref ColumnCurrentOrder, "columnCurrentOrder", LookMode.Value);
             Scribe_Deep.Look(ref WorkGiverReassignments, "workGiverReassignments");
             Scribe_Collections.Look(ref TimePrioritySchedules, "timePrioritySchedules", LookMode.Deep);
+            Scribe_Values.Look(ref BWTWorldSchemaVersion, "bwtWorldSchemaVersion", 0);
             FluffyWorkTabGateway.ExposePriorityMigrationVersion(ref ExternalWorkTabPriorityMigrationVersion);
+            FluffyWorkTabGateway.ExposeCompatibilityPromptVersion(ref FluffyWorkTabCompatibilityPromptVersion);
             ScribeCompat.LookStringDictionary(ref CustomWorkTypeLabels, "customWorkTypeLabels");
             ScribeCompat.LookStringDictionary(ref CustomWorkGiverLabels, "customWorkGiverLabels");
 
