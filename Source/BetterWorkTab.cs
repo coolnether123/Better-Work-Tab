@@ -1,5 +1,6 @@
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.Workloads;
+using Better_Work_Tab.Features.Migration;
 using Better_Work_Tab.ModSupport;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.PawnOrganizer;
@@ -55,8 +56,26 @@ namespace Better_Work_Tab
         /// <param name="content">The mod's content pack, providing access to assets like textures and defs.</param>
         public BetterWorkTabMod(ModContentPack content) : base(content)
         {
-            var settings = GetSettings<BetterWorkTabSettings>();
+            BetterWorkTabSettings settings = null;
+            bool migratedSettings = false;
+            BWT20SettingsMigration.BeginStartupSettingsLoad();
+            try
+            {
+                settings = GetSettings<BetterWorkTabSettings>();
+            }
+            finally
+            {
+                migratedSettings = BWT20SettingsMigration.EndStartupSettingsLoad();
+            }
+
             Settings = settings;
+            if (migratedSettings)
+            {
+                // Persist the compatibility defaults and schema marker before the
+                // player can close the first-launch prompt.
+                Settings.Write();
+            }
+
             Settings.NormalizePrioritySettings();
             HarmonyPreferenceSource.Configure(() => Settings?.enableDebugLogging ?? false);
             Dialog_ColourPicker.ConfigureDebugLogger(message => DebugLog(message, DebugFeature.Layout));
