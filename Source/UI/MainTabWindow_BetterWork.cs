@@ -3,6 +3,7 @@ using Better_Work_Tab.Mod_Support.Multiplayer;
 using Better_Work_Tab.Mod_Support.Multiplayer.Features.Layouts;
 using Better_Work_Tab.Features.Caching;
 using Better_Work_Tab.Features.Dividers;
+using Better_Work_Tab.Features.Migration;
 using Better_Work_Tab.Features.Patches;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.Testing;
@@ -35,6 +36,7 @@ using RimWorld;
 using Spine.Profiling;
 using Spine.RimWorld.Rendering;
 using Spine.UI.ColourPicker;
+using Spine.UI.WidgetExtensions;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -57,7 +59,6 @@ namespace Better_Work_Tab.UI
         private static readonly FieldInfo PawnTableField =
             typeof(MainTabWindow_PawnTable).GetField("table", BindingFlags.NonPublic | BindingFlags.Instance);
         private static PawnColumnDef _lastDraggedColumn;
-        private static Material _ruleBuilder2OutlineMaterial;
         private static readonly Dictionary<WorkTypeDef, bool> ColumnMarkerCache =
             new Dictionary<WorkTypeDef, bool>();
         private static BetterWorkTabSettings _columnMarkerCacheSettings;
@@ -71,8 +72,8 @@ namespace Better_Work_Tab.UI
         {
             _workGridInteractionRouter = new WorkGridInteractionRouter(this);
             _workGridRenderer = new WorkGridRendererFacade(
-                this,
-                () => BetterWorkTabMod.Settings?.workGridRendererMode ?? DefaultSettings.workGridRendererMode);
+                    this,
+                    () => BetterWorkTabMod.Settings?.workGridRendererMode ?? DefaultSettings.workGridRendererMode);
             _workGridRenderer.Register(new OptimizedWorkGridRenderer(this));
         }
         
@@ -893,6 +894,27 @@ namespace Better_Work_Tab.UI
                 var table = GetPawnTable();
                 if (table == null) return Vector2.zero;
 
+                // MainTabWindow.PostOpen can request the initial size from outside
+                // Unity's OnGUI loop. Recaching a dirty PawnTable there eventually
+                // initializes Verse.Text through GUI.skin, which Unity rejects
+                // outside OnGUI and permanently poisons the Text type initializer.
+                // Use only already-cached geometry for that cold-open request; the
+                // first normal IMGUI pass below will build the live layout and
+                // bottom-anchor the window to its exact requested size.
+                if (Event.current == null && table.dirty)
+                {
+                    Vector2 cachedSize = table.cachedSize;
+                    float coldWidth = cachedSize.x > 0f
+                        ? cachedSize.x + Margin * 2f
+                        : Mathf.Min(Verse.UI.screenWidth - 2f, 1400f);
+                    float coldHeight = cachedSize.y > 0f
+                        ? cachedSize.y + ExtraBottomSpace + ExtraTopSpace + Margin * 2f + ScrollViewFitAllowance
+                        : MinWorkTabHeight;
+                    return new Vector2(
+                        Mathf.Clamp(coldWidth, 1f, Mathf.Max(1f, Verse.UI.screenWidth - 2f)),
+                        Mathf.Clamp(coldHeight, MinWorkTabHeight, Mathf.Max(MinWorkTabHeight, Verse.UI.screenHeight - 35f)));
+                }
+
                 float finalHeight;
                 float finalWidth;
 
@@ -1229,8 +1251,11 @@ namespace Better_Work_Tab.UI
             {
                 SpineTiming.Time("WorkTab.DrawHeaders", () => DrawHeaders(layout, table));
             }
-            else if (!layoutEvent)
+            else
             {
+                // Vanilla-style headers collect their complete stagger geometry during
+                // Unity's Layout event. Skipping this pass leaves every label at offset
+                // zero on Repaint, causing the horizontal headers to overlap.
                 DrawHeaders(layout, table);
             }
             if (!layoutEvent && SubWorkDrilldownState.HasAnyDrilldown)
@@ -2003,7 +2028,7 @@ namespace Better_Work_Tab.UI
                         }
                     }
 
-                    DrawRuleBuilder2ClosedOutline(
+                    ConnectedOutlineDrawer.DrawClosed(
                         new[]
                         {
                             bodyBottomLeft,
@@ -2051,113 +2076,6 @@ namespace Better_Work_Tab.UI
             GUI.color = new Color(1f, 0.82f, 0.18f, 0.55f);
             Widgets.DrawBox(rect, 2);
             GUI.color = previousColor;
-        }
-
-        private static Material RuleBuilder2OutlineMaterial
-        {
-            get
-            {
-                if (_ruleBuilder2OutlineMaterial == null)
-                {
-                    Shader shader = Shader.Find("Hidden/Internal-Colored") ?? ShaderDatabase.Transparent;
-                    _ruleBuilder2OutlineMaterial = new Material(shader)
-                    {
-                        hideFlags = HideFlags.HideAndDontSave
-                    };
-                    _ruleBuilder2OutlineMaterial.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-                    _ruleBuilder2OutlineMaterial.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-                    _ruleBuilder2OutlineMaterial.SetInt("_Cull", (int)UnityEngine.Rendering.CullMode.Off);
-                    _ruleBuilder2OutlineMaterial.SetInt("_ZWrite", 0);
-                }
-
-                return _ruleBuilder2OutlineMaterial;
-            }
-        }
-
-        private static void DrawRuleBuilder2ClosedOutline(Vector2[] points, Color color, float width)
-        {
-            if (Event.current.type != EventType.Repaint || points == null || points.Length < 3 || width <= 0f)
-            {
-                return;
-            }
-
-            float halfWidth = width * 0.5f;
-            int count = points.Length;
-            var leftOffsets = new Vector2[count];
-            var rightOffsets = new Vector2[count];
-
-            for (int i = 0; i < count; i++)
-            {
-                Vector2 current = points[i];
-                Vector2 previous = points[(i - 1 + count) % count];
-                Vector2 next = points[(i + 1) % count];
-                Vector2 incoming = current - previous;
-                Vector2 outgoing = next - current;
-
-                if (incoming.sqrMagnitude <= 0.001f || outgoing.sqrMagnitude <= 0.001f)
-                {
-                    Vector2 fallback = outgoing.sqrMagnitude > 0.001f ? outgoing : incoming;
-                    Vector2 normal = fallback.sqrMagnitude > 0.001f
-                        ? new Vector2(-fallback.y, fallback.x).normalized
-                        : Vector2.up;
-                    leftOffsets[i] = current + (normal * halfWidth);
-                    rightOffsets[i] = current - (normal * halfWidth);
-                    continue;
-                }
-
-                incoming.Normalize();
-                outgoing.Normalize();
-                Vector2 incomingNormal = new Vector2(-incoming.y, incoming.x);
-                Vector2 outgoingNormal = new Vector2(-outgoing.y, outgoing.x);
-                Vector2 miter = incomingNormal + outgoingNormal;
-                if (miter.sqrMagnitude <= 0.001f)
-                {
-                    miter = outgoingNormal;
-                }
-                else
-                {
-                    miter.Normalize();
-                }
-
-                float denominator = Vector2.Dot(miter, outgoingNormal);
-                float miterLength = Mathf.Abs(denominator) > 0.15f
-                    ? halfWidth / denominator
-                    : halfWidth;
-                miterLength = Mathf.Clamp(miterLength, -halfWidth * 4f, halfWidth * 4f);
-                leftOffsets[i] = current + (miter * miterLength);
-                rightOffsets[i] = current - (miter * miterLength);
-            }
-
-            Material material = RuleBuilder2OutlineMaterial;
-            if (material == null || !material.SetPass(0))
-            {
-                return;
-            }
-
-            GL.PushMatrix();
-            try
-            {
-                GL.MultMatrix(GUI.matrix);
-                GL.Begin(GL.TRIANGLES);
-                GL.Color(color);
-                for (int i = 0; i < count; i++)
-                {
-                    int next = (i + 1) % count;
-                    GL.Vertex3(leftOffsets[i].x, leftOffsets[i].y, 0f);
-                    GL.Vertex3(leftOffsets[next].x, leftOffsets[next].y, 0f);
-                    GL.Vertex3(rightOffsets[next].x, rightOffsets[next].y, 0f);
-
-                    GL.Vertex3(leftOffsets[i].x, leftOffsets[i].y, 0f);
-                    GL.Vertex3(rightOffsets[next].x, rightOffsets[next].y, 0f);
-                    GL.Vertex3(rightOffsets[i].x, rightOffsets[i].y, 0f);
-                }
-
-                GL.End();
-            }
-            finally
-            {
-                GL.PopMatrix();
-            }
         }
 
         private static bool TryGetRuleBuilder2HeaderHighlight(
@@ -3678,6 +3596,9 @@ namespace Better_Work_Tab.UI
 
             CaptureWarmOpenTableState(GetPawnTable());
             WorkTabProfilingState.NotifyOpen(true);
+            BWT20UpgradePrompt.ShowIfNeeded(
+                BetterWorkTabMod.Settings,
+                Current.Game?.GetComponent<GameComponent_BWTWorldSettings>());
         }
 
         private bool CanReuseWarmOpenTable(PawnTable table)

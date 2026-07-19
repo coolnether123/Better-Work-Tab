@@ -18,6 +18,20 @@ using Verse;
 
 namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
 {
+    internal readonly struct FluffyWorkTabMigrationResult
+    {
+        internal FluffyWorkTabMigrationResult(
+            bool isCurrentlyActive,
+            bool hasSaveEvidence)
+        {
+            IsCurrentlyActive = isCurrentlyActive;
+            HasSaveEvidence = hasSaveEvidence;
+        }
+
+        internal bool IsCurrentlyActive { get; }
+        internal bool HasSaveEvidence { get; }
+    }
+
     /// <summary>
     /// One-way compatibility bridge for saves that previously used Fluffy's Work Tab.
     /// Fluffy stores per-pawn, per-workgiver 24-hour priorities; BWT maps those into
@@ -25,42 +39,71 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
     /// </summary>
     internal static class FluffyWorkTabMigration
     {
-        private const string FluffyPriorityManagerClass = "WorkTab.PriorityManager";
         private const int MigrationVersion = 1;
 
         private static string _lastLoadingSaveName;
+        private static bool _hasPendingSaveLoad;
 
         internal static void RecordLoadingSave(string saveFileName)
         {
             _lastLoadingSaveName = saveFileName;
+            _hasPendingSaveLoad = true;
         }
 
-        internal static void MigrateIfNeeded(GameComponent_BWTWorldSettings component)
+        internal static FluffyWorkTabMigrationResult MigrateIfNeeded(
+            GameComponent_BWTWorldSettings component)
         {
-            if (component == null || component.ExternalWorkTabPriorityMigrationVersion >= MigrationVersion)
+            if (component == null)
             {
-                return;
+                return default;
             }
 
-            List<ExternalPawnWorkGiverPriorityRecord> records = ReadLiveFluffyPriorities();
-            if (records.Count == 0)
+            bool isCurrentlyActive = FluffyWorkTabCoexistence.IsFluffyWorkTabPresent;
+            string saveName = Current.Game?.InitData?.gameToLoad;
+            if (saveName.NullOrEmpty() && _hasPendingSaveLoad)
             {
-                records = ReadSavedFluffyPriorities();
+                saveName = _lastLoadingSaveName;
             }
 
-            if (records.Count == 0)
+            // A LoadGame prefix belongs to exactly one FinalizeInit. Consuming it
+            // prevents a new colony created later in this process from being
+            // mistaken for the previously loaded save.
+            _hasPendingSaveLoad = false;
+            _lastLoadingSaveName = null;
+
+            bool needsSavedState =
+                component.ExternalWorkTabPriorityMigrationVersion < MigrationVersion ||
+                component.FluffyWorkTabCompatibilityPromptVersion <
+                    FluffyWorkTabPromptPolicy.CurrentPromptVersion;
+            SavedFluffyState savedState = needsSavedState
+                ? ReadSavedFluffyState(saveName)
+                : new SavedFluffyState(default, null);
+            int importedEntryCount = 0;
+            if (component.ExternalWorkTabPriorityMigrationVersion < MigrationVersion)
             {
-                return;
+                List<ExternalPawnWorkGiverPriorityRecord> records = ReadLiveFluffyPriorities();
+                if (records.Count == 0)
+                {
+                    records = savedState.PriorityRecords;
+                }
+
+                if (records.Count > 0)
+                {
+                    component.EnsureWorkGiverReassignmentData();
+                    importedEntryCount = ExternalWorkTabPriorityImportService.Import(component, records);
+                    component.ExternalWorkTabPriorityMigrationVersion = MigrationVersion;
+
+                    if (importedEntryCount > 0)
+                    {
+                        Log.Message("[Better Work Tab] Imported " + importedEntryCount +
+                            " Fluffy Work Tab priority entries.");
+                    }
+                }
             }
 
-            component.EnsureWorkGiverReassignmentData();
-            int changed = ExternalWorkTabPriorityImportService.Import(component, records);
-            component.ExternalWorkTabPriorityMigrationVersion = MigrationVersion;
-
-            if (changed > 0)
-            {
-                Log.Message("[Better Work Tab] Imported " + changed + " Fluffy Work Tab priority entries.");
-            }
+            return new FluffyWorkTabMigrationResult(
+                isCurrentlyActive,
+                savedState.Evidence.Detected);
         }
 
         internal static int ImportLivePriorities()
@@ -86,7 +129,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             try
             {
                 return component?.ExternalWorkTabPriorityMigrationVersion > 0 ||
-                    AccessTools.TypeByName(FluffyPriorityManagerClass) != null;
+                    AccessTools.TypeByName(FluffyWorkTabSaveDetector.PriorityManagerClass) != null;
             }
             catch
             {
@@ -110,7 +153,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             var records = new List<ExternalPawnWorkGiverPriorityRecord>();
             try
             {
-                Type managerType = AccessTools.TypeByName(FluffyPriorityManagerClass);
+                Type managerType = AccessTools.TypeByName(FluffyWorkTabSaveDetector.PriorityManagerClass);
                 FieldInfo prioritiesField = AccessTools.Field(managerType, "priorities");
                 if (prioritiesField == null)
                 {
@@ -170,13 +213,12 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             return records;
         }
 
-        private static List<ExternalPawnWorkGiverPriorityRecord> ReadSavedFluffyPriorities()
+        private static SavedFluffyState ReadSavedFluffyState(string saveName)
         {
             var records = new List<ExternalPawnWorkGiverPriorityRecord>();
-            string saveName = _lastLoadingSaveName ?? Current.Game?.InitData?.gameToLoad;
             if (saveName.NullOrEmpty())
             {
-                return records;
+                return new SavedFluffyState(default, records);
             }
 
             string path;
@@ -186,22 +228,26 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             }
             catch
             {
-                return records;
+                return new SavedFluffyState(default, records);
             }
 
             if (path.NullOrEmpty() || !File.Exists(path))
             {
-                return records;
+                return new SavedFluffyState(default, records);
             }
 
             try
             {
                 var document = new XmlDocument();
                 document.Load(path);
-                XmlNode managerNode = document.SelectSingleNode("//components/li[@Class='WorkTab.PriorityManager']");
+                FluffyWorkTabSaveEvidence evidence = FluffyWorkTabSaveDetector.Detect(document);
+                XmlNode managerNode = document.SelectSingleNode(
+                    "//components/li[@Class='" +
+                    FluffyWorkTabSaveDetector.PriorityManagerClass +
+                    "']");
                 if (managerNode == null)
                 {
-                    return records;
+                    return new SavedFluffyState(evidence, records);
                 }
 
                 Dictionary<string, Pawn> pawnsByLoadId = BuildPawnLoadIdMap();
@@ -209,7 +255,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                 XmlNodeList keyNodes = managerNode.SelectNodes("./Priorities/keys/li");
                 if (valueNodes == null)
                 {
-                    return records;
+                    return new SavedFluffyState(evidence, records);
                 }
 
                 for (int i = 0; i < valueNodes.Count; i++)
@@ -256,13 +302,28 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                         records.Add(new ExternalPawnWorkGiverPriorityRecord(pawn, workGivers));
                     }
                 }
+
+                return new SavedFluffyState(evidence, records);
             }
             catch (Exception ex)
             {
                 BetterWorkTabMod.DebugLog("Fluffy save priority import failed: " + ex.Message, DebugFeature.ModSupport);
+                return new SavedFluffyState(default, records);
+            }
+        }
+
+        private sealed class SavedFluffyState
+        {
+            internal SavedFluffyState(
+                FluffyWorkTabSaveEvidence evidence,
+                List<ExternalPawnWorkGiverPriorityRecord> priorityRecords)
+            {
+                Evidence = evidence;
+                PriorityRecords = priorityRecords ?? new List<ExternalPawnWorkGiverPriorityRecord>();
             }
 
-            return records;
+            internal FluffyWorkTabSaveEvidence Evidence { get; }
+            internal List<ExternalPawnWorkGiverPriorityRecord> PriorityRecords { get; }
         }
 
         private static int[] ReadPriorityArray(object workPriority)
