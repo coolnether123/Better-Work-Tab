@@ -65,6 +65,8 @@ namespace Better_Work_Tab.ModSupport
             }
         }
 
+        internal static bool IsPresent => IsChronosPointerActive();
+
         internal static void RegisterSettings()
         {
             BWTModSettingsApi.RegisterContributor(SettingsContributor);
@@ -280,9 +282,16 @@ namespace Better_Work_Tab.ModSupport
                     Header = new SettingDefinition
                     {
                         Id = CompatChronosPointerHeader,
-                        Label = "Chronos Pointer",
+                        Label = "Chronos Pointer integration (2 settings)",
+                        Tooltip = "Optional Work-tab time-bar integration for Chronos Pointer.",
                         Type = SettingType.Header,
-                        VisibleWhen = _ => ChronosPointerSupport.IsChronosPointerActive(),
+                        Suppressions = new System.Collections.Generic.List<SettingSuppression>
+                        {
+                            OptionalModSettingsAvailability.Require(
+                                () => ChronosPointerSupport.IsPresent,
+                                "Chronos Pointer",
+                                2)
+                        },
                         ShowInSimpleView = true,
                         SortOrder = 0
                     },
@@ -296,7 +305,6 @@ namespace Better_Work_Tab.ModSupport
                             Tooltip = "When Chronos Pointer is loaded, draw its daylight/current-time bar above the Work tab time-priority hour numbers.",
                             Type = SettingType.Bool,
                             DefaultValue = DefaultSettings.enableChronosPointerTimePriorityIntegration,
-                            VisibleWhen = _ => ChronosPointerSupport.IsChronosPointerActive(),
                             ControlsChildVisibility = true,
                             ShowInSimpleView = true,
                             SortOrder = 1
@@ -310,7 +318,6 @@ namespace Better_Work_Tab.ModSupport
                             Tooltip = "Allow Chronos Pointer to draw its incident colors, such as eclipses and auroras, on the Work tab time bar.",
                             Type = SettingType.Bool,
                             DefaultValue = DefaultSettings.chronosPointerTimePriorityIncidentOverlay,
-                            VisibleWhen = _ => ChronosPointerSupport.IsChronosPointerActive(),
                             ShowInSimpleView = false,
                             SortOrder = 2
                         }
