@@ -53,6 +53,15 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                         : "BWT_FluffyMigration_HistoricalBody";
                 Action reviewSettings = () => Resolve(component, result, openSettings: true);
                 Action keepCurrentSetup = () => Resolve(component, result, openSettings: false);
+#if v0_18 || v0_17 || v0_16 || v0_15 || v0_14 || v0_13 || vAlpha4
+                Find.WindowStack.Add(new Dialog_MessageBox(
+                    promptBodyKey.Translate(),
+                    "BWT_FluffyMigration_ReviewSettings".Translate(),
+                    reviewSettings,
+                    "BWT_FluffyMigration_KeepSetup".Translate(),
+                    keepCurrentSetup,
+                    title: "BWT_FluffyMigration_Title".Translate()));
+#else
                 Find.WindowStack.Add(new Dialog_MessageBox(
                     promptBodyKey.Translate(),
                     "BWT_FluffyMigration_ReviewSettings".Translate(),
@@ -62,6 +71,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                     title: "BWT_FluffyMigration_Title".Translate(),
                     acceptAction: reviewSettings,
                     cancelAction: keepCurrentSetup));
+#endif
             });
         }
 
