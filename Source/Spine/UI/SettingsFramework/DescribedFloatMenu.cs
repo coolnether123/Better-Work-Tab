@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Spine.UI.WidgetExtensions;
 using UnityEngine;
 using Verse;
 
@@ -230,22 +231,24 @@ namespace Spine.UI.SettingsFramework
         {
             const float bridgeHalfHeight = 9f;
             const float arrowDepth = 9f;
-            Rect bridge = Rect.MinMaxRect(
-                optionEdgeX + arrowDepth,
-                y - bridgeHalfHeight,
-                panelEdgeX + 1f,
-                y + bridgeHalfHeight);
+            float bridgeStartX = optionEdgeX + arrowDepth;
+            float panelJoinX = panelEdgeX + 1f;
+            var pointer = new[]
+            {
+                new Vector2(optionEdgeX, y),
+                new Vector2(bridgeStartX, y - bridgeHalfHeight),
+                new Vector2(panelJoinX, y - bridgeHalfHeight),
+                new Vector2(panelJoinX, y + bridgeHalfHeight),
+                new Vector2(bridgeStartX, y + bridgeHalfHeight)
+            };
 
-            // The filled bridge shares the panel's visual weight so the pointer reads as one
-            // connected callout instead of a loose line floating between two windows.
-            Widgets.DrawBoxSolid(bridge, ContextFillColor);
-            Widgets.DrawLine(new Vector2(bridge.xMin, bridge.yMin), new Vector2(bridge.xMax, bridge.yMin), SelectionColor, 2f);
-            Widgets.DrawLine(new Vector2(bridge.xMin, bridge.yMax), new Vector2(bridge.xMax, bridge.yMax), SelectionColor, 2f);
-
-            Vector2 target = new Vector2(optionEdgeX, y);
-            Widgets.DrawLine(target, new Vector2(bridge.xMin, bridge.yMin), SelectionColor, 2f);
-            Widgets.DrawLine(target, new Vector2(bridge.xMin, bridge.yMax), SelectionColor, 2f);
-            Widgets.DrawBoxSolid(new Rect(panelEdgeX - 2f, y - bridgeHalfHeight, 4f, bridgeHalfHeight * 2f), SelectionColor);
+            // Use the same miter-joined outline geometry as Rule Builder 2.0's
+            // connected column/header selection so the arrow and bridge are seamless.
+            ConnectedOutlineDrawer.DrawClosed(
+                pointer,
+                SelectionColor,
+                2f,
+                ContextFillColor);
         }
 
         private string GetFocusedDescription()

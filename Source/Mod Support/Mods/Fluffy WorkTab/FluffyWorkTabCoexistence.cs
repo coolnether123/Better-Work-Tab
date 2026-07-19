@@ -19,14 +19,6 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
     {
         internal const string SimulateFluffyFlag = "bwt-simulate-fluffy-worktab";
 
-        private static readonly HashSet<string> KnownPackageIds =
-            new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-            {
-                "fluffy.worktab",
-                "fluffy.worktab.continued",
-                "arof.fluffy.worktab.continued"
-            };
-
         private const string FluffyMainTabWindowTypeName = "WorkTab.MainTabWindow_WorkTab";
         private const string FluffyControllerTypeName = "WorkTab.Controller";
         private static Type _fluffyWorkTabWindowType;
@@ -63,7 +55,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
 
         internal static bool IsKnownFluffyPackageId(string packageId)
         {
-            return !packageId.NullOrEmpty() && KnownPackageIds.Contains(packageId);
+            return FluffyWorkTabIdentity.IsKnownPackageId(packageId);
         }
 
         internal static void ApplyColumnVisibility()

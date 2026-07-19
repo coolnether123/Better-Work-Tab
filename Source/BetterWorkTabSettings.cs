@@ -5,6 +5,7 @@ using Better_Work_Tab.Features.Rules.RuleBuilder2;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.Features.Tutorial;
+using Better_Work_Tab.Features.Migration;
 using RimWorld;
 using System;
 using System.Collections.Generic;
@@ -69,16 +70,16 @@ namespace Better_Work_Tab
         public static bool enableDividers = true;
         public static bool enableWorkloads = true;
         public static bool enableSubWorkDrilldown = true;
-        public static bool enableFluffyStyleFeatures = true;
-        public static bool showFluffyStyleTopButtons = true;
+        public static bool enableFluffyStyleFeatures = false;
+        public static bool showFluffyStyleTopButtons = false;
         public static bool showStandaloneFluffyStyleTopButtons = false;
-        public static bool enableFluffyScheduleAssigner = true;
+        public static bool enableFluffyScheduleAssigner = false;
         public static bool showSubWorkHeaderBadge = true;
         public static bool enableSubWorkCrossWorkDragDrop = true;
         public static bool enableCustomWorkLabels = true;
         public static BetterWorkTabSettings.SubWorkDrilldownModifier subWorkDrilldownModifier = BetterWorkTabSettings.SubWorkDrilldownModifier.Ctrl;
         public static BetterWorkTabSettings.SubWorkDrilldownButton subWorkDrilldownButton = BetterWorkTabSettings.SubWorkDrilldownButton.Left;
-        public static BetterWorkTabSettings.SubWorkDrilldownStyle subWorkDrilldownStyle = BetterWorkTabSettings.SubWorkDrilldownStyle.NotChosen;
+        public static BetterWorkTabSettings.SubWorkDrilldownStyle subWorkDrilldownStyle = BetterWorkTabSettings.SubWorkDrilldownStyle.FocusView;
         public static bool subWorkCtrlClickNoticeDismissed = false;
         public static bool useVanillaSubWorkGlobalPriorityBoxes = false;
         public static bool useCompactSubWorkPriorityBoxes = true;
@@ -141,11 +142,11 @@ namespace Better_Work_Tab
         public static bool showManualPrioritiesCheckbox = true;
         public static bool enableTimePrioritySchedules = true;
         public static bool showTimePriorityCopyPasteButtons = true;
-        public static bool enableChronosPointerTimePriorityIntegration = true;
+        public static bool enableChronosPointerTimePriorityIntegration = false;
         public static bool showTimePriorityHourDivider = true;
         public static bool keepTimePrioritySourceColumnHighlighted = true;
-        public static bool enableFluffyTimePriorityMirroring = true;
-        public static bool chronosPointerTimePriorityIncidentOverlay = true;
+        public static bool enableFluffyTimePriorityMirroring = false;
+        public static bool chronosPointerTimePriorityIncidentOverlay = false;
         public static bool showDividers = true;
         public static bool allowCustomDividerColors = true;
         public static bool showDividerLabels = true;
@@ -218,7 +219,7 @@ namespace Better_Work_Tab
         public static float cjkVerticalKerning = 0.75f;
         public static bool autoEnableManualPriorities = false;
         public static WorkTabOwnerPreference preferredWorkTabOwner = WorkTabOwnerPreference.BetterWorkTab;
-        public static bool showExternalWorkTabColumns = true;
+        public static bool showExternalWorkTabColumns = false;
         public static PriorityMode priorityMode = PriorityMode.Auto;
         public static bool enableExtendedPriorities = false;
         public static bool delegateToExternalPriorityMods = true;
@@ -328,6 +329,10 @@ namespace Better_Work_Tab
     // Contains all configurable settings for Better Work Tab mod
     public class BetterWorkTabSettings : ModSettings
     {
+        public int settingsSchemaVersion = BWT20UpgradePolicy.CurrentSettingsSchemaVersion;
+        public bool v2UpgradePromptPending;
+        public int fluffyWorkTabActivePromptVersion;
+
         public BetterWorkTabSettings()
         {
             // Initialize rulesets immediately on construction
@@ -905,6 +910,11 @@ namespace Better_Work_Tab
 
         public override void ExposeData()
         {
+            ISet<string> persistedKeys = BWT20SettingsMigration.CapturePersistedKeys();
+            Scribe_Values.Look(ref settingsSchemaVersion, "settingsSchemaVersion", 0);
+            Scribe_Values.Look(ref v2UpgradePromptPending, "v2UpgradePromptPending", false);
+            Scribe_Values.Look(ref fluffyWorkTabActivePromptVersion, "fluffyWorkTabActivePromptVersion", 0);
+
             // Add new settings in BWTSettingsRegistry's HOW TO ADD A SETTING block.
             BWTSettingsRegistry.EnsureInitialized();
             SettingsScribe.ScribeAll(this, BWTSettingsRegistry.Definitions);
@@ -1007,6 +1017,7 @@ namespace Better_Work_Tab
             }
 
             EnsureRuleBuilder2Rulesets();
+            BWT20SettingsMigration.ApplyIfNeeded(this, persistedKeys);
             NormalizePrioritySettings();
             NormalizeWorkTabHeightSettings();
 

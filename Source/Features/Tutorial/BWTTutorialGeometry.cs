@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI;
+using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.Headers.Angled;
 using RimWorld;
 using Spine.UI.Tutorial;
@@ -13,6 +14,9 @@ namespace Better_Work_Tab.Features.Tutorial
     /// <summary>Resolves the three physical tutorial anchors from live Work-tab geometry.</summary>
     internal static class BWTTutorialGeometry
     {
+        private const float AngledHeaderOutlineClearance = 4f;
+        private const float VanillaHeaderOutlineClearance = 4f;
+
         internal static List<BWTTutorialAnchor> BuildInitialAnchors(
             Rect inRect,
             IWorkTabLayoutController layout)
@@ -47,24 +51,7 @@ namespace Better_Work_Tab.Features.Tutorial
             if (workColumn.HasValue)
             {
                 WorkTabLayoutColumn column = workColumn.Value;
-                Rect headerAnchorRect = column.HeaderRect.ContractedBy(2f);
-                if ((BetterWorkTabMod.Settings?.enableAngledHeaders ?? false) &&
-                    AngledHeaderController.TryGetVisualGeometry(
-                        column.Column?.workType,
-                        out Rect angledBounds,
-                        out Vector2[] angledQuad))
-                {
-                    // Tutorial selection uses the complete visual header bounds,
-                    // matching the Rule Builder target treatment without selecting
-                    // the work column itself.
-                    headerAnchorRect = angledBounds.ExpandedBy(2f);
-                }
-
-                anchors.Add(new BWTTutorialAnchor(
-                    TutorialHubAnchor.WorkHeader,
-                    headerAnchorRect,
-                    workType: column.Column?.workType,
-                    workGiver: column.SubWorkGiver));
+                anchors.Add(GetRenderedHeaderAnchor(column));
             }
 
             if (pawnRow.HasValue && workColumn.HasValue)
@@ -180,26 +167,78 @@ namespace Better_Work_Tab.Features.Tutorial
                     continue;
                 }
 
-                Rect header = column.HeaderRect.ExpandedBy(2f);
-                if ((BetterWorkTabMod.Settings?.enableAngledHeaders ?? false) &&
-                    AngledHeaderController.TryGetVisualGeometry(column.Column?.workType, out Rect angledBounds, out _))
-                {
-                    header = angledBounds.ExpandedBy(2f);
-                }
+                BWTTutorialAnchor header = GetRenderedHeaderAnchor(column);
                 if (!header.Contains(pointer))
                 {
                     continue;
                 }
 
-                anchor = new BWTTutorialAnchor(
-                    TutorialHubAnchor.WorkHeader,
-                    header,
-                    workType: column.Column?.workType,
-                    workGiver: column.SubWorkGiver);
+                anchor = header;
                 return true;
             }
 
             return false;
+        }
+
+        private static BWTTutorialAnchor GetRenderedHeaderAnchor(WorkTabLayoutColumn column)
+        {
+            if ((BetterWorkTabMod.Settings?.enableAngledHeaders ?? false) &&
+                AngledHeaderController.TryGetVisualGeometry(
+                    column.Column?.workType,
+                    out _,
+                    out Vector2[] angledQuad))
+            {
+                Vector2 center = Vector2.zero;
+                for (int i = 0; i < angledQuad.Length; i++)
+                {
+                    center += angledQuad[i];
+                }
+                center /= angledQuad.Length;
+
+                var outline = new Vector2[angledQuad.Length];
+                float xMin = float.MaxValue;
+                float yMin = float.MaxValue;
+                float xMax = float.MinValue;
+                float yMax = float.MinValue;
+                for (int i = 0; i < angledQuad.Length; i++)
+                {
+                    Vector2 direction = angledQuad[i] - center;
+                    outline[i] = angledQuad[i] +
+                        (direction.sqrMagnitude > 0.001f
+                            ? direction.normalized * AngledHeaderOutlineClearance
+                            : Vector2.zero);
+                    xMin = Mathf.Min(xMin, outline[i].x);
+                    yMin = Mathf.Min(yMin, outline[i].y);
+                    xMax = Mathf.Max(xMax, outline[i].x);
+                    yMax = Mathf.Max(yMax, outline[i].y);
+                }
+
+                return new BWTTutorialAnchor(
+                    TutorialHubAnchor.WorkHeader,
+                    Rect.MinMaxRect(xMin, yMin, xMax, yMax),
+                    workType: column.Column?.workType,
+                    workGiver: column.SubWorkGiver,
+                    outlinePoints: outline);
+            }
+
+            Rect vanillaBounds = HeaderDrawingCoordinator.GetVanillaSolver()?.GetBounds(column.Column) ?? Rect.zero;
+            if (vanillaBounds.width > 0.5f && vanillaBounds.height > 0.5f)
+            {
+                // The solver bounds describe the rendered word rather than the
+                // narrow priority column. Extra clearance keeps the gold line
+                // outside the glyphs so the label remains fully readable.
+                vanillaBounds = vanillaBounds.ExpandedBy(VanillaHeaderOutlineClearance);
+            }
+            else
+            {
+                vanillaBounds = column.HeaderRect.ContractedBy(2f);
+            }
+
+            return new BWTTutorialAnchor(
+                TutorialHubAnchor.WorkHeader,
+                vanillaBounds,
+                workType: column.Column?.workType,
+                workGiver: column.SubWorkGiver);
         }
 
         private static void TryImprovePriorityPair(
