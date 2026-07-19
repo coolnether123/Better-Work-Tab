@@ -390,13 +390,7 @@ namespace Better_Work_Tab.Features.Tutorial
                     (!pinnedGeometry.IsValid || ApproximatelySame(anchor.Rect, pinnedGeometry.Rect));
                 bool emphasized = selected || anchor.Kind == pointerAnchor;
                 float alpha = emphasized ? 1f : Mathf.Lerp(0.46f, 0.78f, pulse);
-                if (anchor.Kind == TutorialHubAnchor.WorkHeader)
-                {
-                    BWTTutorialAnchorRenderer.DrawFill(
-                        anchor,
-                        new Color(1f, 0.76f, 0.16f, emphasized ? 0.20f : 0.10f));
-                }
-                if (selected)
+                if (selected && anchor.Kind != TutorialHubAnchor.WorkHeader)
                 {
                     BWTTutorialAnchorRenderer.DrawOutline(anchor, Color.white, 5f);
                 }
@@ -408,11 +402,10 @@ namespace Better_Work_Tab.Features.Tutorial
 
             if (pinnedGeometry.IsValid && !ContainsRect(anchors, pinnedGeometry.Rect))
             {
-                if (pinnedGeometry.Kind == TutorialHubAnchor.WorkHeader)
+                if (pinnedGeometry.Kind != TutorialHubAnchor.WorkHeader)
                 {
-                    BWTTutorialAnchorRenderer.DrawFill(pinnedGeometry, new Color(1f, 0.76f, 0.16f, 0.20f));
+                    BWTTutorialAnchorRenderer.DrawOutline(pinnedGeometry, Color.white, 5f);
                 }
-                BWTTutorialAnchorRenderer.DrawOutline(pinnedGeometry, Color.white, 5f);
                 BWTTutorialAnchorRenderer.DrawOutline(pinnedGeometry, new Color(1f, 0.78f, 0.22f, 1f), 3f);
             }
         }

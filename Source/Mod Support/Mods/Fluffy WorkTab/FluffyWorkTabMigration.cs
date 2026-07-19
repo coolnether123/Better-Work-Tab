@@ -19,6 +19,17 @@ using Current = Verse.Current;
 
 namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
 {
+    internal struct FluffyWorkTabMigrationResult
+    {
+        internal FluffyWorkTabMigrationResult(bool isCurrentlyActive, bool hasSaveEvidence)
+        {
+            IsCurrentlyActive = isCurrentlyActive;
+            HasSaveEvidence = hasSaveEvidence;
+        }
+
+        internal bool IsCurrentlyActive { get; private set; }
+        internal bool HasSaveEvidence { get; private set; }
+    }
     /// <summary>
     /// One-way compatibility bridge for saves that previously used Fluffy's Work Tab.
     /// Fluffy stores per-pawn, per-workgiver 24-hour priorities; BWT maps those into
