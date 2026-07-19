@@ -16,7 +16,8 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
 
         internal static bool IsKnownPackageId(string packageId)
         {
-            return !string.IsNullOrWhiteSpace(packageId) &&
+            return !string.IsNullOrEmpty(packageId) &&
+                packageId.Trim().Length > 0 &&
                 KnownPackageIds.Contains(packageId.Trim());
         }
     }
