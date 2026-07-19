@@ -37,7 +37,7 @@ namespace Better_Work_Tab.Features.Migration
             return startupSettingsLoadDepth == 0 && migratedDuringStartupLoad;
         }
 
-        internal static ISet<string> CapturePersistedKeys()
+        internal static HashSet<string> CapturePersistedKeys()
         {
             if (startupSettingsLoadDepth == 0 ||
                 Scribe.mode != LoadSaveMode.LoadingVars ||
@@ -60,7 +60,7 @@ namespace Better_Work_Tab.Features.Migration
 
         internal static bool ApplyIfNeeded(
             BetterWorkTabSettings settings,
-            ISet<string> persistedKeys)
+            HashSet<string> persistedKeys)
         {
             if (settings == null ||
                 Scribe.mode != LoadSaveMode.LoadingVars ||
@@ -141,7 +141,7 @@ namespace Better_Work_Tab.Features.Migration
         }
 
         private static void SetFalseWhenAbsent(
-            ISet<string> persistedKeys,
+            HashSet<string> persistedKeys,
             string key,
             Action<bool> setter)
         {
@@ -152,7 +152,7 @@ namespace Better_Work_Tab.Features.Migration
         }
 
         private static void SetWhenAbsent(
-            ISet<string> persistedKeys,
+            HashSet<string> persistedKeys,
             string key,
             Action setter)
         {
