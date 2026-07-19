@@ -155,6 +155,9 @@
     <Compile Include="Features\Tutorial\BWTTutorialAnchor.cs" />
     <Compile Include="Features\Tutorial\BWTTutorialSelector.cs" />
     <Compile Include="Features\Tutorial\BWTGeneralTutorial.cs" />
+    <Compile Include="Features\Migration\BWT20UpgradePrompt.cs" />
+    <Compile Include="Features\Migration\BWT20UpgradePolicy.cs" />
+    <Compile Include="Features\Migration\BWT20SettingsMigration.cs" />
     <Compile Include="Features\Tutorial\BWTTutorialInteraction.cs" />
     <Compile Include="Features\Tutorial\BWTTutorialInteractionKind.cs" />
     <Compile Include="Features\Tutorial\BWTTutorialGeometry.cs" />
@@ -202,6 +205,11 @@
     <Compile Include="Mod Support\Mods\Fluffy WorkTab\PawnColumnWorker_BwtSubWorkPriority.cs" />
     <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabExternalStore.cs" />
     <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabMigration.cs" />
+    <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabMigrationPrompt.cs" />
+    <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabPromptPolicy.cs" />
+    <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabSaveDetector.cs" />
+    <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabIdentity.cs" />
+    <Compile Include="Mod Support\OptionalModSettingsAvailability.cs" />
     <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabPriorityProvider.cs" />
     <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabSync.cs" />
     <Compile Include="Mod Support\Mods\Useful Marks\UsefulMarksSupport.cs" />
@@ -307,6 +315,7 @@
     <Compile Include="UI\WorkGrid\Rendering\WorkGridRenderPrimitives.cs" />
     <Compile Include="UI\WorkGrid\Diagnostics\WorkGridRendererDiagnostics.cs" />
     <Compile Include="Spine\UI\WidgetExtensions\RimworldSettingsWidgets.cs" />
+    <Compile Include="Spine\UI\WidgetExtensions\ConnectedOutlineDrawer.cs" />
     <Compile Include="UI\Input\GuiMousePosition.cs" />
     <Compile Include="UI\Input\NativeCursorPosition.cs" />
     <Compile Include="UI\RulesetListDragUI.cs" />
