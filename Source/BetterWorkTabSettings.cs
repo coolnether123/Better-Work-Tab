@@ -1,9 +1,10 @@
-﻿using Better_Work_Tab.Features;
+using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.Rules;
 using Better_Work_Tab.Features.Rules.RuleBuilder2;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.Workloads;
+using Better_Work_Tab.Features.Migration;
 using RimWorld;
 using System;
 using System.Collections.Generic;
@@ -312,6 +313,9 @@ namespace Better_Work_Tab
     // Contains all configurable settings for Better Work Tab mod
     public class BetterWorkTabSettings : ModSettings
     {
+        public int settingsSchemaVersion = BWT20UpgradePolicy.CurrentSettingsSchemaVersion;
+        public bool v2UpgradePromptPending;
+        public int fluffyWorkTabActivePromptVersion;
         public BetterWorkTabSettings()
         {
             // Initialize rulesets immediately on construction
@@ -882,6 +886,10 @@ namespace Better_Work_Tab
 
         public override void ExposeData()
         {
+            HashSet<string> persistedKeys = BWT20SettingsMigration.CapturePersistedKeys();
+            ScribeCompat.LookValue(ref settingsSchemaVersion, "settingsSchemaVersion", 0);
+            ScribeCompat.LookValue(ref v2UpgradePromptPending, "v2UpgradePromptPending", false);
+            ScribeCompat.LookValue(ref fluffyWorkTabActivePromptVersion, "fluffyWorkTabActivePromptVersion", 0);
             Better_Work_Tab.ScribeCompat.LookValue(ref workTabMaxHeight, "workTabMaxHeight", DefaultSettings.workTabMaxHeight);
             Better_Work_Tab.ScribeCompat.LookValue(ref workTabMaxVisiblePawns, "workTabMaxVisiblePawns", DefaultSettings.workTabMaxVisiblePawns);
             Better_Work_Tab.ScribeCompat.LookValue(ref workTabTopSpace, "workTabTopSpace", DefaultSettings.workTabTopSpace);
@@ -1124,6 +1132,7 @@ namespace Better_Work_Tab
             }
 
             EnsureRuleBuilder2Rulesets();
+            BWT20SettingsMigration.ApplyIfNeeded(this, persistedKeys);
             NormalizePrioritySettings();
             NormalizeWorkTabHeightSettings();
 

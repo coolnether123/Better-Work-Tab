@@ -79,7 +79,7 @@ namespace Better_Work_Tab.Features.Tutorial
 
             return new BWTTutorialAnchor(
                 Kind,
-                Better_Work_Tab.RectCompat.FromPositionAndSize(Rect.position + offset, Rect.size),
+                new Rect(Rect.x + offset.x, Rect.y + offset.y, Rect.width, Rect.height),
                 Pawn,
                 WorkType,
                 WorkGiver,

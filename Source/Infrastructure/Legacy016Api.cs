@@ -261,10 +261,16 @@ namespace Verse
         }
     }
 
+#endif
+
+#if v0_15 || vAlpha4
     public class Dialog_MessageBox : Window
     {
         private readonly string text;
         private readonly Action confirmedAct;
+        private readonly Action cancelledAct;
+        private readonly string buttonAText;
+        private readonly string buttonBText;
         private readonly string title;
 
 #if v0_13
@@ -277,6 +283,8 @@ namespace Verse
         {
             this.text = text;
             this.confirmedAct = confirmedAct;
+            this.buttonAText = "OK".Translate();
+            this.buttonBText = "Cancel".Translate();
             this.title = title;
             forcePause = true;
             absorbInputAroundWindow = true;
@@ -284,6 +292,25 @@ namespace Verse
             doCloseX = true;
         }
 
+        public Dialog_MessageBox(
+            string text,
+            string buttonAText,
+            Action buttonAAction,
+            string buttonBText,
+            Action buttonBAction,
+            string title = null)
+        {
+            this.text = text;
+            this.confirmedAct = buttonAAction;
+            this.cancelledAct = buttonBAction;
+            this.buttonAText = buttonAText;
+            this.buttonBText = buttonBText;
+            this.title = title;
+            forcePause = true;
+            absorbInputAroundWindow = true;
+            closeOnClickedOutside = true;
+            doCloseX = true;
+        }
         public static Dialog_MessageBox CreateConfirmation(
             string text,
             Action confirmedAct,
@@ -310,14 +337,15 @@ namespace Verse
 
             Rect confirmRect = new Rect(inRect.width - 190f, inRect.height - 35f, 85f, 32f);
             Rect cancelRect = new Rect(inRect.width - 95f, inRect.height - 35f, 85f, 32f);
-            if (Better_Work_Tab.WidgetsCompat.ButtonText(confirmRect, "OK".Translate()))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(confirmRect, buttonAText ?? "OK".Translate()))
             {
                 confirmedAct?.Invoke();
                 Close();
             }
 
-            if (Better_Work_Tab.WidgetsCompat.ButtonText(cancelRect, "Cancel".Translate()))
+            if (Better_Work_Tab.WidgetsCompat.ButtonText(cancelRect, buttonBText ?? "Cancel".Translate()))
             {
+                cancelledAct?.Invoke();
                 Close();
             }
         }

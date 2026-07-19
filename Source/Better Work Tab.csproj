@@ -306,6 +306,11 @@
     <Compile Include="Features\TimePriority\TimePriorityTargetKind.cs" />
     <Compile Include="Features\Tutorial\BWTBetaTutorial.cs" />
     <Compile Include="Features\Tutorial\BWTGeneralTutorial.cs" />
+    <Compile Include="Features\Tutorial\BWTTutorialSelector.cs" />
+    <Compile Include="Features\Tutorial\BWTTutorialAnchor.cs" />
+    <Compile Include="Features\Migration\BWT20UpgradePrompt.cs" />
+    <Compile Include="Features\Migration\BWT20UpgradePolicy.cs" />
+    <Compile Include="Features\Migration\BWT20SettingsMigration.cs" />
     <Compile Include="Features\Tutorial\BWTTutorialInteraction.cs" />
     <Compile Include="Features\Tutorial\BWTTutorialInteractionKind.cs" />
     <Compile Include="Features\Tutorial\BWTTutorialGeometry.cs" />
@@ -340,6 +345,11 @@
     <Compile Include="Mod Support\Mods\Chronos Pointer\ChronosPointerSupport.cs" />
     <Compile Include="Mod Support\Mods\Do Once\DoOnceSupport.cs" />
     <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabMigration.cs" />
+    <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabMigrationPrompt.cs" />
+    <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabPromptPolicy.cs" />
+    <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabSaveDetector.cs" />
+    <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabIdentity.cs" />
+    <Compile Include="Mod Support\OptionalModSettingsAvailability.cs" />
     <Compile Include="Mod Support\Mods\Useful Marks\UsefulMarksSupport.cs" />
     <Compile Include="Mod Support\Mods\Vanilla Skills Expanded\VanillaSkillsExpandedSupport.cs" />
     <Compile Include="Mod Support\Multiplayer\LocalProfiles\BWTLocalProfile.cs" />
@@ -391,7 +401,9 @@
     <Compile Include="Spine\UI\Tutorial\TutorialOverlayLayout.cs" />
     <Compile Include="Spine\UI\Tutorial\TutorialOverlayShortcutHint.cs" />
     <Compile Include="Spine\UI\Tutorial\TutorialOverlayStyle.cs" />
+    <Compile Include="Spine\UI\Tutorial\TutorialHubState.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingDefinition.cs" />
+    <Compile Include="Spine\UI\SettingsFramework\SettingSuppression.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingType.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingsHierarchy.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingsFilterDefinition.cs" />
@@ -408,6 +420,7 @@
     <Compile Include="UI\WorkGiverReassignments\PriorityOverrideRing.cs" />
     <Compile Include="UI\WorkGiverReassignments\WorkGiverPriorityBoxRenderer.cs" />
     <Compile Include="Spine\UI\WidgetExtensions\RimworldSettingsWidgets.cs" />
+    <Compile Include="Spine\UI\WidgetExtensions\ConnectedOutlineDrawer.cs" />
     <Compile Include="UI\Input\GuiMousePosition.cs" />
     <Compile Include="UI\Input\NativeCursorPosition.cs" />
     <Compile Include="UI\RulesetListDragUI.cs" />

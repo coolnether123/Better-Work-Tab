@@ -1,4 +1,5 @@
 using Better_Work_Tab.Features;
+using Better_Work_Tab.Features.Migration;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Mod_Support.LocalProfiles;
@@ -26,7 +27,9 @@ namespace Better_Work_Tab.Features.Workloads
         public List<PawnDivider> ActiveDividers = new List<PawnDivider>();
         public WorkGiverReassignmentData WorkGiverReassignments = new WorkGiverReassignmentData();
         public List<TimePriorityScheduleData> TimePrioritySchedules = new List<TimePriorityScheduleData>();
+        public int BWTWorldSchemaVersion = BWT20UpgradePolicy.CurrentWorldSchemaVersion;
         public int FluffyWorkTabPriorityMigrationVersion;
+        public int FluffyWorkTabCompatibilityPromptVersion;
         private int _lastTimePriorityHour = -1;
 
 #if v0_13 || vAlpha4
@@ -80,7 +83,9 @@ namespace Better_Work_Tab.Features.Workloads
             Better_Work_Tab.ScribeCompat.LookCollection(ref ColumnCurrentOrder, "columnCurrentOrder", LookMode.Value);
             Better_Work_Tab.ScribeCompat.LookDeep(ref WorkGiverReassignments, "workGiverReassignments");
             Better_Work_Tab.ScribeCompat.LookCollection(ref TimePrioritySchedules, "timePrioritySchedules", LookMode.Deep);
+            Better_Work_Tab.ScribeCompat.LookValue(ref BWTWorldSchemaVersion, "bwtWorldSchemaVersion", 0);
             Better_Work_Tab.ScribeCompat.LookValue(ref FluffyWorkTabPriorityMigrationVersion, "fluffyWorkTabPriorityMigrationVersion", 0);
+            Better_Work_Tab.ScribeCompat.LookValue(ref FluffyWorkTabCompatibilityPromptVersion, "fluffyWorkTabCompatibilityPromptVersion", 0);
 
             if (!MultiplayerBridge.Active)
             {

@@ -96,6 +96,30 @@ namespace Spine.UI.SettingsFramework
         public Func<object, bool> VisibleWhen;
 
         /// <summary>
+        /// Optional rules that disable this setting at runtime without hiding it.
+        /// </summary>
+        public List<SettingSuppression> Suppressions;
+
+        public SettingSuppression GetActiveSuppression(object settingsObject)
+        {
+            if (Suppressions == null)
+            {
+                return null;
+            }
+
+            for (int i = 0; i < Suppressions.Count; i++)
+            {
+                SettingSuppression suppression = Suppressions[i];
+                if (suppression != null && suppression.IsActive(settingsObject))
+                {
+                    return suppression;
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
         /// When true and this is a boolean parent, children are disabled when the parent is unchecked.
         /// </summary>
         public bool ControlsChildVisibility;
