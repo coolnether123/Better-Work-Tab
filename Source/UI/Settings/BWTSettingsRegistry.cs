@@ -6,6 +6,7 @@ using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.ModSupport;
+using Better_Work_Tab.ModSupport.Mods.ComplexJobs;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.Patches;
 using Better_Work_Tab.UI;
@@ -78,6 +79,7 @@ namespace Better_Work_Tab.UI.Settings
             }
 
             ModSupportManager.EnsureInitialized();
+            ComplexJobsCompatibility.RegisterSettings();
             FluffyWorkTabGateway.RegisterSettings();
             ChronosPointerSupport.RegisterSettings();
             RegisterAllSettings();

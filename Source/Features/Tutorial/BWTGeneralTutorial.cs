@@ -7,6 +7,7 @@ using Better_Work_Tab.DragDrop;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.Patches;
+using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.Settings;
 using Better_Work_Tab.UI.Headers.Angled;
@@ -76,6 +77,8 @@ namespace Better_Work_Tab.Features.Tutorial
             {
                 BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
                 return settings != null &&
+                       FluffyWorkTabPromptPolicy.AllowsTutorial(
+                           FluffyWorkTabMigrationPrompt.BlocksTutorialPresentation) &&
                        TutorialOwnershipPolicy.MainOwnsWorkTab(settings.showGeneralTutorial, legacyBetaFlag: false);
             }
         }

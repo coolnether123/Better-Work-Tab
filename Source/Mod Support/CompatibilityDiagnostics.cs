@@ -12,6 +12,11 @@ namespace Better_Work_Tab.ModSupport
             new KnownConflict("Compact Work Tab", "mlie.compactworktab"),
         };
 
+        private static readonly string[] CooperativeWorkTabExtensions =
+        {
+            "spacemoth.mechtab",
+        };
+
         private static bool reported;
 
         public static void ReportStartup(ModContentPack betterWorkTab)
@@ -52,6 +57,7 @@ namespace Better_Work_Tab.ModSupport
                 ModContentPack mod = mods[i];
                 if (IsBetterWorkTab(mod, betterWorkTab) ||
                     IsKnownHardConflict(mod) ||
+                    IsKnownCooperativeExtension(mod) ||
                     FluffyWorkTabGateway.IsKnownPackageId(mod.PackageId))
                 {
                     continue;
@@ -106,6 +112,19 @@ namespace Better_Work_Tab.ModSupport
             for (int i = 0; i < HardConflicts.Length; i++)
             {
                 if (EqualsIgnoreCase(mod.PackageId, HardConflicts[i].PackageId))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool IsKnownCooperativeExtension(ModContentPack mod)
+        {
+            for (int i = 0; i < CooperativeWorkTabExtensions.Length; i++)
+            {
+                if (EqualsIgnoreCase(mod.PackageId, CooperativeWorkTabExtensions[i]))
                 {
                     return true;
                 }

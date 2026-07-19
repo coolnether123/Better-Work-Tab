@@ -13,6 +13,7 @@ using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.DragDrop;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
+using Better_Work_Tab.ModSupport.Mods.WorkManager;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.PawnOrganizer.Data;
@@ -579,6 +580,7 @@ namespace Better_Work_Tab.UI
                 DrawContextSettingsHint(inRect);
             }
 
+            WorkManagerCompatibility.DrawControls(inRect);
             WorkTabColorPreviewRenderer.Draw(organizer?.Layout, inRect);
 
             bool mouseInside = !BWTWorkTabTutorial.OwnsCurrentPointer && Mouse.IsOver(inRect);

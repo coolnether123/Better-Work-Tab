@@ -63,6 +63,8 @@
     <Compile Include="Features\Migration\BWT20UpgradePolicy.cs" />
     <Compile Include="Features\Migration\BWT20SettingsMigration.cs" />
     <Compile Include="Features\Migration\BWT20UpgradePrompt.cs" />
+    <Compile Include="Mod Support\Mods\Complex Jobs\ComplexJobsCompatibility.cs" />
+    <Compile Include="Mod Support\Mods\Clockwork\ClockworkCompatibility.cs" />
     <Compile Include="DragDrop\DragHandler.cs" />
     <Compile Include="DragDrop\DragSession.cs" />
     <Compile Include="DragDrop\ColumnDragHandler.cs" />
@@ -176,6 +178,7 @@
     <Compile Include="Mod Support\ModSupportManager.cs" />
     <Compile Include="Mod Support\ModSupportModuleBase.cs" />
     <Compile Include="Mod Support\Mods\Chronos Pointer\ChronosPointerSupport.cs" />
+    <Compile Include="Mod Support\Mods\Work Manager\WorkManagerCompatibility.cs" />
     <Compile Include="Mod Support\Mods\Do Once\DoOnceSupport.cs" />
     <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabAssets.cs" />
     <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabCoexistence.cs" />
