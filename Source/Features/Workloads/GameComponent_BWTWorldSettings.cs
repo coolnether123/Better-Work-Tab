@@ -96,7 +96,9 @@ namespace Better_Work_Tab.Features.Workloads
             ScribeCompat.LookDeep(ref WorkGiverReassignments, "workGiverReassignments");
             ScribeCompat.LookCollection(ref TimePrioritySchedules, "timePrioritySchedules", LookMode.Deep);
             ScribeCompat.LookValue(ref BWTWorldSchemaVersion, "bwtWorldSchemaVersion", 0);
+            ScribeCompat.LookValue(ref BWTWorldSchemaVersion, "bwtWorldSchemaVersion", 0);
             FluffyWorkTabGateway.ExposePriorityMigrationVersion(ref ExternalWorkTabPriorityMigrationVersion);
+            FluffyWorkTabGateway.ExposeCompatibilityPromptVersion(ref FluffyWorkTabCompatibilityPromptVersion);
             FluffyWorkTabGateway.ExposeCompatibilityPromptVersion(ref FluffyWorkTabCompatibilityPromptVersion);
             ScribeCompat.LookStringDictionary(ref CustomWorkTypeLabels, "customWorkTypeLabels");
             ScribeCompat.LookStringDictionary(ref CustomWorkGiverLabels, "customWorkGiverLabels");
