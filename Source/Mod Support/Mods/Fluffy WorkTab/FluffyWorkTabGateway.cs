@@ -238,6 +238,11 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             FluffyWorkTabMigration.ExposeMigrationVersion(ref version);
         }
 
+        internal static void ExposeCompatibilityPromptVersion(ref int version)
+        {
+            ScribeCompat.LookValue(ref version, "fluffyWorkTabCompatibilityPromptVersion", 0);
+        }
+
         internal static bool TryGetWorkTypePriority(Pawn pawn, WorkTypeDef workType, out int priority)
         {
             return TryGetWorkTypePriority(pawn, workType, TimePriorityService.GetCurrentHour(pawn), out priority);
@@ -357,6 +362,73 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             }
 
             FluffyWorkTabCoexistenceUI.DrawWorkTabSwitchButton(inRect);
+        }
+
+        /// <summary>
+        /// Draws the in-context switch between BWT's focused specific-job view and
+        /// the optional right-expanding presentation.
+        /// </summary>
+        /// <returns>The horizontal space reserved inside the pawn-name cell.</returns>
+        internal static float DrawSubWorkViewModeToggle(Rect labelCellRect)
+        {
+            WorkTypeDef workType = SubWorkDrilldownState.ActiveWorkType;
+            bool switchToExpand = workType != null;
+            if (workType == null)
+            {
+                foreach (WorkTypeDef expandedWorkType in SubWorkDrilldownState.ExpandBesideWorkTypes)
+                {
+                    workType = expandedWorkType;
+                    break;
+                }
+            }
+
+            if (workType == null || BetterWorkTabMod.Settings == null)
+            {
+                return 0f;
+            }
+
+            const float width = 126f;
+            Rect buttonRect = new Rect(
+                labelCellRect.xMax - width - 4f,
+                labelCellRect.y + 3f,
+                width,
+                Mathf.Max(1f, labelCellRect.height - 6f));
+            string label = switchToExpand
+                ? "BWT_SubWork_UseExpandedView".Translate()
+                : "BWT_SubWork_UseFocusedView".Translate();
+            string tooltip = switchToExpand
+                ? "BWT_SubWork_UseExpandedView_Tooltip".Translate()
+                : "BWT_SubWork_UseFocusedView_Tooltip".Translate();
+
+            if (Widgets.ButtonText(buttonRect, label))
+            {
+                BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
+                if (switchToExpand)
+                {
+                    settings.enableFluffyStyleFeatures = true;
+                    settings.subWorkDrilldownStyle =
+                        BetterWorkTabSettings.SubWorkDrilldownStyle.ExpandBeside;
+                    SubWorkDrilldownState.ExitImmediate();
+                    SubWorkDrilldownState.ToggleExpandBeside(workType);
+                }
+                else
+                {
+                    settings.enableFluffyStyleFeatures = false;
+                    settings.subWorkDrilldownStyle =
+                        BetterWorkTabSettings.SubWorkDrilldownStyle.FocusView;
+                    SubWorkDrilldownState.CollapseAllExpandBesideImmediate();
+                    SubWorkDrilldownState.Enter(workType);
+                }
+
+                settings.Write();
+                PriorityAuthorityBroker.NotifyPotentialAuthorityChanged();
+                MainTabWindow_BetterWork.NotifyAngledHeadersChanged();
+#if !v0_18 && !v0_17 && !v0_16 && !v0_15 && !v0_14 && !v0_13 && !vAlpha4
+#endif
+            }
+
+            TooltipHandler.TipRegion(buttonRect, tooltip);
+            return width + 8f;
         }
 
         internal static void DrawSettingsBannerIfNeeded(ref Rect inRect)
