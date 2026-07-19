@@ -910,7 +910,7 @@ namespace Better_Work_Tab
 
         public override void ExposeData()
         {
-            ISet<string> persistedKeys = BWT20SettingsMigration.CapturePersistedKeys();
+            HashSet<string> persistedKeys = BWT20SettingsMigration.CapturePersistedKeys();
             Scribe_Values.Look(ref settingsSchemaVersion, "settingsSchemaVersion", 0);
             Scribe_Values.Look(ref v2UpgradePromptPending, "v2UpgradePromptPending", false);
             Scribe_Values.Look(ref fluffyWorkTabActivePromptVersion, "fluffyWorkTabActivePromptVersion", 0);

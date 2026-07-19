@@ -16,7 +16,7 @@ namespace Better_Work_Tab.Features.Migration
             return isStartupSettingsLoad && loadedSchemaVersion < CurrentSettingsSchemaVersion;
         }
 
-        internal static bool WasPersisted(ISet<string> persistedKeys, string key)
+        internal static bool WasPersisted(HashSet<string> persistedKeys, string key)
         {
             return persistedKeys != null &&
                    !string.IsNullOrEmpty(key) &&
