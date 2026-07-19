@@ -29,6 +29,15 @@ namespace Better_Work_Tab.Features.Migration
             promptQueued = true;
             Action startTutorial = () => Resolve(settings, worldSettings, startTutorial: true);
             Action keepSettings = () => Resolve(settings, worldSettings, startTutorial: false);
+#if v0_18 || v0_17 || v0_16 || v0_15 || v0_14 || v0_13 || vAlpha4
+            Find.WindowStack.Add(new Dialog_MessageBox(
+                "BWT_Upgrade20_PromptBody".Translate(),
+                "BWT_Upgrade20_StartTutorial".Translate(),
+                startTutorial,
+                "BWT_Upgrade20_KeepSettings".Translate(),
+                keepSettings,
+                title: "BWT_Upgrade20_PromptTitle".Translate()));
+#else
             Find.WindowStack.Add(new Dialog_MessageBox(
                 "BWT_Upgrade20_PromptBody".Translate(),
                 "BWT_Upgrade20_StartTutorial".Translate(),
@@ -38,6 +47,7 @@ namespace Better_Work_Tab.Features.Migration
                 title: "BWT_Upgrade20_PromptTitle".Translate(),
                 acceptAction: startTutorial,
                 cancelAction: keepSettings));
+#endif
         }
 
         private static void Resolve(

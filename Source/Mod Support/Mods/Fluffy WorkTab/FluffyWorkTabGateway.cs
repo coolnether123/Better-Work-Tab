@@ -424,7 +424,9 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                 settings.Write();
                 PriorityAuthorityBroker.NotifyPotentialAuthorityChanged();
                 MainTabWindow_BetterWork.NotifyAngledHeadersChanged();
+#if !v0_18 && !v0_17 && !v0_16 && !v0_15 && !v0_14 && !v0_13 && !vAlpha4
                 SoundDefOf.Tick_High.PlayOneShotOnCamera();
+#endif
             }
 
             TooltipHandler.TipRegion(buttonRect, tooltip);
