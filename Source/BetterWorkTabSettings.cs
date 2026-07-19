@@ -5,6 +5,7 @@ using Better_Work_Tab.Features.Rules.RuleBuilder2;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.Features.Tutorial;
+using Better_Work_Tab.Features.Migration;
 using RimWorld;
 using System;
 using System.Collections.Generic;
@@ -328,6 +329,9 @@ namespace Better_Work_Tab
     // Contains all configurable settings for Better Work Tab mod
     public class BetterWorkTabSettings : ModSettings
     {
+        public int settingsSchemaVersion = BWT20UpgradePolicy.CurrentSettingsSchemaVersion;
+        public bool v2UpgradePromptPending;
+        public int fluffyWorkTabActivePromptVersion;
         public BetterWorkTabSettings()
         {
             // Initialize rulesets immediately on construction
@@ -905,6 +909,10 @@ namespace Better_Work_Tab
 
         public override void ExposeData()
         {
+            HashSet<string> persistedKeys = BWT20SettingsMigration.CapturePersistedKeys();
+            ScribeCompat.LookValue(ref settingsSchemaVersion, "settingsSchemaVersion", 0);
+            ScribeCompat.LookValue(ref v2UpgradePromptPending, "v2UpgradePromptPending", false);
+            ScribeCompat.LookValue(ref fluffyWorkTabActivePromptVersion, "fluffyWorkTabActivePromptVersion", 0);
             // Add new settings in BWTSettingsRegistry's HOW TO ADD A SETTING block.
             BWTSettingsRegistry.EnsureInitialized();
             SettingsScribe.ScribeAll(this, BWTSettingsRegistry.Definitions);
@@ -1007,6 +1015,7 @@ namespace Better_Work_Tab
             }
 
             EnsureRuleBuilder2Rulesets();
+            BWT20SettingsMigration.ApplyIfNeeded(this, persistedKeys);
             NormalizePrioritySettings();
             NormalizeWorkTabHeightSettings();
 

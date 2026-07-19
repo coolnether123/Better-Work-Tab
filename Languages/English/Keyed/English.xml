@@ -11,6 +11,10 @@
 <BWT_Enum_SubWorkDrilldownStyle_FocusView>Focus view</BWT_Enum_SubWorkDrilldownStyle_FocusView>
 <BWT_Enum_SubWorkDrilldownStyle_ExpandBeside>Fluffy-style expansion</BWT_Enum_SubWorkDrilldownStyle_ExpandBeside>
 <BWT_SubWork_OpenSpecificJobs>Open specific jobs</BWT_SubWork_OpenSpecificJobs>
+<BWT_SubWork_UseExpandedView>Expand beside</BWT_SubWork_UseExpandedView>
+<BWT_SubWork_UseExpandedView_Tooltip>Keep the main Work columns visible and expand this Work's specific jobs beside it. This enables BWT's optional expanded presentation.</BWT_SubWork_UseExpandedView_Tooltip>
+<BWT_SubWork_UseFocusedView>Focus view</BWT_SubWork_UseFocusedView>
+<BWT_SubWork_UseFocusedView_Tooltip>Return to Better Work Tab's focused full-tab specific-job view and turn off the expanded presentation.</BWT_SubWork_UseFocusedView_Tooltip>
 <BWT_SubWork_Chooser_FocusTitle>Better Work Tab focused view</BWT_SubWork_Chooser_FocusTitle>
 <BWT_SubWork_Chooser_FocusDescription>Replace Work columns with this Work's specific jobs.</BWT_SubWork_Chooser_FocusDescription>
 <BWT_SubWork_Chooser_ExpandTitle>Fluffy-style expansion</BWT_SubWork_Chooser_ExpandTitle>
@@ -172,6 +176,18 @@
 <BWT_Tutorial_Welcome_Body>Do you already know Better Work Tab, or would you like a walkthrough of its controls? The walkthrough keeps the real Work tab visible and lets you choose which feature to learn first.</BWT_Tutorial_Welcome_Body>
 <BWT_Tutorial_Welcome_Continue>Continue with walkthrough</BWT_Tutorial_Welcome_Continue>
 <BWT_Tutorial_Welcome_KnowBWT>I know Better Work Tab</BWT_Tutorial_Welcome_KnowBWT>
+<BWT_Upgrade20_PromptTitle>Better Work Tab 2.0</BWT_Upgrade20_PromptTitle>
+<BWT_Upgrade20_PromptBody>Better Work Tab has been updated from 1.x to 2.0. Your existing settings have been preserved, and new 2.0 features remain disabled so your Work tab behaves as it did before. Would you like a guided tour of the new features?</BWT_Upgrade20_PromptBody>
+<BWT_Upgrade20_StartTutorial>Show me the 2.0 tutorial</BWT_Upgrade20_StartTutorial>
+<BWT_Upgrade20_KeepSettings>Keep my existing settings</BWT_Upgrade20_KeepSettings>
+<BWT_FluffyMigration_Title>Fluffy Work Tab compatibility</BWT_FluffyMigration_Title>
+<BWT_FluffyMigration_ActiveBody>Fluffy Work Tab is currently active. Better Work Tab can coexist with it and has checked this colony for compatible hourly priority data. No visual compatibility features or Work tab ownership settings were changed. Would you like to review the relevant compatibility settings?</BWT_FluffyMigration_ActiveBody>
+<BWT_FluffyMigration_HistoricalBody>This save contains remnants of Fluffy Work Tab, even though it is not currently active. Better Work Tab has checked and imported any compatible saved hourly priorities. No visual compatibility features or Work tab ownership settings were changed. Would you like to review the relevant compatibility settings?</BWT_FluffyMigration_HistoricalBody>
+<BWT_FluffyMigration_ActiveAndHistoricalBody>Fluffy Work Tab is currently active, and this save contains its saved data. Better Work Tab has checked and imported any compatible hourly priorities and can coexist with Fluffy. No visual compatibility features or Work tab ownership settings were changed. Would you like to review the relevant compatibility settings?</BWT_FluffyMigration_ActiveAndHistoricalBody>
+<BWT_FluffyMigration_ReviewSettings>Review compatibility settings</BWT_FluffyMigration_ReviewSettings>
+<BWT_FluffyMigration_KeepSetup>Keep my current setup</BWT_FluffyMigration_KeepSetup>
+<BWT_FluffyMigration_SettingsContext>Fluffy Work Tab compatibility</BWT_FluffyMigration_SettingsContext>
+<BWT_FluffyMigration_SettingsContextTooltip>Settings for Fluffy-style controls, saved hourly priorities, visible compatibility columns, and choosing which mod owns the Work tab.</BWT_FluffyMigration_SettingsContextTooltip>
 <BWT_Tutorial_DefaultContextHeading>Hover an option to learn more.</BWT_Tutorial_DefaultContextHeading>
 <BWT_Tutorial_Selector_Title>Explore Better Work Tab</BWT_Tutorial_Selector_Title>
 <BWT_Tutorial_Selector_DefaultBody>Select something that interests you in the Work Tab. The highlighted pawn name, work header, and priority cell are examples; click one to keep it selected and see its available controls.</BWT_Tutorial_Selector_DefaultBody>
