@@ -278,4 +278,16 @@ namespace Spine.UI.Tutorial
             return false;
         }
     }
+
+    /// <summary>
+    /// Keeps Work-tab tutorial surfaces behind modal settings UI. The tutorial
+    /// remains enabled and resumes after the settings window closes.
+    /// </summary>
+    public static class TutorialVisibilityPolicy
+    {
+        public static bool AllowsWorkTabTutorial(bool settingsWindowOpen)
+        {
+            return !settingsWindowOpen;
+        }
+    }
 }

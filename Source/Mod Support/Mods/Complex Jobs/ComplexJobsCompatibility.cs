@@ -198,7 +198,12 @@ namespace Better_Work_Tab.ModSupport.Mods.ComplexJobs
                             Id = CompatComplexJobsSubWorkMode,
                             Label = "Specific-job columns",
                             Tooltip = "Use Complex Jobs alone, add BWT's focused view, or add BWT's Fluffy-style right-expanding columns.",
-                            SearchKeywords = new[] { "Complex Jobs", "BWT", "Fluffy", "sub-work", "drilldown" },
+                            SearchKeywords = new[]
+                            {
+                                "Complex Jobs", "BWT", "Fluffy", "sub-work", "drilldown",
+                                "split work types", "extra job columns", "many work columns",
+                                "use BWT drilldown"
+                            },
                             Type = SettingType.Custom,
                             CustomDrawer = DrawMode,
                             CustomHasNonDefaultValue = HasNonDefaultMode,

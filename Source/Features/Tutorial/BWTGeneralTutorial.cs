@@ -77,6 +77,8 @@ namespace Better_Work_Tab.Features.Tutorial
             {
                 BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
                 return settings != null &&
+                       TutorialVisibilityPolicy.AllowsWorkTabTutorial(
+                           Find.WindowStack?.IsOpen<Dialog_ModSettings>() == true) &&
                        FluffyWorkTabPromptPolicy.AllowsTutorial(
                            FluffyWorkTabMigrationPrompt.BlocksTutorialPresentation) &&
                        TutorialOwnershipPolicy.MainOwnsWorkTab(settings.showGeneralTutorial, legacyBetaFlag: false);
@@ -1125,6 +1127,16 @@ namespace Better_Work_Tab.Features.Tutorial
         private static void LeaveTutorial()
         {
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
+            TutorialProgressTransitions.Complete(settings.completedTutorialLessonIds, PriorityChangeLesson);
+            TutorialProgressTransitions.Complete(settings.completedTutorialLessonIds, PrioritySkillLesson);
+            TutorialProgressTransitions.Complete(settings.completedTutorialLessonIds, PriorityScheduleLesson);
+            TutorialProgressTransitions.Complete(settings.completedTutorialLessonIds, PriorityRangeLesson);
+            TutorialProgressTransitions.Complete(settings.completedTutorialLessonIds, PawnMenuLesson);
+            TutorialProgressTransitions.Complete(settings.completedTutorialLessonIds, PawnDividerLesson);
+            TutorialProgressTransitions.Complete(settings.completedTutorialLessonIds, PawnAppearanceLesson);
+            TutorialProgressTransitions.Complete(settings.completedTutorialLessonIds, HeaderReorderLesson);
+            TutorialProgressTransitions.Complete(settings.completedTutorialLessonIds, HeaderGroupLesson);
+            TutorialProgressTransitions.Complete(settings.completedTutorialLessonIds, HeaderSubWorkLesson);
             TutorialProgressTransitions.ReturnToSelection(
                 ref settings.activeTutorialLessonId,
                 ref settings.tutorialLessonPhase);

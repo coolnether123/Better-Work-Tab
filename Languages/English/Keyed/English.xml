@@ -190,10 +190,10 @@
 <BWT_FluffyMigration_SettingsContextTooltip>Settings for Fluffy-style controls, saved hourly priorities, visible compatibility columns, and choosing which mod owns the Work tab.</BWT_FluffyMigration_SettingsContextTooltip>
 <BWT_Tutorial_DefaultContextHeading>Hover an option to learn more.</BWT_Tutorial_DefaultContextHeading>
 <BWT_Tutorial_Selector_Title>Explore Better Work Tab</BWT_Tutorial_Selector_Title>
-<BWT_Tutorial_Selector_DefaultBody>Select something that interests you in the Work Tab. The highlighted pawn name, work header, and priority cell are examples; click one to keep it selected and see its available controls.</BWT_Tutorial_Selector_DefaultBody>
+<BWT_Tutorial_Selector_DefaultBody>Select something that interests you in the Work tab. The highlighted pawn name, Work header, and priority cell are examples; click one to keep it selected and see its available controls.</BWT_Tutorial_Selector_DefaultBody>
 <BWT_Tutorial_Recommended>Recommended</BWT_Tutorial_Recommended>
 <BWT_Tutorial_SkipForNow>Skip for now</BWT_Tutorial_SkipForNow>
-<BWT_Tutorial_LeaveTutorial>Leave tutorial</BWT_Tutorial_LeaveTutorial>
+<BWT_Tutorial_LeaveTutorial>Finish tutorial</BWT_Tutorial_LeaveTutorial>
 <BWT_Tutorial_BackToMap>Back to tutorial map</BWT_Tutorial_BackToMap>
 
 <BWT_Tutorial_PawnHub_Title>Pawn names</BWT_Tutorial_PawnHub_Title>
@@ -205,11 +205,11 @@
 <BWT_Tutorial_PawnDivider_Label>Add a divider</BWT_Tutorial_PawnDivider_Label>
 <BWT_Tutorial_PawnDivider_Title>Organize pawns with dividers</BWT_Tutorial_PawnDivider_Title>
 <BWT_Tutorial_PawnDivider_Preview>Dividers label, separate, collapse, and visually organize groups of pawn rows.</BWT_Tutorial_PawnDivider_Preview>
-<BWT_Tutorial_PawnDivider_Action>Right-click the highlighted pawn, add a divider above or below it, and finish the menu action. The lesson completes when the real divider appears.</BWT_Tutorial_PawnDivider_Action>
+<BWT_Tutorial_PawnDivider_Action>Right-click the highlighted pawn name, choose to add a divider above or below it, then confirm. The lesson completes when the divider appears.</BWT_Tutorial_PawnDivider_Action>
 <BWT_Tutorial_PawnAppearance_Label>Customize pawn row</BWT_Tutorial_PawnAppearance_Label>
 <BWT_Tutorial_PawnAppearance_Title>Change title or color</BWT_Tutorial_PawnAppearance_Title>
 <BWT_Tutorial_PawnAppearance_Preview>The pawn menu can change the displayed title and row background color.</BWT_Tutorial_PawnAppearance_Preview>
-<BWT_Tutorial_PawnAppearance_Action>Right-click the highlighted pawn and change either its displayed title or its row background color. The lesson completes after the real value changes.</BWT_Tutorial_PawnAppearance_Action>
+<BWT_Tutorial_PawnAppearance_Action>Right-click the highlighted pawn name and change either its displayed title or row background color. The lesson completes after the change is applied.</BWT_Tutorial_PawnAppearance_Action>
 
 <BWT_Tutorial_HeaderHub_Title>Work headers</BWT_Tutorial_HeaderHub_Title>
 <BWT_Tutorial_HeaderHub_Body>Work headers identify each work column and provide column layout, grouping, and specific-job controls.</BWT_Tutorial_HeaderHub_Body>
@@ -220,31 +220,31 @@
 <BWT_Tutorial_HeaderGroup_Label>Group work columns</BWT_Tutorial_HeaderGroup_Label>
 <BWT_Tutorial_HeaderGroup_Title>Group work columns</BWT_Tutorial_HeaderGroup_Title>
 <BWT_Tutorial_HeaderGroup_Preview>Shift-click headers to select a group, then drag one selected header to move the group together.</BWT_Tutorial_HeaderGroup_Preview>
-<BWT_Tutorial_HeaderGroup_Action>Shift-click the highlighted work header to toggle its group selection. Selected headers can be dragged together. The lesson completes only after the real selection changes.</BWT_Tutorial_HeaderGroup_Action>
+<BWT_Tutorial_HeaderGroup_Action>Shift-click the highlighted Work header to add or remove it from the selected group. Selected headers can be dragged together. The lesson completes after the selection changes.</BWT_Tutorial_HeaderGroup_Action>
 <BWT_Tutorial_HeaderSubWork_Label>Open specific jobs</BWT_Tutorial_HeaderSubWork_Label>
 <BWT_Tutorial_HeaderSubWork_Title>Open specific jobs</BWT_Tutorial_HeaderSubWork_Title>
-<BWT_Tutorial_HeaderSubWork_Preview>Control-click a work header to replace or expand it with that work type's specific jobs.</BWT_Tutorial_HeaderSubWork_Preview>
-<BWT_Tutorial_HeaderSubWork_Action>Control-click the highlighted work header. The specific-job headers can be rearranged like normal columns; their top row supplies global priorities, while pawn cells can override those values.</BWT_Tutorial_HeaderSubWork_Action>
+<BWT_Tutorial_HeaderSubWork_Preview>Ctrl-click a work header to focus on or expand that Work type's specific jobs.</BWT_Tutorial_HeaderSubWork_Preview>
+<BWT_Tutorial_HeaderSubWork_Action>Ctrl-click the highlighted work header. Specific-job headers can be rearranged like normal columns. The top row sets a priority for every pawn, while an individual pawn's cell can override it.</BWT_Tutorial_HeaderSubWork_Action>
 
 <BWT_Tutorial_PriorityHub_Title>Priority cells</BWT_Tutorial_PriorityHub_Title>
 <BWT_Tutorial_PriorityHub_Body>Priority cells control whether a pawn performs this work and how urgently they choose it. Select an option to learn about the controls available here.</BWT_Tutorial_PriorityHub_Body>
 <BWT_Tutorial_PriorityHub_ShiftBody>While Shift is held, priority cells show the pawn's skill number for that work. Release Shift to return to priority controls, or choose “View skill number” for a guided explanation.</BWT_Tutorial_PriorityHub_ShiftBody>
-<BWT_Tutorial_HeaderHub_SubWorkBody>This is a sub-work header for a specific job inside its parent work type. Its priority cells affect that job directly; use the normal sub-work controls to return to the parent work types.</BWT_Tutorial_HeaderHub_SubWorkBody>
+<BWT_Tutorial_HeaderHub_SubWorkBody>This header represents one specific job inside its parent Work type. Its priority cells affect that job directly. Repeat the specific-job shortcut or press Escape to return to the main Work types.</BWT_Tutorial_HeaderHub_SubWorkBody>
 <BWT_Tutorial_PriorityChange_Label>Change priorities</BWT_Tutorial_PriorityChange_Label>
 <BWT_Tutorial_PriorityChange_Title>Change priorities</BWT_Tutorial_PriorityChange_Title>
-<BWT_Tutorial_PriorityChange_Preview>Click the real cell to change whether this pawn performs the work and the priority they use.</BWT_Tutorial_PriorityChange_Preview>
-<BWT_Tutorial_PriorityChange_Action>Change the highlighted real priority cell. The lesson completes only after its priority value actually changes.</BWT_Tutorial_PriorityChange_Action>
+<BWT_Tutorial_PriorityChange_Preview>Click a priority cell to change whether that pawn performs the work and how urgently they do it.</BWT_Tutorial_PriorityChange_Preview>
+<BWT_Tutorial_PriorityChange_Action>Click the highlighted priority cell to change its value. The lesson completes after the priority changes.</BWT_Tutorial_PriorityChange_Action>
 <BWT_Tutorial_PrioritySkill_Label>View skill number</BWT_Tutorial_PrioritySkill_Label>
 <BWT_Tutorial_PrioritySkill_Title>View skill number</BWT_Tutorial_PrioritySkill_Title>
 <BWT_Tutorial_PrioritySkill_Preview>Hold Shift to display the pawn's skill number for that work.</BWT_Tutorial_PrioritySkill_Preview>
-<BWT_Tutorial_PrioritySkill_Action>Hold Shift. Shift displays the pawn's skill number for that work. Keep it visible briefly so there is time to read it.</BWT_Tutorial_PrioritySkill_Action>
+<BWT_Tutorial_PrioritySkill_Action>Hold Shift to display the pawn's skill number for that work. Keep it visible briefly so you have time to read it.</BWT_Tutorial_PrioritySkill_Action>
 <BWT_Tutorial_PrioritySkill_SecondaryVisible>Your current skill-number settings can also show a smaller secondary skill number in the cell corner.</BWT_Tutorial_PrioritySkill_SecondaryVisible>
 <BWT_Tutorial_PrioritySchedule_Label>Open time schedules</BWT_Tutorial_PrioritySchedule_Label>
 <BWT_Tutorial_PrioritySchedule_Title>Open time schedules</BWT_Tutorial_PrioritySchedule_Title>
-<BWT_Tutorial_PrioritySchedule_Preview>Control-click a priority cell to schedule different priorities across the day.</BWT_Tutorial_PrioritySchedule_Preview>
-<BWT_Tutorial_PrioritySchedule_ActionOpen>Control-click the highlighted real priority cell to open its time schedule.</BWT_Tutorial_PrioritySchedule_ActionOpen>
-<BWT_Tutorial_PrioritySchedule_ActionEdit>The schedule has 24 hour controls. Each hour stores the priority used during that hour. Change at least one real hour cell by clicking, right-clicking, or scrolling it.</BWT_Tutorial_PrioritySchedule_ActionEdit>
-<BWT_Tutorial_PrioritySchedule_ActionClose>Your schedule edit was recorded. Control-click a real hour cell to close the schedule and complete the lesson.</BWT_Tutorial_PrioritySchedule_ActionClose>
+<BWT_Tutorial_PrioritySchedule_Preview>Ctrl-click a priority cell to set different priorities for different hours of the day.</BWT_Tutorial_PrioritySchedule_Preview>
+<BWT_Tutorial_PrioritySchedule_ActionOpen>Ctrl-click the highlighted priority cell to open its hourly schedule.</BWT_Tutorial_PrioritySchedule_ActionOpen>
+<BWT_Tutorial_PrioritySchedule_ActionEdit>The schedule has one cell for each hour of the day. Change at least one hour by clicking, right-clicking, or scrolling its cell.</BWT_Tutorial_PrioritySchedule_ActionEdit>
+<BWT_Tutorial_PrioritySchedule_ActionClose>Your schedule change was recorded. Ctrl-click an hour cell to close the schedule and complete the lesson.</BWT_Tutorial_PrioritySchedule_ActionClose>
 <BWT_Tutorial_PriorityRange_Label>Set priority range</BWT_Tutorial_PriorityRange_Label>
 <BWT_Tutorial_PriorityRange_Title>Set priority range</BWT_Tutorial_PriorityRange_Title>
 <BWT_Tutorial_PriorityRange_Preview>Open the relevant provider or maximum-priority setting. Better Work Tab defaults to 1–9, supports up to 99, and preserves compatible external providers.</BWT_Tutorial_PriorityRange_Preview>
