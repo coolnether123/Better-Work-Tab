@@ -2509,6 +2509,11 @@ namespace Better_Work_Tab.UI
 
                 if (row.Pawn != null && TryGetBodyColumnAt(layout, mousePosition, out var bodyColumn))
                 {
+                    if (bodyColumn.Column?.Worker is PawnColumnWorker_Label)
+                    {
+                        return BWTTutorialInteractionKind.PawnName;
+                    }
+
                     if (bodyColumn.Column?.Worker is PawnColumnWorker_WorkPriority)
                     {
                         return BWTTutorialInteractionKind.PriorityCell;
@@ -3867,6 +3872,7 @@ namespace Better_Work_Tab.UI
             Pawn highlightedPawn = HighlightState.GetHighlightedPawn();
             WorkTypeDef highlightedWorkType = HighlightState.GetHighlightedWorkType();
             WorkGiverDef highlightedWorkGiver = HighlightState.GetHighlightedWorkGiver();
+            bool floatMenuOpen = Find.WindowStack?.IsOpen<FloatMenu>() == true;
 
             // 2. Draw Horizontal Highlights (Rows)
             float currentY = 0f;
@@ -3885,7 +3891,10 @@ namespace Better_Work_Tab.UI
                     HighlightDrawer.DrawHighlight(rowRect, HighlightDrawer.GetFloatMenuColor());
                 }
 
-                if (settings.ShowCursorPawnAndWorktypeHighlight && !timePriorityOwnsMouse && Mouse.IsOver(rowRect))
+                if (settings.ShowCursorPawnAndWorktypeHighlight &&
+                    !timePriorityOwnsMouse &&
+                    !floatMenuOpen &&
+                    Mouse.IsOver(rowRect))
                 {
                     HighlightDrawer.DrawHighlight(rowRect, HighlightDrawer.GetRowHoverColor());
                 }
@@ -3906,7 +3915,7 @@ namespace Better_Work_Tab.UI
                     var descriptor = rowDescriptors[i];
                     Rect rowRect = new Rect(0f, currentY, totalWidth, descriptor.Height);
 
-                    if (descriptor.IsDivider && !timePriorityOwnsMouse && Mouse.IsOver(rowRect))
+                    if (descriptor.IsDivider && !timePriorityOwnsMouse && !floatMenuOpen && Mouse.IsOver(rowRect))
                     {
                         HighlightDrawer.DrawHighlight(rowRect, HighlightDrawer.GetRowHoverColor());
                     }
@@ -3939,6 +3948,7 @@ namespace Better_Work_Tab.UI
                 else if (isWorkColumn &&
                          settings.ShowCursorPawnAndWorktypeHighlight &&
                          !timePriorityOwnsMouse &&
+                         !floatMenuOpen &&
                          hoveredWorkType != null &&
                          hoveredWorkType == column.Column.workType)
                 {
@@ -5033,6 +5043,7 @@ namespace Better_Work_Tab.UI
         public override void PostClose()
         {
             base.PostClose();
+            BWTWorkTabTutorial.NotifyWorkTabClosed();
             // Clear float menu highlights when Work tab is closed
             HighlightState.ClearWorktypeHighlight();
             MouseStateManager.ClearHover();

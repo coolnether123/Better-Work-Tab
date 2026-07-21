@@ -140,6 +140,53 @@ namespace Better_Work_Tab.Features.Migration
             return true;
         }
 
+        /// <summary>
+        /// Opts a public-1.0.5 migration into the supported 2.0 feature set when
+        /// the player explicitly chooses a tutorial course. Migration itself
+        /// remains conservative until that choice is made.
+        /// </summary>
+        internal static void EnablePublic20TutorialFeatures(BetterWorkTabSettings settings)
+        {
+            if (settings == null)
+            {
+                return;
+            }
+
+            settings.enableSubWorkDrilldown = DefaultSettings.enableSubWorkDrilldown;
+            settings.enableFluffyStyleFeatures = DefaultSettings.enableFluffyStyleFeatures;
+            settings.showFluffyStyleTopButtons = DefaultSettings.showFluffyStyleTopButtons;
+            settings.showStandaloneFluffyStyleTopButtons = DefaultSettings.showStandaloneFluffyStyleTopButtons;
+            settings.enableFluffyScheduleAssigner = DefaultSettings.enableFluffyScheduleAssigner;
+            settings.showSubWorkHeaderBadge = DefaultSettings.showSubWorkHeaderBadge;
+            settings.enableSubWorkCrossWorkDragDrop = DefaultSettings.enableSubWorkCrossWorkDragDrop;
+            settings.enableCustomWorkLabels = DefaultSettings.enableCustomWorkLabels;
+            settings.useVanillaSubWorkGlobalPriorityBoxes = DefaultSettings.useVanillaSubWorkGlobalPriorityBoxes;
+            settings.useCompactSubWorkPriorityBoxes = DefaultSettings.useCompactSubWorkPriorityBoxes;
+            settings.restoreCursorOnSubWorkExit = DefaultSettings.restoreCursorOnSubWorkExit;
+            settings.restoreCursorOnSubWorkPawnCellExit = DefaultSettings.restoreCursorOnSubWorkPawnCellExit;
+            settings.enableSubWorkOverrideBreakAnimation = DefaultSettings.enableSubWorkOverrideBreakAnimation;
+            settings.enableSubWorkTransitionAnimation = DefaultSettings.enableSubWorkTransitionAnimation;
+            settings.subWorkAutoExpandColumns = DefaultSettings.subWorkAutoExpandColumns;
+            settings.subWorkEvenlyExpandColumns = DefaultSettings.subWorkEvenlyExpandColumns;
+            settings.showContextSettingsHint = DefaultSettings.showContextSettingsHint;
+            settings.useRuleBuilder2 = DefaultSettings.useRuleBuilder2;
+            settings.showRuleBuilder2Tutorial = DefaultSettings.showRuleBuilder2Tutorial;
+            settings.ruleBuilder2ShowWorkTabHighlights = DefaultSettings.ruleBuilder2ShowWorkTabHighlights;
+            settings.ruleBuilder2EnableAnimations = DefaultSettings.ruleBuilder2EnableAnimations;
+            settings.ruleBuilder2UseDraftSuggestions = DefaultSettings.ruleBuilder2UseDraftSuggestions;
+            settings.ruleBuilder2ShowAdvancedConditions = DefaultSettings.ruleBuilder2ShowAdvancedConditions;
+            settings.ruleBuilder2ShowMatchedPanel = DefaultSettings.ruleBuilder2ShowMatchedPanel;
+            settings.enableTimePrioritySchedules = DefaultSettings.enableTimePrioritySchedules;
+            settings.showTimePriorityCopyPasteButtons = DefaultSettings.showTimePriorityCopyPasteButtons;
+            settings.enableChronosPointerTimePriorityIntegration = DefaultSettings.enableChronosPointerTimePriorityIntegration;
+            settings.showTimePriorityHourDivider = DefaultSettings.showTimePriorityHourDivider;
+            settings.keepTimePrioritySourceColumnHighlighted = DefaultSettings.keepTimePrioritySourceColumnHighlighted;
+            settings.enableFluffyTimePriorityMirroring = DefaultSettings.enableFluffyTimePriorityMirroring;
+            settings.chronosPointerTimePriorityIncidentOverlay = DefaultSettings.chronosPointerTimePriorityIncidentOverlay;
+            settings.enableDividerAnimations = DefaultSettings.enableDividerAnimations;
+            settings.SetPriorityMode(PriorityMode.BetterWorkTab);
+        }
+
         private static void SetFalseWhenAbsent(
             HashSet<string> persistedKeys,
             string key,

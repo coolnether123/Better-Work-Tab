@@ -111,6 +111,18 @@ namespace Better_Work_Tab.Features.Tutorial
             contextContentKey = null;
         }
 
+        internal void ClearPinnedSelection()
+        {
+            hover.Clear();
+            pinnedAnchor = TutorialHubAnchor.None;
+            pinnedGeometry = default(BWTTutorialAnchor);
+            hoveredLessonId = null;
+            hoveredLessonLastConnectedAt = -1f;
+            lastOptionsRect = Rect.zero;
+            lastContextRect = Rect.zero;
+            contextContentKey = null;
+        }
+
         internal bool TryHandleAnchorInput(IList<BWTTutorialAnchor> anchors, Event evt)
         {
             if (anchors == null || evt == null || evt.type != EventType.MouseDown || evt.button != 0)
@@ -687,15 +699,14 @@ namespace Better_Work_Tab.Features.Tutorial
 
         private TutorialHubAnchor ResolveActiveAnchor(TutorialHubAnchor anchorAtPointer)
         {
-            if (anchorAtPointer != TutorialHubAnchor.None)
+            if (pinnedAnchor != TutorialHubAnchor.None)
             {
-                return anchorAtPointer;
+                return pinnedAnchor;
             }
 
-            TutorialHubAnchor active = pinnedAnchor != TutorialHubAnchor.None
-                ? pinnedAnchor
+            return anchorAtPointer != TutorialHubAnchor.None
+                ? anchorAtPointer
                 : hover.ActiveAnchor;
-            return active;
         }
 
         private static bool IsPointerEvent(EventType type)

@@ -374,16 +374,31 @@ namespace Better_Work_Tab.Features.Tutorial
                 return;
             }
 
-            string lesson = BetterWorkTabMod.Settings.activeTutorialLessonId;
-            bool completed = false;
-            if (lesson == PawnMenuLesson)
+            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
+            string lesson = settings.activeTutorialLessonId;
+            bool pawnMenuOpened = interaction.Kind == BWTTutorialInteractionKind.PawnName &&
+                interaction.MouseButton == 1;
+            if (pawnMenuOpened)
             {
-                completed = interaction.Kind == BWTTutorialInteractionKind.PawnRow && interaction.MouseButton == 1;
+                bool wasComplete = settings.completedTutorialLessonIds.Contains(PawnMenuLesson);
+                TutorialProgressTransitions.Complete(settings.completedTutorialLessonIds, PawnMenuLesson);
+                settings.skippedTutorialLessonIds.Remove(PawnMenuLesson);
+                if (lesson == PawnMenuLesson)
+                {
+                    CompleteLesson(lesson);
+                }
+                else if (!wasComplete)
+                {
+                    settings.Write();
+                    PlayTutorialSound("Tick_High");
+                }
             }
-            if (completed)
-            {
-                CompleteLesson(lesson);
-            }
+        }
+
+        internal static void NotifyWorkTabClosed()
+        {
+            ownsCurrentPointer = false;
+            Selector.ClearPinnedSelection();
         }
 
         internal static void EnsureState(BetterWorkTabSettings settings)
@@ -1280,6 +1295,13 @@ namespace Better_Work_Tab.Features.Tutorial
             if (settings == null)
             {
                 return;
+            }
+
+            bool firstPublic105Course = settings.tutorialMigratedFromPublic105 &&
+                settings.selectedTutorialCourse == BWTTutorialCourse.None;
+            if (firstPublic105Course)
+            {
+                BWT20SettingsMigration.EnablePublic20TutorialFeatures(settings);
             }
 
             settings.selectedTutorialCourse = course;

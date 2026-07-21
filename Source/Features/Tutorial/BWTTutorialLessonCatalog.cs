@@ -112,7 +112,7 @@ namespace Better_Work_Tab.Features.Tutorial
                     "PriorityRange", TutorialHubAnchor.PriorityCell,
                     route: BWTTutorialLessonRoute.PrioritySettings),
                 Lesson(PawnMenu, "1.0.5", "Pawn rows", BWTTutorialCourseMembership.Full,
-                    "PawnMenu", TutorialHubAnchor.PawnName, recommended: true),
+                    "PawnMenu", TutorialHubAnchor.PawnName),
                 Lesson(PawnDivider, "1.0.5", "Pawn rows|Organization", BWTTutorialCourseMembership.Full,
                     "PawnDivider", TutorialHubAnchor.PawnName),
                 Lesson(PawnAppearance, "1.0.5", "Pawn rows|Appearance", BWTTutorialCourseMembership.Full,
