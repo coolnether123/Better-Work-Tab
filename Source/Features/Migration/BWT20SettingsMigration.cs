@@ -127,8 +127,8 @@ namespace Better_Work_Tab.Features.Migration
                 settings.workGridRendererMode = WorkGridRendererMode.Optimized;
             }
 
-            // The launch dialog owns the tutorial choice for an upgrader. Mark the
-            // generic tutorial welcome resolved so it cannot race this prompt.
+            // The launch dialog decides whether to open tutorial choices. The
+            // tutorial then offers the public 2.0 and full-course tracks itself.
             settings.showGeneralTutorial = false;
             settings.tutorialWelcomeCompleted = true;
             settings.activeTutorialLessonId = string.Empty;

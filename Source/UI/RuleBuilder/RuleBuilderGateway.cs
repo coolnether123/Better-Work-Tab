@@ -306,6 +306,19 @@ namespace Better_Work_Tab.UI.RuleBuilder
             SoundDefOf.Tick_Low.PlayOneShotOnCamera();
         }
 
+        internal static void OpenRuleBuilder2Tutorial()
+        {
+            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
+            if (settings != null)
+            {
+                settings.useRuleBuilder2 = true;
+                settings.Write();
+            }
+
+            Find.WindowStack.Add(new Window_RuleBuilder2());
+            SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+        }
+
         private static void OpenClassicBuilder()
         {
             Find.WindowStack.Add(new Window_RulesetBuilder());

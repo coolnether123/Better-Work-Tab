@@ -119,6 +119,7 @@
     <Compile Include="Features\Workloads\GameComponent_BWTWorldSettings.cs" />
     <Compile Include="Features\Testing\AgentFloatMenuHighlightTestDriver.cs" />
     <Compile Include="Features\Testing\GameComponent_BWTModernQuickTestDriver.cs" />
+    <Compile Include="Features\Testing\GameComponent_BWTTutorialQuickTestDriver.cs" />
     <Compile Include="Features\Testing\AgentHarnessUtility.cs" />
     <Compile Include="Features\Testing\RuleBuilder2AgentHarness.cs" />
     <Compile Include="Features\Testing\SubWorkTransitionPerfDiagnostics.cs" />
@@ -137,6 +138,12 @@
     <Compile Include="Features\TimePriority\TimePriorityTargetKind.cs" />
     <Compile Include="Features\Tutorial\BWTTutorialAnchor.cs" />
     <Compile Include="Features\Tutorial\BWTTutorialSelector.cs" />
+    <Compile Include="Features\Tutorial\BWTTutorialLessonCatalog.cs" />
+    <Compile Include="Features\Tutorial\BWTTutorialFeedback.cs" />
+    <Compile Include="Features\Tutorial\BWTTutorialReportFormatter.cs" />
+    <Compile Include="Features\Tutorial\BWTTutorialProgressMigration.cs" />
+    <Compile Include="Features\Tutorial\Window_BWTTutorialReview.cs" />
+    <Compile Include="Features\Tutorial\Window_BWTFluffyTutorial.cs" />
     <Compile Include="Features\Tutorial\BWTGeneralTutorial.cs" />
     <Compile Include="Features\Tutorial\BWTTutorialInteraction.cs" />
     <Compile Include="Features\Tutorial\BWTTutorialInteractionKind.cs" />

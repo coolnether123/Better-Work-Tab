@@ -59,7 +59,8 @@ namespace Better_Work_Tab.Features.Migration
             settings.v2UpgradePromptPending = false;
             worldSettings.BWTWorldSchemaVersion = BWT20UpgradePolicy.CurrentWorldSchemaVersion;
             settings.showGeneralTutorial = startTutorial;
-            settings.tutorialWelcomeCompleted = true;
+            settings.tutorialWelcomeCompleted = !startTutorial;
+            settings.selectedTutorialCourse = BWTTutorialCourse.None;
             settings.tutorialFlowVersion = BWTGeneralTutorial.CurrentFlowVersion;
             settings.activeTutorialLessonId = string.Empty;
             settings.tutorialLessonPhase = 0;

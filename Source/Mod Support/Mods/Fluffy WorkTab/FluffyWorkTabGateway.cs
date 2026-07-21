@@ -1327,8 +1327,17 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             }
 
             _fluffySettingsFieldsResolved = true;
-            _fluffyMaxPriorityField = AccessTools.Field("WorkTab.Settings:maxPriority");
-            _fluffyDefaultPriorityField = AccessTools.Field("WorkTab.Settings:defaultPriority");
+            Type settingsType = AccessTools.TypeByName("WorkTab.Settings");
+            if (settingsType == null)
+            {
+                // The agent harness can simulate the external Work-tab window
+                // without loading Fluffy's settings assembly. Real partial or
+                // incompatible installs should also degrade to shipped defaults.
+                return;
+            }
+
+            _fluffyMaxPriorityField = AccessTools.Field(settingsType, "maxPriority");
+            _fluffyDefaultPriorityField = AccessTools.Field(settingsType, "defaultPriority");
         }
 
         private static void DisableHostedColumns(string operation, Exception ex)
