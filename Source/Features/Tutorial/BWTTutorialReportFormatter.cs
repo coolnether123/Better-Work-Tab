@@ -13,7 +13,7 @@ namespace Better_Work_Tab.Features.Tutorial
     internal static class BWTBuildInfo
     {
         internal const string Build = "2.0.0-beta";
-        internal const string SourceCommit = "working-tree";
+        internal const string SourceCommit = "ea3b7e5cae477f01c040c5a1c77a3abc92132149";
     }
 
     internal sealed class BWTTutorialDiagnosticContext
