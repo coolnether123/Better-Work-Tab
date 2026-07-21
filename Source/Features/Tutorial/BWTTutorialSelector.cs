@@ -80,7 +80,9 @@ namespace Better_Work_Tab.Features.Tutorial
         private const float MinimumPanelWidth = 420f;
         private const float PreferredPanelWidth = OptionWidth + ContextWidth + PanelGap + CardPadding * 2f;
 
-        private readonly TutorialHoverGraceState hover = new TutorialHoverGraceState();
+        // Give players enough time to travel from a narrow/angled Work-tab
+        // target into the detached tutorial card without losing its context.
+        private readonly TutorialHoverGraceState hover = new TutorialHoverGraceState(0.75d);
         private TutorialHubAnchor pinnedAnchor = TutorialHubAnchor.None;
         private BWTTutorialAnchor pinnedGeometry;
         private string hoveredLessonId;
@@ -313,7 +315,10 @@ namespace Better_Work_Tab.Features.Tutorial
             TutorialHubAnchor active = pinnedAnchor != TutorialHubAnchor.None ? pinnedAnchor : hoverAnchor;
             if (active != TutorialHubAnchor.None)
             {
-                DrawFocusDim(workBounds, FindAnchorRect(anchors, active));
+                // Shade the complete Work-tab surface. The inferred content
+                // bounds omit toolbars and footer rows, which left visibly
+                // different strips around the tutorial overlay.
+                DrawFocusDim(bounds, FindAnchorRect(anchors, active));
             }
             DrawAnchorOutlines(anchors, active, pointerAnchor);
             if (!hubs.TryGetValue(active, out BWTTutorialHubDefinition hub))

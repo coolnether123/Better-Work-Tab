@@ -12,6 +12,8 @@ namespace Better_Work_Tab.Features.Migration
     {
         private static bool promptQueued;
 
+        internal static bool BlocksTutorialPresentation => promptQueued;
+
         internal static void ShowIfNeeded(
             BetterWorkTabSettings settings,
             GameComponent_BWTWorldSettings worldSettings)

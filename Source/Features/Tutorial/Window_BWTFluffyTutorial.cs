@@ -13,15 +13,18 @@ namespace Better_Work_Tab.Features.Tutorial
     internal sealed class Window_BWTFluffyTutorial : Window
     {
         private readonly Action onCompleted;
+        private readonly Action onDismissed;
         private readonly BetterWorkTabSettings.SubWorkDrilldownStyle initialPresentation;
         private readonly string initialColumnOrder;
         private int phase;
+        private bool completed;
 
         public override Vector2 InitialSize => new Vector2(590f, 330f);
 
-        internal Window_BWTFluffyTutorial(Action onCompleted)
+        internal Window_BWTFluffyTutorial(Action onCompleted, Action onDismissed = null)
         {
             this.onCompleted = onCompleted;
+            this.onDismissed = onDismissed;
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
             initialPresentation = settings?.subWorkDrilldownStyle ?? DefaultSettings.subWorkDrilldownStyle;
             initialColumnOrder = string.Join("|", settings?.workColumnOrderDefNames ?? Enumerable.Empty<string>());
@@ -29,6 +32,15 @@ namespace Better_Work_Tab.Features.Tutorial
             closeOnAccept = false;
             closeOnCancel = true;
             absorbInputAroundWindow = false;
+        }
+
+        public override void PostClose()
+        {
+            base.PostClose();
+            if (!completed)
+            {
+                onDismissed?.Invoke();
+            }
         }
 
         public override void DoWindowContents(Rect inRect)
@@ -84,6 +96,7 @@ namespace Better_Work_Tab.Features.Tutorial
             }
             else
             {
+                completed = true;
                 onCompleted?.Invoke();
                 Close();
             }

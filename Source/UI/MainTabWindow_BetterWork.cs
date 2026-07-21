@@ -4693,8 +4693,23 @@ namespace Better_Work_Tab.UI
             Text.Anchor = TextAnchor.UpperCenter;
             Text.Font = GameFont.Tiny;
             EnsureUiTextCache(WorkPrioritySystem.GetMaxPriority());
-            Widgets.Label(new Rect(370f, rect.y + 5f, 160f, 30f), _higherPriorityText);
-            Widgets.Label(new Rect(630f, rect.y + 5f, 160f, 30f), _lowerPriorityText);
+            Rect contextHintRect = GetContextSettingsHintRect(rect);
+            if (contextHintRect.width > 0f)
+            {
+                float legendLeft = rect.x + 370f;
+                float legendRight = contextHintRect.xMin - 8f;
+                float laneWidth = Mathf.Min(160f, Mathf.Max(0f, (legendRight - legendLeft) / 2f));
+                if (laneWidth >= 70f)
+                {
+                    Widgets.Label(new Rect(legendLeft, rect.y + 5f, laneWidth, 30f), _higherPriorityText);
+                    Widgets.Label(new Rect(legendLeft + laneWidth, rect.y + 5f, laneWidth, 30f), _lowerPriorityText);
+                }
+            }
+            else
+            {
+                Widgets.Label(new Rect(370f, rect.y + 5f, 160f, 30f), _higherPriorityText);
+                Widgets.Label(new Rect(630f, rect.y + 5f, 160f, 30f), _lowerPriorityText);
+            }
             GUI.color = Color.white;
             Text.Font = GameFont.Small;
             Text.Anchor = TextAnchor.UpperLeft;
@@ -4726,9 +4741,7 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
-            const float width = 230f;
-            float topRightReservedWidth = HeaderButtons.GetTopRightReservedWidth();
-            Rect hintRect = new Rect(inRect.xMax - width - 42f - topRightReservedWidth, inRect.y + 5f, width, 24f);
+            Rect hintRect = GetContextSettingsHintRect(inRect);
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.UpperRight;
             GUI.color = new Color(1f, 1f, 1f, 0.42f);
@@ -4736,6 +4749,23 @@ namespace Better_Work_Tab.UI
             GUI.color = Color.white;
             Text.Anchor = TextAnchor.UpperLeft;
             Text.Font = GameFont.Small;
+        }
+
+        private static Rect GetContextSettingsHintRect(Rect inRect)
+        {
+            var settings = BetterWorkTabMod.Settings;
+            if (!(settings?.enableUIElements ?? true) || !(settings?.showContextSettingsHint ?? true))
+            {
+                return Rect.zero;
+            }
+
+            const float width = 230f;
+            float topRightReservedWidth = HeaderButtons.GetTopRightReservedWidth();
+            return new Rect(
+                inRect.xMax - width - 42f - topRightReservedWidth,
+                inRect.y + 5f,
+                width,
+                24f);
         }
 
         private void DrawBottomRightButtons(IWorkTabLayoutController layout, Rect inRect, Rect gearRect)

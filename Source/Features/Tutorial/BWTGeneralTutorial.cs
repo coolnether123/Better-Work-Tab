@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
+using Better_Work_Tab.Features.Migration;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.DragDrop;
@@ -118,7 +119,8 @@ namespace Better_Work_Tab.Features.Tutorial
                        TutorialVisibilityPolicy.AllowsWorkTabTutorial(
                            Find.WindowStack?.IsOpen<Dialog_ModSettings>() == true) &&
                        FluffyWorkTabPromptPolicy.AllowsTutorial(
-                           FluffyWorkTabMigrationPrompt.BlocksTutorialPresentation) &&
+                           FluffyWorkTabMigrationPrompt.BlocksTutorialPresentation ||
+                           BWT20UpgradePrompt.BlocksTutorialPresentation) &&
                        TutorialOwnershipPolicy.MainOwnsWorkTab(settings.showGeneralTutorial, legacyBetaFlag: false);
             }
         }
@@ -413,7 +415,12 @@ namespace Better_Work_Tab.Features.Tutorial
 
         private static IDictionary<TutorialHubAnchor, BWTTutorialHubDefinition> BuildHubDefinitions()
         {
-            bool shift = Event.current?.shift ?? false;
+            // Repaint events do not reliably retain keyboard modifiers. Read
+            // the live key state as well so the Shift explanation remains
+            // visible for as long as the player holds the key.
+            bool shift = (Event.current?.shift ?? false) ||
+                         Input.GetKey(KeyCode.LeftShift) ||
+                         Input.GetKey(KeyCode.RightShift);
             bool subWork = SubWorkDrilldownState.HasAnyDrilldown;
             BWTTutorialCourse course = BetterWorkTabMod.Settings?.selectedTutorialCourse ?? BWTTutorialCourse.Full;
             BWTTutorialOptionDefinition[] pawnLessons = BuildOptions(course, TutorialHubAnchor.PawnName);
@@ -659,7 +666,23 @@ namespace Better_Work_Tab.Features.Tutorial
 
             if (definition?.Route == BWTTutorialLessonRoute.FluffyCoexistence)
             {
-                Find.WindowStack.Add(new Window_BWTFluffyTutorial(() => CompleteLesson(lessonId)));
+                // The coexistence walkthrough owns the screen while it is
+                // open. Otherwise the category selector can overlap its
+                // switch/return controls because this routed lesson does not
+                // use activeTutorialLessonId.
+                settings.showGeneralTutorial = false;
+                settings.Write();
+                Find.WindowStack.Add(new Window_BWTFluffyTutorial(
+                    () =>
+                    {
+                        settings.showGeneralTutorial = true;
+                        CompleteLesson(lessonId);
+                    },
+                    () =>
+                    {
+                        settings.showGeneralTutorial = true;
+                        settings.Write();
+                    }));
                 return;
             }
 
@@ -1013,7 +1036,10 @@ namespace Better_Work_Tab.Features.Tutorial
         {
             return anchor.Pawn == null || anchor.WorkType == null
                 ? int.MinValue
-                : WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(anchor.Pawn, anchor.WorkType);
+                // The lesson teaches editing the stored priority. A daily
+                // schedule may override the effective value at the current
+                // hour, so observing that value can miss a successful click.
+                : WorkPrioritySystem.GetPriorityForPawnWorkType(anchor.Pawn, anchor.WorkType);
         }
 
         private static int CountDividers(IWorkTabLayoutController layout)
