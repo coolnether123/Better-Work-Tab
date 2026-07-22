@@ -80,17 +80,41 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
         internal static bool DebugForceSubWorkStyleChooserAvailable;
         internal static BetterWorkTabSettings.SubWorkDrilldownStyle DebugForcedSubWorkStyleChooserHover =
             BetterWorkTabSettings.SubWorkDrilldownStyle.NotChosen;
-        private static readonly string[] FluffySearchKeywords =
+        private static readonly string[] FluffyBaseSearchKeywords =
         {
             "Fluffy",
             "Fluffy Work Tab",
             "Fluffy WorkTab",
             "WorkTab",
             "external work tab",
-            "mod compatibility",
-            "specific jobs",
-            "sub-work"
+            "mod compatibility"
         };
+        private static readonly string[] FluffyControlsSearchKeywords = FluffyKeywords(
+            "manual priorities", "top controls", "top buttons", "icons");
+        private static readonly string[] FluffyScheduleSearchKeywords = FluffyKeywords(
+            "hourly priorities", "hour selector", "schedule", "time of day");
+        private static readonly string[] FluffyOwnershipSearchKeywords = FluffyKeywords(
+            "Work tab owner", "which mod opens Work", "switch Work tab", "visible columns");
+        private static readonly string[] FluffySpecificJobsSearchKeywords = FluffyKeywords(
+            "specific jobs", "individual jobs", "sub-work", "expand beside", "focused view");
+
+        private static string[] FluffyKeywords(params string[] behaviorKeywords)
+        {
+            int behaviorCount = behaviorKeywords?.Length ?? 0;
+            var combined = new string[FluffyBaseSearchKeywords.Length + behaviorCount];
+            Array.Copy(FluffyBaseSearchKeywords, combined, FluffyBaseSearchKeywords.Length);
+            if (behaviorCount > 0)
+            {
+                Array.Copy(
+                    behaviorKeywords,
+                    0,
+                    combined,
+                    FluffyBaseSearchKeywords.Length,
+                    behaviorCount);
+            }
+
+            return combined;
+        }
 
         internal static bool IsPresent => FluffyWorkTabCoexistence.IsFluffyWorkTabPresent;
 
@@ -1303,8 +1327,17 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             }
 
             _fluffySettingsFieldsResolved = true;
-            _fluffyMaxPriorityField = AccessTools.Field("WorkTab.Settings:maxPriority");
-            _fluffyDefaultPriorityField = AccessTools.Field("WorkTab.Settings:defaultPriority");
+            Type settingsType = AccessTools.TypeByName("WorkTab.Settings");
+            if (settingsType == null)
+            {
+                // The agent harness can simulate the external Work-tab window
+                // without loading Fluffy's settings assembly. Real partial or
+                // incompatible installs should also degrade to shipped defaults.
+                return;
+            }
+
+            _fluffyMaxPriorityField = AccessTools.Field(settingsType, "maxPriority");
+            _fluffyDefaultPriorityField = AccessTools.Field(settingsType, "defaultPriority");
         }
 
         private static void DisableHostedColumns(string operation, Exception ex)
@@ -1377,7 +1410,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                         Id = CompatFluffyWorkTabHeader,
                         Label = "Fluffy-style Work Tab",
                         Tooltip = "BWT-native options inspired by Fluffy's Work Tab, plus compatibility controls when Fluffy Work Tab or a fork is installed.",
-                        SearchKeywords = FluffySearchKeywords,
+                        SearchKeywords = FluffyBaseSearchKeywords,
                         Type = SettingType.Header,
                         ShowInSimpleView = true,
                         SortOrder = 0
@@ -1388,9 +1421,9 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                         {
                             Id = FluffyStyleFeatures,
                             FieldName = nameof(BetterWorkTabSettings.enableFluffyStyleFeatures),
-                            Label = "Enable Fluffy-style features",
+                            Label = "Use Fluffy-style Work tab controls",
                             Tooltip = "Use BWT's Fluffy-inspired Work tab controls and right-expanding specific-job columns. BWT owns the UI and priority data; Fluffy Work Tab is not required.",
-                            SearchKeywords = FluffySearchKeywords,
+                            SearchKeywords = FluffyControlsSearchKeywords,
                             Type = SettingType.Bool,
                             DefaultValue = DefaultSettings.enableFluffyStyleFeatures,
                             ControlsChildVisibility = true,
@@ -1410,7 +1443,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                             FieldName = nameof(BetterWorkTabSettings.showFluffyStyleTopButtons),
                             Label = "Show Fluffy top controls",
                             Tooltip = "When Fluffy Work Tab is installed, show its familiar icon controls for manual priorities, time schedules, and expanding or collapsing specific jobs.",
-                            SearchKeywords = FluffySearchKeywords,
+                            SearchKeywords = FluffyControlsSearchKeywords,
                             Type = SettingType.Bool,
                             DefaultValue = DefaultSettings.showFluffyStyleTopButtons,
                             VisibleWhen = _ => FluffyWorkTabGateway.IsPresent,
@@ -1423,9 +1456,9 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                             Id = FluffyStyleStandaloneTopButtons,
                             ParentId = FluffyStyleFeatures,
                             FieldName = nameof(BetterWorkTabSettings.showStandaloneFluffyStyleTopButtons),
-                            Label = "Show BWT substitute top controls",
+                            Label = "Show text versions of Fluffy's top controls",
                             Tooltip = "Without Fluffy Work Tab, optionally show BWT-drawn text substitutes for the three top controls. Off by default because Fluffy's icon assets are unavailable.",
-                            SearchKeywords = FluffySearchKeywords,
+                            SearchKeywords = FluffyControlsSearchKeywords,
                             Type = SettingType.Bool,
                             DefaultValue = DefaultSettings.showStandaloneFluffyStyleTopButtons,
                             VisibleWhen = _ => !FluffyWorkTabGateway.IsPresent,
@@ -1440,7 +1473,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                             FieldName = nameof(BetterWorkTabSettings.enableFluffyScheduleAssigner),
                             Label = "Use Fluffy hour-selection scheduler",
                             Tooltip = "Use Fluffy's original bottom hour selector: choose hours, then click normal priority boxes to assign those hours. This option requires Fluffy Work Tab because it uses Fluffy's scheduler assets.",
-                            SearchKeywords = FluffySearchKeywords,
+                            SearchKeywords = FluffyScheduleSearchKeywords,
                             Type = SettingType.Bool,
                             DefaultValue = DefaultSettings.enableFluffyScheduleAssigner,
                             VisibleWhen = _ => FluffyWorkTabGateway.IsPresent,
@@ -1453,7 +1486,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                             Id = CompatFluffyWorkTabOwnership,
                             Label = "Fluffy Work Tab integration (2 settings)",
                             Tooltip = "Choose which mod runs the Work tab and which Fluffy columns Better Work Tab keeps visible.",
-                            SearchKeywords = FluffySearchKeywords,
+                            SearchKeywords = FluffyOwnershipSearchKeywords,
                             Type = SettingType.Header,
                             Suppressions = new List<SettingSuppression>
                             {
@@ -1470,9 +1503,9 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                             Id = CompatFluffyWorkTabOwner,
                             ParentId = CompatFluffyWorkTabOwnership,
                             FieldName = "preferredWorkTabOwner",
-                            Label = "Work tab owner",
+                            Label = "Which mod opens the Work tab?",
                             Tooltip = "Choose whether Better Work Tab or Fluffy Work Tab runs the Work tab.",
-                            SearchKeywords = FluffySearchKeywords,
+                            SearchKeywords = FluffyOwnershipSearchKeywords,
                             Type = SettingType.Enum,
                             EnumType = typeof(WorkTabOwnerPreference),
                             DefaultValue = DefaultSettings.preferredWorkTabOwner,
@@ -1491,7 +1524,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                             FieldName = "showExternalWorkTabColumns",
                             Label = FluffyWorkTabGateway.ColumnVisibilitySettingLabel,
                             Tooltip = FluffyWorkTabGateway.ColumnVisibilitySettingTooltip,
-                            SearchKeywords = FluffySearchKeywords,
+                            SearchKeywords = FluffyOwnershipSearchKeywords,
                             Type = SettingType.Bool,
                             DefaultValue = DefaultSettings.showExternalWorkTabColumns,
                             Suppressions = new List<SettingSuppression>
@@ -1508,7 +1541,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                             ParentId = FluffyStyleFeatures,
                             Label = "Specific jobs",
                             Tooltip = "Choose how BWT opens a Work column into its individual jobs.",
-                            SearchKeywords = FluffySearchKeywords,
+                            SearchKeywords = FluffySpecificJobsSearchKeywords,
                             Type = SettingType.Header,
                             ShowInSimpleView = true,
                             SortOrder = 10
@@ -1520,7 +1553,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                             FieldName = "subWorkDrilldownStyle",
                             Label = "Specific-job view",
                             Tooltip = "Choose BWT's focused full-tab view or Fluffy-inspired right-expanding columns. Both modes are implemented by BWT and work without Fluffy Work Tab installed.",
-                            SearchKeywords = FluffySearchKeywords,
+                            SearchKeywords = FluffySpecificJobsSearchKeywords,
                             Type = SettingType.Enum,
                             EnumType = typeof(BetterWorkTabSettings.SubWorkDrilldownStyle),
                             DefaultValue = DefaultSettings.subWorkDrilldownStyle,

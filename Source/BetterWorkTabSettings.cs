@@ -61,7 +61,7 @@ namespace Better_Work_Tab
 
         public static float workTabMaxHeight = -1f; // Legacy pixel cap; replaced by workTabMaxVisiblePawns.
         public static int workTabMaxVisiblePawns = -1; // -1 = use vanilla default (fill screen)
-        public static bool keepVanillaWorkTabMinimumWidth = false;
+        public static bool keepVanillaWorkTabMinimumWidth = true;
         public static float workTabTopSpace = 40f; // Vanilla MainTabWindow_Work.ExtraTopSpace
 
         public static bool enableSkillOverlayFeature = true;
@@ -413,6 +413,12 @@ namespace Better_Work_Tab
         public string activeTutorialLessonId = string.Empty;
         public int tutorialLessonPhase;
         public List<string> completedTutorialLessonIds = new List<string>();
+        internal int tutorialProgressSchemaVersion;
+        internal BWTTutorialCourse selectedTutorialCourse;
+        internal bool tutorialMigratedFromPublic105;
+        internal List<string> skippedTutorialLessonIds = new List<string>();
+        internal List<BWTTutorialLessonFeedback> tutorialLessonFeedback = new List<BWTTutorialLessonFeedback>();
+        internal string tutorialOverallFeedback = string.Empty;
         public bool useRuleBuilder2 = DefaultSettings.useRuleBuilder2;
         public bool showRuleBuilder2Tutorial = DefaultSettings.showRuleBuilder2Tutorial;
         public int ruleBuilder2TutorialStep = DefaultSettings.ruleBuilder2TutorialStep;
@@ -945,30 +951,15 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref activeTutorialLessonId, "activeTutorialLessonId", string.Empty);
             Scribe_Values.Look(ref tutorialLessonPhase, "tutorialLessonPhase", 0);
             Scribe_Collections.Look(ref completedTutorialLessonIds, "completedTutorialLessonIds", LookMode.Value);
+            Scribe_Values.Look(ref tutorialProgressSchemaVersion, "tutorialProgressSchemaVersion", 0);
+            Scribe_Values.Look(ref selectedTutorialCourse, "selectedTutorialCourse", BWTTutorialCourse.None);
+            Scribe_Values.Look(ref tutorialMigratedFromPublic105, "tutorialMigratedFromPublic105", false);
+            Scribe_Collections.Look(ref skippedTutorialLessonIds, "skippedTutorialLessonIds", LookMode.Value);
+            Scribe_Collections.Look(ref tutorialLessonFeedback, "tutorialLessonFeedback", LookMode.Deep);
+            Scribe_Values.Look(ref tutorialOverallFeedback, "tutorialOverallFeedback", string.Empty);
             if (completedTutorialLessonIds == null)
             {
                 completedTutorialLessonIds = new List<string>();
-            }
-
-            if (Scribe.mode == LoadSaveMode.LoadingVars)
-            {
-                int legacyGeneralStep = 0;
-                bool legacyShowBetaTutorial = false;
-                int legacyBetaStep = 0;
-                Scribe_Values.Look(ref legacyGeneralStep, "generalTutorialStep", 0);
-                Scribe_Values.Look(ref legacyShowBetaTutorial, "showBetaTutorial", false);
-                Scribe_Values.Look(ref legacyBetaStep, "betaTutorialStep", 0);
-                MigrateLegacyTutorialState(legacyGeneralStep, legacyShowBetaTutorial, legacyBetaStep);
-                if (tutorialFlowVersion < BWTGeneralTutorial.CurrentFlowVersion)
-                {
-                    // Present the corrected welcome once for saves created by an
-                    // earlier tutorial flow. Preserve completed lessons, but return
-                    // transient lesson ownership to the map after the welcome.
-                    tutorialFlowVersion = BWTGeneralTutorial.CurrentFlowVersion;
-                    tutorialWelcomeCompleted = false;
-                    activeTutorialLessonId = string.Empty;
-                    tutorialLessonPhase = 0;
-                }
             }
             Scribe_Values.Look(ref ruleBuilder2TutorialStep, "ruleBuilder2TutorialStep", DefaultSettings.ruleBuilder2TutorialStep);
 
@@ -1017,7 +1008,13 @@ namespace Better_Work_Tab
             }
 
             EnsureRuleBuilder2Rulesets();
-            BWT20SettingsMigration.ApplyIfNeeded(this, persistedKeys);
+            bool migratedSettings = BWT20SettingsMigration.ApplyIfNeeded(this, persistedKeys);
+            bool migratedFromPublic105 = migratedSettings &&
+                                          BWT20UpgradePolicy.IsPublic105SettingsDocument(persistedKeys);
+            if (Scribe.mode == LoadSaveMode.LoadingVars)
+            {
+                BWTTutorialProgressMigration.Apply(this, migratedFromPublic105);
+            }
             NormalizePrioritySettings();
             NormalizeWorkTabHeightSettings();
 
@@ -1100,68 +1097,6 @@ namespace Better_Work_Tab
         {
             BWTSettingsRegistry.EnsureInitialized();
             return SettingsScribe.ApplyPreferenceDefaults(this, BWTSettingsRegistry.Definitions);
-        }
-
-        private void MigrateLegacyTutorialState(
-            int legacyGeneralStep,
-            bool legacyShowBetaTutorial,
-            int legacyBetaStep)
-        {
-            if (!string.IsNullOrEmpty(activeTutorialLessonId) || completedTutorialLessonIds.Count > 0)
-            {
-                return;
-            }
-
-            if (legacyShowBetaTutorial)
-            {
-                showGeneralTutorial = true;
-                if (legacyBetaStep >= 85)
-                {
-                    TutorialProgressTransitions.Complete(
-                        completedTutorialLessonIds,
-                        BWTGeneralTutorial.HeaderSubWorkLesson);
-                }
-                if (legacyBetaStep >= 115)
-                {
-                    TutorialProgressTransitions.Complete(
-                        completedTutorialLessonIds,
-                        BWTGeneralTutorial.PriorityScheduleLesson);
-                }
-
-                activeTutorialLessonId = legacyBetaStep < 90
-                    ? BWTGeneralTutorial.HeaderSubWorkLesson
-                    : legacyBetaStep < 130
-                        ? BWTGeneralTutorial.PriorityScheduleLesson
-                        : string.Empty;
-                tutorialLessonPhase = 0;
-                return;
-            }
-
-            if (!showGeneralTutorial || legacyGeneralStep <= 5)
-            {
-                return;
-            }
-
-            if (legacyGeneralStep <= 20)
-                activeTutorialLessonId = BWTGeneralTutorial.PrioritySkillLesson;
-            else if (legacyGeneralStep <= 30)
-                activeTutorialLessonId = BWTGeneralTutorial.PawnMenuLesson;
-            else if (legacyGeneralStep <= 40)
-                activeTutorialLessonId = BWTGeneralTutorial.PawnDividerLesson;
-            else if (legacyGeneralStep <= 50)
-                activeTutorialLessonId = BWTGeneralTutorial.PawnAppearanceLesson;
-            else if (legacyGeneralStep <= 80)
-                activeTutorialLessonId = BWTGeneralTutorial.HeaderReorderLesson;
-            else if (legacyGeneralStep <= 90)
-                activeTutorialLessonId = BWTGeneralTutorial.HeaderGroupLesson;
-            else if (legacyGeneralStep <= 115)
-                activeTutorialLessonId = BWTGeneralTutorial.HeaderSubWorkLesson;
-            else if (legacyGeneralStep <= 125)
-                activeTutorialLessonId = BWTGeneralTutorial.PriorityScheduleLesson;
-            else
-                activeTutorialLessonId = string.Empty;
-
-            tutorialLessonPhase = 0;
         }
 
         private void EnsureLayoutPersistenceStateInitialized()

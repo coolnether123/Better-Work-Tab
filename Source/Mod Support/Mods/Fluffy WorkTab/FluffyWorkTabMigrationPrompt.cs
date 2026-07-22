@@ -13,6 +13,9 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
     internal static class FluffyWorkTabMigrationPrompt
     {
         private static bool _promptQueued;
+        private static bool _promptOpen;
+
+        internal static bool BlocksTutorialPresentation => _promptQueued || _promptOpen;
 
         internal static void QueueIfNeeded(
             GameComponent_BWTWorldSettings component,
@@ -53,6 +56,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                         : "BWT_FluffyMigration_HistoricalBody";
                 Action reviewSettings = () => Resolve(component, result, openSettings: true);
                 Action keepCurrentSetup = () => Resolve(component, result, openSettings: false);
+                _promptOpen = true;
 #if v0_18 || v0_17 || v0_16 || v0_15 || v0_14 || v0_13 || vAlpha4
                 Find.WindowStack.Add(new Dialog_MessageBox(
                     promptBodyKey.Translate(),
@@ -80,6 +84,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             FluffyWorkTabMigrationResult result,
             bool openSettings)
         {
+            _promptOpen = false;
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
             if (settings == null)
             {

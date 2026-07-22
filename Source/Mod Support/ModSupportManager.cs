@@ -1,6 +1,8 @@
 using Better_Work_Tab.Features.Rules;
 using RimWorld;
 using System.Collections.Generic;
+using System.Linq;
+using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using UnityEngine;
 using Verse;
 
@@ -52,6 +54,26 @@ namespace Better_Work_Tab.ModSupport
 
         public static void EnsureInitialized()
         {
+        }
+
+        public static IReadOnlyList<string> GetActiveModuleNames()
+        {
+            var names = new List<string>(_activeModules.Select(module => module.DisplayName));
+            if (FluffyWorkTabGateway.IsPresent) names.Add("Fluffy Work Tab");
+            AddIfActive(names, "Chronos Pointer", "CoolNether123.ChronosPointer", "CoolNether123.ChronosPointer.Legacy");
+            AddIfActive(names, "Clockwork", "jaskkro.workshift");
+            AddIfActive(names, "Complex Jobs", "FrozenSnowFox.ComplexJobs");
+            AddIfActive(names, "Work Manager", "lordkuper.workmanager");
+            AddIfActive(names, "Multiplayer", "rwmt.multiplayer");
+            return names.Distinct().ToArray();
+        }
+
+        private static void AddIfActive(List<string> names, string displayName, params string[] packageIds)
+        {
+            if (packageIds.Any(id => ModLister.GetActiveModWithIdentifier(id, ignorePostfix: true) != null))
+            {
+                names.Add(displayName);
+            }
         }
 
         public static void OnPawnTableRefresh(PawnTable table)

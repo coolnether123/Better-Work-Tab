@@ -6,6 +6,7 @@ using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.ModSupport;
+using Better_Work_Tab.ModSupport.Mods.ComplexJobs;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.Patches;
 using Better_Work_Tab.UI;
@@ -34,6 +35,49 @@ namespace Better_Work_Tab.UI.Settings
     /// </summary>
     public static class BWTSettingsRegistry
     {
+        private static readonly string[] SpecificJobSearchKeywords =
+        {
+            "individual jobs", "detailed jobs", "sub-jobs", "work givers",
+            "break down work type", "expand work column", "drill down",
+            "separate cooking jobs", "separate crafting jobs"
+        };
+
+        private static readonly string[] PriorityRangeSearchKeywords =
+        {
+            "more priorities", "priorities above 4", "extended priorities",
+            "priority 5", "priority 9", "max priority", "priority range", "priority colors"
+        };
+
+        private static readonly string[] HourlyPrioritySearchKeywords =
+        {
+            "hourly work", "day shift", "night shift", "schedule by time",
+            "different priority at night", "per-hour priorities", "timetable"
+        };
+
+        private static readonly string[] SkillDisplaySearchKeywords =
+        {
+            "show skills in work tab", "skill levels", "best worker", "best colonist",
+            "most skilled pawn", "shift overlay", "aptitude"
+        };
+
+        private static readonly string[] WorkTabLayoutSearchKeywords =
+        {
+            "tab size", "window size", "resize", "too wide", "too tall", "compact",
+            "shrink", "more pawn rows", "scrolling", "spacing above headers"
+        };
+
+        private static readonly string[] WorkHeaderSearchKeywords =
+        {
+            "column labels", "work labels", "rotated text", "header angle",
+            "overlapping text", "cramped headers", "header alignment", "vertical labels"
+        };
+
+        private static readonly string[] ReorderingSearchKeywords =
+        {
+            "sort pawns", "organize colonists", "pawn order", "work column order",
+            "move row", "move column", "rearrange jobs"
+        };
+
         private static List<SettingDefinition> _settings;
         private static SettingsHierarchy _hierarchy;
         private static bool _initialized;
@@ -78,6 +122,7 @@ namespace Better_Work_Tab.UI.Settings
             }
 
             ModSupportManager.EnsureInitialized();
+            ComplexJobsCompatibility.RegisterSettings();
             FluffyWorkTabGateway.RegisterSettings();
             ChronosPointerSupport.RegisterSettings();
             RegisterAllSettings();
@@ -420,6 +465,7 @@ namespace Better_Work_Tab.UI.Settings
                 FieldName = "enableSkillOverlayFeature",
                 Label = "Skill display",
                 Tooltip = "Show skill levels and best-pawn indicators in the Work tab. The options below control when each indicator appears.",
+                SearchKeywords = SkillDisplaySearchKeywords,
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.enableSkillOverlayFeature,
                 ControlsChildVisibility = true,
@@ -435,6 +481,7 @@ namespace Better_Work_Tab.UI.Settings
                 FieldName = "enableDragDropReordering",
                 Label = "Reorder rows and columns",
                 Tooltip = "Drag pawn rows and Work columns into a new order. Turning this off keeps the current order but prevents further dragging.",
+                SearchKeywords = ReorderingSearchKeywords,
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.enableDragDropReordering,
                 ControlsChildVisibility = true,
@@ -464,7 +511,8 @@ namespace Better_Work_Tab.UI.Settings
                 Id = FeaturesDividers,
                 FieldName = "enableDividers",
                 Label = "Dividers",
-                Tooltip = "Enable divider rows between pawns.",
+                Tooltip = "Add named divider rows to organize pawns into collapsible groups.",
+                SearchKeywords = new[] { "pawn groups", "organize colonists", "section", "separator", "collapse rows" },
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.enableDividers,
                 ControlsChildVisibility = true,
@@ -478,8 +526,13 @@ namespace Better_Work_Tab.UI.Settings
             {
                 Id = FeaturesAutoassign,
                 FieldName = "enableAutoAssignFeature",
-                Label = "Auto-Assign Rules",
-                Tooltip = "Enable the auto-assign ruleset system (buttons hidden when disabled).",
+                Label = "Automatic work assignments (rulesets)",
+                Tooltip = "Create reusable rules that assign work priorities from pawn skills, passions, capabilities, and other conditions.",
+                SearchKeywords = new[]
+                {
+                    "automatically assign work", "best pawn", "passions", "skills",
+                    "new colonist", "priority rules", "work manager"
+                },
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.enableAutoAssignFeature,
                 ControlsChildVisibility = true,
@@ -506,8 +559,13 @@ namespace Better_Work_Tab.UI.Settings
             {
                 Id = FeaturesWorkloads,
                 FieldName = "enableWorkloads",
-                Label = "Workloads",
-                Tooltip = "Enable workload controls (buttons hidden when disabled).",
+                Label = "Saved work-priority layouts (workloads)",
+                Tooltip = "Save the colony's current pawn work priorities as a named layout and restore it later.",
+                SearchKeywords = new[]
+                {
+                    "save priorities", "load priorities", "preset", "profile",
+                    "snapshot", "backup assignments", "work layout"
+                },
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.enableWorkloads,
                 ControlsChildVisibility = true,
@@ -536,6 +594,7 @@ namespace Better_Work_Tab.UI.Settings
                 FieldName = "enableSubWorkDrilldown",
                 Label = "Specific jobs",
                 Tooltip = "Open a Work column to set priorities for its individual jobs. Use the shortcut below on a Work header or cell; use it again, or press Escape, to return.",
+                SearchKeywords = SpecificJobSearchKeywords,
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.enableSubWorkDrilldown,
                 ControlsChildVisibility = true,
@@ -605,8 +664,9 @@ namespace Better_Work_Tab.UI.Settings
                 Id = SubWorkCompactPriorityBoxes,
                 ParentId = FeaturesSubWorkJobs,
                 FieldName = "useCompactSubWorkPriorityBoxes",
-                Label = "Compact Fluffy-style priority boxes",
-                Tooltip = "Use Fluffy's smaller 20-pixel boxes when specific jobs are expanded beside their Work type. BWT Focus View always keeps normal Work-priority sizing and appearance.",
+                Label = "Compact boxes in expanded view",
+                Tooltip = "Use smaller priority boxes when specific jobs expand beside their parent Work column. Focused full-tab view always uses normal-size boxes.",
+                SearchKeywords = new[] { "small cells", "narrow columns", "Fluffy layout", "compact priorities" },
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.useCompactSubWorkPriorityBoxes,
                 ShowInSimpleView = true,
@@ -618,8 +678,9 @@ namespace Better_Work_Tab.UI.Settings
                 Id = SubWorkGlobalVanillaPriorityBoxes,
                 ParentId = FeaturesSubWorkJobs,
                 FieldName = "useVanillaSubWorkGlobalPriorityBoxes",
-                Label = "Vanilla-style shared priority boxes",
-                Tooltip = "Draw the shared specific-job priority row with vanilla-style boxes. Turning this off uses Better Work Tab's compact boxes.",
+                Label = "Full-size boxes in the shared-priority row",
+                Tooltip = "Draw the priority boxes in the top shared-priority row at normal Work-cell size instead of using compact boxes.",
+                SearchKeywords = new[] { "top row", "global priority", "shared priority", "box size" },
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.useVanillaSubWorkGlobalPriorityBoxes,
                 ShowInSimpleView = true,
@@ -748,8 +809,9 @@ namespace Better_Work_Tab.UI.Settings
                 Id = SubWorkDisabledParentMode,
                 ParentId = FeaturesSubWorkJobs,
                 FieldName = "subWorkDisabledParentMode",
-                Label = "Disabled parent behavior",
-                Tooltip = "Controls what happens when a pawn has locked sub-work priorities but the parent work type is turned off. Parent Work Disables Sub-work keeps vanilla behavior; Locked Sub-work Overrides Parent lets locked sub-work jobs still run in singleplayer. Multiplayer always uses Parent Work Disables Sub-work to keep simulation deterministic.",
+                Label = "When the parent Work type is off",
+                Tooltip = "Choose whether locked specific-job priorities can still run when their parent Work type is disabled. Multiplayer always uses vanilla parent-disable behavior.",
+                SearchKeywords = new[] { "locked job", "disabled work", "job still run", "parent work off", "override parent" },
                 Type = SettingType.Enum,
                 EnumType = typeof(BetterWorkTabSettings.SubWorkDisabledParentMode),
                 DefaultValue = DefaultSettings.subWorkDisabledParentMode,
@@ -830,7 +892,7 @@ namespace Better_Work_Tab.UI.Settings
             Register(new SettingDefinition
             {
                 Id = FeaturesClicks,
-                Label = "Clicks & Shortcuts",
+                Label = "Mouse & shortcuts",
                 Type = SettingType.Header,
                 Tooltip = "Mouse and shortcut behavior for the Work tab.",
                 HeaderColor = new Color(0.7f, 0.75f, 0.9f),
@@ -844,8 +906,9 @@ namespace Better_Work_Tab.UI.Settings
             {
                 Id = PriorityHeader,
                 ParentId = FeaturesUiElements,
-                Label = "Priority Range",
+                Label = "Priority range",
                 Tooltip = "Controls which mod owns the manual priority range.",
+                SearchKeywords = PriorityRangeSearchKeywords,
                 Type = SettingType.Header,
                 HeaderColor = new Color(0.8f, 0.7f, 0.45f),
                 ShowInSimpleView = true,
@@ -858,7 +921,8 @@ namespace Better_Work_Tab.UI.Settings
                 ParentId = PriorityHeader,
                 FieldName = "priorityMode",
                 Label = "Priority mode",
-                Tooltip = "Auto keeps vanilla priorities unless a compatible max-priority mod or existing high priorities are detected. BetterWorkTab makes BWT own the expanded range.",
+                Tooltip = "Auto keeps RimWorld's normal 1-4 range unless another compatible mod or existing higher priorities require more. Better Work Tab lets BWT manage the expanded range.",
+                SearchKeywords = PriorityRangeSearchKeywords,
                 Type = SettingType.Enum,
                 EnumType = typeof(PriorityMode),
                 DefaultValue = DefaultSettings.priorityMode,
@@ -909,6 +973,7 @@ namespace Better_Work_Tab.UI.Settings
                 FieldName = "maxPriorityInt",
                 Label = "Maximum priority",
                 Tooltip = "Highest manual priority available when Better Work Tab manages the priority range.",
+                SearchKeywords = PriorityRangeSearchKeywords,
                 Type = SettingType.Int,
                 DefaultValue = DefaultSettings.maxPriority,
                 MinValue = BetterWorkTabSettings.MAX_PRIORITY_MINIMUM,
@@ -939,8 +1004,9 @@ namespace Better_Work_Tab.UI.Settings
                 Id = UiAutoDisabledPriorityMode,
                 ParentId = PriorityHeader,
                 FieldName = "autoDisabledPriorityMode",
-                Label = "Disabled work click",
-                Tooltip = "Priority Auto mode assigns when disabled work is turned back on.",
+                Label = "Priority when re-enabling work",
+                Tooltip = "Choose the priority assigned when you click disabled work back on in Auto priority mode.",
+                SearchKeywords = new[] { "turn work back on", "disabled cell", "re-enable", "click priority" },
                 Type = SettingType.Enum,
                 EnumType = typeof(BetterWorkTabSettings.AutoDisabledPriorityMode),
                 DefaultValue = DefaultSettings.autoDisabledPriorityMode,
@@ -962,8 +1028,9 @@ namespace Better_Work_Tab.UI.Settings
                 Id = UiTimePrioritySchedules,
                 ParentId = PriorityHeader,
                 FieldName = "enableTimePrioritySchedules",
-                Label = "Time priority schedules",
-                Tooltip = "Ctrl-click a work priority cell to edit its time-of-day priority schedule.",
+                Label = "Priorities by hour",
+                Tooltip = "Ctrl-click a work-priority cell to set different priorities by time of day.",
+                SearchKeywords = HourlyPrioritySearchKeywords,
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.enableTimePrioritySchedules,
                 ControlsChildVisibility = true,
@@ -1034,8 +1101,9 @@ namespace Better_Work_Tab.UI.Settings
                 Id = UiAutoDisabledPriorityFixedValue,
                 ParentId = PriorityHeader,
                 FieldName = "autoDisabledPriorityFixedValue",
-                Label = "Fixed click priority",
-                Tooltip = "Priority assigned when Auto disabled-work click behavior is fixed priority.",
+                Label = "Fixed re-enabled priority",
+                Tooltip = "Priority number used when the setting above is Fixed Priority.",
+                SearchKeywords = new[] { "turn work back on", "disabled cell", "re-enable", "click priority" },
                 Type = SettingType.Int,
                 DefaultValue = DefaultSettings.autoDisabledPriorityFixedValue,
                 MinValue = 1,
@@ -1340,8 +1408,9 @@ namespace Better_Work_Tab.UI.Settings
                 Id = HighlightsDisableBestPawn,
                 ParentId = FeaturesOverlay,
                 FieldName = "disableBestPawnHighlight",
-                Label = "Disable best-pawn highlight",
-                Tooltip = "Disable the green highlight for the best pawn in a work type.",
+                Label = "Hide best-pawn indicator",
+                Tooltip = "Hide the green marker that identifies the highest-skilled eligible pawn for each Work type.",
+                SearchKeywords = new[] { "best worker", "most skilled", "green box", "green outline" },
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.disableBestPawnHighlight,
                 ShowInSimpleView = false,
@@ -1482,8 +1551,9 @@ namespace Better_Work_Tab.UI.Settings
                 Id = LayoutDragColumnLineInset,
                 ParentId = FeaturesDragdrop,
                 FieldName = "columnInsertionLineInset",
-                Label = "Column Drag Line Top Offset (px)",
-                Tooltip = "Vertical offset measured up from the header bottom for the column insertion line. 0 = start at the content; increasing moves the line upward into the header (up to full header height).",
+                Label = "Column insertion-line height",
+                Tooltip = "How far the insertion line extends upward from the bottom of the Work header while dragging a column.",
+                SearchKeywords = new[] { "drag line", "drop position", "insertion marker" },
                 Type = SettingType.Int,
                 DefaultValue = DefaultSettings.columnInsertionLineInset,
                 MinValue = 0f,
@@ -1513,8 +1583,9 @@ namespace Better_Work_Tab.UI.Settings
                 Id = LayoutClickClose,
                 ParentId = AdvancedHeader,
                 FieldName = "disableLeftClickClose",
-                Label = "Keep Tab Open When Selecting Pawn",
-                Tooltip = "Left-clicking a pawn jumps to and selects it but keeps the Work tab open instead of closing (also stops closing on map clicks).",
+                Label = "Keep Work tab open after selecting a pawn",
+                Tooltip = "Selecting a pawn keeps the Work tab open. While enabled, clicks outside the tab also leave it open.",
+                SearchKeywords = new[] { "stay open", "don't close", "selecting colonist", "click outside", "map click" },
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.disableLeftClickClose,
                 ShowInSimpleView = false,
@@ -1526,14 +1597,25 @@ namespace Better_Work_Tab.UI.Settings
             {
                 Id = LayoutCloseOnMapClick,
                 FieldName = "closeOnMapClick",
-                Label = "Close on Map Click",
+                Label = "Close on map click",
                 Tooltip = "Close the Work tab when clicking on the map.",
+                SearchKeywords = new[] { "stay open", "don't close", "click outside", "map click" },
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.closeOnMapClick,
                 ShowInSimpleView = false,
                 ShowInAdvancedView = false,
                 SortOrder = 1021,
-                ParentId = FeaturesClicks
+                ParentId = FeaturesClicks,
+                Suppressions = new List<SettingSuppression>
+                {
+                    new SettingSuppression
+                    {
+                        When = settingsObj => ((BetterWorkTabSettings)settingsObj).disableLeftClickClose,
+                        Reason = _ => "Keeping the Work tab open overrides this option.",
+                        SuppressorSettingId = LayoutClickClose,
+                        LinkLabel = "Keep Work tab open"
+                    }
+                }
             });
 
             Register(new SettingDefinition
@@ -1556,7 +1638,7 @@ namespace Better_Work_Tab.UI.Settings
                 FieldName = nameof(BetterWorkTabSettings.keepVanillaWorkTabMinimumWidth),
                 Label = "Keep vanilla minimum width",
                 Tooltip = "Keep the Work tab at least as wide as RimWorld's normal Work tab to reduce distracting motion. Wider content may still expand the tab to the right. Turn this off to let compact layouts shrink the window.",
-                SearchKeywords = new[] { "window width", "resize", "shrink", "collapse", "compact" },
+                SearchKeywords = WorkTabLayoutSearchKeywords,
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.keepVanillaWorkTabMinimumWidth,
                 ShowInSimpleView = true,
@@ -1917,6 +1999,7 @@ namespace Better_Work_Tab.UI.Settings
                     FieldName = "hiddenWorktypes",
                     Label = "Hidden Work Types",
                     Tooltip = "Select work types to hide from the work tab. (Beta Testing Phase. Please reach out to discord with ideas for improving)",
+                    SearchKeywords = new[] { "hide column", "remove work column", "unwanted job", "show work type", "unhide" },
                     Type = SettingType.DropdownListAdder,
                     DropdownOptionsProvider = () => DefDatabase<WorkTypeDef>.AllDefsListForReading
                         .Where(wt => !settings.hiddenWorktypes.Contains(wt.defName))
@@ -2004,8 +2087,9 @@ namespace Better_Work_Tab.UI.Settings
                 Id = OverlayHoverCellOverlay,
                 ParentId = FeaturesOverlay,
                 FieldName = "showHoverCellOverlay",
-                Label = "Show Hover Cell Overlay",
-                Tooltip = "Show skill/priority info when hovering a cell (Shifted/Unshifted per above).",
+                Label = "Change cell display on hover",
+                Tooltip = "When enabled, hovering can emphasize either skill or priority in one cell or the whole column, according to the options below.",
+                SearchKeywords = new[] { "mouse over", "skill on hover", "priority on hover", "big skill number", "column hover" },
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.showHoverCellOverlay,
                 ShowInSimpleView = true,
@@ -2047,6 +2131,7 @@ namespace Better_Work_Tab.UI.Settings
                 FieldName = "Color_VeryLowSkill",
                 Label = "Shift-overlay skill number: levels 0-3",
                 Tooltip = "Text color of skill-level numbers from 0 through 3 shown while holding Shift. This does not change the cell background; RimWorld shades every cell by skill aptitude, including unassigned cells.",
+                SearchKeywords = new[] { "skill text", "shift numbers", "aptitude", "skill level color" },
                 Type = SettingType.Color,
                 DefaultValue = DefaultSettings.Color_VeryLowSkill,
                 ShowInSimpleView = false,
@@ -2061,6 +2146,7 @@ namespace Better_Work_Tab.UI.Settings
                 FieldName = "Color_LowSkill",
                 Label = "Shift-overlay skill number: levels 4-9",
                 Tooltip = "Text color of skill-level numbers from 4 through 9 shown while holding Shift. This does not change the cell background; RimWorld shades every cell by skill aptitude, including unassigned cells.",
+                SearchKeywords = new[] { "skill text", "shift numbers", "aptitude", "skill level color" },
                 Type = SettingType.Color,
                 DefaultValue = DefaultSettings.Color_LowSkill,
                 ShowInSimpleView = false,
@@ -2075,6 +2161,7 @@ namespace Better_Work_Tab.UI.Settings
                 FieldName = "Color_GoodLowSkill",
                 Label = "Shift-overlay skill number: levels 10-15",
                 Tooltip = "Text color of skill-level numbers from 10 through 15 shown while holding Shift. This does not change the cell background; RimWorld shades every cell by skill aptitude, including unassigned cells.",
+                SearchKeywords = new[] { "skill text", "shift numbers", "aptitude", "skill level color" },
                 Type = SettingType.Color,
                 DefaultValue = DefaultSettings.Color_GoodLowSkill,
                 ShowInSimpleView = false,
@@ -2089,6 +2176,7 @@ namespace Better_Work_Tab.UI.Settings
                 FieldName = "Color_ExcellentSkill",
                 Label = "Shift-overlay skill number: levels 16+",
                 Tooltip = "Text color of skill-level numbers at 16 or higher shown while holding Shift. This does not change the cell background; RimWorld shades every cell by skill aptitude, including unassigned cells.",
+                SearchKeywords = new[] { "skill text", "shift numbers", "aptitude", "skill level color" },
                 Type = SettingType.Color,
                 DefaultValue = DefaultSettings.Color_ExcellentSkill,
                 ShowInSimpleView = false,
@@ -2128,6 +2216,7 @@ namespace Better_Work_Tab.UI.Settings
                 FieldName = nameof(BetterWorkTabSettings.workTabMaxVisiblePawns),
                 Label = "Visible pawn rows",
                 Tooltip = "Caps the Work tab height by how many normal pawn rows are visible before scrolling. -1 keeps RimWorld's default full-screen-height behavior.",
+                SearchKeywords = WorkTabLayoutSearchKeywords,
                 Type = SettingType.NumericInt,
                 DefaultValue = DefaultSettings.workTabMaxVisiblePawns,
                 MinValue = -1f,
@@ -2143,8 +2232,9 @@ namespace Better_Work_Tab.UI.Settings
                 Id = LayoutWorkTabTopSpace,
                 ParentId = FeaturesUiElements,
                 FieldName = "workTabTopSpace",
-                Label = "Work Tab Top Space",
+                Label = "Space above Work headers",
                 Tooltip = "Controls the empty vertical space above the work headers, between the priority direction hint and the top of the header labels. 40px matches RimWorld's default.",
+                SearchKeywords = WorkTabLayoutSearchKeywords,
                 Type = SettingType.Float,
                 DefaultValue = DefaultSettings.workTabTopSpace,
                 MinValue = 0f,
@@ -2192,6 +2282,11 @@ namespace Better_Work_Tab.UI.Settings
                 FieldName = nameof(BetterWorkTabSettings.workGridRendererMode),
                 Label = "Work grid renderer",
                 Tooltip = "Auto uses BWT's optimized renderer when available and falls back safely. Vanilla always uses the game's native Work grid renderer. Both paths preserve vanilla visuals and interactions.",
+                SearchKeywords = new[]
+                {
+                    "lag", "FPS", "stutter", "slow work tab", "performance",
+                    "rendering", "compatibility", "vanilla grid", "optimized grid"
+                },
                 Type = SettingType.Enum,
                 EnumType = typeof(WorkGridRendererMode),
                 DefaultValue = DefaultSettings.workGridRendererMode,
@@ -2206,8 +2301,9 @@ namespace Better_Work_Tab.UI.Settings
                 Id = AutoassignViewMode,
                 ParentId = FeaturesAutoassign,
                 FieldName = "rulesetViewMode",
-                Label = "Ruleset Interface Mode",
-                Tooltip = "Choose between the new visual builder (Regular), the classic list (Raw), or show both options.",
+                Label = "Ruleset editor",
+                Tooltip = "Choose the visual builder, the classic list, or make both editor choices available.",
+                SearchKeywords = new[] { "visual builder", "classic list", "regular", "raw", "rule interface" },
                 Type = SettingType.Enum,
                 DefaultValue = DefaultSettings.rulesetViewMode,
                 EnumType = typeof(BetterWorkTabSettings.RulesetViewMode),
@@ -2235,8 +2331,8 @@ namespace Better_Work_Tab.UI.Settings
                 Id = RuleBuilder2Tutorial,
                 ParentId = RuleBuilder2Use,
                 FieldName = nameof(BetterWorkTabSettings.showRuleBuilder2Tutorial),
-                Label = "Show Rule Builder tutorial",
-                Tooltip = "Show the guided Rule Builder 2.0 tutorial when the builder opens.",
+                Label = "Show Rule Builder help",
+                Tooltip = "Show the introductory Rule Builder card and one-time suggestions hint.",
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.showRuleBuilder2Tutorial,
                 ShowInSimpleView = false,
@@ -2255,8 +2351,8 @@ namespace Better_Work_Tab.UI.Settings
             {
                 Id = RuleBuilder2TutorialReset,
                 ParentId = RuleBuilder2Use,
-                Label = "Reset Rule Builder tutorial",
-                Tooltip = "Restart the Rule Builder 2.0 tutorial from the first step.",
+                Label = "Reset Rule Builder help",
+                Tooltip = "Show the Rule Builder introduction again the next time the builder opens.",
                 Type = SettingType.Button,
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
@@ -2402,8 +2498,8 @@ namespace Better_Work_Tab.UI.Settings
                 Id = AdvancedHideAutoAssignBtn,
                 ParentId = FeaturesAutoassign,
                 FieldName = "hideAutoAssignButton",
-                Label = "Hide Auto-Assign Button",
-                Tooltip = "Hide the ruleset button (still accessible via Manager).",
+                Label = "Hide ruleset button",
+                Tooltip = "Hide the ruleset button from the Work tab footer.",
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.hideAutoAssignButton,
                 ShowInSimpleView = false,
@@ -2751,7 +2847,8 @@ namespace Better_Work_Tab.UI.Settings
                 Id = HeadersHeader,
                 Label = "Headers",
                 Type = SettingType.Header,
-                Tooltip = "Angled header settings.",
+                Tooltip = "Work-column label style, angle, color, and alignment.",
+                SearchKeywords = WorkHeaderSearchKeywords,
                 HeaderColor = new Color(0.7f, 0.7f, 0.9f),
                 ShowInSimpleView = true,
                 ShowInAdvancedView = true,
@@ -2784,6 +2881,7 @@ namespace Better_Work_Tab.UI.Settings
                 FieldName = "enableAngledHeaders",
                 Label = "Angled Work headers",
                 Tooltip = "Draw Work names at an angle to fit more columns. Turning this off uses vanilla-style headers and disables the moved-column marker.",
+                SearchKeywords = WorkHeaderSearchKeywords,
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.enableAngledHeaders,
                 ControlsChildVisibility = true,
@@ -2819,6 +2917,7 @@ namespace Better_Work_Tab.UI.Settings
                 FieldName = "angledHeaderRotation",
                 Label = "Angle rotation",
                 Tooltip = "Rotate the angled headers (-90 to 90 degrees). Snaps to 5-degree increments.",
+                SearchKeywords = WorkHeaderSearchKeywords,
                 Type = SettingType.Int,
                 DefaultValue = DefaultSettings.angledHeaderRotation,
                 MinValue = -90f,
@@ -2902,7 +3001,8 @@ namespace Better_Work_Tab.UI.Settings
                 ParentId = HeadersAngled,
                 FieldName = "angledHeaderHorizontalOffset",
                 Label = "Horizontal offset",
-                Tooltip = "Adjust the horizontal position of the angled headers. 0 = centered, 10 = Default. (Automatically forced to 0 at -90° for perfect alignment).",
+                Tooltip = "Adjust the horizontal position of angled headers. 0 is centered; 10 is the default. At -90°, the offset is automatically set to 0 for alignment.",
+                SearchKeywords = WorkHeaderSearchKeywords,
                 Type = SettingType.NumericInt,
                 DefaultValue = DefaultSettings.angledHeaderHorizontalOffset,
                 MinValue = -100f,
@@ -2925,7 +3025,7 @@ namespace Better_Work_Tab.UI.Settings
                 {
                     if (settingsObj is BetterWorkTabSettings settings)
                     {
-                        Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation("Are you sure you want to restore factory defaults? current settings will be lost.", () =>
+                        Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation("Restore every Better Work Tab setting to its default? Your current settings will be lost.", () =>
                         {
                             settings.RestoreDefaults();
                             WorkColumnOrderManager.ResetToVanilla();

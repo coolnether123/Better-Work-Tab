@@ -13,6 +13,7 @@ using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.DragDrop;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
+using Better_Work_Tab.ModSupport.Mods.WorkManager;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.PawnOrganizer.Data;
@@ -579,6 +580,7 @@ namespace Better_Work_Tab.UI
                 DrawContextSettingsHint(inRect);
             }
 
+            WorkManagerCompatibility.DrawControls(inRect);
             WorkTabColorPreviewRenderer.Draw(organizer?.Layout, inRect);
 
             bool mouseInside = !BWTWorkTabTutorial.OwnsCurrentPointer && Mouse.IsOver(inRect);
@@ -592,6 +594,11 @@ namespace Better_Work_Tab.UI
             DrawSubWorkExitButton(inRect);
             DrawBottomCounters(inRect, table);
             BWTWorkTabTutorial.TickAndDraw(inRect, organizer?.Layout);
+            if (BWTWorkTabTutorial.OwnsCurrentPointer && evt.type == EventType.Repaint)
+            {
+                Vector2 pointer = evt.mousePosition;
+                TooltipHandler.ClearTooltipsFrom(new Rect(pointer.x - 1f, pointer.y - 1f, 2f, 2f));
+            }
             NativeCursorPosition.ProcessPendingMove();
             NativeCursorPosition.DrawPendingMoveCue();
             Better_Work_Tab.Features.Testing.SubWorkTransitionPerfDiagnostics.RecordWorkTabRepaint();
@@ -2507,6 +2514,11 @@ namespace Better_Work_Tab.UI
 
                 if (row.Pawn != null && TryGetBodyColumnAt(layout, mousePosition, out var bodyColumn))
                 {
+                    if (bodyColumn.Column?.Worker is PawnColumnWorker_Label)
+                    {
+                        return BWTTutorialInteractionKind.PawnName;
+                    }
+
                     if (bodyColumn.Column?.Worker is PawnColumnWorker_WorkPriority)
                     {
                         return BWTTutorialInteractionKind.PriorityCell;
@@ -3865,6 +3877,7 @@ namespace Better_Work_Tab.UI
             Pawn highlightedPawn = HighlightState.GetHighlightedPawn();
             WorkTypeDef highlightedWorkType = HighlightState.GetHighlightedWorkType();
             WorkGiverDef highlightedWorkGiver = HighlightState.GetHighlightedWorkGiver();
+            bool floatMenuOpen = Find.WindowStack?.IsOpen<FloatMenu>() == true;
 
             // 2. Draw Horizontal Highlights (Rows)
             float currentY = 0f;
@@ -3883,7 +3896,10 @@ namespace Better_Work_Tab.UI
                     HighlightDrawer.DrawHighlight(rowRect, HighlightDrawer.GetFloatMenuColor());
                 }
 
-                if (settings.ShowCursorPawnAndWorktypeHighlight && !timePriorityOwnsMouse && Mouse.IsOver(rowRect))
+                if (settings.ShowCursorPawnAndWorktypeHighlight &&
+                    !timePriorityOwnsMouse &&
+                    !floatMenuOpen &&
+                    Mouse.IsOver(rowRect))
                 {
                     HighlightDrawer.DrawHighlight(rowRect, HighlightDrawer.GetRowHoverColor());
                 }
@@ -3904,7 +3920,7 @@ namespace Better_Work_Tab.UI
                     var descriptor = rowDescriptors[i];
                     Rect rowRect = new Rect(0f, currentY, totalWidth, descriptor.Height);
 
-                    if (descriptor.IsDivider && !timePriorityOwnsMouse && Mouse.IsOver(rowRect))
+                    if (descriptor.IsDivider && !timePriorityOwnsMouse && !floatMenuOpen && Mouse.IsOver(rowRect))
                     {
                         HighlightDrawer.DrawHighlight(rowRect, HighlightDrawer.GetRowHoverColor());
                     }
@@ -3937,6 +3953,7 @@ namespace Better_Work_Tab.UI
                 else if (isWorkColumn &&
                          settings.ShowCursorPawnAndWorktypeHighlight &&
                          !timePriorityOwnsMouse &&
+                         !floatMenuOpen &&
                          hoveredWorkType != null &&
                          hoveredWorkType == column.Column.workType)
                 {
@@ -4691,8 +4708,23 @@ namespace Better_Work_Tab.UI
             Text.Anchor = TextAnchor.UpperCenter;
             Text.Font = GameFont.Tiny;
             EnsureUiTextCache(WorkPrioritySystem.GetMaxPriority());
-            Widgets.Label(new Rect(370f, rect.y + 5f, 160f, 30f), _higherPriorityText);
-            Widgets.Label(new Rect(630f, rect.y + 5f, 160f, 30f), _lowerPriorityText);
+            Rect contextHintRect = GetContextSettingsHintRect(rect);
+            if (contextHintRect.width > 0f)
+            {
+                float legendLeft = rect.x + 370f;
+                float legendRight = contextHintRect.xMin - 8f;
+                float laneWidth = Mathf.Min(160f, Mathf.Max(0f, (legendRight - legendLeft) / 2f));
+                if (laneWidth >= 70f)
+                {
+                    Widgets.Label(new Rect(legendLeft, rect.y + 5f, laneWidth, 30f), _higherPriorityText);
+                    Widgets.Label(new Rect(legendLeft + laneWidth, rect.y + 5f, laneWidth, 30f), _lowerPriorityText);
+                }
+            }
+            else
+            {
+                Widgets.Label(new Rect(370f, rect.y + 5f, 160f, 30f), _higherPriorityText);
+                Widgets.Label(new Rect(630f, rect.y + 5f, 160f, 30f), _lowerPriorityText);
+            }
             GUI.color = Color.white;
             Text.Font = GameFont.Small;
             Text.Anchor = TextAnchor.UpperLeft;
@@ -4724,9 +4756,7 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
-            const float width = 230f;
-            float topRightReservedWidth = HeaderButtons.GetTopRightReservedWidth();
-            Rect hintRect = new Rect(inRect.xMax - width - 42f - topRightReservedWidth, inRect.y + 5f, width, 24f);
+            Rect hintRect = GetContextSettingsHintRect(inRect);
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.UpperRight;
             GUI.color = new Color(1f, 1f, 1f, 0.42f);
@@ -4734,6 +4764,23 @@ namespace Better_Work_Tab.UI
             GUI.color = Color.white;
             Text.Anchor = TextAnchor.UpperLeft;
             Text.Font = GameFont.Small;
+        }
+
+        private static Rect GetContextSettingsHintRect(Rect inRect)
+        {
+            var settings = BetterWorkTabMod.Settings;
+            if (!(settings?.enableUIElements ?? true) || !(settings?.showContextSettingsHint ?? true))
+            {
+                return Rect.zero;
+            }
+
+            const float width = 230f;
+            float topRightReservedWidth = HeaderButtons.GetTopRightReservedWidth();
+            return new Rect(
+                inRect.xMax - width - 42f - topRightReservedWidth,
+                inRect.y + 5f,
+                width,
+                24f);
         }
 
         private void DrawBottomRightButtons(IWorkTabLayoutController layout, Rect inRect, Rect gearRect)
@@ -5001,6 +5048,7 @@ namespace Better_Work_Tab.UI
         public override void PostClose()
         {
             base.PostClose();
+            BWTWorkTabTutorial.NotifyWorkTabClosed();
             // Clear float menu highlights when Work tab is closed
             HighlightState.ClearWorktypeHighlight();
             MouseStateManager.ClearHover();
