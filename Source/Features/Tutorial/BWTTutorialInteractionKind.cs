@@ -10,6 +10,7 @@ namespace Better_Work_Tab.Features.Tutorial
         SubWorkHeader,
         PriorityCell,
         TimePriorityCell,
+        PawnName,
         PawnRow,
         Divider,
         WorkloadButton,

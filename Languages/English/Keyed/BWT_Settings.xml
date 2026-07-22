@@ -38,9 +38,12 @@
     <BWT_Enum_WorkGridRendererMode_Auto_Description>Uses Better Work Tab's optimized renderer when its compatibility checks pass. If it fails or another mod requires native drawing, only the renderer is quarantined and the Work grid falls back to vanilla.</BWT_Enum_WorkGridRendererMode_Auto_Description>
     <BWT_Enum_WorkGridRendererMode_Optimized_Description>Requests Better Work Tab's optimized layered Work-grid renderer. Safety checks still contain failures and return the grid to vanilla instead of breaking the Work tab.</BWT_Enum_WorkGridRendererMode_Optimized_Description>
     <BWT_Enum_WorkGridRendererMode_Vanilla_Description>Always uses RimWorld's native Work-grid renderer. Better Work Tab's other enabled features remain available around that vanilla rendering path.</BWT_Enum_WorkGridRendererMode_Vanilla_Description>
-    <BWT_Enum_RulesetViewMode_Raw_Description>Shows the classic raw ruleset list for direct editing without the visual rule-builder interface.</BWT_Enum_RulesetViewMode_Raw_Description>
-    <BWT_Enum_RulesetViewMode_Regular_Description>Shows the guided visual rule builder as the ruleset interface.</BWT_Enum_RulesetViewMode_Regular_Description>
-    <BWT_Enum_RulesetViewMode_Both_Description>Makes both the visual rule builder and classic raw ruleset list available so the player can choose either workflow.</BWT_Enum_RulesetViewMode_Both_Description>
+    <BWT_Enum_RulesetViewMode_Raw>Classic list</BWT_Enum_RulesetViewMode_Raw>
+    <BWT_Enum_RulesetViewMode_Raw_Description>Shows the classic ruleset list for direct editing without the visual builder.</BWT_Enum_RulesetViewMode_Raw_Description>
+    <BWT_Enum_RulesetViewMode_Regular>Visual builder</BWT_Enum_RulesetViewMode_Regular>
+    <BWT_Enum_RulesetViewMode_Regular_Description>Shows the guided visual rule builder as the ruleset editor.</BWT_Enum_RulesetViewMode_Regular_Description>
+    <BWT_Enum_RulesetViewMode_Both>Both</BWT_Enum_RulesetViewMode_Both>
+    <BWT_Enum_RulesetViewMode_Both_Description>Makes both the visual rule builder and classic ruleset list available so the player can choose either workflow.</BWT_Enum_RulesetViewMode_Both_Description>
     <BWT_Enum_WorkTabOwnerPreference_BetterWorkTab_Description>Keeps Better Work Tab in control of the Work tab and its compatibility infrastructure.</BWT_Enum_WorkTabOwnerPreference_BetterWorkTab_Description>
     <BWT_Enum_WorkTabOwnerPreference_FluffyWorkTab_Description>Hands the Work tab to Fluffy's Work Tab while Better Work Tab contains its own conflicting presentation features.</BWT_Enum_WorkTabOwnerPreference_FluffyWorkTab_Description>
     <BWT_Settings_UI_NoResults>No settings match your search.</BWT_Settings_UI_NoResults>
@@ -121,8 +124,8 @@
     <BWT_Settings_layout.ctrlDrag>Require Ctrl for Dragging</BWT_Settings_layout.ctrlDrag>
     <BWT_Settings_layout.ctrlDrag_Tooltip>Hold Ctrl to drag rows/columns. Prevents accidental reordering.</BWT_Settings_layout.ctrlDrag_Tooltip>
     
-    <BWT_Settings_layout.clickClose>Keep Tab Open When Selecting Pawn</BWT_Settings_layout.clickClose>
-    <BWT_Settings_layout.clickClose_Tooltip>Left-clicking a pawn jumps and selects without closing the Work tab (also stops closing on map clicks).</BWT_Settings_layout.clickClose_Tooltip>
+    <BWT_Settings_layout.clickClose>Keep Work tab open after selecting a pawn</BWT_Settings_layout.clickClose>
+    <BWT_Settings_layout.clickClose_Tooltip>Selecting a pawn keeps the Work tab open. While enabled, clicks outside the tab also leave it open.</BWT_Settings_layout.clickClose_Tooltip>
     
     <BWT_Settings_layout.pawnCount>Show Colonist Count</BWT_Settings_layout.pawnCount>
     <BWT_Settings_layout.pawnCount_Tooltip>Display colonist count in the bottom-left corner.</BWT_Settings_layout.pawnCount_Tooltip>
@@ -149,21 +152,21 @@
     <BWT_Settings_overlay.bestPawnMode>Best Pawn Indicator</BWT_Settings_overlay.bestPawnMode>
     <BWT_Settings_overlay.bestPawnMode_Tooltip>When to highlight the pawn with highest skill.</BWT_Settings_overlay.bestPawnMode_Tooltip>
     
-    <BWT_Settings_overlay.hoverCellOverlay>Show Hover Cell Overlay</BWT_Settings_overlay.hoverCellOverlay>
-    <BWT_Settings_overlay.hoverCellOverlay_Tooltip>When holding Shift, show skill/priority info when hovering a cell. Disable to keep cells unchanged on hover.</BWT_Settings_overlay.hoverCellOverlay_Tooltip>
+    <BWT_Settings_overlay.hoverCellOverlay>Change cell display on hover</BWT_Settings_overlay.hoverCellOverlay>
+    <BWT_Settings_overlay.hoverCellOverlay_Tooltip>When enabled, hovering can emphasize either skill or priority in one cell or the whole column, according to the options below.</BWT_Settings_overlay.hoverCellOverlay_Tooltip>
     
     <!-- Color Settings -->
-    <BWT_Settings_colors.skillVeryLow>Very Low Skill (0-3)</BWT_Settings_colors.skillVeryLow>
-    <BWT_Settings_colors.skillVeryLow_Tooltip>Color for skills at level 0-3.</BWT_Settings_colors.skillVeryLow_Tooltip>
+    <BWT_Settings_colors.skillVeryLow>Shift skill-number color: levels 0-3</BWT_Settings_colors.skillVeryLow>
+    <BWT_Settings_colors.skillVeryLow_Tooltip>Text color for skill numbers shown while holding Shift. This does not change cell backgrounds.</BWT_Settings_colors.skillVeryLow_Tooltip>
     
-    <BWT_Settings_colors.skillLow>Low Skill (4-9)</BWT_Settings_colors.skillLow>
-    <BWT_Settings_colors.skillLow_Tooltip>Color for skills at level 4-9.</BWT_Settings_colors.skillLow_Tooltip>
+    <BWT_Settings_colors.skillLow>Shift skill-number color: levels 4-9</BWT_Settings_colors.skillLow>
+    <BWT_Settings_colors.skillLow_Tooltip>Text color for skill numbers shown while holding Shift. This does not change cell backgrounds.</BWT_Settings_colors.skillLow_Tooltip>
     
-    <BWT_Settings_colors.skillGood>Good Skill (10-15)</BWT_Settings_colors.skillGood>
-    <BWT_Settings_colors.skillGood_Tooltip>Color for skills at level 10-15.</BWT_Settings_colors.skillGood_Tooltip>
+    <BWT_Settings_colors.skillGood>Shift skill-number color: levels 10-15</BWT_Settings_colors.skillGood>
+    <BWT_Settings_colors.skillGood_Tooltip>Text color for skill numbers shown while holding Shift. This does not change cell backgrounds.</BWT_Settings_colors.skillGood_Tooltip>
     
-    <BWT_Settings_colors.skillExcellent>Excellent Skill (16+)</BWT_Settings_colors.skillExcellent>
-    <BWT_Settings_colors.skillExcellent_Tooltip>Color for skills at level 16+.</BWT_Settings_colors.skillExcellent_Tooltip>
+    <BWT_Settings_colors.skillExcellent>Shift skill-number color: levels 16+</BWT_Settings_colors.skillExcellent>
+    <BWT_Settings_colors.skillExcellent_Tooltip>Text color for skill numbers shown while holding Shift. This does not change cell backgrounds.</BWT_Settings_colors.skillExcellent_Tooltip>
     
     <BWT_Settings_colors.cursorHighlight>Cursor Highlight</BWT_Settings_colors.cursorHighlight>
     <BWT_Settings_colors.cursorHighlight_Tooltip>Color for hover/selection highlighting.</BWT_Settings_colors.cursorHighlight_Tooltip>
@@ -178,8 +181,8 @@
     <BWT_Settings_advanced.hideWorkloadBtn>Hide Workloads Button</BWT_Settings_advanced.hideWorkloadBtn>
     <BWT_Settings_advanced.hideWorkloadBtn_Tooltip>Hide the Workload button from the Work tab footer.</BWT_Settings_advanced.hideWorkloadBtn_Tooltip>
     
-    <BWT_Settings_advanced.hideAutoAssignBtn>Hide Auto-Assign Button</BWT_Settings_advanced.hideAutoAssignBtn>
-    <BWT_Settings_advanced.hideAutoAssignBtn_Tooltip>Hide the ruleset button (still accessible via Manager).</BWT_Settings_advanced.hideAutoAssignBtn_Tooltip>
+    <BWT_Settings_advanced.hideAutoAssignBtn>Hide ruleset button</BWT_Settings_advanced.hideAutoAssignBtn>
+    <BWT_Settings_advanced.hideAutoAssignBtn_Tooltip>Hide the ruleset button from the Work tab footer.</BWT_Settings_advanced.hideAutoAssignBtn_Tooltip>
     
     <BWT_Settings_advanced.debugLogging>Enable Debug Logging</BWT_Settings_advanced.debugLogging>
     <BWT_Settings_advanced.debugLogging_Tooltip>Output detailed debug messages to the log.</BWT_Settings_advanced.debugLogging_Tooltip>
@@ -199,8 +202,8 @@
     <BWT_Settings_highlights.resetColumnHoverColor>Reset Column Hover Color</BWT_Settings_highlights.resetColumnHoverColor>
     <BWT_Settings_highlights.resetColumnHoverColor_Tooltip>Reset column hover highlight to the general hover color.</BWT_Settings_highlights.resetColumnHoverColor_Tooltip>
 
-    <BWT_Settings_highlights.disableBestPawn>Disable Best Pawn Highlight</BWT_Settings_highlights.disableBestPawn>
-    <BWT_Settings_highlights.disableBestPawn_Tooltip>Disable the green highlight for the best pawn in a work type.</BWT_Settings_highlights.disableBestPawn_Tooltip>
+    <BWT_Settings_highlights.disableBestPawn>Hide best-pawn indicator</BWT_Settings_highlights.disableBestPawn>
+    <BWT_Settings_highlights.disableBestPawn_Tooltip>Hide the green marker that identifies the highest-skilled eligible pawn for each Work type.</BWT_Settings_highlights.disableBestPawn_Tooltip>
 
     <BWT_Settings_highlights.bestPawnBackground>Best Pawn Outline Thickness</BWT_Settings_highlights.bestPawnBackground>
     <BWT_Settings_highlights.bestPawnBackground_Tooltip>Adjust the thickness of the green outline for the best pawn in a work type.</BWT_Settings_highlights.bestPawnBackground_Tooltip>

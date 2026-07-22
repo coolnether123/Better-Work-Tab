@@ -4,6 +4,7 @@ using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.Headers.Angled;
+using Better_Work_Tab.UI.WorkGiverReassignments;
 using RimWorld;
 using Spine.UI.Tutorial;
 using UnityEngine;
@@ -29,9 +30,28 @@ namespace Better_Work_Tab.Features.Tutorial
 
             WorkTabLayoutRow? pawnRow = FindMiddleVisiblePawnRow(inRect, layout);
             WorkTabLayoutColumn? nameColumn = FindNameColumn(layout);
-            WorkTabLayoutColumn? workColumn = FindMiddleVisibleWorkColumn(inRect, layout, requireSkills: true) ??
-                                                    FindMiddleVisibleWorkColumn(inRect, layout, requireSkills: false);
-            TryImprovePriorityPair(inRect, layout, ref pawnRow, ref workColumn);
+            WorkTabLayoutColumn? headerColumn = FindMiddleVisibleWorkColumn(inRect, layout, requireSkills: true) ??
+                                                      FindMiddleVisibleWorkColumn(inRect, layout, requireSkills: false);
+            WorkTabLayoutColumn? priorityColumn = headerColumn;
+            TryImprovePriorityPair(inRect, layout, ref pawnRow, ref priorityColumn);
+            if (headerColumn.HasValue &&
+                priorityColumn.HasValue &&
+                IsSameColumn(headerColumn.Value, priorityColumn.Value))
+            {
+                WorkTabLayoutRow? alternateRow = pawnRow;
+                WorkTabLayoutColumn? alternateColumn = null;
+                TryImprovePriorityPair(
+                    inRect,
+                    layout,
+                    ref alternateRow,
+                    ref alternateColumn,
+                    headerColumn);
+                if (alternateRow.HasValue && alternateColumn.HasValue)
+                {
+                    pawnRow = alternateRow;
+                    priorityColumn = alternateColumn;
+                }
+            }
 
             if (pawnRow.HasValue && nameColumn.HasValue)
             {
@@ -48,16 +68,16 @@ namespace Better_Work_Tab.Features.Tutorial
                     pawnRow.Value.Pawn));
             }
 
-            if (workColumn.HasValue)
+            if (headerColumn.HasValue)
             {
-                WorkTabLayoutColumn column = workColumn.Value;
-                anchors.Add(GetRenderedHeaderAnchor(column));
+                WorkTabLayoutColumn column = headerColumn.Value;
+                anchors.Add(GetRenderedHeaderAnchor(column, layout));
             }
 
-            if (pawnRow.HasValue && workColumn.HasValue)
+            if (pawnRow.HasValue && priorityColumn.HasValue)
             {
                 WorkTabLayoutRow row = pawnRow.Value;
-                WorkTabLayoutColumn column = workColumn.Value;
+                WorkTabLayoutColumn column = priorityColumn.Value;
                 Rect rowRect = layout.GetScreenRect(row);
                 Rect cellRect = new Rect(column.HeaderRect.x, rowRect.y, column.Width, rowRect.height);
                 anchors.Add(new BWTTutorialAnchor(
@@ -167,7 +187,7 @@ namespace Better_Work_Tab.Features.Tutorial
                     continue;
                 }
 
-                BWTTutorialAnchor header = GetRenderedHeaderAnchor(column);
+                BWTTutorialAnchor header = GetRenderedHeaderAnchor(column, layout);
                 if (!header.Contains(pointer))
                 {
                     continue;
@@ -180,13 +200,12 @@ namespace Better_Work_Tab.Features.Tutorial
             return false;
         }
 
-        private static BWTTutorialAnchor GetRenderedHeaderAnchor(WorkTabLayoutColumn column)
+        private static BWTTutorialAnchor GetRenderedHeaderAnchor(
+            WorkTabLayoutColumn column,
+            IWorkTabLayoutController layout)
         {
             if ((BetterWorkTabMod.Settings?.enableAngledHeaders ?? false) &&
-                AngledHeaderController.TryGetVisualGeometry(
-                    column.Column?.workType,
-                    out _,
-                    out Vector2[] angledQuad))
+                TryGetAngledHeaderQuad(column, layout, out Vector2[] angledQuad))
             {
                 Vector2 center = Vector2.zero;
                 for (int i = 0; i < angledQuad.Length; i++)
@@ -241,11 +260,52 @@ namespace Better_Work_Tab.Features.Tutorial
                 workGiver: column.SubWorkGiver);
         }
 
+        private static bool TryGetAngledHeaderQuad(
+            WorkTabLayoutColumn column,
+            IWorkTabLayoutController layout,
+            out Vector2[] angledQuad)
+        {
+            WorkTypeDef workType = column.SubWorkParent ?? column.Column?.workType;
+            if (AngledHeaderController.TryGetVisualGeometry(workType, out _, out angledQuad))
+            {
+                return true;
+            }
+
+            // Hosted Fluffy-compatible columns are drawn by BWT's Work-tab host
+            // and do not populate the vanilla angled-header geometry cache.
+            // Recreate the same draw rectangle used by that renderer so the
+            // tutorial follows the visible label instead of its narrow column.
+            if (workType == null || layout?.Table == null)
+            {
+                angledQuad = null;
+                return false;
+            }
+
+            string label = column.SubWorkGiver != null
+                ? WorkGiverDisplayNameService.HeaderLabel(
+                    column.SubWorkGiver,
+                    WorkGiverHeaderLabelStyle.Standard)
+                : WorkTypeDisplayNameService.HeaderLabel(workType);
+            AngledHeaderCache.CachedTextMetrics metrics =
+                AngledHeaderCache.GetLabelTextMetrics(label);
+            Rect drawRect = MainTabWindow_BetterWork.GetHostedAngledHeaderDrawRect(
+                column,
+                column.HeaderRect,
+                metrics.Size,
+                metrics.IsCJKVertical,
+                layout.Table);
+            float cos = metrics.IsCJKVertical ? 1f : AngledLabelDrawer.CurrentRotCos;
+            float sin = metrics.IsCJKVertical ? 0f : AngledLabelDrawer.CurrentRotSin;
+            angledQuad = AngledHeaderCache.CalculateRotatedQuad(drawRect, cos, sin);
+            return angledQuad != null && angledQuad.Length >= 3;
+        }
+
         private static void TryImprovePriorityPair(
             Rect inRect,
             IWorkTabLayoutController layout,
             ref WorkTabLayoutRow? pawnRow,
-            ref WorkTabLayoutColumn? workColumn)
+            ref WorkTabLayoutColumn? workColumn,
+            WorkTabLayoutColumn? excludedColumn = null)
         {
             float rowTarget = pawnRow.HasValue
                 ? layout.GetScreenRect(pawnRow.Value).center.y
@@ -263,6 +323,7 @@ namespace Better_Work_Tab.Features.Tutorial
                 Rect header = column.HeaderRect;
                 if (!(column.Column?.Worker is PawnColumnWorker_WorkPriority) ||
                     workType == null ||
+                    (excludedColumn.HasValue && IsSameColumn(column, excludedColumn.Value)) ||
                     !IntersectsHorizontally(header, inRect))
                 {
                     continue;
@@ -297,6 +358,12 @@ namespace Better_Work_Tab.Features.Tutorial
                 pawnRow = bestRow;
                 workColumn = bestColumn;
             }
+        }
+
+        private static bool IsSameColumn(WorkTabLayoutColumn left, WorkTabLayoutColumn right)
+        {
+            return ReferenceEquals(left.Column, right.Column) &&
+                   left.SubWorkGiver == right.SubWorkGiver;
         }
 
         private static WorkTabLayoutRow? FindMiddleVisiblePawnRow(

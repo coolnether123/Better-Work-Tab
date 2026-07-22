@@ -2,7 +2,6 @@ using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.Testing;
 using Better_Work_Tab.DragDrop;
 using Better_Work_Tab.Features.TimePriority;
-using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI.Headers;
@@ -145,11 +144,10 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             TooltipHandler.TipRegion(rect, "Back to work types. Escape also works.");
             MouseoverSounds.DoRegion(rect);
 
-            float modeToggleWidth = FluffyWorkTabGateway.DrawSubWorkViewModeToggle(rect);
             Rect labelRect = new Rect(
                 rect.x + 30f,
                 rect.y,
-                Mathf.Max(0f, rect.width - 38f - modeToggleWidth),
+                Mathf.Max(0f, rect.width - 38f),
                 rect.height);
 
             Text.Anchor = TextAnchor.MiddleLeft;

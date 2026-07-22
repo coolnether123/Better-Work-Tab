@@ -14,5 +14,10 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             return (isCurrentlyActive && activeModPromptVersion < CurrentPromptVersion) ||
                 (hasSaveEvidence && savePromptVersion < CurrentPromptVersion);
         }
+
+        internal static bool AllowsTutorial(bool compatibilityPromptQueuedOrOpen)
+        {
+            return !compatibilityPromptQueuedOrOpen;
+        }
     }
 }
