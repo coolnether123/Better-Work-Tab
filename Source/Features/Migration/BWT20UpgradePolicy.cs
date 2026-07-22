@@ -23,6 +23,15 @@ namespace Better_Work_Tab.Features.Migration
                    persistedKeys.Contains(key);
         }
 
+        internal static bool IsPublic105SettingsDocument(HashSet<string> persistedKeys)
+        {
+            return persistedKeys != null &&
+                   persistedKeys.Count > 0 &&
+                   !persistedKeys.Contains("settingsSchemaVersion") &&
+                   !persistedKeys.Contains("useRuleBuilder2") &&
+                   !persistedKeys.Contains("enableSubWorkDrilldown");
+        }
+
         internal static bool ShouldOfferUpgrade(
             bool hasLegacySettings,
             int loadedWorldSchemaVersion)
