@@ -221,6 +221,9 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         internal const string MechWorkTabProviderId = "mech-work-tab";
         internal const string MechWorkTabDisplayName = "Mech Work Tab";
 
+        internal const string ClockworkProviderId = "clockwork";
+        internal const string ClockworkDisplayName = "Clockwork";
+
         internal const string PawnCentricWorkPrioritiesProviderId = "pawn-centric-work-priorities";
         internal const string PawnCentricWorkPrioritiesDisplayName = "Pawn Centric Work Priorities";
 
@@ -518,6 +521,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         {
             RegisterPriorityMasterProvider();
             RegisterMechWorkTabProvider();
+            RegisterClockworkProvider();
             RegisterPawnCentricWorkPrioritiesProvider();
 
             // Fluffy Work Tab owns its own type probes; the gateway registers it.
@@ -564,6 +568,20 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 FindStaticNumericReader("SM_MechTab.MechTabModSettings", "maxPriority", "MaxPriority"),
                 null,
                 70);
+        }
+
+        private static void RegisterClockworkProvider()
+        {
+            RegisterProvider(
+                PriorityProviderIntegrationCatalog.ClockworkProviderId,
+                PriorityProviderIntegrationCatalog.ClockworkDisplayName,
+                FindInstanceNumericReader(
+                    "WorkShift.Core.WorkShiftModBase",
+                    new[] { "Settings" },
+                    "WorkShift.Core.WorkShiftSettings",
+                    new[] { "maxPriorityLevels" }),
+                null,
+                60);
         }
 
         private static void RegisterPawnCentricWorkPrioritiesProvider()

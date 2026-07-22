@@ -22,6 +22,11 @@ namespace Better_Work_Tab.ModSupport
         private const string ModernPackageId = "CoolNether123.ChronosPointer";
         private const string LegacyPackageId = "CoolNether123.ChronosPointer.Legacy";
         private const int FailedResolveRetryFrames = 60;
+        private static readonly string[] ChronosSearchKeywords =
+        {
+            "Chronos Pointer", "daylight bar", "sun position", "current time",
+            "eclipse", "aurora", "hourly priorities"
+        };
 
         private static bool _resolved;
         private static int _nextResolveAttemptFrame;
@@ -284,6 +289,7 @@ namespace Better_Work_Tab.ModSupport
                         Id = CompatChronosPointerHeader,
                         Label = "Chronos Pointer integration (2 settings)",
                         Tooltip = "Optional Work-tab time-bar integration for Chronos Pointer.",
+                        SearchKeywords = ChronosSearchKeywords,
                         Type = SettingType.Header,
                         Suppressions = new System.Collections.Generic.List<SettingSuppression>
                         {
@@ -303,6 +309,7 @@ namespace Better_Work_Tab.ModSupport
                             FieldName = "enableChronosPointerTimePriorityIntegration",
                             Label = "Chronos Pointer time bar",
                             Tooltip = "When Chronos Pointer is loaded, draw its daylight/current-time bar above the Work tab time-priority hour numbers.",
+                            SearchKeywords = ChronosSearchKeywords,
                             Type = SettingType.Bool,
                             DefaultValue = DefaultSettings.enableChronosPointerTimePriorityIntegration,
                             ControlsChildVisibility = true,
@@ -316,6 +323,7 @@ namespace Better_Work_Tab.ModSupport
                             FieldName = "chronosPointerTimePriorityIncidentOverlay",
                             Label = "Chronos incident overlay",
                             Tooltip = "Allow Chronos Pointer to draw its incident colors, such as eclipses and auroras, on the Work tab time bar.",
+                            SearchKeywords = ChronosSearchKeywords,
                             Type = SettingType.Bool,
                             DefaultValue = DefaultSettings.chronosPointerTimePriorityIncidentOverlay,
                             ShowInSimpleView = false,

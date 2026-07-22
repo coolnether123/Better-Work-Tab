@@ -36,5 +36,10 @@ namespace Better_Work_Tab.Features.Tutorial
         {
             BWTGeneralTutorial.ObserveInteraction(interaction);
         }
+
+        internal static void NotifyWorkTabClosed()
+        {
+            BWTGeneralTutorial.NotifyWorkTabClosed();
+        }
     }
 }

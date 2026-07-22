@@ -113,6 +113,16 @@ namespace Better_Work_Tab.Features.Tutorial
                 {
                     Vector2 start = anchor.OutlinePoints[i];
                     Vector2 end = anchor.OutlinePoints[(i + 1) % anchor.OutlinePoints.Count];
+                    Vector2 direction = end - start;
+                    if (direction.sqrMagnitude > 0.001f)
+                    {
+                        // Widgets.DrawLine uses uncapped segments. Slightly
+                        // overlap adjacent segments so angled header corners
+                        // join cleanly instead of exposing pixel-sized gaps.
+                        Vector2 overlap = direction.normalized * (thickness * 0.5f);
+                        start -= overlap;
+                        end += overlap;
+                    }
                     Widgets.DrawLine(start, end, color, thickness);
                 }
 
