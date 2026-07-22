@@ -210,9 +210,9 @@ namespace Better_Work_Tab.Features.Tutorial
                 if (evt.type == EventType.MouseDown && evt.button == 0 &&
                     BWTTutorialGeometry.TryResolveAnchorAt(inRect, layout, evt.mousePosition, out BWTTutorialAnchor selected))
                 {
-                    return Selector.TryHandleAnchorInput(new[] { selected }, evt);
+                    return Selector.TryHandleSelectionInput(new[] { selected }, inRect, evt);
                 }
-                return Selector.TryHandleAnchorInput(anchors, evt);
+                return Selector.TryHandleSelectionInput(anchors, inRect, evt);
             }
             bool handled = Selector.TryHandleInput(
                 inRect,
@@ -598,6 +598,7 @@ namespace Better_Work_Tab.Features.Tutorial
             }
 
             Rect rootWorkBounds = OffsetRect(workBounds, rootOffset);
+            Rect rootWorkTabBounds = OffsetRect(inRect, rootOffset);
             Rect screenBounds = new Rect(0f, 0f, Verse.UI.screenWidth, Verse.UI.screenHeight);
             IDictionary<TutorialHubAnchor, BWTTutorialHubDefinition> hubs = BuildHubDefinitions();
             Find.WindowStack.ImmediateWindow(
@@ -620,6 +621,16 @@ namespace Better_Work_Tab.Features.Tutorial
                             T("BWT_Tutorial_SkipForNow"),
                             T("BWT_Tutorial_LeaveTutorial"),
                             out BWTTutorialSelectorAction action);
+                        if (!handled)
+                        {
+                            // The full-screen immediate window receives pointer events
+                            // before the Work tab. Own anchor selection here so a click
+                            // becomes a durable pin instead of expiring as hover grace.
+                            handled = Selector.TryHandleSelectionInput(
+                                rootAnchors,
+                                rootWorkTabBounds,
+                                evt);
+                        }
                         if (handled && action.Exit)
                         {
                             Pause();

@@ -95,6 +95,8 @@ namespace Better_Work_Tab.Features.Tutorial
         private float lastContextContentHeight;
         private string contextContentKey;
 
+        internal TutorialHubAnchor PinnedAnchor => pinnedAnchor;
+
         internal void Reset()
         {
             hover.Clear();
@@ -123,7 +125,10 @@ namespace Better_Work_Tab.Features.Tutorial
             contextContentKey = null;
         }
 
-        internal bool TryHandleAnchorInput(IList<BWTTutorialAnchor> anchors, Event evt)
+        internal bool TryHandleSelectionInput(
+            IList<BWTTutorialAnchor> anchors,
+            Rect workTabBounds,
+            Event evt)
         {
             if (anchors == null || evt == null || evt.type != EventType.MouseDown || evt.button != 0)
             {
@@ -133,6 +138,10 @@ namespace Better_Work_Tab.Features.Tutorial
             TutorialHubAnchor anchor = GetAnchorAt(anchors, evt.mousePosition);
             if (anchor == TutorialHubAnchor.None)
             {
+                if (!workTabBounds.Contains(evt.mousePosition))
+                {
+                    ClearPinnedSelection();
+                }
                 return false;
             }
 
