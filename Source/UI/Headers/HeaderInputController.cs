@@ -2,6 +2,7 @@ using UnityEngine;
 using Verse;
 using RimWorld;
 using Better_Work_Tab.DragDrop;
+using Better_Work_Tab.Features.Tutorial;
 
 namespace Better_Work_Tab.UI.Headers
 {
@@ -20,7 +21,9 @@ namespace Better_Work_Tab.UI.Headers
         /// <summary>
         /// Current mouse position in UI coordinates, cached once per frame.
         /// </summary>
-        public static Vector2 MousePosition => _cachedMousePos;
+        public static Vector2 MousePosition => BWTWorkTabTutorial.OwnsCurrentPointer
+            ? new Vector2(-10000f, -10000f)
+            : _cachedMousePos;
 
         /// <summary>
         /// The work type currently being hovered by the mouse, if any.

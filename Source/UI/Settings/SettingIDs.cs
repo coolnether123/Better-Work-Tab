@@ -137,6 +137,8 @@ namespace Better_Work_Tab.UI.Settings
         public const string SubWorkTransitionStyle = "subWorkJobs.transitionStyle";
         public const string SubWorkTransitionSpeed = "subWorkJobs.transitionSpeed";
         public const string SubWorkDisabledParentMode = "subWorkJobs.disabledParentMode";
+        public const string CompatComplexJobsHeader = "compat.complexJobs.header";
+        public const string CompatComplexJobsSubWorkMode = "compat.complexJobs.subWorkMode";
         public const string UiDragInstructions = "ui.dragInstructions";
         public const string UiContextSettingsHint = "ui.contextSettingsHint";
         public const string UiGeneralTutorial = "ui.generalTutorial";

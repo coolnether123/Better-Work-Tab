@@ -86,7 +86,7 @@ namespace Better_Work_Tab.PawnOrganizer
         private float _lastDividerHeight = DefaultDividerHeight;
         private int _lastColumnSignature;
         private int _lastHiddenWorktypesSignature;
-        private int _lastSubWorkSignature;
+        private int _publishedSubWorkSignature = int.MinValue;
         private int _lastTimePrioritySignature;
         private int _lastDividerAnimationSignature;
         private int _lastSubWorkLayoutSettingsSignature;
@@ -127,7 +127,18 @@ namespace Better_Work_Tab.PawnOrganizer
             if (ComputeHiddenWorktypesSignature() != _lastHiddenWorktypesSignature)
                 return true;
 
-            if (SubWorkDrilldownState.LayoutSignature != _lastSubWorkSignature)
+            if (SubWorkDrilldownState.LayoutSignature != _publishedSubWorkSignature)
+                return true;
+
+            // Transition input can change focused-mode state more than once inside a
+            // single IMGUI cycle. Guard the published geometry independently so an
+            // incomplete transition cannot leave the previous pinned band in place.
+            // Treat that mismatch as authoritative evidence that the layout is stale.
+            float expectedSubWorkPinnedHeight = SubWorkDrilldownState.HasAnyDrilldown
+                ? SubWorkDrilldownState.GlobalRowReservedHeight
+                : 0f;
+            if (_geometrySnapshot != null &&
+                !Approximately(_geometrySnapshot.SubWorkPinnedHeight, expectedSubWorkPinnedHeight))
                 return true;
 
             if (TimePriorityScheduleEditor.LayoutSignature != _lastTimePrioritySignature)
@@ -194,7 +205,6 @@ namespace Better_Work_Tab.PawnOrganizer
             _lastDividerHeight = BetterWorkTabMod.Settings?.dividerHeight ?? DefaultDividerHeight;
             _lastColumnSignature = ComputeColumnSignature(table);
             _lastHiddenWorktypesSignature = ComputeHiddenWorktypesSignature();
-            _lastSubWorkSignature = SubWorkDrilldownState.LayoutSignature;
             _lastTimePrioritySignature = TimePriorityScheduleEditor.LayoutSignature;
             _lastDividerAnimationSignature = ComputeDividerAnimationSignature();
             _lastSubWorkLayoutSettingsSignature = ComputeSubWorkLayoutSettingsSignature();
@@ -475,6 +485,7 @@ namespace Better_Work_Tab.PawnOrganizer
 
                 try
                 {
+                    int buildSubWorkSignature = SubWorkDrilldownState.LayoutSignature;
                     ReleaseRowsToPool();
                     _table = table;
                     _origin = origin;
@@ -514,6 +525,7 @@ namespace Better_Work_Tab.PawnOrganizer
                     _rowDescriptorsDirty = true;
                     _layoutRevision++;
                     PublishGeometrySnapshot();
+                    _publishedSubWorkSignature = buildSubWorkSignature;
                     EnsureTableFresh();
                 }
                 catch (Exception ex)
@@ -806,6 +818,7 @@ namespace Better_Work_Tab.PawnOrganizer
                 _geometrySnapshot = null;
                 _geometryRows.Clear();
                 _geometryColumns.Clear();
+                _publishedSubWorkSignature = int.MinValue;
                 _isDirty = true;
             }
         }

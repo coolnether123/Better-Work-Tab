@@ -408,6 +408,12 @@ namespace Better_Work_Tab
         public string activeTutorialLessonId = string.Empty;
         public int tutorialLessonPhase;
         public List<string> completedTutorialLessonIds = new List<string>();
+        internal int tutorialProgressSchemaVersion;
+        internal BWTTutorialCourse selectedTutorialCourse;
+        internal bool tutorialMigratedFromPublic105;
+        internal List<string> skippedTutorialLessonIds = new List<string>();
+        internal List<BWTTutorialLessonFeedback> tutorialLessonFeedback = new List<BWTTutorialLessonFeedback>();
+        internal string tutorialOverallFeedback = string.Empty;
         public bool useRuleBuilder2 = DefaultSettings.useRuleBuilder2;
         public bool showRuleBuilder2Tutorial = DefaultSettings.showRuleBuilder2Tutorial;
         public int ruleBuilder2TutorialStep = DefaultSettings.ruleBuilder2TutorialStep;
@@ -939,6 +945,12 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref activeTutorialLessonId, "activeTutorialLessonId", string.Empty);
             Scribe_Values.Look(ref tutorialLessonPhase, "tutorialLessonPhase", 0);
             Scribe_Collections.Look(ref completedTutorialLessonIds, "completedTutorialLessonIds", LookMode.Value);
+            Scribe_Values.Look(ref tutorialProgressSchemaVersion, "tutorialProgressSchemaVersion", 0);
+            Scribe_Values.Look(ref selectedTutorialCourse, "selectedTutorialCourse", BWTTutorialCourse.None);
+            Scribe_Values.Look(ref tutorialMigratedFromPublic105, "tutorialMigratedFromPublic105", false);
+            Scribe_Collections.Look(ref skippedTutorialLessonIds, "skippedTutorialLessonIds", LookMode.Value);
+            Scribe_Collections.Look(ref tutorialLessonFeedback, "tutorialLessonFeedback", LookMode.Deep);
+            Scribe_Values.Look(ref tutorialOverallFeedback, "tutorialOverallFeedback", string.Empty);
             if (completedTutorialLessonIds == null)
             {
                 completedTutorialLessonIds = new List<string>();
@@ -1011,7 +1023,13 @@ namespace Better_Work_Tab
             }
 
             EnsureRuleBuilder2Rulesets();
-            BWT20SettingsMigration.ApplyIfNeeded(this, persistedKeys);
+            bool migratedSettings = BWT20SettingsMigration.ApplyIfNeeded(this, persistedKeys);
+            bool migratedFromPublic105 = migratedSettings &&
+                                          BWT20UpgradePolicy.IsPublic105SettingsDocument(persistedKeys);
+            if (Scribe.mode == LoadSaveMode.LoadingVars)
+            {
+                BWTTutorialProgressMigration.Apply(this, migratedFromPublic105);
+            }
             NormalizePrioritySettings();
             NormalizeWorkTabHeightSettings();
 

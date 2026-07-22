@@ -186,7 +186,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
             // Build the quad centered on the pivot for accurate collision detection.
             float effectiveCos = isCJKVertical ? 1f : cos;
             float effectiveSin = isCJKVertical ? 0f : sin;
-            Vector2[] quad = CalculateRotatedQuad(pivot, drawWidth, size.y, effectiveCos, effectiveSin);
+            Vector2[] quad = CalculateRotatedQuad(drawRect, effectiveCos, effectiveSin);
 
             cached = new CachedHeaderData
             {
@@ -377,6 +377,11 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 pivot.y - drawRect.height / 2f,
                 drawRect.width,
                 drawRect.height);
+        }
+
+        internal static Vector2[] CalculateRotatedQuad(Rect drawRect, float cos, float sin)
+        {
+            return CalculateRotatedQuad(drawRect.center, drawRect.width, drawRect.height, cos, sin);
         }
 
         private static Vector2[] CalculateRotatedQuad(Vector2 pivot, float labelWidth, float textHeight, float cos, float sin)

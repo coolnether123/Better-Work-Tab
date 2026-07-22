@@ -140,6 +140,12 @@
     <Compile Include="Features\Tutorial\BWTTutorialAnchor.cs" />
     <Compile Include="Features\Tutorial\BWTTutorialSelector.cs" />
     <Compile Include="Features\Tutorial\BWTGeneralTutorial.cs" />
+    <Compile Include="Features\Tutorial\Window_BWTFluffyTutorial.cs" />
+    <Compile Include="Features\Tutorial\Window_BWTTutorialReview.cs" />
+    <Compile Include="Features\Tutorial\BWTTutorialProgressMigration.cs" />
+    <Compile Include="Features\Tutorial\BWTTutorialReportFormatter.cs" />
+    <Compile Include="Features\Tutorial\BWTTutorialFeedback.cs" />
+    <Compile Include="Features\Tutorial\BWTTutorialLessonCatalog.cs" />
     <Compile Include="Features\Migration\BWT20UpgradePrompt.cs" />
     <Compile Include="Features\Migration\BWT20UpgradePolicy.cs" />
     <Compile Include="Features\Migration\BWT20SettingsMigration.cs" />
@@ -182,7 +188,10 @@
     <Compile Include="Mod Support\ModSupportManager.cs" />
     <Compile Include="Mod Support\ModSupportModuleBase.cs" />
     <Compile Include="Mod Support\Mods\Chronos Pointer\ChronosPointerSupport.cs" />
+    <Compile Include="Mod Support\Mods\Clockwork\ClockworkCompatibility.cs" />
+    <Compile Include="Mod Support\Mods\Complex Jobs\ComplexJobsCompatibility.cs" />
     <Compile Include="Mod Support\Mods\Do Once\DoOnceSupport.cs" />
+    <Compile Include="Mod Support\Mods\Work Manager\WorkManagerCompatibility.cs" />
     <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabAssets.cs" />
     <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabCoexistence.cs" />
     <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabCoexistenceUI.cs" />

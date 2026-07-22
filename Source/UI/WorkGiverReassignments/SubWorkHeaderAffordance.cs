@@ -333,6 +333,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 // rotates in root GUI space. Using rect.center directly rotates around a point
                 // hundreds of pixels above the actual header and sends the affordance onto the
                 // map. Match AngledLabelDrawer by converting the pivot to root coordinates.
+                GUI.matrix = Matrix4x4.identity;
                 Vector2 rootPivot = GUIClipUtility.Unclip(rect.center);
                 GUI.matrix = AngledLabelDrawer.GetTransformMatrix(
                     oldMatrix,
