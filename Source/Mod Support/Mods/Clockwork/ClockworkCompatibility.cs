@@ -25,7 +25,7 @@ namespace Better_Work_Tab.ModSupport.Mods.Clockwork
         private static bool initialized;
 
         internal static bool IsPresent =>
-            ModLister.GetActiveModWithIdentifier(PackageId, ignorePostfix: true) != null;
+            ModSupportManager.IsModActive(PackageId);
 
         internal static void Initialize(Harmony harmony)
         {
