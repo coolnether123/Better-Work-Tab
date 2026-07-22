@@ -23,7 +23,7 @@ namespace Better_Work_Tab.ModSupport.Mods.WorkManager
         private static Action<Rect> drawControls;
 
         internal static bool IsPresent =>
-            ModLister.GetActiveModWithIdentifier(PackageId, ignorePostfix: true) != null;
+            ModSupportManager.IsModActive(PackageId);
 
         internal static void DrawControls(Rect workTabRect)
         {
@@ -72,10 +72,9 @@ namespace Better_Work_Tab.ModSupport.Mods.WorkManager
                 null);
             if (postfix == null)
             {
-                Log.WarningOnce(
+                Log.Warning(
                     "[Better Work Tab] Work Manager is active, but its Work-tab control drawer was not found. " +
-                    "Per-column automation remains available.",
-                    0x42574D48);
+                    "Per-column automation remains available.");
                 return false;
             }
 
@@ -85,10 +84,9 @@ namespace Better_Work_Tab.ModSupport.Mods.WorkManager
             }
             catch (Exception exception)
             {
-                Log.WarningOnce(
+                Log.Warning(
                     "[Better Work Tab] Work Manager's control drawer could not be connected: " +
-                    exception.Message,
-                    0x42574D49);
+                    exception.Message);
             }
 
             return drawControls != null;
