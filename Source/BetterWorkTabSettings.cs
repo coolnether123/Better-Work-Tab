@@ -61,7 +61,7 @@ namespace Better_Work_Tab
 
         public static float workTabMaxHeight = -1f; // Legacy pixel cap; replaced by workTabMaxVisiblePawns.
         public static int workTabMaxVisiblePawns = -1; // -1 = use vanilla default (fill screen)
-        public static bool keepVanillaWorkTabMinimumWidth = false;
+        public static bool keepVanillaWorkTabMinimumWidth = true;
         public static float workTabTopSpace = 40f; // Vanilla MainTabWindow_Work.ExtraTopSpace
 
         public static bool enableSkillOverlayFeature = true;

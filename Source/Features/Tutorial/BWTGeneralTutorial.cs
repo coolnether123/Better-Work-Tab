@@ -184,9 +184,24 @@ namespace Better_Work_Tab.Features.Tutorial
 
             if (presentation == TutorialPresentation.Lesson)
             {
-                // The screen-level lesson window owns its card input. Work-tab
-                // interactions remain available everywhere outside that card.
-                return false;
+                Vector2 rootOffset = GUIClipUtility.Unclip(Vector2.zero);
+                Rect rootWorkBounds = OffsetRect(workBounds, rootOffset);
+                BWTTutorialAnchor rootAnchor = ResolveLessonDisplayAnchor(
+                    anchors,
+                    settings.activeTutorialLessonId,
+                    settings.tutorialLessonPhase).OffsetBy(rootOffset);
+                string body = GetLessonBody(
+                    settings.activeTutorialLessonId,
+                    settings.tutorialLessonPhase);
+                LessonLayout localLayout = BuildLessonLayout(
+                    new Rect(0f, 0f, Verse.UI.screenWidth, Verse.UI.screenHeight),
+                    rootWorkBounds,
+                    rootAnchor,
+                    body).OffsetBy(-rootOffset);
+                return TryHandleLessonCardInput(
+                    localLayout,
+                    settings.activeTutorialLessonId,
+                    evt);
             }
 
             IDictionary<TutorialHubAnchor, BWTTutorialHubDefinition> hubs = BuildHubDefinitions();
@@ -294,6 +309,60 @@ namespace Better_Work_Tab.Features.Tutorial
                    type == EventType.MouseMove ||
                    type == EventType.MouseDrag ||
                    type == EventType.ScrollWheel;
+        }
+
+        private static bool TryHandleLessonCardInput(
+            LessonLayout layout,
+            string lessonId,
+            Event evt)
+        {
+            if (evt == null ||
+                evt.type == EventType.Layout ||
+                evt.type == EventType.Repaint ||
+                !layout.CardRect.Contains(evt.mousePosition))
+            {
+                return false;
+            }
+
+            if (evt.type == EventType.ScrollWheel && layout.BodyRect.Contains(evt.mousePosition))
+            {
+                float maximumScroll = Mathf.Max(
+                    0f,
+                    layout.BodyViewRect.height - layout.BodyRect.height);
+                lessonScrollPosition.y = Mathf.Clamp(
+                    lessonScrollPosition.y + evt.delta.y * 22f,
+                    0f,
+                    maximumScroll);
+                evt.Use();
+                return true;
+            }
+
+            if (evt.type == EventType.MouseDown && evt.button == 0)
+            {
+                if (layout.BackRect.Contains(evt.mousePosition))
+                {
+                    ReturnToSelection();
+                }
+                else if (layout.SkipRect.Contains(evt.mousePosition))
+                {
+                    SkipLesson(lessonId);
+                }
+                else if (layout.PauseRect.Contains(evt.mousePosition))
+                {
+                    Pause();
+                }
+
+                evt.Use();
+                return true;
+            }
+
+            if (IsPointerEvent(evt.type))
+            {
+                evt.Use();
+                return true;
+            }
+
+            return false;
         }
 
         internal static bool TryHandleAcceptKey()
@@ -505,44 +574,7 @@ namespace Better_Work_Tab.Features.Tutorial
                 () =>
                 {
                     Event evt = Event.current;
-                    if (evt != null &&
-                        evt.type != EventType.Layout &&
-                        evt.type != EventType.Repaint &&
-                        localLayout.CardRect.Contains(evt.mousePosition))
-                    {
-                        if (evt.type == EventType.ScrollWheel && localLayout.BodyRect.Contains(evt.mousePosition))
-                        {
-                            float maximumScroll = Mathf.Max(
-                                0f,
-                                localLayout.BodyViewRect.height - localLayout.BodyRect.height);
-                            lessonScrollPosition.y = Mathf.Clamp(
-                                lessonScrollPosition.y + evt.delta.y * 22f,
-                                0f,
-                                maximumScroll);
-                            evt.Use();
-                        }
-                        else if (evt.type == EventType.MouseDown && evt.button == 0)
-                        {
-                            if (localLayout.BackRect.Contains(evt.mousePosition))
-                            {
-                                ReturnToSelection();
-                            }
-                            else if (localLayout.SkipRect.Contains(evt.mousePosition))
-                            {
-                                SkipLesson(lessonId);
-                            }
-                            else if (localLayout.PauseRect.Contains(evt.mousePosition))
-                            {
-                                Pause();
-                            }
-
-                            evt.Use();
-                        }
-                        else if (IsPointerEvent(evt.type))
-                        {
-                            evt.Use();
-                        }
-                    }
+                    TryHandleLessonCardInput(localLayout, lessonId, evt);
 
                     DrawLessonCard(localLayout, lessonId, body);
                 },

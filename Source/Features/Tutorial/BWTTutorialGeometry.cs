@@ -30,9 +30,28 @@ namespace Better_Work_Tab.Features.Tutorial
 
             WorkTabLayoutRow? pawnRow = FindMiddleVisiblePawnRow(inRect, layout);
             WorkTabLayoutColumn? nameColumn = FindNameColumn(layout);
-            WorkTabLayoutColumn? workColumn = FindMiddleVisibleWorkColumn(inRect, layout, requireSkills: true) ??
-                                                    FindMiddleVisibleWorkColumn(inRect, layout, requireSkills: false);
-            TryImprovePriorityPair(inRect, layout, ref pawnRow, ref workColumn);
+            WorkTabLayoutColumn? headerColumn = FindMiddleVisibleWorkColumn(inRect, layout, requireSkills: true) ??
+                                                      FindMiddleVisibleWorkColumn(inRect, layout, requireSkills: false);
+            WorkTabLayoutColumn? priorityColumn = headerColumn;
+            TryImprovePriorityPair(inRect, layout, ref pawnRow, ref priorityColumn);
+            if (headerColumn.HasValue &&
+                priorityColumn.HasValue &&
+                IsSameColumn(headerColumn.Value, priorityColumn.Value))
+            {
+                WorkTabLayoutRow? alternateRow = pawnRow;
+                WorkTabLayoutColumn? alternateColumn = null;
+                TryImprovePriorityPair(
+                    inRect,
+                    layout,
+                    ref alternateRow,
+                    ref alternateColumn,
+                    headerColumn);
+                if (alternateRow.HasValue && alternateColumn.HasValue)
+                {
+                    pawnRow = alternateRow;
+                    priorityColumn = alternateColumn;
+                }
+            }
 
             if (pawnRow.HasValue && nameColumn.HasValue)
             {
@@ -49,16 +68,16 @@ namespace Better_Work_Tab.Features.Tutorial
                     pawnRow.Value.Pawn));
             }
 
-            if (workColumn.HasValue)
+            if (headerColumn.HasValue)
             {
-                WorkTabLayoutColumn column = workColumn.Value;
+                WorkTabLayoutColumn column = headerColumn.Value;
                 anchors.Add(GetRenderedHeaderAnchor(column, layout));
             }
 
-            if (pawnRow.HasValue && workColumn.HasValue)
+            if (pawnRow.HasValue && priorityColumn.HasValue)
             {
                 WorkTabLayoutRow row = pawnRow.Value;
-                WorkTabLayoutColumn column = workColumn.Value;
+                WorkTabLayoutColumn column = priorityColumn.Value;
                 Rect rowRect = layout.GetScreenRect(row);
                 Rect cellRect = new Rect(column.HeaderRect.x, rowRect.y, column.Width, rowRect.height);
                 anchors.Add(new BWTTutorialAnchor(
@@ -285,7 +304,8 @@ namespace Better_Work_Tab.Features.Tutorial
             Rect inRect,
             IWorkTabLayoutController layout,
             ref WorkTabLayoutRow? pawnRow,
-            ref WorkTabLayoutColumn? workColumn)
+            ref WorkTabLayoutColumn? workColumn,
+            WorkTabLayoutColumn? excludedColumn = null)
         {
             float rowTarget = pawnRow.HasValue
                 ? layout.GetScreenRect(pawnRow.Value).center.y
@@ -303,6 +323,7 @@ namespace Better_Work_Tab.Features.Tutorial
                 Rect header = column.HeaderRect;
                 if (!(column.Column?.Worker is PawnColumnWorker_WorkPriority) ||
                     workType == null ||
+                    (excludedColumn.HasValue && IsSameColumn(column, excludedColumn.Value)) ||
                     !IntersectsHorizontally(header, inRect))
                 {
                     continue;
@@ -337,6 +358,12 @@ namespace Better_Work_Tab.Features.Tutorial
                 pawnRow = bestRow;
                 workColumn = bestColumn;
             }
+        }
+
+        private static bool IsSameColumn(WorkTabLayoutColumn left, WorkTabLayoutColumn right)
+        {
+            return ReferenceEquals(left.Column, right.Column) &&
+                   left.SubWorkGiver == right.SubWorkGiver;
         }
 
         private static WorkTabLayoutRow? FindMiddleVisiblePawnRow(

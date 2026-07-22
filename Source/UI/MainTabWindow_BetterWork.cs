@@ -594,6 +594,11 @@ namespace Better_Work_Tab.UI
             DrawSubWorkExitButton(inRect);
             DrawBottomCounters(inRect, table);
             BWTWorkTabTutorial.TickAndDraw(inRect, organizer?.Layout);
+            if (BWTWorkTabTutorial.OwnsCurrentPointer && evt.type == EventType.Repaint)
+            {
+                Vector2 pointer = evt.mousePosition;
+                TooltipHandler.ClearTooltipsFrom(new Rect(pointer.x - 1f, pointer.y - 1f, 2f, 2f));
+            }
             NativeCursorPosition.ProcessPendingMove();
             NativeCursorPosition.DrawPendingMoveCue();
             Better_Work_Tab.Features.Testing.SubWorkTransitionPerfDiagnostics.RecordWorkTabRepaint();
