@@ -2,3 +2,18 @@
 /Source/html/
 /Source/latex/
 /Source/docs/
+
+# IDE state and upgrade leftovers
+/.vs/
+*.user
+*.suo
+Thumbs.db
+.DS_Store
+/Source/MigrationBackup/
+**/UpgradeLog.htm
+
+# Build intermediates
+**/obj/
+/Source/bin/Debug/
+/Source/bin/Release/
+**/__pycache__/
