@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Better_Work_Tab.DragDrop;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI.Headers.Angled;
 using RimWorld;
@@ -29,6 +30,8 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         private static int _vanillaBadgeRectsFrame = -1;
         private static string _openBadgeTooltip;
         private static string _openBadgeTooltipLanguage;
+        private static string _focusedBadgeTooltip;
+        private static string _focusedBadgeTooltipLanguage;
 
         internal static string DebugForcedHoveredWorkTypeDefName;
         internal static bool DebugForceBackButtonHover;
@@ -43,6 +46,12 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                    column.Worker is PawnColumnWorker_WorkPriority &&
                    GetDisplayWorkGiverCount(column.workType) > 1;
         }
+
+        internal static bool ShouldDrawFocusedBadge =>
+            SubWorkDrilldownInput.IsEnabled &&
+            (BetterWorkTabMod.Settings?.showSubWorkHeaderBadge ?? DefaultSettings.showSubWorkHeaderBadge) &&
+            (BetterWorkTabMod.Settings?.showFocusedSubWorkHeaderBadge ?? DefaultSettings.showFocusedSubWorkHeaderBadge) &&
+            SubWorkDrilldownState.IsActive;
 
         internal static Rect GetOpenBadgeRect(Rect headerRect, bool clearVanillaStem)
         {
@@ -92,21 +101,29 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 return;
             }
 
-            TooltipHandler.TipRegion(badgeRect, GetOpenBadgeTooltip());
+            TooltipHandler.TipRegion(
+                badgeRect,
+                GetCachedBadgeTooltip(
+                    ref _openBadgeTooltip,
+                    ref _openBadgeTooltipLanguage,
+                    "BWT_SubWork_OpenSpecificJobs"));
             MouseoverSounds.DoRegion(badgeRect);
         }
 
-        private static string GetOpenBadgeTooltip()
+        private static string GetCachedBadgeTooltip(
+            ref string cachedTooltip,
+            ref string cachedLanguage,
+            string translationKey)
         {
             string language = LanguageDatabase.activeLanguage?.folderName ?? string.Empty;
-            if (_openBadgeTooltip == null || _openBadgeTooltipLanguage != language)
+            if (cachedTooltip == null || cachedLanguage != language)
             {
-                _openBadgeTooltip = "BWT_SubWork_OpenSpecificJobs".Translate()
+                cachedTooltip = translationKey.Translate()
                     .Colorize(ColoredText.SubtleGrayColor);
-                _openBadgeTooltipLanguage = language;
+                cachedLanguage = language;
             }
 
-            return _openBadgeTooltip;
+            return cachedTooltip;
         }
 
         internal static bool TryGetOpenBadgeRect(PawnColumnDef column, Rect headerRect, bool isVanillaStaggered, out Rect badgeRect)
@@ -172,6 +189,96 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             }
 
             return false;
+        }
+
+        internal static bool TryGetFocusedBadgeTarget(
+            IWorkTabLayoutController layout,
+            out WorkTabLayoutColumn targetColumn,
+            out Rect badgeRect)
+        {
+            targetColumn = default;
+            badgeRect = default;
+            if (!ShouldDrawFocusedBadge || layout?.Columns == null)
+            {
+                return false;
+            }
+
+            int targetSlot = SubWorkDrilldownState.FocusedHeaderAffordanceSlot;
+            if (targetSlot < 0)
+            {
+                return false;
+            }
+
+            int nearestDistance = int.MaxValue;
+            bool found = false;
+            for (int i = 0; i < layout.Columns.Count; i++)
+            {
+                WorkTabLayoutColumn column = layout.Columns[i];
+                if (!SubWorkDrilldownState.TryGetWorkGiverForColumn(
+                        column,
+                        out _,
+                        out _,
+                        out int slot))
+                {
+                    continue;
+                }
+
+                int distance = Mathf.Abs(slot - targetSlot);
+                if (distance >= nearestDistance)
+                {
+                    continue;
+                }
+
+                targetColumn = column;
+                nearestDistance = distance;
+                found = true;
+                if (distance == 0)
+                {
+                    break;
+                }
+            }
+
+            if (!found)
+            {
+                return false;
+            }
+
+            // Deliberately use the stable slot rect, not the animated header rect. Specific-job
+            // headers may glide through this position after reordering, but the affordance belongs
+            // to the parent Work header's original position and transfers to the new occupant.
+            badgeRect = GetOpenBadgeRect(targetColumn.HeaderRect, clearVanillaStem: false);
+            return true;
+        }
+
+        internal static void DrawFocusedBadge(IWorkTabLayoutController layout)
+        {
+            if (Event.current?.type != EventType.Repaint ||
+                !TryGetFocusedBadgeTarget(layout, out _, out Rect badgeRect))
+            {
+                return;
+            }
+
+            bool hovered = Mouse.IsOver(badgeRect);
+            bool angled = BetterWorkTabMod.Settings?.enableAngledHeaders ?? DefaultSettings.enableAngledHeaders;
+            if (angled)
+            {
+                DrawAngledOpenAffordance(badgeRect, hovered);
+            }
+            else
+            {
+                DrawVanillaOpenAffordance(badgeRect, hovered);
+            }
+
+            if (hovered)
+            {
+                TooltipHandler.TipRegion(
+                    badgeRect,
+                    GetCachedBadgeTooltip(
+                        ref _focusedBadgeTooltip,
+                        ref _focusedBadgeTooltipLanguage,
+                        "BWT_SubWork_ReturnToWorkTypes"));
+                MouseoverSounds.DoRegion(badgeRect);
+            }
         }
 
         private static bool IsOpenBadgeHovered(Rect badgeRect, PawnColumnDef column)

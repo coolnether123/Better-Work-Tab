@@ -1621,6 +1621,8 @@ namespace Better_Work_Tab.UI
                     DrawRuleBuilder2ColumnHighlight(layout, column, headerRect, totalHeight, table);
                 }
             }
+
+            SubWorkHeaderAffordance.DrawFocusedBadge(layout);
         }
 
         private float GetVisibleHeaderHighlightHeight(IWorkTabLayoutController layout, float pinnedRowsHeight)
@@ -2830,6 +2832,18 @@ namespace Better_Work_Tab.UI
 
             if (SubWorkDrilldownState.IsActive)
             {
+                if (SubWorkHeaderAffordance.TryGetFocusedBadgeTarget(
+                        layout,
+                        out WorkTabLayoutColumn targetColumn,
+                        out Rect focusedBadgeRect) &&
+                    focusedBadgeRect.Contains(evt.mousePosition))
+                {
+                    AngledHeaderInteraction.ClearPendingHeaderClick(targetColumn.Column);
+                    ExitSubWorkDrilldown(restoreMousePosition: false);
+                    evt.Use();
+                    return true;
+                }
+
                 if (!SubWorkHeaderAffordance.TryGetBackLabelCellRect(layout, out Rect labelCellRect) ||
                     !labelCellRect.Contains(evt.mousePosition))
                 {

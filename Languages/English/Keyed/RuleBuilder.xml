@@ -159,7 +159,7 @@
   <BWT_RuleBuilder2_DeleteRule>Delete rule</BWT_RuleBuilder2_DeleteRule>
   <BWT_RuleBuilder2_TargetBlockTitle>What to set</BWT_RuleBuilder2_TargetBlockTitle>
   <BWT_RuleBuilder2_StepTarget>1. Choose Work</BWT_RuleBuilder2_StepTarget>
-  <BWT_RuleBuilder2_WorkTabHint>Hover the Work tab to preview a Work type. Click a header or priority box to use it. The drilldown shortcut still opens specific jobs.</BWT_RuleBuilder2_WorkTabHint>
+  <BWT_RuleBuilder2_WorkTabHint>Hover the Work tab to preview. Click a header or priority cell to select it; use the drilldown shortcut for specific jobs.</BWT_RuleBuilder2_WorkTabHint>
   <BWT_RuleBuilder2_TargetNoMatches>No matching work found.</BWT_RuleBuilder2_TargetNoMatches>
   <BWT_RuleBuilder2_TargetWholeWork>whole Work</BWT_RuleBuilder2_TargetWholeWork>
   <BWT_RuleBuilder2_TargetSpecificJob>specific job</BWT_RuleBuilder2_TargetSpecificJob>
@@ -282,20 +282,20 @@
   <BWT_RuleBuilder2_ConditionText_NaturalAlways>This Work type is naturally always active</BWT_RuleBuilder2_ConditionText_NaturalAlways>
   <BWT_RuleBuilder2_ConditionText_HasChild>Has a child on the current map</BWT_RuleBuilder2_ConditionText_HasChild>
   <BWT_RuleBuilder2_Tutorial_WelcomeTitle>Rule Builder 2.0</BWT_RuleBuilder2_Tutorial_WelcomeTitle>
-  <BWT_RuleBuilder2_Tutorial_WelcomeBody>Rules on the left, the selected rule on the right. A rule sets a priority for a Work type or specific job, for any pawn that matches its conditions - now or in the future. Apply pushes the ruleset to the Work tab.</BWT_RuleBuilder2_Tutorial_WelcomeBody>
+  <BWT_RuleBuilder2_Tutorial_WelcomeBody>Rules are listed on the left and edited on the right. They set priorities for matching pawns, including future pawns. Apply updates the Work tab.</BWT_RuleBuilder2_Tutorial_WelcomeBody>
   <BWT_RuleBuilder2_Tutorial_GotIt>Got it</BWT_RuleBuilder2_Tutorial_GotIt>
   <BWT_RuleBuilder2_Tutorial_Settings>Related settings</BWT_RuleBuilder2_Tutorial_Settings>
   <BWT_RuleBuilder2_Tutorial_SuggestionsTitle>Suggestions</BWT_RuleBuilder2_Tutorial_SuggestionsTitle>
-  <BWT_RuleBuilder2_Tutorial_SuggestionsBody>Suggestions are drafts read from your current Work tab. Keep, edit, or skip each one - nothing is saved until you keep it.</BWT_RuleBuilder2_Tutorial_SuggestionsBody>
+  <BWT_RuleBuilder2_Tutorial_SuggestionsBody>Suggestions come from the current Work tab. Keep, edit, or skip them; only kept suggestions are saved.</BWT_RuleBuilder2_Tutorial_SuggestionsBody>
   <BWT_RuleBuilder2_Tutorial_Start>Start</BWT_RuleBuilder2_Tutorial_Start>
   <BWT_RuleBuilder2_Tutorial_Skip>Skip tutorial</BWT_RuleBuilder2_Tutorial_Skip>
   <BWT_RuleBuilder2_Tutorial_CreateTitle>Create or import</BWT_RuleBuilder2_Tutorial_CreateTitle>
   <BWT_RuleBuilder2_Tutorial_CreateBody>Use the ruleset menu to start blank, duplicate, build suggestions from the current Work tab, or migrate classic rules safely.</BWT_RuleBuilder2_Tutorial_CreateBody>
   <BWT_RuleBuilder2_Tutorial_DeckTitle>Rules table</BWT_RuleBuilder2_Tutorial_DeckTitle>
-  <BWT_RuleBuilder2_Tutorial_DeckBody>Rules stay compact here. Click a row to edit it, Build from Work tab to create suggestions, or Add rule to create one manually.</BWT_RuleBuilder2_Tutorial_DeckBody>
+  <BWT_RuleBuilder2_Tutorial_DeckBody>Select a rule to edit it, build suggestions from the Work tab, or add one manually.</BWT_RuleBuilder2_Tutorial_DeckBody>
   <BWT_RuleBuilder2_Tutorial_Next>Next</BWT_RuleBuilder2_Tutorial_Next>
   <BWT_RuleBuilder2_Tutorial_TargetTitle>Choose Work type</BWT_RuleBuilder2_Tutorial_TargetTitle>
-  <BWT_RuleBuilder2_Tutorial_TargetBody>Choose a Work type here, or click a Work tab header while this builder is open. Ctrl-click opens specific jobs.</BWT_RuleBuilder2_Tutorial_TargetBody>
+  <BWT_RuleBuilder2_Tutorial_TargetBody>Choose a Work type here or from the Work tab. Ctrl-click for specific jobs.</BWT_RuleBuilder2_Tutorial_TargetBody>
   <BWT_RuleBuilder2_Tutorial_SubWorkTitle>Specific jobs</BWT_RuleBuilder2_Tutorial_SubWorkTitle>
   <BWT_RuleBuilder2_Tutorial_SubWorkBody>In the specific job view, click a job header to choose that job.</BWT_RuleBuilder2_Tutorial_SubWorkBody>
   <BWT_RuleBuilder2_Tutorial_SkipSubWork>Skip jobs step</BWT_RuleBuilder2_Tutorial_SkipSubWork>
@@ -308,7 +308,7 @@
   <BWT_RuleBuilder2_Tutorial_PreviewTitle>Map check</BWT_RuleBuilder2_Tutorial_PreviewTitle>
   <BWT_RuleBuilder2_Tutorial_PreviewBody>Map check shows which pawns match, what failed, and what priority would change.</BWT_RuleBuilder2_Tutorial_PreviewBody>
   <BWT_RuleBuilder2_Tutorial_ConfirmTitle>Save rule</BWT_RuleBuilder2_Tutorial_ConfirmTitle>
-  <BWT_RuleBuilder2_Tutorial_ConfirmBody>Save puts this rule into the ruleset. Confirmed rules edit live after that.</BWT_RuleBuilder2_Tutorial_ConfirmBody>
+  <BWT_RuleBuilder2_Tutorial_ConfirmBody>Save adds the rule. Later edits apply immediately.</BWT_RuleBuilder2_Tutorial_ConfirmBody>
   <BWT_RuleBuilder2_Tutorial_MatchedTitle>Matched conditions</BWT_RuleBuilder2_Tutorial_MatchedTitle>
   <BWT_RuleBuilder2_Tutorial_MatchedBody>Click a priority box while the builder is open to inspect why rules match that pawn and Work type.</BWT_RuleBuilder2_Tutorial_MatchedBody>
   <BWT_RuleBuilder2_Tutorial_ReplayTitle>Replay later</BWT_RuleBuilder2_Tutorial_ReplayTitle>

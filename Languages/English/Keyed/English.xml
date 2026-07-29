@@ -11,6 +11,7 @@
 <BWT_Enum_SubWorkDrilldownStyle_FocusView>Focus view</BWT_Enum_SubWorkDrilldownStyle_FocusView>
 <BWT_Enum_SubWorkDrilldownStyle_ExpandBeside>Fluffy-style expansion</BWT_Enum_SubWorkDrilldownStyle_ExpandBeside>
 <BWT_SubWork_OpenSpecificJobs>Open specific jobs</BWT_SubWork_OpenSpecificJobs>
+<BWT_SubWork_ReturnToWorkTypes>Back to Work type - won't move</BWT_SubWork_ReturnToWorkTypes>
 <BWT_SubWork_UseExpandedView>Expand beside</BWT_SubWork_UseExpandedView>
 <BWT_SubWork_UseExpandedView_Tooltip>Keep the main Work columns visible and expand this Work's specific jobs beside it. This enables BWT's optional expanded presentation.</BWT_SubWork_UseExpandedView_Tooltip>
 <BWT_SubWork_UseFocusedView>Focus view</BWT_SubWork_UseFocusedView>
@@ -24,7 +25,7 @@
 <BWT_SubWork_Chooser_SettingsNote>You can change this any time in Better Work Tab's settings.</BWT_SubWork_Chooser_SettingsNote>
 <BWT_SubWork_Chooser_AskAgainNote>You will be asked again next time.</BWT_SubWork_Chooser_AskAgainNote>
 <BWT_SubWork_CtrlClickNotice_Title>Specific jobs shortcut</BWT_SubWork_CtrlClickNotice_Title>
-<BWT_SubWork_CtrlClickNotice_Text>You Ctrl-clicked a Work header to open specific jobs. Should Ctrl-click be your default way to open and leave specific jobs?</BWT_SubWork_CtrlClickNotice_Text>
+<BWT_SubWork_CtrlClickNotice_Text>You opened specific jobs with Ctrl-click. Make it your default shortcut for opening and closing them?</BWT_SubWork_CtrlClickNotice_Text>
 <BWT_SubWork_CtrlClickNotice_UseCtrl>Use Ctrl-click</BWT_SubWork_CtrlClickNotice_UseCtrl>
 <BWT_SubWork_CtrlClickNotice_Never>Never show again</BWT_SubWork_CtrlClickNotice_Never>
 
@@ -84,19 +85,19 @@
 <BWT_Priority_Desc>The priority to set the work type to. (Vanilla always assigns 3.)</BWT_Priority_Desc>
 <BWT_Worktype_Desc>If assigned, this will be the only work type this rule applies to.</BWT_Worktype_Desc>
 <BWT_AllowOverwritingHigherPriority_Desc>By default the highest priority is kept. This allows later rules to overwrite higher priority.</BWT_AllowOverwritingHigherPriority_Desc>
-<BWT_HasHighestSkill_Desc>Only assign if this pawn has the highest skill. Applies to multiple pawns if tied. (Vanilla assigns one random starting pawn to every work type.)</BWT_HasHighestSkill_Desc>
+<BWT_HasHighestSkill_Desc>Assign pawns tied for the highest relevant skill. Vanilla instead assigns one random starting pawn to each Work type.</BWT_HasHighestSkill_Desc>
 <BWT_SkipIfAnotherPawnAssigned_Desc>If another pawn is assigned, do not apply to the current pawn.</BWT_SkipIfAnotherPawnAssigned_Desc>
 <BWT_IsPregnant_Desc>Only apply if the pawn is pregnant.</BWT_IsPregnant_Desc>
 <BWT_IsCapableOfViolence_Desc>Only apply if the pawn is capable of violence.</BWT_IsCapableOfViolence_Desc>
-<BWT_AssignToPawnWithFewestWorkPriorities_Desc>Only assign to the pawn who has the fewest assigned priorities. Applies to multiple if tied. (This needs to be double checked).</BWT_AssignToPawnWithFewestWorkPriorities_Desc>
+<BWT_AssignToPawnWithFewestWorkPriorities_Desc>Assign pawns with the fewest existing priorities; ties are included.</BWT_AssignToPawnWithFewestWorkPriorities_Desc>
 <BWT_HasChildOnMap_Desc>Only apply if the pawn has a child of learning age on the map.</BWT_HasChildOnMap_Desc>
 <BWT_IsNaturalAlwaysAssign_Desc>Only assign if Vanilla tags the work type as an "always assign" work type. (Vanilla always assigns these.)</BWT_IsNaturalAlwaysAssign_Desc>
 <BWT_RandomIfMultiple_Desc>If multiple pawns were assigned the work type, choose one at random to assign.</BWT_RandomIfMultiple_Desc>
 <BWT_IgnoreIfWorktypeNonexistent_Desc>Only assign this work type if it exists. Used for modded work types.</BWT_IgnoreIfWorktypeNonexistent_Desc>
-<BWT_IsTopXSkill_Desc>Only assign if the work type is one of the pawn's top X skills. (Vanilla automatically assigns the top 6 skills.)</BWT_IsTopXSkill_Desc>
+<BWT_IsTopXSkill_Desc>Assign when this Work type is among the pawn's top X skills. Vanilla uses the top six.</BWT_IsTopXSkill_Desc>
 <BWT_IsNthBestPawn_Desc>Only assign if the pawn is Nth best at this work type. It must be exact.</BWT_IsNthBestPawn_Desc>
 <BWT_IsNthBestSkill_Desc>Only assign if the work type is this pawn's Nth best skill. It must be exact.</BWT_IsNthBestSkill_Desc>
-<BWT_LimitNumberOfWorktypes_Desc>Only assign if the pawn DOES NOT already have this many work types assigned.</BWT_LimitNumberOfWorktypes_Desc>
+<BWT_LimitNumberOfWorktypes_Desc>Only assign if the pawn does not already have this many Work types assigned.</BWT_LimitNumberOfWorktypes_Desc>
 <BWT_SkipIfPriorityForThisWorktypeAreadyAssigned_Desc>Only assign if this priority has not already been assigned for this work type.</BWT_SkipIfPriorityForThisWorktypeAreadyAssigned_Desc>
 <BWT_PassionLevel_Desc>Only assign if the pawn's best relevant passion for the work type matches the selected passion.</BWT_PassionLevel_Desc>
 <BWT_SkillLevelGreaterThan_Desc>Only assign if the pawn's skill in the work type is greater than this number.</BWT_SkillLevelGreaterThan_Desc>
@@ -173,27 +174,27 @@
 
 <!-- Unified Work-tab tutorial -->
 <BWT_Tutorial_Welcome_Title>Better Work Tab 2.0 beta tutorial</BWT_Tutorial_Welcome_Title>
-<BWT_Tutorial_Welcome_Body>This tutorial is our attempt to explain every important Better Work Tab feature. Choose the short 1.0.5-to-2.0 course to test the new lessons, or the full category-based tutorial to review everything. At the end you can optionally copy feedback for Discord; nothing is sent automatically.</BWT_Tutorial_Welcome_Body>
+<BWT_Tutorial_Welcome_Body>Choose the short 2.0 tour for new features, or the full tour for everything. You can copy optional Discord feedback afterward; nothing is sent automatically.</BWT_Tutorial_Welcome_Body>
 <BWT_Tutorial_Welcome_WhatsNew>Test what's new in 2.0</BWT_Tutorial_Welcome_WhatsNew>
 <BWT_Tutorial_Welcome_Full>Full Better Work Tab tutorial</BWT_Tutorial_Welcome_Full>
 <BWT_Tutorial_NotNow>Not now</BWT_Tutorial_NotNow>
 <BWT_Tutorial_Welcome_Continue>Continue with walkthrough</BWT_Tutorial_Welcome_Continue>
 <BWT_Tutorial_Welcome_KnowBWT>I know Better Work Tab</BWT_Tutorial_Welcome_KnowBWT>
 <BWT_Upgrade20_PromptTitle>Better Work Tab 2.0</BWT_Upgrade20_PromptTitle>
-<BWT_Upgrade20_PromptBody>Better Work Tab has been updated from 1.x to 2.0. Your existing settings have been preserved, and new 2.0 features remain disabled so your Work tab behaves as it did before. Would you like a guided tour of the new features?</BWT_Upgrade20_PromptBody>
+<BWT_Upgrade20_PromptBody>Better Work Tab was updated to 2.0. Your settings are preserved, and new features remain disabled to keep existing behavior. Tour the new features?</BWT_Upgrade20_PromptBody>
 <BWT_Upgrade20_StartTutorial>Show me the 2.0 tutorial</BWT_Upgrade20_StartTutorial>
 <BWT_Upgrade20_KeepSettings>Keep my existing settings</BWT_Upgrade20_KeepSettings>
 <BWT_FluffyMigration_Title>Fluffy Work Tab compatibility</BWT_FluffyMigration_Title>
-<BWT_FluffyMigration_ActiveBody>Fluffy Work Tab is currently active. Better Work Tab can coexist with it and has checked this colony for compatible hourly priority data. No visual compatibility features or Work tab ownership settings were changed. Would you like to review the relevant compatibility settings?</BWT_FluffyMigration_ActiveBody>
-<BWT_FluffyMigration_HistoricalBody>This save contains remnants of Fluffy Work Tab, even though it is not currently active. Better Work Tab has checked and imported any compatible saved hourly priorities. No visual compatibility features or Work tab ownership settings were changed. Would you like to review the relevant compatibility settings?</BWT_FluffyMigration_HistoricalBody>
-<BWT_FluffyMigration_ActiveAndHistoricalBody>Fluffy Work Tab is currently active, and this save contains its saved data. Better Work Tab has checked and imported any compatible hourly priorities and can coexist with Fluffy. No visual compatibility features or Work tab ownership settings were changed. Would you like to review the relevant compatibility settings?</BWT_FluffyMigration_ActiveAndHistoricalBody>
+<BWT_FluffyMigration_ActiveBody>Fluffy Work Tab is active. Better Work Tab checked for compatible hourly priorities without changing visual or Work-tab ownership settings. Review compatibility settings?</BWT_FluffyMigration_ActiveBody>
+<BWT_FluffyMigration_HistoricalBody>This save contains Fluffy Work Tab data. Better Work Tab imported compatible hourly priorities without changing visual or Work-tab ownership settings. Review compatibility settings?</BWT_FluffyMigration_HistoricalBody>
+<BWT_FluffyMigration_ActiveAndHistoricalBody>Fluffy Work Tab is active, and this save contains its data. Better Work Tab imported compatible hourly priorities without changing visual or ownership settings. Review compatibility settings?</BWT_FluffyMigration_ActiveAndHistoricalBody>
 <BWT_FluffyMigration_ReviewSettings>Review compatibility settings</BWT_FluffyMigration_ReviewSettings>
 <BWT_FluffyMigration_KeepSetup>Keep my current setup</BWT_FluffyMigration_KeepSetup>
 <BWT_FluffyMigration_SettingsContext>Fluffy Work Tab compatibility</BWT_FluffyMigration_SettingsContext>
 <BWT_FluffyMigration_SettingsContextTooltip>Settings for Fluffy-style controls, saved hourly priorities, visible compatibility columns, and choosing which mod owns the Work tab.</BWT_FluffyMigration_SettingsContextTooltip>
 <BWT_Tutorial_DefaultContextHeading>Hover an option to learn more.</BWT_Tutorial_DefaultContextHeading>
 <BWT_Tutorial_Selector_Title>Explore Better Work Tab</BWT_Tutorial_Selector_Title>
-<BWT_Tutorial_Selector_DefaultBody>Select something that interests you in the Work tab. The highlighted pawn name, Work header, and priority cell are examples; click one to keep it selected and see its available controls.</BWT_Tutorial_Selector_DefaultBody>
+<BWT_Tutorial_Selector_DefaultBody>Click a highlighted pawn name, Work header, or priority cell to see its available lessons.</BWT_Tutorial_Selector_DefaultBody>
 <BWT_Tutorial_Recommended>Recommended</BWT_Tutorial_Recommended>
 <BWT_Tutorial_SkipForNow>Skip for now</BWT_Tutorial_SkipForNow>
 <BWT_Tutorial_LeaveTutorial>Review course</BWT_Tutorial_LeaveTutorial>
@@ -209,33 +210,33 @@
 <BWT_Tutorial_PawnDivider_Label>Add a divider</BWT_Tutorial_PawnDivider_Label>
 <BWT_Tutorial_PawnDivider_Title>Organize pawns with dividers</BWT_Tutorial_PawnDivider_Title>
 <BWT_Tutorial_PawnDivider_Preview>Dividers label, separate, collapse, and visually organize groups of pawn rows.</BWT_Tutorial_PawnDivider_Preview>
-<BWT_Tutorial_PawnDivider_Action>Right-click the highlighted pawn name, choose to add a divider above or below it, then confirm. The lesson completes when the divider appears.</BWT_Tutorial_PawnDivider_Action>
+<BWT_Tutorial_PawnDivider_Action>Right-click the highlighted pawn, add a divider above or below, then confirm. The new divider completes the lesson.</BWT_Tutorial_PawnDivider_Action>
 <BWT_Tutorial_PawnAppearance_Label>Customize pawn row</BWT_Tutorial_PawnAppearance_Label>
 <BWT_Tutorial_PawnAppearance_Title>Change title or color</BWT_Tutorial_PawnAppearance_Title>
 <BWT_Tutorial_PawnAppearance_Preview>The pawn menu can change the displayed title and row background color.</BWT_Tutorial_PawnAppearance_Preview>
-<BWT_Tutorial_PawnAppearance_Action>Right-click the highlighted pawn name and change either its displayed title or row background color. The lesson completes after the change is applied.</BWT_Tutorial_PawnAppearance_Action>
+<BWT_Tutorial_PawnAppearance_Action>Right-click the highlighted pawn and change its title or row color. The applied change completes the lesson.</BWT_Tutorial_PawnAppearance_Action>
 
 <BWT_Tutorial_HeaderHub_Title>Work headers</BWT_Tutorial_HeaderHub_Title>
 <BWT_Tutorial_HeaderHub_Body>Work headers identify each work column and provide column layout, grouping, and specific-job controls.</BWT_Tutorial_HeaderHub_Body>
 <BWT_Tutorial_HeaderReorder_Label>Reorder work columns</BWT_Tutorial_HeaderReorder_Label>
 <BWT_Tutorial_HeaderReorder_Title>Reorder work columns</BWT_Tutorial_HeaderReorder_Title>
-<BWT_Tutorial_HeaderReorder_Preview>Drag a work header to change real work execution order: when two Work types have the same priority, the leftmost one is considered first.</BWT_Tutorial_HeaderReorder_Preview>
-<BWT_Tutorial_HeaderReorder_Action>Drag the highlighted work header to a new position. This changes more than presentation: equally prioritized Work types are considered in the visible left-to-right order. The lesson completes only after that real order changes.</BWT_Tutorial_HeaderReorder_Action>
+<BWT_Tutorial_HeaderReorder_Preview>Drag a Work header to reorder execution. When priorities match, work runs from left to right.</BWT_Tutorial_HeaderReorder_Preview>
+<BWT_Tutorial_HeaderReorder_Action>Drag the highlighted Work header. Equal-priority work runs from left to right. The lesson completes when the order changes.</BWT_Tutorial_HeaderReorder_Action>
 <BWT_Tutorial_HeaderReorder_Feedback>Real work-order dragging</BWT_Tutorial_HeaderReorder_Feedback>
 <BWT_Tutorial_HeaderGroup_Label>Group work columns</BWT_Tutorial_HeaderGroup_Label>
 <BWT_Tutorial_HeaderGroup_Title>Group work columns</BWT_Tutorial_HeaderGroup_Title>
 <BWT_Tutorial_HeaderGroup_Preview>Shift-click headers to select a group, then drag one selected header to move the group together.</BWT_Tutorial_HeaderGroup_Preview>
-<BWT_Tutorial_HeaderGroup_Action>Shift-click the highlighted Work header to add or remove it from the selected group. Selected headers can be dragged together. The lesson completes after the selection changes.</BWT_Tutorial_HeaderGroup_Action>
+<BWT_Tutorial_HeaderGroup_Action>Shift-click the highlighted Work header to change its group selection. Selected headers can be dragged together.</BWT_Tutorial_HeaderGroup_Action>
 <BWT_Tutorial_HeaderSubWork_Label>Open specific jobs</BWT_Tutorial_HeaderSubWork_Label>
 <BWT_Tutorial_HeaderSubWork_Title>Open specific jobs</BWT_Tutorial_HeaderSubWork_Title>
-<BWT_Tutorial_HeaderSubWork_Preview>Specific jobs can replace the grid in Focus mode or expand beside their parent. They support global priorities, pawn overrides, reordering, and reassignment.</BWT_Tutorial_HeaderSubWork_Preview>
-<BWT_Tutorial_HeaderSubWork_Action>Ctrl-click the highlighted work header. Your selected presentation either focuses the grid on these jobs or expands them beside the parent. Drag specific-job headers to reorder them or move jobs between compatible Work types to reassign them. The top row sets a global priority for every pawn; a pawn cell overrides that global value.</BWT_Tutorial_HeaderSubWork_Action>
+<BWT_Tutorial_HeaderSubWork_Preview>Specific jobs can focus or expand the grid, with priorities, overrides, reordering, and reassignment.</BWT_Tutorial_HeaderSubWork_Preview>
+<BWT_Tutorial_HeaderSubWork_Action>Ctrl-click the highlighted Work header to open its specific jobs.</BWT_Tutorial_HeaderSubWork_Action>
 <BWT_Tutorial_HeaderSubWork_Feedback>Specific jobs: presentation, priorities, and reassignment</BWT_Tutorial_HeaderSubWork_Feedback>
 
 <BWT_Tutorial_PriorityHub_Title>Priority cells</BWT_Tutorial_PriorityHub_Title>
-<BWT_Tutorial_PriorityHub_Body>Priority cells control whether a pawn performs this work and how urgently they choose it. Select an option to learn about the controls available here.</BWT_Tutorial_PriorityHub_Body>
-<BWT_Tutorial_PriorityHub_ShiftBody>While Shift is held, priority cells show the pawn's skill number for that work. Release Shift to return to priority controls, or choose “View skill number” for a guided explanation.</BWT_Tutorial_PriorityHub_ShiftBody>
-<BWT_Tutorial_HeaderHub_SubWorkBody>This header represents one specific job inside its parent Work type. Its priority cells affect that job directly. Repeat the specific-job shortcut or press Escape to return to the main Work types.</BWT_Tutorial_HeaderHub_SubWorkBody>
+<BWT_Tutorial_PriorityHub_Body>Priority cells control whether and how urgently a pawn works. Choose a lesson below.</BWT_Tutorial_PriorityHub_Body>
+<BWT_Tutorial_PriorityHub_ShiftBody>Shift shows the pawn's skill number. Release it for priority controls, or choose “View skill number” for guidance.</BWT_Tutorial_PriorityHub_ShiftBody>
+<BWT_Tutorial_HeaderHub_SubWorkBody>This header is a specific job. Its cells set job priorities. Repeat the shortcut or press Escape to return.</BWT_Tutorial_HeaderHub_SubWorkBody>
 <BWT_Tutorial_PriorityChange_Label>Change priorities</BWT_Tutorial_PriorityChange_Label>
 <BWT_Tutorial_PriorityChange_Title>Change priorities</BWT_Tutorial_PriorityChange_Title>
 <BWT_Tutorial_PriorityChange_Preview>Click a priority cell to change whether that pawn performs the work and how urgently they do it.</BWT_Tutorial_PriorityChange_Preview>
@@ -243,18 +244,18 @@
 <BWT_Tutorial_PrioritySkill_Label>View skill number</BWT_Tutorial_PrioritySkill_Label>
 <BWT_Tutorial_PrioritySkill_Title>View skill number</BWT_Tutorial_PrioritySkill_Title>
 <BWT_Tutorial_PrioritySkill_Preview>Hold Shift to display the pawn's skill number for that work.</BWT_Tutorial_PrioritySkill_Preview>
-<BWT_Tutorial_PrioritySkill_Action>Hold Shift to display the pawn's skill number for that work. Keep it visible briefly so you have time to read it.</BWT_Tutorial_PrioritySkill_Action>
+<BWT_Tutorial_PrioritySkill_Action>Hold Shift until the highlighted cell's skill number has been visible briefly.</BWT_Tutorial_PrioritySkill_Action>
 <BWT_Tutorial_PrioritySkill_SecondaryVisible>Your current skill-number settings can also show a smaller secondary skill number in the cell corner.</BWT_Tutorial_PrioritySkill_SecondaryVisible>
 <BWT_Tutorial_PrioritySchedule_Label>Open time schedules</BWT_Tutorial_PrioritySchedule_Label>
 <BWT_Tutorial_PrioritySchedule_Title>Open time schedules</BWT_Tutorial_PrioritySchedule_Title>
 <BWT_Tutorial_PrioritySchedule_Preview>Ctrl-click a priority cell to create a daily schedule with a different priority for each hour.</BWT_Tutorial_PrioritySchedule_Preview>
 <BWT_Tutorial_PrioritySchedule_ActionOpen>Ctrl-click the highlighted priority cell to open its hourly schedule.</BWT_Tutorial_PrioritySchedule_ActionOpen>
-<BWT_Tutorial_PrioritySchedule_ActionEdit>The schedule has one cell for each hour of the day. Change at least one hour by clicking, right-clicking, or scrolling its cell.</BWT_Tutorial_PrioritySchedule_ActionEdit>
+<BWT_Tutorial_PrioritySchedule_ActionEdit>Change at least one hourly cell by left-clicking, right-clicking, or scrolling.</BWT_Tutorial_PrioritySchedule_ActionEdit>
 <BWT_Tutorial_PrioritySchedule_ActionClose>Your schedule change was recorded. Ctrl-click an hour cell to close the schedule and complete the lesson.</BWT_Tutorial_PrioritySchedule_ActionClose>
 <BWT_Tutorial_PrioritySchedule_Feedback>Daily priority schedules</BWT_Tutorial_PrioritySchedule_Feedback>
 <BWT_Tutorial_PriorityRange_Label>Set priority range</BWT_Tutorial_PriorityRange_Label>
 <BWT_Tutorial_PriorityRange_Title>Set priority range</BWT_Tutorial_PriorityRange_Title>
-<BWT_Tutorial_PriorityRange_Preview>Open the relevant provider or maximum-priority setting. Better Work Tab defaults to 1–9, supports up to 99, and preserves compatible external providers.</BWT_Tutorial_PriorityRange_Preview>
+<BWT_Tutorial_PriorityRange_Preview>Open the priority provider or maximum setting. Better Work Tab defaults to 1–9, supports 99, and preserves compatible providers.</BWT_Tutorial_PriorityRange_Preview>
 <BWT_Tutorial_PriorityRange_Feedback>Extended priorities</BWT_Tutorial_PriorityRange_Feedback>
 <BWT_Tutorial_PriorityRange_Filter>Priority range</BWT_Tutorial_PriorityRange_Filter>
 <BWT_Tutorial_PriorityRange_FilterTooltip>Priority provider and maximum-priority settings for the Work tab.</BWT_Tutorial_PriorityRange_FilterTooltip>
@@ -273,8 +274,8 @@
 <BWT_Tutorial_FluffyCoexistence_Preview>Switch to Fluffy's complete Work interface and back while preserving Better Work Tab state.</BWT_Tutorial_FluffyCoexistence_Preview>
 <BWT_Tutorial_FluffyCoexistence_Action>Both mods remain active. The Work-tab owner selects the complete interface, while the specific-job presentation setting selects Focus or Expand Beside inside Better Work Tab.</BWT_Tutorial_FluffyCoexistence_Action>
 <BWT_Tutorial_FluffyCoexistence_Feedback>Full Fluffy Work Tab coexistence</BWT_Tutorial_FluffyCoexistence_Feedback>
-<BWT_Tutorial_FluffyCoexistence_ActionSwitch>Both mods remain active; this choice only selects which full Work-tab interface is currently visible. Better Work Tab's specific-job presentation remains your mutually selected Focus or Expand Beside mode. Switch to Fluffy now. This lesson window will stay open.</BWT_Tutorial_FluffyCoexistence_ActionSwitch>
-<BWT_Tutorial_FluffyCoexistence_ActionReturn>You are now using Fluffy's complete Work interface. Better Work Tab is still active and its settings and column state are retained. Return to Better Work Tab to verify that state.</BWT_Tutorial_FluffyCoexistence_ActionReturn>
+<BWT_Tutorial_FluffyCoexistence_ActionSwitch>Both mods remain active; this changes only the visible Work interface. Switch to Fluffy now. This lesson window will stay open.</BWT_Tutorial_FluffyCoexistence_ActionSwitch>
+<BWT_Tutorial_FluffyCoexistence_ActionReturn>Fluffy now owns the Work interface, while Better Work Tab remains active. Return to verify its settings and column state.</BWT_Tutorial_FluffyCoexistence_ActionReturn>
 <BWT_Tutorial_FluffyCoexistence_ActionPreserved>You returned to Better Work Tab. Its specific-job presentation and stored column order were preserved while Fluffy owned the interface.</BWT_Tutorial_FluffyCoexistence_ActionPreserved>
 <BWT_Tutorial_FluffyCoexistence_ActionChanged>You returned to Better Work Tab, but its stored presentation or column order changed. Please mention this in the lesson feedback.</BWT_Tutorial_FluffyCoexistence_ActionChanged>
 <BWT_Tutorial_FluffySwitch>Switch to Fluffy's interface</BWT_Tutorial_FluffySwitch>

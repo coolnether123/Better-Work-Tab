@@ -65,6 +65,25 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         // obtains the pivot through GetTransitionPivotSlot and cannot override this value.
         internal static int TransitionSourceWorkColumnSlot => _entryWorkColumnSlot;
 
+        internal static int FocusedHeaderAffordanceSlot
+        {
+            get
+            {
+                if (!IsActive)
+                {
+                    return -1;
+                }
+
+                RefreshIfNeeded();
+                if (ActiveWorkGiversBuffer.Count == 0)
+                {
+                    return -1;
+                }
+
+                return Mathf.Clamp(_entryWorkColumnSlot, 0, ActiveWorkGiversBuffer.Count - 1);
+            }
+        }
+
         internal static IEnumerable<WorkTypeDef> ExpandBesideWorkTypes
         {
             get

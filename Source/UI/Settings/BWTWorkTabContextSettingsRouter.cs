@@ -72,6 +72,26 @@ namespace Better_Work_Tab.UI.Settings
             }
 
             if (layout != null &&
+                SubWorkHeaderAffordance.TryGetFocusedBadgeTarget(
+                    layout,
+                    out WorkTabLayoutColumn _,
+                    out Rect focusedBadgeRect) &&
+                focusedBadgeRect.Contains(mousePosition))
+            {
+                return CreateContextRequest(
+                    "Focused Specific-jobs Button",
+                    "Settings for the fixed return button under the specific job nearest the original Work-header position.",
+                    SubWorkFocusedHeaderBadge,
+                    true,
+                    FeaturesSubWorkJobs,
+                    SubWorkFocusedHeaderBadge,
+                    SubWorkHeaderBadge,
+                    SubWorkOpenButton,
+                    SubWorkOpenModifier,
+                    SubWorkDrilldownStyle);
+            }
+
+            if (layout != null &&
                 SubWorkHeaderAffordance.TryGetOpenBadgeTarget(
                     layout,
                     mousePosition,
