@@ -422,7 +422,7 @@ namespace Better_Work_Tab.Features.Tutorial
                 }
                 BWTTutorialAnchorRenderer.DrawOutline(
                     anchor,
-                    new Color(1f, 0.78f, 0.22f, alpha),
+                    new Color(1f, 1f, 1f, alpha),
                     emphasized ? 3f : 2f);
             }
 
@@ -432,7 +432,7 @@ namespace Better_Work_Tab.Features.Tutorial
                 {
                     BWTTutorialAnchorRenderer.DrawOutline(pinnedGeometry, Color.white, 5f);
                 }
-                BWTTutorialAnchorRenderer.DrawOutline(pinnedGeometry, new Color(1f, 0.78f, 0.22f, 1f), 3f);
+                BWTTutorialAnchorRenderer.DrawOutline(pinnedGeometry, Color.white, 3f);
             }
         }
 
@@ -451,13 +451,12 @@ namespace Better_Work_Tab.Features.Tutorial
             GameFont oldFont = Text.Font;
             bool oldWordWrap = Text.WordWrap;
 
-            Widgets.DrawBoxSolid(layout.PanelRect, new Color(0.055f, 0.062f, 0.07f, 0.98f));
-            GUI.color = new Color(0.55f, 0.47f, 0.28f, 0.95f);
-            Widgets.DrawBox(layout.PanelRect, 1);
+            Widgets.DrawShadowAround(layout.PanelRect);
+            Widgets.DrawWindowBackgroundTutor(layout.PanelRect);
 
             Text.Font = GameFont.Medium;
             Text.Anchor = TextAnchor.UpperLeft;
-            GUI.color = new Color(1f, 0.85f, 0.36f, 1f);
+            GUI.color = Color.white;
             Widgets.Label(layout.TitleRect, hub.Title);
 
             Text.Font = GameFont.Small;
@@ -470,12 +469,12 @@ namespace Better_Work_Tab.Features.Tutorial
                 bool isHovered = string.Equals(option.LessonId, hovered?.LessonId, StringComparison.Ordinal);
                 bool isComplete = TutorialProgressTransitions.IsCompleted(completed, option.LessonId);
                 Widgets.DrawBoxSolid(rect, isHovered
-                    ? new Color(0.23f, 0.20f, 0.11f, 0.98f)
-                    : new Color(0.095f, 0.105f, 0.115f, 0.98f));
+                    ? new Color(1f, 1f, 1f, 0.16f)
+                    : new Color(0f, 0f, 0f, 0.12f));
                 GUI.color = isHovered
-                    ? new Color(1f, 0.82f, 0.28f, 1f)
-                    : new Color(0.42f, 0.43f, 0.42f, 1f);
-                Widgets.DrawBox(rect, isHovered ? 2 : 1);
+                    ? Color.white
+                    : new Color(1f, 1f, 1f, 0.35f);
+                Widgets.DrawBox(rect, 1);
                 GUI.color = Color.white;
                 string prefix = isComplete ? "✓  " : string.Empty;
                 Rect labelRect = new Rect(rect.x + 9f, rect.y + 4f, rect.width - 18f, rect.height - 8f);
@@ -485,8 +484,8 @@ namespace Better_Work_Tab.Features.Tutorial
             Widgets.EndScrollView();
             Text.Anchor = TextAnchor.UpperLeft;
 
-            Widgets.DrawBoxSolid(layout.ContextRect, new Color(0.075f, 0.082f, 0.09f, 0.98f));
-            GUI.color = new Color(0.32f, 0.34f, 0.35f, 1f);
+            Widgets.DrawBoxSolid(layout.ContextRect, new Color(0f, 0f, 0f, 0.16f));
+            GUI.color = new Color(1f, 1f, 1f, 0.22f);
             Widgets.DrawBox(layout.ContextRect, 1);
             Rect contextInner = layout.ContextRect.ContractedBy(ContextPadding);
             Text.Font = GameFont.Small;
@@ -513,9 +512,9 @@ namespace Better_Work_Tab.Features.Tutorial
                 contentWidth,
                 Mathf.Max(contextInner.height, lastContextContentHeight));
             Widgets.BeginScrollView(contextInner, ref contextScrollPosition, contextView);
-            GUI.color = new Color(1f, 0.86f, 0.42f, 1f);
+            GUI.color = Color.white;
             Widgets.Label(new Rect(0f, 0f, contentWidth, headingHeight), heading);
-            GUI.color = new Color(0.9f, 0.91f, 0.9f, 1f);
+            GUI.color = Color.white;
             Widgets.Label(new Rect(
                 0f,
                 headingHeight + 10f,
@@ -525,9 +524,9 @@ namespace Better_Work_Tab.Features.Tutorial
 
             bool exitHovered = layout.ExitRect.Contains(Event.current?.mousePosition ?? Vector2.zero);
             Widgets.DrawBoxSolid(layout.ExitRect, exitHovered
-                ? new Color(0.20f, 0.18f, 0.11f, 1f)
-                : new Color(0.10f, 0.11f, 0.12f, 1f));
-            GUI.color = exitHovered ? new Color(1f, 0.83f, 0.32f, 1f) : Color.white;
+                ? new Color(1f, 1f, 1f, 0.16f)
+                : new Color(0f, 0f, 0f, 0.18f));
+            GUI.color = Color.white;
             Widgets.DrawBox(layout.ExitRect, 1);
             TextAnchor exitAnchor = Text.Anchor;
             Text.Anchor = TextAnchor.MiddleCenter;
@@ -536,9 +535,9 @@ namespace Better_Work_Tab.Features.Tutorial
 
             bool leaveHovered = layout.LeaveRect.Contains(Event.current?.mousePosition ?? Vector2.zero);
             Widgets.DrawBoxSolid(layout.LeaveRect, leaveHovered
-                ? new Color(0.20f, 0.18f, 0.11f, 1f)
-                : new Color(0.10f, 0.11f, 0.12f, 1f));
-            GUI.color = leaveHovered ? new Color(1f, 0.83f, 0.32f, 1f) : Color.white;
+                ? new Color(1f, 1f, 1f, 0.16f)
+                : new Color(0f, 0f, 0f, 0.18f));
+            GUI.color = Color.white;
             Widgets.DrawBox(layout.LeaveRect, 1);
             Text.Anchor = TextAnchor.MiddleCenter;
             Widgets.Label(layout.LeaveRect, leaveLabel);
@@ -653,7 +652,7 @@ namespace Better_Work_Tab.Features.Tutorial
             }
 
             Rect focus = focusRect.ExpandedBy(6f);
-            Color dim = new Color(0f, 0f, 0f, 0.24f);
+            Color dim = new Color(0f, 0f, 0f, 0.10f);
             Widgets.DrawBoxSolid(new Rect(workBounds.xMin, workBounds.yMin, workBounds.width,
                 Mathf.Max(0f, focus.yMin - workBounds.yMin)), dim);
             Widgets.DrawBoxSolid(new Rect(workBounds.xMin, focus.yMax, workBounds.width,

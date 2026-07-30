@@ -467,7 +467,7 @@ namespace Spine.UI.Tutorial
             TextAnchor oldAnchor = Text.Anchor;
             oldFont = Text.Font;
 
-            Widgets.DrawBoxSolid(badgeRect, new Color(0.05f, 0.05f, 0.05f, 0.95f));
+            Widgets.DrawWindowBackgroundTutor(badgeRect);
             GUI.color = style.FocusColor;
             Widgets.DrawBox(badgeRect, 1);
             Text.Anchor = TextAnchor.MiddleCenter;
@@ -525,10 +525,8 @@ namespace Spine.UI.Tutorial
             TextAnchor oldAnchor = Text.Anchor;
             GameFont oldFont = Text.Font;
 
-            Widgets.DrawBoxSolid(rect, style.CardColor);
-            GUI.color = style.BorderColor;
-            Widgets.DrawBox(rect, 1);
-            Widgets.DrawBoxSolid(new Rect(rect.x + 1f, rect.y + 1f, rect.width - 2f, 3f), style.AccentColor);
+            Widgets.DrawShadowAround(rect);
+            Widgets.DrawWindowBackgroundTutor(rect);
 
             Rect inner = rect.ContractedBy(style.CardPadding);
             Text.Font = GameFont.Medium;
@@ -537,7 +535,7 @@ namespace Spine.UI.Tutorial
             Widgets.Label(new Rect(inner.x, inner.y + 2f, inner.width, 30f), content.Title);
 
             Text.Font = GameFont.Small;
-            GUI.color = new Color(0.9f, 0.91f, 0.9f, 1f);
+            GUI.color = Color.white;
             float bodyY = inner.y + 40f;
             TutorialOverlayButtonLayout buttons = CreateButtonLayout(inner.width, content);
             float buttonTop = inner.yMax - buttons.Height;

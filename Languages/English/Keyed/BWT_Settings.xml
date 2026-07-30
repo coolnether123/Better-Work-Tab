@@ -215,4 +215,281 @@
 
     <BWT_Settings_ui.generalTutorial>Show Better Work Tab Tutorial</BWT_Settings_ui.generalTutorial>
     <BWT_Settings_ui.generalTutorial_Tooltip>Show or resume the tutorial. Turning this off pauses it without clearing progress.</BWT_Settings_ui.generalTutorial_Tooltip>
+
+    <!-- Registry-convention keys: BWT_Settings_{setting id} and _Tooltip. -->
+    <BWT_Settings_features.overlay>Skill display</BWT_Settings_features.overlay>
+    <BWT_Settings_features.overlay_Tooltip>Show skill levels and best-pawn indicators in the Work tab. The options below control when each indicator appears.</BWT_Settings_features.overlay_Tooltip>
+    <BWT_Settings_features.dragdrop>Reorder rows and columns</BWT_Settings_features.dragdrop>
+    <BWT_Settings_features.dragdrop_Tooltip>Drag pawn rows and Work columns into a new order. Turning this off keeps the current order but prevents further dragging.</BWT_Settings_features.dragdrop_Tooltip>
+    <BWT_Settings_features.highlights>Row and column highlights</BWT_Settings_features.highlights>
+    <BWT_Settings_features.highlights_Tooltip>Highlight the pawn row and Work column related to the current selection or cursor position.</BWT_Settings_features.highlights_Tooltip>
+    <BWT_Settings_features.dividers>Dividers</BWT_Settings_features.dividers>
+    <BWT_Settings_features.dividers_Tooltip>Add named divider rows to organize pawns into collapsible groups.</BWT_Settings_features.dividers_Tooltip>
+    <BWT_Settings_features.autoassign>Automatic work assignments (rulesets)</BWT_Settings_features.autoassign>
+    <BWT_Settings_features.autoassign_Tooltip>Create reusable rules that assign work priorities from pawn skills, passions, capabilities, and other conditions.</BWT_Settings_features.autoassign_Tooltip>
+    <BWT_Settings_autoassign.warnOnApply>Warn before applying Ruleset</BWT_Settings_autoassign.warnOnApply>
+    <BWT_Settings_autoassign.warnOnApply_Tooltip>Show a confirmation warning before applying a ruleset to all colonists.</BWT_Settings_autoassign.warnOnApply_Tooltip>
+    <BWT_Settings_features.workloads>Saved work-priority layouts (workloads)</BWT_Settings_features.workloads>
+    <BWT_Settings_features.workloads_Tooltip>Save the colony&apos;s current pawn work priorities as a named layout and restore it later.</BWT_Settings_features.workloads_Tooltip>
+    <BWT_Settings_workloads.warnOnApply>Warn before applying Workload</BWT_Settings_workloads.warnOnApply>
+    <BWT_Settings_workloads.warnOnApply_Tooltip>Show a confirmation warning before applying a workload to all colonists.</BWT_Settings_workloads.warnOnApply_Tooltip>
+    <BWT_Settings_features.subWorkJobs>Specific jobs</BWT_Settings_features.subWorkJobs>
+    <BWT_Settings_features.subWorkJobs_Tooltip>Open a Work column to set priorities for its individual jobs. Use the shortcut below on a Work header or cell; use it again, or press Escape, to return.</BWT_Settings_features.subWorkJobs_Tooltip>
+    <BWT_Settings_subWorkJobs.openModifier>Shortcut modifier</BWT_Settings_subWorkJobs.openModifier>
+    <BWT_Settings_subWorkJobs.openModifier_Tooltip>Modifier key used with the mouse button below to open or leave the specific-job view.</BWT_Settings_subWorkJobs.openModifier_Tooltip>
+    <BWT_Settings_subWorkJobs.openButton>Shortcut mouse button</BWT_Settings_subWorkJobs.openButton>
+    <BWT_Settings_subWorkJobs.openButton_Tooltip>Mouse button used with the modifier key above to open or leave the specific-job view.</BWT_Settings_subWorkJobs.openButton_Tooltip>
+    <BWT_Settings_subWorkJobs.headerBadge>Show specific-jobs button</BWT_Settings_subWorkJobs.headerBadge>
+    <BWT_Settings_subWorkJobs.headerBadge_Tooltip>Show a button integrated into each Work header for opening its specific jobs.</BWT_Settings_subWorkJobs.headerBadge_Tooltip>
+    <BWT_Settings_subWorkJobs.crossWorkDragDrop>Move specific jobs between Work columns</BWT_Settings_subWorkJobs.crossWorkDragDrop>
+    <BWT_Settings_subWorkJobs.crossWorkDragDrop_Tooltip>Drag a specific job onto another Work column to move it there. Turning this off limits dragging to the current specific-job view.</BWT_Settings_subWorkJobs.crossWorkDragDrop_Tooltip>
+    <BWT_Settings_subWorkJobs.compactPriorityBoxes>Compact boxes in expanded view</BWT_Settings_subWorkJobs.compactPriorityBoxes>
+    <BWT_Settings_subWorkJobs.compactPriorityBoxes_Tooltip>Use smaller priority boxes when specific jobs expand beside their parent Work column. Focused full-tab view always uses normal-size boxes.</BWT_Settings_subWorkJobs.compactPriorityBoxes_Tooltip>
+    <BWT_Settings_subWorkJobs.globalVanillaPriorityBoxes>Full-size boxes in the shared-priority row</BWT_Settings_subWorkJobs.globalVanillaPriorityBoxes>
+    <BWT_Settings_subWorkJobs.globalVanillaPriorityBoxes_Tooltip>Draw the priority boxes in the top shared-priority row at normal Work-cell size instead of using compact boxes.</BWT_Settings_subWorkJobs.globalVanillaPriorityBoxes_Tooltip>
+    <BWT_Settings_subWorkJobs.restoreCursor>Restore cursor from headers</BWT_Settings_subWorkJobs.restoreCursor>
+    <BWT_Settings_subWorkJobs.restoreCursor_Tooltip>After leaving from a specific-job header, move the cursor back to the Work header used to open it.</BWT_Settings_subWorkJobs.restoreCursor_Tooltip>
+    <BWT_Settings_subWorkJobs.restoreCursorFromPawnCells>Restore cursor from pawn cells</BWT_Settings_subWorkJobs.restoreCursorFromPawnCells>
+    <BWT_Settings_subWorkJobs.restoreCursorFromPawnCells_Tooltip>After leaving from a pawn priority cell, move the cursor back to the Work header used to open the specific-job view. Turning this off leaves the cursor where you clicked.</BWT_Settings_subWorkJobs.restoreCursorFromPawnCells_Tooltip>
+    <BWT_Settings_subWorkJobs.overrideBreakAnimation>Override reset animation</BWT_Settings_subWorkJobs.overrideBreakAnimation>
+    <BWT_Settings_subWorkJobs.overrideBreakAnimation_Tooltip>Show a short break-and-fade effect when returning a pawn&apos;s specific-job priority to the shared priority.</BWT_Settings_subWorkJobs.overrideBreakAnimation_Tooltip>
+    <BWT_Settings_subWorkJobs.transitionAnimation>Specific-job transition animation</BWT_Settings_subWorkJobs.transitionAnimation>
+    <BWT_Settings_subWorkJobs.transitionAnimation_Tooltip>Animate specific-job views, including Fluffy-style expand-beside columns and header text fade when they open or collapse.</BWT_Settings_subWorkJobs.transitionAnimation_Tooltip>
+    <BWT_Settings_subWorkJobs.transitionMode>Animation style</BWT_Settings_subWorkJobs.transitionMode>
+    <BWT_Settings_subWorkJobs.transitionMode_Tooltip>Choose how the Work tab opens specific jobs. Off changes instantly with no transition.</BWT_Settings_subWorkJobs.transitionMode_Tooltip>
+    <BWT_Settings_subWorkJobs.transitionStyle>Transition style</BWT_Settings_subWorkJobs.transitionStyle>
+    <BWT_Settings_subWorkJobs.transitionStyle_Tooltip>Classic glide is the original sub-work transition. Pixel wave reveal keeps columns in place and fades them as the grey wave passes.</BWT_Settings_subWorkJobs.transitionStyle_Tooltip>
+    <BWT_Settings_subWorkJobs.transitionSpeed>Animation speed</BWT_Settings_subWorkJobs.transitionSpeed>
+    <BWT_Settings_subWorkJobs.transitionSpeed_Tooltip>Controls how quickly the Work tab opens, expands, collapses, or leaves specific jobs.</BWT_Settings_subWorkJobs.transitionSpeed_Tooltip>
+    <BWT_Settings_subWorkJobs.disabledParentMode>When the parent Work type is off</BWT_Settings_subWorkJobs.disabledParentMode>
+    <BWT_Settings_subWorkJobs.disabledParentMode_Tooltip>Choose whether locked specific-job priorities can still run when their parent Work type is disabled. Multiplayer always uses vanilla parent-disable behavior.</BWT_Settings_subWorkJobs.disabledParentMode_Tooltip>
+    <BWT_Settings_subWorkJobs.autoExpandColumns>Expand specific-job columns</BWT_Settings_subWorkJobs.autoExpandColumns>
+    <BWT_Settings_subWorkJobs.autoExpandColumns_Tooltip>Use empty table width for specific-job columns so long labels fit without changing the pawn-name column.</BWT_Settings_subWorkJobs.autoExpandColumns_Tooltip>
+    <BWT_Settings_subWorkJobs.evenlyExpandColumns>Use equal expanded widths</BWT_Settings_subWorkJobs.evenlyExpandColumns>
+    <BWT_Settings_subWorkJobs.evenlyExpandColumns_Tooltip>Give expanded specific-job columns equal widths. Turning this off widens only columns whose labels need more room.</BWT_Settings_subWorkJobs.evenlyExpandColumns_Tooltip>
+    <BWT_Settings_features.uiElements>Work Tab</BWT_Settings_features.uiElements>
+    <BWT_Settings_features.uiElements_Tooltip>General Work tab size, spacing, controls, and display options.</BWT_Settings_features.uiElements_Tooltip>
+    <BWT_Settings_features.clicks>Mouse &amp; shortcuts</BWT_Settings_features.clicks>
+    <BWT_Settings_features.clicks_Tooltip>Mouse and shortcut behavior for the Work tab.</BWT_Settings_features.clicks_Tooltip>
+    <BWT_Settings_priority.header>Priority range</BWT_Settings_priority.header>
+    <BWT_Settings_priority.header_Tooltip>Controls which mod owns the manual priority range.</BWT_Settings_priority.header_Tooltip>
+    <BWT_Settings_priority.mode>Priority mode</BWT_Settings_priority.mode>
+    <BWT_Settings_priority.mode_Tooltip>Auto keeps RimWorld&apos;s normal 1-4 range unless another compatible mod or existing higher priorities require more. Better Work Tab lets BWT manage the expanded range.</BWT_Settings_priority.mode_Tooltip>
+    <BWT_Settings_ui.autoMaxPriority>Auto max priority</BWT_Settings_ui.autoMaxPriority>
+    <BWT_Settings_ui.autoMaxPriority_Tooltip>Legacy compatibility value. Auto mode now uses the BWT max priority setting as its ceiling.</BWT_Settings_ui.autoMaxPriority_Tooltip>
+    <BWT_Settings_ui.maxPriority>Maximum priority</BWT_Settings_ui.maxPriority>
+    <BWT_Settings_ui.maxPriority_Tooltip>Highest manual priority available when Better Work Tab manages the priority range.</BWT_Settings_ui.maxPriority_Tooltip>
+    <BWT_Settings_ui.autoDisabledPriorityMode>Priority when re-enabling work</BWT_Settings_ui.autoDisabledPriorityMode>
+    <BWT_Settings_ui.autoDisabledPriorityMode_Tooltip>Choose the priority assigned when you click disabled work back on in Auto priority mode.</BWT_Settings_ui.autoDisabledPriorityMode_Tooltip>
+    <BWT_Settings_ui.timePrioritySchedules>Priorities by hour</BWT_Settings_ui.timePrioritySchedules>
+    <BWT_Settings_ui.timePrioritySchedules_Tooltip>Ctrl-click a work-priority cell to set different priorities by time of day.</BWT_Settings_ui.timePrioritySchedules_Tooltip>
+    <BWT_Settings_ui.timePriorityHourDivider>Show time-number divider</BWT_Settings_ui.timePriorityHourDivider>
+    <BWT_Settings_ui.timePriorityHourDivider_Tooltip>Draw a thin divider line above the hour numbers in the Work tab time-priority editor.</BWT_Settings_ui.timePriorityHourDivider_Tooltip>
+    <BWT_Settings_ui.timePriorityCopyPasteButtons>Show schedule copy/paste buttons</BWT_Settings_ui.timePriorityCopyPasteButtons>
+    <BWT_Settings_ui.timePriorityCopyPasteButtons_Tooltip>Show copy and paste controls for Work tab time-priority schedules. These controls use the same copy/paste column as vanilla while a schedule row is open.</BWT_Settings_ui.timePriorityCopyPasteButtons_Tooltip>
+    <BWT_Settings_ui.timePrioritySourceColumnHighlight>Keep source column highlighted</BWT_Settings_ui.timePrioritySourceColumnHighlight>
+    <BWT_Settings_ui.timePrioritySourceColumnHighlight_Tooltip>While a time-priority schedule is open, keep the work column it edits highlighted and prevent the schedule strip from highlighting columns behind it.</BWT_Settings_ui.timePrioritySourceColumnHighlight_Tooltip>
+    <BWT_Settings_ui.fluffyTimePriorityMirroring>Mirror schedules to Fluffy</BWT_Settings_ui.fluffyTimePriorityMirroring>
+    <BWT_Settings_ui.fluffyTimePriorityMirroring_Tooltip>When Fluffy Work Tab is loaded, push BWT time-priority schedules into Fluffy&apos;s own per-hour priority tracker.</BWT_Settings_ui.fluffyTimePriorityMirroring_Tooltip>
+    <BWT_Settings_ui.autoDisabledPriorityFixedValue>Fixed re-enabled priority</BWT_Settings_ui.autoDisabledPriorityFixedValue>
+    <BWT_Settings_ui.autoDisabledPriorityFixedValue_Tooltip>Priority number used when the setting above is Fixed Priority.</BWT_Settings_ui.autoDisabledPriorityFixedValue_Tooltip>
+    <BWT_Settings_ui.priorityColorPercentageGreen>Green priority threshold</BWT_Settings_ui.priorityColorPercentageGreen>
+    <BWT_Settings_ui.priorityColorPercentageGreen_Tooltip>For extended priorities, color the highest-priority number range green. Lower numbers are acted on first; this percentage is measured from priority 1 toward the maximum.</BWT_Settings_ui.priorityColorPercentageGreen_Tooltip>
+    <BWT_Settings_ui.priorityColorPercentageYellow>Yellow priority threshold</BWT_Settings_ui.priorityColorPercentageYellow>
+    <BWT_Settings_ui.priorityColorPercentageYellow_Tooltip>For extended priorities, color priority numbers yellow through this cumulative percentage of the range. Lower numbers are acted on first.</BWT_Settings_ui.priorityColorPercentageYellow_Tooltip>
+    <BWT_Settings_ui.priorityColorPercentageTan>Tan priority threshold</BWT_Settings_ui.priorityColorPercentageTan>
+    <BWT_Settings_ui.priorityColorPercentageTan_Tooltip>For extended priorities, color priority numbers tan through this cumulative percentage of the range. Lower numbers are acted on first; later numbers are gray.</BWT_Settings_ui.priorityColorPercentageTan_Tooltip>
+    <BWT_Settings_features.performance>Performance</BWT_Settings_features.performance>
+    <BWT_Settings_features.performance_Tooltip>Disabling may reduce performance on large colonies</BWT_Settings_features.performance_Tooltip>
+    <BWT_Settings_features.multiplayer>Multiplayer Sync</BWT_Settings_features.multiplayer>
+    <BWT_Settings_features.multiplayer_Tooltip>Enable multiplayer synchronization options.</BWT_Settings_features.multiplayer_Tooltip>
+    <BWT_Settings_highlights.hover>Highlight on Hover</BWT_Settings_highlights.hover>
+    <BWT_Settings_highlights.hover_Tooltip>Tint the row and column under your cursor.</BWT_Settings_highlights.hover_Tooltip>
+    <BWT_Settings_highlights.masterColor>Set Master Highlight Color</BWT_Settings_highlights.masterColor>
+    <BWT_Settings_highlights.masterColor_Tooltip>Select a color to apply to ALL highlight settings (Hover, Selected, etc).</BWT_Settings_highlights.masterColor_Tooltip>
+    <BWT_Settings_highlights.hover.color>Cell hover: row and column color</BWT_Settings_highlights.hover.color>
+    <BWT_Settings_highlights.hover.color_Tooltip>Tints both the pawn row and Work column crossing under the cursor.</BWT_Settings_highlights.hover.color_Tooltip>
+    <BWT_Settings_highlights.selected>Highlight Selected Pawn</BWT_Settings_highlights.selected>
+    <BWT_Settings_highlights.selected_Tooltip>Always highlight the currently selected pawn&apos;s row.</BWT_Settings_highlights.selected_Tooltip>
+    <BWT_Settings_highlights.selected.color>Selected pawn-row color</BWT_Settings_highlights.selected.color>
+    <BWT_Settings_highlights.selected.color_Tooltip>Tints the full Work-tab row for a pawn selected on the map or colonist bar.</BWT_Settings_highlights.selected.color_Tooltip>
+    <BWT_Settings_highlights.selected.opacity>Selected Pawn Highlight Opacity</BWT_Settings_highlights.selected.opacity>
+    <BWT_Settings_highlights.selected.opacity_Tooltip>Opacity for selected pawn highlight.</BWT_Settings_highlights.selected.opacity_Tooltip>
+    <BWT_Settings_highlights.floatMenu.color>Context target: row and column color</BWT_Settings_highlights.floatMenu.color>
+    <BWT_Settings_highlights.floatMenu.color_Tooltip>Tints the pawn row and Work column opened by Go to Work or Manage Work options, including those beside Do Once. The Do Once action itself stays on the map and has no Work-tab highlight.</BWT_Settings_highlights.floatMenu.color_Tooltip>
+    <BWT_Settings_highlights.similar>Related Work columns</BWT_Settings_highlights.similar>
+    <BWT_Settings_highlights.similar_Tooltip>Dimly highlight other Work columns that use the same skills.</BWT_Settings_highlights.similar_Tooltip>
+    <BWT_Settings_highlights.similar.color>Related Work-column color</BWT_Settings_highlights.similar.color>
+    <BWT_Settings_highlights.similar.color_Tooltip>Tints other Work columns that use skills related to the column under the cursor.</BWT_Settings_highlights.similar.color_Tooltip>
+    <BWT_Settings_highlights.similar.opacity>Related Work opacity</BWT_Settings_highlights.similar.opacity>
+    <BWT_Settings_highlights.similar.opacity_Tooltip>Opacity used to highlight related Work columns.</BWT_Settings_highlights.similar.opacity_Tooltip>
+    <BWT_Settings_dragdrop.enableGrouping>Group columns with Shift-click</BWT_Settings_dragdrop.enableGrouping>
+    <BWT_Settings_dragdrop.enableGrouping_Tooltip>Shift-click Work headers to select and drag multiple columns together.</BWT_Settings_dragdrop.enableGrouping_Tooltip>
+    <BWT_Settings_layout.dragRows>Drag pawn rows</BWT_Settings_layout.dragRows>
+    <BWT_Settings_layout.dragRows_Tooltip>Drag pawn rows to change their order.</BWT_Settings_layout.dragRows_Tooltip>
+    <BWT_Settings_layout.dragColumns>Drag Work columns</BWT_Settings_layout.dragColumns>
+    <BWT_Settings_layout.dragColumns_Tooltip>Drag Work columns to change their order.</BWT_Settings_layout.dragColumns_Tooltip>
+    <BWT_Settings_layout.dragThreshold>Drag Threshold (px)</BWT_Settings_layout.dragThreshold>
+    <BWT_Settings_layout.dragThreshold_Tooltip>Minimum mouse movement before a drag begins.</BWT_Settings_layout.dragThreshold_Tooltip>
+    <BWT_Settings_layout.dragColumnLineInset>Column insertion-line height</BWT_Settings_layout.dragColumnLineInset>
+    <BWT_Settings_layout.dragColumnLineInset_Tooltip>How far the insertion line extends upward from the bottom of the Work header while dragging a column.</BWT_Settings_layout.dragColumnLineInset_Tooltip>
+    <BWT_Settings_layout.dragHoverDelay>Rule Builder: Drag Hover Delay (s)</BWT_Settings_layout.dragHoverDelay>
+    <BWT_Settings_layout.dragHoverDelay_Tooltip>Time in seconds to hover before switching categories while dragging rules.</BWT_Settings_layout.dragHoverDelay_Tooltip>
+    <BWT_Settings_layout.closeOnMapClick>Close on map click</BWT_Settings_layout.closeOnMapClick>
+    <BWT_Settings_layout.closeOnMapClick_Tooltip>Close the Work tab when clicking on the map.</BWT_Settings_layout.closeOnMapClick_Tooltip>
+    <BWT_Settings_layout.contextMenu>Right-click context menu</BWT_Settings_layout.contextMenu>
+    <BWT_Settings_layout.contextMenu_Tooltip>Enable context menu on right-clicking pawn names.</BWT_Settings_layout.contextMenu_Tooltip>
+    <BWT_Settings_layout.workTabMinimumWidth>Keep vanilla minimum width</BWT_Settings_layout.workTabMinimumWidth>
+    <BWT_Settings_layout.workTabMinimumWidth_Tooltip>Keep the Work tab at least as wide as RimWorld&apos;s normal Work tab to reduce distracting motion. Wider content may still expand the tab to the right. Turn this off to let compact layouts shrink the window.</BWT_Settings_layout.workTabMinimumWidth_Tooltip>
+    <BWT_Settings_ui.priorityLegend>Show Priority Legend</BWT_Settings_ui.priorityLegend>
+    <BWT_Settings_ui.priorityLegend_Tooltip>Display priority direction text above work columns.</BWT_Settings_ui.priorityLegend_Tooltip>
+    <BWT_Settings_ui.dragInstructions>Show Footer Control Hints</BWT_Settings_ui.dragInstructions>
+    <BWT_Settings_ui.dragInstructions_Tooltip>Always show the Shift skill-view hint and show other control hints only when hovering a target that supports them.</BWT_Settings_ui.dragInstructions_Tooltip>
+    <BWT_Settings_ui.contextSettingsHint>Show Alt-Click Settings Hint</BWT_Settings_ui.contextSettingsHint>
+    <BWT_Settings_ui.contextSettingsHint_Tooltip>Show the top-right hint that Alt-clicking the Work tab opens related settings. This turns off automatically after the first successful Alt-click.</BWT_Settings_ui.contextSettingsHint_Tooltip>
+    <BWT_Settings_ui.manualPriorities>Show Manual Priorities Checkbox</BWT_Settings_ui.manualPriorities>
+    <BWT_Settings_ui.manualPriorities_Tooltip>Show the Manual Priorities checkbox in the header. Disabling hides the checkbox and prevents switching between checkmarks and manual priority numbers.</BWT_Settings_ui.manualPriorities_Tooltip>
+    <BWT_Settings_ui.autoEnableManualPriorities>Turn on Manual priorities automatically</BWT_Settings_ui.autoEnableManualPriorities>
+    <BWT_Settings_ui.autoEnableManualPriorities_Tooltip>Automatically check the Manual Priorities checkbox when opening the Work tab.</BWT_Settings_ui.autoEnableManualPriorities_Tooltip>
+    <BWT_Settings_dividers.show>Show Dividers</BWT_Settings_dividers.show>
+    <BWT_Settings_dividers.show_Tooltip>Toggle visibility of divider rows.</BWT_Settings_dividers.show_Tooltip>
+    <BWT_Settings_dividers.customColors>Custom divider colors</BWT_Settings_dividers.customColors>
+    <BWT_Settings_dividers.customColors_Tooltip>Choose a different color for each divider.</BWT_Settings_dividers.customColors_Tooltip>
+    <BWT_Settings_dividers.highlight>Highlight on Hover</BWT_Settings_dividers.highlight>
+    <BWT_Settings_dividers.highlight_Tooltip>Highlight dividers when hovering over them using the hover highlight color.</BWT_Settings_dividers.highlight_Tooltip>
+    <BWT_Settings_dividers.labels>Show Divider Labels</BWT_Settings_dividers.labels>
+    <BWT_Settings_dividers.labels_Tooltip>Show divider labels by default.</BWT_Settings_dividers.labels_Tooltip>
+    <BWT_Settings_dividers.collapse>Collapsible dividers</BWT_Settings_dividers.collapse>
+    <BWT_Settings_dividers.collapse_Tooltip>Let dividers collapse or expand their pawn groups.</BWT_Settings_dividers.collapse_Tooltip>
+    <BWT_Settings_dividers.animations>Animate Divider Changes</BWT_Settings_dividers.animations>
+    <BWT_Settings_dividers.animations_Tooltip>Smoothly grows and collapses divider sections and newly inserted dividers. Disable this if another mod causes table resize flicker.</BWT_Settings_dividers.animations_Tooltip>
+    <BWT_Settings_dividers.resetHeight>Reset all divider heights</BWT_Settings_dividers.resetHeight>
+    <BWT_Settings_dividers.resetHeight_Tooltip>Restore every divider to the default height.</BWT_Settings_dividers.resetHeight_Tooltip>
+    <BWT_Settings_columns.showMovedIndicator>Show Moved Indicator</BWT_Settings_columns.showMovedIndicator>
+    <BWT_Settings_columns.showMovedIndicator_Tooltip>Show indicator on manually moved columns.</BWT_Settings_columns.showMovedIndicator_Tooltip>
+    <BWT_Settings_columns.showBaselineLine>Show Baseline Line While Dragging</BWT_Settings_columns.showBaselineLine>
+    <BWT_Settings_columns.showBaselineLine_Tooltip>Show a line at the column&apos;s vanilla position while dragging moved columns.</BWT_Settings_columns.showBaselineLine_Tooltip>
+    <BWT_Settings_columns.showMovedColorTint>Color tint for reordered columns</BWT_Settings_columns.showMovedColorTint>
+    <BWT_Settings_columns.showMovedColorTint_Tooltip>Apply a color tint to the text of manually reordered columns.</BWT_Settings_columns.showMovedColorTint_Tooltip>
+    <BWT_Settings_columns.movedMarkerColor>Moved-column marker color</BWT_Settings_columns.movedMarkerColor>
+    <BWT_Settings_columns.movedMarkerColor_Tooltip>Colors the star and header tint that identify a Work column moved from its default position.</BWT_Settings_columns.movedMarkerColor_Tooltip>
+    <BWT_Settings_columns.resetWidths>Reset Column Widths</BWT_Settings_columns.resetWidths>
+    <BWT_Settings_columns.resetWidths_Tooltip>Clear saved column widths.</BWT_Settings_columns.resetWidths_Tooltip>
+    <BWT_Settings_overlay.header>Skill Colors</BWT_Settings_overlay.header>
+    <BWT_Settings_overlay.header_Tooltip>Skill overlay behaviors when using Shift and hover.</BWT_Settings_overlay.header_Tooltip>
+    <BWT_Settings_overlay.hoverMode>Hover Behavior (Priority/Skill)</BWT_Settings_overlay.hoverMode>
+    <BWT_Settings_overlay.hoverMode_Tooltip>Choose hover visuals: Skill focused (big skill number + small priority) or Priority focused (vanilla box + tiny skill).</BWT_Settings_overlay.hoverMode_Tooltip>
+    <BWT_Settings_overlay.hoverScope>Hover Effect Scope</BWT_Settings_overlay.hoverScope>
+    <BWT_Settings_overlay.hoverScope_Tooltip>Controls whether hover overlays are shown only on the hovered cell or across the whole column.</BWT_Settings_overlay.hoverScope_Tooltip>
+    <BWT_Settings_colors.bestPawnOutline>Best-pawn cell indicator color</BWT_Settings_colors.bestPawnOutline>
+    <BWT_Settings_colors.bestPawnOutline_Tooltip>Colors the outline or background around the highest-skilled eligible pawn&apos;s Work cell.</BWT_Settings_colors.bestPawnOutline_Tooltip>
+    <BWT_Settings_advanced.header>Maintenance</BWT_Settings_advanced.header>
+    <BWT_Settings_advanced.header_Tooltip>Advanced toggles and maintenance/reset options.</BWT_Settings_advanced.header_Tooltip>
+    <BWT_Settings_layout.workTabMaxHeight>Visible pawn rows</BWT_Settings_layout.workTabMaxHeight>
+    <BWT_Settings_layout.workTabMaxHeight_Tooltip>Caps the Work tab height by how many normal pawn rows are visible before scrolling. -1 keeps RimWorld&apos;s default full-screen-height behavior.</BWT_Settings_layout.workTabMaxHeight_Tooltip>
+    <BWT_Settings_layout.workTabTopSpace>Space above Work headers</BWT_Settings_layout.workTabTopSpace>
+    <BWT_Settings_layout.workTabTopSpace_Tooltip>Controls the empty vertical space above the work headers, between the priority direction hint and the top of the header labels. 40px matches RimWorld&apos;s default.</BWT_Settings_layout.workTabTopSpace_Tooltip>
+    <BWT_Settings_advanced.hideSettingResetIcons>Hide setting reset icons</BWT_Settings_advanced.hideSettingResetIcons>
+    <BWT_Settings_advanced.hideSettingResetIcons_Tooltip>Hide the per-setting reset buttons shown beside settings that differ from their defaults.</BWT_Settings_advanced.hideSettingResetIcons_Tooltip>
+    <BWT_Settings_advanced.settingFocusHighlightColor>Setting focus highlight</BWT_Settings_advanced.settingFocusHighlightColor>
+    <BWT_Settings_advanced.settingFocusHighlightColor_Tooltip>Color used to pulse a setting row after Alt-clicking the Work tab or double-clicking a search result.</BWT_Settings_advanced.settingFocusHighlightColor_Tooltip>
+    <BWT_Settings_advanced.workGridRenderer>Work grid renderer</BWT_Settings_advanced.workGridRenderer>
+    <BWT_Settings_advanced.workGridRenderer_Tooltip>Auto uses BWT&apos;s optimized renderer when available and falls back safely. Vanilla always uses the game&apos;s native Work grid renderer. Both paths preserve vanilla visuals and interactions.</BWT_Settings_advanced.workGridRenderer_Tooltip>
+    <BWT_Settings_autoassign.viewMode>Ruleset editor</BWT_Settings_autoassign.viewMode>
+    <BWT_Settings_autoassign.viewMode_Tooltip>Choose the visual builder, the classic list, or make both editor choices available.</BWT_Settings_autoassign.viewMode_Tooltip>
+    <BWT_Settings_autoassign.ruleBuilder2.use>Use Rule Builder 2.0</BWT_Settings_autoassign.ruleBuilder2.use>
+    <BWT_Settings_autoassign.ruleBuilder2.use_Tooltip>Open the card-based Rule Builder 2.0 by default while preserving the classic builder as a fallback.</BWT_Settings_autoassign.ruleBuilder2.use_Tooltip>
+    <BWT_Settings_autoassign.ruleBuilder2.tutorial>Show Rule Builder help</BWT_Settings_autoassign.ruleBuilder2.tutorial>
+    <BWT_Settings_autoassign.ruleBuilder2.tutorial_Tooltip>Show the introductory Rule Builder card and one-time suggestions hint.</BWT_Settings_autoassign.ruleBuilder2.tutorial_Tooltip>
+    <BWT_Settings_autoassign.ruleBuilder2.tutorialReset>Reset Rule Builder help</BWT_Settings_autoassign.ruleBuilder2.tutorialReset>
+    <BWT_Settings_autoassign.ruleBuilder2.tutorialReset_Tooltip>Show the Rule Builder introduction again the next time the builder opens.</BWT_Settings_autoassign.ruleBuilder2.tutorialReset_Tooltip>
+    <BWT_Settings_autoassign.ruleBuilder2.highlights>Rule Builder Work tab highlights</BWT_Settings_autoassign.ruleBuilder2.highlights>
+    <BWT_Settings_autoassign.ruleBuilder2.highlights_Tooltip>Highlight the Work tab target while editing or previewing a Rule Builder 2.0 card.</BWT_Settings_autoassign.ruleBuilder2.highlights_Tooltip>
+    <BWT_Settings_autoassign.ruleBuilder2.animations>Rule Builder animations</BWT_Settings_autoassign.ruleBuilder2.animations>
+    <BWT_Settings_autoassign.ruleBuilder2.animations_Tooltip>Animate Rule Builder 2.0 cards, previews, and tutorial focus movement.</BWT_Settings_autoassign.ruleBuilder2.animations_Tooltip>
+    <BWT_Settings_autoassign.ruleBuilder2.draftSuggestions>Generated draft suggestions</BWT_Settings_autoassign.ruleBuilder2.draftSuggestions>
+    <BWT_Settings_autoassign.ruleBuilder2.draftSuggestions_Tooltip>Reserved for a future Rule Builder draft generator.</BWT_Settings_autoassign.ruleBuilder2.draftSuggestions_Tooltip>
+    <BWT_Settings_autoassign.ruleBuilder2.advancedConditions>Show advanced conditions</BWT_Settings_autoassign.ruleBuilder2.advancedConditions>
+    <BWT_Settings_autoassign.ruleBuilder2.advancedConditions_Tooltip>Show advanced Rule Builder 2.0 condition cards such as capacities and assignment state.</BWT_Settings_autoassign.ruleBuilder2.advancedConditions_Tooltip>
+    <BWT_Settings_autoassign.ruleBuilder2.matchedPanel>Priority-box match panel</BWT_Settings_autoassign.ruleBuilder2.matchedPanel>
+    <BWT_Settings_autoassign.ruleBuilder2.matchedPanel_Tooltip>Show matched conditions when clicking a Work tab priority box while Rule Builder 2.0 is open.</BWT_Settings_autoassign.ruleBuilder2.matchedPanel_Tooltip>
+    <BWT_Settings_autoassign.confirm>Confirm on Apply</BWT_Settings_autoassign.confirm>
+    <BWT_Settings_autoassign.confirm_Tooltip>Show confirmation before applying a ruleset.</BWT_Settings_autoassign.confirm_Tooltip>
+    <BWT_Settings_autoassign.resetBefore>Reset Before Apply</BWT_Settings_autoassign.resetBefore>
+    <BWT_Settings_autoassign.resetBefore_Tooltip>Clear assignments before applying a ruleset.</BWT_Settings_autoassign.resetBefore_Tooltip>
+    <BWT_Settings_autoassign.visual>Visual Feedback</BWT_Settings_autoassign.visual>
+    <BWT_Settings_autoassign.visual_Tooltip>Highlight affected pawns/work types after applying.</BWT_Settings_autoassign.visual_Tooltip>
+    <BWT_Settings_workloads.persistDividers>Include Dividers</BWT_Settings_workloads.persistDividers>
+    <BWT_Settings_workloads.persistDividers_Tooltip>Include divider positions when saving workloads.</BWT_Settings_workloads.persistDividers_Tooltip>
+    <BWT_Settings_advanced.alwaysShowConditionEditors>Always show condition editors</BWT_Settings_advanced.alwaysShowConditionEditors>
+    <BWT_Settings_advanced.alwaysShowConditionEditors_Tooltip>Condition rows are always editable without an initial click.</BWT_Settings_advanced.alwaysShowConditionEditors_Tooltip>
+    <BWT_Settings_perf.cacheBedCounts>Cache Bed Counts</BWT_Settings_perf.cacheBedCounts>
+    <BWT_Settings_perf.cacheBedCounts_Tooltip>Cache bed counts to reduce stutter.</BWT_Settings_perf.cacheBedCounts_Tooltip>
+    <BWT_Settings_perf.cacheSkillLevels>Cache Skill Levels</BWT_Settings_perf.cacheSkillLevels>
+    <BWT_Settings_perf.cacheSkillLevels_Tooltip>Cache skill calculations to reduce redundant work.</BWT_Settings_perf.cacheSkillLevels_Tooltip>
+    <BWT_Settings_perf.cacheRowDescriptors>Cache Row Descriptors</BWT_Settings_perf.cacheRowDescriptors>
+    <BWT_Settings_perf.cacheRowDescriptors_Tooltip>Cache row descriptor calculations for layout.</BWT_Settings_perf.cacheRowDescriptors_Tooltip>
+    <BWT_Settings_perf.cacheIncapability>Cache Incapability Checks</BWT_Settings_perf.cacheIncapability>
+    <BWT_Settings_perf.cacheIncapability_Tooltip>Cache incapability checks for work types.</BWT_Settings_perf.cacheIncapability_Tooltip>
+    <BWT_Settings_perf.useElementPooling>Use Element Pooling</BWT_Settings_perf.useElementPooling>
+    <BWT_Settings_perf.useElementPooling_Tooltip>Reuse UI elements instead of allocating each frame.</BWT_Settings_perf.useElementPooling_Tooltip>
+    <BWT_Settings_perf.viewportCulling>Viewport Culling</BWT_Settings_perf.viewportCulling>
+    <BWT_Settings_perf.viewportCulling_Tooltip>Only render visible rows in the scroll area.</BWT_Settings_perf.viewportCulling_Tooltip>
+    <BWT_Settings_advanced.scrollWheelPriority>Scroll Wheel Priority</BWT_Settings_advanced.scrollWheelPriority>
+    <BWT_Settings_advanced.scrollWheelPriority_Tooltip>Change priorities by hovering a work priority cell and scrolling. Applies to normal work cells, sub-work cells, and time-priority cells.</BWT_Settings_advanced.scrollWheelPriority_Tooltip>
+    <BWT_Settings_debug.features>Debug Features</BWT_Settings_debug.features>
+    <BWT_Settings_debug.features_Tooltip>Select which debug features to enable logging for.</BWT_Settings_debug.features_Tooltip>
+    <BWT_Settings_advanced.profiler>Enable Profiler</BWT_Settings_advanced.profiler>
+    <BWT_Settings_advanced.profiler_Tooltip>Enable in-game profiler (1 to report, Shift+1 to clear).</BWT_Settings_advanced.profiler_Tooltip>
+    <BWT_Settings_advanced.logToFile>Log to File</BWT_Settings_advanced.logToFile>
+    <BWT_Settings_advanced.logToFile_Tooltip>Write debug logs to file in addition to console.</BWT_Settings_advanced.logToFile_Tooltip>
+    <BWT_Settings_mp.syncColumnOrder>Sync Column Order</BWT_Settings_mp.syncColumnOrder>
+    <BWT_Settings_mp.syncColumnOrder_Tooltip>Synchronize column order across multiplayer.</BWT_Settings_mp.syncColumnOrder_Tooltip>
+    <BWT_Settings_mp.syncWorkloads>Sync Workloads</BWT_Settings_mp.syncWorkloads>
+    <BWT_Settings_mp.syncWorkloads_Tooltip>Synchronize workload save/load.</BWT_Settings_mp.syncWorkloads_Tooltip>
+    <BWT_Settings_mp.syncRulesets>Sync Rulesets</BWT_Settings_mp.syncRulesets>
+    <BWT_Settings_mp.syncRulesets_Tooltip>Synchronize ruleset applications.</BWT_Settings_mp.syncRulesets_Tooltip>
+    <BWT_Settings_mp.conflictMode>Conflict Mode</BWT_Settings_mp.conflictMode>
+    <BWT_Settings_mp.conflictMode_Tooltip>How to resolve multiplayer conflicts.</BWT_Settings_mp.conflictMode_Tooltip>
+    <BWT_Settings_mp.showOtherPlayersHover>Show other players&apos; hovered cell</BWT_Settings_mp.showOtherPlayersHover>
+    <BWT_Settings_mp.showOtherPlayersHover_Tooltip>Render hover indicators shared by other players.</BWT_Settings_mp.showOtherPlayersHover_Tooltip>
+    <BWT_Settings_mp.allowPresenceBroadcast>Broadcast my hovered cell</BWT_Settings_mp.allowPresenceBroadcast>
+    <BWT_Settings_mp.allowPresenceBroadcast_Tooltip>Share the hovered cell you are looking at with your peers.</BWT_Settings_mp.allowPresenceBroadcast_Tooltip>
+    <BWT_Settings_mp.allowOthersToRequestLayout>Allow layout requests</BWT_Settings_mp.allowOthersToRequestLayout>
+    <BWT_Settings_mp.allowOthersToRequestLayout_Tooltip>Permit other players to request snapshots of your layout.</BWT_Settings_mp.allowOthersToRequestLayout_Tooltip>
+    <BWT_Settings_mp.showLinkedIndicator>Show linked indicator</BWT_Settings_mp.showLinkedIndicator>
+    <BWT_Settings_mp.showLinkedIndicator_Tooltip>Display a linked/peered indicator when viewing another player&apos;s layout.</BWT_Settings_mp.showLinkedIndicator_Tooltip>
+    <BWT_Settings_headers.header>Headers</BWT_Settings_headers.header>
+    <BWT_Settings_headers.header_Tooltip>Work-column label style, angle, color, and alignment.</BWT_Settings_headers.header_Tooltip>
+    <BWT_Settings_headers.customWorkLabels>Custom Work names</BWT_Settings_headers.customWorkLabels>
+    <BWT_Settings_headers.customWorkLabels_Tooltip>Allow renamed Work columns and specific jobs to appear in the Work tab. Off keeps saved names but shows default names.</BWT_Settings_headers.customWorkLabels_Tooltip>
+    <BWT_Settings_headers.angled>Angled Work headers</BWT_Settings_headers.angled>
+    <BWT_Settings_headers.angled_Tooltip>Draw Work names at an angle to fit more columns. Turning this off uses vanilla-style headers and disables the moved-column marker.</BWT_Settings_headers.angled_Tooltip>
+    <BWT_Settings_dragdrop.removeHeaderUnderline>Hide header underline</BWT_Settings_dragdrop.removeHeaderUnderline>
+    <BWT_Settings_dragdrop.removeHeaderUnderline_Tooltip>Remove the line beneath Work header labels.</BWT_Settings_dragdrop.removeHeaderUnderline_Tooltip>
+    <BWT_Settings_headers.angleRotation>Angle rotation</BWT_Settings_headers.angleRotation>
+    <BWT_Settings_headers.angleRotation_Tooltip>Rotate the angled headers (-90 to 90 degrees). Snaps to 5-degree increments.</BWT_Settings_headers.angleRotation_Tooltip>
+    <BWT_Settings_headers.useVerticalStackingForCJK>Vertical stacking for CJK</BWT_Settings_headers.useVerticalStackingForCJK>
+    <BWT_Settings_headers.useVerticalStackingForCJK_Tooltip>Draw East Asian characters (Korean, Chinese, Japanese) vertically when angled headers are enabled. This is much more legible than rotated text.</BWT_Settings_headers.useVerticalStackingForCJK_Tooltip>
+    <BWT_Settings_headers.cjkVerticalKerning>CJK vertical kerning</BWT_Settings_headers.cjkVerticalKerning>
+    <BWT_Settings_headers.cjkVerticalKerning_Tooltip>Adjust the vertical spacing between characters in Asian vertical stacking. Lower values mean tighter spacing.</BWT_Settings_headers.cjkVerticalKerning_Tooltip>
+    <BWT_Settings_headers.angledColor>Angled Work-header text color</BWT_Settings_headers.angledColor>
+    <BWT_Settings_headers.angledColor_Tooltip>Colors Work names drawn in angled column headers.</BWT_Settings_headers.angledColor_Tooltip>
+    <BWT_Settings_headers.underlineColor>Work-header underline color</BWT_Settings_headers.underlineColor>
+    <BWT_Settings_headers.underlineColor_Tooltip>Colors the line beneath angled Work names and the stem used by vanilla-style Work headers.</BWT_Settings_headers.underlineColor_Tooltip>
+    <BWT_Settings_headers.horizontalOffset>Horizontal offset</BWT_Settings_headers.horizontalOffset>
+    <BWT_Settings_headers.horizontalOffset_Tooltip>Adjust the horizontal position of angled headers. 0 is centered; 10 is the default. At -90°, the offset is automatically set to 0 for alignment.</BWT_Settings_headers.horizontalOffset_Tooltip>
+    <BWT_Settings_compat.chronosPointer.header>Chronos Pointer integration (2 settings)</BWT_Settings_compat.chronosPointer.header>
+    <BWT_Settings_compat.chronosPointer.header_Tooltip>Optional Work-tab time-bar integration for Chronos Pointer.</BWT_Settings_compat.chronosPointer.header_Tooltip>
+    <BWT_Settings_ui.chronosPointerTimePriority>Chronos Pointer time bar</BWT_Settings_ui.chronosPointerTimePriority>
+    <BWT_Settings_ui.chronosPointerTimePriority_Tooltip>When Chronos Pointer is loaded, draw its daylight/current-time bar above the Work tab time-priority hour numbers.</BWT_Settings_ui.chronosPointerTimePriority_Tooltip>
+    <BWT_Settings_ui.chronosPointerTimePriorityIncidents>Chronos incident overlay</BWT_Settings_ui.chronosPointerTimePriorityIncidents>
+    <BWT_Settings_ui.chronosPointerTimePriorityIncidents_Tooltip>Allow Chronos Pointer to draw its incident colors, such as eclipses and auroras, on the Work tab time bar.</BWT_Settings_ui.chronosPointerTimePriorityIncidents_Tooltip>
+    <BWT_Settings_compat.complexJobs.header>[FSF] Complex Jobs</BWT_Settings_compat.complexJobs.header>
+    <BWT_Settings_compat.complexJobs.header_Tooltip>Choose whether Complex Jobs works alone or with one of BWT&apos;s specific-job presentations.</BWT_Settings_compat.complexJobs.header_Tooltip>
+    <BWT_Settings_compat.complexJobs.subWorkMode>Specific-job columns</BWT_Settings_compat.complexJobs.subWorkMode>
+    <BWT_Settings_compat.complexJobs.subWorkMode_Tooltip>Use Complex Jobs alone, add BWT&apos;s focused view, or add BWT&apos;s Fluffy-style right-expanding columns.</BWT_Settings_compat.complexJobs.subWorkMode_Tooltip>
+    <BWT_Settings_fluffyStyle.scheduleAssigner>Use Fluffy hour-selection scheduler</BWT_Settings_fluffyStyle.scheduleAssigner>
+    <BWT_Settings_fluffyStyle.scheduleAssigner_Tooltip>Use Fluffy&apos;s original bottom hour selector: choose hours, then click normal priority boxes to assign those hours. This option requires Fluffy Work Tab because it uses Fluffy&apos;s scheduler assets.</BWT_Settings_fluffyStyle.scheduleAssigner_Tooltip>
+    <BWT_Settings_hide.workType_Tooltip>Click to unhide this Work type.</BWT_Settings_hide.workType_Tooltip>
 </LanguageData>

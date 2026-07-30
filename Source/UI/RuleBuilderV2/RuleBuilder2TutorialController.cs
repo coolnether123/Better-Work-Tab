@@ -222,7 +222,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
         private static void DrawDimOutside(Rect card, Rect bounds)
         {
             Color previous = GUI.color;
-            Color dim = new Color(0f, 0f, 0f, 0.42f);
+            Color dim = new Color(0f, 0f, 0f, 0.14f);
             GUI.color = dim;
             Widgets.DrawBoxSolid(new Rect(bounds.xMin, bounds.yMin, bounds.width, Mathf.Max(0f, card.yMin - bounds.yMin)), dim);
             Widgets.DrawBoxSolid(new Rect(bounds.xMin, card.yMax, bounds.width, Mathf.Max(0f, bounds.yMax - card.yMax)), dim);
@@ -237,13 +237,13 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             TextAnchor previousAnchor = Text.Anchor;
             GameFont previousFont = Text.Font;
 
-            Widgets.DrawBoxSolid(rect, new Color(0.08f, 0.08f, 0.08f, 0.98f));
-            GUI.color = new Color(0.9f, 0.82f, 0.55f);
-            Widgets.DrawBox(rect, 1);
+            Widgets.DrawShadowAround(rect);
+            Widgets.DrawWindowBackgroundTutor(rect);
 
             Rect inner = rect.ContractedBy(18f);
             Text.Font = GameFont.Medium;
             Text.Anchor = TextAnchor.UpperLeft;
+            GUI.color = Color.white;
             Widgets.Label(new Rect(inner.x, inner.y, inner.width, 30f), GetTitle(hint));
 
             Text.Font = GameFont.Small;

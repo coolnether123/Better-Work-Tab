@@ -38,8 +38,8 @@ namespace Better_Work_Tab.UI.Settings
                 return string.Empty;
             }
 
-            string key = $"BWT_Settings_{def.Id}";
-            if (key.CanTranslate())
+            string key = GetLabelKey(def);
+            if (!string.IsNullOrEmpty(key) && key.CanTranslate())
             {
                 return key.Translate();
             }
@@ -57,13 +57,27 @@ namespace Better_Work_Tab.UI.Settings
                 return string.Empty;
             }
 
-            string key = $"BWT_Settings_{def.Id}_Tooltip";
-            if (key.CanTranslate())
+            string key = GetTooltipKey(def);
+            if (!string.IsNullOrEmpty(key) && key.CanTranslate())
             {
                 return key.Translate();
             }
 
             return def.Tooltip ?? string.Empty;
+        }
+
+        public static string GetLabelKey(SettingDefinition def)
+        {
+            return def == null
+                ? string.Empty
+                : def.LabelKey ?? $"BWT_Settings_{def.Id}";
+        }
+
+        public static string GetTooltipKey(SettingDefinition def)
+        {
+            return def == null
+                ? string.Empty
+                : def.TooltipKey ?? $"BWT_Settings_{def.Id}_Tooltip";
         }
     }
 }

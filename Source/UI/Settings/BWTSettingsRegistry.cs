@@ -2052,7 +2052,9 @@ namespace Better_Work_Tab.UI.Settings
                         Id = "hide.wt." + hiddenDefName,
                         ParentId = HideWorktypes,
                         Label = "  - " + wt.labelShort.CapitalizeFirst(),
+                        LabelKey = string.Empty,
                         Tooltip = "Click to unhide this work type.",
+                        TooltipKey = "BWT_Settings_hide.workType_Tooltip",
                         Type = SettingType.Button,
                         OnChanged = (s) =>
                         {

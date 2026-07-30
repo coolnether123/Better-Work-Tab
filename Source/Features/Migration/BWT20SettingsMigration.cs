@@ -76,10 +76,23 @@ namespace Better_Work_Tab.Features.Migration
             // migration. Child preferences must retain their normal defaults so
             // enabling a feature later does not require repairing every option.
             // Explicit prerelease 2.0 values still win.
-            SetFalseWhenAbsent(persistedKeys, nameof(settings.enableSubWorkDrilldown), value => settings.enableSubWorkDrilldown = value);
-            SetFalseWhenAbsent(persistedKeys, nameof(settings.enableFluffyStyleFeatures), value => settings.enableFluffyStyleFeatures = value);
-            SetFalseWhenAbsent(persistedKeys, nameof(settings.useRuleBuilder2), value => settings.useRuleBuilder2 = value);
-            SetFalseWhenAbsent(persistedKeys, nameof(settings.enableTimePrioritySchedules), value => settings.enableTimePrioritySchedules = value);
+            BWT20FeatureGates migrationGates = BWT20CohortPolicy.Public105Migration;
+            SetWhenAbsent(
+                persistedKeys,
+                nameof(settings.enableSubWorkDrilldown),
+                () => settings.enableSubWorkDrilldown = migrationGates.EnableSubWorkDrilldown);
+            SetWhenAbsent(
+                persistedKeys,
+                nameof(settings.enableFluffyStyleFeatures),
+                () => settings.enableFluffyStyleFeatures = migrationGates.EnableFluffyStyleFeatures);
+            SetWhenAbsent(
+                persistedKeys,
+                nameof(settings.useRuleBuilder2),
+                () => settings.useRuleBuilder2 = migrationGates.UseRuleBuilder2);
+            SetWhenAbsent(
+                persistedKeys,
+                nameof(settings.enableTimePrioritySchedules),
+                () => settings.enableTimePrioritySchedules = migrationGates.EnableTimePrioritySchedules);
 
             // These preferences existed in 1.0.5, but their 2.0 defaults changed.
             // Restore the old absent-key defaults while retaining any saved custom color.
@@ -101,7 +114,7 @@ namespace Better_Work_Tab.Features.Migration
 
             // The launch dialog decides whether to open tutorial choices. The
             // tutorial then offers the public 2.0 and full-course tracks itself.
-            settings.showGeneralTutorial = false;
+            settings.showGeneralTutorial = migrationGates.ShowGeneralTutorial;
             settings.tutorialWelcomeCompleted = true;
             settings.activeTutorialLessonId = string.Empty;
             settings.tutorialLessonPhase = 0;
@@ -124,22 +137,12 @@ namespace Better_Work_Tab.Features.Migration
                 return;
             }
 
-            settings.enableSubWorkDrilldown = DefaultSettings.enableSubWorkDrilldown;
-            settings.enableFluffyStyleFeatures = DefaultSettings.enableFluffyStyleFeatures;
-            settings.useRuleBuilder2 = DefaultSettings.useRuleBuilder2;
-            settings.enableTimePrioritySchedules = DefaultSettings.enableTimePrioritySchedules;
+            BWT20FeatureGates tutorialGates = BWT20CohortPolicy.TutorialOptIn;
+            settings.enableSubWorkDrilldown = tutorialGates.EnableSubWorkDrilldown;
+            settings.enableFluffyStyleFeatures = tutorialGates.EnableFluffyStyleFeatures;
+            settings.useRuleBuilder2 = tutorialGates.UseRuleBuilder2;
+            settings.enableTimePrioritySchedules = tutorialGates.EnableTimePrioritySchedules;
             settings.SetPriorityMode(PriorityMode.BetterWorkTab);
-        }
-
-        private static void SetFalseWhenAbsent(
-            HashSet<string> persistedKeys,
-            string key,
-            Action<bool> setter)
-        {
-            if (!BWT20UpgradePolicy.WasPersisted(persistedKeys, key))
-            {
-                setter(false);
-            }
         }
 
         private static void SetWhenAbsent(

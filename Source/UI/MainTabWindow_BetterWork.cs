@@ -1681,13 +1681,31 @@ namespace Better_Work_Tab.UI
 
             WorkTypeDef parentWorkType = column.SubWorkParent ?? column.Column?.workType;
             WorkGiverDef workGiver = column.SubWorkGiver ?? FluffyWorkTabGateway.TryGetFluffyWorkGiver(column.Column);
+            bool resolvedFocusedWorkGiver = SubWorkDrilldownState.TryGetWorkGiverForColumn(
+                column,
+                out WorkGiver focusedWorkGiver,
+                out WorkTypeDef focusedParentWorkType,
+                out _);
+            if (resolvedFocusedWorkGiver)
+            {
+                workGiver = focusedWorkGiver.def;
+                parentWorkType = focusedParentWorkType;
+            }
+            else if (SubWorkDrilldownState.IsActive &&
+                     SubWorkDrilldownState.GetVisibleWorkColumnSlot(column.Column) >= 0)
+            {
+                return true;
+            }
+
             if (parentWorkType == null)
             {
                 return true;
             }
 
             bool isChild = workGiver != null &&
-                (column.IsExpandBesideChild || FluffyWorkTabGateway.IsFluffyWorkGiverColumn(column.Column));
+                (resolvedFocusedWorkGiver ||
+                 column.IsExpandBesideChild ||
+                 FluffyWorkTabGateway.IsFluffyWorkGiverColumn(column.Column));
             WorkGiverHeaderLabelStyle labelStyle = BetterWorkTabMod.Settings?.enableAngledHeaders ?? DefaultSettings.enableAngledHeaders
                 ? WorkGiverHeaderLabelStyle.Standard
                 : WorkGiverHeaderLabelStyle.VanillaStaggered;

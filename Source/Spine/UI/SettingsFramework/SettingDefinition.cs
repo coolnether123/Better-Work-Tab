@@ -70,9 +70,21 @@ namespace Spine.UI.SettingsFramework
         public string Label;
 
         /// <summary>
+        /// Optional translation-key override. Null uses the registry convention;
+        /// an empty value intentionally uses the already-localized fallback.
+        /// </summary>
+        public string LabelKey;
+
+        /// <summary>
         /// Tooltip text shown on hover (fallback if no translation is found).
         /// </summary>
         public string Tooltip;
+
+        /// <summary>
+        /// Optional tooltip translation-key override. Null uses the registry
+        /// convention; an empty value intentionally uses the fallback.
+        /// </summary>
+        public string TooltipKey;
 
         /// <summary>
         /// Optional non-displayed aliases that make this setting easier to find in search.

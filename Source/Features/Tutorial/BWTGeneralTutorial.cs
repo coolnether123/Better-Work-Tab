@@ -46,7 +46,7 @@ namespace Better_Work_Tab.Features.Tutorial
             new TutorialOverlayStyle
             {
                 CardWidth = 480f,
-                DimColor = new Color(0f, 0f, 0f, 0.16f),
+                DimColor = new Color(0f, 0f, 0f, 0.10f),
                 LayoutAnimationSeconds = 0.2f
             });
         private static readonly List<Rect> NoWelcomeFocusRects = new List<Rect>();
@@ -957,21 +957,20 @@ namespace Better_Work_Tab.Features.Tutorial
         {
             Rect card = layout.CardRect;
 
-            Widgets.DrawBoxSolid(card, new Color(0.055f, 0.062f, 0.07f, 0.98f));
             Color oldColor = GUI.color;
             TextAnchor oldAnchor = Text.Anchor;
             GameFont oldFont = Text.Font;
-            GUI.color = new Color(0.55f, 0.47f, 0.28f, 0.95f);
-            Widgets.DrawBox(card, 1);
+            Widgets.DrawShadowAround(card);
+            Widgets.DrawWindowBackgroundTutor(card);
 
             Rect inner = card.ContractedBy(16f);
             Text.Font = GameFont.Medium;
-            GUI.color = new Color(1f, 0.85f, 0.36f, 1f);
+            GUI.color = Color.white;
             Widgets.Label(new Rect(inner.x, inner.y, inner.width, 32f), GetLessonTitle(lessonId));
             Text.Font = GameFont.Small;
             bool oldWordWrap = Text.WordWrap;
             Text.WordWrap = true;
-            GUI.color = new Color(0.9f, 0.91f, 0.9f, 1f);
+            GUI.color = Color.white;
             float maximumScroll = Mathf.Max(0f, layout.BodyViewRect.height - layout.BodyRect.height);
             lessonScrollPosition.y = Mathf.Clamp(lessonScrollPosition.y, 0f, maximumScroll);
             Widgets.BeginScrollView(layout.BodyRect, ref lessonScrollPosition, layout.BodyViewRect);
@@ -1006,11 +1005,11 @@ namespace Better_Work_Tab.Features.Tutorial
         {
             bool hovered = rect.Contains(Event.current?.mousePosition ?? Vector2.zero);
             Widgets.DrawBoxSolid(rect, hovered
-                ? new Color(0.20f, 0.18f, 0.11f, 1f)
-                : new Color(0.10f, 0.11f, 0.12f, 1f));
+                ? new Color(1f, 1f, 1f, 0.16f)
+                : new Color(0f, 0f, 0f, 0.18f));
             Color old = GUI.color;
             TextAnchor oldAnchor = Text.Anchor;
-            GUI.color = hovered ? new Color(1f, 0.83f, 0.32f, 1f) : Color.white;
+            GUI.color = hovered ? Color.white : new Color(1f, 1f, 1f, 0.86f);
             Widgets.DrawBox(rect, 1);
             Text.Anchor = TextAnchor.MiddleCenter;
             Widgets.Label(rect, label);

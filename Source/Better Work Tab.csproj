@@ -60,6 +60,7 @@
     <Compile Include="Spine\Core\Rendering\RenderPipeline.cs" />
     <Compile Include="BetterWorkTab.cs" />
     <Compile Include="BetterWorkTabLocalState.cs" />
+    <Compile Include="Features\Migration\BWT20CohortPolicy.cs" />
     <Compile Include="Features\Migration\BWT20UpgradePolicy.cs" />
     <Compile Include="Features\Migration\BWT20SettingsMigration.cs" />
     <Compile Include="Features\Migration\BWT20UpgradePrompt.cs" />
@@ -119,6 +120,7 @@
     <Compile Include="Features\Workloads\GameComponent_BWTWorldSettings.cs" />
     <Compile Include="Features\Testing\AgentFloatMenuHighlightTestDriver.cs" />
     <Compile Include="Features\Testing\GameComponent_BWTModernQuickTestDriver.cs" />
+    <Compile Include="Features\Testing\GameComponent_BWTSettingsCohortQuickTestDriver.cs" />
     <Compile Include="Features\Testing\GameComponent_BWTTutorialQuickTestDriver.cs" />
     <Compile Include="Features\Testing\AgentHarnessUtility.cs" />
     <Compile Include="Features\Testing\RuleBuilder2AgentHarness.cs" />

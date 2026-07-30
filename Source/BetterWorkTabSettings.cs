@@ -69,8 +69,8 @@ namespace Better_Work_Tab
         public static bool enableDragDropReordering = true;
         public static bool enableDividers = true;
         public static bool enableWorkloads = true;
-        public static bool enableSubWorkDrilldown = true;
-        public static bool enableFluffyStyleFeatures = false;
+        public static bool enableSubWorkDrilldown = BWT20CohortPolicy.FreshInstall.EnableSubWorkDrilldown;
+        public static bool enableFluffyStyleFeatures = BWT20CohortPolicy.FreshInstall.EnableFluffyStyleFeatures;
         public static bool showFluffyStyleTopButtons = false;
         public static bool showStandaloneFluffyStyleTopButtons = false;
         public static bool enableFluffyScheduleAssigner = false;
@@ -132,8 +132,8 @@ namespace Better_Work_Tab
         public static bool showPriorityLegend = true;
         public static bool showDragInstructions = true;
         public static bool showContextSettingsHint = true;
-        public static bool showGeneralTutorial = true;
-        public static bool useRuleBuilder2 = true;
+        public static bool showGeneralTutorial = BWT20CohortPolicy.FreshInstall.ShowGeneralTutorial;
+        public static bool useRuleBuilder2 = BWT20CohortPolicy.FreshInstall.UseRuleBuilder2;
         public static bool showRuleBuilder2Tutorial = true;
         public static bool ruleBuilder2ShowWorkTabHighlights = true;
         public static bool ruleBuilder2EnableAnimations = true;
@@ -141,7 +141,7 @@ namespace Better_Work_Tab
         public static bool ruleBuilder2ShowAdvancedConditions = false;
         public static bool ruleBuilder2ShowMatchedPanel = true;
         public static bool showManualPrioritiesCheckbox = true;
-        public static bool enableTimePrioritySchedules = true;
+        public static bool enableTimePrioritySchedules = BWT20CohortPolicy.FreshInstall.EnableTimePrioritySchedules;
         public static bool showTimePriorityCopyPasteButtons = true;
         public static bool enableChronosPointerTimePriorityIntegration = false;
         public static bool showTimePriorityHourDivider = true;

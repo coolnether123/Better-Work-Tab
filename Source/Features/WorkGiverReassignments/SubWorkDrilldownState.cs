@@ -348,7 +348,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         {
             get
             {
-                if (!IsActive)
+                if (!HasAnyDrilldown)
                 {
                     return 0f;
                 }
@@ -357,12 +357,19 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             }
         }
 
-        internal static float GlobalRowReservedHeight => IsActive ? GlobalRowHeight : 0f;
+        internal static float GlobalRowReservedHeight => HasAnyDrilldown ? GlobalRowHeight : 0f;
 
         internal static float GlobalRowVisualAlpha
         {
             get
             {
+                if (IsExpandBesideActive)
+                {
+                    return UseTransitionAnimation
+                        ? ExpandBesideHeaderExpansionProgress
+                        : 1f;
+                }
+
                 if (!IsActive)
                 {
                     return 0f;

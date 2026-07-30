@@ -58,6 +58,11 @@ namespace Better_Work_Tab.UI.Settings
 
             _validatedAtStartup = true;
             Validate(BWTSettingsRegistry.Definitions);
+            if (LanguageDatabase.activeLanguage == null)
+            {
+                LongEventHandler.ExecuteWhenFinished(
+                    () => ValidateTranslationCoverage(BWTSettingsRegistry.Definitions));
+            }
         }
 
         [DebugAction("Better Work Tab", "Validate settings registry", false, false, false, false, false, 0, false, actionType = DebugActionType.Action)]
@@ -81,6 +86,11 @@ namespace Better_Work_Tab.UI.Settings
                 if (!string.IsNullOrEmpty(def.Id) && !ids.Add(def.Id))
                 {
                     Warn("Duplicate setting id: " + def.Id);
+                }
+
+                if (LanguageDatabase.activeLanguage != null)
+                {
+                    ValidateTranslationKeys(def);
                 }
 
                 string scribeKey = SettingsScribe.EffectiveScribeKey(def);
@@ -142,6 +152,39 @@ namespace Better_Work_Tab.UI.Settings
             }
 
             return false;
+        }
+
+        private static void ValidateTranslationKeys(SettingDefinition def)
+        {
+            if (def == null || (!def.ShowInSimpleView && !def.ShowInAdvancedView))
+            {
+                return;
+            }
+
+            ValidateTranslationKey(
+                BWTSettingsTranslation.GetLabelKey(def),
+                def.Id,
+                "label");
+            ValidateTranslationKey(
+                BWTSettingsTranslation.GetTooltipKey(def),
+                def.Id,
+                "tooltip");
+        }
+
+        private static void ValidateTranslationCoverage(IEnumerable<SettingDefinition> definitions)
+        {
+            foreach (SettingDefinition definition in definitions ?? Enumerable.Empty<SettingDefinition>())
+            {
+                ValidateTranslationKeys(definition);
+            }
+        }
+
+        private static void ValidateTranslationKey(string key, string settingId, string role)
+        {
+            if (!string.IsNullOrEmpty(key) && !key.CanTranslate())
+            {
+                Warn($"Missing {role} translation for {settingId}: {key}");
+            }
         }
 
         private static void Warn(string message)
