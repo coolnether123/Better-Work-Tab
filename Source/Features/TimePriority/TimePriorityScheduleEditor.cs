@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
+using Better_Work_Tab.Features.Testing;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.ModSupport;
 using Better_Work_Tab.PawnOrganizer;
@@ -286,7 +287,8 @@ namespace Better_Work_Tab.Features.TimePriority
                 return;
             }
 
-            string requestPath = Path.Combine(Path.GetTempPath(), AgentOpenRequestFileName);
+            string requestPath = AgentHarnessUtility.GetPath(
+                AgentOpenRequestFileName);
             if (!File.Exists(requestPath))
             {
                 return;
@@ -392,12 +394,7 @@ namespace Better_Work_Tab.Features.TimePriority
 
         private static bool IsAgentHarnessEnabled()
         {
-            if (GenCommandLine.CommandLineArgPassed("rw-agent"))
-            {
-                return true;
-            }
-
-            return File.Exists(Path.Combine(Path.GetTempPath(), "RimWorldAgent", "enable.txt"));
+            return AgentHarnessUtility.IsEnabled();
         }
 
         internal static void Draw(IWorkTabLayoutController layout)
