@@ -79,6 +79,7 @@ namespace Better_Work_Tab.Features.Tutorial
         private const float FooterHeight = 40f;
         private const float MinimumPanelWidth = 420f;
         private const float PreferredPanelWidth = OptionWidth + ContextWidth + PanelGap + CardPadding * 2f;
+        private static readonly TutorialOverlayStyle PanelStyle = new TutorialOverlayStyle();
 
         // Give players enough time to travel from a narrow/angled Work-tab
         // target into the detached tutorial card without losing its context.
@@ -451,8 +452,7 @@ namespace Better_Work_Tab.Features.Tutorial
             GameFont oldFont = Text.Font;
             bool oldWordWrap = Text.WordWrap;
 
-            Widgets.DrawShadowAround(layout.PanelRect);
-            Widgets.DrawWindowBackgroundTutor(layout.PanelRect);
+            TutorialCardRenderer.Draw(layout.PanelRect, PanelStyle);
 
             Text.Font = GameFont.Medium;
             Text.Anchor = TextAnchor.UpperLeft;

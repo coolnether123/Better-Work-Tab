@@ -46,9 +46,11 @@ namespace Better_Work_Tab.Features.Tutorial
             new TutorialOverlayStyle
             {
                 CardWidth = 480f,
+                CardPadding = 12f,
                 DimColor = new Color(0f, 0f, 0f, 0.10f),
                 LayoutAnimationSeconds = 0.2f
             });
+        private static readonly TutorialOverlayStyle LessonCardStyle = new TutorialOverlayStyle();
         private static readonly List<Rect> NoWelcomeFocusRects = new List<Rect>();
         private static readonly List<TutorialOverlayShortcutHint> NoWelcomeShortcutHints =
             new List<TutorialOverlayShortcutHint>();
@@ -960,8 +962,7 @@ namespace Better_Work_Tab.Features.Tutorial
             Color oldColor = GUI.color;
             TextAnchor oldAnchor = Text.Anchor;
             GameFont oldFont = Text.Font;
-            Widgets.DrawShadowAround(card);
-            Widgets.DrawWindowBackgroundTutor(card);
+            TutorialCardRenderer.Draw(card, LessonCardStyle);
 
             Rect inner = card.ContractedBy(16f);
             Text.Font = GameFont.Medium;

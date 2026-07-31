@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
+using Spine.UI.Tutorial;
 using UnityEngine;
 using Verse;
 
@@ -16,6 +17,7 @@ namespace Better_Work_Tab.Features.Tutorial
         private readonly Action onDismissed;
         private readonly BetterWorkTabSettings.SubWorkDrilldownStyle initialPresentation;
         private readonly string initialColumnOrder;
+        private readonly TutorialTextViewport bodyViewport = new TutorialTextViewport();
         private int phase;
         private bool completed;
 
@@ -56,9 +58,14 @@ namespace Better_Work_Tab.Features.Tutorial
                     : StateWasPreserved()
                         ? "BWT_Tutorial_FluffyCoexistence_ActionPreserved".Translate()
                         : "BWT_Tutorial_FluffyCoexistence_ActionChanged".Translate();
-            Widgets.Label(new Rect(inRect.x, inRect.y + 46f, inRect.width, 168f), body);
 
             Rect button = new Rect(inRect.xMax - 230f, inRect.yMax - 42f, 230f, 36f);
+            Rect bodyRect = new Rect(
+                inRect.x,
+                inRect.y + 46f,
+                inRect.width,
+                Mathf.Max(1f, button.yMin - inRect.y - 58f));
+            bodyViewport.Draw(bodyRect, body);
             string label = phase == 0
                 ? "BWT_Tutorial_FluffySwitch".Translate()
                 : phase == 1

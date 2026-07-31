@@ -34,13 +34,24 @@ namespace Better_Work_Tab.Features.Tutorial
 
             BWTTutorialFeedbackStore.Ensure(settings);
             Text.Font = GameFont.Medium;
-            Widgets.Label(new Rect(inRect.x, inRect.y, inRect.width, 32f), "BWT_Tutorial_Review_Title".Translate());
+            string title = "BWT_Tutorial_Review_Title".Translate();
+            float titleHeight = Mathf.Max(32f, Text.CalcHeight(title, inRect.width));
+            Widgets.Label(new Rect(inRect.x, inRect.y, inRect.width, titleHeight), title);
             Text.Font = GameFont.Small;
-            Widgets.Label(new Rect(inRect.x, inRect.y + 34f, inRect.width, 42f),
-                "BWT_Tutorial_Review_Body".Translate());
+            string introduction = "BWT_Tutorial_Review_Body".Translate();
+            float introductionY = inRect.y + titleHeight + 2f;
+            float introductionHeight = Mathf.Max(42f, Text.CalcHeight(introduction, inRect.width));
+            Widgets.Label(
+                new Rect(inRect.x, introductionY, inRect.width, introductionHeight),
+                introduction);
 
             Rect footer = new Rect(inRect.x, inRect.yMax - 42f, inRect.width, 42f);
-            Rect viewport = new Rect(inRect.x, inRect.y + 82f, inRect.width, footer.y - inRect.y - 92f);
+            float viewportY = introductionY + introductionHeight + 6f;
+            Rect viewport = new Rect(
+                inRect.x,
+                viewportY,
+                inRect.width,
+                Mathf.Max(1f, footer.y - viewportY - 10f));
             float contentHeight = CalculateContentHeight(settings);
             Rect view = new Rect(0f, 0f, viewport.width - 18f, contentHeight);
             Widgets.BeginScrollView(viewport, ref scrollPosition, view);

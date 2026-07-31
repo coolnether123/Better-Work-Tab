@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using RimWorld;
+using Spine.UI.Tutorial;
 using UnityEngine;
 using Verse;
 
@@ -25,6 +26,8 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
     internal sealed class RuleBuilder2TutorialController
     {
         private const string SuggestionsHintSettingId = "bwt.ruleBuilder2.suggestionsHint.v1";
+        private readonly TutorialTextViewport bodyViewport = new TutorialTextViewport();
+        private readonly TutorialOverlayStyle cardStyle = new TutorialOverlayStyle();
         private bool suggestionsHintRequested;
 
         private enum HintKind
@@ -61,6 +64,11 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
             Rect card = GetCardRect(bounds, focusRects, hint);
             bool overCard = card.Contains(evt.mousePosition);
+            if (overCard && bodyViewport.TryHandleScroll(GetBodyRect(card), GetBody(hint), evt))
+            {
+                return true;
+            }
+
             if (evt.type == EventType.KeyDown &&
                 (evt.keyCode == KeyCode.Return || evt.keyCode == KeyCode.KeypadEnter))
             {
@@ -147,6 +155,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
         internal void ResetOverlayAnimation()
         {
+            bodyViewport.Reset();
         }
 
         private HintKind GetActiveHint()
@@ -231,14 +240,13 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             GUI.color = previous;
         }
 
-        private static void DrawCard(Rect rect, HintKind hint)
+        private void DrawCard(Rect rect, HintKind hint)
         {
             Color previousColor = GUI.color;
             TextAnchor previousAnchor = Text.Anchor;
             GameFont previousFont = Text.Font;
 
-            Widgets.DrawShadowAround(rect);
-            Widgets.DrawWindowBackgroundTutor(rect);
+            TutorialCardRenderer.Draw(rect, cardStyle);
 
             Rect inner = rect.ContractedBy(18f);
             Text.Font = GameFont.Medium;
@@ -248,8 +256,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
             Text.Font = GameFont.Small;
             GUI.color = Color.white;
-            Rect body = new Rect(inner.x, inner.y + 38f, inner.width, Mathf.Max(40f, inner.height - 92f));
-            Widgets.Label(body, GetBody(hint));
+            bodyViewport.Draw(GetBodyRect(rect), GetBody(hint));
 
             Rect dismiss = GetDismissButtonRect(rect, hint);
             if (Widgets.ButtonText(dismiss, T("BWT_RuleBuilder2_Tutorial_GotIt")))
@@ -300,6 +307,14 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
         {
             Rect inner = card.ContractedBy(18f);
             return new Rect(inner.x, inner.yMax - 32f, 150f, 32f);
+        }
+
+        private static Rect GetBodyRect(Rect card)
+        {
+            Rect inner = card.ContractedBy(18f);
+            float y = inner.y + 38f;
+            float buttonTop = inner.yMax - 32f;
+            return new Rect(inner.x, y, inner.width, Mathf.Max(1f, buttonTop - y - 10f));
         }
 
         private static string GetTitle(HintKind hint)
