@@ -193,7 +193,9 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 return;
             }
 
-            RuleBuilder2Ruleset seeded = RuleBuilder2ClassicRulesetTranslator.FromClassic(classicRuleset);
+            RuleBuilder2Ruleset seeded = RuleBuilder2ClassicRulesetTranslator.FromClassic(
+                classicRuleset,
+                deterministicStableIds: true);
             seeded.Source = RuleBuilder2SourceType.DefaultCopy;
             settings.SavedRuleBuilder2Rulesets.Add(seeded);
         }

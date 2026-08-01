@@ -9,10 +9,20 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
 {
     internal static class RuleBuilder2ClassicRulesetTranslator
     {
-        internal static RuleBuilder2Ruleset FromClassic(WorkAssignmentRuleset classicRuleset)
+        internal static RuleBuilder2Ruleset FromClassic(
+            WorkAssignmentRuleset classicRuleset,
+            bool deterministicStableIds = false)
         {
+            string stableSeed = deterministicStableIds
+                ? "classic|" + (classicRuleset?.Name ?? string.Empty) + "|" +
+                  (classicRuleset?.ResetBeforeApplying ?? true) + "|" +
+                  (classicRuleset?.Rules?.Count ?? 0)
+                : null;
             var result = new RuleBuilder2Ruleset
             {
+                StableId = deterministicStableIds
+                    ? RuleBuilder2StableIdentity.FromSeed(stableSeed + "|ruleset")
+                    : Guid.NewGuid().ToString("N"),
                 Name = classicRuleset?.Name == null ? "Migrated ruleset" : classicRuleset.Name + " (Rule Builder 2.0)",
                 Description = "Migrated from the classic Better Work Tab ruleset format.",
                 ResetBeforeApplying = classicRuleset?.ResetBeforeApplying ?? true,
@@ -25,7 +35,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 for (int i = 0; i < classicRuleset.Rules.Count; i++)
                 {
                     WorkAssignmentRule rule = classicRuleset.Rules[i];
-                    RuleBuilder2Card card = FromClassicRule(rule, i);
+                    RuleBuilder2Card card = FromClassicRule(rule, i, stableSeed);
                     if (card != null)
                     {
                         result.Cards.Add(card);
@@ -34,6 +44,15 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
             }
 
             result.EnsureOpenBlankCard();
+            if (deterministicStableIds && result.Cards.Count > 0)
+            {
+                RuleBuilder2Card openCard = result.Cards[result.Cards.Count - 1];
+                if (openCard != null && !openCard.IsConfirmed)
+                {
+                    openCard.StableId = RuleBuilder2StableIdentity.FromSeed(
+                        stableSeed + "|open-card");
+                }
+            }
             return result;
         }
 
@@ -73,7 +92,10 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 isDefault: false);
         }
 
-        private static RuleBuilder2Card FromClassicRule(WorkAssignmentRule rule, int sortOrder)
+        private static RuleBuilder2Card FromClassicRule(
+            WorkAssignmentRule rule,
+            int sortOrder,
+            string stableSeed = null)
         {
             if (rule?.Parameters == null)
             {
@@ -90,7 +112,9 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
 
             var card = new RuleBuilder2Card
             {
-                StableId = Guid.NewGuid().ToString("N"),
+                StableId = stableSeed == null
+                    ? Guid.NewGuid().ToString("N")
+                    : RuleBuilder2StableIdentity.FromSeed(stableSeed + "|card|" + sortOrder),
                 Name = string.IsNullOrEmpty(rule.Name) ? p.RuleName : rule.Name,
                 Enabled = true,
                 IsConfirmed = true,
@@ -115,6 +139,18 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
             };
 
             AddClassicConditions(card, p);
+            if (stableSeed != null)
+            {
+                for (int i = 0; i < card.Conditions.Conditions.Count; i++)
+                {
+                    RuleBuilder2Condition condition = card.Conditions.Conditions[i];
+                    if (condition != null)
+                    {
+                        condition.StableId = RuleBuilder2StableIdentity.FromSeed(
+                            stableSeed + "|card|" + sortOrder + "|condition|" + i);
+                    }
+                }
+            }
             card.EnsureStableState(sortOrder);
             card.Summary = RuleBuilder2SummaryService.BuildSummary(card);
             return card;

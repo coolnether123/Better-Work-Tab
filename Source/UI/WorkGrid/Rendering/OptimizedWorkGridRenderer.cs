@@ -387,11 +387,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 GUI.color = new Color(1f, 0.3f, 0.3f);
             }
 
-            // Background ownership stays with RimWorld. This deliberately calls the same
-            // method as PawnColumnWorker_WorkPriority instead of maintaining a BWT copy of
-            // its skill texture blending, ideology warning, low-skill warning, and passion
-            // rendering rules.
-            WidgetsWork.DrawWorkBoxBackground(boxRect, cell.Pawn, cell.WorkType);
+            // Snapshot eligibility already rejects non-observational patches to RimWorld's
+            // Work-box hooks. Reuse the captured visual state here so Repaint does not
+            // recalculate skills, ideology, active work, and passion for every visible cell.
+            DrawCachedWorkBoxBackground(boxRect, cell);
 
             GUI.color = Color.white;
             if (_snapshot.ManualPriorities)
@@ -410,6 +409,46 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             }
 
             DrawStaticFeatureOverlays(boxRect, cell);
+        }
+
+        private void DrawCachedWorkBoxBackground(Rect boxRect, WorkCellVisualState cell)
+        {
+            WorkGridAtlasVisualVariant variant = cell.SkillBand switch
+            {
+                0 => WorkGridAtlasVisualVariant.SkillAwfulBad,
+                1 => WorkGridAtlasVisualVariant.SkillBadMid,
+                _ => WorkGridAtlasVisualVariant.SkillMidExcellent
+            };
+            WorkGridAtlasEntry background = GetEntry(cell, variant);
+            Color baseColor = GUI.color;
+            GUI.DrawTexture(boxRect, background.BaseTexture);
+            GUI.color = new Color(baseColor.r, baseColor.g, baseColor.b, cell.SkillBlend);
+            GUI.DrawTexture(boxRect, background.BlendTexture);
+
+            if ((cell.Flags & WorkCellVisualFlags.IdeologyWarning) != 0)
+            {
+                GUI.color = Color.white;
+                GUI.DrawTexture(boxRect, WidgetsWork.WorkBoxOverlay_PreceptWarning);
+            }
+            if ((cell.Flags & WorkCellVisualFlags.LowSkillWarning) != 0)
+            {
+                GUI.color = Color.white;
+                GUI.DrawTexture(boxRect.ContractedBy(-2f), WidgetsWork.WorkBoxOverlay_Warning);
+            }
+            if (cell.Passion > 0)
+            {
+                GUI.color = new Color(1f, 1f, 1f, 0.4f);
+                Rect passionRect = boxRect;
+                passionRect.xMin = boxRect.center.x;
+                passionRect.yMin = boxRect.center.y;
+                GUI.DrawTexture(
+                    passionRect,
+                    cell.Passion == 1
+                        ? WidgetsWork.PassionWorkboxMinorIcon
+                        : WidgetsWork.PassionWorkboxMajorIcon);
+            }
+
+            GUI.color = Color.white;
         }
 
         private static void DrawStaticFeatureOverlays(Rect boxRect, WorkCellVisualState cell)

@@ -159,11 +159,18 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
 
         private static MainTabsRoot TryGetMainTabsRoot()
         {
+            if (Current.ProgramState != ProgramState.Playing)
+            {
+                return null;
+            }
+
             try
             {
                 return Find.MainTabsRoot;
             }
-            catch (NullReferenceException)
+            catch (Exception exception) when (
+                exception is NullReferenceException ||
+                exception is InvalidCastException)
             {
                 return null;
             }

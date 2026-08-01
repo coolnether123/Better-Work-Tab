@@ -104,6 +104,7 @@
     <Compile Include="Features\Rules\RuleBuilder2\RuleBuilder2PriorityRange.cs" />
     <Compile Include="Features\Rules\RuleBuilder2\RuleBuilder2SummaryService.cs" />
     <Compile Include="Features\Rules\RuleBuilder2\RuleBuilder2ClassicRulesetTranslator.cs" />
+    <Compile Include="Features\Rules\RuleBuilder2\RuleBuilder2StableIdentity.cs" />
     <Compile Include="Features\Rules\RuleBuilder2\RuleBuilder2ClassicRulesetExportService.cs" />
     <Compile Include="Features\Rules\RuleBuilder2\RuleBuilder2DraftGenerator.cs" />
     <Compile Include="Features\ColumnBaselineManager.cs" />
