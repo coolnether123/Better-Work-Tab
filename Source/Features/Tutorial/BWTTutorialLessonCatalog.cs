@@ -82,7 +82,9 @@ namespace Better_Work_Tab.Features.Tutorial
     /// </summary>
     internal static class BWTTutorialLessonCatalog
     {
-        internal const string PriorityChange = "priority.change";
+        // Retained so an in-progress lesson from an older build can be retired
+        // without changing the persisted tutorial ID contract.
+        internal const string RetiredPriorityChange = "priority.change";
         internal const string PrioritySkill = "priority.skill";
         internal const string PrioritySchedule = "priority.schedule";
         internal const string PriorityRange = "priority.range";
@@ -102,12 +104,10 @@ namespace Better_Work_Tab.Features.Tutorial
         private static readonly IReadOnlyList<BWTTutorialLessonDefinition> Lessons =
             new[]
             {
-                Lesson(PriorityChange, "1.0.5", "Priorities", BWTTutorialCourseMembership.Full,
-                    "PriorityChange", TutorialHubAnchor.PriorityCell, recommended: true),
                 Lesson(PrioritySkill, "1.0.5", "Priorities", BWTTutorialCourseMembership.Full,
                     "PrioritySkill", TutorialHubAnchor.PriorityCell),
                 Lesson(PrioritySchedule, "2.0", "Priorities|Schedules", Both,
-                    "PrioritySchedule", TutorialHubAnchor.PriorityCell),
+                    "PrioritySchedule", TutorialHubAnchor.PriorityCell, recommended: true),
                 Lesson(PriorityRange, "2.0", "Priorities|Configuration", Both,
                     "PriorityRange", TutorialHubAnchor.PriorityCell,
                     route: BWTTutorialLessonRoute.PrioritySettings),

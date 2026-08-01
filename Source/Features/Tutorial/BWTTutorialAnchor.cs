@@ -90,6 +90,11 @@ namespace Better_Work_Tab.Features.Tutorial
     /// <summary>Draws rectangular and rotated tutorial anchors through one shared path.</summary>
     internal static class BWTTutorialAnchorRenderer
     {
+        internal static Color TutorialGold(float alpha)
+        {
+            return new Color(1f, 0.78f, 0.22f, Mathf.Clamp01(alpha));
+        }
+
         internal static void DrawFill(BWTTutorialAnchor anchor, Color color)
         {
             if (!anchor.IsValid)

@@ -4,6 +4,7 @@ using Better_Work_Tab.Features.Migration;
 using Better_Work_Tab.ModSupport;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.ModSupport.Mods.Clockwork;
+using Better_Work_Tab.ModSupport.Mods.Spine;
 using Better_Work_Tab.PawnOrganizer;
 using HarmonyLib;
 using Spine.Harmony.Infrastructure;
@@ -80,6 +81,7 @@ namespace Better_Work_Tab
             Settings.NormalizePrioritySettings();
             HarmonyPreferenceSource.Configure(() => Settings?.enableDebugLogging ?? false);
             Dialog_ColourPicker.ConfigureDebugLogger(message => DebugLog(message, DebugFeature.Layout));
+            SpineCompatibilityGateway.Initialize();
             CompatibilityDiagnostics.ReportStartup(content);
 
             try

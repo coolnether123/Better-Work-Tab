@@ -18,6 +18,14 @@ namespace Better_Work_Tab.Features.Tutorial
             settings.tutorialLessonFeedback ??= new List<BWTTutorialLessonFeedback>();
             settings.tutorialOverallFeedback ??= string.Empty;
 
+            if (settings.activeTutorialLessonId == BWTTutorialLessonCatalog.RetiredPriorityChange)
+            {
+                // Changing a priority is vanilla Work-tab behavior, so this
+                // lesson no longer belongs in Better Work Tab's feature tour.
+                settings.activeTutorialLessonId = string.Empty;
+                settings.tutorialLessonPhase = 0;
+            }
+
             if (settings.tutorialProgressSchemaVersion < CurrentSchemaVersion)
             {
                 // No pre-public 2.0 step/index format is carried forward. The

@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.Migration;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
@@ -29,8 +28,7 @@ namespace Better_Work_Tab.Features.Tutorial
     /// </summary>
     internal static class BWTGeneralTutorial
     {
-        internal const int CurrentFlowVersion = 2;
-        internal const string PriorityChangeLesson = BWTTutorialLessonCatalog.PriorityChange;
+        internal const int CurrentFlowVersion = 3;
         internal const string PrioritySkillLesson = BWTTutorialLessonCatalog.PrioritySkill;
         internal const string PriorityScheduleLesson = BWTTutorialLessonCatalog.PrioritySchedule;
         internal const string PriorityRangeLesson = BWTTutorialLessonCatalog.PriorityRange;
@@ -55,7 +53,6 @@ namespace Better_Work_Tab.Features.Tutorial
         private static readonly List<TutorialOverlayShortcutHint> NoWelcomeShortcutHints =
             new List<TutorialOverlayShortcutHint>();
         private static BWTTutorialAnchor lessonAnchor;
-        private static int initialPriority;
         private static int initialScheduleEditRevision;
         private static int initialDividerCount;
         private static int initialHeaderSignature;
@@ -175,8 +172,8 @@ namespace Better_Work_Tab.Features.Tutorial
                     BuildWelcomeContent(),
                     NoWelcomeFocusRects,
                     evt,
-                    StartWhatsNewCourse,
-                    StartFullCourse,
+                    StartRecommendedCourse,
+                    null,
                     null,
                     DismissWelcome);
             }
@@ -349,10 +346,6 @@ namespace Better_Work_Tab.Features.Tutorial
                 {
                     SkipLesson(lessonId);
                 }
-                else if (layout.PauseRect.Contains(evt.mousePosition))
-                {
-                    Pause();
-                }
 
                 evt.Use();
                 return true;
@@ -381,7 +374,7 @@ namespace Better_Work_Tab.Features.Tutorial
             EnsureState(settings);
             if (Presentation == TutorialPresentation.Welcome)
             {
-                return WelcomeOverlay.TryHandleAcceptKey(BuildWelcomeContent(), StartWhatsNewCourse);
+                return WelcomeOverlay.TryHandleAcceptKey(BuildWelcomeContent(), StartRecommendedCourse);
             }
 
             Event.current?.Use();
@@ -405,8 +398,8 @@ namespace Better_Work_Tab.Features.Tutorial
                     BuildWelcomeContent(),
                     NoWelcomeFocusRects,
                     NoWelcomeShortcutHints,
-                    StartWhatsNewCourse,
-                    StartFullCourse,
+                    StartRecommendedCourse,
+                    null,
                     null,
                     DismissWelcome);
                 return;
@@ -771,7 +764,6 @@ namespace Better_Work_Tab.Features.Tutorial
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
             observedLessonId = lessonId ?? string.Empty;
             lessonAnchor = FindLessonAnchor(anchors, GetAnchorForLesson(lessonId));
-            initialPriority = GetPriority(lessonAnchor);
             initialScheduleEditRevision = TimePriorityScheduleEditor.TutorialEditRevision;
             initialDividerCount = CountDividers(layout);
             initialHeaderSignature = ComputeHeaderSignature(layout);
@@ -803,23 +795,6 @@ namespace Better_Work_Tab.Features.Tutorial
         {
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
             string lesson = settings.activeTutorialLessonId;
-            if (lesson == PriorityChangeLesson)
-            {
-                if (TutorialProgressTransitions.ShouldCompleteAction(
-                        TutorialActionRequirement.PriorityChanged,
-                        priorityChanged: GetPriority(lessonAnchor) != initialPriority,
-                        skillVisibleSeconds: 0d,
-                        scheduleOpened: false,
-                        scheduleEdited: false,
-                        scheduleClosed: false,
-                        routedSettings: false,
-                        observedAction: false))
-                {
-                    CompleteLesson(lesson);
-                }
-                return;
-            }
-
             if (lesson == PrioritySkillLesson)
             {
                 bool visible = Patch_WorkPriority_DoCell_Unified.WasSkillNumberDrawnRecently(
@@ -981,7 +956,6 @@ namespace Better_Work_Tab.Features.Tutorial
             GUI.color = Color.white;
             DrawButtonLabel(layout.BackRect, T("BWT_Tutorial_BackToMap"));
             DrawButtonLabel(layout.SkipRect, T("BWT_Tutorial_SkipLesson"));
-            DrawButtonLabel(layout.PauseRect, T("BWT_Tutorial_NotNow"));
             GUI.color = oldColor;
             Text.Anchor = oldAnchor;
             Text.Font = oldFont;
@@ -998,7 +972,7 @@ namespace Better_Work_Tab.Features.Tutorial
             float pulse = 0.5f + 0.5f * Mathf.Sin(Time.realtimeSinceStartup * 4.2f);
             BWTTutorialAnchorRenderer.DrawOutline(
                 anchor,
-                new Color(1f, 0.78f, 0.22f, Mathf.Lerp(0.72f, 1f, pulse)),
+                BWTTutorialAnchorRenderer.TutorialGold(Mathf.Lerp(0.72f, 1f, pulse)),
                 3f);
         }
 
@@ -1088,16 +1062,6 @@ namespace Better_Work_Tab.Features.Tutorial
                 lessonAnchor.WorkType ?? fresh.WorkType,
                 lessonAnchor.WorkGiver ?? fresh.WorkGiver,
                 fresh.OutlinePoints);
-        }
-
-        private static int GetPriority(BWTTutorialAnchor anchor)
-        {
-            return anchor.Pawn == null || anchor.WorkType == null
-                ? int.MinValue
-                // The lesson teaches editing the stored priority. A daily
-                // schedule may override the effective value at the current
-                // hour, so observing that value can miss a successful click.
-                : WorkPrioritySystem.GetPriorityForPawnWorkType(anchor.Pawn, anchor.WorkType);
         }
 
         private static int CountDividers(IWorkTabLayoutController layout)
@@ -1207,27 +1171,15 @@ namespace Better_Work_Tab.Features.Tutorial
                 card,
                 bodyRect,
                 bodyView,
-                GetBackButtonRect(card),
-                GetSkipButtonRect(card),
-                GetPauseButtonRect(card));
+                GetLessonButtonRect(card, 0),
+                GetLessonButtonRect(card, 1));
         }
 
-        private static Rect GetBackButtonRect(Rect card)
+        private static Rect GetLessonButtonRect(Rect card, int index)
         {
-            float width = (card.width - 44f) / 3f;
-            return new Rect(card.x + 12f, card.yMax - 48f, width, 32f);
-        }
-
-        private static Rect GetSkipButtonRect(Rect card)
-        {
-            float width = (card.width - 44f) / 3f;
-            return new Rect(card.x + 16f + width, card.yMax - 48f, width, 32f);
-        }
-
-        private static Rect GetPauseButtonRect(Rect card)
-        {
-            float width = (card.width - 44f) / 3f;
-            return new Rect(card.xMax - 12f - width, card.yMax - 48f, width, 32f);
+            const float gap = 8f;
+            float width = (card.width - 24f - gap) / 2f;
+            return new Rect(card.x + 12f + index * (width + gap), card.yMax - 48f, width, 32f);
         }
 
         private static Rect OffsetRect(Rect rect, Vector2 offset)
@@ -1314,22 +1266,27 @@ namespace Better_Work_Tab.Features.Tutorial
 
         private static TutorialOverlayContent BuildWelcomeContent()
         {
+            BWTTutorialCourse course = ResolveWelcomeCourse();
             return new TutorialOverlayContent(
                 T("BWT_Tutorial_Welcome_Title"),
                 T("BWT_Tutorial_Welcome_Body"),
-                primaryButton: T("BWT_Tutorial_Welcome_WhatsNew"),
+                primaryButton: T(course == BWTTutorialCourse.WhatsNew20
+                    ? "BWT_Tutorial_Welcome_WhatsNew"
+                    : "BWT_Tutorial_Welcome_Full"),
                 dismissButton: T("BWT_Tutorial_NotNow"),
-                secondaryButton: T("BWT_Tutorial_Welcome_Full"));
+                secondaryButton: null);
         }
 
-        private static void StartWhatsNewCourse()
+        private static void StartRecommendedCourse()
         {
-            StartCourse(BWTTutorialCourse.WhatsNew20);
+            StartCourse(ResolveWelcomeCourse());
         }
 
-        private static void StartFullCourse()
+        private static BWTTutorialCourse ResolveWelcomeCourse()
         {
-            StartCourse(BWTTutorialCourse.Full);
+            return BetterWorkTabMod.Settings?.tutorialMigratedFromPublic105 == true
+                ? BWTTutorialCourse.WhatsNew20
+                : BWTTutorialCourse.Full;
         }
 
         private static void StartCourse(BWTTutorialCourse course)
@@ -1417,15 +1374,13 @@ namespace Better_Work_Tab.Features.Tutorial
                 Rect bodyRect,
                 Rect bodyViewRect,
                 Rect backRect,
-                Rect skipRect,
-                Rect pauseRect)
+                Rect skipRect)
             {
                 CardRect = cardRect;
                 BodyRect = bodyRect;
                 BodyViewRect = bodyViewRect;
                 BackRect = backRect;
                 SkipRect = skipRect;
-                PauseRect = pauseRect;
             }
 
             internal Rect CardRect { get; }
@@ -1433,7 +1388,6 @@ namespace Better_Work_Tab.Features.Tutorial
             internal Rect BodyViewRect { get; }
             internal Rect BackRect { get; }
             internal Rect SkipRect { get; }
-            internal Rect PauseRect { get; }
 
             internal LessonLayout OffsetBy(Vector2 offset)
             {
@@ -1442,8 +1396,7 @@ namespace Better_Work_Tab.Features.Tutorial
                     OffsetRect(BodyRect, offset),
                     BodyViewRect,
                     OffsetRect(BackRect, offset),
-                    OffsetRect(SkipRect, offset),
-                    OffsetRect(PauseRect, offset));
+                    OffsetRect(SkipRect, offset));
             }
         }
     }
