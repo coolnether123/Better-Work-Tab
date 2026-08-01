@@ -419,11 +419,14 @@ namespace Better_Work_Tab.Features.Tutorial
                 float alpha = emphasized ? 1f : Mathf.Lerp(0.46f, 0.78f, pulse);
                 if (selected && anchor.Kind != TutorialHubAnchor.WorkHeader)
                 {
-                    BWTTutorialAnchorRenderer.DrawOutline(anchor, Color.white, 5f);
+                    BWTTutorialAnchorRenderer.DrawOutline(
+                        anchor,
+                        BWTTutorialAnchorRenderer.TutorialGold(0.34f),
+                        5f);
                 }
                 BWTTutorialAnchorRenderer.DrawOutline(
                     anchor,
-                    new Color(1f, 1f, 1f, alpha),
+                    BWTTutorialAnchorRenderer.TutorialGold(alpha),
                     emphasized ? 3f : 2f);
             }
 
@@ -431,9 +434,15 @@ namespace Better_Work_Tab.Features.Tutorial
             {
                 if (pinnedGeometry.Kind != TutorialHubAnchor.WorkHeader)
                 {
-                    BWTTutorialAnchorRenderer.DrawOutline(pinnedGeometry, Color.white, 5f);
+                    BWTTutorialAnchorRenderer.DrawOutline(
+                        pinnedGeometry,
+                        BWTTutorialAnchorRenderer.TutorialGold(0.34f),
+                        5f);
                 }
-                BWTTutorialAnchorRenderer.DrawOutline(pinnedGeometry, Color.white, 3f);
+                BWTTutorialAnchorRenderer.DrawOutline(
+                    pinnedGeometry,
+                    BWTTutorialAnchorRenderer.TutorialGold(1f),
+                    3f);
             }
         }
 

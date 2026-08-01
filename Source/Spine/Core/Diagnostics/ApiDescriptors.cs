@@ -163,7 +163,12 @@ namespace Spine.Api
         ViewportResolution = 1UL << 4,
         RenderAtlases = 1UL << 5,
         CompatibilityProviders = 1UL << 6,
-        Diagnostics = 1UL << 7
+        Diagnostics = 1UL << 7,
+        Settings = 1UL << 8,
+        HarmonyPatching = 1UL << 9,
+        FluentTranspilers = 1UL << 10,
+        TooltipSizing = 1UL << 11,
+        ContextualSettings = 1UL << 12
     }
 
     public readonly struct SpineApiDescriptor
@@ -188,5 +193,60 @@ namespace Spine.Api
         {
             return Version >= minimumVersion && (Capabilities & requiredCapabilities) == requiredCapabilities;
         }
+    }
+
+    public readonly struct SpineRequirement
+    {
+        public SpineRequirement(
+            string consumerId,
+            SemanticVersion minimumVersion,
+            SpineCapability requiredCapabilities)
+        {
+            if (string.IsNullOrWhiteSpace(consumerId))
+            {
+                throw new ArgumentException(
+                    "A consumer identifier is required.",
+                    nameof(consumerId));
+            }
+
+            ConsumerId = consumerId;
+            MinimumVersion = minimumVersion;
+            RequiredCapabilities = requiredCapabilities;
+        }
+
+        public string ConsumerId { get; }
+        public SemanticVersion MinimumVersion { get; }
+        public SpineCapability RequiredCapabilities { get; }
+    }
+
+    public readonly struct SpineCompatibilityResult
+    {
+        public SpineCompatibilityResult(
+            bool isCompatible,
+            SpineCapability missingCapabilities,
+            string detail)
+        {
+            IsCompatible = isCompatible;
+            MissingCapabilities = missingCapabilities;
+            Detail = detail ?? string.Empty;
+        }
+
+        public bool IsCompatible { get; }
+        public SpineCapability MissingCapabilities { get; }
+        public string Detail { get; }
+    }
+
+    public interface ISpineRuntimeFacade
+    {
+        SpineApiDescriptor Descriptor { get; }
+
+        SpineCompatibilityResult Check(SpineRequirement requirement);
+
+        void Require(SpineRequirement requirement);
+    }
+
+    public interface ITooltipSizingFacade
+    {
+        IDisposable Acquire(string consumerId);
     }
 }

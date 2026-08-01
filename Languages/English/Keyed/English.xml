@@ -173,10 +173,10 @@
 <BWT_DoNotShowAgain>Do not show again</BWT_DoNotShowAgain>
 
 <!-- Unified Work-tab tutorial -->
-<BWT_Tutorial_Welcome_Title>Better Work Tab 2.0 beta tutorial</BWT_Tutorial_Welcome_Title>
-<BWT_Tutorial_Welcome_Body>Choose the short 2.0 tour for new features, or the full tour for everything. You can copy optional Discord feedback afterward; nothing is sent automatically.</BWT_Tutorial_Welcome_Body>
-<BWT_Tutorial_Welcome_WhatsNew>Test what's new in 2.0</BWT_Tutorial_Welcome_WhatsNew>
-<BWT_Tutorial_Welcome_Full>Full Better Work Tab tutorial</BWT_Tutorial_Welcome_Full>
+<BWT_Tutorial_Welcome_Title>Better Work Tab feature tour</BWT_Tutorial_Welcome_Title>
+<BWT_Tutorial_Welcome_Body>This tour assumes you already know RimWorld's Work tab and focuses only on what Better Work Tab adds or changes. You can pause at any time and return later. Optional feedback can be copied afterward; nothing is sent automatically.</BWT_Tutorial_Welcome_Body>
+<BWT_Tutorial_Welcome_WhatsNew>Explore 2.0 additions</BWT_Tutorial_Welcome_WhatsNew>
+<BWT_Tutorial_Welcome_Full>Explore all BWT features</BWT_Tutorial_Welcome_Full>
 <BWT_Tutorial_NotNow>Not now</BWT_Tutorial_NotNow>
 <BWT_Tutorial_Welcome_Continue>Continue with walkthrough</BWT_Tutorial_Welcome_Continue>
 <BWT_Tutorial_Welcome_KnowBWT>I know Better Work Tab</BWT_Tutorial_Welcome_KnowBWT>
@@ -194,15 +194,15 @@
 <BWT_FluffyMigration_SettingsContextTooltip>Settings for Fluffy-style controls, saved hourly priorities, visible compatibility columns, and choosing which mod owns the Work tab.</BWT_FluffyMigration_SettingsContextTooltip>
 <BWT_Tutorial_DefaultContextHeading>Hover an option to learn more.</BWT_Tutorial_DefaultContextHeading>
 <BWT_Tutorial_Selector_Title>Explore Better Work Tab</BWT_Tutorial_Selector_Title>
-<BWT_Tutorial_Selector_DefaultBody>Click a highlighted pawn name, Work header, or priority cell to see its available lessons.</BWT_Tutorial_Selector_DefaultBody>
+<BWT_Tutorial_Selector_DefaultBody>Click a highlighted pawn name, Work header, or priority cell to explore what Better Work Tab adds there.</BWT_Tutorial_Selector_DefaultBody>
 <BWT_Tutorial_Recommended>Recommended</BWT_Tutorial_Recommended>
 <BWT_Tutorial_SkipForNow>Skip for now</BWT_Tutorial_SkipForNow>
 <BWT_Tutorial_LeaveTutorial>Review course</BWT_Tutorial_LeaveTutorial>
-<BWT_Tutorial_BackToMap>Back to tutorial map</BWT_Tutorial_BackToMap>
+<BWT_Tutorial_BackToMap>Back to lessons</BWT_Tutorial_BackToMap>
 <BWT_Tutorial_SkipLesson>Skip lesson</BWT_Tutorial_SkipLesson>
 
-<BWT_Tutorial_PawnHub_Title>Pawn names</BWT_Tutorial_PawnHub_Title>
-<BWT_Tutorial_PawnHub_Body>Pawn names control row-specific organization and appearance. Select an option to learn about the actions available for this pawn.</BWT_Tutorial_PawnHub_Body>
+<BWT_Tutorial_PawnHub_Title>Better Work Tab pawn tools</BWT_Tutorial_PawnHub_Title>
+<BWT_Tutorial_PawnHub_Body>Better Work Tab adds a pawn action menu for dividers, custom titles, and row colors. Select one of those additions below.</BWT_Tutorial_PawnHub_Body>
 <BWT_Tutorial_PawnMenu_Label>Open pawn actions</BWT_Tutorial_PawnMenu_Label>
 <BWT_Tutorial_PawnMenu_Title>Open pawn actions</BWT_Tutorial_PawnMenu_Title>
 <BWT_Tutorial_PawnMenu_Preview>Right-click a pawn name to open its Better Work Tab actions.</BWT_Tutorial_PawnMenu_Preview>
@@ -216,8 +216,8 @@
 <BWT_Tutorial_PawnAppearance_Preview>The pawn menu can change the displayed title and row background color.</BWT_Tutorial_PawnAppearance_Preview>
 <BWT_Tutorial_PawnAppearance_Action>Right-click the highlighted pawn and change its title or row color. The applied change completes the lesson.</BWT_Tutorial_PawnAppearance_Action>
 
-<BWT_Tutorial_HeaderHub_Title>Work headers</BWT_Tutorial_HeaderHub_Title>
-<BWT_Tutorial_HeaderHub_Body>Work headers identify each work column and provide column layout, grouping, and specific-job controls.</BWT_Tutorial_HeaderHub_Body>
+<BWT_Tutorial_HeaderHub_Title>Better Work Tab header tools</BWT_Tutorial_HeaderHub_Title>
+<BWT_Tutorial_HeaderHub_Body>Better Work Tab makes headers interactive: reorder execution, move selected groups, or open specific jobs.</BWT_Tutorial_HeaderHub_Body>
 <BWT_Tutorial_HeaderReorder_Label>Reorder work columns</BWT_Tutorial_HeaderReorder_Label>
 <BWT_Tutorial_HeaderReorder_Title>Reorder work columns</BWT_Tutorial_HeaderReorder_Title>
 <BWT_Tutorial_HeaderReorder_Preview>Drag a Work header to reorder execution. When priorities match, work runs from left to right.</BWT_Tutorial_HeaderReorder_Preview>
@@ -233,14 +233,10 @@
 <BWT_Tutorial_HeaderSubWork_Action>Ctrl-click the highlighted Work header to open its specific jobs.</BWT_Tutorial_HeaderSubWork_Action>
 <BWT_Tutorial_HeaderSubWork_Feedback>Specific jobs: presentation, priorities, and reassignment</BWT_Tutorial_HeaderSubWork_Feedback>
 
-<BWT_Tutorial_PriorityHub_Title>Priority cells</BWT_Tutorial_PriorityHub_Title>
-<BWT_Tutorial_PriorityHub_Body>Priority cells control whether and how urgently a pawn works. Choose a lesson below.</BWT_Tutorial_PriorityHub_Body>
-<BWT_Tutorial_PriorityHub_ShiftBody>Shift shows the pawn's skill number. Release it for priority controls, or choose “View skill number” for guidance.</BWT_Tutorial_PriorityHub_ShiftBody>
-<BWT_Tutorial_HeaderHub_SubWorkBody>This header is a specific job. Its cells set job priorities. Repeat the shortcut or press Escape to return.</BWT_Tutorial_HeaderHub_SubWorkBody>
-<BWT_Tutorial_PriorityChange_Label>Change priorities</BWT_Tutorial_PriorityChange_Label>
-<BWT_Tutorial_PriorityChange_Title>Change priorities</BWT_Tutorial_PriorityChange_Title>
-<BWT_Tutorial_PriorityChange_Preview>Click a priority cell to change whether that pawn performs the work and how urgently they do it.</BWT_Tutorial_PriorityChange_Preview>
-<BWT_Tutorial_PriorityChange_Action>Click the highlighted priority cell to change its value. The lesson completes after the priority changes.</BWT_Tutorial_PriorityChange_Action>
+<BWT_Tutorial_PriorityHub_Title>Better Work Tab priority tools</BWT_Tutorial_PriorityHub_Title>
+<BWT_Tutorial_PriorityHub_Body>Better Work Tab extends these cells with skill-number views, daily schedules, and a configurable priority range.</BWT_Tutorial_PriorityHub_Body>
+<BWT_Tutorial_PriorityHub_ShiftBody>Better Work Tab is showing the pawn's skill number while Shift is held. Choose “View skill number” for guidance on this added view.</BWT_Tutorial_PriorityHub_ShiftBody>
+<BWT_Tutorial_HeaderHub_SubWorkBody>Better Work Tab is showing this Work category's specific jobs. Repeat the shortcut or press Escape to return to the category view.</BWT_Tutorial_HeaderHub_SubWorkBody>
 <BWT_Tutorial_PrioritySkill_Label>View skill number</BWT_Tutorial_PrioritySkill_Label>
 <BWT_Tutorial_PrioritySkill_Title>View skill number</BWT_Tutorial_PrioritySkill_Title>
 <BWT_Tutorial_PrioritySkill_Preview>Hold Shift to display the pawn's skill number for that work.</BWT_Tutorial_PrioritySkill_Preview>
@@ -290,7 +286,6 @@
 <BWT_Tutorial_SettingsDiscovery_Filter>Contextual configuration examples</BWT_Tutorial_SettingsDiscovery_Filter>
 <BWT_Tutorial_SettingsDiscovery_FilterTooltip>Examples of feature, specific-job, priority, and Rule Builder settings that can be found by search or context.</BWT_Tutorial_SettingsDiscovery_FilterTooltip>
 
-<BWT_Tutorial_PriorityChange_Feedback>Changing pawn priorities</BWT_Tutorial_PriorityChange_Feedback>
 <BWT_Tutorial_PrioritySkill_Feedback>Viewing skill numbers</BWT_Tutorial_PrioritySkill_Feedback>
 <BWT_Tutorial_PawnMenu_Feedback>Pawn action menu</BWT_Tutorial_PawnMenu_Feedback>
 <BWT_Tutorial_PawnDivider_Feedback>Pawn dividers</BWT_Tutorial_PawnDivider_Feedback>
