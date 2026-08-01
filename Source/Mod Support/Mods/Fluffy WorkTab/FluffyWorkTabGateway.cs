@@ -1564,6 +1564,65 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                             OnChanged = _ => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
                             ShowInSimpleView = true,
                             SortOrder = 11
+                        },
+                        new SettingDefinition
+                        {
+                            Id = ControlsFluffyHeader,
+                            ParentId = CompatFluffyWorkTabHeader,
+                            Label = "Fluffy Work Tab controls",
+                            Tooltip = "Contextual controls defined by Fluffy Work Tab. Fluffy uses fixed mouse-and-modifier gestures rather than RimWorld-rebindable key definitions.",
+                            SearchKeywords = FluffyKeywords("controls", "keybindings", "keyboard", "mouse", "shortcuts"),
+                            Type = SettingType.Header,
+                            HeaderColor = new Color(0.67f, 0.75f, 0.92f),
+                            VisibleWhen = _ => FluffyWorkTabGateway.IsPresent,
+                            ShowInSimpleView = true,
+                            ShowInAdvancedView = true,
+                            SortOrder = 100
+                        },
+                        new SettingDefinition
+                        {
+                            Id = ControlsFluffyExpand,
+                            ParentId = ControlsFluffyHeader,
+                            Label = "Open or close specific jobs",
+                            Tooltip = "Fluffy's native Ctrl-header gesture is preserved. When BWT owns the tab, the configured specific-job shortcut routes through BWT and Expand beside opens Fluffy-style columns.",
+                            SearchKeywords = FluffyKeywords("ctrl click", "expand", "collapse", "specific jobs"),
+                            Type = SettingType.Custom,
+                            CustomDrawer = (rect, label, tooltip, _, disabled) =>
+                                SettingWidgets.DrawReadOnlyValue(rect, label, "Ctrl-click Work header", tooltip, disabled),
+                            VisibleWhen = _ => FluffyWorkTabGateway.IsPresent,
+                            ShowInSimpleView = true,
+                            ShowInAdvancedView = true,
+                            SortOrder = 101
+                        },
+                        new SettingDefinition
+                        {
+                            Id = ControlsFluffyBatch,
+                            ParentId = ControlsFluffyHeader,
+                            Label = "Change a whole Work column",
+                            Tooltip = "Shift-scroll changes all capable pawn priorities. Shift-click changes a whole specific-job column; on root Work headers, BWT's optional grouping action owns Shift-left-click.",
+                            SearchKeywords = FluffyKeywords("shift scroll", "shift click", "batch priority", "all pawns"),
+                            Type = SettingType.Custom,
+                            CustomDrawer = (rect, label, tooltip, _, disabled) =>
+                                SettingWidgets.DrawReadOnlyValue(rect, label, "Shift-click / Shift-wheel", tooltip, disabled),
+                            VisibleWhen = _ => FluffyWorkTabGateway.IsPresent,
+                            ShowInSimpleView = true,
+                            ShowInAdvancedView = true,
+                            SortOrder = 102
+                        },
+                        new SettingDefinition
+                        {
+                            Id = ControlsFluffyPawnRows,
+                            ParentId = ControlsFluffyHeader,
+                            Label = "Adjust a pawn row",
+                            Tooltip = "Fluffy's Shift-click and Shift-wheel pawn-name gesture remains available when Fluffy owns the Work tab. BWT-owned layouts keep fixed aligned pawn-row heights.",
+                            SearchKeywords = FluffyKeywords("pawn row height", "shift pawn label", "name column"),
+                            Type = SettingType.Custom,
+                            CustomDrawer = (rect, label, tooltip, _, disabled) =>
+                                SettingWidgets.DrawReadOnlyValue(rect, label, "Shift-click / Shift-wheel", tooltip, disabled),
+                            VisibleWhen = _ => FluffyWorkTabGateway.IsPresent,
+                            ShowInSimpleView = true,
+                            ShowInAdvancedView = true,
+                            SortOrder = 103
                         }
                     }
                 };

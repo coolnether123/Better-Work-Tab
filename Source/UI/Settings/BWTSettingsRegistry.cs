@@ -461,6 +461,86 @@ namespace Better_Work_Tab.UI.Settings
 
             Register(new SettingDefinition
             {
+                Id = ControlsPageHeader,
+                Label = "Keyboard & mouse",
+                Tooltip = "Work-tab controls, contextual mouse gestures, and loaded-mod compatibility.",
+                SearchKeywords = new[] { "controls", "keybindings", "keyboard", "mouse", "shortcuts", "hotkeys" },
+                Type = SettingType.Header,
+                HeaderColor = new Color(0.55f, 0.75f, 0.9f),
+                ShowInSimpleView = true,
+                ShowInAdvancedView = true,
+                SortOrder = -100
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = ControlsPriorityCells,
+                ParentId = ControlsPageHeader,
+                Label = "Change a priority",
+                Tooltip = "Left-click increases, right-click decreases, and the mouse wheel changes the priority when wheel controls are enabled.",
+                SearchKeywords = new[] { "priority click", "right click", "scroll wheel", "mouse" },
+                Type = SettingType.Custom,
+                CustomDrawer = (rect, label, tooltip, _, disabled) =>
+                    SettingWidgets.DrawReadOnlyValue(rect, label, "Click / right-click / wheel", tooltip, disabled),
+                ShowInSimpleView = true,
+                ShowInAdvancedView = true,
+                SortOrder = 0
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = ControlsShiftOverlay,
+                ParentId = ControlsPageHeader,
+                Label = "Show skill overlay",
+                Tooltip = "Hold Shift to show the configured skill and best-pawn presentation. This is display-only and does not rebuild Work data.",
+                SearchKeywords = new[] { "shift", "skill overlay", "best pawn" },
+                Type = SettingType.Custom,
+                CustomDrawer = (rect, label, tooltip, _, disabled) =>
+                    SettingWidgets.DrawReadOnlyValue(rect, label, "Hold Shift", tooltip, disabled),
+                ShowInSimpleView = true,
+                ShowInAdvancedView = true,
+                SortOrder = 1
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = ControlsHeaderActions,
+                ParentId = ControlsPageHeader,
+                Label = "Work-header actions",
+                Tooltip = "Shift gestures act on all capable pawns. When column grouping is enabled, Shift-left-click on a root Work header selects it for group dragging.",
+                SearchKeywords = new[] { "shift click header", "bulk priorities", "group columns" },
+                Type = SettingType.Custom,
+                CustomDrawer = (rect, label, tooltip, settingsObject, disabled) =>
+                    SettingWidgets.DrawReadOnlyValue(
+                        rect,
+                        label,
+                        settingsObject is BetterWorkTabSettings settings && settings.enableColumnGrouping
+                            ? "Shift-click group; Shift-right/wheel bulk"
+                            : "Shift-click / right-click / wheel bulk",
+                        tooltip,
+                        disabled),
+                ShowInSimpleView = true,
+                ShowInAdvancedView = true,
+                SortOrder = 2
+            });
+
+            Register(new SettingDefinition
+            {
+                Id = ControlsHistory,
+                ParentId = ControlsPageHeader,
+                Label = "Specific-job layout history",
+                Tooltip = "Undo or redo specific-job layout and assignment changes while the Work tab has keyboard focus.",
+                SearchKeywords = new[] { "undo", "redo", "ctrl z", "ctrl y", "shortcut" },
+                Type = SettingType.Custom,
+                CustomDrawer = (rect, label, tooltip, _, disabled) =>
+                    SettingWidgets.DrawReadOnlyValue(rect, label, "Ctrl+Z / Ctrl+Y", tooltip, disabled),
+                ShowInSimpleView = true,
+                ShowInAdvancedView = true,
+                SortOrder = 3
+            });
+
+            Register(new SettingDefinition
+            {
                 Id = FeaturesOverlay,
                 FieldName = "enableSkillOverlayFeature",
                 Label = "Skill display",

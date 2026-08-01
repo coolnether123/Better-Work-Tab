@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI.WorkGrid.Snapshots;
 using Better_Work_Tab.UI.WorkGrid.Invalidation;
@@ -60,7 +61,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Contracts
             int windowSize,
             int renderResources,
             WorkGridRevisionSet categoryRevisions,
-            int priorityDirtyCount)
+            WorkGridPriorityKey[] priorityDirtyKeys)
         {
             Presentation = presentation;
             Rows = rows;
@@ -71,7 +72,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Contracts
             WindowSize = windowSize;
             RenderResources = renderResources;
             CategoryRevisions = categoryRevisions;
-            PriorityDirtyCount = priorityDirtyCount;
+            PriorityDirtyKeys = priorityDirtyKeys ?? Array.Empty<WorkGridPriorityKey>();
         }
 
         public int Presentation { get; }
@@ -83,7 +84,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Contracts
         public int WindowSize { get; }
         public int RenderResources { get; }
         public WorkGridRevisionSet CategoryRevisions { get; }
-        public int PriorityDirtyCount { get; }
+        public int PriorityDirtyCount => PriorityDirtyKeys.Count;
+        internal IReadOnlyList<WorkGridPriorityKey> PriorityDirtyKeys { get; }
     }
 
     public enum WorkGridSelectionScopeKind

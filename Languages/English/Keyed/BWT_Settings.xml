@@ -3,6 +3,8 @@
     <!-- UI Chrome -->
     <BWT_Settings_UI_Simple>Simple</BWT_Settings_UI_Simple>
     <BWT_Settings_UI_Advanced>Advanced</BWT_Settings_UI_Advanced>
+    <BWT_Settings_UI_Settings>Settings</BWT_Settings_UI_Settings>
+    <BWT_Settings_UI_Controls>Controls</BWT_Settings_UI_Controls>
     <BWT_Settings_UI_Edit>Edit</BWT_Settings_UI_Edit>
     <BWT_Settings_UI_Close>Close</BWT_Settings_UI_Close>
     <BWT_Settings_UI_CurrentSelection>Currently selected</BWT_Settings_UI_CurrentSelection>
@@ -492,4 +494,24 @@
     <BWT_Settings_fluffyStyle.scheduleAssigner>Use Fluffy hour-selection scheduler</BWT_Settings_fluffyStyle.scheduleAssigner>
     <BWT_Settings_fluffyStyle.scheduleAssigner_Tooltip>Use Fluffy&apos;s original bottom hour selector: choose hours, then click normal priority boxes to assign those hours. This option requires Fluffy Work Tab because it uses Fluffy&apos;s scheduler assets.</BWT_Settings_fluffyStyle.scheduleAssigner_Tooltip>
     <BWT_Settings_hide.workType_Tooltip>Click to unhide this Work type.</BWT_Settings_hide.workType_Tooltip>
+
+    <!-- Controls page -->
+    <BWT_Settings_controls.header>Keyboard &amp; mouse</BWT_Settings_controls.header>
+    <BWT_Settings_controls.header_Tooltip>Work-tab controls, contextual mouse gestures, and loaded-mod compatibility.</BWT_Settings_controls.header_Tooltip>
+    <BWT_Settings_controls.priorityCells>Change a priority</BWT_Settings_controls.priorityCells>
+    <BWT_Settings_controls.priorityCells_Tooltip>Left-click increases, right-click decreases, and the mouse wheel changes the priority when wheel controls are enabled.</BWT_Settings_controls.priorityCells_Tooltip>
+    <BWT_Settings_controls.shiftOverlay>Show skill overlay</BWT_Settings_controls.shiftOverlay>
+    <BWT_Settings_controls.shiftOverlay_Tooltip>Hold Shift to show the configured skill and best-pawn presentation. This is display-only and does not rebuild Work data.</BWT_Settings_controls.shiftOverlay_Tooltip>
+    <BWT_Settings_controls.headerActions>Work-header actions</BWT_Settings_controls.headerActions>
+    <BWT_Settings_controls.headerActions_Tooltip>Shift gestures act on all capable pawns. When column grouping is enabled, Shift-left-click on a root Work header selects it for group dragging.</BWT_Settings_controls.headerActions_Tooltip>
+    <BWT_Settings_controls.history>Specific-job layout history</BWT_Settings_controls.history>
+    <BWT_Settings_controls.history_Tooltip>Undo or redo specific-job layout and assignment changes while the Work tab has keyboard focus.</BWT_Settings_controls.history_Tooltip>
+    <BWT_Settings_controls.fluffy.header>Fluffy Work Tab controls</BWT_Settings_controls.fluffy.header>
+    <BWT_Settings_controls.fluffy.header_Tooltip>Contextual controls defined by Fluffy Work Tab. Fluffy uses fixed mouse-and-modifier gestures rather than RimWorld-rebindable key definitions.</BWT_Settings_controls.fluffy.header_Tooltip>
+    <BWT_Settings_controls.fluffy.expand>Open or close specific jobs</BWT_Settings_controls.fluffy.expand>
+    <BWT_Settings_controls.fluffy.expand_Tooltip>Fluffy&apos;s native Ctrl-header gesture is preserved. When BWT owns the tab, the configured specific-job shortcut routes through BWT and Expand beside opens Fluffy-style columns.</BWT_Settings_controls.fluffy.expand_Tooltip>
+    <BWT_Settings_controls.fluffy.batch>Change a whole Work column</BWT_Settings_controls.fluffy.batch>
+    <BWT_Settings_controls.fluffy.batch_Tooltip>Shift-scroll changes all capable pawn priorities. Shift-click changes a whole specific-job column; on root Work headers, BWT&apos;s optional grouping action owns Shift-left-click.</BWT_Settings_controls.fluffy.batch_Tooltip>
+    <BWT_Settings_controls.fluffy.pawnRows>Adjust a pawn row</BWT_Settings_controls.fluffy.pawnRows>
+    <BWT_Settings_controls.fluffy.pawnRows_Tooltip>Fluffy&apos;s Shift-click and Shift-wheel pawn-name gesture remains available when Fluffy owns the Work tab. BWT-owned layouts keep fixed aligned pawn-row heights.</BWT_Settings_controls.fluffy.pawnRows_Tooltip>
 </LanguageData>

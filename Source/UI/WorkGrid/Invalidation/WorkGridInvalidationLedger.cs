@@ -100,6 +100,18 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
         public int PriorityDirtyCount => _priorityKeys.Count;
         public bool IsPriorityDirty(WorkGridPriorityKey key) => _priorityKeys.Contains(key);
 
+        public WorkGridPriorityKey[] CopyPriorityDirtyKeys()
+        {
+            if (_priorityKeys.Count == 0)
+            {
+                return Array.Empty<WorkGridPriorityKey>();
+            }
+
+            var keys = new WorkGridPriorityKey[_priorityKeys.Count];
+            _priorityKeys.CopyTo(keys, 0);
+            return keys;
+        }
+
         public void Invalidate(WorkGridInvalidationCategory categories)
         {
             for (int i = 0; i < Categories.Length; i++)

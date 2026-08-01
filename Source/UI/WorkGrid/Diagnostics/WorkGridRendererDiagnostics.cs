@@ -18,7 +18,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Diagnostics
             long lastBuildTicks,
             int snapshotRetainedBytes,
             int geometryRetainedBytes,
-            int priorityDirtyCount)
+            int priorityDirtyCount,
+            bool incremental,
+            int updatedCellCount)
         {
             Revision = revision;
             BuildCount = buildCount;
@@ -26,6 +28,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Diagnostics
             SnapshotRetainedBytes = snapshotRetainedBytes;
             GeometryRetainedBytes = geometryRetainedBytes;
             PriorityDirtyCount = priorityDirtyCount;
+            Incremental = incremental;
+            UpdatedCellCount = updatedCellCount;
         }
 
         public long Revision { get; }
@@ -34,6 +38,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Diagnostics
         public int SnapshotRetainedBytes { get; }
         public int GeometryRetainedBytes { get; }
         public int PriorityDirtyCount { get; }
+        public bool Incremental { get; }
+        public int UpdatedCellCount { get; }
     }
 
     public sealed class WorkGridRendererDiagnosticSnapshot
@@ -76,6 +82,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Diagnostics
         private static int _snapshotRetainedBytes;
         private static int _geometryRetainedBytes;
         private static int _priorityDirtyCount;
+        private static int _snapshotIncremental;
+        private static int _snapshotUpdatedCellCount;
         private static ICacheDiagnostics _atlasDiagnostics;
 
         public static WorkGridRendererDiagnosticSnapshot Current => Volatile.Read(ref _current);
@@ -86,7 +94,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Diagnostics
             Interlocked.Read(ref _snapshotLastBuildTicks),
             Volatile.Read(ref _snapshotRetainedBytes),
             Volatile.Read(ref _geometryRetainedBytes),
-            Volatile.Read(ref _priorityDirtyCount));
+            Volatile.Read(ref _priorityDirtyCount),
+            Volatile.Read(ref _snapshotIncremental) != 0,
+            Volatile.Read(ref _snapshotUpdatedCellCount));
 
         public static ICacheDiagnostics AtlasDiagnostics => Volatile.Read(ref _atlasDiagnostics);
 
@@ -108,6 +118,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Diagnostics
         public static void LogCurrent()
         {
             WorkGridRendererDiagnosticSnapshot snapshot = Current;
+            WorkGridSnapshotDiagnosticStats snapshotStats = SnapshotStats;
             string fallback = snapshot.FallbackReasons.Count == 0
                 ? "none"
                 : snapshot.FallbackReasons[0].Code +
@@ -119,7 +130,13 @@ namespace Better_Work_Tab.UI.WorkGrid.Diagnostics
                 ", setting=" + snapshot.SelectionMode +
                 ", forced=" + snapshot.ForcedMode +
                 ", fallback=" + fallback +
-                ", quarantined=" + snapshot.IsQuarantined + ".");
+                ", quarantined=" + snapshot.IsQuarantined +
+                ", snapshotRevision=" + snapshotStats.Revision +
+                ", snapshotBuilds=" + snapshotStats.BuildCount +
+                ", snapshotTicks=" + snapshotStats.LastBuildTicks +
+                ", priorityDirty=" + snapshotStats.PriorityDirtyCount +
+                ", incremental=" + snapshotStats.Incremental +
+                ", updatedCells=" + snapshotStats.UpdatedCellCount + ".");
         }
 
         internal static bool Publish(
@@ -160,7 +177,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Diagnostics
             long buildTicks,
             int snapshotRetainedBytes,
             int priorityDirtyCount,
-            int geometryRetainedBytes)
+            int geometryRetainedBytes,
+            bool incremental,
+            int updatedCellCount)
         {
             Interlocked.Exchange(ref _snapshotRevision, revision);
             Interlocked.Increment(ref _snapshotBuildCount);
@@ -168,6 +187,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Diagnostics
             Volatile.Write(ref _snapshotRetainedBytes, snapshotRetainedBytes);
             Volatile.Write(ref _geometryRetainedBytes, geometryRetainedBytes);
             Volatile.Write(ref _priorityDirtyCount, priorityDirtyCount);
+            Volatile.Write(ref _snapshotIncremental, incremental ? 1 : 0);
+            Volatile.Write(ref _snapshotUpdatedCellCount, updatedCellCount);
 
             IRenderDiagnosticsSink sink = BwtWorkGridDiagnosticsSink.Instance;
             if (sink.Enabled)
@@ -180,7 +201,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Diagnostics
                     ", ticks=" + buildTicks +
                     ", retainedBytes=" + snapshotRetainedBytes +
                     ", geometryBytes=" + geometryRetainedBytes +
-                    ", priorityDirty=" + priorityDirtyCount + "."));
+                    ", priorityDirty=" + priorityDirtyCount +
+                    ", incremental=" + incremental +
+                    ", updatedCells=" + updatedCellCount + "."));
             }
         }
 
@@ -190,6 +213,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Diagnostics
             Volatile.Write(ref _snapshotRetainedBytes, 0);
             Volatile.Write(ref _geometryRetainedBytes, 0);
             Volatile.Write(ref _priorityDirtyCount, 0);
+            Volatile.Write(ref _snapshotIncremental, 0);
+            Volatile.Write(ref _snapshotUpdatedCellCount, 0);
         }
 
         internal static void SetAtlasDiagnostics(ICacheDiagnostics diagnostics)
