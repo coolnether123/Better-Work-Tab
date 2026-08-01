@@ -1728,6 +1728,15 @@ namespace Better_Work_Tab.UI
             if (isMouseOver)
             {
                 HeaderInputController.SetHoveredWorkType(parentWorkType, headerRect);
+                if (column.Column?.Worker is PawnColumnWorker_WorkPriority priorityWorker &&
+                    AngledHeaderInteraction.TryHandleShiftPriorityGesture(
+                        priorityWorker,
+                        table,
+                        Event.current,
+                        allowRootGrouping: !isChild))
+                {
+                    return true;
+                }
             }
 
             if (BetterWorkTabMod.Settings?.enableAngledHeaders ?? DefaultSettings.enableAngledHeaders)

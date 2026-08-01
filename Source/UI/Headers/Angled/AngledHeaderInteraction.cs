@@ -66,6 +66,12 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 return;
             }
 
+            if (evt.type == EventType.ScrollWheel &&
+                TryHandleShiftPriorityGesture(ctx.Worker, ctx.Table, evt, allowRootGrouping: false))
+            {
+                return;
+            }
+
             // --- Tooltips ---
             if (evt.type == EventType.Repaint)
             {
@@ -101,18 +107,10 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 {
                     if (evt.shift || (evt.modifiers & EventModifiers.Shift) != 0)
                     {
-                        if (evt.button == 0 && BetterWorkTabMod.Settings.enableColumnGrouping)
+                        if (TryHandleShiftPriorityGesture(ctx.Worker, ctx.Table, evt, allowRootGrouping: true))
                         {
-                            Better_Work_Tab.DragDrop.ColumnSelectionManager.ToggleSelection(ctx.Worker.def);
-                            SoundDefOf.Tick_High.PlayOneShotOnCamera();
-                            evt.Use();
                             return;
                         }
-
-                        // Preserve the vanilla-style shift header action when grouping is disabled or right-click is used.
-                        HandleShiftClick(ctx.Worker, ctx.Table, evt.button);
-                        evt.Use();
-                        return;
                     }
 
                     _pendingClickColumn = ctx.Worker.def;
@@ -470,6 +468,53 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
                 table.SetDirty();
             }
+        }
+
+        internal static bool TryHandleShiftPriorityGesture(
+            PawnColumnWorker_WorkPriority worker,
+            PawnTable table,
+            Event evt,
+            bool allowRootGrouping)
+        {
+            if (worker == null || table == null || evt == null ||
+                !(evt.shift || (evt.modifiers & EventModifiers.Shift) != 0))
+            {
+                return false;
+            }
+
+            bool isSubWork = SubWorkDrilldownState.TryGetCurrentDrawingWorkGiver(
+                worker.def,
+                out _,
+                out _,
+                out _);
+            if (evt.type == EventType.MouseDown && (evt.button == 0 || evt.button == 1))
+            {
+                if (allowRootGrouping &&
+                    !isSubWork &&
+                    evt.button == 0 &&
+                    (BetterWorkTabMod.Settings?.enableColumnGrouping ?? false))
+                {
+                    ColumnSelectionManager.ToggleSelection(worker.def);
+                    SoundDefOf.Tick_High.PlayOneShotOnCamera();
+                    evt.Use();
+                    return true;
+                }
+
+                HandleShiftClick(worker, table, evt.button);
+                evt.Use();
+                return true;
+            }
+
+            if (evt.type != EventType.ScrollWheel ||
+                !(BetterWorkTabMod.Settings?.enableScrollWheelPriority ?? false) ||
+                Mathf.Abs(evt.delta.y) < 0.01f)
+            {
+                return false;
+            }
+
+            HandleShiftClick(worker, table, evt.delta.y < 0f ? 0 : 1);
+            evt.Use();
+            return true;
         }
 
         private static void HandleSubWorkShiftClick(WorkTypeDef workType, WorkGiverDef workGiverDef, PawnTable table, int button)

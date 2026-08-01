@@ -24,11 +24,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
             get
             {
                 WorkGridRevisionSet revisions;
-                int priorityDirtyCount;
+                WorkGridPriorityKey[] priorityDirtyKeys;
                 lock (LedgerLock)
                 {
                     revisions = Ledger.Current;
-                    priorityDirtyCount = Ledger.PriorityDirtyCount;
+                    priorityDirtyKeys = Ledger.CopyPriorityDirtyKeys();
                 }
 
                 return new WorkTabInvalidationVersion(
@@ -41,7 +41,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
                     Volatile.Read(ref _windowSize),
                     Volatile.Read(ref _renderResources),
                     revisions,
-                    priorityDirtyCount);
+                    priorityDirtyKeys);
             }
         }
 

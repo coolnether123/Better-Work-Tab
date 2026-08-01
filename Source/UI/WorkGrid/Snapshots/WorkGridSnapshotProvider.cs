@@ -65,6 +65,24 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             }
 
             int layoutSignature = ComputeLayoutSignature(layout);
+            var timer = Stopwatch.StartNew();
+            if (CanApplySparsePriorityUpdate(layout, current, layoutSignature, versions.PriorityDirtyKeys) &&
+                TryApplySparsePriorityUpdate(layout, current, versions.PriorityDirtyKeys, out int updatedCellCount))
+            {
+                timer.Stop();
+                WorkTabInvalidationHub.ClearConsumedPriorityKeys();
+                WorkGridSnapshot incrementalSnapshot = _slot.Current;
+                WorkGridRendererDiagnostics.RecordSnapshotBuild(
+                    incrementalSnapshot?.Revision ?? 0,
+                    timer.ElapsedTicks,
+                    incrementalSnapshot?.RetainedCapacityBytes ?? 0,
+                    versions.PriorityDirtyCount,
+                    layout.GeometrySnapshot.RetainedCapacityBytes,
+                    incremental: true,
+                    updatedCellCount: updatedCellCount);
+                return incrementalSnapshot;
+            }
+
             if (_slot.Current != null &&
                 _hasLayoutSignature &&
                 _layoutSignature == layoutSignature &&
@@ -73,7 +91,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                 return _slot.Current;
             }
 
-            var timer = Stopwatch.StartNew();
+            timer.Restart();
             Build(layout, table, current, layoutSignature);
             timer.Stop();
             WorkTabInvalidationHub.ClearConsumedPriorityKeys();
@@ -83,8 +101,99 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                 timer.ElapsedTicks,
                 snapshot?.RetainedCapacityBytes ?? 0,
                 versions.PriorityDirtyCount,
-                layout.GeometrySnapshot.RetainedCapacityBytes);
+                layout.GeometrySnapshot.RetainedCapacityBytes,
+                incremental: false,
+                updatedCellCount: snapshot?.Cells.Count ?? 0);
             return snapshot;
+        }
+
+        private bool CanApplySparsePriorityUpdate(
+            IWorkTabLayoutController layout,
+            WorkGridRevisionSet current,
+            int layoutSignature,
+            IReadOnlyList<WorkGridPriorityKey> dirtyKeys)
+        {
+            return _slot.Current != null &&
+                   ReferenceEquals(_layout, layout) &&
+                   _hasLayoutSignature &&
+                   _layoutSignature == layoutSignature &&
+                   dirtyKeys != null &&
+                   dirtyKeys.Count > 0 &&
+                   _revisions.Priority != current.Priority &&
+                   EqualNonPriorityConsumedRevisions(_revisions, current);
+        }
+
+        private bool TryApplySparsePriorityUpdate(
+            IWorkTabLayoutController layout,
+            WorkGridRevisionSet revisions,
+            IReadOnlyList<WorkGridPriorityKey> dirtyKeys,
+            out int updatedCellCount)
+        {
+            updatedCellCount = 0;
+            WorkGridSnapshot previous = _slot.Current;
+            if (previous == null || previous.Cells.Count == 0)
+            {
+                return false;
+            }
+
+            var dirty = new HashSet<WorkGridPriorityKey>();
+            for (int i = 0; i < dirtyKeys.Count; i++)
+            {
+                dirty.Add(dirtyKeys[i]);
+            }
+
+            var replacements = new Dictionary<int, WorkCellVisualState>();
+            uint cellRevision = unchecked((uint)(_snapshotRevision + 1));
+            IReadOnlyList<WorkTabLayoutColumn> columns = layout.Columns;
+            for (int i = 0; i < previous.Cells.Count; i++)
+            {
+                WorkCellVisualState cell = previous.Cells[i];
+                if (!dirty.Contains(new WorkGridPriorityKey(cell.PawnId, cell.WorkType?.shortHash ?? 0)))
+                {
+                    continue;
+                }
+
+                if (cell.Pawn == null || cell.WorkType == null || cell.ColumnIndex >= columns.Count)
+                {
+                    return false;
+                }
+
+                WorkTabLayoutColumn column = columns[cell.ColumnIndex];
+                WorkTypeDef columnWorkType = column.SubWorkParent ?? column.Column?.workType;
+                if (columnWorkType != cell.WorkType)
+                {
+                    return false;
+                }
+
+                int bestPawnId = (cell.Flags & WorkCellVisualFlags.BestPawn) != 0
+                    ? cell.PawnId
+                    : -1;
+                replacements[i] = BuildCell(
+                    cell.Pawn,
+                    cell.WorkType,
+                    column.SubWorkGiver,
+                    cell.ColumnIndex,
+                    bestPawnId,
+                    cellRevision);
+                updatedCellCount++;
+            }
+
+            _revisions = revisions;
+            _snapshotRevision++;
+            _slot.Publish(new WorkGridSnapshot(
+                _snapshotRevision,
+                layout.LayoutRevision,
+                revisions,
+                previous.Rows,
+                previous.Columns,
+                previous.Cells.WithReplacements(replacements),
+                previous.RetainedCapacityBytes,
+                Find.PlaySettings?.useWorkPriorities ?? previous.ManualPriorities,
+                previous.MaxPriority,
+                previous.UiScaleRevision,
+                previous.FontThemeRevision,
+                previous.PriorityRangeRevision));
+            return true;
         }
 
         internal void Clear()
@@ -432,6 +541,15 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
         {
             return left.GameState == right.GameState &&
                    left.Priority == right.Priority &&
+                   left.CapabilitySkill == right.CapabilitySkill &&
+                   left.ScheduleHour == right.ScheduleHour &&
+                   left.SubWorkOverride == right.SubWorkOverride &&
+                   left.SettingsThemeLanguageScale == right.SettingsThemeLanguageScale;
+        }
+
+        private static bool EqualNonPriorityConsumedRevisions(WorkGridRevisionSet left, WorkGridRevisionSet right)
+        {
+            return left.GameState == right.GameState &&
                    left.CapabilitySkill == right.CapabilitySkill &&
                    left.ScheduleHour == right.ScheduleHour &&
                    left.SubWorkOverride == right.SubWorkOverride &&

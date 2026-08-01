@@ -14,6 +14,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
         private static int _nextRosterAuditTick;
         private static int _lastSignature;
         private static bool _hasSignature;
+        private static WorkGridRevisionSet _lastTrackedRevisions;
 
         internal static void PollRoster(PawnTable table)
         {
@@ -43,11 +44,25 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
 
             _nextAuditTick = ticks + AuditIntervalTicks;
             int signature = ComputeSignature(table);
-            if (_hasSignature && signature != _lastSignature)
+            WorkGridRevisionSet revisions = WorkTabInvalidationHub.Current.CategoryRevisions;
+            bool knownTrackedChange =
+                _lastTrackedRevisions.GameState != revisions.GameState ||
+                _lastTrackedRevisions.PawnListOrder != revisions.PawnListOrder ||
+                _lastTrackedRevisions.ColumnLayout != revisions.ColumnLayout ||
+                _lastTrackedRevisions.Priority != revisions.Priority ||
+                _lastTrackedRevisions.CapabilitySkill != revisions.CapabilitySkill ||
+                _lastTrackedRevisions.ScheduleHour != revisions.ScheduleHour ||
+                _lastTrackedRevisions.SubWorkOverride != revisions.SubWorkOverride ||
+                _lastTrackedRevisions.SettingsThemeLanguageScale != revisions.SettingsThemeLanguageScale;
+            if (_hasSignature &&
+                signature != _lastSignature &&
+                !knownTrackedChange)
             {
                 WorkTabInvalidationHub.InvalidateCategory(WorkGridInvalidationCategory.All);
+                revisions = WorkTabInvalidationHub.Current.CategoryRevisions;
             }
             _lastSignature = signature;
+            _lastTrackedRevisions = revisions;
             _hasSignature = true;
         }
 
@@ -57,6 +72,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
             _nextRosterAuditTick = 0;
             _lastSignature = 0;
             _hasSignature = false;
+            _lastTrackedRevisions = default;
         }
 
         private static int RosterSignature(System.Collections.Generic.IEnumerable<Pawn> pawns)

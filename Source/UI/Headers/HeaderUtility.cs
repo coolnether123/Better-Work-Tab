@@ -369,7 +369,8 @@ namespace Better_Work_Tab.UI.Headers
                 || eventType == EventType.MouseDown
                 || eventType == EventType.MouseMove
                 || eventType == EventType.MouseDrag
-                || eventType == EventType.MouseUp;
+                || eventType == EventType.MouseUp
+                || eventType == EventType.ScrollWheel;
         }
     }
 

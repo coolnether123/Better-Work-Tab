@@ -33,6 +33,32 @@ namespace Spine.Collections
             return new ImmutableSnapshotArray<T>(copy);
         }
 
+        /// <summary>
+        /// Publishes a new immutable array while replacing only the requested logical entries.
+        /// The source snapshot remains untouched.
+        /// </summary>
+        public ImmutableSnapshotArray<T> WithReplacements(IReadOnlyDictionary<int, T> replacements)
+        {
+            if (replacements == null || replacements.Count == 0)
+            {
+                return this;
+            }
+
+            var copy = new T[_items.Length];
+            Array.Copy(_items, copy, _items.Length);
+            foreach (KeyValuePair<int, T> replacement in replacements)
+            {
+                if ((uint)replacement.Key >= (uint)copy.Length)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(replacements));
+                }
+
+                copy[replacement.Key] = replacement.Value;
+            }
+
+            return new ImmutableSnapshotArray<T>(copy);
+        }
+
         internal static ImmutableSnapshotArray<T> TakeOwnership(T[] items)
         {
             return items == null || items.Length == 0

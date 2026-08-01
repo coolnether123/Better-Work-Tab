@@ -15,6 +15,47 @@ namespace Better_Work_Tab.UI.Settings
         private const string VersionsCategory = "versions";
         private const string StatesCategory = "states";
         private const string PresetsCategory = "presets";
+        private static readonly HashSet<string> ControlSettingIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ControlsPageHeader,
+            ControlsFluffyHeader,
+            FeaturesClicks,
+            ControlsPriorityCells,
+            ControlsShiftOverlay,
+            ControlsHeaderActions,
+            ControlsHistory,
+            ControlsFluffyExpand,
+            ControlsFluffyBatch,
+            ControlsFluffyPawnRows,
+            AdvancedScrollWheelPriority,
+            SubWorkOpenModifier,
+            SubWorkOpenButton,
+            LayoutCtrlDrag,
+            DragdropEnableGrouping,
+            LayoutContextMenu,
+            LayoutClickClose,
+            LayoutCloseOnMapClick
+        };
+
+        private static readonly HashSet<string> ControlAncestorIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            FeaturesSubWorkJobs,
+            FeaturesDragdrop,
+            FeaturesUiElements,
+            ModCompatHeader,
+            CompatFluffyWorkTabHeader
+        };
+
+        public static bool IsControlSetting(SettingDefinition definition)
+        {
+            return definition != null && ControlSettingIds.Contains(definition.Id);
+        }
+
+        public static bool IsControlsPageDefinition(SettingDefinition definition)
+        {
+            return definition != null &&
+                   (ControlSettingIds.Contains(definition.Id) || ControlAncestorIds.Contains(definition.Id));
+        }
 
         public static IReadOnlyList<SettingsFilterDefinition> Create()
         {
