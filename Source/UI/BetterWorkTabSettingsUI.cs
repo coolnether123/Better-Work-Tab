@@ -1,3 +1,4 @@
+using System.Linq;
 using Better_Work_Tab;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.UI.Settings;
@@ -93,16 +94,22 @@ namespace Better_Work_Tab.UI
             }
 
             BWTSettingsRegistry.EnsureInitialized();
-            _settingsDrawer = CreateDrawer(_preservedSettingsScrollPosition);
-            _settingsDrawer.BasePredicate = (definition, _) => !BWTSettingsFilters.IsControlSetting(definition);
-            _controlsDrawer = CreateDrawer(_preservedControlsScrollPosition);
-            _controlsDrawer.BasePredicate = (definition, _) => BWTSettingsFilters.IsControlsPageDefinition(definition);
+            _settingsDrawer = CreateDrawer(
+                new SettingsHierarchy(BWTSettingsRegistry.Definitions.Where(
+                    definition => !BWTSettingsFilters.IsControlSetting(definition))),
+                _preservedSettingsScrollPosition);
+            _controlsDrawer = CreateDrawer(
+                new SettingsHierarchy(BWTSettingsRegistry.Definitions.Where(
+                    BWTSettingsFilters.IsControlsPageDefinition)),
+                _preservedControlsScrollPosition);
             _drawer = _page == SettingsPage.Controls ? _controlsDrawer : _settingsDrawer;
         }
 
-        private static SettingsListDrawer CreateDrawer(Vector2 scrollPosition)
+        private static SettingsListDrawer CreateDrawer(
+            SettingsHierarchy hierarchy,
+            Vector2 scrollPosition)
         {
-            return new SettingsListDrawer(BWTSettingsRegistry.Hierarchy)
+            return new SettingsListDrawer(hierarchy)
             {
                 GetLabel = BWTSettingsTranslation.GetLabel,
                 GetTooltip = BWTSettingsTranslation.GetTooltip,

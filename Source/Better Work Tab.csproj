@@ -305,6 +305,7 @@
     <Compile Include="UI\WorkGrid\Snapshots\WorkGridGeometrySnapshot.cs" />
     <Compile Include="UI\WorkGrid\Snapshots\WorkGridSnapshot.cs" />
     <Compile Include="UI\WorkGrid\Snapshots\WorkGridSnapshotProvider.cs" />
+    <Compile Include="UI\WorkGrid\Snapshots\ImmutableSnapshotExtensions.cs" />
     <Compile Include="UI\WorkGrid\Invalidation\WorkGridInvalidationLedger.cs" />
     <Compile Include="UI\WorkGrid\Invalidation\WorkGridInvalidationAudit.cs" />
     <Compile Include="UI\WorkGrid\Invalidation\WorkTabInvalidationHub.cs" />
@@ -334,6 +335,7 @@
     <Compile Include="UI\Dialog_ChangePawnTitle.cs" />
     <Compile Include="UI\BetterWorkTabSettingsUI.cs" />
     <Compile Include="UI\Settings\BWTSettingsFilters.cs" />
+    <Compile Include="UI\Settings\BWTSettingWidgets.cs" />
     <Compile Include="UI\Settings\BWTSettingsContextFocus.cs" />
     <Compile Include="UI\Settings\BWTSettingsFocusRequest.cs" />
     <Compile Include="UI\Settings\BWTWorkTabContextSettingsRouter.cs" />

@@ -1588,7 +1588,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                             SearchKeywords = FluffyKeywords("ctrl click", "expand", "collapse", "specific jobs"),
                             Type = SettingType.Custom,
                             CustomDrawer = (rect, label, tooltip, _, disabled) =>
-                                SettingWidgets.DrawReadOnlyValue(rect, label, "Ctrl-click Work header", tooltip, disabled),
+                                BWTSettingWidgets.DrawReadOnlyValue(rect, label, "Ctrl-click Work header", tooltip, disabled),
                             VisibleWhen = _ => FluffyWorkTabGateway.IsPresent,
                             ShowInSimpleView = true,
                             ShowInAdvancedView = true,
@@ -1603,7 +1603,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                             SearchKeywords = FluffyKeywords("shift scroll", "shift click", "batch priority", "all pawns"),
                             Type = SettingType.Custom,
                             CustomDrawer = (rect, label, tooltip, _, disabled) =>
-                                SettingWidgets.DrawReadOnlyValue(rect, label, "Shift-click / Shift-wheel", tooltip, disabled),
+                                BWTSettingWidgets.DrawReadOnlyValue(rect, label, "Shift-click / Shift-wheel", tooltip, disabled),
                             VisibleWhen = _ => FluffyWorkTabGateway.IsPresent,
                             ShowInSimpleView = true,
                             ShowInAdvancedView = true,
@@ -1618,7 +1618,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                             SearchKeywords = FluffyKeywords("pawn row height", "shift pawn label", "name column"),
                             Type = SettingType.Custom,
                             CustomDrawer = (rect, label, tooltip, _, disabled) =>
-                                SettingWidgets.DrawReadOnlyValue(rect, label, "Shift-click / Shift-wheel", tooltip, disabled),
+                                BWTSettingWidgets.DrawReadOnlyValue(rect, label, "Shift-click / Shift-wheel", tooltip, disabled),
                             VisibleWhen = _ => FluffyWorkTabGateway.IsPresent,
                             ShowInSimpleView = true,
                             ShowInAdvancedView = true,

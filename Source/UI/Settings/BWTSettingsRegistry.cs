@@ -481,7 +481,7 @@ namespace Better_Work_Tab.UI.Settings
                 SearchKeywords = new[] { "priority click", "right click", "scroll wheel", "mouse" },
                 Type = SettingType.Custom,
                 CustomDrawer = (rect, label, tooltip, _, disabled) =>
-                    SettingWidgets.DrawReadOnlyValue(rect, label, "Click / right-click / wheel", tooltip, disabled),
+                    BWTSettingWidgets.DrawReadOnlyValue(rect, label, "Click / right-click / wheel", tooltip, disabled),
                 ShowInSimpleView = true,
                 ShowInAdvancedView = true,
                 SortOrder = 0
@@ -496,7 +496,7 @@ namespace Better_Work_Tab.UI.Settings
                 SearchKeywords = new[] { "shift", "skill overlay", "best pawn" },
                 Type = SettingType.Custom,
                 CustomDrawer = (rect, label, tooltip, _, disabled) =>
-                    SettingWidgets.DrawReadOnlyValue(rect, label, "Hold Shift", tooltip, disabled),
+                    BWTSettingWidgets.DrawReadOnlyValue(rect, label, "Hold Shift", tooltip, disabled),
                 ShowInSimpleView = true,
                 ShowInAdvancedView = true,
                 SortOrder = 1
@@ -511,7 +511,7 @@ namespace Better_Work_Tab.UI.Settings
                 SearchKeywords = new[] { "shift click header", "bulk priorities", "group columns" },
                 Type = SettingType.Custom,
                 CustomDrawer = (rect, label, tooltip, settingsObject, disabled) =>
-                    SettingWidgets.DrawReadOnlyValue(
+                    BWTSettingWidgets.DrawReadOnlyValue(
                         rect,
                         label,
                         settingsObject is BetterWorkTabSettings settings && settings.enableColumnGrouping
@@ -533,7 +533,7 @@ namespace Better_Work_Tab.UI.Settings
                 SearchKeywords = new[] { "undo", "redo", "ctrl z", "ctrl y", "shortcut" },
                 Type = SettingType.Custom,
                 CustomDrawer = (rect, label, tooltip, _, disabled) =>
-                    SettingWidgets.DrawReadOnlyValue(rect, label, "Ctrl+Z / Ctrl+Y", tooltip, disabled),
+                    BWTSettingWidgets.DrawReadOnlyValue(rect, label, "Ctrl+Z / Ctrl+Y", tooltip, disabled),
                 ShowInSimpleView = true,
                 ShowInAdvancedView = true,
                 SortOrder = 3

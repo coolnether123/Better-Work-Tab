@@ -152,12 +152,6 @@ namespace Spine.UI.SettingsFramework
         public Action<SettingDefinition, object> OnSettingTooltipViewed { get; set; }
 
         /// <summary>
-        /// Optional page-level predicate applied before user-selected filters. Hosts can use this
-        /// to present the same setting definitions on separate pages without duplicating them.
-        /// </summary>
-        public Func<SettingDefinition, object, bool> BasePredicate { get; set; }
-
-        /// <summary>
         /// Creates a new drawer for a hierarchy.
         /// </summary>
         public SettingsListDrawer(SettingsHierarchy hierarchy)
@@ -875,11 +869,6 @@ namespace Spine.UI.SettingsFramework
             foreach (var setting in source)
             {
                 if (settingsObject != null && setting.VisibleWhen != null && !setting.VisibleWhen(settingsObject))
-                {
-                    continue;
-                }
-
-                if (BasePredicate != null && !BasePredicate(setting, settingsObject))
                 {
                     continue;
                 }

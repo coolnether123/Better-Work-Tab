@@ -90,6 +90,7 @@ namespace Better_Work_Tab.Features.Tutorial
         private float hoveredLessonLastConnectedAt = -1f;
         private Rect lastOptionsRect;
         private Rect lastContextRect;
+        private Rect lastPanelRect;
         private Vector2 optionScrollPosition;
         private Vector2 contextScrollPosition;
         private TutorialHubAnchor optionScrollAnchor = TutorialHubAnchor.None;
@@ -107,6 +108,7 @@ namespace Better_Work_Tab.Features.Tutorial
             hoveredLessonLastConnectedAt = -1f;
             lastOptionsRect = Rect.zero;
             lastContextRect = Rect.zero;
+            lastPanelRect = Rect.zero;
             optionScrollPosition = Vector2.zero;
             contextScrollPosition = Vector2.zero;
             optionScrollAnchor = TutorialHubAnchor.None;
@@ -123,6 +125,7 @@ namespace Better_Work_Tab.Features.Tutorial
             hoveredLessonLastConnectedAt = -1f;
             lastOptionsRect = Rect.zero;
             lastContextRect = Rect.zero;
+            lastPanelRect = Rect.zero;
             contextContentKey = null;
         }
 
@@ -327,13 +330,12 @@ namespace Better_Work_Tab.Features.Tutorial
 
             Vector2 pointer = Event.current?.mousePosition ?? new Vector2(-1f, -1f);
             TutorialHubAnchor pointerAnchor = GetAnchorAt(anchors, pointer);
-            bool overOptions = lastOptionsRect.Contains(pointer);
-            bool overContext = lastContextRect.Contains(pointer);
+            bool overPanel = lastPanelRect.Contains(pointer);
             TutorialHubAnchor hoverAnchor = hover.Update(
                 Time.realtimeSinceStartup,
                 pointerAnchor,
-                overOptions,
-                overContext);
+                overPanel,
+                false);
             TutorialHubAnchor active = pinnedAnchor != TutorialHubAnchor.None ? pinnedAnchor : hoverAnchor;
             if (active != TutorialHubAnchor.None)
             {
@@ -347,6 +349,7 @@ namespace Better_Work_Tab.Features.Tutorial
             {
                 lastOptionsRect = Rect.zero;
                 lastContextRect = Rect.zero;
+                lastPanelRect = Rect.zero;
                 hoveredLessonId = null;
                 optionScrollAnchor = TutorialHubAnchor.None;
                 return;
@@ -358,6 +361,7 @@ namespace Better_Work_Tab.Features.Tutorial
                 FindAnchorRect(anchors, active),
                 hub,
                 recommendedLabel);
+            lastPanelRect = layout.PanelRect;
             lastOptionsRect = layout.OptionsRect;
             lastContextRect = layout.ContextRect;
             if (optionScrollAnchor != active)
