@@ -1284,7 +1284,14 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                     }
 
                     VisibleColumnSlots[candidate] = slot;
-                    VisibleWorkTypeSlots[candidate.workType] = slot;
+                    // Fluffy can contribute later WorkPriority columns for the same
+                    // WorkTypeDef. The first visible column is the canonical BWT parent
+                    // header; replacing it with a later duplicate makes Focus View pivot
+                    // from an off-screen slot during enter/exit transitions.
+                    if (!VisibleWorkTypeSlots.ContainsKey(candidate.workType))
+                    {
+                        VisibleWorkTypeSlots[candidate.workType] = slot;
+                    }
                     slot++;
                 }
             }

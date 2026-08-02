@@ -139,6 +139,18 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
         private static float GetNormalHeaderHeight(PawnTable table)
         {
+            // Outside a drilldown, PawnTable is the authoritative owner of the
+            // normal header height. Reusing the transition baseline here traps
+            // an old angled/staggered height after the table has recached for a
+            // header-style, language, or resolution change.
+            if (!SubWorkDrilldownState.HasAnyDrilldown &&
+                table != null &&
+                table.cachedHeaderHeight > 0f)
+            {
+                _lastNormalHeaderHeight = table.cachedHeaderHeight;
+                return table.cachedHeaderHeight;
+            }
+
             if (_lastNormalHeaderHeight > 0f)
             {
                 return _lastNormalHeaderHeight;

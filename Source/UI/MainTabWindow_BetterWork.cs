@@ -2984,15 +2984,7 @@ namespace Better_Work_Tab.UI
 
             if (evt.type == EventType.KeyDown && evt.keyCode == KeyCode.Escape)
             {
-                if (SubWorkDrilldownState.IsActive)
-                {
-                    SubWorkDrilldownBarRenderer.ExitDrilldown();
-                }
-                else
-                {
-                    SubWorkDrilldownState.CollapseAllExpandBeside();
-                    WorkTabInvalidationHub.Invalidate(WorkTabDirtyFlags.Columns | WorkTabDirtyFlags.HeaderGeometry);
-                }
+                TryExitSubWorkMode(restoreMousePosition: false);
                 evt.Use();
                 return true;
             }
@@ -3183,6 +3175,26 @@ namespace Better_Work_Tab.UI
         internal void ExitSubWorkDrilldown(bool restoreMousePosition)
         {
             SubWorkDrilldownBarRenderer.ExitDrilldown(restoreMousePosition: restoreMousePosition);
+        }
+
+        private bool TryExitSubWorkMode(bool restoreMousePosition)
+        {
+            if (SubWorkDrilldownState.IsActive)
+            {
+                ExitSubWorkDrilldown(restoreMousePosition);
+                return true;
+            }
+
+            if (!SubWorkDrilldownState.IsExpandBesideActive)
+            {
+                return false;
+            }
+
+            SubWorkDrilldownState.CollapseAllExpandBeside();
+            WorkTabInvalidationHub.Invalidate(
+                WorkTabDirtyFlags.Columns |
+                WorkTabDirtyFlags.HeaderGeometry);
+            return true;
         }
 
         private bool TryGetPriorityBoxHit(
@@ -5066,6 +5078,17 @@ namespace Better_Work_Tab.UI
             }
 
             return _cachedPawnTable;
+        }
+
+        public override void OnCancelKeyPressed()
+        {
+            if (TryExitSubWorkMode(restoreMousePosition: false))
+            {
+                Event.current?.Use();
+                return;
+            }
+
+            base.OnCancelKeyPressed();
         }
 
         public override void PreClose()

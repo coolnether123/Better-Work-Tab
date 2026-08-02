@@ -912,7 +912,10 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
 
         internal static float GetHostedColumnWidth(PawnColumnDef column, PawnTable table, float fallback)
         {
-            if (!IsFluffyColumn(column))
+            // Fluffy replaces the normal root Work columns with its own worker type.
+            // Those roots must retain PawnTable's already-distributed vanilla width.
+            // Only BWT-hosted specific-job columns use Fluffy's compact minimum width.
+            if (!IsHostedFluffyColumn(column))
             {
                 return fallback;
             }
