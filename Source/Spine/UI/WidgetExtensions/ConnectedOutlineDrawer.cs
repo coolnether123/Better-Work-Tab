@@ -7,6 +7,7 @@ namespace Spine.UI.WidgetExtensions
     /// Draws thick closed outlines as one miter-joined mesh so adjacent segments
     /// cannot expose gaps at their shared corners.
     /// </summary>
+    [StaticConstructorOnStartup]
     internal static class ConnectedOutlineDrawer
     {
         private static Material outlineMaterial;
