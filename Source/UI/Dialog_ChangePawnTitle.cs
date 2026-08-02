@@ -1,4 +1,5 @@
 using RimWorld;
+using Better_Work_Tab.Features.Tutorial;
 using UnityEngine;
 using Verse;
 
@@ -44,13 +45,15 @@ namespace Better_Work_Tab.UI
                 new Rect(0f, 28f, inRect.width, 24f),
                 "Default: " + (string.IsNullOrEmpty(defaultTitle) ? "(none)" : defaultTitle));
 
+            Rect titleRect = new Rect(0f, 58f, inRect.width, 32f);
             GUI.SetNextControlName("BWTChangePawnTitle");
-            string nextTitle = Widgets.TextField(new Rect(0f, 58f, inRect.width, 32f), titleBuffer ?? string.Empty);
+            string nextTitle = Widgets.TextField(titleRect, titleBuffer ?? string.Empty);
             if (nextTitle != titleBuffer)
             {
                 titleBuffer = nextTitle.Length <= MaxTitleLength
                     ? nextTitle
                     : nextTitle.Substring(0, MaxTitleLength);
+                BWTGeneralTutorial.NotifyPawnTitleEdited();
             }
 
             if (!focusedField)
@@ -91,6 +94,26 @@ namespace Better_Work_Tab.UI
 
                 ApplyTitle();
                 Close();
+            }
+
+            if (BWTGeneralTutorial.IsActiveLesson(BWTGeneralTutorial.PawnAppearanceLesson, out int tutorialPhase))
+            {
+                if (tutorialPhase == 2)
+                {
+                    BWTTutorialGestureDemo.DrawExternal(
+                        "pawn-title-entry",
+                        titleRect,
+                        BWTTutorialGestureDemo.GestureKind.TextEntry,
+                        "BWT_Tutorial_Gesture_TypeTitle".Translate());
+                }
+                else if (tutorialPhase >= 3)
+                {
+                    BWTTutorialGestureDemo.DrawExternal(
+                        "pawn-title-confirm",
+                        okRect,
+                        BWTTutorialGestureDemo.GestureKind.LeftClick,
+                        "BWT_Tutorial_Gesture_Confirm".Translate());
+                }
             }
         }
 

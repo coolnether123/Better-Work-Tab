@@ -1,6 +1,6 @@
 using System;
 
-namespace Spine.UI.SettingsFramework
+namespace Better_Work_Tab.UI.SettingsFramework
 {
     /// <summary>
     /// Button labels and callbacks used by the settings drawer import/export footer.

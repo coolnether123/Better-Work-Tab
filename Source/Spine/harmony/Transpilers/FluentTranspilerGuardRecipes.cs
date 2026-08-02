@@ -157,6 +157,7 @@ namespace Spine.Harmony
         private readonly Label _runOriginalLabel;
         private readonly Label _skipOriginalLabel;
         private readonly List<CodeInstruction> _instructions = new List<CodeInstruction>();
+        private bool _requiresTerminalSkip;
 
         internal FluentGuardBuilder(FluentTranspiler transpiler, Label runOriginalLabel, Label skipOriginalLabel)
         {
@@ -180,6 +181,7 @@ namespace Spine.Harmony
 
             _instructions.Add(new CodeInstruction(OpCodes.Ldsfld, field));
             _instructions.Add(new CodeInstruction(OpCodes.Brfalse, _runOriginalLabel));
+            _requiresTerminalSkip = true;
             return this;
         }
 
@@ -206,6 +208,7 @@ namespace Spine.Harmony
             _instructions.Add(new CodeInstruction(OpCodes.Ldsfld, ownerField));
             _instructions.Add(new CodeInstruction(OpCodes.Ldfld, boolField));
             _instructions.Add(new CodeInstruction(OpCodes.Brfalse, _runOriginalLabel));
+            _requiresTerminalSkip = true;
             return this;
         }
 
@@ -225,6 +228,7 @@ namespace Spine.Harmony
 
             _instructions.Add(new CodeInstruction(OpCodes.Call, method));
             _instructions.Add(new CodeInstruction(OpCodes.Brfalse, _runOriginalLabel));
+            _requiresTerminalSkip = true;
             return this;
         }
 
@@ -244,7 +248,16 @@ namespace Spine.Harmony
 
         internal List<CodeInstruction> Build()
         {
-            return _instructions.Select(instruction => new CodeInstruction(instruction)).ToList();
+            var result = _instructions
+                .Select(instruction => new CodeInstruction(instruction))
+                .ToList();
+            if (_requiresTerminalSkip)
+            {
+                result.Add(new CodeInstruction(
+                    OpCodes.Br,
+                    _skipOriginalLabel));
+            }
+            return result;
         }
 
         private bool ValidateField(FieldInfo field, string caller)

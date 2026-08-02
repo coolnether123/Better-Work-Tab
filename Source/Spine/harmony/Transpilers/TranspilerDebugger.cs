@@ -10,7 +10,7 @@ using Spine.Harmony.Infrastructure;
 
 namespace Spine.Harmony
 {
-    public static class TranspilerDebugger
+    internal static class TranspilerDebugger
     {
         public class PatchEdit
         {

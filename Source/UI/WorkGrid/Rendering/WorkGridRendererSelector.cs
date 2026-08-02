@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Spine.Api;
+using Better_Work_Tab.Foundation;
 using Verse;
 
 namespace Better_Work_Tab.UI.WorkGrid.Rendering

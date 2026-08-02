@@ -20,7 +20,7 @@ using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.Settings;
 using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
-using Spine.UI.SettingsFramework;
+using Better_Work_Tab.UI.SettingsFramework;
 using Spine.UI.Tutorial;
 
 namespace Better_Work_Tab

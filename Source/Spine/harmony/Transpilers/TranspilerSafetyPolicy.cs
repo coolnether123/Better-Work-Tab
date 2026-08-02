@@ -5,8 +5,8 @@ namespace Spine.Harmony
 {
     /// <summary>
     /// Central policy surface for transpiler safety behavior.
-    /// Keeps safety decisions in one place so FluentTranspiler and CooperativePatcher
-    /// do not duplicate preference parsing logic.
+    /// Keeps safety decisions in one place so the fluent execution path does not
+    /// duplicate policy logic.
     /// </summary>
     internal static class TranspilerSafetyPolicy
     {
@@ -15,17 +15,12 @@ namespace Spine.Harmony
         public static bool SafeModeEnabled => ModPrefs.TranspilerSafeMode;
         public static bool ForcePreserveInstructionCount => ModPrefs.TranspilerForcePreserveInstructionCount;
         public static bool FailFastOnCritical => ModPrefs.TranspilerFailFastCritical;
-        public static bool CooperativeStrictBuild => ModPrefs.TranspilerCooperativeStrictBuild;
-        public static bool QuarantineOwnerOnFailure => ModPrefs.TranspilerQuarantineOnFailure;
         public static bool LogValidationWarnings => ModPrefs.TranspilerLogValidationWarnings;
-        public static bool WarnOnVirtualCallMismatch => ModPrefs.TranspilerWarnOnVirtualCallMismatch;
-        public static bool WarnOnExceptionHandlerMethods => ModPrefs.TranspilerWarnOnExceptionHandlerMethods;
+        public static bool WarnOnVirtualCallMismatch => false;
+        public static bool WarnOnExceptionHandlerMethods => false;
         public static bool VerboseTracingEnabled => ModPrefs.DebugTranspilers;
         public static FluentTranspiler.BuildProfile DefaultExecuteProfile =>
             FluentTranspiler.BuildProfile.Runtime;
-        public static FluentTranspiler.BuildProfile DefaultCooperativeProfile =>
-            CooperativeStrictBuild ? FluentTranspiler.BuildProfile.Strict : DefaultExecuteProfile;
-
         internal struct BuildOptions
         {
             public bool Strict;

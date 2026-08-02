@@ -89,6 +89,21 @@ namespace Better_Work_Tab.Features.TimePriority
             return IsVisible && rect.width > 1f && rect.height > 1f;
         }
 
+        internal static bool TryGetTutorialCellRect(out Rect rect)
+        {
+            rect = Rect.zero;
+            if (!IsVisible || LastCellHits.Count == 0)
+            {
+                return false;
+            }
+
+            // The hit list is rebuilt from the live schedule geometry every
+            // Repaint, so the tutorial follows the same hour cell the player
+            // can actually edit instead of estimating panel coordinates.
+            rect = LastCellHits[0].Rect;
+            return rect.width > 1f && rect.height > 1f;
+        }
+
         internal static float HeaderPinnedRowsHeight =>
             IsEnabled && _session?.IsGlobal == true
                 ? CurrentInlineDividerHeight * GetProgress()

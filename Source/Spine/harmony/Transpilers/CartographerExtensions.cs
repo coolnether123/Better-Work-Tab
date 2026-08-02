@@ -9,7 +9,7 @@ using Spine.Harmony.Infrastructure;
 
 namespace Spine.Harmony
 {
-    public class Anchor
+    internal class Anchor
     {
         public int Index;
         public CodeInstruction Instruction;
@@ -23,7 +23,7 @@ namespace Spine.Harmony
         }
     }
 
-    public class AnchorReport
+    internal class AnchorReport
     {
         public List<Anchor> SafeAnchors = new List<Anchor>();
         public List<string> Suggestions = new List<string>();
@@ -49,7 +49,7 @@ namespace Spine.Harmony
         }
     }
 
-    public static class CartographerExtensions 
+    internal static class CartographerExtensions
     {
         /// <summary>
         /// Analyzes method for unique anchors without modifying.

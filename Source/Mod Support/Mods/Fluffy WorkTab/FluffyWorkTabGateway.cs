@@ -16,7 +16,7 @@ using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.Settings;
 using HarmonyLib;
 using RimWorld;
-using Spine.UI.SettingsFramework;
+using Better_Work_Tab.UI.SettingsFramework;
 using UnityEngine;
 using Verse;
 using Verse.Sound;

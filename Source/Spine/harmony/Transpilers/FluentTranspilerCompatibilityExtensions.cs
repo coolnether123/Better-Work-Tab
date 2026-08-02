@@ -6,31 +6,12 @@ using HarmonyLib;
 
 namespace Spine.Harmony
 {
-    public enum FluentReplacementResult
-    {
-        NoMatch,
-        PatternReplaced,
-        FallbackCallReplaced,
-        ReplacementAlreadyPresent,
-        AlreadyPatched,
-        AmbiguousMatch,
-        UnsafeMatch,
-        Failed
-    }
-
     /// <summary>
     /// Compatibility-oriented helpers for patches that need to handle either an expected
     /// base IL shape or a method body already rewritten by another transpiler.
     /// </summary>
-    public static class FluentTranspilerCompatibilityExtensions
+    internal static class FluentTranspilerCompatibilityExtensions
     {
-        public static bool Succeeded(this FluentReplacementResult result)
-        {
-            return result == FluentReplacementResult.PatternReplaced ||
-                   result == FluentReplacementResult.FallbackCallReplaced ||
-                   result == FluentReplacementResult.ReplacementAlreadyPresent ||
-                   result == FluentReplacementResult.AlreadyPatched;
-        }
         /// <summary>
         /// Replaces the instruction at an absolute index while preserving labels and exception blocks.
         /// </summary>

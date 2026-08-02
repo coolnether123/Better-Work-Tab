@@ -148,7 +148,7 @@ namespace Better_Work_Tab.DragDrop
 
                 int insetSetting = BetterWorkTabMod.Settings?.columnInsertionLineInset ?? DefaultSettings.columnInsertionLineInset;
                 int inset = Mathf.Clamp(insetSetting, 0, Mathf.RoundToInt(Layout.HeaderHeight));
-                Rect lineRect = GetColumnGuideRect(lineX, inset);
+                Rect lineRect = GetColumnGuideRect(Layout, lineX, inset);
 
                 Widgets.DrawBoxSolid(lineRect, Color.white);
             }
@@ -267,7 +267,7 @@ namespace Better_Work_Tab.DragDrop
 
             int insetSetting = settings?.columnInsertionLineInset ?? DefaultSettings.columnInsertionLineInset;
             int inset = Mathf.Clamp(insetSetting, 0, Mathf.RoundToInt(Layout.HeaderHeight));
-            Rect lineRect = GetColumnGuideRect(lineX, inset);
+            Rect lineRect = GetColumnGuideRect(Layout, lineX, inset);
 
             var baselineColor = new Color(1f, 0.85f, 0.2f, 1f);
             Widgets.DrawBoxSolid(lineRect, baselineColor);
@@ -292,34 +292,39 @@ namespace Better_Work_Tab.DragDrop
 
             int insetSetting = BetterWorkTabMod.Settings?.columnInsertionLineInset ?? DefaultSettings.columnInsertionLineInset;
             int inset = Mathf.Clamp(insetSetting, 0, Mathf.RoundToInt(Layout.HeaderHeight));
-            Rect lineRect = GetColumnGuideRect(lineX, inset);
+            Rect lineRect = GetColumnGuideRect(Layout, lineX, inset);
 
             Widgets.DrawBoxSolid(lineRect, HeaderUtility.Colors.MovedMarkerColor);
         }
 
-        private Rect GetColumnGuideRect(float lineX, int headerInset)
+        internal static Rect GetColumnGuideRect(
+            IWorkTabLayoutController layout,
+            float lineX,
+            int headerInset)
         {
-            float headerBottom = Layout.TableOrigin.y + Layout.HeaderHeight;
+            float headerBottom = layout.TableOrigin.y + layout.HeaderHeight;
             float lineY = headerBottom - headerInset;
-            float lineBottom = GetVisibleRowStackBottom(headerBottom);
+            float lineBottom = GetVisibleRowStackBottom(layout, headerBottom);
             float lineHeight = Mathf.Max(0f, lineBottom - lineY);
             return new Rect(lineX - 1f, lineY, 2f, lineHeight);
         }
 
-        private float GetVisibleRowStackBottom(float headerBottom)
+        private static float GetVisibleRowStackBottom(
+            IWorkTabLayoutController layout,
+            float headerBottom)
         {
-            float rowStackHeight = GetVisibleRowStackHeight();
-            float scrollY = Layout.Table?.scrollPosition.y ?? 0f;
+            float rowStackHeight = GetVisibleRowStackHeight(layout);
+            float scrollY = layout.Table?.scrollPosition.y ?? 0f;
             float pinnedRowsHeight = TimePriorityScheduleEditor.HeaderPinnedRowsHeight +
                 SubWorkDrilldownState.GlobalRowVisibleHeight;
             float bottom = headerBottom + pinnedRowsHeight + Mathf.Max(0f, rowStackHeight - scrollY);
 
-            if (Layout.Table != null)
+            if (layout.Table != null)
             {
-                float viewportBottom = Layout.TableOrigin.y +
-                    Layout.HeaderHeight +
+                float viewportBottom = layout.TableOrigin.y +
+                    layout.HeaderHeight +
                     pinnedRowsHeight +
-                    Layout.ContentHeight;
+                    layout.ContentHeight;
                 if (viewportBottom > headerBottom)
                 {
                     bottom = Mathf.Min(bottom, viewportBottom);
@@ -329,10 +334,10 @@ namespace Better_Work_Tab.DragDrop
             return Mathf.Max(headerBottom, bottom);
         }
 
-        private float GetVisibleRowStackHeight()
+        private static float GetVisibleRowStackHeight(IWorkTabLayoutController layout)
         {
             float total = 0f;
-            var descriptors = Layout.GetRowDescriptors();
+            var descriptors = layout.GetRowDescriptors();
             if (descriptors != null && descriptors.Count > 0)
             {
                 for (int i = 0; i < descriptors.Count; i++)
@@ -343,16 +348,16 @@ namespace Better_Work_Tab.DragDrop
                 return total;
             }
 
-            if (Layout.Rows != null && Layout.Rows.Count > 0)
+            if (layout.Rows != null && layout.Rows.Count > 0)
             {
-                for (int i = 0; i < Layout.Rows.Count; i++)
+                for (int i = 0; i < layout.Rows.Count; i++)
                 {
-                    var row = Layout.Rows[i];
+                    var row = layout.Rows[i];
                     total = Mathf.Max(total, row.OffsetY + row.Height);
                 }
             }
 
-            return total > 0f ? total : Layout.ContentHeight;
+            return total > 0f ? total : layout.ContentHeight;
         }
 
         public override void OnCancel()

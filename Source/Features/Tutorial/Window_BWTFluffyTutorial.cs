@@ -71,7 +71,15 @@ namespace Better_Work_Tab.Features.Tutorial
                 : phase == 1
                     ? "BWT_Tutorial_BWTReturn".Translate()
                     : "BWT_Tutorial_FinishLesson".Translate();
-            if (!Widgets.ButtonText(button, label))
+            bool clicked = Widgets.ButtonText(button, label);
+            BWTTutorialGestureDemo.DrawExternal(
+                "fluffy-transition-" + phase,
+                button,
+                BWTTutorialGestureDemo.GestureKind.LeftClick,
+                phase < 2
+                    ? "BWT_Tutorial_Gesture_Continue".Translate()
+                    : "BWT_Tutorial_Gesture_Complete".Translate());
+            if (!clicked)
             {
                 return;
             }

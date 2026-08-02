@@ -569,20 +569,22 @@ namespace Better_Work_Tab.Features.Tutorial
             BWTTutorialHubDefinition hub,
             string recommendedLabel)
         {
-            float availableRight = bounds.xMax - workBounds.xMax - PanelGap;
+            float availableRight = bounds.xMax - workBounds.xMax;
             bool useRight = availableRight >= MinimumPanelWidth;
             float width = useRight
                 ? Mathf.Min(PreferredPanelWidth, availableRight)
                 : Mathf.Min(Mathf.Max(MinimumPanelWidth, bounds.width * 0.76f), bounds.width - 20f);
-            float height = Mathf.Min(440f, bounds.height - 20f);
+            float height = useRight
+                ? Mathf.Max(1f, Mathf.Min(workBounds.height, bounds.yMax - workBounds.yMin))
+                : Mathf.Min(440f, bounds.height - 20f);
             float x = useRight
-                ? workBounds.xMax + PanelGap
+                ? workBounds.xMax
                 : Mathf.Clamp(workBounds.center.x - width / 2f, bounds.xMin + 10f, bounds.xMax - width - 10f);
             Vector2 anchorCenter = anchorRect.width > 0f && anchorRect.height > 0f
                 ? anchorRect.center
                 : workBounds.center;
             float y = useRight
-                ? Mathf.Clamp(anchorCenter.y - height / 2f, bounds.yMin + 10f, bounds.yMax - height - 10f)
+                ? Mathf.Clamp(workBounds.yMin, bounds.yMin, bounds.yMax - height)
                 : Mathf.Clamp(
                     anchorRect.yMin - height - PanelGap,
                     bounds.yMin + 10f,

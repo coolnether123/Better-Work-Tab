@@ -1,7 +1,7 @@
 using System;
 using Verse;
 
-namespace Spine.UI.SettingsFramework
+namespace Better_Work_Tab.UI.SettingsFramework
 {
     /// <summary>
     /// Declares that a setting has no effect while some other setting (or an external mod) overrides it.
