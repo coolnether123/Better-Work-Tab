@@ -233,6 +233,10 @@
 <BWT_Tutorial_HeaderSubWork_Action>Ctrl-click the highlighted Work header to open its specific jobs.</BWT_Tutorial_HeaderSubWork_Action>
 <BWT_Tutorial_HeaderSubWork_Feedback>Specific jobs: presentation, priorities, and reassignment</BWT_Tutorial_HeaderSubWork_Feedback>
 
+<BWT_Tutorial_Gesture_GiveItATry>Give it a try</BWT_Tutorial_Gesture_GiveItATry>
+<BWT_Tutorial_Gesture_Ctrl>CTRL</BWT_Tutorial_Gesture_Ctrl>
+<BWT_Tutorial_Gesture_Shift>SHIFT</BWT_Tutorial_Gesture_Shift>
+
 <BWT_Tutorial_PriorityHub_Title>Better Work Tab priority tools</BWT_Tutorial_PriorityHub_Title>
 <BWT_Tutorial_PriorityHub_Body>Better Work Tab extends these cells with skill-number views, daily schedules, and a configurable priority range.</BWT_Tutorial_PriorityHub_Body>
 <BWT_Tutorial_PriorityHub_ShiftBody>Better Work Tab is showing the pawn's skill number while Shift is held. Choose “View skill number” for guidance on this added view.</BWT_Tutorial_PriorityHub_ShiftBody>

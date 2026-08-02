@@ -156,6 +156,7 @@
     <Compile Include="Features\Tutorial\Window_BWTTutorialReview.cs" />
     <Compile Include="Features\Tutorial\Window_BWTFluffyTutorial.cs" />
     <Compile Include="Features\Tutorial\BWTGeneralTutorial.cs" />
+    <Compile Include="Features\Tutorial\BWTTutorialGestureDemo.cs" />
     <Compile Include="Features\Tutorial\BWTTutorialInteraction.cs" />
     <Compile Include="Features\Tutorial\BWTTutorialInteractionKind.cs" />
     <Compile Include="Features\Tutorial\BWTTutorialGeometry.cs" />

@@ -481,6 +481,7 @@ namespace Better_Work_Tab.Features.Tutorial
             DrawFloatingLesson(
                 workBounds,
                 anchors,
+                layout,
                 settings.activeTutorialLessonId,
                 settings.tutorialLessonPhase);
         }
@@ -517,6 +518,7 @@ namespace Better_Work_Tab.Features.Tutorial
         {
             ownsCurrentPointer = false;
             Selector.ClearPinnedSelection();
+            BWTTutorialGestureDemo.Reset();
         }
 
         internal static void EnsureState(BetterWorkTabSettings settings)
@@ -602,11 +604,20 @@ namespace Better_Work_Tab.Features.Tutorial
         private static void DrawFloatingLesson(
             Rect workBounds,
             IList<BWTTutorialAnchor> localAnchors,
+            IWorkTabLayoutController layout,
             string lessonId,
             int phase)
         {
             BWTTutorialAnchor localAnchor = ResolveLessonDisplayAnchor(localAnchors, lessonId, phase);
             DrawLessonAnchor(localAnchor);
+            BWTTutorialGestureDemo.Draw(
+                lessonId,
+                phase,
+                localAnchor,
+                layout,
+                T("BWT_Tutorial_Gesture_GiveItATry"),
+                T("BWT_Tutorial_Gesture_Ctrl"),
+                T("BWT_Tutorial_Gesture_Shift"));
 
             Vector2 rootOffset = GUIClipUtility.Unclip(Vector2.zero);
             Rect rootWorkBounds = OffsetRect(workBounds, rootOffset);
@@ -829,6 +840,7 @@ namespace Better_Work_Tab.Features.Tutorial
             scheduleOpened = false;
             scheduleEdited = false;
             skillVisibleStartedAt = -1f;
+            BWTTutorialGestureDemo.Reset();
             if (lessonId == PriorityScheduleLesson)
             {
                 if (TimePriorityScheduleEditor.IsVisible)
@@ -1253,6 +1265,7 @@ namespace Better_Work_Tab.Features.Tutorial
             lessonAnchor = default(BWTTutorialAnchor);
             observedLessonId = string.Empty;
             lessonScrollPosition = Vector2.zero;
+            BWTTutorialGestureDemo.Reset();
             Selector.Reset();
             PlayTutorialSound("Tick_High");
             ReviewIfCourseResolved(settings);
@@ -1273,6 +1286,7 @@ namespace Better_Work_Tab.Features.Tutorial
             lessonAnchor = default(BWTTutorialAnchor);
             observedLessonId = string.Empty;
             lessonScrollPosition = Vector2.zero;
+            BWTTutorialGestureDemo.Reset();
             Selector.Reset();
             PlayTutorialSound("Tick_Low");
             ReviewIfCourseResolved(settings);
@@ -1293,6 +1307,7 @@ namespace Better_Work_Tab.Features.Tutorial
             lessonAnchor = default(BWTTutorialAnchor);
             observedLessonId = string.Empty;
             lessonScrollPosition = Vector2.zero;
+            BWTTutorialGestureDemo.Reset();
             Selector.Reset();
             PlayTutorialSound("Tick_Low");
         }
@@ -1304,6 +1319,7 @@ namespace Better_Work_Tab.Features.Tutorial
             settings.Write();
             WelcomeOverlay.ResetAnimation();
             lessonScrollPosition = Vector2.zero;
+            BWTTutorialGestureDemo.Reset();
             Selector.Reset();
             PlayTutorialSound("Tick_Low");
         }
