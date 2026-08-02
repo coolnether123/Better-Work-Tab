@@ -109,6 +109,60 @@ namespace Better_Work_Tab.Features.Tutorial
             ReviewIfCourseResolved(settings);
         }
 
+        internal static bool OpenLessonFromReview(string lessonId)
+        {
+            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
+            BWTTutorialLessonDefinition definition = BWTTutorialLessonCatalog.Find(lessonId);
+            BWTTutorialCourse course = settings?.selectedTutorialCourse ?? BWTTutorialCourse.None;
+            if (settings == null || definition == null || !definition.BelongsTo(course))
+            {
+                return false;
+            }
+
+            MainButtonDef workTab = Better_Work_Tab.Patches.MainButtonDefOf.Work ??
+                                    DefDatabase<MainButtonDef>.GetNamedSilentFail("Work");
+            if (workTab == null || Find.MainTabsRoot == null)
+            {
+                return false;
+            }
+
+            FluffyWorkTabCoexistence.SwitchToBetterWorkTab();
+            Find.MainTabsRoot.SetCurrentTab(workTab, false);
+            if (!(Find.MainTabsRoot.OpenTab?.TabWindow is MainTabWindow_BetterWork))
+            {
+                return false;
+            }
+
+            if (course == BWTTutorialCourse.None)
+            {
+                settings.selectedTutorialCourse = BWTTutorialCourse.Full;
+            }
+            settings.tutorialWelcomeCompleted = true;
+            settings.showGeneralTutorial = true;
+            settings.tutorialFlowVersion = CurrentFlowVersion;
+            settings.activeTutorialLessonId = string.Empty;
+            settings.tutorialLessonPhase = 0;
+            lessonAnchor = default(BWTTutorialAnchor);
+            observedLessonId = string.Empty;
+            lessonScrollPosition = Vector2.zero;
+            WelcomeOverlay.ResetAnimation();
+            Selector.Reset();
+
+            if (definition.Route == BWTTutorialLessonRoute.WorkTab)
+            {
+                settings.activeTutorialLessonId = lessonId;
+                settings.Write();
+                PlayTutorialSound("Tick_High");
+            }
+            else
+            {
+                settings.Write();
+                SelectLesson(lessonId, null, null);
+            }
+
+            return true;
+        }
+
         internal static bool IsActive
         {
             get

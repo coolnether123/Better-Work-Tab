@@ -55,8 +55,13 @@ namespace Better_Work_Tab.Features.Tutorial
             float contentHeight = CalculateContentHeight(settings);
             Rect view = new Rect(0f, 0f, viewport.width - 18f, contentHeight);
             Widgets.BeginScrollView(viewport, ref scrollPosition, view);
-            DrawReview(view, settings);
+            bool openedTutorial = DrawReview(view, settings);
             Widgets.EndScrollView();
+            if (openedTutorial)
+            {
+                Close();
+                return;
+            }
 
             float buttonWidth = (footer.width - 24f) / 4f;
             if (Widgets.ButtonText(new Rect(footer.x, footer.y + 5f, buttonWidth, 34f),
@@ -129,7 +134,7 @@ namespace Better_Work_Tab.Features.Tutorial
             dirty = false;
         }
 
-        private void DrawReview(Rect view, BetterWorkTabSettings settings)
+        private bool DrawReview(Rect view, BetterWorkTabSettings settings)
         {
             float y = 0f;
             foreach (BWTTutorialLessonDefinition lesson in BWTTutorialLessonCatalog.ForCourse(settings.selectedTutorialCourse))
@@ -146,11 +151,17 @@ namespace Better_Work_Tab.Features.Tutorial
                 Widgets.DrawBox(card, 1);
                 Rect inner = card.ContractedBy(10f);
                 Text.Font = GameFont.Small;
-                Widgets.Label(new Rect(inner.x, inner.y, inner.width - 150f, 26f),
+                Widgets.Label(new Rect(inner.x, inner.y, inner.width - 288f, 26f),
                     (lesson.FeedbackLabelKey.Translate() + "  [" + lesson.VersionIntroduced + "]"));
                 Text.Anchor = TextAnchor.UpperRight;
-                Widgets.Label(new Rect(inner.xMax - 145f, inner.y, 145f, 26f), status);
+                Widgets.Label(new Rect(inner.xMax - 282f, inner.y, 132f, 26f), status);
                 Text.Anchor = TextAnchor.UpperLeft;
+                if (Widgets.ButtonText(
+                        new Rect(inner.xMax - 142f, inner.y - 1f, 142f, 28f),
+                        "BWT_Tutorial_GoToLesson".Translate()))
+                {
+                    return BWTGeneralTutorial.OpenLessonFromReview(lesson.Id);
+                }
 
                 float choiceY = inner.y + 31f;
                 DrawChoiceRow(
@@ -199,6 +210,8 @@ namespace Better_Work_Tab.Features.Tutorial
                 settings.tutorialOverallFeedback = overall;
                 dirty = true;
             }
+
+            return false;
         }
 
         private static void DrawChoiceRow(Rect rect, string prompt, string[] labels, int selected, Action<int> onSelect)

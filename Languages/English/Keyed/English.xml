@@ -297,6 +297,7 @@
 <BWT_Tutorial_StatusCompleted>Completed</BWT_Tutorial_StatusCompleted>
 <BWT_Tutorial_StatusSkipped>Skipped</BWT_Tutorial_StatusSkipped>
 <BWT_Tutorial_StatusIncomplete>Not finished</BWT_Tutorial_StatusIncomplete>
+<BWT_Tutorial_GoToLesson>Go to tutorial</BWT_Tutorial_GoToLesson>
 <BWT_Tutorial_LessonValuePrompt>Is this lesson valuable?</BWT_Tutorial_LessonValuePrompt>
 <BWT_Tutorial_FeedbackKeep>Keep it</BWT_Tutorial_FeedbackKeep>
 <BWT_Tutorial_FeedbackRevise>Keep it, but revise it</BWT_Tutorial_FeedbackRevise>
