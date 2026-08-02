@@ -79,7 +79,6 @@ namespace Better_Work_Tab
             }
 
             Settings.NormalizePrioritySettings();
-            HarmonyPreferenceSource.Configure(() => Settings?.enableDebugLogging ?? false);
             Dialog_ColourPicker.ConfigureDebugLogger(message => DebugLog(message, DebugFeature.Layout));
             SpineCompatibilityGateway.Initialize();
             CompatibilityDiagnostics.ReportStartup(content);

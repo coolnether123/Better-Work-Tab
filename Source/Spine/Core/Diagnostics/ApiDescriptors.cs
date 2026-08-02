@@ -156,19 +156,16 @@ namespace Spine.Api
     public enum SpineCapability : ulong
     {
         None = 0,
-        Revisions = 1UL << 0,
-        DirtyRegions = 1UL << 1,
+        // Capability values are wire identifiers. Keep the established bit
+        // assigned to a retained capability even when unrelated APIs leave
+        // Spine; compacting this enum would break already-built consumers.
         BoundedCaches = 1UL << 2,
-        RenderPipelines = 1UL << 3,
-        ViewportResolution = 1UL << 4,
-        RenderAtlases = 1UL << 5,
-        CompatibilityProviders = 1UL << 6,
-        Diagnostics = 1UL << 7,
         Settings = 1UL << 8,
         HarmonyPatching = 1UL << 9,
         FluentTranspilers = 1UL << 10,
         TooltipSizing = 1UL << 11,
-        ContextualSettings = 1UL << 12
+        ContextualSettings = 1UL << 12,
+        ModSettingsPages = 1UL << 13
     }
 
     public readonly struct SpineApiDescriptor

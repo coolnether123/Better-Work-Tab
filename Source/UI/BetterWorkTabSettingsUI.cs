@@ -1,8 +1,9 @@
 using System.Linq;
 using Better_Work_Tab;
+using Better_Work_Tab.Features.Tutorial;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.UI.Settings;
-using Spine.UI.SettingsFramework;
+using Better_Work_Tab.UI.SettingsFramework;
 using UnityEngine;
 using Verse;
 
@@ -61,6 +62,14 @@ namespace Better_Work_Tab.UI
             }
 
             drawer.Draw(inRect, settings, ref _viewMode, () => settings.Write());
+            BWTGeneralTutorial.DrawSettingsGesture(
+                ScreenToGuiRect(drawer.SearchScreenRect),
+                settingId => drawer.TryGetVisibleSettingScreenRect(settingId, out Rect screenRect)
+                    ? (Rect?)ScreenToGuiRect(screenRect)
+                    : null,
+                () => drawer.TryGetFirstVisibleSettingScreenRect(out Rect screenRect)
+                    ? (Rect?)ScreenToGuiRect(screenRect)
+                    : null);
 
             settings.settingsViewMode = _viewMode == SettingsViewMode.Simple
                 ? BetterWorkTabSettings.SettingsViewMode.Simple
@@ -125,8 +134,17 @@ namespace Better_Work_Tab.UI
                 IndentPerLevel = 20f,
                 RowHeight = 32f,
                 ScrollPosition = scrollPosition,
-                OnSettingTooltipViewed = MarkSettingViewed
+                OnSettingTooltipViewed = MarkSettingViewed,
+                OnSearchTextChanged = BWTGeneralTutorial.NotifySettingsSearchChanged,
+                OnSettingInteracted = (definition, _) =>
+                    BWTGeneralTutorial.NotifySettingsRowInteracted(definition?.Id)
             };
+        }
+
+        private static Rect ScreenToGuiRect(Rect screenRect)
+        {
+            Vector2 position = GUIUtility.ScreenToGUIPoint(screenRect.position);
+            return new Rect(position.x, position.y, screenRect.width, screenRect.height);
         }
 
         private static void DrawPageTabs(Rect inRect)

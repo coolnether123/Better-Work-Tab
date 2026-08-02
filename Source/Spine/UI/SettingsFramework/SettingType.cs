@@ -1,6 +1,6 @@
 using System;
 
-namespace Spine.UI.SettingsFramework
+namespace Better_Work_Tab.UI.SettingsFramework
 {
     /// <summary>
     /// Supported widget types for rendering settings entries.

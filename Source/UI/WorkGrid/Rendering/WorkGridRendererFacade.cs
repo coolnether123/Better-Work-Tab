@@ -2,6 +2,7 @@ using System;
 using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Better_Work_Tab.UI.WorkGrid.Diagnostics;
 using Spine.Api;
+using Better_Work_Tab.Foundation;
 using Spine.RimWorld.Rendering;
 using Verse;
 

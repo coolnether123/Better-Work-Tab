@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Better_Work_Tab.Features.Tutorial;
 using RimWorld;
 using Spine.UI.Tutorial;
 using UnityEngine;
@@ -120,6 +121,11 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             Rect card = GetCardRect(bounds, focusRects, hint);
             DrawDimOutside(card, bounds);
             DrawCard(card, hint);
+            BWTTutorialGestureDemo.DrawExternal(
+                "rule-builder-" + hint,
+                GetDismissButtonRect(card, hint),
+                BWTTutorialGestureDemo.GestureKind.LeftClick,
+                T("BWT_Tutorial_Gesture_Continue"));
         }
 
         internal void ObserveTargetSelected(bool subWork)
@@ -347,6 +353,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                 BetterWorkTabMod.Settings.showRuleBuilder2Tutorial = false;
                 BetterWorkTabMod.Settings.Write();
             }
+            BWTGeneralTutorial.NotifyRuleBuilderTutorialCompleted();
         }
 
         private static bool HasSeenSuggestionsHint()

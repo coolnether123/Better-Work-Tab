@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Reflection;
 using System.Text;
-using Spine.UI.SettingsFramework;
+using Better_Work_Tab.UI.SettingsFramework;
 using UnityEngine;
 
 namespace Better_Work_Tab.UI.Settings

@@ -11,7 +11,7 @@ namespace Spine.Harmony
     /// Extension methods for FluentTranspiler to support general IL pattern matching.
     /// These are game-agnostic and focus on raw instruction manipulation.
     /// </summary>
-    public static class FluentTranspilerPatterns
+    internal static class FluentTranspilerPatterns
     {
         #region Instruction Predicates (CodeInstruction Extensions)
 

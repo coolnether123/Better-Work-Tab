@@ -808,16 +808,27 @@ namespace Better_Work_Tab.UI
         {
             var options = new List<FloatMenuOption>
             {
-                new FloatMenuOption("Insert divider above", () => InsertDividerAbove(pawn)),
+                new BWTTutorialFloatMenuOption(
+                    "Insert divider above",
+                    () => InsertDividerAbove(pawn),
+                    BWTGeneralTutorial.PawnDividerLesson,
+                    1,
+                    "pawn-divider-insert"),
                 new FloatMenuOption("Insert divider below", () => InsertDividerBelow(pawn)),
                 new FloatMenuOption("Set background color...", () => ShowBackgroundColorPicker(pawn))
             };
             if (PawnTitleUtility.CanEditTitle(pawn))
             {
-                options.Insert(2, new FloatMenuOption("Change title...", () =>
+                options.Insert(2, new BWTTutorialFloatMenuOption(
+                    "Change title...",
+                    () =>
                 {
+                    BWTGeneralTutorial.NotifyPawnAppearanceMenuOptionChosen();
                     Find.WindowStack.Add(new Dialog_ChangePawnTitle(pawn));
-                }));
+                },
+                    BWTGeneralTutorial.PawnAppearanceLesson,
+                    1,
+                    "pawn-appearance-title"));
             }
 
             if (PawnOrganizer.API.PawnColorDatabase.TryGetColor(pawn, out _))

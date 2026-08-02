@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using Spine.Diagnostics;
+using Better_Work_Tab.Foundation;
 
-namespace Spine.Api
+namespace Better_Work_Tab.Foundation
 {
     public enum RenderPhase
     {
@@ -64,10 +64,8 @@ namespace Spine.Api
     }
 }
 
-namespace Spine.Rendering
+namespace Better_Work_Tab.Foundation
 {
-    using Spine.Api;
-
     /// <summary>
     /// Stable pipeline ordered by phase, descending priority, then registration order.
     /// A throwing layer is disabled until reset or re-registration.

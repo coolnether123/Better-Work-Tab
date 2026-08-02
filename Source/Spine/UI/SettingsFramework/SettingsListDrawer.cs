@@ -5,7 +5,7 @@ using RimWorld;
 using UnityEngine;
 using Verse;
 
-namespace Spine.UI.SettingsFramework
+namespace Better_Work_Tab.UI.SettingsFramework
 {
     /// <summary>
     /// Draws a scrollable list of hierarchical settings with search and view toggles.
@@ -34,6 +34,10 @@ namespace Spine.UI.SettingsFramework
         private float _lastSearchClickTime = -1f;
         private Vector2 _lastSearchClickPosition;
         private TransferMode _transferMode = TransferMode.None;
+        private Rect _searchScreenRect;
+        private readonly Dictionary<string, Rect> _visibleSettingScreenRects =
+            new Dictionary<string, Rect>(StringComparer.OrdinalIgnoreCase);
+        private readonly List<string> _visibleSettingIds = new List<string>();
         private readonly HashSet<string> _forceVisibleDisabledAncestorIds =
             new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -152,6 +156,34 @@ namespace Spine.UI.SettingsFramework
         public Action<SettingDefinition, object> OnSettingTooltipViewed { get; set; }
 
         /// <summary>
+        /// Optional host callbacks for guided settings experiences. They report
+        /// real search and row input without taking ownership of either action.
+        /// </summary>
+        public Action<string> OnSearchTextChanged { get; set; }
+        public Action<SettingDefinition, object> OnSettingInteracted { get; set; }
+
+        public string SearchQuery => _searchQuery;
+        public Rect SearchScreenRect => _searchScreenRect;
+
+        public bool TryGetVisibleSettingScreenRect(string settingId, out Rect rect)
+        {
+            rect = Rect.zero;
+            return !string.IsNullOrEmpty(settingId) &&
+                   _visibleSettingScreenRects.TryGetValue(settingId, out rect);
+        }
+
+        public bool TryGetFirstVisibleSettingScreenRect(out Rect rect)
+        {
+            if (_visibleSettingIds.Count > 0)
+            {
+                return _visibleSettingScreenRects.TryGetValue(_visibleSettingIds[0], out rect);
+            }
+
+            rect = Rect.zero;
+            return false;
+        }
+
+        /// <summary>
         /// Creates a new drawer for a hierarchy.
         /// </summary>
         public SettingsListDrawer(SettingsHierarchy hierarchy)
@@ -188,6 +220,9 @@ namespace Spine.UI.SettingsFramework
                 return;
             }
 
+            _visibleSettingScreenRects.Clear();
+            _visibleSettingIds.Clear();
+
             const float headerHeight = 30f;
             Rect headerRect = new Rect(rect.x, rect.y, rect.width, headerHeight);
             DrawHeader(headerRect, ref viewMode);
@@ -216,7 +251,13 @@ namespace Spine.UI.SettingsFramework
             Rect toggleRect = new Rect(rect.xMax - 200f, rect.y, 200f, rect.height);
 
             _searchWidget.OnGUI(searchRect, () => { });
-            _searchQuery = _searchWidget.filter.Text ?? string.Empty;
+            _searchScreenRect = ToScreenRect(searchRect);
+            string nextSearchQuery = _searchWidget.filter.Text ?? string.Empty;
+            if (!string.Equals(_searchQuery, nextSearchQuery, StringComparison.Ordinal))
+            {
+                _searchQuery = nextSearchQuery;
+                OnSearchTextChanged?.Invoke(_searchQuery);
+            }
 
             if (hasFilters)
             {
@@ -412,6 +453,7 @@ namespace Spine.UI.SettingsFramework
             float clearFilterRowHeight = _activeFilter != null ? RowHeight + 8f : 0f;
             float viewHeight = MeasureTotalHeight(visibleSettings, settingsObject) + clearFilterRowHeight;
             Rect viewRect = new Rect(0f, 0f, rect.width - 16f, viewHeight);
+            Rect listScreenRect = ToScreenRect(rect);
 
             Widgets.BeginScrollView(rect, ref _scrollPosition, viewRect);
 
@@ -427,6 +469,17 @@ namespace Spine.UI.SettingsFramework
 
                 float rowHeight = MeasureRowHeight(def, settingsObject);
                 Rect rowRect = new Rect(0f, curY, viewRect.width, rowHeight);
+                Rect rowScreenRect = ToScreenRect(rowRect);
+                if (!string.IsNullOrEmpty(def.Id) && listScreenRect.Overlaps(rowScreenRect))
+                {
+                    _visibleSettingScreenRects[def.Id] = rowScreenRect;
+                    _visibleSettingIds.Add(def.Id);
+                }
+                Event evt = Event.current;
+                if (evt != null && evt.type == EventType.MouseDown && evt.button == 0 && rowRect.Contains(evt.mousePosition))
+                {
+                    OnSettingInteracted?.Invoke(def, settingsObject);
+                }
                 if (isSearching)
                 {
                     TryHandleSearchResultDoubleClick(rowRect, def, settingsObject, viewMode, rect.height);
@@ -450,6 +503,12 @@ namespace Spine.UI.SettingsFramework
             }
 
             Widgets.EndScrollView();
+        }
+
+        private static Rect ToScreenRect(Rect rect)
+        {
+            Vector2 screen = GUIUtility.GUIToScreenPoint(rect.position);
+            return new Rect(screen.x, screen.y, rect.width, rect.height);
         }
 
         /// <summary>

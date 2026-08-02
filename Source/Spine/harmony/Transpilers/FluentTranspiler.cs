@@ -1565,25 +1565,25 @@ namespace Spine.Harmony
 
             try
             {
-                // 2. Mutate: Remove the old instructions
-                for (int i = 0; i < removeCount && _matcher.IsValid; i++)
-                {
-                    _matcher.RemoveInstruction();
-                }
+                var replacementInstructions = CreateReplacementInstructions(
+                    newInstructions,
+                    capturedLabels,
+                    capturedBlocksByOffset);
+                var current = _matcher.Instructions();
+                current.RemoveRange(beforeIndex, removeCount);
+                current.InsertRange(beforeIndex, replacementInstructions);
 
-                // 3. Reconstruct: Insert new instructions and apply labels
-                ApplyReplacementInstructions(newInstructions, capturedLabels, capturedBlocksByOffset);
-                if (newInstructions.Length == 0)
+                if (replacementInstructions.Count == 0)
                 {
-                    if (_matcher.IsValid)
+                    if (current.Count > beforeIndex)
                     {
                         // Preserve label/block anchors when removing without replacement.
                         for (int i = 0; i < capturedLabels.Count; i++)
                         {
                             var label = capturedLabels[i];
-                            if (!_matcher.Instruction.labels.Contains(label))
+                            if (!current[beforeIndex].labels.Contains(label))
                             {
-                                _matcher.Instruction.labels.Add(label);
+                                current[beforeIndex].labels.Add(label);
                             }
                         }
 
@@ -1593,7 +1593,7 @@ namespace Spine.Harmony
                             if (blocks == null) continue;
                             for (int b = 0; b < blocks.Count; b++)
                             {
-                                _matcher.Instruction.blocks.Add(blocks[b]);
+                                current[beforeIndex].blocks.Add(blocks[b]);
                             }
                         }
                     }
@@ -1607,15 +1607,14 @@ namespace Spine.Harmony
                             AddWarning("[CRITICAL SAFETY] ReplaceSequence removed a labeled or exception-block-anchored suffix without replacement. Aborting.");
                             return this;
                         }
-
-                        var current = _matcher.Instructions();
-                        if (current.Count > 0)
-                        {
-                            _matcher.Start().Advance(Math.Min(beforeIndex, current.Count - 1));
-                        }
                     }
                 }
 
+                _matcher.Start();
+                if (current.Count > 0)
+                {
+                    _matcher.Advance(Math.Min(beforeIndex, current.Count - 1));
+                }
                 InvalidateLabelIndexCache();
             }
             catch (Exception ex)
@@ -1747,8 +1746,13 @@ namespace Spine.Harmony
             return map;
         }
 
-        private void ApplyReplacementInstructions(CodeInstruction[] newInstructions, List<Label> capturedLabels, List<List<ExceptionBlock>> capturedBlocksByOffset)
+        private static List<CodeInstruction> CreateReplacementInstructions(
+            CodeInstruction[] newInstructions,
+            List<Label> capturedLabels,
+            List<List<ExceptionBlock>> capturedBlocksByOffset)
         {
+            var replacements = new List<CodeInstruction>(
+                newInstructions.Length);
             for (int i = 0; i < newInstructions.Length; i++)
             {
                 var instr = new CodeInstruction(newInstructions[i]);
@@ -1787,8 +1791,9 @@ namespace Spine.Harmony
                         }
                     }
                 }
-                _matcher.InsertAndAdvance(instr);
+                replacements.Add(instr);
             }
+            return replacements;
         }
 
         /// <summary>Attaches a label to the current instruction.</summary>

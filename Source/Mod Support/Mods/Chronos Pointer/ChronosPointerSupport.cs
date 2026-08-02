@@ -4,7 +4,7 @@ using System.Reflection;
 using System.Text;
 using Better_Work_Tab.UI.Settings;
 using HarmonyLib;
-using Spine.UI.SettingsFramework;
+using Better_Work_Tab.UI.SettingsFramework;
 using UnityEngine;
 using Verse;
 using static Better_Work_Tab.UI.Settings.SettingIDs;

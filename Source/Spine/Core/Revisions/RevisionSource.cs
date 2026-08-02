@@ -1,7 +1,7 @@
 using System;
 using System.Threading;
 
-namespace Spine.Api
+namespace Better_Work_Tab.Foundation
 {
     public interface IRevisionSource
     {
@@ -9,10 +9,8 @@ namespace Spine.Api
     }
 }
 
-namespace Spine.Revisions
+namespace Better_Work_Tab.Foundation
 {
-    using Spine.Api;
-
     /// <summary>
     /// Thread-safe source of strictly increasing, process-local revisions.
     /// </summary>

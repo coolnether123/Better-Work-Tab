@@ -16,15 +16,9 @@ namespace Better_Work_Tab.ModSupport.Mods.Spine
 
         private const string StandaloneAssemblyName = "Spine";
         private static readonly SemanticVersion MinimumVersion =
-            new SemanticVersion(1, 1, 0);
+            new SemanticVersion(1, 0, 0);
         private static readonly SpineCapability RequiredCapabilities =
-            SpineCapability.Revisions |
-            SpineCapability.DirtyRegions |
             SpineCapability.BoundedCaches |
-            SpineCapability.RenderPipelines |
-            SpineCapability.Diagnostics |
-            SpineCapability.Settings |
-            SpineCapability.HarmonyPatching |
             SpineCapability.FluentTranspilers;
 
         private static bool initialized;
@@ -147,10 +141,7 @@ namespace Better_Work_Tab.ModSupport.Mods.Spine
             return new SpineApiDescriptor(
                 ConsumerId + ".EmbeddedSpine",
                 MinimumVersion,
-                RequiredCapabilities |
-                SpineCapability.ViewportResolution |
-                SpineCapability.RenderAtlases |
-                SpineCapability.CompatibilityProviders);
+                RequiredCapabilities);
         }
     }
 }

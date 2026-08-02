@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 
-namespace Spine.Api
+namespace Better_Work_Tab.Foundation
 {
     public readonly struct DirtyRegion : IEquatable<DirtyRegion>
     {
@@ -57,10 +57,8 @@ namespace Spine.Api
     }
 }
 
-namespace Spine.DirtyTracking
+namespace Better_Work_Tab.Foundation
 {
-    using Spine.Api;
-
     /// <summary>
     /// Maintains sorted, non-overlapping integer regions and coalesces adjacent writes.
     /// </summary>

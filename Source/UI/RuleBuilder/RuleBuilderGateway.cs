@@ -312,6 +312,8 @@ namespace Better_Work_Tab.UI.RuleBuilder
             if (settings != null)
             {
                 settings.useRuleBuilder2 = true;
+                settings.showRuleBuilder2Tutorial = true;
+                settings.ruleBuilder2TutorialStep = 0;
                 settings.Write();
             }
 

@@ -4,7 +4,7 @@ using UnityEngine;
 using Verse;
 using Spine.UI.ColourPicker;
 
-namespace Spine.UI.SettingsFramework
+namespace Better_Work_Tab.UI.SettingsFramework
 {
     /// <summary>
     /// Stateless widget renderers for individual setting types.

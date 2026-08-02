@@ -6,7 +6,7 @@ using System.Reflection;
 using System.Text;
 using Spine.RimWorld.Serialization;
 using Spine.UI.ColourPicker;
-using Spine.UI.SettingsFramework;
+using Better_Work_Tab.UI.SettingsFramework;
 using UnityEngine;
 using Verse;
 

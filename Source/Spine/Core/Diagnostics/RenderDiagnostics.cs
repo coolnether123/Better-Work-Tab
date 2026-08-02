@@ -1,6 +1,6 @@
 using System;
 
-namespace Spine.Api
+namespace Better_Work_Tab.Foundation
 {
     public enum RenderDiagnosticSeverity
     {
@@ -36,10 +36,8 @@ namespace Spine.Api
     }
 }
 
-namespace Spine.Diagnostics
+namespace Better_Work_Tab.Foundation
 {
-    using Spine.Api;
-
     public sealed class NullRenderDiagnosticsSink : IRenderDiagnosticsSink
     {
         public static readonly NullRenderDiagnosticsSink Instance = new NullRenderDiagnosticsSink();

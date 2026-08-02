@@ -1,4 +1,4 @@
-using Spine.UI.SettingsFramework;
+using Better_Work_Tab.UI.SettingsFramework;
 
 namespace Better_Work_Tab.ModSupport
 {

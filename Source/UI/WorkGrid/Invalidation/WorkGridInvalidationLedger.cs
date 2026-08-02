@@ -1,5 +1,5 @@
 using System;
-using Spine.DirtyTracking;
+using Better_Work_Tab.Foundation;
 
 namespace Better_Work_Tab.UI.WorkGrid.Invalidation
 {

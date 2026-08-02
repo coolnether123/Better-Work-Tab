@@ -4,7 +4,7 @@ using Spine.UI.WidgetExtensions;
 using UnityEngine;
 using Verse;
 
-namespace Spine.UI.SettingsFramework
+namespace Better_Work_Tab.UI.SettingsFramework
 {
     /// <summary>
     /// A standard RimWorld choice menu with a non-overlapping setting description panel.

@@ -1,5 +1,6 @@
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
+using Better_Work_Tab.DragDrop;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -10,6 +11,7 @@ namespace Better_Work_Tab.Features.Tutorial
     /// Draws visual-only input demonstrations over live tutorial anchors. The
     /// real Work-tab handlers remain the sole owners of input and lesson state.
     /// </summary>
+    [StaticConstructorOnStartup]
     internal static class BWTTutorialGestureDemo
     {
         private const float PointerSize = 32f;
@@ -20,12 +22,16 @@ namespace Better_Work_Tab.Features.Tutorial
         private static float animationStartedAt = -1f;
         private static string animationIdentity = string.Empty;
 
-        private enum GestureKind
+        internal enum GestureKind
         {
             None,
             DragRight,
+            LeftClick,
+            RightClick,
             CtrlClick,
-            ShiftClick
+            ShiftClick,
+            HoldShift,
+            TextEntry
         }
 
         internal static void Reset()
@@ -38,10 +44,7 @@ namespace Better_Work_Tab.Features.Tutorial
             string lessonId,
             int phase,
             BWTTutorialAnchor anchor,
-            IWorkTabLayoutController layout,
-            string giveItATryLabel,
-            string ctrlLabel,
-            string shiftLabel)
+            IWorkTabLayoutController layout)
         {
             GestureKind kind = ResolveKind(lessonId, phase);
             if (kind == GestureKind.None || !anchor.IsValid)
@@ -49,7 +52,109 @@ namespace Better_Work_Tab.Features.Tutorial
                 return;
             }
 
-            string identity = lessonId + ":" + phase;
+            string identity = "work:" + lessonId + ":" + phase;
+            float elapsed = GetElapsed(identity, kind);
+            if (kind == GestureKind.DragRight)
+            {
+                DrawDragDemo(anchor, layout, elapsed, T("BWT_Tutorial_Gesture_GiveItATry"));
+                return;
+            }
+
+            DrawClickDemo(anchor.Rect, elapsed, kind, T("BWT_Tutorial_Gesture_GiveItATry"));
+        }
+
+        /// <summary>
+        /// Draws the same visual-only gesture language inside routed windows,
+        /// float menus, and dialogs. The owning UI still handles all input.
+        /// </summary>
+        internal static void DrawExternal(
+            string identity,
+            Rect target,
+            GestureKind kind,
+            string prompt = null)
+        {
+            if (kind == GestureKind.None || target.width <= 0f || target.height <= 0f)
+            {
+                return;
+            }
+
+            float elapsed = GetElapsed("external:" + identity, kind);
+            DrawClickDemo(
+                target,
+                elapsed,
+                kind,
+                string.IsNullOrEmpty(prompt) ? T("BWT_Tutorial_Gesture_GiveItATry") : prompt);
+        }
+
+        internal static void DrawOutcome(string lessonId, BWTTutorialAnchor anchor)
+        {
+            if (!anchor.IsValid)
+            {
+                return;
+            }
+
+            float elapsed = GetElapsedSinceStart("outcome:" + lessonId);
+            Vector2 point = anchor.Rect.center;
+            if (elapsed < 0.8f)
+            {
+                float fade = 1f - Mathf.Clamp01(elapsed / 0.8f);
+                DrawRipple(point, Mathf.Clamp01(elapsed / 0.65f));
+                DrawPointer(point, fade);
+            }
+
+            string label = lessonId == BWTGeneralTutorial.PrioritySkillLesson && elapsed < 1.8f
+                ? T("BWT_Tutorial_Gesture_ReleaseShift")
+                : T("BWT_Tutorial_Outcome_LookHere");
+            float alpha = Mathf.Clamp01((elapsed - 0.2f) / 0.45f);
+            DrawModifierBadge(point, label, alpha);
+            float pulse = 0.7f + 0.3f * Mathf.Sin(Time.realtimeSinceStartup * 3.5f);
+            DrawCircle(point, 22f, BWTTutorialAnchorRenderer.TutorialGold(alpha * pulse), 2f);
+        }
+
+        private static GestureKind ResolveKind(string lessonId, int phase)
+        {
+            if (lessonId == BWTGeneralTutorial.HeaderReorderLesson)
+            {
+                return GestureKind.DragRight;
+            }
+
+            if (lessonId == BWTGeneralTutorial.PrioritySkillLesson)
+            {
+                return GestureKind.HoldShift;
+            }
+
+            if (lessonId == BWTGeneralTutorial.PriorityScheduleLesson)
+            {
+                return phase == 1 ? GestureKind.LeftClick : GestureKind.CtrlClick;
+            }
+
+            if (lessonId == BWTGeneralTutorial.PawnMenuLesson ||
+                ((lessonId == BWTGeneralTutorial.PawnDividerLesson ||
+                  lessonId == BWTGeneralTutorial.PawnAppearanceLesson) && phase == 0))
+            {
+                return GestureKind.RightClick;
+            }
+
+            if (lessonId == BWTGeneralTutorial.HeaderSubWorkLesson)
+            {
+                return GestureKind.CtrlClick;
+            }
+
+            return lessonId == BWTGeneralTutorial.HeaderGroupLesson
+                ? GestureKind.ShiftClick
+                : GestureKind.None;
+        }
+
+        private static float GetElapsed(string identity, GestureKind kind)
+        {
+            float cycleSeconds = kind == GestureKind.DragRight
+                ? DragCycleSeconds
+                : ClickCycleSeconds;
+            return Mathf.Repeat(GetElapsedSinceStart(identity), cycleSeconds);
+        }
+
+        private static float GetElapsedSinceStart(string identity)
+        {
             if (!string.Equals(animationIdentity, identity, System.StringComparison.Ordinal))
             {
                 animationIdentity = identity;
@@ -61,39 +166,7 @@ namespace Better_Work_Tab.Features.Tutorial
                 animationStartedAt = Time.realtimeSinceStartup;
             }
 
-            float cycleSeconds = kind == GestureKind.DragRight
-                ? DragCycleSeconds
-                : ClickCycleSeconds;
-            float elapsed = Mathf.Repeat(Time.realtimeSinceStartup - animationStartedAt, cycleSeconds);
-            if (kind == GestureKind.DragRight)
-            {
-                DrawDragDemo(anchor, layout, elapsed, giveItATryLabel);
-                return;
-            }
-
-            DrawModifiedClickDemo(
-                anchor,
-                elapsed,
-                kind == GestureKind.CtrlClick ? ctrlLabel : shiftLabel,
-                giveItATryLabel);
-        }
-
-        private static GestureKind ResolveKind(string lessonId, int phase)
-        {
-            if (lessonId == BWTGeneralTutorial.HeaderReorderLesson)
-            {
-                return GestureKind.DragRight;
-            }
-
-            if (lessonId == BWTGeneralTutorial.HeaderSubWorkLesson ||
-                (lessonId == BWTGeneralTutorial.PriorityScheduleLesson && phase == 0))
-            {
-                return GestureKind.CtrlClick;
-            }
-
-            return lessonId == BWTGeneralTutorial.HeaderGroupLesson
-                ? GestureKind.ShiftClick
-                : GestureKind.None;
+            return Time.realtimeSinceStartup - animationStartedAt;
         }
 
         private static void DrawDragDemo(
@@ -133,6 +206,7 @@ namespace Better_Work_Tab.Features.Tutorial
                     anchor.OffsetBy(Vector2.right * moveOffset),
                     BWTTutorialAnchorRenderer.TutorialGold(Mathf.Lerp(0.35f, 0.82f, t)),
                     2f);
+                DrawAnimatedInsertionGuide(layout, pointer.x, anchor.Rect.xMin);
             }
             else
             {
@@ -140,6 +214,7 @@ namespace Better_Work_Tab.Features.Tutorial
                 pointer = clickPoint + Vector2.right * dragDistance;
                 if (elapsed < releaseEnd)
                 {
+                    DrawAnimatedInsertionGuide(layout, pointer.x, anchor.Rect.xMin);
                     DrawRipple(pointer, (elapsed - dragEnd) / (releaseEnd - dragEnd));
                 }
             }
@@ -160,10 +235,10 @@ namespace Better_Work_Tab.Features.Tutorial
             }
         }
 
-        private static void DrawModifiedClickDemo(
-            BWTTutorialAnchor anchor,
+        private static void DrawClickDemo(
+            Rect target,
             float elapsed,
-            string modifierLabel,
+            GestureKind kind,
             string giveItATryLabel)
         {
             const float approachEnd = 0.7f;
@@ -171,20 +246,24 @@ namespace Better_Work_Tab.Features.Tutorial
             const float releaseEnd = 1.5f;
             const float tryEnd = 3.25f;
 
-            Vector2 clickPoint = anchor.Rect.center;
+            Vector2 clickPoint = target.center;
+            bool drawRipple = kind != GestureKind.HoldShift;
             if (elapsed < approachEnd)
             {
                 float t = Smooth(elapsed / approachEnd);
                 Vector2 pointer = Vector2.Lerp(clickPoint + new Vector2(-26f, -20f), clickPoint, t);
-                DrawModifierBadge(pointer, modifierLabel, Mathf.Clamp01(t * 1.5f));
+                DrawModifierBadge(pointer, GetApproachLabel(kind), Mathf.Clamp01(t * 1.5f));
                 DrawPointer(pointer, Mathf.Clamp01(t * 1.5f));
                 return;
             }
 
             if (elapsed < pressEnd)
             {
-                DrawModifierBadge(clickPoint, modifierLabel, 1f);
-                DrawRipple(clickPoint, (elapsed - approachEnd) / (pressEnd - approachEnd));
+                DrawModifierBadge(clickPoint, GetGestureLabel(kind), 1f);
+                if (drawRipple)
+                {
+                    DrawRipple(clickPoint, (elapsed - approachEnd) / (pressEnd - approachEnd));
+                }
                 DrawPointer(clickPoint, 1f);
                 return;
             }
@@ -192,8 +271,11 @@ namespace Better_Work_Tab.Features.Tutorial
             if (elapsed < releaseEnd)
             {
                 float t = (elapsed - pressEnd) / (releaseEnd - pressEnd);
-                DrawModifierBadge(clickPoint, modifierLabel, 1f - t * 0.35f);
-                DrawRipple(clickPoint, t);
+                DrawModifierBadge(clickPoint, GetReleaseLabel(kind), 1f - t * 0.35f);
+                if (drawRipple)
+                {
+                    DrawRipple(clickPoint, t);
+                }
                 DrawPointer(clickPoint, 1f - t * 0.35f);
                 return;
             }
@@ -201,7 +283,56 @@ namespace Better_Work_Tab.Features.Tutorial
             float alpha = elapsed < tryEnd
                 ? 1f
                 : 1f - Mathf.Clamp01((elapsed - tryEnd) / (ClickCycleSeconds - tryEnd));
-            DrawTryPrompt(anchor, giveItATryLabel, alpha);
+            DrawTryPrompt(target, giveItATryLabel, alpha);
+        }
+
+        private static string GetApproachLabel(GestureKind kind)
+        {
+            switch (kind)
+            {
+                case GestureKind.CtrlClick:
+                    return T("BWT_Tutorial_Gesture_HoldCtrl");
+                case GestureKind.ShiftClick:
+                case GestureKind.HoldShift:
+                    return T("BWT_Tutorial_Gesture_HoldShift");
+                default:
+                    return GetGestureLabel(kind);
+            }
+        }
+
+        private static string GetReleaseLabel(GestureKind kind)
+        {
+            switch (kind)
+            {
+                case GestureKind.CtrlClick:
+                    return T("BWT_Tutorial_Gesture_ReleaseCtrl");
+                case GestureKind.ShiftClick:
+                case GestureKind.HoldShift:
+                    return T("BWT_Tutorial_Gesture_ReleaseShift");
+                default:
+                    return GetGestureLabel(kind);
+            }
+        }
+
+        private static string GetGestureLabel(GestureKind kind)
+        {
+            switch (kind)
+            {
+                case GestureKind.LeftClick:
+                    return T("BWT_Tutorial_Gesture_LeftClick");
+                case GestureKind.RightClick:
+                    return T("BWT_Tutorial_Gesture_RightClick");
+                case GestureKind.CtrlClick:
+                    return T("BWT_Tutorial_Gesture_CtrlClick");
+                case GestureKind.ShiftClick:
+                    return T("BWT_Tutorial_Gesture_ShiftClick");
+                case GestureKind.HoldShift:
+                    return T("BWT_Tutorial_Gesture_HoldShift");
+                case GestureKind.TextEntry:
+                    return T("BWT_Tutorial_Gesture_Type");
+                default:
+                    return string.Empty;
+            }
         }
 
         private static float ResolveRightwardDragDistance(
@@ -228,6 +359,61 @@ namespace Better_Work_Tab.Features.Tutorial
             return nearestRight < float.MaxValue
                 ? Mathf.Clamp(nearestRight - sourceX + 18f, 72f, 120f)
                 : 84f;
+        }
+
+        private static void DrawAnimatedInsertionGuide(
+            IWorkTabLayoutController layout,
+            float pointerX,
+            float fallbackX)
+        {
+            if (layout?.Columns == null)
+            {
+                return;
+            }
+
+            int insertionIndex = 0;
+            WorkTabLayoutColumn first = default(WorkTabLayoutColumn);
+            WorkTabLayoutColumn previous = default(WorkTabLayoutColumn);
+            bool hasTarget = false;
+            bool foundSlot = false;
+            for (int i = 0; i < layout.Columns.Count; i++)
+            {
+                WorkTabLayoutColumn column = layout.Columns[i];
+                if (!(column.Column?.Worker is PawnColumnWorker_WorkPriority))
+                {
+                    continue;
+                }
+
+                if (!hasTarget)
+                {
+                    first = column;
+                    hasTarget = true;
+                }
+
+                if (pointerX < column.HeaderRect.center.x)
+                {
+                    fallbackX = insertionIndex <= 0
+                        ? first.HeaderRect.xMin
+                        : column.HeaderRect.xMin;
+                    foundSlot = true;
+                    break;
+                }
+
+                previous = column;
+                insertionIndex++;
+            }
+
+            if (!hasTarget)
+            {
+                return;
+            }
+
+            float lineX = foundSlot ? fallbackX : previous.HeaderRect.xMax;
+            int insetSetting = BetterWorkTabMod.Settings?.columnInsertionLineInset ??
+                DefaultSettings.columnInsertionLineInset;
+            int inset = Mathf.Clamp(insetSetting, 0, Mathf.RoundToInt(layout.HeaderHeight));
+            Rect lineRect = ColumnDragHandler.GetColumnGuideRect(layout, lineX, inset);
+            Widgets.DrawBoxSolid(lineRect, Color.white);
         }
 
         private static void DrawMovingArrow(BWTTutorialAnchor anchor, float moveOffset)
@@ -297,7 +483,11 @@ namespace Better_Work_Tab.Features.Tutorial
                 return;
             }
 
-            Rect badge = new Rect(hotspot.x + 30f, hotspot.y + 29f, 50f, 22f);
+            GameFont measuredFont = Text.Font;
+            Text.Font = GameFont.Tiny;
+            float width = Mathf.Clamp(Text.CalcSize(label).x + 16f, 50f, 104f);
+            Text.Font = measuredFont;
+            Rect badge = new Rect(hotspot.x + 30f, hotspot.y + 29f, width, 22f);
             Widgets.DrawBoxSolid(badge, new Color(0.05f, 0.06f, 0.07f, 0.9f * alpha));
             Color oldColor = GUI.color;
             TextAnchor oldAnchor = Text.Anchor;
@@ -314,12 +504,17 @@ namespace Better_Work_Tab.Features.Tutorial
 
         private static void DrawTryPrompt(BWTTutorialAnchor anchor, string label, float alpha)
         {
+            DrawTryPrompt(anchor.Rect, label, alpha);
+        }
+
+        private static void DrawTryPrompt(Rect target, string label, float alpha)
+        {
             if (string.IsNullOrEmpty(label) || alpha <= 0f)
             {
                 return;
             }
 
-            Rect prompt = new Rect(anchor.Rect.center.x - 65f, anchor.Rect.yMax + 8f, 130f, 27f);
+            Rect prompt = new Rect(target.center.x - 65f, target.yMax + 8f, 130f, 27f);
             Widgets.DrawBoxSolid(prompt, new Color(0.04f, 0.05f, 0.06f, 0.88f * alpha));
             Color oldColor = GUI.color;
             TextAnchor oldAnchor = Text.Anchor;
@@ -338,6 +533,11 @@ namespace Better_Work_Tab.Features.Tutorial
         {
             float t = Mathf.Clamp01(value);
             return t * t * (3f - 2f * t);
+        }
+
+        private static string T(string key)
+        {
+            return key.CanTranslate() ? key.Translate().ToString() : key;
         }
     }
 }

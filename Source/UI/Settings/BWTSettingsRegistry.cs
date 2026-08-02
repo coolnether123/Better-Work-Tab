@@ -14,7 +14,7 @@ using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Multiplayer.API;
 using RimWorld;
 using Spine.UI.ColourPicker;
-using Spine.UI.SettingsFramework;
+using Better_Work_Tab.UI.SettingsFramework;
 using UnityEngine;
 using Verse;
 using static Better_Work_Tab.UI.Settings.SettingIDs;

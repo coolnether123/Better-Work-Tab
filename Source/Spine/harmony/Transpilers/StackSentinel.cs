@@ -26,7 +26,7 @@ namespace Spine.Harmony
     /// Advanced stack safety analysis for IL code.
     /// Implements Basic Block Analysis to track stack depth and Types across branches.
     /// </summary>
-    public static class StackSentinel
+    internal static class StackSentinel
     {
         private sealed class UnknownStackTypeMarker { }
         private static readonly Type UnknownType = typeof(UnknownStackTypeMarker);

@@ -13,6 +13,7 @@ using Better_Work_Tab.UI.WorkGrid.Invalidation;
 using Better_Work_Tab.UI.WorkGrid.Compatibility;
 using RimWorld;
 using Spine.Api;
+using Better_Work_Tab.Foundation;
 using Spine.Collections;
 using UnityEngine;
 using Verse;
