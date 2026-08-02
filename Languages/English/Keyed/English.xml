@@ -206,21 +206,21 @@
 <BWT_Tutorial_PawnMenu_Label>Open pawn actions</BWT_Tutorial_PawnMenu_Label>
 <BWT_Tutorial_PawnMenu_Title>Open pawn actions</BWT_Tutorial_PawnMenu_Title>
 <BWT_Tutorial_PawnMenu_Preview>Right-click a pawn name to open its Better Work Tab actions.</BWT_Tutorial_PawnMenu_Preview>
-<BWT_Tutorial_PawnMenu_Action>Right-click the highlighted pawn name. The lesson completes when the pawn actions menu opens.</BWT_Tutorial_PawnMenu_Action>
+<BWT_Tutorial_PawnMenu_Action>Right-click the highlighted pawn name.</BWT_Tutorial_PawnMenu_Action>
 <BWT_Tutorial_PawnMenu_Outcome>The pawn action menu is now open beside the highlighted row. These commands organize only the Work tab display: they can add dividers or change this pawn's shown title and color without changing the pawn.</BWT_Tutorial_PawnMenu_Outcome>
 <BWT_Tutorial_PawnDivider_Label>Add a divider</BWT_Tutorial_PawnDivider_Label>
 <BWT_Tutorial_PawnDivider_Title>Organize pawns with dividers</BWT_Tutorial_PawnDivider_Title>
 <BWT_Tutorial_PawnDivider_Preview>Dividers label, separate, collapse, and visually organize groups of pawn rows.</BWT_Tutorial_PawnDivider_Preview>
-<BWT_Tutorial_PawnDivider_Action>Right-click the highlighted pawn, add a divider above or below, then confirm. The new divider completes the lesson.</BWT_Tutorial_PawnDivider_Action>
-<BWT_Tutorial_PawnDivider_ActionChoose>Select “Insert divider above.” The real menu action adds the divider and completes the lesson.</BWT_Tutorial_PawnDivider_ActionChoose>
+<BWT_Tutorial_PawnDivider_Action>Right-click the highlighted pawn.</BWT_Tutorial_PawnDivider_Action>
+<BWT_Tutorial_PawnDivider_ActionChoose>Select “Insert divider above.”</BWT_Tutorial_PawnDivider_ActionChoose>
 <BWT_Tutorial_PawnDivider_Outcome>A divider now separates the pawn rows at the highlighted position. Use dividers to label and collapse groups so a large colony stays readable; the pawns and their actual work priorities are unchanged.</BWT_Tutorial_PawnDivider_Outcome>
 <BWT_Tutorial_PawnAppearance_Label>Customize pawn row</BWT_Tutorial_PawnAppearance_Label>
 <BWT_Tutorial_PawnAppearance_Title>Change title or color</BWT_Tutorial_PawnAppearance_Title>
 <BWT_Tutorial_PawnAppearance_Preview>The pawn menu can change the displayed title and row background color.</BWT_Tutorial_PawnAppearance_Preview>
-<BWT_Tutorial_PawnAppearance_Action>Right-click the highlighted pawn and change its title or row color. The applied change completes the lesson.</BWT_Tutorial_PawnAppearance_Action>
+<BWT_Tutorial_PawnAppearance_Action>Right-click the highlighted pawn.</BWT_Tutorial_PawnAppearance_Action>
 <BWT_Tutorial_PawnAppearance_ActionChoose>Select “Change title...” from the pawn action menu.</BWT_Tutorial_PawnAppearance_ActionChoose>
 <BWT_Tutorial_PawnAppearance_ActionType>Type a different display title in the highlighted field.</BWT_Tutorial_PawnAppearance_ActionType>
-<BWT_Tutorial_PawnAppearance_ActionConfirm>Click OK to apply the new title and complete the lesson.</BWT_Tutorial_PawnAppearance_ActionConfirm>
+<BWT_Tutorial_PawnAppearance_ActionConfirm>Click OK.</BWT_Tutorial_PawnAppearance_ActionConfirm>
 <BWT_Tutorial_PawnAppearance_Outcome>The highlighted pawn row now shows your custom title or color. This is a Work-tab label for quick visual organization; it does not alter the pawn's role, backstory, or gameplay stats.</BWT_Tutorial_PawnAppearance_Outcome>
 
 <BWT_Tutorial_HeaderHub_Title>Better Work Tab header tools</BWT_Tutorial_HeaderHub_Title>
@@ -228,13 +228,13 @@
 <BWT_Tutorial_HeaderReorder_Label>Reorder work columns</BWT_Tutorial_HeaderReorder_Label>
 <BWT_Tutorial_HeaderReorder_Title>Reorder work columns</BWT_Tutorial_HeaderReorder_Title>
 <BWT_Tutorial_HeaderReorder_Preview>Drag a Work header to reorder execution. When priorities match, work runs from left to right.</BWT_Tutorial_HeaderReorder_Preview>
-<BWT_Tutorial_HeaderReorder_Action>Drag the highlighted Work header. Equal-priority work runs from left to right. The lesson completes when the order changes.</BWT_Tutorial_HeaderReorder_Action>
+<BWT_Tutorial_HeaderReorder_Action>Drag the highlighted Work header to a new position.</BWT_Tutorial_HeaderReorder_Action>
 <BWT_Tutorial_HeaderReorder_Outcome>The highlighted Work column is now in its new position. When two jobs have the same numeric priority, RimWorld checks the column farther left first, so this order is a real tie-breaker rather than a cosmetic layout change.</BWT_Tutorial_HeaderReorder_Outcome>
 <BWT_Tutorial_HeaderReorder_Feedback>Real work-order dragging</BWT_Tutorial_HeaderReorder_Feedback>
 <BWT_Tutorial_HeaderGroup_Label>Group work columns</BWT_Tutorial_HeaderGroup_Label>
 <BWT_Tutorial_HeaderGroup_Title>Group work columns</BWT_Tutorial_HeaderGroup_Title>
 <BWT_Tutorial_HeaderGroup_Preview>Shift-click headers to select a group, then drag one selected header to move the group together.</BWT_Tutorial_HeaderGroup_Preview>
-<BWT_Tutorial_HeaderGroup_Action>Shift-click the highlighted Work header to change its group selection. Selected headers can be dragged together.</BWT_Tutorial_HeaderGroup_Action>
+<BWT_Tutorial_HeaderGroup_Action>Shift-click the highlighted Work header.</BWT_Tutorial_HeaderGroup_Action>
 <BWT_Tutorial_HeaderGroup_Outcome>The header's selection outline changed. Selected Work columns form a temporary group: drag any selected header and the whole group moves together, which makes related jobs easy to reorganize as one block.</BWT_Tutorial_HeaderGroup_Outcome>
 <BWT_Tutorial_HeaderSubWork_Label>Open specific jobs</BWT_Tutorial_HeaderSubWork_Label>
 <BWT_Tutorial_HeaderSubWork_Title>Open specific jobs</BWT_Tutorial_HeaderSubWork_Title>
@@ -243,7 +243,7 @@
 <BWT_Tutorial_HeaderSubWork_Outcome>The broad Work category has opened into its specific jobs. Each visible sub-job can now have its own priority and related controls; press Escape or repeat Ctrl-click when you want to return to the category view.</BWT_Tutorial_HeaderSubWork_Outcome>
 <BWT_Tutorial_HeaderSubWork_Feedback>Specific jobs: presentation, priorities, and reassignment</BWT_Tutorial_HeaderSubWork_Feedback>
 
-<BWT_Tutorial_Gesture_GiveItATry>Give it a try</BWT_Tutorial_Gesture_GiveItATry>
+<BWT_Tutorial_Gesture_DragRight>DRAG RIGHT</BWT_Tutorial_Gesture_DragRight>
 <BWT_Tutorial_Gesture_Ctrl>CTRL</BWT_Tutorial_Gesture_Ctrl>
 <BWT_Tutorial_Gesture_Shift>SHIFT</BWT_Tutorial_Gesture_Shift>
 <BWT_Tutorial_Gesture_LeftClick>LEFT CLICK</BWT_Tutorial_Gesture_LeftClick>
@@ -274,15 +274,16 @@
 <BWT_Tutorial_PrioritySkill_Label>View skill number</BWT_Tutorial_PrioritySkill_Label>
 <BWT_Tutorial_PrioritySkill_Title>View skill number</BWT_Tutorial_PrioritySkill_Title>
 <BWT_Tutorial_PrioritySkill_Preview>Hold Shift to display the pawn's skill number for that work.</BWT_Tutorial_PrioritySkill_Preview>
-<BWT_Tutorial_PrioritySkill_Action>Hold Shift until the highlighted cell's skill number has been visible briefly.</BWT_Tutorial_PrioritySkill_Action>
+<BWT_Tutorial_PrioritySkill_Action>Hold Shift.</BWT_Tutorial_PrioritySkill_Action>
+<BWT_Tutorial_PrioritySkill_Held>The Work grid is showing each pawn's relevant skill number instead of their priority while Shift is held. Higher skill numbers help you compare who is naturally better at that Work. Keep holding Shift while you look; release it when you are ready to return to priorities.</BWT_Tutorial_PrioritySkill_Held>
 <BWT_Tutorial_PrioritySkill_SecondaryVisible>Your current skill-number settings can also show a smaller secondary skill number in the cell corner.</BWT_Tutorial_PrioritySkill_SecondaryVisible>
-<BWT_Tutorial_PrioritySkill_Outcome>Release Shift now. While Shift was held, the priority mark changed to this pawn's relevant skill number. Use it to compare who is naturally better at the work without changing anyone's priority.</BWT_Tutorial_PrioritySkill_Outcome>
+<BWT_Tutorial_PrioritySkill_Outcome>The Work grid has returned to priorities. Holding Shift temporarily shows relevant skill numbers for comparison without changing anyone's priority.</BWT_Tutorial_PrioritySkill_Outcome>
 <BWT_Tutorial_PrioritySchedule_Label>Open time schedules</BWT_Tutorial_PrioritySchedule_Label>
 <BWT_Tutorial_PrioritySchedule_Title>Open time schedules</BWT_Tutorial_PrioritySchedule_Title>
 <BWT_Tutorial_PrioritySchedule_Preview>Ctrl-click a priority cell to create a daily schedule with a different priority for each hour.</BWT_Tutorial_PrioritySchedule_Preview>
 <BWT_Tutorial_PrioritySchedule_ActionOpen>Ctrl-click the highlighted priority cell to open its hourly schedule.</BWT_Tutorial_PrioritySchedule_ActionOpen>
 <BWT_Tutorial_PrioritySchedule_ActionEdit>Change at least one hourly cell by left-clicking, right-clicking, or scrolling.</BWT_Tutorial_PrioritySchedule_ActionEdit>
-<BWT_Tutorial_PrioritySchedule_ActionClose>Your schedule change was recorded. Ctrl-click an hour cell to close the schedule and complete the lesson.</BWT_Tutorial_PrioritySchedule_ActionClose>
+<BWT_Tutorial_PrioritySchedule_ActionClose>Ctrl-click an hour cell to close the schedule.</BWT_Tutorial_PrioritySchedule_ActionClose>
 <BWT_Tutorial_PrioritySchedule_Outcome>The hourly editor closed, but the schedule you set is still active. Better Work Tab will use that hour's value at the matching time of day; Ctrl-click the priority cell whenever you want to view or edit all 24 hours again.</BWT_Tutorial_PrioritySchedule_Outcome>
 <BWT_Tutorial_PrioritySchedule_Feedback>Daily priority schedules</BWT_Tutorial_PrioritySchedule_Feedback>
 <BWT_Tutorial_PriorityRange_Label>Set priority range</BWT_Tutorial_PriorityRange_Label>

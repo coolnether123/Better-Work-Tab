@@ -79,6 +79,7 @@ namespace Better_Work_Tab.Features.Tutorial
         private const float FooterHeight = 40f;
         private const float MinimumPanelWidth = 420f;
         private const float PreferredPanelWidth = OptionWidth + ContextWidth + PanelGap + CardPadding * 2f;
+        private const float PanelVerticalOverhead = CardPadding * 2f + 30f + 8f + FooterHeight + 8f;
         private static readonly TutorialOverlayStyle PanelStyle = new TutorialOverlayStyle();
 
         // Give players enough time to travel from a narrow/angled Work-tab
@@ -574,17 +575,47 @@ namespace Better_Work_Tab.Features.Tutorial
             float width = useRight
                 ? Mathf.Min(PreferredPanelWidth, availableRight)
                 : Mathf.Min(Mathf.Max(MinimumPanelWidth, bounds.width * 0.76f), bounds.width - 20f);
-            float height = useRight
-                ? Mathf.Max(1f, Mathf.Min(workBounds.height, bounds.yMax - workBounds.yMin))
-                : Mathf.Min(440f, bounds.height - 20f);
+            float innerWidth = Mathf.Max(1f, width - CardPadding * 2f);
+            bool stacked = innerWidth < OptionWidth + ContextWidth + PanelGap;
+            float optionsWidth = stacked ? innerWidth * 0.43f : OptionWidth;
+            float optionContentWidth = optionsWidth;
+            float gap = 7f;
+            var optionRects = new List<Rect>(hub.Options.Count);
+            float contentHeight = 0f;
+            bool oldWordWrap = Text.WordWrap;
+            GameFont oldFont = Text.Font;
+            Text.WordWrap = true;
+            Text.Font = GameFont.Small;
+            float yOffset = 0f;
+            for (int i = 0; i < hub.Options.Count; i++)
+            {
+                string label = GetOptionDisplayLabel(hub.Options[i], recommendedLabel);
+                float labelHeight = Text.CalcHeight(label, Mathf.Max(40f, optionContentWidth - 18f));
+                float optionHeight = Mathf.Max(40f, labelHeight + 14f);
+                optionRects.Add(new Rect(0f, yOffset, optionContentWidth, optionHeight));
+                yOffset += optionHeight + gap;
+            }
+            contentHeight = Mathf.Max(0f, yOffset - gap);
+
+            float height;
+            float attachedBottom = Mathf.Min(workBounds.yMax, bounds.yMax);
+            if (useRight)
+            {
+                float baseHeight = Mathf.Max(1f, attachedBottom - Mathf.Max(bounds.yMin, workBounds.yMin));
+                float availableHeight = Mathf.Max(1f, attachedBottom - bounds.yMin);
+                height = Mathf.Min(
+                    Mathf.Max(baseHeight, contentHeight + PanelVerticalOverhead),
+                    availableHeight);
+            }
+            else
+            {
+                height = Mathf.Min(440f, bounds.height - 20f);
+            }
             float x = useRight
                 ? workBounds.xMax
                 : Mathf.Clamp(workBounds.center.x - width / 2f, bounds.xMin + 10f, bounds.xMax - width - 10f);
-            Vector2 anchorCenter = anchorRect.width > 0f && anchorRect.height > 0f
-                ? anchorRect.center
-                : workBounds.center;
             float y = useRight
-                ? Mathf.Clamp(workBounds.yMin, bounds.yMin, bounds.yMax - height)
+                ? attachedBottom - height
                 : Mathf.Clamp(
                     anchorRect.yMin - height - PanelGap,
                     bounds.yMin + 10f,
@@ -596,8 +627,6 @@ namespace Better_Work_Tab.Features.Tutorial
             float bodyTop = title.yMax + 8f;
             float bodyBottom = inner.yMax - FooterHeight - 8f;
             float bodyHeight = Mathf.Max(90f, bodyBottom - bodyTop);
-            bool stacked = inner.width < OptionWidth + ContextWidth + PanelGap;
-            float optionsWidth = stacked ? inner.width * 0.43f : OptionWidth;
             Rect options = new Rect(inner.x, bodyTop, optionsWidth, bodyHeight);
             Rect context = new Rect(options.xMax + PanelGap, bodyTop, inner.xMax - options.xMax - PanelGap, bodyHeight);
             if (context.width < 150f)
@@ -606,18 +635,11 @@ namespace Better_Work_Tab.Features.Tutorial
                 context.width = Mathf.Max(140f, inner.xMax - context.x);
             }
 
-            float gap = 7f;
-            var optionRects = new List<Rect>(hub.Options.Count);
-            float optionContentWidth = options.width;
-            float contentHeight = 0f;
-            bool oldWordWrap = Text.WordWrap;
-            GameFont oldFont = Text.Font;
-            Text.WordWrap = true;
-            Text.Font = GameFont.Small;
-            for (int pass = 0; pass < 2; pass++)
+            if (contentHeight > options.height + 0.5f)
             {
+                optionContentWidth = Mathf.Max(40f, options.width - ScrollbarWidth);
                 optionRects.Clear();
-                float yOffset = 0f;
+                yOffset = 0f;
                 for (int i = 0; i < hub.Options.Count; i++)
                 {
                     string label = GetOptionDisplayLabel(hub.Options[i], recommendedLabel);
@@ -628,13 +650,6 @@ namespace Better_Work_Tab.Features.Tutorial
                 }
 
                 contentHeight = Mathf.Max(0f, yOffset - gap);
-                if (pass == 0 && contentHeight > options.height + 0.5f)
-                {
-                    optionContentWidth = Mathf.Max(40f, options.width - 16f);
-                    continue;
-                }
-
-                break;
             }
             Text.WordWrap = oldWordWrap;
             Text.Font = oldFont;

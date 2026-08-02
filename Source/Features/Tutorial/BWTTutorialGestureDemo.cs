@@ -56,11 +56,11 @@ namespace Better_Work_Tab.Features.Tutorial
             float elapsed = GetElapsed(identity, kind);
             if (kind == GestureKind.DragRight)
             {
-                DrawDragDemo(anchor, layout, elapsed, T("BWT_Tutorial_Gesture_GiveItATry"));
+                DrawDragDemo(anchor, layout, elapsed, T("BWT_Tutorial_Gesture_DragRight"));
                 return;
             }
 
-            DrawClickDemo(anchor.Rect, elapsed, kind, T("BWT_Tutorial_Gesture_GiveItATry"));
+            DrawClickDemo(anchor.Rect, elapsed, kind, GetGestureLabel(kind));
         }
 
         /// <summary>
@@ -83,32 +83,92 @@ namespace Better_Work_Tab.Features.Tutorial
                 target,
                 elapsed,
                 kind,
-                string.IsNullOrEmpty(prompt) ? T("BWT_Tutorial_Gesture_GiveItATry") : prompt);
+                string.IsNullOrEmpty(prompt) ? GetGestureLabel(kind) : prompt);
         }
 
-        internal static void DrawOutcome(string lessonId, BWTTutorialAnchor anchor)
+        internal static void DrawCompletionTransfer(
+            string lessonId,
+            BWTTutorialAnchor source,
+            Rect explanationRect)
         {
-            if (!anchor.IsValid)
+            if (!source.IsValid || explanationRect.width <= 0f || explanationRect.height <= 0f)
             {
                 return;
             }
 
-            float elapsed = GetElapsedSinceStart("outcome:" + lessonId);
-            Vector2 point = anchor.Rect.center;
-            if (elapsed < 0.8f)
+            const int particleCount = 32;
+            const float breakSeconds = 0.55f;
+            const float flightSeconds = 1.55f;
+            float elapsed = GetElapsedSinceStart("completion-transfer:" + lessonId);
+            float breakProgress = Mathf.Clamp01(elapsed / breakSeconds);
+            Vector2 sourceCenter = source.Rect.center;
+            Vector2 destination = new Vector2(
+                explanationRect.xMin + 10f,
+                explanationRect.center.y);
+            if (elapsed < breakSeconds)
             {
-                float fade = 1f - Mathf.Clamp01(elapsed / 0.8f);
-                DrawRipple(point, Mathf.Clamp01(elapsed / 0.65f));
-                DrawPointer(point, fade);
+                BWTTutorialAnchorRenderer.DrawOutline(
+                    source,
+                    BWTTutorialAnchorRenderer.TutorialGold(1f - breakProgress * 0.78f),
+                    Mathf.Lerp(3f, 1f, breakProgress));
             }
 
-            string label = lessonId == BWTGeneralTutorial.PrioritySkillLesson && elapsed < 1.8f
-                ? T("BWT_Tutorial_Gesture_ReleaseShift")
-                : T("BWT_Tutorial_Outcome_LookHere");
-            float alpha = Mathf.Clamp01((elapsed - 0.2f) / 0.45f);
-            DrawModifierBadge(point, label, alpha);
-            float pulse = 0.7f + 0.3f * Mathf.Sin(Time.realtimeSinceStartup * 3.5f);
-            DrawCircle(point, 22f, BWTTutorialAnchorRenderer.TutorialGold(alpha * pulse), 2f);
+            for (int i = 0; i < particleCount; i++)
+            {
+                float angle = Mathf.PI * 2f * i / particleCount;
+                Vector2 direction = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
+                Vector2 start = sourceCenter + new Vector2(
+                    direction.x * source.Rect.width * 0.5f,
+                    direction.y * source.Rect.height * 0.5f);
+                float delay = i * 0.018f;
+                float travel = Mathf.Clamp01((elapsed - breakSeconds * 0.45f - delay) / flightSeconds);
+                if (travel <= 0f || travel >= 1f)
+                {
+                    continue;
+                }
+
+                float eased = Smooth(travel);
+                Vector2 control = Vector2.Lerp(start, destination, 0.5f) +
+                                  new Vector2(0f, -32f - (i % 5) * 5f);
+                float inverse = 1f - eased;
+                Vector2 point = inverse * inverse * start +
+                                2f * inverse * eased * control +
+                                eased * eased * destination;
+                float size = Mathf.Lerp(9f, 4f, eased);
+                float alpha = Mathf.Lerp(0.95f, 0.5f, eased);
+                Vector2 trailPoint = Vector2.Lerp(point, start, 0.06f);
+                float trailSize = size * 0.62f;
+                Widgets.DrawBoxSolid(
+                    new Rect(
+                        trailPoint.x - trailSize * 0.5f,
+                        trailPoint.y - trailSize * 0.5f,
+                        trailSize,
+                        trailSize),
+                    BWTTutorialAnchorRenderer.TutorialGold(alpha * 0.42f));
+                Widgets.DrawBoxSolid(
+                    new Rect(point.x - size * 0.5f, point.y - size * 0.5f, size, size),
+                    BWTTutorialAnchorRenderer.TutorialGold(alpha));
+            }
+
+            float arrival = Mathf.Clamp01((elapsed - 0.88f) / 0.6f);
+            if (arrival <= 0f)
+            {
+                return;
+            }
+
+            float pulse = 0.72f + 0.28f * Mathf.Sin(Time.realtimeSinceStartup * 3.5f);
+            float highlightAlpha = Mathf.Lerp(0f, pulse, arrival);
+            Widgets.DrawBoxSolid(
+                explanationRect,
+                BWTTutorialAnchorRenderer.TutorialGold(0.055f * arrival));
+            Color oldColor = GUI.color;
+            GUI.color = BWTTutorialAnchorRenderer.TutorialGold(highlightAlpha);
+            Widgets.DrawBox(explanationRect.ExpandedBy(4f), 2);
+            GUI.color = oldColor;
+            if (arrival < 1f)
+            {
+                DrawRipple(destination, arrival);
+            }
         }
 
         private static GestureKind ResolveKind(string lessonId, int phase)
@@ -120,7 +180,7 @@ namespace Better_Work_Tab.Features.Tutorial
 
             if (lessonId == BWTGeneralTutorial.PrioritySkillLesson)
             {
-                return GestureKind.HoldShift;
+                return phase == 0 ? GestureKind.HoldShift : GestureKind.None;
             }
 
             if (lessonId == BWTGeneralTutorial.PriorityScheduleLesson)
@@ -147,6 +207,11 @@ namespace Better_Work_Tab.Features.Tutorial
 
         private static float GetElapsed(string identity, GestureKind kind)
         {
+            if (kind == GestureKind.HoldShift)
+            {
+                return GetElapsedSinceStart(identity);
+            }
+
             float cycleSeconds = kind == GestureKind.DragRight
                 ? DragCycleSeconds
                 : ClickCycleSeconds;
@@ -247,6 +312,18 @@ namespace Better_Work_Tab.Features.Tutorial
             const float tryEnd = 3.25f;
 
             Vector2 clickPoint = target.center;
+            if (kind == GestureKind.HoldShift)
+            {
+                float approach = Mathf.Clamp01(elapsed / approachEnd);
+                Vector2 pointer = Vector2.Lerp(
+                    clickPoint + new Vector2(-26f, -20f),
+                    clickPoint,
+                    Smooth(approach));
+                DrawModifierBadge(pointer, GetGestureLabel(kind), Mathf.Clamp01(approach * 1.5f));
+                DrawPointer(pointer, Mathf.Clamp01(approach * 1.5f));
+                return;
+            }
+
             bool drawRipple = kind != GestureKind.HoldShift;
             if (elapsed < approachEnd)
             {

@@ -17,9 +17,11 @@ namespace Better_Work_Tab.ModSupport.Mods.Spine
         private const string StandaloneAssemblyName = "Spine";
         private static readonly SemanticVersion MinimumVersion =
             new SemanticVersion(1, 0, 0);
+        // BWT compiles its original fluent-transpiler implementation into both
+        // assembly variants. Standalone Spine supplies only the shared runtime
+        // contracts that the external variant removes from its own build.
         private static readonly SpineCapability RequiredCapabilities =
-            SpineCapability.BoundedCaches |
-            SpineCapability.FluentTranspilers;
+            SpineCapability.BoundedCaches;
 
         private static bool initialized;
         private static SpineCompatibilityDecision decision;

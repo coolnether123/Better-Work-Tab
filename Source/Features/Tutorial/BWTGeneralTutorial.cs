@@ -73,6 +73,7 @@ namespace Better_Work_Tab.Features.Tutorial
         private static bool ownsCurrentPointer;
         private const int FloatingSelectorWindowId = 0x42575451;
         private const int FloatingLessonWindowId = 0x42575452;
+        private const int FloatingCompletionTransferWindowId = 0x42575453;
         private const float WorkTabVerticalChrome = 6f;
         private const int CompletionOutcomePhase = 1000;
 
@@ -539,6 +540,16 @@ namespace Better_Work_Tab.Features.Tutorial
 
         internal static void NotifyWorkTabClosed()
         {
+            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
+            if (settings?.activeTutorialLessonId == PrioritySkillLesson &&
+                settings.tutorialLessonPhase == 1)
+            {
+                // A held-key lesson is meaningful only while its effect is visible.
+                // Do not carry a transient modifier phase across a closed Work tab.
+                settings.tutorialLessonPhase = 0;
+                skillVisibleStartedAt = -1f;
+            }
+
             ownsCurrentPointer = false;
             Selector.ClearPinnedSelection();
             BWTTutorialGestureDemo.Reset();
@@ -576,9 +587,7 @@ namespace Better_Work_Tab.Features.Tutorial
             // Repaint events do not reliably retain keyboard modifiers. Read
             // the live key state as well so the Shift explanation remains
             // visible for as long as the player holds the key.
-            bool shift = (Event.current?.shift ?? false) ||
-                         Input.GetKey(KeyCode.LeftShift) ||
-                         Input.GetKey(KeyCode.RightShift);
+            bool shift = ShiftHelper.IsHeld;
             bool subWork = SubWorkDrilldownState.HasAnyDrilldown;
             BWTTutorialCourse course = BetterWorkTabMod.Settings?.selectedTutorialCourse ?? BWTTutorialCourse.Full;
             BWTTutorialOptionDefinition[] pawnLessons = BuildOptions(course, TutorialHubAnchor.PawnName);
@@ -632,12 +641,16 @@ namespace Better_Work_Tab.Features.Tutorial
             int phase)
         {
             BWTTutorialAnchor localAnchor = ResolveLessonDisplayAnchor(localAnchors, lessonId, phase);
-            DrawLessonAnchor(localAnchor);
-            if (phase == CompletionOutcomePhase)
+            bool showingCompletion = phase == CompletionOutcomePhase;
+            bool skillNumbersAreBeingExplained =
+                lessonId == PrioritySkillLesson && phase != 0;
+            bool showingAttentionTransfer = showingCompletion ||
+                (lessonId == PrioritySkillLesson && phase == 1);
+            if (!showingCompletion && !skillNumbersAreBeingExplained)
             {
-                BWTTutorialGestureDemo.DrawOutcome(lessonId, localAnchor);
+                DrawLessonAnchor(localAnchor);
             }
-            else
+            if (!showingCompletion)
             {
                 BWTTutorialGestureDemo.Draw(
                     lessonId,
@@ -653,6 +666,21 @@ namespace Better_Work_Tab.Features.Tutorial
             string body = GetLessonBody(lessonId, phase);
             LessonLayout rootLayout = BuildLessonLayout(screenBounds, rootWorkTabBounds, rootAnchor, body);
             LessonLayout localLayout = rootLayout.OffsetBy(-rootLayout.CardRect.position);
+
+            if (showingAttentionTransfer)
+            {
+                Find.WindowStack.ImmediateWindow(
+                    FloatingCompletionTransferWindowId,
+                    screenBounds,
+                    WindowLayer.Super,
+                    () => BWTTutorialGestureDemo.DrawCompletionTransfer(
+                        lessonId,
+                        rootAnchor,
+                        rootLayout.BodyRect),
+                    doBackground: false,
+                    absorbInputAroundWindow: false,
+                    shadowAlpha: 0f);
+            }
 
             Find.WindowStack.ImmediateWindow(
                 FloatingLessonWindowId,
@@ -1018,21 +1046,35 @@ namespace Better_Work_Tab.Features.Tutorial
                     {
                         skillVisibleStartedAt = Time.realtimeSinceStartup;
                     }
-                    else if (TutorialProgressTransitions.ShouldCompleteAction(
-                                 TutorialActionRequirement.SkillVisibleForInterval,
-                                 priorityChanged: false,
-                                 skillVisibleSeconds: Time.realtimeSinceStartup - skillVisibleStartedAt,
-                                 scheduleOpened: false,
-                                 scheduleEdited: false,
-                                 scheduleClosed: false,
-                                 routedSettings: false,
-                                 observedAction: false))
+
+                    if (settings.tutorialLessonPhase == 0)
+                    {
+                        AdvanceLessonPhase(1);
+                    }
+                }
+
+                bool shiftHeld = ShiftHelper.IsHeld;
+                if (settings.tutorialLessonPhase == 1 && !shiftHeld)
+                {
+                    double visibleSeconds = skillVisibleStartedAt < 0f
+                        ? 0d
+                        : Time.realtimeSinceStartup - skillVisibleStartedAt;
+                    if (TutorialProgressTransitions.ShouldCompleteAction(
+                            TutorialActionRequirement.SkillVisibleForInterval,
+                            priorityChanged: false,
+                            skillVisibleSeconds: visibleSeconds,
+                            scheduleOpened: false,
+                            scheduleEdited: false,
+                            scheduleClosed: false,
+                            routedSettings: false,
+                            observedAction: false))
                     {
                         CompleteLesson(lesson);
                     }
-                }
-                else
-                {
+                    else
+                    {
+                        AdvanceLessonPhase(0);
+                    }
                     skillVisibleStartedAt = -1f;
                 }
                 return;
@@ -1234,7 +1276,9 @@ namespace Better_Work_Tab.Features.Tutorial
 
             if (lessonId == PrioritySkillLesson)
             {
-                return BWTTutorialUserContext.BuildSkillNumberTutorialBody(lessonAnchor.WorkType);
+                return BWTTutorialUserContext.BuildSkillNumberTutorialBody(
+                    lessonAnchor.WorkType,
+                    skillNumbersVisible: phase == 1);
             }
 
             if (lessonId == PriorityScheduleLesson)

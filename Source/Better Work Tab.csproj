@@ -243,6 +243,7 @@
     <Compile Include="Spine\DragDrop\ListDragSession.cs" />
     <Compile Include="Spine\DragDrop\Util\ListDragVisuals.cs" />
     <Compile Include="Spine\harmony\HarmonyCompat.cs" />
+    <Compile Include="Spine\harmony\HarmonyLog.cs" />
     <Compile Include="Spine\harmony\Transpilers\CartographerExtensions.cs" />
     <Compile Include="Spine\harmony\Transpilers\FluentReplacementResult.cs" />
     <Compile Include="Spine\harmony\Transpilers\FluentTranspiler.cs" />
@@ -441,8 +442,6 @@
          layout, profiling, serialization, and settings extensions stay embedded. -->
     <Compile Remove="Spine\Core\Caching\BoundedLruCache.cs" />
     <Compile Remove="Spine\Core\Diagnostics\ApiDescriptors.cs" />
-    <Compile Remove="Spine\harmony\HarmonyCompat.cs" />
-    <Compile Remove="Spine\harmony\Transpilers\*.cs" />
     <Compile Remove="Spine\UI\ColorPicker\*.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -485,11 +484,13 @@
   </Target>
   <Target Name="RejectStandaloneSpinePayload" AfterTargets="Build">
     <ItemGroup>
-      <ForbiddenSpinePayload Include="$(MSBuildProjectDirectory)\..\*\Assemblies\Spine*.dll" />
+      <ForbiddenSpinePayload Include="$(MSBuildProjectDirectory)\..\1.6\Assemblies\Spine*.dll" />
+      <ForbiddenSpinePayload
+        Include="$(MSBuildProjectDirectory)\..\1.6\ExternalSpine\Assemblies\Spine*.dll" />
     </ItemGroup>
     <Error
       Condition="'@(ForbiddenSpinePayload)' != ''"
-      Text="BWT payload must contain only Better Work Tab.dll. Remove forbidden Spine assembly: @(ForbiddenSpinePayload)" />
+      Text="BWT must embed its transpiler implementation and may not ship a separate Spine assembly. Remove forbidden Spine payload: @(ForbiddenSpinePayload)" />
   </Target>
   <ItemGroup>
     <Publicize Include="Assembly-CSharp:RimWorld.WidgetsWork.WorkBoxBGTex_AgeDisabled" />

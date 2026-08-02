@@ -5,10 +5,19 @@ namespace Better_Work_Tab.Features.Tutorial
 {
     internal static class BWTTutorialUserContext
     {
-        internal static string BuildSkillNumberTutorialBody(WorkTypeDef workType)
+        internal static string BuildSkillNumberTutorialBody(
+            WorkTypeDef workType,
+            bool skillNumbersVisible)
         {
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
-            string body = "BWT_Tutorial_PrioritySkill_Action".Translate();
+            string body = (skillNumbersVisible
+                ? "BWT_Tutorial_PrioritySkill_Held"
+                : "BWT_Tutorial_PrioritySkill_Action").Translate();
+            if (!skillNumbersVisible)
+            {
+                return body;
+            }
+
             bool smallerNumbersCanAppear = settings != null &&
                 settings.enableSkillOverlayFeature &&
                 workType?.relevantSkills != null &&
