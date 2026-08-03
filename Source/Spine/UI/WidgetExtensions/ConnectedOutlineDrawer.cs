@@ -77,6 +77,49 @@ namespace Spine.UI.WidgetExtensions
             }
         }
 
+        /// <summary>
+        /// Returns the polygon offset outward by <paramref name="distance"/> along
+        /// its edge normals. Unlike pushing each point away from the centroid, this
+        /// keeps every edge parallel to the original, so a long thin angled quad
+        /// stays aligned with the label it surrounds.
+        /// </summary>
+        internal static Vector2[] Inflate(Vector2[] points, float distance)
+        {
+            if (points == null || points.Length < 3 || Mathf.Abs(distance) <= 0.001f)
+            {
+                return points;
+            }
+
+            int count = points.Length;
+            var leftOffsets = new Vector2[count];
+            var rightOffsets = new Vector2[count];
+            CalculateMiteredOffsets(points, Mathf.Abs(distance), leftOffsets, rightOffsets);
+
+            // The edge normal points inward for a positively wound polygon, so the
+            // winding decides which offset set faces outward. Callers stay free to
+            // hand over quads wound either way.
+            bool leftFacesOutward = SignedArea(points) < 0f;
+            if (distance < 0f)
+            {
+                leftFacesOutward = !leftFacesOutward;
+            }
+
+            return leftFacesOutward ? leftOffsets : rightOffsets;
+        }
+
+        private static float SignedArea(Vector2[] points)
+        {
+            float total = 0f;
+            for (int i = 0; i < points.Length; i++)
+            {
+                Vector2 current = points[i];
+                Vector2 next = points[(i + 1) % points.Length];
+                total += (current.x * next.y) - (next.x * current.y);
+            }
+
+            return total * 0.5f;
+        }
+
         private static void CalculateMiteredOffsets(
             Vector2[] points,
             float halfWidth,

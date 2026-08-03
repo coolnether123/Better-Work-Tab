@@ -7,6 +7,7 @@ using Better_Work_Tab.UI.Headers.Angled;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using RimWorld;
 using Spine.UI.Tutorial;
+using Spine.UI.WidgetExtensions;
 using UnityEngine;
 using Verse;
 
@@ -207,25 +208,18 @@ namespace Better_Work_Tab.Features.Tutorial
             if ((BetterWorkTabMod.Settings?.enableAngledHeaders ?? false) &&
                 TryGetAngledHeaderQuad(column, layout, out Vector2[] angledQuad))
             {
-                Vector2 center = Vector2.zero;
-                for (int i = 0; i < angledQuad.Length; i++)
-                {
-                    center += angledQuad[i];
-                }
-                center /= angledQuad.Length;
-
-                var outline = new Vector2[angledQuad.Length];
+                // Offset along the edge normals rather than away from the quad's
+                // centre. A centred push scales a long thin label box mostly along
+                // its long axis, which tilted the outline off the glyphs it frames.
+                Vector2[] outline = ConnectedOutlineDrawer.Inflate(
+                    angledQuad,
+                    AngledHeaderOutlineClearance);
                 float xMin = float.MaxValue;
                 float yMin = float.MaxValue;
                 float xMax = float.MinValue;
                 float yMax = float.MinValue;
-                for (int i = 0; i < angledQuad.Length; i++)
+                for (int i = 0; i < outline.Length; i++)
                 {
-                    Vector2 direction = angledQuad[i] - center;
-                    outline[i] = angledQuad[i] +
-                        (direction.sqrMagnitude > 0.001f
-                            ? direction.normalized * AngledHeaderOutlineClearance
-                            : Vector2.zero);
                     xMin = Mathf.Min(xMin, outline[i].x);
                     yMin = Mathf.Min(yMin, outline[i].y);
                     xMax = Mathf.Max(xMax, outline[i].x);
@@ -266,7 +260,16 @@ namespace Better_Work_Tab.Features.Tutorial
             out Vector2[] angledQuad)
         {
             WorkTypeDef workType = column.SubWorkParent ?? column.Column?.workType;
-            if (AngledHeaderController.TryGetVisualGeometry(workType, out _, out angledQuad))
+
+            // A sub-work column borrows its parent's WorkTypeDef, but the parent
+            // header is not on screen during a drilldown. The angled cache still
+            // holds the parent's pre-drilldown quad, so trusting it here painted
+            // the highlight at a position where no header is drawn. Only the
+            // root header may be resolved from that cache; sub-work columns fall
+            // through to the recreation path below, which measures what is
+            // actually rendered.
+            if (column.SubWorkGiver == null &&
+                AngledHeaderController.TryGetVisualGeometry(workType, out _, out angledQuad))
             {
                 return true;
             }

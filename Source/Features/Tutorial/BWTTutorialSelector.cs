@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using Better_Work_Tab.UI;
 using Spine.UI.Tutorial;
 using UnityEngine;
 using Verse;
+using Verse.Sound;
 
 namespace Better_Work_Tab.Features.Tutorial
 {
@@ -51,70 +53,43 @@ namespace Better_Work_Tab.Features.Tutorial
 
     internal readonly struct BWTTutorialSelectorAction
     {
-        internal BWTTutorialSelectorAction(string lessonId, bool exit, bool leave = false)
+        internal BWTTutorialSelectorAction(string lessonId)
         {
             LessonId = lessonId;
-            Exit = exit;
-            Leave = leave;
         }
 
         internal string LessonId { get; }
-        internal bool Exit { get; }
-        internal bool Leave { get; }
         internal bool HasLesson => !string.IsNullOrEmpty(LessonId);
     }
 
     /// <summary>
-    /// Shared anchor/options/context renderer. Hub content is data, so
-    /// pawn, work-header, and priority-cell tutorials use one interaction model.
+    /// Anchor selection for the tutorial. Clicking a gold anchor opens a compact
+    /// list attached to it; the docked strip owns the instruction text and the
+    /// leave/pause actions, so nothing here travels to the far side of the tab.
     /// </summary>
     internal sealed class BWTTutorialSelector
     {
-        private const float PanelGap = 12f;
-        private const float CardPadding = 14f;
-        private const float ContextPadding = 13f;
-        private const float ScrollbarWidth = 16f;
-        private const float OptionWidth = 220f;
-        private const float ContextWidth = 280f;
-        private const float FooterHeight = 40f;
-        private const float MinimumPanelWidth = 420f;
-        private const float PreferredPanelWidth = OptionWidth + ContextWidth + PanelGap + CardPadding * 2f;
-        private const float PanelVerticalOverhead = CardPadding * 2f + 30f + 8f + FooterHeight + 8f;
-        private static readonly TutorialOverlayStyle PanelStyle = new TutorialOverlayStyle();
+        private const float PopupWidth = 250f;
+        private const float PopupPadding = 7f;
+        private const float TitleHeight = 22f;
+        private const float OptionHeight = 26f;
+        private const float OptionGap = 3f;
+        private const float AnchorGap = 8f;
+        private const float MarkerWidth = 16f;
 
         // Give players enough time to travel from a narrow/angled Work-tab
-        // target into the detached tutorial card without losing its context.
+        // target into the attached list without losing its context.
         private readonly TutorialHoverGraceState hover = new TutorialHoverGraceState(0.75d);
         private TutorialHubAnchor pinnedAnchor = TutorialHubAnchor.None;
         private BWTTutorialAnchor pinnedGeometry;
-        private string hoveredLessonId;
-        private float hoveredLessonLastConnectedAt = -1f;
-        private Rect lastOptionsRect;
-        private Rect lastContextRect;
-        private Rect lastPanelRect;
-        private Vector2 optionScrollPosition;
-        private Vector2 contextScrollPosition;
-        private TutorialHubAnchor optionScrollAnchor = TutorialHubAnchor.None;
-        private float lastContextContentHeight;
-        private string contextContentKey;
+        private Rect lastPopupRect;
 
+        /// <summary>The anchor a click has pinned, or None. Observed by the quicktest driver.</summary>
         internal TutorialHubAnchor PinnedAnchor => pinnedAnchor;
 
         internal void Reset()
         {
-            hover.Clear();
-            pinnedAnchor = TutorialHubAnchor.None;
-            pinnedGeometry = default(BWTTutorialAnchor);
-            hoveredLessonId = null;
-            hoveredLessonLastConnectedAt = -1f;
-            lastOptionsRect = Rect.zero;
-            lastContextRect = Rect.zero;
-            lastPanelRect = Rect.zero;
-            optionScrollPosition = Vector2.zero;
-            contextScrollPosition = Vector2.zero;
-            optionScrollAnchor = TutorialHubAnchor.None;
-            lastContextContentHeight = 0f;
-            contextContentKey = null;
+            ClearPinnedSelection();
         }
 
         internal void ClearPinnedSelection()
@@ -122,12 +97,7 @@ namespace Better_Work_Tab.Features.Tutorial
             hover.Clear();
             pinnedAnchor = TutorialHubAnchor.None;
             pinnedGeometry = default(BWTTutorialAnchor);
-            hoveredLessonId = null;
-            hoveredLessonLastConnectedAt = -1f;
-            lastOptionsRect = Rect.zero;
-            lastContextRect = Rect.zero;
-            lastPanelRect = Rect.zero;
-            contextContentKey = null;
+            lastPopupRect = Rect.zero;
         }
 
         internal bool TryHandleSelectionInput(
@@ -165,116 +135,41 @@ namespace Better_Work_Tab.Features.Tutorial
         }
 
         internal bool TryHandleInput(
-            Rect bounds,
             Rect workBounds,
             IList<BWTTutorialAnchor> anchors,
             IDictionary<TutorialHubAnchor, BWTTutorialHubDefinition> hubs,
-            ICollection<string> completedLessonIds,
             Event evt,
-            string recommendedLabel,
-            string exitLabel,
-            string leaveLabel,
             out BWTTutorialSelectorAction action)
         {
             action = default(BWTTutorialSelectorAction);
-            if (evt == null || anchors == null || anchors.Count == 0)
+            if (evt == null || anchors == null || anchors.Count == 0 || hubs == null)
             {
                 return false;
             }
 
-            TutorialHubAnchor anchorAtPointer = GetAnchorAt(anchors, evt.mousePosition);
-            TutorialHubAnchor active = ResolveActiveAnchor(anchorAtPointer);
-
-            if (active == TutorialHubAnchor.None || !hubs.TryGetValue(active, out BWTTutorialHubDefinition hub))
+            TutorialHubAnchor active = ResolveActiveAnchor(GetAnchorAt(anchors, evt.mousePosition));
+            if (active == TutorialHubAnchor.None ||
+                !hubs.TryGetValue(active, out BWTTutorialHubDefinition hub) ||
+                hub.Options.Count == 0)
             {
                 return false;
             }
 
-            SelectorLayout layout = BuildLayout(
-                bounds,
-                workBounds,
-                FindAnchorRect(anchors, active),
-                hub,
-                recommendedLabel);
-            if (!layout.PanelRect.Contains(evt.mousePosition))
+            PopupLayout layout = BuildLayout(workBounds, FindAnchorRect(anchors, active), hub);
+            if (!layout.PopupRect.Contains(evt.mousePosition))
             {
-                return false;
-            }
-
-            if (evt.type == EventType.ScrollWheel && layout.OptionsRect.Contains(evt.mousePosition))
-            {
-                optionScrollPosition.y = TutorialOverflowScrollPolicy.ApplyWheel(
-                    optionScrollPosition.y,
-                    evt.delta.y,
-                    layout.OptionsRect.height,
-                    layout.OptionViewRect.height);
-                evt.Use();
-                return true;
-            }
-
-            if (evt.type == EventType.ScrollWheel && layout.ContextRect.Contains(evt.mousePosition))
-            {
-                contextScrollPosition.y = TutorialOverflowScrollPolicy.ApplyWheel(
-                    contextScrollPosition.y,
-                    evt.delta.y,
-                    Mathf.Max(0f, layout.ContextRect.height - ContextPadding * 2f),
-                    lastContextContentHeight);
-                evt.Use();
-                return true;
-            }
-
-            bool overOptionsScrollbar =
-                layout.OptionViewRect.height > layout.OptionsRect.height + 0.5f &&
-                new Rect(
-                    layout.OptionsRect.xMax - ScrollbarWidth,
-                    layout.OptionsRect.y,
-                    ScrollbarWidth,
-                    layout.OptionsRect.height).Contains(evt.mousePosition);
-            Rect contextInner = layout.ContextRect.ContractedBy(ContextPadding);
-            bool overContextScrollbar =
-                lastContextContentHeight > contextInner.height + 0.5f &&
-                new Rect(
-                    contextInner.xMax - ScrollbarWidth,
-                    contextInner.y,
-                    ScrollbarWidth,
-                    contextInner.height).Contains(evt.mousePosition);
-            if ((evt.type == EventType.MouseDown && (overOptionsScrollbar || overContextScrollbar)) ||
-                ((evt.type == EventType.MouseDrag || evt.type == EventType.MouseUp) && GUIUtility.hotControl != 0))
-            {
-                // BeginScrollView owns scrollbar dragging. The Work-grid router
-                // has already honored tutorial pointer ownership beneath this window.
                 return false;
             }
 
             if (evt.type == EventType.MouseDown && evt.button == 0)
             {
-                if (layout.ExitRect.Contains(evt.mousePosition))
-                {
-                    action = new BWTTutorialSelectorAction(null, exit: true);
-                    evt.Use();
-                    return true;
-                }
-                if (layout.LeaveRect.Contains(evt.mousePosition))
-                {
-                    action = new BWTTutorialSelectorAction(null, exit: false, leave: true);
-                    evt.Use();
-                    return true;
-                }
-
                 for (int i = 0; i < hub.Options.Count && i < layout.OptionRects.Count; i++)
                 {
-                    Rect optionRect = GetScreenOptionRect(layout, layout.OptionRects[i], optionScrollPosition.y);
-                    if (!layout.OptionsRect.Overlaps(optionRect) || !optionRect.Contains(evt.mousePosition))
+                    if (layout.OptionRects[i].Contains(evt.mousePosition))
                     {
-                        continue;
+                        action = new BWTTutorialSelectorAction(hub.Options[i].LessonId);
+                        break;
                     }
-
-                    if (TutorialProgressTransitions.CanStartLesson(optionHovered: true, optionClicked: true))
-                    {
-                        action = new BWTTutorialSelectorAction(hub.Options[i].LessonId, exit: false);
-                    }
-                    evt.Use();
-                    return true;
                 }
 
                 evt.Use();
@@ -291,13 +186,20 @@ namespace Better_Work_Tab.Features.Tutorial
         }
 
         internal bool ContainsPointer(
-            Rect bounds,
             Rect workBounds,
             IList<BWTTutorialAnchor> anchors,
             IDictionary<TutorialHubAnchor, BWTTutorialHubDefinition> hubs,
-            Vector2 pointer,
-            string recommendedLabel)
+            Vector2 pointer)
         {
+            // The list drawn last frame owns the pointer outright. Re-deriving it
+            // from the active anchor misses the case where the pointer has left
+            // the anchor to travel into the list, which let the grid underneath
+            // keep drawing hover highlights and tooltips through the popup.
+            if (lastPopupRect.Contains(pointer))
+            {
+                return true;
+            }
+
             if (anchors == null || anchors.Count == 0 || hubs == null)
             {
                 return false;
@@ -305,24 +207,17 @@ namespace Better_Work_Tab.Features.Tutorial
 
             TutorialHubAnchor active = ResolveActiveAnchor(GetAnchorAt(anchors, pointer));
             return hubs.TryGetValue(active, out BWTTutorialHubDefinition hub) &&
-                   BuildLayout(
-                       bounds,
-                       workBounds,
-                       FindAnchorRect(anchors, active),
-                       hub,
-                       recommendedLabel).PanelRect.Contains(pointer);
+                   hub.Options.Count > 0 &&
+                   BuildLayout(workBounds, FindAnchorRect(anchors, active), hub)
+                       .PopupRect.Contains(pointer);
         }
 
         internal void Draw(
-            Rect bounds,
             Rect workBounds,
             IList<BWTTutorialAnchor> anchors,
             IDictionary<TutorialHubAnchor, BWTTutorialHubDefinition> hubs,
             ICollection<string> completedLessonIds,
-            string defaultHeading,
-            string recommendedLabel,
-            string exitLabel,
-            string leaveLabel)
+            string recommendedLabel)
         {
             if (anchors == null || anchors.Count == 0)
             {
@@ -331,88 +226,111 @@ namespace Better_Work_Tab.Features.Tutorial
 
             Vector2 pointer = Event.current?.mousePosition ?? new Vector2(-1f, -1f);
             TutorialHubAnchor pointerAnchor = GetAnchorAt(anchors, pointer);
-            bool overPanel = lastPanelRect.Contains(pointer);
             TutorialHubAnchor hoverAnchor = hover.Update(
                 Time.realtimeSinceStartup,
                 pointerAnchor,
-                overPanel,
+                lastPopupRect.Contains(pointer),
                 false);
             TutorialHubAnchor active = pinnedAnchor != TutorialHubAnchor.None ? pinnedAnchor : hoverAnchor;
-            if (active != TutorialHubAnchor.None)
+            DrawAnchorOutlines(anchors, active, pointerAnchor, completedLessonIds, hubs);
+
+            if (!hubs.TryGetValue(active, out BWTTutorialHubDefinition hub) || hub.Options.Count == 0)
             {
-                // Shade the complete Work-tab surface. The inferred content
-                // bounds omit toolbars and footer rows, which left visibly
-                // different strips around the tutorial overlay.
-                DrawFocusDim(bounds, FindAnchorRect(anchors, active));
-            }
-            DrawAnchorOutlines(anchors, active, pointerAnchor);
-            if (!hubs.TryGetValue(active, out BWTTutorialHubDefinition hub))
-            {
-                lastOptionsRect = Rect.zero;
-                lastContextRect = Rect.zero;
-                lastPanelRect = Rect.zero;
-                hoveredLessonId = null;
-                optionScrollAnchor = TutorialHubAnchor.None;
+                lastPopupRect = Rect.zero;
                 return;
             }
 
-            SelectorLayout layout = BuildLayout(
-                bounds,
-                workBounds,
-                FindAnchorRect(anchors, active),
-                hub,
-                recommendedLabel);
-            lastPanelRect = layout.PanelRect;
-            lastOptionsRect = layout.OptionsRect;
-            lastContextRect = layout.ContextRect;
-            if (optionScrollAnchor != active)
-            {
-                optionScrollAnchor = active;
-                optionScrollPosition = Vector2.zero;
-            }
-            optionScrollPosition.y = TutorialOverflowScrollPolicy.ClampOffset(
-                optionScrollPosition.y,
-                layout.OptionsRect.height,
-                layout.OptionViewRect.height);
-            string currentHoveredLesson = GetHoveredLesson(
-                hub,
-                layout,
-                optionScrollPosition.y,
-                pointer);
-            if (!string.IsNullOrEmpty(currentHoveredLesson))
-            {
-                hoveredLessonId = currentHoveredLesson;
-                hoveredLessonLastConnectedAt = Time.realtimeSinceStartup;
-            }
-            else if (!layout.ContextRect.Contains(pointer) &&
-                     Time.realtimeSinceStartup - hoveredLessonLastConnectedAt > 0.22f)
-            {
-                hoveredLessonId = null;
-            }
-            BWTTutorialOptionDefinition hoveredOption = FindOption(hub, hoveredLessonId);
+            PopupLayout layout = BuildLayout(workBounds, FindAnchorRect(anchors, active), hub);
+            lastPopupRect = layout.PopupRect;
+            DrawPopup(hub, layout, completedLessonIds, recommendedLabel, pointer);
+        }
 
-            string nextContextKey = hub.Anchor + ":" + (hoveredOption?.LessonId ?? string.Empty);
-            if (!string.Equals(contextContentKey, nextContextKey, StringComparison.Ordinal))
+        private void DrawPopup(
+            BWTTutorialHubDefinition hub,
+            PopupLayout layout,
+            ICollection<string> completed,
+            string recommendedLabel,
+            Vector2 pointer)
+        {
+            Color oldColor = GUI.color;
+            TextAnchor oldAnchor = Text.Anchor;
+            GameFont oldFont = Text.Font;
+            bool oldWordWrap = Text.WordWrap;
+            Text.WordWrap = false;
+
+            // Same tutor chrome as the strip, with RimWorld's own drop shadow, so
+            // the list reads as one surface with the band rather than a separate
+            // widget kit that happens to be open at the same time.
+            Widgets.DrawShadowAround(layout.PopupRect);
+            Widgets.DrawWindowBackgroundTutor(layout.PopupRect);
+
+            Text.Font = GameFont.Small;
+            Text.Anchor = TextAnchor.MiddleLeft;
+            GUI.color = new Color(1f, 1f, 1f, 0.6f);
+            Widgets.Label(layout.TitleRect, hub.Title.Truncate(layout.TitleRect.width));
+            GUI.color = oldColor;
+            for (int i = 0; i < hub.Options.Count && i < layout.OptionRects.Count; i++)
             {
-                contextContentKey = nextContextKey;
-                contextScrollPosition = Vector2.zero;
+                BWTTutorialOptionDefinition option = hub.Options[i];
+                Rect rect = layout.OptionRects[i];
+                bool isComplete = TutorialProgressTransitions.IsCompleted(completed, option.LessonId);
+                bool isHovered = rect.Contains(pointer);
+
+                // RimWorld's own hover wash and mouseover tick, so the list feels
+                // like every other selectable row in the game.
+                Widgets.DrawHighlightIfMouseover(rect);
+                MouseoverSounds.DoRegion(rect);
+
+                // Completion reads as a check plus a quieter label, so a glance at
+                // the list shows what has already been looked at.
+                Rect markerRect = new Rect(rect.x + 4f, rect.y, MarkerWidth, rect.height);
+                if (isComplete)
+                {
+                    GUI.color = new Color(1f, 1f, 1f, 0.6f);
+                    Text.Anchor = TextAnchor.MiddleCenter;
+                    Widgets.Label(markerRect, "✓");
+                }
+
+                Rect labelRect = new Rect(
+                    markerRect.xMax + 4f,
+                    rect.y,
+                    Mathf.Max(1f, rect.width - MarkerWidth - (option.Recommended ? 26f : 10f)),
+                    rect.height);
+                Text.Anchor = TextAnchor.MiddleLeft;
+                GUI.color = isComplete
+                    ? new Color(1f, 1f, 1f, 0.5f)
+                    : isHovered ? Widgets.MouseoverOptionColor : Widgets.NormalOptionColor;
+                Widgets.Label(labelRect, option.Label.Truncate(labelRect.width));
+
+                // Recommended is a mark, not words appended to the label. The old
+                // inline separator wrapped and left every row a different height.
+                if (option.Recommended && !isComplete)
+                {
+                    Rect starRect = new Rect(rect.xMax - 22f, rect.y, 18f, rect.height);
+                    GUI.color = BWTUiPalette.TutorAccent;
+                    Text.Anchor = TextAnchor.MiddleCenter;
+                    Widgets.Label(starRect, "★");
+                    TooltipHandler.TipRegion(starRect, recommendedLabel);
+                }
+
+                if (!string.IsNullOrEmpty(option.Body))
+                {
+                    TooltipHandler.TipRegion(rect, option.Body);
+                }
             }
 
-            DrawPanel(
-                hub,
-                hoveredOption,
-                layout,
-                completedLessonIds,
-                defaultHeading,
-                recommendedLabel,
-                exitLabel,
-                leaveLabel);
+            GUI.color = oldColor;
+            Text.Anchor = oldAnchor;
+            Text.Font = oldFont;
+            Text.WordWrap = oldWordWrap;
         }
 
         private void DrawAnchorOutlines(
             IList<BWTTutorialAnchor> anchors,
             TutorialHubAnchor active,
-            TutorialHubAnchor pointerAnchor)
+            TutorialHubAnchor pointerAnchor,
+            ICollection<string> completed,
+            IDictionary<TutorialHubAnchor, BWTTutorialHubDefinition> hubs)
         {
             float pulse = 0.5f + 0.5f * Mathf.Sin(Time.realtimeSinceStartup * 4.2f);
             for (int i = 0; i < anchors.Count; i++)
@@ -421,244 +339,75 @@ namespace Better_Work_Tab.Features.Tutorial
                 bool selected = anchor.Kind == active && active != TutorialHubAnchor.None &&
                     (!pinnedGeometry.IsValid || ApproximatelySame(anchor.Rect, pinnedGeometry.Rect));
                 bool emphasized = selected || anchor.Kind == pointerAnchor;
-                float alpha = emphasized ? 1f : Mathf.Lerp(0.46f, 0.78f, pulse);
-                if (selected && anchor.Kind != TutorialHubAnchor.WorkHeader)
-                {
-                    BWTTutorialAnchorRenderer.DrawOutline(
-                        anchor,
-                        BWTTutorialAnchorRenderer.TutorialGold(0.34f),
-                        5f);
-                }
+
+                // An anchor whose lessons are all done stops pulsing for attention.
+                bool exhausted = AllOptionsComplete(anchor.Kind, hubs, completed);
+                float alpha = exhausted
+                    ? (emphasized ? 0.7f : 0.3f)
+                    : emphasized ? 1f : Mathf.Lerp(0.46f, 0.78f, pulse);
                 BWTTutorialAnchorRenderer.DrawOutline(
                     anchor,
                     BWTTutorialAnchorRenderer.TutorialGold(alpha),
                     emphasized ? 3f : 2f);
             }
-
-            if (pinnedGeometry.IsValid && !ContainsRect(anchors, pinnedGeometry.Rect))
-            {
-                if (pinnedGeometry.Kind != TutorialHubAnchor.WorkHeader)
-                {
-                    BWTTutorialAnchorRenderer.DrawOutline(
-                        pinnedGeometry,
-                        BWTTutorialAnchorRenderer.TutorialGold(0.34f),
-                        5f);
-                }
-                BWTTutorialAnchorRenderer.DrawOutline(
-                    pinnedGeometry,
-                    BWTTutorialAnchorRenderer.TutorialGold(1f),
-                    3f);
-            }
         }
 
-        private void DrawPanel(
-            BWTTutorialHubDefinition hub,
-            BWTTutorialOptionDefinition hovered,
-            SelectorLayout layout,
-            ICollection<string> completed,
-            string defaultHeading,
-            string recommendedLabel,
-            string exitLabel,
-            string leaveLabel)
+        private static bool AllOptionsComplete(
+            TutorialHubAnchor kind,
+            IDictionary<TutorialHubAnchor, BWTTutorialHubDefinition> hubs,
+            ICollection<string> completed)
         {
-            Color oldColor = GUI.color;
-            TextAnchor oldAnchor = Text.Anchor;
-            GameFont oldFont = Text.Font;
-            bool oldWordWrap = Text.WordWrap;
-
-            TutorialCardRenderer.Draw(layout.PanelRect, PanelStyle);
-
-            Text.Font = GameFont.Medium;
-            Text.Anchor = TextAnchor.UpperLeft;
-            GUI.color = Color.white;
-            Widgets.Label(layout.TitleRect, hub.Title);
-
-            Text.Font = GameFont.Small;
-            Text.WordWrap = true;
-            Widgets.BeginScrollView(layout.OptionsRect, ref optionScrollPosition, layout.OptionViewRect);
-            for (int i = 0; i < hub.Options.Count && i < layout.OptionRects.Count; i++)
+            if (hubs == null || !hubs.TryGetValue(kind, out BWTTutorialHubDefinition hub) ||
+                hub.Options.Count == 0)
             {
-                BWTTutorialOptionDefinition option = hub.Options[i];
-                Rect rect = layout.OptionRects[i];
-                bool isHovered = string.Equals(option.LessonId, hovered?.LessonId, StringComparison.Ordinal);
-                bool isComplete = TutorialProgressTransitions.IsCompleted(completed, option.LessonId);
-                Widgets.DrawBoxSolid(rect, isHovered
-                    ? new Color(1f, 1f, 1f, 0.16f)
-                    : new Color(0f, 0f, 0f, 0.12f));
-                GUI.color = isHovered
-                    ? Color.white
-                    : new Color(1f, 1f, 1f, 0.35f);
-                Widgets.DrawBox(rect, 1);
-                GUI.color = Color.white;
-                string prefix = isComplete ? "✓  " : string.Empty;
-                Rect labelRect = new Rect(rect.x + 9f, rect.y + 4f, rect.width - 18f, rect.height - 8f);
-                Text.Anchor = TextAnchor.MiddleLeft;
-                Widgets.Label(labelRect, prefix + GetOptionDisplayLabel(option, recommendedLabel));
+                return false;
             }
-            Widgets.EndScrollView();
-            Text.Anchor = TextAnchor.UpperLeft;
 
-            Widgets.DrawBoxSolid(layout.ContextRect, new Color(0f, 0f, 0f, 0.16f));
-            GUI.color = new Color(1f, 1f, 1f, 0.22f);
-            Widgets.DrawBox(layout.ContextRect, 1);
-            Rect contextInner = layout.ContextRect.ContractedBy(ContextPadding);
-            Text.Font = GameFont.Small;
-            string heading = hovered?.Heading ?? defaultHeading;
-            string body = hovered?.Body ?? hub.Body;
-            float contentWidth = Mathf.Max(80f, contextInner.width);
-            float headingHeight = Mathf.Max(28f, Text.CalcHeight(heading, contentWidth));
-            float bodyHeight = Mathf.Max(28f, Text.CalcHeight(body, contentWidth));
-            lastContextContentHeight = headingHeight + 10f + bodyHeight;
-            if (lastContextContentHeight > contextInner.height + 0.5f)
-            {
-                contentWidth = Mathf.Max(80f, contextInner.width - ScrollbarWidth);
-                headingHeight = Mathf.Max(28f, Text.CalcHeight(heading, contentWidth));
-                bodyHeight = Mathf.Max(28f, Text.CalcHeight(body, contentWidth));
-                lastContextContentHeight = headingHeight + 10f + bodyHeight;
-            }
-            contextScrollPosition.y = TutorialOverflowScrollPolicy.ClampOffset(
-                contextScrollPosition.y,
-                contextInner.height,
-                lastContextContentHeight);
-            Rect contextView = new Rect(
-                0f,
-                0f,
-                contentWidth,
-                Mathf.Max(contextInner.height, lastContextContentHeight));
-            Widgets.BeginScrollView(contextInner, ref contextScrollPosition, contextView);
-            GUI.color = Color.white;
-            Widgets.Label(new Rect(0f, 0f, contentWidth, headingHeight), heading);
-            GUI.color = Color.white;
-            Widgets.Label(new Rect(
-                0f,
-                headingHeight + 10f,
-                contentWidth,
-                bodyHeight), body);
-            Widgets.EndScrollView();
-
-            bool exitHovered = layout.ExitRect.Contains(Event.current?.mousePosition ?? Vector2.zero);
-            Widgets.DrawBoxSolid(layout.ExitRect, exitHovered
-                ? new Color(1f, 1f, 1f, 0.16f)
-                : new Color(0f, 0f, 0f, 0.18f));
-            GUI.color = Color.white;
-            Widgets.DrawBox(layout.ExitRect, 1);
-            TextAnchor exitAnchor = Text.Anchor;
-            Text.Anchor = TextAnchor.MiddleCenter;
-            Widgets.Label(layout.ExitRect, exitLabel);
-            Text.Anchor = exitAnchor;
-
-            bool leaveHovered = layout.LeaveRect.Contains(Event.current?.mousePosition ?? Vector2.zero);
-            Widgets.DrawBoxSolid(layout.LeaveRect, leaveHovered
-                ? new Color(1f, 1f, 1f, 0.16f)
-                : new Color(0f, 0f, 0f, 0.18f));
-            GUI.color = Color.white;
-            Widgets.DrawBox(layout.LeaveRect, 1);
-            Text.Anchor = TextAnchor.MiddleCenter;
-            Widgets.Label(layout.LeaveRect, leaveLabel);
-            Text.Anchor = exitAnchor;
-
-            GUI.color = oldColor;
-            Text.Anchor = oldAnchor;
-            Text.Font = oldFont;
-            Text.WordWrap = oldWordWrap;
-        }
-
-        private static SelectorLayout BuildLayout(
-            Rect bounds,
-            Rect workBounds,
-            Rect anchorRect,
-            BWTTutorialHubDefinition hub,
-            string recommendedLabel)
-        {
-            float availableRight = bounds.xMax - workBounds.xMax;
-            bool useRight = availableRight >= MinimumPanelWidth;
-            float width = useRight
-                ? Mathf.Min(PreferredPanelWidth, availableRight)
-                : Mathf.Min(Mathf.Max(MinimumPanelWidth, bounds.width * 0.76f), bounds.width - 20f);
-            float innerWidth = Mathf.Max(1f, width - CardPadding * 2f);
-            bool stacked = innerWidth < OptionWidth + ContextWidth + PanelGap;
-            float optionsWidth = stacked ? innerWidth * 0.43f : OptionWidth;
-            float optionContentWidth = optionsWidth;
-            float gap = 7f;
-            var optionRects = new List<Rect>(hub.Options.Count);
-            float contentHeight = 0f;
-            bool oldWordWrap = Text.WordWrap;
-            GameFont oldFont = Text.Font;
-            Text.WordWrap = true;
-            Text.Font = GameFont.Small;
-            float yOffset = 0f;
             for (int i = 0; i < hub.Options.Count; i++)
             {
-                string label = GetOptionDisplayLabel(hub.Options[i], recommendedLabel);
-                float labelHeight = Text.CalcHeight(label, Mathf.Max(40f, optionContentWidth - 18f));
-                float optionHeight = Mathf.Max(40f, labelHeight + 14f);
-                optionRects.Add(new Rect(0f, yOffset, optionContentWidth, optionHeight));
-                yOffset += optionHeight + gap;
-            }
-            contentHeight = Mathf.Max(0f, yOffset - gap);
-
-            float height;
-            float attachedBottom = Mathf.Min(workBounds.yMax, bounds.yMax);
-            if (useRight)
-            {
-                float baseHeight = Mathf.Max(1f, attachedBottom - Mathf.Max(bounds.yMin, workBounds.yMin));
-                float availableHeight = Mathf.Max(1f, attachedBottom - bounds.yMin);
-                height = Mathf.Min(
-                    Mathf.Max(baseHeight, contentHeight + PanelVerticalOverhead),
-                    availableHeight);
-            }
-            else
-            {
-                height = Mathf.Min(440f, bounds.height - 20f);
-            }
-            float x = useRight
-                ? workBounds.xMax
-                : Mathf.Clamp(workBounds.center.x - width / 2f, bounds.xMin + 10f, bounds.xMax - width - 10f);
-            float y = useRight
-                ? attachedBottom - height
-                : Mathf.Clamp(
-                    anchorRect.yMin - height - PanelGap,
-                    bounds.yMin + 10f,
-                    bounds.yMax - height - 10f);
-            Rect panel = new Rect(x, y, width, height);
-
-            Rect inner = panel.ContractedBy(CardPadding);
-            Rect title = new Rect(inner.x, inner.y, inner.width, 30f);
-            float bodyTop = title.yMax + 8f;
-            float bodyBottom = inner.yMax - FooterHeight - 8f;
-            float bodyHeight = Mathf.Max(90f, bodyBottom - bodyTop);
-            Rect options = new Rect(inner.x, bodyTop, optionsWidth, bodyHeight);
-            Rect context = new Rect(options.xMax + PanelGap, bodyTop, inner.xMax - options.xMax - PanelGap, bodyHeight);
-            if (context.width < 150f)
-            {
-                context.x = inner.x + optionsWidth + 6f;
-                context.width = Mathf.Max(140f, inner.xMax - context.x);
-            }
-
-            if (contentHeight > options.height + 0.5f)
-            {
-                optionContentWidth = Mathf.Max(40f, options.width - ScrollbarWidth);
-                optionRects.Clear();
-                yOffset = 0f;
-                for (int i = 0; i < hub.Options.Count; i++)
+                if (!TutorialProgressTransitions.IsCompleted(completed, hub.Options[i].LessonId))
                 {
-                    string label = GetOptionDisplayLabel(hub.Options[i], recommendedLabel);
-                    float labelHeight = Text.CalcHeight(label, Mathf.Max(40f, optionContentWidth - 18f));
-                    float optionHeight = Mathf.Max(40f, labelHeight + 14f);
-                    optionRects.Add(new Rect(0f, yOffset, optionContentWidth, optionHeight));
-                    yOffset += optionHeight + gap;
+                    return false;
                 }
-
-                contentHeight = Mathf.Max(0f, yOffset - gap);
             }
-            Text.WordWrap = oldWordWrap;
-            Text.Font = oldFont;
 
-            float footerButtonWidth = Mathf.Min(170f, (inner.width - 8f) / 2f);
-            Rect exit = new Rect(inner.x, inner.yMax - 34f, footerButtonWidth, 34f);
-            Rect leave = new Rect(exit.xMax + 8f, exit.y, footerButtonWidth, 34f);
-            Rect optionView = new Rect(0f, 0f, optionContentWidth, Mathf.Max(options.height, contentHeight));
-            return new SelectorLayout(panel, title, options, optionView, context, exit, leave, optionRects);
+            return true;
+        }
+
+        private static PopupLayout BuildLayout(
+            Rect workBounds,
+            Rect anchorRect,
+            BWTTutorialHubDefinition hub)
+        {
+            float width = Mathf.Min(PopupWidth, Mathf.Max(140f, workBounds.width - 16f));
+            float height = PopupPadding * 2f + TitleHeight +
+                hub.Options.Count * OptionHeight +
+                Mathf.Max(0, hub.Options.Count - 1) * OptionGap;
+
+            // Prefer below the anchor, flip above when the tab runs out, then
+            // clamp. The list stays attached to what it describes either way.
+            float x = Mathf.Clamp(
+                anchorRect.center.x - width * 0.5f,
+                workBounds.xMin + 4f,
+                Mathf.Max(workBounds.xMin + 4f, workBounds.xMax - width - 4f));
+            float below = anchorRect.yMax + AnchorGap;
+            float y = below + height <= workBounds.yMax - 4f
+                ? below
+                : Mathf.Max(workBounds.yMin + 4f, anchorRect.yMin - height - AnchorGap);
+
+            Rect popup = new Rect(x, y, width, height);
+            Rect inner = popup.ContractedBy(PopupPadding);
+            Rect title = new Rect(inner.x, inner.y, inner.width, TitleHeight);
+
+            var optionRects = new List<Rect>(hub.Options.Count);
+            float rowY = title.yMax;
+            for (int i = 0; i < hub.Options.Count; i++)
+            {
+                optionRects.Add(new Rect(inner.x, rowY, inner.width, OptionHeight));
+                rowY += OptionHeight + OptionGap;
+            }
+
+            return new PopupLayout(popup, title, optionRects);
         }
 
         private static TutorialHubAnchor GetAnchorAt(IList<BWTTutorialAnchor> anchors, Vector2 point)
@@ -674,33 +423,13 @@ namespace Better_Work_Tab.Features.Tutorial
             return TutorialHubAnchor.None;
         }
 
-        private static void DrawFocusDim(Rect workBounds, Rect focusRect)
-        {
-            if (focusRect.width <= 0f || focusRect.height <= 0f)
-            {
-                return;
-            }
-
-            Rect focus = focusRect.ExpandedBy(6f);
-            Color dim = new Color(0f, 0f, 0f, 0.10f);
-            Widgets.DrawBoxSolid(new Rect(workBounds.xMin, workBounds.yMin, workBounds.width,
-                Mathf.Max(0f, focus.yMin - workBounds.yMin)), dim);
-            Widgets.DrawBoxSolid(new Rect(workBounds.xMin, focus.yMax, workBounds.width,
-                Mathf.Max(0f, workBounds.yMax - focus.yMax)), dim);
-            Widgets.DrawBoxSolid(new Rect(workBounds.xMin, focus.yMin,
-                Mathf.Max(0f, focus.xMin - workBounds.xMin), focus.height), dim);
-            Widgets.DrawBoxSolid(new Rect(focus.xMax, focus.yMin,
-                Mathf.Max(0f, workBounds.xMax - focus.xMax), focus.height), dim);
-        }
-
-        private Rect FindAnchorRect(
-            IList<BWTTutorialAnchor> anchors,
-            TutorialHubAnchor kind)
+        private Rect FindAnchorRect(IList<BWTTutorialAnchor> anchors, TutorialHubAnchor kind)
         {
             if (pinnedGeometry.IsValid && pinnedGeometry.Kind == kind)
             {
                 return pinnedGeometry.Rect;
             }
+
             if (anchors != null)
             {
                 for (int i = 0; i < anchors.Count; i++)
@@ -713,18 +442,6 @@ namespace Better_Work_Tab.Features.Tutorial
             }
 
             return Rect.zero;
-        }
-
-        private static bool ContainsRect(IList<BWTTutorialAnchor> anchors, Rect rect)
-        {
-            for (int i = 0; i < anchors.Count; i++)
-            {
-                if (ApproximatelySame(anchors[i].Rect, rect))
-                {
-                    return true;
-                }
-            }
-            return false;
         }
 
         private static bool ApproximatelySame(Rect a, Rect b)
@@ -756,92 +473,17 @@ namespace Better_Work_Tab.Features.Tutorial
                    type == EventType.ScrollWheel;
         }
 
-        private static string GetHoveredLesson(
-            BWTTutorialHubDefinition hub,
-            SelectorLayout layout,
-            float scrollY,
-            Vector2 pointer)
+        private readonly struct PopupLayout
         {
-            if (!layout.OptionsRect.Contains(pointer))
+            internal PopupLayout(Rect popupRect, Rect titleRect, IList<Rect> optionRects)
             {
-                return null;
-            }
-
-            for (int i = 0; i < hub.Options.Count && i < layout.OptionRects.Count; i++)
-            {
-                Rect optionRect = GetScreenOptionRect(layout, layout.OptionRects[i], scrollY);
-                if (layout.OptionsRect.Overlaps(optionRect) && optionRect.Contains(pointer))
-                {
-                    return hub.Options[i].LessonId;
-                }
-            }
-
-            return null;
-        }
-
-        private static BWTTutorialOptionDefinition FindOption(BWTTutorialHubDefinition hub, string lessonId)
-        {
-            if (string.IsNullOrEmpty(lessonId))
-            {
-                return null;
-            }
-
-            for (int i = 0; i < hub.Options.Count; i++)
-            {
-                if (string.Equals(hub.Options[i].LessonId, lessonId, StringComparison.Ordinal))
-                {
-                    return hub.Options[i];
-                }
-            }
-
-            return null;
-        }
-
-        private static Rect GetScreenOptionRect(SelectorLayout layout, Rect contentRect, float scrollY)
-        {
-            return new Rect(
-                layout.OptionsRect.x + contentRect.x,
-                layout.OptionsRect.y + contentRect.y - scrollY,
-                contentRect.width,
-                contentRect.height);
-        }
-
-        private static string GetOptionDisplayLabel(BWTTutorialOptionDefinition option, string recommendedLabel)
-        {
-            return option.Recommended
-                ? option.Label + "  · " + recommendedLabel
-                : option.Label;
-        }
-
-        private readonly struct SelectorLayout
-        {
-            internal SelectorLayout(
-                Rect panelRect,
-                Rect titleRect,
-                Rect optionsRect,
-                Rect optionViewRect,
-                Rect contextRect,
-                Rect exitRect,
-                Rect leaveRect,
-                IList<Rect> optionRects)
-            {
-                PanelRect = panelRect;
+                PopupRect = popupRect;
                 TitleRect = titleRect;
-                OptionsRect = optionsRect;
-                OptionViewRect = optionViewRect;
-                ContextRect = contextRect;
-                ExitRect = exitRect;
-                LeaveRect = leaveRect;
                 OptionRects = optionRects;
             }
 
-            internal Rect PanelRect { get; }
+            internal Rect PopupRect { get; }
             internal Rect TitleRect { get; }
-            internal Rect OptionsRect { get; }
-            internal Rect OptionViewRect { get; }
-            internal Rect ContextRect { get; }
-            internal Rect ExitRect { get; }
-            internal Rect LeaveRect { get; }
             internal IList<Rect> OptionRects { get; }
         }
     }

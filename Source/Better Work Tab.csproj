@@ -17,6 +17,16 @@
     <UseStandaloneSpine Condition="'$(SpineMode)' == 'External'">true</UseStandaloneSpine>
     <StandaloneSpineRoot Condition="'$(StandaloneSpineRoot)' == '' and Exists('$(MSBuildProjectDirectory)\..\..\Spine\Source\Spine')">$(MSBuildProjectDirectory)\..\..\Spine</StandaloneSpineRoot>
     <SpineMirrorMode Condition="'$(SpineMirrorMode)' == ''">Check</SpineMirrorMode>
+    <!--
+      Shipping configurations must never produce an assembly whose embedded
+      shared-Spine sources were not verified against standalone Spine. Local
+      Debug/Release builds may proceed unverified, but they warn so a verified
+      build and an unverified one are never indistinguishable in the log.
+    -->
+    <RequireSpineMirrorVerification
+      Condition="'$(RequireSpineMirrorVerification)' == '' and '$(Configuration)' == '1.6'">true</RequireSpineMirrorVerification>
+    <RequireSpineMirrorVerification
+      Condition="'$(RequireSpineMirrorVerification)' == ''">false</RequireSpineMirrorVerification>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -151,6 +161,8 @@
     <Compile Include="Features\TimePriority\TimePriorityTargetKind.cs" />
     <Compile Include="Features\Tutorial\BWTTutorialAnchor.cs" />
     <Compile Include="Features\Tutorial\BWTTutorialSelector.cs" />
+    <Compile Include="Features\Tutorial\BWTTutorialStrip.cs" />
+    <Compile Include="UI\BWTUiPalette.cs" />
     <Compile Include="Features\Tutorial\BWTTutorialLessonCatalog.cs" />
     <Compile Include="Features\Tutorial\BWTTutorialFeedback.cs" />
     <Compile Include="Features\Tutorial\BWTTutorialReportFormatter.cs" />
@@ -463,8 +475,21 @@
     </PackageReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <Target Name="VerifyStandaloneSpineMirror" BeforeTargets="PrepareForBuild" Condition="'$(StandaloneSpineRoot)' != ''">
+  <!--
+    Runs unconditionally so that an unverifiable mirror is reported rather than
+    skipped. Gating the whole target on StandaloneSpineRoot made verification
+    depend on the building machine's checkout layout, and a build that could not
+    verify looked exactly like one that did.
+  -->
+  <Target Name="VerifyStandaloneSpineMirror" BeforeTargets="PrepareForBuild">
+    <Error
+      Condition="'$(StandaloneSpineRoot)' == '' and '$(RequireSpineMirrorVerification)' == 'true'"
+      Text="Shared-Spine mirror could not be verified: no standalone Spine checkout resolved. A shipping build must verify the mirror. Build from a workspace containing Mods\Spine, or pass /p:StandaloneSpineRoot=&lt;path to Spine repo&gt;." />
+    <Warning
+      Condition="'$(StandaloneSpineRoot)' == '' and '$(RequireSpineMirrorVerification)' != 'true'"
+      Text="Shared-Spine mirror NOT verified: no standalone Spine checkout resolved, so embedded Spine sources may be stale. This build is not release-eligible." />
     <Exec
+      Condition="'$(StandaloneSpineRoot)' != ''"
       Command="powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\..\Tools\Sync-StandaloneSpine.ps1&quot; -Mode $(SpineMirrorMode) -StandaloneRoot &quot;$(StandaloneSpineRoot)&quot;" />
   </Target>
   <Target Name="RequireStandaloneSpineReference" BeforeTargets="ResolveReferences" Condition="'$(UseStandaloneSpine)' == 'true'">

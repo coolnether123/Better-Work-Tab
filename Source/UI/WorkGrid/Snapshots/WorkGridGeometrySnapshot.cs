@@ -51,6 +51,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             float headerHeight,
             float schedulePinnedHeight,
             float subWorkPinnedHeight,
+            float tutorialPinnedHeight,
             float contentHeight,
             float rowWidth,
             ImmutableSnapshotArray<WorkGridRowGeometry> rows,
@@ -62,6 +63,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             HeaderHeight = headerHeight;
             SchedulePinnedHeight = schedulePinnedHeight;
             SubWorkPinnedHeight = subWorkPinnedHeight;
+            TutorialPinnedHeight = tutorialPinnedHeight;
             ContentHeight = contentHeight;
             RowWidth = rowWidth;
             Rows = rows ?? ImmutableSnapshotArray<WorkGridRowGeometry>.Empty;
@@ -74,7 +76,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
         public float HeaderHeight { get; }
         public float SchedulePinnedHeight { get; }
         public float SubWorkPinnedHeight { get; }
-        public float PinnedRowsHeight => SchedulePinnedHeight + SubWorkPinnedHeight;
+        public float TutorialPinnedHeight { get; }
+        public float PinnedRowsHeight =>
+            SchedulePinnedHeight + SubWorkPinnedHeight + TutorialPinnedHeight;
         public float ContentHeight { get; }
         public float RowWidth { get; }
         public ImmutableSnapshotArray<WorkGridRowGeometry> Rows { get; }

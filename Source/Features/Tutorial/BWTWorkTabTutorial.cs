@@ -27,6 +27,26 @@ namespace Better_Work_Tab.Features.Tutorial
             BWTGeneralTutorial.UpdatePointerOwnership(inRect, layout, pointer);
         }
 
+        /// <summary>
+        /// Latches whether the tutorial band exists this frame. The Work tab must
+        /// call this before deriving any layout geometry, because the reserved
+        /// height has to stay constant across a whole Layout/Repaint cycle.
+        /// </summary>
+        internal static void RefreshStripReservation()
+        {
+            BWTGeneralTutorial.RefreshStripReservation();
+        }
+
+        /// <summary>
+        /// Draws the tutorial band with the Work tab's other pinned bands, so
+        /// drag guides and row overlays paint over it the way they do over any
+        /// divider.
+        /// </summary>
+        internal static void DrawBand(IWorkTabLayoutController layout)
+        {
+            BWTGeneralTutorial.DrawBand(layout);
+        }
+
         internal static void TickAndDraw(Rect inRect, IWorkTabLayoutController layout)
         {
             BWTGeneralTutorial.TickAndDraw(inRect, layout);

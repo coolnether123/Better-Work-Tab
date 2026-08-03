@@ -1,3 +1,4 @@
+using Better_Work_Tab.Features.Tutorial;
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Mod_Support.Multiplayer.Sync;
 using Better_Work_Tab.Mod_Support.Multiplayer;
@@ -316,7 +317,8 @@ namespace Better_Work_Tab.DragDrop
             float rowStackHeight = GetVisibleRowStackHeight(layout);
             float scrollY = layout.Table?.scrollPosition.y ?? 0f;
             float pinnedRowsHeight = TimePriorityScheduleEditor.HeaderPinnedRowsHeight +
-                SubWorkDrilldownState.GlobalRowVisibleHeight;
+                SubWorkDrilldownState.GlobalRowVisibleHeight +
+                BWTTutorialStrip.ReservedHeight;
             float bottom = headerBottom + pinnedRowsHeight + Mathf.Max(0f, rowStackHeight - scrollY);
 
             if (layout.Table != null)

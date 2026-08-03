@@ -417,6 +417,9 @@ namespace Better_Work_Tab.UI
         private void DoWindowContentsProfiled(Rect inRect)
         {
             UpdateTutorialAcceptKeyState();
+            // The tutorial band contributes reserved height, so latch its
+            // presence before any geometry below derives a table origin from it.
+            BWTWorkTabTutorial.RefreshStripReservation();
             PawnTable table = GetPawnTable();
             if (table == null) return;
             _workGridRenderer.PrepareFrame(WorkTabInvalidationHub.Current);
@@ -1265,6 +1268,15 @@ namespace Better_Work_Tab.UI
             }
 
             bool layoutEvent = Event.current.type == EventType.Layout;
+            if (!layoutEvent)
+            {
+                // Draw the tutorial band before the headers. Angled header stems
+                // descend past the header lane into this band's row, so painting
+                // the band afterwards sliced them off. Laying it down first lets
+                // the stems, drag guides, and row separators all run across it,
+                // which is how the Work tab's own dividers behave.
+                BWTWorkTabTutorial.DrawBand(layout);
+            }
             if (!layoutEvent && SpineTiming.Enabled)
             {
                 SpineTiming.Time("WorkTab.DrawHeaders", () => DrawHeaders(layout, table));
@@ -2222,7 +2234,7 @@ namespace Better_Work_Tab.UI
                 height += SubWorkDrilldownBarRenderer.ReservedRowHeight;
             }
 
-            return height;
+            return height + BWTTutorialStrip.ReservedHeight;
         }
 
         private static float GetHeaderAnchoredPinnedRowsHeight()
@@ -2231,13 +2243,21 @@ namespace Better_Work_Tab.UI
                 ? SubWorkDrilldownBarRenderer.ReservedRowHeight
                 : 0f;
             float timePriorityHeight = TimePriorityScheduleEditor.HeaderPinnedRowsHeight;
-            return height + Mathf.Max(0f, timePriorityHeight - InlineScheduleFooterReclaim);
+            return height +
+                BWTTutorialStrip.ReservedHeight +
+                Mathf.Max(0f, timePriorityHeight - InlineScheduleFooterReclaim);
         }
 
         private static float GetHeaderAnchoredContentHeight(IWorkTabLayoutController layout)
         {
             float transientHeight = GetTransientTimePriorityRowHeight(layout);
             float reclaimedHeight = Mathf.Min(transientHeight, InlineScheduleFooterReclaim);
+
+            // The table is bottom-anchored, so a new pinned band would otherwise
+            // push the whole tab up and clip the toolbar off the window top. Take
+            // the tutorial band's height out of the row viewport instead, the same
+            // way the inline schedule reclaims its footer, leaving the origin fixed.
+            reclaimedHeight += BWTTutorialStrip.ReservedHeight;
             return Mathf.Max(0f, (layout?.ContentHeight ?? 0f) - reclaimedHeight);
         }
 
