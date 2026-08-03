@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using RimWorld;
 using Spine.UI.Tutorial;
+using Spine.UI.WidgetExtensions;
 using UnityEngine;
 using Verse;
 
@@ -107,37 +108,45 @@ namespace Better_Work_Tab.Features.Tutorial
 
         internal static void DrawOutline(BWTTutorialAnchor anchor, Color color, float thickness)
         {
-            if (!anchor.IsValid)
+            Vector2[] path = GetOutlinePath(anchor);
+            if (path == null)
             {
                 return;
+            }
+
+            // One miter-joined mesh for every anchor shape. Per-segment DrawLine
+            // calls doubled their pixels wherever two segments met, which read as
+            // thickened corners on angled headers and as a heavier box elsewhere.
+            ConnectedOutlineDrawer.DrawClosed(path, color, thickness);
+        }
+
+        /// <summary>Returns the closed path an anchor outlines, or null when it has none.</summary>
+        internal static Vector2[] GetOutlinePath(BWTTutorialAnchor anchor)
+        {
+            if (!anchor.IsValid)
+            {
+                return null;
             }
 
             if (anchor.HasCustomOutline)
             {
+                var custom = new Vector2[anchor.OutlinePoints.Count];
                 for (int i = 0; i < anchor.OutlinePoints.Count; i++)
                 {
-                    Vector2 start = anchor.OutlinePoints[i];
-                    Vector2 end = anchor.OutlinePoints[(i + 1) % anchor.OutlinePoints.Count];
-                    Vector2 direction = end - start;
-                    if (direction.sqrMagnitude > 0.001f)
-                    {
-                        // Widgets.DrawLine uses uncapped segments. Slightly
-                        // overlap adjacent segments so angled header corners
-                        // join cleanly instead of exposing pixel-sized gaps.
-                        Vector2 overlap = direction.normalized * (thickness * 0.5f);
-                        start -= overlap;
-                        end += overlap;
-                    }
-                    Widgets.DrawLine(start, end, color, thickness);
+                    custom[i] = anchor.OutlinePoints[i];
                 }
 
-                return;
+                return custom;
             }
 
-            Color old = GUI.color;
-            GUI.color = color;
-            Widgets.DrawBox(anchor.Rect, Mathf.Max(1, Mathf.RoundToInt(thickness)));
-            GUI.color = old;
+            Rect rect = anchor.Rect;
+            return new[]
+            {
+                new Vector2(rect.xMin, rect.yMin),
+                new Vector2(rect.xMax, rect.yMin),
+                new Vector2(rect.xMax, rect.yMax),
+                new Vector2(rect.xMin, rect.yMax)
+            };
         }
     }
 }

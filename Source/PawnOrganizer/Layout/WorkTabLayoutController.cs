@@ -1,3 +1,4 @@
+using Better_Work_Tab.Features.Tutorial;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -139,6 +140,12 @@ namespace Better_Work_Tab.PawnOrganizer
                 : 0f;
             if (_geometrySnapshot != null &&
                 !Approximately(_geometrySnapshot.SubWorkPinnedHeight, expectedSubWorkPinnedHeight))
+                return true;
+
+            // The tutorial band appears and disappears between lessons, so the
+            // published geometry must follow it for the same reason.
+            if (_geometrySnapshot != null &&
+                !Approximately(_geometrySnapshot.TutorialPinnedHeight, BWTTutorialStrip.ReservedHeight))
                 return true;
 
             if (TimePriorityScheduleEditor.LayoutSignature != _lastTimePrioritySignature)
@@ -806,7 +813,7 @@ namespace Better_Work_Tab.PawnOrganizer
                 height += SubWorkDrilldownState.GlobalRowReservedHeight;
             }
 
-            return height;
+            return height + BWTTutorialStrip.ReservedHeight;
         }
 
         public WorkGridGeometrySnapshot GeometrySnapshot => _geometrySnapshot;
@@ -846,6 +853,7 @@ namespace Better_Work_Tab.PawnOrganizer
             float subWorkPinnedHeight = SubWorkDrilldownState.HasAnyDrilldown
                 ? SubWorkDrilldownState.GlobalRowReservedHeight
                 : 0f;
+            float tutorialPinnedHeight = BWTTutorialStrip.ReservedHeight;
             int retainedBytes = (_geometryRows.Capacity * 8) + (_geometryColumns.Capacity * 24);
             _geometrySnapshot = new WorkGridGeometrySnapshot(
                 _layoutRevision,
@@ -853,6 +861,7 @@ namespace Better_Work_Tab.PawnOrganizer
                 _headerHeight,
                 schedulePinnedHeight,
                 subWorkPinnedHeight,
+                tutorialPinnedHeight,
                 _contentHeight,
                 _rowWidth,
                 _geometryRows.ToSnapshot(),

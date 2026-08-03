@@ -1,3 +1,4 @@
+using Better_Work_Tab.Features.Tutorial;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.Features.Testing;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
@@ -104,7 +105,8 @@ namespace Better_Work_Tab.Features.Patches
 
             float headerHeight = layout.HeaderHeight;
             float pinnedRowsHeight = TimePriorityScheduleEditor.HeaderPinnedRowsHeight +
-                SubWorkDrilldownState.GlobalRowReservedHeight;
+                SubWorkDrilldownState.GlobalRowReservedHeight +
+                BWTTutorialStrip.ReservedHeight;
             float contentHeight = layout.ContentHeight;
             float totalHeight = headerHeight + contentHeight;
             float width = __instance.cachedSize.x;

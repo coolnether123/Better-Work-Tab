@@ -1,4 +1,5 @@
-using Better_Work_Tab.PawnOrganizer;
+﻿using Better_Work_Tab.PawnOrganizer;
+using Better_Work_Tab.UI;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.DragDrop;
 using RimWorld;
@@ -16,8 +17,8 @@ namespace Better_Work_Tab.Features.Tutorial
     {
         private const float PointerSize = 32f;
         private const float ArrowLength = 54f;
-        private const float ClickCycleSeconds = 3.7f;
-        private const float DragCycleSeconds = 4.4f;
+        private const float ClickCycleSeconds = 6.6f;
+        private const float DragCycleSeconds = 7.2f;
         private static Texture2D pointerTexture;
         private static float animationStartedAt = -1f;
         private static string animationIdentity = string.Empty;
@@ -52,15 +53,18 @@ namespace Better_Work_Tab.Features.Tutorial
                 return;
             }
 
+            // The docked strip states the action in words a few pixels away, so
+            // the in-tab demo stays purely visual instead of repeating it in a
+            // floating badge that lands on top of the strip.
             string identity = "work:" + lessonId + ":" + phase;
             float elapsed = GetElapsed(identity, kind);
             if (kind == GestureKind.DragRight)
             {
-                DrawDragDemo(anchor, layout, elapsed, T("BWT_Tutorial_Gesture_DragRight"));
+                DrawDragDemo(anchor, layout, elapsed, null);
                 return;
             }
 
-            DrawClickDemo(anchor.Rect, elapsed, kind, GetGestureLabel(kind));
+            DrawClickDemo(anchor.Rect, elapsed, kind, null);
         }
 
         /// <summary>
@@ -84,91 +88,6 @@ namespace Better_Work_Tab.Features.Tutorial
                 elapsed,
                 kind,
                 string.IsNullOrEmpty(prompt) ? GetGestureLabel(kind) : prompt);
-        }
-
-        internal static void DrawCompletionTransfer(
-            string lessonId,
-            BWTTutorialAnchor source,
-            Rect explanationRect)
-        {
-            if (!source.IsValid || explanationRect.width <= 0f || explanationRect.height <= 0f)
-            {
-                return;
-            }
-
-            const int particleCount = 32;
-            const float breakSeconds = 0.55f;
-            const float flightSeconds = 1.55f;
-            float elapsed = GetElapsedSinceStart("completion-transfer:" + lessonId);
-            float breakProgress = Mathf.Clamp01(elapsed / breakSeconds);
-            Vector2 sourceCenter = source.Rect.center;
-            Vector2 destination = new Vector2(
-                explanationRect.xMin + 10f,
-                explanationRect.center.y);
-            if (elapsed < breakSeconds)
-            {
-                BWTTutorialAnchorRenderer.DrawOutline(
-                    source,
-                    BWTTutorialAnchorRenderer.TutorialGold(1f - breakProgress * 0.78f),
-                    Mathf.Lerp(3f, 1f, breakProgress));
-            }
-
-            for (int i = 0; i < particleCount; i++)
-            {
-                float angle = Mathf.PI * 2f * i / particleCount;
-                Vector2 direction = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
-                Vector2 start = sourceCenter + new Vector2(
-                    direction.x * source.Rect.width * 0.5f,
-                    direction.y * source.Rect.height * 0.5f);
-                float delay = i * 0.018f;
-                float travel = Mathf.Clamp01((elapsed - breakSeconds * 0.45f - delay) / flightSeconds);
-                if (travel <= 0f || travel >= 1f)
-                {
-                    continue;
-                }
-
-                float eased = Smooth(travel);
-                Vector2 control = Vector2.Lerp(start, destination, 0.5f) +
-                                  new Vector2(0f, -32f - (i % 5) * 5f);
-                float inverse = 1f - eased;
-                Vector2 point = inverse * inverse * start +
-                                2f * inverse * eased * control +
-                                eased * eased * destination;
-                float size = Mathf.Lerp(9f, 4f, eased);
-                float alpha = Mathf.Lerp(0.95f, 0.5f, eased);
-                Vector2 trailPoint = Vector2.Lerp(point, start, 0.06f);
-                float trailSize = size * 0.62f;
-                Widgets.DrawBoxSolid(
-                    new Rect(
-                        trailPoint.x - trailSize * 0.5f,
-                        trailPoint.y - trailSize * 0.5f,
-                        trailSize,
-                        trailSize),
-                    BWTTutorialAnchorRenderer.TutorialGold(alpha * 0.42f));
-                Widgets.DrawBoxSolid(
-                    new Rect(point.x - size * 0.5f, point.y - size * 0.5f, size, size),
-                    BWTTutorialAnchorRenderer.TutorialGold(alpha));
-            }
-
-            float arrival = Mathf.Clamp01((elapsed - 0.88f) / 0.6f);
-            if (arrival <= 0f)
-            {
-                return;
-            }
-
-            float pulse = 0.72f + 0.28f * Mathf.Sin(Time.realtimeSinceStartup * 3.5f);
-            float highlightAlpha = Mathf.Lerp(0f, pulse, arrival);
-            Widgets.DrawBoxSolid(
-                explanationRect,
-                BWTTutorialAnchorRenderer.TutorialGold(0.055f * arrival));
-            Color oldColor = GUI.color;
-            GUI.color = BWTTutorialAnchorRenderer.TutorialGold(highlightAlpha);
-            Widgets.DrawBox(explanationRect.ExpandedBy(4f), 2);
-            GUI.color = oldColor;
-            if (arrival < 1f)
-            {
-                DrawRipple(destination, arrival);
-            }
         }
 
         private static GestureKind ResolveKind(string lessonId, int phase)
@@ -240,11 +159,12 @@ namespace Better_Work_Tab.Features.Tutorial
             float elapsed,
             string giveItATryLabel)
         {
-            const float approachEnd = 0.65f;
-            const float pressEnd = 1.05f;
-            const float dragEnd = 2.15f;
-            const float releaseEnd = 2.55f;
-            const float tryEnd = 3.95f;
+            // Slow enough to follow the pointer through grab, travel, and drop.
+            const float approachEnd = 1.1f;
+            const float pressEnd = 1.9f;
+            const float dragEnd = 4.2f;
+            const float releaseEnd = 5.0f;
+            const float tryEnd = 6.4f;
 
             float dragDistance = ResolveRightwardDragDistance(anchor, layout);
             Vector2 clickPoint = anchor.Rect.center;
@@ -267,10 +187,8 @@ namespace Better_Work_Tab.Features.Tutorial
                 float t = Smooth((elapsed - pressEnd) / (dragEnd - pressEnd));
                 moveOffset = dragDistance * t;
                 pointer = clickPoint + Vector2.right * moveOffset;
-                BWTTutorialAnchorRenderer.DrawOutline(
-                    anchor.OffsetBy(Vector2.right * moveOffset),
-                    BWTTutorialAnchorRenderer.TutorialGold(Mathf.Lerp(0.35f, 0.82f, t)),
-                    2f);
+                // A real header drag shows only the white insertion line, so the
+                // demo shows the same thing rather than a travelling ghost box.
                 DrawAnimatedInsertionGuide(layout, pointer.x, anchor.Rect.xMin);
             }
             else
@@ -306,10 +224,12 @@ namespace Better_Work_Tab.Features.Tutorial
             GestureKind kind,
             string giveItATryLabel)
         {
-            const float approachEnd = 0.7f;
-            const float pressEnd = 1.15f;
-            const float releaseEnd = 1.5f;
-            const float tryEnd = 3.25f;
+            // Each labelled state holds long enough to actually be read. The
+            // earlier timings flashed "hold ctrl" past in under half a second.
+            const float approachEnd = 1.4f;
+            const float pressEnd = 2.7f;
+            const float releaseEnd = 4.1f;
+            const float dwellEnd = 5.6f;
 
             Vector2 clickPoint = target.center;
             if (kind == GestureKind.HoldShift)
@@ -348,18 +268,24 @@ namespace Better_Work_Tab.Features.Tutorial
             if (elapsed < releaseEnd)
             {
                 float t = (elapsed - pressEnd) / (releaseEnd - pressEnd);
-                DrawModifierBadge(clickPoint, GetReleaseLabel(kind), 1f - t * 0.35f);
+                DrawModifierBadge(clickPoint, GetReleaseLabel(kind), 1f);
                 if (drawRipple)
                 {
-                    DrawRipple(clickPoint, t);
+                    // The ripple is a short accent inside a long state, so it
+                    // plays once at the start rather than stretching over it.
+                    DrawRipple(clickPoint, Mathf.Clamp01(t * 3f));
                 }
-                DrawPointer(clickPoint, 1f - t * 0.35f);
+                DrawPointer(clickPoint, 1f);
                 return;
             }
 
-            float alpha = elapsed < tryEnd
+            // Hold the finished gesture on screen, then fade out before looping
+            // so the cycle reads as a demonstration rather than a flicker.
+            float alpha = elapsed < dwellEnd
                 ? 1f
-                : 1f - Mathf.Clamp01((elapsed - tryEnd) / (ClickCycleSeconds - tryEnd));
+                : 1f - Mathf.Clamp01((elapsed - dwellEnd) / (ClickCycleSeconds - dwellEnd));
+            DrawModifierBadge(clickPoint, GetReleaseLabel(kind), alpha);
+            DrawPointer(clickPoint, alpha);
             DrawTryPrompt(target, giveItATryLabel, alpha);
         }
 
@@ -561,18 +487,22 @@ namespace Better_Work_Tab.Features.Tutorial
             }
 
             GameFont measuredFont = Text.Font;
-            Text.Font = GameFont.Tiny;
-            float width = Mathf.Clamp(Text.CalcSize(label).x + 16f, 50f, 104f);
+            Text.Font = GameFont.Small;
+            float width = Mathf.Clamp(Text.CalcSize(label).x + 18f, 64f, 150f);
             Text.Font = measuredFont;
-            Rect badge = new Rect(hotspot.x + 30f, hotspot.y + 29f, width, 22f);
-            Widgets.DrawBoxSolid(badge, new Color(0.05f, 0.06f, 0.07f, 0.9f * alpha));
+            Rect badge = new Rect(hotspot.x + 30f, hotspot.y + 29f, width, 26f);
+
+            // RimWorld's tutor palette, so the cursor annotation belongs to the
+            // same surface family as the instruction band.
+            Widgets.DrawBoxSolid(badge, BWTUiPalette.TutorFill.WithAlpha(0.94f * alpha));
             Color oldColor = GUI.color;
             TextAnchor oldAnchor = Text.Anchor;
             GameFont oldFont = Text.Font;
-            GUI.color = BWTTutorialAnchorRenderer.TutorialGold(alpha);
+            GUI.color = BWTUiPalette.TutorAccent.WithAlpha(alpha);
             Widgets.DrawBox(badge, 1);
             Text.Anchor = TextAnchor.MiddleCenter;
-            Text.Font = GameFont.Tiny;
+            Text.Font = GameFont.Small;
+            GUI.color = Color.white.WithAlpha(alpha);
             Widgets.Label(badge, label);
             Text.Font = oldFont;
             Text.Anchor = oldAnchor;
