@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using Better_Work_Tab.ModSupport;
@@ -13,7 +14,76 @@ namespace Better_Work_Tab.Features.Tutorial
     internal static class BWTBuildInfo
     {
         internal const string Build = "2.0.0-beta";
-        internal const string SourceCommit = "ea3b7e5cae477f01c040c5a1c77a3abc92132149";
+
+        // Only correct for whoever last edited it by hand, which is why the
+        // packaged commit is preferred when one is present.
+        private const string FallbackCommit = "ea3b7e5cae477f01c040c5a1c77a3abc92132149";
+        private const string StampFileName = "BUILD.txt";
+        private const string StampCommitPrefix = "commit:";
+
+        private static string resolvedCommit;
+
+        /// <summary>
+        /// The commit a report should be attributed to.
+        ///
+        /// A hard-coded constant goes stale the moment anyone builds without
+        /// editing it, and a report naming the wrong build is worse than one
+        /// naming none: it sends triage at code the tester never ran. The
+        /// packager stamps the real commit into BUILD.txt beside the mod, so that
+        /// is read first and the constant is only a fallback for loose dev builds.
+        /// </summary>
+        internal static string SourceCommit
+        {
+            get
+            {
+                if (resolvedCommit != null)
+                {
+                    return resolvedCommit;
+                }
+
+                resolvedCommit = ReadStampedCommit() ?? FallbackCommit + " (unstamped build)";
+                return resolvedCommit;
+            }
+        }
+
+        private static string ReadStampedCommit()
+        {
+            try
+            {
+                ModContentPack content = LoadedModManager.ModHandles
+                    .FirstOrDefault(handle => handle is BetterWorkTabMod)?.Content;
+                if (content?.RootDir == null)
+                {
+                    return null;
+                }
+
+                string path = Path.Combine(content.RootDir, StampFileName);
+                if (!File.Exists(path))
+                {
+                    return null;
+                }
+
+                foreach (string line in File.ReadAllLines(path))
+                {
+                    string trimmed = line.Trim();
+                    if (trimmed.StartsWith(StampCommitPrefix, StringComparison.OrdinalIgnoreCase))
+                    {
+                        string value = trimmed.Substring(StampCommitPrefix.Length).Trim();
+                        if (value.Length > 0)
+                        {
+                            return value;
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // Reporting must never be the thing that breaks; an unreadable
+                // stamp just falls back to the constant.
+            }
+
+            return null;
+        }
     }
 
     internal sealed class BWTTutorialDiagnosticContext

@@ -158,6 +158,14 @@ namespace Better_Work_Tab.Features.Tutorial
                 return false;
             }
 
+            // The review is reachable from mod settings, and that dialog outlives
+            // it. Leaving it open meant "Go to tutorial" switched the tab behind a
+            // settings window the player was still looking at — and the tutorial
+            // suppresses itself while mod settings are open, so nothing drew even
+            // once they closed it by hand. Lessons that genuinely live in settings
+            // reopen it themselves further down.
+            Find.WindowStack.TryRemove(typeof(Dialog_ModSettings), false);
+
             FluffyWorkTabCoexistence.SwitchToBetterWorkTab();
             Find.MainTabsRoot.SetCurrentTab(workTab, false);
             if (!(Find.MainTabsRoot.OpenTab?.TabWindow is MainTabWindow_BetterWork))
