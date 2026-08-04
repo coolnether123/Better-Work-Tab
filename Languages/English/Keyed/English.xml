@@ -192,7 +192,7 @@
 <BWT_Tutorial_Selector_Title>Explore Better Work Tab</BWT_Tutorial_Selector_Title>
 <BWT_Tutorial_Selector_DefaultBody>Click a highlighted name, header, or priority to explore it.</BWT_Tutorial_Selector_DefaultBody>
 <BWT_Tutorial_SkipForNow>Skip for now</BWT_Tutorial_SkipForNow>
-<BWT_Tutorial_LeaveTutorial>Give feedback</BWT_Tutorial_LeaveTutorial>
+<BWT_Tutorial_GiveFeedback>Give feedback</BWT_Tutorial_GiveFeedback>
 <BWT_Tutorial_BackToMap>Back to lessons</BWT_Tutorial_BackToMap>
 <BWT_Tutorial_SkipLesson>Skip lesson</BWT_Tutorial_SkipLesson>
 
@@ -234,8 +234,9 @@
 <BWT_Tutorial_HeaderSubWork_Label>Open specific jobs</BWT_Tutorial_HeaderSubWork_Label>
 <BWT_Tutorial_HeaderSubWork_Title>Open specific jobs</BWT_Tutorial_HeaderSubWork_Title>
 <BWT_Tutorial_HeaderSubWork_Preview>Specific jobs can focus or expand the grid, with priorities, overrides, reordering, and reassignment.</BWT_Tutorial_HeaderSubWork_Preview>
-<BWT_Tutorial_HeaderSubWork_Action>Ctrl-click the highlighted Work header to open its specific jobs.</BWT_Tutorial_HeaderSubWork_Action>
-<BWT_Tutorial_HeaderSubWork_Outcome>Specific jobs open. Escape or Ctrl-click returns.</BWT_Tutorial_HeaderSubWork_Outcome>
+<BWT_Tutorial_HeaderSubWork_ActionBoth>Click the two-line button under the highlighted Work header, or {0} the header, to open its specific jobs.</BWT_Tutorial_HeaderSubWork_ActionBoth>
+<BWT_Tutorial_HeaderSubWork_ActionShortcut>{0} the highlighted Work header to open its specific jobs.</BWT_Tutorial_HeaderSubWork_ActionShortcut>
+<BWT_Tutorial_HeaderSubWork_Outcome>Specific jobs open. Escape or {0} returns.</BWT_Tutorial_HeaderSubWork_Outcome>
 <BWT_Tutorial_HeaderSubWork_Feedback>Specific jobs: presentation, priorities, and reassignment</BWT_Tutorial_HeaderSubWork_Feedback>
 <BWT_Tutorial_Gesture_LeftClick>LEFT CLICK</BWT_Tutorial_Gesture_LeftClick>
 <BWT_Tutorial_Gesture_RightClick>RIGHT CLICK</BWT_Tutorial_Gesture_RightClick>

@@ -99,25 +99,43 @@ namespace Better_Work_Tab.Features.Tutorial
         private static readonly IReadOnlyList<BWTTutorialLessonDefinition> Lessons =
             new[]
             {
+                // Every lesson teaches a feature the player is free to switch
+                // off, including while the tour is open. Courses project this
+                // catalog on every read, so an availability test here withdraws a
+                // lesson the moment its feature is disabled instead of leaving
+                // one whose instruction can never be satisfied.
                 Lesson(PrioritySkill, "1.0.5", "Priorities", BWTTutorialCourseMembership.Full,
-                    "PrioritySkill", TutorialHubAnchor.PriorityCell),
+                    "PrioritySkill", TutorialHubAnchor.PriorityCell,
+                    isAvailable: () => Enabled(s => s.enableSkillOverlayFeature, DefaultSettings.enableSkillOverlayFeature)),
                 Lesson(PrioritySchedule, "2.0", "Priorities|Schedules", Both,
-                    "PrioritySchedule", TutorialHubAnchor.PriorityCell),
+                    "PrioritySchedule", TutorialHubAnchor.PriorityCell,
+                    isAvailable: () => Enabled(s => s.enableTimePrioritySchedules, DefaultSettings.enableTimePrioritySchedules)),
                 Lesson(PriorityRange, "2.0", "Priorities|Configuration", Both,
                     "PriorityRange", TutorialHubAnchor.PriorityCell,
                     route: BWTTutorialLessonRoute.PrioritySettings),
                 Lesson(PawnMenu, "1.0.5", "Pawn rows", BWTTutorialCourseMembership.Full,
-                    "PawnMenu", TutorialHubAnchor.PawnName),
+                    "PawnMenu", TutorialHubAnchor.PawnName,
+                    isAvailable: () => Enabled(s => s.enableContextMenuOnRightClick, DefaultSettings.enableContextMenuOnRightClick)),
+                // Dividers are added from the pawn context menu, so this lesson
+                // needs both the menu and the dividers themselves.
                 Lesson(PawnDivider, "1.0.5", "Pawn rows|Organization", BWTTutorialCourseMembership.Full,
-                    "PawnDivider", TutorialHubAnchor.PawnName),
+                    "PawnDivider", TutorialHubAnchor.PawnName,
+                    isAvailable: () => Enabled(s => s.enableContextMenuOnRightClick, DefaultSettings.enableContextMenuOnRightClick) &&
+                                       Enabled(s => s.enableDividers, DefaultSettings.enableDividers)),
                 Lesson(PawnAppearance, "1.0.5", "Pawn rows|Appearance", BWTTutorialCourseMembership.Full,
-                    "PawnAppearance", TutorialHubAnchor.PawnName),
+                    "PawnAppearance", TutorialHubAnchor.PawnName,
+                    isAvailable: () => Enabled(s => s.enableContextMenuOnRightClick, DefaultSettings.enableContextMenuOnRightClick)),
                 Lesson(HeaderReorder, "2.0", "Work order|Layout", Both,
-                    "HeaderReorder", TutorialHubAnchor.WorkHeader),
+                    "HeaderReorder", TutorialHubAnchor.WorkHeader,
+                    isAvailable: () => Enabled(s => s.enableDragDropReordering, DefaultSettings.enableDragDropReordering)),
                 Lesson(HeaderGroup, "1.0.5", "Work order|Layout", BWTTutorialCourseMembership.Full,
-                    "HeaderGroup", TutorialHubAnchor.WorkHeader),
+                    "HeaderGroup", TutorialHubAnchor.WorkHeader,
+                    isAvailable: () => Enabled(s => s.enableColumnGrouping, DefaultSettings.enableColumnGrouping)),
                 Lesson(HeaderSubWork, "2.0", "Specific jobs|Priorities", Both,
-                    "HeaderSubWork", TutorialHubAnchor.WorkHeader),
+                    "HeaderSubWork", TutorialHubAnchor.WorkHeader,
+                    isAvailable: () => Enabled(s => s.enableSubWorkDrilldown, DefaultSettings.enableSubWorkDrilldown)),
+                // Rule Builder 2.0 is switched on by the lesson's own route, so
+                // it stays offered even when the player has not enabled it yet.
                 Lesson(RuleBuilder2, "2.0", "Automation|Rules", Both,
                     "RuleBuilder2", TutorialHubAnchor.PriorityCell,
                     route: BWTTutorialLessonRoute.RuleBuilder2),
@@ -155,18 +173,29 @@ namespace Better_Work_Tab.Features.Tutorial
             BWTTutorialCourseMembership courses,
             string stem,
             TutorialHubAnchor anchor,
-            BWTTutorialLessonRoute route = BWTTutorialLessonRoute.WorkTab)
+            BWTTutorialLessonRoute route = BWTTutorialLessonRoute.WorkTab,
+            Func<bool> isAvailable = null)
         {
             return new BWTTutorialLessonDefinition(
                 id,
                 version,
                 Split(categories),
                 courses,
-                () => true,
+                isAvailable ?? (() => true),
                 "BWT_Tutorial_" + stem + "_Feedback",
                 anchor,
                 stem,
                 route);
+        }
+
+        /// <summary>
+        /// Reads a feature toggle, falling back to its default when settings are
+        /// not loaded yet, so availability never throws during startup.
+        /// </summary>
+        private static bool Enabled(Func<BetterWorkTabSettings, bool> read, bool fallback)
+        {
+            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
+            return settings == null ? fallback : read(settings);
         }
 
         private static string[] Split(string value)

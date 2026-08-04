@@ -246,10 +246,10 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             // Deliberately use the stable slot rect, not the animated header rect. Specific-job
             // headers may glide through this position after reordering, but the affordance belongs
             // to the parent Work header's original position and transfers to the new occupant.
-            // Open badges follow angled headers to the right; the fixed Focus badge must not.
+            // Keep the shared angled-header offset: centering this badge in Focus view moves its
+            // rotated rails back through the specific-job label instead of beneath its edge.
             Rect stableHeaderRect = targetColumn.HeaderRect;
             badgeRect = GetOpenBadgeRect(stableHeaderRect, clearVanillaStem: false);
-            badgeRect.x = stableHeaderRect.center.x - (badgeRect.width / 2f);
             return true;
         }
 

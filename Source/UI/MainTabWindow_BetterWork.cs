@@ -127,16 +127,20 @@ namespace Better_Work_Tab.UI
         private const float ChooserWindowGap = 6f;
         private const int ChooserImmediateWindowId = 984361;
 
+        // Vanilla's gap above the header lane, and nothing else.
+        //
+        // The tutorial band used to be added here as well, on the reasoning that
+        // the window must grow to hold it. It already does: the band is a pinned
+        // row, so GetPinnedRowsHeight reports it and it is inside the layout
+        // height every window measurement is built from. Adding it a second time
+        // counted the height twice and, because this value is also the table's
+        // vertical origin, pushed the headers a whole band's height down the tab
+        // whenever the tutorial was on.
         protected override float ExtraTopSpace =>
             Mathf.Clamp(
                 BetterWorkTabMod.Settings?.workTabTopSpace ?? DefaultSettings.workTabTopSpace,
                 0f,
-                80f) +
-            // The tutorial band adds a row to the tab, so the window grows by the
-            // same amount. Feeding it only into the bottom-anchored origin would
-            // take the space out of the pawn viewport and raise a scrollbar for a
-            // colony that otherwise fits.
-            BWTTutorialStrip.ReservedHeight;
+                80f);
 
         protected override float ExtraBottomSpace =>
             base.ExtraBottomSpace + FluffyTimeScheduleAssigner.ReservedBottomSpace;

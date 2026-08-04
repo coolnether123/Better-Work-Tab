@@ -741,7 +741,11 @@ namespace Better_Work_Tab.Features.Tutorial
                 }
                 else if (content.Mode == BWTTutorialStripMode.Browse)
                 {
-                    LeaveTutorial();
+                    // Feedback is a side trip, not an exit. This used to pause the
+                    // tutorial on the way to the review, so a player who wanted to
+                    // comment on one lesson lost the whole tour and had to find
+                    // the setting again to get it back.
+                    OpenReview();
                 }
                 else
                 {
@@ -851,6 +855,25 @@ namespace Better_Work_Tab.Features.Tutorial
 
             settings.activeTutorialLessonId = settings.activeTutorialLessonId ?? string.Empty;
             settings.tutorialLessonPhase = Mathf.Max(0, settings.tutorialLessonPhase);
+
+            // Settings are reachable while a lesson is on screen, so the feature
+            // being taught can be switched off mid-lesson. Withdrawing it from the
+            // catalog is not enough once it is already open: the instruction would
+            // sit there asking for a gesture that no longer does anything. Hand the
+            // player back to the list instead.
+            if (settings.activeTutorialLessonId.Length > 0)
+            {
+                BWTTutorialLessonDefinition active =
+                    BWTTutorialLessonCatalog.Find(settings.activeTutorialLessonId);
+                if (active != null && !active.BelongsTo(settings.selectedTutorialCourse))
+                {
+                    TutorialProgressTransitions.ReturnToSelection(
+                        ref settings.activeTutorialLessonId,
+                        ref settings.tutorialLessonPhase);
+                    lessonAnchor = default(BWTTutorialAnchor);
+                    observedLessonId = string.Empty;
+                }
+            }
         }
 
         private static IDictionary<TutorialHubAnchor, BWTTutorialHubDefinition> BuildHubDefinitions()
@@ -1327,10 +1350,22 @@ namespace Better_Work_Tab.Features.Tutorial
         {
             if (phase == CompletionOutcomePhase)
             {
+                if (lessonId == HeaderSubWorkLesson)
+                {
+                    return string.Format(
+                        T("BWT_Tutorial_HeaderSubWork_Outcome"),
+                        SubWorkDrilldownInput.GestureLabel());
+                }
+
                 BWTTutorialLessonDefinition completed = BWTTutorialLessonCatalog.Find(lessonId);
                 return completed == null
                     ? T("BWT_Tutorial_Outcome_Default")
                     : T("BWT_Tutorial_" + completed.LocalizationStem + "_Outcome");
+            }
+
+            if (lessonId == HeaderSubWorkLesson)
+            {
+                return BuildSubWorkActionBody();
             }
 
             if (lessonId == PrioritySkillLesson)
@@ -1606,16 +1641,6 @@ namespace Better_Work_Tab.Features.Tutorial
             PlayTutorialSound("Tick_Low");
         }
 
-        private static void LeaveTutorial()
-        {
-            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
-            TutorialProgressTransitions.ReturnToSelection(
-                ref settings.activeTutorialLessonId,
-                ref settings.tutorialLessonPhase);
-            Pause();
-            OpenReview();
-        }
-
         private static TutorialOverlayContent BuildWelcomeContent()
         {
             BWTTutorialCourse course = ResolveWelcomeCourse();
@@ -1712,6 +1737,26 @@ namespace Better_Work_Tab.Features.Tutorial
         {
             SoundDef sound = DefDatabase<SoundDef>.GetNamedSilentFail(defName);
             sound?.PlayOneShotOnCamera();
+        }
+
+        /// <summary>
+        /// Names whichever routes into specific jobs are actually available.
+        ///
+        /// Both are configurable and either can change while the lesson is on
+        /// screen, so the instruction is composed from the live settings instead
+        /// of naming one gesture in the copy. The visible button leads, because a
+        /// player who can see it does not need a shortcut explained first.
+        /// </summary>
+        private static string BuildSubWorkActionBody()
+        {
+            string gesture = SubWorkDrilldownInput.GestureLabel();
+            bool badgeVisible = BetterWorkTabMod.Settings?.showSubWorkHeaderBadge ??
+                                DefaultSettings.showSubWorkHeaderBadge;
+            return string.Format(
+                T(badgeVisible
+                    ? "BWT_Tutorial_HeaderSubWork_ActionBoth"
+                    : "BWT_Tutorial_HeaderSubWork_ActionShortcut"),
+                gesture);
         }
 
         private static string T(string key)

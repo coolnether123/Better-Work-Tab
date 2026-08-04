@@ -357,7 +357,7 @@ namespace Better_Work_Tab.Features.Tutorial
                 case BWTTutorialStripMode.Complete:
                     return T("BWT_Tutorial_Outcome_Continue");
                 case BWTTutorialStripMode.Browse:
-                    return T("BWT_Tutorial_LeaveTutorial");
+                    return T("BWT_Tutorial_GiveFeedback");
                 default:
                     return T("BWT_Tutorial_SkipLesson");
             }

@@ -53,12 +53,18 @@ namespace Better_Work_Tab.UI.Headers
                 _cachedHoveredWorkType = null;
                 _cachedHoveredRect = null;
 
-                // If Shift is released and we aren't currently dragging a column group, clear the multi-selection.
-                // This ensures selection is only active while the user is actively managing a group with Shift.
-                if (evt != null && !evt.shift && !BetterWorkTabLocalState.IsHeaderDragging && ColumnSelectionManager.HasSelection)
-                {
-                    ColumnSelectionManager.Clear();
-                }
+                // The selection deliberately outlives the Shift key.
+                //
+                // Clearing it the moment Shift came up meant it never survived
+                // long enough to be dragged: releasing Shift is exactly what a
+                // player does before grabbing the group, and IsHeaderDragging is
+                // not set until the drag has already started, so it could not
+                // protect the selection either. The group was wiped one frame
+                // before the drag began and only the grabbed column moved.
+                //
+                // Selection now ends on intent rather than on modifier state: a
+                // plain click on a header clears it, and so does a completed
+                // drop.
             }
         }
 

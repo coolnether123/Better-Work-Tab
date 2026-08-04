@@ -17,8 +17,8 @@ namespace Better_Work_Tab.Features.Tutorial
     {
         private const float PointerSize = 32f;
         private const float ArrowLength = 54f;
-        private const float ClickCycleSeconds = 6.6f;
-        private const float DragCycleSeconds = 7.2f;
+        private const float ClickCycleSeconds = 10f;
+        private const float DragCycleSeconds = 10.6f;
         private static Texture2D pointerTexture;
         private static float animationStartedAt = -1f;
         private static string animationIdentity = string.Empty;
@@ -116,7 +116,13 @@ namespace Better_Work_Tab.Features.Tutorial
 
             if (lessonId == BWTGeneralTutorial.HeaderSubWorkLesson)
             {
-                return GestureKind.CtrlClick;
+                // The modifier is a setting and can change while the lesson is on
+                // screen, so the demonstrated key is read live rather than fixed
+                // to Ctrl. A demo miming the wrong key teaches the wrong thing.
+                return BetterWorkTabMod.Settings?.subWorkDrilldownModifier ==
+                       BetterWorkTabSettings.SubWorkDrilldownModifier.Shift
+                    ? GestureKind.ShiftClick
+                    : GestureKind.CtrlClick;
             }
 
             return lessonId == BWTGeneralTutorial.HeaderGroupLesson
@@ -159,12 +165,13 @@ namespace Better_Work_Tab.Features.Tutorial
             float elapsed,
             string giveItATryLabel)
         {
-            // Slow enough to follow the pointer through grab, travel, and drop.
-            const float approachEnd = 1.1f;
-            const float pressEnd = 1.9f;
-            const float dragEnd = 4.2f;
-            const float releaseEnd = 5.0f;
-            const float tryEnd = 6.4f;
+            // Paced with the click cycle: slow enough to follow the pointer
+            // through grab, travel and drop, and to read the badge at each stop.
+            const float approachEnd = 1.6f;
+            const float pressEnd = 3.0f;
+            const float dragEnd = 6.2f;
+            const float releaseEnd = 7.4f;
+            const float tryEnd = 9.2f;
 
             float dragDistance = ResolveRightwardDragDistance(anchor, layout);
             Vector2 clickPoint = anchor.Rect.center;
@@ -224,12 +231,16 @@ namespace Better_Work_Tab.Features.Tutorial
             GestureKind kind,
             string giveItATryLabel)
         {
-            // Each labelled state holds long enough to actually be read. The
-            // earlier timings flashed "hold ctrl" past in under half a second.
-            const float approachEnd = 1.4f;
-            const float pressEnd = 2.7f;
-            const float releaseEnd = 4.1f;
-            const float dwellEnd = 5.6f;
+            // Each labelled state has to be noticed before it can be read, and
+            // the badge changes wording as the gesture advances. At roughly a
+            // second per state a player who glanced away has already missed the
+            // instruction, so every state that carries words holds for well over
+            // two seconds. The loop is slower than feels natural to write, which
+            // is the point: it is a demonstration, not an animation.
+            const float approachEnd = 1.6f;
+            const float pressEnd = 4.0f;
+            const float releaseEnd = 6.4f;
+            const float dwellEnd = 8.6f;
 
             Vector2 clickPoint = target.center;
             if (kind == GestureKind.HoldShift)

@@ -97,17 +97,16 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     "Renderer '" + failedRendererId + "' failed during " + context.EventPhase +
                     " at frame " + context.FrameNumber + " for " + context.Scope + ".");
                 PublishSelection(userMode, forcedMode, fallback, context.Scope);
-                Log.ErrorOnce(
-                    "[BWT] Work-grid renderer '" + failedRendererId + "' failed during " + context.EventPhase +
+                Log.Message(
+                    "[BWT] Optimized Work-grid renderer '" + failedRendererId + "' stopped during " + context.EventPhase +
                     " at frame " + context.FrameNumber + " for scope " + context.Scope +
-                    ". It was quarantined for the session; vanilla rendering resumes at the next Layout event.\n" +
-                    exception,
-                    StringComparer.Ordinal.GetHashCode("work-grid:" + context.Scope + ":" + failedRendererId));
+                    ". It was quarantined for the session; vanilla rendering resumes at the next Layout event. " +
+                    "Cause: " + exception.Message);
 
                 if (_diagnostics.Enabled)
                 {
                     _diagnostics.Record(new RenderDiagnostic(
-                        RenderDiagnosticSeverity.Error,
+                        RenderDiagnosticSeverity.Information,
                         failedRendererId,
                         fallback.Detail,
                         exception));
