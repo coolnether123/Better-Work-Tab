@@ -29,6 +29,7 @@ namespace Better_Work_Tab.Features.Feedback
         private static readonly Color PillOff = new Color(0.14f, 0.145f, 0.155f, 1f);
         private static readonly Color PillOffBorder = new Color(1f, 1f, 1f, 0.13f);
         private static readonly Color PillOn = new Color(0.42f, 0.34f, 0.19f, 1f);
+        private static readonly Color PillOnUnconfirmed = new Color(0.24f, 0.22f, 0.17f, 1f);
         private static readonly Color PillOnBorder = new Color(0.85f, 0.72f, 0.42f, 0.75f);
         private static readonly Color BadgeFill = new Color(0.18f, 0.19f, 0.20f, 1f);
 
@@ -171,12 +172,47 @@ namespace Better_Work_Tab.Features.Feedback
         }
 
         /// <summary>
-        /// A row of mutually exclusive choices drawn flat. Clicking the choice
-        /// already selected clears it, so a mis-click is not a permanent claim;
-        /// <paramref name="selected"/> of -1 means nothing is chosen yet.
+        /// A row of mutually exclusive choices drawn flat.
+        ///
+        /// <paramref name="selected"/> of -1 means nothing is chosen yet. When
+        /// <paramref name="allowDeselect"/> is true, clicking the current choice
+        /// clears it, so a mis-click is not a permanent claim; a row that starts
+        /// with a default has nothing to clear back to and passes false.
+        ///
+        /// <paramref name="confirmed"/> false draws the selection muted: the row
+        /// is showing a default the person has not actually agreed to, and it
+        /// should not look identical to one they have.
         /// </summary>
-        internal static int DrawSegmented(Rect rect, string[] labels, int selected, float gap = 4f)
+        internal static int DrawSegmented(
+            Rect rect,
+            string[] labels,
+            int selected,
+            bool allowDeselect = true,
+            bool confirmed = true,
+            float gap = 4f)
         {
+            return DrawSegmented(rect, labels, selected, out _, allowDeselect, confirmed, gap);
+        }
+
+        /// <summary>
+        /// As above, and reports whether this pass was a click.
+        ///
+        /// The return value alone cannot say so: with a pre-selected default it
+        /// equals <paramref name="selected"/> on every quiet frame and again
+        /// when someone clicks the choice already showing. A caller that treats
+        /// "returned the current selection" as agreement marks every row agreed
+        /// to on the first frame it is drawn.
+        /// </summary>
+        internal static int DrawSegmented(
+            Rect rect,
+            string[] labels,
+            int selected,
+            out bool clicked,
+            bool allowDeselect = true,
+            bool confirmed = true,
+            float gap = 4f)
+        {
+            clicked = false;
             int result = selected;
             float width = (rect.width - (gap * (labels.Length - 1))) / labels.Length;
             TextAnchor anchor = Text.Anchor;
@@ -197,10 +233,12 @@ namespace Better_Work_Tab.Features.Feedback
                 Rect pill = new Rect(rect.x + (i * (width + gap)), rect.y, width, rect.height);
                 bool on = selected == i;
                 bool hovered = Mouse.IsOver(pill);
-                Widgets.DrawBoxSolid(pill, on ? PillOn : PillOff);
-                GUI.color = on ? PillOnBorder : PillOffBorder;
+                Color fill = on ? (confirmed ? PillOn : PillOnUnconfirmed) : PillOff;
+                Color border = on ? (confirmed ? PillOnBorder : PillOffBorder) : PillOffBorder;
+                Widgets.DrawBoxSolid(pill, fill);
+                GUI.color = border;
                 Widgets.DrawBox(pill, 1);
-                GUI.color = on || hovered ? Color.white : Dim;
+                GUI.color = (on && confirmed) || hovered ? Color.white : Dim;
 
                 string shown = labels[i].Truncate(width - 8f);
                 Widgets.Label(pill, shown);
@@ -213,7 +251,8 @@ namespace Better_Work_Tab.Features.Feedback
 
                 if (Widgets.ButtonInvisible(pill))
                 {
-                    result = on ? -1 : i;
+                    clicked = true;
+                    result = on && allowDeselect ? -1 : i;
                 }
             }
 

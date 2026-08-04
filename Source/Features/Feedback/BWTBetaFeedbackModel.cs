@@ -29,18 +29,38 @@ namespace Better_Work_Tab.Features.Feedback
     internal sealed class BWTFeatureRating : IExposable
     {
         public string featureId = string.Empty;
-        public BWTFeatureVerdict verdict;
+
+        /// <summary>
+        /// Starts on Works so the form arrives filled in and a tester only has
+        /// to touch the rows that differ. <see cref="reviewed"/> is what keeps
+        /// that convenience from becoming a lie: eleven rows reading "Works"
+        /// because nobody opened the window is not the same as eleven people
+        /// saying so, and the report has to be able to tell them apart.
+        /// </summary>
+        public BWTFeatureVerdict verdict = BWTFeatureVerdict.Works;
+        public bool reviewed;
         public string note = string.Empty;
 
         public void ExposeData()
         {
             Scribe_Values.Look(ref featureId, "featureId", string.Empty);
-            Scribe_Values.Look(ref verdict, "verdict", BWTFeatureVerdict.Unanswered);
+            Scribe_Values.Look(ref verdict, "verdict", BWTFeatureVerdict.Works);
+            Scribe_Values.Look(ref reviewed, "reviewed", false);
             Scribe_Values.Look(ref note, "note", string.Empty);
+
+            // Ratings saved before the default existed carry no "reviewed" flag.
+            // Anything they set to a non-default answer was necessarily a
+            // deliberate one, so it counts as reviewed rather than silently
+            // demoting a real answer to an assumption.
+            if (Scribe.mode == LoadSaveMode.PostLoadInit &&
+                !reviewed &&
+                verdict != BWTFeatureVerdict.Works)
+            {
+                reviewed = true;
+            }
         }
 
-        internal bool HasResponse =>
-            verdict != BWTFeatureVerdict.Unanswered || !string.IsNullOrWhiteSpace(note);
+        internal bool HasResponse => reviewed || !string.IsNullOrWhiteSpace(note);
     }
 
     internal sealed class BWTProblemReport : IExposable

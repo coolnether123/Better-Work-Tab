@@ -216,9 +216,11 @@ namespace Better_Work_Tab.Features.Feedback
         private static bool WantsNote(BWTFeatureRating rating)
         {
             // The note only appears once there is something to explain, so the
-            // list stays a list until the tester has an opinion.
-            return rating.verdict != BWTFeatureVerdict.Unanswered &&
-                   rating.verdict != BWTFeatureVerdict.NotUsed;
+            // list stays a list until the tester has an opinion. It follows
+            // "reviewed" rather than the verdict, because every row now starts
+            // on Works and opening eleven note boxes on arrival would undo the
+            // reason the list is a list.
+            return rating.reviewed && rating.verdict != BWTFeatureVerdict.NotUsed;
         }
 
         private static float FeatureRowHeight(BWTFeatureRating rating)
@@ -267,10 +269,20 @@ namespace Better_Work_Tab.Features.Feedback
                 int chosen = BWTFeedbackWidgets.DrawSegmented(
                     new Rect(row.xMax - VerdictStripWidth - 6f, row.y + 9f, VerdictStripWidth, 26f),
                     VerdictLabels,
-                    selected);
-                if (chosen != selected)
+                    selected,
+                    out bool clicked,
+                    allowDeselect: false,
+                    confirmed: rating.reviewed);
+
+                // Any click is the tester speaking, including clicking the
+                // pre-selected Works — that is how someone confirms the default
+                // rather than merely leaving it alone. It has to be an actual
+                // click: the control returns the current selection on every
+                // quiet frame too.
+                if (clicked && chosen >= 0)
                 {
-                    rating.verdict = chosen < 0 ? BWTFeatureVerdict.Unanswered : Verdicts[chosen];
+                    rating.verdict = Verdicts[chosen];
+                    rating.reviewed = true;
                     dirty = true;
                 }
 
@@ -716,6 +728,7 @@ namespace Better_Work_Tab.Features.Feedback
             {
                 BWTFeatureRating rating = BWTBetaFeedbackStore.GetOrCreateRating(settings, feature.Id);
                 rating.verdict = Verdicts[index % Verdicts.Length];
+                rating.reviewed = true;
                 rating.note = index % 3 == 0 ? "Smoke-test note " + feature.Id : string.Empty;
                 index++;
             }

@@ -113,20 +113,45 @@ namespace Better_Work_Tab.Features.Feedback
                                  !string.IsNullOrWhiteSpace(rating.note))
                 .Take(limit)
                 .ToList();
-            if (answered.Count == 0)
+
+            // Every row starts on Works so the form arrives filled in. Rows the
+            // tester never touched are reported as exactly that, because a
+            // default nobody looked at is not a report that the feature works,
+            // and triage that cannot tell the two apart is worse than no
+            // ratings at all.
+            // Looked up rather than created: a feature with no row yet is simply
+            // one nobody has touched, and composing a report must not be the
+            // thing that writes to settings.
+            var untouched = BWTBetaFeatureCatalog.Relevant
+                .Where(feature => settings.betaFeatureRatings
+                    .FirstOrDefault(rating => string.Equals(rating.featureId, feature.Id, StringComparison.Ordinal))
+                    ?.HasResponse != true)
+                .Select(feature => BWTBetaFeatureCatalog.AreaLabel(feature.Id))
+                .ToList();
+
+            if (answered.Count == 0 && (problemsOnly || untouched.Count == 0))
             {
                 return;
             }
 
-            report.AppendLine(problemsOnly ? "Rated rough or broken:" : "How 2.0 is going:");
-            foreach (BWTFeatureRating rating in answered)
+            if (answered.Count > 0)
             {
-                string label = BWTBetaFeatureCatalog.AreaLabel(rating.featureId);
-                report.AppendLine("  " + label + " — " + Friendly(rating.verdict));
-                if (!string.IsNullOrWhiteSpace(rating.note))
+                report.AppendLine(problemsOnly ? "Rated rough or broken:" : "How 2.0 is going:");
+                foreach (BWTFeatureRating rating in answered)
                 {
-                    report.AppendLine("    " + Short(OneLine(rating.note), 240));
+                    string label = BWTBetaFeatureCatalog.AreaLabel(rating.featureId);
+                    report.AppendLine("  " + label + " — " + Friendly(rating.verdict));
+                    if (!string.IsNullOrWhiteSpace(rating.note))
+                    {
+                        report.AppendLine("    " + Short(OneLine(rating.note), 240));
+                    }
                 }
+            }
+
+            if (!problemsOnly && untouched.Count > 0)
+            {
+                report.AppendLine("Not reviewed (left at the Works default): " +
+                                  string.Join(", ", untouched.ToArray()));
             }
 
             report.AppendLine();
