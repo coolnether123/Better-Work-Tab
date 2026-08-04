@@ -110,11 +110,9 @@
 <BWT_AssignSimilarWorktypes_Desc>Also assign this rule to work types that use the same relevant skills.</BWT_AssignSimilarWorktypes_Desc>
 <BWT_FailedToApplyFallback_Desc>Apply this rule if the primary rule did not assign any pawns.</BWT_FailedToApplyFallback_Desc>
 
-<BWT_BottomBar_RulesetCaption>Ruleset</BWT_BottomBar_RulesetCaption>
 <BWT_BottomBar_RulesetTooltip>Ruleset: {0}\n\nClick to apply it to your colonists. Use ... to switch ruleset or open the rule builder.</BWT_BottomBar_RulesetTooltip>
 <BWT_BottomBar_RulesetTooltipEmpty>No ruleset is selected.\n\nClick to choose one, or open the rule builder to make one.</BWT_BottomBar_RulesetTooltipEmpty>
 <BWT_BottomBar_RulesetMenuTooltip>Switch ruleset, or open the rule builder.</BWT_BottomBar_RulesetMenuTooltip>
-<BWT_BottomBar_WorkloadCaption>Workload</BWT_BottomBar_WorkloadCaption>
 <BWT_BottomBar_WorkloadEmpty>Save current priorities</BWT_BottomBar_WorkloadEmpty>
 <BWT_BottomBar_WorkloadTooltip>Workload: {0}\n\nClick to put these saved priorities back on your colonists. Use ... to switch, rename, save or delete workloads.</BWT_BottomBar_WorkloadTooltip>
 <BWT_BottomBar_WorkloadTooltipEmpty>No workload is saved yet.\n\nClick to save the current priorities as one.</BWT_BottomBar_WorkloadTooltipEmpty>
@@ -329,9 +327,9 @@
 <BWT_Tutorial_StatusIncomplete>Not finished</BWT_Tutorial_StatusIncomplete>
 <BWT_Tutorial_GoToLesson>Go to tutorial</BWT_Tutorial_GoToLesson>
 <BWT_Tutorial_LessonValuePrompt>Is this lesson valuable?</BWT_Tutorial_LessonValuePrompt>
-<BWT_Tutorial_FeedbackKeep>Keep it</BWT_Tutorial_FeedbackKeep>
-<BWT_Tutorial_FeedbackRevise>Keep it, but revise it</BWT_Tutorial_FeedbackRevise>
-<BWT_Tutorial_FeedbackNoLesson>It doesn't need a lesson</BWT_Tutorial_FeedbackNoLesson>
+<BWT_Tutorial_FeedbackKeep>Keep</BWT_Tutorial_FeedbackKeep>
+<BWT_Tutorial_FeedbackRevise>Revise</BWT_Tutorial_FeedbackRevise>
+<BWT_Tutorial_FeedbackNoLesson>Not needed</BWT_Tutorial_FeedbackNoLesson>
 <BWT_Tutorial_BehaviorPrompt>Behaved as explained:</BWT_Tutorial_BehaviorPrompt>
 <BWT_Tutorial_NotSure>Not sure</BWT_Tutorial_NotSure>
 <BWT_Tutorial_OptionalNote>Optional note</BWT_Tutorial_OptionalNote>

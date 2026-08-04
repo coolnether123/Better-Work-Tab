@@ -181,8 +181,16 @@ namespace Better_Work_Tab.Features.Feedback
             float width = (rect.width - (gap * (labels.Length - 1))) / labels.Length;
             TextAnchor anchor = Text.Anchor;
             Color previous = GUI.color;
+            bool previousWrap = Text.WordWrap;
             Text.Anchor = TextAnchor.MiddleCenter;
             Text.Font = GameFont.Tiny;
+
+            // A pill is one line tall. Left to wrap, a long label takes two lines
+            // and the box clips the second one halfway through, which is how
+            // "It doesn't need a lesson" came out unreadable. Wrapping off means
+            // a long label is shortened on purpose, with the whole of it in the
+            // tooltip.
+            Text.WordWrap = false;
 
             for (int i = 0; i < labels.Length; i++)
             {
@@ -192,9 +200,16 @@ namespace Better_Work_Tab.Features.Feedback
                 Widgets.DrawBoxSolid(pill, on ? PillOn : PillOff);
                 GUI.color = on ? PillOnBorder : PillOffBorder;
                 Widgets.DrawBox(pill, 1);
-                GUI.color = on ? Color.white : hovered ? Color.white : Dim;
-                Widgets.Label(pill, labels[i]);
+                GUI.color = on || hovered ? Color.white : Dim;
+
+                string shown = labels[i].Truncate(width - 8f);
+                Widgets.Label(pill, shown);
                 GUI.color = previous;
+
+                if (!string.Equals(shown, labels[i], StringComparison.Ordinal))
+                {
+                    TooltipHandler.TipRegion(pill, labels[i]);
+                }
 
                 if (Widgets.ButtonInvisible(pill))
                 {
@@ -202,6 +217,7 @@ namespace Better_Work_Tab.Features.Feedback
                 }
             }
 
+            Text.WordWrap = previousWrap;
             Text.Font = GameFont.Small;
             Text.Anchor = anchor;
             GUI.color = previous;

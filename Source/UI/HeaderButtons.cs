@@ -268,7 +268,7 @@ namespace Better_Work_Tab.UI
 
             if (BWTBottomBarSelector.DrawMain(
                     rects.RulesetMain,
-                    "BWT_BottomBar_RulesetCaption".Translate(),
+                    BWTBottomBarIcons.Ruleset,
                     name,
                     hasRuleset,
                     hasRuleset
@@ -319,7 +319,7 @@ namespace Better_Work_Tab.UI
 
             if (BWTBottomBarSelector.DrawMain(
                     rects.WorkloadMain,
-                    "BWT_BottomBar_WorkloadCaption".Translate(),
+                    BWTBottomBarIcons.Workload,
                     name,
                     hasWorkload,
                     hasWorkload
