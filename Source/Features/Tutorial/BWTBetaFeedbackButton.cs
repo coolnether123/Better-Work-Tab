@@ -1,3 +1,4 @@
+using RimWorld;
 using UnityEngine;
 using Verse;
 
@@ -26,7 +27,31 @@ namespace Better_Work_Tab.Features.Tutorial
         private const float HoverAlpha = 1f;
         private const float PulseSpeed = 2.6f;
 
+        private const string IconPath = "UI/BWTFeedback";
+
         private static float lastTickRealtime = -1f;
+        private static Texture2D icon;
+        private static bool iconResolved;
+
+        /// <summary>
+        /// The speech-bubble icon, or RimWorld's own as a fallback. A missing
+        /// texture must not be the thing that removes the only route to the
+        /// feedback portal.
+        /// </summary>
+        private static Texture2D Icon
+        {
+            get
+            {
+                if (iconResolved)
+                {
+                    return icon;
+                }
+
+                iconResolved = true;
+                icon = ContentFinder<Texture2D>.Get(IconPath, false) ?? TexButton.Suspend;
+                return icon;
+            }
+        }
 
         internal static Rect GetRect(Rect infoRect)
         {
@@ -97,7 +122,7 @@ namespace Better_Work_Tab.Features.Tutorial
             }
 
             GUI.color = new Color(1f, 1f, 1f, alpha);
-            bool clicked = Widgets.ButtonImage(rect, TexButton.Suspend);
+            bool clicked = Widgets.ButtonImage(rect, Icon);
             GUI.color = previous;
 
             TooltipHandler.TipRegion(rect, nudging ? NudgeTooltip(settings) : RestingTooltip());
