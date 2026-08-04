@@ -1,4 +1,6 @@
 using System;
+using System.Globalization;
+using System.Text;
 using System.Collections.Generic;
 using System.Linq;
 using Better_Work_Tab.Features.Migration;
@@ -22,12 +24,41 @@ using Verse.Sound;
 namespace Better_Work_Tab.Features.Tutorial
 {
     /// <summary>
+    /// The tutorial's own surfaces, declared bottom to top.
+    ///
+    /// IMGUI has no z-order: what is "on top" is whatever painted last, and
+    /// nothing checks that input is resolved in the opposite order. Declaring the
+    /// stack once and deriving both walks from it is what keeps the two from
+    /// drifting. They did drift: the band paints first and the list paints over
+    /// it, but input asked the band first, so every list row crossing the band's
+    /// lane was swallowed and its lesson silently never opened.
+    ///
+    /// Band is painted with the Work tab's other pinned bands, before the
+    /// headers. Anchors and Popup are painted afterwards by
+    /// <see cref="BWTGeneralTutorial.TickAndDraw"/>, in that order.
+    /// </summary>
+    internal enum BWTTutorialSurface
+    {
+        Band,
+        Anchors,
+        Popup
+    }
+
+    /// <summary>
     /// The single Work-tab tutorial owner. Selection, progress, and action
     /// verification live here; work, schedule, and settings systems remain the
     /// authoritative owners of the actions being taught.
     /// </summary>
     internal static class BWTGeneralTutorial
     {
+        /// <summary>
+        /// Bottom-to-top paint order, taken straight from the enum declaration so
+        /// there is no second ordering to keep in step. Hit testing walks it
+        /// backwards, which is the only place the inverse relationship is stated.
+        /// </summary>
+        private static readonly BWTTutorialSurface[] PaintOrder =
+            (BWTTutorialSurface[])Enum.GetValues(typeof(BWTTutorialSurface));
+
         internal const int CurrentFlowVersion = 5;
         internal const string PrioritySkillLesson = BWTTutorialLessonCatalog.PrioritySkill;
         internal const string PriorityScheduleLesson = BWTTutorialLessonCatalog.PrioritySchedule;
@@ -40,7 +71,6 @@ namespace Better_Work_Tab.Features.Tutorial
         internal const string HeaderSubWorkLesson = BWTTutorialLessonCatalog.HeaderSubWork;
         internal const string RuleBuilder2Lesson = BWTTutorialLessonCatalog.RuleBuilder2;
         internal const string FluffyCoexistenceLesson = BWTTutorialLessonCatalog.FluffyCoexistence;
-        internal const string SettingsDiscoveryLesson = BWTTutorialLessonCatalog.SettingsDiscovery;
 
         private static readonly BWTTutorialSelector Selector = new BWTTutorialSelector();
         private static readonly TutorialOverlayController WelcomeOverlay = new TutorialOverlayController(
@@ -70,7 +100,6 @@ namespace Better_Work_Tab.Features.Tutorial
         private static string observedLessonId = string.Empty;
         private static bool lessonAnchorIsLive;
         private static bool ownsCurrentPointer;
-        private const int FloatingSelectorWindowId = 0x42575451;
         private const float WorkTabVerticalChrome = 6f;
         private const int CompletionOutcomePhase = 1000;
 
@@ -241,42 +270,234 @@ namespace Better_Work_Tab.Features.Tutorial
                     DismissWelcome);
             }
 
-            List<BWTTutorialAnchor> anchors = BWTTutorialGeometry.BuildInitialAnchors(inRect, layout);
-
-            if (TryHandleStripInput(layout, evt))
+            // Clicks go through the one ordered walk shared with the harness, so
+            // there is a single statement of which surface outranks which.
+            if (evt.type == EventType.MouseDown && evt.button == 0)
             {
+                if (!TryHandlePrimaryClick(inRect, layout, evt.mousePosition))
+                {
+                    return false;
+                }
+
+                evt.Use();
                 return true;
             }
 
-            if (presentation == TutorialPresentation.Lesson)
+            // Everything else the tutorial claims is the list holding the pointer
+            // during its hover grace, so the grid underneath stops drawing
+            // highlights and tooltips through it.
+            if (presentation == TutorialPresentation.Selector &&
+                BWTTutorialSelector.IsPointerEvent(evt.type) &&
+                Selector.ContainsPointer(
+                    GetWorkTabAttachmentBounds(inRect, Vector2.zero),
+                    BWTTutorialGeometry.BuildInitialAnchors(inRect, layout),
+                    BuildHubDefinitions(),
+                    evt.mousePosition))
             {
-                // Every lesson control now lives in the docked strip, which has
-                // already had its chance at this event.
+                evt.Use();
+                return true;
+            }
+
+            return false;
+        }
+
+
+        /// <summary>
+        /// Reports what the tutorial is showing and where, in Work-tab local
+        /// coordinates, so a harness can drive it by name and assert geometry
+        /// without reading pixels.
+        /// </summary>
+        internal static void DescribeState(
+            Rect inRect,
+            IWorkTabLayoutController layout,
+            StringBuilder report)
+        {
+            if (report == null)
+            {
+                return;
+            }
+
+            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
+            report.AppendLine("active=" + IsActive);
+            if (!IsActive || settings == null)
+            {
+                return;
+            }
+
+            EnsureState(settings);
+            TutorialPresentation presentation = Presentation;
+            report.AppendLine("presentation=" + presentation);
+            report.AppendLine("lesson=" + (settings.activeTutorialLessonId ?? string.Empty));
+            report.AppendLine("lessonPhase=" + settings.tutorialLessonPhase);
+            report.AppendLine("course=" + settings.selectedTutorialCourse);
+            report.AppendLine("completed=" + string.Join(",", settings.completedTutorialLessonIds.ToArray()));
+
+            BWTTutorialStripContent content = BuildStripContent(settings, presentation);
+            report.AppendLine("bandMode=" + content.Mode);
+            report.AppendLine("bandProgress=" + content.CompletedCount + "/" + content.TotalCount);
+            report.AppendLine("bandInstruction=" + content.Instruction);
+            BWTTutorialStripLayout stripLayout = BWTTutorialStrip.BuildLayout(layout, content);
+            report.AppendLine("bandValid=" + stripLayout.IsValid);
+            report.AppendLine("bandRect=" + Describe(stripLayout.StripRect));
+            report.AppendLine("bandSkipRect=" + Describe(stripLayout.SkipRect));
+            report.AppendLine("bandExitRect=" + Describe(stripLayout.ExitRect));
+
+            List<BWTTutorialAnchor> anchors = BWTTutorialGeometry.BuildInitialAnchors(inRect, layout);
+            report.AppendLine("anchorCount=" + anchors.Count);
+            for (int i = 0; i < anchors.Count; i++)
+            {
+                // Rect is only a bounding box. An angled header's outline is a
+                // rotated quad whose box also spans the stem, so the box centre
+                // can sit outside the shape Contains() actually tests. Report an
+                // interior point too, or a harness aiming at the centre misses.
+                Vector2 hit = ResolveAnchorHitPoint(anchors[i]);
+                report.AppendLine("anchor." + i + "=" + anchors[i].Kind + " " + Describe(anchors[i].Rect) +
+                    " hitx=" + hit.x.ToString("0.#", CultureInfo.InvariantCulture) +
+                    " hity=" + hit.y.ToString("0.#", CultureInfo.InvariantCulture) +
+                    " hitInside=" + anchors[i].Contains(hit));
+            }
+
+            if (Selector.TryDescribePopup(
+                    GetWorkTabAttachmentBounds(inRect, Vector2.zero),
+                    anchors,
+                    BuildHubDefinitions(),
+                    out BWTTutorialHubDefinition hub,
+                    out Rect popupRect,
+                    out IList<Rect> optionRects))
+            {
+                report.AppendLine("popupOpen=true");
+                report.AppendLine("popupAnchor=" + Selector.PinnedAnchor);
+                report.AppendLine("popupRect=" + Describe(popupRect));
+                for (int i = 0; i < hub.Options.Count && i < optionRects.Count; i++)
+                {
+                    report.AppendLine(
+                        "popupOption." + i + "=" + hub.Options[i].LessonId + " " + Describe(optionRects[i]));
+                }
+            }
+            else
+            {
+                report.AppendLine("popupOpen=false");
+            }
+        }
+
+        /// <summary>
+        /// A point inside the anchor's clickable shape: the outline's centroid
+        /// when it has one, otherwise the rect centre.
+        /// </summary>
+        private static Vector2 ResolveAnchorHitPoint(BWTTutorialAnchor anchor)
+        {
+            if (!anchor.HasCustomOutline)
+            {
+                return anchor.Rect.center;
+            }
+
+            Vector2 total = Vector2.zero;
+            for (int i = 0; i < anchor.OutlinePoints.Count; i++)
+            {
+                total += anchor.OutlinePoints[i];
+            }
+
+            return total / anchor.OutlinePoints.Count;
+        }
+
+        private static string Describe(Rect rect)
+        {
+            return "x=" + rect.x.ToString("0.#", CultureInfo.InvariantCulture) +
+                " y=" + rect.y.ToString("0.#", CultureInfo.InvariantCulture) +
+                " w=" + rect.width.ToString("0.#", CultureInfo.InvariantCulture) +
+                " h=" + rect.height.ToString("0.#", CultureInfo.InvariantCulture) +
+                " cx=" + rect.center.x.ToString("0.#", CultureInfo.InvariantCulture) +
+                " cy=" + rect.center.y.ToString("0.#", CultureInfo.InvariantCulture);
+        }
+
+        /// <summary>
+        /// Resolves a left click at a Work-tab local point through the same band,
+        /// popup and anchor hit testing a real click takes, without going through
+        /// an <see cref="Event"/>.
+        ///
+        /// Unity reports a synthesised mouse event's <c>type</c> as Ignore during
+        /// a Repaint pass, so a harness cannot deliver anything the event-keyed
+        /// path will accept. Driving the same resolution from a point keeps the
+        /// geometry and the handlers under test and skips only Unity's dispatch.
+        /// </summary>
+        internal static bool TryHandlePrimaryClick(
+            Rect inRect,
+            IWorkTabLayoutController layout,
+            Vector2 point)
+        {
+            if (!IsActive)
+            {
                 return false;
             }
 
-            if (presentation == TutorialPresentation.Selector)
+            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
+            EnsureState(settings);
+            TutorialPresentation presentation = Presentation;
+            if (presentation == TutorialPresentation.Welcome)
             {
-                if (evt.type == EventType.MouseDown && evt.button == 0 &&
-                    BWTTutorialGeometry.TryResolveAnchorAt(inRect, layout, evt.mousePosition, out BWTTutorialAnchor selected))
+                return false;
+            }
+
+            List<BWTTutorialAnchor> anchors = BWTTutorialGeometry.BuildInitialAnchors(inRect, layout);
+
+            // Backwards through the paint order: the surface drawn last gets
+            // first refusal, so whatever the player can see on top is what their
+            // click reaches.
+            for (int i = PaintOrder.Length - 1; i >= 0; i--)
+            {
+                if (TryHandleSurfaceClick(PaintOrder[i], inRect, layout, anchors, presentation, point))
                 {
-                    return Selector.TryHandleSelectionInput(new[] { selected }, inRect, evt);
+                    return true;
                 }
-                return Selector.TryHandleSelectionInput(anchors, inRect, evt);
             }
 
-            bool handled = Selector.TryHandleInput(
-                GetWorkTabAttachmentBounds(inRect, Vector2.zero),
-                anchors,
-                BuildHubDefinitions(),
-                evt,
-                out BWTTutorialSelectorAction action);
-            if (action.HasLesson)
+            return false;
+        }
+
+        private static bool TryHandleSurfaceClick(
+            BWTTutorialSurface surface,
+            Rect inRect,
+            IWorkTabLayoutController layout,
+            IList<BWTTutorialAnchor> anchors,
+            TutorialPresentation presentation,
+            Vector2 point)
+        {
+            switch (surface)
             {
-                SelectLesson(action.LessonId, anchors, layout);
-            }
+                case BWTTutorialSurface.Popup:
+                    if (presentation != TutorialPresentation.Selector ||
+                        !Selector.TryHandlePopupClick(
+                            GetWorkTabAttachmentBounds(inRect, Vector2.zero),
+                            anchors,
+                            BuildHubDefinitions(),
+                            point,
+                            out BWTTutorialSelectorAction action))
+                    {
+                        return false;
+                    }
 
-            return handled;
+                    if (action.HasLesson)
+                    {
+                        SelectLesson(action.LessonId, anchors, layout);
+                    }
+
+                    return true;
+
+                case BWTTutorialSurface.Anchors:
+                    // Anchors are only live while browsing; a lesson pins its own.
+                    // A miss here also dismisses the open list, and reports it as
+                    // unhandled so the click still reaches the grid beneath.
+                    return presentation == TutorialPresentation.Selector &&
+                           (BWTTutorialGeometry.TryResolveAnchorAt(inRect, layout, point, out BWTTutorialAnchor selected)
+                               ? Selector.TrySelectAnchorAt(new[] { selected }, point)
+                               : Selector.TrySelectAnchorAt(anchors, point));
+
+                case BWTTutorialSurface.Band:
+                    return TryHandleStripClick(layout, point);
+
+                default:
+                    return false;
+            }
         }
 
         internal static void UpdatePointerOwnership(
@@ -374,7 +595,7 @@ namespace Better_Work_Tab.Features.Tutorial
             {
                 // The band itself has already been drawn with the Work tab's
                 // other pinned bands; only the anchor overlay belongs up here.
-                DrawFloatingSelector(inRect, anchors, layout, settings);
+                DrawSelectorSurface(inRect, anchors, settings);
                 return;
             }
 
@@ -493,12 +714,13 @@ namespace Better_Work_Tab.Features.Tutorial
             BWTTutorialStrip.Draw(BWTTutorialStrip.BuildLayout(layout, content), content);
         }
 
-        private static bool TryHandleStripInput(IWorkTabLayoutController layout, Event evt)
+        /// <summary>
+        /// The band claims clicks anywhere inside itself, not just on its buttons,
+        /// so a stray click never falls through to the grid underneath it.
+        /// </summary>
+        private static bool TryHandleStripClick(IWorkTabLayoutController layout, Vector2 point)
         {
-            if (!BWTTutorialStrip.IsReserved ||
-                evt == null ||
-                evt.type != EventType.MouseDown ||
-                evt.button != 0)
+            if (!BWTTutorialStrip.IsReserved)
             {
                 return false;
             }
@@ -506,12 +728,12 @@ namespace Better_Work_Tab.Features.Tutorial
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
             BWTTutorialStripContent content = BuildStripContent(settings, Presentation);
             BWTTutorialStripLayout stripLayout = BWTTutorialStrip.BuildLayout(layout, content);
-            if (!stripLayout.IsValid || !stripLayout.StripRect.Contains(evt.mousePosition))
+            if (!stripLayout.IsValid || !stripLayout.StripRect.Contains(point))
             {
                 return false;
             }
 
-            if (stripLayout.SkipRect.width > 1f && stripLayout.SkipRect.Contains(evt.mousePosition))
+            if (stripLayout.SkipRect.width > 1f && stripLayout.SkipRect.Contains(point))
             {
                 if (content.Mode == BWTTutorialStripMode.Complete)
                 {
@@ -526,7 +748,7 @@ namespace Better_Work_Tab.Features.Tutorial
                     SkipLesson(settings.activeTutorialLessonId);
                 }
             }
-            else if (stripLayout.ExitRect.width > 1f && stripLayout.ExitRect.Contains(evt.mousePosition))
+            else if (stripLayout.ExitRect.width > 1f && stripLayout.ExitRect.Contains(point))
             {
                 if (content.Mode == BWTTutorialStripMode.Lesson)
                 {
@@ -538,9 +760,6 @@ namespace Better_Work_Tab.Features.Tutorial
                 }
             }
 
-            // The band belongs to the tutorial even where it has no control, so a
-            // stray click never reaches the grid underneath it.
-            evt.Use();
             return true;
         }
 
@@ -680,8 +899,7 @@ namespace Better_Work_Tab.Features.Tutorial
                     lesson.Id,
                     T("BWT_Tutorial_" + lesson.LocalizationStem + "_Label"),
                     T("BWT_Tutorial_" + lesson.LocalizationStem + "_Title"),
-                    T("BWT_Tutorial_" + lesson.LocalizationStem + "_Preview"),
-                    lesson.Recommended))
+                    T("BWT_Tutorial_" + lesson.LocalizationStem + "_Preview")))
                 .ToArray();
         }
 
@@ -719,63 +937,27 @@ namespace Better_Work_Tab.Features.Tutorial
             BWTTutorialGestureDemo.Draw(lessonId, phase, localAnchor, layout);
         }
 
-        private static void DrawFloatingSelector(
+        /// <summary>
+        /// Draws the anchor outlines and the attached lesson list inside the Work
+        /// tab's own pass.
+        ///
+        /// This used to be a full-screen ImmediateWindow on WindowLayer.Super.
+        /// RimWorld resolves a click through WindowStack.GetWindowAt, and a
+        /// screen-sized window answers that for every point on screen, so the Work
+        /// tab stopped receiving mouse-downs entirely while browsing — which left
+        /// every control in the tutorial band dead. Drawing here keeps the popup
+        /// inside the window that owns the input.
+        /// </summary>
+        private static void DrawSelectorSurface(
             Rect inRect,
             IList<BWTTutorialAnchor> localAnchors,
-            IWorkTabLayoutController layout,
             BetterWorkTabSettings settings)
         {
-            Vector2 rootOffset = GUIClipUtility.Unclip(Vector2.zero);
-            var rootAnchors = new List<BWTTutorialAnchor>(localAnchors.Count);
-            for (int i = 0; i < localAnchors.Count; i++)
-            {
-                rootAnchors.Add(localAnchors[i].OffsetBy(rootOffset));
-            }
-
-            Rect rootWorkTabBounds = GetWorkTabAttachmentBounds(inRect, rootOffset);
-            Rect screenBounds = new Rect(0f, 0f, Verse.UI.screenWidth, Verse.UI.screenHeight);
-            IDictionary<TutorialHubAnchor, BWTTutorialHubDefinition> hubs = BuildHubDefinitions();
-            Find.WindowStack.ImmediateWindow(
-                FloatingSelectorWindowId,
-                screenBounds,
-                WindowLayer.Super,
-                () =>
-                {
-                    Event evt = Event.current;
-                    if (evt != null && evt.type != EventType.Layout && evt.type != EventType.Repaint)
-                    {
-                        bool handled = Selector.TryHandleInput(
-                            rootWorkTabBounds,
-                            rootAnchors,
-                            hubs,
-                            evt,
-                            out BWTTutorialSelectorAction action);
-                        if (!handled)
-                        {
-                            // The full-screen immediate window receives pointer events
-                            // before the Work tab. Own anchor selection here so a click
-                            // becomes a durable pin instead of expiring as hover grace.
-                            handled = Selector.TryHandleSelectionInput(
-                                rootAnchors,
-                                rootWorkTabBounds,
-                                evt);
-                        }
-                        if (handled && action.HasLesson)
-                        {
-                            SelectLesson(action.LessonId, localAnchors, layout);
-                        }
-                    }
-
-                    Selector.Draw(
-                        rootWorkTabBounds,
-                        rootAnchors,
-                        hubs,
-                        settings.completedTutorialLessonIds,
-                        T("BWT_Tutorial_Recommended"));
-                },
-                doBackground: false,
-                absorbInputAroundWindow: false,
-                shadowAlpha: 0f);
+            Selector.Draw(
+                GetWorkTabAttachmentBounds(inRect, Vector2.zero),
+                localAnchors,
+                BuildHubDefinitions(),
+                settings.completedTutorialLessonIds);
         }
 
         private static void SelectLesson(
@@ -796,16 +978,6 @@ namespace Better_Work_Tab.Features.Tutorial
                 BWTSettingsFocusRequest request = BWTWorkTabContextSettingsRouter.BuildPriorityRangeFocusRequest(
                     settings.priorityMode);
                 BWTSettingsContextFocus.Request(request);
-                if (!MainTabWindow_BetterWork.OpenBetterWorkTabSettings(toggleExisting: false))
-                {
-                    ReturnToSelection();
-                }
-                return;
-            }
-
-            if (definition?.Route == BWTTutorialLessonRoute.SettingsDiscovery)
-            {
-                BeginRoutedLesson(settings, lessonId);
                 if (!MainTabWindow_BetterWork.OpenBetterWorkTabSettings(toggleExisting: false))
                 {
                     ReturnToSelection();
@@ -868,49 +1040,19 @@ namespace Better_Work_Tab.Features.Tutorial
                    string.Equals(settings.activeTutorialLessonId, lessonId, StringComparison.Ordinal);
         }
 
-        internal static void DrawSettingsGesture(
-            Rect searchRect,
-            Func<string, Rect?> resolveSettingRect,
-            Func<Rect?> resolveFirstVisibleSettingRect)
+        internal static void DrawSettingsGesture(Func<string, Rect?> resolveSettingRect)
         {
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
             string lessonId = settings?.activeTutorialLessonId;
             int phase = settings?.tutorialLessonPhase ?? 0;
-            if (phase == CompletionOutcomePhase)
+            if (phase == CompletionOutcomePhase || lessonId != PriorityRangeLesson)
             {
-                return;
-            }
-            if (lessonId == SettingsDiscoveryLesson && phase == 0)
-            {
-                BWTTutorialGestureDemo.DrawExternal(
-                    lessonId + ":search",
-                    searchRect,
-                    BWTTutorialGestureDemo.GestureKind.TextEntry,
-                    T("BWT_Tutorial_Gesture_SearchPrompt"));
                 return;
             }
 
-            string targetSettingId = null;
-            if (lessonId == PriorityRangeLesson)
-            {
-                targetSettingId = BWTWorkTabContextSettingsRouter
-                    .BuildPriorityRangeFocusRequest(settings.priorityMode)
-                    .TargetSettingId;
-            }
-            else if (lessonId == SettingsDiscoveryLesson && phase > 0)
-            {
-                Rect? firstResult = resolveFirstVisibleSettingRect?.Invoke();
-                if (firstResult.HasValue)
-                {
-                    BWTTutorialGestureDemo.DrawExternal(
-                        lessonId + ":result:" + phase,
-                        firstResult.Value,
-                        BWTTutorialGestureDemo.GestureKind.LeftClick,
-                        T("BWT_Tutorial_Gesture_SettingPrompt"));
-                }
-                return;
-            }
-
+            string targetSettingId = BWTWorkTabContextSettingsRouter
+                .BuildPriorityRangeFocusRequest(settings.priorityMode)
+                .TargetSettingId;
             Rect? target = string.IsNullOrEmpty(targetSettingId)
                 ? null
                 : resolveSettingRect?.Invoke(targetSettingId);
@@ -924,36 +1066,19 @@ namespace Better_Work_Tab.Features.Tutorial
             }
         }
 
-        internal static void NotifySettingsSearchChanged(string query)
-        {
-            if (IsActiveLesson(SettingsDiscoveryLesson, out int phase) &&
-                phase == 0 &&
-                !string.IsNullOrWhiteSpace(query))
-            {
-                AdvanceLessonPhase(1);
-            }
-        }
-
         internal static void NotifySettingsRowInteracted(string settingId)
         {
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
-            string lessonId = settings?.activeTutorialLessonId;
-            if (lessonId == PriorityRangeLesson)
+            if (settings?.activeTutorialLessonId != PriorityRangeLesson)
             {
-                BWTSettingsFocusRequest request = BWTWorkTabContextSettingsRouter
-                    .BuildPriorityRangeFocusRequest(settings.priorityMode);
-                if (request.SettingIds.Contains(settingId, StringComparer.OrdinalIgnoreCase))
-                {
-                    CompleteLesson(lessonId);
-                }
                 return;
             }
 
-            if (lessonId == SettingsDiscoveryLesson &&
-                settings.tutorialLessonPhase > 0 &&
-                !string.IsNullOrEmpty(settingId))
+            BWTSettingsFocusRequest request = BWTWorkTabContextSettingsRouter
+                .BuildPriorityRangeFocusRequest(settings.priorityMode);
+            if (request.SettingIds.Contains(settingId, StringComparer.OrdinalIgnoreCase))
             {
-                CompleteLesson(lessonId);
+                CompleteLesson(PriorityRangeLesson);
             }
         }
 

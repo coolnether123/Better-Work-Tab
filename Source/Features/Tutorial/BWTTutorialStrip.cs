@@ -73,18 +73,36 @@ namespace Better_Work_Tab.Features.Tutorial
         // Small-font text needs about 22px of line box, so the band has to clear
         // that plus its padding or the instruction is clipped at both ends.
         internal const float RowHeight = 34f;
+
+        // Angled header labels hang their stems slightly past the header lane.
+        // Starting the band flush with the lane bottom clipped those stems right
+        // where they end, so the leader lines stopped short of their column. This
+        // gap keeps them terminating in clear space, as they do with no band.
+        private const float TopGap = 6f;
         private const float Padding = 5f;
         private const float ButtonGap = 6f;
         private const float ButtonHeight = 22f;
         private const float ProgressWidth = 44f;
         private const float MinimumInstructionWidth = 120f;
 
+        // Matched to SubWorkDrilldownBarRenderer's global row so the Work tab's
+        // two pinned bands are visibly the same material.
+        private static readonly Color SubWorkBandFill = new Color(0.08f, 0.1f, 0.11f, 0.72f);
+
+        // Enough tutor colour to identify the band as the tutorial's, far too
+        // little to make it a tan slab again.
+        private static readonly Color TutorTint = new Color(
+            BWTUiPalette.TutorFill.r,
+            BWTUiPalette.TutorFill.g,
+            BWTUiPalette.TutorFill.b,
+            0.28f);
+
         // The reserved height feeds Work-tab layout, so it must stay constant for
         // a whole frame. Visibility is therefore latched once per Work-tab pass
         // rather than re-derived from tutorial policy inside geometry code.
         private static bool reserved;
 
-        internal static float ReservedHeight => reserved ? RowHeight : 0f;
+        internal static float ReservedHeight => reserved ? RowHeight + TopGap : 0f;
 
         internal static bool IsReserved => reserved;
 
@@ -95,6 +113,32 @@ namespace Better_Work_Tab.Features.Tutorial
         internal static void RefreshReservation(bool visible)
         {
             reserved = visible;
+        }
+
+        /// <summary>
+        /// The vertical lane the band occupies, including the stem gap above it.
+        /// Column-wide chrome drawn after the band — hover highlights, target
+        /// tints — needs this to part around the band instead of washing over
+        /// its text and buttons, which made them read as disabled.
+        /// </summary>
+        internal static bool TryGetBandSpan(
+            IWorkTabLayoutController layout,
+            out float top,
+            out float bottom)
+        {
+            top = 0f;
+            bottom = 0f;
+            if (!reserved || layout == null)
+            {
+                return false;
+            }
+
+            top = layout.TableOrigin.y +
+                layout.HeaderHeight +
+                TimePriorityScheduleEditor.HeaderPinnedRowsHeight +
+                SubWorkDrilldownBarRenderer.ReservedRowHeight;
+            bottom = top + TopGap + RowHeight;
+            return true;
         }
 
         internal static BWTTutorialStripLayout BuildLayout(
@@ -111,7 +155,8 @@ namespace Better_Work_Tab.Features.Tutorial
             float top = layout.TableOrigin.y +
                 layout.HeaderHeight +
                 TimePriorityScheduleEditor.HeaderPinnedRowsHeight +
-                SubWorkDrilldownBarRenderer.ReservedRowHeight;
+                SubWorkDrilldownBarRenderer.ReservedRowHeight +
+                TopGap;
             float width = Mathf.Max(
                 layout.Table != null ? layout.Table.Size.x - 16f : 0f,
                 1f);
@@ -183,10 +228,7 @@ namespace Better_Work_Tab.Features.Tutorial
             Text.Font = GameFont.Small;
 
             bool complete = content.Mode == BWTTutorialStripMode.Complete;
-            // RimWorld's own tutorial chrome. Using the game's tutor palette
-            // rather than a custom dark panel is what makes the band read as
-            // part of RimWorld instead of an overlay bolted onto the Work tab.
-            Widgets.DrawWindowBackgroundTutor(layout.StripRect);
+            DrawBandSurface(layout.StripRect);
 
             if (layout.ProgressRect.width > 1f)
             {
@@ -221,6 +263,44 @@ namespace Better_Work_Tab.Features.Tutorial
             Text.Anchor = oldAnchor;
             Text.Font = oldFont;
             Text.WordWrap = oldWordWrap;
+        }
+
+        /// <summary>
+        /// Paints the band out of the same material as the sub-work global row,
+        /// which is the Work tab's other pinned band.
+        ///
+        /// <see cref="Widgets.DrawWindowBackgroundTutor"/> was the obvious choice
+        /// and the wrong one: it draws a RimWorld *window*, an opaque saturated
+        /// slab with a hard border on all four sides. A window is a thing that
+        /// floats above the tab, so painting one into a lane between the headers
+        /// and the pawn rows read as pasted on rather than built in. The dark
+        /// translucent wash below is what every other band in this tab is made
+        /// of, so the band now sits in the table instead of on top of it, and the
+        /// tutor palette survives where it carries meaning — as a tint and the
+        /// separator — instead of as the whole surface.
+        /// </summary>
+        private static void DrawBandSurface(Rect rect)
+        {
+            Color oldColor = GUI.color;
+
+            Widgets.DrawBoxSolid(rect, SubWorkBandFill);
+            Widgets.DrawBoxSolid(rect, TutorTint);
+
+            // Mirrors the sub-work band's separator placement so consecutive
+            // bands rule off at the same inset and read as one system.
+            GUI.color = new Color(
+                BWTUiPalette.TutorAccent.r,
+                BWTUiPalette.TutorAccent.g,
+                BWTUiPalette.TutorAccent.b,
+                0.55f);
+            Widgets.DrawLineHorizontal(rect.xMin, rect.yMax - 3f, rect.width);
+
+            // A single faint rule along the top seats the band under the header
+            // lane. Anything heavier rebuilds the boxed-in look this replaced.
+            GUI.color = new Color(1f, 1f, 1f, 0.10f);
+            Widgets.DrawLineHorizontal(rect.xMin, rect.yMin, rect.width);
+
+            GUI.color = oldColor;
         }
 
         private static void DrawProgress(Rect rect, BWTTutorialStripContent content)

@@ -25,7 +25,6 @@ namespace Better_Work_Tab.Features.Tutorial
     {
         WorkTab,
         PrioritySettings,
-        SettingsDiscovery,
         RuleBuilder2,
         FluffyCoexistence
     }
@@ -41,8 +40,7 @@ namespace Better_Work_Tab.Features.Tutorial
             string feedbackLabelKey,
             TutorialHubAnchor anchor,
             string localizationStem,
-            BWTTutorialLessonRoute route = BWTTutorialLessonRoute.WorkTab,
-            bool recommended = false)
+            BWTTutorialLessonRoute route = BWTTutorialLessonRoute.WorkTab)
         {
             Id = id;
             VersionIntroduced = versionIntroduced;
@@ -53,7 +51,6 @@ namespace Better_Work_Tab.Features.Tutorial
             Anchor = anchor;
             LocalizationStem = localizationStem;
             Route = route;
-            Recommended = recommended;
         }
 
         internal string Id { get; }
@@ -65,7 +62,6 @@ namespace Better_Work_Tab.Features.Tutorial
         internal TutorialHubAnchor Anchor { get; }
         internal string LocalizationStem { get; }
         internal BWTTutorialLessonRoute Route { get; }
-        internal bool Recommended { get; }
 
         internal bool BelongsTo(BWTTutorialCourse course)
         {
@@ -96,7 +92,6 @@ namespace Better_Work_Tab.Features.Tutorial
         internal const string HeaderSubWork = "header.subwork";
         internal const string RuleBuilder2 = "rules.builder2";
         internal const string FluffyCoexistence = "compat.fluffy-coexistence";
-        internal const string SettingsDiscovery = "settings.discovery";
 
         private const BWTTutorialCourseMembership Both =
             BWTTutorialCourseMembership.WhatsNew20 | BWTTutorialCourseMembership.Full;
@@ -107,7 +102,7 @@ namespace Better_Work_Tab.Features.Tutorial
                 Lesson(PrioritySkill, "1.0.5", "Priorities", BWTTutorialCourseMembership.Full,
                     "PrioritySkill", TutorialHubAnchor.PriorityCell),
                 Lesson(PrioritySchedule, "2.0", "Priorities|Schedules", Both,
-                    "PrioritySchedule", TutorialHubAnchor.PriorityCell, recommended: true),
+                    "PrioritySchedule", TutorialHubAnchor.PriorityCell),
                 Lesson(PriorityRange, "2.0", "Priorities|Configuration", Both,
                     "PriorityRange", TutorialHubAnchor.PriorityCell,
                     route: BWTTutorialLessonRoute.PrioritySettings),
@@ -118,7 +113,7 @@ namespace Better_Work_Tab.Features.Tutorial
                 Lesson(PawnAppearance, "1.0.5", "Pawn rows|Appearance", BWTTutorialCourseMembership.Full,
                     "PawnAppearance", TutorialHubAnchor.PawnName),
                 Lesson(HeaderReorder, "2.0", "Work order|Layout", Both,
-                    "HeaderReorder", TutorialHubAnchor.WorkHeader, recommended: true),
+                    "HeaderReorder", TutorialHubAnchor.WorkHeader),
                 Lesson(HeaderGroup, "1.0.5", "Work order|Layout", BWTTutorialCourseMembership.Full,
                     "HeaderGroup", TutorialHubAnchor.WorkHeader),
                 Lesson(HeaderSubWork, "2.0", "Specific jobs|Priorities", Both,
@@ -135,10 +130,7 @@ namespace Better_Work_Tab.Features.Tutorial
                     "BWT_Tutorial_FluffyCoexistence_Feedback",
                     TutorialHubAnchor.WorkHeader,
                     "FluffyCoexistence",
-                    BWTTutorialLessonRoute.FluffyCoexistence),
-                Lesson(SettingsDiscovery, "2.0", "Configuration|Settings", Both,
-                    "SettingsDiscovery", TutorialHubAnchor.PriorityCell,
-                    route: BWTTutorialLessonRoute.SettingsDiscovery)
+                    BWTTutorialLessonRoute.FluffyCoexistence)
             };
 
         internal static IReadOnlyList<BWTTutorialLessonDefinition> All => Lessons;
@@ -163,8 +155,7 @@ namespace Better_Work_Tab.Features.Tutorial
             BWTTutorialCourseMembership courses,
             string stem,
             TutorialHubAnchor anchor,
-            BWTTutorialLessonRoute route = BWTTutorialLessonRoute.WorkTab,
-            bool recommended = false)
+            BWTTutorialLessonRoute route = BWTTutorialLessonRoute.WorkTab)
         {
             return new BWTTutorialLessonDefinition(
                 id,
@@ -175,8 +166,7 @@ namespace Better_Work_Tab.Features.Tutorial
                 "BWT_Tutorial_" + stem + "_Feedback",
                 anchor,
                 stem,
-                route,
-                recommended);
+                route);
         }
 
         private static string[] Split(string value)

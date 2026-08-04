@@ -34,21 +34,18 @@ namespace Better_Work_Tab.Features.Tutorial
             string lessonId,
             string label,
             string heading,
-            string body,
-            bool recommended = false)
+            string body)
         {
             LessonId = lessonId ?? string.Empty;
             Label = label ?? string.Empty;
             Heading = heading ?? string.Empty;
             Body = body ?? string.Empty;
-            Recommended = recommended;
         }
 
         internal string LessonId { get; }
         internal string Label { get; }
         internal string Heading { get; }
         internal string Body { get; }
-        internal bool Recommended { get; }
     }
 
     internal readonly struct BWTTutorialSelectorAction
@@ -102,87 +99,152 @@ namespace Better_Work_Tab.Features.Tutorial
 
         internal bool TryHandleSelectionInput(
             IList<BWTTutorialAnchor> anchors,
-            Rect workTabBounds,
             Event evt)
         {
-            if (anchors == null || evt == null || evt.type != EventType.MouseDown || evt.button != 0)
+            if (evt == null || evt.type != EventType.MouseDown || evt.button != 0)
             {
                 return false;
             }
 
-            TutorialHubAnchor anchor = GetAnchorAt(anchors, evt.mousePosition);
+            if (!TrySelectAnchorAt(anchors, evt.mousePosition))
+            {
+                return false;
+            }
+
+            evt.Use();
+            return true;
+        }
+
+        /// <summary>
+        /// Selects the anchor under a point. Split out from the event overload so
+        /// the same hit testing can be driven by a point alone, which is what the
+        /// agent harness needs: Unity reports a synthesised mouse event's type as
+        /// Ignore during a Repaint pass, so anything keyed on <c>evt.type</c> is
+        /// unreachable from a test harness.
+        /// </summary>
+        internal bool TrySelectAnchorAt(
+            IList<BWTTutorialAnchor> anchors,
+            Vector2 point)
+        {
+            if (anchors == null)
+            {
+                return false;
+            }
+
+            TutorialHubAnchor anchor = GetAnchorAt(anchors, point);
             if (anchor == TutorialHubAnchor.None)
             {
-                if (!workTabBounds.Contains(evt.mousePosition))
-                {
-                    ClearPinnedSelection();
-                }
+                // Anything that is not an anchor dismisses the open list. Callers
+                // reach this only after the band and the list itself have declined
+                // the click, so the player has clicked away from the popup.
+                //
+                // This used to dismiss only when the click landed outside the Work
+                // tab, which is the one place nobody clicks: once a list was open
+                // it stayed open, the other two anchors sat underneath it, and
+                // "click a highlighted name, header, or priority" stopped being
+                // true for two of the three.
+                ClearPinnedSelection();
                 return false;
             }
 
             pinnedAnchor = anchor;
             for (int i = 0; i < anchors.Count; i++)
             {
-                if (anchors[i].Kind == anchor && anchors[i].Contains(evt.mousePosition))
+                if (anchors[i].Kind == anchor && anchors[i].Contains(point))
                 {
                     pinnedGeometry = anchors[i];
                     break;
                 }
             }
             hover.Pin(anchor, Time.realtimeSinceStartup);
-            evt.Use();
             return true;
         }
 
-        internal bool TryHandleInput(
+        /// <summary>
+        /// Resolves a click inside the attached list. Returns true when the point
+        /// lands on the popup at all — the list owns those clicks whether or not
+        /// one hit a row — and sets <paramref name="action"/> only when a lesson
+        /// row was hit.
+        /// </summary>
+        internal bool TryHandlePopupClick(
             Rect workBounds,
             IList<BWTTutorialAnchor> anchors,
             IDictionary<TutorialHubAnchor, BWTTutorialHubDefinition> hubs,
-            Event evt,
+            Vector2 point,
             out BWTTutorialSelectorAction action)
         {
             action = default(BWTTutorialSelectorAction);
-            if (evt == null || anchors == null || anchors.Count == 0 || hubs == null)
+            if (!TryResolvePopupAt(workBounds, anchors, hubs, point, out BWTTutorialHubDefinition hub, out PopupLayout layout))
             {
                 return false;
             }
 
-            TutorialHubAnchor active = ResolveActiveAnchor(GetAnchorAt(anchors, evt.mousePosition));
+            for (int i = 0; i < hub.Options.Count && i < layout.OptionRects.Count; i++)
+            {
+                if (layout.OptionRects[i].Contains(point))
+                {
+                    action = new BWTTutorialSelectorAction(hub.Options[i].LessonId);
+                    break;
+                }
+            }
+
+            return true;
+        }
+
+        private bool TryResolvePopupAt(
+            Rect workBounds,
+            IList<BWTTutorialAnchor> anchors,
+            IDictionary<TutorialHubAnchor, BWTTutorialHubDefinition> hubs,
+            Vector2 point,
+            out BWTTutorialHubDefinition hub,
+            out PopupLayout layout)
+        {
+            hub = default(BWTTutorialHubDefinition);
+            layout = default(PopupLayout);
+            if (anchors == null || anchors.Count == 0 || hubs == null)
+            {
+                return false;
+            }
+
+            TutorialHubAnchor active = ResolveActiveAnchor(GetAnchorAt(anchors, point));
             if (active == TutorialHubAnchor.None ||
-                !hubs.TryGetValue(active, out BWTTutorialHubDefinition hub) ||
+                !hubs.TryGetValue(active, out hub) ||
                 hub.Options.Count == 0)
             {
                 return false;
             }
 
-            PopupLayout layout = BuildLayout(workBounds, FindAnchorRect(anchors, active), hub);
-            if (!layout.PopupRect.Contains(evt.mousePosition))
+            layout = BuildLayout(workBounds, FindAnchorRect(anchors, active), hub);
+            return layout.PopupRect.Contains(point);
+        }
+
+        /// <summary>
+        /// The popup's option rows for the anchor currently showing them, for
+        /// harness reporting. Returns false when no popup is open.
+        /// </summary>
+        internal bool TryDescribePopup(
+            Rect workBounds,
+            IList<BWTTutorialAnchor> anchors,
+            IDictionary<TutorialHubAnchor, BWTTutorialHubDefinition> hubs,
+            out BWTTutorialHubDefinition hub,
+            out Rect popupRect,
+            out IList<Rect> optionRects)
+        {
+            hub = default(BWTTutorialHubDefinition);
+            popupRect = Rect.zero;
+            optionRects = null;
+            if (anchors == null || anchors.Count == 0 || hubs == null ||
+                pinnedAnchor == TutorialHubAnchor.None ||
+                !hubs.TryGetValue(pinnedAnchor, out hub) ||
+                hub.Options.Count == 0)
             {
                 return false;
             }
 
-            if (evt.type == EventType.MouseDown && evt.button == 0)
-            {
-                for (int i = 0; i < hub.Options.Count && i < layout.OptionRects.Count; i++)
-                {
-                    if (layout.OptionRects[i].Contains(evt.mousePosition))
-                    {
-                        action = new BWTTutorialSelectorAction(hub.Options[i].LessonId);
-                        break;
-                    }
-                }
-
-                evt.Use();
-                return true;
-            }
-
-            if (IsPointerEvent(evt.type))
-            {
-                evt.Use();
-                return true;
-            }
-
-            return false;
+            PopupLayout layout = BuildLayout(workBounds, FindAnchorRect(anchors, pinnedAnchor), hub);
+            popupRect = layout.PopupRect;
+            optionRects = layout.OptionRects;
+            return true;
         }
 
         internal bool ContainsPointer(
@@ -216,8 +278,7 @@ namespace Better_Work_Tab.Features.Tutorial
             Rect workBounds,
             IList<BWTTutorialAnchor> anchors,
             IDictionary<TutorialHubAnchor, BWTTutorialHubDefinition> hubs,
-            ICollection<string> completedLessonIds,
-            string recommendedLabel)
+            ICollection<string> completedLessonIds)
         {
             if (anchors == null || anchors.Count == 0)
             {
@@ -242,14 +303,13 @@ namespace Better_Work_Tab.Features.Tutorial
 
             PopupLayout layout = BuildLayout(workBounds, FindAnchorRect(anchors, active), hub);
             lastPopupRect = layout.PopupRect;
-            DrawPopup(hub, layout, completedLessonIds, recommendedLabel, pointer);
+            DrawPopup(hub, layout, completedLessonIds, pointer);
         }
 
         private void DrawPopup(
             BWTTutorialHubDefinition hub,
             PopupLayout layout,
             ICollection<string> completed,
-            string recommendedLabel,
             Vector2 pointer)
         {
             Color oldColor = GUI.color;
@@ -294,24 +354,13 @@ namespace Better_Work_Tab.Features.Tutorial
                 Rect labelRect = new Rect(
                     markerRect.xMax + 4f,
                     rect.y,
-                    Mathf.Max(1f, rect.width - MarkerWidth - (option.Recommended ? 26f : 10f)),
+                    Mathf.Max(1f, rect.width - MarkerWidth - 10f),
                     rect.height);
                 Text.Anchor = TextAnchor.MiddleLeft;
                 GUI.color = isComplete
                     ? new Color(1f, 1f, 1f, 0.5f)
                     : isHovered ? Widgets.MouseoverOptionColor : Widgets.NormalOptionColor;
                 Widgets.Label(labelRect, option.Label.Truncate(labelRect.width));
-
-                // Recommended is a mark, not words appended to the label. The old
-                // inline separator wrapped and left every row a different height.
-                if (option.Recommended && !isComplete)
-                {
-                    Rect starRect = new Rect(rect.xMax - 22f, rect.y, 18f, rect.height);
-                    GUI.color = BWTUiPalette.TutorAccent;
-                    Text.Anchor = TextAnchor.MiddleCenter;
-                    Widgets.Label(starRect, "★");
-                    TooltipHandler.TipRegion(starRect, recommendedLabel);
-                }
 
                 if (!string.IsNullOrEmpty(option.Body))
                 {
@@ -464,7 +513,11 @@ namespace Better_Work_Tab.Features.Tutorial
                 : hover.ActiveAnchor;
         }
 
-        private static bool IsPointerEvent(EventType type)
+        /// <summary>
+        /// Whether an event carries a pointer position the list could own. Lives
+        /// here because the list is what claims the pointer.
+        /// </summary>
+        internal static bool IsPointerEvent(EventType type)
         {
             return type == EventType.MouseDown ||
                    type == EventType.MouseUp ||

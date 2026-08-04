@@ -1,6 +1,7 @@
 using System;
 using Better_Work_Tab.Features.Tutorial;
 using Better_Work_Tab.Features.Workloads;
+using Better_Work_Tab.UI;
 using Verse;
 
 namespace Better_Work_Tab.Features.Migration
@@ -10,9 +11,9 @@ namespace Better_Work_Tab.Features.Migration
     /// </summary>
     internal static class BWT20UpgradePrompt
     {
-        private static bool promptQueued;
+        private static readonly OneTimePromptPresence Presence = new OneTimePromptPresence();
 
-        internal static bool BlocksTutorialPresentation => promptQueued;
+        internal static bool BlocksTutorialPresentation => Presence.IsPending;
 
         internal static void ShowIfNeeded(
             BetterWorkTabSettings settings,
@@ -20,7 +21,7 @@ namespace Better_Work_Tab.Features.Migration
         {
             if (settings == null ||
                 worldSettings == null ||
-                promptQueued ||
+                Presence.IsPending ||
                 !BWT20UpgradePolicy.ShouldOfferUpgrade(
                     settings.v2UpgradePromptPending,
                     worldSettings.BWTWorldSchemaVersion))
@@ -28,19 +29,18 @@ namespace Better_Work_Tab.Features.Migration
                 return;
             }
 
-            promptQueued = true;
             Action startTutorial = () => Resolve(settings, worldSettings, startTutorial: true);
             Action keepSettings = () => Resolve(settings, worldSettings, startTutorial: false);
 #if v0_18 || v0_17 || v0_16 || v0_15 || v0_14 || v0_13 || vAlpha4
-            Find.WindowStack.Add(new Dialog_MessageBox(
+            Dialog_MessageBox dialog = new Dialog_MessageBox(
                 "BWT_Upgrade20_PromptBody".Translate(),
                 "BWT_Upgrade20_StartTutorial".Translate(),
                 startTutorial,
                 "BWT_Upgrade20_KeepSettings".Translate(),
                 keepSettings,
-                title: "BWT_Upgrade20_PromptTitle".Translate()));
+                title: "BWT_Upgrade20_PromptTitle".Translate());
 #else
-            Find.WindowStack.Add(new Dialog_MessageBox(
+            Dialog_MessageBox dialog = new Dialog_MessageBox(
                 "BWT_Upgrade20_PromptBody".Translate(),
                 "BWT_Upgrade20_StartTutorial".Translate(),
                 startTutorial,
@@ -48,8 +48,10 @@ namespace Better_Work_Tab.Features.Migration
                 keepSettings,
                 title: "BWT_Upgrade20_PromptTitle".Translate(),
                 acceptAction: startTutorial,
-                cancelAction: keepSettings));
+                cancelAction: keepSettings);
 #endif
+            Find.WindowStack.Add(dialog);
+            Presence.Track(dialog);
         }
 
         private static void Resolve(
@@ -57,7 +59,7 @@ namespace Better_Work_Tab.Features.Migration
             GameComponent_BWTWorldSettings worldSettings,
             bool startTutorial)
         {
-            promptQueued = false;
+            Presence.Clear();
             settings.v2UpgradePromptPending = false;
             worldSettings.BWTWorldSchemaVersion = BWT20UpgradePolicy.CurrentWorldSchemaVersion;
             settings.showGeneralTutorial = startTutorial;

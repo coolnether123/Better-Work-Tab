@@ -131,7 +131,12 @@ namespace Better_Work_Tab.UI
             Mathf.Clamp(
                 BetterWorkTabMod.Settings?.workTabTopSpace ?? DefaultSettings.workTabTopSpace,
                 0f,
-                80f);
+                80f) +
+            // The tutorial band adds a row to the tab, so the window grows by the
+            // same amount. Feeding it only into the bottom-anchored origin would
+            // take the space out of the pawn viewport and raise a scrollbar for a
+            // colony that otherwise fits.
+            BWTTutorialStrip.ReservedHeight;
 
         protected override float ExtraBottomSpace =>
             base.ExtraBottomSpace + FluffyTimeScheduleAssigner.ReservedBottomSpace;
@@ -597,6 +602,9 @@ namespace Better_Work_Tab.UI
             DrawSubWorkExitButton(inRect);
             DrawBottomCounters(inRect, table);
             BWTWorkTabTutorial.TickAndDraw(inRect, organizer?.Layout);
+            // Serviced after the tutorial has drawn, so the harness resolves
+            // targets against the geometry the player is actually looking at.
+            BWTTutorialAgentHarness.ProcessRequest(inRect, organizer?.Layout);
             if (BWTWorkTabTutorial.OwnsCurrentPointer && evt.type == EventType.Repaint)
             {
                 Vector2 pointer = evt.mousePosition;
@@ -1607,7 +1615,7 @@ namespace Better_Work_Tab.UI
                 {
                     Color useColor = settings.Color_MouseHoverHighlight;
                     Rect columnRect = new Rect(headerRect.x, layout.TableOrigin.y + layout.HeaderHeight, column.Width, totalHeight);
-                    Widgets.DrawBoxSolid(columnRect, useColor);
+                    DrawColumnHighlightAroundTutorialBand(layout, columnRect, useColor);
                 }
 
                 if (shouldHighlightRuleBuilderTarget && !drawRuleBuilderHighlightAfterHeader)
@@ -1646,6 +1654,45 @@ namespace Better_Work_Tab.UI
             }
 
             SubWorkHeaderAffordance.DrawFocusedBadge(layout);
+        }
+
+        /// <summary>
+        /// Fills a column-wide highlight in up to two pieces so it parts around
+        /// the tutorial band.
+        ///
+        /// The highlight spans from the bottom of the header lane to the bottom
+        /// of the table, and the header pass runs after the band is drawn, so a
+        /// single fill tinted the band's instruction text and buttons along with
+        /// the grid — which read as the controls being greyed out. The band is
+        /// chrome rather than a column of cells, so the column has nothing to say
+        /// about it and should simply resume below.
+        /// </summary>
+        private static void DrawColumnHighlightAroundTutorialBand(
+            IWorkTabLayoutController layout,
+            Rect columnRect,
+            Color color)
+        {
+            if (!BWTWorkTabTutorial.TryGetBandSpan(layout, out float bandTop, out float bandBottom) ||
+                bandBottom <= columnRect.yMin ||
+                bandTop >= columnRect.yMax)
+            {
+                Widgets.DrawBoxSolid(columnRect, color);
+                return;
+            }
+
+            if (bandTop > columnRect.yMin)
+            {
+                Widgets.DrawBoxSolid(
+                    new Rect(columnRect.x, columnRect.yMin, columnRect.width, bandTop - columnRect.yMin),
+                    color);
+            }
+
+            if (bandBottom < columnRect.yMax)
+            {
+                Widgets.DrawBoxSolid(
+                    new Rect(columnRect.x, bandBottom, columnRect.width, columnRect.yMax - bandBottom),
+                    color);
+            }
         }
 
         private float GetVisibleHeaderHighlightHeight(IWorkTabLayoutController layout, float pinnedRowsHeight)
@@ -2252,12 +2299,6 @@ namespace Better_Work_Tab.UI
         {
             float transientHeight = GetTransientTimePriorityRowHeight(layout);
             float reclaimedHeight = Mathf.Min(transientHeight, InlineScheduleFooterReclaim);
-
-            // The table is bottom-anchored, so a new pinned band would otherwise
-            // push the whole tab up and clip the toolbar off the window top. Take
-            // the tutorial band's height out of the row viewport instead, the same
-            // way the inline schedule reclaims its footer, leaving the origin fixed.
-            reclaimedHeight += BWTTutorialStrip.ReservedHeight;
             return Mathf.Max(0f, (layout?.ContentHeight ?? 0f) - reclaimedHeight);
         }
 

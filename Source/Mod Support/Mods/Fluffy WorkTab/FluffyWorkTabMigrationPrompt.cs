@@ -12,17 +12,19 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
     /// </summary>
     internal static class FluffyWorkTabMigrationPrompt
     {
-        private static bool _promptQueued;
-        private static bool _promptOpen;
+        private static readonly OneTimePromptPresence Presence = new OneTimePromptPresence();
 
-        internal static bool BlocksTutorialPresentation => _promptQueued || _promptOpen;
+        internal static bool BlocksTutorialPresentation => Presence.IsPending;
 
         internal static void QueueIfNeeded(
             GameComponent_BWTWorldSettings component,
             FluffyWorkTabMigrationResult result)
         {
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
-            if (_promptQueued ||
+            // Guarding on the whole pending state, not just the queued flag, also
+            // stops a second dialog stacking behind one already on screen: the
+            // prompt version is only bumped once the player answers.
+            if (Presence.IsPending ||
                 settings == null ||
                 component == null ||
                 !FluffyWorkTabPromptPolicy.ShouldPrompt(
@@ -34,10 +36,10 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                 return;
             }
 
-            _promptQueued = true;
+            Presence.Queued = true;
             LongEventHandler.ExecuteWhenFinished(() =>
             {
-                _promptQueued = false;
+                Presence.Queued = false;
                 if (Find.WindowStack == null ||
                     Current.Game?.GetComponent<GameComponent_BWTWorldSettings>() != component ||
                     !FluffyWorkTabPromptPolicy.ShouldPrompt(
@@ -56,17 +58,16 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                         : "BWT_FluffyMigration_HistoricalBody";
                 Action reviewSettings = () => Resolve(component, result, openSettings: true);
                 Action keepCurrentSetup = () => Resolve(component, result, openSettings: false);
-                _promptOpen = true;
 #if v0_18 || v0_17 || v0_16 || v0_15 || v0_14 || v0_13 || vAlpha4
-                Find.WindowStack.Add(new Dialog_MessageBox(
+                Dialog_MessageBox dialog = new Dialog_MessageBox(
                     promptBodyKey.Translate(),
                     "BWT_FluffyMigration_ReviewSettings".Translate(),
                     reviewSettings,
                     "BWT_FluffyMigration_KeepSetup".Translate(),
                     keepCurrentSetup,
-                    title: "BWT_FluffyMigration_Title".Translate()));
+                    title: "BWT_FluffyMigration_Title".Translate());
 #else
-                Find.WindowStack.Add(new Dialog_MessageBox(
+                Dialog_MessageBox dialog = new Dialog_MessageBox(
                     promptBodyKey.Translate(),
                     "BWT_FluffyMigration_ReviewSettings".Translate(),
                     reviewSettings,
@@ -74,8 +75,10 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                     keepCurrentSetup,
                     title: "BWT_FluffyMigration_Title".Translate(),
                     acceptAction: reviewSettings,
-                    cancelAction: keepCurrentSetup));
+                    cancelAction: keepCurrentSetup);
 #endif
+                Find.WindowStack.Add(dialog);
+                Presence.Track(dialog);
             });
         }
 
@@ -84,7 +87,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             FluffyWorkTabMigrationResult result,
             bool openSettings)
         {
-            _promptOpen = false;
+            Presence.Clear();
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
             if (settings == null)
             {

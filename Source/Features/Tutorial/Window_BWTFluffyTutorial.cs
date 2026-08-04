@@ -21,7 +21,43 @@ namespace Better_Work_Tab.Features.Tutorial
         private int phase;
         private bool completed;
 
-        public override Vector2 InitialSize => new Vector2(590f, 330f);
+        private const float WindowWidth = 590f;
+        private const float BodyTop = 46f;
+        private const float BodyToButtonGap = 12f;
+        private const float ButtonBlockHeight = 42f;
+
+        // Every phase draws its body into the same window, so the height has to
+        // suit the longest of them.
+        private static readonly string[] BodyKeys =
+        {
+            "BWT_Tutorial_FluffyCoexistence_ActionSwitch",
+            "BWT_Tutorial_FluffyCoexistence_ActionReturn",
+            "BWT_Tutorial_FluffyCoexistence_ActionPreserved",
+            "BWT_Tutorial_FluffyCoexistence_ActionChanged"
+        };
+
+        public override Vector2 InitialSize => new Vector2(WindowWidth, ResolveHeight());
+
+        /// <summary>
+        /// Sizes the window to the tallest phase body rather than a fixed height.
+        /// The bodies are two lines, so a fixed 330px left roughly a third of the
+        /// panel empty between the text and the button, which read as unfinished.
+        /// Measuring every phase keeps the window from resizing as it advances.
+        /// </summary>
+        private float ResolveHeight()
+        {
+            GameFont previousFont = Text.Font;
+            Text.Font = GameFont.Small;
+            float contentWidth = WindowWidth - (Margin * 2f);
+            float tallestBody = 0f;
+            for (int i = 0; i < BodyKeys.Length; i++)
+            {
+                tallestBody = Mathf.Max(tallestBody, Text.CalcHeight(BodyKeys[i].Translate(), contentWidth));
+            }
+            Text.Font = previousFont;
+
+            return BodyTop + tallestBody + BodyToButtonGap + ButtonBlockHeight + (Margin * 2f);
+        }
 
         internal Window_BWTFluffyTutorial(Action onCompleted, Action onDismissed = null)
         {

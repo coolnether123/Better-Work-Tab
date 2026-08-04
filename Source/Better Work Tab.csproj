@@ -144,6 +144,8 @@
     <Compile Include="Features\Testing\GameComponent_BWTSettingsCohortQuickTestDriver.cs" />
     <Compile Include="Features\Testing\GameComponent_BWTTutorialQuickTestDriver.cs" />
     <Compile Include="Features\Testing\AgentHarnessUtility.cs" />
+    <Compile Include="UI\OneTimePromptPresence.cs" />
+    <Compile Include="Features\Testing\BWTTutorialAgentHarness.cs" />
     <Compile Include="Features\Testing\RuleBuilder2AgentHarness.cs" />
     <Compile Include="Features\Testing\SubWorkTransitionPerfDiagnostics.cs" />
     <Compile Include="Features\Testing\WorkTabGeometryContractValidator.cs" />

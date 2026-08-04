@@ -52,6 +52,18 @@ namespace Better_Work_Tab.Features.Tutorial
             BWTGeneralTutorial.TickAndDraw(inRect, layout);
         }
 
+        /// <summary>
+        /// The vertical lane the tutorial band occupies this frame, for column
+        /// chrome that must not paint across it.
+        /// </summary>
+        internal static bool TryGetBandSpan(
+            IWorkTabLayoutController layout,
+            out float top,
+            out float bottom)
+        {
+            return BWTTutorialStrip.TryGetBandSpan(layout, out top, out bottom);
+        }
+
         internal static void ObserveInteraction(BWTTutorialInteraction interaction)
         {
             BWTGeneralTutorial.ObserveInteraction(interaction);

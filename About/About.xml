@@ -92,6 +92,9 @@ Join the Discord: <color=#99CCFF>https://discord.gg/QYBBaRkKWs</color>
     <li>fluffy.worktab.continued</li>
     <li>arof.fluffy.worktab.continued</li>
   </loadAfter>
+  <loadBefore>
+    <li>squishyjellyfish.SleekWorkPriorities</li>
+  </loadBefore>
   <modDependencies>
     <li>
       <packageId>brrainz.harmony</packageId>

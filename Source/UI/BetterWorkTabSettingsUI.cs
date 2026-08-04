@@ -63,11 +63,7 @@ namespace Better_Work_Tab.UI
 
             drawer.Draw(inRect, settings, ref _viewMode, () => settings.Write());
             BWTGeneralTutorial.DrawSettingsGesture(
-                ScreenToGuiRect(drawer.SearchScreenRect),
                 settingId => drawer.TryGetVisibleSettingScreenRect(settingId, out Rect screenRect)
-                    ? (Rect?)ScreenToGuiRect(screenRect)
-                    : null,
-                () => drawer.TryGetFirstVisibleSettingScreenRect(out Rect screenRect)
                     ? (Rect?)ScreenToGuiRect(screenRect)
                     : null);
 
@@ -135,7 +131,6 @@ namespace Better_Work_Tab.UI
                 RowHeight = 32f,
                 ScrollPosition = scrollPosition,
                 OnSettingTooltipViewed = MarkSettingViewed,
-                OnSearchTextChanged = BWTGeneralTutorial.NotifySettingsSearchChanged,
                 OnSettingInteracted = (definition, _) =>
                     BWTGeneralTutorial.NotifySettingsRowInteracted(definition?.Id)
             };

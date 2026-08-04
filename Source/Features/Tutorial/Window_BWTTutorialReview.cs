@@ -217,16 +217,43 @@ namespace Better_Work_Tab.Features.Tutorial
         private static void DrawChoiceRow(Rect rect, string prompt, string[] labels, int selected, Action<int> onSelect)
         {
             const float promptWidth = 190f;
-            Widgets.Label(new Rect(rect.x, rect.y + 4f, promptWidth, rect.height), prompt);
             float width = (rect.width - promptWidth - 12f) / labels.Length;
+
+            // Each lesson card stacks two near-identically shaped answer rows, so
+            // a pointer resting on "Yes" reads as floating in a grid of buttons.
+            // Resolving the hover before anything is drawn lets the question light
+            // up with its own answers and name what is being agreed to.
+            bool rowHovered = false;
+            Vector2 pointer = Event.current.mousePosition;
+            for (int i = 0; i < labels.Length && !rowHovered; i++)
+            {
+                rowHovered = ChoiceButtonRect(rect, promptWidth, width, i).Contains(pointer);
+            }
+
+            Rect promptRect = new Rect(rect.x, rect.y + 4f, promptWidth, rect.height);
+            Color oldColor = GUI.color;
+            if (rowHovered)
+            {
+                Widgets.DrawHighlight(promptRect);
+            }
+
+            GUI.color = rowHovered ? Color.white : new Color(1f, 1f, 1f, 0.8f);
+            Widgets.Label(promptRect, prompt);
+            GUI.color = oldColor;
+
             for (int i = 0; i < labels.Length; i++)
             {
-                Rect button = new Rect(rect.x + promptWidth + 12f + i * width, rect.y, width - 6f, rect.height);
+                Rect button = ChoiceButtonRect(rect, promptWidth, width, i);
                 Color old = GUI.color;
                 if (selected == i) GUI.color = new Color(1f, 0.84f, 0.35f);
                 if (Widgets.ButtonText(button, labels[i])) onSelect(i);
                 GUI.color = old;
             }
+        }
+
+        private static Rect ChoiceButtonRect(Rect rect, float promptWidth, float width, int index)
+        {
+            return new Rect(rect.x + promptWidth + 12f + (index * width), rect.y, width - 6f, rect.height);
         }
 
         private static float CalculateContentHeight(BetterWorkTabSettings settings)

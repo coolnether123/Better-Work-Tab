@@ -125,7 +125,6 @@
 <BWT_AddCondition>Add condition</BWT_AddCondition>
 <BWT_SelectWorkTypeFirst>Select a work type to edit rules.</BWT_SelectWorkTypeFirst>
 <BWT_SelectOrCreateRule>Select a rule or create a new one.</BWT_SelectOrCreateRule>
-<BWT_NewRule>New Rule</BWT_NewRule>
 <BWT_Add_HasHighestSkill>Require highest skill</BWT_Add_HasHighestSkill>
 <BWT_Add_IsTopXSkill>Require top X skill</BWT_Add_IsTopXSkill>
 <BWT_Add_PassionLevel>Require passion level</BWT_Add_PassionLevel>
@@ -178,8 +177,6 @@
 <BWT_Tutorial_Welcome_WhatsNew>Explore 2.0 additions</BWT_Tutorial_Welcome_WhatsNew>
 <BWT_Tutorial_Welcome_Full>Explore all BWT features</BWT_Tutorial_Welcome_Full>
 <BWT_Tutorial_NotNow>Not now</BWT_Tutorial_NotNow>
-<BWT_Tutorial_Welcome_Continue>Continue with walkthrough</BWT_Tutorial_Welcome_Continue>
-<BWT_Tutorial_Welcome_KnowBWT>I know Better Work Tab</BWT_Tutorial_Welcome_KnowBWT>
 <BWT_Upgrade20_PromptTitle>Better Work Tab 2.0</BWT_Upgrade20_PromptTitle>
 <BWT_Upgrade20_PromptBody>Better Work Tab was updated to 2.0. Your settings are preserved, and new features remain disabled to keep existing behavior. Tour the new features?</BWT_Upgrade20_PromptBody>
 <BWT_Upgrade20_StartTutorial>Show me the 2.0 tutorial</BWT_Upgrade20_StartTutorial>
@@ -194,7 +191,6 @@
 <BWT_FluffyMigration_SettingsContextTooltip>Settings for Fluffy-style controls, saved hourly priorities, visible compatibility columns, and choosing which mod owns the Work tab.</BWT_FluffyMigration_SettingsContextTooltip>
 <BWT_Tutorial_Selector_Title>Explore Better Work Tab</BWT_Tutorial_Selector_Title>
 <BWT_Tutorial_Selector_DefaultBody>Click a highlighted name, header, or priority to explore it.</BWT_Tutorial_Selector_DefaultBody>
-<BWT_Tutorial_Recommended>Recommended</BWT_Tutorial_Recommended>
 <BWT_Tutorial_SkipForNow>Skip for now</BWT_Tutorial_SkipForNow>
 <BWT_Tutorial_LeaveTutorial>Give feedback</BWT_Tutorial_LeaveTutorial>
 <BWT_Tutorial_BackToMap>Back to lessons</BWT_Tutorial_BackToMap>
@@ -241,9 +237,6 @@
 <BWT_Tutorial_HeaderSubWork_Action>Ctrl-click the highlighted Work header to open its specific jobs.</BWT_Tutorial_HeaderSubWork_Action>
 <BWT_Tutorial_HeaderSubWork_Outcome>Specific jobs open. Escape or Ctrl-click returns.</BWT_Tutorial_HeaderSubWork_Outcome>
 <BWT_Tutorial_HeaderSubWork_Feedback>Specific jobs: presentation, priorities, and reassignment</BWT_Tutorial_HeaderSubWork_Feedback>
-
-<BWT_Tutorial_Gesture_Ctrl>CTRL</BWT_Tutorial_Gesture_Ctrl>
-<BWT_Tutorial_Gesture_Shift>SHIFT</BWT_Tutorial_Gesture_Shift>
 <BWT_Tutorial_Gesture_LeftClick>LEFT CLICK</BWT_Tutorial_Gesture_LeftClick>
 <BWT_Tutorial_Gesture_RightClick>RIGHT CLICK</BWT_Tutorial_Gesture_RightClick>
 <BWT_Tutorial_Gesture_CtrlClick>CTRL + CLICK</BWT_Tutorial_Gesture_CtrlClick>
@@ -252,11 +245,9 @@
   <BWT_Tutorial_Gesture_HoldCtrl>HOLD CTRL</BWT_Tutorial_Gesture_HoldCtrl>
   <BWT_Tutorial_Gesture_ReleaseCtrl>RELEASE CTRL</BWT_Tutorial_Gesture_ReleaseCtrl>
   <BWT_Tutorial_Gesture_ReleaseShift>RELEASE SHIFT</BWT_Tutorial_Gesture_ReleaseShift>
-  <BWT_Tutorial_Outcome_LookHere>DONE - LOOK HERE</BWT_Tutorial_Outcome_LookHere>
   <BWT_Tutorial_Outcome_Continue>Continue when ready</BWT_Tutorial_Outcome_Continue>
   <BWT_Tutorial_Outcome_Default>The change is visible in the highlighted area. Take a moment to look at the result, then continue when you are ready.</BWT_Tutorial_Outcome_Default>
 <BWT_Tutorial_Gesture_Type>TYPE</BWT_Tutorial_Gesture_Type>
-<BWT_Tutorial_Gesture_SearchPrompt>Type a setting name</BWT_Tutorial_Gesture_SearchPrompt>
 <BWT_Tutorial_Gesture_SettingPrompt>Open this setting</BWT_Tutorial_Gesture_SettingPrompt>
 <BWT_Tutorial_Gesture_SelectOption>Select this option</BWT_Tutorial_Gesture_SelectOption>
 <BWT_Tutorial_Gesture_TypeTitle>Type a new title</BWT_Tutorial_Gesture_TypeTitle>
@@ -289,9 +280,8 @@
 <BWT_Tutorial_PriorityRange_Feedback>Extended priorities</BWT_Tutorial_PriorityRange_Feedback>
 <BWT_Tutorial_PriorityRange_Filter>Priority range</BWT_Tutorial_PriorityRange_Filter>
 <BWT_Tutorial_PriorityRange_FilterTooltip>Priority provider and maximum-priority settings for the Work tab.</BWT_Tutorial_PriorityRange_FilterTooltip>
+<BWT_Tutorial_PriorityRange_Action>Pick a priority range in the highlighted setting.</BWT_Tutorial_PriorityRange_Action>
 <BWT_Tutorial_PriorityRange_Outcome>Priority range set. A wider range gives finer control.</BWT_Tutorial_PriorityRange_Outcome>
-
-<BWT_Tutorial_Unknown_Title>Better Work Tab tutorial</BWT_Tutorial_Unknown_Title>
 <BWT_Tutorial_Unknown_Action>Return to the tutorial map and select an available lesson.</BWT_Tutorial_Unknown_Action>
 
 <BWT_Tutorial_RuleBuilder2_Label>Try Rule Builder 2.0</BWT_Tutorial_RuleBuilder2_Label>
@@ -314,15 +304,6 @@
 <BWT_Tutorial_FluffySwitch>Switch to Fluffy's interface</BWT_Tutorial_FluffySwitch>
 <BWT_Tutorial_BWTReturn>Return to Better Work Tab</BWT_Tutorial_BWTReturn>
 <BWT_Tutorial_FinishLesson>Finish lesson</BWT_Tutorial_FinishLesson>
-
-<BWT_Tutorial_SettingsDiscovery_Label>Find contextual settings</BWT_Tutorial_SettingsDiscovery_Label>
-<BWT_Tutorial_SettingsDiscovery_Title>Settings search and contextual configuration</BWT_Tutorial_SettingsDiscovery_Title>
-<BWT_Tutorial_SettingsDiscovery_Preview>Search all settings, or open a focused configuration view from the Work-tab feature you are using.</BWT_Tutorial_SettingsDiscovery_Preview>
-<BWT_Tutorial_SettingsDiscovery_Action>Search a setting, or open one from its control.</BWT_Tutorial_SettingsDiscovery_Action>
-<BWT_Tutorial_SettingsDiscovery_Outcome>Setting found. Search by word, or open it from its control.</BWT_Tutorial_SettingsDiscovery_Outcome>
-<BWT_Tutorial_SettingsDiscovery_Feedback>Settings search and contextual configuration</BWT_Tutorial_SettingsDiscovery_Feedback>
-<BWT_Tutorial_SettingsDiscovery_Filter>Contextual configuration examples</BWT_Tutorial_SettingsDiscovery_Filter>
-<BWT_Tutorial_SettingsDiscovery_FilterTooltip>Examples of feature, specific-job, priority, and Rule Builder settings that can be found by search or context.</BWT_Tutorial_SettingsDiscovery_FilterTooltip>
 
 <BWT_Tutorial_PrioritySkill_Feedback>Viewing skill numbers</BWT_Tutorial_PrioritySkill_Feedback>
 <BWT_Tutorial_PawnMenu_Feedback>Pawn action menu</BWT_Tutorial_PawnMenu_Feedback>
