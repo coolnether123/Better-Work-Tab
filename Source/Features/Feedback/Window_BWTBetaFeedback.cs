@@ -215,12 +215,13 @@ namespace Better_Work_Tab.Features.Feedback
 
         private static bool WantsNote(BWTFeatureRating rating)
         {
-            // The note only appears once there is something to explain, so the
-            // list stays a list until the tester has an opinion. It follows
-            // "reviewed" rather than the verdict, because every row now starts
-            // on Works and opening eleven note boxes on arrival would undo the
-            // reason the list is a list.
-            return rating.reviewed && rating.verdict != BWTFeatureVerdict.NotUsed;
+            // The note only appears where there is something to explain. Works
+            // and "Didn't use" are the two answers that explain themselves, so
+            // neither opens a box; asking "what happened?" under a row somebody
+            // just confirmed as fine is a prompt with no answer.
+            return rating.reviewed &&
+                   rating.verdict != BWTFeatureVerdict.Works &&
+                   rating.verdict != BWTFeatureVerdict.NotUsed;
         }
 
         private static float FeatureRowHeight(BWTFeatureRating rating)
@@ -283,6 +284,16 @@ namespace Better_Work_Tab.Features.Feedback
                 {
                     rating.verdict = Verdicts[chosen];
                     rating.reviewed = true;
+
+                    // A note written under Rough does not describe Works. Moving
+                    // to an answer that takes no note drops it rather than
+                    // leaving text nobody can see attached to a row that now
+                    // reads as fine.
+                    if (!WantsNote(rating))
+                    {
+                        rating.note = string.Empty;
+                    }
+
                     dirty = true;
                 }
 
