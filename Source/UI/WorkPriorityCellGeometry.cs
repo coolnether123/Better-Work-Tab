@@ -17,6 +17,23 @@ namespace Better_Work_Tab.UI
                 BoxSize);
         }
 
+        /// <summary>
+        /// The box a cell actually draws, given whether it is a sub-work column
+        /// expanded beside its parent.
+        ///
+        /// Which of the two shapes applies was being decided independently by
+        /// the renderer, the geometry validator and the tutorial's anchors. The
+        /// tutorial got it wrong: it always assumed the top-padded 25px box, so
+        /// in expand-beside mode its highlight framed a rectangle that was not
+        /// where the box had been drawn. One rule, read by all three.
+        /// </summary>
+        internal static Rect GetDrawnPriorityBoxRect(Rect cellRect, bool expandBesideChild)
+        {
+            return expandBesideChild
+                ? GetFluffyStyleSubWorkPriorityBoxRect(cellRect)
+                : GetPriorityBoxRect(cellRect);
+        }
+
         internal static Rect GetCenteredBoxRect(Rect cellRect, float boxSize)
         {
             return new Rect(

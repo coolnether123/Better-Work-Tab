@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI;
@@ -83,13 +84,24 @@ namespace Better_Work_Tab.Features.Tutorial
                 Rect cellRect = new Rect(column.HeaderRect.x, rowRect.y, column.Width, rowRect.height);
                 anchors.Add(new BWTTutorialAnchor(
                     TutorialHubAnchor.PriorityCell,
-                    WorkPriorityCellGeometry.GetPriorityBoxRect(cellRect).ExpandedBy(4f),
+                    GetDrawnPriorityBox(cellRect, column).ExpandedBy(4f),
                     row.Pawn,
                     column.Column?.workType,
                     column.SubWorkGiver));
             }
 
             return anchors;
+        }
+
+        /// <summary>
+        /// The priority box a column is actually drawing, so a highlight frames
+        /// the thing it is pointing at rather than where that thing would be in
+        /// the other presentation.
+        /// </summary>
+        private static Rect GetDrawnPriorityBox(Rect cellRect, WorkTabLayoutColumn column)
+        {
+            bool expandBesideChild = column.IsExpandBesideChild && !SubWorkDrilldownState.IsActive;
+            return WorkPriorityCellGeometry.GetDrawnPriorityBoxRect(cellRect, expandBesideChild);
         }
 
         internal static Rect GetVisibleWorkTabBounds(Rect inRect, IWorkTabLayoutController layout)
@@ -153,7 +165,7 @@ namespace Better_Work_Tab.Features.Tutorial
                 {
                     Rect rowRect = layout.GetScreenRect(row);
                     Rect cell = new Rect(bodyColumn.HeaderRect.x, rowRect.y, bodyColumn.Width, rowRect.height);
-                    Rect priority = WorkPriorityCellGeometry.GetPriorityBoxRect(cell).ExpandedBy(4f);
+                    Rect priority = GetDrawnPriorityBox(cell, bodyColumn).ExpandedBy(4f);
                     if (priority.Contains(pointer))
                     {
                         anchor = new BWTTutorialAnchor(

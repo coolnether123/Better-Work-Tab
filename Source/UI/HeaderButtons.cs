@@ -71,7 +71,13 @@ namespace Better_Work_Tab.UI
         public static BottomButtonRects GetBottomButtonRects(Rect inRect, Rect gearRect)
         {
             BottomButtonRects rects = new BottomButtonRects();
-            float y = inRect.yMax - SelectorHeight - 10f;
+
+            // The row sits on the settings icon's baseline rather than working
+            // out its own distance from the bottom edge. Two independent
+            // calculations of "just above the bottom" drift the moment either
+            // one's padding changes; deriving from the icon means the row cannot
+            // end up on a different line from it.
+            float y = gearRect.yMax - SelectorHeight;
             float xRight = gearRect.x - InterControlGap;
 
             var settings = BetterWorkTabMod.Settings;

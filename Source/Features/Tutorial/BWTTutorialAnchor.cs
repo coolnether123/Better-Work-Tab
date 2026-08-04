@@ -139,13 +139,36 @@ namespace Better_Work_Tab.Features.Tutorial
                 return custom;
             }
 
+            // Snapped to whole pixels before it is stroked.
+            //
+            // The priority-cell anchor is exactly square in float space — 25px of
+            // box plus 4px of clearance on every side — but its two axes arrive
+            // with different fractional parts: x is centred in the column
+            // (… .5 on an even width) while y is a fixed offset from the row.
+            // The stroke is centred on the path with no rounding of its own, so
+            // those two phases rasterise to different widths and a 33x33 box
+            // renders 33 one way and 34 the other. Rounding the corners here
+            // costs at most half a pixel of position and makes the square look
+            // square.
+            //
+            // Only the axis-aligned path is snapped. Custom outlines above are
+            // angled header quads, where forcing the corners onto the pixel grid
+            // would bend the shape rather than align it.
+            // The size is rounded once and added to the rounded origin, rather
+            // than rounding all four edges independently: rounding xMin and xMax
+            // separately can move them in opposite directions and change the
+            // width by a pixel, which is the very thing being fixed.
             Rect rect = anchor.Rect;
+            float xMin = Mathf.Round(rect.xMin);
+            float yMin = Mathf.Round(rect.yMin);
+            float xMax = xMin + Mathf.Round(rect.width);
+            float yMax = yMin + Mathf.Round(rect.height);
             return new[]
             {
-                new Vector2(rect.xMin, rect.yMin),
-                new Vector2(rect.xMax, rect.yMin),
-                new Vector2(rect.xMax, rect.yMax),
-                new Vector2(rect.xMin, rect.yMax)
+                new Vector2(xMin, yMin),
+                new Vector2(xMax, yMin),
+                new Vector2(xMax, yMax),
+                new Vector2(xMin, yMax)
             };
         }
     }
