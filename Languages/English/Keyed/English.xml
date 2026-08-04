@@ -193,6 +193,8 @@
 <BWT_Tutorial_Selector_DefaultBody>Click a highlighted name, header, or priority to explore it.</BWT_Tutorial_Selector_DefaultBody>
 <BWT_Tutorial_SkipForNow>Skip for now</BWT_Tutorial_SkipForNow>
 <BWT_Tutorial_GiveFeedback>Give feedback</BWT_Tutorial_GiveFeedback>
+<BWT_BetaFeedback_ButtonTooltip>Better Work Tab 2.0 beta feedback\n\nOpen the feedback portal. Nothing is sent automatically; it builds a report you copy and paste wherever you like.</BWT_BetaFeedback_ButtonTooltip>
+<BWT_BetaFeedback_NudgeTooltip>Better Work Tab 2.0 beta feedback\n\nYou have had the Work tab open for about {0} minutes. Anything worth reporting on the beta?\n\nNothing is sent automatically; it builds a report you copy and paste.</BWT_BetaFeedback_NudgeTooltip>
 <BWT_Tutorial_BackToMap>Back to lessons</BWT_Tutorial_BackToMap>
 <BWT_Tutorial_SkipLesson>Skip lesson</BWT_Tutorial_SkipLesson>
 

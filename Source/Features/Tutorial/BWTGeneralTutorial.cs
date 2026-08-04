@@ -1714,6 +1714,18 @@ namespace Better_Work_Tab.Features.Tutorial
             OpenReview();
         }
 
+        /// <summary>
+        /// Opens the beta feedback portal from outside the tutorial.
+        ///
+        /// The portal covers the whole of 2.0, not just the tour, so it must be
+        /// reachable without one. It deliberately does not touch tutorial state:
+        /// a player giving feedback has not started, paused or finished anything.
+        /// </summary>
+        internal static void OpenBetaFeedback()
+        {
+            OpenReview();
+        }
+
         private static void OpenReview()
         {
             if (Find.WindowStack != null && !Find.WindowStack.IsOpen<Window_BWTTutorialReview>())

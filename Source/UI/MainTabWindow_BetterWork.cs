@@ -598,9 +598,11 @@ namespace Better_Work_Tab.UI
             bool mouseInside = !BWTWorkTabTutorial.OwnsCurrentPointer && Mouse.IsOver(inRect);
             Rect infoRect = GetInfoIconRect(inRect);
             DrawBottomRightButtons(organizer?.Layout, inRect, infoRect);
+            BWTBetaFeedbackButton.Tick();
             if (mouseInside)
             {
                 DrawInfoButton(infoRect);
+                BWTBetaFeedbackButton.Draw(infoRect);
             }
 
             DrawSubWorkExitButton(inRect);
@@ -5189,6 +5191,7 @@ namespace Better_Work_Tab.UI
         {
             base.PostClose();
             BWTWorkTabTutorial.NotifyWorkTabClosed();
+            BWTBetaFeedbackButton.NotifyTabClosed();
             // Clear float menu highlights when Work tab is closed
             HighlightState.ClearWorktypeHighlight();
             MouseStateManager.ClearHover();

@@ -421,6 +421,14 @@ namespace Better_Work_Tab
         internal List<string> skippedTutorialLessonIds = new List<string>();
         internal List<BWTTutorialLessonFeedback> tutorialLessonFeedback = new List<BWTTutorialLessonFeedback>();
         internal string tutorialOverallFeedback = string.Empty;
+
+        // Work-tab time behind the beta feedback nudge. Persisted so the prompt
+
+        // reflects real use rather than restarting with every session.
+
+        public float betaFeedbackWorkTabSeconds;
+
+        public bool betaFeedbackPromptAnswered;
         public bool useRuleBuilder2 = DefaultSettings.useRuleBuilder2;
         public bool showRuleBuilder2Tutorial = DefaultSettings.showRuleBuilder2Tutorial;
         public int ruleBuilder2TutorialStep = DefaultSettings.ruleBuilder2TutorialStep;
@@ -959,6 +967,10 @@ namespace Better_Work_Tab
             Scribe_Collections.Look(ref skippedTutorialLessonIds, "skippedTutorialLessonIds", LookMode.Value);
             Scribe_Collections.Look(ref tutorialLessonFeedback, "tutorialLessonFeedback", LookMode.Deep);
             Scribe_Values.Look(ref tutorialOverallFeedback, "tutorialOverallFeedback", string.Empty);
+
+            Scribe_Values.Look(ref betaFeedbackWorkTabSeconds, "betaFeedbackWorkTabSeconds", 0f);
+
+            Scribe_Values.Look(ref betaFeedbackPromptAnswered, "betaFeedbackPromptAnswered", false);
             if (completedTutorialLessonIds == null)
             {
                 completedTutorialLessonIds = new List<string>();
