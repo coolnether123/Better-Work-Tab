@@ -4,47 +4,25 @@ using Verse;
 namespace Better_Work_Tab.UI
 {
     /// <summary>
-    /// The bottom bar's own glyphs, resolved once.
+    /// The bottom bar's own glyphs.
     ///
-    /// <see cref="ContentFinder{T}"/> logs and searches on every miss, so a
-    /// texture that is not there must not be looked up sixty times a second. A
-    /// miss also must not remove the control: the icon says which picker this
-    /// is, but the name beside it still works without one.
+    /// Textures have to be loaded on the main thread during startup, which is
+    /// what <see cref="StaticConstructorOnStartupAttribute"/> arranges; without
+    /// it RimWorld logs a warning naming the offending type. Resolving them
+    /// lazily instead would also work but would put a ContentFinder lookup — and
+    /// its logging on a miss — inside a per-frame draw.
+    ///
+    /// They live in their own type rather than on the class that draws them so
+    /// the attribute governs only the textures, not the startup timing of every
+    /// other static in that class.
+    ///
+    /// A missing texture yields null rather than throwing: the glyph says which
+    /// picker this is, but the name beside it still works without one.
     /// </summary>
+    [StaticConstructorOnStartup]
     internal static class BWTBottomBarIcons
     {
-        private static Texture2D workload;
-        private static Texture2D ruleset;
-        private static bool resolved;
-
-        internal static Texture2D Workload
-        {
-            get
-            {
-                Resolve();
-                return workload;
-            }
-        }
-
-        internal static Texture2D Ruleset
-        {
-            get
-            {
-                Resolve();
-                return ruleset;
-            }
-        }
-
-        private static void Resolve()
-        {
-            if (resolved)
-            {
-                return;
-            }
-
-            resolved = true;
-            workload = ContentFinder<Texture2D>.Get("UI/BWTWorkload", false);
-            ruleset = ContentFinder<Texture2D>.Get("UI/BWTRuleset", false);
-        }
+        internal static readonly Texture2D Workload = ContentFinder<Texture2D>.Get("UI/BWTWorkload", false);
+        internal static readonly Texture2D Ruleset = ContentFinder<Texture2D>.Get("UI/BWTRuleset", false);
     }
 }

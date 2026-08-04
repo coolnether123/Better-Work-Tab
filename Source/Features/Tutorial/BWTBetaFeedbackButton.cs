@@ -18,6 +18,7 @@ namespace Better_Work_Tab.Features.Tutorial
     /// is dim until a threshold of real Work-tab time has accumulated, then draws
     /// attention to itself once and explains why it is asking.
     /// </summary>
+    [StaticConstructorOnStartup]
     internal static class BWTBetaFeedbackButton
     {
         internal const float NudgeAfterSeconds = 20f * 60f;
@@ -29,28 +30,19 @@ namespace Better_Work_Tab.Features.Tutorial
         private const string IconPath = "UI/BWTFeedback";
 
         private static float lastTickRealtime = -1f;
-        private static Texture2D icon;
-        private static bool iconResolved;
 
         /// <summary>
         /// The speech-bubble icon, or RimWorld's own as a fallback. A missing
         /// texture must not be the thing that removes the only route to the
         /// feedback portal.
+        ///
+        /// Loaded at startup on the main thread, which is what the attribute on
+        /// this class arranges. Resolving it on first draw worked, but RimWorld
+        /// warns about any type holding a static Texture2D without the attribute,
+        /// and a warning in a beta tester's log is a bug report waiting to happen.
         /// </summary>
-        internal static Texture2D Icon
-        {
-            get
-            {
-                if (iconResolved)
-                {
-                    return icon;
-                }
-
-                iconResolved = true;
-                icon = ContentFinder<Texture2D>.Get(IconPath, false) ?? TexButton.Suspend;
-                return icon;
-            }
-        }
+        internal static readonly Texture2D Icon =
+            ContentFinder<Texture2D>.Get(IconPath, false) ?? TexButton.Suspend;
 
         /// <summary>
         /// Accumulates Work-tab time. Called once per Work-tab pass; the elapsed
