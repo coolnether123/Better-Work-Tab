@@ -110,6 +110,16 @@
 <BWT_AssignSimilarWorktypes_Desc>Also assign this rule to work types that use the same relevant skills.</BWT_AssignSimilarWorktypes_Desc>
 <BWT_FailedToApplyFallback_Desc>Apply this rule if the primary rule did not assign any pawns.</BWT_FailedToApplyFallback_Desc>
 
+<BWT_BottomBar_RulesetCaption>Ruleset</BWT_BottomBar_RulesetCaption>
+<BWT_BottomBar_RulesetTooltip>Ruleset: {0}\n\nClick to apply it to your colonists. Use ... to switch ruleset or open the rule builder.</BWT_BottomBar_RulesetTooltip>
+<BWT_BottomBar_RulesetTooltipEmpty>No ruleset is selected.\n\nClick to choose one, or open the rule builder to make one.</BWT_BottomBar_RulesetTooltipEmpty>
+<BWT_BottomBar_RulesetMenuTooltip>Switch ruleset, or open the rule builder.</BWT_BottomBar_RulesetMenuTooltip>
+<BWT_BottomBar_WorkloadCaption>Workload</BWT_BottomBar_WorkloadCaption>
+<BWT_BottomBar_WorkloadEmpty>Save current priorities</BWT_BottomBar_WorkloadEmpty>
+<BWT_BottomBar_WorkloadTooltip>Workload: {0}\n\nClick to put these saved priorities back on your colonists. Use ... to switch, rename, save or delete workloads.</BWT_BottomBar_WorkloadTooltip>
+<BWT_BottomBar_WorkloadTooltipEmpty>No workload is saved yet.\n\nClick to save the current priorities as one.</BWT_BottomBar_WorkloadTooltipEmpty>
+<BWT_BottomBar_WorkloadMenuTooltip>Switch, rename, save or delete workloads.</BWT_BottomBar_WorkloadMenuTooltip>
+
 <BWT_RulesetBuilder_Title>Ruleset builder</BWT_RulesetBuilder_Title>
 <BWT_NoRuleset>No ruleset selected</BWT_NoRuleset>
 <BWT_ManageRulesets>Manage rulesets</BWT_ManageRulesets>
@@ -314,8 +324,6 @@
 <BWT_Tutorial_PawnAppearance_Feedback>Pawn row appearance</BWT_Tutorial_PawnAppearance_Feedback>
 <BWT_Tutorial_HeaderGroup_Feedback>Grouping Work columns</BWT_Tutorial_HeaderGroup_Feedback>
 
-<BWT_Tutorial_Review_Title>Review beta tutorial feedback</BWT_Tutorial_Review_Title>
-<BWT_Tutorial_Review_Body>Feedback is optional and never affects progress. Nothing is transmitted automatically. Reports exclude usernames, save names, pawn names, and the complete mod list.</BWT_Tutorial_Review_Body>
 <BWT_Tutorial_StatusCompleted>Completed</BWT_Tutorial_StatusCompleted>
 <BWT_Tutorial_StatusSkipped>Skipped</BWT_Tutorial_StatusSkipped>
 <BWT_Tutorial_StatusIncomplete>Not finished</BWT_Tutorial_StatusIncomplete>
@@ -327,11 +335,100 @@
 <BWT_Tutorial_BehaviorPrompt>Behaved as explained:</BWT_Tutorial_BehaviorPrompt>
 <BWT_Tutorial_NotSure>Not sure</BWT_Tutorial_NotSure>
 <BWT_Tutorial_OptionalNote>Optional note</BWT_Tutorial_OptionalNote>
-<BWT_Tutorial_OverallFeedback>Overall feedback</BWT_Tutorial_OverallFeedback>
-<BWT_Tutorial_CopyDiscord>Copy Discord report</BWT_Tutorial_CopyDiscord>
-<BWT_Tutorial_CopyFull>Copy full report</BWT_Tutorial_CopyFull>
-<BWT_Tutorial_ClearFeedback>Clear feedback</BWT_Tutorial_ClearFeedback>
 <BWT_Tutorial_DiscordCopied>Discord report copied to the clipboard.</BWT_Tutorial_DiscordCopied>
 <BWT_Tutorial_FullCopied>Full report copied to the clipboard.</BWT_Tutorial_FullCopied>
+
+<!-- 2.0 beta feedback portal -->
+<BWT_Beta_Title>Better Work Tab 2.0 — beta feedback</BWT_Beta_Title>
+<BWT_Beta_Subtitle>Nothing is sent automatically. See "What gets copied" before you send it.</BWT_Beta_Subtitle>
+<BWT_Beta_Handle>Your name</BWT_Beta_Handle>
+<BWT_Beta_HandlePlaceholder>Discord name, so a reply can find you (optional)</BWT_Beta_HandlePlaceholder>
+
+<BWT_Beta_Tab_Features>How is 2.0 going?</BWT_Beta_Tab_Features>
+<BWT_Beta_Tab_Problems>Report a problem</BWT_Beta_Tab_Problems>
+<BWT_Beta_Tab_ProblemsCount>Report a problem ({0})</BWT_Beta_Tab_ProblemsCount>
+<BWT_Beta_Tab_Tutorial>Tutorial</BWT_Beta_Tab_Tutorial>
+<BWT_Beta_Tab_Build>This build</BWT_Beta_Tab_Build>
+<BWT_Beta_Tab_Preview>What gets copied</BWT_Beta_Tab_Preview>
+
+<BWT_Beta_Heading_Features>How is 2.0 going?</BWT_Beta_Heading_Features>
+<BWT_Beta_Heading_FeaturesHint>only what you actually used</BWT_Beta_Heading_FeaturesHint>
+<BWT_Beta_Heading_Problems>Problems</BWT_Beta_Heading_Problems>
+<BWT_Beta_Heading_Tutorial>Tutorial lessons</BWT_Beta_Heading_Tutorial>
+<BWT_Beta_Heading_Build>This build</BWT_Beta_Heading_Build>
+<BWT_Beta_Heading_Mods>Active mods</BWT_Beta_Heading_Mods>
+<BWT_Beta_Heading_Settings>Settings you have changed</BWT_Beta_Heading_Settings>
+<BWT_Beta_SettingsAllDefault>Everything is at its default.</BWT_Beta_SettingsAllDefault>
+
+<BWT_Beta_Verdict_Great>Great</BWT_Beta_Verdict_Great>
+<BWT_Beta_Verdict_Works>Works</BWT_Beta_Verdict_Works>
+<BWT_Beta_Verdict_Rough>Rough</BWT_Beta_Verdict_Rough>
+<BWT_Beta_Verdict_Broken>Broken</BWT_Beta_Verdict_Broken>
+<BWT_Beta_Verdict_NotUsed>Didn't use</BWT_Beta_Verdict_NotUsed>
+<BWT_Beta_NotePlaceholder>What happened? (optional)</BWT_Beta_NotePlaceholder>
+
+<BWT_Beta_Feature_worktab>The Work tab itself</BWT_Beta_Feature_worktab>
+<BWT_Beta_FeatureHint_worktab>Reading it, finding colonists, general speed</BWT_Beta_FeatureHint_worktab>
+<BWT_Beta_Feature_priorities>Setting priorities</BWT_Beta_Feature_priorities>
+<BWT_Beta_FeatureHint_priorities>Clicking, dragging, and the priority range</BWT_Beta_FeatureHint_priorities>
+<BWT_Beta_Feature_subwork>Specific jobs</BWT_Beta_Feature_subwork>
+<BWT_Beta_FeatureHint_subwork>Opening a Work column to its individual jobs</BWT_Beta_FeatureHint_subwork>
+<BWT_Beta_Feature_rulebuilder>Rule Builder 2.0</BWT_Beta_Feature_rulebuilder>
+<BWT_Beta_FeatureHint_rulebuilder>Building rulesets and applying them</BWT_Beta_FeatureHint_rulebuilder>
+<BWT_Beta_Feature_workloads>Workloads</BWT_Beta_Feature_workloads>
+<BWT_Beta_FeatureHint_workloads>Saving and restoring whole priority setups</BWT_Beta_FeatureHint_workloads>
+<BWT_Beta_Feature_schedules>Daily plans</BWT_Beta_Feature_schedules>
+<BWT_Beta_FeatureHint_schedules>Priorities that change by hour of the day</BWT_Beta_FeatureHint_schedules>
+<BWT_Beta_Feature_columns>Arranging columns</BWT_Beta_Feature_columns>
+<BWT_Beta_FeatureHint_columns>Dragging, reordering, and grouping Work columns</BWT_Beta_FeatureHint_columns>
+<BWT_Beta_Feature_skills>Skill overlay</BWT_Beta_Feature_skills>
+<BWT_Beta_FeatureHint_skills>Holding Shift to see skill levels</BWT_Beta_FeatureHint_skills>
+<BWT_Beta_Feature_settings>The settings window</BWT_Beta_Feature_settings>
+<BWT_Beta_FeatureHint_settings>Finding a setting, and search</BWT_Beta_FeatureHint_settings>
+<BWT_Beta_Feature_fluffy>Running alongside Fluffy's Work Tab</BWT_Beta_Feature_fluffy>
+<BWT_Beta_FeatureHint_fluffy>Switching between the two, and sharing state</BWT_Beta_FeatureHint_fluffy>
+<BWT_Beta_Feature_tutorial>The 2.0 tutorial</BWT_Beta_Feature_tutorial>
+<BWT_Beta_FeatureHint_tutorial>The guided tour of what is new</BWT_Beta_FeatureHint_tutorial>
+
+<BWT_Beta_AddProblem>+ Describe a problem</BWT_Beta_AddProblem>
+<BWT_Beta_ProblemLimit>That is the limit of {0} reports. Send these, then clear the form.</BWT_Beta_ProblemLimit>
+<BWT_Beta_Area_Other>Something else</BWT_Beta_Area_Other>
+<BWT_Beta_Severity_Cosmetic>Cosmetic</BWT_Beta_Severity_Cosmetic>
+<BWT_Beta_Severity_Annoying>Annoying</BWT_Beta_Severity_Annoying>
+<BWT_Beta_Severity_Blocking>Blocking</BWT_Beta_Severity_Blocking>
+<BWT_Beta_Severity_Crash>Error</BWT_Beta_Severity_Crash>
+<BWT_Beta_ProblemPlaceholder>What did you do, what did you expect, and what happened instead?</BWT_Beta_ProblemPlaceholder>
+<BWT_Beta_NoProblems>Nothing reported yet. If something misbehaved, describing it here is worth more than any rating above.</BWT_Beta_NoProblems>
+
+<BWT_Beta_Overall>Anything else?</BWT_Beta_Overall>
+<BWT_Beta_OverallPlaceholder>What surprised you, what you wish it did, what you would tell a friend about it.</BWT_Beta_OverallPlaceholder>
+
+<BWT_Beta_CopyDiscord>Copy for Discord</BWT_Beta_CopyDiscord>
+<BWT_Beta_CopyFull>Copy full report</BWT_Beta_CopyFull>
+<BWT_Beta_Clear>Clear the form</BWT_Beta_Clear>
+<BWT_Beta_ClearConfirm>Clear every answer, problem report and note in this form?</BWT_Beta_ClearConfirm>
+
+<BWT_Beta_Env_Build>Build</BWT_Beta_Env_Build>
+<BWT_Beta_Env_RimWorld>RimWorld</BWT_Beta_Env_RimWorld>
+<BWT_Beta_Env_Language>Language</BWT_Beta_Env_Language>
+<BWT_Beta_Env_Display>Display</BWT_Beta_Env_Display>
+<BWT_Beta_Env_Mods>Mods</BWT_Beta_Env_Mods>
+<BWT_Beta_Env_ModsValue>{0} active</BWT_Beta_Env_ModsValue>
+<BWT_Beta_Env_WorkTab>Work tab</BWT_Beta_Env_WorkTab>
+<BWT_Beta_Env_WorkTabBWT>Better Work Tab</BWT_Beta_Env_WorkTabBWT>
+<BWT_Beta_Env_WorkTabBWTWithFluffy>Better Work Tab (Fluffy installed)</BWT_Beta_Env_WorkTabBWTWithFluffy>
+<BWT_Beta_Env_WorkTabFluffyOwns>Fluffy's Work Tab</BWT_Beta_Env_WorkTabFluffyOwns>
+<BWT_Beta_Env_Colony>Colony</BWT_Beta_Env_Colony>
+<BWT_Beta_Env_ColonyValue>{0} colonists, {1} columns</BWT_Beta_Env_ColonyValue>
+<BWT_Beta_Env_Priorities>Priorities</BWT_Beta_Env_Priorities>
+<BWT_Beta_Env_PrioritiesSimple>simple (checkboxes)</BWT_Beta_Env_PrioritiesSimple>
+<BWT_Beta_Env_PrioritiesManual>manual, 1-{0}</BWT_Beta_Env_PrioritiesManual>
+<BWT_Beta_Env_SpecificJobs>Specific jobs</BWT_Beta_Env_SpecificJobs>
+<BWT_Beta_Env_SpecificJobsOpen>open now</BWT_Beta_Env_SpecificJobsOpen>
+<BWT_Beta_Env_Renderer>Renderer</BWT_Beta_Env_Renderer>
+<BWT_Beta_Env_Compat>Compatibility</BWT_Beta_Env_Compat>
+<BWT_Beta_Env_Changed>Settings changed</BWT_Beta_Env_Changed>
+<BWT_Beta_Env_ChangedValue>{0} from default</BWT_Beta_Env_ChangedValue>
+<BWT_Beta_Env_Multiplayer>Multiplayer</BWT_Beta_Env_Multiplayer>
 
 </LanguageData>

@@ -602,7 +602,6 @@ namespace Better_Work_Tab.UI
             if (mouseInside)
             {
                 DrawInfoButton(infoRect);
-                BWTBetaFeedbackButton.Draw(infoRect);
             }
 
             DrawSubWorkExitButton(inRect);
@@ -4981,15 +4980,7 @@ namespace Better_Work_Tab.UI
                 if (instructions.Count > 0)
                 {
                     HeaderButtons.BottomButtonRects buttonRects = HeaderButtons.GetBottomButtonRects(inRect, gearRect);
-                    float textRight = gearRect.x - 8f;
-                    if (buttonRects.HasRuleset)
-                    {
-                        textRight = Mathf.Min(textRight, buttonRects.RulesetMain.x - 8f);
-                    }
-                    if (buttonRects.HasWorkload)
-                    {
-                        textRight = Mathf.Min(textRight, buttonRects.WorkloadMain.x - 8f);
-                    }
+                    float textRight = buttonRects.LeftEdge - 8f;
 
                     Rect textRect = new Rect(
                         inRect.x + 6f,

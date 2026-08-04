@@ -5,6 +5,7 @@ using Better_Work_Tab.Features.Rules.RuleBuilder2;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.Features.Tutorial;
+using Better_Work_Tab.Features.Feedback;
 using Better_Work_Tab.Features.Migration;
 using RimWorld;
 using System;
@@ -423,12 +424,17 @@ namespace Better_Work_Tab
         internal string tutorialOverallFeedback = string.Empty;
 
         // Work-tab time behind the beta feedback nudge. Persisted so the prompt
-
         // reflects real use rather than restarting with every session.
-
         public float betaFeedbackWorkTabSeconds;
-
         public bool betaFeedbackPromptAnswered;
+
+        // The 2.0 beta feedback portal's own answers. Kept apart from the
+        // tutorial's per-lesson responses: the tutorial is one of the things
+        // being reviewed, not the frame around the review.
+        internal List<BWTFeatureRating> betaFeatureRatings = new List<BWTFeatureRating>();
+        internal List<BWTProblemReport> betaProblemReports = new List<BWTProblemReport>();
+        internal string betaOverallFeedback = string.Empty;
+        internal string betaTesterHandle = string.Empty;
         public bool useRuleBuilder2 = DefaultSettings.useRuleBuilder2;
         public bool showRuleBuilder2Tutorial = DefaultSettings.showRuleBuilder2Tutorial;
         public int ruleBuilder2TutorialStep = DefaultSettings.ruleBuilder2TutorialStep;
@@ -969,8 +975,11 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref tutorialOverallFeedback, "tutorialOverallFeedback", string.Empty);
 
             Scribe_Values.Look(ref betaFeedbackWorkTabSeconds, "betaFeedbackWorkTabSeconds", 0f);
-
             Scribe_Values.Look(ref betaFeedbackPromptAnswered, "betaFeedbackPromptAnswered", false);
+            Scribe_Collections.Look(ref betaFeatureRatings, "betaFeatureRatings", LookMode.Deep);
+            Scribe_Collections.Look(ref betaProblemReports, "betaProblemReports", LookMode.Deep);
+            Scribe_Values.Look(ref betaOverallFeedback, "betaOverallFeedback", string.Empty);
+            Scribe_Values.Look(ref betaTesterHandle, "betaTesterHandle", string.Empty);
             if (completedTutorialLessonIds == null)
             {
                 completedTutorialLessonIds = new List<string>();

@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Text;
 using System.Collections.Generic;
 using System.Linq;
+using Better_Work_Tab.Features.Feedback;
 using Better_Work_Tab.Features.Migration;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
@@ -1728,9 +1729,9 @@ namespace Better_Work_Tab.Features.Tutorial
 
         private static void OpenReview()
         {
-            if (Find.WindowStack != null && !Find.WindowStack.IsOpen<Window_BWTTutorialReview>())
+            if (Find.WindowStack != null && !Find.WindowStack.IsOpen<Window_BWTBetaFeedback>())
             {
-                Find.WindowStack.Add(new Window_BWTTutorialReview());
+                Find.WindowStack.Add(new Window_BWTBetaFeedback());
             }
         }
 

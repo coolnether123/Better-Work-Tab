@@ -41,7 +41,13 @@ namespace Better_Work_Tab.UI.Settings
             nameof(BetterWorkTabSettings.subWorkCtrlClickNoticeDismissed),
             nameof(BetterWorkTabSettings.settingsSchemaVersion),
             nameof(BetterWorkTabSettings.v2UpgradePromptPending),
-            nameof(BetterWorkTabSettings.fluffyWorkTabActivePromptVersion)
+            nameof(BetterWorkTabSettings.fluffyWorkTabActivePromptVersion),
+
+            // Beta feedback bookkeeping: accumulated Work-tab time and whether
+            // the nudge has been answered. Neither is a preference, so neither
+            // belongs in the settings window.
+            nameof(BetterWorkTabSettings.betaFeedbackWorkTabSeconds),
+            nameof(BetterWorkTabSettings.betaFeedbackPromptAnswered)
         };
 
         private static readonly HashSet<string> UnregisteredPreferenceFields = new HashSet<string>

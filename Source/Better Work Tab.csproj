@@ -144,6 +144,7 @@
     <Compile Include="Features\Testing\GameComponent_BWTSettingsCohortQuickTestDriver.cs" />
     <Compile Include="Features\Testing\GameComponent_BWTTutorialQuickTestDriver.cs" />
     <Compile Include="Features\Testing\AgentHarnessUtility.cs" />
+    <Compile Include="UI\BWTBottomBarSelector.cs" />
     <Compile Include="UI\OneTimePromptPresence.cs" />
     <Compile Include="Features\Testing\BWTTutorialAgentHarness.cs" />
     <Compile Include="Features\Testing\RuleBuilder2AgentHarness.cs" />
@@ -168,9 +169,13 @@
     <Compile Include="UI\BWTUiPalette.cs" />
     <Compile Include="Features\Tutorial\BWTTutorialLessonCatalog.cs" />
     <Compile Include="Features\Tutorial\BWTTutorialFeedback.cs" />
-    <Compile Include="Features\Tutorial\BWTTutorialReportFormatter.cs" />
+    <Compile Include="Features\Feedback\BWTDiagnosticContext.cs" />
     <Compile Include="Features\Tutorial\BWTTutorialProgressMigration.cs" />
-    <Compile Include="Features\Tutorial\Window_BWTTutorialReview.cs" />
+    <Compile Include="Features\Feedback\BWTBetaEnvironmentReport.cs" />
+    <Compile Include="Features\Feedback\BWTBetaFeedbackModel.cs" />
+    <Compile Include="Features\Feedback\BWTBetaReportFormatter.cs" />
+    <Compile Include="Features\Feedback\BWTFeedbackWidgets.cs" />
+    <Compile Include="Features\Feedback\Window_BWTBetaFeedback.cs" />
     <Compile Include="Features\Tutorial\Window_BWTFluffyTutorial.cs" />
     <Compile Include="Features\Tutorial\BWTGeneralTutorial.cs" />
     <Compile Include="Features\Tutorial\BWTTutorialGestureDemo.cs" />

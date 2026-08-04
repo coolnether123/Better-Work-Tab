@@ -10,7 +10,8 @@ namespace Better_Work_Tab.Features.Tutorial
     /// The portal used to be reachable only from the tutorial band, so anyone who
     /// answered "Not now" on the welcome screen — which is most experienced
     /// players, the people whose feedback is worth the most — had no way to reach
-    /// it at all. This button sits beside the settings icon and is always there.
+    /// it at all. This button sits at the left end of the bottom-right row and
+    /// is always there.
     ///
     /// It stays quiet until the player has actually used the tab for a while.
     /// Asking for feedback in the first minute gets nothing useful, so the button
@@ -21,8 +22,6 @@ namespace Better_Work_Tab.Features.Tutorial
     {
         internal const float NudgeAfterSeconds = 20f * 60f;
 
-        private const float IconSize = 24f;
-        private const float GapFromInfoIcon = 6f;
         private const float RestingAlpha = 0.35f;
         private const float HoverAlpha = 1f;
         private const float PulseSpeed = 2.6f;
@@ -38,7 +37,7 @@ namespace Better_Work_Tab.Features.Tutorial
         /// texture must not be the thing that removes the only route to the
         /// feedback portal.
         /// </summary>
-        private static Texture2D Icon
+        internal static Texture2D Icon
         {
             get
             {
@@ -51,15 +50,6 @@ namespace Better_Work_Tab.Features.Tutorial
                 icon = ContentFinder<Texture2D>.Get(IconPath, false) ?? TexButton.Suspend;
                 return icon;
             }
-        }
-
-        internal static Rect GetRect(Rect infoRect)
-        {
-            return new Rect(
-                infoRect.xMin - IconSize - GapFromInfoIcon,
-                infoRect.yMin + (infoRect.height - IconSize) * 0.5f,
-                IconSize,
-                IconSize);
         }
 
         /// <summary>
@@ -97,7 +87,11 @@ namespace Better_Work_Tab.Features.Tutorial
             lastTickRealtime = -1f;
         }
 
-        internal static void Draw(Rect infoRect)
+        /// <summary>
+        /// Draws the button into the rect the bottom bar reserved for it. The
+        /// row owns the geometry; this only decides how the icon looks.
+        /// </summary>
+        internal static void Draw(Rect rect)
         {
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
             if (settings == null)
@@ -105,7 +99,6 @@ namespace Better_Work_Tab.Features.Tutorial
                 return;
             }
 
-            Rect rect = GetRect(infoRect);
             bool hovered = Mouse.IsOver(rect);
             bool nudging = ShouldNudge(settings);
 

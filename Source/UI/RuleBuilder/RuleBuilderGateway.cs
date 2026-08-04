@@ -52,6 +52,24 @@ namespace Better_Work_Tab.UI.RuleBuilder
             return settings.CurrentRuleset?.Name ?? "BWT_NoRuleset".Translate();
         }
 
+        /// <summary>
+        /// Whether <see cref="CurrentRulesetLabel"/> is naming a real ruleset
+        /// rather than the "nothing selected" placeholder. The footer needs to
+        /// tell those apart: one is a name to apply, the other is an invitation.
+        /// </summary>
+        internal static bool HasCurrentRuleset()
+        {
+            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
+            if (settings == null)
+            {
+                return false;
+            }
+
+            return UseRuleBuilder2(settings)
+                ? RuleBuilder2RulesetStore.Current(settings) != null
+                : settings.CurrentRuleset != null;
+        }
+
         internal static void ApplyCurrentRuleset()
         {
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;

@@ -1,6 +1,7 @@
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.Features.TimePriority;
+using Better_Work_Tab.Features.Tutorial;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Mod_Support.Multiplayer;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
@@ -20,11 +21,11 @@ namespace Better_Work_Tab.UI
     // bottom-right (immediately left of the small info/gear button).
     public static class HeaderButtons
     {
-        private const float AutoAssignButtonWidth = 150f;
-        private const float AutoAssignButtonHeight = 28f;
-        private const float WorkloadButtonWidth = 150f;
-        private const float WorkloadButtonHeight = 28f;
+        private const float SelectorHeight = BWTBottomBarSelector.Height;
+        private const float SelectorMenuWidth = BWTBottomBarSelector.MenuWidth;
+        private const float GroupGap = 6f;
         private const float InterControlGap = 6f;
+        private const float FeedbackButtonSize = 24f;
         private const float FluffyTopButtonSize = 30f;
         private const float FluffyTopButtonGap = 4f;
 
@@ -34,8 +35,15 @@ namespace Better_Work_Tab.UI
             public Rect RulesetMenu;
             public Rect WorkloadMain;
             public Rect WorkloadMenu;
+            public Rect Feedback;
             public bool HasRuleset;
             public bool HasWorkload;
+
+            /// <summary>
+            /// The left edge of everything in the row, so the footer hint text
+            /// knows where it has to stop.
+            /// </summary>
+            public float LeftEdge;
 
             public bool ContainsRuleset(Vector2 position)
             {
@@ -55,19 +63,25 @@ namespace Better_Work_Tab.UI
             public Rect Expand;
         }
 
+        /// <summary>
+        /// The single description of the bottom-right row. Both the painter and
+        /// every hit test read it, so a control cannot be drawn in one place and
+        /// clicked in another.
+        /// </summary>
         public static BottomButtonRects GetBottomButtonRects(Rect inRect, Rect gearRect)
         {
             BottomButtonRects rects = new BottomButtonRects();
-            float y = inRect.yMax - AutoAssignButtonHeight - 10f;
+            float y = inRect.yMax - SelectorHeight - 10f;
             float xRight = gearRect.x - InterControlGap;
 
             var settings = BetterWorkTabMod.Settings;
             if (settings?.enableAutoAssignFeature ?? true)
             {
-                rects.RulesetMenu = new Rect(xRight - AutoAssignButtonHeight, y, AutoAssignButtonHeight, AutoAssignButtonHeight);
-                rects.RulesetMain = new Rect(rects.RulesetMenu.x - AutoAssignButtonWidth, y, AutoAssignButtonWidth, AutoAssignButtonHeight);
+                float width = BWTBottomBarSelector.MeasureWidth(RuleBuilderGateway.CurrentRulesetLabel());
+                rects.RulesetMenu = new Rect(xRight - SelectorMenuWidth, y, SelectorMenuWidth, SelectorHeight);
+                rects.RulesetMain = new Rect(rects.RulesetMenu.x - width, y, width, SelectorHeight);
                 rects.HasRuleset = true;
-                xRight = rects.RulesetMain.x - 4f;
+                xRight = rects.RulesetMain.x - GroupGap;
             }
 
             if (settings?.enableWorkloads ?? true)
@@ -75,12 +89,24 @@ namespace Better_Work_Tab.UI
                 var workloadSaver = Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
                 if (workloadSaver != null)
                 {
-                    rects.WorkloadMenu = new Rect(xRight - WorkloadButtonHeight, y, WorkloadButtonHeight, WorkloadButtonHeight);
-                    rects.WorkloadMain = new Rect(rects.WorkloadMenu.x - WorkloadButtonWidth, y, WorkloadButtonWidth, WorkloadButtonHeight);
+                    float width = BWTBottomBarSelector.MeasureWidth(WorkloadLabel(workloadSaver));
+                    rects.WorkloadMenu = new Rect(xRight - SelectorMenuWidth, y, SelectorMenuWidth, SelectorHeight);
+                    rects.WorkloadMain = new Rect(rects.WorkloadMenu.x - width, y, width, SelectorHeight);
                     rects.HasWorkload = true;
+                    xRight = rects.WorkloadMain.x - GroupGap;
                 }
             }
 
+            // The beta feedback button anchors to the left end of the row rather
+            // than to the settings icon. Sitting between the icon and the pickers
+            // made it read as another settings affordance; out here it reads as
+            // its own thing, and it keeps its place when a picker is switched off.
+            rects.Feedback = new Rect(
+                xRight - FeedbackButtonSize,
+                y + ((SelectorHeight - FeedbackButtonSize) * 0.5f),
+                FeedbackButtonSize,
+                FeedbackButtonSize);
+            rects.LeftEdge = rects.Feedback.x;
             return rects;
         }
 
@@ -221,70 +247,84 @@ namespace Better_Work_Tab.UI
         // Public entry point called by the window.
         public static void DrawBottomRightGrouped(Rect inRect, Rect gearRect)
         {
-            // vertical position for the buttons (bottom anchored)
-            float y = inRect.yMax - AutoAssignButtonHeight - 10f;
-            // start anchor: immediate left of the gear
-            float xRight = gearRect.x - InterControlGap;
-
-            // Auto-assign group (closest to gear)
-            xRight = DrawAutoAssignGroup(inRect, xRight, y);
-
-            // Workload group to the left of the Auto-assign group
-            xRight = DrawWorkloadGroup(xRight, y);
-        }
-
-        private static float DrawAutoAssignGroup(Rect inRect, float xRight, float y)
-        {
-            var settings = BetterWorkTabMod.Settings;
-            if (!(settings?.enableAutoAssignFeature ?? true))
-                return xRight;
-
-            var dotRect = new Rect(xRight - AutoAssignButtonHeight, y,
-                AutoAssignButtonHeight, AutoAssignButtonHeight);
-            var mainRect = new Rect(dotRect.x - AutoAssignButtonWidth, y,
-                AutoAssignButtonWidth, AutoAssignButtonHeight);
-
-            float newRight = mainRect.x - 4f;
-
-            string btnLbl = RuleBuilderGateway.CurrentRulesetLabel();
-
-            if (Widgets.ButtonText(mainRect, "  " + btnLbl,
-                    overrideTextAnchor: TextAnchor.MiddleLeft))
+            BottomButtonRects rects = GetBottomButtonRects(inRect, gearRect);
+            if (rects.HasRuleset)
             {
-                SoundDefOf.Tick_Low.PlayOneShotOnCamera();
-                RuleBuilderGateway.ApplyCurrentRuleset();
+                DrawAutoAssignGroup(rects);
             }
 
-            if (Widgets.ButtonText(dotRect, "..."))
+            if (rects.HasWorkload)
+            {
+                DrawWorkloadGroup(rects);
+            }
+
+            BWTBetaFeedbackButton.Draw(rects.Feedback);
+        }
+
+        private static void DrawAutoAssignGroup(BottomButtonRects rects)
+        {
+            string name = RuleBuilderGateway.CurrentRulesetLabel();
+            bool hasRuleset = RuleBuilderGateway.HasCurrentRuleset();
+
+            if (BWTBottomBarSelector.DrawMain(
+                    rects.RulesetMain,
+                    "BWT_BottomBar_RulesetCaption".Translate(),
+                    name,
+                    hasRuleset,
+                    hasRuleset
+                        ? "BWT_BottomBar_RulesetTooltip".Translate(name)
+                        : "BWT_BottomBar_RulesetTooltipEmpty".Translate()))
+            {
+                if (hasRuleset)
+                {
+                    SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                    RuleBuilderGateway.ApplyCurrentRuleset();
+                }
+                else
+                {
+                    // Applying nothing looked like a broken button. With no
+                    // ruleset to apply, the useful thing is the list.
+                    Find.WindowStack.Add(new FloatMenu(RuleBuilderGateway.BuildRulesetMenuOptions()));
+                }
+            }
+
+            if (BWTBottomBarSelector.DrawMenu(rects.RulesetMenu, "BWT_BottomBar_RulesetMenuTooltip".Translate()))
             {
                 Find.WindowStack.Add(new FloatMenu(RuleBuilderGateway.BuildRulesetMenuOptions()));
             }
-
-            return newRight;
         }
 
-        private static float DrawWorkloadGroup(float xRight, float y)
+        /// <summary>
+        /// The name the workload picker shows. Read by the geometry pass as well
+        /// as the painter, so the button is always sized for the text it draws.
+        /// </summary>
+        private static string WorkloadLabel(GameComponent_BWTWorldSettings workloadSaver)
+        {
+            return workloadSaver?.CurrentWorklist != null
+                ? workloadSaver.CurrentWorklist.RenamableLabel
+                : "BWT_BottomBar_WorkloadEmpty".Translate().ToString();
+        }
+
+        private static void DrawWorkloadGroup(BottomButtonRects rects)
         {
             var settings = BetterWorkTabMod.Settings;
-            if (!(settings?.enableWorkloads ?? true))
-                return xRight;
-
-            var workloadSaver = Current.Game.GetComponent<GameComponent_BWTWorldSettings>();
+            var workloadSaver = Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
             if (workloadSaver == null)
-                return xRight;
+            {
+                return;
+            }
 
-            var dotRect = new Rect(xRight - WorkloadButtonHeight, y,
-                WorkloadButtonHeight, WorkloadButtonHeight);
-            var mainRect = new Rect(dotRect.x - WorkloadButtonWidth, y,
-                WorkloadButtonWidth, WorkloadButtonHeight);
+            bool hasWorkload = workloadSaver.CurrentWorklist != null;
+            string name = WorkloadLabel(workloadSaver);
 
-            float newRight = mainRect.x - 4f;
-
-            string buttonLabel = workloadSaver.CurrentWorklist?.RenamableLabel
-                ?? "New Workload";
-
-            if (Widgets.ButtonText(mainRect, "  " + buttonLabel,
-                    overrideTextAnchor: TextAnchor.MiddleLeft))
+            if (BWTBottomBarSelector.DrawMain(
+                    rects.WorkloadMain,
+                    "BWT_BottomBar_WorkloadCaption".Translate(),
+                    name,
+                    hasWorkload,
+                    hasWorkload
+                        ? "BWT_BottomBar_WorkloadTooltip".Translate(name)
+                        : "BWT_BottomBar_WorkloadTooltipEmpty".Translate()))
             {
                 if (workloadSaver.CurrentWorklist != null)
                 {
@@ -314,10 +354,10 @@ namespace Better_Work_Tab.UI
                 }
             }
 
-            if (Widgets.ButtonText(dotRect, "..."))
+            if (BWTBottomBarSelector.DrawMenu(rects.WorkloadMenu, "BWT_BottomBar_WorkloadMenuTooltip".Translate()))
+            {
                 ShowWorkloadMenu(workloadSaver);
-
-            return newRight;
+            }
         }
 
         private static bool DrawFluffyTopButton(
