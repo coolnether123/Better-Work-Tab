@@ -4617,6 +4617,29 @@ namespace Better_Work_Tab.UI
             }
         }
 
+        // The 24-hour editor's own accent, so the marked row reads as belonging
+        // to the panel rather than as one more unexplained colour.
+        private static readonly Color ScheduleRowMarkerColor = new Color(1f, 0.86f, 0.22f, 0.85f);
+        private const float ScheduleRowMarkerWidth = 3f;
+
+        /// <summary>Edges the row the open schedule is editing, without filling it.</summary>
+        private static void DrawScheduleRowMarker(Rect rowRect)
+        {
+            Color previous = GUI.color;
+            Widgets.DrawBoxSolid(
+                new Rect(rowRect.x, rowRect.y, ScheduleRowMarkerWidth, rowRect.height),
+                ScheduleRowMarkerColor);
+
+            GUI.color = new Color(
+                ScheduleRowMarkerColor.r,
+                ScheduleRowMarkerColor.g,
+                ScheduleRowMarkerColor.b,
+                0.32f);
+            Widgets.DrawLineHorizontal(rowRect.x, rowRect.yMin, rowRect.width);
+            Widgets.DrawLineHorizontal(rowRect.x, rowRect.yMax - 1f, rowRect.width);
+            GUI.color = previous;
+        }
+
         private void DrawPawnRowOverlay(Pawn pawn, Rect rowRect)
         {
             var settings = BetterWorkTabMod.Settings;
@@ -4633,9 +4656,15 @@ namespace Better_Work_Tab.UI
             // The open 24-hour editor belongs to one pawn's row. Marking that row
             // is what ties the hours to a colonist; without it the strip reads as
             // floating above the table.
+            //
+            // Drawn as an edge rather than a fill. Hovering a row already lays a
+            // translucent fill over it, and a second fill underneath does not
+            // read as two things — it reads as one muddied colour, which spoiled
+            // the hover highlight on exactly the row the player is working in.
+            // An edge and a fill can occupy the same row without competing.
             if (TimePriorityScheduleEditor.IsSchedulingPawn(pawn))
             {
-                HighlightDrawer.DrawHighlight(rowRect, new Color(0.42f, 0.68f, 1f, 0.16f));
+                DrawScheduleRowMarker(rowRect);
             }
 
             if (Find.Selector.IsSelected(pawn) && (settings?.DoSelectedPawnHighlight ?? true))
