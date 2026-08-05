@@ -600,14 +600,8 @@ namespace Better_Work_Tab.Features.TimePriority
                 return false;
             }
 
-            for (int i = 0; i < LastCellHits.Count; i++)
+            if (TryFindCellHit(evt.mousePosition, out CellHit hit))
             {
-                CellHit hit = LastCellHits[i];
-                if (!hit.Rect.Contains(evt.mousePosition))
-                {
-                    continue;
-                }
-
                 if (IsControlHeld(evt))
                 {
                     StartCloseAnimation(GetPointRect(evt.mousePosition));
@@ -625,6 +619,30 @@ namespace Better_Work_Tab.Features.TimePriority
                 return true;
             }
 
+            return false;
+        }
+
+        /// <summary>
+        /// Resolves a point to the hour cell that owns it.
+        ///
+        /// Extracted so the click path and the geometry test seam below cannot
+        /// drift apart. Testing a reimplementation of this loop would pass while
+        /// the real lookup was broken, which is the failure the seam exists to
+        /// catch: the registered rects, not the drawn ones, decide what a click
+        /// lands on.
+        /// </summary>
+        private static bool TryFindCellHit(Vector2 point, out CellHit hit)
+        {
+            for (int i = 0; i < LastCellHits.Count; i++)
+            {
+                if (LastCellHits[i].Rect.Contains(point))
+                {
+                    hit = LastCellHits[i];
+                    return true;
+                }
+            }
+
+            hit = default(CellHit);
             return false;
         }
 
@@ -913,6 +931,56 @@ namespace Better_Work_Tab.Features.TimePriority
         }
 
         internal static int ScheduleCellGeometryCount => LastScheduleCellDiagnostics.Count;
+
+        // Read-only test seam for the *clickable* rectangles, which are not the
+        // drawn ones above. The visible band is inset inside its row while the
+        // hit rect spans the row's full height, so that the pixels above and
+        // below a cell belong to the schedule rather than falling through to the
+        // work priority cell underneath. The two lists are compared against each
+        // other by the hit-box quicktest.
+        internal static int ScheduleCellHitCount => LastCellHits.Count;
+
+        internal static bool TryGetScheduleCellHit(int index, out Rect rect, out int hour)
+        {
+            if (index < 0 || index >= LastCellHits.Count)
+            {
+                rect = Rect.zero;
+                hour = -1;
+                return false;
+            }
+
+            rect = LastCellHits[index].Rect;
+            hour = LastCellHits[index].Hour;
+            return true;
+        }
+
+        /// <summary>
+        /// Resolves a point exactly as a click would, reporting the cell that
+        /// would receive it.
+        /// </summary>
+        internal static bool TryGetScheduleCellHitAt(Vector2 point, out Rect rect, out int hour)
+        {
+            if (TryFindCellHit(point, out CellHit hit))
+            {
+                rect = hit.Rect;
+                hour = hit.Hour;
+                return true;
+            }
+
+            rect = Rect.zero;
+            hour = -1;
+            return false;
+        }
+
+        /// <summary>
+        /// Whether the schedule claims a point against the Work tab's own
+        /// priority handling. A point inside a cell that this returns false for
+        /// is the "clicking an hour set the work priority to 3" bug.
+        /// </summary>
+        internal static bool OwnsPointForInput(Vector2 point)
+        {
+            return _session != null && _lastPanelRect.Contains(point);
+        }
 
         private static void FinishCloseIfComplete()
         {
