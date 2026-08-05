@@ -66,9 +66,17 @@ namespace Better_Work_Tab.UI
             Widgets.Label(new Rect(0f, 96f, inRect.width, 22f), "Leave blank to use the default title.");
             Text.Font = GameFont.Small;
 
-            Rect resetRect = new Rect(0f, inRect.height - 35f, 110f, 32f);
-            Rect cancelRect = new Rect(inRect.width - 226f, inRect.height - 35f, 108f, 32f);
-            Rect okRect = new Rect(inRect.width - 110f, inRect.height - 35f, 110f, 32f);
+            // Three equal buttons measured from the actual width, rather than
+            // three hand-picked offsets. The old ones assumed a wider window
+            // than this dialog has, so "Use default" ran from 0 to 110 while
+            // "Cancel" started at 98 and sat on top of it.
+            const float buttonGap = 8f;
+            const float buttonHeight = 32f;
+            float buttonWidth = (inRect.width - (buttonGap * 2f)) / 3f;
+            float buttonY = inRect.height - buttonHeight - 3f;
+            Rect resetRect = new Rect(0f, buttonY, buttonWidth, buttonHeight);
+            Rect cancelRect = new Rect(buttonWidth + buttonGap, buttonY, buttonWidth, buttonHeight);
+            Rect okRect = new Rect(inRect.width - buttonWidth, buttonY, buttonWidth, buttonHeight);
 
             if (Widgets.ButtonText(resetRect, "Use default"))
             {
