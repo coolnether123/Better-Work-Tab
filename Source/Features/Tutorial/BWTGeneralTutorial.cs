@@ -106,6 +106,44 @@ namespace Better_Work_Tab.Features.Tutorial
 
         internal static bool OwnsCurrentPointer => ownsCurrentPointer;
 
+        /// <summary>
+        /// Puts the tutorial back to what a player sees the first time they open
+        /// the Work tab.
+        ///
+        /// Restoring defaults turns the tutorial back on, and turning it on
+        /// without clearing where it had got to resumed it mid-course — landing
+        /// on whichever lesson was open, still counting the lessons already
+        /// finished. "Restore defaults" has to mean the tutorial starts at the
+        /// beginning, not that it is switched on wherever it was left.
+        ///
+        /// Progress is state, so it is cleared. Feedback the tester has written
+        /// is not: their words are not a preference to be reset, and the
+        /// feedback portal has its own way to clear them.
+        /// </summary>
+        internal static void ResetToFirstRun(BetterWorkTabSettings settings)
+        {
+            if (settings == null)
+            {
+                return;
+            }
+
+            settings.tutorialWelcomeCompleted = false;
+            settings.activeTutorialLessonId = string.Empty;
+            settings.tutorialLessonPhase = 0;
+            settings.selectedTutorialCourse = BWTTutorialCourse.None;
+            settings.completedTutorialLessonIds?.Clear();
+            settings.skippedTutorialLessonIds?.Clear();
+
+            // Stamped current rather than zeroed: a fresh start is not an
+            // upgrade, and leaving it behind would send this player down the
+            // migration path built for someone arriving from an older flow.
+            settings.tutorialFlowVersion = CurrentFlowVersion;
+
+            lessonAnchor = default(BWTTutorialAnchor);
+            lessonAnchorIsLive = false;
+            WelcomeOverlay.ResetAnimation();
+        }
+
         internal static void ShowEntryForSmokeTest()
         {
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;

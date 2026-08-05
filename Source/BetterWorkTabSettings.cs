@@ -1076,6 +1076,12 @@ namespace Better_Work_Tab
             hiddenWorktypes.Clear();
             NormalizePrioritySettings();
 
+            // STATE RESET: the tutorial is switched back on by the registered
+            // defaults above, so where it had got to has to go with it. Left
+            // behind, it resumes mid-course on whichever lesson was open and
+            // keeps counting the ones already finished.
+            BWTGeneralTutorial.ResetToFirstRun(this);
+
             // STATE RESET: debug feature toggles are runtime state, not user preferences.
             EnsureDebugFeatureTogglesInitialized();
             foreach (var feature in debugFeatureToggles.Keys.ToList())

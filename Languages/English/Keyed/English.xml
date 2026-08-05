@@ -293,7 +293,7 @@
 <BWT_Tutorial_PriorityRange_Feedback>Extended priorities</BWT_Tutorial_PriorityRange_Feedback>
 <BWT_Tutorial_PriorityRange_Filter>Priority range</BWT_Tutorial_PriorityRange_Filter>
 <BWT_Tutorial_PriorityRange_FilterTooltip>Priority provider and maximum-priority settings for the Work tab.</BWT_Tutorial_PriorityRange_FilterTooltip>
-<BWT_Tutorial_PriorityRange_Action>Pick a priority range in the highlighted setting.</BWT_Tutorial_PriorityRange_Action>
+<BWT_Tutorial_PriorityRange_Action>Drag the slider to the highest priority number you want.</BWT_Tutorial_PriorityRange_Action>
 <BWT_Tutorial_PriorityRange_Outcome>Priority range set. A wider range gives finer control.</BWT_Tutorial_PriorityRange_Outcome>
 <BWT_Tutorial_Unknown_Action>Return to the tutorial map and select an available lesson.</BWT_Tutorial_Unknown_Action>
 
