@@ -4617,29 +4617,6 @@ namespace Better_Work_Tab.UI
             }
         }
 
-        // The 24-hour editor's own accent, so the marked row reads as belonging
-        // to the panel rather than as one more unexplained colour.
-        private static readonly Color ScheduleRowMarkerColor = new Color(1f, 0.86f, 0.22f, 0.85f);
-        private const float ScheduleRowMarkerWidth = 3f;
-
-        /// <summary>Edges the row the open schedule is editing, without filling it.</summary>
-        private static void DrawScheduleRowMarker(Rect rowRect)
-        {
-            Color previous = GUI.color;
-            Widgets.DrawBoxSolid(
-                new Rect(rowRect.x, rowRect.y, ScheduleRowMarkerWidth, rowRect.height),
-                ScheduleRowMarkerColor);
-
-            GUI.color = new Color(
-                ScheduleRowMarkerColor.r,
-                ScheduleRowMarkerColor.g,
-                ScheduleRowMarkerColor.b,
-                0.32f);
-            Widgets.DrawLineHorizontal(rowRect.x, rowRect.yMin, rowRect.width);
-            Widgets.DrawLineHorizontal(rowRect.x, rowRect.yMax - 1f, rowRect.width);
-            GUI.color = previous;
-        }
-
         private void DrawPawnRowOverlay(Pawn pawn, Rect rowRect)
         {
             var settings = BetterWorkTabMod.Settings;
@@ -4657,14 +4634,14 @@ namespace Better_Work_Tab.UI
             // is what ties the hours to a colonist; without it the strip reads as
             // floating above the table.
             //
-            // Drawn as an edge rather than a fill. Hovering a row already lays a
-            // translucent fill over it, and a second fill underneath does not
-            // read as two things — it reads as one muddied colour, which spoiled
-            // the hover highlight on exactly the row the player is working in.
-            // An edge and a fill can occupy the same row without competing.
+            // Marked with the Work tab's existing selected-row treatment rather
+            // than a shape of its own. An accent bar and hairlines said the same
+            // thing but in a visual language this game does not speak; RimWorld
+            // marks a row by tinting it, and a player already reads this tint as
+            // "this is the row in question".
             if (TimePriorityScheduleEditor.IsSchedulingPawn(pawn))
             {
-                DrawScheduleRowMarker(rowRect);
+                HighlightDrawer.DrawHighlight(rowRect, HighlightDrawer.GetSelectedPawnColor());
             }
 
             if (Find.Selector.IsSelected(pawn) && (settings?.DoSelectedPawnHighlight ?? true))

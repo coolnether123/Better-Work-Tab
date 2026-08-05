@@ -56,6 +56,7 @@ namespace Better_Work_Tab.Features.TimePriority
         };
         private static Session _session;
         private static Rect _lastPanelRect;
+        private static int _lastDrawnFrame = -1;
         private static Rect _lastTimelineRect;
         private static Rect _lastCloseRect;
         private static bool _isClosing;
@@ -83,16 +84,27 @@ namespace Better_Work_Tab.Features.TimePriority
             }
         }
 
+        /// <summary>
+        /// Whether the panel actually painted just now.
+        ///
+        /// <see cref="IsVisible"/> only says a session exists, which stays true
+        /// while the panel is off screen — during a sub-work drilldown, for
+        /// instance. Anything positioning itself *on* the panel needs to know it
+        /// is currently somewhere, not merely that it is open. One frame of slack
+        /// covers input passes that run between repaints.
+        /// </summary>
+        private static bool DrewRecently => Time.frameCount - _lastDrawnFrame <= 1;
+
         internal static bool TryGetLastPanelRect(out Rect rect)
         {
             rect = _lastPanelRect;
-            return IsVisible && rect.width > 1f && rect.height > 1f;
+            return IsVisible && DrewRecently && rect.width > 1f && rect.height > 1f;
         }
 
         internal static bool TryGetTutorialCellRect(out Rect rect)
         {
             rect = Rect.zero;
-            if (!IsVisible || LastCellHits.Count == 0)
+            if (!IsVisible || !DrewRecently || LastCellHits.Count == 0)
             {
                 return false;
             }
@@ -460,18 +472,24 @@ namespace Better_Work_Tab.Features.TimePriority
 
             if (!TryResolveVisibleTarget(layout, out WorkTabLayoutColumn column, out List<RowDrawInfo> rows))
             {
-                // The session outlives its column. Entering a sub-work drilldown
-                // takes the target work column off screen, so the panel stops
-                // drawing while the session is still open — and the rects it left
-                // behind describe a 24-hour timeline that is no longer anywhere.
-                //
-                // Anything reading those rects to point at the panel would point
-                // into empty space beside the drilldown, which is exactly what the
-                // tutorial's gesture demo did. They describe the last frame that
-                // drew, so they are dropped on the first frame that does not.
-                ForgetPanelGeometry();
                 return;
             }
+
+            // Stamped, not cleared.
+            //
+            // The session outlives its column: entering a sub-work drilldown
+            // takes the target off screen, so the panel stops painting while the
+            // session stays open, and the rects it left behind describe a
+            // timeline that is no longer anywhere. Readers that point *at* the
+            // panel must not trust them — that is how the tutorial's gesture demo
+            // ended up drawing in the empty space beside a drilldown.
+            //
+            // Clearing them was the wrong cure. Draw runs before input in the
+            // frame, so wiping the cell list on a frame that did not resolve took
+            // the hit list out from under the click that was about to be read,
+            // and clicking an hour did nothing. The data stays; what changes is
+            // that positional readers now ask whether it is current.
+            _lastDrawnFrame = Time.frameCount;
 
             if (rows.Count == 0)
             {
@@ -1397,7 +1415,14 @@ namespace Better_Work_Tab.Features.TimePriority
                 Rect rowTimelineRect = GetInlineTimelineRect(rows[i].RowRect, timelineX, timelineWidth);
                 Rect rowPriorityCursorRect = GetInlinePriorityCursorRect(rowTimelineRect);
                 priorityRowsRect = i == 0 ? rowPriorityCursorRect : Union(priorityRowsRect, rowPriorityCursorRect);
-                combined = Union(combined, rowTimelineRect);
+
+                // Ownership spans the whole row, for the same reason the hit
+                // rects do: this rect is what tells the Work tab's priority
+                // handler to keep its hands off, and it has to cover everywhere
+                // the editor is willing to be clicked, not just where it paints.
+                combined = Union(
+                    combined,
+                    new Rect(timelineX, rows[i].RowRect.yMin, timelineWidth, rows[i].RowRect.height));
             }
 
             _lastPanelRect = combined.ExpandedBy(2f);
@@ -1647,7 +1672,7 @@ namespace Better_Work_Tab.Features.TimePriority
                 DrawInlineCopyPasteControls(row.RowRect, timelineX, target, currentPriority, GetScheduleLabel(row.Pawn), progress);
             }
 
-            DrawInlineTimelineCells(row.Pawn, target, currentPriority, timelineRect, visibleTimelineRect, progress);
+            DrawInlineTimelineCells(row.Pawn, target, currentPriority, rowRect, timelineRect, visibleTimelineRect, progress);
 
             GUI.color = oldColor;
         }
@@ -1741,6 +1766,7 @@ namespace Better_Work_Tab.Features.TimePriority
             Pawn pawn,
             TimePriorityTarget target,
             int currentPriority,
+            Rect rowRect,
             Rect timelineRect,
             Rect visibleTimelineRect,
             float progress)
@@ -1774,7 +1800,20 @@ namespace Better_Work_Tab.Features.TimePriority
 
                 bool isCustomHour = TimePriorityService.IsCustomScheduledHour(target, hour, currentPriority);
                 DrawSchedulePriorityCell(hourRect, target, priority, hour, cellProgress, isCustomHour);
-                LastCellHits.Add(new CellHit(target, currentPriority, hour, hourRect));
+
+                // Registered at full row height, not at the height it is drawn.
+                //
+                // The visible band is inset inside the row, so the few pixels
+                // above and below each hour cell belonged to nothing here — and
+                // the vanilla priority cell underneath happily took the click,
+                // setting the work priority to 3 and toggling it off. What the
+                // editor is drawn as and what it can be clicked on are separate
+                // questions, and only the second one is about the whole row.
+                LastCellHits.Add(new CellHit(
+                    target,
+                    currentPriority,
+                    hour,
+                    new Rect(hourRect.x, rowRect.yMin, hourRect.width, rowRect.height)));
             }
         }
 
