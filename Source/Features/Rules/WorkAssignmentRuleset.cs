@@ -77,7 +77,7 @@ namespace Better_Work_Tab.Features
             var map = Find.CurrentMap;
             if (map == null) return;
 
-            Find.PlaySettings.useWorkPriorities = true;
+            WorkPrioritySystem.SetManualPriorities(true);
 
             var pawns = map.mapPawns.FreeColonists.ToList();
             if (pawns.Count == 0) return;

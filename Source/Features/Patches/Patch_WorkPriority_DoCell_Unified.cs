@@ -241,7 +241,8 @@ namespace Better_Work_Tab.Patches
 
             TryHandleWorkPriorityScroll(rect, pawn, workType);
 
-            if (TryHandleParentSubWorkOverrideInput(rect, pawn, workType))
+            if (TryHandleParentSubWorkOverrideInput(rect, pawn, workType) ||
+                TryHandleScheduleIndicatorInput(rect, pawn, workType))
             {
                 return false;
             }
@@ -827,13 +828,79 @@ namespace Better_Work_Tab.Patches
 
         private static void DrawParentSubWorkOverrideIndicatorIfNeeded(Rect cellRect, Pawn pawn, WorkTypeDef workType)
         {
-            if (!ShouldShowParentSubWorkOverrideIndicator(pawn, workType))
+            if (ShouldShowParentSubWorkOverrideIndicator(pawn, workType))
+            {
+                PriorityOverrideRing.Draw(GetWorkBoxRect(cellRect));
+                return;
+            }
+
+            DrawScheduleIndicatorIfNeeded(cellRect, pawn, workType);
+        }
+
+        /// <summary>
+        /// Whether this cell's work has any hour pinned away from the priority
+        /// box.
+        ///
+        /// A schedule is invisible once it is closed, so a player had no way to
+        /// tell that a pawn's priority for some hours is not the number in front
+        /// of them. The ring says so on the cell itself.
+        ///
+        /// It yields to the sub-work override ring above rather than drawing
+        /// over it. One gold ring should not mean two things at once, and that
+        /// one is both rarer and more urgent -- it marks work happening on a
+        /// work type the player has switched off.
+        /// </summary>
+        private static bool ShouldShowScheduleIndicator(Pawn pawn, WorkTypeDef workType)
+        {
+            if (pawn?.workSettings == null ||
+                workType == null ||
+                pawn.WorkTypeIsDisabled(workType) ||
+                !TimePriorityService.IsRuntimeEnabled)
+            {
+                return false;
+            }
+
+            return TimePriorityService.HasCustomSchedule(
+                TimePriorityTarget.ForWorkType(pawn, workType),
+                WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, workType));
+        }
+
+        private static void DrawScheduleIndicatorIfNeeded(Rect cellRect, Pawn pawn, WorkTypeDef workType)
+        {
+            if (!ShouldShowScheduleIndicator(pawn, workType))
             {
                 return;
             }
 
-            Rect boxRect = GetWorkBoxRect(cellRect);
-            PriorityOverrideRing.Draw(boxRect);
+            PriorityOverrideRing.Draw(GetWorkBoxRect(cellRect));
+        }
+
+        /// <summary>
+        /// Opens the schedule when its ring is clicked, so the pinned hours the
+        /// ring is reporting can actually be looked at.
+        /// </summary>
+        private static bool TryHandleScheduleIndicatorInput(Rect cellRect, Pawn pawn, WorkTypeDef workType)
+        {
+            Event evt = Event.current;
+            if (evt == null ||
+                TimePriorityScheduleEditor.OwnsCurrentMousePosition ||
+                evt.type != EventType.MouseDown ||
+                evt.button != 0 ||
+                ShouldShowParentSubWorkOverrideIndicator(pawn, workType) ||
+                !ShouldShowScheduleIndicator(pawn, workType))
+            {
+                return false;
+            }
+
+            if (!PriorityOverrideRing.EventOverVisibleRing(evt, GetWorkBoxRect(cellRect)))
+            {
+                return false;
+            }
+
+            TimePriorityScheduleEditor.OpenForFloatMenu(pawn, workType);
+            SoundDefOf.Tick_High.PlayOneShotOnCamera();
+            evt.Use();
+            return true;
         }
 
         private static bool TryHandleParentSubWorkOverrideInput(Rect cellRect, Pawn pawn, WorkTypeDef workType)
@@ -865,6 +932,7 @@ namespace Better_Work_Tab.Patches
         internal static bool TryHandleRootPriorityInput(Rect rootCellRect, Pawn pawn, WorkTypeDef workType)
         {
             return TryHandleParentSubWorkOverrideInput(rootCellRect, pawn, workType) ||
+                TryHandleScheduleIndicatorInput(rootCellRect, pawn, workType) ||
                 TryHandleWorkPriorityScroll(rootCellRect, pawn, workType, trustHit: true) ||
                 TryHandleWorkPriorityInput(rootCellRect, pawn, workType, trustHit: true);
         }

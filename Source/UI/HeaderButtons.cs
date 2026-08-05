@@ -1,4 +1,5 @@
 using Better_Work_Tab.Features;
+using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.Tutorial;
@@ -397,16 +398,7 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
-            Find.PlaySettings.useWorkPriorities = enabled;
-            foreach (Pawn pawn in PawnsFinder.AllMapsWorldAndTemporary_Alive)
-            {
-                if (pawn.Faction == Faction.OfPlayer && pawn.workSettings != null)
-                {
-                    pawn.workSettings.Notify_UseWorkPrioritiesChanged();
-                }
-            }
-
-            MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+            WorkPrioritySystem.SetManualPriorities(enabled);
             SoundDefOf.Tick_Low.PlayOneShotOnCamera();
         }
 

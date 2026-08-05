@@ -703,7 +703,11 @@ namespace Better_Work_Tab.Features.TimePriority
             int[] beforePriorities = TimePriorityService.GetPrioritiesForDisplay(hit.Target, hit.FallbackPriority);
             int[] afterPriorities = snapshot.CopyPriorities();
             EnsureTargetVisibleForTransfer(hit);
-            TimePriorityService.SetPrioritiesSynced(hit.Target, afterPriorities, hit.FallbackPriority);
+            TimePriorityService.SetScheduleSynced(
+                hit.Target,
+                afterPriorities,
+                snapshot.CopyUnlinkedHours(),
+                hit.FallbackPriority);
             TimePriorityScheduleTransferFeedback.StartPaste(hit.Target, beforePriorities, afterPriorities, closeWhenComplete: true);
             Messages.Message("Pasted " + snapshot.Label + " time priorities.", MessageTypeDefOf.PositiveEvent, false);
         }

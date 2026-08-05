@@ -54,6 +54,28 @@ namespace Better_Work_Tab.Features.TimePriority
             return priorities;
         }
 
+        /// <summary>
+        /// Which hours are pinned rather than following the priority box.
+        /// Needed by anything copying a schedule, since the numbers alone cannot
+        /// say whether an hour matching the box was pinned there or inheriting.
+        /// </summary>
+        internal static bool[] GetLinkStateForDisplay(TimePriorityTarget target)
+        {
+            var unlinked = new bool[HoursPerDay];
+            if (!TryGetSchedule(target, out var schedule))
+            {
+                return unlinked;
+            }
+
+            schedule.EnsureValid();
+            for (int hour = 0; hour < HoursPerDay; hour++)
+            {
+                unlinked[hour] = schedule.IsUnlinked(hour);
+            }
+
+            return unlinked;
+        }
+
         internal static int GetPriorityAtHour(TimePriorityTarget target, int fallbackPriority, int hour)
         {
             fallbackPriority = WorkPrioritySystem.ClampPriority(fallbackPriority);
@@ -189,6 +211,111 @@ namespace Better_Work_Tab.Features.TimePriority
             }
 
             SetPriorities(target, normalizedPriorities, fallbackPriority);
+        }
+
+        /// <summary>
+        /// Writes a whole schedule including which hours are pinned.
+        ///
+        /// <see cref="SetPrioritiesSynced"/> takes numbers only and has to infer
+        /// the rest, which is right for callers that genuinely have no link
+        /// state -- an external work tab, a rule's schedule. A caller that does
+        /// know, such as a paste of a copied schedule, should say so here rather
+        /// than let the inference silently drop an hour pinned at the default.
+        /// </summary>
+        internal static void SetScheduleSynced(
+            TimePriorityTarget target,
+            int[] priorities,
+            bool[] unlinkedHours,
+            int fallbackPriority)
+        {
+            int[] normalizedPriorities = NormalizePriorities(priorities, fallbackPriority);
+            int[] pinnedHours = BuildPinnedHourList(unlinkedHours);
+            if (MultiplayerBridge.Active)
+            {
+                SyncSetSchedule(
+                    target.PawnId,
+                    (int)target.Kind,
+                    target.WorkTypeDefName,
+                    target.TargetDefName,
+                    normalizedPriorities,
+                    pinnedHours,
+                    fallbackPriority);
+                return;
+            }
+
+            SetSchedule(target, normalizedPriorities, pinnedHours, fallbackPriority);
+        }
+
+        // Multiplayer sync marshals plain arrays, so the pinned hours travel as
+        // indices rather than a parallel bool[].
+        private static int[] BuildPinnedHourList(bool[] unlinkedHours)
+        {
+            var pinned = new List<int>();
+            for (int hour = 0; hour < HoursPerDay; hour++)
+            {
+                if (unlinkedHours != null && hour < unlinkedHours.Length && unlinkedHours[hour])
+                {
+                    pinned.Add(hour);
+                }
+            }
+
+            return pinned.ToArray();
+        }
+
+        [SyncMethod]
+        public static void SyncSetSchedule(
+            int pawnId,
+            int kindValue,
+            string workTypeDefName,
+            string targetDefName,
+            int[] priorities,
+            int[] pinnedHours,
+            int fallbackPriority)
+        {
+            TimePriorityTargetKind kind = Enum.IsDefined(typeof(TimePriorityTargetKind), kindValue)
+                ? (TimePriorityTargetKind)kindValue
+                : TimePriorityTargetKind.WorkType;
+            var target = TimePriorityTarget.FromRaw(pawnId, kind, workTypeDefName, targetDefName);
+            SetSchedule(target, priorities, pinnedHours, fallbackPriority);
+        }
+
+        private static void SetSchedule(
+            TimePriorityTarget target,
+            int[] priorities,
+            int[] pinnedHours,
+            int fallbackPriority)
+        {
+            fallbackPriority = WorkPrioritySystem.ClampPriority(fallbackPriority);
+            int[] normalizedPriorities = NormalizePriorities(priorities, fallbackPriority);
+            if (pinnedHours == null || pinnedHours.Length == 0)
+            {
+                ClearSchedule(target);
+                return;
+            }
+
+            var schedule = GetOrCreateSchedule(target, fallbackPriority);
+            bool changed = false;
+            for (int hour = 0; hour < HoursPerDay; hour++)
+            {
+                bool shouldPin = Array.IndexOf(pinnedHours, hour) >= 0;
+                bool wasPinned = schedule.IsUnlinked(hour);
+                if (shouldPin && (!wasPinned || schedule.HourlyPriorities[hour] != normalizedPriorities[hour]))
+                {
+                    schedule.SetOverride(hour, normalizedPriorities[hour]);
+                    changed = true;
+                }
+                else if (!shouldPin && wasPinned)
+                {
+                    schedule.ClearOverride(hour);
+                    changed = true;
+                }
+            }
+
+            if (changed)
+            {
+                MirrorTargetToExternalWorkTab(target);
+                NotifyChanged();
+            }
         }
 
         internal static void ClearSchedule(TimePriorityTarget target)

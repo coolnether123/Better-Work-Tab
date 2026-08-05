@@ -28,6 +28,50 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             return PriorityAuthorityBroker.ClampMaxPriority(value);
         }
 
+        /// <summary>
+        /// Turns manual priorities on or off, and tells everything that cares.
+        ///
+        /// The flag is a plain public field on PlaySettings, so it was being
+        /// assigned directly from several places -- applying a ruleset, applying
+        /// a Rule Builder 2.0 ruleset, restoring a workload, and opening the tab
+        /// with auto-enable on. Each of those left the pawns un-notified, so
+        /// their priorities were never converted between on/off and numbered,
+        /// and left the Work grid's snapshot holding the old mode, so it kept
+        /// drawing checkboxes while the header said priorities were on.
+        /// </summary>
+        internal static void SetManualPriorities(bool enabled)
+        {
+            if (Find.PlaySettings == null || Find.PlaySettings.useWorkPriorities == enabled)
+            {
+                return;
+            }
+
+            Find.PlaySettings.useWorkPriorities = enabled;
+            NotifyManualPrioritiesChanged();
+        }
+
+        /// <summary>
+        /// Republishes the manual-priority mode after the flag has already been
+        /// written. Separate from <see cref="SetManualPriorities"/> for the
+        /// checkbox, which hands the field to RimWorld by reference and can only
+        /// find out afterwards.
+        /// </summary>
+        internal static void NotifyManualPrioritiesChanged()
+        {
+            foreach (Pawn pawn in PawnsFinder.AllMapsWorldAndTemporary_Alive)
+            {
+                if (pawn.Faction == Faction.OfPlayer && pawn.workSettings != null)
+                {
+                    pawn.workSettings.Notify_UseWorkPrioritiesChanged();
+                }
+            }
+
+            UI.WorkGrid.Invalidation.WorkTabInvalidationHub.Invalidate(
+                UI.WorkGrid.Contracts.WorkTabDirtyFlags.Priority |
+                UI.WorkGrid.Contracts.WorkTabDirtyFlags.Presentation);
+            MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+        }
+
         internal static int GetMaxPriority()
         {
             if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabPriorityFeatures)

@@ -227,10 +227,7 @@ namespace Better_Work_Tab.UI
             // Auto-enable manual priorities if setting is enabled
             if (settings?.autoEnableManualPriorities ?? false)
             {
-                if (Current.Game?.playSettings != null)
-                {
-                    Current.Game.playSettings.useWorkPriorities = true;
-                }
+                WorkPrioritySystem.SetManualPriorities(true);
             }
         }
 
@@ -4815,16 +4812,7 @@ namespace Better_Work_Tab.UI
             bool isEnabled = Current.Game.playSettings.useWorkPriorities;
             if (wasEnabled != isEnabled)
             {
-                foreach (Pawn pawn in PawnsFinder.AllMapsWorldAndTemporary_Alive)
-                {
-                    if (pawn.Faction == Faction.OfPlayer && pawn.workSettings != null)
-                    {
-                        pawn.workSettings.Notify_UseWorkPrioritiesChanged();
-                    }
-                }
-
-                WorkTabInvalidationHub.Invalidate(
-                    WorkTabDirtyFlags.Priority | WorkTabDirtyFlags.Presentation);
+                WorkPrioritySystem.NotifyManualPrioritiesChanged();
             }
             if (Current.Game.playSettings.useWorkPriorities)
             {

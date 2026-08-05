@@ -4,19 +4,32 @@ namespace Better_Work_Tab.Features.TimePriority
 {
     internal sealed class TimePriorityScheduleSnapshot
     {
-        internal TimePriorityScheduleSnapshot(string label, int[] priorities)
+        internal TimePriorityScheduleSnapshot(string label, int[] priorities, bool[] unlinkedHours)
         {
             Label = string.IsNullOrEmpty(label) ? "time priorities" : label;
             Priorities = CopyPriorities(priorities);
+            UnlinkedHours = CopyUnlinked(unlinkedHours);
         }
 
         internal string Label { get; }
 
         internal int[] Priorities { get; }
 
+        /// <summary>
+        /// Which copied hours were pinned rather than following the priority
+        /// box. Carried so a paste can reproduce an hour pinned at the default,
+        /// which the numbers alone cannot describe.
+        /// </summary>
+        internal bool[] UnlinkedHours { get; }
+
         internal int[] CopyPriorities()
         {
             return CopyPriorities(Priorities);
+        }
+
+        internal bool[] CopyUnlinkedHours()
+        {
+            return CopyUnlinked(UnlinkedHours);
         }
 
         private static int[] CopyPriorities(int[] priorities)
@@ -27,6 +40,17 @@ namespace Better_Work_Tab.Features.TimePriority
                 copy[i] = priorities != null && i < priorities.Length
                     ? priorities[i]
                     : 0;
+            }
+
+            return copy;
+        }
+
+        private static bool[] CopyUnlinked(bool[] unlinkedHours)
+        {
+            var copy = new bool[TimePriorityService.HoursPerDay];
+            for (int i = 0; i < copy.Length; i++)
+            {
+                copy[i] = unlinkedHours != null && i < unlinkedHours.Length && unlinkedHours[i];
             }
 
             return copy;
@@ -45,7 +69,8 @@ namespace Better_Work_Tab.Features.TimePriority
             string label)
         {
             int[] priorities = TimePriorityService.GetPrioritiesForDisplay(target, fallbackPriority);
-            _snapshot = new TimePriorityScheduleSnapshot(label, priorities);
+            bool[] unlinked = TimePriorityService.GetLinkStateForDisplay(target);
+            _snapshot = new TimePriorityScheduleSnapshot(label, priorities, unlinked);
             return _snapshot;
         }
 

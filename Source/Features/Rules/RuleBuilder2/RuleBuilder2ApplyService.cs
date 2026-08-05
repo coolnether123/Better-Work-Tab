@@ -21,7 +21,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 return 0;
             }
 
-            Find.PlaySettings.useWorkPriorities = true;
+            WorkPrioritySystem.SetManualPriorities(true);
             List<Pawn> pawns = RuleBuilder2Evaluator.GetCurrentPawns();
             int changed = 0;
 
