@@ -148,7 +148,14 @@ namespace Better_Work_Tab.UI.SettingsFramework
         public bool ShowInSimpleView;
 
         /// <summary>
-        /// If true, the setting is visible in the Advanced view. Defaults to true.
+        /// If true, the setting is visible in the Advanced view even when it is
+        /// hidden from Simple. Defaults to true.
+        /// <para>
+        /// Advanced is a superset of Simple: anything with
+        /// <see cref="ShowInSimpleView"/> set also appears in Advanced,
+        /// regardless of this flag. Clearing this flag alone hides a setting
+        /// from both views.
+        /// </para>
         /// </summary>
         public bool ShowInAdvancedView = true;
 

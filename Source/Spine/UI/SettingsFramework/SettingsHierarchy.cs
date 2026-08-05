@@ -326,7 +326,15 @@ namespace Better_Work_Tab.UI.SettingsFramework
 
         private static bool IsVisibleInView(SettingDefinition def, SettingsViewMode viewMode)
         {
-            return viewMode == SettingsViewMode.Simple ? def.ShowInSimpleView : def.ShowInAdvancedView;
+            // Advanced is a superset of Simple, not a sibling list: it is the
+            // simple list plus the settings hidden from it. Every registration
+            // happens to satisfy that today, because ShowInAdvancedView defaults
+            // to true and simple settings leave it alone. Enforcing it here
+            // makes it an invariant of the framework rather than a convention
+            // one stray "ShowInAdvancedView = false" can quietly break.
+            return viewMode == SettingsViewMode.Simple
+                ? def.ShowInSimpleView
+                : def.ShowInAdvancedView || def.ShowInSimpleView;
         }
 
         private static bool ReadBoolValue(SettingDefinition def, object settingsObject)
