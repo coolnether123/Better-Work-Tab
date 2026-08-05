@@ -99,6 +99,22 @@ namespace Better_Work_Tab.UI.Settings
                     ValidateTranslationKeys(def);
                 }
 
+                // A setting that shipped in public 1.0.x must stay reachable.
+                //
+                // The stronger rule — that all of them stay in the simple view —
+                // was tempting and is not viable: ninety-four registered settings
+                // have 1.0.x fields, so honouring it would rebuild the crowded
+                // list that trimming was meant to fix. What an upgrading player
+                // actually cannot survive is a setting they rely on vanishing
+                // from the UI altogether, so that is what is asserted. Moving one
+                // into Advanced is a judgement call; removing it is a bug.
+                if (BWTSettingsFilters.IsV10Setting(def) &&
+                    !def.ShowInSimpleView &&
+                    !def.ShowInAdvancedView)
+                {
+                    Warn("Public 1.0 setting is unreachable in both views: " + def.Id);
+                }
+
                 string scribeKey = SettingsScribe.EffectiveScribeKey(def);
                 if (!string.IsNullOrEmpty(scribeKey) && !scribeKeys.Add(scribeKey))
                 {

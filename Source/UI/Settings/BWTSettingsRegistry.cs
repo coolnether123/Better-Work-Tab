@@ -259,7 +259,7 @@ namespace Better_Work_Tab.UI.Settings
                 Tooltip = "Settings for loaded mod integrations.",
                 Type = SettingType.Header,
                 HeaderColor = new Color(0.7f, 0.75f, 0.9f),
-                ShowInSimpleView = true,
+                ShowInSimpleView = false,
                 ShowInAdvancedView = true,
                 SortOrder = -40,
                 VisibleWhen = settingsObject => HasVisibleModCompatibilitySection(sections, settingsObject)
@@ -467,7 +467,7 @@ namespace Better_Work_Tab.UI.Settings
                 SearchKeywords = new[] { "controls", "keybindings", "keyboard", "mouse", "shortcuts", "hotkeys" },
                 Type = SettingType.Header,
                 HeaderColor = new Color(0.55f, 0.75f, 0.9f),
-                ShowInSimpleView = true,
+                ShowInSimpleView = false,
                 ShowInAdvancedView = true,
                 SortOrder = -100
             });
@@ -482,7 +482,7 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Custom,
                 CustomDrawer = (rect, label, tooltip, _, disabled) =>
                     BWTSettingWidgets.DrawReadOnlyValue(rect, label, "Click / right-click / wheel", tooltip, disabled),
-                ShowInSimpleView = true,
+                ShowInSimpleView = false,
                 ShowInAdvancedView = true,
                 SortOrder = 0
             });
@@ -497,7 +497,7 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Custom,
                 CustomDrawer = (rect, label, tooltip, _, disabled) =>
                     BWTSettingWidgets.DrawReadOnlyValue(rect, label, "Hold Shift", tooltip, disabled),
-                ShowInSimpleView = true,
+                ShowInSimpleView = false,
                 ShowInAdvancedView = true,
                 SortOrder = 1
             });
@@ -519,7 +519,7 @@ namespace Better_Work_Tab.UI.Settings
                             : "Shift-click / right-click / wheel bulk",
                         tooltip,
                         disabled),
-                ShowInSimpleView = true,
+                ShowInSimpleView = false,
                 ShowInAdvancedView = true,
                 SortOrder = 2
             });
@@ -534,7 +534,7 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Custom,
                 CustomDrawer = (rect, label, tooltip, _, disabled) =>
                     BWTSettingWidgets.DrawReadOnlyValue(rect, label, "Ctrl+Z / Ctrl+Y", tooltip, disabled),
-                ShowInSimpleView = true,
+                ShowInSimpleView = false,
                 ShowInAdvancedView = true,
                 SortOrder = 3
             });
@@ -694,7 +694,7 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Enum,
                 EnumType = typeof(BetterWorkTabSettings.SubWorkDrilldownModifier),
                 DefaultValue = DefaultSettings.subWorkDrilldownModifier,
-                ShowInSimpleView = true,
+                ShowInSimpleView = false,
                 SortOrder = 1
             });
 
@@ -708,7 +708,7 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Enum,
                 EnumType = typeof(BetterWorkTabSettings.SubWorkDrilldownButton),
                 DefaultValue = DefaultSettings.subWorkDrilldownButton,
-                ShowInSimpleView = true,
+                ShowInSimpleView = false,
                 SortOrder = 2
             });
 
@@ -753,7 +753,7 @@ namespace Better_Work_Tab.UI.Settings
                 Tooltip = "Drag a specific job onto another Work column to move it there. Turning this off limits dragging to the current specific-job view.",
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.enableSubWorkCrossWorkDragDrop,
-                ShowInSimpleView = true,
+                ShowInSimpleView = false,
                 SortOrder = 5
             });
 
@@ -767,7 +767,7 @@ namespace Better_Work_Tab.UI.Settings
                 SearchKeywords = new[] { "small cells", "narrow columns", "Fluffy layout", "compact priorities" },
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.useCompactSubWorkPriorityBoxes,
-                ShowInSimpleView = true,
+                ShowInSimpleView = false,
                 SortOrder = 6
             });
 
@@ -781,7 +781,7 @@ namespace Better_Work_Tab.UI.Settings
                 SearchKeywords = new[] { "top row", "global priority", "shared priority", "box size" },
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.useVanillaSubWorkGlobalPriorityBoxes,
-                ShowInSimpleView = true,
+                ShowInSimpleView = false,
                 SortOrder = 7
             });
 
@@ -794,7 +794,7 @@ namespace Better_Work_Tab.UI.Settings
                 Tooltip = "After leaving from a specific-job header, move the cursor back to the Work header used to open it.",
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.restoreCursorOnSubWorkExit,
-                ShowInSimpleView = true,
+                ShowInSimpleView = false,
                 SortOrder = 7
             });
 
@@ -807,7 +807,7 @@ namespace Better_Work_Tab.UI.Settings
                 Tooltip = "After leaving from a pawn priority cell, move the cursor back to the Work header used to open the specific-job view. Turning this off leaves the cursor where you clicked.",
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.restoreCursorOnSubWorkPawnCellExit,
-                ShowInSimpleView = true,
+                ShowInSimpleView = false,
                 SortOrder = 8
             });
 
@@ -1146,7 +1146,7 @@ namespace Better_Work_Tab.UI.Settings
                 Tooltip = "Draw a thin divider line above the hour numbers in the Work tab time-priority editor.",
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.showTimePriorityHourDivider,
-                ShowInSimpleView = true,
+                ShowInSimpleView = false,
                 ShowInAdvancedView = true,
                 SortOrder = 1
             });
@@ -1160,7 +1160,7 @@ namespace Better_Work_Tab.UI.Settings
                 Tooltip = "Show copy and paste controls for Work tab time-priority schedules. These controls use the same copy/paste column as vanilla while a schedule row is open.",
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.showTimePriorityCopyPasteButtons,
-                ShowInSimpleView = true,
+                ShowInSimpleView = false,
                 ShowInAdvancedView = true,
                 SortOrder = 2
             });
@@ -1174,7 +1174,7 @@ namespace Better_Work_Tab.UI.Settings
                 Tooltip = "While a time-priority schedule is open, keep the work column it edits highlighted and prevent the schedule strip from highlighting columns behind it.",
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.keepTimePrioritySourceColumnHighlighted,
-                ShowInSimpleView = true,
+                ShowInSimpleView = false,
                 ShowInAdvancedView = true,
                 SortOrder = 3
             });
@@ -1188,7 +1188,7 @@ namespace Better_Work_Tab.UI.Settings
                 Tooltip = "When Fluffy Work Tab is loaded, push BWT time-priority schedules into Fluffy's own per-hour priority tracker.",
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.enableFluffyTimePriorityMirroring,
-                ShowInSimpleView = true,
+                ShowInSimpleView = false,
                 ShowInAdvancedView = true,
                 VisibleWhen = _ => FluffyWorkTabGateway.IsPresent,
                 SortOrder = 4
@@ -1583,7 +1583,7 @@ namespace Better_Work_Tab.UI.Settings
                 Tooltip = "Hold Ctrl to drag rows/columns. Prevents accidental reordering.",
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.requireCtrlForDrag,
-                ShowInSimpleView = true,
+                ShowInSimpleView = false,
                 SortOrder = 95,
                 ParentId = FeaturesDragdrop
             });
@@ -1739,7 +1739,7 @@ namespace Better_Work_Tab.UI.Settings
                 SearchKeywords = WorkTabLayoutSearchKeywords,
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.keepVanillaWorkTabMinimumWidth,
-                ShowInSimpleView = true,
+                ShowInSimpleView = false,
                 ShowInAdvancedView = true,
                 SortOrder = 90,
                 OnChanged = _ => MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged()
@@ -1753,7 +1753,7 @@ namespace Better_Work_Tab.UI.Settings
                 Tooltip = "Display colonist count in the bottom-left corner.",
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.showPawnCountAtBottom,
-                ShowInSimpleView = true,
+                ShowInSimpleView = false,
                 SortOrder = 103,
                 ParentId = FeaturesUiElements
             });
@@ -1766,7 +1766,7 @@ namespace Better_Work_Tab.UI.Settings
                 Tooltip = "Display bed count (red if insufficient).",
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.showBedCountAtBottom,
-                ShowInSimpleView = true,
+                ShowInSimpleView = false,
                 SortOrder = 104,
                 ParentId = FeaturesUiElements
             });
@@ -1805,7 +1805,7 @@ namespace Better_Work_Tab.UI.Settings
                 Tooltip = "Show the top-right hint that Alt-clicking the Work tab opens related settings. This turns off automatically after the first successful Alt-click.",
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.showContextSettingsHint,
-                ShowInSimpleView = true,
+                ShowInSimpleView = false,
                 SortOrder = 1043,
                 ParentId = FeaturesUiElements
             });
@@ -1844,7 +1844,7 @@ namespace Better_Work_Tab.UI.Settings
                 Tooltip = "Automatically check the Manual Priorities checkbox when opening the Work tab.",
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.autoEnableManualPriorities,
-                ShowInSimpleView = true,
+                ShowInSimpleView = false,
                 SortOrder = 1045,
                 ParentId = FeaturesUiElements
             });
@@ -1928,7 +1928,7 @@ namespace Better_Work_Tab.UI.Settings
                 Tooltip = "Show divider labels by default.",
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.showDividerLabels,
-                ShowInSimpleView = true,
+                ShowInSimpleView = false,
                 SortOrder = 111,
                 ParentId = FeaturesDividers
             });
@@ -1942,7 +1942,7 @@ namespace Better_Work_Tab.UI.Settings
                 Tooltip = "Let dividers collapse or expand their pawn groups.",
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.allowDividerCollapse,
-                ShowInSimpleView = true,
+                ShowInSimpleView = false,
                 SortOrder = 112,
                 ParentId = FeaturesDividers
             });
@@ -1956,7 +1956,7 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.enableDividerAnimations,
                 OnChanged = _ => MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged(),
-                ShowInSimpleView = true,
+                ShowInSimpleView = false,
                 ShowInAdvancedView = true,
                 SortOrder = 113,
                 ParentId = FeaturesDividers
@@ -1968,7 +1968,7 @@ namespace Better_Work_Tab.UI.Settings
                 Label = "Reset all divider heights",
                 Tooltip = "Restore every divider to the default height.",
                 Type = SettingType.Button,
-                ShowInSimpleView = true,
+                ShowInSimpleView = false,
                 SortOrder = 114,
                 ParentId = FeaturesDividers,
                 OnChanged = settingsObj =>
@@ -1994,7 +1994,7 @@ namespace Better_Work_Tab.UI.Settings
                 Label = "Reset Columns to Vanilla",
                 Tooltip = "Restore all work columns to their default order.",
                 Type = SettingType.Button,
-                ShowInSimpleView = true,
+                ShowInSimpleView = false,
                 SortOrder = 1015,
                 ParentId = FeaturesDragdrop,
                 OnChanged = _ => WorkColumnOrderManager.ResetToVanilla()
@@ -2714,7 +2714,7 @@ namespace Better_Work_Tab.UI.Settings
                 Tooltip = "Change priorities by hovering a work priority cell and scrolling. Applies to normal work cells, sub-work cells, and time-priority cells.",
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.enableScrollWheelPriority,
-                ShowInSimpleView = true,
+                ShowInSimpleView = false,
                 ShowInAdvancedView = true,
                 SortOrder = 25
             });

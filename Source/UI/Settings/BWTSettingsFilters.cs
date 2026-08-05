@@ -243,7 +243,18 @@ namespace Better_Work_Tab.UI.Settings
                     "headers.horizontalOffset");
         }
 
-        private static bool IsV10Setting(SettingDefinition def)
+        /// <summary>
+        /// Whether a setting was part of the public 1.0.x surface.
+        ///
+        /// Internal rather than private because it is not only a search filter:
+        /// <see cref="SettingsConsistencyValidator"/> reads it too. Note what
+        /// that validator does and does not promise — it checks only that such
+        /// a setting stays reachable in *some* view. Keeping one in Simple is a
+        /// judgement made at each registration, not something enforced here;
+        /// this predicate is a broad prefix match and matches far more settings
+        /// than 1.0.5 actually shipped.
+        /// </summary>
+        internal static bool IsV10Setting(SettingDefinition def)
         {
             return HasAnyPrefix(def,
                     "overlay.",
