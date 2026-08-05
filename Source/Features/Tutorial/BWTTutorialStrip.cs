@@ -102,7 +102,19 @@ namespace Better_Work_Tab.Features.Tutorial
         // rather than re-derived from tutorial policy inside geometry code.
         private static bool reserved;
 
-        internal static float ReservedHeight => reserved ? RowHeight + TopGap : 0f;
+        /// <summary>
+        /// The clearance above the band.
+        ///
+        /// <see cref="TopGap"/> exists to give angled header stems somewhere to
+        /// terminate below the header lane. In a sub-work drilldown the global
+        /// priority row is already sitting in that space and drawing its own
+        /// separator, so adding the gap on top of it stacked two dividers and
+        /// left a band of dead pixels between the row and the band.
+        /// </summary>
+        private static float CurrentTopGap =>
+            SubWorkDrilldownBarRenderer.ReservedRowHeight > 0.5f ? 0f : TopGap;
+
+        internal static float ReservedHeight => reserved ? RowHeight + CurrentTopGap : 0f;
 
         internal static bool IsReserved => reserved;
 
@@ -137,7 +149,7 @@ namespace Better_Work_Tab.Features.Tutorial
                 layout.HeaderHeight +
                 TimePriorityScheduleEditor.HeaderPinnedRowsHeight +
                 SubWorkDrilldownBarRenderer.ReservedRowHeight;
-            bottom = top + TopGap + RowHeight;
+            bottom = top + CurrentTopGap + RowHeight;
             return true;
         }
 
@@ -156,7 +168,7 @@ namespace Better_Work_Tab.Features.Tutorial
                 layout.HeaderHeight +
                 TimePriorityScheduleEditor.HeaderPinnedRowsHeight +
                 SubWorkDrilldownBarRenderer.ReservedRowHeight +
-                TopGap;
+                CurrentTopGap;
             float width = Mathf.Max(
                 layout.Table != null ? layout.Table.Size.x - 16f : 0f,
                 1f);
