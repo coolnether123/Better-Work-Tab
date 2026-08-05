@@ -483,13 +483,26 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                 revision);
         }
 
+        /// <summary>
+        /// Whether the pawn's body rules out every giver in this work type, as
+        /// vanilla's PawnColumnWorker_WorkPriority.IsIncapableOfWholeWorkType
+        /// decides it.
+        ///
+        /// Read from the work type's own giver list, not BWT's reassigned and
+        /// ordered one. That list describes how the player has arranged the
+        /// columns: a giver moved to another work type leaves it, and only defs
+        /// whose Worker instantiates appear in it. Since "no giver I can do" and
+        /// "no givers listed" both fall out of this loop as incapable, a short
+        /// list marked healthy colonists incapable, and vanilla's own renderer
+        /// then tinted those cells red over the skill band.
+        /// </summary>
         private static bool IsIncapable(Pawn pawn, WorkTypeDef workType)
         {
-            var workGivers = WorkGiverReassignmentManager.GetOrderedWorkGiversForWorkType(workType);
-            for (int i = 0; i < workGivers.Count; i++)
+            List<WorkGiverDef> workGivers = workType?.workGiversByPriority;
+            for (int i = 0; workGivers != null && i < workGivers.Count; i++)
             {
                 bool capable = true;
-                var capacities = workGivers[i]?.def?.requiredCapacities;
+                var capacities = workGivers[i]?.requiredCapacities;
                 for (int j = 0; capacities != null && j < capacities.Count; j++)
                 {
                     if (!pawn.health.capacities.CapableOf(capacities[j]))

@@ -537,12 +537,28 @@ namespace Better_Work_Tab.Patches
                 }
             }
 
+            // Asked of the work type's own givers, exactly as vanilla's
+            // PawnColumnWorker_WorkPriority.IsIncapableOfWholeWorkType asks it.
+            //
+            // This used to read BWT's reassigned, ordered giver list instead.
+            // That list answers a different question -- which givers this work
+            // type *displays*, after the player has moved things around -- and
+            // it can legitimately come back empty or short, because a giver
+            // reassigned to another work type drops out of it and only defs
+            // whose Worker instantiates are included. Both loops treat "no giver
+            // I can do" and "no givers at all" the same way, so a short list
+            // reported a perfectly healthy colonist as incapable, and vanilla
+            // then tinted the cell red over its skill band -- the olive
+            // background on Warden, Hunt and Plant cut.
+            //
+            // Whether a pawn's body can do the work does not depend on how the
+            // player has arranged the columns.
             bool canDoAny = false;
-            var workGivers = WorkGiverReassignmentManager.GetOrderedWorkGiversForWorkType(work);
-            for (int i = 0; i < workGivers.Count; i++)
+            List<WorkGiverDef> workGivers = work.workGiversByPriority;
+            for (int i = 0; workGivers != null && i < workGivers.Count; i++)
             {
                 bool thisGiverOk = true;
-                var reqs = workGivers[i]?.def?.requiredCapacities;
+                var reqs = workGivers[i]?.requiredCapacities;
                 for (int j = 0; reqs != null && j < reqs.Count; j++)
                 {
                     if (!p.health.capacities.CapableOf(reqs[j]))
