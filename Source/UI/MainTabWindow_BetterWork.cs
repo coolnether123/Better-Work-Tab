@@ -4630,6 +4630,14 @@ namespace Better_Work_Tab.UI
                 HighlightDrawer.DrawHighlight(rowRect, new Color(1f, 0.82f, 0.18f, 0.18f));
             }
 
+            // The open 24-hour editor belongs to one pawn's row. Marking that row
+            // is what ties the hours to a colonist; without it the strip reads as
+            // floating above the table.
+            if (TimePriorityScheduleEditor.IsSchedulingPawn(pawn))
+            {
+                HighlightDrawer.DrawHighlight(rowRect, new Color(0.42f, 0.68f, 1f, 0.16f));
+            }
+
             if (Find.Selector.IsSelected(pawn) && (settings?.DoSelectedPawnHighlight ?? true))
             {
                 HighlightDrawer.DrawHighlight(rowRect, HighlightDrawer.GetSelectedPawnColor());

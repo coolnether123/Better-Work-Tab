@@ -234,12 +234,14 @@
 <BWT_Tutorial_HeaderReorder_Title>Reorder work columns</BWT_Tutorial_HeaderReorder_Title>
 <BWT_Tutorial_HeaderReorder_Preview>Drag a Work header to reorder execution. When priorities match, work runs from left to right.</BWT_Tutorial_HeaderReorder_Preview>
 <BWT_Tutorial_HeaderReorder_Action>Drag the highlighted Work header to a new position.</BWT_Tutorial_HeaderReorder_Action>
+<BWT_Tutorial_HeaderReorder_ActionDragging>Now move it where you want the column and let go.</BWT_Tutorial_HeaderReorder_ActionDragging>
 <BWT_Tutorial_HeaderReorder_Outcome>Column moved. On priority ties, the left column runs first.</BWT_Tutorial_HeaderReorder_Outcome>
 <BWT_Tutorial_HeaderReorder_Feedback>Real work-order dragging</BWT_Tutorial_HeaderReorder_Feedback>
 <BWT_Tutorial_HeaderGroup_Label>Group work columns</BWT_Tutorial_HeaderGroup_Label>
 <BWT_Tutorial_HeaderGroup_Title>Group work columns</BWT_Tutorial_HeaderGroup_Title>
 <BWT_Tutorial_HeaderGroup_Preview>Shift-click headers to select a group, then drag one selected header to move the group together.</BWT_Tutorial_HeaderGroup_Preview>
 <BWT_Tutorial_HeaderGroup_Action>Shift-click the highlighted Work header.</BWT_Tutorial_HeaderGroup_Action>
+<BWT_Tutorial_HeaderGroup_ActionDragging>Now move the selected headers where you want them and let go.</BWT_Tutorial_HeaderGroup_ActionDragging>
 <BWT_Tutorial_HeaderGroup_Outcome>Header selected. Drag any selected header to move the group.</BWT_Tutorial_HeaderGroup_Outcome>
 <BWT_Tutorial_HeaderSubWork_Label>Open specific jobs</BWT_Tutorial_HeaderSubWork_Label>
 <BWT_Tutorial_HeaderSubWork_Title>Open specific jobs</BWT_Tutorial_HeaderSubWork_Title>

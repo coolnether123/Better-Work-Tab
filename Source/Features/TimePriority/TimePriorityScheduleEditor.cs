@@ -232,6 +232,33 @@ namespace Better_Work_Tab.Features.TimePriority
             return ReferenceEquals(divider, ActiveDivider);
         }
 
+        /// <summary>
+        /// Whether the open schedule is editing this pawn's hours.
+        ///
+        /// The 24-hour strip replaces one pawn's cells with the hourly values,
+        /// but nothing else on the row says the hours belong to them — with
+        /// several colonists on screen the editor reads as floating above the
+        /// table rather than attached to a row. A global session deliberately
+        /// answers false: it is not editing any one pawn.
+        /// </summary>
+        internal static bool IsSchedulingPawn(Pawn pawn)
+        {
+            if (pawn == null || !IsEnabled || _session == null || _isClosing || _session.IsGlobal)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < _session.PawnIds.Count; i++)
+            {
+                if (_session.PawnIds[i] == pawn.thingIDNumber)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         internal static void OpenForFloatMenu(Pawn pawn, WorkTypeDef workType, WorkGiverDef workGiver = null)
         {
             if (!IsEnabled || pawn == null || workType == null)
@@ -433,6 +460,16 @@ namespace Better_Work_Tab.Features.TimePriority
 
             if (!TryResolveVisibleTarget(layout, out WorkTabLayoutColumn column, out List<RowDrawInfo> rows))
             {
+                // The session outlives its column. Entering a sub-work drilldown
+                // takes the target work column off screen, so the panel stops
+                // drawing while the session is still open — and the rects it left
+                // behind describe a 24-hour timeline that is no longer anywhere.
+                //
+                // Anything reading those rects to point at the panel would point
+                // into empty space beside the drilldown, which is exactly what the
+                // tutorial's gesture demo did. They describe the last frame that
+                // drew, so they are dropped on the first frame that does not.
+                ForgetPanelGeometry();
                 return;
             }
 
@@ -737,13 +774,25 @@ namespace Better_Work_Tab.Features.TimePriority
             _isClosing = false;
             _closingStartedAt = 0f;
             _closingSourceRect = Rect.zero;
-            LastCellHits.Clear();
             LastCopyPasteHits.Clear();
             LastScheduleCellDiagnostics.Clear();
+            ForgetPanelGeometry();
+            NotifyLayoutChanged();
+        }
+
+        /// <summary>
+        /// Drops the rects describing where the panel was last painted.
+        ///
+        /// They are a record of a frame that drew, and every reader treats them
+        /// as "where the panel is". Keeping them past the last frame that drew
+        /// hands out a position for something that is no longer on screen.
+        /// </summary>
+        private static void ForgetPanelGeometry()
+        {
+            LastCellHits.Clear();
             _lastPanelRect = Rect.zero;
             _lastTimelineRect = Rect.zero;
             _lastCloseRect = Rect.zero;
-            NotifyLayoutChanged();
         }
 
         internal static bool TryDrawScheduleCopyPasteWorkPrioritiesCell(Rect rect, Pawn pawn)

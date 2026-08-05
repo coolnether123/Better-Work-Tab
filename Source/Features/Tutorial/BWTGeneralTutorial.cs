@@ -1355,6 +1355,41 @@ namespace Better_Work_Tab.Features.Tutorial
                 3f);
         }
 
+        /// <summary>
+        /// The instruction to show while the lesson's gesture is already underway.
+        ///
+        /// "Drag the highlighted Work header to a new position" is the right
+        /// thing to say until the header is in the player's hand — after which
+        /// it is describing something they have already started, at the exact
+        /// moment they most need to be told what finishes it. A gesture with a
+        /// middle deserves an instruction for its middle.
+        ///
+        /// Returns false for lessons whose gesture is instantaneous; a click has
+        /// no in-progress state to report.
+        /// </summary>
+        private static bool TryGetInProgressBody(string lessonId, out string body)
+        {
+            body = null;
+            if (!BetterWorkTabLocalState.IsHeaderDragging)
+            {
+                return false;
+            }
+
+            if (lessonId == HeaderReorderLesson)
+            {
+                body = T("BWT_Tutorial_HeaderReorder_ActionDragging");
+                return true;
+            }
+
+            if (lessonId == HeaderGroupLesson)
+            {
+                body = T("BWT_Tutorial_HeaderGroup_ActionDragging");
+                return true;
+            }
+
+            return false;
+        }
+
         private static string GetLessonBody(string lessonId, int phase)
         {
             if (phase == CompletionOutcomePhase)
@@ -1370,6 +1405,11 @@ namespace Better_Work_Tab.Features.Tutorial
                 return completed == null
                     ? T("BWT_Tutorial_Outcome_Default")
                     : T("BWT_Tutorial_" + completed.LocalizationStem + "_Outcome");
+            }
+
+            if (TryGetInProgressBody(lessonId, out string inProgress))
+            {
+                return inProgress;
             }
 
             if (lessonId == HeaderSubWorkLesson)
