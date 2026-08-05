@@ -364,6 +364,7 @@
 <BWT_Beta_Verdict_Broken>Broken</BWT_Beta_Verdict_Broken>
 <BWT_Beta_Verdict_NotUsed>Didn't use</BWT_Beta_Verdict_NotUsed>
 <BWT_Beta_NotePlaceholder>What happened? (optional)</BWT_Beta_NotePlaceholder>
+<BWT_Beta_NotePlaceholderNotUsed>Why not? (optional)</BWT_Beta_NotePlaceholderNotUsed>
 
 <BWT_Beta_Feature_worktab>The Work tab itself</BWT_Beta_Feature_worktab>
 <BWT_Beta_FeatureHint_worktab>Reading it, finding colonists, general speed</BWT_Beta_FeatureHint_worktab>

@@ -35,8 +35,17 @@ namespace Better_Work_Tab.Features.Feedback
         private const float FooterHeight = 40f;
         private const float PanelPadding = 10f;
 
-        private Section section = Section.Features;
-        private readonly Dictionary<Section, Vector2> scrollPositions = new Dictionary<Section, Vector2>();
+        // Where the portal was left. Someone who closed it half way down the
+        // problem list to go and reproduce something is coming back to that
+        // spot, not to the top of the first tab, and making them navigate there
+        // again is a tax on exactly the people filing the most detail.
+        //
+        // Static rather than saved: it is a view position, not a preference, and
+        // a fresh session has no place to return to yet.
+        private static Section lastSection = Section.Features;
+        private static readonly Dictionary<Section, Vector2> lastScrollPositions = new Dictionary<Section, Vector2>();
+
+        private Section section;
         private string previewText;
         private bool dirty;
 
@@ -58,6 +67,17 @@ namespace Better_Work_Tab.Features.Feedback
             closeOnAccept = false;
             closeOnCancel = true;
             forcePause = false;
+
+            // The remembered tab may no longer exist — the tutorial one is only
+            // offered once there is tutorial history, and clearing the form
+            // takes it away again. Returning to a tab that is not in the strip
+            // would draw its contents under no selected tab at all.
+            section = IsAvailable(lastSection) ? lastSection : Section.Features;
+        }
+
+        private static bool IsAvailable(Section candidate)
+        {
+            return candidate != Section.Tutorial || HasTutorialHistory();
         }
 
         public override void DoWindowContents(Rect inRect)
@@ -71,6 +91,13 @@ namespace Better_Work_Tab.Features.Feedback
 
             BWTBetaFeedbackStore.Ensure(settings);
             BWTTutorialFeedbackStore.Ensure(settings);
+
+            // Clearing the form takes the tutorial history, and with it the
+            // tutorial tab, out from under a window that is already open on it.
+            if (!IsAvailable(section))
+            {
+                Select(Section.Features);
+            }
 
             Rect header = new Rect(inRect.x, inRect.y, inRect.width - 26f, HeaderHeight);
             if (BWTFeedbackWidgets.DrawHeaderBand(
@@ -135,6 +162,7 @@ namespace Better_Work_Tab.Features.Feedback
         private void Select(Section next)
         {
             section = next;
+            lastSection = next;
             previewText = null;
         }
 
@@ -170,10 +198,10 @@ namespace Better_Work_Tab.Features.Feedback
                 default: contentHeight = BuildHeight(settings); break;
             }
 
-            Vector2 scroll = scrollPositions.TryGetValue(section, out Vector2 stored) ? stored : Vector2.zero;
+            Vector2 scroll = lastScrollPositions.TryGetValue(section, out Vector2 stored) ? stored : Vector2.zero;
             Rect view = new Rect(0f, 0f, content.width - 18f, Mathf.Max(content.height, contentHeight));
             Widgets.BeginScrollView(content, ref scroll, view);
-            scrollPositions[section] = scroll;
+            lastScrollPositions[section] = scroll;
 
             bool closeRequested = false;
             switch (section)
@@ -215,13 +243,23 @@ namespace Better_Work_Tab.Features.Feedback
 
         private static bool WantsNote(BWTFeatureRating rating)
         {
-            // The note only appears where there is something to explain. Works
-            // and "Didn't use" are the two answers that explain themselves, so
-            // neither opens a box; asking "what happened?" under a row somebody
-            // just confirmed as fine is a prompt with no answer.
-            return rating.reviewed &&
-                   rating.verdict != BWTFeatureVerdict.Works &&
-                   rating.verdict != BWTFeatureVerdict.NotUsed;
+            // Works is the one answer that explains itself; asking "what
+            // happened?" under a row somebody just confirmed as fine is a prompt
+            // with no answer. Every other answer has something worth hearing,
+            // including "Didn't use" — why a tester skipped a feature is a
+            // finding about the feature.
+            return rating.reviewed && rating.verdict != BWTFeatureVerdict.Works;
+        }
+
+        /// <summary>
+        /// The question the note box asks. "Didn't use" is asking about an
+        /// absence, so "what happened?" would be the wrong question.
+        /// </summary>
+        private static string NotePlaceholder(BWTFeatureRating rating)
+        {
+            return rating.verdict == BWTFeatureVerdict.NotUsed
+                ? "BWT_Beta_NotePlaceholderNotUsed".Translate()
+                : "BWT_Beta_NotePlaceholder".Translate();
         }
 
         private static float FeatureRowHeight(BWTFeatureRating rating)
@@ -282,14 +320,18 @@ namespace Better_Work_Tab.Features.Feedback
                 // quiet frame too.
                 if (clicked && chosen >= 0)
                 {
+                    BWTFeatureVerdict previous = rating.verdict;
                     rating.verdict = Verdicts[chosen];
                     rating.reviewed = true;
 
-                    // A note written under Rough does not describe Works. Moving
-                    // to an answer that takes no note drops it rather than
-                    // leaving text nobody can see attached to a row that now
-                    // reads as fine.
-                    if (!WantsNote(rating))
+                    // A note answers the question it was asked under. Works asks
+                    // nothing, and "Didn't use" asks a different question from
+                    // the rest, so crossing either boundary drops the text
+                    // rather than filing an answer against the wrong question.
+                    // Moving between Great, Rough and Broken keeps it: the
+                    // question has not changed.
+                    if (!WantsNote(rating) ||
+                        (previous == BWTFeatureVerdict.NotUsed) != (rating.verdict == BWTFeatureVerdict.NotUsed))
                     {
                         rating.note = string.Empty;
                     }
@@ -301,7 +343,7 @@ namespace Better_Work_Tab.Features.Feedback
                 {
                     Rect noteRect = new Rect(row.x + 6f, row.y + BWTFeedbackWidgets.TallRowHeight - 2f, row.width - 12f, 26f);
                     string note = BWTFeedbackWidgets.TextFieldWithPlaceholder(
-                        noteRect, rating.note, "BWT_Beta_NotePlaceholder".Translate());
+                        noteRect, rating.note, NotePlaceholder(rating));
                     if (!string.Equals(note, rating.note, StringComparison.Ordinal))
                     {
                         rating.note = note;
@@ -671,7 +713,7 @@ namespace Better_Work_Tab.Features.Feedback
 
         // -- What gets copied -------------------------------------------------
 
-        private Vector2 previewScrollPosition;
+        private static Vector2 previewScrollPosition;
 
         /// <summary>
         /// Shows exactly what the Copy buttons put on the clipboard. A report
