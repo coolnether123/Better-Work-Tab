@@ -611,8 +611,17 @@ namespace Better_Work_Tab.Features.TimePriority
                 }
 
                 int current = TimePriorityService.GetPriorityAtHour(hit.Target, hit.FallbackPriority, hit.Hour);
-                int next = GetNextPriorityForInput(current, evt);
-                TimePriorityService.SetPriorityAtHourSynced(hit.Target, hit.Hour, next, hit.FallbackPriority);
+                bool pinned = TimePriorityService.IsCustomScheduledHour(hit.Target, hit.Hour, hit.FallbackPriority);
+                if (pinned && IsAtCycleEnd(current, evt))
+                {
+                    TimePriorityService.ClearPriorityAtHourSynced(hit.Target, hit.Hour);
+                }
+                else
+                {
+                    int next = GetNextPriorityForInput(current, evt);
+                    TimePriorityService.SetPriorityAtHourSynced(hit.Target, hit.Hour, next, hit.FallbackPriority);
+                }
+
                 _tutorialEditRevision++;
                 SoundDefOf.DragSlider.PlayOneShotOnCamera();
                 evt.Use();
@@ -740,6 +749,61 @@ namespace Better_Work_Tab.Features.TimePriority
             }
 
             return ToggleNonManualPriority(currentPriority);
+        }
+
+        /// <summary>
+        /// Whether a pinned hour is sitting at the end of the cycle, where the
+        /// next step takes it back to following the priority box.
+        ///
+        /// "Linked" is a position in the cycle rather than a separate control,
+        /// and it sits at the point the numbers already wrapped: clicking down
+        /// past disabled, or up past the maximum, reaches it. That keeps every
+        /// priority -- including disabled, which is the whole point of a night
+        /// shift -- on the way round, and costs no extra hit target inside a
+        /// cell only a couple of dozen pixels wide.
+        /// </summary>
+        private static bool IsAtCycleEnd(int currentPriority, Event evt)
+        {
+            int direction = GetInputDirection(evt);
+            if (direction == 0)
+            {
+                return false;
+            }
+
+            if (direction < 0)
+            {
+                return currentPriority <= WorkPrioritySystem.DisabledPriority;
+            }
+
+            int topPriority = Find.PlaySettings.useWorkPriorities
+                ? WorkPrioritySystem.GetMaxPriority()
+                : WorkPrioritySystem.GetDefaultEnabledPriority();
+            return currentPriority >= topPriority;
+        }
+
+        /// <summary>
+        /// Which way an input moves the priority number: -1 lowers it towards
+        /// disabled, +1 raises it. Mirrors the routing in
+        /// <see cref="GetNextPriorityForInput"/>.
+        /// </summary>
+        private static int GetInputDirection(Event evt)
+        {
+            if (evt.type == EventType.ScrollWheel)
+            {
+                return evt.delta.y > 0f ? -1 : 1;
+            }
+
+            if (evt.type != EventType.MouseDown)
+            {
+                return 0;
+            }
+
+            if (evt.button == 0)
+            {
+                return -1;
+            }
+
+            return evt.button == 1 ? 1 : 0;
         }
 
         private static int ToggleNonManualPriority(int currentPriority)
@@ -931,6 +995,38 @@ namespace Better_Work_Tab.Features.TimePriority
         }
 
         internal static int ScheduleCellGeometryCount => LastScheduleCellDiagnostics.Count;
+
+        /// <summary>
+        /// What a registered hour resolves to, and whether it is following the
+        /// priority box or holding a number of its own.
+        ///
+        /// Exposed so a test can assert the rule the old model could not keep: a
+        /// linked hour reads through to the box, rather than to a stored value
+        /// that merely used to agree with it.
+        /// </summary>
+        internal static bool TryGetScheduleCellLinkState(
+            int index,
+            out int hour,
+            out int fallbackPriority,
+            out bool unlinked,
+            out int displayedPriority)
+        {
+            if (index < 0 || index >= LastCellHits.Count)
+            {
+                hour = -1;
+                fallbackPriority = 0;
+                unlinked = false;
+                displayedPriority = 0;
+                return false;
+            }
+
+            CellHit hit = LastCellHits[index];
+            hour = hit.Hour;
+            fallbackPriority = WorkPrioritySystem.ClampPriority(hit.FallbackPriority);
+            unlinked = TimePriorityService.IsCustomScheduledHour(hit.Target, hit.Hour, hit.FallbackPriority);
+            displayedPriority = TimePriorityService.GetPriorityAtHour(hit.Target, hit.FallbackPriority, hit.Hour);
+            return true;
+        }
 
         // Read-only test seam for the *clickable* rectangles, which are not the
         // drawn ones above. The visible band is inset inside its row while the

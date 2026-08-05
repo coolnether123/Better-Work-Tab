@@ -34,25 +34,48 @@ namespace Better_Work_Tab.Features.TimePriority
 
         internal static int[] GetPrioritiesForDisplay(TimePriorityTarget target, int fallbackPriority)
         {
+            fallbackPriority = WorkPrioritySystem.ClampPriority(fallbackPriority);
             if (!TryGetSchedule(target, out var schedule))
             {
                 return CreateFallbackPriorities(fallbackPriority);
             }
 
-            return schedule.HourlyPriorities.ToArray();
+            // Linked hours are not stored values that happen to agree with the
+            // box; they have no value of their own and read straight from it.
+            schedule.EnsureValid();
+            var priorities = new int[HoursPerDay];
+            for (int hour = 0; hour < HoursPerDay; hour++)
+            {
+                priorities[hour] = schedule.IsUnlinked(hour)
+                    ? WorkPrioritySystem.ClampPriority(schedule.HourlyPriorities[hour])
+                    : fallbackPriority;
+            }
+
+            return priorities;
         }
 
         internal static int GetPriorityAtHour(TimePriorityTarget target, int fallbackPriority, int hour)
         {
+            fallbackPriority = WorkPrioritySystem.ClampPriority(fallbackPriority);
             if (!TryGetSchedule(target, out var schedule))
             {
-                return WorkPrioritySystem.ClampPriority(fallbackPriority);
+                return fallbackPriority;
             }
 
             hour = Mathf.Clamp(hour, 0, HoursPerDay - 1);
-            return WorkPrioritySystem.ClampPriority(schedule.HourlyPriorities[hour]);
+            schedule.EnsureValid();
+            return schedule.IsUnlinked(hour)
+                ? WorkPrioritySystem.ClampPriority(schedule.HourlyPriorities[hour])
+                : fallbackPriority;
         }
 
+        /// <summary>
+        /// Whether any hour has been taken off the priority box.
+        ///
+        /// Note what this no longer asks: whether any hour's number differs from
+        /// the current default. Under that older reading, moving the box turned
+        /// an entire untouched schedule custom at once.
+        /// </summary>
         internal static bool HasCustomSchedule(TimePriorityTarget target, int fallbackPriority)
         {
             if (!TryGetSchedule(target, out var schedule))
@@ -60,17 +83,8 @@ namespace Better_Work_Tab.Features.TimePriority
                 return false;
             }
 
-            fallbackPriority = WorkPrioritySystem.ClampPriority(fallbackPriority);
             schedule.EnsureValid();
-            for (int hour = 0; hour < HoursPerDay; hour++)
-            {
-                if (WorkPrioritySystem.ClampPriority(schedule.HourlyPriorities[hour]) != fallbackPriority)
-                {
-                    return true;
-                }
-            }
-
-            return false;
+            return schedule.HasAnyUnlinkedHour;
         }
 
         internal static bool IsCustomScheduledHour(TimePriorityTarget target, int hour, int fallbackPriority)
@@ -80,10 +94,9 @@ namespace Better_Work_Tab.Features.TimePriority
                 return false;
             }
 
-            fallbackPriority = WorkPrioritySystem.ClampPriority(fallbackPriority);
             hour = Mathf.Clamp(hour, 0, HoursPerDay - 1);
             schedule.EnsureValid();
-            return WorkPrioritySystem.ClampPriority(schedule.HourlyPriorities[hour]) != fallbackPriority;
+            return schedule.IsUnlinked(hour);
         }
 
         internal static bool TryGetWorkGiverScheduleIndicatorTarget(
@@ -142,6 +155,22 @@ namespace Better_Work_Tab.Features.TimePriority
             }
 
             SetPriorityAtHour(target, hour, priority, fallbackPriority);
+        }
+
+        internal static void ClearPriorityAtHourSynced(TimePriorityTarget target, int hour)
+        {
+            if (MultiplayerBridge.Active)
+            {
+                SyncClearPriorityAtHour(
+                    target.PawnId,
+                    (int)target.Kind,
+                    target.WorkTypeDefName,
+                    target.TargetDefName,
+                    hour);
+                return;
+            }
+
+            ClearPriorityAtHour(target, hour);
         }
 
         internal static void SetPrioritiesSynced(TimePriorityTarget target, int[] priorities, int fallbackPriority)
@@ -206,6 +235,21 @@ namespace Better_Work_Tab.Features.TimePriority
         }
 
         [SyncMethod]
+        public static void SyncClearPriorityAtHour(
+            int pawnId,
+            int kindValue,
+            string workTypeDefName,
+            string targetDefName,
+            int hour)
+        {
+            TimePriorityTargetKind kind = Enum.IsDefined(typeof(TimePriorityTargetKind), kindValue)
+                ? (TimePriorityTargetKind)kindValue
+                : TimePriorityTargetKind.WorkType;
+            var target = TimePriorityTarget.FromRaw(pawnId, kind, workTypeDefName, targetDefName);
+            ClearPriorityAtHour(target, hour);
+        }
+
+        [SyncMethod]
         public static void SyncSetPriorities(
             int pawnId,
             int kindValue,
@@ -225,19 +269,48 @@ namespace Better_Work_Tab.Features.TimePriority
         {
             priority = WorkPrioritySystem.ClampPriority(priority);
             fallbackPriority = WorkPrioritySystem.ClampPriority(fallbackPriority);
-            if (!TryGetSchedule(target, out _) && priority == fallbackPriority)
-            {
-                return;
-            }
 
+            // No early-out when the chosen number matches the box. Pinning an
+            // hour to the default is a real instruction -- it means "stay here
+            // when the box moves" -- and it is only expressible as an override.
             var schedule = GetOrCreateSchedule(target, fallbackPriority);
             hour = Mathf.Clamp(hour, 0, HoursPerDay - 1);
-            if (schedule.HourlyPriorities[hour] == priority)
+            if (schedule.IsUnlinked(hour) && schedule.HourlyPriorities[hour] == priority)
             {
                 return;
             }
 
-            schedule.HourlyPriorities[hour] = priority;
+            schedule.SetOverride(hour, priority);
+            MirrorTargetToExternalWorkTab(target);
+            NotifyChanged();
+        }
+
+        /// <summary>
+        /// Puts an hour back under the priority box, so it follows whatever the
+        /// box says from now on.
+        /// </summary>
+        private static void ClearPriorityAtHour(TimePriorityTarget target, int hour)
+        {
+            if (!TryGetSchedule(target, out var schedule))
+            {
+                return;
+            }
+
+            hour = Mathf.Clamp(hour, 0, HoursPerDay - 1);
+            if (!schedule.ClearOverride(hour))
+            {
+                return;
+            }
+
+            // A schedule with nothing pinned is indistinguishable from no
+            // schedule, and leaving the row behind would keep reporting the
+            // target as scheduled to every indicator that asks.
+            if (!schedule.HasAnyUnlinkedHour)
+            {
+                ClearSchedule(target);
+                return;
+            }
+
             MirrorTargetToExternalWorkTab(target);
             NotifyChanged();
         }
@@ -266,13 +339,24 @@ namespace Better_Work_Tab.Features.TimePriority
             bool changed = false;
             for (int i = 0; i < HoursPerDay; i++)
             {
-                if (schedule.HourlyPriorities[i] == normalizedPriorities[i])
+                // A bulk write carries plain numbers with no link state, so the
+                // only safe reading is the one it used to have: an hour that
+                // differs from the box was pinned, the rest follow it. Pasting a
+                // schedule therefore cannot yet reproduce an hour deliberately
+                // pinned at the default -- that needs the clipboard to carry
+                // link state, and is tracked separately.
+                bool shouldPin = normalizedPriorities[i] != fallbackPriority;
+                bool wasPinned = schedule.IsUnlinked(i);
+                if (shouldPin && (!wasPinned || schedule.HourlyPriorities[i] != normalizedPriorities[i]))
                 {
-                    continue;
+                    schedule.SetOverride(i, normalizedPriorities[i]);
+                    changed = true;
                 }
-
-                schedule.HourlyPriorities[i] = normalizedPriorities[i];
-                changed = true;
+                else if (!shouldPin && wasPinned)
+                {
+                    schedule.ClearOverride(i);
+                    changed = true;
+                }
             }
 
             if (changed)
@@ -573,6 +657,108 @@ namespace Better_Work_Tab.Features.TimePriority
             Cache.Clear();
             _cachedVersion = -1;
             CurrentVersion++;
+            MigrateLinkStateFromLegacySaves();
+        }
+
+        /// <summary>
+        /// Gives hours their link state in saves written before it was stored.
+        ///
+        /// Those saves held 24 plain numbers and worked out which were overrides
+        /// by comparing each against the work's default, so that comparison is
+        /// the only thing they can be read back as -- an hour differed, so it
+        /// was an override. Applying it once, here, means the rest of the mod
+        /// never has to ask again.
+        ///
+        /// One case cannot be recovered: an hour deliberately pinned at the
+        /// default was already indistinguishable from an inherited one, and was
+        /// already displayed as inherited. It stays linked. Nothing the player
+        /// could previously see changes.
+        /// </summary>
+        private static void MigrateLinkStateFromLegacySaves()
+        {
+            List<TimePriorityScheduleData> schedules = GetSchedules(create: false);
+            if (schedules == null)
+            {
+                return;
+            }
+
+            bool changed = false;
+            for (int i = schedules.Count - 1; i >= 0; i--)
+            {
+                TimePriorityScheduleData schedule = schedules[i];
+                if (schedule == null)
+                {
+                    continue;
+                }
+
+                if (!schedule.NeedsLinkMigration)
+                {
+                    continue;
+                }
+
+                schedule.NeedsLinkMigration = false;
+                schedule.EnsureValid();
+                int fallback = ResolveFallbackPriority(schedule);
+                for (int hour = 0; hour < HoursPerDay; hour++)
+                {
+                    if (WorkPrioritySystem.ClampPriority(schedule.HourlyPriorities[hour]) != fallback)
+                    {
+                        schedule.SetOverride(hour, schedule.HourlyPriorities[hour]);
+                    }
+                }
+
+                // Every hour matched the default, so the row only ever described
+                // "no schedule" in a more expensive way.
+                if (!schedule.HasAnyUnlinkedHour)
+                {
+                    schedules.RemoveAt(i);
+                }
+
+                changed = true;
+            }
+
+            if (changed)
+            {
+                Cache.Clear();
+                _cachedVersion = -1;
+                CurrentVersion++;
+            }
+        }
+
+        /// <summary>
+        /// The priority a schedule's hours fall back to. Global rows have no
+        /// pawn, so they use the work's default rather than a pawn's setting.
+        /// </summary>
+        private static int ResolveFallbackPriority(TimePriorityScheduleData schedule)
+        {
+            int defaultEnabled = WorkPrioritySystem.GetDefaultEnabledPriority();
+            Pawn pawn = schedule.PawnId == TimePriorityTarget.GlobalPawnId
+                ? null
+                : FindPawn(schedule.PawnId);
+
+            if (schedule.Kind == TimePriorityTargetKind.WorkGiver)
+            {
+                WorkGiverDef workGiver = DefDatabase<WorkGiverDef>.GetNamedSilentFail(schedule.TargetDefName);
+                if (workGiver == null)
+                {
+                    return defaultEnabled;
+                }
+
+                int parentPriority = pawn != null && workGiver.workType != null
+                    ? WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, workGiver.workType)
+                    : defaultEnabled;
+                return WorkPrioritySystem.ClampPriority(
+                    WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, workGiver, parentPriority));
+            }
+
+            WorkTypeDef workType = DefDatabase<WorkTypeDef>.GetNamedSilentFail(schedule.WorkTypeDefName);
+            if (pawn == null || workType == null)
+            {
+                return defaultEnabled;
+            }
+
+            return WorkPrioritySystem.ClampPriority(
+                WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, workType));
         }
 
         internal static bool TryGetScheduledPriority(TimePriorityTarget target, int hour, out int priority)
@@ -584,6 +770,14 @@ namespace Better_Work_Tab.Features.TimePriority
             }
 
             hour = Mathf.Clamp(hour, 0, HoursPerDay - 1);
+            schedule.EnsureValid();
+            if (!schedule.IsUnlinked(hour))
+            {
+                // A linked hour has no scheduled priority of its own; callers
+                // without a fallback to hand cannot be told what it resolves to.
+                return false;
+            }
+
             priority = WorkPrioritySystem.ClampPriority(schedule.HourlyPriorities[hour]);
             return true;
         }
@@ -722,6 +916,17 @@ namespace Better_Work_Tab.Features.TimePriority
                     hash = (hash * 397) ^ (int)schedule.Kind;
                     hash = (hash * 397) ^ StringComparer.Ordinal.GetHashCode(schedule.WorkTypeDefName ?? string.Empty);
                     hash = (hash * 397) ^ StringComparer.Ordinal.GetHashCode(schedule.TargetDefName ?? string.Empty);
+                    // Link state is presentation, not just bookkeeping: an hour
+                    // changing from following the box to pinned repaints it even
+                    // when the number it shows is identical.
+                    if (schedule.UnlinkedHours != null)
+                    {
+                        for (int j = 0; j < schedule.UnlinkedHours.Count; j++)
+                        {
+                            hash = (hash * 397) ^ (schedule.UnlinkedHours[j] + 1);
+                        }
+                    }
+
                     if (schedule.HourlyPriorities == null) continue;
                     for (int hour = 0; hour < schedule.HourlyPriorities.Count; hour++)
                     {
