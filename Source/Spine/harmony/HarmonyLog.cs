@@ -11,7 +11,17 @@ namespace Spine.Harmony.Infrastructure
         internal static void Write(string message) =>
             Log.Message(Prefix + (message ?? string.Empty));
 
-        internal static void WriteInfo(string message) => Write(message);
+        /// <summary>
+        /// Informational output. Gated behind dev mode: a player's log should
+        /// carry problems, not progress reports.
+        /// </summary>
+        internal static void WriteInfo(string message)
+        {
+            if (Prefs.DevMode)
+            {
+                Write(message);
+            }
+        }
 
         internal static void WriteWarning(string message) =>
             Log.Warning(Prefix + (message ?? string.Empty));
