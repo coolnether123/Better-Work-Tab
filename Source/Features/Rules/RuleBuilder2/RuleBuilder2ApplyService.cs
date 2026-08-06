@@ -89,6 +89,18 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
             List<string> warnings)
         {
             int targetPriority = RuleBuilder2Evaluator.GetActionPriority(card.Action);
+
+            // Leave a colonist who is already better at this alone, when the
+            // rule asks for that. Disabling work and enabling from nothing both
+            // still go through: this only guards a real demotion.
+            if (!card.AllowOverwritingHigherPriority &&
+                currentPriority != 0 &&
+                targetPriority != 0 &&
+                currentPriority < targetPriority)
+            {
+                return false;
+            }
+
             bool changed = false;
 
             switch (card.Action.Kind)

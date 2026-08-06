@@ -105,6 +105,10 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                     return Tr("BWT_RuleBuilder2_ConditionText_CapableOfViolence");
                 case RuleBuilder2ConditionKind.IsPregnant:
                     return Tr("BWT_RuleBuilder2_ConditionText_IsPregnant");
+                case RuleBuilder2ConditionKind.NthBestSkill:
+                    return Tr("BWT_RuleBuilder2_ConditionText_NthBestSkill", condition.IntValue);
+                case RuleBuilder2ConditionKind.ActiveWorkTypesAtMost:
+                    return Tr("BWT_RuleBuilder2_ConditionText_ActiveWorkTypes", condition.IntValue);
                 default:
                     return string.IsNullOrEmpty(condition.DisplayText) ? Tr("BWT_RuleBuilder2_ReviewCondition") : condition.DisplayText;
             }
@@ -284,6 +288,23 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                     CategoryKey = "BWT_RuleBuilder2_Category_AgeGender",
                     LabelKey = "BWT_RuleBuilder2_Condition_IsPregnant",
                     TooltipKey = "BWT_RuleBuilder2_Condition_IsPregnant_Tooltip"
+                },
+                new RuleBuilder2ConditionDefinition
+                {
+                    Kind = RuleBuilder2ConditionKind.NthBestSkill,
+                    CategoryKey = "BWT_RuleBuilder2_Category_Skills",
+                    LabelKey = "BWT_RuleBuilder2_Condition_NthBestSkill",
+                    TooltipKey = "BWT_RuleBuilder2_Condition_NthBestSkill_Tooltip",
+                    DefaultInt = 1
+                },
+                new RuleBuilder2ConditionDefinition
+                {
+                    Kind = RuleBuilder2ConditionKind.ActiveWorkTypesAtMost,
+                    CategoryKey = "BWT_RuleBuilder2_Category_AssignedWork",
+                    LabelKey = "BWT_RuleBuilder2_Condition_ActiveWorkTypes",
+                    TooltipKey = "BWT_RuleBuilder2_Condition_ActiveWorkTypes_Tooltip",
+                    DefaultInt = 4,
+                    Advanced = true
                 }
             };
         }

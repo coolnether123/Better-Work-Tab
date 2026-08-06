@@ -255,6 +255,28 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 });
             }
 
+            if (p.IsNthBestSkill > 0)
+            {
+                card.Conditions.Conditions.Add(new RuleBuilder2Condition
+                {
+                    Kind = RuleBuilder2ConditionKind.NthBestSkill,
+                    IntValue = p.IsNthBestSkill
+                });
+            }
+
+            if (p.LimitNumberOfWorktypes > 0)
+            {
+                card.Conditions.Conditions.Add(new RuleBuilder2Condition
+                {
+                    Kind = RuleBuilder2ConditionKind.ActiveWorkTypesAtMost,
+                    IntValue = p.LimitNumberOfWorktypes
+                });
+            }
+
+            // Carried on the card rather than as a condition: it decides whether
+            // the rule may write, not who it matches.
+            card.AllowOverwritingHigherPriority = p.AllowOverwritingHigherPriority;
+
             if (!string.IsNullOrEmpty(p.TraitString))
             {
                 card.Conditions.Conditions.Add(new RuleBuilder2Condition
@@ -312,7 +334,6 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
             var dropped = new List<string>();
 
             // Per-pawn tests with no Rule Builder 2.0 equivalent yet.
-            if (p.IsNthBestSkill > 0) dropped.Add("nth-best skill (" + p.IsNthBestSkill + ")");
 
             // Allocation strategies. These decide between pawns rather than
             // testing one, so they are not conditions at all and would need a
@@ -321,8 +342,6 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
             if (p.RandomIfMultiple) dropped.Add("pick at random when several match");
             if (p.AssignToPawnWithFewestWorkPriorities) dropped.Add("prefer the least-assigned pawn");
             if (p.SkipIfAnotherPawnAssigned) dropped.Add("skip if another pawn is assigned");
-            if (p.LimitNumberOfWorktypes > 0) dropped.Add("limit of " + p.LimitNumberOfWorktypes + " Work types");
-            if (p.AllowOverwritingHigherPriority) dropped.Add("allow overwriting a higher priority");
 
             // A trait degree is part of which trait is meant -- "very neurotic"
             // and "neurotic" are degrees of one TraitDef -- so dropping it
@@ -382,6 +401,8 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 workType,
                 ignoreIfWorktypeNonexistent: card.Target.IgnoreIfMissing,
                 worktypeString: card.Target.WorkTypeDefName ?? "");
+
+            parameters.AllowOverwritingHigherPriority = card.AllowOverwritingHigherPriority;
 
             foreach (RuleBuilder2Condition condition in card.Conditions?.Conditions ?? new List<RuleBuilder2Condition>())
             {
@@ -472,6 +493,14 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 case RuleBuilder2ConditionKind.IsPregnant:
                     parameters.IsPregnant = true;
                     parameters.ActiveConditions.Add(nameof(WorkAssignmentParameters.IsPregnant));
+                    return true;
+                case RuleBuilder2ConditionKind.NthBestSkill:
+                    parameters.IsNthBestSkill = condition.IntValue;
+                    parameters.ActiveConditions.Add(nameof(WorkAssignmentParameters.IsNthBestSkill));
+                    return true;
+                case RuleBuilder2ConditionKind.ActiveWorkTypesAtMost:
+                    parameters.LimitNumberOfWorktypes = condition.IntValue;
+                    parameters.ActiveConditions.Add(nameof(WorkAssignmentParameters.LimitNumberOfWorktypes));
                     return true;
                 case RuleBuilder2ConditionKind.CurrentAssignedWork:
                 case RuleBuilder2ConditionKind.ExistingPriorityAtLeast:

@@ -169,6 +169,53 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 : string.Join(Tr("BWT_RuleBuilder2_ConditionOrJoiner"), parts.ToArray());
         }
 
+        /// <summary>
+        /// Whether this work type is the pawn's nth best by relevant skill.
+        /// Mirrors the classic SkillValidator, ties included: it compares the
+        /// nth ranked value rather than the nth position, so two work types a
+        /// pawn is equally good at both qualify.
+        /// </summary>
+        private static bool IsNthBestWorkTypeBySkill(Pawn pawn, WorkTypeDef workType, int rank)
+        {
+            if (rank <= 0 || pawn?.skills == null || workType == null)
+            {
+                return false;
+            }
+
+            List<WorkTypeDef> ranked = WorkAssignmentRule.AllWorkTypes
+                .Where(candidate => candidate != null && !pawn.WorkTypeIsDisabled(candidate))
+                .OrderByDescending(candidate => pawn.skills.AverageOfRelevantSkillsFor(candidate))
+                .ToList();
+            if (ranked.Count < rank)
+            {
+                return false;
+            }
+
+            return Mathf.Approximately(
+                pawn.skills.AverageOfRelevantSkillsFor(workType),
+                pawn.skills.AverageOfRelevantSkillsFor(ranked[rank - 1]));
+        }
+
+        /// <summary>How many work types the pawn currently has switched on.</summary>
+        private static int CountActiveWorkTypes(Pawn pawn)
+        {
+            if (pawn?.workSettings == null)
+            {
+                return 0;
+            }
+
+            int active = 0;
+            foreach (WorkTypeDef candidate in WorkAssignmentRule.AllWorkTypes)
+            {
+                if (candidate != null && pawn.workSettings.GetPriority(candidate) > 0)
+                {
+                    active++;
+                }
+            }
+
+            return active;
+        }
+
         public bool EvaluateCondition(
             RuleBuilder2Condition condition,
             Pawn pawn,
@@ -217,6 +264,10 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                     return !pawn.WorkTagIsDisabled(WorkTags.Violent);
                 case RuleBuilder2ConditionKind.IsPregnant:
                     return pawn.health?.hediffSet?.HasHediff(HediffDefOf.PregnantHuman) ?? false;
+                case RuleBuilder2ConditionKind.NthBestSkill:
+                    return IsNthBestWorkTypeBySkill(pawn, workType, condition.IntValue);
+                case RuleBuilder2ConditionKind.ActiveWorkTypesAtMost:
+                    return CountActiveWorkTypes(pawn) <= condition.IntValue;
                 default:
                     return true;
             }

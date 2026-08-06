@@ -566,6 +566,8 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                 case RuleBuilder2ConditionKind.ExistingPriorityAtLeast:
                 case RuleBuilder2ConditionKind.ExistingPriorityEquals:
                 case RuleBuilder2ConditionKind.TopWorkTypesBySkill:
+                case RuleBuilder2ConditionKind.NthBestSkill:
+                case RuleBuilder2ConditionKind.ActiveWorkTypesAtMost:
                     return 98f;
                 default:
                     return 0f;
@@ -618,8 +620,10 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                     Widgets.CheckboxLabeled(new Rect(rect.x, rect.y, 170f, rect.height), T("BWT_RuleBuilder2_Assigned"), ref condition.BoolValue);
                     break;
                 case RuleBuilder2ConditionKind.TopWorkTypesBySkill:
-                    // A count of Work types, not a priority. It shared the
-                    // priority stepper's range, so this offered 0 -- which
+                case RuleBuilder2ConditionKind.NthBestSkill:
+                case RuleBuilder2ConditionKind.ActiveWorkTypesAtMost:
+                    // Counts of Work types, not priorities. These shared the
+                    // priority stepper's range, so they offered 0 -- which
                     // matches nobody -- and stopped at whatever the priority
                     // maximum happened to be.
                     DrawIntStepper(new Rect(rect.x, rect.y, 98f, rect.height), ref condition.IntValue, 1, 20);

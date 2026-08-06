@@ -55,7 +55,9 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
         // order is free, but a reader of an old save must still find every
         // name it knew.
         CapableOfViolence,
-        IsPregnant
+        IsPregnant,
+        NthBestSkill,
+        ActiveWorkTypesAtMost
     }
 
     public enum RuleBuilder2ActionKind
@@ -139,6 +141,23 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
         public bool IsCollapsed;
         public int SortOrder;
         public string Notes = "";
+
+        /// <summary>
+        /// Whether this rule may lower a colonist who already has a better
+        /// priority for the work.
+        ///
+        /// Classic calls this AllowOverwritingHigherPriority and defaults it
+        /// off, so a classic rule setting priority 3 leaves a colonist already
+        /// set to 1 alone. Rule Builder 2.0 had no such idea and always wrote,
+        /// which meant importing a classic ruleset quietly changed what it did
+        /// to the colony.
+        ///
+        /// New 2.0 rules default to true, because that is what 2.0 has always
+        /// done and changing it under existing rulesets would be its own
+        /// silent behaviour change. Imported rules take the classic value.
+        /// </summary>
+        public bool AllowOverwritingHigherPriority = true;
+
         public List<string> Warnings = new List<string>();
         public RuleBuilder2Target Target = new RuleBuilder2Target();
         public RuleBuilder2ConditionGroup Conditions = new RuleBuilder2ConditionGroup();
@@ -164,6 +183,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
             Scribe_Values.Look(ref IsCollapsed, "collapsed", false);
             Scribe_Values.Look(ref SortOrder, "sortOrder", 0);
             Scribe_Values.Look(ref Notes, "notes", "");
+            Scribe_Values.Look(ref AllowOverwritingHigherPriority, "allowOverwritingHigherPriority", true);
             Scribe_Collections.Look(ref Warnings, "warnings", LookMode.Value);
             Scribe_Deep.Look(ref Target, "target");
             Scribe_Deep.Look(ref Conditions, "conditions");
@@ -207,6 +227,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 IsCollapsed = IsCollapsed,
                 SortOrder = SortOrder,
                 Notes = Notes,
+                AllowOverwritingHigherPriority = AllowOverwritingHigherPriority,
                 Warnings = Warnings?.ToList() ?? new List<string>(),
                 Target = Target?.Copy() ?? new RuleBuilder2Target(),
                 Conditions = Conditions?.Copy() ?? new RuleBuilder2ConditionGroup(),

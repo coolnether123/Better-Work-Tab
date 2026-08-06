@@ -297,6 +297,12 @@
   <BWT_RuleBuilder2_ConditionText_HasChild>Has a child on the current map</BWT_RuleBuilder2_ConditionText_HasChild>
   <BWT_RuleBuilder2_ConditionText_CapableOfViolence>Is capable of violence</BWT_RuleBuilder2_ConditionText_CapableOfViolence>
   <BWT_RuleBuilder2_ConditionText_IsPregnant>Is pregnant</BWT_RuleBuilder2_ConditionText_IsPregnant>
+  <BWT_RuleBuilder2_ConditionText_NthBestSkill>This is the colonist's number {0} Work type by skill</BWT_RuleBuilder2_ConditionText_NthBestSkill>
+  <BWT_RuleBuilder2_ConditionText_ActiveWorkTypes>Has at most {0} Work types switched on</BWT_RuleBuilder2_ConditionText_ActiveWorkTypes>
+  <BWT_RuleBuilder2_Condition_NthBestSkill>Nth best Work type</BWT_RuleBuilder2_Condition_NthBestSkill>
+  <BWT_RuleBuilder2_Condition_NthBestSkill_Tooltip>Matches when this Work type is the colonist's nth best by relevant skill. Colonists equally good at two Work types match for both.</BWT_RuleBuilder2_Condition_NthBestSkill_Tooltip>
+  <BWT_RuleBuilder2_Condition_ActiveWorkTypes>Work type limit</BWT_RuleBuilder2_Condition_ActiveWorkTypes>
+  <BWT_RuleBuilder2_Condition_ActiveWorkTypes_Tooltip>Matches colonists who already have no more than this many Work types switched on. Use it to stop spreading one colonist across everything.</BWT_RuleBuilder2_Condition_ActiveWorkTypes_Tooltip>
   <BWT_RuleBuilder2_Condition_CapableOfViolence>Capable of violence</BWT_RuleBuilder2_Condition_CapableOfViolence>
   <BWT_RuleBuilder2_Condition_CapableOfViolence_Tooltip>Matches colonists who are not incapable of violence.</BWT_RuleBuilder2_Condition_CapableOfViolence_Tooltip>
   <BWT_RuleBuilder2_Condition_IsPregnant>Pregnant</BWT_RuleBuilder2_Condition_IsPregnant>
