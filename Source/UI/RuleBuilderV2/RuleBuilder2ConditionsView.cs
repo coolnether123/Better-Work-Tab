@@ -97,6 +97,8 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
                 y += layout.Metrics.ConditionRowStride;
             }
+
+            DrawRunConnectors(view, conditions);
             Widgets.EndScrollView();
 
             if (DragReorderEnabled)
@@ -164,6 +166,81 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             {
                 card.Conditions.Conditions.Remove(condition);
                 flow.RefreshPreview();
+            }
+        }
+
+        /// <summary>
+        /// Draws a bracket down the left of every run holding more than one
+        /// condition.
+        ///
+        /// The indent and the word "or" say a row is an alternative, but only
+        /// pairwise -- with three alternatives in a row it stops being obvious
+        /// where the group ends, and it never shows that the group is one
+        /// requirement rather than three loose rows. A bracket spanning the run,
+        /// with a tick into each member, says both at a glance.
+        /// </summary>
+        private void DrawRunConnectors(Rect view, List<RuleBuilder2Condition> conditions)
+        {
+            if (Event.current.type != EventType.Repaint || conditions.Count < 2)
+            {
+                return;
+            }
+
+            List<int> plan = RuleBuilder2ConditionRunPlan.AssignRunIndexes(
+                conditions.Select(condition => condition.Enabled).ToList(),
+                conditions.Select(condition => condition.OrWithPrevious).ToList());
+
+            float stride = layout.Metrics.ConditionRowStride;
+            float rowHeight = layout.Metrics.ConditionRowHeight;
+            float spineX = view.x + layout.Metrics.ConditionAlternativeIndent * 0.5f;
+            Color spine = new Color(0.9f, 0.82f, 0.55f, 0.75f);
+
+            int index = 0;
+            while (index < plan.Count)
+            {
+                int run = plan[index];
+                if (run < 0)
+                {
+                    index++;
+                    continue;
+                }
+
+                int last = index;
+                for (int j = index + 1; j < plan.Count; j++)
+                {
+                    if (plan[j] == run)
+                    {
+                        last = j;
+                    }
+                    else if (plan[j] >= 0)
+                    {
+                        break;
+                    }
+                }
+
+                if (last > index)
+                {
+                    float top = index * stride + rowHeight * 0.5f;
+                    float bottom = last * stride + rowHeight * 0.5f;
+                    Widgets.DrawBoxSolid(new Rect(spineX, top, 2f, bottom - top), spine);
+                    for (int member = index; member <= last; member++)
+                    {
+                        if (plan[member] != run)
+                        {
+                            continue;
+                        }
+
+                        float tickY = member * stride + rowHeight * 0.5f - 1f;
+                        float tickEnd = member == index
+                            ? view.x + 6f
+                            : view.x + layout.Metrics.ConditionAlternativeIndent + 2f;
+                        Widgets.DrawBoxSolid(
+                            new Rect(Mathf.Min(spineX, tickEnd), tickY, Mathf.Abs(tickEnd - spineX), 2f),
+                            spine);
+                    }
+                }
+
+                index = last + 1;
             }
         }
 
@@ -326,10 +403,55 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                 Enumerable.Repeat(layout.Metrics.ConditionRowStride, currentConditions.Count).ToList(),
                 listRect.y,
                 activeConditionsScroll.y);
-            if (lineY >= listRect.y && lineY <= listRect.yMax)
+            if (lineY < listRect.y || lineY > listRect.yMax)
             {
-                ListDragVisuals.DrawInsertionLine(listRect.x, lineY, listRect.width);
+                return;
             }
+
+            ListDragVisuals.DrawInsertionLine(listRect.x, lineY, listRect.width);
+            DrawInsertionJoinHint(listRect, session, lineY);
+        }
+
+        /// <summary>
+        /// Says what the drop would mean, next to the line showing where it
+        /// lands.
+        ///
+        /// A bare insertion line answers "which position" but not "which side of
+        /// the bracket", and those are different questions once runs exist:
+        /// the same gap can drop a row into an alternative or leave it a
+        /// requirement of its own, and the row does not carry its answer with
+        /// it -- it takes the join of wherever it lands.
+        /// </summary>
+        private void DrawInsertionJoinHint(Rect listRect, ListDragSession<RuleBuilder2Condition> session, float lineY)
+        {
+            int target = Mathf.Clamp(session.TargetIndex, 0, currentConditions.Count);
+
+            // Landing at the top is always a requirement: there is nothing above
+            // to be an alternative to.
+            bool joinsAlternative = target > 0 &&
+                                    target < currentConditions.Count &&
+                                    currentConditions[target] != null &&
+                                    currentConditions[target].OrWithPrevious;
+
+            string label = joinsAlternative
+                ? T("BWT_RuleBuilder2_DropJoinsAlternative")
+                : T("BWT_RuleBuilder2_DropNewRequirement");
+
+            GameFont previousFont = Text.Font;
+            Text.Font = GameFont.Tiny;
+            float width = Text.CalcSize(label).x + 12f;
+            Rect badge = new Rect(listRect.xMax - width - 6f, lineY - 9f, width, 18f);
+
+            Widgets.DrawBoxSolid(badge, new Color(0.05f, 0.05f, 0.05f, 0.88f));
+            Color previous = GUI.color;
+            GUI.color = joinsAlternative ? new Color(0.9f, 0.82f, 0.55f) : Color.gray;
+            Widgets.DrawBox(badge, 1);
+            TextAnchor previousAnchor = Text.Anchor;
+            Text.Anchor = TextAnchor.MiddleCenter;
+            Widgets.Label(badge, label);
+            Text.Anchor = previousAnchor;
+            GUI.color = previous;
+            Text.Font = previousFont;
         }
 
         /// <summary>

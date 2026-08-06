@@ -101,6 +101,10 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                     return Tr("BWT_RuleBuilder2_ConditionText_NaturalAlways");
                 case RuleBuilder2ConditionKind.ParentHasChildOnMap:
                     return Tr("BWT_RuleBuilder2_ConditionText_HasChild");
+                case RuleBuilder2ConditionKind.CapableOfViolence:
+                    return Tr("BWT_RuleBuilder2_ConditionText_CapableOfViolence");
+                case RuleBuilder2ConditionKind.IsPregnant:
+                    return Tr("BWT_RuleBuilder2_ConditionText_IsPregnant");
                 default:
                     return string.IsNullOrEmpty(condition.DisplayText) ? Tr("BWT_RuleBuilder2_ReviewCondition") : condition.DisplayText;
             }
@@ -266,6 +270,20 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                     CategoryKey = "BWT_RuleBuilder2_Category_AgeGender",
                     LabelKey = "BWT_RuleBuilder2_Condition_HasChild",
                     TooltipKey = "BWT_RuleBuilder2_Condition_HasChild_Tooltip"
+                },
+                new RuleBuilder2ConditionDefinition
+                {
+                    Kind = RuleBuilder2ConditionKind.CapableOfViolence,
+                    CategoryKey = "BWT_RuleBuilder2_Category_AgeGender",
+                    LabelKey = "BWT_RuleBuilder2_Condition_CapableOfViolence",
+                    TooltipKey = "BWT_RuleBuilder2_Condition_CapableOfViolence_Tooltip"
+                },
+                new RuleBuilder2ConditionDefinition
+                {
+                    Kind = RuleBuilder2ConditionKind.IsPregnant,
+                    CategoryKey = "BWT_RuleBuilder2_Category_AgeGender",
+                    LabelKey = "BWT_RuleBuilder2_Condition_IsPregnant",
+                    TooltipKey = "BWT_RuleBuilder2_Condition_IsPregnant_Tooltip"
                 }
             };
         }

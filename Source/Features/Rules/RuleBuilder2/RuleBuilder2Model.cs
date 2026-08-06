@@ -49,7 +49,13 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
         TopWorkTypesBySkill,
         NaturalAlwaysActiveWork,
         ParentHasChildOnMap,
-        NoteOnly
+        NoteOnly,
+
+        // Appended, never inserted: Scribe writes the enum by name, so the
+        // order is free, but a reader of an old save must still find every
+        // name it knew.
+        CapableOfViolence,
+        IsPregnant
     }
 
     public enum RuleBuilder2ActionKind

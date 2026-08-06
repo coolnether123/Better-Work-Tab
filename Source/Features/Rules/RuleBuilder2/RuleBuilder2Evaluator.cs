@@ -211,6 +211,12 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                     return workType?.alwaysStartActive == true;
                 case RuleBuilder2ConditionKind.ParentHasChildOnMap:
                     return HasChildOnCurrentMap(pawn);
+                // Both mirror the classic validators exactly, so a rule means
+                // the same thing whichever builder wrote it.
+                case RuleBuilder2ConditionKind.CapableOfViolence:
+                    return !pawn.WorkTagIsDisabled(WorkTags.Violent);
+                case RuleBuilder2ConditionKind.IsPregnant:
+                    return pawn.health?.hediffSet?.HasHediff(HediffDefOf.PregnantHuman) ?? false;
                 default:
                     return true;
             }

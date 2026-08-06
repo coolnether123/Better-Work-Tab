@@ -239,6 +239,22 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 });
             }
 
+            if (p.IsCapableOfViolence)
+            {
+                card.Conditions.Conditions.Add(new RuleBuilder2Condition
+                {
+                    Kind = RuleBuilder2ConditionKind.CapableOfViolence
+                });
+            }
+
+            if (p.IsPregnant)
+            {
+                card.Conditions.Conditions.Add(new RuleBuilder2Condition
+                {
+                    Kind = RuleBuilder2ConditionKind.IsPregnant
+                });
+            }
+
             if (!string.IsNullOrEmpty(p.TraitString))
             {
                 card.Conditions.Conditions.Add(new RuleBuilder2Condition
@@ -276,6 +292,50 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                     DisplayText = "Classic skip-if-priority condition migrated disabled."
                 });
                 card.Warnings.Add("Check migrated skip-if-priority behavior.");
+            }
+
+            WarnAboutUntranslatedClassicParameters(card, p);
+        }
+
+        /// <summary>
+        /// Names every classic setting this card could not carry across.
+        ///
+        /// Silence was the old behaviour and it is the worst one available: a
+        /// rule that said "only pawns capable of violence" imported as a rule
+        /// that said nothing of the kind, kept its name, and looked migrated.
+        /// The player found out when somebody who should not have been hunting
+        /// went hunting. Rule Builder 2.0 still cannot express these, but it can
+        /// refuse to pretend otherwise.
+        /// </summary>
+        private static void WarnAboutUntranslatedClassicParameters(RuleBuilder2Card card, WorkAssignmentParameters p)
+        {
+            var dropped = new List<string>();
+
+            // Per-pawn tests with no Rule Builder 2.0 equivalent yet.
+            if (p.IsNthBestSkill > 0) dropped.Add("nth-best skill (" + p.IsNthBestSkill + ")");
+
+            // Allocation strategies. These decide between pawns rather than
+            // testing one, so they are not conditions at all and would need a
+            // mechanism Rule Builder 2.0 does not have.
+            if (p.IsNthBestPawn > 0) dropped.Add("nth-best pawn (" + p.IsNthBestPawn + ")");
+            if (p.RandomIfMultiple) dropped.Add("pick at random when several match");
+            if (p.AssignToPawnWithFewestWorkPriorities) dropped.Add("prefer the least-assigned pawn");
+            if (p.SkipIfAnotherPawnAssigned) dropped.Add("skip if another pawn is assigned");
+            if (p.LimitNumberOfWorktypes > 0) dropped.Add("limit of " + p.LimitNumberOfWorktypes + " Work types");
+            if (p.AllowOverwritingHigherPriority) dropped.Add("allow overwriting a higher priority");
+
+            // A trait degree is part of which trait is meant -- "very neurotic"
+            // and "neurotic" are degrees of one TraitDef -- so dropping it
+            // widens the rule to everyone with any degree of that trait.
+            if (p.TraitDegree.HasValue && !string.IsNullOrEmpty(p.TraitString))
+            {
+                dropped.Add("trait degree " + p.TraitDegree.Value + " (imported as any degree of " + p.TraitString + ")");
+            }
+
+            if (dropped.Count > 0)
+            {
+                card.Warnings.Add(
+                    "Classic settings that did not carry across: " + string.Join(", ", dropped.ToArray()) + ".");
             }
         }
 
@@ -404,6 +464,14 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 case RuleBuilder2ConditionKind.ParentHasChildOnMap:
                     parameters.HasChildOnMap = true;
                     parameters.ActiveConditions.Add(nameof(WorkAssignmentParameters.HasChildOnMap));
+                    return true;
+                case RuleBuilder2ConditionKind.CapableOfViolence:
+                    parameters.IsCapableOfViolence = true;
+                    parameters.ActiveConditions.Add(nameof(WorkAssignmentParameters.IsCapableOfViolence));
+                    return true;
+                case RuleBuilder2ConditionKind.IsPregnant:
+                    parameters.IsPregnant = true;
+                    parameters.ActiveConditions.Add(nameof(WorkAssignmentParameters.IsPregnant));
                     return true;
                 case RuleBuilder2ConditionKind.CurrentAssignedWork:
                 case RuleBuilder2ConditionKind.ExistingPriorityAtLeast:

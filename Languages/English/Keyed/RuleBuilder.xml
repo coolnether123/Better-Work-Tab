@@ -177,6 +177,11 @@
   <BWT_RuleBuilder2_ConditionJoinOr>or</BWT_RuleBuilder2_ConditionJoinOr>
   <BWT_RuleBuilder2_ConditionOrJoiner> or </BWT_RuleBuilder2_ConditionOrJoiner>
   <BWT_RuleBuilder2_ConditionJoin_Tooltip>Click to switch between and / or.\n\nWith "and" both conditions must hold. With "or" either one will do, and the two count as a single requirement.</BWT_RuleBuilder2_ConditionJoin_Tooltip>
+  <!-- Shown beside the insertion line while a condition is being dragged. A row
+       takes the join of wherever it lands, so the drop target decides whether it
+       becomes an alternative or a requirement of its own. -->
+  <BWT_RuleBuilder2_DropJoinsAlternative>joins the "or" above</BWT_RuleBuilder2_DropJoinsAlternative>
+  <BWT_RuleBuilder2_DropNewRequirement>its own requirement</BWT_RuleBuilder2_DropNewRequirement>
   <BWT_RuleBuilder2_StepAction>3. Choose action</BWT_RuleBuilder2_StepAction>
   <BWT_RuleBuilder2_ActionBlockTitle>Action</BWT_RuleBuilder2_ActionBlockTitle>
   <BWT_RuleBuilder2_ScheduleHint>No schedule</BWT_RuleBuilder2_ScheduleHint>
@@ -288,6 +293,12 @@
   <BWT_RuleBuilder2_ConditionText_TopWorkTypes>This is among the pawn's top {0} skilled Work types</BWT_RuleBuilder2_ConditionText_TopWorkTypes>
   <BWT_RuleBuilder2_ConditionText_NaturalAlways>This Work type is naturally always active</BWT_RuleBuilder2_ConditionText_NaturalAlways>
   <BWT_RuleBuilder2_ConditionText_HasChild>Has a child on the current map</BWT_RuleBuilder2_ConditionText_HasChild>
+  <BWT_RuleBuilder2_ConditionText_CapableOfViolence>Is capable of violence</BWT_RuleBuilder2_ConditionText_CapableOfViolence>
+  <BWT_RuleBuilder2_ConditionText_IsPregnant>Is pregnant</BWT_RuleBuilder2_ConditionText_IsPregnant>
+  <BWT_RuleBuilder2_Condition_CapableOfViolence>Capable of violence</BWT_RuleBuilder2_Condition_CapableOfViolence>
+  <BWT_RuleBuilder2_Condition_CapableOfViolence_Tooltip>Matches colonists who are not incapable of violence.</BWT_RuleBuilder2_Condition_CapableOfViolence_Tooltip>
+  <BWT_RuleBuilder2_Condition_IsPregnant>Pregnant</BWT_RuleBuilder2_Condition_IsPregnant>
+  <BWT_RuleBuilder2_Condition_IsPregnant_Tooltip>Matches colonists who are currently pregnant.</BWT_RuleBuilder2_Condition_IsPregnant_Tooltip>
   <!-- Better Work Tab's help is not keyed here any more. It is registered as
        RimWorld ConceptDefs in Defs/ConceptDefs/, so it shows in the learning
        helper alongside the game's own concepts and is translated the way every
