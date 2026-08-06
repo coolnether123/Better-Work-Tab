@@ -156,6 +156,8 @@
     <Compile Include="Features\Testing\WorkTabGeometryDiagnostics.cs" />
     <Compile Include="Features\Testing\WorkTabProfilingState.cs" />
     <Compile Include="Features\Testing\WorkGridRendererExceptionProbe.cs" />
+    <Compile Include="Features\Testing\RuleBuilder2ConditionSeeder.cs" />
+    <Compile Include="Features\Testing\RuleBuilder2ClassicRoundTripSelfTest.cs" />
     <Compile Include="Features\TimePriority\Patch_CopyPasteWorkPriorities_TimePriority.cs" />
     <Compile Include="Features\TimePriority\TimePriorityEvaluation.cs" />
     <Compile Include="Features\TimePriority\TimePriorityScheduleClipboard.cs" />

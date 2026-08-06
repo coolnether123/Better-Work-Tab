@@ -25,7 +25,11 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
         // row and its editor on a second -- two rows each about 700px wide to
         // hold a short phrase and a stepper. Side by side they fit in one.
         internal float ConditionRowHeight = 32f;
-        internal float ConditionRowStride = 36f;
+
+        // The stride leaves a lane between rows for the and/or joiner. At a
+        // four-pixel gap the joiner had nowhere to go and printed straight
+        // through the label of the row beneath it.
+        internal float ConditionRowStride = 46f;
 
         // The widest inline editor is a def button plus a stepper (150 + 8 +
         // 110), so the column has to clear that or the stepper runs under the
@@ -41,7 +45,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
         // The and/or joiner sits above the row it joins, in its own short lane,
         // so it reads as a link between two rows rather than as one row's
         // property.
-        internal float ConditionJoinerHeight = 18f;
+        internal float ConditionJoinerHeight = 14f;
         internal float ConditionJoinerWidth = 62f;
         internal float ConditionAlternativeIndent = 18f;
         internal float RuleNameHeight = 36f;

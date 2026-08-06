@@ -593,6 +593,13 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             GUI.color = previous;
         }
 
+        internal RuleBuilder2Card ActiveCardForSeeding => flowController?.ActiveCard;
+
+        internal void RefreshPreviewForSeeding()
+        {
+            flowController?.RefreshPreview();
+        }
+
         internal void ConfirmActiveCardForSmokeTest()
         {
             if (flowController.ActiveCard != null && !flowController.ActiveCard.IsConfirmed)

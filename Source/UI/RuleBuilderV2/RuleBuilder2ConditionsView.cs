@@ -83,22 +83,28 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             conditionListRect = inner;
             currentConditions = conditions;
             Rect view = new Rect(0f, 0f, inner.width - 16f, Mathf.Max(inner.height, conditions.Count * layout.Metrics.ConditionRowStride));
+            List<int> plan = BuildPlan(conditions);
             Widgets.BeginScrollView(inner, ref activeConditionsScroll, view);
             float y = 0f;
             for (int i = 0; i < conditions.Count; i++)
             {
                 RuleBuilder2Condition condition = conditions[i];
                 Rect row = new Rect(0f, y, view.width, layout.Metrics.ConditionRowHeight);
-                DrawConditionRow(row, card, condition, i);
+
+                // The whole run steps in, opener included, so the bracket has a
+                // gutter of its own to live in. Indenting only the alternatives
+                // left the bracket drawing through the first row's own border.
+                bool inRun = IsInMultiRun(plan, i);
+                DrawConditionRow(row, card, condition, i, inRun);
                 if (i > 0)
                 {
-                    DrawConditionJoiner(row, condition);
+                    DrawConditionJoiner(row, condition, inRun);
                 }
 
                 y += layout.Metrics.ConditionRowStride;
             }
 
-            DrawRunConnectors(view, conditions);
+            DrawRunConnectors(view, plan);
             Widgets.EndScrollView();
 
             if (DragReorderEnabled)
@@ -108,13 +114,12 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             }
         }
 
-        internal void DrawConditionRow(Rect rect, RuleBuilder2Card card, RuleBuilder2Condition condition, int index)
+        internal void DrawConditionRow(Rect rect, RuleBuilder2Card card, RuleBuilder2Condition condition, int index, bool inRun)
         {
             bool showReorderButtons = !DragReorderEnabled;
             float editorWidth = ConditionEditorWidth(condition.Kind);
-            bool isAlternative = index > 0 && condition.OrWithPrevious;
-            RuleBuilder2ConditionRowRects row = layout.ConditionRow(rect, showReorderButtons, editorWidth, isAlternative);
-            if (isAlternative)
+            RuleBuilder2ConditionRowRects row = layout.ConditionRow(rect, showReorderButtons, editorWidth, inRun);
+            if (inRun)
             {
                 rect = new Rect(
                     rect.x + layout.Metrics.ConditionAlternativeIndent,
@@ -170,41 +175,70 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
         }
 
         /// <summary>
-        /// Draws a bracket down the left of every run holding more than one
+        /// Groups the conditions into runs once per draw, so the row layout, the
+        /// bracket and the joiner all read the same answer.
+        /// </summary>
+        private static List<int> BuildPlan(List<RuleBuilder2Condition> conditions)
+        {
+            return RuleBuilder2ConditionRunPlan.AssignRunIndexes(
+                conditions.Select(condition => condition.Enabled).ToList(),
+                conditions.Select(condition => condition.OrWithPrevious).ToList());
+        }
+
+        /// <summary>True when this row belongs to a run holding more than one condition.</summary>
+        private static bool IsInMultiRun(List<int> plan, int index)
+        {
+            if (index < 0 || index >= plan.Count || plan[index] < 0)
+            {
+                return false;
+            }
+
+            int run = plan[index];
+            int members = 0;
+            for (int i = 0; i < plan.Count; i++)
+            {
+                if (plan[i] == run)
+                {
+                    members++;
+                }
+            }
+
+            return members > 1;
+        }
+
+        /// <summary>
+        /// Draws a bracket down the gutter of every run holding more than one
         /// condition.
         ///
-        /// The indent and the word "or" say a row is an alternative, but only
-        /// pairwise -- with three alternatives in a row it stops being obvious
-        /// where the group ends, and it never shows that the group is one
-        /// requirement rather than three loose rows. A bracket spanning the run,
-        /// with a tick into each member, says both at a glance.
+        /// The word "or" says a row is an alternative, but only pairwise -- with
+        /// three in a row it stops being obvious where the group ends, and it
+        /// never shows that the group counts as one requirement. The bracket
+        /// says both, and it sits in the gutter the indented run leaves free
+        /// rather than across the rows themselves.
         /// </summary>
-        private void DrawRunConnectors(Rect view, List<RuleBuilder2Condition> conditions)
+        private void DrawRunConnectors(Rect view, List<int> plan)
         {
-            if (Event.current.type != EventType.Repaint || conditions.Count < 2)
+            if (Event.current.type != EventType.Repaint)
             {
                 return;
             }
 
-            List<int> plan = RuleBuilder2ConditionRunPlan.AssignRunIndexes(
-                conditions.Select(condition => condition.Enabled).ToList(),
-                conditions.Select(condition => condition.OrWithPrevious).ToList());
-
             float stride = layout.Metrics.ConditionRowStride;
             float rowHeight = layout.Metrics.ConditionRowHeight;
-            float spineX = view.x + layout.Metrics.ConditionAlternativeIndent * 0.5f;
-            Color spine = new Color(0.9f, 0.82f, 0.55f, 0.75f);
+            float indent = layout.Metrics.ConditionAlternativeIndent;
+            float spineX = view.x + indent - 8f;
+            Color spine = new Color(0.9f, 0.82f, 0.55f, 0.8f);
 
             int index = 0;
             while (index < plan.Count)
             {
-                int run = plan[index];
-                if (run < 0)
+                if (plan[index] < 0)
                 {
                     index++;
                     continue;
                 }
 
+                int run = plan[index];
                 int last = index;
                 for (int j = index + 1; j < plan.Count; j++)
                 {
@@ -220,8 +254,8 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
                 if (last > index)
                 {
-                    float top = index * stride + rowHeight * 0.5f;
-                    float bottom = last * stride + rowHeight * 0.5f;
+                    float top = index * stride + rowHeight * 0.5f - 1f;
+                    float bottom = last * stride + rowHeight * 0.5f + 1f;
                     Widgets.DrawBoxSolid(new Rect(spineX, top, 2f, bottom - top), spine);
                     for (int member = index; member <= last; member++)
                     {
@@ -231,12 +265,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                         }
 
                         float tickY = member * stride + rowHeight * 0.5f - 1f;
-                        float tickEnd = member == index
-                            ? view.x + 6f
-                            : view.x + layout.Metrics.ConditionAlternativeIndent + 2f;
-                        Widgets.DrawBoxSolid(
-                            new Rect(Mathf.Min(spineX, tickEnd), tickY, Mathf.Abs(tickEnd - spineX), 2f),
-                            spine);
+                        Widgets.DrawBoxSolid(new Rect(spineX, tickY, 8f, 2f), spine);
                     }
                 }
 
@@ -245,48 +274,57 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
         }
 
         /// <summary>
-        /// The and/or link between this row and the one above it.
+        /// The and/or link between this row and the one above it, drawn as a
+        /// small pill in the lane between them.
         ///
-        /// Drawn in the gap between rows rather than inside either of them,
-        /// because it describes the join and not the condition -- and because
-        /// the row itself is a drag handle, so a button living in it would have
-        /// to fight the drag gate for the click.
+        /// It used to be bare text dropped into a gap, which at this size read
+        /// as a rendering fault rather than a control. A pill with an edge and a
+        /// background is obviously a thing to press, holds its shape next to a
+        /// bracket, and keeps "and" quiet while letting "or" carry the tutor
+        /// gold the bracket uses.
         /// </summary>
-        private void DrawConditionJoiner(Rect row, RuleBuilder2Condition condition)
+        private void DrawConditionJoiner(Rect row, RuleBuilder2Condition condition, bool inRun)
         {
-            float gap = layout.Metrics.ConditionRowStride - layout.Metrics.ConditionRowHeight;
-            Rect joiner = new Rect(
-                row.x + 34f,
-                row.y - gap - 1f,
-                layout.Metrics.ConditionJoinerWidth,
-                layout.Metrics.ConditionJoinerHeight + 2f);
-
             bool isOr = condition.OrWithPrevious;
             string label = isOr
                 ? T("BWT_RuleBuilder2_ConditionJoinOr")
                 : T("BWT_RuleBuilder2_ConditionJoinAnd");
 
-            Color previous = GUI.color;
-            GUI.color = isOr ? new Color(0.9f, 0.82f, 0.55f) : Color.gray;
-            Text.Anchor = TextAnchor.MiddleCenter;
+            float gap = layout.Metrics.ConditionRowStride - layout.Metrics.ConditionRowHeight;
+            float height = Mathf.Min(layout.Metrics.ConditionJoinerHeight, gap);
+
+            GameFont previousFont = Text.Font;
             Text.Font = GameFont.Tiny;
-            if (Widgets.ButtonInvisible(joiner))
+            float width = Mathf.Max(28f, Text.CalcSize(label).x + 12f);
+
+            // Lines up with the indented run when it belongs to one, so the pill
+            // sits under the bracket rather than beside it.
+            float x = row.x + (inRun ? layout.Metrics.ConditionAlternativeIndent : 0f) + 6f;
+            Rect pill = new Rect(x, row.y - gap + (gap - height) * 0.5f, width, height);
+
+            bool hovered = Mouse.IsOver(pill);
+            Color accent = isOr ? new Color(0.9f, 0.82f, 0.55f) : new Color(0.55f, 0.55f, 0.55f);
+            Widgets.DrawBoxSolid(pill, hovered
+                ? new Color(0.22f, 0.21f, 0.18f, 0.95f)
+                : new Color(0.11f, 0.11f, 0.11f, 0.9f));
+
+            Color previousColor = GUI.color;
+            TextAnchor previousAnchor = Text.Anchor;
+            GUI.color = hovered ? Color.white : accent;
+            Widgets.DrawBox(pill, 1);
+            Text.Anchor = TextAnchor.MiddleCenter;
+            Widgets.Label(pill, label);
+            Text.Anchor = previousAnchor;
+            GUI.color = previousColor;
+            Text.Font = previousFont;
+
+            TooltipHandler.TipRegion(pill, T("BWT_RuleBuilder2_ConditionJoin_Tooltip"));
+            if (Widgets.ButtonInvisible(pill))
             {
                 condition.OrWithPrevious = !condition.OrWithPrevious;
                 flow.RefreshPreview();
                 SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
             }
-
-            if (Mouse.IsOver(joiner))
-            {
-                Widgets.DrawHighlight(joiner);
-            }
-
-            Widgets.Label(joiner, label);
-            Text.Font = GameFont.Small;
-            Text.Anchor = TextAnchor.UpperLeft;
-            GUI.color = previous;
-            TooltipHandler.TipRegion(joiner, T("BWT_RuleBuilder2_ConditionJoin_Tooltip"));
         }
 
         private int CalculateConditionTargetIndex(Vector2 mousePos)
