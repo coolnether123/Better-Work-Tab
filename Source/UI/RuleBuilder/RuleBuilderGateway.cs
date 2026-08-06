@@ -330,11 +330,13 @@ namespace Better_Work_Tab.UI.RuleBuilder
             if (settings != null)
             {
                 settings.useRuleBuilder2 = true;
-                settings.showRuleBuilder2Tutorial = true;
-                settings.ruleBuilder2TutorialStep = 0;
                 settings.Write();
             }
 
+            // Asked for deliberately from a lesson, so the concept is put back
+            // even for a player who dismissed it long ago. Opening the builder
+            // below would otherwise teach nothing to anyone who already knows.
+            Features.Tutorial.BWTConcepts.Replay(Features.Tutorial.BWTConceptDefOf.BWT_WorkRules);
             Find.WindowStack.Add(new Window_RuleBuilder2());
             SoundDefOf.Tick_Low.PlayOneShotOnCamera();
         }

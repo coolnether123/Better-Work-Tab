@@ -42,7 +42,6 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
         internal void DrawMasterDetail(Rect rect)
         {
             RuleBuilder2MasterDetailRects panes = layout.MasterDetail(rect);
-            window.TutorialRects[RuleBuilder2TutorialStep.Welcome] = CenteredCardRect(panes.Right, 430f, 240f);
             DrawLeftPane(panes.Left);
             editorView.DrawEditor(panes.Right);
         }
@@ -77,6 +76,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
         private void DrawAddRuleControl(Rect rect)
         {
             Rect primary = new Rect(rect.x, rect.y, Mathf.Max(1f, rect.width - 34f), rect.height);
+
             Rect menu = new Rect(primary.xMax + 4f, rect.y, 30f, rect.height);
             if (Widgets.ButtonText(primary, "+ " + T("BWT_RuleBuilder2_AddRule")))
             {
@@ -403,13 +403,6 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             Text.Anchor = TextAnchor.UpperLeft;
             GUI.color = Color.white;
             return rect.x - 4f;
-        }
-
-        private static Rect CenteredCardRect(Rect rect, float width, float height)
-        {
-            width = Mathf.Min(width, Mathf.Max(280f, rect.width - 24f));
-            height = Mathf.Min(height, Mathf.Max(160f, rect.height - 24f));
-            return new Rect(rect.center.x - width / 2f, rect.center.y - height / 2f, width, height);
         }
     }
 }

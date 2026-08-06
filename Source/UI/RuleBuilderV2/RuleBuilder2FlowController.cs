@@ -18,7 +18,6 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
         private readonly RuleBuilder2ApplyService applyService = new RuleBuilder2ApplyService();
         private readonly RuleBuilder2DraftGenerator draftGenerator = new RuleBuilder2DraftGenerator();
         private readonly RuleBuilder2ClassicRulesetExportService classicRulesetExportService = new RuleBuilder2ClassicRulesetExportService();
-        private readonly RuleBuilder2TutorialController tutorial;
         private readonly RuleBuilder2Ruleset seededRuleset;
         private readonly bool previewOnOpen;
         private readonly bool persistRuleset = true;
@@ -26,13 +25,11 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
         internal RuleBuilder2FlowController(
             RuleBuilder2Ruleset seededRuleset,
             bool previewOnOpen,
-            bool persistRuleset,
-            RuleBuilder2TutorialController tutorial)
+            bool persistRuleset)
         {
             this.seededRuleset = seededRuleset;
             this.previewOnOpen = previewOnOpen;
             this.persistRuleset = persistRuleset;
-            this.tutorial = tutorial;
         }
 
         internal RuleBuilder2Ruleset Ruleset { get; set; }
@@ -183,7 +180,6 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
             ActiveCard = card;
             ShowPreview = false;
-            tutorial.ObserveConfirmed();
             SoundDefOf.Tick_High.PlayOneShotOnCamera();
         }
 
@@ -452,7 +448,6 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             card.Target.DisplayLabel = BuildTargetLabel(workType, workGiver);
             card.Target.Source = source;
             card.NormalizeActionForTarget();
-            tutorial.ObserveTargetSelected(workGiver != null);
             RefreshPreview();
         }
 
@@ -466,7 +461,6 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             card.Action.Kind = kind;
             card.NormalizeActionForTarget();
             card.Action.EnsureSchedule(card.Action.Priority);
-            tutorial.ObserveActionEdited();
             RefreshPreview();
         }
 
@@ -479,15 +473,12 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
         /// Runs a Map check because the player asked for one.
         ///
         /// Distinct from <see cref="RefreshPreview"/>, which also runs after
-        /// every edit to keep the panel honest. Only a deliberate request counts
-        /// as the player having tried the preview, so only this one tells the
-        /// tutorial.
+        /// every edit to keep the panel honest.
         /// </summary>
         internal void RunPreview()
         {
             ShowPreview = true;
             RefreshPreview();
-            tutorial.ObservePreview();
         }
 
         internal RuleBuilder2PreviewResult PreviewPawn(RuleBuilder2Card card, Pawn pawn, WorkTypeDef workType, WorkGiverDef workGiver)
@@ -517,7 +508,6 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
             ActiveCard = card;
             RefreshPreview();
-            tutorial.ObserveTargetSelected(selection.WorkGiver != null);
         }
 
         internal void PreviewWorkTabSelection(RuleBuilder2WorkTabSelection selection)

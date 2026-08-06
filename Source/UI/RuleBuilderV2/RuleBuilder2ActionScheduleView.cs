@@ -14,20 +14,17 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
         private readonly Window_RuleBuilder2 window;
         private readonly RuleBuilder2FlowController flow;
         private readonly RuleBuilder2Layout layout;
-        private readonly RuleBuilder2TutorialController tutorial;
         private bool schedulePaintActive;
         private int schedulePaintPriority;
 
         internal RuleBuilder2ActionScheduleView(
             Window_RuleBuilder2 window,
             RuleBuilder2FlowController flow,
-            RuleBuilder2Layout layout,
-            RuleBuilder2TutorialController tutorial)
+            RuleBuilder2Layout layout)
         {
             this.window = window;
             this.flow = flow;
             this.layout = layout;
-            this.tutorial = tutorial;
         }
 
         internal void ClearSchedulePaintOnMouseUp()

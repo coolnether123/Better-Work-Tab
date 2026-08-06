@@ -135,7 +135,6 @@ namespace Better_Work_Tab
         public static bool showContextSettingsHint = true;
         public static bool showGeneralTutorial = BWT20CohortPolicy.FreshInstall.ShowGeneralTutorial;
         public static bool useRuleBuilder2 = BWT20CohortPolicy.FreshInstall.UseRuleBuilder2;
-        public static bool showRuleBuilder2Tutorial = true;
         public static bool ruleBuilder2ShowWorkTabHighlights = true;
         public static bool ruleBuilder2EnableAnimations = true;
         public static bool ruleBuilder2UseDraftSuggestions = true;
@@ -307,7 +306,6 @@ namespace Better_Work_Tab
         public static int priorityColorPercentage_Tan = 75;
         public static BetterWorkTabSettings.SettingsViewMode settingsViewMode = BetterWorkTabSettings.SettingsViewMode.Simple;
         public static bool useOutlineHighlights = false;
-        public static int ruleBuilder2TutorialStep = 0;
         public static bool enableDebugLogging = false;
         public static bool debugPrintLayout = false;
         public static string defaultAutoAssignRuleset = "BWT Default";
@@ -436,8 +434,6 @@ namespace Better_Work_Tab
         internal string betaOverallFeedback = string.Empty;
         internal string betaTesterHandle = string.Empty;
         public bool useRuleBuilder2 = DefaultSettings.useRuleBuilder2;
-        public bool showRuleBuilder2Tutorial = DefaultSettings.showRuleBuilder2Tutorial;
-        public int ruleBuilder2TutorialStep = DefaultSettings.ruleBuilder2TutorialStep;
         public bool ruleBuilder2ShowWorkTabHighlights = DefaultSettings.ruleBuilder2ShowWorkTabHighlights;
         public bool ruleBuilder2EnableAnimations = DefaultSettings.ruleBuilder2EnableAnimations;
         public bool ruleBuilder2UseDraftSuggestions = DefaultSettings.ruleBuilder2UseDraftSuggestions;
@@ -984,8 +980,6 @@ namespace Better_Work_Tab
             {
                 completedTutorialLessonIds = new List<string>();
             }
-            Scribe_Values.Look(ref ruleBuilder2TutorialStep, "ruleBuilder2TutorialStep", DefaultSettings.ruleBuilder2TutorialStep);
-
             if (Scribe.mode == LoadSaveMode.Saving && CurrentRuleset != null)
             {
                 currentRulesetName = CurrentRuleset.Name;

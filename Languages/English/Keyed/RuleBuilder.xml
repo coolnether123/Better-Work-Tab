@@ -281,57 +281,10 @@
   <BWT_RuleBuilder2_ConditionText_TopWorkTypes>This is among the pawn's top {0} skilled Work types</BWT_RuleBuilder2_ConditionText_TopWorkTypes>
   <BWT_RuleBuilder2_ConditionText_NaturalAlways>This Work type is naturally always active</BWT_RuleBuilder2_ConditionText_NaturalAlways>
   <BWT_RuleBuilder2_ConditionText_HasChild>Has a child on the current map</BWT_RuleBuilder2_ConditionText_HasChild>
-  <BWT_RuleBuilder2_Tutorial_WelcomeTitle>Rule Builder 2.0</BWT_RuleBuilder2_Tutorial_WelcomeTitle>
-  <BWT_RuleBuilder2_Tutorial_WelcomeBody>Rules are listed on the left and edited on the right. They set priorities for matching pawns, including future pawns. Apply updates the Work tab.</BWT_RuleBuilder2_Tutorial_WelcomeBody>
-  <BWT_RuleBuilder2_Tutorial_GotIt>Got it</BWT_RuleBuilder2_Tutorial_GotIt>
-  <BWT_RuleBuilder2_Tutorial_Settings>Related settings</BWT_RuleBuilder2_Tutorial_Settings>
-  <BWT_RuleBuilder2_Tutorial_SuggestionsTitle>Suggestions</BWT_RuleBuilder2_Tutorial_SuggestionsTitle>
-  <BWT_RuleBuilder2_Tutorial_SuggestionsBody>Suggestions come from the current Work tab. Keep, edit, or skip them; only kept suggestions are saved.</BWT_RuleBuilder2_Tutorial_SuggestionsBody>
-  <BWT_RuleBuilder2_Tutorial_Start>Start</BWT_RuleBuilder2_Tutorial_Start>
-  <BWT_RuleBuilder2_Tutorial_Skip>Skip tutorial</BWT_RuleBuilder2_Tutorial_Skip>
-  <BWT_RuleBuilder2_Tutorial_CreateTitle>Create or import</BWT_RuleBuilder2_Tutorial_CreateTitle>
-  <BWT_RuleBuilder2_Tutorial_CreateBody>Use the ruleset menu to start blank, duplicate, build suggestions from the current Work tab, or migrate classic rules safely.</BWT_RuleBuilder2_Tutorial_CreateBody>
-  <BWT_RuleBuilder2_Tutorial_DeckTitle>Rules table</BWT_RuleBuilder2_Tutorial_DeckTitle>
-  <BWT_RuleBuilder2_Tutorial_DeckBody>Select a rule to edit it, build suggestions from the Work tab, or add one manually.</BWT_RuleBuilder2_Tutorial_DeckBody>
-  <BWT_RuleBuilder2_Tutorial_Next>Next</BWT_RuleBuilder2_Tutorial_Next>
-  <BWT_RuleBuilder2_Tutorial_TargetTitle>Choose Work type</BWT_RuleBuilder2_Tutorial_TargetTitle>
-  <BWT_RuleBuilder2_Tutorial_TargetBody>Choose a Work type here or from the Work tab. Ctrl-click for specific jobs.</BWT_RuleBuilder2_Tutorial_TargetBody>
-  <BWT_RuleBuilder2_Tutorial_SubWorkTitle>Specific jobs</BWT_RuleBuilder2_Tutorial_SubWorkTitle>
-  <BWT_RuleBuilder2_Tutorial_SubWorkBody>In the specific job view, click a job header to choose that job.</BWT_RuleBuilder2_Tutorial_SubWorkBody>
-  <BWT_RuleBuilder2_Tutorial_SkipSubWork>Skip jobs step</BWT_RuleBuilder2_Tutorial_SkipSubWork>
-  <BWT_RuleBuilder2_Tutorial_ConditionTitle>Add a condition</BWT_RuleBuilder2_Tutorial_ConditionTitle>
-  <BWT_RuleBuilder2_Tutorial_ConditionBody>Pick a condition. It opens inline so you can edit it immediately.</BWT_RuleBuilder2_Tutorial_ConditionBody>
-  <BWT_RuleBuilder2_Tutorial_ActionTitle>Choose action</BWT_RuleBuilder2_Tutorial_ActionTitle>
-  <BWT_RuleBuilder2_Tutorial_ActionBody>Set priority, disable work, follow default, or add a time schedule.</BWT_RuleBuilder2_Tutorial_ActionBody>
-  <BWT_RuleBuilder2_Tutorial_ScheduleTitle>Time blocks</BWT_RuleBuilder2_Tutorial_ScheduleTitle>
-  <BWT_RuleBuilder2_Tutorial_ScheduleBody>Use hour blocks when a rule should only apply during part of the day.</BWT_RuleBuilder2_Tutorial_ScheduleBody>
-  <BWT_RuleBuilder2_Tutorial_PreviewTitle>Map check</BWT_RuleBuilder2_Tutorial_PreviewTitle>
-  <BWT_RuleBuilder2_Tutorial_PreviewBody>Map check shows which pawns match, what failed, and what priority would change.</BWT_RuleBuilder2_Tutorial_PreviewBody>
-  <BWT_RuleBuilder2_Tutorial_ConfirmTitle>Save rule</BWT_RuleBuilder2_Tutorial_ConfirmTitle>
-  <BWT_RuleBuilder2_Tutorial_ConfirmBody>Save adds the rule. Later edits apply immediately.</BWT_RuleBuilder2_Tutorial_ConfirmBody>
-  <BWT_RuleBuilder2_Tutorial_MatchedTitle>Matched conditions</BWT_RuleBuilder2_Tutorial_MatchedTitle>
-  <BWT_RuleBuilder2_Tutorial_MatchedBody>Click a priority box while the builder is open to inspect why rules match that pawn and Work type.</BWT_RuleBuilder2_Tutorial_MatchedBody>
-  <BWT_RuleBuilder2_Tutorial_ReplayTitle>Replay later</BWT_RuleBuilder2_Tutorial_ReplayTitle>
-  <BWT_RuleBuilder2_Tutorial_ReplayBody>You can replay or reset this tutorial from Better Work Tab settings.</BWT_RuleBuilder2_Tutorial_ReplayBody>
-  <BWT_RuleBuilder2_Tutorial_Finish>Finish</BWT_RuleBuilder2_Tutorial_Finish>
-  <BWT_RuleBuilder2_Tutorial_CompleteBody>Tutorial complete.</BWT_RuleBuilder2_Tutorial_CompleteBody>
-  <BWT_RuleBuilder2_Tutorial_ClickHeaderHint>Click a work header</BWT_RuleBuilder2_Tutorial_ClickHeaderHint>
-
-  <!-- Strip instructions. One line each, in the docked band's voice: say what to
-       do next, not what the panel is. The longer Title/Body pairs above remain
-       for surfaces that can scroll. -->
-  <BWT_RuleBuilder2_Strip_Welcome>Rules set work priorities for you. Let's build one.</BWT_RuleBuilder2_Strip_Welcome>
-  <BWT_RuleBuilder2_Strip_Deck>Your rules live on the left. Pick one or add a rule.</BWT_RuleBuilder2_Strip_Deck>
-  <BWT_RuleBuilder2_Strip_Target>Click a Work type to say what this rule is about.</BWT_RuleBuilder2_Strip_Target>
-  <BWT_RuleBuilder2_Strip_SubWork>Ctrl-click a Work type to aim at one specific job.</BWT_RuleBuilder2_Strip_SubWork>
-  <BWT_RuleBuilder2_Strip_Condition>Add a condition to choose which colonists match.</BWT_RuleBuilder2_Strip_Condition>
-  <BWT_RuleBuilder2_Strip_Action>Pick what happens: set a priority, or switch it off.</BWT_RuleBuilder2_Strip_Action>
-  <BWT_RuleBuilder2_Strip_Schedule>Add hour blocks to run this only part of the day.</BWT_RuleBuilder2_Strip_Schedule>
-  <BWT_RuleBuilder2_Strip_Preview>Run Map check to see who this rule would change.</BWT_RuleBuilder2_Strip_Preview>
-  <BWT_RuleBuilder2_Strip_Confirm>Save the rule to add it to your ruleset.</BWT_RuleBuilder2_Strip_Confirm>
-  <BWT_RuleBuilder2_Strip_Matched>Click a priority box to see why a rule matched.</BWT_RuleBuilder2_Strip_Matched>
-  <BWT_RuleBuilder2_Strip_Replay>Replay this walkthrough any time from BWT settings.</BWT_RuleBuilder2_Strip_Replay>
-  <BWT_RuleBuilder2_Strip_Done>Walkthrough complete. Your rule is saved.</BWT_RuleBuilder2_Strip_Done>
+  <!-- Better Work Tab's help is not keyed here any more. It is registered as
+       RimWorld ConceptDefs in Defs/ConceptDefs/, so it shows in the learning
+       helper alongside the game's own concepts and is translated the way every
+       other concept is. -->
   <BWT_RuleBuilder2_SuggestConfirmTitle>Suggest rules</BWT_RuleBuilder2_SuggestConfirmTitle>
   <BWT_RuleBuilder2_SuggestConfirmBody>Reads your current Work tab and builds suggestions. Your ruleset is not changed until you Keep a suggestion.</BWT_RuleBuilder2_SuggestConfirmBody>
   <BWT_RuleBuilder2_SuggestConfirmButton>Suggest</BWT_RuleBuilder2_SuggestConfirmButton>

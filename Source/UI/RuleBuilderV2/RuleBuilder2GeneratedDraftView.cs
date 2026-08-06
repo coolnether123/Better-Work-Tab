@@ -64,7 +64,6 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
             DrawDraftMiniList(queue.Side, card);
             DrawGeneratedDraftPanel(queue.Main, card);
-            window.TutorialRects[RuleBuilder2TutorialStep.RuleDeck] = SuggestionsHintRect(queue.Main);
         }
 
         internal void DrawDraftMiniList(Rect rect, RuleBuilder2Card selected)
@@ -202,11 +201,5 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             DrawFittedLabel(new Rect(rect.x + labelWidth + 14f, rect.y + 3f, Mathf.Max(1f, rect.width - labelWidth - 20f), 24f), value);
         }
 
-        private static Rect SuggestionsHintRect(Rect rect)
-        {
-            float width = Mathf.Min(430f, Mathf.Max(300f, rect.width - 48f));
-            float height = 170f;
-            return new Rect(rect.center.x - width / 2f, rect.y + 118f, width, height);
-        }
     }
 }

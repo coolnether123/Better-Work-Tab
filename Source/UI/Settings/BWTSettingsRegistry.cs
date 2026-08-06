@@ -2426,45 +2426,21 @@ namespace Better_Work_Tab.UI.Settings
                 SortOrder = 406
             });
 
-            Register(new SettingDefinition
-            {
-                Id = RuleBuilder2Tutorial,
-                ParentId = RuleBuilder2Use,
-                FieldName = nameof(BetterWorkTabSettings.showRuleBuilder2Tutorial),
-                Label = "Show Rule Builder help",
-                Tooltip = "Show the introductory Rule Builder card and one-time suggestions hint.",
-                Type = SettingType.Bool,
-                DefaultValue = DefaultSettings.showRuleBuilder2Tutorial,
-                ShowInSimpleView = false,
-                ShowInAdvancedView = true,
-                SortOrder = 407,
-                OnChanged = settingsObj =>
-                {
-                    if (settingsObj is BetterWorkTabSettings settings && settings.showRuleBuilder2Tutorial)
-                    {
-                        settings.ruleBuilder2TutorialStep = 0;
-                    }
-                }
-            });
-
+            // No "show help" toggle here on purpose. Better Work Tab's help is
+            // now RimWorld concepts, and RimWorld already has the switch for
+            // that -- the learning helper. A second toggle that could disagree
+            // with it would only be a way to get the two out of step.
             Register(new SettingDefinition
             {
                 Id = RuleBuilder2TutorialReset,
                 ParentId = RuleBuilder2Use,
-                Label = "Reset Rule Builder help",
-                Tooltip = "Show the Rule Builder introduction again the next time the builder opens.",
+                Label = "Show Better Work Tab help again",
+                Tooltip = "Puts Better Work Tab's entries back in the learning helper, even if you have already read them.",
                 Type = SettingType.Button,
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
                 SortOrder = 408,
-                OnChanged = settingsObj =>
-                {
-                    if (settingsObj is BetterWorkTabSettings settings)
-                    {
-                        settings.showRuleBuilder2Tutorial = true;
-                        settings.ruleBuilder2TutorialStep = 0;
-                    }
-                }
+                OnChanged = _ => Features.Tutorial.BWTConcepts.ReplayAll()
             });
 
             Register(new SettingDefinition

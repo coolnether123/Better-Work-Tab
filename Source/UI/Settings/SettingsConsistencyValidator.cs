@@ -33,7 +33,6 @@ namespace Better_Work_Tab.UI.Settings
             nameof(BetterWorkTabSettings.activeTutorialLessonId),
             nameof(BetterWorkTabSettings.tutorialLessonPhase),
             nameof(BetterWorkTabSettings.completedTutorialLessonIds),
-            nameof(BetterWorkTabSettings.ruleBuilder2TutorialStep),
             nameof(BetterWorkTabSettings.bwtPlayerIdentifier),
             nameof(BetterWorkTabSettings.debugPrintLayout),
             nameof(BetterWorkTabSettings.workTabMaxHeight),

@@ -15,20 +15,17 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
         private readonly Window_RuleBuilder2 window;
         private readonly RuleBuilder2FlowController flow;
         private readonly RuleBuilder2Layout layout;
-        private readonly RuleBuilder2TutorialController tutorial;
         private string conditionSearch = "";
         private Vector2 activeConditionsScroll;
 
         internal RuleBuilder2ConditionsView(
             Window_RuleBuilder2 window,
             RuleBuilder2FlowController flow,
-            RuleBuilder2Layout layout,
-            RuleBuilder2TutorialController tutorial)
+            RuleBuilder2Layout layout)
         {
             this.window = window;
             this.flow = flow;
             this.layout = layout;
-            this.tutorial = tutorial;
         }
 
         internal void DrawConditionsSection(Rect rect, RuleBuilder2Card card)
@@ -124,7 +121,6 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                     {
                         RuleBuilder2Condition condition = local.Create();
                         card.Conditions.Conditions.Add(condition);
-                        tutorial.ObserveConditionAdded();
                         flow.RefreshPreview();
                     }));
                 }
@@ -206,7 +202,6 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                     {
                         RuleBuilder2Condition condition = def.Create();
                         card.Conditions.Conditions.Add(condition);
-                        tutorial.ObserveConditionAdded();
                     }
 
                     if (!def.Tooltip.NullOrEmpty())

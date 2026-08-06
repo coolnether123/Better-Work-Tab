@@ -164,6 +164,7 @@
     <Compile Include="Features\TimePriority\TimePriorityTarget.cs" />
     <Compile Include="Features\TimePriority\TimePriorityTargetKind.cs" />
     <Compile Include="Features\Tutorial\BWTBetaFeedbackButton.cs" />
+    <Compile Include="Features\Tutorial\BWTConcepts.cs" />
     <Compile Include="Features\Tutorial\BWTTutorialAnchor.cs" />
     <Compile Include="Features\Tutorial\BWTTutorialSelector.cs" />
     <Compile Include="Features\Tutorial\BWTTutorialStrip.cs" />
@@ -428,7 +429,6 @@
     <Compile Include="UI\RuleBuilder\Widgets\WorkTypeCard.cs" />
     <Compile Include="UI\RuleBuilderV2\RuleBuilder2WorkTabBridge.cs" />
     <Compile Include="UI\RuleBuilderV2\RuleBuilder2Layout.cs" />
-    <Compile Include="UI\RuleBuilderV2\RuleBuilder2TutorialController.cs" />
     <Compile Include="UI\RuleBuilderV2\RuleBuilder2UiUtility.cs" />
     <Compile Include="UI\RuleBuilderV2\RuleBuilder2FlowController.cs" />
     <Compile Include="UI\RuleBuilderV2\RuleBuilder2DashboardView.cs" />

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+
+  <!--=========== Better Work Tab's help, taught through RimWorld's own learning
+       readout when the relevant window opens.
+
+       Written to vanilla's shape deliberately: one or two short beats separated
+       by a blank line, the key noun in capitals, and the action last. These sit
+       in the same box as CameraDolly and Stockpiles, so anything longer or
+       chattier than those reads as a different mod talking over the game.
+
+       needsOpportunity keeps them out of the readout until something actually
+       registers one, so a player who never opens the Rule Builder is never
+       taught about rules. ============================================-->
+
+  <ConceptDef Abstract="True" Name="BWT_OpportunityConceptBase">
+    <priority>50</priority>
+    <needsOpportunity>True</needsOpportunity>
+  </ConceptDef>
+
+  <ConceptDef ParentName="BWT_OpportunityConceptBase">
+    <defName>BWT_WorkRules</defName>
+    <label>Work rules</label>
+    <helpText>A RULE sets one Work type's priority for every colonist it matches, including ones who arrive later.\n\nNothing changes until you press APPLY.</helpText>
+  </ConceptDef>
+
+  <ConceptDef ParentName="BWT_OpportunityConceptBase">
+    <defName>BWT_SpecificJobs</defName>
+    <label>Specific jobs</label>
+    <helpText>Every Work type is made of smaller jobs. Ctrl-click a Work type's header to set priorities for one SPECIFIC JOB instead of the whole thing.</helpText>
+  </ConceptDef>
+
+  <ConceptDef ParentName="BWT_OpportunityConceptBase">
+    <defName>BWT_RuleSuggestions</defName>
+    <label>Suggested rules</label>
+    <helpText>These suggestions are read from your current Work tab. Keep, edit, or skip each one.\n\nOnly the ones you KEEP are saved.</helpText>
+  </ConceptDef>
+
+</Defs>

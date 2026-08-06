@@ -29,7 +29,6 @@ namespace Better_Work_Tab.UI.Settings
         public const string AutoassignViewMode = "autoassign.viewMode";
         public const string AutoassignVisual = "autoassign.visual";
         public const string RuleBuilder2Use = "autoassign.ruleBuilder2.use";
-        public const string RuleBuilder2Tutorial = "autoassign.ruleBuilder2.tutorial";
         public const string RuleBuilder2TutorialReset = "autoassign.ruleBuilder2.tutorialReset";
         public const string RuleBuilder2Highlights = "autoassign.ruleBuilder2.highlights";
         public const string RuleBuilder2Animations = "autoassign.ruleBuilder2.animations";

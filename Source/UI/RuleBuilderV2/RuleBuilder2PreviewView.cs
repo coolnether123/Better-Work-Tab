@@ -16,8 +16,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
         internal RuleBuilder2PreviewView(
             Window_RuleBuilder2 window,
             RuleBuilder2FlowController flow,
-            RuleBuilder2Layout layout,
-            RuleBuilder2TutorialController tutorial)
+            RuleBuilder2Layout layout)
         {
             this.window = window;
             this.flow = flow;

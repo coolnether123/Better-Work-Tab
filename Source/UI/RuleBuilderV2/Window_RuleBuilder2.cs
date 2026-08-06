@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Better_Work_Tab.Features.Rules.RuleBuilder2;
+using Better_Work_Tab.Features.Tutorial;
 using Better_Work_Tab.UI.RuleBuilder;
 using RimWorld;
 using Spine.UI.Animation;
@@ -20,8 +21,6 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
     public sealed class Window_RuleBuilder2 : Window
     {
         private readonly RuleBuilder2Layout layout = new RuleBuilder2Layout();
-        private readonly RuleBuilder2TutorialController tutorial = new RuleBuilder2TutorialController();
-        private readonly Dictionary<RuleBuilder2TutorialStep, Rect> tutorialRects = new Dictionary<RuleBuilder2TutorialStep, Rect>();
         private readonly RuleBuilder2Ruleset seededRuleset;
         private readonly bool previewOnOpen;
         private readonly bool persistRuleset = true;
@@ -47,7 +46,6 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
         private bool hasWorkTabDockReferenceRect;
         private Rect workTabDockReferenceRect;
 
-        internal Dictionary<RuleBuilder2TutorialStep, Rect> TutorialRects => tutorialRects;
         internal RuleBuilder2Surface ActiveSurface => activeSurface;
         internal RuleBuilder2EditorView EditorView => editorView;
 
@@ -199,11 +197,11 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
         {
             base.PreOpen();
             RuleBuilderGateway.EnsureRuleBuilder2ServicesRegistered();
-            flowController = new RuleBuilder2FlowController(seededRuleset, previewOnOpen, persistRuleset, tutorial);
+            flowController = new RuleBuilder2FlowController(seededRuleset, previewOnOpen, persistRuleset);
             targetPickerView = new RuleBuilder2TargetPickerView(this, flowController, layout);
-            conditionsView = new RuleBuilder2ConditionsView(this, flowController, layout, tutorial);
-            actionScheduleView = new RuleBuilder2ActionScheduleView(this, flowController, layout, tutorial);
-            previewView = new RuleBuilder2PreviewView(this, flowController, layout, tutorial);
+            conditionsView = new RuleBuilder2ConditionsView(this, flowController, layout);
+            actionScheduleView = new RuleBuilder2ActionScheduleView(this, flowController, layout);
+            previewView = new RuleBuilder2PreviewView(this, flowController, layout);
             editorView = new RuleBuilder2EditorView(
                 this,
                 flowController,
@@ -218,7 +216,11 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             flowController.PreOpen();
             targetPickerView.ExpandTargetParentIfSpecificJob(flowController.ActiveCard?.Target);
             RuleBuilder2WorkTabBridge.Register(this);
-            tutorial.ResetOverlayAnimation();
+
+            // Window by window, not step by step: opening the builder is the
+            // opportunity to say what a rule is. RimWorld's tutor decides
+            // whether to actually show it.
+            BWTConcepts.TeachWorkRules();
             if (flowController.PreviewOnOpen)
             {
                 activeSurface = RuleBuilder2Surface.Main;
@@ -246,13 +248,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             actionScheduleView.ClearSchedulePaintOnMouseUp();
             UpdateWindowOpenAnimation();
             UpdateSurfaceAnimation();
-            EnsureTutorialStepVisible();
-            if (Event.current.type != EventType.Repaint && tutorial.TryHandleInput(inRect, tutorialRects, Event.current))
-            {
-                return;
-            }
 
-            tutorialRects.Clear();
             float openEase = SpineEasing.SmoothStep01(windowOpenProgress);
             float slide = 12f * (1f - openEase);
             Rect animatedRect = new Rect(inRect.x, inRect.y + slide, inRect.width, Mathf.Max(0f, inRect.height - slide));
@@ -263,16 +259,6 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             DrawHeader(windowRects.Header);
             DrawSurfaceTransition(windowRects.Body);
             GUI.color = previousColor;
-
-            tutorial.Draw(inRect, tutorialRects);
-        }
-
-        private void EnsureTutorialStepVisible()
-        {
-            if (!tutorial.IsActive)
-            {
-                return;
-            }
         }
 
         private void EnsureMinimumWindowSize()
@@ -563,7 +549,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
         internal void ShowGeneratedReviewSurface()
         {
-            tutorial.RequestSuggestionsHint();
+            BWTConcepts.TeachRuleSuggestions();
             SetSurface(RuleBuilder2Surface.GeneratedReview);
         }
 

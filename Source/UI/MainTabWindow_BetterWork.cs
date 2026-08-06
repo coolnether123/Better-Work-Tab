@@ -229,6 +229,12 @@ namespace Better_Work_Tab.UI
             {
                 WorkPrioritySystem.SetManualPriorities(true);
             }
+
+            // Sub-work is the one thing here a player cannot find by looking:
+            // the header gives no sign that a modifier-click opens it. Offered
+            // as good-to-know, so RimWorld holds it back while its own readout
+            // is busy with something more urgent.
+            Features.Tutorial.BWTConcepts.TeachSpecificJobs();
         }
 
         /// <summary>
