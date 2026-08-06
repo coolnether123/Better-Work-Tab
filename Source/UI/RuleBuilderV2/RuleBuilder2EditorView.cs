@@ -242,11 +242,20 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             return ClampWrappedHeight(sentence, width, RuleHeaderMaxSentenceLines, out clamped);
         }
 
+        /// <summary>
+        /// Tall enough for the conditions there are, and no taller.
+        ///
+        /// It used to reserve two rows whether or not there were any, so an
+        /// empty block was 176px of nothing under the word "None" -- and it
+        /// counted the title but not the padding the list contracts by, leaving
+        /// the viewport 12px short of the rows it had just made room for. Two
+        /// conditions scrolled inside a box built for two conditions.
+        /// </summary>
         private float GetConditionsHeight(RuleBuilder2Card card)
         {
             int count = card.Conditions?.Conditions?.Count ?? 0;
-            float visibleRows = Mathf.Clamp(Mathf.Max(2, count), 2, 5);
-            return 48f + visibleRows * layout.Metrics.ConditionRowStride;
+            float visibleRows = Mathf.Clamp(count, 1, layout.Metrics.ConditionsMaxVisibleRows);
+            return layout.Metrics.ConditionsChromeHeight + visibleRows * layout.Metrics.ConditionRowStride;
         }
 
         private float GetMapCheckHeight(RuleBuilder2Card card)

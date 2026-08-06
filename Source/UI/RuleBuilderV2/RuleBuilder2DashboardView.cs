@@ -284,7 +284,12 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                     if (pendingRuleDrag != null &&
                         ruleClickGate.RegisterDrag(pendingRuleDrag, evt.mousePosition, RuleDragThreshold))
                     {
-                        int sourceIndex = cards.IndexOf(pendingRuleDrag);
+                        // Only the drag is gated. Selecting a rule happens on
+                        // mouse-up in this same handler, so switching reordering
+                        // off must not take the whole handler out.
+                        int sourceIndex = (BetterWorkTabMod.Settings?.enableDragDropReordering ?? true)
+                            ? cards.IndexOf(pendingRuleDrag)
+                            : -1;
                         if (sourceIndex >= 0 &&
                             ruleDragController.TryStartDrag(pendingRuleDrag, sourceIndex, cards.Count, evt.mousePosition))
                         {

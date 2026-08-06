@@ -41,6 +41,22 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                 : new Rect(rect.x, rect.y, rect.width, minHeight);
         }
 
+        /// <summary>
+        /// The width one label needs at a given font.
+        ///
+        /// Exists so a row that reserves a column for a label can reserve the
+        /// width that label actually takes. A hard-coded column is a guess made
+        /// against English, and every other language pays for it.
+        /// </summary>
+        internal static float MeasureLabelWidth(string label, GameFont font = GameFont.Small)
+        {
+            GameFont previousFont = Text.Font;
+            Text.Font = font;
+            float width = Text.CalcSize(label ?? string.Empty).x;
+            Text.Font = previousFont;
+            return width;
+        }
+
         internal static void DrawFittedLabel(Rect rect, string label)
         {
             label = label ?? "";

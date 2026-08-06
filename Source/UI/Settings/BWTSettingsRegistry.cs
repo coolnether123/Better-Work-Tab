@@ -559,8 +559,8 @@ namespace Better_Work_Tab.UI.Settings
             {
                 Id = FeaturesDragdrop,
                 FieldName = "enableDragDropReordering",
-                Label = "Reorder rows and columns",
-                Tooltip = "Drag pawn rows and Work columns into a new order. Turning this off keeps the current order but prevents further dragging.",
+                Label = "Reorder by dragging",
+                Tooltip = "Drag pawn rows, Work columns, rules, and a rule's conditions into a new order. Turning this off keeps the current order, and puts arrow buttons on rule conditions instead.",
                 SearchKeywords = ReorderingSearchKeywords,
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.enableDragDropReordering,

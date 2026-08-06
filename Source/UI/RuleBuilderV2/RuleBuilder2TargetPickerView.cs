@@ -35,14 +35,25 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             Rect outerRect = rect;
             GUI.BeginGroup(outerRect);
             rect = new Rect(0f, 0f, outerRect.width, outerRect.height);
-            RuleBuilder2TargetSectionRects target = layout.TargetSection(rect, card.Target.HasTarget);
+            // Two different things share this title. While a target is being
+            // chosen the block is a section like Conditions and Action, and
+            // DrawSectionChrome below sets it as one. Once a target is chosen
+            // the block loses its border and collapses to a single row, and the
+            // title becomes the label on a field -- so it is set at the size of
+            // the value beside it, and tells itself apart by colour instead.
+            // Measured either way, because a fixed column fits one language.
+            string blockTitle = T("BWT_RuleBuilder2_TargetBlockTitle");
+            RuleBuilder2TargetSectionRects target = layout.TargetSection(
+                rect,
+                card.Target.HasTarget,
+                MeasureLabelWidth(blockTitle) + 8f);
 
             if (card.Target.HasTarget)
             {
                 Widgets.DrawBoxSolid(rect, new Color(0.13f, 0.13f, 0.13f, 0.96f));
                 Rect title = new Rect(target.Inner.x, target.Inner.y + 4f, Mathf.Max(1f, target.Summary.x - target.Inner.x - 6f), 24f);
                 GUI.color = new Color(0.9f, 0.82f, 0.55f);
-                DrawFittedLabel(title, T("BWT_RuleBuilder2_TargetBlockTitle"));
+                DrawFittedLabel(title, blockTitle);
                 GUI.color = Color.white;
 
                 string label = BuildTargetLabel(card.Target.ResolveWorkType(), card.Target.ResolveWorkGiver());
@@ -84,7 +95,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                 return;
             }
 
-            DrawSectionChrome(rect, T("BWT_RuleBuilder2_TargetBlockTitle"));
+            DrawSectionChrome(rect, blockTitle);
             string previousSearch = targetSearch ?? "";
             targetSearch = Widgets.TextField(target.Search, previousSearch);
             if (targetSearch != previousSearch)

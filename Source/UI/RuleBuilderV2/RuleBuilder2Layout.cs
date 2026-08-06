@@ -9,6 +9,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
     {
         internal float HeaderHeight = 40f;
         internal float HeaderBodyGap = 6f;
+        internal float CloseButtonClearance = 6f;
         internal float OuterPadding = 10f;
         internal float InnerPadding = 8f;
         internal float Gap = 8f;
@@ -20,8 +21,22 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
         internal float LeftPaneWidth = 300f;
         internal float RuleRowHeight = 60f;
         internal float RuleRowStride = 64f;
-        internal float ConditionRowHeight = 58f;
-        internal float ConditionRowStride = 64f;
+        // One line per condition. These were 58/64, because the label sat on one
+        // row and its editor on a second -- two rows each about 700px wide to
+        // hold a short phrase and a stepper. Side by side they fit in one.
+        internal float ConditionRowHeight = 32f;
+        internal float ConditionRowStride = 36f;
+
+        // The widest inline editor is a def button plus a stepper (150 + 8 +
+        // 110), so the column has to clear that or the stepper runs under the
+        // row buttons.
+        internal float ConditionEditorWidth = 280f;
+
+        // Chrome above the condition list, plus the padding DrawActiveConditions
+        // contracts by. Counting the title but not the padding is what made two
+        // conditions scroll inside a box sized for two conditions.
+        internal float ConditionsChromeHeight = 60f;
+        internal int ConditionsMaxVisibleRows = 6;
         internal float RuleNameHeight = 36f;
         internal float RuleSentenceHeight = 48f;
         internal float ConfirmHeight = 70f;
@@ -53,9 +68,22 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
         internal RuleBuilder2LayoutMetrics Metrics => metrics;
 
+        /// <summary>
+        /// RimWorld draws its close X inside the window's own margin, at
+        /// (width - 22, 4) to (width - 4, 22) in window coordinates. Window
+        /// contents begin at the margin, which is 18 -- so the button's bottom
+        /// four pixels hang into the content area's top-right corner. Most
+        /// windows never notice, because nothing of theirs is drawn up there.
+        /// This header is a filled menu section spanning the full width, so its
+        /// corner was being clipped by the X. Start below the button instead.
+        /// </summary>
         internal RuleBuilder2WindowRects Window(Rect rect)
         {
-            Rect header = new Rect(rect.x, rect.y, rect.width, metrics.HeaderHeight);
+            Rect header = new Rect(
+                rect.x,
+                rect.y + metrics.CloseButtonClearance,
+                rect.width,
+                metrics.HeaderHeight);
             Rect body = new Rect(
                 rect.x,
                 header.yMax + metrics.HeaderBodyGap,
@@ -79,7 +107,16 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
         internal RuleBuilder2MasterDetailRects MasterDetail(Rect rect)
         {
-            Rect inner = rect.ContractedBy(metrics.OuterPadding);
+            // Padded vertically only. The header bar is a menu section spanning
+            // the full content width, so insetting the panes horizontally as
+            // well left it overhanging them by ten pixels on each side -- read
+            // as a dead channel running the height of the window, worst on the
+            // left where nothing else fills it. The two are flush now.
+            Rect inner = new Rect(
+                rect.x,
+                rect.y + metrics.OuterPadding,
+                rect.width,
+                Mathf.Max(0f, rect.height - metrics.OuterPadding * 2f));
             Rect left = new Rect(inner.x, inner.y, Mathf.Min(metrics.LeftPaneWidth, inner.width * 0.38f), inner.height);
             Rect right = new Rect(left.xMax + metrics.Gap, inner.y, Mathf.Max(0f, inner.xMax - left.xMax - metrics.Gap), inner.height);
             return new RuleBuilder2MasterDetailRects(inner, left, right);
@@ -247,14 +284,28 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             return new RuleBuilder2SentenceRects(setLabel, target, whenLabel, conditions, thenLabel, action, preview);
         }
 
-        internal RuleBuilder2TargetSectionRects TargetSection(Rect rect, bool hasTarget)
+        /// <summary>
+        /// <paramref name="titleWidth"/> is measured from the title the caller
+        /// is about to draw rather than fixed here, because this row is the one
+        /// place a block title shares its line with content. A constant column
+        /// fitted the English "What to set" and nothing else -- and not even
+        /// that, once the title was set in the same size as its sibling blocks.
+        /// It is clamped so a long translation cannot squeeze out the summary
+        /// it sits beside.
+        /// </summary>
+        internal RuleBuilder2TargetSectionRects TargetSection(Rect rect, bool hasTarget, float titleWidth = 58f)
         {
-            Rect inner = hasTarget ? rect.ContractedBy(8f) : rect.ContractedBy(metrics.OuterPadding);
+            // Both states inset by the same amount the sibling sections use, so
+            // this block's label starts on the same column as the Conditions,
+            // Action and Map check titles below it, and its Change button ends
+            // on the same column as their buttons. It used to inset by 8 while
+            // they inset by 10, which put every one of them two pixels apart.
+            Rect inner = rect.ContractedBy(metrics.OuterPadding);
             float y = inner.y + metrics.SectionTitleHeight;
             Rect searchOrSummary = new Rect(inner.x, y, inner.width, metrics.TextFieldHeight);
             if (hasTarget)
             {
-                float titleWidth = 58f;
+                titleWidth = Mathf.Clamp(titleWidth, 40f, Mathf.Max(40f, inner.width * 0.4f));
                 Rect change = new Rect(inner.xMax - 100f, inner.y + 1f, 100f, metrics.TextFieldHeight);
                 Rect summary = new Rect(inner.x + titleWidth + metrics.SmallGap, inner.y + 2f, Mathf.Max(0f, change.x - inner.x - titleWidth - metrics.SmallGap * 2f), 26f);
                 Rect hint = Rect.zero;
@@ -277,14 +328,40 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             return new RuleBuilder2ConditionsSectionRects(inner, search, next, active, picker);
         }
 
-        internal RuleBuilder2ConditionRowRects ConditionRow(Rect rect)
+        /// <summary>
+        /// One condition on one line: enable, what it tests, the value it tests
+        /// against, then the row's own buttons.
+        ///
+        /// <paramref name="showReorderButtons"/> is false while dragging is
+        /// available, because then the arrows are a second way to do a thing the
+        /// row already does, and they cost width the label wants. With dragging
+        /// switched off they come back, so the order is still changeable.
+        /// </summary>
+        internal RuleBuilder2ConditionRowRects ConditionRow(Rect rect, bool showReorderButtons, float requestedEditorWidth)
         {
-            Rect checkbox = new Rect(rect.x + 6f, rect.y + 7f, 24f, 24f);
-            Rect label = new Rect(rect.x + 34f, rect.y + 5f, Mathf.Max(1f, rect.width - 128f), 24f);
-            Rect editor = new Rect(rect.x + 34f, rect.y + 31f, Mathf.Max(1f, rect.width - 128f), 24f);
-            Rect up = new Rect(rect.xMax - 86f, rect.y + 6f, 24f, 24f);
-            Rect down = new Rect(rect.xMax - 58f, rect.y + 6f, 24f, 24f);
-            Rect remove = new Rect(rect.xMax - 30f, rect.y + 6f, 24f, 24f);
+            float controlTop = rect.y + (metrics.ConditionRowHeight - 24f) * 0.5f;
+            Rect checkbox = new Rect(rect.x + 6f, controlTop, 24f, 24f);
+            Rect remove = new Rect(rect.xMax - 30f, controlTop, 24f, 24f);
+            Rect up = showReorderButtons ? new Rect(rect.xMax - 86f, controlTop, 24f, 24f) : Rect.zero;
+            Rect down = showReorderButtons ? new Rect(rect.xMax - 58f, controlTop, 24f, 24f) : Rect.zero;
+
+            // Each condition asks for the width its own editor needs, so a
+            // Gender dropdown does not reserve the room a capacity threshold
+            // wants, and a condition with no value reserves none at all. The
+            // label takes whatever is left.
+            float buttonsWidth = showReorderButtons ? 92f : 36f;
+            float editorWidth = requestedEditorWidth <= 0f
+                ? 0f
+                : Mathf.Min(requestedEditorWidth, Mathf.Max(98f, rect.width * 0.45f));
+            float labelRight = rect.xMax - buttonsWidth - (editorWidth > 0f ? editorWidth + 8f : 0f);
+            Rect editor = editorWidth > 0f
+                ? new Rect(rect.xMax - buttonsWidth - editorWidth, controlTop, editorWidth, 24f)
+                : Rect.zero;
+            Rect label = new Rect(
+                rect.x + 34f,
+                controlTop,
+                Mathf.Max(1f, labelRight - rect.x - 34f),
+                24f);
             return new RuleBuilder2ConditionRowRects(checkbox, label, editor, up, down, remove);
         }
 

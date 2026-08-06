@@ -2,6 +2,8 @@ using System.Collections.Generic;
 using System.Linq;
 using Better_Work_Tab.Features.Rules.RuleBuilder2;
 using RimWorld;
+using Spine.DragDropApi;
+using Spine.DragDropApi.Util;
 using UnityEngine;
 using Verse;
 using Verse.Sound;
@@ -15,8 +17,14 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
         private readonly Window_RuleBuilder2 window;
         private readonly RuleBuilder2FlowController flow;
         private readonly RuleBuilder2Layout layout;
+        private readonly DragDropController<RuleBuilder2Condition> conditionDragController;
+        private readonly ClickOrDragGate<RuleBuilder2Condition> conditionClickGate = new ClickOrDragGate<RuleBuilder2Condition>();
         private string conditionSearch = "";
         private Vector2 activeConditionsScroll;
+        private Rect conditionListRect;
+        private List<RuleBuilder2Condition> currentConditions = new List<RuleBuilder2Condition>();
+        private RuleBuilder2Condition pendingConditionDrag;
+        private const float ConditionDragThreshold = 5f;
 
         internal RuleBuilder2ConditionsView(
             Window_RuleBuilder2 window,
@@ -26,7 +34,16 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             this.window = window;
             this.flow = flow;
             this.layout = layout;
+            conditionDragController = new DragDropController<RuleBuilder2Condition>(CalculateConditionTargetIndex);
         }
+
+        /// <summary>
+        /// Conditions are tested in order, so their order is part of the rule --
+        /// and Better Work Tab reorders lists by dragging them. This follows the
+        /// same switch as the rest of it rather than adding one of its own.
+        /// </summary>
+        private static bool DragReorderEnabled =>
+            BetterWorkTabMod.Settings?.enableDragDropReordering ?? true;
 
         internal void DrawConditionsSection(Rect rect, RuleBuilder2Card card)
         {
@@ -55,12 +72,14 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             if (conditions.Count == 0)
             {
                 GUI.color = Color.gray;
-                DrawSafeLabel(new Rect(rect.x + 8f, rect.y + 6f, rect.width - 16f, 50f), T("BWT_RuleBuilder2_NoConditions"));
+                DrawSafeLabel(new Rect(rect.x + 8f, rect.y + 6f, rect.width - 16f, 24f), T("BWT_RuleBuilder2_NoConditions"));
                 GUI.color = Color.white;
                 return;
             }
 
             Rect inner = rect.ContractedBy(6f);
+            conditionListRect = inner;
+            currentConditions = conditions;
             Rect view = new Rect(0f, 0f, inner.width - 16f, Mathf.Max(inner.height, conditions.Count * layout.Metrics.ConditionRowStride));
             Widgets.BeginScrollView(inner, ref activeConditionsScroll, view);
             float y = 0f;
@@ -72,32 +91,57 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                 y += layout.Metrics.ConditionRowStride;
             }
             Widgets.EndScrollView();
+
+            if (DragReorderEnabled)
+            {
+                HandleConditionListInput(inner, conditions);
+                DrawConditionDragOverlay(inner);
+            }
         }
 
         internal void DrawConditionRow(Rect rect, RuleBuilder2Card card, RuleBuilder2Condition condition, int index)
         {
-            RuleBuilder2ConditionRowRects row = layout.ConditionRow(rect);
+            bool showReorderButtons = !DragReorderEnabled;
+            float editorWidth = ConditionEditorWidth(condition.Kind);
+            RuleBuilder2ConditionRowRects row = layout.ConditionRow(rect, showReorderButtons, editorWidth);
+            bool dragging = conditionDragController.IsActive &&
+                            conditionDragController.CurrentSession?.DraggedItem == condition;
+
             Widgets.DrawBoxSolid(rect, condition.Enabled ? new Color(0.18f, 0.18f, 0.18f, 0.95f) : new Color(0.11f, 0.11f, 0.11f, 0.95f));
+            if (dragging)
+            {
+                Widgets.DrawBoxSolid(rect.ContractedBy(1f), new Color(0f, 0f, 0f, 0.28f));
+            }
+            if (Mouse.IsOver(rect))
+            {
+                Widgets.DrawHighlight(rect);
+            }
             Widgets.DrawBox(rect, 1);
 
             Widgets.Checkbox(row.Checkbox.position, ref condition.Enabled);
 
             string text = RuleBuilder2ConditionCatalog.GetConditionText(condition, card.Target.ResolveWorkType());
             DrawFittedLabel(row.Label, text);
-            DrawConditionInlineEditor(row.Editor, card, condition);
-
-            if (Widgets.ButtonText(row.Up, "^") && index > 0)
+            if (editorWidth > 0f)
             {
-                card.Conditions.Conditions.RemoveAt(index);
-                card.Conditions.Conditions.Insert(index - 1, condition);
-                flow.RefreshPreview();
+                DrawConditionInlineEditor(row.Editor, card, condition);
             }
 
-            if (Widgets.ButtonText(row.Down, "v") && index < card.Conditions.Conditions.Count - 1)
+            if (showReorderButtons)
             {
-                card.Conditions.Conditions.RemoveAt(index);
-                card.Conditions.Conditions.Insert(index + 1, condition);
-                flow.RefreshPreview();
+                if (Widgets.ButtonText(row.Up, "^") && index > 0)
+                {
+                    card.Conditions.Conditions.RemoveAt(index);
+                    card.Conditions.Conditions.Insert(index - 1, condition);
+                    flow.RefreshPreview();
+                }
+
+                if (Widgets.ButtonText(row.Down, "v") && index < card.Conditions.Conditions.Count - 1)
+                {
+                    card.Conditions.Conditions.RemoveAt(index);
+                    card.Conditions.Conditions.Insert(index + 1, condition);
+                    flow.RefreshPreview();
+                }
             }
 
             if (Widgets.ButtonText(row.Remove, "X"))
@@ -105,6 +149,143 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                 card.Conditions.Conditions.Remove(condition);
                 flow.RefreshPreview();
             }
+        }
+
+        private int CalculateConditionTargetIndex(Vector2 mousePos)
+        {
+            float biasedY = mousePos.y + (layout.Metrics.ConditionRowStride * 0.5f);
+            return ListDragCalculator.CalculateInsertionIndex(
+                currentConditions.Count,
+                biasedY,
+                conditionListRect.y,
+                activeConditionsScroll.y,
+                _ => layout.Metrics.ConditionRowStride);
+        }
+
+        /// <summary>
+        /// Starts a drag only once the pointer has actually travelled, so the
+        /// controls sharing the row -- the checkbox, the value editor, the
+        /// remove button -- still take ordinary clicks.
+        /// </summary>
+        private void HandleConditionListInput(Rect listRect, List<RuleBuilder2Condition> conditions)
+        {
+            Event evt = Event.current;
+            if (evt == null || conditions.Count == 0)
+            {
+                return;
+            }
+
+            if (conditionDragController.IsActive)
+            {
+                ListDragSession<RuleBuilder2Condition> session = conditionDragController.CurrentSession;
+                conditionDragController.UpdateDrag(evt.mousePosition);
+                conditionDragController.ApplyAutoScroll(
+                    ref activeConditionsScroll,
+                    evt.mousePosition,
+                    listRect,
+                    conditions.Count * layout.Metrics.ConditionRowStride,
+                    Time.deltaTime);
+
+                if (evt.type == EventType.MouseUp ||
+                    evt.rawType == EventType.MouseUp ||
+                    !UnityEngine.Input.GetMouseButton(0))
+                {
+                    conditionClickGate.ClearIfTracking(session?.DraggedItem);
+                    FinalizeConditionDrop(conditions);
+                    if (evt.type == EventType.MouseUp)
+                    {
+                        evt.Use();
+                    }
+                }
+
+                return;
+            }
+
+            if (evt.type == EventType.MouseDown &&
+                evt.button == 0 &&
+                listRect.Contains(evt.mousePosition))
+            {
+                pendingConditionDrag = GetConditionAtMouse(conditions, listRect, evt.mousePosition);
+                if (pendingConditionDrag != null)
+                {
+                    conditionClickGate.Begin(pendingConditionDrag, evt.button, evt.mousePosition);
+                }
+
+                return;
+            }
+
+            if (evt.type == EventType.MouseDrag &&
+                pendingConditionDrag != null &&
+                conditionClickGate.RegisterDrag(pendingConditionDrag, evt.mousePosition, ConditionDragThreshold))
+            {
+                int sourceIndex = conditions.IndexOf(pendingConditionDrag);
+                if (sourceIndex >= 0 &&
+                    conditionDragController.TryStartDrag(pendingConditionDrag, sourceIndex, conditions.Count, evt.mousePosition))
+                {
+                    conditionClickGate.MarkDragStarted(pendingConditionDrag);
+                }
+
+                evt.Use();
+                pendingConditionDrag = null;
+                return;
+            }
+
+            if (evt.type == EventType.MouseUp && pendingConditionDrag != null)
+            {
+                conditionClickGate.ClearIfTracking(pendingConditionDrag);
+                pendingConditionDrag = null;
+            }
+        }
+
+        private RuleBuilder2Condition GetConditionAtMouse(
+            List<RuleBuilder2Condition> conditions,
+            Rect listRect,
+            Vector2 mousePosition)
+        {
+            float localY = mousePosition.y - listRect.y + activeConditionsScroll.y;
+            int index = Mathf.FloorToInt(localY / layout.Metrics.ConditionRowStride);
+            return index >= 0 && index < conditions.Count ? conditions[index] : null;
+        }
+
+        private void DrawConditionDragOverlay(Rect listRect)
+        {
+            if (!conditionDragController.IsActive)
+            {
+                return;
+            }
+
+            ListDragSession<RuleBuilder2Condition> session = conditionDragController.CurrentSession;
+            if (session == null)
+            {
+                return;
+            }
+
+            float lineY = ListDragVisuals.GetInsertionLineY(
+                session.TargetIndex,
+                Enumerable.Repeat(layout.Metrics.ConditionRowStride, currentConditions.Count).ToList(),
+                listRect.y,
+                activeConditionsScroll.y);
+            if (lineY >= listRect.y && lineY <= listRect.yMax)
+            {
+                ListDragVisuals.DrawInsertionLine(listRect.x, lineY, listRect.width);
+            }
+        }
+
+        /// <summary>
+        /// FinalizeDrag reorders the list it is handed, and that list is the
+        /// card's own <see cref="RuleBuilder2ConditionGroup.Conditions"/>, so the
+        /// rule is already in its new order by the time this returns. Only the
+        /// preview needs telling.
+        /// </summary>
+        private void FinalizeConditionDrop(List<RuleBuilder2Condition> conditions)
+        {
+            if (conditionDragController.FinalizeDrag(conditions) != DragEndReason.Success)
+            {
+                return;
+            }
+
+            flow.RefreshPreview();
+            SoundDefOf.Tick_High.PlayOneShotOnCamera();
         }
 
         internal void ShowAddConditionMenu(RuleBuilder2Card card)
@@ -127,6 +308,45 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             }
 
             Find.WindowStack.Add(new FloatMenu(options));
+        }
+
+        /// <summary>
+        /// How much room one condition's value editor needs, or zero when it has
+        /// no value to edit.
+        ///
+        /// Kept beside <see cref="DrawConditionInlineEditor"/> deliberately: the
+        /// numbers here are the widths that method lays out, and if the two ever
+        /// disagree a stepper runs under the row buttons. Zero matters most --
+        /// "has the highest relevant skill", "is naturally always active" and
+        /// "has a child on the map" take no parameter, and were being given a
+        /// priority stepper by the fall-through case. It did nothing, since
+        /// NormalizeCondition ignores those kinds, but it claimed a third of the
+        /// row and told the player a number mattered when none did.
+        /// </summary>
+        private static float ConditionEditorWidth(RuleBuilder2ConditionKind kind)
+        {
+            switch (kind)
+            {
+                case RuleBuilder2ConditionKind.CapacityMinimum:
+                    return 268f;
+                case RuleBuilder2ConditionKind.SkillMinimum:
+                case RuleBuilder2ConditionKind.SkillMaximum:
+                case RuleBuilder2ConditionKind.PassionAtLeast:
+                    return 216f;
+                case RuleBuilder2ConditionKind.Trait:
+                case RuleBuilder2ConditionKind.Xenotype:
+                    return 180f;
+                case RuleBuilder2ConditionKind.CurrentAssignedWork:
+                    return 170f;
+                case RuleBuilder2ConditionKind.Gender:
+                    return 110f;
+                case RuleBuilder2ConditionKind.ExistingPriorityAtLeast:
+                case RuleBuilder2ConditionKind.ExistingPriorityEquals:
+                case RuleBuilder2ConditionKind.TopWorkTypesBySkill:
+                    return 98f;
+                default:
+                    return 0f;
+            }
         }
 
         internal void DrawConditionInlineEditor(Rect rect, RuleBuilder2Card card, RuleBuilder2Condition condition)
@@ -174,9 +394,22 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                 case RuleBuilder2ConditionKind.CurrentAssignedWork:
                     Widgets.CheckboxLabeled(new Rect(rect.x, rect.y, 170f, rect.height), T("BWT_RuleBuilder2_Assigned"), ref condition.BoolValue);
                     break;
-                default:
+                case RuleBuilder2ConditionKind.TopWorkTypesBySkill:
+                    // A count of Work types, not a priority. It shared the
+                    // priority stepper's range, so this offered 0 -- which
+                    // matches nobody -- and stopped at whatever the priority
+                    // maximum happened to be.
+                    DrawIntStepper(new Rect(rect.x, rect.y, 98f, rect.height), ref condition.IntValue, 1, 20);
+                    break;
+                case RuleBuilder2ConditionKind.ExistingPriorityAtLeast:
+                case RuleBuilder2ConditionKind.ExistingPriorityEquals:
                     DrawIntStepper(new Rect(rect.x, rect.y, 98f, rect.height), ref condition.IntValue, 0, RuleBuilder2PriorityRange.Max);
                     RuleBuilder2PriorityRange.NormalizeCondition(condition);
+                    break;
+                default:
+                    // Nothing to edit. Listed explicitly rather than falling
+                    // through to a stepper, so a new parameterless condition
+                    // gets no editor by default instead of a meaningless one.
                     break;
             }
         }
