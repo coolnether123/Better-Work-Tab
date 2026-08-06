@@ -15,6 +15,8 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
     /// </summary>
     internal static class RuleBuilder2RulesetStore
     {
+        private const string FirstOpenSettingId = "bwt.ruleBuilder2.firstOpen.v1";
+
         internal static List<RuleBuilder2Ruleset> Saved(BetterWorkTabSettings settings)
         {
             Ensure(settings);
@@ -139,7 +141,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 ruleset.DataVersion = 3;
             }
 
-            SeedBlankRulesetIfNeeded(settings);
+            SeedFromPreferredClassicRulesetIfNeeded(settings);
 
             RuleBuilder2Ruleset selected = ResolveSelected(settings);
             SetCurrent(settings, selected, writeSettings: false);
@@ -180,22 +182,82 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
         }
 
         /// <summary>
-        /// Gives Rule Builder 2.0 an empty ruleset to open into the first time it
-        /// is used.
-        ///
-        /// It used to open a copy of the classic default ruleset instead, which
-        /// meant a player's first sight of the builder was somebody else's rules
-        /// already filled in, and their first job was working out what those
-        /// rules were and whether to delete them. A blank ruleset with one open
-        /// card starts where they actually want to start.
-        ///
-        /// The classic rulesets are untouched and still available to copy from
-        /// deliberately; this only decides what is in front of you on arrival.
+        /// Brings the BWT default across into Rule Builder 2.0 so it exists and
+        /// can be selected, applied and copied like any other ruleset.
         /// </summary>
-        private static void SeedBlankRulesetIfNeeded(BetterWorkTabSettings settings)
+        private static void SeedFromPreferredClassicRulesetIfNeeded(BetterWorkTabSettings settings)
         {
             bool useRuleBuilder2 = settings.useRuleBuilder2;
             if (!useRuleBuilder2 || settings.SavedRuleBuilder2Rulesets.Count > 0)
+            {
+                return;
+            }
+
+            WorkAssignmentRuleset classicRuleset = ResolveClassicSeedSource(settings);
+            if (classicRuleset == null)
+            {
+                return;
+            }
+
+            RuleBuilder2Ruleset seeded = RuleBuilder2ClassicRulesetTranslator.FromClassic(
+                classicRuleset,
+                deterministicStableIds: true);
+            seeded.Source = RuleBuilder2SourceType.DefaultCopy;
+            settings.SavedRuleBuilder2Rulesets.Add(seeded);
+        }
+
+        private static WorkAssignmentRuleset ResolveClassicSeedSource(BetterWorkTabSettings settings)
+        {
+            if (settings?.CurrentRuleset != null)
+            {
+                return settings.CurrentRuleset;
+            }
+
+            if (settings?.SavedRulesets == null || settings.SavedRulesets.Count == 0)
+            {
+                return null;
+            }
+
+            if (!string.IsNullOrEmpty(settings.defaultAutoAssignRuleset))
+            {
+                WorkAssignmentRuleset namedDefault = settings.SavedRulesets.FirstOrDefault(ruleset =>
+                    string.Equals(ruleset?.Name, settings.defaultAutoAssignRuleset, StringComparison.OrdinalIgnoreCase));
+                if (namedDefault != null)
+                {
+                    return namedDefault;
+                }
+            }
+
+            return settings.SavedRulesets.FirstOrDefault(ruleset => ruleset?.IsDefault == true)
+                   ?? settings.SavedRulesets.FirstOrDefault(ruleset => ruleset != null);
+        }
+
+        /// <summary>
+        /// Selects a fresh blank ruleset the first time the builder is opened,
+        /// but only when what is selected is the untouched BWT default.
+        ///
+        /// The default is worth having: it is a working example and a starting
+        /// point to copy. It is a poor thing to be dropped into, though, because
+        /// a player's first sight of the builder is then somebody else's rules,
+        /// and their first task is working out what those rules do. So the
+        /// default stays in the list and a blank one is put in front of them.
+        ///
+        /// Only on the first open, and only when the default is still what is
+        /// selected: a player who has chosen a ruleset, or already edited the
+        /// default, is telling us what they want open.
+        /// </summary>
+        internal static void SelectBlankRulesetOnFirstOpen(BetterWorkTabSettings settings)
+        {
+            if (settings == null || settings.HasViewedSetting(FirstOpenSettingId))
+            {
+                return;
+            }
+
+            settings.RecordViewedSetting(FirstOpenSettingId);
+
+            Ensure(settings);
+            RuleBuilder2Ruleset selected = Current(settings);
+            if (selected == null || selected.Source != RuleBuilder2SourceType.DefaultCopy)
             {
                 return;
             }
@@ -208,6 +270,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
 
             blank.EnsureOpenBlankCard();
             settings.SavedRuleBuilder2Rulesets.Add(blank);
+            SetCurrent(settings, blank, writeSettings: true);
         }
 
         private static RuleBuilder2Ruleset ResolveSelected(BetterWorkTabSettings settings)

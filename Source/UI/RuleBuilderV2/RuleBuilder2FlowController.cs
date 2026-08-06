@@ -57,6 +57,13 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             }
             else
             {
+                // Only when the builder is opening on its own terms. A seeded
+                // ruleset means the caller already said what to show.
+                if (persistRuleset)
+                {
+                    RuleBuilder2RulesetStore.SelectBlankRulesetOnFirstOpen(BetterWorkTabMod.Settings);
+                }
+
                 Ruleset = RuleBuilder2RulesetStore.Current(BetterWorkTabMod.Settings)
                           ?? RuleBuilder2RulesetStore.Saved(BetterWorkTabMod.Settings).FirstOrDefault()
                           ?? CreateAndStoreBlankRuleset();
@@ -466,6 +473,21 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
         internal void RefreshPreview()
         {
             Preview = evaluator.Preview(Ruleset, ActiveCard);
+        }
+
+        /// <summary>
+        /// Runs a Map check because the player asked for one.
+        ///
+        /// Distinct from <see cref="RefreshPreview"/>, which also runs after
+        /// every edit to keep the panel honest. Only a deliberate request counts
+        /// as the player having tried the preview, so only this one tells the
+        /// tutorial.
+        /// </summary>
+        internal void RunPreview()
+        {
+            ShowPreview = true;
+            RefreshPreview();
+            tutorial.ObservePreview();
         }
 
         internal RuleBuilder2PreviewResult PreviewPawn(RuleBuilder2Card card, Pawn pawn, WorkTypeDef workType, WorkGiverDef workGiver)

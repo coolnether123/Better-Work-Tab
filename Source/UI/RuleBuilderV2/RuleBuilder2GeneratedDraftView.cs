@@ -151,9 +151,8 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             if (Widgets.ButtonText(previewButton, T("BWT_RuleBuilder2_RunPreview")))
             {
                 flow.EditGeneratedSuggestion(card);
-                flow.ShowPreview = true;
                 editorView.MapCheckExpanded = true;
-                flow.RefreshPreview();
+                flow.RunPreview();
                 window.ShowMainSurface();
             }
             TooltipHandler.TipRegion(previewButton, T("BWT_RuleBuilder2_RunPreview_Tooltip"));

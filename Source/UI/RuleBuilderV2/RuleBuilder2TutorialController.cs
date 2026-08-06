@@ -24,6 +24,20 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
         Complete
     }
 
+    /// <summary>
+    /// Walks a player through building their first rule.
+    ///
+    /// The walkthrough is observational: each card explains one part of the
+    /// builder and then waits for the player to actually do it, because the
+    /// builder is a tool you learn by using rather than by reading. Every step
+    /// that waits also offers Next, so a player who does not want to be led is
+    /// never stuck behind a card, and Skip ends the whole thing.
+    ///
+    /// Steps advance from the same call sites the real UI already used --
+    /// selecting a target, adding a condition, editing the action, previewing,
+    /// confirming -- so the tutorial follows what the player did rather than
+    /// maintaining a parallel idea of where they are.
+    /// </summary>
     internal sealed class RuleBuilder2TutorialController
     {
         private const string SuggestionsHintSettingId = "bwt.ruleBuilder2.suggestionsHint.v1";
@@ -31,20 +45,58 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
         private readonly TutorialOverlayStyle cardStyle = new TutorialOverlayStyle();
         private bool suggestionsHintRequested;
 
-        private enum HintKind
+        /// <summary>
+        /// The walkthrough in order. Steps left out of this list stay in the
+        /// enum because the chosen step is persisted as its numeric value, and
+        /// renumbering would silently move a saved player to a different step.
+        /// </summary>
+        private static readonly RuleBuilder2TutorialStep[] Walkthrough =
         {
-            None,
-            FirstOpen,
-            Suggestions
+            RuleBuilder2TutorialStep.Welcome,
+            RuleBuilder2TutorialStep.RuleDeck,
+            RuleBuilder2TutorialStep.Target,
+            RuleBuilder2TutorialStep.SubWorkTarget,
+            RuleBuilder2TutorialStep.Condition,
+            RuleBuilder2TutorialStep.Action,
+            RuleBuilder2TutorialStep.Schedule,
+            RuleBuilder2TutorialStep.Preview,
+            RuleBuilder2TutorialStep.Confirm,
+            RuleBuilder2TutorialStep.MatchedConditions,
+            RuleBuilder2TutorialStep.ReplaySettings
+        };
+
+        /// <summary>
+        /// The translation-key stem for each step. Written out rather than
+        /// derived from the enum name because several stems are shorter than the
+        /// step they belong to, and a mismatched key fails by rendering itself
+        /// on the card instead of throwing.
+        /// </summary>
+        private static string KeyStem(RuleBuilder2TutorialStep step)
+        {
+            switch (step)
+            {
+                case RuleBuilder2TutorialStep.Welcome: return "Welcome";
+                case RuleBuilder2TutorialStep.RuleDeck: return "Deck";
+                case RuleBuilder2TutorialStep.Target: return "Target";
+                case RuleBuilder2TutorialStep.SubWorkTarget: return "SubWork";
+                case RuleBuilder2TutorialStep.Condition: return "Condition";
+                case RuleBuilder2TutorialStep.Action: return "Action";
+                case RuleBuilder2TutorialStep.Schedule: return "Schedule";
+                case RuleBuilder2TutorialStep.Preview: return "Preview";
+                case RuleBuilder2TutorialStep.Confirm: return "Confirm";
+                case RuleBuilder2TutorialStep.MatchedConditions: return "Matched";
+                case RuleBuilder2TutorialStep.ReplaySettings: return "Replay";
+                default: return "Welcome";
+            }
         }
 
-        internal bool IsActive => GetActiveHint() != HintKind.None;
+        internal bool IsActive => IsWalkthroughActive || IsSuggestionsHintActive;
 
         internal RuleBuilder2TutorialStep ActiveStep =>
-            GetActiveHint() == HintKind.Suggestions
-                ? RuleBuilder2TutorialStep.RuleDeck
-                : GetFirstOpenActive()
-                    ? RuleBuilder2TutorialStep.Welcome
+            IsWalkthroughActive
+                ? CurrentStep
+                : IsSuggestionsHintActive
+                    ? RuleBuilder2TutorialStep.RuleDeck
                     : RuleBuilder2TutorialStep.Complete;
 
         internal void RequestSuggestionsHint()
@@ -57,15 +109,14 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
         internal bool TryHandleInput(Rect bounds, Dictionary<RuleBuilder2TutorialStep, Rect> focusRects, Event evt)
         {
-            HintKind hint = GetActiveHint();
-            if (hint == HintKind.None || evt == null)
+            if (!IsActive || evt == null)
             {
                 return false;
             }
 
-            Rect card = GetCardRect(bounds, focusRects, hint);
+            Rect card = GetCardRect(bounds, focusRects);
             bool overCard = card.Contains(evt.mousePosition);
-            if (overCard && bodyViewport.TryHandleScroll(GetBodyRect(card), GetBody(hint), evt))
+            if (overCard && bodyViewport.TryHandleScroll(GetBodyRect(card), GetBody(), evt))
             {
                 return true;
             }
@@ -73,7 +124,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             if (evt.type == EventType.KeyDown &&
                 (evt.keyCode == KeyCode.Return || evt.keyCode == KeyCode.KeypadEnter))
             {
-                Dismiss(hint);
+                Advance();
                 evt.Use();
                 return true;
             }
@@ -91,15 +142,19 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
             if (evt.type == EventType.MouseUp && evt.button == 0)
             {
-                if (TryGetButtonAt(card, hint, evt.mousePosition, out TutorialButton button))
+                if (TryGetButtonAt(card, evt.mousePosition, out TutorialButton button))
                 {
-                    if (button == TutorialButton.Settings)
+                    switch (button)
                     {
-                        OpenSettings();
-                    }
-                    else
-                    {
-                        Dismiss(hint);
+                        case TutorialButton.Settings:
+                            OpenSettings();
+                            break;
+                        case TutorialButton.Skip:
+                            Finish();
+                            break;
+                        default:
+                            Advance();
+                            break;
                     }
                 }
 
@@ -112,15 +167,14 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
         internal void Draw(Rect bounds, Dictionary<RuleBuilder2TutorialStep, Rect> focusRects)
         {
-            HintKind hint = GetActiveHint();
-            if (hint == HintKind.None)
+            if (!IsActive)
             {
                 return;
             }
 
-            Rect card = GetCardRect(bounds, focusRects, hint);
+            Rect card = GetCardRect(bounds, focusRects);
             DrawDimOutside(card, bounds);
-            DrawCard(card, hint);
+            DrawCard(card);
 
             // No animated click demo on the card's own button.
             //
@@ -134,22 +188,36 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
         internal void ObserveTargetSelected(bool subWork)
         {
+            CompleteIfWaitingOn(RuleBuilder2TutorialStep.Target);
+
+            // Picking a specific job satisfies the specific-jobs step as well,
+            // whether the player reached it by following the previous card or by
+            // Ctrl-clicking straight past it. Leaving that card up to explain
+            // something they just did would read as the tutorial not watching.
+            if (subWork)
+            {
+                CompleteIfWaitingOn(RuleBuilder2TutorialStep.SubWorkTarget);
+            }
         }
 
         internal void ObserveConditionAdded()
         {
+            CompleteIfWaitingOn(RuleBuilder2TutorialStep.Condition);
         }
 
         internal void ObserveActionEdited()
         {
+            CompleteIfWaitingOn(RuleBuilder2TutorialStep.Action);
         }
 
         internal void ObservePreview()
         {
+            CompleteIfWaitingOn(RuleBuilder2TutorialStep.Preview);
         }
 
         internal void ObserveConfirmed()
         {
+            CompleteIfWaitingOn(RuleBuilder2TutorialStep.Confirm);
         }
 
         internal void Reset()
@@ -161,6 +229,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
             BetterWorkTabMod.Settings.showRuleBuilder2Tutorial = true;
             SetStep(RuleBuilder2TutorialStep.Welcome);
+            bodyViewport.Reset();
         }
 
         internal void ResetOverlayAnimation()
@@ -168,23 +237,66 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             bodyViewport.Reset();
         }
 
-        private HintKind GetActiveHint()
+        /// <summary>
+        /// Moves past a step the player has just carried out for real.
+        ///
+        /// Only advances when that step is the one on screen, so performing an
+        /// action the tutorial has already covered -- or has not reached yet --
+        /// does not skip anybody forward through cards they never read.
+        /// </summary>
+        private void CompleteIfWaitingOn(RuleBuilder2TutorialStep step)
         {
-            if (GetFirstOpenActive())
+            if (IsWalkthroughActive && CurrentStep == step)
             {
-                return HintKind.FirstOpen;
+                Advance();
+            }
+        }
+
+        private void Advance()
+        {
+            if (!IsWalkthroughActive)
+            {
+                DismissSuggestionsHint();
+                return;
             }
 
-            return suggestionsHintRequested && !HasSeenSuggestionsHint()
-                ? HintKind.Suggestions
-                : HintKind.None;
+            int index = System.Array.IndexOf(Walkthrough, CurrentStep);
+            if (index < 0 || index + 1 >= Walkthrough.Length)
+            {
+                Finish();
+                return;
+            }
+
+            SetStep(Walkthrough[index + 1]);
+            bodyViewport.Reset();
+            BetterWorkTabMod.Settings?.Write();
         }
 
-        private static bool GetFirstOpenActive()
+        private void Finish()
         {
-            return BetterWorkTabMod.Settings?.showRuleBuilder2Tutorial == true &&
-                   CurrentStep != RuleBuilder2TutorialStep.Complete;
+            SetStep(RuleBuilder2TutorialStep.Complete);
+            if (BetterWorkTabMod.Settings != null)
+            {
+                BetterWorkTabMod.Settings.showRuleBuilder2Tutorial = false;
+                BetterWorkTabMod.Settings.Write();
+            }
+
+            BWTGeneralTutorial.NotifyRuleBuilderTutorialCompleted();
         }
+
+        private void DismissSuggestionsHint()
+        {
+            BetterWorkTabMod.Settings?.RecordViewedSetting(SuggestionsHintSettingId);
+            suggestionsHintRequested = false;
+            BetterWorkTabMod.Settings?.Write();
+        }
+
+        private static bool IsWalkthroughActive =>
+            BetterWorkTabMod.Settings?.showRuleBuilder2Tutorial == true &&
+            CurrentStep != RuleBuilder2TutorialStep.Complete;
+
+        private bool IsSuggestionsHintActive =>
+            !IsWalkthroughActive && suggestionsHintRequested && !HasSeenSuggestionsHint();
 
         private static RuleBuilder2TutorialStep CurrentStep
         {
@@ -197,22 +309,20 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             }
         }
 
-        private static Rect GetCardRect(Rect bounds, Dictionary<RuleBuilder2TutorialStep, Rect> focusRects, HintKind hint)
+        private Rect GetCardRect(Rect bounds, Dictionary<RuleBuilder2TutorialStep, Rect> focusRects)
         {
-            RuleBuilder2TutorialStep key = hint == HintKind.Suggestions
-                ? RuleBuilder2TutorialStep.RuleDeck
-                : RuleBuilder2TutorialStep.Welcome;
+            RuleBuilder2TutorialStep key = ActiveStep;
             if (focusRects != null &&
                 focusRects.TryGetValue(key, out Rect card) &&
                 card.width > 0f &&
                 card.height > 0f)
             {
-                card.height = CalculateCardHeight(card.width, hint);
+                card.height = CalculateCardHeight(card.width);
                 return ClampCard(card, bounds.ContractedBy(12f));
             }
 
             float width = 430f;
-            float height = CalculateCardHeight(width, hint);
+            float height = CalculateCardHeight(width);
             Rect fallback = new Rect(
                 bounds.center.x - width / 2f,
                 bounds.center.y - height / 2f,
@@ -221,12 +331,12 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             return ClampCard(fallback, bounds.ContractedBy(12f));
         }
 
-        private static float CalculateCardHeight(float width, HintKind hint)
+        private float CalculateCardHeight(float width)
         {
             GameFont previousFont = Text.Font;
             Text.Font = GameFont.Small;
             float innerWidth = Mathf.Max(1f, width - 36f);
-            float bodyHeight = Mathf.Ceil(Text.CalcHeight(GetBody(hint), innerWidth));
+            float bodyHeight = Mathf.Ceil(Text.CalcHeight(GetBody(), innerWidth));
             Text.Font = previousFont;
             return 128f + Mathf.Max(40f, bodyHeight);
         }
@@ -250,7 +360,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             GUI.color = previous;
         }
 
-        private void DrawCard(Rect rect, HintKind hint)
+        private void DrawCard(Rect rect)
         {
             Color previousColor = GUI.color;
             TextAnchor previousAnchor = Text.Anchor;
@@ -262,25 +372,23 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             Text.Font = GameFont.Medium;
             Text.Anchor = TextAnchor.UpperLeft;
             GUI.color = Color.white;
-            Widgets.Label(new Rect(inner.x, inner.y, inner.width, 30f), GetTitle(hint));
+            Widgets.Label(new Rect(inner.x, inner.y, inner.width, 30f), GetTitle());
 
             Text.Font = GameFont.Small;
             GUI.color = Color.white;
-            bodyViewport.Draw(GetBodyRect(rect), GetBody(hint));
+            bodyViewport.Draw(GetBodyRect(rect), GetBody());
 
-            Rect dismiss = GetDismissButtonRect(rect, hint);
-            if (Widgets.ButtonText(dismiss, T("BWT_RuleBuilder2_Tutorial_GotIt")))
+            // Input is handled in TryHandleInput; drawing the buttons here keeps
+            // them painted and hit-testable on the same frame.
+            Widgets.ButtonText(GetAdvanceButtonRect(rect), GetAdvanceLabel());
+
+            if (IsWalkthroughActive)
             {
-                // Input is handled in TryHandleInput; this supports keyboard-driven repaint safety.
+                Widgets.ButtonText(GetSkipButtonRect(rect), T("BWT_RuleBuilder2_Tutorial_Skip"));
             }
-
-            if (hint == HintKind.FirstOpen)
+            else
             {
-                Rect settings = GetSettingsButtonRect(rect);
-                if (Widgets.ButtonText(settings, T("BWT_RuleBuilder2_Tutorial_Settings")))
-                {
-                    // Input is handled in TryHandleInput; this supports keyboard-driven repaint safety.
-                }
+                Widgets.ButtonText(GetSettingsButtonRect(rect), T("BWT_RuleBuilder2_Tutorial_Settings"));
             }
 
             GUI.color = previousColor;
@@ -288,15 +396,21 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             Text.Font = previousFont;
         }
 
-        private static bool TryGetButtonAt(Rect card, HintKind hint, Vector2 mousePosition, out TutorialButton button)
+        private bool TryGetButtonAt(Rect card, Vector2 mousePosition, out TutorialButton button)
         {
-            if (GetDismissButtonRect(card, hint).Contains(mousePosition))
+            if (GetAdvanceButtonRect(card).Contains(mousePosition))
             {
                 button = TutorialButton.Dismiss;
                 return true;
             }
 
-            if (hint == HintKind.FirstOpen && GetSettingsButtonRect(card).Contains(mousePosition))
+            if (IsWalkthroughActive && GetSkipButtonRect(card).Contains(mousePosition))
+            {
+                button = TutorialButton.Skip;
+                return true;
+            }
+
+            if (!IsWalkthroughActive && GetSettingsButtonRect(card).Contains(mousePosition))
             {
                 button = TutorialButton.Settings;
                 return true;
@@ -306,11 +420,17 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             return false;
         }
 
-        private static Rect GetDismissButtonRect(Rect card, HintKind hint)
+        private Rect GetAdvanceButtonRect(Rect card)
         {
             Rect inner = card.ContractedBy(18f);
-            float width = hint == HintKind.FirstOpen ? 130f : 110f;
+            float width = IsWalkthroughActive ? 110f : 130f;
             return new Rect(inner.xMax - width, inner.yMax - 32f, width, 32f);
+        }
+
+        private static Rect GetSkipButtonRect(Rect card)
+        {
+            Rect inner = card.ContractedBy(18f);
+            return new Rect(inner.x, inner.yMax - 32f, 140f, 32f);
         }
 
         private static Rect GetSettingsButtonRect(Rect card)
@@ -327,37 +447,30 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             return new Rect(inner.x, y, inner.width, Mathf.Max(1f, buttonTop - y - 10f));
         }
 
-        private static string GetTitle(HintKind hint)
+        private string GetAdvanceLabel()
         {
-            return hint == HintKind.Suggestions
-                ? T("BWT_RuleBuilder2_Tutorial_SuggestionsTitle")
-                : T("BWT_RuleBuilder2_Tutorial_WelcomeTitle");
-        }
-
-        private static string GetBody(HintKind hint)
-        {
-            return hint == HintKind.Suggestions
-                ? T("BWT_RuleBuilder2_Tutorial_SuggestionsBody")
-                : T("BWT_RuleBuilder2_Tutorial_WelcomeBody");
-        }
-
-        private void Dismiss(HintKind hint)
-        {
-            if (hint == HintKind.Suggestions)
+            if (!IsWalkthroughActive)
             {
-                BetterWorkTabMod.Settings?.RecordViewedSetting(SuggestionsHintSettingId);
-                suggestionsHintRequested = false;
-                BetterWorkTabMod.Settings?.Write();
-                return;
+                return T("BWT_RuleBuilder2_Tutorial_GotIt");
             }
 
-            SetStep(RuleBuilder2TutorialStep.Complete);
-            if (BetterWorkTabMod.Settings != null)
-            {
-                BetterWorkTabMod.Settings.showRuleBuilder2Tutorial = false;
-                BetterWorkTabMod.Settings.Write();
-            }
-            BWTGeneralTutorial.NotifyRuleBuilderTutorialCompleted();
+            return CurrentStep == Walkthrough[Walkthrough.Length - 1]
+                ? T("BWT_RuleBuilder2_Tutorial_Finish")
+                : T("BWT_RuleBuilder2_Tutorial_Next");
+        }
+
+        private string GetTitle()
+        {
+            return IsWalkthroughActive
+                ? T("BWT_RuleBuilder2_Tutorial_" + KeyStem(CurrentStep) + "Title")
+                : T("BWT_RuleBuilder2_Tutorial_SuggestionsTitle");
+        }
+
+        private string GetBody()
+        {
+            return IsWalkthroughActive
+                ? T("BWT_RuleBuilder2_Tutorial_" + KeyStem(CurrentStep) + "Body")
+                : T("BWT_RuleBuilder2_Tutorial_SuggestionsBody");
         }
 
         private static bool HasSeenSuggestionsHint()
@@ -393,6 +506,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
         {
             None,
             Dismiss,
+            Skip,
             Settings
         }
     }

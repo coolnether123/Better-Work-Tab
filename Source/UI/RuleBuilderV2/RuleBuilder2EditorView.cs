@@ -168,8 +168,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             if (Widgets.ButtonText(button, T("BWT_RuleBuilder2_RunPreview")))
             {
                 MapCheckExpanded = true;
-                flow.ShowPreview = true;
-                flow.RefreshPreview();
+                flow.RunPreview();
                 SoundDefOf.Tick_Low.PlayOneShotOnCamera();
             }
             TooltipHandler.TipRegion(button, T("BWT_RuleBuilder2_RunPreview_Tooltip"));
