@@ -121,11 +121,15 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             Rect card = GetCardRect(bounds, focusRects, hint);
             DrawDimOutside(card, bounds);
             DrawCard(card, hint);
-            BWTTutorialGestureDemo.DrawExternal(
-                "rule-builder-" + hint,
-                GetDismissButtonRect(card, hint),
-                BWTTutorialGestureDemo.GestureKind.LeftClick,
-                T("BWT_Tutorial_Gesture_Continue"));
+
+            // No animated click demo on the card's own button.
+            //
+            // A gesture demo earns its place when it is teaching a gesture the
+            // player would not guess -- Ctrl-clicking a priority cell, dragging a
+            // specific job between columns. Miming a left click on a button that
+            // is already lit up in front of them teaches nothing, and it kept
+            // drawing attention back to the thing they were about to click
+            // anyway.
         }
 
         internal void ObserveTargetSelected(bool subWork)

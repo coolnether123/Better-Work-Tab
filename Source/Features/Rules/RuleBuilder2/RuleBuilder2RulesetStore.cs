@@ -139,7 +139,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 ruleset.DataVersion = 3;
             }
 
-            SeedFromPreferredClassicRulesetIfNeeded(settings);
+            SeedBlankRulesetIfNeeded(settings);
 
             RuleBuilder2Ruleset selected = ResolveSelected(settings);
             SetCurrent(settings, selected, writeSettings: false);
@@ -179,7 +179,20 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
             card.Target.IgnoreIfMissing = classicRule?.Parameters?.IgnoreIfWorktypeNonexistent == true;
         }
 
-        private static void SeedFromPreferredClassicRulesetIfNeeded(BetterWorkTabSettings settings)
+        /// <summary>
+        /// Gives Rule Builder 2.0 an empty ruleset to open into the first time it
+        /// is used.
+        ///
+        /// It used to open a copy of the classic default ruleset instead, which
+        /// meant a player's first sight of the builder was somebody else's rules
+        /// already filled in, and their first job was working out what those
+        /// rules were and whether to delete them. A blank ruleset with one open
+        /// card starts where they actually want to start.
+        ///
+        /// The classic rulesets are untouched and still available to copy from
+        /// deliberately; this only decides what is in front of you on arrival.
+        /// </summary>
+        private static void SeedBlankRulesetIfNeeded(BetterWorkTabSettings settings)
         {
             bool useRuleBuilder2 = settings.useRuleBuilder2;
             if (!useRuleBuilder2 || settings.SavedRuleBuilder2Rulesets.Count > 0)
@@ -187,43 +200,14 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 return;
             }
 
-            WorkAssignmentRuleset classicRuleset = ResolveClassicSeedSource(settings);
-            if (classicRuleset == null)
+            var blank = new RuleBuilder2Ruleset
             {
-                return;
-            }
+                Name = "New ruleset",
+                Source = RuleBuilder2SourceType.Blank
+            };
 
-            RuleBuilder2Ruleset seeded = RuleBuilder2ClassicRulesetTranslator.FromClassic(
-                classicRuleset,
-                deterministicStableIds: true);
-            seeded.Source = RuleBuilder2SourceType.DefaultCopy;
-            settings.SavedRuleBuilder2Rulesets.Add(seeded);
-        }
-
-        private static WorkAssignmentRuleset ResolveClassicSeedSource(BetterWorkTabSettings settings)
-        {
-            if (settings?.CurrentRuleset != null)
-            {
-                return settings.CurrentRuleset;
-            }
-
-            if (settings?.SavedRulesets == null || settings.SavedRulesets.Count == 0)
-            {
-                return null;
-            }
-
-            if (!string.IsNullOrEmpty(settings.defaultAutoAssignRuleset))
-            {
-                WorkAssignmentRuleset namedDefault = settings.SavedRulesets.FirstOrDefault(ruleset =>
-                    string.Equals(ruleset?.Name, settings.defaultAutoAssignRuleset, StringComparison.OrdinalIgnoreCase));
-                if (namedDefault != null)
-                {
-                    return namedDefault;
-                }
-            }
-
-            return settings.SavedRulesets.FirstOrDefault(ruleset => ruleset?.IsDefault == true)
-                   ?? settings.SavedRulesets.FirstOrDefault(ruleset => ruleset != null);
+            blank.EnsureOpenBlankCard();
+            settings.SavedRuleBuilder2Rulesets.Add(blank);
         }
 
         private static RuleBuilder2Ruleset ResolveSelected(BetterWorkTabSettings settings)
