@@ -154,7 +154,7 @@
   <BWT_RuleBuilder2_RuleCard>Rule</BWT_RuleBuilder2_RuleCard>
   <BWT_RuleBuilder2_Unconfirmed>Editing. Save this rule to include it in the ruleset.</BWT_RuleBuilder2_Unconfirmed>
   <BWT_RuleBuilder2_EmptyEditorHint>Add a rule or click a Work tab header to start.</BWT_RuleBuilder2_EmptyEditorHint>
-  <BWT_RuleBuilder2_ReadOnlySentence>For {0}, {1}: {2}</BWT_RuleBuilder2_ReadOnlySentence>
+  <BWT_RuleBuilder2_ReadOnlySentence>{0}: {2} for {1}.</BWT_RuleBuilder2_ReadOnlySentence>
   <BWT_RuleBuilder2_SaveRule>Save rule</BWT_RuleBuilder2_SaveRule>
   <BWT_RuleBuilder2_DeleteRule>Delete rule</BWT_RuleBuilder2_DeleteRule>
   <BWT_RuleBuilder2_TargetBlockTitle>What to set</BWT_RuleBuilder2_TargetBlockTitle>
@@ -204,9 +204,9 @@
   <BWT_RuleBuilder2_StepPreview>4. Map check</BWT_RuleBuilder2_StepPreview>
   <BWT_RuleBuilder2_MapCheckBlockTitle>Map check</BWT_RuleBuilder2_MapCheckBlockTitle>
   <BWT_RuleBuilder2_RunPreview>Check map</BWT_RuleBuilder2_RunPreview>
-  <BWT_RuleBuilder2_RunPreview_Tooltip>Checks this map only. The saved rule can apply to future pawns too.</BWT_RuleBuilder2_RunPreview_Tooltip>
+  <BWT_RuleBuilder2_RunPreview_Tooltip>Checks this map only. The saved rule also applies to colonists who arrive later.</BWT_RuleBuilder2_RunPreview_Tooltip>
   <BWT_RuleBuilder2_PreviewHint>Not checked</BWT_RuleBuilder2_PreviewHint>
-  <BWT_RuleBuilder2_PreviewHint_Tooltip>Map check is optional and only reflects pawns currently loaded on this map.</BWT_RuleBuilder2_PreviewHint_Tooltip>
+  <BWT_RuleBuilder2_PreviewHint_Tooltip>Map check is optional, and shows only the colonists currently on this map.</BWT_RuleBuilder2_PreviewHint_Tooltip>
   <BWT_RuleBuilder2_ConfirmCard>Save + next</BWT_RuleBuilder2_ConfirmCard>
   <BWT_RuleBuilder2_NextConditions>Next: conditions</BWT_RuleBuilder2_NextConditions>
   <BWT_RuleBuilder2_NextConditions_Tooltip>Choose conditions for when this rule applies.</BWT_RuleBuilder2_NextConditions_Tooltip>
@@ -214,11 +214,13 @@
   <BWT_RuleBuilder2_NextPreview>Map check</BWT_RuleBuilder2_NextPreview>
   <BWT_RuleBuilder2_NextPreview_Tooltip>Optionally run a Map check before saving this rule.</BWT_RuleBuilder2_NextPreview_Tooltip>
   <BWT_RuleBuilder2_NoTargetSummary>Nothing selected yet</BWT_RuleBuilder2_NoTargetSummary>
-  <BWT_RuleBuilder2_NoConditionsSummary>No conditions yet</BWT_RuleBuilder2_NoConditionsSummary>
+  <BWT_RuleBuilder2_NoConditionsSummary>no conditions yet</BWT_RuleBuilder2_NoConditionsSummary>
   <BWT_RuleBuilder2_RuleSentenceNoTarget>Pick what to set, then choose conditions and an action.</BWT_RuleBuilder2_RuleSentenceNoTarget>
-  <BWT_RuleBuilder2_RuleSentenceEveryPawn>every pawn</BWT_RuleBuilder2_RuleSentenceEveryPawn>
-  <BWT_RuleBuilder2_RuleSentenceWhen>when {0}</BWT_RuleBuilder2_RuleSentenceWhen>
-  <BWT_RuleBuilder2_ConditionsSummary>{0} conditions, starting with {1}</BWT_RuleBuilder2_ConditionsSummary>
+  <BWT_RuleBuilder2_RuleSentenceEveryColonist>every colonist</BWT_RuleBuilder2_RuleSentenceEveryColonist>
+  <BWT_RuleBuilder2_RuleSentenceMatchingOne>colonists matching 1 condition</BWT_RuleBuilder2_RuleSentenceMatchingOne>
+  <BWT_RuleBuilder2_RuleSentenceMatchingMany>colonists matching {0} conditions</BWT_RuleBuilder2_RuleSentenceMatchingMany>
+  <BWT_RuleBuilder2_ConditionCountOne>1 condition</BWT_RuleBuilder2_ConditionCountOne>
+  <BWT_RuleBuilder2_ConditionCountMany>{0} conditions</BWT_RuleBuilder2_ConditionCountMany>
   <BWT_RuleBuilder2_NoActionSummary>No action selected</BWT_RuleBuilder2_NoActionSummary>
   <BWT_RuleBuilder2_PreviewNotRunSummary>Map not checked</BWT_RuleBuilder2_PreviewNotRunSummary>
   <BWT_RuleBuilder2_PreviewSummary>{0}/{1} match on map</BWT_RuleBuilder2_PreviewSummary>
@@ -239,8 +241,8 @@
   <BWT_RuleBuilder2_TokenTarget_Tooltip>Choose the Work or specific job this rule controls.</BWT_RuleBuilder2_TokenTarget_Tooltip>
   <BWT_RuleBuilder2_TokenConditions_Tooltip>Choose when this rule applies.</BWT_RuleBuilder2_TokenConditions_Tooltip>
   <BWT_RuleBuilder2_TokenAction_Tooltip>Choose what priority change this rule makes.</BWT_RuleBuilder2_TokenAction_Tooltip>
-  <BWT_RuleBuilder2_TokenPreview_Tooltip>Run a Map check for the current map. Rules are not limited to these pawns.</BWT_RuleBuilder2_TokenPreview_Tooltip>
-  <BWT_RuleBuilder2_PawnFallback>Pawn</BWT_RuleBuilder2_PawnFallback>
+  <BWT_RuleBuilder2_TokenPreview_Tooltip>Run a Map check for the current map. Rules are not limited to these colonists.</BWT_RuleBuilder2_TokenPreview_Tooltip>
+  <BWT_RuleBuilder2_PawnFallback>Colonist</BWT_RuleBuilder2_PawnFallback>
   <BWT_RuleBuilder2_WorkFallback>Work</BWT_RuleBuilder2_WorkFallback>
   <BWT_RuleBuilder2_SkillFallback>Skill</BWT_RuleBuilder2_SkillFallback>
   <BWT_RuleBuilder2_TargetFallback>Work type</BWT_RuleBuilder2_TargetFallback>
@@ -268,7 +270,7 @@
   <BWT_RuleBuilder2_ActionSetTimeSchedule>Set time schedule</BWT_RuleBuilder2_ActionSetTimeSchedule>
   <BWT_RuleBuilder2_ActionSetSubWorkSchedule>Set specific job schedule</BWT_RuleBuilder2_ActionSetSubWorkSchedule>
   <BWT_RuleBuilder2_ActionText_NoAction>No action</BWT_RuleBuilder2_ActionText_NoAction>
-  <BWT_RuleBuilder2_ActionText_Disable>Disable {0} for matching pawns</BWT_RuleBuilder2_ActionText_Disable>
+  <BWT_RuleBuilder2_ActionText_Disable>Disable {0} for matching colonists</BWT_RuleBuilder2_ActionText_Disable>
   <BWT_RuleBuilder2_ActionText_FollowGlobal>Follow global/default priority for {0}</BWT_RuleBuilder2_ActionText_FollowGlobal>
   <BWT_RuleBuilder2_ActionText_Schedule>Set {0} to scheduled priorities</BWT_RuleBuilder2_ActionText_Schedule>
   <BWT_RuleBuilder2_ActionText_SetPriority>Set {0} to priority {1}</BWT_RuleBuilder2_ActionText_SetPriority>
@@ -277,7 +279,7 @@
   <BWT_RuleBuilder2_ActionText_FollowGlobalShort>follow the default priority</BWT_RuleBuilder2_ActionText_FollowGlobalShort>
   <BWT_RuleBuilder2_ActionText_ScheduleShort>use the daily plan</BWT_RuleBuilder2_ActionText_ScheduleShort>
   <BWT_RuleBuilder2_ActionText_SetPriorityShort>set to priority {0}</BWT_RuleBuilder2_ActionText_SetPriorityShort>
-  <BWT_RuleBuilder2_WarningMissingPawnOrTarget>Missing pawn or Work type.</BWT_RuleBuilder2_WarningMissingPawnOrTarget>
+  <BWT_RuleBuilder2_WarningMissingPawnOrTarget>Missing colonist or Work type.</BWT_RuleBuilder2_WarningMissingPawnOrTarget>
   <BWT_RuleBuilder2_ConditionText_SkillMinimum>{0} skill is at least {1}</BWT_RuleBuilder2_ConditionText_SkillMinimum>
   <BWT_RuleBuilder2_ConditionText_SkillMaximum>{0} skill is at most {1}</BWT_RuleBuilder2_ConditionText_SkillMaximum>
   <BWT_RuleBuilder2_ConditionText_Passion>Has {0} passion for {1}</BWT_RuleBuilder2_ConditionText_Passion>

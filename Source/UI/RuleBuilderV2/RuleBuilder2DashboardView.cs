@@ -210,7 +210,10 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             Text.Font = GameFont.Small;
             DrawFittedLabel(row.Target, BuildTargetSummary(flow, window.ActiveSurface, card));
             GUI.color = Color.gray;
-            DrawFittedLabel(row.Summary, BuildConditionsSummary(card) + " - " + BuildActionSummary(card));
+            // The short action form: this row already names the target on the
+            // line above, so "Set Work type to priority 3" spent the width
+            // repeating it and truncated before reaching the priority.
+            DrawFittedLabel(row.Summary, BuildConditionsSummary(card) + " - " + BuildActionSummary(card, false));
             GUI.color = Color.white;
             DrawBadges(row.Badges, card);
 

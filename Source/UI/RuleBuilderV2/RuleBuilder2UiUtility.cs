@@ -220,20 +220,39 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             List<RuleBuilder2ConditionRun> runs =
                 RuleBuilder2ConditionGrouping.BuildRuns(card?.Conditions?.Conditions);
             int count = runs.Count;
-            if (count <= 0)
+
+            // The sentence counts; the list row quotes. Condition texts are
+            // capitalised predicates -- "Has trait Nudist", "Is capable of
+            // violence" -- so dropping one into the middle of a sentence after
+            // "when" produced "when Has trait Nudist", and quoting one out of
+            // several produced "when 3 conditions, starting with X: set to
+            // priority 3", which is not a sentence at all. A count reads
+            // correctly whatever the conditions say, and the conditions
+            // themselves are listed directly underneath it.
+            if (sentenceClause)
             {
-                return sentenceClause
-                    ? T("BWT_RuleBuilder2_RuleSentenceEveryPawn")
-                    : T("BWT_RuleBuilder2_NoConditionsSummary");
+                if (count <= 0)
+                {
+                    return T("BWT_RuleBuilder2_RuleSentenceEveryColonist");
+                }
+
+                return count == 1
+                    ? T("BWT_RuleBuilder2_RuleSentenceMatchingOne")
+                    : T("BWT_RuleBuilder2_RuleSentenceMatchingMany").Formatted(count).ToString();
             }
 
-            string first = RuleBuilder2Evaluator.DescribeRun(runs[0], card.Target.ResolveWorkType());
-            string summary = count == 1
-                ? first
-                : T("BWT_RuleBuilder2_ConditionsSummary").Formatted(count, first).ToString();
-            return sentenceClause
-                ? T("BWT_RuleBuilder2_RuleSentenceWhen").Formatted(summary).ToString()
-                : summary;
+            // The rule list row is a 300px column carrying the conditions and
+            // the action. Naming the first condition there did not fit: it
+            // truncated mid-word and pushed the action -- what the rule actually
+            // does -- off the end entirely. A count leaves room for both.
+            if (count <= 0)
+            {
+                return T("BWT_RuleBuilder2_NoConditionsSummary");
+            }
+
+            return count == 1
+                ? T("BWT_RuleBuilder2_ConditionCountOne")
+                : T("BWT_RuleBuilder2_ConditionCountMany").Formatted(count).ToString();
         }
 
         internal static string BuildActionSummary(RuleBuilder2Card card)
@@ -241,7 +260,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             return BuildActionSummary(card, true);
         }
 
-        private static string BuildActionSummary(RuleBuilder2Card card, bool includeTarget)
+        internal static string BuildActionSummary(RuleBuilder2Card card, bool includeTarget)
         {
             if (card?.Action == null)
             {
