@@ -309,6 +309,22 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
         public string TextValue = "";
         public string DisplayText = "";
 
+        /// <summary>
+        /// Joins this condition to the one above it with "or" instead of "and".
+        ///
+        /// Conditions are a flat list, so the alternative to a flag per row was
+        /// nesting -- and a nested tree cannot be dragged the way this list is.
+        /// A run of rows joined by "or" satisfies the rule if any of them does;
+        /// runs are joined to each other by "and". That covers what rules
+        /// actually need, "(high cooking skill or a chef) and not a brawler",
+        /// without the list ceasing to be a list.
+        ///
+        /// False by default, which is exactly the all-and behaviour every
+        /// existing rule already has -- so old saves load unchanged, and a rule
+        /// nobody edits keeps meaning what it meant.
+        /// </summary>
+        public bool OrWithPrevious;
+
         public void ExposeData()
         {
             Scribe_Values.Look(ref StableId, "stableId", Guid.NewGuid().ToString("N"));
@@ -320,6 +336,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
             Scribe_Values.Look(ref BoolValue, "boolValue", false);
             Scribe_Values.Look(ref TextValue, "textValue", "");
             Scribe_Values.Look(ref DisplayText, "displayText", "");
+            Scribe_Values.Look(ref OrWithPrevious, "orWithPrevious", false);
 
             if (Scribe.mode == LoadSaveMode.PostLoadInit || Scribe.mode == LoadSaveMode.LoadingVars)
             {
@@ -340,7 +357,8 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 FloatValue = FloatValue,
                 BoolValue = BoolValue,
                 TextValue = TextValue,
-                DisplayText = DisplayText
+                DisplayText = DisplayText,
+                OrWithPrevious = OrWithPrevious
             };
         }
     }

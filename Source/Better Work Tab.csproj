@@ -117,6 +117,8 @@
     <Compile Include="Features\Rules\RuleParameterRegistry.cs" />
     <Compile Include="Features\Rules\RuleBuilder2\RuleBuilder2Model.cs" />
     <Compile Include="Features\Rules\RuleBuilder2\RuleBuilder2ConditionCatalog.cs" />
+    <Compile Include="Features\Rules\RuleBuilder2\RuleBuilder2ConditionGrouping.cs" />
+    <Compile Include="Features\Rules\RuleBuilder2\RuleBuilder2ConditionRunPlan.cs" />
     <Compile Include="Features\Rules\RuleBuilder2\RuleBuilder2Evaluator.cs" />
     <Compile Include="Features\Rules\RuleBuilder2\RuleBuilder2ApplyService.cs" />
     <Compile Include="Features\Rules\RuleBuilder2\RuleBuilder2RulesetStore.cs" />

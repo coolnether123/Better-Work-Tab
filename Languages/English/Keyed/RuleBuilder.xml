@@ -170,6 +170,13 @@
   <BWT_RuleBuilder2_AddCondition>Add condition</BWT_RuleBuilder2_AddCondition>
   <BWT_RuleBuilder2_AddCondition_Tooltip>Add a condition to this rule.</BWT_RuleBuilder2_AddCondition_Tooltip>
   <BWT_RuleBuilder2_NoConditions>None</BWT_RuleBuilder2_NoConditions>
+  <!-- Joins one condition to the one above it. "and" is a further requirement,
+       "or" makes the two an alternative to each other. The joiner reads with a
+       space either side when conditions are quoted back in a summary. -->
+  <BWT_RuleBuilder2_ConditionJoinAnd>and</BWT_RuleBuilder2_ConditionJoinAnd>
+  <BWT_RuleBuilder2_ConditionJoinOr>or</BWT_RuleBuilder2_ConditionJoinOr>
+  <BWT_RuleBuilder2_ConditionOrJoiner> or </BWT_RuleBuilder2_ConditionOrJoiner>
+  <BWT_RuleBuilder2_ConditionJoin_Tooltip>Click to switch between and / or.\n\nWith "and" both conditions must hold. With "or" either one will do, and the two count as a single requirement.</BWT_RuleBuilder2_ConditionJoin_Tooltip>
   <BWT_RuleBuilder2_StepAction>3. Choose action</BWT_RuleBuilder2_StepAction>
   <BWT_RuleBuilder2_ActionBlockTitle>Action</BWT_RuleBuilder2_ActionBlockTitle>
   <BWT_RuleBuilder2_ScheduleHint>No schedule</BWT_RuleBuilder2_ScheduleHint>

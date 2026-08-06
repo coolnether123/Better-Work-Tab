@@ -37,6 +37,13 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
         // conditions scroll inside a box sized for two conditions.
         internal float ConditionsChromeHeight = 60f;
         internal int ConditionsMaxVisibleRows = 6;
+
+        // The and/or joiner sits above the row it joins, in its own short lane,
+        // so it reads as a link between two rows rather than as one row's
+        // property.
+        internal float ConditionJoinerHeight = 18f;
+        internal float ConditionJoinerWidth = 62f;
+        internal float ConditionAlternativeIndent = 18f;
         internal float RuleNameHeight = 36f;
         internal float RuleSentenceHeight = 48f;
         internal float ConfirmHeight = 70f;
@@ -337,8 +344,21 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
         /// row already does, and they cost width the label wants. With dragging
         /// switched off they come back, so the order is still changeable.
         /// </summary>
-        internal RuleBuilder2ConditionRowRects ConditionRow(Rect rect, bool showReorderButtons, float requestedEditorWidth)
+        internal RuleBuilder2ConditionRowRects ConditionRow(
+            Rect rect,
+            bool showReorderButtons,
+            float requestedEditorWidth,
+            bool indentAsAlternative = false)
         {
+            // Alternatives step in under the row they belong to, so a run reads
+            // as one requirement rather than as unrelated rows that happen to
+            // sit together.
+            if (indentAsAlternative)
+            {
+                rect = new Rect(rect.x + metrics.ConditionAlternativeIndent, rect.y,
+                    Mathf.Max(1f, rect.width - metrics.ConditionAlternativeIndent), rect.height);
+            }
+
             float controlTop = rect.y + (metrics.ConditionRowHeight - 24f) * 0.5f;
             Rect checkbox = new Rect(rect.x + 6f, controlTop, 24f, 24f);
             Rect remove = new Rect(rect.xMax - 30f, controlTop, 24f, 24f);

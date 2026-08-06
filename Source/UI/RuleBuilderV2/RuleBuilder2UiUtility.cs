@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using Better_Work_Tab.Features.Rules.RuleBuilder2;
 using RimWorld;
@@ -213,7 +214,12 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
         private static string BuildConditionsSummary(RuleBuilder2Card card, bool sentenceClause)
         {
-            int count = card?.Conditions?.Conditions?.Count(condition => condition != null && condition.Enabled) ?? 0;
+            // Counted and quoted in runs, not conditions. "(a chef or cooking
+            // 8+) and not a brawler" is two requirements, and reading the first
+            // one back as just "a chef" would describe a rule nobody wrote.
+            List<RuleBuilder2ConditionRun> runs =
+                RuleBuilder2ConditionGrouping.BuildRuns(card?.Conditions?.Conditions);
+            int count = runs.Count;
             if (count <= 0)
             {
                 return sentenceClause
@@ -221,9 +227,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                     : T("BWT_RuleBuilder2_NoConditionsSummary");
             }
 
-            string first = RuleBuilder2ConditionCatalog.GetConditionText(
-                card.Conditions.Conditions.FirstOrDefault(condition => condition != null && condition.Enabled),
-                card.Target.ResolveWorkType());
+            string first = RuleBuilder2Evaluator.DescribeRun(runs[0], card.Target.ResolveWorkType());
             string summary = count == 1
                 ? first
                 : T("BWT_RuleBuilder2_ConditionsSummary").Formatted(count, first).ToString();

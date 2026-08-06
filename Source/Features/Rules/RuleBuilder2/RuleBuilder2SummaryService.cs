@@ -19,7 +19,10 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                     ?? "No target";
             }
 
-            int conditionCount = card.Conditions?.Conditions?.Count(c => c != null && c.Enabled) ?? 0;
+            // Counted in runs, because that is the number that has to hold. A
+            // rule whose only two conditions are alternatives to each other is
+            // one requirement, and calling it two would overstate it.
+            int conditionCount = RuleBuilder2ConditionGrouping.BuildRuns(card.Conditions?.Conditions).Count;
             string action = card.Action?.Kind == RuleBuilder2ActionKind.Disable
                 ? "disable"
                 : "priority " + (card.Action?.Priority ?? 0);

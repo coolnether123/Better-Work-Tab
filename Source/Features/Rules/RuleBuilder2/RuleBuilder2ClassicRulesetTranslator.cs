@@ -296,6 +296,16 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 return null;
             }
 
+            // A classic rule is one set of parameters, all of which must hold,
+            // so it has nowhere to put an alternative. Exporting one anyway
+            // would quietly turn "or" into "and" and hand back a rule that
+            // matches far fewer pawns than the one it came from.
+            if (RuleBuilder2ConditionGrouping.HasAlternatives(card.Conditions?.Conditions))
+            {
+                warning = "Card \"" + card.Name + "\" has conditions joined by \"or\", which classic rules cannot express.";
+                return null;
+            }
+
             WorkTypeDef workType = card.Target.ResolveWorkType();
             bool unresolvedOptionalTarget = workType == null &&
                                             card.Target.IgnoreIfMissing &&

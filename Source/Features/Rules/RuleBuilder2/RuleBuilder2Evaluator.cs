@@ -84,10 +84,24 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
 
             bool matched = true;
             var conditions = card.Conditions?.Conditions ?? new List<RuleBuilder2Condition>();
-            foreach (var condition in conditions.Where(c => c != null && c.Enabled))
+
+            // Reported one run at a time, not one condition at a time. A run
+            // joined by "or" is a single requirement, so listing a failed member
+            // of a satisfied run under "failed" would contradict the verdict
+            // right next to it.
+            foreach (RuleBuilder2ConditionRun run in RuleBuilder2ConditionGrouping.BuildRuns(conditions))
             {
-                string text = RuleBuilder2ConditionCatalog.GetConditionText(condition, workType);
-                if (EvaluateCondition(condition, pawn, workType, workGiver, result.CurrentPriority))
+                bool runMatched = false;
+                foreach (RuleBuilder2Condition condition in run.Members)
+                {
+                    if (EvaluateCondition(condition, pawn, workType, workGiver, result.CurrentPriority))
+                    {
+                        runMatched = true;
+                    }
+                }
+
+                string text = DescribeRun(run, workType);
+                if (runMatched)
                 {
                     result.ConditionsMet.Add(text);
                 }
@@ -101,6 +115,58 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
             result.Matched = matched;
             result.Warning = FindConflictWarning(card, allCards);
             return result;
+        }
+
+        /// <summary>
+        /// Whether a pawn satisfies a card's conditions.
+        ///
+        /// The single answer to that question. Applying a ruleset used to ask it
+        /// with its own All(...) over the flat list while Map check asked it
+        /// here, which was survivable only while both meant plain "and" -- once
+        /// runs exist, two readings would let the preview promise one thing and
+        /// Apply do another.
+        /// </summary>
+        public bool MatchesConditions(
+            RuleBuilder2Card card,
+            Pawn pawn,
+            WorkTypeDef workType,
+            WorkGiverDef workGiver,
+            int currentPriority)
+        {
+            foreach (RuleBuilder2ConditionRun run in
+                     RuleBuilder2ConditionGrouping.BuildRuns(card?.Conditions?.Conditions))
+            {
+                bool runMatched = false;
+                foreach (RuleBuilder2Condition member in run.Members)
+                {
+                    if (EvaluateCondition(member, pawn, workType, workGiver, currentPriority))
+                    {
+                        runMatched = true;
+                        break;
+                    }
+                }
+
+                if (!runMatched)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Reads a run back as one requirement: "a chef or cooking 8+".
+        /// </summary>
+        internal static string DescribeRun(RuleBuilder2ConditionRun run, WorkTypeDef workType)
+        {
+            var parts = run.Members
+                .Select(member => RuleBuilder2ConditionCatalog.GetConditionText(member, workType))
+                .Where(text => !string.IsNullOrEmpty(text))
+                .ToList();
+            return parts.Count <= 1
+                ? parts.FirstOrDefault() ?? string.Empty
+                : string.Join(Tr("BWT_RuleBuilder2_ConditionOrJoiner"), parts.ToArray());
         }
 
         public bool EvaluateCondition(

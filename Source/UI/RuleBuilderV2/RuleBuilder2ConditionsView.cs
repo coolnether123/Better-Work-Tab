@@ -77,6 +77,8 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                 return;
             }
 
+            RuleBuilder2ConditionGrouping.NormalizeFirstCondition(conditions);
+
             Rect inner = rect.ContractedBy(6f);
             conditionListRect = inner;
             currentConditions = conditions;
@@ -88,6 +90,11 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                 RuleBuilder2Condition condition = conditions[i];
                 Rect row = new Rect(0f, y, view.width, layout.Metrics.ConditionRowHeight);
                 DrawConditionRow(row, card, condition, i);
+                if (i > 0)
+                {
+                    DrawConditionJoiner(row, condition);
+                }
+
                 y += layout.Metrics.ConditionRowStride;
             }
             Widgets.EndScrollView();
@@ -103,7 +110,16 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
         {
             bool showReorderButtons = !DragReorderEnabled;
             float editorWidth = ConditionEditorWidth(condition.Kind);
-            RuleBuilder2ConditionRowRects row = layout.ConditionRow(rect, showReorderButtons, editorWidth);
+            bool isAlternative = index > 0 && condition.OrWithPrevious;
+            RuleBuilder2ConditionRowRects row = layout.ConditionRow(rect, showReorderButtons, editorWidth, isAlternative);
+            if (isAlternative)
+            {
+                rect = new Rect(
+                    rect.x + layout.Metrics.ConditionAlternativeIndent,
+                    rect.y,
+                    Mathf.Max(1f, rect.width - layout.Metrics.ConditionAlternativeIndent),
+                    rect.height);
+            }
             bool dragging = conditionDragController.IsActive &&
                             conditionDragController.CurrentSession?.DraggedItem == condition;
 
@@ -149,6 +165,51 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                 card.Conditions.Conditions.Remove(condition);
                 flow.RefreshPreview();
             }
+        }
+
+        /// <summary>
+        /// The and/or link between this row and the one above it.
+        ///
+        /// Drawn in the gap between rows rather than inside either of them,
+        /// because it describes the join and not the condition -- and because
+        /// the row itself is a drag handle, so a button living in it would have
+        /// to fight the drag gate for the click.
+        /// </summary>
+        private void DrawConditionJoiner(Rect row, RuleBuilder2Condition condition)
+        {
+            float gap = layout.Metrics.ConditionRowStride - layout.Metrics.ConditionRowHeight;
+            Rect joiner = new Rect(
+                row.x + 34f,
+                row.y - gap - 1f,
+                layout.Metrics.ConditionJoinerWidth,
+                layout.Metrics.ConditionJoinerHeight + 2f);
+
+            bool isOr = condition.OrWithPrevious;
+            string label = isOr
+                ? T("BWT_RuleBuilder2_ConditionJoinOr")
+                : T("BWT_RuleBuilder2_ConditionJoinAnd");
+
+            Color previous = GUI.color;
+            GUI.color = isOr ? new Color(0.9f, 0.82f, 0.55f) : Color.gray;
+            Text.Anchor = TextAnchor.MiddleCenter;
+            Text.Font = GameFont.Tiny;
+            if (Widgets.ButtonInvisible(joiner))
+            {
+                condition.OrWithPrevious = !condition.OrWithPrevious;
+                flow.RefreshPreview();
+                SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
+            }
+
+            if (Mouse.IsOver(joiner))
+            {
+                Widgets.DrawHighlight(joiner);
+            }
+
+            Widgets.Label(joiner, label);
+            Text.Font = GameFont.Small;
+            Text.Anchor = TextAnchor.UpperLeft;
+            GUI.color = previous;
+            TooltipHandler.TipRegion(joiner, T("BWT_RuleBuilder2_ConditionJoin_Tooltip"));
         }
 
         private int CalculateConditionTargetIndex(Vector2 mousePos)
@@ -284,6 +345,8 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                 return;
             }
 
+            // A row dragged to the top has nothing left to be an alternative to.
+            RuleBuilder2ConditionGrouping.NormalizeFirstCondition(conditions);
             flow.RefreshPreview();
             SoundDefOf.Tick_High.PlayOneShotOnCamera();
         }

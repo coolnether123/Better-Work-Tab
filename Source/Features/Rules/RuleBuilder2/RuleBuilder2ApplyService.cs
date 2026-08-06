@@ -60,9 +60,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                         }
 
                         int currentPriority = RuleBuilder2Evaluator.GetCurrentPriority(pawn, workType, workGiver);
-                        bool matched = (card.Conditions?.Conditions ?? new List<RuleBuilder2Condition>())
-                            .Where(condition => condition != null && condition.Enabled)
-                            .All(condition => evaluator.EvaluateCondition(condition, pawn, workType, workGiver, currentPriority));
+                        bool matched = evaluator.MatchesConditions(card, pawn, workType, workGiver, currentPriority);
 
                         if (matched && ApplyCardToPawn(card, pawn, workType, workGiver, currentPriority, warnings))
                         {
