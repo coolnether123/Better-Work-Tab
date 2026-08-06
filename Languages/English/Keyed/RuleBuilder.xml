@@ -316,6 +316,22 @@
   <BWT_RuleBuilder2_Tutorial_Finish>Finish</BWT_RuleBuilder2_Tutorial_Finish>
   <BWT_RuleBuilder2_Tutorial_CompleteBody>Tutorial complete.</BWT_RuleBuilder2_Tutorial_CompleteBody>
   <BWT_RuleBuilder2_Tutorial_ClickHeaderHint>Click a work header</BWT_RuleBuilder2_Tutorial_ClickHeaderHint>
+
+  <!-- Strip instructions. One line each, in the docked band's voice: say what to
+       do next, not what the panel is. The longer Title/Body pairs above remain
+       for surfaces that can scroll. -->
+  <BWT_RuleBuilder2_Strip_Welcome>Rules set work priorities for you. Let's build one.</BWT_RuleBuilder2_Strip_Welcome>
+  <BWT_RuleBuilder2_Strip_Deck>Your rules live on the left. Pick one or add a rule.</BWT_RuleBuilder2_Strip_Deck>
+  <BWT_RuleBuilder2_Strip_Target>Click a Work type to say what this rule is about.</BWT_RuleBuilder2_Strip_Target>
+  <BWT_RuleBuilder2_Strip_SubWork>Ctrl-click a Work type to aim at one specific job.</BWT_RuleBuilder2_Strip_SubWork>
+  <BWT_RuleBuilder2_Strip_Condition>Add a condition to choose which colonists match.</BWT_RuleBuilder2_Strip_Condition>
+  <BWT_RuleBuilder2_Strip_Action>Pick what happens: set a priority, or switch it off.</BWT_RuleBuilder2_Strip_Action>
+  <BWT_RuleBuilder2_Strip_Schedule>Add hour blocks to run this only part of the day.</BWT_RuleBuilder2_Strip_Schedule>
+  <BWT_RuleBuilder2_Strip_Preview>Run Map check to see who this rule would change.</BWT_RuleBuilder2_Strip_Preview>
+  <BWT_RuleBuilder2_Strip_Confirm>Save the rule to add it to your ruleset.</BWT_RuleBuilder2_Strip_Confirm>
+  <BWT_RuleBuilder2_Strip_Matched>Click a priority box to see why a rule matched.</BWT_RuleBuilder2_Strip_Matched>
+  <BWT_RuleBuilder2_Strip_Replay>Replay this walkthrough any time from BWT settings.</BWT_RuleBuilder2_Strip_Replay>
+  <BWT_RuleBuilder2_Strip_Done>Walkthrough complete. Your rule is saved.</BWT_RuleBuilder2_Strip_Done>
   <BWT_RuleBuilder2_SuggestConfirmTitle>Suggest rules</BWT_RuleBuilder2_SuggestConfirmTitle>
   <BWT_RuleBuilder2_SuggestConfirmBody>Reads your current Work tab and builds suggestions. Your ruleset is not changed until you Keep a suggestion.</BWT_RuleBuilder2_SuggestConfirmBody>
   <BWT_RuleBuilder2_SuggestConfirmButton>Suggest</BWT_RuleBuilder2_SuggestConfirmButton>

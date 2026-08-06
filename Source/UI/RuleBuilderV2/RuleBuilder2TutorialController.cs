@@ -1,7 +1,9 @@
 using System.Collections.Generic;
 using Better_Work_Tab.Features.Tutorial;
+using Better_Work_Tab.UI;
 using RimWorld;
 using Spine.UI.Tutorial;
+using Spine.UI.WidgetExtensions;
 using UnityEngine;
 using Verse;
 
@@ -42,7 +44,6 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
     {
         private const string SuggestionsHintSettingId = "bwt.ruleBuilder2.suggestionsHint.v1";
         private readonly TutorialTextViewport bodyViewport = new TutorialTextViewport();
-        private readonly TutorialOverlayStyle cardStyle = new TutorialOverlayStyle();
         private bool suggestionsHintRequested;
 
         /// <summary>
@@ -114,13 +115,6 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                 return false;
             }
 
-            Rect card = GetCardRect(bounds, focusRects);
-            bool overCard = card.Contains(evt.mousePosition);
-            if (overCard && bodyViewport.TryHandleScroll(GetBodyRect(card), GetBody(), evt))
-            {
-                return true;
-            }
-
             if (evt.type == EventType.KeyDown &&
                 (evt.keyCode == KeyCode.Return || evt.keyCode == KeyCode.KeypadEnter))
             {
@@ -129,42 +123,48 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                 return true;
             }
 
-            if (!overCard)
+            // Only the band's own two buttons are claimed. Everything else in the
+            // builder stays live, because the walkthrough advances by watching
+            // the player use it -- swallowing input would make that impossible.
+            BWTTutorialStripLayout layout = BuildStripLayout(bounds);
+            if (evt.type != EventType.MouseDown && evt.type != EventType.MouseUp)
             {
                 return false;
             }
 
-            if (evt.type == EventType.MouseDown && evt.button == 0)
+            bool overSkip = layout.SkipRect.Contains(evt.mousePosition);
+            bool overExit = layout.ExitRect.Contains(evt.mousePosition);
+            if (!overSkip && !overExit)
             {
-                evt.Use();
-                return true;
+                return false;
             }
 
-            if (evt.type == EventType.MouseUp && evt.button == 0)
+            if (evt.type == EventType.MouseUp)
             {
-                if (TryGetButtonAt(card, evt.mousePosition, out TutorialButton button))
+                if (overExit)
                 {
-                    switch (button)
-                    {
-                        case TutorialButton.Settings:
-                            OpenSettings();
-                            break;
-                        case TutorialButton.Skip:
-                            Finish();
-                            break;
-                        default:
-                            Advance();
-                            break;
-                    }
+                    Finish();
                 }
-
-                evt.Use();
-                return true;
+                else
+                {
+                    Advance();
+                }
             }
 
-            return evt.type == EventType.MouseDrag || evt.type == EventType.ScrollWheel;
+            evt.Use();
+            return true;
         }
 
+        /// <summary>
+        /// Draws the walkthrough as a docked instruction band across the top of
+        /// the builder, plus a gold outline and a gesture demo over whatever the
+        /// current step is pointing at.
+        ///
+        /// The band is the same surface the Work-tab tutorial uses, for the same
+        /// reason: it keeps one position and shape regardless of what the panel
+        /// beneath it is doing, so the instruction never moves or covers the
+        /// control it is describing. Floating cards did both.
+        /// </summary>
         internal void Draw(Rect bounds, Dictionary<RuleBuilder2TutorialStep, Rect> focusRects)
         {
             if (!IsActive)
@@ -172,18 +172,100 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                 return;
             }
 
-            Rect card = GetCardRect(bounds, focusRects);
-            DrawDimOutside(card, bounds);
-            DrawCard(card);
+            BWTTutorialStripLayout layout = BuildStripLayout(bounds);
+            BWTTutorialStrip.Draw(layout, BuildStripContent());
 
-            // No animated click demo on the card's own button.
-            //
-            // A gesture demo earns its place when it is teaching a gesture the
-            // player would not guess -- Ctrl-clicking a priority cell, dragging a
-            // specific job between columns. Miming a left click on a button that
-            // is already lit up in front of them teaches nothing, and it kept
-            // drawing attention back to the thing they were about to click
-            // anyway.
+            if (!IsWalkthroughActive)
+            {
+                return;
+            }
+
+            // Point at the live control, never at the band's own buttons, and
+            // never at a rect that is not currently on screen.
+            if (focusRects != null &&
+                focusRects.TryGetValue(CurrentStep, out Rect anchor) &&
+                anchor.width > 1f &&
+                anchor.height > 1f &&
+                bounds.Overlaps(anchor))
+            {
+                ConnectedOutlineDrawer.DrawClosed(
+                    new[]
+                    {
+                        new Vector2(anchor.xMin, anchor.yMin),
+                        new Vector2(anchor.xMax, anchor.yMin),
+                        new Vector2(anchor.xMax, anchor.yMax),
+                        new Vector2(anchor.xMin, anchor.yMax)
+                    },
+                    BWTUiPalette.TutorAccent,
+                    2f);
+
+                // No prompt on the demo: the band states the action a few pixels
+                // away, and a floating badge repeating it was rejected the last
+                // time this tutorial was designed.
+                BWTTutorialGestureDemo.DrawExternal(
+                    "rule-builder:" + CurrentStep,
+                    anchor,
+                    GestureFor(CurrentStep));
+            }
+        }
+
+        /// <summary>
+        /// The gesture each step is asking for, so the demo shows the actual
+        /// input rather than a generic click.
+        /// </summary>
+        private static BWTTutorialGestureDemo.GestureKind GestureFor(RuleBuilder2TutorialStep step)
+        {
+            switch (step)
+            {
+                case RuleBuilder2TutorialStep.SubWorkTarget:
+                    return BWTTutorialGestureDemo.GestureKind.CtrlClick;
+                case RuleBuilder2TutorialStep.Welcome:
+                case RuleBuilder2TutorialStep.ReplaySettings:
+                    return BWTTutorialGestureDemo.GestureKind.None;
+                default:
+                    return BWTTutorialGestureDemo.GestureKind.LeftClick;
+            }
+        }
+
+        private BWTTutorialStripContent BuildStripContent()
+        {
+            if (!IsWalkthroughActive)
+            {
+                return new BWTTutorialStripContent(
+                    BWTTutorialStripMode.Lesson,
+                    T("BWT_RuleBuilder2_Tutorial_SuggestionsBody"),
+                    0,
+                    0);
+            }
+
+            int index = System.Array.IndexOf(Walkthrough, CurrentStep);
+            return new BWTTutorialStripContent(
+                BWTTutorialStripMode.Lesson,
+                GetInstruction(),
+                Mathf.Max(0, index),
+                Walkthrough.Length);
+        }
+
+        private static BWTTutorialStripLayout BuildStripLayout(Rect bounds)
+        {
+            Rect strip = new Rect(
+                bounds.x + 8f,
+                bounds.y + 6f,
+                Mathf.Max(1f, bounds.width - 16f),
+                BWTTutorialStrip.RowHeight);
+
+            Rect inner = strip.ContractedBy(6f);
+            float buttonWidth = 92f;
+            Rect exit = new Rect(inner.xMax - buttonWidth, inner.y, buttonWidth, inner.height);
+            Rect skip = new Rect(exit.xMin - buttonWidth - 6f, inner.y, buttonWidth, inner.height);
+            Rect progress = new Rect(inner.x, inner.y, 74f, inner.height);
+            Rect instruction = new Rect(
+                progress.xMax + 8f,
+                inner.y,
+                Mathf.Max(1f, skip.xMin - progress.xMax - 16f),
+                inner.height);
+
+            return new BWTTutorialStripLayout(strip, progress, instruction, skip, exit);
         }
 
         internal void ObserveTargetSelected(bool subWork)
@@ -309,182 +391,19 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             }
         }
 
-        private Rect GetCardRect(Rect bounds, Dictionary<RuleBuilder2TutorialStep, Rect> focusRects)
+        /// <summary>
+        /// The one line the band shows. Written to say what to do next rather
+        /// than to describe the panel, and short enough to sit on a single row
+        /// at the widths the builder actually opens at.
+        /// </summary>
+        private string GetInstruction()
         {
-            RuleBuilder2TutorialStep key = ActiveStep;
-            if (focusRects != null &&
-                focusRects.TryGetValue(key, out Rect card) &&
-                card.width > 0f &&
-                card.height > 0f)
-            {
-                card.height = CalculateCardHeight(card.width);
-                return ClampCard(card, bounds.ContractedBy(12f));
-            }
-
-            float width = 430f;
-            float height = CalculateCardHeight(width);
-            Rect fallback = new Rect(
-                bounds.center.x - width / 2f,
-                bounds.center.y - height / 2f,
-                width,
-                height);
-            return ClampCard(fallback, bounds.ContractedBy(12f));
-        }
-
-        private float CalculateCardHeight(float width)
-        {
-            GameFont previousFont = Text.Font;
-            Text.Font = GameFont.Small;
-            float innerWidth = Mathf.Max(1f, width - 36f);
-            float bodyHeight = Mathf.Ceil(Text.CalcHeight(GetBody(), innerWidth));
-            Text.Font = previousFont;
-            return 128f + Mathf.Max(40f, bodyHeight);
-        }
-
-        private static Rect ClampCard(Rect card, Rect bounds)
-        {
-            float x = Mathf.Clamp(card.x, bounds.xMin, Mathf.Max(bounds.xMin, bounds.xMax - card.width));
-            float y = Mathf.Clamp(card.y, bounds.yMin, Mathf.Max(bounds.yMin, bounds.yMax - card.height));
-            return new Rect(x, y, card.width, card.height);
-        }
-
-        private static void DrawDimOutside(Rect card, Rect bounds)
-        {
-            Color previous = GUI.color;
-            Color dim = new Color(0f, 0f, 0f, 0.14f);
-            GUI.color = dim;
-            Widgets.DrawBoxSolid(new Rect(bounds.xMin, bounds.yMin, bounds.width, Mathf.Max(0f, card.yMin - bounds.yMin)), dim);
-            Widgets.DrawBoxSolid(new Rect(bounds.xMin, card.yMax, bounds.width, Mathf.Max(0f, bounds.yMax - card.yMax)), dim);
-            Widgets.DrawBoxSolid(new Rect(bounds.xMin, card.yMin, Mathf.Max(0f, card.xMin - bounds.xMin), card.height), dim);
-            Widgets.DrawBoxSolid(new Rect(card.xMax, card.yMin, Mathf.Max(0f, bounds.xMax - card.xMax), card.height), dim);
-            GUI.color = previous;
-        }
-
-        private void DrawCard(Rect rect)
-        {
-            Color previousColor = GUI.color;
-            TextAnchor previousAnchor = Text.Anchor;
-            GameFont previousFont = Text.Font;
-
-            TutorialCardRenderer.Draw(rect, cardStyle);
-
-            Rect inner = rect.ContractedBy(18f);
-            Text.Font = GameFont.Medium;
-            Text.Anchor = TextAnchor.UpperLeft;
-            GUI.color = Color.white;
-            Widgets.Label(new Rect(inner.x, inner.y, inner.width, 30f), GetTitle());
-
-            Text.Font = GameFont.Small;
-            GUI.color = Color.white;
-            bodyViewport.Draw(GetBodyRect(rect), GetBody());
-
-            // Input is handled in TryHandleInput; drawing the buttons here keeps
-            // them painted and hit-testable on the same frame.
-            Widgets.ButtonText(GetAdvanceButtonRect(rect), GetAdvanceLabel());
-
-            if (IsWalkthroughActive)
-            {
-                Widgets.ButtonText(GetSkipButtonRect(rect), T("BWT_RuleBuilder2_Tutorial_Skip"));
-            }
-            else
-            {
-                Widgets.ButtonText(GetSettingsButtonRect(rect), T("BWT_RuleBuilder2_Tutorial_Settings"));
-            }
-
-            GUI.color = previousColor;
-            Text.Anchor = previousAnchor;
-            Text.Font = previousFont;
-        }
-
-        private bool TryGetButtonAt(Rect card, Vector2 mousePosition, out TutorialButton button)
-        {
-            if (GetAdvanceButtonRect(card).Contains(mousePosition))
-            {
-                button = TutorialButton.Dismiss;
-                return true;
-            }
-
-            if (IsWalkthroughActive && GetSkipButtonRect(card).Contains(mousePosition))
-            {
-                button = TutorialButton.Skip;
-                return true;
-            }
-
-            if (!IsWalkthroughActive && GetSettingsButtonRect(card).Contains(mousePosition))
-            {
-                button = TutorialButton.Settings;
-                return true;
-            }
-
-            button = TutorialButton.None;
-            return false;
-        }
-
-        private Rect GetAdvanceButtonRect(Rect card)
-        {
-            Rect inner = card.ContractedBy(18f);
-            float width = IsWalkthroughActive ? 110f : 130f;
-            return new Rect(inner.xMax - width, inner.yMax - 32f, width, 32f);
-        }
-
-        private static Rect GetSkipButtonRect(Rect card)
-        {
-            Rect inner = card.ContractedBy(18f);
-            return new Rect(inner.x, inner.yMax - 32f, 140f, 32f);
-        }
-
-        private static Rect GetSettingsButtonRect(Rect card)
-        {
-            Rect inner = card.ContractedBy(18f);
-            return new Rect(inner.x, inner.yMax - 32f, 150f, 32f);
-        }
-
-        private static Rect GetBodyRect(Rect card)
-        {
-            Rect inner = card.ContractedBy(18f);
-            float y = inner.y + 38f;
-            float buttonTop = inner.yMax - 32f;
-            return new Rect(inner.x, y, inner.width, Mathf.Max(1f, buttonTop - y - 10f));
-        }
-
-        private string GetAdvanceLabel()
-        {
-            if (!IsWalkthroughActive)
-            {
-                return T("BWT_RuleBuilder2_Tutorial_GotIt");
-            }
-
-            return CurrentStep == Walkthrough[Walkthrough.Length - 1]
-                ? T("BWT_RuleBuilder2_Tutorial_Finish")
-                : T("BWT_RuleBuilder2_Tutorial_Next");
-        }
-
-        private string GetTitle()
-        {
-            return IsWalkthroughActive
-                ? T("BWT_RuleBuilder2_Tutorial_" + KeyStem(CurrentStep) + "Title")
-                : T("BWT_RuleBuilder2_Tutorial_SuggestionsTitle");
-        }
-
-        private string GetBody()
-        {
-            return IsWalkthroughActive
-                ? T("BWT_RuleBuilder2_Tutorial_" + KeyStem(CurrentStep) + "Body")
-                : T("BWT_RuleBuilder2_Tutorial_SuggestionsBody");
+            return T("BWT_RuleBuilder2_Strip_" + KeyStem(CurrentStep));
         }
 
         private static bool HasSeenSuggestionsHint()
         {
             return BetterWorkTabMod.Settings?.HasViewedSetting(SuggestionsHintSettingId) == true;
-        }
-
-        private static void OpenSettings()
-        {
-            var mod = LoadedModManager.GetMod<BetterWorkTabMod>();
-            if (mod != null)
-            {
-                Find.WindowStack.Add(new Dialog_ModSettings(mod));
-            }
         }
 
         private static void SetStep(RuleBuilder2TutorialStep step)
@@ -502,12 +421,5 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             return key.CanTranslate() ? key.Translate().ToString() : key;
         }
 
-        private enum TutorialButton
-        {
-            None,
-            Dismiss,
-            Skip,
-            Settings
-        }
     }
 }
