@@ -58,16 +58,24 @@ namespace Better_Work_Tab.Features.Tutorial
         /// <summary>
         /// Puts a concept back in the readout even if the player has already
         /// dismissed it, for the "show this again" paths.
+        ///
+        /// The two halves have different requirements and must not share a
+        /// guard. <see cref="PlayerKnowledgeDatabase"/> is a static store bound
+        /// to the player's config at startup, so forgetting a concept works
+        /// with no colony loaded -- which is the common case, because mod
+        /// settings are usually opened from the main menu. Only the readout
+        /// needs a live tutor, and there the concept will surface by itself the
+        /// next time a game is running.
         /// </summary>
         internal static void Replay(ConceptDef concept)
         {
-            if (concept == null || Current.ProgramState != ProgramState.Playing || Find.Tutor == null)
+            if (concept == null)
             {
                 return;
             }
 
             PlayerKnowledgeDatabase.SetKnowledge(concept, 0f);
-            LessonAutoActivator.TeachOpportunity(concept, OpportunityType.Critical);
+            Teach(concept, OpportunityType.Critical);
         }
 
         internal static void ReplayAll()
