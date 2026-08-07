@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
+using Better_Work_Tab.UI.Settings;
 using Spine.UI.Tutorial;
 
 namespace Better_Work_Tab.Features.Tutorial
@@ -40,7 +41,8 @@ namespace Better_Work_Tab.Features.Tutorial
             string feedbackLabelKey,
             TutorialHubAnchor anchor,
             string localizationStem,
-            BWTTutorialLessonRoute route = BWTTutorialLessonRoute.WorkTab)
+            BWTTutorialLessonRoute route = BWTTutorialLessonRoute.WorkTab,
+            string[] settingIds = null)
         {
             Id = id;
             VersionIntroduced = versionIntroduced;
@@ -51,6 +53,7 @@ namespace Better_Work_Tab.Features.Tutorial
             Anchor = anchor;
             LocalizationStem = localizationStem;
             Route = route;
+            SettingIds = settingIds ?? new string[0];
         }
 
         internal string Id { get; }
@@ -63,12 +66,32 @@ namespace Better_Work_Tab.Features.Tutorial
         internal string LocalizationStem { get; }
         internal BWTTutorialLessonRoute Route { get; }
 
-        internal bool BelongsTo(BWTTutorialCourse course)
+        /// <summary>
+        /// The settings that switch this lesson's feature on. Empty when the
+        /// lesson is always available, or when what withholds it is not a
+        /// setting -- an absent mod, say -- and so is not something the player
+        /// can be offered.
+        /// </summary>
+        internal IReadOnlyList<string> SettingIds { get; }
+
+        /// <summary>
+        /// Course membership alone, ignoring whether the feature is switched
+        /// on. Kept apart from <see cref="BelongsTo"/> so the tour can tell
+        /// "not part of this course" from "part of it but turned off", which is
+        /// the difference between a lesson that does not apply and one worth
+        /// offering to enable.
+        /// </summary>
+        internal bool InCourse(BWTTutorialCourse course)
         {
             BWTTutorialCourseMembership membership = course == BWTTutorialCourse.WhatsNew20
                 ? BWTTutorialCourseMembership.WhatsNew20
                 : BWTTutorialCourseMembership.Full;
-            return (Courses & membership) != 0 && (IsAvailable?.Invoke() ?? true);
+            return (Courses & membership) != 0;
+        }
+
+        internal bool BelongsTo(BWTTutorialCourse course)
+        {
+            return InCourse(course) && (IsAvailable?.Invoke() ?? true);
         }
     }
 
@@ -106,34 +129,42 @@ namespace Better_Work_Tab.Features.Tutorial
                 // one whose instruction can never be satisfied.
                 Lesson(PrioritySkill, "1.0.5", "Priorities", BWTTutorialCourseMembership.Full,
                     "PrioritySkill", TutorialHubAnchor.PriorityCell,
-                    isAvailable: () => Enabled(s => s.enableSkillOverlayFeature, DefaultSettings.enableSkillOverlayFeature)),
+                    isAvailable: () => Enabled(s => s.enableSkillOverlayFeature, DefaultSettings.enableSkillOverlayFeature),
+                    settingIds: new[] { SettingIDs.FeaturesOverlay }),
                 Lesson(PrioritySchedule, "2.0", "Priorities|Schedules", Both,
                     "PrioritySchedule", TutorialHubAnchor.PriorityCell,
-                    isAvailable: () => Enabled(s => s.enableTimePrioritySchedules, DefaultSettings.enableTimePrioritySchedules)),
+                    isAvailable: () => Enabled(s => s.enableTimePrioritySchedules, DefaultSettings.enableTimePrioritySchedules),
+                    settingIds: new[] { SettingIDs.UiTimePrioritySchedules }),
                 Lesson(PriorityRange, "2.0", "Priorities|Configuration", Both,
                     "PriorityRange", TutorialHubAnchor.PriorityCell,
                     route: BWTTutorialLessonRoute.PrioritySettings),
                 Lesson(PawnMenu, "1.0.5", "Pawn rows", BWTTutorialCourseMembership.Full,
                     "PawnMenu", TutorialHubAnchor.PawnName,
-                    isAvailable: () => Enabled(s => s.enableContextMenuOnRightClick, DefaultSettings.enableContextMenuOnRightClick)),
+                    isAvailable: () => Enabled(s => s.enableContextMenuOnRightClick, DefaultSettings.enableContextMenuOnRightClick),
+                    settingIds: new[] { SettingIDs.LayoutContextMenu }),
                 // Dividers are added from the pawn context menu, so this lesson
                 // needs both the menu and the dividers themselves.
                 Lesson(PawnDivider, "1.0.5", "Pawn rows|Organization", BWTTutorialCourseMembership.Full,
                     "PawnDivider", TutorialHubAnchor.PawnName,
                     isAvailable: () => Enabled(s => s.enableContextMenuOnRightClick, DefaultSettings.enableContextMenuOnRightClick) &&
-                                       Enabled(s => s.enableDividers, DefaultSettings.enableDividers)),
+                                       Enabled(s => s.enableDividers, DefaultSettings.enableDividers),
+                    settingIds: new[] { SettingIDs.LayoutContextMenu, SettingIDs.FeaturesDividers }),
                 Lesson(PawnAppearance, "1.0.5", "Pawn rows|Appearance", BWTTutorialCourseMembership.Full,
                     "PawnAppearance", TutorialHubAnchor.PawnName,
-                    isAvailable: () => Enabled(s => s.enableContextMenuOnRightClick, DefaultSettings.enableContextMenuOnRightClick)),
+                    isAvailable: () => Enabled(s => s.enableContextMenuOnRightClick, DefaultSettings.enableContextMenuOnRightClick),
+                    settingIds: new[] { SettingIDs.LayoutContextMenu }),
                 Lesson(HeaderReorder, "2.0", "Work order|Layout", Both,
                     "HeaderReorder", TutorialHubAnchor.WorkHeader,
-                    isAvailable: () => Enabled(s => s.enableDragDropReordering, DefaultSettings.enableDragDropReordering)),
+                    isAvailable: () => Enabled(s => s.enableDragDropReordering, DefaultSettings.enableDragDropReordering),
+                    settingIds: new[] { SettingIDs.FeaturesDragdrop }),
                 Lesson(HeaderGroup, "1.0.5", "Work order|Layout", BWTTutorialCourseMembership.Full,
                     "HeaderGroup", TutorialHubAnchor.WorkHeader,
-                    isAvailable: () => Enabled(s => s.enableColumnGrouping, DefaultSettings.enableColumnGrouping)),
+                    isAvailable: () => Enabled(s => s.enableColumnGrouping, DefaultSettings.enableColumnGrouping),
+                    settingIds: new[] { SettingIDs.DragdropEnableGrouping }),
                 Lesson(HeaderSubWork, "2.0", "Specific jobs|Priorities", Both,
                     "HeaderSubWork", TutorialHubAnchor.WorkHeader,
-                    isAvailable: () => Enabled(s => s.enableSubWorkDrilldown, DefaultSettings.enableSubWorkDrilldown)),
+                    isAvailable: () => Enabled(s => s.enableSubWorkDrilldown, DefaultSettings.enableSubWorkDrilldown),
+                    settingIds: new[] { SettingIDs.FeaturesSubWorkJobs }),
                 // Rule Builder 2.0 is switched on by the lesson's own route, so
                 // it stays offered even when the player has not enabled it yet.
                 Lesson(RuleBuilder2, "2.0", "Automation|Rules", Both,
@@ -174,7 +205,8 @@ namespace Better_Work_Tab.Features.Tutorial
             string stem,
             TutorialHubAnchor anchor,
             BWTTutorialLessonRoute route = BWTTutorialLessonRoute.WorkTab,
-            Func<bool> isAvailable = null)
+            Func<bool> isAvailable = null,
+            string[] settingIds = null)
         {
             return new BWTTutorialLessonDefinition(
                 id,
@@ -185,7 +217,8 @@ namespace Better_Work_Tab.Features.Tutorial
                 "BWT_Tutorial_" + stem + "_Feedback",
                 anchor,
                 stem,
-                route);
+                route,
+                settingIds);
         }
 
         /// <summary>

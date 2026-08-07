@@ -834,7 +834,20 @@ namespace Better_Work_Tab.UI
                     1,
                     "pawn-divider-insert"),
                 new FloatMenuOption("Insert divider below", () => InsertDividerBelow(pawn)),
-                new FloatMenuOption("Set background color...", () => ShowBackgroundColorPicker(pawn))
+                // Instrumented like "Change title...": the appearance lesson
+                // teaches both, and this is the one option that is always here.
+                // A pawn whose title cannot be edited would otherwise leave the
+                // lesson pointing at a menu entry that does not exist.
+                new BWTTutorialFloatMenuOption(
+                    "Set background color...",
+                    () =>
+                    {
+                        BWTGeneralTutorial.NotifyPawnAppearanceMenuOptionChosen(editingTitle: false);
+                        ShowBackgroundColorPicker(pawn);
+                    },
+                    BWTGeneralTutorial.PawnAppearanceLesson,
+                    1,
+                    "pawn-appearance-color")
             };
             if (PawnTitleUtility.CanEditTitle(pawn))
             {
@@ -842,7 +855,7 @@ namespace Better_Work_Tab.UI
                     "Change title...",
                     () =>
                 {
-                    BWTGeneralTutorial.NotifyPawnAppearanceMenuOptionChosen();
+                    BWTGeneralTutorial.NotifyPawnAppearanceMenuOptionChosen(editingTitle: true);
                     Find.WindowStack.Add(new Dialog_ChangePawnTitle(pawn));
                 },
                     BWTGeneralTutorial.PawnAppearanceLesson,

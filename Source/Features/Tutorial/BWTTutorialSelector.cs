@@ -278,7 +278,7 @@ namespace Better_Work_Tab.Features.Tutorial
             Rect workBounds,
             IList<BWTTutorialAnchor> anchors,
             IDictionary<TutorialHubAnchor, BWTTutorialHubDefinition> hubs,
-            ICollection<string> completedLessonIds)
+            BWTTutorialProgressSnapshot progress)
         {
             if (anchors == null || anchors.Count == 0)
             {
@@ -293,7 +293,7 @@ namespace Better_Work_Tab.Features.Tutorial
                 lastPopupRect.Contains(pointer),
                 false);
             TutorialHubAnchor active = pinnedAnchor != TutorialHubAnchor.None ? pinnedAnchor : hoverAnchor;
-            DrawAnchorOutlines(anchors, active, pointerAnchor, completedLessonIds, hubs);
+            DrawAnchorOutlines(anchors, active, pointerAnchor, progress, hubs);
 
             if (!hubs.TryGetValue(active, out BWTTutorialHubDefinition hub) || hub.Options.Count == 0)
             {
@@ -303,13 +303,13 @@ namespace Better_Work_Tab.Features.Tutorial
 
             PopupLayout layout = BuildLayout(workBounds, FindAnchorRect(anchors, active), hub);
             lastPopupRect = layout.PopupRect;
-            DrawPopup(hub, layout, completedLessonIds, pointer);
+            DrawPopup(hub, layout, progress, pointer);
         }
 
         private void DrawPopup(
             BWTTutorialHubDefinition hub,
             PopupLayout layout,
-            ICollection<string> completed,
+            BWTTutorialProgressSnapshot progress,
             Vector2 pointer)
         {
             Color oldColor = GUI.color;
@@ -333,7 +333,8 @@ namespace Better_Work_Tab.Features.Tutorial
             {
                 BWTTutorialOptionDefinition option = hub.Options[i];
                 Rect rect = layout.OptionRects[i];
-                bool isComplete = TutorialProgressTransitions.IsCompleted(completed, option.LessonId);
+                bool isComplete = progress.IsSettled(option.LessonId);
+                bool alreadyUsed = progress.IsAlreadyUsed(option.LessonId);
                 bool isHovered = rect.Contains(pointer);
 
                 // RimWorld's own hover wash and mouseover tick, so the list feels
@@ -346,7 +347,13 @@ namespace Better_Work_Tab.Features.Tutorial
                 Rect markerRect = new Rect(rect.x + 4f, rect.y, MarkerWidth, rect.height);
                 if (isComplete)
                 {
-                    GUI.color = new Color(1f, 1f, 1f, 0.6f);
+                    // A check either way -- both mean there is nothing here the
+                    // player needs. The gold one says the colony already showed
+                    // this feature in use rather than that the tour taught it,
+                    // and the tooltip says so in words.
+                    GUI.color = alreadyUsed
+                        ? BWTTutorialAnchorRenderer.TutorialGold(0.85f)
+                        : new Color(1f, 1f, 1f, 0.6f);
                     Text.Anchor = TextAnchor.MiddleCenter;
                     Widgets.Label(markerRect, "✓");
                 }
@@ -362,9 +369,16 @@ namespace Better_Work_Tab.Features.Tutorial
                     : isHovered ? Widgets.MouseoverOptionColor : Widgets.NormalOptionColor;
                 Widgets.Label(labelRect, option.Label.Truncate(labelRect.width));
 
-                if (!string.IsNullOrEmpty(option.Body))
+                string tip = option.Body ?? string.Empty;
+                if (alreadyUsed)
                 {
-                    TooltipHandler.TipRegion(rect, option.Body);
+                    tip = (tip.Length > 0 ? tip + "\n\n" : string.Empty) +
+                          "BWT_Tutorial_AlreadyUsing".Translate();
+                }
+
+                if (tip.Length > 0)
+                {
+                    TooltipHandler.TipRegion(rect, tip);
                 }
             }
 
@@ -378,7 +392,7 @@ namespace Better_Work_Tab.Features.Tutorial
             IList<BWTTutorialAnchor> anchors,
             TutorialHubAnchor active,
             TutorialHubAnchor pointerAnchor,
-            ICollection<string> completed,
+            BWTTutorialProgressSnapshot progress,
             IDictionary<TutorialHubAnchor, BWTTutorialHubDefinition> hubs)
         {
             float pulse = 0.5f + 0.5f * Mathf.Sin(Time.realtimeSinceStartup * 4.2f);
@@ -390,7 +404,7 @@ namespace Better_Work_Tab.Features.Tutorial
                 bool emphasized = selected || anchor.Kind == pointerAnchor;
 
                 // An anchor whose lessons are all done stops pulsing for attention.
-                bool exhausted = AllOptionsComplete(anchor.Kind, hubs, completed);
+                bool exhausted = AllOptionsComplete(anchor.Kind, hubs, progress);
                 float alpha = exhausted
                     ? (emphasized ? 0.7f : 0.3f)
                     : emphasized ? 1f : Mathf.Lerp(0.46f, 0.78f, pulse);
@@ -404,7 +418,7 @@ namespace Better_Work_Tab.Features.Tutorial
         private static bool AllOptionsComplete(
             TutorialHubAnchor kind,
             IDictionary<TutorialHubAnchor, BWTTutorialHubDefinition> hubs,
-            ICollection<string> completed)
+            BWTTutorialProgressSnapshot progress)
         {
             if (hubs == null || !hubs.TryGetValue(kind, out BWTTutorialHubDefinition hub) ||
                 hub.Options.Count == 0)
@@ -414,7 +428,7 @@ namespace Better_Work_Tab.Features.Tutorial
 
             for (int i = 0; i < hub.Options.Count; i++)
             {
-                if (!TutorialProgressTransitions.IsCompleted(completed, hub.Options[i].LessonId))
+                if (!progress.IsSettled(hub.Options[i].LessonId))
                 {
                     return false;
                 }

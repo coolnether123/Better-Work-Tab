@@ -23,19 +23,28 @@ namespace Better_Work_Tab.Features.Tutorial
             BWTTutorialStripMode mode,
             string instruction,
             int completedCount,
-            int totalCount)
+            int totalCount,
+            int disabledFeatureCount = 0)
         {
             Mode = mode;
             Instruction = instruction ?? string.Empty;
             CompletedCount = completedCount;
             TotalCount = totalCount;
+            DisabledFeatureCount = disabledFeatureCount;
         }
 
         internal BWTTutorialStripMode Mode { get; }
         internal string Instruction { get; }
         internal int CompletedCount { get; }
         internal int TotalCount { get; }
+
+        /// <summary>
+        /// Features the player has switched off that the tour could otherwise
+        /// have taught. Non-zero puts the discovery button on the band.
+        /// </summary>
+        internal int DisabledFeatureCount { get; }
         internal bool HasProgress => TotalCount > 0;
+        internal bool OffersDiscovery => DisabledFeatureCount > 0;
     }
 
     internal readonly struct BWTTutorialStripLayout
@@ -45,13 +54,15 @@ namespace Better_Work_Tab.Features.Tutorial
             Rect progressRect,
             Rect instructionRect,
             Rect skipRect,
-            Rect exitRect)
+            Rect exitRect,
+            Rect discoverRect = default(Rect))
         {
             StripRect = stripRect;
             ProgressRect = progressRect;
             InstructionRect = instructionRect;
             SkipRect = skipRect;
             ExitRect = exitRect;
+            DiscoverRect = discoverRect;
         }
 
         internal Rect StripRect { get; }
@@ -59,6 +70,7 @@ namespace Better_Work_Tab.Features.Tutorial
         internal Rect InstructionRect { get; }
         internal Rect SkipRect { get; }
         internal Rect ExitRect { get; }
+        internal Rect DiscoverRect { get; }
         internal bool IsValid => StripRect.width > 1f && StripRect.height > 1f;
     }
 
@@ -195,6 +207,17 @@ namespace Better_Work_Tab.Features.Tutorial
             skip = new Rect(rightEdge - skipWidth, buttonTop, skipWidth, ButtonHeight);
             rightEdge = skip.xMin - ButtonGap;
 
+            // Only while browsing. During a lesson the player is being asked to
+            // do one thing, and a second call to action next to it competes
+            // with the instruction the band exists to carry.
+            Rect discover = Rect.zero;
+            if (content.OffersDiscovery && content.Mode == BWTTutorialStripMode.Browse)
+            {
+                float discoverWidth = MeasureButtonWidth(DiscoverLabel(content));
+                discover = new Rect(rightEdge - discoverWidth, buttonTop, discoverWidth, ButtonHeight);
+                rightEdge = discover.xMin - ButtonGap;
+            }
+
             Rect progress = Rect.zero;
             float instructionLeft = inner.x;
             if (content.HasProgress && inner.width > ProgressWidth + MinimumInstructionWidth)
@@ -215,6 +238,7 @@ namespace Better_Work_Tab.Features.Tutorial
             {
                 skip = Rect.zero;
                 exit = Rect.zero;
+                discover = Rect.zero;
                 instruction = new Rect(
                     instructionLeft,
                     inner.y,
@@ -222,7 +246,7 @@ namespace Better_Work_Tab.Features.Tutorial
                     inner.height);
             }
 
-            return new BWTTutorialStripLayout(strip, progress, instruction, skip, exit);
+            return new BWTTutorialStripLayout(strip, progress, instruction, skip, exit, discover);
         }
 
         internal static void Draw(BWTTutorialStripLayout layout, BWTTutorialStripContent content)
@@ -269,6 +293,22 @@ namespace Better_Work_Tab.Features.Tutorial
             if (layout.ExitRect.width > 1f)
             {
                 DrawStripButton(layout.ExitRect, ExitLabel(content.Mode));
+            }
+
+            if (layout.DiscoverRect.width > 1f)
+            {
+                DrawStripButton(layout.DiscoverRect, DiscoverLabel(content));
+
+                // Naming every switched-off feature means walking the catalog
+                // and translating each label, so it is built only for the frames
+                // where somebody is actually pointing at the button.
+                if (layout.DiscoverRect.Contains(Event.current?.mousePosition ?? new Vector2(-1f, -1f)))
+                {
+                    TooltipHandler.TipRegion(
+                        layout.DiscoverRect,
+                        BWTTutorialFeatureDiscovery.DescribeDisabled(
+                            BetterWorkTabMod.Settings?.selectedTutorialCourse ?? BWTTutorialCourse.Full));
+                }
             }
 
             GUI.color = oldColor;
@@ -373,6 +413,16 @@ namespace Better_Work_Tab.Features.Tutorial
                 default:
                     return T("BWT_Tutorial_SkipLesson");
             }
+        }
+
+        /// <summary>
+        /// Names the count, because the number is the reason to press it. "More
+        /// features" reads as marketing; "3 features are off" reads as a fact
+        /// about this install.
+        /// </summary>
+        private static string DiscoverLabel(BWTTutorialStripContent content)
+        {
+            return "BWT_Tutorial_Discover_Button".Translate(content.DisabledFeatureCount);
         }
 
         private static float MeasureButtonWidth(string label)

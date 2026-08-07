@@ -104,6 +104,24 @@ namespace Better_Work_Tab.Features.Tutorial
         private const float WorkTabVerticalChrome = 6f;
         private const int CompletionOutcomePhase = 1000;
 
+        // The appearance lesson's colour branch. Phases 2 and 3 belong to the
+        // title dialog, so the colour picker gets its own step rather than
+        // borrowing steps that describe a text field.
+        private const int PawnAppearanceColorPhase = 4;
+
+        // How long the band refuses clicks after it reappears.
+        //
+        // The settings window switches the tutorial off while it is open, so
+        // closing it hands the band back instantly -- underneath a cursor that
+        // is still finishing the click it aimed at the dialog's own Close
+        // button. Whatever the band happens to put at that spot then catches a
+        // click nobody meant for it. Long enough to outlast a click, short
+        // enough that a deliberate second one still lands.
+        private const float BandInputSettleSeconds = 0.3f;
+
+        private static float bandActiveSince = -1f;
+        private static bool bandWasActive;
+
         internal static bool OwnsCurrentPointer => ownsCurrentPointer;
 
         /// <summary>
@@ -133,6 +151,13 @@ namespace Better_Work_Tab.Features.Tutorial
             settings.selectedTutorialCourse = BWTTutorialCourse.None;
             settings.completedTutorialLessonIds?.Clear();
             settings.skippedTutorialLessonIds?.Clear();
+            settings.tutorialDiscoveryOfferAcknowledged = false;
+
+            // Prior use is cleared too, but it is evidence rather than progress:
+            // the next scan finds it again within seconds if the colony still
+            // shows it. Resetting it matters for the player who asked to start
+            // over having since undone what they had done.
+            BWTTutorialPriorUse.Clear(settings);
 
             // Stamped current rather than zeroed: a fresh start is not an
             // upgrade, and leaving it behind would send this player down the
@@ -378,6 +403,17 @@ namespace Better_Work_Tab.Features.Tutorial
             report.AppendLine("lessonPhase=" + settings.tutorialLessonPhase);
             report.AppendLine("course=" + settings.selectedTutorialCourse);
             report.AppendLine("completed=" + string.Join(",", settings.completedTutorialLessonIds.ToArray()));
+            report.AppendLine("alreadyUsed=" + string.Join(
+                ",",
+                (settings.tutorialLessonIdsAlreadyUsed ?? new List<string>()).ToArray()));
+            report.AppendLine("detectedNow=" + string.Join(
+                ",",
+                BWTTutorialPriorUse.Detect().ToArray()));
+            report.AppendLine("disabledFeatures=" + string.Join(
+                ",",
+                BWTTutorialFeatureDiscovery.FindDisabled(settings.selectedTutorialCourse)
+                    .Select(lesson => lesson.Id).ToArray()));
+            report.AppendLine("discoveryOffer=" + BWTTutorialFeatureDiscovery.CountOffer(settings));
 
             BWTTutorialStripContent content = BuildStripContent(settings, presentation);
             report.AppendLine("bandMode=" + content.Mode);
@@ -388,6 +424,7 @@ namespace Better_Work_Tab.Features.Tutorial
             report.AppendLine("bandRect=" + Describe(stripLayout.StripRect));
             report.AppendLine("bandSkipRect=" + Describe(stripLayout.SkipRect));
             report.AppendLine("bandExitRect=" + Describe(stripLayout.ExitRect));
+            report.AppendLine("bandDiscoverRect=" + Describe(stripLayout.DiscoverRect));
 
             List<BWTTutorialAnchor> anchors = BWTTutorialGeometry.BuildInitialAnchors(inRect, layout);
             report.AppendLine("anchorCount=" + anchors.Count);
@@ -673,7 +710,9 @@ namespace Better_Work_Tab.Features.Tutorial
         internal static void RefreshStripReservation()
         {
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
-            if (!IsActive || settings == null)
+            bool active = IsActive;
+            ObserveBandActivation(active && settings != null);
+            if (!active || settings == null)
             {
                 BWTTutorialStrip.RefreshReservation(false);
                 return;
@@ -709,11 +748,18 @@ namespace Better_Work_Tab.Features.Tutorial
 
             if (presentation == TutorialPresentation.Selector)
             {
+                // The offer only appears once the tour has nothing left it can
+                // teach here. Earlier, it would pull people away from lessons
+                // they can actually follow into a settings window.
+                int disabled = BWTTutorialFeatureDiscovery.CountOffer(settings);
                 return new BWTTutorialStripContent(
                     BWTTutorialStripMode.Browse,
-                    T("BWT_Tutorial_Selector_DefaultBody"),
+                    T(disabled > 0
+                        ? "BWT_Tutorial_Selector_AllDoneBody"
+                        : "BWT_Tutorial_Selector_DefaultBody"),
                     completed,
-                    total);
+                    total,
+                    disabled);
             }
 
             return default(BWTTutorialStripContent);
@@ -726,13 +772,12 @@ namespace Better_Work_Tab.Features.Tutorial
         {
             completed = 0;
             total = 0;
+            BWTTutorialProgressSnapshot progress = BWTTutorialProgressSnapshot.For(settings);
             foreach (BWTTutorialLessonDefinition lesson in
                 BWTTutorialLessonCatalog.ForCourse(settings.selectedTutorialCourse))
             {
                 total++;
-                if (TutorialProgressTransitions.IsCompleted(
-                        settings.completedTutorialLessonIds,
-                        lesson.Id))
+                if (progress.IsSettled(lesson.Id))
                 {
                     completed++;
                 }
@@ -765,6 +810,20 @@ namespace Better_Work_Tab.Features.Tutorial
         /// The band claims clicks anywhere inside itself, not just on its buttons,
         /// so a stray click never falls through to the grid underneath it.
         /// </summary>
+        private static void ObserveBandActivation(bool active)
+        {
+            if (active && !bandWasActive)
+            {
+                bandActiveSince = Time.realtimeSinceStartup;
+            }
+
+            bandWasActive = active;
+        }
+
+        private static bool BandInputSettled =>
+            bandActiveSince >= 0f &&
+            Time.realtimeSinceStartup - bandActiveSince >= BandInputSettleSeconds;
+
         private static bool TryHandleStripClick(IWorkTabLayoutController layout, Vector2 point)
         {
             if (!BWTTutorialStrip.IsReserved)
@@ -780,7 +839,20 @@ namespace Better_Work_Tab.Features.Tutorial
                 return false;
             }
 
-            if (stripLayout.SkipRect.width > 1f && stripLayout.SkipRect.Contains(point))
+            // Claimed but not acted on: the band already swallows clicks that
+            // land on it so nothing falls through to the grid, and that is
+            // exactly what a click arriving this soon after the band reappeared
+            // should get.
+            if (!BandInputSettled)
+            {
+                return true;
+            }
+
+            if (stripLayout.DiscoverRect.width > 1f && stripLayout.DiscoverRect.Contains(point))
+            {
+                OpenDisabledFeatureSettings(settings);
+            }
+            else if (stripLayout.SkipRect.width > 1f && stripLayout.SkipRect.Contains(point))
             {
                 if (content.Mode == BWTTutorialStripMode.Complete)
                 {
@@ -812,6 +884,31 @@ namespace Better_Work_Tab.Features.Tutorial
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// Opens the settings filtered to exactly the features the player has
+        /// switched off, each row highlighted where it sits.
+        ///
+        /// The tour is left running rather than closed. Whatever they turn on
+        /// becomes available immediately -- the catalog tests the toggles live
+        /// -- so coming back to the Work tab finds new lessons waiting instead
+        /// of a tour they have to go and restart.
+        /// </summary>
+        private static void OpenDisabledFeatureSettings(BetterWorkTabSettings settings)
+        {
+            BWTSettingsFocusRequest request =
+                BWTTutorialFeatureDiscovery.BuildFocusRequest(settings.selectedTutorialCourse);
+            if (request == null)
+            {
+                return;
+            }
+
+            settings.tutorialDiscoveryOfferAcknowledged = true;
+            settings.Write();
+            BWTSettingsContextFocus.Request(request);
+            MainTabWindow_BetterWork.OpenBetterWorkTabSettings(toggleExisting: false);
+            PlayTutorialSound("Tick_High");
         }
 
         private static bool StripContainsPointer(IWorkTabLayoutController layout, Vector2 pointer)
@@ -890,6 +987,11 @@ namespace Better_Work_Tab.Features.Tutorial
             }
 
             settings.skippedTutorialLessonIds ??= new List<string>();
+            settings.tutorialLessonIdsAlreadyUsed ??= new List<string>();
+
+            // Look at the colony before offering to teach it anything. Throttled
+            // inside, so this is safe on the per-frame path.
+            BWTTutorialPriorUse.Scan(settings);
             BWTTutorialFeedbackStore.Ensure(settings);
             if (settings.tutorialWelcomeCompleted &&
                 settings.selectedTutorialCourse == BWTTutorialCourse.None &&
@@ -1027,7 +1129,7 @@ namespace Better_Work_Tab.Features.Tutorial
                 GetWorkTabAttachmentBounds(inRect, Vector2.zero),
                 localAnchors,
                 BuildHubDefinitions(),
-                settings.completedTutorialLessonIds);
+                BWTTutorialProgressSnapshot.For(settings));
         }
 
         private static void SelectLesson(
@@ -1152,11 +1254,17 @@ namespace Better_Work_Tab.Features.Tutorial
             }
         }
 
-        internal static void NotifyPawnAppearanceMenuOptionChosen()
+        /// <summary>
+        /// The appearance lesson teaches two menu entries that lead to two
+        /// different windows, so the instruction has to follow whichever the
+        /// player picked. Sending the colour picker down the title dialog's
+        /// steps told them to type a name into a swatch grid.
+        /// </summary>
+        internal static void NotifyPawnAppearanceMenuOptionChosen(bool editingTitle)
         {
             if (IsActiveLesson(PawnAppearanceLesson, out int phase) && phase == 1)
             {
-                AdvanceLessonPhase(2);
+                AdvanceLessonPhase(editingTitle ? 2 : PawnAppearanceColorPhase);
             }
         }
 
@@ -1480,7 +1588,11 @@ namespace Better_Work_Tab.Features.Tutorial
             {
                 if (phase == 1)
                 {
-                    return T("BWT_Tutorial_PawnAppearance_ActionChoose");
+                    return BuildPawnAppearanceChoiceBody();
+                }
+                if (phase == PawnAppearanceColorPhase)
+                {
+                    return T("BWT_Tutorial_PawnAppearance_ActionColor");
                 }
                 if (phase == 2)
                 {
@@ -1780,10 +1892,23 @@ namespace Better_Work_Tab.Features.Tutorial
 
         private static void ReviewIfCourseResolved(BetterWorkTabSettings settings)
         {
+            BWTTutorialProgressSnapshot progress = BWTTutorialProgressSnapshot.For(settings);
             bool resolved = BWTTutorialLessonCatalog.ForCourse(settings.selectedTutorialCourse).All(
-                lesson => settings.completedTutorialLessonIds.Contains(lesson.Id) ||
+                lesson => progress.IsSettled(lesson.Id) ||
                           settings.skippedTutorialLessonIds.Contains(lesson.Id));
             if (!resolved)
+            {
+                return;
+            }
+
+            // Everything the current configuration can teach is done, but the
+            // mod is bigger than the current configuration. Closing here would
+            // take the band away, and the offer with it, from the one player who
+            // most needs to see it. So the tour stays open until the offer has
+            // been made once -- after that it finishes normally, and "Skip for
+            // now" still leaves at any point.
+            if (!settings.tutorialDiscoveryOfferAcknowledged &&
+                BWTTutorialFeatureDiscovery.FindDisabled(settings.selectedTutorialCourse).Count > 0)
             {
                 return;
             }
@@ -1846,6 +1971,24 @@ namespace Better_Work_Tab.Features.Tutorial
         /// of naming one gesture in the copy. The visible button leads, because a
         /// player who can see it does not need a shortcut explained first.
         /// </summary>
+        /// <summary>
+        /// Names the menu entries that are actually on the menu.
+        ///
+        /// The lesson used to name "Change title..." alone while its own title
+        /// and preview promised colour as well, so it read as the wrong
+        /// instruction for the thing it had just described. Worse, that entry
+        /// is conditional -- a pawn whose title cannot be edited does not get
+        /// it -- so the one instruction the lesson gave could point at nothing.
+        /// Colour is always there, so it leads, and the title is named only
+        /// when this particular colonist has it.
+        /// </summary>
+        private static string BuildPawnAppearanceChoiceBody()
+        {
+            return T(PawnTitleUtility.CanEditTitle(lessonAnchor.Pawn)
+                ? "BWT_Tutorial_PawnAppearance_ActionChoose"
+                : "BWT_Tutorial_PawnAppearance_ActionChooseColorOnly");
+        }
+
         private static string BuildSubWorkActionBody()
         {
             string gesture = SubWorkDrilldownInput.GestureLabel();

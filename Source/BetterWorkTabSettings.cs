@@ -418,6 +418,20 @@ namespace Better_Work_Tab
         internal BWTTutorialCourse selectedTutorialCourse;
         internal bool tutorialMigratedFromPublic105;
         internal List<string> skippedTutorialLessonIds = new List<string>();
+
+        // Lessons whose feature the player was already using when the tour
+        // looked. Kept apart from completed IDs because it is a different claim:
+        // completed means the tour taught it, this means the colony showed it
+        // had been used. The tour treats both as settled, and says which is
+        // which, rather than telling somebody they finished a lesson they never
+        // opened. Recorded rather than recomputed, so it survives a new colony.
+        internal List<string> tutorialLessonIdsAlreadyUsed = new List<string>();
+
+        // Whether the player has been shown what they have switched off. The
+        // tour holds itself open the first time it runs out of lessons while
+        // features remain disabled, so the offer is actually seen rather than
+        // closed over. Once it has been made, the tour is free to finish.
+        internal bool tutorialDiscoveryOfferAcknowledged;
         internal List<BWTTutorialLessonFeedback> tutorialLessonFeedback = new List<BWTTutorialLessonFeedback>();
         internal string tutorialOverallFeedback = string.Empty;
 
@@ -967,6 +981,8 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref selectedTutorialCourse, "selectedTutorialCourse", BWTTutorialCourse.None);
             Scribe_Values.Look(ref tutorialMigratedFromPublic105, "tutorialMigratedFromPublic105", false);
             Scribe_Collections.Look(ref skippedTutorialLessonIds, "skippedTutorialLessonIds", LookMode.Value);
+            Scribe_Collections.Look(ref tutorialLessonIdsAlreadyUsed, "tutorialLessonIdsAlreadyUsed", LookMode.Value);
+            Scribe_Values.Look(ref tutorialDiscoveryOfferAcknowledged, "tutorialDiscoveryOfferAcknowledged", false);
             Scribe_Collections.Look(ref tutorialLessonFeedback, "tutorialLessonFeedback", LookMode.Deep);
             Scribe_Values.Look(ref tutorialOverallFeedback, "tutorialOverallFeedback", string.Empty);
 

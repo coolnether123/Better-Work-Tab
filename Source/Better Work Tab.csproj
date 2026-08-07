@@ -176,6 +176,10 @@
     <Compile Include="Features\Tutorial\BWTTutorialLessonCatalog.cs" />
     <Compile Include="Features\Tutorial\BWTTutorialFeedback.cs" />
     <Compile Include="Features\Feedback\BWTDiagnosticContext.cs" />
+    <Compile Include="Features\Testing\BWTTutorialAwarenessSelfTest.cs" />
+    <Compile Include="Features\Tutorial\BWTTutorialFeatureDiscovery.cs" />
+    <Compile Include="Features\Tutorial\BWTTutorialPriorUse.cs" />
+    <Compile Include="Features\Tutorial\BWTTutorialProgress.cs" />
     <Compile Include="Features\Tutorial\BWTTutorialProgressMigration.cs" />
     <Compile Include="Features\Feedback\BWTBetaEnvironmentReport.cs" />
     <Compile Include="Features\Feedback\BWTBetaFeedbackModel.cs" />

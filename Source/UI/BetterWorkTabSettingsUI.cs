@@ -14,21 +14,18 @@ namespace Better_Work_Tab.UI
     /// </summary>
     public static class BetterWorkTabSettingsUI
     {
-        private enum SettingsPage
-        {
-            Settings,
-            Controls
-        }
-
-        private static SettingsListDrawer _settingsDrawer;
-        private static SettingsListDrawer _controlsDrawer;
-        // Compatibility alias for the agent harness and older integrations that reflect the
-        // single pre-page drawer field. It always points at the currently active page drawer.
+        // One list, not two pages.
+        //
+        // Settings and Controls used to be separate drawers behind a pair of tab
+        // buttons. The split cost more than it bought: the search box, the view
+        // toggle and every filter chip only ever saw one half, so searching for
+        // a control from the Settings page found nothing, and a context filter
+        // had to work out which page its target lived on before it could open.
+        // The control rows already sit under their own header, so merging keeps
+        // them grouped where they were while making the whole set searchable.
         private static SettingsListDrawer _drawer;
-        private static SettingsPage _page;
         private static SettingsViewMode _viewMode = SettingsViewMode.Simple;
-        private static Vector2 _preservedSettingsScrollPosition = Vector2.zero;
-        private static Vector2 _preservedControlsScrollPosition = Vector2.zero;
+        private static Vector2 _preservedScrollPosition = Vector2.zero;
 
         /// <summary>
         /// Renders the settings window contents.
@@ -36,26 +33,18 @@ namespace Better_Work_Tab.UI
         public static void DoSettingsWindowContents(Rect inRect, BetterWorkTabSettings settings)
         {
             EnsureDrawerInitialized();
-            DrawPageTabs(inRect);
             FluffyWorkTabGateway.DrawSettingsBannerIfNeeded(ref inRect);
 
             _viewMode = settings.settingsViewMode == BetterWorkTabSettings.SettingsViewMode.Simple
                 ? SettingsViewMode.Simple
                 : SettingsViewMode.Advanced;
 
-            SettingsListDrawer drawer = _page == SettingsPage.Controls ? _controlsDrawer : _settingsDrawer;
-            _drawer = drawer;
+            SettingsListDrawer drawer = _drawer;
             drawer.ShowResetIcons = !settings.hideSettingResetIcons;
             drawer.FocusHighlightColor = settings.Color_SettingFocusHighlight;
             drawer.ImportExportActions = BWTSettingsImportExportActions.Create(settings, NotifySettingsChanged);
             if (BWTSettingsContextFocus.TryConsume(out BWTSettingsFocusRequest focusRequest))
             {
-                SettingDefinition target = BWTSettingsRegistry.Hierarchy.GetById(focusRequest.TargetSettingId);
-                _page = BWTSettingsFilters.IsControlSetting(target)
-                    ? SettingsPage.Controls
-                    : SettingsPage.Settings;
-                drawer = _page == SettingsPage.Controls ? _controlsDrawer : _settingsDrawer;
-                _drawer = drawer;
                 drawer.ApplyContextFilter(
                     BWTSettingsContextFocus.CreateFilter(focusRequest),
                     focusRequest.TargetSettingId);
@@ -75,16 +64,11 @@ namespace Better_Work_Tab.UI
         public static void NotifySettingsChanged()
         {
             // Preserve scroll position before destroying drawer
-            if (_settingsDrawer != null)
+            if (_drawer != null)
             {
-                _preservedSettingsScrollPosition = _settingsDrawer.ScrollPosition;
+                _preservedScrollPosition = _drawer.ScrollPosition;
             }
-            if (_controlsDrawer != null)
-            {
-                _preservedControlsScrollPosition = _controlsDrawer.ScrollPosition;
-            }
-            _settingsDrawer = null;
-            _controlsDrawer = null;
+
             _drawer = null;
         }
 
@@ -93,21 +77,15 @@ namespace Better_Work_Tab.UI
         /// </summary>
         private static void EnsureDrawerInitialized()
         {
-            if (_settingsDrawer != null && _controlsDrawer != null)
+            if (_drawer != null)
             {
                 return;
             }
 
             BWTSettingsRegistry.EnsureInitialized();
-            _settingsDrawer = CreateDrawer(
-                new SettingsHierarchy(BWTSettingsRegistry.Definitions.Where(
-                    definition => !BWTSettingsFilters.IsControlSetting(definition))),
-                _preservedSettingsScrollPosition);
-            _controlsDrawer = CreateDrawer(
-                new SettingsHierarchy(BWTSettingsRegistry.Definitions.Where(
-                    BWTSettingsFilters.IsControlsPageDefinition)),
-                _preservedControlsScrollPosition);
-            _drawer = _page == SettingsPage.Controls ? _controlsDrawer : _settingsDrawer;
+            _drawer = CreateDrawer(
+                new SettingsHierarchy(BWTSettingsRegistry.Definitions),
+                _preservedScrollPosition);
         }
 
         private static SettingsListDrawer CreateDrawer(
@@ -140,41 +118,6 @@ namespace Better_Work_Tab.UI
         {
             Vector2 position = GUIUtility.ScreenToGUIPoint(screenRect.position);
             return new Rect(position.x, position.y, screenRect.width, screenRect.height);
-        }
-
-        private static void DrawPageTabs(Rect inRect)
-        {
-            const float height = 30f;
-            const float gap = 8f;
-            const float titleGap = 18f;
-            const float rightInset = 44f;
-
-            GameFont previousFont = Text.Font;
-            Text.Font = GameFont.Medium;
-            float titleWidth = Text.CalcSize("Better Work Tab").x;
-            Text.Font = previousFont;
-
-            float tabsX = inRect.x + titleWidth + titleGap;
-            float availableWidth = Mathf.Max(0f, inRect.xMax - rightInset - tabsX);
-            float width = Mathf.Min(150f, Mathf.Max(0f, (availableWidth - gap) / 2f));
-            Rect tabs = new Rect(tabsX, inRect.y - height - 8f, availableWidth, height);
-            Rect settingsRect = new Rect(tabs.x, tabs.y, width, height);
-            Rect controlsRect = new Rect(settingsRect.xMax + gap, tabs.y, width, height);
-
-            Color previous = GUI.color;
-            GUI.color = _page == SettingsPage.Settings ? Color.white : Color.gray;
-            if (Widgets.ButtonText(settingsRect, "BWT_Settings_UI_Settings".Translate()))
-            {
-                _page = SettingsPage.Settings;
-                _drawer = _settingsDrawer;
-            }
-            GUI.color = _page == SettingsPage.Controls ? Color.white : Color.gray;
-            if (Widgets.ButtonText(controlsRect, "BWT_Settings_UI_Controls".Translate()))
-            {
-                _page = SettingsPage.Controls;
-                _drawer = _controlsDrawer;
-            }
-            GUI.color = previous;
         }
 
         private static void MarkSettingViewed(SettingDefinition def, object settingsObject)

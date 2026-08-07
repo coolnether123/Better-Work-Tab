@@ -199,6 +199,12 @@
 <BWT_FluffyMigration_SettingsContextTooltip>Settings for Fluffy-style controls, saved hourly priorities, visible compatibility columns, and choosing which mod owns the Work tab.</BWT_FluffyMigration_SettingsContextTooltip>
 <BWT_Tutorial_Selector_Title>Explore Better Work Tab</BWT_Tutorial_Selector_Title>
 <BWT_Tutorial_Selector_DefaultBody>Click a highlighted name, header, or priority to explore it.</BWT_Tutorial_Selector_DefaultBody>
+<BWT_Tutorial_Selector_AllDoneBody>That is everything you have switched on. There is more available.</BWT_Tutorial_Selector_AllDoneBody>
+<BWT_Tutorial_AlreadyUsing>You are already using this in your colony, so it is checked off. Open it anyway if you want the walkthrough.</BWT_Tutorial_AlreadyUsing>
+<BWT_Tutorial_Discover_Button>{0} switched off</BWT_Tutorial_Discover_Button>
+<BWT_Tutorial_Discover_Tooltip>{0} feature(s) are switched off in settings. Open them to see what they do.</BWT_Tutorial_Discover_Tooltip>
+<BWT_Tutorial_Discover_Filter>Not switched on</BWT_Tutorial_Discover_Filter>
+<BWT_Tutorial_Discover_FilterTooltip>Better Work Tab features you have switched off. Turn one on and its walkthrough appears in the Work tab.</BWT_Tutorial_Discover_FilterTooltip>
 <BWT_Tutorial_SkipForNow>Skip for now</BWT_Tutorial_SkipForNow>
 <BWT_Tutorial_GiveFeedback>Give feedback</BWT_Tutorial_GiveFeedback>
 <BWT_BetaFeedback_ButtonTooltip>Better Work Tab 2.0 beta feedback\n\nOpen the feedback portal. Nothing is sent automatically; it builds a report you copy and paste wherever you like.</BWT_BetaFeedback_ButtonTooltip>
@@ -223,10 +229,12 @@
 <BWT_Tutorial_PawnAppearance_Title>Change title or color</BWT_Tutorial_PawnAppearance_Title>
 <BWT_Tutorial_PawnAppearance_Preview>The pawn menu can change the displayed title and row background color.</BWT_Tutorial_PawnAppearance_Preview>
 <BWT_Tutorial_PawnAppearance_Action>Right-click the highlighted pawn.</BWT_Tutorial_PawnAppearance_Action>
-<BWT_Tutorial_PawnAppearance_ActionChoose>Select “Change title...” from the pawn action menu.</BWT_Tutorial_PawnAppearance_ActionChoose>
+<BWT_Tutorial_PawnAppearance_ActionChoose>Select “Set background color...” or “Change title...”.</BWT_Tutorial_PawnAppearance_ActionChoose>
+<BWT_Tutorial_PawnAppearance_ActionChooseColorOnly>Select “Set background color...”.</BWT_Tutorial_PawnAppearance_ActionChooseColorOnly>
+<BWT_Tutorial_PawnAppearance_ActionColor>Pick a color for this row.</BWT_Tutorial_PawnAppearance_ActionColor>
 <BWT_Tutorial_PawnAppearance_ActionType>Type a different display title in the highlighted field.</BWT_Tutorial_PawnAppearance_ActionType>
 <BWT_Tutorial_PawnAppearance_ActionConfirm>Click OK.</BWT_Tutorial_PawnAppearance_ActionConfirm>
-<BWT_Tutorial_PawnAppearance_Outcome>Row label updated. Display only, the pawn is unchanged.</BWT_Tutorial_PawnAppearance_Outcome>
+<BWT_Tutorial_PawnAppearance_Outcome>Row updated. Display only, the colonist is unchanged.</BWT_Tutorial_PawnAppearance_Outcome>
 
 <BWT_Tutorial_HeaderHub_Title>Better Work Tab header tools</BWT_Tutorial_HeaderHub_Title>
 <BWT_Tutorial_HeaderHub_Body>Better Work Tab makes headers interactive: reorder execution, move selected groups, or open specific jobs.</BWT_Tutorial_HeaderHub_Body>

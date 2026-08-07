@@ -15,6 +15,7 @@ namespace Better_Work_Tab.Features.Tutorial
 
             settings.completedTutorialLessonIds ??= new List<string>();
             settings.skippedTutorialLessonIds ??= new List<string>();
+            settings.tutorialLessonIdsAlreadyUsed ??= new List<string>();
             settings.tutorialLessonFeedback ??= new List<BWTTutorialLessonFeedback>();
             settings.tutorialOverallFeedback ??= string.Empty;
 
