@@ -1,7 +1,7 @@
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.Migration;
 using Better_Work_Tab.Features.TimePriority;
-using Better_Work_Tab.Features.Testing;
+using Better_Work_Tab.Diagnostics;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Mod_Support.LocalProfiles;
 using Better_Work_Tab.Mod_Support.Multiplayer;

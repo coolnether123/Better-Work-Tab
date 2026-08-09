@@ -68,7 +68,17 @@ Shift-click remains reserved for BWT's grouped column dragging, so it does not d
 
 The optimized Work-grid renderer uses caching, viewport culling, and targeted invalidation for large colonies. A vanilla-compatible renderer remains available as a fallback in advanced settings.
 
-Source-level performance comparisons must use `Tools/Invoke-BwtPairedBenchmark.ps1`. The gate runs reference and candidate builds simultaneously through identical muted harness lanes, save/mod snapshots, and profiler intervals; independent historical captures are suitable for context, not regression attribution.
+Source-level performance comparisons use the private Better Work Tab tests
+repository at `A:\Dev\RimWorld\Infrastructure\Better-Work-Tab-Tests` (or its
+configured checkout) and `tools/Invoke-BwtPairedBenchmark.ps1`. The gate runs
+reference and candidate builds simultaneously through identical muted harness
+lanes, save/mod snapshots, and profiler intervals; independent historical
+captures are suitable for context, not regression attribution.
+
+The private repository owns deterministic tests, the developer TestProbe mod,
+fixtures, benchmarks, and verification scripts. BWT keeps only production code,
+the narrow diagnostics ports, and its `InternalsVisibleTo` seam; the player
+project does not reference the private repository.
 
 ## Credits
 

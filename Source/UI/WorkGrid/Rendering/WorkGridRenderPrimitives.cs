@@ -122,6 +122,27 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             out int start,
             out int count)
         {
+            ResolveVisibleRange(
+                starts,
+                extents,
+                viewportStart,
+                viewportExtent,
+                scroll,
+                0f,
+                out start,
+                out count);
+        }
+
+        internal static void ResolveVisibleRange(
+            float[] starts,
+            float[] extents,
+            float viewportStart,
+            float viewportExtent,
+            float scroll,
+            float viewportBuffer,
+            out int start,
+            out int count)
+        {
             start = 0;
             count = 0;
             if (starts == null || extents == null || starts.Length == 0 || starts.Length != extents.Length)
@@ -133,7 +154,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 viewportStart,
                 viewportExtent,
                 scroll,
-                0f,
+                viewportBuffer,
                 out float visibleStart,
                 out float visibleEnd);
             int first = -1;
