@@ -229,10 +229,14 @@ namespace Better_Work_Tab.UI.WindowSession
             _requestedTabSizeCacheSignature = int.MinValue;
         }
 
+        /// <summary>
+        /// Ends the current window's resize lifecycle without discarding the
+        /// signature-validated requested-size cache. Ordinary tab closes may be
+        /// followed by a warm reopen, but a staged rect belongs only to the
+        /// closing window lifecycle and must not be applied afterward.
+        /// </summary>
         internal void ResetForWindowClose()
         {
-            _requestedTabSizeCacheSignature = int.MinValue;
-            _requestedTabSizeCache = Vector2.zero;
             _pendingWindowRect = default(Rect);
             _hasPendingWindowRect = false;
         }
