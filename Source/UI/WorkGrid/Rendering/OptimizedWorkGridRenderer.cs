@@ -10,10 +10,6 @@ using Better_Work_Tab.UI.WorkGrid.Snapshots;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities;
 using RimWorld;
-using Spine.Api;
-using Better_Work_Tab.Foundation;
-using Spine.Caching;
-using Spine.RimWorld.Api;
 using Spine.RimWorld.Rendering;
 using Spine.RimWorld.Rendering.GuiState;
 using UnityEngine;
@@ -21,146 +17,21 @@ using Verse;
 
 namespace Better_Work_Tab.UI.WorkGrid.Rendering
 {
-    internal readonly struct WorkGridAtlasEntry
-    {
-        internal WorkGridAtlasEntry(Texture2D baseTexture, Texture2D blendTexture, string priorityText)
-        {
-            BaseTexture = baseTexture;
-            BlendTexture = blendTexture;
-            PriorityText = priorityText;
-        }
-
-        internal Texture2D BaseTexture { get; }
-        internal Texture2D BlendTexture { get; }
-        internal string PriorityText { get; }
-    }
-
-    internal sealed class WorkGridCellAtlas : IRenderAtlas<WorkGridAtlasKey, WorkGridAtlasEntry>
-    {
-        internal const long DefaultBudgetBytes = 4L * 1024L * 1024L;
-        private const long EntryBytes = 128L;
-        private const int VariantCount = 6;
-        private const int HotEntryCount = 256 * VariantCount;
-        private readonly BoundedLruCache<WorkGridAtlasKey, WorkGridAtlasEntry> _entries;
-        private readonly WorkGridAtlasKey[] _hotKeys = new WorkGridAtlasKey[HotEntryCount];
-        private readonly WorkGridAtlasEntry[] _hotEntries = new WorkGridAtlasEntry[HotEntryCount];
-        private readonly bool[] _hotValid = new bool[HotEntryCount];
-        private long _hotHits;
-
-        internal WorkGridCellAtlas(long budgetBytes = DefaultBudgetBytes)
-        {
-            _entries = new BoundedLruCache<WorkGridAtlasKey, WorkGridAtlasEntry>(budgetBytes);
-        }
-
-        public int EntryCount => _entries.EntryCount;
-        public long BudgetBytes => _entries.BudgetBytes;
-        public long UsedBytes => _entries.UsedBytes;
-        public long Hits => _entries.Hits + _hotHits;
-        public long Misses => _entries.Misses;
-        public long Evictions => _entries.Evictions;
-
-        public bool TryGet(WorkGridAtlasKey key, out WorkGridAtlasEntry entry)
-        {
-            int hotIndex = GetHotIndex(key);
-            if (_hotValid[hotIndex] && _hotKeys[hotIndex].Equals(key))
-            {
-                _hotHits++;
-                entry = _hotEntries[hotIndex];
-                return true;
-            }
-
-            if (!_entries.TryGet(key, out entry))
-            {
-                return false;
-            }
-
-            StoreHot(hotIndex, key, entry);
-            return true;
-        }
-
-        internal WorkGridAtlasEntry GetOrCreate(WorkGridAtlasKey key)
-        {
-            if (TryGet(key, out WorkGridAtlasEntry entry))
-            {
-                return entry;
-            }
-
-            Texture2D baseTexture = null;
-            Texture2D blendTexture = null;
-            switch (key.Variant)
-            {
-                case WorkGridAtlasVisualVariant.AgeDisabled:
-                    baseTexture = WidgetsWork.WorkBoxBGTex_AgeDisabled;
-                    break;
-                case WorkGridAtlasVisualVariant.SkillAwfulBad:
-                    baseTexture = WidgetsWork.WorkBoxBGTex_Awful;
-                    blendTexture = WidgetsWork.WorkBoxBGTex_Bad;
-                    break;
-                case WorkGridAtlasVisualVariant.SkillBadMid:
-                    baseTexture = WidgetsWork.WorkBoxBGTex_Bad;
-                    blendTexture = WidgetsWork.WorkBoxBGTex_Mid;
-                    break;
-                case WorkGridAtlasVisualVariant.SkillMidExcellent:
-                    baseTexture = WidgetsWork.WorkBoxBGTex_Mid;
-                    blendTexture = WidgetsWork.WorkBoxBGTex_Excellent;
-                    break;
-            }
-
-            string priorityText = key.Priority == 0 ? string.Empty : key.Priority.ToString();
-            entry = new WorkGridAtlasEntry(baseTexture, blendTexture, priorityText);
-            long evictions = _entries.Evictions;
-            _entries.AddOrUpdate(key, entry, EntryBytes);
-            if (_entries.Evictions != evictions)
-            {
-                Array.Clear(_hotValid, 0, _hotValid.Length);
-            }
-            if (_entries.TryGet(key, out WorkGridAtlasEntry retainedEntry))
-            {
-                entry = retainedEntry;
-                StoreHot(GetHotIndex(key), key, entry);
-            }
-            return entry;
-        }
-
-        public void Reset()
-        {
-            _entries.Reset();
-            Array.Clear(_hotValid, 0, _hotValid.Length);
-            _hotHits = 0;
-        }
-        public void Dispose() => Reset();
-
-        private static int GetHotIndex(WorkGridAtlasKey key)
-        {
-            return (key.Priority * VariantCount) + (int)key.Variant;
-        }
-
-        private void StoreHot(int index, WorkGridAtlasKey key, WorkGridAtlasEntry entry)
-        {
-            _hotKeys[index] = key;
-            _hotEntries[index] = entry;
-            _hotValid[index] = true;
-        }
-    }
-
     internal sealed class OptimizedWorkGridRenderer : IWorkGridRenderer, IWorkGridSnapshotLayer, IDisposable
     {
         internal const string RendererId = "bwt.optimized-layered";
         private readonly IWorkGridDrawingSurface _drawingSurface;
-        private readonly WorkGridCellAtlas _atlas = new WorkGridCellAtlas();
         private WorkGridSnapshot _snapshot;
         private int[] _cellLookup = Array.Empty<int>();
         private WorkGridIndexRange _visibleRows;
         private WorkGridIndexRange _visibleColumns;
         private bool _delegateFeatureCells;
-        private int _atlasRevision = int.MinValue;
         private GuiStateScope _cellBatchState;
         private bool _cellBatchActive;
 
         internal OptimizedWorkGridRenderer(IWorkGridDrawingSurface drawingSurface)
         {
             _drawingSurface = drawingSurface ?? throw new ArgumentNullException(nameof(drawingSurface));
-            WorkGridRendererDiagnostics.SetAtlasDiagnostics(_atlas);
         }
 
         public string Id => RendererId;
@@ -186,16 +57,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             if (snapshot == null)
             {
                 return;
-            }
-
-            int atlasRevision = unchecked(
-                (snapshot.UiScaleRevision * 397) ^
-                snapshot.FontThemeRevision ^
-                snapshot.PriorityRangeRevision);
-            if (_atlasRevision != atlasRevision)
-            {
-                _atlas.Reset();
-                _atlasRevision = atlasRevision;
             }
 
             _delegateFeatureCells =
@@ -315,7 +176,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         public void Dispose()
         {
             EndCellBatch();
-            _atlas.Dispose();
             _snapshot = null;
             _cellLookup = Array.Empty<int>();
         }
@@ -374,8 +234,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             Rect boxRect = WorkPriorityCellGeometry.GetPriorityBoxRect(cellRect);
             if (ageDisabled)
             {
-                WorkGridAtlasEntry age = GetEntry(cell, WorkGridAtlasVisualVariant.AgeDisabled);
-                GUI.DrawTexture(boxRect, age.BaseTexture);
+                GUI.DrawTexture(boxRect, WidgetsWork.WorkBoxBGTex_AgeDisabled);
                 return;
             }
 
@@ -394,14 +253,13 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             {
                 if (cell.Priority > WorkPrioritySystem.DisabledPriority)
                 {
-                    WorkGridAtlasEntry glyph = GetEntry(cell, WorkGridAtlasVisualVariant.Priority);
                     GUI.color = UnpackColor(cell.PriorityColor);
-                    Widgets.Label(boxRect.ContractedBy(-3f), glyph.PriorityText);
+                    Widgets.Label(boxRect.ContractedBy(-3f), ((int)cell.Priority).ToStringCached());
+                    GUI.color = Color.white;
                 }
             }
             else if (cell.Priority > WorkPrioritySystem.DisabledPriority)
             {
-                GetEntry(cell, WorkGridAtlasVisualVariant.Checkbox);
                 GUI.DrawTexture(boxRect, WidgetsWork.WorkBoxCheckTex);
             }
 
@@ -410,17 +268,28 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
         private void DrawCachedWorkBoxBackground(Rect boxRect, WorkCellVisualState cell)
         {
-            WorkGridAtlasVisualVariant variant = cell.SkillBand switch
+            Texture2D baseTexture;
+            Texture2D blendTexture;
+            switch (cell.SkillBand)
             {
-                0 => WorkGridAtlasVisualVariant.SkillAwfulBad,
-                1 => WorkGridAtlasVisualVariant.SkillBadMid,
-                _ => WorkGridAtlasVisualVariant.SkillMidExcellent
-            };
-            WorkGridAtlasEntry background = GetEntry(cell, variant);
+                case 0:
+                    baseTexture = WidgetsWork.WorkBoxBGTex_Awful;
+                    blendTexture = WidgetsWork.WorkBoxBGTex_Bad;
+                    break;
+                case 1:
+                    baseTexture = WidgetsWork.WorkBoxBGTex_Bad;
+                    blendTexture = WidgetsWork.WorkBoxBGTex_Mid;
+                    break;
+                default:
+                    baseTexture = WidgetsWork.WorkBoxBGTex_Mid;
+                    blendTexture = WidgetsWork.WorkBoxBGTex_Excellent;
+                    break;
+            }
+
             Color baseColor = GUI.color;
-            GUI.DrawTexture(boxRect, background.BaseTexture);
+            GUI.DrawTexture(boxRect, baseTexture);
             GUI.color = new Color(baseColor.r, baseColor.g, baseColor.b, cell.SkillBlend);
-            GUI.DrawTexture(boxRect, background.BlendTexture);
+            GUI.DrawTexture(boxRect, blendTexture);
 
             if ((cell.Flags & WorkCellVisualFlags.IdeologyWarning) != 0)
             {
@@ -475,16 +344,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             {
                 PriorityOverrideRing.Draw(boxRect);
             }
-        }
-
-        private WorkGridAtlasEntry GetEntry(WorkCellVisualState cell, WorkGridAtlasVisualVariant variant)
-        {
-            return _atlas.GetOrCreate(new WorkGridAtlasKey(
-                _snapshot.UiScaleRevision,
-                _snapshot.FontThemeRevision,
-                _snapshot.PriorityRangeRevision,
-                cell.Priority,
-                variant));
         }
 
         private static Color UnpackColor(uint packed)

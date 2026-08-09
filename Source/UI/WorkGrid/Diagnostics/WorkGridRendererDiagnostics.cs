@@ -5,7 +5,6 @@ using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Better_Work_Tab.UI.WorkGrid.Rendering;
 using Better_Work_Tab.UI.WorkGrid.Commands;
 using LudeonTK;
-using Spine.Api;
 using Better_Work_Tab.Foundation;
 using Verse;
 
@@ -85,7 +84,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Diagnostics
         private static int _priorityDirtyCount;
         private static int _snapshotIncremental;
         private static int _snapshotUpdatedCellCount;
-        private static ICacheDiagnostics _atlasDiagnostics;
 
         public static WorkGridRendererDiagnosticSnapshot Current => Volatile.Read(ref _current);
 
@@ -98,8 +96,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Diagnostics
             Volatile.Read(ref _priorityDirtyCount),
             Volatile.Read(ref _snapshotIncremental) != 0,
             Volatile.Read(ref _snapshotUpdatedCellCount));
-
-        public static ICacheDiagnostics AtlasDiagnostics => Volatile.Read(ref _atlasDiagnostics);
 
         public static WorkGridForcedRendererMode ForcedMode
         {
@@ -216,11 +212,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Diagnostics
             Volatile.Write(ref _priorityDirtyCount, 0);
             Volatile.Write(ref _snapshotIncremental, 0);
             Volatile.Write(ref _snapshotUpdatedCellCount, 0);
-        }
-
-        internal static void SetAtlasDiagnostics(ICacheDiagnostics diagnostics)
-        {
-            Volatile.Write(ref _atlasDiagnostics, diagnostics);
         }
 
         internal static void RecordCommand(in WorkGridCommandObservation observation)
