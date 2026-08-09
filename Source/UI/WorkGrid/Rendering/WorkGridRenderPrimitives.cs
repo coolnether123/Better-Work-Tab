@@ -3,62 +3,6 @@ using Better_Work_Tab.UI.WorkGrid.Invalidation;
 
 namespace Better_Work_Tab.UI.WorkGrid.Rendering
 {
-    internal enum WorkGridAtlasVisualVariant : byte
-    {
-        Priority,
-        Checkbox,
-        AgeDisabled,
-        SkillAwfulBad,
-        SkillBadMid,
-        SkillMidExcellent
-    }
-
-    internal readonly struct WorkGridAtlasKey : IEquatable<WorkGridAtlasKey>
-    {
-        internal WorkGridAtlasKey(
-            int uiScaleRevision,
-            int fontThemeRevision,
-            int priorityRangeRevision,
-            byte priority,
-            WorkGridAtlasVisualVariant variant)
-        {
-            UiScaleRevision = uiScaleRevision;
-            FontThemeRevision = fontThemeRevision;
-            PriorityRangeRevision = priorityRangeRevision;
-            Priority = priority;
-            Variant = variant;
-        }
-
-        internal int UiScaleRevision { get; }
-        internal int FontThemeRevision { get; }
-        internal int PriorityRangeRevision { get; }
-        internal byte Priority { get; }
-        internal WorkGridAtlasVisualVariant Variant { get; }
-
-        public bool Equals(WorkGridAtlasKey other)
-        {
-            return UiScaleRevision == other.UiScaleRevision &&
-                   FontThemeRevision == other.FontThemeRevision &&
-                   PriorityRangeRevision == other.PriorityRangeRevision &&
-                   Priority == other.Priority &&
-                   Variant == other.Variant;
-        }
-
-        public override bool Equals(object obj) => obj is WorkGridAtlasKey other && Equals(other);
-
-        public override int GetHashCode()
-        {
-            unchecked
-            {
-                int hash = UiScaleRevision;
-                hash = (hash * 397) ^ FontThemeRevision;
-                hash = (hash * 397) ^ PriorityRangeRevision;
-                hash = (hash * 397) ^ Priority;
-                return (hash * 397) ^ (int)Variant;
-            }
-        }
-    }
-
     internal enum WorkGridRenderLayer : byte
     {
         RowBackground,
