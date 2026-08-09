@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
+using Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities;
 using Better_Work_Tab.UI;
 using HarmonyLib;
 using RimWorld;
@@ -12,7 +13,9 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
     public enum WorkTabOwnerPreference
     {
         BetterWorkTab,
-        FluffyWorkTab
+        FluffyWorkTab,
+        SleekWorkPriorities,
+        BetterWorkTabWithSleekWorkPriorities
     }
 
     internal static class FluffyWorkTabCoexistence
@@ -45,17 +48,53 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             }
         }
 
-        internal static bool BetterWorkTabOwnsWorkTab => !IsFluffyWorkTabPresent ||
-            BetterWorkTabMod.Settings?.preferredWorkTabOwner != WorkTabOwnerPreference.FluffyWorkTab ||
-            !TryGetFluffyWorkTabWindowType(out _);
+        internal static bool BetterWorkTabOwnsWorkTab =>
+            (!IsFluffyWorkTabPresent ||
+             BetterWorkTabMod.Settings?.preferredWorkTabOwner != WorkTabOwnerPreference.FluffyWorkTab ||
+             !TryGetFluffyWorkTabWindowType(out _)) &&
+            (!SleekWorkTabGateway.IsPresent ||
+             BetterWorkTabMod.Settings?.preferredWorkTabOwner != WorkTabOwnerPreference.SleekWorkPriorities);
 
-        internal static bool FluffyOwnsWorkTab => IsFluffyWorkTabPresent && !BetterWorkTabOwnsWorkTab;
+        internal static bool FluffyOwnsWorkTab =>
+            IsFluffyWorkTabPresent &&
+            BetterWorkTabMod.Settings?.preferredWorkTabOwner == WorkTabOwnerPreference.FluffyWorkTab &&
+            TryGetFluffyWorkTabWindowType(out _);
+
+        internal static bool SleekOwnsWorkTab =>
+            SleekWorkTabGateway.IsPresent &&
+            BetterWorkTabMod.Settings?.preferredWorkTabOwner == WorkTabOwnerPreference.SleekWorkPriorities;
+
+        internal static bool BetterWorkTabHostsSleek =>
+            SleekWorkTabGateway.IsPresent &&
+            BetterWorkTabMod.Settings?.preferredWorkTabOwner == WorkTabOwnerPreference.BetterWorkTabWithSleekWorkPriorities;
+
+        internal static bool ExternalWorkTabOwnsWorkTab => FluffyOwnsWorkTab || SleekOwnsWorkTab;
 
         internal static bool ShouldRunBetterWorkTabFeatures => BetterWorkTabOwnsWorkTab;
 
         internal static bool IsKnownFluffyPackageId(string packageId)
         {
             return FluffyWorkTabIdentity.IsKnownPackageId(packageId);
+        }
+
+        /// <summary>
+        /// A newly detected Sleek installation starts in the mixed host. The
+        /// explicit-selection bit keeps a later BWT-only choice from being
+        /// silently changed back on the next compatibility reconciliation.
+        /// </summary>
+        internal static void ApplyDefaultExternalCompatibility()
+        {
+            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
+            if (settings == null ||
+                settings.workTabOwnerSelectionMade ||
+                settings.preferredWorkTabOwner != WorkTabOwnerPreference.BetterWorkTab ||
+                !SleekWorkTabGateway.IsPresent)
+            {
+                return;
+            }
+
+            settings.preferredWorkTabOwner = WorkTabOwnerPreference.BetterWorkTabWithSleekWorkPriorities;
+            settings.Write();
         }
 
         internal static void ApplyColumnVisibility()
@@ -68,15 +107,24 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             MainButtonDef work = BwtMainButtonDefOf.Work;
             if (work == null)
             {
+                if (Current.ProgramState == ProgramState.Playing)
+                {
+                    SleekWorkTabGateway.ReconcileCompatibility();
+                }
                 return;
             }
 
             Type desired = typeof(UI.MainTabWindow_BetterWork);
-            if (IsFluffyWorkTabPresent &&
-                BetterWorkTabMod.Settings?.preferredWorkTabOwner == WorkTabOwnerPreference.FluffyWorkTab &&
+            if (FluffyOwnsWorkTab &&
                 TryGetFluffyWorkTabWindowType(out Type fluffyType))
             {
                 desired = fluffyType;
+            }
+            else if (SleekOwnsWorkTab)
+            {
+                // Sleek owns the vanilla MainTabWindow_Work and gates its full replacement on the
+                // same owner decision. BWT remains loaded for a reversible handoff and shared data.
+                desired = typeof(MainTabWindow_Work);
             }
 
             MainTabsRoot mainTabsRoot = null;
@@ -120,6 +168,10 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             }
 
             ApplyColumnVisibility();
+            if (Current.ProgramState == ProgramState.Playing)
+            {
+                SleekWorkTabGateway.ReconcileCompatibility();
+            }
         }
 
         internal static void SwitchToBetterWorkTab()
@@ -130,6 +182,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                 return;
             }
 
+            settings.workTabOwnerSelectionMade = true;
             settings.preferredWorkTabOwner = WorkTabOwnerPreference.BetterWorkTab;
             settings.Write();
             PriorityAuthorityBroker.NotifyPotentialAuthorityChanged();
@@ -144,7 +197,38 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                 return;
             }
 
+            settings.workTabOwnerSelectionMade = true;
             settings.preferredWorkTabOwner = WorkTabOwnerPreference.FluffyWorkTab;
+            settings.Write();
+            PriorityAuthorityBroker.NotifyPotentialAuthorityChanged();
+            ApplyDesiredOwner(reopenIfOpen: true);
+        }
+
+        internal static void SwitchToBetterWorkTabWithSleek()
+        {
+            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
+            if (settings == null || !SleekWorkTabGateway.IsPresent)
+            {
+                return;
+            }
+
+            settings.workTabOwnerSelectionMade = true;
+            settings.preferredWorkTabOwner = WorkTabOwnerPreference.BetterWorkTabWithSleekWorkPriorities;
+            settings.Write();
+            PriorityAuthorityBroker.NotifyPotentialAuthorityChanged();
+            ApplyDesiredOwner(reopenIfOpen: true);
+        }
+
+        internal static void SwitchToSleekWorkPriorities()
+        {
+            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
+            if (settings == null || !SleekWorkTabGateway.IsPresent)
+            {
+                return;
+            }
+
+            settings.workTabOwnerSelectionMade = true;
+            settings.preferredWorkTabOwner = WorkTabOwnerPreference.SleekWorkPriorities;
             settings.Write();
             PriorityAuthorityBroker.NotifyPotentialAuthorityChanged();
             ApplyDesiredOwner(reopenIfOpen: true);

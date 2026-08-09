@@ -1,11 +1,11 @@
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.Testing;
-using Better_Work_Tab.DragDrop;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.Input;
+using Better_Work_Tab.UI.WorkGrid.Layout;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -19,7 +19,6 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
     internal static class SubWorkDrilldownBarRenderer
     {
         internal static float RowHeight => SubWorkDrilldownState.GlobalRowVisibleHeight;
-        internal static float ReservedRowHeight => SubWorkDrilldownState.GlobalRowReservedHeight;
 
         internal static void Draw(IWorkTabLayoutController layout)
         {
@@ -28,21 +27,19 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 return;
             }
 
-            float reservedHeight = Mathf.Max(0f, ReservedRowHeight);
-            if (reservedHeight <= 0.5f)
+            Rect reservedBand = WorkGridLayoutMetrics.GetSubWorkBandRect(layout);
+            if (reservedBand.height <= 0.5f)
             {
                 SubWorkCrossWorkDropTargetRenderer.DrawSettleAnimation(layout);
                 return;
             }
 
-            float rowTop = layout.TableOrigin.y +
-                layout.HeaderHeight +
-                TimePriorityScheduleEditor.HeaderPinnedRowsHeight;
+            float rowTop = reservedBand.y;
             Rect rowRect = new Rect(
                 layout.TableOrigin.x,
                 rowTop,
                 Mathf.Max(layout.Table != null ? layout.Table.Size.x - 16f : 0f, 1f),
-                reservedHeight);
+                reservedBand.height);
 
             float visualAlpha = SubWorkDrilldownState.GlobalRowVisualAlpha;
             float alpha = 0.72f * visualAlpha;
@@ -57,8 +54,9 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             for (int i = 0; i < layout.Columns.Count; i++)
             {
                 var column = layout.Columns[i];
-                float animatedOffset = ColumnReorderAnimationState.GetHeaderOffset(column);
-                Rect cellRect = new Rect(column.HeaderRect.x + animatedOffset, rowRect.y, column.Width, reservedHeight);
+                Rect cellRect = WorkGridInteractionGeometry.GetAnimatedBodyScreenRect(
+                    column,
+                    rowRect);
 
                 if (column.Column?.Worker is PawnColumnWorker_Label)
                 {
@@ -108,7 +106,9 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             }
 
             var hoveredWorkType = PawnColumnWorker_WorkPriority_DoHeader_Patch.HoveredWorkType;
-            return hoveredWorkType == workType || Mouse.IsOver(column.HeaderRect) || Mouse.IsOver(cellRect);
+            return hoveredWorkType == workType ||
+                   Mouse.IsOver(WorkGridInteractionGeometry.GetAnimatedHeaderRect(column)) ||
+                   Mouse.IsOver(cellRect);
         }
 
         private static void DrawLabelCell(Rect rect)

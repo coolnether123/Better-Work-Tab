@@ -1,10 +1,10 @@
 using System.Collections.Generic;
-using Better_Work_Tab.DragDrop;
-using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI.Headers.Angled;
+using Better_Work_Tab.UI.WorkGrid.Layout;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -25,9 +25,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         private const float BackBadgeSize = 18f;
 
         private static readonly Dictionary<string, int> WorkGiverCountCache = new Dictionary<string, int>();
-        private static readonly Dictionary<PawnColumnDef, Rect> VanillaOpenBadgeRects = new Dictionary<PawnColumnDef, Rect>();
         private static int _cachedSyncVersion = -1;
-        private static int _vanillaBadgeRectsFrame = -1;
         private static string _openBadgeTooltip;
         private static string _openBadgeTooltipLanguage;
         private static string _focusedBadgeTooltip;
@@ -80,15 +78,14 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             RegisterHoveredBadgeInteraction(badgeRect, hovered);
         }
 
-        internal static void DrawOpenBadge(Rect headerRect, Rect textRect, PawnColumnDef column)
+        internal static void DrawOpenBadge(Rect headerRect, PawnColumnDef column)
         {
             if (!ShouldDrawOpenBadge(column))
             {
                 return;
             }
 
-            Rect badgeRect = GetVanillaOpenBadgeRect(headerRect, textRect);
-            RememberVanillaOpenBadgeRect(column, badgeRect);
+            Rect badgeRect = GetOpenBadgeRect(headerRect, clearVanillaStem: false);
             bool hovered = IsOpenBadgeHovered(badgeRect, column);
             DrawVanillaOpenAffordance(badgeRect, hovered);
             RegisterHoveredBadgeInteraction(badgeRect, hovered);
@@ -128,11 +125,6 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
         internal static bool TryGetOpenBadgeRect(PawnColumnDef column, Rect headerRect, bool isVanillaStaggered, out Rect badgeRect)
         {
-            if (isVanillaStaggered && TryGetRememberedVanillaOpenBadgeRect(column, out badgeRect))
-            {
-                return true;
-            }
-
             badgeRect = GetOpenBadgeRect(headerRect, clearVanillaStem: false);
             return true;
         }
@@ -141,10 +133,12 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             IWorkTabLayoutController layout,
             Vector2 mousePosition,
             out WorkTypeDef workType,
-            out Rect badgeRect)
+            out Rect badgeRect,
+            out WorkTabLayoutColumn targetColumn)
         {
             workType = null;
             badgeRect = default;
+            targetColumn = default;
 
             if (layout?.Columns == null)
             {
@@ -166,17 +160,14 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                     continue;
                 }
 
-                float animatedOffset = ColumnReorderAnimationState.GetHeaderOffset(column);
-                Rect headerRect = Mathf.Abs(animatedOffset) > 0.01f
-                    ? new Rect(column.HeaderRect.x + animatedOffset, column.HeaderRect.y, column.HeaderRect.width, column.HeaderRect.height)
-                    : column.HeaderRect;
-                if (clearVanillaStem && TryGetRememberedVanillaOpenBadgeRect(def, out Rect rememberedBadgeRect))
+                Rect headerRect = WorkGridInteractionGeometry.GetAnimatedHeaderRect(column);
+                headerRect = FluffyWorkTabGateway.GetHostedHeaderLaneRect(
+                    column.Column,
+                    layout.Table,
+                    headerRect);
+                if (!TryGetOpenBadgeRect(def, headerRect, clearVanillaStem, out badgeRect))
                 {
-                    badgeRect = rememberedBadgeRect;
-                }
-                else
-                {
-                    badgeRect = GetOpenBadgeRect(headerRect, clearVanillaStem: false);
+                    continue;
                 }
 
                 if (!badgeRect.Contains(mousePosition))
@@ -185,6 +176,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 }
 
                 workType = def.workType;
+                targetColumn = column;
                 return true;
             }
 
@@ -243,13 +235,12 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 return false;
             }
 
-            // Deliberately use the stable slot rect, not the animated header rect. Specific-job
-            // headers may glide through this position after reordering, but the affordance belongs
-            // to the parent Work header's original position and transfers to the new occupant.
-            // Keep the shared angled-header offset: centering this badge in Focus view moves its
-            // rotated rails back through the specific-job label instead of beneath its edge.
-            Rect stableHeaderRect = targetColumn.HeaderRect;
-            badgeRect = GetOpenBadgeRect(stableHeaderRect, clearVanillaStem: false);
+            Rect focusedHeaderRect = WorkGridInteractionGeometry.GetAnimatedHeaderRect(targetColumn);
+            focusedHeaderRect = FluffyWorkTabGateway.GetHostedHeaderLaneRect(
+                targetColumn.Column,
+                layout.Table,
+                focusedHeaderRect);
+            badgeRect = GetOpenBadgeRect(focusedHeaderRect, clearVanillaStem: false);
             return true;
         }
 
@@ -296,54 +287,6 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                    column.workType.defName == DebugForcedHoveredWorkTypeDefName;
         }
 
-        private static Rect GetVanillaOpenBadgeRect(Rect headerRect, Rect textRect)
-        {
-            float width = Mathf.Max(AffordanceMinWidth, headerRect.width - (AffordanceInset * 2f));
-            return new Rect(
-                Mathf.Round(headerRect.center.x - (width / 2f)),
-                Mathf.Round(headerRect.yMax - AffordanceHeight - AffordanceBottomInset),
-                width,
-                AffordanceHeight);
-        }
-
-        private static void RememberVanillaOpenBadgeRect(PawnColumnDef column, Rect badgeRect)
-        {
-            if (column == null)
-            {
-                return;
-            }
-
-            EnsureVanillaOpenBadgeFrame();
-            VanillaOpenBadgeRects[column] = badgeRect;
-        }
-
-        private static bool TryGetRememberedVanillaOpenBadgeRect(PawnColumnDef column, out Rect badgeRect)
-        {
-            badgeRect = default;
-            EnsureVanillaOpenBadgeFrame();
-            return column != null && VanillaOpenBadgeRects.TryGetValue(column, out badgeRect);
-        }
-
-        private static void EnsureVanillaOpenBadgeFrame()
-        {
-            if (_vanillaBadgeRectsFrame == Time.frameCount)
-            {
-                return;
-            }
-
-            if (Event.current != null && Event.current.type == EventType.Repaint)
-            {
-                VanillaOpenBadgeRects.Clear();
-                _vanillaBadgeRectsFrame = Time.frameCount;
-                return;
-            }
-
-            if (_vanillaBadgeRectsFrame < 0)
-            {
-                _vanillaBadgeRectsFrame = Time.frameCount;
-            }
-        }
-
         internal static Rect GetBackBadgeRect(Rect labelCellRect)
         {
             return new Rect(
@@ -372,15 +315,11 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 return false;
             }
 
-            float rowHeight = SubWorkDrilldownState.GlobalRowReservedHeight;
-            if (rowHeight <= 0.5f)
+            Rect globalRowRect = WorkGridLayoutMetrics.GetSubWorkBandRect(layout);
+            if (globalRowRect == Rect.zero)
             {
                 return false;
             }
-
-            float rowTop = layout.TableOrigin.y +
-                layout.HeaderHeight +
-                TimePriorityScheduleEditor.HeaderPinnedRowsHeight;
 
             for (int i = 0; i < layout.Columns.Count; i++)
             {
@@ -390,8 +329,9 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                     continue;
                 }
 
-                float animatedOffset = ColumnReorderAnimationState.GetHeaderOffset(column);
-                labelCellRect = new Rect(column.HeaderRect.x + animatedOffset, rowTop, column.Width, rowHeight);
+                labelCellRect = WorkGridInteractionGeometry.GetAnimatedBodyScreenRect(
+                    column,
+                    globalRowRect);
                 return true;
             }
 

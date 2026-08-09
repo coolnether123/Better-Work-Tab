@@ -129,7 +129,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
         internal static int GetCurrentPriorityForPawnWorkType(Pawn pawn, WorkTypeDef workType)
         {
-            if (PriorityAuthorityBroker.FluffyWorkTabHasPriorityAuthority)
+            if (PriorityAuthorityBroker.ExternalWorkTabHasPriorityAuthority)
             {
                 return GetPriorityForPawnWorkType(pawn, workType);
             }

@@ -210,6 +210,23 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
         internal void ApplyRuleset()
         {
             RefreshPreview();
+            if (RuleBuilder2SleekPriorityTranslation.RequiresDisclaimer(Ruleset))
+            {
+                Find.WindowStack.Add(new Dialog_MessageBox(
+                    RuleBuilder2SleekPriorityTranslation.DisclaimerText(),
+                    T("BWT_RuleBuilder2_SleekTranslation_Apply"),
+                    ApplyRulesetNow,
+                    T("BWT_Cancel"),
+                    null,
+                    T("BWT_RuleBuilder2_SleekTranslation_Title")));
+                return;
+            }
+
+            ApplyRulesetNow();
+        }
+
+        private void ApplyRulesetNow()
+        {
             int changed = applyService.Apply(Ruleset, out List<string> warnings, persistRuleset);
             ApplyStatus = warnings.Count > 0
                 ? T("BWT_RuleBuilder2_ApplyStatusWarnings").Formatted(changed, warnings.Count).ToString()
@@ -503,7 +520,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             card.NormalizeActionForTarget();
             if (selection.Priority >= 0)
             {
-                card.Action.Priority = RuleBuilder2PriorityRange.Clamp(selection.Priority);
+                card.Action.Priority = RuleBuilder2PriorityRange.ClampForActiveWorkTab(selection.Priority);
             }
 
             ActiveCard = card;

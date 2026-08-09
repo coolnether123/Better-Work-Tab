@@ -4,6 +4,7 @@ using RimWorld;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.UI.WorkGiverReassignments;
+using Better_Work_Tab.UI.Columns;
 
 namespace Better_Work_Tab.UI.Headers.Vanilla
 {
@@ -65,7 +66,7 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
             // === Collect header data during Layout event ===
             if (Event.current.type == EventType.Layout)
             {
-                bool isMoved = MainTabWindow_BetterWork.ShouldShowColumnMarker(worker.def.workType);
+            bool isMoved = WorkColumnCustomizationService.ShouldShowColumnMarker(worker.def.workType);
                 var solver = HeaderDrawingCoordinator.GetVanillaSolver();
                 solver.CollectHeader(worker.def, rect, worker.def.workType, isMoved);
             }
@@ -102,7 +103,7 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
 
             // Get Render/Layout Objects
             Rect interactionBounds = vanillaSolver.GetBounds(worker.def);
-            bool isMoved = MainTabWindow_BetterWork.ShouldShowColumnMarker(worker.def.workType);
+            bool isMoved = WorkColumnCustomizationService.ShouldShowColumnMarker(worker.def.workType);
             
             // Text Layout construction
             string label = HeaderUtility.GetHeaderText(
@@ -162,7 +163,7 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
                 label,
                 bounds.size,
                 bounds.center,
-                showMarker: MainTabWindow_BetterWork.ShouldShowColumnMarker(worker.def.workType),
+                showMarker: WorkColumnCustomizationService.ShouldShowColumnMarker(worker.def.workType),
                 isCJKVertical: false);
 
             bool isMouseOver = !TimePriorityScheduleEditor.OwnsCurrentMousePosition && bounds.Contains(HeaderInputController.MousePosition);

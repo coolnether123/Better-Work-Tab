@@ -132,7 +132,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                     SettingIDs.UiTimePrioritySchedules,
                     SettingIDs.UiFluffyTimePriorityMirroring
                 }));
-            MainTabWindow_BetterWork.OpenBetterWorkTabSettings(toggleExisting: false);
+            BetterWorkTabSettingsWindowService.Open(toggleExisting: false);
         }
     }
 }

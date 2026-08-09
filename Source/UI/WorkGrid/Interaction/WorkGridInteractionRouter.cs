@@ -1,39 +1,45 @@
+using Better_Work_Tab.Features;
+using Better_Work_Tab.Features.TimePriority;
+using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
+using Better_Work_Tab.UI;
+using Better_Work_Tab.UI.RuleBuilderV2;
+using Better_Work_Tab.UI.WorkGiverReassignments;
+using RimWorld;
 using UnityEngine;
 using Verse;
+using Verse.Sound;
 
 namespace Better_Work_Tab.UI.WorkGrid.Interaction
 {
-    internal interface IWorkGridInteractionHost
-    {
-        bool TryHandleHistoryShortcut(Event evt);
-        bool TryHandleTutorial(Rect inRect, IWorkTabLayoutController layout, Event evt);
-        void ReportTutorial(Rect inRect, IWorkTabLayoutController layout, Event evt);
-        bool TryHandlePriorityCell(IWorkTabLayoutController layout, Event evt);
-        bool TryHandleTopButtons(IWorkTabLayoutController layout, Rect inRect, Event evt);
-        bool TryHandleFluffySchedule(Event evt);
-        bool TryHandleContextSettings(Rect inRect, IWorkTabLayoutController layout, Event evt);
-        bool TryHandleRuleTarget(IWorkTabLayoutController layout, Event evt);
-        bool TryHandleSchedule(IWorkTabLayoutController layout, Event evt);
-        bool TryHandleSubWorkBadge(IWorkTabLayoutController layout);
-        bool TryHandleSubWorkExit(IWorkTabLayoutController layout);
-        bool TryHandleSubWorkOpen(IWorkTabLayoutController layout);
-        void ProcessRightClicks(IWorkTabLayoutController layout);
-        void HandleOrganizerInput(PawnOrganizerSystem organizer, Event evt);
-    }
-
     /// <summary>
     /// Single ordered entry point for Work-grid interaction. Specialized handlers retain their
     /// established semantics while this class owns dispatch order and cross-frame gesture state.
     /// </summary>
     internal sealed class WorkGridInteractionRouter
     {
-        private readonly IWorkGridInteractionHost _host;
+        private readonly WorkTabTutorialInteractionController _tutorialInteractionController;
+        private readonly WorkTabPriorityInputHandler _priorityInputHandler;
+        private readonly RuleBuilder2WorkTabInteractionController _ruleBuilder2InteractionController;
+        private readonly WorkTabContextSettingsInteractionController _contextSettingsInteractionController;
+        private readonly SubWorkInteractionController _subWorkInteractionController;
+        private readonly WorkGridContextActionController _contextActionController;
 
-        internal WorkGridInteractionRouter(IWorkGridInteractionHost host)
+        internal WorkGridInteractionRouter(
+            WorkTabTutorialInteractionController tutorialInteractionController,
+            WorkTabPriorityInputHandler priorityInputHandler,
+            RuleBuilder2WorkTabInteractionController ruleBuilder2InteractionController,
+            WorkTabContextSettingsInteractionController contextSettingsInteractionController,
+            SubWorkInteractionController subWorkInteractionController,
+            WorkGridContextActionController contextActionController)
         {
-            _host = host;
+            _tutorialInteractionController = tutorialInteractionController;
+            _priorityInputHandler = priorityInputHandler;
+            _ruleBuilder2InteractionController = ruleBuilder2InteractionController;
+            _contextSettingsInteractionController = contextSettingsInteractionController;
+            _subWorkInteractionController = subWorkInteractionController;
+            _contextActionController = contextActionController;
         }
 
         internal bool ShiftOverlayActive { get; private set; }
@@ -49,53 +55,38 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
 
             UpdateSessionState(evt);
             IWorkTabLayoutController layout = organizer?.Layout;
-            if (_host.TryHandleHistoryShortcut(evt))
+            if (TryHandleHistoryShortcut(evt))
             {
                 return;
             }
 
-            bool handledTutorial = _host.TryHandleTutorial(inRect, layout, evt);
+            bool handledTutorial = _tutorialInteractionController.TryHandleInput(inRect, layout, evt);
             if (!handledTutorial)
             {
-                _host.ReportTutorial(inRect, layout, evt);
+                _tutorialInteractionController.ReportInteraction(inRect, layout, evt);
             }
 
-            // This order is the compatibility contract from the former RouteWorkTabInput.
+            // This order is the compatibility contract for Work-tab input.
             bool handled = handledTutorial
-                || _host.TryHandlePriorityCell(layout, evt)
-                || _host.TryHandleTopButtons(layout, inRect, evt)
-                || _host.TryHandleFluffySchedule(evt)
-                || _host.TryHandleContextSettings(inRect, layout, evt)
-                || _host.TryHandleRuleTarget(layout, evt)
-                || _host.TryHandleSchedule(layout, evt)
-                || _host.TryHandleSubWorkBadge(layout)
-                || _host.TryHandleSubWorkExit(layout)
-                || _host.TryHandleSubWorkOpen(layout);
+                || _priorityInputHandler.TryHandlePriorityCellInput(layout, evt)
+                || HeaderButtons.TryHandleTopRightFluffyStyleInput(layout, inRect, evt)
+                || FluffyTimeScheduleAssigner.TryHandleInput(evt)
+                || _contextSettingsInteractionController.TryHandleInput(inRect, layout, evt)
+                || _ruleBuilder2InteractionController.TryHandleInput(layout, evt)
+                || TimePriorityScheduleEditor.TryHandleInput(layout, evt)
+                || _subWorkInteractionController.TryHandleSubWorkBadgeClick(layout)
+                || _subWorkInteractionController.TryHandleSubWorkExitGesture(layout)
+                || _subWorkInteractionController.TryHandleSubWorkHeaderOpen(layout);
             if (handled)
             {
                 return;
             }
 
-            _host.ProcessRightClicks(layout);
+            _contextActionController.ProcessRightClicks(layout);
             if (evt.type != EventType.Used)
             {
-                _host.HandleOrganizerInput(organizer, evt);
+                organizer?.HandleInput(evt);
             }
-        }
-
-        internal bool TryGetRowAt(IWorkTabLayoutController layout, Vector2 position, out WorkTabLayoutRow row)
-        {
-            row = default;
-            return layout?.GeometrySnapshot != null && layout.TryGetRowAt(position, out row);
-        }
-
-        internal bool TryGetBodyColumnAt(
-            IWorkTabLayoutController layout,
-            Vector2 position,
-            out WorkTabLayoutColumn column)
-        {
-            column = default;
-            return layout?.GeometrySnapshot != null && layout.TryGetBodyColumnAt(position, out column);
         }
 
         internal void ResetSessions()
@@ -117,6 +108,31 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
             {
                 PointerGestureActive = false;
             }
+        }
+
+        private static bool TryHandleHistoryShortcut(Event evt)
+        {
+            if (evt.type != EventType.KeyDown ||
+                !evt.control ||
+                GUIUtility.keyboardControl != 0 ||
+                BetterWorkTabLocalState.IsHeaderDragging)
+            {
+                return false;
+            }
+
+            bool redo = evt.keyCode == KeyCode.Y || (evt.keyCode == KeyCode.Z && evt.shift);
+            bool undo = evt.keyCode == KeyCode.Z && !evt.shift;
+            bool changed = redo
+                ? WorkGiverReassignmentManager.TryRedoWorkGiverLayout()
+                : undo && WorkGiverReassignmentManager.TryUndoWorkGiverLayout();
+            if (!changed)
+            {
+                return false;
+            }
+
+            SoundDefOf.Tick_High.PlayOneShotOnCamera();
+            evt.Use();
+            return true;
         }
     }
 }

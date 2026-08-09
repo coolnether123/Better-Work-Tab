@@ -30,6 +30,12 @@ namespace Better_Work_Tab.UI
         private const float FluffyTopButtonSize = 30f;
         private const float FluffyTopButtonGap = 4f;
 
+        // Strict Sleek renders its PawnTable against a different bottom-room
+        // contract than BWT's host. The table needs only this small upward
+        // shift to clear the footer controls; BWT's own host already inherits
+        // vanilla's bottom room and must not stack the full bar height again.
+        internal const float StrictSleekBottomTableShift = 12f;
+
         public struct BottomButtonRects
         {
             public Rect RulesetMain;

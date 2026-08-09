@@ -1,5 +1,6 @@
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
+using Better_Work_Tab.UI.WorkGrid.Layout;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -85,15 +86,18 @@ namespace Better_Work_Tab.UI.Settings
             for (int i = 0; i < layout.Columns.Count; i++)
             {
                 WorkTabLayoutColumn candidate = layout.Columns[i];
-                if (candidate.HeaderRect.xMax < windowRect.xMin || candidate.HeaderRect.xMin > windowRect.xMax)
+                WorkGridAnimatedColumnGeometry candidateGeometry =
+                    WorkGridInteractionGeometry.GetAnimatedColumn(candidate);
+                Rect candidateHeader = candidateGeometry.HeaderRect;
+                if (candidateHeader.xMax < windowRect.xMin || candidateHeader.xMin > windowRect.xMax)
                 {
                     continue;
                 }
 
                 // Horizontal previews represent a pawn row, so include the pawn-name,
                 // utility, root Work, and hosted Fluffy sub-work columns in the grid span.
-                gridXMin = Mathf.Min(gridXMin, candidate.HeaderRect.xMin);
-                gridXMax = Mathf.Max(gridXMax, candidate.HeaderRect.xMax);
+                gridXMin = Mathf.Min(gridXMin, candidateGeometry.BodyScreenX);
+                gridXMax = Mathf.Max(gridXMax, candidateGeometry.BodyScreenX + candidateGeometry.Width);
 
                 if (WorkTabColumnHighlightUtility.IsHighlightableWorkColumn(candidate))
                 {
@@ -142,17 +146,21 @@ namespace Better_Work_Tab.UI.Settings
                 return false;
             }
 
-            headerRect = workColumn.Value.HeaderRect;
+            WorkGridAnimatedColumnGeometry workColumnGeometry =
+                WorkGridInteractionGeometry.GetAnimatedColumn(workColumn.Value);
+            headerRect = workColumnGeometry.HeaderRect;
             headerLabel = workColumn.Value.Column?.LabelCap ?? "Work";
             cellText = GetRepresentativeSkillLevel(pawnRow.Value, workColumn.Value);
             Rect pawnScreenRect = layout.GetScreenRect(pawnRow.Value);
             rowRect = Rect.MinMaxRect(gridXMin, pawnScreenRect.y, gridXMax, pawnScreenRect.yMax);
             columnRect = new Rect(
-                headerRect.x,
+                workColumnGeometry.BodyScreenX,
                 gridYMin,
                 workColumn.Value.Width,
                 Mathf.Max(0f, gridYMax - gridYMin));
-            cellRect = new Rect(columnRect.x, rowRect.y, columnRect.width, rowRect.height);
+            cellRect = WorkGridInteractionGeometry.GetAnimatedBodyScreenRect(
+                workColumn.Value,
+                rowRect);
             dividerRect = dividerRow.HasValue
                 ? new Rect(gridXMin, layout.GetScreenRect(dividerRow.Value).y, gridXMax - gridXMin, layout.GetScreenRect(dividerRow.Value).height)
                 : new Rect(gridXMin, rowRect.yMax - 4f, gridXMax - gridXMin, 4f);

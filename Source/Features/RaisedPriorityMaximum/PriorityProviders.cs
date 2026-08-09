@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reflection;
 using Better_Work_Tab.API;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
+using Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities;
 using HarmonyLib;
 
 namespace Better_Work_Tab.Features.RaisedPriorityMaximum
@@ -229,6 +230,8 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
         internal const string FluffyWorkTabProviderId = "fluffy-work-tab";
         internal const string FluffyWorkTabDisplayName = "Fluffy Work Tab";
+        internal const string SleekWorkTabProviderId = "sleek-work-priorities";
+        internal const string SleekWorkTabDisplayName = "Sleek Work Priorities";
     }
 
     internal sealed class ReflectionMaxPriorityProvider : IMaxPriorityProvider
@@ -526,6 +529,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
             // Fluffy Work Tab owns its own type probes; the gateway registers it.
             FluffyWorkTabGateway.RegisterPriorityProvider();
+            SleekWorkTabGateway.RegisterPriorityProvider();
         }
 
         private static void RegisterPriorityMasterProvider()

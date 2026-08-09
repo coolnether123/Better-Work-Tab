@@ -41,6 +41,12 @@ namespace Better_Work_Tab.Features.Dividers
 
         internal static bool HasActiveAnimations => Active.Count > 0;
 
+        internal static void ResetForWindowClose()
+        {
+            Active.Clear();
+            _version++;
+        }
+
         internal static void Start(PawnDivider divider, bool collapsing)
         {
             if (divider == null)

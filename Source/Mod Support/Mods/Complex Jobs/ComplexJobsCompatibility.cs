@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.UI;
+using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.Settings;
 using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Better_Work_Tab.UI.WorkGrid.Invalidation;
@@ -70,7 +71,7 @@ namespace Better_Work_Tab.ModSupport.Mods.ComplexJobs
 
             settings.Write();
             PriorityAuthorityBroker.NotifyPotentialAuthorityChanged();
-            MainTabWindow_BetterWork.NotifyAngledHeadersChanged();
+            HeaderDrawingCoordinator.NotifyAngledHeadersChanged();
             WorkTabInvalidationHub.Invalidate(
                 WorkTabDirtyFlags.Columns |
                 WorkTabDirtyFlags.HeaderGeometry |

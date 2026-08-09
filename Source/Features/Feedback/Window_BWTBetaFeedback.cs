@@ -411,7 +411,7 @@ namespace Better_Work_Tab.Features.Feedback
                 "BWT_Beta_Heading_Problems".Translate(),
                 full ? "BWT_Beta_ProblemLimit".Translate(BWTBetaFeedbackStore.MaxProblemReports).ToString() : null);
 
-            if (BWTFeedbackWidgets.MiniButton(new Rect(view.width - 184f, y - 2f, 184f, 26f), "BWT_Beta_AddProblem".Translate()) &&
+            if (BWTFeedbackWidgets.MiniButton(new Rect(view.width - 184f, y + 6f, 184f, 26f), "BWT_Beta_AddProblem".Translate()) &&
                 !full)
             {
                 BWTBetaFeedbackStore.AddProblem(settings);

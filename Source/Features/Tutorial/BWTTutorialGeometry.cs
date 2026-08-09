@@ -6,6 +6,7 @@ using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.Headers.Angled;
 using Better_Work_Tab.UI.WorkGiverReassignments;
+using Better_Work_Tab.UI.WorkGrid.Layout;
 using RimWorld;
 using Spine.UI.Tutorial;
 using Spine.UI.WidgetExtensions;
@@ -58,11 +59,9 @@ namespace Better_Work_Tab.Features.Tutorial
             if (pawnRow.HasValue && nameColumn.HasValue)
             {
                 Rect rowRect = layout.GetScreenRect(pawnRow.Value);
-                Rect nameRect = new Rect(
-                    nameColumn.Value.HeaderRect.x,
-                    rowRect.y,
-                    nameColumn.Value.Width,
-                    rowRect.height).ContractedBy(2f);
+                Rect nameRect = WorkGridInteractionGeometry.GetAnimatedBodyScreenRect(
+                    nameColumn.Value,
+                    rowRect).ContractedBy(2f);
                 nameRect.xMax += 6f;
                 anchors.Add(new BWTTutorialAnchor(
                     TutorialHubAnchor.PawnName,
@@ -81,7 +80,7 @@ namespace Better_Work_Tab.Features.Tutorial
                 WorkTabLayoutRow row = pawnRow.Value;
                 WorkTabLayoutColumn column = priorityColumn.Value;
                 Rect rowRect = layout.GetScreenRect(row);
-                Rect cellRect = new Rect(column.HeaderRect.x, rowRect.y, column.Width, rowRect.height);
+                Rect cellRect = WorkGridInteractionGeometry.GetAnimatedBodyScreenRect(column, rowRect);
                 anchors.Add(new BWTTutorialAnchor(
                     TutorialHubAnchor.PriorityCell,
                     GetDrawnPriorityBox(cellRect, column).ExpandedBy(4f),
@@ -117,7 +116,7 @@ namespace Better_Work_Tab.Features.Tutorial
             float maxY = float.MinValue;
             for (int i = 0; i < layout.Columns.Count; i++)
             {
-                Rect header = layout.Columns[i].HeaderRect;
+                Rect header = WorkGridInteractionGeometry.GetAnimatedHeaderRect(layout.Columns[i]);
                 if (!IntersectsHorizontally(header, inRect))
                 {
                     continue;
@@ -164,7 +163,7 @@ namespace Better_Work_Tab.Features.Tutorial
                     bodyColumn.Column?.Worker is PawnColumnWorker_WorkPriority)
                 {
                     Rect rowRect = layout.GetScreenRect(row);
-                    Rect cell = new Rect(bodyColumn.HeaderRect.x, rowRect.y, bodyColumn.Width, rowRect.height);
+                    Rect cell = WorkGridInteractionGeometry.GetAnimatedBodyScreenRect(bodyColumn, rowRect);
                     Rect priority = GetDrawnPriorityBox(cell, bodyColumn).ExpandedBy(4f);
                     if (priority.Contains(pointer))
                     {
@@ -182,8 +181,10 @@ namespace Better_Work_Tab.Features.Tutorial
                 if (nameColumn.HasValue)
                 {
                     Rect rowRect = layout.GetScreenRect(row);
-                    Rect name = new Rect(nameColumn.Value.HeaderRect.x, rowRect.y,
-                        nameColumn.Value.Width + 6f, rowRect.height).ContractedBy(2f);
+                    Rect name = WorkGridInteractionGeometry.GetAnimatedBodyScreenRect(
+                        nameColumn.Value,
+                        rowRect).ContractedBy(2f);
+                    name.xMax += 6f;
                     if (name.Contains(pointer))
                     {
                         anchor = new BWTTutorialAnchor(TutorialHubAnchor.PawnName, name, row.Pawn);
@@ -246,6 +247,7 @@ namespace Better_Work_Tab.Features.Tutorial
                     outlinePoints: outline);
             }
 
+            Rect animatedHeader = WorkGridInteractionGeometry.GetAnimatedHeaderRect(column);
             Rect vanillaBounds = HeaderDrawingCoordinator.GetVanillaSolver()?.GetBounds(column.Column) ?? Rect.zero;
             if (vanillaBounds.width > 0.5f && vanillaBounds.height > 0.5f)
             {
@@ -253,10 +255,11 @@ namespace Better_Work_Tab.Features.Tutorial
                 // narrow priority column. Extra clearance keeps the gold line
                 // outside the glyphs so the label remains fully readable.
                 vanillaBounds = vanillaBounds.ExpandedBy(VanillaHeaderOutlineClearance);
+                vanillaBounds.x += animatedHeader.x - column.HeaderRect.x;
             }
             else
             {
-                vanillaBounds = column.HeaderRect.ContractedBy(2f);
+                vanillaBounds = animatedHeader.ContractedBy(2f);
             }
 
             return new BWTTutorialAnchor(
@@ -303,9 +306,9 @@ namespace Better_Work_Tab.Features.Tutorial
                 : WorkTypeDisplayNameService.HeaderLabel(workType);
             AngledHeaderCache.CachedTextMetrics metrics =
                 AngledHeaderCache.GetLabelTextMetrics(label);
-            Rect drawRect = MainTabWindow_BetterWork.GetHostedAngledHeaderDrawRect(
+            Rect drawRect = WorkTabHeaderRenderer.GetHostedAngledHeaderDrawRect(
                 column,
-                column.HeaderRect,
+                WorkGridInteractionGeometry.GetAnimatedHeaderRect(column),
                 metrics.Size,
                 metrics.IsCJKVertical,
                 layout.Table);
@@ -326,7 +329,7 @@ namespace Better_Work_Tab.Features.Tutorial
                 ? layout.GetScreenRect(pawnRow.Value).center.y
                 : inRect.center.y;
             float columnTarget = workColumn.HasValue
-                ? workColumn.Value.HeaderRect.center.x
+                ? WorkGridInteractionGeometry.GetAnimatedHeaderRect(workColumn.Value).center.x
                 : inRect.center.x;
             WorkTabLayoutRow? bestRow = null;
             WorkTabLayoutColumn? bestColumn = null;
@@ -335,7 +338,7 @@ namespace Better_Work_Tab.Features.Tutorial
             {
                 WorkTabLayoutColumn column = layout.Columns[c];
                 WorkTypeDef workType = column.Column?.workType;
-                Rect header = column.HeaderRect;
+                Rect header = WorkGridInteractionGeometry.GetAnimatedHeaderRect(column);
                 if (!(column.Column?.Worker is PawnColumnWorker_WorkPriority) ||
                     workType == null ||
                     (excludedColumn.HasValue && IsSameColumn(column, excludedColumn.Value)) ||
@@ -445,7 +448,7 @@ namespace Better_Work_Tab.Features.Tutorial
             for (int i = 0; i < layout.Columns.Count; i++)
             {
                 WorkTabLayoutColumn column = layout.Columns[i];
-                Rect rect = column.HeaderRect;
+                Rect rect = WorkGridInteractionGeometry.GetAnimatedHeaderRect(column);
                 if (column.Column?.Worker is PawnColumnWorker_WorkPriority && IntersectsHorizontally(rect, inRect))
                 {
                     minX = Mathf.Min(minX, rect.xMin);
@@ -460,7 +463,7 @@ namespace Better_Work_Tab.Features.Tutorial
             {
                 WorkTabLayoutColumn column = layout.Columns[i];
                 WorkTypeDef workType = column.Column?.workType;
-                Rect rect = column.HeaderRect;
+                Rect rect = WorkGridInteractionGeometry.GetAnimatedHeaderRect(column);
                 if (!(column.Column?.Worker is PawnColumnWorker_WorkPriority) ||
                     workType == null ||
                     !IntersectsHorizontally(rect, inRect) ||

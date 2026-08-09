@@ -23,7 +23,11 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 StableId = deterministicStableIds
                     ? RuleBuilder2StableIdentity.FromSeed(stableSeed + "|ruleset")
                     : Guid.NewGuid().ToString("N"),
-                Name = classicRuleset?.Name == null ? "Migrated ruleset" : classicRuleset.Name + " (Rule Builder 2.0)",
+                Name = classicRuleset?.Name == null
+                    ? "Migrated ruleset"
+                    : string.Equals(classicRuleset.Name, "BWT Default", StringComparison.Ordinal)
+                        ? classicRuleset.Name
+                        : classicRuleset.Name + " (Rule Builder 2.0)",
                 Description = "Migrated from the classic Better Work Tab ruleset format.",
                 ResetBeforeApplying = classicRuleset?.ResetBeforeApplying ?? true,
                 Source = RuleBuilder2SourceType.Migrated,

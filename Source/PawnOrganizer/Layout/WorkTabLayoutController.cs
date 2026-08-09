@@ -8,6 +8,7 @@ using Better_Work_Tab.Features.Dividers;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
+using Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities;
 using Better_Work_Tab.Mod_Support.LocalProfiles;
 using Better_Work_Tab.Mod_Support.Multiplayer;
 using Better_Work_Tab.PawnOrganizer.API;
@@ -15,6 +16,7 @@ using Better_Work_Tab.PawnOrganizer.Data;
 using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.Headers.Vanilla;
 using Better_Work_Tab.UI.WorkGiverReassignments;
+using Better_Work_Tab.UI.WorkGrid.Layout;
 using HarmonyLib;
 using RimWorld;
 using UnityEngine;
@@ -91,6 +93,7 @@ namespace Better_Work_Tab.PawnOrganizer
         private int _lastTimePrioritySignature;
         private int _lastDividerAnimationSignature;
         private int _lastSubWorkLayoutSettingsSignature;
+        private int _lastMixedSearchRevision = -1;
         private int _lastHeaderLayoutVersion;
         private int _subWorkMeasurementCacheSignature = int.MinValue;
         private float _cachedDesiredSubWorkPawnLabelWidth = -1f;
@@ -135,9 +138,7 @@ namespace Better_Work_Tab.PawnOrganizer
             // single IMGUI cycle. Guard the published geometry independently so an
             // incomplete transition cannot leave the previous pinned band in place.
             // Treat that mismatch as authoritative evidence that the layout is stale.
-            float expectedSubWorkPinnedHeight = SubWorkDrilldownState.HasAnyDrilldown
-                ? SubWorkDrilldownState.GlobalRowReservedHeight
-                : 0f;
+            float expectedSubWorkPinnedHeight = WorkGridLayoutMetrics.SubWorkPinnedHeight;
             if (_geometrySnapshot != null &&
                 !Approximately(_geometrySnapshot.SubWorkPinnedHeight, expectedSubWorkPinnedHeight))
                 return true;
@@ -145,7 +146,7 @@ namespace Better_Work_Tab.PawnOrganizer
             // The tutorial band appears and disappears between lessons, so the
             // published geometry must follow it for the same reason.
             if (_geometrySnapshot != null &&
-                !Approximately(_geometrySnapshot.TutorialPinnedHeight, BWTTutorialStrip.ReservedHeight))
+                !Approximately(_geometrySnapshot.TutorialPinnedHeight, WorkGridLayoutMetrics.TutorialPinnedHeight))
                 return true;
 
             if (TimePriorityScheduleEditor.LayoutSignature != _lastTimePrioritySignature)
@@ -155,6 +156,10 @@ namespace Better_Work_Tab.PawnOrganizer
                 return true;
 
             if (ComputeSubWorkLayoutSettingsSignature() != _lastSubWorkLayoutSettingsSignature)
+                return true;
+
+            if (SleekWorkTabGateway.BetterWorkTabHostsSleek &&
+                SleekWorkTabGateway.MixedSearchRevision != _lastMixedSearchRevision)
                 return true;
 
             if (HeaderDrawingCoordinator.GetVanillaLayoutVersion() != _lastHeaderLayoutVersion)
@@ -215,6 +220,7 @@ namespace Better_Work_Tab.PawnOrganizer
             _lastTimePrioritySignature = TimePriorityScheduleEditor.LayoutSignature;
             _lastDividerAnimationSignature = ComputeDividerAnimationSignature();
             _lastSubWorkLayoutSettingsSignature = ComputeSubWorkLayoutSettingsSignature();
+            _lastMixedSearchRevision = SleekWorkTabGateway.MixedSearchRevision;
             _lastHeaderLayoutVersion = HeaderDrawingCoordinator.GetVanillaLayoutVersion();
 
             _lastDisplayOrders.Clear();
@@ -574,18 +580,24 @@ namespace Better_Work_Tab.PawnOrganizer
             column = default;
             lock (_stateLock)
             {
-                if (_geometrySnapshot == null || _table == null ||
-                    !_geometrySnapshot.TryGetHeaderColumnIndex(
-                        mousePosition,
-                        _table.scrollPosition.x,
-                        out int index) ||
-                    index >= _columns.Count)
+                if (_geometrySnapshot == null || _table == null)
                 {
                     return false;
                 }
 
-                column = _columns[index];
-                return true;
+                for (int i = 0; i < _columns.Count; i++)
+                {
+                    if (!WorkGridInteractionGeometry.GetAnimatedHeaderRect(_columns[i])
+                        .Contains(mousePosition))
+                    {
+                        continue;
+                    }
+
+                    column = _columns[i];
+                    return true;
+                }
+
+                return false;
             }
         }
 
@@ -595,17 +607,27 @@ namespace Better_Work_Tab.PawnOrganizer
             lock (_stateLock)
             {
                 if (_geometrySnapshot == null || _table == null ||
-                    !_geometrySnapshot.TryGetBodyColumnIndex(
-                        mousePosition,
-                        _table.scrollPosition,
-                        out int index) ||
-                    index >= _columns.Count)
+                    mousePosition.y < _geometrySnapshot.BodyTop ||
+                    mousePosition.y > _geometrySnapshot.BodyBottom)
                 {
                     return false;
                 }
 
-                column = _columns[index];
-                return true;
+                for (int i = 0; i < _columns.Count; i++)
+                {
+                    WorkGridAnimatedColumnGeometry geometry =
+                        WorkGridInteractionGeometry.GetAnimatedColumn(_columns[i]);
+                    if (mousePosition.x < geometry.BodyScreenX ||
+                        mousePosition.x > geometry.BodyScreenX + geometry.Width)
+                    {
+                        continue;
+                    }
+
+                    column = _columns[i];
+                    return true;
+                }
+
+                return false;
             }
         }
 
@@ -807,13 +829,7 @@ namespace Better_Work_Tab.PawnOrganizer
 
         public float GetPinnedRowsHeight()
         {
-            float height = TimePriorityScheduleEditor.HeaderPinnedRowsHeight;
-            if (SubWorkDrilldownState.HasAnyDrilldown)
-            {
-                height += SubWorkDrilldownState.GlobalRowReservedHeight;
-            }
-
-            return height + BWTTutorialStrip.ReservedHeight;
+            return WorkGridLayoutMetrics.GetPinnedRowsHeight();
         }
 
         public WorkGridGeometrySnapshot GeometrySnapshot => _geometrySnapshot;
@@ -849,11 +865,9 @@ namespace Better_Work_Tab.PawnOrganizer
                     column.Width));
             }
 
-            float schedulePinnedHeight = TimePriorityScheduleEditor.HeaderPinnedRowsHeight;
-            float subWorkPinnedHeight = SubWorkDrilldownState.HasAnyDrilldown
-                ? SubWorkDrilldownState.GlobalRowReservedHeight
-                : 0f;
-            float tutorialPinnedHeight = BWTTutorialStrip.ReservedHeight;
+            float schedulePinnedHeight = WorkGridLayoutMetrics.SchedulePinnedHeight;
+            float subWorkPinnedHeight = WorkGridLayoutMetrics.SubWorkPinnedHeight;
+            float tutorialPinnedHeight = WorkGridLayoutMetrics.TutorialPinnedHeight;
             int retainedBytes = (_geometryRows.Capacity * 8) + (_geometryColumns.Capacity * 24);
             _geometrySnapshot = new WorkGridGeometrySnapshot(
                 _layoutRevision,
@@ -897,9 +911,37 @@ namespace Better_Work_Tab.PawnOrganizer
             for (int i = 0; i < allColumns.Count; i++)
             {
                 var def = allColumns[i];
+                // Mixed BWT sub-work uses BWT's row/column geometry and projects the
+                // corresponding Sleek worker directly into those child cells.  Do not also
+                // publish Sleek's synthetic columns as a second visible set while that
+                // projection is active.
+                if (SubWorkDrilldownState.IsActive &&
+                    SleekWorkTabGateway.BetterWorkTabHostsSleek &&
+                    SleekWorkTabGateway.IsSleekInlineJobColumn(def))
+                {
+                    continue;
+                }
+
                 if (def.workType != null && hiddenWorktypes != null && hiddenWorktypes.Contains(def.workType.defName))
                 {
                     continue;
+                }
+
+                if (SleekWorkTabGateway.BetterWorkTabHostsSleek)
+                {
+                    if (SleekWorkTabGateway.IsSleekInlineJobColumn(def))
+                    {
+                        if (SleekWorkTabGateway.TryGetSleekInlineJobGiver(def, out WorkGiverDef inlineGiver) &&
+                            !SleekWorkTabGateway.MixedSearchShowsWorkGiver(inlineGiver))
+                        {
+                            continue;
+                        }
+                    }
+                    else if (def.workType != null &&
+                             !SleekWorkTabGateway.MixedSearchShowsWorkType(def.workType))
+                    {
+                        continue;
+                    }
                 }
 
                 bool isSourceWorkColumn = def?.Worker is PawnColumnWorker_WorkPriority ||
@@ -932,6 +974,12 @@ namespace Better_Work_Tab.PawnOrganizer
                     {
                         WorkGiverDef workGiverDef = FluffyWorkTabGateway.TryGetHostedWorkGiver(hostedChildren[slot]);
                         if (workGiverDef == null)
+                        {
+                            continue;
+                        }
+
+                        if (SleekWorkTabGateway.BetterWorkTabHostsSleek &&
+                            !SleekWorkTabGateway.MixedSearchShowsWorkGiver(workGiverDef))
                         {
                             continue;
                         }

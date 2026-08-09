@@ -88,5 +88,14 @@ namespace Better_Work_Tab.UI.Headers
         {
             return _lastFrameHoveredWorkType != null && workType == _lastFrameHoveredWorkType;
         }
+
+        internal static void ResetForWindowClose()
+        {
+            _lastCacheFrame = -1;
+            _cachedMousePos = Vector2.zero;
+            _cachedHoveredWorkType = null;
+            _lastFrameHoveredWorkType = null;
+            _cachedHoveredRect = null;
+        }
     }
 }

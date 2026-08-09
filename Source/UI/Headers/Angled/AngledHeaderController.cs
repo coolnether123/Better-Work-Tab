@@ -3,6 +3,7 @@ using Verse;
 using RimWorld;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.UI.Columns;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 
 namespace Better_Work_Tab.UI.Headers.Angled
@@ -130,7 +131,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 label,
                 size,
                 drawRect.center,
-                showMarker: MainTabWindow_BetterWork.ShouldShowColumnMarker(worker.def.workType),
+                showMarker: WorkColumnCustomizationService.ShouldShowColumnMarker(worker.def.workType),
                 isCJKVertical: false,
                 customDrawRect: drawRect);
             bool isMouseOver = !TimePriorityScheduleEditor.OwnsCurrentMousePosition && rect.Contains(HeaderInputController.MousePosition);

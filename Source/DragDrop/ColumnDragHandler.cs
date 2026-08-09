@@ -1,12 +1,11 @@
-using Better_Work_Tab.Features.Tutorial;
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Mod_Support.Multiplayer.Sync;
 using Better_Work_Tab.Mod_Support.Multiplayer;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI;
+using Better_Work_Tab.UI.Columns;
 using Better_Work_Tab.UI.Headers;
-using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using RimWorld;
 using Spine.DragDropApi.Util;
@@ -16,6 +15,7 @@ using UnityEngine;
 using Verse;
 using Verse.Sound;
 using Better_Work_Tab.UI.WorkGiverReassignments;
+using Better_Work_Tab.UI.WorkGrid.Layout;
 
 namespace Better_Work_Tab.DragDrop
 {
@@ -43,7 +43,7 @@ namespace Better_Work_Tab.DragDrop
             : base(layout)
         {
             _primaryColumn = col.Column;
-            _originRect = col.HeaderRect;
+            _originRect = WorkGridInteractionGeometry.GetAnimatedHeaderRect(col);
 
             _workColumns = Layout.Columns
                 .Where(c => c.Column.Worker is PawnColumnWorker_WorkPriority)
@@ -98,7 +98,7 @@ namespace Better_Work_Tab.DragDrop
             int index = targetColumns.Count;
             for (int i = 0; i < targetColumns.Count; i++)
             {
-                if (mousePos.x < targetColumns[i].HeaderRect.center.x)
+                if (mousePos.x < WorkGridInteractionGeometry.GetAnimatedHeaderRect(targetColumns[i]).center.x)
                 {
                     index = i;
                     break;
@@ -175,7 +175,7 @@ namespace Better_Work_Tab.DragDrop
                 return;
             }
 
-            if (!MainTabWindow_BetterWork.IsColumnOutOfBaselinePosition(workType))
+            if (!WorkColumnCustomizationService.IsColumnOutOfBaselinePosition(workType))
             {
                 return;
             }
@@ -239,7 +239,7 @@ namespace Better_Work_Tab.DragDrop
                 }
             }
 
-            float lineX = _workColumns[0].HeaderRect.xMin;
+            float lineX = WorkGridInteractionGeometry.GetAnimatedHeaderRect(_workColumns[0]).xMin;
             int seen = 0;
             bool positioned = false;
             for (int i = 0; i < _workColumns.Count; i++)
@@ -252,18 +252,19 @@ namespace Better_Work_Tab.DragDrop
 
                 if (seen == targetIndex)
                 {
-                    lineX = _workColumns[i].HeaderRect.xMin;
+                    lineX = WorkGridInteractionGeometry.GetAnimatedHeaderRect(_workColumns[i]).xMin;
                     positioned = true;
                     break;
                 }
 
-                lineX = _workColumns[i].HeaderRect.xMax;
+                lineX = WorkGridInteractionGeometry.GetAnimatedHeaderRect(_workColumns[i]).xMax;
                 seen++;
             }
 
             if (!positioned && _workColumns.Count > 0)
             {
-                lineX = _workColumns[_workColumns.Count - 1].HeaderRect.xMax;
+                lineX = WorkGridInteractionGeometry.GetAnimatedHeaderRect(
+                    _workColumns[_workColumns.Count - 1]).xMax;
             }
 
             int insetSetting = settings?.columnInsertionLineInset ?? DefaultSettings.columnInsertionLineInset;
@@ -316,9 +317,7 @@ namespace Better_Work_Tab.DragDrop
         {
             float rowStackHeight = GetVisibleRowStackHeight(layout);
             float scrollY = layout.Table?.scrollPosition.y ?? 0f;
-            float pinnedRowsHeight = TimePriorityScheduleEditor.HeaderPinnedRowsHeight +
-                SubWorkDrilldownState.GlobalRowVisibleHeight +
-                BWTTutorialStrip.ReservedHeight;
+            float pinnedRowsHeight = WorkGridLayoutMetrics.GetPinnedRowsHeight();
             float bottom = headerBottom + pinnedRowsHeight + Mathf.Max(0f, rowStackHeight - scrollY);
 
             if (layout.Table != null)
@@ -497,7 +496,7 @@ namespace Better_Work_Tab.DragDrop
                 {
                     if (col.workType != null)
                     {
-                        MainTabWindow_BetterWork.MarkColumnMoved(col.workType);
+                        WorkColumnCustomizationService.MarkColumnMoved(col.workType);
                     }
                 }
 
@@ -589,15 +588,16 @@ namespace Better_Work_Tab.DragDrop
 
             if (targetIndex >= targetColumns.Count)
             {
-                return targetColumns[targetColumns.Count - 1].HeaderRect.xMax;
+                return WorkGridInteractionGeometry.GetAnimatedHeaderRect(
+                    targetColumns[targetColumns.Count - 1]).xMax;
             }
 
             if (targetIndex <= 0)
             {
-                return targetColumns[0].HeaderRect.xMin;
+                return WorkGridInteractionGeometry.GetAnimatedHeaderRect(targetColumns[0]).xMin;
             }
 
-            return targetColumns[targetIndex].HeaderRect.xMin;
+            return WorkGridInteractionGeometry.GetAnimatedHeaderRect(targetColumns[targetIndex]).xMin;
         }
 
         private void CommitSubWorkReorder()

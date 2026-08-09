@@ -53,14 +53,14 @@ namespace Better_Work_Tab.DragDrop
             FromPositions.Clear();
         }
 
-        internal static float GetHeaderOffset(WorkTabLayoutColumn column)
+        internal static void GetOffsets(
+            WorkTabLayoutColumn column,
+            out float headerOffset,
+            out float cellOffset)
         {
-            return GetOffset(column, header: true);
-        }
-
-        internal static float GetCellOffset(WorkTabLayoutColumn column)
-        {
-            return GetOffset(column, header: false);
+            Tick();
+            headerOffset = GetOffsetAfterTick(column, header: true);
+            cellOffset = GetOffsetAfterTick(column, header: false);
         }
 
         internal static void Tick()
@@ -76,9 +76,8 @@ namespace Better_Work_Tab.DragDrop
             }
         }
 
-        private static float GetOffset(WorkTabLayoutColumn column, bool header)
+        private static float GetOffsetAfterTick(WorkTabLayoutColumn column, bool header)
         {
-            Tick();
             if (FromPositions.Count == 0)
             {
                 return 0f;

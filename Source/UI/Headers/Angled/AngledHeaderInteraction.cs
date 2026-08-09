@@ -3,12 +3,9 @@ using Verse;
 using RimWorld;
 using System.Collections.Generic;
 using Verse.Sound;
-using Better_Work_Tab.DragDrop;
-using Better_Work_Tab.UI.WorkGiverReassignments;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
-using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
-using Better_Work_Tab.UI.Input;
+using Better_Work_Tab.UI.WorkGiverReassignments;
 
 namespace Better_Work_Tab.UI.Headers.Angled
 {
@@ -87,17 +84,11 @@ namespace Better_Work_Tab.UI.Headers.Angled
             // If a drag commences, the drag handler consumes the MouseUp event, preventing sorting.
             if (evt.type == EventType.MouseDown)
             {
-                if (evt.button == 0 &&
-                    SubWorkHeaderAffordance.ShouldDrawOpenBadge(ctx.Worker.def) &&
-                    SubWorkHeaderAffordance.TryGetOpenBadgeRect(ctx.Worker.def, ctx.HeaderRect, ctx.IsVanillaStaggered, out Rect badgeRect) &&
-                    badgeRect.Contains(evt.mousePosition))
-                {
-                    ClearPendingHeaderClick(ctx.Worker.def);
-                    evt.Use();
-                    return;
-                }
-
-                if (SubWorkDrilldownInput.MatchesGesture(evt))
+                bool isCtrlLeftDiscovery =
+                    SubWorkDrilldownInput.ShouldOfferCtrlLeftDiscovery(evt) &&
+                    workType != null &&
+                    WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(workType).Count > 0;
+                if (SubWorkDrilldownInput.MatchesGesture(evt) || isCtrlLeftDiscovery)
                 {
                     ClearPendingHeaderClick(ctx.Worker.def);
                     return;
@@ -494,7 +485,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
                     evt.button == 0 &&
                     (BetterWorkTabMod.Settings?.enableColumnGrouping ?? false))
                 {
-                    ColumnSelectionManager.ToggleSelection(worker.def);
+                    Better_Work_Tab.DragDrop.ColumnSelectionManager.ToggleSelection(worker.def);
                     SoundDefOf.Tick_High.PlayOneShotOnCamera();
                     evt.Use();
                     return true;
@@ -580,40 +571,18 @@ namespace Better_Work_Tab.UI.Headers.Angled
             }
         }
 
-        private static void ToggleSubWorkDrilldown(WorkTypeDef workType, Vector2? returnMousePosition, bool restoreMousePosition)
-        {
-            if (SubWorkDrilldownState.IsActive)
-            {
-                SubWorkDrilldownBarRenderer.ExitDrilldown(restoreMousePosition);
-                return;
-            }
-
-            if (workType == null)
-            {
-                return;
-            }
-
-            if (WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(workType).Count == 0)
-            {
-                SoundDefOf.ClickReject.PlayOneShotOnCamera();
-                return;
-            }
-
-            TimePriorityScheduleEditor.CloseForWorkModeTransition();
-            SubWorkDrilldownState.Enter(
-                workType,
-                returnMousePosition,
-                SubWorkDrilldownHeaderGeometry.GetBaseHeaderDrawWidth(null, -1f));
-            WorkGrid.Invalidation.WorkTabInvalidationHub.Invalidate(WorkGrid.Contracts.WorkTabDirtyFlags.Columns | WorkGrid.Contracts.WorkTabDirtyFlags.HeaderGeometry);
-            SoundDefOf.Tick_High.PlayOneShotOnCamera();
-        }
-
         /// <summary>
         /// Signal that a column drag has started, to suppress normal click behavior.
         /// </summary>
         public static void NotifyColumnDragStarted(PawnColumnDef column)
         {
             _columnSuppressingClicks = column;
+        }
+
+        public static void ResetForWindowClose()
+        {
+            _columnSuppressingClicks = null;
+            _pendingClickColumn = null;
         }
 
         /// <summary>

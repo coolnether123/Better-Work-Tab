@@ -1,9 +1,8 @@
-using Better_Work_Tab.Features.Tutorial;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.Features.Testing;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
-using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.UI.WorkGrid.Layout;
 using HarmonyLib;
 using RimWorld;
 using System.Collections.Generic;
@@ -104,9 +103,7 @@ namespace Better_Work_Tab.Features.Patches
                 return;
 
             float headerHeight = layout.HeaderHeight;
-            float pinnedRowsHeight = TimePriorityScheduleEditor.HeaderPinnedRowsHeight +
-                SubWorkDrilldownState.GlobalRowReservedHeight +
-                BWTTutorialStrip.ReservedHeight;
+            float pinnedRowsHeight = WorkGridLayoutMetrics.GetPinnedRowsHeight();
             float contentHeight = layout.ContentHeight;
             float totalHeight = headerHeight + contentHeight;
             float width = __instance.cachedSize.x;
@@ -168,17 +165,15 @@ namespace Better_Work_Tab.Features.Patches
     }
 
     /// <summary>
-    /// Enforces bottom-anchoring for the work tab window.
-    /// 
-    /// When content changes, the window resizes. This patch ensures it grows UPWARD
-    /// (by moving its top edge up) rather than growing downward, keeping it pinned
-    /// to the bottom of the screen.
-    /// 
-    /// Runs after vanilla's sizing logic to enforce this invariant:
-    /// windowRect.y + windowRect.height = screenHeight - 35
+    /// Invalidates BWT layout when vanilla reports a pawn-table change.
+    ///
+    /// MainTabWindow_BetterWork's sizing controller owns staged bottom anchoring.
+    /// This patch deliberately does not reposition the window: an asynchronous
+    /// callback here could overwrite a newer layout published by the BWT window.
+    /// Other pawn-table windows are not intercepted.
     /// </summary>
     [HarmonyPatch(typeof(MainTabWindow_PawnTable), nameof(MainTabWindow_PawnTable.Notify_PawnsChanged))]
-    public static class Patch_MainTabWindow_PawnTable_AnchorToBottom
+    public static class Patch_MainTabWindow_PawnTable_InvalidateBwtLayout
     {
         public static void Postfix(MainTabWindow_PawnTable __instance)
         {
@@ -187,21 +182,6 @@ namespace Better_Work_Tab.Features.Patches
 
             UI.WorkGrid.Invalidation.WorkTabInvalidationHub.Invalidate(
                 UI.WorkGrid.Contracts.WorkTabDirtyFlags.PawnListOrder);
-
-            LongEventHandler.ExecuteWhenFinished(() =>
-            {
-                if (__instance == null)
-                    return;
-
-                var windowRect = __instance.windowRect;
-
-                // Calculate Y such that bottom of window stays at (screenHeight - 35)
-                float screenBottom = Verse.UI.screenHeight - 35f;
-                float targetY = Mathf.Max(0f, screenBottom - windowRect.height);
-
-                windowRect.y = targetY;
-                __instance.windowRect = windowRect;
-            });
         }
     }
 }

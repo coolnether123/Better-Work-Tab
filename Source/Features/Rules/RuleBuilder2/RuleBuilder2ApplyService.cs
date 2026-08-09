@@ -3,6 +3,7 @@ using System.Linq;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities;
 using RimWorld;
 using Verse;
 
@@ -20,6 +21,8 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 warnings.Add("No Rule Builder 2.0 ruleset is loaded.");
                 return 0;
             }
+
+            RuleBuilder2SleekPriorityTranslation.AddApplyWarningIfNeeded(ruleset, warnings);
 
             WorkPrioritySystem.SetManualPriorities(true);
             List<Pawn> pawns = RuleBuilder2Evaluator.GetCurrentPawns();
@@ -110,7 +113,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                     return false;
                 case RuleBuilder2ActionKind.SetTimeSchedule:
                 case RuleBuilder2ActionKind.SetSubWorkSchedule:
-                    changed |= ApplyBasePriority(pawn, workType, workGiver, targetPriority, currentPriority);
+                    changed |= ApplyBasePriority(pawn, workType, workGiver, targetPriority, currentPriority, warnings);
                     card.Action.EnsureSchedule(targetPriority);
                     TimePriorityTarget scheduleTarget = workGiver == null
                         ? TimePriorityTarget.ForWorkType(pawn, workType)
@@ -120,13 +123,19 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 case RuleBuilder2ActionKind.Disable:
                 case RuleBuilder2ActionKind.SetPriority:
                 default:
-                    return ApplyBasePriority(pawn, workType, workGiver, targetPriority, currentPriority);
+                    return ApplyBasePriority(pawn, workType, workGiver, targetPriority, currentPriority, warnings);
             }
         }
 
-        private static bool ApplyBasePriority(Pawn pawn, WorkTypeDef workType, WorkGiverDef workGiver, int targetPriority, int currentPriority)
+        private static bool ApplyBasePriority(
+            Pawn pawn,
+            WorkTypeDef workType,
+            WorkGiverDef workGiver,
+            int targetPriority,
+            int currentPriority,
+            List<string> warnings)
         {
-            targetPriority = WorkPrioritySystem.ClampPriority(targetPriority);
+            targetPriority = RuleBuilder2SleekPriorityTranslation.TranslatePriority(targetPriority);
             if (targetPriority == currentPriority)
             {
                 return false;
@@ -134,7 +143,26 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
 
             if (workGiver != null)
             {
-                WorkGiverReassignmentManager.SetPawnOverrideSynced(pawn.thingIDNumber, workGiver.defName, targetPriority);
+                if (SleekWorkTabGateway.SleekCodeRuns)
+                {
+                    if (!SleekWorkTabGateway.TrySetSleekWorkGiverOverride(pawn, workGiver, targetPriority))
+                    {
+                        AddWarningOnce(
+                            warnings,
+                            "Sleek Work Priorities' per-job store was unavailable; this sub-work rule was kept in BWT's fallback store.");
+                        WorkGiverReassignmentManager.SetPawnOverrideSynced(
+                            pawn.thingIDNumber,
+                            workGiver.defName,
+                            targetPriority);
+                    }
+                }
+                else
+                {
+                    WorkGiverReassignmentManager.SetPawnOverrideSynced(
+                        pawn.thingIDNumber,
+                        workGiver.defName,
+                        targetPriority);
+                }
             }
             else
             {
@@ -142,6 +170,14 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
             }
 
             return true;
+        }
+
+        private static void AddWarningOnce(List<string> warnings, string warning)
+        {
+            if (warnings != null && !warnings.Contains(warning))
+            {
+                warnings.Add(warning);
+            }
         }
     }
 }

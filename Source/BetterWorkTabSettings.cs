@@ -332,6 +332,12 @@ namespace Better_Work_Tab
         public int settingsSchemaVersion = BWT20UpgradePolicy.CurrentSettingsSchemaVersion;
         public bool v2UpgradePromptPending;
         public int fluffyWorkTabActivePromptVersion;
+        // Compatibility state is kept separate from the owner enum so a newly
+        // detected Sleek installation can prefer the mixed host without
+        // overriding a deliberate owner choice later.
+        public bool workTabOwnerSelectionMade;
+        public bool sleekWorkTabChoicePromptDismissed;
+        public bool sleekWorkTabUseMixedByDefault = true;
 
         public BetterWorkTabSettings()
         {
@@ -946,6 +952,9 @@ namespace Better_Work_Tab
             Scribe_Values.Look(ref settingsSchemaVersion, "settingsSchemaVersion", 0);
             Scribe_Values.Look(ref v2UpgradePromptPending, "v2UpgradePromptPending", false);
             Scribe_Values.Look(ref fluffyWorkTabActivePromptVersion, "fluffyWorkTabActivePromptVersion", 0);
+            Scribe_Values.Look(ref workTabOwnerSelectionMade, "workTabOwnerSelectionMade", false);
+            Scribe_Values.Look(ref sleekWorkTabChoicePromptDismissed, "sleekWorkTabChoicePromptDismissed", false);
+            Scribe_Values.Look(ref sleekWorkTabUseMixedByDefault, "sleekWorkTabUseMixedByDefault", true);
 
             // Add new settings in BWTSettingsRegistry's HOW TO ADD A SETTING block.
             BWTSettingsRegistry.EnsureInitialized();
@@ -1072,6 +1081,9 @@ namespace Better_Work_Tab
             subWorkTransitionSeconds = DefaultSettings.subWorkTransitionSeconds;
             preferredWorkTabOwner = DefaultSettings.preferredWorkTabOwner;
             showExternalWorkTabColumns = DefaultSettings.showExternalWorkTabColumns;
+            workTabOwnerSelectionMade = false;
+            sleekWorkTabChoicePromptDismissed = false;
+            sleekWorkTabUseMixedByDefault = true;
 
             // STATE RESET: preserve RestoreDefaults' historical behavior for layout caches.
             EnsureLayoutPersistenceStateInitialized();

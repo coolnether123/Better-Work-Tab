@@ -34,8 +34,8 @@ namespace Better_Work_Tab.Features.Tutorial
     /// it, but input asked the band first, so every list row crossing the band's
     /// lane was swallowed and its lesson silently never opened.
     ///
-    /// Band is painted with the Work tab's other pinned bands, before the
-    /// headers. Anchors and Popup are painted afterwards by
+    /// Band is painted with the Work tab's other pinned bands, after the
+    /// header pass. Anchors and Popup are painted afterwards by
     /// <see cref="BWTGeneralTutorial.TickAndDraw"/>, in that order.
     /// </summary>
     internal enum BWTTutorialSurface
@@ -907,7 +907,7 @@ namespace Better_Work_Tab.Features.Tutorial
             settings.tutorialDiscoveryOfferAcknowledged = true;
             settings.Write();
             BWTSettingsContextFocus.Request(request);
-            MainTabWindow_BetterWork.OpenBetterWorkTabSettings(toggleExisting: false);
+            BetterWorkTabSettingsWindowService.Open(toggleExisting: false);
             PlayTutorialSound("Tick_High");
         }
 
@@ -1150,7 +1150,7 @@ namespace Better_Work_Tab.Features.Tutorial
                 BWTSettingsFocusRequest request = BWTWorkTabContextSettingsRouter.BuildPriorityRangeFocusRequest(
                     settings.priorityMode);
                 BWTSettingsContextFocus.Request(request);
-                if (!MainTabWindow_BetterWork.OpenBetterWorkTabSettings(toggleExisting: false))
+                if (!BetterWorkTabSettingsWindowService.Open(toggleExisting: false))
                 {
                     ReturnToSelection();
                 }
@@ -1210,32 +1210,6 @@ namespace Better_Work_Tab.Features.Tutorial
             phase = settings?.tutorialLessonPhase ?? 0;
             return settings != null &&
                    string.Equals(settings.activeTutorialLessonId, lessonId, StringComparison.Ordinal);
-        }
-
-        internal static void DrawSettingsGesture(Func<string, Rect?> resolveSettingRect)
-        {
-            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
-            string lessonId = settings?.activeTutorialLessonId;
-            int phase = settings?.tutorialLessonPhase ?? 0;
-            if (phase == CompletionOutcomePhase || lessonId != PriorityRangeLesson)
-            {
-                return;
-            }
-
-            string targetSettingId = BWTWorkTabContextSettingsRouter
-                .BuildPriorityRangeFocusRequest(settings.priorityMode)
-                .TargetSettingId;
-            Rect? target = string.IsNullOrEmpty(targetSettingId)
-                ? null
-                : resolveSettingRect?.Invoke(targetSettingId);
-            if (target.HasValue)
-            {
-                BWTTutorialGestureDemo.DrawExternal(
-                    lessonId + ":setting:" + phase,
-                    target.Value,
-                    BWTTutorialGestureDemo.GestureKind.LeftClick,
-                    T("BWT_Tutorial_Gesture_SettingPrompt"));
-            }
         }
 
         internal static void NotifySettingsRowInteracted(string settingId)

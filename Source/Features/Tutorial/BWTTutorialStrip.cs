@@ -1,7 +1,6 @@
-using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI;
-using Better_Work_Tab.UI.Headers.Angled;
+using Better_Work_Tab.UI.WorkGrid.Layout;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using UnityEngine;
 using Verse;
@@ -124,7 +123,7 @@ namespace Better_Work_Tab.Features.Tutorial
         /// left a band of dead pixels between the row and the band.
         /// </summary>
         private static float CurrentTopGap =>
-            SubWorkDrilldownBarRenderer.ReservedRowHeight > 0.5f ? 0f : TopGap;
+            WorkGridLayoutMetrics.SubWorkPinnedHeight > 0.5f ? 0f : TopGap;
 
         internal static float ReservedHeight => reserved ? RowHeight + CurrentTopGap : 0f;
 
@@ -141,9 +140,9 @@ namespace Better_Work_Tab.Features.Tutorial
 
         /// <summary>
         /// The vertical lane the band occupies, including the stem gap above it.
-        /// Column-wide chrome drawn after the band — hover highlights, target
-        /// tints — needs this to part around the band instead of washing over
-        /// its text and buttons, which made them read as disabled.
+        /// Column-wide chrome drawn before the band — hover highlights, target
+        /// tints — can use this span when it needs to part around the band. Row
+        /// overlays drawn afterwards may still paint over it like any divider.
         /// </summary>
         internal static bool TryGetBandSpan(
             IWorkTabLayoutController layout,
@@ -157,10 +156,8 @@ namespace Better_Work_Tab.Features.Tutorial
                 return false;
             }
 
-            top = layout.TableOrigin.y +
-                layout.HeaderHeight +
-                TimePriorityScheduleEditor.HeaderPinnedRowsHeight +
-                SubWorkDrilldownBarRenderer.ReservedRowHeight;
+            top = WorkGridLayoutMetrics.GetSubWorkBandTop(layout) +
+                WorkGridLayoutMetrics.SubWorkPinnedHeight;
             bottom = top + CurrentTopGap + RowHeight;
             return true;
         }
@@ -176,10 +173,8 @@ namespace Better_Work_Tab.Features.Tutorial
 
             // Sit in the pinned band directly under the header lane, below any
             // schedule or sub-work band that already claimed space there.
-            float top = layout.TableOrigin.y +
-                layout.HeaderHeight +
-                TimePriorityScheduleEditor.HeaderPinnedRowsHeight +
-                SubWorkDrilldownBarRenderer.ReservedRowHeight +
+            float top = WorkGridLayoutMetrics.GetSubWorkBandTop(layout) +
+                WorkGridLayoutMetrics.SubWorkPinnedHeight +
                 CurrentTopGap;
             float width = Mathf.Max(
                 layout.Table != null ? layout.Table.Size.x - 16f : 0f,

@@ -11,11 +11,6 @@ namespace Better_Work_Tab.UI.Settings
         public const string AdvancedLogToFile = "advanced.logToFile";
         public const string AdvancedProfiler = "advanced.profiler";
         public const string AdvancedWorkGridRenderer = "advanced.workGridRenderer";
-        public const string ControlsPageHeader = "controls.header";
-        public const string ControlsPriorityCells = "controls.priorityCells";
-        public const string ControlsShiftOverlay = "controls.shiftOverlay";
-        public const string ControlsHeaderActions = "controls.headerActions";
-        public const string ControlsHistory = "controls.history";
         public const string ControlsFluffyHeader = "controls.fluffy.header";
         public const string ControlsFluffyExpand = "controls.fluffy.expand";
         public const string ControlsFluffyBatch = "controls.fluffy.batch";

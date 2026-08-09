@@ -17,13 +17,8 @@ namespace Better_Work_Tab.UI.Settings
         private const string PresetsCategory = "presets";
         private static readonly HashSet<string> ControlSettingIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            ControlsPageHeader,
             ControlsFluffyHeader,
             FeaturesClicks,
-            ControlsPriorityCells,
-            ControlsShiftOverlay,
-            ControlsHeaderActions,
-            ControlsHistory,
             ControlsFluffyExpand,
             ControlsFluffyBatch,
             ControlsFluffyPawnRows,

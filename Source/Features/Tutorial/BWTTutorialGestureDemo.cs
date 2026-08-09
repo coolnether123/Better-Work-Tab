@@ -2,6 +2,7 @@
 using Better_Work_Tab.UI;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.DragDrop;
+using Better_Work_Tab.UI.WorkGrid.Layout;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -19,7 +20,9 @@ namespace Better_Work_Tab.Features.Tutorial
         private const float ArrowLength = 54f;
         private const float ClickCycleSeconds = 10f;
         private const float DragCycleSeconds = 10.6f;
+        private const float ArrowHeight = 14f;
         private static Texture2D pointerTexture;
+        private static Texture2D dragArrowTexture;
         private static float animationStartedAt = -1f;
         private static string animationIdentity = string.Empty;
 
@@ -360,13 +363,14 @@ namespace Better_Work_Tab.Features.Tutorial
                 for (int i = 0; i < layout.Columns.Count; i++)
                 {
                     WorkTabLayoutColumn column = layout.Columns[i];
+                    Rect headerRect = WorkGridInteractionGeometry.GetAnimatedHeaderRect(column);
                     if (!(column.Column?.Worker is PawnColumnWorker_WorkPriority) ||
-                        column.HeaderRect.center.x <= sourceX + 4f)
+                        headerRect.center.x <= sourceX + 4f)
                     {
                         continue;
                     }
 
-                    nearestRight = Mathf.Min(nearestRight, column.HeaderRect.center.x);
+                    nearestRight = Mathf.Min(nearestRight, headerRect.center.x);
                 }
             }
 
@@ -398,17 +402,19 @@ namespace Better_Work_Tab.Features.Tutorial
                     continue;
                 }
 
+                Rect headerRect = WorkGridInteractionGeometry.GetAnimatedHeaderRect(column);
+
                 if (!hasTarget)
                 {
                     first = column;
                     hasTarget = true;
                 }
 
-                if (pointerX < column.HeaderRect.center.x)
+                if (pointerX < headerRect.center.x)
                 {
                     fallbackX = insertionIndex <= 0
-                        ? first.HeaderRect.xMin
-                        : column.HeaderRect.xMin;
+                        ? WorkGridInteractionGeometry.GetAnimatedHeaderRect(first).xMin
+                        : headerRect.xMin;
                     foundSlot = true;
                     break;
                 }
@@ -422,7 +428,9 @@ namespace Better_Work_Tab.Features.Tutorial
                 return;
             }
 
-            float lineX = foundSlot ? fallbackX : previous.HeaderRect.xMax;
+            float lineX = foundSlot
+                ? fallbackX
+                : WorkGridInteractionGeometry.GetAnimatedHeaderRect(previous).xMax;
             int insetSetting = BetterWorkTabMod.Settings?.columnInsertionLineInset ??
                 DefaultSettings.columnInsertionLineInset;
             int inset = Mathf.Clamp(insetSetting, 0, Mathf.RoundToInt(layout.HeaderHeight));
@@ -436,11 +444,25 @@ namespace Better_Work_Tab.Features.Tutorial
             // priority-direction hint and the angled Work headers.
             float y = Mathf.Max(10f, anchor.Rect.yMin - 8f);
             Vector2 start = new Vector2(anchor.Rect.center.x - ArrowLength * 0.5f + moveOffset, y);
-            Vector2 end = start + Vector2.right * ArrowLength;
-            Color color = BWTTutorialAnchorRenderer.TutorialGold(0.95f);
-            Widgets.DrawLine(start, end, color, 3f);
-            Widgets.DrawLine(end, end + new Vector2(-10f, -7f), color, 3f);
-            Widgets.DrawLine(end, end + new Vector2(-10f, 7f), color, 3f);
+            if (dragArrowTexture == null)
+            {
+                dragArrowTexture = ContentFinder<Texture2D>.Get("UI/Arrow", false);
+            }
+
+            if (dragArrowTexture == null)
+            {
+                return;
+            }
+
+            Rect arrowRect = new Rect(
+                start.x,
+                y - ArrowHeight * 0.5f,
+                ArrowLength,
+                ArrowHeight);
+            Color oldColor = GUI.color;
+            GUI.color = Color.white.WithAlpha(0.95f);
+            GUI.DrawTexture(arrowRect, dragArrowTexture, ScaleMode.StretchToFill, true);
+            GUI.color = oldColor;
         }
 
         private static void DrawPointer(Vector2 hotspot, float alpha)

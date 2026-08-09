@@ -4,6 +4,7 @@ using Verse;
 using System.Collections.Generic;
 using Better_Work_Tab.Features.Testing;
 using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.UI.Columns;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 
 namespace Better_Work_Tab.UI.Headers
@@ -246,7 +247,7 @@ namespace Better_Work_Tab.UI.Headers
 
             foreach (var col in tableCols)
             {
-                if (col?.workType != null && MainTabWindow_BetterWork.IsColumnOutOfBaselinePosition(col.workType))
+                if (col?.workType != null && WorkColumnCustomizationService.IsColumnOutOfBaselinePosition(col.workType))
                 {
                     return true;
                 }

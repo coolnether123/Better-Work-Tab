@@ -60,9 +60,13 @@ namespace Spine.Harmony.Infrastructure
         internal static void WarnOnce(string key, string message)
         {
             string normalizedKey = "Spine.Harmony:" + (key ?? string.Empty);
+#if RWT_HAS_WARNING_ONCE
             Log.WarningOnce(
                 Prefix + (message ?? string.Empty),
                 normalizedKey.GetHashCode());
+#else
+            Log.Warning(Prefix + (message ?? string.Empty));
+#endif
         }
     }
 }

@@ -12,8 +12,10 @@ using System.Reflection;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.ModSupport;
+using Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities;
 using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.Settings;
+using Better_Work_Tab.UI.WorkGrid.Layout;
 using HarmonyLib;
 using RimWorld;
 using Better_Work_Tab.UI.SettingsFramework;
@@ -85,6 +87,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             "Fluffy",
             "Fluffy Work Tab",
             "Fluffy WorkTab",
+            "Sleek Work Priorities",
             "WorkTab",
             "external work tab",
             "mod compatibility"
@@ -122,7 +125,42 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
 
         internal static bool BetterWorkTabOwnsWorkTab => FluffyWorkTabCoexistence.BetterWorkTabOwnsWorkTab;
 
-        internal static bool ExternalWorkTabOwnsWorkTab => FluffyWorkTabCoexistence.FluffyOwnsWorkTab;
+        internal static bool FluffyOwnsWorkTab => FluffyWorkTabCoexistence.FluffyOwnsWorkTab;
+
+        internal static bool SleekWorkPrioritiesPresent => SleekWorkTabGateway.IsPresent;
+
+        internal static bool SleekWorkPrioritiesOwnsWorkTab => SleekWorkTabGateway.SleekOwnsWorkTab;
+
+        internal static bool BetterWorkTabHostsSleek => SleekWorkTabGateway.BetterWorkTabHostsSleek;
+
+        internal static bool AnyExternalWorkTabPresent =>
+            IsPresent || SleekWorkPrioritiesPresent;
+
+        internal static bool ExternalWorkTabOwnsWorkTab =>
+            FluffyWorkTabCoexistence.ExternalWorkTabOwnsWorkTab;
+
+        internal static string ActiveExternalWorkTabName
+        {
+            get
+            {
+                if (FluffyOwnsWorkTab)
+                {
+                    return "Fluffy Work Tab";
+                }
+
+                if (SleekWorkPrioritiesOwnsWorkTab)
+                {
+                    return "Sleek Work Priorities";
+                }
+
+                if (BetterWorkTabHostsSleek)
+                {
+                    return "Better Work Tab + Sleek Work Priorities";
+                }
+
+                return null;
+            }
+        }
 
         internal static bool ShouldRunBetterWorkTabFeatures => FluffyWorkTabCoexistence.ShouldRunBetterWorkTabFeatures;
 
@@ -154,7 +192,8 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
 
         internal static bool IsKnownPackageId(string packageId)
         {
-            return FluffyWorkTabCoexistence.IsKnownFluffyPackageId(packageId);
+            return FluffyWorkTabCoexistence.IsKnownFluffyPackageId(packageId) ||
+                SleekWorkTabIdentity.IsKnownPackageId(packageId);
         }
 
         internal static void RegisterSettings()
@@ -237,9 +276,19 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             FluffyWorkTabCoexistence.SwitchToBetterWorkTab();
         }
 
+        internal static void SwitchToBetterWorkTabWithSleek()
+        {
+            FluffyWorkTabCoexistence.SwitchToBetterWorkTabWithSleek();
+        }
+
         internal static void SwitchToExternalWorkTab()
         {
             FluffyWorkTabCoexistence.SwitchToFluffyWorkTab();
+        }
+
+        internal static void SwitchToSleekWorkPriorities()
+        {
+            FluffyWorkTabCoexistence.SwitchToSleekWorkPriorities();
         }
 
         internal static void ApplyColumnVisibility()
@@ -389,6 +438,16 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             FluffyWorkTabCoexistenceUI.DrawWorkTabSwitchButton(inRect);
         }
 
+        internal static void DrawCenteredWorkTabSwitchButton(Rect buttonRect)
+        {
+            if (IsSubWorkStyleChooserActive)
+            {
+                return;
+            }
+
+            FluffyWorkTabCoexistenceUI.DrawCenteredWorkTabSwitchButton(buttonRect);
+        }
+
         /// <summary>
         /// Draws the in-context switch between BWT's focused specific-job view and
         /// the optional right-expanding presentation.
@@ -447,7 +506,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
 
                 settings.Write();
                 PriorityAuthorityBroker.NotifyPotentialAuthorityChanged();
-                MainTabWindow_BetterWork.NotifyAngledHeadersChanged();
+                HeaderDrawingCoordinator.NotifyAngledHeadersChanged();
 #if !v0_18 && !v0_17 && !v0_16 && !v0_15 && !v0_14 && !v0_13 && !vAlpha4
                 SoundDefOf.Tick_High.PlayOneShotOnCamera();
 #endif
@@ -460,6 +519,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
         internal static void DrawSettingsBannerIfNeeded(ref Rect inRect)
         {
             FluffyWorkTabCoexistenceUI.DrawSettingsBannerIfNeeded(ref inRect);
+            SleekWorkTabCoexistenceUI.DrawSettingsBannerIfNeeded(ref inRect);
         }
 
         internal static bool TryStartSubWorkDrilldownStyleChooser(
@@ -520,6 +580,11 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
         internal static void DebugCancelSubWorkDrilldownStyleChooser()
         {
             ClearSubWorkDrilldownStyleChooser();
+        }
+
+        internal static void ResetSubWorkDrilldownStyleChooserForWindowClose()
+        {
+            ClearSubWorkDrilldownStyleChooser(clearPreview: true, immediatePreviewExit: true);
         }
 
         internal static void RegisterSubWorkStyleChooserRegions(
@@ -1044,11 +1109,13 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             Text.Anchor = TextAnchor.UpperLeft;
         }
 
-        private static void ClearSubWorkDrilldownStyleChooser(bool clearPreview = true)
+        private static void ClearSubWorkDrilldownStyleChooser(
+            bool clearPreview = true,
+            bool immediatePreviewExit = false)
         {
             if (clearPreview)
             {
-                ClearSubWorkDrilldownStyleChooserPreview(immediateFocusExit: false);
+                ClearSubWorkDrilldownStyleChooserPreview(immediateFocusExit: immediatePreviewExit);
             }
             else
             {
@@ -1085,7 +1152,14 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             }
             else if (_chooserPreviewStyle == BetterWorkTabSettings.SubWorkDrilldownStyle.ExpandBeside)
             {
-                SubWorkDrilldownState.CollapseAllExpandBeside();
+                if (immediateFocusExit)
+                {
+                    SubWorkDrilldownState.CollapseAllExpandBesideImmediate();
+                }
+                else
+                {
+                    SubWorkDrilldownState.CollapseAllExpandBeside();
+                }
             }
 
             _chooserPreviewStyle = BetterWorkTabSettings.SubWorkDrilldownStyle.NotChosen;
@@ -1128,8 +1202,8 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                     var column = layout.Columns[i];
                     if (!column.IsExpandBesideChild && column.Column?.workType == _chooserWorkType)
                     {
-                        _chooserSourceRect = column.HeaderRect;
-                        return column.HeaderRect;
+                        _chooserSourceRect = WorkGridInteractionGeometry.GetAnimatedHeaderRect(column);
+                        return _chooserSourceRect;
                     }
                 }
             }
@@ -1402,7 +1476,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
 
         private sealed class FluffyWorkTabSettingsContributor : IModSettingsContributor
         {
-            private const string WorkTabOwnedByFluffyReason = "Fluffy Work Tab is running the Work tab right now.";
+            private const string WorkTabOwnedByFluffyReason = "An external Work tab integration is running the Work tab right now.";
 
             public BWTModSettingsSection CreateSettingsSection()
             {
@@ -1411,8 +1485,8 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                     Header = new SettingDefinition
                     {
                         Id = CompatFluffyWorkTabHeader,
-                        Label = "Fluffy-style Work Tab",
-                        Tooltip = "BWT-native options inspired by Fluffy's Work Tab, plus compatibility controls when Fluffy Work Tab or a fork is installed.",
+                        Label = "Work Tab integrations",
+                        Tooltip = "BWT-native options inspired by Fluffy's Work Tab, plus compatibility controls when Fluffy Work Tab or Sleek Work Priorities is installed.",
                         SearchKeywords = FluffyBaseSearchKeywords,
                         Type = SettingType.Header,
                         ShowInSimpleView = true,
@@ -1433,7 +1507,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                             OnChanged = _ =>
                             {
                                 SubWorkDrilldownState.CollapseAllExpandBeside();
-                                MainTabWindow_BetterWork.NotifyAngledHeadersChanged();
+                                HeaderDrawingCoordinator.NotifyAngledHeadersChanged();
                             },
                             ShowInSimpleView = true,
                             ShowInAdvancedView = true,
@@ -1487,16 +1561,16 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                         new SettingDefinition
                         {
                             Id = CompatFluffyWorkTabOwnership,
-                            Label = "Fluffy Work Tab integration (2 settings)",
-                            Tooltip = "Choose which mod runs the Work tab and which Fluffy columns Better Work Tab keeps visible.",
+                            Label = "Work tab ownership",
+                            Tooltip = "Choose which compatible mod runs the Work tab. When Fluffy Work Tab is installed, also choose whether its columns remain visible.",
                             SearchKeywords = FluffyOwnershipSearchKeywords,
                             Type = SettingType.Header,
                             Suppressions = new List<SettingSuppression>
                             {
                                 OptionalModSettingsAvailability.Require(
-                                    () => FluffyWorkTabGateway.IsPresent,
-                                    "Fluffy's Work Tab",
-                                    2)
+                                    () => FluffyWorkTabGateway.AnyExternalWorkTabPresent,
+                                    "Fluffy Work Tab or Sleek Work Priorities",
+                                    1)
                             },
                             ShowInSimpleView = true,
                             SortOrder = 20
@@ -1507,13 +1581,17 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                             ParentId = CompatFluffyWorkTabOwnership,
                             FieldName = "preferredWorkTabOwner",
                             Label = "Which mod opens the Work tab?",
-                            Tooltip = "Choose whether Better Work Tab or Fluffy Work Tab runs the Work tab.",
+                             Tooltip = "Choose BWT-only, Sleek-only, Fluffy-only, or the mixed BWT + Sleek host where BWT owns rows, dividers, and headers while Sleek renders its priority cells and companion work cards.",
                             SearchKeywords = FluffyOwnershipSearchKeywords,
                             Type = SettingType.Enum,
                             EnumType = typeof(WorkTabOwnerPreference),
                             DefaultValue = DefaultSettings.preferredWorkTabOwner,
-                            OnChanged = _ =>
+                            OnChanged = value =>
                             {
+                                if (value is BetterWorkTabSettings changedSettings)
+                                {
+                                    changedSettings.workTabOwnerSelectionMade = true;
+                                }
                                 PriorityAuthorityBroker.NotifyPotentialAuthorityChanged();
                                 FluffyWorkTabCoexistence.ApplyDesiredOwner(reopenIfOpen: true);
                             },
@@ -1530,6 +1608,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                             SearchKeywords = FluffyOwnershipSearchKeywords,
                             Type = SettingType.Bool,
                             DefaultValue = DefaultSettings.showExternalWorkTabColumns,
+                            VisibleWhen = _ => FluffyWorkTabGateway.IsPresent,
                             Suppressions = new List<SettingSuppression>
                             {
                                 CreateWorkTabOwnedByFluffySuppression(WorkTabOwnedByFluffyReason)
@@ -1564,7 +1643,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                             {
                                 CreateWorkTabOwnedByFluffySuppression(WorkTabOwnedByFluffyReason)
                             },
-                            OnChanged = _ => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
+                            OnChanged = _ => HeaderDrawingCoordinator.NotifyAngledHeadersChanged(),
                             ShowInSimpleView = true,
                             SortOrder = 11
                         },

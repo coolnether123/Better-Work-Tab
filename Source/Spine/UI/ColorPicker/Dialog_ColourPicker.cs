@@ -209,6 +209,7 @@ namespace Spine.UI.ColourPicker {
             }
         }
 
+#if RWT_HAS_COLOR_PICKER_WINDOW_LAYOUT
         public Vector2 InitialPosition => _initialPosition ??
                                           new Vector2(Verse.UI.screenWidth - InitialSize.x,
                                                       Verse.UI.screenHeight - InitialSize.y) / 2f;
@@ -444,7 +445,9 @@ namespace Spine.UI.ColourPicker {
         [Conditional("DEBUG")]
         private void Debug(string msg) {
             if (Traverse.Create(typeof(Log)).Field("reachedMaxMessagesLimit").GetValue<bool>()) {
+#if RWT_HAS_COLOR_PICKER_ACCEPT_CANCEL
                 Log.ResetMessageCount();
+#endif
             }
 
             _debugLogger?.Invoke($"ColourPicker :: {msg}");
@@ -916,6 +919,7 @@ namespace Spine.UI.ColourPicker {
             HexField.Value = Hex;
         }
 
+#if RWT_HAS_COLOR_PICKER_ACCEPT_CANCEL
         public override void OnAcceptKeyPressed()
         {
             base.OnAcceptKeyPressed();
@@ -928,12 +932,15 @@ namespace Spine.UI.ColourPicker {
             onCancel?.Invoke();
             base.OnCancelKeyPressed();
         }
+#endif
 
+#if RWT_HAS_COLOR_PICKER_CLICK_OUTSIDE
         public override void Notify_ClickOutsideWindow()
         {
             onCancel?.Invoke();
             base.Notify_ClickOutsideWindow();
         }
+#endif
 
         public override void PostClose()
         {
@@ -980,6 +987,7 @@ namespace Spine.UI.ColourPicker {
 
             windowRect = new Rect(position.x, position.y, size.x, size.y);
         }
+#endif
 
         public void SetPickerPositions()
         {

@@ -126,6 +126,15 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                     continue;
                 }
 
+                // The default copy used to carry the implementation version in
+                // its player-facing name. Keep existing saves aligned with the
+                // classic ruleset name after the label change.
+                if (ruleset.Source == RuleBuilder2SourceType.DefaultCopy &&
+                    string.Equals(ruleset.Name, "BWT Default (Rule Builder 2.0)", StringComparison.Ordinal))
+                {
+                    ruleset.Name = "BWT Default";
+                }
+
                 // Saved rulesets can come from older builds. Normalize each card as
                 // the collection is loaded so UI/apply code can rely on stable IDs,
                 // sort order, action buffers, and a valid open-card shape.

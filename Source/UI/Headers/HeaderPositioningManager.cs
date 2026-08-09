@@ -109,5 +109,6 @@ namespace Better_Work_Tab.UI.Headers
             worstCase.y += _standardHeights[MaxStaggerLevels - 1];
             return worstCase;
         }
+
     }
 }

@@ -467,6 +467,11 @@ namespace Better_Work_Tab.PawnOrganizer
             ClearAllDragState();
         }
 
+        internal void CancelPendingDrag()
+        {
+            ClearPendingDrag();
+        }
+
         private void ClearAllDragState()
         {
             ClearPendingDrag();

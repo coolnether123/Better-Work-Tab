@@ -1,8 +1,8 @@
 using Better_Work_Tab.Features.WorkGiverReassignments;
-using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
+using Better_Work_Tab.UI.WorkGrid.Layout;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -116,6 +116,15 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             _settleStartedAt = Time.realtimeSinceStartup;
         }
 
+        internal static void ResetForWindowClose()
+        {
+            _settleWorkGiver = null;
+            _settleTargetWorkType = null;
+            _settleSourceRect = Rect.zero;
+            _settleTargetRect = Rect.zero;
+            _settleStartedAt = 0f;
+        }
+
         internal static void DrawSettleAnimation(IWorkTabLayoutController layout)
         {
             if (_settleWorkGiver == null)
@@ -188,7 +197,8 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                     continue;
                 }
 
-                stripRect = found ? Union(stripRect, column.HeaderRect) : column.HeaderRect;
+                Rect headerRect = WorkGridInteractionGeometry.GetAnimatedHeaderRect(column);
+                stripRect = found ? Union(stripRect, headerRect) : headerRect;
                 found = true;
             }
 
@@ -222,20 +232,13 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 return false;
             }
 
-            float reservedHeight = Mathf.Max(0f, SubWorkDrilldownState.GlobalRowReservedHeight);
-            if (reservedHeight <= 2f)
+            Rect reservedBand = WorkGridLayoutMetrics.GetSubWorkBandRect(layout);
+            if (reservedBand.height <= 2f)
             {
                 return false;
             }
 
-            float rowTop = layout.TableOrigin.y +
-                layout.HeaderHeight +
-                TimePriorityScheduleEditor.HeaderPinnedRowsHeight;
-            rowRect = new Rect(
-                layout.TableOrigin.x,
-                rowTop,
-                Mathf.Max(layout.Table.Size.x - 16f, 1f),
-                reservedHeight);
+            rowRect = reservedBand;
             return true;
         }
 
@@ -244,7 +247,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             if (!TryGetDropRowRect(layout, out Rect rowRect))
             {
                 const float headerTargetHeight = 24f;
-                Rect headerRect = column.HeaderRect;
+                Rect headerRect = WorkGridInteractionGeometry.GetAnimatedHeaderRect(column);
                 return new Rect(
                     headerRect.xMin + 2f,
                     Mathf.Max(headerRect.yMin, headerRect.yMax - headerTargetHeight),
@@ -252,8 +255,11 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                     Mathf.Min(headerTargetHeight - 3f, headerRect.height));
             }
 
+            Rect bodyRect = WorkGridInteractionGeometry.GetAnimatedBodyScreenRect(
+                column,
+                rowRect);
             return new Rect(
-                column.HeaderRect.xMin + 2f,
+                bodyRect.xMin + 2f,
                 rowRect.yMin + 3f,
                 Mathf.Max(1f, column.Width - 4f),
                 Mathf.Max(1f, rowRect.height - 6f));
@@ -264,7 +270,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             WorkTabLayoutColumn column,
             Rect visualTargetRect)
         {
-            Rect headerRect = column.HeaderRect;
+            Rect headerRect = WorkGridInteractionGeometry.GetAnimatedHeaderRect(column);
             float xMin = Mathf.Min(headerRect.xMin, visualTargetRect.xMin) - 2f;
             float xMax = Mathf.Max(headerRect.xMax, visualTargetRect.xMax) + 2f;
             float yMin = headerRect.yMin;

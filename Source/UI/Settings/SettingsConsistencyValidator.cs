@@ -41,6 +41,9 @@ namespace Better_Work_Tab.UI.Settings
             nameof(BetterWorkTabSettings.settingsSchemaVersion),
             nameof(BetterWorkTabSettings.v2UpgradePromptPending),
             nameof(BetterWorkTabSettings.fluffyWorkTabActivePromptVersion),
+            nameof(BetterWorkTabSettings.workTabOwnerSelectionMade),
+            nameof(BetterWorkTabSettings.sleekWorkTabChoicePromptDismissed),
+            nameof(BetterWorkTabSettings.sleekWorkTabUseMixedByDefault),
 
             // Beta feedback bookkeeping: accumulated Work-tab time and whether
             // the nudge has been answered. Neither is a preference, so neither

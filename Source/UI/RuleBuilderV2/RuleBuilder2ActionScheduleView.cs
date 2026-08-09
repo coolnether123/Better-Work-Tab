@@ -190,7 +190,8 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
                 Rect cell = new Rect(label.x + 1f, rect.y + 22f, cellWidth - 2f, 34f);
                 Text.Font = previousFont;
-                int priority = action.HourlyPriorities[hour];
+                int priority = RuleBuilder2PriorityRange.ClampForActiveWorkTab(
+                    action.HourlyPriorities[hour]);
                 Widgets.DrawBoxSolid(cell, WorkPrioritySystem.GetPriorityColor(priority));
                 Widgets.DrawBox(cell, 1);
                 GUI.color = Color.white;
@@ -235,14 +236,14 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             action.EnsureSchedule(priority);
             for (int i = 0; i < action.HourlyPriorities.Count; i++)
             {
-                action.HourlyPriorities[i] = RuleBuilder2PriorityRange.Clamp(priority);
+                action.HourlyPriorities[i] = RuleBuilder2PriorityRange.ClampForActiveWorkTab(priority);
             }
         }
 
         internal static void FillWorkdaySchedule(RuleBuilder2Action action)
         {
             action.EnsureSchedule(action.Priority);
-            int activePriority = RuleBuilder2PriorityRange.Clamp(action.Priority);
+            int activePriority = RuleBuilder2PriorityRange.ClampForActiveWorkTab(action.Priority);
             int defaultPriority = WorkPrioritySystem.GetDefaultEnabledPriority();
             for (int hour = 0; hour < action.HourlyPriorities.Count; hour++)
             {

@@ -8,6 +8,7 @@ using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Better_Work_Tab.UI.WorkGrid.Diagnostics;
 using Better_Work_Tab.UI.WorkGrid.Snapshots;
 using Better_Work_Tab.UI.WorkGiverReassignments;
+using Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities;
 using RimWorld;
 using Spine.Api;
 using Better_Work_Tab.Foundation;
@@ -20,15 +21,6 @@ using Verse;
 
 namespace Better_Work_Tab.UI.WorkGrid.Rendering
 {
-    internal interface IWorkGridSnapshotLayer
-    {
-        void BeginRow();
-        void EndRow();
-        bool TryDrawRowBackground(int rowIndex, Rect rowRect, out Color textColor);
-        bool ShouldVisitCell(int rowIndex, int columnIndex);
-        bool TryDrawCell(int rowIndex, int columnIndex, Rect cellRect);
-    }
-
     internal readonly struct WorkGridAtlasEntry
     {
         internal WorkGridAtlasEntry(Texture2D baseTexture, Texture2D blendTexture, string priorityText)
@@ -154,7 +146,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
     internal sealed class OptimizedWorkGridRenderer : IWorkGridRenderer, IWorkGridSnapshotLayer, IDisposable
     {
         internal const string RendererId = "bwt.optimized-layered";
-        private readonly MainTabWindow_BetterWork _host;
+        private readonly IWorkGridDrawingSurface _drawingSurface;
         private readonly WorkGridCellAtlas _atlas = new WorkGridCellAtlas();
         private WorkGridSnapshot _snapshot;
         private int[] _cellLookup = Array.Empty<int>();
@@ -165,9 +157,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         private GuiStateScope _cellBatchState;
         private bool _cellBatchActive;
 
-        internal OptimizedWorkGridRenderer(MainTabWindow_BetterWork host)
+        internal OptimizedWorkGridRenderer(IWorkGridDrawingSurface drawingSurface)
         {
-            _host = host ?? throw new ArgumentNullException(nameof(host));
+            _drawingSurface = drawingSurface ?? throw new ArgumentNullException(nameof(drawingSurface));
             WorkGridRendererDiagnostics.SetAtlasDiagnostics(_atlas);
         }
 
@@ -210,7 +202,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 ((context.Configuration.Features & WorkGridFeatureFlags.SkillOverlay) != 0 &&
                  ShiftHelper.State == BetterWorkTabSettings.ShowUIMode.Shifted) ||
                 SubWorkDrilldownState.HasAnyDrilldown ||
-                FluffyTimeScheduleAssigner.IsOpen;
+                FluffyTimeScheduleAssigner.IsOpen ||
+                SleekWorkTabGateway.BetterWorkTabHostsSleek;
 
             if (context.EventPhase == ImGuiEventPhase.Repaint)
             {
@@ -224,11 +217,14 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         {
             if (context.EventPhase != ImGuiEventPhase.Repaint)
             {
-                _host.DrawNativeWorkTable(context.Presentation.Table, context.Layout, context.WindowRect);
+                _drawingSurface.DrawNativeWorkTable(
+                    context.Presentation.Table,
+                    context.Layout,
+                    context.WindowRect);
                 return;
             }
 
-            _host.DrawSnapshotWorkTable(in context, this);
+            _drawingSurface.DrawSnapshotWorkTable(in context, this);
         }
 
         public void HandleEvent(in WorkGridRenderContext context)

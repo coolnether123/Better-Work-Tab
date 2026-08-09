@@ -39,8 +39,8 @@ namespace Better_Work_Tab.Features.Tutorial
 
         /// <summary>
         /// Draws the tutorial band with the Work tab's other pinned bands, so
-        /// drag guides and row overlays paint over it the way they do over any
-        /// divider.
+        /// header selections stop at the divider and row overlays paint over it
+        /// the way they do over any divider.
         /// </summary>
         internal static void DrawBand(IWorkTabLayoutController layout)
         {

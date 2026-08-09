@@ -25,7 +25,15 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                     return ExternalWorkTabPriorityAuthority.NoOpinion;
                 }
 
-                if (FluffyWorkTabGateway.ExternalWorkTabOwnsWorkTab)
+                // Fluffy's expand-beside bridge may own data while BWT renders, but it must yield
+                // completely when the player explicitly selects Sleek as the Work-tab owner.
+                if (FluffyWorkTabGateway.SleekWorkPrioritiesOwnsWorkTab ||
+                    FluffyWorkTabGateway.BetterWorkTabHostsSleek)
+                {
+                    return ExternalWorkTabPriorityAuthority.NoOpinion;
+                }
+
+                if (FluffyWorkTabGateway.FluffyOwnsWorkTab)
                 {
                     return ExternalWorkTabPriorityAuthority.ExternalStore;
                 }

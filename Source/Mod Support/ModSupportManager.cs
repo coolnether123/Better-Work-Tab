@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
+using Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities;
 using Better_Work_Tab.ModSupport.Mods.Spine;
 using UnityEngine;
 using Verse;
@@ -61,6 +62,7 @@ namespace Better_Work_Tab.ModSupport
         {
             var names = new List<string>(_activeModules.Select(module => module.DisplayName));
             if (FluffyWorkTabGateway.IsPresent) names.Add("Fluffy Work Tab");
+            if (SleekWorkTabGateway.IsPresent) names.Add("Sleek Work Priorities");
             if (SpineCompatibilityGateway.Provider == SpineProviderKind.Standalone) names.Add("Spine");
             AddIfActive(names, "Chronos Pointer", "CoolNether123.ChronosPointer", "CoolNether123.ChronosPointer.Legacy");
             AddIfActive(names, "Clockwork", "jaskkro.workshift");

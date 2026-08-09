@@ -1,3 +1,8 @@
+using System.Reflection;
+using Better_Work_Tab.PawnOrganizer;
+using Better_Work_Tab.UI.WorkGrid.Contracts;
+using Better_Work_Tab.UI.WorkGrid.Invalidation;
+using Better_Work_Tab.UI.WindowSession;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -96,12 +101,41 @@ namespace Better_Work_Tab.UI.Headers
         }
 
         /// <summary>
-        /// Notification that angled header settings (rotation, offset) have changed.
-        /// Triggers a cache invalidation.
+        /// Notification that header settings or header-affecting presentation
+        /// settings have changed. The renderer consumes the invalidation on its
+        /// next frame; this owner also refreshes the organizer and the active
+        /// Work-tab table in the same order as the former window entry point.
         /// </summary>
         public static void NotifyAngledHeadersChanged()
         {
-            InvalidateCaches();
+            WorkTabInvalidationHub.Invalidate(
+                WorkTabDirtyFlags.HeaderText |
+                WorkTabDirtyFlags.HeaderGeometry |
+                WorkTabDirtyFlags.RenderResources |
+                WorkTabDirtyFlags.WindowSize);
+            PawnOrganizerSystem.Instance?.Layout?.InvalidateRowDescriptors();
+
+            if (Find.MainTabsRoot?.OpenTab?.TabWindow is MainTabWindow_PawnTable workTab &&
+                workTab.GetType().Assembly == typeof(HeaderDrawingCoordinator).Assembly)
+            {
+                PawnTable table = WorkTabWindowSessionState.ReadPawnTable(workTab);
+                if (table != null)
+                {
+                    // Mark the table as dirty to force a full recache of heights and widths.
+                    MethodInfo setDirtyMethod = typeof(PawnTable).GetMethod(
+                        "SetDirty",
+                        BindingFlags.NonPublic | BindingFlags.Instance);
+                    if (setDirtyMethod != null)
+                    {
+                        setDirtyMethod.Invoke(table, null);
+                    }
+                    else
+                    {
+                        // Fallback if SetDirty is not found (unlikely in vanilla but safe).
+                        MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+                    }
+                }
+            }
         }
     }
 }

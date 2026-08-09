@@ -1,5 +1,7 @@
 using Better_Work_Tab.Features.Rules.RuleBuilder2;
 using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.PawnOrganizer;
+using Better_Work_Tab.UI.Headers;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -118,8 +120,12 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                 return false;
             }
 
-            if (!(Find.MainTabsRoot?.OpenTab?.TabWindow is Better_Work_Tab.UI.MainTabWindow_BetterWork workTab) ||
-                !workTab.TryGetRuleBuilder2TargetHeaderBounds(workType, workGiver, out Rect bounds))
+            if (!(Find.MainTabsRoot?.OpenTab?.TabWindow is Better_Work_Tab.UI.MainTabWindow_BetterWork) ||
+                !RuleBuilder2WorkTabOverlay.TryGetTargetHeaderBounds(
+                    PawnOrganizerSystem.Instance?.Layout,
+                    workType,
+                    workGiver,
+                    out Rect bounds))
             {
                 return false;
             }
@@ -254,8 +260,12 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
             if (activeWindow != null &&
                 activeWindow.TryGetActiveTarget(out WorkTypeDef workType, out WorkGiverDef workGiver) &&
-                Find.MainTabsRoot?.OpenTab?.TabWindow is Better_Work_Tab.UI.MainTabWindow_BetterWork workTab &&
-                workTab.TryGetRuleBuilder2TargetHeaderBounds(workType, workGiver, out Rect bounds))
+                Find.MainTabsRoot?.OpenTab?.TabWindow is Better_Work_Tab.UI.MainTabWindow_BetterWork &&
+                RuleBuilder2WorkTabOverlay.TryGetTargetHeaderBounds(
+                    PawnOrganizerSystem.Instance?.Layout,
+                    workType,
+                    workGiver,
+                    out Rect bounds))
             {
                 return bounds;
             }

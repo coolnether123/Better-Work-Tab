@@ -9,6 +9,7 @@ using Spine.UI; // for TextColorHelper
 using UnityEngine;
 using Verse;
 using Better_Work_Tab.ModSupport;
+using Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities;
 using System.Reflection.Emit;
 using System.Reflection;
 
@@ -29,6 +30,9 @@ namespace Better_Work_Tab.Patches
         // Postfix ensures overlays draw after vanilla rendering when Prefix returns true (e.g., no contrast mode)
         public static void Postfix(PawnColumnWorker_Label __instance, Rect rect, Pawn pawn, PawnTable table)
         {
+            if (SleekWorkTabGateway.SleekOwnsWorkTab)
+                return;
+
             if (pawn == null || !__instance.def.showIcon)
                 return;
 
@@ -51,6 +55,11 @@ namespace Better_Work_Tab.Patches
             Pawn pawn,
             PawnTable table)
         {
+            if (SleekWorkTabGateway.SleekOwnsWorkTab)
+            {
+                return true;
+            }
+
             if (pawn == null)
             {
                 return true;

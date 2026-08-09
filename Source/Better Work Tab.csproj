@@ -15,6 +15,7 @@
     <LangVersion>latest</LangVersion>
     <SpineMode Condition="'$(SpineMode)' == ''">Embedded</SpineMode>
     <UseStandaloneSpine Condition="'$(SpineMode)' == 'External'">true</UseStandaloneSpine>
+    <RwtIsRimWorldMod Condition="'$(RwtIsRimWorldMod)' == '' and '$(RimWorldManagedDir)' != ''">true</RwtIsRimWorldMod>
     <StandaloneSpineRoot Condition="'$(StandaloneSpineRoot)' == '' and Exists('$(MSBuildProjectDirectory)\..\..\Spine\Source\Spine')">$(MSBuildProjectDirectory)\..\..\Spine</StandaloneSpineRoot>
     <SpineMirrorMode Condition="'$(SpineMirrorMode)' == ''">Check</SpineMirrorMode>
     <!--
@@ -33,7 +34,7 @@
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
     <OutputPath>..\1.6\Assemblies\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DefineConstants>DEBUG;TRACE;RWT_HAS_COLOR_PICKER_ACCEPT_CANCEL;RWT_HAS_COLOR_PICKER_CLICK_OUTSIDE;RWT_HAS_COLOR_PICKER_WINDOW_LAYOUT;RWT_HAS_WARNING_ONCE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
@@ -41,7 +42,7 @@
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
     <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
+    <DefineConstants>TRACE;RWT_HAS_COLOR_PICKER_ACCEPT_CANCEL;RWT_HAS_COLOR_PICKER_CLICK_OUTSIDE;RWT_HAS_COLOR_PICKER_WINDOW_LAYOUT;RWT_HAS_WARNING_ONCE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
@@ -49,7 +50,7 @@
     <OutputPath>..\1.6\Assemblies\</OutputPath>
     <Optimize>true</Optimize>
     <DebugType>pdbonly</DebugType>
-    <DefineConstants>TRACE</DefineConstants>
+    <DefineConstants>TRACE;RWT_HAS_COLOR_PICKER_ACCEPT_CANCEL;RWT_HAS_COLOR_PICKER_CLICK_OUTSIDE;RWT_HAS_COLOR_PICKER_WINDOW_LAYOUT;RWT_HAS_WARNING_ONCE</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System.Core" />
@@ -58,6 +59,11 @@
     <Reference Include="System.Xml" />
     <Reference Include="Spine" Condition="'$(UseStandaloneSpine)' == 'true'">
       <HintPath>$(SpineAssemblyPath)</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup Condition="'$(RimWorldManagedDir)' != ''">
+    <Reference Include="$(RimWorldManagedDir)\*.dll">
       <Private>false</Private>
     </Reference>
   </ItemGroup>
@@ -124,6 +130,7 @@
     <Compile Include="Features\Rules\RuleBuilder2\RuleBuilder2RulesetStore.cs" />
     <Compile Include="Features\Rules\RuleBuilder2\RuleBuilder2TargetCatalog.cs" />
     <Compile Include="Features\Rules\RuleBuilder2\RuleBuilder2PriorityRange.cs" />
+    <Compile Include="Features\Rules\RuleBuilder2\RuleBuilder2SleekPriorityTranslation.cs" />
     <Compile Include="Features\Rules\RuleBuilder2\RuleBuilder2SummaryService.cs" />
     <Compile Include="Features\Rules\RuleBuilder2\RuleBuilder2ClassicRulesetTranslator.cs" />
     <Compile Include="Features\Rules\RuleBuilder2\RuleBuilder2StableIdentity.cs" />
@@ -245,6 +252,12 @@
     <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabMigration.cs" />
     <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabPriorityProvider.cs" />
     <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabSync.cs" />
+    <Compile Include="Mod Support\Mods\Sleek Work Priorities\SleekWorkTabIdentity.cs" />
+    <Compile Include="Mod Support\Mods\Sleek Work Priorities\SleekWorkTabGateway.cs" />
+    <Compile Include="Mod Support\Mods\Sleek Work Priorities\SleekWorkTabExternalStore.cs" />
+    <Compile Include="Mod Support\Mods\Sleek Work Priorities\SleekWorkTabCoexistenceUI.cs" />
+    <Compile Include="Mod Support\Mods\Sleek Work Priorities\SleekWorkTabHostedFrame.cs" />
+    <Compile Include="Mod Support\Mods\Sleek Work Priorities\SleekWorkTabPriorityHandoff.cs" />
     <Compile Include="Mod Support\Mods\Useful Marks\UsefulMarksSupport.cs" />
     <Compile Include="Mod Support\Mods\Vanilla Skills Expanded\VanillaSkillsExpandedSupport.cs" />
     <Compile Include="Mod Support\Multiplayer\LocalProfiles\BWTLocalProfile.cs" />
@@ -331,12 +344,23 @@
     <Compile Include="UI\WorkGiverReassignments\WorkGiverPriorityBoxRenderer.cs" />
     <Compile Include="UI\WorkGiverReassignments\WorkGiverCellPresentationCache.cs" />
     <Compile Include="UI\WorkGiverReassignments\WorkGiverPresentationInvalidation.cs" />
+    <Compile Include="UI\WorkGiverReassignments\SubWorkInteractionController.cs" />
+    <Compile Include="UI\WorkGiverReassignments\SubWorkStyleChooserPresenter.cs" />
     <Compile Include="UI\WorkGrid\Contracts\WorkGridRenderContracts.cs" />
     <Compile Include="UI\WorkGrid\Commands\WorkGridCommandMath.cs" />
     <Compile Include="UI\WorkGrid\Commands\WorkGridCommands.cs" />
     <Compile Include="UI\WorkGrid\Commands\WorkPriorityCommandGateway.cs" />
     <Compile Include="UI\WorkGrid\Compatibility\WorkGridVanillaCompatibilityPolicy.cs" />
+    <Compile Include="UI\WorkGrid\Interaction\WorkGridContextActionController.cs" />
     <Compile Include="UI\WorkGrid\Interaction\WorkGridInteractionRouter.cs" />
+    <Compile Include="UI\WorkGrid\Interaction\WorkTabContextSettingsInteractionController.cs" />
+    <Compile Include="UI\WorkGrid\Interaction\WorkTabPriorityInputHandler.cs" />
+    <Compile Include="UI\WorkGrid\Interaction\WorkTabTutorialInteractionController.cs" />
+    <Compile Include="UI\WorkGrid\Layout\WorkGridLayoutMetrics.cs" />
+    <Compile Include="UI\WorkGrid\Layout\WorkGridInteractionGeometry.cs" />
+    <Compile Include="UI\Chrome\WorkTabChrome.cs" />
+    <Compile Include="UI\Chrome\WorkTabChromeGeometry.cs" />
+    <Compile Include="UI\WorkGrid\Layout\WorkTabViewportController.cs" />
     <Compile Include="UI\WorkGrid\Snapshots\WorkGridGeometrySnapshot.cs" />
     <Compile Include="UI\WorkGrid\Snapshots\WorkGridSnapshot.cs" />
     <Compile Include="UI\WorkGrid\Snapshots\WorkGridSnapshotProvider.cs" />
@@ -346,8 +370,10 @@
     <Compile Include="UI\WorkGrid\Invalidation\WorkTabInvalidationHub.cs" />
     <Compile Include="UI\WorkGrid\Rendering\WorkGridRendererFacade.cs" />
     <Compile Include="UI\WorkGrid\Rendering\WorkGridRendererSelector.cs" />
+    <Compile Include="UI\WorkGrid\Rendering\WorkGridDrawingSurface.cs" />
     <Compile Include="UI\WorkGrid\Rendering\VanillaWorkGridRenderer.cs" />
     <Compile Include="UI\WorkGrid\Rendering\OptimizedWorkGridRenderer.cs" />
+    <Compile Include="UI\WorkGrid\Rendering\WorkTabBodyRenderer.cs" />
     <Compile Include="UI\WorkGrid\Rendering\WorkGridRenderPrimitives.cs" />
     <Compile Include="UI\WorkGrid\Diagnostics\WorkGridRendererDiagnostics.cs" />
     <Compile Include="Spine\UI\WidgetExtensions\ConnectedOutlineDrawer.cs" />
@@ -356,6 +382,9 @@
     <Compile Include="UI\Input\NativeCursorPosition.cs" />
     <Compile Include="UI\RulesetListDragUI.cs" />
     <Compile Include="UI\WorkTabColumnHighlightUtility.cs" />
+    <Compile Include="UI\Columns\WorkColumnCustomizationService.cs" />
+    <Compile Include="UI\WindowSession\WorkTabWindowSizingController.cs" />
+    <Compile Include="UI\WindowSession\WorkTabWindowSessionState.cs" />
     <Compile Include="UI\MainTabWindow_BetterWork.cs" />
     <Compile Include="UI\PawnTitleUtility.cs" />
     <Compile Include="UI\WorkPriorityCellGeometry.cs" />
@@ -370,6 +399,7 @@
     <Compile Include="UI\Dialog_ChangePawnTitle.cs" />
     <Compile Include="UI\BetterWorkTabSettingsUI.cs" />
     <Compile Include="UI\Settings\BWTSettingsFilters.cs" />
+    <Compile Include="UI\Settings\BetterWorkTabSettingsWindowService.cs" />
     <Compile Include="UI\Settings\BWTSettingWidgets.cs" />
     <Compile Include="UI\Settings\BWTSettingsContextFocus.cs" />
     <Compile Include="UI\Settings\BWTSettingsFocusRequest.cs" />
@@ -396,6 +426,9 @@
     <Compile Include="UI\Headers\IHeaderRenderer.cs" />
     <Compile Include="UI\Headers\HeaderPositioningManager.cs" />
     <Compile Include="UI\Headers\HeaderDrawingCoordinator.cs" />
+    <Compile Include="UI\Headers\WorkTabHeaderRenderer.cs" />
+    <Compile Include="UI\Headers\RuleBuilder2WorkTabOverlay.cs" />
+    <Compile Include="UI\Headers\SubWorkTransitionOverlay.cs" />
     <Compile Include="UI\Headers\Vanilla\VanillaHeaderMetrics.cs" />
     <Compile Include="UI\Headers\Vanilla\VanillaHeaderRenderer.cs" />
     <Compile Include="UI\Headers\Vanilla\VanillaHeaderLayoutSolver.cs" />
@@ -436,6 +469,7 @@
     <Compile Include="UI\RuleBuilder\Widgets\PriorityChainWidget.cs" />
     <Compile Include="UI\RuleBuilder\Widgets\WorkTypeCard.cs" />
     <Compile Include="UI\RuleBuilderV2\RuleBuilder2WorkTabBridge.cs" />
+    <Compile Include="UI\RuleBuilderV2\RuleBuilder2WorkTabInteractionController.cs" />
     <Compile Include="UI\RuleBuilderV2\RuleBuilder2Layout.cs" />
     <Compile Include="UI\RuleBuilderV2\RuleBuilder2UiUtility.cs" />
     <Compile Include="UI\RuleBuilderV2\RuleBuilder2FlowController.cs" />
@@ -481,6 +515,7 @@
     </PackageReference>
     <PackageReference Include="Krafs.Rimworld.Ref">
       <Version>1.6.4850</Version>
+      <ExcludeAssets Condition="'$(RimWorldManagedDir)' != ''">compile</ExcludeAssets>
     </PackageReference>
     <PackageReference Include="Lib.Harmony">
       <Version>2.4.2</Version>

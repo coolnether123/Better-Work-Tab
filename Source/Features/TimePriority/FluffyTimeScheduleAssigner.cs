@@ -6,6 +6,7 @@ using Better_Work_Tab.Features.Testing;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.PawnOrganizer.API;
+using Better_Work_Tab.UI.WorkGrid.Layout;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -177,8 +178,25 @@ namespace Better_Work_Tab.Features.TimePriority
             }
 
             IsOpen = false;
-            _lastInteractiveRect = Rect.zero;
+            ClearInteractiveGeometry();
             NotifyLayoutChanged();
+        }
+
+        internal static void ResetForWindowClose()
+        {
+            bool wasOpen = IsOpen;
+            IsOpen = false;
+            SelectWholeDay();
+            VisibleHour = -1;
+            _lastAppliedTarget = string.Empty;
+            _lastAppliedPriority = -1;
+            _nextAgentRequestFrame = 0;
+            ClearInteractiveGeometry();
+
+            if (wasOpen)
+            {
+                NotifyLayoutChanged();
+            }
         }
 
         internal static int GetDisplayHour(Pawn pawn)
@@ -547,6 +565,14 @@ namespace Better_Work_Tab.Features.TimePriority
             VisibleHour = -1;
         }
 
+        private static void ClearInteractiveGeometry()
+        {
+            _lastInteractiveRect = Rect.zero;
+            _lastBarRect = Rect.zero;
+            _lastWholeDayButtonRect = Rect.zero;
+            _lastNowButtonRect = Rect.zero;
+        }
+
         private static void DrawTimeLabel(Rect rect, string label)
         {
             GameFont oldFont = Text.Font;
@@ -578,8 +604,9 @@ namespace Better_Work_Tab.Features.TimePriority
                     continue;
                 }
 
-                start = Mathf.Min(start, column.HeaderRect.xMin);
-                end = Mathf.Max(end, column.HeaderRect.xMax);
+                Rect headerRect = WorkGridInteractionGeometry.GetAnimatedHeaderRect(column);
+                start = Mathf.Min(start, headerRect.xMin);
+                end = Mathf.Max(end, headerRect.xMax);
             }
 
             if (start == float.MaxValue || end <= start)

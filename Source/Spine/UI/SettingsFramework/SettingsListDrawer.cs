@@ -558,14 +558,29 @@ namespace Better_Work_Tab.UI.SettingsFramework
             bool reserveResetSlot = ShowResetIcons && IsResettable(def, field);
             if (reserveResetSlot)
             {
-                Rect resetRect = new Rect(
-                    contentRect.x,
-                    contentRect.y + ((contentRect.height - ResetButtonSize) / 2f),
-                    ResetButtonSize,
-                    ResetButtonSize);
+                Rect resetRect;
+                if (def.EmphasizeAsHeader)
+                {
+                    // Header-styled toggles use the left 70% for their label and the right 25%
+                    // for the checkbox. Keep the label at the row's root edge and place the
+                    // reset affordance in the five-percent gap between those regions.
+                    resetRect = new Rect(
+                        contentRect.x + (contentRect.width * 0.725f) - (ResetButtonSize / 2f),
+                        contentRect.y + ((contentRect.height - ResetButtonSize) / 2f),
+                        ResetButtonSize,
+                        ResetButtonSize);
+                }
+                else
+                {
+                    resetRect = new Rect(
+                        contentRect.x,
+                        contentRect.y + ((contentRect.height - ResetButtonSize) / 2f),
+                        ResetButtonSize,
+                        ResetButtonSize);
 
-                contentRect.x += ResetIconSlotWidth;
-                contentRect.width = Mathf.Max(0f, contentRect.width - ResetIconSlotWidth);
+                    contentRect.x += ResetIconSlotWidth;
+                    contentRect.width = Mathf.Max(0f, contentRect.width - ResetIconSlotWidth);
+                }
 
                 if (HasNonDefaultValue(field, settingsObject, def))
                 {

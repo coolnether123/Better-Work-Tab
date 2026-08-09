@@ -23,16 +23,16 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         private bool _fallbackPending;
 
         public WorkGridRendererFacade(
-            MainTabWindow_BetterWork host,
+            IWorkGridDrawingSurface drawingSurface,
             Func<WorkGridRendererMode> selectionMode,
             IWorkGridRendererCapabilityCheck capabilityCheck = null,
             IRenderDiagnosticsSink diagnostics = null)
         {
-            if (host == null) throw new ArgumentNullException(nameof(host));
+            if (drawingSurface == null) throw new ArgumentNullException(nameof(drawingSurface));
 
             _selectionMode = selectionMode ?? throw new ArgumentNullException(nameof(selectionMode));
             _diagnostics = diagnostics ?? BwtWorkGridDiagnosticsSink.Instance;
-            _vanilla = new VanillaWorkGridRenderer(host);
+            _vanilla = new VanillaWorkGridRenderer(drawingSurface);
             _selector = new WorkGridRendererSelector(capabilityCheck, _diagnostics);
             _active = _vanilla;
             _activeId = VanillaWorkGridRenderer.RendererId;

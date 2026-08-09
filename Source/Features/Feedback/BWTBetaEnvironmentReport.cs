@@ -193,12 +193,22 @@ namespace Better_Work_Tab.Features.Feedback
 
         private static string WorkTabOwner()
         {
-            if (!FluffyWorkTabGateway.IsPresent)
+            if (!FluffyWorkTabGateway.AnyExternalWorkTabPresent)
             {
                 return "BWT_Beta_Env_WorkTabBWT".Translate();
             }
 
-            return FluffyWorkTabGateway.ExternalWorkTabOwnsWorkTab
+            if (FluffyWorkTabGateway.SleekWorkPrioritiesOwnsWorkTab)
+            {
+                return "Sleek Work Priorities";
+            }
+
+            if (FluffyWorkTabGateway.BetterWorkTabHostsSleek)
+            {
+                return "Better Work Tab + Sleek Work Priorities";
+            }
+
+            return FluffyWorkTabGateway.FluffyOwnsWorkTab
                 ? "BWT_Beta_Env_WorkTabFluffyOwns".Translate()
                 : "BWT_Beta_Env_WorkTabBWTWithFluffy".Translate();
         }

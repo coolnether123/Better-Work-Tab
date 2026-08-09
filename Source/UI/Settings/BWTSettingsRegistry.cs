@@ -10,6 +10,7 @@ using Better_Work_Tab.ModSupport.Mods.ComplexJobs;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.Patches;
 using Better_Work_Tab.UI;
+using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Multiplayer.API;
 using RimWorld;
@@ -342,21 +343,21 @@ namespace Better_Work_Tab.UI.Settings
                 var offOption = new FloatMenuOption("Off (instant)", () =>
                     {
                         settings.enableSubWorkTransitionAnimation = false;
-                        MainTabWindow_BetterWork.NotifyAngledHeadersChanged();
+                        HeaderDrawingCoordinator.NotifyAngledHeadersChanged();
                         settings.Write();
                     });
                 var classicOption = new FloatMenuOption(GetSubWorkTransitionStyleLabel(BetterWorkTabSettings.SubWorkTransitionStyle.ClassicGlideFlash), () =>
                     {
                         settings.enableSubWorkTransitionAnimation = true;
                         settings.subWorkTransitionStyle = BetterWorkTabSettings.SubWorkTransitionStyle.ClassicGlideFlash;
-                        MainTabWindow_BetterWork.NotifyAngledHeadersChanged();
+                        HeaderDrawingCoordinator.NotifyAngledHeadersChanged();
                         settings.Write();
                     });
                 var pixelOption = new FloatMenuOption(GetSubWorkTransitionStyleLabel(BetterWorkTabSettings.SubWorkTransitionStyle.PixelWaveFlip), () =>
                     {
                         settings.enableSubWorkTransitionAnimation = true;
                         settings.subWorkTransitionStyle = BetterWorkTabSettings.SubWorkTransitionStyle.PixelWaveFlip;
-                        MainTabWindow_BetterWork.NotifyAngledHeadersChanged();
+                        HeaderDrawingCoordinator.NotifyAngledHeadersChanged();
                         settings.Write();
                     });
                 var options = new List<FloatMenuOption>
@@ -458,86 +459,6 @@ namespace Better_Work_Tab.UI.Settings
             RegisterHiddenPreference("compat.enableExtendedPriorities", nameof(BetterWorkTabSettings.enableExtendedPriorities), SettingType.Bool, DefaultSettings.enableExtendedPriorities);
             RegisterHiddenPreference("compat.delegateToExternalPriorityMods", nameof(BetterWorkTabSettings.delegateToExternalPriorityMods), SettingType.Bool, DefaultSettings.delegateToExternalPriorityMods);
             RegisterHiddenPreference("compat.selectedPriorityProviderId", nameof(BetterWorkTabSettings.selectedPriorityProviderId), SettingType.Custom, DefaultSettings.selectedPriorityProviderId);
-
-            Register(new SettingDefinition
-            {
-                Id = ControlsPageHeader,
-                Label = "Keyboard & mouse",
-                Tooltip = "Work-tab controls, contextual mouse gestures, and loaded-mod compatibility.",
-                SearchKeywords = new[] { "controls", "keybindings", "keyboard", "mouse", "shortcuts", "hotkeys" },
-                Type = SettingType.Header,
-                HeaderColor = new Color(0.55f, 0.75f, 0.9f),
-                ShowInSimpleView = false,
-                ShowInAdvancedView = true,
-                SortOrder = -100
-            });
-
-            Register(new SettingDefinition
-            {
-                Id = ControlsPriorityCells,
-                ParentId = ControlsPageHeader,
-                Label = "Change a priority",
-                Tooltip = "Left-click increases, right-click decreases, and the mouse wheel changes the priority when wheel controls are enabled.",
-                SearchKeywords = new[] { "priority click", "right click", "scroll wheel", "mouse" },
-                Type = SettingType.Custom,
-                CustomDrawer = (rect, label, tooltip, _, disabled) =>
-                    BWTSettingWidgets.DrawReadOnlyValue(rect, label, "Click / right-click / wheel", tooltip, disabled),
-                ShowInSimpleView = false,
-                ShowInAdvancedView = true,
-                SortOrder = 0
-            });
-
-            Register(new SettingDefinition
-            {
-                Id = ControlsShiftOverlay,
-                ParentId = ControlsPageHeader,
-                Label = "Show skill overlay",
-                Tooltip = "Hold Shift to show the configured skill and best-pawn presentation. This is display-only and does not rebuild Work data.",
-                SearchKeywords = new[] { "shift", "skill overlay", "best pawn" },
-                Type = SettingType.Custom,
-                CustomDrawer = (rect, label, tooltip, _, disabled) =>
-                    BWTSettingWidgets.DrawReadOnlyValue(rect, label, "Hold Shift", tooltip, disabled),
-                ShowInSimpleView = false,
-                ShowInAdvancedView = true,
-                SortOrder = 1
-            });
-
-            Register(new SettingDefinition
-            {
-                Id = ControlsHeaderActions,
-                ParentId = ControlsPageHeader,
-                Label = "Work-header actions",
-                Tooltip = "Shift gestures act on all capable pawns. When column grouping is enabled, Shift-left-click on a root Work header selects it for group dragging.",
-                SearchKeywords = new[] { "shift click header", "bulk priorities", "group columns" },
-                Type = SettingType.Custom,
-                CustomDrawer = (rect, label, tooltip, settingsObject, disabled) =>
-                    BWTSettingWidgets.DrawReadOnlyValue(
-                        rect,
-                        label,
-                        settingsObject is BetterWorkTabSettings settings && settings.enableColumnGrouping
-                            ? "Shift-click group; Shift-right/wheel bulk"
-                            : "Shift-click / right-click / wheel bulk",
-                        tooltip,
-                        disabled),
-                ShowInSimpleView = false,
-                ShowInAdvancedView = true,
-                SortOrder = 2
-            });
-
-            Register(new SettingDefinition
-            {
-                Id = ControlsHistory,
-                ParentId = ControlsPageHeader,
-                Label = "Specific-job layout history",
-                Tooltip = "Undo or redo specific-job layout and assignment changes while the Work tab has keyboard focus.",
-                SearchKeywords = new[] { "undo", "redo", "ctrl z", "ctrl y", "shortcut" },
-                Type = SettingType.Custom,
-                CustomDrawer = (rect, label, tooltip, _, disabled) =>
-                    BWTSettingWidgets.DrawReadOnlyValue(rect, label, "Ctrl+Z / Ctrl+Y", tooltip, disabled),
-                ShowInSimpleView = false,
-                ShowInAdvancedView = true,
-                SortOrder = 3
-            });
 
             Register(new SettingDefinition
             {
@@ -721,7 +642,7 @@ namespace Better_Work_Tab.UI.Settings
                 Tooltip = "Show a button integrated into each Work header for opening its specific jobs.",
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.showSubWorkHeaderBadge,
-                OnChanged = _ => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
+                OnChanged = _ => HeaderDrawingCoordinator.NotifyAngledHeadersChanged(),
                 ShowInSimpleView = true,
                 SortOrder = 3
             });
@@ -834,7 +755,7 @@ namespace Better_Work_Tab.UI.Settings
                 Tooltip = "Animate specific-job views, including Fluffy-style expand-beside columns and header text fade when they open or collapse.",
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.enableSubWorkTransitionAnimation,
-                OnChanged = _ => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
+                OnChanged = _ => HeaderDrawingCoordinator.NotifyAngledHeadersChanged(),
                 ShowInSimpleView = false,
                 ShowInAdvancedView = false,
                 SortOrder = 10
@@ -850,7 +771,7 @@ namespace Better_Work_Tab.UI.Settings
                 CustomDrawer = DrawSubWorkTransitionMode,
                 CustomHasNonDefaultValue = IsSubWorkTransitionModeNonDefault,
                 CustomReset = ResetSubWorkTransitionMode,
-                OnChanged = _ => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
+                OnChanged = _ => HeaderDrawingCoordinator.NotifyAngledHeadersChanged(),
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
                 SortOrder = 10
@@ -866,7 +787,7 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Enum,
                 EnumType = typeof(BetterWorkTabSettings.SubWorkTransitionStyle),
                 DefaultValue = DefaultSettings.subWorkTransitionStyle,
-                OnChanged = _ => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
+                OnChanged = _ => HeaderDrawingCoordinator.NotifyAngledHeadersChanged(),
                 ShowInSimpleView = false,
                 ShowInAdvancedView = false,
                 SortOrder = 11
@@ -894,7 +815,7 @@ namespace Better_Work_Tab.UI.Settings
                             BetterWorkTabSettings.ClampSubWorkTransitionSeconds(settings.subWorkTransitionSeconds);
                     }
 
-                    MainTabWindow_BetterWork.NotifyAngledHeadersChanged();
+                    HeaderDrawingCoordinator.NotifyAngledHeadersChanged();
                 },
                 VisibleWhen = s => (s as BetterWorkTabSettings)?.enableSubWorkTransitionAnimation ?? true,
                 ShowInSimpleView = false,
@@ -955,7 +876,7 @@ namespace Better_Work_Tab.UI.Settings
                         LinkLabel = "Angled headers"
                     }
                 },
-                OnChanged = _ => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
+                OnChanged = _ => HeaderDrawingCoordinator.NotifyAngledHeadersChanged(),
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
                 SortOrder = 12
@@ -970,7 +891,7 @@ namespace Better_Work_Tab.UI.Settings
                 Tooltip = "Give expanded specific-job columns equal widths. Turning this off widens only columns whose labels need more room.",
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.subWorkEvenlyExpandColumns,
-                OnChanged = _ => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
+                OnChanged = _ => HeaderDrawingCoordinator.NotifyAngledHeadersChanged(),
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
                 SortOrder = 1
@@ -2966,7 +2887,7 @@ namespace Better_Work_Tab.UI.Settings
                     FluffyWorkTabGateway.CreateWorkTabOwnedByFluffySuppression(
                         "Fluffy Work Tab is drawing the Work tab headers.")
                 },
-                OnChanged = s => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
+                OnChanged = s => HeaderDrawingCoordinator.NotifyAngledHeadersChanged(),
                 ShowInSimpleView = true,
                 ShowInAdvancedView = true,
                 SortOrder = 506
@@ -3002,7 +2923,7 @@ namespace Better_Work_Tab.UI.Settings
                 {
                     var bSettings = (BetterWorkTabSettings)s;
                     bSettings.angledHeaderRotation = Mathf.RoundToInt(bSettings.angledHeaderRotation / 5f) * 5;
-                    MainTabWindow_BetterWork.NotifyAngledHeadersChanged();
+                    HeaderDrawingCoordinator.NotifyAngledHeadersChanged();
                 },
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
@@ -3018,7 +2939,7 @@ namespace Better_Work_Tab.UI.Settings
                 Tooltip = "Draw East Asian characters (Korean, Chinese, Japanese) vertically when angled headers are enabled. This is much more legible than rotated text.",
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.useVerticalStackingForCJK,
-                OnChanged = s => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
+                OnChanged = s => HeaderDrawingCoordinator.NotifyAngledHeadersChanged(),
                 ShowInSimpleView = true,
                 ShowInAdvancedView = true,
                 SortOrder = 5072
@@ -3035,7 +2956,7 @@ namespace Better_Work_Tab.UI.Settings
                 DefaultValue = DefaultSettings.cjkVerticalKerning,
                 MinValue = 0.5f,
                 MaxValue = 1.5f,
-                OnChanged = s => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
+                OnChanged = s => HeaderDrawingCoordinator.NotifyAngledHeadersChanged(),
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
                 SortOrder = 5073
@@ -3050,7 +2971,7 @@ namespace Better_Work_Tab.UI.Settings
                 Tooltip = "Colors Work names drawn in angled column headers.",
                 Type = SettingType.Color,
                 DefaultValue = DefaultSettings.Color_AngledHeaderText,
-                OnChanged = s => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
+                OnChanged = s => HeaderDrawingCoordinator.NotifyAngledHeadersChanged(),
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
                 SortOrder = 5071
@@ -3065,7 +2986,7 @@ namespace Better_Work_Tab.UI.Settings
                 Tooltip = "Colors the line beneath angled Work names and the stem used by vanilla-style Work headers.",
                 Type = SettingType.Color,
                 DefaultValue = DefaultSettings.Color_HeaderUnderline,
-                OnChanged = s => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
+                OnChanged = s => HeaderDrawingCoordinator.NotifyAngledHeadersChanged(),
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
                 SortOrder = 50715
@@ -3083,7 +3004,7 @@ namespace Better_Work_Tab.UI.Settings
                 DefaultValue = DefaultSettings.angledHeaderHorizontalOffset,
                 MinValue = -100f,
                 MaxValue = 100f,
-                OnChanged = s => MainTabWindow_BetterWork.NotifyAngledHeadersChanged(),
+                OnChanged = s => HeaderDrawingCoordinator.NotifyAngledHeadersChanged(),
                 ShowInSimpleView = false,
                 ShowInAdvancedView = true,
                 SortOrder = 508

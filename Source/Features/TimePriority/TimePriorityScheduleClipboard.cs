@@ -96,6 +96,12 @@ namespace Better_Work_Tab.Features.TimePriority
         private static TransferAnimation _animation;
         private static bool _closeRequested;
 
+        internal static void ResetForWindowClose()
+        {
+            _animation = null;
+            _closeRequested = false;
+        }
+
         internal static void StartCopy(TimePriorityTarget target)
         {
             _animation = new TransferAnimation(

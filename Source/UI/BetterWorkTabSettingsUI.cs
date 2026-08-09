@@ -51,11 +51,6 @@ namespace Better_Work_Tab.UI
             }
 
             drawer.Draw(inRect, settings, ref _viewMode, () => settings.Write());
-            BWTGeneralTutorial.DrawSettingsGesture(
-                settingId => drawer.TryGetVisibleSettingScreenRect(settingId, out Rect screenRect)
-                    ? (Rect?)ScreenToGuiRect(screenRect)
-                    : null);
-
             settings.settingsViewMode = _viewMode == SettingsViewMode.Simple
                 ? BetterWorkTabSettings.SettingsViewMode.Simple
                 : BetterWorkTabSettings.SettingsViewMode.Advanced;
@@ -112,12 +107,6 @@ namespace Better_Work_Tab.UI
                 OnSettingInteracted = (definition, _) =>
                     BWTGeneralTutorial.NotifySettingsRowInteracted(definition?.Id)
             };
-        }
-
-        private static Rect ScreenToGuiRect(Rect screenRect)
-        {
-            Vector2 position = GUIUtility.ScreenToGUIPoint(screenRect.position);
-            return new Rect(position.x, position.y, screenRect.width, screenRect.height);
         }
 
         private static void MarkSettingViewed(SettingDefinition def, object settingsObject)

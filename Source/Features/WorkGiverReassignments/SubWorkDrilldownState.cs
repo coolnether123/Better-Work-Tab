@@ -823,6 +823,13 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             }
         }
 
+        internal static void ResetForWindowClose()
+        {
+            ExitImmediate();
+            ExpandBesideEntries.Clear();
+            _layoutRefreshPending = false;
+        }
+
         internal static BetterWorkTabSettings.SubWorkDrilldownStyle EffectiveDrilldownStyle()
         {
             var style = BetterWorkTabMod.Settings?.subWorkDrilldownStyle ?? DefaultSettings.subWorkDrilldownStyle;

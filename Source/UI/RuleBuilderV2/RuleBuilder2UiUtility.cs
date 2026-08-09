@@ -134,14 +134,16 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
         internal static void DrawIntTextEntry(Rect rect, RuleBuilder2Action action, int min, int max)
         {
+            int originalPriority = action.Priority;
+            int displayedPriority = RuleBuilder2PriorityRange.ClampForActiveWorkTab(originalPriority);
             action.PriorityBuffer = string.IsNullOrEmpty(action.PriorityBuffer)
-                ? action.Priority.ToString()
+                ? displayedPriority.ToString()
                 : action.PriorityBuffer;
-            int priority = action.Priority;
+            int priority = displayedPriority;
             Widgets.TextFieldNumeric(rect, ref priority, ref action.PriorityBuffer, min, max);
-            action.Priority = RuleBuilder2PriorityRange.Clamp(priority);
-            if (priority != action.Priority)
+            if (priority != displayedPriority)
             {
+                action.Priority = RuleBuilder2PriorityRange.ClampForActiveWorkTab(priority);
                 action.PriorityBuffer = action.Priority.ToString();
             }
         }

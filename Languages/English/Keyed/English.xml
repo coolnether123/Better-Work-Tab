@@ -269,7 +269,6 @@
   <BWT_Tutorial_Outcome_Continue>Continue when ready</BWT_Tutorial_Outcome_Continue>
   <BWT_Tutorial_Outcome_Default>The change is visible in the highlighted area. Take a moment to look at the result, then continue when you are ready.</BWT_Tutorial_Outcome_Default>
 <BWT_Tutorial_Gesture_Type>TYPE</BWT_Tutorial_Gesture_Type>
-<BWT_Tutorial_Gesture_SettingPrompt>Open this setting</BWT_Tutorial_Gesture_SettingPrompt>
 <BWT_Tutorial_Gesture_SelectOption>Select this option</BWT_Tutorial_Gesture_SelectOption>
 <BWT_Tutorial_Gesture_TypeTitle>Type a new title</BWT_Tutorial_Gesture_TypeTitle>
 <BWT_Tutorial_Gesture_Confirm>Apply the change</BWT_Tutorial_Gesture_Confirm>

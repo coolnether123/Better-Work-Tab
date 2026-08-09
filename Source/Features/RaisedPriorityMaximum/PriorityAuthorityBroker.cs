@@ -7,6 +7,7 @@ using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.ModSupport;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
+using Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -17,6 +18,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
     {
         BetterWorkTab,
         FluffyWorkTab,
+        SleekWorkPriorities,
         ExternalWorkTab = FluffyWorkTab
     }
 
@@ -347,7 +349,14 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         private static PriorityAuthorityOwner ComputeAuthority()
         {
             PriorityProviderRegistry.EnsureInitialized();
-            if (ExternalWorkTabRegistry.GetAuthoritativeStore() != null)
+            IExternalWorkTabStore store = ExternalWorkTabRegistry.GetAuthoritativeStore();
+            if (store != null &&
+                string.Equals(store.StoreId, SleekWorkTabIdentity.ProviderId, StringComparison.OrdinalIgnoreCase))
+            {
+                return PriorityAuthorityOwner.SleekWorkPriorities;
+            }
+
+            if (store != null)
             {
                 return PriorityAuthorityOwner.FluffyWorkTab;
             }
@@ -391,9 +400,14 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             handoffAuthorityOverride = PriorityAuthorityOwner.BetterWorkTab;
             try
             {
-                int changed = next == PriorityAuthorityOwner.FluffyWorkTab
-                    ? SyncBetterWorkTabToExternalStore()
-                    : ExternalWorkTabRegistry.ImportFromAvailableImporter();
+                int changed = next == PriorityAuthorityOwner.BetterWorkTab
+                    ? previous == PriorityAuthorityOwner.SleekWorkPriorities
+                        ? ExternalWorkTabRegistry.ImportFromStore(SleekWorkTabIdentity.ProviderId)
+                        : previous == PriorityAuthorityOwner.FluffyWorkTab
+                            ? ExternalWorkTabRegistry.ImportFromStore(
+                                PriorityProviderIntegrationCatalog.FluffyWorkTabProviderId)
+                            : ExternalWorkTabRegistry.ImportFromAvailableImporter()
+                    : SyncBetterWorkTabToExternalStore();
 
                 WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
                 MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();

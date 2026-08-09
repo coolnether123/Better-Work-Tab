@@ -92,6 +92,10 @@
   <BWT_DragToDuplicate>Drag to duplicate these rules to another work type or priority.</BWT_DragToDuplicate>
   <BWT_Done>Done</BWT_Done>
   <BWT_Apply>Apply</BWT_Apply>
+  <BWT_RuleBuilder2_SleekTranslation_Title>Sleek priority compatibility</BWT_RuleBuilder2_SleekTranslation_Title>
+  <BWT_RuleBuilder2_SleekTranslation_Apply>Apply translated rules</BWT_RuleBuilder2_SleekTranslation_Apply>
+  <BWT_RuleBuilder2_SleekTranslation_Disclaimer>Sleek Work Priorities uses priorities 1-5. Your saved Better Work Tab rules are kept unchanged. Values outside 1-5 and sub-work assignments will be translated at apply time using BWT's best-effort mapping into Sleek's priority model.</BWT_RuleBuilder2_SleekTranslation_Disclaimer>
+  <BWT_RuleBuilder2_SleekTranslation_ApplyWarning>Sleek Work Priorities uses priorities 1-5. Rule Builder 2.0 kept the saved BWT rules and applied a best-effort Sleek translation.</BWT_RuleBuilder2_SleekTranslation_ApplyWarning>
   <BWT_Change>Change</BWT_Change>
   <BWT_Edit>Edit</BWT_Edit>
   <BWT_Delete>Delete</BWT_Delete>

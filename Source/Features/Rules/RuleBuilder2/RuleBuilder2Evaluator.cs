@@ -6,6 +6,7 @@ using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.ModSupport;
+using Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -245,9 +246,9 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 case RuleBuilder2ConditionKind.Gender:
                     return string.Equals(pawn.gender.ToString(), condition.TextValue, System.StringComparison.OrdinalIgnoreCase);
                 case RuleBuilder2ConditionKind.ExistingPriorityAtLeast:
-                    return currentPriority >= condition.IntValue;
+                    return currentPriority >= RuleBuilder2PriorityRange.ClampForActiveWorkTab(condition.IntValue);
                 case RuleBuilder2ConditionKind.ExistingPriorityEquals:
-                    return currentPriority == condition.IntValue;
+                    return currentPriority == RuleBuilder2PriorityRange.ClampForActiveWorkTab(condition.IntValue);
                 case RuleBuilder2ConditionKind.CurrentAssignedWork:
                     return (currentPriority > 0) == condition.BoolValue;
                 case RuleBuilder2ConditionKind.HighestSkillAmongColonists:
@@ -330,11 +331,22 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
 
             if (workGiver != null)
             {
+                if (SleekWorkTabGateway.SleekCodeRuns &&
+                    SleekWorkTabGateway.TryGetSleekWorkGiverOverride(pawn, workGiver, out int sleekPriority) &&
+                    sleekPriority >= 0)
+                {
+                    return RuleBuilder2PriorityRange.ClampForActiveWorkTab(sleekPriority);
+                }
+
                 int parentPriority = WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType);
-                return WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, workGiver, parentPriority);
+                return RuleBuilder2PriorityRange.ClampForActiveWorkTab(
+                    SleekWorkTabGateway.SleekCodeRuns
+                        ? parentPriority
+                        : WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, workGiver, parentPriority));
             }
 
-            return WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType);
+            return RuleBuilder2PriorityRange.ClampForActiveWorkTab(
+                WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType));
         }
 
         internal static int GetActionPriority(RuleBuilder2Action action)
@@ -354,7 +366,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 case RuleBuilder2ActionKind.SetSubWorkSchedule:
                 case RuleBuilder2ActionKind.SetPriority:
                 default:
-                    return WorkPrioritySystem.ClampPriority(action.Priority);
+                    return RuleBuilder2SleekPriorityTranslation.TranslatePriority(action.Priority);
             }
         }
 

@@ -5,6 +5,7 @@ using Better_Work_Tab.Features.Tutorial;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
+using Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.Headers;
@@ -178,6 +179,11 @@ namespace Better_Work_Tab.Patches
             if (!UI.Headers.PawnColumnWorker_WorkPriority_DoHeader_Patch.IsWorkTab())
                 return true;
 
+            // Let Sleek's own DoCell prefix render mixed-mode cells. BWT continues to own the
+            // row, divider, and input/layout pipeline around those cells.
+            if (SleekWorkTabGateway.BetterWorkTabHostsSleek)
+                return true;
+
             WorkTypeDef workType = __instance.def.workType;
             if (workType == null)
                 return true;
@@ -328,6 +334,9 @@ namespace Better_Work_Tab.Patches
         {
             // Only apply BWT patches to the Work tab (vanilla or BWT), not other tabs like MechTab
             if (!UI.Headers.PawnColumnWorker_WorkPriority_DoHeader_Patch.IsWorkTab())
+                return;
+
+            if (SleekWorkTabGateway.BetterWorkTabHostsSleek)
                 return;
 
             WorkTypeDef workType = __instance.def.workType;

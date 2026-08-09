@@ -3,6 +3,7 @@ using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.Features.Migration;
 using Better_Work_Tab.ModSupport;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
+using Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities;
 using Better_Work_Tab.ModSupport.Mods.Clockwork;
 using Better_Work_Tab.ModSupport.Mods.Spine;
 using Better_Work_Tab.PawnOrganizer;
@@ -88,6 +89,7 @@ namespace Better_Work_Tab
                 var harmony = new Harmony("Coolnether123.betterworktab");
                 harmony.PatchAll();
                 ClockworkCompatibility.Initialize(harmony);
+                SleekWorkTabGateway.Initialize();
                 FluffyWorkTabGateway.ApplyDesiredOwner();
                 DebugLog("Harmony patched successfully.");
             }

@@ -1,6 +1,7 @@
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.UI;
+using Better_Work_Tab.UI.Columns;
 using Multiplayer.API;
 using RimWorld;
 using System.Collections.Generic;
@@ -87,7 +88,7 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Sync
                     var wt = DefDatabase<WorkTypeDef>.GetNamedSilentFail(defName);
                     if (wt != null)
                     {
-                        MainTabWindow_BetterWork.MarkColumnMoved(wt);
+                        WorkColumnCustomizationService.MarkColumnMoved(wt);
                     }
                 }
             }
@@ -147,7 +148,7 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Sync
                 }
             }
 
-            MainTabWindow_BetterWork.MarkColumnMoved(dragged.workType);
+            WorkColumnCustomizationService.MarkColumnMoved(dragged.workType);
             WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
         }

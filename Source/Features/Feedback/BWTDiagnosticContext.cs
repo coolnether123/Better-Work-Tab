@@ -117,7 +117,7 @@ namespace Better_Work_Tab.Features.Feedback
                 Build = BWTBuildInfo.Build,
                 Commit = BWTBuildInfo.SourceCommit,
                 Course = CourseName(settings),
-                WorkTabInterface = FluffyWorkTabGateway.ExternalWorkTabOwnsWorkTab ? "Fluffy" : "Better Work Tab",
+                WorkTabInterface = FluffyWorkTabGateway.ActiveExternalWorkTabName ?? "Better Work Tab",
                 SpecificJobPresentation = settings.subWorkDrilldownStyle.ToString(),
                 Renderer = renderer.ActiveRendererId + " (selected " + renderer.SelectionMode + ")",
                 RendererFallback = fallback,

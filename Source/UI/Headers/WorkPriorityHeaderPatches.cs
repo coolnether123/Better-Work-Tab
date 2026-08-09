@@ -9,6 +9,7 @@ using Better_Work_Tab.UI.Headers.Angled;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
+using Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities;
 using Spine.Profiling;
 
 namespace Better_Work_Tab.UI.Headers
@@ -38,6 +39,12 @@ namespace Better_Work_Tab.UI.Headers
         /// </remarks>
         public static bool IsWorkTab()
         {
+            // Strict Sleek owns the complete Work-tab presentation. BWT's
+            // header/height/hover hooks must not leak into its vanilla host;
+            // mixed mode remains true because BWT is the host there.
+            if (SleekWorkTabGateway.SleekOwnsWorkTab)
+                return false;
+
             if (BetterWorkTabMod.Settings == null) return false;
             var windowStack = Find.WindowStack;
             if (windowStack == null) return false;
@@ -83,6 +90,12 @@ namespace Better_Work_Tab.UI.Headers
                 var settings = BetterWorkTabMod.Settings;
                 if (settings == null) return true;
 
+                // Sleek's header prefix intentionally draws its horizontal header in mixed
+                // mode. BWT owns the final header surface, so the host clears that surface
+                // and redraws the configured BWT header style in a second pass.
+                if (SleekWorkTabGateway.BetterWorkTabHostsSleek)
+                    return true;
+
                 var workType = __instance?.def?.workType;
                 if (workType == null) return false;
 
@@ -126,7 +139,60 @@ namespace Better_Work_Tab.UI.Headers
         [HarmonyPriority(Priority.Last)]
         public static void Postfix(PawnColumnWorker_WorkPriority __instance, Rect rect, PawnTable table)
         {
-            // Logic handled in Prefix
+            // Mixed headers are drawn in one second pass by MainTabWindow_BetterWork.  A
+            // per-column postfix would draw over the previous column's angled overhang and
+            // cannot clear Sleek's complete horizontal header surface without reintroducing
+            // ordering-dependent overlaps.
+        }
+
+        internal static void DrawMixedOverlay(
+            PawnColumnWorker_WorkPriority worker,
+            Rect rect,
+            PawnTable table)
+        {
+            if (!SleekWorkTabGateway.BetterWorkTabHostsSleek ||
+                !IsWorkTab() ||
+                worker?.def?.workType == null)
+            {
+                return;
+            }
+
+            if (FluffyWorkTabGateway.IsFluffyWorkGiverColumn(worker.def) &&
+                !FluffyWorkTabGateway.IsHostedFluffyWorkGiverColumn(worker.def))
+            {
+                return;
+            }
+
+            if (SubWorkDrilldownState.IsBlankWorkColumn(worker.def))
+            {
+                return;
+            }
+
+            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
+            if (settings == null)
+            {
+                return;
+            }
+
+            try
+            {
+                HeaderInputController.UpdateCache(Event.current);
+                if (settings.enableAngledHeaders)
+                {
+                    AngledHeaderController.DoHeader(worker, rect, table);
+                }
+                else
+                {
+                    // The mixed host still owns the header even when the player chooses
+                    // vanilla-style headers. Do not leave Sleek's cleared horizontal
+                    // surface blank in that configuration.
+                    VanillaHeaderController.DoHeader(worker, rect, table);
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Log.Error($"[BWT] Mixed Sleek header overlay failed: {ex}");
+            }
         }
     }
     /// <summary>
@@ -139,6 +205,7 @@ namespace Better_Work_Tab.UI.Headers
         /// Postfix that expands the header height if needed by the active layout strategy.
         /// </summary>
         [HarmonyPriority(Priority.Last)]
+        [HarmonyAfter("squishyjellyfish.SleekWorkPriorities")]
         public static void Postfix(PawnColumnWorker_WorkPriority __instance, PawnTable table, ref int __result)
         {
             // Only apply to the Work tab (vanilla or BWT), not other tabs like MechTab

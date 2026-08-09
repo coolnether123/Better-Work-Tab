@@ -29,6 +29,14 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         private static float _visualAlpha = 1f;
         private static bool _trustedRootInputHit;
 
+        internal static void ResetForWindowClose()
+        {
+            ResetAnimations.Clear();
+            GlobalPriorityTargets.Clear();
+            _visualAlpha = 1f;
+            _trustedRootInputHit = false;
+        }
+
         public static void DrawPriorityBox(
             WorkGiver wg,
             WorkTypeDef workType,

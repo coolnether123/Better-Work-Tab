@@ -7,6 +7,19 @@ using Verse;
 
 namespace Better_Work_Tab.ModSupport
 {
+    /// <summary>
+    /// Internal handoff contract for integrations whose data cannot be represented as BWT's
+    /// generic hourly schedule records. The Sleek adapter uses this to translate child ranks into
+    /// BWT's pawn-specific order/override model without touching parent priorities or schedules.
+    /// </summary>
+    internal interface IExternalWorkTabHandoffImporter
+    {
+        string StoreId { get; }
+        string DisplayName { get; }
+        bool IsAvailable { get; }
+        int ImportToBetterWorkTab();
+    }
+
     internal static class ExternalWorkTabRegistry
     {
         private static readonly object SyncRoot = new object();
@@ -14,6 +27,8 @@ namespace Better_Work_Tab.ModSupport
             new Dictionary<string, IExternalWorkTabStore>(StringComparer.OrdinalIgnoreCase);
         private static readonly Dictionary<string, IExternalWorkTabPriorityImporter> Importers =
             new Dictionary<string, IExternalWorkTabPriorityImporter>(StringComparer.OrdinalIgnoreCase);
+        private static readonly Dictionary<string, IExternalWorkTabHandoffImporter> HandoffImporters =
+            new Dictionary<string, IExternalWorkTabHandoffImporter>(StringComparer.OrdinalIgnoreCase);
 
         internal static bool RegisterStore(IExternalWorkTabStore store)
         {
@@ -218,6 +233,91 @@ namespace Better_Work_Tab.ModSupport
             }
 
             return 0;
+        }
+
+        internal static bool RegisterHandoffImporter(IExternalWorkTabHandoffImporter importer)
+        {
+            if (importer == null || string.IsNullOrWhiteSpace(importer.StoreId))
+            {
+                return false;
+            }
+
+            lock (SyncRoot)
+            {
+                HandoffImporters[importer.StoreId.Trim()] = importer;
+            }
+
+            return true;
+        }
+
+        internal static bool UnregisterHandoffImporter(string storeId)
+        {
+            if (string.IsNullOrWhiteSpace(storeId))
+            {
+                return false;
+            }
+
+            lock (SyncRoot)
+            {
+                return HandoffImporters.Remove(storeId.Trim());
+            }
+        }
+
+        internal static int ImportFromStore(string storeId)
+        {
+            if (string.IsNullOrWhiteSpace(storeId))
+            {
+                return ImportFromAvailableImporter();
+            }
+
+            IExternalWorkTabHandoffImporter handoffImporter;
+            IExternalWorkTabPriorityImporter importer;
+            lock (SyncRoot)
+            {
+                HandoffImporters.TryGetValue(storeId.Trim(), out handoffImporter);
+                Importers.TryGetValue(storeId.Trim(), out importer);
+            }
+
+            if (handoffImporter != null)
+            {
+                try
+                {
+                    return handoffImporter.IsAvailable
+                        ? handoffImporter.ImportToBetterWorkTab()
+                        : 0;
+                }
+                catch (Exception ex)
+                {
+                    BetterWorkTabMod.DebugLog(
+                        "[ExternalWorkTab] Handoff import failed for " + handoffImporter.DisplayName + ": " + ex.Message,
+                        DebugFeature.ModSupport);
+                    return 0;
+                }
+            }
+
+            if (importer == null)
+            {
+                BetterWorkTabMod.DebugLog(
+                    "[ExternalWorkTab] No importer is registered for the requested store: " +
+                    storeId,
+                    DebugFeature.ModSupport);
+                return 0;
+            }
+
+            try
+            {
+                IReadOnlyList<ExternalPawnWorkGiverPriorityRecord> records;
+                return importer.IsAvailable && importer.TryReadPriorityRecords(out records)
+                    ? ImportWorkGiverPrioritySchedules(records)
+                    : 0;
+            }
+            catch (Exception ex)
+            {
+                BetterWorkTabMod.DebugLog(
+                    "[ExternalWorkTab] Import failed for " + importer.DisplayName + ": " + ex.Message,
+                    DebugFeature.ModSupport);
+                return 0;
+            }
         }
 
         internal static int ImportWorkGiverPrioritySchedules(

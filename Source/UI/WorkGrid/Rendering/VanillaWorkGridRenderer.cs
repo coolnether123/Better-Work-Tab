@@ -10,12 +10,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
     {
         internal const string RendererId = "bwt.native-imgui";
 
-        private readonly MainTabWindow_BetterWork _host;
+        private readonly IWorkGridDrawingSurface _drawingSurface;
         private WorkTabInvalidationVersion _lastVersions;
 
-        internal VanillaWorkGridRenderer(MainTabWindow_BetterWork host)
+        internal VanillaWorkGridRenderer(IWorkGridDrawingSurface drawingSurface)
         {
-            _host = host;
+            _drawingSurface = drawingSurface;
         }
 
         public string Id => RendererId;
@@ -30,7 +30,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
         public void Draw(in WorkGridRenderContext context)
         {
-            _host.DrawNativeWorkTable(context.Presentation.Table, context.Layout, context.WindowRect);
+            _drawingSurface.DrawNativeWorkTable(
+                context.Presentation.Table,
+                context.Layout,
+                context.WindowRect);
         }
 
         public void HandleEvent(in WorkGridRenderContext context)

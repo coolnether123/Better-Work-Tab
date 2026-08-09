@@ -630,8 +630,19 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                     break;
                 case RuleBuilder2ConditionKind.ExistingPriorityAtLeast:
                 case RuleBuilder2ConditionKind.ExistingPriorityEquals:
-                    DrawIntStepper(new Rect(rect.x, rect.y, 98f, rect.height), ref condition.IntValue, 0, RuleBuilder2PriorityRange.Max);
-                    RuleBuilder2PriorityRange.NormalizeCondition(condition);
+                    // Show the active Work-tab range without rewriting a
+                    // stored BWT condition until the player actually edits it.
+                    int displayedPriority = RuleBuilder2PriorityRange.ClampForActiveWorkTab(condition.IntValue);
+                    int previousDisplayedPriority = displayedPriority;
+                    DrawIntStepper(
+                        new Rect(rect.x, rect.y, 98f, rect.height),
+                        ref displayedPriority,
+                        0,
+                        RuleBuilder2PriorityRange.Max);
+                    if (displayedPriority != previousDisplayedPriority)
+                    {
+                        condition.IntValue = displayedPriority;
+                    }
                     break;
                 default:
                     // Nothing to edit. Listed explicitly rather than falling

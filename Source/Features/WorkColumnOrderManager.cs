@@ -1,6 +1,7 @@
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.Mod_Support.Multiplayer;
 using Better_Work_Tab.UI;
+using Better_Work_Tab.UI.Columns;
 using RimWorld;
 using System.Collections.Generic;
 using System.Linq;
@@ -511,7 +512,7 @@ namespace Better_Work_Tab.Features
             BetterWorkTabMod.Settings.workColumnOrderDefNames.Clear();
 
             // Clear all player-dragged column markers since we're back to baseline/vanilla
-            MainTabWindow_BetterWork.ClearAllColumnMarkers();
+            WorkColumnCustomizationService.ClearAllColumnMarkers();
 
             // Remove stored column widths for work columns
             RemoveStoredWorkColumnWidths(def);

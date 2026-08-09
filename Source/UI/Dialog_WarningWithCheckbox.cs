@@ -8,17 +8,33 @@ namespace Better_Work_Tab.UI
         private readonly string _text;
         private readonly string _title;
         private readonly System.Action _onConfirm;
+        private readonly System.Action _onCancel;
         private readonly System.Action<bool> _setDoNotShowAgain;
+        private readonly string _confirmLabel;
+        private readonly string _cancelLabel;
+        private readonly bool _rememberOnCancel;
         private bool _doNotShowAgain;
 
         public override Vector2 InitialSize => new Vector2(500f, 250f);
 
-        public Dialog_WarningWithCheckbox(string text, string title, System.Action onConfirm, System.Action<bool> setDoNotShowAgain)
+        public Dialog_WarningWithCheckbox(
+            string text,
+            string title,
+            System.Action onConfirm,
+            System.Action<bool> setDoNotShowAgain,
+            string confirmLabel = null,
+            string cancelLabel = null,
+            System.Action onCancel = null,
+            bool rememberOnCancel = false)
         {
             _text = text;
             _title = title;
             _onConfirm = onConfirm;
+            _onCancel = onCancel;
             _setDoNotShowAgain = setDoNotShowAgain;
+            _confirmLabel = confirmLabel ?? "Confirm".Translate();
+            _cancelLabel = cancelLabel ?? "Cancel".Translate();
+            _rememberOnCancel = rememberOnCancel;
             forcePause = true;
             absorbInputAroundWindow = true;
             closeOnClickedOutside = false;
@@ -45,7 +61,7 @@ namespace Better_Work_Tab.UI
             // Buttons
             float btnWidth = (inRect.width - margin) / 2f;
             Rect confirmRect = new Rect(0f, inRect.height - buttonHeight, btnWidth, buttonHeight);
-            if (Widgets.ButtonText(confirmRect, "Confirm".Translate()))
+            if (Widgets.ButtonText(confirmRect, _confirmLabel))
             {
                 if (_doNotShowAgain)
                 {
@@ -56,8 +72,13 @@ namespace Better_Work_Tab.UI
             }
 
             Rect cancelRect = new Rect(btnWidth + margin, inRect.height - buttonHeight, btnWidth, buttonHeight);
-            if (Widgets.ButtonText(cancelRect, "Cancel".Translate()))
+            if (Widgets.ButtonText(cancelRect, _cancelLabel))
             {
+                if (_rememberOnCancel && _doNotShowAgain)
+                {
+                    _setDoNotShowAgain?.Invoke(true);
+                }
+                _onCancel?.Invoke();
                 Close();
             }
         }

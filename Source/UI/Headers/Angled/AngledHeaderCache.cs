@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using Better_Work_Tab.Features.Testing;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.UI.Columns;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 
 namespace Better_Work_Tab.UI.Headers.Angled
@@ -139,7 +140,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
             // Calculation
             SubWorkTransitionPerfDiagnostics.CountAngledHeaderCacheRebuild();
-            bool isMoved = MainTabWindow_BetterWork.ShouldShowColumnMarker(workType);
+            bool isMoved = WorkColumnCustomizationService.ShouldShowColumnMarker(workType);
             CachedTextMetrics textMetrics = GetHeaderTextMetrics(workType, isMoved);
             string label = textMetrics.Label;
             bool isCJKVertical = textMetrics.IsCJKVertical;

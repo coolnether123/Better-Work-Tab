@@ -70,8 +70,10 @@ namespace Better_Work_Tab.DragDrop
         /// </summary>
         private int CalculateTargetIndex(Vector2 mousePos)
         {
-            float headerBottom = _layout.TableOrigin.y + _layout.HeaderHeight;
-            float contentY = mousePos.y - headerBottom + _layout.Table.scrollPosition.y;
+            float bodyTop = _layout.TableOrigin.y +
+                _layout.HeaderHeight +
+                _layout.GetPinnedRowsHeight();
+            float contentY = mousePos.y - bodyTop + _layout.Table.scrollPosition.y;
 
             var descriptors = _layout.GetRowDescriptors();
             int newIndex = descriptors.Count;
@@ -117,11 +119,13 @@ namespace Better_Work_Tab.DragDrop
                 var descriptors = _layout.GetRowDescriptors();
                 var heights = descriptors.Select(d => d.Height).ToList();
 
-                float headerBottom = _layout.TableOrigin.y + _layout.HeaderHeight;
+                float bodyTop = _layout.TableOrigin.y +
+                    _layout.HeaderHeight +
+                    _layout.GetPinnedRowsHeight();
                 float lineY = ListDragVisuals.GetInsertionLineY(
                     _session.TargetIndex,
                     heights,
-                    headerBottom,
+                    bodyTop,
                     _layout.Table.scrollPosition.y);
 
                 ListDragVisuals.DrawInsertionLine(

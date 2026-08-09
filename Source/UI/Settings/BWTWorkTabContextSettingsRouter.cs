@@ -1,9 +1,10 @@
-using Better_Work_Tab.DragDrop;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI;
+using Better_Work_Tab.UI.Chrome;
+using Better_Work_Tab.UI.WorkGrid.Layout;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using RimWorld;
 using UnityEngine;
@@ -16,7 +17,6 @@ namespace Better_Work_Tab.UI.Settings
     internal static class BWTWorkTabContextSettingsRouter
     {
         private const float RightEdgeMargin = 10f;
-        private const float InfoIconSize = 24f;
 
         internal static bool TryBuildFocusRequest(
             Rect inRect,
@@ -96,7 +96,8 @@ namespace Better_Work_Tab.UI.Settings
                     layout,
                     mousePosition,
                     out WorkTypeDef _,
-                    out Rect _))
+                    out Rect _,
+                    out WorkTabLayoutColumn _))
             {
                 return CreateContextRequest(
                     "Sub-work Header Button",
@@ -428,7 +429,7 @@ namespace Better_Work_Tab.UI.Settings
                 }
             }
 
-            if (GetInfoIconRect(inRect).Contains(mousePosition))
+            if (WorkTabChromeGeometry.GetInfoIconRect(inRect).Contains(mousePosition))
             {
                 return CreateContextRequest(
                     "Settings Shortcut",
@@ -505,7 +506,7 @@ namespace Better_Work_Tab.UI.Settings
             for (int i = 0; i < layout.Columns.Count; i++)
             {
                 WorkTabLayoutColumn column = layout.Columns[i];
-                Rect headerRect = GetAnimatedHeaderRect(column);
+                Rect headerRect = WorkGridInteractionGeometry.GetAnimatedHeaderRect(column);
                 if (!headerRect.Contains(mousePosition))
                 {
                     continue;
@@ -541,7 +542,7 @@ namespace Better_Work_Tab.UI.Settings
                     continue;
                 }
 
-                Rect cellRect = new Rect(column.HeaderRect.x, rowRect.y, column.Width, rowRect.height);
+                Rect cellRect = WorkGridInteractionGeometry.GetAnimatedBodyScreenRect(column, rowRect);
                 if (!cellRect.Contains(mousePosition))
                 {
                     continue;
@@ -569,12 +570,7 @@ namespace Better_Work_Tab.UI.Settings
                 return false;
             }
 
-            float y = layout.TableOrigin.y + layout.HeaderHeight + TimePriorityScheduleEditor.HeaderPinnedRowsHeight;
-            Rect rect = new Rect(
-                layout.TableOrigin.x,
-                y,
-                Mathf.Max(layout.Table != null ? layout.Table.Size.x - 16f : 0f, 1f),
-                Mathf.Max(1f, SubWorkDrilldownBarRenderer.ReservedRowHeight));
+            Rect rect = WorkGridLayoutMetrics.GetSubWorkVisibleBandRect(layout);
             return rect.Contains(mousePosition);
         }
 
@@ -606,13 +602,13 @@ namespace Better_Work_Tab.UI.Settings
                 return false;
             }
 
-            if (TimePriorityScheduleEditor.HeaderPinnedRowsHeight > 0.5f)
+            if (WorkGridLayoutMetrics.SchedulePinnedHeight > 0.5f)
             {
                 rect = new Rect(
                     layout.TableOrigin.x,
                     layout.TableOrigin.y + layout.HeaderHeight,
                     Mathf.Max(layout.Table != null ? layout.Table.Size.x - 16f : 0f, 1f),
-                    TimePriorityScheduleEditor.HeaderPinnedRowsHeight);
+                    WorkGridLayoutMetrics.SchedulePinnedHeight);
                 return true;
             }
 
@@ -669,9 +665,9 @@ namespace Better_Work_Tab.UI.Settings
 
         private static bool TryGetContextSettingsHintTextContext(Rect inRect, Vector2 mousePosition)
         {
-            const float width = 230f;
-            Rect hintRect = new Rect(inRect.xMax - width - 42f, inRect.y + 5f, width, 24f);
-            return hintRect.Contains(mousePosition);
+            return WorkTabChromeGeometry.GetContextSettingsHintRect(
+                inRect,
+                WorkTabContextSettingsHintArea.SettingsFocus).Contains(mousePosition);
         }
 
         private static bool TryGetBottomButtonContext(
@@ -683,7 +679,9 @@ namespace Better_Work_Tab.UI.Settings
             isWorkloadButton = false;
             isRulesetButton = false;
 
-            HeaderButtons.BottomButtonRects rects = HeaderButtons.GetBottomButtonRects(inRect, GetInfoIconRect(inRect));
+            HeaderButtons.BottomButtonRects rects = HeaderButtons.GetBottomButtonRects(
+                inRect,
+                WorkTabChromeGeometry.GetInfoIconRect(inRect));
             if (rects.ContainsRuleset(mousePosition))
             {
                 isRulesetButton = true;
@@ -711,21 +709,5 @@ namespace Better_Work_Tab.UI.Settings
             return exitRect.Contains(mousePosition);
         }
 
-        private static Rect GetAnimatedHeaderRect(WorkTabLayoutColumn column)
-        {
-            float offset = ColumnReorderAnimationState.GetHeaderOffset(column);
-            return Mathf.Abs(offset) > 0.01f
-                ? new Rect(column.HeaderRect.x + offset, column.HeaderRect.y, column.HeaderRect.width, column.HeaderRect.height)
-                : column.HeaderRect;
-        }
-
-        private static Rect GetInfoIconRect(Rect inRect)
-        {
-            return new Rect(
-                inRect.xMax - InfoIconSize - RightEdgeMargin,
-                inRect.yMax - InfoIconSize - 10f,
-                InfoIconSize,
-                InfoIconSize);
-        }
     }
 }
