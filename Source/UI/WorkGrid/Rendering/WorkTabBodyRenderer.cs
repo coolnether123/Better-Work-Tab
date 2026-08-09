@@ -19,6 +19,7 @@ using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using Better_Work_Tab.UI.WorkGrid.Layout;
+using Better_Work_Tab.UI.WorkGrid.Snapshots;
 using RimWorld;
 using Spine.Profiling;
 using UnityEngine;
@@ -119,27 +120,74 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     renderColumns = _visibleRenderColumns;
                 }
 
+                WorkGridGeometrySnapshot rowGeometry = layout.GeometrySnapshot;
+                if (rowGeometry != null && rowGeometry.Rows.Count != rowDescriptors.Count)
+                {
+                    rowGeometry = null;
+                }
+
+                WorkGridIndexRange visibleRows = new WorkGridIndexRange(0, rowDescriptors.Count);
+                bool rowCullingEnabled =
+                    (settings?.enablePerformanceOptimizations ?? true) &&
+                    (settings?.viewportCulling ?? true);
+                if (rowCullingEnabled && rowGeometry != null)
+                {
+                    visibleRows = rowGeometry.GetVisibleRowRange(
+                        viewport.OutRect,
+                        table.scrollPosition.y,
+                        RowCullBuffer);
+                }
+
+                int visibleStart = Math.Max(
+                    0,
+                    Math.Min(rowDescriptors.Count, visibleRows.Start));
+                long requestedEnd = (long)visibleRows.Start + visibleRows.Count;
+                int visibleEnd = requestedEnd <= visibleStart
+                    ? visibleStart
+                    : requestedEnd >= rowDescriptors.Count
+                        ? rowDescriptors.Count
+                        : (int)requestedEnd;
+                visibleRows = new WorkGridIndexRange(
+                    visibleStart,
+                    visibleEnd - visibleStart);
+
                 // Calculate dimensions once for all highlight operations.
                 float totalWidth = CalculateTotalColumnWidth(columns);
                 float totalHeight = layout.ContentHeight;
 
                 if (SpineTiming.Enabled)
                 {
-                    SpineTiming.Time("WorkTab.Rows.DrawAllHighlights", () => DrawAllHighlights(rowDescriptors, columns, totalWidth, totalHeight));
+                    SpineTiming.Time("WorkTab.Rows.DrawAllHighlights", () => DrawAllHighlights(
+                        rowDescriptors,
+                        columns,
+                        totalWidth,
+                        totalHeight,
+                        rowGeometry,
+                        visibleRows));
                     SpineTiming.Time("WorkTab.Rows.DrawAllRowContent", () => DrawAllRowContent(table,
                         rowDescriptors,
                         renderColumns,
                         viewport.ViewRect.width,
                         nameColumn,
-                        viewport.OutRect,
-                        table.scrollPosition,
-                        snapshotLayer));
-                    SpineTiming.Time("WorkTab.Rows.DrawRowSeparators", () => DrawRowSeparators(rowDescriptors, viewport.ViewRect.width));
+                        snapshotLayer,
+                        rowGeometry,
+                        visibleRows));
+                    SpineTiming.Time("WorkTab.Rows.DrawRowSeparators", () => DrawRowSeparators(
+                        rowDescriptors,
+                        viewport.ViewRect.width,
+                        rowGeometry,
+                        visibleRows));
                 }
                 else
                 {
                     // Phase 1: Draw all highlights (selected, hovered, float menu, similar worktypes).
-                    DrawAllHighlights(rowDescriptors, columns, totalWidth, totalHeight);
+                    DrawAllHighlights(
+                        rowDescriptors,
+                        columns,
+                        totalWidth,
+                        totalHeight,
+                        rowGeometry,
+                        visibleRows);
 
                     // Phase 2: Draw actual row content (pawn data, divider labels, backgrounds).
                     DrawAllRowContent(table,
@@ -147,12 +195,16 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                         renderColumns,
                         viewport.ViewRect.width,
                         nameColumn,
-                        viewport.OutRect,
-                        table.scrollPosition,
-                        snapshotLayer);
+                        snapshotLayer,
+                        rowGeometry,
+                        visibleRows);
 
                     // Phase 3: Draw separator lines between rows.
-                    DrawRowSeparators(rowDescriptors, viewport.ViewRect.width);
+                    DrawRowSeparators(
+                        rowDescriptors,
+                        viewport.ViewRect.width,
+                        rowGeometry,
+                        visibleRows);
                 }
             }
             catch (Exception ex)
@@ -227,7 +279,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             List<RowDescriptor> rowDescriptors,
             IReadOnlyList<WorkTabLayoutColumn> columns,
             float totalWidth,
-            float totalHeight)
+            float totalHeight,
+            WorkGridGeometrySnapshot rowGeometry,
+            WorkGridIndexRange visibleRows)
         {
             var settings = BetterWorkTabMod.Settings;
             if (!settings.ShowPawnAndWorktypeHighlights || !settings.enableRowColumnHighlights)
@@ -281,8 +335,13 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
             // 2. Draw horizontal highlights (rows).
             float currentY = 0f;
-            for (int i = 0; i < rowDescriptors.Count; i++)
+            for (int i = visibleRows.Start; i < visibleRows.EndExclusive; i++)
             {
+                if (rowGeometry != null)
+                {
+                    currentY = rowGeometry.Rows[i].OffsetY;
+                }
+
                 var descriptor = rowDescriptors[i];
                 Rect rowRect = new Rect(0f, currentY, totalWidth, descriptor.Height);
 
@@ -311,15 +370,23 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     HighlightDrawer.DrawHighlight(rowRect, HighlightDrawer.GetSelectedPawnColor());
                 }
 
-                currentY += descriptor.Height;
+                if (rowGeometry == null)
+                {
+                    currentY += descriptor.Height;
+                }
             }
 
             // 3. Draw divider highlights if active.
             if (settings.highlightDividersOnHover && settings.enableDividers)
             {
                 currentY = 0f;
-                for (int i = 0; i < rowDescriptors.Count; i++)
+                for (int i = visibleRows.Start; i < visibleRows.EndExclusive; i++)
                 {
+                    if (rowGeometry != null)
+                    {
+                        currentY = rowGeometry.Rows[i].OffsetY;
+                    }
+
                     var descriptor = rowDescriptors[i];
                     Rect rowRect = new Rect(0f, currentY, totalWidth, descriptor.Height);
 
@@ -331,7 +398,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                         HighlightDrawer.DrawHighlight(rowRect, HighlightDrawer.GetRowHoverColor());
                     }
 
-                    currentY += descriptor.Height;
+                    if (rowGeometry == null)
+                    {
+                        currentY += descriptor.Height;
+                    }
                 }
             }
 
@@ -420,33 +490,25 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             IReadOnlyList<WorkTabLayoutColumn> columns,
             float viewWidth,
             WorkTabLayoutColumn? nameColumn,
-            Rect viewportRect,
-            Vector2 scrollOffset,
-            IWorkGridSnapshotLayer snapshotLayer)
+            IWorkGridSnapshotLayer snapshotLayer,
+            WorkGridGeometrySnapshot rowGeometry,
+            WorkGridIndexRange visibleRows)
         {
-            var settings = BetterWorkTabMod.Settings;
-            bool useCulling = (settings?.enablePerformanceOptimizations ?? true) &&
-                              (settings?.viewportCulling ?? true);
             float currentY = 0f;
-            float viewportTop = scrollOffset.y;
-            float viewportBottom = scrollOffset.y + viewportRect.height;
-
-            for (int i = 0; i < rowDescriptors.Count; i++)
+            for (int i = visibleRows.Start; i < visibleRows.EndExclusive; i++)
             {
-                var descriptor = rowDescriptors[i];
-                float rowBottom = currentY + descriptor.Height;
-                bool isVisible = useCulling
-                    ? rowBottom >= (viewportTop - RowCullBuffer) &&
-                      currentY <= (viewportBottom + RowCullBuffer)
-                    : true;
-
-                if (isVisible)
+                if (rowGeometry != null)
                 {
-                    Rect rowRect = new Rect(0f, currentY, viewWidth, descriptor.Height);
-                    DrawSingleRowContent(table, descriptor, columns, rowRect, nameColumn, i, snapshotLayer);
+                    currentY = rowGeometry.Rows[i].OffsetY;
                 }
 
-                currentY += descriptor.Height;
+                var descriptor = rowDescriptors[i];
+                Rect rowRect = new Rect(0f, currentY, viewWidth, descriptor.Height);
+                DrawSingleRowContent(table, descriptor, columns, rowRect, nameColumn, i, snapshotLayer);
+                if (rowGeometry == null)
+                {
+                    currentY += descriptor.Height;
+                }
             }
         }
 
@@ -561,13 +623,27 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         /// <summary>
         /// Phase 3: Draws thin separator lines between rows.
         /// </summary>
-        private static void DrawRowSeparators(List<RowDescriptor> rowDescriptors, float viewWidth)
+        private static void DrawRowSeparators(
+            List<RowDescriptor> rowDescriptors,
+            float viewWidth,
+            WorkGridGeometrySnapshot rowGeometry,
+            WorkGridIndexRange visibleRows)
         {
             float currentY = 0f;
 
             GUI.color = new Color(1f, 1f, 1f, 0.12f);
-            for (int i = 0; i < rowDescriptors.Count - 1; i++)
+            for (int i = visibleRows.Start; i < visibleRows.EndExclusive; i++)
             {
+                if (i >= rowDescriptors.Count - 1)
+                {
+                    continue;
+                }
+
+                if (rowGeometry != null)
+                {
+                    currentY = rowGeometry.Rows[i].OffsetY;
+                }
+
                 var descriptor = rowDescriptors[i];
                 currentY += descriptor.Height;
                 Widgets.DrawLineHorizontal(0f, currentY - 1f, viewWidth);

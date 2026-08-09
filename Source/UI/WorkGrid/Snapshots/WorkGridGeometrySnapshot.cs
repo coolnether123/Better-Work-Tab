@@ -1,4 +1,5 @@
 using Spine.Collections;
+using Better_Work_Tab.UI.WorkGrid.Rendering;
 using UnityEngine;
 
 namespace Better_Work_Tab.UI.WorkGrid.Snapshots
@@ -167,12 +168,28 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
 
         public WorkGridIndexRange GetVisibleRowRange(Rect viewport, float verticalScroll)
         {
+            return GetVisibleRowRange(viewport, verticalScroll, 0f);
+        }
+
+        public WorkGridIndexRange GetVisibleRowRange(
+            Rect viewport,
+            float verticalScroll,
+            float bufferPixels)
+        {
+            WorkGridCullingMath.ResolveVisibleBounds(
+                viewport.yMin,
+                viewport.height,
+                0f,
+                bufferPixels,
+                out float bufferedViewportMinY,
+                out float bufferedViewportMaxY);
+
             int first = Rows.Count;
             int last = -1;
             for (int i = 0; i < Rows.Count; i++)
             {
                 Rect rect = GetRowScreenRect(i, new Vector2(0f, verticalScroll));
-                if (rect.yMax >= viewport.yMin && rect.yMin <= viewport.yMax)
+                if (rect.yMax >= bufferedViewportMinY && rect.yMin <= bufferedViewportMaxY)
                 {
                     if (first == Rows.Count) first = i;
                     last = i;

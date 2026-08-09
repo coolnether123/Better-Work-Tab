@@ -99,6 +99,20 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
     internal static class WorkGridCullingMath
     {
+        internal static void ResolveVisibleBounds(
+            float viewportStart,
+            float viewportExtent,
+            float scroll,
+            float viewportBuffer,
+            out float visibleStart,
+            out float visibleEnd)
+        {
+            float extent = Math.Max(0f, viewportExtent);
+            float buffer = Math.Max(0f, viewportBuffer);
+            visibleStart = viewportStart + scroll - buffer;
+            visibleEnd = viewportStart + scroll + extent + buffer;
+        }
+
         internal static void ResolveVisibleRange(
             float[] starts,
             float[] extents,
@@ -115,8 +129,13 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 return;
             }
 
-            float visibleStart = viewportStart + scroll;
-            float visibleEnd = visibleStart + Math.Max(0f, viewportExtent);
+            ResolveVisibleBounds(
+                viewportStart,
+                viewportExtent,
+                scroll,
+                0f,
+                out float visibleStart,
+                out float visibleEnd);
             int first = -1;
             int last = -1;
             for (int index = 0; index < starts.Length; index++)
