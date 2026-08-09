@@ -255,6 +255,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 {
                     GUI.color = UnpackColor(cell.PriorityColor);
                     Widgets.Label(boxRect.ContractedBy(-3f), ((int)cell.Priority).ToStringCached());
+                    GUI.color = Color.white;
                 }
             }
             else if (cell.Priority > WorkPrioritySystem.DisabledPriority)
