@@ -226,12 +226,15 @@ namespace Better_Work_Tab.UI
             float previousContentHeight = organizer?.Layout != null
                 ? WorkGridLayoutMetrics.GetHeaderAnchoredContentHeight(organizer.Layout)
                 : Mathf.Max(0f, table.Size.y - effectiveHeaderHeight);
-            float tableOriginY = inRect.yMax -
-                ExtraBottomSpace -
-                WorkGridLayoutMetrics.ScrollViewFitAllowance -
-                effectiveHeaderHeight -
-                WorkGridLayoutMetrics.GetHeaderAnchoredPinnedRowsHeight() -
-                previousContentHeight;
+            float tableOriginY = WorkGridViewportOriginMath.ResolveTableOriginY(
+                inRect.yMin,
+                inRect.yMax,
+                ExtraTopSpace,
+                ExtraBottomSpace,
+                WorkGridLayoutMetrics.ScrollViewFitAllowance,
+                effectiveHeaderHeight,
+                WorkGridLayoutMetrics.GetHeaderAnchoredPinnedRowsHeight(),
+                previousContentHeight);
             Vector2 tableOrigin = new Vector2(inRect.x, tableOriginY);
             WorkGridInvalidationAudit.PollRoster(table);
             var snapshot = BuildSnapshotForOrganizer(table);
@@ -251,12 +254,15 @@ namespace Better_Work_Tab.UI
                     organizer.Update(table, tableOrigin, snapshot);
                 }
 
-                float anchoredOriginY = inRect.yMax -
-                    ExtraBottomSpace -
-                    WorkGridLayoutMetrics.ScrollViewFitAllowance -
-                    organizer.Layout.HeaderHeight -
-                    WorkGridLayoutMetrics.GetHeaderAnchoredPinnedRowsHeight() -
-                    WorkGridLayoutMetrics.GetHeaderAnchoredContentHeight(organizer.Layout);
+                float anchoredOriginY = WorkGridViewportOriginMath.ResolveTableOriginY(
+                    inRect.yMin,
+                    inRect.yMax,
+                    ExtraTopSpace,
+                    ExtraBottomSpace,
+                    WorkGridLayoutMetrics.ScrollViewFitAllowance,
+                    organizer.Layout.HeaderHeight,
+                    WorkGridLayoutMetrics.GetHeaderAnchoredPinnedRowsHeight(),
+                    WorkGridLayoutMetrics.GetHeaderAnchoredContentHeight(organizer.Layout));
                 if (Mathf.Abs(anchoredOriginY - tableOrigin.y) > 0.01f)
                 {
                     tableOrigin.y = anchoredOriginY;
@@ -570,8 +576,8 @@ namespace Better_Work_Tab.UI
             SubWorkCrossWorkDropTargetRenderer.ResetForWindowClose();
             WorkGiverPriorityBoxRenderer.ResetForWindowClose();
             NativeCursorPosition.CancelPendingMove();
-            WorkGridInvalidationAudit.Reset();
-            WorkGridSnapshotProvider.ClearActive();
+            // Work-grid snapshots and audit state belong to the game session, not this window.
+            // GameCacheResetUtility owns their load/new-game teardown boundary.
         }
     }
 }

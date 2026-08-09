@@ -193,11 +193,9 @@ namespace Better_Work_Tab.UI.WindowSession
 
             Rect rect = _hasPendingWindowRect ? _pendingWindowRect : _windowRectProvider();
             float screenBottom = _screenHeightProvider() - 35f;
-            float targetY = Mathf.Max(0f, screenBottom - requestedSize.y);
             if (!force &&
                 Mathf.Abs(rect.width - requestedSize.x) < 0.5f &&
-                Mathf.Abs(rect.height - requestedSize.y) < 0.5f &&
-                Mathf.Abs(rect.y - targetY) < 0.5f)
+                Mathf.Abs(rect.height - requestedSize.y) < 0.5f)
             {
                 return;
             }
