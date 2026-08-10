@@ -18,18 +18,45 @@ namespace Better_Work_Tab.Features.TimePriority
         private static readonly Dictionary<TimePriorityCacheKey, TimePriorityScheduleData> Cache =
             new Dictionary<TimePriorityCacheKey, TimePriorityScheduleData>();
         private static int _cachedVersion = -1;
-        private static bool _scheduleActivityKnown;
-        private static bool _scheduleDataActive;
-        // Legacy integrations can still hold the component list and mutate it directly.  Audit that
-        // compatibility surface at most once per 30 frames; the AI path never scans schedule content.
-        private const int LegacyMutationAuditFrameInterval = 30;
-        private static int _lastLegacyMutationAuditFrame = -1;
-        private static int _lastAuditedScheduleCount = -1;
-        private static int _lastAuditedScheduleSignature;
+        private static int _materialActivityGeneration;
+        private static int _materialActivityBuiltGeneration = -1;
+        private static bool _materialActivityActive;
+        private static bool _savedSchedulePresent;
+        private static readonly HashSet<TimePriorityCacheKey> MaterialPawnWorkTypeTargets =
+            new HashSet<TimePriorityCacheKey>();
+        private static readonly HashSet<TimePriorityCacheKey> MaterialGlobalWorkGiverTargets =
+            new HashSet<TimePriorityCacheKey>();
+        private static readonly HashSet<TimePriorityCacheKey> MaterialPawnWorkGiverTargets =
+            new HashSet<TimePriorityCacheKey>();
+        private static readonly List<TimePriorityCacheKey> GlobalWorkGiverTransitionTargets =
+            new List<TimePriorityCacheKey>();
+        private static readonly Dictionary<int, List<TimePriorityCacheKey>> PawnTransitionTargets =
+            new Dictionary<int, List<TimePriorityCacheKey>>();
+        private static readonly List<int> PawnTransitionIds = new List<int>();
+        private static readonly Dictionary<int, Pawn> TrackedPawnsById =
+            new Dictionary<int, Pawn>();
+        private static readonly Dictionary<int, int> LastObservedPawnHours =
+            new Dictionary<int, int>();
+        private static readonly List<Map> TrackedGlobalMaps = new List<Map>();
+        private static readonly HashSet<Map> TrackedGlobalMapSet = new HashSet<Map>();
+        private static readonly Dictionary<Map, int> LastObservedGlobalMapHours =
+            new Dictionary<Map, int>();
+        private static readonly HashSet<int> ChangedPawnIds = new HashSet<int>();
+        private static readonly Dictionary<int, Pawn> ChangedPawnsById =
+            new Dictionary<int, Pawn>();
+        private static readonly List<int> ChangedPawnIdsInOrder = new List<int>();
+        private static readonly List<Pawn> GlobalRelevantPawnsBuffer = new List<Pawn>();
+        private static readonly Dictionary<int, int> LastObservedGlobalPawnHours =
+            new Dictionary<int, int>();
+        private static int _lastObservedAbsoluteHour = -1;
+        private static readonly Comparison<Pawn> PawnIdComparison = ComparePawnsById;
+        private static readonly Comparison<Map> MapIdComparison = CompareMapsById;
+        private static bool _runtimeEnabledKnown;
+        private static bool _lastRuntimeEnabled = DefaultSettings.enableTimePrioritySchedules;
 
         internal static int CurrentVersion { get; private set; }
 
-        internal static bool IsRuntimeActive => IsRuntimeEnabled && HasAnySchedule();
+        internal static bool IsRuntimeActive => IsRuntimeEnabled && _materialActivityActive;
 
         internal static string BuildKey(int pawnId, TimePriorityTargetKind kind, string workTypeDefName, string targetDefName)
         {
@@ -38,13 +65,74 @@ namespace Better_Work_Tab.Features.TimePriority
 
         internal static bool HasAnySchedule()
         {
-            return RefreshScheduleActivity();
+            if (!IsRuntimeEnabled)
+            {
+                return false;
+            }
+
+            return _savedSchedulePresent;
+        }
+
+        internal static bool CanPawnWorkTypeBeAffected(Pawn pawn, WorkTypeDef workType)
+        {
+            if (!IsRuntimeActive || workType == null)
+            {
+                return false;
+            }
+
+            string workTypeDefName = workType.defName;
+            return pawn != null && MaterialPawnWorkTypeTargets.Contains(new TimePriorityCacheKey(
+                pawn.thingIDNumber,
+                TimePriorityTargetKind.WorkType,
+                workTypeDefName,
+                workTypeDefName));
+        }
+
+        // This is intentionally limited to vanilla work-givers: callers use it
+        // only while sub-work reassignment is disabled. It keeps the ordering
+        // path allocation-free unless a material work-giver schedule exists.
+        internal static bool HasMaterialWorkGiverOrdering(Pawn pawn, WorkTypeDef workType)
+        {
+            if (!IsRuntimeActive || workType?.workGiversByPriority == null)
+            {
+                return false;
+            }
+
+            string workTypeDefName = workType.defName;
+            for (int i = 0; i < workType.workGiversByPriority.Count; i++)
+            {
+                WorkGiverDef workGiver = workType.workGiversByPriority[i];
+                if (workGiver == null)
+                {
+                    continue;
+                }
+
+                if (pawn != null && MaterialPawnWorkGiverTargets.Contains(new TimePriorityCacheKey(
+                    pawn.thingIDNumber,
+                    TimePriorityTargetKind.WorkGiver,
+                    workTypeDefName,
+                    workGiver.defName)))
+                {
+                    return true;
+                }
+
+                if (MaterialGlobalWorkGiverTargets.Contains(new TimePriorityCacheKey(
+                    TimePriorityTarget.GlobalPawnId,
+                    TimePriorityTargetKind.WorkGiver,
+                    workTypeDefName,
+                    workGiver.defName)))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         internal static int[] GetPrioritiesForDisplay(TimePriorityTarget target, int fallbackPriority)
         {
             fallbackPriority = WorkPrioritySystem.ClampPriority(fallbackPriority);
-            if (!TryGetSchedule(target, out var schedule))
+            if (!IsRuntimeEnabled || !TryGetSchedule(target, out var schedule))
             {
                 return CreateFallbackPriorities(fallbackPriority);
             }
@@ -71,7 +159,7 @@ namespace Better_Work_Tab.Features.TimePriority
         internal static bool[] GetLinkStateForDisplay(TimePriorityTarget target)
         {
             var unlinked = new bool[HoursPerDay];
-            if (!TryGetSchedule(target, out var schedule))
+            if (!IsRuntimeEnabled || !TryGetSchedule(target, out var schedule))
             {
                 return unlinked;
             }
@@ -88,7 +176,7 @@ namespace Better_Work_Tab.Features.TimePriority
         internal static int GetPriorityAtHour(TimePriorityTarget target, int fallbackPriority, int hour)
         {
             fallbackPriority = WorkPrioritySystem.ClampPriority(fallbackPriority);
-            if (!TryGetSchedule(target, out var schedule))
+            if (!IsRuntimeEnabled || !TryGetSchedule(target, out var schedule))
             {
                 return fallbackPriority;
             }
@@ -109,7 +197,7 @@ namespace Better_Work_Tab.Features.TimePriority
         /// </summary>
         internal static bool HasCustomSchedule(TimePriorityTarget target, int fallbackPriority)
         {
-            if (!TryGetSchedule(target, out var schedule))
+            if (!IsRuntimeEnabled || !TryGetSchedule(target, out var schedule))
             {
                 return false;
             }
@@ -120,7 +208,7 @@ namespace Better_Work_Tab.Features.TimePriority
 
         internal static bool IsCustomScheduledHour(TimePriorityTarget target, int hour, int fallbackPriority)
         {
-            if (!TryGetSchedule(target, out var schedule))
+            if (!IsRuntimeEnabled || !TryGetSchedule(target, out var schedule))
             {
                 return false;
             }
@@ -140,7 +228,7 @@ namespace Better_Work_Tab.Features.TimePriority
         {
             target = default;
             fallbackPriority = WorkPrioritySystem.ClampPriority(pawnFallbackPriority);
-            if (!IsRuntimeActive || workType == null || workGiver == null)
+            if (!IsRuntimeEnabled || !HasAnySchedule() || workType == null || workGiver == null)
             {
                 return false;
             }
@@ -148,7 +236,7 @@ namespace Better_Work_Tab.Features.TimePriority
             if (pawn != null)
             {
                 TimePriorityTarget pawnTarget = TimePriorityTarget.ForWorkGiver(pawn, workType, workGiver);
-                if (HasCustomSchedule(pawnTarget, fallbackPriority))
+                if (MaterialPawnWorkGiverTargets.Contains(pawnTarget.CacheKey))
                 {
                     target = pawnTarget;
                     return true;
@@ -160,7 +248,7 @@ namespace Better_Work_Tab.Features.TimePriority
                 null,
                 workGiver,
                 WorkPrioritySystem.GetDefaultEnabledPriority());
-            if (!HasCustomSchedule(globalTarget, globalFallback))
+            if (!MaterialGlobalWorkGiverTargets.Contains(globalTarget.CacheKey))
             {
                 return false;
             }
@@ -172,6 +260,11 @@ namespace Better_Work_Tab.Features.TimePriority
 
         internal static void SetPriorityAtHourSynced(TimePriorityTarget target, int hour, int priority, int fallbackPriority)
         {
+            if (!IsRuntimeEnabled)
+            {
+                return;
+            }
+
             if (MultiplayerBridge.Active)
             {
                 SyncSetPriorityAtHour(
@@ -190,6 +283,11 @@ namespace Better_Work_Tab.Features.TimePriority
 
         internal static void ClearPriorityAtHourSynced(TimePriorityTarget target, int hour)
         {
+            if (!IsRuntimeEnabled)
+            {
+                return;
+            }
+
             if (MultiplayerBridge.Active)
             {
                 SyncClearPriorityAtHour(
@@ -206,6 +304,11 @@ namespace Better_Work_Tab.Features.TimePriority
 
         internal static void SetPrioritiesSynced(TimePriorityTarget target, int[] priorities, int fallbackPriority)
         {
+            if (!IsRuntimeEnabled)
+            {
+                return;
+            }
+
             int[] normalizedPriorities = NormalizePriorities(priorities, fallbackPriority);
             if (MultiplayerBridge.Active)
             {
@@ -237,6 +340,11 @@ namespace Better_Work_Tab.Features.TimePriority
             bool[] unlinkedHours,
             int fallbackPriority)
         {
+            if (!IsRuntimeEnabled)
+            {
+                return;
+            }
+
             int[] normalizedPriorities = NormalizePriorities(priorities, fallbackPriority);
             int[] pinnedHours = BuildPinnedHourList(unlinkedHours);
             if (MultiplayerBridge.Active)
@@ -281,6 +389,11 @@ namespace Better_Work_Tab.Features.TimePriority
             int[] pinnedHours,
             int fallbackPriority)
         {
+            if (!IsRuntimeEnabled)
+            {
+                return;
+            }
+
             TimePriorityTargetKind kind = Enum.IsDefined(typeof(TimePriorityTargetKind), kindValue)
                 ? (TimePriorityTargetKind)kindValue
                 : TimePriorityTargetKind.WorkType;
@@ -294,6 +407,11 @@ namespace Better_Work_Tab.Features.TimePriority
             int[] pinnedHours,
             int fallbackPriority)
         {
+            if (!IsRuntimeEnabled)
+            {
+                return;
+            }
+
             fallbackPriority = WorkPrioritySystem.ClampPriority(fallbackPriority);
             int[] normalizedPriorities = NormalizePriorities(priorities, fallbackPriority);
             if (pinnedHours == null || pinnedHours.Length == 0)
@@ -329,6 +447,11 @@ namespace Better_Work_Tab.Features.TimePriority
 
         internal static void ClearSchedule(TimePriorityTarget target)
         {
+            if (!IsRuntimeEnabled)
+            {
+                return;
+            }
+
             var schedules = GetSchedules(create: false);
             if (schedules == null)
             {
@@ -363,6 +486,11 @@ namespace Better_Work_Tab.Features.TimePriority
             int priority,
             int fallbackPriority)
         {
+            if (!IsRuntimeEnabled)
+            {
+                return;
+            }
+
             TimePriorityTargetKind kind = Enum.IsDefined(typeof(TimePriorityTargetKind), kindValue)
                 ? (TimePriorityTargetKind)kindValue
                 : TimePriorityTargetKind.WorkType;
@@ -378,6 +506,11 @@ namespace Better_Work_Tab.Features.TimePriority
             string targetDefName,
             int hour)
         {
+            if (!IsRuntimeEnabled)
+            {
+                return;
+            }
+
             TimePriorityTargetKind kind = Enum.IsDefined(typeof(TimePriorityTargetKind), kindValue)
                 ? (TimePriorityTargetKind)kindValue
                 : TimePriorityTargetKind.WorkType;
@@ -394,6 +527,11 @@ namespace Better_Work_Tab.Features.TimePriority
             int[] priorities,
             int fallbackPriority)
         {
+            if (!IsRuntimeEnabled)
+            {
+                return;
+            }
+
             TimePriorityTargetKind kind = Enum.IsDefined(typeof(TimePriorityTargetKind), kindValue)
                 ? (TimePriorityTargetKind)kindValue
                 : TimePriorityTargetKind.WorkType;
@@ -403,6 +541,11 @@ namespace Better_Work_Tab.Features.TimePriority
 
         private static void SetPriorityAtHour(TimePriorityTarget target, int hour, int priority, int fallbackPriority)
         {
+            if (!IsRuntimeEnabled)
+            {
+                return;
+            }
+
             priority = WorkPrioritySystem.ClampPriority(priority);
             fallbackPriority = WorkPrioritySystem.ClampPriority(fallbackPriority);
 
@@ -427,6 +570,11 @@ namespace Better_Work_Tab.Features.TimePriority
         /// </summary>
         private static void ClearPriorityAtHour(TimePriorityTarget target, int hour)
         {
+            if (!IsRuntimeEnabled)
+            {
+                return;
+            }
+
             if (!TryGetSchedule(target, out var schedule))
             {
                 return;
@@ -453,6 +601,11 @@ namespace Better_Work_Tab.Features.TimePriority
 
         private static void SetPriorities(TimePriorityTarget target, int[] priorities, int fallbackPriority)
         {
+            if (!IsRuntimeEnabled)
+            {
+                return;
+            }
+
             fallbackPriority = WorkPrioritySystem.ClampPriority(fallbackPriority);
             int[] normalizedPriorities = NormalizePriorities(priorities, fallbackPriority);
             bool allFallback = true;
@@ -508,6 +661,11 @@ namespace Better_Work_Tab.Features.TimePriority
         /// </summary>
         private static void MirrorTargetToExternalWorkTab(TimePriorityTarget target)
         {
+            if (!IsRuntimeEnabled)
+            {
+                return;
+            }
+
             if (ExternalPriorityMirror.IsSuspended)
             {
                 return;
@@ -573,9 +731,69 @@ namespace Better_Work_Tab.Features.TimePriority
             return null;
         }
 
-        internal static bool IsRuntimeEnabled =>
-            BetterWorkTabMod.Settings?.enableTimePrioritySchedules ??
-            DefaultSettings.enableTimePrioritySchedules;
+        internal static bool IsRuntimeEnabled => _lastRuntimeEnabled;
+
+        internal static void OnRuntimeSettingChanged()
+        {
+            bool enabled = ReadRuntimeEnabled();
+            if (!_runtimeEnabledKnown)
+            {
+                _runtimeEnabledKnown = true;
+                _lastRuntimeEnabled = enabled;
+                return;
+            }
+
+            if (_lastRuntimeEnabled != enabled)
+            {
+                _lastRuntimeEnabled = enabled;
+                Cache.Clear();
+                _cachedVersion = -1;
+                InvalidateMaterialActivity();
+                CurrentVersion++;
+                if (enabled)
+                {
+                    NormalizeLoadedSchedules();
+                    MigrateLinkStateFromLegacySaves();
+                    RebuildMaterialActivityIndex();
+                }
+
+                UI.WorkGrid.Invalidation.WorkTabInvalidationHub.Invalidate(
+                    UI.WorkGrid.Contracts.WorkTabDirtyFlags.ScheduleHour);
+                WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
+                MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+            }
+        }
+
+        private static bool ReadRuntimeEnabled()
+        {
+            return BetterWorkTabMod.Settings?.enableTimePrioritySchedules ??
+                DefaultSettings.enableTimePrioritySchedules;
+        }
+
+        internal static void NotifyFallbacksChanged()
+        {
+            if (!IsRuntimeEnabled)
+            {
+                return;
+            }
+
+            InvalidateMaterialActivity();
+            RebuildMaterialActivityIndex();
+            CurrentVersion++;
+            _cachedVersion = -1;
+            Cache.Clear();
+        }
+
+        /// <summary>
+        /// Invalidates runtime state after an integration has directly edited the
+        /// public saved schedule list. Direct list edits are supported for save
+        /// import compatibility, but the integration must call this seam once the
+        /// edit is complete; steady-state polling is intentionally not provided.
+        /// </summary>
+        internal static void NotifyExternalDataChanged()
+        {
+            NotifyChanged();
+        }
 
         internal static bool TryGetDisabledByTime(
             Pawn pawn,
@@ -636,6 +854,17 @@ namespace Better_Work_Tab.Features.TimePriority
 
             TimePriorityTarget target = TimePriorityTarget.ForWorkType(pawn, workType);
             int hour = GetCurrentHour(pawn);
+            if (!CanPawnWorkTypeBeAffected(pawn, workType))
+            {
+                return new TimePriorityEvaluation(
+                    target,
+                    hour,
+                    basePriority,
+                    basePriority,
+                    false,
+                    basePriority,
+                    TimePriorityScheduleScopes.None);
+            }
 
             if (basePriority <= WorkPrioritySystem.DisabledPriority)
             {
@@ -702,10 +931,27 @@ namespace Better_Work_Tab.Features.TimePriority
                     TimePriorityScheduleScopes.None);
             }
 
-            int hour = GetCurrentHour(pawn);
-
             TimePriorityTarget pawnTarget = TimePriorityTarget.ForWorkGiver(pawn, workType, workGiver);
-            if (pawn != null && TryGetScheduledPriority(pawnTarget, hour, out int pawnScheduledPriority))
+            int hour = GetCurrentHour(pawn);
+            TimePriorityCacheKey pawnKey = pawnTarget.CacheKey;
+            TimePriorityTarget globalTarget = TimePriorityTarget.ForWorkGiver(null, workType, workGiver);
+            TimePriorityCacheKey globalKey = globalTarget.CacheKey;
+            bool hasMaterialPawnSchedule = pawn != null && MaterialPawnWorkGiverTargets.Contains(pawnKey);
+            bool hasMaterialGlobalSchedule = MaterialGlobalWorkGiverTargets.Contains(globalKey);
+            if (!hasMaterialPawnSchedule && !hasMaterialGlobalSchedule)
+            {
+                return new TimePriorityEvaluation(
+                    pawnTarget,
+                    hour,
+                    basePriority,
+                    basePriority,
+                    false,
+                    basePriority,
+                    TimePriorityScheduleScopes.None);
+            }
+
+            if (hasMaterialPawnSchedule &&
+                TryGetScheduledPriority(pawnTarget, hour, out int pawnScheduledPriority))
             {
                 return new TimePriorityEvaluation(
                     pawnTarget,
@@ -717,8 +963,8 @@ namespace Better_Work_Tab.Features.TimePriority
                     TimePriorityScheduleScopes.Pawn);
             }
 
-            TimePriorityTarget globalTarget = TimePriorityTarget.ForWorkGiver(null, workType, workGiver);
-            if (TryGetScheduledPriority(globalTarget, hour, out int globalScheduledPriority))
+            if (hasMaterialGlobalSchedule &&
+                TryGetScheduledPriority(globalTarget, hour, out int globalScheduledPriority))
             {
                 return new TimePriorityEvaluation(
                     globalTarget,
@@ -767,6 +1013,24 @@ namespace Better_Work_Tab.Features.TimePriority
             return Mathf.Abs(ticks / GenDate.TicksPerHour) % HoursPerDay;
         }
 
+        private static int GetCurrentHour(Map map)
+        {
+            try
+            {
+                if (map != null)
+                {
+                    return Mathf.Clamp(GenLocalDate.HourOfDay(map), 0, HoursPerDay - 1);
+                }
+            }
+            catch
+            {
+                // Fall back to absolute game ticks when a map is being removed.
+            }
+
+            int ticks = GenTicks.TicksAbs;
+            return Mathf.Abs(ticks / GenDate.TicksPerHour) % HoursPerDay;
+        }
+
         internal static string FormatHour(int hour)
         {
             hour = Mathf.Clamp(hour, 0, HoursPerDay - 1);
@@ -775,26 +1039,281 @@ namespace Better_Work_Tab.Features.TimePriority
 
         internal static void NotifyHourBoundaryIfNeeded()
         {
-            if (!HasAnySchedule())
+            if (!IsRuntimeActive ||
+                (GlobalWorkGiverTransitionTargets.Count == 0 && PawnTransitionIds.Count == 0))
             {
                 return;
             }
 
-            UI.WorkGrid.Invalidation.WorkTabInvalidationHub.Invalidate(
-                UI.WorkGrid.Contracts.WorkTabDirtyFlags.ScheduleHour);
-            WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
+            ChangedPawnIds.Clear();
+            if (GlobalWorkGiverTransitionTargets.Count > 0)
+            {
+                bool localHourChanged = SyncTrackedGlobalMaps();
+                int absoluteHour = GetCurrentAbsoluteHour();
+                bool absoluteHourChanged = _lastObservedAbsoluteHour >= 0 &&
+                    _lastObservedAbsoluteHour != absoluteHour;
+                _lastObservedAbsoluteHour = absoluteHour;
+
+                // The relevant population is deliberately enumerated only after a
+                // local-hour transition. This matches WorkExecutionOrder's player
+                // population and keeps closed-game frames free of pawn scans.
+                if (localHourChanged || absoluteHourChanged)
+                {
+                    ScanGlobalTransitionPopulation();
+                }
+            }
+
+            for (int pawnIndex = PawnTransitionIds.Count - 1; pawnIndex >= 0; pawnIndex--)
+            {
+                int pawnId = PawnTransitionIds[pawnIndex];
+                if (!TrackedPawnsById.TryGetValue(pawnId, out Pawn pawn) ||
+                    pawn == null || pawn.DestroyedOrNull())
+                {
+                    pawn = FindPawn(pawnId);
+                    if (pawn != null && !pawn.DestroyedOrNull())
+                    {
+                        TrackedPawnsById[pawnId] = pawn;
+                    }
+                    else
+                    {
+                        // A pawn can be absent while a map/world is being
+                        // reconstructed. Keep the deterministic target id and
+                        // retry on the next boundary instead of losing its save.
+                        continue;
+                    }
+                }
+
+                if (!LastObservedPawnHours.TryGetValue(pawnId, out int previousHour))
+                {
+                    LastObservedPawnHours[pawnId] = GetCurrentHour(pawn);
+                    continue;
+                }
+
+                int currentHour = GetCurrentHour(pawn);
+                if (previousHour == currentHour)
+                {
+                    continue;
+                }
+
+                LastObservedPawnHours[pawnId] = currentHour;
+                List<TimePriorityCacheKey> targets = PawnTransitionTargets[pawnId];
+                for (int targetIndex = 0; targetIndex < targets.Count; targetIndex++)
+                {
+                    TimePriorityCacheKey target = targets[targetIndex];
+                    if (GetEffectivePriorityAtHour(pawn, target, previousHour) !=
+                        GetEffectivePriorityAtHour(pawn, target, currentHour))
+                    {
+                        ChangedPawnIds.Add(pawnId);
+                        ChangedPawnsById[pawnId] = pawn;
+                        break;
+                    }
+                }
+            }
+
+            ChangedPawnIdsInOrder.Clear();
+            ChangedPawnIdsInOrder.AddRange(ChangedPawnIds);
+            ChangedPawnIdsInOrder.Sort();
+            for (int i = 0; i < ChangedPawnIdsInOrder.Count; i++)
+            {
+                ChangedPawnsById.TryGetValue(ChangedPawnIdsInOrder[i], out Pawn pawn);
+                if (pawn?.Faction == Faction.OfPlayer && pawn.workSettings != null)
+                {
+                    pawn.workSettings.Notify_UseWorkPrioritiesChanged();
+                }
+            }
+
+            ChangedPawnsById.Clear();
+
+            if (ChangedPawnIdsInOrder.Count > 0)
+            {
+                UI.WorkGrid.Invalidation.WorkTabInvalidationHub.Invalidate(
+                    UI.WorkGrid.Contracts.WorkTabDirtyFlags.ScheduleHour);
+            }
+        }
+
+        private static void ScanGlobalTransitionPopulation()
+        {
+            GlobalRelevantPawnsBuffer.Clear();
+            GlobalRelevantPawnsBuffer.AddRange(PawnsFinder.AllMapsWorldAndTemporary_Alive);
+            GlobalRelevantPawnsBuffer.Sort(PawnIdComparison);
+
+            for (int pawnIndex = 0; pawnIndex < GlobalRelevantPawnsBuffer.Count; pawnIndex++)
+            {
+                Pawn pawn = GlobalRelevantPawnsBuffer[pawnIndex];
+                if (pawn?.Faction != Faction.OfPlayer || pawn.workSettings == null)
+                {
+                    continue;
+                }
+
+                int pawnId = pawn.thingIDNumber;
+                int currentHour = GetCurrentHour(pawn);
+                if (!LastObservedGlobalPawnHours.TryGetValue(pawnId, out int previousHour))
+                {
+                    LastObservedGlobalPawnHours[pawnId] = currentHour;
+                    continue;
+                }
+
+                LastObservedGlobalPawnHours[pawnId] = currentHour;
+                if (previousHour == currentHour ||
+                    !HasGlobalWorkGiverPriorityChange(pawn, previousHour, currentHour))
+                {
+                    continue;
+                }
+
+                ChangedPawnIds.Add(pawnId);
+                ChangedPawnsById[pawnId] = pawn;
+            }
+        }
+
+        private static bool SyncTrackedGlobalMaps()
+        {
+            bool mapSetChanged = false;
+            bool localHourChanged = false;
+            for (int i = TrackedGlobalMaps.Count - 1; i >= 0; i--)
+            {
+                Map map = TrackedGlobalMaps[i];
+                if (map != null && Find.Maps != null && Find.Maps.Contains(map))
+                {
+                    continue;
+                }
+
+                TrackedGlobalMaps.RemoveAt(i);
+                TrackedGlobalMapSet.Remove(map);
+                LastObservedGlobalMapHours.Remove(map);
+                mapSetChanged = true;
+            }
+
+            if (Find.Maps == null)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < Find.Maps.Count; i++)
+            {
+                Map map = Find.Maps[i];
+                if (map == null || !TrackedGlobalMapSet.Add(map))
+                {
+                    continue;
+                }
+
+                TrackedGlobalMaps.Add(map);
+                LastObservedGlobalMapHours[map] = GetCurrentHour(map);
+                mapSetChanged = true;
+            }
+
+            if (mapSetChanged)
+            {
+                TrackedGlobalMaps.Sort(MapIdComparison);
+            }
+
+            for (int i = 0; i < TrackedGlobalMaps.Count; i++)
+            {
+                Map map = TrackedGlobalMaps[i];
+                int currentHour = GetCurrentHour(map);
+                if (LastObservedGlobalMapHours.TryGetValue(map, out int previousHour) &&
+                    previousHour != currentHour)
+                {
+                    localHourChanged = true;
+                }
+
+                LastObservedGlobalMapHours[map] = currentHour;
+            }
+
+            return localHourChanged;
+        }
+
+        private static int GetCurrentAbsoluteHour()
+        {
+            return Mathf.Abs(GenTicks.TicksAbs / GenDate.TicksPerHour) % HoursPerDay;
+        }
+
+        private static bool HasGlobalWorkGiverPriorityChange(Pawn pawn, int previousHour, int currentHour)
+        {
+            for (int i = 0; i < GlobalWorkGiverTransitionTargets.Count; i++)
+            {
+                TimePriorityCacheKey target = GlobalWorkGiverTransitionTargets[i];
+                if (GetEffectivePriorityAtHour(pawn, target, previousHour) !=
+                    GetEffectivePriorityAtHour(pawn, target, currentHour))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static int GetEffectivePriorityAtHour(Pawn pawn, TimePriorityCacheKey target, int hour)
+        {
+            WorkTypeDef workType = DefDatabase<WorkTypeDef>.GetNamedSilentFail(target.WorkTypeDefName);
+            if (pawn == null || workType == null)
+            {
+                return WorkPrioritySystem.DisabledPriority;
+            }
+
+            int effectiveWorkTypePriority = PriorityAuthorityBroker.GetEffectivePriorityAtHour(
+                pawn,
+                workType,
+                hour);
+            if (target.Kind == TimePriorityTargetKind.WorkType)
+            {
+                return effectiveWorkTypePriority;
+            }
+
+            WorkGiverDef workGiver = DefDatabase<WorkGiverDef>.GetNamedSilentFail(target.TargetDefName);
+            if (workGiver == null)
+            {
+                return WorkPrioritySystem.DisabledPriority;
+            }
+
+            int baseWorkGiverPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(
+                pawn,
+                workGiver,
+                effectiveWorkTypePriority);
+            if (baseWorkGiverPriority <= WorkPrioritySystem.DisabledPriority)
+            {
+                return baseWorkGiverPriority;
+            }
+
+            TimePriorityTarget pawnTarget = TimePriorityTarget.ForWorkGiver(pawn, workType, workGiver);
+            if (pawn != null &&
+                MaterialPawnWorkGiverTargets.Contains(pawnTarget.CacheKey) &&
+                TryGetScheduledPriority(pawnTarget, hour, out int pawnScheduledPriority))
+            {
+                return pawnScheduledPriority;
+            }
+
+            TimePriorityTarget globalTarget = TimePriorityTarget.ForWorkGiver(null, workType, workGiver);
+            return MaterialGlobalWorkGiverTargets.Contains(globalTarget.CacheKey) &&
+                   TryGetScheduledPriority(globalTarget, hour, out int globalScheduledPriority)
+                ? globalScheduledPriority
+                : baseWorkGiverPriority;
+        }
+
+        private static int ComparePawnsById(Pawn a, Pawn b)
+        {
+            int aId = a?.thingIDNumber ?? int.MinValue;
+            int bId = b?.thingIDNumber ?? int.MinValue;
+            return aId.CompareTo(bId);
         }
 
         internal static void NotifyLoaded()
         {
+            OnRuntimeSettingChanged();
+            if (!IsRuntimeEnabled)
+            {
+                Cache.Clear();
+                _cachedVersion = -1;
+                InvalidateMaterialActivity();
+                return;
+            }
+
             NormalizeLoadedSchedules();
             Cache.Clear();
             _cachedVersion = -1;
             CurrentVersion++;
-            _scheduleActivityKnown = false;
-            RefreshScheduleActivity();
+            InvalidateMaterialActivity();
             MigrateLinkStateFromLegacySaves();
-            RecordScheduleAuditState();
+            RebuildMaterialActivityIndex();
         }
 
         /// <summary>
@@ -833,9 +1352,19 @@ namespace Better_Work_Tab.Features.TimePriority
                     continue;
                 }
 
-                schedule.NeedsLinkMigration = false;
                 schedule.EnsureValid();
+                if (schedule.Kind == TimePriorityTargetKind.WorkGiver &&
+                    !CanResolveLegacyWorkGiverFallback(schedule))
+                {
+                    // Sub-work's fallback can differ from vanilla. Keep the
+                    // migration marker until both the feature and its target
+                    // data are available, so a disabled-load does not corrupt
+                    // the saved schedule.
+                    continue;
+                }
+
                 int fallback = ResolveFallbackPriority(schedule);
+                schedule.NeedsLinkMigration = false;
                 for (int hour = 0; hour < HoursPerDay; hour++)
                 {
                     if (WorkPrioritySystem.ClampPriority(schedule.HourlyPriorities[hour]) != fallback)
@@ -859,9 +1388,22 @@ namespace Better_Work_Tab.Features.TimePriority
                 Cache.Clear();
                 _cachedVersion = -1;
                 CurrentVersion++;
-                _scheduleActivityKnown = false;
-                RefreshScheduleActivity();
+                InvalidateMaterialActivity();
+                RebuildMaterialActivityIndex();
             }
+        }
+
+        private static bool CanResolveLegacyWorkGiverFallback(TimePriorityScheduleData schedule)
+        {
+            if (!WorkGiverReassignmentManager.IsRuntimeEnabled ||
+                schedule == null ||
+                DefDatabase<WorkGiverDef>.GetNamedSilentFail(schedule.TargetDefName) == null)
+            {
+                return false;
+            }
+
+            return schedule.PawnId == TimePriorityTarget.GlobalPawnId ||
+                   FindPawn(schedule.PawnId) != null;
         }
 
         /// <summary>
@@ -903,7 +1445,7 @@ namespace Better_Work_Tab.Features.TimePriority
         internal static bool TryGetScheduledPriority(TimePriorityTarget target, int hour, out int priority)
         {
             priority = WorkPrioritySystem.DisabledPriority;
-            if (!TryGetSchedule(target, out var schedule))
+            if (!IsRuntimeEnabled || !TryGetSchedule(target, out var schedule))
             {
                 return false;
             }
@@ -984,13 +1526,18 @@ namespace Better_Work_Tab.Features.TimePriority
 
         private static void EnsureCache()
         {
-            RefreshScheduleActivity();
             if (_cachedVersion == CurrentVersion)
             {
                 return;
             }
 
             Cache.Clear();
+            if (!IsRuntimeEnabled)
+            {
+                _cachedVersion = CurrentVersion;
+                return;
+            }
+
             var schedules = GetSchedules(create: false);
             if (schedules != null)
             {
@@ -1017,6 +1564,9 @@ namespace Better_Work_Tab.Features.TimePriority
 
         private static List<TimePriorityScheduleData> GetSchedules(bool create)
         {
+            // The public component list is retained for save compatibility. Runtime writers must
+            // use this service's mutation API; direct list edits cannot invalidate caches without
+            // reintroducing a steady-state content audit.
             var component = Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
             if (component == null)
             {
@@ -1054,150 +1604,221 @@ namespace Better_Work_Tab.Features.TimePriority
 
         private static void NotifyChanged()
         {
+            if (!IsRuntimeEnabled)
+            {
+                return;
+            }
+
             CurrentVersion++;
             _cachedVersion = -1;
-            _scheduleActivityKnown = false;
-            RefreshScheduleActivity();
-            RecordScheduleAuditState();
+            InvalidateMaterialActivity();
+            RebuildMaterialActivityIndex();
             UI.WorkGrid.Invalidation.WorkTabInvalidationHub.Invalidate(
                 UI.WorkGrid.Contracts.WorkTabDirtyFlags.ScheduleHour);
             WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
         }
 
-        private static bool RefreshScheduleActivity()
+        private static void InvalidateMaterialActivity()
         {
-            bool activityChanged;
-            return RefreshScheduleActivity(out activityChanged);
+            _materialActivityGeneration++;
+            _materialActivityBuiltGeneration = -1;
+            _materialActivityActive = false;
+            _savedSchedulePresent = false;
         }
 
-        private static bool RefreshScheduleActivity(out bool activityChanged)
+        private static void RebuildMaterialActivityIndex()
         {
-            List<TimePriorityScheduleData> schedules = GetSchedules(create: false);
-            bool active = schedules != null && schedules.Count > 0;
-            activityChanged = false;
-            if (!_scheduleActivityKnown)
-            {
-                _scheduleDataActive = active;
-                _scheduleActivityKnown = true;
-            }
-            else if (_scheduleDataActive != active)
-            {
-                activityChanged = true;
-                _scheduleDataActive = active;
-                CurrentVersion++;
-                _cachedVersion = -1;
-            }
-
-            return _scheduleDataActive;
-        }
-
-        internal static void AuditRuntimeScheduleMutation(int frame)
-        {
-            List<TimePriorityScheduleData> schedules = GetSchedules(create: false);
-            bool active = schedules != null && schedules.Count > 0;
-            bool activityChanged;
-            RefreshScheduleActivity(out activityChanged);
-            AuditLegacyScheduleMutationIfDue(frame, schedules, active, activityChanged);
-        }
-
-        private static void AuditLegacyScheduleMutationIfDue(
-            int frame,
-            List<TimePriorityScheduleData> schedules,
-            bool active,
-            bool activityChanged)
-        {
-            if (!IsLegacyMutationAuditDue(frame, _lastLegacyMutationAuditFrame))
+            if (_materialActivityBuiltGeneration == _materialActivityGeneration)
             {
                 return;
             }
 
-            int count = schedules?.Count ?? 0;
-            int signature = ComputePresentationAuditSignature();
-            bool changed = !activityChanged &&
-                           _lastAuditedScheduleCount >= 0 &&
-                           (_lastAuditedScheduleCount != count ||
-                            _lastAuditedScheduleSignature != signature);
-
-            _lastLegacyMutationAuditFrame = frame;
-            _lastAuditedScheduleCount = count;
-            _lastAuditedScheduleSignature = signature;
-            if (!changed)
+            ClearMaterialActivityIndex();
+            if (!IsRuntimeEnabled)
             {
+                _materialActivityBuiltGeneration = _materialActivityGeneration;
+                _materialActivityActive = false;
+                _savedSchedulePresent = false;
                 return;
             }
 
-            Cache.Clear();
-            _cachedVersion = -1;
-            CurrentVersion++;
-            _scheduleDataActive = active;
-            _scheduleActivityKnown = true;
-            UI.WorkGrid.Invalidation.WorkTabInvalidationHub.Invalidate(
-                UI.WorkGrid.Contracts.WorkTabDirtyFlags.ScheduleHour);
-            WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
-            MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
-        }
-
-        private static void RecordScheduleAuditState()
-        {
             List<TimePriorityScheduleData> schedules = GetSchedules(create: false);
-            _lastLegacyMutationAuditFrame = -1;
-            _lastAuditedScheduleCount = schedules?.Count ?? 0;
-            _lastAuditedScheduleSignature = ComputePresentationAuditSignature();
-        }
-
-        // Time.frameCount is signed.  Unchecked subtraction gives the correct small positive
-        // elapsed value across one rollover, while a genuinely backwards/reset frame remains
-        // negative and forces the compatibility audit instead of suppressing mutation detection.
-        internal static bool IsLegacyMutationAuditDue(int frame, int lastAuditFrame)
-        {
-            if (lastAuditFrame < 0)
+            bool active = false;
+            bool savedSchedulePresent = false;
+            if (schedules != null)
             {
-                return true;
-            }
-
-            int elapsed = unchecked(frame - lastAuditFrame);
-            return elapsed < 0 || elapsed >= LegacyMutationAuditFrameInterval;
-        }
-
-        internal static int ComputePresentationAuditSignature()
-        {
-            unchecked
-            {
-                int hash = 17;
-                var schedules = GetSchedules(create: false);
-                if (schedules == null)
-                {
-                    return hash;
-                }
-
                 for (int i = 0; i < schedules.Count; i++)
                 {
                     TimePriorityScheduleData schedule = schedules[i];
-                    if (schedule == null) continue;
-                    hash = (hash * 397) ^ schedule.PawnId;
-                    hash = (hash * 397) ^ (int)schedule.Kind;
-                    hash = (hash * 397) ^ StringComparer.Ordinal.GetHashCode(schedule.WorkTypeDefName ?? string.Empty);
-                    hash = (hash * 397) ^ StringComparer.Ordinal.GetHashCode(schedule.TargetDefName ?? string.Empty);
-                    // Link state is presentation, not just bookkeeping: an hour
-                    // changing from following the box to pinned repaints it even
-                    // when the number it shows is identical.
-                    if (schedule.UnlinkedHours != null)
+                    if (schedule == null)
                     {
-                        for (int j = 0; j < schedule.UnlinkedHours.Count; j++)
+                        continue;
+                    }
+
+                    savedSchedulePresent = true;
+                    bool isGlobal = schedule.PawnId == TimePriorityTarget.GlobalPawnId;
+                    schedule.EnsureValid();
+                    if (isGlobal && schedule.Kind == TimePriorityTargetKind.WorkType)
+                    {
+                        // Global WorkType rows remain persisted and visible, but base
+                        // evaluation never consumes them.
+                        continue;
+                    }
+
+                    int fallback = ResolveFallbackPriority(schedule);
+                    bool material = false;
+                    for (int j = 0; j < schedule.UnlinkedHours.Count; j++)
+                    {
+                        int hour = schedule.UnlinkedHours[j];
+                        if (schedule.HourlyPriorities[hour] != fallback)
                         {
-                            hash = (hash * 397) ^ (schedule.UnlinkedHours[j] + 1);
+                            material = true;
                         }
                     }
 
-                    if (schedule.HourlyPriorities == null) continue;
-                    for (int hour = 0; hour < schedule.HourlyPriorities.Count; hour++)
+                    TimePriorityCacheKey key = schedule.CacheKey;
+                    if (material)
                     {
-                        hash = (hash * 397) ^ schedule.HourlyPriorities[hour];
+                        active = true;
+                        if (isGlobal)
+                        {
+                            if (schedule.Kind == TimePriorityTargetKind.WorkGiver)
+                            {
+                                MaterialGlobalWorkGiverTargets.Add(key);
+                            }
+                        }
+                        else if (schedule.Kind == TimePriorityTargetKind.WorkGiver)
+                        {
+                            MaterialPawnWorkGiverTargets.Add(key);
+                        }
+                        else
+                        {
+                            MaterialPawnWorkTypeTargets.Add(key);
+                        }
+                    }
+
+                    bool hasTransition = false;
+                    int previousHour = HoursPerDay - 1;
+                    for (int hour = 0; hour < HoursPerDay; hour++)
+                    {
+                        int previousValue = GetEffectiveSchedulePriority(schedule, previousHour, fallback);
+                        int enteringValue = GetEffectiveSchedulePriority(schedule, hour, fallback);
+                        if (previousValue != enteringValue)
+                        {
+                            hasTransition = true;
+                        }
+
+                        previousHour = hour;
+                    }
+
+                    if (!hasTransition)
+                    {
+                        continue;
+                    }
+
+                    if (isGlobal && schedule.Kind == TimePriorityTargetKind.WorkGiver)
+                    {
+                        GlobalWorkGiverTransitionTargets.Add(key);
+                    }
+                    else if (!isGlobal)
+                    {
+                        if (!PawnTransitionTargets.TryGetValue(schedule.PawnId, out List<TimePriorityCacheKey> targets))
+                        {
+                            targets = new List<TimePriorityCacheKey>();
+                            PawnTransitionTargets[schedule.PawnId] = targets;
+                            PawnTransitionIds.Add(schedule.PawnId);
+                        }
+
+                        targets.Add(key);
                     }
                 }
-                return hash;
             }
+
+            GlobalWorkGiverTransitionTargets.Sort(CompareTargets);
+            PawnTransitionIds.Sort();
+            for (int i = 0; i < PawnTransitionIds.Count; i++)
+            {
+                PawnTransitionTargets[PawnTransitionIds[i]].Sort(CompareTargets);
+                Pawn pawn = FindPawn(PawnTransitionIds[i]);
+                if (pawn != null)
+                {
+                    TrackedPawnsById[PawnTransitionIds[i]] = pawn;
+                    LastObservedPawnHours[PawnTransitionIds[i]] = GetCurrentHour(pawn);
+                }
+            }
+
+            if (GlobalWorkGiverTransitionTargets.Count > 0 && Find.Maps != null)
+            {
+                for (int i = 0; i < Find.Maps.Count; i++)
+                {
+                    Map map = Find.Maps[i];
+                    if (map == null || !TrackedGlobalMapSet.Add(map))
+                    {
+                        continue;
+                    }
+
+                    TrackedGlobalMaps.Add(map);
+                    LastObservedGlobalMapHours[map] = GetCurrentHour(map);
+                }
+
+                TrackedGlobalMaps.Sort(MapIdComparison);
+            }
+
+            _lastObservedAbsoluteHour = GetCurrentAbsoluteHour();
+            _materialActivityActive = active;
+            _savedSchedulePresent = savedSchedulePresent;
+            _materialActivityBuiltGeneration = _materialActivityGeneration;
+        }
+
+        private static void ClearMaterialActivityIndex()
+        {
+            MaterialPawnWorkTypeTargets.Clear();
+            MaterialGlobalWorkGiverTargets.Clear();
+            MaterialPawnWorkGiverTargets.Clear();
+            GlobalWorkGiverTransitionTargets.Clear();
+            PawnTransitionTargets.Clear();
+            PawnTransitionIds.Clear();
+            TrackedPawnsById.Clear();
+            LastObservedPawnHours.Clear();
+            LastObservedGlobalPawnHours.Clear();
+            TrackedGlobalMaps.Clear();
+            TrackedGlobalMapSet.Clear();
+            LastObservedGlobalMapHours.Clear();
+            ChangedPawnIds.Clear();
+            ChangedPawnsById.Clear();
+            ChangedPawnIdsInOrder.Clear();
+            GlobalRelevantPawnsBuffer.Clear();
+            _lastObservedAbsoluteHour = -1;
+        }
+
+        private static int GetEffectiveSchedulePriority(
+            TimePriorityScheduleData schedule,
+            int hour,
+            int fallback)
+        {
+            return schedule.IsUnlinked(hour)
+                ? schedule.HourlyPriorities[hour]
+                : fallback;
+        }
+
+        private static int CompareTargets(TimePriorityCacheKey a, TimePriorityCacheKey b)
+        {
+            int comparison = a.PawnId.CompareTo(b.PawnId);
+            if (comparison != 0) return comparison;
+            comparison = a.Kind.CompareTo(b.Kind);
+            if (comparison != 0) return comparison;
+            comparison = StringComparer.Ordinal.Compare(a.WorkTypeDefName, b.WorkTypeDefName);
+            return comparison != 0
+                ? comparison
+                : StringComparer.Ordinal.Compare(a.TargetDefName, b.TargetDefName);
+        }
+
+        private static int CompareMapsById(Map a, Map b)
+        {
+            int aId = a?.uniqueID ?? int.MinValue;
+            int bId = b?.uniqueID ?? int.MinValue;
+            return aId.CompareTo(bId);
         }
 
     }

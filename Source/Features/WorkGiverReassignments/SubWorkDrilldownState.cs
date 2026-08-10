@@ -694,6 +694,11 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             Vector2? returnMouseLocalPosition,
             int sourceWorkColumnSlot)
         {
+            if (!WorkGiverReassignmentManager.IsRuntimeEnabled)
+            {
+                return;
+            }
+
             if (workType == null)
             {
                 LogSubWork("Enter requested with null work type; exiting immediately.");

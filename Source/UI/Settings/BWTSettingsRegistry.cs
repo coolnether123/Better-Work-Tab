@@ -4,6 +4,8 @@ using System.Linq;
 using Better_Work_Tab;
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
+using Better_Work_Tab.Features.TimePriority;
+using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.ModSupport;
 using Better_Work_Tab.ModSupport.Mods.ComplexJobs;
@@ -599,6 +601,7 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.enableSubWorkDrilldown,
                 ControlsChildVisibility = true,
+                OnChanged = _ => WorkGiverReassignmentManager.OnRuntimeSettingChanged(),
                 ShowInSimpleView = true,
                 SortOrder = -43,
                 EmphasizeAsHeader = true,
@@ -1053,6 +1056,14 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.enableTimePrioritySchedules,
                 ControlsChildVisibility = true,
+                OnChanged = _ =>
+                {
+                    TimePriorityService.OnRuntimeSettingChanged();
+                    if (!TimePriorityService.IsRuntimeEnabled)
+                    {
+                        TimePriorityScheduleEditor.ResetForWindowClose();
+                    }
+                },
                 ShowInSimpleView = true,
                 ShowInAdvancedView = true,
                 SortOrder = 8

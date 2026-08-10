@@ -33,7 +33,6 @@ namespace Better_Work_Tab.Features.Workloads
         public int BWTWorldSchemaVersion = BWT20UpgradePolicy.CurrentWorldSchemaVersion;
         public int ExternalWorkTabPriorityMigrationVersion;
         public int FluffyWorkTabCompatibilityPromptVersion;
-        private int _lastTimePriorityHour = -1;
 
         public GameComponent_BWTWorldSettings(Game game) : base()
         {
@@ -245,15 +244,9 @@ namespace Better_Work_Tab.Features.Workloads
             // Save profile every 300 ticks (~5 seconds) if dirty
             // This avoids Scribe nesting issues when called from ExposeData
             _profileSaveTimer++;
-            TimePriorityService.AuditRuntimeScheduleMutation(Time.frameCount);
             if (TimePriorityService.IsRuntimeActive)
             {
-                int currentHour = TimePriorityService.GetCurrentHour(null);
-                if (currentHour != _lastTimePriorityHour)
-                {
-                    _lastTimePriorityHour = currentHour;
-                    TimePriorityService.NotifyHourBoundaryIfNeeded();
-                }
+                TimePriorityService.NotifyHourBoundaryIfNeeded();
             }
 
             if (_profileSaveTimer > 300)

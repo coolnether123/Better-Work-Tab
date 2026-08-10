@@ -1,5 +1,6 @@
 using HarmonyLib;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
+using Better_Work_Tab.Features.TimePriority;
 using RimWorld;
 using Verse;
 
@@ -58,17 +59,20 @@ namespace Better_Work_Tab.Features.Patches
 
             if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabPriorityFeatures)
             {
+                TimePriorityService.NotifyFallbacksChanged();
                 return;
             }
 
             int priority = PriorityAuthorityBroker.ClampPriorityForRequest(__state);
             if (__instance.priorities[w] == priority)
             {
+                TimePriorityService.NotifyFallbacksChanged();
                 return;
             }
 
             __instance.priorities[w] = priority;
             __instance.Notify_UseWorkPrioritiesChanged();
+            TimePriorityService.NotifyFallbacksChanged();
         }
     }
 }

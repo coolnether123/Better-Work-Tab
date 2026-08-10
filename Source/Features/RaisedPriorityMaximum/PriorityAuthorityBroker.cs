@@ -157,6 +157,8 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         internal static void NotifyPotentialAuthorityChanged()
         {
             InvalidateAuthorityAndRefresh();
+            TimePriorityService.NotifyFallbacksChanged();
+            WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
         }
 
         internal static int GetEffectivePriority(Pawn pawn, WorkTypeDef workType)
@@ -202,6 +204,11 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
             int basePriority = GetBetterWorkTabStoredPriority(pawn.workSettings, workType);
             if (!TimePriorityService.IsRuntimeActive)
+            {
+                return basePriority;
+            }
+
+            if (!TimePriorityService.CanPawnWorkTypeBeAffected(pawn, workType))
             {
                 return basePriority;
             }
@@ -483,6 +490,8 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 GetAutoConfiguredMaxPriority(),
                 BetterWorkTabMod.Settings?.selectedPriorityProviderId);
             InvalidateAuthorityAndRefresh();
+            TimePriorityService.NotifyFallbacksChanged();
+            WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
         }
 
         internal static IExternalWorkTabStore GetAuthoritativeStore()

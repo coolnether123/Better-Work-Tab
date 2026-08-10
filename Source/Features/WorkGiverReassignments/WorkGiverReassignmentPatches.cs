@@ -81,7 +81,8 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
     {
         public static bool Prefix(PawnColumnWorker_WorkPriority __instance, Pawn a, Pawn b, ref int __result)
         {
-            if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabPriorityFeatures)
+            if (!WorkGiverReassignmentManager.IsRuntimeEnabled ||
+                !PriorityAuthorityBroker.ShouldRunBetterWorkTabPriorityFeatures)
             {
                 return true;
             }
@@ -114,7 +115,8 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         internal static bool ShouldForceAllowBeforeVanilla(Pawn pawn, WorkGiver giver, out bool canUse)
         {
             canUse = false;
-            if (giver?.def == null || pawn?.workSettings == null)
+            if (!WorkGiverReassignmentManager.IsRuntimeEnabled ||
+                giver?.def == null || pawn?.workSettings == null)
             {
                 return false;
             }
@@ -140,6 +142,11 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         internal static bool ShouldAllowForPawn(WorkGiverDef workGiver, Pawn pawn, bool forced = false)
         {
+            if (!WorkGiverReassignmentManager.IsRuntimeEnabled)
+            {
+                return true;
+            }
+
             if (forced) return true;
 
             if (workGiver == null)

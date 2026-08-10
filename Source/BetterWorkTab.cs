@@ -1,5 +1,7 @@
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.Workloads;
+using Better_Work_Tab.Features.TimePriority;
+using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.Migration;
 using Better_Work_Tab.ModSupport;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
@@ -72,6 +74,8 @@ namespace Better_Work_Tab
             }
 
             Settings = settings;
+            WorkGiverReassignmentManager.OnRuntimeSettingChanged();
+            TimePriorityService.OnRuntimeSettingChanged();
             if (migratedSettings)
             {
                 // Persist the compatibility defaults and schema marker before the
@@ -153,6 +157,8 @@ namespace Better_Work_Tab
         {
             base.WriteSettings();
             Settings.NormalizePrioritySettings();
+            WorkGiverReassignmentManager.OnRuntimeSettingChanged();
+            TimePriorityService.OnRuntimeSettingChanged();
             Features.RaisedPriorityMaximum.PriorityAuthorityBroker.InvalidateCaches();
         }
 

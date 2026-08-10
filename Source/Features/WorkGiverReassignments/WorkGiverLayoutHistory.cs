@@ -99,6 +99,12 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         internal static bool TryMoveWorkGiverLayout(string workGiverDefName, string targetWorkTypeDefName,
             int insertIndex, out string errorMessage)
         {
+            if (!IsRuntimeEnabled)
+            {
+                errorMessage = "Specific jobs are disabled.";
+                return false;
+            }
+
             if (!TryCreateLayoutCommand(workGiverDefName, targetWorkTypeDefName, insertIndex, out var command, out errorMessage))
                 return false;
 
@@ -108,6 +114,12 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         internal static bool TryRestoreWorkGiverToBaseline(string workGiverDefName, out string errorMessage)
         {
+            if (!IsRuntimeEnabled)
+            {
+                errorMessage = "Specific jobs are disabled.";
+                return false;
+            }
+
             var giver = DefDatabase<WorkGiverDef>.GetNamedSilentFail(workGiverDefName);
             if (giver?.workType == null)
             {
@@ -121,6 +133,11 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         internal static bool TryUndoWorkGiverLayout()
         {
+            if (!IsRuntimeEnabled)
+            {
+                return false;
+            }
+
             var command = WorkGiverLayoutHistory.PeekUndo();
             if (command == null) return false;
             SubmitLayoutCommand(command, command.Before, 1);
@@ -129,6 +146,11 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         internal static bool TryRedoWorkGiverLayout()
         {
+            if (!IsRuntimeEnabled)
+            {
+                return false;
+            }
+
             var command = WorkGiverLayoutHistory.PeekRedo();
             if (command == null) return false;
             SubmitLayoutCommand(command, command.After, 2);
@@ -137,6 +159,11 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         private static void SubmitLayoutCommand(WorkGiverLayoutCommand command, WorkGiverLayoutSnapshot snapshot, int historyAction)
         {
+            if (!IsRuntimeEnabled)
+            {
+                return;
+            }
+
             var encoded = EncodeOrders(snapshot.Orders);
             if (MultiplayerBridge.Active)
             {
@@ -153,6 +180,11 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         public static void SyncApplyWorkGiverLayout(long commandId, string workGiverDefName, int expectedVersion,
             string targetWorkTypeDefName, List<string> encodedOrders, int historyAction)
         {
+            if (!IsRuntimeEnabled)
+            {
+                return;
+            }
+
             ApplySynchronizedLayout(commandId, workGiverDefName, expectedVersion,
                 targetWorkTypeDefName, encodedOrders, historyAction, null);
         }
@@ -160,6 +192,11 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         private static void ApplySynchronizedLayout(long commandId, string workGiverDefName, int expectedVersion,
             string targetWorkTypeDefName, List<string> encodedOrders, int historyAction, WorkGiverLayoutCommand localCommand)
         {
+            if (!IsRuntimeEnabled)
+            {
+                return;
+            }
+
             var data = Data;
             var giver = DefDatabase<WorkGiverDef>.GetNamedSilentFail(workGiverDefName);
             if (data == null || giver == null) return;

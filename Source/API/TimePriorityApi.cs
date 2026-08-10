@@ -61,6 +61,16 @@ namespace Better_Work_Tab.API
             return TimePriorityService.CurrentVersion;
         }
 
+        /// <summary>
+        /// Notifies Better Work Tab that an integration directly changed the
+        /// saved time-priority schedule list. Call this after the complete edit;
+        /// the runtime intentionally performs no recurring save-data audit.
+        /// </summary>
+        public static void NotifySavedScheduleDataChanged()
+        {
+            TimePriorityService.NotifyExternalDataChanged();
+        }
+
         public static int GetCurrentHour(Pawn pawn = null)
         {
             return TimePriorityService.GetCurrentHour(pawn);
