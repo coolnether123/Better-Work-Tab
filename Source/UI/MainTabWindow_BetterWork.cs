@@ -9,6 +9,7 @@ using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.DragDrop;
 using Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities;
+using Better_Work_Tab.Patches;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.PawnOrganizer.Data;
@@ -171,6 +172,11 @@ namespace Better_Work_Tab.UI
         /// </summary>
         public override void DoWindowContents(Rect inRect)
         {
+            if (Event.current.type == EventType.Repaint)
+            {
+                Patch_WorkPriority_DoCell_Unified.TrimCacheIfNeeded();
+            }
+
             if (SpineTiming.Enabled)
             {
                 SpineTiming.Time("WorkTab.DoWindowContents", () => DoWindowContentsProfiled(inRect));

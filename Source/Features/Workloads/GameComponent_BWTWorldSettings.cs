@@ -5,7 +5,6 @@ using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Mod_Support.LocalProfiles;
 using Better_Work_Tab.Mod_Support.Multiplayer;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
-using Better_Work_Tab.Patches;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.Data;
 using Better_Work_Tab.UI.WindowSession;
@@ -238,33 +237,33 @@ namespace Better_Work_Tab.Features.Workloads
                 SpineTiming.OnFrameStart();
             }
 
-            if (Find.MainTabsRoot?.OpenTab?.TabWindow is Better_Work_Tab.UI.MainTabWindow_BetterWork)
-            {
-                Patch_WorkPriority_DoCell_Unified.TrimCacheIfNeeded();
-            }
-
             base.GameComponentUpdate();
             DynamicGameplayPatchController.ProcessPendingRefresh();
 
             // Save profile every 300 ticks (~5 seconds) if dirty
             // This avoids Scribe nesting issues when called from ExposeData
-            _profileSaveTimer++;
             if (TimePriorityService.IsRuntimeActive)
             {
                 TimePriorityService.NotifyHourBoundaryIfNeeded();
             }
 
-            if (_profileSaveTimer > 300)
+            if (MultiplayerBridge.Active)
             {
-                _profileSaveTimer = 0;
-                if (MultiplayerBridge.Active)
+                _profileSaveTimer++;
+                if (_profileSaveTimer > 300)
+                {
+                    _profileSaveTimer = 0;
                     BWTLocalProfileStore.SaveIfDirty();
+                }
             }
         }
 
         public override void GameComponentOnGUI()
         {
             base.GameComponentOnGUI();
+
+            if (!SpineTiming.Enabled)
+                return;
 
             // Handle 1 / Shift+1 for reporting / clearing
             SpineTiming.HandleInput();
