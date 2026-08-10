@@ -71,13 +71,12 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Sync
             var game = Current.Game;
             if (game != null)
             {
-                var comp = game.GetComponent<GameComponent_BWTWorldSettings>();
-                if (comp != null)
+                if (game.GetComponent<GameComponent_BWTWorldSettings>() != null)
                 {
-                    comp.ColumnCurrentOrder = result
+                    WorkColumnOrderManager.SetCurrentOrder(result
                         .Where(c => c.workType != null)
                         .Select(c => c.workType.defName)
-                        .ToList();
+                        .ToList());
                 }
             }
 
@@ -138,13 +137,12 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Sync
             var game = Current.Game;
             if (game != null)
             {
-                var comp = game.GetComponent<GameComponent_BWTWorldSettings>();
-                if (comp != null)
+                if (game.GetComponent<GameComponent_BWTWorldSettings>() != null)
                 {
-                    comp.ColumnCurrentOrder = workColumns
+                    WorkColumnOrderManager.SetCurrentOrder(workColumns
                         .Where(c => c.workType != null)
                         .Select(c => c.workType.defName)
-                        .ToList();
+                        .ToList());
                 }
             }
 

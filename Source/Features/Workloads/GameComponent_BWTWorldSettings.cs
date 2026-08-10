@@ -23,6 +23,7 @@ namespace Better_Work_Tab.Features.Workloads
         public Worklist CurrentWorklist = null;
         public List<string> ColumnCurrentOrder = new List<string>();
         public List<string> ColumnBaselineOrder = new List<string>();
+        public int ColumnOrderGeneration;
         public List<PawnDivider> ActiveDividers = new List<PawnDivider>();
         public WorkGiverReassignmentData WorkGiverReassignments = new WorkGiverReassignmentData();
         public List<TimePriorityScheduleData> TimePrioritySchedules = new List<TimePriorityScheduleData>();
@@ -35,6 +36,12 @@ namespace Better_Work_Tab.Features.Workloads
 
         public GameComponent_BWTWorldSettings(Game game) : base()
         {
+        }
+
+        internal void SetColumnCurrentOrder(List<string> order)
+        {
+            ColumnCurrentOrder = order ?? new List<string>();
+            ColumnOrderGeneration++;
         }
 
         public override void FinalizeInit()
@@ -129,20 +136,19 @@ namespace Better_Work_Tab.Features.Workloads
                     ColumnBaselineOrder = new List<string>();
                 }
 
-                if (ColumnCurrentOrder == null)
-                {
-                    ColumnCurrentOrder = new List<string>();
-                }
+                List<string> loadedColumnOrder = ColumnCurrentOrder ?? new List<string>();
 
                 if (ColumnBaselineOrder.Count == 0)
                 {
                     ColumnBaselineOrder = ColumnBaselineManager.CaptureCurrentOrder();
                 }
 
-                if (ColumnCurrentOrder.Count == 0)
+                if (loadedColumnOrder.Count == 0)
                 {
-                    ColumnCurrentOrder = new List<string>(ColumnBaselineOrder);
+                    loadedColumnOrder = new List<string>(ColumnBaselineOrder);
                 }
+
+                SetColumnCurrentOrder(loadedColumnOrder);
 
                 if (!MultiplayerBridge.Active)
                 {
@@ -185,22 +191,6 @@ namespace Better_Work_Tab.Features.Workloads
 
                 EnsureWorkGiverReassignmentData();
                 WorkGiverReassignmentManager.MigrateLegacySettingsDataIfNeeded(this);
-                if (TimePrioritySchedules == null)
-                {
-                    TimePrioritySchedules = new List<TimePriorityScheduleData>();
-                }
-
-                for (int i = TimePrioritySchedules.Count - 1; i >= 0; i--)
-                {
-                    if (TimePrioritySchedules[i] == null)
-                    {
-                        TimePrioritySchedules.RemoveAt(i);
-                        continue;
-                    }
-
-                    TimePrioritySchedules[i].EnsureValid();
-                }
-
                 TimePriorityService.NotifyLoaded();
             }
         }
@@ -239,18 +229,29 @@ namespace Better_Work_Tab.Features.Workloads
 
         public override void GameComponentUpdate()
         {
-            SpineTiming.OnFrameStart();
-            Patch_WorkPriority_DoCell_Unified.TrimCacheIfNeeded();
+            if (SpineTiming.Enabled)
+            {
+                SpineTiming.OnFrameStart();
+            }
+
+            if (Find.MainTabsRoot?.OpenTab?.TabWindow is Better_Work_Tab.UI.MainTabWindow_BetterWork)
+            {
+                Patch_WorkPriority_DoCell_Unified.TrimCacheIfNeeded();
+            }
+
             base.GameComponentUpdate();
 
             // Save profile every 300 ticks (~5 seconds) if dirty
             // This avoids Scribe nesting issues when called from ExposeData
             _profileSaveTimer++;
-            int currentHour = TimePriorityService.GetCurrentHour(null);
-            if (currentHour != _lastTimePriorityHour)
+            if (TimePriorityService.IsRuntimeActive)
             {
-                _lastTimePriorityHour = currentHour;
-                TimePriorityService.NotifyHourBoundaryIfNeeded();
+                int currentHour = TimePriorityService.GetCurrentHour(null);
+                if (currentHour != _lastTimePriorityHour)
+                {
+                    _lastTimePriorityHour = currentHour;
+                    TimePriorityService.NotifyHourBoundaryIfNeeded();
+                }
             }
 
             if (_profileSaveTimer > 300)

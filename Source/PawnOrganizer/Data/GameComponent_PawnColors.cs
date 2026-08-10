@@ -20,20 +20,6 @@ namespace Better_Work_Tab.PawnOrganizer.Data
         {
         }
 
-        public override void GameComponentUpdate()
-        {
-            base.GameComponentUpdate();
-            _profileSaveTimer++;
-            if (_profileSaveTimer > 300)
-            {
-                _profileSaveTimer = 0;
-                if (MultiplayerBridge.Active)
-                    BWTLocalProfileStore.SaveIfDirty();
-            }
-        }
-
-        private int _profileSaveTimer;
-
         public override void ExposeData()
         {
             base.ExposeData();
