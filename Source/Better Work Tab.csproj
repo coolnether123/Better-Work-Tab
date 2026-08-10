@@ -152,7 +152,7 @@
     <Compile Include="Features\WorkGiverReassignments\SubWorkDrilldownInput.cs" />
     <Compile Include="Features\WorkGiverReassignments\SubWorkDrilldownState.cs" />
     <Compile Include="Features\Workloads\GameComponent_BWTWorldSettings.cs" />
-    <Compile Include="Diagnostics\BWTTestProbePorts.cs" />
+    <Compile Include="Diagnostics\WorkTabDiagnostics.cs" />
     <Compile Include="UI\BWTBottomBarIcons.cs" />
     <Compile Include="UI\BWTBottomBarSelector.cs" />
     <Compile Include="UI\OneTimePromptPresence.cs" />
@@ -375,6 +375,7 @@
     <Compile Include="UI\Columns\WorkColumnCustomizationService.cs" />
     <Compile Include="UI\WindowSession\WorkTabWindowSizingController.cs" />
     <Compile Include="UI\WindowSession\WorkTabWindowSessionState.cs" />
+    <Compile Include="UI\WindowSession\WorkTabActivityState.cs" />
     <Compile Include="UI\MainTabWindow_BetterWork.cs" />
     <Compile Include="UI\PawnTitleUtility.cs" />
     <Compile Include="UI\WorkPriorityCellGeometry.cs" />
@@ -487,7 +488,6 @@
     <None Include="Spine\harmony\Transpilers\CooperativePatcher.cs" />
     <None Include="Spine\harmony\Transpilers\README.md" />
     <None Include="Spine\harmony\Transpilers\ShelteredPatterns.cs" />
-    <None Include="Spine\harmony\Transpilers\TranspilerTestHarness.cs" />
     <None Include="Spine\harmony\Transpilers\UnityPatterns.cs" />
   </ItemGroup>
   <ItemGroup Condition="'$(UseStandaloneSpine)' == 'true'">

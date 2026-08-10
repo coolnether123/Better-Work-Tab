@@ -63,7 +63,6 @@ Other entry points and when they are appropriate:
 | `FluentTranspilerExecution.ExecuteOrOriginal(...)` | You want a guaranteed fallback to original IL on failure. |
 | `FluentTranspiler.For(...)` + manual `.Build(profile)` | You need multi-stage control or an explicit build profile. |
 | `CooperativePatcher.RegisterTranspiler(...)` | Several mods patch the same method and must be ordered / conflict-checked. |
-| `TranspilerTestHarness.FromInstructions(...)` | Unit-testing a transform off a running game. |
 
 ---
 
@@ -269,29 +268,16 @@ Relevant `ModPrefs` toggles (all default to the safe value):
 
 ## 6. Debugging workflow
 
-1. **Unit-test the transform off-game** with `TranspilerTestHarness`:
+1. **Keep off-game and runtime verification in the private test repository.** Supply the
+   BWT checkout and candidate assembly explicitly; test fixtures and probe runners do not
+   belong in this production source tree.
 
-   ```csharp
-   var t = TranspilerTestHarness.FromInstructions(instructions, originalMethod);
-   t.ForCall(typeof(SomeType), "Foo").ReplaceAllWith(typeof(MyHooks), "Foo");
-   var result = TranspilerTestHarness.RunTest(t, strict: true);
-   TranspilerTestHarness.AssertInstruction(result, index, OpCodes.Call, expectedHook);
-   ```
+2. **Turn on tracing** (`ModPrefs.DebugTranspilers = true`) and use the Debug build
+   profile to inspect IL snapshots and diffs via `TranspilerDebugger` during development.
 
-2. **Smoke-test the framework itself** after any change to it:
-
-   ```csharp
-   TranspilerTestHarness.AssertAllHarnessCasesPass();   // throws on any FAIL
-   // or inspect: foreach (var line in TranspilerTestHarness.RunAllHarnessCases()) ...
-   ```
-
-3. **Turn on tracing** (`ModPrefs.DebugTranspilers = true`) and use the Debug build
-   profile to get snapshots via `TranspilerDebugger`. `t.DumpAll()`, `t.Log()`, and
-   `t.DumpDiffFrom(original)` print IL state during development.
-
-4. **Read the diagnostics.** `t.Warnings`, `t.SoftFailures`, `t.Notes`, and the structured
-   `t.PatchDiagnostics` explain what shape was expected vs found and what action was taken.
-   A failed recipe returns a `FluentReplacementResult` — check it.
+3. **Read the diagnostics.** The active recipe's warnings, soft failures, notes, and
+   structured patch diagnostics explain what shape was expected vs found and what action
+   was taken. A failed recipe returns a `FluentReplacementResult` — check it.
 
 Successful production patches are silent by design: snapshots and warning logs only fire
 on critical warnings or when `DebugTranspilers` is on.
@@ -411,24 +397,10 @@ pass at `Build`. For ~76 methods this is a few milliseconds total, dwarfed by Ha
 re-emit — negligible for load time. Stay on the Runtime profile; keep `DebugTranspilers`
 off.
 
-**Verification via the TestHarness.** Before shipping, add harness cases that feed
-representative IL and assert behavior, then gate the build on them:
-
-```csharp
-var t = TranspilerTestHarness.FromInstructions(
-    new CodeInstruction(OpCodes.Ldc_I4_0),
-    new CodeInstruction(OpCodes.Ldc_I4_5),
-    new CodeInstruction(OpCodes.Call, RangeII));
-var res = t.ReplaceCalls(RangeII).WithCall(BridgeII);           // expect PatternReplaced
-Assert(res == FluentReplacementResult.PatternReplaced);
-Assert(t.Instructions().Any(i => i.Calls(BridgeII)));           // bridge is now called
-// And a negative case: a bridge with the wrong signature must return UnsafeMatch/Failed
-// and leave the original call intact.
-```
-
-Wire these into `TranspilerTestHarness.RunAllHarnessCases()` (extend it the same way the
-built-in cases are) and call `AssertAllHarnessCasesPass()` from your test entry so a
-signature regression fails loudly rather than silently corrupting RNG.
+**Verification via the private test repository.** Before shipping, add representative IL
+cases there and assert both the `FluentReplacementResult` and the resulting instruction
+shape, including a negative case where an incompatible bridge leaves the original call
+intact. Keep those fixtures and test entry points outside the production BWT source tree.
 
 ### Determinism contract for fixed custom scenarios
 
@@ -505,9 +477,8 @@ files live in `ModAPI/Harmony/Transpilers/` unless noted.
 - `FluentTranspilerCompatibilityExtensions.cs` — `FluentReplacementResult`, `Succeeded()`, and the
   predicate-based `ReplaceMatching*`/`ReplaceAt*` primitives the recipes build on.
 
-**Integration / test:**
+**Integration:**
 - `CooperativePatcher.cs` — multi-mod ordering/conflict/quarantine.
-- `TranspilerTestHarness.cs` — off-game pass/fail cases + `RunAllHarnessCases`/`AssertAllHarnessCasesPass`.
 - `ModAPI/Inspector/RuntimeILInspector.cs` — the in-game F10 live IL dump (simulates other mods'
   transpilers against a throwaway `ILGenerator` so label/local-declaring patches don't fault).
 

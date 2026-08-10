@@ -119,7 +119,7 @@ namespace Better_Work_Tab.Features.Tutorial
             {
                 return;
             }
-            AdvanceForSmokeTest();
+            Advance();
         }
 
         private bool StateWasPreserved()
@@ -133,7 +133,7 @@ namespace Better_Work_Tab.Features.Tutorial
                        StringComparison.Ordinal);
         }
 
-        internal void AdvanceForSmokeTest()
+        private void Advance()
         {
             if (phase == 0)
             {
@@ -152,7 +152,5 @@ namespace Better_Work_Tab.Features.Tutorial
                 Close();
             }
         }
-
-        internal bool StatePreservedForSmokeTest => StateWasPreserved();
     }
 }

@@ -9,7 +9,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
     /// <remarks>
     /// Fluffy prefixes <c>Pawn_WorkSettings.GetPriority</c> and <c>SetPriority</c>, so whenever it is
     /// loaded it is the real backing store and its <c>Settings.maxPriority</c> is the real ceiling.
-    /// Reading those values through <see cref="FluffyWorkTabGateway"/> keeps the type probe inside the
+    /// Reading those values through <see cref="FluffyWorkTabGateway"/> keeps type detection inside the
     /// compatibility module.
     /// </remarks>
     internal sealed class FluffyWorkTabPriorityProvider : IMaxPriorityProvider

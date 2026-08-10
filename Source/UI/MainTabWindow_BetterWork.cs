@@ -282,17 +282,13 @@ namespace Better_Work_Tab.UI
             }
 
             _windowSizingController.StageBottomAnchoredResizeIfRequestedSizeChanged();
-            TimePriorityScheduleEditor.TryOpenAgentRequestedSession(organizer?.Layout);
-            FluffyTimeScheduleAssigner.ProcessAgentRequest();
-            RuleBuilder2AgentHarness.ProcessSelectionRequest(organizer?.Layout);
-
             Event evt = Event.current;
             BWTWorkTabTutorial.UpdatePointerOwnership(inRect, organizer?.Layout, evt.mousePosition);
             if (evt.type != EventType.Repaint && evt.type != EventType.Layout)
             {
                 if (evt.type == EventType.MouseDown || evt.type == EventType.ScrollWheel)
                 {
-                    WorkTabGeometryDiagnostics.RecordPriorityInputTrace("work-tab input entry", evt);
+                    WorkTabDiagnostics.RecordPriorityInput("work-tab input entry", evt);
                 }
 
                 if (SpineTiming.Enabled)
@@ -382,9 +378,6 @@ namespace Better_Work_Tab.UI
             _workTabChrome.DrawSubWorkExitButton(inRect);
             _workTabChrome.DrawBottomCounters(inRect, table);
             BWTWorkTabTutorial.TickAndDraw(inRect, organizer?.Layout);
-            // Serviced after the tutorial has drawn, so the harness resolves
-            // targets against the geometry the player is actually looking at.
-            BWTTutorialAgentHarness.ProcessRequest(inRect, organizer?.Layout);
             if (BWTWorkTabTutorial.OwnsCurrentPointer && evt.type == EventType.Repaint)
             {
                 Vector2 pointer = evt.mousePosition;
@@ -392,7 +385,7 @@ namespace Better_Work_Tab.UI
             }
             NativeCursorPosition.ProcessPendingMove();
             NativeCursorPosition.DrawPendingMoveCue();
-            SubWorkTransitionPerfDiagnostics.RecordWorkTabRepaint();
+            WorkTabDiagnostics.RecordWorkTabRepaint();
         }
 
         private void RefreshSubWorkLayoutIfNeeded(PawnOrganizerSystem organizer)
@@ -489,7 +482,7 @@ namespace Better_Work_Tab.UI
                 Verse.UI.screenWidth,
                 Verse.UI.screenHeight,
                 PawnOrganizerSystem.Instance?.Layout?.LayoutRevision ?? -1);
-            WorkTabProfilingState.NotifyOpen(true);
+            WorkTabActivityState.NotifyOpen(true);
             BWT20UpgradePrompt.ShowIfNeeded(
                 BetterWorkTabMod.Settings,
                 Current.Game?.GetComponent<GameComponent_BWTWorldSettings>());
@@ -524,7 +517,7 @@ namespace Better_Work_Tab.UI
         {
             base.PreClose();
             HighlightManager.ClearHighlight();
-            WorkTabProfilingState.NotifyOpen(false);
+            WorkTabActivityState.NotifyOpen(false);
 
             // === PRESENCE FEATURE DISABLED ===
             /*

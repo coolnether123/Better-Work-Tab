@@ -1,8 +1,6 @@
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
-using Better_Work_Tab.Diagnostics;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.PawnOrganizer.API;
@@ -32,13 +30,6 @@ namespace Better_Work_Tab.Features.TimePriority
         private static Rect _lastBarRect;
         private static Rect _lastWholeDayButtonRect;
         private static Rect _lastNowButtonRect;
-        private static string _lastAppliedTarget = string.Empty;
-        private static int _lastAppliedPriority = -1;
-        private const string AgentRequestFileName = "BWTFluffySchedule.request";
-        private const string AgentStatusFileName = "BWTFluffySchedule.status";
-        private static readonly bool AgentEnabled =
-            AgentHarnessUtility.IsEnabled();
-        private static int _nextAgentRequestFrame;
 
         internal static bool IsAvailable =>
             FluffyWorkTabGateway.IsPresent &&
@@ -128,48 +119,6 @@ namespace Better_Work_Tab.Features.TimePriority
             return true;
         }
 
-        internal static void ProcessAgentRequest()
-        {
-            if (!AgentEnabled || Time.frameCount < _nextAgentRequestFrame)
-            {
-                return;
-            }
-
-            _nextAgentRequestFrame = Time.frameCount + 15;
-
-            string requestPath = AgentHarnessUtility.GetPath(AgentRequestFileName);
-            if (!File.Exists(requestPath))
-            {
-                return;
-            }
-
-            string request = File.ReadAllText(requestPath).Trim().ToLowerInvariant();
-            File.Delete(requestPath);
-            if (request == "toggle")
-            {
-                Toggle();
-            }
-            else if (request == "open" && !IsOpen)
-            {
-                Toggle();
-            }
-            else if (request == "close")
-            {
-                Close();
-            }
-
-            File.WriteAllText(
-                AgentHarnessUtility.GetPath(AgentStatusFileName),
-                "present=" + FluffyWorkTabGateway.IsPresent +
-                " available=" + IsAvailable +
-                " enabled=" + IsEnabled +
-                " open=" + IsOpen +
-                " selectedHours=" + string.Join(",", SelectedHourSet.OrderBy(hour => hour).Select(hour => hour.ToString()).ToArray()) +
-                " visibleHour=" + VisibleHour +
-                " lastTarget=" + _lastAppliedTarget +
-                " lastPriority=" + _lastAppliedPriority);
-        }
-
         internal static void Close()
         {
             if (!IsOpen)
@@ -188,9 +137,6 @@ namespace Better_Work_Tab.Features.TimePriority
             IsOpen = false;
             SelectWholeDay();
             VisibleHour = -1;
-            _lastAppliedTarget = string.Empty;
-            _lastAppliedPriority = -1;
-            _nextAgentRequestFrame = 0;
             ClearInteractiveGeometry();
 
             if (wasOpen)
@@ -321,7 +267,6 @@ namespace Better_Work_Tab.Features.TimePriority
 
             priority = WorkPrioritySystem.ClampPriority(priority);
             TimePriorityTarget target = TimePriorityTarget.ForWorkType(pawn, workType);
-            RecordAppliedTarget(target, priority);
             if (SelectedHourSet.Count == TimePriorityService.HoursPerDay)
             {
                 WorkPrioritySystem.SetPriority(pawn.workSettings, workType, priority);
@@ -350,8 +295,6 @@ namespace Better_Work_Tab.Features.TimePriority
             int fallback = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, workGiver, parentPriority);
             TimePriorityTarget target = TimePriorityTarget.ForWorkGiver(pawn, workGiver.workType, workGiver);
             priority = WorkPrioritySystem.ClampPriority(priority);
-            RecordAppliedTarget(target, priority);
-
             if (SelectedHourSet.Count == TimePriorityService.HoursPerDay)
             {
                 WorkGiverReassignmentManager.SetPawnOverrideSynced(pawnId, workGiver.defName, priority);
@@ -361,12 +304,6 @@ namespace Better_Work_Tab.Features.TimePriority
 
             ApplySelectedHours(target, fallback, priority);
             return true;
-        }
-
-        private static void RecordAppliedTarget(TimePriorityTarget target, int priority)
-        {
-            _lastAppliedTarget = target.Key;
-            _lastAppliedPriority = priority;
         }
 
         private static void ApplySelectedHours(TimePriorityTarget target, int fallbackPriority, int priority)

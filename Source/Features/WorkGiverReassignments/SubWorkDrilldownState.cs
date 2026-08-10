@@ -61,10 +61,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         internal static WorkTypeDef ActiveWorkType => _activeWorkType;
 
-        // Test-only read seam for the transition invariant. Production rendering still
-        // obtains the pivot through GetTransitionPivotSlot and cannot override this value.
-        internal static int TransitionSourceWorkColumnSlot => _entryWorkColumnSlot;
-
         internal static int FocusedHeaderAffordanceSlot
         {
             get

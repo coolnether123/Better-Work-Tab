@@ -31,9 +31,6 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         private static string _focusedBadgeTooltip;
         private static string _focusedBadgeTooltipLanguage;
 
-        internal static string DebugForcedHoveredWorkTypeDefName;
-        internal static bool DebugForceBackButtonHover;
-
         internal static bool ShouldDrawOpenBadge(PawnColumnDef column)
         {
             return SubWorkDrilldownInput.IsEnabled &&
@@ -73,7 +70,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             }
 
             Rect badgeRect = GetOpenBadgeRect(headerRect, clearVanillaStem);
-            bool hovered = IsOpenBadgeHovered(badgeRect, column);
+            bool hovered = IsOpenBadgeHovered(badgeRect);
             DrawAngledOpenAffordance(badgeRect, hovered);
             RegisterHoveredBadgeInteraction(badgeRect, hovered);
         }
@@ -86,7 +83,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             }
 
             Rect badgeRect = GetOpenBadgeRect(headerRect, clearVanillaStem: false);
-            bool hovered = IsOpenBadgeHovered(badgeRect, column);
+            bool hovered = IsOpenBadgeHovered(badgeRect);
             DrawVanillaOpenAffordance(badgeRect, hovered);
             RegisterHoveredBadgeInteraction(badgeRect, hovered);
         }
@@ -275,16 +272,9 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             }
         }
 
-        private static bool IsOpenBadgeHovered(Rect badgeRect, PawnColumnDef column)
+        private static bool IsOpenBadgeHovered(Rect badgeRect)
         {
-            if (Mouse.IsOver(badgeRect))
-            {
-                return true;
-            }
-
-            return !DebugForcedHoveredWorkTypeDefName.NullOrEmpty() &&
-                   column?.workType != null &&
-                   column.workType.defName == DebugForcedHoveredWorkTypeDefName;
+            return Mouse.IsOver(badgeRect);
         }
 
         internal static Rect GetBackBadgeRect(Rect labelCellRect)
@@ -304,7 +294,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
         internal static bool IsBackButtonHovered(Rect labelCellRect)
         {
-            return Mouse.IsOver(labelCellRect) || DebugForceBackButtonHover;
+            return Mouse.IsOver(labelCellRect);
         }
 
         internal static bool TryGetBackLabelCellRect(IWorkTabLayoutController layout, out Rect labelCellRect)

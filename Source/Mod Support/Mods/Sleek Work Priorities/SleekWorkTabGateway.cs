@@ -17,7 +17,7 @@ namespace Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities
 {
     /// <summary>
     /// Compatibility boundary for Sleek Work Priorities. BWT never references Sleek's assembly
-    /// directly; the optional integration is package/type-probed and fails closed when a member is
+    /// directly; the optional integration is package/type-detected and fails closed when a member is
     /// absent in a future Sleek release.
     /// </summary>
     internal static class SleekWorkTabGateway
@@ -990,7 +990,7 @@ namespace Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities
                     }
                 }
 
-                // Some harness/staged ModContentPack instances expose the active package through
+                // Some staged ModContentPack instances expose the active package through
                 // ModLister/ModsConfig before their RunningModsList entry has a populated PackageId.
                 // Keep detection independent of load order so the optional bridge cannot silently
                 // disable itself in a valid active-mod list.
@@ -1009,7 +1009,7 @@ namespace Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities
                     HasLoadedSleekAssembly())
                 {
                     _detected = true;
-                    _detectedPackageId = "type probe";
+                    _detectedPackageId = "type detected";
                     _detectionComplete = true;
                     return;
                 }

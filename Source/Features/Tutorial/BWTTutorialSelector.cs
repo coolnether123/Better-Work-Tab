@@ -81,9 +81,6 @@ namespace Better_Work_Tab.Features.Tutorial
         private BWTTutorialAnchor pinnedGeometry;
         private Rect lastPopupRect;
 
-        /// <summary>The anchor a click has pinned, or None. Observed by the quicktest driver.</summary>
-        internal TutorialHubAnchor PinnedAnchor => pinnedAnchor;
-
         internal void Reset()
         {
             ClearPinnedSelection();
@@ -117,10 +114,7 @@ namespace Better_Work_Tab.Features.Tutorial
 
         /// <summary>
         /// Selects the anchor under a point. Split out from the event overload so
-        /// the same hit testing can be driven by a point alone, which is what the
-        /// agent harness needs: Unity reports a synthesised mouse event's type as
-        /// Ignore during a Repaint pass, so anything keyed on <c>evt.type</c> is
-        /// unreachable from a test harness.
+        /// callers that already have a local point use the same hit testing.
         /// </summary>
         internal bool TrySelectAnchorAt(
             IList<BWTTutorialAnchor> anchors,
@@ -216,35 +210,6 @@ namespace Better_Work_Tab.Features.Tutorial
 
             layout = BuildLayout(workBounds, FindAnchorRect(anchors, active), hub);
             return layout.PopupRect.Contains(point);
-        }
-
-        /// <summary>
-        /// The popup's option rows for the anchor currently showing them, for
-        /// harness reporting. Returns false when no popup is open.
-        /// </summary>
-        internal bool TryDescribePopup(
-            Rect workBounds,
-            IList<BWTTutorialAnchor> anchors,
-            IDictionary<TutorialHubAnchor, BWTTutorialHubDefinition> hubs,
-            out BWTTutorialHubDefinition hub,
-            out Rect popupRect,
-            out IList<Rect> optionRects)
-        {
-            hub = default(BWTTutorialHubDefinition);
-            popupRect = Rect.zero;
-            optionRects = null;
-            if (anchors == null || anchors.Count == 0 || hubs == null ||
-                pinnedAnchor == TutorialHubAnchor.None ||
-                !hubs.TryGetValue(pinnedAnchor, out hub) ||
-                hub.Options.Count == 0)
-            {
-                return false;
-            }
-
-            PopupLayout layout = BuildLayout(workBounds, FindAnchorRect(anchors, pinnedAnchor), hub);
-            popupRect = layout.PopupRect;
-            optionRects = layout.OptionRects;
-            return true;
         }
 
         internal bool ContainsPointer(

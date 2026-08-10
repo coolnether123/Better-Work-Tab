@@ -79,9 +79,6 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             new Dictionary<string, PawnColumnDef>(StringComparer.Ordinal);
         private static readonly Dictionary<PawnColumnDef, WorkGiverDef> NativeHostedWorkGivers =
             new Dictionary<PawnColumnDef, WorkGiverDef>();
-        internal static bool DebugForceSubWorkStyleChooserAvailable;
-        internal static BetterWorkTabSettings.SubWorkDrilldownStyle DebugForcedSubWorkStyleChooserHover =
-            BetterWorkTabSettings.SubWorkDrilldownStyle.NotChosen;
         private static readonly string[] FluffyBaseSearchKeywords =
         {
             "Fluffy",
@@ -527,7 +524,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             WorkTypeDef workType,
             Rect sourceRect)
         {
-            if (((!CanHostFluffySubWorkColumns && !DebugForceSubWorkStyleChooserAvailable)) ||
+            if (!CanHostFluffySubWorkColumns ||
                 workType == null ||
                 BetterWorkTabMod.Settings == null ||
                 BetterWorkTabMod.Settings.subWorkDrilldownStyle != BetterWorkTabSettings.SubWorkDrilldownStyle.NotChosen)
@@ -554,32 +551,6 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             _chooserRememberChoice = true;
             CenterChooserSourceColumn(layout, instant: false);
             return true;
-        }
-
-        internal static bool DebugChooseSubWorkDrilldownStyle(
-            BetterWorkTabSettings.SubWorkDrilldownStyle style,
-            out WorkTypeDef workType)
-        {
-            workType = null;
-            if (!_chooserActive ||
-                style == BetterWorkTabSettings.SubWorkDrilldownStyle.NotChosen ||
-                BetterWorkTabMod.Settings == null)
-            {
-                return false;
-            }
-
-            workType = _chooserWorkType;
-            BetterWorkTabMod.Settings.subWorkDrilldownStyle = style;
-            BetterWorkTabMod.Settings.subWorkCtrlClickNoticeDismissed = true;
-            BetterWorkTabMod.Settings.Write();
-            PriorityAuthorityBroker.NotifyPotentialAuthorityChanged();
-            ClearSubWorkDrilldownStyleChooser(clearPreview: false);
-            return workType != null;
-        }
-
-        internal static void DebugCancelSubWorkDrilldownStyleChooser()
-        {
-            ClearSubWorkDrilldownStyleChooser();
         }
 
         internal static void ResetSubWorkDrilldownStyleChooserForWindowClose()
@@ -1133,7 +1104,6 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             _expandChoiceButtonRect = Rect.zero;
             _rememberChoiceRect = Rect.zero;
             _chooserRememberChoice = true;
-            DebugForcedSubWorkStyleChooserHover = BetterWorkTabSettings.SubWorkDrilldownStyle.NotChosen;
         }
 
         private static void ClearSubWorkDrilldownStyleChooserPreview(bool immediateFocusExit)
@@ -1168,11 +1138,6 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
 
         private static BetterWorkTabSettings.SubWorkDrilldownStyle GetSubWorkDrilldownStyleChooserHover()
         {
-            if (DebugForcedSubWorkStyleChooserHover != BetterWorkTabSettings.SubWorkDrilldownStyle.NotChosen)
-            {
-                return DebugForcedSubWorkStyleChooserHover;
-            }
-
             Event evt = Event.current;
             if (evt == null)
             {
@@ -1407,9 +1372,8 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             Type settingsType = AccessTools.TypeByName("WorkTab.Settings");
             if (settingsType == null)
             {
-                // The agent harness can simulate the external Work-tab window
-                // without loading Fluffy's settings assembly. Real partial or
-                // incompatible installs should also degrade to shipped defaults.
+                // Partial or incompatible installs should degrade to shipped
+                // defaults when Fluffy's settings assembly is unavailable.
                 return;
             }
 

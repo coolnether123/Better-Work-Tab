@@ -75,10 +75,10 @@ reference and candidate builds simultaneously through identical muted harness
 lanes, save/mod snapshots, and profiler intervals; independent historical
 captures are suitable for context, not regression attribution.
 
-The private repository owns deterministic tests, the developer TestProbe mod,
-fixtures, benchmarks, and verification scripts. BWT keeps only production code,
-the narrow diagnostics ports, and its `InternalsVisibleTo` seam; the player
-project does not reference the private repository.
+The private repository owns deterministic tests, the developer runtime mod,
+fixtures, benchmarks, and verification scripts. BWT keeps only production code
+and the optional `WorkTabDiagnostics` observation contract; the player project
+does not reference the private repository.
 
 ## Credits
 

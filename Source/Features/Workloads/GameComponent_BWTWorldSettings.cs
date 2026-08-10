@@ -1,7 +1,6 @@
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.Migration;
 using Better_Work_Tab.Features.TimePriority;
-using Better_Work_Tab.Diagnostics;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Mod_Support.LocalProfiles;
 using Better_Work_Tab.Mod_Support.Multiplayer;
@@ -9,6 +8,7 @@ using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.Patches;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.Data;
+using Better_Work_Tab.UI.WindowSession;
 using Multiplayer.API;
 using Spine.Profiling;
 using System.Collections.Generic;
@@ -68,7 +68,7 @@ namespace Better_Work_Tab.Features.Workloads
 
             SpineTiming.Configure(
                 message => BetterWorkTabMod.DebugLog(message, DebugFeature.Performance),
-                () => WorkTabProfilingState.OpenSeconds,
+                () => WorkTabActivityState.OpenSeconds,
                 "Work tab open");
             SpineTiming.Enabled = BetterWorkTabMod.Settings?.enableProfiler ?? false;
         }

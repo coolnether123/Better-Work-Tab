@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using LudeonTK;
 using Better_Work_Tab.UI.SettingsFramework;
 using Verse;
 
@@ -65,26 +64,42 @@ namespace Better_Work_Tab.UI.Settings
             }
 
             _validatedAtStartup = true;
-            Validate(BWTSettingsRegistry.Definitions);
+            LogDiagnostics(ValidateRegistry());
             if (LanguageDatabase.activeLanguage == null)
             {
                 LongEventHandler.ExecuteWhenFinished(
-                    () => ValidateTranslationCoverage(BWTSettingsRegistry.Definitions));
+                    () => LogDiagnostics(ValidateTranslationCoverage(BWTSettingsRegistry.Definitions)));
             }
         }
 
-        [DebugAction("Better Work Tab", "Validate settings registry", false, false, false, false, false, 0, false, actionType = DebugActionType.Action)]
-        public static void ValidateFromDebugAction()
+        public static IReadOnlyList<string> ValidateRegistry()
         {
             BWTSettingsRegistry.EnsureInitialized();
-            Validate(BWTSettingsRegistry.Definitions);
+            IReadOnlyList<SettingDefinition> definitions = BWTSettingsRegistry.Definitions;
+            List<string> diagnostics = new List<string>(CollectDiagnostics(definitions));
+            if (LanguageDatabase.activeLanguage != null)
+            {
+                diagnostics.AddRange(ValidateTranslationCoverage(definitions));
+            }
+
+            return diagnostics.AsReadOnly();
         }
 
         public static void Validate(IEnumerable<SettingDefinition> definitions)
         {
+            LogDiagnostics(CollectDiagnostics(definitions));
+            if (LanguageDatabase.activeLanguage != null)
+            {
+                LogDiagnostics(ValidateTranslationCoverage(definitions));
+            }
+        }
+
+        internal static IReadOnlyList<string> CollectDiagnostics(IEnumerable<SettingDefinition> definitions)
+        {
             List<SettingDefinition> defs = definitions?.Where(def => def != null).ToList() ?? new List<SettingDefinition>();
             Type settingsType = typeof(BetterWorkTabSettings);
             BetterWorkTabSettings freshSettings = new BetterWorkTabSettings();
+            var diagnostics = new List<string>();
             var ids = new HashSet<string>();
             var scribeKeys = new HashSet<string>();
             var registeredFields = new HashSet<string>();
@@ -93,12 +108,7 @@ namespace Better_Work_Tab.UI.Settings
             {
                 if (!string.IsNullOrEmpty(def.Id) && !ids.Add(def.Id))
                 {
-                    Warn("Duplicate setting id: " + def.Id);
-                }
-
-                if (LanguageDatabase.activeLanguage != null)
-                {
-                    ValidateTranslationKeys(def);
+                    diagnostics.Add("Duplicate setting id: " + def.Id);
                 }
 
                 // A setting that shipped in public 1.0.x must stay reachable.
@@ -114,13 +124,13 @@ namespace Better_Work_Tab.UI.Settings
                     !def.ShowInSimpleView &&
                     !def.ShowInAdvancedView)
                 {
-                    Warn("Public 1.0 setting is unreachable in both views: " + def.Id);
+                    diagnostics.Add("Public 1.0 setting is unreachable in both views: " + def.Id);
                 }
 
                 string scribeKey = SettingsScribe.EffectiveScribeKey(def);
                 if (!string.IsNullOrEmpty(scribeKey) && !scribeKeys.Add(scribeKey))
                 {
-                    Warn("Duplicate scribe key: " + scribeKey);
+                    diagnostics.Add("Duplicate scribe key: " + scribeKey);
                 }
 
                 if (string.IsNullOrEmpty(def.FieldName))
@@ -132,24 +142,26 @@ namespace Better_Work_Tab.UI.Settings
                 FieldInfo field = settingsType.GetField(def.FieldName);
                 if (field == null)
                 {
-                    Warn("FieldName does not resolve: " + def.FieldName);
+                    diagnostics.Add("FieldName does not resolve: " + def.FieldName);
                     continue;
                 }
 
                 if (def.DefaultValue != null && !field.FieldType.IsInstanceOfType(def.DefaultValue))
                 {
-                    Warn("DefaultValue type mismatch for " + def.FieldName);
+                    diagnostics.Add("DefaultValue type mismatch for " + def.FieldName);
                     continue;
                 }
 
                 object freshValue = field.GetValue(freshSettings);
                 if (def.DefaultValue != null && !ValuesEqual(def.DefaultValue, freshValue))
                 {
-                    Warn("DefaultValue drift for " + def.FieldName);
+                    diagnostics.Add("DefaultValue drift for " + def.FieldName);
                 }
             }
 
-            foreach (FieldInfo field in settingsType.GetFields(BindingFlags.Instance | BindingFlags.Public))
+            foreach (FieldInfo field in settingsType
+                .GetFields(BindingFlags.Instance | BindingFlags.Public)
+                .OrderBy(field => field.Name, StringComparer.Ordinal))
             {
                 if (field.IsLiteral ||
                     registeredFields.Contains(field.Name) ||
@@ -159,8 +171,10 @@ namespace Better_Work_Tab.UI.Settings
                     continue;
                 }
 
-                Warn("Public settings field is not classified: " + field.Name);
+                diagnostics.Add("Public settings field is not classified: " + field.Name);
             }
+
+            return diagnostics.AsReadOnly();
         }
 
         private static bool ValuesEqual(object left, object right)
@@ -178,42 +192,57 @@ namespace Better_Work_Tab.UI.Settings
             return false;
         }
 
-        private static void ValidateTranslationKeys(SettingDefinition def)
+        internal static IReadOnlyList<string> ValidateTranslationCoverage(
+            IEnumerable<SettingDefinition> definitions)
+        {
+            var diagnostics = new List<string>();
+            foreach (SettingDefinition definition in definitions ?? Enumerable.Empty<SettingDefinition>())
+            {
+                AddTranslationDiagnostics(definition, diagnostics);
+            }
+
+            return diagnostics.AsReadOnly();
+        }
+
+        private static void AddTranslationDiagnostics(
+            SettingDefinition def,
+            List<string> diagnostics)
         {
             if (def == null || (!def.ShowInSimpleView && !def.ShowInAdvancedView))
             {
                 return;
             }
 
-            ValidateTranslationKey(
+            AddTranslationDiagnostic(
                 BWTSettingsTranslation.GetLabelKey(def),
                 def.Id,
-                "label");
-            ValidateTranslationKey(
+                "label",
+                diagnostics);
+            AddTranslationDiagnostic(
                 BWTSettingsTranslation.GetTooltipKey(def),
                 def.Id,
-                "tooltip");
+                "tooltip",
+                diagnostics);
         }
 
-        private static void ValidateTranslationCoverage(IEnumerable<SettingDefinition> definitions)
-        {
-            foreach (SettingDefinition definition in definitions ?? Enumerable.Empty<SettingDefinition>())
-            {
-                ValidateTranslationKeys(definition);
-            }
-        }
-
-        private static void ValidateTranslationKey(string key, string settingId, string role)
+        private static void AddTranslationDiagnostic(
+            string key,
+            string settingId,
+            string role,
+            List<string> diagnostics)
         {
             if (!string.IsNullOrEmpty(key) && !key.CanTranslate())
             {
-                Warn($"Missing {role} translation for {settingId}: {key}");
+                diagnostics.Add($"Missing {role} translation for {settingId}: {key}");
             }
         }
 
-        private static void Warn(string message)
+        private static void LogDiagnostics(IEnumerable<string> diagnostics)
         {
-            Log.Warning("[Better Work Tab] Settings validation: " + message);
+            foreach (string diagnostic in diagnostics ?? Enumerable.Empty<string>())
+            {
+                Log.Warning("[Better Work Tab] Settings validation: " + diagnostic);
+            }
         }
     }
 }

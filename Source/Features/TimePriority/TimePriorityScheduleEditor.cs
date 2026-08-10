@@ -1,9 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.IO;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
-using Better_Work_Tab.Diagnostics;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.ModSupport;
 using Better_Work_Tab.PawnOrganizer;
@@ -46,7 +44,6 @@ namespace Better_Work_Tab.Features.TimePriority
         private static readonly List<CopyPasteHit> LastCopyPasteHits = new List<CopyPasteHit>(8);
         private static readonly List<ScheduleCellDiagnostic> LastScheduleCellDiagnostics = new List<ScheduleCellDiagnostic>(HoursPerDay * 4);
         private static int _tutorialEditRevision;
-        private const string AgentOpenRequestFileName = "BWTTimePriorityOpen.request";
         private static readonly PawnDivider ActiveDivider = new PawnDivider
         {
             DividerColor = new Color(0.16f, 0.17f, 0.14f, 0.92f),
@@ -72,11 +69,10 @@ namespace Better_Work_Tab.Features.TimePriority
 
         internal static bool IsVisible => IsEnabled && _session != null;
 
-        // Geometry automation must sample the settled 24-hour cells. Exposing the
-        // transition state here keeps the test seam aligned with the animation owner.
+        // Keep the transition state aligned with the animation owner for geometry
+        // consumers that need to wait for a settled 24-hour layout.
         internal static bool IsTransitioning => IsVisible && GetProgress() < 0.999f;
         internal static int TutorialEditRevision => _tutorialEditRevision;
-
         internal static void CloseForTutorial()
         {
             if (_session != null)
@@ -355,45 +351,6 @@ namespace Better_Work_Tab.Features.TimePriority
             return true;
         }
 
-        internal static void TryOpenAgentRequestedSession(IWorkTabLayoutController layout)
-        {
-            if (!IsEnabled || layout == null || !IsAgentHarnessEnabled())
-            {
-                return;
-            }
-
-            string requestPath = AgentHarnessUtility.GetPath(
-                AgentOpenRequestFileName);
-            if (!File.Exists(requestPath))
-            {
-                return;
-            }
-
-            string requestedWorkType = string.Empty;
-            try
-            {
-                requestedWorkType = File.ReadAllText(requestPath).Trim();
-                File.Delete(requestPath);
-            }
-            catch (Exception ex)
-            {
-                Log.Warning("[BWT] Could not consume time-priority agent request: " + ex.Message);
-            }
-
-            bool foundTarget = string.Equals(requestedWorkType, "first-visible", StringComparison.OrdinalIgnoreCase)
-                ? TryFindFirstVisiblePriorityTarget(layout, out TargetInfo target)
-                : TryFindAgentWorkTypeTarget(layout, requestedWorkType, out target);
-            if (!foundTarget)
-            {
-                Log.Warning("[BWT] Time-priority agent request could not find a target for work type: " + requestedWorkType);
-                return;
-            }
-
-            _session = new Session(target);
-            TimePriorityService.GetPrioritiesForDisplay(target.TimeTarget, target.CurrentPriority);
-            NotifyLayoutChanged();
-        }
-
         internal static bool ToggleFirstVisiblePrioritySchedule(IWorkTabLayoutController layout)
         {
             if (!IsEnabled || layout == null)
@@ -465,11 +422,6 @@ namespace Better_Work_Tab.Features.TimePriority
         internal static bool HasToggleTargetAt(IWorkTabLayoutController layout, Vector2 mousePosition)
         {
             return TryGetToggleTarget(layout, mousePosition, out _);
-        }
-
-        private static bool IsAgentHarnessEnabled()
-        {
-            return AgentHarnessUtility.IsEnabled();
         }
 
         internal static void Draw(IWorkTabLayoutController layout)
@@ -653,11 +605,11 @@ namespace Better_Work_Tab.Features.TimePriority
         /// <summary>
         /// Resolves a point to the hour cell that owns it.
         ///
-        /// Extracted so the click path and the geometry test seam below cannot
-        /// drift apart. Testing a reimplementation of this loop would pass while
-        /// the real lookup was broken, which is the failure the seam exists to
-        /// catch: the registered rects, not the drawn ones, decide what a click
-        /// lands on.
+        /// Extracted so the click path and the geometry contract below cannot
+        /// drift apart. Reimplementing this loop in a consumer would pass while
+        /// the real lookup was broken, which is why this remains the single
+        /// source of truth for the registered rectangles, not the drawn ones.
+        ///
         /// </summary>
         private static bool TryFindCellHit(Vector2 point, out CellHit hit)
         {
@@ -996,7 +948,7 @@ namespace Better_Work_Tab.Features.TimePriority
             }
         }
 
-        // Read-only test seam: callers can verify the exact rectangles rendered on the
+        // Read-only geometry contract: callers can verify the exact rectangles rendered on the
         // last Repaint without duplicating the schedule editor's private draw model.
         internal static bool TryGetScheduleCellGeometry(
             int index,
@@ -1025,7 +977,7 @@ namespace Better_Work_Tab.Features.TimePriority
         /// What a registered hour resolves to, and whether it is following the
         /// priority box or holding a number of its own.
         ///
-        /// Exposed so a test can assert the rule the old model could not keep: a
+        /// Exposed so callers can assert the rule the old model could not keep: a
         /// linked hour reads through to the box, rather than to a stored value
         /// that merely used to agree with it.
         /// </summary>
@@ -1053,12 +1005,12 @@ namespace Better_Work_Tab.Features.TimePriority
             return true;
         }
 
-        // Read-only test seam for the *clickable* rectangles, which are not the
+        // Read-only geometry contract for the *clickable* rectangles, which are not the
         // drawn ones above. The visible band is inset inside its row while the
         // hit rect spans the row's full height, so that the pixels above and
         // below a cell belong to the schedule rather than falling through to the
         // work priority cell underneath. The two lists are compared against each
-        // other by the hit-box quicktest.
+        // other by the hit-box consumer.
         internal static int ScheduleCellHitCount => LastCellHits.Count;
 
         internal static bool TryGetScheduleCellHit(int index, out Rect rect, out int hour)
@@ -1189,45 +1141,6 @@ namespace Better_Work_Tab.Features.TimePriority
                    !BetterWorkTabLocalState.IsHeaderDragging &&
                    TryGetPriorityTarget(layout, mousePosition, out target) &&
                    target.PriorityBoxRect.Contains(mousePosition);
-        }
-
-        private static bool TryFindAgentWorkTypeTarget(IWorkTabLayoutController layout, string requestedWorkType, out TargetInfo target)
-        {
-            target = default;
-            if (layout?.Rows == null || layout.Columns == null)
-            {
-                return false;
-            }
-
-            WorkTypeDef requested = string.IsNullOrEmpty(requestedWorkType)
-                ? null
-                : DefDatabase<WorkTypeDef>.GetNamedSilentFail(requestedWorkType);
-
-            WorkTabLayoutColumn selectedColumn = default;
-            bool foundColumn = false;
-            for (int i = 0; i < layout.Columns.Count; i++)
-            {
-                WorkTabLayoutColumn column = layout.Columns[i];
-                if (!(column.Column?.Worker is PawnColumnWorker_WorkPriority) ||
-                    column.Column.workType == null)
-                {
-                    continue;
-                }
-
-                if (requested == null || column.Column.workType == requested)
-                {
-                    selectedColumn = column;
-                    foundColumn = true;
-                    break;
-                }
-            }
-
-            if (!foundColumn)
-            {
-                return false;
-            }
-
-            return TryBuildTargetForColumn(layout, selectedColumn, out target);
         }
 
         private static bool TryFindFirstVisiblePriorityTarget(IWorkTabLayoutController layout, out TargetInfo target)

@@ -178,7 +178,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
             if (!layoutEvent)
             {
-                WorkTabGeometryDiagnostics.DumpHeaderLayoutIfRequested(layout);
+                WorkTabDiagnostics.RecordHeaderLayout(layout);
             }
         }
 

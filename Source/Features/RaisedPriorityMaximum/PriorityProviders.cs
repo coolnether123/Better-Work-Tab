@@ -527,7 +527,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             RegisterClockworkProvider();
             RegisterPawnCentricWorkPrioritiesProvider();
 
-            // Fluffy Work Tab owns its own type probes; the gateway registers it.
+            // Fluffy Work Tab owns its own type detection; the gateway registers it.
             FluffyWorkTabGateway.RegisterPriorityProvider();
             SleekWorkTabGateway.RegisterPriorityProvider();
         }
