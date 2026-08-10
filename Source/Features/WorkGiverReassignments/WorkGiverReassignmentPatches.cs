@@ -12,8 +12,9 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
     [HarmonyPatch(typeof(JobGiver_Work), "PawnCanUseWorkGiver")]
     internal static class Patch_JobGiver_Work_PawnCanUseWorkGiver
     {
-        public static bool Prefix(Pawn pawn, WorkGiver giver, ref bool __result)
+        public static bool Prefix(Pawn pawn, WorkGiver giver, ref bool __result, out bool __state)
         {
+            __state = false;
             if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabOrdering)
             {
                 return true;
@@ -22,14 +23,20 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             if (WorkGiverAvailability.ShouldForceAllowBeforeVanilla(pawn, giver, out bool canUse))
             {
                 __result = canUse;
+                __state = true;
                 return false;
             }
 
             return true;
         }
 
-        public static void Postfix(Pawn pawn, WorkGiver giver, ref bool __result)
+        public static void Postfix(Pawn pawn, WorkGiver giver, ref bool __result, bool __state)
         {
+            if (__state)
+            {
+                return;
+            }
+
             if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabOrdering)
             {
                 return;
