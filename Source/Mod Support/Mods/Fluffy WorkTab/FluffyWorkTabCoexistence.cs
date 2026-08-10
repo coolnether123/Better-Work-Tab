@@ -21,6 +21,8 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
     internal static class FluffyWorkTabCoexistence
     {
         internal const string SimulateFluffyFlag = "bwt-simulate-fluffy-worktab";
+        private static readonly bool Simulated =
+            GenCommandLine.CommandLineArgPassed(SimulateFluffyFlag);
 
         private const string FluffyMainTabWindowTypeName = "WorkTab.MainTabWindow_WorkTab";
         private const string FluffyControllerTypeName = "WorkTab.Controller";
@@ -28,7 +30,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
         private static bool? _detected;
         private static string _detectedPackageId;
 
-        internal static bool IsSimulated => GenCommandLine.CommandLineArgPassed(SimulateFluffyFlag);
+        internal static bool IsSimulated => Simulated;
 
         internal static bool IsFluffyWorkTabPresent
         {
