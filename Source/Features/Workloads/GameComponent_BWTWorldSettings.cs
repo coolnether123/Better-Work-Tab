@@ -13,6 +13,7 @@ using Multiplayer.API;
 using Spine.Profiling;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEngine;
 using Verse;
 
 namespace Better_Work_Tab.Features.Workloads
@@ -244,6 +245,7 @@ namespace Better_Work_Tab.Features.Workloads
             // Save profile every 300 ticks (~5 seconds) if dirty
             // This avoids Scribe nesting issues when called from ExposeData
             _profileSaveTimer++;
+            TimePriorityService.AuditRuntimeScheduleMutation(Time.frameCount);
             if (TimePriorityService.IsRuntimeActive)
             {
                 int currentHour = TimePriorityService.GetCurrentHour(null);

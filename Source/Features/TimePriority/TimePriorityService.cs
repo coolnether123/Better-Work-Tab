@@ -1067,9 +1067,15 @@ namespace Better_Work_Tab.Features.TimePriority
 
         private static bool RefreshScheduleActivity()
         {
+            bool activityChanged;
+            return RefreshScheduleActivity(out activityChanged);
+        }
+
+        private static bool RefreshScheduleActivity(out bool activityChanged)
+        {
             List<TimePriorityScheduleData> schedules = GetSchedules(create: false);
             bool active = schedules != null && schedules.Count > 0;
-            bool activityChanged = false;
+            activityChanged = false;
             if (!_scheduleActivityKnown)
             {
                 _scheduleDataActive = active;
@@ -1083,17 +1089,24 @@ namespace Better_Work_Tab.Features.TimePriority
                 _cachedVersion = -1;
             }
 
-            AuditLegacyScheduleMutationIfDue(schedules, active, activityChanged);
-
             return _scheduleDataActive;
         }
 
+        internal static void AuditRuntimeScheduleMutation(int frame)
+        {
+            List<TimePriorityScheduleData> schedules = GetSchedules(create: false);
+            bool active = schedules != null && schedules.Count > 0;
+            bool activityChanged;
+            RefreshScheduleActivity(out activityChanged);
+            AuditLegacyScheduleMutationIfDue(frame, schedules, active, activityChanged);
+        }
+
         private static void AuditLegacyScheduleMutationIfDue(
+            int frame,
             List<TimePriorityScheduleData> schedules,
             bool active,
             bool activityChanged)
         {
-            int frame = Time.frameCount;
             if (!IsLegacyMutationAuditDue(frame, _lastLegacyMutationAuditFrame))
             {
                 return;
@@ -1128,7 +1141,7 @@ namespace Better_Work_Tab.Features.TimePriority
         private static void RecordScheduleAuditState()
         {
             List<TimePriorityScheduleData> schedules = GetSchedules(create: false);
-            _lastLegacyMutationAuditFrame = Time.frameCount;
+            _lastLegacyMutationAuditFrame = -1;
             _lastAuditedScheduleCount = schedules?.Count ?? 0;
             _lastAuditedScheduleSignature = ComputePresentationAuditSignature();
         }

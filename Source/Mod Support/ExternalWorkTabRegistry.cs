@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using Better_Work_Tab.API;
@@ -45,29 +44,13 @@ namespace Better_Work_Tab.ModSupport
         private const int MaxSynchronousAuthorityRefreshPasses = 8;
 
         internal static long RegistryGeneration => Interlocked.Read(ref registryGeneration);
-        internal static long RegistryListBuilds
-        {
-            get
-            {
 #if DEBUG
-                return Interlocked.Read(ref registryListBuilds);
-#else
-                return 0;
-#endif
-            }
-        }
+        internal static long RegistryListBuilds
+            => Interlocked.Read(ref registryListBuilds);
 
         internal static long StoreProbes
-        {
-            get
-            {
-#if DEBUG
-                return Interlocked.Read(ref storeProbes);
-#else
-                return 0;
+            => Interlocked.Read(ref storeProbes);
 #endif
-            }
-        }
         internal static int RegisteredStoreCount => Volatile.Read(ref registeredStoreCount);
 
         internal static bool AuthorityRefreshDeferred
@@ -585,14 +568,18 @@ namespace Better_Work_Tab.ModSupport
             lock (SyncRoot)
             {
                 generation = registryGeneration;
+#if DEBUG
                 RecordRegistryListBuild();
+#endif
                 return Stores.Values.ToList();
             }
         }
 
         private static bool SafeIsAvailable(IExternalWorkTabStore store)
         {
+#if DEBUG
             RecordStoreProbe();
+#endif
             try
             {
                 return store != null && store.IsAvailable;
@@ -617,7 +604,9 @@ namespace Better_Work_Tab.ModSupport
 
         private static ExternalWorkTabPriorityAuthority SafeAuthority(IExternalWorkTabStore store)
         {
+#if DEBUG
             RecordStoreProbe();
+#endif
             try
             {
                 return store?.PriorityAuthority ?? ExternalWorkTabPriorityAuthority.NoOpinion;
@@ -628,21 +617,17 @@ namespace Better_Work_Tab.ModSupport
             }
         }
 
-        [Conditional("DEBUG")]
+#if DEBUG
         private static void RecordRegistryListBuild()
         {
-#if DEBUG
             Interlocked.Increment(ref registryListBuilds);
-#endif
         }
 
-        [Conditional("DEBUG")]
         private static void RecordStoreProbe()
         {
-#if DEBUG
             Interlocked.Increment(ref storeProbes);
-#endif
         }
+#endif
 
         private static bool SafeIsSuspended(IExternalWorkTabStore store)
         {

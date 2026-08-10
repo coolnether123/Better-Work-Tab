@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using Better_Work_Tab.API;
 using Better_Work_Tab.Features;
@@ -535,7 +534,9 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         /// </remarks>
         private static AuthoritySnapshot GetAuthoritySnapshot(bool forceRefresh = false)
         {
+#if DEBUG
             RecordAuthorityRequest();
+#endif
             Game game = Current.Game;
             int registeredStoreCount = ExternalWorkTabRegistry.RegisteredStoreCount;
             int frame = registeredStoreCount > 0 ? Time.frameCount : -1;
@@ -553,7 +554,9 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 cached.RegistryGeneration == registryGeneration &&
                 cached.ExplicitAuthorityGeneration == explicitAuthorityGeneration)
             {
+#if DEBUG
                 RecordAuthorityCacheHit();
+#endif
                 return cached;
             }
 
@@ -568,7 +571,9 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 : ExternalWorkTabRegistry.FindAuthoritativeStore();
             if (!selection.IsCoherent)
             {
+#if DEBUG
                 RecordAuthorityComputation();
+#endif
                 if (hasCachedAuthoritySnapshot &&
                     cached.IsCoherent &&
                     ReferenceEquals(cached.Game, game))
@@ -604,7 +609,9 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 true);
             cachedAuthoritySnapshot = snapshot;
             hasCachedAuthoritySnapshot = true;
+#if DEBUG
             RecordAuthorityComputation();
+#endif
             return snapshot;
         }
 
@@ -1055,29 +1062,22 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             return Clamp(priority, PriorityConstants.Disabled, PriorityConstants.ExtendedHardMax);
         }
 
-        [Conditional("DEBUG")]
+#if DEBUG
         private static void RecordAuthorityRequest()
         {
-#if DEBUG
             authorityRequests++;
-#endif
         }
 
-        [Conditional("DEBUG")]
         private static void RecordAuthorityCacheHit()
         {
-#if DEBUG
             authorityCacheHits++;
-#endif
         }
 
-        [Conditional("DEBUG")]
         private static void RecordAuthorityComputation()
         {
-#if DEBUG
             authorityComputations++;
-#endif
         }
+#endif
 
         private struct AuthoritySnapshot
         {
