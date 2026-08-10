@@ -8,6 +8,8 @@ using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.UI.WorkGiverReassignments;
+using Better_Work_Tab.UI.WorkGrid.Contracts;
+using Better_Work_Tab.UI.WorkGrid.Invalidation;
 using RimWorld;
 using Verse;
 
@@ -40,34 +42,62 @@ namespace Better_Work_Tab.ModSupport
             }
 
             component.EnsureWorkGiverReassignmentData();
-            using (ExternalPriorityMirror.Suspend())
+            int changed = 0;
+            bool schedulesChanged = false;
+            bool subWorkDataChanged = false;
+            try
             {
-                int changed = ImportSuspended(
-                    component,
-                    (records ?? Enumerable.Empty<ExternalPawnWorkGiverPriorityRecord>()).ToList());
-                if (changed > 0)
+                using (ExternalPriorityMirror.Suspend())
+                using (TimePriorityService.BeginMutationBatch())
+                using (WorkGiverReassignmentManager.BeginMutationBatch())
                 {
-                    TimePriorityService.NotifyLoaded();
-                    WorkGiverReassignmentManager.InvalidateCaches();
+                    changed = ImportSuspended(
+                        component,
+                        (records ?? Enumerable.Empty<ExternalPawnWorkGiverPriorityRecord>()).ToList());
+                }
+            }
+            finally
+            {
+                // Commit the local immutable generations without fan-out. The import owns one
+                // combined invalidation boundary so a large migration cannot dirty every pawn once
+                // per schedule and once per override.
+                schedulesChanged = TimePriorityService.CommitMutationBatch();
+                subWorkDataChanged = WorkGiverReassignmentManager.CommitMutationBatch();
+
+                if (changed > 0 || schedulesChanged || subWorkDataChanged)
+                {
+                    WorkTabDirtyFlags dirtyFlags = WorkTabDirtyFlags.Priority;
+                    if (schedulesChanged)
+                    {
+                        dirtyFlags |= WorkTabDirtyFlags.ScheduleHour;
+                    }
+
+                    if (subWorkDataChanged)
+                    {
+                        dirtyFlags |= WorkTabDirtyFlags.SubWorkOverride |
+                                      WorkTabDirtyFlags.Columns |
+                                      WorkTabDirtyFlags.HeaderGeometry;
+                    }
+
+                    WorkTabInvalidationHub.Invalidate(dirtyFlags);
                     WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
                     MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
                 }
-
-                return changed;
             }
+
+            return changed;
         }
 
         private static int ImportSuspended(
             GameComponent_BWTWorldSettings component,
             List<ExternalPawnWorkGiverPriorityRecord> records)
         {
-            int changed = 0;
             int importedMax = records
                 .SelectMany(record => record.WorkGivers)
                 .SelectMany(record => NormalizePriorities(record.Priorities, WorkPrioritySystem.DisabledPriority))
                 .DefaultIfEmpty(PriorityConstants.VanillaMax)
                 .Max();
-            EnsurePriorityRangeForImport(importedMax);
+            int changed = EnsurePriorityRangeForImport(importedMax) ? 1 : 0;
 
             foreach (ExternalPawnWorkGiverPriorityRecord pawnRecord in records)
             {
@@ -91,11 +121,24 @@ namespace Better_Work_Tab.ModSupport
                     int[] parentPriorities = BuildWorkTypePriorities(workGiverPriorities);
                     int parentFallback = ChooseFallbackPriority(parentPriorities);
 
-                    WorkPrioritySystem.SetStoredPriorityWithoutMirroring(pawn.workSettings, workType, parentFallback);
-                    changed++;
+                    int normalizedParentFallback = WorkPrioritySystem.ClampPriority(parentFallback);
+                    if (PriorityAuthorityBroker.GetBetterWorkTabStoredPriority(
+                            pawn.workSettings,
+                            workType) != normalizedParentFallback)
+                    {
+                        WorkPrioritySystem.SetStoredPriorityWithoutMirroring(
+                            pawn.workSettings,
+                            workType,
+                            parentFallback);
+                        changed++;
+                    }
 
-                    TimePriorityTarget workTypeTarget = TimePriorityTarget.ForWorkType(pawn, workType);
-                    changed += SetSchedule(workTypeTarget, parentPriorities, parentFallback);
+                    TimePriorityTarget workTypeTarget = TimePriorityTarget.ForRuntimeWorkType(pawn, workType);
+                    if (!ScheduleMatchesAllPinnedHours(workTypeTarget, parentPriorities, parentFallback))
+                    {
+                        SetSchedule(workTypeTarget, parentPriorities, parentFallback);
+                        changed++;
+                    }
 
                     foreach (ExternalWorkGiverPriorityRecord workGiverPriority in workGiverPriorities)
                     {
@@ -103,24 +146,58 @@ namespace Better_Work_Tab.ModSupport
                         int[] normalizedPriorities = NormalizePriorities(
                             workGiverPriority.Priorities,
                             parentFallback);
-                        if (workGiver == null || ArraysEqual(normalizedPriorities, parentPriorities))
+                        if (workGiver == null)
                         {
                             continue;
                         }
 
-                        int workGiverFallback = ChooseFallbackPriority(normalizedPriorities);
-                        WorkGiverReassignmentManager.SetPawnOverrideSynced(
-                            pawn.thingIDNumber,
-                            workGiver.defName,
-                            workGiverFallback);
-                        changed++;
+                        TimePriorityTarget workGiverTarget =
+                            TimePriorityTarget.ForRuntimeWorkGiver(pawn, workType, workGiver);
+                        if (ArraysEqual(normalizedPriorities, parentPriorities))
+                        {
+                            if (WorkGiverReassignmentManager.TryGetPawnWorkGiverOverride(
+                                    pawn,
+                                    workGiver,
+                                    out _))
+                            {
+                                WorkGiverReassignmentManager.ClearPawnOverrideSynced(
+                                    pawn.thingIDNumber,
+                                    workGiver.defName);
+                                changed++;
+                            }
 
-                        TimePriorityTarget workGiverTarget = TimePriorityTarget.ForWorkGiver(
-                            pawn,
-                            workType,
-                            workGiver,
-                            WorkGiverDisplayNameService.HeaderLabel(workGiver));
-                        changed += SetSchedule(workGiverTarget, normalizedPriorities, workGiverFallback);
+                            if (HasAnyPinnedHour(workGiverTarget))
+                            {
+                                TimePriorityService.ClearSchedule(workGiverTarget);
+                                changed++;
+                            }
+
+                            continue;
+                        }
+
+                        int workGiverFallback = ChooseFallbackPriority(normalizedPriorities);
+                        int normalizedWorkGiverFallback = WorkPrioritySystem.ClampPriority(workGiverFallback);
+                        if (!WorkGiverReassignmentManager.TryGetPawnWorkGiverOverride(
+                                pawn,
+                                workGiver,
+                                out int currentWorkGiverFallback) ||
+                            currentWorkGiverFallback != normalizedWorkGiverFallback)
+                        {
+                            WorkGiverReassignmentManager.SetPawnOverrideSynced(
+                                pawn.thingIDNumber,
+                                workGiver.defName,
+                                workGiverFallback);
+                            changed++;
+                        }
+
+                        if (!ScheduleMatchesAllPinnedHours(
+                                workGiverTarget,
+                                normalizedPriorities,
+                                workGiverFallback))
+                        {
+                            SetSchedule(workGiverTarget, normalizedPriorities, workGiverFallback);
+                            changed++;
+                        }
                     }
                 }
             }
@@ -128,48 +205,89 @@ namespace Better_Work_Tab.ModSupport
             return changed;
         }
 
-        private static void EnsurePriorityRangeForImport(int importedMax)
+        private static bool EnsurePriorityRangeForImport(int importedMax)
         {
             importedMax = PriorityAuthorityBroker.ClampMaxPriority(importedMax);
             if (importedMax <= PriorityConstants.VanillaMax)
             {
-                return;
+                return false;
             }
 
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
             if (settings == null)
             {
-                return;
+                return false;
             }
 
+            bool changed = false;
             if (settings.maxPriorityInt < importedMax)
             {
                 settings.maxPriorityInt = importedMax;
+                changed = true;
             }
 
             if (settings.priorityMode == PriorityMode.Vanilla)
             {
                 settings.SetPriorityMode(PriorityMode.Auto);
+                changed = true;
+            }
+
+            if (!changed)
+            {
+                return false;
             }
 
             settings.NormalizePrioritySettings();
             PriorityAuthorityBroker.InvalidateCaches();
+            return true;
         }
 
-        private static int SetSchedule(
+        private static void SetSchedule(
             TimePriorityTarget target,
             int[] priorities,
             int fallbackPriority)
         {
             int[] normalized = NormalizePriorities(priorities, fallbackPriority);
-            if (normalized.All(priority => priority == WorkPrioritySystem.ClampPriority(fallbackPriority)))
+            TimePriorityService.SetScheduleSynced(
+                target,
+                normalized,
+                TimePriorityService.CreateAllHoursPinnedState(),
+                fallbackPriority);
+        }
+
+        private static bool ScheduleMatchesAllPinnedHours(
+            TimePriorityTarget target,
+            int[] priorities,
+            int fallbackPriority)
+        {
+            int[] currentPriorities = TimePriorityService.GetPrioritiesForDisplay(
+                target,
+                fallbackPriority);
+            bool[] currentPinnedHours = TimePriorityService.GetLinkStateForDisplay(target);
+            for (int hour = 0; hour < TimePriorityService.HoursPerDay; hour++)
             {
-                TimePriorityService.ClearSchedule(target);
-                return 0;
+                if (!currentPinnedHours[hour] ||
+                    currentPriorities[hour] != WorkPrioritySystem.ClampPriority(priorities[hour]))
+                {
+                    return false;
+                }
             }
 
-            TimePriorityService.SetPrioritiesSynced(target, normalized, fallbackPriority);
-            return 1;
+            return true;
+        }
+
+        private static bool HasAnyPinnedHour(TimePriorityTarget target)
+        {
+            bool[] pinnedHours = TimePriorityService.GetLinkStateForDisplay(target);
+            for (int hour = 0; hour < pinnedHours.Length; hour++)
+            {
+                if (pinnedHours[hour])
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static int[] BuildWorkTypePriorities(List<ExternalWorkGiverPriorityRecord> workGiverPriorities)

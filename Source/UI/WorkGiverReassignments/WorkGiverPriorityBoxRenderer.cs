@@ -67,7 +67,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 WorkGiverCellPresentationCache.Resolve(wg, workType, pawn, knownParentPriority);
             int workGiverPriority = FluffyTimeScheduleAssigner.IsOpen
                 ? FluffyTimeScheduleAssigner.GetDisplayPriority(
-                    TimePriorityTarget.ForWorkGiver(pawn, workType, wg.def),
+                    TimePriorityTarget.ForRuntimeWorkGiver(pawn, workType, wg.def),
                     presentation.BasePriority,
                     pawn)
                 : presentation.EffectivePriority;

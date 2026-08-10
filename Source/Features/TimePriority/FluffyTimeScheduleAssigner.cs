@@ -226,7 +226,7 @@ namespace Better_Work_Tab.Features.TimePriority
             Rect boxRect = Better_Work_Tab.UI.WorkPriorityCellGeometry.GetPriorityBoxRect(cellRect);
             int fallbackPriority = WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, workType);
             int displayPriority = GetDisplayPriority(
-                TimePriorityTarget.ForWorkType(pawn, workType),
+                TimePriorityTarget.ForRuntimeWorkType(pawn, workType),
                 fallbackPriority,
                 pawn);
 
@@ -320,7 +320,7 @@ namespace Better_Work_Tab.Features.TimePriority
             }
 
             priority = WorkPrioritySystem.ClampPriority(priority);
-            TimePriorityTarget target = TimePriorityTarget.ForWorkType(pawn, workType);
+            TimePriorityTarget target = TimePriorityTarget.ForRuntimeWorkType(pawn, workType);
             RecordAppliedTarget(target, priority);
             if (SelectedHourSet.Count == TimePriorityService.HoursPerDay)
             {
@@ -348,7 +348,7 @@ namespace Better_Work_Tab.Features.TimePriority
                 ? WorkPrioritySystem.GetDefaultEnabledPriority()
                 : WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, workGiver.workType);
             int fallback = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, workGiver, parentPriority);
-            TimePriorityTarget target = TimePriorityTarget.ForWorkGiver(pawn, workGiver.workType, workGiver);
+            TimePriorityTarget target = TimePriorityTarget.ForRuntimeWorkGiver(pawn, workGiver.workType, workGiver);
             priority = WorkPrioritySystem.ClampPriority(priority);
             RecordAppliedTarget(target, priority);
 
@@ -372,18 +372,24 @@ namespace Better_Work_Tab.Features.TimePriority
         private static void ApplySelectedHours(TimePriorityTarget target, int fallbackPriority, int priority)
         {
             int[] priorities = TimePriorityService.GetPrioritiesForDisplay(target, fallbackPriority);
+            bool[] pinnedHours = TimePriorityService.GetLinkStateForDisplay(target);
             foreach (int hour in SelectedHourSet)
             {
                 priorities[hour] = priority;
+                pinnedHours[hour] = true;
             }
 
-            TimePriorityService.SetPrioritiesSynced(target, priorities, fallbackPriority);
+            TimePriorityService.SetScheduleSynced(target, priorities, pinnedHours, fallbackPriority);
         }
 
         private static void ClearScheduleSynced(TimePriorityTarget target, int fallbackPriority)
         {
             int[] wholeDay = Enumerable.Repeat(fallbackPriority, TimePriorityService.HoursPerDay).ToArray();
-            TimePriorityService.SetPrioritiesSynced(target, wholeDay, fallbackPriority);
+            TimePriorityService.SetScheduleSynced(
+                target,
+                wholeDay,
+                new bool[TimePriorityService.HoursPerDay],
+                fallbackPriority);
         }
 
         internal static void Draw(Rect inRect, IWorkTabLayoutController layout, float baseBottomSpace)

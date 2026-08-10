@@ -115,7 +115,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
 
             if (TimePriorityService.HasAnySchedule())
             {
-                TimePriorityTarget target = TimePriorityTarget.ForWorkType(null, workType);
+                TimePriorityTarget target = TimePriorityTarget.ForRuntimeWorkType(null, workType);
                 int fallback = WorkPrioritySystem.GetDefaultEnabledPriority();
                 if (TimePriorityService.HasCustomSchedule(target, fallback))
                 {
@@ -143,7 +143,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
 
                 int fallback = WorkPrioritySystem.GetDefaultEnabledPriority();
                 int globalPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(null, workGiver, fallback);
-                TimePriorityTarget globalTarget = TimePriorityTarget.ForWorkGiver(null, workType, workGiver);
+                TimePriorityTarget globalTarget = TimePriorityTarget.ForRuntimeWorkGiver(null, workType, workGiver);
                 bool hasSchedule = TimePriorityService.HasCustomSchedule(globalTarget, globalPriority);
                 bool hasOverrides = pawns.Any(pawn =>
                     WorkGiverReassignmentManager.HasPawnWorkGiverOverride(pawn, workGiver));

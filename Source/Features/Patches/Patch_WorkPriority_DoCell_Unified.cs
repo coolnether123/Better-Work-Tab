@@ -886,7 +886,7 @@ namespace Better_Work_Tab.Patches
             }
 
             return TimePriorityService.HasCustomSchedule(
-                TimePriorityTarget.ForWorkType(pawn, workType),
+                TimePriorityTarget.ForRuntimeWorkType(pawn, workType),
                 WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, workType));
         }
 

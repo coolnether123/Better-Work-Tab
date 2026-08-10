@@ -23,6 +23,8 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         private static readonly Dictionary<int, bool> ReassignedCache = new Dictionary<int, bool>();
         private static readonly Dictionary<string, List<WorkGiver>> OrderedWorkGiverCache = new Dictionary<string, List<WorkGiver>>(StringComparer.Ordinal);
         private static readonly Dictionary<string, List<WorkGiver>> DisplayWorkGiverCache = new Dictionary<string, List<WorkGiver>>(StringComparer.Ordinal);
+        private static int _mutationBatchDepth;
+        private static bool _mutationBatchChanged;
 
         private static int _cachedSyncVersion = -1;
         private static int _cachedActivationSyncVersion = int.MinValue;
@@ -157,15 +159,15 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             ApplyEnableParentAndSetOnlySubOverride(pawnId, workTypeDefName, workGiverDefName, priority);
         }
 
-        internal static void SetPawnWorkGiverOrderSynced(int pawnId, string workTypeDefName, List<string> orderedWorkGiverNames)
+        internal static bool SetPawnWorkGiverOrderSynced(int pawnId, string workTypeDefName, List<string> orderedWorkGiverNames)
         {
             if (MultiplayerBridge.Active)
             {
                 SyncSetPawnWorkGiverOrder(pawnId, workTypeDefName, orderedWorkGiverNames);
-                return;
+                return true;
             }
 
-            SetPawnWorkGiverOrder(pawnId, workTypeDefName, orderedWorkGiverNames);
+            return SetPawnWorkGiverOrder(pawnId, workTypeDefName, orderedWorkGiverNames);
         }
 
         internal static void MoveWithinWorkTypeSynced(string workTypeDefName, string workGiverDefName, int newIndex, Pawn pawn = null)
@@ -197,6 +199,24 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             DisplayWorkGiverCache.Clear();
             _cachedActivationSyncVersion = int.MinValue;
             _cachedActivationComponent = null;
+        }
+
+        internal static IDisposable BeginMutationBatch()
+        {
+            _mutationBatchDepth++;
+            return new MutationBatchScope();
+        }
+
+        internal static bool CommitMutationBatch()
+        {
+            if (_mutationBatchDepth != 0 || !_mutationBatchChanged)
+            {
+                return false;
+            }
+
+            _mutationBatchChanged = false;
+            InvalidateCaches();
+            return true;
         }
 
         internal static void OnSettingsLoaded()
@@ -1498,12 +1518,42 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         private static void NotifySubWorkDataChanged()
         {
             InvalidateCaches();
+            if (_mutationBatchDepth > 0)
+            {
+                _mutationBatchChanged = true;
+                return;
+            }
+
             UI.WorkGrid.Invalidation.WorkTabInvalidationHub.Invalidate(
                 UI.WorkGrid.Contracts.WorkTabDirtyFlags.SubWorkOverride |
                 UI.WorkGrid.Contracts.WorkTabDirtyFlags.Columns |
                 UI.WorkGrid.Contracts.WorkTabDirtyFlags.HeaderGeometry);
             WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+        }
+
+        private static void EndMutationBatch()
+        {
+            if (_mutationBatchDepth > 0)
+            {
+                _mutationBatchDepth--;
+            }
+        }
+
+        private sealed class MutationBatchScope : IDisposable
+        {
+            private bool _disposed;
+
+            public void Dispose()
+            {
+                if (_disposed)
+                {
+                    return;
+                }
+
+                _disposed = true;
+                EndMutationBatch();
+            }
         }
 
         internal static int ComputePresentationAuditSignature()

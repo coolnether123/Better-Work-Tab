@@ -241,6 +241,23 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             return type != null;
         }
 
+        /// <summary>
+        /// Rechecks optional Fluffy identity once the post-load assembly set is complete. Normal
+        /// IsPresent reads remain cached so closed-tab UI paths do not become a polling mechanism.
+        /// </summary>
+        internal static void ReconcileDetection()
+        {
+            if (_detected == true && (_fluffyWorkTabWindowType != null || IsSimulated))
+            {
+                return;
+            }
+
+            _detected = null;
+            _detectedPackageId = null;
+            _fluffyWorkTabWindowType = null;
+            EnsureDetected();
+        }
+
         private static MainTabsRoot TryGetMainTabsRoot()
         {
             if (Current.ProgramState != ProgramState.Playing)

@@ -43,6 +43,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
             }
 
             _nextAuditTick = ticks + AuditIntervalTicks;
+            TimePriorityService.ReconcileDirectMutationsFromAudit();
             int signature = ComputeSignature(table);
             WorkGridRevisionSet revisions = WorkTabInvalidationHub.Current.CategoryRevisions;
             bool knownTrackedChange =

@@ -73,6 +73,13 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
         private static bool _fluffyPriorityTypesResolved;
         private static bool _fluffyHostedColumnsDisabled;
         private static bool _externalFluffyColumnsUnavailable;
+        private static readonly FluffyWorkTabPriorityProvider ExternalPriorityProvider =
+            new FluffyWorkTabPriorityProvider();
+        private static readonly FluffyWorkTabExternalStore ExternalStore =
+            new FluffyWorkTabExternalStore();
+        private static bool _priorityProviderRegistered;
+        private static bool _externalStoreRegistered;
+        private static bool _priorityImporterRegistered;
         private static readonly Dictionary<string, PawnColumnDef> HostedWorkTypeColumns =
             new Dictionary<string, PawnColumnDef>(StringComparer.Ordinal);
         private static readonly Dictionary<string, PawnColumnDef> HostedWorkGiverColumns =
@@ -208,10 +215,59 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
         /// </summary>
         internal static void RegisterPriorityProvider()
         {
-            PriorityProviderRegistry.RegisterProvider(new FluffyWorkTabPriorityProvider());
-            var store = new FluffyWorkTabExternalStore();
-            ExternalWorkTabApi.RegisterStore(store);
-            ExternalWorkTabApi.RegisterPriorityImporter(store);
+            // Do not register an unavailable adapter. The authority/provider registries use the
+            // registration count as their hot-path gate, so a missing optional mod must remain an
+            // empty snapshot rather than a repeatedly probed unavailable store.
+            if (!IsPresent)
+            {
+                return;
+            }
+
+            if (_priorityProviderRegistered &&
+                !PriorityProviderRegistry.IsCurrentProviderRegistration(ExternalPriorityProvider))
+            {
+                _priorityProviderRegistered = false;
+            }
+
+            if (_externalStoreRegistered &&
+                !ExternalWorkTabRegistry.IsCurrentStoreRegistration(ExternalStore))
+            {
+                _externalStoreRegistered = false;
+                _priorityImporterRegistered = false;
+            }
+
+            if (!_externalStoreRegistered)
+            {
+                _priorityImporterRegistered = false;
+            }
+
+            if (!_priorityProviderRegistered &&
+                PriorityProviderRegistry.RegisterProvider(ExternalPriorityProvider))
+            {
+                _priorityProviderRegistered = true;
+            }
+
+            if (!_externalStoreRegistered && ExternalWorkTabApi.RegisterStore(ExternalStore))
+            {
+                _externalStoreRegistered = true;
+            }
+
+            if (_externalStoreRegistered &&
+                !_priorityImporterRegistered &&
+                ExternalWorkTabApi.RegisterPriorityImporter(ExternalStore))
+            {
+                _priorityImporterRegistered = true;
+            }
+        }
+
+        /// <summary>
+        /// Rechecks an optional assembly at the one post-load/reconciliation boundary, then fills
+        /// registrations that could not be made during the initial provider discovery pass.
+        /// </summary>
+        internal static void ReconcileOptionalRegistration()
+        {
+            FluffyWorkTabCoexistence.ReconcileDetection();
+            RegisterPriorityProvider();
         }
 
         // --- Priority mirroring -------------------------------------------------------------

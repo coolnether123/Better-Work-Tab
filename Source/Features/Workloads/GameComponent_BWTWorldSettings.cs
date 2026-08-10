@@ -87,6 +87,7 @@ namespace Better_Work_Tab.Features.Workloads
             if (Scribe.mode == LoadSaveMode.Saving)
             {
                 EnsureCurrentWorklist();
+                TimePriorityService.NormalizeBeforeSave();
             }
 
             string currentWorklistName = "";

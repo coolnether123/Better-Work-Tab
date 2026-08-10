@@ -91,8 +91,26 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 #endif
         private static bool authorityInitialized;
         private static AuthoritySnapshot lastAuthoritySnapshot;
+        private static AuthoritySnapshot pendingPreviousAuthority;
+        private static AuthoritySnapshot pendingNextAuthority;
+        private static bool hasPendingAuthorityTransition;
         private static bool handoffInProgress;
         private static PriorityAuthorityOwner? handoffAuthorityOverride;
+        private static readonly object authorityRefreshSyncRoot = new object();
+        private static bool authorityRefreshInProgress;
+        private static bool authorityRefreshPending;
+        private static bool authorityRefreshDeferred;
+        private const int MaxSynchronousAuthorityRefreshPasses = 8;
+        private static readonly PriorityProviderSnapshot[] snapshotCache =
+            new PriorityProviderSnapshot[PriorityConstants.ExtendedHardMax + 1];
+        private static object snapshotSettings;
+        private static PriorityMode snapshotMode;
+        private static int snapshotConfiguredMax;
+        private static int snapshotHighestLivePriority;
+        private static bool snapshotDelegatesToExternal;
+        private static string snapshotSelectedProviderId;
+        private static long snapshotProviderAvailabilityGeneration = -1;
+        private static bool snapshotCacheInitialized;
 
         public static PriorityAuthorityOwner CurrentAuthority
         {
@@ -103,9 +121,26 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                     return handoffAuthorityOverride.Value;
                 }
 
+                if (!handoffInProgress && ExternalWorkTabRegistry.RegisteredStoreEntryCount == 0)
+                {
+                    return PriorityAuthorityOwner.BetterWorkTab;
+                }
+
+                DrainDeferredAuthorityRefresh();
                 AuthoritySnapshot snapshot = GetAuthoritySnapshot();
                 EnsureTransitionApplied(snapshot);
-                return snapshot.Owner;
+                if (hasPendingAuthorityTransition && !CanRunHandoffNow())
+                {
+                    // A last authority is allowed to remain visible only while an explicit handoff
+                    // is pending. It is never treated as the current store selection by the store
+                    // getter below.
+                    return lastAuthoritySnapshot.Owner;
+                }
+
+                return snapshot.IsCoherent &&
+                       snapshot.RegistryGeneration == ExternalWorkTabRegistry.RegistryGeneration
+                    ? snapshot.Owner
+                    : PriorityAuthorityOwner.BetterWorkTab;
             }
         }
 
@@ -155,8 +190,13 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
              TimePriorityService.IsRuntimeActive ||
              WorkExecutionOrder.HasCustomExecutionOrder);
 
-        internal static void NotifyPotentialAuthorityChanged()
+        internal static void NotifyPotentialAuthorityChanged(bool refreshRegistry = true)
         {
+            if (refreshRegistry)
+            {
+                ExternalWorkTabRegistry.NotifyAvailabilityChanged();
+            }
+
             InvalidateAuthorityAndRefresh();
         }
 
@@ -179,7 +219,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 return ClampRuntimePriority(externalPriority);
             }
 
-            return GetBetterWorkTabStoredPriority(pawn.workSettings, workType);
+            return GetBetterWorkTabEffectiveStoredPriority(pawn, workType);
         }
 
         internal static int GetEffectivePriorityAtHour(Pawn pawn, WorkTypeDef workType, int hour)
@@ -201,14 +241,14 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 return ClampRuntimePriority(externalPriority);
             }
 
-            int basePriority = GetBetterWorkTabStoredPriority(pawn.workSettings, workType);
+            int basePriority = GetBetterWorkTabEffectiveStoredPriority(pawn, workType);
             if (!TimePriorityService.IsRuntimeActive)
             {
                 return basePriority;
             }
 
             return TimePriorityService.GetPriorityAtHour(
-                TimePriorityTarget.ForWorkType(pawn, workType),
+                TimePriorityTarget.ForRuntimeWorkType(pawn, workType),
                 basePriority,
                 hour);
         }
@@ -223,11 +263,27 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             return ClampStoredPriorityForRuntime(workSettings.priorities[workType]);
         }
 
+        private static int GetBetterWorkTabEffectiveStoredPriority(Pawn pawn, WorkTypeDef workType)
+        {
+            if (pawn?.workSettings?.priorities == null || workType == null)
+            {
+                return GetDefaultEnabledPriority();
+            }
+
+            int storedPriority = GetVanillaCompatibleStoredPriority(pawn, pawn.workSettings, workType);
+            return ClampStoredPriorityForRuntime(storedPriority);
+        }
+
         internal static int GetVanillaCompatibleStoredPriority(
             Pawn pawn,
             Pawn_WorkSettings workSettings,
             WorkTypeDef workType)
         {
+            if (pawn?.RaceProps == null || workSettings?.priorities == null || workType == null)
+            {
+                return GetDefaultEnabledPriority();
+            }
+
             int storedPriority = workSettings.priorities[workType];
             return pawn.RaceProps.Humanlike &&
                    storedPriority > PriorityConstants.Disabled &&
@@ -251,36 +307,104 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             }
 
             return TimePriorityService.GetPriorityAtHour(
-                TimePriorityTarget.ForWorkGiver(pawn, workType, workGiver),
+                TimePriorityTarget.ForRuntimeWorkGiver(pawn, workType, workGiver),
                 fallback,
                 hour);
         }
 
         public static PriorityProviderSnapshot GetSnapshot()
         {
-            return GetSnapshotForPriority(GetRequiredPriorityFloor());
+            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
+            settings?.NormalizePrioritySettings();
+            PriorityMode mode = settings?.priorityMode ?? DefaultSettings.priorityMode;
+            return GetSnapshotForPriority(mode == PriorityMode.Auto ? GetRequiredPriorityFloor() : 0);
         }
 
         public static PriorityProviderSnapshot GetSnapshotForPriority(int requestedPriority)
         {
-            PriorityProviderRegistry.EnsureInitialized();
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
             settings?.NormalizePrioritySettings();
 
             PriorityMode mode = settings?.priorityMode ?? DefaultSettings.priorityMode;
+            bool needsExternalProviders = mode == PriorityMode.ExternalProvider ||
+                (mode == PriorityMode.Auto && (settings?.delegateToExternalPriorityMods ?? false));
+            if (needsExternalProviders)
+            {
+                PriorityProviderRegistry.EnsureInitialized();
+            }
+
+            int highestLivePriority = mode == PriorityMode.Auto ? GetHighestLivePriority() : 0;
+            PrepareSnapshotCache(
+                settings,
+                mode,
+                GetBetterWorkTabConfiguredMaxPriority(),
+                highestLivePriority,
+                settings?.delegateToExternalPriorityMods ?? false,
+                settings?.selectedPriorityProviderId);
+            int cacheIndex = requestedPriority < 0
+                ? 0
+                : requestedPriority > PriorityConstants.ExtendedHardMax
+                    ? PriorityConstants.ExtendedHardMax
+                    : requestedPriority;
+            PriorityProviderSnapshot cached = snapshotCache[cacheIndex];
+            if (cached != null)
+            {
+                return cached;
+            }
+
+            PriorityProviderSnapshot snapshot;
             switch (mode)
             {
                 case PriorityMode.Vanilla:
-                    return CreateVanillaSnapshot(false);
+                    snapshot = CreateVanillaSnapshot(false);
+                    break;
                 case PriorityMode.BetterWorkTab:
-                    return CreateBetterWorkTabSnapshot(false, GetBetterWorkTabConfiguredMaxPriority());
+                    snapshot = CreateBetterWorkTabSnapshot(false, GetBetterWorkTabConfiguredMaxPriority());
+                    break;
                 case PriorityMode.ExternalProvider:
-                    return ResolveSelectedExternalProvider(settings, requestedPriority) ??
-                           CreateVanillaSnapshot(true);
+                    snapshot = ResolveSelectedExternalProvider(settings, requestedPriority) ??
+                               CreateVanillaSnapshot(true);
+                    break;
                 case PriorityMode.Auto:
                 default:
-                    return ResolveAutomaticProvider(settings, requestedPriority);
+                    snapshot = ResolveAutomaticProvider(settings, requestedPriority);
+                    break;
             }
+
+            snapshotCache[cacheIndex] = snapshot;
+            return snapshot;
+        }
+
+        private static void PrepareSnapshotCache(
+            BetterWorkTabSettings settings,
+            PriorityMode mode,
+            int configuredMax,
+            int highestLivePriority,
+            bool delegatesToExternal,
+            string selectedProviderId)
+        {
+            long providerAvailabilityGeneration = PriorityProviderRegistry.AvailabilityGeneration;
+            if (snapshotCacheInitialized &&
+                ReferenceEquals(snapshotSettings, settings) &&
+                snapshotMode == mode &&
+                snapshotConfiguredMax == configuredMax &&
+                snapshotHighestLivePriority == highestLivePriority &&
+                snapshotDelegatesToExternal == delegatesToExternal &&
+                string.Equals(snapshotSelectedProviderId, selectedProviderId, StringComparison.OrdinalIgnoreCase) &&
+                snapshotProviderAvailabilityGeneration == providerAvailabilityGeneration)
+            {
+                return;
+            }
+
+            Array.Clear(snapshotCache, 0, snapshotCache.Length);
+            snapshotSettings = settings;
+            snapshotMode = mode;
+            snapshotConfiguredMax = configuredMax;
+            snapshotHighestLivePriority = highestLivePriority;
+            snapshotDelegatesToExternal = delegatesToExternal;
+            snapshotSelectedProviderId = selectedProviderId;
+            snapshotProviderAvailabilityGeneration = providerAvailabilityGeneration;
+            snapshotCacheInitialized = true;
         }
 
         public static int GetEffectiveMaxPriority()
@@ -317,7 +441,9 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
         internal static int GetBetterWorkTabConfiguredMaxPriority()
         {
-            return ClampMaxPriority(BetterWorkTabMod.Settings?.maxPriorityInt ?? DefaultSettings.maxPriority);
+            return Math.Max(
+                PriorityConstants.VanillaMax,
+                ClampMaxPriority(BetterWorkTabMod.Settings?.maxPriorityInt ?? DefaultSettings.maxPriority));
         }
 
         internal static int GetAutoConfiguredMaxPriority()
@@ -342,10 +468,16 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
         public static int ClampPriorityForRequest(int priority)
         {
+            // Snapshot resolution also observes the highest value already present in the world so
+            // its metadata can describe preserved external values. That observation cannot lower
+            // the result of clamping this request: the request itself is part of the snapshot's
+            // required floor. The runtime policy is therefore the equivalent value-only seam and
+            // avoids a world scan on every SetPriority call. Settings are normalized at the settings
+            // load/write seams; the runtime getters still clamp malformed numeric values safely.
             return Clamp(
                 priority,
                 PriorityConstants.Disabled,
-                GetSnapshotForPriority(priority).MaxPriority);
+                GetRuntimePriorityMaximum(priority));
         }
 
         internal static int ClampStoredPriorityForRuntime(int priority)
@@ -364,14 +496,34 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 case PriorityMode.BetterWorkTab:
                     return GetBetterWorkTabConfiguredMaxPriority();
                 case PriorityMode.ExternalProvider:
+                    PriorityProviderRegistry.EnsureInitialized();
+                    // ResolveSelectedExternalProvider falls back to the vanilla
+                    // provider for a missing, built-in, unavailable, or replaced
+                    // selection; otherwise it returns an available provider with
+                    // max M. Since its final snapshot is capped at the requested
+                    // priority's vanilla floor, clamping directly to M is
+                    // equivalent and keeps this setter path world-size O(1).
+                    if (settings == null ||
+                        IsProviderId(settings.selectedPriorityProviderId, PriorityConstants.AutoProviderId) ||
+                        IsProviderId(settings.selectedPriorityProviderId, PriorityConstants.VanillaProviderId) ||
+                        IsProviderId(settings.selectedPriorityProviderId, PriorityConstants.BwtProviderId))
+                    {
+                        return PriorityConstants.VanillaMax;
+                    }
+
                     PriorityProviderRegistry.EnsureRuntimePolicy(
                         GetAutoConfiguredMaxPriority(),
                         settings?.selectedPriorityProviderId);
                     return PriorityProviderRegistry.RuntimeSelectedProviderMax;
                 case PriorityMode.Auto:
                 default:
-                    if (settings == null || !settings.delegateToExternalPriorityMods ||
-                        PriorityProviderRegistry.ExternalProviderCount == 0)
+                    if (settings == null || !settings.delegateToExternalPriorityMods)
+                    {
+                        return GetAutoConfiguredMaxPriority();
+                    }
+
+                    PriorityProviderRegistry.EnsureInitialized();
+                    if (PriorityProviderRegistry.ExternalProviderCount == 0)
                     {
                         return GetAutoConfiguredMaxPriority();
                     }
@@ -475,14 +627,17 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                    settings.delegateToExternalPriorityMods;
         }
 
-        internal static void InvalidateCaches()
+        internal static void InvalidateCaches(bool refreshProviderRegistry = true)
         {
             cachedFrame = -1;
             cachedGame = null;
             hasCachedAuthoritySnapshot = false;
-            PriorityProviderRegistry.RefreshRuntimePolicy(
-                GetAutoConfiguredMaxPriority(),
-                BetterWorkTabMod.Settings?.selectedPriorityProviderId);
+            if (refreshProviderRegistry)
+            {
+                PriorityProviderRegistry.NotifyAvailabilityChanged();
+            }
+
+            PriorityProviderRegistry.InvalidateRuntimePolicy();
             InvalidateAuthorityAndRefresh();
         }
 
@@ -500,12 +655,24 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 return false;
             }
 
+            // The empty immutable registry snapshot is the common path. Do not initialize or audit
+            // optional integrations from the vanilla/BWT getter when there are no usable stores.
+            if (ExternalWorkTabRegistry.RegisteredStoreEntryCount == 0)
+            {
+                store = null;
+                return false;
+            }
+
+            DrainDeferredAuthorityRefresh();
             AuthoritySnapshot snapshot = GetAuthoritySnapshot();
             EnsureTransitionApplied(snapshot);
-            store = snapshot.AuthoritativeStore;
-            return snapshot.IsCoherent &&
-                   snapshot.RegistryGeneration == ExternalWorkTabRegistry.RegistryGeneration &&
-                   snapshot.Owner != PriorityAuthorityOwner.BetterWorkTab &&
+            AuthoritySnapshot effective = hasPendingAuthorityTransition && !CanRunHandoffNow()
+                ? lastAuthoritySnapshot
+                : snapshot;
+            store = effective.AuthoritativeStore;
+            return effective.IsCoherent &&
+                   effective.RegistryGeneration == ExternalWorkTabRegistry.RegistryGeneration &&
+                   effective.Owner != PriorityAuthorityOwner.BetterWorkTab &&
                    store != null;
         }
 
@@ -515,8 +682,96 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             explicitInvalidations++;
 #endif
             explicitAuthorityGeneration++;
-            AuthoritySnapshot snapshot = GetAuthoritySnapshot(forceRefresh: true);
-            EnsureTransitionApplied(snapshot);
+            bool shouldRefresh = false;
+            lock (authorityRefreshSyncRoot)
+            {
+                if (authorityRefreshInProgress)
+                {
+                    authorityRefreshPending = true;
+                    return;
+                }
+
+                authorityRefreshInProgress = true;
+                authorityRefreshDeferred = false;
+                shouldRefresh = true;
+            }
+
+            if (!shouldRefresh)
+            {
+                return;
+            }
+
+            bool completed = false;
+            try
+            {
+                for (int pass = 0; pass < MaxSynchronousAuthorityRefreshPasses; pass++)
+                {
+                    lock (authorityRefreshSyncRoot)
+                    {
+                        authorityRefreshPending = false;
+                    }
+
+                    AuthoritySnapshot snapshot = GetAuthoritySnapshot(forceRefresh: true);
+                    EnsureTransitionApplied(snapshot);
+                    lock (authorityRefreshSyncRoot)
+                    {
+                        if (!authorityRefreshPending)
+                        {
+                            completed = true;
+                            return;
+                        }
+                    }
+                }
+            }
+            finally
+            {
+                lock (authorityRefreshSyncRoot)
+                {
+                    authorityRefreshInProgress = false;
+                    if (!completed && authorityRefreshPending)
+                    {
+                        authorityRefreshPending = false;
+                        authorityRefreshDeferred = true;
+                    }
+                }
+            }
+        }
+
+        private static void DrainDeferredAuthorityRefresh()
+        {
+            bool shouldRefresh = false;
+            lock (authorityRefreshSyncRoot)
+            {
+                if (authorityRefreshDeferred && !authorityRefreshInProgress)
+                {
+                    authorityRefreshDeferred = false;
+                    authorityRefreshInProgress = true;
+                    shouldRefresh = true;
+                }
+            }
+
+            if (shouldRefresh)
+            {
+                bool completed = false;
+                try
+                {
+                    AuthoritySnapshot snapshot = GetAuthoritySnapshot(forceRefresh: true);
+                    EnsureTransitionApplied(snapshot);
+                    completed = true;
+                }
+                finally
+                {
+                    lock (authorityRefreshSyncRoot)
+                    {
+                        authorityRefreshInProgress = false;
+                        if (!completed && authorityRefreshPending)
+                        {
+                            authorityRefreshPending = false;
+                            authorityRefreshDeferred = true;
+                        }
+                    }
+                }
+            }
         }
 
         /// <summary>
@@ -538,10 +793,27 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             RecordAuthorityRequest();
             Game game = Current.Game;
             int registeredStoreCount = ExternalWorkTabRegistry.RegisteredStoreCount;
-            int frame = registeredStoreCount > 0 ? Time.frameCount : -1;
-            long registryGeneration = registeredStoreCount > 0
-                ? ExternalWorkTabRegistry.RegistryGeneration
-                : 0;
+            int frame = -1;
+            long registryGeneration = ExternalWorkTabRegistry.RegistryGeneration;
+
+            if (ExternalWorkTabRegistry.RegisteredStoreEntryCount == 0)
+            {
+                AuthoritySnapshot emptySnapshot = new AuthoritySnapshot(
+                    game,
+                    frame,
+                    registryGeneration,
+                    explicitAuthorityGeneration,
+                    registeredStoreCount,
+                    PriorityAuthorityOwner.BetterWorkTab,
+                    null,
+                    null,
+                    0,
+                    true);
+                cachedAuthoritySnapshot = emptySnapshot;
+                hasCachedAuthoritySnapshot = true;
+                RecordAuthorityComputation();
+                return emptySnapshot;
+            }
 
             AuthoritySnapshot cached = cachedAuthoritySnapshot;
             if (!forceRefresh &&
@@ -549,8 +821,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 ReferenceEquals(cached.Game, game) &&
                 cached.IsCoherent &&
                 cached.RegisteredStoreCount == registeredStoreCount &&
-                (registeredStoreCount == 0 || cached.Frame == frame) &&
-                cached.RegistryGeneration == registryGeneration &&
+                 cached.RegistryGeneration == registryGeneration &&
                 cached.ExplicitAuthorityGeneration == explicitAuthorityGeneration)
             {
                 RecordAuthorityCacheHit();
@@ -560,24 +831,19 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             if (hasCachedAuthoritySnapshot && !ReferenceEquals(cached.Game, game))
             {
                 authorityInitialized = false;
+                hasPendingAuthorityTransition = false;
+                pendingPreviousAuthority = default(AuthoritySnapshot);
+                pendingNextAuthority = default(AuthoritySnapshot);
             }
 
-            PriorityProviderRegistry.EnsureInitialized();
-            ExternalWorkTabRegistry.AuthoritativeStoreResult selection = registeredStoreCount == 0
-                ? ExternalWorkTabRegistry.AuthoritativeStoreResult.Coherent(null, 0)
-                : ExternalWorkTabRegistry.FindAuthoritativeStore();
+            ExternalWorkTabRegistry.AuthoritativeStoreResult selection =
+                ExternalWorkTabRegistry.FindAuthoritativeStore();
             if (!selection.IsCoherent)
             {
                 RecordAuthorityComputation();
-                if (hasCachedAuthoritySnapshot &&
-                    cached.IsCoherent &&
-                    ReferenceEquals(cached.Game, game))
-                {
-                    // Registry callbacks were unstable for the bounded probe window. Retain the
-                    // last coherent decision with its original generation; never turn an older
-                    // selection into a falsely current authority handoff.
-                    return cached;
-                }
+                // Registry callbacks were unstable for the bounded probe window. Return a
+                // non-coherent BWT fallback with the current generation; never let an older
+                // owner/store pair be reported as current or trigger a handoff.
 
                 return new AuthoritySnapshot(
                     game,
@@ -587,12 +853,14 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                     registeredStoreCount,
                     PriorityAuthorityOwner.BetterWorkTab,
                     null,
+                    null,
+                    0,
                     false);
             }
 
             registryGeneration = selection.Generation;
             IExternalWorkTabStore store = selection.Store;
-            PriorityAuthorityOwner owner = GetOwner(store);
+            PriorityAuthorityOwner owner = GetOwner(store, selection.StoreId);
             AuthoritySnapshot snapshot = new AuthoritySnapshot(
                 game,
                 frame,
@@ -601,6 +869,8 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 registeredStoreCount,
                 owner,
                 store,
+                selection.StoreId,
+                selection.RegistrationGeneration,
                 true);
             cachedAuthoritySnapshot = snapshot;
             hasCachedAuthoritySnapshot = true;
@@ -608,10 +878,10 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             return snapshot;
         }
 
-        private static PriorityAuthorityOwner GetOwner(IExternalWorkTabStore store)
+        private static PriorityAuthorityOwner GetOwner(IExternalWorkTabStore store, string storeId)
         {
             if (store != null &&
-                string.Equals(store.StoreId, SleekWorkTabIdentity.ProviderId, StringComparison.OrdinalIgnoreCase))
+                string.Equals(storeId, SleekWorkTabIdentity.ProviderId, StringComparison.OrdinalIgnoreCase))
             {
                 return PriorityAuthorityOwner.SleekWorkPriorities;
             }
@@ -635,23 +905,42 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 return;
             }
 
-            if (SameAuthority(lastAuthoritySnapshot, authority) || handoffInProgress)
+            if (handoffInProgress)
             {
+                return;
+            }
+
+            if (SameAuthority(lastAuthoritySnapshot, authority))
+            {
+                hasPendingAuthorityTransition = false;
                 return;
             }
 
 #if DEBUG
             authorityTransitions++;
 #endif
-            AuthoritySnapshot previous = lastAuthoritySnapshot;
             if (!CanRunHandoffNow())
             {
-                lastAuthoritySnapshot = authority;
+                if (!hasPendingAuthorityTransition)
+                {
+                    pendingPreviousAuthority = lastAuthoritySnapshot;
+                    hasPendingAuthorityTransition = true;
+                }
+
+                pendingNextAuthority = authority;
                 return;
             }
 
-            lastAuthoritySnapshot = authority;
-            RunHandoff(previous, authority);
+            AuthoritySnapshot previous = hasPendingAuthorityTransition
+                ? pendingPreviousAuthority
+                : lastAuthoritySnapshot;
+            AuthoritySnapshot next = hasPendingAuthorityTransition
+                ? pendingNextAuthority
+                : authority;
+            hasPendingAuthorityTransition = false;
+            pendingNextAuthority = default(AuthoritySnapshot);
+            lastAuthoritySnapshot = next;
+            RunHandoff(previous, next);
         }
 
         private static bool CanRunHandoffNow()
@@ -672,7 +961,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 if (next.Owner == PriorityAuthorityOwner.BetterWorkTab ||
                     previous.Owner != PriorityAuthorityOwner.BetterWorkTab)
                 {
-                    changed += ImportFromPreviousAuthority(previous);
+                    changed += ImportFromPreviousAuthority(previous, next);
                 }
 
                 if (next.Owner != PriorityAuthorityOwner.BetterWorkTab)
@@ -698,22 +987,39 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         /// <summary>
         /// Rebuilds the external work-tab mod's priority store from Better Work Tab's stores.
         /// </summary>
-        private static int ImportFromPreviousAuthority(AuthoritySnapshot previous)
+        private static int ImportFromPreviousAuthority(
+            AuthoritySnapshot previous,
+            AuthoritySnapshot next)
         {
-            return string.IsNullOrEmpty(previous.StoreId)
-                ? ExternalWorkTabRegistry.ImportFromAvailableImporter()
-                : ExternalWorkTabRegistry.ImportFromStore(previous.StoreId);
+            bool sameIdReplacement = !string.IsNullOrEmpty(next.StoreId) &&
+                string.Equals(previous.StoreId, next.StoreId, StringComparison.OrdinalIgnoreCase) &&
+                !ReferenceEquals(previous.AuthoritativeStore, next.AuthoritativeStore);
+            AuthoritySnapshot source = sameIdReplacement || string.IsNullOrEmpty(previous.StoreId)
+                ? next
+                : previous;
+            return string.IsNullOrEmpty(source.StoreId)
+                ? 0
+                : ExternalWorkTabRegistry.ImportFromStore(
+                     source.StoreId,
+                     source.AuthoritativeStore,
+                    source.StoreRegistrationGeneration);
         }
 
         private static int PublishToNextAuthority(AuthoritySnapshot next)
         {
-            return ExternalWorkTabRegistry.PushAllPawnsToStore(next.AuthoritativeStore);
+            return ExternalWorkTabRegistry.PushAllPawnsToStore(
+                next.StoreId,
+                next.AuthoritativeStore,
+                next.StoreRegistrationGeneration);
         }
 
         private static bool SameAuthority(AuthoritySnapshot left, AuthoritySnapshot right)
         {
             return left.Owner == right.Owner &&
-                   string.Equals(left.StoreId, right.StoreId, StringComparison.OrdinalIgnoreCase);
+                   string.Equals(left.StoreId, right.StoreId, StringComparison.OrdinalIgnoreCase) &&
+                   left.StoreRegistrationGeneration == right.StoreRegistrationGeneration &&
+                   (left.AuthoritativeStore == null ||
+                    ReferenceEquals(left.AuthoritativeStore, right.AuthoritativeStore));
         }
 
         private static PriorityProviderSnapshot ResolveAutomaticProvider(
@@ -762,8 +1068,8 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 return null;
             }
 
-            IMaxPriorityProvider provider;
-            if (!PriorityProviderRegistry.TryFindByProviderId(providerId, out provider))
+            PriorityProviderRecord provider;
+            if (!PriorityProviderRegistry.TryFindAvailableProviderRecord(providerId, out provider))
             {
                 return null;
             }
@@ -778,10 +1084,12 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             int requiredPriority,
             int autoMaxPriority)
         {
-            List<PriorityProviderSnapshot> candidates = new List<PriorityProviderSnapshot>();
-            foreach (IMaxPriorityProvider provider in PriorityProviderRegistry.GetAvailableProviders())
+            PriorityProviderSnapshot best = null;
+            PriorityProviderRecord[] providers = PriorityProviderRegistry.GetAvailableProviderRecords();
+            for (int i = 0; i < providers.Length; i++)
             {
-                if (IsBuiltInProvider(provider))
+                PriorityProviderRecord provider = providers[i];
+                if (IsBuiltInProvider(provider.Provider))
                 {
                     continue;
                 }
@@ -795,49 +1103,34 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 snapshot = LimitSnapshot(snapshot, autoMaxPriority);
                 if (snapshot.MaxPriority >= requiredPriority)
                 {
-                    candidates.Add(snapshot);
+                    if (best == null ||
+                        snapshot.MaxPriority < best.MaxPriority ||
+                        (snapshot.MaxPriority == best.MaxPriority &&
+                         (string.Compare(snapshot.DisplayName, best.DisplayName, StringComparison.OrdinalIgnoreCase) < 0 ||
+                          (string.Equals(snapshot.DisplayName, best.DisplayName, StringComparison.OrdinalIgnoreCase) &&
+                           string.Compare(snapshot.ProviderId, best.ProviderId, StringComparison.OrdinalIgnoreCase) < 0))))
+                    {
+                        best = snapshot;
+                    }
                 }
             }
 
-            return candidates
-                .OrderBy(snapshot => snapshot.MaxPriority)
-                .ThenBy(snapshot => snapshot.DisplayName, StringComparer.OrdinalIgnoreCase)
-                .ThenBy(snapshot => snapshot.ProviderId, StringComparer.OrdinalIgnoreCase)
-                .FirstOrDefault();
+            return best;
         }
 
         private static bool TryCreateProviderSnapshot(
-            IMaxPriorityProvider provider,
+            PriorityProviderRecord provider,
             bool isFallback,
             out PriorityProviderSnapshot snapshot)
         {
             snapshot = null;
-            if (provider == null || !ProviderIsAvailable(provider))
-            {
-                return false;
-            }
-
-            int maxPriority;
-            if (!provider.TryGetMaxPriority(out maxPriority))
-            {
-                return false;
-            }
-
-            maxPriority = ClampMaxPriority(maxPriority);
-
-            int defaultEnabledPriority;
-            if (!provider.TryGetDefaultEnabledPriority(out defaultEnabledPriority))
-            {
-                defaultEnabledPriority = PriorityConstants.VanillaDefaultEnabled;
-            }
-
             PriorityAuthorityKind authorityKind = GetProviderAuthorityKind(provider.ProviderId);
             PriorityProviderCapabilities capabilities = GetDefaultCapabilities(authorityKind);
             snapshot = new PriorityProviderSnapshot(
                 provider.ProviderId,
                 provider.DisplayName,
-                maxPriority,
-                ClampDefaultEnabledPriority(defaultEnabledPriority, maxPriority),
+                provider.MaxPriority,
+                provider.DefaultEnabledPriority,
                 authorityKind,
                 isFallback,
                 capabilities);
@@ -1012,18 +1305,6 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             }
         }
 
-        private static bool ProviderIsAvailable(IMaxPriorityProvider provider)
-        {
-            try
-            {
-                return provider != null && provider.IsAvailable;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
         private static bool IsBuiltInProvider(IMaxPriorityProvider provider)
         {
             return provider == null ||
@@ -1089,6 +1370,8 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 int registeredStoreCount,
                 PriorityAuthorityOwner owner,
                 IExternalWorkTabStore authoritativeStore,
+                string storeId,
+                long storeRegistrationGeneration,
                 bool isCoherent)
             {
                 Game = game;
@@ -1098,7 +1381,8 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 RegisteredStoreCount = registeredStoreCount;
                 Owner = owner;
                 AuthoritativeStore = authoritativeStore;
-                StoreId = authoritativeStore?.StoreId;
+                StoreId = storeId;
+                StoreRegistrationGeneration = storeRegistrationGeneration;
                 IsCoherent = isCoherent;
             }
 
@@ -1110,6 +1394,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             internal PriorityAuthorityOwner Owner { get; }
             internal IExternalWorkTabStore AuthoritativeStore { get; }
             internal string StoreId { get; }
+            internal long StoreRegistrationGeneration { get; }
             internal bool IsCoherent { get; }
         }
     }

@@ -17,15 +17,18 @@ namespace Better_Work_Tab.Features.TimePriority
         internal const int HoursPerDay = 24;
         private static readonly Dictionary<TimePriorityCacheKey, TimePriorityScheduleData> Cache =
             new Dictionary<TimePriorityCacheKey, TimePriorityScheduleData>();
+        private static Game _cachedGame;
         private static int _cachedVersion = -1;
         private static bool _scheduleActivityKnown;
         private static bool _scheduleDataActive;
-        // Legacy integrations can still hold the component list and mutate it directly.  Audit that
-        // compatibility surface at most once per 30 frames; the AI path never scans schedule content.
-        private const int LegacyMutationAuditFrameInterval = 30;
-        private static int _lastLegacyMutationAuditFrame = -1;
-        private static int _lastAuditedScheduleCount = -1;
-        private static int _lastAuditedScheduleSignature;
+        private static List<TimePriorityScheduleData> _observedSchedules;
+        private static TimePriorityScheduleData[] _observedScheduleEntries;
+        private static int _observedScheduleVersion;
+        private static int _observedScheduleCount = -1;
+        private static bool _scheduleCollectionStateKnown;
+        private static bool _loadBoundaryHandled;
+        private static int _mutationBatchDepth;
+        private static bool _mutationBatchChanged;
 
         internal static int CurrentVersion { get; private set; }
 
@@ -41,6 +44,27 @@ namespace Better_Work_Tab.Features.TimePriority
             return RefreshScheduleActivity();
         }
 
+        internal static IDisposable BeginMutationBatch()
+        {
+            _mutationBatchDepth++;
+            return new MutationBatchScope();
+        }
+
+        internal static bool CommitMutationBatch()
+        {
+            if (_mutationBatchDepth != 0 || !_mutationBatchChanged)
+            {
+                return false;
+            }
+
+            _mutationBatchChanged = false;
+            PublishScheduleChange(
+                GetSchedules(create: false),
+                rebuildCache: false,
+                notifyConsumers: false);
+            return true;
+        }
+
         internal static int[] GetPrioritiesForDisplay(TimePriorityTarget target, int fallbackPriority)
         {
             fallbackPriority = WorkPrioritySystem.ClampPriority(fallbackPriority);
@@ -51,12 +75,11 @@ namespace Better_Work_Tab.Features.TimePriority
 
             // Linked hours are not stored values that happen to agree with the
             // box; they have no value of their own and read straight from it.
-            schedule.EnsureValid();
             var priorities = new int[HoursPerDay];
             for (int hour = 0; hour < HoursPerDay; hour++)
             {
-                priorities[hour] = schedule.IsUnlinked(hour)
-                    ? WorkPrioritySystem.ClampPriority(schedule.HourlyPriorities[hour])
+                priorities[hour] = schedule.TryGetStoredPriority(hour, out int storedPriority)
+                    ? storedPriority
                     : fallbackPriority;
             }
 
@@ -76,7 +99,6 @@ namespace Better_Work_Tab.Features.TimePriority
                 return unlinked;
             }
 
-            schedule.EnsureValid();
             for (int hour = 0; hour < HoursPerDay; hour++)
             {
                 unlinked[hour] = schedule.IsUnlinked(hour);
@@ -94,9 +116,8 @@ namespace Better_Work_Tab.Features.TimePriority
             }
 
             hour = Mathf.Clamp(hour, 0, HoursPerDay - 1);
-            schedule.EnsureValid();
-            return schedule.IsUnlinked(hour)
-                ? WorkPrioritySystem.ClampPriority(schedule.HourlyPriorities[hour])
+            return schedule.TryGetStoredPriority(hour, out int storedPriority)
+                ? storedPriority
                 : fallbackPriority;
         }
 
@@ -114,7 +135,6 @@ namespace Better_Work_Tab.Features.TimePriority
                 return false;
             }
 
-            schedule.EnsureValid();
             return schedule.HasAnyUnlinkedHour;
         }
 
@@ -126,7 +146,6 @@ namespace Better_Work_Tab.Features.TimePriority
             }
 
             hour = Mathf.Clamp(hour, 0, HoursPerDay - 1);
-            schedule.EnsureValid();
             return schedule.IsUnlinked(hour);
         }
 
@@ -147,25 +166,30 @@ namespace Better_Work_Tab.Features.TimePriority
 
             if (pawn != null)
             {
-                TimePriorityTarget pawnTarget = TimePriorityTarget.ForWorkGiver(pawn, workType, workGiver);
-                if (HasCustomSchedule(pawnTarget, fallbackPriority))
+                TimePriorityTarget runtimePawnTarget =
+                    TimePriorityTarget.ForRuntimeWorkGiver(pawn, workType, workGiver);
+                if (HasCustomSchedule(runtimePawnTarget, fallbackPriority))
                 {
-                    target = pawnTarget;
+                    // This target crosses into the editor when its ring is
+                    // clicked, so resolve its display label only on the UI
+                    // path that actually needs it.
+                    target = TimePriorityTarget.ForWorkGiver(pawn, workType, workGiver);
                     return true;
                 }
             }
 
-            TimePriorityTarget globalTarget = TimePriorityTarget.ForWorkGiver(null, workType, workGiver);
+            TimePriorityTarget runtimeGlobalTarget =
+                TimePriorityTarget.ForRuntimeWorkGiver(null, workType, workGiver);
             int globalFallback = WorkGiverReassignmentManager.GetWorkGiverPriority(
                 null,
                 workGiver,
                 WorkPrioritySystem.GetDefaultEnabledPriority());
-            if (!HasCustomSchedule(globalTarget, globalFallback))
+            if (!HasCustomSchedule(runtimeGlobalTarget, globalFallback))
             {
                 return false;
             }
 
-            target = globalTarget;
+            target = TimePriorityTarget.ForWorkGiver(null, workType, workGiver);
             fallbackPriority = globalFallback;
             return true;
         }
@@ -220,6 +244,22 @@ namespace Better_Work_Tab.Features.TimePriority
             }
 
             SetPriorities(target, normalizedPriorities, fallbackPriority);
+        }
+
+        /// <summary>
+        /// Creates link state for a bulk source whose 24 values are all
+        /// explicit. Numeric equality with the fallback must not turn one of
+        /// those explicit values into an inherited hour.
+        /// </summary>
+        internal static bool[] CreateAllHoursPinnedState()
+        {
+            var pinned = new bool[HoursPerDay];
+            for (int hour = 0; hour < HoursPerDay; hour++)
+            {
+                pinned[hour] = true;
+            }
+
+            return pinned;
         }
 
         /// <summary>
@@ -634,7 +674,7 @@ namespace Better_Work_Tab.Features.TimePriority
                     TimePriorityScheduleScopes.None);
             }
 
-            TimePriorityTarget target = TimePriorityTarget.ForWorkType(pawn, workType);
+            TimePriorityTarget target = TimePriorityTarget.ForRuntimeWorkType(pawn, workType);
             int hour = GetCurrentHour(pawn);
 
             if (basePriority <= WorkPrioritySystem.DisabledPriority)
@@ -704,7 +744,7 @@ namespace Better_Work_Tab.Features.TimePriority
 
             int hour = GetCurrentHour(pawn);
 
-            TimePriorityTarget pawnTarget = TimePriorityTarget.ForWorkGiver(pawn, workType, workGiver);
+            TimePriorityTarget pawnTarget = TimePriorityTarget.ForRuntimeWorkGiver(pawn, workType, workGiver);
             if (pawn != null && TryGetScheduledPriority(pawnTarget, hour, out int pawnScheduledPriority))
             {
                 return new TimePriorityEvaluation(
@@ -717,7 +757,7 @@ namespace Better_Work_Tab.Features.TimePriority
                     TimePriorityScheduleScopes.Pawn);
             }
 
-            TimePriorityTarget globalTarget = TimePriorityTarget.ForWorkGiver(null, workType, workGiver);
+            TimePriorityTarget globalTarget = TimePriorityTarget.ForRuntimeWorkGiver(null, workType, workGiver);
             if (TryGetScheduledPriority(globalTarget, hour, out int globalScheduledPriority))
             {
                 return new TimePriorityEvaluation(
@@ -787,14 +827,30 @@ namespace Better_Work_Tab.Features.TimePriority
 
         internal static void NotifyLoaded()
         {
-            NormalizeLoadedSchedules();
-            Cache.Clear();
-            _cachedVersion = -1;
-            CurrentVersion++;
-            _scheduleActivityKnown = false;
-            RefreshScheduleActivity();
-            MigrateLinkStateFromLegacySaves();
-            RecordScheduleAuditState();
+            EnsureGameState();
+            List<TimePriorityScheduleData> schedules = GetSchedules(create: true);
+            bool collectionChanged = HasScheduleCollectionChangedFromAudit(schedules);
+            bool normalized = NormalizeScheduleCollection(schedules, auditFallback: true);
+            bool migrated = MigrateLinkStateFromLegacySaves(schedules);
+
+            // FinalizeInit and PostLoadInit can both reach this boundary. A
+            // genuinely loaded schedule publishes once; an empty vanilla save
+            // only prepares the cache and must not dirty every pawn just because
+            // the component has no feature data to publish.
+            bool publish = collectionChanged || normalized || migrated ||
+                           (!_loadBoundaryHandled && schedules != null && schedules.Count > 0);
+            _loadBoundaryHandled = true;
+            if (publish)
+            {
+                PublishScheduleChange(schedules, rebuildCache: true);
+            }
+            else
+            {
+                Cache.Clear();
+                _cachedVersion = -1;
+                RebuildRuntimeCache(schedules, normalize: false);
+                RecordScheduleCollectionState(schedules);
+            }
         }
 
         /// <summary>
@@ -811,12 +867,11 @@ namespace Better_Work_Tab.Features.TimePriority
         /// already displayed as inherited. It stays linked. Nothing the player
         /// could previously see changes.
         /// </summary>
-        private static void MigrateLinkStateFromLegacySaves()
+        private static bool MigrateLinkStateFromLegacySaves(List<TimePriorityScheduleData> schedules)
         {
-            List<TimePriorityScheduleData> schedules = GetSchedules(create: false);
             if (schedules == null)
             {
-                return;
+                return false;
             }
 
             bool changed = false;
@@ -856,12 +911,10 @@ namespace Better_Work_Tab.Features.TimePriority
 
             if (changed)
             {
-                Cache.Clear();
-                _cachedVersion = -1;
-                CurrentVersion++;
-                _scheduleActivityKnown = false;
-                RefreshScheduleActivity();
+                return true;
             }
+
+            return false;
         }
 
         /// <summary>
@@ -909,7 +962,6 @@ namespace Better_Work_Tab.Features.TimePriority
             }
 
             hour = Mathf.Clamp(hour, 0, HoursPerDay - 1);
-            schedule.EnsureValid();
             if (!schedule.IsUnlinked(hour))
             {
                 // A linked hour has no scheduled priority of its own; callers
@@ -917,7 +969,11 @@ namespace Better_Work_Tab.Features.TimePriority
                 return false;
             }
 
-            priority = WorkPrioritySystem.ClampPriority(schedule.HourlyPriorities[hour]);
+            if (!schedule.TryGetStoredPriority(hour, out priority))
+            {
+                return false;
+            }
+
             return true;
         }
 
@@ -926,7 +982,8 @@ namespace Better_Work_Tab.Features.TimePriority
             EnsureCache();
             if (Cache.TryGetValue(target.CacheKey, out var schedule))
             {
-                schedule.EnsureValid();
+                RepairRuntimeScheduleIfNeeded(schedule);
+                Cache.TryGetValue(target.CacheKey, out schedule);
                 return schedule;
             }
 
@@ -945,14 +1002,35 @@ namespace Better_Work_Tab.Features.TimePriority
             schedule.EnsureValid();
             schedules.Add(schedule);
             Cache[schedule.CacheKey] = schedule;
-            NotifyChanged();
             return schedule;
         }
 
         private static bool TryGetSchedule(TimePriorityTarget target, out TimePriorityScheduleData schedule)
         {
             EnsureCache();
+            if (!Cache.TryGetValue(target.CacheKey, out schedule))
+            {
+                return false;
+            }
+
+            RepairRuntimeScheduleIfNeeded(schedule);
             return Cache.TryGetValue(target.CacheKey, out schedule);
+        }
+
+        private static void RepairRuntimeScheduleIfNeeded(TimePriorityScheduleData schedule)
+        {
+            if (schedule == null || !schedule.EnsureRuntimeIntegrity())
+            {
+                return;
+            }
+
+            if (_mutationBatchDepth > 0)
+            {
+                QueueMutation();
+                return;
+            }
+
+            PublishScheduleChange(GetSchedules(create: false), rebuildCache: true);
         }
 
         private static int[] CreateFallbackPriorities(int fallbackPriority)
@@ -990,20 +1068,33 @@ namespace Better_Work_Tab.Features.TimePriority
                 return;
             }
 
+            // Lifecycle, mutation, save, and external-audit boundaries own
+            // normalization. A cache rebuild is deliberately only a key index
+            // rebuild so warm reads never walk or repair every schedule.
+            RebuildRuntimeCache(GetSchedules(create: false), normalize: false);
+        }
+
+        private static void RebuildRuntimeCache(
+            List<TimePriorityScheduleData> schedules,
+            bool normalize)
+        {
             Cache.Clear();
-            var schedules = GetSchedules(create: false);
             if (schedules != null)
             {
                 for (int i = schedules.Count - 1; i >= 0; i--)
                 {
-                    var schedule = schedules[i];
+                    TimePriorityScheduleData schedule = schedules[i];
                     if (schedule == null)
                     {
                         schedules.RemoveAt(i);
                         continue;
                     }
 
-                    schedule.EnsureValid();
+                    if (normalize)
+                    {
+                        schedule.EnsureValid();
+                    }
+
                     Cache[new TimePriorityCacheKey(
                         schedule.PawnId,
                         schedule.Kind,
@@ -1031,34 +1122,124 @@ namespace Better_Work_Tab.Features.TimePriority
             return component.TimePrioritySchedules;
         }
 
-        private static void NormalizeLoadedSchedules()
+        private static void NotifyChanged()
         {
+            if (_mutationBatchDepth > 0)
+            {
+                QueueMutation();
+                return;
+            }
+
+            PublishScheduleChange(GetSchedules(create: false), rebuildCache: false);
+        }
+
+        private static void QueueMutation()
+        {
+            _mutationBatchChanged = true;
+            _cachedVersion = -1;
+            Cache.Clear();
+            _scheduleActivityKnown = false;
+        }
+
+        internal static void NormalizeBeforeSave()
+        {
+            EnsureGameState();
             List<TimePriorityScheduleData> schedules = GetSchedules(create: true);
-            if (schedules == null)
+            bool collectionChanged = HasScheduleCollectionChangedFromAudit(schedules);
+            bool normalized = NormalizeScheduleCollection(schedules, auditFallback: true);
+            if (collectionChanged || normalized)
+            {
+                PublishScheduleChange(schedules, rebuildCache: true);
+                return;
+            }
+
+            RecordScheduleCollectionState(schedules);
+        }
+
+        /// <summary>
+        /// Reconciles the public schedule collection at the existing
+        /// low-frequency compatibility-audit boundary. Normal priority reads
+        /// use per-list version sentinels and never call this scan.
+        /// </summary>
+        internal static void ReconcileDirectMutationsFromAudit()
+        {
+            EnsureGameState();
+            List<TimePriorityScheduleData> schedules = GetSchedules(create: false);
+            bool active = schedules != null && schedules.Count > 0;
+            if (!_scheduleActivityKnown)
+            {
+                _scheduleDataActive = active;
+                _scheduleActivityKnown = true;
+            }
+
+            if (!_scheduleCollectionStateKnown)
+            {
+                RecordScheduleCollectionState(schedules);
+            }
+
+            bool semanticAuditRequired =
+                !ListMutationVersion<int>.IsAvailable ||
+                !ListMutationVersion<TimePriorityScheduleData>.IsAvailable;
+            bool collectionChanged = semanticAuditRequired
+                ? HasScheduleCollectionChangedFromAudit(schedules)
+                : HasScheduleCollectionChanged(schedules);
+            bool nestedDataChanged = NormalizeScheduleCollection(
+                schedules,
+                auditFallback: semanticAuditRequired);
+            if (!semanticAuditRequired &&
+                (!ListMutationVersion<int>.IsAvailable ||
+                 !ListMutationVersion<TimePriorityScheduleData>.IsAvailable))
+            {
+                // A delegate can fail only when invoked on an unusual runtime.
+                // If that happens during the version pass, finish this same
+                // audit with the semantic fallback instead of waiting another
+                // interval.
+                collectionChanged |= HasScheduleCollectionChangedFromAudit(schedules);
+                nestedDataChanged |= NormalizeScheduleCollection(
+                    schedules,
+                    auditFallback: true);
+            }
+            if (collectionChanged || nestedDataChanged)
+            {
+                PublishScheduleChange(schedules, rebuildCache: true);
+                return;
+            }
+
+            // Keep the outer snapshot current even when the scan found no
+            // semantic change. This is the fallback CLR's replacement for the
+            // unavailable List<T>._version sentinel.
+            RecordScheduleCollectionState(schedules);
+        }
+
+        private static void PublishScheduleChange(
+            List<TimePriorityScheduleData> schedules,
+            bool rebuildCache)
+        {
+            PublishScheduleChange(schedules, rebuildCache, notifyConsumers: true);
+        }
+
+        private static void PublishScheduleChange(
+            List<TimePriorityScheduleData> schedules,
+            bool rebuildCache,
+            bool notifyConsumers)
+        {
+            CurrentVersion++;
+            _cachedVersion = -1;
+            Cache.Clear();
+            _scheduleDataActive = schedules != null && schedules.Count > 0;
+            _scheduleActivityKnown = true;
+            if (rebuildCache)
+            {
+                RebuildRuntimeCache(schedules, normalize: false);
+            }
+
+            RecordScheduleCollectionState(schedules);
+
+            if (!notifyConsumers)
             {
                 return;
             }
 
-            for (int i = schedules.Count - 1; i >= 0; i--)
-            {
-                TimePriorityScheduleData schedule = schedules[i];
-                if (schedule == null)
-                {
-                    schedules.RemoveAt(i);
-                    continue;
-                }
-
-                schedule.EnsureValid();
-            }
-        }
-
-        private static void NotifyChanged()
-        {
-            CurrentVersion++;
-            _cachedVersion = -1;
-            _scheduleActivityKnown = false;
-            RefreshScheduleActivity();
-            RecordScheduleAuditState();
             UI.WorkGrid.Invalidation.WorkTabInvalidationHub.Invalidate(
                 UI.WorkGrid.Contracts.WorkTabDirtyFlags.ScheduleHour);
             WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
@@ -1067,122 +1248,273 @@ namespace Better_Work_Tab.Features.TimePriority
 
         private static bool RefreshScheduleActivity()
         {
+            EnsureGameState();
             List<TimePriorityScheduleData> schedules = GetSchedules(create: false);
             bool active = schedules != null && schedules.Count > 0;
-            bool activityChanged = false;
             if (!_scheduleActivityKnown)
             {
                 _scheduleDataActive = active;
                 _scheduleActivityKnown = true;
             }
-            else if (_scheduleDataActive != active)
+
+            if (_mutationBatchDepth > 0)
             {
-                activityChanged = true;
                 _scheduleDataActive = active;
-                CurrentVersion++;
-                _cachedVersion = -1;
+                _scheduleActivityKnown = true;
+                return _scheduleDataActive;
             }
 
-            AuditLegacyScheduleMutationIfDue(schedules, active, activityChanged);
+            if (!_scheduleCollectionStateKnown)
+            {
+                RecordScheduleCollectionState(schedules);
+            }
+
+            if (HasScheduleCollectionChanged(schedules))
+            {
+                // A legacy caller can add/remove/replace records through the
+                // public collection. Repair it once, then publish exactly one
+                // generation and one invalidation for that collection change.
+                NormalizeScheduleCollection(schedules);
+                PublishScheduleChange(schedules, rebuildCache: true);
+            }
 
             return _scheduleDataActive;
         }
 
-        private static void AuditLegacyScheduleMutationIfDue(
-            List<TimePriorityScheduleData> schedules,
-            bool active,
-            bool activityChanged)
+        private static void EndMutationBatch()
         {
-            int frame = Time.frameCount;
-            if (!IsLegacyMutationAuditDue(frame, _lastLegacyMutationAuditFrame))
+            if (_mutationBatchDepth > 0)
+            {
+                _mutationBatchDepth--;
+            }
+        }
+
+        private sealed class MutationBatchScope : IDisposable
+        {
+            private bool _disposed;
+
+            public void Dispose()
+            {
+                if (_disposed)
+                {
+                    return;
+                }
+
+                _disposed = true;
+                EndMutationBatch();
+            }
+        }
+
+        private static void EnsureGameState()
+        {
+            Game game = Current.Game;
+            if (ReferenceEquals(_cachedGame, game))
             {
                 return;
             }
 
-            int count = schedules?.Count ?? 0;
-            int signature = ComputePresentationAuditSignature();
-            bool changed = !activityChanged &&
-                           _lastAuditedScheduleCount >= 0 &&
-                           (_lastAuditedScheduleCount != count ||
-                            _lastAuditedScheduleSignature != signature);
-
-            _lastLegacyMutationAuditFrame = frame;
-            _lastAuditedScheduleCount = count;
-            _lastAuditedScheduleSignature = signature;
-            if (!changed)
-            {
-                return;
-            }
-
+            _cachedGame = game;
             Cache.Clear();
             _cachedVersion = -1;
             CurrentVersion++;
-            _scheduleDataActive = active;
-            _scheduleActivityKnown = true;
-            UI.WorkGrid.Invalidation.WorkTabInvalidationHub.Invalidate(
-                UI.WorkGrid.Contracts.WorkTabDirtyFlags.ScheduleHour);
-            WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
-            MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+            _scheduleActivityKnown = false;
+            _scheduleDataActive = false;
+            _observedSchedules = null;
+            _observedScheduleEntries = null;
+            _observedScheduleVersion = 0;
+            _observedScheduleCount = -1;
+            _scheduleCollectionStateKnown = false;
+            _loadBoundaryHandled = false;
         }
 
-        private static void RecordScheduleAuditState()
+        private static bool HasScheduleCollectionChanged(List<TimePriorityScheduleData> schedules)
         {
-            List<TimePriorityScheduleData> schedules = GetSchedules(create: false);
-            _lastLegacyMutationAuditFrame = Time.frameCount;
-            _lastAuditedScheduleCount = schedules?.Count ?? 0;
-            _lastAuditedScheduleSignature = ComputePresentationAuditSignature();
-        }
+            if (!_scheduleCollectionStateKnown)
+            {
+                return false;
+            }
 
-        // Time.frameCount is signed.  Unchecked subtraction gives the correct small positive
-        // elapsed value across one rollover, while a genuinely backwards/reset frame remains
-        // negative and forces the compatibility audit instead of suppressing mutation detection.
-        internal static bool IsLegacyMutationAuditDue(int frame, int lastAuditFrame)
-        {
-            if (lastAuditFrame < 0)
+            // On a fallback CLR, structural changes are intentionally deferred
+            // to ReconcileDirectMutationsFromAudit. Checking only the public
+            // Count here would still be cheap, but routing all unknown-version
+            // cases through the audit keeps stable reads conservative and
+            // avoids a query-time scan/rebuild window.
+            if (!ListMutationVersion<int>.IsAvailable ||
+                !ListMutationVersion<TimePriorityScheduleData>.IsAvailable)
+            {
+                return false;
+            }
+
+            if (!ReferenceEquals(_observedSchedules, schedules) ||
+                _observedScheduleCount != (schedules?.Count ?? 0))
             {
                 return true;
             }
 
-            int elapsed = unchecked(frame - lastAuditFrame);
-            return elapsed < 0 || elapsed >= LegacyMutationAuditFrameInterval;
+            return ListMutationVersion<TimePriorityScheduleData>.TryRead(
+                       schedules,
+                       out int version) &&
+                    version != _observedScheduleVersion;
         }
 
+        private static bool HasScheduleCollectionChangedFromAudit(
+            List<TimePriorityScheduleData> schedules)
+        {
+            if (!_scheduleCollectionStateKnown)
+            {
+                return false;
+            }
+
+            if (!ReferenceEquals(_observedSchedules, schedules) ||
+                _observedScheduleCount != (schedules?.Count ?? 0))
+            {
+                return true;
+            }
+
+            if (schedules == null)
+            {
+                return _observedScheduleEntries != null;
+            }
+
+            if (_observedScheduleEntries == null ||
+                _observedScheduleEntries.Length != schedules.Count)
+            {
+                return true;
+            }
+
+            for (int i = 0; i < schedules.Count; i++)
+            {
+                if (!ReferenceEquals(_observedScheduleEntries[i], schedules[i]))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static void RecordScheduleCollectionState(List<TimePriorityScheduleData> schedules)
+        {
+            _observedSchedules = schedules;
+            _observedScheduleCount = schedules?.Count ?? 0;
+            _observedScheduleVersion = 0;
+            if (schedules != null)
+            {
+                ListMutationVersion<TimePriorityScheduleData>.TryRead(
+                    schedules,
+                    out _observedScheduleVersion);
+
+                if (_observedScheduleEntries == null ||
+                    _observedScheduleEntries.Length != schedules.Count)
+                {
+                    _observedScheduleEntries =
+                        new TimePriorityScheduleData[schedules.Count];
+                }
+
+                for (int i = 0; i < schedules.Count; i++)
+                {
+                    _observedScheduleEntries[i] = schedules[i];
+                }
+            }
+            else
+            {
+                _observedScheduleEntries = null;
+            }
+
+            _scheduleCollectionStateKnown = true;
+        }
+
+        private static bool NormalizeScheduleCollection(
+            List<TimePriorityScheduleData> schedules,
+            bool auditFallback = false)
+        {
+            if (schedules == null)
+            {
+                return false;
+            }
+
+            bool changed = false;
+            for (int i = schedules.Count - 1; i >= 0; i--)
+            {
+                TimePriorityScheduleData schedule = schedules[i];
+                if (schedule == null)
+                {
+                    schedules.RemoveAt(i);
+                    changed = true;
+                    continue;
+                }
+
+                changed |= auditFallback
+                    ? schedule.ReconcileRuntimeIntegrityFromAudit()
+                    : schedule.EnsureRuntimeIntegrity();
+            }
+
+            return changed;
+        }
+
+        // Kept for the existing invalidation-audit seam. Runtime reads use the
+        // per-list sentinels above. On a fallback CLR this low-frequency
+        // fingerprint includes link state even when a pinned number equals the
+        // current fallback; a supported CLR has already checked list versions.
         internal static int ComputePresentationAuditSignature()
         {
             unchecked
             {
                 int hash = 17;
-                var schedules = GetSchedules(create: false);
+                List<TimePriorityScheduleData> schedules = GetSchedules(create: false);
                 if (schedules == null)
                 {
                     return hash;
                 }
 
+                bool includeNestedState =
+                    !ListMutationVersion<int>.IsAvailable ||
+                    !ListMutationVersion<TimePriorityScheduleData>.IsAvailable;
+                hash = (hash * 397) ^ schedules.Count;
+
                 for (int i = 0; i < schedules.Count; i++)
                 {
                     TimePriorityScheduleData schedule = schedules[i];
-                    if (schedule == null) continue;
+                    if (schedule == null)
+                    {
+                        hash = (hash * 397) ^ 0;
+                        continue;
+                    }
+
                     hash = (hash * 397) ^ schedule.PawnId;
                     hash = (hash * 397) ^ (int)schedule.Kind;
                     hash = (hash * 397) ^ StringComparer.Ordinal.GetHashCode(schedule.WorkTypeDefName ?? string.Empty);
                     hash = (hash * 397) ^ StringComparer.Ordinal.GetHashCode(schedule.TargetDefName ?? string.Empty);
-                    // Link state is presentation, not just bookkeeping: an hour
-                    // changing from following the box to pinned repaints it even
-                    // when the number it shows is identical.
-                    if (schedule.UnlinkedHours != null)
+                    hash = (hash * 397) ^ StringComparer.Ordinal.GetHashCode(schedule.Key ?? string.Empty);
+
+                    if (!includeNestedState)
                     {
-                        for (int j = 0; j < schedule.UnlinkedHours.Count; j++)
+                        continue;
+                    }
+
+                    List<int> hourlyPriorities = schedule.HourlyPriorities;
+                    hash = (hash * 397) ^ (hourlyPriorities?.Count ?? -1);
+                    if (hourlyPriorities != null)
+                    {
+                        int hourlyCount = Math.Min(hourlyPriorities.Count, HoursPerDay);
+                        for (int hour = 0; hour < hourlyCount; hour++)
                         {
-                            hash = (hash * 397) ^ (schedule.UnlinkedHours[j] + 1);
+                            hash = (hash * 397) ^ hourlyPriorities[hour];
                         }
                     }
 
-                    if (schedule.HourlyPriorities == null) continue;
-                    for (int hour = 0; hour < schedule.HourlyPriorities.Count; hour++)
+                    List<int> unlinkedHours = schedule.UnlinkedHours;
+                    hash = (hash * 397) ^ (unlinkedHours?.Count ?? -1);
+                    if (unlinkedHours != null)
                     {
-                        hash = (hash * 397) ^ schedule.HourlyPriorities[hour];
+                        int unlinkedCount = Math.Min(unlinkedHours.Count, HoursPerDay);
+                        for (int hour = 0; hour < unlinkedCount; hour++)
+                        {
+                            hash = (hash * 397) ^ (unlinkedHours[hour] + 1);
+                        }
                     }
                 }
+
                 return hash;
             }
         }
