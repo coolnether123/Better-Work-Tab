@@ -94,7 +94,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 return Mathf.Clamp(priority, DisabledPriority, PriorityConstants.VanillaMax);
             }
 
-            return PriorityAuthorityBroker.ClampPriorityForRequest(priority);
+            return PriorityAuthorityBroker.ClampStoredPriorityForRuntime(priority);
         }
 
         internal static int ClampPriority(int priority, int maxPriority)

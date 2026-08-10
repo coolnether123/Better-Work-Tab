@@ -23,13 +23,16 @@ namespace Better_Work_Tab.Features
         private static List<string> GetSharedOrderOrNull()
             => SharedState?.ColumnCurrentOrder is { Count: > 0 } list ? list : null;
 
-        private static void SetSharedOrder(List<string> order)
+        internal static void SetCurrentOrder(List<string> order)
         {
             if (SharedState == null)
                 return;
 
-            SharedState.ColumnCurrentOrder = order;
+            SharedState.SetColumnCurrentOrder(order);
         }
+
+        private static void SetSharedOrder(List<string> order)
+            => SetCurrentOrder(order);
 
         /// <summary>
         /// Initialize vanilla order and apply saved order. Called after defs are loaded.

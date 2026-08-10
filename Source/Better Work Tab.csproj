@@ -164,6 +164,7 @@
     <Compile Include="Features\TimePriority\TimePriorityScheduleData.cs" />
     <Compile Include="Features\TimePriority\TimePriorityService.cs" />
     <Compile Include="Features\TimePriority\TimePriorityTarget.cs" />
+    <Compile Include="Features\TimePriority\TimePriorityCacheKey.cs" />
     <Compile Include="Features\TimePriority\TimePriorityTargetKind.cs" />
     <Compile Include="Features\Tutorial\BWTBetaFeedbackButton.cs" />
     <Compile Include="Features\Tutorial\BWTConcepts.cs" />

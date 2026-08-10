@@ -25,7 +25,19 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         private static readonly Dictionary<string, List<WorkGiver>> DisplayWorkGiverCache = new Dictionary<string, List<WorkGiver>>(StringComparer.Ordinal);
 
         private static int _cachedSyncVersion = -1;
+        private static int _cachedActivationSyncVersion = int.MinValue;
+        private static GameComponent_BWTWorldSettings _cachedActivationComponent;
+        private static bool _cachedHasAnyData;
         private static BetterWorkTabSettings Settings => BetterWorkTabMod.Settings;
+
+        private static WorkGiverReassignmentData ExistingData
+        {
+            get
+            {
+                var component = Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
+                return component?.WorkGiverReassignments ?? Settings?.LegacyWorkGiverReassignments;
+            }
+        }
 
         private static WorkGiverReassignmentData Data
         {
@@ -47,6 +59,26 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         }
 
         internal static int CurrentSyncVersion => Data?.SyncVersion ?? 0;
+
+        internal static bool HasActiveData
+        {
+            get
+            {
+                WorkGiverReassignmentData data = ExistingData;
+                GameComponent_BWTWorldSettings component =
+                    Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
+                int version = data?.SyncVersion ?? 0;
+                if (!ReferenceEquals(component, _cachedActivationComponent) ||
+                    version != _cachedActivationSyncVersion)
+                {
+                    _cachedActivationComponent = component;
+                    _cachedActivationSyncVersion = version;
+                    _cachedHasAnyData = data != null && data.HasAnyData();
+                }
+
+                return _cachedHasAnyData;
+            }
+        }
 
         internal static void SetPawnOverrideSynced(int pawnId, string workGiverDefName, int priority)
         {
@@ -163,6 +195,8 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             ReassignedCache.Clear();
             OrderedWorkGiverCache.Clear();
             DisplayWorkGiverCache.Clear();
+            _cachedActivationSyncVersion = int.MinValue;
+            _cachedActivationComponent = null;
         }
 
         internal static void OnSettingsLoaded()

@@ -62,7 +62,7 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Layouts
                   var comp = Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
                   if (comp != null)
                   {
-                       comp.ColumnCurrentOrder = new List<string>(ColumnOrder);
+                       WorkColumnOrderManager.SetCurrentOrder(new List<string>(ColumnOrder));
                   }
              }
              

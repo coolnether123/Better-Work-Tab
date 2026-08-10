@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using Better_Work_Tab.API;
 using Better_Work_Tab.Features;
@@ -22,13 +23,74 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         ExternalWorkTab = FluffyWorkTab
     }
 
+#if DEBUG
+    /// <summary>
+    /// Read-only counters for the priority-authority decision seam. These counters are intentionally
+    /// aggregate only: they make the authority path measurable without logging from a hot call.
+    /// </summary>
+    public struct PriorityAuthorityDiagnosticsSnapshot
+    {
+        internal PriorityAuthorityDiagnosticsSnapshot(
+            long authorityRequests,
+            long authorityCacheHits,
+            long authorityComputations,
+            long authorityTransitions,
+            long handoffs,
+            long explicitInvalidations,
+            long registryListBuilds,
+            long storeProbes,
+            long registryRefreshPasses,
+            bool registryRefreshDeferred,
+            long registryGeneration,
+            long explicitAuthorityGeneration)
+        {
+            AuthorityRequests = authorityRequests;
+            AuthorityCacheHits = authorityCacheHits;
+            AuthorityComputations = authorityComputations;
+            AuthorityTransitions = authorityTransitions;
+            Handoffs = handoffs;
+            ExplicitInvalidations = explicitInvalidations;
+            RegistryListBuilds = registryListBuilds;
+            StoreProbes = storeProbes;
+            RegistryRefreshPasses = registryRefreshPasses;
+            RegistryRefreshDeferred = registryRefreshDeferred;
+            RegistryGeneration = registryGeneration;
+            ExplicitAuthorityGeneration = explicitAuthorityGeneration;
+        }
+
+        public long AuthorityRequests { get; }
+        public long AuthorityCacheHits { get; }
+        public long AuthorityComputations { get; }
+        public long AuthorityTransitions { get; }
+        public long Handoffs { get; }
+        public long ExplicitInvalidations { get; }
+        public long RegistryListBuilds { get; }
+        public long StoreProbes { get; }
+        public long RegistryRefreshPasses { get; }
+        public bool RegistryRefreshDeferred { get; }
+        public long RegistryGeneration { get; }
+        public long ExplicitAuthorityGeneration { get; }
+    }
+#endif
+
     public static class PriorityAuthorityBroker
     {
         private static int cachedFrame = -1;
         private static Game cachedGame;
         private static int cachedHighestLivePriority;
+        private static AuthoritySnapshot cachedAuthoritySnapshot;
+        private static bool hasCachedAuthoritySnapshot;
+        private static long explicitAuthorityGeneration;
+#if DEBUG
+        private static long authorityRequests;
+        private static long authorityCacheHits;
+        private static long authorityComputations;
+        private static long authorityTransitions;
+        private static long handoffs;
+        private static long explicitInvalidations;
+#endif
         private static bool authorityInitialized;
-        private static PriorityAuthorityOwner lastAuthority;
+        private static AuthoritySnapshot lastAuthoritySnapshot;
         private static bool handoffInProgress;
         private static PriorityAuthorityOwner? handoffAuthorityOverride;
 
@@ -41,11 +103,28 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                     return handoffAuthorityOverride.Value;
                 }
 
-                PriorityAuthorityOwner authority = ComputeAuthority();
-                EnsureTransitionApplied(authority);
-                return authority;
+                AuthoritySnapshot snapshot = GetAuthoritySnapshot();
+                EnsureTransitionApplied(snapshot);
+                return snapshot.Owner;
             }
         }
+
+#if DEBUG
+        public static PriorityAuthorityDiagnosticsSnapshot Diagnostics =>
+            new PriorityAuthorityDiagnosticsSnapshot(
+                authorityRequests,
+                authorityCacheHits,
+                authorityComputations,
+                authorityTransitions,
+                handoffs,
+                explicitInvalidations,
+                ExternalWorkTabRegistry.RegistryListBuilds,
+                ExternalWorkTabRegistry.StoreProbes,
+                ExternalWorkTabRegistry.AuthorityRefreshPasses,
+                ExternalWorkTabRegistry.AuthorityRefreshDeferred,
+                ExternalWorkTabRegistry.RegistryGeneration,
+                explicitAuthorityGeneration);
+#endif
 
         public static bool BetterWorkTabHasPriorityAuthority => CurrentAuthority == PriorityAuthorityOwner.BetterWorkTab;
 
@@ -70,11 +149,15 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         /// Gates behavior: work-giver overrides and work execution order. These must yield when Fluffy
         /// owns the priority data, because Fluffy then drives work-giver order through its own patches.
         /// </summary>
-        internal static bool ShouldRunBetterWorkTabOrdering => BetterWorkTabHasPriorityAuthority;
+        internal static bool ShouldRunBetterWorkTabOrdering =>
+            BetterWorkTabHasPriorityAuthority &&
+            (WorkGiverReassignmentManager.HasActiveData ||
+             TimePriorityService.IsRuntimeActive ||
+             WorkExecutionOrder.HasCustomExecutionOrder);
 
         internal static void NotifyPotentialAuthorityChanged()
         {
-            EnsureTransitionApplied(ComputeAuthority());
+            InvalidateAuthorityAndRefresh();
         }
 
         internal static int GetEffectivePriority(Pawn pawn, WorkTypeDef workType)
@@ -84,8 +167,10 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 return GetDefaultEnabledPriority();
             }
 
-            if (ExternalWorkTabHasPriorityAuthority &&
+            IExternalWorkTabStore authoritativeStore;
+            if (TryGetAuthoritativeStore(out authoritativeStore) &&
                 ExternalWorkTabRegistry.TryGetWorkTypePriority(
+                    authoritativeStore,
                     pawn,
                     workType,
                     TimePriorityService.GetCurrentHour(pawn),
@@ -94,7 +179,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 return ClampRuntimePriority(externalPriority);
             }
 
-            return ClampPriorityForRequest(GetBetterWorkTabStoredPriority(pawn.workSettings, workType));
+            return GetBetterWorkTabStoredPriority(pawn.workSettings, workType);
         }
 
         internal static int GetEffectivePriorityAtHour(Pawn pawn, WorkTypeDef workType, int hour)
@@ -104,13 +189,24 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 return GetDefaultEnabledPriority();
             }
 
-            if (ExternalWorkTabHasPriorityAuthority &&
-                ExternalWorkTabRegistry.TryGetWorkTypePriority(pawn, workType, hour, out int externalPriority))
+            IExternalWorkTabStore authoritativeStore;
+            if (TryGetAuthoritativeStore(out authoritativeStore) &&
+                ExternalWorkTabRegistry.TryGetWorkTypePriority(
+                    authoritativeStore,
+                    pawn,
+                    workType,
+                    hour,
+                    out int externalPriority))
             {
                 return ClampRuntimePriority(externalPriority);
             }
 
             int basePriority = GetBetterWorkTabStoredPriority(pawn.workSettings, workType);
+            if (!TimePriorityService.IsRuntimeActive)
+            {
+                return basePriority;
+            }
+
             return TimePriorityService.GetPriorityAtHour(
                 TimePriorityTarget.ForWorkType(pawn, workType),
                 basePriority,
@@ -124,7 +220,21 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 return GetDefaultEnabledPriority();
             }
 
-            return ClampPriorityForRequest(workSettings.priorities[workType]);
+            return ClampStoredPriorityForRuntime(workSettings.priorities[workType]);
+        }
+
+        internal static int GetVanillaCompatibleStoredPriority(
+            Pawn pawn,
+            Pawn_WorkSettings workSettings,
+            WorkTypeDef workType)
+        {
+            int storedPriority = workSettings.priorities[workType];
+            return pawn.RaceProps.Humanlike &&
+                   storedPriority > PriorityConstants.Disabled &&
+                   Find.PlaySettings != null &&
+                   !Find.PlaySettings.useWorkPriorities
+                ? PriorityConstants.VanillaDefaultEnabled
+                : storedPriority;
         }
 
         internal static int GetBetterWorkTabEffectiveWorkGiverPriorityAtHour(
@@ -135,6 +245,11 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         {
             int parentPriority = GetEffectivePriorityAtHour(pawn, workType, hour);
             int fallback = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, workGiver, parentPriority);
+            if (!TimePriorityService.IsRuntimeActive)
+            {
+                return fallback;
+            }
+
             return TimePriorityService.GetPriorityAtHour(
                 TimePriorityTarget.ForWorkGiver(pawn, workType, workGiver),
                 fallback,
@@ -233,6 +348,41 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 GetSnapshotForPriority(priority).MaxPriority);
         }
 
+        internal static int ClampStoredPriorityForRuntime(int priority)
+        {
+            return Clamp(priority, PriorityConstants.Disabled, GetRuntimePriorityMaximum(priority));
+        }
+
+        private static int GetRuntimePriorityMaximum(int requestedPriority)
+        {
+            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
+            PriorityMode mode = settings?.priorityMode ?? DefaultSettings.priorityMode;
+            switch (mode)
+            {
+                case PriorityMode.Vanilla:
+                    return PriorityConstants.VanillaMax;
+                case PriorityMode.BetterWorkTab:
+                    return GetBetterWorkTabConfiguredMaxPriority();
+                case PriorityMode.ExternalProvider:
+                    PriorityProviderRegistry.EnsureRuntimePolicy(
+                        GetAutoConfiguredMaxPriority(),
+                        settings?.selectedPriorityProviderId);
+                    return PriorityProviderRegistry.RuntimeSelectedProviderMax;
+                case PriorityMode.Auto:
+                default:
+                    if (settings == null || !settings.delegateToExternalPriorityMods ||
+                        PriorityProviderRegistry.ExternalProviderCount == 0)
+                    {
+                        return GetAutoConfiguredMaxPriority();
+                    }
+
+                    PriorityProviderRegistry.EnsureRuntimePolicy(
+                        GetAutoConfiguredMaxPriority(),
+                        settings?.selectedPriorityProviderId);
+                    return PriorityProviderRegistry.GetRuntimeAutoMax(requestedPriority);
+            }
+        }
+
         public static int GetDefaultManualPriorityForDisabledWork()
         {
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
@@ -329,7 +479,44 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         {
             cachedFrame = -1;
             cachedGame = null;
-            NotifyPotentialAuthorityChanged();
+            hasCachedAuthoritySnapshot = false;
+            PriorityProviderRegistry.RefreshRuntimePolicy(
+                GetAutoConfiguredMaxPriority(),
+                BetterWorkTabMod.Settings?.selectedPriorityProviderId);
+            InvalidateAuthorityAndRefresh();
+        }
+
+        internal static IExternalWorkTabStore GetAuthoritativeStore()
+        {
+            IExternalWorkTabStore store;
+            return TryGetAuthoritativeStore(out store) ? store : null;
+        }
+
+        private static bool TryGetAuthoritativeStore(out IExternalWorkTabStore store)
+        {
+            if (handoffInProgress && handoffAuthorityOverride.HasValue)
+            {
+                store = null;
+                return false;
+            }
+
+            AuthoritySnapshot snapshot = GetAuthoritySnapshot();
+            EnsureTransitionApplied(snapshot);
+            store = snapshot.AuthoritativeStore;
+            return snapshot.IsCoherent &&
+                   snapshot.RegistryGeneration == ExternalWorkTabRegistry.RegistryGeneration &&
+                   snapshot.Owner != PriorityAuthorityOwner.BetterWorkTab &&
+                   store != null;
+        }
+
+        private static void InvalidateAuthorityAndRefresh()
+        {
+#if DEBUG
+            explicitInvalidations++;
+#endif
+            explicitAuthorityGeneration++;
+            AuthoritySnapshot snapshot = GetAuthoritySnapshot(forceRefresh: true);
+            EnsureTransitionApplied(snapshot);
         }
 
         /// <summary>
@@ -346,46 +533,124 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         /// data.
         /// </para>
         /// </remarks>
-        private static PriorityAuthorityOwner ComputeAuthority()
+        private static AuthoritySnapshot GetAuthoritySnapshot(bool forceRefresh = false)
         {
+            RecordAuthorityRequest();
+            Game game = Current.Game;
+            int registeredStoreCount = ExternalWorkTabRegistry.RegisteredStoreCount;
+            int frame = registeredStoreCount > 0 ? Time.frameCount : -1;
+            long registryGeneration = registeredStoreCount > 0
+                ? ExternalWorkTabRegistry.RegistryGeneration
+                : 0;
+
+            AuthoritySnapshot cached = cachedAuthoritySnapshot;
+            if (!forceRefresh &&
+                hasCachedAuthoritySnapshot &&
+                ReferenceEquals(cached.Game, game) &&
+                cached.IsCoherent &&
+                cached.RegisteredStoreCount == registeredStoreCount &&
+                (registeredStoreCount == 0 || cached.Frame == frame) &&
+                cached.RegistryGeneration == registryGeneration &&
+                cached.ExplicitAuthorityGeneration == explicitAuthorityGeneration)
+            {
+                RecordAuthorityCacheHit();
+                return cached;
+            }
+
+            if (hasCachedAuthoritySnapshot && !ReferenceEquals(cached.Game, game))
+            {
+                authorityInitialized = false;
+            }
+
             PriorityProviderRegistry.EnsureInitialized();
-            IExternalWorkTabStore store = ExternalWorkTabRegistry.GetAuthoritativeStore();
+            ExternalWorkTabRegistry.AuthoritativeStoreResult selection = registeredStoreCount == 0
+                ? ExternalWorkTabRegistry.AuthoritativeStoreResult.Coherent(null, 0)
+                : ExternalWorkTabRegistry.FindAuthoritativeStore();
+            if (!selection.IsCoherent)
+            {
+                RecordAuthorityComputation();
+                if (hasCachedAuthoritySnapshot &&
+                    cached.IsCoherent &&
+                    ReferenceEquals(cached.Game, game))
+                {
+                    // Registry callbacks were unstable for the bounded probe window. Retain the
+                    // last coherent decision with its original generation; never turn an older
+                    // selection into a falsely current authority handoff.
+                    return cached;
+                }
+
+                return new AuthoritySnapshot(
+                    game,
+                    frame,
+                    selection.Generation,
+                    explicitAuthorityGeneration,
+                    registeredStoreCount,
+                    PriorityAuthorityOwner.BetterWorkTab,
+                    null,
+                    false);
+            }
+
+            registryGeneration = selection.Generation;
+            IExternalWorkTabStore store = selection.Store;
+            PriorityAuthorityOwner owner = GetOwner(store);
+            AuthoritySnapshot snapshot = new AuthoritySnapshot(
+                game,
+                frame,
+                registryGeneration,
+                explicitAuthorityGeneration,
+                registeredStoreCount,
+                owner,
+                store,
+                true);
+            cachedAuthoritySnapshot = snapshot;
+            hasCachedAuthoritySnapshot = true;
+            RecordAuthorityComputation();
+            return snapshot;
+        }
+
+        private static PriorityAuthorityOwner GetOwner(IExternalWorkTabStore store)
+        {
             if (store != null &&
                 string.Equals(store.StoreId, SleekWorkTabIdentity.ProviderId, StringComparison.OrdinalIgnoreCase))
             {
                 return PriorityAuthorityOwner.SleekWorkPriorities;
             }
 
-            if (store != null)
-            {
-                return PriorityAuthorityOwner.FluffyWorkTab;
-            }
-
-            return PriorityAuthorityOwner.BetterWorkTab;
+            return store != null
+                ? PriorityAuthorityOwner.FluffyWorkTab
+                : PriorityAuthorityOwner.BetterWorkTab;
         }
 
-        private static void EnsureTransitionApplied(PriorityAuthorityOwner authority)
+        private static void EnsureTransitionApplied(AuthoritySnapshot authority)
         {
+            if (!authority.IsCoherent)
+            {
+                return;
+            }
+
             if (!authorityInitialized)
             {
                 authorityInitialized = true;
-                lastAuthority = authority;
+                lastAuthoritySnapshot = authority;
                 return;
             }
 
-            if (lastAuthority == authority || handoffInProgress)
+            if (SameAuthority(lastAuthoritySnapshot, authority) || handoffInProgress)
             {
                 return;
             }
 
-            PriorityAuthorityOwner previous = lastAuthority;
+#if DEBUG
+            authorityTransitions++;
+#endif
+            AuthoritySnapshot previous = lastAuthoritySnapshot;
             if (!CanRunHandoffNow())
             {
-                lastAuthority = authority;
+                lastAuthoritySnapshot = authority;
                 return;
             }
 
-            lastAuthority = authority;
+            lastAuthoritySnapshot = authority;
             RunHandoff(previous, authority);
         }
 
@@ -394,25 +659,33 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             return Current.Game != null && Current.ProgramState == ProgramState.Playing;
         }
 
-        private static void RunHandoff(PriorityAuthorityOwner previous, PriorityAuthorityOwner next)
+        private static void RunHandoff(AuthoritySnapshot previous, AuthoritySnapshot next)
         {
+#if DEBUG
+            handoffs++;
+#endif
             handoffInProgress = true;
             handoffAuthorityOverride = PriorityAuthorityOwner.BetterWorkTab;
             try
             {
-                int changed = next == PriorityAuthorityOwner.BetterWorkTab
-                    ? previous == PriorityAuthorityOwner.SleekWorkPriorities
-                        ? ExternalWorkTabRegistry.ImportFromStore(SleekWorkTabIdentity.ProviderId)
-                        : previous == PriorityAuthorityOwner.FluffyWorkTab
-                            ? ExternalWorkTabRegistry.ImportFromStore(
-                                PriorityProviderIntegrationCatalog.FluffyWorkTabProviderId)
-                            : ExternalWorkTabRegistry.ImportFromAvailableImporter()
-                    : SyncBetterWorkTabToExternalStore();
+                int changed = 0;
+                if (next.Owner == PriorityAuthorityOwner.BetterWorkTab ||
+                    previous.Owner != PriorityAuthorityOwner.BetterWorkTab)
+                {
+                    changed += ImportFromPreviousAuthority(previous);
+                }
+
+                if (next.Owner != PriorityAuthorityOwner.BetterWorkTab)
+                {
+                    changed += PublishToNextAuthority(next);
+                }
 
                 WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
                 MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
                 BetterWorkTabMod.DebugLog(
-                    "Priority authority changed " + previous + " -> " + next + "; synced entries=" + changed + ".",
+                    "Priority authority changed " + previous.Owner + "/" +
+                    (previous.StoreId ?? "<bwt>") + " -> " + next.Owner + "/" +
+                    (next.StoreId ?? "<bwt>") + "; synced entries=" + changed + ".",
                     DebugFeature.ModSupport);
             }
             finally
@@ -425,9 +698,22 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         /// <summary>
         /// Rebuilds the external work-tab mod's priority store from Better Work Tab's stores.
         /// </summary>
-        private static int SyncBetterWorkTabToExternalStore()
+        private static int ImportFromPreviousAuthority(AuthoritySnapshot previous)
         {
-            return ExternalPriorityMirror.NotifyAllChanged();
+            return string.IsNullOrEmpty(previous.StoreId)
+                ? ExternalWorkTabRegistry.ImportFromAvailableImporter()
+                : ExternalWorkTabRegistry.ImportFromStore(previous.StoreId);
+        }
+
+        private static int PublishToNextAuthority(AuthoritySnapshot next)
+        {
+            return ExternalWorkTabRegistry.PushAllPawnsToStore(next.AuthoritativeStore);
+        }
+
+        private static bool SameAuthority(AuthoritySnapshot left, AuthoritySnapshot right)
+        {
+            return left.Owner == right.Owner &&
+                   string.Equals(left.StoreId, right.StoreId, StringComparison.OrdinalIgnoreCase);
         }
 
         private static PriorityProviderSnapshot ResolveAutomaticProvider(
@@ -516,6 +802,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             return candidates
                 .OrderBy(snapshot => snapshot.MaxPriority)
                 .ThenBy(snapshot => snapshot.DisplayName, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(snapshot => snapshot.ProviderId, StringComparer.OrdinalIgnoreCase)
                 .FirstOrDefault();
         }
 
@@ -766,6 +1053,64 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         private static int ClampRuntimePriority(int priority)
         {
             return Clamp(priority, PriorityConstants.Disabled, PriorityConstants.ExtendedHardMax);
+        }
+
+        [Conditional("DEBUG")]
+        private static void RecordAuthorityRequest()
+        {
+#if DEBUG
+            authorityRequests++;
+#endif
+        }
+
+        [Conditional("DEBUG")]
+        private static void RecordAuthorityCacheHit()
+        {
+#if DEBUG
+            authorityCacheHits++;
+#endif
+        }
+
+        [Conditional("DEBUG")]
+        private static void RecordAuthorityComputation()
+        {
+#if DEBUG
+            authorityComputations++;
+#endif
+        }
+
+        private struct AuthoritySnapshot
+        {
+            internal AuthoritySnapshot(
+                Game game,
+                int frame,
+                long registryGeneration,
+                long explicitAuthorityGeneration,
+                int registeredStoreCount,
+                PriorityAuthorityOwner owner,
+                IExternalWorkTabStore authoritativeStore,
+                bool isCoherent)
+            {
+                Game = game;
+                Frame = frame;
+                RegistryGeneration = registryGeneration;
+                ExplicitAuthorityGeneration = explicitAuthorityGeneration;
+                RegisteredStoreCount = registeredStoreCount;
+                Owner = owner;
+                AuthoritativeStore = authoritativeStore;
+                StoreId = authoritativeStore?.StoreId;
+                IsCoherent = isCoherent;
+            }
+
+            internal Game Game { get; }
+            internal int Frame { get; }
+            internal long RegistryGeneration { get; }
+            internal long ExplicitAuthorityGeneration { get; }
+            internal int RegisteredStoreCount { get; }
+            internal PriorityAuthorityOwner Owner { get; }
+            internal IExternalWorkTabStore AuthoritativeStore { get; }
+            internal string StoreId { get; }
+            internal bool IsCoherent { get; }
         }
     }
 }

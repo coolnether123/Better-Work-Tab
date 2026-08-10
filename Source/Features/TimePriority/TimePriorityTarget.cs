@@ -32,6 +32,9 @@ namespace Better_Work_Tab.Features.TimePriority
 
         internal string Key => TimePriorityService.BuildKey(PawnId, Kind, WorkTypeDefName, TargetDefName);
 
+        internal TimePriorityCacheKey CacheKey =>
+            new TimePriorityCacheKey(PawnId, Kind, WorkTypeDefName, TargetDefName);
+
         internal static TimePriorityTarget FromRaw(
             int pawnId,
             TimePriorityTargetKind kind,

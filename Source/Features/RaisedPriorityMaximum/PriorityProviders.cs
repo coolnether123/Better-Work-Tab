@@ -2,10 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 using Better_Work_Tab.API;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities;
 using HarmonyLib;
+using UnityEngine;
 
 namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 {
@@ -16,6 +18,33 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             new Dictionary<string, IMaxPriorityProvider>(StringComparer.OrdinalIgnoreCase);
 
         private static bool initialized;
+        private static int externalProviderCount;
+        private static long providerGeneration;
+        private static int runtimePolicyFrame = -1;
+        private static long runtimePolicyProviderGeneration = -1;
+        private static int runtimePolicyAutoMax = -1;
+        private static string runtimePolicySelectedProviderId;
+
+        internal static long Generation => Interlocked.Read(ref providerGeneration);
+        private static int[] runtimeAutoMaxByRequestedPriority = CreateDefaultRuntimeAutoMax();
+        private static int runtimeSelectedProviderMax = PriorityConstants.VanillaMax;
+
+        internal static int ExternalProviderCount
+        {
+            get { return Volatile.Read(ref externalProviderCount); }
+        }
+
+        internal static int GetRuntimeAutoMax(int requestedPriority)
+        {
+            int index = requestedPriority < 0
+                ? 0
+                : requestedPriority >= PriorityConstants.ExtendedHardMax
+                    ? PriorityConstants.ExtendedHardMax
+                    : requestedPriority;
+            return runtimeAutoMaxByRequestedPriority[index];
+        }
+
+        internal static int RuntimeSelectedProviderMax => runtimeSelectedProviderMax;
 
         internal static void EnsureInitialized()
         {
@@ -34,6 +63,107 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             }
         }
 
+        internal static void RefreshRuntimePolicy(int autoMaxPriority, string selectedProviderId)
+        {
+            EnsureInitialized();
+            autoMaxPriority = PriorityAuthorityBroker.ClampMaxPriority(autoMaxPriority);
+            int[] autoMaxByRequestedPriority = new int[PriorityConstants.ExtendedHardMax + 1];
+            List<RuntimeProviderRange> ranges = new List<RuntimeProviderRange>();
+
+            lock (SyncRoot)
+            {
+                foreach (IMaxPriorityProvider provider in Providers.Values)
+                {
+                    if (IsBuiltInProviderId(provider?.ProviderId) || !IsProviderAvailable(provider))
+                    {
+                        continue;
+                    }
+
+                    if (!provider.TryGetMaxPriority(out int maxPriority))
+                    {
+                        continue;
+                    }
+
+                    ranges.Add(new RuntimeProviderRange(
+                        PriorityAuthorityBroker.ClampMaxPriority(maxPriority),
+                        provider.DisplayName,
+                        provider.ProviderId));
+                }
+            }
+
+            int selectedMax = PriorityConstants.VanillaMax;
+            for (int i = 0; i < ranges.Count; i++)
+            {
+                RuntimeProviderRange range = ranges[i];
+                if (string.Equals(range.ProviderId, selectedProviderId, StringComparison.OrdinalIgnoreCase))
+                {
+                    selectedMax = range.MaxPriority;
+                    break;
+                }
+            }
+
+            for (int requested = 0; requested <= PriorityConstants.ExtendedHardMax; requested++)
+            {
+                int required = Math.Max(PriorityConstants.VanillaMax, requested);
+                int bestMax = int.MaxValue;
+                string bestDisplayName = null;
+                string bestProviderId = null;
+                for (int i = 0; i < ranges.Count; i++)
+                {
+                    RuntimeProviderRange range = ranges[i];
+                    int limitedMax = Math.Min(range.MaxPriority, autoMaxPriority);
+                    if (limitedMax < required ||
+                        limitedMax > bestMax ||
+                        (limitedMax == bestMax &&
+                         (string.Compare(range.DisplayName, bestDisplayName, StringComparison.OrdinalIgnoreCase) > 0 ||
+                          (string.Equals(range.DisplayName, bestDisplayName, StringComparison.OrdinalIgnoreCase) &&
+                           string.Compare(range.ProviderId, bestProviderId, StringComparison.OrdinalIgnoreCase) >= 0))))
+                    {
+                        continue;
+                    }
+
+                    bestMax = limitedMax;
+                    bestDisplayName = range.DisplayName;
+                    bestProviderId = range.ProviderId;
+                }
+
+                autoMaxByRequestedPriority[requested] = bestMax == int.MaxValue
+                    ? required <= PriorityConstants.VanillaMax ? PriorityConstants.VanillaMax : autoMaxPriority
+                    : bestMax;
+            }
+
+            runtimeAutoMaxByRequestedPriority = autoMaxByRequestedPriority;
+            runtimeSelectedProviderMax = selectedMax;
+            runtimePolicyFrame = Time.frameCount;
+            runtimePolicyProviderGeneration = Generation;
+            runtimePolicyAutoMax = autoMaxPriority;
+            runtimePolicySelectedProviderId = selectedProviderId;
+        }
+
+        internal static void EnsureRuntimePolicy(int autoMaxPriority, string selectedProviderId)
+        {
+            if (ExternalProviderCount == 0)
+            {
+                return;
+            }
+
+            autoMaxPriority = PriorityAuthorityBroker.ClampMaxPriority(autoMaxPriority);
+            int frame = Time.frameCount;
+            long generation = Generation;
+            if (runtimePolicyFrame == frame &&
+                runtimePolicyProviderGeneration == generation &&
+                runtimePolicyAutoMax == autoMaxPriority &&
+                string.Equals(
+                    runtimePolicySelectedProviderId,
+                    selectedProviderId,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            RefreshRuntimePolicy(autoMaxPriority, selectedProviderId);
+        }
+
         internal static IEnumerable<IMaxPriorityProvider> GetAvailableProviders()
         {
             EnsureInitialized();
@@ -43,6 +173,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                     .Where(IsProviderAvailable)
                     .OrderBy(provider => provider.SortOrder)
                     .ThenBy(provider => provider.DisplayName, StringComparer.OrdinalIgnoreCase)
+                    .ThenBy(provider => provider.ProviderId, StringComparer.OrdinalIgnoreCase)
                     .ToList();
             }
         }
@@ -78,7 +209,13 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             EnsureInitialized();
             lock (SyncRoot)
             {
+                if (!Providers.ContainsKey(providerId))
+                {
+                    externalProviderCount++;
+                }
+
                 Providers[providerId] = provider;
+                providerGeneration++;
             }
 
             PriorityAuthorityBroker.InvalidateCaches();
@@ -93,16 +230,23 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             }
 
             EnsureInitialized();
+            bool removed;
             lock (SyncRoot)
             {
-                bool removed = Providers.Remove(providerId.Trim());
+                removed = Providers.Remove(providerId.Trim());
                 if (removed)
                 {
-                    PriorityAuthorityBroker.InvalidateCaches();
+                    externalProviderCount--;
+                    providerGeneration++;
                 }
-
-                return removed;
             }
+
+            if (removed)
+            {
+                PriorityAuthorityBroker.InvalidateCaches();
+            }
+
+            return removed;
         }
 
         private static bool IsProviderAvailable(IMaxPriorityProvider provider)
@@ -122,6 +266,31 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             return IsProviderId(providerId, PriorityConstants.AutoProviderId) ||
                    IsProviderId(providerId, PriorityConstants.VanillaProviderId) ||
                    IsProviderId(providerId, PriorityConstants.BwtProviderId);
+        }
+
+        private static int[] CreateDefaultRuntimeAutoMax()
+        {
+            int[] defaults = new int[PriorityConstants.ExtendedHardMax + 1];
+            for (int i = 0; i < defaults.Length; i++)
+            {
+                defaults[i] = PriorityConstants.VanillaMax;
+            }
+
+            return defaults;
+        }
+
+        private readonly struct RuntimeProviderRange
+        {
+            internal RuntimeProviderRange(int maxPriority, string displayName, string providerId)
+            {
+                MaxPriority = maxPriority;
+                DisplayName = displayName;
+                ProviderId = providerId;
+            }
+
+            internal int MaxPriority { get; }
+            internal string DisplayName { get; }
+            internal string ProviderId { get; }
         }
 
         private static bool IsProviderId(string providerId, string expectedProviderId)

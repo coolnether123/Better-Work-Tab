@@ -37,9 +37,38 @@ namespace Better_Work_Tab.Features
             get { return fiDirty ?? (fiDirty = typeof(Pawn_WorkSettings).GetField("workGiversDirty", InstPriv)); }
         }
         private static FieldInfo fiPawn;
+        private static Game cachedCustomOrderGame;
+        private static int cachedCustomOrderGeneration = int.MinValue;
+        private static bool cachedHasCustomOrder;
+        private static readonly List<string> EmptyColumnOrder = new List<string>(0);
         private static FieldInfo PawnFI
         {
             get { return fiPawn ?? (fiPawn = typeof(Pawn_WorkSettings).GetField("pawn", InstPriv)); }
+        }
+
+        internal static bool HasCustomExecutionOrder
+        {
+            get
+            {
+                GameComponent_BWTWorldSettings component =
+                    Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
+                if (component == null)
+                {
+                    return false;
+                }
+
+                if (!ReferenceEquals(cachedCustomOrderGame, Current.Game) ||
+                    cachedCustomOrderGeneration != component.ColumnOrderGeneration)
+                {
+                    cachedCustomOrderGame = Current.Game;
+                    cachedCustomOrderGeneration = component.ColumnOrderGeneration;
+                    cachedHasCustomOrder = HasDifferentOrder(
+                        component.ColumnCurrentOrder,
+                        component.ColumnBaselineOrder);
+                }
+
+                return cachedHasCustomOrder;
+            }
         }
 
         /// <summary>
@@ -69,7 +98,7 @@ namespace Better_Work_Tab.Features
 
             // 2) Build saved order index map from settings (workType.defName -> index)
             var comp = Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
-            var saved = comp?.ColumnCurrentOrder ?? new List<string>();
+            var saved = comp?.ColumnCurrentOrder ?? EmptyColumnOrder;
             var indexMap = new Dictionary<string, int>(StringComparer.Ordinal);
             for (int i = 0; i < saved.Count; i++)
             {
@@ -144,6 +173,24 @@ namespace Better_Work_Tab.Features
             NormalFI.SetValue(ws, normal);
             EmergFI.SetValue(ws, emerg);
             DirtyFI.SetValue(ws, false);
+        }
+
+        private static bool HasDifferentOrder(List<string> current, List<string> baseline)
+        {
+            if (current == null || current.Count == 0 || baseline == null || current.Count != baseline.Count)
+            {
+                return current != null && current.Count > 0;
+            }
+
+            for (int i = 0; i < current.Count; i++)
+            {
+                if (!string.Equals(current[i], baseline[i], StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static int GetPriority(Pawn_WorkSettings workSettings, Pawn pawn, WorkTypeDef workType)

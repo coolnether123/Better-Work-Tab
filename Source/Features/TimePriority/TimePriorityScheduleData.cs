@@ -37,6 +37,9 @@ namespace Better_Work_Tab.Features.TimePriority
         /// <summary>Hours the player has taken off the priority box.</summary>
         public List<int> UnlinkedHours = new List<int>();
 
+        internal TimePriorityCacheKey CacheKey =>
+            new TimePriorityCacheKey(PawnId, Kind, WorkTypeDefName, TargetDefName);
+
         /// <summary>
         /// Set while loading a save written before hours carried their link
         /// state. Those saves cannot describe an override that matched the
