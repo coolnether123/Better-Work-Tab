@@ -217,15 +217,30 @@ namespace Better_Work_Tab.Features
         /// </summary>
         internal static void MarkAllPawnsWorkGiversDirty()
         {
-            foreach (var p in PawnsFinder.AllMapsWorldAndTemporary_Alive)
+            if (Current.Game == null)
             {
-                try
-                {
-                    if (p?.Faction == Faction.OfPlayer && p?.workSettings != null)
-                        p.workSettings.Notify_UseWorkPrioritiesChanged();
-                }
-                catch { /* ignore individual pawn issues */ }
+                return;
             }
+
+            try
+            {
+                var pawns = PawnsFinder.AllMapsWorldAndTemporary_Alive;
+                if (pawns == null)
+                {
+                    return;
+                }
+
+                foreach (var p in pawns)
+                {
+                    try
+                    {
+                        if (p?.Faction == Faction.OfPlayer && p?.workSettings != null)
+                            p.workSettings.Notify_UseWorkPrioritiesChanged();
+                    }
+                    catch { /* ignore individual pawn issues */ }
+                }
+            }
+            catch { /* ignore unavailable pawn collections during game transitions */ }
         }
     }
 
