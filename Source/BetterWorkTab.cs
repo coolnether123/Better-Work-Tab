@@ -90,11 +90,15 @@ namespace Better_Work_Tab
 
             try
             {
-                var harmony = new Harmony("Coolnether123.betterworktab");
-                harmony.PatchAll();
+                var harmony = new Harmony(DynamicGameplayPatchController.HarmonyId);
+                // PatchAll covers only the static, attribute-declared surface. The
+                // gameplay callbacks owned by DynamicGameplayPatchController have no
+                // Harmony attributes and are installed explicitly by that controller.
+                harmony.PatchAll(System.Reflection.Assembly.GetExecutingAssembly());
                 ClockworkCompatibility.Initialize(harmony);
                 SleekWorkTabGateway.Initialize();
                 FluffyWorkTabGateway.ApplyDesiredOwner();
+                DynamicGameplayPatchController.Initialize(harmony);
                 DebugLog("Harmony patched successfully.");
             }
             catch (Exception ex)
@@ -160,6 +164,7 @@ namespace Better_Work_Tab
             WorkGiverReassignmentManager.OnRuntimeSettingChanged();
             TimePriorityService.OnRuntimeSettingChanged();
             Features.RaisedPriorityMaximum.PriorityAuthorityBroker.InvalidateCaches();
+            DynamicGameplayPatchController.RequestRefresh();
         }
 
         /// <summary>

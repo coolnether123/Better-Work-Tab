@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.Workloads;
@@ -735,6 +736,7 @@ namespace Better_Work_Tab.Features.TimePriority
 
         internal static void OnRuntimeSettingChanged()
         {
+            DynamicGameplayPatchController.RequestRefresh();
             bool enabled = ReadRuntimeEnabled();
             if (!_runtimeEnabledKnown)
             {
@@ -772,6 +774,7 @@ namespace Better_Work_Tab.Features.TimePriority
 
         internal static void NotifyFallbacksChanged()
         {
+            DynamicGameplayPatchController.RequestRefresh();
             if (!IsRuntimeEnabled)
             {
                 return;
@@ -792,6 +795,7 @@ namespace Better_Work_Tab.Features.TimePriority
         /// </summary>
         internal static void NotifyExternalDataChanged()
         {
+            DynamicGameplayPatchController.RequestRefresh();
             NotifyChanged();
         }
 
@@ -1298,6 +1302,7 @@ namespace Better_Work_Tab.Features.TimePriority
 
         internal static void NotifyLoaded()
         {
+            DynamicGameplayPatchController.RequestRefresh();
             OnRuntimeSettingChanged();
             if (!IsRuntimeEnabled)
             {
@@ -1604,6 +1609,7 @@ namespace Better_Work_Tab.Features.TimePriority
 
         private static void NotifyChanged()
         {
+            DynamicGameplayPatchController.RequestRefresh();
             if (!IsRuntimeEnabled)
             {
                 return;

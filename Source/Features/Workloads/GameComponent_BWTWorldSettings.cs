@@ -42,6 +42,7 @@ namespace Better_Work_Tab.Features.Workloads
         {
             ColumnCurrentOrder = order ?? new List<string>();
             ColumnOrderGeneration++;
+            DynamicGameplayPatchController.RequestRefresh();
         }
 
         public override void FinalizeInit()
@@ -72,6 +73,8 @@ namespace Better_Work_Tab.Features.Workloads
             ColumnBaselineManager.EnsureBaseline(this);
             TimePriorityService.NotifyLoaded();
             FluffyWorkTabGateway.MigratePriorityDataIfNeeded(this);
+            DynamicGameplayPatchController.RequestRefresh();
+            DynamicGameplayPatchController.ProcessPendingRefresh();
 
             SpineTiming.Configure(
                 message => BetterWorkTabMod.DebugLog(message, DebugFeature.Performance),
@@ -192,6 +195,7 @@ namespace Better_Work_Tab.Features.Workloads
                 EnsureWorkGiverReassignmentData();
                 WorkGiverReassignmentManager.MigrateLegacySettingsDataIfNeeded(this);
                 TimePriorityService.NotifyLoaded();
+                DynamicGameplayPatchController.RequestRefresh();
             }
         }
 
@@ -240,6 +244,7 @@ namespace Better_Work_Tab.Features.Workloads
             }
 
             base.GameComponentUpdate();
+            DynamicGameplayPatchController.ProcessPendingRefresh();
 
             // Save profile every 300 ticks (~5 seconds) if dirty
             // This avoids Scribe nesting issues when called from ExposeData

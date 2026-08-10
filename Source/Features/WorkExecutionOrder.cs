@@ -2,7 +2,6 @@ using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
-using HarmonyLib;
 using RimWorld;
 using System;
 using System.Collections.Generic;
@@ -234,14 +233,11 @@ namespace Better_Work_Tab.Features
     /// Prefix-patch CacheWorkGiversInOrder to fully replace list composition, using saved
     /// Work column order as the tie-breaker among equal manual priorities.
     /// </summary>
-    [HarmonyPatch(typeof(Pawn_WorkSettings), nameof(Pawn_WorkSettings.CacheWorkGiversInOrder))]
     internal static class Patch_WorkExecutionOrder_ReplaceCache
     {
-        [HarmonyBefore(new[] { "fluffy.worktab" })]
-        [HarmonyPriority(Priority.First)]
         public static bool Prefix(Pawn_WorkSettings __instance)
         {
-            if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabOrdering)
+            if (!DynamicGameplayPatchController.IsOrderingBehaviorActive)
             {
                 return true;
             }

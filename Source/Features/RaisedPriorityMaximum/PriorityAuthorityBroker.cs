@@ -150,12 +150,13 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         /// </summary>
         internal static bool ShouldRunBetterWorkTabOrdering =>
             BetterWorkTabHasPriorityAuthority &&
-            (WorkGiverReassignmentManager.HasActiveData ||
+            (WorkGiverReassignmentManager.HasMaterialData ||
              TimePriorityService.IsRuntimeActive ||
              WorkExecutionOrder.HasCustomExecutionOrder);
 
         internal static void NotifyPotentialAuthorityChanged()
         {
+            DynamicGameplayPatchController.RequestRefresh();
             InvalidateAuthorityAndRefresh();
             TimePriorityService.NotifyFallbacksChanged();
             WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
@@ -483,6 +484,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
         internal static void InvalidateCaches()
         {
+            DynamicGameplayPatchController.RequestRefresh();
             cachedFrame = -1;
             cachedGame = null;
             hasCachedAuthoritySnapshot = false;

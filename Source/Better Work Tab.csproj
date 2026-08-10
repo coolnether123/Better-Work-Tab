@@ -141,10 +141,12 @@
     <Compile Include="Features\Rules\RuleBuilder2\RuleBuilder2ClassicRulesetExportService.cs" />
     <Compile Include="Features\Rules\RuleBuilder2\RuleBuilder2DraftGenerator.cs" />
     <Compile Include="Features\ColumnBaselineManager.cs" />
+    <Compile Include="Features\Infrastructure\DynamicGameplayPatchController.cs" />
     <Compile Include="Features\Dividers\DividerCollapseAnimationState.cs" />
     <Compile Include="Features\Dividers\DividerInsertionAnimationState.cs" />
     <Compile Include="Features\WorkExecutionOrder.cs" />
     <Compile Include="Features\WorkGiverReassignments\WorkGiverReassignmentData.cs" />
+    <Compile Include="Features\WorkGiverReassignments\WorkGiverReassignmentMateriality.cs" />
     <Compile Include="Features\WorkGiverReassignments\WorkGiverReassignmentManager.cs" />
     <Compile Include="Features\WorkGiverReassignments\WorkGiverLayoutHistory.cs" />
     <Compile Include="Features\WorkGiverReassignments\WorkGiverReassignmentPatches.cs" />

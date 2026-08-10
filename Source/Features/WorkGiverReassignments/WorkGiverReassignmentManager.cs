@@ -30,7 +30,8 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         private static int _cachedSyncVersion = -1;
         private static int _cachedActivationSyncVersion = int.MinValue;
         private static GameComponent_BWTWorldSettings _cachedActivationComponent;
-        private static bool _cachedHasAnyData;
+        private static WorkGiverReassignmentData _cachedActivationData;
+        private static bool _cachedHasMaterialData;
         private static bool _runtimeEnabledKnown;
         private static bool _lastRuntimeEnabled = DefaultSettings.enableSubWorkDrilldown;
         private static BetterWorkTabSettings Settings => BetterWorkTabMod.Settings;
@@ -123,7 +124,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         internal static int CurrentSyncVersion => IsRuntimeEnabled ? ExistingData?.SyncVersion ?? 0 : 0;
 
-        internal static bool HasActiveData
+        internal static bool HasMaterialData
         {
             get
             {
@@ -137,14 +138,17 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                     Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
                 int version = data?.SyncVersion ?? 0;
                 if (!ReferenceEquals(component, _cachedActivationComponent) ||
-                    version != _cachedActivationSyncVersion)
+                    version != _cachedActivationSyncVersion ||
+                    !ReferenceEquals(data, _cachedActivationData))
                 {
                     _cachedActivationComponent = component;
                     _cachedActivationSyncVersion = version;
-                    _cachedHasAnyData = data != null && data.HasAnyData();
+                    _cachedActivationData = data;
+                    _cachedHasMaterialData = data != null &&
+                                             WorkGiverReassignmentMateriality.HasMaterialData(data);
                 }
 
-                return _cachedHasAnyData;
+                return _cachedHasMaterialData;
             }
         }
 
@@ -304,12 +308,15 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         /// </summary>
         internal static void InvalidateCaches()
         {
+            DynamicGameplayPatchController.RequestRefresh();
             WorkGiverTargetCache.Clear();
             ReassignedCache.Clear();
             OrderedWorkGiverCache.Clear();
             DisplayWorkGiverCache.Clear();
             _cachedActivationSyncVersion = int.MinValue;
             _cachedActivationComponent = null;
+            _cachedActivationData = null;
+            _cachedHasMaterialData = false;
         }
 
         private static void InvalidateVanillaWorkGiverCache()
