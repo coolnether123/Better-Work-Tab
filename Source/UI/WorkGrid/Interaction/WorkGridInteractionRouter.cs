@@ -74,7 +74,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
                 || _contextSettingsInteractionController.TryHandleInput(inRect, layout, evt)
                 || _ruleBuilder2InteractionController.TryHandleInput(layout, evt)
                 || TimePriorityScheduleEditor.TryHandleInput(layout, evt)
-                || _subWorkInteractionController.TryHandleSubWorkBadgeClick(layout)
+                || _subWorkInteractionController.TryHandleSubWorkBackButtonClick(layout)
                 || _subWorkInteractionController.TryHandleSubWorkExitGesture(layout)
                 || _subWorkInteractionController.TryHandleSubWorkHeaderOpen(layout);
             if (handled)

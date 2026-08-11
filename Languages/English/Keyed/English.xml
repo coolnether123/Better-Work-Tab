@@ -10,8 +10,6 @@
 <BWT_Enum_SubWorkDrilldownStyle_NotChosen>Ask first time</BWT_Enum_SubWorkDrilldownStyle_NotChosen>
 <BWT_Enum_SubWorkDrilldownStyle_FocusView>Focus view</BWT_Enum_SubWorkDrilldownStyle_FocusView>
 <BWT_Enum_SubWorkDrilldownStyle_ExpandBeside>Fluffy-style expansion</BWT_Enum_SubWorkDrilldownStyle_ExpandBeside>
-<BWT_SubWork_OpenSpecificJobs>Open specific jobs</BWT_SubWork_OpenSpecificJobs>
-<BWT_SubWork_ReturnToWorkTypes>Back to Work type - won't move</BWT_SubWork_ReturnToWorkTypes>
 <BWT_SubWork_UseExpandedView>Expand beside</BWT_SubWork_UseExpandedView>
 <BWT_SubWork_UseExpandedView_Tooltip>Keep the main Work columns visible and expand this Work's specific jobs beside it. This enables BWT's optional expanded presentation.</BWT_SubWork_UseExpandedView_Tooltip>
 <BWT_SubWork_UseFocusedView>Focus view</BWT_SubWork_UseFocusedView>
@@ -254,7 +252,6 @@
 <BWT_Tutorial_HeaderSubWork_Label>Open specific jobs</BWT_Tutorial_HeaderSubWork_Label>
 <BWT_Tutorial_HeaderSubWork_Title>Open specific jobs</BWT_Tutorial_HeaderSubWork_Title>
 <BWT_Tutorial_HeaderSubWork_Preview>Specific jobs can focus or expand the grid, with priorities, overrides, reordering, and reassignment.</BWT_Tutorial_HeaderSubWork_Preview>
-<BWT_Tutorial_HeaderSubWork_ActionBoth>Click the two-line button under the highlighted Work header, or {0} the header, to open its specific jobs.</BWT_Tutorial_HeaderSubWork_ActionBoth>
 <BWT_Tutorial_HeaderSubWork_ActionShortcut>{0} the highlighted Work header to open its specific jobs.</BWT_Tutorial_HeaderSubWork_ActionShortcut>
 <BWT_Tutorial_HeaderSubWork_Outcome>Specific jobs open. Escape or {0} returns.</BWT_Tutorial_HeaderSubWork_Outcome>
 <BWT_Tutorial_HeaderSubWork_Feedback>Specific jobs: presentation, priorities, and reassignment</BWT_Tutorial_HeaderSubWork_Feedback>

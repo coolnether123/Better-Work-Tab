@@ -71,46 +71,6 @@ namespace Better_Work_Tab.UI.Settings
                     UiTimePriorityCopyPasteButtons);
             }
 
-            if (layout != null &&
-                SubWorkHeaderAffordance.TryGetFocusedBadgeTarget(
-                    layout,
-                    out WorkTabLayoutColumn _,
-                    out Rect focusedBadgeRect) &&
-                focusedBadgeRect.Contains(mousePosition))
-            {
-                return CreateContextRequest(
-                    "Focused Specific-jobs Button",
-                    "Settings for the fixed return button under the specific job nearest the original Work-header position.",
-                    SubWorkFocusedHeaderBadge,
-                    true,
-                    FeaturesSubWorkJobs,
-                    SubWorkFocusedHeaderBadge,
-                    SubWorkHeaderBadge,
-                    SubWorkOpenButton,
-                    SubWorkOpenModifier,
-                    SubWorkDrilldownStyle);
-            }
-
-            if (layout != null &&
-                SubWorkHeaderAffordance.TryGetOpenBadgeTarget(
-                    layout,
-                    mousePosition,
-                    out WorkTypeDef _,
-                    out Rect _,
-                    out WorkTabLayoutColumn _))
-            {
-                return CreateContextRequest(
-                    "Sub-work Header Button",
-                    "Setting that controls the two-line sub-work button under work headers.",
-                    SubWorkHeaderBadge,
-                    true,
-                    FeaturesSubWorkJobs,
-                    SubWorkHeaderBadge,
-                    SubWorkOpenButton,
-                    SubWorkOpenModifier,
-                    SubWorkDrilldownStyle);
-            }
-
             if (layout != null && TryGetPriorityCellContext(layout, mousePosition, out bool isSubWorkCell))
             {
                 if (ctrlOnly)
@@ -123,7 +83,6 @@ namespace Better_Work_Tab.UI.Settings
                         FeaturesSubWorkJobs,
                         SubWorkOpenModifier,
                         SubWorkOpenButton,
-                        SubWorkHeaderBadge,
                         SubWorkRestoreCursorFromPawnCells,
                         SubWorkTransitionMode,
                         SubWorkTransitionSpeed,
@@ -184,7 +143,6 @@ namespace Better_Work_Tab.UI.Settings
                     UiTimePriorityHourDivider,
                     UiTimePrioritySourceColumnHighlight,
                     FeaturesSubWorkJobs,
-                    SubWorkHeaderBadge,
                     SubWorkCompactPriorityBoxes,
                     SubWorkGlobalVanillaPriorityBoxes,
                     SubWorkDisabledParentMode,
@@ -203,7 +161,6 @@ namespace Better_Work_Tab.UI.Settings
                         FeaturesSubWorkJobs,
                         SubWorkOpenModifier,
                         SubWorkOpenButton,
-                        SubWorkHeaderBadge,
                         SubWorkRestoreCursor,
                         SubWorkTransitionMode,
                         SubWorkTransitionSpeed,
@@ -248,7 +205,6 @@ namespace Better_Work_Tab.UI.Settings
                     AutoassignViewMode,
                     AutoassignWarnOnApply,
                     FeaturesSubWorkJobs,
-                    SubWorkHeaderBadge,
                     SubWorkCrossWorkDragDrop,
                     SubWorkOpenModifier,
                     SubWorkOpenButton,

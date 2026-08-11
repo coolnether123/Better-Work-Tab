@@ -1807,12 +1807,8 @@ namespace Better_Work_Tab.Features.Tutorial
         private static string BuildSubWorkActionBody()
         {
             string gesture = SubWorkDrilldownInput.GestureLabel();
-            bool badgeVisible = BetterWorkTabMod.Settings?.showSubWorkHeaderBadge ??
-                                DefaultSettings.showSubWorkHeaderBadge;
             return string.Format(
-                T(badgeVisible
-                    ? "BWT_Tutorial_HeaderSubWork_ActionBoth"
-                    : "BWT_Tutorial_HeaderSubWork_ActionShortcut"),
+                T("BWT_Tutorial_HeaderSubWork_ActionShortcut"),
                 gesture);
         }
 

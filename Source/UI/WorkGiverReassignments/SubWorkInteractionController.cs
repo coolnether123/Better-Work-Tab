@@ -175,9 +175,9 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 evt);
         }
 
-        internal bool TryHandleSubWorkBadgeClick(IWorkTabLayoutController layout)
+        internal bool TryHandleSubWorkBackButtonClick(IWorkTabLayoutController layout)
         {
-            if (layout == null)
+            if (layout == null || !SubWorkDrilldownState.IsActive)
             {
                 return false;
             }
@@ -188,56 +188,15 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 return false;
             }
 
-            if (SubWorkDrilldownState.IsActive)
-            {
-                if (SubWorkHeaderAffordance.TryGetFocusedBadgeTarget(
-                        layout,
-                        out WorkTabLayoutColumn focusedBadgeColumn,
-                        out Rect focusedBadgeRect) &&
-                    focusedBadgeRect.Contains(evt.mousePosition))
-                {
-                    AngledHeaderInteraction.ClearPendingHeaderClick(focusedBadgeColumn.Column);
-                    TryExitSubWorkMode(restoreMousePosition: false);
-                    evt.Use();
-                    return true;
-                }
-
-                if (!SubWorkHeaderAffordance.TryGetBackLabelCellRect(layout, out Rect labelCellRect) ||
-                    !labelCellRect.Contains(evt.mousePosition))
-                {
-                    return false;
-                }
-
-                TryExitSubWorkMode(restoreMousePosition: false);
-                evt.Use();
-                return true;
-            }
-
-            if (!SubWorkHeaderAffordance.TryGetOpenBadgeTarget(
-                    layout,
-                    evt.mousePosition,
-                    out var workType,
-                    out var badgeRect,
-                    out WorkTabLayoutColumn targetColumn))
+            if (!SubWorkHeaderAffordance.TryGetBackLabelCellRect(layout, out Rect labelCellRect) ||
+                !labelCellRect.Contains(evt.mousePosition))
             {
                 return false;
             }
 
-            AngledHeaderInteraction.ClearPendingHeaderClick(targetColumn.Column);
-            PawnOrganizerSystem.Instance?.CancelPendingDrag();
-            MarkSubWorkCtrlClickNoticeDismissed();
-            if (FluffyWorkTabGateway.TryStartSubWorkDrilldownStyleChooser(layout, workType, badgeRect))
-            {
-                evt.Use();
-                return true;
-            }
-
-            return CompleteSubWorkOpen(
-                layout,
-                workType,
-                GuiMousePosition.ToRootUiPosition(evt.mousePosition),
-                ctrlClickDiscovery: false,
-                evt: evt);
+            TryExitSubWorkMode(restoreMousePosition: false);
+            evt.Use();
+            return true;
         }
 
         internal bool TryHandleSubWorkExitGesture(IWorkTabLayoutController layout)

@@ -250,8 +250,6 @@ namespace Better_Work_Tab.UI.Headers
                     }
                 }
             }
-
-            SubWorkHeaderAffordance.DrawFocusedBadge(layout);
         }
 
         /// <summary>

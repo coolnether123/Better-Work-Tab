@@ -61,25 +61,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         internal static WorkTypeDef ActiveWorkType => _activeWorkType;
 
-        internal static int FocusedHeaderAffordanceSlot
-        {
-            get
-            {
-                if (!IsActive)
-                {
-                    return -1;
-                }
-
-                RefreshIfNeeded();
-                if (ActiveWorkGiversBuffer.Count == 0)
-                {
-                    return -1;
-                }
-
-                return Mathf.Clamp(_entryWorkColumnSlot, 0, ActiveWorkGiversBuffer.Count - 1);
-            }
-        }
-
         internal static IEnumerable<WorkTypeDef> ExpandBesideWorkTypes
         {
             get
