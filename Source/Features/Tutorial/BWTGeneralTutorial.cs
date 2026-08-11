@@ -548,22 +548,30 @@ namespace Better_Work_Tab.Features.Tutorial
         /// <summary>
         /// Latches whether the tutorial band claims Work-tab height this frame.
         /// </summary>
-        internal static void RefreshStripReservation()
+        internal static void RefreshStripReservation(float tableWidth)
         {
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
             bool active = IsActive;
             ObserveBandActivation(active && settings != null);
             if (!active || settings == null)
             {
-                BWTTutorialStrip.RefreshReservation(false);
+                BWTTutorialStrip.RefreshReservation(
+                    false,
+                    tableWidth,
+                    default(BWTTutorialStripContent));
                 return;
             }
 
             EnsureState(settings);
             TutorialPresentation presentation = Presentation;
+            bool visible = presentation == TutorialPresentation.Lesson ||
+                presentation == TutorialPresentation.Selector;
             BWTTutorialStrip.RefreshReservation(
-                presentation == TutorialPresentation.Lesson ||
-                presentation == TutorialPresentation.Selector);
+                visible,
+                tableWidth,
+                visible
+                    ? BuildStripContent(settings, presentation)
+                    : default(BWTTutorialStripContent));
         }
 
         private static BWTTutorialStripContent BuildStripContent(

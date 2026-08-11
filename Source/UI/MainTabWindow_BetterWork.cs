@@ -216,7 +216,7 @@ namespace Better_Work_Tab.UI
             UpdateTutorialAcceptKeyState();
             // The tutorial band contributes reserved height, so latch its
             // presence before any geometry below derives a table origin from it.
-            BWTWorkTabTutorial.RefreshStripReservation();
+            BWTWorkTabTutorial.RefreshStripReservation(table.Size.x);
             _workGridRenderer.PrepareFrame(WorkTabInvalidationHub.Current);
 
             bool dividerAnimationChanged = DividerCollapseAnimationState.Tick();

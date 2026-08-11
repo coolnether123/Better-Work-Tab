@@ -68,8 +68,8 @@ namespace Better_Work_Tab.Features.Tutorial
     {
         private const float PopupWidth = 250f;
         private const float PopupPadding = 7f;
-        private const float TitleHeight = 22f;
-        private const float OptionHeight = 26f;
+        private const float MinimumTitleHeight = 22f;
+        private const float MinimumOptionHeight = 26f;
         private const float OptionGap = 3f;
         private const float AnchorGap = 8f;
         private const float MarkerWidth = 16f;
@@ -281,7 +281,7 @@ namespace Better_Work_Tab.Features.Tutorial
             TextAnchor oldAnchor = Text.Anchor;
             GameFont oldFont = Text.Font;
             bool oldWordWrap = Text.WordWrap;
-            Text.WordWrap = false;
+            Text.WordWrap = true;
 
             // Same tutor chrome as the strip, with RimWorld's own drop shadow, so
             // the list reads as one surface with the band rather than a separate
@@ -292,7 +292,7 @@ namespace Better_Work_Tab.Features.Tutorial
             Text.Font = GameFont.Small;
             Text.Anchor = TextAnchor.MiddleLeft;
             GUI.color = new Color(1f, 1f, 1f, 0.6f);
-            Widgets.Label(layout.TitleRect, hub.Title.Truncate(layout.TitleRect.width));
+            Widgets.Label(layout.TitleRect, hub.Title);
             GUI.color = oldColor;
             for (int i = 0; i < hub.Options.Count && i < layout.OptionRects.Count; i++)
             {
@@ -332,7 +332,7 @@ namespace Better_Work_Tab.Features.Tutorial
                 GUI.color = isComplete
                     ? new Color(1f, 1f, 1f, 0.5f)
                     : isHovered ? Widgets.MouseoverOptionColor : Widgets.NormalOptionColor;
-                Widgets.Label(labelRect, option.Label.Truncate(labelRect.width));
+                Widgets.Label(labelRect, option.Label);
 
                 string tip = option.Body ?? string.Empty;
                 if (alreadyUsed)
@@ -408,8 +408,22 @@ namespace Better_Work_Tab.Features.Tutorial
             BWTTutorialHubDefinition hub)
         {
             float width = Mathf.Min(PopupWidth, Mathf.Max(140f, workBounds.width - 16f));
-            float height = PopupPadding * 2f + TitleHeight +
-                hub.Options.Count * OptionHeight +
+            float innerWidth = Mathf.Max(1f, width - PopupPadding * 2f);
+            float labelWidth = Mathf.Max(1f, innerWidth - MarkerWidth - 10f);
+            float titleHeight = MeasureTextHeight(hub.Title, innerWidth, MinimumTitleHeight);
+            var optionHeights = new List<float>(hub.Options.Count);
+            float optionsHeight = 0f;
+            for (int i = 0; i < hub.Options.Count; i++)
+            {
+                float optionHeight = MeasureTextHeight(
+                    hub.Options[i].Label,
+                    labelWidth,
+                    MinimumOptionHeight);
+                optionHeights.Add(optionHeight);
+                optionsHeight += optionHeight;
+            }
+
+            float height = PopupPadding * 2f + titleHeight + optionsHeight +
                 Mathf.Max(0, hub.Options.Count - 1) * OptionGap;
 
             // Prefer below the anchor, flip above when the tab runs out, then
@@ -425,17 +439,29 @@ namespace Better_Work_Tab.Features.Tutorial
 
             Rect popup = new Rect(x, y, width, height);
             Rect inner = popup.ContractedBy(PopupPadding);
-            Rect title = new Rect(inner.x, inner.y, inner.width, TitleHeight);
+            Rect title = new Rect(inner.x, inner.y, inner.width, titleHeight);
 
             var optionRects = new List<Rect>(hub.Options.Count);
             float rowY = title.yMax;
             for (int i = 0; i < hub.Options.Count; i++)
             {
-                optionRects.Add(new Rect(inner.x, rowY, inner.width, OptionHeight));
-                rowY += OptionHeight + OptionGap;
+                optionRects.Add(new Rect(inner.x, rowY, inner.width, optionHeights[i]));
+                rowY += optionHeights[i] + OptionGap;
             }
 
             return new PopupLayout(popup, title, optionRects);
+        }
+
+        private static float MeasureTextHeight(string text, float width, float minimumHeight)
+        {
+            GameFont oldFont = Text.Font;
+            bool oldWordWrap = Text.WordWrap;
+            Text.Font = GameFont.Small;
+            Text.WordWrap = true;
+            float height = Mathf.Ceil(Text.CalcHeight(text ?? string.Empty, width));
+            Text.Font = oldFont;
+            Text.WordWrap = oldWordWrap;
+            return Mathf.Max(minimumHeight, height);
         }
 
         private static TutorialHubAnchor GetAnchorAt(IList<BWTTutorialAnchor> anchors, Vector2 point)

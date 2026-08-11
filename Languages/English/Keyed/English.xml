@@ -12,6 +12,9 @@
 <BWT_Enum_SubWorkDrilldownStyle_ExpandBeside>Fluffy-style expansion</BWT_Enum_SubWorkDrilldownStyle_ExpandBeside>
 <BWT_SubWork_OpenSpecificJobs>Open specific jobs</BWT_SubWork_OpenSpecificJobs>
 <BWT_SubWork_ReturnToWorkTypes>Back to Work type - won't move</BWT_SubWork_ReturnToWorkTypes>
+<BWT_SubWork_Tooltip_WorkType>Work type</BWT_SubWork_Tooltip_WorkType>
+<BWT_SubWork_Tooltip_DragToReorder>Drag to reorder</BWT_SubWork_Tooltip_DragToReorder>
+<BWT_SubWork_Tooltip_DragToReassign>Hold drag to move; drag out to another Work type header to reassign</BWT_SubWork_Tooltip_DragToReassign>
 <BWT_SubWork_UseExpandedView>Expand beside</BWT_SubWork_UseExpandedView>
 <BWT_SubWork_UseExpandedView_Tooltip>Keep the main Work columns visible and expand this Work's specific jobs beside it. This enables BWT's optional expanded presentation.</BWT_SubWork_UseExpandedView_Tooltip>
 <BWT_SubWork_UseFocusedView>Focus view</BWT_SubWork_UseFocusedView>
