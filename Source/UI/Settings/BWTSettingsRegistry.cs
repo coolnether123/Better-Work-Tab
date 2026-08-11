@@ -255,6 +255,11 @@ namespace Better_Work_Tab.UI.Settings
                 return;
             }
 
+            sections = sections
+                .OrderBy(section => section.Header.Label ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(section => section.Header.Id, StringComparer.Ordinal)
+                .ToList();
+
             Register(new SettingDefinition
             {
                 Id = ModCompatHeader,
@@ -595,7 +600,7 @@ namespace Better_Work_Tab.UI.Settings
             {
                 Id = FeaturesSubWorkJobs,
                 FieldName = "enableSubWorkDrilldown",
-                Label = "Specific jobs",
+                Label = "Sub-work jobs",
                 Tooltip = "Open a Work column to set priorities for its individual jobs. Use the shortcut below on a Work header or cell; use it again, or press Escape, to return.",
                 SearchKeywords = SpecificJobSearchKeywords,
                 Type = SettingType.Bool,
@@ -641,7 +646,7 @@ namespace Better_Work_Tab.UI.Settings
                 Id = SubWorkCrossWorkDragDrop,
                 ParentId = FeaturesSubWorkJobs,
                 FieldName = "enableSubWorkCrossWorkDragDrop",
-                Label = "Move specific jobs between Work columns",
+                Label = "Move sub-work jobs between Work columns",
                 Tooltip = "Drag a specific job onto another Work column to move it there. Turning this off limits dragging to the current specific-job view.",
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.enableSubWorkCrossWorkDragDrop,
@@ -722,7 +727,7 @@ namespace Better_Work_Tab.UI.Settings
                 Id = SubWorkTransitionAnimation,
                 ParentId = FeaturesSubWorkJobs,
                 FieldName = "enableSubWorkTransitionAnimation",
-                Label = "Specific-job transition animation",
+                Label = "Sub-work transition animation",
                 Tooltip = "Animate specific-job views, including Fluffy-style expand-beside columns and header text fade when they open or collapse.",
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.enableSubWorkTransitionAnimation,
@@ -816,7 +821,7 @@ namespace Better_Work_Tab.UI.Settings
                 Id = SubWorkAutoExpandColumns,
                 ParentId = FeaturesSubWorkJobs,
                 FieldName = "subWorkAutoExpandColumns",
-                Label = "Expand specific-job columns",
+                Label = "Expand sub-work columns",
                 Tooltip = "Use empty table width for specific-job columns so long labels fit without changing the pawn-name column.",
                 Type = SettingType.Bool,
                 DefaultValue = DefaultSettings.subWorkAutoExpandColumns,
@@ -837,7 +842,7 @@ namespace Better_Work_Tab.UI.Settings
                         When = _ => FluffyWorkTabGateway.CanHostFluffySubWorkColumns && UsesExpandBesideDrilldown(),
                         Reason = _ => "Expand beside uses BWT's dedicated child columns.",
                         SuppressorSettingId = SubWorkDrilldownStyle,
-                        LinkLabel = "Specific-job view"
+                        LinkLabel = "Sub-work view"
                     },
                     new SettingSuppression
                     {
@@ -2205,7 +2210,7 @@ namespace Better_Work_Tab.UI.Settings
                 Type = SettingType.Header,
                 Tooltip = "Advanced toggles and maintenance/reset options.",
                 HeaderColor = new Color(0.6f, 0.6f, 0.6f),
-                ShowInSimpleView = true,
+                ShowInSimpleView = false,
                 SortOrder = 400
             });
 
@@ -3011,6 +3016,27 @@ namespace Better_Work_Tab.UI.Settings
                     }
                 }
             });
+
+            ApplyDeterministicRootSectionOrdering();
+        }
+
+        /// <summary>
+        /// Gives root sections a stable alphabetical order without touching child sort orders.
+        /// Child order is deliberately owned by each section because coupled controls often need
+        /// a functional sequence rather than alphabetical labels.
+        /// </summary>
+        private static void ApplyDeterministicRootSectionOrdering()
+        {
+            List<SettingDefinition> roots = _settings
+                .Where(def => def != null && string.IsNullOrEmpty(def.ParentId))
+                .OrderBy(def => def.Label ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(def => def.Id, StringComparer.Ordinal)
+                .ToList();
+
+            for (int index = 0; index < roots.Count; index++)
+            {
+                roots[index].SortOrder = index;
+            }
         }
     }
 }

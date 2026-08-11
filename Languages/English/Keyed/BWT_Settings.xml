@@ -99,9 +99,9 @@
      <BWT_Enum_WorkTabOwnerPreference_FluffyWorkTab>Fluffy Work Tab</BWT_Enum_WorkTabOwnerPreference_FluffyWorkTab>
     <BWT_Settings_compat.externalWorkTab.columns>Show Fluffy Work Tab columns</BWT_Settings_compat.externalWorkTab.columns>
     <BWT_Settings_compat.externalWorkTab.columns_Tooltip>While Better Work Tab owns the tab, keep Fluffy's Mood, Job, Detailed Copy/Paste, and Favorite columns visible.</BWT_Settings_compat.externalWorkTab.columns_Tooltip>
-    <BWT_Settings_compat.fluffyWorkTab.specificJobs>Specific jobs</BWT_Settings_compat.fluffyWorkTab.specificJobs>
+    <BWT_Settings_compat.fluffyWorkTab.specificJobs>Sub-work jobs</BWT_Settings_compat.fluffyWorkTab.specificJobs>
     <BWT_Settings_compat.fluffyWorkTab.specificJobs_Tooltip>Choose how BWT opens a Work column into its individual jobs.</BWT_Settings_compat.fluffyWorkTab.specificJobs_Tooltip>
-    <BWT_Settings_subWorkJobs.drilldownStyle>Specific-job view</BWT_Settings_subWorkJobs.drilldownStyle>
+    <BWT_Settings_subWorkJobs.drilldownStyle>Sub-work view</BWT_Settings_subWorkJobs.drilldownStyle>
     <BWT_Settings_subWorkJobs.drilldownStyle_Tooltip>Choose a focused full-tab view or right-expanding columns. Both are BWT features and work without Fluffy installed.</BWT_Settings_subWorkJobs.drilldownStyle_Tooltip>
 
     <!-- Categories -->
@@ -255,13 +255,13 @@
     <BWT_Settings_features.workloads_Tooltip>Save the colony&apos;s current pawn work priorities as a named layout and restore it later.</BWT_Settings_features.workloads_Tooltip>
     <BWT_Settings_workloads.warnOnApply>Warn before applying Workload</BWT_Settings_workloads.warnOnApply>
     <BWT_Settings_workloads.warnOnApply_Tooltip>Show a confirmation warning before applying a workload to all colonists.</BWT_Settings_workloads.warnOnApply_Tooltip>
-    <BWT_Settings_features.subWorkJobs>Specific jobs</BWT_Settings_features.subWorkJobs>
+    <BWT_Settings_features.subWorkJobs>Sub-work jobs</BWT_Settings_features.subWorkJobs>
     <BWT_Settings_features.subWorkJobs_Tooltip>Open a Work column to set priorities for its individual jobs. Use the shortcut below on a Work header or cell; use it again, or press Escape, to return.</BWT_Settings_features.subWorkJobs_Tooltip>
     <BWT_Settings_subWorkJobs.openModifier>Shortcut modifier</BWT_Settings_subWorkJobs.openModifier>
     <BWT_Settings_subWorkJobs.openModifier_Tooltip>Modifier key used with the mouse button below to open or leave the specific-job view.</BWT_Settings_subWorkJobs.openModifier_Tooltip>
     <BWT_Settings_subWorkJobs.openButton>Shortcut mouse button</BWT_Settings_subWorkJobs.openButton>
     <BWT_Settings_subWorkJobs.openButton_Tooltip>Mouse button used with the modifier key above to open or leave the specific-job view.</BWT_Settings_subWorkJobs.openButton_Tooltip>
-    <BWT_Settings_subWorkJobs.crossWorkDragDrop>Move specific jobs between Work columns</BWT_Settings_subWorkJobs.crossWorkDragDrop>
+    <BWT_Settings_subWorkJobs.crossWorkDragDrop>Move sub-work jobs between Work columns</BWT_Settings_subWorkJobs.crossWorkDragDrop>
     <BWT_Settings_subWorkJobs.crossWorkDragDrop_Tooltip>Drag a specific job onto another Work column to move it there. Turning this off limits dragging to the current specific-job view.</BWT_Settings_subWorkJobs.crossWorkDragDrop_Tooltip>
     <BWT_Settings_subWorkJobs.compactPriorityBoxes>Compact boxes in expanded view</BWT_Settings_subWorkJobs.compactPriorityBoxes>
     <BWT_Settings_subWorkJobs.compactPriorityBoxes_Tooltip>Use smaller priority boxes when specific jobs expand beside their parent Work column. Focused full-tab view always uses normal-size boxes.</BWT_Settings_subWorkJobs.compactPriorityBoxes_Tooltip>
@@ -273,7 +273,7 @@
     <BWT_Settings_subWorkJobs.restoreCursorFromPawnCells_Tooltip>After leaving from a pawn priority cell, move the cursor back to the Work header used to open the specific-job view. Turning this off leaves the cursor where you clicked.</BWT_Settings_subWorkJobs.restoreCursorFromPawnCells_Tooltip>
     <BWT_Settings_subWorkJobs.overrideBreakAnimation>Override reset animation</BWT_Settings_subWorkJobs.overrideBreakAnimation>
     <BWT_Settings_subWorkJobs.overrideBreakAnimation_Tooltip>Show a short break-and-fade effect when returning a pawn&apos;s specific-job priority to the shared priority.</BWT_Settings_subWorkJobs.overrideBreakAnimation_Tooltip>
-    <BWT_Settings_subWorkJobs.transitionAnimation>Specific-job transition animation</BWT_Settings_subWorkJobs.transitionAnimation>
+    <BWT_Settings_subWorkJobs.transitionAnimation>Sub-work transition animation</BWT_Settings_subWorkJobs.transitionAnimation>
     <BWT_Settings_subWorkJobs.transitionAnimation_Tooltip>Animate specific-job views, including Fluffy-style expand-beside columns and header text fade when they open or collapse.</BWT_Settings_subWorkJobs.transitionAnimation_Tooltip>
     <BWT_Settings_subWorkJobs.transitionMode>Animation style</BWT_Settings_subWorkJobs.transitionMode>
     <BWT_Settings_subWorkJobs.transitionMode_Tooltip>Choose how the Work tab opens specific jobs. Off changes instantly with no transition.</BWT_Settings_subWorkJobs.transitionMode_Tooltip>
@@ -283,7 +283,7 @@
     <BWT_Settings_subWorkJobs.transitionSpeed_Tooltip>Controls how quickly the Work tab opens, expands, collapses, or leaves specific jobs.</BWT_Settings_subWorkJobs.transitionSpeed_Tooltip>
     <BWT_Settings_subWorkJobs.disabledParentMode>When the parent Work type is off</BWT_Settings_subWorkJobs.disabledParentMode>
     <BWT_Settings_subWorkJobs.disabledParentMode_Tooltip>Choose whether locked specific-job priorities can still run when their parent Work type is disabled. Multiplayer always uses vanilla parent-disable behavior.</BWT_Settings_subWorkJobs.disabledParentMode_Tooltip>
-    <BWT_Settings_subWorkJobs.autoExpandColumns>Expand specific-job columns</BWT_Settings_subWorkJobs.autoExpandColumns>
+    <BWT_Settings_subWorkJobs.autoExpandColumns>Expand sub-work columns</BWT_Settings_subWorkJobs.autoExpandColumns>
     <BWT_Settings_subWorkJobs.autoExpandColumns_Tooltip>Use empty table width for specific-job columns so long labels fit without changing the pawn-name column.</BWT_Settings_subWorkJobs.autoExpandColumns_Tooltip>
     <BWT_Settings_subWorkJobs.evenlyExpandColumns>Use equal expanded widths</BWT_Settings_subWorkJobs.evenlyExpandColumns>
     <BWT_Settings_subWorkJobs.evenlyExpandColumns_Tooltip>Give expanded specific-job columns equal widths. Turning this off widens only columns whose labels need more room.</BWT_Settings_subWorkJobs.evenlyExpandColumns_Tooltip>
@@ -507,7 +507,7 @@
     <BWT_Settings_ui.chronosPointerTimePriorityIncidents_Tooltip>Allow Chronos Pointer to draw its incident colors, such as eclipses and auroras, on the Work tab time bar.</BWT_Settings_ui.chronosPointerTimePriorityIncidents_Tooltip>
     <BWT_Settings_compat.complexJobs.header>[FSF] Complex Jobs</BWT_Settings_compat.complexJobs.header>
     <BWT_Settings_compat.complexJobs.header_Tooltip>Choose whether Complex Jobs works alone or with one of BWT&apos;s specific-job presentations.</BWT_Settings_compat.complexJobs.header_Tooltip>
-    <BWT_Settings_compat.complexJobs.subWorkMode>Specific-job columns</BWT_Settings_compat.complexJobs.subWorkMode>
+    <BWT_Settings_compat.complexJobs.subWorkMode>Sub-work columns</BWT_Settings_compat.complexJobs.subWorkMode>
     <BWT_Settings_compat.complexJobs.subWorkMode_Tooltip>Use Complex Jobs alone, add BWT&apos;s focused view, or add BWT&apos;s Fluffy-style right-expanding columns.</BWT_Settings_compat.complexJobs.subWorkMode_Tooltip>
     <BWT_Settings_fluffyStyle.scheduleAssigner>Use Fluffy hour-selection scheduler</BWT_Settings_fluffyStyle.scheduleAssigner>
     <BWT_Settings_fluffyStyle.scheduleAssigner_Tooltip>Use Fluffy&apos;s original bottom hour selector: choose hours, then click normal priority boxes to assign those hours. This option requires Fluffy Work Tab because it uses Fluffy&apos;s scheduler assets.</BWT_Settings_fluffyStyle.scheduleAssigner_Tooltip>
@@ -516,7 +516,7 @@
     <!-- Controls page -->
     <BWT_Settings_controls.fluffy.header>Fluffy Work Tab controls</BWT_Settings_controls.fluffy.header>
     <BWT_Settings_controls.fluffy.header_Tooltip>Contextual controls defined by Fluffy Work Tab. Fluffy uses fixed mouse-and-modifier gestures rather than RimWorld-rebindable key definitions.</BWT_Settings_controls.fluffy.header_Tooltip>
-    <BWT_Settings_controls.fluffy.expand>Open or close specific jobs</BWT_Settings_controls.fluffy.expand>
+    <BWT_Settings_controls.fluffy.expand>Open or close sub-work jobs</BWT_Settings_controls.fluffy.expand>
     <BWT_Settings_controls.fluffy.expand_Tooltip>Fluffy&apos;s native Ctrl-header gesture is preserved. When BWT owns the tab, the configured specific-job shortcut routes through BWT and Expand beside opens Fluffy-style columns.</BWT_Settings_controls.fluffy.expand_Tooltip>
     <BWT_Settings_controls.fluffy.batch>Change a whole Work column</BWT_Settings_controls.fluffy.batch>
     <BWT_Settings_controls.fluffy.batch_Tooltip>Shift-scroll changes all capable pawn priorities. Shift-click changes a whole specific-job column; on root Work headers, BWT&apos;s optional grouping action owns Shift-left-click.</BWT_Settings_controls.fluffy.batch_Tooltip>
