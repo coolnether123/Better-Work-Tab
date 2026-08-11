@@ -835,7 +835,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                             expandedWorkGiver,
                             expandedParentWorkType,
                             pawn,
-                            WorkPriorityCellGeometry.GetFluffyStyleSubWorkPriorityBoxRect(cellRect),
+                            WorkPriorityCellGeometry.GetDrawnPriorityBoxRect(
+                                cellRect,
+                                column.IsExpandBesideChild),
                             knownParentPriority: expandedParentPriority);
                         continue;
                     }

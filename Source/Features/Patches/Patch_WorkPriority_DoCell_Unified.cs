@@ -119,12 +119,9 @@ namespace Better_Work_Tab.Patches
         private const int SkillCacheFrameValidity = 60;
         private const int IncapableCacheFrameValidity = 120;
         private const int BestPawnCacheFrameValidity = 60;
-        private const float SkillBoxSize = WorkPriorityCellGeometry.BoxSize;
-        private const float SkillBoxVerticalPadding = WorkPriorityCellGeometry.BoxTopPadding;
         private const float SmallSkillOffsetY = -2f;
         private const float SmallCornerLabelWidth = 18f;
         private const float SmallCornerLabelHeight = 16f;
-        private const float SkillBoxOutlinePadding = 2f;
 
         private static void UpdateFrameCache()
         {
@@ -391,9 +388,7 @@ namespace Better_Work_Tab.Patches
                                  (_columnHoveredFrame == Time.frameCount || _columnHoveredFrame == Time.frameCount - 1);
             bool hovering = hoveringCell || columnHovered;
 
-            float boxXSkill = rect.x + (rect.width - SkillBoxSize) / 2f;
-            float boxYSkill = rect.y + SkillBoxVerticalPadding;
-            Rect boxRect = GetWorkBoxRect(rect);
+            Rect boxRect = WorkPriorityCellGeometry.GetPriorityBoxRect(rect);
 
             bool drawBigSkill = true;
             bool drawSmallSkill = false;
@@ -421,7 +416,7 @@ namespace Better_Work_Tab.Patches
 
             if (drawBigSkill)
             {
-                CustomWorkBoxDrawer.DrawWorkBoxForSkillOverlay(boxXSkill, boxYSkill, pawn, workType, false);
+                CustomWorkBoxDrawer.DrawWorkBoxForSkillOverlay(boxRect, pawn, workType, false);
                 DrawBigSkillNumber(boxRect, skillLevel);
                 RecordSkillNumberDrawn(pawn, workType);
             }
@@ -621,7 +616,11 @@ namespace Better_Work_Tab.Patches
 
         private static Pawn GetBestPawnForWorktype(PawnTable table, WorkTypeDef workType, PawnColumnWorker_WorkPriority worker)
         {
-            if (table == null || table.cachedPawns == null) return null;
+            if (workType == null || workType.relevantSkills == null || workType.relevantSkills.Count == 0 ||
+                table == null || table.cachedPawns == null)
+            {
+                return null;
+            }
             var settings = BetterWorkTabMod.Settings;
             bool useCache = (settings?.enablePerformanceOptimizations ?? true) &&
                             (settings?.cacheSkillLevels ?? true);
@@ -750,6 +749,9 @@ namespace Better_Work_Tab.Patches
             if (settings == null || settings.disableBestPawnHighlight)
                 return;
 
+            if (workType == null || workType.relevantSkills == null || workType.relevantSkills.Count == 0)
+                return;
+
             if (!ShouldShowUI(settings.ShowUIMode_ShowPawnForSkillSquare, _cachedUiState))
                 return;
 
@@ -762,15 +764,7 @@ namespace Better_Work_Tab.Patches
 
         private static void DrawBestPawnOutline(Rect rect)
         {
-            float x = rect.x + (rect.width - SkillBoxSize) / 2f;
-            float y = rect.y + SkillBoxVerticalPadding;
-
-            // Outline extends 1px beyond the skill box on all sides
-            Rect outlineRect = new Rect(
-                x - 1f,
-                y - 1f,
-                SkillBoxSize + 2f,
-                SkillBoxSize + 2f);
+            Rect outlineRect = WorkPriorityCellGeometry.GetPriorityBoxRect(rect).ExpandedBy(1f);
 
             Widgets.DrawBoxSolidWithOutline(
                 outlineRect,
@@ -778,22 +772,6 @@ namespace Better_Work_Tab.Patches
                 BetterWorkTabMod.Settings.Color_BestPawnForSkillSquare,
                 BetterWorkTabMod.Settings.bestPawnHighlightThickness);
         }
-
-        private static void DrawBestPawnBackground(Rect rect)
-        {
-            float x = rect.x + (rect.width - SkillBoxSize) / 2f;
-            float y = rect.y + SkillBoxVerticalPadding;
-            Rect boxRect = new Rect(x, y, SkillBoxSize, SkillBoxSize);
-
-            Color highlightColor = BetterWorkTabMod.Settings.Color_BestPawnForSkillSquare;
-            highlightColor.a = 0.5f; // Semi-transparent background
-            GUI.DrawTexture(boxRect, BaseContent.WhiteTex);
-            Color oldColor = GUI.color;
-            GUI.color = highlightColor;
-            GUI.DrawTexture(boxRect, BaseContent.WhiteTex);
-            GUI.color = oldColor;
-        }
-
 
         private static bool ShouldShowUI(BetterWorkTabSettings.ShowUIMode mode, BetterWorkTabSettings.ShowUIMode currentState)
         {
