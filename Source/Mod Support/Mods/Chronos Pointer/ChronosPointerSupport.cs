@@ -298,7 +298,8 @@ namespace Better_Work_Tab.ModSupport
                                 "Chronos Pointer",
                                 2)
                         },
-                        ShowInSimpleView = true,
+                        ShowInSimpleView = false,
+                        ShowInAdvancedView = true,
                         SortOrder = 0
                     },
                     Children = new[]
@@ -313,7 +314,8 @@ namespace Better_Work_Tab.ModSupport
                             Type = SettingType.Bool,
                             DefaultValue = DefaultSettings.enableChronosPointerTimePriorityIntegration,
                             ControlsChildVisibility = true,
-                            ShowInSimpleView = true,
+                            ShowInSimpleView = false,
+                            ShowInAdvancedView = true,
                             SortOrder = 1
                         },
                         new SettingDefinition

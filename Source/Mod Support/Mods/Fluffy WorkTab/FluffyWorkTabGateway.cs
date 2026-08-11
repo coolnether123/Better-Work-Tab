@@ -1453,7 +1453,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                         Tooltip = "BWT-native options inspired by Fluffy's Work Tab, plus compatibility controls when Fluffy Work Tab or Sleek Work Priorities is installed.",
                         SearchKeywords = FluffyBaseSearchKeywords,
                         Type = SettingType.Header,
-                        ShowInSimpleView = true,
+                        ShowInSimpleView = false,
                         SortOrder = 0
                     },
                     Children = new[]
@@ -1473,7 +1473,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                                 SubWorkDrilldownState.CollapseAllExpandBeside();
                                 HeaderDrawingCoordinator.NotifyAngledHeadersChanged();
                             },
-                            ShowInSimpleView = true,
+                            ShowInSimpleView = false,
                             ShowInAdvancedView = true,
                             SortOrder = 0
                         },
@@ -1488,7 +1488,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                             Type = SettingType.Bool,
                             DefaultValue = DefaultSettings.showFluffyStyleTopButtons,
                             VisibleWhen = _ => FluffyWorkTabGateway.IsPresent,
-                            ShowInSimpleView = true,
+                            ShowInSimpleView = false,
                             ShowInAdvancedView = true,
                             SortOrder = 1
                         },
@@ -1503,7 +1503,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                             Type = SettingType.Bool,
                             DefaultValue = DefaultSettings.showStandaloneFluffyStyleTopButtons,
                             VisibleWhen = _ => !FluffyWorkTabGateway.IsPresent,
-                            ShowInSimpleView = true,
+                            ShowInSimpleView = false,
                             ShowInAdvancedView = true,
                             SortOrder = 2
                         },
@@ -1518,7 +1518,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                             Type = SettingType.Bool,
                             DefaultValue = DefaultSettings.enableFluffyScheduleAssigner,
                             VisibleWhen = _ => FluffyWorkTabGateway.IsPresent,
-                            ShowInSimpleView = true,
+                            ShowInSimpleView = false,
                             ShowInAdvancedView = true,
                             SortOrder = 3
                         },
@@ -1536,7 +1536,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                                     "Fluffy Work Tab or Sleek Work Priorities",
                                     1)
                             },
-                            ShowInSimpleView = true,
+                            ShowInSimpleView = false,
                             SortOrder = 20
                         },
                         new SettingDefinition
@@ -1559,7 +1559,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                                 PriorityAuthorityBroker.NotifyPotentialAuthorityChanged();
                                 FluffyWorkTabCoexistence.ApplyDesiredOwner(reopenIfOpen: true);
                             },
-                            ShowInSimpleView = true,
+                            ShowInSimpleView = false,
                             SortOrder = 21
                         },
                         new SettingDefinition
@@ -1578,18 +1578,18 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                                 CreateWorkTabOwnedByFluffySuppression(WorkTabOwnedByFluffyReason)
                             },
                             OnChanged = _ => FluffyWorkTabGateway.ApplyColumnVisibility(),
-                            ShowInSimpleView = true,
+                            ShowInSimpleView = false,
                             SortOrder = 22
                         },
                         new SettingDefinition
                         {
                             Id = CompatFluffyWorkTabSpecificJobs,
                             ParentId = FluffyStyleFeatures,
-                            Label = "Specific jobs",
+                            Label = "Sub-work jobs",
                             Tooltip = "Choose how BWT opens a Work column into its individual jobs.",
                             SearchKeywords = FluffySpecificJobsSearchKeywords,
                             Type = SettingType.Header,
-                            ShowInSimpleView = true,
+                            ShowInSimpleView = false,
                             SortOrder = 10
                         },
                         new SettingDefinition
@@ -1597,7 +1597,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                             Id = SubWorkDrilldownStyle,
                             ParentId = CompatFluffyWorkTabSpecificJobs,
                             FieldName = "subWorkDrilldownStyle",
-                            Label = "Specific-job view",
+                            Label = "Sub-work view",
                             Tooltip = "Choose BWT's focused full-tab view or Fluffy-inspired right-expanding columns. Both modes are implemented by BWT and work without Fluffy Work Tab installed.",
                             SearchKeywords = FluffySpecificJobsSearchKeywords,
                             Type = SettingType.Enum,
@@ -1608,7 +1608,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                                 CreateWorkTabOwnedByFluffySuppression(WorkTabOwnedByFluffyReason)
                             },
                             OnChanged = _ => HeaderDrawingCoordinator.NotifyAngledHeadersChanged(),
-                            ShowInSimpleView = true,
+                            ShowInSimpleView = false,
                             SortOrder = 11
                         },
                         new SettingDefinition
@@ -1621,7 +1621,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                             Type = SettingType.Header,
                             HeaderColor = new Color(0.67f, 0.75f, 0.92f),
                             VisibleWhen = _ => FluffyWorkTabGateway.IsPresent,
-                            ShowInSimpleView = true,
+                            ShowInSimpleView = false,
                             ShowInAdvancedView = true,
                             SortOrder = 100
                         },
@@ -1629,14 +1629,14 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                         {
                             Id = ControlsFluffyExpand,
                             ParentId = ControlsFluffyHeader,
-                            Label = "Open or close specific jobs",
+                            Label = "Open or close sub-work jobs",
                             Tooltip = "Fluffy's native Ctrl-header gesture is preserved. When BWT owns the tab, the configured specific-job shortcut routes through BWT and Expand beside opens Fluffy-style columns.",
                             SearchKeywords = FluffyKeywords("ctrl click", "expand", "collapse", "specific jobs"),
                             Type = SettingType.Custom,
                             CustomDrawer = (rect, label, tooltip, _, disabled) =>
                                 BWTSettingWidgets.DrawReadOnlyValue(rect, label, "Ctrl-click Work header", tooltip, disabled),
                             VisibleWhen = _ => FluffyWorkTabGateway.IsPresent,
-                            ShowInSimpleView = true,
+                            ShowInSimpleView = false,
                             ShowInAdvancedView = true,
                             SortOrder = 101
                         },
@@ -1651,7 +1651,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                             CustomDrawer = (rect, label, tooltip, _, disabled) =>
                                 BWTSettingWidgets.DrawReadOnlyValue(rect, label, "Shift-click / Shift-wheel", tooltip, disabled),
                             VisibleWhen = _ => FluffyWorkTabGateway.IsPresent,
-                            ShowInSimpleView = true,
+                            ShowInSimpleView = false,
                             ShowInAdvancedView = true,
                             SortOrder = 102
                         },
@@ -1666,7 +1666,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                             CustomDrawer = (rect, label, tooltip, _, disabled) =>
                                 BWTSettingWidgets.DrawReadOnlyValue(rect, label, "Shift-click / Shift-wheel", tooltip, disabled),
                             VisibleWhen = _ => FluffyWorkTabGateway.IsPresent,
-                            ShowInSimpleView = true,
+                            ShowInSimpleView = false,
                             ShowInAdvancedView = true,
                             SortOrder = 103
                         }
