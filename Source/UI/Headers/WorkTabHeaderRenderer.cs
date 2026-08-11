@@ -73,6 +73,10 @@ namespace Better_Work_Tab.UI.Headers
             bool timePriorityOwnsMouse = TimePriorityScheduleEditor.OwnsCurrentMousePosition;
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
             bool showCursorHighlight = settings.ShowCursorPawnAndWorktypeHighlight;
+            bool hasSettingsPreviewColumn =
+                WorkTabColumnHighlightUtility.TryGetSettingsPreviewColumn(
+                    layout.Columns,
+                    out WorkTabLayoutColumn settingsPreviewColumn);
 
             foreach (var column in layout.Columns)
             {
@@ -86,6 +90,8 @@ namespace Better_Work_Tab.UI.Headers
                 }
 
                 bool isWorkColumn = WorkTabColumnHighlightUtility.IsHighlightableWorkColumn(column);
+                bool isSettingsPreviewColumn = hasSettingsPreviewColumn &&
+                                               column.Equals(settingsPreviewColumn);
                 Rect headerRect = FluffyWorkTabGateway.GetHostedHeaderLaneRect(
                     column.Column,
                     table,
@@ -104,14 +110,17 @@ namespace Better_Work_Tab.UI.Headers
                 bool drawRuleBuilderHighlightAfterHeader =
                     shouldHighlightRuleBuilderTarget && AreAngledHeadersEnabled();
 
-                if (showCursorHighlight &&
-                    isWorkColumn &&
-                    (timePrioritySourceColumn ||
-                     (!timePriorityOwnsMouse &&
-                      !BWTWorkTabTutorial.OwnsCurrentPointer &&
-                      Mouse.IsOver(headerRect))))
+                if (isWorkColumn &&
+                    (isSettingsPreviewColumn ||
+                     (showCursorHighlight &&
+                      (timePrioritySourceColumn ||
+                       (!timePriorityOwnsMouse &&
+                        !BWTWorkTabTutorial.OwnsCurrentPointer &&
+                        Mouse.IsOver(headerRect))))))
                 {
-                    Color useColor = settings.Color_MouseHoverHighlight;
+                    Color useColor = isSettingsPreviewColumn
+                        ? HighlightDrawer.GetColumnHoverColor()
+                        : settings.Color_MouseHoverHighlight;
                     Rect columnRect = new Rect(
                         animatedGeometry.BodyScreenX,
                         layout.TableOrigin.y + layout.HeaderHeight,

@@ -296,33 +296,13 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             }
 
             WorkTabLayoutColumn? previewColumn = null;
-            if (hasHighlightPreview && preview.IncludesColumn)
+            if (hasHighlightPreview &&
+                preview.IncludesColumn &&
+                WorkTabColumnHighlightUtility.TryGetSettingsPreviewColumn(
+                    columns,
+                    out WorkTabLayoutColumn resolvedPreviewColumn))
             {
-                WorkTypeDef firefighter = WorkTypeDefOf.Firefighter;
-                for (int i = 0; i < columns.Count; i++)
-                {
-                    WorkTabLayoutColumn candidate = columns[i];
-                    if (!WorkTabColumnHighlightUtility.IsHighlightableWorkColumn(candidate))
-                    {
-                        continue;
-                    }
-
-                    if (!previewColumn.HasValue)
-                    {
-                        previewColumn = candidate;
-                    }
-
-                    if (candidate.Column?.workType == firefighter ||
-                        (firefighter == null && candidate.Column?.workType != null &&
-                        string.Equals(
-                            candidate.Column.workType.defName,
-                            "Firefighter",
-                            System.StringComparison.OrdinalIgnoreCase)))
-                    {
-                        previewColumn = candidate;
-                        break;
-                    }
-                }
+                previewColumn = resolvedPreviewColumn;
             }
 
             int previewRowIndex = -1;

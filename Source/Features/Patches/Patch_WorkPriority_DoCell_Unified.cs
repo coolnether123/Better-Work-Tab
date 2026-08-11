@@ -260,7 +260,13 @@ namespace Better_Work_Tab.Patches
                 return true;
 
             if (workType.relevantSkills == null || workType.relevantSkills.Count == 0)
-                return true;
+            {
+                // Shift mode replaces priority boxes with skill values. Work types without a
+                // relevant skill therefore have no overlay to draw, matching BWT 1.0.5's blank
+                // cell treatment while preserving priority input through BWT's own handler.
+                TryHandleWorkPriorityInput(rect, pawn, workType);
+                return false;
+            }
 
             // Track column hover state only if hover cell overlay is enabled
             bool hoveringCell = !timePriorityOwnsMouse &&

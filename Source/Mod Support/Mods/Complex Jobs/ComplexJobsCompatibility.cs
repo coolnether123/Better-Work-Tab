@@ -154,7 +154,7 @@ namespace Better_Work_Tab.ModSupport.Mods.ComplexJobs
             switch (mode)
             {
                 case SubWorkMode.ComplexJobsOnly:
-                    return "Use Complex Jobs' Work columns without BWT specific-job drilldowns or Fluffy-style expanded columns.";
+                    return "Use Complex Jobs' Work columns without BWT sub-work drilldowns or Fluffy-style expanded columns.";
                 case SubWorkMode.FluffyStyleExpansion:
                     return "Keep Complex Jobs' columns and let BWT expand individual jobs beside a selected parent column.";
                 default:
@@ -183,7 +183,7 @@ namespace Better_Work_Tab.ModSupport.Mods.ComplexJobs
                     {
                         Id = CompatComplexJobsHeader,
                         Label = "[FSF] Complex Jobs",
-                        Tooltip = "Choose whether Complex Jobs works alone or with one of BWT's specific-job presentations.",
+                        Tooltip = "Choose whether Complex Jobs works alone or with one of BWT's sub-work presentations.",
                         SearchKeywords = new[] { "Complex Jobs", "FSF", "sub-work", "specific jobs" },
                         Type = SettingType.Header,
                         HeaderColor = new Color(0.65f, 0.78f, 0.9f),
@@ -197,7 +197,7 @@ namespace Better_Work_Tab.ModSupport.Mods.ComplexJobs
                         new SettingDefinition
                         {
                             Id = CompatComplexJobsSubWorkMode,
-                            Label = "Specific-job columns",
+                            Label = "Sub-work columns",
                             Tooltip = "Use Complex Jobs alone, add BWT's focused view, or add BWT's Fluffy-style right-expanding columns.",
                             SearchKeywords = new[]
                             {
