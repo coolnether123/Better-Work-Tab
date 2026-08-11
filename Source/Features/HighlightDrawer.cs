@@ -1,5 +1,6 @@
 using UnityEngine;
 using Verse;
+using Better_Work_Tab.UI.Settings;
 
 namespace Better_Work_Tab.UI
 {
@@ -22,11 +23,31 @@ namespace Better_Work_Tab.UI
 
         public static Color GetRowHoverColor()
         {
+            if (WorkTabColorPreviewController.Instance.TryGetMasterHighlightColor(out Color masterPreviewColor))
+            {
+                return masterPreviewColor;
+            }
+
+            if (WorkTabColorPreviewController.Instance.TryGetHighlightColor(false, out Color previewColor))
+            {
+                return previewColor;
+            }
+
             return BetterWorkTabMod.Settings?.Color_RowHoverHighlight ?? Color.white;
         }
 
         public static Color GetColumnHoverColor()
         {
+            if (WorkTabColorPreviewController.Instance.TryGetMasterHighlightColor(out Color masterPreviewColor))
+            {
+                return masterPreviewColor;
+            }
+
+            if (WorkTabColorPreviewController.Instance.TryGetHighlightColor(true, out Color previewColor))
+            {
+                return previewColor;
+            }
+
             return BetterWorkTabMod.Settings?.Color_ColumnHoverHighlight ?? Color.white;
         }
 

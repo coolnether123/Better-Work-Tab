@@ -87,7 +87,7 @@ namespace Better_Work_Tab.UI
             SettingsHierarchy hierarchy,
             Vector2 scrollPosition)
         {
-            return new SettingsListDrawer(hierarchy)
+            SettingsListDrawer drawer = new SettingsListDrawer(hierarchy)
             {
                 GetLabel = BWTSettingsTranslation.GetLabel,
                 GetTooltip = BWTSettingsTranslation.GetTooltip,
@@ -107,6 +107,23 @@ namespace Better_Work_Tab.UI
                 OnSettingInteracted = (definition, _) =>
                     BWTGeneralTutorial.NotifySettingsRowInteracted(definition?.Id)
             };
+
+            // Keep this host buildable against older mirrored Spine sources while allowing
+            // newer SettingsListDrawer builds to report live non-color values. The framework
+            // remains the owner of the temporary value and rollback; BWT only routes the
+            // setting's semantic preview to its real renderer.
+            var previewProperty = drawer.GetType().GetProperty("OnSettingPreview");
+            if (previewProperty != null &&
+                previewProperty.PropertyType == typeof(System.Action<SettingDefinition, object, object>))
+            {
+                previewProperty.SetValue(
+                    drawer,
+                    new System.Action<SettingDefinition, object, object>(
+                        WorkTabColorPreviewController.Instance.PreviewSetting),
+                    null);
+            }
+
+            return drawer;
         }
 
         private static void MarkSettingViewed(SettingDefinition def, object settingsObject)
