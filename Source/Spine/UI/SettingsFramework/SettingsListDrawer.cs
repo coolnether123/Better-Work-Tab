@@ -19,6 +19,8 @@ namespace Better_Work_Tab.UI.SettingsFramework
         private const float FocusHighlightSeconds = 1.45f;
         private const float SuppressionNoticeHeight = 17f;
         private const float SuppressionLinkGap = 6f;
+        private const float SupersessionAffordanceSlotWidth = 22f;
+        private const float SupersessionAffordanceSize = 18f;
         private const float SearchResultDoubleClickMaxSeconds = 0.25f;
         private const float SearchResultDoubleClickMoveTolerance = 5f;
 
@@ -40,6 +42,11 @@ namespace Better_Work_Tab.UI.SettingsFramework
         private readonly List<string> _visibleSettingIds = new List<string>();
         private readonly HashSet<string> _forceVisibleDisabledAncestorIds =
             new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private SettingDefinition _hoveredColorPreviewDefinition;
+        private object _hoveredColorPreviewSettingsObject;
+        private Color _hoveredColorPreviewOriginal;
+        private bool _hoveredColorPreviewActive;
+        private bool _hoveredColorPreviewObservedThisDraw;
 
         /// <summary>
         /// Gets or sets the current scroll position. Used for preserving scroll state across drawer recreations.
@@ -101,6 +108,13 @@ namespace Better_Work_Tab.UI.SettingsFramework
         public ISettingColorPreviewSink ColorPreviewSink { get; set; }
 
         /// <summary>
+        /// Optional host-owned transaction for applying a color preview to real setting state.
+        /// This is additive to <see cref="ColorPreviewSink"/> and may be left unset by visual-only
+        /// preview hosts.
+        /// </summary>
+        public ISettingColorPreviewTransactionSink ColorPreviewTransactionSink { get; set; }
+
+        /// <summary>
         /// When true, changed field-backed settings show a small per-row reset button.
         /// </summary>
         public bool ShowResetIcons { get; set; } = true;
@@ -129,6 +143,23 @@ namespace Better_Work_Tab.UI.SettingsFramework
         /// Tooltip shown when hovering a suppression link.
         /// </summary>
         public string SuppressionLinkTooltip { get; set; } = "Go to the setting that is overriding this one.";
+
+        /// <summary>
+        /// Compact label shown only while a row with active supersessions is hovered.
+        /// </summary>
+        public string SupersessionAffordanceLabel { get; set; } = "\u21c6";
+
+        /// <summary>
+        /// Tooltip for the hover-only supersession affordance.
+        /// </summary>
+        public string SupersessionAffordanceTooltip { get; set; } =
+            "This setting overrides other settings. Click to see which settings are affected.";
+
+        /// <summary>
+        /// Description shown above the affected-setting choices in the described menu.
+        /// </summary>
+        public string SupersessionMenuDescription { get; set; } =
+            "Choose an affected setting to jump to its row.";
 
         /// <summary>
         /// Optional filters shown by the toolbar filter button.
@@ -161,6 +192,13 @@ namespace Better_Work_Tab.UI.SettingsFramework
         /// </summary>
         public Action<string> OnSearchTextChanged { get; set; }
         public Action<SettingDefinition, object> OnSettingInteracted { get; set; }
+
+        /// <summary>
+        /// Optional generic preview callback for non-color rows. It receives the definition,
+        /// settings object, and current field value (or the settings object for custom rows).
+        /// Color rows remain owned by the transactional color-preview hooks.
+        /// </summary>
+        public Action<SettingDefinition, object, object> OnSettingPreview { get; set; }
 
         public string SearchQuery => _searchQuery;
         public Rect SearchScreenRect => _searchScreenRect;
@@ -231,7 +269,20 @@ namespace Better_Work_Tab.UI.SettingsFramework
             bool drawFooter = ImportExportActions?.HasAnyAction ?? false;
             float footerSpace = drawFooter ? FooterHeight + 8f : 0f;
             Rect listRect = new Rect(rect.x, listStartY, rect.width, rect.height - (listStartY - rect.y) - footerSpace);
-            DrawSettingsList(listRect, settingsObject, ref viewMode, onSettingsChanged);
+            try
+            {
+                _hoveredColorPreviewObservedThisDraw = false;
+                DrawSettingsList(listRect, settingsObject, ref viewMode, onSettingsChanged);
+            }
+            finally
+            {
+                if (!_hoveredColorPreviewObservedThisDraw)
+                {
+                    EndHoveredColorPreview();
+                }
+
+                _hoveredColorPreviewObservedThisDraw = false;
+            }
 
             if (drawFooter)
             {
@@ -555,9 +606,19 @@ namespace Better_Work_Tab.UI.SettingsFramework
                     BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
             }
 
+            bool isHovered = Mouse.IsOver(controlRow);
+            IReadOnlyList<SettingSupersession> supersessions = Array.Empty<SettingSupersession>();
+            IReadOnlyList<SettingDefinition> supersededSettings = Array.Empty<SettingDefinition>();
+            if (isHovered && def.Supersessions != null && def.Supersessions.Count > 0)
+            {
+                supersessions = def.GetActiveSupersessions(settingsObject);
+                supersededSettings = ResolveSupersededSettings(supersessions);
+            }
+
             bool reserveResetSlot = ShowResetIcons && IsResettable(def, field);
             if (reserveResetSlot)
             {
+                float resetY = controlRow.center.y - (ResetButtonSize / 2f);
                 Rect resetRect;
                 if (def.EmphasizeAsHeader)
                 {
@@ -566,7 +627,7 @@ namespace Better_Work_Tab.UI.SettingsFramework
                     // reset affordance in the five-percent gap between those regions.
                     resetRect = new Rect(
                         contentRect.x + (contentRect.width * 0.725f) - (ResetButtonSize / 2f),
-                        contentRect.y + ((contentRect.height - ResetButtonSize) / 2f),
+                        resetY,
                         ResetButtonSize,
                         ResetButtonSize);
                 }
@@ -574,7 +635,7 @@ namespace Better_Work_Tab.UI.SettingsFramework
                 {
                     resetRect = new Rect(
                         contentRect.x,
-                        contentRect.y + ((contentRect.height - ResetButtonSize) / 2f),
+                        resetY,
                         ResetButtonSize,
                         ResetButtonSize);
 
@@ -594,6 +655,16 @@ namespace Better_Work_Tab.UI.SettingsFramework
                 }
             }
 
+            if (supersededSettings.Count > 0)
+            {
+                contentRect.width = Mathf.Max(0f, contentRect.width - SupersessionAffordanceSlotWidth);
+            }
+
+            if (!disabled && isHovered)
+            {
+                NotifySettingPreview(def, settingsObject, field);
+            }
+
             switch (def.Type)
             {
                 case SettingType.Bool:
@@ -607,6 +678,7 @@ namespace Better_Work_Tab.UI.SettingsFramework
                         {
                             field.SetValue(settingsObject, boolValue);
                             HandleSettingChanged(def, settingsObject, onSettingsChanged);
+                            NotifySettingPreview(def, settingsObject, field);
                         }
                     }
                     break;
@@ -620,6 +692,7 @@ namespace Better_Work_Tab.UI.SettingsFramework
                         {
                             field.SetValue(settingsObject, intValue);
                             HandleSettingChanged(def, settingsObject, onSettingsChanged);
+                            NotifySettingPreview(def, settingsObject, field);
                         }
                     }
                     break;
@@ -633,6 +706,7 @@ namespace Better_Work_Tab.UI.SettingsFramework
                         {
                             field.SetValue(settingsObject, intValue);
                             HandleSettingChanged(def, settingsObject, onSettingsChanged);
+                            NotifySettingPreview(def, settingsObject, field);
                         }
                     }
                     break;
@@ -647,6 +721,7 @@ namespace Better_Work_Tab.UI.SettingsFramework
                         {
                             field.SetValue(settingsObject, floatValue);
                             HandleSettingChanged(def, settingsObject, onSettingsChanged);
+                            NotifySettingPreview(def, settingsObject, field);
                         }
                     }
                     break;
@@ -654,16 +729,22 @@ namespace Better_Work_Tab.UI.SettingsFramework
                     if (field != null && field.FieldType == typeof(Color))
                     {
                         Color colorValue = (Color)field.GetValue(settingsObject);
-                        if (!disabled && Mouse.IsOver(controlRow))
+                        if (!disabled && isHovered)
                         {
                             ColorPreviewSink?.PreviewHover(def, colorValue);
+                            BeginHoveredColorPreview(def, settingsObject, colorValue);
                         }
 
                         SettingWidgets.DrawColor(contentRect, label, ref colorValue, tooltip, disabled,
                             (current, onSelected) =>
                             {
+                                EndHoveredColorPreview();
                                 ColorPreviewSink?.BeginPicker(def, current);
+                                ColorPreviewTransactionSink?.Begin(def, settingsObject, current);
                                 bool previewEnded = false;
+                                bool previewRestored = false;
+                                bool closeCommitted = false;
+                                Color committedColor = current;
                                 Action endPreview = () =>
                                 {
                                     if (previewEnded)
@@ -674,14 +755,46 @@ namespace Better_Work_Tab.UI.SettingsFramework
                                     previewEnded = true;
                                     ColorPreviewSink?.EndPicker(def);
                                 };
-                                var dialog = new Spine.UI.ColourPicker.Dialog_ColourPicker(current, (newColor, _) =>
+                                Action restorePreview = () =>
+                                {
+                                    if (previewRestored)
+                                    {
+                                        return;
+                                    }
+
+                                    previewRestored = true;
+                                    ColorPreviewTransactionSink?.Restore(
+                                        def,
+                                        settingsObject,
+                                        committedColor);
+                                };
+                                var dialog = new Spine.UI.ColourPicker.Dialog_ColourPicker(current, (newColor, closing) =>
                                 {
                                     field.SetValue(settingsObject, newColor);
                                     HandleSettingChanged(def, settingsObject, onSettingsChanged);
+                                    ColorPreviewTransactionSink?.Commit(def, settingsObject, newColor);
+                                    committedColor = newColor;
+                                    closeCommitted = closing;
                                     onSelected?.Invoke(newColor);
-                                }, previewCallback: newColor => ColorPreviewSink?.PreviewPicker(def, newColor));
-                                dialog.onCancel = endPreview;
-                                dialog.onPostClose = endPreview;
+                                }, previewCallback: newColor =>
+                                {
+                                    ColorPreviewSink?.PreviewPicker(def, newColor);
+                                    ColorPreviewTransactionSink?.Preview(def, settingsObject, newColor);
+                                });
+                                dialog.onCancel = () =>
+                                {
+                                    restorePreview();
+                                    endPreview();
+                                };
+                                dialog.onPostClose = () =>
+                                {
+                                    if (!closeCommitted)
+                                    {
+                                        restorePreview();
+                                    }
+
+                                    endPreview();
+                                };
 
                                 Find.WindowStack.Add(dialog);
                             }, EditColorLabel);
@@ -695,6 +808,7 @@ namespace Better_Work_Tab.UI.SettingsFramework
                         {
                             field.SetValue(settingsObject, selected);
                             HandleSettingChanged(def, settingsObject, onSettingsChanged);
+                            NotifySettingPreview(def, settingsObject, field);
                         });
                     }
                     break;
@@ -702,6 +816,7 @@ namespace Better_Work_Tab.UI.SettingsFramework
                     if (SettingWidgets.DrawButton(contentRect, label, tooltip, disabled))
                     {
                         HandleSettingChanged(def, settingsObject, onSettingsChanged);
+                        NotifySettingPreview(def, settingsObject, field);
                     }
                     break;
                 case SettingType.Header:
@@ -725,8 +840,24 @@ namespace Better_Work_Tab.UI.SettingsFramework
                         def.CustomDrawer(contentRect, label, tooltip, settingsObject, disabled))
                     {
                         HandleSettingChanged(def, settingsObject, onSettingsChanged);
+                        NotifySettingPreview(def, settingsObject, null);
                     }
                     break;
+            }
+
+            if (supersededSettings.Count > 0 && isHovered)
+            {
+                Rect affordanceRect = new Rect(
+                    controlRow.xMax - SupersessionAffordanceSize - 2f,
+                    controlRow.center.y - (SupersessionAffordanceSize / 2f),
+                    SupersessionAffordanceSize,
+                    SupersessionAffordanceSize);
+                DrawSupersessionAffordance(
+                    affordanceRect,
+                    def,
+                    supersessions,
+                    supersededSettings,
+                    settingsObject);
             }
 
             if (hasNotice)
@@ -759,6 +890,184 @@ namespace Better_Work_Tab.UI.SettingsFramework
             return string.IsNullOrEmpty(tooltip)
                 ? addition
                 : tooltip + "\n\n" + addition;
+        }
+
+        private void NotifySettingPreview(
+            SettingDefinition definition,
+            object settingsObject,
+            FieldInfo field)
+        {
+            if (OnSettingPreview == null || definition == null || definition.Type == SettingType.Color)
+            {
+                return;
+            }
+
+            object currentValue = field != null
+                ? field.GetValue(settingsObject)
+                : settingsObject;
+            OnSettingPreview(definition, settingsObject, currentValue);
+        }
+
+        private IReadOnlyList<SettingDefinition> ResolveSupersededSettings(
+            IReadOnlyList<SettingSupersession> supersessions)
+        {
+            if (supersessions == null || supersessions.Count == 0)
+            {
+                return Array.Empty<SettingDefinition>();
+            }
+
+            var resolved = new List<SettingDefinition>(supersessions.Count);
+            var seenIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < supersessions.Count; i++)
+            {
+                SettingSupersession supersession = supersessions[i];
+                if (supersession == null || string.IsNullOrEmpty(supersession.SupersededSettingId) ||
+                    !seenIds.Add(supersession.SupersededSettingId))
+                {
+                    continue;
+                }
+
+                SettingDefinition target = _hierarchy.GetById(supersession.SupersededSettingId);
+                if (target != null)
+                {
+                    resolved.Add(target);
+                }
+            }
+
+            return resolved;
+        }
+
+        private void DrawSupersessionAffordance(
+            Rect rect,
+            SettingDefinition source,
+            IReadOnlyList<SettingSupersession> supersessions,
+            IReadOnlyList<SettingDefinition> supersededSettings,
+            object settingsObject)
+        {
+            string tooltip = SupersessionAffordanceTooltip;
+            var affectedLabels = new List<string>(supersededSettings.Count);
+            for (int i = 0; i < supersededSettings.Count; i++)
+            {
+                affectedLabels.Add(GetSettingLabel(supersededSettings[i]));
+            }
+
+            if (affectedLabels.Count > 0)
+            {
+                tooltip = AppendTooltip(tooltip, string.Join(", ", affectedLabels));
+            }
+
+            TooltipHandler.TipRegion(rect, tooltip);
+            if (Widgets.ButtonText(rect, SupersessionAffordanceLabel))
+            {
+                OpenSupersessionMenu(source, supersessions, supersededSettings, settingsObject);
+                Event.current?.Use();
+            }
+        }
+
+        private void OpenSupersessionMenu(
+            SettingDefinition source,
+            IReadOnlyList<SettingSupersession> supersessions,
+            IReadOnlyList<SettingDefinition> supersededSettings,
+            object settingsObject)
+        {
+            var options = new List<FloatMenuOption>(supersededSettings.Count);
+            var descriptions = new Dictionary<FloatMenuOption, string>();
+            for (int i = 0; i < supersededSettings.Count; i++)
+            {
+                SettingDefinition target = supersededSettings[i];
+                SettingSupersession supersession = FindSupersession(supersessions, target.Id);
+                string label = supersession?.LinkLabel ?? GetSettingLabel(target);
+                SettingDefinition localTarget = target;
+                var option = new FloatMenuOption(
+                    label,
+                    () => JumpToSetting(localTarget, settingsObject));
+                options.Add(option);
+                descriptions[option] = string.IsNullOrEmpty(supersession?.Description)
+                    ? $"{GetSettingLabel(source)} currently takes precedence over {GetSettingLabel(target)}."
+                    : supersession.Description;
+            }
+
+            if (options.Count == 0)
+            {
+                return;
+            }
+
+            Find.WindowStack.Add(new DescribedFloatMenu(
+                options,
+                null,
+                GetSettingLabel(source),
+                SupersessionMenuDescription,
+                descriptions));
+        }
+
+        private static SettingSupersession FindSupersession(
+            IReadOnlyList<SettingSupersession> supersessions,
+            string targetId)
+        {
+            if (supersessions == null || string.IsNullOrEmpty(targetId))
+            {
+                return null;
+            }
+
+            for (int i = 0; i < supersessions.Count; i++)
+            {
+                SettingSupersession supersession = supersessions[i];
+                if (supersession != null &&
+                    string.Equals(supersession.SupersededSettingId, targetId, StringComparison.OrdinalIgnoreCase))
+                {
+                    return supersession;
+                }
+            }
+
+            return null;
+        }
+
+        private string GetSettingLabel(SettingDefinition definition)
+        {
+            return GetLabel?.Invoke(definition) ?? definition?.Label ?? definition?.Id ?? string.Empty;
+        }
+
+        private void BeginHoveredColorPreview(
+            SettingDefinition definition,
+            object settingsObject,
+            Color color)
+        {
+            if (ColorPreviewTransactionSink == null)
+            {
+                return;
+            }
+
+            _hoveredColorPreviewObservedThisDraw = true;
+
+            if (!_hoveredColorPreviewActive ||
+                !ReferenceEquals(_hoveredColorPreviewDefinition, definition) ||
+                !ReferenceEquals(_hoveredColorPreviewSettingsObject, settingsObject))
+            {
+                EndHoveredColorPreview();
+                _hoveredColorPreviewDefinition = definition;
+                _hoveredColorPreviewSettingsObject = settingsObject;
+                _hoveredColorPreviewOriginal = color;
+                _hoveredColorPreviewActive = true;
+                ColorPreviewTransactionSink.Begin(definition, settingsObject, color);
+            }
+
+            ColorPreviewTransactionSink.Preview(definition, settingsObject, color);
+        }
+
+        private void EndHoveredColorPreview()
+        {
+            if (!_hoveredColorPreviewActive)
+            {
+                return;
+            }
+
+            ColorPreviewTransactionSink?.Restore(
+                _hoveredColorPreviewDefinition,
+                _hoveredColorPreviewSettingsObject,
+                _hoveredColorPreviewOriginal);
+            _hoveredColorPreviewDefinition = null;
+            _hoveredColorPreviewSettingsObject = null;
+            _hoveredColorPreviewActive = false;
         }
 
         /// <summary>
@@ -862,16 +1171,26 @@ namespace Better_Work_Tab.UI.SettingsFramework
         /// </summary>
         private void JumpToSuppressor(SettingDefinition suppressor, object settingsObject)
         {
+            JumpToSetting(suppressor, settingsObject);
+        }
+
+        private void JumpToSetting(SettingDefinition target, object settingsObject)
+        {
+            if (target == null)
+            {
+                return;
+            }
+
             ClearSearch();
 
-            if (_activeFilter != null && !MatchesFilter(suppressor, settingsObject, _activeFilter))
+            if (_activeFilter != null && !MatchesFilter(target, settingsObject, _activeFilter))
             {
                 ClearActiveFilter();
             }
 
-            RevealDisabledAncestorChain(suppressor.Id);
-            _pendingFocusSettingId = suppressor.Id;
-            FocusSetting(suppressor.Id);
+            RevealDisabledAncestorChain(target.Id);
+            _pendingFocusSettingId = target.Id;
+            FocusSetting(target.Id);
         }
 
         private string BuildTooltip(SettingDefinition def, string disabledReason)
