@@ -87,7 +87,7 @@ namespace Better_Work_Tab.UI
             SettingsHierarchy hierarchy,
             Vector2 scrollPosition)
         {
-            return new SettingsListDrawer(hierarchy)
+            SettingsListDrawer drawer = new SettingsListDrawer(hierarchy)
             {
                 GetLabel = BWTSettingsTranslation.GetLabel,
                 GetTooltip = BWTSettingsTranslation.GetTooltip,
@@ -97,6 +97,8 @@ namespace Better_Work_Tab.UI
                 EditColorLabel = BWTSettingsTranslation.Edit,
                 ColorPreviewTooltip = "Hover here or adjust the picker to preview this color live on the Work tab.",
                 ColorPreviewSink = WorkTabColorPreviewController.Instance,
+                ColorPreviewTransactionSink = WorkTabColorPreviewController.Instance,
+                OnSettingPreview = WorkTabColorPreviewController.Instance.PreviewSetting,
                 Filters = BWTSettingsFilters.Create(),
                 FilterLabel = "Filter",
                 AllSettingsFilterLabel = "All Settings",
@@ -107,6 +109,8 @@ namespace Better_Work_Tab.UI
                 OnSettingInteracted = (definition, _) =>
                     BWTGeneralTutorial.NotifySettingsRowInteracted(definition?.Id)
             };
+
+            return drawer;
         }
 
         private static void MarkSettingViewed(SettingDefinition def, object settingsObject)

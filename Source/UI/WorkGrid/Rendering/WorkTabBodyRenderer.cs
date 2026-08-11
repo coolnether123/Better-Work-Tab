@@ -20,6 +20,7 @@ using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using Better_Work_Tab.UI.WorkGrid.Layout;
 using Better_Work_Tab.UI.WorkGrid.Snapshots;
+using Better_Work_Tab.UI.Settings;
 using RimWorld;
 using Spine.Profiling;
 using UnityEngine;
@@ -284,9 +285,57 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             WorkGridIndexRange visibleRows)
         {
             var settings = BetterWorkTabMod.Settings;
-            if (!settings.ShowPawnAndWorktypeHighlights || !settings.enableRowColumnHighlights)
+            WorkTabColorPreview preview = default;
+            bool hasHighlightPreview =
+                WorkTabColorPreviewController.Instance.TryGetPreview(out preview) &&
+                (preview.IncludesRow || preview.IncludesColumn);
+            if ((!settings.ShowPawnAndWorktypeHighlights || !settings.enableRowColumnHighlights) &&
+                !hasHighlightPreview)
             {
                 return;
+            }
+
+            WorkTabLayoutColumn? previewColumn = null;
+            if (hasHighlightPreview && preview.IncludesColumn)
+            {
+                WorkTypeDef firefighter = WorkTypeDefOf.Firefighter;
+                for (int i = 0; i < columns.Count; i++)
+                {
+                    WorkTabLayoutColumn candidate = columns[i];
+                    if (!WorkTabColumnHighlightUtility.IsHighlightableWorkColumn(candidate))
+                    {
+                        continue;
+                    }
+
+                    if (!previewColumn.HasValue)
+                    {
+                        previewColumn = candidate;
+                    }
+
+                    if (candidate.Column?.workType == firefighter ||
+                        (firefighter == null && candidate.Column?.workType != null &&
+                        string.Equals(
+                            candidate.Column.workType.defName,
+                            "Firefighter",
+                            System.StringComparison.OrdinalIgnoreCase)))
+                    {
+                        previewColumn = candidate;
+                        break;
+                    }
+                }
+            }
+
+            int previewRowIndex = -1;
+            if (hasHighlightPreview && preview.IncludesRow)
+            {
+                for (int i = visibleRows.Start; i < visibleRows.EndExclusive; i++)
+                {
+                    if (rowDescriptors[i].IsPawn)
+                    {
+                        previewRowIndex = i;
+                        break;
+                    }
+                }
             }
 
             WorkTabLayoutColumn? hoveredColumn = null;
@@ -345,12 +394,18 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 var descriptor = rowDescriptors[i];
                 Rect rowRect = new Rect(0f, currentY, totalWidth, descriptor.Height);
 
+                bool isPreviewRow = i == previewRowIndex;
+
                 bool isFloatMenuPawn = descriptor.IsPawn &&
                     highlightedPawn != null &&
                     descriptor.Pawn == highlightedPawn &&
                     settings.ShowFloatMenuPawnAndWorktypeHighlight;
 
-                if (isFloatMenuPawn)
+                if (isPreviewRow)
+                {
+                    HighlightDrawer.DrawHighlight(rowRect, HighlightDrawer.GetRowHoverColor());
+                }
+                else if (isFloatMenuPawn)
                 {
                     HighlightDrawer.DrawHighlight(rowRect, HighlightDrawer.GetFloatMenuColor());
                 }
@@ -417,12 +472,18 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     geometry.Width,
                     totalHeight);
                 bool isWorkColumn = WorkTabColumnHighlightUtility.IsHighlightableWorkColumn(column);
+                bool isPreviewColumn = previewColumn.HasValue &&
+                                       column.Equals(previewColumn.Value);
                 bool isFloatMenuColumn = isWorkColumn &&
                     IsColumnHighlightedByFloatMenu(column, highlightedWorkType, highlightedWorkGiver);
                 bool isTimePrioritySourceColumn = isWorkColumn &&
                     TimePriorityScheduleEditor.ShouldHighlightSourceColumn(column);
 
-                if (isFloatMenuColumn && settings.ShowFloatMenuPawnAndWorktypeHighlight)
+                if (isPreviewColumn)
+                {
+                    HighlightDrawer.DrawHighlight(columnRect, HighlightDrawer.GetColumnHoverColor());
+                }
+                else if (isFloatMenuColumn && settings.ShowFloatMenuPawnAndWorktypeHighlight)
                 {
                     HighlightDrawer.DrawHighlight(columnRect, HighlightDrawer.GetFloatMenuColor());
                 }

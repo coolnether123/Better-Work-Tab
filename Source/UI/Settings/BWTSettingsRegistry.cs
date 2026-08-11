@@ -1230,18 +1230,23 @@ namespace Better_Work_Tab.UI.Settings
                 {
                     if (settingsObj is BetterWorkTabSettings s)
                     {
-                         Find.WindowStack.Add(new Dialog_ColourPicker(s.Color_CursorHighlight, (picked, closing) =>
-                         {
-                             s.Color_CursorHighlight = picked;
-                             s.Color_RowHoverHighlight = picked;
-                             s.Color_ColumnHoverHighlight = picked;
-                             s.Color_SelectedPawnHighlight = picked;
-                             s.Color_FloatMenuHighlight = picked;
-                             s.Color_CustomMouseHighlight = picked;
-                             s.Color_CustomSimilarWorktypeHighlight = picked;
-                             s.Write();
-                             Messages.Message("Master color applied to all highlight settings.", MessageTypeDefOf.PositiveEvent, false);
-                         }));
+                        WorkTabColorPreviewController.Instance.BeginMasterPicker(s.Color_CursorHighlight);
+                        var dialog = new Dialog_ColourPicker(s.Color_CursorHighlight, (picked, closing) =>
+                        {
+                            s.Color_CursorHighlight = picked;
+                            s.Color_RowHoverHighlight = picked;
+                            s.Color_ColumnHoverHighlight = picked;
+                            s.Color_SelectedPawnHighlight = picked;
+                            s.Color_FloatMenuHighlight = picked;
+                            s.Color_CustomMouseHighlight = picked;
+                            s.Color_CustomSimilarWorktypeHighlight = picked;
+                            s.Write();
+                            WorkTabColorPreviewController.Instance.PreviewMasterPicker(picked);
+                            Messages.Message("Master color applied to all highlight settings.", MessageTypeDefOf.PositiveEvent, false);
+                        }, previewCallback: WorkTabColorPreviewController.Instance.PreviewMasterPicker);
+                        dialog.onCancel = WorkTabColorPreviewController.Instance.EndMasterPicker;
+                        dialog.onPostClose = WorkTabColorPreviewController.Instance.EndMasterPicker;
+                        Find.WindowStack.Add(dialog);
                     }
                 }
             });
@@ -2870,6 +2875,16 @@ namespace Better_Work_Tab.UI.Settings
                 {
                     FluffyWorkTabGateway.CreateWorkTabOwnedByFluffySuppression(
                         "Fluffy Work Tab is drawing the Work tab headers.")
+                },
+                Supersessions = new List<SettingSupersession>
+                {
+                    new SettingSupersession
+                    {
+                        SupersededSettingId = SubWorkAutoExpandColumns,
+                        When = settingsObj => ((BetterWorkTabSettings)settingsObj).enableAngledHeaders,
+                        LinkLabel = "Expand sub-work columns",
+                        Description = "Angled headers already keep sub-work labels from colliding, so expanded sub-work columns are not needed."
+                    }
                 },
                 OnChanged = s => HeaderDrawingCoordinator.NotifyAngledHeadersChanged(),
                 ShowInSimpleView = true,

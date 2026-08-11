@@ -101,7 +101,7 @@ namespace Better_Work_Tab.UI.Chrome
         internal void DrawBottomControls(IWorkTabLayoutController layout, Rect inRect)
         {
             WorkManagerCompatibility.DrawControls(inRect);
-            WorkTabColorPreviewRenderer.Draw(layout, inRect);
+            WorkTabColorPreviewRenderer.Draw(inRect);
 
             bool mouseInside = !BWTWorkTabTutorial.OwnsCurrentPointer && Mouse.IsOver(inRect);
             Rect infoRect = WorkTabChromeGeometry.GetInfoIconRect(inRect);

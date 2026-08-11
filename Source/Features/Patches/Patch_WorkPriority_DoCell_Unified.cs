@@ -10,6 +10,7 @@ using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.Input;
+using Better_Work_Tab.UI.Settings;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using Better_Work_Tab.UI.WorkGrid.Commands;
 using HarmonyLib;
@@ -130,7 +131,8 @@ namespace Better_Work_Tab.Patches
                 return;
 
             _lastCachedFrame = currentFrame;
-            _cachedFeatureEnabled = BetterWorkTabMod.Settings?.enableSkillOverlayFeature ?? false;
+            _cachedFeatureEnabled = (BetterWorkTabMod.Settings?.enableSkillOverlayFeature ?? false) ||
+                                    WorkTabColorPreviewController.Instance.IsSkillPreviewActive;
             _cachedUiState = ShiftHelper.State;
             _cachedShiftHeld = _cachedUiState == BetterWorkTabSettings.ShowUIMode.Shifted;
             _cachedHoverCellOverlayEnabled = BetterWorkTabMod.Settings?.showHoverCellOverlay ?? true;
@@ -668,6 +670,11 @@ namespace Better_Work_Tab.Patches
 
         private static Color ColorForSkillLevel(int level)
         {
+            if (WorkTabColorPreviewController.Instance.TryGetSkillColor(level, out Color previewColor))
+            {
+                return previewColor;
+            }
+
             if (_colorCache.TryGetValue(level, out var cached))
                 return cached;
 
@@ -752,7 +759,9 @@ namespace Better_Work_Tab.Patches
             if (workType == null || workType.relevantSkills == null || workType.relevantSkills.Count == 0)
                 return;
 
-            if (!ShouldShowUI(settings.ShowUIMode_ShowPawnForSkillSquare, _cachedUiState))
+            if (!WorkTabColorPreviewController.Instance.IsBestPawnPreviewActive &&
+                !WorkTabColorPreviewController.Instance.IsBestPawnThicknessPreviewActive &&
+                !ShouldShowUI(settings.ShowUIMode_ShowPawnForSkillSquare, _cachedUiState))
                 return;
 
             Pawn bestPawn = GetBestPawnForWorktype(table, workType, worker);
@@ -766,10 +775,14 @@ namespace Better_Work_Tab.Patches
         {
             Rect outlineRect = WorkPriorityCellGeometry.GetPriorityBoxRect(rect).ExpandedBy(1f);
 
+            Color outlineColor = WorkTabColorPreviewController.Instance.TryGetBestPawnColor(out Color previewColor)
+                ? previewColor
+                : BetterWorkTabMod.Settings.Color_BestPawnForSkillSquare;
+
             Widgets.DrawBoxSolidWithOutline(
                 outlineRect,
                 Color.clear,
-                BetterWorkTabMod.Settings.Color_BestPawnForSkillSquare,
+                outlineColor,
                 BetterWorkTabMod.Settings.bestPawnHighlightThickness);
         }
 
