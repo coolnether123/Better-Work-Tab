@@ -13,9 +13,12 @@ namespace Better_Work_Tab.UI.Headers
     /// Shared utility methods and constants for header rendering and logic.
     /// Minimizes code duplication across vanilla and angled implementations.
     /// </summary>
+    [StaticConstructorOnStartup]
     public static class HeaderUtility
     {
         private static readonly Dictionary<int, string> HeaderTextCache = new Dictionary<int, string>();
+        private static readonly Texture2D SortingIcon = ContentFinder<Texture2D>.Get("UI/Icons/Sorting");
+        private static readonly Texture2D SortingDescendingIcon = ContentFinder<Texture2D>.Get("UI/Icons/SortingDescending");
 
         /// <summary>
         /// Suffix used to indicate a column has been moved from its baseline position.
@@ -278,11 +281,6 @@ namespace Better_Work_Tab.UI.Headers
             public static readonly Color HoverHighlight = new Color(1f, 1f, 1f, 0.25f);
 
             /// <summary>
-            /// Dim color for the sort indicator.
-            /// </summary>
-            public static readonly Color SortIndicatorColor = new Color(0.6f, 0.6f, 0.6f, 0.8f);
-
-            /// <summary>
             /// Default color of the stem line in vanilla staggering (#5b6064).
             /// </summary>
             public static readonly Color DefaultVanillaStemColor = new Color(91f / 255f, 96f / 255f, 100f / 255f, 1f);
@@ -321,43 +319,27 @@ namespace Better_Work_Tab.UI.Headers
         }
 
         /// <summary>
-        /// Shared method to draw the sorting indicator (up/down arrow) at the bottom of a header.
+        /// Draws RimWorld's sorting icon at the same bottom-right position used by
+        /// <see cref="PawnColumnWorker.DoHeader"/>.
         /// </summary>
         /// <param name="headerRect">The base header rect.</param>
         /// <param name="descending">Whether sorting is descending.</param>
         public static void DrawSortIndicator(Rect headerRect, bool descending)
         {
             Color oldColor = GUI.color;
-            TextAnchor oldAnchor = Text.Anchor;
-            GameFont oldFont = Text.Font;
-            bool oldWordWrap = Text.WordWrap;
-
-            Color color = Colors.SortIndicatorColor;
             float transitionAlpha = SubWorkDrilldownState.IsTransitioning
                 ? Mathf.Max(SubWorkDrilldownState.HeaderFlipAlpha, SubWorkDrilldownState.ParentWorkContentAlpha)
                 : 1f;
-            color.a *= transitionAlpha;
-            GUI.color = color;
-            Text.Font = GameFont.Tiny;
-            Text.Anchor = TextAnchor.MiddleCenter;
-            Text.WordWrap = false;
-
-            // Position to match angled headers (9px from bottom, centered)
-            const float indicatorSize = 12f;
-            const float yOffsetFromBottom = 9f;
-
-            Rect sortRect = new Rect(
-                headerRect.center.x - (indicatorSize / 2f) + 9f, 
-                headerRect.yMax - yOffsetFromBottom, 
-                indicatorSize, 
-                indicatorSize
-            );
-
-            Widgets.Label(sortRect, descending ? "\u25BC" : "\u25B2");
+            Texture2D icon = descending ? SortingDescendingIcon : SortingIcon;
+            GUI.color = new Color(1f, 1f, 1f, transitionAlpha);
+            GUI.DrawTexture(
+                new Rect(
+                    headerRect.xMax - icon.width - 1f,
+                    headerRect.yMax - icon.height - 1f,
+                    icon.width,
+                    icon.height),
+                icon);
             GUI.color = oldColor;
-            Text.Anchor = oldAnchor;
-            Text.Font = oldFont;
-            Text.WordWrap = oldWordWrap;
         }
 
         /// <summary>

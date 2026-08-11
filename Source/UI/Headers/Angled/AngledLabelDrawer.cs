@@ -310,10 +310,6 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 HeaderUtility.DrawSortIndicator(headerRect, sortDescending);
             }
 
-            if (headerRect != default)
-            {
-                SubWorkHeaderAffordance.DrawOpenBadge(headerRect, column, clearVanillaStem: false);
-            }
         }
 
         private static void DrawParentHeaderGhost(

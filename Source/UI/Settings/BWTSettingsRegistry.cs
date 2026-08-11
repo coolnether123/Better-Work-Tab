@@ -635,38 +635,6 @@ namespace Better_Work_Tab.UI.Settings
 
             Register(new SettingDefinition
             {
-                Id = SubWorkHeaderBadge,
-                ParentId = FeaturesSubWorkJobs,
-                FieldName = "showSubWorkHeaderBadge",
-                Label = "Show specific-jobs button",
-                Tooltip = "Show a button integrated into each Work header for opening its specific jobs.",
-                Type = SettingType.Bool,
-                DefaultValue = DefaultSettings.showSubWorkHeaderBadge,
-                OnChanged = _ => HeaderDrawingCoordinator.NotifyAngledHeadersChanged(),
-                ShowInSimpleView = true,
-                SortOrder = 3
-            });
-
-            Register(new SettingDefinition
-            {
-                Id = SubWorkFocusedHeaderBadge,
-                ParentId = FeaturesSubWorkJobs,
-                FieldName = "showFocusedSubWorkHeaderBadge",
-                Label = "Keep specific-jobs button in Focus view",
-                Tooltip = "While Focus view is open, keep the two-line button under the specific-job header nearest the parent Work header's original position. Click it to return to Work types.",
-                SearchKeywords = new[]
-                {
-                    "underline under header", "return button", "back button",
-                    "original header position", "closest specific job", "focused view anchor"
-                },
-                Type = SettingType.Bool,
-                DefaultValue = DefaultSettings.showFocusedSubWorkHeaderBadge,
-                ShowInSimpleView = false,
-                SortOrder = 4
-            });
-
-            Register(new SettingDefinition
-            {
                 Id = SubWorkCrossWorkDragDrop,
                 ParentId = FeaturesSubWorkJobs,
                 FieldName = "enableSubWorkCrossWorkDragDrop",

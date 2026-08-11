@@ -103,8 +103,6 @@
     <BWT_Settings_compat.fluffyWorkTab.specificJobs_Tooltip>Choose how BWT opens a Work column into its individual jobs.</BWT_Settings_compat.fluffyWorkTab.specificJobs_Tooltip>
     <BWT_Settings_subWorkJobs.drilldownStyle>Specific-job view</BWT_Settings_subWorkJobs.drilldownStyle>
     <BWT_Settings_subWorkJobs.drilldownStyle_Tooltip>Choose a focused full-tab view or right-expanding columns. Both are BWT features and work without Fluffy installed.</BWT_Settings_subWorkJobs.drilldownStyle_Tooltip>
-    <BWT_Settings_subWorkJobs.focusedHeaderBadge>Keep specific-jobs button in Focus view</BWT_Settings_subWorkJobs.focusedHeaderBadge>
-    <BWT_Settings_subWorkJobs.focusedHeaderBadge_Tooltip>Shows a two-line “Back to Work types” button beneath the specific-job header in Focus view.</BWT_Settings_subWorkJobs.focusedHeaderBadge_Tooltip>
 
     <!-- Categories -->
     <BWT_Settings_highlights>Highlights</BWT_Settings_highlights>
@@ -263,8 +261,6 @@
     <BWT_Settings_subWorkJobs.openModifier_Tooltip>Modifier key used with the mouse button below to open or leave the specific-job view.</BWT_Settings_subWorkJobs.openModifier_Tooltip>
     <BWT_Settings_subWorkJobs.openButton>Shortcut mouse button</BWT_Settings_subWorkJobs.openButton>
     <BWT_Settings_subWorkJobs.openButton_Tooltip>Mouse button used with the modifier key above to open or leave the specific-job view.</BWT_Settings_subWorkJobs.openButton_Tooltip>
-    <BWT_Settings_subWorkJobs.headerBadge>Show specific-jobs button</BWT_Settings_subWorkJobs.headerBadge>
-    <BWT_Settings_subWorkJobs.headerBadge_Tooltip>Show a button integrated into each Work header for opening its specific jobs.</BWT_Settings_subWorkJobs.headerBadge_Tooltip>
     <BWT_Settings_subWorkJobs.crossWorkDragDrop>Move specific jobs between Work columns</BWT_Settings_subWorkJobs.crossWorkDragDrop>
     <BWT_Settings_subWorkJobs.crossWorkDragDrop_Tooltip>Drag a specific job onto another Work column to move it there. Turning this off limits dragging to the current specific-job view.</BWT_Settings_subWorkJobs.crossWorkDragDrop_Tooltip>
     <BWT_Settings_subWorkJobs.compactPriorityBoxes>Compact boxes in expanded view</BWT_Settings_subWorkJobs.compactPriorityBoxes>

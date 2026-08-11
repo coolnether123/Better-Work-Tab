@@ -143,7 +143,6 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
                     HeaderUtility.DrawSortIndicator(headerRect, sortDescending);
                 }
 
-                SubWorkHeaderAffordance.DrawOpenBadge(headerRect, column);
             }
             finally
             {

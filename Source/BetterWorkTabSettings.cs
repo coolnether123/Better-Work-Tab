@@ -75,8 +75,6 @@ namespace Better_Work_Tab
         public static bool showFluffyStyleTopButtons = false;
         public static bool showStandaloneFluffyStyleTopButtons = false;
         public static bool enableFluffyScheduleAssigner = false;
-        public static bool showSubWorkHeaderBadge = true;
-        public static bool showFocusedSubWorkHeaderBadge = true;
         public static bool enableSubWorkCrossWorkDragDrop = true;
         public static bool enableCustomWorkLabels = true;
         public static BetterWorkTabSettings.SubWorkDrilldownModifier subWorkDrilldownModifier = BetterWorkTabSettings.SubWorkDrilldownModifier.Ctrl;
@@ -370,8 +368,6 @@ namespace Better_Work_Tab
         public bool showFluffyStyleTopButtons = DefaultSettings.showFluffyStyleTopButtons;
         public bool showStandaloneFluffyStyleTopButtons = DefaultSettings.showStandaloneFluffyStyleTopButtons;
         public bool enableFluffyScheduleAssigner = DefaultSettings.enableFluffyScheduleAssigner;
-        public bool showSubWorkHeaderBadge = DefaultSettings.showSubWorkHeaderBadge;
-        public bool showFocusedSubWorkHeaderBadge = DefaultSettings.showFocusedSubWorkHeaderBadge;
         public bool enableSubWorkCrossWorkDragDrop = DefaultSettings.enableSubWorkCrossWorkDragDrop;
         public bool enableCustomWorkLabels = DefaultSettings.enableCustomWorkLabels;
         public SubWorkDrilldownModifier subWorkDrilldownModifier = DefaultSettings.subWorkDrilldownModifier;
