@@ -463,10 +463,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             if (ageDisabled) flags |= WorkCellVisualFlags.AgeDisabled;
             if (overrideRing) flags |= WorkCellVisualFlags.OverrideRing;
             if (passion > 0) flags |= WorkCellVisualFlags.HasPassion;
-            if (pawn.thingIDNumber == bestPawnId) flags |= WorkCellVisualFlags.BestPawn;
+            bool hasRelevantSkills = workType.relevantSkills != null && workType.relevantSkills.Count > 0;
+            if (hasRelevantSkills && pawn.thingIDNumber == bestPawnId) flags |= WorkCellVisualFlags.BestPawn;
             if (pawn.Ideo != null && pawn.Ideo.IsWorkTypeConsideredDangerous(workType))
                 flags |= WorkCellVisualFlags.IdeologyWarning;
-            if (workType.relevantSkills != null && workType.relevantSkills.Count > 0 && skill <= 2f && priority > 0)
+            if (hasRelevantSkills && skill <= 2f && priority > 0)
                 flags |= WorkCellVisualFlags.LowSkillWarning;
 
             return new WorkCellVisualState(
@@ -521,7 +522,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             WorkTypeDef workType,
             PawnColumnWorker_WorkPriority worker)
         {
-            if (workType == null || worker == null || table?.cachedPawns == null)
+            if (workType == null ||
+                workType.relevantSkills == null ||
+                workType.relevantSkills.Count == 0 ||
+                worker == null ||
+                table?.cachedPawns == null)
             {
                 return -1;
             }
