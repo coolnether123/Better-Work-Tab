@@ -79,4 +79,50 @@ namespace Better_Work_Tab.UI.SettingsFramework
             }
         }
     }
+
+    /// <summary>
+    /// Declares that a setting currently takes precedence over another setting.
+    /// The relationship is owned by the setting doing the overriding so the framework can show
+    /// one concise, hover-only affordance for all affected settings.
+    /// </summary>
+    public sealed class SettingSupersession
+    {
+        /// <summary>
+        /// Required. Id of the setting whose value is currently superseded.
+        /// </summary>
+        public string SupersededSettingId;
+
+        /// <summary>
+        /// Optional predicate for conditional relationships. A missing predicate is always active.
+        /// </summary>
+        public Func<object, bool> When;
+
+        /// <summary>
+        /// Optional menu caption. Defaults to the affected setting's label.
+        /// </summary>
+        public string LinkLabel;
+
+        /// <summary>
+        /// Optional description shown in the described menu's help panel.
+        /// </summary>
+        public string Description;
+
+        public bool IsActive(object settingsObject)
+        {
+            if (When == null)
+            {
+                return true;
+            }
+
+            try
+            {
+                return When(settingsObject);
+            }
+            catch (Exception ex)
+            {
+                Log.Warning("[Spine][Settings] Supersession predicate failed: " + ex.Message);
+                return false;
+            }
+        }
+    }
 }

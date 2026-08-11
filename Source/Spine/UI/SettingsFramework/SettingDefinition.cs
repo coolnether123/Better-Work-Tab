@@ -16,6 +16,19 @@ namespace Better_Work_Tab.UI.SettingsFramework
         void EndPicker(SettingDefinition definition);
     }
 
+    /// <summary>
+    /// Optional host callbacks for applying color previews to the host's real setting state.
+    /// The existing <see cref="ISettingColorPreviewSink"/> remains sufficient for visual-only
+    /// previews; hosts that need transactional state can implement this additive interface.
+    /// </summary>
+    public interface ISettingColorPreviewTransactionSink
+    {
+        void Begin(SettingDefinition definition, object settingsObject, Color originalColor);
+        void Preview(SettingDefinition definition, object settingsObject, Color color);
+        void Commit(SettingDefinition definition, object settingsObject, Color color);
+        void Restore(SettingDefinition definition, object settingsObject, Color originalColor);
+    }
+
     public enum SettingClassification
     {
         Preference,
@@ -172,6 +185,12 @@ namespace Better_Work_Tab.UI.SettingsFramework
         public List<SettingSuppression> Suppressions;
 
         /// <summary>
+        /// Optional relationships describing settings currently superseded by this setting.
+        /// The affordance is shown only while this row is hovered.
+        /// </summary>
+        public List<SettingSupersession> Supersessions;
+
+        /// <summary>
         /// Returns the first suppression currently in force, or null when the setting is live.
         /// </summary>
         public SettingSuppression GetActiveSuppression(object settingsObject)
@@ -191,6 +210,29 @@ namespace Better_Work_Tab.UI.SettingsFramework
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// Returns the currently active supersession relationships, or an empty list when none apply.
+        /// </summary>
+        public IReadOnlyList<SettingSupersession> GetActiveSupersessions(object settingsObject)
+        {
+            if (Supersessions == null || Supersessions.Count == 0)
+            {
+                return Array.Empty<SettingSupersession>();
+            }
+
+            var active = new List<SettingSupersession>(Supersessions.Count);
+            for (int i = 0; i < Supersessions.Count; i++)
+            {
+                SettingSupersession supersession = Supersessions[i];
+                if (supersession != null && supersession.IsActive(settingsObject))
+                {
+                    active.Add(supersession);
+                }
+            }
+
+            return active;
         }
 
         /// <summary>
