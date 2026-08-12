@@ -1,24 +1,24 @@
 using System;
 
-namespace Better_Work_Tab.UI.SettingsFramework
+namespace Spine.UI.SettingsFramework
 {
     /// <summary>
-    /// Button labels and callbacks used by the settings drawer import/export footer.
+    /// Optional callbacks for a settings page's import/export footer.
     /// </summary>
-    public class SettingsImportExportActions
+    public sealed class SettingsImportExportActions
     {
-        public string ExportLabel = "Export";
-        public string ImportLabel = "Import";
-        public string FileLabel = "File";
-        public string ClipboardLabel = "Clipboard";
-        public string CancelLabel = "Cancel";
+        public string ExportLabel { get; set; } = "Export";
+        public string ImportLabel { get; set; } = "Import";
+        public string FileLabel { get; set; } = "File";
+        public string ClipboardLabel { get; set; } = "Clipboard";
+        public string CancelLabel { get; set; } = "Cancel";
 
-        public Action ExportToFile;
-        public Action ExportToClipboard;
-        public Action ImportFromFile;
-        public Action ImportFromClipboard;
+        public Action ExportToFile { get; set; }
+        public Action ExportToClipboard { get; set; }
+        public Action ImportFromFile { get; set; }
+        public Action ImportFromClipboard { get; set; }
 
-        public bool HasAnyAction =>
+        internal bool HasAnyAction =>
             ExportToFile != null ||
             ExportToClipboard != null ||
             ImportFromFile != null ||

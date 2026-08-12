@@ -1,5 +1,5 @@
 using System.Reflection;
-using Better_Work_Tab.UI.SettingsFramework;
+using Spine.UI.SettingsFramework;
 using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Better_Work_Tab.UI.WorkGrid.Invalidation;
 using UnityEngine;

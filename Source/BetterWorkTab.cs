@@ -1,7 +1,5 @@
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.Workloads;
-using Better_Work_Tab.Features.TimePriority;
-using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.Migration;
 using Better_Work_Tab.ModSupport;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
@@ -74,8 +72,6 @@ namespace Better_Work_Tab
             }
 
             Settings = settings;
-            WorkGiverReassignmentManager.OnRuntimeSettingChanged();
-            TimePriorityService.OnRuntimeSettingChanged();
             if (migratedSettings)
             {
                 // Persist the compatibility defaults and schema marker before the
@@ -90,15 +86,11 @@ namespace Better_Work_Tab
 
             try
             {
-                var harmony = new Harmony(DynamicGameplayPatchController.HarmonyId);
-                // PatchAll covers only the static, attribute-declared surface. The
-                // gameplay callbacks owned by DynamicGameplayPatchController have no
-                // Harmony attributes and are installed explicitly by that controller.
-                harmony.PatchAll(System.Reflection.Assembly.GetExecutingAssembly());
+                var harmony = new Harmony("Coolnether123.betterworktab");
+                harmony.PatchAll();
                 ClockworkCompatibility.Initialize(harmony);
                 SleekWorkTabGateway.Initialize();
                 FluffyWorkTabGateway.ApplyDesiredOwner();
-                DynamicGameplayPatchController.Initialize(harmony);
                 DebugLog("Harmony patched successfully.");
             }
             catch (Exception ex)
@@ -154,17 +146,14 @@ namespace Better_Work_Tab
         {
             //Widgets.Label(inRect, "This is the widget.");
             //Widgets.Label(new Rect(inRect.center, new Vector2(50, 50)), "Yep it's in the middle.");
-            UI.BetterWorkTabSettingsUI.DoSettingsWindowContents(inRect, Settings);
+            UI.BetterWorkTabSettingsUI.DoSettingsWindowContents(inRect);
         }
 
         public override void WriteSettings()
         {
             base.WriteSettings();
             Settings.NormalizePrioritySettings();
-            WorkGiverReassignmentManager.OnRuntimeSettingChanged();
-            TimePriorityService.OnRuntimeSettingChanged();
             Features.RaisedPriorityMaximum.PriorityAuthorityBroker.InvalidateCaches();
-            DynamicGameplayPatchController.RequestRefresh();
         }
 
         /// <summary>

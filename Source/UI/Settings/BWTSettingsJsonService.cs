@@ -6,7 +6,7 @@ using System.Reflection;
 using System.Text;
 using Spine.RimWorld.Serialization;
 using Spine.UI.ColourPicker;
-using Better_Work_Tab.UI.SettingsFramework;
+using Spine.UI.SettingsFramework;
 using UnityEngine;
 using Verse;
 
@@ -150,7 +150,7 @@ namespace Better_Work_Tab.UI.Settings
 
                 CopyPublicSettingsFields(data.Settings, destination);
                 RecentColours.ReplaceAll(data.RecentColors, data.PinnedColors);
-                SettingsScribe.NotifyPreferenceChanges(destination, BWTSettingsRegistry.Definitions);
+                BWTSettingsRegistry.Schema.NotifyPreferenceChanges(destination);
                 destination.NormalizePrioritySettings();
                 destination.Write();
                 report = "Imported all settings data, including settings history, rulesets, layout state, and recent colors.";

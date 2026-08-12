@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 
-namespace Better_Work_Tab.UI.SettingsFramework
+namespace Spine.UI.SettingsFramework
 {
     /// <summary>
     /// Builds and queries a parent-child hierarchy for settings definitions.
@@ -14,6 +14,9 @@ namespace Better_Work_Tab.UI.SettingsFramework
         private readonly Dictionary<string, SettingDefinition> _byId;
         private readonly Dictionary<string, List<SettingDefinition>> _childrenOf;
         private readonly List<SettingDefinition> _rootSettings;
+
+        public int SettingCount { get; }
+        public int AdvancedOnlySettingCount { get; }
 
         /// <summary>
         /// Creates a new hierarchy from a flat list of definitions.
@@ -33,6 +36,13 @@ namespace Better_Work_Tab.UI.SettingsFramework
 
                 _byId[def.Id] = def;
             }
+
+            SettingCount = _byId.Values.Count(definition =>
+                !IsNonConfigurable(definition));
+            AdvancedOnlySettingCount = _byId.Values.Count(definition =>
+                !IsNonConfigurable(definition) &&
+                !definition.ShowInSimpleView &&
+                definition.ShowInAdvancedView);
 
             foreach (var def in _byId.Values)
             {
@@ -326,15 +336,26 @@ namespace Better_Work_Tab.UI.SettingsFramework
 
         private static bool IsVisibleInView(SettingDefinition def, SettingsViewMode viewMode)
         {
+            if (viewMode == SettingsViewMode.All)
+            {
+                return def.ShowInSimpleView || def.ShowInAdvancedView;
+            }
+
             // Advanced is a superset of Simple, not a sibling list: it is the
-            // simple list plus the settings hidden from it. Every registration
-            // happens to satisfy that today, because ShowInAdvancedView defaults
-            // to true and simple settings leave it alone. Enforcing it here
-            // makes it an invariant of the framework rather than a convention
-            // one stray "ShowInAdvancedView = false" can quietly break.
+            // simple list plus the settings hidden from it. ShowInAdvancedView
+            // therefore means "advanced-only"; simple membership always implies
+            // advanced membership. Enforcing it here makes it an invariant of
+            // the framework rather than a convention that one stray
+            // "ShowInAdvancedView = false" can quietly break.
             return viewMode == SettingsViewMode.Simple
                 ? def.ShowInSimpleView
                 : def.ShowInAdvancedView || def.ShowInSimpleView;
+        }
+
+        private static bool IsNonConfigurable(SettingDefinition definition)
+        {
+            return definition.Type == SettingType.Header ||
+                definition.Type == SettingType.Spacer;
         }
 
         private static bool ReadBoolValue(SettingDefinition def, object settingsObject)
@@ -367,6 +388,7 @@ namespace Better_Work_Tab.UI.SettingsFramework
     public enum SettingsViewMode
     {
         Simple,
-        Advanced
+        Advanced,
+        All
     }
 }

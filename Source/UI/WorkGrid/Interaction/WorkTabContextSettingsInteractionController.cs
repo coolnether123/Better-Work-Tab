@@ -2,9 +2,9 @@ using Better_Work_Tab;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI.Settings;
 using RimWorld;
+using Spine.UI.ContextualSettings;
 using UnityEngine;
 using Verse;
-using Verse.Sound;
 
 namespace Better_Work_Tab.UI.WorkGrid.Interaction
 {
@@ -15,11 +15,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
     {
         internal bool TryHandleInput(Rect inRect, IWorkTabLayoutController layout, Event evt)
         {
-            if (evt == null ||
-                evt.type != EventType.MouseDown ||
-                evt.button != 0 ||
-                !evt.alt ||
-                !inRect.Contains(evt.mousePosition))
+            if (evt == null || !inRect.Contains(evt.mousePosition))
             {
                 return false;
             }
@@ -35,9 +31,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
                 return false;
             }
 
-            BWTSettingsContextFocus.Request(request);
-            bool opened = BetterWorkTabSettingsWindowService.Open(toggleExisting: false);
-            if (opened)
+            bool handled = BetterWorkTabSettingsUI.ContextualSettings.BindSetting(
+                inRect,
+                request.TargetSettingId);
+            if (handled)
             {
                 BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
                 if (settings?.showContextSettingsHint ?? false)
@@ -45,12 +42,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
                     settings.showContextSettingsHint = false;
                     settings.Write();
                 }
-
-                SoundDefOf.Tick_Low.PlayOneShotOnCamera();
             }
 
-            evt.Use();
-            return true;
+            return handled;
         }
     }
 }

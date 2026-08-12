@@ -5,7 +5,7 @@ using System.Linq;
 using System.Reflection;
 using Verse;
 
-namespace Better_Work_Tab.UI.SettingsFramework
+namespace Spine.UI.SettingsFramework
 {
     public static class SettingsScribe
     {
@@ -31,8 +31,15 @@ namespace Better_Work_Tab.UI.SettingsFramework
                 return;
             }
 
+            IReadOnlyList<SettingDefinition> definitionList =
+                definitions as IReadOnlyList<SettingDefinition> ??
+                definitions.ToList();
+            // ScribeAll is also a public direct entry point. Keep preparation
+            // here so derived defaults and sort keys exist before persistence;
+            // callers such as ModSettingsFacade must not prepare a second time.
+            SettingsPreparation.Prepare(settings, definitionList);
             Type settingsType = settings.GetType();
-            foreach (SettingDefinition def in definitions)
+            foreach (SettingDefinition def in definitionList)
             {
                 if (def == null ||
                     def.Classification == SettingClassification.State ||
@@ -49,10 +56,6 @@ namespace Better_Work_Tab.UI.SettingsFramework
                 }
 
                 object defaultValue = def.ScribeDefaultOverride ?? def.DefaultValue;
-                if (defaultValue == null)
-                {
-                    continue;
-                }
 
                 string scribeKey = string.IsNullOrEmpty(def.ScribeKey) ? def.FieldName : def.ScribeKey;
                 object[] args = CreateScribeArgs(field.GetValue(settings), scribeKey, defaultValue);
@@ -71,8 +74,12 @@ namespace Better_Work_Tab.UI.SettingsFramework
                 return changedFields;
             }
 
+            IReadOnlyList<SettingDefinition> definitionList =
+                definitions as IReadOnlyList<SettingDefinition> ??
+                definitions.ToList();
+            SettingsPreparation.Prepare(settings, definitionList);
             Type settingsType = settings.GetType();
-            foreach (SettingDefinition def in definitions)
+            foreach (SettingDefinition def in definitionList)
             {
                 if (def == null ||
                     def.Classification == SettingClassification.State ||

@@ -4,7 +4,7 @@ using System.Reflection;
 using System.Text;
 using Better_Work_Tab.UI.Settings;
 using HarmonyLib;
-using Better_Work_Tab.UI.SettingsFramework;
+using Spine.UI.SettingsFramework;
 using UnityEngine;
 using Verse;
 using static Better_Work_Tab.UI.Settings.SettingIDs;
@@ -280,57 +280,34 @@ namespace Better_Work_Tab.ModSupport
 
         private sealed class ChronosPointerSettingsContributor : IModSettingsContributor
         {
-            public BWTModSettingsSection CreateSettingsSection()
+            public BWTModSettingsSection CreateSettingsSection(SettingsScope<BetterWorkTabSettings> scope)
             {
-                return new BWTModSettingsSection
-                {
-                    Header = new SettingDefinition
-                    {
-                        Id = CompatChronosPointerHeader,
-                        Label = "Chronos Pointer integration (2 settings)",
-                        Tooltip = "Optional Work-tab time-bar integration for Chronos Pointer.",
-                        SearchKeywords = ChronosSearchKeywords,
-                        Type = SettingType.Header,
-                        Suppressions = new System.Collections.Generic.List<SettingSuppression>
-                        {
-                            OptionalModSettingsAvailability.Require(
-                                () => ChronosPointerSupport.IsPresent,
-                                "Chronos Pointer")
-                        },
-                        ShowInSimpleView = false,
-                        ShowInAdvancedView = true,
-                        SortOrder = 0
-                    },
-                    Children = new[]
-                    {
-                        new SettingDefinition
-                        {
-                            Id = UiChronosPointerTimePriority,
-                            FieldName = "enableChronosPointerTimePriorityIntegration",
-                            Label = "Chronos Pointer time bar",
-                            Tooltip = "When Chronos Pointer is loaded, draw its daylight/current-time bar above the Work tab time-priority hour numbers.",
-                            SearchKeywords = ChronosSearchKeywords,
-                            Type = SettingType.Bool,
-                            DefaultValue = DefaultSettings.enableChronosPointerTimePriorityIntegration,
-                            ControlsChildVisibility = true,
-                            ShowInSimpleView = false,
-                            ShowInAdvancedView = true,
-                            SortOrder = 1
-                        },
-                        new SettingDefinition
-                        {
-                            Id = UiChronosPointerTimePriorityIncidents,
-                            ParentId = UiChronosPointerTimePriority,
-                            FieldName = "chronosPointerTimePriorityIncidentOverlay",
-                            Label = "Chronos incident overlay",
-                            Tooltip = "Allow Chronos Pointer to draw its incident colors, such as eclipses and auroras, on the Work tab time bar.",
-                            SearchKeywords = ChronosSearchKeywords,
-                            Type = SettingType.Bool,
-                            DefaultValue = DefaultSettings.chronosPointerTimePriorityIncidentOverlay,
-                            ShowInSimpleView = false,
-                            SortOrder = 2
-                        }
-                    }
+                return new BWTModSettingsSection {
+                    Header = scope
+                                 .Define(CompatChronosPointerHeader, SettingType.Header, "Chronos Pointer integration (2 settings)",
+                                         tooltip: "Optional Work-tab time-bar integration for Chronos Pointer.")
+                                 .SearchableBy(ChronosSearchKeywords)
+                                 .Ordered(0)
+                                 .Configure(definition =>
+                                            {
+                                                definition.Suppressions = new System.Collections.Generic.List<SettingSuppression> { OptionalModSettingsAvailability.Require(
+                                                    () => ChronosPointerSupport.IsPresent, "Chronos Pointer") };
+                                            }),
+                    Children =
+                        new[] { scope
+                                    .Toggle(UiChronosPointerTimePriority, settings => settings.enableChronosPointerTimePriorityIntegration, "Chronos Pointer time bar",
+                                            tooltip: "When Chronos Pointer is loaded, draw its daylight/current-time bar above the Work tab time-priority hour numbers.")
+                                    .DefaultTo(DefaultSettings.enableChronosPointerTimePriorityIntegration)
+                                    .SearchableBy(ChronosSearchKeywords)
+                                    .ControlsChildren()
+                                    .Ordered(1),
+                                scope.Under(UiChronosPointerTimePriority)
+                                    .Toggle(UiChronosPointerTimePriorityIncidents, settings => settings.chronosPointerTimePriorityIncidentOverlay, "Chronos incident overlay",
+                                            tooltip: "Allow Chronos Pointer to draw its incident colors, such as eclipses and auroras, on the Work tab time bar.")
+                                    .DefaultTo(DefaultSettings.chronosPointerTimePriorityIncidentOverlay)
+                                    .SearchableBy(ChronosSearchKeywords)
+                                    .Ordered(2)
+                                    .AdvancedOnly() }
                 };
             }
         }
@@ -365,10 +342,8 @@ namespace Better_Work_Tab.ModSupport
 
         private static bool HasTimelineDrawPath()
         {
-            bool hasPublicEmbeddedDraw = _tryDrawEmbeddedTimeline != null &&
-                _getLatestTimelineSnapshot != null;
-            bool hasManualDraw = (_drawEmbeddedTimeline != null || _drawTimeline != null) &&
-                _tryGetTimelineSnapshot != null;
+            bool hasPublicEmbeddedDraw = _tryDrawEmbeddedTimeline != null && _getLatestTimelineSnapshot != null;
+            bool hasManualDraw = (_drawEmbeddedTimeline != null || _drawTimeline != null) && _tryGetTimelineSnapshot != null;
             return hasPublicEmbeddedDraw || hasManualDraw;
         }
 
@@ -390,12 +365,7 @@ namespace Better_Work_Tab.ModSupport
 
             if (_tryDrawEmbeddedTimeline != null && _getLatestTimelineSnapshot != null)
             {
-                bool drawn = (bool)_tryDrawEmbeddedTimeline.Invoke(null, new object[]
-                {
-                    Find.CurrentMap,
-                    geometry,
-                    drawIncidentOverlay
-                });
+                bool drawn = (bool)_tryDrawEmbeddedTimeline.Invoke(null, new object[] { Find.CurrentMap, geometry, drawIncidentOverlay });
                 if (!drawn)
                 {
                     return false;
@@ -406,9 +376,7 @@ namespace Better_Work_Tab.ModSupport
             }
 
             object[] timelineArgs = { Find.CurrentMap, null };
-            if (_tryGetTimelineSnapshot == null ||
-                !(bool)_tryGetTimelineSnapshot.Invoke(null, timelineArgs) ||
-                timelineArgs[1] == null)
+            if (_tryGetTimelineSnapshot == null || !(bool)_tryGetTimelineSnapshot.Invoke(null, timelineArgs) || timelineArgs[1] == null)
             {
                 return false;
             }
@@ -422,22 +390,11 @@ namespace Better_Work_Tab.ModSupport
         {
             if (_drawEmbeddedTimeline != null)
             {
-                _drawEmbeddedTimeline.Invoke(null, new object[]
-                {
-                    timeline,
-                    geometry,
-                    drawIncidentOverlay
-                });
+                _drawEmbeddedTimeline.Invoke(null, new object[] { timeline, geometry, drawIncidentOverlay });
                 return;
             }
 
-            _drawTimeline.Invoke(null, new object[]
-            {
-                timeline,
-                geometry,
-                true,
-                drawIncidentOverlay
-            });
+            _drawTimeline.Invoke(null, new object[] { timeline, geometry, true, drawIncidentOverlay });
         }
 
         private static bool IsReady()
@@ -452,12 +409,7 @@ namespace Better_Work_Tab.ModSupport
             }
         }
 
-        private static void PrepareScheduleCursor(
-            Rect chronosRect,
-            Rect priorityRowsRect,
-            object geometry,
-            object timeline,
-            float hourBoxWidth)
+        private static void PrepareScheduleCursor(Rect chronosRect, Rect priorityRowsRect, object geometry, object timeline, float hourBoxWidth)
         {
             object settings = _timelineSettings.GetValue(timeline, null);
             if (settings == null)

@@ -1,60 +1,44 @@
 using System;
 using Verse;
 
-namespace Better_Work_Tab.UI.SettingsFramework
+namespace Spine.UI.SettingsFramework
 {
     /// <summary>
-    /// Declares that a setting has no effect while some other setting (or an external mod) overrides it.
-    /// A suppressed setting stays visible but is drawn disabled, with an explanation underneath.
+    /// Declares that a setting is currently inert while another setting or an
+    /// external integration owns the feature.
     /// </summary>
     /// <remarks>
-    /// Set <see cref="SuppressorSettingId"/> to the id of the setting responsible and the explanation
-    /// gains a link that jumps to that row, so the player can find and change the cause.
-    /// Leave it empty when nothing in this settings window is responsible, such as when an external
-    /// mod has taken over a feature outright.
+    /// This is presentation metadata. The consumer supplies the condition and
+    /// explanation; Spine does not attach gameplay meaning to either callback.
     /// </remarks>
     public sealed class SettingSuppression
     {
-        /// <summary>
-        /// Required. Returns true while this suppression applies. Receives the settings object.
-        /// </summary>
+        /// <summary>Returns true while this suppression applies.</summary>
         public Func<object, bool> When;
 
-        /// <summary>
-        /// Required. Short sentence explaining why the setting is inert right now.
-        /// </summary>
+        /// <summary>Explains why the setting is inert while the suppression applies.</summary>
         public Func<object, string> Reason;
 
         /// <summary>
-        /// Optional id of the setting responsible. When it resolves against the hierarchy the
-        /// explanation renders a clickable link that focuses that row.
+        /// Optional id of the setting responsible for the suppression.
         /// </summary>
         public string SuppressorSettingId;
 
-        /// <summary>
-        /// Optional link caption. Defaults to the suppressing setting's own label.
-        /// </summary>
+        /// <summary>Optional caption for the suppressor link.</summary>
         public string LinkLabel;
 
-        /// <summary>
-        /// Optional external destination shown as a separate link beside the suppression reason.
-        /// Descendant settings remain inert and keep their own tooltip behavior.
-        /// </summary>
+        /// <summary>Optional external action associated with the suppression.</summary>
         public string ExternalActionUrl;
 
-        /// <summary>
-        /// Optional caption for <see cref="ExternalActionUrl"/>. Defaults to "Open Workshop".
-        /// </summary>
+        /// <summary>Optional caption for <see cref="ExternalActionUrl"/>.</summary>
         public string ExternalActionLabel;
 
-        /// <summary>
-        /// Optional tooltip for the external link itself.
-        /// </summary>
+        /// <summary>Optional tooltip for the external action.</summary>
         public string ExternalActionTooltip;
 
         /// <summary>
-        /// Evaluates <see cref="When"/>, treating a throwing predicate as "not suppressing" so a
-        /// broken rule cannot lock a player out of a setting.
+        /// Evaluates the condition. A broken consumer predicate is treated as
+        /// inactive so it cannot permanently disable a setting.
         /// </summary>
         public bool IsActive(object settingsObject)
         {
@@ -75,7 +59,7 @@ namespace Better_Work_Tab.UI.SettingsFramework
         }
 
         /// <summary>
-        /// Resolves <see cref="Reason"/>, tolerating a throwing callback.
+        /// Resolves the explanation, tolerating a broken consumer callback.
         /// </summary>
         public string ResolveReason(object settingsObject)
         {
@@ -98,29 +82,19 @@ namespace Better_Work_Tab.UI.SettingsFramework
 
     /// <summary>
     /// Declares that a setting currently takes precedence over another setting.
-    /// The relationship is owned by the setting doing the overriding so the framework can show
-    /// one concise, hover-only affordance for all affected settings.
     /// </summary>
     public sealed class SettingSupersession
     {
-        /// <summary>
-        /// Required. Id of the setting whose value is currently superseded.
-        /// </summary>
+        /// <summary>Id of the setting whose value is currently superseded.</summary>
         public string SupersededSettingId;
 
-        /// <summary>
-        /// Optional predicate for conditional relationships. A missing predicate is always active.
-        /// </summary>
+        /// <summary>Optional predicate; a missing predicate is always active.</summary>
         public Func<object, bool> When;
 
-        /// <summary>
-        /// Optional menu caption. Defaults to the affected setting's label.
-        /// </summary>
+        /// <summary>Optional menu caption. Defaults to the affected setting label.</summary>
         public string LinkLabel;
 
-        /// <summary>
-        /// Optional description shown in the described menu's help panel.
-        /// </summary>
+        /// <summary>Optional description shown in the menu help panel.</summary>
         public string Description;
 
         public bool IsActive(object settingsObject)

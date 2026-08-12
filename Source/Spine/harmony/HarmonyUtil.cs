@@ -4,7 +4,6 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using HarmonyLib;
-using UnityEngine;
 using Spine.Harmony.Infrastructure;
 
 namespace Spine.Harmony
@@ -13,14 +12,14 @@ namespace Spine.Harmony
     /// Guarded Harmony patch helpers used by ModAPI and mods.
     /// Use these wrappers when patch application should respect debug, dangerous, and struct-return safety settings.
     /// </summary>
-    public static class HarmonyUtil
+    internal static class HarmonyUtil
     {
         /// <summary>
         /// Marks a Harmony patch class as debug-only.
         /// The patch is skipped unless debug patches are explicitly enabled.
         /// </summary>
         [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
-        public sealed class DebugPatchAttribute : Attribute
+        internal sealed class DebugPatchAttribute : Attribute
         {
             public string Key;
             public DebugPatchAttribute() { }
@@ -32,7 +31,7 @@ namespace Spine.Harmony
         /// Dangerous patches require explicit opt-in before <see cref="PatchAll(HarmonyLib.Harmony, Assembly, PatchOptions)"/> applies them.
         /// </summary>
         [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, AllowMultiple = false, Inherited = false)]
-        public sealed class DangerousAttribute : Attribute
+        internal sealed class DangerousAttribute : Attribute
         {
             public string Reason;
             public DangerousAttribute() { }
@@ -42,7 +41,7 @@ namespace Spine.Harmony
         /// <summary>
         /// Safety and ordering options used while applying Harmony patches.
         /// </summary>
-        public sealed class PatchOptions
+        internal sealed class PatchOptions
         {
             public bool AllowDebugPatches;
             public bool AllowDangerousPatches;
@@ -190,38 +189,6 @@ namespace Spine.Harmony
             }
         }
 
-        public static void PatchAll(HarmonyLib.Harmony h, Assembly asm, IPluginContext ctx)
-        {
-            var opts = new PatchOptions();
-            try
-            {
-                if (ctx != null && ctx.Settings != null)
-                {
-                    opts.AllowDebugPatches = ctx.Settings.GetBool("enableDebugPatches", false);
-                    opts.AllowDangerousPatches = ctx.Settings.GetBool("dangerousPatches", false);
-                    opts.AllowStructReturns = ctx.Settings.GetBool("allowStructReturns", false);
-                }
-            }
-            catch (Exception ex) { MMLog.WarnOnce("HarmonyUtil.PatchAll.Settings", "Error reading settings: " + ex.Message); }
-            opts.OnResult = (mb, reason) =>
-            {
-                try
-                {
-                    // DynamicMethod can have null DeclaringType; guard to avoid noisy warnings.
-                    var method = mb as MethodBase;
-                    var declaring = method != null ? (method.DeclaringType != null ? method.DeclaringType.FullName : "<dynamic>") : null;
-                    var who = method != null ? declaring + "." + method.Name : (mb != null ? mb.ToString() : "<null>");
-                    ctx?.Log?.Info("Patch: " + who + " -> " + reason);
-                }
-                catch (Exception ex)
-                {
-                    // Suppress warning noise; log once to debug channel only.
-                    MMLog.WriteDebug("HarmonyUtil.OnResult logging skipped: " + ex.Message);
-                }
-            };
-            PatchAll(h, asm, opts);
-        }
-
         public static bool IsStructReturn(MethodBase m)
         {
             var mi = m as MethodInfo;
@@ -367,94 +334,5 @@ namespace Spine.Harmony
             return null;
         }
 
-        public static bool IsLoaded<TManager>() where TManager : UnityEngine.Object
-        {
-            try
-            {
-                var mgr = GetSingletonInstance(typeof(TManager)) as UnityEngine.Object;
-                return mgr != null;
-            }
-            catch (Exception ex) { MMLog.WarnOnce("HarmonyUtil.IsLoaded", "Error checking if Unity singleton is loaded: " + ex.Message); return false; }
-        }
-
-        public static void PatchWhenLoaded<TManager>(HarmonyLib.Harmony h, Action applyPatches) where TManager : UnityEngine.Object
-        {
-            if (h == null || applyPatches == null) return;
-            if (IsLoaded<TManager>()) { SafeInvoke(applyPatches); return; }
-            LoadGateRunner.Ensure().Enqueue(() => IsLoaded<TManager>(), applyPatches);
-        }
-
-        public static void WaitUntilLoaded<TManager>(Action action) where TManager : UnityEngine.Object
-        {
-            if (action == null) return;
-            if (IsLoaded<TManager>()) { SafeInvoke(action); return; }
-            LoadGateRunner.Ensure().Enqueue(() => IsLoaded<TManager>(), action);
-        }
-
-        private static object GetSingletonInstance(Type t)
-        {
-            try
-            {
-                var p = t.GetProperty("Instance", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
-                if (p != null) return p.GetValue(null, null);
-            }
-            catch (Exception ex) { MMLog.WarnOnce("HarmonyUtil.GetSingletonInstance.Instance", "Error getting singleton instance (Instance): " + ex.Message); }
-            try
-            {
-                var p = t.GetProperty("instance", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
-                if (p != null) return p.GetValue(null, null);
-            }
-            catch (Exception ex) { MMLog.WarnOnce("HarmonyUtil.GetSingletonInstance.instance", "Error getting singleton instance (instance): " + ex.Message); }
-            return null;
-        }
-
-        private static void SafeInvoke(Action a) { try { a(); } catch (Exception ex) { MMLog.Write("PatchWhenLoaded action failed: " + ex.Message); } }
-
-        private class LoadGateRunner : MonoBehaviour
-        {
-            private static LoadGateRunner _inst;
-            private readonly Queue<Item> _queue = new Queue<Item>();
-
-            public static LoadGateRunner Ensure()
-            {
-                if (_inst != null) return _inst;
-                var go = new GameObject("ModAPI_LoadGateRunner");
-                DontDestroyOnLoad(go);
-                _inst = go.AddComponent<LoadGateRunner>();
-                return _inst;
-            }
-
-            public void Enqueue(Func<bool> condition, Action action)
-            {
-                _queue.Enqueue(new Item { Condition = condition, Action = action, Deadline = Time.realtimeSinceStartup + 60f });
-            }
-
-            private void Update()
-            {
-                int count = _queue.Count;
-                if (count <= 0) return;
-                var it = _queue.Peek();
-                bool ready = false;
-                try { ready = it.Condition(); }
-                catch (Exception ex) { MMLog.WarnOnce("LoadGateRunner.Update", "Condition check failed: " + ex.Message); ready = false; }
-                if (ready)
-                {
-                    _queue.Dequeue();
-                    SafeInvoke(it.Action);
-                }
-                else if (Time.realtimeSinceStartup > it.Deadline)
-                {
-                    _queue.Dequeue();
-                    MMLog.WriteDebug("LoadGateRunner: condition timed out");
-                }
-            }
-
-            private struct Item
-            {
-                public Func<bool> Condition;
-                public Action Action;
-                public float Deadline;
-            }
-        }
     }
 }

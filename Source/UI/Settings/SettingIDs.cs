@@ -43,7 +43,6 @@ namespace Better_Work_Tab.UI.Settings
         public const string DividersAnimations = "dividers.animations";
         public const string DividersLabels = "dividers.labels";
         public const string DividersShow = "dividers.show";
-        public const string DragdropVisualHeader = "dragdrop.visual.header";
         public const string FeaturesAutoassign = "features.autoassign";
         public const string FeaturesClicks = "features.clicks";
         public const string FeaturesDividers = "features.dividers";
@@ -58,7 +57,6 @@ namespace Better_Work_Tab.UI.Settings
         public const string HighlightsColumnHoverColor = "highlights.columnHoverColor";
         public const string HighlightsFloatMenu = "highlights.floatMenu";
         public const string HighlightsFloatMenuColor = "highlights.floatMenu.color";
-        public const string HighlightsHeader = "highlights.header";
         public const string HighlightsHover = "highlights.hover";
         public const string HighlightsHoverColor = "highlights.hover.color";
         public const string HighlightsOutlineMode = "highlights.outlineMode";
@@ -170,13 +168,8 @@ namespace Better_Work_Tab.UI.Settings
         public const string HeadersAngled = "headers.angled";
         public const string HeadersCustomWorkLabels = "headers.customWorkLabels";
         public const string HeadersAngleRotation = "headers.angleRotation";
-        public const string HeadersScaleFixMode = "headers.scaleFixMode";
-        public const string HeadersRedCenterLine = "headers.redCenterLine";
-        public const string HeadersKnownFixes = "headers.knownFixes";
-        public const string HeadersXOffset = "headers.xOffset";
-        public const string HeadersYOffset = "headers.yOffset";
-        public const string HeadersDebugLog = "headers.debugLog";
         public const string HeadersUseVerticalStackingForCJK = "headers.useVerticalStackingForCJK";
+        public const string HeadersCjkVerticalKerning = "headers.cjkVerticalKerning";
         public const string HeadersUnderlineColor = "headers.underlineColor";
     }
 }
