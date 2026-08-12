@@ -11,7 +11,6 @@ namespace Better_Work_Tab.ModSupport
         internal static SettingSuppression Require(
             Func<bool> isAvailable,
             string modName,
-            int settingCount,
             string workshopUrl = null)
         {
             return new SettingSuppression
