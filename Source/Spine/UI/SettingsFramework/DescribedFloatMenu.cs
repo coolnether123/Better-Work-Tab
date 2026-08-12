@@ -13,14 +13,17 @@ namespace Better_Work_Tab.UI.SettingsFramework
     {
         private const float MinimumOptionWidth = 140f;
         private const float MaximumOptionWidth = 300f;
-        private const float HelpPanelWidth = 320f;
-        private const float PanelGap = 20f;
-        private const float PanelPadding = 16f;
+        private const float HelpPanelWidth = 300f;
+        private const float PanelGap = 10f;
+        private const float PanelPadding = 8f;
+        private const float SectionGap = 8f;
+        private const float MinimumHelpHeight = 68f;
         private const float OptionSpacing = -1f;
         private const float MaxScreenHeightPercent = 0.9f;
 
-        private static readonly Color SelectionColor = new Color(0.9f, 0.78f, 0.45f, 0.95f);
-        private static readonly Color ContextFillColor = new Color(0.105f, 0.12f, 0.135f, 0.98f);
+        private static readonly Color WindowBorderColor = new Color(0.38f, 0.42f, 0.48f, 0.95f);
+        private static readonly Color WindowFillColor = new Color(0.082f, 0.098f, 0.114f, 0.98f);
+        private static readonly Color TipTitleColor = new Color(1f, 0.86f, 0.55f);
 
         private readonly FloatMenuOption selectedOption;
         private readonly string settingLabel;
@@ -28,7 +31,6 @@ namespace Better_Work_Tab.UI.SettingsFramework
         private readonly IDictionary<FloatMenuOption, string> optionDescriptions;
         private Vector2 scrollPosition;
         private FloatMenuOption focusedOption;
-        private bool previewingOption;
 
         public DescribedFloatMenu(
             List<FloatMenuOption> options,
@@ -57,7 +59,8 @@ namespace Better_Work_Tab.UI.SettingsFramework
         protected override void SetInitialSizeAndPosition()
         {
             Vector2 size = InitialSize;
-            Vector2 position = Verse.UI.MousePositionOnUIInverted + new Vector2(4f, 0f);
+            float optionOffsetY = (size.y - VisibleOptionHeight) * 0.5f;
+            Vector2 position = Verse.UI.MousePositionOnUIInverted + new Vector2(4f, -optionOffsetY);
 
             if (position.x + size.x > Verse.UI.screenWidth)
             {
@@ -89,10 +92,19 @@ namespace Better_Work_Tab.UI.SettingsFramework
                 Text.WordWrap = true;
 
                 float optionWidth = OptionWidth;
-                Rect optionRect = new Rect(0f, 0f, optionWidth, VisibleOptionHeight);
+                Rect optionRect = new Rect(
+                    0f,
+                    (rect.height - VisibleOptionHeight) * 0.5f,
+                    optionWidth,
+                    VisibleOptionHeight);
                 float focusedCenterY = DrawOptions(optionRect);
 
-                Rect helpRect = new Rect(optionWidth + PanelGap, 0f, HelpPanelWidth, rect.height);
+                float helpHeight = RequiredHelpHeight;
+                Rect helpRect = new Rect(
+                    optionWidth + PanelGap,
+                    (rect.height - helpHeight) * 0.5f,
+                    HelpPanelWidth,
+                    helpHeight);
                 DrawHelpPanel(helpRect);
 
                 if (focusedCenterY >= optionRect.y && focusedCenterY <= optionRect.yMax)
@@ -133,17 +145,11 @@ namespace Better_Work_Tab.UI.SettingsFramework
             for (int index = 0; index < options.Count; index++)
             {
                 FloatMenuOption option = options[index];
-                Rect rowRect = new Rect(0f, y, contentWidth, option.RequiredHeight);
+                Rect rowRect = useScrollbar
+                    ? new Rect(0f, y, contentWidth, option.RequiredHeight)
+                    : new Rect(rect.x, rect.y + y, contentWidth, option.RequiredHeight);
                 bool isSelected = ReferenceEquals(option, selectedOption);
                 bool isHovered = Mouse.IsOver(rowRect);
-
-                if (isSelected)
-                {
-                    Color oldColor = GUI.color;
-                    GUI.color = new Color(SelectionColor.r, SelectionColor.g, SelectionColor.b, 0.16f);
-                    Widgets.DrawBoxSolid(rowRect.ContractedBy(1f), GUI.color);
-                    GUI.color = oldColor;
-                }
 
                 if (option.DoGUI(rowRect, givesColonistOrders, this))
                 {
@@ -158,17 +164,18 @@ namespace Better_Work_Tab.UI.SettingsFramework
 
                 if (isSelected)
                 {
-                    Color oldColor = GUI.color;
-                    GUI.color = SelectionColor;
-                    Widgets.DrawBox(rowRect.ContractedBy(1f), 2);
-                    GUI.color = oldColor;
-                    selectedCenterY = rowRect.center.y - (useScrollbar ? scrollPosition.y : 0f);
+                    Widgets.DrawHighlightSelected(rowRect.ContractedBy(1f));
+                    selectedCenterY = useScrollbar
+                        ? rect.y + rowRect.center.y - scrollPosition.y
+                        : rowRect.center.y;
                 }
 
                 if (isHovered)
                 {
                     hoveredOption = option;
-                    hoveredCenterY = rowRect.center.y - (useScrollbar ? scrollPosition.y : 0f);
+                    hoveredCenterY = useScrollbar
+                        ? rect.y + rowRect.center.y - scrollPosition.y
+                        : rowRect.center.y;
                 }
 
                 y += option.RequiredHeight + OptionSpacing;
@@ -180,49 +187,30 @@ namespace Better_Work_Tab.UI.SettingsFramework
             }
 
             focusedOption = hoveredOption ?? selectedOption;
-            previewingOption = hoveredOption != null && !ReferenceEquals(hoveredOption, selectedOption);
             return hoveredOption != null ? hoveredCenterY : selectedCenterY;
         }
 
         private void DrawHelpPanel(Rect rect)
         {
-            Widgets.DrawMenuSection(rect);
+            Widgets.DrawShadowAround(rect);
+            Widgets.DrawWindowBackground(rect);
             Rect content = rect.ContractedBy(PanelPadding);
 
-            Text.Font = GameFont.Medium;
-            float titleHeight = Text.CalcHeight(settingLabel, content.width);
-            Widgets.Label(new Rect(content.x, content.y, content.width, titleHeight), settingLabel);
-            float y = content.y + titleHeight + 10f;
-
-            Widgets.DrawLineHorizontal(content.x, y, content.width, SelectionColor);
-            y += 13f;
-
-            if (focusedOption != null)
-            {
-                Text.Font = GameFont.Tiny;
-                GUI.color = Color.gray;
-                string contextLabel = previewingOption
-                    ? "BWT_Settings_UI_PreviewingOption".Translate()
-                    : "BWT_Settings_UI_CurrentSelection".Translate();
-                Widgets.Label(new Rect(content.x, y, content.width, 18f), contextLabel);
-                GUI.color = Color.white;
-                y += 18f;
-
-                // Medium is RimWorld's emphasized menu type and gives the active option a
-                // clear visual hierarchy without introducing a separate font asset.
-                Text.Font = GameFont.Medium;
-                GUI.color = SelectionColor;
-                float selectionHeight = Text.CalcHeight(focusedOption.Label, content.width);
-                Widgets.Label(new Rect(content.x, y, content.width, selectionHeight), focusedOption.Label);
-                GUI.color = Color.white;
-                y += selectionHeight + 13f;
-            }
+            Text.Font = GameFont.Small;
+            string header = focusedOption == null
+                ? settingLabel
+                : settingLabel + ": " + focusedOption.Label;
+            float headerHeight = Text.CalcHeight(header, content.width);
+            GUI.color = TipTitleColor;
+            Widgets.Label(new Rect(content.x, content.y, content.width, headerHeight), header);
+            GUI.color = Color.white;
+            float y = content.y + headerHeight;
 
             string focusedDescription = GetFocusedDescription();
             if (!string.IsNullOrEmpty(focusedDescription))
             {
+                y += SectionGap;
                 Text.Font = GameFont.Small;
-                GUI.color = new Color(0.88f, 0.88f, 0.88f);
                 Widgets.Label(new Rect(content.x, y, content.width, content.yMax - y), focusedDescription);
             }
         }
@@ -246,9 +234,9 @@ namespace Better_Work_Tab.UI.SettingsFramework
             // connected column/header selection so the arrow and bridge are seamless.
             ConnectedOutlineDrawer.DrawClosed(
                 pointer,
-                SelectionColor,
-                2f,
-                ContextFillColor);
+                WindowBorderColor,
+                1f,
+                WindowFillColor);
         }
 
         private string GetFocusedDescription()
@@ -302,20 +290,22 @@ namespace Better_Work_Tab.UI.SettingsFramework
                 try
                 {
                     float contentWidth = HelpPanelWidth - (PanelPadding * 2f);
-                    Text.Font = GameFont.Medium;
-                    float height = PanelPadding + Text.CalcHeight(settingLabel, contentWidth) + 23f;
+                    Text.Font = GameFont.Small;
+                    float headerHeight = Text.CalcHeight(settingLabel, contentWidth);
 
                     if (options.Count > 0)
                     {
-                        Text.Font = GameFont.Medium;
-                        float optionLabelHeight = 0f;
                         for (int index = 0; index < options.Count; index++)
                         {
-                            optionLabelHeight = Mathf.Max(optionLabelHeight, Text.CalcHeight(options[index].Label, contentWidth));
+                            headerHeight = Mathf.Max(
+                                headerHeight,
+                                Text.CalcHeight(
+                                    settingLabel + ": " + options[index].Label,
+                                    contentWidth));
                         }
-
-                        height += 31f + optionLabelHeight;
                     }
+
+                    float height = PanelPadding + headerHeight;
 
                     Text.Font = GameFont.Small;
                     float descriptionHeight = string.IsNullOrEmpty(description)
@@ -332,9 +322,16 @@ namespace Better_Work_Tab.UI.SettingsFramework
                         }
                     }
 
-                    height += descriptionHeight;
+                    if (descriptionHeight > 0f)
+                    {
+                        height += SectionGap + descriptionHeight;
+                    }
 
-                    return Mathf.Min(Verse.UI.screenHeight * MaxScreenHeightPercent, Mathf.Max(140f, height + PanelPadding));
+                    height += PanelPadding;
+
+                    return Mathf.Min(
+                        Verse.UI.screenHeight * MaxScreenHeightPercent,
+                        Mathf.Max(MinimumHelpHeight, height));
                 }
                 finally
                 {

@@ -1449,10 +1449,11 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                     Header = new SettingDefinition
                     {
                         Id = CompatFluffyWorkTabHeader,
-                        Label = "Work Tab integrations",
+                        Label = "Fluffy-style Work Tab",
                         Tooltip = "BWT-native options inspired by Fluffy's Work Tab, plus compatibility controls when Fluffy Work Tab or Sleek Work Priorities is installed.",
                         SearchKeywords = FluffyBaseSearchKeywords,
                         Type = SettingType.Header,
+                        HeaderColor = new Color(0.67f, 0.75f, 0.92f),
                         ShowInSimpleView = false,
                         SortOrder = 0
                     },
@@ -1462,7 +1463,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                         {
                             Id = FluffyStyleFeatures,
                             FieldName = nameof(BetterWorkTabSettings.enableFluffyStyleFeatures),
-                            Label = "Use Fluffy-style Work tab controls",
+                            Label = "Use these controls",
                             Tooltip = "Use BWT's Fluffy-inspired Work tab controls and right-expanding sub-work columns. BWT owns the UI and priority data; Fluffy Work Tab is not required.",
                             SearchKeywords = FluffyControlsSearchKeywords,
                             Type = SettingType.Bool,
@@ -1482,7 +1483,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                             Id = FluffyStyleTopButtons,
                             ParentId = FluffyStyleFeatures,
                             FieldName = nameof(BetterWorkTabSettings.showFluffyStyleTopButtons),
-                            Label = "Show Fluffy top controls",
+                            Label = "Show top controls",
                             Tooltip = "When Fluffy Work Tab is installed, show its familiar icon controls for manual priorities, time schedules, and expanding or collapsing sub-work jobs.",
                             SearchKeywords = FluffyControlsSearchKeywords,
                             Type = SettingType.Bool,
@@ -1497,7 +1498,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                             Id = FluffyStyleStandaloneTopButtons,
                             ParentId = FluffyStyleFeatures,
                             FieldName = nameof(BetterWorkTabSettings.showStandaloneFluffyStyleTopButtons),
-                            Label = "Show text versions of Fluffy's top controls",
+                            Label = "Show text substitute controls",
                             Tooltip = "Without Fluffy Work Tab, optionally show BWT-drawn text substitutes for the three top controls. Off by default because Fluffy's icon assets are unavailable.",
                             SearchKeywords = FluffyControlsSearchKeywords,
                             Type = SettingType.Bool,
@@ -1512,7 +1513,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                             Id = FluffyStyleScheduleAssigner,
                             ParentId = FluffyStyleFeatures,
                             FieldName = nameof(BetterWorkTabSettings.enableFluffyScheduleAssigner),
-                            Label = "Use Fluffy hour-selection scheduler",
+                            Label = "Use hour-selection scheduler",
                             Tooltip = "Use Fluffy's original bottom hour selector: choose hours, then click normal priority boxes to assign those hours. This option requires Fluffy Work Tab because it uses Fluffy's scheduler assets.",
                             SearchKeywords = FluffyScheduleSearchKeywords,
                             Type = SettingType.Bool,
@@ -1525,7 +1526,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                         new SettingDefinition
                         {
                             Id = CompatFluffyWorkTabOwnership,
-                            Label = "Work tab ownership",
+                            Label = "Installed-mod ownership",
                             Tooltip = "Choose which compatible mod runs the Work tab. When Fluffy Work Tab is installed, also choose whether its columns remain visible.",
                             SearchKeywords = FluffyOwnershipSearchKeywords,
                             Type = SettingType.Header,
@@ -1615,7 +1616,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                         {
                             Id = ControlsFluffyHeader,
                             ParentId = CompatFluffyWorkTabHeader,
-                            Label = "Fluffy Work Tab controls",
+                            Label = "Native gestures",
                             Tooltip = "Contextual controls defined by Fluffy Work Tab. Fluffy uses fixed mouse-and-modifier gestures rather than RimWorld-rebindable key definitions.",
                             SearchKeywords = FluffyKeywords("controls", "keybindings", "keyboard", "mouse", "shortcuts"),
                             Type = SettingType.Header,
