@@ -1530,13 +1530,11 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             return normalized;
         }
 
-        private sealed class FluffyWorkTabSettingsContributor :
-            IModSettingsContributor
+        private sealed class FluffyWorkTabSettingsContributor : IModSettingsContributor
         {
             private const string WorkTabOwnedByFluffyReason = "An external Work tab integration is running the Work tab right now.";
 
-            public BWTModSettingsSection CreateSettingsSection(
-                SettingsScope<BetterWorkTabSettings> scope)
+            public BWTModSettingsSection CreateSettingsSection(SettingsScope<BetterWorkTabSettings> scope)
             {
                 return new BWTModSettingsSection
                 {

@@ -173,42 +173,29 @@ namespace Better_Work_Tab.ModSupport.Mods.ComplexJobs
             ApplyMode(settingsObject as BetterWorkTabSettings, SubWorkMode.BetterWorkTabFocus);
         }
 
-        private sealed class ComplexJobsSettingsContributor :
-            IModSettingsContributor
+        private sealed class ComplexJobsSettingsContributor : IModSettingsContributor
         {
-            public BWTModSettingsSection CreateSettingsSection(
-                SettingsScope<BetterWorkTabSettings> scope)
+            public BWTModSettingsSection CreateSettingsSection(SettingsScope<BetterWorkTabSettings> scope)
             {
-                return new BWTModSettingsSection
-                {
-                    Header =                     scope.Define(
-                        CompatComplexJobsHeader,
-                        SettingType.Header,
-                        "[FSF] Complex Jobs",
-                        tooltip: "Choose whether Complex Jobs works alone or with one of BWT's specific-job presentations."
-                    )
-                        .SearchableBy(new[] { "Complex Jobs", "FSF", "sub-work", "specific jobs" })
-                        .Ordered(16)
-                        .Accented(new Color(0.65f, 0.78f, 0.9f))
-                        .ShownWhen(_ => IsActive),
-                    Children = new List<SettingDefinition>
-                    {
-                                                scope.Custom(
-                            CompatComplexJobsSubWorkMode,
-                            (rect, rowLabel, rowTooltip, settings, disabled) => DrawMode(rect, rowLabel, rowTooltip, settings, disabled),
-                            "Specific-job columns",
-                            tooltip: "Use Complex Jobs alone, add BWT's focused view, or add BWT's Fluffy-style right-expanding columns."
-                        )
-                            .SearchableBy(new[]
-                            {
-                                "Complex Jobs", "BWT", "Fluffy", "sub-work", "drilldown",
-                                "split work types", "extra job columns", "many work columns",
-                                "use BWT drilldown"
-                            })
-                            .Ordered(1)
-                            .WithCustomReset(HasNonDefaultMode, ResetMode)
-                    }
-                };
+                return new BWTModSettingsSection { Header = scope
+                                                                .Define(CompatComplexJobsHeader, SettingType.Header, "[FSF] Complex Jobs",
+                                                                        tooltip: "Choose whether Complex Jobs works alone or with one of BWT's specific-job presentations.")
+                                                                .SearchableBy(new[] { "Complex Jobs", "FSF", "sub-work", "specific jobs" })
+                                                                .Ordered(16)
+                                                                .Accented(new Color(0.65f, 0.78f, 0.9f))
+                                                                .ShownWhen(
+                                                                    _ => IsActive),
+                                                   Children = new List<SettingDefinition> {
+                                                       scope
+                                                           .Custom(CompatComplexJobsSubWorkMode,
+                                                                   (rect, rowLabel, rowTooltip, settings, disabled) => DrawMode(rect, rowLabel, rowTooltip, settings, disabled),
+                                                                   "Specific-job columns",
+                                                                   tooltip: "Use Complex Jobs alone, add BWT's focused view, or add BWT's Fluffy-style right-expanding columns.")
+                                                           .SearchableBy(new[] { "Complex Jobs", "BWT", "Fluffy", "sub-work", "drilldown", "split work types", "extra job columns",
+                                                                                 "many work columns", "use BWT drilldown" })
+                                                           .Ordered(1)
+                                                           .WithCustomReset(HasNonDefaultMode, ResetMode)
+                                                   } };
             }
         }
     }

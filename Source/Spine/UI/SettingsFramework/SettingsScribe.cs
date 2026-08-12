@@ -37,7 +37,7 @@ namespace Spine.UI.SettingsFramework
             // ScribeAll is also a public direct entry point. Keep preparation
             // here so derived defaults and sort keys exist before persistence;
             // callers such as ModSettingsFacade must not prepare a second time.
-            SettingDefinitions.Prepare(settings, definitionList);
+            SettingsPreparation.Prepare(settings, definitionList);
             Type settingsType = settings.GetType();
             foreach (SettingDefinition def in definitionList)
             {
@@ -77,7 +77,7 @@ namespace Spine.UI.SettingsFramework
             IReadOnlyList<SettingDefinition> definitionList =
                 definitions as IReadOnlyList<SettingDefinition> ??
                 definitions.ToList();
-            SettingDefinitions.Prepare(settings, definitionList);
+            SettingsPreparation.Prepare(settings, definitionList);
             Type settingsType = settings.GetType();
             foreach (SettingDefinition def in definitionList)
             {
