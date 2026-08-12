@@ -590,7 +590,6 @@ namespace Better_Work_Tab.UI.SettingsFramework
                     settingsObject,
                     disabledByAncestor && !allowFocusedDisabledInteraction,
                     suppression,
-                    inheritedSuppression,
                     visualDepth,
                     activeSection?.HeaderColor,
                     compactSectionHeader,
@@ -640,7 +639,6 @@ namespace Better_Work_Tab.UI.SettingsFramework
             object settingsObject,
             bool isDisabledByParent,
             SettingSuppression suppression,
-            SettingSuppression interactionSuppression,
             int depth,
             Color? sectionColor,
             bool compactSectionHeader,
@@ -669,10 +667,6 @@ namespace Better_Work_Tab.UI.SettingsFramework
             bool disabled = isDisabledByParent || suppression != null;
             string label = GetLabel?.Invoke(def) ?? def.Label ?? def.Id;
             string tooltip = BuildTooltip(def, suppressionReason);
-            if (HasExternalSuppressionAction(interactionSuppression))
-            {
-                tooltip = null;
-            }
             if (def.Type == SettingType.Color)
             {
                 tooltip = AppendTooltip(tooltip, ColorPreviewTooltip);
@@ -907,10 +901,7 @@ namespace Better_Work_Tab.UI.SettingsFramework
                 DrawSuppressionNotice(noticeRect, suppression, suppressionReason, settingsObject);
             }
 
-            bool externalActionHovered = HasExternalSuppressionAction(interactionSuppression) &&
-                Mouse.IsOver(GetPanelRowRect(rect, isHeaderRow, depth));
-            if (!externalActionHovered &&
-                !string.IsNullOrEmpty(tooltip) &&
+            if (!string.IsNullOrEmpty(tooltip) &&
                 !DescribedFloatMenu.AnyOpen &&
                 (!hasVisibleReset || !Mouse.IsOver(visibleResetRect)))
             {
@@ -986,6 +977,7 @@ namespace Better_Work_Tab.UI.SettingsFramework
             object settingsObject)
         {
             GameFont oldFont = Text.Font;
+            TextAnchor oldAnchor = Text.Anchor;
             Color oldColor = GUI.color;
             bool oldWordWrap = Text.WordWrap;
             Text.Font = GameFont.Tiny;
@@ -995,33 +987,42 @@ namespace Better_Work_Tab.UI.SettingsFramework
             {
                 float reasonWidth = Mathf.Min(Text.CalcSize(reason).x, rect.width);
                 Rect reasonRect = new Rect(rect.x, rect.y, reasonWidth, rect.height);
+                GUI.color = SuppressionNoticeColor;
+                Widgets.Label(reasonRect, reason);
+
                 bool hasExternalAction = HasExternalSuppressionAction(suppression);
                 if (hasExternalAction)
                 {
+                    string externalLabel = string.IsNullOrEmpty(suppression.ExternalActionLabel)
+                        ? "Open Workshop"
+                        : suppression.ExternalActionLabel;
+                    float externalWidth = Text.CalcSize(externalLabel).x;
+                    float externalX = reasonRect.xMax + SuppressionLinkGap;
+                    if (externalX + externalWidth > rect.xMax)
+                    {
+                        return;
+                    }
+
+                    Rect externalRect = new Rect(externalX, rect.y, externalWidth, rect.height);
                     bool clicked = Widgets.ButtonText(
-                        reasonRect,
-                        reason,
+                        externalRect,
+                        externalLabel,
                         drawBackground: false,
                         doMouseoverSound: true,
                         textColor: SuppressionLinkColor,
                         active: true,
                         overrideTextAnchor: TextAnchor.MiddleLeft);
-                    Widgets.DrawLineHorizontal(rect.x, rect.yMax - 3f, reasonWidth);
+                    GUI.color = SuppressionLinkColor;
+                    Widgets.DrawLineHorizontal(externalRect.x, externalRect.yMax - 3f, externalWidth);
                     if (!string.IsNullOrEmpty(suppression.ExternalActionTooltip))
                     {
-                        TooltipHandler.TipRegion(reasonRect, suppression.ExternalActionTooltip);
+                        TooltipHandler.TipRegion(externalRect, suppression.ExternalActionTooltip);
                     }
                     if (clicked)
                     {
                         SteamUtility.OpenUrl(suppression.ExternalActionUrl);
                     }
                 }
-                else
-                {
-                    GUI.color = SuppressionNoticeColor;
-                    Widgets.Label(reasonRect, reason);
-                }
-
                 SettingDefinition suppressor = _hierarchy.GetById(suppression.SuppressorSettingId);
                 if (suppressor == null)
                 {
@@ -1057,6 +1058,7 @@ namespace Better_Work_Tab.UI.SettingsFramework
             finally
             {
                 Text.Font = oldFont;
+                Text.Anchor = oldAnchor;
                 Text.WordWrap = oldWordWrap;
                 GUI.color = oldColor;
             }

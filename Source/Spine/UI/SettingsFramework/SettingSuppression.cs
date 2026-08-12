@@ -37,14 +37,18 @@ namespace Better_Work_Tab.UI.SettingsFramework
         public string LinkLabel;
 
         /// <summary>
-        /// Optional external destination for a disabled compatibility group. When set, every row
-        /// inheriting this suppression becomes a link while its normal setting control stays inert.
+        /// Optional external destination shown as a separate link beside the suppression reason.
+        /// Descendant settings remain inert and keep their own tooltip behavior.
         /// </summary>
         public string ExternalActionUrl;
 
         /// <summary>
-        /// Optional tooltip for <see cref="ExternalActionUrl"/>. This replaces the normal setting
-        /// tooltip while the external action is available, so the player sees one clear action.
+        /// Optional caption for <see cref="ExternalActionUrl"/>. Defaults to "Open Workshop".
+        /// </summary>
+        public string ExternalActionLabel;
+
+        /// <summary>
+        /// Optional tooltip for the external link itself.
         /// </summary>
         public string ExternalActionTooltip;
 

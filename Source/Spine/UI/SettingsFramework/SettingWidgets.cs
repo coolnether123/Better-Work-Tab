@@ -159,6 +159,7 @@ namespace Better_Work_Tab.UI.SettingsFramework
             DrawSettingLabel(labelRect, $"{label}: {valueText}", disabled);
 
             bool prevEnabled = GUI.enabled;
+            Color prevColor = GUI.color;
             if (disabled)
             {
                 GUI.enabled = false;
@@ -177,7 +178,7 @@ namespace Better_Work_Tab.UI.SettingsFramework
             if (disabled)
             {
                 GUI.enabled = prevEnabled;
-                GUI.color = Color.white;
+                GUI.color = prevColor;
             }
 
             if (!string.IsNullOrEmpty(tooltip))
@@ -212,6 +213,7 @@ namespace Better_Work_Tab.UI.SettingsFramework
             DrawSettingLabel(labelRect, $"{label}: {value}", disabled);
 
             bool prevEnabled = GUI.enabled;
+            Color prevColor = GUI.color;
             if (disabled)
             {
                 GUI.enabled = false;
@@ -227,7 +229,7 @@ namespace Better_Work_Tab.UI.SettingsFramework
             if (disabled)
             {
                 GUI.enabled = prevEnabled;
-                GUI.color = Color.white;
+                GUI.color = prevColor;
             }
 
             if (!string.IsNullOrEmpty(tooltip))
@@ -304,6 +306,7 @@ namespace Better_Work_Tab.UI.SettingsFramework
             DrawSettingLabel(labelRect, label, disabled);
 
             bool prevEnabled = GUI.enabled;
+            Color prevColor = GUI.color;
             if (disabled)
             {
                 GUI.enabled = false;
@@ -345,7 +348,7 @@ namespace Better_Work_Tab.UI.SettingsFramework
             if (disabled)
             {
                 GUI.enabled = prevEnabled;
-                GUI.color = Color.white;
+                GUI.color = prevColor;
             }
 
             if (!string.IsNullOrEmpty(tooltip) && !DescribedFloatMenu.AnyOpen)
@@ -413,6 +416,7 @@ namespace Better_Work_Tab.UI.SettingsFramework
             bool disabled = false)
         {
             bool prevEnabled = GUI.enabled;
+            Color prevColor = GUI.color;
             if (disabled)
             {
                 GUI.enabled = false;
@@ -424,7 +428,7 @@ namespace Better_Work_Tab.UI.SettingsFramework
             if (disabled)
             {
                 GUI.enabled = prevEnabled;
-                GUI.color = Color.white;
+                GUI.color = prevColor;
             }
 
             if (!string.IsNullOrEmpty(tooltip))
@@ -529,6 +533,7 @@ namespace Better_Work_Tab.UI.SettingsFramework
             DrawSettingLabel(labelRect, label, disabled);
 
             bool prevEnabled = GUI.enabled;
+            Color prevColor = GUI.color;
             if (disabled)
             {
                 GUI.enabled = false;
@@ -560,7 +565,7 @@ namespace Better_Work_Tab.UI.SettingsFramework
             if (disabled)
             {
                 GUI.enabled = prevEnabled;
-                GUI.color = Color.white;
+                GUI.color = prevColor;
             }
 
             if (!string.IsNullOrEmpty(tooltip))
