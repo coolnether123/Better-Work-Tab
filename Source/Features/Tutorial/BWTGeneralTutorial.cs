@@ -80,7 +80,7 @@ namespace Better_Work_Tab.Features.Tutorial
                 CardWidth = 480f,
                 CardPadding = 12f,
                 DimColor = new Color(0f, 0f, 0f, 0.10f),
-                LayoutAnimationSeconds = 0.2f
+                LayoutAnimationSeconds = 0f
             });
         private static readonly List<Rect> NoWelcomeFocusRects = new List<Rect>();
         private static readonly List<TutorialOverlayShortcutHint> NoWelcomeShortcutHints =
