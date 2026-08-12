@@ -1625,7 +1625,6 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                                 OptionalModSettingsAvailability.Require(
                                     () => FluffyWorkTabGateway.AnyExternalWorkTabPresent,
                                     "Fluffy Work Tab or Sleek Work Priorities",
-                                    1,
                                     "https://steamcommunity.com/sharedfiles/filedetails/?id=3453549086")
                             },
                             ShowInSimpleView = true,

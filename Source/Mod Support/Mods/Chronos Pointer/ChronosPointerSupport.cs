@@ -295,8 +295,7 @@ namespace Better_Work_Tab.ModSupport
                         {
                             OptionalModSettingsAvailability.Require(
                                 () => ChronosPointerSupport.IsPresent,
-                                "Chronos Pointer",
-                                2)
+                                "Chronos Pointer")
                         },
                         ShowInSimpleView = true,
                         SortOrder = 0
