@@ -165,7 +165,8 @@ namespace Spine.Api
         FluentTranspilers = 1UL << 10,
         TooltipSizing = 1UL << 11,
         ContextualSettings = 1UL << 12,
-        ModSettingsPages = 1UL << 13
+        ModSettingsPages = 1UL << 13,
+        SettingsSchema = 1UL << 14
     }
 
     public readonly struct SpineApiDescriptor
