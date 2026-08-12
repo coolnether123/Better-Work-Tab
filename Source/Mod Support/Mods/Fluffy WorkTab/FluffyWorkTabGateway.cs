@@ -1573,14 +1573,13 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                         new SettingDefinition
                         {
                             Id = FluffyStyleTopButtons,
-                            ParentId = FluffyStyleFeatures,
+                            ParentId = CompatFluffyWorkTabOwnership,
                             FieldName = nameof(BetterWorkTabSettings.showFluffyStyleTopButtons),
                             Label = "Show top controls",
                             Tooltip = "When Fluffy Work Tab is installed, show its familiar icon controls for manual priorities, time schedules, and expanding or collapsing specific jobs.",
                             SearchKeywords = FluffyControlsSearchKeywords,
                             Type = SettingType.Bool,
                             DefaultValue = DefaultSettings.showFluffyStyleTopButtons,
-                            VisibleWhen = _ => FluffyWorkTabGateway.IsPresent,
                             ShowInSimpleView = true,
                             ShowInAdvancedView = true,
                             SortOrder = 1
@@ -1603,14 +1602,13 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                         new SettingDefinition
                         {
                             Id = FluffyStyleScheduleAssigner,
-                            ParentId = FluffyStyleFeatures,
+                            ParentId = CompatFluffyWorkTabOwnership,
                             FieldName = nameof(BetterWorkTabSettings.enableFluffyScheduleAssigner),
                             Label = "Use hour-selection scheduler",
                             Tooltip = "Use Fluffy's original bottom hour selector: choose hours, then click normal priority boxes to assign those hours. This option requires Fluffy Work Tab because it uses Fluffy's scheduler assets.",
                             SearchKeywords = FluffyScheduleSearchKeywords,
                             Type = SettingType.Bool,
                             DefaultValue = DefaultSettings.enableFluffyScheduleAssigner,
-                            VisibleWhen = _ => FluffyWorkTabGateway.IsPresent,
                             ShowInSimpleView = true,
                             ShowInAdvancedView = true,
                             SortOrder = 3
@@ -1618,7 +1616,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                         new SettingDefinition
                         {
                             Id = CompatFluffyWorkTabOwnership,
-                            Label = "Installed-mod ownership",
+                            Label = "Fluffy Work Tab compatibility",
                             Tooltip = "Choose which compatible mod runs the Work tab. When Fluffy Work Tab is installed, also choose whether its columns remain visible.",
                             SearchKeywords = FluffyOwnershipSearchKeywords,
                             Type = SettingType.Header,
@@ -1666,7 +1664,6 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                             SearchKeywords = FluffyOwnershipSearchKeywords,
                             Type = SettingType.Bool,
                             DefaultValue = DefaultSettings.showExternalWorkTabColumns,
-                            VisibleWhen = _ => FluffyWorkTabGateway.IsPresent,
                             Suppressions = new List<SettingSuppression>
                             {
                                 CreateWorkTabOwnedByFluffySuppression(WorkTabOwnedByFluffyReason)

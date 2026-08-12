@@ -870,7 +870,14 @@ namespace Better_Work_Tab.UI.SettingsFramework
                     break;
                 case SettingType.Header:
                     Color previousColor = GUI.color;
-                    if (disabled)
+                    bool externalHeaderHovered = suppression != null &&
+                        HasExternalSuppressionAction(suppression) &&
+                        Mouse.IsOver(GetPanelRowRect(rect, isHeaderRow, depth));
+                    if (externalHeaderHovered)
+                    {
+                        GUI.color = SuppressionLinkColor;
+                    }
+                    else if (disabled)
                     {
                         GUI.color = Color.gray;
                     }
@@ -882,6 +889,11 @@ namespace Better_Work_Tab.UI.SettingsFramework
                     else
                     {
                         SettingWidgets.DrawHeader(contentRect, label, sectionColor ?? def.HeaderColor);
+                    }
+                    if (externalHeaderHovered)
+                    {
+                        float underlineWidth = Mathf.Min(Text.CalcSize(label).x, contentRect.width);
+                        Widgets.DrawLineHorizontal(contentRect.x + 10f, contentRect.yMax - 3f, underlineWidth);
                     }
                     GUI.color = previousColor;
                     break;
@@ -1022,8 +1034,13 @@ namespace Better_Work_Tab.UI.SettingsFramework
             try
             {
                 float reasonWidth = Mathf.Min(Text.CalcSize(reason).x, rect.width);
-                GUI.color = SuppressionNoticeColor;
+                bool externalNoticeHovered = HasExternalSuppressionAction(suppression) && Mouse.IsOver(rect);
+                GUI.color = externalNoticeHovered ? SuppressionLinkColor : SuppressionNoticeColor;
                 Widgets.Label(new Rect(rect.x, rect.y, reasonWidth, rect.height), reason);
+                if (externalNoticeHovered)
+                {
+                    Widgets.DrawLineHorizontal(rect.x, rect.yMax - 3f, reasonWidth);
+                }
 
                 SettingDefinition suppressor = _hierarchy.GetById(suppression.SuppressorSettingId);
                 if (suppressor == null)
