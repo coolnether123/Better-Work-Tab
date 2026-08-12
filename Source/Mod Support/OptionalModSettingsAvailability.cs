@@ -18,8 +18,9 @@ namespace Better_Work_Tab.ModSupport
             {
                 When = _ => isAvailable == null || !isAvailable(),
                 Reason = _ =>
-                    $"Install {modName} to enable these {settingCount} settings.",
+                    $"Requires {modName}.",
                 ExternalActionUrl = workshopUrl,
+                ExternalActionLabel = string.IsNullOrEmpty(workshopUrl) ? null : "Open Workshop",
                 ExternalActionTooltip = string.IsNullOrEmpty(workshopUrl)
                     ? null
                     : $"Requires {modName}. Click to open its Steam Workshop page."
