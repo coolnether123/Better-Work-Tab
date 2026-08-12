@@ -1297,26 +1297,30 @@ namespace Better_Work_Tab.UI.SettingsFramework
                 float reasonWidth = Mathf.Min(Text.CalcSize(reason).x, rect.width);
                 Rect reasonRect = new Rect(rect.x, rect.y, reasonWidth, rect.height);
                 bool hasExternalAction = HasExternalSuppressionAction(suppression);
-                bool externalNoticeHovered = hasExternalAction && Mouse.IsOver(reasonRect);
-                if (externalNoticeHovered)
-                {
-                    Widgets.DrawBoxSolid(reasonRect, new Color(0.18f, 0.32f, 0.48f, 0.72f));
-                }
-                GUI.color = hasExternalAction
-                    ? (externalNoticeHovered ? Color.white : SuppressionLinkColor)
-                    : SuppressionNoticeColor;
-                Widgets.Label(reasonRect, reason);
                 if (hasExternalAction)
                 {
+                    bool clicked = Widgets.ButtonText(
+                        reasonRect,
+                        reason,
+                        drawBackground: false,
+                        doMouseoverSound: true,
+                        textColor: SuppressionLinkColor,
+                        active: true,
+                        overrideTextAnchor: TextAnchor.MiddleLeft);
                     Widgets.DrawLineHorizontal(rect.x, rect.yMax - 3f, reasonWidth);
                     if (!string.IsNullOrEmpty(suppression.ExternalActionTooltip))
                     {
                         TooltipHandler.TipRegion(reasonRect, suppression.ExternalActionTooltip);
                     }
-                    if (Widgets.ButtonInvisible(reasonRect))
+                    if (clicked)
                     {
                         SteamUtility.OpenUrl(suppression.ExternalActionUrl);
                     }
+                }
+                else
+                {
+                    GUI.color = SuppressionNoticeColor;
+                    Widgets.Label(reasonRect, reason);
                 }
 
                 SettingDefinition suppressor = _hierarchy.GetById(suppression.SuppressorSettingId);
