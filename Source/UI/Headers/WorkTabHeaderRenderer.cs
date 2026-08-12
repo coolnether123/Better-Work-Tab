@@ -144,7 +144,21 @@ namespace Better_Work_Tab.UI.Headers
                     SubWorkDrilldownState.SetDrawingColumn(column);
                     if (!TryDrawFluffyHeader(column, headerRect, table))
                     {
-                        column.Column.Worker.DoHeader(headerRect, table);
+                        if (column.Column?.Worker is PawnColumnWorker_WorkPriority priorityWorker &&
+                            !SleekWorkTabGateway.BetterWorkTabHostsSleek)
+                        {
+                            if (!HeaderDrawingCoordinator.TryHandleWorkPriorityHeader(
+                                    priorityWorker,
+                                    headerRect,
+                                    table))
+                            {
+                                priorityWorker.DoHeader(headerRect, table);
+                            }
+                        }
+                        else
+                        {
+                            column.Column.Worker.DoHeader(headerRect, table);
+                        }
                     }
                 }
                 finally

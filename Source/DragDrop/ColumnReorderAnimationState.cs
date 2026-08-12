@@ -63,17 +63,27 @@ namespace Better_Work_Tab.DragDrop
             cellOffset = GetOffsetAfterTick(column, header: false);
         }
 
-        internal static void Tick()
+        /// <summary>
+        /// Advances the reorder animation lifecycle without requiring a geometry
+        /// consumer to be queried first. Returning true while the animation is
+        /// active lets the work-tab owner invalidate the transient render layer
+        /// on every frame, including frames where optimized culling skips a
+        /// particular column.
+        /// </summary>
+        internal static bool Tick()
         {
             if (FromPositions.Count == 0)
             {
-                return;
+                return false;
             }
 
             if (!UseAnimation || Time.realtimeSinceStartup - _startedAt >= DurationSeconds)
             {
                 FromPositions.Clear();
+                return false;
             }
+
+            return true;
         }
 
         private static float GetOffsetAfterTick(WorkTabLayoutColumn column, bool header)

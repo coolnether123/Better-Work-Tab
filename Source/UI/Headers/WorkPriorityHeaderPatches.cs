@@ -84,9 +84,6 @@ namespace Better_Work_Tab.UI.Headers
 
             try
             {
-                // Update shared input cache once per frame
-                HeaderInputController.UpdateCache(Event.current);
-
                 var settings = BetterWorkTabMod.Settings;
                 if (settings == null) return true;
 
@@ -108,23 +105,7 @@ namespace Better_Work_Tab.UI.Headers
                     return true;
                 }
 
-                if (SubWorkDrilldownState.IsBlankWorkColumn(__instance.def))
-                {
-                    return false;
-                }
-
-                bool enableAngled = settings.enableAngledHeaders;
-
-                if (enableAngled)
-                {
-                     // Angled Mode: Always take over execution if enabled
-                     return AngledHeaderController.DoHeader(__instance, rect, table); // Returns false to skip vanilla
-                }
-                else
-                {
-                     // Vanilla Mode: Only intervenes if columns are moved; otherwise, permits vanilla execution
-                     return VanillaHeaderController.DoHeader(__instance, rect, table);
-                }
+                return !HeaderDrawingCoordinator.TryHandleWorkPriorityHeader(__instance, rect, table);
             }
             catch (System.Exception ex)
             {
@@ -176,18 +157,10 @@ namespace Better_Work_Tab.UI.Headers
 
             try
             {
-                HeaderInputController.UpdateCache(Event.current);
-                if (settings.enableAngledHeaders)
-                {
-                    AngledHeaderController.DoHeader(worker, rect, table);
-                }
-                else
-                {
-                    // The mixed host still owns the header even when the player chooses
-                    // vanilla-style headers. Do not leave Sleek's cleared horizontal
-                    // surface blank in that configuration.
-                    VanillaHeaderController.DoHeader(worker, rect, table);
-                }
+                // The mixed host still owns the header even when the player chooses
+                // vanilla-style headers. Route both styles through the same coordinator
+                // used by the normal BWT header pass.
+                HeaderDrawingCoordinator.TryHandleWorkPriorityHeader(worker, rect, table);
             }
             catch (System.Exception ex)
             {

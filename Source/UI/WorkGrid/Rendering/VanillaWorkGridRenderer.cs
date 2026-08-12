@@ -1,4 +1,3 @@
-using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.WorkGrid.Contracts;
 
 namespace Better_Work_Tab.UI.WorkGrid.Rendering
@@ -11,7 +10,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         internal const string RendererId = "bwt.native-imgui";
 
         private readonly IWorkGridDrawingSurface _drawingSurface;
-        private WorkTabInvalidationVersion _lastVersions;
 
         internal VanillaWorkGridRenderer(IWorkGridDrawingSurface drawingSurface)
         {
@@ -25,15 +23,15 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
         public void Prepare(in WorkGridRenderContext context)
         {
-            PrepareInvalidation(context.InvalidationVersions);
         }
 
         public void Draw(in WorkGridRenderContext context)
         {
-            _drawingSurface.DrawNativeWorkTable(
+            _drawingSurface.DrawBody(
                 context.Presentation.Table,
                 context.Layout,
-                context.WindowRect);
+                context.WindowRect,
+                null);
         }
 
         public void HandleEvent(in WorkGridRenderContext context)
@@ -42,25 +40,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
         public void ReleaseTransient(in WorkGridRenderContext context)
         {
-        }
-
-        internal void PrepareInvalidation(WorkTabInvalidationVersion current)
-        {
-            bool headerTextChanged = current.HeaderText != _lastVersions.HeaderText ||
-                                     current.RenderResources != _lastVersions.RenderResources;
-            bool headerGeometryChanged = current.HeaderGeometry != _lastVersions.HeaderGeometry ||
-                                         current.Columns != _lastVersions.Columns;
-
-            if (headerTextChanged)
-            {
-                HeaderDrawingCoordinator.InvalidateCaches();
-            }
-            else if (headerGeometryChanged)
-            {
-                HeaderDrawingCoordinator.InvalidateAnimatedLayout();
-            }
-
-            _lastVersions = current;
         }
     }
 }

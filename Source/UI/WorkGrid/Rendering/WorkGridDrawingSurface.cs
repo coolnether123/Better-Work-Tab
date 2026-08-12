@@ -25,14 +25,29 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
     }
 
     /// <summary>
-    /// Narrow drawing capability shared by the vanilla and optimized Work-grid renderers.
+    /// Narrow drawing capability shared by the vanilla and optimized Work-grid
+    /// renderers.
     /// </summary>
+    /// <remarks>
+    /// Header composition is deliberately separate from body drawing. The
+    /// renderer facade calls <see cref="DrawHeaders"/> once for the requested
+    /// header layer, then lets the selected body strategy call
+    /// <see cref="DrawBody"/>. This keeps the vanilla-header reorder path on
+    /// the same optimized body route as angled headers.
+    /// </remarks>
     public interface IWorkGridDrawingSurface
     {
-        void DrawNativeWorkTable(PawnTable table, IWorkTabLayoutController layout, Rect inRect);
+        /// <summary>Draws the BWT-owned header row, including vanilla-header routing.</summary>
+        void DrawHeaders(PawnTable table, IWorkTabLayoutController layout);
 
-        void DrawSnapshotWorkTable(
-            in WorkGridRenderContext context,
+        /// <summary>
+        /// Draws the viewport, pinned body affordances, and body rows. A null
+        /// snapshot layer selects the native body-cell path.
+        /// </summary>
+        void DrawBody(
+            PawnTable table,
+            IWorkTabLayoutController layout,
+            Rect inRect,
             IWorkGridSnapshotLayer snapshotLayer);
     }
 
@@ -65,23 +80,38 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 throw new ArgumentNullException(nameof(extraBottomSpaceProvider));
         }
 
-        public void DrawNativeWorkTable(PawnTable table, IWorkTabLayoutController layout, Rect inRect)
+        public void DrawHeaders(PawnTable table, IWorkTabLayoutController layout)
         {
-            DrawWorkTable(table, layout, inRect, null);
+            if (layout == null || table == null)
+            {
+                return;
+            }
+
+            WorkTabHeaderFrame headerFrame = new WorkTabHeaderFrame(
+                _windowRectProvider().height,
+                _extraBottomSpaceProvider(),
+                WorkGridLayoutMetrics.GetInlineTimePriorityReservedHeight(layout),
+                WorkGridLayoutMetrics.GetPinnedRowsHeight(),
+                GetTableViewportWidth(layout),
+                WorkGridLayoutMetrics.ScrollViewFitAllowance);
+
+            bool layoutEvent = Event.current.type == EventType.Layout;
+            if (!layoutEvent && SpineTiming.Enabled)
+            {
+                SpineTiming.Time(
+                    "WorkTab.DrawHeaders",
+                    () => _headerRenderer.DrawHeaders(layout, table, in headerFrame));
+            }
+            else
+            {
+                // Vanilla-style headers collect their complete stagger geometry during
+                // Unity's Layout event. Skipping this pass leaves every label at offset
+                // zero on Repaint, causing the horizontal headers to overlap.
+                _headerRenderer.DrawHeaders(layout, table, in headerFrame);
+            }
         }
 
-        public void DrawSnapshotWorkTable(
-            in WorkGridRenderContext context,
-            IWorkGridSnapshotLayer snapshotLayer)
-        {
-            DrawWorkTable(
-                context.Presentation.Table,
-                context.Layout,
-                context.WindowRect,
-                snapshotLayer);
-        }
-
-        private void DrawWorkTable(
+        public void DrawBody(
             PawnTable table,
             IWorkTabLayoutController layout,
             Rect inRect,
@@ -113,28 +143,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 viewport = _viewportController.CalculateScrollRects(in viewportFrame);
             }
 
-            WorkTabHeaderFrame headerFrame = new WorkTabHeaderFrame(
-                _windowRectProvider().height,
-                _extraBottomSpaceProvider(),
-                WorkGridLayoutMetrics.GetInlineTimePriorityReservedHeight(layout),
-                WorkGridLayoutMetrics.GetPinnedRowsHeight(),
-                GetTableViewportWidth(layout),
-                WorkGridLayoutMetrics.ScrollViewFitAllowance);
-
             bool layoutEvent = Event.current.type == EventType.Layout;
-            if (!layoutEvent && SpineTiming.Enabled)
-            {
-                SpineTiming.Time(
-                    "WorkTab.DrawHeaders",
-                    () => _headerRenderer.DrawHeaders(layout, table, in headerFrame));
-            }
-            else
-            {
-                // Vanilla-style headers collect their complete stagger geometry during
-                // Unity's Layout event. Skipping this pass leaves every label at offset
-                // zero on Repaint, causing the horizontal headers to overlap.
-                _headerRenderer.DrawHeaders(layout, table, in headerFrame);
-            }
             if (!layoutEvent)
             {
                 // The tutorial band is a pinned divider. Paint it after the header
