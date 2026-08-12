@@ -14,6 +14,8 @@ namespace Better_Work_Tab.UI.SettingsFramework
     {
         private const float ResetIconSlotWidth = 26f;
         private const float ResetButtonSize = 20f;
+        private const float ClearFilterIconSize = 16f;
+        private const float ClearFilterIconGap = 6f;
         private const float FooterHeight = 34f;
         private const float ToolbarGap = 8f;
         private const float FocusHighlightSeconds = 1.45f;
@@ -21,6 +23,11 @@ namespace Better_Work_Tab.UI.SettingsFramework
         private const float SuppressionLinkGap = 6f;
         private const float SearchResultDoubleClickMaxSeconds = 0.25f;
         private const float SearchResultDoubleClickMoveTolerance = 5f;
+
+        private static readonly Texture2D ResetIcon =
+            ContentFinder<Texture2D>.Get("UI/Buttons/Dev/Reload");
+        private static readonly Texture2D ClearIcon =
+            ContentFinder<Texture2D>.Get("UI/Widgets/CloseXSmall");
 
         private readonly SettingsHierarchy _hierarchy;
         private Vector2 _scrollPosition;
@@ -457,10 +464,99 @@ namespace Better_Work_Tab.UI.SettingsFramework
 
             Widgets.BeginScrollView(rect, ref _scrollPosition, viewRect);
 
+            float panelY = 0f;
+            float panelStartY = 0f;
+            int panelSectionDepth = 0;
+            SettingDefinition panelSection = null;
+            for (int index = 0; index < visibleSettings.Count; index++)
+            {
+                SettingDefinition candidate = visibleSettings[index];
+                bool candidateIsHeader = candidate.Type == SettingType.Header ||
+                    candidate.EmphasizeAsHeader ||
+                    candidate.ControlsChildVisibility;
+                bool candidateBelongs = false;
+                if (panelSection != null)
+                {
+                    if (ReferenceEquals(candidate, panelSection) || IsDescendantOf(candidate, panelSection))
+                    {
+                        candidateBelongs = true;
+                    }
+                    else if (!candidateIsHeader && panelSection.Type == SettingType.Header)
+                    {
+                        // Standalone headers may intentionally group the flat rows that follow.
+                        candidateBelongs = true;
+                    }
+                }
+
+                if (panelSection != null && !candidateBelongs)
+                {
+                    SettingWidgets.DrawSectionPanel(
+                        new Rect(
+                            panelSectionDepth * IndentPerLevel,
+                            panelStartY + 2f,
+                            Mathf.Max(0f, viewRect.width - (panelSectionDepth * IndentPerLevel)),
+                            Mathf.Max(0f, panelY - panelStartY - 4f)),
+                        RowHeight - 4f,
+                        panelSection.HeaderColor);
+
+                    panelSection = null;
+                }
+
+                if (panelSection == null && candidateIsHeader)
+                {
+                    panelSection = candidate;
+                    panelSectionDepth = _hierarchy.GetDepth(candidate);
+                    panelStartY = panelY;
+                }
+
+                panelY += MeasureRowHeight(candidate, settingsObject);
+            }
+
+            if (panelSection != null)
+            {
+                SettingWidgets.DrawSectionPanel(
+                    new Rect(
+                        panelSectionDepth * IndentPerLevel,
+                        panelStartY + 2f,
+                        Mathf.Max(0f, viewRect.width - (panelSectionDepth * IndentPerLevel)),
+                        Mathf.Max(0f, panelY - panelStartY - 4f)),
+                    RowHeight - 4f,
+                    panelSection.HeaderColor);
+            }
+
             float curY = 0f;
+            SettingDefinition activeSection = null;
+            int activeSectionDepth = 0;
             foreach (var def in visibleSettings)
             {
                 int depth = _hierarchy.GetDepth(def);
+                bool isSectionHeader = def.Type == SettingType.Header ||
+                    def.EmphasizeAsHeader ||
+                    def.ControlsChildVisibility;
+                bool belongsToActiveSection = false;
+                if (activeSection != null)
+                {
+                    if (ReferenceEquals(def, activeSection) || IsDescendantOf(def, activeSection))
+                    {
+                        belongsToActiveSection = true;
+                    }
+                    else if (!isSectionHeader && activeSection.Type == SettingType.Header)
+                    {
+                        belongsToActiveSection = true;
+                    }
+
+                    if (!belongsToActiveSection)
+                    {
+                        activeSection = null;
+                    }
+                }
+
+                int visualDepth = belongsToActiveSection
+                    ? Mathf.Max(depth, activeSectionDepth + 1)
+                    : depth;
+                bool compactSectionHeader = isSectionHeader &&
+                    activeSection != null &&
+                    !ReferenceEquals(def, activeSection);
                 SettingSuppression suppression = def.GetActiveSuppression(settingsObject);
                 bool disabledByAncestor = _hierarchy.IsDisabledByAncestor(def, settingsObject) ||
                     HasSuppressedAncestor(def, settingsObject);
@@ -485,15 +581,23 @@ namespace Better_Work_Tab.UI.SettingsFramework
                     TryHandleSearchResultDoubleClick(rowRect, def, settingsObject, viewMode, rect.height);
                 }
 
-                DrawFocusedSettingHighlight(rowRect, def);
+                DrawFocusedSettingHighlight(rowRect, def, visualDepth);
                 DrawSettingRow(
                     rowRect,
                     def,
                     settingsObject,
                     disabledByAncestor && !allowFocusedDisabledInteraction,
                     suppression,
-                    depth,
+                    visualDepth,
+                    activeSection?.HeaderColor,
+                    compactSectionHeader,
                     onSettingsChanged);
+                if (isSectionHeader && activeSection == null)
+                {
+                    activeSection = def;
+                    activeSectionDepth = depth;
+                }
+
                 curY += rowHeight;
             }
 
@@ -503,6 +607,19 @@ namespace Better_Work_Tab.UI.SettingsFramework
             }
 
             Widgets.EndScrollView();
+        }
+
+        private bool IsDescendantOf(SettingDefinition candidate, SettingDefinition ancestor)
+        {
+            foreach (SettingDefinition candidateAncestor in _hierarchy.GetAncestors(candidate))
+            {
+                if (ReferenceEquals(candidateAncestor, ancestor))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static Rect ToScreenRect(Rect rect)
@@ -521,13 +638,10 @@ namespace Better_Work_Tab.UI.SettingsFramework
             bool isDisabledByParent,
             SettingSuppression suppression,
             int depth,
+            Color? sectionColor,
+            bool compactSectionHeader,
             Action onSettingsChanged)
         {
-            if (Mouse.IsOver(rect))
-            {
-                Widgets.DrawHighlight(rect);
-            }
-
             string suppressionReason = suppression?.ResolveReason(settingsObject);
             bool hasNotice = !string.IsNullOrEmpty(suppressionReason);
 
@@ -539,6 +653,13 @@ namespace Better_Work_Tab.UI.SettingsFramework
 
             float indent = depth * IndentPerLevel;
             Rect contentRect = new Rect(controlRow.x + indent, controlRow.y, controlRow.width - indent, controlRow.height);
+            bool isHeaderRow = def.Type == SettingType.Header ||
+                def.EmphasizeAsHeader ||
+                def.ControlsChildVisibility;
+            if (Mouse.IsOver(rect))
+            {
+                Widgets.DrawHighlight(GetPanelRowRect(rect, isHeaderRow, depth));
+            }
 
             bool disabled = isDisabledByParent || suppression != null;
             string label = GetLabel?.Invoke(def) ?? def.Label ?? def.Id;
@@ -556,16 +677,23 @@ namespace Better_Work_Tab.UI.SettingsFramework
             }
 
             bool reserveResetSlot = ShowResetIcons && IsResettable(def, field);
+            Rect visibleResetRect = default(Rect);
+            bool hasVisibleReset = false;
             if (reserveResetSlot)
             {
                 Rect resetRect;
-                if (def.EmphasizeAsHeader)
+                if (def.EmphasizeAsHeader || def.ControlsChildVisibility)
                 {
-                    // Header-styled toggles use the left 70% for their label and the right 25%
-                    // for the checkbox. Keep the label at the row's root edge and place the
-                    // reset affordance in the five-percent gap between those regions.
                     resetRect = new Rect(
-                        contentRect.x + (contentRect.width * 0.725f) - (ResetButtonSize / 2f),
+                        contentRect.xMax - 24f - 8f - ResetButtonSize,
+                        contentRect.y + ((contentRect.height - ResetButtonSize) / 2f),
+                        ResetButtonSize,
+                        ResetButtonSize);
+                }
+                else if (depth > 0)
+                {
+                    resetRect = new Rect(
+                        contentRect.x - ResetButtonSize,
                         contentRect.y + ((contentRect.height - ResetButtonSize) / 2f),
                         ResetButtonSize,
                         ResetButtonSize);
@@ -584,6 +712,8 @@ namespace Better_Work_Tab.UI.SettingsFramework
 
                 if (HasNonDefaultValue(field, settingsObject, def))
                 {
+                    visibleResetRect = resetRect;
+                    hasVisibleReset = true;
                     DrawResetButton(resetRect, disabled, () =>
                     {
                         if (ResetSettingToDefault(field, settingsObject, def))
@@ -600,9 +730,31 @@ namespace Better_Work_Tab.UI.SettingsFramework
                     if (field != null && field.FieldType == typeof(bool))
                     {
                         bool boolValue = (bool)field.GetValue(settingsObject);
-                        bool changed = def.EmphasizeAsHeader
-                            ? SettingWidgets.DrawHeaderBool(contentRect, label, ref boolValue, def.HeaderColor, tooltip, disabled)
-                            : SettingWidgets.DrawBool(contentRect, label, ref boolValue, tooltip, disabled);
+                        bool changed;
+                        if (compactSectionHeader)
+                        {
+                            changed = SettingWidgets.DrawSubheaderBool(
+                                contentRect,
+                                label,
+                                ref boolValue,
+                                sectionColor ?? def.HeaderColor,
+                                tooltip,
+                                disabled);
+                        }
+                        else if (def.EmphasizeAsHeader || def.ControlsChildVisibility)
+                        {
+                            changed = SettingWidgets.DrawHeaderBool(
+                                contentRect,
+                                label,
+                                ref boolValue,
+                                sectionColor ?? def.HeaderColor,
+                                tooltip,
+                                disabled);
+                        }
+                        else
+                        {
+                            changed = SettingWidgets.DrawBool(contentRect, label, ref boolValue, tooltip, disabled);
+                        }
                         if (changed)
                         {
                             field.SetValue(settingsObject, boolValue);
@@ -711,7 +863,14 @@ namespace Better_Work_Tab.UI.SettingsFramework
                         GUI.color = Color.gray;
                     }
 
-                    SettingWidgets.DrawHeader(contentRect, label, def.HeaderColor);
+                    if (compactSectionHeader)
+                    {
+                        SettingWidgets.DrawSubheader(contentRect, label, sectionColor ?? def.HeaderColor);
+                    }
+                    else
+                    {
+                        SettingWidgets.DrawHeader(contentRect, label, sectionColor ?? def.HeaderColor);
+                    }
                     GUI.color = previousColor;
                     break;
                 case SettingType.Spacer:
@@ -739,7 +898,9 @@ namespace Better_Work_Tab.UI.SettingsFramework
                 DrawSuppressionNotice(noticeRect, suppression, suppressionReason, settingsObject);
             }
 
-            if (!string.IsNullOrEmpty(tooltip) && !DescribedFloatMenu.AnyOpen)
+            if (!string.IsNullOrEmpty(tooltip) &&
+                !DescribedFloatMenu.AnyOpen &&
+                (!hasVisibleReset || !Mouse.IsOver(visibleResetRect)))
             {
                 TooltipHandler.TipRegion(controlRow, tooltip);
                 if (Mouse.IsOver(controlRow))
@@ -1180,8 +1341,43 @@ namespace Better_Work_Tab.UI.SettingsFramework
 
         private void DrawClearFilterRow(Rect rect)
         {
-            Rect buttonRect = rect.ContractedBy(4f);
-            if (Widgets.ButtonText(buttonRect, "X Clear filter"))
+            const string label = "Clear filter";
+            GameFont oldFont = Text.Font;
+            TextAnchor oldAnchor = Text.Anchor;
+            Color oldColor = GUI.color;
+            Text.Font = GameFont.Small;
+            Vector2 labelSize = Text.CalcSize(label);
+            float width = ClearFilterIconSize + ClearFilterIconGap + labelSize.x;
+            Rect buttonRect = new Rect(
+                rect.center.x - (width / 2f),
+                rect.y + ((rect.height - Mathf.Max(ClearFilterIconSize, labelSize.y)) / 2f),
+                width,
+                Mathf.Max(ClearFilterIconSize, labelSize.y));
+            Rect iconRect = new Rect(
+                buttonRect.x,
+                buttonRect.center.y - (ClearFilterIconSize / 2f),
+                ClearFilterIconSize,
+                ClearFilterIconSize);
+            Rect labelRect = new Rect(
+                iconRect.xMax + ClearFilterIconGap,
+                buttonRect.y,
+                labelSize.x,
+                buttonRect.height);
+
+            Rect hitRect = new Rect(
+                buttonRect.x - 4f,
+                buttonRect.y - 4f,
+                buttonRect.width + 8f,
+                buttonRect.height + 8f);
+            Widgets.DrawHighlightIfMouseover(hitRect);
+            GUI.DrawTexture(iconRect, ClearIcon);
+            Text.Anchor = TextAnchor.MiddleLeft;
+            Widgets.Label(labelRect, label);
+            Text.Font = oldFont;
+            Text.Anchor = oldAnchor;
+            GUI.color = oldColor;
+
+            if (Widgets.ButtonInvisible(hitRect, true))
             {
                 ClearActiveFilter();
                 Event.current?.Use();
@@ -1452,7 +1648,7 @@ namespace Better_Work_Tab.UI.SettingsFramework
             }
         }
 
-        private void DrawFocusedSettingHighlight(Rect rowRect, SettingDefinition def)
+        private void DrawFocusedSettingHighlight(Rect rowRect, SettingDefinition def, int depth)
         {
             if (def == null ||
                 string.IsNullOrEmpty(_highlightedSettingId) ||
@@ -1473,10 +1669,27 @@ namespace Better_Work_Tab.UI.SettingsFramework
             Color focusColor = FocusHighlightColor;
             Color oldColor = GUI.color;
             GUI.color = new Color(focusColor.r, focusColor.g, focusColor.b, Mathf.Lerp(0.18f, 0.36f, pulse) * fade);
-            Widgets.DrawBoxSolid(rowRect, GUI.color);
+            bool isHeaderRow = def.Type == SettingType.Header ||
+                def.EmphasizeAsHeader ||
+                def.ControlsChildVisibility;
+            Rect highlightRect = GetPanelRowRect(rowRect, isHeaderRow, depth);
+            Widgets.DrawBoxSolid(highlightRect, GUI.color);
             GUI.color = new Color(focusColor.r, focusColor.g, focusColor.b, 0.85f * fade);
-            Widgets.DrawBox(rowRect, 2);
+            Widgets.DrawBox(highlightRect, 2);
             GUI.color = oldColor;
+        }
+
+        private Rect GetPanelRowRect(Rect rowRect, bool isHeaderRow, int depth)
+        {
+            int panelDepth = isHeaderRow
+                ? depth
+                : Mathf.Max(0, depth - 1);
+            float inset = panelDepth * IndentPerLevel;
+            return new Rect(
+                rowRect.x + inset + 1f,
+                rowRect.y,
+                Mathf.Max(0f, rowRect.width - inset - 2f),
+                rowRect.height);
         }
 
         private void CenterOnSetting(
@@ -1611,7 +1824,7 @@ namespace Better_Work_Tab.UI.SettingsFramework
                 GUI.color = Color.gray;
             }
 
-            bool clicked = Widgets.ButtonText(rect, "R");
+            bool clicked = Widgets.ButtonImage(rect, ResetIcon);
 
             GUI.enabled = oldEnabled;
             GUI.color = oldColor;

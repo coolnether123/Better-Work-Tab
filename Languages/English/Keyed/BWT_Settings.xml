@@ -85,19 +85,19 @@
     <BWT_Settings_modcompat.header_Tooltip>Settings for loaded mod integrations.</BWT_Settings_modcompat.header_Tooltip>
     <BWT_Settings_compat.fluffyWorkTab.header>Fluffy-style Work Tab</BWT_Settings_compat.fluffyWorkTab.header>
     <BWT_Settings_compat.fluffyWorkTab.header_Tooltip>BWT-native options inspired by Fluffy's Work Tab, plus compatibility controls when Fluffy Work Tab or a fork is installed.</BWT_Settings_compat.fluffyWorkTab.header_Tooltip>
-    <BWT_Settings_fluffyStyle.features>Enable Fluffy-style features</BWT_Settings_fluffyStyle.features>
+    <BWT_Settings_fluffyStyle.features>Use these controls</BWT_Settings_fluffyStyle.features>
     <BWT_Settings_fluffyStyle.features_Tooltip>Enables BWT's Fluffy-inspired controls and right-expanding specific jobs. Fluffy Work Tab is not required.</BWT_Settings_fluffyStyle.features_Tooltip>
-    <BWT_Settings_fluffyStyle.topButtons>Show Fluffy top controls</BWT_Settings_fluffyStyle.topButtons>
+    <BWT_Settings_fluffyStyle.topButtons>Show top controls</BWT_Settings_fluffyStyle.topButtons>
     <BWT_Settings_fluffyStyle.topButtons_Tooltip>With Fluffy installed, show its icons for manual priorities, schedules, and specific jobs.</BWT_Settings_fluffyStyle.topButtons_Tooltip>
-    <BWT_Settings_fluffyStyle.standaloneTopButtons>Show BWT substitute top controls</BWT_Settings_fluffyStyle.standaloneTopButtons>
+    <BWT_Settings_fluffyStyle.standaloneTopButtons>Show text substitute controls</BWT_Settings_fluffyStyle.standaloneTopButtons>
     <BWT_Settings_fluffyStyle.standaloneTopButtons_Tooltip>Without Fluffy installed, show text versions of its three top controls. Disabled by default because its icons are unavailable.</BWT_Settings_fluffyStyle.standaloneTopButtons_Tooltip>
-    <BWT_Settings_compat.fluffyWorkTab.ownership>Fluffy Work Tab integration (2 settings)</BWT_Settings_compat.fluffyWorkTab.ownership>
+    <BWT_Settings_compat.fluffyWorkTab.ownership>Installed-mod ownership</BWT_Settings_compat.fluffyWorkTab.ownership>
     <BWT_Settings_compat.fluffyWorkTab.ownership_Tooltip>Choose which mod runs the Work tab and which Fluffy columns Better Work Tab keeps visible.</BWT_Settings_compat.fluffyWorkTab.ownership_Tooltip>
     <BWT_Settings_compat.fluffyWorkTab.owner>Work tab owner</BWT_Settings_compat.fluffyWorkTab.owner>
     <BWT_Settings_compat.fluffyWorkTab.owner_Tooltip>Choose whether Better Work Tab or Fluffy Work Tab runs the Work tab.</BWT_Settings_compat.fluffyWorkTab.owner_Tooltip>
     <BWT_Enum_WorkTabOwnerPreference_BetterWorkTab>Better Work Tab</BWT_Enum_WorkTabOwnerPreference_BetterWorkTab>
      <BWT_Enum_WorkTabOwnerPreference_FluffyWorkTab>Fluffy Work Tab</BWT_Enum_WorkTabOwnerPreference_FluffyWorkTab>
-    <BWT_Settings_compat.externalWorkTab.columns>Show Fluffy Work Tab columns</BWT_Settings_compat.externalWorkTab.columns>
+    <BWT_Settings_compat.externalWorkTab.columns>Show external Work Tab columns</BWT_Settings_compat.externalWorkTab.columns>
     <BWT_Settings_compat.externalWorkTab.columns_Tooltip>While Better Work Tab owns the tab, keep Fluffy's Mood, Job, Detailed Copy/Paste, and Favorite columns visible.</BWT_Settings_compat.externalWorkTab.columns_Tooltip>
     <BWT_Settings_compat.fluffyWorkTab.specificJobs>Specific jobs</BWT_Settings_compat.fluffyWorkTab.specificJobs>
     <BWT_Settings_compat.fluffyWorkTab.specificJobs_Tooltip>Choose how BWT opens a Work column into its individual jobs.</BWT_Settings_compat.fluffyWorkTab.specificJobs_Tooltip>
@@ -509,12 +509,12 @@
     <BWT_Settings_compat.complexJobs.header_Tooltip>Choose whether Complex Jobs works alone or with one of BWT&apos;s specific-job presentations.</BWT_Settings_compat.complexJobs.header_Tooltip>
     <BWT_Settings_compat.complexJobs.subWorkMode>Specific-job columns</BWT_Settings_compat.complexJobs.subWorkMode>
     <BWT_Settings_compat.complexJobs.subWorkMode_Tooltip>Use Complex Jobs alone, add BWT&apos;s focused view, or add BWT&apos;s Fluffy-style right-expanding columns.</BWT_Settings_compat.complexJobs.subWorkMode_Tooltip>
-    <BWT_Settings_fluffyStyle.scheduleAssigner>Use Fluffy hour-selection scheduler</BWT_Settings_fluffyStyle.scheduleAssigner>
+    <BWT_Settings_fluffyStyle.scheduleAssigner>Use hour-selection scheduler</BWT_Settings_fluffyStyle.scheduleAssigner>
     <BWT_Settings_fluffyStyle.scheduleAssigner_Tooltip>Use Fluffy&apos;s original bottom hour selector: choose hours, then click normal priority boxes to assign those hours. This option requires Fluffy Work Tab because it uses Fluffy&apos;s scheduler assets.</BWT_Settings_fluffyStyle.scheduleAssigner_Tooltip>
     <BWT_Settings_hide.workType_Tooltip>Click to unhide this Work type.</BWT_Settings_hide.workType_Tooltip>
 
     <!-- Controls page -->
-    <BWT_Settings_controls.fluffy.header>Fluffy Work Tab controls</BWT_Settings_controls.fluffy.header>
+    <BWT_Settings_controls.fluffy.header>Native gestures</BWT_Settings_controls.fluffy.header>
     <BWT_Settings_controls.fluffy.header_Tooltip>Contextual controls defined by Fluffy Work Tab. Fluffy uses fixed mouse-and-modifier gestures rather than RimWorld-rebindable key definitions.</BWT_Settings_controls.fluffy.header_Tooltip>
     <BWT_Settings_controls.fluffy.expand>Open or close specific jobs</BWT_Settings_controls.fluffy.expand>
     <BWT_Settings_controls.fluffy.expand_Tooltip>Fluffy&apos;s native Ctrl-header gesture is preserved. When BWT owns the tab, the configured specific-job shortcut routes through BWT and Expand beside opens Fluffy-style columns.</BWT_Settings_controls.fluffy.expand_Tooltip>
