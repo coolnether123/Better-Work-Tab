@@ -11,13 +11,18 @@ namespace Better_Work_Tab.ModSupport
         internal static SettingSuppression Require(
             Func<bool> isAvailable,
             string modName,
-            int settingCount)
+            int settingCount,
+            string workshopUrl = null)
         {
             return new SettingSuppression
             {
                 When = _ => isAvailable == null || !isAvailable(),
                 Reason = _ =>
-                    $"Install {modName} to enable these {settingCount} settings."
+                    $"Install {modName} to enable these {settingCount} settings.",
+                ExternalActionUrl = workshopUrl,
+                ExternalActionTooltip = string.IsNullOrEmpty(workshopUrl)
+                    ? null
+                    : $"Requires {modName}. Click to open its Steam Workshop page."
             };
         }
     }

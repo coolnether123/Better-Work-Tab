@@ -609,8 +609,10 @@ namespace Better_Work_Tab.UI.SettingsFramework
                     activeSection != null &&
                     !ReferenceEquals(def, activeSection);
                 SettingSuppression suppression = def.GetActiveSuppression(settingsObject);
+                SettingSuppression inheritedSuppression = suppression ??
+                    GetActiveAncestorSuppression(def, settingsObject);
                 bool disabledByAncestor = _hierarchy.IsDisabledByAncestor(def, settingsObject) ||
-                    HasSuppressedAncestor(def, settingsObject);
+                    inheritedSuppression != null;
                 bool allowFocusedDisabledInteraction =
                     disabledByAncestor && IsFocusedForcedVisibleSetting(def);
 
@@ -639,6 +641,7 @@ namespace Better_Work_Tab.UI.SettingsFramework
                     settingsObject,
                     disabledByAncestor && !allowFocusedDisabledInteraction,
                     suppression,
+                    inheritedSuppression,
                     visualDepth,
                     activeSection?.HeaderColor,
                     compactSectionHeader,
@@ -688,6 +691,7 @@ namespace Better_Work_Tab.UI.SettingsFramework
             object settingsObject,
             bool isDisabledByParent,
             SettingSuppression suppression,
+            SettingSuppression interactionSuppression,
             int depth,
             Color? sectionColor,
             bool compactSectionHeader,
@@ -712,9 +716,17 @@ namespace Better_Work_Tab.UI.SettingsFramework
                 Widgets.DrawHighlight(GetPanelRowRect(rect, isHeaderRow, depth));
             }
 
+            HandleExternalSuppressionAction(
+                GetPanelRowRect(rect, isHeaderRow, depth),
+                interactionSuppression);
+
             bool disabled = isDisabledByParent || suppression != null;
             string label = GetLabel?.Invoke(def) ?? def.Label ?? def.Id;
             string tooltip = BuildTooltip(def, suppressionReason);
+            if (HasExternalSuppressionAction(interactionSuppression))
+            {
+                tooltip = null;
+            }
             if (def.Type == SettingType.Color)
             {
                 tooltip = AppendTooltip(tooltip, ColorPreviewTooltip);
@@ -1021,7 +1033,10 @@ namespace Better_Work_Tab.UI.SettingsFramework
                 DrawSuppressionNotice(noticeRect, suppression, suppressionReason, settingsObject);
             }
 
-            if (!string.IsNullOrEmpty(tooltip) &&
+            bool externalActionHovered = HasExternalSuppressionAction(interactionSuppression) &&
+                Mouse.IsOver(GetPanelRowRect(rect, isHeaderRow, depth));
+            if (!externalActionHovered &&
+                !string.IsNullOrEmpty(tooltip) &&
                 !DescribedFloatMenu.AnyOpen &&
                 (!hasVisibleReset || !Mouse.IsOver(visibleResetRect)))
             {
@@ -1226,17 +1241,50 @@ namespace Better_Work_Tab.UI.SettingsFramework
         /// <summary>
         /// True when any ancestor is itself suppressed, which makes this setting inert as well.
         /// </summary>
-        private bool HasSuppressedAncestor(SettingDefinition setting, object settingsObject)
+        private SettingSuppression GetActiveAncestorSuppression(
+            SettingDefinition setting,
+            object settingsObject)
         {
             foreach (SettingDefinition ancestor in _hierarchy.GetAncestors(setting))
             {
-                if (ancestor.GetActiveSuppression(settingsObject) != null)
+                SettingSuppression suppression = ancestor.GetActiveSuppression(settingsObject);
+                if (suppression != null)
                 {
-                    return true;
+                    return suppression;
                 }
             }
 
-            return false;
+            return null;
+        }
+
+        private static bool HasExternalSuppressionAction(SettingSuppression suppression)
+        {
+            return suppression != null && !string.IsNullOrEmpty(suppression.ExternalActionUrl);
+        }
+
+        private static void HandleExternalSuppressionAction(
+            Rect rowRect,
+            SettingSuppression suppression)
+        {
+            if (!HasExternalSuppressionAction(suppression))
+            {
+                return;
+            }
+
+            if (!string.IsNullOrEmpty(suppression.ExternalActionTooltip))
+            {
+                TooltipHandler.TipRegion(rowRect, suppression.ExternalActionTooltip);
+            }
+
+            Event evt = Event.current;
+            if (evt != null &&
+                evt.type == EventType.MouseDown &&
+                evt.button == 0 &&
+                rowRect.Contains(evt.mousePosition))
+            {
+                Application.OpenURL(suppression.ExternalActionUrl);
+                evt.Use();
+            }
         }
 
         private float MeasureRowHeight(SettingDefinition def, object settingsObject)
