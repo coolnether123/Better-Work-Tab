@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using RimWorld;
 using Spine.UI.ContextualSettings;
@@ -590,34 +591,35 @@ namespace Spine.UI.SettingsFramework
             Widgets.BeginScrollView(listRect, ref _scrollPosition, viewRect);
 
             float panelY = 0f;
-            float panelStartY = 0f;
-            SettingDefinition panelSection = null;
             for (int index = 0; index < _scrollingSettings.Count; index++)
             {
                 SettingDefinition candidate = _scrollingSettings[index];
-                if (candidate.Type == SettingType.Header)
+                if (StartsSectionPanel(candidate))
                 {
-                    if (panelSection != null)
+                    float panelEndY = panelY + MeasureRowHeight(candidate, settingsObject);
+                    for (int childIndex = index + 1; childIndex < _scrollingSettings.Count; childIndex++)
                     {
-                        SettingWidgets.DrawSectionPanel(
-                            new Rect(0f, panelStartY + 2f, viewRect.width, Mathf.Max(0f, panelY - panelStartY - 4f)),
-                            RowHeight - 4f,
-                            panelSection.HeaderColor);
+                        SettingDefinition child = _scrollingSettings[childIndex];
+                        if (!_hierarchy.GetAncestors(child).Any(ancestor => ancestor.Id == candidate.Id))
+                        {
+                            break;
+                        }
+
+                        panelEndY += MeasureRowHeight(child, settingsObject);
                     }
 
-                    panelSection = candidate;
-                    panelStartY = panelY;
+                    float panelInset = _hierarchy.GetDepth(candidate) * IndentPerLevel;
+                    SettingWidgets.DrawSectionPanel(
+                        new Rect(
+                            panelInset,
+                            panelY + 2f,
+                            Mathf.Max(0f, viewRect.width - panelInset),
+                            Mathf.Max(0f, panelEndY - panelY - 4f)),
+                        RowHeight - 4f,
+                        candidate.HeaderColor);
                 }
 
                 panelY += MeasureRowHeight(candidate, settingsObject);
-            }
-
-            if (panelSection != null)
-            {
-                SettingWidgets.DrawSectionPanel(
-                    new Rect(0f, panelStartY + 2f, viewRect.width, Mathf.Max(0f, panelY - panelStartY - 4f)),
-                    RowHeight - 4f,
-                    panelSection.HeaderColor);
             }
 
             float curY = 0f;
@@ -626,8 +628,8 @@ namespace Spine.UI.SettingsFramework
             foreach (var def in _scrollingSettings)
             {
                 int depth = _hierarchy.GetDepth(def);
-                bool isSectionHeader = def.Type == SettingType.Header;
-                bool belongsToActiveSection = !isSectionHeader && activeSection != null;
+                bool startsSectionPanel = StartsSectionPanel(def);
+                bool belongsToActiveSection = !startsSectionPanel && activeSection != null;
                 int visualDepth = belongsToActiveSection
                     ? Mathf.Max(depth, activeSectionDepth + 1)
                     : depth;
@@ -662,7 +664,7 @@ namespace Spine.UI.SettingsFramework
                     visualDepth,
                     activeSection?.HeaderColor,
                     onSettingsChanged);
-                if (isSectionHeader)
+                if (startsSectionPanel)
                 {
                     activeSection = def;
                     activeSectionDepth = depth;
@@ -677,6 +679,14 @@ namespace Spine.UI.SettingsFramework
             }
 
             Widgets.EndScrollView();
+        }
+
+        private static bool StartsSectionPanel(SettingDefinition definition)
+        {
+            return definition != null &&
+                (definition.Type == SettingType.Header ||
+                 definition.Type == SettingType.Bool &&
+                 (definition.EmphasizeAsHeader || definition.ControlsChildVisibility));
         }
 
         /// <summary>

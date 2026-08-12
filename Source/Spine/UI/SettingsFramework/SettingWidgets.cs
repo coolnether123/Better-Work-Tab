@@ -75,16 +75,7 @@ namespace Spine.UI.SettingsFramework
                 Mathf.Max(0f, checkboxRect.x - rect.x - 8f),
                 rect.height);
 
-            Color accent = ResolveSectionAccent(headerColor);
-            Widgets.DrawBoxSolid(
-                new Rect(rect.x + 4f, rect.y + 5f, 3f, Mathf.Max(0f, rect.height - 10f)),
-                accent);
-            Rect toggleLabelRect = new Rect(
-                labelRect.x + 14f,
-                labelRect.y,
-                Mathf.Max(0f, labelRect.width - 14f),
-                labelRect.height);
-            DrawSettingLabel(toggleLabelRect, label, disabled);
+            DrawSectionHeader(rect, labelRect, label, headerColor);
             Widgets.Checkbox(checkboxRect.x, checkboxRect.y, ref value, checkboxSize, disabled);
             if (!disabled && Widgets.ButtonInvisible(labelRect))
             {
