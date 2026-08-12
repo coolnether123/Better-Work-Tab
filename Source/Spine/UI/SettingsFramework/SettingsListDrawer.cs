@@ -590,6 +590,7 @@ namespace Better_Work_Tab.UI.SettingsFramework
                     settingsObject,
                     disabledByAncestor && !allowFocusedDisabledInteraction,
                     suppression,
+                    inheritedSuppression,
                     visualDepth,
                     activeSection?.HeaderColor,
                     compactSectionHeader,
@@ -639,6 +640,7 @@ namespace Better_Work_Tab.UI.SettingsFramework
             object settingsObject,
             bool isDisabledByParent,
             SettingSuppression suppression,
+            SettingSuppression interactionSuppression,
             int depth,
             Color? sectionColor,
             bool compactSectionHeader,
@@ -667,6 +669,10 @@ namespace Better_Work_Tab.UI.SettingsFramework
             bool disabled = isDisabledByParent || suppression != null;
             string label = GetLabel?.Invoke(def) ?? def.Label ?? def.Id;
             string tooltip = BuildTooltip(def, suppressionReason);
+            if (HasExternalSuppressionAction(interactionSuppression))
+            {
+                tooltip = null;
+            }
             if (def.Type == SettingType.Color)
             {
                 tooltip = AppendTooltip(tooltip, ColorPreviewTooltip);
@@ -901,7 +907,10 @@ namespace Better_Work_Tab.UI.SettingsFramework
                 DrawSuppressionNotice(noticeRect, suppression, suppressionReason, settingsObject);
             }
 
-            if (!string.IsNullOrEmpty(tooltip) &&
+            bool externalActionHovered = HasExternalSuppressionAction(interactionSuppression) &&
+                Mouse.IsOver(GetPanelRowRect(rect, isHeaderRow, depth));
+            if (!externalActionHovered &&
+                !string.IsNullOrEmpty(tooltip) &&
                 !DescribedFloatMenu.AnyOpen &&
                 (!hasVisibleReset || !Mouse.IsOver(visibleResetRect)))
             {
@@ -977,7 +986,6 @@ namespace Better_Work_Tab.UI.SettingsFramework
             object settingsObject)
         {
             GameFont oldFont = Text.Font;
-            TextAnchor oldAnchor = Text.Anchor;
             Color oldColor = GUI.color;
             bool oldWordWrap = Text.WordWrap;
             Text.Font = GameFont.Tiny;
@@ -1058,7 +1066,6 @@ namespace Better_Work_Tab.UI.SettingsFramework
             finally
             {
                 Text.Font = oldFont;
-                Text.Anchor = oldAnchor;
                 Text.WordWrap = oldWordWrap;
                 GUI.color = oldColor;
             }
