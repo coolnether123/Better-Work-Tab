@@ -1306,7 +1306,7 @@ namespace Better_Work_Tab.UI.SettingsFramework
                 bool externalNoticeHovered = hasExternalAction && Mouse.IsOver(reasonRect);
                 if (externalNoticeHovered)
                 {
-                    Widgets.DrawHighlight(reasonRect);
+                    Widgets.DrawBoxSolid(reasonRect, new Color(0.18f, 0.32f, 0.48f, 0.72f));
                 }
                 GUI.color = hasExternalAction
                     ? (externalNoticeHovered ? Color.white : SuppressionLinkColor)
