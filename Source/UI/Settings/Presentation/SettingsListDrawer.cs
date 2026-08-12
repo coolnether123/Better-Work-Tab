@@ -1,11 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using Spine.UI.SettingsFramework;
 using RimWorld;
 using UnityEngine;
 using Verse;
 
-namespace Better_Work_Tab.UI.SettingsFramework
+namespace Better_Work_Tab.UI.SettingsPresentation
 {
     /// <summary>
     /// Draws a scrollable list of hierarchical settings with search and view toggles.
@@ -792,13 +793,40 @@ namespace Better_Work_Tab.UI.SettingsFramework
                     }
                     break;
                 case SettingType.Float:
+                case SettingType.Slider:
                     if (field != null && (field.FieldType == typeof(float) || field.FieldType == typeof(double)))
                     {
                         float floatValue = Convert.ToSingle(field.GetValue(settingsObject));
-                        float min = def.MinValue ?? 0f;
-                        float max = def.MaxValue ?? 1f;
-                        if (SettingWidgets.DrawFloat(contentRect, label, ref floatValue, min, max,
-                                def.MinLabel, def.MaxLabel, def.ValueFormat, tooltip, disabled))
+                        bool isSlider = def.Type == SettingType.Slider;
+                        float min = isSlider
+                            ? def.SliderMin
+                            : def.MinValue ?? 0f;
+                        float max = isSlider
+                            ? def.SliderMax
+                            : def.MaxValue ?? 1f;
+                        bool changed = isSlider
+                            ? SettingWidgets.DrawSlider(
+                                contentRect,
+                                label,
+                                ref floatValue,
+                                min,
+                                max,
+                                def.SliderValueFormatter?.Invoke(floatValue),
+                                tooltip,
+                                disabled,
+                                def.SliderStep)
+                            : SettingWidgets.DrawFloat(
+                                contentRect,
+                                label,
+                                ref floatValue,
+                                min,
+                                max,
+                                def.MinLabel,
+                                def.MaxLabel,
+                                def.ValueFormat,
+                                tooltip,
+                                disabled);
+                        if (changed)
                         {
                             field.SetValue(settingsObject, floatValue);
                             HandleSettingChanged(def, settingsObject, onSettingsChanged);
@@ -846,11 +874,20 @@ namespace Better_Work_Tab.UI.SettingsFramework
                     if (field != null && def.EnumType != null)
                     {
                         object current = field.GetValue(settingsObject);
-                        SettingWidgets.DrawEnum(contentRect, label, current, def.EnumType, tooltip, disabled, selected =>
-                        {
-                            field.SetValue(settingsObject, selected);
-                            HandleSettingChanged(def, settingsObject, onSettingsChanged);
-                        });
+                        SettingWidgets.DrawEnum(
+                            contentRect,
+                            label,
+                            current,
+                            def.EnumType,
+                            tooltip,
+                            disabled,
+                            selected =>
+                            {
+                                field.SetValue(settingsObject, selected);
+                                HandleSettingChanged(def, settingsObject, onSettingsChanged);
+                            },
+                            def.EnumLabelProvider,
+                            def.EnumDescriptionProvider);
                     }
                     break;
                 case SettingType.Button:
@@ -1828,6 +1865,7 @@ namespace Better_Work_Tab.UI.SettingsFramework
                 case SettingType.Int:
                 case SettingType.NumericInt:
                 case SettingType.Float:
+                case SettingType.Slider:
                 case SettingType.Color:
                 case SettingType.Enum:
                     return true;

@@ -1,6 +1,6 @@
 using System;
 
-namespace Better_Work_Tab.UI.SettingsFramework
+namespace Better_Work_Tab.UI.SettingsPresentation
 {
     /// <summary>
     /// Button labels and callbacks used by the settings drawer import/export footer.

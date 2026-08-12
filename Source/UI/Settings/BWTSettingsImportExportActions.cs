@@ -1,7 +1,8 @@
 using System;
 using System.IO;
 using RimWorld;
-using Better_Work_Tab.UI.SettingsFramework;
+using Spine.UI.SettingsFramework;
+using Better_Work_Tab.UI.SettingsPresentation;
 using UnityEngine;
 using Verse;
 

@@ -33,7 +33,7 @@
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
     <OutputPath>..\1.6\Assemblies\</OutputPath>
-    <DefineConstants>DEBUG;TRACE;RWT_HAS_COLOR_PICKER_ACCEPT_CANCEL;RWT_HAS_COLOR_PICKER_CLICK_OUTSIDE;RWT_HAS_COLOR_PICKER_WINDOW_LAYOUT;RWT_HAS_WARNING_ONCE</DefineConstants>
+    <DefineConstants>DEBUG;TRACE;RWT_EMBEDDED_SPINE_SETTINGS;RWT_FLOATMENU_DOGUI_CONTEXT;RWT_HAS_COLOR_PICKER_ACCEPT_CANCEL;RWT_HAS_COLOR_PICKER_CLICK_OUTSIDE;RWT_HAS_COLOR_PICKER_WINDOW_LAYOUT;RWT_HAS_WARNING_ONCE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
@@ -41,7 +41,7 @@
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
     <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants>TRACE;RWT_HAS_COLOR_PICKER_ACCEPT_CANCEL;RWT_HAS_COLOR_PICKER_CLICK_OUTSIDE;RWT_HAS_COLOR_PICKER_WINDOW_LAYOUT;RWT_HAS_WARNING_ONCE</DefineConstants>
+    <DefineConstants>TRACE;RWT_EMBEDDED_SPINE_SETTINGS;RWT_FLOATMENU_DOGUI_CONTEXT;RWT_HAS_COLOR_PICKER_ACCEPT_CANCEL;RWT_HAS_COLOR_PICKER_CLICK_OUTSIDE;RWT_HAS_COLOR_PICKER_WINDOW_LAYOUT;RWT_HAS_WARNING_ONCE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
@@ -49,7 +49,7 @@
     <OutputPath>..\1.6\Assemblies\</OutputPath>
     <Optimize>true</Optimize>
     <DebugType>pdbonly</DebugType>
-    <DefineConstants>TRACE;RWT_HAS_COLOR_PICKER_ACCEPT_CANCEL;RWT_HAS_COLOR_PICKER_CLICK_OUTSIDE;RWT_HAS_COLOR_PICKER_WINDOW_LAYOUT;RWT_HAS_WARNING_ONCE</DefineConstants>
+    <DefineConstants>TRACE;RWT_EMBEDDED_SPINE_SETTINGS;RWT_FLOATMENU_DOGUI_CONTEXT;RWT_HAS_COLOR_PICKER_ACCEPT_CANCEL;RWT_HAS_COLOR_PICKER_CLICK_OUTSIDE;RWT_HAS_COLOR_PICKER_WINDOW_LAYOUT;RWT_HAS_WARNING_ONCE</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System.Core" />
@@ -321,16 +321,16 @@
     <Compile Include="Spine\UI\Tutorial\TutorialTextViewport.cs" />
     <Compile Include="Spine\UI\Tutorial\TutorialHubState.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingDefinition.cs" />
+    <Compile Include="Spine\UI\SettingsFramework\SettingDefinitions.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingSuppression.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingsScribe.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingType.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingsHierarchy.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingsFilterDefinition.cs" />
-    <Compile Include="Spine\UI\SettingsFramework\SettingsImportExportActions.cs" />
+    <Compile Include="UI\Settings\Presentation\SettingsImportExportActions.cs" />
     <Compile Include="Spine\UI\SettingsFramework\DescribedFloatMenu.cs" />
-    <Compile Include="Spine\UI\SettingsFramework\SettingWidgets.cs" />
-    <Compile Include="Spine\UI\SettingsFramework\SettingsListDrawer.cs" />
-    <Compile Include="Spine\UI\SettingsFramework\SettingsUIHelpers.cs" />
+    <Compile Include="UI\Settings\Presentation\SettingWidgets.cs" />
+    <Compile Include="UI\Settings\Presentation\SettingsListDrawer.cs" />
     <Compile Include="UI\WorkGiverReassignments\Window_WorkGiverSubMenu.cs" />
     <Compile Include="UI\WorkGiverReassignments\SubWorkDrilldownBarRenderer.cs" />
     <Compile Include="UI\WorkGiverReassignments\SubWorkCrossWorkDropTargetRenderer.cs" />
@@ -377,7 +377,6 @@
     <Compile Include="UI\WorkGrid\Rendering\WorkGridRenderPrimitives.cs" />
     <Compile Include="UI\WorkGrid\Diagnostics\WorkGridRendererDiagnostics.cs" />
     <Compile Include="Spine\UI\WidgetExtensions\ConnectedOutlineDrawer.cs" />
-    <Compile Include="Spine\UI\WidgetExtensions\RimworldSettingsWidgets.cs" />
     <Compile Include="UI\Input\GuiMousePosition.cs" />
     <Compile Include="UI\Input\NativeCursorPosition.cs" />
     <Compile Include="UI\RulesetListDragUI.cs" />
@@ -506,6 +505,14 @@
     <Compile Remove="Spine\Core\Caching\BoundedLruCache.cs" />
     <Compile Remove="Spine\Core\Diagnostics\ApiDescriptors.cs" />
     <Compile Remove="Spine\UI\ColorPicker\*.cs" />
+    <Compile Remove="Spine\UI\SettingsFramework\DescribedFloatMenu.cs" />
+    <Compile Remove="Spine\UI\SettingsFramework\SettingDefinition.cs" />
+    <Compile Remove="Spine\UI\SettingsFramework\SettingDefinitions.cs" />
+    <Compile Remove="Spine\UI\SettingsFramework\SettingSuppression.cs" />
+    <Compile Remove="Spine\UI\SettingsFramework\SettingsFilterDefinition.cs" />
+    <Compile Remove="Spine\UI\SettingsFramework\SettingsHierarchy.cs" />
+    <Compile Remove="Spine\UI\SettingsFramework\SettingsScribe.cs" />
+    <Compile Remove="Spine\UI\SettingsFramework\SettingType.cs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Krafs.Publicizer">

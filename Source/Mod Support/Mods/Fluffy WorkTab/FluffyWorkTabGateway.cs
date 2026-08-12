@@ -18,7 +18,7 @@ using Better_Work_Tab.UI.Settings;
 using Better_Work_Tab.UI.WorkGrid.Layout;
 using HarmonyLib;
 using RimWorld;
-using Better_Work_Tab.UI.SettingsFramework;
+using Spine.UI.SettingsFramework;
 using UnityEngine;
 using Verse;
 using Verse.Sound;
@@ -1530,118 +1530,94 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             return normalized;
         }
 
-        private sealed class FluffyWorkTabSettingsContributor : IModSettingsContributor
+        private sealed class FluffyWorkTabSettingsContributor :
+            IModSettingsContributor
         {
             private const string WorkTabOwnedByFluffyReason = "An external Work tab integration is running the Work tab right now.";
 
-            public BWTModSettingsSection CreateSettingsSection()
+            public BWTModSettingsSection CreateSettingsSection(
+                SettingsScope<BetterWorkTabSettings> scope)
             {
                 return new BWTModSettingsSection
                 {
-                    Header = new SettingDefinition
-                    {
-                        Id = CompatFluffyWorkTabHeader,
-                        Label = "Fluffy-style Work Tab",
-                        Tooltip = "BWT-native options inspired by Fluffy's Work Tab, plus compatibility controls when Fluffy Work Tab or Sleek Work Priorities is installed.",
-                        SearchKeywords = FluffyBaseSearchKeywords,
-                        Type = SettingType.Header,
-                        HeaderColor = new Color(0.67f, 0.75f, 0.92f),
-                        ShowInSimpleView = true,
-                        SortOrder = 0
-                    },
+                    Header =                     scope.Define(
+                        CompatFluffyWorkTabHeader,
+                        SettingType.Header,
+                        "Fluffy-style Work Tab",
+                        tooltip: "BWT-native options inspired by Fluffy's Work Tab, plus compatibility controls when Fluffy Work Tab or Sleek Work Priorities is installed."
+                    )
+                        .SearchableBy(FluffyBaseSearchKeywords)
+                        .Ordered(0)
+                        .Accented(new Color(0.67f, 0.75f, 0.92f)),
                     Children = new[]
                     {
-                        new SettingDefinition
-                        {
-                            Id = FluffyStyleFeatures,
-                            FieldName = nameof(BetterWorkTabSettings.enableFluffyStyleFeatures),
-                            Label = "Use these controls",
-                            Tooltip = "Use BWT's Fluffy-inspired Work tab controls and right-expanding specific-job columns. BWT owns the UI and priority data; Fluffy Work Tab is not required.",
-                            SearchKeywords = FluffyControlsSearchKeywords,
-                            Type = SettingType.Bool,
-                            DefaultValue = DefaultSettings.enableFluffyStyleFeatures,
-                            ControlsChildVisibility = true,
-                            OnChanged = _ =>
+                                                scope.Toggle(
+                            FluffyStyleFeatures,
+                            settings => settings.enableFluffyStyleFeatures,
+                            "Use these controls",
+                            tooltip: "Use BWT's Fluffy-inspired Work tab controls and right-expanding specific-job columns. BWT owns the UI and priority data; Fluffy Work Tab is not required.",
+                            onChanged: _ =>
                             {
                                 SubWorkDrilldownState.CollapseAllExpandBeside();
                                 HeaderDrawingCoordinator.NotifyAngledHeadersChanged();
-                            },
-                            ShowInSimpleView = true,
-                            ShowInAdvancedView = true,
-                            SortOrder = 0
-                        },
-                        new SettingDefinition
-                        {
-                            Id = FluffyStyleTopButtons,
-                            ParentId = CompatFluffyWorkTabOwnership,
-                            FieldName = nameof(BetterWorkTabSettings.showFluffyStyleTopButtons),
-                            Label = "Show top controls",
-                            Tooltip = "When Fluffy Work Tab is installed, show its familiar icon controls for manual priorities, time schedules, and expanding or collapsing specific jobs.",
-                            SearchKeywords = FluffyControlsSearchKeywords,
-                            Type = SettingType.Bool,
-                            DefaultValue = DefaultSettings.showFluffyStyleTopButtons,
-                            ShowInSimpleView = true,
-                            ShowInAdvancedView = true,
-                            SortOrder = 1
-                        },
-                        new SettingDefinition
-                        {
-                            Id = FluffyStyleStandaloneTopButtons,
-                            ParentId = FluffyStyleFeatures,
-                            FieldName = nameof(BetterWorkTabSettings.showStandaloneFluffyStyleTopButtons),
-                            Label = "Show text substitute controls",
-                            Tooltip = "Without Fluffy Work Tab, optionally show BWT-drawn text substitutes for the three top controls. Off by default because Fluffy's icon assets are unavailable.",
-                            SearchKeywords = FluffyControlsSearchKeywords,
-                            Type = SettingType.Bool,
-                            DefaultValue = DefaultSettings.showStandaloneFluffyStyleTopButtons,
-                            VisibleWhen = _ => !FluffyWorkTabGateway.IsPresent,
-                            ShowInSimpleView = true,
-                            ShowInAdvancedView = true,
-                            SortOrder = 2
-                        },
-                        new SettingDefinition
-                        {
-                            Id = FluffyStyleScheduleAssigner,
-                            ParentId = CompatFluffyWorkTabOwnership,
-                            FieldName = nameof(BetterWorkTabSettings.enableFluffyScheduleAssigner),
-                            Label = "Use hour-selection scheduler",
-                            Tooltip = "Use Fluffy's original bottom hour selector: choose hours, then click normal priority boxes to assign those hours. This option requires Fluffy Work Tab because it uses Fluffy's scheduler assets.",
-                            SearchKeywords = FluffyScheduleSearchKeywords,
-                            Type = SettingType.Bool,
-                            DefaultValue = DefaultSettings.enableFluffyScheduleAssigner,
-                            ShowInSimpleView = true,
-                            ShowInAdvancedView = true,
-                            SortOrder = 3
-                        },
-                        new SettingDefinition
-                        {
-                            Id = CompatFluffyWorkTabOwnership,
-                            Label = "Fluffy Work Tab compatibility",
-                            Tooltip = "Choose which compatible mod runs the Work tab. When Fluffy Work Tab is installed, also choose whether its columns remain visible.",
-                            SearchKeywords = FluffyOwnershipSearchKeywords,
-                            Type = SettingType.Header,
-                            Suppressions = new List<SettingSuppression>
+                            }
+                        )
+                            .DefaultTo(DefaultSettings.enableFluffyStyleFeatures)
+                            .SearchableBy(FluffyControlsSearchKeywords)
+                            .ControlsChildren()
+                            .Ordered(0),
+                                                scope.Under(CompatFluffyWorkTabOwnership).Toggle(
+                            FluffyStyleTopButtons,
+                            settings => settings.showFluffyStyleTopButtons,
+                            "Show top controls",
+                            tooltip: "When Fluffy Work Tab is installed, show its familiar icon controls for manual priorities, time schedules, and expanding or collapsing specific jobs."
+                        )
+                            .DefaultTo(DefaultSettings.showFluffyStyleTopButtons)
+                            .SearchableBy(FluffyControlsSearchKeywords)
+                            .Ordered(1),
+                                                scope.Under(FluffyStyleFeatures).Toggle(
+                            FluffyStyleStandaloneTopButtons,
+                            settings => settings.showStandaloneFluffyStyleTopButtons,
+                            "Show text substitute controls",
+                            tooltip: "Without Fluffy Work Tab, optionally show BWT-drawn text substitutes for the three top controls. Off by default because Fluffy's icon assets are unavailable."
+                        )
+                            .DefaultTo(DefaultSettings.showStandaloneFluffyStyleTopButtons)
+                            .SearchableBy(FluffyControlsSearchKeywords)
+                            .Ordered(2)
+                            .ShownWhen(_ => !FluffyWorkTabGateway.IsPresent),
+                                                scope.Under(CompatFluffyWorkTabOwnership).Toggle(
+                            FluffyStyleScheduleAssigner,
+                            settings => settings.enableFluffyScheduleAssigner,
+                            "Use hour-selection scheduler",
+                            tooltip: "Use Fluffy's original bottom hour selector: choose hours, then click normal priority boxes to assign those hours. This option requires Fluffy Work Tab because it uses Fluffy's scheduler assets."
+                        )
+                            .DefaultTo(DefaultSettings.enableFluffyScheduleAssigner)
+                            .SearchableBy(FluffyScheduleSearchKeywords)
+                            .Ordered(3),
+                                                scope.Define(
+                            CompatFluffyWorkTabOwnership,
+                            SettingType.Header,
+                            "Fluffy Work Tab compatibility",
+                            tooltip: "Choose which compatible mod runs the Work tab. When Fluffy Work Tab is installed, also choose whether its columns remain visible."
+                        )
+                            .SearchableBy(FluffyOwnershipSearchKeywords)
+                            .Ordered(20)
+                            .Configure(definition =>
                             {
-                                OptionalModSettingsAvailability.Require(
+                                definition.Suppressions = new List<SettingSuppression>
+                                    {
+                                    OptionalModSettingsAvailability.Require(
                                     () => FluffyWorkTabGateway.AnyExternalWorkTabPresent,
                                     "Fluffy Work Tab or Sleek Work Priorities",
                                     "https://steamcommunity.com/sharedfiles/filedetails/?id=3453549086")
-                            },
-                            ShowInSimpleView = true,
-                            SortOrder = 20
-                        },
-                        new SettingDefinition
-                        {
-                            Id = CompatFluffyWorkTabOwner,
-                            ParentId = CompatFluffyWorkTabOwnership,
-                            FieldName = "preferredWorkTabOwner",
-                            Label = "Which mod opens the Work tab?",
-                             Tooltip = "Choose BWT-only, Sleek-only, Fluffy-only, or the mixed BWT + Sleek host where BWT owns rows, dividers, and headers while Sleek renders its priority cells and companion work cards.",
-                            SearchKeywords = FluffyOwnershipSearchKeywords,
-                            Type = SettingType.Enum,
-                            EnumType = typeof(WorkTabOwnerPreference),
-                            DefaultValue = DefaultSettings.preferredWorkTabOwner,
-                            OnChanged = value =>
+                                    };
+                            }),
+                                                scope.Under(CompatFluffyWorkTabOwnership).Enum(
+                            CompatFluffyWorkTabOwner,
+                            settings => settings.preferredWorkTabOwner,
+                            "Which mod opens the Work tab?",
+                            tooltip: "Choose BWT-only, Sleek-only, Fluffy-only, or the mixed BWT + Sleek host where BWT owns rows, dividers, and headers while Sleek renders its priority cells and companion work cards.",
+                            onChanged: value =>
                             {
                                 if (value is BetterWorkTabSettings changedSettings)
                                 {
@@ -1649,117 +1625,93 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                                 }
                                 PriorityAuthorityBroker.NotifyPotentialAuthorityChanged();
                                 FluffyWorkTabCoexistence.ApplyDesiredOwner(reopenIfOpen: true);
-                            },
-                            ShowInSimpleView = true,
-                            SortOrder = 21
-                        },
-                        new SettingDefinition
-                        {
-                            Id = CompatExternalWorkTabColumns,
-                            ParentId = CompatFluffyWorkTabOwnership,
-                            FieldName = "showExternalWorkTabColumns",
-                            Label = FluffyWorkTabGateway.ColumnVisibilitySettingLabel,
-                            Tooltip = FluffyWorkTabGateway.ColumnVisibilitySettingTooltip,
-                            SearchKeywords = FluffyOwnershipSearchKeywords,
-                            Type = SettingType.Bool,
-                            DefaultValue = DefaultSettings.showExternalWorkTabColumns,
-                            Suppressions = new List<SettingSuppression>
+                            }
+                        )
+                            .DefaultTo(DefaultSettings.preferredWorkTabOwner)
+                            .SearchableBy(FluffyOwnershipSearchKeywords)
+                            .Ordered(21),
+                                                scope.Under(CompatFluffyWorkTabOwnership).Toggle(
+                            CompatExternalWorkTabColumns,
+                            settings => settings.showExternalWorkTabColumns,
+                            FluffyWorkTabGateway.ColumnVisibilitySettingLabel,
+                            tooltip: FluffyWorkTabGateway.ColumnVisibilitySettingTooltip,
+                            onChanged: _ => FluffyWorkTabGateway.ApplyColumnVisibility()
+                        )
+                            .DefaultTo(DefaultSettings.showExternalWorkTabColumns)
+                            .SearchableBy(FluffyOwnershipSearchKeywords)
+                            .Ordered(22)
+                            .Configure(definition =>
                             {
-                                CreateWorkTabOwnedByFluffySuppression(WorkTabOwnedByFluffyReason)
-                            },
-                            OnChanged = _ => FluffyWorkTabGateway.ApplyColumnVisibility(),
-                            ShowInSimpleView = true,
-                            SortOrder = 22
-                        },
-                        new SettingDefinition
-                        {
-                            Id = CompatFluffyWorkTabSpecificJobs,
-                            ParentId = FluffyStyleFeatures,
-                            Label = "Specific jobs",
-                            Tooltip = "Choose how BWT opens a Work column into its individual jobs.",
-                            SearchKeywords = FluffySpecificJobsSearchKeywords,
-                            Type = SettingType.Header,
-                            ShowInSimpleView = true,
-                            SortOrder = 10
-                        },
-                        new SettingDefinition
-                        {
-                            Id = SubWorkDrilldownStyle,
-                            ParentId = CompatFluffyWorkTabSpecificJobs,
-                            FieldName = "subWorkDrilldownStyle",
-                            Label = "Specific-job view",
-                            Tooltip = "Choose BWT's focused full-tab view or Fluffy-inspired right-expanding columns. Both modes are implemented by BWT and work without Fluffy Work Tab installed.",
-                            SearchKeywords = FluffySpecificJobsSearchKeywords,
-                            Type = SettingType.Enum,
-                            EnumType = typeof(BetterWorkTabSettings.SubWorkDrilldownStyle),
-                            DefaultValue = DefaultSettings.subWorkDrilldownStyle,
-                            Suppressions = new List<SettingSuppression>
+                                definition.Suppressions = new List<SettingSuppression>
+                                    {
+                                    CreateWorkTabOwnedByFluffySuppression(WorkTabOwnedByFluffyReason)
+                                    };
+                            }),
+                                                scope.Under(FluffyStyleFeatures).Define(
+                            CompatFluffyWorkTabSpecificJobs,
+                            SettingType.Header,
+                            "Specific jobs",
+                            tooltip: "Choose how BWT opens a Work column into its individual jobs."
+                        )
+                            .SearchableBy(FluffySpecificJobsSearchKeywords)
+                            .Ordered(10),
+                                                scope.Under(CompatFluffyWorkTabSpecificJobs).Enum(
+                            SubWorkDrilldownStyle,
+                            settings => settings.subWorkDrilldownStyle,
+                            "Specific-job view",
+                            tooltip: "Choose BWT's focused full-tab view or Fluffy-inspired right-expanding columns. Both modes are implemented by BWT and work without Fluffy Work Tab installed.",
+                            onChanged: _ => HeaderDrawingCoordinator.NotifyAngledHeadersChanged()
+                        )
+                            .DefaultTo(DefaultSettings.subWorkDrilldownStyle)
+                            .SearchableBy(FluffySpecificJobsSearchKeywords)
+                            .Ordered(11)
+                            .Configure(definition =>
                             {
-                                CreateWorkTabOwnedByFluffySuppression(WorkTabOwnedByFluffyReason)
-                            },
-                            OnChanged = _ => HeaderDrawingCoordinator.NotifyAngledHeadersChanged(),
-                            ShowInSimpleView = true,
-                            SortOrder = 11
-                        },
-                        new SettingDefinition
-                        {
-                            Id = ControlsFluffyHeader,
-                            ParentId = CompatFluffyWorkTabHeader,
-                            Label = "Native gestures",
-                            Tooltip = "Contextual controls defined by Fluffy Work Tab. Fluffy uses fixed mouse-and-modifier gestures rather than RimWorld-rebindable key definitions.",
-                            SearchKeywords = FluffyKeywords("controls", "keybindings", "keyboard", "mouse", "shortcuts"),
-                            Type = SettingType.Header,
-                            HeaderColor = new Color(0.67f, 0.75f, 0.92f),
-                            VisibleWhen = _ => FluffyWorkTabGateway.IsPresent,
-                            ShowInSimpleView = true,
-                            ShowInAdvancedView = true,
-                            SortOrder = 100
-                        },
-                        new SettingDefinition
-                        {
-                            Id = ControlsFluffyExpand,
-                            ParentId = ControlsFluffyHeader,
-                            Label = "Open or close specific jobs",
-                            Tooltip = "Fluffy's native Ctrl-header gesture is preserved. When BWT owns the tab, the configured specific-job shortcut routes through BWT and Expand beside opens Fluffy-style columns.",
-                            SearchKeywords = FluffyKeywords("ctrl click", "expand", "collapse", "specific jobs"),
-                            Type = SettingType.Custom,
-                            CustomDrawer = (rect, label, tooltip, _, disabled) =>
+                                definition.Suppressions = new List<SettingSuppression>
+                                    {
+                                    CreateWorkTabOwnedByFluffySuppression(WorkTabOwnedByFluffyReason)
+                                    };
+                            }),
+                                                scope.Under(CompatFluffyWorkTabHeader).Define(
+                            ControlsFluffyHeader,
+                            SettingType.Header,
+                            "Native gestures",
+                            tooltip: "Contextual controls defined by Fluffy Work Tab. Fluffy uses fixed mouse-and-modifier gestures rather than RimWorld-rebindable key definitions."
+                        )
+                            .SearchableBy(FluffyKeywords("controls", "keybindings", "keyboard", "mouse", "shortcuts"))
+                            .Ordered(100)
+                            .Accented(new Color(0.67f, 0.75f, 0.92f))
+                            .ShownWhen(_ => FluffyWorkTabGateway.IsPresent),
+                                                scope.Under(ControlsFluffyHeader).Custom(
+                            ControlsFluffyExpand,
+                            (rect, label, tooltip, _, disabled) =>
                                 BWTSettingWidgets.DrawReadOnlyValue(rect, label, "Ctrl-click Work header", tooltip, disabled),
-                            VisibleWhen = _ => FluffyWorkTabGateway.IsPresent,
-                            ShowInSimpleView = true,
-                            ShowInAdvancedView = true,
-                            SortOrder = 101
-                        },
-                        new SettingDefinition
-                        {
-                            Id = ControlsFluffyBatch,
-                            ParentId = ControlsFluffyHeader,
-                            Label = "Change a whole Work column",
-                            Tooltip = "Shift-scroll changes all capable pawn priorities. Shift-click changes a whole specific-job column; on root Work headers, BWT's optional grouping action owns Shift-left-click.",
-                            SearchKeywords = FluffyKeywords("shift scroll", "shift click", "batch priority", "all pawns"),
-                            Type = SettingType.Custom,
-                            CustomDrawer = (rect, label, tooltip, _, disabled) =>
+                            "Open or close specific jobs",
+                            tooltip: "Fluffy's native Ctrl-header gesture is preserved. When BWT owns the tab, the configured specific-job shortcut routes through BWT and Expand beside opens Fluffy-style columns."
+                        )
+                            .SearchableBy(FluffyKeywords("ctrl click", "expand", "collapse", "specific jobs"))
+                            .Ordered(101)
+                            .ShownWhen(_ => FluffyWorkTabGateway.IsPresent),
+                                                scope.Under(ControlsFluffyHeader).Custom(
+                            ControlsFluffyBatch,
+                            (rect, label, tooltip, _, disabled) =>
                                 BWTSettingWidgets.DrawReadOnlyValue(rect, label, "Shift-click / Shift-wheel", tooltip, disabled),
-                            VisibleWhen = _ => FluffyWorkTabGateway.IsPresent,
-                            ShowInSimpleView = true,
-                            ShowInAdvancedView = true,
-                            SortOrder = 102
-                        },
-                        new SettingDefinition
-                        {
-                            Id = ControlsFluffyPawnRows,
-                            ParentId = ControlsFluffyHeader,
-                            Label = "Adjust a pawn row",
-                            Tooltip = "Fluffy's Shift-click and Shift-wheel pawn-name gesture remains available when Fluffy owns the Work tab. BWT-owned layouts keep fixed aligned pawn-row heights.",
-                            SearchKeywords = FluffyKeywords("pawn row height", "shift pawn label", "name column"),
-                            Type = SettingType.Custom,
-                            CustomDrawer = (rect, label, tooltip, _, disabled) =>
+                            "Change a whole Work column",
+                            tooltip: "Shift-scroll changes all capable pawn priorities. Shift-click changes a whole specific-job column; on root Work headers, BWT's optional grouping action owns Shift-left-click."
+                        )
+                            .SearchableBy(FluffyKeywords("shift scroll", "shift click", "batch priority", "all pawns"))
+                            .Ordered(102)
+                            .ShownWhen(_ => FluffyWorkTabGateway.IsPresent),
+                                                scope.Under(ControlsFluffyHeader).Custom(
+                            ControlsFluffyPawnRows,
+                            (rect, label, tooltip, _, disabled) =>
                                 BWTSettingWidgets.DrawReadOnlyValue(rect, label, "Shift-click / Shift-wheel", tooltip, disabled),
-                            VisibleWhen = _ => FluffyWorkTabGateway.IsPresent,
-                            ShowInSimpleView = true,
-                            ShowInAdvancedView = true,
-                            SortOrder = 103
-                        }
+                            "Adjust a pawn row",
+                            tooltip: "Fluffy's Shift-click and Shift-wheel pawn-name gesture remains available when Fluffy owns the Work tab. BWT-owned layouts keep fixed aligned pawn-row heights."
+                        )
+                            .SearchableBy(FluffyKeywords("pawn row height", "shift pawn label", "name column"))
+                            .Ordered(103)
+                            .ShownWhen(_ => FluffyWorkTabGateway.IsPresent)
                     }
                 };
             }

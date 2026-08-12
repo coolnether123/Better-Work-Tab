@@ -1,10 +1,11 @@
 using System;
 using System.Collections.Generic;
+using Spine.UI.SettingsFramework;
 using UnityEngine;
 using Verse;
 using Spine.UI.ColourPicker;
 
-namespace Better_Work_Tab.UI.SettingsFramework
+namespace Better_Work_Tab.UI.SettingsPresentation
 {
     /// <summary>
     /// Stateless widget renderers for individual setting types.
@@ -190,6 +191,90 @@ namespace Better_Work_Tab.UI.SettingsFramework
         }
 
         /// <summary>
+        /// Draws a float slider with an optional quantisation step and readout.
+        /// This is the richer counterpart used by typed schema definitions;
+        /// the established DrawFloat signature remains available to callers.
+        /// </summary>
+        public static bool DrawSlider(
+            Rect rect,
+            string label,
+            ref float value,
+            float min,
+            float max,
+            string valueLabel = null,
+            string tooltip = null,
+            bool disabled = false,
+            float step = 0f)
+        {
+            float original = value;
+            const float ReadoutWidth = 54f;
+            const float SliderHeight = 18f;
+            Rect rightRect = rect.RightPart(0.48f);
+            Rect labelRect = new Rect(
+                rect.x,
+                rect.y,
+                Mathf.Max(0f, rightRect.x - rect.x - 6f),
+                rect.height);
+            Rect readoutRect = new Rect(
+                rightRect.xMax - ReadoutWidth,
+                rect.y,
+                ReadoutWidth,
+                rect.height);
+            Rect sliderRect = new Rect(
+                rightRect.x,
+                rect.y + (rect.height - SliderHeight) * 0.5f,
+                Mathf.Max(24f, rightRect.width - ReadoutWidth - 6f),
+                SliderHeight);
+
+            DrawSettingLabel(labelRect, label, disabled);
+            TextAnchor previousAnchor = Text.Anchor;
+            Text.Anchor = TextAnchor.MiddleRight;
+            Widgets.Label(readoutRect, valueLabel ?? value.ToString("0.00"));
+            Text.Anchor = previousAnchor;
+
+            bool previousEnabled = GUI.enabled;
+            Color previousColor = GUI.color;
+            if (disabled)
+            {
+                GUI.enabled = false;
+                GUI.color = Color.gray;
+            }
+
+            float updated = Widgets.HorizontalSlider(
+                sliderRect,
+                value,
+                min,
+                max,
+                middleAlignment: true);
+
+            if (disabled)
+            {
+                GUI.enabled = previousEnabled;
+                GUI.color = previousColor;
+                if (!string.IsNullOrEmpty(tooltip))
+                {
+                    TooltipHandler.TipRegion(rect, tooltip);
+                }
+
+                return false;
+            }
+
+            value = updated;
+            if (step > 0f)
+            {
+                value = Mathf.Round(value / step) * step;
+            }
+
+            value = Mathf.Clamp(value, min, max);
+            if (!string.IsNullOrEmpty(tooltip))
+            {
+                TooltipHandler.TipRegion(rect, tooltip);
+            }
+
+            return !Mathf.Approximately(original, value);
+        }
+
+        /// <summary>
         /// Draws an integer slider with optional tooltip.
         /// </summary>
         public static bool DrawInt(
@@ -296,6 +381,32 @@ namespace Better_Work_Tab.UI.SettingsFramework
             bool disabled = false,
             Action<object> onSelected = null)
         {
+            DrawEnum(
+                rect,
+                label,
+                currentValue,
+                enumType,
+                tooltip,
+                disabled,
+                onSelected,
+                null,
+                null);
+        }
+
+        /// <summary>
+        /// Draws an enum dropdown with consumer-provided labels and descriptions.
+        /// </summary>
+        public static void DrawEnum(
+            Rect rect,
+            string label,
+            object currentValue,
+            Type enumType,
+            string tooltip = null,
+            bool disabled = false,
+            Action<object> onSelected = null,
+            Func<object, string> labelProvider = null,
+            Func<object, string> descriptionProvider = null)
+        {
             var buttonRect = rect.RightPart(0.48f);
             var labelRect = new Rect(
                 rect.x,
@@ -313,7 +424,7 @@ namespace Better_Work_Tab.UI.SettingsFramework
                 GUI.color = Color.gray;
             }
 
-            string currentLabel = ResolveEnumLabel(enumType, currentValue);
+            string currentLabel = ResolveEnumLabel(enumType, currentValue, labelProvider);
 
             if (Widgets.ButtonText(buttonRect, currentLabel) && enumType != null)
             {
@@ -332,10 +443,14 @@ namespace Better_Work_Tab.UI.SettingsFramework
                     }
 
                     var local = enumValue;
-                    string optionLabel = ResolveEnumLabel(enumType, local);
+                    string optionLabel = ResolveEnumLabel(enumType, local, labelProvider);
                     var option = new FloatMenuOption(optionLabel, () => onSelected?.Invoke(local));
                     options.Add(option);
-                    optionDescriptions[option] = ResolveEnumDescription(enumType, local, tooltip);
+                    optionDescriptions[option] = ResolveEnumDescription(
+                        enumType,
+                        local,
+                        tooltip,
+                        descriptionProvider);
                     if (Convert.ToInt64(local) == currentNumericValue)
                     {
                         selectedOption = option;
@@ -359,11 +474,20 @@ namespace Better_Work_Tab.UI.SettingsFramework
             }
         }
 
-        private static string ResolveEnumLabel(Type enumType, object value)
+        private static string ResolveEnumLabel(
+            Type enumType,
+            object value,
+            Func<object, string> labelProvider = null)
         {
             if (enumType == null || value == null)
             {
                 return string.Empty;
+            }
+
+            string suppliedLabel = labelProvider?.Invoke(value);
+            if (!string.IsNullOrWhiteSpace(suppliedLabel))
+            {
+                return suppliedLabel;
             }
 
             string key = $"BWT_Enum_{enumType.Name}_{value}";
@@ -390,11 +514,18 @@ namespace Better_Work_Tab.UI.SettingsFramework
         private static string ResolveEnumDescription(
             Type enumType,
             object value,
-            string settingDescription)
+            string settingDescription,
+            Func<object, string> descriptionProvider = null)
         {
             if (enumType == null || value == null)
             {
                 return settingDescription ?? string.Empty;
+            }
+
+            string suppliedDescription = descriptionProvider?.Invoke(value);
+            if (!string.IsNullOrWhiteSpace(suppliedDescription))
+            {
+                return suppliedDescription;
             }
 
             string key = $"BWT_Enum_{enumType.Name}_{value}_Description";

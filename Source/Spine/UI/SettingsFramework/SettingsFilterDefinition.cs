@@ -1,6 +1,6 @@
 using System;
 
-namespace Better_Work_Tab.UI.SettingsFramework
+namespace Spine.UI.SettingsFramework
 {
     /// <summary>
     /// Describes one optional filter the settings drawer can apply to its visible rows.

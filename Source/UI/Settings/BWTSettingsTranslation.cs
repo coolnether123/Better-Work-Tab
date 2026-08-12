@@ -1,4 +1,4 @@
-using Better_Work_Tab.UI.SettingsFramework;
+using Spine.UI.SettingsFramework;
 using Verse;
 
 namespace Better_Work_Tab.UI.Settings

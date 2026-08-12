@@ -1,6 +1,6 @@
 using System;
 
-namespace Better_Work_Tab.UI.SettingsFramework
+namespace Spine.UI.SettingsFramework
 {
     /// <summary>
     /// Supported widget types for rendering settings entries.
@@ -9,12 +9,6 @@ namespace Better_Work_Tab.UI.SettingsFramework
     {
         /// <summary>Checkbox toggle for boolean values.</summary>
         Bool,
-
-        /// <summary>Integer input with optional buttons.</summary>
-        Int,
-
-        /// <summary>Horizontal slider for float values.</summary>
-        Float,
 
         /// <summary>Color swatch with picker dialog.</summary>
         Color,
@@ -28,16 +22,28 @@ namespace Better_Work_Tab.UI.SettingsFramework
         /// <summary>Non-interactive section header.</summary>
         Header,
 
+        /// <summary>Custom immediate-mode row supplied by a setting definition.</summary>
+        Custom,
+
+        /// <summary>Continuous float value dragged between a minimum and maximum.</summary>
+        Slider,
+
+        /// <summary>Integer input with optional bounds.</summary>
+        Int,
+
+        /// <summary>Horizontal float input with optional bounds.</summary>
+        Float,
+
         /// <summary>Empty space for visual separation.</summary>
         Spacer,
 
-        /// <summary>Dropdown button that adds selected options to a list of toggleable children.</summary>
+        /// <summary>
+        /// Dropdown action that offers options supplied at draw time and reports
+        /// the selected option to the consumer.
+        /// </summary>
         DropdownListAdder,
 
-        /// <summary>Integer input with +/- buttons and text field.</summary>
-        NumericInt,
-
-        /// <summary>Custom immediate-mode row supplied by a setting definition.</summary>
-        Custom
+        /// <summary>Integer input with +/- buttons and a text field.</summary>
+        NumericInt
     }
 }

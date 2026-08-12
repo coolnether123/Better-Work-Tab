@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using Better_Work_Tab.UI.SettingsFramework;
+using Spine.UI.SettingsFramework;
 
 namespace Better_Work_Tab.UI.Settings
 {

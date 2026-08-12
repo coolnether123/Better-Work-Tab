@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using LudeonTK;
-using Better_Work_Tab.UI.SettingsFramework;
+using Spine.UI.SettingsFramework;
 using Verse;
 
 namespace Better_Work_Tab.UI.Settings
@@ -117,7 +117,7 @@ namespace Better_Work_Tab.UI.Settings
                     Warn("Public 1.0 setting is unreachable in both views: " + def.Id);
                 }
 
-                string scribeKey = SettingsScribe.EffectiveScribeKey(def);
+                string scribeKey = BWTSettingsRegistry.Schema.EffectiveScribeKey(def);
                 if (!string.IsNullOrEmpty(scribeKey) && !scribeKeys.Add(scribeKey))
                 {
                     Warn("Duplicate scribe key: " + scribeKey);

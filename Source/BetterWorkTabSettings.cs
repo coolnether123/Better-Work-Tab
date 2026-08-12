@@ -21,7 +21,7 @@ using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.Settings;
 using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
-using Better_Work_Tab.UI.SettingsFramework;
+using Spine.UI.SettingsFramework;
 using Spine.UI.Tutorial;
 
 namespace Better_Work_Tab
@@ -954,7 +954,7 @@ namespace Better_Work_Tab
 
             // Add new settings in BWTSettingsRegistry's HOW TO ADD A SETTING block.
             BWTSettingsRegistry.EnsureInitialized();
-            SettingsScribe.ScribeAll(this, BWTSettingsRegistry.Definitions);
+            BWTSettingsRegistry.Schema.Scribe(this);
 
             // REGISTERED PREFERENCES WITH MIGRATION BEHAVIOR
             subWorkTransitionSeconds = ClampSubWorkTransitionSeconds(subWorkTransitionSeconds);
@@ -1107,9 +1107,8 @@ namespace Better_Work_Tab
                 debugFeatureToggles[feature] = false;
             }
 
-            SettingsScribe.NotifyPreferenceChanges(
+            BWTSettingsRegistry.Schema.NotifyPreferenceChanges(
                 this,
-                BWTSettingsRegistry.Definitions,
                 changedPreferenceFields);
             BetterWorkTabSettingsUI.NotifySettingsChanged();
         }
@@ -1143,7 +1142,7 @@ namespace Better_Work_Tab
         private IReadOnlyCollection<string> ApplyRegisteredDefaults()
         {
             BWTSettingsRegistry.EnsureInitialized();
-            return SettingsScribe.ApplyPreferenceDefaults(this, BWTSettingsRegistry.Definitions);
+            return BWTSettingsRegistry.Schema.ApplyPreferenceDefaults(this);
         }
 
         private void EnsureLayoutPersistenceStateInitialized()

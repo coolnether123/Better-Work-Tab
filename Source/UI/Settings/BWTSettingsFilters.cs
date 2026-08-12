@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
-using Better_Work_Tab.UI.SettingsFramework;
+using Spine.UI.SettingsFramework;
 using static Better_Work_Tab.UI.Settings.SettingIDs;
 
 namespace Better_Work_Tab.UI.Settings

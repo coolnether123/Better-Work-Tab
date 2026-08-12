@@ -1,4 +1,4 @@
-using Better_Work_Tab.UI.SettingsFramework;
+using Spine.UI.SettingsFramework;
 using UnityEngine;
 
 namespace Better_Work_Tab.UI.Settings

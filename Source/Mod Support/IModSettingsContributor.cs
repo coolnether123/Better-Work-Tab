@@ -1,4 +1,4 @@
-using Better_Work_Tab.UI.SettingsFramework;
+using Spine.UI.SettingsFramework;
 
 namespace Better_Work_Tab.ModSupport
 {
@@ -7,6 +7,7 @@ namespace Better_Work_Tab.ModSupport
     /// </summary>
     public interface IModSettingsContributor
     {
-        BWTModSettingsSection CreateSettingsSection();
+        BWTModSettingsSection CreateSettingsSection(
+            SettingsScope<BetterWorkTabSettings> scope);
     }
 }

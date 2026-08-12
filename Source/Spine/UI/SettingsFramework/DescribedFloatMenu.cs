@@ -4,7 +4,7 @@ using Spine.UI.WidgetExtensions;
 using UnityEngine;
 using Verse;
 
-namespace Better_Work_Tab.UI.SettingsFramework
+namespace Spine.UI.SettingsFramework
 {
     /// <summary>
     /// A standard RimWorld choice menu with a non-overlapping setting description panel.
@@ -151,7 +151,11 @@ namespace Better_Work_Tab.UI.SettingsFramework
                 bool isSelected = ReferenceEquals(option, selectedOption);
                 bool isHovered = Mouse.IsOver(rowRect);
 
+#if RWT_FLOATMENU_DOGUI_CONTEXT
                 if (option.DoGUI(rowRect, givesColonistOrders, this))
+#else
+                if (option.DoGUI(rowRect, givesColonistOrders))
+#endif
                 {
                     Find.WindowStack.TryRemove(this);
                     if (useScrollbar)

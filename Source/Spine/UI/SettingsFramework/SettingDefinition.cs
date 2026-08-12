@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Better_Work_Tab.UI.SettingsFramework
+namespace Spine.UI.SettingsFramework
 {
     /// <summary>
     /// Receives semantic color-preview activity from the reusable settings drawer.
@@ -20,6 +20,21 @@ namespace Better_Work_Tab.UI.SettingsFramework
     {
         Preference,
         State
+    }
+
+    /// <summary>
+    /// Where an entry is drawn relative to the scrolling region.
+    /// </summary>
+    public enum SettingPin
+    {
+        /// <summary>Normal entry inside the scrolling list.</summary>
+        None,
+
+        /// <summary>Held above the list; stays visible while the list scrolls.</summary>
+        Top,
+
+        /// <summary>Held below the list; stays visible while the list scrolls.</summary>
+        Bottom
     }
 
     /// <summary>
@@ -95,10 +110,10 @@ namespace Better_Work_Tab.UI.SettingsFramework
         /// <summary>
         /// Controls draw order within a hierarchy level. Lower values appear first.
         /// </summary>
-        public int SortOrder;
+        public int SortOrder = int.MinValue;
 
         /// <summary>
-        /// Optional color override for headers.
+        /// Optional accent used by a header and the rows grouped beneath it.
         /// </summary>
         public Color? HeaderColor;
 
@@ -112,28 +127,21 @@ namespace Better_Work_Tab.UI.SettingsFramework
         /// </summary>
         public object DefaultValue;
 
-        /// <summary>
-        /// Minimum allowed value for numeric settings.
-        /// </summary>
+        /// <summary>Optional lower bound for integer and float-style settings.</summary>
         public float? MinValue;
 
-        /// <summary>
-        /// Maximum allowed value for numeric settings.
-        /// </summary>
+        /// <summary>Optional upper bound for integer and float-style settings.</summary>
         public float? MaxValue;
 
-        /// <summary>
-        /// Label shown at the left end of sliders.
-        /// </summary>
+        /// <summary>Optional label shown at the lower end of a numeric control.</summary>
         public string MinLabel;
 
-        /// <summary>
-        /// Label shown at the right end of sliders.
-        /// </summary>
+        /// <summary>Optional label shown at the upper end of a numeric control.</summary>
         public string MaxLabel;
 
         /// <summary>
-        /// Optional numeric value display format. Uses string.Format with the value as argument 0.
+        /// Optional format string for a numeric readout. The value is supplied
+        /// as format argument zero.
         /// </summary>
         public string ValueFormat;
 
@@ -143,19 +151,22 @@ namespace Better_Work_Tab.UI.SettingsFramework
         public Type EnumType;
 
         /// <summary>
+        /// Optional player-facing label provider for enum values.
+        /// </summary>
+        public Func<object, string> EnumLabelProvider;
+
+        /// <summary>
+        /// Optional player-facing description provider for enum values.
+        /// </summary>
+        public Func<object, string> EnumDescriptionProvider;
+
+        /// <summary>
         /// If true, the setting is visible in the Simple view.
         /// </summary>
         public bool ShowInSimpleView;
 
         /// <summary>
-        /// If true, the setting is visible in the Advanced view even when it is
-        /// hidden from Simple. Defaults to true.
-        /// <para>
-        /// Advanced is a superset of Simple: anything with
-        /// <see cref="ShowInSimpleView"/> set also appears in Advanced,
-        /// regardless of this flag. Clearing this flag alone hides a setting
-        /// from both views.
-        /// </para>
+        /// If true, the setting is visible in the Advanced view. Defaults to true.
         /// </summary>
         public bool ShowInAdvancedView = true;
 
@@ -165,14 +176,13 @@ namespace Better_Work_Tab.UI.SettingsFramework
         public Func<object, bool> VisibleWhen;
 
         /// <summary>
-        /// Optional rules that disable this setting at runtime without hiding it. The first active
-        /// rule explains itself under the row and, when it names a suppressing setting, links to it.
-        /// Suppression cascades: children of a suppressed setting are disabled too.
+        /// Optional rules that disable this setting without hiding it.
         /// </summary>
         public List<SettingSuppression> Suppressions;
 
         /// <summary>
-        /// Returns the first suppression currently in force, or null when the setting is live.
+        /// Returns the first suppression currently in force, or null when the
+        /// setting is live.
         /// </summary>
         public SettingSuppression GetActiveSuppression(object settingsObject)
         {
@@ -204,38 +214,60 @@ namespace Better_Work_Tab.UI.SettingsFramework
         public bool RequiresRestart;
 
         /// <summary>
+        /// When true for a boolean row, the consumer may render it with header
+        /// emphasis while retaining toggle behavior.
+        /// </summary>
+        public bool EmphasizeAsHeader;
+
+        /// <summary>Supplies options for a dynamic dropdown action.</summary>
+        public Func<IEnumerable<string>> DropdownOptionsProvider;
+
+        /// <summary>Receives an option selected from a dynamic dropdown action.</summary>
+        public Action<string> OnOptionAdded;
+
+        /// <summary>
         /// Callback invoked when the value changes. Receives the settings object.
         /// </summary>
         public Action<object> OnChanged;
-
-        /// <summary>
-        /// When true for a Bool type, render it with header styling (bold/underline) while keeping toggle behavior.
-        /// </summary>
-        public bool EmphasizeAsHeader = false;
-
-        /// <summary>
-        /// Provides the list of options for a DropdownListAdder setting.
-        /// </summary>
-        public Func<IEnumerable<string>> DropdownOptionsProvider;
-
-        /// <summary>
-        /// Callback invoked when an option is selected from a DropdownListAdder.
-        /// </summary>
-        public Action<string> OnOptionAdded;
 
         /// <summary>
         /// Draws a custom row. Return true when the row changed settings.
         /// </summary>
         public Func<Rect, string, string, object, bool, bool> CustomDrawer;
 
-        /// <summary>
-        /// Returns true when a custom row differs from its default state.
-        /// </summary>
+        /// <summary>Reports whether a custom row differs from its default state.</summary>
         public Func<object, bool> CustomHasNonDefaultValue;
 
-        /// <summary>
-        /// Restores a custom row to its default state.
-        /// </summary>
+        /// <summary>Restores a custom row to its default state.</summary>
         public Action<object> CustomReset;
+
+        /// <summary>
+        /// Holds this entry outside the scrolling region so it stays visible while
+        /// the rest of the page scrolls. Useful for a live preview that a player
+        /// needs to watch while changing the settings that feed it.
+        /// Ignored when the pinned bands would take more than half the page, so a
+        /// page can never pin away the list it belongs to.
+        /// </summary>
+        public SettingPin Pin = SettingPin.None;
+
+        /// <summary>Lowest value a slider setting can take.</summary>
+        public float SliderMin;
+
+        /// <summary>Highest value a slider setting can take.</summary>
+        public float SliderMax = 1f;
+
+        /// <summary>
+        /// Quantises a slider to multiples of this value. Zero leaves it
+        /// continuous. Use it when the underlying value has a meaningful
+        /// granularity, so a player cannot land on 0.7431.
+        /// </summary>
+        public float SliderStep;
+
+        /// <summary>
+        /// Renders the numeric readout beside a slider. Null shows two decimal
+        /// places. Supply one to show a percentage, a tick count, or a word.
+        /// </summary>
+        public Func<float, string> SliderValueFormatter;
+
     }
 }

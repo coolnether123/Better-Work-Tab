@@ -3,7 +3,8 @@ using Better_Work_Tab;
 using Better_Work_Tab.Features.Tutorial;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.UI.Settings;
-using Better_Work_Tab.UI.SettingsFramework;
+using Spine.UI.SettingsFramework;
+using SettingsListDrawer = Better_Work_Tab.UI.SettingsPresentation.SettingsListDrawer;
 using UnityEngine;
 using Verse;
 
