@@ -3,8 +3,9 @@ using Better_Work_Tab;
 using Better_Work_Tab.Features.Tutorial;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.UI.Settings;
+using Spine.Api;
+using Spine.UI.ContextualSettings;
 using Spine.UI.SettingsFramework;
-using SettingsListDrawer = Better_Work_Tab.UI.SettingsPresentation.SettingsListDrawer;
 using UnityEngine;
 using Verse;
 
@@ -25,8 +26,18 @@ namespace Better_Work_Tab.UI
         // The control rows already sit under their own header, so merging keeps
         // them grouped where they were while making the whole set searchable.
         private static SettingsListDrawer _drawer;
+        private static IContextualSettingsLease _contextualSettings;
         private static SettingsViewMode _viewMode = SettingsViewMode.Simple;
         private static Vector2 _preservedScrollPosition = Vector2.zero;
+
+        internal static IContextualSettingsLease ContextualSettings
+        {
+            get
+            {
+                EnsureDrawerInitialized();
+                return _contextualSettings;
+            }
+        }
 
         /// <summary>
         /// Renders the settings window contents.
@@ -66,6 +77,8 @@ namespace Better_Work_Tab.UI
             }
 
             _drawer = null;
+            _contextualSettings?.Dispose();
+            _contextualSettings = null;
         }
 
         /// <summary>
@@ -82,6 +95,16 @@ namespace Better_Work_Tab.UI
             _drawer = CreateDrawer(
                 new SettingsHierarchy(BWTSettingsRegistry.Definitions),
                 _preservedScrollPosition);
+            BetterWorkTabMod host = LoadedModManager.GetMod<BetterWorkTabMod>();
+            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
+            if (host != null && settings != null)
+            {
+                _contextualSettings = SpineApi.ContextualSettings.Acquire(
+                    "CoolNether123.BetterWorkTab",
+                    host,
+                    _drawer,
+                    settings);
+            }
         }
 
         private static SettingsListDrawer CreateDrawer(

@@ -154,7 +154,7 @@ namespace Better_Work_Tab.UI.Settings
             BetterWorkTabSettingsUI.NotifySettingsChanged();
         }
 
-        private static void Register(SettingDefinition def)
+        private static void PrepareDefinition(SettingDefinition def)
         {
             ApplyScribeMetadata(def);
             Action<object> existingOnChanged = def?.OnChanged;
@@ -416,7 +416,7 @@ namespace Better_Work_Tab.UI.Settings
         /// </summary>
         private static void RegisterAllSettings()
         {
-            _schema = new SettingsSchema<BetterWorkTabSettings>(scribeKeyConvention: null, onAdd: Register);
+            _schema = new SettingsSchema<BetterWorkTabSettings>();
             SettingsSchema<BetterWorkTabSettings> schema = _schema;
 
             RegisterHiddenPreference(_schema.Root, "compat.workTabMaxHeight", settings => settings.workTabMaxHeight, SettingType.Float, DefaultSettings.workTabMaxHeight);
@@ -1763,6 +1763,11 @@ namespace Better_Work_Tab.UI.Settings
             )
                 .Ordered(420)
         ;
+
+            foreach (SettingDefinition definition in schema.Definitions)
+            {
+                PrepareDefinition(definition);
+            }
         }
     }
     }

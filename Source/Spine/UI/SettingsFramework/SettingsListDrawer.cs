@@ -1,12 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
-using Spine.UI.SettingsFramework;
 using RimWorld;
+using Spine.UI.ContextualSettings;
 using UnityEngine;
 using Verse;
 
-namespace Better_Work_Tab.UI.SettingsPresentation
+namespace Spine.UI.SettingsFramework
 {
     /// <summary>
     /// Draws a scrollable list of hierarchical settings with search and view toggles.
@@ -20,10 +20,10 @@ namespace Better_Work_Tab.UI.SettingsPresentation
         private const float FooterHeight = 34f;
         private const float ToolbarGap = 8f;
         private const float FocusHighlightSeconds = 1.45f;
-        private const float SuppressionNoticeHeight = 17f;
-        private const float SuppressionLinkGap = 6f;
         private const float SearchResultDoubleClickMaxSeconds = 0.25f;
         private const float SearchResultDoubleClickMoveTolerance = 5f;
+        private const float SuppressionNoticeHeight = 17f;
+        private const float SuppressionLinkGap = 6f;
 
         private static readonly Texture2D ResetIcon =
             ContentFinder<Texture2D>.Get("UI/Buttons/Dev/Reload");
@@ -33,19 +33,16 @@ namespace Better_Work_Tab.UI.SettingsPresentation
         private readonly SettingsHierarchy _hierarchy;
         private Vector2 _scrollPosition;
         private string _searchQuery = string.Empty;
-        private readonly QuickSearchWidget _searchWidget = new QuickSearchWidget();
+        private readonly SettingsSearchWidget _searchWidget = new SettingsSearchWidget();
         private SettingsFilterDefinition _activeFilter;
         private string _pendingFocusSettingId;
         private string _highlightedSettingId;
         private float _highlightStartedAt;
+        private SettingsViewMode? _pendingContextViewMode;
         private string _lastSearchClickSettingId;
         private float _lastSearchClickTime = -1f;
         private Vector2 _lastSearchClickPosition;
-        private TransferMode _transferMode = TransferMode.None;
-        private Rect _searchScreenRect;
-        private readonly Dictionary<string, Rect> _visibleSettingScreenRects =
-            new Dictionary<string, Rect>(StringComparer.OrdinalIgnoreCase);
-        private readonly List<string> _visibleSettingIds = new List<string>();
+        private TransferMode _transferMode;
         private readonly HashSet<string> _forceVisibleDisabledAncestorIds =
             new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -118,25 +115,19 @@ namespace Better_Work_Tab.UI.SettingsPresentation
         /// </summary>
         public string ResetToDefaultLabel { get; set; } = "Reset to default";
 
+        /// <summary>Color used for the explanation shown under a suppressed row.</summary>
+        public Color SuppressionNoticeColor { get; set; } = new Color(0.72f, 0.66f, 0.44f, 1f);
+
+        /// <summary>Color used for links shown in a suppression explanation.</summary>
+        public Color SuppressionLinkColor { get; set; } = new Color(0.62f, 0.76f, 1f, 1f);
+
+        /// <summary>Tooltip shown for a link to the setting suppressing a row.</summary>
+        public string SuppressionLinkTooltip { get; set; } = "Go to the setting that is overriding this one.";
+
         /// <summary>
         /// Pulse color used when a context jump or search double-click focuses a setting row.
         /// </summary>
         public Color FocusHighlightColor { get; set; } = new Color(1f, 0.78f, 0.18f, 1f);
-
-        /// <summary>
-        /// Color of the explanation drawn under a suppressed setting.
-        /// </summary>
-        public Color SuppressionNoticeColor { get; set; } = new Color(0.72f, 0.66f, 0.44f, 1f);
-
-        /// <summary>
-        /// Color of the link that jumps to the setting responsible for a suppression.
-        /// </summary>
-        public Color SuppressionLinkColor { get; set; } = new Color(0.62f, 0.76f, 1f, 1f);
-
-        /// <summary>
-        /// Tooltip shown when hovering a suppression link.
-        /// </summary>
-        public string SuppressionLinkTooltip { get; set; } = "Go to the setting that is overriding this one.";
 
         /// <summary>
         /// Optional filters shown by the toolbar filter button.
@@ -153,9 +144,7 @@ namespace Better_Work_Tab.UI.SettingsPresentation
         /// </summary>
         public string AllSettingsFilterLabel { get; set; } = "All settings";
 
-        /// <summary>
-        /// Optional import/export footer actions.
-        /// </summary>
+        /// <summary>Optional import/export actions shown below the settings list.</summary>
         public SettingsImportExportActions ImportExportActions { get; set; }
 
         /// <summary>
@@ -163,33 +152,8 @@ namespace Better_Work_Tab.UI.SettingsPresentation
         /// </summary>
         public Action<SettingDefinition, object> OnSettingTooltipViewed { get; set; }
 
-        /// <summary>
-        /// Optional host callbacks for guided settings experiences. They report
-        /// real search and row input without taking ownership of either action.
-        /// </summary>
-        public Action<string> OnSearchTextChanged { get; set; }
+        /// <summary>Optional callback invoked when the player clicks a settings row.</summary>
         public Action<SettingDefinition, object> OnSettingInteracted { get; set; }
-
-        public string SearchQuery => _searchQuery;
-        public Rect SearchScreenRect => _searchScreenRect;
-
-        public bool TryGetVisibleSettingScreenRect(string settingId, out Rect rect)
-        {
-            rect = Rect.zero;
-            return !string.IsNullOrEmpty(settingId) &&
-                   _visibleSettingScreenRects.TryGetValue(settingId, out rect);
-        }
-
-        public bool TryGetFirstVisibleSettingScreenRect(out Rect rect)
-        {
-            if (_visibleSettingIds.Count > 0)
-            {
-                return _visibleSettingScreenRects.TryGetValue(_visibleSettingIds[0], out rect);
-            }
-
-            rect = Rect.zero;
-            return false;
-        }
 
         /// <summary>
         /// Creates a new drawer for a hierarchy.
@@ -210,8 +174,51 @@ namespace Better_Work_Tab.UI.SettingsPresentation
             _scrollPosition = Vector2.zero;
             FocusSetting(targetSettingId);
             _pendingFocusSettingId = targetSettingId;
-            _transferMode = TransferMode.None;
             ClearSearch();
+        }
+
+        internal void PrepareContextNavigation(
+            ContextualSettingsTarget requestedTarget,
+            object settingsObject)
+        {
+            ContextualNavigationPlan plan = ContextualNavigationResolver.Resolve(
+                requestedTarget,
+                id =>
+                {
+                    SettingDefinition definition = _hierarchy.GetById(id);
+                    bool available = definition != null &&
+                        (definition.VisibleWhen == null ||
+                            definition.VisibleWhen(settingsObject)) &&
+                        (definition.ShowInSimpleView ||
+                            definition.ShowInAdvancedView);
+                    return new ContextualNavigationCandidate(
+                        definition?.Id,
+                        available,
+                        definition?.ShowInSimpleView == true);
+                });
+            if (plan.IsRoot)
+            {
+                ClearActiveFilter();
+                ClearSearch();
+                _scrollPosition = Vector2.zero;
+                _pendingFocusSettingId = null;
+                _highlightedSettingId = null;
+                _pendingContextViewMode = null;
+                return;
+            }
+
+            ClearActiveFilter();
+            ClearSearch();
+            _pendingFocusSettingId = plan.TargetId;
+            FocusSetting(plan.TargetId);
+            _pendingContextViewMode =
+                !SettingsPresentationPolicy.ShowViewModes(
+                    _hierarchy.SettingCount,
+                    _hierarchy.AdvancedOnlySettingCount)
+                    ? SettingsViewMode.All
+                    : plan.UseSimpleView
+                        ? SettingsViewMode.Simple
+                        : SettingsViewMode.Advanced;
         }
 
         /// <summary>
@@ -228,43 +235,86 @@ namespace Better_Work_Tab.UI.SettingsPresentation
                 return;
             }
 
-            _visibleSettingScreenRects.Clear();
-            _visibleSettingIds.Clear();
+            if (_pendingContextViewMode.HasValue)
+            {
+                viewMode = _pendingContextViewMode.Value;
+                _pendingContextViewMode = null;
+            }
 
-            const float headerHeight = 30f;
-            Rect headerRect = new Rect(rect.x, rect.y, rect.width, headerHeight);
-            DrawHeader(headerRect, ref viewMode);
+            bool drawHeader = ShouldDrawHeader();
+            float listStartY = rect.y;
+            if (drawHeader)
+            {
+                const float headerHeight = 30f;
+                Rect headerRect = new Rect(
+                    rect.x,
+                    rect.y,
+                    rect.width,
+                    headerHeight);
+                DrawHeader(headerRect, ref viewMode);
+                listStartY = headerRect.yMax + 10f;
+            }
+            else
+            {
+                viewMode = SettingsViewMode.All;
+                ClearActiveFilter();
+                ClearSearch();
+            }
 
-            float listStartY = headerRect.yMax + 10f;
-            bool drawFooter = ImportExportActions?.HasAnyAction ?? false;
+            bool drawFooter = ImportExportActions?.HasAnyAction == true;
             float footerSpace = drawFooter ? FooterHeight + 8f : 0f;
             Rect listRect = new Rect(rect.x, listStartY, rect.width, rect.height - (listStartY - rect.y) - footerSpace);
             DrawSettingsList(listRect, settingsObject, ref viewMode, onSettingsChanged);
 
             if (drawFooter)
             {
-                Rect footerRect = new Rect(rect.x, rect.yMax - FooterHeight, rect.width, FooterHeight);
-                DrawImportExportFooter(footerRect);
+                DrawImportExportFooter(new Rect(rect.x, rect.yMax - FooterHeight, rect.width, FooterHeight));
             }
         }
 
         private void DrawHeader(Rect rect, ref SettingsViewMode viewMode)
         {
-            bool hasFilters = Filters != null && Filters.Count > 0;
-            float toggleWidth = 200f;
+            bool showSearch = SettingsPresentationPolicy.ShowSearch(
+                _hierarchy.SettingCount);
+            bool showViewModes = SettingsPresentationPolicy.ShowViewModes(
+                _hierarchy.SettingCount,
+                _hierarchy.AdvancedOnlySettingCount);
+            bool showFilters = SettingsPresentationPolicy.ShowFilters(
+                _hierarchy.SettingCount);
+            bool hasFilters =
+                showFilters &&
+                Filters != null &&
+                Filters.Count > 0;
+            if (!showFilters)
+            {
+                ClearActiveFilter();
+            }
+
+            float toggleWidth = showViewModes ? 200f : 0f;
             float filterWidth = hasFilters ? 150f : 0f;
-            float searchWidth = Mathf.Max(120f, rect.width - toggleWidth - filterWidth - (hasFilters ? ToolbarGap * 2f : ToolbarGap));
+            int visibleControlCount =
+                (showSearch ? 1 : 0) +
+                (hasFilters ? 1 : 0) +
+                (showViewModes ? 1 : 0);
+            float gaps = Mathf.Max(0, visibleControlCount - 1) * ToolbarGap;
+            float searchWidth = showSearch
+                ? Mathf.Max(120f, rect.width - toggleWidth - filterWidth - gaps)
+                : 0f;
             Rect searchRect = new Rect(rect.x, rect.y, searchWidth, rect.height);
-            Rect filterRect = new Rect(searchRect.xMax + ToolbarGap, rect.y, filterWidth, rect.height);
+            float filterX = showSearch
+                ? searchRect.xMax + ToolbarGap
+                : rect.x;
+            Rect filterRect = new Rect(filterX, rect.y, filterWidth, rect.height);
             Rect toggleRect = new Rect(rect.xMax - 200f, rect.y, 200f, rect.height);
 
-            _searchWidget.OnGUI(searchRect, () => { });
-            _searchScreenRect = ToScreenRect(searchRect);
-            string nextSearchQuery = _searchWidget.filter.Text ?? string.Empty;
-            if (!string.Equals(_searchQuery, nextSearchQuery, StringComparison.Ordinal))
+            if (showSearch)
             {
-                _searchQuery = nextSearchQuery;
-                OnSearchTextChanged?.Invoke(_searchQuery);
+                _searchWidget.OnGUI(searchRect, () => { });
+                _searchQuery = _searchWidget.filter.Text ?? string.Empty;
+            }
+            else
+            {
+                ClearSearch();
             }
 
             if (hasFilters)
@@ -272,7 +322,27 @@ namespace Better_Work_Tab.UI.SettingsPresentation
                 DrawFilterButton(filterRect);
             }
 
-            DrawViewToggle(toggleRect, ref viewMode);
+            if (showViewModes)
+            {
+                DrawViewToggle(toggleRect, ref viewMode);
+            }
+            else
+            {
+                viewMode = SettingsViewMode.All;
+            }
+        }
+
+        private bool ShouldDrawHeader()
+        {
+            return SettingsPresentationPolicy.ShowSearch(
+                    _hierarchy.SettingCount) ||
+                SettingsPresentationPolicy.ShowFilters(
+                    _hierarchy.SettingCount) &&
+                Filters != null &&
+                Filters.Count > 0 ||
+                SettingsPresentationPolicy.ShowViewModes(
+                    _hierarchy.SettingCount,
+                    _hierarchy.AdvancedOnlySettingCount);
         }
 
         private void DrawFilterButton(Rect rect)
@@ -429,6 +499,14 @@ namespace Better_Work_Tab.UI.SettingsPresentation
             GUI.color = Color.white;
         }
 
+        private const float PinnedBandGap = 6f;
+        private readonly List<SettingDefinition> _pinnedTop =
+            new List<SettingDefinition>();
+        private readonly List<SettingDefinition> _pinnedBottom =
+            new List<SettingDefinition>();
+        private readonly List<SettingDefinition> _scrollingSettings =
+            new List<SettingDefinition>();
+
         /// <summary>
         /// Draws the scrollable list of settings.
         /// </summary>
@@ -452,61 +530,41 @@ namespace Better_Work_Tab.UI.SettingsPresentation
                 return;
             }
 
+            Rect listRect = PartitionPinnedEntries(
+                rect,
+                visibleSettings,
+                settingsObject,
+                onSettingsChanged);
+
             if (!string.IsNullOrEmpty(_pendingFocusSettingId))
             {
-                CenterOnSettingId(_pendingFocusSettingId, visibleSettings, settingsObject, rect.height);
+                CenterOnSettingId(_pendingFocusSettingId, _scrollingSettings, settingsObject, listRect.height);
                 _pendingFocusSettingId = null;
             }
 
             float clearFilterRowHeight = _activeFilter != null ? RowHeight + 8f : 0f;
-            float viewHeight = MeasureTotalHeight(visibleSettings, settingsObject) + clearFilterRowHeight;
-            Rect viewRect = new Rect(0f, 0f, rect.width - 16f, viewHeight);
-            Rect listScreenRect = ToScreenRect(rect);
+            float viewHeight = MeasureTotalHeight(_scrollingSettings, settingsObject) + clearFilterRowHeight;
+            Rect viewRect = new Rect(0f, 0f, listRect.width - 16f, viewHeight);
 
-            Widgets.BeginScrollView(rect, ref _scrollPosition, viewRect);
+            Widgets.BeginScrollView(listRect, ref _scrollPosition, viewRect);
 
             float panelY = 0f;
             float panelStartY = 0f;
-            int panelSectionDepth = 0;
             SettingDefinition panelSection = null;
-            for (int index = 0; index < visibleSettings.Count; index++)
+            for (int index = 0; index < _scrollingSettings.Count; index++)
             {
-                SettingDefinition candidate = visibleSettings[index];
-                bool candidateIsHeader = candidate.Type == SettingType.Header ||
-                    candidate.EmphasizeAsHeader ||
-                    candidate.ControlsChildVisibility;
-                bool candidateBelongs = false;
-                if (panelSection != null)
+                SettingDefinition candidate = _scrollingSettings[index];
+                if (candidate.Type == SettingType.Header)
                 {
-                    if (ReferenceEquals(candidate, panelSection) || IsDescendantOf(candidate, panelSection))
+                    if (panelSection != null)
                     {
-                        candidateBelongs = true;
+                        SettingWidgets.DrawSectionPanel(
+                            new Rect(0f, panelStartY + 2f, viewRect.width, Mathf.Max(0f, panelY - panelStartY - 4f)),
+                            RowHeight - 4f,
+                            panelSection.HeaderColor);
                     }
-                    else if (!candidateIsHeader && panelSection.Type == SettingType.Header)
-                    {
-                        // Standalone headers may intentionally group the flat rows that follow.
-                        candidateBelongs = true;
-                    }
-                }
 
-                if (panelSection != null && !candidateBelongs)
-                {
-                    SettingWidgets.DrawSectionPanel(
-                        new Rect(
-                            panelSectionDepth * IndentPerLevel,
-                            panelStartY + 2f,
-                            Mathf.Max(0f, viewRect.width - (panelSectionDepth * IndentPerLevel)),
-                            Mathf.Max(0f, panelY - panelStartY - 4f)),
-                        RowHeight - 4f,
-                        panelSection.HeaderColor);
-
-                    panelSection = null;
-                }
-
-                if (panelSection == null && candidateIsHeader)
-                {
                     panelSection = candidate;
-                    panelSectionDepth = _hierarchy.GetDepth(candidate);
                     panelStartY = panelY;
                 }
 
@@ -516,11 +574,7 @@ namespace Better_Work_Tab.UI.SettingsPresentation
             if (panelSection != null)
             {
                 SettingWidgets.DrawSectionPanel(
-                    new Rect(
-                        panelSectionDepth * IndentPerLevel,
-                        panelStartY + 2f,
-                        Mathf.Max(0f, viewRect.width - (panelSectionDepth * IndentPerLevel)),
-                        Mathf.Max(0f, panelY - panelStartY - 4f)),
+                    new Rect(0f, panelStartY + 2f, viewRect.width, Mathf.Max(0f, panelY - panelStartY - 4f)),
                     RowHeight - 4f,
                     panelSection.HeaderColor);
             }
@@ -528,52 +582,24 @@ namespace Better_Work_Tab.UI.SettingsPresentation
             float curY = 0f;
             SettingDefinition activeSection = null;
             int activeSectionDepth = 0;
-            foreach (var def in visibleSettings)
+            foreach (var def in _scrollingSettings)
             {
                 int depth = _hierarchy.GetDepth(def);
-                bool isSectionHeader = def.Type == SettingType.Header ||
-                    def.EmphasizeAsHeader ||
-                    def.ControlsChildVisibility;
-                bool belongsToActiveSection = false;
-                if (activeSection != null)
-                {
-                    if (ReferenceEquals(def, activeSection) || IsDescendantOf(def, activeSection))
-                    {
-                        belongsToActiveSection = true;
-                    }
-                    else if (!isSectionHeader && activeSection.Type == SettingType.Header)
-                    {
-                        belongsToActiveSection = true;
-                    }
-
-                    if (!belongsToActiveSection)
-                    {
-                        activeSection = null;
-                    }
-                }
-
+                bool isSectionHeader = def.Type == SettingType.Header;
+                bool belongsToActiveSection = !isSectionHeader && activeSection != null;
                 int visualDepth = belongsToActiveSection
                     ? Mathf.Max(depth, activeSectionDepth + 1)
                     : depth;
-                bool compactSectionHeader = isSectionHeader &&
-                    activeSection != null &&
-                    !ReferenceEquals(def, activeSection);
+                bool disabledByAncestor = _hierarchy.IsDisabledByAncestor(def, settingsObject);
                 SettingSuppression suppression = def.GetActiveSuppression(settingsObject);
                 SettingSuppression inheritedSuppression = suppression ??
                     GetActiveAncestorSuppression(def, settingsObject);
-                bool disabledByAncestor = _hierarchy.IsDisabledByAncestor(def, settingsObject) ||
-                    inheritedSuppression != null;
                 bool allowFocusedDisabledInteraction =
-                    disabledByAncestor && IsFocusedForcedVisibleSetting(def);
+                    (disabledByAncestor || inheritedSuppression != null) &&
+                    IsFocusedForcedVisibleSetting(def);
 
                 float rowHeight = MeasureRowHeight(def, settingsObject);
                 Rect rowRect = new Rect(0f, curY, viewRect.width, rowHeight);
-                Rect rowScreenRect = ToScreenRect(rowRect);
-                if (!string.IsNullOrEmpty(def.Id) && listScreenRect.Overlaps(rowScreenRect))
-                {
-                    _visibleSettingScreenRects[def.Id] = rowScreenRect;
-                    _visibleSettingIds.Add(def.Id);
-                }
                 Event evt = Event.current;
                 if (evt != null && evt.type == EventType.MouseDown && evt.button == 0 && rowRect.Contains(evt.mousePosition))
                 {
@@ -589,13 +615,13 @@ namespace Better_Work_Tab.UI.SettingsPresentation
                     rowRect,
                     def,
                     settingsObject,
-                    disabledByAncestor && !allowFocusedDisabledInteraction,
+                    (disabledByAncestor || inheritedSuppression != null) &&
+                        !allowFocusedDisabledInteraction,
                     suppression,
                     visualDepth,
                     activeSection?.HeaderColor,
-                    compactSectionHeader,
                     onSettingsChanged);
-                if (isSectionHeader && activeSection == null)
+                if (isSectionHeader)
                 {
                     activeSection = def;
                     activeSectionDepth = depth;
@@ -612,23 +638,140 @@ namespace Better_Work_Tab.UI.SettingsPresentation
             Widgets.EndScrollView();
         }
 
-        private bool IsDescendantOf(SettingDefinition candidate, SettingDefinition ancestor)
+        /// <summary>
+        /// Splits entries into pinned bands and the scrolling remainder, draws the
+        /// bands, and returns the rect the scrolling list should occupy. Pinning is
+        /// abandoned wholesale when the bands would consume more than half the page,
+        /// so a page can never pin away the list it belongs to.
+        /// </summary>
+        private Rect PartitionPinnedEntries(
+            Rect rect,
+            List<SettingDefinition> visibleSettings,
+            object settingsObject,
+            Action onSettingsChanged)
         {
-            foreach (SettingDefinition candidateAncestor in _hierarchy.GetAncestors(candidate))
+            _pinnedTop.Clear();
+            _pinnedBottom.Clear();
+            _scrollingSettings.Clear();
+
+            bool anyPinned = false;
+            for (int index = 0; index < visibleSettings.Count; index++)
             {
-                if (ReferenceEquals(candidateAncestor, ancestor))
+                if (visibleSettings[index].Pin != SettingPin.None)
                 {
-                    return true;
+                    anyPinned = true;
+                    break;
                 }
             }
 
-            return false;
+            if (!anyPinned)
+            {
+                _scrollingSettings.AddRange(visibleSettings);
+                return rect;
+            }
+
+            for (int index = 0; index < visibleSettings.Count; index++)
+            {
+                SettingDefinition def = visibleSettings[index];
+                switch (def.Pin)
+                {
+                    case SettingPin.Top:
+                        _pinnedTop.Add(def);
+                        break;
+                    case SettingPin.Bottom:
+                        _pinnedBottom.Add(def);
+                        break;
+                    default:
+                        _scrollingSettings.Add(def);
+                        break;
+                }
+            }
+
+            float topHeight = MeasureTotalHeight(_pinnedTop, settingsObject);
+            float bottomHeight = MeasureTotalHeight(_pinnedBottom, settingsObject);
+            if (topHeight + bottomHeight > rect.height * 0.5f)
+            {
+                _pinnedTop.Clear();
+                _pinnedBottom.Clear();
+                _scrollingSettings.Clear();
+                _scrollingSettings.AddRange(visibleSettings);
+                return rect;
+            }
+
+            Rect listRect = rect;
+            if (topHeight > 0f)
+            {
+                DrawPinnedBand(
+                    new Rect(rect.x, rect.y, rect.width, topHeight),
+                    _pinnedTop,
+                    settingsObject,
+                    onSettingsChanged);
+                Widgets.DrawLineHorizontal(
+                    rect.x,
+                    rect.y + topHeight + (PinnedBandGap / 2f),
+                    rect.width);
+                listRect.yMin += topHeight + PinnedBandGap;
+            }
+
+            if (bottomHeight > 0f)
+            {
+                float bandY = rect.yMax - bottomHeight;
+                DrawPinnedBand(
+                    new Rect(rect.x, bandY, rect.width, bottomHeight),
+                    _pinnedBottom,
+                    settingsObject,
+                    onSettingsChanged);
+                Widgets.DrawLineHorizontal(
+                    rect.x,
+                    bandY - (PinnedBandGap / 2f),
+                    rect.width);
+                listRect.yMax -= bottomHeight + PinnedBandGap;
+            }
+
+            return listRect;
         }
 
-        private static Rect ToScreenRect(Rect rect)
+        /// <summary>
+        /// Draws pinned entries directly, outside any scroll view.
+        /// </summary>
+        private void DrawPinnedBand(
+            Rect bandRect,
+            List<SettingDefinition> entries,
+            object settingsObject,
+            Action onSettingsChanged)
         {
-            Vector2 screen = GUIUtility.GUIToScreenPoint(rect.position);
-            return new Rect(screen.x, screen.y, rect.width, rect.height);
+            float curY = bandRect.y;
+            for (int index = 0; index < entries.Count; index++)
+            {
+                SettingDefinition def = entries[index];
+                float rowHeight = MeasureRowHeight(def, settingsObject);
+                Rect rowRect = new Rect(
+                    bandRect.x,
+                    curY,
+                    bandRect.width - 16f,
+                    rowHeight);
+                bool disabledByAncestor =
+                    _hierarchy.IsDisabledByAncestor(def, settingsObject);
+                SettingSuppression suppression = def.GetActiveSuppression(settingsObject);
+                SettingSuppression inheritedSuppression = suppression ??
+                    GetActiveAncestorSuppression(def, settingsObject);
+                bool allowFocusedDisabledInteraction =
+                    (disabledByAncestor || inheritedSuppression != null) &&
+                    IsFocusedForcedVisibleSetting(def);
+
+                DrawFocusedSettingHighlight(rowRect, def, _hierarchy.GetDepth(def));
+                DrawSettingRow(
+                    rowRect,
+                    def,
+                    settingsObject,
+                    (disabledByAncestor || inheritedSuppression != null) &&
+                        !allowFocusedDisabledInteraction,
+                    suppression,
+                    _hierarchy.GetDepth(def),
+                    null,
+                    onSettingsChanged);
+                curY += rowHeight;
+            }
         }
 
         /// <summary>
@@ -642,32 +785,24 @@ namespace Better_Work_Tab.UI.SettingsPresentation
             SettingSuppression suppression,
             int depth,
             Color? sectionColor,
-            bool compactSectionHeader,
             Action onSettingsChanged)
         {
             string suppressionReason = suppression?.ResolveReason(settingsObject);
             bool hasNotice = !string.IsNullOrEmpty(suppressionReason);
-
-            // The control keeps its normal height; the notice, when present, occupies the extra
-            // strip this row was measured with.
             Rect controlRow = hasNotice
                 ? new Rect(rect.x, rect.y, rect.width, rect.height - SuppressionNoticeHeight)
                 : rect;
 
             float indent = depth * IndentPerLevel;
             Rect contentRect = new Rect(controlRow.x + indent, controlRow.y, controlRow.width - indent, controlRow.height);
-            bool isHeaderRow = def.Type == SettingType.Header ||
-                def.EmphasizeAsHeader ||
-                def.ControlsChildVisibility;
             if (Mouse.IsOver(rect))
             {
-                Widgets.DrawHighlight(GetPanelRowRect(rect, isHeaderRow, depth));
+                Widgets.DrawHighlight(GetPanelRowRect(rect, def, depth));
             }
 
-            Rect panelRowRect = GetPanelRowRect(rect, isHeaderRow, depth);
             bool disabled = isDisabledByParent || suppression != null;
             string label = GetLabel?.Invoke(def) ?? def.Label ?? def.Id;
-            string tooltip = BuildTooltip(def, suppressionReason);
+            string tooltip = BuildTooltip(def);
             if (def.Type == SettingType.Color)
             {
                 tooltip = AppendTooltip(tooltip, ColorPreviewTooltip);
@@ -686,15 +821,7 @@ namespace Better_Work_Tab.UI.SettingsPresentation
             if (reserveResetSlot)
             {
                 Rect resetRect;
-                if (def.EmphasizeAsHeader || def.ControlsChildVisibility)
-                {
-                    resetRect = new Rect(
-                        contentRect.xMax - 24f - 8f - ResetButtonSize,
-                        contentRect.y + ((contentRect.height - ResetButtonSize) / 2f),
-                        ResetButtonSize,
-                        ResetButtonSize);
-                }
-                else if (depth > 0)
+                if (depth > 0)
                 {
                     resetRect = new Rect(
                         contentRect.x - ResetButtonSize,
@@ -709,7 +836,6 @@ namespace Better_Work_Tab.UI.SettingsPresentation
                         contentRect.y + ((contentRect.height - ResetButtonSize) / 2f),
                         ResetButtonSize,
                         ResetButtonSize);
-
                     contentRect.x += ResetIconSlotWidth;
                     contentRect.width = Mathf.Max(0f, contentRect.width - ResetIconSlotWidth);
                 }
@@ -734,31 +860,20 @@ namespace Better_Work_Tab.UI.SettingsPresentation
                     if (field != null && field.FieldType == typeof(bool))
                     {
                         bool boolValue = (bool)field.GetValue(settingsObject);
-                        bool changed;
-                        if (compactSectionHeader)
-                        {
-                            changed = SettingWidgets.DrawSubheaderBool(
+                        bool changed = def.EmphasizeAsHeader || def.ControlsChildVisibility
+                            ? SettingWidgets.DrawHeaderBool(
                                 contentRect,
                                 label,
                                 ref boolValue,
                                 sectionColor ?? def.HeaderColor,
                                 tooltip,
-                                disabled);
-                        }
-                        else if (def.EmphasizeAsHeader || def.ControlsChildVisibility)
-                        {
-                            changed = SettingWidgets.DrawHeaderBool(
+                                disabled)
+                            : SettingWidgets.DrawBool(
                                 contentRect,
                                 label,
                                 ref boolValue,
-                                sectionColor ?? def.HeaderColor,
                                 tooltip,
                                 disabled);
-                        }
-                        else
-                        {
-                            changed = SettingWidgets.DrawBool(contentRect, label, ref boolValue, tooltip, disabled);
-                        }
                         if (changed)
                         {
                             field.SetValue(settingsObject, boolValue);
@@ -770,8 +885,19 @@ namespace Better_Work_Tab.UI.SettingsPresentation
                     if (field != null && field.FieldType == typeof(int))
                     {
                         int intValue = (int)field.GetValue(settingsObject);
-                        int min = def.MinValue.HasValue ? Mathf.RoundToInt(def.MinValue.Value) : int.MinValue;
-                        int max = def.MaxValue.HasValue ? Mathf.RoundToInt(def.MaxValue.Value) : int.MaxValue;
+                        int min = def.MinValue.HasValue
+                            ? Mathf.RoundToInt(def.MinValue.Value)
+                            : int.MinValue;
+                        int max = def.MaxValue.HasValue
+                            ? Mathf.RoundToInt(def.MaxValue.Value)
+                            : int.MaxValue;
+                        if (min > max)
+                        {
+                            int temporary = min;
+                            min = max;
+                            max = temporary;
+                        }
+
                         if (SettingWidgets.DrawInt(contentRect, label, ref intValue, min, max, tooltip, disabled))
                         {
                             field.SetValue(settingsObject, intValue);
@@ -783,8 +909,19 @@ namespace Better_Work_Tab.UI.SettingsPresentation
                     if (field != null && field.FieldType == typeof(int))
                     {
                         int intValue = (int)field.GetValue(settingsObject);
-                        int min = def.MinValue.HasValue ? Mathf.RoundToInt(def.MinValue.Value) : int.MinValue;
-                        int max = def.MaxValue.HasValue ? Mathf.RoundToInt(def.MaxValue.Value) : int.MaxValue;
+                        int min = def.MinValue.HasValue
+                            ? Mathf.RoundToInt(def.MinValue.Value)
+                            : int.MinValue;
+                        int max = def.MaxValue.HasValue
+                            ? Mathf.RoundToInt(def.MaxValue.Value)
+                            : int.MaxValue;
+                        if (min > max)
+                        {
+                            int temporary = min;
+                            min = max;
+                            max = temporary;
+                        }
+
                         if (SettingWidgets.DrawNumericInt(contentRect, label, ref intValue, min, max, tooltip, disabled))
                         {
                             field.SetValue(settingsObject, intValue);
@@ -793,29 +930,20 @@ namespace Better_Work_Tab.UI.SettingsPresentation
                     }
                     break;
                 case SettingType.Float:
-                case SettingType.Slider:
-                    if (field != null && (field.FieldType == typeof(float) || field.FieldType == typeof(double)))
+                    if (field != null &&
+                        (field.FieldType == typeof(float) || field.FieldType == typeof(double)))
                     {
                         float floatValue = Convert.ToSingle(field.GetValue(settingsObject));
-                        bool isSlider = def.Type == SettingType.Slider;
-                        float min = isSlider
-                            ? def.SliderMin
-                            : def.MinValue ?? 0f;
-                        float max = isSlider
-                            ? def.SliderMax
-                            : def.MaxValue ?? 1f;
-                        bool changed = isSlider
-                            ? SettingWidgets.DrawSlider(
-                                contentRect,
-                                label,
-                                ref floatValue,
-                                min,
-                                max,
-                                def.SliderValueFormatter?.Invoke(floatValue),
-                                tooltip,
-                                disabled,
-                                def.SliderStep)
-                            : SettingWidgets.DrawFloat(
+                        float min = def.MinValue ?? 0f;
+                        float max = def.MaxValue ?? 1f;
+                        if (min > max)
+                        {
+                            float temporary = min;
+                            min = max;
+                            max = temporary;
+                        }
+
+                        if (SettingWidgets.DrawFloat(
                                 contentRect,
                                 label,
                                 ref floatValue,
@@ -825,8 +953,32 @@ namespace Better_Work_Tab.UI.SettingsPresentation
                                 def.MaxLabel,
                                 def.ValueFormat,
                                 tooltip,
-                                disabled);
-                        if (changed)
+                                disabled))
+                        {
+                            field.SetValue(settingsObject, field.FieldType == typeof(double)
+                                ? (object)(double)floatValue
+                                : floatValue);
+                            HandleSettingChanged(def, settingsObject, onSettingsChanged);
+                        }
+                    }
+                    break;
+                case SettingType.Slider:
+                    if (field != null && field.FieldType == typeof(float))
+                    {
+                        float floatValue = (float)field.GetValue(settingsObject);
+                        string readout = def.SliderValueFormatter != null
+                            ? def.SliderValueFormatter(floatValue)
+                            : null;
+                        if (SettingWidgets.DrawSlider(
+                                contentRect,
+                                label,
+                                ref floatValue,
+                                def.SliderMin,
+                                def.SliderMax,
+                                readout,
+                                tooltip,
+                                disabled,
+                                def.SliderStep))
                         {
                             field.SetValue(settingsObject, floatValue);
                             HandleSettingChanged(def, settingsObject, onSettingsChanged);
@@ -874,20 +1026,11 @@ namespace Better_Work_Tab.UI.SettingsPresentation
                     if (field != null && def.EnumType != null)
                     {
                         object current = field.GetValue(settingsObject);
-                        SettingWidgets.DrawEnum(
-                            contentRect,
-                            label,
-                            current,
-                            def.EnumType,
-                            tooltip,
-                            disabled,
-                            selected =>
-                            {
-                                field.SetValue(settingsObject, selected);
-                                HandleSettingChanged(def, settingsObject, onSettingsChanged);
-                            },
-                            def.EnumLabelProvider,
-                            def.EnumDescriptionProvider);
+                        SettingWidgets.DrawEnum(contentRect, label, current, def.EnumType, tooltip, disabled, selected =>
+                        {
+                            field.SetValue(settingsObject, selected);
+                            HandleSettingChanged(def, settingsObject, onSettingsChanged);
+                        }, def.EnumLabelProvider, def.EnumDescriptionProvider);
                     }
                     break;
                 case SettingType.Button:
@@ -903,21 +1046,20 @@ namespace Better_Work_Tab.UI.SettingsPresentation
                         GUI.color = Color.gray;
                     }
 
-                    if (compactSectionHeader)
-                    {
-                        SettingWidgets.DrawSubheader(contentRect, label, sectionColor ?? def.HeaderColor);
-                    }
-                    else
-                    {
-                        SettingWidgets.DrawHeader(contentRect, label, sectionColor ?? def.HeaderColor);
-                    }
+                    SettingWidgets.DrawHeader(contentRect, label, sectionColor ?? def.HeaderColor);
                     GUI.color = previousColor;
                     break;
                 case SettingType.Spacer:
                     SettingWidgets.DrawSpacer(contentRect);
                     break;
                 case SettingType.DropdownListAdder:
-                    SettingWidgets.DrawDropdownListAdder(contentRect, label, def.DropdownOptionsProvider, def.OnOptionAdded, tooltip, disabled);
+                    SettingWidgets.DrawDropdownListAdder(
+                        contentRect,
+                        label,
+                        def.DropdownOptionsProvider,
+                        def.OnOptionAdded,
+                        tooltip,
+                        disabled);
                     break;
                 case SettingType.Custom:
                     if (def.CustomDrawer != null &&
@@ -930,12 +1072,15 @@ namespace Better_Work_Tab.UI.SettingsPresentation
 
             if (hasNotice)
             {
-                Rect noticeRect = new Rect(
-                    controlRow.x + indent,
-                    controlRow.yMax,
-                    Mathf.Max(0f, rect.width - indent),
-                    SuppressionNoticeHeight);
-                DrawSuppressionNotice(noticeRect, suppression, suppressionReason, settingsObject);
+                DrawSuppressionNotice(
+                    new Rect(
+                        controlRow.x + indent,
+                        controlRow.yMax,
+                        Mathf.Max(0f, rect.width - indent),
+                        SuppressionNoticeHeight),
+                    suppression,
+                    suppressionReason,
+                    settingsObject);
             }
 
             if (!string.IsNullOrEmpty(tooltip) &&
@@ -962,34 +1107,11 @@ namespace Better_Work_Tab.UI.SettingsPresentation
                 : tooltip + "\n\n" + addition;
         }
 
-        /// <summary>
-        /// True when any ancestor is itself suppressed, which makes this setting inert as well.
-        /// </summary>
-        private SettingSuppression GetActiveAncestorSuppression(
-            SettingDefinition setting,
-            object settingsObject)
-        {
-            foreach (SettingDefinition ancestor in _hierarchy.GetAncestors(setting))
-            {
-                SettingSuppression suppression = ancestor.GetActiveSuppression(settingsObject);
-                if (suppression != null)
-                {
-                    return suppression;
-                }
-            }
-
-            return null;
-        }
-
-        private static bool HasExternalSuppressionAction(SettingSuppression suppression)
-        {
-            return suppression != null && !string.IsNullOrEmpty(suppression.ExternalActionUrl);
-        }
-
         private float MeasureRowHeight(SettingDefinition def, object settingsObject)
         {
             SettingSuppression suppression = def?.GetActiveSuppression(settingsObject);
-            bool hasNotice = suppression != null && !string.IsNullOrEmpty(suppression.ResolveReason(settingsObject));
+            bool hasNotice = suppression != null &&
+                !string.IsNullOrEmpty(suppression.ResolveReason(settingsObject));
             return hasNotice ? RowHeight + SuppressionNoticeHeight : RowHeight;
         }
 
@@ -1004,135 +1126,9 @@ namespace Better_Work_Tab.UI.SettingsPresentation
             return total;
         }
 
-        /// <summary>
-        /// Draws the greyed explanation under a suppressed row, plus a link to the setting responsible.
-        /// </summary>
-        private void DrawSuppressionNotice(
-            Rect rect,
-            SettingSuppression suppression,
-            string reason,
-            object settingsObject)
-        {
-            GameFont oldFont = Text.Font;
-            TextAnchor oldAnchor = Text.Anchor;
-            Color oldColor = GUI.color;
-            bool oldWordWrap = Text.WordWrap;
-            Text.Font = GameFont.Tiny;
-            Text.WordWrap = false;
-
-            try
-            {
-                float reasonWidth = Mathf.Min(Text.CalcSize(reason).x, rect.width);
-                Rect reasonRect = new Rect(rect.x, rect.y, reasonWidth, rect.height);
-                GUI.color = SuppressionNoticeColor;
-                Widgets.Label(reasonRect, reason);
-
-                bool hasExternalAction = HasExternalSuppressionAction(suppression);
-                if (hasExternalAction)
-                {
-                    string externalLabel = string.IsNullOrEmpty(suppression.ExternalActionLabel)
-                        ? "Open Workshop"
-                        : suppression.ExternalActionLabel;
-                    float externalWidth = Text.CalcSize(externalLabel).x;
-                    float externalX = reasonRect.xMax + SuppressionLinkGap;
-                    if (externalX + externalWidth > rect.xMax)
-                    {
-                        return;
-                    }
-
-                    Rect externalRect = new Rect(externalX, rect.y, externalWidth, rect.height);
-                    bool externalHovered = Mouse.IsOver(externalRect);
-                    bool clicked = Widgets.ButtonText(
-                        externalRect,
-                        externalLabel,
-                        drawBackground: false,
-                        doMouseoverSound: true,
-                        textColor: externalHovered ? Color.white : SuppressionLinkColor,
-                        active: true,
-                        overrideTextAnchor: TextAnchor.MiddleLeft);
-                    GUI.color = externalHovered ? Color.white : SuppressionLinkColor;
-                    Widgets.DrawLineHorizontal(externalRect.x, externalRect.yMax - 3f, externalWidth);
-                    if (!string.IsNullOrEmpty(suppression.ExternalActionTooltip))
-                    {
-                        TooltipHandler.TipRegion(externalRect, suppression.ExternalActionTooltip);
-                    }
-                    if (clicked)
-                    {
-                        SteamUtility.OpenUrl(suppression.ExternalActionUrl);
-                    }
-                }
-                SettingDefinition suppressor = _hierarchy.GetById(suppression.SuppressorSettingId);
-                if (suppressor == null)
-                {
-                    return;
-                }
-
-                string linkText = suppression.LinkLabel
-                    ?? GetLabel?.Invoke(suppressor)
-                    ?? suppressor.Label
-                    ?? suppressor.Id;
-                float linkWidth = Text.CalcSize(linkText).x;
-                float linkX = rect.x + reasonWidth + SuppressionLinkGap;
-                if (linkX + linkWidth > rect.xMax)
-                {
-                    return;
-                }
-
-                Rect linkRect = new Rect(linkX, rect.y, linkWidth, rect.height);
-                bool hovered = Mouse.IsOver(linkRect);
-                GUI.color = hovered
-                    ? Color.white
-                    : SuppressionLinkColor;
-                Widgets.Label(linkRect, linkText);
-                Widgets.DrawLineHorizontal(linkRect.x, linkRect.yMax - 3f, linkWidth);
-                TooltipHandler.TipRegion(linkRect, SuppressionLinkTooltip);
-
-                if (Widgets.ButtonInvisible(linkRect))
-                {
-                    JumpToSuppressor(suppressor, settingsObject);
-                    Event.current?.Use();
-                }
-            }
-            finally
-            {
-                Text.Font = oldFont;
-                Text.Anchor = oldAnchor;
-                Text.WordWrap = oldWordWrap;
-                GUI.color = oldColor;
-            }
-        }
-
-        /// <summary>
-        /// Focuses the setting responsible for a suppression, lifting whatever search or filter
-        /// would otherwise hide it. The scroll happens on the next draw via <see cref="_pendingFocusSettingId"/>.
-        /// </summary>
-        private void JumpToSuppressor(SettingDefinition suppressor, object settingsObject)
-        {
-            ClearSearch();
-
-            if (_activeFilter != null && !MatchesFilter(suppressor, settingsObject, _activeFilter))
-            {
-                ClearActiveFilter();
-            }
-
-            RevealDisabledAncestorChain(suppressor.Id);
-            _pendingFocusSettingId = suppressor.Id;
-            FocusSetting(suppressor.Id);
-        }
-
-        private string BuildTooltip(SettingDefinition def, string disabledReason)
+        private string BuildTooltip(SettingDefinition def)
         {
             string tooltip = GetTooltip?.Invoke(def) ?? def.Tooltip ?? string.Empty;
-
-            if (!string.IsNullOrEmpty(disabledReason))
-            {
-                if (!string.IsNullOrEmpty(tooltip))
-                {
-                    tooltip += "\n\n";
-                }
-
-                tooltip += disabledReason;
-            }
 
             // Append parent chain info for children
             if (!string.IsNullOrEmpty(def.ParentId))
@@ -1164,6 +1160,141 @@ namespace Better_Work_Tab.UI.SettingsPresentation
             }
 
             return tooltip;
+        }
+
+        private SettingSuppression GetActiveAncestorSuppression(
+            SettingDefinition setting,
+            object settingsObject)
+        {
+            foreach (SettingDefinition ancestor in _hierarchy.GetAncestors(setting))
+            {
+                SettingSuppression suppression = ancestor.GetActiveSuppression(settingsObject);
+                if (suppression != null)
+                {
+                    return suppression;
+                }
+            }
+
+            return null;
+        }
+
+        private static bool HasExternalSuppressionAction(SettingSuppression suppression)
+        {
+            return suppression != null &&
+                !string.IsNullOrEmpty(suppression.ExternalActionUrl);
+        }
+
+        private void DrawSuppressionNotice(
+            Rect rect,
+            SettingSuppression suppression,
+            string reason,
+            object settingsObject)
+        {
+            GameFont oldFont = Text.Font;
+            TextAnchor oldAnchor = Text.Anchor;
+            Color oldColor = GUI.color;
+            bool oldWordWrap = Text.WordWrap;
+            Text.Font = GameFont.Tiny;
+            Text.WordWrap = false;
+
+            try
+            {
+                float reasonWidth = Mathf.Min(Text.CalcSize(reason).x, rect.width);
+                Rect reasonRect = new Rect(rect.x, rect.y, reasonWidth, rect.height);
+                GUI.color = SuppressionNoticeColor;
+                Widgets.Label(reasonRect, reason);
+
+                if (HasExternalSuppressionAction(suppression))
+                {
+                    string actionLabel = string.IsNullOrEmpty(suppression.ExternalActionLabel)
+                        ? "Open"
+                        : suppression.ExternalActionLabel;
+                    float actionWidth = Text.CalcSize(actionLabel).x;
+                    float actionX = reasonRect.xMax + SuppressionLinkGap;
+                    if (actionX + actionWidth <= rect.xMax)
+                    {
+                        Rect actionRect = new Rect(actionX, rect.y, actionWidth, rect.height);
+                        bool hovered = Mouse.IsOver(actionRect);
+                        GUI.color = hovered ? Color.white : SuppressionLinkColor;
+                        bool clicked = Widgets.ButtonText(
+                            actionRect,
+                            actionLabel,
+                            drawBackground: false,
+                            doMouseoverSound: true,
+                            textColor: GUI.color,
+                            active: true,
+                            overrideTextAnchor: TextAnchor.MiddleLeft);
+                        Widgets.DrawLineHorizontal(
+                            actionRect.x,
+                            actionRect.yMax - 3f,
+                            actionWidth);
+                        if (!string.IsNullOrEmpty(suppression.ExternalActionTooltip))
+                        {
+                            TooltipHandler.TipRegion(actionRect, suppression.ExternalActionTooltip);
+                        }
+
+                        if (clicked)
+                        {
+                            SteamUtility.OpenUrl(suppression.ExternalActionUrl);
+                        }
+                    }
+                }
+
+                SettingDefinition suppressor = _hierarchy.GetById(suppression.SuppressorSettingId);
+                if (suppressor == null)
+                {
+                    return;
+                }
+
+                string linkText = suppression.LinkLabel ??
+                    GetLabel?.Invoke(suppressor) ?? suppressor.Label ?? suppressor.Id;
+                float linkWidth = Text.CalcSize(linkText).x;
+                float linkX = rect.x + reasonWidth + SuppressionLinkGap;
+                if (linkX + linkWidth > rect.xMax)
+                {
+                    return;
+                }
+
+                Rect linkRect = new Rect(linkX, rect.y, linkWidth, rect.height);
+                bool linkHovered = Mouse.IsOver(linkRect);
+                GUI.color = linkHovered ? Color.white : SuppressionLinkColor;
+                Widgets.Label(linkRect, linkText);
+                Widgets.DrawLineHorizontal(linkRect.x, linkRect.yMax - 3f, linkWidth);
+                TooltipHandler.TipRegion(linkRect, SuppressionLinkTooltip);
+                if (Widgets.ButtonInvisible(linkRect))
+                {
+                    JumpToSuppressor(suppressor, settingsObject);
+                    Event.current?.Use();
+                }
+            }
+            finally
+            {
+                Text.Font = oldFont;
+                Text.Anchor = oldAnchor;
+                Text.WordWrap = oldWordWrap;
+                GUI.color = oldColor;
+            }
+        }
+
+        private void JumpToSuppressor(
+            SettingDefinition suppressor,
+            object settingsObject)
+        {
+            if (suppressor == null)
+            {
+                return;
+            }
+
+            ClearSearch();
+            if (_activeFilter != null &&
+                !MatchesFilter(suppressor, settingsObject, _activeFilter))
+            {
+                ClearActiveFilter();
+            }
+
+            RevealDisabledAncestorChain(suppressor.Id);
+            _pendingFocusSettingId = suppressor.Id;
+            FocusSetting(suppressor.Id);
         }
 
         private List<SettingDefinition> BuildVisibleSettings(
@@ -1473,80 +1604,16 @@ namespace Better_Work_Tab.UI.SettingsPresentation
         {
             _activeFilter = filter;
             _scrollPosition = Vector2.zero;
-            _transferMode = TransferMode.None;
         }
 
         private void ClearActiveFilter()
         {
-            ApplyFilter(null);
-        }
-
-        private void DrawImportExportFooter(Rect rect)
-        {
-            Widgets.DrawLineHorizontal(rect.x, rect.y, rect.width);
-            Rect contentRect = rect.ContractedBy(2f);
-            contentRect.y += 4f;
-            contentRect.height -= 4f;
-
-            if (_transferMode == TransferMode.None)
+            if (_activeFilter == null)
             {
-                float buttonWidth = 110f;
-                Rect exportRect = new Rect(contentRect.x, contentRect.y, buttonWidth, contentRect.height);
-                Rect importRect = new Rect(exportRect.xMax + 6f, contentRect.y, buttonWidth, contentRect.height);
-
-                if (ImportExportActions.ExportToFile != null || ImportExportActions.ExportToClipboard != null)
-                {
-                    if (Widgets.ButtonText(exportRect, ImportExportActions.ExportLabel))
-                    {
-                        _transferMode = TransferMode.Export;
-                    }
-                }
-
-                if (ImportExportActions.ImportFromFile != null || ImportExportActions.ImportFromClipboard != null)
-                {
-                    if (Widgets.ButtonText(importRect, ImportExportActions.ImportLabel))
-                    {
-                        _transferMode = TransferMode.Import;
-                    }
-                }
-
                 return;
             }
 
-            string prefix = _transferMode == TransferMode.Export
-                ? ImportExportActions.ExportLabel
-                : ImportExportActions.ImportLabel;
-            Rect labelRect = new Rect(contentRect.x, contentRect.y + 5f, 80f, contentRect.height);
-            Widgets.Label(labelRect, prefix + ":");
-
-            float optionWidth = 110f;
-            Rect fileRect = new Rect(labelRect.xMax + 4f, contentRect.y, optionWidth, contentRect.height);
-            Rect clipboardRect = new Rect(fileRect.xMax + 6f, contentRect.y, optionWidth, contentRect.height);
-            Rect cancelRect = new Rect(clipboardRect.xMax + 6f, contentRect.y, optionWidth, contentRect.height);
-
-            Action fileAction = _transferMode == TransferMode.Export
-                ? ImportExportActions.ExportToFile
-                : ImportExportActions.ImportFromFile;
-            Action clipboardAction = _transferMode == TransferMode.Export
-                ? ImportExportActions.ExportToClipboard
-                : ImportExportActions.ImportFromClipboard;
-
-            if (fileAction != null && Widgets.ButtonText(fileRect, ImportExportActions.FileLabel))
-            {
-                _transferMode = TransferMode.None;
-                fileAction();
-            }
-
-            if (clipboardAction != null && Widgets.ButtonText(clipboardRect, ImportExportActions.ClipboardLabel))
-            {
-                _transferMode = TransferMode.None;
-                clipboardAction();
-            }
-
-            if (Widgets.ButtonText(cancelRect, ImportExportActions.CancelLabel))
-            {
-                _transferMode = TransferMode.None;
-            }
+            ApplyFilter(null);
         }
 
         private bool TryHandleSearchResultDoubleClick(
@@ -1673,6 +1740,61 @@ namespace Better_Work_Tab.UI.SettingsPresentation
             }
         }
 
+        private void DrawImportExportFooter(Rect rect)
+        {
+            Widgets.DrawLineHorizontal(rect.x, rect.y, rect.width);
+            Rect contentRect = rect.ContractedBy(2f);
+            contentRect.y += 4f;
+            contentRect.height -= 4f;
+
+            if (_transferMode == TransferMode.None)
+            {
+                const float buttonWidth = 110f;
+                Rect exportRect = new Rect(contentRect.x, contentRect.y, buttonWidth, contentRect.height);
+                Rect importRect = new Rect(exportRect.xMax + 6f, contentRect.y, buttonWidth, contentRect.height);
+                if ((ImportExportActions.ExportToFile != null || ImportExportActions.ExportToClipboard != null) &&
+                    Widgets.ButtonText(exportRect, ImportExportActions.ExportLabel))
+                {
+                    _transferMode = TransferMode.Export;
+                }
+
+                if ((ImportExportActions.ImportFromFile != null || ImportExportActions.ImportFromClipboard != null) &&
+                    Widgets.ButtonText(importRect, ImportExportActions.ImportLabel))
+                {
+                    _transferMode = TransferMode.Import;
+                }
+
+                return;
+            }
+
+            bool exporting = _transferMode == TransferMode.Export;
+            Rect labelRect = new Rect(contentRect.x, contentRect.y + 5f, 80f, contentRect.height);
+            Widgets.Label(labelRect, (exporting ? ImportExportActions.ExportLabel : ImportExportActions.ImportLabel) + ":");
+            const float optionWidth = 110f;
+            Rect fileRect = new Rect(labelRect.xMax + 4f, contentRect.y, optionWidth, contentRect.height);
+            Rect clipboardRect = new Rect(fileRect.xMax + 6f, contentRect.y, optionWidth, contentRect.height);
+            Rect cancelRect = new Rect(clipboardRect.xMax + 6f, contentRect.y, optionWidth, contentRect.height);
+            Action fileAction = exporting ? ImportExportActions.ExportToFile : ImportExportActions.ImportFromFile;
+            Action clipboardAction = exporting ? ImportExportActions.ExportToClipboard : ImportExportActions.ImportFromClipboard;
+
+            if (fileAction != null && Widgets.ButtonText(fileRect, ImportExportActions.FileLabel))
+            {
+                _transferMode = TransferMode.None;
+                fileAction();
+            }
+
+            if (clipboardAction != null && Widgets.ButtonText(clipboardRect, ImportExportActions.ClipboardLabel))
+            {
+                _transferMode = TransferMode.None;
+                clipboardAction();
+            }
+
+            if (Widgets.ButtonText(cancelRect, ImportExportActions.CancelLabel))
+            {
+                _transferMode = TransferMode.None;
+            }
+        }
+
         private bool EnableControllingAncestors(SettingDefinition setting, object settingsObject)
         {
             if (setting == null || settingsObject == null)
@@ -1743,7 +1865,10 @@ namespace Better_Work_Tab.UI.SettingsPresentation
             }
 
             float age = Time.realtimeSinceStartup - _highlightStartedAt;
-            if (age > FocusHighlightSeconds)
+            if (!ContextualPresentationMath.IsHighlightActive(
+                Time.realtimeSinceStartup,
+                _highlightStartedAt,
+                FocusHighlightSeconds))
             {
                 _highlightedSettingId = null;
                 return;
@@ -1754,19 +1879,16 @@ namespace Better_Work_Tab.UI.SettingsPresentation
             Color focusColor = FocusHighlightColor;
             Color oldColor = GUI.color;
             GUI.color = new Color(focusColor.r, focusColor.g, focusColor.b, Mathf.Lerp(0.18f, 0.36f, pulse) * fade);
-            bool isHeaderRow = def.Type == SettingType.Header ||
-                def.EmphasizeAsHeader ||
-                def.ControlsChildVisibility;
-            Rect highlightRect = GetPanelRowRect(rowRect, isHeaderRow, depth);
+            Rect highlightRect = GetPanelRowRect(rowRect, def, depth);
             Widgets.DrawBoxSolid(highlightRect, GUI.color);
             GUI.color = new Color(focusColor.r, focusColor.g, focusColor.b, 0.85f * fade);
             Widgets.DrawBox(highlightRect, 2);
             GUI.color = oldColor;
         }
 
-        private Rect GetPanelRowRect(Rect rowRect, bool isHeaderRow, int depth)
+        private Rect GetPanelRowRect(Rect rowRect, SettingDefinition def, int depth)
         {
-            int panelDepth = isHeaderRow
+            int panelDepth = def.Type == SettingType.Header
                 ? depth
                 : Mathf.Max(0, depth - 1);
             float inset = panelDepth * IndentPerLevel;
@@ -1837,8 +1959,11 @@ namespace Better_Work_Tab.UI.SettingsPresentation
                 viewHeight += rowHeight;
             }
 
-            float maxScrollY = Mathf.Max(0f, viewHeight - listHeight);
-            _scrollPosition.y = Mathf.Clamp(targetY - ((listHeight - RowHeight) * 0.5f), 0f, maxScrollY);
+            _scrollPosition.y = ContextualPresentationMath.CenteredScroll(
+                targetY,
+                listHeight,
+                RowHeight,
+                viewHeight);
             _scrollPosition.x = 0f;
         }
 
@@ -1865,9 +1990,9 @@ namespace Better_Work_Tab.UI.SettingsPresentation
                 case SettingType.Int:
                 case SettingType.NumericInt:
                 case SettingType.Float:
-                case SettingType.Slider:
                 case SettingType.Color:
                 case SettingType.Enum:
+                case SettingType.Slider:
                     return true;
                 default:
                     return false;
@@ -2014,12 +2139,6 @@ namespace Better_Work_Tab.UI.SettingsPresentation
             return Equals(a, b);
         }
 
-        private enum TransferMode
-        {
-            None,
-            Export,
-            Import
-        }
 
         private sealed class EmptyStateAction
         {
@@ -2044,5 +2163,45 @@ namespace Better_Work_Tab.UI.SettingsPresentation
                 return new EmptyStateAction(label, viewMode);
             }
         }
+    }
+
+    /// <summary>
+    /// Small local search control so the settings framework does not depend on
+    /// RimWorld's version-specific QuickSearchWidget API.
+    /// </summary>
+    internal sealed class SettingsSearchWidget
+    {
+        internal readonly SettingsSearchFilter filter = new SettingsSearchFilter();
+
+        internal void OnGUI(Rect rect, Action onChanged)
+        {
+            string value = Widgets.TextField(rect, filter.Text ?? string.Empty);
+            if (!string.Equals(value, filter.Text, StringComparison.Ordinal))
+            {
+                filter.Text = value;
+                onChanged?.Invoke();
+            }
+        }
+
+        internal void Reset()
+        {
+            filter.Text = string.Empty;
+        }
+
+        internal void Unfocus()
+        {
+        }
+    }
+
+    internal enum TransferMode
+    {
+        None,
+        Export,
+        Import
+    }
+
+    internal sealed class SettingsSearchFilter
+    {
+        internal string Text { get; set; } = string.Empty;
     }
 }

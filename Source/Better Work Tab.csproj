@@ -33,7 +33,7 @@
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
     <OutputPath>..\1.6\Assemblies\</OutputPath>
-    <DefineConstants>DEBUG;TRACE;RWT_EMBEDDED_SPINE_SETTINGS;RWT_FLOATMENU_DOGUI_CONTEXT;RWT_HAS_COLOR_PICKER_ACCEPT_CANCEL;RWT_HAS_COLOR_PICKER_CLICK_OUTSIDE;RWT_HAS_COLOR_PICKER_WINDOW_LAYOUT;RWT_HAS_WARNING_ONCE</DefineConstants>
+    <DefineConstants>DEBUG;TRACE;RWT_EMBEDDED_SPINE_SETTINGS;RWT_FLOATMENU_DOGUI_CONTEXT;RWT_HAS_COLOR_PICKER_ACCEPT_CANCEL;RWT_HAS_COLOR_PICKER_CLICK_OUTSIDE;RWT_HAS_COLOR_PICKER_WINDOW_LAYOUT;RWT_HAS_DIALOG_MOD_SETTINGS_MOD_CTOR;RWT_HAS_WARNING_ONCE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
@@ -41,7 +41,7 @@
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
     <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants>TRACE;RWT_EMBEDDED_SPINE_SETTINGS;RWT_FLOATMENU_DOGUI_CONTEXT;RWT_HAS_COLOR_PICKER_ACCEPT_CANCEL;RWT_HAS_COLOR_PICKER_CLICK_OUTSIDE;RWT_HAS_COLOR_PICKER_WINDOW_LAYOUT;RWT_HAS_WARNING_ONCE</DefineConstants>
+    <DefineConstants>TRACE;RWT_EMBEDDED_SPINE_SETTINGS;RWT_FLOATMENU_DOGUI_CONTEXT;RWT_HAS_COLOR_PICKER_ACCEPT_CANCEL;RWT_HAS_COLOR_PICKER_CLICK_OUTSIDE;RWT_HAS_COLOR_PICKER_WINDOW_LAYOUT;RWT_HAS_DIALOG_MOD_SETTINGS_MOD_CTOR;RWT_HAS_WARNING_ONCE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
@@ -49,7 +49,7 @@
     <OutputPath>..\1.6\Assemblies\</OutputPath>
     <Optimize>true</Optimize>
     <DebugType>pdbonly</DebugType>
-    <DefineConstants>TRACE;RWT_EMBEDDED_SPINE_SETTINGS;RWT_FLOATMENU_DOGUI_CONTEXT;RWT_HAS_COLOR_PICKER_ACCEPT_CANCEL;RWT_HAS_COLOR_PICKER_CLICK_OUTSIDE;RWT_HAS_COLOR_PICKER_WINDOW_LAYOUT;RWT_HAS_WARNING_ONCE</DefineConstants>
+    <DefineConstants>TRACE;RWT_EMBEDDED_SPINE_SETTINGS;RWT_FLOATMENU_DOGUI_CONTEXT;RWT_HAS_COLOR_PICKER_ACCEPT_CANCEL;RWT_HAS_COLOR_PICKER_CLICK_OUTSIDE;RWT_HAS_COLOR_PICKER_WINDOW_LAYOUT;RWT_HAS_DIALOG_MOD_SETTINGS_MOD_CTOR;RWT_HAS_WARNING_ONCE</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System.Core" />
@@ -80,6 +80,8 @@
     <Compile Include="Spine\Core\Collections\ImmutableSnapshot.cs" />
     <Compile Include="Spine\Core\Diagnostics\RenderDiagnostics.cs" />
     <Compile Include="Spine\Core\Diagnostics\ApiDescriptors.cs" />
+    <Compile Include="Spine\Core\Diagnostics\SpineApi.cs" />
+    <Compile Include="Spine\Core\Diagnostics\SpineRuntimeFacade.cs" />
     <Compile Include="Spine\Core\Rendering\RenderPipeline.cs" />
     <Compile Include="BetterWorkTab.cs" />
     <Compile Include="BetterWorkTabLocalState.cs" />
@@ -287,6 +289,9 @@
     <Compile Include="Spine\DragDrop\Util\ListDragVisuals.cs" />
     <Compile Include="Spine\harmony\HarmonyCompat.cs" />
     <Compile Include="Spine\harmony\HarmonyLog.cs" />
+    <Compile Include="Spine\harmony\HarmonyPatchingFacade.cs" />
+    <Compile Include="Spine\harmony\HarmonyPatchOperationKeys.cs" />
+    <Compile Include="Spine\harmony\HarmonyUtil.cs" />
     <Compile Include="Spine\harmony\Transpilers\CartographerExtensions.cs" />
     <Compile Include="Spine\harmony\Transpilers\FluentReplacementResult.cs" />
     <Compile Include="Spine\harmony\Transpilers\FluentTranspiler.cs" />
@@ -323,14 +328,21 @@
     <Compile Include="Spine\UI\SettingsFramework\SettingDefinition.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingDefinitions.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingSuppression.cs" />
+    <Compile Include="Spine\UI\SettingsFramework\ModSettingsFacade.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingsScribe.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingType.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingsHierarchy.cs" />
     <Compile Include="Spine\UI\SettingsFramework\SettingsFilterDefinition.cs" />
-    <Compile Include="UI\Settings\Presentation\SettingsImportExportActions.cs" />
+    <Compile Include="Spine\UI\SettingsFramework\SettingsImportExportActions.cs" />
+    <Compile Include="Spine\UI\SettingsFramework\SettingsListDrawer.cs" />
+    <Compile Include="Spine\UI\SettingsFramework\SettingsPresentationPolicy.cs" />
+    <Compile Include="Spine\UI\SettingsFramework\SettingWidgets.cs" />
+    <Compile Include="Spine\UI\SettingsFramework\SpineMod.cs" />
     <Compile Include="Spine\UI\SettingsFramework\DescribedFloatMenu.cs" />
-    <Compile Include="UI\Settings\Presentation\SettingWidgets.cs" />
-    <Compile Include="UI\Settings\Presentation\SettingsListDrawer.cs" />
+    <Compile Include="Spine\UI\ContextualSettings\ContextualSettingsContracts.cs" />
+    <Compile Include="Spine\UI\ContextualSettings\ContextualSettingsRouterCore.cs" />
+    <Compile Include="Spine\UI\ContextualSettings\ContextualSettingsService.cs" />
+    <Compile Include="Spine\UI\Tooltips\StableTooltipSizing.cs" />
     <Compile Include="UI\WorkGiverReassignments\Window_WorkGiverSubMenu.cs" />
     <Compile Include="UI\WorkGiverReassignments\SubWorkDrilldownBarRenderer.cs" />
     <Compile Include="UI\WorkGiverReassignments\SubWorkCrossWorkDropTargetRenderer.cs" />
@@ -484,13 +496,7 @@
     <Compile Include="UI\RuleBuilderV2\Window_RuleBuilder2.cs" />
   </ItemGroup>
   <ItemGroup>
-    <!-- Optional Spine Harmony modules. Keep these visible for future opt-in use without shipping dormant code. -->
-    <None Include="Spine\harmony\DeferredPatchCoordinator.cs" />
-    <None Include="Spine\harmony\HarmonyBootstrap.cs" />
-    <None Include="Spine\harmony\HarmonyHelper.cs" />
     <None Include="Spine\harmony\HarmonyUtil.cs" />
-    <None Include="Spine\harmony\PatchRegistry.cs" />
-    <None Include="Spine\harmony\VisualTranspilerBuilder.cs" />
     <None Include="Spine\harmony\Transpilers\AdvancedExtensions.cs" />
     <None Include="Spine\harmony\Transpilers\ControlFlowExtensions.cs" />
     <None Include="Spine\harmony\Transpilers\CooperativePatcher.cs" />
@@ -504,15 +510,15 @@
          layout, profiling, serialization, and settings extensions stay embedded. -->
     <Compile Remove="Spine\Core\Caching\BoundedLruCache.cs" />
     <Compile Remove="Spine\Core\Diagnostics\ApiDescriptors.cs" />
+    <Compile Remove="Spine\Core\Diagnostics\SpineApi.cs" />
+    <Compile Remove="Spine\Core\Diagnostics\SpineRuntimeFacade.cs" />
+    <Compile Remove="Spine\harmony\HarmonyPatchingFacade.cs" />
+    <Compile Remove="Spine\harmony\HarmonyPatchOperationKeys.cs" />
+    <Compile Remove="Spine\harmony\HarmonyUtil.cs" />
     <Compile Remove="Spine\UI\ColorPicker\*.cs" />
-    <Compile Remove="Spine\UI\SettingsFramework\DescribedFloatMenu.cs" />
-    <Compile Remove="Spine\UI\SettingsFramework\SettingDefinition.cs" />
-    <Compile Remove="Spine\UI\SettingsFramework\SettingDefinitions.cs" />
-    <Compile Remove="Spine\UI\SettingsFramework\SettingSuppression.cs" />
-    <Compile Remove="Spine\UI\SettingsFramework\SettingsFilterDefinition.cs" />
-    <Compile Remove="Spine\UI\SettingsFramework\SettingsHierarchy.cs" />
-    <Compile Remove="Spine\UI\SettingsFramework\SettingsScribe.cs" />
-    <Compile Remove="Spine\UI\SettingsFramework\SettingType.cs" />
+    <Compile Remove="Spine\UI\ContextualSettings\*.cs" />
+    <Compile Remove="Spine\UI\SettingsFramework\*.cs" />
+    <Compile Remove="Spine\UI\Tooltips\*.cs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Krafs.Publicizer">
