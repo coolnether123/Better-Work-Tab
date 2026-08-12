@@ -717,12 +717,6 @@ namespace Better_Work_Tab.UI.SettingsFramework
             }
 
             Rect panelRowRect = GetPanelRowRect(rect, isHeaderRow, depth);
-            if (HasExternalSuppressionAction(interactionSuppression) &&
-                !string.IsNullOrEmpty(interactionSuppression.ExternalActionTooltip))
-            {
-                TooltipHandler.TipRegion(panelRowRect, interactionSuppression.ExternalActionTooltip);
-            }
-
             bool disabled = isDisabledByParent || suppression != null;
             string label = GetLabel?.Invoke(def) ?? def.Label ?? def.Id;
             string tooltip = BuildTooltip(def, suppressionReason);
