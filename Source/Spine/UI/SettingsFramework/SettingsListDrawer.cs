@@ -1304,6 +1304,10 @@ namespace Better_Work_Tab.UI.SettingsFramework
                 Rect reasonRect = new Rect(rect.x, rect.y, reasonWidth, rect.height);
                 bool hasExternalAction = HasExternalSuppressionAction(suppression);
                 bool externalNoticeHovered = hasExternalAction && Mouse.IsOver(reasonRect);
+                if (externalNoticeHovered)
+                {
+                    Widgets.DrawHighlight(reasonRect);
+                }
                 GUI.color = hasExternalAction
                     ? (externalNoticeHovered ? Color.white : SuppressionLinkColor)
                     : SuppressionNoticeColor;
