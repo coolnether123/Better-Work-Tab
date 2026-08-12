@@ -1696,13 +1696,6 @@ namespace Better_Work_Tab.Features.Tutorial
                 return;
             }
 
-            bool firstPublic105Course = settings.tutorialMigratedFromPublic105 &&
-                settings.selectedTutorialCourse == BWTTutorialCourse.None;
-            if (firstPublic105Course)
-            {
-                BWT20SettingsMigration.EnablePublic20TutorialFeatures(settings);
-            }
-
             settings.selectedTutorialCourse = course;
             settings.tutorialWelcomeCompleted = true;
             settings.showGeneralTutorial = true;

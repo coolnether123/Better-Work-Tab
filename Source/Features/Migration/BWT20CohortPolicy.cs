@@ -2,7 +2,8 @@ namespace Better_Work_Tab.Features.Migration
 {
     /// <summary>
     /// Product-level feature gates for a fresh 2.0 install, a conservative
-    /// public-1.0.5 migration, and an upgrading player who opts into a tutorial.
+    /// public-1.0.5 migration, and an upgrading player who opts into 2.0 and
+    /// its tutorial.
     /// Kept free of RimWorld APIs so both cohorts are covered by lightweight tests.
     /// </summary>
     internal static class BWT20CohortPolicy

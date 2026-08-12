@@ -33,7 +33,7 @@ Every major 2.0 system is independently toggleable in Mod Settings.
 Better Work Tab deliberately gives these cohorts different first launches:
 
 - A **fresh 2.0 install** starts with specific-job drilldown, Rule Builder 2.0, time-priority schedules, and the guided tutorial enabled.
-- A player **upgrading from public 1.0.5** keeps the new top-level feature gates off. An upgrade prompt explains the change; choosing a tutorial course enables the supported 2.0 feature set. Skipping the course preserves the familiar 1.x-style surface until the player enables features in settings.
+- A player **upgrading from public 1.0.5** keeps the new top-level feature gates off. The upgrade prompt can enable the supported 2.0 feature set and start the tour while preserving the player's current priority provider. Keeping the current setup preserves the familiar 1.x-style surface until the player enables features in settings; renderer and compatibility improvements remain active either way.
 
 The migration preserves saved 1.x preferences and rulesets, stamps the new settings schema once, and does not treat later imports as a startup migration. Back up important saves before changing any mod list.
 

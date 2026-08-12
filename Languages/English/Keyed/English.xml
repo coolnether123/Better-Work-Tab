@@ -187,9 +187,9 @@
 <BWT_Tutorial_Welcome_Full>Explore all BWT features</BWT_Tutorial_Welcome_Full>
 <BWT_Tutorial_NotNow>Not now</BWT_Tutorial_NotNow>
 <BWT_Upgrade20_PromptTitle>Better Work Tab 2.0</BWT_Upgrade20_PromptTitle>
-<BWT_Upgrade20_PromptBody>Better Work Tab was updated to 2.0. Your settings are preserved, and new features remain disabled to keep existing behavior. Tour the new features?</BWT_Upgrade20_PromptBody>
-<BWT_Upgrade20_StartTutorial>Show me the 2.0 tutorial</BWT_Upgrade20_StartTutorial>
-<BWT_Upgrade20_KeepSettings>Keep my existing settings</BWT_Upgrade20_KeepSettings>
+<BWT_Upgrade20_PromptBody>Better Work Tab 2.0 adds specific-job priorities, daily schedules, Rule Builder 2.0, and more. Choose how you would like to upgrade. You can change these features later in Mod Settings. Enabling 2.0 keeps your current priority provider.</BWT_Upgrade20_PromptBody>
+<BWT_Upgrade20_StartTutorial>Enable 2.0 and start the tour</BWT_Upgrade20_StartTutorial>
+<BWT_Upgrade20_KeepSettings>Keep my current setup</BWT_Upgrade20_KeepSettings>
 <BWT_FluffyMigration_Title>Fluffy Work Tab compatibility</BWT_FluffyMigration_Title>
 <BWT_FluffyMigration_ActiveBody>Fluffy Work Tab is active. Better Work Tab checked for compatible hourly priorities without changing visual or Work-tab ownership settings. Review compatibility settings?</BWT_FluffyMigration_ActiveBody>
 <BWT_FluffyMigration_HistoricalBody>This save contains Fluffy Work Tab data. Better Work Tab imported compatible hourly priorities without changing visual or Work-tab ownership settings. Review compatibility settings?</BWT_FluffyMigration_HistoricalBody>

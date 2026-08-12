@@ -29,13 +29,13 @@ namespace Better_Work_Tab.Features.Migration
                 return;
             }
 
-            Action startTutorial = () => Resolve(settings, worldSettings, startTutorial: true);
-            Action keepSettings = () => Resolve(settings, worldSettings, startTutorial: false);
+            Action enable20AndStartTutorial = () => Resolve(settings, worldSettings, enable20Features: true);
+            Action keepSettings = () => Resolve(settings, worldSettings, enable20Features: false);
 #if v0_18 || v0_17 || v0_16 || v0_15 || v0_14 || v0_13 || vAlpha4
             Dialog_MessageBox dialog = new Dialog_MessageBox(
                 "BWT_Upgrade20_PromptBody".Translate(),
                 "BWT_Upgrade20_StartTutorial".Translate(),
-                startTutorial,
+                enable20AndStartTutorial,
                 "BWT_Upgrade20_KeepSettings".Translate(),
                 keepSettings,
                 title: "BWT_Upgrade20_PromptTitle".Translate());
@@ -43,11 +43,11 @@ namespace Better_Work_Tab.Features.Migration
             Dialog_MessageBox dialog = new Dialog_MessageBox(
                 "BWT_Upgrade20_PromptBody".Translate(),
                 "BWT_Upgrade20_StartTutorial".Translate(),
-                startTutorial,
+                enable20AndStartTutorial,
                 "BWT_Upgrade20_KeepSettings".Translate(),
                 keepSettings,
                 title: "BWT_Upgrade20_PromptTitle".Translate(),
-                acceptAction: startTutorial,
+                acceptAction: enable20AndStartTutorial,
                 cancelAction: keepSettings);
 #endif
             Find.WindowStack.Add(dialog);
@@ -57,13 +57,18 @@ namespace Better_Work_Tab.Features.Migration
         private static void Resolve(
             BetterWorkTabSettings settings,
             GameComponent_BWTWorldSettings worldSettings,
-            bool startTutorial)
+            bool enable20Features)
         {
             Presence.Clear();
+            if (enable20Features)
+            {
+                BWT20SettingsMigration.EnablePublic20Features(settings);
+            }
+
             settings.v2UpgradePromptPending = false;
             worldSettings.BWTWorldSchemaVersion = BWT20UpgradePolicy.CurrentWorldSchemaVersion;
-            settings.showGeneralTutorial = startTutorial;
-            settings.tutorialWelcomeCompleted = !startTutorial;
+            settings.showGeneralTutorial = enable20Features;
+            settings.tutorialWelcomeCompleted = !enable20Features;
             settings.selectedTutorialCourse = BWTTutorialCourse.None;
             settings.tutorialFlowVersion = BWTGeneralTutorial.CurrentFlowVersion;
             settings.activeTutorialLessonId = string.Empty;
