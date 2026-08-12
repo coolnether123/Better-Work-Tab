@@ -716,9 +716,14 @@ namespace Better_Work_Tab.UI.SettingsFramework
                 Widgets.DrawHighlight(GetPanelRowRect(rect, isHeaderRow, depth));
             }
 
-            HandleExternalSuppressionAction(
-                GetPanelRowRect(rect, isHeaderRow, depth),
-                interactionSuppression);
+            Rect panelRowRect = GetPanelRowRect(rect, isHeaderRow, depth);
+            if (HasExternalSuppressionAction(interactionSuppression) &&
+                !string.IsNullOrEmpty(interactionSuppression.ExternalActionTooltip))
+            {
+                TooltipHandler.TipRegion(panelRowRect, interactionSuppression.ExternalActionTooltip);
+            }
+
+            HandleExternalSuppressionAction(panelRowRect, suppression);
 
             bool disabled = isDisabledByParent || suppression != null;
             string label = GetLabel?.Invoke(def) ?? def.Label ?? def.Id;
@@ -1281,11 +1286,6 @@ namespace Better_Work_Tab.UI.SettingsFramework
             if (!HasExternalSuppressionAction(suppression))
             {
                 return;
-            }
-
-            if (!string.IsNullOrEmpty(suppression.ExternalActionTooltip))
-            {
-                TooltipHandler.TipRegion(rowRect, suppression.ExternalActionTooltip);
             }
 
             Event evt = Event.current;
