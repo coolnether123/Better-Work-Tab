@@ -723,8 +723,6 @@ namespace Better_Work_Tab.UI.SettingsFramework
                 TooltipHandler.TipRegion(panelRowRect, interactionSuppression.ExternalActionTooltip);
             }
 
-            HandleExternalSuppressionAction(panelRowRect, suppression);
-
             bool disabled = isDisabledByParent || suppression != null;
             string label = GetLabel?.Invoke(def) ?? def.Label ?? def.Id;
             string tooltip = BuildTooltip(def, suppressionReason);
@@ -982,14 +980,7 @@ namespace Better_Work_Tab.UI.SettingsFramework
                     break;
                 case SettingType.Header:
                     Color previousColor = GUI.color;
-                    bool externalHeaderHovered = suppression != null &&
-                        HasExternalSuppressionAction(suppression) &&
-                        Mouse.IsOver(GetPanelRowRect(rect, isHeaderRow, depth));
-                    if (externalHeaderHovered)
-                    {
-                        GUI.color = SuppressionLinkColor;
-                    }
-                    else if (disabled)
+                    if (disabled)
                     {
                         GUI.color = Color.gray;
                     }
@@ -1001,11 +992,6 @@ namespace Better_Work_Tab.UI.SettingsFramework
                     else
                     {
                         SettingWidgets.DrawHeader(contentRect, label, sectionColor ?? def.HeaderColor);
-                    }
-                    if (externalHeaderHovered)
-                    {
-                        float underlineWidth = Mathf.Min(Text.CalcSize(label).x, contentRect.width);
-                        Widgets.DrawLineHorizontal(contentRect.x + 10f, contentRect.yMax - 3f, underlineWidth);
                     }
                     GUI.color = previousColor;
                     break;
@@ -1279,26 +1265,6 @@ namespace Better_Work_Tab.UI.SettingsFramework
             return suppression != null && !string.IsNullOrEmpty(suppression.ExternalActionUrl);
         }
 
-        private static void HandleExternalSuppressionAction(
-            Rect rowRect,
-            SettingSuppression suppression)
-        {
-            if (!HasExternalSuppressionAction(suppression))
-            {
-                return;
-            }
-
-            Event evt = Event.current;
-            if (evt != null &&
-                evt.type == EventType.MouseDown &&
-                evt.button == 0 &&
-                rowRect.Contains(evt.mousePosition))
-            {
-                Application.OpenURL(suppression.ExternalActionUrl);
-                evt.Use();
-            }
-        }
-
         private float MeasureRowHeight(SettingDefinition def, object settingsObject)
         {
             SettingSuppression suppression = def?.GetActiveSuppression(settingsObject);
@@ -1335,12 +1301,25 @@ namespace Better_Work_Tab.UI.SettingsFramework
             try
             {
                 float reasonWidth = Mathf.Min(Text.CalcSize(reason).x, rect.width);
-                bool externalNoticeHovered = HasExternalSuppressionAction(suppression) && Mouse.IsOver(rect);
-                GUI.color = externalNoticeHovered ? SuppressionLinkColor : SuppressionNoticeColor;
-                Widgets.Label(new Rect(rect.x, rect.y, reasonWidth, rect.height), reason);
-                if (externalNoticeHovered)
+                Rect reasonRect = new Rect(rect.x, rect.y, reasonWidth, rect.height);
+                bool hasExternalAction = HasExternalSuppressionAction(suppression);
+                bool externalNoticeHovered = hasExternalAction && Mouse.IsOver(reasonRect);
+                GUI.color = hasExternalAction
+                    ? (externalNoticeHovered ? Color.white : SuppressionLinkColor)
+                    : SuppressionNoticeColor;
+                Widgets.Label(reasonRect, reason);
+                if (hasExternalAction)
                 {
                     Widgets.DrawLineHorizontal(rect.x, rect.yMax - 3f, reasonWidth);
+                    if (!string.IsNullOrEmpty(suppression.ExternalActionTooltip))
+                    {
+                        TooltipHandler.TipRegion(reasonRect, suppression.ExternalActionTooltip);
+                    }
+                    if (Widgets.ButtonInvisible(reasonRect))
+                    {
+                        Application.OpenURL(suppression.ExternalActionUrl);
+                        Event.current?.Use();
+                    }
                 }
 
                 SettingDefinition suppressor = _hierarchy.GetById(suppression.SuppressorSettingId);
