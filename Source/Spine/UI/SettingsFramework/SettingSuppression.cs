@@ -37,6 +37,18 @@ namespace Better_Work_Tab.UI.SettingsFramework
         public string LinkLabel;
 
         /// <summary>
+        /// Optional external destination for a disabled compatibility group. When set, every row
+        /// inheriting this suppression becomes a link while its normal setting control stays inert.
+        /// </summary>
+        public string ExternalActionUrl;
+
+        /// <summary>
+        /// Optional tooltip for <see cref="ExternalActionUrl"/>. This replaces the normal setting
+        /// tooltip while the external action is available, so the player sees one clear action.
+        /// </summary>
+        public string ExternalActionTooltip;
+
+        /// <summary>
         /// Evaluates <see cref="When"/>, treating a throwing predicate as "not suppressing" so a
         /// broken rule cannot lock a player out of a setting.
         /// </summary>
