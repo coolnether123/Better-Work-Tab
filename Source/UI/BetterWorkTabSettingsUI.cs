@@ -1,9 +1,8 @@
-using System.Linq;
 using Better_Work_Tab;
 using Better_Work_Tab.Features.Tutorial;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
+using Better_Work_Tab.ModSupport.Mods.Spine;
 using Better_Work_Tab.UI.Settings;
-using Spine.Api;
 using Spine.UI.ContextualSettings;
 using Spine.UI.SettingsFramework;
 using UnityEngine;
@@ -16,121 +15,101 @@ namespace Better_Work_Tab.UI
     /// </summary>
     public static class BetterWorkTabSettingsUI
     {
-        // One list, not two pages.
-        //
-        // Settings and Controls used to be separate drawers behind a pair of tab
-        // buttons. The split cost more than it bought: the search box, the view
-        // toggle and every filter chip only ever saw one half, so searching for
-        // a control from the Settings page found nothing, and a context filter
-        // had to work out which page its target lived on before it could open.
-        // The control rows already sit under their own header, so merging keeps
-        // them grouped where they were while making the whole set searchable.
-        private static SettingsListDrawer _drawer;
-        private static IContextualSettingsLease _contextualSettings;
-        private static SettingsViewMode _viewMode = SettingsViewMode.Simple;
-        private static Vector2 _preservedScrollPosition = Vector2.zero;
+        private static IModSettingsPage _page;
 
-        internal static IContextualSettingsLease ContextualSettings
-        {
-            get
+        private static readonly ModSettingsPageOptions PageOptions =
+            new ModSettingsPageOptions
             {
-                EnsureDrawerInitialized();
-                return _contextualSettings;
-            }
-        }
+                RowHeight = 32f,
+                ConfigureDrawer = (drawer, _) =>
+                {
+                    drawer.GetLabel = BWTSettingsTranslation.GetLabel;
+                    drawer.GetTooltip = BWTSettingsTranslation.GetTooltip;
+                    drawer.SimpleLabel = BWTSettingsTranslation.Simple;
+                    drawer.AdvancedLabel = BWTSettingsTranslation.Advanced;
+                    drawer.NoResultsLabel = BWTSettingsTranslation.NoResults;
+                    drawer.EditColorLabel = BWTSettingsTranslation.Edit;
+                    drawer.ColorPreviewTooltip = "Hover here or adjust the picker to preview this color live on the Work tab.";
+                    drawer.ColorPreviewSink = WorkTabColorPreviewController.Instance;
+                    drawer.Filters = BWTSettingsFilters.Create();
+                    drawer.FilterLabel = "Filter";
+                    drawer.AllSettingsFilterLabel = "All Settings";
+                    drawer.IndentPerLevel = 20f;
+                    drawer.OnSettingTooltipViewed = MarkSettingViewed;
+                    drawer.OnSettingInteracted = (definition, _) =>
+                        BWTGeneralTutorial.NotifySettingsRowInteracted(definition?.Id);
+                },
+                PrepareDrawer = (drawer, settingsObject) =>
+                {
+                    var settings = (BetterWorkTabSettings)settingsObject;
+                    drawer.ShowResetIcons = !settings.hideSettingResetIcons;
+                    drawer.FocusHighlightColor = settings.Color_SettingFocusHighlight;
+                    drawer.ImportExportActions = BWTSettingsImportExportActions.Create(
+                        settings,
+                        NotifySettingsChanged);
+                    if (BWTSettingsContextFocus.TryConsume(out BWTSettingsFocusRequest request))
+                    {
+                        drawer.ApplyContextFilter(
+                            BWTSettingsContextFocus.CreateFilter(request),
+                            request.TargetSettingId);
+                    }
+                },
+                PrepareContentRect = (rect, _) =>
+                {
+                    FluffyWorkTabGateway.DrawSettingsBannerIfNeeded(ref rect);
+                    return rect;
+                },
+                ReadViewMode = settingsObject =>
+                    ((BetterWorkTabSettings)settingsObject).settingsViewMode ==
+                    BetterWorkTabSettings.SettingsViewMode.Simple
+                        ? SettingsViewMode.Simple
+                        : SettingsViewMode.Advanced,
+                WriteViewMode = (settingsObject, viewMode) =>
+                    ((BetterWorkTabSettings)settingsObject).settingsViewMode =
+                        viewMode == SettingsViewMode.Simple
+                            ? BetterWorkTabSettings.SettingsViewMode.Simple
+                            : BetterWorkTabSettings.SettingsViewMode.Advanced
+            };
+
+        internal static IContextualSettingsLease ContextualSettings =>
+            GetPage().ContextualSettings;
 
         /// <summary>
         /// Renders the settings window contents.
         /// </summary>
-        public static void DoSettingsWindowContents(Rect inRect, BetterWorkTabSettings settings)
-        {
-            EnsureDrawerInitialized();
-            FluffyWorkTabGateway.DrawSettingsBannerIfNeeded(ref inRect);
-
-            _viewMode = settings.settingsViewMode == BetterWorkTabSettings.SettingsViewMode.Simple
-                ? SettingsViewMode.Simple
-                : SettingsViewMode.Advanced;
-
-            SettingsListDrawer drawer = _drawer;
-            drawer.ShowResetIcons = !settings.hideSettingResetIcons;
-            drawer.FocusHighlightColor = settings.Color_SettingFocusHighlight;
-            drawer.ImportExportActions = BWTSettingsImportExportActions.Create(settings, NotifySettingsChanged);
-            if (BWTSettingsContextFocus.TryConsume(out BWTSettingsFocusRequest focusRequest))
-            {
-                drawer.ApplyContextFilter(
-                    BWTSettingsContextFocus.CreateFilter(focusRequest),
-                    focusRequest.TargetSettingId);
-            }
-
-            drawer.Draw(inRect, settings, ref _viewMode, () => settings.Write());
-            settings.settingsViewMode = _viewMode == SettingsViewMode.Simple
-                ? BetterWorkTabSettings.SettingsViewMode.Simple
-                : BetterWorkTabSettings.SettingsViewMode.Advanced;
-        }
+        public static void DoSettingsWindowContents(Rect inRect) =>
+            GetPage().Draw(inRect);
 
         public static void NotifySettingsChanged()
         {
-            // Preserve scroll position before destroying drawer
-            if (_drawer != null)
-            {
-                _preservedScrollPosition = _drawer.ScrollPosition;
-            }
-
-            _drawer = null;
-            _contextualSettings?.Dispose();
-            _contextualSettings = null;
+            _page?.Dispose();
+            _page = null;
         }
 
         /// <summary>
         /// Lazily builds the drawer with Better Work Tab specific translators.
         /// </summary>
-        private static void EnsureDrawerInitialized()
+        private static IModSettingsPage GetPage()
         {
-            if (_drawer != null)
-            {
-                return;
-            }
+            if (_page != null) return _page;
 
             BWTSettingsRegistry.EnsureInitialized();
-            _drawer = CreateDrawer(
-                new SettingsHierarchy(BWTSettingsRegistry.Definitions),
-                _preservedScrollPosition);
             BetterWorkTabMod host = LoadedModManager.GetMod<BetterWorkTabMod>();
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
-            if (host != null && settings != null)
+            if (host == null || settings == null)
             {
-                _contextualSettings = SpineApi.ContextualSettings.Acquire(
-                    "CoolNether123.BetterWorkTab",
-                    host,
-                    _drawer,
-                    settings);
+                throw new System.InvalidOperationException(
+                    "Better Work Tab settings were requested before the mod host initialized.");
             }
-        }
 
-        private static SettingsListDrawer CreateDrawer(
-            SettingsHierarchy hierarchy,
-            Vector2 scrollPosition)
-        {
-            return new SettingsListDrawer(hierarchy)
-            {
-                GetLabel = BWTSettingsTranslation.GetLabel,
-                GetTooltip = BWTSettingsTranslation.GetTooltip,
-                SimpleLabel = BWTSettingsTranslation.Simple,
-                AdvancedLabel = BWTSettingsTranslation.Advanced,
-                NoResultsLabel = BWTSettingsTranslation.NoResults,
-                EditColorLabel = BWTSettingsTranslation.Edit,
-                ColorPreviewTooltip = "Hover here or adjust the picker to preview this color live on the Work tab.",
-                ColorPreviewSink = WorkTabColorPreviewController.Instance,
-                Filters = BWTSettingsFilters.Create(),
-                FilterLabel = "Filter",
-                AllSettingsFilterLabel = "All Settings",
-                IndentPerLevel = 20f,
-                RowHeight = 32f,
-                ScrollPosition = scrollPosition,
-                OnSettingTooltipViewed = MarkSettingViewed,
-                OnSettingInteracted = (definition, _) =>
-                    BWTGeneralTutorial.NotifySettingsRowInteracted(definition?.Id)
-            };
+            _page = SpineCompatibilityGateway.Settings.Acquire(
+                SpineCompatibilityGateway.ConsumerId,
+                host,
+                settings,
+                BWTSettingsRegistry.Definitions,
+                settings.Write,
+                PageOptions);
+            return _page;
         }
 
         private static void MarkSettingViewed(SettingDefinition def, object settingsObject)

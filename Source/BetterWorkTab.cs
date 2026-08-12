@@ -146,7 +146,7 @@ namespace Better_Work_Tab
         {
             //Widgets.Label(inRect, "This is the widget.");
             //Widgets.Label(new Rect(inRect.center, new Vector2(50, 50)), "Yep it's in the middle.");
-            UI.BetterWorkTabSettingsUI.DoSettingsWindowContents(inRect, Settings);
+            UI.BetterWorkTabSettingsUI.DoSettingsWindowContents(inRect);
         }
 
         public override void WriteSettings()

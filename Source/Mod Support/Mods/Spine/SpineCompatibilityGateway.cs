@@ -1,6 +1,6 @@
 using System;
-using System.Reflection;
 using Spine.Api;
+using Spine.UI.SettingsFramework;
 using Verse;
 
 namespace Better_Work_Tab.ModSupport.Mods.Spine
@@ -16,12 +16,16 @@ namespace Better_Work_Tab.ModSupport.Mods.Spine
 
         private const string StandaloneAssemblyName = "Spine";
         private static readonly SemanticVersion MinimumVersion =
-            new SemanticVersion(1, 0, 0);
+            new SemanticVersion(1, 1, 0);
         // BWT compiles its original fluent-transpiler implementation into both
         // assembly variants. Standalone Spine supplies only the shared runtime
         // contracts that the external variant removes from its own build.
         private static readonly SpineCapability RequiredCapabilities =
-            SpineCapability.BoundedCaches;
+            SpineCapability.BoundedCaches |
+            SpineCapability.Settings |
+            SpineCapability.ContextualSettings |
+            SpineCapability.ModSettingsPages |
+            SpineCapability.SettingsSchema;
 
         private static bool initialized;
         private static SpineCompatibilityDecision decision;
@@ -35,21 +39,22 @@ namespace Better_Work_Tab.ModSupport.Mods.Spine
             }
         }
 
-        internal static bool IsCompatible
+        /// <summary>
+        /// The single BWT settings integration point. LoadFolders selects the
+        /// external-linked or embedded BWT assembly, and this property validates
+        /// that selection before exposing the selected Spine settings host.
+        /// </summary>
+        internal static IModSettingsFacade Settings
         {
             get
             {
                 EnsureInitialized();
-                return decision.IsCompatible;
-            }
-        }
+                if (!decision.IsCompatible)
+                {
+                    throw new NotSupportedException(decision.Detail);
+                }
 
-        internal static string Status
-        {
-            get
-            {
-                EnsureInitialized();
-                return decision.Detail;
+                return SpineApi.Settings;
             }
         }
 
@@ -61,15 +66,13 @@ namespace Better_Work_Tab.ModSupport.Mods.Spine
             }
 
             initialized = true;
-            Assembly apiAssembly = typeof(SpineApiDescriptor).Assembly;
+            var apiAssembly = typeof(SpineApi).Assembly;
             bool standaloneAssemblyBound = string.Equals(
                 apiAssembly.GetName().Name,
                 StandaloneAssemblyName,
                 StringComparison.Ordinal);
             bool standalonePackageActive = ModsConfig.IsActive(PackageId);
-            SpineApiDescriptor descriptor = standaloneAssemblyBound
-                ? ReadStandaloneDescriptor(apiAssembly)
-                : CreateEmbeddedDescriptor();
+            SpineApiDescriptor descriptor = SpineApi.Runtime.Descriptor;
             var requirement = new SpineRequirement(
                 ConsumerId,
                 MinimumVersion,
@@ -102,48 +105,6 @@ namespace Better_Work_Tab.ModSupport.Mods.Spine
             {
                 Initialize();
             }
-        }
-
-        private static SpineApiDescriptor ReadStandaloneDescriptor(
-            Assembly apiAssembly)
-        {
-            try
-            {
-                Type apiType = apiAssembly.GetType(
-                    "Spine.Api.SpineApi",
-                    throwOnError: false);
-                PropertyInfo runtimeProperty = apiType?.GetProperty(
-                    "Runtime",
-                    BindingFlags.Public | BindingFlags.Static);
-                object runtime = runtimeProperty?.GetValue(null, null);
-                PropertyInfo descriptorProperty = runtime?.GetType().GetProperty(
-                    "Descriptor",
-                    BindingFlags.Public | BindingFlags.Instance);
-                object descriptor = descriptorProperty?.GetValue(runtime, null);
-                if (descriptor is SpineApiDescriptor typedDescriptor)
-                {
-                    return typedDescriptor;
-                }
-            }
-            catch (Exception exception)
-            {
-                Log.Warning(
-                    "[Better Work Tab][Spine] Failed to read the standalone runtime descriptor: " +
-                    exception.Message);
-            }
-
-            return new SpineApiDescriptor(
-                PackageId,
-                default(SemanticVersion),
-                SpineCapability.None);
-        }
-
-        private static SpineApiDescriptor CreateEmbeddedDescriptor()
-        {
-            return new SpineApiDescriptor(
-                ConsumerId + ".EmbeddedSpine",
-                MinimumVersion,
-                RequiredCapabilities);
         }
     }
 }

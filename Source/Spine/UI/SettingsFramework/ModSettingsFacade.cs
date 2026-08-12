@@ -10,6 +10,12 @@ namespace Spine.UI.SettingsFramework
     public sealed class ModSettingsPageOptions
     {
         public float RowHeight { get; set; } = 32f;
+        public Action<SettingsListDrawer, object> ConfigureDrawer { get; set; }
+        public Action<SettingsListDrawer, object> PrepareDrawer { get; set; }
+        public Func<Rect, object, Rect> PrepareContentRect { get; set; }
+        public Func<object, SettingsViewMode> ReadViewMode { get; set; }
+        public Action<object, SettingsViewMode> WriteViewMode { get; set; }
+        internal Vector2 ScrollPosition { get; set; }
     }
 
     public interface IModSettingsPage : IDisposable
@@ -133,6 +139,8 @@ namespace Spine.UI.SettingsFramework
                     definition?.TooltipKey,
                     definition?.Tooltip)
             };
+            pageOptions.ConfigureDrawer?.Invoke(drawer, settingsObject);
+            drawer.ScrollPosition = pageOptions.ScrollPosition;
 
             IContextualSettingsLease contextualSettings =
                 ContextualSettingsService.Instance.Acquire(
@@ -144,7 +152,8 @@ namespace Spine.UI.SettingsFramework
                 drawer,
                 settingsObject,
                 writeSettings,
-                contextualSettings);
+                contextualSettings,
+                pageOptions);
         }
 
         public void Scribe(
@@ -206,6 +215,7 @@ namespace Spine.UI.SettingsFramework
             private readonly SettingsListDrawer drawer;
             private readonly object settingsObject;
             private readonly Action writeSettings;
+            private readonly ModSettingsPageOptions options;
             private SettingsViewMode viewMode;
             private IContextualSettingsLease contextualSettings;
 
@@ -213,12 +223,14 @@ namespace Spine.UI.SettingsFramework
                 SettingsListDrawer drawer,
                 object settingsObject,
                 Action writeSettings,
-                IContextualSettingsLease contextualSettings)
+                IContextualSettingsLease contextualSettings,
+                ModSettingsPageOptions options)
             {
                 this.drawer = drawer;
                 this.settingsObject = settingsObject;
                 this.writeSettings = writeSettings;
                 this.contextualSettings = contextualSettings;
+                this.options = options;
                 viewMode = SettingsViewMode.Simple;
             }
 
@@ -227,11 +239,21 @@ namespace Spine.UI.SettingsFramework
 
             public void Draw(Rect rect)
             {
+                options.PrepareDrawer?.Invoke(drawer, settingsObject);
+                Rect contentRect = options.PrepareContentRect == null
+                    ? rect
+                    : options.PrepareContentRect(rect, settingsObject);
+                SettingsViewMode activeViewMode = options.ReadViewMode == null
+                    ? viewMode
+                    : options.ReadViewMode(settingsObject);
                 drawer.Draw(
-                    rect,
+                    contentRect,
                     settingsObject,
-                    ref viewMode,
+                    ref activeViewMode,
                     writeSettings);
+                viewMode = activeViewMode;
+                options.WriteViewMode?.Invoke(settingsObject, activeViewMode);
+                options.ScrollPosition = drawer.ScrollPosition;
             }
 
             public void Dispose()
