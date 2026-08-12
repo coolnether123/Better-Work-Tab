@@ -1315,8 +1315,7 @@ namespace Better_Work_Tab.UI.SettingsFramework
                     }
                     if (Widgets.ButtonInvisible(reasonRect))
                     {
-                        Application.OpenURL(suppression.ExternalActionUrl);
-                        Event.current?.Use();
+                        SteamUtility.OpenUrl(suppression.ExternalActionUrl);
                     }
                 }
 
