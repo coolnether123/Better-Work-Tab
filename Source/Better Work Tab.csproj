@@ -16,7 +16,6 @@
     <SpineMode Condition="'$(SpineMode)' == ''">Embedded</SpineMode>
     <UseStandaloneSpine Condition="'$(SpineMode)' == 'External'">true</UseStandaloneSpine>
     <RwtIsRimWorldMod Condition="'$(RwtIsRimWorldMod)' == '' and '$(RimWorldManagedDir)' != ''">true</RwtIsRimWorldMod>
-    <StandaloneSpineRoot Condition="'$(StandaloneSpineRoot)' == '' and Exists('$(MSBuildProjectDirectory)\..\..\Spine\Source\Spine')">$(MSBuildProjectDirectory)\..\..\Spine</StandaloneSpineRoot>
     <SpineMirrorMode Condition="'$(SpineMirrorMode)' == ''">Check</SpineMirrorMode>
     <!--
       Shipping configurations must never produce an assembly whose embedded
@@ -523,13 +522,14 @@
   <!--
     Runs unconditionally so that an unverifiable mirror is reported rather than
     skipped. Gating the whole target on StandaloneSpineRoot made verification
-    depend on the building machine's checkout layout, and a build that could not
-    verify looked exactly like one that did.
+      depend on the building machine's checkout layout, and a build that could not
+      verify looked exactly like one that did. The shared build control plane
+      supplies the resolved root; direct MSBuild callers must pass it explicitly.
   -->
   <Target Name="VerifyStandaloneSpineMirror" BeforeTargets="PrepareForBuild">
     <Error
       Condition="'$(StandaloneSpineRoot)' == '' and '$(RequireSpineMirrorVerification)' == 'true'"
-      Text="Shared-Spine mirror could not be verified: no standalone Spine checkout resolved. A shipping build must verify the mirror. Build from a workspace containing Mods\Spine, or pass /p:StandaloneSpineRoot=&lt;path to Spine repo&gt;." />
+      Text="Shared-Spine mirror could not be verified: the build control plane did not supply a standalone Spine root. A shipping build must verify the mirror. Pass /p:StandaloneSpineRoot=&lt;path to Spine repo&gt; only as an explicit override." />
     <Warning
       Condition="'$(StandaloneSpineRoot)' == '' and '$(RequireSpineMirrorVerification)' != 'true'"
       Text="Shared-Spine mirror NOT verified: no standalone Spine checkout resolved, so embedded Spine sources may be stale. This build is not release-eligible." />

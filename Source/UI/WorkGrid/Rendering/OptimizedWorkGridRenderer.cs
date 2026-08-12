@@ -10,6 +10,7 @@ using Better_Work_Tab.UI.WorkGrid.Diagnostics;
 using Better_Work_Tab.UI.WorkGrid.Snapshots;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities;
+using Better_Work_Tab.DragDrop;
 using RimWorld;
 using Spine.RimWorld.Rendering;
 using Spine.RimWorld.Rendering.GuiState;
@@ -73,21 +74,23 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 Vector2 scroll = context.Presentation.Table.scrollPosition;
                 _visibleRows = context.Presentation.Geometry.GetVisibleRowRange(context.Viewport, scroll.y);
                 _visibleColumns = context.Presentation.Geometry.GetVisibleColumnRange(context.Viewport, scroll.x);
+
+                // The body renderer already culls with live animated geometry.
+                // Avoid applying a second, stable snapshot filter while columns move.
+                if (ColumnReorderAnimationState.IsActive)
+                {
+                    _visibleColumns = new WorkGridIndexRange(0, _snapshot.Columns.Count);
+                }
             }
         }
 
         public void Draw(in WorkGridRenderContext context)
         {
-            if (context.EventPhase != ImGuiEventPhase.Repaint)
-            {
-                _drawingSurface.DrawNativeWorkTable(
-                    context.Presentation.Table,
-                    context.Layout,
-                    context.WindowRect);
-                return;
-            }
-
-            _drawingSurface.DrawSnapshotWorkTable(in context, this);
+            _drawingSurface.DrawBody(
+                context.Presentation.Table,
+                context.Layout,
+                context.WindowRect,
+                context.EventPhase == ImGuiEventPhase.Repaint ? this : null);
         }
 
         public void HandleEvent(in WorkGridRenderContext context)

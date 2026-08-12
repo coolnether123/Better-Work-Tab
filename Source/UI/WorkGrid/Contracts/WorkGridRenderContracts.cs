@@ -135,6 +135,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Contracts
         SubWork = 1 << 2
     }
 
+    /// <summary>
+    /// Declares the visual layers requested by the Work-grid host. The renderer
+    /// facade owns the shared header pass; renderer strategies draw the body
+    /// layers after that pass.
+    /// </summary>
     [Flags]
     public enum WorkGridLayerFlags
     {
@@ -146,6 +151,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Contracts
         All = Headers | PinnedRows | PawnRows | Dividers
     }
 
+    /// <summary>
+    /// Describes optional Work-grid features and the layers composed for a
+    /// frame. <see cref="WorkGridLayerFlags.Headers"/> is consumed by the
+    /// facade so optimized and vanilla body strategies share header ownership.
+    /// </summary>
     public readonly struct WorkGridRenderConfiguration
     {
         public WorkGridRenderConfiguration(WorkGridFeatureFlags features, WorkGridLayerFlags layers)
@@ -213,6 +223,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Contracts
         public WorkGridSelectionScope Scope { get; }
     }
 
+    /// <summary>
+    /// Strategy for rendering the Work-grid body. Header composition remains
+    /// in the renderer facade and drawing surface so a body strategy cannot
+    /// accidentally bypass angled or vanilla header routing.
+    /// </summary>
     public interface IWorkGridRenderer
     {
         string Id { get; }

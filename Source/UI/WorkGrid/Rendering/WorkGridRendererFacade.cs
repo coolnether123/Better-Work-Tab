@@ -1,6 +1,7 @@
 using System;
 using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Better_Work_Tab.UI.WorkGrid.Diagnostics;
+using Better_Work_Tab.UI.Headers;
 using Spine.Api;
 using Better_Work_Tab.Foundation;
 using Spine.RimWorld.Rendering;
@@ -15,6 +16,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
     public sealed class WorkGridRendererFacade
     {
         private readonly VanillaWorkGridRenderer _vanilla;
+        private readonly IWorkGridDrawingSurface _drawingSurface;
         private readonly WorkGridRendererSelector _selector;
         private readonly Func<WorkGridRendererMode> _selectionMode;
         private readonly IRenderDiagnosticsSink _diagnostics;
@@ -30,6 +32,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         {
             if (drawingSurface == null) throw new ArgumentNullException(nameof(drawingSurface));
 
+            _drawingSurface = drawingSurface;
             _selectionMode = selectionMode ?? throw new ArgumentNullException(nameof(selectionMode));
             _diagnostics = diagnostics ?? BwtWorkGridDiagnosticsSink.Instance;
             _vanilla = new VanillaWorkGridRenderer(drawingSurface);
@@ -42,7 +45,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
         public void PrepareFrame(WorkTabInvalidationVersion invalidationVersions)
         {
-            _vanilla.PrepareInvalidation(invalidationVersions);
+            HeaderDrawingCoordinator.PrepareFrame(invalidationVersions);
         }
 
         public void Render(in WorkGridRenderContext context)
@@ -68,6 +71,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             try
             {
                 renderer.Prepare(in context);
+                if ((context.Configuration.Layers & WorkGridLayerFlags.Headers) != 0)
+                {
+                    _drawingSurface.DrawHeaders(context.Presentation.Table, context.Layout);
+                }
                 renderer.Draw(in context);
 
                 if (context.EventPhase == ImGuiEventPhase.Input)

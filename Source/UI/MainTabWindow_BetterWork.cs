@@ -217,7 +217,6 @@ namespace Better_Work_Tab.UI
             // The tutorial band contributes reserved height, so latch its
             // presence before any geometry below derives a table origin from it.
             BWTWorkTabTutorial.RefreshStripReservation(table.Size.x);
-            _workGridRenderer.PrepareFrame(WorkTabInvalidationHub.Current);
 
             bool dividerAnimationChanged = DividerCollapseAnimationState.Tick();
             dividerAnimationChanged |= DividerInsertionAnimationState.Tick();
@@ -226,6 +225,21 @@ namespace Better_Work_Tab.UI
                 PawnOrganizerSystem.Instance?.Layout?.InvalidateRowDescriptors();
                 WorkTabInvalidationHub.Invalidate(WorkTabDirtyFlags.Animation);
             }
+
+            // Reorder animation is a shared header/body coordinate concern. Keep
+            // its lifecycle driven by the window rather than by whichever render
+            // layer happens to query a column first. This is required by the
+            // optimized renderer because its visible-column culling can otherwise
+            // prevent the animation state from being advanced consistently.
+            if (ColumnReorderAnimationState.Tick())
+            {
+                WorkTabInvalidationHub.Invalidate(WorkTabDirtyFlags.Animation);
+            }
+
+            // Prepare after transient animation state has published its
+            // invalidation so the active renderer and header solver observe the
+            // same frame's lifecycle version.
+            _workGridRenderer.PrepareFrame(WorkTabInvalidationHub.Current);
 
             var organizer = PawnOrganizerSystem.Instance;
             float effectiveHeaderHeight = SubWorkDrilldownHeaderGeometry.GetEffectiveHeaderHeight(table);

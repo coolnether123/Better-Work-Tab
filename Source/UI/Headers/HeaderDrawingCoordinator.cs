@@ -1,4 +1,5 @@
 using System.Reflection;
+using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Better_Work_Tab.UI.WorkGrid.Invalidation;
@@ -20,6 +21,7 @@ namespace Better_Work_Tab.UI.Headers
         private static AngledHeaderRenderer _angledRenderer;
         private static VanillaHeaderRenderer _vanillaRenderer;
         private static VanillaHeaderLayoutSolver _vanillaSolver;
+        private static WorkTabInvalidationVersion _lastInvalidationVersions;
 
         static HeaderDrawingCoordinator()
         {
@@ -67,6 +69,67 @@ namespace Better_Work_Tab.UI.Headers
             return BetterWorkTabMod.Settings.enableAngledHeaders
                 ? (IHeaderRenderer)_angledRenderer
                 : (IHeaderRenderer)_vanillaRenderer;
+        }
+
+        /// <summary>
+        /// Routes a BWT-owned work-priority header through the configured header
+        /// controller. Returning false leaves the caller free to use the native
+        /// worker as a compatibility fallback.
+        /// </summary>
+        internal static bool TryHandleWorkPriorityHeader(
+            PawnColumnWorker_WorkPriority worker,
+            Rect rect,
+            PawnTable table)
+        {
+            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
+            if (settings == null || worker?.def?.workType == null)
+            {
+                return false;
+            }
+
+            if (SubWorkDrilldownState.IsBlankWorkColumn(worker.def))
+            {
+                return true;
+            }
+
+            try
+            {
+                HeaderInputController.UpdateCache(Event.current);
+                bool allowNative = settings.enableAngledHeaders
+                    ? AngledHeaderController.DoHeader(worker, rect, table)
+                    : VanillaHeaderController.DoHeader(worker, rect, table);
+                return !allowNative;
+            }
+            catch (System.Exception exception)
+            {
+                Log.Error("[BWT] WorkPriority header failed: " + exception);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Applies renderer-neutral invalidation to the header caches. Header
+        /// lifecycle belongs here even when the optimized body renderer is active.
+        /// </summary>
+        internal static void PrepareFrame(WorkTabInvalidationVersion current)
+        {
+            bool headerTextChanged = current.HeaderText != _lastInvalidationVersions.HeaderText ||
+                                     current.RenderResources != _lastInvalidationVersions.RenderResources;
+            bool headerGeometryChanged = current.HeaderGeometry != _lastInvalidationVersions.HeaderGeometry ||
+                                         current.Columns != _lastInvalidationVersions.Columns ||
+                                         current.CategoryRevisions.Animation !=
+                                         _lastInvalidationVersions.CategoryRevisions.Animation;
+
+            if (headerTextChanged)
+            {
+                InvalidateCaches();
+            }
+            else if (headerGeometryChanged)
+            {
+                InvalidateAnimatedLayout();
+            }
+
+            _lastInvalidationVersions = current;
         }
 
         /// <summary>
