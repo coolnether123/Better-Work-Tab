@@ -1949,6 +1949,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
             InvalidateCaches();
             TimePriorityService.NotifyFallbacksChanged();
+            DynamicGameplayPatchController.ProcessPendingRefresh();
             UI.WorkGrid.Invalidation.WorkTabInvalidationHub.Invalidate(
                 UI.WorkGrid.Contracts.WorkTabDirtyFlags.SubWorkOverride |
                 UI.WorkGrid.Contracts.WorkTabDirtyFlags.Columns |

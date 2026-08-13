@@ -88,6 +88,7 @@ namespace Better_Work_Tab
             {
                 var harmony = new Harmony("Coolnether123.betterworktab");
                 harmony.PatchAll();
+                DynamicGameplayPatchController.Initialize(harmony);
                 ClockworkCompatibility.Initialize(harmony);
                 SleekWorkTabGateway.Initialize();
                 FluffyWorkTabGateway.ApplyDesiredOwner();
