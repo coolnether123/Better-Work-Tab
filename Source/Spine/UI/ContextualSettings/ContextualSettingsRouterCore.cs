@@ -37,7 +37,7 @@ namespace Spine.UI.ContextualSettings
         internal float Height { get; }
 
         internal bool Contains(float x, float y) =>
-            x >= X && y >= Y && x <= X + Width && y <= Y + Height;
+            x >= X && y >= Y && x < X + Width && y < Y + Height;
 
         public bool Equals(ContextualHitRect other) =>
             X.Equals(other.X) && Y.Equals(other.Y) &&
