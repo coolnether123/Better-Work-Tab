@@ -1549,8 +1549,13 @@ namespace Spine.UI.SettingsFramework
                             drawBackground: false,
                             doMouseoverSound: true,
                             textColor: GUI.color,
-                            active: true,
+                            active: true
+#if RWT_BUTTON_TEXT_OVERRIDE_TEXT_ANCHOR
+                            ,
                             overrideTextAnchor: TextAnchor.MiddleLeft);
+#else
+                            );
+#endif
                         Widgets.DrawLineHorizontal(
                             actionRect.x,
                             actionRect.yMax - 3f,

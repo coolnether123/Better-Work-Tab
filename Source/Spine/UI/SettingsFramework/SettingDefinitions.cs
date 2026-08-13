@@ -492,6 +492,174 @@ namespace Spine.UI.SettingsFramework
     }
 
     /// <summary>
+    /// Legacy constructors retained so consumers compiled against SpineLib 1.0
+    /// continue to load on 1.1. New consumers should use
+    /// <see cref="SettingsSchema{TSettings}"/>.
+    /// </summary>
+    [Obsolete("Use SettingsSchema<TSettings> and SettingsScope<TSettings>.", false)]
+    public static class SettingDefinitions
+    {
+        public static SettingDefinition Header(
+            string id,
+            string label,
+            string labelKey = null) =>
+            Base(id, SettingType.Header, label, labelKey);
+
+        public static SettingDefinition Toggle(
+            string id,
+            string fieldName,
+            string label,
+            string labelKey = null,
+            string tooltip = null,
+            string tooltipKey = null,
+            string parentId = null,
+            bool simple = true,
+            bool controlsChildren = false,
+            string scribeKey = null,
+            Action<object> onChanged = null)
+        {
+            SettingDefinition definition = Base(
+                id,
+                SettingType.Bool,
+                label,
+                labelKey,
+                tooltip,
+                tooltipKey);
+            definition.FieldName = fieldName;
+            definition.ScribeKey = scribeKey;
+            definition.ParentId = parentId;
+            definition.ShowInSimpleView = simple;
+            definition.ControlsChildVisibility = controlsChildren;
+            definition.OnChanged = onChanged;
+            return definition;
+        }
+
+        public static SettingDefinition Slider(
+            string id,
+            string fieldName,
+            string label,
+            string labelKey = null,
+            string tooltip = null,
+            string tooltipKey = null,
+            string parentId = null,
+            bool simple = true,
+            string scribeKey = null,
+            Action<object> onChanged = null)
+        {
+            SettingDefinition definition = Base(
+                id,
+                SettingType.Slider,
+                label,
+                labelKey,
+                tooltip,
+                tooltipKey);
+            definition.FieldName = fieldName;
+            definition.ScribeKey = scribeKey;
+            definition.ParentId = parentId;
+            definition.ShowInSimpleView = simple;
+            definition.OnChanged = onChanged;
+            return definition;
+        }
+
+        public static SettingDefinition Enum(
+            string id,
+            string fieldName,
+            Type enumType,
+            string label,
+            string labelKey = null,
+            string tooltip = null,
+            string tooltipKey = null,
+            string parentId = null,
+            bool simple = true,
+            string scribeKey = null,
+            Func<object, string> labelProvider = null,
+            Func<object, string> descriptionProvider = null)
+        {
+            SettingDefinition definition = Base(
+                id,
+                SettingType.Enum,
+                label,
+                labelKey,
+                tooltip,
+                tooltipKey);
+            definition.FieldName = fieldName;
+            definition.ScribeKey = scribeKey;
+            definition.ParentId = parentId;
+            definition.ShowInSimpleView = simple;
+            definition.EnumType = enumType;
+            definition.EnumLabelProvider = labelProvider;
+            definition.EnumDescriptionProvider = descriptionProvider;
+            return definition;
+        }
+
+        public static SettingDefinition Colour(
+            string id,
+            string fieldName,
+            string label,
+            string labelKey = null,
+            string tooltipKey = null,
+            string scribeKey = null)
+        {
+            SettingDefinition definition = Base(
+                id,
+                SettingType.Color,
+                label,
+                labelKey,
+                tooltipKey: tooltipKey);
+            definition.FieldName = fieldName;
+            definition.ScribeKey = scribeKey;
+            return definition;
+        }
+
+        public static SettingDefinition Button(
+            string id,
+            string label,
+            Action<object> action,
+            string labelKey = null,
+            string tooltipKey = null)
+        {
+            SettingDefinition definition = Base(
+                id,
+                SettingType.Button,
+                label,
+                labelKey,
+                tooltipKey: tooltipKey);
+            definition.OnChanged = action;
+            return definition;
+        }
+
+        public static SettingDefinition Custom(
+            string id,
+            Func<Rect, string, string, object, bool, bool> drawer,
+            string label = "",
+            string labelKey = "")
+        {
+            SettingDefinition definition = Base(
+                id,
+                SettingType.Custom,
+                label,
+                labelKey);
+            definition.CustomDrawer = drawer;
+            return definition;
+        }
+
+        private static SettingDefinition Base(
+            string id,
+            SettingType type,
+            string label,
+            string labelKey,
+            string tooltip = null,
+            string tooltipKey = null) =>
+            SettingDefinitionBuilder.Create(
+                id,
+                type,
+                label,
+                labelKey,
+                tooltip,
+                tooltipKey);
+    }
+
+    /// <summary>
     /// Prepares definition metadata that depends on the settings object or on
     /// declaration order. This is intentionally internal; public consumers
     /// reach it through the schema/page lifecycle rather than a legacy factory
