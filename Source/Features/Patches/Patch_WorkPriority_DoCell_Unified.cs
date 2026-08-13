@@ -537,11 +537,8 @@ namespace Better_Work_Tab.Patches
         {
             int key = (p.thingIDNumber << 16) | work.shortHash;
             int currentFrame = Time.frameCount;
-            var settings = BetterWorkTabMod.Settings;
-            bool useCache = (settings?.enablePerformanceOptimizations ?? true) &&
-                            (settings?.cacheIncapabilityChecks ?? true);
 
-            if (useCache && _incapableCacheTimestamps.TryGetValue(key, out int timestamp))
+            if (_incapableCacheTimestamps.TryGetValue(key, out int timestamp))
             {
                 if (currentFrame - timestamp < IncapableCacheFrameValidity)
                 {
@@ -587,11 +584,8 @@ namespace Better_Work_Tab.Patches
             }
             bool isIncapable = !canDoAny;
 
-            if (useCache)
-            {
-                _incapableCache[key] = (byte)(isIncapable ? 1 : 0);
-                _incapableCacheTimestamps[key] = currentFrame;
-            }
+            _incapableCache[key] = (byte)(isIncapable ? 1 : 0);
+            _incapableCacheTimestamps[key] = currentFrame;
             return isIncapable;
         }
 
@@ -599,11 +593,8 @@ namespace Better_Work_Tab.Patches
         {
             int key = (pawn.thingIDNumber << 16) | workType.shortHash;
             int currentFrame = Time.frameCount;
-            var settings = BetterWorkTabMod.Settings;
-            bool useCache = (settings?.enablePerformanceOptimizations ?? true) &&
-                            (settings?.cacheSkillLevels ?? true);
 
-            if (useCache && _skillCacheTimestamps.TryGetValue(key, out int timestamp))
+            if (_skillCacheTimestamps.TryGetValue(key, out int timestamp))
             {
                 if (currentFrame - timestamp < SkillCacheFrameValidity)
                 {
@@ -614,11 +605,8 @@ namespace Better_Work_Tab.Patches
             float avg = pawn.skills.AverageOfRelevantSkillsFor(workType);
             int level = Mathf.Clamp(Mathf.RoundToInt(avg), 0, 20);
 
-            if (useCache)
-            {
-                _skillCache[key] = level;
-                _skillCacheTimestamps[key] = currentFrame;
-            }
+            _skillCache[key] = level;
+            _skillCacheTimestamps[key] = currentFrame;
             return level;
         }
 
@@ -629,14 +617,11 @@ namespace Better_Work_Tab.Patches
             {
                 return null;
             }
-            var settings = BetterWorkTabMod.Settings;
-            bool useCache = (settings?.enablePerformanceOptimizations ?? true) &&
-                            (settings?.cacheSkillLevels ?? true);
 
             int key = (table.GetHashCode() << 16) | workType.shortHash;
             int currentFrame = Time.frameCount;
 
-            if (useCache && _bestPawnCacheTimestamps.TryGetValue(key, out int timestamp))
+            if (_bestPawnCacheTimestamps.TryGetValue(key, out int timestamp))
             {
                 if (currentFrame - timestamp < BestPawnCacheFrameValidity)
                 {
@@ -666,11 +651,8 @@ namespace Better_Work_Tab.Patches
                 }
             }
 
-            if (useCache)
-            {
-                _bestPawnCache[key] = bestPawn;
-                _bestPawnCacheTimestamps[key] = currentFrame;
-            }
+            _bestPawnCache[key] = bestPawn;
+            _bestPawnCacheTimestamps[key] = currentFrame;
             return bestPawn;
         }
 
@@ -757,9 +739,8 @@ namespace Better_Work_Tab.Patches
             PawnTable table,
             WorkTypeDef workType)
         {
-            // Check if best pawn highlight is enabled and the ShowUIMode allows it
             var settings = BetterWorkTabMod.Settings;
-            if (settings == null || settings.disableBestPawnHighlight)
+            if (settings == null)
                 return;
 
             if (workType == null || workType.relevantSkills == null || workType.relevantSkills.Count == 0)

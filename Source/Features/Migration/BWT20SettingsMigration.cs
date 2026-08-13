@@ -101,12 +101,6 @@ namespace Better_Work_Tab.Features.Migration
                 nameof(settings.Color_FloatMenuHighlight),
                 () => settings.Color_FloatMenuHighlight =
                     new Color(0.5568628f, 0.5529412f, 0.5529412f, 0.5803922f));
-            SetWhenAbsent(
-                persistedKeys,
-                nameof(settings.Color_CustomMouseHighlight),
-                () => settings.Color_CustomMouseHighlight =
-                    new Color(0.5568628f, 0.5529412f, 0.5529412f, 0.5803922f));
-
             if (!BWT20UpgradePolicy.WasPersisted(persistedKeys, nameof(settings.workGridRendererMode)))
             {
                 settings.workGridRendererMode = WorkGridRendererMode.Optimized;

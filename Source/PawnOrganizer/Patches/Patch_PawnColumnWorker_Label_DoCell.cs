@@ -1,16 +1,17 @@
 using System;
 using Better_Work_Tab.Diagnostics;
+using Better_Work_Tab.Features.Patches;
 using Better_Work_Tab.Features.Tutorial;
 using Better_Work_Tab.PawnOrganizer.API;
 using System.Collections.Generic;
 using HarmonyLib;
 using RimWorld;
+using Spine.Harmony;
 using Spine.UI; // for TextColorHelper
 using UnityEngine;
 using Verse;
 using Better_Work_Tab.ModSupport;
 using Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities;
-using System.Reflection.Emit;
 using System.Reflection;
 
 namespace Better_Work_Tab.Patches
@@ -172,22 +173,45 @@ namespace Better_Work_Tab.Patches
             }
         }
 
-        public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
+        public static IEnumerable<CodeInstruction> Transpiler(
+            IEnumerable<CodeInstruction> instructions,
+            MethodBase original)
         {
-            var escape = AccessTools.Method(typeof(MainTabsRoot), nameof(MainTabsRoot.EscapeCurrentTab), new[] { typeof(bool) });
-            var replacement = AccessTools.Method(typeof(Patch_PawnColumnWorker_Label_DoCell), nameof(MaybeCloseWorkTab));
+            MethodInfo escape = AccessTools.Method(
+                typeof(MainTabsRoot),
+                nameof(MainTabsRoot.EscapeCurrentTab),
+                new[] { typeof(bool) });
+            MethodInfo replacement = AccessTools.Method(
+                typeof(Patch_PawnColumnWorker_Label_DoCell),
+                nameof(MaybeCloseWorkTab));
 
-            foreach (var inst in instructions)
-            {
-                if (inst.Calls(escape))
+            return FluentTranspilerExecution.ExecuteOrOriginal(
+                instructions,
+                original,
+                null,
+                transpiler =>
                 {
-                    yield return new CodeInstruction(OpCodes.Call, replacement);
-                }
-                else
-                {
-                    yield return inst;
-                }
-            }
+                    if (escape == null || replacement == null)
+                    {
+                        throw new InvalidOperationException(
+                            "the pawn-label close-tab methods could not be resolved");
+                    }
+
+                    FluentReplacementResult result = transpiler
+                        .ForCall(escape)
+                        .ReplaceWith(replacement);
+                    if (result != FluentReplacementResult.PatternReplaced)
+                    {
+                        throw new InvalidOperationException(
+                            $"expected exactly one EscapeCurrentTab(bool) call: {result}");
+                    }
+                },
+                (codes, method, exception) =>
+                    TranspilerFallback.ReturnOriginalWithWarning(
+                        codes,
+                        method,
+                        exception,
+                        "Pawn label close-tab"));
         }
 
         private static void MaybeCloseWorkTab(MainTabsRoot root, bool playSound)

@@ -113,6 +113,7 @@
     <Compile Include="Features\RaisedPriorityMaximum\PriorityProviders.cs" />
     <Compile Include="Features\RaisedPriorityMaximum\WorkPrioritySystem.cs" />
     <Compile Include="Features\Patches\Patch_PawnTable_RecacheIfDirty.cs" />
+    <Compile Include="Features\Patches\TranspilerFallback.cs" />
     <Compile Include="Features\Patches\Patch_Pawn_WorkSettings_SetPriority.cs" />
     <Compile Include="Features\Patches\Patch_WorkPriority_DoCell_Unified.cs" />
     <Compile Include="Features\Rules\AssignmentValidationResult.cs" />

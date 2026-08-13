@@ -205,10 +205,15 @@ namespace Better_Work_Tab.UI.Settings
         }
 
         private static void RegisterHiddenPreference<TValue>(SettingsScope<BetterWorkTabSettings> scope, string id,
-                                                             System.Linq.Expressions.Expression<Func<BetterWorkTabSettings, TValue>> field, SettingType type, TValue defaultValue)
+                                                             System.Linq.Expressions.Expression<Func<BetterWorkTabSettings, TValue>> field, SettingType type, TValue defaultValue,
+                                                             Action<object> onChanged = null)
         {
             string fieldName = ((System.Linq.Expressions.MemberExpression)field.Body).Member.Name;
-            scope.Field(id, field, type, fieldName, "Hidden compatibility preference.").DefaultTo(defaultValue).ShownIn(false, false).Ordered(int.MaxValue);
+            SettingDefinition definition = scope.Field(id, field, type, fieldName, "Hidden compatibility preference.")
+                .DefaultTo(defaultValue)
+                .ShownIn(false, false)
+                .Ordered(int.MaxValue);
+            definition.OnChanged = onChanged;
         }
 
         /// <summary>
@@ -359,29 +364,12 @@ namespace Better_Work_Tab.UI.Settings
             _schema = new SettingsSchema<BetterWorkTabSettings>();
             SettingsSchema<BetterWorkTabSettings> schema = _schema;
 
-            RegisterHiddenPreference(_schema.Root, "compat.workTabMaxHeight", settings => settings.workTabMaxHeight, SettingType.Float, DefaultSettings.workTabMaxHeight);
             RegisterHiddenPreference(_schema.Root, "compat.settingsViewMode", settings => settings.settingsViewMode, SettingType.Enum, DefaultSettings.settingsViewMode);
-            RegisterHiddenPreference(_schema.Root, "compat.enableColumnOrderSaving", settings => settings.enableColumnOrderSaving, SettingType.Bool, DefaultSettings.enableColumnOrderSaving);
-            RegisterHiddenPreference(_schema.Root, "compat.enableRowColumnHighlights", settings => settings.enableRowColumnHighlights, SettingType.Bool, DefaultSettings.enableRowColumnHighlights);
-            RegisterHiddenPreference(_schema.Root, "compat.enableUIElements", settings => settings.enableUIElements, SettingType.Bool, DefaultSettings.enableUIElements);
-            RegisterHiddenPreference(_schema.Root, "compat.hideWorkloadButton", settings => settings.hideWorkloadButton, SettingType.Bool, DefaultSettings.hideWorkloadButton);
-            RegisterHiddenPreference(_schema.Root, "compat.persistColumnOrder", settings => settings.persistColumnOrder, SettingType.Bool, DefaultSettings.persistColumnOrder);
             RegisterHiddenPreference(_schema.Root, "compat.persistColumnWidths", settings => settings.persistColumnWidths, SettingType.Bool, DefaultSettings.persistColumnWidths);
-            RegisterHiddenPreference(_schema.Root, "compat.showOnlyLineDragIndicatorRows", settings => settings.showOnlyLineDragIndicatorRows, SettingType.Bool, DefaultSettings.showOnlyLineDragIndicatorRows);
-            RegisterHiddenPreference(_schema.Root, "compat.showOnlyLineDragIndicatorColumns", settings => settings.showOnlyLineDragIndicatorColumns, SettingType.Bool, DefaultSettings.showOnlyLineDragIndicatorColumns);
-            RegisterHiddenPreference(_schema.Root, "compat.showGhostDragIndicator", settings => settings.showGhostDragIndicator, SettingType.Bool, DefaultSettings.showGhostDragIndicator);
-            RegisterHiddenPreference(_schema.Root, "compat.showInsertionLineIndicator", settings => settings.showInsertionLineIndicator, SettingType.Bool, DefaultSettings.showInsertionLineIndicator);
-            RegisterHiddenPreference(_schema.Root, "compat.useColumnHoverOverride", settings => settings.useColumnHoverOverride, SettingType.Bool, DefaultSettings.useColumnHoverOverride);
-            RegisterHiddenPreference(_schema.Root, "compat.UseCustomMouseHoverHighlight", settings => settings.UseCustomMouseHoverHighlight, SettingType.Bool, DefaultSettings.UseCustomMouseHoverHighlight);
-            RegisterHiddenPreference(_schema.Root, "compat.useRowHoverOverride", settings => settings.useRowHoverOverride, SettingType.Bool, DefaultSettings.useRowHoverOverride);
-            RegisterHiddenPreference(_schema.Root, "compat.Color_CustomMouseHighlight", settings => settings.Color_CustomMouseHighlight, SettingType.Color, DefaultSettings.Color_CustomMouseHighlight);
             RegisterHiddenPreference(_schema.Root, "compat.Color_IncapableBecauseOfCapacities", settings => settings.Color_IncapableBecauseOfCapacities, SettingType.Color, DefaultSettings.Color_IncapableBecauseOfCapacities);
             RegisterHiddenPreference(_schema.Root, "compat.Color_HeaderText", settings => settings.Color_HeaderText, SettingType.Color, DefaultSettings.Color_HeaderText);
             RegisterHiddenPreference(_schema.Root, "compat.Color_DividerText", settings => settings.Color_DividerText, SettingType.Color, DefaultSettings.Color_DividerText);
             RegisterHiddenPreference(_schema.Root, "compat.Color_Borders", settings => settings.Color_Borders, SettingType.Color, DefaultSettings.Color_Borders);
-            RegisterHiddenPreference(_schema.Root, "compat.enableWorkloadSaving", settings => settings.enableWorkloadSaving, SettingType.Bool, DefaultSettings.enableWorkloadSaving);
-            RegisterHiddenPreference(_schema.Root, "compat.enableWorkloadLoading", settings => settings.enableWorkloadLoading, SettingType.Bool, DefaultSettings.enableWorkloadLoading);
-            RegisterHiddenPreference(_schema.Root, "compat.showWorkloadButtonFooter", settings => settings.showWorkloadButtonFooter, SettingType.Bool, DefaultSettings.showWorkloadButtonFooter);
             RegisterHiddenPreference(_schema.Root, "compat.enableExtendedPriorities", settings => settings.enableExtendedPriorities, SettingType.Bool, DefaultSettings.enableExtendedPriorities);
             RegisterHiddenPreference(_schema.Root, "compat.delegateToExternalPriorityMods", settings => settings.delegateToExternalPriorityMods, SettingType.Bool, DefaultSettings.delegateToExternalPriorityMods);
             RegisterHiddenPreference(_schema.Root, "compat.selectedPriorityProviderId", settings => settings.selectedPriorityProviderId, SettingType.Custom, DefaultSettings.selectedPriorityProviderId);
@@ -459,21 +447,18 @@ namespace Better_Work_Tab.UI.Settings
             schema.Root.Under(FeaturesSubWorkJobs)
                 .Enum(SubWorkOpenModifier, settings => settings.subWorkDrilldownModifier, "Shortcut modifier", tooltip: "Modifier key used with the mouse button below to open or leave the specific-job view.")
                 .DefaultTo(DefaultSettings.subWorkDrilldownModifier)
-                .Ordered(1)
-                .AdvancedOnly();
+                .Ordered(1);
 
             schema.Root.Under(FeaturesSubWorkJobs)
                 .Enum(SubWorkOpenButton, settings => settings.subWorkDrilldownButton, "Shortcut mouse button", tooltip: "Mouse button used with the modifier key above to open or leave the specific-job view.")
                 .DefaultTo(DefaultSettings.subWorkDrilldownButton)
-                .Ordered(2)
-                .AdvancedOnly();
+                .Ordered(2);
 
             schema.Root.Under(FeaturesSubWorkJobs)
                 .Toggle(SubWorkCrossWorkDragDrop, settings => settings.enableSubWorkCrossWorkDragDrop, "Move specific jobs between Work columns",
                         tooltip: "Drag a specific job onto another Work column to move it there. Turning this off limits dragging to the current specific-job view.")
                 .DefaultTo(DefaultSettings.enableSubWorkCrossWorkDragDrop)
-                .Ordered(5)
-                .AdvancedOnly();
+                .Ordered(5);
 
             schema.Root.Under(FeaturesSubWorkJobs)
                 .Toggle(SubWorkCompactPriorityBoxes, settings => settings.useCompactSubWorkPriorityBoxes, "Compact boxes in expanded view",
@@ -568,8 +553,7 @@ namespace Better_Work_Tab.UI.Settings
                       tooltip: "Choose whether locked specific-job priorities can still run when their parent Work type is disabled. Multiplayer always uses vanilla parent-disable behavior.", onChanged: _ => WorkExecutionOrder.MarkAllPawnsWorkGiversDirty())
                 .DefaultTo(DefaultSettings.subWorkDisabledParentMode)
                 .SearchableBy(new[] { "locked job", "disabled work", "job still run", "parent work off", "override parent" })
-                .Ordered(12)
-                .AdvancedOnly();
+                .Ordered(12);
 
             schema.Root.Under(FeaturesSubWorkJobs)
                 .Toggle(SubWorkAutoExpandColumns, settings => settings.subWorkAutoExpandColumns, "Expand specific-job columns", tooltip: "Use empty table width for specific-job columns so long labels fit without changing the pawn-name column.",
@@ -637,28 +621,6 @@ namespace Better_Work_Tab.UI.Settings
         ;
 
             schema.Root.Under(PriorityHeader).Int(
-                UiAutoMaxPriority,
-                settings => settings.autoMaxPriorityInt,
-                "Auto max priority",
-                tooltip: "Legacy compatibility value. Auto mode now uses the BWT max priority setting as its ceiling.",
-                onChanged: settingsObj =>
-            {
-                if (settingsObj is BetterWorkTabSettings settings)
-                {
-                    settings.NormalizePrioritySettings();
-                }
-
-                PriorityAuthorityBroker.InvalidateCaches();
-            }
-            )
-                .DefaultTo(DefaultSettings.autoMaxPriority)
-                .Ordered(1)
-                .ShownWhen(s => false)
-                .ShownIn(false, false)
-                .ValueRange(PriorityConstants.VanillaMax, BetterWorkTabSettings.MAX_PRIORITY_HARD_LIMIT)
-        ;
-
-            schema.Root.Under(PriorityHeader).Int(
                 UiMaxPriority,
                 settings => settings.maxPriorityInt,
                 "Maximum priority",
@@ -703,7 +665,6 @@ namespace Better_Work_Tab.UI.Settings
                 .SearchableBy(new[] { "turn work back on", "disabled cell", "re-enable", "click priority" })
                 .Ordered(3)
                 .ShownWhen(s => ((BetterWorkTabSettings)s).priorityMode == PriorityMode.Auto)
-                .AdvancedOnly()
         ;
 
             schema.Root.Under(PriorityHeader)
@@ -723,8 +684,7 @@ namespace Better_Work_Tab.UI.Settings
                 .Toggle(UiTimePriorityCopyPasteButtons, settings => settings.showTimePriorityCopyPasteButtons, "Show schedule copy/paste buttons",
                         tooltip: "Show copy and paste controls for Work tab time-priority schedules. These controls use the same copy/paste column as vanilla while a schedule row is open.")
                 .DefaultTo(DefaultSettings.showTimePriorityCopyPasteButtons)
-                .Ordered(2)
-                .AdvancedOnly();
+                .Ordered(2);
 
             schema.Root.Under(UiTimePrioritySchedules)
                 .Toggle(UiTimePrioritySourceColumnHighlight, settings => settings.keepTimePrioritySourceColumnHighlighted, "Keep source column highlighted",
@@ -752,7 +712,6 @@ namespace Better_Work_Tab.UI.Settings
                                var settings = (BetterWorkTabSettings)s;
                                return settings.priorityMode == PriorityMode.Auto && settings.autoDisabledPriorityMode == BetterWorkTabSettings.AutoDisabledPriorityMode.FixedPriority;
                            })
-                .AdvancedOnly()
                 .ValueRange(1, BetterWorkTabSettings.MAX_PRIORITY_HARD_LIMIT);
 
             schema.Root.Under(FeaturesUiElements)
@@ -779,16 +738,7 @@ namespace Better_Work_Tab.UI.Settings
                 .AdvancedOnly()
                 .ValueRange(1, 100);
 
-            schema.Root.Toggle(FeaturesPerformance, settings => settings.enablePerformanceOptimizations, "Performance", tooltip: "Disabling may reduce performance on large colonies")
-                .DefaultTo(DefaultSettings.enablePerformanceOptimizations)
-                .ControlsChildren()
-                .Ordered(-41)
-                .Accented(new Color(0.6f, 0.8f, 0.8f))
-                .ShownWhen(
-                    _ => false)
-                .Emphasized(true)
-                .ShownIn(false, false);
-
+            // Multiplayer settings are retained for possible future implementation; they are not currently wired to runtime behavior.
             schema.Root.Toggle(FeaturesMultiplayer, settings => settings.enableMultiplayerSync, "Multiplayer Sync", tooltip: "Enable multiplayer synchronization options.")
                 .DefaultTo(DefaultSettings.enableMultiplayerSync)
                 .ControlsChildren()
@@ -820,7 +770,6 @@ namespace Better_Work_Tab.UI.Settings
                         s.Color_ColumnHoverHighlight = picked;
                         s.Color_SelectedPawnHighlight = picked;
                         s.Color_FloatMenuHighlight = picked;
-                        s.Color_CustomMouseHighlight = picked;
                         s.Color_CustomSimilarWorktypeHighlight = picked;
                         s.Write();
                         WorkTabColorPreviewController.Instance.PreviewMasterPicker(picked);
@@ -861,7 +810,6 @@ namespace Better_Work_Tab.UI.Settings
             {
                 if (settingsObj is BetterWorkTabSettings settings)
                 {
-                    settings.useRowHoverOverride = false;
                     settings.Color_RowHoverHighlight = settings.Color_MouseHoverHighlight;
                     settings.Write();
                 }
@@ -879,7 +827,6 @@ namespace Better_Work_Tab.UI.Settings
             {
                 if (settingsObj is BetterWorkTabSettings settings)
                 {
-                    settings.useColumnHoverOverride = false;
                     settings.Color_ColumnHoverHighlight = settings.Color_MouseHoverHighlight;
                     settings.Write();
                 }
@@ -925,25 +872,17 @@ namespace Better_Work_Tab.UI.Settings
                 .Ordered(4);
 
             schema.Root.Under(FeaturesOverlay)
-                .Toggle(HighlightsDisableBestPawn, settings => settings.disableBestPawnHighlight, "Hide best-pawn indicator", tooltip: "Hide the green marker that identifies the highest-skilled eligible pawn for each Work type.")
-                .DefaultTo(DefaultSettings.disableBestPawnHighlight)
-                .SearchableBy(new[] { "best worker", "most skilled", "green box", "green outline" })
-                .Ordered(41)
-                .AdvancedOnly();
-
-            schema.Root.Under(FeaturesOverlay)
                 .Int(HighlightsBestPawnBackground, settings => settings.bestPawnHighlightThickness, "Best-pawn outline thickness", tooltip: "Adjust the thickness of the green outline for the best pawn in a work type.")
                 .DefaultTo(DefaultSettings.bestPawnHighlightThickness)
                 .Ordered(42)
-                .ShownWhen(s => !((BetterWorkTabSettings)s).disableBestPawnHighlight)
+                .ShownWhen(s => ((BetterWorkTabSettings)s).ShowUIMode_ShowPawnForSkillSquare != BetterWorkTabSettings.ShowUIMode.Never)
                 .AdvancedOnly()
                 .ValueRange(1f, 4f);
 
             schema.Root.Under(HighlightsHover)
                 .Toggle(HighlightsSimilar, settings => settings.ShowSimilarWorktypeHighlight, "Related Work columns", tooltip: "Dimly highlight other Work columns that use the same skills.")
                 .DefaultTo(DefaultSettings.ShowSimilarWorktypeHighlight)
-                .Ordered(5)
-                .AdvancedOnly();
+                .Ordered(5);
 
             schema.Root.Under(HighlightsSimilar)
                 .Colour(HighlightsSimilarColor, settings => settings.Color_CustomSimilarWorktypeHighlight, "Related Work-column color", tooltip: "Tints other Work columns that use skills related to the column under the cursor.")
@@ -962,8 +901,7 @@ namespace Better_Work_Tab.UI.Settings
             schema.Root.Under(FeaturesDragdrop)
                 .Toggle(LayoutCtrlDrag, settings => settings.requireCtrlForDrag, "Require Ctrl for Dragging", tooltip: "Hold Ctrl to drag rows/columns. Prevents accidental reordering.")
                 .DefaultTo(DefaultSettings.requireCtrlForDrag)
-                .Ordered(95)
-                .AdvancedOnly();
+                .Ordered(95);
 
             schema.Root.Under(FeaturesDragdrop)
                 .Toggle(DragdropEnableGrouping, settings => settings.enableColumnGrouping, "Group columns with Shift-click", tooltip: "Shift-click Work headers to select and drag multiple columns together.")
@@ -971,13 +909,12 @@ namespace Better_Work_Tab.UI.Settings
                 .Ordered(96)
                 .AdvancedOnly();
 
-            schema.Root.Under(FeaturesDragdrop).Toggle(LayoutDragRows, settings => settings.rowDraggingEnabled, "Drag pawn rows", tooltip: "Drag pawn rows to change their order.").DefaultTo(DefaultSettings.rowDraggingEnabled).Ordered(1011).AdvancedOnly();
+            schema.Root.Under(FeaturesDragdrop).Toggle(LayoutDragRows, settings => settings.rowDraggingEnabled, "Drag pawn rows", tooltip: "Drag pawn rows to change their order.").DefaultTo(DefaultSettings.rowDraggingEnabled).Ordered(1011);
 
             schema.Root.Under(FeaturesDragdrop)
                 .Toggle(LayoutDragColumns, settings => settings.columnDraggingEnabled, "Drag Work columns", tooltip: "Drag Work columns to change their order.")
                 .DefaultTo(DefaultSettings.columnDraggingEnabled)
-                .Ordered(1012)
-                .AdvancedOnly();
+                .Ordered(1012);
 
             schema.Root.Under(FeaturesDragdrop)
                 .Int(LayoutDragThreshold, settings => settings.dragThreshold, "Drag Threshold (px)", tooltip: "Minimum mouse movement before a drag begins.")
@@ -1001,19 +938,17 @@ namespace Better_Work_Tab.UI.Settings
                 .AdvancedOnly()
                 .ValueRange(0.2f, 2.0f);
 
-            schema.Root.Under(AdvancedHeader)
+            schema.Root.Under(FeaturesClicks)
                 .Toggle(LayoutClickClose, settings => settings.disableLeftClickClose, "Keep Work tab open after selecting a pawn", tooltip: "Selecting a pawn keeps the Work tab open. While enabled, clicks outside the tab also leave it open.")
                 .DefaultTo(DefaultSettings.disableLeftClickClose)
                 .SearchableBy(new[] { "stay open", "don't close", "selecting colonist", "click outside", "map click" })
-                .Ordered(405)
-                .AdvancedOnly();
+                .Ordered(1020);
 
             schema.Root.Under(FeaturesClicks)
                 .Toggle(LayoutCloseOnMapClick, settings => settings.closeOnMapClick, "Close on map click", tooltip: "Close the Work tab when clicking on the map.")
                 .DefaultTo(DefaultSettings.closeOnMapClick)
                 .SearchableBy(new[] { "stay open", "don't close", "click outside", "map click" })
                 .Ordered(1021)
-                .ShownIn(false, false)
                 .Configure(definition =>
                            {
                                definition.Suppressions = new List<SettingSuppression> { new SettingSuppression { When = settingsObj => ((BetterWorkTabSettings)settingsObj).disableLeftClickClose,
@@ -1039,20 +974,17 @@ namespace Better_Work_Tab.UI.Settings
             schema.Root.Under(FeaturesUiElements)
                 .Toggle(LayoutPawnCount, settings => settings.showPawnCountAtBottom, "Show Colonist Count", tooltip: "Display colonist count in the bottom-left corner.")
                 .DefaultTo(DefaultSettings.showPawnCountAtBottom)
-                .Ordered(103)
-                .AdvancedOnly();
+                .Ordered(103);
 
             schema.Root.Under(FeaturesUiElements)
                 .Toggle(LayoutBedCount, settings => settings.showBedCountAtBottom, "Show Bed Count", tooltip: "Display bed count (red if insufficient).")
                 .DefaultTo(DefaultSettings.showBedCountAtBottom)
-                .Ordered(104)
-                .AdvancedOnly();
+                .Ordered(104);
 
             schema.Root.Under(FeaturesUiElements)
                 .Toggle(UiPriorityLegend, settings => settings.showPriorityLegend, "Show Priority Legend", tooltip: "Display priority direction text above work columns.")
                 .DefaultTo(DefaultSettings.showPriorityLegend)
-                .Ordered(1041)
-                .AdvancedOnly();
+                .Ordered(1041);
 
             schema.Root.Under(FeaturesUiElements)
                 .Toggle(UiDragInstructions, settings => settings.showDragInstructions, "Show Footer Control Hints", tooltip: "Always show the Shift skill-view hint and show other control hints only when hovering a target that supports them.")
@@ -1081,13 +1013,13 @@ namespace Better_Work_Tab.UI.Settings
             schema.Root.Under(FeaturesUiElements)
                 .Toggle("ui.autoEnableManualPriorities", settings => settings.autoEnableManualPriorities, "Turn on Manual priorities automatically", tooltip: "Automatically check the Manual Priorities checkbox when opening the Work tab.")
                 .DefaultTo(DefaultSettings.autoEnableManualPriorities)
-                .Ordered(1045)
-                .AdvancedOnly();
+                .Ordered(1045);
 
             schema.Root.Under(FeaturesDividers)
                 .Float(LayoutDividerHeight, settings => settings.dividerHeight, "Divider Default Height", tooltip: "Default height of divider rows in pixels.")
                 .DefaultTo(DefaultSettings.dividerHeight)
                 .Ordered(105)
+                .AdvancedOnly()
                 .ValueRange(10f, 50f)
                 .ValueLabels("Thin", "Thick");
 
@@ -1098,7 +1030,7 @@ namespace Better_Work_Tab.UI.Settings
                 .AdvancedOnly()
                 .ValueRange(0f, 1f);
 
-            schema.Root.Under(FeaturesDividers).Toggle(DividersShow, settings => settings.showDividers, "Show Dividers", tooltip: "Toggle visibility of divider rows.").DefaultTo(DefaultSettings.showDividers).Ordered(107);
+            schema.Root.Under(FeaturesDividers).Toggle(DividersShow, settings => settings.enableDividers, "Show Dividers", tooltip: "Toggle visibility of divider rows.").DefaultTo(DefaultSettings.enableDividers).Ordered(107);
 
             schema.Root.Under(FeaturesDividers)
                 .Toggle(DividersCustomColors, settings => settings.allowCustomDividerColors, "Custom divider colors", tooltip: "Choose a different color for each divider.")
@@ -1112,13 +1044,12 @@ namespace Better_Work_Tab.UI.Settings
                 .Ordered(109)
                 .AdvancedOnly();
 
-            schema.Root.Under(FeaturesDividers).Toggle(DividersLabels, settings => settings.showDividerLabels, "Show Divider Labels", tooltip: "Show divider labels by default.").DefaultTo(DefaultSettings.showDividerLabels).Ordered(111).AdvancedOnly();
+            schema.Root.Under(FeaturesDividers).Toggle(DividersLabels, settings => settings.showDividerLabels, "Show Divider Labels", tooltip: "Show divider labels by default.").DefaultTo(DefaultSettings.showDividerLabels).Ordered(111);
 
             schema.Root.Under(FeaturesDividers)
                 .Toggle(DividersCollapse, settings => settings.allowDividerCollapse, "Collapsible dividers", tooltip: "Let dividers collapse or expand their pawn groups.")
                 .DefaultTo(DefaultSettings.allowDividerCollapse)
-                .Ordered(112)
-                .AdvancedOnly();
+                .Ordered(112);
 
             schema.Root.Under(FeaturesDividers)
                 .Toggle(DividersAnimations, settings => settings.enableDividerAnimations, "Animate Divider Changes", tooltip: "Smoothly grows and collapses divider sections and newly inserted dividers. Disable this if another mod causes table resize flicker.",
@@ -1151,22 +1082,25 @@ namespace Better_Work_Tab.UI.Settings
                 .AdvancedOnly()
         ;
 
-            schema.Root.Under(FeaturesDragdrop).Button(LayoutResetColumns, "Reset Columns to Vanilla", tooltip: "Restore all work columns to their default order.", onChanged: _ => WorkColumnOrderManager.ResetToVanilla()).Ordered(1015).AdvancedOnly();
+            schema.Root.Under(FeaturesDragdrop).Button(LayoutResetColumns, "Reset Columns to Vanilla", tooltip: "Restore all work columns to their default order.", onChanged: _ => WorkColumnOrderManager.ResetToVanilla()).Ordered(1015);
 
             schema.Root.Under(FeaturesDragdrop)
                 .Toggle(ColumnsShowMovedIndicator, settings => settings.showColumnMovedMarker, "Show Moved Indicator", tooltip: "Show indicator on manually moved columns.")
                 .DefaultTo(DefaultSettings.showColumnMovedMarker)
-                .Ordered(115);
+                .Ordered(115)
+                .AdvancedOnly();
 
             schema.Root.Under(FeaturesDragdrop)
                 .Toggle(ColumnsShowBaselineLine, settings => settings.showColumnBaselineLine, "Show Baseline Line While Dragging", tooltip: "Show a line at the column's vanilla position while dragging moved columns.")
                 .DefaultTo(DefaultSettings.showColumnBaselineLine)
-                .Ordered(116);
+                .Ordered(116)
+                .AdvancedOnly();
 
             schema.Root.Under(FeaturesDragdrop)
                 .Toggle("columns.showMovedColorTint", settings => settings.showMovedColumnColorTint, "Color tint for reordered columns", tooltip: "Apply a color tint to the text of manually reordered columns.")
                 .DefaultTo(DefaultSettings.showMovedColumnColorTint)
-                .Ordered(117);
+                .Ordered(117)
+                .AdvancedOnly();
 
             schema.Root.Under(FeaturesDragdrop)
                 .Colour("columns.movedMarkerColor", settings => settings.movedMarkerColor, "Moved-column marker color", tooltip: "Colors the star and header tint that identify a Work column moved from its default position.")
@@ -1204,7 +1138,6 @@ namespace Better_Work_Tab.UI.Settings
                            tooltip: "Select work types to hide from the work tab. (Beta Testing Phase. Please reach out to discord with ideas for improving)")
                     .SearchableBy(new[] { "hide column", "remove work column", "unwanted job", "show work type", "unhide" })
                     .Ordered(105)
-                    .AdvancedOnly()
                     .OptionsFrom(() => DefDatabase<WorkTypeDef>.AllDefsListForReading.Where(wt => !settings.hiddenWorktypes.Contains(wt.defName)).Select(w => w.labelShort.CapitalizeFirst()).OrderBy(l => l),
                                  (option) =>
                                  {
@@ -1243,7 +1176,6 @@ namespace Better_Work_Tab.UI.Settings
                     }
                     )
                         .Ordered(106)
-                        .AdvancedOnly()
                         .Configure(definition =>
                         {
                             definition.LabelKey = string.Empty;
@@ -1256,11 +1188,11 @@ namespace Better_Work_Tab.UI.Settings
             schema.Root.Under(FeaturesOverlay)
                 .Enum(OverlayNumbersMode, settings => settings.ShowUIMode_ShowSmallSkillNumbers, "Tiny Skill Numbers", tooltip: "When to show the small skill numbers in cells.")
                 .DefaultTo(DefaultSettings.ShowUIMode_ShowSmallSkillNumbers)
-                .Ordered(0)
-                .ShownIn(false, false);
+                .Ordered(0);
 
             schema.Root.Under(FeaturesOverlay)
-                .Enum(OverlayBestPawnMode, settings => settings.ShowUIMode_ShowPawnForSkillSquare, "Best-pawn indicator", tooltip: "When to highlight the pawn with highest skill.")
+                .Enum(OverlayBestPawnMode, settings => settings.ShowUIMode_ShowPawnForSkillSquare, "Best-pawn indicator", tooltip: "When to highlight the pawn with highest skill.",
+                      onChanged: settingsObj => ((BetterWorkTabSettings)settingsObj).ShowUIMode_ShowPawnForSkillSquare = BetterWorkTabSettings.ShowUIMode.Shifted)
                 .DefaultTo(DefaultSettings.ShowUIMode_ShowPawnForSkillSquare)
                 .Ordered(1);
 
@@ -1328,7 +1260,7 @@ namespace Better_Work_Tab.UI.Settings
             schema.Root.Define(AdvancedHeader, SettingType.Header, "Maintenance", tooltip: "Advanced toggles and maintenance/reset options.").Ordered(400).Accented(new Color(0.6f, 0.6f, 0.6f));
 
             schema.Root.Under(FeaturesUiElements)
-                .NumericInt(LayoutWorkTabMaxHeight, settings => settings.workTabMaxVisiblePawns, "Visible pawn rows",
+                .NumericInt(LayoutWorkTabMaxVisiblePawns, settings => settings.workTabMaxVisiblePawns, "Visible pawn rows",
                             tooltip: "Caps the Work tab height by how many normal pawn rows are visible before scrolling. -1 keeps RimWorld's default full-screen-height behavior.", onChanged: _ => MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged())
                 .DefaultTo(DefaultSettings.workTabMaxVisiblePawns)
                 .SearchableBy(WorkTabLayoutSearchKeywords)
@@ -1372,14 +1304,12 @@ namespace Better_Work_Tab.UI.Settings
                 .Enum(AutoassignViewMode, settings => settings.rulesetViewMode, "Ruleset editor", tooltip: "Choose the visual builder, the classic list, or make both editor choices available.")
                 .DefaultTo(DefaultSettings.rulesetViewMode)
                 .SearchableBy(new[] { "visual builder", "classic list", "regular", "raw", "rule interface" })
-                .Ordered(405)
-                .AdvancedOnly();
+                .Ordered(405);
 
             schema.Root.Under(FeaturesAutoassign)
                 .Toggle(RuleBuilder2Use, settings => settings.useRuleBuilder2, "Use Rule Builder 2.0", tooltip: "Open the card-based Rule Builder 2.0 by default while preserving the classic builder as a fallback.")
                 .DefaultTo(DefaultSettings.useRuleBuilder2)
-                .Ordered(406)
-                .AdvancedOnly();
+                .Ordered(406);
 
             // No "show help" toggle here on purpose. Better Work Tab's help is
             // now RimWorld concepts, and RimWorld already has the switch for
@@ -1403,12 +1333,6 @@ namespace Better_Work_Tab.UI.Settings
                 .AdvancedOnly();
 
             schema.Root.Under(RuleBuilder2Use)
-                .Toggle(RuleBuilder2DraftSuggestions, settings => settings.ruleBuilder2UseDraftSuggestions, "Generated draft suggestions", tooltip: "Reserved for a future Rule Builder draft generator.")
-                .DefaultTo(DefaultSettings.ruleBuilder2UseDraftSuggestions)
-                .Ordered(411)
-                .ShownIn(false, false);
-
-            schema.Root.Under(RuleBuilder2Use)
                 .Toggle(RuleBuilder2AdvancedConditions, settings => settings.ruleBuilder2ShowAdvancedConditions, "Show advanced conditions", tooltip: "Show advanced Rule Builder 2.0 condition cards such as capacities and assignment state.")
                 .DefaultTo(DefaultSettings.ruleBuilder2ShowAdvancedConditions)
                 .Ordered(412)
@@ -1421,79 +1345,16 @@ namespace Better_Work_Tab.UI.Settings
                 .AdvancedOnly();
 
             schema.Root.Under(FeaturesAutoassign)
-                .Toggle(AutoassignConfirm, settings => settings.showAutoAssignConfirmation, "Confirm on Apply", tooltip: "Show confirmation before applying a ruleset.")
-                .DefaultTo(DefaultSettings.showAutoAssignConfirmation)
-                .Ordered(401)
-                .ShownIn(false, false);
-
-            schema.Root.Under(FeaturesAutoassign)
-                .Toggle(AutoassignResetBefore, settings => settings.resetWorkBeforeAutoAssign, "Reset Before Apply", tooltip: "Clear assignments before applying a ruleset.")
-                .DefaultTo(DefaultSettings.resetWorkBeforeAutoAssign)
-                .Ordered(402)
-                .ShownIn(false, false);
-
-            schema.Root.Under(FeaturesAutoassign)
-                .Toggle(AutoassignVisual, settings => settings.showAutoAssignVisualFeedback, "Visual Feedback", tooltip: "Highlight affected pawns/work types after applying.")
-                .DefaultTo(DefaultSettings.showAutoAssignVisualFeedback)
-                .Ordered(403)
-                .ShownIn(false, false);
-
-            schema.Root.Under(FeaturesWorkloads)
-                .Toggle(WorkloadsPersistDividers, settings => settings.persistDividersInWorkloads, "Include Dividers", tooltip: "Include divider positions when saving workloads.")
-                .DefaultTo(DefaultSettings.persistDividersInWorkloads)
-                .Ordered(4025)
-                .ShownIn(false, false);
-
-            schema.Root.Under(FeaturesAutoassign)
-                .Toggle(AdvancedHideAutoAssignBtn, settings => settings.hideAutoAssignButton, "Hide ruleset button", tooltip: "Hide the ruleset button from the Work tab footer.")
-                .DefaultTo(DefaultSettings.hideAutoAssignButton)
-                .Ordered(404)
-                .ShownIn(false, false);
-            schema.Root.Under(FeaturesAutoassign)
                 .Toggle(AdvancedAlwaysShowConditionEditors, settings => settings.alwaysShowConditionEditors, "Always show condition editors", tooltip: "Condition rows are always editable without an initial click.")
                 .DefaultTo(DefaultSettings.alwaysShowConditionEditors)
                 .Ordered(420)
                 .AdvancedOnly();
 
-            // Workloads are above; Performance toggles
-            schema.Root.Under(FeaturesPerformance).Toggle(PerfCacheBedCounts, settings => settings.cacheBedCounts, "Cache Bed Counts", tooltip: "Cache bed counts to reduce stutter.").DefaultTo(DefaultSettings.cacheBedCounts).Ordered(405).ShownIn(false, false);
-
-            schema.Root.Under(FeaturesPerformance)
-                .Toggle(PerfCacheSkillLevels, settings => settings.cacheSkillLevels, "Cache Skill Levels", tooltip: "Cache skill calculations to reduce redundant work.")
-                .DefaultTo(DefaultSettings.cacheSkillLevels)
-                .Ordered(406)
-                .ShownIn(false, false);
-
-            schema.Root.Under(FeaturesPerformance)
-                .Toggle(PerfCacheRowDescriptors, settings => settings.cacheRowDescriptors, "Cache Row Descriptors", tooltip: "Cache row descriptor calculations for layout.")
-                .DefaultTo(DefaultSettings.cacheRowDescriptors)
-                .Ordered(407)
-                .ShownIn(false, false);
-
-            schema.Root.Under(FeaturesPerformance)
-                .Toggle(PerfCacheIncapability, settings => settings.cacheIncapabilityChecks, "Cache Incapability Checks", tooltip: "Cache incapability checks for work types.")
-                .DefaultTo(DefaultSettings.cacheIncapabilityChecks)
-                .Ordered(408)
-                .ShownIn(false, false);
-
-            schema.Root.Under(FeaturesPerformance)
-                .Toggle(PerfUseElementPooling, settings => settings.useElementPooling, "Use Element Pooling", tooltip: "Reuse UI elements instead of allocating each frame.")
-                .DefaultTo(DefaultSettings.useElementPooling)
-                .Ordered(409)
-                .ShownIn(false, false);
-
-            schema.Root.Under(FeaturesPerformance)
-                .Toggle(PerfViewportCulling, settings => settings.viewportCulling, "Viewport Culling", tooltip: "Only render visible rows in the scroll area.")
-                .DefaultTo(DefaultSettings.viewportCulling)
-                .Ordered(410)
-                .ShownIn(false, false);
-
             schema.Root.Under(FeaturesClicks)
                 .Toggle(AdvancedScrollWheelPriority, settings => settings.enableScrollWheelPriority, "Scroll Wheel Priority",
                         tooltip: "Change priorities by hovering a work priority cell and scrolling. Applies to normal work cells, sub-work cells, and time-priority cells.")
                 .DefaultTo(DefaultSettings.enableScrollWheelPriority)
-                .Ordered(25)
-                .AdvancedOnly();
+                .Ordered(25);
 
             // Master toggle for debug logging. When false, no BWT debug messages (except errors) will fire.
             schema.Root.Under(AdvancedHeader)
@@ -1554,13 +1415,6 @@ namespace Better_Work_Tab.UI.Settings
                 .Toggle(AdvancedProfiler, settings => settings.enableProfiler, "Enable Profiler", tooltip: "Enable in-game profiler (1 to report, Shift+1 to clear).")
                 .DefaultTo(DefaultSettings.enableProfiler)
                 .Ordered(503)
-                .ShownIn(false, false);
-
-            // If enabled, debug messages are mirrored to a dedicated .txt file in the mod folder.
-            schema.Root.Under(AdvancedHeader)
-                .Toggle(AdvancedLogToFile, settings => settings.logDebugToFile, "Log to File", tooltip: "Write debug logs to file in addition to console.")
-                .DefaultTo(DefaultSettings.logDebugToFile)
-                .Ordered(504)
                 .ShownIn(false, false);
 
             // Multiplayer sync
@@ -1671,7 +1525,6 @@ namespace Better_Work_Tab.UI.Settings
                 .DefaultTo(DefaultSettings.angledHeaderRotation)
                 .SearchableBy(WorkHeaderSearchKeywords)
                 .Ordered(507)
-                .AdvancedOnly()
                 .ValueRange(-90f, 90f)
         ;
 
@@ -1730,6 +1583,7 @@ namespace Better_Work_Tab.UI.Settings
             }
             )
                 .Ordered(420)
+                .AdvancedOnly()
         ;
 
             foreach (SettingDefinition definition in schema.Definitions)

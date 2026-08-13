@@ -149,6 +149,16 @@ namespace Better_Work_Tab.UI.Settings
                 }
 
                 CopyPublicSettingsFields(data.Settings, destination);
+                if (destination.viewedSettingIds != null)
+                {
+                    for (int i = 0; i < destination.viewedSettingIds.Count; i++)
+                    {
+                        if (destination.viewedSettingIds[i] == "layout.workTabMaxVisiblePawns")
+                        {
+                            destination.viewedSettingIds[i] = SettingIDs.LayoutWorkTabMaxVisiblePawns;
+                        }
+                    }
+                }
                 RecentColours.ReplaceAll(data.RecentColors, data.PinnedColors);
                 BWTSettingsRegistry.Schema.NotifyPreferenceChanges(destination);
                 destination.NormalizePrioritySettings();

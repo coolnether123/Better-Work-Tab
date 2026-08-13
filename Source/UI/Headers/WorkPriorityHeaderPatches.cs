@@ -1,15 +1,20 @@
 using HarmonyLib;
 using RimWorld;
+using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using System.Reflection.Emit;
 using UnityEngine;
 using Verse;
+using Better_Work_Tab.Features.Patches;
 using Better_Work_Tab.UI.Headers.Vanilla;
 using Better_Work_Tab.UI.Headers.Angled;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities;
+using Spine.Harmony;
 using Spine.Profiling;
 
 namespace Better_Work_Tab.UI.Headers
@@ -207,7 +212,7 @@ namespace Better_Work_Tab.UI.Headers
     }
 
     /// <summary>
-    /// Transpiler: Injects a condition before Widgets.DrawHighlightIfMouseover to skip 
+    /// Transpiler: injects a condition before the vanilla header highlight draw to skip
     /// the vanilla highlight if:
     /// - Angled headers are enabled AND
     /// - We're in a PawnColumnWorker_WorkPriority (our custom header handler)
@@ -219,63 +224,79 @@ namespace Better_Work_Tab.UI.Headers
     ///   if (!Settings.enableAngledHeaders) goto do_highlight;
     ///   if (!(this is PawnColumnWorker_WorkPriority)) goto do_highlight;
     ///   goto skip_highlight;
-    ///   do_highlight:
-    ///     Widgets.DrawHighlightIfMouseover(rect);
-    ///   skip_highlight:
+    ///   run_original:
+    ///     Widgets.DrawHighlight(rect);
+    ///   skip_original:
     /// </summary>
     [HarmonyPatch(typeof(PawnColumnWorker), nameof(PawnColumnWorker.DoHeader))]
     public static class Patch_PawnColumnWorker_DoHeader_DisableHighlight
     {
         [HarmonyTranspiler]
-        public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator il)
+        public static IEnumerable<CodeInstruction> Transpiler(
+            IEnumerable<CodeInstruction> instructions,
+            ILGenerator il,
+            MethodBase original)
         {
-            var drawHighlightMethod = AccessTools.Method(typeof(Widgets), nameof(Widgets.DrawHighlightIfMouseover));
-            var workPriorityWorkerType = typeof(PawnColumnWorker_WorkPriority);
+            MethodInfo drawHighlightMethod = AccessTools.Method(
+                typeof(Widgets),
+                nameof(Widgets.DrawHighlight),
+                new[] { typeof(Rect) });
+            FieldInfo settingsField = AccessTools.Field(
+                typeof(BetterWorkTabMod),
+                nameof(BetterWorkTabMod.Settings));
+            FieldInfo angledHeadersField = AccessTools.Field(
+                typeof(BetterWorkTabSettings),
+                nameof(BetterWorkTabSettings.enableAngledHeaders));
+            MethodInfo isWorkTabMethod = AccessTools.Method(
+                typeof(PawnColumnWorker_WorkPriority_DoHeader_Patch),
+                nameof(PawnColumnWorker_WorkPriority_DoHeader_Patch.IsWorkTab));
 
-            var codes = new List<CodeInstruction>(instructions);
-            for (int i = 0; i < codes.Count; i++)
-            {
-                if (codes[i].Calls(drawHighlightMethod))
+            return FluentTranspilerExecution.ExecuteOrOriginal(
+                instructions,
+                original,
+                il,
+                transpiler =>
                 {
-                    var labelDoHighlight = il.DefineLabel();
-                    var labelSkipHighlight = il.DefineLabel();
-
-                    if (i + 1 < codes.Count)
-                        codes[i + 1].labels.Add(labelSkipHighlight);
-
-                    int insertIndex = i;
-                    if (i > 0 && (codes[i - 1].opcode == OpCodes.Ldarg_1 || codes[i - 1].opcode == OpCodes.Ldloc_0))
+                    if (drawHighlightMethod == null ||
+                        settingsField == null ||
+                        angledHeadersField == null ||
+                        isWorkTabMethod == null)
                     {
-                        insertIndex = i - 1;
+                        throw new InvalidOperationException(
+                            "one or more header-highlight patch members could not be resolved");
                     }
 
-                    var newCodes = new List<CodeInstruction>();
+                    int matchCount = transpiler.Instructions().Count(
+                        instruction => instruction != null && instruction.Calls(drawHighlightMethod));
+                    if (matchCount != 1)
+                    {
+                        throw new InvalidOperationException(
+                            $"expected exactly one Widgets.DrawHighlight(Rect) call, found {matchCount}");
+                    }
 
-                    // if (Settings == null) goto do_highlight;
-                    newCodes.Add(new CodeInstruction(OpCodes.Ldsfld, AccessTools.Field(typeof(BetterWorkTabMod), nameof(BetterWorkTabMod.Settings))));
-                    newCodes.Add(new CodeInstruction(OpCodes.Brfalse, labelDoHighlight));
+                    FluentReplacementResult result = transpiler
+                        .BeforeCall(drawHighlightMethod)
+                        .IncludingPreviousInstruction()
+                        .SkipOriginalWhen(
+                            guard => guard
+                                .RequireStaticFieldNotNull(settingsField)
+                                .RequireStaticFieldInstanceFieldTrue(settingsField, angledHeadersField)
+                                .RequireCallTrue(isWorkTabMethod)
+                                .SkipIfThisIs(typeof(PawnColumnWorker_WorkPriority)),
+                            "Skip vanilla work-priority header highlight");
 
-                    // if (!Settings.enableAngledHeaders) goto do_highlight;
-                    newCodes.Add(new CodeInstruction(OpCodes.Ldsfld, AccessTools.Field(typeof(BetterWorkTabMod), nameof(BetterWorkTabMod.Settings))));
-                    newCodes.Add(new CodeInstruction(OpCodes.Ldfld, AccessTools.Field(typeof(BetterWorkTabSettings), nameof(BetterWorkTabSettings.enableAngledHeaders))));
-                    newCodes.Add(new CodeInstruction(OpCodes.Brfalse, labelDoHighlight));
-
-                    // if (!PawnColumnWorker_WorkPriority_DoHeader_Patch.IsWorkTab()) goto do_highlight;
-                    newCodes.Add(new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(PawnColumnWorker_WorkPriority_DoHeader_Patch), nameof(PawnColumnWorker_WorkPriority_DoHeader_Patch.IsWorkTab))));
-                    newCodes.Add(new CodeInstruction(OpCodes.Brfalse, labelDoHighlight));
-
-                    // if (this is PawnColumnWorker_WorkPriority) goto skip_highlight;
-                    newCodes.Add(new CodeInstruction(OpCodes.Ldarg_0));
-                    newCodes.Add(new CodeInstruction(OpCodes.Isinst, workPriorityWorkerType));
-                    newCodes.Add(new CodeInstruction(OpCodes.Brtrue, labelSkipHighlight));
-
-                    codes[insertIndex].labels.Add(labelDoHighlight);
-                    codes.InsertRange(insertIndex, newCodes);
-
-                    break;
-                }
-            }
-            return codes;
+                    if (result != FluentReplacementResult.PatternReplaced)
+                    {
+                        throw new InvalidOperationException(
+                            $"header-highlight guard was not applied: {result}");
+                    }
+                },
+                (codes, method, exception) =>
+                    TranspilerFallback.ReturnOriginalWithWarning(
+                        codes,
+                        method,
+                        exception,
+                        "Header highlight"));
         }
     }
 }

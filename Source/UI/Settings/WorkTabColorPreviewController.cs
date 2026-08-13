@@ -402,7 +402,6 @@ namespace Better_Work_Tab.UI.Settings
                 case "Color_SelectedPawnHighlight":
                     return WorkTabColorPreviewTarget.Row;
                 case "Color_ColumnHoverHighlight":
-                case "Color_CustomMouseHighlight":
                 case "Color_CustomSimilarWorktypeHighlight":
                     return WorkTabColorPreviewTarget.Column;
                 case "angledHeaderColor":

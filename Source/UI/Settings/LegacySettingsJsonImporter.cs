@@ -39,8 +39,142 @@ namespace Better_Work_Tab.UI.Settings
 
             int imported = 0;
             int skipped = 0;
+            bool importedVisiblePawnRows = false;
+            bool legacyCustomHoverEnabled = false;
+            bool legacyCustomHoverPresent = false;
+            Color legacyCustomHoverColor = new Color(0.737f, 0.737f, 0.114f, 0.25f);
             foreach (KeyValuePair<string, object> pair in values)
             {
+                // These IDs belonged to removed settings. Keep their old JSON values
+                // meaningful without putting the retired settings back in the registry.
+                switch (pair.Key)
+                {
+                    case "layout.workTabMaxVisiblePawns":
+                        if (TryConvertValue(pair.Value, typeof(int), out object visiblePawnRows))
+                        {
+                            settings.workTabMaxVisiblePawns = (int)visiblePawnRows;
+                            importedVisiblePawnRows = true;
+                            imported++;
+                        }
+                        else
+                        {
+                            skipped++;
+                        }
+                        continue;
+
+                    case "layout.workTabMaxHeight":
+                        if (TryConvertValue(pair.Value, typeof(float), out object legacyVisibleHeight))
+                        {
+                            settings.workTabMaxVisiblePawns = Mathf.Clamp(
+                                Mathf.RoundToInt((float)legacyVisibleHeight / 30f),
+                                1,
+                                200);
+                            importedVisiblePawnRows = true;
+                            imported++;
+                        }
+                        else
+                        {
+                            skipped++;
+                        }
+                        continue;
+
+                    case "compat.workTabMaxHeight":
+                        if (!importedVisiblePawnRows &&
+                            TryConvertValue(pair.Value, typeof(float), out object legacyHeight))
+                        {
+                            settings.workTabMaxVisiblePawns = Mathf.Clamp(
+                                Mathf.RoundToInt((float)legacyHeight / 30f),
+                                1,
+                                200);
+                            imported++;
+                        }
+                        else if (!importedVisiblePawnRows)
+                        {
+                            skipped++;
+                        }
+                        continue;
+
+                    case "highlights.disableBestPawn":
+                        if (TryConvertValue(pair.Value, typeof(bool), out object disableBestPawn))
+                        {
+                            if ((bool)disableBestPawn)
+                            {
+                                settings.ShowUIMode_ShowPawnForSkillSquare = BetterWorkTabSettings.ShowUIMode.Never;
+                            }
+
+                            imported++;
+                        }
+                        else
+                        {
+                            skipped++;
+                        }
+                        continue;
+
+                    case "compat.enableRowColumnHighlights":
+                        if (TryConvertValue(pair.Value, typeof(bool), out object enableRowColumnHighlights))
+                        {
+                            if (!(bool)enableRowColumnHighlights)
+                            {
+                                settings.ShowPawnAndWorktypeHighlights = false;
+                            }
+
+                            imported++;
+                        }
+                        else
+                        {
+                            skipped++;
+                        }
+                        continue;
+
+                    case "compat.enableUIElements":
+                        if (TryConvertValue(pair.Value, typeof(bool), out object enableUIElements))
+                        {
+                            if (!(bool)enableUIElements)
+                            {
+                                settings.showPawnCountAtBottom = false;
+                                settings.showBedCountAtBottom = false;
+                                settings.showContextSettingsHint = false;
+                                settings.showManualPrioritiesCheckbox = false;
+                                settings.showPriorityLegend = false;
+                                settings.showDragInstructions = false;
+                            }
+
+                            imported++;
+                        }
+                        else
+                        {
+                            skipped++;
+                        }
+                        continue;
+
+                    case "compat.UseCustomMouseHoverHighlight":
+                    case "UseCustomMouseHoverHighlight":
+                        if (TryConvertValue(pair.Value, typeof(bool), out object useCustomMouseHoverHighlight))
+                        {
+                            legacyCustomHoverEnabled = (bool)useCustomMouseHoverHighlight;
+                            legacyCustomHoverPresent = true;
+                            imported++;
+                        }
+                        else
+                        {
+                            skipped++;
+                        }
+                        continue;
+
+                    case "compat.Color_CustomMouseHighlight":
+                    case "Color_CustomMouseHighlight":
+                        if (TryConvertValue(pair.Value, typeof(Color), out object customMouseHighlight))
+                        {
+                            legacyCustomHoverColor = (Color)customMouseHighlight;
+                            imported++;
+                        }
+                        else
+                        {
+                            skipped++;
+                        }
+                        continue;
+                }
+
                 if (!definitionsById.TryGetValue(pair.Key, out SettingDefinition definition) ||
                     !TryGetSupportedField(settings, definition, out FieldInfo field) ||
                     !TryConvertValue(pair.Value, field.FieldType, out object converted))
@@ -50,11 +184,27 @@ namespace Better_Work_Tab.UI.Settings
                 }
 
                 field.SetValue(settings, converted);
+                if (pair.Key == "layout.workTabMaxHeight")
+                {
+                    importedVisiblePawnRows = true;
+                }
+
                 definition.OnChanged?.Invoke(settings);
                 imported++;
             }
 
+            if (legacyCustomHoverPresent && legacyCustomHoverEnabled)
+            {
+                settings.Color_CursorHighlight = legacyCustomHoverColor;
+                settings.Color_RowHoverHighlight = legacyCustomHoverColor;
+                settings.Color_ColumnHoverHighlight = legacyCustomHoverColor;
+            }
+
             settings.NormalizePrioritySettings();
+            if (settings.workTabMaxVisiblePawns == 0 || settings.workTabMaxVisiblePawns < -1)
+            {
+                settings.workTabMaxVisiblePawns = DefaultSettings.workTabMaxVisiblePawns;
+            }
             settings.Write();
             report = skipped > 0
                 ? $"Imported {imported} legacy settings. Skipped {skipped} unsupported or invalid entries."
