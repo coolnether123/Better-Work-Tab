@@ -61,7 +61,12 @@ namespace Spine.Harmony
             }
 
             var instructions = _transpiler.Instructions().ToList();
-            int callIndex = FindCallIndex(instructions);
+            int callIndex = FindSingleCallIndex(instructions);
+            if (callIndex == -2)
+            {
+                return FluentReplacementResult.AmbiguousMatch;
+            }
+
             if (callIndex < 0)
             {
                 _transpiler.AddSoftFailure($"BeforeCall found no calls to {FluentTranspilerFormatting.FormatMethod(_targetCall)}.");
@@ -112,13 +117,19 @@ namespace Spine.Harmony
                 replacement.Add(skipAnchor);
             }
 
+            CodeInstruction originalEntry = instructions[replaceStart];
             _transpiler.MoveTo(replaceStart)
                        .ReplaceSequence(callIndex - replaceStart + 1, replacement.ToArray());
+
+            if (ReferenceEquals(_transpiler.Instructions().ElementAt(replaceStart), originalEntry))
+            {
+                return FluentReplacementResult.UnsafeMatch;
+            }
 
             return FluentReplacementResult.PatternReplaced;
         }
 
-        private int FindCallIndex(IList<CodeInstruction> instructions)
+        private int FindSingleCallIndex(IList<CodeInstruction> instructions)
         {
             int startIndex = 0;
             if (_mode == SearchMode.Current)
@@ -130,15 +141,23 @@ namespace Spine.Harmony
                 startIndex = Math.Max(0, _transpiler.CurrentIndex + 1);
             }
 
+            int matchIndex = -1;
             for (int i = startIndex; i < instructions.Count; i++)
             {
                 if (instructions[i] != null && instructions[i].Calls(_targetCall))
                 {
-                    return i;
+                    if (matchIndex >= 0)
+                    {
+                        _transpiler.AddWarning(
+                            $"BeforeCall found multiple calls to {FluentTranspilerFormatting.FormatMethod(_targetCall)}.");
+                        return -2;
+                    }
+
+                    matchIndex = i;
                 }
             }
 
-            return -1;
+            return matchIndex;
         }
 
         private static CodeInstruction CloneWithoutAnchors(CodeInstruction instruction)
@@ -158,6 +177,7 @@ namespace Spine.Harmony
         private readonly Label _skipOriginalLabel;
         private readonly List<CodeInstruction> _instructions = new List<CodeInstruction>();
         private bool _requiresTerminalSkip;
+        private bool _isValid = true;
 
         internal FluentGuardBuilder(FluentTranspiler transpiler, Label runOriginalLabel, Label skipOriginalLabel)
         {
@@ -176,6 +196,7 @@ namespace Spine.Harmony
             if (!field.IsStatic)
             {
                 _transpiler.AddWarning($"{nameof(RequireStaticFieldNotNull)} expected static field {FluentTranspilerFormatting.FormatField(field)}.");
+                _isValid = false;
                 return this;
             }
 
@@ -196,12 +217,14 @@ namespace Spine.Harmony
             if (!ownerField.IsStatic)
             {
                 _transpiler.AddWarning($"{nameof(RequireStaticFieldInstanceFieldTrue)} expected static owner field {FluentTranspilerFormatting.FormatField(ownerField)}.");
+                _isValid = false;
                 return this;
             }
 
             if (boolField.IsStatic || boolField.FieldType != typeof(bool))
             {
                 _transpiler.AddWarning($"{nameof(RequireStaticFieldInstanceFieldTrue)} expected instance bool field {FluentTranspilerFormatting.FormatField(boolField)}.");
+                _isValid = false;
                 return this;
             }
 
@@ -217,12 +240,14 @@ namespace Spine.Harmony
             if (method == null)
             {
                 _transpiler.AddWarning($"{nameof(RequireCallTrue)} received a null method.");
+                _isValid = false;
                 return this;
             }
 
             if (!method.IsStatic || method.ReturnType != typeof(bool) || method.GetParameters().Length != 0)
             {
                 _transpiler.AddWarning($"{nameof(RequireCallTrue)} expected a parameterless static bool method {FluentTranspilerFormatting.FormatMethod(method)}.");
+                _isValid = false;
                 return this;
             }
 
@@ -237,6 +262,7 @@ namespace Spine.Harmony
             if (type == null)
             {
                 _transpiler.AddWarning($"{nameof(SkipIfThisIs)} received a null type.");
+                _isValid = false;
                 return this;
             }
 
@@ -249,6 +275,11 @@ namespace Spine.Harmony
 
         internal List<CodeInstruction> Build()
         {
+            if (!_isValid)
+            {
+                return new List<CodeInstruction>();
+            }
+
             var result = _instructions
                 .Select(instruction => new CodeInstruction(instruction))
                 .ToList();
@@ -269,6 +300,7 @@ namespace Spine.Harmony
             }
 
             _transpiler.AddWarning($"{caller} received a null field.");
+            _isValid = false;
             return false;
         }
 
