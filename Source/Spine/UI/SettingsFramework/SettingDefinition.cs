@@ -16,6 +16,18 @@ namespace Spine.UI.SettingsFramework
         void EndPicker(SettingDefinition definition);
     }
 
+    /// <summary>
+    /// Optional host callbacks for applying color previews transactionally to
+    /// the host's real setting state.
+    /// </summary>
+    public interface ISettingColorPreviewTransactionSink
+    {
+        void Begin(SettingDefinition definition, object settingsObject, Color originalColor);
+        void Preview(SettingDefinition definition, object settingsObject, Color color);
+        void Commit(SettingDefinition definition, object settingsObject, Color color);
+        void Restore(SettingDefinition definition, object settingsObject, Color originalColor);
+    }
+
     public enum SettingClassification
     {
         Preference,
@@ -161,6 +173,15 @@ namespace Spine.UI.SettingsFramework
         public Func<object, string> EnumDescriptionProvider;
 
         /// <summary>
+        /// Optional value accessors for a derived setting backed by more than one field.
+        /// </summary>
+        public Func<object, object> ValueGetter;
+        public Action<object, object> ValueSetter;
+
+        /// <summary>Supplies the displayed value for a read-only information row.</summary>
+        public Func<object, string> ReadOnlyValueProvider;
+
+        /// <summary>
         /// If true, the setting is visible in the Simple view.
         /// </summary>
         public bool ShowInSimpleView;
@@ -179,6 +200,11 @@ namespace Spine.UI.SettingsFramework
         /// Optional rules that disable this setting without hiding it.
         /// </summary>
         public List<SettingSuppression> Suppressions;
+
+        /// <summary>
+        /// Optional relationships describing settings currently superseded by this setting.
+        /// </summary>
+        public List<SettingSupersession> Supersessions;
 
         /// <summary>
         /// Returns the first suppression currently in force, or null when the
@@ -201,6 +227,29 @@ namespace Spine.UI.SettingsFramework
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// Returns the currently active supersession relationships.
+        /// </summary>
+        public IReadOnlyList<SettingSupersession> GetActiveSupersessions(object settingsObject)
+        {
+            if (Supersessions == null || Supersessions.Count == 0)
+            {
+                return Array.Empty<SettingSupersession>();
+            }
+
+            var active = new List<SettingSupersession>(Supersessions.Count);
+            for (int i = 0; i < Supersessions.Count; i++)
+            {
+                SettingSupersession supersession = Supersessions[i];
+                if (supersession != null && supersession.IsActive(settingsObject))
+                {
+                    active.Add(supersession);
+                }
+            }
+
+            return active;
         }
 
         /// <summary>

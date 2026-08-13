@@ -166,7 +166,8 @@ namespace Spine.Api
         TooltipSizing = 1UL << 11,
         ContextualSettings = 1UL << 12,
         ModSettingsPages = 1UL << 13,
-        SettingsSchema = 1UL << 14
+        SettingsSchema = 1UL << 14,
+        SettingsPreviewTransactions = 1UL << 15
     }
 
     public readonly struct SpineApiDescriptor

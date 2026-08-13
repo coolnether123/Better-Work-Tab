@@ -22,7 +22,8 @@ namespace Spine.Api
                 SpineCapability.TooltipSizing |
                 SpineCapability.ContextualSettings |
                 SpineCapability.ModSettingsPages |
-                SpineCapability.SettingsSchema);
+                SpineCapability.SettingsSchema |
+                SpineCapability.SettingsPreviewTransactions);
 
         private SpineRuntimeFacade()
         {

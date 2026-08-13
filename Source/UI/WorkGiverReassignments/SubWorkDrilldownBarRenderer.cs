@@ -92,7 +92,6 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             var settings = BetterWorkTabMod.Settings;
             if (settings == null ||
                 !settings.ShowPawnAndWorktypeHighlights ||
-                !settings.enableRowColumnHighlights ||
                 !settings.ShowCursorPawnAndWorktypeHighlight ||
                 TimePriorityScheduleEditor.OwnsCurrentMousePosition)
             {

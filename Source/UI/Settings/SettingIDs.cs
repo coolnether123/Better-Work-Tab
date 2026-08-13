@@ -6,9 +6,7 @@ namespace Better_Work_Tab.UI.Settings
     {
         public const string AdvancedDebugLogging = "advanced.debugLogging";
         public const string AdvancedHeader = "advanced.header";
-        public const string AdvancedHideAutoAssignBtn = "advanced.hideAutoAssignBtn";
         public const string AdvancedHideSettingResetIcons = "advanced.hideSettingResetIcons";
-        public const string AdvancedLogToFile = "advanced.logToFile";
         public const string AdvancedProfiler = "advanced.profiler";
         public const string AdvancedWorkGridRenderer = "advanced.workGridRenderer";
         public const string ControlsFluffyHeader = "controls.fluffy.header";
@@ -19,15 +17,11 @@ namespace Better_Work_Tab.UI.Settings
         public const string AdvancedAlwaysShowConditionEditors = "advanced.alwaysShowConditionEditors";
         public const string AdvancedSettingFocusHighlightColor = "advanced.settingFocusHighlightColor";
         public const string CompatExternalWorkTabColumns = "compat.externalWorkTab.columns";
-        public const string AutoassignConfirm = "autoassign.confirm";
-        public const string AutoassignResetBefore = "autoassign.resetBefore";
         public const string AutoassignViewMode = "autoassign.viewMode";
-        public const string AutoassignVisual = "autoassign.visual";
         public const string RuleBuilder2Use = "autoassign.ruleBuilder2.use";
         public const string RuleBuilder2TutorialReset = "autoassign.ruleBuilder2.tutorialReset";
         public const string RuleBuilder2Highlights = "autoassign.ruleBuilder2.highlights";
         public const string RuleBuilder2Animations = "autoassign.ruleBuilder2.animations";
-        public const string RuleBuilder2DraftSuggestions = "autoassign.ruleBuilder2.draftSuggestions";
         public const string RuleBuilder2AdvancedConditions = "autoassign.ruleBuilder2.advancedConditions";
         public const string RuleBuilder2MatchedPanel = "autoassign.ruleBuilder2.matchedPanel";
         public const string ColorsBestPawnOutline = "colors.bestPawnOutline";
@@ -51,7 +45,6 @@ namespace Better_Work_Tab.UI.Settings
         public const string FeaturesHighlights = "features.highlights";
         public const string FeaturesMultiplayer = "features.multiplayer";
         public const string FeaturesOverlay = "features.overlay";
-        public const string FeaturesPerformance = "features.performance";
         public const string FeaturesSubWorkJobs = "features.subWorkJobs";
         public const string FeaturesUiElements = "features.uiElements";
         public const string FeaturesWorkloads = "features.workloads";
@@ -83,7 +76,8 @@ namespace Better_Work_Tab.UI.Settings
         public const string LayoutDragColumnLineInset = "layout.dragColumnLineInset";
         public const string LayoutDragThreshold = "layout.dragThreshold";
         public const string LayoutDragHoverDelay = "layout.dragHoverDelay";
-        public const string LayoutWorkTabMaxHeight = "layout.workTabMaxHeight";
+        // Keep the legacy ID: it is persisted in JSON, context requests, and viewed-setting state.
+        public const string LayoutWorkTabMaxVisiblePawns = "layout.workTabMaxHeight";
         public const string LayoutWorkTabMinimumWidth = "layout.workTabMinimumWidth";
         public const string LayoutWorkTabTopSpace = "layout.workTabTopSpace";
         public const string LayoutPawnCount = "layout.pawnCount";
@@ -112,15 +106,8 @@ namespace Better_Work_Tab.UI.Settings
         public const string OverlayHoverMode = "overlay.hoverMode";
         public const string OverlayHoverScope = "overlay.hoverScope";
         public const string OverlayNumbersMode = "overlay.numbersMode";
-        public const string PerfCacheBedCounts = "perf.cacheBedCounts";
-        public const string PerfCacheIncapability = "perf.cacheIncapability";
-        public const string PerfCacheRowDescriptors = "perf.cacheRowDescriptors";
-        public const string PerfCacheSkillLevels = "perf.cacheSkillLevels";
-        public const string PerfUseElementPooling = "perf.useElementPooling";
-        public const string PerfViewportCulling = "perf.viewportCulling";
         public const string PriorityHeader = "priority.header";
         public const string PriorityModeSetting = "priority.mode";
-        public const string UiAutoMaxPriority = "ui.autoMaxPriority";
         public const string UiAutoDisabledPriorityMode = "ui.autoDisabledPriorityMode";
         public const string UiAutoDisabledPriorityFixedValue = "ui.autoDisabledPriorityFixedValue";
         public const string SubWorkGlobalVanillaPriorityBoxes = "subWorkJobs.globalVanillaPriorityBoxes";
@@ -157,8 +144,6 @@ namespace Better_Work_Tab.UI.Settings
         public const string UiPriorityColorPercentageGreen = "ui.priorityColorPercentageGreen";
         public const string UiPriorityColorPercentageYellow = "ui.priorityColorPercentageYellow";
         public const string UiPriorityColorPercentageTan = "ui.priorityColorPercentageTan";
-        public const string WorkloadsPersistDividers = "workloads.persistDividers";
-        public const string HighlightsDisableBestPawn = "highlights.disableBestPawn";
         public const string HighlightsBestPawnBackground = "highlights.bestPawnBackground";
         public const string DragdropEnableGrouping = "dragdrop.enableGrouping";
         public const string DragdropRemoveHeaderUnderline = "dragdrop.removeHeaderUnderline";

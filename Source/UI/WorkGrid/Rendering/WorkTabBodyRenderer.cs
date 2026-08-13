@@ -96,10 +96,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
                 var nameColumn = FindNameColumn(columns);
                 IReadOnlyList<WorkTabLayoutColumn> renderColumns = columns;
-                var settings = BetterWorkTabMod.Settings;
                 if (snapshotLayer == null &&
-                    (settings?.enablePerformanceOptimizations ?? true) &&
-                    (settings?.viewportCulling ?? true) &&
                     viewport.ViewRect.width > viewport.OutRect.width + 0.5f)
                 {
                     float visibleLeft = table.scrollPosition.x - HorizontalCullBuffer;
@@ -127,10 +124,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 }
 
                 WorkGridIndexRange visibleRows = new WorkGridIndexRange(0, rowDescriptors.Count);
-                bool rowCullingEnabled =
-                    (settings?.enablePerformanceOptimizations ?? true) &&
-                    (settings?.viewportCulling ?? true);
-                if (rowCullingEnabled && rowGeometry != null)
+                if (rowGeometry != null)
                 {
                     visibleRows = rowGeometry.GetVisibleRowRange(
                         viewport.OutRect,
@@ -284,7 +278,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             WorkGridIndexRange visibleRows)
         {
             var settings = BetterWorkTabMod.Settings;
-            if (!settings.ShowPawnAndWorktypeHighlights || !settings.enableRowColumnHighlights)
+            if (!settings.ShowPawnAndWorktypeHighlights)
             {
                 return;
             }
@@ -880,13 +874,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             if (Find.Selector.IsSelected(pawn) && (settings?.DoSelectedPawnHighlight ?? true))
             {
                 HighlightDrawer.DrawHighlight(rowRect, HighlightDrawer.GetSelectedPawnColor());
-            }
-
-            if ((settings?.enableRowColumnHighlights ?? true) &&
-                !BWTWorkTabTutorial.OwnsCurrentPointer &&
-                Mouse.IsOver(rowRect))
-            {
-                // Custom row highlight is drawn in DrawAllHighlights (Phase 1).
             }
 
             if (pawn.Downed)

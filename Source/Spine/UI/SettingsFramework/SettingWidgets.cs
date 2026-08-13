@@ -90,6 +90,36 @@ namespace Spine.UI.SettingsFramework
             return original != value;
         }
 
+        /// <summary>Draws a non-interactive label and value pair.</summary>
+        public static void DrawReadOnly(
+            Rect rect,
+            string label,
+            string value,
+            string tooltip = null,
+            bool disabled = false)
+        {
+            Rect valueRect = rect.RightPart(0.48f);
+            Rect labelRect = new Rect(
+                rect.x,
+                rect.y,
+                Mathf.Max(0f, valueRect.x - rect.x - 6f),
+                rect.height);
+            DrawSettingLabel(labelRect, label, disabled);
+
+            Color previousColor = GUI.color;
+            TextAnchor previousAnchor = Text.Anchor;
+            GUI.color = disabled ? Color.gray : SettingLabelColor;
+            Text.Anchor = TextAnchor.MiddleRight;
+            Widgets.Label(valueRect, value ?? string.Empty);
+            Text.Anchor = previousAnchor;
+            GUI.color = previousColor;
+
+            if (!string.IsNullOrEmpty(tooltip))
+            {
+                TooltipHandler.TipRegion(rect, tooltip);
+            }
+        }
+
         /// <summary>
         /// Draws a color swatch with an edit button that opens a picker.
         /// </summary>

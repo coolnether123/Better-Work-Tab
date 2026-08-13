@@ -207,7 +207,6 @@ namespace Better_Work_Tab.UI.Settings
                     FluffyStyleTopButtons,
                     FluffyStyleStandaloneTopButtons,
                     UiMaxPriority,
-                    UiAutoMaxPriority,
                     FeaturesSubWorkJobs) ||
                 HasAnyPrefix(def,
                     "subWorkJobs.",
@@ -289,13 +288,12 @@ namespace Better_Work_Tab.UI.Settings
                     LayoutDragThreshold,
                     LayoutDragColumnLineInset,
                     LayoutResetColumns,
-                    LayoutWorkTabMaxHeight,
+                    LayoutWorkTabMaxVisiblePawns,
                     LayoutWorkTabTopSpace,
                     UiManualPriorities,
                     UiPriorityLegend,
                     AdvancedScrollWheelPriority,
-                    WorkloadsWarnOnApply,
-                    WorkloadsPersistDividers) ||
+                    WorkloadsWarnOnApply) ||
                 HasAnyPrefix(def,
                     "headers.",
                     "priority.",
@@ -348,7 +346,7 @@ namespace Better_Work_Tab.UI.Settings
                     LayoutDragThreshold,
                     LayoutDragColumnLineInset,
                     LayoutResetColumns,
-                    LayoutWorkTabMaxHeight,
+                    LayoutWorkTabMaxVisiblePawns,
                     LayoutWorkTabTopSpace,
                     AdvancedScrollWheelPriority) ||
                 HasAnyPrefix(def,

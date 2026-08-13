@@ -242,7 +242,8 @@ namespace Spine.Harmony
 
             _instructions.Add(new CodeInstruction(OpCodes.Ldarg_0));
             _instructions.Add(new CodeInstruction(OpCodes.Isinst, type));
-            _instructions.Add(new CodeInstruction(OpCodes.Brtrue, _skipOriginalLabel));
+            _instructions.Add(new CodeInstruction(OpCodes.Brfalse, _runOriginalLabel));
+            _requiresTerminalSkip = true;
             return this;
         }
 

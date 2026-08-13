@@ -48,7 +48,6 @@ namespace Better_Work_Tab.UI.Settings
                 PriorityHeader,
                 PriorityModeSetting,
                 UiMaxPriority,
-                UiAutoMaxPriority,
                 UiAutoDisabledPriorityMode,
                 UiAutoDisabledPriorityFixedValue);
         }
@@ -114,7 +113,6 @@ namespace Better_Work_Tab.UI.Settings
                         ColorsSkillGood,
                         ColorsSkillExcellent,
                         ColorsBestPawnOutline,
-                        HighlightsDisableBestPawn,
                         HighlightsBestPawnBackground);
                 }
 
@@ -126,7 +124,6 @@ namespace Better_Work_Tab.UI.Settings
                     PriorityHeader,
                     PriorityModeSetting,
                     UiMaxPriority,
-                    UiAutoMaxPriority,
                     UiAutoDisabledPriorityMode,
                     UiAutoDisabledPriorityFixedValue,
                     AdvancedScrollWheelPriority,
@@ -200,7 +197,6 @@ namespace Better_Work_Tab.UI.Settings
                     ColumnsResetWidths,
                     FeaturesWorkloads,
                     WorkloadsWarnOnApply,
-                    WorkloadsPersistDividers,
                     FeaturesAutoassign,
                     AutoassignViewMode,
                     AutoassignWarnOnApply,
@@ -274,8 +270,7 @@ namespace Better_Work_Tab.UI.Settings
                     DividersAnimations,
                     LayoutDividerHeight,
                     LayoutDividerAlpha,
-                    LayoutDragRows,
-                    WorkloadsPersistDividers);
+                    LayoutDragRows);
             }
 
             if (TryGetManualPrioritiesContext(mousePosition))
@@ -291,7 +286,6 @@ namespace Better_Work_Tab.UI.Settings
                     PriorityHeader,
                     PriorityModeSetting,
                     UiMaxPriority,
-                    UiAutoMaxPriority,
                     AdvancedScrollWheelPriority);
             }
 
@@ -305,7 +299,6 @@ namespace Better_Work_Tab.UI.Settings
                     FeaturesUiElements,
                     UiPriorityLegend,
                     UiMaxPriority,
-                    UiAutoMaxPriority,
                     PriorityHeader);
             }
 
@@ -364,7 +357,6 @@ namespace Better_Work_Tab.UI.Settings
                         false,
                         FeaturesWorkloads,
                         WorkloadsWarnOnApply,
-                        WorkloadsPersistDividers,
                         FeaturesUiElements);
                 }
 
@@ -377,10 +369,7 @@ namespace Better_Work_Tab.UI.Settings
                         true,
                         FeaturesAutoassign,
                         AutoassignViewMode,
-                        AutoassignConfirm,
                         AutoassignWarnOnApply,
-                        AutoassignResetBefore,
-                        AutoassignVisual,
                         AdvancedAlwaysShowConditionEditors);
                 }
             }
@@ -432,7 +421,7 @@ namespace Better_Work_Tab.UI.Settings
                 PriorityHeader,
                 UiContextSettingsHint,
                 LayoutWorkTabMinimumWidth,
-                LayoutWorkTabMaxHeight,
+                LayoutWorkTabMaxVisiblePawns,
                 LayoutWorkTabTopSpace);
         }
 

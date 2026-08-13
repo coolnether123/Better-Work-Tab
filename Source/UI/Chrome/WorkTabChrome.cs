@@ -142,11 +142,10 @@ namespace Better_Work_Tab.UI.Chrome
         internal void DrawBottomCounters(Rect inRect, PawnTable table)
         {
             var settings = BetterWorkTabMod.Settings;
-            if (!(settings?.enableUIElements ?? true))
+            if (settings == null)
             {
                 return;
             }
-
             bool showPawns = settings.showPawnCountAtBottom;
             bool showBeds = settings.showBedCountAtBottom;
             if (!showPawns && !showBeds)
@@ -204,7 +203,7 @@ namespace Better_Work_Tab.UI.Chrome
         internal void DrawContextSettingsHint(Rect inRect)
         {
             var settings = BetterWorkTabMod.Settings;
-            if (!(settings?.enableUIElements ?? true) || !(settings?.showContextSettingsHint ?? true))
+            if (!(settings?.showContextSettingsHint ?? true))
             {
                 return;
             }
@@ -222,7 +221,7 @@ namespace Better_Work_Tab.UI.Chrome
         private void DrawManualPrioritiesCheckbox()
         {
             var settings = BetterWorkTabMod.Settings;
-            if (!(settings?.enableUIElements ?? true) || !(settings?.showManualPrioritiesCheckbox ?? true))
+            if (!(settings?.showManualPrioritiesCheckbox ?? true))
             {
                 return;
             }
@@ -257,7 +256,7 @@ namespace Better_Work_Tab.UI.Chrome
         private void DrawPriorityLegend(Rect rect)
         {
             var settings = BetterWorkTabMod.Settings;
-            if (!(settings?.enableUIElements ?? true) || !(settings?.showPriorityLegend ?? true))
+            if (!(settings?.showPriorityLegend ?? true))
             {
                 return;
             }
@@ -266,8 +265,7 @@ namespace Better_Work_Tab.UI.Chrome
             Text.Anchor = TextAnchor.UpperCenter;
             Text.Font = GameFont.Tiny;
             EnsureUiTextCache(WorkPrioritySystem.GetMaxPriority());
-            Rect contextHintRect = (settings?.enableUIElements ?? true) &&
-                                    (settings?.showContextSettingsHint ?? true)
+            Rect contextHintRect = (settings?.showContextSettingsHint ?? true)
                 ? WorkTabChromeGeometry.GetContextSettingsHintRect(rect)
                 : Rect.zero;
             if (contextHintRect.width > 0f)
@@ -320,8 +318,7 @@ namespace Better_Work_Tab.UI.Chrome
             Text.Anchor = TextAnchor.LowerLeft;
 
             var settings = BetterWorkTabMod.Settings;
-            if ((settings?.enableUIElements ?? true) &&
-                (settings?.showDragInstructions ?? DefaultSettings.showDragInstructions))
+            if (settings?.showDragInstructions ?? DefaultSettings.showDragInstructions)
             {
                 var instructions = new List<string>();
                 if (settings?.enableSkillOverlayFeature ?? DefaultSettings.enableSkillOverlayFeature)

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using RimWorld;
 using Spine.UI.ContextualSettings;
@@ -24,6 +25,8 @@ namespace Spine.UI.SettingsFramework
         private const float SearchResultDoubleClickMoveTolerance = 5f;
         private const float SuppressionNoticeHeight = 17f;
         private const float SuppressionLinkGap = 6f;
+        private const float SupersessionAffordanceSlotWidth = 22f;
+        private const float SupersessionAffordanceSize = 18f;
 
         private static readonly Texture2D ResetIcon =
             ContentFinder<Texture2D>.Get("UI/Buttons/Dev/Reload");
@@ -45,6 +48,11 @@ namespace Spine.UI.SettingsFramework
         private TransferMode _transferMode;
         private readonly HashSet<string> _forceVisibleDisabledAncestorIds =
             new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private SettingDefinition _hoveredColorPreviewDefinition;
+        private object _hoveredColorPreviewSettingsObject;
+        private Color _hoveredColorPreviewOriginal;
+        private bool _hoveredColorPreviewActive;
+        private bool _hoveredColorPreviewObservedThisDraw;
 
         /// <summary>
         /// Gets or sets the current scroll position. Used for preserving scroll state across drawer recreations.
@@ -106,6 +114,11 @@ namespace Spine.UI.SettingsFramework
         public ISettingColorPreviewSink ColorPreviewSink { get; set; }
 
         /// <summary>
+        /// Optional host-owned transaction for applying a color preview to real setting state.
+        /// </summary>
+        public ISettingColorPreviewTransactionSink ColorPreviewTransactionSink { get; set; }
+
+        /// <summary>
         /// When true, changed field-backed settings show a small per-row reset button.
         /// </summary>
         public bool ShowResetIcons { get; set; } = true;
@@ -123,6 +136,17 @@ namespace Spine.UI.SettingsFramework
 
         /// <summary>Tooltip shown for a link to the setting suppressing a row.</summary>
         public string SuppressionLinkTooltip { get; set; } = "Go to the setting that is overriding this one.";
+
+        /// <summary>Compact label shown while a row with active supersessions is hovered.</summary>
+        public string SupersessionAffordanceLabel { get; set; } = "\u21c6";
+
+        /// <summary>Tooltip for the supersession affordance.</summary>
+        public string SupersessionAffordanceTooltip { get; set; } =
+            "This setting overrides other settings. Click to see which settings are affected.";
+
+        /// <summary>Description shown above affected-setting choices.</summary>
+        public string SupersessionMenuDescription { get; set; } =
+            "Choose an affected setting to jump to its row.";
 
         /// <summary>
         /// Pulse color used when a context jump or search double-click focuses a setting row.
@@ -154,6 +178,11 @@ namespace Spine.UI.SettingsFramework
 
         /// <summary>Optional callback invoked when the player clicks a settings row.</summary>
         public Action<SettingDefinition, object> OnSettingInteracted { get; set; }
+
+        /// <summary>
+        /// Optional preview callback for non-color rows.
+        /// </summary>
+        public Action<SettingDefinition, object, object> OnSettingPreview { get; set; }
 
         /// <summary>
         /// Creates a new drawer for a hierarchy.
@@ -264,7 +293,20 @@ namespace Spine.UI.SettingsFramework
             bool drawFooter = ImportExportActions?.HasAnyAction == true;
             float footerSpace = drawFooter ? FooterHeight + 8f : 0f;
             Rect listRect = new Rect(rect.x, listStartY, rect.width, rect.height - (listStartY - rect.y) - footerSpace);
-            DrawSettingsList(listRect, settingsObject, ref viewMode, onSettingsChanged);
+            try
+            {
+                _hoveredColorPreviewObservedThisDraw = false;
+                DrawSettingsList(listRect, settingsObject, ref viewMode, onSettingsChanged);
+            }
+            finally
+            {
+                if (!_hoveredColorPreviewObservedThisDraw)
+                {
+                    EndHoveredColorPreview();
+                }
+
+                _hoveredColorPreviewObservedThisDraw = false;
+            }
 
             if (drawFooter)
             {
@@ -549,34 +591,35 @@ namespace Spine.UI.SettingsFramework
             Widgets.BeginScrollView(listRect, ref _scrollPosition, viewRect);
 
             float panelY = 0f;
-            float panelStartY = 0f;
-            SettingDefinition panelSection = null;
             for (int index = 0; index < _scrollingSettings.Count; index++)
             {
                 SettingDefinition candidate = _scrollingSettings[index];
-                if (candidate.Type == SettingType.Header)
+                if (StartsSectionPanel(candidate))
                 {
-                    if (panelSection != null)
+                    float panelEndY = panelY + MeasureRowHeight(candidate, settingsObject);
+                    for (int childIndex = index + 1; childIndex < _scrollingSettings.Count; childIndex++)
                     {
-                        SettingWidgets.DrawSectionPanel(
-                            new Rect(0f, panelStartY + 2f, viewRect.width, Mathf.Max(0f, panelY - panelStartY - 4f)),
-                            RowHeight - 4f,
-                            panelSection.HeaderColor);
+                        SettingDefinition child = _scrollingSettings[childIndex];
+                        if (!_hierarchy.GetAncestors(child).Any(ancestor => ancestor.Id == candidate.Id))
+                        {
+                            break;
+                        }
+
+                        panelEndY += MeasureRowHeight(child, settingsObject);
                     }
 
-                    panelSection = candidate;
-                    panelStartY = panelY;
+                    float panelInset = _hierarchy.GetDepth(candidate) * IndentPerLevel;
+                    SettingWidgets.DrawSectionPanel(
+                        new Rect(
+                            panelInset,
+                            panelY + 2f,
+                            Mathf.Max(0f, viewRect.width - panelInset),
+                            Mathf.Max(0f, panelEndY - panelY - 4f)),
+                        RowHeight - 4f,
+                        candidate.HeaderColor);
                 }
 
                 panelY += MeasureRowHeight(candidate, settingsObject);
-            }
-
-            if (panelSection != null)
-            {
-                SettingWidgets.DrawSectionPanel(
-                    new Rect(0f, panelStartY + 2f, viewRect.width, Mathf.Max(0f, panelY - panelStartY - 4f)),
-                    RowHeight - 4f,
-                    panelSection.HeaderColor);
             }
 
             float curY = 0f;
@@ -585,8 +628,8 @@ namespace Spine.UI.SettingsFramework
             foreach (var def in _scrollingSettings)
             {
                 int depth = _hierarchy.GetDepth(def);
-                bool isSectionHeader = def.Type == SettingType.Header;
-                bool belongsToActiveSection = !isSectionHeader && activeSection != null;
+                bool startsSectionPanel = StartsSectionPanel(def);
+                bool belongsToActiveSection = !startsSectionPanel && activeSection != null;
                 int visualDepth = belongsToActiveSection
                     ? Mathf.Max(depth, activeSectionDepth + 1)
                     : depth;
@@ -621,7 +664,7 @@ namespace Spine.UI.SettingsFramework
                     visualDepth,
                     activeSection?.HeaderColor,
                     onSettingsChanged);
-                if (isSectionHeader)
+                if (startsSectionPanel)
                 {
                     activeSection = def;
                     activeSectionDepth = depth;
@@ -636,6 +679,14 @@ namespace Spine.UI.SettingsFramework
             }
 
             Widgets.EndScrollView();
+        }
+
+        private static bool StartsSectionPanel(SettingDefinition definition)
+        {
+            return definition != null &&
+                (definition.Type == SettingType.Header ||
+                 definition.Type == SettingType.Bool &&
+                 (definition.EmphasizeAsHeader || definition.ControlsChildVisibility));
         }
 
         /// <summary>
@@ -815,6 +866,15 @@ namespace Spine.UI.SettingsFramework
                     BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
             }
 
+            bool isHovered = Mouse.IsOver(controlRow);
+            IReadOnlyList<SettingSupersession> supersessions = Array.Empty<SettingSupersession>();
+            IReadOnlyList<SettingDefinition> supersededSettings = Array.Empty<SettingDefinition>();
+            if (isHovered && def.Supersessions != null && def.Supersessions.Count > 0)
+            {
+                supersessions = def.GetActiveSupersessions(settingsObject);
+                supersededSettings = ResolveSupersededSettings(supersessions);
+            }
+
             bool reserveResetSlot = ShowResetIcons && IsResettable(def, field);
             Rect visibleResetRect = default(Rect);
             bool hasVisibleReset = false;
@@ -854,6 +914,16 @@ namespace Spine.UI.SettingsFramework
                 }
             }
 
+            if (supersededSettings.Count > 0)
+            {
+                contentRect.width = Mathf.Max(0f, contentRect.width - SupersessionAffordanceSlotWidth);
+            }
+
+            if (!disabled && isHovered && def.Type != SettingType.ReadOnly)
+            {
+                NotifySettingPreview(def, settingsObject, field);
+            }
+
             switch (def.Type)
             {
                 case SettingType.Bool:
@@ -878,6 +948,7 @@ namespace Spine.UI.SettingsFramework
                         {
                             field.SetValue(settingsObject, boolValue);
                             HandleSettingChanged(def, settingsObject, onSettingsChanged);
+                            NotifySettingPreview(def, settingsObject, field);
                         }
                     }
                     break;
@@ -902,6 +973,7 @@ namespace Spine.UI.SettingsFramework
                         {
                             field.SetValue(settingsObject, intValue);
                             HandleSettingChanged(def, settingsObject, onSettingsChanged);
+                            NotifySettingPreview(def, settingsObject, field);
                         }
                     }
                     break;
@@ -926,6 +998,7 @@ namespace Spine.UI.SettingsFramework
                         {
                             field.SetValue(settingsObject, intValue);
                             HandleSettingChanged(def, settingsObject, onSettingsChanged);
+                            NotifySettingPreview(def, settingsObject, field);
                         }
                     }
                     break;
@@ -959,6 +1032,7 @@ namespace Spine.UI.SettingsFramework
                                 ? (object)(double)floatValue
                                 : floatValue);
                             HandleSettingChanged(def, settingsObject, onSettingsChanged);
+                            NotifySettingPreview(def, settingsObject, field);
                         }
                     }
                     break;
@@ -982,6 +1056,7 @@ namespace Spine.UI.SettingsFramework
                         {
                             field.SetValue(settingsObject, floatValue);
                             HandleSettingChanged(def, settingsObject, onSettingsChanged);
+                            NotifySettingPreview(def, settingsObject, field);
                         }
                     }
                     break;
@@ -989,16 +1064,22 @@ namespace Spine.UI.SettingsFramework
                     if (field != null && field.FieldType == typeof(Color))
                     {
                         Color colorValue = (Color)field.GetValue(settingsObject);
-                        if (!disabled && Mouse.IsOver(controlRow))
+                        if (!disabled && isHovered)
                         {
                             ColorPreviewSink?.PreviewHover(def, colorValue);
+                            BeginHoveredColorPreview(def, settingsObject, colorValue);
                         }
 
                         SettingWidgets.DrawColor(contentRect, label, ref colorValue, tooltip, disabled,
                             (current, onSelected) =>
                             {
+                                EndHoveredColorPreview();
                                 ColorPreviewSink?.BeginPicker(def, current);
+                                ColorPreviewTransactionSink?.Begin(def, settingsObject, current);
                                 bool previewEnded = false;
+                                bool previewRestored = false;
+                                bool closeCommitted = false;
+                                Color committedColor = current;
                                 Action endPreview = () =>
                                 {
                                     if (previewEnded)
@@ -1009,27 +1090,69 @@ namespace Spine.UI.SettingsFramework
                                     previewEnded = true;
                                     ColorPreviewSink?.EndPicker(def);
                                 };
-                                var dialog = new Spine.UI.ColourPicker.Dialog_ColourPicker(current, (newColor, _) =>
+                                Action restorePreview = () =>
+                                {
+                                    if (previewRestored)
+                                    {
+                                        return;
+                                    }
+
+                                    previewRestored = true;
+                                    ColorPreviewTransactionSink?.Restore(
+                                        def,
+                                        settingsObject,
+                                        committedColor);
+                                };
+                                var dialog = new Spine.UI.ColourPicker.Dialog_ColourPicker(current, (newColor, closing) =>
                                 {
                                     field.SetValue(settingsObject, newColor);
                                     HandleSettingChanged(def, settingsObject, onSettingsChanged);
+                                    ColorPreviewTransactionSink?.Commit(def, settingsObject, newColor);
+                                    committedColor = newColor;
+                                    closeCommitted = closing;
                                     onSelected?.Invoke(newColor);
-                                }, previewCallback: newColor => ColorPreviewSink?.PreviewPicker(def, newColor));
-                                dialog.onCancel = endPreview;
-                                dialog.onPostClose = endPreview;
+                                }, previewCallback: newColor =>
+                                {
+                                    ColorPreviewSink?.PreviewPicker(def, newColor);
+                                    ColorPreviewTransactionSink?.Preview(def, settingsObject, newColor);
+                                });
+                                dialog.onCancel = () =>
+                                {
+                                    restorePreview();
+                                    endPreview();
+                                };
+                                dialog.onPostClose = () =>
+                                {
+                                    if (!closeCommitted)
+                                    {
+                                        restorePreview();
+                                    }
+
+                                    endPreview();
+                                };
 
                                 Find.WindowStack.Add(dialog);
                             }, EditColorLabel);
                     }
                     break;
                 case SettingType.Enum:
-                    if (field != null && def.EnumType != null)
+                    if ((field != null || def.ValueGetter != null) && def.EnumType != null)
                     {
-                        object current = field.GetValue(settingsObject);
+                        object current = def.ValueGetter != null
+                            ? def.ValueGetter(settingsObject)
+                            : field.GetValue(settingsObject);
                         SettingWidgets.DrawEnum(contentRect, label, current, def.EnumType, tooltip, disabled, selected =>
                         {
-                            field.SetValue(settingsObject, selected);
+                            if (def.ValueSetter != null)
+                            {
+                                def.ValueSetter(settingsObject, selected);
+                            }
+                            else
+                            {
+                                field.SetValue(settingsObject, selected);
+                            }
                             HandleSettingChanged(def, settingsObject, onSettingsChanged);
+                            NotifySettingPreview(def, settingsObject, field);
                         }, def.EnumLabelProvider, def.EnumDescriptionProvider);
                     }
                     break;
@@ -1037,6 +1160,7 @@ namespace Spine.UI.SettingsFramework
                     if (SettingWidgets.DrawButton(contentRect, label, tooltip, disabled))
                     {
                         HandleSettingChanged(def, settingsObject, onSettingsChanged);
+                        NotifySettingPreview(def, settingsObject, field);
                     }
                     break;
                 case SettingType.Header:
@@ -1066,8 +1190,32 @@ namespace Spine.UI.SettingsFramework
                         def.CustomDrawer(contentRect, label, tooltip, settingsObject, disabled))
                     {
                         HandleSettingChanged(def, settingsObject, onSettingsChanged);
+                        NotifySettingPreview(def, settingsObject, null);
                     }
                     break;
+                case SettingType.ReadOnly:
+                    SettingWidgets.DrawReadOnly(
+                        contentRect,
+                        label,
+                        def.ReadOnlyValueProvider?.Invoke(settingsObject),
+                        tooltip,
+                        disabled);
+                    break;
+            }
+
+            if (supersededSettings.Count > 0 && isHovered)
+            {
+                Rect affordanceRect = new Rect(
+                    controlRow.xMax - SupersessionAffordanceSize - 2f,
+                    controlRow.center.y - (SupersessionAffordanceSize / 2f),
+                    SupersessionAffordanceSize,
+                    SupersessionAffordanceSize);
+                DrawSupersessionAffordance(
+                    affordanceRect,
+                    def,
+                    supersessions,
+                    supersededSettings,
+                    settingsObject);
             }
 
             if (hasNotice)
@@ -1093,6 +1241,185 @@ namespace Spine.UI.SettingsFramework
                     OnSettingTooltipViewed?.Invoke(def, settingsObject);
                 }
             }
+        }
+
+        private void NotifySettingPreview(
+            SettingDefinition definition,
+            object settingsObject,
+            FieldInfo field)
+        {
+            if (OnSettingPreview == null || definition == null || definition.Type == SettingType.Color)
+            {
+                return;
+            }
+
+            object currentValue = definition.ValueGetter != null
+                ? definition.ValueGetter(settingsObject)
+                : field != null
+                    ? field.GetValue(settingsObject)
+                    : settingsObject;
+            OnSettingPreview(definition, settingsObject, currentValue);
+        }
+
+        private IReadOnlyList<SettingDefinition> ResolveSupersededSettings(
+            IReadOnlyList<SettingSupersession> supersessions)
+        {
+            if (supersessions == null || supersessions.Count == 0)
+            {
+                return Array.Empty<SettingDefinition>();
+            }
+
+            var resolved = new List<SettingDefinition>(supersessions.Count);
+            var seenIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < supersessions.Count; i++)
+            {
+                SettingSupersession supersession = supersessions[i];
+                if (supersession == null || string.IsNullOrEmpty(supersession.SupersededSettingId) ||
+                    !seenIds.Add(supersession.SupersededSettingId))
+                {
+                    continue;
+                }
+
+                SettingDefinition target = _hierarchy.GetById(supersession.SupersededSettingId);
+                if (target != null)
+                {
+                    resolved.Add(target);
+                }
+            }
+
+            return resolved;
+        }
+
+        private void DrawSupersessionAffordance(
+            Rect rect,
+            SettingDefinition source,
+            IReadOnlyList<SettingSupersession> supersessions,
+            IReadOnlyList<SettingDefinition> supersededSettings,
+            object settingsObject)
+        {
+            string tooltip = SupersessionAffordanceTooltip;
+            var affectedLabels = new List<string>(supersededSettings.Count);
+            for (int i = 0; i < supersededSettings.Count; i++)
+            {
+                affectedLabels.Add(GetSettingLabel(supersededSettings[i]));
+            }
+
+            if (affectedLabels.Count > 0)
+            {
+                tooltip = AppendTooltip(tooltip, string.Join(", ", affectedLabels));
+            }
+
+            TooltipHandler.TipRegion(rect, tooltip);
+            if (Widgets.ButtonText(rect, SupersessionAffordanceLabel))
+            {
+                OpenSupersessionMenu(source, supersessions, supersededSettings, settingsObject);
+                Event.current?.Use();
+            }
+        }
+
+        private void OpenSupersessionMenu(
+            SettingDefinition source,
+            IReadOnlyList<SettingSupersession> supersessions,
+            IReadOnlyList<SettingDefinition> supersededSettings,
+            object settingsObject)
+        {
+            var options = new List<FloatMenuOption>(supersededSettings.Count);
+            var descriptions = new Dictionary<FloatMenuOption, string>();
+            for (int i = 0; i < supersededSettings.Count; i++)
+            {
+                SettingDefinition target = supersededSettings[i];
+                SettingSupersession supersession = FindSupersession(supersessions, target.Id);
+                string label = supersession?.LinkLabel ?? GetSettingLabel(target);
+                SettingDefinition localTarget = target;
+                var option = new FloatMenuOption(
+                    label,
+                    () => JumpToSetting(localTarget, settingsObject));
+                options.Add(option);
+                descriptions[option] = string.IsNullOrEmpty(supersession?.Description)
+                    ? $"{GetSettingLabel(source)} currently takes precedence over {GetSettingLabel(target)}."
+                    : supersession.Description;
+            }
+
+            if (options.Count == 0)
+            {
+                return;
+            }
+
+            Find.WindowStack.Add(new DescribedFloatMenu(
+                options,
+                null,
+                GetSettingLabel(source),
+                SupersessionMenuDescription,
+                descriptions));
+        }
+
+        private static SettingSupersession FindSupersession(
+            IReadOnlyList<SettingSupersession> supersessions,
+            string targetId)
+        {
+            if (supersessions == null || string.IsNullOrEmpty(targetId))
+            {
+                return null;
+            }
+
+            for (int i = 0; i < supersessions.Count; i++)
+            {
+                SettingSupersession supersession = supersessions[i];
+                if (supersession != null &&
+                    string.Equals(supersession.SupersededSettingId, targetId, StringComparison.OrdinalIgnoreCase))
+                {
+                    return supersession;
+                }
+            }
+
+            return null;
+        }
+
+        private string GetSettingLabel(SettingDefinition definition)
+        {
+            return GetLabel?.Invoke(definition) ?? definition?.Label ?? definition?.Id ?? string.Empty;
+        }
+
+        private void BeginHoveredColorPreview(
+            SettingDefinition definition,
+            object settingsObject,
+            Color color)
+        {
+            if (ColorPreviewTransactionSink == null)
+            {
+                return;
+            }
+
+            _hoveredColorPreviewObservedThisDraw = true;
+            if (!_hoveredColorPreviewActive ||
+                !ReferenceEquals(_hoveredColorPreviewDefinition, definition) ||
+                !ReferenceEquals(_hoveredColorPreviewSettingsObject, settingsObject))
+            {
+                EndHoveredColorPreview();
+                _hoveredColorPreviewDefinition = definition;
+                _hoveredColorPreviewSettingsObject = settingsObject;
+                _hoveredColorPreviewOriginal = color;
+                _hoveredColorPreviewActive = true;
+                ColorPreviewTransactionSink.Begin(definition, settingsObject, color);
+            }
+
+            ColorPreviewTransactionSink.Preview(definition, settingsObject, color);
+        }
+
+        private void EndHoveredColorPreview()
+        {
+            if (!_hoveredColorPreviewActive)
+            {
+                return;
+            }
+
+            ColorPreviewTransactionSink?.Restore(
+                _hoveredColorPreviewDefinition,
+                _hoveredColorPreviewSettingsObject,
+                _hoveredColorPreviewOriginal);
+            _hoveredColorPreviewDefinition = null;
+            _hoveredColorPreviewSettingsObject = null;
+            _hoveredColorPreviewActive = false;
         }
 
         private static string AppendTooltip(string tooltip, string addition)
@@ -1280,21 +1607,28 @@ namespace Spine.UI.SettingsFramework
             SettingDefinition suppressor,
             object settingsObject)
         {
-            if (suppressor == null)
+            JumpToSetting(suppressor, settingsObject);
+        }
+
+        private void JumpToSetting(
+            SettingDefinition target,
+            object settingsObject)
+        {
+            if (target == null)
             {
                 return;
             }
 
             ClearSearch();
             if (_activeFilter != null &&
-                !MatchesFilter(suppressor, settingsObject, _activeFilter))
+                !MatchesFilter(target, settingsObject, _activeFilter))
             {
                 ClearActiveFilter();
             }
 
-            RevealDisabledAncestorChain(suppressor.Id);
-            _pendingFocusSettingId = suppressor.Id;
-            FocusSetting(suppressor.Id);
+            RevealDisabledAncestorChain(target.Id);
+            _pendingFocusSettingId = target.Id;
+            FocusSetting(target.Id);
         }
 
         private List<SettingDefinition> BuildVisibleSettings(
@@ -1979,6 +2313,11 @@ namespace Spine.UI.SettingsFramework
                 return def.CustomReset != null && def.CustomHasNonDefaultValue != null;
             }
 
+            if (def.ValueGetter != null && def.ValueSetter != null)
+            {
+                return def.DefaultValue != null && def.Type == SettingType.Enum;
+            }
+
             if (field == null || def.DefaultValue == null)
             {
                 return false;
@@ -2009,6 +2348,11 @@ namespace Spine.UI.SettingsFramework
             if (def.Type == SettingType.Custom)
             {
                 return def.CustomHasNonDefaultValue?.Invoke(settingsObject) ?? false;
+            }
+
+            if (def.ValueGetter != null)
+            {
+                return !ValuesEqual(def.ValueGetter(settingsObject), def.DefaultValue);
             }
 
             if (field == null)
@@ -2063,6 +2407,12 @@ namespace Spine.UI.SettingsFramework
                 }
 
                 def.CustomReset(settingsObject);
+                return true;
+            }
+
+            if (def.ValueSetter != null && def.DefaultValue != null)
+            {
+                def.ValueSetter(settingsObject, def.DefaultValue);
                 return true;
             }
 

@@ -442,7 +442,7 @@ namespace Better_Work_Tab.UI
             pawns = SleekWorkTabGateway.ApplyMixedSearch(pawns);
             var comp = Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
             var settings = BetterWorkTabMod.Settings;
-            bool useDividers = (settings?.enableDividers ?? true) && (settings?.showDividers ?? true);
+            bool useDividers = settings?.enableDividers ?? true;
             IReadOnlyList<PawnDivider> dividers = useDividers
                 ? comp?.ActiveDividers ?? (IReadOnlyList<PawnDivider>)Array.Empty<PawnDivider>()
                 : Array.Empty<PawnDivider>();

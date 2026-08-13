@@ -79,4 +79,40 @@ namespace Spine.UI.SettingsFramework
             }
         }
     }
+
+    /// <summary>
+    /// Declares that a setting currently takes precedence over another setting.
+    /// </summary>
+    public sealed class SettingSupersession
+    {
+        /// <summary>Id of the setting whose value is currently superseded.</summary>
+        public string SupersededSettingId;
+
+        /// <summary>Optional predicate; a missing predicate is always active.</summary>
+        public Func<object, bool> When;
+
+        /// <summary>Optional menu caption. Defaults to the affected setting label.</summary>
+        public string LinkLabel;
+
+        /// <summary>Optional description shown in the menu help panel.</summary>
+        public string Description;
+
+        public bool IsActive(object settingsObject)
+        {
+            if (When == null)
+            {
+                return true;
+            }
+
+            try
+            {
+                return When(settingsObject);
+            }
+            catch (Exception ex)
+            {
+                Log.Warning("[Spine][Settings] Supersession predicate failed: " + ex.Message);
+                return false;
+            }
+        }
+    }
 }

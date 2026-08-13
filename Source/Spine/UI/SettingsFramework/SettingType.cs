@@ -44,6 +44,9 @@ namespace Spine.UI.SettingsFramework
         DropdownListAdder,
 
         /// <summary>Integer input with +/- buttons and a text field.</summary>
-        NumericInt
+        NumericInt,
+
+        /// <summary>Non-interactive label and value supplied by the consumer.</summary>
+        ReadOnly
     }
 }

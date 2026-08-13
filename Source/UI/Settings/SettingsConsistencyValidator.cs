@@ -35,7 +35,6 @@ namespace Better_Work_Tab.UI.Settings
             nameof(BetterWorkTabSettings.completedTutorialLessonIds),
             nameof(BetterWorkTabSettings.bwtPlayerIdentifier),
             nameof(BetterWorkTabSettings.debugPrintLayout),
-            nameof(BetterWorkTabSettings.workTabMaxHeight),
             nameof(BetterWorkTabSettings.firstTimeSetupDone),
             nameof(BetterWorkTabSettings.subWorkCtrlClickNoticeDismissed),
             nameof(BetterWorkTabSettings.settingsSchemaVersion),

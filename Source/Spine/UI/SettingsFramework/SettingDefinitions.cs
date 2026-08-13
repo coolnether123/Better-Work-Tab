@@ -317,6 +317,52 @@ namespace Spine.UI.SettingsFramework
             return Add(definition);
         }
 
+        public SettingDefinition DerivedEnum<TEnum>(
+            string id,
+            Func<TSettings, TEnum> getValue,
+            Action<TSettings, TEnum> setValue,
+            string label,
+            string tooltip = null,
+            Func<TEnum, string> labelProvider = null,
+            Func<TEnum, string> descriptionProvider = null,
+            Action<TSettings> onChanged = null)
+            where TEnum : struct
+        {
+            if (!typeof(TEnum).IsEnum)
+            {
+                throw new ArgumentException("The typed settings enum must be an enum type.", nameof(TEnum));
+            }
+            if (getValue == null) throw new ArgumentNullException(nameof(getValue));
+            if (setValue == null) throw new ArgumentNullException(nameof(setValue));
+
+            SettingDefinition definition = SettingDefinitionBuilder.Create(
+                RequireId(id),
+                SettingType.Enum,
+                label,
+                tooltip: tooltip,
+                parentId: parentId,
+                enumType: typeof(TEnum),
+                labelProvider: Adapt(labelProvider),
+                descriptionProvider: Adapt(descriptionProvider),
+                onChanged: Adapt(onChanged));
+            definition.ValueGetter = settings => getValue((TSettings)settings);
+            definition.ValueSetter = (settings, value) => setValue((TSettings)settings, (TEnum)value);
+            return Add(definition);
+        }
+
+        public SettingDefinition ReadOnly(
+            string id,
+            Func<TSettings, string> valueProvider,
+            string label,
+            string tooltip = null)
+        {
+            if (valueProvider == null) throw new ArgumentNullException(nameof(valueProvider));
+
+            SettingDefinition definition = Define(id, SettingType.ReadOnly, label, tooltip);
+            definition.ReadOnlyValueProvider = settings => valueProvider((TSettings)settings);
+            return definition;
+        }
+
         public SettingDefinition Color(string id, Expression<Func<TSettings, Color>> field, string label, string tooltip = null, Action<TSettings> onChanged = null)
         {
             return Colour(id, field, label, tooltip, onChanged);

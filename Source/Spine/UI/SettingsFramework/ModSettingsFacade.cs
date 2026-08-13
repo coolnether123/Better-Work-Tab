@@ -65,7 +65,8 @@ namespace Spine.UI.SettingsFramework
                 SpineCapability.Settings |
                 SpineCapability.ContextualSettings |
                 SpineCapability.ModSettingsPages |
-                SpineCapability.SettingsSchema);
+                SpineCapability.SettingsSchema |
+                SpineCapability.SettingsPreviewTransactions);
 
         private ModSettingsFacade()
         {

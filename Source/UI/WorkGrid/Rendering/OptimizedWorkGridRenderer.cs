@@ -329,8 +329,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
             if ((cell.Flags & WorkCellVisualFlags.BestPawn) != 0 &&
-                settings != null &&
-                !settings.disableBestPawnHighlight)
+                settings != null)
             {
                 BetterWorkTabSettings.ShowUIMode mode = settings.ShowUIMode_ShowPawnForSkillSquare;
                 if (mode == BetterWorkTabSettings.ShowUIMode.Always || mode == ShiftHelper.State)

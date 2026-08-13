@@ -205,9 +205,6 @@
     <BWT_Settings_advanced.hideWorkloadBtn>Hide Workloads Button</BWT_Settings_advanced.hideWorkloadBtn>
     <BWT_Settings_advanced.hideWorkloadBtn_Tooltip>Hide the Workload button from the Work tab footer.</BWT_Settings_advanced.hideWorkloadBtn_Tooltip>
     
-    <BWT_Settings_advanced.hideAutoAssignBtn>Hide ruleset button</BWT_Settings_advanced.hideAutoAssignBtn>
-    <BWT_Settings_advanced.hideAutoAssignBtn_Tooltip>Hide the ruleset button from the Work tab footer.</BWT_Settings_advanced.hideAutoAssignBtn_Tooltip>
-    
     <BWT_Settings_advanced.debugLogging>Enable Debug Logging</BWT_Settings_advanced.debugLogging>
     <BWT_Settings_advanced.debugLogging_Tooltip>Output detailed debug messages to the log.</BWT_Settings_advanced.debugLogging_Tooltip>
     
@@ -225,9 +222,6 @@
 
     <BWT_Settings_highlights.resetColumnHoverColor>Reset Column Hover Color</BWT_Settings_highlights.resetColumnHoverColor>
     <BWT_Settings_highlights.resetColumnHoverColor_Tooltip>Reset column hover highlight to the general hover color.</BWT_Settings_highlights.resetColumnHoverColor_Tooltip>
-
-    <BWT_Settings_highlights.disableBestPawn>Hide best-pawn indicator</BWT_Settings_highlights.disableBestPawn>
-    <BWT_Settings_highlights.disableBestPawn_Tooltip>Hide the green marker that identifies the highest-skilled eligible pawn for each Work type.</BWT_Settings_highlights.disableBestPawn_Tooltip>
 
     <BWT_Settings_highlights.bestPawnBackground>Best Pawn Outline Thickness</BWT_Settings_highlights.bestPawnBackground>
     <BWT_Settings_highlights.bestPawnBackground_Tooltip>Adjust the thickness of the green outline for the best pawn in a work type.</BWT_Settings_highlights.bestPawnBackground_Tooltip>
@@ -295,8 +289,6 @@
     <BWT_Settings_priority.header_Tooltip>Controls which mod owns the manual priority range.</BWT_Settings_priority.header_Tooltip>
     <BWT_Settings_priority.mode>Priority mode</BWT_Settings_priority.mode>
     <BWT_Settings_priority.mode_Tooltip>Auto keeps RimWorld&apos;s normal 1-4 range unless another compatible mod or existing higher priorities require more. Better Work Tab lets BWT manage the expanded range.</BWT_Settings_priority.mode_Tooltip>
-    <BWT_Settings_ui.autoMaxPriority>Auto max priority</BWT_Settings_ui.autoMaxPriority>
-    <BWT_Settings_ui.autoMaxPriority_Tooltip>Legacy compatibility value. Auto mode now uses the BWT max priority setting as its ceiling.</BWT_Settings_ui.autoMaxPriority_Tooltip>
     <BWT_Settings_ui.maxPriority>Maximum priority</BWT_Settings_ui.maxPriority>
     <BWT_Settings_ui.maxPriority_Tooltip>Highest manual priority available when Better Work Tab manages the priority range.</BWT_Settings_ui.maxPriority_Tooltip>
     <BWT_Settings_ui.autoDisabledPriorityMode>Priority when re-enabling work</BWT_Settings_ui.autoDisabledPriorityMode>
@@ -319,8 +311,6 @@
     <BWT_Settings_ui.priorityColorPercentageYellow_Tooltip>For extended priorities, color priority numbers yellow through this cumulative percentage of the range. Lower numbers are acted on first.</BWT_Settings_ui.priorityColorPercentageYellow_Tooltip>
     <BWT_Settings_ui.priorityColorPercentageTan>Tan priority threshold</BWT_Settings_ui.priorityColorPercentageTan>
     <BWT_Settings_ui.priorityColorPercentageTan_Tooltip>For extended priorities, color priority numbers tan through this cumulative percentage of the range. Lower numbers are acted on first; later numbers are gray.</BWT_Settings_ui.priorityColorPercentageTan_Tooltip>
-    <BWT_Settings_features.performance>Performance</BWT_Settings_features.performance>
-    <BWT_Settings_features.performance_Tooltip>Disabling may reduce performance on large colonies</BWT_Settings_features.performance_Tooltip>
     <BWT_Settings_features.multiplayer>Multiplayer Sync</BWT_Settings_features.multiplayer>
     <BWT_Settings_features.multiplayer_Tooltip>Enable multiplayer synchronization options.</BWT_Settings_features.multiplayer_Tooltip>
     <BWT_Settings_highlights.hover>Highlight on Hover</BWT_Settings_highlights.hover>
@@ -427,42 +417,18 @@
     <BWT_Settings_autoassign.ruleBuilder2.highlights_Tooltip>Highlight the Work tab target while editing or previewing a Rule Builder 2.0 card.</BWT_Settings_autoassign.ruleBuilder2.highlights_Tooltip>
     <BWT_Settings_autoassign.ruleBuilder2.animations>Rule Builder animations</BWT_Settings_autoassign.ruleBuilder2.animations>
     <BWT_Settings_autoassign.ruleBuilder2.animations_Tooltip>Animate Rule Builder 2.0 cards, previews, and tutorial focus movement.</BWT_Settings_autoassign.ruleBuilder2.animations_Tooltip>
-    <BWT_Settings_autoassign.ruleBuilder2.draftSuggestions>Generated draft suggestions</BWT_Settings_autoassign.ruleBuilder2.draftSuggestions>
-    <BWT_Settings_autoassign.ruleBuilder2.draftSuggestions_Tooltip>Reserved for a future Rule Builder draft generator.</BWT_Settings_autoassign.ruleBuilder2.draftSuggestions_Tooltip>
     <BWT_Settings_autoassign.ruleBuilder2.advancedConditions>Show advanced conditions</BWT_Settings_autoassign.ruleBuilder2.advancedConditions>
     <BWT_Settings_autoassign.ruleBuilder2.advancedConditions_Tooltip>Show advanced Rule Builder 2.0 condition cards such as capacities and assignment state.</BWT_Settings_autoassign.ruleBuilder2.advancedConditions_Tooltip>
     <BWT_Settings_autoassign.ruleBuilder2.matchedPanel>Priority-box match panel</BWT_Settings_autoassign.ruleBuilder2.matchedPanel>
     <BWT_Settings_autoassign.ruleBuilder2.matchedPanel_Tooltip>Show matched conditions when clicking a Work tab priority box while Rule Builder 2.0 is open.</BWT_Settings_autoassign.ruleBuilder2.matchedPanel_Tooltip>
-    <BWT_Settings_autoassign.confirm>Confirm on Apply</BWT_Settings_autoassign.confirm>
-    <BWT_Settings_autoassign.confirm_Tooltip>Show confirmation before applying a ruleset.</BWT_Settings_autoassign.confirm_Tooltip>
-    <BWT_Settings_autoassign.resetBefore>Reset Before Apply</BWT_Settings_autoassign.resetBefore>
-    <BWT_Settings_autoassign.resetBefore_Tooltip>Clear assignments before applying a ruleset.</BWT_Settings_autoassign.resetBefore_Tooltip>
-    <BWT_Settings_autoassign.visual>Visual Feedback</BWT_Settings_autoassign.visual>
-    <BWT_Settings_autoassign.visual_Tooltip>Highlight affected pawns/work types after applying.</BWT_Settings_autoassign.visual_Tooltip>
-    <BWT_Settings_workloads.persistDividers>Include Dividers</BWT_Settings_workloads.persistDividers>
-    <BWT_Settings_workloads.persistDividers_Tooltip>Include divider positions when saving workloads.</BWT_Settings_workloads.persistDividers_Tooltip>
     <BWT_Settings_advanced.alwaysShowConditionEditors>Always show condition editors</BWT_Settings_advanced.alwaysShowConditionEditors>
     <BWT_Settings_advanced.alwaysShowConditionEditors_Tooltip>Condition rows are always editable without an initial click.</BWT_Settings_advanced.alwaysShowConditionEditors_Tooltip>
-    <BWT_Settings_perf.cacheBedCounts>Cache Bed Counts</BWT_Settings_perf.cacheBedCounts>
-    <BWT_Settings_perf.cacheBedCounts_Tooltip>Cache bed counts to reduce stutter.</BWT_Settings_perf.cacheBedCounts_Tooltip>
-    <BWT_Settings_perf.cacheSkillLevels>Cache Skill Levels</BWT_Settings_perf.cacheSkillLevels>
-    <BWT_Settings_perf.cacheSkillLevels_Tooltip>Cache skill calculations to reduce redundant work.</BWT_Settings_perf.cacheSkillLevels_Tooltip>
-    <BWT_Settings_perf.cacheRowDescriptors>Cache Row Descriptors</BWT_Settings_perf.cacheRowDescriptors>
-    <BWT_Settings_perf.cacheRowDescriptors_Tooltip>Cache row descriptor calculations for layout.</BWT_Settings_perf.cacheRowDescriptors_Tooltip>
-    <BWT_Settings_perf.cacheIncapability>Cache Incapability Checks</BWT_Settings_perf.cacheIncapability>
-    <BWT_Settings_perf.cacheIncapability_Tooltip>Cache incapability checks for work types.</BWT_Settings_perf.cacheIncapability_Tooltip>
-    <BWT_Settings_perf.useElementPooling>Use Element Pooling</BWT_Settings_perf.useElementPooling>
-    <BWT_Settings_perf.useElementPooling_Tooltip>Reuse UI elements instead of allocating each frame.</BWT_Settings_perf.useElementPooling_Tooltip>
-    <BWT_Settings_perf.viewportCulling>Viewport Culling</BWT_Settings_perf.viewportCulling>
-    <BWT_Settings_perf.viewportCulling_Tooltip>Only render visible rows in the scroll area.</BWT_Settings_perf.viewportCulling_Tooltip>
     <BWT_Settings_advanced.scrollWheelPriority>Scroll Wheel Priority</BWT_Settings_advanced.scrollWheelPriority>
     <BWT_Settings_advanced.scrollWheelPriority_Tooltip>Change priorities by hovering a work priority cell and scrolling. Applies to normal work cells, sub-work cells, and time-priority cells.</BWT_Settings_advanced.scrollWheelPriority_Tooltip>
     <BWT_Settings_debug.features>Debug Features</BWT_Settings_debug.features>
     <BWT_Settings_debug.features_Tooltip>Select which debug features to enable logging for.</BWT_Settings_debug.features_Tooltip>
     <BWT_Settings_advanced.profiler>Enable Profiler</BWT_Settings_advanced.profiler>
     <BWT_Settings_advanced.profiler_Tooltip>Enable in-game profiler (1 to report, Shift+1 to clear).</BWT_Settings_advanced.profiler_Tooltip>
-    <BWT_Settings_advanced.logToFile>Log to File</BWT_Settings_advanced.logToFile>
-    <BWT_Settings_advanced.logToFile_Tooltip>Write debug logs to file in addition to console.</BWT_Settings_advanced.logToFile_Tooltip>
     <BWT_Settings_mp.syncColumnOrder>Sync Column Order</BWT_Settings_mp.syncColumnOrder>
     <BWT_Settings_mp.syncColumnOrder_Tooltip>Synchronize column order across multiplayer.</BWT_Settings_mp.syncColumnOrder_Tooltip>
     <BWT_Settings_mp.syncWorkloads>Sync Workloads</BWT_Settings_mp.syncWorkloads>
