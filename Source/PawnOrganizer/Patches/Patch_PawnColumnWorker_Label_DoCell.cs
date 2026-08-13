@@ -1,6 +1,5 @@
 using System;
 using Better_Work_Tab.Diagnostics;
-using Better_Work_Tab.Features.Patches;
 using Better_Work_Tab.Features.Tutorial;
 using Better_Work_Tab.PawnOrganizer.API;
 using System.Collections.Generic;
@@ -177,41 +176,19 @@ namespace Better_Work_Tab.Patches
             IEnumerable<CodeInstruction> instructions,
             MethodBase original)
         {
-            MethodInfo escape = AccessTools.Method(
-                typeof(MainTabsRoot),
-                nameof(MainTabsRoot.EscapeCurrentTab),
-                new[] { typeof(bool) });
-            MethodInfo replacement = AccessTools.Method(
-                typeof(Patch_PawnColumnWorker_Label_DoCell),
-                nameof(MaybeCloseWorkTab));
-
-            return FluentTranspilerExecution.ExecuteOrOriginal(
+            return FluentTranspilerExecution.ExecuteRequiredOrOriginal(
                 instructions,
                 original,
                 null,
-                transpiler =>
-                {
-                    if (escape == null || replacement == null)
-                    {
-                        throw new InvalidOperationException(
-                            "the pawn-label close-tab methods could not be resolved");
-                    }
-
-                    FluentReplacementResult result = transpiler
-                        .ForCall(escape)
-                        .ReplaceWith(replacement);
-                    if (result != FluentReplacementResult.PatternReplaced)
-                    {
-                        throw new InvalidOperationException(
-                            $"expected exactly one EscapeCurrentTab(bool) call: {result}");
-                    }
-                },
-                (codes, method, exception) =>
-                    TranspilerFallback.ReturnOriginalWithWarning(
-                        codes,
-                        method,
-                        exception,
-                        "Pawn label close-tab"));
+                "[BWT] Pawn label close-tab transpiler",
+                transpiler => transpiler
+                    .ForCall(AccessTools.Method(
+                        typeof(MainTabsRoot),
+                        nameof(MainTabsRoot.EscapeCurrentTab),
+                        new[] { typeof(bool) }))
+                    .ReplaceWith(AccessTools.Method(
+                        typeof(Patch_PawnColumnWorker_Label_DoCell),
+                        nameof(MaybeCloseWorkTab))));
         }
 
         private static void MaybeCloseWorkTab(MainTabsRoot root, bool playSound)

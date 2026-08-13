@@ -1,13 +1,10 @@
 using HarmonyLib;
 using RimWorld;
-using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using UnityEngine;
 using Verse;
-using Better_Work_Tab.Features.Patches;
 using Better_Work_Tab.UI.Headers.Vanilla;
 using Better_Work_Tab.UI.Headers.Angled;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
@@ -237,66 +234,30 @@ namespace Better_Work_Tab.UI.Headers
             ILGenerator il,
             MethodBase original)
         {
-            MethodInfo drawHighlightMethod = AccessTools.Method(
-                typeof(Widgets),
-                nameof(Widgets.DrawHighlight),
-                new[] { typeof(Rect) });
-            FieldInfo settingsField = AccessTools.Field(
-                typeof(BetterWorkTabMod),
-                nameof(BetterWorkTabMod.Settings));
-            FieldInfo angledHeadersField = AccessTools.Field(
-                typeof(BetterWorkTabSettings),
-                nameof(BetterWorkTabSettings.enableAngledHeaders));
-            MethodInfo isWorkTabMethod = AccessTools.Method(
-                typeof(PawnColumnWorker_WorkPriority_DoHeader_Patch),
-                nameof(PawnColumnWorker_WorkPriority_DoHeader_Patch.IsWorkTab));
-
-            return FluentTranspilerExecution.ExecuteOrOriginal(
+            return FluentTranspilerExecution.ExecuteRequiredOrOriginal(
                 instructions,
                 original,
                 il,
-                transpiler =>
-                {
-                    if (drawHighlightMethod == null ||
-                        settingsField == null ||
-                        angledHeadersField == null ||
-                        isWorkTabMethod == null)
-                    {
-                        throw new InvalidOperationException(
-                            "one or more header-highlight patch members could not be resolved");
-                    }
-
-                    int matchCount = transpiler.Instructions().Count(
-                        instruction => instruction != null && instruction.Calls(drawHighlightMethod));
-                    if (matchCount != 1)
-                    {
-                        throw new InvalidOperationException(
-                            $"expected exactly one Widgets.DrawHighlight(Rect) call, found {matchCount}");
-                    }
-
-                    FluentReplacementResult result = transpiler
-                        .BeforeCall(drawHighlightMethod)
-                        .IncludingPreviousInstruction()
-                        .SkipOriginalWhen(
-                            guard => guard
-                                .RequireStaticFieldNotNull(settingsField)
-                                .RequireStaticFieldInstanceFieldTrue(settingsField, angledHeadersField)
-                                .RequireCallTrue(isWorkTabMethod)
-                                .SkipIfThisIs(typeof(PawnColumnWorker_WorkPriority)),
-                            "Skip vanilla work-priority header highlight");
-
-                    if (result != FluentReplacementResult.PatternReplaced)
-                    {
-                        throw new InvalidOperationException(
-                            $"header-highlight guard was not applied: {result}");
-                    }
-                },
-                (codes, method, exception) =>
-                    TranspilerFallback.ReturnOriginalWithWarning(
-                        codes,
-                        method,
-                        exception,
-                        "Header highlight"));
+                "[BWT] Header highlight transpiler",
+                transpiler => transpiler
+                    .BeforeCall(AccessTools.Method(
+                        typeof(Widgets),
+                        nameof(Widgets.DrawHighlight),
+                        new[] { typeof(Rect) }))
+                    .IncludingPreviousInstruction()
+                    .SkipOriginalWhen(
+                        guard => guard
+                            .RequireStaticFieldNotNull(AccessTools.Field(
+                                typeof(BetterWorkTabMod),
+                                nameof(BetterWorkTabMod.Settings)))
+                            .RequireStaticFieldInstanceFieldTrue(
+                                AccessTools.Field(typeof(BetterWorkTabMod), nameof(BetterWorkTabMod.Settings)),
+                                AccessTools.Field(typeof(BetterWorkTabSettings), nameof(BetterWorkTabSettings.enableAngledHeaders)))
+                            .RequireCallTrue(AccessTools.Method(
+                                typeof(PawnColumnWorker_WorkPriority_DoHeader_Patch),
+                                nameof(PawnColumnWorker_WorkPriority_DoHeader_Patch.IsWorkTab)))
+                            .SkipIfThisIs(typeof(PawnColumnWorker_WorkPriority)),
+                        "Skip vanilla work-priority header highlight"));
         }
     }
 }
