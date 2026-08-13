@@ -12,6 +12,7 @@ namespace Spine.UI.SettingsFramework
     /// <summary>
     /// Draws a scrollable list of hierarchical settings with search and view toggles.
     /// </summary>
+    [StaticConstructorOnStartup]
     public class SettingsListDrawer
     {
         private const float ResetIconSlotWidth = 26f;
