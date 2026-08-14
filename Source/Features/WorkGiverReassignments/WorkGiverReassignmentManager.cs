@@ -55,20 +55,23 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             if (_lastRuntimeEnabled != enabled)
             {
                 _lastRuntimeEnabled = enabled;
-                InvalidateCaches();
-                TimePriorityService.NotifyFallbacksChanged();
-                if (!enabled)
+                if (enabled)
                 {
+                    // Migration's load-state callback owns the cache reset.
+                    // Keep the remaining transition batch after migration so
+                    // component and no-component paths do not invalidate twice.
+                    MigrateLegacySettingsDataIfNeeded(
+                        Current.Game?.GetComponent<GameComponent_BWTWorldSettings>());
+                }
+                else
+                {
+                    InvalidateCaches();
                     SubWorkDrilldownState.ResetForWindowClose();
                     InvalidateVanillaWorkGiverCache();
                     PrepareVanillaWorkGiverCache();
                 }
-                else
-                {
-                    MigrateLegacySettingsDataIfNeeded(
-                        Current.Game?.GetComponent<GameComponent_BWTWorldSettings>());
-                    TimePriorityService.NotifyFallbacksChanged();
-                }
+
+                TimePriorityService.NotifyFallbacksChanged();
 
                 UI.WorkGrid.Invalidation.WorkTabInvalidationHub.Invalidate(
                     UI.WorkGrid.Contracts.WorkTabDirtyFlags.SubWorkOverride |
