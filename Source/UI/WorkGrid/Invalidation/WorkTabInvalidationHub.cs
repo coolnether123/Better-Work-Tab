@@ -10,6 +10,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
     {
         private static readonly object LedgerLock = new object();
         private static readonly WorkGridInvalidationLedger Ledger = new WorkGridInvalidationLedger();
+        // The returned array is a private copy of the ledger set. Keep it stable
+        // while the set is unchanged so repeated Current reads in one UI pass do
+        // not recopy the same sparse keys. Never mutate a published array; replace
+        // it when the ledger set changes so earlier versions remain immutable.
+        private static WorkGridPriorityKey[] _priorityDirtyKeysSnapshot;
         private static int _presentation;
         private static int _rows;
         private static int _columns;
@@ -28,7 +33,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
                 lock (LedgerLock)
                 {
                     revisions = Ledger.Current;
-                    priorityDirtyKeys = Ledger.CopyPriorityDirtyKeys();
+                    priorityDirtyKeys = _priorityDirtyKeysSnapshot;
+                    if (priorityDirtyKeys == null)
+                    {
+                        priorityDirtyKeys = Ledger.CopyPriorityDirtyKeys();
+                        _priorityDirtyKeysSnapshot = priorityDirtyKeys;
+                    }
                 }
 
                 return new WorkTabInvalidationVersion(
@@ -72,6 +82,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
             lock (LedgerLock)
             {
                 Ledger.InvalidatePriority(new WorkGridPriorityKey(pawnId, workTypeId));
+                _priorityDirtyKeysSnapshot = null;
             }
         }
 
@@ -88,6 +99,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
             lock (LedgerLock)
             {
                 Ledger.ClearPriorityDirtyKeys();
+                _priorityDirtyKeysSnapshot = null;
             }
         }
 
@@ -97,6 +109,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
             lock (LedgerLock)
             {
                 Ledger.ClearPriorityDirtyKeys();
+                _priorityDirtyKeysSnapshot = null;
             }
         }
 
