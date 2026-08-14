@@ -4,6 +4,8 @@ using System.Linq;
 using Better_Work_Tab;
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
+using Better_Work_Tab.Features.TimePriority;
+using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.ModSupport;
 using Better_Work_Tab.ModSupport.Mods.ComplexJobs;
@@ -436,7 +438,8 @@ namespace Better_Work_Tab.UI.Settings
 
             schema.Root
                 .Toggle(FeaturesSubWorkJobs, settings => settings.enableSubWorkDrilldown, "Specific jobs",
-                        tooltip: "Open a Work column to set priorities for its individual jobs. Use the shortcut below on a Work header or cell; use it again, or press Escape, to return.")
+                        tooltip: "Open a Work column to set priorities for its individual jobs. Use the shortcut below on a Work header or cell; use it again, or press Escape, to return.",
+                        onChanged: _ => WorkGiverReassignmentManager.OnRuntimeSettingChanged())
                 .DefaultTo(DefaultSettings.enableSubWorkDrilldown)
                 .SearchableBy(SpecificJobSearchKeywords)
                 .ControlsChildren()
@@ -668,7 +671,8 @@ namespace Better_Work_Tab.UI.Settings
         ;
 
             schema.Root.Under(PriorityHeader)
-                .Toggle(UiTimePrioritySchedules, settings => settings.enableTimePrioritySchedules, "Priorities by hour", tooltip: "Ctrl-click a work-priority cell to set different priorities by time of day.")
+                .Toggle(UiTimePrioritySchedules, settings => settings.enableTimePrioritySchedules, "Priorities by hour", tooltip: "Ctrl-click a work-priority cell to set different priorities by time of day.",
+                        onChanged: _ => TimePriorityService.OnRuntimeSettingChanged())
                 .DefaultTo(DefaultSettings.enableTimePrioritySchedules)
                 .SearchableBy(HourlyPrioritySearchKeywords)
                 .ControlsChildren()
