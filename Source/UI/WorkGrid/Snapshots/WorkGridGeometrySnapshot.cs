@@ -239,18 +239,52 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
 
         public WorkGridIndexRange GetVisibleColumnRange(Rect viewport, float horizontalScroll)
         {
-            int first = Columns.Count;
-            int last = -1;
-            for (int i = 0; i < Columns.Count; i++)
+            int columnCount = Columns.Count;
+            if (columnCount == 0)
             {
-                Rect rect = GetHeaderRect(i, horizontalScroll);
-                if (rect.xMax >= viewport.xMin && rect.xMin <= viewport.xMax)
+                return new WorkGridIndexRange(0, 0);
+            }
+
+            int low = 0;
+            int high = columnCount;
+            while (low < high)
+            {
+                int middle = low + ((high - low) >> 1);
+                if (GetHeaderRect(middle, horizontalScroll).xMax < viewport.xMin)
                 {
-                    if (first == Columns.Count) first = i;
-                    last = i;
+                    low = middle + 1;
+                }
+                else
+                {
+                    high = middle;
                 }
             }
-            return last < first ? new WorkGridIndexRange(0, 0) : new WorkGridIndexRange(first, last - first + 1);
+
+            int first = low;
+            if (first >= columnCount)
+            {
+                return new WorkGridIndexRange(0, 0);
+            }
+
+            low = first;
+            high = columnCount;
+            while (low < high)
+            {
+                int middle = low + ((high - low) >> 1);
+                if (GetHeaderRect(middle, horizontalScroll).xMin <= viewport.xMax)
+                {
+                    low = middle + 1;
+                }
+                else
+                {
+                    high = middle;
+                }
+            }
+
+            int endExclusive = low;
+            return endExclusive <= first
+                ? new WorkGridIndexRange(0, 0)
+                : new WorkGridIndexRange(first, endExclusive - first);
         }
     }
 }
