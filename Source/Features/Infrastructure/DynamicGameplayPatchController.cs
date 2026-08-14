@@ -6,7 +6,6 @@ using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.ModSupport;
 using HarmonyLib;
 using RimWorld;
-using UnityEngine;
 using Verse;
 using Verse.AI;
 
@@ -30,7 +29,6 @@ namespace Better_Work_Tab.Features
         private static bool priorityInstalled;
         private static bool orderingEnabled;
         private static bool priorityEnabled;
-        private static int lastStoreCheckFrame = -1;
         private static string lastError;
 
         internal static bool IsOrderingBehaviorActive => orderingEnabled;
@@ -77,20 +75,17 @@ namespace Better_Work_Tab.Features
         {
             if (!initialized || harmony == null)
                 return;
-            int registeredStoreCount = ExternalWorkTabRegistry.RegisteredStoreCount;
-            if (registeredStoreCount > 0)
-            {
-                int frame = Time.frameCount;
-                if (lastStoreCheckFrame != frame)
-                {
-                    lastStoreCheckFrame = frame;
-                    refreshRequested = true;
-                }
-            }
+
+            // Store registration/unregistration and every mutable policy seam
+            // call RequestRefresh. Re-auditing Harmony once per frame while a
+            // store is present turns this transition controller into a steady-
+            // state game-loop cost; the event-driven request is the authority.
             if (!refreshRequested)
                 return;
+
+            bool externalStoreRegistered = ExternalWorkTabRegistry.RegisteredStoreCount > 0;
             refreshRequested = false;
-            Refresh(registeredStoreCount > 0);
+            Refresh(externalStoreRegistered);
         }
 
         private static void Refresh(bool externalStoreRegistered)
