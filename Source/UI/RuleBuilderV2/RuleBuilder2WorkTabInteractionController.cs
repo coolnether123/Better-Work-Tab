@@ -1,4 +1,3 @@
-using System;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.Tutorial;
@@ -11,7 +10,6 @@ using Better_Work_Tab.UI.RuleBuilder;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using Better_Work_Tab.UI.WorkGrid.Commands;
 using Better_Work_Tab.UI.WorkGrid.Layout;
-using Better_Work_Tab.UI.WorkGrid.Rendering;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -23,13 +21,6 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
     /// </summary>
     internal sealed class RuleBuilder2WorkTabInteractionController
     {
-        private readonly WorkTabBodyRenderer _bodyRenderer;
-
-        internal RuleBuilder2WorkTabInteractionController(WorkTabBodyRenderer bodyRenderer)
-        {
-            _bodyRenderer = bodyRenderer ?? throw new ArgumentNullException(nameof(bodyRenderer));
-        }
-
         internal bool TryHandleInput(IWorkTabLayoutController layout, Event evt)
         {
             if (SubWorkDrilldownInput.MatchesGesture(evt))
@@ -48,26 +39,26 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
             if (TryGetPriorityCellTarget(layout, evt.mousePosition, out WorkTypeDef workType, out WorkGiverDef workGiver, out Pawn pawn, out int priority, out Rect priorityBoxRect))
             {
-                WorkPriorityCommandGateway.Execute(new SelectRuleTargetCommand(
+                WorkPriorityCommandGateway.SelectRuleTarget(
                     workType,
                     workGiver,
                     pawn,
                     priority,
                     priorityBoxRect,
-                    header: false));
+                    header: false);
                 evt.Use();
                 return true;
             }
 
             if (TryGetHeaderTarget(layout, evt.mousePosition, out workType, out workGiver, out Rect headerBounds))
             {
-                WorkPriorityCommandGateway.Execute(new SelectRuleTargetCommand(
+                WorkPriorityCommandGateway.SelectRuleTarget(
                     workType,
                     workGiver,
                     pawn: null,
                     priority: WorkPrioritySystem.DisabledPriority,
                     headerBounds,
-                    header: true));
+                    header: true);
                 evt.Use();
                 return true;
             }
@@ -124,11 +115,16 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             priority = WorkPrioritySystem.DisabledPriority;
             priorityBoxRect = Rect.zero;
 
-            if (!_bodyRenderer.TryGetRowAt(layout, mousePosition, out WorkTabLayoutRow row) ||
+            if (!layout.TryGetRowAt(mousePosition, out WorkTabLayoutRow row) ||
                 row.Pawn == null ||
-                !_bodyRenderer.TryGetBodyColumnAt(layout, mousePosition, out WorkTabLayoutColumn bodyColumn) ||
+                !layout.TryGetBodyColumnAt(mousePosition, out WorkTabLayoutColumn bodyColumn) ||
                 !(bodyColumn.Column?.Worker is PawnColumnWorker_WorkPriority) ||
-                !_bodyRenderer.TryGetPriorityBoxHit(layout, row, bodyColumn, mousePosition, out priorityBoxRect))
+                !WorkGridPriorityHitGeometry.TryGetPriorityBoxHit(
+                    layout,
+                    row,
+                    bodyColumn,
+                    mousePosition,
+                    out priorityBoxRect))
             {
                 return false;
             }

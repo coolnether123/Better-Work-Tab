@@ -618,7 +618,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             }
 
             if (evt.button == 0 &&
-                WorkPriorityCommandGateway.Execute(new OpenScheduleCommand(target, boxRect, fallbackPriority)))
+                WorkPriorityCommandGateway.OpenSchedule(target, boxRect, fallbackPriority))
             {
                 SoundDefOf.Tick_High.PlayOneShotOnCamera();
             }
@@ -684,10 +684,10 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 {
                     if (!FluffyTimeScheduleAssigner.ApplyWorkGiverPriority(pawnId, workGiverDef, newPriority))
                     {
-                        WorkPriorityCommandGateway.Execute(new SetWorkGiverPriorityCommand(
+                        WorkPriorityCommandGateway.SetWorkGiverPriority(
                             pawnId,
                             workGiverDef,
-                            newPriority));
+                            newPriority);
                     }
                     SoundDefOf.DragSlider.PlayOneShotOnCamera();
                 }
@@ -713,10 +713,10 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 {
                     if (!FluffyTimeScheduleAssigner.ApplyWorkGiverPriority(pawnId, workGiverDef, newPriority))
                     {
-                        WorkPriorityCommandGateway.Execute(new SetWorkGiverPriorityCommand(
+                        WorkPriorityCommandGateway.SetWorkGiverPriority(
                             pawnId,
                             workGiverDef,
-                            newPriority));
+                            newPriority);
                     }
                     SoundDefOf.DragSlider.PlayOneShotOnCamera();
                 }

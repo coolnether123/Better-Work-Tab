@@ -6,7 +6,6 @@ using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.Chrome;
 using Better_Work_Tab.UI.WorkGrid.Layout;
-using Better_Work_Tab.UI.WorkGrid.Rendering;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -19,13 +18,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
     /// </summary>
     internal sealed class WorkTabTutorialInteractionController
     {
-        private readonly WorkTabBodyRenderer _bodyRenderer;
-
-        internal WorkTabTutorialInteractionController(WorkTabBodyRenderer bodyRenderer)
-        {
-            _bodyRenderer = bodyRenderer;
-        }
-
         internal bool TryHandleInput(Rect inRect, IWorkTabLayoutController layout, Event evt)
         {
             return BWTWorkTabTutorial.TryHandleInput(inRect, layout, evt);
@@ -102,14 +94,14 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
                 return BWTTutorialInteractionKind.TimePriorityCell;
             }
 
-            if (layout?.Rows != null && _bodyRenderer.TryGetRowAt(layout, mousePosition, out var row))
+            if (layout?.Rows != null && layout.TryGetRowAt(mousePosition, out var row))
             {
                 if (row.Divider != null)
                 {
                     return BWTTutorialInteractionKind.Divider;
                 }
 
-                if (row.Pawn != null && _bodyRenderer.TryGetBodyColumnAt(layout, mousePosition, out var bodyColumn))
+                if (row.Pawn != null && layout.TryGetBodyColumnAt(mousePosition, out var bodyColumn))
                 {
                     if (bodyColumn.Column?.Worker is PawnColumnWorker_Label)
                     {

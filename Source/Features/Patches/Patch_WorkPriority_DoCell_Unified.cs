@@ -966,7 +966,7 @@ namespace Better_Work_Tab.Patches
                     : WorkPrioritySystem.GetDefaultEnabledPriority();
             if (nextPriority != currentPriority)
             {
-                WorkPriorityCommandGateway.Execute(new SetPriorityCommand(pawn, workType, nextPriority));
+                WorkPriorityCommandGateway.SetPriority(pawn, workType, nextPriority);
                 SoundDefOf.DragSlider.PlayOneShotOnCamera();
             }
 
@@ -1012,7 +1012,7 @@ namespace Better_Work_Tab.Patches
 
                 if (nextPriority != currentPriority)
                 {
-                    WorkPriorityCommandGateway.Execute(new SetPriorityCommand(pawn, workType, nextPriority));
+                    WorkPriorityCommandGateway.SetPriority(pawn, workType, nextPriority);
                     SoundDefOf.DragSlider.PlayOneShotOnCamera();
                 }
 
@@ -1031,18 +1031,18 @@ namespace Better_Work_Tab.Patches
             bool wasEnabled = pawn.workSettings.WorkIsActive(workType);
             if (pawn.workSettings.GetPriority(workType) > 0)
             {
-                WorkPriorityCommandGateway.Execute(new SetPriorityCommand(
+                WorkPriorityCommandGateway.SetPriority(
                     pawn,
                     workType,
-                    WorkPrioritySystem.DisabledPriority));
+                    WorkPrioritySystem.DisabledPriority);
                 SoundDefOf.Checkbox_TurnedOff.PlayOneShotOnCamera();
             }
             else
             {
-                WorkPriorityCommandGateway.Execute(new SetPriorityCommand(
+                WorkPriorityCommandGateway.SetPriority(
                     pawn,
                     workType,
-                    WorkPrioritySystem.GetDefaultEnabledPriority()));
+                    WorkPrioritySystem.GetDefaultEnabledPriority());
                 SoundDefOf.Checkbox_TurnedOn.PlayOneShotOnCamera();
             }
 

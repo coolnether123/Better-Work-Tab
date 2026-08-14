@@ -51,7 +51,6 @@ namespace Better_Work_Tab.UI
         private readonly WorkTabTutorialInteractionController _tutorialInteractionController;
         private readonly WorkTabPriorityInputHandler _priorityInputHandler;
         private readonly RuleBuilder2WorkTabInteractionController _ruleBuilder2InteractionController;
-        private readonly WorkTabContextSettingsInteractionController _contextSettingsInteractionController;
         private readonly SubWorkInteractionController _subWorkInteractionController;
         private readonly WorkGridContextActionController _contextActionController;
         private readonly SubWorkStyleChooserPresenter _subWorkStyleChooserPresenter;
@@ -62,22 +61,7 @@ namespace Better_Work_Tab.UI
         public MainTabWindow_BetterWork()
         {
             _windowSession = new WorkTabWindowSessionState(this);
-            _windowSizingController = new WorkTabWindowSizingController(
-                () => _windowSession.GetPawnTable(Current.Game),
-                () => PawnOrganizerSystem.Instance,
-                () => ExtraTopSpace,
-                () => ExtraBottomSpace,
-                () => Margin,
-                () => windowRect,
-                () => Verse.UI.screenWidth,
-                () => Verse.UI.screenHeight,
-                () => FluffyTimeScheduleAssigner.IsOpen,
-                () => TimePriorityScheduleEditor.LayoutSignature,
-                () => SubWorkDrilldownState.MeasurementSignature,
-                () => BetterWorkTabMod.Settings?.workTabMaxVisiblePawns ??
-                    DefaultSettings.workTabMaxVisiblePawns,
-                () => BetterWorkTabMod.Settings?.keepVanillaWorkTabMinimumWidth ??
-                    DefaultSettings.keepVanillaWorkTabMinimumWidth);
+            _windowSizingController = new WorkTabWindowSizingController();
             _bodyRenderer = new WorkTabBodyRenderer(_viewportController);
             WorkGridDrawingSurface drawingSurface = new WorkGridDrawingSurface(
                 _viewportController,
@@ -89,24 +73,19 @@ namespace Better_Work_Tab.UI
                 drawingSurface,
                 () => BetterWorkTabMod.Settings?.workGridRendererMode ?? DefaultSettings.workGridRendererMode);
             _workGridRenderer.Register(new OptimizedWorkGridRenderer(drawingSurface));
-            _tutorialInteractionController = new WorkTabTutorialInteractionController(_bodyRenderer);
-            _priorityInputHandler = new WorkTabPriorityInputHandler(_bodyRenderer);
-            _ruleBuilder2InteractionController = new RuleBuilder2WorkTabInteractionController(_bodyRenderer);
-            _contextSettingsInteractionController = new WorkTabContextSettingsInteractionController();
-            _subWorkInteractionController = new SubWorkInteractionController(
-                _bodyRenderer,
-                _priorityInputHandler);
+            _tutorialInteractionController = new WorkTabTutorialInteractionController();
+            _priorityInputHandler = new WorkTabPriorityInputHandler();
+            _ruleBuilder2InteractionController = new RuleBuilder2WorkTabInteractionController();
+            _subWorkInteractionController = new SubWorkInteractionController();
             _workTabChrome = new WorkTabChrome(_subWorkInteractionController);
             _contextActionController = new WorkGridContextActionController(
-                _bodyRenderer,
                 () => SetDirty(),
-                () => _windowSizingController.StageBottomAnchoredResizeIfRequestedSizeChanged());
+                StageBottomAnchoredResizeIfRequestedSizeChanged);
             _subWorkStyleChooserPresenter = new SubWorkStyleChooserPresenter(_subWorkInteractionController);
             _workGridInteractionRouter = new WorkGridInteractionRouter(
                 _tutorialInteractionController,
                 _priorityInputHandler,
                 _ruleBuilder2InteractionController,
-                _contextSettingsInteractionController,
                 _subWorkInteractionController,
                 _contextActionController);
         }
@@ -301,7 +280,7 @@ namespace Better_Work_Tab.UI
                     PawnOrganizerSystem.Instance?.Layout?.LayoutRevision ?? -1);
             }
 
-            _windowSizingController.StageBottomAnchoredResizeIfRequestedSizeChanged();
+            StageBottomAnchoredResizeIfRequestedSizeChanged();
             Event evt = Event.current;
             BWTWorkTabTutorial.UpdatePointerOwnership(inRect, organizer?.Layout, evt.mousePosition);
             if (evt.type != EventType.Repaint && evt.type != EventType.Layout)
@@ -324,7 +303,7 @@ namespace Better_Work_Tab.UI
 
                 _subWorkInteractionController.SuppressPriorityMouseDownIfNeeded(evt);
                 RefreshSubWorkLayoutIfNeeded(organizer);
-                _windowSizingController.StageBottomAnchoredResizeIfRequestedSizeChanged();
+                StageBottomAnchoredResizeIfRequestedSizeChanged();
             }
 
             if (evt.type != EventType.Layout)
@@ -461,7 +440,34 @@ namespace Better_Work_Tab.UI
         /// <summary>
         /// Computes the work tab size from the layout published by this window.
         /// </summary>
-        public override Vector2 RequestedTabSize => _windowSizingController.RequestedTabSize;
+        public override Vector2 RequestedTabSize =>
+            _windowSizingController.GetRequestedTabSize(CreateWindowSizingInputs());
+
+        private WorkTabSizingInputs CreateWindowSizingInputs()
+        {
+            return new WorkTabSizingInputs(
+                _windowSession.GetPawnTable(Current.Game),
+                PawnOrganizerSystem.Instance?.Layout,
+                ExtraTopSpace,
+                ExtraBottomSpace,
+                Margin,
+                Verse.UI.screenWidth,
+                Verse.UI.screenHeight,
+                TimePriorityScheduleEditor.LayoutSignature,
+                SubWorkDrilldownState.MeasurementSignature,
+                BetterWorkTabMod.Settings?.workTabMaxVisiblePawns ??
+                    DefaultSettings.workTabMaxVisiblePawns,
+                BetterWorkTabMod.Settings?.keepVanillaWorkTabMinimumWidth ??
+                    DefaultSettings.keepVanillaWorkTabMinimumWidth);
+        }
+
+        private void StageBottomAnchoredResizeIfRequestedSizeChanged()
+        {
+            WorkTabSizingInputs inputs = CreateWindowSizingInputs();
+            _windowSizingController.StageBottomAnchoredResizeIfRequestedSizeChanged(
+                in inputs,
+                windowRect);
+        }
 
         public override void Notify_ResolutionChanged()
         {
@@ -571,7 +577,6 @@ namespace Better_Work_Tab.UI
         {
             // Cancel active input before clearing the state it may reference.
             PawnOrganizerSystem.Instance?.CancelActiveDrag();
-            _workGridInteractionRouter.ResetSessions();
             _subWorkInteractionController.ResetForWindowClose();
             _subWorkStyleChooserPresenter.ResetForWindowClose();
             SubWorkDrilldownState.ResetForWindowClose();

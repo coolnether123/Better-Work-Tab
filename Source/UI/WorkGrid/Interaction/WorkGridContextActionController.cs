@@ -8,7 +8,6 @@ using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.PawnOrganizer.Data;
 using Better_Work_Tab.UI;
-using Better_Work_Tab.UI.WorkGrid.Rendering;
 using RimWorld;
 using Spine.UI.ColourPicker;
 using UnityEngine;
@@ -21,16 +20,13 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
     /// </summary>
     internal sealed class WorkGridContextActionController
     {
-        private readonly WorkTabBodyRenderer _bodyRenderer;
         private readonly Action _markWindowDirty;
         private readonly Action _resizeWindowIfRequestedSizeChanged;
 
         internal WorkGridContextActionController(
-            WorkTabBodyRenderer bodyRenderer,
             Action markWindowDirty,
             Action resizeWindowIfRequestedSizeChanged)
         {
-            _bodyRenderer = bodyRenderer ?? throw new ArgumentNullException(nameof(bodyRenderer));
             _markWindowDirty = markWindowDirty ?? throw new ArgumentNullException(nameof(markWindowDirty));
             _resizeWindowIfRequestedSizeChanged = resizeWindowIfRequestedSizeChanged ??
                 throw new ArgumentNullException(nameof(resizeWindowIfRequestedSizeChanged));
@@ -62,7 +58,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
                 PawnOrganizerSystem.Instance?.CancelActiveDrag();
             }
 
-            if (!_bodyRenderer.TryGetRowAt(layout, evt.mousePosition, out var row))
+            if (!layout.TryGetRowAt(evt.mousePosition, out var row))
             {
                 return;
             }
@@ -83,7 +79,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
                 return;
             }
 
-            bool overWorkPriorityColumn = _bodyRenderer.TryGetBodyColumnAt(layout, evt.mousePosition, out var column) &&
+            bool overWorkPriorityColumn = layout.TryGetBodyColumnAt(evt.mousePosition, out var column) &&
                 column.Column?.Worker is PawnColumnWorker_WorkPriority;
             if (!overWorkPriorityColumn)
             {

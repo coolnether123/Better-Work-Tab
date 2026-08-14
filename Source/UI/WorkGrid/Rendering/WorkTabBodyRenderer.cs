@@ -223,45 +223,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             }
         }
 
-        internal bool TryGetRowAt(
-            IWorkTabLayoutController layout,
-            Vector2 mousePosition,
-            out WorkTabLayoutRow row)
-        {
-            row = default;
-            return layout?.GeometrySnapshot != null && layout.TryGetRowAt(mousePosition, out row);
-        }
-
-        internal bool TryGetBodyColumnAt(
-            IWorkTabLayoutController layout,
-            Vector2 mousePosition,
-            out WorkTabLayoutColumn column)
-        {
-            column = default;
-            return layout?.GeometrySnapshot != null && layout.TryGetBodyColumnAt(mousePosition, out column);
-        }
-
-        internal bool TryGetPriorityBoxHit(
-            IWorkTabLayoutController layout,
-            WorkTabLayoutRow row,
-            WorkTabLayoutColumn column,
-            Vector2 mousePosition,
-            out Rect priorityBoxRect)
-        {
-            priorityBoxRect = default;
-            if (layout == null ||
-                row.Pawn == null ||
-                !(column.Column?.Worker is PawnColumnWorker_WorkPriority))
-            {
-                return false;
-            }
-
-            Rect rowRect = layout.GetScreenRect(row);
-            Rect cellRect = WorkGridInteractionGeometry.GetAnimatedBodyScreenRect(column, rowRect);
-            priorityBoxRect = WorkPriorityCellGeometry.GetPriorityBoxRect(cellRect);
-            return priorityBoxRect.Contains(mousePosition);
-        }
-
         /// <summary>
         /// Calculates the total width of all columns combined once per frame.
         /// </summary>

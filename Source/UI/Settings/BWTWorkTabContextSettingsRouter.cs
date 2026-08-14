@@ -1,3 +1,4 @@
+using Better_Work_Tab;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.PawnOrganizer;
@@ -7,6 +8,7 @@ using Better_Work_Tab.UI.Chrome;
 using Better_Work_Tab.UI.WorkGrid.Layout;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using RimWorld;
+using Spine.UI.ContextualSettings;
 using UnityEngine;
 using Verse;
 using static Better_Work_Tab.UI.Settings.SettingIDs;
@@ -17,6 +19,43 @@ namespace Better_Work_Tab.UI.Settings
     internal static class BWTWorkTabContextSettingsRouter
     {
         private const float RightEdgeMargin = 10f;
+
+        internal static bool TryHandleInput(
+            Rect inRect,
+            IWorkTabLayoutController layout,
+            Event evt)
+        {
+            if (evt == null || !inRect.Contains(evt.mousePosition))
+            {
+                return false;
+            }
+
+            if (!TryBuildFocusRequest(
+                    inRect,
+                    layout,
+                    evt.mousePosition,
+                    evt.shift,
+                    evt.control,
+                    out BWTSettingsFocusRequest request))
+            {
+                return false;
+            }
+
+            bool handled = BetterWorkTabSettingsUI.ContextualSettings.BindSetting(
+                inRect,
+                request.TargetSettingId);
+            if (handled)
+            {
+                BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
+                if (settings?.showContextSettingsHint ?? false)
+                {
+                    settings.showContextSettingsHint = false;
+                    settings.Write();
+                }
+            }
+
+            return handled;
+        }
 
         internal static bool TryBuildFocusRequest(
             Rect inRect,

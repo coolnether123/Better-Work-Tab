@@ -357,11 +357,11 @@
     <Compile Include="UI\WorkGrid\Compatibility\WorkGridVanillaCompatibilityPolicy.cs" />
     <Compile Include="UI\WorkGrid\Interaction\WorkGridContextActionController.cs" />
     <Compile Include="UI\WorkGrid\Interaction\WorkGridInteractionRouter.cs" />
-    <Compile Include="UI\WorkGrid\Interaction\WorkTabContextSettingsInteractionController.cs" />
     <Compile Include="UI\WorkGrid\Interaction\WorkTabPriorityInputHandler.cs" />
     <Compile Include="UI\WorkGrid\Interaction\WorkTabTutorialInteractionController.cs" />
     <Compile Include="UI\WorkGrid\Layout\WorkGridLayoutMetrics.cs" />
     <Compile Include="UI\WorkGrid\Layout\WorkGridInteractionGeometry.cs" />
+    <Compile Include="UI\WorkGrid\Layout\WorkGridPriorityHitGeometry.cs" />
     <Compile Include="UI\Chrome\WorkTabChrome.cs" />
     <Compile Include="UI\Chrome\WorkTabChromeGeometry.cs" />
     <Compile Include="UI\WorkGrid\Layout\WorkTabViewportController.cs" />

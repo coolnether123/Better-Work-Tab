@@ -1,4 +1,3 @@
-using System;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Diagnostics;
@@ -11,7 +10,6 @@ using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.RuleBuilder;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using Better_Work_Tab.UI.WorkGrid.Layout;
-using Better_Work_Tab.UI.WorkGrid.Rendering;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -19,17 +17,10 @@ using Verse;
 namespace Better_Work_Tab.UI.WorkGrid.Interaction
 {
     /// <summary>
-    /// Owns priority-cell input and the global-priority hit geometry used by sub-work exit input.
+    /// Owns priority-cell input.
     /// </summary>
     internal sealed class WorkTabPriorityInputHandler
     {
-        private readonly WorkTabBodyRenderer _bodyRenderer;
-
-        internal WorkTabPriorityInputHandler(WorkTabBodyRenderer bodyRenderer)
-        {
-            _bodyRenderer = bodyRenderer ?? throw new ArgumentNullException(nameof(bodyRenderer));
-        }
-
         internal bool TryHandlePriorityCellInput(IWorkTabLayoutController layout, Event evt)
         {
             if (layout == null || evt == null ||
@@ -73,7 +64,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
                 return false;
             }
 
-            if (!_bodyRenderer.TryGetRowAt(layout, evt.mousePosition, out WorkTabLayoutRow row))
+            if (!layout.TryGetRowAt(evt.mousePosition, out WorkTabLayoutRow row))
             {
                 WorkTabDiagnostics.RecordPriorityInput("row miss", evt);
                 return false;
@@ -85,7 +76,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
                 return false;
             }
 
-            if (!_bodyRenderer.TryGetBodyColumnAt(layout, evt.mousePosition, out WorkTabLayoutColumn column))
+            if (!layout.TryGetBodyColumnAt(evt.mousePosition, out WorkTabLayoutColumn column))
             {
                 WorkTabDiagnostics.RecordPriorityInput("column miss", evt);
                 return false;
@@ -97,7 +88,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
                 return false;
             }
 
-            if (!_bodyRenderer.TryGetPriorityBoxHit(layout, row, column, evt.mousePosition, out Rect priorityBoxRect))
+            if (!WorkGridPriorityHitGeometry.TryGetPriorityBoxHit(
+                    layout,
+                    row,
+                    column,
+                    evt.mousePosition,
+                    out Rect priorityBoxRect))
             {
                 WorkTabDiagnostics.RecordPriorityInput("priority-box miss", evt);
                 return false;
@@ -140,48 +136,5 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
             return parentHandled;
         }
 
-        internal bool TryGetGlobalPriorityBoxHit(
-            IWorkTabLayoutController layout,
-            Rect globalRowRect,
-            Vector2 mousePosition,
-            out WorkTabLayoutColumn column,
-            out Rect priorityBoxRect)
-        {
-            column = default;
-            priorityBoxRect = default;
-            if (layout?.Columns == null)
-            {
-                return false;
-            }
-
-            for (int i = 0; i < layout.Columns.Count; i++)
-            {
-                var candidate = layout.Columns[i];
-                if (!(candidate.Column?.Worker is PawnColumnWorker_WorkPriority) ||
-                    !SubWorkDrilldownState.TryGetWorkGiverForColumn(candidate, out _, out _, out _))
-                {
-                    continue;
-                }
-
-                Rect cellRect = WorkGridInteractionGeometry.GetAnimatedBodyScreenRect(candidate, globalRowRect);
-                float boxSize = Mathf.Min(SubWorkDrilldownState.GlobalPriorityBoxSize, Mathf.Max(0f, cellRect.height - 4f));
-                if (boxSize <= 6f)
-                {
-                    continue;
-                }
-
-                Rect boxRect = WorkPriorityCellGeometry.GetCenteredBoxRect(cellRect, boxSize);
-                if (!boxRect.Contains(mousePosition))
-                {
-                    continue;
-                }
-
-                column = candidate;
-                priorityBoxRect = boxRect;
-                return true;
-            }
-
-            return false;
-        }
     }
 }
