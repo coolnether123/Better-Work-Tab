@@ -94,18 +94,11 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             CellPresentation presentation)
         {
             WorkGiverDef workGiverDef = workGiver?.def;
-            int pawnOverridePriority = WorkPrioritySystem.DisabledPriority;
-            bool hasPawnOverride = pawn != null &&
-                                   WorkGiverReassignmentManager.TryGetPawnWorkGiverOverride(
-                                       pawn,
-                                       workGiverDef,
-                                       out pawnOverridePriority);
-            int basePriority = hasPawnOverride
-                ? pawnOverridePriority
-                : WorkGiverReassignmentManager.GetWorkGiverPriority(
-                    pawn,
-                    workGiverDef,
-                    parentPriority);
+            int basePriority = WorkGiverReassignmentManager.GetWorkGiverPriority(
+                pawn,
+                workGiverDef,
+                parentPriority,
+                out bool hasPawnOverride);
             TimePriorityEvaluation evaluation = TimePriorityService.EvaluateWorkGiverPriority(
                 pawn,
                 workType,
@@ -128,7 +121,8 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 inheritedPriority = WorkGiverReassignmentManager.GetInheritedWorkGiverPriority(
                     pawn,
                     workType,
-                    workGiverDef);
+                    workGiverDef,
+                    parentPriority);
             }
             else
             {

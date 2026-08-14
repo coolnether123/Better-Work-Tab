@@ -1103,6 +1103,16 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         internal static int GetWorkGiverPriority(Pawn pawn, WorkGiverDef workGiver, int defaultPriority)
         {
+            return GetWorkGiverPriority(pawn, workGiver, defaultPriority, out _);
+        }
+
+        internal static int GetWorkGiverPriority(
+            Pawn pawn,
+            WorkGiverDef workGiver,
+            int defaultPriority,
+            out bool hasPawnOverride)
+        {
+            hasPawnOverride = false;
             if (!IsRuntimeEnabled || workGiver == null)
             {
                 return WorkPrioritySystem.ClampPriority(defaultPriority);
@@ -1117,6 +1127,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 pawnDict != null &&
                 pawnDict.TryGetValue(workGiver.defName, out int pawnPriority))
             {
+                hasPawnOverride = true;
                 return WorkPrioritySystem.ClampPriority(pawnPriority);
             }
             
@@ -1133,10 +1144,22 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         internal static int GetInheritedWorkGiverPriority(Pawn pawn, WorkTypeDef workType, WorkGiverDef workGiver)
         {
-            int defaultPriority = WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType);
+            return GetInheritedWorkGiverPriority(
+                pawn,
+                workType,
+                workGiver,
+                WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType));
+        }
+
+        internal static int GetInheritedWorkGiverPriority(
+            Pawn pawn,
+            WorkTypeDef workType,
+            WorkGiverDef workGiver,
+            int knownParentPriority)
+        {
             if (!IsRuntimeEnabled || workGiver == null)
             {
-                return WorkPrioritySystem.ClampPriority(defaultPriority);
+                return WorkPrioritySystem.ClampPriority(knownParentPriority);
             }
 
             var data = Data;
@@ -1152,7 +1175,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                     globalPriority);
             }
 
-            return WorkPrioritySystem.ClampPriority(defaultPriority);
+            return WorkPrioritySystem.ClampPriority(knownParentPriority);
         }
 
         [SyncMethod]

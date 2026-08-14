@@ -49,6 +49,13 @@ namespace Better_Work_Tab.Features.TimePriority
         /// </summary>
         internal bool NeedsLinkMigration;
 
+        // The public schedule lists are retained for save and import compatibility, but runtime
+        // writers must use the mutation API or notify the service after direct edits. The service
+        // Supported invalidation paths advance the service generation when the active priority
+        // range changes, so normalization remains settings- and authority-sensitive without
+        // repeating the full repair on every cell read.
+        private int _validatedVersion = -1;
+
         public void ExposeData()
         {
             Scribe_Values.Look(ref Key, "key");
@@ -63,6 +70,7 @@ namespace Better_Work_Tab.Features.TimePriority
             // empty means every hour is genuinely linked.
             if (Scribe.mode == LoadSaveMode.LoadingVars)
             {
+                _validatedVersion = -1;
                 UnlinkedHours = null;
             }
 
@@ -108,6 +116,11 @@ namespace Better_Work_Tab.Features.TimePriority
 
         internal void EnsureValid()
         {
+            if (_validatedVersion == TimePriorityService.CurrentVersion)
+            {
+                return;
+            }
+
             if (HourlyPriorities == null)
             {
                 HourlyPriorities = new List<int>(TimePriorityService.HoursPerDay);
@@ -144,6 +157,7 @@ namespace Better_Work_Tab.Features.TimePriority
             }
 
             Key = TimePriorityService.BuildKey(PawnId, Kind, WorkTypeDefName, TargetDefName);
+            _validatedVersion = TimePriorityService.CurrentVersion;
         }
     }
 }
