@@ -72,7 +72,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             if (context.EventPhase == ImGuiEventPhase.Repaint)
             {
                 Vector2 scroll = context.Presentation.Table.scrollPosition;
-                _visibleRows = context.Presentation.Geometry.GetVisibleRowRange(context.Viewport, scroll.y);
+                _visibleRows = WorkTabBodyRenderer.ResolveVisibleRowRange(
+                    context.Presentation.Geometry,
+                    context.Viewport,
+                    scroll.y,
+                    0f);
                 _visibleColumns = context.Presentation.Geometry.GetVisibleColumnRange(context.Viewport, scroll.x);
 
                 // The body renderer already culls with live animated geometry.
