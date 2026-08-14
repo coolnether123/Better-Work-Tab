@@ -23,6 +23,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
     /// <summary>Builds and owns immutable presentation snapshots without retaining domain objects.</summary>
     internal sealed class WorkGridSnapshotProvider
     {
+        // Sparse publication still scans every cell and copies the full cell
+        // array twice through the public immutable-snapshot API. Keep it for
+        // genuinely sparse edits, but use the regular builder once at least
+        // half of the cell-key space is dirty so retained staging capacity and
+        // the second full-array copy do not dominate a broad refresh.
+        private const int SparsePriorityMaximumDirtyPercent = 50;
         private static WorkGridSnapshotProvider _active;
         private readonly ContiguousBuffer<WorkGridRowEntry> _rows = new ContiguousBuffer<WorkGridRowEntry>(64);
         private readonly ContiguousBuffer<WorkGridColumnEntry> _columns = new ContiguousBuffer<WorkGridColumnEntry>(32);
@@ -124,6 +130,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                    _layoutSignature == layoutSignature &&
                    dirtyKeys != null &&
                    dirtyKeys.Count > 0 &&
+                   dirtyKeys.Count * 100L <
+                   (long)_slot.Current.Cells.Count * SparsePriorityMaximumDirtyPercent &&
                    _revisions.Priority != current.Priority &&
                    current.Priority - _revisions.Priority == dirtyKeys.Count &&
                    EqualNonPriorityConsumedRevisions(_revisions, current);
