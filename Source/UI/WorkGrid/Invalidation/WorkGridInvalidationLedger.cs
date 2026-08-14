@@ -121,6 +121,13 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
                     _revisions[i]++;
                 }
             }
+
+            // A category-level priority invalidation covers every cell. Sparse
+            // keys from earlier targeted writes cannot describe that workload.
+            if ((categories & WorkGridInvalidationCategory.Priority) != 0)
+            {
+                _priorityKeys.Clear();
+            }
         }
 
         public void InvalidatePriority(WorkGridPriorityKey key)
