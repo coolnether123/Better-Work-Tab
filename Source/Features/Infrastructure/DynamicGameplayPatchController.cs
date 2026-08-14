@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Threading;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.ModSupport;
@@ -14,7 +15,10 @@ namespace Better_Work_Tab.Features
     /// <summary>
     /// Installs gameplay callbacks only while BWT owns the relevant authority and has
     /// material persisted behavior to apply. Transitions run on the main thread at
-    /// GameComponent lifecycle boundaries.
+    /// GameComponent lifecycle boundaries. RequestRefresh is only an event
+    /// latch: registry callbacks and the public authority-notification seam may
+    /// request work from another thread, but they never perform Harmony
+    /// transitions themselves.
     /// </summary>
     internal static class DynamicGameplayPatchController
     {
@@ -24,7 +28,7 @@ namespace Better_Work_Tab.Features
         private static PatchDescriptor[] orderingPatches;
         private static PatchDescriptor[] priorityPatches;
         private static bool initialized;
-        private static bool refreshRequested;
+        private static int refreshRequested;
         private static bool orderingInstalled;
         private static bool priorityInstalled;
         private static bool orderingEnabled;
@@ -69,7 +73,7 @@ namespace Better_Work_Tab.Features
             }
         }
 
-        internal static void RequestRefresh() => refreshRequested = true;
+        internal static void RequestRefresh() => Interlocked.Exchange(ref refreshRequested, 1);
 
         internal static void ProcessPendingRefresh()
         {
@@ -80,11 +84,13 @@ namespace Better_Work_Tab.Features
             // call RequestRefresh. Re-auditing Harmony once per frame while a
             // store is present turns this transition controller into a steady-
             // state game-loop cost; the event-driven request is the authority.
-            if (!refreshRequested)
+            // The exchange is the claim point: a request before it is consumed by
+            // this pass, while a request after it remains pending for the next
+            // main-thread pass instead of being cleared by this one.
+            if (Interlocked.Exchange(ref refreshRequested, 0) == 0)
                 return;
 
             bool externalStoreRegistered = ExternalWorkTabRegistry.RegisteredStoreCount > 0;
-            refreshRequested = false;
             Refresh(externalStoreRegistered);
         }
 
@@ -106,7 +112,7 @@ namespace Better_Work_Tab.Features
             if (orderingSucceeded && prioritySucceeded)
                 lastError = null;
             else
-                refreshRequested = true;
+                RequestRefresh();
         }
 
         private static bool RefreshGroup(PatchDescriptor[] group, bool desired, string groupName, ref bool installed, ref bool enabled)
@@ -124,7 +130,7 @@ namespace Better_Work_Tab.Features
                 if (!removed || AnyOwnedPatch(group))
                 {
                     installed = true;
-                    refreshRequested = true;
+                    RequestRefresh();
                     return false;
                 }
                 if (!desired)
@@ -135,7 +141,7 @@ namespace Better_Work_Tab.Features
                 if (!TryInstallGroup(group, groupName) || !AllExpectedPatches(group))
                 {
                     installed = AnyOwnedPatch(group);
-                    refreshRequested = true;
+                    RequestRefresh();
                     return false;
                 }
                 installed = true;
@@ -146,7 +152,7 @@ namespace Better_Work_Tab.Features
             {
                 RecordError("Dynamic " + groupName + " patch transition failed: " + exception.Message);
                 installed = true;
-                refreshRequested = true;
+                RequestRefresh();
                 return false;
             }
         }
