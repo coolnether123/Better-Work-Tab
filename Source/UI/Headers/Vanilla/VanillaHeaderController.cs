@@ -27,7 +27,7 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
 
             // For vanilla mode, calculate height based on number of levels
             // Get the solver and check if it has a valid solution
-            var solver = HeaderDrawingCoordinator.GetVanillaSolver();
+            var solver = HeaderDrawingCoordinator.GetVanillaSolver(table);
             
             // If the solver does not have a valid solution yet, the height is not modified.
             // Vanilla logic is utilized until valid layout data is available.
@@ -67,7 +67,7 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
             if (Event.current.type == EventType.Layout)
             {
             bool isMoved = WorkColumnCustomizationService.ShouldShowColumnMarker(worker.def.workType);
-                var solver = HeaderDrawingCoordinator.GetVanillaSolver();
+                var solver = HeaderDrawingCoordinator.GetVanillaSolver(table);
                 solver.CollectHeader(worker.def, rect, worker.def.workType, isMoved);
             }
 
@@ -91,11 +91,11 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
 
             bool shouldDraw = evt.type == EventType.Repaint;
 
-            var vanillaSolver = HeaderDrawingCoordinator.GetVanillaSolver();
+            var vanillaSolver = HeaderDrawingCoordinator.GetVanillaSolver(table);
 
             // Determine Hover
             bool isMouseOver = !TimePriorityScheduleEditor.OwnsCurrentMousePosition &&
-                DetermineMouseOver(rect, worker.def);
+                DetermineMouseOver(rect, worker.def, table);
             if (isMouseOver)
             {
                 HeaderInputController.SetHoveredWorkType(worker.def.workType, vanillaSolver?.GetBounds(worker.def));
@@ -119,7 +119,7 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
             );
 
             // Use the AngledHeaderInteraction helper (it handles interaction logic via the renderer abstraction)
-            var renderer = HeaderDrawingCoordinator.GetActiveRenderer();
+            var renderer = HeaderDrawingCoordinator.GetActiveRenderer(table);
             
             // Group parameters into interaction context
             var ctx = new Angled.HeaderInteractionContext
@@ -182,7 +182,7 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
                 IsMouseOver = isMouseOver,
                 ShouldDraw = shouldDraw,
                 HeaderRect = rect,
-                Renderer = HeaderDrawingCoordinator.GetActiveRenderer(),
+                Renderer = HeaderDrawingCoordinator.GetActiveRenderer(table),
                 IsVanillaStaggered = true
             };
 
@@ -190,10 +190,10 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
             return false;
         }
 
-        private static bool DetermineMouseOver(Rect rect, PawnColumnDef columnDef)
+        private static bool DetermineMouseOver(Rect rect, PawnColumnDef columnDef, PawnTable table)
         {
              // Vanilla mode: use the actual staggered bounds from the solver!
-            var solver = HeaderDrawingCoordinator.GetVanillaSolver();
+            var solver = HeaderDrawingCoordinator.GetVanillaSolver(table);
             Rect staggeredBounds = solver.GetBounds(columnDef);
             Vector2 mousePos = HeaderInputController.MousePosition;
             

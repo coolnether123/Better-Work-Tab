@@ -65,7 +65,8 @@ namespace Better_Work_Tab.UI.Headers
             PawnTable table,
             in WorkTabHeaderFrame frame)
         {
-            bool deferVanillaSolve = HeaderDrawingCoordinator.BeginDeferredVanillaSolve();
+            HeaderDrawingCoordinator.VanillaSolveScope deferVanillaSolve =
+                HeaderDrawingCoordinator.BeginDeferredVanillaSolve(table);
             try
             {
                 float totalHeight = GetVisibleHeaderHighlightHeight(layout, in frame);
@@ -279,7 +280,7 @@ namespace Better_Work_Tab.UI.Headers
             }
             finally
             {
-                HeaderDrawingCoordinator.EndDeferredVanillaSolve(table, deferVanillaSolve);
+                HeaderDrawingCoordinator.EndDeferredVanillaSolve(deferVanillaSolve);
             }
         }
 
@@ -520,7 +521,7 @@ namespace Better_Work_Tab.UI.Headers
 
             bool isSorted = table != null && table.SortingBy == column.Column;
             bool sortDescending = table != null && table.SortingDescending;
-            HeaderDrawingCoordinator.GetActiveRenderer().DrawHeader(
+            HeaderDrawingCoordinator.GetActiveRenderer(table).DrawHeader(
                 labelLayout,
                 isMouseOver,
                 isSorted,
@@ -538,7 +539,7 @@ namespace Better_Work_Tab.UI.Headers
             bool isMouseOver,
             PawnTable table)
         {
-            var solver = HeaderDrawingCoordinator.GetVanillaSolver();
+            var solver = HeaderDrawingCoordinator.GetVanillaSolver(table);
             bool isMoved = WorkColumnCustomizationService.ShouldShowColumnMarker(parentWorkType);
             if (Event.current.type == EventType.Layout)
             {
@@ -567,7 +568,7 @@ namespace Better_Work_Tab.UI.Headers
 
             bool isSorted = table != null && table.SortingBy == column.Column;
             bool sortDescending = table != null && table.SortingDescending;
-            HeaderDrawingCoordinator.GetActiveRenderer().DrawHeader(
+            HeaderDrawingCoordinator.GetActiveRenderer(table).DrawHeader(
                 labelLayout,
                 isMouseOver,
                 isSorted,

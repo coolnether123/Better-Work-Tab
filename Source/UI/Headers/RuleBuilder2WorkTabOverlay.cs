@@ -251,7 +251,7 @@ namespace Better_Work_Tab.UI.Headers
             }
 
             HeaderDrawingCoordinator.EnsureLayoutSolved(table);
-            Rect vanillaBounds = HeaderDrawingCoordinator.GetVanillaSolver()?.GetBounds(columnDef) ?? Rect.zero;
+            Rect vanillaBounds = HeaderDrawingCoordinator.GetVanillaSolver(table)?.GetBounds(columnDef) ?? Rect.zero;
             if (!IsUsableRect(vanillaBounds))
             {
                 return false;
