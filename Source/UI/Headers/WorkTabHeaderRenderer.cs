@@ -65,18 +65,21 @@ namespace Better_Work_Tab.UI.Headers
             PawnTable table,
             in WorkTabHeaderFrame frame)
         {
-            float totalHeight = GetVisibleHeaderHighlightHeight(layout, in frame);
-            FluffyWorkTabGateway.PrepareHostedDraw(table);
-            float viewportLeft = layout.TableOrigin.x;
-            float viewportRight = viewportLeft + frame.TableViewportWidth;
-            bool ruleBuilderListening = RuleBuilderGateway.IsRuleBuilder2ListeningToWorkTab;
-            bool timePriorityOwnsMouse = TimePriorityScheduleEditor.OwnsCurrentMousePosition;
-            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
-            bool showCursorHighlight = settings.ShowCursorPawnAndWorktypeHighlight;
-            bool hasSettingsPreviewColumn =
-                WorkTabColumnHighlightUtility.TryGetSettingsPreviewColumn(
-                    layout.Columns,
-                    out WorkTabLayoutColumn settingsPreviewColumn);
+            bool deferVanillaSolve = HeaderDrawingCoordinator.BeginDeferredVanillaSolve();
+            try
+            {
+                float totalHeight = GetVisibleHeaderHighlightHeight(layout, in frame);
+                FluffyWorkTabGateway.PrepareHostedDraw(table);
+                float viewportLeft = layout.TableOrigin.x;
+                float viewportRight = viewportLeft + frame.TableViewportWidth;
+                bool ruleBuilderListening = RuleBuilderGateway.IsRuleBuilder2ListeningToWorkTab;
+                bool timePriorityOwnsMouse = TimePriorityScheduleEditor.OwnsCurrentMousePosition;
+                BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
+                bool showCursorHighlight = settings.ShowCursorPawnAndWorktypeHighlight;
+                bool hasSettingsPreviewColumn =
+                    WorkTabColumnHighlightUtility.TryGetSettingsPreviewColumn(
+                        layout.Columns,
+                        out WorkTabLayoutColumn settingsPreviewColumn);
 
             foreach (var column in layout.Columns)
             {
@@ -192,8 +195,8 @@ namespace Better_Work_Tab.UI.Headers
                 }
             }
 
-            if (SleekWorkTabGateway.BetterWorkTabHostsSleek)
-            {
+                if (SleekWorkTabGateway.BetterWorkTabHostsSleek)
+                {
                 // Sleek's header prefix still runs above so its frame/order/input state stays
                 // live. BWT now clears that complete surface and redraws its angled headers in
                 // one pass, which prevents a long angled label from being erased by the next
@@ -272,6 +275,11 @@ namespace Better_Work_Tab.UI.Headers
                         }
                     }
                 }
+                }
+            }
+            finally
+            {
+                HeaderDrawingCoordinator.EndDeferredVanillaSolve(table, deferVanillaSolve);
             }
         }
 

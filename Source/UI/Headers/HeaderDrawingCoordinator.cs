@@ -22,6 +22,7 @@ namespace Better_Work_Tab.UI.Headers
         private static VanillaHeaderRenderer _vanillaRenderer;
         private static VanillaHeaderLayoutSolver _vanillaSolver;
         private static WorkTabInvalidationVersion _lastInvalidationVersions;
+        private static int _deferredVanillaSolveDepth;
 
         static HeaderDrawingCoordinator()
         {
@@ -38,11 +39,54 @@ namespace Better_Work_Tab.UI.Headers
         public static void EnsureLayoutSolved(PawnTable table)
         {
             if (table == null) return;
+
+            if (_deferredVanillaSolveDepth > 0)
+            {
+                return;
+            }
             
             // Only solve for vanilla mode; angled headers do not require this
             if (!BetterWorkTabMod.Settings.enableAngledHeaders)
             {
                 _vanillaSolver.SolveLayout(table);
+            }
+        }
+
+        /// <summary>
+        /// Defers the vanilla header solve while the BWT-owned Layout pass is
+        /// collecting every header. The direct Harmony path does not use this
+        /// boundary and keeps its existing per-call behavior.
+        /// </summary>
+        internal static bool BeginDeferredVanillaSolve()
+        {
+            if (Event.current == null ||
+                Event.current.type != EventType.Layout ||
+                BetterWorkTabMod.Settings == null ||
+                BetterWorkTabMod.Settings.enableAngledHeaders)
+            {
+                return false;
+            }
+
+            _deferredVanillaSolveDepth++;
+            return true;
+        }
+
+        /// <summary>
+        /// Completes a deferred BWT-owned Layout pass after all headers have
+        /// been collected, restoring the normal solve behavior even when the
+        /// pass exits through an exception.
+        /// </summary>
+        internal static void EndDeferredVanillaSolve(PawnTable table, bool deferred)
+        {
+            if (!deferred)
+            {
+                return;
+            }
+
+            _deferredVanillaSolveDepth = Mathf.Max(0, _deferredVanillaSolveDepth - 1);
+            if (_deferredVanillaSolveDepth == 0)
+            {
+                EnsureLayoutSolved(table);
             }
         }
 
