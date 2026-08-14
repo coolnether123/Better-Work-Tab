@@ -184,18 +184,57 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                 out float bufferedViewportMinY,
                 out float bufferedViewportMaxY);
 
-            int first = Rows.Count;
-            int last = -1;
-            for (int i = 0; i < Rows.Count; i++)
+            int rowCount = Rows.Count;
+            if (rowCount == 0)
             {
-                Rect rect = GetRowScreenRect(i, new Vector2(0f, verticalScroll));
-                if (rect.yMax >= bufferedViewportMinY && rect.yMin <= bufferedViewportMaxY)
+                return new WorkGridIndexRange(0, 0);
+            }
+
+            float bodyTop = BodyTop;
+            int low = 0;
+            int high = rowCount;
+            while (low < high)
+            {
+                int middle = low + ((high - low) >> 1);
+                WorkGridRowGeometry row = Rows[middle];
+                float rowStart = bodyTop + row.OffsetY - verticalScroll;
+                if (rowStart + row.Height < bufferedViewportMinY)
                 {
-                    if (first == Rows.Count) first = i;
-                    last = i;
+                    low = middle + 1;
+                }
+                else
+                {
+                    high = middle;
                 }
             }
-            return last < first ? new WorkGridIndexRange(0, 0) : new WorkGridIndexRange(first, last - first + 1);
+
+            int first = low;
+            if (first >= rowCount)
+            {
+                return new WorkGridIndexRange(0, 0);
+            }
+
+            low = first;
+            high = rowCount;
+            while (low < high)
+            {
+                int middle = low + ((high - low) >> 1);
+                WorkGridRowGeometry row = Rows[middle];
+                float rowStart = bodyTop + row.OffsetY - verticalScroll;
+                if (rowStart <= bufferedViewportMaxY)
+                {
+                    low = middle + 1;
+                }
+                else
+                {
+                    high = middle;
+                }
+            }
+
+            int endExclusive = low;
+            return endExclusive <= first
+                ? new WorkGridIndexRange(0, 0)
+                : new WorkGridIndexRange(first, endExclusive - first);
         }
 
         public WorkGridIndexRange GetVisibleColumnRange(Rect viewport, float horizontalScroll)

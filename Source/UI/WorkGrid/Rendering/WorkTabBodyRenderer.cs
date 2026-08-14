@@ -142,8 +142,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 WorkGridIndexRange visibleRows = new WorkGridIndexRange(0, rowDescriptors.Count);
                 if (rowGeometry != null)
                 {
-                    visibleRows = ResolveVisibleRowRange(
-                        rowGeometry,
+                    visibleRows = rowGeometry.GetVisibleRowRange(
                         viewport.OutRect,
                         table.scrollPosition.y,
                         RowCullBuffer);
@@ -283,76 +282,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             }
 
             return totalWidth;
-        }
-
-        /// <summary>
-        /// Resolves the contiguous visible row range without scanning rows that
-        /// are entirely before or after the viewport. Layout publishes rows in
-        /// nonnegative, contiguous order, so both row starts and row ends are
-        /// monotonic for binary search.
-        /// </summary>
-        internal static WorkGridIndexRange ResolveVisibleRowRange(
-            WorkGridGeometrySnapshot geometry,
-            Rect viewport,
-            float verticalScroll,
-            float viewportBuffer)
-        {
-            if (geometry == null || geometry.Rows.Count == 0)
-            {
-                return new WorkGridIndexRange(0, 0);
-            }
-
-            float buffer = Math.Max(0f, viewportBuffer);
-            float viewportExtent = Math.Max(0f, viewport.height);
-            float visibleStart = viewport.yMin - buffer;
-            float visibleEnd = viewport.yMin + viewportExtent + buffer;
-            float bodyTop = geometry.BodyTop;
-            int rowCount = geometry.Rows.Count;
-
-            int low = 0;
-            int high = rowCount;
-            while (low < high)
-            {
-                int middle = low + ((high - low) >> 1);
-                WorkGridRowGeometry row = geometry.Rows[middle];
-                float rowStart = bodyTop + row.OffsetY - verticalScroll;
-                if (rowStart + row.Height < visibleStart)
-                {
-                    low = middle + 1;
-                }
-                else
-                {
-                    high = middle;
-                }
-            }
-
-            int first = low;
-            if (first >= rowCount)
-            {
-                return new WorkGridIndexRange(0, 0);
-            }
-
-            low = first;
-            high = rowCount;
-            while (low < high)
-            {
-                int middle = low + ((high - low) >> 1);
-                WorkGridRowGeometry row = geometry.Rows[middle];
-                float rowStart = bodyTop + row.OffsetY - verticalScroll;
-                if (rowStart <= visibleEnd)
-                {
-                    low = middle + 1;
-                }
-                else
-                {
-                    high = middle;
-                }
-            }
-
-            int endExclusive = low;
-            return endExclusive <= first
-                ? new WorkGridIndexRange(0, 0)
-                : new WorkGridIndexRange(first, endExclusive - first);
         }
 
         /// <summary>
