@@ -110,21 +110,13 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     for (int i = 0; i < columns.Count; i++)
                     {
                         WorkTabLayoutColumn column = columns[i];
-                        bool columnVisible;
-                        if (columnReorderAnimationActive)
-                        {
-                            WorkGridAnimatedColumnGeometry geometry =
-                                WorkGridInteractionGeometry.GetAnimatedColumn(column);
-                            columnVisible = geometry.BodyContentX + geometry.Width >= visibleLeft &&
-                                            geometry.BodyContentX <= visibleRight;
-                        }
-                        else
-                        {
-                            columnVisible = column.OffsetX + column.Width >= visibleLeft &&
-                                            column.OffsetX <= visibleRight;
-                        }
-
-                        if (columnVisible)
+                        GetBodyColumnGeometry(
+                            column,
+                            columnReorderAnimationActive,
+                            out float bodyContentX,
+                            out float columnWidth);
+                        if (bodyContentX + columnWidth >= visibleLeft &&
+                            bodyContentX <= visibleRight)
                         {
                             _visibleRenderColumns.Add(column);
                         }
@@ -284,6 +276,25 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             return totalWidth;
         }
 
+        private static void GetBodyColumnGeometry(
+            WorkTabLayoutColumn column,
+            bool columnReorderAnimationActive,
+            out float bodyContentX,
+            out float columnWidth)
+        {
+            if (columnReorderAnimationActive)
+            {
+                WorkGridAnimatedColumnGeometry geometry =
+                    WorkGridInteractionGeometry.GetAnimatedColumn(column);
+                bodyContentX = geometry.BodyContentX;
+                columnWidth = geometry.Width;
+                return;
+            }
+
+            bodyContentX = column.OffsetX;
+            columnWidth = column.Width;
+        }
+
         /// <summary>
         /// Phase 1: Draws all highlighting overlays.
         /// This includes selected and hovered rows, float-menu worktype columns,
@@ -342,20 +353,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 for (int i = 0; i < columns.Count; i++)
                 {
                     var col = columns[i];
-                    float bodyContentX;
-                    float columnWidth;
-                    if (columnReorderAnimationActive)
-                    {
-                        WorkGridAnimatedColumnGeometry geometry =
-                            WorkGridInteractionGeometry.GetAnimatedColumn(col);
-                        bodyContentX = geometry.BodyContentX;
-                        columnWidth = geometry.Width;
-                    }
-                    else
-                    {
-                        bodyContentX = col.OffsetX;
-                        columnWidth = col.Width;
-                    }
+                    GetBodyColumnGeometry(
+                        col,
+                        columnReorderAnimationActive,
+                        out float bodyContentX,
+                        out float columnWidth);
 
                     var columnRect = new Rect(
                         bodyContentX,
@@ -470,20 +472,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             for (int i = 0; i < columns.Count; i++)
             {
                 var column = columns[i];
-                float bodyContentX;
-                float columnWidth;
-                if (columnReorderAnimationActive)
-                {
-                    WorkGridAnimatedColumnGeometry geometry =
-                        WorkGridInteractionGeometry.GetAnimatedColumn(column);
-                    bodyContentX = geometry.BodyContentX;
-                    columnWidth = geometry.Width;
-                }
-                else
-                {
-                    bodyContentX = column.OffsetX;
-                    columnWidth = column.Width;
-                }
+                GetBodyColumnGeometry(
+                    column,
+                    columnReorderAnimationActive,
+                    out float bodyContentX,
+                    out float columnWidth);
 
                 Rect columnRect = new Rect(
                     bodyContentX,
@@ -780,13 +773,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             float currentY = 0f;
 
             GUI.color = new Color(1f, 1f, 1f, 0.12f);
-            for (int i = visibleRows.Start; i < visibleRows.EndExclusive; i++)
+            int separatorEnd = Math.Min(visibleRows.EndExclusive, rowDescriptors.Count - 1);
+            for (int i = visibleRows.Start; i < separatorEnd; i++)
             {
-                if (i >= rowDescriptors.Count - 1)
-                {
-                    continue;
-                }
-
                 if (rowGeometry != null)
                 {
                     currentY = rowGeometry.Rows[i].OffsetY;
