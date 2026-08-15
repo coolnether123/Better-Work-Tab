@@ -82,6 +82,10 @@ namespace Better_Work_Tab.UI.Headers
 
         private static bool PrefixProfiled(PawnColumnWorker_WorkPriority __instance, Rect rect, PawnTable table)
         {
+            if (!BwtRaisedPriorityFeatureInstaller.IsFeatureActive ||
+                !PriorityAuthorityBroker.ShouldRunBetterWorkTabPriorityFeatures)
+                return true;
+
             // Only apply BWT patches to the Work tab (vanilla or BWT), not other tabs like MechTab
             if (!IsWorkTab())
                 return true;
@@ -135,6 +139,10 @@ namespace Better_Work_Tab.UI.Headers
             Rect rect,
             PawnTable table)
         {
+            if (!BwtRaisedPriorityFeatureInstaller.IsFeatureActive ||
+                !PriorityAuthorityBroker.ShouldRunBetterWorkTabPriorityFeatures)
+                return;
+
             if (!SleekWorkTabGateway.BetterWorkTabHostsSleek ||
                 !IsWorkTab() ||
                 worker?.def?.workType == null)
@@ -185,6 +193,10 @@ namespace Better_Work_Tab.UI.Headers
         [HarmonyAfter("squishyjellyfish.SleekWorkPriorities")]
         public static void Postfix(PawnColumnWorker_WorkPriority __instance, PawnTable table, ref int __result)
         {
+            if (!BwtRaisedPriorityFeatureInstaller.IsFeatureActive ||
+                !PriorityAuthorityBroker.ShouldRunBetterWorkTabPriorityFeatures)
+                return;
+
             // Only apply to the Work tab (vanilla or BWT), not other tabs like MechTab
             if (!PawnColumnWorker_WorkPriority_DoHeader_Patch.IsWorkTab())
                 return;
@@ -229,6 +241,7 @@ namespace Better_Work_Tab.UI.Headers
     /// </summary>
     [HarmonyPatch(typeof(PawnColumnWorker), nameof(PawnColumnWorker.DoHeader),
         new[] { typeof(Rect), typeof(PawnTable) })]
+    [HarmonyPatchCategory(BwtRaisedPriorityFeatureInstaller.RaisedPriorityPatchCategory)]
     public static class Patch_PawnColumnWorker_DoHeader_DisableHighlight
     {
         [HarmonyTranspiler]

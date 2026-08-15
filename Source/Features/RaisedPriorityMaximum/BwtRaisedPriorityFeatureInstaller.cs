@@ -107,8 +107,10 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             IEnumerable<string> diagnostics)
         {
             State = state;
-            Preflight = ReadOnly(preflight);
-            Installation = ReadOnly(installation);
+            Preflight = new ReadOnlyCollection<BwtRaisedPriorityPatchAttempt>(
+                (preflight ?? Enumerable.Empty<BwtRaisedPriorityPatchAttempt>()).ToList());
+            Installation = new ReadOnlyCollection<BwtRaisedPriorityPatchAttempt>(
+                (installation ?? Enumerable.Empty<BwtRaisedPriorityPatchAttempt>()).ToList());
             PatchAllInvoked = patchAllInvoked;
             RollbackAttempted = rollbackAttempted;
             RollbackSucceeded = rollbackSucceeded;
@@ -139,12 +141,6 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 RollbackSucceeded + (diagnostics.Length == 0 ? String.Empty : ";diagnostics=" + diagnostics);
         }
 
-        private static IReadOnlyList<BwtRaisedPriorityPatchAttempt> ReadOnly(
-            IEnumerable<BwtRaisedPriorityPatchAttempt> values)
-        {
-            return new ReadOnlyCollection<BwtRaisedPriorityPatchAttempt>(
-                (values ?? Enumerable.Empty<BwtRaisedPriorityPatchAttempt>()).ToList());
-        }
     }
 
     /// <summary>
@@ -204,26 +200,50 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
     internal sealed class BwtRaisedPriorityFeatureInstaller
     {
         internal const string HarmonyOwnerId = "Coolnether123.betterworktab";
+        internal const string RaisedPriorityHarmonyOwnerId =
+            "Coolnether123.betterworktab.raised-priority";
+        internal const string RaisedPriorityPatchCategory =
+            "BetterWorkTab.RaisedPriority";
+
+        private const int AllTranspilers = Int32.MaxValue;
+        private static readonly object InstallationSync = new object();
 
         private readonly IReadOnlyList<BwtRaisedPriorityPatchDefinition> _definitions;
-        // InstallProduction creates a short-lived coordinator at mod startup. Keep this guard
-        // process-wide so a second caller cannot run PatchAll again after a partial attempt.
-        private static bool _patchAllAttempted;
+        private readonly string _raisedPriorityOwnerId;
+        private static volatile bool _isFeatureActive;
+        private static BwtRaisedPriorityInstallReport _lastReport;
 
         internal BwtRaisedPriorityFeatureInstaller(
-            IEnumerable<BwtRaisedPriorityPatchDefinition> definitions)
+            IEnumerable<BwtRaisedPriorityPatchDefinition> definitions,
+            string raisedPriorityOwnerId = RaisedPriorityHarmonyOwnerId)
         {
             if (definitions == null)
                 throw new ArgumentNullException("definitions");
+
+            if (String.IsNullOrEmpty(raisedPriorityOwnerId))
+                throw new ArgumentException("A raised-priority Harmony owner is required.",
+                    "raisedPriorityOwnerId");
 
             _definitions = new ReadOnlyCollection<BwtRaisedPriorityPatchDefinition>(
                 definitions.Where(value => value != null).ToList());
             if (_definitions.Count != 6)
                 throw new ArgumentException("The raised-priority feature requires exactly six transpilers.", "definitions");
+            _raisedPriorityOwnerId = raisedPriorityOwnerId;
         }
 
-        internal static bool IsFeatureActive { get; private set; }
-        internal static BwtRaisedPriorityInstallReport LastReport { get; private set; }
+        internal static bool IsFeatureActive
+        {
+            get { return _isFeatureActive; }
+        }
+
+        internal static BwtRaisedPriorityInstallReport LastReport
+        {
+            get
+            {
+                lock (InstallationSync)
+                    return _lastReport;
+            }
+        }
 
         internal static BwtRaisedPriorityInstallReport InstallProduction(Harmony harmony)
         {
@@ -233,90 +253,143 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
         internal BwtRaisedPriorityInstallReport Install(Harmony harmony, bool runPatchAll)
         {
-            IsFeatureActive = false;
-            var diagnostics = new List<string>();
-            if (harmony == null)
+            lock (InstallationSync)
             {
-                diagnostics.Add("No Harmony instance was supplied.");
-                return CreateReport(BwtRaisedPriorityInstallState.PreflightRejected,
-                    null, null, false, false, false, diagnostics);
-            }
-
-            List<BwtRaisedPriorityPatchAttempt> preflight = new List<BwtRaisedPriorityPatchAttempt>();
-            int ownedCount = CountOwnedTranspilers(harmony);
-            if (ownedCount == _definitions.Count)
-            {
-                IsFeatureActive = true;
-                return CreateReport(BwtRaisedPriorityInstallState.AlreadyInstalled,
-                    preflight, null, false, false, true, diagnostics);
-            }
-
-            if (ownedCount != 0 && !TryRemoveOwnedTranspilers(harmony, diagnostics))
-            {
-                return CreateReport(BwtRaisedPriorityInstallState.RollbackFailed,
-                    preflight, null, false, true, false, diagnostics);
-            }
-
-            preflight = Preflight(harmony);
-            if (preflight.Any(value => !value.Succeeded))
-            {
-                diagnostics.Add("At least one required raised-priority transpiler failed preflight.");
-                return CreateReport(BwtRaisedPriorityInstallState.PreflightRejected,
-                    preflight, null, false, false, true, diagnostics);
-            }
-
-            if (runPatchAll && _patchAllAttempted)
-            {
-                diagnostics.Add("PatchAll was already attempted; refusing a second installation pass.");
-                return CreateReport(BwtRaisedPriorityInstallState.PreflightRejected,
-                    preflight, null, false, false, true, diagnostics);
-            }
-
-            BwtRaisedPriorityInstallState installingState = BwtRaisedPriorityInstallState.Installing;
-            List<BwtRaisedPriorityPatchAttempt> installation;
-            using (BwtRaisedPriorityInstallationSession session =
-                BwtRaisedPriorityInstallationSession.Begin())
-            {
-                _patchAllAttempted |= runPatchAll;
-                try
+                _isFeatureActive = false;
+                var diagnostics = new List<string>();
+                bool patchAllInvoked = runPatchAll;
+                if (harmony == null)
                 {
-                    if (runPatchAll)
-                        harmony.PatchAll(typeof(BwtRaisedPriorityFeatureInstaller).Assembly);
-                    else
-                        InstallDefinitionsIndividually(harmony);
-                }
-                catch (Exception exception)
-                {
-                    diagnostics.Add("Harmony installation threw " + exception.GetType().FullName + ": " +
-                        Trim(exception.Message));
+                    diagnostics.Add("No Harmony instance was supplied.");
+                    return CreateReport(BwtRaisedPriorityInstallState.PreflightRejected,
+                        null, null, false, false, false, diagnostics);
                 }
 
-                installation = CollectInstallationAttempts(session);
+                Harmony raisedPriorityHarmony = new Harmony(_raisedPriorityOwnerId);
+                bool cleanupAttempted = false;
+                bool cleanupSucceeded = true;
+
+                if (runPatchAll && !TryPatchUncategorized(harmony, diagnostics))
+                {
+                    if (HasAnyOwnedTranspilers())
+                    {
+                        cleanupAttempted = true;
+                        cleanupSucceeded = TryRemoveOwnedTranspilers(
+                            raisedPriorityHarmony, diagnostics);
+                    }
+
+                    return CreateReport(
+                        cleanupSucceeded
+                            ? BwtRaisedPriorityInstallState.RolledBack
+                            : BwtRaisedPriorityInstallState.RollbackFailed,
+                        null, null, patchAllInvoked, cleanupAttempted, cleanupSucceeded, diagnostics);
+                }
+
+                int ownedCount = CountOwnedTranspilers();
+                if (ownedCount == _definitions.Count)
+                {
+                    List<BwtRaisedPriorityPatchAttempt> revalidation = Preflight();
+                    if (revalidation.Count == _definitions.Count &&
+                        revalidation.All(value => value.Succeeded) &&
+                        revalidation.All(value => value.Outcome == PatchOutcome.AlreadyApplied))
+                    {
+                        _isFeatureActive = true;
+                        return CreateReport(BwtRaisedPriorityInstallState.AlreadyInstalled,
+                            revalidation, null, patchAllInvoked, false, true, diagnostics);
+                    }
+
+                    diagnostics.Add(
+                        "The existing raised-priority installation failed full-composition revalidation; " +
+                        "it will be removed and evaluated again.");
+                    cleanupAttempted = true;
+                    cleanupSucceeded = TryRemoveOwnedTranspilers(
+                        raisedPriorityHarmony, diagnostics);
+                    if (!cleanupSucceeded)
+                    {
+                        return CreateReport(BwtRaisedPriorityInstallState.RollbackFailed,
+                            revalidation, null, patchAllInvoked, true, false, diagnostics);
+                    }
+                }
+                else if (ownedCount != 0 || HasAnyOwnedTranspilers())
+                {
+                    cleanupAttempted = true;
+                    cleanupSucceeded = TryRemoveOwnedTranspilers(
+                        raisedPriorityHarmony, diagnostics);
+                    if (!cleanupSucceeded)
+                    {
+                        return CreateReport(BwtRaisedPriorityInstallState.RollbackFailed,
+                            null, null, patchAllInvoked, true, false, diagnostics);
+                    }
+                }
+
+                List<BwtRaisedPriorityPatchAttempt> preflight = Preflight();
+                if (preflight.Count != _definitions.Count ||
+                    preflight.Any(value => !value.Succeeded))
+                {
+                    diagnostics.Add("At least one required raised-priority transpiler failed preflight " +
+                        "against the fully composed IL.");
+                    return CreateReport(BwtRaisedPriorityInstallState.PreflightRejected,
+                        preflight, null, patchAllInvoked,
+                        cleanupAttempted, cleanupSucceeded, diagnostics);
+                }
+
+                List<BwtRaisedPriorityPatchAttempt> installation;
+                using (BwtRaisedPriorityInstallationSession session =
+                    BwtRaisedPriorityInstallationSession.Begin())
+                {
+                    try
+                    {
+                        InstallDefinitionsIndividually(raisedPriorityHarmony);
+                    }
+                    catch (Exception exception)
+                    {
+                        diagnostics.Add("Harmony installation threw " + exception.GetType().FullName + ": " +
+                            Trim(exception.Message));
+                    }
+
+                    installation = CollectInstallationAttempts(session);
+                }
+
+                bool installed = installation.Count == _definitions.Count &&
+                    installation.All(value => value.Succeeded) &&
+                    CountOwnedTranspilers() == _definitions.Count;
+                if (installed)
+                {
+                    _isFeatureActive = true;
+                    return CreateReport(BwtRaisedPriorityInstallState.Installed,
+                        preflight, installation, patchAllInvoked, false, true, diagnostics);
+                }
+
+                diagnostics.Add("The six required transpilers were not installed as one complete feature.");
+                bool rollbackSucceeded = TryRemoveOwnedTranspilers(
+                    raisedPriorityHarmony, diagnostics);
+                BwtRaisedPriorityInstallState state = rollbackSucceeded
+                    ? BwtRaisedPriorityInstallState.RolledBack
+                    : BwtRaisedPriorityInstallState.RollbackFailed;
+
+                _isFeatureActive = false;
+                return CreateReport(state, preflight, installation, patchAllInvoked,
+                    true, rollbackSucceeded, diagnostics);
             }
-
-            bool installed = installation.Count == _definitions.Count &&
-                installation.All(value => value.Succeeded) &&
-                CountOwnedTranspilers(harmony) == _definitions.Count;
-            if (installed)
-            {
-                IsFeatureActive = true;
-                return CreateReport(BwtRaisedPriorityInstallState.Installed,
-                    preflight, installation, runPatchAll, false, true, diagnostics);
-            }
-
-            diagnostics.Add("The six required transpilers were not installed as one complete feature.");
-            bool rollbackSucceeded = TryRemoveOwnedTranspilers(harmony, diagnostics);
-            if (rollbackSucceeded)
-                installingState = BwtRaisedPriorityInstallState.RolledBack;
-            else
-                installingState = BwtRaisedPriorityInstallState.RollbackFailed;
-
-            IsFeatureActive = false;
-            return CreateReport(installingState, preflight, installation, runPatchAll,
-                true, rollbackSucceeded, diagnostics);
         }
 
-        private List<BwtRaisedPriorityPatchAttempt> Preflight(Harmony harmony)
+        private bool TryPatchUncategorized(Harmony harmony, IList<string> diagnostics)
+        {
+            try
+            {
+                harmony.PatchAllUncategorized(
+                    typeof(BwtRaisedPriorityFeatureInstaller).Assembly);
+                return true;
+            }
+            catch (Exception exception)
+            {
+                diagnostics.Add("Harmony uncategorized installation threw " +
+                    exception.GetType().FullName + ": " + Trim(exception.Message));
+                return false;
+            }
+        }
+
+        private List<BwtRaisedPriorityPatchAttempt> Preflight()
         {
             var results = new List<BwtRaisedPriorityPatchAttempt>();
             foreach (BwtRaisedPriorityPatchDefinition definition in _definitions)
@@ -332,7 +405,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
                     ILGenerator generator;
                     List<CodeInstruction> current = PatchProcessor.GetCurrentInstructions(
-                        definition.Target, out generator, 0);
+                        definition.Target, out generator, AllTranspilers);
                     if (generator == null)
                     {
                         generator = new DynamicMethod(
@@ -353,6 +426,9 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
         private void InstallDefinitionsIndividually(Harmony harmony)
         {
+            // Harmony recomputes the live, fully composed instruction stream for each patch.
+            // Reusing the preflight list would hide a foreign change between the two phases;
+            // the installation session records that live invocation and rolls back on failure.
             foreach (BwtRaisedPriorityPatchDefinition definition in _definitions)
             {
                 if (definition.Target == null || definition.Transpiler == null)
@@ -380,7 +456,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             return results;
         }
 
-        private int CountOwnedTranspilers(Harmony harmony)
+        private int CountOwnedTranspilers()
         {
             int count = 0;
             foreach (BwtRaisedPriorityPatchDefinition definition in _definitions)
@@ -391,6 +467,12 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             return count;
         }
 
+        private bool HasAnyOwnedTranspilers()
+        {
+            return _definitions.Any(definition =>
+                definition.Target != null && HasAnyOwnedTranspiler(definition.Target));
+        }
+
         private bool OwnsTranspiler(BwtRaisedPriorityPatchDefinition definition)
         {
             if (definition.Target == null || definition.Transpiler == null)
@@ -399,8 +481,16 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             HarmonyLib.Patches patches = HarmonyLib.Harmony.GetPatchInfo(definition.Target);
             return patches != null && patches.Transpilers != null &&
                 patches.Transpilers.Any(patch => patch != null &&
-                    String.Equals(patch.owner, HarmonyOwnerId, StringComparison.Ordinal) &&
+                    String.Equals(patch.owner, _raisedPriorityOwnerId, StringComparison.Ordinal) &&
                     patch.PatchMethod == definition.Transpiler);
+        }
+
+        private bool HasAnyOwnedTranspiler(MethodBase target)
+        {
+            HarmonyLib.Patches patches = HarmonyLib.Harmony.GetPatchInfo(target);
+            return patches != null && patches.Transpilers != null &&
+                patches.Transpilers.Any(patch => patch != null &&
+                    String.Equals(patch.owner, _raisedPriorityOwnerId, StringComparison.Ordinal));
         }
 
         private bool TryRemoveOwnedTranspilers(Harmony harmony, IList<string> diagnostics)
@@ -408,15 +498,16 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             bool success = true;
             foreach (BwtRaisedPriorityPatchDefinition definition in _definitions)
             {
-                if (!OwnsTranspiler(definition))
+                if (definition.Target == null || !HasAnyOwnedTranspiler(definition.Target))
                     continue;
 
                 try
                 {
-                    // Unpatch by the exact BWT method only after checking the owner. This leaves
-                    // every foreign prefix, postfix, finalizer, and transpiler untouched.
-                    harmony.Unpatch(definition.Target, definition.Transpiler);
-                    if (OwnsTranspiler(definition))
+                    // The exact-method overload is unsafe when a foreign owner registered the
+                    // same MethodInfo. Restrict cleanup by owner and patch type instead.
+                    harmony.Unpatch(definition.Target, HarmonyPatchType.Transpiler,
+                        _raisedPriorityOwnerId);
+                    if (HasAnyOwnedTranspiler(definition.Target))
                     {
                         success = false;
                         diagnostics.Add("BWT transpiler cleanup remained active for " + definition.Id + ".");
@@ -444,7 +535,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 preflight ?? Enumerable.Empty<BwtRaisedPriorityPatchAttempt>(),
                 installation ?? Enumerable.Empty<BwtRaisedPriorityPatchAttempt>(),
                 patchAllInvoked, rollbackAttempted, rollbackSucceeded, diagnostics);
-            LastReport = report;
+            _lastReport = report;
             return report;
         }
 
@@ -502,7 +593,9 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 new BwtRaisedPriorityPatchDefinition(
                     BwtRaisedPriorityPatchIds.LabelDoCell,
                     AccessTools.Method(typeof(PawnColumnWorker_Label), nameof(PawnColumnWorker_Label.DoCell)),
-                    AccessTools.Method(typeof(Better_Work_Tab.Patches.Patch_PawnColumnWorker_Label_DoCell), "Transpiler"))
+                    AccessTools.Method(
+                        typeof(Better_Work_Tab.Patches.Patch_PawnColumnWorker_Label_DoCell_Transpiler),
+                        "Transpiler"))
             });
         }
 

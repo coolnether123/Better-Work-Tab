@@ -23,7 +23,8 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         [HarmonyPostfix]
         private static void Postfix(ref Color __result, int prio)
         {
-            if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabPriorityFeatures)
+            if (!BwtRaisedPriorityFeatureInstaller.IsFeatureActive ||
+                !PriorityAuthorityBroker.ShouldRunBetterWorkTabPriorityFeatures)
             {
                 return;
             }
@@ -33,6 +34,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
     }
 
     [HarmonyPatch(typeof(WidgetsWork), nameof(WidgetsWork.TipForPawnWorker))]
+    [HarmonyPatchCategory(BwtRaisedPriorityFeatureInstaller.RaisedPriorityPatchCategory)]
     internal static class Patch_WidgetsWork_TipForPawnWorker
     {
         [HarmonyTranspiler]
@@ -44,6 +46,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
     }
 
     [HarmonyPatch(typeof(WidgetsWork), nameof(WidgetsWork.DrawWorkBoxFor))]
+    [HarmonyPatchCategory(BwtRaisedPriorityFeatureInstaller.RaisedPriorityPatchCategory)]
     internal static class Patch_WidgetsWork_DrawWorkBoxFor
     {
         /// <summary>
@@ -58,6 +61,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
     }
 
     [HarmonyPatch(typeof(PawnColumnWorker_WorkPriority), nameof(PawnColumnWorker_WorkPriority.HeaderClicked))]
+    [HarmonyPatchCategory(BwtRaisedPriorityFeatureInstaller.RaisedPriorityPatchCategory)]
     internal static class Patch_PawnColumnWorker_WorkPriority_HeaderClicked
     {
         /// <summary>
@@ -72,6 +76,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
     }
 
     [HarmonyPatch(typeof(Pawn_WorkSettings), nameof(Pawn_WorkSettings.SetPriority))]
+    [HarmonyPatchCategory(BwtRaisedPriorityFeatureInstaller.RaisedPriorityPatchCategory)]
     internal static class Patch_Pawn_WorkSettings_SetPriority
     {
         /// <summary>
