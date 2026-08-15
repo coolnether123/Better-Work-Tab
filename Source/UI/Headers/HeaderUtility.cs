@@ -2,7 +2,7 @@ using RimWorld;
 using UnityEngine;
 using Verse;
 using System.Collections.Generic;
-using Better_Work_Tab.Features.Testing;
+using Better_Work_Tab.Diagnostics;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.UI.Columns;
 using Better_Work_Tab.UI.WorkGiverReassignments;

@@ -169,42 +169,6 @@ namespace Better_Work_Tab.Features.Tutorial
             WelcomeOverlay.ResetAnimation();
         }
 
-        internal static void ShowEntryForSmokeTest()
-        {
-            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
-            settings.showGeneralTutorial = true;
-            settings.tutorialWelcomeCompleted = false;
-            settings.activeTutorialLessonId = string.Empty;
-            WelcomeOverlay.ResetAnimation();
-            settings.Write();
-        }
-
-        internal static void StartCourseForSmokeTest(BWTTutorialCourse course)
-        {
-            StartCourse(course);
-        }
-
-        internal static void ResolveCourseForSmokeTest(bool alternateSkipped)
-        {
-            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
-            int index = 0;
-            foreach (BWTTutorialLessonDefinition lesson in BWTTutorialLessonCatalog.ForCourse(settings.selectedTutorialCourse))
-            {
-                settings.completedTutorialLessonIds.Remove(lesson.Id);
-                settings.skippedTutorialLessonIds.Remove(lesson.Id);
-                if (alternateSkipped && index++ % 2 == 1)
-                {
-                    settings.skippedTutorialLessonIds.Add(lesson.Id);
-                }
-                else
-                {
-                    settings.completedTutorialLessonIds.Add(lesson.Id);
-                }
-            }
-            settings.Write();
-            ReviewIfCourseResolved(settings);
-        }
-
         internal static bool OpenLessonFromReview(string lessonId)
         {
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;

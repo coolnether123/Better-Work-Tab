@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using LudeonTK;
 using Spine.UI.SettingsFramework;
 using Verse;
 
@@ -70,13 +69,6 @@ namespace Better_Work_Tab.UI.Settings
                 LongEventHandler.ExecuteWhenFinished(
                     () => ValidateTranslationCoverage(BWTSettingsRegistry.Definitions));
             }
-        }
-
-        [DebugAction("Better Work Tab", "Validate settings registry", false, false, false, false, false, 0, false, actionType = DebugActionType.Action)]
-        public static void ValidateFromDebugAction()
-        {
-            BWTSettingsRegistry.EnsureInitialized();
-            Validate(BWTSettingsRegistry.Definitions);
         }
 
         public static void Validate(IEnumerable<SettingDefinition> definitions)

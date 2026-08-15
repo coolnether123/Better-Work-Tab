@@ -1,7 +1,7 @@
 using System;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
-using Better_Work_Tab.Features.Testing;
+using Better_Work_Tab.Diagnostics;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities;
 using Better_Work_Tab.PawnOrganizer;

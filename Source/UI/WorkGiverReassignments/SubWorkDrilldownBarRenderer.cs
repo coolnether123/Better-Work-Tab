@@ -1,5 +1,5 @@
 using Better_Work_Tab.Features.WorkGiverReassignments;
-using Better_Work_Tab.Features.Testing;
+using Better_Work_Tab.Diagnostics;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;

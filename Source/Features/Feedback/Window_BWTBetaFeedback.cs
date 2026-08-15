@@ -107,7 +107,7 @@ namespace Better_Work_Tab.Features.Feedback
                     "BWT_Beta_CopyDiscord".Translate(),
                     BWTBetaFeedbackButton.Icon))
             {
-                CopyDiscordForSmokeTest();
+                CopyDiscordReport();
                 Messages.Message("BWT_Tutorial_DiscordCopied".Translate(), MessageTypeDefOf.TaskCompletion, false);
             }
 
@@ -739,7 +739,7 @@ namespace Better_Work_Tab.Features.Feedback
         {
             if (Widgets.ButtonText(new Rect(footer.x, footer.y + 4f, 220f, 32f), "BWT_Beta_CopyFull".Translate()))
             {
-                CopyFullForSmokeTest();
+                CopyFullReport();
                 Messages.Message("BWT_Tutorial_FullCopied".Translate(), MessageTypeDefOf.TaskCompletion, false);
             }
 
@@ -749,7 +749,7 @@ namespace Better_Work_Tab.Features.Feedback
                     "BWT_Beta_ClearConfirm".Translate(),
                     () =>
                     {
-                        ClearFeedbackForSmokeTest();
+                        ClearFeedback();
                         settings.Write();
                     },
                     true));
@@ -763,7 +763,7 @@ namespace Better_Work_Tab.Features.Feedback
 
         // -- Smoke-test surface -----------------------------------------------
 
-        internal void PopulateFeedbackForSmokeTest()
+        internal void PopulateFeedback()
         {
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
             int index = 0;
@@ -800,21 +800,21 @@ namespace Better_Work_Tab.Features.Feedback
             settings.Write();
         }
 
-        internal string CopyDiscordForSmokeTest()
+        internal string CopyDiscordReport()
         {
             string report = BWTBetaReportFormatter.FormatDiscord(BetterWorkTabMod.Settings);
             GUIUtility.systemCopyBuffer = report;
             return report;
         }
 
-        internal string CopyFullForSmokeTest()
+        internal string CopyFullReport()
         {
             string report = BWTBetaReportFormatter.FormatFull(BetterWorkTabMod.Settings);
             GUIUtility.systemCopyBuffer = report;
             return report;
         }
 
-        internal void ClearFeedbackForSmokeTest()
+        internal void ClearFeedback()
         {
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
             BWTTutorialFeedbackStore.Clear(settings);

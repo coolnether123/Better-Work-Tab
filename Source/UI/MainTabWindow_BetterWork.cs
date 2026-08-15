@@ -2,7 +2,7 @@ using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.Dividers;
 using Better_Work_Tab.Features.Migration;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
-using Better_Work_Tab.Features.Testing;
+using Better_Work_Tab.Diagnostics;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.Tutorial;
 using Better_Work_Tab.Features.WorkGiverReassignments;
@@ -298,7 +298,6 @@ namespace Better_Work_Tab.UI
             _windowSizingController.StageBottomAnchoredResizeIfRequestedSizeChanged();
             TimePriorityScheduleEditor.TryOpenAgentRequestedSession(organizer?.Layout);
             FluffyTimeScheduleAssigner.ProcessAgentRequest();
-            RuleBuilder2AgentHarness.ProcessSelectionRequest(organizer?.Layout);
 
             Event evt = Event.current;
             BWTWorkTabTutorial.UpdatePointerOwnership(inRect, organizer?.Layout, evt.mousePosition);
@@ -398,7 +397,6 @@ namespace Better_Work_Tab.UI
             BWTWorkTabTutorial.TickAndDraw(inRect, organizer?.Layout);
             // Serviced after the tutorial has drawn, so the harness resolves
             // targets against the geometry the player is actually looking at.
-            BWTTutorialAgentHarness.ProcessRequest(inRect, organizer?.Layout);
             if (BWTWorkTabTutorial.OwnsCurrentPointer && evt.type == EventType.Repaint)
             {
                 Vector2 pointer = evt.mousePosition;
@@ -406,7 +404,7 @@ namespace Better_Work_Tab.UI
             }
             NativeCursorPosition.ProcessPendingMove();
             NativeCursorPosition.DrawPendingMoveCue();
-            Better_Work_Tab.Features.Testing.SubWorkTransitionPerfDiagnostics.RecordWorkTabRepaint();
+            SubWorkTransitionPerfDiagnostics.RecordWorkTabRepaint();
         }
 
         private void RefreshSubWorkLayoutIfNeeded(PawnOrganizerSystem organizer)

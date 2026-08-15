@@ -1,8 +1,8 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Better_Work_Tab.Diagnostics;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
-using Better_Work_Tab.Features.Testing;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.PawnOrganizer.API;
@@ -37,7 +37,7 @@ namespace Better_Work_Tab.Features.TimePriority
         private const string AgentRequestFileName = "BWTFluffySchedule.request";
         private const string AgentStatusFileName = "BWTFluffySchedule.status";
         private static readonly bool AgentEnabled =
-            AgentHarnessUtility.IsEnabled();
+            DiagnosticsFileAccess.IsEnabled();
         private static int _nextAgentRequestFrame;
 
         internal static bool IsAvailable =>
@@ -137,7 +137,7 @@ namespace Better_Work_Tab.Features.TimePriority
 
             _nextAgentRequestFrame = Time.frameCount + 15;
 
-            string requestPath = AgentHarnessUtility.GetPath(AgentRequestFileName);
+            string requestPath = DiagnosticsFileAccess.GetPath(AgentRequestFileName);
             if (!File.Exists(requestPath))
             {
                 return;
@@ -159,7 +159,7 @@ namespace Better_Work_Tab.Features.TimePriority
             }
 
             File.WriteAllText(
-                AgentHarnessUtility.GetPath(AgentStatusFileName),
+                DiagnosticsFileAccess.GetPath(AgentStatusFileName),
                 "present=" + FluffyWorkTabGateway.IsPresent +
                 " available=" + IsAvailable +
                 " enabled=" + IsEnabled +

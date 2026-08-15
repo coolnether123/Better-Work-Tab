@@ -86,9 +86,6 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             new Dictionary<string, PawnColumnDef>(StringComparer.Ordinal);
         private static readonly Dictionary<PawnColumnDef, WorkGiverDef> NativeHostedWorkGivers =
             new Dictionary<PawnColumnDef, WorkGiverDef>();
-        internal static bool DebugForceSubWorkStyleChooserAvailable;
-        internal static BetterWorkTabSettings.SubWorkDrilldownStyle DebugForcedSubWorkStyleChooserHover =
-            BetterWorkTabSettings.SubWorkDrilldownStyle.NotChosen;
         private static readonly string[] FluffyBaseSearchKeywords =
         {
             "Fluffy",
@@ -583,7 +580,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             WorkTypeDef workType,
             Rect sourceRect)
         {
-            if (((!CanHostFluffySubWorkColumns && !DebugForceSubWorkStyleChooserAvailable)) ||
+            if (!CanHostFluffySubWorkColumns ||
                 workType == null ||
                 BetterWorkTabMod.Settings == null ||
                 BetterWorkTabMod.Settings.subWorkDrilldownStyle != BetterWorkTabSettings.SubWorkDrilldownStyle.NotChosen)
@@ -1189,7 +1186,6 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             _expandChoiceButtonRect = Rect.zero;
             _rememberChoiceRect = Rect.zero;
             _chooserRememberChoice = true;
-            DebugForcedSubWorkStyleChooserHover = BetterWorkTabSettings.SubWorkDrilldownStyle.NotChosen;
         }
 
         private static void ClearSubWorkDrilldownStyleChooserPreview(bool immediateFocusExit)
@@ -1224,11 +1220,6 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
 
         private static BetterWorkTabSettings.SubWorkDrilldownStyle GetSubWorkDrilldownStyleChooserHover()
         {
-            if (DebugForcedSubWorkStyleChooserHover != BetterWorkTabSettings.SubWorkDrilldownStyle.NotChosen)
-            {
-                return DebugForcedSubWorkStyleChooserHover;
-            }
-
             Event evt = Event.current;
             if (evt == null)
             {

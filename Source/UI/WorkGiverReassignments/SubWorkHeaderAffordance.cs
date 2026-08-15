@@ -12,8 +12,6 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
     internal static class SubWorkHeaderAffordance
     {
         private const float BackBadgeSize = 18f;
-        internal static bool DebugForceBackButtonHover;
-
         internal static Rect GetBackBadgeRect(Rect labelCellRect)
         {
             return new Rect(
@@ -31,7 +29,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
         internal static bool IsBackButtonHovered(Rect labelCellRect)
         {
-            return Mouse.IsOver(labelCellRect) || DebugForceBackButtonHover;
+            return Mouse.IsOver(labelCellRect);
         }
 
         internal static bool TryGetBackLabelCellRect(IWorkTabLayoutController layout, out Rect labelCellRect)

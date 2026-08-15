@@ -115,8 +115,8 @@ namespace Better_Work_Tab.Features.Tutorial
                 return found;
             }
 
-            bool dividers = Probe(HasDividers);
-            bool appearance = Probe(HasCustomPawnAppearance);
+            bool dividers = EvaluateSignal(HasDividers);
+            bool appearance = EvaluateSignal(HasCustomPawnAppearance);
 
             Add(found, BWTTutorialLessonCatalog.PawnDivider, dividers);
             Add(found, BWTTutorialLessonCatalog.PawnAppearance, appearance);
@@ -125,11 +125,11 @@ namespace Better_Work_Tab.Features.Tutorial
             // either one proves the player has found it.
             Add(found, BWTTutorialLessonCatalog.PawnMenu, dividers || appearance);
 
-            Add(found, BWTTutorialLessonCatalog.HeaderReorder, Probe(HasReorderedColumns));
-            Add(found, BWTTutorialLessonCatalog.PrioritySchedule, Probe(HasSchedules));
-            Add(found, BWTTutorialLessonCatalog.HeaderSubWork, Probe(HasSubWorkOverrides));
-            Add(found, BWTTutorialLessonCatalog.RuleBuilder2, Probe(HasBuiltRules));
-            Add(found, BWTTutorialLessonCatalog.PriorityRange, Probe(HasWidenedPriorityRange));
+            Add(found, BWTTutorialLessonCatalog.HeaderReorder, EvaluateSignal(HasReorderedColumns));
+            Add(found, BWTTutorialLessonCatalog.PrioritySchedule, EvaluateSignal(HasSchedules));
+            Add(found, BWTTutorialLessonCatalog.HeaderSubWork, EvaluateSignal(HasSubWorkOverrides));
+            Add(found, BWTTutorialLessonCatalog.RuleBuilder2, EvaluateSignal(HasBuiltRules));
+            Add(found, BWTTutorialLessonCatalog.PriorityRange, EvaluateSignal(HasWidenedPriorityRange));
             return found;
         }
 
@@ -141,7 +141,7 @@ namespace Better_Work_Tab.Features.Tutorial
             }
         }
 
-        private static bool Probe(Func<bool> test)
+        private static bool EvaluateSignal(Func<bool> test)
         {
             try
             {

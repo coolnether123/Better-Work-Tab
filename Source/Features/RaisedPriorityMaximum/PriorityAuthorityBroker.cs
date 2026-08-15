@@ -51,7 +51,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             Handoffs = handoffs;
             ExplicitInvalidations = explicitInvalidations;
             RegistryListBuilds = registryListBuilds;
-            StoreProbes = storeProbes;
+            StoreObservationCount = storeProbes;
             RegistryRefreshPasses = registryRefreshPasses;
             RegistryRefreshDeferred = registryRefreshDeferred;
             RegistryGeneration = registryGeneration;
@@ -65,7 +65,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         public long Handoffs { get; }
         public long ExplicitInvalidations { get; }
         public long RegistryListBuilds { get; }
-        public long StoreProbes { get; }
+        public long StoreObservationCount { get; }
         public long RegistryRefreshPasses { get; }
         public bool RegistryRefreshDeferred { get; }
         public long RegistryGeneration { get; }
@@ -154,7 +154,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 handoffs,
                 explicitInvalidations,
                 ExternalWorkTabRegistry.RegistryListBuilds,
-                ExternalWorkTabRegistry.StoreProbes,
+                ExternalWorkTabRegistry.StoreObservationCount,
                 ExternalWorkTabRegistry.AuthorityRefreshPasses,
                 ExternalWorkTabRegistry.AuthorityRefreshDeferred,
                 ExternalWorkTabRegistry.RegistryGeneration,

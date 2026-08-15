@@ -66,7 +66,7 @@ namespace Better_Work_Tab.ModSupport
             }
         }
 
-        internal static long StoreProbes
+        internal static long StoreObservationCount
         {
             get
             {
@@ -1027,7 +1027,7 @@ namespace Better_Work_Tab.ModSupport
 
             try
             {
-                RecordStoreProbe();
+                RecordStoreObservation();
                 if (store == null || !store.IsAvailable)
                 {
                     return false;
@@ -1091,7 +1091,7 @@ namespace Better_Work_Tab.ModSupport
 
         private static bool SafeIsAvailable(IExternalWorkTabStore store)
         {
-            RecordStoreProbe();
+            RecordStoreObservation();
             try
             {
                 return store != null && store.IsAvailable;
@@ -1123,7 +1123,7 @@ namespace Better_Work_Tab.ModSupport
         }
 
         [Conditional("DEBUG")]
-        private static void RecordStoreProbe()
+        private static void RecordStoreObservation()
         {
 #if DEBUG
             Interlocked.Increment(ref storeProbes);

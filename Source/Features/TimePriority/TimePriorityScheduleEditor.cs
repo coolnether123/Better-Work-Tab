@@ -2,8 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using Better_Work_Tab.Diagnostics;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
-using Better_Work_Tab.Features.Testing;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.ModSupport;
 using Better_Work_Tab.PawnOrganizer;
@@ -357,12 +357,12 @@ namespace Better_Work_Tab.Features.TimePriority
 
         internal static void TryOpenAgentRequestedSession(IWorkTabLayoutController layout)
         {
-            if (!IsEnabled || layout == null || !IsAgentHarnessEnabled())
+            if (!IsEnabled || layout == null || !IsDiagnosticsEnabled())
             {
                 return;
             }
 
-            string requestPath = AgentHarnessUtility.GetPath(
+            string requestPath = DiagnosticsFileAccess.GetPath(
                 AgentOpenRequestFileName);
             if (!File.Exists(requestPath))
             {
@@ -467,9 +467,9 @@ namespace Better_Work_Tab.Features.TimePriority
             return TryGetToggleTarget(layout, mousePosition, out _);
         }
 
-        private static bool IsAgentHarnessEnabled()
+        private static bool IsDiagnosticsEnabled()
         {
-            return AgentHarnessUtility.IsEnabled();
+            return DiagnosticsFileAccess.IsEnabled();
         }
 
         internal static void Draw(IWorkTabLayoutController layout)

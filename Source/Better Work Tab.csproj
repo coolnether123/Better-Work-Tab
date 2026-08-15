@@ -160,23 +160,23 @@
     <Compile Include="Features\WorkGiverReassignments\SubWorkDrilldownState.cs" />
     <Compile Include="Features\Workloads\GameComponent_BWTWorldSettings.cs" />
     <Compile Include="Diagnostics\WorkTabDiagnostics.cs" />
-    <Compile Include="Features\Testing\AgentFloatMenuHighlightTestDriver.cs" />
-    <Compile Include="Features\Testing\GameComponent_BWTModernQuickTestDriver.cs" />
-    <Compile Include="Features\Testing\GameComponent_BWTSettingsCohortQuickTestDriver.cs" />
-    <Compile Include="Features\Testing\GameComponent_BWTTutorialQuickTestDriver.cs" />
+    <Compile Include="Features\Testing\AgentFloatMenuHighlightTestDriver.cs" Condition="'$(Configuration)' != '1.6'" />
+    <Compile Include="Features\Testing\GameComponent_BWTModernQuickTestDriver.cs" Condition="'$(Configuration)' != '1.6'" />
+    <Compile Include="Features\Testing\GameComponent_BWTSettingsCohortQuickTestDriver.cs" Condition="'$(Configuration)' != '1.6'" />
+    <Compile Include="Features\Testing\GameComponent_BWTTutorialQuickTestDriver.cs" Condition="'$(Configuration)' != '1.6'" />
     <Compile Include="Features\Testing\AgentHarnessUtility.cs" />
     <Compile Include="UI\BWTBottomBarIcons.cs" />
     <Compile Include="UI\BWTBottomBarSelector.cs" />
     <Compile Include="UI\OneTimePromptPresence.cs" />
-    <Compile Include="Features\Testing\BWTTutorialAgentHarness.cs" />
-    <Compile Include="Features\Testing\RuleBuilder2AgentHarness.cs" />
+    <Compile Include="Features\Testing\BWTTutorialAgentHarness.cs" Condition="'$(Configuration)' != '1.6'" />
+    <Compile Include="Features\Testing\RuleBuilder2AgentHarness.cs" Condition="'$(Configuration)' != '1.6'" />
     <Compile Include="Features\Testing\SubWorkTransitionPerfDiagnostics.cs" />
     <Compile Include="Features\Testing\WorkTabGeometryContractValidator.cs" />
     <Compile Include="Features\Testing\WorkTabGeometryDiagnostics.cs" />
     <Compile Include="Features\Testing\WorkTabProfilingState.cs" />
-    <Compile Include="Features\Testing\WorkGridRendererExceptionProbe.cs" />
-    <Compile Include="Features\Testing\RuleBuilder2ConditionSeeder.cs" />
-    <Compile Include="Features\Testing\RuleBuilder2ClassicRoundTripSelfTest.cs" />
+    <Compile Include="Features\Testing\WorkGridRendererExceptionProbe.cs" Condition="'$(Configuration)' != '1.6'" />
+    <Compile Include="Features\Testing\RuleBuilder2ConditionSeeder.cs" Condition="'$(Configuration)' != '1.6'" />
+    <Compile Include="Features\Testing\RuleBuilder2ClassicRoundTripSelfTest.cs" Condition="'$(Configuration)' != '1.6'" />
     <Compile Include="Features\TimePriority\Patch_CopyPasteWorkPriorities_TimePriority.cs" />
     <Compile Include="Features\TimePriority\TimePriorityEvaluation.cs" />
     <Compile Include="Features\TimePriority\TimePriorityScheduleClipboard.cs" />
@@ -196,7 +196,7 @@
     <Compile Include="Features\Tutorial\BWTTutorialLessonCatalog.cs" />
     <Compile Include="Features\Tutorial\BWTTutorialFeedback.cs" />
     <Compile Include="Features\Feedback\BWTDiagnosticContext.cs" />
-    <Compile Include="Features\Testing\BWTTutorialAwarenessSelfTest.cs" />
+    <Compile Include="Features\Testing\BWTTutorialAwarenessSelfTest.cs" Condition="'$(Configuration)' != '1.6'" />
     <Compile Include="Features\Tutorial\BWTTutorialFeatureDiscovery.cs" />
     <Compile Include="Features\Tutorial\BWTTutorialPriorUse.cs" />
     <Compile Include="Features\Tutorial\BWTTutorialProgress.cs" />
