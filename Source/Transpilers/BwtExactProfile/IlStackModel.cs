@@ -151,7 +151,7 @@ namespace Better_Work_Tab.Transpilers.BwtExactProfile
             "nop", "break", "constrained.", "readonly.", "tail.", "unaligned.", "volatile.");
         private static readonly HashSet<string> FieldOps = Ops(
             "ldsfld", "ldsflda", "ldfld", "ldflda", "stfld", "stsfld");
-        private static readonly HashSet<string> CallOps = Ops("call", "callvirt", "newobj");
+        private static readonly HashSet<string> CallOps = Ops("call", "callvirt", "calli", "newobj");
         private static readonly HashSet<string> FunctionPointerOps = Ops("ldftn", "ldvirtftn");
         private static readonly HashSet<string> TruthyOps = Ops("brtrue", "brtrue.s", "brfalse", "brfalse.s");
         private static readonly HashSet<string> UnconditionalOps = Ops("br", "br.s", "leave", "leave.s");
@@ -335,7 +335,8 @@ namespace Better_Work_Tab.Transpilers.BwtExactProfile
             MethodBase method = instruction.operand as MethodBase;
             string name = instruction.opcode.Name;
             bool constructor = name == "newobj";
-            string error = method == null ? "Call has no MethodBase operand."
+            string error = name == "calli" ? "Reachable calli signatures are outside the verifier safety boundary."
+                : method == null ? "Call has no MethodBase operand."
                 : method.ContainsGenericParameters ? "Open generic call operands are unsupported."
                 : constructor && !(method is ConstructorInfo) ? "newobj requires a constructor operand."
                 : name == "callvirt" && method.IsStatic ? "callvirt cannot target a static method operand."
