@@ -1,17 +1,18 @@
-using HarmonyLib;
-using RimWorld;
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Reflection.Emit;
+using HarmonyLib;
+using RimWorld;
 using UnityEngine;
 using Verse;
+using Better_Work_Tab.Features.Patches.Profiles;
 using Better_Work_Tab.UI.Headers.Vanilla;
 using Better_Work_Tab.UI.Headers.Angled;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities;
-using Spine.Harmony;
 using Spine.Profiling;
 
 namespace Better_Work_Tab.UI.Headers
@@ -72,7 +73,8 @@ namespace Better_Work_Tab.UI.Headers
         {
             if (SpineTiming.Enabled)
             {
-                return SpineTiming.Time("Harmony.WorkPriority.DoHeader.Prefix", () => PrefixProfiled(__instance, rect, table));
+                return SpineTiming.Time(
+                    "Harmony.WorkPriority.DoHeader.Prefix", () => PrefixProfiled(__instance, rect, table));
             }
 
             return PrefixProfiled(__instance, rect, table);
@@ -209,7 +211,7 @@ namespace Better_Work_Tab.UI.Headers
     }
 
     /// <summary>
-    /// Transpiler: injects a condition before the vanilla header highlight draw to skip
+    /// Transpiler: Injects a condition before Widgets.DrawHighlight to skip
     /// the vanilla highlight if:
     /// - Angled headers are enabled AND
     /// - We're in a PawnColumnWorker_WorkPriority (our custom header handler)
@@ -221,43 +223,19 @@ namespace Better_Work_Tab.UI.Headers
     ///   if (!Settings.enableAngledHeaders) goto do_highlight;
     ///   if (!(this is PawnColumnWorker_WorkPriority)) goto do_highlight;
     ///   goto skip_highlight;
-    ///   run_original:
+    ///   do_highlight:
     ///     Widgets.DrawHighlight(rect);
-    ///   skip_original:
+    ///   skip_highlight:
     /// </summary>
-    [HarmonyPatch(typeof(PawnColumnWorker), nameof(PawnColumnWorker.DoHeader))]
+    [HarmonyPatch(typeof(PawnColumnWorker), nameof(PawnColumnWorker.DoHeader),
+        new[] { typeof(Rect), typeof(PawnTable) })]
     public static class Patch_PawnColumnWorker_DoHeader_DisableHighlight
     {
         [HarmonyTranspiler]
         public static IEnumerable<CodeInstruction> Transpiler(
-            IEnumerable<CodeInstruction> instructions,
-            ILGenerator il,
-            MethodBase original)
+            IEnumerable<CodeInstruction> instructions, ILGenerator il, MethodBase original)
         {
-            return FluentTranspilerExecution.ExecuteRequiredOrOriginal(
-                instructions,
-                original,
-                il,
-                "[BWT] Header highlight transpiler",
-                transpiler => transpiler
-                    .BeforeCall(AccessTools.Method(
-                        typeof(Widgets),
-                        nameof(Widgets.DrawHighlight),
-                        new[] { typeof(Rect) }))
-                    .IncludingPreviousInstruction()
-                    .SkipOriginalWhen(
-                        guard => guard
-                            .RequireStaticFieldNotNull(AccessTools.Field(
-                                typeof(BetterWorkTabMod),
-                                nameof(BetterWorkTabMod.Settings)))
-                            .RequireStaticFieldInstanceFieldTrue(
-                                AccessTools.Field(typeof(BetterWorkTabMod), nameof(BetterWorkTabMod.Settings)),
-                                AccessTools.Field(typeof(BetterWorkTabSettings), nameof(BetterWorkTabSettings.enableAngledHeaders)))
-                            .RequireCallTrue(AccessTools.Method(
-                                typeof(PawnColumnWorker_WorkPriority_DoHeader_Patch),
-                                nameof(PawnColumnWorker_WorkPriority_DoHeader_Patch.IsWorkTab)))
-                            .SkipIfThisIs(typeof(PawnColumnWorker_WorkPriority)),
-                        "Skip vanilla work-priority header highlight"));
+            return BwtHeaderCompiler.ApplyDisableHighlight(instructions, il, original);
         }
     }
 }

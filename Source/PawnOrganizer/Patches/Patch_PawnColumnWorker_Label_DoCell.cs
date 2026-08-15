@@ -1,16 +1,18 @@
 using System;
-using Better_Work_Tab.Features.Testing;
+using Better_Work_Tab.Diagnostics;
 using Better_Work_Tab.Features.Tutorial;
 using Better_Work_Tab.PawnOrganizer.API;
+using Better_Work_Tab.PawnOrganizer.Patches;
 using System.Collections.Generic;
 using HarmonyLib;
 using RimWorld;
-using Spine.Harmony;
 using Spine.UI; // for TextColorHelper
 using UnityEngine;
 using Verse;
+using Spine.Harmony.Transpilers.VNext;
 using Better_Work_Tab.ModSupport;
 using Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities;
+using Better_Work_Tab.Features.Patches.Profiles;
 using System.Reflection;
 
 namespace Better_Work_Tab.Patches
@@ -45,7 +47,7 @@ namespace Better_Work_Tab.Patches
                     __instance.def.groupable ? rect.height : __instance.GetMinCellHeight(pawn)));
 
             Rect iconRect = new Rect(rect1.x, rect1.y, rect1.height, rect1.height);
-            WorkTabGeometryDiagnostics.RecordPawnLabelIconRect(pawn, iconRect);
+            WorkTabDiagnostics.RecordPawnLabelIcon(pawn, iconRect);
             ModSupportManager.OnPawnRowDrawn(pawn, iconRect);
         }
 
@@ -158,7 +160,7 @@ namespace Better_Work_Tab.Patches
                 if (Current.ProgramState == ProgramState.Playing && Event.current.button == 0)
                 {
                     // Keep the Work tab open when the user opts into the setting; otherwise mimic vanilla.
-                    if (ShouldCloseWorkTab())
+                    if (PawnLabelCloseAdapter.ShouldCloseWorkTab())
                     {
                         Find.MainTabsRoot.EscapeCurrentTab(false);
                     }
@@ -176,32 +178,8 @@ namespace Better_Work_Tab.Patches
             IEnumerable<CodeInstruction> instructions,
             MethodBase original)
         {
-            return FluentTranspilerExecution.ExecuteRequiredOrOriginal(
-                instructions,
-                original,
-                null,
-                "[BWT] Pawn label close-tab transpiler",
-                transpiler => transpiler
-                    .ForCall(AccessTools.Method(
-                        typeof(MainTabsRoot),
-                        nameof(MainTabsRoot.EscapeCurrentTab),
-                        new[] { typeof(bool) }))
-                    .ReplaceWith(AccessTools.Method(
-                        typeof(Patch_PawnColumnWorker_Label_DoCell),
-                        nameof(MaybeCloseWorkTab))));
+            return BwtCallRedirectConsumers.ApplyPawnLabelCloseWorkTab(instructions, original);
         }
-
-        private static void MaybeCloseWorkTab(MainTabsRoot root, bool playSound)
-        {
-            // Transpiler covers the vanilla draw path; Prefix handles the contrast path.
-            if (ShouldCloseWorkTab())
-            {
-                root?.EscapeCurrentTab(playSound);
-            }
-        }
-
-        private static bool ShouldCloseWorkTab() =>
-            !(BetterWorkTabMod.Settings?.disableLeftClickClose ?? false);
 
         private readonly struct GUIColorScope : IDisposable
         {

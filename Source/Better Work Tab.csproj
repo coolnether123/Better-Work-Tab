@@ -102,6 +102,14 @@
     <Compile Include="Features\HighlightState.cs" />
     <Compile Include="Features\Caching\BedCountCache.cs" />
     <Compile Include="Features\Patches\MaxPriorityPatches.cs" />
+    <Compile Include="Features\Patches\PriorityIlBindings.cs" />
+    <Compile Include="Features\Patches\Profiles\BwtTranspilerProfileContracts.cs" />
+    <Compile Include="Features\Patches\Profiles\BwtCallRedirectProfiles.cs" />
+    <Compile Include="Features\Patches\Profiles\BwtPriorityProfiles.cs" />
+    <Compile Include="Features\Patches\Profiles\BwtCallRedirectCompiler.cs" />
+    <Compile Include="Features\Patches\Profiles\BwtPriorityCompiler.cs" />
+    <Compile Include="Features\Patches\Profiles\BwtHeaderProfiles.cs" />
+    <Compile Include="Features\Patches\Profiles\BwtHeaderCompiler.cs" />
     <Compile Include="Features\RaisedPriorityMaximum\PriorityAuthorityBroker.cs" />
     <Compile Include="Features\RaisedPriorityMaximum\PriorityAuthorityPatches.cs" />
     <Compile Include="Features\RaisedPriorityMaximum\PriorityConstants.cs" />
@@ -226,6 +234,7 @@
     <Compile Include="PawnOrganizer\Layout\WorkTabLayoutController.cs" />
     <Compile Include="PawnOrganizer\Layout\WorkTabLayoutRow.cs" />
     <Compile Include="PawnOrganizer\Patches\Patch_PawnColumnWorker_Label_DoCell.cs" />
+    <Compile Include="PawnOrganizer\Patches\PawnLabelCloseAdapter.cs" />
     <Compile Include="PawnOrganizer\PawnOrganizerSystem.cs" />
     <Compile Include="Mod Support\IModSupportModule.cs" />
     <Compile Include="Mod Support\IModSettingsContributor.cs" />
@@ -424,6 +433,7 @@
     <Compile Include="UI\Settings\WorkTabColorPreviewRenderer.cs" />
     <Compile Include="UI\Settings\BWTSettingsTranslation.cs" />
     <Compile Include="UI\Settings\SettingIDs.cs" />
+    <Compile Include="UI\Settings\BWTSettingsVisibilityContract.cs" />
     <Compile Include="UI\Settings\SettingsConsistencyValidator.cs" />
     <Compile Include="UI\Window_RulesManager.cs" />
     <Compile Include="UI\Dialog_RenameGeneric.cs" />

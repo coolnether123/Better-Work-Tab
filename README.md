@@ -4,6 +4,15 @@
 
 Better Work Tab rebuilds RimWorld's Work tab around faster colony setup, detailed job control, reusable rules, and a layout you can shape around the way you play.
 
+## Transpiler architecture
+
+Active BWT IL patches use the VNext transactional engine with exact RimWorld
+1.6 target profiles. Profiles describe the known method, call signatures,
+locals, and IL anchors; VNext performs matching, verification, atomic mutation,
+rollback, and diagnostics. The older Fluent transpiler remains compiled as a
+legacy compatibility surface and is frozen; new BWT patches should use VNext
+profiles.
+
 ## What 2.0 adds
 
 - **Guided tutorial** — choose a focused “What’s new in 2.0” course or the complete Better Work Tab walkthrough. Lessons point at the real controls and ask you to perform the action.

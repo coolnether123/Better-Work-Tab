@@ -109,7 +109,7 @@ namespace Better_Work_Tab.UI.Settings
                 // actually cannot survive is a setting they rely on vanishing
                 // from the UI altogether, so that is what is asserted. Moving one
                 // into Advanced is a judgement call; removing it is a bug.
-                if (BWTSettingsFilters.IsV10Setting(def) &&
+                if (BWTSettingsVisibilityContract.IsPublicV10(def.Id) &&
                     !def.ShowInSimpleView &&
                     !def.ShowInAdvancedView)
                 {

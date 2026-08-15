@@ -1,3 +1,4 @@
+using System;
 using Spine.Api;
 
 namespace Better_Work_Tab.ModSupport.Mods.Spine
@@ -8,6 +9,15 @@ namespace Better_Work_Tab.ModSupport.Mods.Spine
         Standalone
     }
 
+    [Flags]
+    internal enum SpinePublicSurface
+    {
+        None = 0,
+        RuntimeDescriptor = 1,
+        SettingsSurface = 2,
+        SettingsPage = 4
+    }
+
     internal readonly struct SpineCompatibilityDecision
     {
         internal SpineCompatibilityDecision(
@@ -15,26 +25,53 @@ namespace Better_Work_Tab.ModSupport.Mods.Spine
             bool isCompatible,
             SpineCapability missingCapabilities,
             string detail)
+            : this(provider, isCompatible, missingCapabilities,
+                SpinePublicSurface.None, detail)
+        {
+        }
+
+        internal SpineCompatibilityDecision(
+            SpineProviderKind provider,
+            bool isCompatible,
+            SpineCapability missingCapabilities,
+            SpinePublicSurface missingPublicSurface,
+            string detail)
         {
             Provider = provider;
             IsCompatible = isCompatible;
             MissingCapabilities = missingCapabilities;
+            MissingPublicSurface = missingPublicSurface;
             Detail = detail ?? string.Empty;
         }
 
         internal SpineProviderKind Provider { get; }
         internal bool IsCompatible { get; }
         internal SpineCapability MissingCapabilities { get; }
+        internal SpinePublicSurface MissingPublicSurface { get; }
         internal string Detail { get; }
     }
 
     internal static class SpineCompatibilityPolicy
     {
+        internal const SpineCapability RequiredCapabilities =
+            SpineCapability.BoundedCaches |
+            SpineCapability.Settings |
+            SpineCapability.ContextualSettings |
+            SpineCapability.ModSettingsPages |
+            SpineCapability.SettingsSchema |
+            SpineCapability.SettingsPreviewTransactions;
+
+        internal const SpinePublicSurface RequiredPublicSurface =
+            SpinePublicSurface.RuntimeDescriptor |
+            SpinePublicSurface.SettingsSurface |
+            SpinePublicSurface.SettingsPage;
+
         internal static SpineCompatibilityDecision Evaluate(
             bool standalonePackageActive,
             bool standaloneAssemblyBound,
             SpineApiDescriptor descriptor,
-            SpineRequirement requirement)
+            SpineRequirement requirement,
+            SpinePublicSurface publicSurface = RequiredPublicSurface)
         {
             if (!standalonePackageActive && standaloneAssemblyBound)
             {
@@ -67,32 +104,25 @@ namespace Better_Work_Tab.ModSupport.Mods.Spine
 
             SpineCapability missing = requirement.RequiredCapabilities &
                 ~descriptor.Capabilities;
-            if (descriptor.Version < requirement.MinimumVersion)
+            SpinePublicSurface missingSurface = RequiredPublicSurface & ~publicSurface;
+            if (missing != SpineCapability.None || missingSurface != SpinePublicSurface.None)
             {
                 return new SpineCompatibilityDecision(
                     SpineProviderKind.Standalone,
                     false,
                     missing,
-                    requirement.ConsumerId + " requires Spine " +
-                    requirement.MinimumVersion + " or newer; loaded " +
-                    descriptor.Version + ".");
-            }
-
-            if (missing != SpineCapability.None)
-            {
-                return new SpineCompatibilityDecision(
-                    SpineProviderKind.Standalone,
-                    false,
-                    missing,
+                    missingSurface,
                     requirement.ConsumerId +
-                    " requires unavailable Spine capabilities: " + missing + ".");
+                    " requires the advertised Spine capabilities and public surface. " +
+                    "Missing capabilities=" + missing + ", surface=" + missingSurface + ".");
             }
 
             return new SpineCompatibilityDecision(
                 SpineProviderKind.Standalone,
                 true,
                 SpineCapability.None,
-                "Using standalone Spine " + descriptor.Version + ".");
+                SpinePublicSurface.None,
+                "Using standalone Spine with the required capability and public-surface contract.");
         }
     }
 }
