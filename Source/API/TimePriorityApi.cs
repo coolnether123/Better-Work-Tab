@@ -61,6 +61,16 @@ namespace Better_Work_Tab.API
             return TimePriorityService.CurrentVersion;
         }
 
+        /// <summary>
+        /// Publishes a change made directly to serialized schedule data.
+        /// Consumers that mutate a loaded schedule rather than using one of
+        /// the schedule commands must call this once the data is normalized.
+        /// </summary>
+        public static void NotifySavedScheduleDataChanged()
+        {
+            TimePriorityService.ReconcileDirectMutationsFromAudit();
+        }
+
         public static int GetCurrentHour(Pawn pawn = null)
         {
             return TimePriorityService.GetCurrentHour(pawn);
