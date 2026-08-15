@@ -236,7 +236,7 @@ namespace Spine.UI.SettingsFramework
         {
             if (Supersessions == null || Supersessions.Count == 0)
             {
-                return Array.Empty<SettingSupersession>();
+                return LegacyReadOnlyCollections.EmptyList<SettingSupersession>();
             }
 
             var active = new List<SettingSupersession>(Supersessions.Count);
@@ -249,7 +249,7 @@ namespace Spine.UI.SettingsFramework
                 }
             }
 
-            return active;
+            return LegacyReadOnlyCollections.WrapList(active);
         }
 
         /// <summary>
@@ -282,7 +282,11 @@ namespace Spine.UI.SettingsFramework
         /// <summary>
         /// Draws a custom row. Return true when the row changed settings.
         /// </summary>
+#if RWT_LEGACY_BCL
+        public LegacyFunc6<Rect, string, string, object, bool, bool> CustomDrawer;
+#else
         public Func<Rect, string, string, object, bool, bool> CustomDrawer;
+#endif
 
         /// <summary>Reports whether a custom row differs from its default state.</summary>
         public Func<object, bool> CustomHasNonDefaultValue;

@@ -85,7 +85,7 @@ namespace Spine.Harmony
                     uniquenessScore += freq == 1 ? 1.5f : 1.0f / freq;
                 }
                 
-                if (instr.operand is MethodInfo mi && mi.DeclaringType != typeof(object)) 
+                if (instr.operand is MethodInfo mi && !object.Equals(mi.DeclaringType, typeof(object)))
                     uniquenessScore += 0.8f;
                     
                 if (uniquenessScore >= threshold)

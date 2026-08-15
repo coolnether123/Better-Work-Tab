@@ -3,7 +3,11 @@ using System.Globalization;
 
 namespace Spine.Api
 {
+#if RWT_LEGACY_BCL
+    public struct SemanticVersion : IComparable<SemanticVersion>, IEquatable<SemanticVersion>
+#else
     public readonly struct SemanticVersion : IComparable<SemanticVersion>, IEquatable<SemanticVersion>
+#endif
     {
         public SemanticVersion(int major, int minor, int patch, string prerelease = null)
         {
@@ -14,14 +18,28 @@ namespace Spine.Api
             Major = major;
             Minor = minor;
             Patch = patch;
-            Prerelease = string.IsNullOrWhiteSpace(prerelease) ? null : prerelease;
+            Prerelease = LegacyBcl.IsNullOrWhiteSpace(prerelease) ? null : prerelease;
+#if RWT_LEGACY_BCL
+            IsPrerelease = Prerelease != null;
+#endif
         }
 
+#if RWT_LEGACY_BCL
+        public int Major;
+        public int Minor;
+        public int Patch;
+        public string Prerelease;
+#else
         public int Major { get; }
         public int Minor { get; }
         public int Patch { get; }
         public string Prerelease { get; }
+#endif
+#if RWT_LEGACY_BCL
+        public bool IsPrerelease;
+#else
         public bool IsPrerelease => Prerelease != null;
+#endif
 
         public static SemanticVersion Parse(string value)
         {
@@ -36,7 +54,7 @@ namespace Spine.Api
         public static bool TryParse(string value, out SemanticVersion version)
         {
             version = default(SemanticVersion);
-            if (string.IsNullOrWhiteSpace(value))
+            if (LegacyBcl.IsNullOrWhiteSpace(value))
             {
                 return false;
             }
@@ -46,7 +64,7 @@ namespace Spine.Api
             string core = prereleaseSeparator < 0 ? withoutBuild : withoutBuild.Substring(0, prereleaseSeparator);
             string prerelease = prereleaseSeparator < 0 ? null : withoutBuild.Substring(prereleaseSeparator + 1);
             string[] parts = core.Split('.');
-            if (parts.Length != 3 || string.IsNullOrWhiteSpace(prerelease) && prereleaseSeparator >= 0)
+            if (parts.Length != 3 || LegacyBcl.IsNullOrWhiteSpace(prerelease) && prereleaseSeparator >= 0)
             {
                 return false;
             }
@@ -170,11 +188,15 @@ namespace Spine.Api
         SettingsPreviewTransactions = 1UL << 15
     }
 
+#if RWT_LEGACY_BCL
+    public struct SpineApiDescriptor
+#else
     public readonly struct SpineApiDescriptor
+#endif
     {
         public SpineApiDescriptor(string apiId, SemanticVersion version, SpineCapability capabilities)
         {
-            if (string.IsNullOrWhiteSpace(apiId))
+            if (LegacyBcl.IsNullOrWhiteSpace(apiId))
             {
                 throw new ArgumentException("An API identifier is required.", nameof(apiId));
             }
@@ -184,9 +206,15 @@ namespace Spine.Api
             Capabilities = capabilities;
         }
 
+#if RWT_LEGACY_BCL
+        public string ApiId;
+        public SemanticVersion Version;
+        public SpineCapability Capabilities;
+#else
         public string ApiId { get; }
         public SemanticVersion Version { get; }
         public SpineCapability Capabilities { get; }
+#endif
 
         public bool Supports(SemanticVersion minimumVersion, SpineCapability requiredCapabilities)
         {
@@ -194,14 +222,18 @@ namespace Spine.Api
         }
     }
 
+#if RWT_LEGACY_BCL
+    public struct SpineRequirement
+#else
     public readonly struct SpineRequirement
+#endif
     {
         public SpineRequirement(
             string consumerId,
             SemanticVersion minimumVersion,
             SpineCapability requiredCapabilities)
         {
-            if (string.IsNullOrWhiteSpace(consumerId))
+            if (LegacyBcl.IsNullOrWhiteSpace(consumerId))
             {
                 throw new ArgumentException(
                     "A consumer identifier is required.",
@@ -213,12 +245,22 @@ namespace Spine.Api
             RequiredCapabilities = requiredCapabilities;
         }
 
+#if RWT_LEGACY_BCL
+        public string ConsumerId;
+        public SemanticVersion MinimumVersion;
+        public SpineCapability RequiredCapabilities;
+#else
         public string ConsumerId { get; }
         public SemanticVersion MinimumVersion { get; }
         public SpineCapability RequiredCapabilities { get; }
+#endif
     }
 
+#if RWT_LEGACY_BCL
+    public struct SpineCompatibilityResult
+#else
     public readonly struct SpineCompatibilityResult
+#endif
     {
         public SpineCompatibilityResult(
             bool isCompatible,
@@ -230,9 +272,15 @@ namespace Spine.Api
             Detail = detail ?? string.Empty;
         }
 
+#if RWT_LEGACY_BCL
+        public bool IsCompatible;
+        public SpineCapability MissingCapabilities;
+        public string Detail;
+#else
         public bool IsCompatible { get; }
         public SpineCapability MissingCapabilities { get; }
         public string Detail { get; }
+#endif
     }
 
     public interface ISpineRuntimeFacade

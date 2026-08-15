@@ -413,7 +413,7 @@ namespace Spine.UI.SettingsFramework
                 currentValue,
                 labelProvider);
 
-            if (Widgets.ButtonText(buttonRect, currentLabel) && enumType != null)
+            if (Widgets.ButtonText(buttonRect, currentLabel) && LegacyBcl.IsNotNull(enumType))
             {
                 var options = new List<FloatMenuOption>();
                 var optionDescriptions = new Dictionary<FloatMenuOption, string>();
@@ -468,13 +468,13 @@ namespace Spine.UI.SettingsFramework
             object value,
             Func<object, string> labelProvider)
         {
-            if (enumType == null || value == null)
+            if (LegacyBcl.IsNull(enumType) || value == null)
             {
                 return string.Empty;
             }
 
             string suppliedLabel = labelProvider?.Invoke(value);
-            if (!string.IsNullOrWhiteSpace(suppliedLabel))
+            if (!LegacyBcl.IsNullOrWhiteSpace(suppliedLabel))
             {
                 return suppliedLabel;
             }
@@ -493,7 +493,7 @@ namespace Spine.UI.SettingsFramework
             }
 
             string suppliedDescription = descriptionProvider?.Invoke(value);
-            if (!string.IsNullOrWhiteSpace(suppliedDescription))
+            if (!LegacyBcl.IsNullOrWhiteSpace(suppliedDescription))
             {
                 return suppliedDescription;
             }

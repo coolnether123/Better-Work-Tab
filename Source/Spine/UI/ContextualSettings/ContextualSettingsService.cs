@@ -48,7 +48,7 @@ namespace Spine.UI.ContextualSettings
             SettingsListDrawer settingsDrawer,
             object settingsObject)
         {
-            if (string.IsNullOrWhiteSpace(consumerId))
+            if (LegacyBcl.IsNullOrWhiteSpace(consumerId))
             {
                 throw new ArgumentException(
                     "A contextual-settings consumer identifier is required.",
@@ -59,7 +59,7 @@ namespace Spine.UI.ContextualSettings
             if (settingsDrawer == null) throw new ArgumentNullException(nameof(settingsDrawer));
             if (settingsObject == null) throw new ArgumentNullException(nameof(settingsObject));
 
-            lock (Sync)
+            using (LegacyBcl.Enter(Sync))
             {
                 if (consumers.ContainsKey(consumerId))
                 {
@@ -125,7 +125,7 @@ namespace Spine.UI.ContextualSettings
                     new Vector2(visibleRect.xMin, visibleRect.yMin));
                 Vector2 screenMax = GUIUtility.GUIToScreenPoint(
                     new Vector2(visibleRect.xMax, visibleRect.yMax));
-                lock (Sync)
+                using (LegacyBcl.Enter(Sync))
                 {
                     router.Register(
                         consumer.ConsumerId,
@@ -158,7 +158,7 @@ namespace Spine.UI.ContextualSettings
                 screenMouse.y);
 
             ContextualBindingRecord winner;
-            lock (Sync)
+            using (LegacyBcl.Enter(Sync))
             {
                 if (!router.TryRoute(pointerEvent, frame, out winner) ||
                     !consumers.TryGetValue(winner.ConsumerId, out ConsumerRegistration winnerConsumer) ||
@@ -182,7 +182,7 @@ namespace Spine.UI.ContextualSettings
             }
 
             MethodInfo update = AccessTools.Method(typeof(Root), "Update");
-            if (update == null)
+            if (LegacyBcl.IsNull(update))
             {
                 throw new MissingMethodException(typeof(Root).FullName, "Update");
             }
@@ -212,7 +212,7 @@ namespace Spine.UI.ContextualSettings
 
         private void DrainDeferred()
         {
-            lock (Sync)
+            using (LegacyBcl.Enter(Sync))
             {
                 deferred.Drain(exception =>
                     Log.ErrorOnce(
@@ -251,7 +251,7 @@ namespace Spine.UI.ContextualSettings
             Find.WindowStack.Add(new Dialog_ModSettings(consumer.Mod));
 #else
             Dialog_ModSettings dialog = new Dialog_ModSettings();
-            if (DialogModField != null)
+            if (LegacyBcl.IsNotNull(DialogModField))
             {
                 DialogModField.SetValue(dialog, consumer.Mod);
             }
@@ -261,7 +261,7 @@ namespace Spine.UI.ContextualSettings
 
         private void Release(ConsumerRegistration consumer)
         {
-            lock (Sync)
+            using (LegacyBcl.Enter(Sync))
             {
                 if (consumer == null || consumer.Released)
                 {

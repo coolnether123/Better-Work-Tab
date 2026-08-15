@@ -1314,6 +1314,9 @@ namespace Spine.Harmony
 
         private IEnumerable<BoundCheckCandidate> FindCandidates(SearchMode mode)
         {
+#if RWT_LEGACY_BCL
+            var candidates = new List<BoundCheckCandidate>();
+#endif
             var instructions = _transpiler.Instructions().ToList();
             var meaningful = FluentRecipeUtility.BuildMeaningfulIndex(
                 instructions,
@@ -1339,31 +1342,58 @@ namespace Spine.Harmony
                 {
                     if (candidate.Kind == _kind && candidate.NormalizedBound == _boundValue)
                     {
+#if RWT_LEGACY_BCL
+                        candidates.Add(candidate);
+#else
                         yield return candidate;
+#endif
                     }
                 }
             }
+#if RWT_LEGACY_BCL
+            return candidates;
+#endif
         }
 
         private static IEnumerable<BoundCheckCandidate> Classify(OpCode branch, int constantValue, int constantIndex)
         {
+#if RWT_LEGACY_BCL
+            var candidates = new List<BoundCheckCandidate>();
+#endif
             if (branch == OpCodes.Blt || branch == OpCodes.Blt_S)
             {
+#if RWT_LEGACY_BCL
+                candidates.Add(new BoundCheckCandidate { Kind = RangeComparisonKind.Lower, NormalizedBound = constantValue, ConstantIndex = constantIndex });
+                candidates.Add(new BoundCheckCandidate { Kind = RangeComparisonKind.Upper, NormalizedBound = constantValue - 1, ConstantIndex = constantIndex });
+#else
                 yield return new BoundCheckCandidate { Kind = RangeComparisonKind.Lower, NormalizedBound = constantValue, ConstantIndex = constantIndex };
                 yield return new BoundCheckCandidate { Kind = RangeComparisonKind.Upper, NormalizedBound = constantValue - 1, ConstantIndex = constantIndex };
+#endif
             }
 
             if (branch == OpCodes.Bge || branch == OpCodes.Bge_S)
             {
+#if RWT_LEGACY_BCL
+                candidates.Add(new BoundCheckCandidate { Kind = RangeComparisonKind.Lower, NormalizedBound = constantValue, ConstantIndex = constantIndex });
+                candidates.Add(new BoundCheckCandidate { Kind = RangeComparisonKind.Upper, NormalizedBound = constantValue - 1, ConstantIndex = constantIndex });
+#else
                 yield return new BoundCheckCandidate { Kind = RangeComparisonKind.Lower, NormalizedBound = constantValue, ConstantIndex = constantIndex };
                 yield return new BoundCheckCandidate { Kind = RangeComparisonKind.Upper, NormalizedBound = constantValue - 1, ConstantIndex = constantIndex };
+#endif
             }
 
             if (branch == OpCodes.Bgt || branch == OpCodes.Bgt_S ||
                 branch == OpCodes.Ble || branch == OpCodes.Ble_S)
             {
+#if RWT_LEGACY_BCL
+                candidates.Add(new BoundCheckCandidate { Kind = RangeComparisonKind.Upper, NormalizedBound = constantValue, ConstantIndex = constantIndex });
+#else
                 yield return new BoundCheckCandidate { Kind = RangeComparisonKind.Upper, NormalizedBound = constantValue, ConstantIndex = constantIndex };
+#endif
             }
+#if RWT_LEGACY_BCL
+            return candidates;
+#endif
         }
 
         private sealed class BoundCheckCandidate

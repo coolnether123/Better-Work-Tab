@@ -54,7 +54,7 @@ namespace Spine.Harmony.Infrastructure
 
             Log.Message(
                 Prefix + "[Debug] " +
-                string.Join(Environment.NewLine, block));
+                string.Join(Environment.NewLine, block.ToArray()));
         }
 
         internal static void WarnOnce(string key, string message)

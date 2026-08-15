@@ -2421,8 +2421,8 @@ namespace Spine.Harmony
                     var asm = method != null && method.DeclaringType != null ? method.DeclaringType.Assembly : null;
                     if (asm == null) continue;
 
-                    if (asm == typeof(FluentTranspiler).Assembly) continue;
-                    if (asm == typeof(HarmonyLib.Harmony).Assembly) continue;
+                    if (object.Equals(asm, typeof(FluentTranspiler).Assembly)) continue;
+                    if (object.Equals(asm, typeof(HarmonyLib.Harmony).Assembly)) continue;
 
                     var name = asm.GetName().Name ?? string.Empty;
                     if (name.StartsWith("System.", StringComparison.Ordinal)) continue;

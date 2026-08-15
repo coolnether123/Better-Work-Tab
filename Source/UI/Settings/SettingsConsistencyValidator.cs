@@ -109,7 +109,7 @@ namespace Better_Work_Tab.UI.Settings
                 }
 
                 string scribeKey = BWTSettingsRegistry.Schema.EffectiveScribeKey(def);
-                if (!string.IsNullOrEmpty(scribeKey) && !scribeKeys.Add(scribeKey))
+                if (!def.DisableAutoScribe && !string.IsNullOrEmpty(scribeKey) && !scribeKeys.Add(scribeKey))
                 {
                     Warn("Duplicate scribe key: " + scribeKey);
                 }

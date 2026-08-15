@@ -192,7 +192,7 @@ namespace Spine.Harmony
                 return false;
             }
 
-            if (originalReturnType == typeof(void))
+            if (object.Equals(originalReturnType, typeof(void)))
             {
                 Warn(transpiler, $"{caller} cannot wrap a void return value.");
                 return false;
@@ -311,7 +311,7 @@ namespace Spine.Harmony
 
         internal static bool ValidateNoUnsupportedValueTypeDefault(FluentTranspiler transpiler, Type returnType, string caller)
         {
-            if (returnType == null || returnType == typeof(void) || !returnType.IsValueType)
+            if (returnType == null || object.Equals(returnType, typeof(void)) || !returnType.IsValueType)
             {
                 return true;
             }
@@ -414,21 +414,21 @@ namespace Spine.Harmony
 
         internal static bool CanEmitDefaultValue(Type type)
         {
-            if (type == null || type == typeof(void) || !type.IsValueType)
+            if (type == null || object.Equals(type, typeof(void)) || !type.IsValueType)
             {
                 return true;
             }
 
             return IsInt32StackType(type)
-                || type == typeof(long)
-                || type == typeof(ulong)
-                || type == typeof(float)
-                || type == typeof(double);
+                || object.Equals(type, typeof(long))
+                || object.Equals(type, typeof(ulong))
+                || object.Equals(type, typeof(float))
+                || object.Equals(type, typeof(double));
         }
 
         internal static CodeInstruction CreateDefaultValueInstruction(Type type)
         {
-            if (type == null || type == typeof(void))
+            if (type == null || object.Equals(type, typeof(void)))
             {
                 return null;
             }
@@ -443,17 +443,17 @@ namespace Spine.Harmony
                 return new CodeInstruction(OpCodes.Ldc_I4_0);
             }
 
-            if (type == typeof(long) || type == typeof(ulong))
+            if (object.Equals(type, typeof(long)) || object.Equals(type, typeof(ulong)))
             {
                 return new CodeInstruction(OpCodes.Ldc_I8, 0L);
             }
 
-            if (type == typeof(float))
+            if (object.Equals(type, typeof(float)))
             {
                 return new CodeInstruction(OpCodes.Ldc_R4, 0f);
             }
 
-            if (type == typeof(double))
+            if (object.Equals(type, typeof(double)))
             {
                 return new CodeInstruction(OpCodes.Ldc_R8, 0d);
             }
@@ -509,7 +509,7 @@ namespace Spine.Harmony
                 return true;
             }
 
-            if (providedType == typeof(void) || expectedType == typeof(void))
+            if (object.Equals(providedType, typeof(void)) || object.Equals(expectedType, typeof(void)))
             {
                 return false;
             }
@@ -545,13 +545,13 @@ namespace Spine.Harmony
                 type = Enum.GetUnderlyingType(type);
             }
 
-            return type == typeof(int)
-                || type == typeof(uint)
-                || type == typeof(short)
-                || type == typeof(ushort)
-                || type == typeof(byte)
-                || type == typeof(sbyte)
-                || type == typeof(char);
+            return object.Equals(type, typeof(int))
+                || object.Equals(type, typeof(uint))
+                || object.Equals(type, typeof(short))
+                || object.Equals(type, typeof(ushort))
+                || object.Equals(type, typeof(byte))
+                || object.Equals(type, typeof(sbyte))
+                || object.Equals(type, typeof(char));
         }
 
         private static Dictionary<Label, int> BuildLabelTargets(IList<CodeInstruction> instructions)
@@ -579,22 +579,40 @@ namespace Spine.Harmony
 
         private static IEnumerable<Label> GetBranchLabels(CodeInstruction instruction)
         {
+#if RWT_LEGACY_BCL
+            var labels = new List<Label>();
+#endif
             Label? single;
             if (instruction.Branches(out single) && single.HasValue)
             {
+#if RWT_LEGACY_BCL
+                labels.Add(single.Value);
+#else
                 yield return single.Value;
+#endif
             }
 
             var many = instruction.operand as Label[];
             if (many == null)
             {
+#if RWT_LEGACY_BCL
+                return labels;
+#else
                 yield break;
+#endif
             }
 
             for (int i = 0; i < many.Length; i++)
             {
+#if RWT_LEGACY_BCL
+                labels.Add(many[i]);
+#else
                 yield return many[i];
+#endif
             }
+#if RWT_LEGACY_BCL
+            return labels;
+#endif
         }
 
         private static bool MethodHasExceptionHandlingClauses(MethodBase method)
@@ -707,7 +725,7 @@ namespace Spine.Harmony
         {
             return method != null &&
                    method.IsStatic &&
-                   method.ReturnType != typeof(void) &&
+                   !object.Equals(method.ReturnType, typeof(void)) &&
                    method.GetParameters().Length == 0;
         }
 

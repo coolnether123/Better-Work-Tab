@@ -221,7 +221,7 @@ namespace Spine.Harmony
                 return this;
             }
 
-            if (boolField.IsStatic || boolField.FieldType != typeof(bool))
+            if (boolField.IsStatic || !object.Equals(boolField.FieldType, typeof(bool)))
             {
                 _transpiler.AddWarning($"{nameof(RequireStaticFieldInstanceFieldTrue)} expected instance bool field {FluentTranspilerFormatting.FormatField(boolField)}.");
                 _isValid = false;
@@ -244,7 +244,7 @@ namespace Spine.Harmony
                 return this;
             }
 
-            if (!method.IsStatic || method.ReturnType != typeof(bool) || method.GetParameters().Length != 0)
+            if (!method.IsStatic || !object.Equals(method.ReturnType, typeof(bool)) || method.GetParameters().Length != 0)
             {
                 _transpiler.AddWarning($"{nameof(RequireCallTrue)} expected a parameterless static bool method {FluentTranspilerFormatting.FormatMethod(method)}.");
                 _isValid = false;

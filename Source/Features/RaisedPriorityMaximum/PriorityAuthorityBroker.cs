@@ -788,7 +788,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
             PriorityProviderSnapshot snapshot;
             return TryCreateProviderSnapshot(provider, false, out snapshot)
-                ? LimitSnapshot(snapshot, Math.Max(requestedPriority, PriorityConstants.VanillaMax))
+                ? snapshot
                 : null;
         }
 

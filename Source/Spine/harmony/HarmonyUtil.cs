@@ -56,7 +56,7 @@ namespace Spine.Harmony
 
         public static void PatchAll(HarmonyLib.Harmony h, Assembly asm, PatchOptions options)
         {
-            if (h == null || asm == null) return;
+            if (h == null || LegacyBcl.IsNull(asm)) return;
             if (options == null) options = new PatchOptions();
 
             foreach (var type in SafeTypes(asm))
@@ -67,7 +67,7 @@ namespace Spine.Harmony
 
         public static IList<MethodBase> PatchType(HarmonyLib.Harmony h, Type type, PatchOptions options)
         {
-            if (h == null || type == null) return new MethodBase[0];
+            if (h == null || LegacyBcl.IsNull(type)) return new MethodBase[0];
             if (options == null) options = new PatchOptions();
 
             try
@@ -131,7 +131,7 @@ namespace Spine.Harmony
             PatchOptions options,
             IList<MethodBase> knownTargets)
         {
-            if (h == null || type == null) return new MethodBase[0];
+            if (h == null || LegacyBcl.IsNull(type)) return new MethodBase[0];
             if (options == null) options = new PatchOptions();
 
             try
@@ -192,8 +192,8 @@ namespace Spine.Harmony
         public static bool IsStructReturn(MethodBase m)
         {
             var mi = m as MethodInfo;
-            if (mi == null) return false;
-            try { return mi.ReturnType != null && mi.ReturnType.IsValueType && mi.ReturnType != typeof(void); }
+            if (LegacyBcl.IsNull(mi)) return false;
+            try { return LegacyBcl.IsNotNull(mi.ReturnType) && mi.ReturnType.IsValueType && !object.Equals(mi.ReturnType, typeof(void)); }
             catch (Exception ex) { MMLog.WarnOnce("HarmonyUtil.IsStructReturn", "Error checking for struct return: " + ex.Message); return false; }
         }
 
@@ -206,7 +206,7 @@ namespace Spine.Harmony
         public static IEnumerable<Type> SafeTypes(Assembly asm)
         {
             try { return asm.GetTypes(); }
-            catch (ReflectionTypeLoadException rtle) { return rtle.Types.Where(t => t != null); }
+            catch (ReflectionTypeLoadException rtle) { return rtle.Types.Where(t => LegacyBcl.IsNotNull(t)); }
             catch (Exception ex) { MMLog.WarnOnce("HarmonyUtil.SafeTypes", "Error getting types from assembly: " + ex.Message); return Enumerable.Empty<Type>(); }
         }
 
@@ -214,7 +214,7 @@ namespace Spine.Harmony
         {
             try
             {
-                if (t == null)
+                if (LegacyBcl.IsNull(t))
                     return false;
 
                 if (CustomAttributeData.GetCustomAttributes(t).Any(a => HasHarmonyAttributeName(GetAttributeTypeName(a))))
@@ -245,7 +245,7 @@ namespace Spine.Harmony
 
                 // .NET 3.5 does not expose CustomAttributeData.AttributeType.
                 // Constructor.DeclaringType is the compatible path for this target.
-                if (attribute.Constructor != null && attribute.Constructor.DeclaringType != null)
+                if (LegacyBcl.IsNotNull(attribute.Constructor) && LegacyBcl.IsNotNull(attribute.Constructor.DeclaringType))
                     return attribute.Constructor.DeclaringType.FullName;
             }
             catch
@@ -276,13 +276,13 @@ namespace Spine.Harmony
             try
             {
                 var tm = patchClass.GetMethod("TargetMethods", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static, null, Type.EmptyTypes, null);
-                if (tm != null)
+                if (LegacyBcl.IsNotNull(tm))
                 {
                     var e = tm.Invoke(null, null) as System.Collections.IEnumerable;
                     if (e != null)
                     {
                         var list = new List<MethodBase>();
-                        foreach (var it in e) { var mb = it as MethodBase; if (mb != null) list.Add(mb); }
+                        foreach (var it in e) { var mb = it as MethodBase; if (LegacyBcl.IsNotNull(mb)) list.Add(mb); }
                         if (list.Count > 0) return list;
                     }
                 }
@@ -292,10 +292,10 @@ namespace Spine.Harmony
             try
             {
                 var tm = patchClass.GetMethod("TargetMethod", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static, null, Type.EmptyTypes, null);
-                if (tm != null)
+                if (LegacyBcl.IsNotNull(tm))
                 {
                     var mb = tm.Invoke(null, null) as MethodBase;
-                    if (mb != null) return new[] { mb };
+                    if (LegacyBcl.IsNotNull(mb)) return new[] { mb };
                 }
             }
             catch (Exception ex) { MMLog.WarnOnce("HarmonyUtil.TryGetTargets.TargetMethod", "Error invoking TargetMethod: " + ex.Message); }
@@ -318,12 +318,12 @@ namespace Spine.Harmony
                     string methodName = nameProp is PropertyInfo np
                         ? np.GetValue(a, null) as string
                         : (nameProp is FieldInfo nf ? nf.GetValue(a) as string : null);
-                    if (targetType == null || string.IsNullOrEmpty(methodName)) continue;
+                    if (LegacyBcl.IsNull(targetType) || string.IsNullOrEmpty(methodName)) continue;
 
                     try
                     {
                         var mb = targetType.GetMethod(methodName, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static);
-                        if (mb != null) list.Add(mb);
+                        if (LegacyBcl.IsNotNull(mb)) list.Add(mb);
                     }
                     catch (Exception ex) { MMLog.WarnOnce("HarmonyUtil.TryGetTargets.GetMethod", "Error getting method: " + ex.Message); }
                 }

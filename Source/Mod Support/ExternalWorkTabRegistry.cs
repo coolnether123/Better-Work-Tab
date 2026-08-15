@@ -736,7 +736,10 @@ namespace Better_Work_Tab.ModSupport
                             return;
                         }
 
-                        authorityRefreshPending = false;
+                        if (pass + 1 < MaxSynchronousAuthorityRefreshPasses)
+                        {
+                            authorityRefreshPending = false;
+                        }
                     }
                 }
             }

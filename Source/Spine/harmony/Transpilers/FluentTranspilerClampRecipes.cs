@@ -102,6 +102,9 @@ namespace Spine.Harmony
 
         private IEnumerable<ClampMatch> FindClampMatches(IList<CodeInstruction> instructions, int argumentIndex, int startIndex)
         {
+#if RWT_LEGACY_BCL
+            var matches = new List<ClampMatch>();
+#endif
             var meaningful = FluentRecipeUtility.BuildMeaningfulIndex(instructions, startIndex);
             for (int i = 0; i <= meaningful.Count - 4; i++)
             {
@@ -127,9 +130,16 @@ namespace Spine.Harmony
 
                 if (IsClampCall(call))
                 {
+#if RWT_LEGACY_BCL
+                    matches.Add(new ClampMatch { UpperConstantInstructionIndex = meaningful[i + 2] });
+#else
                     yield return new ClampMatch { UpperConstantInstructionIndex = meaningful[i + 2] };
+#endif
                 }
             }
+#if RWT_LEGACY_BCL
+            return matches;
+#endif
         }
 
         private static bool IsClampCall(CodeInstruction instruction)
@@ -142,13 +152,13 @@ namespace Spine.Harmony
             }
 
             ParameterInfo[] parameters = method.GetParameters();
-            if (parameters.Length != 3 || method.ReturnType == typeof(void))
+            if (parameters.Length != 3 || object.Equals(method.ReturnType, typeof(void)))
             {
                 return false;
             }
 
-            bool intClamp = method.ReturnType == typeof(int) &&
-                            parameters.All(parameter => parameter.ParameterType == typeof(int));
+            bool intClamp = object.Equals(method.ReturnType, typeof(int)) &&
+                            parameters.All(parameter => object.Equals(parameter.ParameterType, typeof(int)));
 
             return intClamp &&
                    method.Name.IndexOf("Clamp", StringComparison.OrdinalIgnoreCase) >= 0;

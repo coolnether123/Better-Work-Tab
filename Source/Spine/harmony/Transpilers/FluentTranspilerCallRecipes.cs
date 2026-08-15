@@ -441,7 +441,7 @@ namespace Spine.Harmony
 
             if (hookMethod == null ||
                 !hookMethod.IsStatic ||
-                hookMethod.ReturnType != typeof(void) ||
+                !object.Equals(hookMethod.ReturnType, typeof(void)) ||
                 hookMethod.GetParameters().Length != 0)
             {
                 _transpiler.AddWarning($"{caller} expected a parameterless static void hook, got {FluentTranspilerFormatting.FormatMethod(hookMethod)}.");

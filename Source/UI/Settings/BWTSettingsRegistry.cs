@@ -1034,7 +1034,7 @@ namespace Better_Work_Tab.UI.Settings
                 .AdvancedOnly()
                 .ValueRange(0f, 1f);
 
-            schema.Root.Under(FeaturesDividers).Toggle(DividersShow, settings => settings.enableDividers, "Show Dividers", tooltip: "Toggle visibility of divider rows.").DefaultTo(DefaultSettings.enableDividers).Ordered(107);
+            schema.Root.Under(FeaturesDividers).Toggle(DividersShow, settings => settings.enableDividers, "Show Dividers", tooltip: "Toggle visibility of divider rows.").WithoutAutoScribe().DefaultTo(DefaultSettings.enableDividers).Ordered(107);
 
             schema.Root.Under(FeaturesDividers)
                 .Toggle(DividersCustomColors, settings => settings.allowCustomDividerColors, "Custom divider colors", tooltip: "Choose a different color for each divider.")

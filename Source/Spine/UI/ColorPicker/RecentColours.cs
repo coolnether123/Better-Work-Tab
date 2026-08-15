@@ -21,7 +21,8 @@ namespace Spine.UI.ColourPicker {
         public Color this[int index] => _colors[index];
 
         public int Count => _colors.Count;
-        public IReadOnlyList<Color> PinnedColors => _pinnedColors;
+        public IReadOnlyList<Color> PinnedColors =>
+            LegacyReadOnlyCollections.WrapList(_pinnedColors);
         public int PinnedCount => _pinnedColors.Count;
 
         public static List<Color> CopyRecentColors()
@@ -139,8 +140,8 @@ namespace Spine.UI.ColourPicker {
         }
 
         private static void ExposeData() {
-            Scribe_Collections.Look(ref _colors, "RecentColors");
-            Scribe_Collections.Look(ref _pinnedColors, "PinnedColors");
+            Scribe_Collections.Look(ref _colors, "RecentColors", LookMode.Undefined, new object[0]);
+            Scribe_Collections.Look(ref _pinnedColors, "PinnedColors", LookMode.Undefined, new object[0]);
 
             if (_colors == null)
             {

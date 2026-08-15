@@ -121,7 +121,7 @@ namespace Spine.Harmony
                 return false;
             }
 
-            if (target == null)
+            if (LegacyBcl.IsNull(target))
             {
                 report?.Invoke("Target method was not found.");
                 return false;
@@ -188,7 +188,7 @@ namespace Spine.Harmony
             string logPrefix,
             HarmonyPatchingFacade facade)
         {
-            if (string.IsNullOrWhiteSpace(consumerId))
+            if (LegacyBcl.IsNullOrWhiteSpace(consumerId))
             {
                 throw new ArgumentException(
                     "A Harmony consumer identifier is required.",
@@ -196,7 +196,7 @@ namespace Spine.Harmony
             }
 
             harmony = new HarmonyLib.Harmony(consumerId);
-            this.logPrefix = string.IsNullOrWhiteSpace(logPrefix)
+            this.logPrefix = LegacyBcl.IsNullOrWhiteSpace(logPrefix)
                 ? "[" + consumerId + "]"
                 : logPrefix.Trim();
             this.facade = facade ?? throw new ArgumentNullException(nameof(facade));
@@ -207,7 +207,7 @@ namespace Spine.Harmony
             HarmonyPatchOptions options = null)
         {
             const string key = HarmonyPatchOperationKeys.Assembly;
-            lock (sync)
+            using (LegacyBcl.Enter(sync))
             {
                 if (results.TryGetValue(key, out bool previous))
                 {
@@ -228,7 +228,7 @@ namespace Spine.Harmony
                     }
                 };
 
-                if (assembly == null)
+                if (LegacyBcl.IsNull(assembly))
                 {
                     success = false;
                     Log.Error(logPrefix + " patch assembly was null.");
@@ -260,7 +260,7 @@ namespace Spine.Harmony
         {
             string key = HarmonyPatchOperationKeys.ForType(patchName);
             string name = patchName.Trim();
-            lock (sync)
+            using (LegacyBcl.Enter(sync))
             {
                 if (results.TryGetValue(key, out bool previous))
                 {
@@ -281,7 +281,7 @@ namespace Spine.Harmony
                     }
                 };
 
-                IList<MethodBase> patched = patchType == null
+                IList<MethodBase> patched = LegacyBcl.IsNull(patchType)
                     ? new List<MethodBase>()
                     : facade.PatchType(harmony, patchType, effective);
                 if (patched.Count != expectedPatchCount)
@@ -306,7 +306,7 @@ namespace Spine.Harmony
         {
             string key = HarmonyPatchOperationKeys.ForMethod(patchName);
             string name = patchName.Trim();
-            lock (sync)
+            using (LegacyBcl.Enter(sync))
             {
                 if (results.TryGetValue(key, out bool previous))
                 {
@@ -361,7 +361,7 @@ namespace Spine.Harmony
 
         private static string DescribeTarget(object target)
         {
-            return target == null ? "<unknown target>" : target.ToString();
+            return LegacyBcl.IsNull(target) ? "<unknown target>" : target.ToString();
         }
     }
 }

@@ -446,7 +446,7 @@ namespace Spine.Harmony
                 return false;
             }
 
-            if (providedType == typeof(void) || parameterType == typeof(void))
+            if (object.Equals(providedType, typeof(void)) || object.Equals(parameterType, typeof(void)))
             {
                 return false;
             }
@@ -477,7 +477,7 @@ namespace Spine.Harmony
                 return false;
             }
 
-            if (expected == typeof(void) || actual == typeof(void))
+            if (object.Equals(expected, typeof(void)) || object.Equals(actual, typeof(void)))
             {
                 return expected == actual;
             }
@@ -502,13 +502,13 @@ namespace Spine.Harmony
                 type = Enum.GetUnderlyingType(type);
             }
 
-            return type == typeof(int) ||
-                   type == typeof(uint) ||
-                   type == typeof(short) ||
-                   type == typeof(ushort) ||
-                   type == typeof(byte) ||
-                   type == typeof(sbyte) ||
-                   type == typeof(char);
+            return object.Equals(type, typeof(int)) ||
+                   object.Equals(type, typeof(uint)) ||
+                   object.Equals(type, typeof(short)) ||
+                   object.Equals(type, typeof(ushort)) ||
+                   object.Equals(type, typeof(byte)) ||
+                   object.Equals(type, typeof(sbyte)) ||
+                   object.Equals(type, typeof(char));
         }
 
         private static string FormatType(Type type)

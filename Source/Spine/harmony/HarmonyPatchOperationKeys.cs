@@ -16,7 +16,7 @@ namespace Spine.Harmony
             string operation,
             string patchName)
         {
-            if (string.IsNullOrWhiteSpace(patchName))
+            if (LegacyBcl.IsNullOrWhiteSpace(patchName))
             {
                 throw new ArgumentException(
                     "A stable patch name is required for idempotent installation.",

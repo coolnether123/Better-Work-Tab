@@ -73,7 +73,7 @@ namespace Spine.UI.SettingsFramework
         /// </summary>
         public IReadOnlyList<SettingDefinition> GetRootSettings()
         {
-            return _rootSettings;
+            return LegacyReadOnlyCollections.WrapList(_rootSettings);
         }
 
         /// <summary>
@@ -83,10 +83,10 @@ namespace Spine.UI.SettingsFramework
         {
             if (string.IsNullOrEmpty(parentId) || !_childrenOf.TryGetValue(parentId, out var list))
             {
-                return Array.Empty<SettingDefinition>();
+                return LegacyReadOnlyCollections.EmptyList<SettingDefinition>();
             }
 
-            return list;
+            return LegacyReadOnlyCollections.WrapList(list);
         }
 
         /// <summary>
@@ -134,6 +134,18 @@ namespace Spine.UI.SettingsFramework
 
         public IEnumerable<SettingDefinition> GetAncestors(SettingDefinition setting)
         {
+#if RWT_LEGACY_BCL
+            var ancestors = new List<SettingDefinition>();
+            var legacyCurrent = setting;
+            while (legacyCurrent != null && !string.IsNullOrEmpty(legacyCurrent.ParentId) &&
+                   _byId.TryGetValue(legacyCurrent.ParentId, out var legacyParent))
+            {
+                ancestors.Add(legacyParent);
+                legacyCurrent = legacyParent;
+            }
+
+            return ancestors;
+#else
             var current = setting;
             while (current != null && !string.IsNullOrEmpty(current.ParentId) &&
                    _byId.TryGetValue(current.ParentId, out var parent))
@@ -141,6 +153,7 @@ namespace Spine.UI.SettingsFramework
                 yield return parent;
                 current = parent;
             }
+#endif
         }
 
         /// <summary>
@@ -174,6 +187,15 @@ namespace Spine.UI.SettingsFramework
             SettingsViewMode viewMode,
             object settingsObject)
         {
+#if RWT_LEGACY_BCL
+            var flattened = new List<SettingDefinition>();
+            foreach (var root in _rootSettings)
+            {
+                flattened.AddRange(EnumerateWithChildren(root, viewMode, settingsObject));
+            }
+
+            return flattened;
+#else
             foreach (var root in _rootSettings)
             {
                 foreach (var item in EnumerateWithChildren(root, viewMode, settingsObject))
@@ -181,6 +203,7 @@ namespace Spine.UI.SettingsFramework
                     yield return item;
                 }
             }
+#endif
         }
 
         /// <summary>
@@ -197,7 +220,7 @@ namespace Spine.UI.SettingsFramework
         {
             var ordered = _rootSettings.SelectMany(s => EnumerateWithChildren(s, viewMode, settingsObject));
 
-            if (string.IsNullOrWhiteSpace(query))
+            if (LegacyBcl.IsNullOrWhiteSpace(query))
             {
                 return ordered;
             }
@@ -308,6 +331,30 @@ namespace Spine.UI.SettingsFramework
             SettingsViewMode viewMode,
             object settingsObject)
         {
+#if RWT_LEGACY_BCL
+            var flattened = new List<SettingDefinition>();
+            if (IsVisibleInView(setting, viewMode))
+            {
+                if (settingsObject == null || setting.VisibleWhen == null || setting.VisibleWhen(settingsObject))
+                {
+                    flattened.Add(setting);
+                }
+                else
+                {
+                    return flattened;
+                }
+            }
+
+            if (_childrenOf.TryGetValue(setting.Id, out var children))
+            {
+                foreach (var child in children)
+                {
+                    flattened.AddRange(EnumerateWithChildren(child, viewMode, settingsObject));
+                }
+            }
+
+            return flattened;
+#else
             if (IsVisibleInView(setting, viewMode))
             {
                 if (settingsObject == null || setting.VisibleWhen == null || setting.VisibleWhen(settingsObject))
@@ -331,6 +378,7 @@ namespace Spine.UI.SettingsFramework
                     }
                 }
             }
+#endif
         }
 
 
@@ -368,7 +416,7 @@ namespace Spine.UI.SettingsFramework
             var field = settingsObject.GetType().GetField(def.FieldName,
                 BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
-            if (field != null && field.FieldType == typeof(bool))
+            if (LegacyBcl.IsNotNull(field) && object.Equals(field.FieldType, typeof(bool)))
             {
                 return (bool)field.GetValue(settingsObject);
             }

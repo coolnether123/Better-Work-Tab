@@ -184,7 +184,7 @@ namespace Spine.Harmony
 
             if (guardMethod == null ||
                 !guardMethod.IsStatic ||
-                guardMethod.ReturnType != typeof(void) ||
+                !object.Equals(guardMethod.ReturnType, typeof(void)) ||
                 guardMethod.GetParameters().Length != 0)
             {
                 _transpiler.AddWarning($"Returns<{_returnType.Name}>.InsertGuardBeforeReturn expected a parameterless static void guard, got {FluentTranspilerFormatting.FormatMethod(guardMethod)}.");

@@ -381,14 +381,14 @@ namespace Spine.Harmony
             {
                 if (instr.operand is MethodInfo mi)
                 {
-                    if (mi.ReturnType != typeof(void)) result.Add(ResolveStackType(mi.ReturnType, method));
+                    if (!object.Equals(mi.ReturnType, typeof(void))) result.Add(ResolveStackType(mi.ReturnType, method));
                 }
                 else if (instr.operand is MethodBase mb)
                 {
                     // For non-MethodInfo MethodBase, we try our best. 
                     // Constructors (newobj) are handled separately below.
                     // But Call to a constructor is possible!
-                    if (mb is MethodInfo mi2 && mi2.ReturnType != typeof(void)) result.Add(ResolveStackType(mi2.ReturnType, method));
+                    if (mb is MethodInfo mi2 && !object.Equals(mi2.ReturnType, typeof(void))) result.Add(ResolveStackType(mi2.ReturnType, method));
                     else if (mb.IsConstructor) { /* Void return, push nothing */ }
                 }
                 else result.Add(UnknownType);
@@ -611,7 +611,7 @@ namespace Spine.Harmony
                 }
                 if (instr.opcode == OpCodes.Ret)
                 {
-                    if (method is MethodInfo mi && mi.ReturnType != typeof(void)) return 1;
+            if (method is MethodInfo mi && !object.Equals(mi.ReturnType, typeof(void))) return 1;
                     return 0;
                 }
                 if (instr.opcode == OpCodes.Newobj)

@@ -161,6 +161,7 @@ namespace Better_Work_Tab.Features.Tutorial
             // upgrade, and leaving it behind would send this player down the
             // migration path built for someone arriving from an older flow.
             settings.tutorialFlowVersion = CurrentFlowVersion;
+            settings.tutorialProgressSchemaVersion = BWTTutorialProgressMigration.CurrentSchemaVersion;
 
             lessonAnchor = default(BWTTutorialAnchor);
             lessonAnchorIsLive = false;

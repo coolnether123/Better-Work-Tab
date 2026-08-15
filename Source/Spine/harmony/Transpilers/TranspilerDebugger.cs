@@ -172,8 +172,8 @@ namespace Spine.Harmony
                 var assembly = method?.DeclaringType?.Assembly;
                 if (assembly == null) continue;
                 
-                if (assembly != typeof(TranspilerDebugger).Assembly &&
-                    assembly != typeof(HarmonyLib.Harmony).Assembly &&
+                if (!object.Equals(assembly, typeof(TranspilerDebugger).Assembly) &&
+                    !object.Equals(assembly, typeof(HarmonyLib.Harmony).Assembly) &&
                     !assembly.FullName.StartsWith("System.") &&
                     !assembly.FullName.StartsWith("mscorlib") &&
                     !assembly.FullName.StartsWith("UnityEngine"))
@@ -430,7 +430,7 @@ namespace Spine.Harmony
         {
             get
             {
-                lock (_historyLock)
+                using (LegacyBcl.Enter(_historyLock))
                 {
                     return new List<Snapshot>(_history);
                 }
@@ -526,7 +526,7 @@ namespace Spine.Harmony
                     : new List<PatchEdit>()
             };
 
-            lock (_historyLock)
+            using (LegacyBcl.Enter(_historyLock))
             {
                 _history.Add(snapshot);
                 if (_history.Count > 100) _history.RemoveAt(0);
