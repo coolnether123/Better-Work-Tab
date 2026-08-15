@@ -302,25 +302,6 @@
     <Compile Include="Spine\harmony\HarmonyPatchingFacade.cs" />
     <Compile Include="Spine\harmony\HarmonyPatchOperationKeys.cs" />
     <Compile Include="Spine\harmony\HarmonyUtil.cs" />
-    <Compile Include="Spine\harmony\Transpilers\CartographerExtensions.cs" />
-    <Compile Include="Spine\harmony\Transpilers\FluentReplacementResult.cs" />
-    <Compile Include="Spine\harmony\Transpilers\FluentTranspiler.cs" />
-    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerCallRecipes.cs" />
-    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerClampRecipes.cs" />
-    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerCompatibilityExtensions.cs" />
-    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerExecution.cs" />
-    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerFieldRecipes.cs" />
-    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerFormatting.cs" />
-    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerGuardRecipes.cs" />
-    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerPatterns.cs" />
-    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerRangeCheckRecipes.cs" />
-    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerRecipeValidation.cs" />
-    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerReturnRecipes.cs" />
-    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerWrapRecipes.cs" />
-    <Compile Include="Spine\harmony\Transpilers\FluentTranspiler_Features.cs" />
-    <Compile Include="Spine\harmony\Transpilers\StackSentinel.cs" />
-    <Compile Include="Spine\harmony\Transpilers\TranspilerDebugger.cs" />
-    <Compile Include="Spine\harmony\Transpilers\TranspilerSafetyPolicy.cs" />
     <Compile Include="Transpilers\BwtExactProfile\IlInstructionSnapshot.cs" />
     <Compile Include="Transpilers\BwtExactProfile\IlPlanModel.cs" />
     <Compile Include="Transpilers\BwtExactProfile\PatchResult.cs" />
@@ -515,13 +496,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Spine\harmony\HarmonyUtil.cs" />
-    <None Include="Spine\harmony\Transpilers\AdvancedExtensions.cs" />
-    <None Include="Spine\harmony\Transpilers\ControlFlowExtensions.cs" />
-    <None Include="Spine\harmony\Transpilers\CooperativePatcher.cs" />
-    <None Include="Spine\harmony\Transpilers\README.md" />
-    <None Include="Spine\harmony\Transpilers\ShelteredPatterns.cs" />
-    <None Include="Spine\harmony\Transpilers\TranspilerTestHarness.cs" />
-    <None Include="Spine\harmony\Transpilers\UnityPatterns.cs" />
   </ItemGroup>
   <ItemGroup Condition="'$(UseStandaloneSpine)' == 'true'">
     <!-- Only exact shared-mirror types bind to Spine.dll. BWT-owned rendering,

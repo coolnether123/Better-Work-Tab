@@ -12,8 +12,8 @@ signatures, locals, and IL anchors; the engine performs matching, verification,
 atomic mutation, rollback, and diagnostics. The engine is BWT-owned under
 `Source/Transpilers/BwtExactProfile` and is not part of the standalone Spine
 mirror. This is the 2.0 exact-profile naming/path-isolation boundary; the older
-Fluent transpiler remains compiled as a frozen legacy compatibility surface and
-is not integrated into this engine.
+Fluent transpiler subsystem was removed after the migrated production call
+graph reached zero consumers; it is not integrated into this engine.
 
 ## What 2.0 adds
 
