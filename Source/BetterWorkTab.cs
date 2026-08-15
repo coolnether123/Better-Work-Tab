@@ -95,6 +95,13 @@ namespace Better_Work_Tab
                     Log.Error("[Better Work Tab] Raised-priority feature was disabled fail-closed: " +
                         raisedPriorityReport.Format());
                 }
+                else if (raisedPriorityReport.FeatureGateState ==
+                    BwtRaisedPriorityFeatureGateState.PreservedAfterRejectedReconfiguration)
+                {
+                    Log.Warning("[Better Work Tab] Raised-priority reconfiguration was rejected; " +
+                        "the previous valid installation remains active: " +
+                        raisedPriorityReport.Format());
+                }
                 else
                 {
                     DebugLog("Raised-priority feature installed: " + raisedPriorityReport.State);

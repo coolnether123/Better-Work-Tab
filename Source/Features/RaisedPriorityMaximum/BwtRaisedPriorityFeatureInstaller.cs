@@ -22,6 +22,13 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         RollbackFailed
     }
 
+    internal enum BwtRaisedPriorityFeatureGateState
+    {
+        Inactive,
+        Active,
+        PreservedAfterRejectedReconfiguration
+    }
+
     internal static class BwtRaisedPriorityPatchIds
     {
         internal const string TipForPawnWorker = "TipForPawnWorker";
@@ -104,7 +111,9 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             IEnumerable<BwtRaisedPriorityPatchAttempt> preflight,
             IEnumerable<BwtRaisedPriorityPatchAttempt> installation,
             bool patchAllInvoked, bool rollbackAttempted, bool rollbackSucceeded,
-            IEnumerable<string> diagnostics, int featurePatchCount = 0)
+            IEnumerable<string> diagnostics, int featurePatchCount = 0,
+            BwtRaisedPriorityFeatureGateState featureGateState =
+                BwtRaisedPriorityFeatureGateState.Inactive)
         {
             State = state;
             Preflight = new ReadOnlyCollection<BwtRaisedPriorityPatchAttempt>(
@@ -115,6 +124,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             RollbackAttempted = rollbackAttempted;
             RollbackSucceeded = rollbackSucceeded;
             FeaturePatchCount = featurePatchCount;
+            FeatureGateState = featureGateState;
             Diagnostics = new ReadOnlyCollection<string>(
                 (diagnostics ?? Enumerable.Empty<string>()).Where(value => !String.IsNullOrEmpty(value)).ToList());
         }
@@ -127,10 +137,10 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         internal bool RollbackAttempted { get; private set; }
         internal bool RollbackSucceeded { get; private set; }
         internal int FeaturePatchCount { get; private set; }
+        internal BwtRaisedPriorityFeatureGateState FeatureGateState { get; private set; }
         internal bool FeatureActive
         {
-            get { return State == BwtRaisedPriorityInstallState.Installed ||
-                State == BwtRaisedPriorityInstallState.AlreadyInstalled; }
+            get { return FeatureGateState != BwtRaisedPriorityFeatureGateState.Inactive; }
         }
 
         internal string Format()
@@ -138,7 +148,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             string preflight = String.Join(";", Preflight.Select(value => value.ToString()).ToArray());
             string installation = String.Join(";", Installation.Select(value => value.ToString()).ToArray());
             string diagnostics = String.Join(";", Diagnostics.ToArray());
-            return "state=" + State + ";preflight=" + preflight + ";installation=" + installation +
+            return "state=" + State + ";featureGate=" + FeatureGateState + ";preflight=" + preflight + ";installation=" + installation +
                 ";patchAll=" + PatchAllInvoked + ";rollback=" + RollbackAttempted + "/" +
                 RollbackSucceeded + ";featurePatches=" + FeaturePatchCount +
                 (diagnostics.Length == 0 ? String.Empty : ";diagnostics=" + diagnostics);
@@ -170,11 +180,6 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         internal static BwtRaisedPriorityInstallationSession Begin()
         {
             return new BwtRaisedPriorityInstallationSession();
-        }
-
-        internal static bool IsActive
-        {
-            get { return _current != null; }
         }
 
         internal static void Record(string id, BwtPatchResult result)
@@ -409,31 +414,33 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 var diagnostics = new List<string>();
                 bool patchAllInvoked = false;
 
+                RefreshRecordedFeatureState();
+
                 if (!TryValidatePlan(diagnostics))
                 {
                     return CreateReport(BwtRaisedPriorityInstallState.PreflightRejected,
-                        null, null, false, false, false, diagnostics);
+                        null, null, false, false, false, diagnostics,
+                        featureGateState: CurrentFeatureGateStateAfterRejectedReconfiguration());
                 }
 
                 if (harmony == null)
                 {
                     diagnostics.Add("No Harmony instance was supplied.");
                     return CreateReport(BwtRaisedPriorityInstallState.PreflightRejected,
-                        null, null, false, false, false, diagnostics);
+                        null, null, false, false, false, diagnostics,
+                        featureGateState: CurrentFeatureGateStateAfterRejectedReconfiguration());
                 }
 
-                _isFeatureActive = false;
                 Harmony raisedPriorityHarmony = new Harmony(_raisedPriorityOwnerId);
                 bool cleanupAttempted = false;
                 bool cleanupSucceeded = true;
 
-                List<TargetPatchSnapshot> beforeMutation;
                 bool alreadyInstalled;
-                if (!TryPrepareOwnership(
-                    out beforeMutation, out alreadyInstalled, diagnostics))
+                if (!TryPrepareOwnership(out alreadyInstalled, diagnostics))
                 {
                     return CreateReport(BwtRaisedPriorityInstallState.PreflightRejected,
-                        null, null, false, false, false, diagnostics);
+                        null, null, false, false, false, diagnostics,
+                        featureGateState: CurrentFeatureGateStateAfterRejectedReconfiguration());
                 }
 
                 if (alreadyInstalled)
@@ -461,8 +468,8 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                             revalidation, null, false, true, false, diagnostics);
                     }
 
+                    _isFeatureActive = false;
                     _installationLedger = null;
-                    beforeMutation = null;
                 }
 
                 if (runPatchAll)
@@ -672,6 +679,41 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                     StringComparison.Ordinal));
         }
 
+        private static void RefreshRecordedFeatureState()
+        {
+            if (_installationLedger == null)
+            {
+                _isFeatureActive = false;
+                return;
+            }
+
+            int present = 0;
+            try
+            {
+                foreach (RaisedPriorityPatchRecord record in _installationLedger.Records)
+                {
+                    List<PatchRecordSnapshot> records = GetPatchRecords(record.Target);
+                    if (records.Count(value => SamePatchRecord(value, record.Record)) == 1)
+                        present++;
+                }
+            }
+            catch
+            {
+                _isFeatureActive = false;
+                return;
+            }
+
+            if (present == 0)
+            {
+                _installationLedger = null;
+                _isFeatureActive = false;
+            }
+            else if (present != _installationLedger.Records.Count)
+            {
+                _isFeatureActive = false;
+            }
+        }
+
         private bool TryValidatePlan(IList<string> diagnostics)
         {
             bool valid = true;
@@ -812,11 +854,10 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         }
 
         private bool TryPrepareOwnership(
-            out List<TargetPatchSnapshot> snapshots,
             out bool alreadyInstalled, IList<string> diagnostics)
         {
-            snapshots = null;
             alreadyInstalled = false;
+            List<TargetPatchSnapshot> snapshots;
             if (!TryCaptureSnapshots(out snapshots, diagnostics))
                 return false;
             List<TargetPatchSnapshot> capturedSnapshots = snapshots;
@@ -1260,16 +1301,34 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             IEnumerable<BwtRaisedPriorityPatchAttempt> preflight,
             IEnumerable<BwtRaisedPriorityPatchAttempt> installation,
             bool patchAllInvoked, bool rollbackAttempted, bool rollbackSucceeded,
-            IEnumerable<string> diagnostics, int featurePatchCount = 0)
+            IEnumerable<string> diagnostics, int featurePatchCount = 0,
+            BwtRaisedPriorityFeatureGateState? featureGateState = null)
         {
             BwtRaisedPriorityInstallReport report = new BwtRaisedPriorityInstallReport(
                 state,
                 preflight ?? Enumerable.Empty<BwtRaisedPriorityPatchAttempt>(),
                 installation ?? Enumerable.Empty<BwtRaisedPriorityPatchAttempt>(),
                 patchAllInvoked, rollbackAttempted, rollbackSucceeded, diagnostics,
-                featurePatchCount);
+                featurePatchCount,
+                featureGateState ?? ResolveFeatureGateState(state));
             _lastReport = report;
             return report;
+        }
+
+        private static BwtRaisedPriorityFeatureGateState ResolveFeatureGateState(
+            BwtRaisedPriorityInstallState state)
+        {
+            return state == BwtRaisedPriorityInstallState.Installed ||
+                state == BwtRaisedPriorityInstallState.AlreadyInstalled
+                ? BwtRaisedPriorityFeatureGateState.Active
+                : BwtRaisedPriorityFeatureGateState.Inactive;
+        }
+
+        private static BwtRaisedPriorityFeatureGateState CurrentFeatureGateStateAfterRejectedReconfiguration()
+        {
+            return _isFeatureActive && _installationLedger != null
+                ? BwtRaisedPriorityFeatureGateState.PreservedAfterRejectedReconfiguration
+                : BwtRaisedPriorityFeatureGateState.Inactive;
         }
 
         private static BwtPatchResult InvokeTranspiler(
