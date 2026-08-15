@@ -78,6 +78,9 @@ namespace Better_Work_Tab.Transpilers.BwtExactProfile
                 if (!Object.ReferenceEquals(Clauses[i], other.Clauses[i])) return false;
             return true;
         }
+        // Handler transitions retain clause identity. Sibling catches therefore remain
+        // distinct even when their catch types match; a branch between them cannot be
+        // mistaken for a legal exit to an enclosing exception region.
         internal bool CanLeaveTo(IlExceptionContext target)
         {
             if (target == null || target.Clauses.Length == 0) return true;
@@ -129,12 +132,12 @@ namespace Better_Work_Tab.Transpilers.BwtExactProfile
             List<CodeInstruction> original = snapshot.CloneInstructions();
             CompareMetadata(original, candidate, edits, report);
             if (report.HasErrors) return report;
-            ValidatePrefixes(candidate, original, edits, report);
-            if (report.HasErrors) return report;
             IlControlFlowGraph graph = BuildGraph(candidate, report);
             if (report.HasErrors) return report;
             ValidateShortBranches(candidate, graph, report);
             IlExceptionContext[] regions = BuildRegions(candidate, report);
+            ValidatePrefixes(candidate, original, edits, regions, report);
+            if (report.HasErrors) return report;
             MarkReachable(graph);
             ValidateRegionEdges(candidate, graph, regions, report);
             if (report.HasErrors) return report;
@@ -320,8 +323,30 @@ namespace Better_Work_Tab.Transpilers.BwtExactProfile
 
         private static void ValidatePrefixes(
             IList<CodeInstruction> code, IList<CodeInstruction> original,
-            IList<IlResolvedEdit> edits, IlVerificationReport report)
+            IList<IlResolvedEdit> edits, IlExceptionContext[] regions,
+            IlVerificationReport report)
         {
+            var incomingLabels = new HashSet<Label>();
+            for (int index = 0; index < code.Count; index++)
+            {
+                CodeInstruction instruction = code[index];
+                if (instruction.opcode == OpCodes.Switch)
+                {
+                    try
+                    {
+                        var targets = instruction.operand as IEnumerable<Label>;
+                        if (targets != null) incomingLabels.UnionWith(targets);
+                    }
+                    catch (Exception exception) { report.Fault(index, exception); }
+                    continue;
+                }
+                if (instruction.opcode.FlowControl == FlowControl.Branch ||
+                    instruction.opcode.FlowControl == FlowControl.Cond_Branch)
+                {
+                    if (instruction.operand is Label) incomingLabels.Add((Label)instruction.operand);
+                    continue;
+                }
+            }
             for (int i = 0; i < code.Count; i++)
             {
                 if (!IsPrefix(code[i].opcode)) continue;
@@ -333,9 +358,11 @@ namespace Better_Work_Tab.Transpilers.BwtExactProfile
                     PrefixError(report, start, "A prefix group has no terminal instruction.");
                     continue;
                 }
+                bool hasTailPrefix = false;
                 for (int index = start; index < terminal; index++)
                 {
                     OpCode prefix = code[index].opcode;
+                    hasTailPrefix |= prefix == OpCodes.Tailcall;
                     if (index > start && HasMetadata(code[index]))
                         PrefixError(report, index, "A prefix group has an interior label boundary.");
                     for (int prior = start; prior < index; prior++)
@@ -356,6 +383,32 @@ namespace Better_Work_Tab.Transpilers.BwtExactProfile
                             "readonly. ldelema is outside the verifier safety boundary.");
                     if (prefix == OpCodes.Unaligned && !ValidUnalignedOperand(code[index].operand))
                         PrefixError(report, index, "unaligned. requires an alignment of 1, 2, or 4.");
+                }
+                if (HasIncomingBranch(code[terminal], incomingLabels))
+                    PrefixError(report, terminal,
+                        "A branch enters the prefix terminal and bypasses the prefix group.");
+                if (hasTailPrefix)
+                {
+                    bool validTailCall = IsAny(code[terminal].opcode,
+                        OpCodes.Call, OpCodes.Callvirt, OpCodes.Calli);
+                    bool hasRequiredRet = terminal + 1 < code.Count &&
+                        code[terminal + 1].opcode == OpCodes.Ret;
+                    if (!validTailCall || !hasRequiredRet)
+                    {
+                        PrefixError(report, terminal,
+                            "tail. requires call, callvirt, or calli immediately followed by ret.");
+                    }
+                    else
+                    {
+                        if (HasIncomingBranch(code[terminal + 1], incomingLabels))
+                            PrefixError(report, terminal + 1,
+                                "A branch enters the tail-call ret and bypasses the tail call.");
+                        if (regions == null || terminal + 1 >= regions.Length ||
+                            !regions[terminal].SameAs(regions[terminal + 1]))
+                            report.Error(PatchDiagnosticCode.InvalidExceptionRegion, terminal,
+                                terminal + 2,
+                                "A tail call and its required ret must remain in the same protected-region context.");
+                    }
                 }
             }
             if (edits == null) return;
@@ -380,6 +433,11 @@ namespace Better_Work_Tab.Transpilers.BwtExactProfile
         }
         private static void PrefixError(IlVerificationReport report, int index, string detail)
         { if (detail != null) report.Error(PatchDiagnosticCode.InvalidPrefix, index, index + 1, detail); }
+        private static bool HasIncomingBranch(CodeInstruction instruction, ISet<Label> incomingLabels)
+        {
+            return instruction != null && instruction.labels != null && incomingLabels != null &&
+                instruction.labels.Any(incomingLabels.Contains);
+        }
         internal static bool HasMetadata(CodeInstruction instruction) =>
             instruction.labels != null && instruction.labels.Count != 0 ||
             instruction.blocks != null && instruction.blocks.Count != 0;

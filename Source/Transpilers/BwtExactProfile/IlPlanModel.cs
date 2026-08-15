@@ -373,11 +373,13 @@ namespace Better_Work_Tab.Transpilers.BwtExactProfile
         {
             if (instructions == null || plan == null) return IlMarkerStatus.Unproven;
             var provenOperations = new HashSet<IlEditDescription>();
+            bool sawMarker = false;
             foreach (var marker in _anchors)
             {
                 var shape = marker.Resolve(instructions, false);
                 if (shape.Count > 1) return IlMarkerStatus.Ambiguous;
-                if (shape.Count == 0) return IlMarkerStatus.None;
+                if (shape.Count == 0) continue;
+                sawMarker = true;
                 var exact = marker.Resolve(instructions);
                 if (exact.Count != 1) return IlMarkerStatus.Unproven;
                 var operation = ProvesTopology(marker, exact[0], instructions, plan);
@@ -386,11 +388,18 @@ namespace Better_Work_Tab.Transpilers.BwtExactProfile
             }
             foreach (var operation in plan.Operations)
             {
-                if (!provenOperations.Contains(operation) &&
-                    (operation.Required || plan.AnchorFor(operation.AnchorId).Resolve(instructions).Count != 0))
-                    return IlMarkerStatus.Unproven;
+                if (provenOperations.Contains(operation)) continue;
+                var source = plan.AnchorFor(operation.AnchorId);
+                if (source == null) return IlMarkerStatus.Unproven;
+                // An optional operation may be absent in both the original method and
+                // the patched method. It is safe only when every required operation is
+                // already proven by its marker; a present source still means the plan
+                // is incomplete and must not be treated as already applied.
+                bool sourcePresent = source.Resolve(instructions).Count != 0;
+                if (operation.Required || sourcePresent)
+                    return sawMarker ? IlMarkerStatus.Unproven : IlMarkerStatus.None;
             }
-            return IlMarkerStatus.Applied;
+            return sawMarker ? IlMarkerStatus.Applied : IlMarkerStatus.None;
         }
         private static IlEditDescription ProvesTopology(
             IlAnchor marker, IlMatch match, IList<CodeInstruction> code, IlTranspilerPlan plan)

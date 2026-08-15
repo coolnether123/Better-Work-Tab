@@ -11,7 +11,11 @@ namespace Better_Work_Tab.Transpilers.BwtExactProfile
         /// <summary>
         /// Redirects a matching call through a signature-compatible replacement.
         /// The default is one required exact match. Idempotency is reported only by
-        /// recipes that declare an exact topology marker.
+        /// recipes that declare an exact topology marker. This public redirect has no
+        /// safe marker topology: a replacement call may already exist at an unrelated
+        /// site, and inserting a marker instruction can split a prefix or metadata
+        /// boundary. Reapplying this recipe therefore truthfully reports a required
+        /// source no-match instead of pretending that the redirect is idempotent.
         /// </summary>
         public static BwtPatchResult RedirectCall(
             IEnumerable<CodeInstruction> instructions,

@@ -9,6 +9,15 @@ using Verse;
 
 namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 {
+    // These exact-profile transpilers remain attribute-driven under one Harmony
+    // PatchAll call. Harmony does not expose the composed, live CodeInstruction
+    // inputs or a transaction boundary before installing attribute patches, so a
+    // feature-level preflight cannot safely prepare and verify all affected methods
+    // here (ColorOfPriority, TipForPawnWorker, DrawWorkBoxFor, HeaderClicked, and
+    // SetPriority). A future gate must be a central BWT installer that composes
+    // those exact inputs first, validates every max-priority profile, and only then
+    // installs the feature's patches; static method-body guesses or per-patch
+    // Prepare methods are not equivalent and must not be used as a gate.
     [HarmonyPatch(typeof(WidgetsWork), nameof(WidgetsWork.ColorOfPriority))]
     internal static class Patch_WidgetsWork_ColorOfPriority
     {

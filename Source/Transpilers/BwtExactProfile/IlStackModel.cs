@@ -72,6 +72,17 @@ namespace Better_Work_Tab.Transpilers.BwtExactProfile
             return Kind != IlStackKind.Value || ClrType == expected.ClrType;
         }
 
+        internal bool IsKnownNonNullReferenceAssignableTo(Type expected)
+        {
+            if (expected == null || Kind != IlStackKind.Reference || _isNull || ClrType == null)
+                return false;
+            try
+            {
+                return !ClrType.IsValueType && expected.IsAssignableFrom(ClrType);
+            }
+            catch (Exception) { return false; }
+        }
+
         internal bool TryMerge(IlStackType other, out IlStackType merged)
         {
             merged = null;
@@ -485,8 +496,11 @@ namespace Better_Work_Tab.Transpilers.BwtExactProfile
             if (name == "throw")
             {
                 IlStackType value = Pop(state, report, index, "throw");
-                if (value != null && value.Kind != IlStackKind.Reference)
-                    ReportInvalid(report, index, name, "a reference value", value, null);
+                // A null reference is deliberately rejected: this model cannot prove
+                // that it is an exception object, so throw validation fails closed.
+                if (value != null && !value.IsKnownNonNullReferenceAssignableTo(typeof(Exception)))
+                    ReportInvalid(report, index, name,
+                        "a known non-null reference assignable to System.Exception", value, null);
                 if (value == null) return;
             }
             else if (name == "rethrow") legal = ExceptionBlockType.BeginCatchBlock;
