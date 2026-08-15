@@ -62,7 +62,7 @@ namespace Spine.UI.SettingsFramework
         {
             this.scribeKeyConvention = scribeKeyConvention;
             this.onAdd = onAdd;
-            readOnlyDefinitions = definitions.AsReadOnly();
+            readOnlyDefinitions = LegacyReadOnlyCollections.WrapList(definitions);
             Root = new SettingsScope<TSettings>(definitions, parentId: null, scribeKeyConvention, onAdd);
         }
 
@@ -140,7 +140,7 @@ namespace Spine.UI.SettingsFramework
 
         private static string RequireId(string id)
         {
-            if (string.IsNullOrWhiteSpace(id))
+            if (LegacyBcl.IsNullOrWhiteSpace(id))
             {
                 throw new ArgumentException("A settings definition identifier is required.", nameof(id));
             }
@@ -388,7 +388,11 @@ namespace Spine.UI.SettingsFramework
             return definition;
         }
 
+#if RWT_LEGACY_BCL
+        public SettingDefinition Custom(string id, LegacyFunc6<Rect, string, string, TSettings, bool, bool> drawer, string label = "", string tooltip = null,
+#else
         public SettingDefinition Custom(string id, Func<Rect, string, string, TSettings, bool, bool> drawer, string label = "", string tooltip = null,
+#endif
                                         Action<TSettings> onChanged = null)
         {
             SettingDefinition definition = Define(id, SettingType.Custom, label, tooltip);
@@ -414,7 +418,7 @@ namespace Spine.UI.SettingsFramework
 
         private static string RequireId(string id)
         {
-            if (string.IsNullOrWhiteSpace(id))
+            if (LegacyBcl.IsNullOrWhiteSpace(id))
             {
                 throw new ArgumentException("A settings definition identifier is required.", nameof(id));
             }
@@ -424,7 +428,7 @@ namespace Spine.UI.SettingsFramework
 
         private static string RequireFieldName(string fieldName)
         {
-            if (string.IsNullOrWhiteSpace(fieldName))
+            if (LegacyBcl.IsNullOrWhiteSpace(fieldName))
             {
                 throw new ArgumentException("A settings field name is required.", nameof(fieldName));
             }
@@ -476,12 +480,12 @@ namespace Spine.UI.SettingsFramework
 
             MemberExpression member = selector.Body as MemberExpression;
             FieldInfo field = member?.Member as FieldInfo;
-            if (field == null || member.Expression != selector.Parameters[0])
+            if (LegacyBcl.IsNull(field) || member.Expression != selector.Parameters[0])
             {
                 throw new ArgumentException(DirectFieldMessage, nameof(selector));
             }
 
-            if (field.FieldType != typeof(TValue))
+            if (!object.Equals(field.FieldType, typeof(TValue)))
             {
                 throw new ArgumentException("The settings selector field '" + field.Name + "' has type " + field.FieldType.FullName + ", not " + typeof(TValue).FullName + ".",
                                             nameof(selector));
@@ -628,9 +632,13 @@ namespace Spine.UI.SettingsFramework
             return definition;
         }
 
-        public static SettingDefinition Custom(
+    public static SettingDefinition Custom(
             string id,
+#if RWT_LEGACY_BCL
+            LegacyFunc6<Rect, string, string, object, bool, bool> drawer,
+#else
             Func<Rect, string, string, object, bool, bool> drawer,
+#endif
             string label = "",
             string labelKey = "")
         {
@@ -702,7 +710,7 @@ namespace Spine.UI.SettingsFramework
                 }
 
                 FieldInfo field = settingsType.GetField(definition.FieldName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-                if (field != null)
+                if (LegacyBcl.IsNotNull(field))
                 {
                     definition.DefaultValue = field.GetValue(pristine);
                 }
@@ -718,7 +726,7 @@ namespace Spine.UI.SettingsFramework
         /// </summary>
         private static void ValidatePresentation(Type settingsType, IReadOnlyList<SettingDefinition> definitions)
         {
-            if (settingsType == null || !Prefs.DevMode)
+            if (LegacyBcl.IsNull(settingsType) || !Prefs.DevMode)
             {
                 return;
             }

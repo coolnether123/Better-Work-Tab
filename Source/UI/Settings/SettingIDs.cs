@@ -18,10 +18,14 @@ namespace Better_Work_Tab.UI.Settings
         public const string AdvancedSettingFocusHighlightColor = "advanced.settingFocusHighlightColor";
         public const string CompatExternalWorkTabColumns = "compat.externalWorkTab.columns";
         public const string AutoassignViewMode = "autoassign.viewMode";
+        public const string AutoassignConfirm = "autoassign.confirm";
+        public const string AutoassignResetBefore = "autoassign.resetBefore";
+        public const string AutoassignVisual = "autoassign.visual";
         public const string RuleBuilder2Use = "autoassign.ruleBuilder2.use";
         public const string RuleBuilder2TutorialReset = "autoassign.ruleBuilder2.tutorialReset";
         public const string RuleBuilder2Highlights = "autoassign.ruleBuilder2.highlights";
         public const string RuleBuilder2Animations = "autoassign.ruleBuilder2.animations";
+        public const string RuleBuilder2DraftSuggestions = "autoassign.ruleBuilder2.draftSuggestions";
         public const string RuleBuilder2AdvancedConditions = "autoassign.ruleBuilder2.advancedConditions";
         public const string RuleBuilder2MatchedPanel = "autoassign.ruleBuilder2.matchedPanel";
         public const string ColorsBestPawnOutline = "colors.bestPawnOutline";
@@ -148,6 +152,7 @@ namespace Better_Work_Tab.UI.Settings
         public const string DragdropEnableGrouping = "dragdrop.enableGrouping";
         public const string DragdropRemoveHeaderUnderline = "dragdrop.removeHeaderUnderline";
         public const string AutoassignWarnOnApply = "autoassign.warnOnApply";
+        public const string WorkloadsPersistDividers = "workloads.persistDividers";
         public const string WorkloadsWarnOnApply = "workloads.warnOnApply";
         public const string HideWorktypes = "ux.hideWorktypes";
         public const string AdvancedScrollWheelPriority = "advanced.scrollWheelPriority";

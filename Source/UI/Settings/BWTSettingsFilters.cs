@@ -59,7 +59,7 @@ namespace Better_Work_Tab.UI.Settings
                 BuildVersionFilter("version.2.0", "BWT v2.0", IsV20Setting),
                 BuildVersionFilter("version.1.1", "BWT v1.1", IsV11Setting),
                 BuildVersionFilter("version.1.0.5", "BWT v1.0.5", IsV105Setting),
-                BuildVersionFilter("version.1.0", "BWT v1.0", IsV10VersionFilterSetting),
+                BuildVersionFilter("version.1.0", "BWT v1.0", IsV10Setting),
                 BuildSystemFilter("system.subwork", "Sub-work Jobs", FeaturesSubWorkJobs),
                 BuildSystemFilter("system.headers", "Headers", HeadersHeader),
                 BuildSystemFilter("system.dividers", "Dividers", FeaturesDividers),
@@ -238,18 +238,18 @@ namespace Better_Work_Tab.UI.Settings
         }
 
         /// <summary>
-        /// Historical discovery for the BWT v1.0 filter.
+        /// Whether a setting was part of the public 1.0.x surface.
         ///
-        /// This remains broad so the filter can find legacy settings, but it is
-        /// not the compatibility contract used by the startup validator.
+        /// Internal rather than private because it is not only a search filter:
+        /// <see cref="SettingsConsistencyValidator"/> reads it too. Note what
+        /// that validator does and does not promise — it checks only that such
+        /// a setting stays reachable in *some* view. Keeping one in Simple is a
+        /// judgement made at each registration, not something enforced here;
+        /// this predicate is a broad prefix match and matches far more settings
+        /// than 1.0.5 actually shipped.
         /// </summary>
-        private static bool IsV10VersionFilterSetting(SettingDefinition def)
+        internal static bool IsV10Setting(SettingDefinition def)
         {
-            if (BWTSettingsVisibilityContract.IsIntentionalInternal(def?.Id))
-            {
-                return false;
-            }
-
             return HasAnyPrefix(def,
                     "overlay.",
                     "highlights.",

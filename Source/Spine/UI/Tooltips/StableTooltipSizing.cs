@@ -31,14 +31,14 @@ namespace Spine.UI.Tooltips
 
         public IDisposable Acquire(string consumerId)
         {
-            if (string.IsNullOrWhiteSpace(consumerId))
+            if (LegacyBcl.IsNullOrWhiteSpace(consumerId))
             {
                 throw new ArgumentException(
                     "A tooltip-service consumer identifier is required.",
                     nameof(consumerId));
             }
 
-            lock (Sync)
+            using (LegacyBcl.Enter(Sync))
             {
                 EnsureInstalled();
                 ConsumerLeases.TryGetValue(consumerId, out var count);
@@ -59,7 +59,7 @@ namespace Spine.UI.Tooltips
             target = AccessTools.PropertyGetter(
                 typeof(ActiveTip),
                 nameof(ActiveTip.TipRect));
-            if (target == null)
+            if (LegacyBcl.IsNull(target))
             {
                 throw new MissingMethodException(
                     typeof(ActiveTip).FullName,
@@ -83,7 +83,7 @@ namespace Spine.UI.Tooltips
 
         private static void Release(string consumerId)
         {
-            lock (Sync)
+            using (LegacyBcl.Enter(Sync))
             {
                 if (!ConsumerLeases.TryGetValue(
                     consumerId,
@@ -148,7 +148,7 @@ namespace Spine.UI.Tooltips
 
             public void Dispose()
             {
-                lock (Sync)
+                using (LegacyBcl.Enter(Sync))
                 {
                     if (disposed)
                     {

@@ -21,7 +21,7 @@ namespace Spine.UI.SettingsFramework
                 ParameterInfo[] parameters = method.GetParameters();
                 return parameters.Length >= 3 &&
                     parameters[0].ParameterType.IsByRef &&
-                    parameters[1].ParameterType == typeof(string);
+                    object.Equals(parameters[1].ParameterType, typeof(string));
             });
 
         public static void ScribeAll(object settings, IEnumerable<SettingDefinition> definitions)
@@ -32,8 +32,7 @@ namespace Spine.UI.SettingsFramework
             }
 
             IReadOnlyList<SettingDefinition> definitionList =
-                definitions as IReadOnlyList<SettingDefinition> ??
-                definitions.ToList();
+                LegacyReadOnlyCollections.WrapList(definitions);
             // ScribeAll is also a public direct entry point. Keep preparation
             // here so derived defaults and sort keys exist before persistence;
             // callers such as ModSettingsFacade must not prepare a second time.
@@ -50,7 +49,7 @@ namespace Spine.UI.SettingsFramework
                 }
 
                 FieldInfo field = settingsType.GetField(def.FieldName);
-                if (field == null || typeof(IEnumerable).IsAssignableFrom(field.FieldType) && field.FieldType != typeof(string))
+                if (LegacyBcl.IsNull(field) || typeof(IEnumerable).IsAssignableFrom(field.FieldType) && !object.Equals(field.FieldType, typeof(string)))
                 {
                     continue;
                 }
@@ -71,12 +70,11 @@ namespace Spine.UI.SettingsFramework
             var changedFields = new HashSet<string>();
             if (settings == null || definitions == null)
             {
-                return changedFields;
+                return LegacyReadOnlyCollections.WrapCollection(changedFields);
             }
 
             IReadOnlyList<SettingDefinition> definitionList =
-                definitions as IReadOnlyList<SettingDefinition> ??
-                definitions.ToList();
+                LegacyReadOnlyCollections.WrapList(definitions);
             SettingsPreparation.Prepare(settings, definitionList);
             Type settingsType = settings.GetType();
             foreach (SettingDefinition def in definitionList)
@@ -90,7 +88,7 @@ namespace Spine.UI.SettingsFramework
                 }
 
                 FieldInfo field = settingsType.GetField(def.FieldName);
-                if (field == null || !field.FieldType.IsInstanceOfType(def.DefaultValue))
+                if (LegacyBcl.IsNull(field) || !field.FieldType.IsInstanceOfType(def.DefaultValue))
                 {
                     continue;
                 }
@@ -104,7 +102,7 @@ namespace Spine.UI.SettingsFramework
                 changedFields.Add(def.FieldName);
             }
 
-            return changedFields;
+            return LegacyReadOnlyCollections.WrapCollection(changedFields);
         }
 
         /// <summary>

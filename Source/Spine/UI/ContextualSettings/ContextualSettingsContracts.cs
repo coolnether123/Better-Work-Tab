@@ -13,7 +13,11 @@ namespace Spine.UI.ContextualSettings
         Exact = 2
     }
 
+#if RWT_LEGACY_BCL
+    public struct ContextualSettingsTarget
+#else
     public readonly struct ContextualSettingsTarget
+#endif
     {
         private ContextualSettingsTarget(
             ContextualSettingsTargetLevel level,
@@ -25,9 +29,15 @@ namespace Spine.UI.ContextualSettings
             FallbackGroupId = fallbackGroupId;
         }
 
+#if RWT_LEGACY_BCL
+        public ContextualSettingsTargetLevel Level;
+        public string SettingId;
+        public string FallbackGroupId;
+#else
         public ContextualSettingsTargetLevel Level { get; }
         public string SettingId { get; }
         public string FallbackGroupId { get; }
+#endif
 
         public static ContextualSettingsTarget Exact(
             string settingId,
@@ -51,7 +61,7 @@ namespace Spine.UI.ContextualSettings
 
         private static string RequireId(string value)
         {
-            if (string.IsNullOrWhiteSpace(value))
+            if (LegacyBcl.IsNullOrWhiteSpace(value))
             {
                 throw new ArgumentException(
                     "A contextual settings target identifier is required.",
@@ -62,7 +72,11 @@ namespace Spine.UI.ContextualSettings
         }
     }
 
+#if RWT_LEGACY_BCL
+    public struct ContextualSettingsBindingOptions
+#else
     public readonly struct ContextualSettingsBindingOptions
+#endif
     {
         /// <summary>
         /// Configures overlap priority and, when the feature already owns a
@@ -81,15 +95,25 @@ namespace Spine.UI.ContextualSettings
             RegisterTooltip = registerTooltip;
         }
 
+#if RWT_LEGACY_BCL
+        public int Priority;
+        public string FeatureTooltip;
+#else
         public int Priority { get; }
         public string FeatureTooltip { get; }
+#endif
 
         /// <summary>
         /// Retained for binary compatibility. Spine no longer displays
         /// contextual-settings hints beside gameplay features.
         /// </summary>
+#if RWT_LEGACY_BCL
+        public string SettingsHint;
+        public bool RegisterTooltip;
+#else
         public string SettingsHint { get; }
         public bool RegisterTooltip { get; }
+#endif
 
         public static ContextualSettingsBindingOptions WithTooltip(
             string featureTooltip,
@@ -165,7 +189,7 @@ namespace Spine.UI.ContextualSettings
             int priority,
             string featureTooltip)
         {
-            return string.IsNullOrWhiteSpace(featureTooltip)
+            return LegacyBcl.IsNullOrWhiteSpace(featureTooltip)
                 ? ContextualSettingsBindingOptions.HintOnly(priority)
                 : ContextualSettingsBindingOptions.WithTooltip(
                     featureTooltip,
@@ -177,7 +201,7 @@ namespace Spine.UI.ContextualSettings
             Rect visibleRect,
             string id) =>
             lease != null &&
-            !string.IsNullOrWhiteSpace(id) &&
+            !LegacyBcl.IsNullOrWhiteSpace(id) &&
             !float.IsNaN(visibleRect.width) &&
             !float.IsInfinity(visibleRect.width) &&
             !float.IsNaN(visibleRect.height) &&

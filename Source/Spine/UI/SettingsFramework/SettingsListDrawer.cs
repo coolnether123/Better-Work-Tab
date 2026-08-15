@@ -157,7 +157,7 @@ namespace Spine.UI.SettingsFramework
         /// <summary>
         /// Optional filters shown by the toolbar filter button.
         /// </summary>
-        public IReadOnlyList<SettingsFilterDefinition> Filters { get; set; } = Array.Empty<SettingsFilterDefinition>();
+        public IReadOnlyList<SettingsFilterDefinition> Filters { get; set; } = LegacyReadOnlyCollections.EmptyList<SettingsFilterDefinition>();
 
         /// <summary>
         /// Toolbar label shown when no filter is active.
@@ -559,7 +559,7 @@ namespace Spine.UI.SettingsFramework
             ref SettingsViewMode viewMode,
             Action onSettingsChanged)
         {
-            bool isSearching = !string.IsNullOrWhiteSpace(_searchQuery);
+            bool isSearching = !LegacyBcl.IsNullOrWhiteSpace(_searchQuery);
             if (!string.IsNullOrEmpty(_pendingFocusSettingId))
             {
                 RevealDisabledAncestorChain(_pendingFocusSettingId);
@@ -868,8 +868,8 @@ namespace Spine.UI.SettingsFramework
             }
 
             bool isHovered = Mouse.IsOver(controlRow);
-            IReadOnlyList<SettingSupersession> supersessions = Array.Empty<SettingSupersession>();
-            IReadOnlyList<SettingDefinition> supersededSettings = Array.Empty<SettingDefinition>();
+            IReadOnlyList<SettingSupersession> supersessions = LegacyReadOnlyCollections.EmptyList<SettingSupersession>();
+            IReadOnlyList<SettingDefinition> supersededSettings = LegacyReadOnlyCollections.EmptyList<SettingDefinition>();
             if (isHovered && def.Supersessions != null && def.Supersessions.Count > 0)
             {
                 supersessions = def.GetActiveSupersessions(settingsObject);
@@ -928,7 +928,7 @@ namespace Spine.UI.SettingsFramework
             switch (def.Type)
             {
                 case SettingType.Bool:
-                    if (field != null && field.FieldType == typeof(bool))
+                    if (LegacyBcl.IsNotNull(field) && object.Equals(field.FieldType, typeof(bool)))
                     {
                         bool boolValue = (bool)field.GetValue(settingsObject);
                         bool changed = def.EmphasizeAsHeader || def.ControlsChildVisibility
@@ -954,7 +954,7 @@ namespace Spine.UI.SettingsFramework
                     }
                     break;
                 case SettingType.Int:
-                    if (field != null && field.FieldType == typeof(int))
+                    if (LegacyBcl.IsNotNull(field) && object.Equals(field.FieldType, typeof(int)))
                     {
                         int intValue = (int)field.GetValue(settingsObject);
                         int min = def.MinValue.HasValue
@@ -979,7 +979,7 @@ namespace Spine.UI.SettingsFramework
                     }
                     break;
                 case SettingType.NumericInt:
-                    if (field != null && field.FieldType == typeof(int))
+                    if (LegacyBcl.IsNotNull(field) && object.Equals(field.FieldType, typeof(int)))
                     {
                         int intValue = (int)field.GetValue(settingsObject);
                         int min = def.MinValue.HasValue
@@ -1004,8 +1004,8 @@ namespace Spine.UI.SettingsFramework
                     }
                     break;
                 case SettingType.Float:
-                    if (field != null &&
-                        (field.FieldType == typeof(float) || field.FieldType == typeof(double)))
+                    if (LegacyBcl.IsNotNull(field) &&
+                        (object.Equals(field.FieldType, typeof(float)) || object.Equals(field.FieldType, typeof(double))))
                     {
                         float floatValue = Convert.ToSingle(field.GetValue(settingsObject));
                         float min = def.MinValue ?? 0f;
@@ -1029,7 +1029,7 @@ namespace Spine.UI.SettingsFramework
                                 tooltip,
                                 disabled))
                         {
-                            field.SetValue(settingsObject, field.FieldType == typeof(double)
+                            field.SetValue(settingsObject, object.Equals(field.FieldType, typeof(double))
                                 ? (object)(double)floatValue
                                 : floatValue);
                             HandleSettingChanged(def, settingsObject, onSettingsChanged);
@@ -1038,7 +1038,7 @@ namespace Spine.UI.SettingsFramework
                     }
                     break;
                 case SettingType.Slider:
-                    if (field != null && field.FieldType == typeof(float))
+                    if (LegacyBcl.IsNotNull(field) && object.Equals(field.FieldType, typeof(float)))
                     {
                         float floatValue = (float)field.GetValue(settingsObject);
                         string readout = def.SliderValueFormatter != null
@@ -1062,7 +1062,7 @@ namespace Spine.UI.SettingsFramework
                     }
                     break;
                 case SettingType.Color:
-                    if (field != null && field.FieldType == typeof(Color))
+                    if (LegacyBcl.IsNotNull(field) && object.Equals(field.FieldType, typeof(Color)))
                     {
                         Color colorValue = (Color)field.GetValue(settingsObject);
                         if (!disabled && isHovered)
@@ -1137,7 +1137,7 @@ namespace Spine.UI.SettingsFramework
                     }
                     break;
                 case SettingType.Enum:
-                    if ((field != null || def.ValueGetter != null) && def.EnumType != null)
+                    if ((LegacyBcl.IsNotNull(field) || def.ValueGetter != null) && LegacyBcl.IsNotNull(def.EnumType))
                     {
                         object current = def.ValueGetter != null
                             ? def.ValueGetter(settingsObject)
@@ -1256,7 +1256,7 @@ namespace Spine.UI.SettingsFramework
 
             object currentValue = definition.ValueGetter != null
                 ? definition.ValueGetter(settingsObject)
-                : field != null
+                : LegacyBcl.IsNotNull(field)
                     ? field.GetValue(settingsObject)
                     : settingsObject;
             OnSettingPreview(definition, settingsObject, currentValue);
@@ -1267,7 +1267,7 @@ namespace Spine.UI.SettingsFramework
         {
             if (supersessions == null || supersessions.Count == 0)
             {
-                return Array.Empty<SettingDefinition>();
+                return LegacyReadOnlyCollections.EmptyList<SettingDefinition>();
             }
 
             var resolved = new List<SettingDefinition>(supersessions.Count);
@@ -1288,7 +1288,7 @@ namespace Spine.UI.SettingsFramework
                 }
             }
 
-            return resolved;
+            return LegacyReadOnlyCollections.WrapList(resolved);
         }
 
         private void DrawSupersessionAffordance(
@@ -1307,7 +1307,7 @@ namespace Spine.UI.SettingsFramework
 
             if (affectedLabels.Count > 0)
             {
-                tooltip = AppendTooltip(tooltip, string.Join(", ", affectedLabels));
+                tooltip = AppendTooltip(tooltip, string.Join(", ", affectedLabels.ToArray()));
             }
 
             TooltipHandler.TipRegion(rect, tooltip);
@@ -1483,7 +1483,7 @@ namespace Spine.UI.SettingsFramework
 
                     tooltip += parentParts.Count == 1
                         ? $"Parent: {parentParts[0]}"
-                        : $"Parent chain: {string.Join(" › ", parentParts)}";
+                        : $"Parent chain: {string.Join(" › ", parentParts.ToArray())}";
                 }
             }
 
@@ -1735,7 +1735,7 @@ namespace Spine.UI.SettingsFramework
 
         private EmptyStateAction GetEmptyStateAction(object settingsObject, SettingsViewMode viewMode)
         {
-            bool isSearching = !string.IsNullOrWhiteSpace(_searchQuery);
+            bool isSearching = !LegacyBcl.IsNullOrWhiteSpace(_searchQuery);
             if (!isSearching)
             {
                 if (_activeFilter != null)
@@ -1803,7 +1803,7 @@ namespace Spine.UI.SettingsFramework
 
         private SettingsFilterDefinition FindSuggestedFilter(object settingsObject, SettingsViewMode viewMode)
         {
-            if (Filters == null || Filters.Count == 0 || string.IsNullOrWhiteSpace(_searchQuery))
+            if (Filters == null || Filters.Count == 0 || LegacyBcl.IsNullOrWhiteSpace(_searchQuery))
             {
                 return null;
             }
@@ -2155,7 +2155,7 @@ namespace Spine.UI.SettingsFramework
                 FieldInfo field = settingsObject.GetType().GetField(
                     ancestor.FieldName,
                     BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-                if (field == null || field.FieldType != typeof(bool) || (bool)field.GetValue(settingsObject))
+                if (LegacyBcl.IsNull(field) || !object.Equals(field.FieldType, typeof(bool)) || (bool)field.GetValue(settingsObject))
                 {
                     continue;
                 }
@@ -2324,7 +2324,7 @@ namespace Spine.UI.SettingsFramework
                 return def.DefaultValue != null && def.Type == SettingType.Enum;
             }
 
-            if (field == null || def.DefaultValue == null)
+            if (LegacyBcl.IsNull(field) || def.DefaultValue == null)
             {
                 return false;
             }
@@ -2361,7 +2361,7 @@ namespace Spine.UI.SettingsFramework
                 return !ValuesEqual(def.ValueGetter(settingsObject), def.DefaultValue);
             }
 
-            if (field == null)
+            if (LegacyBcl.IsNull(field))
             {
                 return false;
             }
@@ -2422,7 +2422,7 @@ namespace Spine.UI.SettingsFramework
                 return true;
             }
 
-            if (field == null)
+            if (LegacyBcl.IsNull(field))
             {
                 return false;
             }
@@ -2439,7 +2439,7 @@ namespace Spine.UI.SettingsFramework
         private static bool TryGetDefaultValueForField(FieldInfo field, object configuredDefault, out object value)
         {
             value = null;
-            if (field == null || configuredDefault == null)
+            if (LegacyBcl.IsNull(field) || configuredDefault == null)
             {
                 return false;
             }
