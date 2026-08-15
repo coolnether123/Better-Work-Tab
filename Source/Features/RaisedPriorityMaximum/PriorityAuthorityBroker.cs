@@ -178,7 +178,8 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         /// priority range. These belong to whoever draws the tab, not to whoever owns the data, so a
         /// Fluffy-backed priority store must not switch them off.
         /// </summary>
-        internal static bool ShouldRunBetterWorkTabPriorityFeatures => BetterWorkTabRendersWorkTab;
+        internal static bool ShouldRunBetterWorkTabPriorityFeatures =>
+            BwtRaisedPriorityFeatureInstaller.IsFeatureActive && BetterWorkTabRendersWorkTab;
 
         /// <summary>
         /// Gates behavior: work-giver overrides and work execution order. These must yield when Fluffy

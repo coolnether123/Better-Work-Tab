@@ -4,6 +4,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using HarmonyLib;
 using Better_Work_Tab.Transpilers.BwtExactProfile;
+using Better_Work_Tab.Features.RaisedPriorityMaximum;
 
 namespace Better_Work_Tab.Features.Patches.Profiles
 {
@@ -201,25 +202,34 @@ namespace Better_Work_Tab.Features.Patches.Profiles
         internal static IEnumerable<CodeInstruction> ApplyDrawWorkBox(
             IEnumerable<CodeInstruction> instructions, MethodBase original)
         {
-            return BwtPriorityCompiler.Compile(
+            BwtPatchResult result = BwtPriorityCompiler.Compile(
                 instructions, original, BwtPriorityProfiles.DrawWorkBoxPriorityConstants,
                 BwtBuildIdentity.From(original));
+            BwtRaisedPriorityInstallationSession.Record(
+                BwtRaisedPriorityPatchIds.DrawWorkBoxFor, result);
+            return result;
         }
 
         internal static IEnumerable<CodeInstruction> ApplyHeaderClicked(
             IEnumerable<CodeInstruction> instructions, MethodBase original)
         {
-            return BwtPriorityCompiler.Compile(
+            BwtPatchResult result = BwtPriorityCompiler.Compile(
                 instructions, original, BwtPriorityProfiles.HeaderClickedPriorityConstants,
                 BwtBuildIdentity.From(original));
+            BwtRaisedPriorityInstallationSession.Record(
+                BwtRaisedPriorityPatchIds.HeaderClicked, result);
+            return result;
         }
 
         internal static IEnumerable<CodeInstruction> ApplySetPriority(
             IEnumerable<CodeInstruction> instructions, MethodBase original)
         {
-            return BwtPriorityCompiler.Compile(
+            BwtPatchResult result = BwtPriorityCompiler.Compile(
                 instructions, original, BwtPriorityProfiles.SetPriorityUpperBound,
                 BwtBuildIdentity.From(original));
+            BwtRaisedPriorityInstallationSession.Record(
+                BwtRaisedPriorityPatchIds.SetPriority, result);
+            return result;
         }
     }
 }

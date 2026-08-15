@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using HarmonyLib;
 using Better_Work_Tab.Transpilers.BwtExactProfile;
+using Better_Work_Tab.Features.RaisedPriorityMaximum;
 
 namespace Better_Work_Tab.Features.Patches.Profiles
 {
@@ -53,15 +54,21 @@ namespace Better_Work_Tab.Features.Patches.Profiles
         internal static IEnumerable<CodeInstruction> ApplyTipPriorityLookup(
             IEnumerable<CodeInstruction> instructions, MethodBase original)
         {
-            return BwtCallRedirectCompiler.Compile(
+            BwtPatchResult result = BwtCallRedirectCompiler.Compile(
                 instructions, original, BwtCallRedirectProfiles.TipPriorityLookup);
+            BwtRaisedPriorityInstallationSession.Record(
+                BwtRaisedPriorityPatchIds.TipForPawnWorker, result);
+            return result;
         }
 
         internal static IEnumerable<CodeInstruction> ApplyPawnLabelCloseWorkTab(
             IEnumerable<CodeInstruction> instructions, MethodBase original)
         {
-            return BwtCallRedirectCompiler.Compile(
+            BwtPatchResult result = BwtCallRedirectCompiler.Compile(
                 instructions, original, BwtCallRedirectProfiles.PawnLabelCloseWorkTab);
+            BwtRaisedPriorityInstallationSession.Record(
+                BwtRaisedPriorityPatchIds.LabelDoCell, result);
+            return result;
         }
     }
 

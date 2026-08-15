@@ -112,6 +112,7 @@
     <Compile Include="Features\Patches\Profiles\BwtHeaderCompiler.cs" />
     <Compile Include="Features\RaisedPriorityMaximum\PriorityAuthorityBroker.cs" />
     <Compile Include="Features\RaisedPriorityMaximum\PriorityAuthorityPatches.cs" />
+    <Compile Include="Features\RaisedPriorityMaximum\BwtRaisedPriorityFeatureInstaller.cs" />
     <Compile Include="Features\RaisedPriorityMaximum\PriorityConstants.cs" />
     <Compile Include="Features\RaisedPriorityMaximum\PriorityProviderSnapshot.cs" />
     <Compile Include="Features\RaisedPriorityMaximum\PriorityProviders.cs" />

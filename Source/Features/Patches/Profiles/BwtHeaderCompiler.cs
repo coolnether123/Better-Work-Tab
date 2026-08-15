@@ -5,6 +5,7 @@ using System.Reflection.Emit;
 using HarmonyLib;
 using RimWorld;
 using Better_Work_Tab.Transpilers.BwtExactProfile;
+using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Verse;
 
 namespace Better_Work_Tab.Features.Patches.Profiles
@@ -17,6 +18,8 @@ namespace Better_Work_Tab.Features.Patches.Profiles
             BwtPatchResult result = Compile(
                 instructions, generator, original, BwtHeaderProfiles.DisableHighlight,
                 BwtBuildIdentity.From(original));
+            BwtRaisedPriorityInstallationSession.Record(
+                BwtRaisedPriorityPatchIds.DoHeader, result);
             return result;
         }
 
