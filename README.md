@@ -6,12 +6,14 @@ Better Work Tab rebuilds RimWorld's Work tab around faster colony setup, detaile
 
 ## Transpiler architecture
 
-Active BWT IL patches use the VNext transactional engine with exact RimWorld
-1.6 target profiles. Profiles describe the known method, call signatures,
-locals, and IL anchors; VNext performs matching, verification, atomic mutation,
-rollback, and diagnostics. The older Fluent transpiler remains compiled as a
-legacy compatibility surface and is frozen; new BWT patches should use VNext
-profiles.
+Active BWT IL patches use the BWT exact-profile transactional engine with exact
+RimWorld 1.6 target profiles. Profiles describe the known method, call
+signatures, locals, and IL anchors; the engine performs matching, verification,
+atomic mutation, rollback, and diagnostics. The engine is BWT-owned under
+`Source/Transpilers/BwtExactProfile` and is not part of the standalone Spine
+mirror. This is the 2.0 exact-profile naming/path-isolation boundary; the older
+Fluent transpiler remains compiled as a frozen legacy compatibility surface and
+is not integrated into this engine.
 
 ## What 2.0 adds
 

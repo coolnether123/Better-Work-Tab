@@ -6,7 +6,7 @@ using System.Reflection.Emit;
 using HarmonyLib;
 using Spine.Harmony.Infrastructure;
 
-namespace Spine.Harmony.Transpilers.VNext
+namespace Better_Work_Tab.Transpilers.BwtExactProfile
 {
     internal sealed class IlResolvedEdit
     {
@@ -37,16 +37,16 @@ namespace Spine.Harmony.Transpilers.VNext
         }
     }
 
-    internal static class IlTranspiler
+    internal static class BwtExactProfileExecutor
     {
-        internal static PatchResult Execute(
+        internal static BwtPatchResult Execute(
             IEnumerable<CodeInstruction> instructions, MethodBase originalMethod,
             IlTranspilerPlan plan)
         {
             // Capture outside the catch: a broken enumerable must propagate, not return a partial body.
             return Execute(IlInstructionSnapshot.Capture(instructions, originalMethod), plan);
         }
-        internal static PatchResult Execute(IlInstructionSnapshot snapshot, IlTranspilerPlan plan)
+        internal static BwtPatchResult Execute(IlInstructionSnapshot snapshot, IlTranspilerPlan plan)
         {
             var planId = plan == null ? "<null-plan>" : plan.Id;
             var methodId = snapshot == null ? "<unknown-method>" : snapshot.Method.Identity;
@@ -127,7 +127,7 @@ namespace Spine.Harmony.Transpilers.VNext
             }
         }
 
-        internal static PatchResult Reject(
+        internal static BwtPatchResult Reject(
             IEnumerable<CodeInstruction> instructions, MethodBase originalMethod,
             string planId, PatchDiagnosticCode code, string detail)
         {
@@ -448,7 +448,7 @@ namespace Spine.Harmony.Transpilers.VNext
         }
         private static bool HasFault(IEnumerable<PatchDiagnostic> diagnostics)
         { return diagnostics.Any(diagnostic => diagnostic.Code == PatchDiagnosticCode.InternalException); }
-        private static PatchResult VerificationFailure(
+        private static BwtPatchResult VerificationFailure(
             IEnumerable<PatchDiagnostic> verification, IList<PatchDiagnostic> diagnostics,
             string planId, string methodId, IEnumerable<CodeInstruction> original)
         {
@@ -473,7 +473,7 @@ namespace Spine.Harmony.Transpilers.VNext
                 exception == null ? null : exception.GetType().FullName,
                 exception == null ? null : exception.Message));
         }
-        private static PatchResult Reject(
+        private static BwtPatchResult Reject(
             IList<PatchDiagnostic> diagnostics, string planId, string methodId,
             PatchDiagnosticCode code, string detail, IEnumerable<CodeInstruction> original)
         {
@@ -481,7 +481,7 @@ namespace Spine.Harmony.Transpilers.VNext
                 planId, null, methodId, detail);
             return Complete(PatchOutcome.Rejected, original, diagnostics, planId, methodId);
         }
-        private static PatchResult Failed(
+        private static BwtPatchResult Failed(
             IList<PatchDiagnostic> diagnostics, string planId, string methodId,
             string operationId, Exception exception, IEnumerable<CodeInstruction> original)
         {
@@ -495,22 +495,22 @@ namespace Spine.Harmony.Transpilers.VNext
                     "The verifier faulted while inspecting the candidate.");
             return Complete(PatchOutcome.Failed, original, diagnostics, planId, methodId);
         }
-        private static PatchResult Complete(
+        private static BwtPatchResult Complete(
             PatchOutcome outcome, IEnumerable<CodeInstruction> instructions,
             IEnumerable<PatchDiagnostic> diagnostics, string planId, string methodId)
         {
-            var result = new PatchResult(outcome, instructions, diagnostics, planId, methodId);
+            var result = new BwtPatchResult(outcome, instructions, diagnostics, planId, methodId);
             if (outcome == PatchOutcome.Rejected || outcome == PatchOutcome.Failed)
                 ReportFailure(result);
             return result;
         }
-        internal static void ReportFailure(PatchResult result)
+        internal static void ReportFailure(BwtPatchResult result)
         {
             if (result == null || (result.Outcome != PatchOutcome.Rejected &&
                 result.Outcome != PatchOutcome.Failed) || !result.TryClaimFailureReport()) return;
             var error = result.Outcome == PatchOutcome.Failed || result.Diagnostics.Any(diagnostic =>
                 diagnostic.Severity == PatchDiagnosticSeverity.Error);
-            var message = "[VNext] " + (error ? "Required" : "Optional") +
+            var message = "[BWT exact-profile] " + (error ? "Required" : "Optional") +
                 " patch failure for " + result.PatchId + " on " + result.TargetMethodId +
                 ": " + result.FormatDiagnostics();
             if (error) MMLog.WriteError(message);

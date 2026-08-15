@@ -4,7 +4,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using HarmonyLib;
 using RimWorld;
-using Spine.Harmony.Transpilers.VNext;
+using Better_Work_Tab.Transpilers.BwtExactProfile;
 using Verse;
 
 namespace Better_Work_Tab.Features.Patches.Profiles
@@ -14,27 +14,27 @@ namespace Better_Work_Tab.Features.Patches.Profiles
         internal static IEnumerable<CodeInstruction> ApplyDisableHighlight(
             IEnumerable<CodeInstruction> instructions, ILGenerator generator, MethodBase original)
         {
-            PatchResult result = Compile(
+            BwtPatchResult result = Compile(
                 instructions, generator, original, BwtHeaderProfiles.DisableHighlight,
                 BwtBuildIdentity.From(original));
             return result;
         }
 
-        internal static PatchResult Compile(
+        internal static BwtPatchResult Compile(
             IEnumerable<CodeInstruction> instructions, ILGenerator generator, MethodBase original,
             BwtHeaderProfile profile, BwtBuildIdentity selectedBuild)
         {
             if (profile == null)
-                return IlTranspiler.Reject(
+                return BwtExactProfileExecutor.Reject(
                     instructions, original, "BWT.ProfileCompiler", PatchDiagnosticCode.InvalidPlan,
                     "No header profile was selected.");
             if (!profile.Target.Matches(original, selectedBuild))
-                return IlTranspiler.Reject(
+                return BwtExactProfileExecutor.Reject(
                     instructions, original, profile.Id, PatchDiagnosticCode.UnsupportedMethodContext,
                     "The target does not match the exact profile identity " + profile.Target.Describe() + ".");
             string bindingError = profile.Validate();
             if (bindingError != null)
-                return IlTranspiler.Reject(
+                return BwtExactProfileExecutor.Reject(
                     instructions, original, profile.Id, PatchDiagnosticCode.UnsupportedSignature,
                     "The profile binding contract was rejected: " + bindingError + ".");
 
@@ -61,28 +61,28 @@ namespace Better_Work_Tab.Features.Patches.Profiles
             IlAnchor boundary = CreateRealHeaderBoundary(profile);
             List<IlMatch> markerShape = marker.Resolve(code, enforceMatcher: false);
             if (markerShape.Count > 1)
-                return IlTranspiler.Reject(code, original, profile.Id,
+                return BwtExactProfileExecutor.Reject(code, original, profile.Id,
                     PatchDiagnosticCode.IdempotencyMarkerAmbiguous,
                     "The header guard idempotency marker occurs more than once.");
             if (markerShape.Count == 1)
             {
                 if (marker.Resolve(code).Count != 1)
-                    return IlTranspiler.Reject(code, original, profile.Id,
+                    return BwtExactProfileExecutor.Reject(code, original, profile.Id,
                         PatchDiagnosticCode.StructuralValidationFailed,
                         "The header guard marker shape does not prove the patch topology.");
                 IlVerificationReport verification = IlVerifier.Verify(snapshot, code);
                 if (!verification.IsValid)
-                    return IlTranspiler.Reject(code, original, profile.Id,
+                    return BwtExactProfileExecutor.Reject(code, original, profile.Id,
                         PatchDiagnosticCode.StructuralValidationFailed,
-                        "The existing header guard failed VNext baseline verification.");
-                return new PatchResult(PatchOutcome.AlreadyApplied, code,
+                        "The existing header guard failed BWT exact-profile baseline verification.");
+                return new BwtPatchResult(PatchOutcome.AlreadyApplied, code,
                     new[] { new PatchDiagnostic(PatchDiagnosticCode.AlreadyApplied,
                         PatchDiagnosticSeverity.Info, profile.Id, null, snapshot.Method.Identity,
                         null, null, "The header guard idempotency marker is already present.") },
                     profile.Id, snapshot.Method.Identity);
             }
 
-            return IlRecipes.InsertGuardBeforeCallFirstMatch(
+            return BwtExactProfileRecipes.InsertGuardBeforeCallFirstMatch(
                 code, original, generator, profile.Id, boundary, profile.HighlightCall,
                 (fallback, skip) => CreateGuard(profile, fallback, skip), null);
         }

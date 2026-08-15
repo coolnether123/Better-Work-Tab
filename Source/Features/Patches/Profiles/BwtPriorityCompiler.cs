@@ -3,27 +3,27 @@ using System.Collections.Generic;
 using System.Reflection;
 using System.Reflection.Emit;
 using HarmonyLib;
-using Spine.Harmony.Transpilers.VNext;
+using Better_Work_Tab.Transpilers.BwtExactProfile;
 
 namespace Better_Work_Tab.Features.Patches.Profiles
 {
     internal static class BwtPriorityCompiler
     {
-        internal static PatchResult Compile(
+        internal static BwtPatchResult Compile(
             IEnumerable<CodeInstruction> instructions, MethodBase original,
             BwtPriorityConstantProfile profile, BwtBuildIdentity selectedBuild)
         {
             if (profile == null)
-                return IlTranspiler.Reject(
+                return BwtExactProfileExecutor.Reject(
                     instructions, original, "BWT.ProfileCompiler", PatchDiagnosticCode.InvalidPlan,
                     "No priority-constant profile was selected.");
             if (!profile.Target.Matches(original, selectedBuild))
-                return IlTranspiler.Reject(
+                return BwtExactProfileExecutor.Reject(
                     instructions, original, profile.Id, PatchDiagnosticCode.UnsupportedMethodContext,
                     "The target does not match the exact profile identity " + profile.Target.Describe() + ".");
             string bindingError = profile.Validate();
             if (bindingError != null)
-                return IlTranspiler.Reject(
+                return BwtExactProfileExecutor.Reject(
                     instructions, original, profile.Id, PatchDiagnosticCode.UnsupportedSignature,
                     "The profile binding contract was rejected: " + bindingError + ".");
 
@@ -48,7 +48,7 @@ namespace Better_Work_Tab.Features.Patches.Profiles
 
             var plan = new IlTranspilerPlan(
                 profile.Id, anchors, operations, new IlIdempotencyMarker(markers));
-            return IlTranspiler.Execute(snapshot, plan);
+            return BwtExactProfileExecutor.Execute(snapshot, plan);
         }
 
         private static IlAnchor CreateAnchor(

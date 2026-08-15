@@ -9,7 +9,7 @@ using RimWorld;
 using Spine.UI; // for TextColorHelper
 using UnityEngine;
 using Verse;
-using Spine.Harmony.Transpilers.VNext;
+using Better_Work_Tab.Transpilers.BwtExactProfile;
 using Better_Work_Tab.ModSupport;
 using Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities;
 using Better_Work_Tab.Features.Patches.Profiles;

@@ -1,7 +1,7 @@
 using HarmonyLib;
 using RimWorld;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
-using Spine.Harmony.Transpilers.VNext;
+using Better_Work_Tab.Transpilers.BwtExactProfile;
 
 namespace Better_Work_Tab.Features.Patches.Profiles
 {

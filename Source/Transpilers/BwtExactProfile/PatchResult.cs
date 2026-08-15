@@ -5,7 +5,7 @@ using System.Collections.ObjectModel;
 using System.Threading;
 using HarmonyLib;
 
-namespace Spine.Harmony.Transpilers.VNext
+namespace Better_Work_Tab.Transpilers.BwtExactProfile
 {
     /// <summary>Describes the outcome of a transactional IL patch.</summary>
     public enum PatchOutcome
@@ -99,12 +99,12 @@ namespace Spine.Harmony.Transpilers.VNext
     }
 
     /// <summary>The immutable instruction stream, outcome, and diagnostics of a patch plan.</summary>
-    public sealed class PatchResult : IEnumerable<CodeInstruction>
+    public sealed class BwtPatchResult : IEnumerable<CodeInstruction>
     {
         private const int MaximumDiagnostics = 128;
         private readonly List<CodeInstruction> _instructions;
         private int _failureReported;
-        internal PatchResult(
+        internal BwtPatchResult(
             PatchOutcome outcome, IEnumerable<CodeInstruction> instructions,
             IEnumerable<PatchDiagnostic> diagnostics, string patchId, string targetMethodId)
         {

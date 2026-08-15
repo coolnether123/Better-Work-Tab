@@ -4,7 +4,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using HarmonyLib;
 
-namespace Spine.Harmony.Transpilers.VNext
+namespace Better_Work_Tab.Transpilers.BwtExactProfile
 {
     internal enum IlStackKind
     {

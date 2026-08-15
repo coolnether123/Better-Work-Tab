@@ -5,7 +5,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using HarmonyLib;
 
-namespace Spine.Harmony.Transpilers.VNext
+namespace Better_Work_Tab.Transpilers.BwtExactProfile
 {
     /// <summary>Controls how many matching instruction sites a recipe may edit.</summary>
     public enum MatchMode

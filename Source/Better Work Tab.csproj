@@ -320,6 +320,13 @@
     <Compile Include="Spine\harmony\Transpilers\StackSentinel.cs" />
     <Compile Include="Spine\harmony\Transpilers\TranspilerDebugger.cs" />
     <Compile Include="Spine\harmony\Transpilers\TranspilerSafetyPolicy.cs" />
+    <Compile Include="Transpilers\BwtExactProfile\IlInstructionSnapshot.cs" />
+    <Compile Include="Transpilers\BwtExactProfile\IlPlanModel.cs" />
+    <Compile Include="Transpilers\BwtExactProfile\PatchResult.cs" />
+    <Compile Include="Transpilers\BwtExactProfile\IlVerifier.cs" />
+    <Compile Include="Transpilers\BwtExactProfile\IlStackModel.cs" />
+    <Compile Include="Transpilers\BwtExactProfile\IlAtomicExecutor.cs" />
+    <Compile Include="Transpilers\BwtExactProfile\IlRecipes.cs" />
     <Compile Include="Spine\Profiling\SpineTiming.cs" />
     <Compile Include="Spine\Utils\SpineUtils.cs" />
     <Compile Include="Spine\UI\TextColorHelper.cs" />

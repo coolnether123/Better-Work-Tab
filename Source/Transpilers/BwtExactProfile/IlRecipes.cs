@@ -4,16 +4,16 @@ using System.Reflection;
 using System.Reflection.Emit;
 using HarmonyLib;
 
-namespace Spine.Harmony.Transpilers.VNext
+namespace Better_Work_Tab.Transpilers.BwtExactProfile
 {
-    public static class IlRecipes
+    public static class BwtExactProfileRecipes
     {
         /// <summary>
         /// Redirects a matching call through a signature-compatible replacement.
         /// The default is one required exact match. Idempotency is reported only by
         /// recipes that declare an exact topology marker.
         /// </summary>
-        public static PatchResult RedirectCall(
+        public static BwtPatchResult RedirectCall(
             IEnumerable<CodeInstruction> instructions,
             MethodBase targetMethod,
             MethodInfo callToReplace,
@@ -45,10 +45,10 @@ namespace Spine.Harmony.Transpilers.VNext
                         replacementCall,
                         requirement)
                 });
-            return IlTranspiler.Execute(instructions, targetMethod, plan);
+            return BwtExactProfileExecutor.Execute(instructions, targetMethod, plan);
         }
 
-        internal static PatchResult InsertGuardBeforeCallFirstMatch(
+        internal static BwtPatchResult InsertGuardBeforeCallFirstMatch(
             IEnumerable<CodeInstruction> instructions, MethodBase original, ILGenerator generator,
             string planId, IlAnchor boundary, MethodInfo sourceCall,
             Func<Label, Label, IEnumerable<CodeInstruction>> guardFactory, IlPredicate precedingBoundary,
@@ -59,7 +59,7 @@ namespace Spine.Harmony.Transpilers.VNext
                 guardFactory, precedingBoundary, idempotencyMarkers);
         }
 
-        private static PatchResult InsertGuard(
+        private static BwtPatchResult InsertGuard(
             IEnumerable<CodeInstruction> instructions, MethodBase original, ILGenerator generator,
             string planId, IlAnchor boundary, MethodInfo sourceCall,
             Func<Label, Label, IEnumerable<CodeInstruction>> guardFactory, IlPredicate precedingBoundary,
@@ -82,7 +82,7 @@ namespace Spine.Harmony.Transpilers.VNext
                 ? null
                 : new IlIdempotencyMarker(idempotencyMarkers);
             var plan = new IlTranspilerPlan(planId, anchors, new[] { operation }, marker);
-            return IlTranspiler.Execute(snapshot, plan);
+            return BwtExactProfileExecutor.Execute(snapshot, plan);
         }
 
         private static void RequireMatchMode(IlAnchor anchor, MatchMode expected)
