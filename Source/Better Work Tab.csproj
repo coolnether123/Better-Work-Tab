@@ -157,7 +157,6 @@
     <Compile Include="Features\WorkGiverReassignments\SubWorkDrilldownState.cs" />
     <Compile Include="Features\Workloads\GameComponent_BWTWorldSettings.cs" />
     <Compile Include="Diagnostics\WorkTabDiagnostics.cs" />
-    <Compile Include="UI\BWTBottomBarIcons.cs" />
     <Compile Include="UI\BWTBottomBarSelector.cs" />
     <Compile Include="UI\OneTimePromptPresence.cs" />
     <Compile Include="Features\TimePriority\Patch_CopyPasteWorkPriorities_TimePriority.cs" />

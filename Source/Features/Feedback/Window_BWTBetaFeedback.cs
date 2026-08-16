@@ -105,7 +105,7 @@ namespace Better_Work_Tab.Features.Feedback
                     "BWT_Beta_Title".Translate(),
                     "BWT_Beta_Subtitle".Translate(),
                     "BWT_Beta_CopyDiscord".Translate(),
-                    BWTBetaFeedbackButton.Icon))
+                    TexButton.Suspend))
             {
                 CopyDiscord();
                 Messages.Message("BWT_Tutorial_DiscordCopied".Translate(), MessageTypeDefOf.TaskCompletion, false);
