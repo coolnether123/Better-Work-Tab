@@ -81,10 +81,9 @@ namespace Better_Work_Tab.Features.Tutorial
     /// </summary>
     internal static class BWTTutorialStrip
     {
-        // Small-font text needs about 22px of line box, so even a one-line band
-        // has to clear that plus its padding. Longer translated instructions
-        // grow the reserved band instead of being shortened with an ellipsis.
-        private const float MinimumRowHeight = 34f;
+        // Small-font text needs about 22px of line box, so the band has to clear
+        // that plus its padding or the instruction is clipped at both ends.
+        internal const float RowHeight = 34f;
 
         // Angled header labels hang their stems slightly past the header lane.
         // Starting the band flush with the lane bottom clipped those stems right
@@ -96,7 +95,6 @@ namespace Better_Work_Tab.Features.Tutorial
         private const float ButtonHeight = 22f;
         private const float ProgressWidth = 44f;
         private const float MinimumInstructionWidth = 120f;
-        private const float TableRightInset = 16f;
 
         // Matched to SubWorkDrilldownBarRenderer's global row so the Work tab's
         // two pinned bands are visibly the same material.
@@ -114,7 +112,6 @@ namespace Better_Work_Tab.Features.Tutorial
         // a whole frame. Visibility is therefore latched once per Work-tab pass
         // rather than re-derived from tutorial policy inside geometry code.
         private static bool reserved;
-        private static float rowHeight = MinimumRowHeight;
 
         /// <summary>
         /// The clearance above the band.
@@ -128,7 +125,7 @@ namespace Better_Work_Tab.Features.Tutorial
         private static float CurrentTopGap =>
             WorkGridLayoutMetrics.SubWorkPinnedHeight > 0.5f ? 0f : TopGap;
 
-        internal static float ReservedHeight => reserved ? rowHeight + CurrentTopGap : 0f;
+        internal static float ReservedHeight => reserved ? RowHeight + CurrentTopGap : 0f;
 
         internal static bool IsReserved => reserved;
 
@@ -136,40 +133,9 @@ namespace Better_Work_Tab.Features.Tutorial
         /// Latches whether the band exists this frame. Call once per Work-tab
         /// pass before any layout geometry is derived.
         /// </summary>
-        internal static void RefreshReservation(
-            bool visible,
-            float tableWidth,
-            BWTTutorialStripContent content)
+        internal static void RefreshReservation(bool visible)
         {
             reserved = visible;
-            rowHeight = MinimumRowHeight;
-            if (!visible)
-            {
-                return;
-            }
-
-            float stripWidth = Mathf.Max(tableWidth - TableRightInset, 1f);
-            BWTTutorialStripLayout measurementLayout = BuildLayout(
-                new Rect(0f, 0f, stripWidth, MinimumRowHeight),
-                content);
-            if (measurementLayout.InstructionRect.width <= 1f)
-            {
-                return;
-            }
-
-            GameFont oldFont = Text.Font;
-            bool oldWordWrap = Text.WordWrap;
-            Text.Font = GameFont.Small;
-            Text.WordWrap = true;
-            float instructionHeight = Text.CalcHeight(
-                DisplayInstruction(content),
-                measurementLayout.InstructionRect.width);
-            Text.Font = oldFont;
-            Text.WordWrap = oldWordWrap;
-
-            rowHeight = Mathf.Max(
-                MinimumRowHeight,
-                Mathf.Ceil(instructionHeight) + Padding * 2f);
         }
 
         /// <summary>
@@ -192,7 +158,7 @@ namespace Better_Work_Tab.Features.Tutorial
 
             top = WorkGridLayoutMetrics.GetSubWorkBandTop(layout) +
                 WorkGridLayoutMetrics.SubWorkPinnedHeight;
-            bottom = top + CurrentTopGap + rowHeight;
+            bottom = top + CurrentTopGap + RowHeight;
             return true;
         }
 
@@ -211,15 +177,9 @@ namespace Better_Work_Tab.Features.Tutorial
                 WorkGridLayoutMetrics.SubWorkPinnedHeight +
                 CurrentTopGap;
             float width = Mathf.Max(
-                layout.Table != null ? layout.Table.Size.x - TableRightInset : 0f,
+                layout.Table != null ? layout.Table.Size.x - 16f : 0f,
                 1f);
-            return BuildLayout(new Rect(layout.TableOrigin.x, top, width, rowHeight), content);
-        }
-
-        private static BWTTutorialStripLayout BuildLayout(
-            Rect strip,
-            BWTTutorialStripContent content)
-        {
+            Rect strip = new Rect(layout.TableOrigin.x, top, width, RowHeight);
             Rect inner = strip.ContractedBy(Padding);
             if (inner.width <= 1f)
             {
@@ -295,9 +255,10 @@ namespace Better_Work_Tab.Features.Tutorial
             TextAnchor oldAnchor = Text.Anchor;
             GameFont oldFont = Text.Font;
             bool oldWordWrap = Text.WordWrap;
-            Text.WordWrap = true;
+            Text.WordWrap = false;
             Text.Font = GameFont.Small;
 
+            bool complete = content.Mode == BWTTutorialStripMode.Complete;
             DrawBandSurface(layout.StripRect);
 
             if (layout.ProgressRect.width > 1f)
@@ -307,7 +268,14 @@ namespace Better_Work_Tab.Features.Tutorial
 
             Text.Anchor = TextAnchor.MiddleLeft;
             GUI.color = Color.white;
-            Widgets.Label(layout.InstructionRect, DisplayInstruction(content));
+            string instruction = complete
+                ? "✓  " + content.Instruction
+                : content.Instruction;
+            Widgets.Label(layout.InstructionRect, instruction.Truncate(layout.InstructionRect.width));
+            if (Text.CalcSize(instruction).x > layout.InstructionRect.width)
+            {
+                TooltipHandler.TipRegion(layout.InstructionRect, instruction);
+            }
             GUI.color = oldColor;
 
             // Flat buttons bordered in the tutor accent. RimWorld's ButtonText
@@ -459,13 +427,6 @@ namespace Better_Work_Tab.Features.Tutorial
             float width = Text.CalcSize(label ?? string.Empty).x;
             Text.Font = oldFont;
             return Mathf.Clamp(width + 18f, 60f, 170f);
-        }
-
-        private static string DisplayInstruction(BWTTutorialStripContent content)
-        {
-            return content.Mode == BWTTutorialStripMode.Complete
-                ? "\u2713  " + content.Instruction
-                : content.Instruction;
         }
 
         private static string T(string key)

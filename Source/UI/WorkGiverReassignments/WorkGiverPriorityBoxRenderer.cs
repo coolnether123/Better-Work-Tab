@@ -67,7 +67,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 WorkGiverCellPresentationCache.Resolve(wg, workType, pawn, knownParentPriority);
             int workGiverPriority = FluffyTimeScheduleAssigner.IsOpen
                 ? FluffyTimeScheduleAssigner.GetDisplayPriority(
-                    TimePriorityTarget.ForWorkGiver(pawn, workType, wg.def),
+                    TimePriorityTarget.ForRuntimeWorkGiver(pawn, workType, wg.def),
                     presentation.BasePriority,
                     pawn)
                 : presentation.EffectivePriority;
@@ -618,7 +618,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             }
 
             if (evt.button == 0 &&
-                WorkPriorityCommandGateway.OpenSchedule(target, boxRect, fallbackPriority))
+                WorkPriorityCommandGateway.Execute(new OpenScheduleCommand(target, boxRect, fallbackPriority)))
             {
                 SoundDefOf.Tick_High.PlayOneShotOnCamera();
             }
@@ -684,10 +684,10 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 {
                     if (!FluffyTimeScheduleAssigner.ApplyWorkGiverPriority(pawnId, workGiverDef, newPriority))
                     {
-                        WorkPriorityCommandGateway.SetWorkGiverPriority(
+                        WorkPriorityCommandGateway.Execute(new SetWorkGiverPriorityCommand(
                             pawnId,
                             workGiverDef,
-                            newPriority);
+                            newPriority));
                     }
                     SoundDefOf.DragSlider.PlayOneShotOnCamera();
                 }
@@ -713,10 +713,10 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 {
                     if (!FluffyTimeScheduleAssigner.ApplyWorkGiverPriority(pawnId, workGiverDef, newPriority))
                     {
-                        WorkPriorityCommandGateway.SetWorkGiverPriority(
+                        WorkPriorityCommandGateway.Execute(new SetWorkGiverPriorityCommand(
                             pawnId,
                             workGiverDef,
-                            newPriority);
+                            newPriority));
                     }
                     SoundDefOf.DragSlider.PlayOneShotOnCamera();
                 }

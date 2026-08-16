@@ -1,4 +1,3 @@
-using System;
 using Spine.UI.SettingsFramework;
 using Verse;
 
@@ -79,45 +78,6 @@ namespace Better_Work_Tab.UI.Settings
             return def == null
                 ? string.Empty
                 : def.TooltipKey ?? $"BWT_Settings_{def.Id}_Tooltip";
-        }
-
-        public static string GetEnumLabel(object value)
-        {
-            if (value == null)
-            {
-                return string.Empty;
-            }
-
-            Type enumType = value.GetType();
-            string key = $"BWT_Enum_{enumType.Name}_{value}";
-            if (key.CanTranslate())
-            {
-                return key.Translate();
-            }
-
-            if (enumType == typeof(BetterWorkTabSettings.SkillViewHoverMode))
-            {
-                switch ((BetterWorkTabSettings.SkillViewHoverMode)value)
-                {
-                    case BetterWorkTabSettings.SkillViewHoverMode.Standard:
-                        return "Priority";
-                    case BetterWorkTabSettings.SkillViewHoverMode.SkillFocused:
-                        return "Skill";
-                }
-            }
-
-            return value.ToString();
-        }
-
-        public static string GetEnumDescription(object value)
-        {
-            if (value == null)
-            {
-                return null;
-            }
-
-            string key = $"BWT_Enum_{value.GetType().Name}_{value}_Description";
-            return key.CanTranslate() ? key.Translate() : null;
         }
     }
 }

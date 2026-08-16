@@ -262,7 +262,9 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 }
 
                 // Text: Apply moved marker color only if color tint is enabled
-                GUI.color = HeaderUtility.Colors.HeaderTextColor(layout.ShowMarker);
+                GUI.color = (layout.ShowMarker && BetterWorkTabMod.Settings.showMovedColumnColorTint)
+                    ? HeaderUtility.Colors.MovedMarkerColor
+                    : BetterWorkTabMod.Settings.angledHeaderColor;
                 float visibleAlpha = flipAlpha * labelAlpha;
                 GUI.color = new Color(GUI.color.r, GUI.color.g, GUI.color.b, GUI.color.a * visibleAlpha);
 
@@ -372,7 +374,9 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 GUI.matrix = GetTransformMatrix(originalMatrix, pivotPoint, rotation, Vector2.one);
 
                 Text.Anchor = isCJKVertical ? TextAnchor.UpperCenter : TextAnchor.MiddleLeft;
-                GUI.color = HeaderUtility.Colors.HeaderTextColor(currentLayout.ShowMarker);
+                GUI.color = (currentLayout.ShowMarker && BetterWorkTabMod.Settings.showMovedColumnColorTint)
+                    ? HeaderUtility.Colors.MovedMarkerColor
+                    : BetterWorkTabMod.Settings.angledHeaderColor;
                 GUI.color = new Color(GUI.color.r, GUI.color.g, GUI.color.b, GUI.color.a * alpha);
 
                 if (isCJKVertical)

@@ -18,10 +18,14 @@ namespace Better_Work_Tab.UI.Settings
         public const string AdvancedSettingFocusHighlightColor = "advanced.settingFocusHighlightColor";
         public const string CompatExternalWorkTabColumns = "compat.externalWorkTab.columns";
         public const string AutoassignViewMode = "autoassign.viewMode";
+        public const string AutoassignConfirm = "autoassign.confirm";
+        public const string AutoassignResetBefore = "autoassign.resetBefore";
+        public const string AutoassignVisual = "autoassign.visual";
         public const string RuleBuilder2Use = "autoassign.ruleBuilder2.use";
         public const string RuleBuilder2TutorialReset = "autoassign.ruleBuilder2.tutorialReset";
         public const string RuleBuilder2Highlights = "autoassign.ruleBuilder2.highlights";
         public const string RuleBuilder2Animations = "autoassign.ruleBuilder2.animations";
+        public const string RuleBuilder2DraftSuggestions = "autoassign.ruleBuilder2.draftSuggestions";
         public const string RuleBuilder2AdvancedConditions = "autoassign.ruleBuilder2.advancedConditions";
         public const string RuleBuilder2MatchedPanel = "autoassign.ruleBuilder2.matchedPanel";
         public const string ColorsBestPawnOutline = "colors.bestPawnOutline";
@@ -37,6 +41,7 @@ namespace Better_Work_Tab.UI.Settings
         public const string DividersAnimations = "dividers.animations";
         public const string DividersLabels = "dividers.labels";
         public const string DividersShow = "dividers.show";
+        public const string DragdropVisualHeader = "dragdrop.visual.header";
         public const string FeaturesAutoassign = "features.autoassign";
         public const string FeaturesClicks = "features.clicks";
         public const string FeaturesDividers = "features.dividers";
@@ -50,6 +55,7 @@ namespace Better_Work_Tab.UI.Settings
         public const string HighlightsColumnHoverColor = "highlights.columnHoverColor";
         public const string HighlightsFloatMenu = "highlights.floatMenu";
         public const string HighlightsFloatMenuColor = "highlights.floatMenu.color";
+        public const string HighlightsHeader = "highlights.header";
         public const string HighlightsHover = "highlights.hover";
         public const string HighlightsHoverColor = "highlights.hover.color";
         public const string HighlightsOutlineMode = "highlights.outlineMode";
@@ -146,6 +152,7 @@ namespace Better_Work_Tab.UI.Settings
         public const string DragdropEnableGrouping = "dragdrop.enableGrouping";
         public const string DragdropRemoveHeaderUnderline = "dragdrop.removeHeaderUnderline";
         public const string AutoassignWarnOnApply = "autoassign.warnOnApply";
+        public const string WorkloadsPersistDividers = "workloads.persistDividers";
         public const string WorkloadsWarnOnApply = "workloads.warnOnApply";
         public const string HideWorktypes = "ux.hideWorktypes";
         public const string AdvancedScrollWheelPriority = "advanced.scrollWheelPriority";
@@ -153,8 +160,13 @@ namespace Better_Work_Tab.UI.Settings
         public const string HeadersAngled = "headers.angled";
         public const string HeadersCustomWorkLabels = "headers.customWorkLabels";
         public const string HeadersAngleRotation = "headers.angleRotation";
+        public const string HeadersScaleFixMode = "headers.scaleFixMode";
+        public const string HeadersRedCenterLine = "headers.redCenterLine";
+        public const string HeadersKnownFixes = "headers.knownFixes";
+        public const string HeadersXOffset = "headers.xOffset";
+        public const string HeadersYOffset = "headers.yOffset";
+        public const string HeadersDebugLog = "headers.debugLog";
         public const string HeadersUseVerticalStackingForCJK = "headers.useVerticalStackingForCJK";
-        public const string HeadersCjkVerticalKerning = "headers.cjkVerticalKerning";
         public const string HeadersUnderlineColor = "headers.underlineColor";
     }
 }

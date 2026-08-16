@@ -23,20 +23,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
     /// <summary>Builds and owns immutable presentation snapshots without retaining domain objects.</summary>
     internal sealed class WorkGridSnapshotProvider
     {
-        // Sparse publication still scans every cell and copies the full cell
-        // array twice through the public immutable-snapshot API. Keep it for
-        // genuinely sparse edits, but use the regular builder once at least
-        // half of the cell-key space is dirty so retained staging capacity and
-        // the second full-array copy do not dominate a broad refresh.
-        private const int SparsePriorityMaximumDirtyPercent = 50;
         private static WorkGridSnapshotProvider _active;
         private readonly ContiguousBuffer<WorkGridRowEntry> _rows = new ContiguousBuffer<WorkGridRowEntry>(64);
         private readonly ContiguousBuffer<WorkGridColumnEntry> _columns = new ContiguousBuffer<WorkGridColumnEntry>(32);
         private readonly ContiguousBuffer<WorkCellVisualState> _cells = new ContiguousBuffer<WorkCellVisualState>(512);
-        private readonly HashSet<WorkGridPriorityKey> _sparsePriorityKeys =
-            new HashSet<WorkGridPriorityKey>();
-        private readonly Dictionary<int, WorkCellVisualState> _sparseReplacements =
-            new Dictionary<int, WorkCellVisualState>();
         private readonly SnapshotSlot<WorkGridSnapshot> _slot = new SnapshotSlot<WorkGridSnapshot>();
         private IWorkTabLayoutController _layout;
         private int _layoutSignature;
@@ -81,7 +71,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                 TryApplySparsePriorityUpdate(layout, current, versions.PriorityDirtyKeys, out int updatedCellCount))
             {
                 timer.Stop();
-                WorkTabInvalidationHub.ClearConsumedPriorityKeys(versions.PriorityDirtyKeys);
+                WorkTabInvalidationHub.ClearConsumedPriorityKeys();
                 WorkGridSnapshot incrementalSnapshot = _slot.Current;
                 WorkGridRendererDiagnostics.RecordSnapshotBuild(
                     incrementalSnapshot?.Revision ?? 0,
@@ -105,7 +95,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             timer.Restart();
             Build(layout, table, current, layoutSignature);
             timer.Stop();
-            WorkTabInvalidationHub.ClearConsumedPriorityKeys(versions.PriorityDirtyKeys);
+            WorkTabInvalidationHub.ClearConsumedPriorityKeys();
             WorkGridSnapshot snapshot = _slot.Current;
             WorkGridRendererDiagnostics.RecordSnapshotBuild(
                 snapshot?.Revision ?? 0,
@@ -130,10 +120,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                    _layoutSignature == layoutSignature &&
                    dirtyKeys != null &&
                    dirtyKeys.Count > 0 &&
-                   dirtyKeys.Count * 100L <
-                   (long)_slot.Current.Cells.Count * SparsePriorityMaximumDirtyPercent &&
                    _revisions.Priority != current.Priority &&
-                   current.Priority - _revisions.Priority == dirtyKeys.Count &&
                    EqualNonPriorityConsumedRevisions(_revisions, current);
         }
 
@@ -145,78 +132,69 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
         {
             updatedCellCount = 0;
             WorkGridSnapshot previous = _slot.Current;
-            _sparsePriorityKeys.Clear();
-            _sparseReplacements.Clear();
-            try
+            if (previous == null || previous.Cells.Count == 0)
             {
-                if (previous == null || previous.Cells.Count == 0)
+                return false;
+            }
+
+            var dirty = new HashSet<WorkGridPriorityKey>();
+            for (int i = 0; i < dirtyKeys.Count; i++)
+            {
+                dirty.Add(dirtyKeys[i]);
+            }
+
+            var replacements = new Dictionary<int, WorkCellVisualState>();
+            uint cellRevision = unchecked((uint)(_snapshotRevision + 1));
+            IReadOnlyList<WorkTabLayoutColumn> columns = layout.Columns;
+            for (int i = 0; i < previous.Cells.Count; i++)
+            {
+                WorkCellVisualState cell = previous.Cells[i];
+                if (!dirty.Contains(new WorkGridPriorityKey(cell.PawnId, cell.WorkType?.shortHash ?? 0)))
+                {
+                    continue;
+                }
+
+                if (cell.Pawn == null || cell.WorkType == null || cell.ColumnIndex >= columns.Count)
                 {
                     return false;
                 }
 
-                for (int i = 0; i < dirtyKeys.Count; i++)
+                WorkTabLayoutColumn column = columns[cell.ColumnIndex];
+                WorkTypeDef columnWorkType = column.SubWorkParent ?? column.Column?.workType;
+                if (columnWorkType != cell.WorkType)
                 {
-                    _sparsePriorityKeys.Add(dirtyKeys[i]);
+                    return false;
                 }
 
-                uint cellRevision = unchecked((uint)(_snapshotRevision + 1));
-                IReadOnlyList<WorkTabLayoutColumn> columns = layout.Columns;
-                for (int i = 0; i < previous.Cells.Count; i++)
-                {
-                    WorkCellVisualState cell = previous.Cells[i];
-                    if (!_sparsePriorityKeys.Contains(
-                        new WorkGridPriorityKey(cell.PawnId, cell.WorkType?.shortHash ?? 0)))
-                    {
-                        continue;
-                    }
-
-                    if (cell.Pawn == null || cell.WorkType == null || cell.ColumnIndex >= columns.Count)
-                    {
-                        return false;
-                    }
-
-                    WorkTabLayoutColumn column = columns[cell.ColumnIndex];
-                    WorkTypeDef columnWorkType = column.SubWorkParent ?? column.Column?.workType;
-                    if (columnWorkType != cell.WorkType)
-                    {
-                        return false;
-                    }
-
-                    int bestPawnId = (cell.Flags & WorkCellVisualFlags.BestPawn) != 0
-                        ? cell.PawnId
-                        : -1;
-                    _sparseReplacements[i] = BuildCell(
-                        cell.Pawn,
-                        cell.WorkType,
-                        column.SubWorkGiver,
-                        cell.ColumnIndex,
-                        bestPawnId,
-                        cellRevision);
-                    updatedCellCount++;
-                }
-
-                _revisions = revisions;
-                _snapshotRevision++;
-                _slot.Publish(new WorkGridSnapshot(
-                    _snapshotRevision,
-                    layout.LayoutRevision,
-                    revisions,
-                    previous.Rows,
-                    previous.Columns,
-                    previous.Cells.WithReplacements(_sparseReplacements),
-                    previous.RetainedCapacityBytes,
-                    Find.PlaySettings?.useWorkPriorities ?? previous.ManualPriorities,
-                    previous.MaxPriority,
-                    previous.UiScaleRevision,
-                    previous.FontThemeRevision,
-                    previous.PriorityRangeRevision));
-                return true;
+                int bestPawnId = (cell.Flags & WorkCellVisualFlags.BestPawn) != 0
+                    ? cell.PawnId
+                    : -1;
+                replacements[i] = BuildCell(
+                    cell.Pawn,
+                    cell.WorkType,
+                    column.SubWorkGiver,
+                    cell.ColumnIndex,
+                    bestPawnId,
+                    cellRevision);
+                updatedCellCount++;
             }
-            finally
-            {
-                _sparsePriorityKeys.Clear();
-                _sparseReplacements.Clear();
-            }
+
+            _revisions = revisions;
+            _snapshotRevision++;
+            _slot.Publish(new WorkGridSnapshot(
+                _snapshotRevision,
+                layout.LayoutRevision,
+                revisions,
+                previous.Rows,
+                previous.Columns,
+                previous.Cells.WithReplacements(replacements),
+                previous.RetainedCapacityBytes,
+                Find.PlaySettings?.useWorkPriorities ?? previous.ManualPriorities,
+                previous.MaxPriority,
+                previous.UiScaleRevision,
+                previous.FontThemeRevision,
+                previous.PriorityRangeRevision));
+            return true;
         }
 
         internal void Clear()
@@ -225,8 +203,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             _rows.Clear();
             _columns.Clear();
             _cells.Clear();
-            _sparsePriorityKeys.Clear();
-            _sparseReplacements.Clear();
             _layout = null;
             _layoutSignature = 0;
             _hasLayoutSignature = false;
@@ -487,11 +463,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             if (ageDisabled) flags |= WorkCellVisualFlags.AgeDisabled;
             if (overrideRing) flags |= WorkCellVisualFlags.OverrideRing;
             if (passion > 0) flags |= WorkCellVisualFlags.HasPassion;
-            bool hasRelevantSkills = workType.relevantSkills != null && workType.relevantSkills.Count > 0;
-            if (hasRelevantSkills && pawn.thingIDNumber == bestPawnId) flags |= WorkCellVisualFlags.BestPawn;
+            if (pawn.thingIDNumber == bestPawnId) flags |= WorkCellVisualFlags.BestPawn;
             if (pawn.Ideo != null && pawn.Ideo.IsWorkTypeConsideredDangerous(workType))
                 flags |= WorkCellVisualFlags.IdeologyWarning;
-            if (hasRelevantSkills && skill <= 2f && priority > 0)
+            if (workType.relevantSkills != null && workType.relevantSkills.Count > 0 && skill <= 2f && priority > 0)
                 flags |= WorkCellVisualFlags.LowSkillWarning;
 
             return new WorkCellVisualState(
@@ -546,11 +521,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             WorkTypeDef workType,
             PawnColumnWorker_WorkPriority worker)
         {
-            if (workType == null ||
-                workType.relevantSkills == null ||
-                workType.relevantSkills.Count == 0 ||
-                worker == null ||
-                table?.cachedPawns == null)
+            if (workType == null || worker == null || table?.cachedPawns == null)
             {
                 return -1;
             }

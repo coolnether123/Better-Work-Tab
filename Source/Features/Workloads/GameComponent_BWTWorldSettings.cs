@@ -1,18 +1,18 @@
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.Migration;
 using Better_Work_Tab.Features.TimePriority;
+using Better_Work_Tab.Diagnostics;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Mod_Support.LocalProfiles;
 using Better_Work_Tab.Mod_Support.Multiplayer;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
+using Better_Work_Tab.Patches;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.Data;
-using Better_Work_Tab.UI.WindowSession;
 using Multiplayer.API;
 using Spine.Profiling;
 using System.Collections.Generic;
 using System.Linq;
-using UnityEngine;
 using Verse;
 
 namespace Better_Work_Tab.Features.Workloads
@@ -32,6 +32,7 @@ namespace Better_Work_Tab.Features.Workloads
         public int BWTWorldSchemaVersion = BWT20UpgradePolicy.CurrentWorldSchemaVersion;
         public int ExternalWorkTabPriorityMigrationVersion;
         public int FluffyWorkTabCompatibilityPromptVersion;
+        private int _lastTimePriorityHour = -1;
 
         public GameComponent_BWTWorldSettings(Game game) : base()
         {
@@ -41,7 +42,6 @@ namespace Better_Work_Tab.Features.Workloads
         {
             ColumnCurrentOrder = order ?? new List<string>();
             ColumnOrderGeneration++;
-            DynamicGameplayPatchController.RequestRefresh();
         }
 
         public override void FinalizeInit()
@@ -72,12 +72,10 @@ namespace Better_Work_Tab.Features.Workloads
             ColumnBaselineManager.EnsureBaseline(this);
             TimePriorityService.NotifyLoaded();
             FluffyWorkTabGateway.MigratePriorityDataIfNeeded(this);
-            DynamicGameplayPatchController.RequestRefresh();
-            DynamicGameplayPatchController.ProcessPendingRefresh();
 
             SpineTiming.Configure(
                 message => BetterWorkTabMod.DebugLog(message, DebugFeature.Performance),
-                () => WorkTabActivityState.OpenSeconds,
+                () => WorkTabProfilingState.OpenSeconds,
                 "Work tab open");
             SpineTiming.Enabled = BetterWorkTabMod.Settings?.enableProfiler ?? false;
         }
@@ -89,6 +87,7 @@ namespace Better_Work_Tab.Features.Workloads
             if (Scribe.mode == LoadSaveMode.Saving)
             {
                 EnsureCurrentWorklist();
+                TimePriorityService.NormalizeBeforeSave();
             }
 
             string currentWorklistName = "";
@@ -194,7 +193,6 @@ namespace Better_Work_Tab.Features.Workloads
                 EnsureWorkGiverReassignmentData();
                 WorkGiverReassignmentManager.MigrateLegacySettingsDataIfNeeded(this);
                 TimePriorityService.NotifyLoaded();
-                DynamicGameplayPatchController.RequestRefresh();
             }
         }
 
@@ -237,33 +235,37 @@ namespace Better_Work_Tab.Features.Workloads
                 SpineTiming.OnFrameStart();
             }
 
+            if (Find.MainTabsRoot?.OpenTab?.TabWindow is Better_Work_Tab.UI.MainTabWindow_BetterWork)
+            {
+                Patch_WorkPriority_DoCell_Unified.TrimCacheIfNeeded();
+            }
+
             base.GameComponentUpdate();
-            DynamicGameplayPatchController.ProcessPendingRefresh();
 
             // Save profile every 300 ticks (~5 seconds) if dirty
             // This avoids Scribe nesting issues when called from ExposeData
+            _profileSaveTimer++;
             if (TimePriorityService.IsRuntimeActive)
             {
-                TimePriorityService.NotifyHourBoundaryIfNeeded();
+                int currentHour = TimePriorityService.GetCurrentHour(null);
+                if (currentHour != _lastTimePriorityHour)
+                {
+                    _lastTimePriorityHour = currentHour;
+                    TimePriorityService.NotifyHourBoundaryIfNeeded();
+                }
             }
 
-            if (MultiplayerBridge.Active)
+            if (_profileSaveTimer > 300)
             {
-                _profileSaveTimer++;
-                if (_profileSaveTimer > 300)
-                {
-                    _profileSaveTimer = 0;
+                _profileSaveTimer = 0;
+                if (MultiplayerBridge.Active)
                     BWTLocalProfileStore.SaveIfDirty();
-                }
             }
         }
 
         public override void GameComponentOnGUI()
         {
             base.GameComponentOnGUI();
-
-            if (!SpineTiming.Enabled)
-                return;
 
             // Handle 1 / Shift+1 for reporting / clearing
             SpineTiming.HandleInput();

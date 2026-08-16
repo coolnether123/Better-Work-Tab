@@ -1,5 +1,7 @@
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using Better_Work_Tab.Diagnostics;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
@@ -30,6 +32,13 @@ namespace Better_Work_Tab.Features.TimePriority
         private static Rect _lastBarRect;
         private static Rect _lastWholeDayButtonRect;
         private static Rect _lastNowButtonRect;
+        private static string _lastAppliedTarget = string.Empty;
+        private static int _lastAppliedPriority = -1;
+        private const string AgentRequestFileName = "BWTFluffySchedule.request";
+        private const string AgentStatusFileName = "BWTFluffySchedule.status";
+        private static readonly bool AgentEnabled =
+            DiagnosticsFileAccess.IsEnabled();
+        private static int _nextAgentRequestFrame;
 
         internal static bool IsAvailable =>
             FluffyWorkTabGateway.IsPresent &&
@@ -119,6 +128,48 @@ namespace Better_Work_Tab.Features.TimePriority
             return true;
         }
 
+        internal static void ProcessAgentRequest()
+        {
+            if (!AgentEnabled || Time.frameCount < _nextAgentRequestFrame)
+            {
+                return;
+            }
+
+            _nextAgentRequestFrame = Time.frameCount + 15;
+
+            string requestPath = DiagnosticsFileAccess.GetPath(AgentRequestFileName);
+            if (!File.Exists(requestPath))
+            {
+                return;
+            }
+
+            string request = File.ReadAllText(requestPath).Trim().ToLowerInvariant();
+            File.Delete(requestPath);
+            if (request == "toggle")
+            {
+                Toggle();
+            }
+            else if (request == "open" && !IsOpen)
+            {
+                Toggle();
+            }
+            else if (request == "close")
+            {
+                Close();
+            }
+
+            File.WriteAllText(
+                DiagnosticsFileAccess.GetPath(AgentStatusFileName),
+                "present=" + FluffyWorkTabGateway.IsPresent +
+                " available=" + IsAvailable +
+                " enabled=" + IsEnabled +
+                " open=" + IsOpen +
+                " selectedHours=" + string.Join(",", SelectedHourSet.OrderBy(hour => hour).Select(hour => hour.ToString()).ToArray()) +
+                " visibleHour=" + VisibleHour +
+                " lastTarget=" + _lastAppliedTarget +
+                " lastPriority=" + _lastAppliedPriority);
+        }
+
         internal static void Close()
         {
             if (!IsOpen)
@@ -137,6 +188,9 @@ namespace Better_Work_Tab.Features.TimePriority
             IsOpen = false;
             SelectWholeDay();
             VisibleHour = -1;
+            _lastAppliedTarget = string.Empty;
+            _lastAppliedPriority = -1;
+            _nextAgentRequestFrame = 0;
             ClearInteractiveGeometry();
 
             if (wasOpen)
@@ -172,7 +226,7 @@ namespace Better_Work_Tab.Features.TimePriority
             Rect boxRect = Better_Work_Tab.UI.WorkPriorityCellGeometry.GetPriorityBoxRect(cellRect);
             int fallbackPriority = WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, workType);
             int displayPriority = GetDisplayPriority(
-                TimePriorityTarget.ForWorkType(pawn, workType),
+                TimePriorityTarget.ForRuntimeWorkType(pawn, workType),
                 fallbackPriority,
                 pawn);
 
@@ -266,7 +320,8 @@ namespace Better_Work_Tab.Features.TimePriority
             }
 
             priority = WorkPrioritySystem.ClampPriority(priority);
-            TimePriorityTarget target = TimePriorityTarget.ForWorkType(pawn, workType);
+            TimePriorityTarget target = TimePriorityTarget.ForRuntimeWorkType(pawn, workType);
+            RecordAppliedTarget(target, priority);
             if (SelectedHourSet.Count == TimePriorityService.HoursPerDay)
             {
                 WorkPrioritySystem.SetPriority(pawn.workSettings, workType, priority);
@@ -293,8 +348,10 @@ namespace Better_Work_Tab.Features.TimePriority
                 ? WorkPrioritySystem.GetDefaultEnabledPriority()
                 : WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, workGiver.workType);
             int fallback = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, workGiver, parentPriority);
-            TimePriorityTarget target = TimePriorityTarget.ForWorkGiver(pawn, workGiver.workType, workGiver);
+            TimePriorityTarget target = TimePriorityTarget.ForRuntimeWorkGiver(pawn, workGiver.workType, workGiver);
             priority = WorkPrioritySystem.ClampPriority(priority);
+            RecordAppliedTarget(target, priority);
+
             if (SelectedHourSet.Count == TimePriorityService.HoursPerDay)
             {
                 WorkGiverReassignmentManager.SetPawnOverrideSynced(pawnId, workGiver.defName, priority);
@@ -306,21 +363,33 @@ namespace Better_Work_Tab.Features.TimePriority
             return true;
         }
 
+        private static void RecordAppliedTarget(TimePriorityTarget target, int priority)
+        {
+            _lastAppliedTarget = target.Key;
+            _lastAppliedPriority = priority;
+        }
+
         private static void ApplySelectedHours(TimePriorityTarget target, int fallbackPriority, int priority)
         {
             int[] priorities = TimePriorityService.GetPrioritiesForDisplay(target, fallbackPriority);
+            bool[] pinnedHours = TimePriorityService.GetLinkStateForDisplay(target);
             foreach (int hour in SelectedHourSet)
             {
                 priorities[hour] = priority;
+                pinnedHours[hour] = true;
             }
 
-            TimePriorityService.SetPrioritiesSynced(target, priorities, fallbackPriority);
+            TimePriorityService.SetScheduleSynced(target, priorities, pinnedHours, fallbackPriority);
         }
 
         private static void ClearScheduleSynced(TimePriorityTarget target, int fallbackPriority)
         {
             int[] wholeDay = Enumerable.Repeat(fallbackPriority, TimePriorityService.HoursPerDay).ToArray();
-            TimePriorityService.SetPrioritiesSynced(target, wholeDay, fallbackPriority);
+            TimePriorityService.SetScheduleSynced(
+                target,
+                wholeDay,
+                new bool[TimePriorityService.HoursPerDay],
+                fallbackPriority);
         }
 
         internal static void Draw(Rect inRect, IWorkTabLayoutController layout, float baseBottomSpace)

@@ -4,7 +4,6 @@ using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Patches;
-using Better_Work_Tab.UI.Settings;
 using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Better_Work_Tab.UI.WorkGrid.Diagnostics;
 using Better_Work_Tab.UI.WorkGrid.Snapshots;
@@ -62,8 +61,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             }
 
             _delegateFeatureCells =
-                (((context.Configuration.Features & WorkGridFeatureFlags.SkillOverlay) != 0 ||
-                  WorkTabColorPreviewController.Instance.IsSkillPreviewActive) &&
+                ((context.Configuration.Features & WorkGridFeatureFlags.SkillOverlay) != 0 &&
                  ShiftHelper.State == BetterWorkTabSettings.ShowUIMode.Shifted) ||
                 SubWorkDrilldownState.HasAnyDrilldown ||
                 FluffyTimeScheduleAssigner.IsOpen ||
@@ -334,17 +332,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 settings != null)
             {
                 BetterWorkTabSettings.ShowUIMode mode = settings.ShowUIMode_ShowPawnForSkillSquare;
-                WorkTabColorPreviewController previewController = WorkTabColorPreviewController.Instance;
-                bool previewColorActive = previewController.TryGetBestPawnColor(out Color previewColor);
-                if (previewColorActive ||
-                    previewController.IsBestPawnThicknessPreviewActive ||
-                    mode == BetterWorkTabSettings.ShowUIMode.Always ||
-                    mode == ShiftHelper.State)
+                if (mode == BetterWorkTabSettings.ShowUIMode.Always || mode == ShiftHelper.State)
                 {
                     Widgets.DrawBoxSolidWithOutline(
                         boxRect.ExpandedBy(1f),
                         Color.clear,
-                        previewColorActive ? previewColor : settings.Color_BestPawnForSkillSquare,
+                        settings.Color_BestPawnForSkillSquare,
                         settings.bestPawnHighlightThickness);
                 }
             }

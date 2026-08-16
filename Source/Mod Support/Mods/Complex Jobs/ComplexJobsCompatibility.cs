@@ -78,6 +78,64 @@ namespace Better_Work_Tab.ModSupport.Mods.ComplexJobs
                 WorkTabDirtyFlags.SettingsThemeLanguageScale);
         }
 
+        private static bool DrawMode(
+            Rect rect,
+            string label,
+            string tooltip,
+            object settingsObject,
+            bool disabled)
+        {
+            if (!(settingsObject is BetterWorkTabSettings settings) || !IsActive)
+            {
+                return false;
+            }
+
+            Rect labelRect = rect.LeftPart(0.5f);
+            Rect buttonRect = rect.RightPart(0.48f);
+            Widgets.Label(labelRect, label);
+
+            bool previousEnabled = GUI.enabled;
+            Color previousColor = GUI.color;
+            if (disabled)
+            {
+                GUI.enabled = false;
+                GUI.color = Color.gray;
+            }
+
+            SubWorkMode current = GetMode(settings);
+            if (Widgets.ButtonText(buttonRect, GetModeLabel(current)))
+            {
+                var options = new List<FloatMenuOption>();
+                var descriptions = new Dictionary<FloatMenuOption, string>();
+                FloatMenuOption selected = null;
+                foreach (SubWorkMode mode in System.Enum.GetValues(typeof(SubWorkMode)))
+                {
+                    SubWorkMode capturedMode = mode;
+                    var option = new FloatMenuOption(
+                        GetModeLabel(capturedMode),
+                        () => ApplyMode(settings, capturedMode));
+                    options.Add(option);
+                    descriptions[option] = GetModeDescription(capturedMode);
+                    if (capturedMode == current)
+                    {
+                        selected = option;
+                    }
+                }
+
+                Find.WindowStack.Add(
+                    new DescribedFloatMenu(options, selected, label, tooltip, descriptions));
+            }
+
+            GUI.enabled = previousEnabled;
+            GUI.color = previousColor;
+            if (!string.IsNullOrEmpty(tooltip) && !DescribedFloatMenu.AnyOpen)
+            {
+                TooltipHandler.TipRegion(labelRect, tooltip);
+            }
+
+            return false;
+        }
+
         private static string GetModeLabel(SubWorkMode mode)
         {
             switch (mode)
@@ -104,6 +162,17 @@ namespace Better_Work_Tab.ModSupport.Mods.ComplexJobs
             }
         }
 
+        private static bool HasNonDefaultMode(object settingsObject)
+        {
+            return settingsObject is BetterWorkTabSettings settings &&
+                   GetMode(settings) != SubWorkMode.BetterWorkTabFocus;
+        }
+
+        private static void ResetMode(object settingsObject)
+        {
+            ApplyMode(settingsObject as BetterWorkTabSettings, SubWorkMode.BetterWorkTabFocus);
+        }
+
         private sealed class ComplexJobsSettingsContributor : IModSettingsContributor
         {
             public BWTModSettingsSection CreateSettingsSection(SettingsScope<BetterWorkTabSettings> scope)
@@ -118,17 +187,14 @@ namespace Better_Work_Tab.ModSupport.Mods.ComplexJobs
                                                                     _ => IsActive),
                                                    Children = new List<SettingDefinition> {
                                                        scope
-                                                           .DerivedEnum(CompatComplexJobsSubWorkMode,
-                                                                        GetMode,
-                                                                        ApplyMode,
-                                                                        "Specific-job columns",
-                                                                        tooltip: "Use Complex Jobs alone, add BWT's focused view, or add BWT's Fluffy-style right-expanding columns.",
-                                                                        labelProvider: GetModeLabel,
-                                                                        descriptionProvider: GetModeDescription)
-                                                           .DefaultTo(SubWorkMode.BetterWorkTabFocus)
+                                                           .Custom(CompatComplexJobsSubWorkMode,
+                                                                   (rect, rowLabel, rowTooltip, settings, disabled) => DrawMode(rect, rowLabel, rowTooltip, settings, disabled),
+                                                                   "Specific-job columns",
+                                                                   tooltip: "Use Complex Jobs alone, add BWT's focused view, or add BWT's Fluffy-style right-expanding columns.")
                                                            .SearchableBy(new[] { "Complex Jobs", "BWT", "Fluffy", "sub-work", "drilldown", "split work types", "extra job columns",
                                                                                  "many work columns", "use BWT drilldown" })
                                                            .Ordered(1)
+                                                           .WithCustomReset(HasNonDefaultMode, ResetMode)
                                                    } };
             }
         }

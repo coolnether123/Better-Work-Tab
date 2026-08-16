@@ -116,9 +116,13 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                     changed |= ApplyBasePriority(pawn, workType, workGiver, targetPriority, currentPriority, warnings);
                     card.Action.EnsureSchedule(targetPriority);
                     TimePriorityTarget scheduleTarget = workGiver == null
-                        ? TimePriorityTarget.ForWorkType(pawn, workType)
-                        : TimePriorityTarget.ForWorkGiver(pawn, workType, workGiver);
-                    TimePriorityService.SetPrioritiesSynced(scheduleTarget, card.Action.HourlyPriorities.ToArray(), targetPriority);
+                        ? TimePriorityTarget.ForRuntimeWorkType(pawn, workType)
+                        : TimePriorityTarget.ForRuntimeWorkGiver(pawn, workType, workGiver);
+                    TimePriorityService.SetScheduleSynced(
+                        scheduleTarget,
+                        card.Action.HourlyPriorities.ToArray(),
+                        TimePriorityService.CreateAllHoursPinnedState(),
+                        targetPriority);
                     return true;
                 case RuleBuilder2ActionKind.Disable:
                 case RuleBuilder2ActionKind.SetPriority:

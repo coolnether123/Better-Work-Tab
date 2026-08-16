@@ -5,6 +5,8 @@ using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.ModSupport;
+using Better_Work_Tab.UI.WorkGrid.Contracts;
+using Better_Work_Tab.UI.WorkGrid.Invalidation;
 using RimWorld;
 using Verse;
 
@@ -31,9 +33,11 @@ namespace Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities
             }
 
             int changed = 0;
+            bool subWorkDataChanged = false;
             try
             {
                 using (ExternalPriorityMirror.Suspend())
+                using (WorkGiverReassignmentManager.BeginMutationBatch())
                 {
                     List<WorkGiverDef> workGivers = DefDatabase<WorkGiverDef>.AllDefsListForReading;
                     foreach (Pawn pawn in PawnsFinder.All_AliveOrDead)
@@ -66,11 +70,18 @@ namespace Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities
 
                                 if (rank == 0)
                                 {
-                                    WorkGiverReassignmentManager.SetPawnOverrideSynced(
-                                        pawn.thingIDNumber,
-                                        workGiver.defName,
-                                        WorkPrioritySystem.DisabledPriority);
-                                    changed++;
+                                    if (!WorkGiverReassignmentManager.TryGetPawnWorkGiverOverride(
+                                            pawn,
+                                            workGiver,
+                                            out int currentPriority) ||
+                                        currentPriority != WorkPrioritySystem.DisabledPriority)
+                                    {
+                                        WorkGiverReassignmentManager.SetPawnOverrideSynced(
+                                            pawn.thingIDNumber,
+                                            workGiver.defName,
+                                            WorkPrioritySystem.DisabledPriority);
+                                        changed++;
+                                    }
                                     continue;
                                 }
 
@@ -108,31 +119,38 @@ namespace Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities
                                     ranked[index].Def.defName);
                             }
 
-                            WorkGiverReassignmentManager.SetPawnWorkGiverOrderSynced(
-                                pawn.thingIDNumber,
-                                workType.defName,
-                                orderedNames);
-                            changed++;
+                            if (WorkGiverReassignmentManager.SetPawnWorkGiverOrderSynced(
+                                    pawn.thingIDNumber,
+                                    workType.defName,
+                                    orderedNames))
+                            {
+                                changed++;
+                            }
                         }
                     }
                 }
-
-                if (changed > 0)
-                {
-                    WorkGiverReassignmentManager.InvalidateCaches();
-                    WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
-                    MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
-                }
-
-                return changed;
             }
             catch (Exception exception)
             {
                 BetterWorkTabMod.DebugLog(
                     "[SleekWorkTab] Child-rank handoff failed: " + exception.GetBaseException().Message,
                     DebugFeature.ModSupport);
-                return changed;
             }
+            finally
+            {
+                subWorkDataChanged = WorkGiverReassignmentManager.CommitMutationBatch();
+                if (changed > 0 || subWorkDataChanged)
+                {
+                    WorkTabInvalidationHub.Invalidate(
+                        WorkTabDirtyFlags.SubWorkOverride |
+                        WorkTabDirtyFlags.Columns |
+                        WorkTabDirtyFlags.HeaderGeometry);
+                    WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
+                    MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+                }
+            }
+
+            return changed;
         }
     }
 }

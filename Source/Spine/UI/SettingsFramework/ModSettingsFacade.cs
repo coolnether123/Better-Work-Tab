@@ -82,7 +82,7 @@ namespace Spine.UI.SettingsFramework
             Action writeSettings,
             ModSettingsPageOptions options = null)
         {
-            if (LegacyBcl.IsNullOrWhiteSpace(consumerId))
+            if (string.IsNullOrWhiteSpace(consumerId))
             {
                 throw new ArgumentException(
                     "A settings-page consumer identifier is required.",

@@ -20,11 +20,17 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
 
     internal static class FluffyWorkTabCoexistence
     {
+        internal const string SimulateFluffyFlag = "bwt-simulate-fluffy-worktab";
+        private static readonly bool Simulated =
+            GenCommandLine.CommandLineArgPassed(SimulateFluffyFlag);
+
         private const string FluffyMainTabWindowTypeName = "WorkTab.MainTabWindow_WorkTab";
         private const string FluffyControllerTypeName = "WorkTab.Controller";
         private static Type _fluffyWorkTabWindowType;
         private static bool? _detected;
         private static string _detectedPackageId;
+
+        internal static bool IsSimulated => Simulated;
 
         internal static bool IsFluffyWorkTabPresent
         {
@@ -237,6 +243,23 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             return type != null;
         }
 
+        /// <summary>
+        /// Rechecks optional Fluffy identity once the post-load assembly set is complete. Normal
+        /// IsPresent reads remain cached so closed-tab UI paths do not become a polling mechanism.
+        /// </summary>
+        internal static void ReconcileDetection()
+        {
+            if (_detected == true && (_fluffyWorkTabWindowType != null || IsSimulated))
+            {
+                return;
+            }
+
+            _detected = null;
+            _detectedPackageId = null;
+            _fluffyWorkTabWindowType = null;
+            EnsureDetected();
+        }
+
         private static MainTabsRoot TryGetMainTabsRoot()
         {
             if (Current.ProgramState != ProgramState.Playing)
@@ -284,7 +307,17 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                 _detected = true;
                 if (_detectedPackageId.NullOrEmpty())
                 {
-                    _detectedPackageId = "type detected";
+                    _detectedPackageId = "type probe";
+                }
+            }
+
+            if (IsSimulated)
+            {
+                _detected = true;
+                _detectedPackageId = "simulated";
+                if (_fluffyWorkTabWindowType == null)
+                {
+                    _fluffyWorkTabWindowType = typeof(MainTabWindow_Work);
                 }
             }
         }

@@ -19,7 +19,7 @@ namespace Better_Work_Tab.Patches
         /// Draws a work box with vanilla visuals (background, passion flames, incapable tint)
         /// but WITHOUT the priority number or click handling.
         /// </summary>
-        public static void DrawWorkBoxForSkillOverlay(Rect rect, Pawn p, WorkTypeDef wType, bool incapableBecauseOfCapacities)
+        public static void DrawWorkBoxForSkillOverlay(float x, float y, Pawn p, WorkTypeDef wType, bool incapableBecauseOfCapacities)
         {
             if (p.WorkTypeIsDisabled(wType))
             {
@@ -27,6 +27,8 @@ namespace Better_Work_Tab.Patches
                 int minAgeRequired;
                 if (!p.IsWorkTypeDisabledByAge(wType, out minAgeRequired))
                     return;
+
+                Rect rect = new Rect(x, y, 25f, 25f);
 
                 // This preserves the vanilla age restriction feedback when clicking on age-disabled work
                 if (Event.current.type == EventType.MouseDown && Mouse.IsOver(rect))
@@ -39,6 +41,8 @@ namespace Better_Work_Tab.Patches
             }
             else
             {
+                Rect rect = new Rect(x, y, 25f, 25f);
+
                 // This applies the same red tint that vanilla uses for incapable work types to maintain visual consistency
                 if (incapableBecauseOfCapacities)
                     GUI.color = BetterWorkTabMod.Settings.Color_IncapableBecauseOfCapacities;

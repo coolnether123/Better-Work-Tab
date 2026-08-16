@@ -29,8 +29,6 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         private static int _lastParentPawnId = int.MinValue;
         private static ushort _lastParentWorkTypeHash;
         private static int _lastParentPriority;
-        private static int _lastPawnHourId = int.MinValue;
-        private static int _lastPawnHour;
 
         internal static CellPresentation Resolve(
             WorkGiver workGiver,
@@ -47,23 +45,20 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             int hour = GetHour(pawn, pawnId);
             bool lockedOverrides = WorkGiverReassignmentManager.LockedSubWorkOverridesDisabledParent();
             var key = new CellKey(pawnId, workType?.shortHash ?? 0, workGiver?.def?.shortHash ?? 0);
+            int dynamicStateVersion = WorkGiverPresentationInvalidation.GetPawnDynamicVersion(pawn);
 
-            bool hasCached = Entries.TryGetValue(key, out CellPresentation cached);
-            if (hasCached)
+            if (Entries.TryGetValue(key, out CellPresentation cached) &&
+                cached.SubWorkVersion == _subWorkVersion &&
+                cached.ScheduleVersion == _scheduleVersion &&
+                cached.ParentPriority == parentPriority &&
+                cached.Hour == hour &&
+                cached.LockedOverrides == lockedOverrides &&
+                cached.DynamicStateVersion == dynamicStateVersion)
             {
-                int dynamicStateVersion = WorkGiverPresentationInvalidation.GetPawnDynamicVersion(pawn);
-                if (cached.SubWorkVersion == _subWorkVersion &&
-                    cached.ScheduleVersion == _scheduleVersion &&
-                    cached.ParentPriority == parentPriority &&
-                    cached.Hour == hour &&
-                    cached.LockedOverrides == lockedOverrides &&
-                    cached.DynamicStateVersion == dynamicStateVersion)
-                {
-                    return cached;
-                }
+                return cached;
             }
 
-            if (!hasCached && Entries.Count >= MaximumEntries)
+            if (cached == null && Entries.Count >= MaximumEntries)
             {
                 Entries.Clear();
             }
@@ -77,7 +72,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 lockedOverrides,
                 cached);
 
-            if (!hasCached)
+            if (cached == null)
             {
                 Entries[key] = resolved;
             }
@@ -94,11 +89,12 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             CellPresentation presentation)
         {
             WorkGiverDef workGiverDef = workGiver?.def;
+            bool hasPawnOverride = pawn != null &&
+                                   WorkGiverReassignmentManager.HasPawnWorkGiverOverride(pawn, workGiverDef);
             int basePriority = WorkGiverReassignmentManager.GetWorkGiverPriority(
                 pawn,
                 workGiverDef,
-                parentPriority,
-                out bool hasPawnOverride);
+                parentPriority);
             TimePriorityEvaluation evaluation = TimePriorityService.EvaluateWorkGiverPriority(
                 pawn,
                 workType,
@@ -121,8 +117,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 inheritedPriority = WorkGiverReassignmentManager.GetInheritedWorkGiverPriority(
                     pawn,
                     workType,
-                    workGiverDef,
-                    parentPriority);
+                    workGiverDef);
             }
             else
             {
@@ -185,7 +180,6 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             PawnHours.Clear();
             ParentPriorities.Clear();
             _lastParentPawnId = int.MinValue;
-            _lastPawnHourId = int.MinValue;
         }
 
         private static int GetParentPriority(Pawn pawn, WorkTypeDef workType, int pawnId)
@@ -215,22 +209,13 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
         private static int GetHour(Pawn pawn, int pawnId)
         {
-            if (_lastPawnHourId == pawnId)
-            {
-                return _lastPawnHour;
-            }
-
             if (PawnHours.TryGetValue(pawnId, out int hour))
             {
-                _lastPawnHourId = pawnId;
-                _lastPawnHour = hour;
                 return hour;
             }
 
             hour = TimePriorityService.GetCurrentHour(pawn);
             PawnHours[pawnId] = hour;
-            _lastPawnHourId = pawnId;
-            _lastPawnHour = hour;
             return hour;
         }
 

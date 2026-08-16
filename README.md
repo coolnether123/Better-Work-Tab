@@ -4,6 +4,17 @@
 
 Better Work Tab rebuilds RimWorld's Work tab around faster colony setup, detailed job control, reusable rules, and a layout you can shape around the way you play.
 
+## Transpiler architecture
+
+Active BWT IL patches use the BWT exact-profile transactional engine with exact
+RimWorld 1.6 target profiles. Profiles describe the known method, call
+signatures, locals, and IL anchors; the engine performs matching, verification,
+atomic mutation, rollback, and diagnostics. The engine is BWT-owned under
+`Source/Transpilers/BwtExactProfile` and is not part of the standalone Spine
+mirror. This is the 2.0 exact-profile naming/path-isolation boundary; the older
+Fluent transpiler subsystem was removed after the migrated production call
+graph reached zero consumers; it is not integrated into this engine.
+
 ## What 2.0 adds
 
 - **Guided tutorial** — choose a focused “What’s new in 2.0” course or the complete Better Work Tab walkthrough. Lessons point at the real controls and ask you to perform the action.
@@ -33,7 +44,7 @@ Every major 2.0 system is independently toggleable in Mod Settings.
 Better Work Tab deliberately gives these cohorts different first launches:
 
 - A **fresh 2.0 install** starts with specific-job drilldown, Rule Builder 2.0, time-priority schedules, and the guided tutorial enabled.
-- A player **upgrading from public 1.0.5** keeps the new top-level feature gates off. The upgrade prompt can enable the supported 2.0 feature set and start the tour while preserving the player's current priority provider. Keeping the current setup preserves the familiar 1.x-style surface until the player enables features in settings; renderer and compatibility improvements remain active either way.
+- A player **upgrading from public 1.0.5** keeps the new top-level feature gates off. An upgrade prompt explains the change; choosing a tutorial course enables the supported 2.0 feature set. Skipping the course preserves the familiar 1.x-style surface until the player enables features in settings.
 
 The migration preserves saved 1.x preferences and rulesets, stamps the new settings schema once, and does not treat later imports as a startup migration. Back up important saves before changing any mod list.
 
@@ -68,17 +79,7 @@ Shift-click remains reserved for BWT's grouped column dragging, so it does not d
 
 The optimized Work-grid renderer uses caching, viewport culling, and targeted invalidation for large colonies. A vanilla-compatible renderer remains available as a fallback in advanced settings.
 
-Source-level performance comparisons use the private Better Work Tab tests
-repository at `A:\Dev\RimWorld\Infrastructure\Better-Work-Tab-Tests` (or its
-configured checkout) and `tools/Invoke-BwtPairedBenchmark.ps1`. The gate runs
-reference and candidate builds simultaneously through identical muted harness
-lanes, save/mod snapshots, and profiler intervals; independent historical
-captures are suitable for context, not regression attribution.
-
-The private repository owns deterministic tests, the developer runtime mod,
-fixtures, benchmarks, and verification scripts. BWT keeps only production code
-and the optional `WorkTabDiagnostics` observation contract; the player project
-does not reference the private repository.
+Source-level performance comparisons must use `Tools/Invoke-BwtPairedBenchmark.ps1`. The gate runs reference and candidate builds simultaneously through identical muted harness lanes, save/mod snapshots, and profiler intervals; independent historical captures are suitable for context, not regression attribution.
 
 ## Credits
 

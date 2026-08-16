@@ -73,6 +73,13 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
         private static bool _fluffyPriorityTypesResolved;
         private static bool _fluffyHostedColumnsDisabled;
         private static bool _externalFluffyColumnsUnavailable;
+        private static readonly FluffyWorkTabPriorityProvider ExternalPriorityProvider =
+            new FluffyWorkTabPriorityProvider();
+        private static readonly FluffyWorkTabExternalStore ExternalStore =
+            new FluffyWorkTabExternalStore();
+        private static bool _priorityProviderRegistered;
+        private static bool _externalStoreRegistered;
+        private static bool _priorityImporterRegistered;
         private static readonly Dictionary<string, PawnColumnDef> HostedWorkTypeColumns =
             new Dictionary<string, PawnColumnDef>(StringComparer.Ordinal);
         private static readonly Dictionary<string, PawnColumnDef> HostedWorkGiverColumns =
@@ -205,10 +212,59 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
         /// </summary>
         internal static void RegisterPriorityProvider()
         {
-            PriorityProviderRegistry.RegisterProvider(new FluffyWorkTabPriorityProvider());
-            var store = new FluffyWorkTabExternalStore();
-            ExternalWorkTabApi.RegisterStore(store);
-            ExternalWorkTabApi.RegisterPriorityImporter(store);
+            // Do not register an unavailable adapter. The authority/provider registries use the
+            // registration count as their hot-path gate, so a missing optional mod must remain an
+            // empty snapshot rather than a repeatedly probed unavailable store.
+            if (!IsPresent)
+            {
+                return;
+            }
+
+            if (_priorityProviderRegistered &&
+                !PriorityProviderRegistry.IsCurrentProviderRegistration(ExternalPriorityProvider))
+            {
+                _priorityProviderRegistered = false;
+            }
+
+            if (_externalStoreRegistered &&
+                !ExternalWorkTabRegistry.IsCurrentStoreRegistration(ExternalStore))
+            {
+                _externalStoreRegistered = false;
+                _priorityImporterRegistered = false;
+            }
+
+            if (!_externalStoreRegistered)
+            {
+                _priorityImporterRegistered = false;
+            }
+
+            if (!_priorityProviderRegistered &&
+                PriorityProviderRegistry.RegisterProvider(ExternalPriorityProvider))
+            {
+                _priorityProviderRegistered = true;
+            }
+
+            if (!_externalStoreRegistered && ExternalWorkTabApi.RegisterStore(ExternalStore))
+            {
+                _externalStoreRegistered = true;
+            }
+
+            if (_externalStoreRegistered &&
+                !_priorityImporterRegistered &&
+                ExternalWorkTabApi.RegisterPriorityImporter(ExternalStore))
+            {
+                _priorityImporterRegistered = true;
+            }
+        }
+
+        /// <summary>
+        /// Rechecks an optional assembly at the one post-load/reconciliation boundary, then fills
+        /// registrations that could not be made during the initial provider discovery pass.
+        /// </summary>
+        internal static void ReconcileOptionalRegistration()
+        {
+            FluffyWorkTabCoexistence.ReconcileDetection();
+            RegisterPriorityProvider();
         }
 
         // --- Priority mirroring -------------------------------------------------------------
@@ -551,6 +607,32 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             _chooserRememberChoice = true;
             CenterChooserSourceColumn(layout, instant: false);
             return true;
+        }
+
+        internal static bool DebugChooseSubWorkDrilldownStyle(
+            BetterWorkTabSettings.SubWorkDrilldownStyle style,
+            out WorkTypeDef workType)
+        {
+            workType = null;
+            if (!_chooserActive ||
+                style == BetterWorkTabSettings.SubWorkDrilldownStyle.NotChosen ||
+                BetterWorkTabMod.Settings == null)
+            {
+                return false;
+            }
+
+            workType = _chooserWorkType;
+            BetterWorkTabMod.Settings.subWorkDrilldownStyle = style;
+            BetterWorkTabMod.Settings.subWorkCtrlClickNoticeDismissed = true;
+            BetterWorkTabMod.Settings.Write();
+            PriorityAuthorityBroker.NotifyPotentialAuthorityChanged();
+            ClearSubWorkDrilldownStyleChooser(clearPreview: false);
+            return workType != null;
+        }
+
+        internal static void DebugCancelSubWorkDrilldownStyleChooser()
+        {
+            ClearSubWorkDrilldownStyleChooser();
         }
 
         internal static void ResetSubWorkDrilldownStyleChooserForWindowClose()
@@ -1589,27 +1671,30 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                             .Ordered(100)
                             .Accented(new Color(0.67f, 0.75f, 0.92f))
                             .ShownWhen(_ => FluffyWorkTabGateway.IsPresent),
-                                                scope.Under(ControlsFluffyHeader).ReadOnly(
+                                                scope.Under(ControlsFluffyHeader).Custom(
                             ControlsFluffyExpand,
-                            _ => "Ctrl-click Work header",
+                            (rect, label, tooltip, _, disabled) =>
+                                BWTSettingWidgets.DrawReadOnlyValue(rect, label, "Ctrl-click Work header", tooltip, disabled),
                             "Open or close specific jobs",
                             tooltip: "Fluffy's native Ctrl-header gesture is preserved. When BWT owns the tab, the configured specific-job shortcut routes through BWT and Expand beside opens Fluffy-style columns."
                         )
                             .SearchableBy(FluffyKeywords("ctrl click", "expand", "collapse", "specific jobs"))
                             .Ordered(101)
                             .ShownWhen(_ => FluffyWorkTabGateway.IsPresent),
-                                                scope.Under(ControlsFluffyHeader).ReadOnly(
+                                                scope.Under(ControlsFluffyHeader).Custom(
                             ControlsFluffyBatch,
-                            _ => "Shift-click / Shift-wheel",
+                            (rect, label, tooltip, _, disabled) =>
+                                BWTSettingWidgets.DrawReadOnlyValue(rect, label, "Shift-click / Shift-wheel", tooltip, disabled),
                             "Change a whole Work column",
                             tooltip: "Shift-scroll changes all capable pawn priorities. Shift-click changes a whole specific-job column; on root Work headers, BWT's optional grouping action owns Shift-left-click."
                         )
                             .SearchableBy(FluffyKeywords("shift scroll", "shift click", "batch priority", "all pawns"))
                             .Ordered(102)
                             .ShownWhen(_ => FluffyWorkTabGateway.IsPresent),
-                                                scope.Under(ControlsFluffyHeader).ReadOnly(
+                                                scope.Under(ControlsFluffyHeader).Custom(
                             ControlsFluffyPawnRows,
-                            _ => "Shift-click / Shift-wheel",
+                            (rect, label, tooltip, _, disabled) =>
+                                BWTSettingWidgets.DrawReadOnlyValue(rect, label, "Shift-click / Shift-wheel", tooltip, disabled),
                             "Adjust a pawn row",
                             tooltip: "Fluffy's Shift-click and Shift-wheel pawn-name gesture remains available when Fluffy owns the Work tab. BWT-owned layouts keep fixed aligned pawn-row heights."
                         )

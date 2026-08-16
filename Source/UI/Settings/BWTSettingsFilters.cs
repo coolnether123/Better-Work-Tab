@@ -231,7 +231,7 @@ namespace Better_Work_Tab.UI.Settings
                     DragdropRemoveHeaderUnderline,
                     HeadersAngleRotation,
                     HeadersUseVerticalStackingForCJK,
-                    HeadersCjkVerticalKerning,
+                    "headers.cjkVerticalKerning",
                     "headers.angledColor",
                     HeadersUnderlineColor,
                     "headers.horizontalOffset");

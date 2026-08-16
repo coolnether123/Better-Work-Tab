@@ -32,9 +32,9 @@ namespace Better_Work_Tab.Features.Tutorial
         /// call this before deriving any layout geometry, because the reserved
         /// height has to stay constant across a whole Layout/Repaint cycle.
         /// </summary>
-        internal static void RefreshStripReservation(float tableWidth)
+        internal static void RefreshStripReservation()
         {
-            BWTGeneralTutorial.RefreshStripReservation(tableWidth);
+            BWTGeneralTutorial.RefreshStripReservation();
         }
 
         /// <summary>

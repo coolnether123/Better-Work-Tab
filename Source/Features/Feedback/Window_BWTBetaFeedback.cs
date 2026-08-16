@@ -107,7 +107,7 @@ namespace Better_Work_Tab.Features.Feedback
                     "BWT_Beta_CopyDiscord".Translate(),
                     TexButton.Suspend))
             {
-                CopyDiscord();
+                CopyDiscordReport();
                 Messages.Message("BWT_Tutorial_DiscordCopied".Translate(), MessageTypeDefOf.TaskCompletion, false);
             }
 
@@ -739,7 +739,7 @@ namespace Better_Work_Tab.Features.Feedback
         {
             if (Widgets.ButtonText(new Rect(footer.x, footer.y + 4f, 220f, 32f), "BWT_Beta_CopyFull".Translate()))
             {
-                CopyFull();
+                CopyFullReport();
                 Messages.Message("BWT_Tutorial_FullCopied".Translate(), MessageTypeDefOf.TaskCompletion, false);
             }
 
@@ -749,7 +749,7 @@ namespace Better_Work_Tab.Features.Feedback
                     "BWT_Beta_ClearConfirm".Translate(),
                     () =>
                     {
-                        Clear();
+                        ClearFeedback();
                         settings.Write();
                     },
                     true));
@@ -761,19 +761,60 @@ namespace Better_Work_Tab.Features.Feedback
             }
         }
 
-        private void CopyDiscord()
+        // -- Smoke-test surface -----------------------------------------------
+
+        internal void PopulateFeedback()
+        {
+            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
+            int index = 0;
+            foreach (BWTTutorialLessonDefinition lesson in BWTTutorialLessonCatalog.ForCourse(settings.selectedTutorialCourse))
+            {
+                BWTTutorialLessonFeedback response = BWTTutorialFeedbackStore.GetOrCreate(settings, lesson.Id);
+                response.lessonValue = (BWTTutorialLessonFeedbackValue)((index % 3) + 1);
+                response.behaviorValue = (BWTTutorialBehaviorFeedbackValue)((index % 3) + 1);
+                response.note = index % 2 == 0 ? "Smoke-test note " + lesson.Id : string.Empty;
+                index++;
+            }
+
+            index = 0;
+            foreach (BWTBetaFeature feature in BWTBetaFeatureCatalog.Relevant)
+            {
+                BWTFeatureRating rating = BWTBetaFeedbackStore.GetOrCreateRating(settings, feature.Id);
+                rating.verdict = Verdicts[index % Verdicts.Length];
+                rating.reviewed = true;
+                rating.note = index % 3 == 0 ? "Smoke-test note " + feature.Id : string.Empty;
+                index++;
+            }
+
+            BWTProblemReport problem = BWTBetaFeedbackStore.AddProblem(settings);
+            if (problem != null)
+            {
+                problem.areaId = "worktab";
+                problem.severity = BWTProblemSeverity.Annoying;
+                problem.text = "Smoke-test problem report.";
+            }
+
+            settings.betaOverallFeedback = "Automated 2.0 beta feedback smoke test.";
+            settings.tutorialOverallFeedback = settings.betaOverallFeedback;
+            dirty = true;
+            settings.Write();
+        }
+
+        internal string CopyDiscordReport()
         {
             string report = BWTBetaReportFormatter.FormatDiscord(BetterWorkTabMod.Settings);
             GUIUtility.systemCopyBuffer = report;
+            return report;
         }
 
-        private void CopyFull()
+        internal string CopyFullReport()
         {
             string report = BWTBetaReportFormatter.FormatFull(BetterWorkTabMod.Settings);
             GUIUtility.systemCopyBuffer = report;
+            return report;
         }
 
-        private void Clear()
+        internal void ClearFeedback()
         {
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
             BWTTutorialFeedbackStore.Clear(settings);

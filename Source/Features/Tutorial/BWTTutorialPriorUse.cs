@@ -103,7 +103,7 @@ namespace Better_Work_Tab.Features.Tutorial
         /// <summary>
         /// The lessons this colony shows evidence for, right now.
         ///
-        /// Every evidence read is isolated: these read live game state during a Work-tab
+        /// Every probe is wrapped: these read live game state during a Work-tab
         /// pass, and a tour that throws is worse than a tour that offers a
         /// lesson the player did not need.
         /// </summary>
@@ -115,8 +115,8 @@ namespace Better_Work_Tab.Features.Tutorial
                 return found;
             }
 
-            bool dividers = ReadEvidence(HasDividers);
-            bool appearance = ReadEvidence(HasCustomPawnAppearance);
+            bool dividers = EvaluateSignal(HasDividers);
+            bool appearance = EvaluateSignal(HasCustomPawnAppearance);
 
             Add(found, BWTTutorialLessonCatalog.PawnDivider, dividers);
             Add(found, BWTTutorialLessonCatalog.PawnAppearance, appearance);
@@ -125,11 +125,11 @@ namespace Better_Work_Tab.Features.Tutorial
             // either one proves the player has found it.
             Add(found, BWTTutorialLessonCatalog.PawnMenu, dividers || appearance);
 
-            Add(found, BWTTutorialLessonCatalog.HeaderReorder, ReadEvidence(HasReorderedColumns));
-            Add(found, BWTTutorialLessonCatalog.PrioritySchedule, ReadEvidence(HasSchedules));
-            Add(found, BWTTutorialLessonCatalog.HeaderSubWork, ReadEvidence(HasSubWorkOverrides));
-            Add(found, BWTTutorialLessonCatalog.RuleBuilder2, ReadEvidence(HasBuiltRules));
-            Add(found, BWTTutorialLessonCatalog.PriorityRange, ReadEvidence(HasWidenedPriorityRange));
+            Add(found, BWTTutorialLessonCatalog.HeaderReorder, EvaluateSignal(HasReorderedColumns));
+            Add(found, BWTTutorialLessonCatalog.PrioritySchedule, EvaluateSignal(HasSchedules));
+            Add(found, BWTTutorialLessonCatalog.HeaderSubWork, EvaluateSignal(HasSubWorkOverrides));
+            Add(found, BWTTutorialLessonCatalog.RuleBuilder2, EvaluateSignal(HasBuiltRules));
+            Add(found, BWTTutorialLessonCatalog.PriorityRange, EvaluateSignal(HasWidenedPriorityRange));
             return found;
         }
 
@@ -141,16 +141,16 @@ namespace Better_Work_Tab.Features.Tutorial
             }
         }
 
-        private static bool ReadEvidence(Func<bool> detector)
+        private static bool EvaluateSignal(Func<bool> test)
         {
             try
             {
-                return detector();
+                return test();
             }
             catch (Exception ex)
             {
                 BetterWorkTabMod.DebugLog(
-                    "[BWT] Tutorial prior-use scan failed: " + ex.Message,
+                    "[BWT] Tutorial prior-use probe failed: " + ex.Message,
                     DebugFeature.General);
                 return false;
             }

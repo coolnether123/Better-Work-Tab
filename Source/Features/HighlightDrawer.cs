@@ -1,13 +1,11 @@
 using UnityEngine;
 using Verse;
-using Better_Work_Tab.UI.Settings;
 
 namespace Better_Work_Tab.UI
 {
     public static class HighlightDrawer
     {
         private const float OutlineThickness = 2f;
-        private const string MasterHighlightPreviewField = "preview.masterHighlight";
 
         public static void DrawHighlight(Rect rect, Color color)
         {
@@ -22,23 +20,14 @@ namespace Better_Work_Tab.UI
             }
         }
 
-        public static Color GetRowHoverColor() => GetHoverColor(false);
-
-        public static Color GetColumnHoverColor() => GetHoverColor(true);
-
-        private static Color GetHoverColor(bool column)
+        public static Color GetRowHoverColor()
         {
-            if (WorkTabColorPreviewController.Instance.TryGetPreview(out WorkTabColorPreview preview) &&
-                (preview.FieldName == MasterHighlightPreviewField ||
-                 (column ? preview.IncludesColumn : preview.IncludesRow)))
-            {
-                return preview.Color;
-            }
+            return BetterWorkTabMod.Settings?.Color_RowHoverHighlight ?? Color.white;
+        }
 
-            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
-            return column
-                ? settings?.Color_ColumnHoverHighlight ?? Color.white
-                : settings?.Color_RowHoverHighlight ?? Color.white;
+        public static Color GetColumnHoverColor()
+        {
+            return BetterWorkTabMod.Settings?.Color_ColumnHoverHighlight ?? Color.white;
         }
 
         public static Color GetFloatMenuColor()

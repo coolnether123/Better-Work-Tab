@@ -33,7 +33,7 @@
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
     <OutputPath>..\1.6\Assemblies\</OutputPath>
-    <DefineConstants>DEBUG;TRACE;RWT_EMBEDDED_SPINE_SETTINGS;RWT_FLOATMENU_DOGUI_CONTEXT;RWT_HAS_COLOR_PICKER_ACCEPT_CANCEL;RWT_HAS_COLOR_PICKER_CLICK_OUTSIDE;RWT_HAS_COLOR_PICKER_WINDOW_LAYOUT;RWT_HAS_DIALOG_MOD_SETTINGS_MOD_CTOR;RWT_HAS_WARNING_ONCE</DefineConstants>
+    <DefineConstants>DEBUG;TRACE;RWT_EMBEDDED_SPINE_SETTINGS;RWT_FLOATMENU_DOGUI_CONTEXT;RWT_HAS_COLOR_PICKER_ACCEPT_CANCEL;RWT_HAS_COLOR_PICKER_CLICK_OUTSIDE;RWT_HAS_COLOR_PICKER_WINDOW_LAYOUT;RWT_HAS_DIALOG_MOD_SETTINGS_MOD_CTOR;RWT_HAS_WARNING_ONCE;RWT_BUTTON_TEXT_OVERRIDE_TEXT_ANCHOR</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
@@ -41,7 +41,7 @@
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
     <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants>TRACE;RWT_EMBEDDED_SPINE_SETTINGS;RWT_FLOATMENU_DOGUI_CONTEXT;RWT_HAS_COLOR_PICKER_ACCEPT_CANCEL;RWT_HAS_COLOR_PICKER_CLICK_OUTSIDE;RWT_HAS_COLOR_PICKER_WINDOW_LAYOUT;RWT_HAS_DIALOG_MOD_SETTINGS_MOD_CTOR;RWT_HAS_WARNING_ONCE</DefineConstants>
+    <DefineConstants>TRACE;RWT_EMBEDDED_SPINE_SETTINGS;RWT_FLOATMENU_DOGUI_CONTEXT;RWT_HAS_COLOR_PICKER_ACCEPT_CANCEL;RWT_HAS_COLOR_PICKER_CLICK_OUTSIDE;RWT_HAS_COLOR_PICKER_WINDOW_LAYOUT;RWT_HAS_DIALOG_MOD_SETTINGS_MOD_CTOR;RWT_HAS_WARNING_ONCE;RWT_BUTTON_TEXT_OVERRIDE_TEXT_ANCHOR</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
@@ -49,17 +49,13 @@
     <OutputPath>..\1.6\Assemblies\</OutputPath>
     <Optimize>true</Optimize>
     <DebugType>pdbonly</DebugType>
-    <DefineConstants>TRACE;RWT_EMBEDDED_SPINE_SETTINGS;RWT_FLOATMENU_DOGUI_CONTEXT;RWT_HAS_COLOR_PICKER_ACCEPT_CANCEL;RWT_HAS_COLOR_PICKER_CLICK_OUTSIDE;RWT_HAS_COLOR_PICKER_WINDOW_LAYOUT;RWT_HAS_DIALOG_MOD_SETTINGS_MOD_CTOR;RWT_HAS_WARNING_ONCE</DefineConstants>
+    <DefineConstants>TRACE;RWT_EMBEDDED_SPINE_SETTINGS;RWT_FLOATMENU_DOGUI_CONTEXT;RWT_HAS_COLOR_PICKER_ACCEPT_CANCEL;RWT_HAS_COLOR_PICKER_CLICK_OUTSIDE;RWT_HAS_COLOR_PICKER_WINDOW_LAYOUT;RWT_HAS_DIALOG_MOD_SETTINGS_MOD_CTOR;RWT_HAS_WARNING_ONCE;RWT_BUTTON_TEXT_OVERRIDE_TEXT_ANCHOR</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System.Core" />
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="System.Net.Http" />
     <Reference Include="System.Xml" />
-    <Reference Include="0MultiplayerAPI" Condition="'$(RwtDependencyMultiplayerApi)' != ''">
-      <HintPath>$(RwtDependencyMultiplayerApi)</HintPath>
-      <Private>false</Private>
-    </Reference>
     <Reference Include="Spine" Condition="'$(UseStandaloneSpine)' == 'true'">
       <HintPath>$(SpineAssemblyPath)</HintPath>
       <Private>false</Private>
@@ -71,13 +67,13 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Compatibility\LegacyReadOnlyCollections.cs" />
     <Compile Include="API\IMaxPriorityProvider.cs" />
     <Compile Include="API\ExternalWorkTabApi.cs" />
     <Compile Include="API\PriorityApi.cs" />
     <Compile Include="API\PriorityProviderCapabilities.cs" />
     <Compile Include="API\TimePriorityApi.cs" />
     <Compile Include="API\WorkGiverApi.cs" />
-    <Compile Include="Compatibility\LegacyReadOnlyCollections.cs" />
     <Compile Include="Spine\Core\Revisions\RevisionSource.cs" />
     <Compile Include="Spine\Core\DirtyTracking\SparseDirtySets.cs" />
     <Compile Include="Spine\Core\Caching\BoundedLruCache.cs" />
@@ -107,11 +103,28 @@
     <Compile Include="Features\HighlightState.cs" />
     <Compile Include="Features\Caching\BedCountCache.cs" />
     <Compile Include="Features\Patches\MaxPriorityPatches.cs" />
+    <Compile Include="Features\Patches\PriorityIlBindings.cs" />
+    <Compile Include="Features\Patches\Profiles\BwtTranspilerProfileContracts.cs" />
+    <Compile Include="Features\Patches\Profiles\BwtCallRedirectProfiles.cs" />
+    <Compile Include="Features\Patches\Profiles\BwtPriorityProfiles.cs" />
+    <Compile Include="Features\Patches\Profiles\BwtCallRedirectCompiler.cs" />
+    <Compile Include="Features\Patches\Profiles\BwtPriorityCompiler.cs" />
+    <Compile Include="Features\Patches\Profiles\BwtHeaderProfiles.cs" />
+    <Compile Include="Features\Patches\Profiles\BwtHeaderCompiler.cs" />
     <Compile Include="Features\RaisedPriorityMaximum\PriorityAuthorityBroker.cs" />
+    <Compile Include="Features\RaisedPriorityMaximum\PriorityAuthorityDiagnostics.cs" />
+    <Compile Include="Features\RaisedPriorityMaximum\PriorityAuthorityFeaturePolicy.cs" />
+    <Compile Include="Features\RaisedPriorityMaximum\PriorityAuthorityModels.cs" />
     <Compile Include="Features\RaisedPriorityMaximum\PriorityAuthorityPatches.cs" />
+    <Compile Include="Features\RaisedPriorityMaximum\PriorityAuthorityResolver.cs" />
+    <Compile Include="Features\RaisedPriorityMaximum\PriorityAuthorityTransitionService.cs" />
+    <Compile Include="Features\RaisedPriorityMaximum\BwtRaisedPriorityFeatureInstaller.cs" />
     <Compile Include="Features\RaisedPriorityMaximum\PriorityConstants.cs" />
+    <Compile Include="Features\RaisedPriorityMaximum\PriorityProviderSelector.cs" />
     <Compile Include="Features\RaisedPriorityMaximum\PriorityProviderSnapshot.cs" />
     <Compile Include="Features\RaisedPriorityMaximum\PriorityProviders.cs" />
+    <Compile Include="Features\RaisedPriorityMaximum\PriorityRangePolicy.cs" />
+    <Compile Include="Features\RaisedPriorityMaximum\PriorityValueResolver.cs" />
     <Compile Include="Features\RaisedPriorityMaximum\WorkPrioritySystem.cs" />
     <Compile Include="Features\Patches\Patch_PawnTable_RecacheIfDirty.cs" />
     <Compile Include="Features\Patches\Patch_Pawn_WorkSettings_SetPriority.cs" />
@@ -143,12 +156,10 @@
     <Compile Include="Features\Rules\RuleBuilder2\RuleBuilder2ClassicRulesetExportService.cs" />
     <Compile Include="Features\Rules\RuleBuilder2\RuleBuilder2DraftGenerator.cs" />
     <Compile Include="Features\ColumnBaselineManager.cs" />
-    <Compile Include="Features\Infrastructure\DynamicGameplayPatchController.cs" />
     <Compile Include="Features\Dividers\DividerCollapseAnimationState.cs" />
     <Compile Include="Features\Dividers\DividerInsertionAnimationState.cs" />
     <Compile Include="Features\WorkExecutionOrder.cs" />
     <Compile Include="Features\WorkGiverReassignments\WorkGiverReassignmentData.cs" />
-    <Compile Include="Features\WorkGiverReassignments\WorkGiverReassignmentMateriality.cs" />
     <Compile Include="Features\WorkGiverReassignments\WorkGiverReassignmentManager.cs" />
     <Compile Include="Features\WorkGiverReassignments\WorkGiverLayoutHistory.cs" />
     <Compile Include="Features\WorkGiverReassignments\WorkGiverReassignmentPatches.cs" />
@@ -157,8 +168,23 @@
     <Compile Include="Features\WorkGiverReassignments\SubWorkDrilldownState.cs" />
     <Compile Include="Features\Workloads\GameComponent_BWTWorldSettings.cs" />
     <Compile Include="Diagnostics\WorkTabDiagnostics.cs" />
+    <Compile Include="Features\Testing\AgentFloatMenuHighlightTestDriver.cs" Condition="'$(Configuration)' != '1.6'" />
+    <Compile Include="Features\Testing\GameComponent_BWTModernQuickTestDriver.cs" Condition="'$(Configuration)' != '1.6'" />
+    <Compile Include="Features\Testing\GameComponent_BWTSettingsCohortQuickTestDriver.cs" Condition="'$(Configuration)' != '1.6'" />
+    <Compile Include="Features\Testing\GameComponent_BWTTutorialQuickTestDriver.cs" Condition="'$(Configuration)' != '1.6'" />
+    <Compile Include="Features\Testing\GameComponent_PriorityRangeCacheRegressionTestDriver.cs" Condition="'$(BwtPriorityAuthorityTests)' == 'true' And $([System.String]::Copy('$(DefineConstants)').Contains('DEBUG'))" />
+    <Compile Include="Features\Testing\AgentHarnessUtility.cs" />
     <Compile Include="UI\BWTBottomBarSelector.cs" />
     <Compile Include="UI\OneTimePromptPresence.cs" />
+    <Compile Include="Features\Testing\BWTTutorialAgentHarness.cs" Condition="'$(Configuration)' != '1.6'" />
+    <Compile Include="Features\Testing\RuleBuilder2AgentHarness.cs" Condition="'$(Configuration)' != '1.6'" />
+    <Compile Include="Features\Testing\SubWorkTransitionPerfDiagnostics.cs" />
+    <Compile Include="Features\Testing\WorkTabGeometryContractValidator.cs" />
+    <Compile Include="Features\Testing\WorkTabGeometryDiagnostics.cs" />
+    <Compile Include="Features\Testing\WorkTabProfilingState.cs" />
+    <Compile Include="Features\Testing\WorkGridRendererExceptionProbe.cs" Condition="'$(Configuration)' != '1.6'" />
+    <Compile Include="Features\Testing\RuleBuilder2ConditionSeeder.cs" Condition="'$(Configuration)' != '1.6'" />
+    <Compile Include="Features\Testing\RuleBuilder2ClassicRoundTripSelfTest.cs" Condition="'$(Configuration)' != '1.6'" />
     <Compile Include="Features\TimePriority\Patch_CopyPasteWorkPriorities_TimePriority.cs" />
     <Compile Include="Features\TimePriority\TimePriorityEvaluation.cs" />
     <Compile Include="Features\TimePriority\TimePriorityScheduleClipboard.cs" />
@@ -178,6 +204,7 @@
     <Compile Include="Features\Tutorial\BWTTutorialLessonCatalog.cs" />
     <Compile Include="Features\Tutorial\BWTTutorialFeedback.cs" />
     <Compile Include="Features\Feedback\BWTDiagnosticContext.cs" />
+    <Compile Include="Features\Testing\BWTTutorialAwarenessSelfTest.cs" Condition="'$(Configuration)' != '1.6'" />
     <Compile Include="Features\Tutorial\BWTTutorialFeatureDiscovery.cs" />
     <Compile Include="Features\Tutorial\BWTTutorialPriorUse.cs" />
     <Compile Include="Features\Tutorial\BWTTutorialProgress.cs" />
@@ -218,6 +245,7 @@
     <Compile Include="PawnOrganizer\Layout\WorkTabLayoutController.cs" />
     <Compile Include="PawnOrganizer\Layout\WorkTabLayoutRow.cs" />
     <Compile Include="PawnOrganizer\Patches\Patch_PawnColumnWorker_Label_DoCell.cs" />
+    <Compile Include="PawnOrganizer\Patches\PawnLabelCloseAdapter.cs" />
     <Compile Include="PawnOrganizer\PawnOrganizerSystem.cs" />
     <Compile Include="Mod Support\IModSupportModule.cs" />
     <Compile Include="Mod Support\IModSettingsContributor.cs" />
@@ -284,25 +312,13 @@
     <Compile Include="Spine\harmony\HarmonyPatchingFacade.cs" />
     <Compile Include="Spine\harmony\HarmonyPatchOperationKeys.cs" />
     <Compile Include="Spine\harmony\HarmonyUtil.cs" />
-    <Compile Include="Spine\harmony\Transpilers\CartographerExtensions.cs" />
-    <Compile Include="Spine\harmony\Transpilers\FluentReplacementResult.cs" />
-    <Compile Include="Spine\harmony\Transpilers\FluentTranspiler.cs" />
-    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerCallRecipes.cs" />
-    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerClampRecipes.cs" />
-    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerCompatibilityExtensions.cs" />
-    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerExecution.cs" />
-    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerFieldRecipes.cs" />
-    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerFormatting.cs" />
-    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerGuardRecipes.cs" />
-    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerPatterns.cs" />
-    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerRangeCheckRecipes.cs" />
-    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerRecipeValidation.cs" />
-    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerReturnRecipes.cs" />
-    <Compile Include="Spine\harmony\Transpilers\FluentTranspilerWrapRecipes.cs" />
-    <Compile Include="Spine\harmony\Transpilers\FluentTranspiler_Features.cs" />
-    <Compile Include="Spine\harmony\Transpilers\StackSentinel.cs" />
-    <Compile Include="Spine\harmony\Transpilers\TranspilerDebugger.cs" />
-    <Compile Include="Spine\harmony\Transpilers\TranspilerSafetyPolicy.cs" />
+    <Compile Include="Transpilers\BwtExactProfile\IlInstructionSnapshot.cs" />
+    <Compile Include="Transpilers\BwtExactProfile\IlPlanModel.cs" />
+    <Compile Include="Transpilers\BwtExactProfile\PatchResult.cs" />
+    <Compile Include="Transpilers\BwtExactProfile\IlVerifier.cs" />
+    <Compile Include="Transpilers\BwtExactProfile\IlStackModel.cs" />
+    <Compile Include="Transpilers\BwtExactProfile\IlAtomicExecutor.cs" />
+    <Compile Include="Transpilers\BwtExactProfile\IlRecipes.cs" />
     <Compile Include="Spine\Profiling\SpineTiming.cs" />
     <Compile Include="Spine\Utils\SpineUtils.cs" />
     <Compile Include="Spine\UI\TextColorHelper.cs" />
@@ -357,11 +373,11 @@
     <Compile Include="UI\WorkGrid\Compatibility\WorkGridVanillaCompatibilityPolicy.cs" />
     <Compile Include="UI\WorkGrid\Interaction\WorkGridContextActionController.cs" />
     <Compile Include="UI\WorkGrid\Interaction\WorkGridInteractionRouter.cs" />
+    <Compile Include="UI\WorkGrid\Interaction\WorkTabContextSettingsInteractionController.cs" />
     <Compile Include="UI\WorkGrid\Interaction\WorkTabPriorityInputHandler.cs" />
     <Compile Include="UI\WorkGrid\Interaction\WorkTabTutorialInteractionController.cs" />
     <Compile Include="UI\WorkGrid\Layout\WorkGridLayoutMetrics.cs" />
     <Compile Include="UI\WorkGrid\Layout\WorkGridInteractionGeometry.cs" />
-    <Compile Include="UI\WorkGrid\Layout\WorkGridPriorityHitGeometry.cs" />
     <Compile Include="UI\Chrome\WorkTabChrome.cs" />
     <Compile Include="UI\Chrome\WorkTabChromeGeometry.cs" />
     <Compile Include="UI\WorkGrid\Layout\WorkTabViewportController.cs" />
@@ -388,7 +404,6 @@
     <Compile Include="UI\Columns\WorkColumnCustomizationService.cs" />
     <Compile Include="UI\WindowSession\WorkTabWindowSizingController.cs" />
     <Compile Include="UI\WindowSession\WorkTabWindowSessionState.cs" />
-    <Compile Include="UI\WindowSession\WorkTabActivityState.cs" />
     <Compile Include="UI\MainTabWindow_BetterWork.cs" />
     <Compile Include="UI\PawnTitleUtility.cs" />
     <Compile Include="UI\WorkPriorityCellGeometry.cs" />
@@ -404,6 +419,7 @@
     <Compile Include="UI\BetterWorkTabSettingsUI.cs" />
     <Compile Include="UI\Settings\BWTSettingsFilters.cs" />
     <Compile Include="UI\Settings\BetterWorkTabSettingsWindowService.cs" />
+    <Compile Include="UI\Settings\BWTSettingWidgets.cs" />
     <Compile Include="UI\Settings\BWTSettingsContextFocus.cs" />
     <Compile Include="UI\Settings\BWTSettingsFocusRequest.cs" />
     <Compile Include="UI\Settings\BWTWorkTabContextSettingsRouter.cs" />
@@ -489,12 +505,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Spine\harmony\HarmonyUtil.cs" />
-    <None Include="Spine\harmony\Transpilers\AdvancedExtensions.cs" />
-    <None Include="Spine\harmony\Transpilers\ControlFlowExtensions.cs" />
-    <None Include="Spine\harmony\Transpilers\CooperativePatcher.cs" />
-    <None Include="Spine\harmony\Transpilers\README.md" />
-    <None Include="Spine\harmony\Transpilers\ShelteredPatterns.cs" />
-    <None Include="Spine\harmony\Transpilers\UnityPatterns.cs" />
   </ItemGroup>
   <ItemGroup Condition="'$(UseStandaloneSpine)' == 'true'">
     <!-- Only exact shared-mirror types bind to Spine.dll. BWT-owned rendering,
@@ -579,19 +589,7 @@
     <Publicize Include="Assembly-CSharp:RimWorld.WidgetsWork.DrawWorkBoxBackground" />
     <Publicize Include="Assembly-CSharp:Verse.Widgets.LineTexAA" />
     <Publicize Include="Assembly-CSharp:RimWorld.Pawn_WorkSettings.priorities" />
-    <Publicize Include="Assembly-CSharp:RimWorld.FloatMenuOptionProvider_WorkGivers.GetWorkGiverOption" />
-    <Publicize Include="Assembly-CSharp:RimWorld.FloatMenuOptionProvider_WorkGivers.GetWorkGiversOptionsFor" />
-    <Publicize Include="Assembly-CSharp:RimWorld.PawnTable.Columns" />
-    <Publicize Include="Assembly-CSharp:RimWorld.PawnTable.scrollPosition" />
-    <Publicize Include="Assembly-CSharp:RimWorld.PawnTable.cachedColumnWidths" />
-    <Publicize Include="Assembly-CSharp:RimWorld.PawnTable.RecacheIfDirty" />
-    <Publicize Include="Assembly-CSharp:RimWorld.PawnTable.PrimarySortFunction" />
-    <Publicize Include="Assembly-CSharp:RimWorld.PawnTable.def" />
-    <Publicize Include="Assembly-CSharp:RimWorld.PawnTable.cachedSize" />
-    <Publicize Include="Assembly-CSharp:RimWorld.PawnTable.cachedPawns" />
-    <Publicize Include="Assembly-CSharp:RimWorld.PawnTable.cachedHeaderHeight" />
-    <Publicize Include="Assembly-CSharp:RimWorld.PawnTable.cachedRowHeights" />
-    <Publicize Include="Assembly-CSharp:RimWorld.PawnTable.dirty" />
+    <Publicize Include="Assembly-CSharp" MemberPattern="^RimWorld\.FloatMenuOptionProvider_WorkGivers\..*|RimWorld\.PawnTable\..*" />
     <Publicize Include="Assembly-CSharp:RimWorld.Pawn_WorkSettings.CacheWorkGiversInOrder" />
     <Publicize Include="Assembly-CSharp:RimWorld.PawnColumnWorker_WorkPriority.HeaderClicked" />
   </ItemGroup>

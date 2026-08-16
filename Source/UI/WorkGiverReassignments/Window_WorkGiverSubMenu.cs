@@ -333,15 +333,15 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             sb.Append(title.Colorize(ColoredText.TipSectionTitleColor));
             if (!workType.NullOrEmpty())
             {
-                sb.Append("\n").Append("BWT_SubWork_Tooltip_WorkType".Translate() + ": ").Append(workType);
+                sb.Append("\n").Append("WorkType".Translate() + ": ").Append(workType);
             }
             if (!desc.NullOrEmpty())
             {
                 sb.Append("\n\n").Append(desc);
             }
 
-            sb.Append("\n\n").Append("BWT_SubWork_Tooltip_DragToReorder".Translate());
-            sb.Append("\n").Append("BWT_SubWork_Tooltip_DragToReassign".Translate());
+            sb.Append("\n\n").Append("Drag to reorder");
+            sb.Append("\n").Append("Hold drag to move; drag out to another work type header to reassign");
 
             return sb.ToString();
         }

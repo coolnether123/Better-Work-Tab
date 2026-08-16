@@ -84,7 +84,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 HeaderInputController.SetHoveredWorkType(worker.def.workType, GetVisualBounds(cached));
             }
 
-            var renderer = HeaderDrawingCoordinator.GetActiveRenderer(table);
+            var renderer = HeaderDrawingCoordinator.GetActiveRenderer();
 
             // Group parameters into interaction context
             var ctx = new HeaderInteractionContext
@@ -150,7 +150,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 IsMouseOver = isMouseOver,
                 ShouldDraw = shouldDraw,
                 HeaderRect = rect,
-                Renderer = HeaderDrawingCoordinator.GetActiveRenderer(table)
+                Renderer = HeaderDrawingCoordinator.GetActiveRenderer()
             };
 
             AngledHeaderInteraction.HandleInteractions(ctx);

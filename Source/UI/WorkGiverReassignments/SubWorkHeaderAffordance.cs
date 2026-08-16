@@ -12,7 +12,6 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
     internal static class SubWorkHeaderAffordance
     {
         private const float BackBadgeSize = 18f;
-
         internal static Rect GetBackBadgeRect(Rect labelCellRect)
         {
             return new Rect(

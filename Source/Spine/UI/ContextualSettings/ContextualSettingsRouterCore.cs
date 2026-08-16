@@ -7,9 +7,9 @@ namespace Spine.UI.ContextualSettings
     {
         internal static string FeatureOnly(string featureTooltip)
         {
-            return LegacyBcl.IsNullOrWhiteSpace(featureTooltip)
+            return string.IsNullOrWhiteSpace(featureTooltip)
                 ? null
-                : LegacyBcl.TrimEndWhitespace(featureTooltip);
+                : featureTooltip.TrimEnd();
         }
     }
 
@@ -21,11 +21,7 @@ namespace Spine.UI.ContextualSettings
         Repaint
     }
 
-#if RWT_LEGACY_BCL
-    internal struct ContextualHitRect : IEquatable<ContextualHitRect>
-#else
     internal readonly struct ContextualHitRect : IEquatable<ContextualHitRect>
-#endif
     {
         internal ContextualHitRect(float x, float y, float width, float height)
         {
@@ -35,17 +31,10 @@ namespace Spine.UI.ContextualSettings
             Height = height;
         }
 
-#if RWT_LEGACY_BCL
-        internal float X;
-        internal float Y;
-        internal float Width;
-        internal float Height;
-#else
         internal float X { get; }
         internal float Y { get; }
         internal float Width { get; }
         internal float Height { get; }
-#endif
 
         internal bool Contains(float x, float y) =>
             x >= X && y >= Y && x < X + Width && y < Y + Height;
@@ -69,11 +58,7 @@ namespace Spine.UI.ContextualSettings
         }
     }
 
-#if RWT_LEGACY_BCL
-    internal struct ContextualPointerEvent
-#else
     internal readonly struct ContextualPointerEvent
-#endif
     {
         internal ContextualPointerEvent(
             ContextualPointerEventType type,
@@ -89,19 +74,11 @@ namespace Spine.UI.ContextualSettings
             Y = y;
         }
 
-#if RWT_LEGACY_BCL
-        internal ContextualPointerEventType Type;
-        internal int Button;
-        internal bool Alt;
-        internal float X;
-        internal float Y;
-#else
         internal ContextualPointerEventType Type { get; }
         internal int Button { get; }
         internal bool Alt { get; }
         internal float X { get; }
         internal float Y { get; }
-#endif
 
         internal bool IsContextualClick =>
             Type == ContextualPointerEventType.MouseDown && Button == 0 && Alt;
@@ -130,7 +107,7 @@ namespace Spine.UI.ContextualSettings
 
         internal void Acquire(string consumerId)
         {
-            if (!LegacyBcl.IsNullOrWhiteSpace(consumerId))
+            if (!string.IsNullOrWhiteSpace(consumerId))
             {
                 consumers.Add(consumerId);
             }
@@ -277,11 +254,7 @@ namespace Spine.UI.ContextualSettings
         internal void Clear() => pending = null;
     }
 
-#if RWT_LEGACY_BCL
-    internal struct ContextualNavigationCandidate
-#else
     internal readonly struct ContextualNavigationCandidate
-#endif
     {
         internal ContextualNavigationCandidate(
             string id,
@@ -293,22 +266,12 @@ namespace Spine.UI.ContextualSettings
             VisibleInSimple = visibleInSimple;
         }
 
-#if RWT_LEGACY_BCL
-        internal string Id;
-        internal bool Available;
-        internal bool VisibleInSimple;
-#else
         internal string Id { get; }
         internal bool Available { get; }
         internal bool VisibleInSimple { get; }
-#endif
     }
 
-#if RWT_LEGACY_BCL
-    internal struct ContextualNavigationPlan
-#else
     internal readonly struct ContextualNavigationPlan
-#endif
     {
         internal ContextualNavigationPlan(
             string targetId,
@@ -320,15 +283,9 @@ namespace Spine.UI.ContextualSettings
             IncludeChildren = includeChildren;
         }
 
-#if RWT_LEGACY_BCL
-        internal string TargetId;
-        internal bool UseSimpleView;
-        internal bool IncludeChildren;
-#else
         internal string TargetId { get; }
         internal bool UseSimpleView { get; }
         internal bool IncludeChildren { get; }
-#endif
         internal bool IsRoot => string.IsNullOrEmpty(TargetId);
     }
 

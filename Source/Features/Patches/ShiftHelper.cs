@@ -1,5 +1,4 @@
 using UnityEngine;
-using Better_Work_Tab.UI.Settings;
 
 namespace Better_Work_Tab.Patches
 {
@@ -8,7 +7,6 @@ namespace Better_Work_Tab.Patches
     public static class ShiftHelper
     {
         public static bool IsHeld =>
-            WorkTabColorPreviewController.Instance.IsSkillPreviewActive ||
             (Event.current?.shift ?? false) ||
             Input.GetKey(KeyCode.LeftShift) ||
             Input.GetKey(KeyCode.RightShift);

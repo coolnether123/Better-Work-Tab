@@ -50,7 +50,6 @@ namespace Spine
             return end == value.Length ? value : value.Substring(0, end);
         }
     }
-}
 #else
 namespace Spine
 {
@@ -82,12 +81,9 @@ namespace Spine
             Monitor.Exit(sync);
         }
     }
-}
 #endif
 
 #if RWT_LEGACY_BCL
-namespace Spine
-{
     // Mono's RimWorld 1.0 mscorlib stops at Func<T1..T5>.
     public delegate TResult LegacyFunc6<T1, T2, T3, T4, T5, TResult>(
         T1 arg1,
@@ -129,11 +125,8 @@ namespace Spine
 
         IEnumerator IEnumerable.GetEnumerator() { return GetEnumerator(); }
     }
-}
 #endif
 
-namespace Spine
-{
     internal static class LegacyReadOnlyCollections
     {
 #if RWT_LEGACY_BCL

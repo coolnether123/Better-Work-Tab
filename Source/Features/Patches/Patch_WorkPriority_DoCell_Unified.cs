@@ -10,7 +10,6 @@ using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.Input;
-using Better_Work_Tab.UI.Settings;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using Better_Work_Tab.UI.WorkGrid.Commands;
 using HarmonyLib;
@@ -120,9 +119,12 @@ namespace Better_Work_Tab.Patches
         private const int SkillCacheFrameValidity = 60;
         private const int IncapableCacheFrameValidity = 120;
         private const int BestPawnCacheFrameValidity = 60;
+        private const float SkillBoxSize = WorkPriorityCellGeometry.BoxSize;
+        private const float SkillBoxVerticalPadding = WorkPriorityCellGeometry.BoxTopPadding;
         private const float SmallSkillOffsetY = -2f;
         private const float SmallCornerLabelWidth = 18f;
         private const float SmallCornerLabelHeight = 16f;
+        private const float SkillBoxOutlinePadding = 2f;
 
         private static void UpdateFrameCache()
         {
@@ -131,8 +133,7 @@ namespace Better_Work_Tab.Patches
                 return;
 
             _lastCachedFrame = currentFrame;
-            _cachedFeatureEnabled = (BetterWorkTabMod.Settings?.enableSkillOverlayFeature ?? false) ||
-                                    WorkTabColorPreviewController.Instance.IsSkillPreviewActive;
+            _cachedFeatureEnabled = BetterWorkTabMod.Settings?.enableSkillOverlayFeature ?? false;
             _cachedUiState = ShiftHelper.State;
             _cachedShiftHeld = _cachedUiState == BetterWorkTabSettings.ShowUIMode.Shifted;
             _cachedHoverCellOverlayEnabled = BetterWorkTabMod.Settings?.showHoverCellOverlay ?? true;
@@ -260,13 +261,7 @@ namespace Better_Work_Tab.Patches
                 return true;
 
             if (workType.relevantSkills == null || workType.relevantSkills.Count == 0)
-            {
-                // Shift mode replaces priority boxes with skill values. Work types without a
-                // relevant skill therefore have no overlay to draw, matching BWT 1.0.5's blank
-                // cell treatment while preserving priority input through BWT's own handler.
-                TryHandleWorkPriorityInput(rect, pawn, workType);
-                return false;
-            }
+                return true;
 
             // Track column hover state only if hover cell overlay is enabled
             bool hoveringCell = !timePriorityOwnsMouse &&
@@ -396,7 +391,9 @@ namespace Better_Work_Tab.Patches
                                  (_columnHoveredFrame == Time.frameCount || _columnHoveredFrame == Time.frameCount - 1);
             bool hovering = hoveringCell || columnHovered;
 
-            Rect boxRect = WorkPriorityCellGeometry.GetPriorityBoxRect(rect);
+            float boxXSkill = rect.x + (rect.width - SkillBoxSize) / 2f;
+            float boxYSkill = rect.y + SkillBoxVerticalPadding;
+            Rect boxRect = GetWorkBoxRect(rect);
 
             bool drawBigSkill = true;
             bool drawSmallSkill = false;
@@ -424,7 +421,7 @@ namespace Better_Work_Tab.Patches
 
             if (drawBigSkill)
             {
-                CustomWorkBoxDrawer.DrawWorkBoxForSkillOverlay(boxRect, pawn, workType, false);
+                CustomWorkBoxDrawer.DrawWorkBoxForSkillOverlay(boxXSkill, boxYSkill, pawn, workType, false);
                 DrawBigSkillNumber(boxRect, skillLevel);
                 RecordSkillNumberDrawn(pawn, workType);
             }
@@ -612,11 +609,7 @@ namespace Better_Work_Tab.Patches
 
         private static Pawn GetBestPawnForWorktype(PawnTable table, WorkTypeDef workType, PawnColumnWorker_WorkPriority worker)
         {
-            if (workType == null || workType.relevantSkills == null || workType.relevantSkills.Count == 0 ||
-                table == null || table.cachedPawns == null)
-            {
-                return null;
-            }
+            if (table == null || table.cachedPawns == null) return null;
 
             int key = (table.GetHashCode() << 16) | workType.shortHash;
             int currentFrame = Time.frameCount;
@@ -658,11 +651,6 @@ namespace Better_Work_Tab.Patches
 
         private static Color ColorForSkillLevel(int level)
         {
-            if (WorkTabColorPreviewController.Instance.TryGetSkillColor(level, out Color previewColor))
-            {
-                return previewColor;
-            }
-
             if (_colorCache.TryGetValue(level, out var cached))
                 return cached;
 
@@ -743,12 +731,7 @@ namespace Better_Work_Tab.Patches
             if (settings == null)
                 return;
 
-            if (workType == null || workType.relevantSkills == null || workType.relevantSkills.Count == 0)
-                return;
-
-            if (!WorkTabColorPreviewController.Instance.IsBestPawnPreviewActive &&
-                !WorkTabColorPreviewController.Instance.IsBestPawnThicknessPreviewActive &&
-                !ShouldShowUI(settings.ShowUIMode_ShowPawnForSkillSquare, _cachedUiState))
+            if (!ShouldShowUI(settings.ShowUIMode_ShowPawnForSkillSquare, _cachedUiState))
                 return;
 
             Pawn bestPawn = GetBestPawnForWorktype(table, workType, worker);
@@ -760,18 +743,38 @@ namespace Better_Work_Tab.Patches
 
         private static void DrawBestPawnOutline(Rect rect)
         {
-            Rect outlineRect = WorkPriorityCellGeometry.GetPriorityBoxRect(rect).ExpandedBy(1f);
+            float x = rect.x + (rect.width - SkillBoxSize) / 2f;
+            float y = rect.y + SkillBoxVerticalPadding;
 
-            Color outlineColor = WorkTabColorPreviewController.Instance.TryGetBestPawnColor(out Color previewColor)
-                ? previewColor
-                : BetterWorkTabMod.Settings.Color_BestPawnForSkillSquare;
+            // Outline extends 1px beyond the skill box on all sides
+            Rect outlineRect = new Rect(
+                x - 1f,
+                y - 1f,
+                SkillBoxSize + 2f,
+                SkillBoxSize + 2f);
 
             Widgets.DrawBoxSolidWithOutline(
                 outlineRect,
                 Color.clear,
-                outlineColor,
+                BetterWorkTabMod.Settings.Color_BestPawnForSkillSquare,
                 BetterWorkTabMod.Settings.bestPawnHighlightThickness);
         }
+
+        private static void DrawBestPawnBackground(Rect rect)
+        {
+            float x = rect.x + (rect.width - SkillBoxSize) / 2f;
+            float y = rect.y + SkillBoxVerticalPadding;
+            Rect boxRect = new Rect(x, y, SkillBoxSize, SkillBoxSize);
+
+            Color highlightColor = BetterWorkTabMod.Settings.Color_BestPawnForSkillSquare;
+            highlightColor.a = 0.5f; // Semi-transparent background
+            GUI.DrawTexture(boxRect, BaseContent.WhiteTex);
+            Color oldColor = GUI.color;
+            GUI.color = highlightColor;
+            GUI.DrawTexture(boxRect, BaseContent.WhiteTex);
+            GUI.color = oldColor;
+        }
+
 
         private static bool ShouldShowUI(BetterWorkTabSettings.ShowUIMode mode, BetterWorkTabSettings.ShowUIMode currentState)
         {
@@ -864,7 +867,7 @@ namespace Better_Work_Tab.Patches
             }
 
             return TimePriorityService.HasCustomSchedule(
-                TimePriorityTarget.ForWorkType(pawn, workType),
+                TimePriorityTarget.ForRuntimeWorkType(pawn, workType),
                 WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, workType));
         }
 
@@ -966,7 +969,7 @@ namespace Better_Work_Tab.Patches
                     : WorkPrioritySystem.GetDefaultEnabledPriority();
             if (nextPriority != currentPriority)
             {
-                WorkPriorityCommandGateway.SetPriority(pawn, workType, nextPriority);
+                WorkPriorityCommandGateway.Execute(new SetPriorityCommand(pawn, workType, nextPriority));
                 SoundDefOf.DragSlider.PlayOneShotOnCamera();
             }
 
@@ -1012,7 +1015,7 @@ namespace Better_Work_Tab.Patches
 
                 if (nextPriority != currentPriority)
                 {
-                    WorkPriorityCommandGateway.SetPriority(pawn, workType, nextPriority);
+                    WorkPriorityCommandGateway.Execute(new SetPriorityCommand(pawn, workType, nextPriority));
                     SoundDefOf.DragSlider.PlayOneShotOnCamera();
                 }
 
@@ -1031,18 +1034,18 @@ namespace Better_Work_Tab.Patches
             bool wasEnabled = pawn.workSettings.WorkIsActive(workType);
             if (pawn.workSettings.GetPriority(workType) > 0)
             {
-                WorkPriorityCommandGateway.SetPriority(
+                WorkPriorityCommandGateway.Execute(new SetPriorityCommand(
                     pawn,
                     workType,
-                    WorkPrioritySystem.DisabledPriority);
+                    WorkPrioritySystem.DisabledPriority));
                 SoundDefOf.Checkbox_TurnedOff.PlayOneShotOnCamera();
             }
             else
             {
-                WorkPriorityCommandGateway.SetPriority(
+                WorkPriorityCommandGateway.Execute(new SetPriorityCommand(
                     pawn,
                     workType,
-                    WorkPrioritySystem.GetDefaultEnabledPriority());
+                    WorkPrioritySystem.GetDefaultEnabledPriority()));
                 SoundDefOf.Checkbox_TurnedOn.PlayOneShotOnCamera();
             }
 

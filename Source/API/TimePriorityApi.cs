@@ -62,13 +62,13 @@ namespace Better_Work_Tab.API
         }
 
         /// <summary>
-        /// Notifies Better Work Tab that an integration directly changed the
-        /// saved time-priority schedule list. Call this after the complete edit;
-        /// the runtime intentionally performs no recurring save-data audit.
+        /// Publishes a change made directly to serialized schedule data.
+        /// Consumers that mutate a loaded schedule rather than using one of
+        /// the schedule commands must call this once the data is normalized.
         /// </summary>
         public static void NotifySavedScheduleDataChanged()
         {
-            TimePriorityService.NotifyExternalDataChanged();
+            TimePriorityService.ReconcileDirectMutationsFromAudit();
         }
 
         public static int GetCurrentHour(Pawn pawn = null)
