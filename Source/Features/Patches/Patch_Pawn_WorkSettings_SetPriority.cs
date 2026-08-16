@@ -56,6 +56,11 @@ namespace Better_Work_Tab.Features.Patches
                     UI.WorkGrid.Invalidation.WorkGridInvalidationCategory.Priority);
             }
 
+            // The Auto provider and disabled-work default policy scan live stored priorities once
+            // per frame. A vanilla or external caller can reach this patched setter without going
+            // through WorkPrioritySystem, so invalidate that scan at the mutation boundary.
+            PriorityRangePolicy.InvalidateCache();
+
             if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabPriorityFeatures)
             {
                 return;

@@ -6,6 +6,7 @@ using System.Threading;
 using Better_Work_Tab.API;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using RimWorld;
+using UnityEngine;
 using Verse;
 
 namespace Better_Work_Tab.ModSupport
@@ -50,6 +51,8 @@ namespace Better_Work_Tab.ModSupport
         private static bool authorityRefreshInProgress;
         private static bool authorityRefreshPending;
         private static bool authorityRefreshDeferred;
+        private static int lastDynamicAuthorityProbeFrame = -1;
+        private static Game lastDynamicAuthorityProbeGame;
         private const int MaxSynchronousAuthorityRefreshPasses = 8;
         private const int MaxSynchronousAvailabilityRefreshPasses = 8;
 
@@ -199,7 +202,7 @@ namespace Better_Work_Tab.ModSupport
 
         internal static IExternalWorkTabStore GetAuthoritativeStore()
         {
-            return PriorityAuthorityBroker.GetAuthoritativeStore();
+            return PriorityAuthorityTransitionService.GetAuthoritativeStore();
         }
 
         internal static bool AnyStoreSuspended
@@ -385,7 +388,7 @@ namespace Better_Work_Tab.ModSupport
             out int priority)
         {
             return TryGetWorkTypePriority(
-                PriorityAuthorityBroker.GetAuthoritativeStore(),
+                PriorityAuthorityTransitionService.GetAuthoritativeStore(),
                 pawn,
                 workType,
                 hour,
@@ -424,7 +427,7 @@ namespace Better_Work_Tab.ModSupport
             out int priority)
         {
             return TryGetWorkGiverPriority(
-                PriorityAuthorityBroker.GetAuthoritativeStore(),
+                PriorityAuthorityTransitionService.GetAuthoritativeStore(),
                 pawn,
                 workGiver,
                 hour,
@@ -693,6 +696,7 @@ namespace Better_Work_Tab.ModSupport
                 return AuthoritativeStoreResult.Coherent(null, null, 0, 0);
             }
 
+            RefreshDynamicAuthorityStateIfNeeded();
             DrainDeferredAuthorityRefresh();
             DrainDeferredAvailabilityRefresh();
             RegistrySnapshot snapshot = Volatile.Read(ref availableSnapshot);
@@ -704,6 +708,31 @@ namespace Better_Work_Tab.ModSupport
                      snapshot.Generation,
                      snapshot.AuthoritativeStoreRegistrationGeneration)
                 : AuthoritativeStoreResult.Unstable(currentGeneration);
+        }
+
+        internal static void RefreshDynamicAuthorityStateIfNeeded()
+        {
+            int frame = Time.frameCount;
+            Game game = Current.Game;
+            bool shouldRefresh;
+            lock (SyncRoot)
+            {
+                shouldRefresh = lastDynamicAuthorityProbeFrame != frame ||
+                                !ReferenceEquals(lastDynamicAuthorityProbeGame, game);
+                if (shouldRefresh)
+                {
+                    lastDynamicAuthorityProbeFrame = frame;
+                    lastDynamicAuthorityProbeGame = game;
+                }
+            }
+
+            if (shouldRefresh)
+            {
+                // Store availability and authority are mutable integration properties. Poll the
+                // registered stores once per frame so integrations remain safe even when they do
+                // not have a notification hook for an in-place property change.
+                RequestAvailabilityRefresh(generationChanged: false);
+            }
         }
 
         private static AvailableStoresResult GetAvailableStores()
@@ -1229,7 +1258,7 @@ namespace Better_Work_Tab.ModSupport
 #if DEBUG
                     Interlocked.Increment(ref authorityRefreshPasses);
 #endif
-                    PriorityAuthorityBroker.NotifyPotentialAuthorityChanged(refreshRegistry: false);
+                    PriorityAuthorityTransitionService.NotifyPotentialAuthorityChanged(refreshRegistry: false);
                     lock (SyncRoot)
                     {
                         if (!authorityRefreshPending)

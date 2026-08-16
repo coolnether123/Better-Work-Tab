@@ -169,6 +169,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             }
 
             workSettings.SetPriority(workType, ClampPriority(priority));
+            PriorityRangePolicy.InvalidateCache();
             ExternalPriorityMirror.NotifyWorkTypeChanged(pawn, workType);
         }
 
@@ -230,6 +231,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             }
 
             workSettings.priorities[workType] = clamped;
+            PriorityRangePolicy.InvalidateCache();
             workSettings.Notify_UseWorkPrioritiesChanged();
         }
 

@@ -21,7 +21,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             // conversion.  Until an external store is registered, authority cannot differ from
             // Better Work Tab, so avoid the authority broker and its compatibility probes on the
             // hot AI getter. Registration/unregistration changes this count synchronously.
-            if (ExternalWorkTabRegistry.RegisteredStoreCount == 0)
+            if (ExternalWorkTabRegistry.RegisteredStoreEntryCount == 0)
             {
                 return;
             }

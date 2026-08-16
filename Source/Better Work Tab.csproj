@@ -112,11 +112,19 @@
     <Compile Include="Features\Patches\Profiles\BwtHeaderProfiles.cs" />
     <Compile Include="Features\Patches\Profiles\BwtHeaderCompiler.cs" />
     <Compile Include="Features\RaisedPriorityMaximum\PriorityAuthorityBroker.cs" />
+    <Compile Include="Features\RaisedPriorityMaximum\PriorityAuthorityDiagnostics.cs" />
+    <Compile Include="Features\RaisedPriorityMaximum\PriorityAuthorityFeaturePolicy.cs" />
+    <Compile Include="Features\RaisedPriorityMaximum\PriorityAuthorityModels.cs" />
     <Compile Include="Features\RaisedPriorityMaximum\PriorityAuthorityPatches.cs" />
+    <Compile Include="Features\RaisedPriorityMaximum\PriorityAuthorityResolver.cs" />
+    <Compile Include="Features\RaisedPriorityMaximum\PriorityAuthorityTransitionService.cs" />
     <Compile Include="Features\RaisedPriorityMaximum\BwtRaisedPriorityFeatureInstaller.cs" />
     <Compile Include="Features\RaisedPriorityMaximum\PriorityConstants.cs" />
+    <Compile Include="Features\RaisedPriorityMaximum\PriorityProviderSelector.cs" />
     <Compile Include="Features\RaisedPriorityMaximum\PriorityProviderSnapshot.cs" />
     <Compile Include="Features\RaisedPriorityMaximum\PriorityProviders.cs" />
+    <Compile Include="Features\RaisedPriorityMaximum\PriorityRangePolicy.cs" />
+    <Compile Include="Features\RaisedPriorityMaximum\PriorityValueResolver.cs" />
     <Compile Include="Features\RaisedPriorityMaximum\WorkPrioritySystem.cs" />
     <Compile Include="Features\Patches\Patch_PawnTable_RecacheIfDirty.cs" />
     <Compile Include="Features\Patches\Patch_Pawn_WorkSettings_SetPriority.cs" />
@@ -164,6 +172,7 @@
     <Compile Include="Features\Testing\GameComponent_BWTModernQuickTestDriver.cs" Condition="'$(Configuration)' != '1.6'" />
     <Compile Include="Features\Testing\GameComponent_BWTSettingsCohortQuickTestDriver.cs" Condition="'$(Configuration)' != '1.6'" />
     <Compile Include="Features\Testing\GameComponent_BWTTutorialQuickTestDriver.cs" Condition="'$(Configuration)' != '1.6'" />
+    <Compile Include="Features\Testing\GameComponent_PriorityRangeCacheRegressionTestDriver.cs" Condition="'$(BwtPriorityAuthorityTests)' == 'true' And $([System.String]::Copy('$(DefineConstants)').Contains('DEBUG'))" />
     <Compile Include="Features\Testing\AgentHarnessUtility.cs" />
     <Compile Include="UI\BWTBottomBarIcons.cs" />
     <Compile Include="UI\BWTBottomBarSelector.cs" />

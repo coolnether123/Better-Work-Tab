@@ -266,7 +266,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 DrainDeferredAvailabilityRefresh();
             }
 
-            autoMaxPriority = PriorityAuthorityBroker.ClampMaxPriority(autoMaxPriority);
+            autoMaxPriority = PriorityRangePolicy.ClampMaxPriority(autoMaxPriority);
             long registrationGeneration = Generation;
             long currentAvailabilityGeneration = AvailabilityGeneration;
             ProviderAvailabilitySnapshot available = Volatile.Read(ref availableSnapshot);
@@ -484,7 +484,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             }
 
             NotifyAvailabilityChanged();
-            PriorityAuthorityBroker.InvalidateCaches(refreshProviderRegistry: false);
+            PriorityAuthorityTransitionService.InvalidateCaches(refreshProviderRegistry: false);
             return true;
         }
 
@@ -510,7 +510,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             if (removed)
             {
                 NotifyAvailabilityChanged();
-                PriorityAuthorityBroker.InvalidateCaches(refreshProviderRegistry: false);
+                PriorityAuthorityTransitionService.InvalidateCaches(refreshProviderRegistry: false);
             }
 
             return removed;
@@ -604,8 +604,8 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                     providerId,
                     displayName,
                     provider.SortOrder,
-                    PriorityAuthorityBroker.ClampMaxPriority(maxPriority),
-                    PriorityAuthorityBroker.ClampDefaultEnabledPriority(defaultPriority, maxPriority));
+                    PriorityRangePolicy.ClampMaxPriority(maxPriority),
+                    PriorityRangePolicy.ClampDefaultEnabledPriority(defaultPriority, maxPriority));
                 return true;
             }
             catch
@@ -780,15 +780,15 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
         public bool TryGetMaxPriority(out int maxPriority)
         {
-            maxPriority = PriorityAuthorityBroker.GetBetterWorkTabConfiguredMaxPriority();
+            maxPriority = PriorityRangePolicy.GetBetterWorkTabConfiguredMaxPriority();
             return true;
         }
 
         public bool TryGetDefaultEnabledPriority(out int defaultEnabledPriority)
         {
-            defaultEnabledPriority = PriorityAuthorityBroker.ClampDefaultEnabledPriority(
+            defaultEnabledPriority = PriorityRangePolicy.ClampDefaultEnabledPriority(
                 PriorityConstants.VanillaDefaultEnabled,
-                PriorityAuthorityBroker.GetBetterWorkTabConfiguredMaxPriority());
+                PriorityRangePolicy.GetBetterWorkTabConfiguredMaxPriority());
             return true;
         }
     }
@@ -822,15 +822,15 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
         public bool TryGetMaxPriority(out int priority)
         {
-            priority = PriorityAuthorityBroker.ClampMaxPriority(maxPriority);
+            priority = PriorityRangePolicy.ClampMaxPriority(maxPriority);
             return priority > PriorityConstants.Disabled;
         }
 
         public bool TryGetDefaultEnabledPriority(out int priority)
         {
-            priority = PriorityAuthorityBroker.ClampDefaultEnabledPriority(
+            priority = PriorityRangePolicy.ClampDefaultEnabledPriority(
                 defaultEnabledPriority,
-                PriorityAuthorityBroker.ClampMaxPriority(maxPriority));
+                PriorityRangePolicy.ClampMaxPriority(maxPriority));
             return true;
         }
     }
@@ -899,7 +899,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 return false;
             }
 
-            maxPriority = PriorityAuthorityBroker.ClampMaxPriority(reflectedPriority);
+            maxPriority = PriorityRangePolicy.ClampMaxPriority(reflectedPriority);
             return maxPriority > PriorityConstants.Disabled;
         }
 
@@ -917,7 +917,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                                      defaultPriorityReader.TryReadInt(out reflectedDefaultPriority)
                 ? reflectedDefaultPriority
                 : PriorityConstants.VanillaDefaultEnabled;
-            defaultEnabledPriority = PriorityAuthorityBroker.ClampDefaultEnabledPriority(
+            defaultEnabledPriority = PriorityRangePolicy.ClampDefaultEnabledPriority(
                 defaultEnabledPriority,
                 maxPriority);
             return true;
