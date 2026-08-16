@@ -99,6 +99,7 @@ namespace Better_Work_Tab.UI.Settings
         public const string CompatFluffyWorkTabOwnership = "compat.fluffyWorkTab.ownership";
         public const string CompatFluffyWorkTabSpecificJobs = "compat.fluffyWorkTab.specificJobs";
         public const string CompatFluffyWorkTabOwner = "compat.fluffyWorkTab.owner";
+        public const string CompatFluffyWorkTabPriorityAuthority = "compat.fluffyWorkTab.priorityAuthority";
         public const string FluffyStyleFeatures = "fluffyStyle.features";
         public const string FluffyStyleTopButtons = "fluffyStyle.topButtons";
         public const string FluffyStyleStandaloneTopButtons = "fluffyStyle.standaloneTopButtons";

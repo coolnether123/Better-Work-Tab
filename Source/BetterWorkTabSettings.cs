@@ -195,6 +195,7 @@ namespace Better_Work_Tab
         public static float cjkVerticalKerning = 0.75f;
         public static bool autoEnableManualPriorities = false;
         public static WorkTabOwnerPreference preferredWorkTabOwner = WorkTabOwnerPreference.BetterWorkTab;
+        public static PriorityDataAuthorityPreference priorityDataAuthority = PriorityDataAuthorityPreference.Automatic;
         public static bool showExternalWorkTabColumns = false;
         public static PriorityMode priorityMode = PriorityMode.Auto;
         public static bool enableExtendedPriorities = false;
@@ -318,6 +319,7 @@ namespace Better_Work_Tab
         public bool useOutlineHighlights = DefaultSettings.useOutlineHighlights;
         public bool enableScrollWheelPriority = DefaultSettings.enableScrollWheelPriority;
         public WorkTabOwnerPreference preferredWorkTabOwner = DefaultSettings.preferredWorkTabOwner;
+        public PriorityDataAuthorityPreference priorityDataAuthority = DefaultSettings.priorityDataAuthority;
         public bool showExternalWorkTabColumns = DefaultSettings.showExternalWorkTabColumns;
 
         public bool firstTimeSetupDone = DefaultSettings.firstTimeSetupDone;
@@ -786,6 +788,11 @@ namespace Better_Work_Tab
 
         public void NormalizePrioritySettings()
         {
+            if (!Enum.IsDefined(typeof(PriorityDataAuthorityPreference), priorityDataAuthority))
+            {
+                priorityDataAuthority = DefaultSettings.priorityDataAuthority;
+            }
+
             if (!Enum.IsDefined(typeof(PriorityMode), priorityMode))
             {
                 priorityMode = InferPriorityModeFromProviderSelectionFields();
@@ -1008,6 +1015,7 @@ namespace Better_Work_Tab
             subWorkTransitionStyle = DefaultSettings.subWorkTransitionStyle;
             subWorkTransitionSeconds = DefaultSettings.subWorkTransitionSeconds;
             preferredWorkTabOwner = DefaultSettings.preferredWorkTabOwner;
+            priorityDataAuthority = DefaultSettings.priorityDataAuthority;
             showExternalWorkTabColumns = DefaultSettings.showExternalWorkTabColumns;
             workTabOwnerSelectionMade = false;
             sleekWorkTabChoicePromptDismissed = false;

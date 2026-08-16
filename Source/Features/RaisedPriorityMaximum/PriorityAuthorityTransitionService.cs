@@ -302,14 +302,32 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             try
             {
                 int changed = 0;
-                if (next.Owner == PriorityAuthorityOwner.BetterWorkTab ||
-                    previous.Owner != PriorityAuthorityOwner.BetterWorkTab)
+                bool explicitFluffyAuthority =
+                    next.Preference == PriorityDataAuthorityPreference.FluffyWorkTab &&
+                    next.Owner == PriorityAuthorityOwner.FluffyWorkTab;
+                bool explicitBetterWorkTabAuthority =
+                    next.Preference == PriorityDataAuthorityPreference.BetterWorkTab &&
+                    next.Owner == PriorityAuthorityOwner.BetterWorkTab;
+                if (explicitFluffyAuthority)
+                {
+                    // A selected Fluffy tracker is the source of truth, including after it
+                    // becomes available again. Import it before BWT rebuilds its replica.
+                    changed += ImportFromNextAuthority(next);
+                }
+                else if (next.Owner == PriorityAuthorityOwner.BetterWorkTab ||
+                         previous.Owner != PriorityAuthorityOwner.BetterWorkTab)
                 {
                     changed += ImportFromPreviousAuthority(previous, next);
                 }
 
-                if (next.Owner != PriorityAuthorityOwner.BetterWorkTab)
+                if (explicitBetterWorkTabAuthority)
                 {
+                    // Explicit BWT authority keeps every compatible tracker synchronized.
+                    changed += ExternalWorkTabRegistry.PushAllPawns();
+                }
+                else if (next.Owner != PriorityAuthorityOwner.BetterWorkTab)
+                {
+                    // Keep Automatic's historical handoff policy unchanged.
                     changed += PublishToNextAuthority(next);
                 }
 
@@ -354,11 +372,22 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 next.StoreRegistrationGeneration);
         }
 
+        private static int ImportFromNextAuthority(PriorityAuthoritySnapshot next)
+        {
+            return string.IsNullOrEmpty(next.StoreId)
+                ? 0
+                : ExternalWorkTabRegistry.ImportFromStore(
+                    next.StoreId,
+                    next.AuthoritativeStore,
+                    next.StoreRegistrationGeneration);
+        }
+
         private static bool SameAuthority(
             PriorityAuthoritySnapshot left,
             PriorityAuthoritySnapshot right)
         {
             return left.Owner == right.Owner &&
+                   left.Preference == right.Preference &&
                    string.Equals(left.StoreId, right.StoreId, StringComparison.OrdinalIgnoreCase) &&
                    left.StoreRegistrationGeneration == right.StoreRegistrationGeneration &&
                    (left.AuthoritativeStore == null ||

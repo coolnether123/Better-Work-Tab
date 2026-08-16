@@ -11,6 +11,17 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         ExternalWorkTab = FluffyWorkTab
     }
 
+    /// <summary>
+    /// Persisted choice of the shared-priority source. This is intentionally independent of the
+    /// Work-tab window owner so BWT can render while Fluffy remains the data authority.
+    /// </summary>
+    public enum PriorityDataAuthorityPreference
+    {
+        Automatic,
+        BetterWorkTab,
+        FluffyWorkTab
+    }
+
 #if DEBUG
     /// <summary>
     /// Read-only counters for the priority-authority decision seam. These counters are intentionally
@@ -69,6 +80,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             long registryGeneration,
             long explicitAuthorityGeneration,
             int registeredStoreCount,
+            PriorityDataAuthorityPreference preference,
             PriorityAuthorityOwner owner,
             IExternalWorkTabStore authoritativeStore,
             string storeId,
@@ -80,6 +92,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             RegistryGeneration = registryGeneration;
             ExplicitAuthorityGeneration = explicitAuthorityGeneration;
             RegisteredStoreCount = registeredStoreCount;
+            Preference = preference;
             Owner = owner;
             AuthoritativeStore = authoritativeStore;
             StoreId = storeId;
@@ -92,6 +105,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         internal long RegistryGeneration { get; }
         internal long ExplicitAuthorityGeneration { get; }
         internal int RegisteredStoreCount { get; }
+        internal PriorityDataAuthorityPreference Preference { get; }
         internal PriorityAuthorityOwner Owner { get; }
         internal IExternalWorkTabStore AuthoritativeStore { get; }
         internal string StoreId { get; }

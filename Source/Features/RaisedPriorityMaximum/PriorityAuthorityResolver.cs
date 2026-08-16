@@ -31,6 +31,9 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             int registeredStoreCount = ExternalWorkTabRegistry.RegisteredStoreCount;
             int frame = Time.frameCount;
             long registryGeneration = ExternalWorkTabRegistry.RegistryGeneration;
+            PriorityDataAuthorityPreference preference =
+                BetterWorkTabMod.Settings?.priorityDataAuthority ??
+                DefaultSettings.priorityDataAuthority;
 
             if (ExternalWorkTabRegistry.RegisteredStoreEntryCount == 0)
             {
@@ -40,6 +43,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                     registryGeneration,
                     ExplicitAuthorityGeneration,
                     registeredStoreCount,
+                    preference,
                     PriorityAuthorityOwner.BetterWorkTab,
                     null,
                     null,
@@ -59,10 +63,54 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 cached.IsCoherent &&
                 cached.RegisteredStoreCount == registeredStoreCount &&
                 cached.RegistryGeneration == registryGeneration &&
-                cached.ExplicitAuthorityGeneration == ExplicitAuthorityGeneration)
+                cached.ExplicitAuthorityGeneration == ExplicitAuthorityGeneration &&
+                cached.Preference == preference)
             {
                 PriorityAuthorityDiagnostics.RecordAuthorityCacheHit();
                 return cached;
+            }
+
+            if (preference == PriorityDataAuthorityPreference.BetterWorkTab)
+            {
+                return Cache(CreateBetterWorkTabSnapshot(
+                    game,
+                    frame,
+                    registryGeneration,
+                    registeredStoreCount,
+                    preference));
+            }
+
+            if (preference == PriorityDataAuthorityPreference.FluffyWorkTab)
+            {
+                IExternalWorkTabStore preferredStore;
+                long preferredRegistrationGeneration;
+                if (ExternalWorkTabRegistry.TryGetAvailableStore(
+                        PriorityProviderIntegrationCatalog.FluffyWorkTabProviderId,
+                        out preferredStore,
+                        out preferredRegistrationGeneration))
+                {
+                    return Cache(new PriorityAuthoritySnapshot(
+                        game,
+                        frame,
+                        registryGeneration,
+                        ExplicitAuthorityGeneration,
+                        registeredStoreCount,
+                        preference,
+                        PriorityAuthorityOwner.FluffyWorkTab,
+                        preferredStore,
+                        PriorityProviderIntegrationCatalog.FluffyWorkTabProviderId,
+                        preferredRegistrationGeneration,
+                        true));
+                }
+
+                // Retain the selected preference while Fluffy is unavailable. BWT is a safe
+                // fallback until a later registry refresh finds Fluffy again.
+                return Cache(CreateBetterWorkTabSnapshot(
+                    game,
+                    frame,
+                    registryGeneration,
+                    registeredStoreCount,
+                    preference));
             }
 
             ExternalWorkTabRegistry.AuthoritativeStoreResult selection =
@@ -79,6 +127,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                     selection.Generation,
                     ExplicitAuthorityGeneration,
                     registeredStoreCount,
+                    preference,
                     PriorityAuthorityOwner.BetterWorkTab,
                     null,
                     null,
@@ -95,11 +144,38 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 registryGeneration,
                 ExplicitAuthorityGeneration,
                 registeredStoreCount,
+                preference,
                 owner,
                 store,
                 selection.StoreId,
                 selection.RegistrationGeneration,
                 true);
+            return Cache(snapshot);
+        }
+
+        private static PriorityAuthoritySnapshot CreateBetterWorkTabSnapshot(
+            Game game,
+            int frame,
+            long registryGeneration,
+            int registeredStoreCount,
+            PriorityDataAuthorityPreference preference)
+        {
+            return new PriorityAuthoritySnapshot(
+                game,
+                frame,
+                registryGeneration,
+                ExplicitAuthorityGeneration,
+                registeredStoreCount,
+                preference,
+                PriorityAuthorityOwner.BetterWorkTab,
+                null,
+                null,
+                0,
+                true);
+        }
+
+        private static PriorityAuthoritySnapshot Cache(PriorityAuthoritySnapshot snapshot)
+        {
             cachedAuthoritySnapshot = snapshot;
             hasCachedAuthoritySnapshot = true;
             PriorityAuthorityDiagnostics.RecordAuthorityComputation();

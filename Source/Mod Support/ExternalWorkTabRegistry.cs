@@ -735,6 +735,59 @@ namespace Better_Work_Tab.ModSupport
             }
         }
 
+        internal static bool TryGetAvailableStore(
+            string storeId,
+            out IExternalWorkTabStore store,
+            out long registrationGeneration)
+        {
+            store = null;
+            registrationGeneration = 0;
+            if (string.IsNullOrWhiteSpace(storeId))
+            {
+                return false;
+            }
+
+            AvailableStoresResult result = GetAvailableStores();
+            if (!result.IsCoherent)
+            {
+                return false;
+            }
+
+            string normalizedStoreId = storeId.Trim();
+            for (int index = 0; index < result.Stores.Length; index++)
+            {
+                IExternalWorkTabStore candidate = result.Stores[index];
+                string candidateId;
+                try
+                {
+                    candidateId = candidate?.StoreId?.Trim();
+                }
+                catch
+                {
+                    continue;
+                }
+
+                IExternalWorkTabStore currentStore;
+                long currentRegistrationGeneration;
+                if (!string.Equals(candidateId, normalizedStoreId, StringComparison.OrdinalIgnoreCase) ||
+                    !TryGetCurrentStoreRegistration(
+                        normalizedStoreId,
+                        out currentStore,
+                        out currentRegistrationGeneration) ||
+                    !ReferenceEquals(candidate, currentStore) ||
+                    !SafeIsAvailable(candidate))
+                {
+                    continue;
+                }
+
+                store = candidate;
+                registrationGeneration = currentRegistrationGeneration;
+                return true;
+            }
+
+            return false;
+        }
+
         private static AvailableStoresResult GetAvailableStores()
         {
             if (RegisteredStoreEntryCount == 0)
